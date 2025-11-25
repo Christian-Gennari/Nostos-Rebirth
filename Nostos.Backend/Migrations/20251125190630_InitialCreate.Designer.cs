@@ -11,7 +11,7 @@ using Nostos.Backend.Data;
 namespace Nostos.Backend.Migrations
 {
     [DbContext(typeof(NostosDbContext))]
-    [Migration("20251125185736_InitialCreate")]
+    [Migration("20251125190630_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -24,6 +24,16 @@ namespace Nostos.Backend.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Author")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");

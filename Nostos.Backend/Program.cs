@@ -1,29 +1,28 @@
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
+using Nostos.Backend.Features.Books;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+builder.Services.AddDbContext<NostosDbContext>(options =>
+{
+    options.UseSqlite("Data Source=nostos.db");
+});
+
+builder.Services.AddCors(opt =>
+{
+    opt.AddDefaultPolicy(policy =>
+        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+});
 builder.Services.AddOpenApi();
 
-// Configure the database
-builder.Services.AddDbContext<NostosDbContext>(options =>
-    options.UseSqlite("Data Source=nostos.db"));
 
 var app = builder.Build();
+app.MapOpenApi();
 
+app.UseCors();
 
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
-
-
-app.UseHttpsRedirection();
+app.MapBooksEndpoints();
 
 app.Run();
 
