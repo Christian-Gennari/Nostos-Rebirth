@@ -1,5 +1,4 @@
 import { Routes } from '@angular/router';
-import { LibraryComponent } from './library/library';
 
 export const routes: Routes = [
   {
