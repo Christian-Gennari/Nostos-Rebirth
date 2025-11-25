@@ -1,0 +1,12 @@
+<div class="p-6">
+  <h1 class="text-3xl font-semibold mb-4">Library</h1>
+
+  <ul class="space-y-2">
+    @for (book of books; track book.id) {
+    <li class="p-4 bg-gray-800 rounded">
+      <div class="text-lg">{{ book.title }}</div>
+      <div class="text-sm text-gray-300">{{ book.author }}</div>
+    </li>
+    }
+  </ul>
+</div>
