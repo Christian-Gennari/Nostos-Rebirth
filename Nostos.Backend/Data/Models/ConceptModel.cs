@@ -4,5 +4,6 @@ namespace Nostos.Backend.Data.Models;
 
 public class ConceptModel
 {
-  public string? Concept { get; set; }
+  public Guid Id { get; set; } = Guid.NewGuid();
+  public string Concept { get; set; } = string.Empty;
 }

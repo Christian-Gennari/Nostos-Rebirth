@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
-using Nostos.Backend.Features.Books;
 
 var builder = WebApplication.CreateBuilder(args);
 
