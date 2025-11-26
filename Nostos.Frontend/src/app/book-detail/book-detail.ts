@@ -1,41 +1,110 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, model } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { BooksService, Book } from '../services/books.services';
+import { NotesService } from '../services/notes.services';
+import { Note } from '../dtos/note.dtos';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   standalone: true,
   selector: 'app-book-detail',
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './book-detail.html',
   styleUrls: ['./book-detail.css'],
 })
 export class BookDetail implements OnInit {
   private route = inject(ActivatedRoute);
   private booksService = inject(BooksService);
+  private notesService = inject(NotesService);
 
   loading = signal(true);
   book = signal<Book | null>(null);
   error = signal<string | null>(null);
 
+  // Notes
+  notes = signal<Note[]>([]);
+  newNote = model<string>('');
+
+  editingNote = signal<Note | null>(null);
+  editNoteContent = model<string>('');
+
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
-
     if (!id) {
       this.error.set('Invalid book ID');
       this.loading.set(false);
       return;
     }
 
+    this.loadBook(id);
+    this.loadNotes(id);
+  }
+
+  loadBook(id: string): void {
     this.booksService.get(id).subscribe({
-      next: (book: Book) => {
+      next: (book) => {
         this.book.set(book);
         this.loading.set(false);
       },
-      error: (err) => {
-        console.error('Error fetching book:', err);
+      error: () => {
         this.error.set('Book not found');
         this.loading.set(false);
+      },
+    });
+  }
+
+  loadNotes(bookId: string): void {
+    this.notesService.list(bookId).subscribe({
+      next: (notes) => this.notes.set(notes),
+    });
+  }
+
+  addNote(): void {
+    const book = this.book();
+    if (!book) return;
+
+    const content = this.newNote().trim();
+    if (!content) return;
+
+    this.notesService.create(book.id, { content }).subscribe({
+      next: () => {
+        this.newNote.set('');
+        this.loadNotes(book.id);
+      },
+    });
+  }
+
+  startEdit(note: Note): void {
+    this.editingNote.set(note);
+    this.editNoteContent.set(note.content);
+  }
+
+  saveEdit(): void {
+    const note = this.editingNote();
+    if (!note) return;
+
+    this.notesService
+      .update(note.id, {
+        content: this.editNoteContent(),
+      })
+      .subscribe({
+        next: () => {
+          this.editingNote.set(null);
+          this.loadNotes(note.bookId);
+        },
+      });
+  }
+
+  cancelEdit(): void {
+    this.editingNote.set(null);
+  }
+
+  deleteNote(id: string): void {
+    this.notesService.delete(id).subscribe({
+      next: () => {
+        const book = this.book();
+        if (book) this.loadNotes(book.id);
       },
     });
   }

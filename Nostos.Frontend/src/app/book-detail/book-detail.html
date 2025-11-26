@@ -1,17 +1,63 @@
-@if (loading()) {
-<p>Loading...</p>
-}
+<main>
+  <div class="container">
 
-@if (error()) {
-<p style="color: red;">{{ error() }}</p>
-}
+    <!-- BOOK HEADER -->
+    @if (loading()) {
+    <p>Loading...</p>
+    }
 
-@if (!loading() && !error() && book()) {
-<h1>{{ book()?.title }}</h1>
-<p>Author: {{ book()?.author || 'Unknown' }}</p>
-<p>Created: {{ book()?.createdAt }}</p>
-}
+    @if (error()) {
+    <p style="color: red;">{{ error() }}</p>
+    }
 
-@if (!loading() && !error() && !book()) {
-<p>No book data available</p>
-}
+    @if (!loading() && !error() && book()) {
+    <h1>{{ book()?.title }}</h1>
+    <p>Author: {{ book()?.author || 'Unknown' }}</p>
+    <p>Created: {{ book()?.createdAt }}</p>
+
+    <hr style="margin: 2rem 0;" />
+
+    <!-- ADD NOTE -->
+    <h2>Add Note</h2>
+    <textarea class="note-input" placeholder="Write a note..." [(ngModel)]="newNote"></textarea>
+
+    <button class="action" (click)="addNote()">Add</button>
+
+    <hr style="margin: 2rem 0;" />
+
+    <!-- NOTES LIST -->
+    <h2>Notes</h2>
+
+    @if (notes().length === 0) {
+    <p>No notes yet.</p>
+    }
+
+    <ul class="notes-list">
+      @for (note of notes(); track note.id) {
+      <li class="note-item">
+
+        <!-- Edit Mode -->
+        @if (editingNote()?.id === note.id) {
+        <textarea class="note-input" [(ngModel)]="editNoteContent"></textarea>
+
+        <button class="action" (click)="saveEdit()">Save</button>
+        <button class="action" (click)="cancelEdit()">Cancel</button>
+        }
+
+        <!-- Normal Mode -->
+        @else {
+        <p>{{ note.content }}</p>
+
+        <div class="note-actions">
+          <button (click)="startEdit(note)">✏️</button>
+          <button (click)="deleteNote(note.id)">🗑</button>
+        </div>
+        }
+
+      </li>
+      }
+    </ul>
+    }
+
+  </div>
+</main>
