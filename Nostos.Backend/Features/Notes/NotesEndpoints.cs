@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
 using Nostos.Backend.Data.Models;
+using Nostos.Backend.Mapping;
+using Nostos.Shared.Dtos;
 
 namespace Nostos.Backend.Features.Notes;
 
@@ -17,40 +19,40 @@ public static class NotesEndpoints
               .Where(n => n.BookId == bookId)
               .ToListAsync();
 
-      return Results.Ok(notes);
+      return Results.Ok(notes.Select(n => n.ToDto()));
     });
 
     // POST /api/books/{bookId}/notes
-    group.MapPost("/books/{bookId}/notes", async (Guid bookId, NoteModel note, NostosDbContext db) =>
+    group.MapPost("/books/{bookId}/notes", async (Guid bookId, NoteModel model, NostosDbContext db) =>
     {
-      note.Id = Guid.NewGuid();
-      note.BookId = bookId;
+      model.Id = Guid.NewGuid();
+      model.BookId = bookId;
 
-      db.Notes.Add(note);
+      db.Notes.Add(model);
       await db.SaveChangesAsync();
 
-      return Results.Created($"/api/notes/{note.Id}", note);
+      return Results.Created($"/api/notes/{model.Id}", model.ToDto());
     });
 
     // PUT /api/notes/{id}
     group.MapPut("/notes/{id}", async (Guid id, NoteModel update, NostosDbContext db) =>
     {
-      var existing = await db.Notes.FindAsync(id);
-      if (existing is null) return Results.NotFound();
+      var note = await db.Notes.FindAsync(id);
+      if (note is null) return Results.NotFound();
 
-      existing.Content = update.Content;
+      note.Content = update.Content;
 
       await db.SaveChangesAsync();
-      return Results.Ok(existing);
+      return Results.Ok(note.ToDto());
     });
 
     // DELETE /api/notes/{id}
     group.MapDelete("/notes/{id}", async (Guid id, NostosDbContext db) =>
     {
-      var existing = await db.Notes.FindAsync(id);
-      if (existing is null) return Results.NotFound();
+      var note = await db.Notes.FindAsync(id);
+      if (note is null) return Results.NotFound();
 
-      db.Notes.Remove(existing);
+      db.Notes.Remove(note);
       await db.SaveChangesAsync();
 
       return Results.NoContent();

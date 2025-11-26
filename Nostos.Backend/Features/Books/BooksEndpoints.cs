@@ -1,6 +1,8 @@
+using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
 using Nostos.Backend.Data.Models;
-using Microsoft.EntityFrameworkCore;
+using Nostos.Backend.Mapping;
+using Nostos.Shared.Dtos;
 
 namespace Nostos.Backend.Features.Books;
 
@@ -10,63 +12,57 @@ public static class BooksEndpoints
   {
     var group = routes.MapGroup("/api/books");
 
-    // GET /api/books - list all books
+    // GET /api/books (list all)
     group.MapGet("/", async (NostosDbContext db) =>
     {
       var books = await db.Books
-        .OrderByDescending(b => b.CreatedAt)
-        .ToListAsync();
+              .OrderByDescending(b => b.CreatedAt)
+              .ToListAsync();
 
-      return Results.Ok(books);
+      return Results.Ok(books.Select(b => b.ToDto()));
     });
 
-    // GET /api/books/{id} - get a single book
+    // GET /api/books/{id}
     group.MapGet("/{id}", async (Guid id, NostosDbContext db) =>
     {
       var book = await db.Books.FindAsync(id);
       if (book is null) return Results.NotFound();
 
-      return Results.Ok(book);
+      return Results.Ok(book.ToDto());
     });
 
-    // POST /api/books - create metadata only
+    // POST /api/books
     group.MapPost("/", async (BookModel model, NostosDbContext db) =>
     {
-      // Basic guard against empty titles
       if (string.IsNullOrWhiteSpace(model.Title))
-      {
         return Results.BadRequest(new { error = "Title is required." });
-      }
 
-      // Ensure new ID and created timestamp are set server side
       model.Id = Guid.NewGuid();
       model.CreatedAt = DateTime.UtcNow;
 
       db.Books.Add(model);
       await db.SaveChangesAsync();
 
-      return Results.Created($"/api/books/{model.Id}", model);
+      return Results.Created($"/api/books/{model.Id}", model.ToDto());
     });
 
-    // PUT /api/books/{id} - update metadata
+    // PUT /api/books/{id}
     group.MapPut("/{id}", async (Guid id, BookModel update, NostosDbContext db) =>
     {
       var book = await db.Books.FindAsync(id);
       if (book is null) return Results.NotFound();
 
       if (string.IsNullOrWhiteSpace(update.Title))
-      {
         return Results.BadRequest(new { error = "Title is required." });
-      }
 
       book.Title = update.Title;
       book.Author = update.Author;
 
       await db.SaveChangesAsync();
-      return Results.Ok(book);
+      return Results.Ok(book.ToDto());
     });
 
-    // DELETE /api/books/{id} - remove a book
+    // DELETE /api/books/{id}
     group.MapDelete("/{id}", async (Guid id, NostosDbContext db) =>
     {
       var book = await db.Books.FindAsync(id);
@@ -74,10 +70,11 @@ public static class BooksEndpoints
 
       db.Books.Remove(book);
       await db.SaveChangesAsync();
+
       return Results.NoContent();
     });
 
-    // POST /api/books/{id}/file - file upload placeholder
+    // UPLOAD FILE
     group.MapPost("/{id}/file", async (Guid id, IFormFile file, IWebHostEnvironment env, NostosDbContext db) =>
     {
       var book = await db.Books.FindAsync(id);
@@ -87,11 +84,8 @@ public static class BooksEndpoints
       Directory.CreateDirectory(directory);
 
       var filePath = Path.Combine(directory, file.FileName);
-
-      using (var stream = new FileStream(filePath, FileMode.Create))
-      {
-        await file.CopyToAsync(stream);
-      }
+      using var stream = new FileStream(filePath, FileMode.Create);
+      await file.CopyToAsync(stream);
 
       return Results.Ok(new { Message = "Uploaded", File = file.FileName });
     });

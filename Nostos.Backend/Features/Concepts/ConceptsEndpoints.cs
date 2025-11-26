@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
 using Nostos.Backend.Data.Models;
+using Nostos.Backend.Mapping;
+using Nostos.Shared.Dtos;
 
 namespace Nostos.Backend.Features.Concepts;
 
@@ -10,59 +12,50 @@ public static class ConceptsEndpoints
   {
     var group = routes.MapGroup("/api/concepts");
 
-    // GET /api/concepts
     group.MapGet("/", async (NostosDbContext db) =>
     {
-      var concepts = await db.Concepts
-        .OrderBy(c => c.Concept)
-        .ToListAsync();
+      var list = await db.Concepts
+              .OrderBy(x => x.Concept)
+              .ToListAsync();
 
-      return Results.Ok(concepts);
+      return Results.Ok(list.Select(c => c.ToDto()));
     });
 
-    // GET /api/concepts/{id}
     group.MapGet("/{id}", async (Guid id, NostosDbContext db) =>
     {
       var concept = await db.Concepts.FindAsync(id);
       if (concept is null) return Results.NotFound();
 
-      return Results.Ok(concept);
+      return Results.Ok(concept.ToDto());
     });
 
-    // POST /api/concepts
     group.MapPost("/", async (ConceptModel model, NostosDbContext db) =>
     {
       if (string.IsNullOrWhiteSpace(model.Concept))
-      {
         return Results.BadRequest(new { error = "Concept is required." });
-      }
 
       model.Id = Guid.NewGuid();
 
       db.Concepts.Add(model);
       await db.SaveChangesAsync();
 
-      return Results.Created($"/api/concepts/{model.Id}", model);
+      return Results.Created($"/api/concepts/{model.Id}", model.ToDto());
     });
 
-    // PUT /api/concepts/{id}
     group.MapPut("/{id}", async (Guid id, ConceptModel update, NostosDbContext db) =>
     {
       var existing = await db.Concepts.FindAsync(id);
       if (existing is null) return Results.NotFound();
 
       if (string.IsNullOrWhiteSpace(update.Concept))
-      {
         return Results.BadRequest(new { error = "Concept is required." });
-      }
 
       existing.Concept = update.Concept;
 
       await db.SaveChangesAsync();
-      return Results.Ok(existing);
+      return Results.Ok(existing.ToDto());
     });
 
-    // DELETE /api/concepts/{id}
     group.MapDelete("/{id}", async (Guid id, NostosDbContext db) =>
     {
       var existing = await db.Concepts.FindAsync(id);
