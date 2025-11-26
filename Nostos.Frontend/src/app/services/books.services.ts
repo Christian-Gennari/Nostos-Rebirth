@@ -1,13 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-
-export interface Book {
-  id: string;
-  title: string;
-  author: string | null;
-  createdAt: string;
-}
+import { Book, CreateBookDto, UpdateBookDto } from '../dtos/book.dtos';
 
 @Injectable({ providedIn: 'root' })
 export class BooksService {
@@ -21,7 +15,11 @@ export class BooksService {
     return this.http.get<Book>(`/api/books/${id}`);
   }
 
-  create(book: Partial<Book>): Observable<Book> {
-    return this.http.post<Book>('/api/books', book);
+  create(dto: CreateBookDto): Observable<Book> {
+    return this.http.post<Book>('/api/books', dto);
+  }
+
+  update(id: string, dto: UpdateBookDto): Observable<Book> {
+    return this.http.put<Book>(`/api/books/${id}`, dto);
   }
 }
