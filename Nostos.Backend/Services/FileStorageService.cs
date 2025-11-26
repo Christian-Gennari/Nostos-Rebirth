@@ -52,4 +52,29 @@ public class FileStorageService
   }
 
 
+  public async Task<string> SaveBookCoverAsync(Guid bookId, IFormFile file)
+  {
+    var bookFolder = Path.Combine(_root, bookId.ToString());
+    Directory.CreateDirectory(bookFolder);
+
+    var extension = Path.GetExtension(file.FileName).ToLower();
+    var allowed = new[] { ".png", ".jpg", ".jpeg" };
+    if (!allowed.Contains(extension))
+      throw new InvalidOperationException("Only PNG, JPG, or JPEG allowed.");
+
+    var filePath = Path.Combine(bookFolder, "cover.png"); // Normalize filename
+
+    using var stream = new FileStream(filePath, FileMode.Create);
+    await file.CopyToAsync(stream);
+
+    return filePath;
+  }
+
+  public string? GetBookCoverPath(Guid bookId)
+  {
+    var path = Path.Combine(_root, bookId.ToString(), "cover.png");
+    return File.Exists(path) ? path : null;
+  }
+
+
 }

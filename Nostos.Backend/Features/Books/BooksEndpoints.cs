@@ -134,6 +134,46 @@ public static class BooksEndpoints
     }
 
 
+    // Upload cover image
+    group.MapPost("/{id}/cover", async (
+        Guid id,
+        HttpRequest request,
+        NostosDbContext db,
+        FileStorageService storage) =>
+    {
+      var book = await db.Books.FindAsync(id);
+      if (book is null) return Results.NotFound();
+
+      var form = await request.ReadFormAsync();
+      var file = form.Files.FirstOrDefault();
+      if (file is null) return Results.BadRequest("Missing cover file.");
+
+      // Restrict to images only
+      var allowed = new[] { "image/png", "image/jpeg" };
+      if (!allowed.Contains(file.ContentType))
+        return Results.BadRequest("Only PNG or JPEG images allowed.");
+
+      await storage.SaveBookCoverAsync(id, file);
+
+      // Store filename in DB
+      book.CoverFileName = "cover.png";
+      await db.SaveChangesAsync();
+
+      return Results.Ok(new { uploaded = true });
+    });
+
+    // Download cover image
+    group.MapGet("/{id}/cover", (
+        Guid id,
+        FileStorageService storage) =>
+    {
+      var coverPath = storage.GetBookCoverPath(id);
+      if (coverPath is null)
+        return Results.NotFound();
+
+      return Results.File(coverPath, "image/png", "cover.png");
+    });
+
 
     return routes;
   }
