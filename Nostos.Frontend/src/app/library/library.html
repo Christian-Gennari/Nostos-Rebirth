@@ -1,84 +1,122 @@
 <main class="library-layout">
 
-  <!-- SIDEBAR -->
   <app-sidebar-collections />
 
-  <!-- MAIN CONTENT -->
   <div class="library-content">
-    <div class="container library-container">
 
-      <!-- VIEW MODE TOGGLE -->
-      <div class="view-toggle">
-        <button [class.active]="viewMode() === 'list'" (click)="viewMode.set('list')">List</button>
-        <button [class.active]="viewMode() === 'grid'" (click)="viewMode.set('grid')">Grid</button>
+    <header class="toolbar">
+      <div class="toolbar-left">
+        <h1>Library</h1>
       </div>
 
-      <!-- ADD BOOK FORM -->
-      <div class="add-card">
-        <input type="text" placeholder="Title" [(ngModel)]="newBook.title" />
-        <input type="text" placeholder="Author" [(ngModel)]="newBook.author" />
-        <button (click)="addBook()">Add</button>
-      </div>
+      <div class="toolbar-right">
+        <div class="control-group">
+          <button class="icon-toggle" [class.active]="viewMode() === 'list'" (click)="viewMode.set('list')"
+            title="List View">
+            <lucide-icon [img]="ListIcon" [size]="18"></lucide-icon>
+          </button>
+          <button class="icon-toggle" [class.active]="viewMode() === 'grid'" (click)="viewMode.set('grid')"
+            title="Grid View">
+            <lucide-icon [img]="GridIcon" [size]="18"></lucide-icon>
+          </button>
+        </div>
 
-      <!-- EDIT FORM -->
-      @if (editing()) {
-      <div class="edit-form" style="margin-bottom: 2rem;">
-        <h3>Edit Book</h3>
-        <input type="text" placeholder="Title" [(ngModel)]="editTitle" />
-        <input type="text" placeholder="Author" [(ngModel)]="editAuthor" />
-        <button (click)="saveEdit()">Save</button>
-        <button (click)="cancelEdit()">Cancel</button>
+        <button class="btn-primary" (click)="toggleAddDrawer()">
+          <lucide-icon [img]="PlusIcon" [size]="18"></lucide-icon>
+          <span>Add Book</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="container">
+
+      @if (showAddDrawer()) {
+      <div class="add-drawer">
+        <div class="drawer-content">
+          <input class="input-styled" type="text" placeholder="Book Title" [(ngModel)]="newBook.title"
+            (keyup.enter)="addBook()" autofocus />
+          <input class="input-styled" type="text" placeholder="Author" [(ngModel)]="newBook.author"
+            (keyup.enter)="addBook()" />
+          <button class="btn-primary" (click)="addBook()">Save</button>
+          <button class="btn-secondary" (click)="showAddDrawer.set(false)">Cancel</button>
+        </div>
       </div>
       }
 
-      <!-- LIST VIEW -->
       @if (viewMode() === 'list') {
-      <div class="table-wrapper">
-
+      <div class="table-view">
         <div class="table-header">
-          <div class="col title">Title</div>
-          <div class="col author">Author</div>
-          <div class="col format">Format</div>
-          <div class="col fav">Fav</div>
-          <div class="col actions">Actions</div>
+          <div>Title</div>
+          <div>Author</div>
+          <div>Format</div>
+          <div>Date</div>
+          <div style="text-align: right">Actions</div>
         </div>
 
-        <div class="table-body">
-          @for (book of books(); track book.id) {
-          <div class="table-row" [routerLink]="['/library', book.id]">
-            <div class="col title">{{ book.title }}</div>
-            <div class="col author">{{ book.author }}</div>
-            <div class="col format">
-              <span class="tag">—</span>
-            </div>
-            <div class="col fav">
-              <span class="star">★</span>
-            </div>
-            <div class="col actions">
-              <button class="icon-btn" (click)="startEdit(book); $event.stopPropagation()">✏️</button>
-              <button class="icon-btn" (click)="deleteBook(book.id, $event)">🗑</button>
-            </div>
-          </div>
-          }
-        </div>
-
-      </div>
-      }
-
-      <!-- GRID VIEW -->
-      @if (viewMode() === 'grid') {
-      <div class="book-grid">
         @for (book of books(); track book.id) {
-        <div class="book-card">
-          <div class="cover"></div>
-          <div class="book-title">{{ book.title }}</div>
-          <div class="book-author">{{ book.author }}</div>
+        <div class="table-row" [routerLink]="['/library', book.id]">
+
+          <div class="col title">
+            @if (editing()?.id === book.id) {
+            <input class="input-styled" [(ngModel)]="editTitle" (click)="$event.stopPropagation()" />
+            } @else {
+            {{ book.title }}
+            }
+          </div>
+
+          <div class="col author">
+            @if (editing()?.id === book.id) {
+            <input class="input-styled" [(ngModel)]="editAuthor" (click)="$event.stopPropagation()" />
+            } @else {
+            {{ book.author || 'Unknown' }}
+            }
+          </div>
+
+          <div class="col format">
+            <span class="badge">EPUB</span>
+          </div>
+
+          <div class="col date" style="color: #999; font-size: 0.85rem;">
+            Nov 26
+          </div>
+
+          <div class="col actions-cell"
+            style="text-align: right; display: flex; justify-content: flex-end; gap: 0.5rem;">
+            @if (editing()?.id === book.id) {
+            <button class="icon-btn" (click)="saveEdit(); $event.stopPropagation()">
+              <lucide-icon [img]="CheckIcon" [size]="16"></lucide-icon>
+            </button>
+            <button class="icon-btn" (click)="cancelEdit(); $event.stopPropagation()">
+              <lucide-icon [img]="XIcon" [size]="16"></lucide-icon>
+            </button>
+            } @else {
+            <button class="icon-btn" (click)="startEdit(book); $event.stopPropagation()">
+              <lucide-icon [img]="Edit2Icon" [size]="16"></lucide-icon>
+            </button>
+            <button class="icon-btn delete" (click)="deleteBook(book.id, $event)">
+              <lucide-icon [img]="Trash2Icon" [size]="16"></lucide-icon>
+            </button>
+            }
+          </div>
         </div>
         }
       </div>
       }
 
-    </div> <!-- END library-container -->
-  </div> <!-- END library-content -->
+      @if (viewMode() === 'grid') {
+      <div class="book-grid">
+        @for (book of books(); track book.id) {
+        <div class="book-card" [routerLink]="['/library', book.id]">
+          <div class="cover-wrapper">
+            <lucide-icon [img]="BookIcon" [size]="48" strokeWidth="1"></lucide-icon>
+          </div>
+          <div class="meta-title">{{ book.title }}</div>
+          <div class="meta-author">{{ book.author || 'Unknown' }}</div>
+        </div>
+        }
+      </div>
+      }
 
+    </div>
+  </div>
 </main>

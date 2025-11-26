@@ -1,85 +1,166 @@
-.sidebar {
-  width: 240px;
-  background: #ffffff;
-  border-right: 1px solid #e5e5e5;
-  padding: 1.25rem;
+:host {
+  display: block;
   height: 100vh;
-  transition: width 0.25s ease;
-  overflow: hidden;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.sidebar {
+  width: 260px;
+  background: #fbfbfb; /* Subtle contrast to main content */
+  border-right: 1px solid #ebebeb;
+  height: 100%;
   display: flex;
   flex-direction: column;
+  transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  overflow: hidden;
 }
 
 .sidebar.collapsed {
-  width: 58px; /* smaller to match classic apps */
+  width: 64px;
 }
 
-/* Collapse Button */
-.toggle-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  margin-bottom: 1.5rem;
-  padding: 0.25rem;
-  color: #444;
+/* BRAND HEADER */
+.sidebar-header {
+  height: 64px;
   display: flex;
   align-items: center;
+  padding: 0 1.25rem;
+  border-bottom: 1px solid transparent; /* reserved for scroll states */
 }
 
-.sidebar-title {
+.brand {
   font-family: "Lora", serif;
-  font-size: 1.1rem;
-  font-weight: 500;
-  margin-bottom: 1rem;
-  color: #222;
+  font-weight: 600;
+  font-size: 1.25rem;
+  color: #111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.collections {
+/* NAV SECTIONS */
+.nav-section {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  padding: 1.5rem 0.75rem;
+  overflow-y: auto;
+}
+
+.section-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #888;
+  padding: 0 0.75rem;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .collection-item {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
-  padding: 0.4rem 0.5rem;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.125rem;
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.2s ease;
-  font-size: 0.95rem;
-  color: #333;
+  color: #4a4a4a;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .collection-item:hover {
-  background: #f5f5f5;
+  background: #f3f3f3;
+  color: #111;
 }
 
 .collection-item.active {
-  background: #ececec;
-  font-weight: 500;
+  background: #edeef0;
+  color: #111;
 }
 
-/* When collapsed, hide label */
+/* FOOTER / TOGGLE */
+.sidebar-footer {
+  padding: 1rem;
+  border-top: 1px solid #ebebeb;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.toggle-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0.25rem;
+  color: #888;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  background: #edeef0;
+  color: #111;
+}
+
+/* COLLAPSED STATE OVERRIDES */
+.sidebar.collapsed .brand,
+.sidebar.collapsed .section-label,
 .sidebar.collapsed .label {
   display: none;
 }
 
-/* Add Button */
-.add-btn {
-  margin-top: auto;
-  padding: 0.6rem;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  text-align: center;
-  background: #fafafa;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background 0.2s ease;
+.sidebar.collapsed .sidebar-header {
+  justify-content: center;
+  padding: 0;
 }
 
-.add-btn:hover {
-  background: #f0f0f0;
+.sidebar.collapsed .collection-item {
+  justify-content: center;
+  padding: 0.75rem 0;
+}
+
+.sidebar.collapsed .sidebar-footer {
+  justify-content: center;
+}
+
+/* NEW STYLES FOR INPUT & ADD BUTTON */
+
+.collection-item.add-btn {
+  color: #888;
+  margin-top: 0.5rem;
+}
+
+.collection-item.add-btn:hover {
+  background: transparent;
+  color: #333;
+}
+
+/* The input field inside the sidebar */
+.sidebar-input {
+  background: transparent;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.9rem;
+  color: #333;
+  width: 100%;
+  outline: none;
+  font-family: "Inter", sans-serif;
+}
+
+.sidebar-input:focus {
+  border-color: #333;
+  background: #fff;
+}
+
+.input-mode {
+  background: transparent !important; /* Prevent hover grey background on input */
+  cursor: default;
 }

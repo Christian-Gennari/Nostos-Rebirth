@@ -4,7 +4,16 @@ import { CollectionsService } from '../services/collections.services';
 import { Collection } from '../dtos/collection.dtos';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideAngularModule, ChevronLeftIcon, FolderIcon, PlusIcon } from 'lucide-angular';
+import {
+  LucideAngularModule,
+  Folder,
+  ChevronLeft,
+  ChevronRight,
+  Library,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+} from 'lucide-angular';
 
 @Component({
   standalone: true,
@@ -16,10 +25,12 @@ import { LucideAngularModule, ChevronLeftIcon, FolderIcon, PlusIcon } from 'luci
 export class SidebarCollections implements OnInit {
   private collectionsService = inject(CollectionsService);
 
-  // expose icons for template
-  readonly ChevronLeftIcon = ChevronLeftIcon;
-  readonly FolderIcon = FolderIcon;
-  readonly PlusIcon = PlusIcon;
+  // Icons
+  FolderIcon = Folder;
+  LibraryIcon = Library;
+  PanelLeftCloseIcon = PanelLeftClose;
+  PanelLeftOpenIcon = PanelLeftOpen;
+  PlusIcon = Plus;
 
   collections = signal<Collection[]>([]);
   expanded = signal(true);

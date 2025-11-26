@@ -1,30 +1,54 @@
-<div class="sidebar" [class.collapsed]="!expanded()">
+<nav class="sidebar" [class.collapsed]="!expanded()">
 
-  <!-- COLLAPSE BUTTON -->
-  <button class="toggle-btn" (click)="toggle()">
-    <lucide-icon [img]="ChevronLeftIcon" [size]="20"></lucide-icon>
-  </button>
+  <div class="sidebar-header">
+    @if (expanded()) {
+    <div class="brand">Nostos</div>
+    } @else {
+    <lucide-icon [img]="LibraryIcon" [size]="24" strokeWidth="2"></lucide-icon>
+    }
+  </div>
 
-  @if (expanded()) {
-  <h3 class="sidebar-title">Collections</h3>
-  }
+  <div class="nav-section">
+    @if (expanded()) {
+    <div class="section-label">Collections</div>
+    }
 
-  <div class="collections">
     @for (col of collections(); track col.id) {
-    <div class="collection-item" [class.active]="activeCollection() === col.id" (click)="select(col)">
-      <lucide-icon [img]="FolderIcon" [size]="18"></lucide-icon>
-
+    <div class="collection-item" [class.active]="activeCollection() === col.id" (click)="select(col)"
+      title="{{col.name}}">
+      <lucide-icon [img]="FolderIcon" [size]="18" class="icon"></lucide-icon>
       @if (expanded()) {
       <span class="label">{{ col.name }}</span>
       }
     </div>
     }
+
+    @if (adding()) {
+    <div class="collection-item input-mode">
+      <lucide-icon [img]="FolderIcon" [size]="18" class="icon"></lucide-icon>
+      @if (expanded()) {
+      <input type="text" class="sidebar-input" [(ngModel)]="newName" (keydown.enter)="create()"
+        (keydown.escape)="adding.set(false)" placeholder="Name..." autoFocus />
+      }
+    </div>
+    } @else {
+    <div class="collection-item add-btn" (click)="startAdd()">
+      <lucide-icon [img]="PlusIcon" [size]="18"></lucide-icon>
+      @if (expanded()) {
+      <span class="label">New Collection</span>
+      }
+    </div>
+    }
+
   </div>
 
-  <!-- ADD BUTTON -->
-  <div class="add-btn" (click)="startAdd()">
-    <lucide-icon [img]="PlusIcon" [size]="18"></lucide-icon>
-    @if (expanded()) { Add Collection }
+  <div class="sidebar-footer">
+    <button class="toggle-btn" (click)="toggle()">
+      @if (expanded()) {
+      <lucide-icon [img]="PanelLeftCloseIcon" [size]="20"></lucide-icon>
+      } @else {
+      <lucide-icon [img]="PanelLeftOpenIcon" [size]="20"></lucide-icon>
+      }
+    </button>
   </div>
-
-</div>
+</nav>
