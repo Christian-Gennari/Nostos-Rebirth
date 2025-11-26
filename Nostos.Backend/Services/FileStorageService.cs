@@ -41,4 +41,15 @@ public class FileStorageService
 
     return Directory.GetFiles(folder).FirstOrDefault();
   }
+
+  public void DeleteBookFiles(Guid bookId)
+  {
+    var bookFolder = Path.Combine(_root, bookId.ToString());
+    if (Directory.Exists(bookFolder))
+    {
+      Directory.Delete(bookFolder, true);
+    }
+  }
+
+
 }

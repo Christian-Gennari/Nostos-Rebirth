@@ -61,10 +61,14 @@ public static class BooksEndpoints
     });
 
     // DELETE book
-    group.MapDelete("/{id}", async (Guid id, NostosDbContext db) =>
+    group.MapDelete("/{id}", async (Guid id, NostosDbContext db, FileStorageService storage) =>
     {
       var book = await db.Books.FindAsync(id);
       if (book is null) return Results.NotFound();
+
+      // Delete physical files
+      storage.DeleteBookFiles(id);
+
 
       db.Books.Remove(book);
       await db.SaveChangesAsync();
@@ -106,7 +110,7 @@ public static class BooksEndpoints
         Guid id,
         FileStorageService storage) =>
     {
-      var stream = storage.GetBookFile(id);
+      using var stream = storage.GetBookFile(id);
       if (stream is null) return Results.NotFound();
 
       var fileName = storage.GetBookFileName(id);
