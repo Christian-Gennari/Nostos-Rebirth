@@ -9,3 +9,6 @@ public record BookDto(
     DateTime CreatedAt
 );
 
+public record CreateBookDto(string Title, string? Author);
+public record UpdateBookDto(string Title, string? Author);
+

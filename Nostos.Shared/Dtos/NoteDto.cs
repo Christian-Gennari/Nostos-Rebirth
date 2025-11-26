@@ -7,3 +7,6 @@ public record NoteDto(
     Guid BookId,
     string Content
 );
+
+public record CreateNoteDto(string Content);
+public record UpdateNoteDto(string Content);
