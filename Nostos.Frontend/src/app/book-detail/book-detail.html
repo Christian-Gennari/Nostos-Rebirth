@@ -41,6 +41,15 @@
             <span>Added recently</span>
           </div>
         </div>
+
+        @if (book()?.hasFile) {
+        <div class="header-actions">
+          <button class="btn-file-action" (click)="openFile()">
+            <lucide-icon [img]="BookOpenIcon" [size]="18"></lucide-icon>
+            <span>Read Book</span>
+          </button>
+        </div>
+        }
       </header>
 
       <section class="add-note-section">

@@ -3,6 +3,11 @@
 ##
 ## Get latest from `dotnet new gitignore`
 
+
+# File storage
+Nostos.Backend/Storage/
+
+
 # SQLite database files
 *.db
 *.db-shm

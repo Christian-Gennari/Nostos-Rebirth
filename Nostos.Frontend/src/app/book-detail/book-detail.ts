@@ -14,6 +14,7 @@ import {
   Trash2,
   Edit2,
   AlertCircle,
+  BookOpen,
 } from 'lucide-angular';
 
 @Component({
@@ -35,6 +36,7 @@ export class BookDetail implements OnInit {
   Trash2Icon = Trash2;
   Edit2Icon = Edit2;
   AlertCircleIcon = AlertCircle;
+  BookOpenIcon = BookOpen;
 
   // State
   loading = signal(true);
@@ -128,5 +130,12 @@ export class BookDetail implements OnInit {
         if (book) this.loadNotes(book.id);
       },
     });
+  }
+
+  openFile() {
+    const id = this.book()?.id;
+    if (!id) return;
+
+    window.open(`/api/books/${id}/file`, '_blank');
   }
 }

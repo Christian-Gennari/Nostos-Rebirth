@@ -45,6 +45,50 @@
   gap: 0.4rem;
 }
 
+
+/* ------------------------------
+   HEADER ACTIONS (Open File)
+------------------------------ */
+
+.header-actions {
+  margin-top: 2rem; /* Spacing from the meta-row */
+}
+
+.btn-file-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  /* THE LOOK: Matching your .note-card style */
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--color-primary); /* The accent line */
+
+  /* Dimensions */
+  padding: 0.8rem 1.5rem;
+  border-radius: 4px; /* Matches note-card radius */
+
+  /* Text */
+  color: var(--color-text-main);
+  font-family: "Inter", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 500;
+
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-file-action:hover {
+  background: #fafafa; /* Subtle hover like the cards */
+  transform: translateX(4px); /* A small "go forward" motion */
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+/* Optional: Make the icon pop slightly */
+.btn-file-action lucide-icon {
+  color: var(--color-primary);
+}
+
 /* ------------------------------
    ADD NOTE SECTION
 ------------------------------ */

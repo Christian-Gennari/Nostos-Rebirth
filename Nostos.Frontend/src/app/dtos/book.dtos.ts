@@ -3,6 +3,8 @@ export interface Book {
   title: string;
   author: string | null;
   createdAt: string;
+  hasFile: boolean;
+  fileName: string | null;
 }
 
 export interface CreateBookDto {

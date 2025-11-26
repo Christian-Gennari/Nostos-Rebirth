@@ -110,14 +110,17 @@ public static class BooksEndpoints
         Guid id,
         FileStorageService storage) =>
     {
-      using var stream = storage.GetBookFile(id);
-      if (stream is null) return Results.NotFound();
+      var filePath = storage.GetBookFileName(id);
+      if (filePath is null)
+        return Results.NotFound();
 
-      var fileName = storage.GetBookFileName(id);
-      var contentType = GetContentType(fileName!);
+      var contentType = GetContentType(filePath);
+      var fileName = Path.GetFileName(filePath);
 
-      return Results.File(stream, contentType, Path.GetFileName(fileName));
+
+      return Results.File(filePath, contentType, fileName);
     });
+
 
     static string GetContentType(string filePath)
     {
@@ -129,6 +132,8 @@ public static class BooksEndpoints
         _ => "application/octet-stream"
       };
     }
+
+
 
     return routes;
   }
