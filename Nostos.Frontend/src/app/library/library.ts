@@ -177,6 +177,7 @@ export class Library implements OnInit {
   resetDrawer(): void {
     this.newBook = { title: '', author: null };
     this.selectedFile = null;
+    this.selectedCover = null;
     this.showAddDrawer.set(false);
   }
 

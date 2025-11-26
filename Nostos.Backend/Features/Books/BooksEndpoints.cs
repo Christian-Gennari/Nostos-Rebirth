@@ -69,6 +69,12 @@ public static class BooksEndpoints
       // Delete physical files
       storage.DeleteBookFiles(id);
 
+      // Clear cover reference
+      book.CoverFileName = null;
+
+      db.Books.Remove(book);
+      await db.SaveChangesAsync();
+
 
       db.Books.Remove(book);
       await db.SaveChangesAsync();

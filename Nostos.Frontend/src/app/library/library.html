@@ -77,7 +77,15 @@
           </div>
 
           <div class="col format">
-            <span class="badge">EPUB</span>
+            @if (book.fileName) {
+            <span class="badge">
+              {{
+              book.fileName.substring(book.fileName.lastIndexOf('.') + 1).toUpperCase()
+              }}
+            </span>
+            } @else {
+            <span class="badge" style="opacity:0.5;">—</span>
+            }
           </div>
 
           <div class="col date" style="color: var(--color-text-light); font-size: 0.85rem;">
