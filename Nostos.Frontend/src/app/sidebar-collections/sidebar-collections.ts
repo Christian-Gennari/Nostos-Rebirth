@@ -1,9 +1,10 @@
+// src/app/sidebar-collections/sidebar-collections.ts
 import { Component, OnInit, inject, signal, model } from '@angular/core';
 import { CollectionsService } from '../services/collections.services';
 import { Collection } from '../dtos/collection.dtos';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideAngularModule } from 'lucide-angular';
+import { LucideAngularModule, ChevronLeftIcon, FolderIcon, PlusIcon } from 'lucide-angular';
 
 @Component({
   standalone: true,
@@ -15,8 +16,13 @@ import { LucideAngularModule } from 'lucide-angular';
 export class SidebarCollections implements OnInit {
   private collectionsService = inject(CollectionsService);
 
+  // expose icons for template
+  readonly ChevronLeftIcon = ChevronLeftIcon;
+  readonly FolderIcon = FolderIcon;
+  readonly PlusIcon = PlusIcon;
+
   collections = signal<Collection[]>([]);
-  expanded = signal(true); // collapsible sidebar
+  expanded = signal(true);
   adding = signal(false);
   newName = model<string>('');
 

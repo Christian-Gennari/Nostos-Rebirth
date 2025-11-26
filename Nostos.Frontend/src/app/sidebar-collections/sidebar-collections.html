@@ -2,8 +2,7 @@
 
   <!-- COLLAPSE BUTTON -->
   <button class="toggle-btn" (click)="toggle()">
-    <lucide-icon name="chevron-left" size="20"></lucide-icon>
-
+    <lucide-icon [img]="ChevronLeftIcon" [size]="20"></lucide-icon>
   </button>
 
   @if (expanded()) {
@@ -11,22 +10,20 @@
   }
 
   <div class="collections">
-
     @for (col of collections(); track col.id) {
     <div class="collection-item" [class.active]="activeCollection() === col.id" (click)="select(col)">
+      <lucide-icon [img]="FolderIcon" [size]="18"></lucide-icon>
 
-      <lucide-icon name="folder" size="18"></lucide-icon>
       @if (expanded()) {
       <span class="label">{{ col.name }}</span>
       }
     </div>
     }
-
   </div>
 
   <!-- ADD BUTTON -->
   <div class="add-btn" (click)="startAdd()">
-    <lucide-icon name="plus" size="18"></lucide-icon>
+    <lucide-icon [img]="PlusIcon" [size]="18"></lucide-icon>
     @if (expanded()) { Add Collection }
   </div>
 
