@@ -22,5 +22,9 @@ export class BooksService {
   update(id: string, dto: UpdateBookDto): Observable<Book> {
     return this.http.put<Book>(`/api/books/${id}`, dto);
   }
+
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`/api/books/${id}`);
+  }
 }
 export type { Book };

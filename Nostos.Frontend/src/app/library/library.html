@@ -14,6 +14,20 @@
       <button (click)="addBook()">Add Book</button>
     </div>
 
+
+    @if (editing()) {
+    <div class="edit-form" style="margin-bottom: 2rem;">
+      <h3>Edit Book</h3>
+
+      <input type="text" placeholder="Title" [(ngModel)]="editTitle" />
+
+      <input type="text" placeholder="Author" [(ngModel)]="editAuthor" />
+
+      <button (click)="saveEdit()">Save</button>
+      <button (click)="cancelEdit()">Cancel</button>
+    </div>
+    }
+
     <!-- LIST VIEW -->
     @if (viewMode() === 'list') {
     <div class="table-wrapper">
@@ -38,8 +52,8 @@
             <span class="star">★</span>
           </div>
           <div class="col actions">
-            <button class="icon-btn">✏️</button>
-            <button class="icon-btn">🗑</button>
+            <button class="icon-btn" (click)="startEdit(book); $event.stopPropagation()">✏️</button>
+            <button class="icon-btn" (click)="deleteBook(book.id, $event)">🗑</button>
           </div>
         </div>
         }

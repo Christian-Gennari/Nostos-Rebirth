@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, model, OnInit, signal } from '@angular/core';
 import { BooksService, Book } from '../services/books.services';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
@@ -15,6 +15,10 @@ export class Library implements OnInit {
   private booksService = inject(BooksService);
 
   books = signal<Book[]>([]);
+
+  editing = signal<Book | null>(null);
+  editTitle = model<string>('');
+  editAuthor = model<string>('');
 
   viewMode = signal<'list' | 'grid'>('list');
 
@@ -58,5 +62,40 @@ export class Library implements OnInit {
           console.error('Error creating book:', err);
         },
       });
+  }
+
+  deleteBook(id: string, event: Event): void {
+    event.stopPropagation(); // prevent row navigation
+
+    this.booksService.delete(id).subscribe({
+      next: () => this.loadBooks(),
+    });
+  }
+
+  startEdit(book: Book): void {
+    this.editing.set(book);
+    this.editTitle.set(book.title);
+    this.editAuthor.set(book.author ?? '');
+  }
+
+  saveEdit(): void {
+    const book = this.editing();
+    if (!book) return;
+
+    this.booksService
+      .update(book.id, {
+        title: this.editTitle(),
+        author: this.editAuthor(),
+      })
+      .subscribe({
+        next: () => {
+          this.loadBooks();
+          this.editing.set(null);
+        },
+      });
+  }
+
+  cancelEdit(): void {
+    this.editing.set(null);
   }
 }
