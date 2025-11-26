@@ -1,5 +1,3 @@
-using System;
-
 namespace Nostos.Backend.Data.Models;
 
 public class BookModel
@@ -8,4 +6,7 @@ public class BookModel
   public string Title { get; set; } = string.Empty;
   public string? Author { get; set; }
   public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+  public bool HasFile { get; set; } = false;
+  public string? FileName { get; set; }
 }

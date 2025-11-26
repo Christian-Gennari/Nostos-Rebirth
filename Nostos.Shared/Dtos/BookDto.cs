@@ -6,7 +6,9 @@ public record BookDto(
     Guid Id,
     string Title,
     string? Author,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    bool HasFile,
+    string? FileName
 );
 
 public record CreateBookDto(string Title, string? Author);

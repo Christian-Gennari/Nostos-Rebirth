@@ -9,7 +9,7 @@ public static class MappingExtensions
     // Read mappings (Model → DTO)
     // ------------------------------
     public static BookDto ToDto(this BookModel model) =>
-        new(model.Id, model.Title, model.Author, model.CreatedAt);
+    new(model.Id, model.Title, model.Author, model.CreatedAt, model.HasFile, model.FileName);
 
     public static NoteDto ToDto(this NoteModel model) =>
         new(model.Id, model.BookId, model.Content);
@@ -77,4 +77,6 @@ public static class MappingExtensions
     {
         model.Content = dto.Content;
     }
+
+
 }

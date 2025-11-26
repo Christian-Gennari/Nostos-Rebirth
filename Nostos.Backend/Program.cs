@@ -4,6 +4,7 @@ using Nostos.Backend.Features.Books;
 using Nostos.Backend.Features.Notes;
 using Nostos.Backend.Features.Collections;
 using Nostos.Backend.Features.Concepts;
+using Nostos.Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +19,9 @@ builder.Services.AddCors(opt =>
         policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 });
 builder.Services.AddOpenApi();
+
+// Services Dependency Injection
+builder.Services.AddSingleton<FileStorageService>();
 
 
 var app = builder.Build();

@@ -20,4 +20,13 @@
   <ProjectReference Include="..\Nostos.Shared\Nostos.Shared.csproj" />
 </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Storage\" />
+    <Folder Include="Storage\books\" />
+  </ItemGroup>
+
+  <ItemGroup>
+  <None Include="Storage\**" CopyToOutputDirectory="PreserveNewest" />
+</ItemGroup>
+
 </Project>
