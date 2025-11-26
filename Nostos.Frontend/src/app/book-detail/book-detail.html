@@ -1,21 +1,17 @@
-<main>
-  <div class="container">
-    html@if (loading) {
-    <p>Loading...</p>
-    }
+@if (loading()) {
+<p>Loading...</p>
+}
 
-    @if (error) {
-    <p style="color: red;">{{ error }}</p>
-    }
+@if (error()) {
+<p style="color: red;">{{ error() }}</p>
+}
 
-    @if (!loading && !error && book) {
-    <h1>{{ book.title }}</h1>
-    <p>Author: {{ book.author || 'Unknown' }}</p>
-    <p>Created: {{ book.createdAt }}</p>
-    }
+@if (!loading() && !error() && book()) {
+<h1>{{ book()?.title }}</h1>
+<p>Author: {{ book()?.author || 'Unknown' }}</p>
+<p>Created: {{ book()?.createdAt }}</p>
+}
 
-    @if (!loading && !error && !book) {
-    <p>No book data available</p>
-    }
-  </div>
-</main>
+@if (!loading() && !error() && !book()) {
+<p>No book data available</p>
+}

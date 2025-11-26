@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { BooksService, Book } from '../services/books.services';
 import { CommonModule } from '@angular/common';
@@ -14,28 +14,28 @@ export class BookDetail implements OnInit {
   private route = inject(ActivatedRoute);
   private booksService = inject(BooksService);
 
-  book: Book | null = null;
-  loading = true;
-  error: string | null = null;
+  loading = signal(true);
+  book = signal<Book | null>(null);
+  error = signal<string | null>(null);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
+
     if (!id) {
-      this.error = 'Invalid book ID';
-      this.loading = false;
+      this.error.set('Invalid book ID');
+      this.loading.set(false);
       return;
     }
 
     this.booksService.get(id).subscribe({
       next: (book: Book) => {
-        this.book = book;
-        this.loading = false;
+        this.book.set(book);
+        this.loading.set(false);
       },
       error: (err) => {
-        // Add err parameter to see what's happening
-        console.error('Error fetching book:', err); // Add logging
-        this.error = 'Book not found';
-        this.loading = false;
+        console.error('Error fetching book:', err);
+        this.error.set('Book not found');
+        this.loading.set(false);
       },
     });
   }
