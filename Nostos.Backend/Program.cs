@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
 using Nostos.Backend.Features.Books;
 using Nostos.Backend.Features.Notes;
+using Nostos.Backend.Features.Collections;
+using Nostos.Backend.Features.Concepts;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +28,8 @@ app.UseCors();
 // Map all endpoints
 app.MapBooksEndpoints();
 app.MapNotesEndpoints();
+app.MapCollectionsEndpoints();
+app.MapConceptsEndpoints();
 
 
 app.Run();
