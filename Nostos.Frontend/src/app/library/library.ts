@@ -72,6 +72,7 @@ export class Library implements OnInit {
   };
 
   selectedFile: File | null = null;
+  selectedCover: File | null = null;
 
   /* ---------------------------------------------
      Lifecycle
@@ -105,6 +106,11 @@ export class Library implements OnInit {
     this.selectedFile = input.files?.[0] ?? null;
   }
 
+  onCoverSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.selectedCover = input.files?.[0] ?? null;
+  }
+
   /* ---------------------------------------------
      Create Book + (optional) File Upload
 
@@ -123,25 +129,46 @@ export class Library implements OnInit {
       })
       .subscribe({
         next: (createdBook) => {
-          // If no file selected, we're done
-          if (!this.selectedFile) {
-            this.resetDrawer();
-            this.loadBooks();
-            return;
+          // Upload main book file (EPUB/PDF/TXT)
+          if (this.selectedFile) {
+            this.booksService.uploadFile(createdBook.id, this.selectedFile).subscribe({
+              next: (event) => {
+                // When finished → upload cover if exists
+                if (event.type === 4 /* HttpEventType.Response */) {
+                  this.uploadCoverIfNeeded(createdBook.id);
+                }
+              },
+              error: (err) => console.error('File upload error:', err),
+            });
+          } else {
+            // No book file, go straight to cover
+            this.uploadCoverIfNeeded(createdBook.id);
           }
-
-          // Upload associated file
-          this.booksService.uploadFile(createdBook.id, this.selectedFile).subscribe({
-            next: () => {
-              this.resetDrawer();
-              this.loadBooks();
-            },
-            error: (err) => console.error('File upload error:', err),
-          });
         },
 
         error: (err) => console.error('Error creating book:', err),
       });
+  }
+
+  uploadCoverIfNeeded(bookId: string) {
+    if (!this.selectedCover) {
+      this.finishSave();
+      return;
+    }
+
+    this.booksService.uploadCover(bookId, this.selectedCover).subscribe({
+      next: (event) => {
+        if (event.type === 4 /* HttpEventType.Response */) {
+          this.finishSave();
+        }
+      },
+      error: (err) => console.error('Cover upload error:', err),
+    });
+  }
+
+  finishSave() {
+    this.resetDrawer();
+    this.loadBooks();
   }
 
   /* ---------------------------------------------

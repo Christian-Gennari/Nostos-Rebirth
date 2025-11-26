@@ -35,7 +35,11 @@
           <input class="input" type="text" placeholder="Author" [(ngModel)]="newBook.author"
             (keyup.enter)="saveBook()" />
 
+          <!-- File input -->
           <input class="input" type="file" (change)="onFileSelected($event)" accept=".epub,.pdf,.txt" />
+          <!-- Cover image input -->
+          <input class="input" type="file" accept="image/*" (change)="onCoverSelected($event)" />
+
 
           <button class="btn btn-primary" (click)="saveBook()">Save</button>
           <button class="btn btn-secondary" (click)="showAddDrawer.set(false)">Cancel</button>

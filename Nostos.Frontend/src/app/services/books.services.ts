@@ -36,5 +36,15 @@ export class BooksService {
       observe: 'events',
     });
   }
+
+  uploadCover(bookId: string, file: File): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return this.http.post(`/api/books/${bookId}/cover`, formData, {
+      reportProgress: true,
+      observe: 'events',
+    });
+  }
 }
 export type { Book };
