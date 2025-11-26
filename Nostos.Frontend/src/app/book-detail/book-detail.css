@@ -5,6 +5,14 @@
   margin-bottom: 2rem;
 }
 
+.detail-cover-image {
+  width: 180px;
+  height: auto;
+  border-radius: var(--radius-md);
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
 /* Custom link button */
 .btn-back {
   display: flex;

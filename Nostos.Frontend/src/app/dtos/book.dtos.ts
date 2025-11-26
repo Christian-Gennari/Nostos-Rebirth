@@ -5,6 +5,7 @@ export interface Book {
   createdAt: string;
   hasFile: boolean;
   fileName: string | null;
+  coverUrl: string | null;
 }
 
 export interface CreateBookDto {

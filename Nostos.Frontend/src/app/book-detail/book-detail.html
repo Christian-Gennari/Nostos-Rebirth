@@ -28,6 +28,10 @@
       </div>
 
       <header class="book-header">
+
+        @if (book()?.coverUrl) {
+        <img [src]="book()?.coverUrl" alt="Book cover" class="detail-cover-image" />
+        }
         <h1>{{ book()?.title }}</h1>
 
         <div class="meta-row">
