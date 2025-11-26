@@ -1,15 +1,25 @@
 import { Component, inject, OnInit, signal, model } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { BooksService, Book } from '../services/books.services';
 import { NotesService } from '../services/notes.services';
 import { Note } from '../dtos/note.dtos';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { SidebarCollections } from '../sidebar-collections/sidebar-collections';
+import {
+  LucideAngularModule,
+  ArrowLeft,
+  User,
+  Calendar,
+  Trash2,
+  Edit2,
+  AlertCircle,
+} from 'lucide-angular';
 
 @Component({
   standalone: true,
   selector: 'app-book-detail',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink, SidebarCollections, LucideAngularModule],
   templateUrl: './book-detail.html',
   styleUrls: ['./book-detail.css'],
 })
@@ -18,11 +28,20 @@ export class BookDetail implements OnInit {
   private booksService = inject(BooksService);
   private notesService = inject(NotesService);
 
+  // Icons
+  ArrowLeftIcon = ArrowLeft;
+  UserIcon = User;
+  CalendarIcon = Calendar;
+  Trash2Icon = Trash2;
+  Edit2Icon = Edit2;
+  AlertCircleIcon = AlertCircle;
+
+  // State
   loading = signal(true);
   book = signal<Book | null>(null);
   error = signal<string | null>(null);
 
-  // Notes
+  // Notes State
   notes = signal<Note[]>([]);
   newNote = model<string>('');
 
@@ -101,6 +120,8 @@ export class BookDetail implements OnInit {
   }
 
   deleteNote(id: string): void {
+    if (!confirm('Delete this note?')) return;
+
     this.notesService.delete(id).subscribe({
       next: () => {
         const book = this.book();
