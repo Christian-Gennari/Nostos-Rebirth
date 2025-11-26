@@ -247,3 +247,9 @@ h2 {
   padding: 4rem;
   color: var(--color-text-light);
 }
+
+.change-cover-btn {
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+}

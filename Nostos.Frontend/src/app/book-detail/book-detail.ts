@@ -50,6 +50,8 @@ export class BookDetail implements OnInit {
   editingNote = signal<Note | null>(null);
   editNoteContent = model<string>('');
 
+  coverInput!: HTMLInputElement;
+
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
@@ -137,5 +139,26 @@ export class BookDetail implements OnInit {
     if (!id) return;
 
     window.open(`/api/books/${id}/file`, '_blank');
+  }
+
+  triggerCoverPicker() {
+    const input = document.querySelector('input[type=file][accept="image/*"]') as HTMLInputElement;
+    if (input) input.click();
+  }
+
+  onCoverSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || !this.book()?.id) return;
+
+    this.booksService.uploadCover(this.book()!.id, file).subscribe({
+      next: (event) => {
+        if (event.type === 4 /* HttpEventType.Response */) {
+          // Refresh the book so the UI updates to the new cover
+          this.loadBook(this.book()!.id);
+        }
+      },
+      error: (err) => console.error('Cover upload error:', err),
+    });
   }
 }

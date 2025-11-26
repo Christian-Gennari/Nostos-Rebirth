@@ -32,6 +32,18 @@
         @if (book()?.coverUrl) {
         <img [src]="book()?.coverUrl" alt="Book cover" class="detail-cover-image" />
         }
+
+        @if (book()?.coverUrl) {
+        <button class="btn-secondary change-cover-btn" (click)="triggerCoverPicker()">
+          Change cover
+        </button>
+
+        <!-- Hidden file input -->
+        <input type="file" accept="image/*" #coverInput style="display:none" (change)="onCoverSelected($event)" />
+        }
+
+
+
         <h1>{{ book()?.title }}</h1>
 
         <div class="meta-row">
