@@ -4,6 +4,8 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { SidebarCollections } from '../sidebar-collections/sidebar-collections';
+
+// Icons
 import {
   LucideAngularModule,
   LayoutList,
@@ -24,9 +26,11 @@ import {
   styleUrls: ['./library.css'],
 })
 export class Library implements OnInit {
+  /* ---------------------------------------------
+     Services & Icon Bindings
+  ---------------------------------------------- */
   private booksService = inject(BooksService);
 
-  // Icons
   ListIcon = LayoutList;
   GridIcon = LayoutGrid;
   PlusIcon = Plus;
@@ -36,39 +40,80 @@ export class Library implements OnInit {
   XIcon = X;
   BookIcon = BookIcon;
 
+  /* ---------------------------------------------
+     Core State
+     - books(): all books displayed in list/grid
+     - uploadProgress(): used if you add progress UI later
+  ---------------------------------------------- */
   books = signal<Book[]>([]);
+  uploadProgress = signal<number | null>(null);
 
-  // UI State
+  /* ---------------------------------------------
+     UI State
+     - viewMode: "list" or "grid"
+     - showAddDrawer: toggles drawer visibility
+  ---------------------------------------------- */
   viewMode = signal<'list' | 'grid'>('list');
   showAddDrawer = signal(false);
 
-  // Editing State
+  /* ---------------------------------------------
+     Inline Editing (list view)
+  ---------------------------------------------- */
   editing = signal<Book | null>(null);
   editTitle = model<string>('');
   editAuthor = model<string>('');
 
-  // New Book Model
+  /* ---------------------------------------------
+     New Book Form (title, author, file)
+  ---------------------------------------------- */
   newBook = {
     title: '',
     author: null as string | null,
   };
 
+  selectedFile: File | null = null;
+
+  /* ---------------------------------------------
+     Lifecycle
+  ---------------------------------------------- */
   ngOnInit(): void {
     this.loadBooks();
   }
 
+  /* ---------------------------------------------
+     Load books from backend
+  ---------------------------------------------- */
   loadBooks(): void {
     this.booksService.list().subscribe({
       next: (data) => this.books.set(data),
-      error: (error) => console.error('Error loading books:', error),
+      error: (err) => console.error('Error loading books:', err),
     });
   }
 
-  toggleAddDrawer() {
+  /* ---------------------------------------------
+     Add Drawer Toggle (opens/closes the book form)
+  ---------------------------------------------- */
+  toggleAddDrawer(): void {
     this.showAddDrawer.update((v) => !v);
   }
 
-  addBook(): void {
+  /* ---------------------------------------------
+     File Picker Handler
+  ---------------------------------------------- */
+  onFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.selectedFile = input.files?.[0] ?? null;
+  }
+
+  /* ---------------------------------------------
+     Create Book + (optional) File Upload
+
+     Steps:
+       1. Create metadata through POST /api/books
+       2. If a file is selected → upload via /api/books/{id}/file
+       3. Reset UI + reload book list
+  ---------------------------------------------- */
+  saveBook(): void {
     if (!this.newBook.title.trim()) return;
 
     this.booksService
@@ -77,17 +122,42 @@ export class Library implements OnInit {
         author: this.newBook.author,
       })
       .subscribe({
-        next: () => {
-          this.newBook = { title: '', author: null };
-          this.showAddDrawer.set(false);
-          this.loadBooks();
+        next: (createdBook) => {
+          // If no file selected, we're done
+          if (!this.selectedFile) {
+            this.resetDrawer();
+            this.loadBooks();
+            return;
+          }
+
+          // Upload associated file
+          this.booksService.uploadFile(createdBook.id, this.selectedFile).subscribe({
+            next: () => {
+              this.resetDrawer();
+              this.loadBooks();
+            },
+            error: (err) => console.error('File upload error:', err),
+          });
         },
+
         error: (err) => console.error('Error creating book:', err),
       });
   }
 
+  /* ---------------------------------------------
+     Reset Drawer (clears form + closes drawer)
+  ---------------------------------------------- */
+  resetDrawer(): void {
+    this.newBook = { title: '', author: null };
+    this.selectedFile = null;
+    this.showAddDrawer.set(false);
+  }
+
+  /* ---------------------------------------------
+     Delete Book
+  ---------------------------------------------- */
   deleteBook(id: string, event: Event): void {
-    event.stopPropagation();
+    event.stopPropagation(); // Prevent card navigation
     if (!confirm('Are you sure you want to delete this book?')) return;
 
     this.booksService.delete(id).subscribe({
@@ -95,6 +165,9 @@ export class Library implements OnInit {
     });
   }
 
+  /* ---------------------------------------------
+     Inline Editing (List View)
+  ---------------------------------------------- */
   startEdit(book: Book): void {
     this.editing.set(book);
     this.editTitle.set(book.title);

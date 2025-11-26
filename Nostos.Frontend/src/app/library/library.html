@@ -30,10 +30,14 @@
       <div class="add-drawer">
         <div class="drawer-content">
           <input class="input" type="text" placeholder="Book Title" [(ngModel)]="newBook.title"
-            (keyup.enter)="addBook()" autofocus />
+            (keyup.enter)="saveBook()" autofocus />
+
           <input class="input" type="text" placeholder="Author" [(ngModel)]="newBook.author"
-            (keyup.enter)="addBook()" />
-          <button class="btn btn-primary" (click)="addBook()">Save</button>
+            (keyup.enter)="saveBook()" />
+
+          <input class="input" type="file" (change)="onFileSelected($event)" accept=".epub,.pdf,.txt" />
+
+          <button class="btn btn-primary" (click)="saveBook()">Save</button>
           <button class="btn btn-secondary" (click)="showAddDrawer.set(false)">Cancel</button>
         </div>
       </div>

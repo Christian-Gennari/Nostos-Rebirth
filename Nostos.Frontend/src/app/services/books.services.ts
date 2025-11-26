@@ -26,5 +26,15 @@ export class BooksService {
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`/api/books/${id}`);
   }
+
+  uploadFile(bookId: string, file: File): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return this.http.post(`/api/books/${bookId}/file`, formData, {
+      reportProgress: true,
+      observe: 'events',
+    });
+  }
 }
 export type { Book };
