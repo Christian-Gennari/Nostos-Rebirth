@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
-using Nostos.Backend.Data.Models;
 using Nostos.Backend.Mapping;
 using Nostos.Shared.Dtos;
 
@@ -12,7 +11,7 @@ public static class BooksEndpoints
   {
     var group = routes.MapGroup("/api/books");
 
-    // GET /api/books (list all)
+    // GET all books
     group.MapGet("/", async (NostosDbContext db) =>
     {
       var books = await db.Books
@@ -22,7 +21,7 @@ public static class BooksEndpoints
       return Results.Ok(books.Select(b => b.ToDto()));
     });
 
-    // GET /api/books/{id}
+    // GET one book
     group.MapGet("/{id}", async (Guid id, NostosDbContext db) =>
     {
       var book = await db.Books.FindAsync(id);
@@ -31,14 +30,13 @@ public static class BooksEndpoints
       return Results.Ok(book.ToDto());
     });
 
-    // POST /api/books
-    group.MapPost("/", async (BookModel model, NostosDbContext db) =>
+    // CREATE book
+    group.MapPost("/", async (CreateBookDto dto, NostosDbContext db) =>
     {
-      if (string.IsNullOrWhiteSpace(model.Title))
+      if (string.IsNullOrWhiteSpace(dto.Title))
         return Results.BadRequest(new { error = "Title is required." });
 
-      model.Id = Guid.NewGuid();
-      model.CreatedAt = DateTime.UtcNow;
+      var model = dto.ToModel();
 
       db.Books.Add(model);
       await db.SaveChangesAsync();
@@ -46,23 +44,22 @@ public static class BooksEndpoints
       return Results.Created($"/api/books/{model.Id}", model.ToDto());
     });
 
-    // PUT /api/books/{id}
-    group.MapPut("/{id}", async (Guid id, BookModel update, NostosDbContext db) =>
+    // UPDATE book
+    group.MapPut("/{id}", async (Guid id, UpdateBookDto dto, NostosDbContext db) =>
     {
       var book = await db.Books.FindAsync(id);
       if (book is null) return Results.NotFound();
 
-      if (string.IsNullOrWhiteSpace(update.Title))
+      if (string.IsNullOrWhiteSpace(dto.Title))
         return Results.BadRequest(new { error = "Title is required." });
 
-      book.Title = update.Title;
-      book.Author = update.Author;
-
+      book.Apply(dto);
       await db.SaveChangesAsync();
+
       return Results.Ok(book.ToDto());
     });
 
-    // DELETE /api/books/{id}
+    // DELETE book
     group.MapDelete("/{id}", async (Guid id, NostosDbContext db) =>
     {
       var book = await db.Books.FindAsync(id);
@@ -72,22 +69,6 @@ public static class BooksEndpoints
       await db.SaveChangesAsync();
 
       return Results.NoContent();
-    });
-
-    // UPLOAD FILE
-    group.MapPost("/{id}/file", async (Guid id, IFormFile file, IWebHostEnvironment env, NostosDbContext db) =>
-    {
-      var book = await db.Books.FindAsync(id);
-      if (book is null) return Results.NotFound();
-
-      var directory = Path.Combine(env.ContentRootPath, "Storage", "books", id.ToString());
-      Directory.CreateDirectory(directory);
-
-      var filePath = Path.Combine(directory, file.FileName);
-      using var stream = new FileStream(filePath, FileMode.Create);
-      await file.CopyToAsync(stream);
-
-      return Results.Ok(new { Message = "Uploaded", File = file.FileName });
     });
 
     return routes;

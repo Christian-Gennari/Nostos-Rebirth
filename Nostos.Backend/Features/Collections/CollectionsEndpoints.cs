@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
-using Nostos.Backend.Data.Models;
 using Nostos.Backend.Mapping;
 using Nostos.Shared.Dtos;
 
@@ -12,15 +11,17 @@ public static class CollectionsEndpoints
   {
     var group = routes.MapGroup("/api/collections");
 
+    // GET all collections
     group.MapGet("/", async (NostosDbContext db) =>
     {
-      var list = await db.Collections
-              .OrderBy(x => x.Name)
+      var collections = await db.Collections
+              .OrderBy(c => c.Name)
               .ToListAsync();
 
-      return Results.Ok(list.Select(c => c.ToDto()));
+      return Results.Ok(collections.Select(c => c.ToDto()));
     });
 
+    // GET one collection
     group.MapGet("/{id}", async (Guid id, NostosDbContext db) =>
     {
       var collection = await db.Collections.FindAsync(id);
@@ -29,12 +30,13 @@ public static class CollectionsEndpoints
       return Results.Ok(collection.ToDto());
     });
 
-    group.MapPost("/", async (CollectionModel model, NostosDbContext db) =>
+    // CREATE collection
+    group.MapPost("/", async (CreateCollectionDto dto, NostosDbContext db) =>
     {
-      if (string.IsNullOrWhiteSpace(model.Name))
+      if (string.IsNullOrWhiteSpace(dto.Name))
         return Results.BadRequest(new { error = "Name is required." });
 
-      model.Id = Guid.NewGuid();
+      var model = dto.ToModel();
 
       db.Collections.Add(model);
       await db.SaveChangesAsync();
@@ -42,20 +44,22 @@ public static class CollectionsEndpoints
       return Results.Created($"/api/collections/{model.Id}", model.ToDto());
     });
 
-    group.MapPut("/{id}", async (Guid id, CollectionModel update, NostosDbContext db) =>
+    // UPDATE collection
+    group.MapPut("/{id}", async (Guid id, UpdateCollectionDto dto, NostosDbContext db) =>
     {
       var existing = await db.Collections.FindAsync(id);
       if (existing is null) return Results.NotFound();
 
-      if (string.IsNullOrWhiteSpace(update.Name))
+      if (string.IsNullOrWhiteSpace(dto.Name))
         return Results.BadRequest(new { error = "Name is required." });
 
-      existing.Name = update.Name;
+      existing.Apply(dto);
       await db.SaveChangesAsync();
 
       return Results.Ok(existing.ToDto());
     });
 
+    // DELETE collection
     group.MapDelete("/{id}", async (Guid id, NostosDbContext db) =>
     {
       var existing = await db.Collections.FindAsync(id);
