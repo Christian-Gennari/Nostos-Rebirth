@@ -31,7 +31,9 @@ export class BookDetail implements OnInit {
         this.book = book;
         this.loading = false;
       },
-      error: () => {
+      error: (err) => {
+        // Add err parameter to see what's happening
+        console.error('Error fetching book:', err); // Add logging
         this.error = 'Book not found';
         this.loading = false;
       },
