@@ -1,6 +1,10 @@
 @Nostos.Backend_HostAddress = http://localhost:5214
 
-GET {{Nostos.Backend_HostAddress}}/weatherforecast/
-Accept: application/json
 
 ###
+
+GET http://localhost:5214/api/books
+###
+GET http://localhost:5214/api/books/{8be689d6-abd1-4752-babd-3c4c942027a2}
+###
+DELETE http://localhost:5214/api/books/{8be689d6-abd1-4752-babd-3c4c942027a2}

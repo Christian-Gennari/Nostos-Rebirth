@@ -1,0 +1,17 @@
+<main>
+  <div class="container">
+    @if (loading) {
+    <p>Loading...</p>
+    }
+
+    @if (error) {
+    <p>{{ error }}</p>
+    }
+
+    @if (!loading && book) {
+    <h1>{{ book.title }}</h1>
+    <p>Author: {{ book.author || 'Unknown' }}</p>
+    <p>Created: {{ book.createdAt }}</p>
+    }
+  </div>
+</main>

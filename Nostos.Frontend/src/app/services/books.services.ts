@@ -17,6 +17,10 @@ export class BooksService {
     return this.http.get<Book[]>('/api/books');
   }
 
+  get(id: string): Observable<Book> {
+    return this.http.get<Book>(`/api/books/${id}`);
+  }
+
   create(book: Partial<Book>): Observable<Book> {
     return this.http.post<Book>('/api/books', book);
   }

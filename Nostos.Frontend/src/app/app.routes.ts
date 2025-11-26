@@ -11,4 +11,8 @@ export const routes: Routes = [
     path: 'library',
     component: Library,
   },
+  {
+    path: 'library/:id',
+    loadComponent: () => import('./book-detail/book-detail').then((m) => m.BookDetail),
+  },
 ];
