@@ -1,8 +1,9 @@
 import { Routes } from '@angular/router';
+import { Library } from './library/library';
 
 export const routes: Routes = [
   {
-    path: '',
-    loadComponent: () => import('./library/library').then((m) => m.LibraryComponent),
+    path: 'library',
+    component: Library,
   },
 ];

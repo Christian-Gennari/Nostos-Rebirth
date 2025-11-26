@@ -9,7 +9,7 @@ import { CommonModule } from '@angular/common';
   templateUrl: './library.html',
   styleUrls: ['./library.css'],
 })
-export class LibraryComponent implements OnInit {
+export class Library implements OnInit {
   private booksService = inject(BooksService);
 
   books = signal<Book[]>([]);
