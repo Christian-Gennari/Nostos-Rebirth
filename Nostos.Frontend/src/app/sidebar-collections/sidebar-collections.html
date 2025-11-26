@@ -1,0 +1,41 @@
+<div class="sidebar" [class.collapsed]="!expanded()">
+
+  <!-- TOGGLE BUTTON -->
+  <button class="toggle-btn" (click)="toggle()">
+    @if (expanded()) { « } @else { » }
+  </button>
+
+  <!-- HEADER -->
+  @if (expanded()) {
+  <h3 class="sidebar-title">Collections</h3>
+  } @else {
+  <div class="sidebar-title collapsed">📚</div>
+  }
+
+  <div class="collections">
+
+    <!-- ADD COLLECTION FORM -->
+    @if (expanded() && adding()) {
+    <div class="add-form">
+      <input type="text" placeholder="New collection" [(ngModel)]="newName" />
+      <button (click)="create()">Add</button>
+    </div>
+    }
+
+    <!-- COLLECTION LIST -->
+    @for (col of collections(); track col.id) {
+    <div class="collection-item" [class.active]="activeCollection() === col.id" (click)="select(col)">
+
+      <span class="icon">📁</span>
+
+      @if (expanded()) {
+      <span class="label">{{ col.name }}</span>
+      }
+    </div>
+    }
+  </div>
+
+  <!-- ADD BUTTON -->
+  <button class="add-btn" (click)="startAdd()">＋</button>
+
+</div>

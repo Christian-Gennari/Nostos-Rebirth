@@ -3,11 +3,12 @@ import { BooksService, Book } from '../services/books.services';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { SidebarCollections } from "../sidebar-collections/sidebar-collections";
 
 @Component({
   selector: 'app-library',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, RouterLink, FormsModule, SidebarCollections],
   templateUrl: './library.html',
   styleUrls: ['./library.css'],
 })

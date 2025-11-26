@@ -1,0 +1,81 @@
+.sidebar {
+  width: 240px;
+  background: #fff;
+  border-right: var(--border);
+  padding: 1rem;
+  height: 100vh;
+  transition: width 0.25s ease;
+  overflow: hidden;
+  position: relative;
+}
+
+.sidebar.collapsed {
+  width: 48px;
+}
+
+.toggle-btn {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  margin-bottom: 1rem;
+}
+
+.sidebar-title {
+  font-family: "Lora", serif;
+  margin-bottom: 1rem;
+}
+
+.collections {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.collection-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.collection-item:hover {
+  background: var(--hover-bg);
+}
+
+.collection-item.active {
+  background: #ececec;
+}
+
+.icon {
+  font-size: 1.1rem;
+}
+
+.label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.add-btn {
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  right: 1rem;
+  padding: 0.5rem;
+  background: #f4f4f4;
+  border: var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.add-form input {
+  width: 100%;
+  padding: 0.4rem;
+  border-radius: var(--radius);
+  border: var(--border);
+  margin-bottom: 0.4rem;
+}

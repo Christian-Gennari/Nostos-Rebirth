@@ -2,6 +2,16 @@
    Page layout
 ------------------------------ */
 
+.library-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.library-content {
+  flex: 1;
+  padding: 2rem;
+}
+
 main {
   min-height: 100vh;
   display: flex;
