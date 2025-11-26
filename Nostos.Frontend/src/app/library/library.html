@@ -1,44 +1,40 @@
-<main class="library-layout">
+<main class="layout-wrapper">
 
   <app-sidebar-collections />
 
-  <div class="library-content">
+  <div class="layout-content">
 
     <header class="toolbar">
-      <div class="toolbar-left">
-        <h1>Library</h1>
-      </div>
+      <h1>Library</h1>
 
       <div class="toolbar-right">
         <div class="control-group">
-          <button class="icon-toggle" [class.active]="viewMode() === 'list'" (click)="viewMode.set('list')"
-            title="List View">
+          <button class="toggle-opt" [class.active]="viewMode() === 'list'" (click)="viewMode.set('list')">
             <lucide-icon [img]="ListIcon" [size]="18"></lucide-icon>
           </button>
-          <button class="icon-toggle" [class.active]="viewMode() === 'grid'" (click)="viewMode.set('grid')"
-            title="Grid View">
+          <button class="toggle-opt" [class.active]="viewMode() === 'grid'" (click)="viewMode.set('grid')">
             <lucide-icon [img]="GridIcon" [size]="18"></lucide-icon>
           </button>
         </div>
 
-        <button class="btn-primary" (click)="toggleAddDrawer()">
+        <button class="btn btn-primary" (click)="toggleAddDrawer()">
           <lucide-icon [img]="PlusIcon" [size]="18"></lucide-icon>
           <span>Add Book</span>
         </button>
       </div>
     </header>
 
-    <div class="container">
+    <div class="container lg">
 
       @if (showAddDrawer()) {
       <div class="add-drawer">
         <div class="drawer-content">
-          <input class="input-styled" type="text" placeholder="Book Title" [(ngModel)]="newBook.title"
+          <input class="input" type="text" placeholder="Book Title" [(ngModel)]="newBook.title"
             (keyup.enter)="addBook()" autofocus />
-          <input class="input-styled" type="text" placeholder="Author" [(ngModel)]="newBook.author"
+          <input class="input" type="text" placeholder="Author" [(ngModel)]="newBook.author"
             (keyup.enter)="addBook()" />
-          <button class="btn-primary" (click)="addBook()">Save</button>
-          <button class="btn-secondary" (click)="showAddDrawer.set(false)">Cancel</button>
+          <button class="btn btn-primary" (click)="addBook()">Save</button>
+          <button class="btn btn-secondary" (click)="showAddDrawer.set(false)">Cancel</button>
         </div>
       </div>
       }
@@ -58,7 +54,7 @@
 
           <div class="col title">
             @if (editing()?.id === book.id) {
-            <input class="input-styled" [(ngModel)]="editTitle" (click)="$event.stopPropagation()" />
+            <input class="input" [(ngModel)]="editTitle" (click)="$event.stopPropagation()" />
             } @else {
             {{ book.title }}
             }
@@ -66,7 +62,7 @@
 
           <div class="col author">
             @if (editing()?.id === book.id) {
-            <input class="input-styled" [(ngModel)]="editAuthor" (click)="$event.stopPropagation()" />
+            <input class="input" [(ngModel)]="editAuthor" (click)="$event.stopPropagation()" />
             } @else {
             {{ book.author || 'Unknown' }}
             }
@@ -76,12 +72,11 @@
             <span class="badge">EPUB</span>
           </div>
 
-          <div class="col date" style="color: #999; font-size: 0.85rem;">
+          <div class="col date" style="color: var(--color-text-light); font-size: 0.85rem;">
             Nov 26
           </div>
 
-          <div class="col actions-cell"
-            style="text-align: right; display: flex; justify-content: flex-end; gap: 0.5rem;">
+          <div class="col actions-cell">
             @if (editing()?.id === book.id) {
             <button class="icon-btn" (click)="saveEdit(); $event.stopPropagation()">
               <lucide-icon [img]="CheckIcon" [size]="16"></lucide-icon>

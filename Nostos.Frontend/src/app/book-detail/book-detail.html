@@ -1,9 +1,9 @@
-<main class="library-layout">
+<main class="layout-wrapper">
 
   <app-sidebar-collections />
 
-  <div class="detail-content">
-    <div class="container">
+  <div class="layout-content">
+    <div class="container md">
 
       @if (loading()) {
       <div class="loading-state">Loading book details...</div>
@@ -11,9 +11,10 @@
 
       @if (error()) {
       <div class="error-state">
-        <lucide-icon [img]="AlertCircleIcon" [size]="32" style="margin-bottom: 1rem; color: #d32f2f;"></lucide-icon>
+        <lucide-icon [img]="AlertCircleIcon" [size]="32"
+          style="margin-bottom: 1rem; color: var(--color-danger);"></lucide-icon>
         <p>{{ error() }}</p>
-        <button class="btn-secondary" routerLink="/library">Return to Library</button>
+        <button class="btn btn-secondary" routerLink="/library">Return to Library</button>
       </div>
       }
 
@@ -44,13 +45,13 @@
 
       <section class="add-note-section">
         <div class="note-input-wrapper">
-          <textarea class="note-textarea" placeholder="Jot down a thought, quote, or idea..." [(ngModel)]="newNote"
-            rows="3">
+          <textarea class="note-textarea-seamless" placeholder="Jot down a thought, quote, or idea..."
+            [(ngModel)]="newNote" rows="3">
             </textarea>
 
           @if (newNote().length > 0) {
           <div class="input-actions">
-            <button class="btn-primary" (click)="addNote()">Add Note</button>
+            <button class="btn btn-primary" (click)="addNote()">Add Note</button>
           </div>
           }
         </div>
@@ -60,7 +61,7 @@
         <h2>Notes ({{ notes().length }})</h2>
 
         @if (notes().length === 0) {
-        <p style="color: #999; font-style: italic;">No notes yet. Start writing above.</p>
+        <p style="color: var(--color-text-light); font-style: italic;">No notes yet. Start writing above.</p>
         }
 
         <ul class="notes-list">
@@ -69,23 +70,22 @@
 
             @if (editingNote()?.id === note.id) {
             <div class="edit-wrapper">
-              <textarea class="note-textarea" [(ngModel)]="editNoteContent" rows="3"></textarea>
+              <textarea class="textarea" [(ngModel)]="editNoteContent" rows="3"></textarea>
               <div class="edit-actions">
-                <button class="btn-primary" (click)="saveEdit()">Save Update</button>
-                <button class="btn-secondary" (click)="cancelEdit()">Cancel</button>
+                <button class="btn btn-primary" (click)="saveEdit()">Save Update</button>
+                <button class="btn btn-secondary" (click)="cancelEdit()">Cancel</button>
               </div>
             </div>
             }
-
             @else {
             <div class="note-card">
               <p class="note-content">{{ note.content }}</p>
 
               <div class="note-actions">
-                <button class="icon-btn" (click)="startEdit(note)" title="Edit">
+                <button class="icon-btn bordered" (click)="startEdit(note)" title="Edit">
                   <lucide-icon [img]="Edit2Icon" [size]="14"></lucide-icon>
                 </button>
-                <button class="icon-btn delete" (click)="deleteNote(note.id)" title="Delete">
+                <button class="icon-btn bordered delete" (click)="deleteNote(note.id)" title="Delete">
                   <lucide-icon [img]="Trash2Icon" [size]="14"></lucide-icon>
                 </button>
               </div>

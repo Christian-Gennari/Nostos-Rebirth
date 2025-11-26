@@ -1,11 +1,27 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Lora:wght@400;500;600&display=swap');
 
 :root {
-  --radius: 8px;
-  --border: 1px solid #ddd;
-  --hover-bg: #f3f3f3;
-  --text-primary: #1a1a1a;
-  --text-secondary: #4a4a4a;
+  /* Colors */
+  --bg-body: #fafafa;
+  --bg-surface: #ffffff;
+  --bg-hover: #f3f3f3;
+
+  --color-primary: #111111;
+  --color-primary-hover: #333333;
+  --color-text-main: #1a1a1a;
+  --color-text-muted: #4a4a4a;
+  --color-text-light: #888888;
+  --color-danger: #d32f2f;
+
+  /* Borders & Radius */
+  --border-color: #e5e5e5;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* Spacing */
+  --container-width-md: 800px;
+  --container-width-lg: 1200px;
 }
 
 * {
@@ -16,18 +32,132 @@
 
 html, body {
   font-family: "Inter", sans-serif;
-  margin: 0;
-  padding: 0;
-  background: #fafafa;
+  background: var(--bg-body);
+  color: var(--color-text-main);
   overflow-x: hidden;
+  height: 100%;
 }
 
 h1, h2, h3, h4 {
   font-family: "Lora", serif;
-  color: #1a1a1a;
+  color: var(--color-primary);
 }
 
 p {
-  color: #4a4a4a;
+  color: var(--color-text-muted);
   line-height: 1.6;
+}
+
+/* ------------------------------
+   GLOBAL LAYOUT UTILITIES
+------------------------------ */
+.layout-wrapper {
+  display: flex;
+  min-height: 100vh;
+}
+
+.layout-content {
+  flex: 1;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.container {
+  width: 100%;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.container.md { max-width: var(--container-width-md); }
+.container.lg { max-width: var(--container-width-lg); }
+
+/* ------------------------------
+   BUTTONS
+------------------------------ */
+button { cursor: pointer; font-family: inherit; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+  border: 1px solid var(--color-primary);
+}
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+.btn-secondary {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--color-text-main);
+}
+.btn-secondary:hover {
+  background: var(--bg-hover);
+}
+
+.icon-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--color-primary);
+}
+
+.icon-btn.delete:hover {
+  background: #fee2e2;
+  color: var(--color-danger);
+}
+
+.icon-btn.bordered {
+  background: var(--bg-surface);
+  border-color: var(--border-color);
+}
+
+/* ------------------------------
+   FORMS & INPUTS
+------------------------------ */
+.input, .textarea {
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  font-family: "Inter", sans-serif;
+  background: var(--bg-surface);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input:focus, .textarea:focus {
+  border-color: #aaa;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 100px;
 }

@@ -1,36 +1,5 @@
 /* ------------------------------
-   LAYOUT
------------------------------- */
-:host {
-  display: flex;
-  width: 100%;
-  background: #fff;
-}
-
-.library-layout {
-  display: flex;
-  flex-direction: row;
-  width: 100%;
-}
-
-.library-content {
-  flex: 1;
-  height: 100vh;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 3rem;
-  width: 100%;
-  flex: 1;
-}
-
-/* ------------------------------
-   TOOLBAR (Header)
+   TOOLBAR
 ------------------------------ */
 .toolbar {
   position: sticky;
@@ -39,14 +8,14 @@
   backdrop-filter: blur(8px);
   z-index: 5;
   padding: 1.5rem 3rem;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
 }
 
-.toolbar-left h1 {
+.toolbar h1 {
   font-size: 1.75rem;
   font-weight: 500;
   margin: 0;
@@ -58,55 +27,36 @@
   gap: 1rem;
 }
 
-/* Controls grouping */
+/* View Toggle Group */
 .control-group {
   display: flex;
   background: #f5f5f5;
-  padding: 2px;
-  border-radius: 6px;
+  padding: 3px;
+  border-radius: var(--radius-md);
+  gap: 2px;
 }
 
-.icon-toggle {
+.toggle-opt {
   background: transparent;
   border: none;
-  padding: 6px;
-  border-radius: 4px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  color: #888;
+  color: var(--color-text-light);
   display: flex;
 }
+.toggle-opt:hover { color: var(--color-text-main); }
+.toggle-opt.active { background: #fff; color: #000; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
 
-.icon-toggle:hover { color: #333; }
-.icon-toggle.active { background: #fff; color: #000; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-
-/* Primary Button */
-.btn-primary {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: #111;
-  color: #fff;
-  border: none;
-  padding: 0.6rem 1rem;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-primary:hover {
-  background: #333;
-}
 
 /* ------------------------------
-   ADD BOOK DRAWER (Inline)
+   ADD BOOK DRAWER
 ------------------------------ */
 .add-drawer {
-  background: #fafafa;
-  border: 1px solid #eee;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
   padding: 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   margin-bottom: 2rem;
   animation: slideDown 0.2s ease-out;
 }
@@ -116,44 +66,20 @@
   gap: 1rem;
 }
 
-.input-styled {
-  flex: 1;
-  padding: 0.6rem 1rem;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.input-styled:focus {
-  border-color: #aaa;
-}
-
-.btn-secondary {
-  background: white;
-  border: 1px solid #ddd;
-  color: #333;
-  padding: 0 1rem;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.btn-secondary:hover { background: #f9f9f9; }
-
 @keyframes slideDown {
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 /* ------------------------------
-   LIST VIEW (Refined)
+   LIST VIEW
 ------------------------------ */
 .table-header {
   display: grid;
   grid-template-columns: 2fr 1.5fr 1fr 60px 80px;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #eaeaea;
-  color: #888;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--color-text-light);
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -163,48 +89,40 @@
 .table-row {
   display: grid;
   grid-template-columns: 2fr 1.5fr 1fr 60px 80px;
-  padding: 1rem 1rem;
-  border-bottom: 1px solid #f7f7f7;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid transparent;
   align-items: center;
   cursor: pointer;
   transition: background 0.1s ease;
   font-size: 0.95rem;
-  color: #333;
-  border-radius: 6px;
+  color: var(--color-text-main);
+  border-radius: var(--radius-md);
 }
 
 .table-row:hover {
-  background: #f9f9f9;
+  background: var(--bg-hover);
 }
 
-/* Only show actions on hover */
+/* Show actions only on hover */
 .table-row .actions-cell {
   opacity: 0;
   transition: opacity 0.2s;
+  display: flex;
+  justify-content: flex-end;
 }
 .table-row:hover .actions-cell {
   opacity: 1;
 }
 
-.col.author { color: #666; }
-.col.format .badge {
+.col.author { color: var(--color-text-muted); }
+
+.badge {
   font-size: 0.7rem;
   padding: 2px 6px;
   background: #eee;
   border-radius: 4px;
   color: #555;
 }
-
-.icon-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #999;
-  padding: 4px;
-  border-radius: 4px;
-}
-.icon-btn:hover { color: #333; background: #eee; }
-.icon-btn.delete:hover { color: #cf3838; background: #fee2e2; }
 
 /* ------------------------------
    GRID VIEW
@@ -217,7 +135,6 @@
 }
 
 .book-card {
-  group: 1;
   cursor: pointer;
 }
 
@@ -225,15 +142,13 @@
   position: relative;
   aspect-ratio: 2/3;
   background: #f0f0f0;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   margin-bottom: 0.75rem;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-  transition: transform 0.2s, box-shadow 0.2s;
-  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ccc;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .book-card:hover .cover-wrapper {
@@ -244,11 +159,10 @@
 .meta-title {
   font-weight: 600;
   font-size: 0.95rem;
-  margin-bottom: 0.15rem;
-  color: #111;
+  color: var(--color-primary);
 }
 
 .meta-author {
   font-size: 0.85rem;
-  color: #777;
+  color: var(--color-text-light);
 }

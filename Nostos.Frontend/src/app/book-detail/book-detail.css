@@ -1,39 +1,11 @@
 /* ------------------------------
-   LAYOUT
------------------------------- */
-:host {
-  display: block;
-  width: 100%;
-}
-
-.library-layout {
-  display: flex;
-  min-height: 100vh;
-  background: #fff;
-}
-
-.detail-content {
-  flex: 1;
-  height: 100vh;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.container {
-  max-width: 800px; /* Reading width */
-  margin: 0 auto;
-  padding: 3rem 2rem;
-  width: 100%;
-}
-
-/* ------------------------------
    HEADER & META
 ------------------------------ */
 .back-nav {
   margin-bottom: 2rem;
 }
 
+/* Custom link button */
 .btn-back {
   display: flex;
   align-items: center;
@@ -41,25 +13,21 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: #666;
+  color: var(--color-text-light);
   font-size: 0.9rem;
   padding: 0;
-  transition: color 0.2s;
 }
+.btn-back:hover { color: var(--color-text-main); }
 
-.btn-back:hover { color: #111; }
 
 .book-header {
   margin-bottom: 3rem;
   padding-bottom: 2rem;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-color);
 }
 
-h1 {
-  font-family: "Lora", serif;
+.book-header h1 {
   font-size: 2.5rem;
-  font-weight: 500;
-  color: #111;
   margin-bottom: 1rem;
   line-height: 1.2;
 }
@@ -67,7 +35,7 @@ h1 {
 .meta-row {
   display: flex;
   gap: 1.5rem;
-  color: #666;
+  color: var(--color-text-muted);
   font-size: 0.95rem;
 }
 
@@ -86,150 +54,144 @@ h1 {
 
 .note-input-wrapper {
   position: relative;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  background: #fafafa;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-body);
   transition: all 0.2s ease;
 }
 
 .note-input-wrapper:focus-within {
-  background: #fff;
+  background: var(--bg-surface);
   border-color: #ccc;
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
 
-.note-textarea {
+/* Specific override for the seamless look */
+.note-textarea-seamless {
   width: 100%;
   min-height: 100px;
   padding: 1rem;
   border: none;
   background: transparent;
-  resize: vertical;
-  font-family: "Inter", sans-serif;
-  font-size: 1rem;
   outline: none;
-  display: block;
+  font-family: inherit;
+  font-size: 1rem;
+  resize: vertical;
 }
 
 .input-actions {
   display: flex;
   justify-content: flex-end;
   padding: 0.5rem 1rem 1rem;
-  border-top: 1px solid transparent;
 }
-
-.note-input-wrapper:focus-within .input-actions {
-  border-top-color: #f5f5f5;
-}
-
-.btn-primary {
-  background: #111;
-  color: #fff;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  font-weight: 500;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-.btn-primary:hover { background: #333; }
-.btn-primary:disabled { background: #ccc; cursor: not-allowed; }
 
 /* ------------------------------
-   NOTES LIST
+   NOTES LIST (Refined - Structured Minimalist)
 ------------------------------ */
+
 h2 {
   font-size: 1.1rem;
   font-weight: 600;
   margin-bottom: 1.5rem;
-  color: #333;
+  color: var(--color-primary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .notes-list {
+  /* Removes the bullet point */
   list-style: none;
   padding: 0;
+  margin: 0;
+
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
+}
+
+.note-item {
+  display: block;
 }
 
 .note-card {
-  background: #fff;
-  padding: 0 0 1.5rem 1rem; /* Indented with border */
-  border-left: 3px solid #eee;
-  transition: border-color 0.2s;
+  background: var(--bg-surface);
+
+  /* LAYOUT: Subtle box with a strong left line */
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--color-primary);
+
+  /* RADIUS: Tighter corners */
+  border-radius: 4px;
+
+  /* PADDING: Optimized density */
+  padding: 1rem 1.25rem;
+
   position: relative;
+  transition: background-color 0.15s ease;
 }
 
 .note-card:hover {
-  border-left-color: #111;
+  /* MINIMALIST HOVER: Just a subtle texture shift */
+  background-color: #fafafa;
 }
 
 .note-content {
   font-size: 1rem;
   line-height: 1.6;
-  color: #333;
+  color: var(--color-text-main);
   white-space: pre-wrap;
+  margin: 0;
 }
 
-/* Actions only show on hover */
+/* Actions position adjustment */
 .note-actions {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: 0.5rem;
+  right: 0.5rem;
   display: flex;
-  gap: 0.5rem;
+  gap: 0.25rem;
+
   opacity: 0;
   transition: opacity 0.2s ease;
+
+  background: rgba(255,255,255,0.9);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 2px;
 }
 
 .note-card:hover .note-actions {
   opacity: 1;
 }
 
-.icon-btn {
-  background: #fff;
-  border: 1px solid #eee;
-  color: #666;
+/* Ensure icons inside note cards look clean */
+.note-actions .icon-btn {
+  border: none;
+  background: transparent;
   width: 28px;
   height: 28px;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
-.icon-btn:hover { border-color: #ccc; color: #000; }
-.icon-btn.delete:hover { border-color: #fca5a5; color: #dc2626; background: #fef2f2; }
+.note-actions .icon-btn:hover {
+  background: #eee;
+  color: #000;
+}
 
-/* EDIT MODE */
+/* Edit Mode Wrapper */
 .edit-wrapper {
-  border: 1px solid #ccc;
-  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
   padding: 1rem;
-  background: #fff;
+  background: var(--bg-surface);
 }
 .edit-actions {
   display: flex;
   gap: 0.5rem;
   margin-top: 0.75rem;
 }
-.btn-secondary {
-  background: #fff;
-  border: 1px solid #ddd;
-  padding: 0.4rem 0.8rem;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.btn-secondary:hover { background: #f5f5f5; }
 
-/* LOADING / ERROR */
 .loading-state, .error-state {
   text-align: center;
   padding: 4rem;
-  color: #888;
+  color: var(--color-text-light);
 }
