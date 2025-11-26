@@ -1,13 +1,14 @@
 <main>
   <div class="container library-container">
 
+    <!-- View Toggle -->
     <div class="view-toggle">
       <button [class.active]="viewMode() === 'list'" (click)="viewMode.set('list')">List</button>
-
       <button [class.active]="viewMode() === 'grid'" (click)="viewMode.set('grid')">Grid</button>
     </div>
 
-    <div class="table-wrapper">
+    <!-- LIST VIEW (table layout) -->
+    <div *ngIf="viewMode() === 'list'" class="table-wrapper">
 
       <div class="table-header">
         <div class="col title">Title</div>
@@ -23,7 +24,7 @@
           <div class="col title">{{ book.title }}</div>
           <div class="col author">{{ book.author }}</div>
           <div class="col format">
-            <span class="tag"></span>
+            <span class="tag">—</span>
           </div>
           <div class="col fav">
             <span class="star">★</span>
@@ -35,7 +36,17 @@
         </div>
         }
       </div>
+    </div>
 
+    <!-- GRID VIEW -->
+    <div *ngIf="viewMode() === 'grid'" class="book-grid">
+      @for (book of books(); track book.id) {
+      <div class="book-card">
+        <div class="cover"></div>
+        <div class="book-title">{{ book.title }}</div>
+        <div class="book-author">{{ book.author }}</div>
+      </div>
+      }
     </div>
 
   </div>
