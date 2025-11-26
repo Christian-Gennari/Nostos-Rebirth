@@ -1,41 +1,33 @@
 <div class="sidebar" [class.collapsed]="!expanded()">
 
-  <!-- TOGGLE BUTTON -->
+  <!-- COLLAPSE BUTTON -->
   <button class="toggle-btn" (click)="toggle()">
-    @if (expanded()) { « } @else { » }
+    <lucide-icon name="chevron-left" size="20"></lucide-icon>
+
   </button>
 
-  <!-- HEADER -->
   @if (expanded()) {
   <h3 class="sidebar-title">Collections</h3>
-  } @else {
-  <div class="sidebar-title collapsed">📚</div>
   }
 
   <div class="collections">
 
-    <!-- ADD COLLECTION FORM -->
-    @if (expanded() && adding()) {
-    <div class="add-form">
-      <input type="text" placeholder="New collection" [(ngModel)]="newName" />
-      <button (click)="create()">Add</button>
-    </div>
-    }
-
-    <!-- COLLECTION LIST -->
     @for (col of collections(); track col.id) {
     <div class="collection-item" [class.active]="activeCollection() === col.id" (click)="select(col)">
 
-      <span class="icon">📁</span>
-
+      <lucide-icon name="folder" size="18"></lucide-icon>
       @if (expanded()) {
       <span class="label">{{ col.name }}</span>
       }
     </div>
     }
+
   </div>
 
   <!-- ADD BUTTON -->
-  <button class="add-btn" (click)="startAdd()">＋</button>
+  <div class="add-btn" (click)="startAdd()">
+    <lucide-icon name="plus" size="18"></lucide-icon>
+    @if (expanded()) { Add Collection }
+  </div>
 
 </div>

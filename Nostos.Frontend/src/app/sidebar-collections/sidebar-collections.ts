@@ -3,11 +3,12 @@ import { CollectionsService } from '../services/collections.services';
 import { Collection } from '../dtos/collection.dtos';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { LucideAngularModule } from 'lucide-angular';
 
 @Component({
   standalone: true,
   selector: 'app-sidebar-collections',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LucideAngularModule],
   templateUrl: './sidebar-collections.html',
   styleUrls: ['./sidebar-collections.css'],
 })
