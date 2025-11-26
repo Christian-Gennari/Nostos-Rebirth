@@ -1,11 +1,12 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { BooksService, Book } from '../services/books.services';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-library',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   templateUrl: './library.html',
   styleUrls: ['./library.css'],
 })

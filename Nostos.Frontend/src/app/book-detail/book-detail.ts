@@ -27,7 +27,7 @@ export class BookDetail implements OnInit {
     }
 
     this.booksService.get(id).subscribe({
-      next: (book) => {
+      next: (book: Book) => {
         this.book = book;
         this.loading = false;
       },

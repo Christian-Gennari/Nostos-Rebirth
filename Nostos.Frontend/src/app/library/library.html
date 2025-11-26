@@ -20,7 +20,7 @@
 
       <div class="table-body">
         @for (book of books(); track book.id) {
-        <div class="table-row">
+        <div class="table-row" [routerLink]="['/library', book.id]">
           <div class="col title">{{ book.title }}</div>
           <div class="col author">{{ book.author }}</div>
           <div class="col format">
