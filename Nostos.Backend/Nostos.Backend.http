@@ -1,10 +1,74 @@
-@Nostos.Backend_HostAddress = http://localhost:5214
+@host = http://localhost:5214
+
+############################################################
+# BOOKS
+############################################################
+
+### List all books
+GET {{host}}/api/books
+Accept: application/json
 
 
-###
+### Create a new book
+POST {{host}}/api/books
+Content-Type: application/json
 
-GET http://localhost:5214/api/books
-###
-GET http://localhost:5214/api/books/{8be689d6-abd1-4752-babd-3c4c942027a2}
-###
-DELETE http://localhost:5214/api/books/{8be689d6-abd1-4752-babd-3c4c942027a2}
+{
+  "title": "Test Book",
+  "author": "Someone"
+}
+
+
+### Get a book by ID
+# Replace BOOK_ID below after creating a book
+GET {{host}}/api/books/BOOK_ID
+Accept: application/json
+
+
+### Update book metadata
+PUT {{host}}/api/books/BOOK_ID
+Content-Type: application/json
+
+{
+  "title": "Updated Title",
+  "author": "Updated Author"
+}
+
+
+### Delete a book
+DELETE {{host}}/api/books/BOOK_ID
+Accept: application/json
+
+
+############################################################
+# NOTES
+############################################################
+
+### List notes for a book
+# Replace BOOK_ID below
+GET {{host}}/api/books/c6ca4603-7b6c-4534-9d2d-ec661715f497/notes
+Accept: application/json
+
+
+### Create a note for a book
+POST {{host}}/api/books/c6ca4603-7b6c-4534-9d2d-ec661715f497/notes
+Content-Type: application/json
+
+{
+  "content": "This is my first note on the book."
+}
+
+
+### Update a note
+# Replace NOTE_ID below after creating a note
+PUT {{host}}/api/notes/353cfba3-8d94-46be-aaf3-47d4de8b9453
+Content-Type: application/json
+
+{
+  "content": "Updated note content."
+}
+
+
+### Delete a note
+DELETE {{host}}/api/notes/353cfba3-8d94-46be-aaf3-47d4de8b9453
+Accept: application/json
