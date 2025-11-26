@@ -1,16 +1,9 @@
-:host {
-  font-family: "Inter", sans-serif;
-  box-sizing: border-box;
-  -webkit-font-smoothing: antialiased;
-}
-
 main {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
-  background: #fafafa;
+  padding: 3rem 1.5rem;
 }
 
 .container {
@@ -19,33 +12,26 @@ main {
   text-align: center;
 }
 
-h1 {
-  font-family: "Lora", serif;
-  font-size: 2.8rem;
-  font-weight: 500;
-  margin-bottom: 1rem;
-  color: #1a1a1a;
-}
-
+/* Subtitle spacing under heading */
 p {
-  font-size: 1.15rem;
-  color: #4a4a4a;
+  margin-top: 0.5rem;
   margin-bottom: 2rem;
-  line-height: 1.6;
 }
 
+/* Primary action button */
 .action {
   display: inline-block;
   padding: 0.75rem 1.5rem;
-  border-radius: 6px;
-  border: 1px solid #ccc;
+  border-radius: var(--radius);
+  border: var(--border);
   font-size: 1rem;
   font-weight: 500;
   text-decoration: none;
-  color: #1a1a1a;
-  transition: background 0.2s ease;
+  color: var(--text-primary);
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .action:hover {
-  background: #eaeaea;
+  background: var(--hover-bg);
+  border-color: #ccc;
 }

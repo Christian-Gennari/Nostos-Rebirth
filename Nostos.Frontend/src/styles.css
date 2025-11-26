@@ -1,11 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Lora:wght@400;500;600&display=swap');
+
+:root {
+  --radius: 8px;
+  --border: 1px solid #ddd;
+  --hover-bg: #f3f3f3;
+  --text-primary: #1a1a1a;
+  --text-secondary: #4a4a4a;
+}
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-body {
+html, body {
+  font-family: "Inter", sans-serif;
   margin: 0;
   padding: 0;
+  background: #fafafa;
   overflow-x: hidden;
+}
+
+h1, h2, h3, h4 {
+  font-family: "Lora", serif;
+  color: #1a1a1a;
+}
+
+p {
+  color: #4a4a4a;
+  line-height: 1.6;
 }

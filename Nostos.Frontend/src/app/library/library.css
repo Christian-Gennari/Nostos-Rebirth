@@ -1,1 +1,164 @@
-/* styles for library page */
+/* ------------------------------
+   Page layout
+------------------------------ */
+
+main {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+}
+
+.library-container {
+  width: 100%;
+  max-width: 900px;
+}
+
+/* ------------------------------
+   View Toggle (kept from before)
+------------------------------ */
+
+.view-toggle {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.view-toggle button {
+  background: none;
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: 0.4rem 0.9rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: background 0.2s ease;
+}
+
+.view-toggle button:hover {
+  background: var(--hover-bg);
+}
+
+.view-toggle .active {
+  background: var(--hover-bg);
+  border-color: #ccc;
+}
+
+/* ------------------------------
+   TABLE LAYOUT (NEW)
+------------------------------ */
+
+.table-wrapper {
+  width: 100%;
+  font-size: 0.95rem;
+}
+
+.table-header {
+  display: grid;
+  grid-template-columns: 3fr 2fr 1fr 0.5fr 1fr;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #e5e5e5;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.75rem;
+}
+
+.table-body .table-row {
+  display: grid;
+  grid-template-columns: 3fr 2fr 1fr 0.5fr 1fr;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #efefef;
+  align-items: center;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.table-body .table-row:hover {
+  background: #f3f2f2;
+}
+
+/* Columns */
+.col {
+  display: flex;
+  align-items: center;
+}
+
+/* Title column */
+.col.title {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* Author column (italic like your screenshot) */
+.col.author {
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+/* Format tag */
+.tag {
+  padding: 0.15rem 0.45rem;
+  background: #f7f7f7;
+  border: 1px solid #ddd;
+  border-radius: var(--radius);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+/* Favorite star */
+.star {
+  color: goldenrod;
+  font-size: 1rem;
+}
+
+/* Action icons */
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 0.25rem;
+  color: var(--text-secondary);
+}
+
+.icon-btn:hover {
+  opacity: 0.7;
+}
+
+/* ------------------------------
+   GRID VIEW (optional, kept)
+------------------------------ */
+
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 1.5rem;
+}
+
+.book-grid .book-card {
+  background: #fff;
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  text-align: center;
+}
+
+.book-grid .cover {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  background: #e5e5e5;
+  border-radius: var(--radius);
+  margin-bottom: 0.75rem;
+}
+
+.book-grid .book-title {
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.book-grid .book-author {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}

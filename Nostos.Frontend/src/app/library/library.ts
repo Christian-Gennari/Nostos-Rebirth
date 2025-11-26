@@ -14,6 +14,8 @@ export class Library implements OnInit {
 
   books = signal<Book[]>([]);
 
+  viewMode = signal<'list' | 'grid'>('list');
+
   ngOnInit(): void {
     this.loadBooks();
   }
