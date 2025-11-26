@@ -23,3 +23,4 @@ export class BooksService {
     return this.http.put<Book>(`/api/books/${id}`, dto);
   }
 }
+export type { Book };

@@ -162,3 +162,31 @@ main {
   font-size: 0.85rem;
   color: var(--text-secondary);
 }
+
+
+/* ------------------------------
+   ADD BOOK FORM
+------------------------------ */
+.add-book {
+  margin-bottom: 2rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.add-book input {
+  padding: 0.5rem;
+  border: var(--border);
+  border-radius: var(--radius);
+}
+
+.add-book button {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  background: #fff;
+  border: var(--border);
+  cursor: pointer;
+}
+
+.add-book button:hover {
+  background: var(--hover-bg);
+}

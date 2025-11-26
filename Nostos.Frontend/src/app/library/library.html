@@ -6,6 +6,14 @@
       <button [class.active]="viewMode() === 'grid'" (click)="viewMode.set('grid')">Grid</button>
     </div>
 
+    <div class="add-book">
+      <input type="text" placeholder="Title" [(ngModel)]="newBook.title" />
+
+      <input type="text" placeholder="Author (optional)" [(ngModel)]="newBook.author" />
+
+      <button (click)="addBook()">Add Book</button>
+    </div>
+
     <!-- LIST VIEW -->
     @if (viewMode() === 'list') {
     <div class="table-wrapper">
