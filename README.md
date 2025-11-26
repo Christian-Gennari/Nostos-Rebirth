@@ -213,4 +213,4 @@
 4. **TTS via ElevenLabs**
 5. **Full-text search across books**
 6. **Browser extension**
-7. 
+7.

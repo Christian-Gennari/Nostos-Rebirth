@@ -8,8 +8,22 @@ public static class MappingExtensions
     // ------------------------------
     // Read mappings (Model → DTO)
     // ------------------------------
-    public static BookDto ToDto(this BookModel model) =>
-    new(model.Id, model.Title, model.Author, model.CreatedAt, model.HasFile, model.FileName);
+    public static BookDto ToDto(this BookModel model)
+    {
+        string? coverUrl = model.CoverFileName is null
+            ? null
+            : $"/api/books/{model.Id}/cover";
+
+        return new BookDto(
+            model.Id,
+            model.Title,
+            model.Author,
+            model.CreatedAt,
+            model.HasFile,
+            model.FileName,
+            coverUrl
+        );
+    }
 
     public static NoteDto ToDto(this NoteModel model) =>
         new(model.Id, model.BookId, model.Content);

@@ -8,7 +8,8 @@ public record BookDto(
     string? Author,
     DateTime CreatedAt,
     bool HasFile,
-    string? FileName
+    string? FileName,
+    string? CoverUrl
 );
 
 public record CreateBookDto(string Title, string? Author);
