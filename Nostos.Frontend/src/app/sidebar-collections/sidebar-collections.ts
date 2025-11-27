@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, model, HostListener } from '@angular/core';
+import { Component, OnInit, inject, signal, model, HostListener, computed } from '@angular/core'; // ADD 'computed'
 import { CollectionsService } from '../services/collections.services';
 import { Collection } from '../dtos/collection.dtos';
 import { CommonModule } from '@angular/common';
@@ -38,7 +38,8 @@ export class SidebarCollections implements OnInit {
   BrainIcon = BrainCircuit;
 
   collections = signal<Collection[]>([]);
-  expanded = signal(true);
+  // CHANGED: Auto-collapse if the current route is '/second-brain' (Request 2)
+  expanded = signal(!this.router.url.startsWith('/second-brain'));
 
   // State for Creating/Editing
   adding = signal(false);
@@ -49,6 +50,12 @@ export class SidebarCollections implements OnInit {
 
   // Access Global Active ID
   activeId = this.collectionsService.activeCollectionId;
+
+  // NEW: Computed property to fix double highlight (Request 1)
+  isAllBooksActive = computed(() => {
+    // Active only if the URL starts with '/library' AND no specific collection is selected
+    return this.router.url.startsWith('/library') && this.activeId() === null;
+  });
 
   ngOnInit(): void {
     this.load();

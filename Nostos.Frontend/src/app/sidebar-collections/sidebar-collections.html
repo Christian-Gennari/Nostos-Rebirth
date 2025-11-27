@@ -13,7 +13,7 @@
   <div class="nav-scroll-area">
 
     <div class="nav-group">
-      <button class="nav-item" [class.active]="activeId() === null" (click)="select(null)" title="All Books">
+      <button class="nav-item" [class.active]="isAllBooksActive()" (click)="select(null)" title="All Books">
         <lucide-icon [img]="LibraryIcon" [size]="18" strokeWidth="2"></lucide-icon>
         @if (expanded()) { <span class="label">All Books</span> }
       </button>

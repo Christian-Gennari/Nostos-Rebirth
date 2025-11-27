@@ -3,10 +3,7 @@
 /* LAYOUT */
 .brain-layout {
   display: grid;
-  /* CHANGED: Uses Grid to define columns:
-     1. Index Column: Min width 280px, Max width 320px.
-     2. Content Column: Takes 1fr (all remaining space).
-     This allows the index to shrink/grow slightly based on screen size, minimizing empty space. */
+  /* Uses Grid to define columns: minmax(280px, 320px) 1fr; */
   grid-template-columns: minmax(280px, 320px) 1fr;
 
   height: 100vh;
@@ -16,7 +13,6 @@
 
 /* --- LEFT COLUMN: INDEX --- */
 .index-col {
-  /* REMOVED: width: 320px; <-- Now handled by grid-template-columns */
   background: var(--bg-surface);
   border-right: 1px solid var(--border-color);
   display: flex;
@@ -130,10 +126,12 @@
   color: var(--color-text-main);
 }
 
+/* CHANGED: Adopted lighter style from Collection Folders (Request 3) */
 .index-item.active {
-  background: var(--color-primary);
-  color: #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  background: var(--bg-surface);
+  color: var(--color-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
 .index-item .name {
@@ -155,7 +153,9 @@
   text-align: right;
 }
 
+/* Ensure count uses the primary color when active */
 .index-item.active .count {
+  color: var(--color-primary);
   opacity: 0.8;
 }
 
