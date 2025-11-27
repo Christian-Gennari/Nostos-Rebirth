@@ -9,6 +9,9 @@ public class BookModel
 
   public bool HasFile { get; set; } = false;
   public string? FileName { get; set; }
-
   public string? CoverFileName { get; set; }
+
+  // --- NEW: Relationship to Collection ---
+  public Guid? CollectionId { get; set; }
+  public CollectionModel? Collection { get; set; }
 }

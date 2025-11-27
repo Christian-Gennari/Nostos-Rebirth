@@ -21,7 +21,8 @@ public static class MappingExtensions
             model.CreatedAt,
             model.HasFile,
             model.FileName,
-            coverUrl
+            coverUrl,
+            model.CollectionId // <--- NEW: Map the relationship
         );
     }
 
@@ -43,7 +44,8 @@ public static class MappingExtensions
             Id = Guid.NewGuid(),
             Title = dto.Title,
             Author = dto.Author,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            CollectionId = dto.CollectionId // <--- NEW: Map on create
         };
 
     public static NoteModel ToModel(this CreateNoteDto dto, Guid bookId) =>
@@ -75,6 +77,7 @@ public static class MappingExtensions
     {
         model.Title = dto.Title;
         model.Author = dto.Author;
+        model.CollectionId = dto.CollectionId; // <--- NEW: Map on update
     }
 
     public static void Apply(this CollectionModel model, UpdateCollectionDto dto)
@@ -91,6 +94,4 @@ public static class MappingExtensions
     {
         model.Content = dto.Content;
     }
-
-
 }

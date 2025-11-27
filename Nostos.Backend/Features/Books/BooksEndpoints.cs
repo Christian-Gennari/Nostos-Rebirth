@@ -38,10 +38,12 @@ public static class BooksEndpoints
         return Results.BadRequest(new { error = "Title is required." });
 
       var model = dto.ToModel();
+      model.CollectionId = dto.CollectionId; // <--- Map CollectionId
 
       db.Books.Add(model);
       await db.SaveChangesAsync();
 
+      // Ensure your ToDto() extension method maps CollectionId, or update it manually
       return Results.Created($"/api/books/{model.Id}", model.ToDto());
     });
 
@@ -55,6 +57,8 @@ public static class BooksEndpoints
         return Results.BadRequest(new { error = "Title is required." });
 
       book.Apply(dto);
+      book.CollectionId = dto.CollectionId; // <--- Map CollectionId
+
       await db.SaveChangesAsync();
 
       return Results.Ok(book.ToDto());

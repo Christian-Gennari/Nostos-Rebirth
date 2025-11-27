@@ -9,9 +9,9 @@ public record BookDto(
     DateTime CreatedAt,
     bool HasFile,
     string? FileName,
-    string? CoverUrl
+    string? CoverUrl,
+    Guid? CollectionId // <--- NEW
 );
 
-public record CreateBookDto(string Title, string? Author);
-public record UpdateBookDto(string Title, string? Author);
-
+public record CreateBookDto(string Title, string? Author, Guid? CollectionId); // <--- Updated
+public record UpdateBookDto(string Title, string? Author, Guid? CollectionId); // <--- Updated
