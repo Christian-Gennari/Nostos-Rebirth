@@ -13,26 +13,56 @@
   <div class="nav-scroll-area">
 
     <div class="nav-group">
+      <button class="nav-item" [class.active]="activeId() === null" (click)="select(null)" title="All Books">
+        <lucide-icon [img]="LibraryIcon" [size]="18" strokeWidth="2"></lucide-icon>
+        @if (expanded()) { <span class="label">All Books</span> }
+      </button>
+    </div>
+
+    <div class="nav-group">
       @if (expanded()) {
       <div class="section-label" animate.enter="fade-in">Collections</div>
       }
 
       @for (col of collections(); track col.id) {
-      <button class="nav-item" [class.active]="activeCollection() === col.id" (click)="select(col)"
-        title="{{col.name}}">
+
+      @if (editingId() === col.id) {
+      <div class="nav-item input-mode">
         <lucide-icon [img]="FolderIcon" [size]="18" strokeWidth="2"></lucide-icon>
+        <input #editInput type="text" class="sidebar-input" [value]="col.name"
+          (keydown.enter)="saveRename(col.id, editInput.value)" (keydown.escape)="cancelRename()" autoFocus />
+      </div>
+      }
+
+      @else {
+      <div class="nav-item-row" [class.active]="activeId() === col.id" (click)="select(col.id)">
+
+        <div class="nav-content">
+          <lucide-icon [img]="FolderIcon" [size]="18" strokeWidth="2"></lucide-icon>
+          @if (expanded()) {
+          <span class="label truncate">{{ col.name }}</span>
+          }
+        </div>
 
         @if (expanded()) {
-        <span class="label">{{ col.name }}</span>
+        <div class="nav-actions" (click)="$event.stopPropagation()">
+          <button class="action-mini" (click)="startRename(col)" title="Rename">
+            <lucide-icon [img]="Edit2Icon" [size]="12"></lucide-icon>
+          </button>
+          <button class="action-mini danger" (click)="deleteCollection(col.id)" title="Delete">
+            <lucide-icon [img]="Trash2Icon" [size]="12"></lucide-icon>
+          </button>
+        </div>
         }
-      </button>
+      </div>
+      }
       }
     </div>
 
     <div class="nav-group mt-auto">
       @if (adding()) {
       <div class="nav-item input-mode">
-        <lucide-icon [img]="FolderIcon" [size]="18" strokeWidth="2"></lucide-icon>
+        <lucide-icon [img]="PlusIcon" [size]="18" strokeWidth="2"></lucide-icon>
         @if (expanded()) {
         <input type="text" class="sidebar-input" [(ngModel)]="newName" (keydown.enter)="create()"
           (keydown.escape)="adding.set(false)" placeholder="Name..." autoFocus />

@@ -168,3 +168,85 @@
   justify-content: center;
   padding: 1.5rem 0;
 }
+
+
+/* Container for the row */
+.nav-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* Pushes actions to right */
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: background 0.1s;
+  height: 36px; /* Fixed height prevents jumping */
+}
+
+.nav-item-row:hover {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.nav-item-row.active {
+  background: var(--bg-surface); /* Distinct active state */
+  color: var(--color-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* Left side content */
+.nav-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+.label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Right side actions */
+.nav-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0; /* Hidden by default */
+  transform: translateX(10px);
+  transition: all 0.2s ease;
+}
+
+/* Show actions on row hover */
+.nav-item-row:hover .nav-actions {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Mini Action Buttons */
+.action-mini {
+  background: transparent;
+  border: none;
+  color: var(--color-text-light);
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.action-mini:hover {
+  background: rgba(0,0,0,0.05);
+  color: var(--color-primary);
+}
+
+.action-mini.danger:hover {
+  background: #fee2e2;
+  color: var(--color-danger);
+}

@@ -11,7 +11,6 @@
       </div>
 
       <div class="detail-grid">
-
         <aside class="detail-cover-col">
           <div class="skeleton-box cover-size"></div>
           <div class="skeleton-line" style="width: 80px; margin-top: 1rem; height: 14px;"></div>
@@ -20,18 +19,14 @@
         <section class="detail-info-col">
           <div class="skeleton-line title"></div>
           <div class="skeleton-line author"></div>
-
           <div style="display:flex; gap:1rem; margin-bottom: 2rem;">
             <div class="skeleton-line tags"></div>
             <div class="skeleton-line tags"></div>
           </div>
-
           <div class="skeleton-line" style="width: 140px; height: 40px;"></div>
           <hr class="divider" style="opacity: 0.3;" />
-
           <div class="skeleton-block"></div>
         </section>
-
       </div>
       }
 
@@ -67,12 +62,17 @@
           </div>
 
           <div class="cover-actions-links">
+            <button class="link-btn" (click)="openMetadataModal()">Edit Metadata</button>
+
+            <span class="sep">•</span>
+
             <button class="link-btn" (click)="triggerCoverPicker()">
               {{ book()?.coverUrl ? 'Change Cover' : 'Upload Cover' }}
             </button>
+
             @if (book()?.coverUrl) {
             <span class="sep">•</span>
-            <button class="link-btn danger" (click)="deleteCover()">Remove</button>
+            <button class="link-btn danger" (click)="deleteCover()">Remove Cover</button>
             }
           </div>
           <input type="file" accept="image/*" #coverInput style="display:none" (change)="onCoverSelected($event)" />
@@ -99,6 +99,7 @@
             </div>
 
             <div class="primary-actions">
+
               @if (book()?.hasFile) {
               <button class="btn btn-primary" (click)="openFile()">
                 <lucide-icon [img]="BookOpenIcon" [size]="18"></lucide-icon>
@@ -164,4 +165,54 @@
 
     </div>
   </div>
+
+  @if (showMetadataModal()) {
+  <div class="modal-overlay" (click)="closeMetadataModal()"
+    style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 50; backdrop-filter: blur(4px);">
+
+    <div class="modal-content" (click)="$event.stopPropagation()"
+      style="background: var(--bg-surface); padding: 1.5rem; border-radius: var(--radius-lg); width: 100%; max-width: 500px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);">
+
+      <h3 style="margin-bottom: 1.5rem; font-size: 1.25rem; font-family: 'Lora', serif; color: var(--color-primary);">
+        Edit Metadata</h3>
+
+      <div class="form-stack" style="display: flex; flex-direction: column; gap: 1rem;">
+
+        <div>
+          <label
+            style="display:block; font-size: 0.875rem; color: var(--color-text-muted); margin-bottom: 0.4rem;">Title</label>
+          <input class="input" [(ngModel)]="metaForm.title" />
+        </div>
+
+        <div>
+          <label
+            style="display:block; font-size: 0.875rem; color: var(--color-text-muted); margin-bottom: 0.4rem;">Author</label>
+          <input class="input" [(ngModel)]="metaForm.author" />
+        </div>
+
+        <div>
+          <label
+            style="display:block; font-size: 0.875rem; color: var(--color-text-muted); margin-bottom: 0.4rem;">Collection</label>
+          <div style="position: relative;">
+            <select [(ngModel)]="metaForm.collectionId" class="input" style="appearance: none; cursor: pointer;">
+              <option [ngValue]="null">No Collection</option>
+              <option *ngFor="let col of collections()" [value]="col.id">{{ col.name }}</option>
+            </select>
+            <div
+              style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--color-text-light);">
+              <lucide-icon [img]="ChevronDownIcon" [size]="16"></lucide-icon>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 2rem;">
+        <button class="btn btn-secondary" (click)="closeMetadataModal()">Cancel</button>
+        <button class="btn btn-primary" (click)="saveMetadata()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+  }
+
 </main>

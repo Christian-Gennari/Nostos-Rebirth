@@ -9,8 +9,6 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
   public DbSet<NoteModel> Notes => Set<NoteModel>();
   public DbSet<CollectionModel> Collections => Set<CollectionModel>();
   public DbSet<ConceptModel> Concepts => Set<ConceptModel>();
-
-  // NEW: Join Table
   public DbSet<NoteConceptModel> NoteConcepts => Set<NoteConceptModel>();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -23,12 +21,12 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
 
     modelBuilder.Entity<NoteConceptModel>()
         .HasOne(nc => nc.Note)
-        .WithMany(n => n.NoteConcepts) // Using the new navigation property
+        .WithMany(n => n.NoteConcepts)
         .HasForeignKey(nc => nc.NoteId);
 
     modelBuilder.Entity<NoteConceptModel>()
         .HasOne(nc => nc.Concept)
-        .WithMany()
+        .WithMany(c => c.NoteConcepts) // <--- UPDATED: Connects the navigation property
         .HasForeignKey(nc => nc.ConceptId);
   }
 }

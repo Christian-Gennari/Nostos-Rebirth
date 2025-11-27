@@ -2,6 +2,8 @@ import { Component, inject, OnInit, signal, model } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { BooksService, Book } from '../services/books.services';
 import { NotesService } from '../services/notes.services';
+import { CollectionsService } from '../services/collections.services'; // <--- NEW IMPORT
+import { Collection } from '../dtos/collection.dtos'; // <--- NEW IMPORT
 import { Note } from '../dtos/note.dtos';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -16,6 +18,7 @@ import {
   AlertCircle,
   BookOpen,
   CheckIcon,
+  ChevronDown, // <--- Added for dropdown
 } from 'lucide-angular';
 
 @Component({
@@ -29,6 +32,7 @@ export class BookDetail implements OnInit {
   private route = inject(ActivatedRoute);
   private booksService = inject(BooksService);
   private notesService = inject(NotesService);
+  private collectionsService = inject(CollectionsService); // <--- INJECT
 
   // Icons
   ArrowLeftIcon = ArrowLeft;
@@ -39,11 +43,21 @@ export class BookDetail implements OnInit {
   AlertCircleIcon = AlertCircle;
   BookOpenIcon = BookOpen;
   CheckIcon = CheckIcon;
+  ChevronDownIcon = ChevronDown;
 
   // State
   loading = signal(true);
   book = signal<Book | null>(null);
   error = signal<string | null>(null);
+
+  // Collections State (New)
+  collections = signal<Collection[]>([]);
+  showMetadataModal = signal(false);
+  metaForm = {
+    title: '',
+    author: '' as string | null,
+    collectionId: null as string | null,
+  };
 
   // Notes State
   notes = signal<Note[]>([]);
@@ -64,6 +78,7 @@ export class BookDetail implements OnInit {
 
     this.loadBook(id);
     this.loadNotes(id);
+    this.loadCollections(); // <--- Load Collections
   }
 
   loadBook(id: string): void {
@@ -85,6 +100,49 @@ export class BookDetail implements OnInit {
     });
   }
 
+  loadCollections(): void {
+    this.collectionsService.list().subscribe({
+      next: (data) => this.collections.set(data),
+    });
+  }
+
+  // --- Metadata Modal Logic ---
+  openMetadataModal(): void {
+    const b = this.book();
+    if (!b) return;
+
+    // Initialize form with current values
+    this.metaForm = {
+      title: b.title,
+      author: b.author,
+      collectionId: b.collectionId,
+    };
+    this.showMetadataModal.set(true);
+  }
+
+  closeMetadataModal(): void {
+    this.showMetadataModal.set(false);
+  }
+
+  saveMetadata(): void {
+    const b = this.book();
+    if (!b) return;
+
+    this.booksService
+      .update(b.id, {
+        title: this.metaForm.title,
+        author: this.metaForm.author,
+        collectionId: this.metaForm.collectionId,
+      })
+      .subscribe({
+        next: (updatedBook) => {
+          this.book.set(updatedBook); // Update local state
+          this.closeMetadataModal();
+        },
+      });
+  }
+
+  // --- Notes Logic ---
   addNote(): void {
     const book = this.book();
     if (!book) return;
@@ -136,10 +194,10 @@ export class BookDetail implements OnInit {
     });
   }
 
+  // --- File/Cover Logic ---
   openFile() {
     const id = this.book()?.id;
     if (!id) return;
-
     window.open(`/api/books/${id}/file`, '_blank');
   }
 
@@ -155,8 +213,7 @@ export class BookDetail implements OnInit {
 
     this.booksService.uploadCover(this.book()!.id, file).subscribe({
       next: (event) => {
-        if (event.type === 4 /* HttpEventType.Response */) {
-          // Refresh the book so the UI updates to the new cover
+        if (event.type === 4) {
           this.loadBook(this.book()!.id);
         }
       },
@@ -167,11 +224,10 @@ export class BookDetail implements OnInit {
   deleteCover() {
     const id = this.book()?.id;
     if (!id) return;
-
     if (!confirm('Remove cover image?')) return;
 
     this.booksService.deleteCover(id).subscribe({
-      next: () => this.loadBook(id), // Refresh to clear UI
+      next: () => this.loadBook(id),
       error: (err) => console.error('Delete cover error:', err),
     });
   }
@@ -186,12 +242,10 @@ export class BookDetail implements OnInit {
   onFileUploadSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
-
     if (!file || !this.book()?.id) return;
 
     this.booksService.uploadFile(this.book()!.id, file).subscribe({
       next: () => {
-        // Refresh the book to display updated "hasFile"
         this.loadBook(this.book()!.id);
       },
       error: (err) => console.error('File upload error:', err),
@@ -199,8 +253,6 @@ export class BookDetail implements OnInit {
   }
 
   formatNote(content: string): string {
-    // Regex captures the text inside [[...]] as group $1
-    // We replace the whole thing with just that text wrapped in a span
     return content.replace(/\[\[(.*?)\]\]/g, '<span class="concept-tag">$1</span>');
   }
 }

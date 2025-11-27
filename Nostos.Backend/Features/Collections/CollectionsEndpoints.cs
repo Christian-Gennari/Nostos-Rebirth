@@ -65,12 +65,21 @@ public static class CollectionsEndpoints
       var existing = await db.Collections.FindAsync(id);
       if (existing is null) return Results.NotFound();
 
+      // 1. Unlink all books first (Set their CollectionId to null)
+      var booksInCollection = await db.Books.Where(b => b.CollectionId == id).ToListAsync();
+      foreach (var book in booksInCollection)
+      {
+        book.CollectionId = null;
+      }
+
+      // 2. Now delete the collection
       db.Collections.Remove(existing);
+
       await db.SaveChangesAsync();
 
       return Results.NoContent();
     });
 
-    return routes;
+    return group;
   }
 }

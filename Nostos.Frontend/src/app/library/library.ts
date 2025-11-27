@@ -1,7 +1,7 @@
-import { Component, inject, model, OnInit, signal } from '@angular/core';
+import { Component, inject, model, OnInit, signal, computed } from '@angular/core';
 import { BooksService, Book } from '../services/books.services';
-import { CollectionsService } from '../services/collections.services'; // <--- NEW IMPORT
-import { Collection } from '../dtos/collection.dtos'; // <--- NEW IMPORT
+import { CollectionsService } from '../services/collections.services';
+import { Collection } from '../dtos/collection.dtos';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -27,11 +27,10 @@ import {
   imports: [CommonModule, RouterLink, FormsModule, SidebarCollections, LucideAngularModule],
   templateUrl: './library.html',
   styleUrls: ['./library.css'],
-  // DELETED: animations: [ ... ]
 })
 export class Library implements OnInit {
   private booksService = inject(BooksService);
-  private collectionsService = inject(CollectionsService); // <--- INJECT SERVICE
+  private collectionsService = inject(CollectionsService);
 
   ListIcon = LayoutList;
   GridIcon = LayoutGrid;
@@ -42,8 +41,23 @@ export class Library implements OnInit {
   XIcon = X;
   BookIcon = BookIcon;
 
-  books = signal<Book[]>([]);
-  collections = signal<Collection[]>([]); // <--- NEW SIGNAL
+  // 1. Raw Data Source (All books from API)
+  rawBooks = signal<Book[]>([]);
+
+  // 2. Filter State (From Service)
+  activeCollectionId = this.collectionsService.activeCollectionId;
+
+  // 3. Computed View (What the template sees)
+  // This automatically updates when rawBooks OR activeCollectionId changes
+  books = computed(() => {
+    const all = this.rawBooks();
+    const activeId = this.activeCollectionId();
+
+    if (!activeId) return all;
+    return all.filter((b) => b.collectionId === activeId);
+  });
+
+  collections = signal<Collection[]>([]);
 
   uploadProgress = signal<number | null>(null);
   uploadStartTime: number | null = null;
@@ -58,7 +72,7 @@ export class Library implements OnInit {
   newBook = {
     title: '',
     author: null as string | null,
-    collectionId: null as string | null, // <--- NEW FIELD
+    collectionId: null as string | null,
   };
 
   selectedFile: File | null = null;
@@ -66,12 +80,12 @@ export class Library implements OnInit {
 
   ngOnInit(): void {
     this.loadBooks();
-    this.loadCollections(); // <--- LOAD COLLECTIONS
+    this.loadCollections();
   }
 
   loadBooks(): void {
     this.booksService.list().subscribe({
-      next: (data) => this.books.set(data),
+      next: (data) => this.rawBooks.set(data), // <--- Updates raw data
       error: (err) => console.error('Error loading books:', err),
     });
   }
@@ -92,7 +106,7 @@ export class Library implements OnInit {
   }
 
   resetDrawer(): void {
-    this.newBook = { title: '', author: null, collectionId: null }; // <--- RESET collectionId
+    this.newBook = { title: '', author: null, collectionId: null };
     this.selectedFile = null;
     this.selectedCover = null;
   }
@@ -114,7 +128,7 @@ export class Library implements OnInit {
       .create({
         title: this.newBook.title,
         author: this.newBook.author,
-        collectionId: this.newBook.collectionId, // <--- SEND TO BACKEND
+        collectionId: this.newBook.collectionId,
       })
       .subscribe({
         next: (createdBook) => {
@@ -193,13 +207,11 @@ export class Library implements OnInit {
     const book = this.editing();
     if (!book) return;
 
-    // Note: If updating requires collectionId, you'll need to add it here too.
-    // For now, keeping title/author as per previous implementation.
     this.booksService
       .update(book.id, {
         title: this.editTitle(),
         author: this.editAuthor(),
-        collectionId: book.collectionId, // Preserving existing collection if not editable here
+        collectionId: book.collectionId,
       })
       .subscribe({
         next: () => {
