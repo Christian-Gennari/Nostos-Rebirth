@@ -9,7 +9,7 @@
 
 .sidebar {
   width: 260px;
-  background: var(--bg-sidebar); /* #fbfbfb from styles.css */
+  background: var(--bg-sidebar);
   border-right: 1px solid var(--border-color);
   height: 100%;
   display: flex;
@@ -19,12 +19,12 @@
 }
 
 .sidebar.collapsed {
-  width: 72px; /* Slightly wider for better icon clickability */
+  width: 72px;
 }
 
 /* BRAND */
 .sidebar-header {
-  height: 80px; /* Taller header for elegance */
+  height: 80px;
   display: flex;
   align-items: center;
   padding: 0 1.5rem;
@@ -49,20 +49,30 @@
 .nav-scroll-area {
   flex: 1;
   padding: 1rem;
+  /* Prevent scrollbar flashing during transition */
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  /* Smoothly adjust padding when sidebar shrinks */
+  transition: padding 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.sidebar.collapsed .nav-scroll-area {
+  /* Reduce padding so items can center properly */
+  padding: 1rem 0;
 }
 
 .nav-group {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  width: 100%;
 }
 
 .nav-group.mt-auto {
-  margin-top: auto; /* Pushes 'Add' button to bottom of scroll area */
+  margin-top: auto;
   padding-top: 1rem;
   border-top: 1px solid transparent;
 }
@@ -79,109 +89,24 @@
   transition: opacity 0.2s;
 }
 
-/* NAV ITEMS */
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  width: 100%;
-  padding: 0.6rem 0.75rem;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
-  cursor: pointer;
-
-  color: var(--color-text-muted);
-  font-family: 'Inter', sans-serif;
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: all 0.15s ease-out;
-  text-decoration: none;
-}
-
-.nav-item:hover {
-  background: rgba(0,0,0,0.04);
-  color: var(--color-text-main);
-}
-
-/* Active State: Minimalist black pill */
-.nav-item.active {
-  background: var(--color-primary);
-  color: #fff;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-/* Action: Add Button */
-.nav-item.action-add {
-  color: var(--color-text-light);
-  border: 1px dashed var(--border-color);
-}
-.nav-item.action-add:hover {
-  border-color: #999;
-  background: transparent;
-  color: var(--color-primary);
-}
-
-/* INPUT MODE */
-.sidebar-input {
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--color-primary);
-  border-radius: 0;
-  padding: 2px 0;
-  font-size: 0.9rem;
-  color: var(--color-text-main);
-  width: 100%;
-  outline: none;
-  font-family: inherit;
-}
-
-/* FOOTER */
-.sidebar-footer {
-  padding: 1.5rem;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  justify-content: flex-start; /* Align left to match flow */
-}
-
-.toggle-btn {
-  background: transparent;
-  border: none;
-  color: var(--color-text-light);
-  cursor: pointer;
-  transition: color 0.2s;
-  padding: 0;
-  display: flex;
-}
-.toggle-btn:hover { color: var(--color-primary); }
-
-/* COLLAPSED OVERRIDES */
-.sidebar.collapsed .sidebar-header {
-  padding: 0;
-  justify-content: center;
-}
-.sidebar.collapsed .nav-item {
-  justify-content: center;
-  padding: 0.75rem 0;
-}
-.sidebar.collapsed .sidebar-footer {
-  justify-content: center;
-  padding: 1.5rem 0;
-}
-
-
-/* Container for the row */
+/* --- NAV ITEMS (Folders) --- */
 .nav-item-row {
   display: flex;
   align-items: center;
-  justify-content: space-between; /* Pushes actions to right */
+  justify-content: space-between;
+
   width: 100%;
+  margin-left: 0; /* Default position */
   padding: 0.5rem 0.75rem;
+
   border-radius: 6px;
   cursor: pointer;
   color: var(--color-text-muted);
-  transition: background 0.1s;
-  height: 36px; /* Fixed height prevents jumping */
+
+  height: 36px;
+
+  /* Animate width and margin for the collapse effect */
+  transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .nav-item-row:hover {
@@ -190,13 +115,13 @@
 }
 
 .nav-item-row.active {
-  background: var(--bg-surface); /* Distinct active state */
+  background: var(--bg-surface);
   color: var(--color-primary);
   border: 1px solid var(--border-color);
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
-/* Left side content */
+/* Left side content (Icon + Label) */
 .nav-content {
   display: flex;
   align-items: center;
@@ -212,22 +137,20 @@
   font-weight: 500;
 }
 
-/* Right side actions */
+/* Hover Actions (Edit/Delete) */
 .nav-actions {
   display: flex;
   gap: 4px;
-  opacity: 0; /* Hidden by default */
+  opacity: 0;
   transform: translateX(10px);
   transition: all 0.2s ease;
 }
 
-/* Show actions on row hover */
 .nav-item-row:hover .nav-actions {
   opacity: 1;
   transform: translateX(0);
 }
 
-/* Mini Action Buttons */
 .action-mini {
   background: transparent;
   border: none;
@@ -241,12 +164,137 @@
   cursor: pointer;
 }
 
-.action-mini:hover {
-  background: rgba(0,0,0,0.05);
+.action-mini:hover { background: rgba(0,0,0,0.05); color: var(--color-primary); }
+.action-mini.danger:hover { background: #fee2e2; color: var(--color-danger); }
+
+/* --- NAV ITEM (Legacy / "New Collection" Button) --- */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  width: 100%;
+  margin-left: 0;
+  padding: 0.6rem 0.75rem;
+
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+
+  transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.nav-item:hover { background: rgba(0,0,0,0.04); color: var(--color-text-main); }
+
+.nav-item.active {
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.nav-item.action-add {
+  color: var(--color-text-light);
+  border: 1px dashed var(--border-color);
+}
+.nav-item.action-add:hover {
+  border-color: #999;
+  background: transparent;
   color: var(--color-primary);
 }
 
-.action-mini.danger:hover {
-  background: #fee2e2;
-  color: var(--color-danger);
+/* INPUT MODE (Rename/Create) */
+.sidebar-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-primary);
+  border-radius: 0;
+  padding: 2px 0;
+  font-size: 0.9rem;
+  color: var(--color-text-main);
+  width: 100%;
+  outline: none;
+  font-family: inherit;
+}
+
+/* --- FOOTER --- */
+.sidebar-footer {
+  /* Animate padding to keep the icon stable relative to the sidebar edge */
+  padding: 1.5rem;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  transition: padding 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.toggle-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-light);
+  cursor: pointer;
+  transition: color 0.2s;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+}
+.toggle-btn:hover { color: var(--color-primary); background: var(--bg-hover); }
+
+
+/* --- COLLAPSED OVERRIDES --- */
+.sidebar.collapsed .sidebar-header {
+  padding: 0;
+  justify-content: center;
+}
+
+/* Centering Logic for Items:
+   Sidebar Width: 72px
+   Item Width: 40px
+   (72 - 40) / 2 = 16px Margin Left
+   This centers the item perfectly.
+*/
+.sidebar.collapsed .nav-item,
+.sidebar.collapsed .nav-item-row {
+  width: 40px;       /* Square button */
+  height: 40px;
+  padding: 0;        /* Remove internal padding */
+  margin-left: 16px; /* <--- CRITICAL FIX: Centers the item */
+  justify-content: center;
+}
+
+/* Centering Logic for Footer:
+   Sidebar Width: 72px
+   Button Width: 32px
+   (72 - 32) / 2 = 20px Padding Left
+*/
+.sidebar.collapsed .sidebar-footer {
+  padding: 1.5rem 20px; /* <--- CRITICAL FIX: Centers the footer icon */
+}
+
+
+/* --- ANIMATIONS --- */
+
+@keyframes smoothFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(2px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Apply to both the "New Collection" button AND the "Input" mode */
+.nav-item,
+.nav-item.input-mode {
+  /* Triggers the animation every time the element is created by the @if block */
+  animation: smoothFadeIn 0.2s cubic-bezier(0.2, 0, 0, 1) forwards;
 }

@@ -33,7 +33,6 @@
           (keydown.enter)="saveRename(col.id, editInput.value)" (keydown.escape)="cancelRename()" autoFocus />
       </div>
       }
-
       @else {
       <div class="nav-item-row" [class.active]="activeId() === col.id" (click)="select(col.id)">
 
@@ -65,7 +64,7 @@
         <lucide-icon [img]="PlusIcon" [size]="18" strokeWidth="2"></lucide-icon>
         @if (expanded()) {
         <input type="text" class="sidebar-input" [(ngModel)]="newName" (keydown.enter)="create()"
-          (keydown.escape)="adding.set(false)" placeholder="Name..." autoFocus />
+          (keydown.escape)="resetInput()" placeholder="Name..." autoFocus />
         }
       </div>
       } @else {
