@@ -161,4 +161,16 @@ export class BookDetail implements OnInit {
       error: (err) => console.error('Cover upload error:', err),
     });
   }
+
+  deleteCover() {
+    const id = this.book()?.id;
+    if (!id) return;
+
+    if (!confirm('Remove cover image?')) return;
+
+    this.booksService.deleteCover(id).subscribe({
+      next: () => this.loadBook(id), // Refresh to clear UI
+      error: (err) => console.error('Delete cover error:', err),
+    });
+  }
 }

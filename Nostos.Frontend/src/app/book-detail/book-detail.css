@@ -253,3 +253,22 @@ h2 {
   padding: 0.4rem 0.75rem;
   font-size: 0.85rem;
 }
+
+
+.cover-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+/* Danger variant that matches the tone of your design */
+.btn-secondary.danger {
+  color: var(--color-danger);
+  border-color: var(--border-color);
+  background: var(--bg-surface);
+}
+
+.btn-secondary.danger:hover {
+  background: var(--bg-hover);
+  color: var(--color-danger);
+}

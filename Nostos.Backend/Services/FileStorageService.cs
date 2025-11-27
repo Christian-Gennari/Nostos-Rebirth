@@ -76,5 +76,16 @@ public class FileStorageService
     return File.Exists(path) ? path : null;
   }
 
+  public bool DeleteCover(Guid bookId)
+  {
+    var folder = Path.Combine(_root, bookId.ToString());
+    var coverPath = Path.Combine(folder, "cover.png");
+
+    if (!File.Exists(coverPath)) return false;
+
+    File.Delete(coverPath);
+    return true;
+  }
+
 
 }

@@ -181,6 +181,26 @@ public static class BooksEndpoints
     });
 
 
+    // DELETE cover
+    group.MapDelete("/{id}/cover", async (
+        Guid id,
+        NostosDbContext db,
+        FileStorageService storage) =>
+    {
+      var book = await db.Books.FindAsync(id);
+      if (book is null) return Results.NotFound();
+
+      var removed = storage.DeleteCover(id);
+      if (!removed) return Results.NotFound();
+
+      // Reset metadata
+      book.CoverFileName = null;
+      await db.SaveChangesAsync();
+
+      return Results.NoContent();
+    });
+
+
     return routes;
   }
 

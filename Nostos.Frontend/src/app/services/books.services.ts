@@ -46,5 +46,9 @@ export class BooksService {
       observe: 'events',
     });
   }
+
+  deleteCover(bookId: string): Observable<void> {
+    return this.http.delete<void>(`/api/books/${bookId}/cover`);
+  }
 }
 export type { Book };

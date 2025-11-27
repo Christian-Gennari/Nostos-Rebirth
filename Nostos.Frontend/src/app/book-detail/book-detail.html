@@ -29,16 +29,26 @@
 
       <header class="book-header">
 
+        <!-- If a cover exists -->
         @if (book()?.coverUrl) {
+
         <img [src]="book()?.coverUrl" alt="Book cover" class="detail-cover-image" />
+
+        <div class="cover-actions">
+          <button class="btn-secondary" (click)="triggerCoverPicker()">Change cover</button>
+          <button class="btn-secondary danger" (click)="deleteCover()">Delete cover</button>
+        </div>
+
+        <input type="file" accept="image/*" #coverInput style="display:none" (change)="onCoverSelected($event)" />
         }
 
-        @if (book()?.coverUrl) {
-        <button class="btn-secondary change-cover-btn" (click)="triggerCoverPicker()">
-          Change cover
-        </button>
+        <!-- If NO cover exists -->
+        @else {
 
-        <!-- Hidden file input -->
+        <div class="cover-actions">
+          <button class="btn-secondary" (click)="triggerCoverPicker()">Add cover</button>
+        </div>
+
         <input type="file" accept="image/*" #coverInput style="display:none" (change)="onCoverSelected($event)" />
         }
 
