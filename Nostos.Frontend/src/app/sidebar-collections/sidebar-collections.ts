@@ -3,7 +3,7 @@ import { CollectionsService } from '../services/collections.services';
 import { Collection } from '../dtos/collection.dtos';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router'; // <--- Import Router
 import {
   LucideAngularModule,
   Folder,
@@ -13,7 +13,7 @@ import {
   Plus,
   Trash2,
   Edit2,
-  BrainIcon,
+  BrainCircuit,
 } from 'lucide-angular';
 
 @Component({
@@ -25,6 +25,7 @@ import {
 })
 export class SidebarCollections implements OnInit {
   private collectionsService = inject(CollectionsService);
+  private router = inject(Router); // <--- Inject Router
 
   // Icons
   FolderIcon = Folder;
@@ -34,7 +35,7 @@ export class SidebarCollections implements OnInit {
   PlusIcon = Plus;
   Trash2Icon = Trash2;
   Edit2Icon = Edit2;
-  BrainIcon = BrainIcon;
+  BrainIcon = BrainCircuit;
 
   collections = signal<Collection[]>([]);
   expanded = signal(true);
@@ -44,7 +45,6 @@ export class SidebarCollections implements OnInit {
   editingId = signal<string | null>(null);
   newName = model<string>('');
 
-  // Helper to prevent immediate closing when clicking the trigger button
   private ignoreClick = false;
 
   // Access Global Active ID
@@ -54,27 +54,20 @@ export class SidebarCollections implements OnInit {
     this.load();
   }
 
-  // --- CLICK OUTSIDE LISTENER ---
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
-    // 1. If we just opened the input (clicked the + or Edit button), ignore this click
     if (this.ignoreClick) {
       this.ignoreClick = false;
       return;
     }
 
-    // 2. If nothing is being edited, do nothing
     if (!this.adding() && !this.editingId()) return;
 
-    // 3. Check if the click target is inside the active input row
     const target = event.target as HTMLElement;
     const isInsideInputRow = target.closest('.nav-item.input-mode');
 
-    // 4. If clicked OUTSIDE the input row, save/close it
     if (!isInsideInputRow) {
-      // If adding, check if empty and close
       if (this.adding()) this.resetInput();
-      // If editing, cancel or save (depending on preference, usually cancel on click-away)
       if (this.editingId()) this.cancelRename();
     }
   }
@@ -92,13 +85,15 @@ export class SidebarCollections implements OnInit {
     this.expanded.set(!this.expanded());
   }
 
+  // --- UPDATED NAVIGATION LOGIC ---
   select(id: string | null): void {
     this.collectionsService.activeCollectionId.set(id);
+    // Force navigation to the library so the filter is actually seen
+    this.router.navigate(['/library']);
   }
 
-  // --- Create ---
   startAdd(): void {
-    this.ignoreClick = true; // <--- Prevent immediate close
+    this.ignoreClick = true;
     this.adding.set(true);
     if (!this.expanded()) this.expanded.set(true);
   }
@@ -125,9 +120,8 @@ export class SidebarCollections implements OnInit {
     });
   }
 
-  // --- Rename ---
   startRename(col: Collection): void {
-    this.ignoreClick = true; // <--- Prevent immediate close
+    this.ignoreClick = true;
     this.editingId.set(col.id);
   }
 

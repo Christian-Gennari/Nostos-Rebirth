@@ -29,14 +29,26 @@ export class SecondBrain implements OnInit {
   selectedDetail = signal<ConceptDetailDto | null>(null);
   loadingDetail = signal(false);
 
-  // Computed Filter
+  // Computed Filter (Now Crash-Proof)
   filteredConcepts = computed(() => {
     const q = this.searchQuery().toLowerCase();
-    return this.concepts().filter((c) => c.name.toLowerCase().includes(q));
+
+    return this.concepts().filter((c) => {
+      // Handle potential casing mismatch (Name vs name)
+      // @ts-ignore
+      const name = c.name || c.Name || '';
+      return name.toLowerCase().includes(q);
+    });
   });
 
   ngOnInit() {
-    this.conceptsService.list().subscribe((data) => this.concepts.set(data));
+    this.conceptsService.list().subscribe({
+      next: (data) => {
+        console.log('Concepts loaded:', data); // Debugging: Check console to see if data arrives
+        this.concepts.set(data);
+      },
+      error: (err) => console.error('Failed to load concepts:', err),
+    });
   }
 
   selectConcept(id: string) {
@@ -48,12 +60,14 @@ export class SecondBrain implements OnInit {
         this.selectedDetail.set(detail);
         this.loadingDetail.set(false);
       },
+      error: (err) => {
+        console.error(err);
+        this.loadingDetail.set(false);
+      },
     });
   }
 
   formatNote(content: string): string {
-    // Highlight the current concept inside the note text
-    // (We reuse your regex logic, but specific to this view if needed)
     return content.replace(/\[\[(.*?)\]\]/g, '<span class="concept-tag">$1</span>');
   }
 }

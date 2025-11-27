@@ -14,16 +14,22 @@ public static class ConceptsEndpoints
     // GET all concepts (The Index)
     group.MapGet("/", async (NostosDbContext db) =>
     {
-      var concepts = await db.Concepts
-              .Select(c => new ConceptDto(
-                  c.Id,
-                  c.Concept,
-                  c.NoteConcepts.Count()))
-              .OrderByDescending(c => c.UsageCount)
-              .ThenBy(c => c.Name)
+      // FIX: Step 1 - Select into an anonymous type that EF Core can translate to SQL
+      var rawData = await db.Concepts
+              .Select(c => new
+            {
+              c.Id,
+              Name = c.Concept,
+              UsageCount = c.NoteConcepts.Count()
+            })
+              .OrderByDescending(x => x.UsageCount)
+              .ThenBy(x => x.Name)
               .ToListAsync();
 
-      return Results.Ok(concepts);
+      // FIX: Step 2 - Map to your DTO in memory
+      var dtos = rawData.Select(x => new ConceptDto(x.Id, x.Name, x.UsageCount));
+
+      return Results.Ok(dtos);
     });
 
     // GET single concept details (The Context)
@@ -42,7 +48,7 @@ public static class ConceptsEndpoints
                   nc.NoteId,
                   nc.Note.Content,
                   nc.Note.BookId,
-                  nc.Note.Book!.Title // Access via navigation
+                  nc.Note.Book?.Title ?? "Unknown Book" // Safe null check
               ))
               .ToList();
 
