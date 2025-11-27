@@ -1,5 +1,7 @@
 import { Component, inject, model, OnInit, signal } from '@angular/core';
 import { BooksService, Book } from '../services/books.services';
+import { CollectionsService } from '../services/collections.services'; // <--- NEW IMPORT
+import { Collection } from '../dtos/collection.dtos'; // <--- NEW IMPORT
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -29,6 +31,7 @@ import {
 })
 export class Library implements OnInit {
   private booksService = inject(BooksService);
+  private collectionsService = inject(CollectionsService); // <--- INJECT SERVICE
 
   ListIcon = LayoutList;
   GridIcon = LayoutGrid;
@@ -40,6 +43,8 @@ export class Library implements OnInit {
   BookIcon = BookIcon;
 
   books = signal<Book[]>([]);
+  collections = signal<Collection[]>([]); // <--- NEW SIGNAL
+
   uploadProgress = signal<number | null>(null);
   uploadStartTime: number | null = null;
 
@@ -53,6 +58,7 @@ export class Library implements OnInit {
   newBook = {
     title: '',
     author: null as string | null,
+    collectionId: null as string | null, // <--- NEW FIELD
   };
 
   selectedFile: File | null = null;
@@ -60,12 +66,20 @@ export class Library implements OnInit {
 
   ngOnInit(): void {
     this.loadBooks();
+    this.loadCollections(); // <--- LOAD COLLECTIONS
   }
 
   loadBooks(): void {
     this.booksService.list().subscribe({
       next: (data) => this.books.set(data),
       error: (err) => console.error('Error loading books:', err),
+    });
+  }
+
+  loadCollections(): void {
+    this.collectionsService.list().subscribe({
+      next: (data) => this.collections.set(data),
+      error: (err) => console.error('Error loading collections:', err),
     });
   }
 
@@ -78,7 +92,7 @@ export class Library implements OnInit {
   }
 
   resetDrawer(): void {
-    this.newBook = { title: '', author: null };
+    this.newBook = { title: '', author: null, collectionId: null }; // <--- RESET collectionId
     this.selectedFile = null;
     this.selectedCover = null;
   }
@@ -100,6 +114,7 @@ export class Library implements OnInit {
       .create({
         title: this.newBook.title,
         author: this.newBook.author,
+        collectionId: this.newBook.collectionId, // <--- SEND TO BACKEND
       })
       .subscribe({
         next: (createdBook) => {
@@ -178,10 +193,13 @@ export class Library implements OnInit {
     const book = this.editing();
     if (!book) return;
 
+    // Note: If updating requires collectionId, you'll need to add it here too.
+    // For now, keeping title/author as per previous implementation.
     this.booksService
       .update(book.id, {
         title: this.editTitle(),
         author: this.editAuthor(),
+        collectionId: book.collectionId, // Preserving existing collection if not editable here
       })
       .subscribe({
         next: () => {

@@ -5,7 +5,7 @@
   --bg-body: #fafafa;
   --bg-surface: #ffffff;
   --bg-hover: #f3f3f3;
-  --bg-sidebar: #fbfbfb; /* The new variable */
+  --bg-sidebar: #fbfbfb;
 
   --color-primary: #111111;
   --color-primary-hover: #333333;
@@ -13,6 +13,11 @@
   --color-text-muted: #4a4a4a;
   --color-text-light: #888888;
   --color-danger: #d32f2f;
+
+  /* Brand Accents (New) */
+  --color-accent: #60a5fa;        /* The blue you liked */
+  --color-accent-hover: #93c5fd;  /* A lighter interaction state */
+  --color-accent-faint: rgba(96, 165, 250, 0.3); /* For subtle borders */
 
   /* Borders & Radius */
   --border-color: #e5e5e5;
@@ -206,4 +211,20 @@ input[type="file"]::file-selector-button:hover {
 ::selection {
   background: #000;
   color: #fff;
+}
+
+/* ------------------------------
+   CONCEPTS & LINKS
+------------------------------ */
+.concept-tag {
+  color: var(--color-accent);
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid var(--color-accent-faint); /* Very subtle underline */
+}
+
+.concept-tag:hover {
+  color: var(--color-accent-hover);
+  border-bottom-color: var(--color-accent-hover);
 }

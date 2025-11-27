@@ -197,4 +197,10 @@ export class BookDetail implements OnInit {
       error: (err) => console.error('File upload error:', err),
     });
   }
+
+  formatNote(content: string): string {
+    // Regex captures the text inside [[...]] as group $1
+    // We replace the whole thing with just that text wrapped in a span
+    return content.replace(/\[\[(.*?)\]\]/g, '<span class="concept-tag">$1</span>');
+  }
 }

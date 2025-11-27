@@ -35,6 +35,22 @@
           <input class="input" type="text" placeholder="Author" [(ngModel)]="newBook.author"
             (keyup.enter)="saveBook()" />
 
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-400 mb-1">Collection</label>
+            <div class="relative">
+              <select [(ngModel)]="newBook.collectionId"
+                class="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 px-3 text-white appearance-none focus:outline-none focus:border-blue-500 transition-colors">
+                <option [ngValue]="null">None</option>
+                <option *ngFor="let col of collections()" [value]="col.id">
+                  {{ col.name }}
+                </option>
+              </select>
+              <div class="absolute right-3 top-3 pointer-events-none text-gray-500">
+                <i-lucide name="chevron-down" class="w-4 h-4"></i-lucide>
+              </div>
+            </div>
+          </div>
+
           <input class="input" type="file" (change)="onFileSelected($event)" accept=".epub,.pdf,.txt" />
           <input class="input" type="file" accept="image/*" (change)="onCoverSelected($event)" />
 
