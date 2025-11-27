@@ -66,17 +66,17 @@
   gap: 1rem;
 }
 
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
 /* ------------------------------
    LIST VIEW
 ------------------------------ */
+
+.table-view {
+  --table-grid-cols: 2fr 1.5fr 1fr 60px 80px;
+}
+
 .table-header {
   display: grid;
-  grid-template-columns: 2fr 1.5fr 1fr 60px 80px;
+  grid-template-columns: var(--table-grid-cols);
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--border-color);
   color: var(--color-text-light);
@@ -88,7 +88,7 @@
 
 .table-row {
   display: grid;
-  grid-template-columns: 2fr 1.5fr 1fr 60px 80px;
+  grid-template-columns: var(--table-grid-cols);
   padding: 0.75rem 1rem;
   border-bottom: 1px solid transparent;
   align-items: center;

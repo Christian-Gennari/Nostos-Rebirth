@@ -8,8 +8,8 @@
 
 .sidebar {
   width: 260px;
-  background: #fbfbfb; /* Subtle contrast to main content */
-  border-right: 1px solid #ebebeb;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -27,11 +27,11 @@
   display: flex;
   align-items: center;
   padding: 0 1.25rem;
-  border-bottom: 1px solid transparent; /* reserved for scroll states */
+  border-bottom: 1px solid transparent;
 }
 
 .brand {
-  font-family: "Lora", serif;
+  font-family: 'Lora', serif;
   font-weight: 600;
   font-size: 1.25rem;
   color: #111;
@@ -74,19 +74,19 @@
 }
 
 .collection-item:hover {
-  background: #f3f3f3;
-  color: #111;
+  background: var(--bg-hover);
+  color: var(--color-primary);
 }
 
 .collection-item.active {
   background: #edeef0;
-  color: #111;
+  color: var(--color-primary);
 }
 
 /* FOOTER / TOGGLE */
 .sidebar-footer {
   padding: 1rem;
-  border-top: 1px solid #ebebeb;
+  border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: flex-end;
 }
@@ -145,14 +145,14 @@
 /* The input field inside the sidebar */
 .sidebar-input {
   background: transparent;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   padding: 2px 6px;
   font-size: 0.9rem;
   color: #333;
   width: 100%;
   outline: none;
-  font-family: "Inter", sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 
 .sidebar-input:focus {

@@ -5,6 +5,7 @@
   --bg-body: #fafafa;
   --bg-surface: #ffffff;
   --bg-hover: #f3f3f3;
+  --bg-sidebar: #fbfbfb; /* The new variable */
 
   --color-primary: #111111;
   --color-primary-hover: #333333;
@@ -160,4 +161,35 @@ button { cursor: pointer; font-family: inherit; }
 .textarea {
   resize: vertical;
   min-height: 100px;
+}
+
+/* Custom File Input Styling */
+input[type="file"] {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+input[type="file"]::file-selector-button {
+  margin-right: 1rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: background 0.2s;
+  font-family: inherit;
+}
+input[type="file"]::file-selector-button:hover {
+  background: var(--bg-hover);
+}
+
+/* ------------------------------
+   UTILITIES & ANIMATIONS
+------------------------------ */
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-down {
+  animation: slideDown 0.2s ease-out;
 }
