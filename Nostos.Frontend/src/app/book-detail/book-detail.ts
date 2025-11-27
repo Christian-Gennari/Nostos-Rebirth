@@ -15,6 +15,7 @@ import {
   Edit2,
   AlertCircle,
   BookOpen,
+  CheckIcon,
 } from 'lucide-angular';
 
 @Component({
@@ -37,6 +38,7 @@ export class BookDetail implements OnInit {
   Edit2Icon = Edit2;
   AlertCircleIcon = AlertCircle;
   BookOpenIcon = BookOpen;
+  CheckIcon = CheckIcon;
 
   // State
   loading = signal(true);

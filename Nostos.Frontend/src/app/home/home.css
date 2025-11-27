@@ -1,20 +1,76 @@
-main {
+/* fileName: Nostos.Frontend/src/app/home/home.css */
+.hero-wrapper {
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3rem 1.5rem;
+  background: var(--bg-body);
+  position: relative;
+  overflow: hidden;
 }
 
-.container {
-  max-width: 600px;
-  width: 100%;
+.hero-content {
   text-align: center;
+  max-width: 500px;
+  animation: fadeUp 0.8s ease-out;
+  padding: 2rem;
+  z-index: 1;
 }
 
-h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
-
-p {
+/* Brand Mark */
+.brand-mark {
+  color: var(--color-primary);
   margin-bottom: 2rem;
+  opacity: 0.8;
+}
+
+/* Typography */
+.hero-title {
+  font-family: "Lora", serif;
+  font-size: 4.5rem;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  margin: 0;
+  line-height: 1;
+  color: var(--color-primary);
+}
+
+.hero-divider {
+  width: 60px;
+  height: 1px;
+  background: var(--color-primary);
+  margin: 2.5rem auto;
+  opacity: 0.2;
+}
+
+.hero-subtitle {
+  font-family: "Inter", sans-serif;
   font-size: 1.1rem;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+  font-weight: 300;
+  margin-bottom: 3rem;
+}
+
+/* Buttons */
+.btn.lg {
+  padding: 0.8rem 2.5rem;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+}
+
+.hero-footer {
+  position: absolute;
+  bottom: 2rem;
+  font-size: 0.75rem;
+  color: #ccc;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }

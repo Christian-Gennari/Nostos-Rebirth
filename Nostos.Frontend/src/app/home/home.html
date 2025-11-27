@@ -1,14 +1,31 @@
-<main>
-  <div class="container">
-    <h1>{{ title() }}</h1>
+<main class="hero-wrapper">
+  <div class="hero-content">
 
-    <p>
-      Welcome to your digital library.
-      The space will grow as you add books, notes, and collections.
+    <div class="brand-mark">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path>
+      </svg>
+    </div>
+
+    <h1 class="hero-title">Nostos</h1>
+
+    <div class="hero-divider"></div>
+
+    <p class="hero-subtitle">
+      A return to your stories.<br>
+      Your digital sanctuary for books and thoughts.
     </p>
 
-    <a class="btn btn-primary" routerLink="/library">
-      Enter Library
-    </a>
+    <div class="hero-actions">
+      <a class="btn btn-primary lg" routerLink="/library">
+        Open Library
+      </a>
+    </div>
+
+  </div>
+
+  <div class="hero-footer">
+    <span>v1.0 Rebirth</span>
   </div>
 </main>

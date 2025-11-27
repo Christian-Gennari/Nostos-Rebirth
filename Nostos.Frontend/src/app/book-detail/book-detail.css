@@ -1,274 +1,270 @@
+/* fileName: Nostos.Frontend/src/app/book-detail/book-detail.css */
 /* ------------------------------
-   HEADER & META
+   LAYOUT GRID
 ------------------------------ */
 .back-nav {
   margin-bottom: 2rem;
 }
 
-.detail-cover-image {
-  width: 180px;
-  height: auto;
-  border-radius: var(--radius-md);
-  margin-bottom: 1.5rem;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-}
-
-/* Custom link button */
 .btn-back {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: none;
-  border: none;
-  cursor: pointer;
+  background: none; border: none;
+  display: flex; align-items: center; gap: 0.5rem;
   color: var(--color-text-light);
   font-size: 0.9rem;
+  transition: color 0.2s;
+}
+.btn-back:hover { color: var(--color-primary); }
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 3rem;
+  align-items: start;
+}
+
+/* ------------------------------
+   LEFT COL: COVER
+------------------------------ */
+.detail-cover-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cover-frame {
+  width: 100%;
+  aspect-ratio: 2/3;
+  background: #f3f3f3;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.05);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cover-img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+
+.cover-actions-links {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--color-text-light);
+}
+
+.link-btn {
+  background: none; border: none;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: all 0.2s;
   padding: 0;
 }
-.btn-back:hover { color: var(--color-text-main); }
+.link-btn:hover { text-decoration-color: currentColor; color: var(--color-primary); }
+.link-btn.danger:hover { color: var(--color-danger); }
 
-
-.book-header {
-  margin-bottom: 3rem;
-  padding-bottom: 2rem;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.book-header h1 {
-  font-size: 2.5rem;
-  margin-bottom: 1rem;
-  line-height: 1.2;
-}
-
-.meta-row {
-  display: flex;
-  gap: 1.5rem;
-  color: var(--color-text-muted);
-  font-size: 0.95rem;
-}
-
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
+.sep { opacity: 0.3; }
 
 /* ------------------------------
-   HEADER ACTIONS (Open File)
+   RIGHT COL: INFO
 ------------------------------ */
-
-.header-actions {
-  margin-top: 2rem; /* Spacing from the meta-row */
+.book-title {
+  font-size: 2.5rem;
+  line-height: 1.1;
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.02em;
 }
 
-.btn-file-action {
+.book-author {
+  font-family: "Inter", sans-serif;
+  font-size: 1.1rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  margin-bottom: 1.5rem;
+}
+
+.meta-tags {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.tag {
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-
-  /* THE LOOK: Matching your .note-card style */
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--color-text-light);
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
-  border-left: 3px solid var(--color-primary); /* The accent line */
-
-  /* Dimensions */
-  padding: 0.8rem 1.5rem;
-  border-radius: 4px; /* Matches note-card radius */
-
-  /* Text */
-  color: var(--color-text-main);
-  font-family: "Inter", sans-serif;
-  font-size: 0.95rem;
-  font-weight: 500;
-
-  cursor: pointer;
-  transition: all 0.2s ease;
+  padding: 0.2rem 0.6rem;
+  border-radius: 100px;
+}
+.tag.success {
+  color: #1a1a1a;
+  background: #f0fdf4;
+  border-color: #dcfce7;
 }
 
-.btn-file-action:hover {
-  background: #fafafa; /* Subtle hover like the cards */
-  transform: translateX(4px); /* A small "go forward" motion */
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+.primary-actions {
+  margin-bottom: 2rem;
 }
 
-/* Optional: Make the icon pop slightly */
-.btn-file-action lucide-icon {
-  color: var(--color-primary);
+.divider {
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  margin: 2rem 0;
+  opacity: 0.6;
 }
 
 /* ------------------------------
-   ADD NOTE SECTION
+   NOTES SECTION
 ------------------------------ */
-.add-note-section {
-  margin-bottom: 3rem;
+.notes-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.notes-header h3 {
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+.count {
+  background: #eee;
+  color: #666;
+  font-size: 0.75rem;
+  padding: 1px 6px;
+  border-radius: 4px;
 }
 
-.note-input-wrapper {
-  position: relative;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--bg-body);
-  transition: all 0.2s ease;
-}
-
-.note-input-wrapper:focus-within {
+.new-note-box {
   background: var(--bg-surface);
-  border-color: #ccc;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.5rem;
+  margin-bottom: 2rem;
+  transition: box-shadow 0.2s;
+}
+.new-note-box:focus-within {
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  border-color: #ddd;
 }
 
-/* Specific override for the seamless look */
-.note-textarea-seamless {
+.note-input {
   width: 100%;
-  min-height: 100px;
-  padding: 1rem;
   border: none;
   background: transparent;
   outline: none;
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 0.95rem;
   resize: vertical;
+  min-height: 40px;
+  padding: 0.5rem;
 }
 
-.input-actions {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0.5rem 1rem 1rem;
-}
-
-/* ------------------------------
-   NOTES LIST (Refined - Structured Minimalist)
------------------------------- */
-
-h2 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: 1.5rem;
-  color: var(--color-primary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.notes-list {
-  /* Removes the bullet point */
-  list-style: none;
-  padding: 0;
-  margin: 0;
-
+.notes-feed {
   display: flex;
   flex-direction: column;
+}
+
+.note-row {
+  padding: 1rem 0;
+  border-bottom: 1px solid #f0f0f0;
+  position: relative;
+}
+.note-row:first-child { padding-top: 0; }
+
+.note-text {
+  font-size: 1rem;
+  color: var(--color-text-main);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.note-hover-actions {
+  position: absolute;
+  top: 0.5rem; right: 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+  background: var(--bg-body); /* Hide line behind actions */
+  padding-left: 0.5rem;
+}
+
+.note-row:hover .note-hover-actions { opacity: 1; }
+
+.icon-btn.xs {
+  width: 24px; height: 24px;
+}
+
+.edit-box {
+  background: var(--bg-surface);
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+.row-actions {
+  margin-top: 0.5rem;
+  display: flex;
   gap: 1rem;
 }
 
-.note-item {
-  display: block;
+/* ------------------------------
+   SKELETON LOADER
+------------------------------ */
+@keyframes pulse {
+  0% { background-color: #f3f3f3; }
+  50% { background-color: #e5e5e5; }
+  100% { background-color: #f3f3f3; }
 }
 
-.note-card {
-  background: var(--bg-surface);
-
-  /* LAYOUT: Subtle box with a strong left line */
-  border: 1px solid var(--border-color);
-  border-left: 3px solid var(--color-primary);
-
-  /* RADIUS: Tighter corners */
+.skeleton-box, .skeleton-line, .skeleton-block {
+  background-color: #f3f3f3;
+  animation: pulse 1.5s ease-in-out infinite;
   border-radius: 4px;
-
-  /* PADDING: Optimized density */
-  padding: 1rem 1.25rem;
-
-  position: relative;
-  transition: background-color 0.15s ease;
 }
 
-.note-card:hover {
-  /* MINIMALIST HOVER: Just a subtle texture shift */
-  background-color: #fafafa;
-}
-
-.note-content {
-  font-size: 1rem;
-  line-height: 1.6;
-  color: var(--color-text-main);
-  white-space: pre-wrap;
-  margin: 0;
-}
-
-/* Actions position adjustment */
-.note-actions {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  display: flex;
-  gap: 0.25rem;
-
-  opacity: 0;
-  transition: opacity 0.2s ease;
-
-  background: rgba(255,255,255,0.9);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 2px;
-}
-
-.note-card:hover .note-actions {
-  opacity: 1;
-}
-
-/* Ensure icons inside note cards look clean */
-.note-actions .icon-btn {
-  border: none;
-  background: transparent;
-  width: 28px;
-  height: 28px;
-}
-
-.note-actions .icon-btn:hover {
-  background: #eee;
-  color: #000;
-}
-
-/* Edit Mode Wrapper */
-.edit-wrapper {
-  border: 1px solid var(--border-color);
+/* Matches the .cover-frame dimensions */
+.skeleton-box.cover-size {
+  width: 100%;
+  aspect-ratio: 2/3;
   border-radius: var(--radius-md);
-  padding: 1rem;
-  background: var(--bg-surface);
-}
-.edit-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
 }
 
-.loading-state, .error-state {
-  text-align: center;
-  padding: 4rem;
-  color: var(--color-text-light);
+/* Text placeholders */
+.skeleton-line {
+  height: 1.5rem;
+  margin-bottom: 0.75rem;
 }
 
-.change-cover-btn {
-  margin-top: 0.5rem;
-  padding: 0.4rem 0.75rem;
-  font-size: 0.85rem;
+.skeleton-line.title {
+  height: 2.5rem; /* Matches h1 size */
+  width: 60%;
+  margin-bottom: 1rem;
 }
 
-
-.cover-actions {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
+.skeleton-line.author {
+  height: 1.2rem;
+  width: 30%;
+  margin-bottom: 2rem;
 }
 
-/* Danger variant that matches the tone of your design */
-.btn-secondary.danger {
-  color: var(--color-danger);
-  border-color: var(--border-color);
-  background: var(--bg-surface);
+.skeleton-line.tags {
+  height: 24px;
+  width: 120px;
+  border-radius: 100px; /* Pill shape */
 }
 
-.btn-secondary.danger:hover {
-  background: var(--bg-hover);
-  color: var(--color-danger);
+.skeleton-block {
+  width: 100%;
+  height: 120px;
+  margin-top: 2rem;
 }

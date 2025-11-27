@@ -182,3 +182,28 @@ input[type="file"]::file-selector-button:hover {
   background: var(--bg-hover);
 }
 
+/* ------------------------------
+   SCROLLBAR
+------------------------------ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #ddd;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #bbb;
+}
+
+/* ------------------------------
+   SELECTION
+------------------------------ */
+::selection {
+  background: #000;
+  color: #fff;
+}

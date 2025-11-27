@@ -2,52 +2,60 @@
 
   <div class="sidebar-header">
     @if (expanded()) {
-    <div class="brand">Nostos</div>
+    <div class="brand" animate.enter="fade-in">Nostos</div>
     } @else {
-    <lucide-icon [img]="LibraryIcon" [size]="24" strokeWidth="2"></lucide-icon>
+    <div class="brand-icon">
+      <lucide-icon [img]="LibraryIcon" [size]="24" strokeWidth="1.5"></lucide-icon>
+    </div>
     }
   </div>
 
-  <div class="nav-section">
-    @if (expanded()) {
-    <div class="section-label">Collections</div>
-    }
+  <div class="nav-scroll-area">
 
-    @for (col of collections(); track col.id) {
-    <div class="collection-item" [class.active]="activeCollection() === col.id" (click)="select(col)"
-      title="{{col.name}}">
-      <lucide-icon [img]="FolderIcon" [size]="18" class="icon"></lucide-icon>
+    <div class="nav-group">
       @if (expanded()) {
-      <span class="label">{{ col.name }}</span>
+      <div class="section-label" animate.enter="fade-in">Collections</div>
       }
-    </div>
-    }
 
-    @if (adding()) {
-    <div class="collection-item input-mode">
-      <lucide-icon [img]="FolderIcon" [size]="18" class="icon"></lucide-icon>
-      @if (expanded()) {
-      <input type="text" class="sidebar-input" [(ngModel)]="newName" (keydown.enter)="create()"
-        (keydown.escape)="adding.set(false)" placeholder="Name..." autoFocus />
+      @for (col of collections(); track col.id) {
+      <button class="nav-item" [class.active]="activeCollection() === col.id" (click)="select(col)"
+        title="{{col.name}}">
+        <lucide-icon [img]="FolderIcon" [size]="18" strokeWidth="2"></lucide-icon>
+
+        @if (expanded()) {
+        <span class="label">{{ col.name }}</span>
+        }
+      </button>
       }
     </div>
-    } @else {
-    <div class="collection-item add-btn" (click)="startAdd()">
-      <lucide-icon [img]="PlusIcon" [size]="18"></lucide-icon>
-      @if (expanded()) {
-      <span class="label">New Collection</span>
+
+    <div class="nav-group mt-auto">
+      @if (adding()) {
+      <div class="nav-item input-mode">
+        <lucide-icon [img]="FolderIcon" [size]="18" strokeWidth="2"></lucide-icon>
+        @if (expanded()) {
+        <input type="text" class="sidebar-input" [(ngModel)]="newName" (keydown.enter)="create()"
+          (keydown.escape)="adding.set(false)" placeholder="Name..." autoFocus />
+        }
+      </div>
+      } @else {
+      <button class="nav-item action-add" (click)="startAdd()" title="Create Collection">
+        <lucide-icon [img]="PlusIcon" [size]="18" strokeWidth="2"></lucide-icon>
+        @if (expanded()) {
+        <span class="label">New Collection</span>
+        }
+      </button>
       }
     </div>
-    }
 
   </div>
 
   <div class="sidebar-footer">
     <button class="toggle-btn" (click)="toggle()">
       @if (expanded()) {
-      <lucide-icon [img]="PanelLeftCloseIcon" [size]="20"></lucide-icon>
+      <lucide-icon [img]="PanelLeftCloseIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
       } @else {
-      <lucide-icon [img]="PanelLeftOpenIcon" [size]="20"></lucide-icon>
+      <lucide-icon [img]="PanelLeftOpenIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
       }
     </button>
   </div>

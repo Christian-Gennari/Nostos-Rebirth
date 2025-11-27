@@ -113,6 +113,26 @@
       @if (viewMode() === 'grid') {
       <div class="book-grid">
         @for (book of books(); track book.id) {
+        @if (editing()?.id === book.id) {
+        <div class="book-card editing" (click)="$event.stopPropagation()">
+          <div class="cover-wrapper dimmed">
+            @if (book.coverUrl) {
+            <img [src]="book.coverUrl" class="cover-image" />
+            } @else {
+            <lucide-icon [img]="BookIcon" [size]="48" strokeWidth="1"></lucide-icon>
+            }
+          </div>
+          <div class="edit-stack">
+            <input class="input sm" [(ngModel)]="editTitle" placeholder="Title" />
+            <input class="input sm" [(ngModel)]="editAuthor" placeholder="Author" />
+            <div class="edit-actions-row">
+              <button class="btn btn-primary btn-sm" (click)="saveEdit()">Save</button>
+              <button class="btn btn-secondary btn-sm" (click)="cancelEdit()">Cancel</button>
+            </div>
+          </div>
+        </div>
+        }
+        @else {
         <div class="book-card" [routerLink]="['/library', book.id]">
           <div class="cover-wrapper">
             @if (book.coverUrl) {
@@ -120,10 +140,20 @@
             } @else {
             <lucide-icon [img]="BookIcon" [size]="48" strokeWidth="1"></lucide-icon>
             }
+
+            <div class="actions-overlay">
+              <button class="action-circle" (click)="startEdit(book); $event.stopPropagation()" title="Edit">
+                <lucide-icon [img]="Edit2Icon" [size]="16"></lucide-icon>
+              </button>
+              <button class="action-circle delete" (click)="deleteBook(book.id, $event)" title="Delete">
+                <lucide-icon [img]="Trash2Icon" [size]="16"></lucide-icon>
+              </button>
+            </div>
           </div>
           <div class="meta-title">{{ book.title }}</div>
           <div class="meta-author">{{ book.author || 'Unknown' }}</div>
         </div>
+        }
         }
       </div>
       }

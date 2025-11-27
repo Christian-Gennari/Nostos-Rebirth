@@ -1,3 +1,4 @@
+/* fileName: Nostos.Frontend/src/app/sidebar-collections/sidebar-collections.css */
 :host {
   display: block;
   height: 100vh;
@@ -8,159 +9,162 @@
 
 .sidebar {
   width: 260px;
-  background: var(--bg-sidebar);
+  background: var(--bg-sidebar); /* #fbfbfb from styles.css */
   border-right: 1px solid var(--border-color);
   height: 100%;
   display: flex;
   flex-direction: column;
-  transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: width 0.3s cubic-bezier(0.2, 0, 0, 1);
   overflow: hidden;
 }
 
 .sidebar.collapsed {
-  width: 64px;
+  width: 72px; /* Slightly wider for better icon clickability */
 }
 
-/* BRAND HEADER */
+/* BRAND */
 .sidebar-header {
-  height: 64px;
+  height: 80px; /* Taller header for elegance */
   display: flex;
   align-items: center;
-  padding: 0 1.25rem;
-  border-bottom: 1px solid transparent;
+  padding: 0 1.5rem;
 }
 
 .brand {
   font-family: 'Lora', serif;
-  font-weight: 600;
-  font-size: 1.25rem;
-  color: #111;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: 500;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
 }
 
-/* NAV SECTIONS */
-.nav-section {
+.brand-icon {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  color: var(--color-primary);
+}
+
+/* SCROLL AREA */
+.nav-scroll-area {
   flex: 1;
-  padding: 1.5rem 0.75rem;
+  padding: 1rem;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.nav-group.mt-auto {
+  margin-top: auto; /* Pushes 'Add' button to bottom of scroll area */
+  padding-top: 1rem;
+  border-top: 1px solid transparent;
 }
 
 .section-label {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #888;
+  letter-spacing: 0.08em;
+  color: #999;
   padding: 0 0.75rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
   font-weight: 600;
-  white-space: nowrap;
+  opacity: 1;
+  transition: opacity 0.2s;
 }
 
-.collection-item {
+/* NAV ITEMS */
+.nav-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.5rem 0.75rem;
-  margin-bottom: 0.125rem;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: none;
+  background: transparent;
   border-radius: 6px;
   cursor: pointer;
-  color: #4a4a4a;
+
+  color: var(--color-text-muted);
+  font-family: 'Inter', sans-serif;
   font-size: 0.9rem;
   font-weight: 500;
-  transition: all 0.2s ease;
-  white-space: nowrap;
+  transition: all 0.15s ease-out;
+  text-decoration: none;
 }
 
-.collection-item:hover {
-  background: var(--bg-hover);
+.nav-item:hover {
+  background: rgba(0,0,0,0.04);
+  color: var(--color-text-main);
+}
+
+/* Active State: Minimalist black pill */
+.nav-item.active {
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Action: Add Button */
+.nav-item.action-add {
+  color: var(--color-text-light);
+  border: 1px dashed var(--border-color);
+}
+.nav-item.action-add:hover {
+  border-color: #999;
+  background: transparent;
   color: var(--color-primary);
 }
 
-.collection-item.active {
-  background: #edeef0;
-  color: var(--color-primary);
+/* INPUT MODE */
+.sidebar-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-primary);
+  border-radius: 0;
+  padding: 2px 0;
+  font-size: 0.9rem;
+  color: var(--color-text-main);
+  width: 100%;
+  outline: none;
+  font-family: inherit;
 }
 
-/* FOOTER / TOGGLE */
+/* FOOTER */
 .sidebar-footer {
-  padding: 1rem;
+  padding: 1.5rem;
   border-top: 1px solid var(--border-color);
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start; /* Align left to match flow */
 }
 
 .toggle-btn {
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  padding: 0.25rem;
-  color: #888;
+  border: none;
+  color: var(--color-text-light);
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.toggle-btn:hover {
-  background: #edeef0;
-  color: #111;
-}
-
-/* COLLAPSED STATE OVERRIDES */
-.sidebar.collapsed .brand,
-.sidebar.collapsed .section-label,
-.sidebar.collapsed .label {
-  display: none;
-}
-
-.sidebar.collapsed .sidebar-header {
-  justify-content: center;
+  transition: color 0.2s;
   padding: 0;
+  display: flex;
 }
+.toggle-btn:hover { color: var(--color-primary); }
 
-.sidebar.collapsed .collection-item {
+/* COLLAPSED OVERRIDES */
+.sidebar.collapsed .sidebar-header {
+  padding: 0;
+  justify-content: center;
+}
+.sidebar.collapsed .nav-item {
   justify-content: center;
   padding: 0.75rem 0;
 }
-
 .sidebar.collapsed .sidebar-footer {
   justify-content: center;
-}
-
-/* NEW STYLES FOR INPUT & ADD BUTTON */
-
-.collection-item.add-btn {
-  color: #888;
-  margin-top: 0.5rem;
-}
-
-.collection-item.add-btn:hover {
-  background: transparent;
-  color: #333;
-}
-
-/* The input field inside the sidebar */
-.sidebar-input {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 0.9rem;
-  color: #333;
-  width: 100%;
-  outline: none;
-  font-family: 'Inter', sans-serif;
-}
-
-.sidebar-input:focus {
-  border-color: #333;
-  background: #fff;
-}
-
-.input-mode {
-  background: transparent !important; /* Prevent hover grey background on input */
-  cursor: default;
+  padding: 1.5rem 0;
 }
