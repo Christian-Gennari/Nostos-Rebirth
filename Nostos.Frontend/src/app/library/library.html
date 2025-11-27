@@ -27,7 +27,7 @@
     <div class="container lg">
 
       @if (showAddDrawer()) {
-      <div class="add-drawer">
+      <div class="add-drawer" animate.enter="drawer-enter" animate.leave="drawer-leave">
         <div class="drawer-content">
           <input class="input" type="text" placeholder="Book Title" [(ngModel)]="newBook.title"
             (keyup.enter)="saveBook()" autofocus />
@@ -35,15 +35,18 @@
           <input class="input" type="text" placeholder="Author" [(ngModel)]="newBook.author"
             (keyup.enter)="saveBook()" />
 
-          <!-- File input -->
           <input class="input" type="file" (change)="onFileSelected($event)" accept=".epub,.pdf,.txt" />
-          <!-- Cover image input -->
           <input class="input" type="file" accept="image/*" (change)="onCoverSelected($event)" />
 
-
           <button class="btn btn-primary" (click)="saveBook()">Save</button>
-          <button class="btn btn-secondary" (click)="showAddDrawer.set(false)">Cancel</button>
+          <button class="btn btn-secondary" (click)="closeDrawerSmooth()">Cancel</button>
         </div>
+        @if (uploadProgress() !== null) {
+        <div
+          style="margin-top: 0.75rem; text-align:left; font-size: 0.85rem; color: var(--color-text-light); padding-left: 0.25rem;">
+          Uploading… {{ uploadProgress() }}%
+        </div>
+        }
       </div>
       }
 
@@ -59,7 +62,6 @@
 
         @for (book of books(); track book.id) {
         <div class="table-row" [routerLink]="['/library', book.id]">
-
           <div class="col title">
             @if (editing()?.id === book.id) {
             <input class="input" [(ngModel)]="editTitle" (click)="$event.stopPropagation()" />
@@ -67,7 +69,6 @@
             {{ book.title }}
             }
           </div>
-
           <div class="col author">
             @if (editing()?.id === book.id) {
             <input class="input" [(ngModel)]="editAuthor" (click)="$event.stopPropagation()" />
@@ -75,23 +76,18 @@
             {{ book.author || 'Unknown' }}
             }
           </div>
-
           <div class="col format">
             @if (book.fileName) {
             <span class="badge">
-              {{
-              book.fileName.substring(book.fileName.lastIndexOf('.') + 1).toUpperCase()
-              }}
+              {{ book.fileName.substring(book.fileName.lastIndexOf('.') + 1).toUpperCase() }}
             </span>
             } @else {
             <span class="badge" style="opacity:0.5;">—</span>
             }
           </div>
-
           <div class="col date" style="color: var(--color-text-light); font-size: 0.85rem;">
             Nov 26
           </div>
-
           <div class="col actions-cell">
             @if (editing()?.id === book.id) {
             <button class="icon-btn" (click)="saveEdit(); $event.stopPropagation()">

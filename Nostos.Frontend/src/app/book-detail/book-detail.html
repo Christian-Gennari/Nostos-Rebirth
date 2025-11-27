@@ -75,6 +75,21 @@
             <span>Open File</span>
           </button>
         </div>
+        } @else {
+        <div class="header-actions">
+
+          <p style="color: var(--color-text-light); font-size: 0.9rem; margin-bottom: 0.5rem;">
+            No file uploaded
+          </p>
+
+          <button class="btn-file-action" (click)="triggerFilePicker()">
+            <lucide-icon [img]="BookOpenIcon" [size]="18"></lucide-icon>
+            <span>Upload File</span>
+          </button>
+
+          <input type="file" accept=".epub,.pdf,.txt" style="display:none" #fileInput
+            (change)="onFileUploadSelected($event)" />
+        </div>
         }
       </header>
 

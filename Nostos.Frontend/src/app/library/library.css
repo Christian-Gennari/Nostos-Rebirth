@@ -173,3 +173,31 @@
   font-size: 0.85rem;
   color: var(--color-text-light);
 }
+/* ------------------------------
+   ANGULAR v21 NATIVE ANIMATIONS
+------------------------------ */
+
+/* The 'animate.enter' attribute in HTML applies this class.
+   'forwards' ensures it stays in the final state if needed.
+*/
+.drawer-enter {
+  animation: slideIn 200ms ease-out forwards;
+}
+
+/* The 'animate.leave' attribute applies this class.
+   Angular detects the 200ms duration and removes the element
+   only after this animation completes.
+*/
+.drawer-leave {
+  animation: slideOut 200ms ease-in forwards;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-10px); }
+}

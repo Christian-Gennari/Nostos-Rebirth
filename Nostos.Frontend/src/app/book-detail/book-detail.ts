@@ -173,4 +173,26 @@ export class BookDetail implements OnInit {
       error: (err) => console.error('Delete cover error:', err),
     });
   }
+
+  triggerFilePicker() {
+    const input = document.querySelector(
+      'input[type=file][accept=".epub,.pdf,.txt"]'
+    ) as HTMLInputElement;
+    if (input) input.click();
+  }
+
+  onFileUploadSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+
+    if (!file || !this.book()?.id) return;
+
+    this.booksService.uploadFile(this.book()!.id, file).subscribe({
+      next: () => {
+        // Refresh the book to display updated "hasFile"
+        this.loadBook(this.book()!.id);
+      },
+      error: (err) => console.error('File upload error:', err),
+    });
+  }
 }
