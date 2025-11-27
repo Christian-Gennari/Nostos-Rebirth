@@ -32,8 +32,15 @@ public static class MappingExtensions
     public static CollectionDto ToDto(this CollectionModel model) =>
         new(model.Id, model.Name);
 
-    public static ConceptDto ToDto(this ConceptModel model) =>
-        new(model.Id, model.Concept);
+    public static ConceptDto ToDto(this ConceptModel model)
+    {
+        // Fixes CS7036: Added the 3rd argument (Count)
+        return new ConceptDto(
+            model.Id,
+            model.Concept,
+            model.NoteConcepts?.Count ?? 0
+        );
+    }
 
     // ------------------------------
     // Create mappings (Dto → Model)

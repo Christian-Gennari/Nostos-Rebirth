@@ -3,6 +3,7 @@ import { CollectionsService } from '../services/collections.services';
 import { Collection } from '../dtos/collection.dtos';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink, RouterLinkActive } from '@angular/router';
 import {
   LucideAngularModule,
   Folder,
@@ -12,12 +13,13 @@ import {
   Plus,
   Trash2,
   Edit2,
+  BrainIcon,
 } from 'lucide-angular';
 
 @Component({
   standalone: true,
   selector: 'app-sidebar-collections',
-  imports: [CommonModule, FormsModule, LucideAngularModule],
+  imports: [CommonModule, FormsModule, LucideAngularModule, RouterLink, RouterLinkActive],
   templateUrl: './sidebar-collections.html',
   styleUrls: ['./sidebar-collections.css'],
 })
@@ -32,6 +34,7 @@ export class SidebarCollections implements OnInit {
   PlusIcon = Plus;
   Trash2Icon = Trash2;
   Edit2Icon = Edit2;
+  BrainIcon = BrainIcon;
 
   collections = signal<Collection[]>([]);
   expanded = signal(true);

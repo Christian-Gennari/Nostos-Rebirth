@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { Library } from './library/library';
 import { Home } from './home/home';
+import { SecondBrain } from './second-brain/second-brain';
 
 export const routes: Routes = [
   {
@@ -10,6 +11,10 @@ export const routes: Routes = [
   {
     path: 'library',
     component: Library,
+  },
+  {
+    path: 'second-brain',
+    component: SecondBrain,
   },
   {
     path: 'library/:id',

@@ -1,0 +1,69 @@
+<main class="layout-wrapper">
+  <app-sidebar-collections />
+
+  <div class="layout-content brain-layout">
+
+    <aside class="index-col">
+      <div class="index-header">
+        <h1>The Brain</h1>
+        <div class="search-box">
+          <lucide-icon [img]="SearchIcon" [size]="16"></lucide-icon>
+          <input type="text" placeholder="Filter concepts..." [ngModel]="searchQuery()"
+            (ngModelChange)="searchQuery.set($event)">
+        </div>
+      </div>
+
+      <div class="index-list">
+        @for (c of filteredConcepts(); track c.id) {
+        <button class="index-item" [class.active]="selectedId() === c.id" (click)="selectConcept(c.id)">
+          <span class="name">{{ c.name }}</span>
+          <span class="count">{{ c.usageCount }}</span>
+        </button>
+        }
+        @if (filteredConcepts().length === 0) {
+        <div class="empty-state">No concepts found</div>
+        }
+      </div>
+    </aside>
+
+    <section class="content-col">
+
+      @if (loadingDetail()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+      </div>
+      }
+
+      @else if (selectedDetail(); as detail) {
+      <div class="concept-header" animate.enter="fade-in">
+        <div class="super-title">Concept</div>
+        <h2 class="concept-title">[[ {{ detail.name }} ]]</h2>
+      </div>
+
+      <div class="connections-feed" animate.enter="slide-up">
+        <div class="feed-label">Referenced in {{ detail.notes.length }} notes</div>
+
+        @for (note of detail.notes; track note.noteId) {
+        <div class="connection-card">
+          <div class="card-meta">
+            <span class="book-ref">From: {{ note.bookTitle }}</span>
+            <a [routerLink]="['/books', note.bookId]" class="goto-btn">
+              <lucide-icon [img]="ArrowRightIcon" [size]="14"></lucide-icon>
+            </a>
+          </div>
+          <p class="note-content" [innerHTML]="formatNote(note.content)"></p>
+        </div>
+        }
+      </div>
+      }
+
+      @else {
+      <div class="landing-state">
+        <lucide-icon [img]="BrainIcon" [size]="64" color="var(--border-color)"></lucide-icon>
+        <h3>Select a concept to explore connections</h3>
+      </div>
+      }
+
+    </section>
+  </div>
+</main>

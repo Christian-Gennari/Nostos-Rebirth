@@ -20,6 +20,16 @@
     </div>
 
     <div class="nav-group">
+      <button class="nav-item" [class.active]="activeId() === null" ...>...</button>
+
+      <button class="nav-item" routerLink="/brain" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}"
+        title="The Brain">
+        <lucide-icon [img]="BrainIcon" [size]="18" strokeWidth="2"></lucide-icon>
+        @if (expanded()) { <span class="label">The Brain</span> }
+      </button>
+    </div>
+
+    <div class="nav-group">
       @if (expanded()) {
       <div class="section-label" animate.enter="fade-in">Collections</div>
       }

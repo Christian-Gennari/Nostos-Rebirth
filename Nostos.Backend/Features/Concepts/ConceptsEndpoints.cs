@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
-using Nostos.Backend.Mapping;
+using Nostos.Backend.Data.Models;
 using Nostos.Shared.Dtos;
 
 namespace Nostos.Backend.Features.Concepts;
@@ -11,64 +11,42 @@ public static class ConceptsEndpoints
   {
     var group = routes.MapGroup("/api/concepts");
 
-    // GET all concepts
+    // GET all concepts (The Index)
     group.MapGet("/", async (NostosDbContext db) =>
     {
       var concepts = await db.Concepts
-              .OrderBy(c => c.Concept)
+              .Select(c => new ConceptDto(
+                  c.Id,
+                  c.Concept,
+                  c.NoteConcepts.Count()))
+              .OrderByDescending(c => c.UsageCount)
+              .ThenBy(c => c.Name)
               .ToListAsync();
 
-      return Results.Ok(concepts.Select(c => c.ToDto()));
+      return Results.Ok(concepts);
     });
 
-    // GET one concept
+    // GET single concept details (The Context)
     group.MapGet("/{id}", async (Guid id, NostosDbContext db) =>
     {
-      var concept = await db.Concepts.FindAsync(id);
+      var concept = await db.Concepts
+              .Include(c => c.NoteConcepts)
+              .ThenInclude(nc => nc.Note)
+              .ThenInclude(n => n.Book)
+              .FirstOrDefaultAsync(c => c.Id == id);
+
       if (concept is null) return Results.NotFound();
 
-      return Results.Ok(concept.ToDto());
-    });
+      var notes = concept.NoteConcepts
+              .Select(nc => new NoteContextDto(
+                  nc.NoteId,
+                  nc.Note.Content,
+                  nc.Note.BookId,
+                  nc.Note.Book!.Title // Access via navigation
+              ))
+              .ToList();
 
-    // CREATE concept
-    group.MapPost("/", async (CreateConceptDto dto, NostosDbContext db) =>
-    {
-      if (string.IsNullOrWhiteSpace(dto.Concept))
-        return Results.BadRequest(new { error = "Concept is required." });
-
-      var model = dto.ToModel();
-
-      db.Concepts.Add(model);
-      await db.SaveChangesAsync();
-
-      return Results.Created($"/api/concepts/{model.Id}", model.ToDto());
-    });
-
-    // UPDATE concept
-    group.MapPut("/{id}", async (Guid id, UpdateConceptDto dto, NostosDbContext db) =>
-    {
-      var existing = await db.Concepts.FindAsync(id);
-      if (existing is null) return Results.NotFound();
-
-      if (string.IsNullOrWhiteSpace(dto.Concept))
-        return Results.BadRequest(new { error = "Concept is required." });
-
-      existing.Apply(dto);
-      await db.SaveChangesAsync();
-
-      return Results.Ok(existing.ToDto());
-    });
-
-    // DELETE concept
-    group.MapDelete("/{id}", async (Guid id, NostosDbContext db) =>
-    {
-      var existing = await db.Concepts.FindAsync(id);
-      if (existing is null) return Results.NotFound();
-
-      db.Concepts.Remove(existing);
-      await db.SaveChangesAsync();
-
-      return Results.NoContent();
+      return Results.Ok(new ConceptDetailDto(concept.Id, concept.Concept, notes));
     });
 
     return routes;
