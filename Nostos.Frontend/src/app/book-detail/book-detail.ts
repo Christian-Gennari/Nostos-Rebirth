@@ -1,9 +1,10 @@
 import { Component, inject, OnInit, signal, model } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink, Router } from '@angular/router'; // ADD Router
 import { BooksService, Book } from '../services/books.services';
 import { NotesService } from '../services/notes.services';
-import { CollectionsService } from '../services/collections.services'; // <--- NEW IMPORT
-import { Collection } from '../dtos/collection.dtos'; // <--- NEW IMPORT
+import { CollectionsService } from '../services/collections.services';
+import { ConceptDto, ConceptsService } from '../services/concepts.services'; // ADD ConceptsService and ConceptDto
+import { Collection } from '../dtos/collection.dtos';
 import { Note } from '../dtos/note.dtos';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -18,7 +19,7 @@ import {
   AlertCircle,
   BookOpen,
   CheckIcon,
-  ChevronDown, // <--- Added for dropdown
+  ChevronDown,
 } from 'lucide-angular';
 
 @Component({
@@ -30,9 +31,11 @@ import {
 })
 export class BookDetail implements OnInit {
   private route = inject(ActivatedRoute);
+  private router = inject(Router); // INJECT ROUTER
   private booksService = inject(BooksService);
   private notesService = inject(NotesService);
-  private collectionsService = inject(CollectionsService); // <--- INJECT
+  private collectionsService = inject(CollectionsService);
+  private conceptsService = inject(ConceptsService); // INJECT ConceptsService
 
   // Icons
   ArrowLeftIcon = ArrowLeft;
@@ -50,7 +53,7 @@ export class BookDetail implements OnInit {
   book = signal<Book | null>(null);
   error = signal<string | null>(null);
 
-  // Collections State (New)
+  // Collections State
   collections = signal<Collection[]>([]);
   showMetadataModal = signal(false);
   metaForm = {
@@ -62,11 +65,13 @@ export class BookDetail implements OnInit {
   // Notes State
   notes = signal<Note[]>([]);
   newNote = model<string>('');
-
   editingNote = signal<Note | null>(null);
   editNoteContent = model<string>('');
 
   coverInput!: HTMLInputElement;
+
+  // NEW: Concept map for quick lookup (Concept Name -> Concept ID)
+  conceptMap = signal<Map<string, ConceptDto>>(new Map());
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -78,7 +83,8 @@ export class BookDetail implements OnInit {
 
     this.loadBook(id);
     this.loadNotes(id);
-    this.loadCollections(); // <--- Load Collections
+    this.loadCollections();
+    this.loadConcepts(); // NEW: Load concepts on init
   }
 
   loadBook(id: string): void {
@@ -104,6 +110,41 @@ export class BookDetail implements OnInit {
     this.collectionsService.list().subscribe({
       next: (data) => this.collections.set(data),
     });
+  }
+
+  // NEW: Load all concepts and create a map (Case-insensitive lookup)
+  loadConcepts(): void {
+    this.conceptsService.list().subscribe({
+      next: (concepts) => {
+        const map = new Map<string, ConceptDto>();
+        // Use lowercase for case-insensitive matching
+        concepts.forEach((c) => map.set(c.name.trim().toLowerCase(), c));
+        this.conceptMap.set(map);
+      },
+    });
+  }
+
+  // NEW: Navigation function to Second Brain
+  goToConcept(conceptId: string): void {
+    this.router.navigate(['/second-brain'], { queryParams: { conceptId: conceptId } });
+  }
+
+  // NEW: Event delegation handler for notes
+  handleNoteClick(event: Event): void {
+    const target = event.target as HTMLElement;
+
+    // Use closest() to check if the click originated inside a highlighted concept tag
+    const conceptTag = target.closest('.concept-tag');
+
+    if (conceptTag) {
+      const conceptId = conceptTag.getAttribute('data-concept-id');
+
+      if (conceptId) {
+        event.preventDefault(); // Stop any default behavior
+        event.stopPropagation(); // Prevent the click from affecting other note actions
+        this.goToConcept(conceptId);
+      }
+    }
   }
 
   // --- Metadata Modal Logic ---
@@ -136,7 +177,7 @@ export class BookDetail implements OnInit {
       })
       .subscribe({
         next: (updatedBook) => {
-          this.book.set(updatedBook); // Update local state
+          this.book.set(updatedBook);
           this.closeMetadataModal();
         },
       });
@@ -194,7 +235,7 @@ export class BookDetail implements OnInit {
     });
   }
 
-  // --- File/Cover Logic ---
+  // --- File/Cover Logic (omitted for brevity) ---
   openFile() {
     const id = this.book()?.id;
     if (!id) return;
@@ -252,7 +293,21 @@ export class BookDetail implements OnInit {
     });
   }
 
+  // MODIFIED: Inject Concept ID into the HTML output
   formatNote(content: string): string {
-    return content.replace(/\[\[(.*?)\]\]/g, '<span class="concept-tag">$1</span>');
+    const conceptMap = this.conceptMap();
+
+    // Regex finds [[...]]
+    return content.replace(/\[\[(.*?)\]\]/g, (match, conceptName) => {
+      const trimmedName = conceptName.trim();
+      const concept = conceptMap.get(trimmedName.toLowerCase());
+
+      if (concept) {
+        // Embed the ID as a data attribute and add 'clickable' class
+        return `<span class="concept-tag clickable" data-concept-id="${concept.id}">${trimmedName}</span>`;
+      }
+      // If concept not found, just return the name without highlighting
+      return trimmedName;
+    });
   }
 }

@@ -1,6 +1,6 @@
 /* fileName: Nostos.Frontend/src/app/book-detail/book-detail.css */
 /* ------------------------------
-   LAYOUT GRID
+    LAYOUT GRID
 ------------------------------ */
 .back-nav {
   margin-bottom: 2rem;
@@ -23,7 +23,7 @@
 }
 
 /* ------------------------------
-   LEFT COL: COVER
+    LEFT COL: COVER
 ------------------------------ */
 .detail-cover-col {
   display: flex;
@@ -72,7 +72,7 @@
 .sep { opacity: 0.3; }
 
 /* ------------------------------
-   RIGHT COL: INFO
+    RIGHT COL: INFO
 ------------------------------ */
 .book-title {
   font-size: 2.5rem;
@@ -124,7 +124,7 @@
 }
 
 /* ------------------------------
-   NOTES SECTION
+    NOTES SECTION
 ------------------------------ */
 .notes-header {
   display: flex;
@@ -217,8 +217,19 @@
   gap: 1rem;
 }
 
+/* FIX: ADDED CLICKABLE STYLE */
+.concept-tag.clickable {
+  cursor: pointer;
+  opacity: 0.9;
+  transition: opacity 0.15s;
+}
+
+.concept-tag.clickable:hover {
+  opacity: 1;
+}
+
 /* ------------------------------
-   SKELETON LOADER
+    SKELETON LOADER
 ------------------------------ */
 @keyframes pulse {
   0% { background-color: #f3f3f3; }

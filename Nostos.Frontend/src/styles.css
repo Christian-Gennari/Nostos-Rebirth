@@ -228,3 +228,5 @@ input[type="file"]::file-selector-button:hover {
   color: var(--color-accent-hover);
   border-bottom-color: var(--color-accent-hover);
 }
+
+

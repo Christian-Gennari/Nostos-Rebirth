@@ -134,7 +134,7 @@
 
             <div class="notes-feed">
               @for (note of notes(); track note.id) {
-              <div class="note-row">
+              <div class="note-row" (click)="handleNoteClick($event)">
                 @if (editingNote()?.id === note.id) {
                 <div class="edit-box">
                   <textarea class="note-input" [(ngModel)]="editNoteContent" rows="3"></textarea>
@@ -147,9 +147,10 @@
 
                 <p class="note-text whitespace-pre-wrap" [innerHTML]="formatNote(note.content)"></p>
                 <div class="note-hover-actions">
-                  <button class="icon-btn xs" (click)="startEdit(note)"><lucide-icon [img]="Edit2Icon"
-                      [size]="14"></lucide-icon></button>
-                  <button class="icon-btn xs delete" (click)="deleteNote(note.id)"><lucide-icon [img]="Trash2Icon"
+                  <button class="icon-btn xs" (click)="startEdit(note); $event.stopPropagation();"><lucide-icon
+                      [img]="Edit2Icon" [size]="14"></lucide-icon></button>
+                  <button class="icon-btn xs delete"
+                    (click)="deleteNote(note.id); $event.stopPropagation();"><lucide-icon [img]="Trash2Icon"
                       [size]="14"></lucide-icon></button>
                 </div>
                 }
