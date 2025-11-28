@@ -24,7 +24,7 @@ import {
 @Component({
   selector: 'app-library',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, SidebarCollections, LucideAngularModule],
+  imports: [CommonModule, RouterLink, FormsModule, LucideAngularModule],
   templateUrl: './library.html',
   styleUrls: ['./library.css'],
 })

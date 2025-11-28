@@ -52,10 +52,6 @@ export class SidebarCollections implements OnInit {
   activeId = this.collectionsService.activeCollectionId;
 
   // NEW: Computed property to fix double highlight (Request 1)
-  isAllBooksActive = computed(() => {
-    // Active only if the URL starts with '/library' AND no specific collection is selected
-    return this.router.url.startsWith('/library') && this.activeId() === null;
-  });
 
   ngOnInit(): void {
     this.load();
@@ -92,10 +88,7 @@ export class SidebarCollections implements OnInit {
 
   select(id: string | null): void {
     this.collectionsService.activeCollectionId.set(id);
-
-    if (!this.router.url.startsWith('/library')) {
-      this.router.navigate(['/library']);
-    }
+    this.router.navigate(['/library']);
   }
 
   startAdd(): void {

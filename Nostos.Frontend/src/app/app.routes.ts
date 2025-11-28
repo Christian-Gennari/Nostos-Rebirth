@@ -1,23 +1,30 @@
 import { Routes } from '@angular/router';
-import { Library } from './library/library';
 import { Home } from './home/home';
-import { SecondBrain } from './second-brain/second-brain';
+import { WorkspaceLayout } from './workspace-layout/workspace-layout';
 
 export const routes: Routes = [
   {
     path: '',
     component: Home,
   },
+
+  // Wrap ONLY library + brain inside workspace layout
   {
-    path: 'library',
-    component: Library,
-  },
-  {
-    path: 'second-brain',
-    component: SecondBrain,
-  },
-  {
-    path: 'library/:id',
-    loadComponent: () => import('./book-detail/book-detail').then((m) => m.BookDetail),
+    path: '',
+    component: WorkspaceLayout,
+    children: [
+      {
+        path: 'library',
+        loadComponent: () => import('./library/library').then((m) => m.Library),
+      },
+      {
+        path: 'second-brain',
+        loadComponent: () => import('./second-brain/second-brain').then((m) => m.SecondBrain),
+      },
+      {
+        path: 'library/:id',
+        loadComponent: () => import('./book-detail/book-detail').then((m) => m.BookDetail),
+      },
+    ],
   },
 ];

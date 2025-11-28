@@ -3,13 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ConceptsService, ConceptDto, ConceptDetailDto } from '../services/concepts.services';
-import { SidebarCollections } from '../sidebar-collections/sidebar-collections';
 import { LucideAngularModule, Search, BrainCircuit, ArrowRight } from 'lucide-angular';
 
 @Component({
   standalone: true,
   selector: 'app-brain',
-  imports: [CommonModule, FormsModule, RouterLink, SidebarCollections, LucideAngularModule],
+  imports: [CommonModule, FormsModule, RouterLink, LucideAngularModule],
   templateUrl: './second-brain.html',
   styleUrls: ['./second-brain.css'],
 })

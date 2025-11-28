@@ -8,7 +8,6 @@ import { Collection } from '../dtos/collection.dtos';
 import { Note } from '../dtos/note.dtos';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { SidebarCollections } from '../sidebar-collections/sidebar-collections';
 import {
   LucideAngularModule,
   ArrowLeft,
@@ -25,7 +24,7 @@ import {
 @Component({
   standalone: true,
   selector: 'app-book-detail',
-  imports: [CommonModule, FormsModule, RouterLink, SidebarCollections, LucideAngularModule],
+  imports: [CommonModule, FormsModule, RouterLink, LucideAngularModule],
   templateUrl: './book-detail.html',
   styleUrls: ['./book-detail.css'],
 })
@@ -50,7 +49,7 @@ export class BookDetail implements OnInit {
   loading = signal(true);
   book = signal<Book | null>(null);
   error = signal<string | null>(null);
-  
+
 
   collections = signal<Collection[]>([]);
   showMetadataModal = signal(false);

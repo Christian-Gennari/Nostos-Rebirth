@@ -1,5 +1,4 @@
 <nav class="sidebar" [class.collapsed]="!expanded()">
-
   <div class="sidebar-header">
     @if (expanded()) {
     <div class="brand" animate.enter="fade-in">Nostos</div>
@@ -11,17 +10,31 @@
   </div>
 
   <div class="nav-scroll-area">
-
     <div class="nav-group">
-      <button class="nav-item" [class.active]="isAllBooksActive()" (click)="select(null)" title="All Books">
+      <button
+        class="nav-item"
+        routerLink="/library"
+        #rlaAllBooks="routerLinkActive"
+        routerLinkActive="tmp-active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        (click)="activeId.set(null)"
+        [class.active]="rlaAllBooks.isActive && activeId() === null"
+        title="All Books"
+      >
         <lucide-icon [img]="LibraryIcon" [size]="18" strokeWidth="2"></lucide-icon>
         @if (expanded()) { <span class="label">All Books</span> }
       </button>
     </div>
 
     <div class="nav-group">
-      <button class="nav-item" routerLink="/second-brain" routerLinkActive="active"
-        [routerLinkActiveOptions]="{exact: true}" title="The Brain">
+      <button
+        class="nav-item"
+        routerLink="/second-brain"
+        (click)="activeId.set(null)"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        title="The Brain"
+      >
         <lucide-icon [img]="BrainIcon" [size]="18" strokeWidth="2"></lucide-icon>
         @if (expanded()) { <span class="label">The Brain</span> }
       </button>
@@ -30,20 +43,21 @@
     <div class="nav-group">
       @if (expanded()) {
       <div class="section-label" animate.enter="fade-in">Collections</div>
-      }
-
-      @for (col of collections(); track col.id) {
-
-      @if (editingId() === col.id) {
+      } @for (col of collections(); track col.id) { @if (editingId() === col.id) {
       <div class="nav-item input-mode">
         <lucide-icon [img]="FolderIcon" [size]="18" strokeWidth="2"></lucide-icon>
-        <input #editInput type="text" class="sidebar-input" [value]="col.name"
-          (keydown.enter)="saveRename(col.id, editInput.value)" (keydown.escape)="cancelRename()" autoFocus />
+        <input
+          #editInput
+          type="text"
+          class="sidebar-input"
+          [value]="col.name"
+          (keydown.enter)="saveRename(col.id, editInput.value)"
+          (keydown.escape)="cancelRename()"
+          autoFocus
+        />
       </div>
-      }
-      @else {
+      } @else {
       <div class="nav-item-row" [class.active]="activeId() === col.id" (click)="select(col.id)">
-
         <div class="nav-content">
           <lucide-icon [img]="FolderIcon" [size]="18" strokeWidth="2"></lucide-icon>
           @if (expanded()) {
@@ -62,8 +76,7 @@
         </div>
         }
       </div>
-      }
-      }
+      } }
     </div>
 
     <div class="nav-group mt-auto">
@@ -71,8 +84,15 @@
       <div class="nav-item input-mode">
         <lucide-icon [img]="PlusIcon" [size]="18" strokeWidth="2"></lucide-icon>
         @if (expanded()) {
-        <input type="text" class="sidebar-input" [(ngModel)]="newName" (keydown.enter)="create()"
-          (keydown.escape)="resetInput()" placeholder="Name..." autoFocus />
+        <input
+          type="text"
+          class="sidebar-input"
+          [(ngModel)]="newName"
+          (keydown.enter)="create()"
+          (keydown.escape)="resetInput()"
+          placeholder="Name..."
+          autoFocus
+        />
         }
       </div>
       } @else {
@@ -84,7 +104,6 @@
       </button>
       }
     </div>
-
   </div>
 
   <div class="sidebar-footer">
