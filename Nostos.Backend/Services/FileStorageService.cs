@@ -4,6 +4,23 @@ public class FileStorageService
 {
   private readonly string _root;
 
+  // Centralized allowed extensions
+  private readonly HashSet<string> _allowedBookExtensions = new(StringComparer.OrdinalIgnoreCase)
+  {
+    ".epub",
+    ".pdf",
+    ".txt",
+    ".mobi",
+    ".azw3"
+  };
+
+  private readonly HashSet<string> _allowedCoverExtensions = new(StringComparer.OrdinalIgnoreCase)
+  {
+    ".png",
+    ".jpg",
+    ".jpeg"
+  };
+
   public FileStorageService(IWebHostEnvironment env)
   {
     _root = Path.Combine(env.ContentRootPath, "Storage", "books");
@@ -12,6 +29,10 @@ public class FileStorageService
 
   public async Task<string> SaveBookFileAsync(Guid bookId, IFormFile file)
   {
+    var ext = Path.GetExtension(file.FileName);
+    if (!_allowedBookExtensions.Contains(ext))
+      throw new InvalidOperationException($"Unsupported file type: {ext}");
+
     var bookFolder = Path.Combine(_root, bookId.ToString());
     Directory.CreateDirectory(bookFolder);
 
@@ -28,10 +49,13 @@ public class FileStorageService
     var folder = Path.Combine(_root, bookId.ToString());
     if (!Directory.Exists(folder)) return null;
 
-    var file = Directory.GetFiles(folder).FirstOrDefault();
-    if (file is null) return null;
+    var file = Directory
+      .EnumerateFiles(folder)
+      .FirstOrDefault(f => _allowedBookExtensions.Contains(Path.GetExtension(f)));
 
-    return new FileStream(file, FileMode.Open, FileAccess.Read);
+    return file is null
+      ? null
+      : new FileStream(file, FileMode.Open, FileAccess.Read);
   }
 
   public string? GetBookFileName(Guid bookId)
@@ -39,30 +63,28 @@ public class FileStorageService
     var folder = Path.Combine(_root, bookId.ToString());
     if (!Directory.Exists(folder)) return null;
 
-    return Directory.GetFiles(folder).FirstOrDefault();
+    return Directory
+      .EnumerateFiles(folder)
+      .FirstOrDefault(f => _allowedBookExtensions.Contains(Path.GetExtension(f)));
   }
 
   public void DeleteBookFiles(Guid bookId)
   {
     var bookFolder = Path.Combine(_root, bookId.ToString());
     if (Directory.Exists(bookFolder))
-    {
       Directory.Delete(bookFolder, true);
-    }
   }
-
 
   public async Task<string> SaveBookCoverAsync(Guid bookId, IFormFile file)
   {
+    var ext = Path.GetExtension(file.FileName).ToLower();
+    if (!_allowedCoverExtensions.Contains(ext))
+      throw new InvalidOperationException("Only PNG, JPG, or JPEG allowed.");
+
     var bookFolder = Path.Combine(_root, bookId.ToString());
     Directory.CreateDirectory(bookFolder);
 
-    var extension = Path.GetExtension(file.FileName).ToLower();
-    var allowed = new[] { ".png", ".jpg", ".jpeg" };
-    if (!allowed.Contains(extension))
-      throw new InvalidOperationException("Only PNG, JPG, or JPEG allowed.");
-
-    var filePath = Path.Combine(bookFolder, "cover.png"); // Normalize filename
+    var filePath = Path.Combine(bookFolder, "cover.png");
 
     using var stream = new FileStream(filePath, FileMode.Create);
     await file.CopyToAsync(stream);
@@ -86,6 +108,4 @@ public class FileStorageService
     File.Delete(coverPath);
     return true;
   }
-
-
 }
