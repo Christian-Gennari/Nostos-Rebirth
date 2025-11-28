@@ -12,21 +12,21 @@
       <form (ngSubmit)="submitBook()" #addBookForm="ngForm">
         <div class="form-group">
           <label for="isbn" class="form-label">ISBN</label>
-          <div class="flex gap-2">
-            <input id="isbn" class="input flex-grow" type="text" placeholder="e.g., 978-0321765723"
-              [(ngModel)]="newBook.isbn" name="isbn" />
-            <button type="button" class="btn btn-secondary w-20" [disabled]="!newBook.isbn">
+          <div class="input-group-fetch">
+            <input id="isbn" class="input" type="text" placeholder="e.g., 978-0321765723" [(ngModel)]="newBook.isbn"
+              name="isbn" />
+            <button type="button" class="btn btn-secondary btn-fetch" [disabled]="!newBook.isbn">
               Fetch
             </button>
           </div>
-          <p class="text-sm text-gray-500 mt-1">
+          <p class="form-help-text">
             Enter ISBN and click Fetch to auto-fill metadata.
           </p>
         </div>
 
         <hr class="divider" />
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-2">
           <div class="form-group">
             <label for="title" class="form-label">Title <span class="required">*</span></label>
             <input id="title" class="input" type="text" placeholder="Book Title" [(ngModel)]="newBook.title"
@@ -40,7 +40,7 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-3 gap-4">
+        <div class="grid grid-3">
           <div class="form-group">
             <label for="publisher" class="form-label">Publisher</label>
             <input id="publisher" class="input" type="text" placeholder="Publisher" [(ngModel)]="newBook.publisher"
@@ -76,12 +76,12 @@
             [(ngModel)]="newBook.description" name="description" rows="4"></textarea>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-2">
           <div class="form-group">
             <label class="form-label">Book File (ePub, PDF, etc.)</label>
             <input type="file" class="file-input" (change)="onFileSelected($event)" accept=".epub,.pdf,.txt,.mobi" />
             @if (selectedFile) {
-            <p class="text-sm text-gray-400 mt-1">
+            <p class="file-status-text">
               File selected: **{{ selectedFile.name }}**
             </p>
             }
@@ -91,7 +91,7 @@
             <label class="form-label">Cover Image</label>
             <input type="file" class="file-input" accept="image/*" (change)="onCoverSelected($event)" />
             @if (selectedCover) {
-            <p class="text-sm text-gray-400 mt-1">
+            <p class="file-status-text">
               Cover selected: **{{ selectedCover.name }}**
             </p>
             }
@@ -105,7 +105,7 @@
         </div>
         }
 
-        <div class="flex justify-end gap-3 pt-4">
+        <div class="modal-actions">
           <button type="button" class="btn btn-secondary" (click)="closeModal.emit()">
             Cancel
           </button>

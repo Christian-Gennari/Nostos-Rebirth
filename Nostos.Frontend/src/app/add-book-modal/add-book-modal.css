@@ -60,7 +60,7 @@
 }
 
 /* ------------------------------
-   FORM STYLES (To match your existing inputs)
+   FORM STYLES
 ------------------------------ */
 .form-group {
   margin-bottom: 1rem;
@@ -138,4 +138,55 @@
   font-size: 0.9rem;
   font-weight: 500;
   margin-top: 1rem;
+}
+
+/* ------------------------------
+   NEW STRUCTURAL CLASSES
+------------------------------ */
+
+/* Grid Layouts for multiple columns */
+.grid {
+  display: grid;
+  gap: 1rem; /* Spacing between columns and rows */
+  margin-bottom: 1rem;
+}
+
+.grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* Input Group for ISBN + Fetch Button */
+.input-group-fetch {
+  display: flex;
+  gap: 0.5rem; /* Space between input and button */
+}
+
+.input-group-fetch .input {
+  flex-grow: 1; /* Input takes up available space */
+  min-width: 0;
+}
+
+.btn-fetch {
+  width: 100px; /* Fixed width for the button */
+  flex-shrink: 0;
+  padding: 0.5rem 1rem;
+}
+
+/* Helper Text */
+.form-help-text, .file-status-text {
+  font-size: 0.85rem;
+  color: var(--color-text-light);
+  margin-top: 0.25rem;
+}
+
+/* Modal Actions (Buttons at the bottom) */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding-top: 1rem;
 }
