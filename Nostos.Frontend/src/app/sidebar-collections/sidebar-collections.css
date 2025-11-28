@@ -105,6 +105,8 @@
 
   height: 36px;
 
+  transform: translateX(0); /* Add this line */
+
   /* Animate width and margin for the collapse effect */
   transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
 }
@@ -118,7 +120,7 @@
   background: var(--bg-surface);
   color: var(--color-primary);
   border: 1px solid var(--border-color);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 /* Left side content (Icon + Label) */
@@ -126,8 +128,14 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  transition: gap 0.3s cubic-bezier(0.2, 0, 0, 1);
   overflow: hidden;
 }
+
+.sidebar.collapsed .nav-content {
+  gap: 0;
+}
+
 
 .label {
   white-space: nowrap;
@@ -164,8 +172,14 @@
   cursor: pointer;
 }
 
-.action-mini:hover { background: rgba(0,0,0,0.05); color: var(--color-primary); }
-.action-mini.danger:hover { background: #fee2e2; color: var(--color-danger); }
+.action-mini:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--color-primary);
+}
+.action-mini.danger:hover {
+  background: #fee2e2;
+  color: var(--color-danger);
+}
 
 /* --- NAV ITEM (Legacy / "New Collection" Button) --- */
 .nav-item {
@@ -187,15 +201,20 @@
   font-weight: 500;
   text-decoration: none;
 
+  transform: translateX(0); /* Add this line */
+
   transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
 }
 
-.nav-item:hover { background: rgba(0,0,0,0.04); color: var(--color-text-main); }
+.nav-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--color-text-main);
+}
 
 .nav-item.active {
   background: var(--color-primary);
   color: #fff;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .nav-item.action-add {
@@ -245,8 +264,10 @@
   height: 32px;
   border-radius: 4px;
 }
-.toggle-btn:hover { color: var(--color-primary); background: var(--bg-hover); }
-
+.toggle-btn:hover {
+  color: var(--color-primary);
+  background: var(--bg-hover);
+}
 
 /* --- COLLAPSED OVERRIDES --- */
 .sidebar.collapsed .sidebar-header {
@@ -254,37 +275,50 @@
   justify-content: center;
 }
 
-/* Centering Logic for Items:
-   Sidebar Width: 72px
-   Item Width: 40px
-   (72 - 40) / 2 = 16px Margin Left
-   This centers the item perfectly.
-*/
+/* This centers the 40px item within the 72px sidebar's 1rem padding */
 .sidebar.collapsed .nav-item,
 .sidebar.collapsed .nav-item-row {
-  width: 40px;       /* Square button */
+  width: 40px;
   height: 40px;
-  padding: 0;        /* Remove internal padding */
-  margin-left: 16px; /* <--- CRITICAL FIX: Centers the item */
+  margin-left: 16px;
+  padding: 0;
+  gap: 0;
   justify-content: center;
+  transition:
+    width 0.3s cubic-bezier(0.2, 0, 0, 1),
+    padding 0.3s cubic-bezier(0.2, 0, 0, 1),
+    gap 0.3s cubic-bezier(0.2, 0, 0, 1),
+    margin-left 0.3s cubic-bezier(0.2, 0, 0, 1),
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
-/* Centering Logic for Footer:
-   Sidebar Width: 72px
-   Button Width: 32px
-   (72 - 32) / 2 = 20px Padding Left
-*/
-.sidebar.collapsed .sidebar-footer {
-  padding: 1.5rem 20px; /* <--- CRITICAL FIX: Centers the footer icon */
+.label {
+  opacity: 1;
+  transition: opacity 0.2s ease;
 }
 
+.sidebar.collapsed .label {
+  opacity: 0;
+}
+
+.sidebar.collapsed .nav-item-row .nav-content {
+  /* The default gap: 0.75rem; is pushing the icon off-center. Remove it. */
+  gap: 0;
+
+  /* Ensure the inner wrapper centers its content (the icon) */
+  justify-content: center;
+
+  /* Ensure the wrapper takes up 100% of the 40px width to apply centering properly */
+  width: 100%;
+}
 
 /* --- ANIMATIONS --- */
 
 @keyframes smoothFadeIn {
   from {
     opacity: 0;
-    transform: translateY(2px) scale(0.98);
+    transform: translateY(2px) scale(0.9);
   }
   to {
     opacity: 1;
@@ -296,5 +330,5 @@
 .nav-item,
 .nav-item.input-mode {
   /* Triggers the animation every time the element is created by the @if block */
-  animation: smoothFadeIn 0.2s cubic-bezier(0.2, 0, 0, 1) forwards;
+  animation: smoothFadeIn 0.3s cubic-bezier(0.2, 0, 0, 1) forwards;
 }
