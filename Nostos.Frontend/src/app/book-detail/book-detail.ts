@@ -1,9 +1,9 @@
 import { Component, inject, OnInit, signal, model } from '@angular/core';
-import { ActivatedRoute, RouterLink, Router } from '@angular/router'; // ADD Router
+import { ActivatedRoute, RouterLink, Router } from '@angular/router';
 import { BooksService, Book } from '../services/books.services';
 import { NotesService } from '../services/notes.services';
 import { CollectionsService } from '../services/collections.services';
-import { ConceptDto, ConceptsService } from '../services/concepts.services'; // ADD ConceptsService and ConceptDto
+import { ConceptDto, ConceptsService } from '../services/concepts.services';
 import { Collection } from '../dtos/collection.dtos';
 import { Note } from '../dtos/note.dtos';
 import { CommonModule } from '@angular/common';
@@ -31,13 +31,12 @@ import {
 })
 export class BookDetail implements OnInit {
   private route = inject(ActivatedRoute);
-  private router = inject(Router); // INJECT ROUTER
+  private router = inject(Router);
   private booksService = inject(BooksService);
   private notesService = inject(NotesService);
   private collectionsService = inject(CollectionsService);
-  private conceptsService = inject(ConceptsService); // INJECT ConceptsService
+  private conceptsService = inject(ConceptsService);
 
-  // Icons
   ArrowLeftIcon = ArrowLeft;
   UserIcon = User;
   CalendarIcon = Calendar;
@@ -48,12 +47,10 @@ export class BookDetail implements OnInit {
   CheckIcon = CheckIcon;
   ChevronDownIcon = ChevronDown;
 
-  // State
   loading = signal(true);
   book = signal<Book | null>(null);
   error = signal<string | null>(null);
 
-  // Collections State
   collections = signal<Collection[]>([]);
   showMetadataModal = signal(false);
   metaForm = {
@@ -62,7 +59,6 @@ export class BookDetail implements OnInit {
     collectionId: null as string | null,
   };
 
-  // Notes State
   notes = signal<Note[]>([]);
   newNote = model<string>('');
   editingNote = signal<Note | null>(null);
@@ -70,7 +66,6 @@ export class BookDetail implements OnInit {
 
   coverInput!: HTMLInputElement;
 
-  // NEW: Concept map for quick lookup (Concept Name -> Concept ID)
   conceptMap = signal<Map<string, ConceptDto>>(new Map());
 
   ngOnInit(): void {
@@ -84,7 +79,7 @@ export class BookDetail implements OnInit {
     this.loadBook(id);
     this.loadNotes(id);
     this.loadCollections();
-    this.loadConcepts(); // NEW: Load concepts on init
+    this.loadConcepts();
   }
 
   loadBook(id: string): void {
@@ -112,36 +107,29 @@ export class BookDetail implements OnInit {
     });
   }
 
-  // NEW: Load all concepts and create a map (Case-insensitive lookup)
   loadConcepts(): void {
     this.conceptsService.list().subscribe({
       next: (concepts) => {
         const map = new Map<string, ConceptDto>();
-        // Use lowercase for case-insensitive matching
         concepts.forEach((c) => map.set(c.name.trim().toLowerCase(), c));
         this.conceptMap.set(map);
       },
     });
   }
 
-  // NEW: Navigation function to Second Brain
   goToConcept(conceptId: string): void {
-    this.router.navigate(['/second-brain'], { queryParams: { conceptId: conceptId } });
+    this.router.navigate(['/second-brain'], { queryParams: { conceptId } });
   }
 
-  // NEW: Event delegation handler for notes
   handleNoteClick(event: Event): void {
     const target = event.target as HTMLElement;
-
-    // Use closest() to check if the click originated inside a highlighted concept tag
     const conceptTag = target.closest('.concept-tag');
 
     if (conceptTag) {
       const conceptId = conceptTag.getAttribute('data-concept-id');
-
       if (conceptId) {
-        event.preventDefault(); // Stop any default behavior
-        event.stopPropagation(); // Prevent the click from affecting other note actions
+        event.preventDefault();
+        event.stopPropagation();
         this.goToConcept(conceptId);
       }
     }
@@ -151,8 +139,6 @@ export class BookDetail implements OnInit {
   openMetadataModal(): void {
     const b = this.book();
     if (!b) return;
-
-    // Initialize form with current values
     this.metaForm = {
       title: b.title,
       author: b.author,
@@ -235,7 +221,8 @@ export class BookDetail implements OnInit {
     });
   }
 
-  // --- File/Cover Logic (omitted for brevity) ---
+  // --- FILE / COVER LOGIC (fully restored) ---
+
   openFile() {
     const id = this.book()?.id;
     if (!id) return;
@@ -244,27 +231,36 @@ export class BookDetail implements OnInit {
 
   triggerCoverPicker() {
     const input = document.querySelector('input[type=file][accept="image/*"]') as HTMLInputElement;
+
     if (input) input.click();
   }
 
   onCoverSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
-    if (!file || !this.book()?.id) return;
 
-    this.booksService.uploadCover(this.book()!.id, file).subscribe({
-      next: (event) => {
-        if (event.type === 4) {
-          this.loadBook(this.book()!.id);
-        }
+    if (!file) return;
+
+    const book = this.book();
+    if (!book) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    this.booksService.uploadCover(book.id, file).subscribe({
+      next: (updated) => {
+        this.book.set(updated);
       },
-      error: (err) => console.error('Cover upload error:', err),
+      error: () => {
+        this.error.set('Failed to upload cover');
+      },
     });
   }
 
   deleteCover() {
     const id = this.book()?.id;
     if (!id) return;
+
     if (!confirm('Remove cover image?')) return;
 
     this.booksService.deleteCover(id).subscribe({
@@ -283,30 +279,30 @@ export class BookDetail implements OnInit {
   onFileUploadSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
-    if (!file || !this.book()?.id) return;
 
-    this.booksService.uploadFile(this.book()!.id, file).subscribe({
-      next: () => {
-        this.loadBook(this.book()!.id);
-      },
+    if (!file) return;
+
+    const book = this.book();
+    if (!book) return;
+
+    this.booksService.uploadFile(book.id, file).subscribe({
+      next: () => this.loadBook(book.id),
       error: (err) => console.error('File upload error:', err),
     });
   }
 
-  // MODIFIED: Inject Concept ID into the HTML output
+  // --- Concept Tag Formatter ---
   formatNote(content: string): string {
     const conceptMap = this.conceptMap();
 
-    // Regex finds [[...]]
     return content.replace(/\[\[(.*?)\]\]/g, (match, conceptName) => {
       const trimmedName = conceptName.trim();
       const concept = conceptMap.get(trimmedName.toLowerCase());
 
       if (concept) {
-        // Embed the ID as a data attribute and add 'clickable' class
         return `<span class="concept-tag clickable" data-concept-id="${concept.id}">${trimmedName}</span>`;
       }
-      // If concept not found, just return the name without highlighting
+
       return trimmedName;
     });
   }
