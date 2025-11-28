@@ -16,7 +16,7 @@
           </button>
         </div>
 
-        <button class="btn btn-primary" (click)="toggleAddDrawer()">
+        <button class="btn btn-primary" (click)="openAddModal()">
           <lucide-icon [img]="PlusIcon" [size]="18"></lucide-icon>
           <span>Add Book</span>
         </button>
@@ -25,46 +25,8 @@
 
     <div class="container lg">
 
-      @if (showAddDrawer()) {
-      <div class="add-drawer" animate.enter="drawer-enter" animate.leave="drawer-leave">
-        <div class="drawer-content">
-          <input class="input" type="text" placeholder="Book Title" [(ngModel)]="newBook.title"
-            (keyup.enter)="saveBook()" autofocus />
-
-          <input class="input" type="text" placeholder="Author" [(ngModel)]="newBook.author"
-            (keyup.enter)="saveBook()" />
-
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-400 mb-1">Collection</label>
-            <div class="relative">
-              <select [(ngModel)]="newBook.collectionId"
-                class="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 px-3 text-white appearance-none focus:outline-none focus:border-blue-500 transition-colors">
-                <option [ngValue]="null">None</option>
-                <option *ngFor="let col of collections()" [value]="col.id">
-                  {{ col.name }}
-                </option>
-              </select>
-              <div class="absolute right-3 top-3 pointer-events-none text-gray-500">
-                <i-lucide name="chevron-down" class="w-4 h-4"></i-lucide>
-              </div>
-            </div>
-          </div>
-
-          <input class="input" type="file" (change)="onFileSelected($event)" accept=".epub,.pdf,.txt" />
-          <input class="input" type="file" accept="image/*" (change)="onCoverSelected($event)" />
-
-          <button class="btn btn-primary" (click)="saveBook()">Save</button>
-          <button class="btn btn-secondary" (click)="closeDrawerSmooth()">Cancel</button>
-        </div>
-        @if (uploadProgress() !== null) {
-        <div
-          style="margin-top: 0.75rem; text-align:left; font-size: 0.85rem; color: var(--color-text-light); padding-left: 0.25rem;">
-          Uploading… {{ uploadProgress() }}%
-        </div>
-        }
-      </div>
-      }
-
+      <app-add-book-modal [isOpen]="showAddModal()" [collections]="collections()" (closeModal)="closeAddModal()"
+        (bookAdded)="loadBooks()"></app-add-book-modal>
       @if (viewMode() === 'list') {
       <div class="table-view">
         <div class="table-header">

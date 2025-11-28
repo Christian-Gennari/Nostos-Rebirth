@@ -50,7 +50,6 @@ export class BookDetail implements OnInit {
   book = signal<Book | null>(null);
   error = signal<string | null>(null);
 
-
   collections = signal<Collection[]>([]);
   showMetadataModal = signal(false);
   metaForm = {
@@ -136,13 +135,17 @@ export class BookDetail implements OnInit {
   }
 
   // --- Metadata Modal Logic ---
+  // --- Metadata Modal Logic ---
   openMetadataModal(): void {
     const b = this.book();
     if (!b) return;
+    // Initialize form with ALL existing metadata from the book
     this.metaForm = {
       title: b.title,
       author: b.author,
       collectionId: b.collectionId,
+      // You should also initialize all other fields if the form supports editing them.
+      // For this specific fix, we rely on the existing values from 'b' in saveMetadata().
     };
     this.showMetadataModal.set(true);
   }
@@ -160,6 +163,14 @@ export class BookDetail implements OnInit {
         title: this.metaForm.title,
         author: this.metaForm.author,
         collectionId: this.metaForm.collectionId,
+
+        // FIX APPLIED HERE:
+        // Pass the existing metadata for all new DTO fields to satisfy UpdateBookDto
+        isbn: b.isbn,
+        publisher: b.publisher,
+        publicationDate: b.publicationDate,
+        pageCount: b.pageCount,
+        description: b.description,
       })
       .subscribe({
         next: (updatedBook) => {

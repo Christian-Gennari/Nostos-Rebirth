@@ -5,8 +5,7 @@ import { Collection } from '../dtos/collection.dtos';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { SidebarCollections } from '../sidebar-collections/sidebar-collections';
-import { HttpEventType } from '@angular/common/http';
+// NOTE: HttpEventType is no longer needed here as upload logic moved to modal.
 
 // Icons
 import {
@@ -20,11 +19,13 @@ import {
   X,
   Book as BookIcon,
 } from 'lucide-angular';
+import { AddBookModal } from '../add-book-modal/add-book-modal'; // Corrected import path/name
 
 @Component({
   selector: 'app-library',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, LucideAngularModule],
+  // Ensure AddBookModal is imported
+  imports: [CommonModule, RouterLink, FormsModule, LucideAngularModule, AddBookModal],
   templateUrl: './library.html',
   styleUrls: ['./library.css'],
 })
@@ -48,7 +49,6 @@ export class Library implements OnInit {
   activeCollectionId = this.collectionsService.activeCollectionId;
 
   // 3. Computed View (What the template sees)
-  // This automatically updates when rawBooks OR activeCollectionId changes
   books = computed(() => {
     const all = this.rawBooks();
     const activeId = this.activeCollectionId();
@@ -59,24 +59,18 @@ export class Library implements OnInit {
 
   collections = signal<Collection[]>([]);
 
-  uploadProgress = signal<number | null>(null);
-  uploadStartTime: number | null = null;
+  // REMOVED: uploadProgress, uploadStartTime (Moved to modal)
 
   viewMode = signal<'list' | 'grid'>('grid');
-  showAddDrawer = signal(false);
+  // MODAL STATE: Renamed/Changed from 'showAddDrawer'
+  showAddModal = signal(false);
 
   editing = signal<Book | null>(null);
   editTitle = model<string>('');
   editAuthor = model<string>('');
 
-  newBook = {
-    title: '',
-    author: null as string | null,
-    collectionId: null as string | null,
-  };
-
-  selectedFile: File | null = null;
-  selectedCover: File | null = null;
+  // REMOVED: newBook state (Moved to modal)
+  // REMOVED: selectedFile, selectedCover (Moved to modal)
 
   ngOnInit(): void {
     this.loadBooks();
@@ -85,7 +79,7 @@ export class Library implements OnInit {
 
   loadBooks(): void {
     this.booksService.list().subscribe({
-      next: (data) => this.rawBooks.set(data), // <--- Updates raw data
+      next: (data) => this.rawBooks.set(data),
       error: (err) => console.error('Error loading books:', err),
     });
   }
@@ -97,96 +91,18 @@ export class Library implements OnInit {
     });
   }
 
-  toggleAddDrawer(): void {
-    this.showAddDrawer.update((v) => !v);
+  // MODAL CONTROL METHODS
+  openAddModal(): void {
+    this.showAddModal.set(true);
   }
 
-  closeDrawerSmooth() {
-    this.showAddDrawer.set(false);
+  closeAddModal(): void {
+    this.showAddModal.set(false);
   }
 
-  resetDrawer(): void {
-    this.newBook = { title: '', author: null, collectionId: null };
-    this.selectedFile = null;
-    this.selectedCover = null;
-  }
-
-  onFileSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    this.selectedFile = input.files?.[0] ?? null;
-  }
-
-  onCoverSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    this.selectedCover = input.files?.[0] ?? null;
-  }
-
-  saveBook(): void {
-    if (!this.newBook.title.trim()) return;
-
-    this.booksService
-      .create({
-        title: this.newBook.title,
-        author: this.newBook.author,
-        collectionId: this.newBook.collectionId,
-      })
-      .subscribe({
-        next: (createdBook) => {
-          if (this.selectedFile) {
-            this.uploadStartTime = performance.now();
-            this.booksService.uploadFile(createdBook.id, this.selectedFile).subscribe({
-              next: (event) => {
-                if (event.type === HttpEventType.UploadProgress) {
-                  const percent = Math.round((event.loaded / (event.total ?? 1)) * 100);
-                  this.uploadProgress.set(percent);
-                }
-
-                if (event.type === HttpEventType.Response) {
-                  const MIN_VISIBLE = 1200;
-                  const elapsed = performance.now() - (this.uploadStartTime ?? 0);
-                  const remaining = Math.max(0, MIN_VISIBLE - elapsed);
-
-                  setTimeout(() => {
-                    this.uploadProgress.set(null);
-                    this.uploadStartTime = null;
-                    this.uploadCoverIfNeeded(createdBook.id);
-                  }, remaining);
-                }
-              },
-              error: (err) => {
-                console.error('File upload error:', err);
-                this.uploadProgress.set(null);
-              },
-            });
-          } else {
-            this.uploadCoverIfNeeded(createdBook.id);
-          }
-        },
-        error: (err) => console.error('Error creating book:', err),
-      });
-  }
-
-  uploadCoverIfNeeded(bookId: string) {
-    if (!this.selectedCover) {
-      this.finishSave();
-      return;
-    }
-
-    this.booksService.uploadCover(bookId, this.selectedCover).subscribe({
-      next: (event) => {
-        if (event.type === 4) {
-          this.finishSave();
-        }
-      },
-      error: (err) => console.error('Cover upload error:', err),
-    });
-  }
-
-  finishSave() {
-    this.resetDrawer();
-    this.closeDrawerSmooth();
-    this.loadBooks();
-  }
+  // REMOVED: toggleAddDrawer(), closeDrawerSmooth(), resetDrawer()
+  // REMOVED: onFileSelected(), onCoverSelected()
+  // REMOVED: saveBook(), uploadCoverIfNeeded(), finishSave() (Logic moved to AddBookModal)
 
   deleteBook(id: string, event: Event): void {
     event.stopPropagation();
@@ -203,6 +119,10 @@ export class Library implements OnInit {
     this.editAuthor.set(book.author ?? '');
   }
 
+  /**
+   * CORRECTED: Now includes all required fields from UpdateBookDto
+   * by passing the existing values of the book being edited.
+   */
   saveEdit(): void {
     const book = this.editing();
     if (!book) return;
@@ -212,6 +132,12 @@ export class Library implements OnInit {
         title: this.editTitle(),
         author: this.editAuthor(),
         collectionId: book.collectionId,
+        // Pass existing values for new DTO fields to satisfy interface:
+        isbn: book.isbn,
+        publisher: book.publisher,
+        publicationDate: book.publicationDate,
+        pageCount: book.pageCount,
+        description: book.description,
       })
       .subscribe({
         next: () => {

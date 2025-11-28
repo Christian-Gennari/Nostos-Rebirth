@@ -1,0 +1,141 @@
+/* src/app/add-book-modal/add-book-modal.component.css */
+
+/* ------------------------------
+   MODAL BASE STYLES
+------------------------------ */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 100; /* Ensure it's above everything else */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: var(--bg-surface, #fff); /* Use surface color */
+  border-radius: var(--radius-lg, 10px);
+  width: 100%;
+  max-width: 700px; /* Wider for more fields */
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  transform: scale(0.95);
+  opacity: 0;
+  animation: modalEnter 200ms ease-out forwards;
+}
+
+@keyframes modalEnter {
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ------------------------------
+   MODAL SECTIONS
+------------------------------ */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color, #eee);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 500;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+/* ------------------------------
+   FORM STYLES (To match your existing inputs)
+------------------------------ */
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 0.4rem;
+  color: var(--color-text-main, #333);
+}
+
+.form-label .required {
+  color: var(--color-danger, #d9534f);
+}
+
+.input,
+.select-input,
+.textarea {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color, #ccc);
+  border-radius: var(--radius-md, 6px);
+  font-size: 1rem;
+  background: var(--bg-body, #fafafa); /* Use body background for inputs */
+  color: var(--color-text-main, #333);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input:focus,
+.select-input:focus,
+.textarea:focus {
+  border-color: var(--color-primary, #007bff);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.select-input {
+  /* Style for your custom select (mimicking your drawer style) */
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2.5rem;
+}
+
+.textarea {
+  resize: vertical;
+}
+
+.file-input {
+  /* Basic style for file input */
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--border-color, #eee);
+  margin: 1.5rem 0;
+}
+
+.upload-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: #e6f7ff; /* A light blue background for status */
+  border: 1px solid #91d5ff;
+  border-radius: var(--radius-md, 6px);
+  color: #0050b3;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-top: 1rem;
+}
