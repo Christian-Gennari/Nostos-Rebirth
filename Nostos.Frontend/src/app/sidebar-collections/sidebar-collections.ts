@@ -38,8 +38,8 @@ export class SidebarCollections implements OnInit {
   BrainIcon = BrainCircuit;
 
   collections = signal<Collection[]>([]);
-  // CHANGED: Auto-collapse if the current route is '/second-brain' (Request 2)
-  expanded = signal(!this.router.url.startsWith('/second-brain'));
+
+  expanded = this.collectionsService.sidebarExpanded;
 
   // State for Creating/Editing
   adding = signal(false);
@@ -86,17 +86,16 @@ export class SidebarCollections implements OnInit {
   }
 
   toggle(): void {
-    if (this.expanded()) {
-      this.resetInput();
-    }
+    if (this.expanded()) this.resetInput();
     this.expanded.set(!this.expanded());
   }
 
-  // --- UPDATED NAVIGATION LOGIC ---
   select(id: string | null): void {
     this.collectionsService.activeCollectionId.set(id);
-    // Force navigation to the library so the filter is actually seen
-    this.router.navigate(['/library']);
+
+    if (!this.router.url.startsWith('/library')) {
+      this.router.navigate(['/library']);
+    }
   }
 
   startAdd(): void {

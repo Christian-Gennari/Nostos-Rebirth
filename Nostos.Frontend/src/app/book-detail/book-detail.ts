@@ -50,6 +50,7 @@ export class BookDetail implements OnInit {
   loading = signal(true);
   book = signal<Book | null>(null);
   error = signal<string | null>(null);
+  
 
   collections = signal<Collection[]>([]);
   showMetadataModal = signal(false);

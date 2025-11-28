@@ -10,6 +10,7 @@ export class CollectionsService {
   // GLOBAL STATE
   // null = "All Books"
   activeCollectionId = signal<string | null>(null);
+  sidebarExpanded = signal(true);
 
   list(): Observable<Collection[]> {
     return this.http.get<Collection[]>('/api/collections');
