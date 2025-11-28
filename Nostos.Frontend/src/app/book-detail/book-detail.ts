@@ -19,6 +19,10 @@ import {
   BookOpen,
   CheckIcon,
   ChevronDown,
+  ChevronUp, // Added
+  Hash, // Added for ISBN
+  Layers, // Added for Pages
+  Building, // Added for Publisher
 } from 'lucide-angular';
 
 @Component({
@@ -36,6 +40,7 @@ export class BookDetail implements OnInit {
   private collectionsService = inject(CollectionsService);
   private conceptsService = inject(ConceptsService);
 
+  // Icons
   ArrowLeftIcon = ArrowLeft;
   UserIcon = User;
   CalendarIcon = Calendar;
@@ -45,17 +50,32 @@ export class BookDetail implements OnInit {
   BookOpenIcon = BookOpen;
   CheckIcon = CheckIcon;
   ChevronDownIcon = ChevronDown;
+  ChevronUpIcon = ChevronUp;
+  HashIcon = Hash;
+  LayersIcon = Layers;
+  BuildingIcon = Building;
 
   loading = signal(true);
   book = signal<Book | null>(null);
   error = signal<string | null>(null);
 
   collections = signal<Collection[]>([]);
+
+  // UI State for Metadata expansion
+  isMetadataExpanded = signal(false);
+
   showMetadataModal = signal(false);
+
+  // Expanded Form State
   metaForm = {
     title: '',
     author: '' as string | null,
     collectionId: null as string | null,
+    description: '' as string | null,
+    isbn: '' as string | null,
+    publisher: '' as string | null,
+    publicationDate: '' as string | null,
+    pageCount: 0 as number | null,
   };
 
   notes = signal<Note[]>([]);
@@ -64,7 +84,6 @@ export class BookDetail implements OnInit {
   editNoteContent = model<string>('');
 
   coverInput!: HTMLInputElement;
-
   conceptMap = signal<Map<string, ConceptDto>>(new Map());
 
   ngOnInit(): void {
@@ -134,18 +153,27 @@ export class BookDetail implements OnInit {
     }
   }
 
-  // --- Metadata Modal Logic ---
+  toggleMetadata() {
+    this.isMetadataExpanded.update((v) => !v);
+  }
+
   // --- Metadata Modal Logic ---
   openMetadataModal(): void {
     const b = this.book();
     if (!b) return;
-    // Initialize form with ALL existing metadata from the book
+
+    // Initialize form with ALL existing metadata
     this.metaForm = {
       title: b.title,
       author: b.author,
       collectionId: b.collectionId,
-      // You should also initialize all other fields if the form supports editing them.
-      // For this specific fix, we rely on the existing values from 'b' in saveMetadata().
+      description: b.description || '',
+      isbn: b.isbn || '',
+      publisher: b.publisher || '',
+      publicationDate: b.publicationDate
+        ? new Date(b.publicationDate).toISOString().split('T')[0]
+        : '',
+      pageCount: b.pageCount || null,
     };
     this.showMetadataModal.set(true);
   }
@@ -163,14 +191,13 @@ export class BookDetail implements OnInit {
         title: this.metaForm.title,
         author: this.metaForm.author,
         collectionId: this.metaForm.collectionId,
-
-        // FIX APPLIED HERE:
-        // Pass the existing metadata for all new DTO fields to satisfy UpdateBookDto
-        isbn: b.isbn,
-        publisher: b.publisher,
-        publicationDate: b.publicationDate,
-        pageCount: b.pageCount,
-        description: b.description,
+        isbn: this.metaForm.isbn,
+        publisher: this.metaForm.publisher,
+        publicationDate: this.metaForm.publicationDate
+          ? new Date(this.metaForm.publicationDate).toDateString()
+          : null,
+        pageCount: this.metaForm.pageCount,
+        description: this.metaForm.description,
       })
       .subscribe({
         next: (updatedBook) => {
@@ -232,8 +259,7 @@ export class BookDetail implements OnInit {
     });
   }
 
-  // --- FILE / COVER LOGIC (fully restored) ---
-
+  // --- FILE / COVER LOGIC ---
   openFile() {
     const id = this.book()?.id;
     if (!id) return;
@@ -242,36 +268,26 @@ export class BookDetail implements OnInit {
 
   triggerCoverPicker() {
     const input = document.querySelector('input[type=file][accept="image/*"]') as HTMLInputElement;
-
     if (input) input.click();
   }
 
   onCoverSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
-
     if (!file) return;
 
     const book = this.book();
     if (!book) return;
 
-    const formData = new FormData();
-    formData.append('file', file);
-
     this.booksService.uploadCover(book.id, file).subscribe({
-      next: (updated) => {
-        this.book.set(updated);
-      },
-      error: () => {
-        this.error.set('Failed to upload cover');
-      },
+      next: (updated) => this.book.set(updated),
+      error: () => this.error.set('Failed to upload cover'),
     });
   }
 
   deleteCover() {
     const id = this.book()?.id;
     if (!id) return;
-
     if (!confirm('Remove cover image?')) return;
 
     this.booksService.deleteCover(id).subscribe({
@@ -290,9 +306,7 @@ export class BookDetail implements OnInit {
   onFileUploadSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
-
     if (!file) return;
-
     const book = this.book();
     if (!book) return;
 
@@ -302,19 +316,22 @@ export class BookDetail implements OnInit {
     });
   }
 
-  // --- Concept Tag Formatter ---
   formatNote(content: string): string {
     const conceptMap = this.conceptMap();
-
     return content.replace(/\[\[(.*?)\]\]/g, (match, conceptName) => {
       const trimmedName = conceptName.trim();
       const concept = conceptMap.get(trimmedName.toLowerCase());
-
       if (concept) {
         return `<span class="concept-tag clickable" data-concept-id="${concept.id}">${trimmedName}</span>`;
       }
-
       return trimmedName;
     });
+  }
+
+  // Add this inside the BookDetail class
+  getCollectionName(id: string | null | undefined): string {
+    if (!id) return '—';
+    const col = this.collections().find((c) => c.id === id);
+    return col ? col.name : '—';
   }
 }

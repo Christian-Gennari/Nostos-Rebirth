@@ -1,4 +1,5 @@
 /* fileName: Nostos.Frontend/src/app/book-detail/book-detail.css */
+
 /* ------------------------------
     LAYOUT GRID
 ------------------------------ */
@@ -72,8 +73,12 @@
 .sep { opacity: 0.3; }
 
 /* ------------------------------
-    RIGHT COL: INFO
+    RIGHT COL: INFO HEADER
 ------------------------------ */
+.info-header {
+  margin-bottom: 1.5rem;
+}
+
 .book-title {
   font-size: 2.5rem;
   line-height: 1.1;
@@ -114,6 +119,8 @@
 
 .primary-actions {
   margin-bottom: 2rem;
+  display: flex;
+  gap: 1rem;
 }
 
 .divider {
@@ -122,6 +129,111 @@
   margin: 2rem 0;
   opacity: 0.6;
 }
+
+/* ------------------------------
+    SYNOPSIS & METADATA SECTION (NEW)
+------------------------------ */
+.synopsis-metadata-block {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.synopsis-content {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+/* Description Text Styling */
+.description-text {
+  font-family: 'Lora', serif;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--color-text-main);
+  /* Default: Collapsed to 3 lines */
+  display: -webkit-box;
+  line-clamp: 3;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.description-placeholder {
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+/* Fade Overlay for Collapsed State */
+.fade-overlay {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 40px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0), var(--bg-surface));
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.2s;
+}
+
+/* Metadata Grid */
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* 2 Columns */
+  gap: 1rem 2rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--border-color);
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+}
+.meta-item.full-width { grid-column: span 2; }
+
+.meta-item .label {
+  display: flex; align-items: center; gap: 0.4rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.2rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.meta-item .value {
+  color: var(--color-text-main);
+  font-weight: 500;
+}
+
+/* Expand Button */
+.expand-btn {
+  width: 100%;
+  margin-top: 1rem;
+  padding-top: 0.5rem;
+  background: none; border: none;
+  border-top: 1px solid var(--border-color);
+  color: var(--color-primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+}
+.expand-btn:hover { background: rgba(0,0,0,0.02); }
+
+/* --- EXPANDED STATE MODIFIERS --- */
+.synopsis-metadata-block.expanded .description-text {
+  line-clamp: unset;
+  -webkit-line-clamp: unset; /* Show all text */
+}
+
+.synopsis-metadata-block.expanded .fade-overlay {
+  opacity: 0;
+}
+
 
 /* ------------------------------
     NOTES SECTION
@@ -227,6 +339,62 @@
 .concept-tag.clickable:hover {
   opacity: 1;
 }
+
+/* ------------------------------
+    MODAL STYLES (New & Improved)
+------------------------------ */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 50;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content.large {
+  background: var(--bg-surface);
+  width: 100%; max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.2);
+  display: flex; flex-direction: column;
+}
+
+.modal-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.modal-header h3 { font-family: 'Lora', serif; color: var(--color-primary); margin:0; font-size: 1.25rem;}
+
+.form-grid {
+  padding: 1.5rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.form-group { display: flex; flex-direction: column; }
+.form-group.span-2 { grid-column: span 2; }
+
+.form-group label {
+  font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 0.4rem;
+}
+
+.select-wrapper { position: relative; }
+.sel-icon {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  pointer-events: none; color: var(--color-text-muted);
+}
+
+.modal-actions {
+  padding: 1.5rem;
+  border-top: 1px solid var(--border-color);
+  display: flex; justify-content: flex-end; gap: 0.5rem;
+  background: var(--bg-body); /* Slightly distinct background */
+}
+
 
 /* ------------------------------
     SKELETON LOADER
