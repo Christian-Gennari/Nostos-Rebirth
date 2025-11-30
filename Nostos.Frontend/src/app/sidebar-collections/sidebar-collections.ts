@@ -44,6 +44,8 @@ export class SidebarCollections implements OnInit {
   // State for Creating/Editing
   adding = signal(false);
   editingId = signal<string | null>(null);
+  collapseSidebarProgress = signal(false);
+
   newName = model<string>('');
 
   private ignoreClick = false;
@@ -82,8 +84,15 @@ export class SidebarCollections implements OnInit {
   }
 
   toggle(): void {
-    if (this.expanded()) this.resetInput();
-    this.expanded.set(!this.expanded());
+    const isCurrentlyExpanded = this.expanded();
+
+    // Only trigger collapseProgress when collapsing
+    if (isCurrentlyExpanded) {
+      this.collapseSidebarProgress.set(true);
+      setTimeout(() => this.collapseSidebarProgress.set(false), 200);
+    }
+
+    this.expanded.set(!isCurrentlyExpanded);
   }
 
   select(id: string | null): void {

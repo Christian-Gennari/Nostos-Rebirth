@@ -24,10 +24,12 @@
 
 /* BRAND */
 .sidebar-header {
+
   height: 80px;
   display: flex;
   align-items: center;
-  padding: 0 1.5rem;
+  padding: 11px;
+
 }
 
 .brand {
@@ -38,11 +40,29 @@
   color: var(--color-primary);
 }
 
+
+
 .brand-icon {
-  width: 100%;
+  width: 50px;
+  height: auto;
   display: flex;
   justify-content: center;
   color: var(--color-primary);
+
+    opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+
+/* Fade out during collapse */
+.sidebar.collapsing .brand-icon {
+  opacity: 0;
+}
+
+/* Fade in after collapse completes */
+.sidebar.collapsed:not(.collapsing) .brand-icon {
+  opacity: 1;
+  transition-delay: 0.2s; /* wait until width transition is done */
 }
 
 /* SCROLL AREA */
@@ -270,6 +290,9 @@
 }
 
 /* --- COLLAPSED OVERRIDES --- */
+
+
+
 .sidebar.collapsed .sidebar-header {
   padding: 0;
   justify-content: center;
@@ -290,7 +313,7 @@
     gap 0.3s cubic-bezier(0.2, 0, 0, 1),
     margin-left 0.3s cubic-bezier(0.2, 0, 0, 1),
     background 0.2s ease,
-    color 0.2s ease;
+    color 0.2s ease,
 }
 
 .label {
@@ -324,6 +347,16 @@
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+@keyframes brandFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes brandFadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
 }
 
 /* Apply to both the "New Collection" button AND the "Input" mode */
