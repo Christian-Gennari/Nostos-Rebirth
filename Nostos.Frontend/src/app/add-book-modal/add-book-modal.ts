@@ -2,12 +2,13 @@ import { Component, inject, input, output, signal, computed, effect } from '@ang
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
+import { finalize } from 'rxjs';
 import { LucideAngularModule, X, Upload, Info } from 'lucide-angular';
 import { BooksService, Book } from '../services/books.services';
 import { Collection } from '../dtos/collection.dtos';
 
 @Component({
-  selector: 'app-add-book-modal', // You can rename this selector later if you want
+  selector: 'app-add-book-modal',
   standalone: true,
   imports: [CommonModule, FormsModule, LucideAngularModule],
   templateUrl: './add-book-modal.html',
@@ -19,12 +20,12 @@ export class AddBookModal {
   // Inputs
   isOpen = input.required<boolean>();
   collections = input.required<Collection[]>();
-  book = input<Book | null>(null); // <--- NEW: If present, we are in Edit Mode
+  book = input<Book | null>(null);
 
   // Outputs
   closeModal = output<void>();
-  bookAdded = output<void>(); // For "Add" success
-  bookUpdated = output<Book>(); // For "Edit" success
+  bookAdded = output<void>();
+  bookUpdated = output<Book>();
 
   // Icons
   XIcon = X;
@@ -33,6 +34,7 @@ export class AddBookModal {
 
   // Computed State
   isEditMode = computed(() => !!this.book());
+  isFetching = signal(false); // NEW: Loading state for ISBN fetch
 
   // Form State
   form = {
@@ -51,14 +53,13 @@ export class AddBookModal {
     collectionId: null as string | null,
   };
 
-  // Upload State (Only for Add Mode)
+  // Upload State
   selectedFile: File | null = null;
   selectedCover: File | null = null;
   uploadProgress = signal<number | null>(null);
   uploadStartTime: number | null = null;
 
   constructor() {
-    // Reset or Fill form whenever the modal opens
     effect(() => {
       if (this.isOpen()) {
         const currentBook = this.book();
@@ -78,7 +79,7 @@ export class AddBookModal {
       author: b.author,
       isbn: b.isbn || '',
       publisher: b.publisher || '',
-      publishedDate: b.publishedDate || '', // Use raw string
+      publishedDate: b.publishedDate || '',
       pageCount: b.pageCount || null,
       description: b.description || '',
       language: b.language || 'en',
@@ -87,7 +88,6 @@ export class AddBookModal {
       volumeNumber: b.volumeNumber || '',
       collectionId: b.collectionId,
     };
-    // Clear uploads just in case
     this.selectedFile = null;
     this.selectedCover = null;
   }
@@ -111,9 +111,44 @@ export class AddBookModal {
     this.selectedFile = null;
     this.selectedCover = null;
     this.uploadProgress.set(null);
+    this.isFetching.set(false);
   }
 
-  // --- File Handling (Add Mode Only) ---
+  // --- ISBN Fetching Logic (NEW) ---
+  fetchMetadata(): void {
+    const isbn = this.form.isbn?.trim();
+    if (!isbn) return;
+
+    this.isFetching.set(true);
+
+    this.booksService
+      .lookup(isbn)
+      .pipe(finalize(() => this.isFetching.set(false)))
+      .subscribe({
+        next: (data) => {
+          this.form = {
+            ...this.form,
+            title: data.title || this.form.title,
+            subtitle: data.subtitle || this.form.subtitle,
+            author: data.author || this.form.author,
+            description: data.description || this.form.description,
+            publisher: data.publisher || this.form.publisher,
+            publishedDate: data.publishedDate || this.form.publishedDate,
+            pageCount: data.pageCount || this.form.pageCount,
+            language: data.language || this.form.language,
+            categories: data.categories || this.form.categories,
+            // Keep existing fields user might have set
+            isbn: this.form.isbn,
+            collectionId: this.form.collectionId,
+            series: this.form.series,
+            volumeNumber: this.form.volumeNumber,
+          };
+        },
+        error: () => alert('Book details not found.'),
+      });
+  }
+
+  // --- File Handling ---
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     this.selectedFile = input.files?.[0] ?? null;
@@ -140,7 +175,6 @@ export class AddBookModal {
     this.booksService
       .update(bookId, {
         ...this.form,
-        // Ensure we send nulls for empty strings if preferred, or keep as is
         publishedDate: this.form.publishedDate || null,
       })
       .subscribe({
@@ -170,7 +204,6 @@ export class AddBookModal {
       });
   }
 
-  // --- Upload Helpers (Identical to before) ---
   handleFileUpload(createdBook: Book): void {
     this.uploadStartTime = performance.now();
     this.booksService.uploadFile(createdBook.id, this.selectedFile!).subscribe({

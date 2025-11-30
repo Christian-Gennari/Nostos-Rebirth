@@ -50,5 +50,9 @@ export class BooksService {
   deleteCover(bookId: string): Observable<void> {
     return this.http.delete<void>(`/api/books/${bookId}/cover`);
   }
+
+  lookup(isbn: string): Observable<CreateBookDto> {
+    return this.http.get<CreateBookDto>(`/api/books/lookup/${isbn}`);
+  }
 }
 export type { Book };

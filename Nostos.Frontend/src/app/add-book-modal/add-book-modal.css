@@ -262,3 +262,7 @@
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
+lucide-icon {
+  height: 17px
+}

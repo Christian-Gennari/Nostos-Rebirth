@@ -14,12 +14,18 @@
 
         @if (!isEditMode()) {
         <div class="form-group">
-          <label for="isbn" class="form-label">ISBN</label>
           <div class="input-group-fetch">
             <input id="isbn" class="input" type="text" placeholder="e.g., 978-0321765723" [(ngModel)]="form.isbn"
-              name="isbn" />
-            <button type="button" class="btn btn-secondary btn-fetch" [disabled]="!form.isbn">
+              name="isbn" (keydown.enter)="$event.preventDefault(); fetchMetadata()" />
+
+            <button type="button" class="btn btn-secondary btn-fetch" [disabled]="!form.isbn || isFetching()"
+              (click)="fetchMetadata()">
+
+              @if (isFetching()) {
+              <lucide-icon [img]="UploadIcon" class="animate-spin" [size]="16"></lucide-icon>
+              } @else {
               Fetch
+              }
             </button>
           </div>
           <p class="form-help-text">Enter ISBN and click Fetch to auto-fill metadata.</p>

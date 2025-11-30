@@ -22,7 +22,8 @@ builder.Services.AddOpenApi();
 
 // Services Dependency Injection
 builder.Services.AddSingleton<FileStorageService>();
-
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<BookLookupService>();
 
 var app = builder.Build();
 app.MapOpenApi();

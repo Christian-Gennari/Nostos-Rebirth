@@ -205,6 +205,12 @@ public static class BooksEndpoints
     });
 
 
+    group.MapGet("/lookup/{isbn}", async (string isbn, BookLookupService service) =>
+    {
+      var metadata = await service.LookupCombinedAsync(isbn);
+      return metadata is not null ? Results.Ok(metadata) : Results.NotFound();
+    });
+
     return routes;
   }
 
