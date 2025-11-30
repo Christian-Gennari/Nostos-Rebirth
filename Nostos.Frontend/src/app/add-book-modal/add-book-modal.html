@@ -34,9 +34,35 @@
           </div>
 
           <div class="form-group">
-            <label for="author" class="form-label">Author</label>
-            <input id="author" class="input" type="text" placeholder="Author Name" [(ngModel)]="newBook.author"
-              name="author" />
+            <label for="subtitle" class="form-label">Subtitle</label>
+            <input id="subtitle" class="input" type="text" placeholder="Subtitle" [(ngModel)]="newBook.subtitle"
+              name="subtitle" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="author" class="form-label">Author</label>
+          <input id="author" class="input" type="text" placeholder="Author Name" [(ngModel)]="newBook.author"
+            name="author" />
+        </div>
+
+        <div class="grid grid-3">
+          <div class="form-group">
+            <label for="series" class="form-label">Series</label>
+            <input id="series" class="input" type="text" placeholder="Series Name" [(ngModel)]="newBook.series"
+              name="series" />
+          </div>
+
+          <div class="form-group">
+            <label for="volumeNumber" class="form-label">Volume #</label>
+            <input id="volumeNumber" class="input" type="text" placeholder="e.g. 1" [(ngModel)]="newBook.volumeNumber"
+              name="volumeNumber" />
+          </div>
+
+          <div class="form-group">
+            <label for="language" class="form-label">Language</label>
+            <input id="language" class="input" type="text" placeholder="en" [(ngModel)]="newBook.language"
+              name="language" />
           </div>
         </div>
 
@@ -49,7 +75,7 @@
 
           <div class="form-group">
             <label for="pubDate" class="form-label">Pub. Date</label>
-            <input id="pubDate" class="input" type="date" [(ngModel)]="newBook.publicationDate" name="publicationDate"
+            <input id="pubDate" class="input" type="date" [(ngModel)]="newBook.publishedDate" name="publishedDate"
               placeholder="YYYY-MM-DD" />
           </div>
 
@@ -60,14 +86,22 @@
           </div>
         </div>
 
-        <div class="form-group">
-          <label for="collection" class="form-label">Collection</label>
-          <select id="collection" [(ngModel)]="newBook.collectionId" name="collectionId" class="select-input">
-            <option [ngValue]="null">None</option>
-            @for (col of collections(); track col.id) {
-            <option [value]="col.id">{{ col.name }}</option>
-            }
-          </select>
+        <div class="grid grid-2">
+          <div class="form-group">
+            <label for="collection" class="form-label">Collection</label>
+            <select id="collection" [(ngModel)]="newBook.collectionId" name="collectionId" class="select-input">
+              <option [ngValue]="null">None</option>
+              @for (col of collections(); track col.id) {
+              <option [value]="col.id">{{ col.name }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="categories" class="form-label">Genres / Categories</label>
+            <input id="categories" class="input" type="text" placeholder="Fiction, Sci-Fi..."
+              [(ngModel)]="newBook.categories" name="categories" />
+          </div>
         </div>
 
         <div class="form-group">

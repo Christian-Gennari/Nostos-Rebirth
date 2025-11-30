@@ -31,6 +31,7 @@ export class EditBookModal {
   // Form State
   form = {
     title: '',
+    subtitle: '' as string | null,
     author: '' as string | null,
     collectionId: null as string | null,
     description: '' as string | null,
@@ -38,6 +39,10 @@ export class EditBookModal {
     publisher: '' as string | null,
     publicationDate: '' as string | null,
     pageCount: 0 as number | null,
+    language: '' as string | null,
+    categories: '' as string | null,
+    series: '' as string | null,
+    volumeNumber: '' as string | null,
   };
 
   constructor() {
@@ -53,6 +58,7 @@ export class EditBookModal {
     const b = this.book();
     this.form = {
       title: b.title,
+      subtitle: b.subtitle || '',
       author: b.author,
       collectionId: b.collectionId,
       description: b.description || '',
@@ -62,6 +68,10 @@ export class EditBookModal {
         ? new Date(b.publicationDate).toISOString().split('T')[0]
         : '',
       pageCount: b.pageCount || null,
+      language: b.language || '',
+      categories: b.categories || '',
+      series: b.series || '',
+      volumeNumber: b.volumeNumber || '',
     };
   }
 
@@ -69,15 +79,20 @@ export class EditBookModal {
     this.booksService
       .update(this.book().id, {
         title: this.form.title,
+        subtitle: this.form.subtitle,
         author: this.form.author,
         collectionId: this.form.collectionId,
         isbn: this.form.isbn,
         publisher: this.form.publisher,
-        publicationDate: this.form.publicationDate
+        publishedDate: this.form.publicationDate
           ? new Date(this.form.publicationDate).toDateString()
           : null,
         pageCount: this.form.pageCount,
         description: this.form.description,
+        language: this.form.language,
+        categories: this.form.categories,
+        series: this.form.series,
+        volumeNumber: this.form.volumeNumber,
       })
       .subscribe({
         next: (updatedBook) => {

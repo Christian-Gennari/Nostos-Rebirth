@@ -1,18 +1,17 @@
-// src/app/dtos/book.dtos.ts (or wherever these DTOs live)
-
-/**
- * The full Book object returned from the API.
- * This should remain mostly unchanged, as it defines the complete shape of a Book.
- */
 export interface Book {
   id: string;
   title: string;
+  subtitle: string | null; // <--- NEW
   author: string | null;
+  description: string | null;
   isbn: string | null;
   publisher: string | null;
-  publicationDate: string | null;
+  publicationDate: string | null; // API sends DateTime string
   pageCount: number | null;
-  description: string | null;
+  language: string | null; // <--- NEW
+  categories: string | null; // <--- NEW
+  series: string | null; // <--- NEW
+  volumeNumber: string | null; // <--- NEW
   createdAt: string;
   hasFile: boolean;
   fileName: string | null;
@@ -20,36 +19,34 @@ export interface Book {
   collectionId: string | null;
 }
 
-// -------------------------------------------------------------
-
-/**
- * Used for creating a new Book.
- * Must now include all non-file/non-generated fields.
- */
 export interface CreateBookDto {
   title: string;
+  subtitle: string | null;
   author: string | null;
-  collectionId: string | null;
+  description: string | null;
   isbn: string | null;
   publisher: string | null;
-  publicationDate: string | null;
+  publishedDate: string | null; // Note: Changed to match backend DTO name
   pageCount: number | null;
-  description: string | null;
+  language: string | null;
+  categories: string | null;
+  series: string | null;
+  volumeNumber: string | null;
+  collectionId: string | null;
 }
 
-// -------------------------------------------------------------
-
-/**
- * Used for updating an existing Book.
- * Must include all updatable metadata fields.
- */
 export interface UpdateBookDto {
   title: string;
+  subtitle: string | null;
   author: string | null;
-  collectionId: string | null;
+  description: string | null;
   isbn: string | null;
   publisher: string | null;
-  publicationDate: string | null;
+  publishedDate: string | null;
   pageCount: number | null;
-  description: string | null;
+  language: string | null;
+  categories: string | null;
+  series: string | null;
+  volumeNumber: string | null;
+  collectionId: string | null;
 }

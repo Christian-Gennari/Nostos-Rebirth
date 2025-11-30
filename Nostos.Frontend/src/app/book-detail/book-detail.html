@@ -67,6 +67,14 @@
 
           <header class="info-header">
             <h1 class="book-title">{{ book()?.title }}</h1>
+
+            @if (book()?.subtitle) {
+            <h3 class="book-subtitle"
+              style="font-size: 1.1rem; color: var(--color-text-light); margin: -0.25rem 0 0.5rem 0; font-weight: 400; font-family: 'Inter', sans-serif;">
+              {{ book()?.subtitle }}
+            </h3>
+            }
+
             <h2 class="book-author">{{ book()?.author || 'Unknown Author' }}</h2>
 
             <div class="primary-actions">
@@ -98,6 +106,16 @@
             </div>
 
             <div class="meta-grid">
+
+              @if (book()?.series) {
+              <div class="meta-item full-width">
+                <span class="label">Series</span>
+                <span class="value">
+                  {{ book()?.series }} {{ book()?.volumeNumber ? '#' + book()?.volumeNumber : '' }}
+                </span>
+              </div>
+              }
+
               <div class="meta-item">
                 <span class="label"><lucide-icon [img]="LayersIcon" [size]="12"></lucide-icon> Pages</span>
                 <span class="value">{{ book()?.pageCount || '—' }}</span>
@@ -116,6 +134,23 @@
                 <span class="label"><lucide-icon [img]="HashIcon" [size]="12"></lucide-icon> ISBN</span>
                 <span class="value">{{ book()?.isbn || '—' }}</span>
               </div>
+
+              <div class="meta-item">
+                <span class="label">Language</span>
+                <span class="value">{{ book()?.language || '—' | uppercase }}</span>
+              </div>
+
+              @if(book()?.categories) {
+              <div class="meta-item full-width">
+                <span class="label">Genres</span>
+                <div class="value" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                  @for(cat of book()?.categories?.split(','); track cat) {
+                  <span class="tag">{{ cat.trim() }}</span>
+                  }
+                </div>
+              </div>
+              }
+
               @if(book()?.collectionId) {
               <div class="meta-item full-width">
                 <span class="label">Collection</span>
@@ -178,13 +213,10 @@
 
         </section>
 
-      </div> <!-- end detail-grid -->
-      } <!-- end @if -->
-
+      </div> }
     </div>
   </div>
 
-  <!-- New modal component -->
   <app-edit-book-modal [isOpen]="showMetadataModal()" [book]="book()!" [collections]="collections()"
     (closeModal)="closeMetadataModal()" (bookUpdated)="onBookUpdated($event)">
   </app-edit-book-modal>

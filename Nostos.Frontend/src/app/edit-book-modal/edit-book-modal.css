@@ -12,7 +12,7 @@
 .modal-content.large {
   background: var(--bg-surface);
   width: 100%;
-  max-width: 600px;
+  max-width: 650px;
   max-height: 90vh;
   overflow-y: auto;
   border-radius: var(--radius-lg);
@@ -22,7 +22,7 @@
 }
 
 .modal-header {
-  padding: 1.5rem;
+  padding: 1.25rem 1.5rem;
   border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
@@ -36,30 +36,43 @@
   font-size: 1.25rem;
 }
 
-.form-grid {
+.modal-body {
   padding: 1.5rem;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
 }
+
+/* Structural Grids */
+.grid {
+  display: grid;
+  gap: 1rem;
+}
+.grid-2 { grid-template-columns: 1fr 1fr; }
+.grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+/* Helpers */
+.mb-1 { margin-bottom: 1rem; }
 
 .form-group {
   display: flex;
   flex-direction: column;
 }
 
-.form-group.span-2 {
-  grid-column: span 2;
-}
-
 .form-group label {
   font-size: 0.8rem;
   color: var(--color-text-muted);
   margin-bottom: 0.4rem;
+  font-weight: 500;
 }
 
 .select-wrapper {
   position: relative;
+}
+
+.select-input {
+  appearance: none;
+  padding-right: 2.5rem;
 }
 
 .sel-icon {
@@ -72,7 +85,7 @@
 }
 
 .modal-actions {
-  padding: 1.5rem;
+  padding: 1.25rem 1.5rem;
   border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: flex-end;

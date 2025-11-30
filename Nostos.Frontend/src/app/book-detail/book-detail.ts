@@ -20,10 +20,10 @@ import {
   BookOpen,
   CheckIcon,
   ChevronDown,
-  ChevronUp, // Added
-  Hash, // Added for ISBN
-  Layers, // Added for Pages
-  Building, // Added for Publisher
+  ChevronUp,
+  Hash,
+  Layers,
+  Building,
 } from 'lucide-angular';
 
 @Component({
@@ -70,6 +70,7 @@ export class BookDetail implements OnInit {
   // Expanded Form State
   metaForm = {
     title: '',
+    subtitle: '' as string | null, // <--- NEW
     author: '' as string | null,
     collectionId: null as string | null,
     description: '' as string | null,
@@ -77,6 +78,10 @@ export class BookDetail implements OnInit {
     publisher: '' as string | null,
     publicationDate: '' as string | null,
     pageCount: 0 as number | null,
+    language: '' as string | null, // <--- NEW
+    categories: '' as string | null, // <--- NEW
+    series: '' as string | null, // <--- NEW
+    volumeNumber: '' as string | null, // <--- NEW
   };
 
   notes = signal<Note[]>([]);
@@ -166,6 +171,7 @@ export class BookDetail implements OnInit {
     // Initialize form with ALL existing metadata
     this.metaForm = {
       title: b.title,
+      subtitle: b.subtitle || '', // <--- NEW
       author: b.author,
       collectionId: b.collectionId,
       description: b.description || '',
@@ -175,6 +181,10 @@ export class BookDetail implements OnInit {
         ? new Date(b.publicationDate).toISOString().split('T')[0]
         : '',
       pageCount: b.pageCount || null,
+      language: b.language || 'en', // <--- NEW
+      categories: b.categories || '', // <--- NEW
+      series: b.series || '', // <--- NEW
+      volumeNumber: b.volumeNumber || '', // <--- NEW
     };
     this.showMetadataModal.set(true);
   }
@@ -190,15 +200,20 @@ export class BookDetail implements OnInit {
     this.booksService
       .update(b.id, {
         title: this.metaForm.title,
+        subtitle: this.metaForm.subtitle, // <--- NEW
         author: this.metaForm.author,
         collectionId: this.metaForm.collectionId,
         isbn: this.metaForm.isbn,
         publisher: this.metaForm.publisher,
-        publicationDate: this.metaForm.publicationDate
-          ? new Date(this.metaForm.publicationDate).toDateString()
+        publishedDate: this.metaForm.publicationDate
+          ? new Date(this.metaForm.publicationDate).toISOString()
           : null,
         pageCount: this.metaForm.pageCount,
         description: this.metaForm.description,
+        language: this.metaForm.language, // <--- NEW
+        categories: this.metaForm.categories, // <--- NEW
+        series: this.metaForm.series, // <--- NEW
+        volumeNumber: this.metaForm.volumeNumber, // <--- NEW
       })
       .subscribe({
         next: (updatedBook) => {

@@ -11,12 +11,17 @@ import { Collection } from '../dtos/collection.dtos';
 // Define the shape of the new book data for the form
 interface NewBookForm {
   title: string;
+  subtitle: string | null;
   author: string | null;
   isbn: string | null;
   publisher: string | null;
-  publicationDate: string | null;
+  publishedDate: string | null;
   pageCount: number | null;
   description: string | null;
+  language: string | null;
+  categories: string | null;
+  series: string | null;
+  volumeNumber: string | null;
   collectionId: string | null;
 }
 
@@ -44,12 +49,17 @@ export class AddBookModal {
   // New book state with extended fields
   newBook: NewBookForm = {
     title: '',
+    subtitle: null,
     author: null,
     isbn: null,
     publisher: null,
-    publicationDate: null,
+    publishedDate: null,
     pageCount: null,
     description: null,
+    language: 'en', // Recommendation: Use ISO codes (en, fr) or full names consistently
+    categories: null,
+    series: null,
+    volumeNumber: null,
     collectionId: null,
   };
 
@@ -75,12 +85,17 @@ export class AddBookModal {
   resetForm(): void {
     this.newBook = {
       title: '',
+      subtitle: null,
       author: null,
       isbn: null,
       publisher: null,
-      publicationDate: null,
+      publishedDate: null,
       pageCount: null,
       description: null,
+      language: 'en',
+      categories: null,
+      series: null,
+      volumeNumber: null,
       collectionId: null,
     };
     this.selectedFile = null;
@@ -98,12 +113,17 @@ export class AddBookModal {
     this.booksService
       .create({
         title: this.newBook.title,
+        subtitle: this.newBook.subtitle,
         author: this.newBook.author,
         isbn: this.newBook.isbn,
         publisher: this.newBook.publisher,
-        publicationDate: this.newBook.publicationDate,
+        publishedDate: this.newBook.publishedDate,
         pageCount: pageCountValue,
         description: this.newBook.description,
+        language: this.newBook.language,
+        categories: this.newBook.categories,
+        series: this.newBook.series,
+        volumeNumber: this.newBook.volumeNumber,
         collectionId: this.newBook.collectionId,
       })
       .subscribe({

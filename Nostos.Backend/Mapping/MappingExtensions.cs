@@ -17,12 +17,22 @@ public static class MappingExtensions
         return new BookDto(
             model.Id,
             model.Title,
+            model.Subtitle,       // <--- NEW
             model.Author,
+            model.Description,    // <--- NEW
+            model.Isbn,           // <--- NEW
+            model.Publisher,      // <--- NEW
+            model.PublishedDate,  // <--- NEW
+            model.PageCount,      // <--- NEW
+            model.Language,       // <--- NEW
+            model.Categories,     // <--- NEW
+            model.Series,         // <--- NEW
+            model.VolumeNumber,   // <--- NEW
             model.CreatedAt,
             model.HasFile,
             model.FileName,
             coverUrl,
-            model.CollectionId // <--- NEW: Map the relationship
+            model.CollectionId
         );
     }
 
@@ -50,9 +60,19 @@ public static class MappingExtensions
         {
             Id = Guid.NewGuid(),
             Title = dto.Title,
+            Subtitle = dto.Subtitle,         // <--- NEW
             Author = dto.Author,
+            Description = dto.Description,   // <--- NEW
+            Isbn = dto.Isbn,                 // <--- NEW
+            Publisher = dto.Publisher,       // <--- NEW
+            PublishedDate = dto.PublishedDate, // <--- NEW
+            PageCount = dto.PageCount,       // <--- NEW
+            Language = dto.Language,         // <--- NEW
+            Categories = dto.Categories,     // <--- NEW
+            Series = dto.Series,             // <--- NEW
+            VolumeNumber = dto.VolumeNumber, // <--- NEW
             CreatedAt = DateTime.UtcNow,
-            CollectionId = dto.CollectionId // <--- NEW: Map on create
+            CollectionId = dto.CollectionId
         };
 
     public static NoteModel ToModel(this CreateNoteDto dto, Guid bookId) =>
@@ -83,8 +103,18 @@ public static class MappingExtensions
     public static void Apply(this BookModel model, UpdateBookDto dto)
     {
         model.Title = dto.Title;
+        model.Subtitle = dto.Subtitle;         // <--- NEW
         model.Author = dto.Author;
-        model.CollectionId = dto.CollectionId; // <--- NEW: Map on update
+        model.Description = dto.Description;   // <--- NEW
+        model.Isbn = dto.Isbn;                 // <--- NEW
+        model.Publisher = dto.Publisher;       // <--- NEW
+        model.PublishedDate = dto.PublishedDate; // <--- NEW
+        model.PageCount = dto.PageCount;       // <--- NEW
+        model.Language = dto.Language;         // <--- NEW
+        model.Categories = dto.Categories;     // <--- NEW
+        model.Series = dto.Series;             // <--- NEW
+        model.VolumeNumber = dto.VolumeNumber; // <--- NEW
+        model.CollectionId = dto.CollectionId;
     }
 
     public static void Apply(this CollectionModel model, UpdateCollectionDto dto)
