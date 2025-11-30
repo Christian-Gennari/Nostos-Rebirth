@@ -190,3 +190,75 @@
   gap: 1rem;
   padding-top: 1rem;
 }
+
+/* Label Alignment */
+.label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 4px;
+}
+
+.label-row label {
+  margin-bottom: 0; /* Override default margin */
+}
+
+/* Tooltip Container */
+.info-tooltip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  cursor: help;
+  color: var(--color-text-light);
+  transition: color 0.2s;
+}
+
+.info-tooltip:hover {
+  color: var(--color-primary);
+}
+
+/* The Popup Bubble */
+.info-tooltip .tooltip-text {
+  visibility: hidden;
+  opacity: 0;
+  width: 220px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 8px;
+
+  /* Positioning */
+  position: absolute;
+  bottom: 125%; /* Position above the icon */
+  left: 50%;
+  transform: translateX(-50%) translateY(5px);
+  z-index: 10;
+
+  /* Font styling */
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.4;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  pointer-events: none; /* Let clicks pass through */
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+/* Arrow pointer */
+.info-tooltip .tooltip-text::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #333 transparent transparent transparent;
+}
+
+/* Hover State */
+.info-tooltip:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

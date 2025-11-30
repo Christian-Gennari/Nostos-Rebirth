@@ -6,7 +6,7 @@ export interface Book {
   description: string | null;
   isbn: string | null;
   publisher: string | null;
-  publicationDate: string | null; // API sends DateTime string
+  publishedDate: string | null; // API sends DateTime string
   pageCount: number | null;
   language: string | null; // <--- NEW
   categories: string | null; // <--- NEW

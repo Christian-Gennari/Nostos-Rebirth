@@ -8,7 +8,6 @@ import { Collection } from '../dtos/collection.dtos';
 import { Note } from '../dtos/note.dtos';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { EditBookModal } from '../edit-book-modal/edit-book-modal';
 import {
   LucideAngularModule,
   ArrowLeft,
@@ -25,11 +24,12 @@ import {
   Layers,
   Building,
 } from 'lucide-angular';
+import { AddBookModal } from '../add-book-modal/add-book-modal';
 
 @Component({
   standalone: true,
   selector: 'app-book-detail',
-  imports: [CommonModule, FormsModule, RouterLink, LucideAngularModule, EditBookModal],
+  imports: [CommonModule, FormsModule, RouterLink, LucideAngularModule, AddBookModal],
   templateUrl: './book-detail.html',
   styleUrls: ['./book-detail.css'],
 })
@@ -76,7 +76,7 @@ export class BookDetail implements OnInit {
     description: '' as string | null,
     isbn: '' as string | null,
     publisher: '' as string | null,
-    publicationDate: '' as string | null,
+    publishedDate: '' as string | null,
     pageCount: 0 as number | null,
     language: '' as string | null, // <--- NEW
     categories: '' as string | null, // <--- NEW
@@ -177,9 +177,7 @@ export class BookDetail implements OnInit {
       description: b.description || '',
       isbn: b.isbn || '',
       publisher: b.publisher || '',
-      publicationDate: b.publicationDate
-        ? new Date(b.publicationDate).toISOString().split('T')[0]
-        : '',
+      publishedDate: b.publishedDate ? new Date(b.publishedDate).toISOString().split('T')[0] : '',
       pageCount: b.pageCount || null,
       language: b.language || 'en', // <--- NEW
       categories: b.categories || '', // <--- NEW
@@ -205,8 +203,8 @@ export class BookDetail implements OnInit {
         collectionId: this.metaForm.collectionId,
         isbn: this.metaForm.isbn,
         publisher: this.metaForm.publisher,
-        publishedDate: this.metaForm.publicationDate
-          ? new Date(this.metaForm.publicationDate).toISOString()
+        publishedDate: this.metaForm.publishedDate
+          ? new Date(this.metaForm.publishedDate).toISOString()
           : null,
         pageCount: this.metaForm.pageCount,
         description: this.metaForm.description,

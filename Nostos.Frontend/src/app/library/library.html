@@ -29,6 +29,10 @@
         (bookAdded)="loadBooks()">
       </app-add-book-modal>
 
+      <app-add-book-modal [isOpen]="showEditModal()" [collections]="collections()" [book]="editTarget()"
+        (closeModal)="closeEditModal()" (bookUpdated)="onBookUpdated($event)">
+      </app-add-book-modal>
+
       <!-- List View -->
       @if (viewMode() === 'list') {
       <div class="table-view">
@@ -117,8 +121,8 @@
   </div>
 
   <!-- Edit Book Modal -->
-  <app-edit-book-modal [isOpen]="showEditModal()" [book]="editTarget()!" [collections]="collections()"
+  <app-add-book-modal [isOpen]="showEditModal()" [book]="editTarget()" [collections]="collections()"
     (closeModal)="closeEditModal()" (bookUpdated)="onBookUpdated($event)">
-  </app-edit-book-modal>
+  </app-add-book-modal>
 
 </main>

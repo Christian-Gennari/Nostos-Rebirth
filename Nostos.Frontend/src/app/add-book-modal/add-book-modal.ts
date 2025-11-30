@@ -1,32 +1,13 @@
-// src/app/add-book-modal/add-book-modal.component.ts
-
-import { Component, inject, input, output, signal } from '@angular/core';
-import { CommonModule, DatePipe } from '@angular/common';
+import { Component, inject, input, output, signal, computed, effect } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
-import { LucideAngularModule, X, Upload } from 'lucide-angular';
+import { LucideAngularModule, X, Upload, Info } from 'lucide-angular';
 import { BooksService, Book } from '../services/books.services';
 import { Collection } from '../dtos/collection.dtos';
 
-// Define the shape of the new book data for the form
-interface NewBookForm {
-  title: string;
-  subtitle: string | null;
-  author: string | null;
-  isbn: string | null;
-  publisher: string | null;
-  publishedDate: string | null;
-  pageCount: number | null;
-  description: string | null;
-  language: string | null;
-  categories: string | null;
-  series: string | null;
-  volumeNumber: string | null;
-  collectionId: string | null;
-}
-
 @Component({
-  selector: 'app-add-book-modal',
+  selector: 'app-add-book-modal', // You can rename this selector later if you want
   standalone: true,
   imports: [CommonModule, FormsModule, LucideAngularModule],
   templateUrl: './add-book-modal.html',
@@ -35,55 +16,84 @@ interface NewBookForm {
 export class AddBookModal {
   private booksService = inject(BooksService);
 
-  // Inputs from parent (Library component)
+  // Inputs
   isOpen = input.required<boolean>();
   collections = input.required<Collection[]>();
+  book = input<Book | null>(null); // <--- NEW: If present, we are in Edit Mode
 
-  // Outputs to parent
-  closeModal = output<void>(); // Used to tell the parent to close the modal
-  bookAdded = output<void>(); // Used to tell the parent to refresh the book list
+  // Outputs
+  closeModal = output<void>();
+  bookAdded = output<void>(); // For "Add" success
+  bookUpdated = output<Book>(); // For "Edit" success
 
+  // Icons
   XIcon = X;
   UploadIcon = Upload;
+  InfoIcon = Info;
 
-  // New book state with extended fields
-  newBook: NewBookForm = {
+  // Computed State
+  isEditMode = computed(() => !!this.book());
+
+  // Form State
+  form = {
     title: '',
-    subtitle: null,
-    author: null,
-    isbn: null,
-    publisher: null,
-    publishedDate: null,
-    pageCount: null,
-    description: null,
-    language: 'en', // Recommendation: Use ISO codes (en, fr) or full names consistently
-    categories: null,
-    series: null,
-    volumeNumber: null,
-    collectionId: null,
+    subtitle: '' as string | null,
+    author: '' as string | null,
+    isbn: '' as string | null,
+    publisher: '' as string | null,
+    publishedDate: '' as string | null,
+    pageCount: null as number | null,
+    description: '' as string | null,
+    language: 'en',
+    categories: '' as string | null,
+    series: '' as string | null,
+    volumeNumber: '' as string | null,
+    collectionId: null as string | null,
   };
 
+  // Upload State (Only for Add Mode)
   selectedFile: File | null = null;
   selectedCover: File | null = null;
   uploadProgress = signal<number | null>(null);
   uploadStartTime: number | null = null;
 
-  // --- File Handling ---
-
-  onFileSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    this.selectedFile = input.files?.[0] ?? null;
+  constructor() {
+    // Reset or Fill form whenever the modal opens
+    effect(() => {
+      if (this.isOpen()) {
+        const currentBook = this.book();
+        if (currentBook) {
+          this.fillForm(currentBook);
+        } else {
+          this.resetForm();
+        }
+      }
+    });
   }
 
-  onCoverSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    this.selectedCover = input.files?.[0] ?? null;
+  fillForm(b: Book) {
+    this.form = {
+      title: b.title,
+      subtitle: b.subtitle || '',
+      author: b.author,
+      isbn: b.isbn || '',
+      publisher: b.publisher || '',
+      publishedDate: b.publishedDate || '', // Use raw string
+      pageCount: b.pageCount || null,
+      description: b.description || '',
+      language: b.language || 'en',
+      categories: b.categories || '',
+      series: b.series || '',
+      volumeNumber: b.volumeNumber || '',
+      collectionId: b.collectionId,
+    };
+    // Clear uploads just in case
+    this.selectedFile = null;
+    this.selectedCover = null;
   }
-
-  // --- Form Actions ---
 
   resetForm(): void {
-    this.newBook = {
+    this.form = {
       title: '',
       subtitle: null,
       author: null,
@@ -101,30 +111,52 @@ export class AddBookModal {
     this.selectedFile = null;
     this.selectedCover = null;
     this.uploadProgress.set(null);
-    this.uploadStartTime = null;
   }
 
-  submitBook(): void {
-    if (!this.newBook.title.trim()) return;
+  // --- File Handling (Add Mode Only) ---
+  onFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.selectedFile = input.files?.[0] ?? null;
+  }
 
-    // Convert pageCount to number if it's a string, ensuring it's not null/empty string
-    const pageCountValue = this.newBook.pageCount ? Number(this.newBook.pageCount) : null;
+  onCoverSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.selectedCover = input.files?.[0] ?? null;
+  }
 
+  // --- Main Action ---
+  submit(): void {
+    if (!this.form.title.trim()) return;
+
+    if (this.isEditMode()) {
+      this.saveEdit();
+    } else {
+      this.createBook();
+    }
+  }
+
+  saveEdit() {
+    const bookId = this.book()!.id;
+    this.booksService
+      .update(bookId, {
+        ...this.form,
+        // Ensure we send nulls for empty strings if preferred, or keep as is
+        publishedDate: this.form.publishedDate || null,
+      })
+      .subscribe({
+        next: (updated) => {
+          this.bookUpdated.emit(updated);
+          this.closeModal.emit();
+        },
+        error: (err) => console.error('Update failed', err),
+      });
+  }
+
+  createBook() {
     this.booksService
       .create({
-        title: this.newBook.title,
-        subtitle: this.newBook.subtitle,
-        author: this.newBook.author,
-        isbn: this.newBook.isbn,
-        publisher: this.newBook.publisher,
-        publishedDate: this.newBook.publishedDate,
-        pageCount: pageCountValue,
-        description: this.newBook.description,
-        language: this.newBook.language,
-        categories: this.newBook.categories,
-        series: this.newBook.series,
-        volumeNumber: this.newBook.volumeNumber,
-        collectionId: this.newBook.collectionId,
+        ...this.form,
+        publishedDate: this.form.publishedDate || null,
       })
       .subscribe({
         next: (createdBook) => {
@@ -134,12 +166,11 @@ export class AddBookModal {
             this.uploadCoverIfNeeded(createdBook.id);
           }
         },
-        error: (err) => console.error('Error creating book:', err),
+        error: (err) => console.error('Creation failed', err),
       });
   }
 
-  // --- Upload Logic (Moved from Library component) ---
-
+  // --- Upload Helpers (Identical to before) ---
   handleFileUpload(createdBook: Book): void {
     this.uploadStartTime = performance.now();
     this.booksService.uploadFile(createdBook.id, this.selectedFile!).subscribe({
@@ -148,47 +179,34 @@ export class AddBookModal {
           const percent = Math.round((event.loaded / (event.total ?? 1)) * 100);
           this.uploadProgress.set(percent);
         }
-
         if (event.type === HttpEventType.Response) {
           const MIN_VISIBLE = 1200;
           const elapsed = performance.now() - (this.uploadStartTime ?? 0);
           const remaining = Math.max(0, MIN_VISIBLE - elapsed);
-
           setTimeout(() => {
             this.uploadProgress.set(null);
-            this.uploadStartTime = null;
             this.uploadCoverIfNeeded(createdBook.id);
           }, remaining);
         }
       },
-      error: (err) => {
-        console.error('File upload error:', err);
-        this.uploadProgress.set(null);
-      },
+      error: () => this.uploadProgress.set(null),
     });
   }
 
   uploadCoverIfNeeded(bookId: string) {
     if (!this.selectedCover) {
-      this.finishSave();
+      this.finishAdd();
       return;
     }
-
     this.booksService.uploadCover(bookId, this.selectedCover).subscribe({
       next: (event) => {
-        // HttpEventType.Response is 4
-        if (event.type === 4) {
-          this.finishSave();
-        }
+        if (event.type === 4) this.finishAdd();
       },
-      error: (err) => {
-        console.error('Cover upload error:', err);
-        this.finishSave(); // Still finish save even if cover upload fails
-      },
+      error: () => this.finishAdd(),
     });
   }
 
-  finishSave() {
+  finishAdd() {
     this.resetForm();
     this.closeModal.emit();
     this.bookAdded.emit();

@@ -1,150 +1,156 @@
 @if (isOpen()) {
 <div class="modal-backdrop" (click)="closeModal.emit()">
   <div class="modal-content" (click)="$event.stopPropagation()">
+
     <header class="modal-header">
-      <h2>Add New Book</h2>
+      <h2>{{ isEditMode() ? 'Edit Metadata' : 'Add New Book' }}</h2>
       <button class="icon-btn" (click)="closeModal.emit()" title="Close">
         <lucide-icon [img]="XIcon" [size]="20"></lucide-icon>
       </button>
     </header>
 
     <div class="modal-body">
-      <form (ngSubmit)="submitBook()" #addBookForm="ngForm">
+      <form (ngSubmit)="submit()" #bookForm="ngForm">
+
+        @if (!isEditMode()) {
         <div class="form-group">
           <label for="isbn" class="form-label">ISBN</label>
           <div class="input-group-fetch">
-            <input id="isbn" class="input" type="text" placeholder="e.g., 978-0321765723" [(ngModel)]="newBook.isbn"
+            <input id="isbn" class="input" type="text" placeholder="e.g., 978-0321765723" [(ngModel)]="form.isbn"
               name="isbn" />
-            <button type="button" class="btn btn-secondary btn-fetch" [disabled]="!newBook.isbn">
+            <button type="button" class="btn btn-secondary btn-fetch" [disabled]="!form.isbn">
               Fetch
             </button>
           </div>
-          <p class="form-help-text">
-            Enter ISBN and click Fetch to auto-fill metadata.
-          </p>
+          <p class="form-help-text">Enter ISBN and click Fetch to auto-fill metadata.</p>
         </div>
-
         <hr class="divider" />
+        }
 
         <div class="grid grid-2">
           <div class="form-group">
-            <label for="title" class="form-label">Title <span class="required">*</span></label>
-            <input id="title" class="input" type="text" placeholder="Book Title" [(ngModel)]="newBook.title"
-              name="title" required />
+            <label class="form-label">Title <span class="required">*</span></label>
+            <input class="input" type="text" placeholder="Book Title" [(ngModel)]="form.title" name="title" required />
           </div>
-
           <div class="form-group">
-            <label for="subtitle" class="form-label">Subtitle</label>
-            <input id="subtitle" class="input" type="text" placeholder="Subtitle" [(ngModel)]="newBook.subtitle"
-              name="subtitle" />
+            <label class="form-label">Subtitle</label>
+            <input class="input" type="text" placeholder="Subtitle" [(ngModel)]="form.subtitle" name="subtitle" />
           </div>
         </div>
 
         <div class="form-group">
-          <label for="author" class="form-label">Author</label>
-          <input id="author" class="input" type="text" placeholder="Author Name" [(ngModel)]="newBook.author"
-            name="author" />
+          <label class="form-label">Author</label>
+          <input class="input" type="text" placeholder="Author Name" [(ngModel)]="form.author" name="author" />
         </div>
 
         <div class="grid grid-3">
           <div class="form-group">
-            <label for="series" class="form-label">Series</label>
-            <input id="series" class="input" type="text" placeholder="Series Name" [(ngModel)]="newBook.series"
-              name="series" />
+            <label class="form-label">Series</label>
+            <input class="input" type="text" placeholder="Series Name" [(ngModel)]="form.series" name="series" />
           </div>
-
           <div class="form-group">
-            <label for="volumeNumber" class="form-label">Volume #</label>
-            <input id="volumeNumber" class="input" type="text" placeholder="e.g. 1" [(ngModel)]="newBook.volumeNumber"
-              name="volumeNumber" />
+            <label class="form-label">Volume #</label>
+            <input class="input" type="text" placeholder="e.g. 1" [(ngModel)]="form.volumeNumber" name="volumeNumber" />
           </div>
-
           <div class="form-group">
-            <label for="language" class="form-label">Language</label>
-            <input id="language" class="input" type="text" placeholder="en" [(ngModel)]="newBook.language"
-              name="language" />
+            <label class="form-label">Language</label>
+            <input class="input" type="text" placeholder="en" [(ngModel)]="form.language" name="language" />
           </div>
         </div>
 
         <div class="grid grid-3">
           <div class="form-group">
-            <label for="publisher" class="form-label">Publisher</label>
-            <input id="publisher" class="input" type="text" placeholder="Publisher" [(ngModel)]="newBook.publisher"
-              name="publisher" />
+            <label class="form-label">Publisher</label>
+            <input class="input" type="text" placeholder="Publisher" [(ngModel)]="form.publisher" name="publisher" />
           </div>
 
           <div class="form-group">
-            <label for="pubDate" class="form-label">Pub. Date</label>
-            <input id="pubDate" class="input" type="date" [(ngModel)]="newBook.publishedDate" name="publishedDate"
-              placeholder="YYYY-MM-DD" />
+            <div class="label-row" style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0.4rem;">
+              <label class="form-label" style="margin:0">Pub. Date</label>
+              <div class="info-tooltip"
+                style="position:relative; display:flex; align-items:center; cursor:help; color:#888;">
+                <lucide-icon [img]="InfoIcon" [size]="14"></lucide-icon>
+                <span class="tooltip-text"
+                  style="visibility:hidden; opacity:0; position:absolute; bottom:125%; left:50%; transform:translateX(-50%); background:#333; color:#fff; padding:8px; border-radius:6px; font-size:0.75rem; width:180px; text-align:center; pointer-events:none; transition:0.2s;">
+                  Formats: YYYY, YYYY-MM, or YYYY-MM-DD
+                </span>
+                <style>
+                  .info-tooltip:hover .tooltip-text {
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                  }
+                </style>
+              </div>
+            </div>
+
+            <input class="input" type="text" [(ngModel)]="form.publishedDate" name="publishedDate"
+              placeholder="e.g. 2025" pattern="^\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?$"
+              #pubDateModel="ngModel" />
+
+            @if (pubDateModel.invalid && (pubDateModel.dirty || pubDateModel.touched)) {
+            <p style="color: var(--color-danger); font-size: 0.85rem; margin-top: 0.25rem;">
+              Invalid format. Hover info icon for help.
+            </p>
+            }
           </div>
 
           <div class="form-group">
-            <label for="pages" class="form-label">Page Count</label>
-            <input id="pages" class="input" type="number" placeholder="e.g., 450" [(ngModel)]="newBook.pageCount"
-              name="pageCount" />
+            <label class="form-label">Pages</label>
+            <input class="input" type="number" placeholder="e.g. 450" [(ngModel)]="form.pageCount" name="pageCount" />
           </div>
         </div>
 
         <div class="grid grid-2">
           <div class="form-group">
-            <label for="collection" class="form-label">Collection</label>
-            <select id="collection" [(ngModel)]="newBook.collectionId" name="collectionId" class="select-input">
+            <label class="form-label">Collection</label>
+            <select [(ngModel)]="form.collectionId" name="collectionId" class="select-input input">
               <option [ngValue]="null">None</option>
               @for (col of collections(); track col.id) {
               <option [value]="col.id">{{ col.name }}</option>
               }
             </select>
           </div>
-
           <div class="form-group">
-            <label for="categories" class="form-label">Genres / Categories</label>
-            <input id="categories" class="input" type="text" placeholder="Fiction, Sci-Fi..."
-              [(ngModel)]="newBook.categories" name="categories" />
+            <label class="form-label">Genres</label>
+            <input class="input" type="text" placeholder="Fiction, Sci-Fi..." [(ngModel)]="form.categories"
+              name="categories" />
           </div>
         </div>
 
         <div class="form-group">
-          <label for="description" class="form-label">Description / Summary</label>
-          <textarea id="description" class="input textarea" placeholder="A brief summary of the book..."
-            [(ngModel)]="newBook.description" name="description" rows="4"></textarea>
+          <label class="form-label">Description</label>
+          <textarea class="input textarea" rows="4" [(ngModel)]="form.description" name="description"></textarea>
         </div>
 
+        @if (!isEditMode()) {
         <div class="grid grid-2">
           <div class="form-group">
-            <label class="form-label">Book File (ePub, PDF, etc.)</label>
+            <label class="form-label">Book File</label>
             <input type="file" class="file-input" (change)="onFileSelected($event)" accept=".epub,.pdf,.txt,.mobi" />
-            @if (selectedFile) {
-            <p class="file-status-text">
-              File selected: **{{ selectedFile.name }}**
-            </p>
-            }
+            @if (selectedFile) { <p class="file-status-text">Selected: **{{ selectedFile.name }}**</p> }
           </div>
-
           <div class="form-group">
             <label class="form-label">Cover Image</label>
             <input type="file" class="file-input" accept="image/*" (change)="onCoverSelected($event)" />
-            @if (selectedCover) {
-            <p class="file-status-text">
-              Cover selected: **{{ selectedCover.name }}**
-            </p>
-            }
+            @if (selectedCover) { <p class="file-status-text">Selected: **{{ selectedCover.name }}**</p> }
           </div>
         </div>
 
         @if (uploadProgress() !== null) {
         <div class="upload-status">
           <lucide-icon [img]="UploadIcon" [size]="16" class="animate-pulse"></lucide-icon>
-          Uploading Book File… **{{ uploadProgress() }}%**
+          Uploading... **{{ uploadProgress() }}%**
         </div>
+        }
         }
 
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" (click)="closeModal.emit()">
             Cancel
           </button>
-          <button type="submit" class="btn btn-primary" [disabled]="!newBook.title.trim()">
-            Create Book
+
+          <button type="submit" class="btn btn-primary" [disabled]="bookForm.invalid || !form.title.trim()">
+            {{ isEditMode() ? 'Save Changes' : 'Create Book' }}
           </button>
         </div>
       </form>

@@ -6,8 +6,6 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AddBookModal } from '../add-book-modal/add-book-modal';
-import { EditBookModal } from '../edit-book-modal/edit-book-modal';
-
 import {
   LucideAngularModule,
   LayoutList,
@@ -21,14 +19,7 @@ import {
 @Component({
   selector: 'app-library',
   standalone: true,
-  imports: [
-    CommonModule,
-    RouterLink,
-    FormsModule,
-    LucideAngularModule,
-    AddBookModal,
-    EditBookModal,
-  ],
+  imports: [CommonModule, RouterLink, FormsModule, LucideAngularModule, AddBookModal],
   templateUrl: './library.html',
   styleUrls: ['./library.css'],
 })
