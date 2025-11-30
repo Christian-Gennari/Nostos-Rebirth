@@ -25,6 +25,7 @@ import {
   Building,
 } from 'lucide-angular';
 import { AddBookModal } from '../add-book-modal/add-book-modal';
+import { HttpEventType } from '@angular/common/http';
 
 @Component({
   standalone: true,
@@ -294,7 +295,12 @@ export class BookDetail implements OnInit {
     if (!book) return;
 
     this.booksService.uploadCover(book.id, file).subscribe({
-      next: (updated) => this.book.set(updated),
+      next: (event) => {
+        // Only reload when the request is fully complete
+        if (event.type === HttpEventType.Response) {
+          this.loadBook(book.id);
+        }
+      },
       error: () => this.error.set('Failed to upload cover'),
     });
   }
@@ -325,7 +331,12 @@ export class BookDetail implements OnInit {
     if (!book) return;
 
     this.booksService.uploadFile(book.id, file).subscribe({
-      next: () => this.loadBook(book.id),
+      next: (event) => {
+        // Ignore progress events, wait for completion
+        if (event.type === HttpEventType.Response) {
+          this.loadBook(book.id);
+        }
+      },
       error: (err) => console.error('File upload error:', err),
     });
   }
