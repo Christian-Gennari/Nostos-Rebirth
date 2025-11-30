@@ -1,6 +1,5 @@
 <main class="layout-wrapper">
 
-
   <div class="layout-content">
 
     <header class="toolbar">
@@ -25,8 +24,12 @@
 
     <div class="container lg">
 
+      <!-- Add Book Modal -->
       <app-add-book-modal [isOpen]="showAddModal()" [collections]="collections()" (closeModal)="closeAddModal()"
-        (bookAdded)="loadBooks()"></app-add-book-modal>
+        (bookAdded)="loadBooks()">
+      </app-add-book-modal>
+
+      <!-- List View -->
       @if (viewMode() === 'list') {
       <div class="table-view">
         <div class="table-header">
@@ -40,19 +43,13 @@
         @for (book of books(); track book.id) {
         <div class="table-row" [routerLink]="['/library', book.id]">
           <div class="col title">
-            @if (editing()?.id === book.id) {
-            <input class="input" [(ngModel)]="editTitle" (click)="$event.stopPropagation()" />
-            } @else {
             {{ book.title }}
-            }
           </div>
+
           <div class="col author">
-            @if (editing()?.id === book.id) {
-            <input class="input" [(ngModel)]="editAuthor" (click)="$event.stopPropagation()" />
-            } @else {
             {{ book.author || 'Unknown' }}
-            }
           </div>
+
           <div class="col format">
             @if (book.fileName) {
             <span class="badge">
@@ -62,54 +59,31 @@
             <span class="badge" style="opacity:0.5;">—</span>
             }
           </div>
+
           <div class="col date" style="color: var(--color-text-light); font-size: 0.85rem;">
             Nov 26
           </div>
+
           <div class="col actions-cell">
-            @if (editing()?.id === book.id) {
-            <button class="icon-btn" (click)="saveEdit(); $event.stopPropagation()">
-              <lucide-icon [img]="CheckIcon" [size]="16"></lucide-icon>
-            </button>
-            <button class="icon-btn" (click)="cancelEdit(); $event.stopPropagation()">
-              <lucide-icon [img]="XIcon" [size]="16"></lucide-icon>
-            </button>
-            } @else {
-            <button class="icon-btn" (click)="startEdit(book); $event.stopPropagation()">
+            <button class="icon-btn" (click)="openEditModal(book); $event.stopPropagation()">
               <lucide-icon [img]="Edit2Icon" [size]="16"></lucide-icon>
             </button>
+
             <button class="icon-btn delete" (click)="deleteBook(book.id, $event)">
               <lucide-icon [img]="Trash2Icon" [size]="16"></lucide-icon>
             </button>
-            }
           </div>
         </div>
         }
       </div>
       }
 
+      <!-- Grid View -->
       @if (viewMode() === 'grid') {
       <div class="book-grid">
+
         @for (book of books(); track book.id) {
-        @if (editing()?.id === book.id) {
-        <div class="book-card editing" (click)="$event.stopPropagation()">
-          <div class="cover-wrapper dimmed">
-            @if (book.coverUrl) {
-            <img [src]="book.coverUrl" class="cover-image" />
-            } @else {
-            <lucide-icon [img]="BookIcon" [size]="48" strokeWidth="1"></lucide-icon>
-            }
-          </div>
-          <div class="edit-stack">
-            <input class="input sm" [(ngModel)]="editTitle" placeholder="Title" />
-            <input class="input sm" [(ngModel)]="editAuthor" placeholder="Author" />
-            <div class="edit-actions-row">
-              <button class="btn btn-primary btn-sm" (click)="saveEdit()">Save</button>
-              <button class="btn btn-secondary btn-sm" (click)="cancelEdit()">Cancel</button>
-            </div>
-          </div>
-        </div>
-        }
-        @else {
+
         <div class="book-card" [routerLink]="['/library', book.id]">
           <div class="cover-wrapper">
             @if (book.coverUrl) {
@@ -119,22 +93,32 @@
             }
 
             <div class="actions-overlay">
-              <button class="action-circle" (click)="startEdit(book); $event.stopPropagation()" title="Edit">
+
+              <button class="action-circle" (click)="openEditModal(book); $event.stopPropagation()" title="Edit">
                 <lucide-icon [img]="Edit2Icon" [size]="16"></lucide-icon>
               </button>
+
               <button class="action-circle delete" (click)="deleteBook(book.id, $event)" title="Delete">
                 <lucide-icon [img]="Trash2Icon" [size]="16"></lucide-icon>
               </button>
+
             </div>
           </div>
+
           <div class="meta-title">{{ book.title }}</div>
           <div class="meta-author">{{ book.author || 'Unknown' }}</div>
         </div>
-        }
+
         }
       </div>
       }
 
     </div>
   </div>
+
+  <!-- Edit Book Modal -->
+  <app-edit-book-modal [isOpen]="showEditModal()" [book]="editTarget()!" [collections]="collections()"
+    (closeModal)="closeEditModal()" (bookUpdated)="onBookUpdated($event)">
+  </app-edit-book-modal>
+
 </main>

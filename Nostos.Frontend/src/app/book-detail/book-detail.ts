@@ -8,6 +8,7 @@ import { Collection } from '../dtos/collection.dtos';
 import { Note } from '../dtos/note.dtos';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { EditBookModal } from '../edit-book-modal/edit-book-modal';
 import {
   LucideAngularModule,
   ArrowLeft,
@@ -28,7 +29,7 @@ import {
 @Component({
   standalone: true,
   selector: 'app-book-detail',
-  imports: [CommonModule, FormsModule, RouterLink, LucideAngularModule],
+  imports: [CommonModule, FormsModule, RouterLink, LucideAngularModule, EditBookModal],
   templateUrl: './book-detail.html',
   styleUrls: ['./book-detail.css'],
 })
@@ -326,6 +327,10 @@ export class BookDetail implements OnInit {
       }
       return trimmedName;
     });
+  }
+
+  onBookUpdated(updatedBook: Book): void {
+    this.book.set(updatedBook);
   }
 
   // Add this inside the BookDetail class

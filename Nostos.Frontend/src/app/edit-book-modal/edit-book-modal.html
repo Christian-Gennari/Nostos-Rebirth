@@ -1,0 +1,73 @@
+@if (isOpen()) {
+
+<div class="modal-overlay" (click)="closeModal.emit()">
+  <div class="modal-content large" (click)="$event.stopPropagation()">
+
+    <div class="modal-header">
+      <h3>Edit Metadata</h3>
+      <button class="icon-btn" (click)="closeModal.emit()">
+        <lucide-icon [img]="ChevronDownIcon" [size]="20"></lucide-icon>
+      </button>
+    </div>
+
+    <div class="form-grid">
+
+      <div class="form-group span-2">
+        <label>Title</label>
+        <input class="input" [(ngModel)]="form.title" />
+      </div>
+
+      <div class="form-group span-2">
+        <label>Author</label>
+        <input class="input" [(ngModel)]="form.author" />
+      </div>
+
+      <div class="form-group span-2">
+        <label>Synopsis / Description</label>
+        <textarea class="input" rows="5" [(ngModel)]="form.description"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Publisher</label>
+        <input class="input" [(ngModel)]="form.publisher" />
+      </div>
+
+      <div class="form-group">
+        <label>ISBN</label>
+        <input class="input" [(ngModel)]="form.isbn" />
+      </div>
+
+      <div class="form-group">
+        <label>Page Count</label>
+        <input class="input" type="number" [(ngModel)]="form.pageCount" />
+      </div>
+
+      <div class="form-group">
+        <label>Publication Date</label>
+        <input class="input" type="date" [(ngModel)]="form.publicationDate" />
+      </div>
+
+      <div class="form-group span-2">
+        <label>Collection</label>
+        <div class="select-wrapper">
+          <select class="input" [(ngModel)]="form.collectionId">
+            <option [ngValue]="null">No Collection</option>
+            <option *ngFor="let col of collections()" [value]="col.id">
+              {{ col.name }}
+            </option>
+          </select>
+          <lucide-icon class="sel-icon" [img]="ChevronDownIcon" [size]="16"></lucide-icon>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" (click)="closeModal.emit()">Cancel</button>
+      <button class="btn btn-primary" (click)="save()">Save Changes</button>
+    </div>
+
+  </div>
+</div>
+
+}
