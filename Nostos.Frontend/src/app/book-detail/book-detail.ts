@@ -63,7 +63,7 @@ export class BookDetail implements OnInit {
   collections = signal<Collection[]>([]);
 
   // UI State for Metadata expansion
-  isMetadataExpanded = signal(false);
+  isDescriptionExpanded = signal(false);
 
   showMetadataModal = signal(false);
 
@@ -159,8 +159,8 @@ export class BookDetail implements OnInit {
     }
   }
 
-  toggleMetadata() {
-    this.isMetadataExpanded.update((v) => !v);
+  toggleDescription() {
+    this.isDescriptionExpanded.update((v) => !v);
   }
 
   // --- Metadata Modal Logic ---

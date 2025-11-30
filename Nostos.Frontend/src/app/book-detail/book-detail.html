@@ -50,15 +50,31 @@
           </div>
 
           <div class="cover-actions-links">
-            <button class="link-btn" (click)="openMetadataModal()">Edit Metadata</button>
-            <span class="sep">•</span>
-            <button class="link-btn" (click)="triggerCoverPicker()">
-              {{ book()?.coverUrl ? 'Change Cover' : 'Upload Cover' }}
+            <button class="action-btn primary-ghost" (click)="openMetadataModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+              Edit Metadata
             </button>
-            @if (book()?.coverUrl) {
-            <span class="sep">•</span>
-            <button class="link-btn danger" (click)="deleteCover()">Remove</button>
-            }
+
+            <div class="cover-controls">
+              <button class="link-btn" (click)="triggerCoverPicker()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+                {{ book()?.coverUrl ? 'Change' : 'Upload' }}
+              </button>
+
+              @if (book()?.coverUrl) {
+              <div class="vertical-divider"></div>
+              <button class="link-btn danger" (click)="deleteCover()">
+                Remove
+              </button>
+              }
+            </div>
           </div>
           <input type="file" accept="image/*" #coverInput style="display:none" (change)="onCoverSelected($event)" />
         </aside>
@@ -94,16 +110,27 @@
             </div>
           </header>
 
-          <div class="synopsis-metadata-block" [class.expanded]="isMetadataExpanded()">
+          <div class="synopsis-metadata-block" [class.expanded]="isDescriptionExpanded()">
 
             <div class="synopsis-content">
+              <h4>Synopsis</h4>
               @if (book()?.description) {
               <p class="description-text">{{ book()?.description }}</p>
+
+              @if (!isDescriptionExpanded()) {
+              <div class="fade-overlay"></div>
+              }
               } @else {
               <p class="description-placeholder">No description added.</p>
               }
-              <div class="fade-overlay"></div>
             </div>
+
+            @if (book()?.description) {
+            <button class="expand-btn" (click)="toggleDescription()">
+              {{ isDescriptionExpanded() ? 'Show Less' : 'Read More' }}
+              <span class="icon">{{ isDescriptionExpanded() ? '↑' : '↓' }}</span>
+            </button>
+            }
 
             <div class="meta-grid">
 
@@ -125,7 +152,7 @@
                 <span class="value">{{ book()?.publishedDate || '—' }}</span>
               </div>
 
-              @if (isMetadataExpanded()) {
+
               <div class="meta-item">
                 <span class="label"><lucide-icon [img]="BuildingIcon" [size]="12"></lucide-icon> Publisher</span>
                 <span class="value">{{ book()?.publisher || '—' }}</span>
@@ -159,13 +186,10 @@
                 </span>
               </div>
               }
-              }
+
             </div>
 
-            <button class="expand-btn" (click)="toggleMetadata()">
-              <span>{{ isMetadataExpanded() ? 'Show Less' : 'Show Details' }}</span>
-              <lucide-icon [img]="isMetadataExpanded() ? ChevronUpIcon : ChevronDownIcon" [size]="14"></lucide-icon>
-            </button>
+
           </div>
 
           <hr class="divider" />
@@ -216,13 +240,9 @@
       </div> }
     </div>
   </div>
-  
-<app-add-book-modal
-  [isOpen]="showMetadataModal()"
-  [book]="book()!"
-  [collections]="collections()"
-  (closeModal)="closeMetadataModal()"
-  (bookUpdated)="onBookUpdated($event)">
-</app-add-book-modal>
+
+  <app-add-book-modal [isOpen]="showMetadataModal()" [book]="book()!" [collections]="collections()"
+    (closeModal)="closeMetadataModal()" (bookUpdated)="onBookUpdated($event)">
+  </app-add-book-modal>
 
 </main>
