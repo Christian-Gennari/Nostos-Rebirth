@@ -1,0 +1,15 @@
+<div class="pdf-container">
+  <ng2-pdfjs-viewer
+    [pdfSrc]="pdfSrc()"
+    viewerFolder="assets/pdfjs"
+    [showSpinner]="true"
+    [viewBookmark]="false"
+    [openFile]="false"
+    [print]="false"
+    [download]="false"
+    [fullScreen]="false"
+    (onDocumentLoad)="console.log('PDF Loaded')"
+    class="pdf-viewer"
+  >
+  </ng2-pdfjs-viewer>
+</div>

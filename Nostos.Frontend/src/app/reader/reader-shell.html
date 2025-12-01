@@ -17,8 +17,8 @@
   <main class="reader-content">
     @if (loading()) {
     <div class="loading">Loading book...</div>
-    } @else { @switch (fileType()) { @case ('pdf') { <app-pdf-reader /> } @case ('epub') {
-    <app-epub-reader /> } @case ('audio') { <app-audio-reader /> } @default {
+    } @else { @switch (fileType()) { @case ('pdf') { <app-pdf-reader [bookId]="book()!.id" /> }
+    @case ('epub') { <app-epub-reader /> } @case ('audio') { <app-audio-reader /> } @default {
     <div class="error">Unsupported file format.</div>
     } } }
   </main>

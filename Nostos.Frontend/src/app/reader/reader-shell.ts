@@ -1,37 +1,26 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { BooksService, Book } from '../services/books.services';
 import { LucideAngularModule, ArrowLeft } from 'lucide-angular';
 
-// --- Placeholders (Move these to their own files later) ---
-@Component({
-  selector: 'app-pdf-reader',
-  template: `<div style="padding: 2rem; text-align: center; color: #888;">
-    PDF Reader Loading...
-  </div>`,
-  standalone: true,
-})
-export class PdfReader {}
+// Import the real component
+import { PdfReader } from '../reader/pdf-reader/pdf-reader';
 
+// Keep these placeholders for now until Phase 3/4
 @Component({
   selector: 'app-epub-reader',
-  template: `<div style="padding: 2rem; text-align: center; color: #888;">
-    EPUB Reader Loading...
-  </div>`,
+  template: `<div class="p-8 text-center text-gray-500">EPUB Reader Loading...</div>`,
   standalone: true,
 })
 export class EpubReader {}
 
 @Component({
   selector: 'app-audio-reader',
-  template: `<div style="padding: 2rem; text-align: center; color: #888;">
-    Audio Player Loading...
-  </div>`,
+  template: `<div class="p-8 text-center text-gray-500">Audio Player Loading...</div>`,
   standalone: true,
 })
 export class AudioReader {}
-// ---------------------------------------------------------
 
 @Component({
   selector: 'app-reader-shell',
@@ -39,8 +28,7 @@ export class AudioReader {}
   imports: [
     CommonModule,
     LucideAngularModule,
-    // Import the specific readers here
-    PdfReader,
+    PdfReader, // <--- Add this
     EpubReader,
     AudioReader,
   ],
