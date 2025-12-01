@@ -20,7 +20,10 @@ public record BookDto(
     bool HasFile,
     string? FileName,
     string? CoverUrl,
-    Guid? CollectionId
+    Guid? CollectionId,
+
+    string? LastLocation,
+    int ProgressPercent
 );
 
 public record CreateBookDto(

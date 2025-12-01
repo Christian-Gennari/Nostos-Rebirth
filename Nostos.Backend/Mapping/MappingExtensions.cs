@@ -32,7 +32,11 @@ public static class MappingExtensions
             model.HasFile,
             model.FileName,
             coverUrl,
-            model.CollectionId
+            model.CollectionId,
+
+            // --- MAP THE NEW FIELDS HERE ---
+            model.LastLocation,
+            model.ProgressPercent
         );
     }
 
