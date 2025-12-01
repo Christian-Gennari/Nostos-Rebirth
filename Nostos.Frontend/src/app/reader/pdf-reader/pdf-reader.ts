@@ -15,7 +15,10 @@ export class PdfReader {
   // Construct the backend URL
   pdfSrc = computed(() => `/api/books/${this.bookId()}/file`);
 
-  // Handle errors passed up from the viewer
+  onPdfLoaded() {
+    console.log('PDF Loaded');
+  }
+
   handleError(error: any) {
     console.error('PDF Viewer Error:', error);
   }
