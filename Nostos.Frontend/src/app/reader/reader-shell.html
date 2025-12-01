@@ -1,23 +1,91 @@
 <div class="reader-layout" [class.ready]="ready()">
-
-
   <div class="reader-body">
     <main class="reader-content">
       @if (loading()) {
       <div class="loading">Loading book...</div>
       } @else { @switch (fileType()) { @case ('pdf') { <app-pdf-reader [bookId]="book()!.id" /> }
-      @case ('epub') { <app-epub-reader [bookId]="book()!.id" /> } @case ('audio') { <app-audio-reader /> } @default {
+      @case ('epub') {
+      <app-epub-reader [bookId]="book()!.id" (noteCreated)="handleNoteCreated()" />
+      } @case ('audio') { <app-audio-reader /> } @default {
       <div class="error">Unsupported file format.</div>
       } } }
     </main>
 
     <aside class="notes-panel" [class.collapsed]="!notesOpen()">
       <div class="notes-header">
-        <h3>Notes</h3>
-        <button class="icon-btn" (click)="toggleNotes()">×</button>
+        <h3>Notes & Highlights</h3>
+        <button class="icon-btn" (click)="toggleNotes()">
+          <lucide-icon [img]="CloseIcon" [size]="20"></lucide-icon>
+        </button>
       </div>
 
-      <textarea class="notes-input" name="notes-input" placeholder="Write notes here..." [(ngModel)]="notes"></textarea>
+      <div class="quick-note-form">
+        <textarea
+          placeholder="Add a quick note for this page..."
+          [(ngModel)]="quickNoteContent"
+          (keydown.control.enter)="saveQuickNote()"
+          rows="2"
+        ></textarea>
+        <button class="btn btn-sm btn-primary full-width" (click)="saveQuickNote()">
+          Add Quick Note
+        </button>
+      </div>
+
+      <div class="notes-list-scroll">
+        @for (note of dbNotes(); track note.id) {
+        <div
+          class="sidebar-note-card"
+          [class.editing]="editingNoteId() === note.id"
+          (click)="jumpToNote(note)"
+        >
+          <div class="note-type-icon">
+            @if (note.selectedText) {
+            <lucide-icon [img]="QuoteIcon" [size]="14" class="hl-icon"></lucide-icon>
+            } @else {
+            <lucide-icon [img]="NoteIcon" [size]="14" class="note-icon"></lucide-icon>
+            }
+          </div>
+
+          <div class="note-content-wrapper">
+            @if (note.selectedText) {
+            <div class="sidebar-quote">"{{ note.selectedText }}"</div>
+            } @if (editingNoteId() !== note.id) { @if (note.content) {
+            <div class="sidebar-comment">{{ note.content }}</div>
+            } @else if (note.selectedText) {
+            <button class="link-btn-subtle" (click)="startEdit(note, $event)">+ Add comment</button>
+            }
+
+            <div class="card-actions">
+              <button class="icon-btn xs" (click)="startEdit(note, $event)">
+                <lucide-icon [img]="EditIcon" [size]="14"></lucide-icon>
+              </button>
+              <button class="icon-btn xs danger" (click)="deleteNote(note.id, $event)">
+                <lucide-icon [img]="DeleteIcon" [size]="14"></lucide-icon>
+              </button>
+            </div>
+            } @else {
+            <div class="edit-mode-box">
+              <textarea
+                [(ngModel)]="editContent"
+                rows="3"
+                class="edit-textarea"
+                placeholder="Add your thought..."
+                (click)="$event.stopPropagation()"
+              ></textarea>
+              <div class="edit-actions">
+                <button class="btn-xs btn-primary" (click)="saveEdit(note, $event)">Save</button>
+                <button class="btn-xs btn-ghost" (click)="cancelEdit($event)">Cancel</button>
+              </div>
+            </div>
+            }
+          </div>
+        </div>
+        } @empty {
+        <div class="empty-state">
+          No notes yet.<br />Select text to highlight or add a quick note above.
+        </div>
+        }
+      </div>
     </aside>
   </div>
 
@@ -25,17 +93,12 @@
     <button class="icon-btn" (click)="goBack()">
       <lucide-icon [img]="ArrowLeftIcon" [size]="20"></lucide-icon>
     </button>
-
     <div class="book-meta">
       <span class="title">{{ book()?.title }}</span>
-      @if (book()?.pageCount) {
-      <span class="progress">{{ book()?.pageCount }} pages</span>
-      }
+      @if (book()?.pageCount) { <span class="progress">{{ book()?.pageCount }} pages</span> }
     </div>
-
     <button class="icon-btn" (click)="toggleNotes()">
       <lucide-icon [img]="NotesIcon" [size]="20"></lucide-icon>
     </button>
   </header>
-
 </div>

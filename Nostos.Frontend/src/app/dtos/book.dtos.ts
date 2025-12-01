@@ -17,6 +17,9 @@ export interface Book {
   fileName: string | null;
   coverUrl: string | null;
   collectionId: string | null;
+
+  lastLocation: string | null;
+  progressPercent: number;
 }
 
 export interface CreateBookDto {
@@ -49,4 +52,9 @@ export interface UpdateBookDto {
   series: string | null;
   volumeNumber: string | null;
   collectionId: string | null;
+}
+
+export interface UpdateProgressDto {
+  location: string;
+  percentage: number;
 }

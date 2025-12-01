@@ -1,3 +1,6 @@
+/* Nostos.Frontend/src/app/reader/reader-shell.css */
+
+/* --- LAYOUT & MAIN READER --- */
 .reader-layout {
   display: flex;
   flex-direction: column;
@@ -13,15 +16,15 @@
   padding: 0 1.5rem;
   border-top: 1px solid var(--border-color);
   background: var(--bg-surface);
+  z-index: 10;
 }
 
 .reader-body {
   flex: 1;
   display: flex;
-  overflow: hidden;
+  overflow: hidden; /* Critical for independent scrolling */
 }
 
-/* MAIN CONTENT */
 .reader-content {
   flex: 1;
   overflow: auto;
@@ -49,20 +52,15 @@
   color: var(--color-text-light);
 }
 
-/* NOTES PANEL */
-/* No transition before reader is ready */
+/* --- NOTES PANEL CONTAINER --- */
 .notes-panel {
-  width: 320px;
+  width: 340px; /* Slightly wider for better readability */
   background: var(--bg-surface);
   border-left: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-/* Apply transitions only when 'ready' is present */
-.ready .notes-panel {
-  transition: width 0.25s ease;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .notes-panel.collapsed {
@@ -72,25 +70,236 @@
 
 .notes-header {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   padding: 1rem;
   border-bottom: 1px solid var(--border-color);
-  font-family: 'Lora', serif;
+  background: var(--bg-surface);
 }
 
-.notes-input {
-  font-family: 'Inter', sans-serif;
-  flex: 1;
-  width: 100%;
-  padding: 1rem;
-  border: none;
-  outline: none;
-  resize: none;
-  background: transparent;
+.notes-header h3 {
+  font-family: 'Lora', serif;
+  font-size: 1.1rem;
+  margin: 0;
+  font-weight: 500;
   color: var(--color-text-main);
 }
 
-/* STATE ELEMENTS */
+/* --- QUICK NOTE FORM --- */
+.quick-note-form {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-body);
+}
+
+.quick-note-form textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--color-text-main);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  resize: none;
+  margin-bottom: 0.5rem;
+  display: block;
+  box-sizing: border-box; /* Ensures padding doesn't break width */
+}
+
+.quick-note-form textarea:focus {
+  outline: 2px solid var(--color-primary);
+  border-color: transparent;
+}
+
+/* --- NOTES LIST --- */
+.notes-list-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.sidebar-note-card {
+  position: relative; /* REQUIRED for absolute positioning of actions */
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: var(--bg-surface);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sidebar-note-card:hover {
+  background: var(--bg-card-hover, #f5f5f5); /* Fallback color if var missing */
+  border-color: var(--border-color);
+}
+
+/* Editing State for Card */
+.sidebar-note-card.editing {
+  background: var(--bg-body);
+  border-color: var(--color-primary);
+  cursor: default;
+}
+
+.note-type-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.note-type-icon .hl-icon {
+  color: var(--color-primary);
+}
+.note-type-icon .note-icon {
+  color: var(--color-text-muted);
+}
+
+.note-content-wrapper {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9rem;
+}
+
+.sidebar-quote {
+  font-family: 'Lora', serif;
+  font-style: italic;
+  color: var(--color-text-main);
+  margin-bottom: 0.4rem;
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--color-primary);
+  line-height: 1.4;
+}
+
+.sidebar-comment {
+  color: var(--color-text-light);
+  font-family: 'Inter', sans-serif;
+  line-height: 1.4;
+}
+
+.sidebar-meta {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.empty-state {
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+/* --- HOVER ACTIONS (Edit/Delete) --- */
+.card-actions {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+  background: var(--bg-surface); /* Prevents text behind from showing through */
+  padding-left: 0.5rem;
+  border-radius: 4px;
+}
+
+.sidebar-note-card:hover .card-actions {
+  opacity: 1;
+}
+
+/* Ensure buttons in actions are small */
+.card-actions .icon-btn.xs {
+  width: 24px;
+  height: 24px;
+  padding: 4px;
+}
+
+/* --- EDIT MODE --- */
+.edit-mode-box {
+  margin-top: 0.5rem;
+  width: 100%;
+}
+
+.edit-textarea {
+  width: 100%;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-body);
+  color: var(--color-text-main);
+  resize: vertical;
+  font-family: 'Inter', sans-serif;
+  box-sizing: border-box;
+}
+
+.edit-textarea:focus {
+  outline: 2px solid var(--color-primary);
+  border-color: transparent;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* --- BUTTON UTILITIES --- */
+.full-width {
+  width: 100%;
+}
+
+.btn-xs {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  border: none;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-xs.btn-primary {
+  background: var(--color-text-main);
+  color: var(--bg-body);
+}
+
+.btn-xs.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.btn-xs.btn-ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.btn-xs.btn-ghost:hover {
+  background: var(--bg-card-hover);
+  color: var(--color-text-main);
+}
+
+.link-btn-subtle {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 0.25rem;
+  text-decoration: underline;
+  opacity: 0.8;
+  display: inline-block;
+}
+
+.link-btn-subtle:hover {
+  opacity: 1;
+}
+
+/* --- STATE ELEMENTS --- */
 .loading,
 .error {
   height: 100%;

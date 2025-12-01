@@ -2,6 +2,7 @@
 import {
   Component,
   input,
+  output,
   OnInit,
   OnDestroy,
   signal,
@@ -12,8 +13,12 @@ import {
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import ePub, { Book, Rendition } from 'epubjs';
+import { Subject } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+
 import { EpubAnnotationManager } from './epub-annotation-manager';
-import { NotesService } from '../../services/notes.services'; // Import NotesService
+import { NotesService } from '../../services/notes.services';
+import { BooksService } from '../../services/books.services'; // <--- NEW
 
 @Component({
   selector: 'app-epub-reader',
@@ -25,15 +30,20 @@ import { NotesService } from '../../services/notes.services'; // Import NotesSer
 export class EpubReader implements OnInit, OnDestroy {
   bookId = input.required<string>();
 
+  // Event emitted when a new highlight is created
+  noteCreated = output<void>();
+
   private http = inject(HttpClient);
-  private notesService = inject(NotesService); // Inject Service
-  private injector = inject(Injector); // Inject Injector for the helper class
+  private notesService = inject(NotesService);
+  private booksService = inject(BooksService); // <--- NEW
+  private injector = inject(Injector);
 
   private book: Book | null = null;
   private rendition: Rendition | null = null;
-
-  // Instance of our new helper class
   private annotationManager: EpubAnnotationManager | null = null;
+
+  // Subject to debounce progress updates
+  private progressUpdater$ = new Subject<{ location: string; percentage: number }>();
 
   loading = signal(true);
 
@@ -45,7 +55,17 @@ export class EpubReader implements OnInit, OnDestroy {
     });
   }
 
-  ngOnInit(): void {}
+  ngOnInit() {
+    // Setup progress saver (debounce to avoid API spam while flipping pages)
+    this.progressUpdater$
+      .pipe(
+        debounceTime(1000),
+        distinctUntilChanged((prev, curr) => prev.location === curr.location)
+      )
+      .subscribe((data) => {
+        this.booksService.updateProgress(this.bookId(), data.location, data.percentage).subscribe();
+      });
+  }
 
   loadBook(id: string) {
     if (this.book) {
@@ -69,12 +89,15 @@ export class EpubReader implements OnInit, OnDestroy {
           manager: 'default',
         });
 
-        // Initialize the Annotation Manager with dependencies
-        // We pass the ID and Injector so the manager can save notes
-        this.annotationManager = new EpubAnnotationManager(this.rendition, id, this.injector);
+        // Initialize Annotation Manager with Callback
+        this.annotationManager = new EpubAnnotationManager(
+          this.rendition,
+          id,
+          this.injector,
+          () => this.noteCreated.emit() // <--- Trigger output when note saved
+        );
 
         this.rendition.hooks.content.register((contents: any) => {
-          // 1. Inject Fonts
           const fontUrl =
             'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Lora:wght@400;500;600&display=swap';
           const link = contents.document.createElement('link');
@@ -82,18 +105,24 @@ export class EpubReader implements OnInit, OnDestroy {
           link.setAttribute('href', fontUrl);
           contents.document.head.appendChild(link);
 
-          // 2. Inject Highlight Styles (via Manager)
           this.annotationManager?.injectHighlightStyles(contents);
         });
 
         this.rendition.display().then(() => {
           this.loading.set(false);
           this.applyTheme();
-
-          // 3. Start Listening for Selections (Mobile & PC)
           this.annotationManager?.init();
 
-          // 4. Restore existing highlights from the backend
+          // 1. Restore Reading Position
+          this.booksService.get(id).subscribe((b) => {
+            if (b.lastLocation) {
+              this.rendition?.display(b.lastLocation);
+            } else {
+              this.rendition?.display();
+            }
+          });
+
+          // 2. Restore Highlights
           this.notesService.list(id).subscribe({
             next: (notes) => {
               this.annotationManager?.restoreHighlights(notes);
@@ -102,8 +131,12 @@ export class EpubReader implements OnInit, OnDestroy {
           });
         });
 
+        // Track Location Changes
         this.rendition.on('relocated', (location: any) => {
-          console.log('Location:', location);
+          const cfi = location.start.cfi;
+          // Calculate percentage (0-100)
+          const percent = Math.floor(location.start.percentage * 100);
+          this.progressUpdater$.next({ location: cfi, percentage: percent });
         });
       },
       error: (err) => {
@@ -119,6 +152,21 @@ export class EpubReader implements OnInit, OnDestroy {
 
   nextPage() {
     this.rendition?.next();
+  }
+
+  // Helper to get location for "Quick Notes"
+  public getCurrentLocationCfi(): string | null {
+    if (!this.rendition) return null;
+    // Cast to 'any' to fix TS definition mismatch
+    const location = this.rendition.currentLocation() as any;
+    if (location && location.start) {
+      return location.start.cfi;
+    }
+    return null;
+  }
+
+  public goToLocation(cfi: string) {
+    this.rendition?.display(cfi);
   }
 
   private applyTheme() {

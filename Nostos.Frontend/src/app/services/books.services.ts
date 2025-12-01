@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Book, CreateBookDto, UpdateBookDto } from '../dtos/book.dtos';
+import { Book, CreateBookDto, UpdateBookDto, UpdateProgressDto } from '../dtos/book.dtos';
 
 @Injectable({ providedIn: 'root' })
 export class BooksService {
@@ -25,6 +25,12 @@ export class BooksService {
 
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`/api/books/${id}`);
+  }
+
+  // --- NEW METHOD ---
+  updateProgress(id: string, location: string, percentage: number): Observable<any> {
+    const dto: UpdateProgressDto = { location, percentage };
+    return this.http.put(`/api/books/${id}/progress`, dto);
   }
 
   uploadFile(bookId: string, file: File): Observable<any> {

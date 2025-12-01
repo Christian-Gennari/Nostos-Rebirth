@@ -583,9 +583,49 @@
   /* Color */
   color: #6b7280; /* Muted grey - distinct from the black body text */
 
-/* The Divider Line */
+  /* The Divider Line */
   border-bottom: 1px solid #e5e7eb; /* Light grey line */
   padding-bottom: 0.5rem;
   margin-bottom: 1rem;
   display: inline-block;
+}
+
+/* Nostos.Frontend/src/app/book-detail/book-detail.css */
+.highlight-block {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: var(--bg-card-hover); /* Slight highlight background */
+  padding: 0.75rem;
+  border-radius: 4px;
+}
+
+.quote-stripe {
+  width: 4px;
+  background-color: #ffff004d; /* Use your yellow/accent color */
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.highlight-text {
+  font-family: 'Lora', serif;
+  font-style: italic;
+  color: var(--color-text-main);
+  font-size: 0.95rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.highlight-context {
+  border-left: 3px solid #ccc;
+  padding-left: 1rem;
+  color: #666;
+  font-style: italic;
+  margin-bottom: 0.5rem;
+}
+
+.note-meta-placeholder {
+  font-size: 0.85rem;
+  color: #999;
+  font-style: italic;
 }

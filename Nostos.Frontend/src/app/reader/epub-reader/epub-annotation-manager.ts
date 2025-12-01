@@ -12,10 +12,10 @@ export class EpubAnnotationManager {
 
   constructor(
     private rendition: Rendition,
-    private bookId: string, // <--- NEW: Required to link note to book
-    private injector: Injector // <--- NEW: Allows using Service inside a helper class
+    private bookId: string,
+    private injector: Injector,
+    private onNoteCreated?: () => void // <--- NEW: Callback to notify parent
   ) {
-    // Manually inject the service since we are outside an Angular Component
     this.notesService = this.injector.get(NotesService);
   }
 
@@ -79,6 +79,9 @@ export class EpubAnnotationManager {
         next: (note) => {
           console.log('Highlight saved to DB:', note.id);
           this.highlights.update((current) => [...current, cfiRange]);
+
+          // Notify the parent component so it can refresh the sidebar
+          if (this.onNoteCreated) this.onNoteCreated();
         },
         error: (err) => {
           console.error('Failed to save highlight:', err);

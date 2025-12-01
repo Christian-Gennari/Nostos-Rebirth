@@ -253,14 +253,31 @@
               <div class="note-row" (click)="handleNoteClick($event)">
                 @if (editingNote()?.id === note.id) {
                 <div class="edit-box">
-                  <textarea class="note-input" [(ngModel)]="editNoteContent" rows="3"></textarea>
+                  @if (note.selectedText) {
+                  <blockquote class="highlight-context">{{ note.selectedText }}</blockquote>
+                  }
+                  <textarea
+                    class="note-input"
+                    [(ngModel)]="editNoteContent"
+                    rows="3"
+                    placeholder="Add your thought..."
+                  ></textarea>
                   <div class="row-actions">
                     <button class="link-btn" (click)="saveEdit()">Save</button>
                     <button class="link-btn" (click)="cancelEdit()">Cancel</button>
                   </div>
                 </div>
-                } @else {
+                } @else { @if (note.selectedText) {
+                <div class="highlight-block">
+                  <div class="quote-stripe"></div>
+                  <p class="highlight-text">{{ note.selectedText }}</p>
+                </div>
+                } @if (note.content) {
                 <p class="note-text whitespace-pre-wrap" [innerHTML]="formatNote(note.content)"></p>
+                } @else if (note.selectedText) {
+                <p class="note-meta-placeholder">No comment added</p>
+                }
+
                 <div class="note-hover-actions">
                   <button class="icon-btn xs" (click)="startEdit(note); $event.stopPropagation()">
                     <lucide-icon [img]="Edit2Icon" [size]="14"></lucide-icon>
