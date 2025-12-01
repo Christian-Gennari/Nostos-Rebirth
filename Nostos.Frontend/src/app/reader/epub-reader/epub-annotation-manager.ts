@@ -1,12 +1,23 @@
 // Nostos.Frontend/src/app/reader/epub-reader/epub-annotation-manager.ts
 import { Rendition } from 'epubjs';
-import { signal } from '@angular/core';
+import { signal, Injector } from '@angular/core';
+import { NotesService } from '../../services/notes.services';
+import { Note } from '../../dtos/note.dtos';
 
 export class EpubAnnotationManager {
   // Signal to track saved highlights (CFI strings)
   public highlights = signal<string[]>([]);
 
-  constructor(private rendition: Rendition) {}
+  private notesService: NotesService;
+
+  constructor(
+    private rendition: Rendition,
+    private bookId: string, // <--- NEW: Required to link note to book
+    private injector: Injector // <--- NEW: Allows using Service inside a helper class
+  ) {
+    // Manually inject the service since we are outside an Angular Component
+    this.notesService = this.injector.get(NotesService);
+  }
 
   /**
    * Initialize listeners for selection events.
@@ -46,28 +57,47 @@ export class EpubAnnotationManager {
   private handleSelection(cfiRange: string, contents: any) {
     console.log('Selection detected:', cfiRange);
 
-    // 1. Visually add the highlight to the book
-    // 'highlight' is the default annotation type in epub.js
-    this.rendition.annotations.add('highlight', cfiRange, {}, (e: any) => {
-      console.log('Highlight clicked', e);
-    });
+    // 1. Extract the selected text using the CFI
+    const range = this.rendition.getRange(cfiRange);
+    const selectedText = range ? range.toString() : '';
 
-    // 2. Clear the native browser selection (blue box)
-    // This is crucial for Mobile to prevent the native context menu from interfering
+    // 2. Visually add the highlight immediately (Optimistic UI)
+    this.rendition.annotations.add('highlight', cfiRange);
+
+    // 3. Clear the native browser selection
     const selection = contents.window.getSelection();
     selection?.removeAllRanges();
 
-    // 3. Update state (to be saved to backend later)
-    this.highlights.update((current) => [...current, cfiRange]);
+    // 4. Save to Backend
+    this.notesService
+      .create(this.bookId, {
+        content: '', // User can add a comment later
+        cfiRange: cfiRange,
+        selectedText: selectedText,
+      })
+      .subscribe({
+        next: (note) => {
+          console.log('Highlight saved to DB:', note.id);
+          this.highlights.update((current) => [...current, cfiRange]);
+        },
+        error: (err) => {
+          console.error('Failed to save highlight:', err);
+          // Rollback: Remove the highlight if the save failed
+          this.rendition.annotations.remove(cfiRange, 'highlight');
+        },
+      });
   }
 
   /**
    * Restore previously saved highlights from the backend
+   * Accepts Note[] objects (which contain the cfiRange)
    */
-  public restoreHighlights(savedCfis: string[]) {
-    savedCfis.forEach((cfi) => {
-      this.rendition.annotations.add('highlight', cfi);
-      this.highlights.update((current) => [...current, cfi]);
+  public restoreHighlights(notes: Note[]) {
+    notes.forEach((note) => {
+      if (note.cfiRange) {
+        this.rendition.annotations.add('highlight', note.cfiRange);
+        this.highlights.update((current) => [...current, note.cfiRange!]);
+      }
     });
   }
 }

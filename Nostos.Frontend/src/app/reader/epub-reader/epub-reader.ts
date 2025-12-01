@@ -1,9 +1,19 @@
 // Nostos.Frontend/src/app/reader/epub-reader/epub-reader.ts
-import { Component, input, OnInit, OnDestroy, signal, effect, inject } from '@angular/core';
+import {
+  Component,
+  input,
+  OnInit,
+  OnDestroy,
+  signal,
+  effect,
+  inject,
+  Injector,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import ePub, { Book, Rendition } from 'epubjs';
-import { EpubAnnotationManager } from './epub-annotation-manager'; // Import the new class
+import { EpubAnnotationManager } from './epub-annotation-manager';
+import { NotesService } from '../../services/notes.services'; // Import NotesService
 
 @Component({
   selector: 'app-epub-reader',
@@ -16,6 +26,8 @@ export class EpubReader implements OnInit, OnDestroy {
   bookId = input.required<string>();
 
   private http = inject(HttpClient);
+  private notesService = inject(NotesService); // Inject Service
+  private injector = inject(Injector); // Inject Injector for the helper class
 
   private book: Book | null = null;
   private rendition: Rendition | null = null;
@@ -57,8 +69,9 @@ export class EpubReader implements OnInit, OnDestroy {
           manager: 'default',
         });
 
-        // Initialize the Annotation Manager with the active rendition
-        this.annotationManager = new EpubAnnotationManager(this.rendition);
+        // Initialize the Annotation Manager with dependencies
+        // We pass the ID and Injector so the manager can save notes
+        this.annotationManager = new EpubAnnotationManager(this.rendition, id, this.injector);
 
         this.rendition.hooks.content.register((contents: any) => {
           // 1. Inject Fonts
@@ -79,6 +92,14 @@ export class EpubReader implements OnInit, OnDestroy {
 
           // 3. Start Listening for Selections (Mobile & PC)
           this.annotationManager?.init();
+
+          // 4. Restore existing highlights from the backend
+          this.notesService.list(id).subscribe({
+            next: (notes) => {
+              this.annotationManager?.restoreHighlights(notes);
+            },
+            error: (err) => console.error('Failed to load existing notes:', err),
+          });
         });
 
         this.rendition.on('relocated', (location: any) => {
