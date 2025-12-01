@@ -54,3 +54,5 @@ public record UpdateBookDto(
     string? VolumeNumber,
     Guid? CollectionId
 );
+
+public record UpdateProgressDto(string Location, int Percentage);

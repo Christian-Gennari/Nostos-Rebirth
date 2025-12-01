@@ -64,6 +64,20 @@ public static class BooksEndpoints
       return Results.Ok(book.ToDto());
     });
 
+    // UPDATE Reading Progress
+    group.MapPut("/{id}/progress", async (Guid id, UpdateProgressDto dto, NostosDbContext db) =>
+    {
+        var book = await db.Books.FindAsync(id);
+        if (book is null) return Results.NotFound();
+
+        book.LastLocation = dto.Location;
+        book.ProgressPercent = dto.Percentage;
+
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new { updated = true });
+    });
+
     // DELETE book
     group.MapDelete("/{id}", async (Guid id, NostosDbContext db, FileStorageService storage) =>
     {
