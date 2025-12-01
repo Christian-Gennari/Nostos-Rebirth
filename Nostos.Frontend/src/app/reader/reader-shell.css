@@ -1,7 +1,7 @@
 .reader-layout {
-  height: 100vh;
   display: flex;
   flex-direction: column;
+  height: 100vh;
   background: var(--bg-body);
 }
 
@@ -13,34 +13,58 @@
   padding: 0 1.5rem;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-surface);
-  z-index: 10;
 }
 
-.book-meta {
+.reader-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* MAIN CONTENT */
+.reader-content {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  background: var(--bg-body);
+}
+
+/* NOTES PANEL */
+.notes-panel {
+  width: 300px;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  transition: width 0.25s ease;
 }
 
-.title {
-  font-weight: 600;
+.notes-panel.collapsed {
+  width: 0;
+  border-left: none; /* <--- fix white line on collapse */
+}
+
+.notes-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
   font-family: 'Lora', serif;
+}
+
+.notes-input {
+  font-family: 'Inter', sans-serif;
+  flex: 1;
+  width: 100%;
+  padding: 1rem;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
   color: var(--color-text-main);
 }
 
-.progress {
-  font-size: 0.8rem;
-  color: var(--color-text-light);
-}
-
-.reader-content {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
-
+/* STATE ELEMENTS */
 .loading,
 .error {
   height: 100%;

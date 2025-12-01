@@ -11,15 +11,33 @@
       }
     </div>
 
-    <div class="actions"></div>
+    <button class="icon-btn" (click)="toggleNotes()">
+      <lucide-icon [img]="NotesIcon" [size]="20"></lucide-icon>
+    </button>
   </header>
 
-  <main class="reader-content">
-    @if (loading()) {
-    <div class="loading">Loading book...</div>
-    } @else { @switch (fileType()) { @case ('pdf') { <app-pdf-reader [bookId]="book()!.id" /> }
-    @case ('epub') { <app-epub-reader /> } @case ('audio') { <app-audio-reader /> } @default {
-    <div class="error">Unsupported file format.</div>
-    } } }
-  </main>
+  <div class="reader-body">
+    <main class="reader-content">
+      @if (loading()) {
+      <div class="loading">Loading book...</div>
+      } @else { @switch (fileType()) { @case ('pdf') { <app-pdf-reader [bookId]="book()!.id" /> }
+      @case ('epub') { <app-epub-reader /> } @case ('audio') { <app-audio-reader /> } @default {
+      <div class="error">Unsupported file format.</div>
+      } } }
+    </main>
+
+    <aside class="notes-panel" [class.collapsed]="!notesOpen()">
+      <div class="notes-header">
+        <h3>Notes</h3>
+        <button class="icon-btn" (click)="toggleNotes()">×</button>
+      </div>
+
+      <textarea
+        class="notes-input"
+        name="notes-input"
+        placeholder="Write notes here..."
+        [(ngModel)]="notes"
+      ></textarea>
+    </aside>
+  </div>
 </div>

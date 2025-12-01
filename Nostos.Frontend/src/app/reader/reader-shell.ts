@@ -2,7 +2,8 @@ import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { BooksService, Book } from '../services/books.services';
-import { LucideAngularModule, ArrowLeft } from 'lucide-angular';
+import { FormsModule } from '@angular/forms';
+import { LucideAngularModule, ArrowLeft, NotebookPen } from 'lucide-angular';
 
 // Import the real component
 import { PdfReader } from '../reader/pdf-reader/pdf-reader';
@@ -27,8 +28,9 @@ export class AudioReader {}
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule, // <--- added for textarea binding
     LucideAngularModule,
-    PdfReader, // <--- Add this
+    PdfReader,
     EpubReader,
     AudioReader,
   ],
@@ -41,9 +43,14 @@ export class ReaderShell implements OnInit {
   private booksService = inject(BooksService);
 
   ArrowLeftIcon = ArrowLeft;
+  NotesIcon = NotebookPen; // <--- new icon
 
   book = signal<Book | null>(null);
   loading = signal(true);
+
+  // --- New signals for Notes panel ---
+  notesOpen = signal(false);
+  notes = signal<string>('');
 
   fileType = computed(() => {
     const fileName = this.book()?.fileName?.toLowerCase();
@@ -62,10 +69,24 @@ export class ReaderShell implements OnInit {
     this.booksService.get(id).subscribe({
       next: (b) => {
         this.book.set(b);
+
+        // Load saved notes for this book (localStorage for now)
+        const saved = localStorage.getItem('notes-' + b.id);
+        if (saved) this.notes.set(saved);
+
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
     });
+  }
+
+  toggleNotes() {
+    this.notesOpen.update((v) => !v);
+  }
+
+  saveNotes() {
+    const id = this.book()?.id;
+    if (id) localStorage.setItem('notes-' + id, this.notes());
   }
 
   goBack() {
