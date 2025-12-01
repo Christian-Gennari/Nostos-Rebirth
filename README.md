@@ -38,19 +38,19 @@
 - [ ] **Nested collections** (Optional/Future)
 
 ### **Milestone 3 — Basic Reader Engine**
-*Status: Pending. Currently, books open in the browser's native viewer/download. The next major step is an integrated reading experience.*
-- [ ] **Create Reader Route/Module** (`/read/:id`)
-- [ ] **Integrate EPUB rendering** (epub.js)
-- [ ] **Integrate PDF rendering** (pdf.js or browser native embed)
+*Status: In Progress. The Reader shell and PDF support are implemented. Backend support for progress tracking is ready.*
+- [x] **Create Reader Route/Module** (`/read/:id`)
+- [x] **Integrate PDF rendering** (via `ng2-pdfjs-viewer`)
+- [ ] **Integrate EPUB rendering** (Placeholder component created)
 - [ ] **Add text-mode reader** (For .txt files)
-- [ ] **Reading progress tracking** (Save last page/scroll position)
+- [ ] **Reading progress tracking** (Backend columns `LastLocation` & `ProgressPercent` added; Frontend integration pending)
 
 ### **Milestone 4 — Notes Enhancements (Reader Integration)**
-*Status: Pending Reader Engine.*
+*Status: In Progress. Basic sidebar is present.*
+- [x] **Show notes sidebar inside reader** (Implemented basic scratchpad using LocalStorage)
 - [ ] **Inline highlights in EPUB/PDF**
 - [ ] **Create note from selected text**
 - [ ] **Jump-to-note-location feature**
-- [ ] **Show notes sidebar inside reader**
 
 ---
 
@@ -63,9 +63,11 @@
 - [ ] **Persist preferences in backend**
 
 ### **Milestone 8 — General Polish (v2 Final)**
-*Ongoing. Much of this is being done iteratively (e.g., Skeletons and Fonts are already in).*
+*Ongoing. Recently added comprehensive metadata support and auto-fetching.*
 - [x] **Unified typography via Inter + Lora**
 - [x] **Loading skeletons**
+- [x] **Expanded Book Metadata** (Added support for Series, Volume, Language, Publisher, ISBN, etc.)
+- [x] **Automatic Metadata Fetching** (Implemented `BookLookupService` combining OpenLibrary & Google Books APIs)
 - [ ] **Mobile layout pass** (Grid is responsive, but sidebar needs mobile menu)
 - [ ] **404 and error screens**
 - [ ] **Keyboard shortcuts**
