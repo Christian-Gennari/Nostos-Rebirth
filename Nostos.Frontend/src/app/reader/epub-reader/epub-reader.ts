@@ -9,6 +9,7 @@ import {
   effect,
   inject,
   Injector,
+  ElementRef,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -18,7 +19,7 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
 import { EpubAnnotationManager } from './epub-annotation-manager';
 import { NotesService } from '../../services/notes.services';
-import { BooksService } from '../../services/books.services'; // <--- NEW
+import { BooksService } from '../../services/books.services';
 
 @Component({
   selector: 'app-epub-reader',
@@ -35,15 +36,19 @@ export class EpubReader implements OnInit, OnDestroy {
 
   private http = inject(HttpClient);
   private notesService = inject(NotesService);
-  private booksService = inject(BooksService); // <--- NEW
+  private booksService = inject(BooksService);
   private injector = inject(Injector);
+  private elementRef = inject(ElementRef);
 
   private book: Book | null = null;
   private rendition: Rendition | null = null;
   private annotationManager: EpubAnnotationManager | null = null;
 
-  // Subject to debounce progress updates
+  // Subjects for managing events
   private progressUpdater$ = new Subject<{ location: string; percentage: number }>();
+
+  private resizeSubject$ = new Subject<void>();
+  private resizeObserver: ResizeObserver | null = null;
 
   loading = signal(true);
 
@@ -56,7 +61,27 @@ export class EpubReader implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    // Setup progress saver (debounce to avoid API spam while flipping pages)
+    // --- FIX: Correctly resize the inner viewer element ---
+    this.resizeSubject$.pipe(debounceTime(350)).subscribe(() => {
+      if (this.rendition) {
+        // Grab the specific element epub.js is rendering into (#epub-viewer)
+        // This element has CSS rules (like width: 80%) that we must respect.
+        const viewerContainer = this.elementRef.nativeElement.querySelector('#epub-viewer');
+
+        if (viewerContainer) {
+          const { clientWidth, clientHeight } = viewerContainer;
+          this.rendition.resize(clientWidth, clientHeight);
+        }
+      }
+    });
+
+    this.resizeObserver = new ResizeObserver(() => {
+      this.resizeSubject$.next();
+    });
+    this.resizeObserver.observe(this.elementRef.nativeElement);
+    // ------------------------------------------------------
+
+    // Setup progress saver
     this.progressUpdater$
       .pipe(
         debounceTime(1000),
@@ -89,12 +114,9 @@ export class EpubReader implements OnInit, OnDestroy {
           manager: 'default',
         });
 
-        // Initialize Annotation Manager with Callback
-        this.annotationManager = new EpubAnnotationManager(
-          this.rendition,
-          id,
-          this.injector,
-          () => this.noteCreated.emit() // <--- Trigger output when note saved
+        // Initialize Annotation Manager
+        this.annotationManager = new EpubAnnotationManager(this.rendition, id, this.injector, () =>
+          this.noteCreated.emit()
         );
 
         this.rendition.hooks.content.register((contents: any) => {
@@ -134,7 +156,6 @@ export class EpubReader implements OnInit, OnDestroy {
         // Track Location Changes
         this.rendition.on('relocated', (location: any) => {
           const cfi = location.start.cfi;
-          // Calculate percentage (0-100)
           const percent = Math.floor(location.start.percentage * 100);
           this.progressUpdater$.next({ location: cfi, percentage: percent });
         });
@@ -154,10 +175,8 @@ export class EpubReader implements OnInit, OnDestroy {
     this.rendition?.next();
   }
 
-  // Helper to get location for "Quick Notes"
   public getCurrentLocationCfi(): string | null {
     if (!this.rendition) return null;
-    // Cast to 'any' to fix TS definition mismatch
     const location = this.rendition.currentLocation() as any;
     if (location && location.start) {
       return location.start.cfi;
@@ -198,6 +217,7 @@ export class EpubReader implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
     if (this.book) {
       this.book.destroy();
     }

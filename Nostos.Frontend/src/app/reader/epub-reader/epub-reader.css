@@ -40,8 +40,12 @@
   justify-content: center;
 }
 
-.nav-prev { left: 0; }
-.nav-next { right: 0; }
+.nav-prev {
+  left: 0;
+}
+.nav-next {
+  right: 0;
+}
 
 /* Loading state */
 .loading-overlay {
@@ -55,25 +59,23 @@
   color: var(--color-text-muted, #888);
 }
 
-
 /* =========================================
    2. DESKTOP / TABLET STYLES
    "Netflix Style" - Only applied on larger screens
    ========================================= */
 
 @media (min-width: 768px) {
-
   /* Add smooth fade transitions for the visuals */
   .nav-zone {
     transition: background 0.3s ease;
-      width: 5%;
+    width: 5%;
   }
 
   /* Give some breathing room for the arrows and content */
-#epub-viewer {
-  width: 80%;
-  height: 90%;
-}
+  #epub-viewer {
+    width: 80%;
+    height: 90%;
+  }
 
   /* --- The Arrows (Hidden by default, reveal on hover) --- */
   .nav-zone::after {
@@ -91,7 +93,7 @@
   /* --- PREVIOUS HOVER --- */
   .nav-prev:hover {
     /* Subtle dark gradient fading in from the left */
-    background: linear-gradient(to right, rgba(0,0,0,0.08), transparent);
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.08), transparent);
   }
 
   .nav-prev::after {
@@ -107,7 +109,7 @@
   /* --- NEXT HOVER --- */
   .nav-next:hover {
     /* Subtle dark gradient fading in from the right */
-    background: linear-gradient(to left, rgba(0,0,0,0.08), transparent);
+    background: linear-gradient(to left, rgba(0, 0, 0, 0.08), transparent);
   }
 
   .nav-next::after {

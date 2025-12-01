@@ -22,7 +22,8 @@
 .reader-body {
   flex: 1;
   display: flex;
-  overflow: hidden; /* Critical for independent scrolling */
+  overflow: hidden;
+  position: relative; /* <--- REQUIRED: Anchors the absolute sidebar */
 }
 
 .reader-content {
@@ -30,6 +31,7 @@
   overflow: auto;
   position: relative;
   background: var(--bg-body);
+  width: 100%; /* Ensures it keeps full width even when sidebar opens */
 }
 
 .book-meta {
@@ -52,20 +54,41 @@
   color: var(--color-text-light);
 }
 
-/* --- NOTES PANEL CONTAINER --- */
+/* --- NOTES PANEL CONTAINER (UPDATED) --- */
 .notes-panel {
-  width: 340px; /* Slightly wider for better readability */
+  position: absolute; /* <--- Overlay Mode */
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50; /* Sits on top of the reader content */
+
+  width: 360px; /* Standard drawer width */
   background: var(--bg-surface);
   border-left: 1px solid var(--border-color);
+
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Smooth slide-in animation using Transform instead of Width */
+  transform: translateX(0);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+
+  /* Add shadow to separate it from the content underneath */
+  box-shadow: -4px 0 15px rgba(0, 0, 0, 0.1);
 }
 
 .notes-panel.collapsed {
-  width: 0;
-  border-left: none;
+  transform: translateX(100%); /* <--- Slides completely off-screen */
+  box-shadow: none;
+}
+
+/* Mobile Responsive Adjustments */
+@media (max-width: 768px) {
+  .notes-panel {
+    width: 100%; /* Full width on mobile */
+    max-width: 400px; /* Cap it for larger phones/small tablets */
+  }
 }
 
 .notes-header {
@@ -104,7 +127,7 @@
   resize: none;
   margin-bottom: 0.5rem;
   display: block;
-  box-sizing: border-box; /* Ensures padding doesn't break width */
+  box-sizing: border-box;
 }
 
 .quick-note-form textarea:focus {
@@ -120,7 +143,7 @@
 }
 
 .sidebar-note-card {
-  position: relative; /* REQUIRED for absolute positioning of actions */
+  position: relative;
   display: flex;
   gap: 0.75rem;
   padding: 0.75rem;
@@ -133,7 +156,7 @@
 }
 
 .sidebar-note-card:hover {
-  background: var(--bg-card-hover, #f5f5f5); /* Fallback color if var missing */
+  background: var(--bg-card-hover, #f5f5f5);
   border-color: var(--border-color);
 }
 
@@ -202,7 +225,7 @@
   gap: 0.25rem;
   opacity: 0;
   transition: opacity 0.2s;
-  background: var(--bg-surface); /* Prevents text behind from showing through */
+  background: var(--bg-surface);
   padding-left: 0.5rem;
   border-radius: 4px;
 }
@@ -211,7 +234,6 @@
   opacity: 1;
 }
 
-/* Ensure buttons in actions are small */
 .card-actions .icon-btn.xs {
   width: 24px;
   height: 24px;
