@@ -24,12 +24,10 @@
 
 /* BRAND */
 .sidebar-header {
-
   height: 80px;
   display: flex;
   align-items: center;
   padding: 11px;
-
 }
 
 .brand {
@@ -40,8 +38,6 @@
   color: var(--color-primary);
 }
 
-
-
 .brand-icon {
   width: 50px;
   height: auto;
@@ -49,10 +45,9 @@
   justify-content: center;
   color: var(--color-primary);
 
-    opacity: 1;
+  opacity: 1;
   transition: opacity 0.2s ease;
 }
-
 
 /* Fade out during collapse */
 .sidebar.collapsing .brand-icon {
@@ -155,7 +150,6 @@
 .sidebar.collapsed .nav-content {
   gap: 0;
 }
-
 
 .label {
   white-space: nowrap;
@@ -291,8 +285,6 @@
 
 /* --- COLLAPSED OVERRIDES --- */
 
-
-
 .sidebar.collapsed .sidebar-header {
   padding: 0;
   justify-content: center;
@@ -307,13 +299,9 @@
   padding: 0;
   gap: 0;
   justify-content: center;
-  transition:
-    width 0.3s cubic-bezier(0.2, 0, 0, 1),
-    padding 0.3s cubic-bezier(0.2, 0, 0, 1),
-    gap 0.3s cubic-bezier(0.2, 0, 0, 1),
-    margin-left 0.3s cubic-bezier(0.2, 0, 0, 1),
-    background 0.2s ease,
-    color 0.2s ease,
+  transition: width 0.3s cubic-bezier(0.2, 0, 0, 1), padding 0.3s cubic-bezier(0.2, 0, 0, 1),
+    gap 0.3s cubic-bezier(0.2, 0, 0, 1), margin-left 0.3s cubic-bezier(0.2, 0, 0, 1),
+    background 0.2s ease, color 0.2s ease;
 }
 
 .label {
@@ -341,14 +329,13 @@
 @keyframes smoothFadeIn {
   from {
     opacity: 0;
-    transform: translateY(2px) scale(0.9);
+    transform: translateY(0px) scale(1);
   }
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
 }
-
 
 /* Apply to both the "New Collection" button AND the "Input" mode */
 .nav-item,
