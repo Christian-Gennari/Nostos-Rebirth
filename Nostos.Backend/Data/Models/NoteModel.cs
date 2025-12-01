@@ -1,22 +1,22 @@
+// Nostos.Backend/Data/Models/NoteModel.cs
 using System.ComponentModel.DataAnnotations;
 
 namespace Nostos.Backend.Data.Models;
 
 public class NoteModel
 {
-  public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid Id { get; set; } = Guid.NewGuid();
 
-  [Required]
-  public string Content { get; set; } = string.Empty;
+    [Required]
+    public string Content { get; set; } = string.Empty; // User's written note (if any)
 
-  public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string? CfiRange { get; set; }     // <--- NEW: e.g. "epubcfi(/6/4...)"
+    public string? SelectedText { get; set; } // <--- NEW: The actual text from the book
 
-  // Foreign Key
-  public Guid BookId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-  // NEW: Navigation Property
-  public BookModel? Book { get; set; }
+    public Guid BookId { get; set; }
+    public BookModel? Book { get; set; }
 
-  // Navigation for Concepts
-  public ICollection<NoteConceptModel> NoteConcepts { get; set; } = new List<NoteConceptModel>();
+    public ICollection<NoteConceptModel> NoteConcepts { get; set; } = new List<NoteConceptModel>();
 }

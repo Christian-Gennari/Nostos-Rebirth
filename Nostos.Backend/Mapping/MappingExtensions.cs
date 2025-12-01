@@ -37,7 +37,7 @@ public static class MappingExtensions
     }
 
     public static NoteDto ToDto(this NoteModel model) =>
-        new(model.Id, model.BookId, model.Content);
+            new(model.Id, model.BookId, model.Content, model.CfiRange, model.SelectedText); // <--- Updated
 
     public static CollectionDto ToDto(this CollectionModel model) =>
         new(model.Id, model.Name);
@@ -76,12 +76,14 @@ public static class MappingExtensions
         };
 
     public static NoteModel ToModel(this CreateNoteDto dto, Guid bookId) =>
-        new()
-        {
-            Id = Guid.NewGuid(),
-            BookId = bookId,
-            Content = dto.Content
-        };
+            new()
+            {
+                Id = Guid.NewGuid(),
+                BookId = bookId,
+                Content = dto.Content,
+                CfiRange = dto.CfiRange,          // <--- NEW
+                SelectedText = dto.SelectedText   // <--- NEW
+            };
 
     public static CollectionModel ToModel(this CreateCollectionDto dto) =>
         new()

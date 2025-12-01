@@ -3,6 +3,7 @@ import { Component, input, OnInit, OnDestroy, signal, effect, inject } from '@an
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import ePub, { Book, Rendition } from 'epubjs';
+import { EpubAnnotationManager } from './epub-annotation-manager'; // Import the new class
 
 @Component({
   selector: 'app-epub-reader',
@@ -18,6 +19,9 @@ export class EpubReader implements OnInit, OnDestroy {
 
   private book: Book | null = null;
   private rendition: Rendition | null = null;
+
+  // Instance of our new helper class
+  private annotationManager: EpubAnnotationManager | null = null;
 
   loading = signal(true);
 
@@ -36,12 +40,12 @@ export class EpubReader implements OnInit, OnDestroy {
       this.book.destroy();
       this.book = null;
       this.rendition = null;
+      this.annotationManager = null;
     }
 
     this.loading.set(true);
     const url = `/api/books/${id}/file`;
 
-    // 1. Fetch file as binary
     this.http.get(url, { responseType: 'arraybuffer' }).subscribe({
       next: (arrayBuffer) => {
         this.book = ePub(arrayBuffer);
@@ -53,18 +57,28 @@ export class EpubReader implements OnInit, OnDestroy {
           manager: 'default',
         });
 
+        // Initialize the Annotation Manager with the active rendition
+        this.annotationManager = new EpubAnnotationManager(this.rendition);
+
         this.rendition.hooks.content.register((contents: any) => {
+          // 1. Inject Fonts
           const fontUrl =
             'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Lora:wght@400;500;600&display=swap';
           const link = contents.document.createElement('link');
           link.setAttribute('rel', 'stylesheet');
           link.setAttribute('href', fontUrl);
           contents.document.head.appendChild(link);
+
+          // 2. Inject Highlight Styles (via Manager)
+          this.annotationManager?.injectHighlightStyles(contents);
         });
 
         this.rendition.display().then(() => {
           this.loading.set(false);
           this.applyTheme();
+
+          // 3. Start Listening for Selections (Mobile & PC)
+          this.annotationManager?.init();
         });
 
         this.rendition.on('relocated', (location: any) => {
