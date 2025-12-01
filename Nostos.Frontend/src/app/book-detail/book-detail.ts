@@ -23,6 +23,7 @@ import {
   Hash,
   Layers,
   Building,
+  BookDown,
 } from 'lucide-angular';
 import { AddBookModal } from '../add-book-modal/add-book-modal';
 import { HttpEventType } from '@angular/common/http';
@@ -56,6 +57,7 @@ export class BookDetail implements OnInit {
   HashIcon = Hash;
   LayersIcon = Layers;
   BuildingIcon = Building;
+  BookDownIcon = BookDown;
 
   loading = signal(true);
   book = signal<Book | null>(null);
@@ -280,10 +282,16 @@ export class BookDetail implements OnInit {
   }
 
   // --- FILE / COVER LOGIC ---
-  openFile() {
+  downloadFile() {
     const id = this.book()?.id;
     if (!id) return;
     window.open(`/api/books/${id}/file`, '_blank');
+  }
+
+  openReader() {
+    const id = this.book()?.id;
+    if (!id) return;
+    this.router.navigate(['/read', id]);
   }
 
   triggerCoverPicker() {

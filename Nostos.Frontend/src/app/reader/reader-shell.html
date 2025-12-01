@@ -1,0 +1,25 @@
+<div class="reader-layout">
+  <header class="reader-toolbar">
+    <button class="icon-btn" (click)="goBack()">
+      <lucide-icon [img]="ArrowLeftIcon" [size]="20"></lucide-icon>
+    </button>
+
+    <div class="book-meta">
+      <span class="title">{{ book()?.title }}</span>
+      @if (book()?.pageCount) {
+      <span class="progress">{{ book()?.pageCount }} pages</span>
+      }
+    </div>
+
+    <div class="actions"></div>
+  </header>
+
+  <main class="reader-content">
+    @if (loading()) {
+    <div class="loading">Loading book...</div>
+    } @else { @switch (fileType()) { @case ('pdf') { <app-pdf-reader /> } @case ('epub') {
+    <app-epub-reader /> } @case ('audio') { <app-audio-reader /> } @default {
+    <div class="error">Unsupported file format.</div>
+    } } }
+  </main>
+</div>

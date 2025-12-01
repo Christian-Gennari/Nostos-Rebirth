@@ -8,6 +8,13 @@ export const routes: Routes = [
     component: Home,
   },
 
+  // --- NEW: Dedicated Reader Route ---
+  // Placed outside WorkspaceLayout for full-screen immersive mode
+  {
+    path: 'read/:id',
+    loadComponent: () => import('./reader/reader-shell').then((m) => m.ReaderShell),
+  },
+
   // Wrap ONLY library + brain inside workspace layout
   {
     path: '',
