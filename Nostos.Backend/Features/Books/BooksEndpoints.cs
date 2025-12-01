@@ -79,10 +79,6 @@ public static class BooksEndpoints
       db.Books.Remove(book);
       await db.SaveChangesAsync();
 
-
-      db.Books.Remove(book);
-      await db.SaveChangesAsync();
-
       return Results.NoContent();
     });
 
