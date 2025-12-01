@@ -30,18 +30,24 @@
 }
 
 /* NOTES PANEL */
+/* No transition before reader is ready */
 .notes-panel {
-  width: 300px;
+  width: 320px;
   background: var(--bg-surface);
   border-left: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+/* Apply transitions only when 'ready' is present */
+.ready .notes-panel {
   transition: width 0.25s ease;
 }
 
 .notes-panel.collapsed {
   width: 0;
-  border-left: none; /* <--- fix white line on collapse */
+  border-left: none;
 }
 
 .notes-header {

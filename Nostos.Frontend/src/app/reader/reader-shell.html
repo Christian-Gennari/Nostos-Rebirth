@@ -1,4 +1,4 @@
-<div class="reader-layout">
+<div class="reader-layout" [class.ready]="ready()">
   <header class="reader-toolbar">
     <button class="icon-btn" (click)="goBack()">
       <lucide-icon [img]="ArrowLeftIcon" [size]="20"></lucide-icon>

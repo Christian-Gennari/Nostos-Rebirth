@@ -51,6 +51,7 @@ export class ReaderShell implements OnInit {
   // --- New signals for Notes panel ---
   notesOpen = signal(false);
   notes = signal<string>('');
+  ready = signal(false);
 
   fileType = computed(() => {
     const fileName = this.book()?.fileName?.toLowerCase();
@@ -64,20 +65,22 @@ export class ReaderShell implements OnInit {
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
-    if (!id) return;
+    if (id) {
+      this.booksService.get(id).subscribe({
+        next: (b) => {
+          this.book.set(b);
 
-    this.booksService.get(id).subscribe({
-      next: (b) => {
-        this.book.set(b);
+          const saved = localStorage.getItem('notes-' + b.id);
+          if (saved) this.notes.set(saved);
 
-        // Load saved notes for this book (localStorage for now)
-        const saved = localStorage.getItem('notes-' + b.id);
-        if (saved) this.notes.set(saved);
+          this.loading.set(false);
 
-        this.loading.set(false);
-      },
-      error: () => this.loading.set(false),
-    });
+          // activate transitions AFTER initialization
+          setTimeout(() => this.ready.set(true), 0);
+        },
+        error: () => this.loading.set(false),
+      });
+    }
   }
 
   toggleNotes() {
