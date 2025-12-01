@@ -381,7 +381,7 @@
 }
 
 .note-text {
-  font-size: 1rem;
+  font-size: 0.85rem;
   color: var(--color-text-main);
   line-height: 1.6;
   white-space: pre-wrap;
