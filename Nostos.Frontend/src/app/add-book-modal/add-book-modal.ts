@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
 import { finalize } from 'rxjs';
-import { LucideAngularModule, X, Upload, Info } from 'lucide-angular';
+import { LucideAngularModule, X, Info, UploadIcon } from 'lucide-angular';
 import { BooksService, Book } from '../services/books.services';
 import { Collection } from '../dtos/collection.dtos';
 
@@ -29,7 +29,7 @@ export class AddBookModal {
 
   // Icons
   XIcon = X;
-  UploadIcon = Upload;
+  UploadIcon = UploadIcon;
   InfoIcon = Info;
 
   // Computed State
