@@ -1,7 +1,8 @@
 <div class="pdf-container">
   <ng2-pdfjs-viewer
     [pdfSrc]="pdfSrc()"
-    toolbarPosition="bottom"
+    [customCSS]="scrollbarStyles"
+    toolbarPosition="top"
     toolbarDensity="default"
     toolbarColor="#111111"
     backgroundColor="#fffefe"
@@ -11,11 +12,11 @@
     viewerFolder="assets/pdfjs"
     [showSpinner]="false"
     [theme]="'dark'"
-    [viewBookmark]="true"
-    [openFile]="false"
-    [print]="false"
-    [download]="false"
-    [fullScreen]="true"
+    [showViewBookmark]="true"
+    [showOpenFile]="false"
+    [showPrint]="false"
+    [showDownload]="false"
+    [showFullScreen]="true"
     (onDocumentLoad)="onPdfLoaded()"
     class="pdf-viewer"
   >
