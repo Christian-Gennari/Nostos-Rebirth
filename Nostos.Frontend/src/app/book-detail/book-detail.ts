@@ -107,9 +107,14 @@ export class BookDetail implements OnInit {
     this.loadConcepts();
   }
 
-  loadBook(id: string): void {
+  loadBook(id: string, forceRefresh = false): void {
     this.booksService.get(id).subscribe({
       next: (book) => {
+        // If forcing refresh and we have a cover, append a timestamp to bust the cache
+        if (forceRefresh && book.coverUrl) {
+          book.coverUrl += `?t=${Date.now()}`;
+        }
+
         this.book.set(book);
         this.loading.set(false);
       },
@@ -296,9 +301,9 @@ export class BookDetail implements OnInit {
 
     this.booksService.uploadCover(book.id, file).subscribe({
       next: (event) => {
-        // Only reload when the request is fully complete
         if (event.type === HttpEventType.Response) {
-          this.loadBook(book.id);
+          // Pass 'true' here to generate a new URL for the image
+          this.loadBook(book.id, true);
         }
       },
       error: () => this.error.set('Failed to upload cover'),
