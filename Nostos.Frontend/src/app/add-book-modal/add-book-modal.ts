@@ -135,7 +135,7 @@ export class AddBookModal {
             publisher: data.publisher || this.form.publisher,
             publishedDate: data.publishedDate || this.form.publishedDate,
             pageCount: data.pageCount || this.form.pageCount,
-            language: data.language || this.form.language,
+            language: this.getFullLanguageName(data.language) || this.form.language,
             categories: data.categories || this.form.categories,
             // Keep existing fields user might have set
             isbn: this.form.isbn,
@@ -162,6 +162,12 @@ export class AddBookModal {
   // --- Main Action ---
   submit(): void {
     if (!this.form.title.trim()) return;
+
+    // Normalize language code before saving
+    if (this.form.language) {
+      // Fix: Add "|| this.form.language" to ensure we never assign null
+      this.form.language = this.getFullLanguageName(this.form.language) || this.form.language;
+    }
 
     if (this.isEditMode()) {
       this.saveEdit();
@@ -243,5 +249,23 @@ export class AddBookModal {
     this.resetForm();
     this.closeModal.emit();
     this.bookAdded.emit();
+  }
+
+  // Helper to convert "en" -> "English"
+  private getFullLanguageName(input: string | null): string | null {
+    if (!input) return null;
+    const clean = input.trim();
+
+    // Only attempt conversion if it looks like a code (2-3 chars, e.g. "en", "eng", "SV")
+    // If it's longer (e.g. "French"), assume it's already a full name.
+    if (clean.length > 3) return clean;
+
+    try {
+      // 'en' locale here means we want the result in English (e.g. 'sv' -> 'Swedish')
+      const displayNames = new Intl.DisplayNames(['en'], { type: 'language' });
+      return displayNames.of(clean) || clean;
+    } catch (e) {
+      return clean; // Fallback to input if code is invalid
+    }
   }
 }
