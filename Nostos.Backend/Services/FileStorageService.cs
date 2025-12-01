@@ -6,13 +6,17 @@ public class FileStorageService
 
   // Centralized allowed extensions
   private readonly HashSet<string> _allowedBookExtensions = new(StringComparer.OrdinalIgnoreCase)
-  {
+{
     ".epub",
     ".pdf",
     ".txt",
     ".mobi",
-    ".azw3"
-  };
+    ".azw3",
+    // Audio formats
+    ".m4b",
+    ".m4a",
+    ".mp3"
+};
 
   private readonly HashSet<string> _allowedCoverExtensions = new(StringComparer.OrdinalIgnoreCase)
   {

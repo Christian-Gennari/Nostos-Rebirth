@@ -135,6 +135,11 @@ public static class BooksEndpoints
         ".epub" => "application/epub+zip",
         ".pdf" => "application/pdf",
         ".txt" => "text/plain",
+        ".mobi" => "application/x-mobipocket-ebook",
+        // Audio
+        ".mp3" => "audio/mpeg",
+        ".m4a" => "audio/mp4",
+        ".m4b" => "audio/mp4", // Trick browser into treating m4b as standard mp4 audio
         _ => "application/octet-stream"
       };
     }

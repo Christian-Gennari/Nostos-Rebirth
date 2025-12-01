@@ -36,4 +36,8 @@ public class BookModel
   // Relationships
   public Guid? CollectionId { get; set; }
   public CollectionModel? Collection { get; set; }
+
+  // Reading Progress
+  public string? LastLocation { get; set; } // CFI (EPUB), Page Number (PDF), or Timestamp (Audio)
+  public int ProgressPercent { get; set; } = 0;
 }
