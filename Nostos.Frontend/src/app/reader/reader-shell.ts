@@ -1,3 +1,4 @@
+// Nostos.Frontend/src/app/reader/reader-shell.ts
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -5,17 +6,11 @@ import { BooksService, Book } from '../services/books.services';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule, ArrowLeft, NotebookPen } from 'lucide-angular';
 
-// Import the real component
-import { PdfReader } from '../reader/pdf-reader/pdf-reader';
+// Import the real components
+import { PdfReader } from './pdf-reader/pdf-reader'; // Check path (might be ../pdf-reader/...)
+import { EpubReader } from './epub-reader/epub-reader'; // <--- REAL COMPONENT
 
-// Keep these placeholders for now until Phase 3/4
-@Component({
-  selector: 'app-epub-reader',
-  template: `<div class="p-8 text-center text-gray-500">EPUB Reader Loading...</div>`,
-  standalone: true,
-})
-export class EpubReader {}
-
+// Keep ONLY the Audio placeholder for now
 @Component({
   selector: 'app-audio-reader',
   template: `<div class="p-8 text-center text-gray-500">Audio Player Loading...</div>`,
@@ -28,11 +23,11 @@ export class AudioReader {}
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule, // <--- added for textarea binding
+    FormsModule,
     LucideAngularModule,
     PdfReader,
-    EpubReader,
-    AudioReader,
+    EpubReader, // <--- Using the real imported class
+    AudioReader, // <--- Using the placeholder class below
   ],
   templateUrl: './reader-shell.html',
   styleUrl: './reader-shell.css',
@@ -43,7 +38,7 @@ export class ReaderShell implements OnInit {
   private booksService = inject(BooksService);
 
   ArrowLeftIcon = ArrowLeft;
-  NotesIcon = NotebookPen; // <--- new icon
+  NotesIcon = NotebookPen;
 
   book = signal<Book | null>(null);
   loading = signal(true);

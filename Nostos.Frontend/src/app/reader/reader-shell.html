@@ -1,4 +1,26 @@
 <div class="reader-layout" [class.ready]="ready()">
+
+
+  <div class="reader-body">
+    <main class="reader-content">
+      @if (loading()) {
+      <div class="loading">Loading book...</div>
+      } @else { @switch (fileType()) { @case ('pdf') { <app-pdf-reader [bookId]="book()!.id" /> }
+      @case ('epub') { <app-epub-reader [bookId]="book()!.id" /> } @case ('audio') { <app-audio-reader /> } @default {
+      <div class="error">Unsupported file format.</div>
+      } } }
+    </main>
+
+    <aside class="notes-panel" [class.collapsed]="!notesOpen()">
+      <div class="notes-header">
+        <h3>Notes</h3>
+        <button class="icon-btn" (click)="toggleNotes()">×</button>
+      </div>
+
+      <textarea class="notes-input" name="notes-input" placeholder="Write notes here..." [(ngModel)]="notes"></textarea>
+    </aside>
+  </div>
+
   <header class="reader-toolbar">
     <button class="icon-btn" (click)="goBack()">
       <lucide-icon [img]="ArrowLeftIcon" [size]="20"></lucide-icon>
@@ -16,28 +38,4 @@
     </button>
   </header>
 
-  <div class="reader-body">
-    <main class="reader-content">
-      @if (loading()) {
-      <div class="loading">Loading book...</div>
-      } @else { @switch (fileType()) { @case ('pdf') { <app-pdf-reader [bookId]="book()!.id" /> }
-      @case ('epub') { <app-epub-reader /> } @case ('audio') { <app-audio-reader /> } @default {
-      <div class="error">Unsupported file format.</div>
-      } } }
-    </main>
-
-    <aside class="notes-panel" [class.collapsed]="!notesOpen()">
-      <div class="notes-header">
-        <h3>Notes</h3>
-        <button class="icon-btn" (click)="toggleNotes()">×</button>
-      </div>
-
-      <textarea
-        class="notes-input"
-        name="notes-input"
-        placeholder="Write notes here..."
-        [(ngModel)]="notes"
-      ></textarea>
-    </aside>
-  </div>
 </div>

@@ -1,0 +1,122 @@
+// Nostos.Frontend/src/app/reader/epub-reader/epub-reader.ts
+import { Component, input, OnInit, OnDestroy, signal, effect, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
+import ePub, { Book, Rendition } from 'epubjs';
+
+@Component({
+  selector: 'app-epub-reader',
+  standalone: true,
+  imports: [CommonModule],
+  templateUrl: './epub-reader.html',
+  styleUrl: './epub-reader.css',
+})
+export class EpubReader implements OnInit, OnDestroy {
+  bookId = input.required<string>();
+
+  private http = inject(HttpClient);
+
+  private book: Book | null = null;
+  private rendition: Rendition | null = null;
+
+  loading = signal(true);
+
+  constructor() {
+    effect(() => {
+      if (this.bookId()) {
+        this.loadBook(this.bookId());
+      }
+    });
+  }
+
+  ngOnInit(): void {}
+
+  loadBook(id: string) {
+    if (this.book) {
+      this.book.destroy();
+      this.book = null;
+      this.rendition = null;
+    }
+
+    this.loading.set(true);
+    const url = `/api/books/${id}/file`;
+
+    // 1. Fetch file as binary
+    this.http.get(url, { responseType: 'arraybuffer' }).subscribe({
+      next: (arrayBuffer) => {
+        this.book = ePub(arrayBuffer);
+
+        this.rendition = this.book.renderTo('epub-viewer', {
+          width: '100%',
+          height: '100%',
+          flow: 'paginated',
+          manager: 'default',
+        });
+
+        this.rendition.hooks.content.register((contents: any) => {
+          const fontUrl =
+            'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Lora:wght@400;500;600&display=swap';
+          const link = contents.document.createElement('link');
+          link.setAttribute('rel', 'stylesheet');
+          link.setAttribute('href', fontUrl);
+          contents.document.head.appendChild(link);
+        });
+
+        this.rendition.display().then(() => {
+          this.loading.set(false);
+          this.applyTheme();
+        });
+
+        this.rendition.on('relocated', (location: any) => {
+          console.log('Location:', location);
+        });
+      },
+      error: (err) => {
+        console.error('Failed to load EPUB file:', err);
+        this.loading.set(false);
+      },
+    });
+  }
+
+  prevPage() {
+    this.rendition?.prev();
+  }
+
+  nextPage() {
+    this.rendition?.next();
+  }
+
+  private applyTheme() {
+    const style = getComputedStyle(document.documentElement);
+    const bg = style.getPropertyValue('--bg-body').trim();
+    const text = style.getPropertyValue('--color-text-main').trim();
+
+    this.rendition?.themes.register('default', {
+      body: {
+        'font-family': "'Lora', serif",
+        color: text,
+        background: bg,
+        'line-height': '1.6',
+        'font-size': '1.1rem',
+      },
+      p: {
+        'font-family': "'Lora', serif",
+        'line-height': '1.6',
+        'margin-bottom': '1em',
+      },
+      'h1, h2, h3, h4': {
+        'font-family': "'Lora', serif",
+        color: text,
+        'font-weight': '600',
+      },
+    });
+
+    this.rendition?.themes.select('default');
+  }
+
+  ngOnDestroy(): void {
+    if (this.book) {
+      this.book.destroy();
+    }
+  }
+}
