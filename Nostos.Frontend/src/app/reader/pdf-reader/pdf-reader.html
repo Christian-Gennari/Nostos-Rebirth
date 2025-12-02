@@ -8,8 +8,16 @@
     [showPresentationModeButton]="true"
     [zoom]="'page-fit'"
     (pagesLoaded)="onPdfLoaded()"
+    (textLayerRendered)="onTextLayerRendered($event)"
     (pdfLoadingFailed)="handleError($event)"
     style="flex: 1; width: 100%; height: 100%; display: block"
   >
   </ngx-extended-pdf-viewer>
+
+  <button
+    (click)="createHighlight()"
+    style="position: absolute; top: 10px; right: 10px; z-index: 100"
+  >
+    Highlight Selected
+  </button>
 </div>

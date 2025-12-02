@@ -12,23 +12,25 @@
   flex-direction: column;
 }
 
-/* Since ngx-extended-pdf-viewer is part of your DOM (not an iframe),
-   you can style the scrollbars globally or here with ::ng-deep
-*/
-::ng-deep .pdfViewer::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Highlight Overlay Styles */
+::ng-deep .custom-highlight-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Let clicks pass through to text */
+  z-index: 1; /* Sit above text but below controls */
 }
 
-::ng-deep .pdfViewer::-webkit-scrollbar-track {
-  background: transparent;
+::ng-deep .highlight-box {
+  position: absolute;
+  background-color: rgba(255, 226, 85, 0.4); /* Classic highlighter yellow */
+  border-bottom: 2px solid rgba(255, 200, 0, 0.6);
+  cursor: pointer;
+  pointer-events: auto; /* Allow clicking the specific highlight box if needed */
 }
 
-::ng-deep .pdfViewer::-webkit-scrollbar-thumb {
-  background: #ddd;
-  border-radius: 4px;
-}
-
-::ng-deep .pdfViewer::-webkit-scrollbar-thumb:hover {
-  background: #bbb;
+::ng-deep .highlight-box:hover {
+  background-color: rgba(255, 226, 85, 0.6);
 }
