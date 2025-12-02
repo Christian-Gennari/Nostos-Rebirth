@@ -1,0 +1,65 @@
+<div class="audio-layout">
+  <!-- Info Section -->
+  <div class="info-section">
+    <div class="cover-placeholder">
+      <lucide-icon [img]="AudioIcon" [size]="64" strokeWidth="1"></lucide-icon>
+    </div>
+    <h2 class="book-title">Audiobook Playing</h2>
+    <p class="status-text">
+      {{ isPlaying() ? 'Now Playing' : 'Paused' }}
+    </p>
+  </div>
+
+  <!-- Controls Section -->
+  <div class="controls-container">
+    <!-- Scrubber -->
+    <div class="scrubber-group">
+      <input
+        type="range"
+        [min]="0"
+        [max]="duration()"
+        [value]="currentTime()"
+        (input)="seek($event)"
+        class="scrubber-input"
+      />
+      <div class="time-labels">
+        <span>{{ formatTime(currentTime()) }}</span>
+        <span>{{ formatTime(duration()) }}</span>
+      </div>
+    </div>
+
+    <!-- Main Buttons -->
+    <div class="playback-buttons">
+      <button class="icon-btn rewind" (click)="skip(-15)" title="Rewind 15s">
+        <lucide-icon [img]="RewindIcon" [size]="24"></lucide-icon>
+      </button>
+
+      <button class="play-btn" (click)="togglePlay()">
+        <lucide-icon
+          [img]="isPlaying() ? PauseIcon : PlayIcon"
+          [size]="32"
+          fill="currentColor"
+        ></lucide-icon>
+      </button>
+
+      <button class="icon-btn forward" (click)="skip(30)" title="Skip 30s">
+        <lucide-icon [img]="FastForwardIcon" [size]="24"></lucide-icon>
+      </button>
+    </div>
+
+    <!-- Speed Controls -->
+    <div class="speed-controls">
+      <div class="speed-label">Playback Speed</div>
+      <div class="speed-options">
+        <button
+          *ngFor="let rate of [0.75, 1, 1.25, 1.5, 2]"
+          (click)="setRate(rate)"
+          class="speed-btn"
+          [class.active]="currentRate() === rate"
+        >
+          {{ rate }}x
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

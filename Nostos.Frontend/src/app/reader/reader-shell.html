@@ -8,7 +8,7 @@
       } @case ('epub') {
       <app-epub-reader [bookId]="book()!.id" (noteCreated)="handleNoteCreated()" />
       } @case ('audio') {
-      <app-audio-reader />
+      <app-audio-reader [bookId]="book()!.id" />
       } @default {
       <div class="error">Unsupported file format.</div>
       } } }

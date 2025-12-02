@@ -67,15 +67,15 @@ public static class BooksEndpoints
     // UPDATE Reading Progress
     group.MapPut("/{id}/progress", async (Guid id, UpdateProgressDto dto, NostosDbContext db) =>
     {
-        var book = await db.Books.FindAsync(id);
-        if (book is null) return Results.NotFound();
+      var book = await db.Books.FindAsync(id);
+      if (book is null) return Results.NotFound();
 
-        book.LastLocation = dto.Location;
-        book.ProgressPercent = dto.Percentage;
+      book.LastLocation = dto.Location;
+      book.ProgressPercent = dto.Percentage;
 
-        await db.SaveChangesAsync();
+      await db.SaveChangesAsync();
 
-        return Results.Ok(new { updated = true });
+      return Results.Ok(new { updated = true });
     });
 
     // DELETE book
@@ -112,9 +112,18 @@ public static class BooksEndpoints
       if (file is null) return Results.BadRequest("Missing file.");
 
       // Restrict formats
-      var allowed = new[] { "application/epub+zip", "application/pdf", "text/plain" };
-      if (!allowed.Contains(file.ContentType))
-        return Results.BadRequest("Only EPUB, PDF, or TXT files allowed.");
+      var allowed = new[] {
+          "application/epub+zip", "application/pdf", "text/plain",
+          "audio/mpeg", "audio/mp4", "audio/x-m4a"
+      };
+
+      // M4B often comes as audio/mp4, but sometimes generic.
+      // Since we validate extensions in FileStorageService, strictly blocking MIME types here might be too aggressive for audio.
+      // Let's rely on the FileStorageService extension check as the source of truth,
+      // or at least expand this list significantly.
+
+      if (!allowed.Contains(file.ContentType) && !file.FileName.EndsWith(".m4b", StringComparison.OrdinalIgnoreCase))
+        return Results.BadRequest($"Unsupported file type: {file.ContentType}");
 
       await storage.SaveBookFileAsync(id, file);
 

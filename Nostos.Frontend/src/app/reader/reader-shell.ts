@@ -16,26 +16,24 @@ import {
 import { BooksService } from '../services/books.services';
 import { NotesService } from '../services/notes.services';
 import { Note } from '../dtos/note.dtos';
-import { PdfReader } from './pdf-reader/pdf-reader'; // Ensure this is imported
-import { EpubReader } from './epub-reader/epub-reader';
 
-@Component({
-  selector: 'app-audio-reader',
-  template: `<div class="p-8 text-center text-gray-500">Audio Player Loading...</div>`,
-  standalone: true,
-})
-export class AudioReader {}
+// --- IMPORTS ---
+import { PdfReader } from './pdf-reader/pdf-reader';
+import { EpubReader } from './epub-reader/epub-reader';
+// 👇 Import the REAL AudioReader from the separate file
+import { AudioReader } from './audio-reader/audio-reader';
 
 @Component({
   selector: 'app-reader-shell',
   standalone: true,
+  // 👇 Ensure AudioReader is included here
   imports: [CommonModule, FormsModule, LucideAngularModule, PdfReader, EpubReader, AudioReader],
   templateUrl: './reader-shell.html',
   styleUrl: './reader-shell.css',
 })
 export class ReaderShell implements OnInit {
   @ViewChild(EpubReader) epubReader?: EpubReader;
-  @ViewChild(PdfReader) pdfReader?: PdfReader; // <--- 1. ADD THIS
+  @ViewChild(PdfReader) pdfReader?: PdfReader;
 
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -118,19 +116,19 @@ export class ReaderShell implements OnInit {
     const bookId = this.book()?.id;
     if (!bookId) return;
 
-    let currentCfi = null;
+    let currentCfi: string | undefined = undefined;
 
     // Capture location based on reader type
     if (this.fileType() === 'epub') {
-      currentCfi = this.epubReader?.getCurrentLocationCfi();
+      currentCfi = this.epubReader?.getCurrentLocationCfi() || undefined;
     }
-    // For PDF, we might want to capture current page later,
-    // but for now, quick notes might just be page-level or book-level.
+    // For Audio/PDF, quick notes are just book-level for now
+    // (unless you extend AudioReader to expose a getCurrentTimestamp method)
 
     this.notesService
       .create(bookId, {
         content: content,
-        cfiRange: currentCfi || undefined,
+        cfiRange: currentCfi,
       })
       .subscribe({
         next: () => {
@@ -177,20 +175,17 @@ export class ReaderShell implements OnInit {
     });
   }
 
-  // --- 2. UPDATED JUMP LOGIC ---
   jumpToNote(note: Note) {
     if (this.editingNoteId() === note.id || !note.cfiRange) return;
 
     const type = this.fileType();
 
-    // Handle PDF Navigation
     if (type === 'pdf' && this.pdfReader) {
       this.pdfReader.goToLocation(note.cfiRange);
-    }
-    // Handle EPUB Navigation
-    else if (type === 'epub' && this.epubReader) {
+    } else if (type === 'epub' && this.epubReader) {
       this.epubReader.goToLocation(note.cfiRange);
     }
+    // Audio jump logic can be added here if you expose a method on AudioReader
   }
 
   goBack() {
