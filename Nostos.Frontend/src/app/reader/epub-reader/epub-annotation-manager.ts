@@ -103,4 +103,13 @@ export class EpubAnnotationManager {
       }
     });
   }
+
+  public removeHighlight(cfiRange: string) {
+    // 1. Tell epub.js to remove the SVG/DOM elements for this CFI
+    // The second argument 'highlight' must match the type used in .add()
+    this.rendition.annotations.remove(cfiRange, 'highlight');
+
+    // 2. Update the local signal state to reflect the removal
+    this.highlights.update((current) => current.filter((cfi) => cfi !== cfiRange));
+  }
 }

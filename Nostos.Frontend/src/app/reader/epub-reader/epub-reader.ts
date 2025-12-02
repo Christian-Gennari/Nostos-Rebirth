@@ -222,4 +222,10 @@ export class EpubReader implements OnInit, OnDestroy {
       this.book.destroy();
     }
   }
+
+  public deleteHighlight(cfiRange: string) {
+    if (this.annotationManager) {
+      this.annotationManager.removeHighlight(cfiRange);
+    }
+  }
 }
