@@ -1,4 +1,3 @@
-// Nostos.Frontend/src/app/reader/reader-shell.ts
 import { Component, inject, OnInit, signal, computed, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -17,7 +16,7 @@ import {
 import { BooksService } from '../services/books.services';
 import { NotesService } from '../services/notes.services';
 import { Note } from '../dtos/note.dtos';
-import { PdfReader } from './pdf-reader/pdf-reader';
+import { PdfReader } from './pdf-reader/pdf-reader'; // Ensure this is imported
 import { EpubReader } from './epub-reader/epub-reader';
 
 @Component({
@@ -36,6 +35,7 @@ export class AudioReader {}
 })
 export class ReaderShell implements OnInit {
   @ViewChild(EpubReader) epubReader?: EpubReader;
+  @ViewChild(PdfReader) pdfReader?: PdfReader; // <--- 1. ADD THIS
 
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -98,12 +98,10 @@ export class ReaderShell implements OnInit {
     });
   }
 
-  // --- NEW: Handle Event from EpubReader ---
   handleNoteCreated() {
     const id = this.book()?.id;
     if (id) {
       this.loadNotes(id);
-      // Automatically open the sidebar if it's closed
       if (!this.notesOpen()) {
         this.notesOpen.set(true);
       }
@@ -120,7 +118,14 @@ export class ReaderShell implements OnInit {
     const bookId = this.book()?.id;
     if (!bookId) return;
 
-    const currentCfi = this.epubReader?.getCurrentLocationCfi() || null;
+    let currentCfi = null;
+
+    // Capture location based on reader type
+    if (this.fileType() === 'epub') {
+      currentCfi = this.epubReader?.getCurrentLocationCfi();
+    }
+    // For PDF, we might want to capture current page later,
+    // but for now, quick notes might just be page-level or book-level.
 
     this.notesService
       .create(bookId, {
@@ -138,7 +143,7 @@ export class ReaderShell implements OnInit {
   // --- EDITING LOGIC ---
 
   startEdit(note: Note, event?: Event) {
-    event?.stopPropagation(); // Prevent jumpToNote logic
+    event?.stopPropagation();
     this.editingNoteId.set(note.id);
     this.editContent.set(note.content || '');
   }
@@ -155,7 +160,6 @@ export class ReaderShell implements OnInit {
 
     this.notesService.update(note.id, { content: newContent }).subscribe({
       next: (updated) => {
-        // Update local list to reflect changes immediately
         this.dbNotes.update((notes) => notes.map((n) => (n.id === updated.id ? updated : n)));
         this.editingNoteId.set(null);
       },
@@ -173,9 +177,18 @@ export class ReaderShell implements OnInit {
     });
   }
 
+  // --- 2. UPDATED JUMP LOGIC ---
   jumpToNote(note: Note) {
-    // Only jump if we are NOT editing
-    if (this.editingNoteId() !== note.id && note.cfiRange && this.epubReader) {
+    if (this.editingNoteId() === note.id || !note.cfiRange) return;
+
+    const type = this.fileType();
+
+    // Handle PDF Navigation
+    if (type === 'pdf' && this.pdfReader) {
+      this.pdfReader.goToLocation(note.cfiRange);
+    }
+    // Handle EPUB Navigation
+    else if (type === 'epub' && this.epubReader) {
       this.epubReader.goToLocation(note.cfiRange);
     }
   }
