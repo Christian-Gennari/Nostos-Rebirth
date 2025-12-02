@@ -1,12 +1,14 @@
 <div class="pdf-container" (mouseup)="onTextSelection()">
   <ngx-extended-pdf-viewer
     [src]="pdfSrc()"
-    [theme]="'dark'"
+    [backgroundColor]="'#fffefe'"
     [textLayer]="true"
-    [showHandToolButton]="true"
-    [showPresentationModeButton]="true"
+    [showToolbar]="false"
+    [showBorders]="false"
+    [handTool]="false"
     [zoom]="'page-fit'"
     [(page)]="currentPage"
+    [scrollMode]="3"
     (pagesLoaded)="loadNotes()"
     (textLayerRendered)="onTextLayerRendered($event)"
     (pdfLoadingFailed)="handleError($event)"
