@@ -276,3 +276,25 @@ input[type='file']::file-selector-button:hover {
   background: #fee2e2;
   color: var(--color-danger);
 }
+
+/* Standardize on the larger, more touch-friendly size */
+.input,
+.textarea,
+.select-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  font-family: 'Inter', sans-serif;
+  background: var(--bg-surface);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input:focus,
+.textarea:focus,
+.select-input:focus {
+  border-color: #aaa;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05); /* Subtle focus ring */
+}
