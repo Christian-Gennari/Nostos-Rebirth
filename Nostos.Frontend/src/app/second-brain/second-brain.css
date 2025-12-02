@@ -237,9 +237,24 @@
   border-color: #ccc;
 }
 
+/* NEW: Allow wide cards to span two columns */
+.note-card.card-wide {
+    grid-column: span 2;
+}
+
 .card-body {
   padding: 1.5rem;
   flex: 1;
+  /* Added display/flex-direction to make it easier to manage spacing between elements */
+  display: flex;
+  flex-direction: column;
+}
+
+/* NEW: Improve readability for wide cards by limiting line length */
+.note-card.card-wide .highlight-text {
+    max-width: 80ch;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .note-text {
@@ -248,6 +263,33 @@
   color: var(--color-text-main);
   margin: 0;
 }
+
+/* --- ELEGANT QUOTE STYLES --- */
+.highlight-block {
+  /* Minimalist: No heavy background, rely on a subtle border and typography */
+  padding: 0;
+  background: none;
+  /* Replace yellow stripe/background with an elegant, thin left border */
+  border-left: 3px solid var(--border-color);
+  border-radius: 0;
+  margin-bottom: 1rem; /* Creates spacious separation from the user's comment */
+  display: block;
+}
+
+.highlight-text {
+  /* Give the text some horizontal padding to push it away from the vertical border */
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  font-family: 'Lora', serif;
+  font-style:italic;
+  /* Use a subtle color for the quote text, like a muted gray */
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  margin: 0.25rem 0; /* Slight vertical margin inside the block */
+  line-height: 1.7; /* Spacious line height */
+}
+
+
 
 /* Highlight Style */
 :host ::ng-deep .concept-tag {

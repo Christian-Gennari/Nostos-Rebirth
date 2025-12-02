@@ -2,7 +2,12 @@ import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { ConceptsService, ConceptDto, ConceptDetailDto } from '../services/concepts.services';
+import {
+  ConceptsService,
+  ConceptDto,
+  ConceptDetailDto,
+  NoteContextDto,
+} from '../services/concepts.services';
 import { LucideAngularModule, Search, BrainCircuit, ArrowRight } from 'lucide-angular';
 
 @Component({
@@ -64,6 +69,14 @@ export class SecondBrain implements OnInit {
         this.loadingDetail.set(false);
       },
     });
+  }
+
+  // NEW METHOD: Determines if a card should span two columns
+  shouldCardSpanTwoColumns(note: NoteContextDto): boolean {
+    // Heuristic: If the combined length of the selected text and the user's comment
+    // is over 300 characters, we make the card span two columns.
+    const combinedLength = (note.content?.length || 0) + (note.selectedText?.length || 0);
+    return combinedLength > 300;
   }
 
   formatNote(content: string): string {

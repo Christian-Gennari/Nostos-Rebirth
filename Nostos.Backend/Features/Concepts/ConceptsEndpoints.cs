@@ -17,11 +17,11 @@ public static class ConceptsEndpoints
       // FIX: Step 1 - Select into an anonymous type that EF Core can translate to SQL
       var rawData = await db.Concepts
               .Select(c => new
-            {
-              c.Id,
-              Name = c.Concept,
-              UsageCount = c.NoteConcepts.Count()
-            })
+              {
+                c.Id,
+                Name = c.Concept,
+                UsageCount = c.NoteConcepts.Count()
+              })
               .OrderByDescending(x => x.UsageCount)
               .ThenBy(x => x.Name)
               .ToListAsync();
@@ -47,8 +47,10 @@ public static class ConceptsEndpoints
               .Select(nc => new NoteContextDto(
                   nc.NoteId,
                   nc.Note.Content,
+                  nc.Note.SelectedText, // <--- NEW
+                  nc.Note.CfiRange,     // <--- NEW
                   nc.Note.BookId,
-                  nc.Note.Book?.Title ?? "Unknown Book" // Safe null check
+                  nc.Note.Book?.Title ?? "Unknown Book"
               ))
               .ToList();
 

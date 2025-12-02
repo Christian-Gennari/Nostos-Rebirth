@@ -1,7 +1,5 @@
 <main class="layout-wrapper">
-
   <div class="layout-content brain-layout">
-
     <aside class="index-col">
       <div class="index-header">
         <div class="header-row">
@@ -10,33 +8,37 @@
         </div>
         <div class="search-box">
           <lucide-icon [img]="SearchIcon" [size]="16"></lucide-icon>
-          <input type="text" placeholder="Search ideas..." [ngModel]="searchQuery()"
-            (ngModelChange)="searchQuery.set($event)">
+          <input
+            type="text"
+            placeholder="Search ideas..."
+            [ngModel]="searchQuery()"
+            (ngModelChange)="searchQuery.set($event)"
+          />
         </div>
       </div>
 
       <div class="index-list">
         @for (c of filteredConcepts(); track c.id) {
-        <button class="index-item" [class.active]="selectedId() === c.id" (click)="selectConcept(c.id)">
+        <button
+          class="index-item"
+          [class.active]="selectedId() === c.id"
+          (click)="selectConcept(c.id)"
+        >
           <span class="name">{{ c.name }}</span>
           <span class="count">{{ c.usageCount }}</span>
         </button>
-        }
-        @if (filteredConcepts().length === 0) {
+        } @if (filteredConcepts().length === 0) {
         <div class="empty-index">No concepts found</div>
         }
       </div>
     </aside>
 
     <section class="content-col">
-
       @if (loadingDetail()) {
       <div class="loading-state">
         <div class="spinner"></div>
       </div>
-      }
-
-      @else if (selectedDetail(); as detail) {
+      } @else if (selectedDetail(); as detail) {
       <div class="concept-header" animate.enter="fade-in">
         <div class="super-title">Concept</div>
         <h1 class="concept-title">{{ detail.name }}</h1>
@@ -47,10 +49,21 @@
 
       <div class="cards-grid">
         @for (note of detail.notes; track note.noteId; let i = $index) {
-        <div class="note-card" [style.animation-delay]="i * 50 + 'ms'" animate.enter="slide-up-stagger">
-
+        <div
+          class="note-card"
+          [class.card-wide]="shouldCardSpanTwoColumns(note)"
+          [style.animation-delay]="i * 50 + 'ms'"
+          animate.enter="slide-up-stagger"
+        >
           <div class="card-body">
+            @if (note.selectedText) {
+            <div class="highlight-block">
+              <div class="quote-stripe"></div>
+              <p class="highlight-text">"{{ note.selectedText }}"</p>
+            </div>
+            } @if (note.content) {
             <p class="note-text" [innerHTML]="formatNote(note.content)"></p>
+            }
           </div>
 
           <div class="card-footer">
@@ -59,7 +72,11 @@
               <span class="book-title">{{ note.bookTitle }}</span>
             </div>
 
-            <a [routerLink]="['/library', note.bookId]" class="goto-btn">
+            <a
+              [routerLink]="['/library', note.bookId]"
+              [queryParams]="{ cfi: note.cfiRange }"
+              class="goto-btn"
+            >
               <span>Open Book</span>
               <lucide-icon [img]="ArrowRightIcon" [size]="16"></lucide-icon>
             </a>
@@ -67,9 +84,7 @@
         </div>
         }
       </div>
-      }
-
-      @else {
+      } @else {
       <div class="landing-state">
         <div class="icon-circle">
           <lucide-icon [img]="BrainIcon" [size]="48" strokeWidth="1.5"></lucide-icon>
@@ -78,7 +93,6 @@
         <p>Select a concept from the index to see how your ideas connect.</p>
       </div>
       }
-
     </section>
   </div>
 </main>
