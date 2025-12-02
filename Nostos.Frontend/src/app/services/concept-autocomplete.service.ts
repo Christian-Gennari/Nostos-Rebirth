@@ -56,4 +56,9 @@ export class ConceptAutocompleteService {
     if (list.length === 0) return null;
     return list[this.activeIndex()];
   }
+
+  clear() {
+    this.suggestions.set([]);
+    this.activeIndex.set(0);
+  }
 }

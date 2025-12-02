@@ -1,21 +1,84 @@
 .autocomplete-panel {
   position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 0.5rem;
+  z-index: 1000;
+
+  /* Matches the width of the textarea container */
+  width: 100%;
+  max-height: 240px;
+  overflow-y: auto;
+
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
-  padding: 0.25rem;
-  border-radius: 4px;
-  width: 260px;
-  max-height: 180px;
-  overflow-y: auto;
-  z-index: 999;
+  border-radius: var(--radius-md);
+
+  /* A nice, floating elevation shadow (Tailwind-style) */
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+
+  padding: 0.35rem;
+
+  /* Subtle entry animation */
+  animation: scaleIn 0.1s ease-out forwards;
+  transform-origin: top center;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .item {
-  padding: 0.35rem 0.5rem;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.9rem;
+  font-family: 'Inter', sans-serif;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
   cursor: pointer;
+  transition: all 0.1s ease;
+
+  /* Ensure text doesn't overflow weirdly */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
+/* Mouse Hover */
+.item:hover {
+  background-color: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+/* Keyboard Active State (Arrow Keys) */
 .item.active {
-  background: var(--pine-teal);
-  color: white;
+  background-color: var(--bg-hover);
+  color: var(--color-accent); /* Uses your blue brand color */
+  font-weight: 500;
+  border-left: 4px solid var(--color-accent); /* Adds a little indicator on the left */
+}
+
+/* Scrollbar to match global theme */
+.autocomplete-panel::-webkit-scrollbar {
+  width: 6px;
+}
+.autocomplete-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.autocomplete-panel::-webkit-scrollbar-thumb {
+  background: #e5e5e5;
+  border-radius: 3px;
+}
+.autocomplete-panel::-webkit-scrollbar-thumb:hover {
+  background: #d4d4d4;
 }

@@ -40,6 +40,8 @@ export class ConceptAutocompleteDirective {
       if (chosen) {
         event.preventDefault();
         this.insertConcept.emit(chosen);
+
+        this.auto.clear();
       }
     }
   }

@@ -15,7 +15,7 @@ import {
   Calendar,
   Trash2,
   Edit2,
-  AlertCircle,
+  CircleAlert,
   BookOpen,
   CheckIcon,
   ChevronDown,
@@ -61,7 +61,7 @@ export class BookDetail implements OnInit {
   CalendarIcon = Calendar;
   Trash2Icon = Trash2;
   Edit2Icon = Edit2;
-  AlertCircleIcon = AlertCircle;
+  AlertCircleIcon = CircleAlert;
   BookOpenIcon = BookOpen;
   CheckIcon = CheckIcon;
   ChevronDownIcon = ChevronDown;

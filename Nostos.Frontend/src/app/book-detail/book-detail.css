@@ -297,6 +297,7 @@
 }
 
 .new-note-box {
+  position: relative;
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
@@ -357,6 +358,7 @@
 }
 
 .edit-box {
+  position: relative;
   background: var(--bg-surface);
   padding: 1rem;
   border: 1px solid var(--border-color);
