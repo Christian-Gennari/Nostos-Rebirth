@@ -1,32 +1,34 @@
-/* CRITICAL: Make the component tag itself fill the space */
 :host {
   display: block;
   width: 100%;
   height: 100%;
+  overflow: hidden; /* Prevent double scrollbars */
 }
 
-/* Container fills the component tag */
 .pdf-container {
   width: 100%;
   height: 100%;
-  overflow: hidden;
-  background-color: #f5f5f5;
-  display: flex; /* Ensures child stretches */
+  display: flex;
   flex-direction: column;
 }
 
-/* Force the viewer library to fill the container */
-:host ::ng-deep ng2-pdfjs-viewer {
-  display: block;
-  flex: 1; /* Grow to fill remaining space */
-  height: 100%;
-  width: 100%;
+/* Since ngx-extended-pdf-viewer is part of your DOM (not an iframe),
+   you can style the scrollbars globally or here with ::ng-deep
+*/
+::ng-deep .pdfViewer::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-/* Force the internal iframe to fill the viewer */
-:host ::ng-deep iframe {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border: none;
+::ng-deep .pdfViewer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::ng-deep .pdfViewer::-webkit-scrollbar-thumb {
+  background: #ddd;
+  border-radius: 4px;
+}
+
+::ng-deep .pdfViewer::-webkit-scrollbar-thumb:hover {
+  background: #bbb;
 }

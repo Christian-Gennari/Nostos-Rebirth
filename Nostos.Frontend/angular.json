@@ -26,13 +26,11 @@
               },
               {
                 "glob": "**/*",
-                "input": "node_modules/ng2-pdfjs-viewer/pdfjs",
-                "output": "/assets/pdfjs"
+                "input": "node_modules/ngx-extended-pdf-viewer/assets/",
+                "output": "/assets/"
               }
             ],
-            "styles": [
-              "src/styles.css"
-            ]
+            "styles": ["src/styles.css"]
           },
           "configurations": {
             "production": {
@@ -58,21 +56,21 @@
           },
           "defaultConfiguration": "production"
         },
-      "serve": {
-        "builder": "@angular/build:dev-server",
-        "options": {
-          "proxyConfig": "src/proxy.conf.json"
-        },
-        "configurations": {
-          "production": {
-            "buildTarget": "Nostos.Frontend:build:production"
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "options": {
+            "proxyConfig": "src/proxy.conf.json"
           },
-          "development": {
-            "buildTarget": "Nostos.Frontend:build:development"
-          }
+          "configurations": {
+            "production": {
+              "buildTarget": "Nostos.Frontend:build:production"
+            },
+            "development": {
+              "buildTarget": "Nostos.Frontend:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
         },
-        "defaultConfiguration": "development"
-      },
         "test": {
           "builder": "@angular/build:unit-test"
         }
