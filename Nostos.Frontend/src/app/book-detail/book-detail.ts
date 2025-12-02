@@ -44,7 +44,6 @@ export class BookDetail implements OnInit {
   private collectionsService = inject(CollectionsService);
   private conceptsService = inject(ConceptsService);
 
-  // Icons
   ArrowLeftIcon = ArrowLeft;
   UserIcon = User;
   CalendarIcon = Calendar;
@@ -67,15 +66,12 @@ export class BookDetail implements OnInit {
 
   collections = signal<Collection[]>([]);
 
-  // UI State for Metadata expansion
   isDescriptionExpanded = signal(false);
-
   showMetadataModal = signal(false);
 
-  // Expanded Form State
   metaForm = {
     title: '',
-    subtitle: '' as string | null, // <--- NEW
+    subtitle: '' as string | null,
     author: '' as string | null,
     collectionId: null as string | null,
     description: '' as string | null,
@@ -83,10 +79,10 @@ export class BookDetail implements OnInit {
     publisher: '' as string | null,
     publishedDate: '' as string | null,
     pageCount: 0 as number | null,
-    language: '' as string | null, // <--- NEW
-    categories: '' as string | null, // <--- NEW
-    series: '' as string | null, // <--- NEW
-    volumeNumber: '' as string | null, // <--- NEW
+    language: '' as string | null,
+    categories: '' as string | null,
+    series: '' as string | null,
+    volumeNumber: '' as string | null,
   };
 
   notes = signal<Note[]>([]);
@@ -114,7 +110,6 @@ export class BookDetail implements OnInit {
   loadBook(id: string, forceRefresh = false): void {
     this.booksService.get(id).subscribe({
       next: (book) => {
-        // If forcing refresh and we have a cover, append a timestamp to bust the cache
         if (forceRefresh && book.coverUrl) {
           book.coverUrl += `?t=${Date.now()}`;
         }
@@ -173,15 +168,13 @@ export class BookDetail implements OnInit {
     this.isDescriptionExpanded.update((v) => !v);
   }
 
-  // --- Metadata Modal Logic ---
   openMetadataModal(): void {
     const b = this.book();
     if (!b) return;
 
-    // Initialize form with ALL existing metadata
     this.metaForm = {
       title: b.title,
-      subtitle: b.subtitle || '', // <--- NEW
+      subtitle: b.subtitle || '',
       author: b.author,
       collectionId: b.collectionId,
       description: b.description || '',
@@ -189,10 +182,10 @@ export class BookDetail implements OnInit {
       publisher: b.publisher || '',
       publishedDate: b.publishedDate ? new Date(b.publishedDate).toISOString().split('T')[0] : '',
       pageCount: b.pageCount || null,
-      language: b.language || 'en', // <--- NEW
-      categories: b.categories || '', // <--- NEW
-      series: b.series || '', // <--- NEW
-      volumeNumber: b.volumeNumber || '', // <--- NEW
+      language: b.language || 'en',
+      categories: b.categories || '',
+      series: b.series || '',
+      volumeNumber: b.volumeNumber || '',
     };
     this.showMetadataModal.set(true);
   }
@@ -208,7 +201,7 @@ export class BookDetail implements OnInit {
     this.booksService
       .update(b.id, {
         title: this.metaForm.title,
-        subtitle: this.metaForm.subtitle, // <--- NEW
+        subtitle: this.metaForm.subtitle,
         author: this.metaForm.author,
         collectionId: this.metaForm.collectionId,
         isbn: this.metaForm.isbn,
@@ -218,10 +211,10 @@ export class BookDetail implements OnInit {
           : null,
         pageCount: this.metaForm.pageCount,
         description: this.metaForm.description,
-        language: this.metaForm.language, // <--- NEW
-        categories: this.metaForm.categories, // <--- NEW
-        series: this.metaForm.series, // <--- NEW
-        volumeNumber: this.metaForm.volumeNumber, // <--- NEW
+        language: this.metaForm.language,
+        categories: this.metaForm.categories,
+        series: this.metaForm.series,
+        volumeNumber: this.metaForm.volumeNumber,
       })
       .subscribe({
         next: (updatedBook) => {
@@ -243,6 +236,7 @@ export class BookDetail implements OnInit {
       next: () => {
         this.newNote.set('');
         this.loadNotes(book.id);
+        this.loadConcepts(); // ADDED
       },
     });
   }
@@ -264,6 +258,7 @@ export class BookDetail implements OnInit {
         next: () => {
           this.editingNote.set(null);
           this.loadNotes(note.bookId);
+          this.loadConcepts(); // ADDED
         },
       });
   }
@@ -278,12 +273,14 @@ export class BookDetail implements OnInit {
     this.notesService.delete(id).subscribe({
       next: () => {
         const book = this.book();
-        if (book) this.loadNotes(book.id);
+        if (book) {
+          this.loadNotes(book.id);
+          this.loadConcepts(); // ADDED
+        }
       },
     });
   }
 
-  // --- FILE / COVER LOGIC ---
   downloadFile() {
     const id = this.book()?.id;
     if (!id) return;
@@ -312,7 +309,6 @@ export class BookDetail implements OnInit {
     this.booksService.uploadCover(book.id, file).subscribe({
       next: (event) => {
         if (event.type === HttpEventType.Response) {
-          // Pass 'true' here to generate a new URL for the image
           this.loadBook(book.id, true);
         }
       },
@@ -347,7 +343,6 @@ export class BookDetail implements OnInit {
 
     this.booksService.uploadFile(book.id, file).subscribe({
       next: (event) => {
-        // Ignore progress events, wait for completion
         if (event.type === HttpEventType.Response) {
           this.loadBook(book.id);
         }
@@ -372,7 +367,6 @@ export class BookDetail implements OnInit {
     this.book.set(updatedBook);
   }
 
-  // Add this inside the BookDetail class
   getCollectionName(id: string | null | undefined): string {
     if (!id) return '—';
     const col = this.collections().find((c) => c.id === id);
