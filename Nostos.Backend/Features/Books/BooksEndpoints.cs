@@ -147,7 +147,7 @@ public static class BooksEndpoints
       var fileName = Path.GetFileName(filePath);
 
 
-      return Results.File(filePath, contentType, fileName);
+      return Results.File(filePath, contentType, fileName, enableRangeProcessing: true);
     });
 
 
