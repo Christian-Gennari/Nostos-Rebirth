@@ -203,8 +203,8 @@ export class ReaderShell implements OnInit {
         typeof note.selectedText === 'string' && note.selectedText.trim().length > 0;
 
       const preview =
-        note.selectedText && note.selectedText.length > 50
-          ? note.selectedText.slice(0, 50) + '…'
+        note.selectedText && note.selectedText.length > 30
+          ? note.selectedText.slice(0, 30) + '…'
           : note.selectedText;
 
       const message = hasQuoted
@@ -223,8 +223,8 @@ export class ReaderShell implements OnInit {
         typeof note.selectedText === 'string' && note.selectedText.trim().length > 0;
 
       const preview =
-        note.selectedText && note.selectedText.length > 50
-          ? note.selectedText.slice(0, 50) + '…'
+        note.selectedText && note.selectedText.length > 30
+          ? note.selectedText.slice(0, 30) + '…'
           : note.selectedText;
 
       const message = hasQuoted

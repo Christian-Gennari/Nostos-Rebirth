@@ -25,6 +25,7 @@ import {
   Building,
   BookDown,
   Image,
+  Headphones,
 } from 'lucide-angular';
 import { AddBookModal } from '../add-book-modal/add-book-modal';
 import { HttpEventType } from '@angular/common/http';
@@ -71,6 +72,7 @@ export class BookDetail implements OnInit {
   BuildingIcon = Building;
   BookDownIcon = BookDown;
   ImageIcon = Image;
+  HeadphonesIcon = Headphones;
 
   loading = signal(true);
   book = signal<Book | null>(null);
@@ -414,5 +416,13 @@ export class BookDetail implements OnInit {
 
     const el = document.querySelector(selector) as HTMLTextAreaElement;
     return el ? el.selectionStart : 0;
+  }
+
+  // Helper method to check for audio extensions
+  isAudioBook(book: Book | null): boolean {
+    if (!book?.fileName) return false;
+    const audioExtensions = ['.mp3', '.m4b', '.m4a', '.wav', '.flac', '.aac', '.ogg'];
+    const lowerName = book.fileName.toLowerCase();
+    return audioExtensions.some((ext) => lowerName.endsWith(ext));
   }
 }

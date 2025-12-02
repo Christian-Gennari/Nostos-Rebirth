@@ -94,12 +94,18 @@
                 <lucide-icon [img]="BookDownIcon" [size]="18"></lucide-icon>
                 <span>Download File</span>
               </button>
+
+              @if (isAudioBook(book())) {
+              <button class="btn btn-primary" (click)="openReader()">
+                <lucide-icon [img]="HeadphonesIcon" [size]="18"></lucide-icon>
+                <span>Listen</span>
+              </button>
+              } @else {
               <button class="btn btn-primary" (click)="openReader()">
                 <lucide-icon [img]="BookOpenIcon" [size]="18"></lucide-icon>
                 <span>Read Book</span>
               </button>
-
-              } @else {
+              } } @else {
               <button class="btn btn-primary" (click)="triggerFilePicker()">
                 <lucide-icon [img]="BookOpenIcon" [size]="18"></lucide-icon>
                 <span>Upload EPUB/PDF</span>
