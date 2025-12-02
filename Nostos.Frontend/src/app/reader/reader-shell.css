@@ -28,11 +28,11 @@
 
 .reader-content {
   flex: 1;
-  overflow: hidden; /* <-- ADD THIS */
-  position: relative;
+  position: relative; /* <--- CRITICAL: Anchors the absolute PDF reader */
+  overflow: hidden;
   background: var(--bg-body);
   width: 100%;
-  display: flex; /* <-- ADD THIS to ensure child fills space */
+  display: flex;
   flex-direction: column;
 }
 

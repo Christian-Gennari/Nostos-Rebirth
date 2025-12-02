@@ -1,49 +1,48 @@
+/* Nostos.Frontend/src/app/reader/pdf-reader/pdf-reader.css */
+
 :host {
+  /* Force the component to be an overlay that strictly fills the parent */
   display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-}
 
-:host,
-.reader-layout,
-.reader-body,
-.reader-content {
-  height: 100%;
-}
-
-.pdf-container {
-  flex: 1;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  position: relative;
+  /* Prevent any internal overflow from affecting the parent */
   overflow: hidden;
 }
 
-/* Highlight Overlay Styles */
+.pdf-container {
+  width: 100%;
+  height: 100%;
+  display: block;
+  position: relative;
+}
+
+/* --- Keep your existing highlight styles --- */
 ::ng-deep .custom-highlight-layer {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none; /* Let clicks pass through to text */
-  z-index: 1; /* Sit above text but below controls */
+  pointer-events: none;
+  z-index: 1;
 }
 
 ::ng-deep .highlight-box {
   position: absolute;
-  background-color: rgba(255, 226, 85, 0.4); /* Classic highlighter yellow */
+  background-color: rgba(255, 226, 85, 0.4);
   border-bottom: 2px solid rgba(255, 200, 0, 0.6);
   cursor: pointer;
-  pointer-events: auto; /* Allow clicking the specific highlight box if needed */
+  pointer-events: auto;
 }
 
 ::ng-deep .highlight-box:hover {
   background-color: rgba(255, 226, 85, 0.6);
 }
 
-/* We use ::ng-deep to penetrate Angular's view encapsulation */
 ::ng-deep #mainContainer.toolbar-hidden {
   margin-top: -34px !important;
 }
