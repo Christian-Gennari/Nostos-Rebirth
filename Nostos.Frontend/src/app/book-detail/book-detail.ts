@@ -29,11 +29,21 @@ import {
 import { AddBookModal } from '../add-book-modal/add-book-modal';
 import { HttpEventType } from '@angular/common/http';
 import { ConceptAutocompleteService } from '../services/concept-autocomplete.service';
+import { ConceptAutocompleteDirective } from '../directives/concept-autocomplete.directive';
+import { ConceptAutocompletePanel } from '../misc-components/concept-autocomplete-panel/concept-autocomplete-panel';
 
 @Component({
   standalone: true,
   selector: 'app-book-detail',
-  imports: [CommonModule, FormsModule, RouterLink, LucideAngularModule, AddBookModal],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    LucideAngularModule,
+    AddBookModal,
+    ConceptAutocompleteDirective,
+    ConceptAutocompletePanel,
+  ],
   templateUrl: './book-detail.html',
   styleUrls: ['./book-detail.css'],
 })
