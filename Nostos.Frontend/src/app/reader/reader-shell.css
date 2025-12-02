@@ -208,25 +208,16 @@
 
 /* --- HOVER ACTIONS --- */
 .card-actions {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  display: flex;
-  gap: 0.25rem;
+  top: 5px;
+  right: 5px;
   opacity: 0;
   transition: opacity 0.2s;
-  background: var(--bg-surface);
-  border-radius: 4px;
-  padding: 4px;
 }
 
 .sidebar-note-card:hover .card-actions {
   opacity: 1;
-}
-
-.card-actions .icon-btn.xs {
-  width: 24px;
-  height: 24px;
 }
 
 /* --- EDIT MODE --- */
@@ -272,4 +263,18 @@
   justify-content: center;
   color: var(--color-text-muted);
   font-style: italic;
+}
+
+.note-form-actions {
+  display: flex;
+}
+
+#quick-note-button {
+  margin-right: 0.5rem;
+  flex: 1;
+}
+
+#audio-timestamp-button {
+  padding: 0 8px;
+  padding-top: 2px;
 }

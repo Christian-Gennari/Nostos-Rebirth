@@ -31,21 +31,21 @@
           rows="2"
         ></textarea>
 
-        <div class="note-form-actions" style="display: flex; gap: 8px; margin-top: 8px">
+        <div class="note-form-actions">
+          <button id="quick-note-button" class="btn btn-primary" (click)="saveQuickNote()">
+            Add Quick Note
+          </button>
+
           @if (fileType() === 'audio') {
           <button
-            class="btn btn-sm btn-ghost"
+            id="audio-timestamp-button"
+            class="btn btn-sm btn-primary"
             title="Insert current timestamp"
             (click)="addAudioTimestamp()"
-            style="padding: 0 8px; display: flex; align-items: center; justify-content: center"
           >
             <lucide-icon [img]="ClockIcon" [size]="18"></lucide-icon>
           </button>
           }
-
-          <button class="btn btn-sm btn-primary" style="flex: 1" (click)="saveQuickNote()">
-            Add Quick Note
-          </button>
         </div>
       </div>
 
@@ -76,18 +76,10 @@
             }
 
             <div class="card-actions">
-              <button
-                class="icon-btn"
-                style="width: 24px; height: 24px"
-                (click)="startEdit(note, $event)"
-              >
+              <button class="icon-btn" (click)="startEdit(note, $event)">
                 <lucide-icon [img]="EditIcon" [size]="14"></lucide-icon>
               </button>
-              <button
-                class="icon-btn delete"
-                style="width: 24px; height: 24px"
-                (click)="deleteNote(note.id, $event)"
-              >
+              <button class="icon-btn delete" (click)="deleteNote(note.id, $event)">
                 <lucide-icon [img]="DeleteIcon" [size]="14"></lucide-icon>
               </button>
             </div>

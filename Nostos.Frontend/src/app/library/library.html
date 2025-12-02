@@ -1,16 +1,22 @@
 <main class="layout-wrapper">
-
   <div class="layout-content">
-
     <header class="toolbar">
       <h1>Library</h1>
 
       <div class="toolbar-right">
         <div class="control-group">
-          <button class="toggle-opt" [class.active]="viewMode() === 'list'" (click)="viewMode.set('list')">
+          <button
+            class="toggle-opt"
+            [class.active]="viewMode() === 'list'"
+            (click)="viewMode.set('list')"
+          >
             <lucide-icon [img]="ListIcon" [size]="18"></lucide-icon>
           </button>
-          <button class="toggle-opt" [class.active]="viewMode() === 'grid'" (click)="viewMode.set('grid')">
+          <button
+            class="toggle-opt"
+            [class.active]="viewMode() === 'grid'"
+            (click)="viewMode.set('grid')"
+          >
             <lucide-icon [img]="GridIcon" [size]="18"></lucide-icon>
           </button>
         </div>
@@ -23,14 +29,22 @@
     </header>
 
     <div class="container lg">
-
       <!-- Add Book Modal -->
-      <app-add-book-modal [isOpen]="showAddModal()" [collections]="collections()" (closeModal)="closeAddModal()"
-        (bookAdded)="loadBooks()">
+      <app-add-book-modal
+        [isOpen]="showAddModal()"
+        [collections]="collections()"
+        (closeModal)="closeAddModal()"
+        (bookAdded)="loadBooks()"
+      >
       </app-add-book-modal>
 
-      <app-add-book-modal [isOpen]="showEditModal()" [collections]="collections()" [book]="editTarget()"
-        (closeModal)="closeEditModal()" (bookUpdated)="onBookUpdated($event)">
+      <app-add-book-modal
+        [isOpen]="showEditModal()"
+        [collections]="collections()"
+        [book]="editTarget()"
+        (closeModal)="closeEditModal()"
+        (bookUpdated)="onBookUpdated($event)"
+      >
       </app-add-book-modal>
 
       <!-- List View -->
@@ -60,11 +74,11 @@
               {{ book.fileName.substring(book.fileName.lastIndexOf('.') + 1).toUpperCase() }}
             </span>
             } @else {
-            <span class="badge" style="opacity:0.5;">—</span>
+            <span class="badge" style="opacity: 0.5">—</span>
             }
           </div>
 
-          <div class="col date" style="color: var(--color-text-light); font-size: 0.85rem;">
+          <div class="col date" style="color: var(--color-text-light); font-size: 0.85rem">
             Nov 26
           </div>
 
@@ -85,7 +99,6 @@
       <!-- Grid View -->
       @if (viewMode() === 'grid') {
       <div class="book-grid">
-
         @for (book of books(); track book.id) {
 
         <div class="book-card" [routerLink]="['/library', book.id]">
@@ -97,15 +110,21 @@
             }
 
             <div class="actions-overlay">
-
-              <button class="action-circle" (click)="openEditModal(book); $event.stopPropagation()" title="Edit">
+              <button
+                class="action-circle"
+                (click)="openEditModal(book); $event.stopPropagation()"
+                title="Edit"
+              >
                 <lucide-icon [img]="Edit2Icon" [size]="16"></lucide-icon>
               </button>
 
-              <button class="action-circle delete" (click)="deleteBook(book.id, $event)" title="Delete">
+              <button
+                class="action-circle delete"
+                (click)="deleteBook(book.id, $event)"
+                title="Delete"
+              >
                 <lucide-icon [img]="Trash2Icon" [size]="16"></lucide-icon>
               </button>
-
             </div>
           </div>
 
@@ -116,13 +135,16 @@
         }
       </div>
       }
-
     </div>
   </div>
 
   <!-- Edit Book Modal -->
-  <app-add-book-modal [isOpen]="showEditModal()" [book]="editTarget()" [collections]="collections()"
-    (closeModal)="closeEditModal()" (bookUpdated)="onBookUpdated($event)">
+  <app-add-book-modal
+    [isOpen]="showEditModal()"
+    [book]="editTarget()"
+    [collections]="collections()"
+    (closeModal)="closeEditModal()"
+    (bookUpdated)="onBookUpdated($event)"
+  >
   </app-add-book-modal>
-
 </main>

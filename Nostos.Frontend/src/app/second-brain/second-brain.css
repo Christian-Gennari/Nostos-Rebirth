@@ -50,17 +50,6 @@
   color: var(--color-text-light);
 }
 
-.badge {
-  background: var(--bg-body);
-  color: var(--color-text-muted);
-  font-size: 0.7rem;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-weight: 600;
-  border: 1px solid var(--border-color);
-  font-family: 'Inter', sans-serif;
-  flex-shrink: 0;
-}
 
 /* ROW 2: Search Box */
 .search-box {
