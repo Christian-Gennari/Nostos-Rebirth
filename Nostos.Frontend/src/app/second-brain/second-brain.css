@@ -247,13 +247,6 @@
     margin-right: auto;
 }
 
-.note-text {
-  font-size: 0.95rem;
-  line-height: 1.6;
-  color: var(--color-text-main);
-  margin: 0;
-}
-
 /* --- ELEGANT QUOTE STYLES --- */
 .highlight-block {
   /* Minimalist: No heavy background, rely on a subtle border and typography */

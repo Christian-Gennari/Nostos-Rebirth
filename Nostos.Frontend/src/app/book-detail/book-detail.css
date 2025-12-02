@@ -327,13 +327,6 @@
   padding-top: 0;
 }
 
-.note-text {
-  font-size: 0.85rem;
-  color: var(--color-text-main);
-  line-height: 1.6;
-  white-space: pre-wrap;
-}
-
 .note-hover-actions {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   position: absolute;
