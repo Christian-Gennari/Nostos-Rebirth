@@ -24,6 +24,7 @@ import {
   Layers,
   Building,
   BookDown,
+  Image,
 } from 'lucide-angular';
 import { AddBookModal } from '../add-book-modal/add-book-modal';
 import { HttpEventType } from '@angular/common/http';
@@ -58,6 +59,7 @@ export class BookDetail implements OnInit {
   LayersIcon = Layers;
   BuildingIcon = Building;
   BookDownIcon = BookDown;
+  ImageIcon = Image;
 
   loading = signal(true);
   book = signal<Book | null>(null);

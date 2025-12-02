@@ -52,41 +52,20 @@
           </div>
 
           <div class="cover-actions-links">
-            <button class="action-btn primary-ghost" (click)="openMetadataModal()">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-              </svg>
+            <button class="btn btn-secondary" style="width: 100%" (click)="openMetadataModal()">
+              <lucide-icon [img]="Edit2Icon" [size]="16"></lucide-icon>
               Edit Metadata
             </button>
 
             <div class="cover-controls">
-              <button class="link-btn" (click)="triggerCoverPicker()">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <polyline points="21 15 16 10 5 21" />
-                </svg>
+              <button class="btn btn-xs btn-ghost" (click)="triggerCoverPicker()">
+                <lucide-icon [img]="ImageIcon" [size]="14"></lucide-icon>
                 {{ book()?.coverUrl ? 'Change' : 'Upload' }}
               </button>
 
               @if (book()?.coverUrl) {
               <div class="vertical-divider"></div>
-              <button class="link-btn danger" (click)="deleteCover()">Remove</button>
+              <button class="btn btn-xs btn-ghost danger" (click)="deleteCover()">Remove</button>
               }
             </div>
           </div>
@@ -104,18 +83,7 @@
             <h1 class="book-title">{{ book()?.title }}</h1>
 
             @if (book()?.subtitle) {
-            <h3
-              class="book-subtitle"
-              style="
-                font-size: 1.1rem;
-                color: var(--color-text-light);
-                margin: -0.25rem 0 0.5rem 0;
-                font-weight: 400;
-                font-family: 'Inter', sans-serif;
-              "
-            >
-              {{ book()?.subtitle }}
-            </h3>
+            <h3 class="book-subtitle">{{ book()?.subtitle }}</h3>
             }
 
             <h2 class="book-author">{{ book()?.author || 'Unknown Author' }}</h2>
@@ -263,8 +231,8 @@
                     placeholder="Add your thought..."
                   ></textarea>
                   <div class="row-actions">
-                    <button class="link-btn" (click)="saveEdit()">Save</button>
-                    <button class="link-btn" (click)="cancelEdit()">Cancel</button>
+                    <button class="btn btn-xs btn-primary" (click)="saveEdit()">Save</button>
+                    <button class="btn btn-xs btn-ghost" (click)="cancelEdit()">Cancel</button>
                   </div>
                 </div>
                 } @else { @if (note.selectedText) {

@@ -57,44 +57,26 @@
   object-fit: cover;
 }
 
+.placeholder-cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #ccc;
+}
+
 /* ------------------------------
-   UPDATED COVER ACTIONS
+   COVER ACTIONS
 ------------------------------ */
 .cover-actions-links {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem; /* Breathing room between blocks */
+  gap: 0.75rem;
   margin-top: 0.5rem;
 }
 
-/* The Main "Edit Metadata" Button */
-.action-btn.primary-ghost {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.6rem;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--color-text-main);
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.action-btn.primary-ghost:hover {
-  background: #fcfcfc;
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-}
-
-/* The Row for Cover-specific links */
 .cover-controls {
   display: flex;
   align-items: center;
@@ -108,31 +90,6 @@
   background-color: var(--border-color);
 }
 
-/* Updated Link Buttons */
-.link-btn {
-  background: none;
-  border: none;
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  transition: all 0.2s;
-  text-decoration: none; /* Removed underline */
-}
-
-.link-btn:hover {
-  color: var(--color-primary);
-  background: rgba(0, 0, 0, 0.03); /* Subtle backing on hover */
-}
-
-.link-btn.danger:hover {
-  color: var(--color-danger);
-  background: #fff1f2; /* Subtle red backing */
-}
 /* ------------------------------
     RIGHT COL: INFO HEADER
 ------------------------------ */
@@ -147,18 +104,20 @@
   letter-spacing: -0.02em;
 }
 
+.book-subtitle {
+  font-size: 1.1rem;
+  color: var(--color-text-light);
+  margin: -0.25rem 0 0.5rem 0;
+  font-weight: 400;
+  font-family: 'Inter', sans-serif;
+}
+
 .book-author {
   font-family: 'Inter', sans-serif;
   font-size: 1.1rem;
   font-weight: 400;
   color: var(--color-text-muted);
   margin-bottom: 1.5rem;
-}
-
-.meta-tags {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 2rem;
 }
 
 .tag {
@@ -171,11 +130,6 @@
   border: 1px solid var(--border-color);
   padding: 0.2rem 0.6rem;
   border-radius: 100px;
-}
-.tag.success {
-  color: #1a1a1a;
-  background: #f0fdf4;
-  border-color: #dcfce7;
 }
 
 .primary-actions {
@@ -192,7 +146,7 @@
 }
 
 /* ------------------------------
-    SYNOPSIS & METADATA SECTION (NEW)
+    SYNOPSIS & METADATA
 ------------------------------ */
 .synopsis-metadata-block {
   background: var(--bg-surface);
@@ -210,13 +164,23 @@
   margin-bottom: 1rem;
 }
 
-/* Description Text Styling */
+.synopsis-content h4 {
+  text-transform: uppercase;
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  margin-bottom: 0.75rem;
+  color: #6b7280;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.5rem;
+  display: inline-block;
+}
+
 .description-text {
   font-family: 'Lora', serif;
   font-size: 1rem;
   line-height: 1.6;
   color: var(--color-text-main);
-  /* Default: Collapsed to 3 lines */
   display: -webkit-box;
   line-clamp: 3;
   -webkit-line-clamp: 3;
@@ -230,7 +194,6 @@
   font-size: 0.9rem;
 }
 
-/* Fade Overlay for Collapsed State */
 .fade-overlay {
   position: absolute;
   bottom: 0;
@@ -246,7 +209,7 @@
 /* Metadata Grid */
 .meta-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr); /* 2 Columns */
+  grid-template-columns: repeat(2, 1fr);
   gap: 1rem 2rem;
   margin-top: 1rem;
   padding-top: 1rem;
@@ -279,41 +242,33 @@
 
 /* Expand Button */
 .expand-btn {
-  /* Box Model */
-  display: inline-flex; /* Shrink to fit text */
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin: 1rem auto 0; /* Center horizontally */
+  margin: 1rem auto 0;
   padding: 0.5rem 1.25rem;
-  width: auto; /* Overwrite width: 100% */
-
-  /* Visuals */
+  width: auto;
   background-color: transparent;
-  border: 1px solid var(--border-color); /* Subtle outline */
-  border-radius: 2rem; /* Pill shape */
-
-  /* Text */
+  border: 1px solid var(--border-color);
+  border-radius: 2rem;
   color: #555;
   font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
   gap: 0.5rem;
-
   transition: all 0.2s ease;
 }
 
 .expand-btn:hover {
-  background-color: #1a1a1a; /* Dark background on hover */
+  background-color: #1a1a1a;
   border-color: #1a1a1a;
-  color: #fff; /* White text on hover */
+  color: #fff;
 }
 
-/* --- EXPANDED STATE MODIFIERS --- */
 .synopsis-metadata-block.expanded .description-text {
   line-clamp: unset;
-  -webkit-line-clamp: unset; /* Show all text */
+  -webkit-line-clamp: unset;
 }
-
 .synopsis-metadata-block.expanded .fade-overlay {
   opacity: 0;
 }
@@ -393,17 +348,12 @@
   right: 0;
   opacity: 0;
   transition: opacity 0.2s;
-  background: var(--bg-body); /* Hide line behind actions */
+  background: var(--bg-body);
   padding-left: 0.5rem;
 }
 
 .note-row:hover .note-hover-actions {
   opacity: 1;
-}
-
-.icon-btn.xs {
-  width: 24px;
-  height: 24px;
 }
 
 .edit-box {
@@ -415,194 +365,24 @@
 .row-actions {
   margin-top: 0.5rem;
   display: flex;
-  gap: 1rem;
-}
-
-/* FIX: ADDED CLICKABLE STYLE */
-.concept-tag.clickable {
-  cursor: pointer;
-  opacity: 0.9;
-  transition: opacity 0.15s;
-}
-
-.concept-tag.clickable:hover {
-  opacity: 1;
-}
-
-/* ------------------------------
-    MODAL STYLES (New & Improved)
------------------------------- */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 50;
-  backdrop-filter: blur(4px);
-}
-
-.modal-content.large {
-  background: var(--bg-surface);
-  width: 100%;
-  max-width: 600px;
-  max-height: 90vh;
-  overflow-y: auto;
-  border-radius: var(--radius-lg);
-  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.2);
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.modal-header h3 {
-  font-family: 'Lora', serif;
-  color: var(--color-primary);
-  margin: 0;
-  font-size: 1.25rem;
-}
-
-.form-grid {
-  padding: 1.5rem;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-}
-.form-group.span-2 {
-  grid-column: span 2;
-}
-
-.form-group label {
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
-  margin-bottom: 0.4rem;
-}
-
-.select-wrapper {
-  position: relative;
-}
-.sel-icon {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  color: var(--color-text-muted);
-}
-
-.modal-actions {
-  padding: 1.5rem;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  justify-content: flex-end;
   gap: 0.5rem;
-  background: var(--bg-body); /* Slightly distinct background */
 }
 
 /* ------------------------------
-    SKELETON LOADER
+    UTILITIES / COMPONENTS
 ------------------------------ */
-@keyframes pulse {
-  0% {
-    background-color: #f3f3f3;
-  }
-  50% {
-    background-color: #e5e5e5;
-  }
-  100% {
-    background-color: #f3f3f3;
-  }
-}
-
-.skeleton-box,
-.skeleton-line,
-.skeleton-block {
-  background-color: #f3f3f3;
-  animation: pulse 1.5s ease-in-out infinite;
-  border-radius: 4px;
-}
-
-/* Matches the .cover-frame dimensions */
-.skeleton-box.cover-size {
-  width: 100%;
-  aspect-ratio: 2/3;
-  border-radius: var(--radius-md);
-}
-
-/* Text placeholders */
-.skeleton-line {
-  height: 1.5rem;
-  margin-bottom: 0.75rem;
-}
-
-.skeleton-line.title {
-  height: 2.5rem; /* Matches h1 size */
-  width: 60%;
-  margin-bottom: 1rem;
-}
-
-.skeleton-line.author {
-  height: 1.2rem;
-  width: 30%;
-  margin-bottom: 2rem;
-}
-
-.skeleton-line.tags {
-  height: 24px;
-  width: 120px;
-  border-radius: 100px; /* Pill shape */
-}
-
-.skeleton-block {
-  width: 100%;
-  height: 120px;
-  margin-top: 2rem;
-}
-
-.synopsis-content h4 {
-  text-transform: uppercase;
-  font-weight: 600; /* Semi-bold */
-
-  /* Spacing & Size */
-  font-size: 0.75rem; /* Slightly smaller looks more elegant for labels */
-  letter-spacing: 0.12em; /* Wider tracking for uppercase looks premium */
-  margin-bottom: 0.75rem; /* Give the text below it some room to breathe */
-
-  /* Color */
-  color: #6b7280; /* Muted grey - distinct from the black body text */
-
-  /* The Divider Line */
-  border-bottom: 1px solid #e5e7eb; /* Light grey line */
-  padding-bottom: 0.5rem;
-  margin-bottom: 1rem;
-  display: inline-block;
-}
-
-/* Nostos.Frontend/src/app/book-detail/book-detail.css */
 .highlight-block {
   display: flex;
   gap: 0.75rem;
   margin-bottom: 0.5rem;
-  background: var(--bg-card-hover); /* Slight highlight background */
+  background: var(--bg-hover);
   padding: 0.75rem;
   border-radius: 4px;
 }
 
 .quote-stripe {
   width: 4px;
-  background-color: #ffff004d; /* Use your yellow/accent color */
+  background-color: #ffff004d;
   border-radius: 2px;
   flex-shrink: 0;
 }
@@ -628,4 +408,69 @@
   font-size: 0.85rem;
   color: #999;
   font-style: italic;
+}
+
+.concept-tag.clickable {
+  cursor: pointer;
+  opacity: 0.9;
+  transition: opacity 0.15s;
+}
+.concept-tag.clickable:hover {
+  opacity: 1;
+}
+
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+/* ------------------------------
+    SKELETONS
+    (Keep these here or move to styles.css)
+------------------------------ */
+@keyframes pulse {
+  0%,
+  100% {
+    background-color: #f3f3f3;
+  }
+  50% {
+    background-color: #e5e5e5;
+  }
+}
+
+.skeleton-box,
+.skeleton-line,
+.skeleton-block {
+  background-color: #f3f3f3;
+  animation: pulse 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+.skeleton-box.cover-size {
+  width: 100%;
+  aspect-ratio: 2/3;
+  border-radius: var(--radius-md);
+}
+.skeleton-line {
+  height: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+.skeleton-line.title {
+  height: 2.5rem;
+  width: 60%;
+  margin-bottom: 1rem;
+}
+.skeleton-line.author {
+  height: 1.2rem;
+  width: 30%;
+  margin-bottom: 2rem;
+}
+.skeleton-block {
+  width: 100%;
+  height: 120px;
+  margin-top: 2rem;
 }
