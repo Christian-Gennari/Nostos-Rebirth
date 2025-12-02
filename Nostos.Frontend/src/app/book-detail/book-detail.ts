@@ -28,6 +28,7 @@ import {
 } from 'lucide-angular';
 import { AddBookModal } from '../add-book-modal/add-book-modal';
 import { HttpEventType } from '@angular/common/http';
+import { ConceptAutocompleteService } from '../services/concept-autocomplete.service';
 
 @Component({
   standalone: true,
@@ -43,6 +44,7 @@ export class BookDetail implements OnInit {
   private notesService = inject(NotesService);
   private collectionsService = inject(CollectionsService);
   private conceptsService = inject(ConceptsService);
+  private autocompleteService = inject(ConceptAutocompleteService);
 
   ArrowLeftIcon = ArrowLeft;
   UserIcon = User;
@@ -142,6 +144,9 @@ export class BookDetail implements OnInit {
         const map = new Map<string, ConceptDto>();
         concepts.forEach((c) => map.set(c.name.trim().toLowerCase(), c));
         this.conceptMap.set(map);
+
+        // This line integrates with autocomplete service
+        this.autocompleteService.setConcepts(concepts);
       },
     });
   }
@@ -371,5 +376,33 @@ export class BookDetail implements OnInit {
     if (!id) return '—';
     const col = this.collections().find((c) => c.id === id);
     return col ? col.name : '—';
+  }
+
+  insertConceptIntoNote(concept: ConceptDto) {
+    const text = this.newNote();
+    const beforeCursor = text.substring(0, this.getCursorPos('new'));
+    const afterCursor = text.substring(this.getCursorPos('new'));
+
+    const newText = beforeCursor.replace(/\[\[[^\[]*$/, '[[' + concept.name + ']] ') + afterCursor;
+
+    this.newNote.set(newText);
+  }
+
+  insertConceptIntoEdit(concept: ConceptDto) {
+    const text = this.editNoteContent();
+    const beforeCursor = text.substring(0, this.getCursorPos('edit'));
+    const afterCursor = text.substring(this.getCursorPos('edit'));
+
+    const newText = beforeCursor.replace(/\[\[[^\[]*$/, '[[' + concept.name + ']] ') + afterCursor;
+
+    this.editNoteContent.set(newText);
+  }
+
+  // Helper to read cursor positions from textareas
+  getCursorPos(which: 'new' | 'edit'): number {
+    const selector = which === 'new' ? '#new-note-textarea' : '#edit-note-textarea';
+
+    const el = document.querySelector(selector) as HTMLTextAreaElement;
+    return el ? el.selectionStart : 0;
   }
 }
