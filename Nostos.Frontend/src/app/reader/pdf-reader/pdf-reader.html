@@ -1,20 +1,25 @@
 <div class="pdf-container" (mouseup)="onTextSelection()">
-  <ngx-extended-pdf-viewer
-    [src]="pdfSrc()"
-    [backgroundColor]="'#fffefe'"
-    [textLayer]="true"
-    [minZoom]="1"
-    [maxZoom]="4"
-    [showToolbar]="false"
-    [showBorders]="false"
-    [handTool]="false"
-    [zoom]="'page-fit'"
-    [(page)]="currentPage"
-    [scrollMode]="3"
-    (pagesLoaded)="loadNotes()"
-    (textLayerRendered)="onTextLayerRendered($event)"
-    (pdfLoadingFailed)="handleError($event)"
-    style="width: 100%; height: 100%; display: block"
-  >
-  </ngx-extended-pdf-viewer>
+  <div id="pdf-viewer-wrapper">
+    <ngx-extended-pdf-viewer
+      [src]="pdfSrc()"
+      [backgroundColor]="'#fffefe'"
+      [textLayer]="true"
+      [minZoom]="1"
+      [maxZoom]="4"
+      [showToolbar]="false"
+      [showBorders]="false"
+      [handTool]="false"
+      [zoom]="'page-fit'"
+      [(page)]="currentPage"
+      [scrollMode]="3"
+      (pagesLoaded)="onPagesLoaded($event)"
+      (textLayerRendered)="onTextLayerRendered($event)"
+      (pdfLoadingFailed)="handleError($event)"
+      style="width: 100%; height: 100%; display: block"
+    >
+    </ngx-extended-pdf-viewer>
+  </div>
+
+  <div class="nav-zone nav-prev" (click)="prevPage()" title="Previous Page"></div>
+  <div class="nav-zone nav-next" (click)="nextPage()" title="Next Page"></div>
 </div>

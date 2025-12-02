@@ -1,26 +1,53 @@
 /* Nostos.Frontend/src/app/reader/pdf-reader/pdf-reader.css */
 
 :host {
-  /* Force the component to be an overlay that strictly fills the parent */
   display: block;
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-
-  /* Prevent any internal overflow from affecting the parent */
   overflow: hidden;
 }
 
+/* Updated to flex to center the viewer when width < 100% */
 .pdf-container {
   width: 100%;
   height: 100%;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   position: relative;
+  background: var(--bg-body, #fff);
 }
 
-/* --- Keep your existing highlight styles --- */
+/* Wrapper to control the actual PDF size (simulates #epub-viewer) */
+#pdf-viewer-wrapper {
+  width: 100%;
+  height: 100%;
+}
+
+/* --- Navigation Zones (Mobile: Invisible click areas) --- */
+.nav-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 15%;
+  z-index: 10;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-prev {
+  left: 0;
+}
+.nav-next {
+  right: 0;
+}
+
+/* --- Highlight Styles (Existing) --- */
 ::ng-deep .custom-highlight-layer {
   position: absolute;
   top: 0;
@@ -45,4 +72,62 @@
 
 ::ng-deep #mainContainer.toolbar-hidden {
   margin-top: -34px !important;
+}
+
+/* --- Desktop Styles (Netflix Arrows) --- */
+@media (min-width: 768px) {
+  .nav-zone {
+    transition: background 0.3s ease;
+    width: 5%;
+  }
+
+  .nav-zone::after {
+    content: '';
+    display: block;
+    width: 20px;
+    height: 20px;
+    border-top: 4px solid var(--color-text-muted, #888);
+    border-right: 4px solid var(--color-text-muted, #888);
+    opacity: 0;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  /* Prev Arrow */
+  .nav-prev:hover {
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.08), transparent);
+  }
+  .nav-prev::after {
+    transform: rotate(-135deg) translateX(10px);
+  }
+  .nav-prev:hover::after {
+    opacity: 1;
+    transform: rotate(-135deg) translateX(0);
+  }
+
+  /* Next Arrow */
+  .nav-next:hover {
+    background: linear-gradient(to left, rgba(0, 0, 0, 0.08), transparent);
+  }
+  .nav-next::after {
+    transform: rotate(45deg) translateX(-10px);
+  }
+  .nav-next:hover::after {
+    opacity: 1;
+    transform: rotate(45deg) translateX(0);
+  }
+}
+
+/* --- Hide Scrollbars (Keep functionality) --- */
+
+/* Target the specific scrolling container inside the library */
+::ng-deep #viewerContainer {
+  /* Hide for Firefox */
+  scrollbar-width: none !important;
+  /* Hide for IE/Edge */
+  -ms-overflow-style: none !important;
+}
+
+/* Hide for Chrome, Safari, and Opera */
+::ng-deep #viewerContainer::-webkit-scrollbar {
+  display: none !important;
 }
