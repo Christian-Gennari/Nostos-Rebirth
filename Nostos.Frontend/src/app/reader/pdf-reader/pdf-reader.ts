@@ -1,6 +1,7 @@
-import { Component, input, computed, inject, OnInit, output } from '@angular/core';
+import { Component, input, computed, inject, OnInit, output, ViewChild } from '@angular/core';
 import {
   NgxExtendedPdfViewerModule,
+  NgxExtendedPdfViewerComponent,
   TextLayerRenderedEvent,
   PagesLoadedEvent,
 } from 'ngx-extended-pdf-viewer';
@@ -18,13 +19,15 @@ export class PdfReader implements OnInit {
   private highlightService = inject(PdfAnnotationManager);
   private notesService = inject(NotesService);
 
+  @ViewChild(NgxExtendedPdfViewerComponent) pdfViewer!: NgxExtendedPdfViewerComponent;
+
   bookId = input.required<string>();
   noteCreated = output<void>();
 
   pdfSrc = computed(() => `/api/books/${this.bookId()}/file`);
   savedHighlights: PageHighlight[] = [];
 
-  currentPage = 1;
+  currentPage: number | undefined;
   totalPages = 0;
 
   ngOnInit() {
@@ -33,6 +36,14 @@ export class PdfReader implements OnInit {
 
   onPagesLoaded(event: PagesLoadedEvent) {
     this.totalPages = event.pagesCount;
+
+    // Sync restored page number to variable
+    setTimeout(() => {
+      if (this.pdfViewer) {
+        this.currentPage = this.pdfViewer.page;
+      }
+    });
+
     this.loadNotes();
   }
 
@@ -47,7 +58,7 @@ export class PdfReader implements OnInit {
               return {
                 id: n.id,
                 pageNumber: range.pageNumber,
-                rects: range.rects || [], // Handle cases without rects (quick notes)
+                rects: range.rects || [],
               } as PageHighlight;
             } catch {
               return null;
@@ -61,14 +72,16 @@ export class PdfReader implements OnInit {
   // --- Navigation Logic ---
 
   prevPage() {
-    if (this.currentPage > 1) {
-      this.currentPage--;
+    const current = this.currentPage ?? this.pdfViewer?.page ?? 1;
+    if (current > 1) {
+      this.currentPage = current - 1;
     }
   }
 
   nextPage() {
-    if (this.currentPage < this.totalPages) {
-      this.currentPage++;
+    const current = this.currentPage ?? this.pdfViewer?.page ?? 1;
+    if (current < this.totalPages) {
+      this.currentPage = current + 1;
     }
   }
 
@@ -85,27 +98,37 @@ export class PdfReader implements OnInit {
     }
   }
 
-  /** * 👇 NEW: Called by ReaderShell when saving a Quick Note.
-   * Attempts to get exact location, falls back to current page.
-   */
   getCurrentLocation(): string {
-    // 1. Try to get a precise location (if user clicked somewhere in PDF recently)
     const loc = this.highlightService.captureNoteLocation();
 
     if (loc) {
       return JSON.stringify({
         pageNumber: loc.pageNumber,
         yPercent: loc.yPercent,
-        rects: [], // Empty rects for note-only
+        rects: [],
       });
     }
 
-    // 2. Fallback: Just return the current page number
+    const pageNum = this.currentPage ?? this.pdfViewer?.page ?? 1;
     return JSON.stringify({
-      pageNumber: this.currentPage,
+      pageNumber: pageNum,
       yPercent: 0,
       rects: [],
     });
+  }
+
+  /**
+   * 👇 NEW: Called by ReaderShell to remove a highlight visually
+   */
+  removeHighlight(id: string) {
+    const index = this.savedHighlights.findIndex((h) => h.id === id);
+    if (index !== -1) {
+      const pageNumber = this.savedHighlights[index].pageNumber;
+      // 1. Remove from local array
+      this.savedHighlights.splice(index, 1);
+      // 2. Repaint that page immediately
+      this.repaintPage(pageNumber);
+    }
   }
 
   // --- Internal Logic ---
@@ -114,15 +137,11 @@ export class PdfReader implements OnInit {
     const textLayerDiv = event.source.textLayer?.div;
     if (!textLayerDiv) return;
     const pageHighlights = this.savedHighlights.filter((h) => h.pageNumber === event.pageNumber);
-
-    // Only paint if there are actual rects to paint
     const validHighlights = pageHighlights.filter((h) => h.rects && h.rects.length > 0);
-
     this.highlightService.paint(textLayerDiv, validHighlights);
   }
 
   onTextSelection() {
-    // Use the highlight capture specifically for selections
     const highlight = this.highlightService.captureHighlight();
     if (!highlight) return;
 
@@ -145,8 +164,28 @@ export class PdfReader implements OnInit {
             rects: highlight.rects,
           });
           this.noteCreated.emit();
+
+          // 👇 NEW: Paint the new highlight immediately
+          this.repaintPage(highlight.pageNumber);
         },
       });
+  }
+
+  /**
+   * 👇 NEW: Helper to find the DOM element for a page and force a repaint
+   */
+  private repaintPage(pageNumber: number) {
+    // We look for the specific textLayer in the DOM for the given page number
+    const textLayerSelector = `.page[data-page-number="${pageNumber}"] .textLayer`;
+    const textLayer = document.querySelector(textLayerSelector) as HTMLElement;
+
+    // If the page is currently in the DOM (visible or cached), we repaint it.
+    if (textLayer) {
+      const pageHighlights = this.savedHighlights.filter((h) => h.pageNumber === pageNumber);
+      const validHighlights = pageHighlights.filter((h) => h.rects && h.rects.length > 0);
+
+      this.highlightService.paint(textLayer, validHighlights);
+    }
   }
 
   handleError(error: any) {

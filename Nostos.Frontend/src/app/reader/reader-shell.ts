@@ -184,17 +184,20 @@ export class ReaderShell implements OnInit {
     event?.stopPropagation();
     if (!confirm('Delete this note?')) return;
 
-    // 1. Capture the note data before deleting, so we have the CFI
     const noteToDelete = this.dbNotes().find((n) => n.id === noteId);
 
     this.notesService.delete(noteId).subscribe({
       next: () => {
-        // 2. VISUAL FIX: If it's an EPUB, remove the highlight from the book reader
+        // EPUB Logic
         if (this.fileType() === 'epub' && this.epubReader && noteToDelete?.cfiRange) {
           this.epubReader.deleteHighlight(noteToDelete.cfiRange);
         }
 
-        // 3. Update the UI list (remove the note card)
+        // 👇 NEW: PDF Logic - Remove the highlight visually
+        if (this.fileType() === 'pdf' && this.pdfReader) {
+          this.pdfReader.removeHighlight(noteId);
+        }
+
         this.dbNotes.update((notes) => notes.filter((n) => n.id !== noteId));
       },
     });
