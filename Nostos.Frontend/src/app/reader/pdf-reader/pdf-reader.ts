@@ -2,7 +2,7 @@ import { Component, input, computed, inject, OnInit, output } from '@angular/cor
 import {
   NgxExtendedPdfViewerModule,
   TextLayerRenderedEvent,
-  PagesLoadedEvent, // <--- Import this
+  PagesLoadedEvent,
 } from 'ngx-extended-pdf-viewer';
 import { PdfAnnotationManager, PageHighlight } from './pdf-annotation-manager';
 import { NotesService } from '../../services/notes.services';
@@ -31,7 +31,6 @@ export class PdfReader implements OnInit {
     this.loadNotes();
   }
 
-  // --- FIXED: Accept the event object, not a number ---
   onPagesLoaded(event: PagesLoadedEvent) {
     this.totalPages = event.pagesCount;
     this.loadNotes();
@@ -48,7 +47,7 @@ export class PdfReader implements OnInit {
               return {
                 id: n.id,
                 pageNumber: range.pageNumber,
-                rects: range.rects,
+                rects: range.rects || [], // Handle cases without rects (quick notes)
               } as PageHighlight;
             } catch {
               return null;
@@ -86,33 +85,64 @@ export class PdfReader implements OnInit {
     }
   }
 
+  /** * 👇 NEW: Called by ReaderShell when saving a Quick Note.
+   * Attempts to get exact location, falls back to current page.
+   */
+  getCurrentLocation(): string {
+    // 1. Try to get a precise location (if user clicked somewhere in PDF recently)
+    const loc = this.highlightService.captureNoteLocation();
+
+    if (loc) {
+      return JSON.stringify({
+        pageNumber: loc.pageNumber,
+        yPercent: loc.yPercent,
+        rects: [], // Empty rects for note-only
+      });
+    }
+
+    // 2. Fallback: Just return the current page number
+    return JSON.stringify({
+      pageNumber: this.currentPage,
+      yPercent: 0,
+      rects: [],
+    });
+  }
+
   // --- Internal Logic ---
 
   onTextLayerRendered(event: TextLayerRenderedEvent) {
     const textLayerDiv = event.source.textLayer?.div;
     if (!textLayerDiv) return;
     const pageHighlights = this.savedHighlights.filter((h) => h.pageNumber === event.pageNumber);
-    this.highlightService.paint(textLayerDiv, pageHighlights);
+
+    // Only paint if there are actual rects to paint
+    const validHighlights = pageHighlights.filter((h) => h.rects && h.rects.length > 0);
+
+    this.highlightService.paint(textLayerDiv, validHighlights);
   }
 
   onTextSelection() {
-    const selection = this.highlightService.captureSelection();
-    if (!selection) return;
+    // Use the highlight capture specifically for selections
+    const highlight = this.highlightService.captureHighlight();
+    if (!highlight) return;
 
-    const rangeData = { pageNumber: selection.pageNumber, rects: selection.rects };
+    const cfiPayload = {
+      pageNumber: highlight.pageNumber,
+      rects: highlight.rects,
+    };
 
     this.notesService
       .create(this.bookId(), {
         content: '',
-        selectedText: selection.text,
-        cfiRange: JSON.stringify(rangeData),
+        selectedText: highlight.selectedText,
+        cfiRange: JSON.stringify(cfiPayload),
       })
       .subscribe({
         next: (newNote) => {
           this.savedHighlights.push({
             id: newNote.id,
-            pageNumber: selection.pageNumber,
-            rects: selection.rects,
+            pageNumber: highlight.pageNumber,
+            rects: highlight.rects,
           });
           this.noteCreated.emit();
         },

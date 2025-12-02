@@ -22,19 +22,16 @@ export class PdfAnnotationManager {
    * and paints the provided highlights into it.
    */
   paint(textLayerDiv: HTMLElement, highlights: PageHighlight[]) {
-    // 1. Check if our custom layer already exists; if so, clear it.
     let highlightLayer = textLayerDiv.querySelector('.custom-highlight-layer') as HTMLElement;
 
     if (!highlightLayer) {
       highlightLayer = document.createElement('div');
       highlightLayer.className = 'custom-highlight-layer';
-      // Insert it before the text content so it doesn't block text selection
       textLayerDiv.appendChild(highlightLayer);
     } else {
       highlightLayer.innerHTML = '';
     }
 
-    // 2. Render each highlight box
     highlights.forEach((h) => {
       h.rects.forEach((rect) => {
         const div = document.createElement('div');
@@ -49,10 +46,15 @@ export class PdfAnnotationManager {
   }
 
   /**
-   * Captures the current user selection and converts it to
-   * page-relative coordinates (percentages).
+   * Capture a text highlight (selected text + highlight rectangles).
+   * Returns null if no valid text was selected.
+   * Mirrors EPUB highlight behavior.
    */
-  captureSelection(): { pageNumber: number; rects: HighlightRect[]; text: string } | null {
+  captureHighlight(): {
+    pageNumber: number;
+    rects: HighlightRect[];
+    selectedText: string;
+  } | null {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
       return null;
@@ -62,20 +64,14 @@ export class PdfAnnotationManager {
     const selectedText = selection.toString().trim();
     if (!selectedText) return null;
 
-    // Find the PDF page container that holds this selection
     const textLayer = this.getClosestTextLayer(range.startContainer);
     if (!textLayer) return null;
 
-    // Get the page number from the DOM attribute (ngx-extended-pdf-viewer standard)
-    // The textLayer usually has a sibling or parent with `data-page-number`
     const pageNumber = this.getPageNumberFromLayer(textLayer);
     if (!pageNumber) return null;
 
-    // Calculate rectangles relative to the page dimensions
     const pageRect = textLayer.getBoundingClientRect();
-    const clientRects = Array.from(range.getClientRects());
-
-    const rects: HighlightRect[] = clientRects.map((r) => ({
+    const rects = Array.from(range.getClientRects()).map((r) => ({
       left: (r.left - pageRect.left) / pageRect.width,
       top: (r.top - pageRect.top) / pageRect.height,
       width: r.width / pageRect.width,
@@ -85,9 +81,46 @@ export class PdfAnnotationManager {
     return {
       pageNumber,
       rects,
-      text: selectedText,
+      selectedText,
     };
   }
+
+  /**
+   * Capture a note location even when NO TEXT is selected.
+   * Returns a stable pageNumber + Y-position (percent).
+   * Mirrors EPUB behavior of always providing a cfiRange.
+   */
+  captureNoteLocation(): {
+    pageNumber: number;
+    yPercent: number;
+  } | null {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+      return null;
+    }
+
+    const range = selection.getRangeAt(0);
+
+    const textLayer = this.getClosestTextLayer(range.startContainer);
+    if (!textLayer) return null;
+
+    const pageNumber = this.getPageNumberFromLayer(textLayer);
+    if (!pageNumber) return null;
+
+    const pageRect = textLayer.getBoundingClientRect();
+    const rect = range.getBoundingClientRect();
+
+    const yPercent = (rect.top - pageRect.top) / pageRect.height;
+
+    return {
+      pageNumber,
+      yPercent,
+    };
+  }
+
+  // -----------------------------------------------------------
+  // Helper functions
+  // -----------------------------------------------------------
 
   private getClosestTextLayer(node: Node): HTMLElement | null {
     let current: Node | null = node;
@@ -101,9 +134,6 @@ export class PdfAnnotationManager {
   }
 
   private getPageNumberFromLayer(textLayer: HTMLElement): number | null {
-    // ngx-extended-pdf-viewer structure: .page[data-page-number] > .textLayer
-    // Or sometimes the textLayer itself has the data.
-    // We check the parent element which is usually the ".page" div.
     const pageDiv = textLayer.closest('.page');
     if (pageDiv && pageDiv.hasAttribute('data-page-number')) {
       return parseInt(pageDiv.getAttribute('data-page-number')!, 10);

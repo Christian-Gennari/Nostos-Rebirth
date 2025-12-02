@@ -12,7 +12,7 @@ import {
   Trash2,
   X,
   Check,
-  Clock, // 1. Added Clock icon
+  Clock,
 } from 'lucide-angular';
 import { BooksService } from '../services/books.services';
 import { NotesService } from '../services/notes.services';
@@ -21,13 +21,11 @@ import { Note } from '../dtos/note.dtos';
 // --- IMPORTS ---
 import { PdfReader } from './pdf-reader/pdf-reader';
 import { EpubReader } from './epub-reader/epub-reader';
-// 👇 Import the REAL AudioReader from the separate file
 import { AudioReader } from './audio-reader/audio-reader';
 
 @Component({
   selector: 'app-reader-shell',
   standalone: true,
-  // 👇 Ensure AudioReader is included here
   imports: [CommonModule, FormsModule, LucideAngularModule, PdfReader, EpubReader, AudioReader],
   templateUrl: './reader-shell.html',
   styleUrl: './reader-shell.css',
@@ -35,7 +33,7 @@ import { AudioReader } from './audio-reader/audio-reader';
 export class ReaderShell implements OnInit {
   @ViewChild(EpubReader) epubReader?: EpubReader;
   @ViewChild(PdfReader) pdfReader?: PdfReader;
-  @ViewChild(AudioReader) audioReader?: AudioReader; // 2. Access Audio Reader instance
+  @ViewChild(AudioReader) audioReader?: AudioReader;
 
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -51,7 +49,7 @@ export class ReaderShell implements OnInit {
   DeleteIcon = Trash2;
   CloseIcon = X;
   CheckIcon = Check;
-  ClockIcon = Clock; // 3. Expose Clock icon
+  ClockIcon = Clock;
 
   book = signal<any>(null);
   loading = signal(true);
@@ -113,14 +111,12 @@ export class ReaderShell implements OnInit {
     this.notesOpen.update((v) => !v);
   }
 
-  // 4. Helper to append timestamp string to the text area
   addAudioTimestamp() {
     if (this.fileType() !== 'audio' || !this.audioReader) return;
 
     const time = this.audioReader.currentTime();
     const formatted = this.audioReader.formatTime(time);
 
-    // Append [12:30] to the current note content with a space if needed
     this.quickNoteContent.update((current) => {
       const prefix = current.length > 0 ? ' ' : '';
       return current + prefix + `[${formatted}] `;
@@ -135,14 +131,15 @@ export class ReaderShell implements OnInit {
 
     let currentCfi: string | undefined = undefined;
 
-    // Capture location based on reader type
+    // 👇 UPDATED: Handle logic for all reader types including PDF
     if (this.fileType() === 'epub') {
       currentCfi = this.epubReader?.getCurrentLocationCfi() || undefined;
     } else if (this.fileType() === 'audio' && this.audioReader) {
-      // 5. Save timestamp (raw seconds) as the "location" for audio notes
       currentCfi = this.audioReader.currentTime().toString();
+    } else if (this.fileType() === 'pdf' && this.pdfReader) {
+      // Now calls the new method in PdfReader
+      currentCfi = this.pdfReader.getCurrentLocation();
     }
-    // For PDF, quick notes are just book-level for now
 
     this.notesService
       .create(bookId, {
@@ -195,21 +192,69 @@ export class ReaderShell implements OnInit {
   }
 
   jumpToNote(note: Note) {
-    if (this.editingNoteId() === note.id || !note.cfiRange) return;
-
+    if (this.editingNoteId() === note.id || !note.cfiRange || note.cfiRange.trim().length === 0) {
+      return;
+    }
     const type = this.fileType();
 
+    // PDF Logic
     if (type === 'pdf' && this.pdfReader) {
-      this.pdfReader.goToLocation(note.cfiRange);
-    } else if (type === 'epub' && this.epubReader) {
-      this.epubReader.goToLocation(note.cfiRange);
-    } else if (type === 'audio' && this.audioReader) {
-      // 6. Handle Audio jumps
+      const hasQuoted =
+        typeof note.selectedText === 'string' && note.selectedText.trim().length > 0;
+
+      const preview =
+        note.selectedText && note.selectedText.length > 50
+          ? note.selectedText.slice(0, 50) + '…'
+          : note.selectedText;
+
+      const message = hasQuoted
+        ? `Jump to the location of quoted text "${preview}"?`
+        : 'Jump to the location this note was created?';
+
+      if (confirm(message)) {
+        this.pdfReader.goToLocation(note.cfiRange);
+      }
+      return;
+    }
+
+    // 👇 UPDATED EPUB Logic (Now matches PDF)
+    if (type === 'epub' && this.epubReader) {
+      const hasQuoted =
+        typeof note.selectedText === 'string' && note.selectedText.trim().length > 0;
+
+      const preview =
+        note.selectedText && note.selectedText.length > 50
+          ? note.selectedText.slice(0, 50) + '…'
+          : note.selectedText;
+
+      const message = hasQuoted
+        ? `Jump to the location of quoted text "${preview}"?`
+        : 'Jump to the location this note was created?';
+
+      if (confirm(message)) {
+        this.epubReader.goToLocation(note.cfiRange);
+      }
+      return;
+    }
+
+    // Audio Logic
+    if (type === 'audio' && this.audioReader) {
+      const timestampMatch = note.content?.match(/\[(\d[\d:]*)\]/);
+      const extracted = timestampMatch ? timestampMatch[1] : null;
+
+      const hasTimestamp = extracted !== null;
+
       const time = parseFloat(note.cfiRange);
       if (!isNaN(time)) {
-        // NOTE: Requires you to have added `goToTime(seconds: number)` to AudioReader
-        this.audioReader.goToTime(time);
+        const formatted = this.audioReader.formatTime(time);
+
+        const message = hasTimestamp ? `Jump to timestamp ${formatted}?` : 'Jump to this location?';
+
+        if (confirm(message)) {
+          this.audioReader.goToTime(time);
+        }
       }
+      return;
     }
   }
 
