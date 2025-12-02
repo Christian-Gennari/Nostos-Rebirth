@@ -28,7 +28,7 @@ import {
 } from 'lucide-angular';
 import { AddBookModal } from '../add-book-modal/add-book-modal';
 import { HttpEventType } from '@angular/common/http';
-import { ConceptAutocompleteService } from '../services/concept-autocomplete.service';
+import { ConceptAutocompleteService } from '../misc-components/concept-autocomplete-panel/concept-autocomplete.service';
 import { ConceptAutocompleteDirective } from '../directives/concept-autocomplete.directive';
 import { ConceptAutocompletePanel } from '../misc-components/concept-autocomplete-panel/concept-autocomplete-panel';
 

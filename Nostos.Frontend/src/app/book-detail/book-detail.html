@@ -215,7 +215,8 @@
                 rows="1"
               ></textarea>
 
-              <concept-autocomplete-panel></concept-autocomplete-panel>
+              <concept-autocomplete-panel (conceptSelected)="insertConceptIntoNote($event)">
+              </concept-autocomplete-panel>
 
               @if (newNote().length > 0) {
               <button class="btn btn-primary btn-sm" (click)="addNote()">Save</button>
@@ -241,7 +242,8 @@
                     placeholder="Add your thought..."
                   ></textarea>
 
-                  <concept-autocomplete-panel></concept-autocomplete-panel>
+                  <concept-autocomplete-panel (conceptSelected)="insertConceptIntoEdit($event)">
+                  </concept-autocomplete-panel>
 
                   <div class="row-actions">
                     <button class="btn btn-xs btn-primary" (click)="saveEdit()">Save</button>

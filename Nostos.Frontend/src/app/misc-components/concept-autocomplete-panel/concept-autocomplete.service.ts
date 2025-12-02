@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { ConceptDto } from './concepts.services';
+import { ConceptDto } from '../../services/concepts.services';
 
 @Injectable({ providedIn: 'root' })
 export class ConceptAutocompleteService {
