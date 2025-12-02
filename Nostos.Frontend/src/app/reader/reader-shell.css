@@ -72,13 +72,11 @@
   flex-direction: column;
   overflow: hidden;
 
-  transform: translateX(0);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
   box-shadow: -4px 0 15px rgba(0, 0, 0, 0.1);
 }
 
 .notes-panel.collapsed {
-  transform: translateX(100%);
+  display: none;
   box-shadow: none;
 }
 
