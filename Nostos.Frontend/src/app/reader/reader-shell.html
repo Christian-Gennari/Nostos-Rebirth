@@ -30,9 +30,23 @@
           (keydown.control.enter)="saveQuickNote()"
           rows="2"
         ></textarea>
-        <button class="btn btn-sm btn-primary" style="width: 100%" (click)="saveQuickNote()">
-          Add Quick Note
-        </button>
+
+        <div class="note-form-actions" style="display: flex; gap: 8px; margin-top: 8px">
+          @if (fileType() === 'audio') {
+          <button
+            class="btn btn-sm btn-ghost"
+            title="Insert current timestamp"
+            (click)="addAudioTimestamp()"
+            style="padding: 0 8px; display: flex; align-items: center; justify-content: center"
+          >
+            <lucide-icon [img]="ClockIcon" [size]="18"></lucide-icon>
+          </button>
+          }
+
+          <button class="btn btn-sm btn-primary" style="flex: 1" (click)="saveQuickNote()">
+            Add Quick Note
+          </button>
+        </div>
       </div>
 
       <div class="notes-list-scroll">

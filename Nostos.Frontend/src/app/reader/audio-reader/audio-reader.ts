@@ -152,4 +152,11 @@ export class AudioReader implements OnDestroy {
     this.stopProgressTracking();
     this.player?.unload();
   }
+
+  goToTime(seconds: number) {
+    if (this.player) {
+      this.player.seek(seconds);
+      this.currentTime.set(seconds);
+    }
+  }
 }

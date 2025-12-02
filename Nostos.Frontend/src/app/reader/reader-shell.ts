@@ -12,6 +12,7 @@ import {
   Trash2,
   X,
   Check,
+  Clock, // 1. Added Clock icon
 } from 'lucide-angular';
 import { BooksService } from '../services/books.services';
 import { NotesService } from '../services/notes.services';
@@ -34,6 +35,7 @@ import { AudioReader } from './audio-reader/audio-reader';
 export class ReaderShell implements OnInit {
   @ViewChild(EpubReader) epubReader?: EpubReader;
   @ViewChild(PdfReader) pdfReader?: PdfReader;
+  @ViewChild(AudioReader) audioReader?: AudioReader; // 2. Access Audio Reader instance
 
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -49,6 +51,7 @@ export class ReaderShell implements OnInit {
   DeleteIcon = Trash2;
   CloseIcon = X;
   CheckIcon = Check;
+  ClockIcon = Clock; // 3. Expose Clock icon
 
   book = signal<any>(null);
   loading = signal(true);
@@ -110,6 +113,20 @@ export class ReaderShell implements OnInit {
     this.notesOpen.update((v) => !v);
   }
 
+  // 4. Helper to append timestamp string to the text area
+  addAudioTimestamp() {
+    if (this.fileType() !== 'audio' || !this.audioReader) return;
+
+    const time = this.audioReader.currentTime();
+    const formatted = this.audioReader.formatTime(time);
+
+    // Append [12:30] to the current note content with a space if needed
+    this.quickNoteContent.update((current) => {
+      const prefix = current.length > 0 ? ' ' : '';
+      return current + prefix + `[${formatted}] `;
+    });
+  }
+
   saveQuickNote() {
     const content = this.quickNoteContent().trim();
     if (!content) return;
@@ -121,9 +138,11 @@ export class ReaderShell implements OnInit {
     // Capture location based on reader type
     if (this.fileType() === 'epub') {
       currentCfi = this.epubReader?.getCurrentLocationCfi() || undefined;
+    } else if (this.fileType() === 'audio' && this.audioReader) {
+      // 5. Save timestamp (raw seconds) as the "location" for audio notes
+      currentCfi = this.audioReader.currentTime().toString();
     }
-    // For Audio/PDF, quick notes are just book-level for now
-    // (unless you extend AudioReader to expose a getCurrentTimestamp method)
+    // For PDF, quick notes are just book-level for now
 
     this.notesService
       .create(bookId, {
@@ -184,8 +203,14 @@ export class ReaderShell implements OnInit {
       this.pdfReader.goToLocation(note.cfiRange);
     } else if (type === 'epub' && this.epubReader) {
       this.epubReader.goToLocation(note.cfiRange);
+    } else if (type === 'audio' && this.audioReader) {
+      // 6. Handle Audio jumps
+      const time = parseFloat(note.cfiRange);
+      if (!isNaN(time)) {
+        // NOTE: Requires you to have added `goToTime(seconds: number)` to AudioReader
+        this.audioReader.goToTime(time);
+      }
     }
-    // Audio jump logic can be added here if you expose a method on AudioReader
   }
 
   goBack() {
