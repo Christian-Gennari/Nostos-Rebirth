@@ -15,8 +15,8 @@
   --color-danger: #d32f2f;
 
   /* Brand Accents (New) */
-  --color-accent: #60a5fa;        /* The blue you liked */
-  --color-accent-hover: #93c5fd;  /* A lighter interaction state */
+  --color-accent: #60a5fa; /* The blue you liked */
+  --color-accent-hover: #93c5fd; /* A lighter interaction state */
   --color-accent-faint: rgba(96, 165, 250, 0.3); /* For subtle borders */
 
   /* Borders & Radius */
@@ -36,16 +36,20 @@
   box-sizing: border-box;
 }
 
-html, body {
-  font-family: "Inter", sans-serif;
+html,
+body {
+  font-family: 'Inter', sans-serif;
   background: var(--bg-body);
   color: var(--color-text-main);
   overflow-x: hidden;
   height: 100%;
 }
 
-h1, h2, h3, h4 {
-  font-family: "Lora", serif;
+h1,
+h2,
+h3,
+h4 {
+  font-family: 'Lora', serif;
   color: var(--color-primary);
 }
 
@@ -76,13 +80,20 @@ p {
   padding: 2rem;
 }
 
-.container.md { max-width: var(--container-width-md); }
-.container.lg { max-width: var(--container-width-lg); }
+.container.md {
+  max-width: var(--container-width-md);
+}
+.container.lg {
+  max-width: var(--container-width-lg);
+}
 
 /* ------------------------------
    BUTTONS
 ------------------------------ */
-button { cursor: pointer; font-family: inherit; }
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
 
 .btn {
   display: inline-flex;
@@ -147,19 +158,21 @@ button { cursor: pointer; font-family: inherit; }
 /* ------------------------------
    FORMS & INPUTS
 ------------------------------ */
-.input, .textarea {
+.input,
+.textarea {
   width: 100%;
   padding: 0.6rem 1rem;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   font-size: 0.95rem;
-  font-family: "Inter", sans-serif;
+  font-family: 'Inter', sans-serif;
   background: var(--bg-surface);
   outline: none;
   transition: border-color 0.2s;
 }
 
-.input:focus, .textarea:focus {
+.input:focus,
+.textarea:focus {
   border-color: #aaa;
 }
 
@@ -169,11 +182,11 @@ button { cursor: pointer; font-family: inherit; }
 }
 
 /* Custom File Input Styling */
-input[type="file"] {
+input[type='file'] {
   font-size: 0.9rem;
   color: var(--color-text-muted);
 }
-input[type="file"]::file-selector-button {
+input[type='file']::file-selector-button {
   margin-right: 1rem;
   padding: 0.4rem 0.8rem;
   border-radius: var(--radius-sm);
@@ -183,7 +196,7 @@ input[type="file"]::file-selector-button {
   transition: background 0.2s;
   font-family: inherit;
 }
-input[type="file"]::file-selector-button:hover {
+input[type='file']::file-selector-button:hover {
   background: var(--bg-hover);
 }
 
@@ -229,4 +242,37 @@ input[type="file"]::file-selector-button:hover {
   border-bottom-color: var(--color-accent-hover);
 }
 
+/* --- BUTTON SIZES --- */
+.btn-sm {
+  padding: 0.3rem 0.8rem;
+  font-size: 0.85rem;
+}
 
+.btn-lg {
+  padding: 0.8rem 2.5rem;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+}
+
+.btn-xs {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+}
+
+/* --- BUTTON VARIANTS --- */
+/* Replaces .link-btn and .link-btn-subtle */
+.btn-ghost {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-muted);
+}
+.btn-ghost:hover {
+  background: var(--bg-hover);
+  color: var(--color-primary);
+}
+.btn-ghost.danger:hover {
+  background: #fee2e2;
+  color: var(--color-danger);
+}

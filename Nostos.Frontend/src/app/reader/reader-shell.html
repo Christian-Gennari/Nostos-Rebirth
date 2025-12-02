@@ -24,12 +24,13 @@
 
       <div class="quick-note-form">
         <textarea
+          class="textarea"
           placeholder="Add a quick note for this page..."
           [(ngModel)]="quickNoteContent"
           (keydown.control.enter)="saveQuickNote()"
           rows="2"
         ></textarea>
-        <button class="btn btn-sm btn-primary full-width" (click)="saveQuickNote()">
+        <button class="btn btn-sm btn-primary" style="width: 100%" (click)="saveQuickNote()">
           Add Quick Note
         </button>
       </div>
@@ -55,14 +56,24 @@
             } @if (editingNoteId() !== note.id) { @if (note.content) {
             <div class="sidebar-comment">{{ note.content }}</div>
             } @else if (note.selectedText) {
-            <button class="link-btn-subtle" (click)="startEdit(note, $event)">+ Add comment</button>
+            <button class="btn btn-xs btn-ghost" (click)="startEdit(note, $event)">
+              + Add comment
+            </button>
             }
 
             <div class="card-actions">
-              <button class="icon-btn xs" (click)="startEdit(note, $event)">
+              <button
+                class="icon-btn"
+                style="width: 24px; height: 24px"
+                (click)="startEdit(note, $event)"
+              >
                 <lucide-icon [img]="EditIcon" [size]="14"></lucide-icon>
               </button>
-              <button class="icon-btn xs danger" (click)="deleteNote(note.id, $event)">
+              <button
+                class="icon-btn delete"
+                style="width: 24px; height: 24px"
+                (click)="deleteNote(note.id, $event)"
+              >
                 <lucide-icon [img]="DeleteIcon" [size]="14"></lucide-icon>
               </button>
             </div>
@@ -76,8 +87,12 @@
                 (click)="$event.stopPropagation()"
               ></textarea>
               <div class="edit-actions">
-                <button class="btn-xs btn-primary" (click)="saveEdit(note, $event)">Save</button>
-                <button class="btn-xs btn-ghost" (click)="cancelEdit($event)">Cancel</button>
+                <button class="btn btn-xs btn-primary" (click)="saveEdit(note, $event)">
+                  Save
+                </button>
+                <button class="btn btn-xs btn-secondary" (click)="cancelEdit($event)">
+                  Cancel
+                </button>
               </div>
             </div>
             }

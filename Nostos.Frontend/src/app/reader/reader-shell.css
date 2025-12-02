@@ -23,12 +23,12 @@
   flex: 1;
   display: flex;
   overflow: hidden;
-  position: relative; /* <--- REQUIRED: Anchors the absolute sidebar */
+  position: relative;
 }
 
 .reader-content {
   flex: 1;
-  position: relative; /* <--- CRITICAL: Anchors the absolute PDF reader */
+  position: relative;
   overflow: hidden;
   background: var(--bg-body);
   width: 100%;
@@ -56,15 +56,15 @@
   color: var(--color-text-light);
 }
 
-/* --- NOTES PANEL CONTAINER (UPDATED) --- */
+/* --- NOTES PANEL CONTAINER --- */
 .notes-panel {
-  position: absolute; /* <--- Overlay Mode */
+  position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
-  z-index: 50; /* Sits on top of the reader content */
+  z-index: 50;
 
-  width: 360px; /* Standard drawer width */
+  width: 360px;
   background: var(--bg-surface);
   border-left: 1px solid var(--border-color);
 
@@ -72,24 +72,20 @@
   flex-direction: column;
   overflow: hidden;
 
-  /* Smooth slide-in animation using Transform instead of Width */
   transform: translateX(0);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
-
-  /* Add shadow to separate it from the content underneath */
   box-shadow: -4px 0 15px rgba(0, 0, 0, 0.1);
 }
 
 .notes-panel.collapsed {
-  transform: translateX(100%); /* <--- Slides completely off-screen */
+  transform: translateX(100%);
   box-shadow: none;
 }
 
-/* Mobile Responsive Adjustments */
 @media (max-width: 768px) {
   .notes-panel {
-    width: 100%; /* Full width on mobile */
-    max-width: 400px; /* Cap it for larger phones/small tablets */
+    width: 100%;
+    max-width: 400px;
   }
 }
 
@@ -117,11 +113,12 @@
   background: var(--bg-body);
 }
 
+/* Note: Consider replacing this with global .textarea class in HTML */
 .quick-note-form textarea {
   width: 100%;
   padding: 0.75rem;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--bg-surface);
   color: var(--color-text-main);
   font-family: 'Inter', sans-serif;
@@ -129,7 +126,6 @@
   resize: none;
   margin-bottom: 0.5rem;
   display: block;
-  box-sizing: border-box;
 }
 
 .quick-note-form textarea:focus {
@@ -152,17 +148,16 @@
   margin-bottom: 0.5rem;
   background: var(--bg-surface);
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .sidebar-note-card:hover {
-  background: var(--bg-card-hover, #f5f5f5);
+  background: var(--bg-hover);
   border-color: var(--border-color);
 }
 
-/* Editing State for Card */
 .sidebar-note-card.editing {
   background: var(--bg-body);
   border-color: var(--color-primary);
@@ -203,13 +198,6 @@
   line-height: 1.4;
 }
 
-.sidebar-meta {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
 .empty-state {
   padding: 2rem;
   text-align: center;
@@ -218,7 +206,7 @@
   font-size: 0.9rem;
 }
 
-/* --- HOVER ACTIONS (Edit/Delete) --- */
+/* --- HOVER ACTIONS --- */
 .card-actions {
   position: absolute;
   top: 0.5rem;
@@ -253,12 +241,11 @@
   padding: 0.5rem;
   font-size: 0.85rem;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: var(--bg-body);
   color: var(--color-text-main);
   resize: vertical;
   font-family: 'Inter', sans-serif;
-  box-sizing: border-box;
 }
 
 .edit-textarea:focus {
@@ -272,55 +259,9 @@
   margin-top: 0.5rem;
 }
 
-/* --- BUTTON UTILITIES --- */
+/* --- UTILITIES --- */
 .full-width {
   width: 100%;
-}
-
-.btn-xs {
-  padding: 0.25rem 0.75rem;
-  font-size: 0.75rem;
-  border-radius: 4px;
-  cursor: pointer;
-  border: none;
-  font-weight: 500;
-  transition: background 0.2s;
-}
-
-.btn-xs.btn-primary {
-  background: var(--color-text-main);
-  color: var(--bg-body);
-}
-
-.btn-xs.btn-primary:hover {
-  opacity: 0.9;
-}
-
-.btn-xs.btn-ghost {
-  background: transparent;
-  color: var(--color-text-muted);
-}
-
-.btn-xs.btn-ghost:hover {
-  background: var(--bg-card-hover);
-  color: var(--color-text-main);
-}
-
-.link-btn-subtle {
-  background: none;
-  border: none;
-  color: var(--color-primary);
-  font-size: 0.8rem;
-  cursor: pointer;
-  padding: 0;
-  margin-top: 0.25rem;
-  text-decoration: underline;
-  opacity: 0.8;
-  display: inline-block;
-}
-
-.link-btn-subtle:hover {
-  opacity: 1;
 }
 
 /* --- STATE ELEMENTS --- */
