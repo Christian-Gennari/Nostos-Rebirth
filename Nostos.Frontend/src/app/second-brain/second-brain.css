@@ -197,6 +197,7 @@
 
 .concept-title {
   font-family: 'Lora', serif;
+  font-weight: 600;
   font-size: 3rem;
   color: var(--color-primary);
   margin: 0 0 0.5rem 0;
@@ -282,8 +283,7 @@
   padding-right: 1.25rem;
   font-family: 'Lora', serif;
   font-style:italic;
-  /* Use a subtle color for the quote text, like a muted gray */
-  color: var(--color-text-muted);
+
   font-size: 1rem;
   margin: 0.25rem 0; /* Slight vertical margin inside the block */
   line-height: 1.7; /* Spacious line height */

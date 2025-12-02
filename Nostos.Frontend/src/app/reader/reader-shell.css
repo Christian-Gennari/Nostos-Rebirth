@@ -216,8 +216,8 @@
   opacity: 0;
   transition: opacity 0.2s;
   background: var(--bg-surface);
-  padding-left: 0.5rem;
   border-radius: 4px;
+  padding: 4px;
 }
 
 .sidebar-note-card:hover .card-actions {
@@ -227,7 +227,6 @@
 .card-actions .icon-btn.xs {
   width: 24px;
   height: 24px;
-  padding: 4px;
 }
 
 /* --- EDIT MODE --- */

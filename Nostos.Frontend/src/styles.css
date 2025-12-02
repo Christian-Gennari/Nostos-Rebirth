@@ -128,12 +128,11 @@ button {
 }
 
 .icon-btn {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--color-text-muted);
+  all: unset;
+  cursor: pointer;
+  background: white;
   width: 32px;
   height: 32px;
-  border-radius: var(--radius-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -146,14 +145,10 @@ button {
 }
 
 .icon-btn.delete:hover {
-  background: #fee2e2;
   color: var(--color-danger);
 }
 
-.icon-btn.bordered {
-  background: var(--bg-surface);
-  border-color: var(--border-color);
-}
+
 
 /* ------------------------------
    FORMS & INPUTS

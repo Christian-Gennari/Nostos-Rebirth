@@ -344,13 +344,13 @@
 }
 
 .note-hover-actions {
+  border-radius: var(--radius-md);
+box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   position: absolute;
   top: 0.5rem;
   right: 0;
   opacity: 0;
   transition: opacity 0.2s;
-  background: var(--bg-body);
-  padding-left: 0.5rem;
 }
 
 .note-row:hover .note-hover-actions {
@@ -377,15 +377,14 @@
   display: flex;
   gap: 0.75rem;
   margin-bottom: 0.5rem;
-  background: var(--bg-hover);
   padding: 0.75rem;
   border-radius: 4px;
 }
 
 .quote-stripe {
-  width: 4px;
-  background-color: #ffff004d;
-  border-radius: 2px;
+  width: 3px;
+  background-color: var(--color-text-muted);
+  border-radius: 1px;
   flex-shrink: 0;
 }
 
@@ -396,14 +395,6 @@
   font-size: 0.95rem;
   margin: 0;
   line-height: 1.5;
-}
-
-.highlight-context {
-  border-left: 3px solid #ccc;
-  padding-left: 1rem;
-  color: #666;
-  font-style: italic;
-  margin-bottom: 0.5rem;
 }
 
 .note-meta-placeholder {
