@@ -80,6 +80,11 @@ export class AudioReader implements OnDestroy {
       onend: () => {
         this.isPlaying.set(false);
         this.stopProgressTracking();
+
+        // [FIX] Force update to 100% when audio finishes
+        const duration = this.duration();
+        this.currentTime.set(duration);
+        this.progressSubject.next({ timestamp: duration, percent: 100 });
       },
     });
   }
@@ -126,8 +131,12 @@ export class AudioReader implements OnDestroy {
       const seek = (this.player?.seek() as number) || 0;
       this.currentTime.set(seek);
 
-      const percent = Math.floor((seek / this.duration()) * 100);
-      this.progressSubject.next({ timestamp: seek, percent });
+      // [FIX] Ensure duration is > 0 to avoid Infinity/NaN
+      const duration = this.duration();
+      if (duration > 0) {
+        const percent = Math.floor((seek / duration) * 100);
+        this.progressSubject.next({ timestamp: seek, percent });
+      }
     }, 1000);
   }
 

@@ -30,8 +30,6 @@ import { BooksService } from '../../services/books.services';
 })
 export class EpubReader implements OnInit, OnDestroy {
   bookId = input.required<string>();
-
-  // Event emitted when a new highlight is created
   noteCreated = output<void>();
 
   private http = inject(HttpClient);
@@ -44,9 +42,10 @@ export class EpubReader implements OnInit, OnDestroy {
   private rendition: Rendition | null = null;
   private annotationManager: EpubAnnotationManager | null = null;
 
-  // Subjects for managing events
-  private progressUpdater$ = new Subject<{ location: string; percentage: number }>();
+  // [FIX] Track the current CFI so we can update percentage after generation finishes
+  private currentCfi: string | null = null;
 
+  private progressUpdater$ = new Subject<{ location: string; percentage: number }>();
   private resizeSubject$ = new Subject<void>();
   private resizeObserver: ResizeObserver | null = null;
 
@@ -61,13 +60,9 @@ export class EpubReader implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    // --- FIX: Correctly resize the inner viewer element ---
     this.resizeSubject$.pipe(debounceTime(350)).subscribe(() => {
       if (this.rendition) {
-        // Grab the specific element epub.js is rendering into (#epub-viewer)
-        // This element has CSS rules (like width: 80%) that we must respect.
         const viewerContainer = this.elementRef.nativeElement.querySelector('#epub-viewer');
-
         if (viewerContainer) {
           const { clientWidth, clientHeight } = viewerContainer;
           this.rendition.resize(clientWidth, clientHeight);
@@ -79,13 +74,14 @@ export class EpubReader implements OnInit, OnDestroy {
       this.resizeSubject$.next();
     });
     this.resizeObserver.observe(this.elementRef.nativeElement);
-    // ------------------------------------------------------
 
-    // Setup progress saver
+    // [FIX] Updated distinctUntilChanged to allow updates if percentage changes (e.g., 0% -> 5% on same page)
     this.progressUpdater$
       .pipe(
         debounceTime(1000),
-        distinctUntilChanged((prev, curr) => prev.location === curr.location)
+        distinctUntilChanged(
+          (prev, curr) => prev.location === curr.location && prev.percentage === curr.percentage
+        )
       )
       .subscribe((data) => {
         this.booksService.updateProgress(this.bookId(), data.location, data.percentage).subscribe();
@@ -98,6 +94,7 @@ export class EpubReader implements OnInit, OnDestroy {
       this.book = null;
       this.rendition = null;
       this.annotationManager = null;
+      this.currentCfi = null;
     }
 
     this.loading.set(true);
@@ -107,6 +104,23 @@ export class EpubReader implements OnInit, OnDestroy {
       next: (arrayBuffer) => {
         this.book = ePub(arrayBuffer);
 
+        // --- FIX: Wait for location generation to finish ---
+        this.book.ready
+          .then(() => {
+            // 1. Start generation (async)
+            return this.book?.locations.generate(1000);
+          })
+          .then(() => {
+            // 2. Generation Complete: Recalculate percentage for current page
+            // This fixes the issue where it stays at 0% initially
+            if (this.currentCfi && this.book) {
+              const percentage = this.book.locations.percentageFromCfi(this.currentCfi);
+              const percentInt = Math.floor(percentage * 100);
+              this.progressUpdater$.next({ location: this.currentCfi, percentage: percentInt });
+            }
+          })
+          .catch((err) => console.error('Location generation failed:', err));
+
         this.rendition = this.book.renderTo('epub-viewer', {
           width: '100%',
           height: '100%',
@@ -114,7 +128,6 @@ export class EpubReader implements OnInit, OnDestroy {
           manager: 'default',
         });
 
-        // Initialize Annotation Manager
         this.annotationManager = new EpubAnnotationManager(this.rendition, id, this.injector, () =>
           this.noteCreated.emit()
         );
@@ -135,7 +148,6 @@ export class EpubReader implements OnInit, OnDestroy {
           this.applyTheme();
           this.annotationManager?.init();
 
-          // 1. Restore Reading Position
           this.booksService.get(id).subscribe((b) => {
             if (b.lastLocation) {
               this.rendition?.display(b.lastLocation);
@@ -144,7 +156,6 @@ export class EpubReader implements OnInit, OnDestroy {
             }
           });
 
-          // 2. Restore Highlights
           this.notesService.list(id).subscribe({
             next: (notes) => {
               this.annotationManager?.restoreHighlights(notes);
@@ -156,7 +167,21 @@ export class EpubReader implements OnInit, OnDestroy {
         // Track Location Changes
         this.rendition.on('relocated', (location: any) => {
           const cfi = location.start.cfi;
-          const percent = Math.floor(location.start.percentage * 100);
+          this.currentCfi = cfi; // Update current tracked CFI
+
+          let percent = 0;
+
+          // [FIX] Try to get precise percentage from generated locations first
+          // This will work after the generation promise resolves
+          if (this.book && (this.book.locations as any).length() > 0) {
+            const val = this.book.locations.percentageFromCfi(cfi);
+            percent = Math.floor(val * 100);
+          }
+          // Fallback if locations aren't ready yet
+          else if (location.start.percentage) {
+            percent = Math.floor(location.start.percentage * 100);
+          }
+
           this.progressUpdater$.next({ location: cfi, percentage: percent });
         });
       },
