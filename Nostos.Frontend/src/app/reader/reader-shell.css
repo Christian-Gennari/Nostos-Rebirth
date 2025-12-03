@@ -1,3 +1,5 @@
+/* src/app/reader/reader-shell.css */
+
 /* =========================================
    1. CORE LAYOUT & ANIMATIONS
    ========================================= */
@@ -7,14 +9,14 @@
   width: 100vw;
   overflow: hidden;
   --toolbar-height: 60px;
-  --panel-width: 360px;
+  --panel-width: 380px; /* Slightly wider for better reading of notes */
 }
 
 .reader-layout {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: var(--bg-body, #fdfbf7);
+  background-color: var(--bg-body);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -50,32 +52,39 @@
   top: 0;
   bottom: 0;
   width: var(--panel-width);
-  background: var(--bg-surface, #ffffff);
+  background: var(--bg-surface);
   z-index: 20;
-  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+
+  /* Smooth Slide Animation */
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s 0.3s;
 }
 
 .toc-panel {
   left: 0;
+  border-right: 1px solid var(--border-color);
   transform: translateX(-100%);
-  border-right: 1px solid var(--border-color, #e5e5e5);
+  visibility: hidden;
 }
 
 .toc-panel.open {
   transform: translateX(0);
+  visibility: visible;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .notes-panel {
   right: 0;
-  border-left: 1px solid var(--border-color, #e5e5e5);
+  border-left: 1px solid var(--border-color);
+  transform: translateX(0); /* Default Open State logic handled by class below */
 }
 
+/* Logic: .collapsed means HIDDEN */
 .notes-panel.collapsed {
-  display: none;
-  box-shadow: none;
+  transform: translateX(100%);
+  visibility: hidden;
 }
 
 @media (max-width: 768px) {
@@ -91,8 +100,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 1rem;
-  border-bottom: 1px solid var(--border-color, #eee);
+  padding: 0 1.5rem;
+  border-bottom: 1px solid var(--border-color);
   background: var(--bg-surface);
   flex-shrink: 0;
 }
@@ -100,9 +109,11 @@
 .panel-header h3,
 .notes-header h3 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  font-family: 'Lora', serif;
+  font-family: 'Inter', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--color-text-main);
 }
 
@@ -112,168 +123,43 @@
 
 /* Quick Note Area */
 .quick-note {
-  padding: 1rem;
+  padding: 1.5rem;
   border-bottom: 1px solid var(--border-color);
-  background: var(--bg-body);
+  background: var(--bg-body); /* Distinguish from list */
   flex-shrink: 0;
 }
 
-.quick-note .input-wrapper textarea {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md, 6px);
+/* Wrapper for ConceptInput to look like a box */
+.quick-note .input-wrapper {
   background: var(--bg-surface);
-  color: var(--color-text-main);
-  font-family: 'Inter', sans-serif;
-  font-size: 0.9rem;
-  resize: none;
-  display: block;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.5rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.quick-note .input-wrapper textarea:focus {
-  outline: 2px solid var(--color-primary);
-  border-color: transparent;
+.quick-note .input-wrapper:focus-within {
+  border-color: #aaa;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .quick-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-
-/* Common Button Styles */
-.btn-primary.small {
-  padding: 6px 12px;
-  font-size: 0.85rem;
-  background-color: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.btn-primary.small:disabled {
-  background-color: var(--color-text-muted);
-  cursor: not-allowed;
-}
-
-.text-btn.small {
-  background: none;
-  border: none;
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-}
-
-.text-btn.small:hover {
-  color: var(--color-primary);
+  gap: 0.75rem;
+  margin-top: 0.75rem;
 }
 
 /* Notes List */
 .notes-list {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-}
-
-.note-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-light, #eee);
-  border-radius: var(--radius-md, 6px);
-  padding: 1rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.note-card:hover {
-  background: var(--bg-hover, #f9f9f9);
-  border-color: var(--border-color);
-}
-
-.note-card.editing {
-  border-color: var(--color-primary);
-  background: var(--bg-subtle, #fdfbf7);
-  cursor: default;
-}
-
-/* Note Elements */
-.note-quote {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-  padding-left: 0.25rem;
-}
-
-.quote-icon {
-  flex-shrink: 0;
-  color: var(--color-primary);
-  margin-top: 2px;
-}
-
-.note-quote p {
-  margin: 0;
-  font-family: 'Lora', serif;
-  font-style: italic;
-  font-size: 0.95rem;
-  line-height: 1.5;
-  border-left: 2px solid var(--color-primary);
-  padding-left: 0.5rem;
-  color: var(--color-text-main);
-}
-
-.note-content {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.9rem;
-  color: var(--color-text-main);
-  line-height: 1.5;
-  margin-bottom: 0.75rem;
-}
-
-.note-content.placeholder {
-  color: var(--color-text-muted);
-  font-style: italic;
-  font-size: 0.85rem;
-}
-
-.note-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--border-light, #f0f0f0);
-}
-
-.note-date {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-}
-
-/* Edit Box */
-.edit-box textarea {
-  width: 100%;
-  padding: 0.5rem;
-  font-size: 0.9rem;
-  font-family: 'Inter', sans-serif;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: #fff;
-  resize: vertical;
-}
-
-.edit-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+  gap: 1rem;
+  background-color: var(--bg-surface);
 }
 
 /* Empty State */
@@ -282,18 +168,20 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3rem 1rem;
+  padding: 4rem 1rem;
   color: var(--color-text-muted);
   text-align: center;
 }
 
 .empty-state p {
-  margin: 0.5rem 0 0.25rem 0;
+  margin: 1rem 0 0.5rem 0;
   font-weight: 500;
+  color: var(--color-text-main);
 }
 
 .empty-state small {
   font-size: 0.85rem;
+  opacity: 0.8;
 }
 
 /* =========================================
@@ -306,33 +194,32 @@
 }
 
 .toc-item {
-  padding: 0.75rem;
-  border-bottom: 1px solid var(--border-light, #f0f0f0);
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--bg-hover);
   cursor: pointer;
   font-family: 'Inter', sans-serif;
   font-size: 0.95rem;
-  border-radius: 6px;
-  transition: background 0.2s;
   color: var(--color-text-main);
+  border-radius: var(--radius-sm);
+  transition: background 0.2s, color 0.2s;
 }
 
 .toc-item:hover {
-  background-color: var(--bg-hover, #f5f5f5);
+  background-color: var(--bg-hover);
+  color: var(--color-primary);
 }
-
 /* =========================================
    5. UNIFIED TOOLBAR
    ========================================= */
 .reader-toolbar {
   height: var(--toolbar-height);
-  background: var(--bg-surface, #ffffff);
-  border-top: 1px solid var(--border-color, #e5e5e5);
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 1rem;
+  padding: 0 1.5rem;
   z-index: 30;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.02);
 }
 
 .toolbar-left,
@@ -350,50 +237,49 @@
 
 .progress-display {
   display: flex;
-  background: var(--bg-subtle, #f3f4f6);
-  gap: 6px;
-  padding: 0.4rem 1rem;
-  border-radius: 20px;
-  font-size: 0.9rem;
+  align-items: center;
+  justify-content: center;
+  background: transparent; /* Removed grey background for cleaner look */
+  border: 1px solid var(--border-color); /* Added subtle border instead */
+  gap: 8px;
+  padding: 0.3rem 1rem;
+  border-radius: var(--radius-md); /* Match button radius */
+  font-size: 0.85rem;
   font-weight: 500;
   min-width: 140px;
-  text-align: center;
-  color: var(--color-text-main, #333);
+  color: var(--color-text-main);
   font-variant-numeric: tabular-nums;
 }
 
-.icon-btn {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 50%;
-  color: var(--color-text-muted, #666);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
+/* =========================================
+   ICON BUTTON OVERRIDES
+   Matches src/styles.css .icon-btn
+   ========================================= */
 
 .icon-btn:hover {
-  background-color: var(--bg-hover, #f0f0f0);
-  color: var(--color-primary, #000);
+  background-color: var(--bg-hover);
+  color: var(--color-primary);
+  border-color: var(--border-color); /* Optional: distinct hover boundary */
 }
 
+/* Active State (e.g. Notes toggled ON) */
 .icon-btn.active {
-  background-color: var(--bg-active, #eef2ff);
-  color: var(--color-primary, #4f46e5);
+  background-color: var(--bg-surface);
+  color: var(--color-primary);
+  border-color: var(--color-primary); /* Brand highlight */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.icon-btn.delete:hover {
-  color: #ef4444;
-  background-color: #fef2f2;
-}
-
+/* Specific overrides for size if needed */
 .icon-btn.xs {
-  padding: 4px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
 }
 
+/* =========================================
+   6. UTILITIES
+   ========================================= */
 .loading,
 .error {
   display: flex;
@@ -405,11 +291,7 @@
   font-style: italic;
 }
 
-/* ------------------------------
-   CUSTOM TOOLTIP STYLES
-   Matches add-book-modal.css
------------------------------- */
-
+/* Tooltips */
 .info-tooltip {
   position: relative;
   top: 1px;
@@ -417,30 +299,27 @@
   align-items: center;
   justify-content: center;
   cursor: help;
-  color: var(--color-text-muted, #888);
+  color: var(--color-text-muted);
   transition: color 0.2s;
 }
 
 .info-tooltip:hover {
-  color: var(--color-primary, #000);
+  color: var(--color-primary);
 }
 
 .tooltip-text {
   visibility: hidden;
   opacity: 0;
   width: 140px;
-  background-color: #333;
+  background-color: var(--color-primary);
   color: #fff;
   text-align: center;
   border-radius: 6px;
   padding: 8px;
   font-size: 0.75rem;
-  line-height: 1.4;
   font-weight: normal;
-
-  /* Position: ABOVE the icon */
   position: absolute;
-  bottom: 145%; /* Pushes it up */
+  bottom: 145%;
   left: 50%;
   transform: translateX(-50%);
   z-index: 100;
@@ -449,21 +328,25 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-/* Arrow (Pointing Down) */
 .tooltip-text::after {
   content: '';
   position: absolute;
-  top: 100%; /* At the bottom of the tooltip box */
+  top: 100%;
   left: 50%;
   margin-left: -5px;
   border-width: 5px;
   border-style: solid;
-  /* Top border colored = Triangle pointing down */
-  border-color: #333 transparent transparent transparent;
+  border-color: var(--color-primary) transparent transparent transparent;
 }
 
 .info-tooltip:hover .tooltip-text {
   visibility: visible;
   opacity: 1;
-  bottom: 160%; /* Subtle slide-up animation */
+  bottom: 160%;
+}
+
+#add-timestamp-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

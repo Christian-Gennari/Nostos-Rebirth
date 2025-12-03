@@ -55,12 +55,13 @@
         </div>
         <div class="quick-actions">
           @if (fileType() === 'audio') {
-          <button class="text-btn small" (click)="addAudioTimestamp()">
-            <lucide-icon [img]="Icons.Clock" [size]="14"></lucide-icon> Timestamp
+          <button class="btn btn-secondary" (click)="addAudioTimestamp()">
+            <lucide-icon id="add-timestamp-icon" [img]="Icons.Clock" [size]="14"></lucide-icon>
+            Timestamp
           </button>
           }
           <button
-            class="btn-primary small"
+            class="btn btn-primary"
             (click)="saveQuickNote()"
             [disabled]="!quickNoteContent()"
           >
