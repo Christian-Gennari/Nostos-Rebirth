@@ -1,26 +1,22 @@
 import { Injectable } from '@angular/core';
 
 export interface HighlightRect {
-  left: number; // Percentage (0-1)
-  top: number; // Percentage (0-1)
-  width: number; // Percentage (0-1)
-  height: number; // Percentage (0-1)
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 }
 
 export interface PageHighlight {
   pageNumber: number;
   rects: HighlightRect[];
-  id?: string; // Optional: to link back to a note ID
+  id?: string;
 }
 
 @Injectable({
   providedIn: 'root',
 })
 export class PdfAnnotationManager {
-  /**
-   * Creates a transparent overlay layer on top of the text layer
-   * and paints the provided highlights into it.
-   */
   paint(textLayerDiv: HTMLElement, highlights: PageHighlight[]) {
     let highlightLayer = textLayerDiv.querySelector('.custom-highlight-layer') as HTMLElement;
 
@@ -33,6 +29,13 @@ export class PdfAnnotationManager {
     }
 
     highlights.forEach((h) => {
+      // --- NEW: Create a group container for this specific note ---
+      const group = document.createElement('div');
+      group.className = 'highlight-group';
+
+      // We can attach the ID here for easier lookup later
+      if (h.id) group.setAttribute('data-note-id', h.id);
+
       h.rects.forEach((rect) => {
         const div = document.createElement('div');
         div.className = 'highlight-box';
@@ -40,16 +43,14 @@ export class PdfAnnotationManager {
         div.style.top = `${rect.top * 100}%`;
         div.style.width = `${rect.width * 100}%`;
         div.style.height = `${rect.height * 100}%`;
-        highlightLayer.appendChild(div);
+        group.appendChild(div);
       });
+
+      highlightLayer.appendChild(group);
     });
   }
 
-  /**
-   * Capture a text highlight (selected text + highlight rectangles).
-   * Returns null if no valid text was selected.
-   * Mirrors EPUB highlight behavior.
-   */
+  // ... (Keep the captureHighlight and captureNoteLocation methods exactly as they were before) ...
   captureHighlight(): {
     pageNumber: number;
     rects: HighlightRect[];
@@ -78,6 +79,8 @@ export class PdfAnnotationManager {
       height: r.height / pageRect.height,
     }));
 
+    selection.removeAllRanges();
+
     return {
       pageNumber,
       rects,
@@ -85,11 +88,6 @@ export class PdfAnnotationManager {
     };
   }
 
-  /**
-   * Capture a note location even when NO TEXT is selected.
-   * Returns a stable pageNumber + Y-position (percent).
-   * Mirrors EPUB behavior of always providing a cfiRange.
-   */
   captureNoteLocation(): {
     pageNumber: number;
     yPercent: number;
@@ -100,7 +98,6 @@ export class PdfAnnotationManager {
     }
 
     const range = selection.getRangeAt(0);
-
     const textLayer = this.getClosestTextLayer(range.startContainer);
     if (!textLayer) return null;
 
@@ -109,18 +106,10 @@ export class PdfAnnotationManager {
 
     const pageRect = textLayer.getBoundingClientRect();
     const rect = range.getBoundingClientRect();
-
     const yPercent = (rect.top - pageRect.top) / pageRect.height;
 
-    return {
-      pageNumber,
-      yPercent,
-    };
+    return { pageNumber, yPercent };
   }
-
-  // -----------------------------------------------------------
-  // Helper functions
-  // -----------------------------------------------------------
 
   private getClosestTextLayer(node: Node): HTMLElement | null {
     let current: Node | null = node;

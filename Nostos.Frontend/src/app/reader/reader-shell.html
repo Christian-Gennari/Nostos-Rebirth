@@ -4,9 +4,12 @@
       @if (loading()) {
       <div class="loading">Loading book...</div>
       } @else { @switch (fileType()) { @case ('pdf') {
-      <app-pdf-reader [bookId]="book()!.id" (noteCreated)="handleNoteCreated()" /> } @case ('epub')
-      { <app-epub-reader [bookId]="book()!.id" (noteCreated)="handleNoteCreated()" /> } @case
-      ('audio') { <app-audio-reader [bookId]="book()!.id" /> } @default {
+      <app-pdf-reader [bookId]="book()!.id" (noteCreated)="handleNoteCreated()" />
+      } @case ('epub') {
+      <app-epub-reader [bookId]="book()!.id" (noteCreated)="handleNoteCreated()" />
+      } @case ('audio') {
+      <app-audio-reader [bookId]="book()!.id" />
+      } @default {
       <div class="error">Unsupported file format.</div>
       } } }
     </main>
@@ -31,10 +34,91 @@
 
     <aside class="notes-panel" [class.collapsed]="!notesOpen()">
       <div class="notes-header">
-        <h3>Notes</h3>
+        <h3>Notes & Highlights</h3>
         <button class="icon-btn" (click)="toggleNotes()">
           <lucide-icon [img]="Icons.Close" [size]="20"></lucide-icon>
         </button>
+      </div>
+
+      <div class="quick-note">
+        <div class="input-wrapper">
+          <textarea
+            [(ngModel)]="quickNoteContent"
+            placeholder="Add a quick note..."
+            rows="2"
+          ></textarea>
+        </div>
+        <div class="quick-actions">
+          @if (fileType() === 'audio') {
+          <button class="text-btn small" (click)="addAudioTimestamp()">
+            <lucide-icon [img]="Icons.Clock" [size]="14"></lucide-icon> Timestamp
+          </button>
+          }
+          <button
+            class="btn-primary small"
+            (click)="saveQuickNote()"
+            [disabled]="!quickNoteContent()"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+
+      <div class="notes-list">
+        @for (note of dbNotes(); track note.id) {
+        <div
+          class="note-card"
+          (click)="jumpToNote(note)"
+          [class.editing]="editingNoteId() === note.id"
+        >
+          @if (note.selectedText) {
+          <div class="note-quote">
+            <lucide-icon
+              [img]="Icons.MessageSquareQuote"
+              [size]="14"
+              class="quote-icon"
+            ></lucide-icon>
+            <p>"{{ note.selectedText }}"</p>
+          </div>
+          } @if (editingNoteId() === note.id) {
+          <div class="edit-box" (click)="$event.stopPropagation()">
+            <textarea [(ngModel)]="editContent" rows="3"></textarea>
+            <div class="edit-actions">
+              <button class="icon-btn small" (click)="saveEdit(note, $event)">
+                <lucide-icon [img]="Icons.Check" [size]="16"></lucide-icon>
+              </button>
+              <button class="icon-btn small" (click)="cancelEdit($event)">
+                <lucide-icon [img]="Icons.Close" [size]="16"></lucide-icon>
+              </button>
+            </div>
+          </div>
+          } @else { @if (note.content) {
+          <div class="note-content">
+            {{ note.content }}
+          </div>
+          } @else {
+          <div class="note-content placeholder">No additional comment.</div>
+          } }
+
+          <div class="note-footer">
+            <span class="note-date">{{ note.createdAt | date : 'short' }}</span>
+            <div class="note-actions">
+              <button class="icon-btn xs" (click)="startEdit(note, $event)">
+                <lucide-icon [img]="Icons.Edit" [size]="14"></lucide-icon>
+              </button>
+              <button class="icon-btn xs delete" (click)="deleteNote(note.id, $event)">
+                <lucide-icon [img]="Icons.Delete" [size]="14"></lucide-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+        } @empty {
+        <div class="empty-state">
+          <lucide-icon [img]="Icons.StickyNote" [size]="48"></lucide-icon>
+          <p>No notes yet.</p>
+          <small>Highlight text or use the box above to add one.</small>
+        </div>
+        }
       </div>
     </aside>
   </div>

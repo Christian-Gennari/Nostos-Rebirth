@@ -1,16 +1,16 @@
-// Nostos.Frontend/src/app/dtos/note.dtos.ts
 export interface Note {
   id: string;
   bookId: string;
   content: string;
-  cfiRange?: string; // <--- NEW
-  selectedText?: string; // <--- NEW
+  cfiRange?: string;
+  selectedText?: string;
+  createdAt: string; // <--- ADD THIS (Dates come as ISO strings from JSON)
 }
 
 export interface CreateNoteDto {
   content: string;
-  cfiRange?: string; // <--- NEW
-  selectedText?: string; // <--- NEW
+  cfiRange?: string;
+  selectedText?: string;
 }
 
 export interface UpdateNoteDto {

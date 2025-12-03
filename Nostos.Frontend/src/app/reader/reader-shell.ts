@@ -1,13 +1,4 @@
-import {
-  Component,
-  inject,
-  OnInit,
-  signal,
-  computed,
-  ViewChild,
-  EffectRef,
-  effect,
-} from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -27,6 +18,8 @@ import {
   ZoomOut,
   ChevronLeft,
   ChevronRight,
+  Save,
+  Plus,
 } from 'lucide-angular';
 import { BooksService } from '../services/books.services';
 import { NotesService } from '../services/notes.services';
@@ -72,12 +65,16 @@ export class ReaderShell implements OnInit {
     ZoomOut,
     Prev: ChevronLeft,
     Next: ChevronRight,
+    Save,
+    Plus,
   };
 
   book = signal<any>(null);
   loading = signal(true);
   notesOpen = signal(false);
-  tocOpen = signal(false); // New State for TOC Drawer
+  tocOpen = signal(false);
+
+  // Controls when the view is stable enough to access ViewChildren
   ready = signal(false);
 
   // Data
@@ -103,8 +100,10 @@ export class ReaderShell implements OnInit {
 
   // 1. Determine Active Reader Implementation
   activeReader = computed<IReader | null>(() => {
-    // We rely on the ViewChild being available after view init
-    // The specific components (EpubReader etc) must implement IReader
+    // CRITICAL FIX: Depend on 'ready' signal.
+    // This ensures the computation re-runs after the view is initialized and ViewChildren are available.
+    if (!this.ready()) return null;
+
     switch (this.fileType()) {
       case 'epub':
         return this.epubReader ?? null;
@@ -137,7 +136,7 @@ export class ReaderShell implements OnInit {
 
   handleTocClick(item: TocItem) {
     this.activeReader()?.goTo(item.target);
-    this.tocOpen.set(false); // Close drawer on selection
+    this.tocOpen.set(false);
   }
 
   // --- INITIALIZATION ---
@@ -150,8 +149,9 @@ export class ReaderShell implements OnInit {
           this.book.set(b);
           this.loading.set(false);
           this.loadNotes(b.id);
-          // Small delay to ensure ViewChildren are attached
-          setTimeout(() => this.ready.set(true), 0);
+
+          // Allow time for *ngSwitch to render the child component
+          setTimeout(() => this.ready.set(true), 100);
         },
         error: () => this.loading.set(false),
       });
@@ -182,21 +182,21 @@ export class ReaderShell implements OnInit {
     if (this.tocOpen()) this.notesOpen.set(false);
   }
 
-  // --- NOTES LOGIC (Refactored) ---
+  // --- NOTES LOGIC ---
 
   addAudioTimestamp() {
+    // Only relevant for audio, injects current timestamp into the quick note input
     if (this.fileType() !== 'audio' || !this.activeReader()) return;
 
-    // We cast to any or specific type if we need specific methods not in interface,
-    // but better to add 'getCurrentTimeLabel' to interface if needed universally.
-    // For now, let's assume we can get it from the label or specific reader.
-    const reader = this.audioReader as any;
-    if (reader && reader.formatTime) {
-      const time = reader.currentTime();
-      const formatted = reader.formatTime(time);
+    // Attempt to get formatted time from ReaderProgress or cast to specific reader
+    // A simpler approach for now using the progress label if available:
+    const label = this.activeReader()?.progress().label;
+    if (label) {
+      // label is "05:20 / 14:00", we just want "05:20"
+      const currentTime = label.split(' / ')[0];
       this.quickNoteContent.update((current) => {
         const prefix = current.length > 0 ? ' ' : '';
-        return current + prefix + `[${formatted}] `;
+        return current + prefix + `[${currentTime}] `;
       });
     }
   }
@@ -207,7 +207,6 @@ export class ReaderShell implements OnInit {
     const bookId = this.book()?.id;
     if (!bookId) return;
 
-    // Unified Location Retrieval
     const currentCfi = this.activeReader()?.getCurrentLocation() || undefined;
 
     this.notesService.create(bookId, { content, cfiRange: currentCfi }).subscribe({
@@ -251,8 +250,6 @@ export class ReaderShell implements OnInit {
 
     this.notesService.delete(noteId).subscribe({
       next: () => {
-        // Specific cleanup can be moved to IReader.removeHighlight(id) eventually
-        // For now, we still check types for specific cleanup methods
         if (this.fileType() === 'epub')
           (this.epubReader as any)?.deleteHighlight(noteToDelete?.cfiRange);
         if (this.fileType() === 'pdf') (this.pdfReader as any)?.removeHighlight(noteId);
@@ -268,12 +265,8 @@ export class ReaderShell implements OnInit {
     const reader = this.activeReader();
     if (!reader) return;
 
-    // We can keep the prompt logic here or move it to a helper
-    // Simplified prompt for brevity in this refactor
-    const message = `Jump to location?`;
-    if (confirm(message)) {
-      reader.goTo(note.cfiRange);
-    }
+    // Direct navigation without prompt for smoother UX, or keep prompt if preferred
+    reader.goTo(note.cfiRange);
   }
 
   goBack() {

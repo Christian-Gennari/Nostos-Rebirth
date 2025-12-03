@@ -77,13 +77,14 @@ public static class MappingExtensions
     }
 
     public static NoteDto ToDto(this NoteModel model) =>
-        new NoteDto(
-            Id: model.Id,
-            BookId: model.BookId,
-            Content: model.Content,
-            CfiRange: model.CfiRange,
-            SelectedText: model.SelectedText
-        );
+            new NoteDto(
+                Id: model.Id,
+                BookId: model.BookId,
+                Content: model.Content,
+                CfiRange: model.CfiRange,
+                SelectedText: model.SelectedText,
+                CreatedAt: model.CreatedAt // <--- ADD THIS
+            );
 
     public static CollectionDto ToDto(this CollectionModel model) =>
         new CollectionDto(model.Id, model.Name);
