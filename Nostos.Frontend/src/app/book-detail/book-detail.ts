@@ -1,13 +1,24 @@
 import { Component, inject, OnInit, signal, model } from '@angular/core';
 import { ActivatedRoute, RouterLink, Router } from '@angular/router';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { HttpEventType } from '@angular/common/http';
+
+// Services & DTOs
 import { BooksService, Book } from '../services/books.services';
 import { NotesService } from '../services/notes.services';
 import { CollectionsService } from '../services/collections.services';
 import { ConceptDto, ConceptsService } from '../services/concepts.services';
+import { ConceptAutocompleteService } from '../misc-components/concept-autocomplete-panel/concept-autocomplete.service';
 import { Collection } from '../dtos/collection.dtos';
 import { Note } from '../dtos/note.dtos';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+
+// UI Components
+import { AddBookModal } from '../add-book-modal/add-book-modal';
+import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
+import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
+
+// Icons
 import {
   LucideAngularModule,
   ArrowLeft,
@@ -28,11 +39,6 @@ import {
   Headphones,
   Clock,
 } from 'lucide-angular';
-import { AddBookModal } from '../add-book-modal/add-book-modal';
-import { HttpEventType } from '@angular/common/http';
-import { ConceptAutocompleteService } from '../misc-components/concept-autocomplete-panel/concept-autocomplete.service';
-// 👇 Refactor: Import the new reusable UI component
-import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
 
 @Component({
   standalone: true,
@@ -43,8 +49,8 @@ import { ConceptInputComponent } from '../ui/concept-input.component/concept-inp
     RouterLink,
     LucideAngularModule,
     AddBookModal,
-    // 👇 Refactor: Use the new component instead of the directive/panel directly
-    ConceptInputComponent,
+    ConceptInputComponent, // For the "New Note" input
+    NoteCardComponent, // For the list of existing notes
   ],
   templateUrl: './book-detail.html',
   styleUrls: ['./book-detail.css'],
@@ -58,6 +64,7 @@ export class BookDetail implements OnInit {
   private conceptsService = inject(ConceptsService);
   private autocompleteService = inject(ConceptAutocompleteService);
 
+  // Icons
   ArrowLeftIcon = ArrowLeft;
   UserIcon = User;
   CalendarIcon = Calendar;
@@ -76,22 +83,22 @@ export class BookDetail implements OnInit {
   HeadphonesIcon = Headphones;
   ClockIcon = Clock;
 
+  // State
   loading = signal(true);
   book = signal<Book | null>(null);
   error = signal<string | null>(null);
-
   collections = signal<Collection[]>([]);
 
+  // UI State
   isDescriptionExpanded = signal(false);
   showMetadataModal = signal(false);
 
+  // Notes State
   notes = signal<Note[]>([]);
-  newNote = model<string>('');
-  editingNote = signal<Note | null>(null);
-  editNoteContent = model<string>('');
-
-  coverInput!: HTMLInputElement;
   conceptMap = signal<Map<string, ConceptDto>>(new Map());
+
+  // New Note Input (Still managed here)
+  newNote = model<string>('');
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -113,7 +120,6 @@ export class BookDetail implements OnInit {
         if (forceRefresh && book.coverUrl) {
           book.coverUrl += `?t=${Date.now()}`;
         }
-
         this.book.set(book);
         this.loading.set(false);
       },
@@ -142,29 +148,15 @@ export class BookDetail implements OnInit {
         const map = new Map<string, ConceptDto>();
         concepts.forEach((c) => map.set(c.name.trim().toLowerCase(), c));
         this.conceptMap.set(map);
-
-        // We still populate the service so the child component knows what to suggest
         this.autocompleteService.setConcepts(concepts);
       },
     });
   }
 
+  // --- Actions ---
+
   goToConcept(conceptId: string): void {
     this.router.navigate(['/second-brain'], { queryParams: { conceptId } });
-  }
-
-  handleNoteClick(event: Event): void {
-    const target = event.target as HTMLElement;
-    const conceptTag = target.closest('.concept-tag');
-
-    if (conceptTag) {
-      const conceptId = conceptTag.getAttribute('data-concept-id');
-      if (conceptId) {
-        event.preventDefault();
-        event.stopPropagation();
-        this.goToConcept(conceptId);
-      }
-    }
   }
 
   toggleDescription() {
@@ -181,7 +173,8 @@ export class BookDetail implements OnInit {
     this.showMetadataModal.set(false);
   }
 
-  // --- Notes Logic ---
+  // --- Note Logic ---
+
   addNote(): void {
     const book = this.book();
     if (!book) return;
@@ -198,33 +191,21 @@ export class BookDetail implements OnInit {
     });
   }
 
-  startEdit(note: Note): void {
-    this.editingNote.set(note);
-    this.editNoteContent.set(note.content);
+  // Updated: Handles event from NoteCard
+  onUpdateNote(event: { id: string; content: string }): void {
+    const book = this.book();
+    if (!book) return;
+
+    this.notesService.update(event.id, { content: event.content }).subscribe({
+      next: () => {
+        this.loadNotes(book.id);
+        this.loadConcepts();
+      },
+    });
   }
 
-  saveEdit(): void {
-    const note = this.editingNote();
-    if (!note) return;
-
-    this.notesService
-      .update(note.id, {
-        content: this.editNoteContent(),
-      })
-      .subscribe({
-        next: () => {
-          this.editingNote.set(null);
-          this.loadNotes(note.bookId);
-          this.loadConcepts();
-        },
-      });
-  }
-
-  cancelEdit(): void {
-    this.editingNote.set(null);
-  }
-
-  deleteNote(id: string): void {
+  // Updated: Handles event from NoteCard
+  onDeleteNote(id: string): void {
     if (!confirm('Delete this note?')) return;
 
     this.notesService.delete(id).subscribe({
@@ -237,6 +218,12 @@ export class BookDetail implements OnInit {
       },
     });
   }
+
+  onConceptClick(conceptId: string): void {
+    this.goToConcept(conceptId);
+  }
+
+  // --- Book Files / Metadata ---
 
   downloadFile() {
     const id = this.book()?.id;
@@ -305,18 +292,6 @@ export class BookDetail implements OnInit {
         }
       },
       error: (err) => console.error('File upload error:', err),
-    });
-  }
-
-  formatNote(content: string): string {
-    const conceptMap = this.conceptMap();
-    return content.replace(/\[\[(.*?)\]\]/g, (match, conceptName) => {
-      const trimmedName = conceptName.trim();
-      const concept = conceptMap.get(trimmedName.toLowerCase());
-      if (concept) {
-        return `<span class="concept-tag clickable" data-concept-id="${concept.id}">${trimmedName}</span>`;
-      }
-      return trimmedName;
     });
   }
 

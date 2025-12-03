@@ -1,0 +1,108 @@
+:host {
+  display: block;
+}
+
+.note-card-container {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  position: relative;
+  transition: background-color 0.2s ease;
+}
+
+.note-card-container:hover {
+  background-color: var(--bg-hover, #fafafa); /* Optional hover effect */
+}
+
+/* --- Quote Block --- */
+.note-quote {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--bg-hover, #f9fafb);
+  border-radius: var(--radius-sm, 4px);
+  cursor: pointer; /* Indicates you can click to jump/view context */
+}
+
+.quote-stripe {
+  width: 3px;
+  background-color: var(--color-text-light, #888);
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+.quote-icon {
+  color: var(--color-text-light, #888);
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.quote-text {
+  font-family: 'Lora', serif;
+  font-style: italic;
+  color: var(--color-text-main, #333);
+  font-size: 0.95rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* --- Content Block --- */
+.note-text {
+  line-height: 1.6;
+  color: var(--color-text-main, #1a1a1a);
+  white-space: pre-wrap; /* Preserve newlines */
+}
+
+.note-meta-placeholder {
+  font-size: 0.85rem;
+  color: var(--color-text-light, #999);
+  font-style: italic;
+}
+
+/* --- Footer & Actions --- */
+.note-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.note-date {
+  font-size: 0.75rem;
+  color: var(--color-text-light, #aaa);
+}
+
+.note-actions {
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0; /* Hidden by default */
+  transition: opacity 0.2s;
+}
+
+/* Show actions on hover (desktop) or always if mobile logic added */
+.note-card-container:hover .note-actions {
+  opacity: 1;
+}
+
+/* --- Edit Mode Styles --- */
+.edit-box {
+  background: var(--bg-surface, #fff);
+  border: 1px solid var(--border-color, #e5e5e5);
+  border-radius: var(--radius-md, 6px);
+  padding: 0.5rem;
+}
+
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--border-color, #eee);
+}
+
+/* Utility for icons */
+.icon-btn.xs {
+  width: 24px;
+  height: 24px;
+}

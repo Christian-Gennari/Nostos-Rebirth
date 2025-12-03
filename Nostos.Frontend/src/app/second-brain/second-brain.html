@@ -62,7 +62,11 @@
               <p class="highlight-text">"{{ note.selectedText }}"</p>
             </div>
             } @if (note.content) {
-            <p class="note-text" [innerHTML]="formatNote(note.content)"></p>
+            <p
+              class="note-text"
+              [innerHTML]="note.content | noteFormat : conceptMap()"
+              (click)="handleContentClick($event)"
+            ></p>
             }
           </div>
 

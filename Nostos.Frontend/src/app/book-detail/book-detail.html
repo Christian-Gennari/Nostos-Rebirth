@@ -239,56 +239,13 @@
 
             <div class="notes-feed">
               @for (note of notes(); track note.id) {
-              <div class="note-row" (click)="handleNoteClick($event)">
-                @if (note.selectedText) {
-                <div class="highlight-block">
-                  <div class="quote-stripe"></div>
-                  <p class="highlight-text">{{ note.selectedText }}</p>
-                </div>
-                } @if (editingNote()?.id === note.id) {
-                <div class="edit-box">
-                  <app-concept-input
-                    placeholder="Add your thought..."
-                    [(ngModel)]="editNoteContent"
-                    [rows]="3"
-                    (click)="$event.stopPropagation()"
-                  ></app-concept-input>
-
-                  <div class="row-actions">
-                    <button
-                      class="btn btn-xs btn-primary"
-                      (click)="saveEdit(); $event.stopPropagation()"
-                    >
-                      Save
-                    </button>
-                    <button
-                      class="btn btn-xs btn-ghost"
-                      (click)="cancelEdit(); $event.stopPropagation()"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-
-                } @else { @if (note.content) {
-                <p class="note-text whitespace-pre-wrap" [innerHTML]="formatNote(note.content)"></p>
-                } @else if (note.selectedText) {
-                <p class="note-meta-placeholder">No comment added</p>
-                }
-
-                <div class="note-hover-actions">
-                  <button class="icon-btn xs" (click)="startEdit(note); $event.stopPropagation()">
-                    <lucide-icon [img]="Edit2Icon" [size]="14"></lucide-icon>
-                  </button>
-                  <button
-                    class="icon-btn xs delete"
-                    (click)="deleteNote(note.id); $event.stopPropagation()"
-                  >
-                    <lucide-icon [img]="Trash2Icon" [size]="14"></lucide-icon>
-                  </button>
-                </div>
-                }
-              </div>
+              <app-note-card
+                [note]="note"
+                [conceptMap]="conceptMap()"
+                (update)="onUpdateNote($event)"
+                (delete)="onDeleteNote($event)"
+                (conceptClick)="onConceptClick($event)"
+              ></app-note-card>
               }
             </div>
           </div>
