@@ -14,113 +14,190 @@ public static class MappingExtensions
             ? null
             : $"/api/books/{model.Id}/cover";
 
-        return new BookDto(
-            model.Id,
-            model.Title,
-            model.Subtitle,       // <--- NEW
-            model.Author,
-            model.Description,    // <--- NEW
-            model.Isbn,           // <--- NEW
-            model.Publisher,      // <--- NEW
-            model.PublishedDate,  // <--- NEW
-            model.PageCount,      // <--- NEW
-            model.Language,       // <--- NEW
-            model.Categories,     // <--- NEW
-            model.Series,         // <--- NEW
-            model.VolumeNumber,   // <--- NEW
-            model.CreatedAt,
-            model.HasFile,
-            model.FileName,
-            coverUrl,
-            model.CollectionId,
+        // Default values for polymorphic fields
+        string type = "physical";
+        string? isbn = null;
+        string? asin = null;
+        string? duration = null;
+        int? pageCount = null;
 
-            // --- MAP THE NEW FIELDS HERE ---
-            model.LastLocation,
-            model.ProgressPercent
+        // Pattern Matching: Extract fields based on the specific subclass
+        switch (model)
+        {
+            case PhysicalBookModel p:
+                type = "physical";
+                isbn = p.Isbn;
+                pageCount = p.PageCount;
+                break;
+            case EBookModel e:
+                type = "ebook";
+                isbn = e.Isbn;
+                pageCount = e.PageCount;
+                break;
+            case AudioBookModel a:
+                type = "audiobook";
+                asin = a.Asin;
+                duration = a.Duration;
+                break;
+        }
+
+        // Use Named Arguments to prevent argument order mismatches
+        return new BookDto(
+            Id: model.Id,
+            Title: model.Title,
+            Subtitle: model.Subtitle,
+            Author: model.Author,
+            Description: model.Description,
+
+            // Polymorphic Fields
+            Type: type,
+            Isbn: isbn,
+            Asin: asin,
+            Duration: duration,
+
+            Publisher: model.Publisher,
+            PublishedDate: model.PublishedDate,
+            Edition: model.Edition,
+            PageCount: pageCount,
+            Language: model.Language,
+            Categories: model.Categories,
+            Series: model.Series,
+            VolumeNumber: model.VolumeNumber,
+
+            CreatedAt: model.CreatedAt,
+            HasFile: model.HasFile,
+            FileName: model.FileName,
+            CoverUrl: coverUrl,
+            CollectionId: model.CollectionId,
+
+            // Reading Progress
+            LastLocation: model.LastLocation,
+            ProgressPercent: model.ProgressPercent
         );
     }
 
     public static NoteDto ToDto(this NoteModel model) =>
-            new(model.Id, model.BookId, model.Content, model.CfiRange, model.SelectedText); // <--- Updated
+        new NoteDto(
+            Id: model.Id,
+            BookId: model.BookId,
+            Content: model.Content,
+            CfiRange: model.CfiRange,
+            SelectedText: model.SelectedText
+        );
 
     public static CollectionDto ToDto(this CollectionModel model) =>
-        new(model.Id, model.Name);
+        new CollectionDto(model.Id, model.Name);
 
-    public static ConceptDto ToDto(this ConceptModel model)
-    {
-        // Fixes CS7036: Added the 3rd argument (Count)
-        return new ConceptDto(
+    public static ConceptDto ToDto(this ConceptModel model) =>
+        new ConceptDto(
             model.Id,
             model.Concept,
             model.NoteConcepts?.Count ?? 0
         );
-    }
 
     // ------------------------------
     // Create mappings (Dto → Model)
     // ------------------------------
-    public static BookModel ToModel(this CreateBookDto dto) =>
-        new()
+    public static BookModel ToModel(this CreateBookDto dto)
+    {
+        // Factory Pattern: Create the correct subclass based on the "Type" string
+        BookModel model = dto.Type?.ToLower() switch
         {
-            Id = Guid.NewGuid(),
-            Title = dto.Title,
-            Subtitle = dto.Subtitle,         // <--- NEW
-            Author = dto.Author,
-            Description = dto.Description,   // <--- NEW
-            Isbn = dto.Isbn,                 // <--- NEW
-            Publisher = dto.Publisher,       // <--- NEW
-            PublishedDate = dto.PublishedDate, // <--- NEW
-            PageCount = dto.PageCount,       // <--- NEW
-            Language = dto.Language,         // <--- NEW
-            Categories = dto.Categories,     // <--- NEW
-            Series = dto.Series,             // <--- NEW
-            VolumeNumber = dto.VolumeNumber, // <--- NEW
-            CreatedAt = DateTime.UtcNow,
-            CollectionId = dto.CollectionId
+            "audiobook" => new AudioBookModel
+            {
+                Asin = dto.Asin,
+                Duration = dto.Duration
+            },
+            "ebook" => new EBookModel
+            {
+                Isbn = dto.Isbn,
+                PageCount = dto.PageCount
+            },
+            _ => new PhysicalBookModel // Default fallback
+            {
+                Isbn = dto.Isbn,
+                PageCount = dto.PageCount
+            }
         };
 
+        // Map Shared Fields
+        model.Id = Guid.NewGuid();
+        model.Title = dto.Title;
+        model.Subtitle = dto.Subtitle;
+        model.Author = dto.Author;
+        model.Description = dto.Description;
+        model.Publisher = dto.Publisher;
+        model.PublishedDate = dto.PublishedDate;
+        model.Edition = dto.Edition;
+        model.Language = dto.Language;
+        model.Categories = dto.Categories;
+        model.Series = dto.Series;
+        model.VolumeNumber = dto.VolumeNumber;
+        model.CreatedAt = DateTime.UtcNow;
+        model.CollectionId = dto.CollectionId;
+
+        return model;
+    }
+
     public static NoteModel ToModel(this CreateNoteDto dto, Guid bookId) =>
-            new()
-            {
-                Id = Guid.NewGuid(),
-                BookId = bookId,
-                Content = dto.Content,
-                CfiRange = dto.CfiRange,          // <--- NEW
-                SelectedText = dto.SelectedText   // <--- NEW
-            };
+        new NoteModel
+        {
+            Id = Guid.NewGuid(),
+            BookId = bookId,
+            Content = dto.Content,
+            CfiRange = dto.CfiRange,
+            SelectedText = dto.SelectedText
+        };
 
     public static CollectionModel ToModel(this CreateCollectionDto dto) =>
-        new()
+        new CollectionModel
         {
             Id = Guid.NewGuid(),
             Name = dto.Name
         };
 
     public static ConceptModel ToModel(this CreateConceptDto dto) =>
-        new()
+        new ConceptModel
         {
             Id = Guid.NewGuid(),
             Concept = dto.Concept
         };
 
     // ------------------------------
-    // Update mappings (apply fields)
+    // Update mappings (Apply fields)
     // ------------------------------
     public static void Apply(this BookModel model, UpdateBookDto dto)
     {
+        // 1. Apply Common Fields
         model.Title = dto.Title;
-        model.Subtitle = dto.Subtitle;         // <--- NEW
+        model.Subtitle = dto.Subtitle;
         model.Author = dto.Author;
-        model.Description = dto.Description;   // <--- NEW
-        model.Isbn = dto.Isbn;                 // <--- NEW
-        model.Publisher = dto.Publisher;       // <--- NEW
-        model.PublishedDate = dto.PublishedDate; // <--- NEW
-        model.PageCount = dto.PageCount;       // <--- NEW
-        model.Language = dto.Language;         // <--- NEW
-        model.Categories = dto.Categories;     // <--- NEW
-        model.Series = dto.Series;             // <--- NEW
-        model.VolumeNumber = dto.VolumeNumber; // <--- NEW
+        model.Description = dto.Description;
+        model.Publisher = dto.Publisher;
+        model.PublishedDate = dto.PublishedDate;
+        model.Edition = dto.Edition;
+        model.Language = dto.Language;
+        model.Categories = dto.Categories;
+        model.Series = dto.Series;
+        model.VolumeNumber = dto.VolumeNumber;
         model.CollectionId = dto.CollectionId;
+
+        // 2. Apply Specific Fields (Pattern Matching)
+        switch (model)
+        {
+            case PhysicalBookModel p:
+                p.Isbn = dto.Isbn;
+                p.PageCount = dto.PageCount;
+                break;
+            case EBookModel e:
+                e.Isbn = dto.Isbn;
+                e.PageCount = dto.PageCount;
+                break;
+            case AudioBookModel a:
+                a.Asin = dto.Asin;
+                a.Duration = dto.Duration;
+                break;
+        }
     }
 
     public static void Apply(this CollectionModel model, UpdateCollectionDto dto)

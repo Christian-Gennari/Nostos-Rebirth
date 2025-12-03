@@ -3,26 +3,26 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Nostos.Backend.Data.Models;
 
-public class BookModel
+public abstract class BookModel
 {
   public Guid Id { get; set; } = Guid.NewGuid();
 
   [Required]
   public string Title { get; set; } = string.Empty;
+
+  public string? Author { get; set; }
   public string? Subtitle { get; set; }
-
-  public string? Author { get; set; } // Supports "Author 1, Author 2"
-
   public string? Description { get; set; }
-  public string? Isbn { get; set; }
+
+  // Common Metadata
   public string? Publisher { get; set; }
   public string? PublishedDate { get; set; }
-  public int? PageCount { get; set; }
-
   public string? Language { get; set; }
   public string? Categories { get; set; }
+  public string? Edition { get; set; }
 
-  // Series Metadata
+
+  // Edition & Series Info
   public string? Series { get; set; }
   public string? VolumeNumber { get; set; }
 
@@ -40,4 +40,26 @@ public class BookModel
   // Reading Progress
   public string? LastLocation { get; set; } // CFI (EPUB), Page Number (PDF), or Timestamp (Audio)
   public int ProgressPercent { get; set; } = 0;
+}
+
+
+// ACTUAL SUBCLASSES FOR SPECIFIC BOOK TYPES
+public class PhysicalBookModel : BookModel
+{
+  public string? Isbn { get; set; }
+  public int? PageCount { get; set; }
+}
+
+public class EBookModel : BookModel
+{
+  // E-books might define page count differently (or not at all),
+  // but often use ISBNs too.
+  public string? Isbn { get; set; }
+  public int? PageCount { get; set; }
+}
+
+public class AudioBookModel : BookModel
+{
+  public string? Asin { get; set; } // Amazon Standard ID
+  public string? Duration { get; set; } // e.g. "12:30:15"
 }

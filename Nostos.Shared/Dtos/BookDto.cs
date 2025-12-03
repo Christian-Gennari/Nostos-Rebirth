@@ -3,15 +3,25 @@ using System;
 namespace Nostos.Shared.Dtos;
 
 public record BookDto(
+
+    // Polymorphic Discriminator
+    string Type, // "physical", "ebook", "audiobook"
+
     Guid Id,
     string Title,
     string? Subtitle,
     string? Author,
     string? Description,
-    string? Isbn,
+
+    // Specific Fields (Nullable)
+    string? Isbn,       // Physical & Ebook
+    string? Asin,       // Audio
+    string? Duration,   // Audio
+    int? PageCount,     // Physical & Ebook
+
     string? Publisher,
     string? PublishedDate,
-    int? PageCount,
+    string? Edition,    // <--- NEW
     string? Language,
     string? Categories,
     string? Series,
@@ -21,19 +31,22 @@ public record BookDto(
     string? FileName,
     string? CoverUrl,
     Guid? CollectionId,
-
     string? LastLocation,
     int ProgressPercent
 );
 
 public record CreateBookDto(
+    string Type, // REQUIRED: Frontend must send this!
     string Title,
     string? Subtitle,
     string? Author,
     string? Description,
     string? Isbn,
+    string? Asin,       // <--- NEW
+    string? Duration,   // <--- NEW
     string? Publisher,
     string? PublishedDate,
+    string? Edition,    // <--- NEW
     int? PageCount,
     string? Language,
     string? Categories,
@@ -48,8 +61,11 @@ public record UpdateBookDto(
     string? Author,
     string? Description,
     string? Isbn,
+    string? Asin,
+    string? Duration,
     string? Publisher,
     string? PublishedDate,
+    string? Edition,
     int? PageCount,
     string? Language,
     string? Categories,
