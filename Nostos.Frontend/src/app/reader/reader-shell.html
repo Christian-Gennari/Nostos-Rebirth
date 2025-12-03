@@ -140,6 +140,13 @@
 
       <div class="progress-display">
         <span>{{ progressLabel() }}</span>
+
+        @if (progressTooltip()) {
+        <div class="info-tooltip">
+          <lucide-icon [img]="Icons.Info" [size]="14"></lucide-icon>
+          <span class="tooltip-text">{{ progressTooltip() }}</span>
+        </div>
+        }
       </div>
 
       <button class="icon-btn" (click)="nextPage()" title="Next">

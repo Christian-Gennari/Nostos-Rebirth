@@ -359,7 +359,9 @@
 }
 
 .progress-display {
+  display: flex;
   background: var(--bg-subtle, #f3f4f6);
+  gap: 6px;
   padding: 0.4rem 1rem;
   border-radius: 20px;
   font-size: 0.9rem;
@@ -410,4 +412,69 @@
   color: var(--color-text-muted);
   font-family: 'Inter', sans-serif;
   font-style: italic;
+}
+
+
+
+/* ------------------------------
+   CUSTOM TOOLTIP STYLES
+   Matches add-book-modal.css
+------------------------------ */
+
+.info-tooltip {
+  position: relative;
+  top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  color: var(--color-text-muted, #888);
+  transition: color 0.2s;
+}
+
+.info-tooltip:hover {
+  color: var(--color-primary, #000);
+}
+
+.tooltip-text {
+  visibility: hidden;
+  opacity: 0;
+  width: 140px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  font-weight: normal;
+
+  /* Position: ABOVE the icon */
+  position: absolute;
+  bottom: 145%; /* Pushes it up */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  pointer-events: none;
+  transition: opacity 0.2s, bottom 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Arrow (Pointing Down) */
+.tooltip-text::after {
+  content: '';
+  position: absolute;
+  top: 100%; /* At the bottom of the tooltip box */
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  /* Top border colored = Triangle pointing down */
+  border-color: #333 transparent transparent transparent;
+}
+
+.info-tooltip:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+  bottom: 160%; /* Subtle slide-up animation */
 }

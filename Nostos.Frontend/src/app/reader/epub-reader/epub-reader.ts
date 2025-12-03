@@ -43,6 +43,9 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   private annotationManager: EpubAnnotationManager | null = null;
   private currentCfi: string | null = null;
 
+  // Track if locations are fully generated
+  private locationsReady = signal(false);
+
   // --- IReader Interface Implementation ---
   toc = signal<TocItem[]>([]);
   progress = signal<ReaderProgress>({ label: '', percentage: 0 });
@@ -146,6 +149,8 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     }
 
     this.loading.set(true);
+    this.locationsReady.set(false);
+
     const url = `/api/books/${id}/file`;
 
     this.http.get(url, { responseType: 'arraybuffer' }).subscribe({
@@ -155,40 +160,49 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
         // 1. Generate Locations (Async)
         this.book.ready
           .then(() => {
-            // Load TOC
             if (this.book?.navigation) {
               const toc = this.mapTocItems(this.book.navigation.toc);
               this.toc.set(toc);
             }
+            // Use standard chunk size (1000)
             return this.book?.locations.generate(1000);
           })
           .then(() => {
-            // Initial Progress Update after generation
+            this.locationsReady.set(true);
             if (this.currentCfi) this.updateProgressState(this.currentCfi);
           })
           .catch((err) => console.error('Book setup failed:', err));
 
         // 2. Render
+        const viewer = this.elementRef.nativeElement.querySelector('#epub-viewer');
+        const width = viewer ? viewer.clientWidth : '100%';
+        const height = viewer ? viewer.clientHeight : '100%';
+
         this.rendition = this.book.renderTo('epub-viewer', {
-          width: '100%',
-          height: '100%',
+          width: width,
+          height: height,
           flow: 'paginated',
           manager: 'default',
         });
 
-        // 3. Register Hooks (Styles & Highlights)
+        // 3. Register Hooks
         this.rendition.hooks.content.register((contents: any) => {
           this.injectCustomStyles(contents);
           this.annotationManager?.injectHighlightStyles(contents);
         });
 
-        // 4. Display & Restore State
+        // Track location BEFORE display
+        this.rendition.on('relocated', (location: any) => {
+          this.currentCfi = location.start.cfi;
+          this.updateProgressState(location.start.cfi);
+        });
+
+        // 4. Display
         this.rendition.display().then(() => {
           this.loading.set(false);
           this.applyTheme();
-          this.applyFontSize(); // Restore font size if persisted (optional)
+          this.applyFontSize();
 
-          // Init Annotation Manager
           this.annotationManager = new EpubAnnotationManager(
             this.rendition!,
             id,
@@ -197,24 +211,16 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
           );
           this.annotationManager.init();
 
-          // Restore Notes
           this.notesService.list(id).subscribe({
             next: (notes) => this.annotationManager?.restoreHighlights(notes),
             error: (err) => console.error('Failed to load notes:', err),
           });
 
-          // Restore Position
           this.booksService.get(id).subscribe((b) => {
             if (b.lastLocation) {
               this.rendition?.display(b.lastLocation);
             }
           });
-        });
-
-        // 5. Track Location Changes
-        this.rendition.on('relocated', (location: any) => {
-          this.currentCfi = location.start.cfi;
-          this.updateProgressState(location.start.cfi);
         });
       },
       error: (err) => {
@@ -229,35 +235,66 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   private updateProgressState(cfi: string) {
     if (!this.book) return;
 
+    if (!this.locationsReady()) {
+      this.progress.set({ label: 'Calculating...', percentage: 0 });
+      return;
+    }
+
     let percent = 0;
     let label = '';
+    let tooltip = '';
 
-    // Calculate Percentage
     if ((this.book.locations as any).length() > 0) {
+      // 1. Percentage
       const val = this.book.locations.percentageFromCfi(cfi);
       percent = Math.floor(val * 100);
 
-      // Calculate Label (e.g., "Loc 15 of 300")
-      // Note: EpubJS locations are roughly "screens" of text
-      const currentLoc = this.book.locations.locationFromCfi(cfi);
+      // 2. Time Estimation
+      // Assumption: 1 loc (1000 chars) ≈ 1 minute reading
+      const currentLoc = this.book.locations.locationFromCfi(cfi) as any;
       const totalLocs = this.book.locations.length();
-      label = `Loc ${currentLoc} of ${totalLocs}`;
+
+      // Time Remaining
+      const locsRemaining = Math.max(0, totalLocs - currentLoc);
+      const minutesRemaining = locsRemaining;
+
+      // Format "Time Left"
+      let timeLeftStr = '';
+      if (minutesRemaining < 60) {
+        timeLeftStr = `${minutesRemaining} min left`;
+      } else {
+        const h = Math.floor(minutesRemaining / 60);
+        const m = minutesRemaining % 60;
+        timeLeftStr = `${h}h ${m}m left`;
+      }
+
+      // 3. Dynamic Tooltip Calculation (1% ≈ ???)
+      const secondsPerPercent = (totalLocs * 60) / 100;
+      let rateLabel = '';
+
+      if (secondsPerPercent < 60) {
+        rateLabel = `${Math.round(secondsPerPercent)} sec`;
+      } else {
+        rateLabel = `${Math.round(secondsPerPercent / 60)} min`;
+      }
+
+      // [Updated] Label: "12% • 45 min left"
+      label = `${percent}% • ${timeLeftStr}`;
+
+      // [Updated] Tooltip: "1% ≈ 4 min" OR "1% ≈ 30 sec"
+      tooltip = `1% ≈ ${rateLabel}`;
     } else {
-      // Fallback if locations aren't generated yet
       label = 'Calculating...';
     }
 
-    // Update UI Signal
-    this.progress.set({ label, percentage: percent });
-
-    // Notify Backend (Debounced via Subject)
+    this.progress.set({ label, percentage: percent, tooltip });
     this.progressUpdater$.next({ location: cfi, percentage: percent });
   }
 
   private mapTocItems(items: any[]): TocItem[] {
     return items.map((item) => ({
       label: item.label.trim(),
-      target: item.href, // EpubJS handles HREFs automatically in display()
+      target: item.href,
       children: item.subitems ? this.mapTocItems(item.subitems) : [],
     }));
   }
@@ -282,7 +319,6 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
         color: text,
         background: bg,
         'line-height': '1.6',
-        // Font size is handled by .fontSize(), not here, to avoid conflicts
       },
       'h1, h2, h3, h4': {
         'font-family': "'Lora', serif",

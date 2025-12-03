@@ -8,8 +8,9 @@ export interface TocItem {
 }
 
 export interface ReaderProgress {
-  label: string;      // "Page 5 of 200" or "05:12 / 14:00"
+  label: string; // "Page 5 of 200" or "05:12 / 14:00 or 12% of book"
   percentage: number; // 0 to 100 (for progress bars)
+  tooltip?: string; // "1% ≈ 4 min" (The pop-up hint) (For ebook)
 }
 
 export interface IReader {

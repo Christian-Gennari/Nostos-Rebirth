@@ -1,3 +1,4 @@
+// src/app/reader/reader-shell.ts
 import { Component, inject, OnInit, signal, computed, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -20,6 +21,7 @@ import {
   ChevronRight,
   Save,
   Plus,
+  Info, // <--- Imported Info Icon
 } from 'lucide-angular';
 import { BooksService } from '../services/books.services';
 import { NotesService } from '../services/notes.services';
@@ -67,6 +69,7 @@ export class ReaderShell implements OnInit {
     Next: ChevronRight,
     Save,
     Plus,
+    Info, // <--- Added Info to Icons object
   };
 
   book = signal<any>(null);
@@ -118,7 +121,11 @@ export class ReaderShell implements OnInit {
 
   // 2. Expose Unified State
   toc = computed(() => this.activeReader()?.toc() ?? []);
-  progressLabel = computed(() => this.activeReader()?.progress()?.label ?? '');
+
+  // [Updated] Expose Label and Tooltip
+  progressState = computed(() => this.activeReader()?.progress());
+  progressLabel = computed(() => this.progressState()?.label ?? '');
+  progressTooltip = computed(() => this.progressState()?.tooltip ?? '');
 
   // 3. Expose Unified Actions
   nextPage() {
