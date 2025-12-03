@@ -21,14 +21,17 @@ import {
   ChevronRight,
   Save,
   Plus,
-  Info, // <--- Imported Info Icon
+  Info,
 } from 'lucide-angular';
 import { BooksService } from '../services/books.services';
 import { NotesService } from '../services/notes.services';
+// 👇 Refactor: Imports for concepts
+import { ConceptsService } from '../services/concepts.services';
+import { ConceptAutocompleteService } from '../misc-components/concept-autocomplete-panel/concept-autocomplete.service';
+import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
+
 import { Note } from '../dtos/note.dtos';
 import { IReader, TocItem } from './reader.interface';
-
-// --- IMPORTS ---
 import { PdfReader } from './pdf-reader/pdf-reader';
 import { EpubReader } from './epub-reader/epub-reader';
 import { AudioReader } from './audio-reader/audio-reader';
@@ -36,12 +39,20 @@ import { AudioReader } from './audio-reader/audio-reader';
 @Component({
   selector: 'app-reader-shell',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, PdfReader, EpubReader, AudioReader],
+  // 👇 Refactor: Added ConceptInputComponent
+  imports: [
+    CommonModule,
+    FormsModule,
+    LucideAngularModule,
+    PdfReader,
+    EpubReader,
+    AudioReader,
+    ConceptInputComponent,
+  ],
   templateUrl: './reader-shell.html',
   styleUrl: './reader-shell.css',
 })
 export class ReaderShell implements OnInit {
-  // Note: These will eventually implement IReader
   @ViewChild(EpubReader) epubReader?: IReader;
   @ViewChild(PdfReader) pdfReader?: IReader;
   @ViewChild(AudioReader) audioReader?: IReader;
@@ -50,8 +61,10 @@ export class ReaderShell implements OnInit {
   private router = inject(Router);
   private booksService = inject(BooksService);
   private notesService = inject(NotesService);
+  // 👇 Refactor: Inject services to load concepts
+  private conceptsService = inject(ConceptsService);
+  private autocompleteService = inject(ConceptAutocompleteService);
 
-  // Icons
   Icons = {
     ArrowLeft,
     NotebookPen,
@@ -69,28 +82,23 @@ export class ReaderShell implements OnInit {
     Next: ChevronRight,
     Save,
     Plus,
-    Info, // <--- Added Info to Icons object
+    Info,
   };
 
   book = signal<any>(null);
   loading = signal(true);
   notesOpen = signal(false);
   tocOpen = signal(false);
-
-  // Controls when the view is stable enough to access ViewChildren
   ready = signal(false);
 
-  // Data
   dbNotes = signal<Note[]>([]);
   quickNoteContent = signal('');
 
-  // Editing State
   editingNoteId = signal<string | null>(null);
   editContent = signal('');
 
   // --- UNIFIED READER LOGIC ---
 
-  // Computed File Type
   fileType = computed<'pdf' | 'epub' | 'audio' | null>(() => {
     const fileName = this.book()?.fileName?.toLowerCase();
     if (!fileName) return null;
@@ -101,12 +109,8 @@ export class ReaderShell implements OnInit {
     return null;
   });
 
-  // 1. Determine Active Reader Implementation
   activeReader = computed<IReader | null>(() => {
-    // CRITICAL FIX: Depend on 'ready' signal.
-    // This ensures the computation re-runs after the view is initialized and ViewChildren are available.
     if (!this.ready()) return null;
-
     switch (this.fileType()) {
       case 'epub':
         return this.epubReader ?? null;
@@ -119,15 +123,11 @@ export class ReaderShell implements OnInit {
     }
   });
 
-  // 2. Expose Unified State
   toc = computed(() => this.activeReader()?.toc() ?? []);
-
-  // [Updated] Expose Label and Tooltip
   progressState = computed(() => this.activeReader()?.progress());
   progressLabel = computed(() => this.progressState()?.label ?? '');
   progressTooltip = computed(() => this.progressState()?.tooltip ?? '');
 
-  // 3. Expose Unified Actions
   nextPage() {
     this.activeReader()?.next();
   }
@@ -149,6 +149,9 @@ export class ReaderShell implements OnInit {
   // --- INITIALIZATION ---
 
   ngOnInit() {
+    // 👇 Refactor: Load concepts immediately so they are ready for the inputs
+    this.loadConcepts();
+
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.booksService.get(id).subscribe({
@@ -156,13 +159,18 @@ export class ReaderShell implements OnInit {
           this.book.set(b);
           this.loading.set(false);
           this.loadNotes(b.id);
-
-          // Allow time for *ngSwitch to render the child component
           setTimeout(() => this.ready.set(true), 100);
         },
         error: () => this.loading.set(false),
       });
     }
+  }
+
+  // 👇 Refactor: Helper to populate the autocomplete service
+  loadConcepts() {
+    this.conceptsService.list().subscribe({
+      next: (concepts) => this.autocompleteService.setConcepts(concepts),
+    });
   }
 
   loadNotes(bookId: string) {
@@ -192,14 +200,9 @@ export class ReaderShell implements OnInit {
   // --- NOTES LOGIC ---
 
   addAudioTimestamp() {
-    // Only relevant for audio, injects current timestamp into the quick note input
     if (this.fileType() !== 'audio' || !this.activeReader()) return;
-
-    // Attempt to get formatted time from ReaderProgress or cast to specific reader
-    // A simpler approach for now using the progress label if available:
     const label = this.activeReader()?.progress().label;
     if (label) {
-      // label is "05:20 / 14:00", we just want "05:20"
       const currentTime = label.split(' / ')[0];
       this.quickNoteContent.update((current) => {
         const prefix = current.length > 0 ? ' ' : '';
@@ -220,6 +223,8 @@ export class ReaderShell implements OnInit {
       next: () => {
         this.quickNoteContent.set('');
         this.loadNotes(bookId);
+        // Refresh concepts in case a new one was created (if you add that feature later)
+        this.loadConcepts();
       },
     });
   }
@@ -268,11 +273,8 @@ export class ReaderShell implements OnInit {
 
   jumpToNote(note: Note) {
     if (this.editingNoteId() === note.id || !note.cfiRange) return;
-
     const reader = this.activeReader();
     if (!reader) return;
-
-    // Direct navigation without prompt for smoother UX, or keep prompt if preferred
     reader.goTo(note.cfiRange);
   }
 

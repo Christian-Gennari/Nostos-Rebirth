@@ -225,18 +225,12 @@
             </div>
 
             <div class="new-note-box">
-              <textarea
-                id="new-note-textarea"
-                class="note-input"
+              <app-concept-input
                 placeholder="Jot down a thought..."
                 [(ngModel)]="newNote"
-                noteAutocomplete
-                (insertConcept)="insertConceptIntoNote($event)"
-                rows="1"
-              ></textarea>
-
-              <concept-autocomplete-panel (conceptSelected)="insertConceptIntoNote($event)">
-              </concept-autocomplete-panel>
+                [rows]="1"
+                (submitTrigger)="addNote()"
+              ></app-concept-input>
 
               @if (newNote().length > 0) {
               <button class="btn btn-primary btn-sm" (click)="addNote()">Save</button>
@@ -253,19 +247,12 @@
                 </div>
                 } @if (editingNote()?.id === note.id) {
                 <div class="edit-box">
-                  <textarea
-                    id="edit-note-textarea"
-                    class="note-input"
-                    [(ngModel)]="editNoteContent"
-                    noteAutocomplete
-                    (insertConcept)="insertConceptIntoEdit($event)"
-                    rows="3"
+                  <app-concept-input
                     placeholder="Add your thought..."
+                    [(ngModel)]="editNoteContent"
+                    [rows]="3"
                     (click)="$event.stopPropagation()"
-                  ></textarea>
-
-                  <concept-autocomplete-panel (conceptSelected)="insertConceptIntoEdit($event)">
-                  </concept-autocomplete-panel>
+                  ></app-concept-input>
 
                   <div class="row-actions">
                     <button

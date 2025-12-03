@@ -46,11 +46,12 @@
 
       <div class="quick-note">
         <div class="input-wrapper">
-          <textarea
+          <app-concept-input
             [(ngModel)]="quickNoteContent"
             placeholder="Add a quick note..."
-            rows="2"
-          ></textarea>
+            [rows]="2"
+            (submitTrigger)="saveQuickNote()"
+          ></app-concept-input>
         </div>
         <div class="quick-actions">
           @if (fileType() === 'audio') {
@@ -86,7 +87,12 @@
           </div>
           } @if (editingNoteId() === note.id) {
           <div class="edit-box" (click)="$event.stopPropagation()">
-            <textarea [(ngModel)]="editContent" rows="3"></textarea>
+            <app-concept-input
+              [(ngModel)]="editContent"
+              [rows]="3"
+              (submitTrigger)="saveEdit(note)"
+            ></app-concept-input>
+
             <div class="edit-actions">
               <button class="icon-btn small" (click)="saveEdit(note, $event)">
                 <lucide-icon [img]="Icons.Check" [size]="16"></lucide-icon>

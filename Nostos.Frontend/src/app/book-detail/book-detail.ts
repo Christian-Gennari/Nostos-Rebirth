@@ -26,13 +26,13 @@ import {
   BookDown,
   Image,
   Headphones,
-  Clock, // Added Clock icon for duration
+  Clock,
 } from 'lucide-angular';
 import { AddBookModal } from '../add-book-modal/add-book-modal';
 import { HttpEventType } from '@angular/common/http';
 import { ConceptAutocompleteService } from '../misc-components/concept-autocomplete-panel/concept-autocomplete.service';
-import { ConceptAutocompleteDirective } from '../directives/concept-autocomplete.directive';
-import { ConceptAutocompletePanel } from '../misc-components/concept-autocomplete-panel/concept-autocomplete-panel';
+// 👇 Refactor: Import the new reusable UI component
+import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
 
 @Component({
   standalone: true,
@@ -43,8 +43,8 @@ import { ConceptAutocompletePanel } from '../misc-components/concept-autocomplet
     RouterLink,
     LucideAngularModule,
     AddBookModal,
-    ConceptAutocompleteDirective,
-    ConceptAutocompletePanel,
+    // 👇 Refactor: Use the new component instead of the directive/panel directly
+    ConceptInputComponent,
   ],
   templateUrl: './book-detail.html',
   styleUrls: ['./book-detail.css'],
@@ -74,7 +74,7 @@ export class BookDetail implements OnInit {
   BookDownIcon = BookDown;
   ImageIcon = Image;
   HeadphonesIcon = Headphones;
-  ClockIcon = Clock; //
+  ClockIcon = Clock;
 
   loading = signal(true);
   book = signal<Book | null>(null);
@@ -84,8 +84,6 @@ export class BookDetail implements OnInit {
 
   isDescriptionExpanded = signal(false);
   showMetadataModal = signal(false);
-
-  // REMOVED: metaForm (It was dead code causing type errors)
 
   notes = signal<Note[]>([]);
   newNote = model<string>('');
@@ -144,6 +142,8 @@ export class BookDetail implements OnInit {
         const map = new Map<string, ConceptDto>();
         concepts.forEach((c) => map.set(c.name.trim().toLowerCase(), c));
         this.conceptMap.set(map);
+
+        // We still populate the service so the child component knows what to suggest
         this.autocompleteService.setConcepts(concepts);
       },
     });
@@ -174,15 +174,12 @@ export class BookDetail implements OnInit {
   openMetadataModal(): void {
     const b = this.book();
     if (!b) return;
-    // Just open the modal; AddBookModal handles the form initialization
     this.showMetadataModal.set(true);
   }
 
   closeMetadataModal(): void {
     this.showMetadataModal.set(false);
   }
-
-  // REMOVED: saveMetadata() (Dead code, AddBookModal handles saving)
 
   // --- Notes Logic ---
   addNote(): void {
@@ -333,33 +330,6 @@ export class BookDetail implements OnInit {
     return col ? col.name : '—';
   }
 
-  insertConceptIntoNote(concept: ConceptDto) {
-    const text = this.newNote();
-    const beforeCursor = text.substring(0, this.getCursorPos('new'));
-    const afterCursor = text.substring(this.getCursorPos('new'));
-
-    const newText = beforeCursor.replace(/\[\[[^\[]*$/, '[[' + concept.name + ']] ') + afterCursor;
-
-    this.newNote.set(newText);
-  }
-
-  insertConceptIntoEdit(concept: ConceptDto) {
-    const text = this.editNoteContent();
-    const beforeCursor = text.substring(0, this.getCursorPos('edit'));
-    const afterCursor = text.substring(this.getCursorPos('edit'));
-
-    const newText = beforeCursor.replace(/\[\[[^\[]*$/, '[[' + concept.name + ']] ') + afterCursor;
-
-    this.editNoteContent.set(newText);
-  }
-
-  getCursorPos(which: 'new' | 'edit'): number {
-    const selector = which === 'new' ? '#new-note-textarea' : '#edit-note-textarea';
-    const el = document.querySelector(selector) as HTMLTextAreaElement;
-    return el ? el.selectionStart : 0;
-  }
-
-  // Updated to check the Type field directly
   isAudioBook(book: Book | null): boolean {
     return book?.type === 'audiobook';
   }
