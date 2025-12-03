@@ -26,6 +26,7 @@ import {
   BookDown,
   Image,
   Headphones,
+  Clock, // Added Clock icon for duration
 } from 'lucide-angular';
 import { AddBookModal } from '../add-book-modal/add-book-modal';
 import { HttpEventType } from '@angular/common/http';
@@ -73,6 +74,7 @@ export class BookDetail implements OnInit {
   BookDownIcon = BookDown;
   ImageIcon = Image;
   HeadphonesIcon = Headphones;
+  ClockIcon = Clock; //
 
   loading = signal(true);
   book = signal<Book | null>(null);
@@ -83,21 +85,7 @@ export class BookDetail implements OnInit {
   isDescriptionExpanded = signal(false);
   showMetadataModal = signal(false);
 
-  metaForm = {
-    title: '',
-    subtitle: '' as string | null,
-    author: '' as string | null,
-    collectionId: null as string | null,
-    description: '' as string | null,
-    isbn: '' as string | null,
-    publisher: '' as string | null,
-    publishedDate: '' as string | null,
-    pageCount: 0 as number | null,
-    language: '' as string | null,
-    categories: '' as string | null,
-    series: '' as string | null,
-    volumeNumber: '' as string | null,
-  };
+  // REMOVED: metaForm (It was dead code causing type errors)
 
   notes = signal<Note[]>([]);
   newNote = model<string>('');
@@ -156,8 +144,6 @@ export class BookDetail implements OnInit {
         const map = new Map<string, ConceptDto>();
         concepts.forEach((c) => map.set(c.name.trim().toLowerCase(), c));
         this.conceptMap.set(map);
-
-        // This line integrates with autocomplete service
         this.autocompleteService.setConcepts(concepts);
       },
     });
@@ -188,22 +174,7 @@ export class BookDetail implements OnInit {
   openMetadataModal(): void {
     const b = this.book();
     if (!b) return;
-
-    this.metaForm = {
-      title: b.title,
-      subtitle: b.subtitle || '',
-      author: b.author,
-      collectionId: b.collectionId,
-      description: b.description || '',
-      isbn: b.isbn || '',
-      publisher: b.publisher || '',
-      publishedDate: b.publishedDate ? new Date(b.publishedDate).toISOString().split('T')[0] : '',
-      pageCount: b.pageCount || null,
-      language: b.language || 'en',
-      categories: b.categories || '',
-      series: b.series || '',
-      volumeNumber: b.volumeNumber || '',
-    };
+    // Just open the modal; AddBookModal handles the form initialization
     this.showMetadataModal.set(true);
   }
 
@@ -211,35 +182,7 @@ export class BookDetail implements OnInit {
     this.showMetadataModal.set(false);
   }
 
-  saveMetadata(): void {
-    const b = this.book();
-    if (!b) return;
-
-    this.booksService
-      .update(b.id, {
-        title: this.metaForm.title,
-        subtitle: this.metaForm.subtitle,
-        author: this.metaForm.author,
-        collectionId: this.metaForm.collectionId,
-        isbn: this.metaForm.isbn,
-        publisher: this.metaForm.publisher,
-        publishedDate: this.metaForm.publishedDate
-          ? new Date(this.metaForm.publishedDate).toISOString()
-          : null,
-        pageCount: this.metaForm.pageCount,
-        description: this.metaForm.description,
-        language: this.metaForm.language,
-        categories: this.metaForm.categories,
-        series: this.metaForm.series,
-        volumeNumber: this.metaForm.volumeNumber,
-      })
-      .subscribe({
-        next: (updatedBook) => {
-          this.book.set(updatedBook);
-          this.closeMetadataModal();
-        },
-      });
-  }
+  // REMOVED: saveMetadata() (Dead code, AddBookModal handles saving)
 
   // --- Notes Logic ---
   addNote(): void {
@@ -253,7 +196,7 @@ export class BookDetail implements OnInit {
       next: () => {
         this.newNote.set('');
         this.loadNotes(book.id);
-        this.loadConcepts(); // ADDED
+        this.loadConcepts();
       },
     });
   }
@@ -275,7 +218,7 @@ export class BookDetail implements OnInit {
         next: () => {
           this.editingNote.set(null);
           this.loadNotes(note.bookId);
-          this.loadConcepts(); // ADDED
+          this.loadConcepts();
         },
       });
   }
@@ -292,7 +235,7 @@ export class BookDetail implements OnInit {
         const book = this.book();
         if (book) {
           this.loadNotes(book.id);
-          this.loadConcepts(); // ADDED
+          this.loadConcepts();
         }
       },
     });
@@ -346,7 +289,7 @@ export class BookDetail implements OnInit {
 
   triggerFilePicker() {
     const input = document.querySelector(
-      'input[type=file][accept=".epub,.pdf,.txt"]'
+      'input[type=file][accept=".epub,.pdf,.txt,.mobi,.mp3,.m4a,.m4b"]'
     ) as HTMLInputElement;
     if (input) input.click();
   }
@@ -410,19 +353,14 @@ export class BookDetail implements OnInit {
     this.editNoteContent.set(newText);
   }
 
-  // Helper to read cursor positions from textareas
   getCursorPos(which: 'new' | 'edit'): number {
     const selector = which === 'new' ? '#new-note-textarea' : '#edit-note-textarea';
-
     const el = document.querySelector(selector) as HTMLTextAreaElement;
     return el ? el.selectionStart : 0;
   }
 
-  // Helper method to check for audio extensions
+  // Updated to check the Type field directly
   isAudioBook(book: Book | null): boolean {
-    if (!book?.fileName) return false;
-    const audioExtensions = ['.mp3', '.m4b', '.m4a', '.wav', '.flac', '.aac', '.ogg'];
-    const lowerName = book.fileName.toLowerCase();
-    return audioExtensions.some((ext) => lowerName.endsWith(ext));
+    return book?.type === 'audiobook';
   }
 }

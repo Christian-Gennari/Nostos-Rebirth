@@ -108,12 +108,12 @@
               } } @else {
               <button class="btn btn-primary" (click)="triggerFilePicker()">
                 <lucide-icon [img]="BookOpenIcon" [size]="18"></lucide-icon>
-                <span>Upload EPUB/PDF</span>
+                <span>Upload File</span>
               </button>
               }
               <input
                 type="file"
-                accept=".epub,.pdf,.txt"
+                accept=".epub,.pdf,.txt,.mobi,.mp3,.m4a,.m4b"
                 style="display: none"
                 #fileInput
                 (change)="onFileUploadSelected($event)"
@@ -152,11 +152,16 @@
               }
 
               <div class="meta-item">
-                <span class="label"
-                  ><lucide-icon [img]="LayersIcon" [size]="12"></lucide-icon> Pages</span
-                >
-                <span class="value">{{ book()?.pageCount || '—' }}</span>
+                <span class="label">
+                  @if (isAudioBook(book())) {
+                  <lucide-icon [img]="ClockIcon" [size]="12"></lucide-icon> Duration } @else {
+                  <lucide-icon [img]="LayersIcon" [size]="12"></lucide-icon> Pages }
+                </span>
+                <span class="value">
+                  {{ (isAudioBook(book()) ? book()?.duration : book()?.pageCount) || '—' }}
+                </span>
               </div>
+
               <div class="meta-item">
                 <span class="label"
                   ><lucide-icon [img]="CalendarIcon" [size]="12"></lucide-icon> Published</span
@@ -170,11 +175,20 @@
                 >
                 <span class="value">{{ book()?.publisher || '—' }}</span>
               </div>
+
+              <div class="meta-item">
+                <span class="label">Edition</span>
+                <span class="value">{{ book()?.edition || '—' }}</span>
+              </div>
+
               <div class="meta-item">
                 <span class="label"
-                  ><lucide-icon [img]="HashIcon" [size]="12"></lucide-icon> ISBN</span
-                >
-                <span class="value">{{ book()?.isbn || '—' }}</span>
+                  ><lucide-icon [img]="HashIcon" [size]="12"></lucide-icon>
+                  {{ isAudioBook(book()) ? 'ASIN' : 'ISBN' }}
+                </span>
+                <span class="value">
+                  {{ (isAudioBook(book()) ? book()?.asin : book()?.isbn) || '—' }}
+                </span>
               </div>
 
               <div class="meta-item">
