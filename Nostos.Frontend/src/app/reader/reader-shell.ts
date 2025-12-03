@@ -1,4 +1,3 @@
-// src/app/reader/reader-shell.ts
 import { Component, inject, OnInit, signal, computed, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -23,23 +22,28 @@ import {
   Plus,
   Info,
 } from 'lucide-angular';
+
+// Services
 import { BooksService } from '../services/books.services';
 import { NotesService } from '../services/notes.services';
-// 👇 Refactor: Imports for concepts
-import { ConceptsService } from '../services/concepts.services';
+import { ConceptsService, ConceptDto } from '../services/concepts.services';
 import { ConceptAutocompleteService } from '../misc-components/concept-autocomplete-panel/concept-autocomplete.service';
-import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
 
+// DTOs & Interfaces
 import { Note } from '../dtos/note.dtos';
 import { IReader, TocItem } from './reader.interface';
+
+// Components
 import { PdfReader } from './pdf-reader/pdf-reader';
 import { EpubReader } from './epub-reader/epub-reader';
 import { AudioReader } from './audio-reader/audio-reader';
+import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
+// 👇 FIX: Import NoteCardComponent
+import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 
 @Component({
   selector: 'app-reader-shell',
   standalone: true,
-  // 👇 Refactor: Added ConceptInputComponent
   imports: [
     CommonModule,
     FormsModule,
@@ -48,6 +52,8 @@ import { AudioReader } from './audio-reader/audio-reader';
     EpubReader,
     AudioReader,
     ConceptInputComponent,
+    // 👇 FIX: Add to imports array so the HTML can recognize <app-note-card>
+    NoteCardComponent,
   ],
   templateUrl: './reader-shell.html',
   styleUrl: './reader-shell.css',
@@ -61,19 +67,15 @@ export class ReaderShell implements OnInit {
   private router = inject(Router);
   private booksService = inject(BooksService);
   private notesService = inject(NotesService);
-  // 👇 Refactor: Inject services to load concepts
   private conceptsService = inject(ConceptsService);
   private autocompleteService = inject(ConceptAutocompleteService);
 
+  // Icons
   Icons = {
     ArrowLeft,
     NotebookPen,
-    MessageSquareQuote,
     StickyNote,
-    Edit: Edit2,
-    Delete: Trash2,
     Close: X,
-    Check,
     Clock,
     List,
     ZoomIn,
@@ -94,11 +96,10 @@ export class ReaderShell implements OnInit {
   dbNotes = signal<Note[]>([]);
   quickNoteContent = signal('');
 
-  editingNoteId = signal<string | null>(null);
-  editContent = signal('');
+  // Concept map for the note cards
+  conceptMap = signal<Map<string, ConceptDto>>(new Map());
 
   // --- UNIFIED READER LOGIC ---
-
   fileType = computed<'pdf' | 'epub' | 'audio' | null>(() => {
     const fileName = this.book()?.fileName?.toLowerCase();
     if (!fileName) return null;
@@ -149,7 +150,6 @@ export class ReaderShell implements OnInit {
   // --- INITIALIZATION ---
 
   ngOnInit() {
-    // 👇 Refactor: Load concepts immediately so they are ready for the inputs
     this.loadConcepts();
 
     const id = this.route.snapshot.paramMap.get('id');
@@ -166,10 +166,17 @@ export class ReaderShell implements OnInit {
     }
   }
 
-  // 👇 Refactor: Helper to populate the autocomplete service
   loadConcepts() {
     this.conceptsService.list().subscribe({
-      next: (concepts) => this.autocompleteService.setConcepts(concepts),
+      next: (concepts) => {
+        // Populate service for autocomplete
+        this.autocompleteService.setConcepts(concepts);
+
+        // Populate map for NoteCard display
+        const map = new Map<string, ConceptDto>();
+        concepts.forEach((c) => map.set(c.name.trim().toLowerCase(), c));
+        this.conceptMap.set(map);
+      },
     });
   }
 
@@ -223,39 +230,22 @@ export class ReaderShell implements OnInit {
       next: () => {
         this.quickNoteContent.set('');
         this.loadNotes(bookId);
-        // Refresh concepts in case a new one was created (if you add that feature later)
         this.loadConcepts();
       },
     });
   }
 
-  // --- EDITING LOGIC ---
+  // --- HANDLERS FOR NOTE CARD ---
 
-  startEdit(note: Note, event?: Event) {
-    event?.stopPropagation();
-    this.editingNoteId.set(note.id);
-    this.editContent.set(note.content || '');
-  }
-
-  cancelEdit(event?: Event) {
-    event?.stopPropagation();
-    this.editingNoteId.set(null);
-    this.editContent.set('');
-  }
-
-  saveEdit(note: Note, event?: Event) {
-    event?.stopPropagation();
-    const newContent = this.editContent().trim();
-    this.notesService.update(note.id, { content: newContent }).subscribe({
+  onUpdateNote(event: { id: string; content: string }) {
+    this.notesService.update(event.id, { content: event.content }).subscribe({
       next: (updated) => {
         this.dbNotes.update((notes) => notes.map((n) => (n.id === updated.id ? updated : n)));
-        this.editingNoteId.set(null);
       },
     });
   }
 
-  deleteNote(noteId: string, event?: Event) {
-    event?.stopPropagation();
+  onDeleteNote(noteId: string) {
     if (!confirm('Delete this note?')) return;
 
     const noteToDelete = this.dbNotes().find((n) => n.id === noteId);
@@ -271,11 +261,10 @@ export class ReaderShell implements OnInit {
     });
   }
 
-  jumpToNote(note: Note) {
-    if (this.editingNoteId() === note.id || !note.cfiRange) return;
-    const reader = this.activeReader();
-    if (!reader) return;
-    reader.goTo(note.cfiRange);
+  onJumpToNote(note: Note) {
+    if (note.cfiRange && this.activeReader()) {
+      this.activeReader()?.goTo(note.cfiRange);
+    }
   }
 
   goBack() {

@@ -1,6 +1,6 @@
 <div class="note-card-container" [class.editing]="isEditing">
   @if (note.selectedText) {
-  <div class="note-quote" (click)="quoteClick.emit()">
+  <div class="note-quote">
     <div class="quote-stripe"></div>
     <lucide-icon [img]="Icons.MessageSquareQuote" [size]="14" class="quote-icon"></lucide-icon>
     <p class="quote-text">"{{ note.selectedText }}"</p>
@@ -38,6 +38,12 @@
       <span class="note-date">{{ note.createdAt | date : 'short' }}</span>
 
       <div class="note-actions">
+        @if (showNavigation) {
+        <button class="icon-btn xs" (click)="onCardClick($event)" title="Jump to location">
+          <lucide-icon [img]="Icons.ArrowRight" [size]="14"></lucide-icon>
+        </button>
+        }
+
         <button class="icon-btn xs" (click)="startEdit($event)">
           <lucide-icon [img]="Icons.Edit" [size]="14"></lucide-icon>
         </button>

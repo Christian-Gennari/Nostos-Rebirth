@@ -71,57 +71,14 @@
 
       <div class="notes-list">
         @for (note of dbNotes(); track note.id) {
-        <div
-          class="note-card"
-          (click)="jumpToNote(note)"
-          [class.editing]="editingNoteId() === note.id"
-        >
-          @if (note.selectedText) {
-          <div class="note-quote">
-            <lucide-icon
-              [img]="Icons.MessageSquareQuote"
-              [size]="14"
-              class="quote-icon"
-            ></lucide-icon>
-            <p>"{{ note.selectedText }}"</p>
-          </div>
-          } @if (editingNoteId() === note.id) {
-          <div class="edit-box" (click)="$event.stopPropagation()">
-            <app-concept-input
-              [(ngModel)]="editContent"
-              [rows]="3"
-              (submitTrigger)="saveEdit(note)"
-            ></app-concept-input>
-
-            <div class="edit-actions">
-              <button class="icon-btn small" (click)="saveEdit(note, $event)">
-                <lucide-icon [img]="Icons.Check" [size]="16"></lucide-icon>
-              </button>
-              <button class="icon-btn small" (click)="cancelEdit($event)">
-                <lucide-icon [img]="Icons.Close" [size]="16"></lucide-icon>
-              </button>
-            </div>
-          </div>
-          } @else { @if (note.content) {
-          <div class="note-content">
-            {{ note.content }}
-          </div>
-          } @else {
-          <div class="note-content placeholder">No additional comment.</div>
-          } }
-
-          <div class="note-footer">
-            <span class="note-date">{{ note.createdAt | date : 'short' }}</span>
-            <div class="note-actions">
-              <button class="icon-btn xs" (click)="startEdit(note, $event)">
-                <lucide-icon [img]="Icons.Edit" [size]="14"></lucide-icon>
-              </button>
-              <button class="icon-btn xs delete" (click)="deleteNote(note.id, $event)">
-                <lucide-icon [img]="Icons.Delete" [size]="14"></lucide-icon>
-              </button>
-            </div>
-          </div>
-        </div>
+        <app-note-card
+          [note]="note"
+          [conceptMap]="conceptMap()"
+          [showNavigation]="true"
+          (update)="onUpdateNote($event)"
+          (delete)="onDeleteNote($event)"
+          (cardClick)="onJumpToNote(note)"
+        ></app-note-card>
         } @empty {
         <div class="empty-state">
           <lucide-icon [img]="Icons.StickyNote" [size]="48"></lucide-icon>

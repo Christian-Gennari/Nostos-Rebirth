@@ -1,7 +1,15 @@
-import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideAngularModule, MessageSquareQuote, Edit2, Trash2, Check, X } from 'lucide-angular';
+import {
+  LucideAngularModule,
+  MessageSquareQuote,
+  Edit2,
+  Trash2,
+  Check,
+  X,
+  ArrowRight, // 👈 New Icon
+} from 'lucide-angular';
 
 import { Note } from '../../dtos/note.dtos';
 import { ConceptDto } from '../../services/concepts.services';
@@ -18,19 +26,25 @@ import { NoteFormatPipe } from '../pipes/note-format.pipe';
 export class NoteCardComponent {
   @Input({ required: true }) note!: Note;
   @Input() conceptMap: Map<string, ConceptDto> = new Map();
+  @Input() showNavigation = false; // 👈 Controls visibility of the jump button
 
-  // Events for the parent to handle the actual API calls
   @Output() update = new EventEmitter<{ id: string; content: string }>();
   @Output() delete = new EventEmitter<string>();
   @Output() conceptClick = new EventEmitter<string>();
   @Output() quoteClick = new EventEmitter<void>();
+  @Output() cardClick = new EventEmitter<void>();
 
-  // Internal state for editing
   isEditing = false;
   editContent = '';
 
-  // Icons
-  Icons = { MessageSquareQuote, Edit: Edit2, Delete: Trash2, Check, Close: X };
+  Icons = {
+    MessageSquareQuote,
+    Edit: Edit2,
+    Delete: Trash2,
+    Check,
+    Close: X,
+    ArrowRight,
+  };
 
   startEdit(event?: Event) {
     event?.stopPropagation();
@@ -57,7 +71,12 @@ export class NoteCardComponent {
     this.delete.emit(this.note.id);
   }
 
-  // Handle clicks on the formatted HTML (concepts)
+  // 👇 New explicit handler
+  onCardClick(event?: Event) {
+    event?.stopPropagation();
+    this.cardClick.emit();
+  }
+
   onContentClick(event: MouseEvent) {
     const target = event.target as HTMLElement;
     if (target.classList.contains('concept-tag')) {

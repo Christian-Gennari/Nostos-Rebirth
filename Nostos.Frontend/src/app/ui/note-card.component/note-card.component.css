@@ -5,12 +5,13 @@
 .note-card-container {
   padding: 1rem 0;
   border-bottom: 1px solid var(--border-color, #f0f0f0);
+  border-radius: var(--radius-sm);
   position: relative;
   transition: background-color 0.2s ease;
 }
 
 .note-card-container:hover {
-  background-color: var(--bg-hover, #fafafa); /* Optional hover effect */
+  background-color: var(--bg-hover, #fafafa);
 }
 
 /* --- Quote Block --- */
@@ -21,7 +22,6 @@
   padding: 0.5rem 0.75rem;
   background-color: var(--bg-hover, #f9fafb);
   border-radius: var(--radius-sm, 4px);
-  cursor: pointer; /* Indicates you can click to jump/view context */
 }
 
 .quote-stripe {
@@ -50,7 +50,7 @@
 .note-text {
   line-height: 1.6;
   color: var(--color-text-main, #1a1a1a);
-  white-space: pre-wrap; /* Preserve newlines */
+  white-space: pre-wrap;
 }
 
 .note-meta-placeholder {
@@ -59,12 +59,13 @@
   font-style: italic;
 }
 
-/* --- Footer & Actions --- */
+/* --- Footer & Actions (Floating Pill Design) --- */
 .note-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-top: 0.5rem;
+  height: 32px; /* Reserves space for the pill */
 }
 
 .note-date {
@@ -74,14 +75,42 @@
 
 .note-actions {
   display: flex;
-  gap: 0.25rem;
-  opacity: 0; /* Hidden by default */
-  transition: opacity 0.2s;
+  align-items: center;
+  gap: 4px;
+
+  /* Animation State */
+  opacity: 0;
+  transform: translateY(4px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Pill Container Styling */
+  background-color: var(--bg-surface, #fff);
+  border: 1px solid var(--border-color, #e5e5e5);
+  border-radius: 100px;
+  padding: 2px 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* Show actions on hover (desktop) or always if mobile logic added */
+/* Reveal on Hover */
 .note-card-container:hover .note-actions {
   opacity: 1;
+  transform: translateY(0);
+}
+
+/* Button Styling inside Pill */
+.note-actions .icon-btn {
+  border-radius: 50%;
+  transition: background-color 0.15s;
+}
+
+.note-actions .icon-btn:hover {
+  background-color: var(--bg-hover, #f3f3f3);
+  color: var(--color-primary, #111);
+}
+
+.note-actions .icon-btn.delete:hover {
+  background-color: #fee2e2;
+  color: var(--color-danger, #d32f2f);
 }
 
 /* --- Edit Mode Styles --- */
@@ -101,7 +130,7 @@
   border-top: 1px dashed var(--border-color, #eee);
 }
 
-/* Utility for icons */
+/* Utility for sizing icons */
 .icon-btn.xs {
   width: 24px;
   height: 24px;

@@ -257,17 +257,6 @@
   color: var(--color-text-muted);
 }
 
-.note-actions {
-  display: flex;
-  gap: 0.25rem;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.note-card:hover .note-actions {
-  opacity: 1;
-}
-
 /* Edit Box */
 .edit-box textarea {
   width: 100%;
