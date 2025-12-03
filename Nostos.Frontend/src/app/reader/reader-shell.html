@@ -4,125 +4,77 @@
       @if (loading()) {
       <div class="loading">Loading book...</div>
       } @else { @switch (fileType()) { @case ('pdf') {
-      <app-pdf-reader [bookId]="book()!.id" (noteCreated)="handleNoteCreated()" />
-      } @case ('epub') {
-      <app-epub-reader [bookId]="book()!.id" (noteCreated)="handleNoteCreated()" />
-      } @case ('audio') {
-      <app-audio-reader [bookId]="book()!.id" />
-      } @default {
+      <app-pdf-reader [bookId]="book()!.id" (noteCreated)="handleNoteCreated()" /> } @case ('epub')
+      { <app-epub-reader [bookId]="book()!.id" (noteCreated)="handleNoteCreated()" /> } @case
+      ('audio') { <app-audio-reader [bookId]="book()!.id" /> } @default {
       <div class="error">Unsupported file format.</div>
       } } }
     </main>
 
-    <aside class="notes-panel" [class.collapsed]="!notesOpen()">
-      <div class="notes-header">
-        <h3>Notes & Highlights</h3>
-        <button class="icon-btn" (click)="toggleNotes()">
-          <lucide-icon [img]="CloseIcon" [size]="20"></lucide-icon>
+    <aside class="toc-panel" [class.open]="tocOpen()">
+      <div class="panel-header">
+        <h3>Table of Contents</h3>
+        <button class="icon-btn" (click)="toggleToc()">
+          <lucide-icon [img]="Icons.Close" [size]="20"></lucide-icon>
         </button>
       </div>
-
-      <div class="quick-note-form">
-        <textarea
-          class="textarea"
-          placeholder="Add a quick note for this page..."
-          [(ngModel)]="quickNoteContent"
-          (keydown.control.enter)="saveQuickNote()"
-          rows="2"
-        ></textarea>
-
-        <div class="note-form-actions">
-          <button id="quick-note-button" class="btn btn-primary" (click)="saveQuickNote()">
-            Add Quick Note
-          </button>
-
-          @if (fileType() === 'audio') {
-          <button
-            id="audio-timestamp-button"
-            class="btn btn-sm btn-primary"
-            title="Insert current timestamp"
-            (click)="addAudioTimestamp()"
-          >
-            <lucide-icon [img]="ClockIcon" [size]="18"></lucide-icon>
-          </button>
-          }
-        </div>
-      </div>
-
-      <div class="notes-list-scroll">
-        @for (note of dbNotes(); track note.id) {
-        <div
-          class="sidebar-note-card"
-          [class.editing]="editingNoteId() === note.id"
-          (click)="jumpToNote(note)"
-        >
-          <div class="note-type-icon">
-            @if (note.selectedText) {
-            <lucide-icon [img]="QuoteIcon" [size]="14" class="hl-icon"></lucide-icon>
-            } @else {
-            <lucide-icon [img]="NoteIcon" [size]="14" class="note-icon"></lucide-icon>
-            }
-          </div>
-
-          <div class="note-content-wrapper">
-            @if (note.selectedText) {
-            <div class="sidebar-quote">"{{ note.selectedText }}"</div>
-            } @if (editingNoteId() !== note.id) { @if (note.content) {
-            <div class="sidebar-comment">{{ note.content }}</div>
-            } @else if (note.selectedText) {
-            <button class="btn btn-xs btn-ghost" (click)="startEdit(note, $event)">
-              + Add comment
-            </button>
-            }
-
-            <div class="card-actions">
-              <button class="icon-btn" (click)="startEdit(note, $event)">
-                <lucide-icon [img]="EditIcon" [size]="14"></lucide-icon>
-              </button>
-              <button class="icon-btn delete" (click)="deleteNote(note.id, $event)">
-                <lucide-icon [img]="DeleteIcon" [size]="14"></lucide-icon>
-              </button>
-            </div>
-            } @else {
-            <div class="edit-mode-box">
-              <textarea
-                [(ngModel)]="editContent"
-                rows="3"
-                class="edit-textarea"
-                placeholder="Add your thought..."
-                (click)="$event.stopPropagation()"
-              ></textarea>
-              <div class="edit-actions">
-                <button class="btn btn-xs btn-primary" (click)="saveEdit(note, $event)">
-                  Save
-                </button>
-                <button class="btn btn-xs btn-secondary" (click)="cancelEdit($event)">
-                  Cancel
-                </button>
-              </div>
-            </div>
-            }
-          </div>
+      <div class="toc-list">
+        @for (item of toc(); track $index) {
+        <div class="toc-item" (click)="handleTocClick(item)">
+          {{ item.label }}
         </div>
         } @empty {
-        <div class="empty-state">
-          No notes yet.<br />Select text to highlight or add a quick note above.
-        </div>
+        <div class="empty-state">No Table of Contents available.</div>
         }
+      </div>
+    </aside>
+
+    <aside class="notes-panel" [class.collapsed]="!notesOpen()">
+      <div class="notes-header">
+        <h3>Notes</h3>
+        <button class="icon-btn" (click)="toggleNotes()">
+          <lucide-icon [img]="Icons.Close" [size]="20"></lucide-icon>
+        </button>
       </div>
     </aside>
   </div>
 
   <header class="reader-toolbar">
-    <button class="icon-btn" (click)="goBack()">
-      <lucide-icon [img]="ArrowLeftIcon" [size]="20"></lucide-icon>
-    </button>
-    <div class="book-meta">
-      <span class="title">{{ book()?.title }}</span>
-      @if (book()?.pageCount) { <span class="progress">{{ book()?.pageCount }} pages</span> }
+    <div class="toolbar-left">
+      <button class="icon-btn" (click)="goBack()">
+        <lucide-icon [img]="Icons.ArrowLeft" [size]="20"></lucide-icon>
+      </button>
+      <button class="icon-btn" (click)="toggleToc()" title="Table of Contents">
+        <lucide-icon [img]="Icons.List" [size]="20"></lucide-icon>
+      </button>
     </div>
-    <button class="icon-btn" (click)="toggleNotes()">
-      <lucide-icon [img]="NotesIcon" [size]="20"></lucide-icon>
-    </button>
+
+    <div class="toolbar-center">
+      <button class="icon-btn" (click)="prevPage()" title="Previous">
+        <lucide-icon [img]="Icons.Prev" [size]="20"></lucide-icon>
+      </button>
+
+      <div class="progress-display">
+        <span>{{ progressLabel() }}</span>
+      </div>
+
+      <button class="icon-btn" (click)="nextPage()" title="Next">
+        <lucide-icon [img]="Icons.Next" [size]="20"></lucide-icon>
+      </button>
+    </div>
+
+    <div class="toolbar-right">
+      @if (fileType() !== 'audio') {
+      <button class="icon-btn" (click)="zoomOut()">
+        <lucide-icon [img]="Icons.ZoomOut" [size]="20"></lucide-icon>
+      </button>
+      <button class="icon-btn" (click)="zoomIn()">
+        <lucide-icon [img]="Icons.ZoomIn" [size]="20"></lucide-icon>
+      </button>
+      }
+      <button class="icon-btn" (click)="toggleNotes()" [class.active]="notesOpen()">
+        <lucide-icon [img]="Icons.NotebookPen" [size]="20"></lucide-icon>
+      </button>
+    </div>
   </header>
 </div>

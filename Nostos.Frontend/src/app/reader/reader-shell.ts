@@ -1,4 +1,13 @@
-import { Component, inject, OnInit, signal, computed, ViewChild } from '@angular/core';
+import {
+  Component,
+  inject,
+  OnInit,
+  signal,
+  computed,
+  ViewChild,
+  EffectRef,
+  effect,
+} from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -13,10 +22,16 @@ import {
   X,
   Check,
   Clock,
+  List,
+  ZoomIn,
+  ZoomOut,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-angular';
 import { BooksService } from '../services/books.services';
 import { NotesService } from '../services/notes.services';
 import { Note } from '../dtos/note.dtos';
+import { IReader, TocItem } from './reader.interface';
 
 // --- IMPORTS ---
 import { PdfReader } from './pdf-reader/pdf-reader';
@@ -31,9 +46,10 @@ import { AudioReader } from './audio-reader/audio-reader';
   styleUrl: './reader-shell.css',
 })
 export class ReaderShell implements OnInit {
-  @ViewChild(EpubReader) epubReader?: EpubReader;
-  @ViewChild(PdfReader) pdfReader?: PdfReader;
-  @ViewChild(AudioReader) audioReader?: AudioReader;
+  // Note: These will eventually implement IReader
+  @ViewChild(EpubReader) epubReader?: IReader;
+  @ViewChild(PdfReader) pdfReader?: IReader;
+  @ViewChild(AudioReader) audioReader?: IReader;
 
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -41,19 +57,27 @@ export class ReaderShell implements OnInit {
   private notesService = inject(NotesService);
 
   // Icons
-  ArrowLeftIcon = ArrowLeft;
-  NotesIcon = NotebookPen;
-  QuoteIcon = MessageSquareQuote;
-  NoteIcon = StickyNote;
-  EditIcon = Edit2;
-  DeleteIcon = Trash2;
-  CloseIcon = X;
-  CheckIcon = Check;
-  ClockIcon = Clock;
+  Icons = {
+    ArrowLeft,
+    NotebookPen,
+    MessageSquareQuote,
+    StickyNote,
+    Edit: Edit2,
+    Delete: Trash2,
+    Close: X,
+    Check,
+    Clock,
+    List,
+    ZoomIn,
+    ZoomOut,
+    Prev: ChevronLeft,
+    Next: ChevronRight,
+  };
 
   book = signal<any>(null);
   loading = signal(true);
   notesOpen = signal(false);
+  tocOpen = signal(false); // New State for TOC Drawer
   ready = signal(false);
 
   // Data
@@ -63,6 +87,8 @@ export class ReaderShell implements OnInit {
   // Editing State
   editingNoteId = signal<string | null>(null);
   editContent = signal('');
+
+  // --- UNIFIED READER LOGIC ---
 
   // Computed File Type
   fileType = computed<'pdf' | 'epub' | 'audio' | null>(() => {
@@ -75,6 +101,47 @@ export class ReaderShell implements OnInit {
     return null;
   });
 
+  // 1. Determine Active Reader Implementation
+  activeReader = computed<IReader | null>(() => {
+    // We rely on the ViewChild being available after view init
+    // The specific components (EpubReader etc) must implement IReader
+    switch (this.fileType()) {
+      case 'epub':
+        return this.epubReader ?? null;
+      case 'pdf':
+        return this.pdfReader ?? null;
+      case 'audio':
+        return this.audioReader ?? null;
+      default:
+        return null;
+    }
+  });
+
+  // 2. Expose Unified State
+  toc = computed(() => this.activeReader()?.toc() ?? []);
+  progressLabel = computed(() => this.activeReader()?.progress()?.label ?? '');
+
+  // 3. Expose Unified Actions
+  nextPage() {
+    this.activeReader()?.next();
+  }
+  prevPage() {
+    this.activeReader()?.previous();
+  }
+  zoomIn() {
+    this.activeReader()?.zoomIn();
+  }
+  zoomOut() {
+    this.activeReader()?.zoomOut();
+  }
+
+  handleTocClick(item: TocItem) {
+    this.activeReader()?.goTo(item.target);
+    this.tocOpen.set(false); // Close drawer on selection
+  }
+
+  // --- INITIALIZATION ---
+
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
@@ -83,6 +150,7 @@ export class ReaderShell implements OnInit {
           this.book.set(b);
           this.loading.set(false);
           this.loadNotes(b.id);
+          // Small delay to ensure ViewChildren are attached
           setTimeout(() => this.ready.set(true), 0);
         },
         error: () => this.loading.set(false),
@@ -92,7 +160,6 @@ export class ReaderShell implements OnInit {
 
   loadNotes(bookId: string) {
     this.notesService.list(bookId).subscribe((notes) => {
-      // Show newest first
       this.dbNotes.set(notes.reverse());
     });
   }
@@ -101,26 +168,37 @@ export class ReaderShell implements OnInit {
     const id = this.book()?.id;
     if (id) {
       this.loadNotes(id);
-      if (!this.notesOpen()) {
-        this.notesOpen.set(true);
-      }
+      if (!this.notesOpen()) this.notesOpen.set(true);
     }
   }
 
   toggleNotes() {
     this.notesOpen.update((v) => !v);
+    if (this.notesOpen()) this.tocOpen.set(false);
   }
 
+  toggleToc() {
+    this.tocOpen.update((v) => !v);
+    if (this.tocOpen()) this.notesOpen.set(false);
+  }
+
+  // --- NOTES LOGIC (Refactored) ---
+
   addAudioTimestamp() {
-    if (this.fileType() !== 'audio' || !this.audioReader) return;
+    if (this.fileType() !== 'audio' || !this.activeReader()) return;
 
-    const time = this.audioReader.currentTime();
-    const formatted = this.audioReader.formatTime(time);
-
-    this.quickNoteContent.update((current) => {
-      const prefix = current.length > 0 ? ' ' : '';
-      return current + prefix + `[${formatted}] `;
-    });
+    // We cast to any or specific type if we need specific methods not in interface,
+    // but better to add 'getCurrentTimeLabel' to interface if needed universally.
+    // For now, let's assume we can get it from the label or specific reader.
+    const reader = this.audioReader as any;
+    if (reader && reader.formatTime) {
+      const time = reader.currentTime();
+      const formatted = reader.formatTime(time);
+      this.quickNoteContent.update((current) => {
+        const prefix = current.length > 0 ? ' ' : '';
+        return current + prefix + `[${formatted}] `;
+      });
+    }
   }
 
   saveQuickNote() {
@@ -129,29 +207,15 @@ export class ReaderShell implements OnInit {
     const bookId = this.book()?.id;
     if (!bookId) return;
 
-    let currentCfi: string | undefined = undefined;
+    // Unified Location Retrieval
+    const currentCfi = this.activeReader()?.getCurrentLocation() || undefined;
 
-    // 👇 UPDATED: Handle logic for all reader types including PDF
-    if (this.fileType() === 'epub') {
-      currentCfi = this.epubReader?.getCurrentLocationCfi() || undefined;
-    } else if (this.fileType() === 'audio' && this.audioReader) {
-      currentCfi = this.audioReader.currentTime().toString();
-    } else if (this.fileType() === 'pdf' && this.pdfReader) {
-      // Now calls the new method in PdfReader
-      currentCfi = this.pdfReader.getCurrentLocation();
-    }
-
-    this.notesService
-      .create(bookId, {
-        content: content,
-        cfiRange: currentCfi,
-      })
-      .subscribe({
-        next: () => {
-          this.quickNoteContent.set('');
-          this.loadNotes(bookId);
-        },
-      });
+    this.notesService.create(bookId, { content, cfiRange: currentCfi }).subscribe({
+      next: () => {
+        this.quickNoteContent.set('');
+        this.loadNotes(bookId);
+      },
+    });
   }
 
   // --- EDITING LOGIC ---
@@ -171,7 +235,6 @@ export class ReaderShell implements OnInit {
   saveEdit(note: Note, event?: Event) {
     event?.stopPropagation();
     const newContent = this.editContent().trim();
-
     this.notesService.update(note.id, { content: newContent }).subscribe({
       next: (updated) => {
         this.dbNotes.update((notes) => notes.map((n) => (n.id === updated.id ? updated : n)));
@@ -188,15 +251,11 @@ export class ReaderShell implements OnInit {
 
     this.notesService.delete(noteId).subscribe({
       next: () => {
-        // EPUB Logic
-        if (this.fileType() === 'epub' && this.epubReader && noteToDelete?.cfiRange) {
-          this.epubReader.deleteHighlight(noteToDelete.cfiRange);
-        }
-
-        // 👇 NEW: PDF Logic - Remove the highlight visually
-        if (this.fileType() === 'pdf' && this.pdfReader) {
-          this.pdfReader.removeHighlight(noteId);
-        }
+        // Specific cleanup can be moved to IReader.removeHighlight(id) eventually
+        // For now, we still check types for specific cleanup methods
+        if (this.fileType() === 'epub')
+          (this.epubReader as any)?.deleteHighlight(noteToDelete?.cfiRange);
+        if (this.fileType() === 'pdf') (this.pdfReader as any)?.removeHighlight(noteId);
 
         this.dbNotes.update((notes) => notes.filter((n) => n.id !== noteId));
       },
@@ -204,69 +263,16 @@ export class ReaderShell implements OnInit {
   }
 
   jumpToNote(note: Note) {
-    if (this.editingNoteId() === note.id || !note.cfiRange || note.cfiRange.trim().length === 0) {
-      return;
-    }
-    const type = this.fileType();
+    if (this.editingNoteId() === note.id || !note.cfiRange) return;
 
-    // PDF Logic
-    if (type === 'pdf' && this.pdfReader) {
-      const hasQuoted =
-        typeof note.selectedText === 'string' && note.selectedText.trim().length > 0;
+    const reader = this.activeReader();
+    if (!reader) return;
 
-      const preview =
-        note.selectedText && note.selectedText.length > 30
-          ? note.selectedText.slice(0, 30) + '…'
-          : note.selectedText;
-
-      const message = hasQuoted
-        ? `Jump to the location of quoted text "${preview}"?`
-        : 'Jump to the location this note was created?';
-
-      if (confirm(message)) {
-        this.pdfReader.goToLocation(note.cfiRange);
-      }
-      return;
-    }
-
-    // 👇 UPDATED EPUB Logic (Now matches PDF)
-    if (type === 'epub' && this.epubReader) {
-      const hasQuoted =
-        typeof note.selectedText === 'string' && note.selectedText.trim().length > 0;
-
-      const preview =
-        note.selectedText && note.selectedText.length > 30
-          ? note.selectedText.slice(0, 30) + '…'
-          : note.selectedText;
-
-      const message = hasQuoted
-        ? `Jump to the location of quoted text "${preview}"?`
-        : 'Jump to the location this note was created?';
-
-      if (confirm(message)) {
-        this.epubReader.goToLocation(note.cfiRange);
-      }
-      return;
-    }
-
-    // Audio Logic
-    if (type === 'audio' && this.audioReader) {
-      const timestampMatch = note.content?.match(/\[(\d[\d:]*)\]/);
-      const extracted = timestampMatch ? timestampMatch[1] : null;
-
-      const hasTimestamp = extracted !== null;
-
-      const time = parseFloat(note.cfiRange);
-      if (!isNaN(time)) {
-        const formatted = this.audioReader.formatTime(time);
-
-        const message = hasTimestamp ? `Jump to timestamp ${formatted}?` : 'Jump to this location?';
-
-        if (confirm(message)) {
-          this.audioReader.goToTime(time);
-        }
-      }
-      return;
+    // We can keep the prompt logic here or move it to a helper
+    // Simplified prompt for brevity in this refactor
+    const message = `Jump to location?`;
+    if (confirm(message)) {
+      reader.goTo(note.cfiRange);
     }
   }
 

@@ -2,26 +2,33 @@
   <div id="pdf-viewer-wrapper">
     <ngx-extended-pdf-viewer
       [src]="pdfSrc()"
-      [backgroundColor]="'#fffefe'"
-      [textLayer]="true"
-      [minZoom]="0.5"
-      [maxZoom]="4"
-      [showToolbar]="false"
-      [showBorders]="false"
-      [sidebarVisible]="false"
-      [handTool]="false"
-      [zoom]="'page-fit'"
-      [page]="currentPage"
-      (pageChange)="onPageChange($event)"
+      [backgroundColor]="'#fefeff'"
       [scrollMode]="3"
+      [showBorders]="false"
+      [zoom]="zoomLevel()"
       (pagesLoaded)="onPagesLoaded($event)"
+      (pageChange)="onPageChange($event)"
       (textLayerRendered)="onTextLayerRendered($event)"
-      (pdfLoadingFailed)="handleError($event)"
-      style="width: 100%; height: 100%; display: block"
+      (textSelection)="onTextSelection()"
+      (pdfLoaded)="onPdfLoaded($event)"
+      [showToolbar]="false"
+      [textLayer]="true"
+      [handTool]="false"
+      [showHandToolButton]="false"
+      [showSidebarButton]="false"
+      [showFindButton]="false"
+      [showPagingButtons]="false"
+      [showZoomButtons]="false"
+      [showPresentationModeButton]="false"
+      [showOpenFileButton]="false"
+      [showPrintButton]="false"
+      [showDownloadButton]="false"
+      [showSecondaryToolbarButton]="false"
+      [showRotateButton]="false"
+      [showHandToolButton]="false"
+      [showSpreadButton]="false"
+      [showPropertiesButton]="false"
     >
     </ngx-extended-pdf-viewer>
   </div>
-
-  <div class="nav-zone nav-prev" (click)="prevPage()" title="Previous Page"></div>
-  <div class="nav-zone nav-next" (click)="nextPage()" title="Next Page"></div>
 </div>

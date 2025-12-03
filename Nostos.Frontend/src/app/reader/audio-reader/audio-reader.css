@@ -1,111 +1,122 @@
 :host {
-  display: block;
+  display: flex;
+  flex-direction: column;
   height: 100%;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  /* Use your global background */
+  background: var(--bg-body);
+}
+
+.audio-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 420px;
+  padding: 2rem;
+  gap: 2.5rem;
+}
+
+/* --- COVER ART --- */
+.cover-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1.5rem;
   width: 100%;
 }
 
-.audio-layout {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  background: var(--bg-body);
-  padding: 2rem;
-}
-
-/* --- INFO SECTION --- */
-.info-section {
-  text-align: center;
-  margin-bottom: 3rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.cover-placeholder {
-  width: 200px;
-  height: 200px;
+.cover-art {
+  width: 240px;
+  height: 360px; /* Portrait aspect ratio typical for books */
+  border-radius: var(--radius-md); /* 6px */
+  overflow: hidden;
   background: var(--bg-surface);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); /* Soft shadow */
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
+  position: relative;
+}
+
+.cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.placeholder-art {
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--color-text-light);
-  margin-bottom: 1.5rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  background: #f3f3f3;
+}
+
+.track-info {
+  width: 100%;
 }
 
 .book-title {
   font-family: 'Lora', serif;
-  font-size: 1.5rem;
   font-weight: 600;
-  color: var(--color-primary);
-  margin-bottom: 0.5rem;
+  font-size: 1.25rem;
+  color: var(--color-text-main);
+  margin-bottom: 0.25rem;
+  /* Truncate long titles */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.status-text {
+.book-author {
   font-family: 'Inter', sans-serif;
   font-size: 0.9rem;
   color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
-/* --- CONTROLS CONTAINER --- */
-.controls-container {
+/* --- CONTROLS --- */
+.controls {
   width: 100%;
-  max-width: 480px;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.5rem;
 }
 
-/* --- SCRUBBER --- */
-.scrubber-group {
+/* Scrubber */
+.scrubber {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.scrubber-input {
-  -webkit-appearance: none;
+/* Custom Range Input Styling */
+.range-input {
   appearance: none;
+  -webkit-appearance: none;
   width: 100%;
-  height: 6px;
-  background: #e5e5e5;
-  border-radius: 4px;
+  height: 4px;
+  background: var(--border-color);
+  border-radius: 2px;
   outline: none;
   cursor: pointer;
 }
 
-/* Range Slider Thumb - Webkit */
-.scrubber-input::-webkit-slider-thumb {
+.range-input::-webkit-slider-thumb {
   -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
+  height: 12px;
+  width: 12px;
   border-radius: 50%;
-  background: var(--color-accent);
-  border: 2px solid var(--bg-surface);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  background: var(--color-primary);
+  cursor: pointer;
   transition: transform 0.1s;
 }
 
-.scrubber-input::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
-}
-
-/* Range Slider Thumb - Firefox */
-.scrubber-input::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  border: 2px solid var(--bg-surface);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  cursor: pointer;
+.range-input::-webkit-slider-thumb:hover {
+  transform: scale(1.3);
 }
 
 .time-labels {
@@ -114,30 +125,30 @@
   font-family: 'Inter', sans-serif;
   font-size: 0.8rem;
   color: var(--color-text-light);
-  font-feature-settings: 'tnum'; /* Monospaced numbers */
+  font-variant-numeric: tabular-nums;
 }
 
-/* --- PLAYBACK BUTTONS --- */
-.playback-buttons {
+/* Playback Row */
+.playback-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 2rem;
+  justify-content: space-between;
+  padding: 0 0.5rem;
 }
 
 .play-btn {
-  width: 72px;
-  height: 72px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   background: var(--color-primary);
-  color: var(--bg-surface);
+  color: #fff;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: transform 0.1s ease, background 0.2s;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
 }
 
 .play-btn:hover {
@@ -149,68 +160,28 @@
   transform: scale(0.95);
 }
 
-/* Reuse global icon-btn style but tweak sizes */
-.icon-btn.rewind,
-.icon-btn.forward {
-  width: 48px;
-  height: 48px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-surface);
+/* Minimal Text Button for Speed */
+.btn-text {
+  background: none;
+  border: none;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
   color: var(--color-text-muted);
+  cursor: pointer;
+  min-width: 40px;
+  transition: color 0.2s;
 }
 
-.icon-btn.rewind:hover,
-.icon-btn.forward:hover {
-  background: var(--bg-hover);
+.btn-text:hover {
   color: var(--color-primary);
 }
 
-/* --- SPEED CONTROLS --- */
-.speed-controls {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 1rem;
+/* Spacer to ensure Play button stays perfectly centered */
+.rate-spacer {
+  min-width: 40px;
 }
 
-.speed-label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  color: var(--color-text-light);
-  letter-spacing: 0.05em;
-}
-
-.speed-options {
-  display: flex;
-  gap: 0.5rem;
-  background: var(--bg-surface);
-  padding: 4px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-}
-
-.speed-btn {
-  background: transparent;
-  border: none;
-  padding: 0.35rem 0.75rem;
-  border-radius: var(--radius-sm);
-  font-family: 'Inter', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.speed-btn:hover {
-  color: var(--color-text-main);
-  background: var(--bg-hover);
-}
-
-.speed-btn.active {
-  background: var(--bg-hover);
-  color: var(--color-accent);
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+.icon-fill {
+  fill: currentColor;
 }

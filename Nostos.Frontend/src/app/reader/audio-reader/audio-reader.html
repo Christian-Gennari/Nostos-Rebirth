@@ -1,26 +1,30 @@
-<div class="audio-layout">
-  <!-- Info Section -->
-  <div class="info-section">
-    <div class="cover-placeholder">
-      <lucide-icon [img]="AudioIcon" [size]="64" strokeWidth="1"></lucide-icon>
+<div class="audio-container">
+  <div class="cover-section">
+    <div class="cover-art shadow-lg">
+      @if (book()?.coverUrl) {
+      <img [src]="book()?.coverUrl" alt="Book Cover" class="cover-img" />
+      } @else {
+      <div class="placeholder-art">
+        <lucide-icon [img]="Icons.AudioLines" [size]="48" class="placeholder-icon"></lucide-icon>
+      </div>
+      }
     </div>
-    <h2 class="book-title">Audiobook Playing</h2>
-    <p class="status-text">
-      {{ isPlaying() ? 'Now Playing' : 'Paused' }}
-    </p>
+
+    <div class="track-info">
+      <h2 class="book-title">{{ book()?.title }}</h2>
+      <p class="book-author">{{ book()?.author }}</p>
+    </div>
   </div>
 
-  <!-- Controls Section -->
-  <div class="controls-container">
-    <!-- Scrubber -->
-    <div class="scrubber-group">
+  <div class="controls">
+    <div class="scrubber">
       <input
         type="range"
         [min]="0"
         [max]="duration()"
         [value]="currentTime()"
         (input)="seek($event)"
-        class="scrubber-input"
+        class="range-input"
       />
       <div class="time-labels">
         <span>{{ formatTime(currentTime()) }}</span>
@@ -28,38 +32,22 @@
       </div>
     </div>
 
-    <!-- Main Buttons -->
-    <div class="playback-buttons">
-      <button class="icon-btn rewind" (click)="skip(-15)" title="Rewind 15s">
-        <lucide-icon [img]="RewindIcon" [size]="24"></lucide-icon>
-      </button>
-
-      <button class="play-btn" (click)="togglePlay()">
-        <lucide-icon
-          [img]="isPlaying() ? PauseIcon : PlayIcon"
-          [size]="32"
-          fill="currentColor"
-        ></lucide-icon>
-      </button>
-
-      <button class="icon-btn forward" (click)="skip(30)" title="Skip 30s">
-        <lucide-icon [img]="FastForwardIcon" [size]="24"></lucide-icon>
-      </button>
-    </div>
-
-    <!-- Speed Controls -->
-    <div class="speed-controls">
-      <div class="speed-label">Playback Speed</div>
-      <div class="speed-options">
-        <button
-          *ngFor="let rate of [0.75, 1, 1.25, 1.5, 2]"
-          (click)="setRate(rate)"
-          class="speed-btn"
-          [class.active]="currentRate() === rate"
-        >
-          {{ rate }}x
+    <div class="playback-row">
+      <div class="rate-toggle">
+        <button class="btn-text" (click)="toggleRate()" title="Playback Speed">
+          {{ currentRate() }}x
         </button>
       </div>
+
+      <button class="play-btn" (click)="togglePlay()">
+        @if(isPlaying()) {
+        <lucide-icon [img]="Icons.Pause" [size]="32" class="icon-fill"></lucide-icon>
+        } @else {
+        <lucide-icon [img]="Icons.Play" [size]="32" class="icon-fill ml-1"></lucide-icon>
+        }
+      </button>
+
+      <div class="rate-spacer"></div>
     </div>
   </div>
 </div>
