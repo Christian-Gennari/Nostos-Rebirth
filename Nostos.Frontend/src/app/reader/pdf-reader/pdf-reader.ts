@@ -1,12 +1,25 @@
-import { Component, input, computed, inject, OnInit, output, ViewChild } from '@angular/core';
+import {
+  Component,
+  input,
+  computed,
+  inject,
+  OnInit,
+  output,
+  ViewChild,
+  OnDestroy,
+} from '@angular/core';
 import {
   NgxExtendedPdfViewerModule,
   NgxExtendedPdfViewerComponent,
   TextLayerRenderedEvent,
   PagesLoadedEvent,
 } from 'ngx-extended-pdf-viewer';
+import { Subject } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+
 import { PdfAnnotationManager, PageHighlight } from './pdf-annotation-manager';
 import { NotesService } from '../../services/notes.services';
+import { BooksService } from '../../services/books.services';
 
 @Component({
   selector: 'app-pdf-reader',
@@ -15,9 +28,10 @@ import { NotesService } from '../../services/notes.services';
   templateUrl: './pdf-reader.html',
   styleUrl: './pdf-reader.css',
 })
-export class PdfReader implements OnInit {
+export class PdfReader implements OnInit, OnDestroy {
   private highlightService = inject(PdfAnnotationManager);
   private notesService = inject(NotesService);
+  private booksService = inject(BooksService);
 
   @ViewChild(NgxExtendedPdfViewerComponent) pdfViewer!: NgxExtendedPdfViewerComponent;
 
@@ -30,8 +44,21 @@ export class PdfReader implements OnInit {
   currentPage: number | undefined;
   totalPages = 0;
 
+  // Subject to handle debounced progress updates
+  private progressUpdater$ = new Subject<{ location: string; percentage: number }>();
+
   ngOnInit() {
     this.loadNotes();
+
+    // Subscribe to progress updates
+    this.progressUpdater$
+      .pipe(
+        debounceTime(1000),
+        distinctUntilChanged((prev, curr) => prev.location === curr.location)
+      )
+      .subscribe((data) => {
+        this.booksService.updateProgress(this.bookId(), data.location, data.percentage).subscribe();
+      });
   }
 
   onPagesLoaded(event: PagesLoadedEvent) {
@@ -45,6 +72,7 @@ export class PdfReader implements OnInit {
     });
 
     this.loadNotes();
+    this.restoreProgress();
   }
 
   loadNotes() {
@@ -71,17 +99,38 @@ export class PdfReader implements OnInit {
 
   // --- Navigation Logic ---
 
+  /**
+   * Called by the HTML (pageChange) event AND manual navigation
+   */
+  onPageChange(newPage: number) {
+    this.currentPage = newPage;
+
+    // Calculate percentage
+    const percentage = this.totalPages > 0 ? Math.floor((newPage / this.totalPages) * 100) : 0;
+
+    // Create a JSON location string
+    const location = JSON.stringify({
+      pageNumber: newPage,
+      yPercent: 0,
+      rects: [],
+    });
+
+    this.progressUpdater$.next({ location, percentage });
+  }
+
   prevPage() {
     const current = this.currentPage ?? this.pdfViewer?.page ?? 1;
     if (current > 1) {
-      this.currentPage = current - 1;
+      // Use onPageChange to ensure we trigger the save logic
+      this.onPageChange(current - 1);
     }
   }
 
   nextPage() {
     const current = this.currentPage ?? this.pdfViewer?.page ?? 1;
     if (current < this.totalPages) {
-      this.currentPage = current + 1;
+      // Use onPageChange to ensure we trigger the save logic
+      this.onPageChange(current + 1);
     }
   }
 
@@ -117,16 +166,19 @@ export class PdfReader implements OnInit {
     });
   }
 
-  /**
-   * 👇 NEW: Called by ReaderShell to remove a highlight visually
-   */
+  restoreProgress() {
+    this.booksService.get(this.bookId()).subscribe((book) => {
+      if (book.lastLocation) {
+        this.goToLocation(book.lastLocation);
+      }
+    });
+  }
+
   removeHighlight(id: string) {
     const index = this.savedHighlights.findIndex((h) => h.id === id);
     if (index !== -1) {
       const pageNumber = this.savedHighlights[index].pageNumber;
-      // 1. Remove from local array
       this.savedHighlights.splice(index, 1);
-      // 2. Repaint that page immediately
       this.repaintPage(pageNumber);
     }
   }
@@ -164,22 +216,15 @@ export class PdfReader implements OnInit {
             rects: highlight.rects,
           });
           this.noteCreated.emit();
-
-          // 👇 NEW: Paint the new highlight immediately
           this.repaintPage(highlight.pageNumber);
         },
       });
   }
 
-  /**
-   * 👇 NEW: Helper to find the DOM element for a page and force a repaint
-   */
   private repaintPage(pageNumber: number) {
-    // We look for the specific textLayer in the DOM for the given page number
     const textLayerSelector = `.page[data-page-number="${pageNumber}"] .textLayer`;
     const textLayer = document.querySelector(textLayerSelector) as HTMLElement;
 
-    // If the page is currently in the DOM (visible or cached), we repaint it.
     if (textLayer) {
       const pageHighlights = this.savedHighlights.filter((h) => h.pageNumber === pageNumber);
       const validHighlights = pageHighlights.filter((h) => h.rects && h.rects.length > 0);
@@ -190,5 +235,9 @@ export class PdfReader implements OnInit {
 
   handleError(error: any) {
     console.error('PDF Viewer Error:', error);
+  }
+
+  ngOnDestroy() {
+    this.progressUpdater$.complete();
   }
 }
