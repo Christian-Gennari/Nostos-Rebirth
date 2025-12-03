@@ -1,17 +1,27 @@
+// Define the valid types to match your backend Discriminator
+export type BookType = 'physical' | 'ebook' | 'audiobook';
+
 export interface Book {
   id: string;
   title: string;
-  subtitle: string | null; // <--- NEW
+  subtitle: string | null;
   author: string | null;
   description: string | null;
+
+  // NEW: Polymorphic Fields
+  type: BookType;
+  edition: string | null;
+  asin: string | null;
+  duration: string | null;
+
   isbn: string | null;
   publisher: string | null;
-  publishedDate: string | null; // API sends DateTime string
+  publishedDate: string | null;
   pageCount: number | null;
-  language: string | null; // <--- NEW
-  categories: string | null; // <--- NEW
-  series: string | null; // <--- NEW
-  volumeNumber: string | null; // <--- NEW
+  language: string | null;
+  categories: string | null;
+  series: string | null;
+  volumeNumber: string | null;
   createdAt: string;
   hasFile: boolean;
   fileName: string | null;
@@ -23,13 +33,20 @@ export interface Book {
 }
 
 export interface CreateBookDto {
+  type: BookType; // Required for backend factory
   title: string;
   subtitle: string | null;
   author: string | null;
   description: string | null;
+
+  // NEW FIELDS
+  edition: string | null;
+  asin: string | null;
+  duration: string | null;
+
   isbn: string | null;
   publisher: string | null;
-  publishedDate: string | null; // Note: Changed to match backend DTO name
+  publishedDate: string | null;
   pageCount: number | null;
   language: string | null;
   categories: string | null;
@@ -39,10 +56,17 @@ export interface CreateBookDto {
 }
 
 export interface UpdateBookDto {
+  // UpdateBookDto usually mirrors Create, minus the Type (type rarely changes)
+  // But strictly speaking, my backend "Apply" method allows updating specific fields
   title: string;
   subtitle: string | null;
   author: string | null;
   description: string | null;
+
+  edition: string | null;
+  asin: string | null;
+  duration: string | null;
+
   isbn: string | null;
   publisher: string | null;
   publishedDate: string | null;

@@ -11,7 +11,31 @@
     <div class="modal-body">
       <form (ngSubmit)="submit()" #bookForm="ngForm">
         <div class="form-group">
+          <label class="form-label">Book Format</label>
+          <select
+            [(ngModel)]="form.type"
+            name="type"
+            class="select-input input"
+            [disabled]="isEditMode()"
+          >
+            <option value="physical">Physical Book</option>
+            <option value="ebook">E-Book</option>
+            <option value="audiobook">Audiobook</option>
+          </select>
+        </div>
+
+        <div class="form-group">
           <div class="input-group-fetch">
+            @if (form.type === 'audiobook') {
+            <input
+              id="asin"
+              class="input"
+              type="text"
+              placeholder="ASIN (e.g. B00...)"
+              [(ngModel)]="form.asin"
+              name="asin"
+            />
+            } @else {
             <input
               id="isbn"
               class="input"
@@ -31,9 +55,13 @@
               <span class="dot-loader"></span>
               } @else { Fetch }
             </button>
+            }
           </div>
+          @if (form.type !== 'audiobook') {
           <p class="form-help-text">Enter ISBN and click Fetch to auto-fill metadata.</p>
+          }
         </div>
+
         <hr class="divider" />
 
         <div class="grid grid-2">
@@ -117,6 +145,17 @@
           </div>
 
           <div class="form-group">
+            <label class="form-label">Edition</label>
+            <input
+              class="input"
+              type="text"
+              placeholder="e.g. 2nd"
+              [(ngModel)]="form.edition"
+              name="edition"
+            />
+          </div>
+
+          <div class="form-group">
             <div class="label-row">
               <label class="form-label">Pub. Date</label>
               <div class="info-tooltip">
@@ -136,11 +175,23 @@
             />
 
             @if (pubDateModel.invalid && (pubDateModel.dirty || pubDateModel.touched)) {
-            <p class="error-text">Invalid format. Hover info icon for help.</p>
+            <p class="error-text">Invalid format.</p>
             }
           </div>
+        </div>
 
+        <div class="grid grid-2">
           <div class="form-group">
+            @if (form.type === 'audiobook') {
+            <label class="form-label">Duration</label>
+            <input
+              class="input"
+              type="text"
+              placeholder="e.g. 12h 30m"
+              [(ngModel)]="form.duration"
+              name="duration"
+            />
+            } @else {
             <label class="form-label">Pages</label>
             <input
               class="input"
@@ -149,10 +200,9 @@
               [(ngModel)]="form.pageCount"
               name="pageCount"
             />
+            }
           </div>
-        </div>
 
-        <div class="grid grid-2">
           <div class="form-group">
             <label class="form-label">Collection</label>
             <select [(ngModel)]="form.collectionId" name="collectionId" class="select-input input">
@@ -162,16 +212,17 @@
               }
             </select>
           </div>
-          <div class="form-group">
-            <label class="form-label">Genres</label>
-            <input
-              class="input"
-              type="text"
-              placeholder="Fiction, Sci-Fi..."
-              [(ngModel)]="form.categories"
-              name="categories"
-            />
-          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Genres</label>
+          <input
+            class="input"
+            type="text"
+            placeholder="Fiction, Sci-Fi..."
+            [(ngModel)]="form.categories"
+            name="categories"
+          />
         </div>
 
         <div class="form-group">

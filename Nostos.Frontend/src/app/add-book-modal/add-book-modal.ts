@@ -6,6 +6,7 @@ import { finalize } from 'rxjs';
 import { LucideAngularModule, X, Info, UploadIcon } from 'lucide-angular';
 import { BooksService, Book } from '../services/books.services';
 import { Collection } from '../dtos/collection.dtos';
+import { BookType } from '../dtos/book.dtos'; // ✅ Import the new Type
 
 @Component({
   selector: 'app-add-book-modal',
@@ -34,18 +35,31 @@ export class AddBookModal {
 
   // Computed State
   isEditMode = computed(() => !!this.book());
-  isFetching = signal(false); // NEW: Loading state for ISBN fetch
+  isFetching = signal(false);
 
   // Form State
   form = {
+    // ✅ Polymorphic Discriminator
+    type: 'physical' as BookType,
+
     title: '',
     subtitle: '' as string | null,
     author: '' as string | null,
+    description: '' as string | null,
+
+    // ✅ Specific IDs
     isbn: '' as string | null,
+    asin: '' as string | null, // NEW: For Audiobooks
+
+    // ✅ Metadata
     publisher: '' as string | null,
     publishedDate: '' as string | null,
+    edition: '' as string | null, // NEW: For references
+
+    // ✅ Length (Conditional)
     pageCount: null as number | null,
-    description: '' as string | null,
+    duration: '' as string | null, // NEW: For Audiobooks
+
     language: 'en',
     categories: '' as string | null,
     series: '' as string | null,
@@ -74,14 +88,22 @@ export class AddBookModal {
 
   fillForm(b: Book) {
     this.form = {
+      type: b.type || 'physical', // Default to physical for legacy records
       title: b.title,
       subtitle: b.subtitle || '',
       author: b.author,
+      description: b.description || '',
+
       isbn: b.isbn || '',
+      asin: b.asin || '', // ✅ Map new field
+
       publisher: b.publisher || '',
       publishedDate: b.publishedDate || '',
+      edition: b.edition || '', // ✅ Map new field
+
       pageCount: b.pageCount || null,
-      description: b.description || '',
+      duration: b.duration || '', // ✅ Map new field
+
       language: b.language || 'en',
       categories: b.categories || '',
       series: b.series || '',
@@ -94,14 +116,22 @@ export class AddBookModal {
 
   resetForm(): void {
     this.form = {
+      type: 'physical', // Reset to default
       title: '',
       subtitle: null,
       author: null,
+      description: null,
+
       isbn: null,
+      asin: null, // ✅ Reset
+
       publisher: null,
       publishedDate: null,
+      edition: null, // ✅ Reset
+
       pageCount: null,
-      description: null,
+      duration: null, // ✅ Reset
+
       language: 'en',
       categories: null,
       series: null,
@@ -114,7 +144,7 @@ export class AddBookModal {
     this.isFetching.set(false);
   }
 
-  // --- ISBN Fetching Logic (NEW) ---
+  // --- ISBN Fetching Logic ---
   fetchMetadata(): void {
     const isbn = this.form.isbn?.trim();
     if (!isbn) return;
@@ -142,6 +172,11 @@ export class AddBookModal {
             collectionId: this.form.collectionId,
             series: this.form.series,
             volumeNumber: this.form.volumeNumber,
+            // ✅ Preserve new fields
+            type: this.form.type,
+            asin: this.form.asin,
+            duration: this.form.duration,
+            edition: this.form.edition,
           };
         },
         error: () => alert('Book details not found.'),
@@ -165,7 +200,6 @@ export class AddBookModal {
 
     // Normalize language code before saving
     if (this.form.language) {
-      // Fix: Add "|| this.form.language" to ensure we never assign null
       this.form.language = this.getFullLanguageName(this.form.language) || this.form.language;
     }
 
@@ -256,16 +290,13 @@ export class AddBookModal {
     if (!input) return null;
     const clean = input.trim();
 
-    // Only attempt conversion if it looks like a code (2-3 chars, e.g. "en", "eng", "SV")
-    // If it's longer (e.g. "French"), assume it's already a full name.
     if (clean.length > 3) return clean;
 
     try {
-      // 'en' locale here means we want the result in English (e.g. 'sv' -> 'Swedish')
       const displayNames = new Intl.DisplayNames(['en'], { type: 'language' });
       return displayNames.of(clean) || clean;
     } catch (e) {
-      return clean; // Fallback to input if code is invalid
+      return clean;
     }
   }
 }
