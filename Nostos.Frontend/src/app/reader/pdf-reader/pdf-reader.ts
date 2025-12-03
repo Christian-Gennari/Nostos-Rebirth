@@ -1,3 +1,4 @@
+// src/app/reader/pdf-reader/pdf-reader.ts
 import {
   Component,
   input,
@@ -39,6 +40,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   @ViewChild(NgxExtendedPdfViewerComponent) pdfViewer!: NgxExtendedPdfViewerComponent;
 
   bookId = input.required<string>();
+  initialLocation = input<string | undefined>();
   noteCreated = output<void>();
 
   pdfSrc = computed(() => `/api/books/${this.bookId()}/file`);
@@ -49,7 +51,8 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   progress = signal<ReaderProgress>({ label: '', percentage: 0 });
 
   // Internal State
-  zoomLevel = signal<string | number>('auto');
+  // CHANGE: Set default to 'page-fit' for the initial load
+  zoomLevel = signal<string | number>('page-fit');
   currentPage = 1;
   totalPages = 0;
 
@@ -62,7 +65,6 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
 
     this.progressUpdater$
       .pipe(
-        // Block updates until the initial restore is done
         filter(() => this.initialLoadComplete),
         debounceTime(1000),
         distinctUntilChanged((prev, curr) => prev.location === curr.location)
@@ -75,28 +77,37 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   // --- IReader Methods ---
 
   next() {
-    if (this.currentPage < this.totalPages) this.currentPage++;
+    if (this.currentPage < this.totalPages) {
+      this.goTo(this.currentPage + 1);
+    }
   }
 
   previous() {
-    if (this.currentPage > 1) this.currentPage--;
+    if (this.currentPage > 1) {
+      this.goTo(this.currentPage - 1);
+    }
   }
 
   goTo(target: string | number) {
+    let targetPage = this.currentPage;
+
     try {
       if (typeof target === 'number') {
-        this.currentPage = target;
-        return;
-      }
-      if (target.trim().startsWith('{')) {
+        targetPage = target;
+      } else if (typeof target === 'string' && target.trim().startsWith('{')) {
         const range = JSON.parse(target);
-        if (range.pageNumber) this.currentPage = range.pageNumber;
-      } else {
+        if (range.pageNumber) targetPage = range.pageNumber;
+      } else if (typeof target === 'string') {
         const page = parseInt(target, 10);
-        if (!isNaN(page)) this.currentPage = page;
+        if (!isNaN(page)) targetPage = page;
       }
     } catch (e) {
       console.error('Invalid PDF location target', e);
+    }
+
+    if (targetPage > 0 && targetPage <= this.totalPages) {
+      this.currentPage = targetPage;
+      this.updateProgressState(targetPage);
     }
   }
 
@@ -109,13 +120,13 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   }
 
   zoomIn() {
-    this.zoomLevel.update((v) => (v === 'auto' ? 110 : typeof v === 'number' ? v + 10 : 100));
+    // CHANGE: If current zoom is a string (like 'page-fit'), default to 110% to start manual zooming
+    this.zoomLevel.update((v) => (typeof v === 'number' ? v + 10 : 110));
   }
 
   zoomOut() {
-    this.zoomLevel.update((v) =>
-      v === 'auto' ? 90 : typeof v === 'number' ? Math.max(v - 10, 20) : 100
-    );
+    // CHANGE: If current zoom is a string, default to 90%
+    this.zoomLevel.update((v) => (typeof v === 'number' ? Math.max(v - 10, 20) : 90));
   }
 
   // --- PDF Events ---
@@ -123,9 +134,17 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   onPagesLoaded(event: PagesLoadedEvent) {
     this.totalPages = event.pagesCount;
     this.loadNotes();
-    // Only restore progress once!
+
     if (!this.initialLoadComplete) {
-      this.restoreProgress();
+      const startLoc = this.initialLocation();
+
+      if (startLoc) {
+        this.goTo(startLoc);
+      } else {
+        this.updateProgressState(1);
+      }
+
+      setTimeout(() => (this.initialLoadComplete = true), 500);
     }
   }
 
@@ -155,7 +174,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     this.highlightService.paint(textLayerDiv, validHighlights);
   }
 
-  // --- Selection Logic (OPTIMISTIC UI) ---
+  // --- Selection Logic ---
 
   onTextSelection() {
     const highlight = this.highlightService.captureHighlight();
@@ -253,21 +272,6 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
       target: 0,
       children: item.items?.length ? this.mapPdfOutline(item.items) : [],
     }));
-  }
-
-  restoreProgress() {
-    this.booksService.get(this.bookId()).subscribe({
-      next: (book) => {
-        if (book.lastLocation) {
-          this.goTo(book.lastLocation);
-        }
-        // Enable saving after a short delay to avoid immediate overwrite
-        setTimeout(() => (this.initialLoadComplete = true), 500);
-      },
-      error: () => {
-        this.initialLoadComplete = true;
-      },
-    });
   }
 
   ngOnDestroy() {
