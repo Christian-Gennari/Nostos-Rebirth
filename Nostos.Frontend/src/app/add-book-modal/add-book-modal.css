@@ -16,6 +16,9 @@
   align-items: center;
   justify-content: center;
   padding: 1rem;
+
+  /* This prevents the main page behind the modal from scrolling when the user reaches the end of the modal scroll on their phone. */
+  overscroll-behavior: contain;
 }
 
 .modal-content {
@@ -258,5 +261,69 @@ lucide-icon {
   }
   75% {
     content: '•••';
+  }
+}
+
+/* ------------------------------
+   MOBILE RESPONSIVENESS
+------------------------------ */
+@media (max-width: 768px) {
+  /* 1. Maximize Modal Width */
+  .modal-content {
+    width: 95%; /* Take up almost full width */
+    max-height: 85vh; /* Leave room for browser bars */
+    display: flex; /* Use flex to handle scrolling better */
+    flex-direction: column;
+  }
+
+  /* 2. Scrollable Body Only */
+  /* This keeps the Header and Footer fixed while the middle scrolls */
+  .modal-header {
+    flex-shrink: 0; /* Don't shrink header */
+    padding: 0.75rem 1rem;
+  }
+
+  .modal-body {
+    flex-grow: 1;
+    overflow-y: auto; /* Scroll inside the body */
+    padding: 1rem; /* Reduce padding */
+  }
+
+  .modal-actions {
+    flex-shrink: 0; /* Don't shrink footer */
+    padding: 0.75rem 1rem;
+    background: var(--bg-surface); /* Ensure background covers content behind it */
+    border-top: 1px solid var(--border-color); /* Optional: Separation line */
+  }
+
+  /* 3. Stack Grids Vertically */
+  .grid-2,
+  .grid-3 {
+    grid-template-columns: 1fr; /* Force single column */
+    gap: 0.75rem;
+  }
+
+  /* 4. Adjust Inputs */
+  .input-group-fetch {
+    /* Keep fetch button next to input, but adjust spacing */
+    gap: 0.5rem;
+  }
+
+  .btn-fetch {
+    width: 80px; /* Slightly smaller button on mobile */
+  }
+
+  /* 5. Tooltip Adjustment */
+  /* Tooltips are hard on mobile (no hover), so we make it easier to read if tapped */
+  .tooltip-text {
+    width: 180px;
+    bottom: 130%; /* Move it slightly closer */
+    right: auto;
+    left: 0px; /* Align to right edge so it doesn't go off-screen left */
+    transform: none;
+  }
+  .tooltip-text::after {
+    right: auto;
+    left: 9px; /* Move arrow to match right alignment */
   }
 }
