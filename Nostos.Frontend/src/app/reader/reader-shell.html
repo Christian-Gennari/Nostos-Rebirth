@@ -36,7 +36,7 @@
       </div>
     </aside>
 
-    <aside class="notes-panel" [class.collapsed]="!notesOpen()">
+    <aside class="notes-panel" [class.open]="notesOpen()">
       <div class="notes-header">
         <h3>Notes & Highlights</h3>
         <button class="icon-btn" (click)="toggleNotes()">
@@ -126,10 +126,10 @@
 
     <div class="toolbar-right">
       @if (fileType() !== 'audio') {
-      <button class="icon-btn" (click)="zoomOut()">
+      <button class="icon-btn desktop-only" (click)="zoomOut()">
         <lucide-icon [img]="Icons.ZoomOut" [size]="20"></lucide-icon>
       </button>
-      <button class="icon-btn" (click)="zoomIn()">
+      <button class="icon-btn desktop-only" (click)="zoomIn()">
         <lucide-icon [img]="Icons.ZoomIn" [size]="20"></lucide-icon>
       </button>
       }

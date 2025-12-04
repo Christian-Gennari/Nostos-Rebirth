@@ -143,7 +143,7 @@ button {
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  border-radius: var(--radius-sm)
+  border-radius: var(--radius-sm);
 }
 
 .icon-btn:hover {
@@ -154,8 +154,6 @@ button {
 .icon-btn.delete:hover {
   color: var(--color-danger);
 }
-
-
 
 /* ------------------------------
    FORMS & INPUTS
@@ -214,7 +212,7 @@ input[type='file']::file-selector-button:hover {
 }
 ::-webkit-scrollbar-thumb {
   background: #ddd;
-  border-radius: 4px;
+  border-radius: 1px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #bbb;
@@ -336,3 +334,5 @@ input[type='file']::file-selector-button:hover {
   line-height: 1.6;
   color: var(--color-text-main);
 }
+
+

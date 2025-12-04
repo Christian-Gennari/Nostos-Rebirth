@@ -350,7 +350,6 @@
 
 /* --- 2. MOBILE RESPONSIVENESS (< 768px) --- */
 @media (max-width: 768px) {
-
   /* Show the floating button fixed on screen */
   .floating-toggle {
     display: flex;
@@ -358,23 +357,45 @@
     justify-content: center;
 
     position: fixed; /* Fixed relative to viewport */
-    bottom: 10px;
-    left: 10px;
+    bottom: 16px; /* Increased spacing from edge */
+    left: 16px; /* Increased spacing from edge */
     z-index: 50; /* Above regular content */
 
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    background: white;
-    border: 1px solid #e5e5e5;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    color: #333;
+    width: 48px; /* Larger, comfortable touch target */
+    height: 48px;
+    border-radius: 12px; /* Softer, modern rounded corner */
+
+    /* BRAND STYLING */
+    background: var(--color-primary); /* Use your main brand color */
+    color: #ffffff; /* White icon for contrast */
+    border: none; /* Remove generic gray border */
+
+    /* A nicer "lifted" shadow */
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+
     cursor: pointer;
+    /* Smooth transition for the press effect */
+    transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out, background-color 0.2s;
+  }
+
+  /* Add a press effect for better mobile feel */
+  .floating-toggle:active {
+    transform: scale(0.95);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
   }
 
   /* Hide the toggle if the sidebar is open (keeps UI clean) */
   .floating-toggle.hidden {
-    display: none;
+    /* Adding opacity/transform transition for smoother disappearance */
+    opacity: 0;
+    transform: scale(0.8);
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s ease-in-out;
+  }
+  /* Ensure the visible state overrides the hidden transition base */
+  .floating-toggle:not(.hidden) {
+    opacity: 1;
+    transform: scale(1);
   }
 
   /* --- SIDEBAR MOBILE BEHAVIOR --- */
@@ -388,7 +409,7 @@
 
     /* When 'Expanded' (Open), it sits at 0 */
     transform: translateX(0);
-    box-shadow: 4px 0 12px rgba(0,0,0,0.1);
+    box-shadow: 4px 0 12px rgba(0, 0, 0, 0.1);
   }
 
   /* When 'Collapsed' (Closed), it slides off-screen */

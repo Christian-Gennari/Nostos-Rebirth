@@ -6,11 +6,11 @@
 :host {
   display: block;
   height: 100vh;
-  height: 100dvh; /* For mobile */
+  height: 100dvh; /* Mobile viewport fix */
   width: 100vw;
   overflow: hidden;
   --toolbar-height: 60px;
-  --panel-width: 380px; /* Slightly wider for better reading of notes */
+  --panel-width: 380px;
 }
 
 .reader-layout {
@@ -28,17 +28,17 @@
 
 /* Main Content Area */
 .reader-body {
-  flex: 1;
+  flex: 1; /* Automatically takes remaining height */
   position: relative;
   display: flex;
   overflow: hidden;
-  height: calc(100vh - var(--toolbar-height));
+  /* Removed redundant height: calc(...) */
 }
 
 .reader-content {
   flex: 1;
   position: relative;
-  height: 100%;
+  /* height: 100%; removed - redundant in flex child */
   z-index: 1;
   display: flex;
   flex-direction: column;
@@ -55,48 +55,32 @@
   width: var(--panel-width);
   background: var(--bg-surface);
   z-index: 100;
-  display: flex;
+  display: none; /* Both hidden by default */
   flex-direction: column;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
-
-  /* Smooth Slide Animation */
 }
 
+/* Specific Positioning and Borders */
 .toc-panel {
   left: 0;
   border-right: 1px solid var(--border-color);
-  transform: translateX(-100%);
-  visibility: hidden;
-}
-
-.toc-panel.open {
-  transform: translateX(0);
-  visibility: visible;
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .notes-panel {
   right: 0;
   border-left: 1px solid var(--border-color);
-  transform: translateX(0); /* Default Open State logic handled by class below */
 }
 
-/* Logic: .collapsed means HIDDEN */
-.notes-panel.collapsed {
-  transform: translateX(100%);
-  visibility: hidden;
+/* Unified Open State */
+.toc-panel.open,
+.notes-panel.open {
+  display: flex;
 }
 
-@media (max-width: 768px) {
-  .toc-panel,
-  .notes-panel {
-    width: 100%;
-  }
-}
-
+/* Consolidate Header Styles */
 .panel-header,
 .notes-header {
-  height: 60px;
+  height: 60px; /* Could use var(--toolbar-height) to match footer */
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -116,16 +100,13 @@
 /* =========================================
    3. NOTES PANEL INTERNALS
    ========================================= */
-
-/* Quick Note Area */
 .quick-note {
   padding: 1.5rem;
   border-bottom: 1px solid var(--border-color);
-  background: var(--bg-body); /* Distinguish from list */
+  background: var(--bg-body);
   flex-shrink: 0;
 }
 
-/* Wrapper for ConceptInput to look like a box */
 .quick-note .input-wrapper {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
@@ -147,7 +128,6 @@
   margin-top: 0.75rem;
 }
 
-/* Notes List */
 .notes-list {
   flex: 1;
   overflow-y: auto;
@@ -158,7 +138,6 @@
   background-color: var(--bg-surface);
 }
 
-/* Empty State */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -197,13 +176,13 @@
   font-size: 0.95rem;
   color: var(--color-text-main);
   border-radius: var(--radius-sm);
-  transition: background 0.2s, color 0.2s;
 }
 
 .toc-item:hover {
   background-color: var(--bg-hover);
   color: var(--color-primary);
 }
+
 /* =========================================
    5. UNIFIED TOOLBAR
    ========================================= */
@@ -235,11 +214,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-hover); /* Removed grey background for cleaner look */
-  outline: 1px solid var(--border-color);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color); /* Changed outline to border */
   gap: 6px;
   padding: 0.3rem 0.5rem;
-  border-radius: var(--radius-md); /* Match button radius */
+  border-radius: var(--radius-md);
   font-size: 0.85rem;
   font-weight: 500;
   min-width: 140px;
@@ -249,23 +228,19 @@
 
 /* =========================================
    ICON BUTTON OVERRIDES
-   Matches src/styles.css .icon-btn
    ========================================= */
-
 .icon-btn:hover {
   background-color: var(--bg-hover);
   color: var(--color-primary);
-  border-color: var(--border-color); /* Optional: distinct hover boundary */
+  border-color: var(--border-color);
 }
 
-/* Active State (e.g. Notes toggled ON) */
 .icon-btn.active {
   background-color: var(--bg-surface);
   color: var(--color-primary);
-  border-color: var(--color-primary); /* Brand highlight */
+  border-color: var(--color-primary);
 }
 
-/* Specific overrides for size if needed */
 .icon-btn.xs {
   width: 24px;
   height: 24px;
@@ -289,7 +264,7 @@
 /* Tooltips */
 .info-tooltip {
   position: relative;
-  top: 1px;
+  /* Removed top: 1px magic number - use flex alignment in parent instead */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -340,60 +315,52 @@
   bottom: 160%;
 }
 
-#add-timestamp-icon {
+/* Icon Alignment Tweaks */
+#add-timestamp-icon,
+.icon-btn lucide-icon {
+  /* relative/top tweak preserved as it likely fixes a font-baseline issue */
   position: relative;
   top: 1px;
 }
-
 .icon-btn lucide-icon {
-  position: relative;
-  top: 1px;
   border-radius: var(--radius-md);
 }
-
 .reader-toolbar .icon-btn {
   border-radius: var(--radius-md);
 }
 
-
-
-/* 2. Mobile Media Query */
+/* =========================================
+   MOBILE RESPONSIVENESS
+   ========================================= */
 @media (max-width: 768px) {
-
-  /* Make panels full width (You already had this, but ensure z-index is safe) */
   .toc-panel,
   .notes-panel {
     width: 100%;
-    z-index: 200; /* Ensure it sits above everything */
+    /* z-index: 100 is sufficient, removed redundant 200 */
   }
 
-  /* Adjust Toolbar Padding */
   .reader-toolbar {
-    padding: 0 0.5rem; /* Reduce side padding to save space */
+    padding: 0 0.5rem;
     gap: 0.25rem;
   }
 
-  /* 3. Larger Touch Targets */
   .icon-btn {
     width: 44px;
-    height: 44px; /* Standard touch target size */
+    height: 44px;
   }
 
-  /* Adjust icon size inside if needed, or keep them centered */
   .icon-btn lucide-icon {
-    top: 0; /* Reset specific positioning if needed for centering */
+    top: 0;
   }
 
-  /* 4. Hide Non-Essential Controls to save space */
-  /* Example: Hide Zoom buttons on mobile (assuming pinch works or it's secondary) */
-  .toolbar-right .icon-btn:nth-child(1), /* Zoom Out */
-  .toolbar-right .icon-btn:nth-child(2) { /* Zoom In */
+  /* Utility class to hide elements on mobile */
+  /* Replaces the brittle nth-child selectors */
+  .desktop-only {
     display: none;
   }
 
-  /* Simplify Progress Display */
   .progress-display {
-    min-width: auto; /* Allow it to shrink */
+    min-width: auto;
     padding: 0.3rem;
     font-size: 0.8rem;
   }
@@ -405,9 +372,7 @@
     text-overflow: ellipsis;
   }
 
-  /* Hide the info tooltip icon on mobile (interaction is tricky anyway) */
   .info-tooltip {
     display: none;
   }
 }
-

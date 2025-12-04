@@ -1,9 +1,9 @@
-import { Component, OnInit, inject, signal, model, HostListener, computed } from '@angular/core'; // ADD 'computed'
+import { Component, OnInit, inject, signal, model, HostListener, computed } from '@angular/core';
 import { CollectionsService } from '../services/collections.services';
 import { Collection } from '../dtos/collection.dtos';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router'; // <--- Import Router
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import {
   LucideAngularModule,
   Folder,
@@ -26,7 +26,7 @@ import {
 })
 export class SidebarCollections implements OnInit {
   private collectionsService = inject(CollectionsService);
-  private router = inject(Router); // <--- Inject Router
+  private router = inject(Router);
 
   // Icons
   FolderIcon = Folder;
@@ -52,13 +52,16 @@ export class SidebarCollections implements OnInit {
 
   private ignoreClick = false;
 
-  // Access Global Active ID
   activeId = this.collectionsService.activeCollectionId;
-
-  // NEW: Computed property to fix double highlight (Request 1)
 
   ngOnInit(): void {
     this.load();
+
+    // 👇 ADD THIS: Check viewport width on init
+    // If screen is smaller than 768px (matching your CSS), close sidebar
+    if (window.innerWidth < 768) {
+      this.expanded.set(false);
+    }
   }
 
   @HostListener('document:click', ['$event'])
@@ -100,6 +103,11 @@ export class SidebarCollections implements OnInit {
   select(id: string | null): void {
     this.collectionsService.activeCollectionId.set(id);
     this.router.navigate(['/library']);
+
+    // Optional: Auto-close sidebar on mobile when an item is selected
+    if (window.innerWidth < 768) {
+      this.expanded.set(false);
+    }
   }
 
   startAdd(): void {
