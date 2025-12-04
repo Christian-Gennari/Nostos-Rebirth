@@ -459,3 +459,65 @@
   height: 120px;
   margin-top: 2rem;
 }
+
+
+/* =========================================
+   MOBILE RESPONSIVENESS
+   ========================================= */
+
+@media (max-width: 900px) {
+  /* 1. Stack the layout vertically */
+  .detail-grid {
+    grid-template-columns: 1fr; /* Single column */
+    gap: 2rem;
+  }
+
+  /* 2. Center the cover image and restrict width */
+  .detail-cover-col {
+    width: 100%;
+    max-width: 240px; /* Prevent it from being huge */
+    margin: 0 auto;   /* Center horizontally */
+  }
+
+  /* 3. Center the text header for a cleaner mobile look */
+  .info-header {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .book-title {
+    font-size: 2rem; /* Slightly smaller title */
+  }
+
+  /* 4. Make main action buttons full-width and stacked */
+  .primary-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.75rem;
+  }
+
+  .primary-actions .btn {
+    width: 100%;
+    justify-content: center;
+    height: 44px; /* Better touch target */
+  }
+
+  /* 5. Adjust Metadata Box padding */
+  .synopsis-metadata-block {
+    padding: 1.25rem 1rem; /* Less padding on sides */
+  }
+}
+
+/* Extra small screens (Phones) */
+@media (max-width: 480px) {
+  .meta-grid {
+    grid-template-columns: 1fr; /* Stack metadata fields */
+    gap: 1rem;
+  }
+
+  .detail-cover-col {
+    max-width: 180px; /* Smaller cover on small phones */
+  }
+}
