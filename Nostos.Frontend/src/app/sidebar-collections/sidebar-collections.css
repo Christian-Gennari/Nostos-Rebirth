@@ -343,3 +343,62 @@
   /* Triggers the animation every time the element is created by the @if block */
   animation: smoothFadeIn 0.3s cubic-bezier(0.2, 0, 0, 1) forwards;
 }
+
+.floating-toggle {
+  display: none; /* Completely hidden on desktop */
+}
+
+/* --- 2. MOBILE RESPONSIVENESS (< 768px) --- */
+@media (max-width: 768px) {
+
+  /* Show the floating button fixed on screen */
+  .floating-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    position: fixed; /* Fixed relative to viewport */
+    bottom: 10px;
+    left: 10px;
+    z-index: 50; /* Above regular content */
+
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: white;
+    border: 1px solid #e5e5e5;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    color: #333;
+    cursor: pointer;
+  }
+
+  /* Hide the toggle if the sidebar is open (keeps UI clean) */
+  .floating-toggle.hidden {
+    display: none;
+  }
+
+  /* --- SIDEBAR MOBILE BEHAVIOR --- */
+  .sidebar {
+    position: fixed;
+    height: 100%;
+    top: 0;
+    left: 0;
+    z-index: 100; /* Above the floating button */
+    width: 280px; /* Fixed width for mobile drawer */
+
+    /* When 'Expanded' (Open), it sits at 0 */
+    transform: translateX(0);
+    box-shadow: 4px 0 12px rgba(0,0,0,0.1);
+  }
+
+  /* When 'Collapsed' (Closed), it slides off-screen */
+  .sidebar.collapsed {
+    width: 280px; /* Keep width consistent */
+    transform: translateX(-100%);
+  }
+
+  /* Mobile internal adjustments */
+  .sidebar-footer {
+    justify-content: flex-end; /* Put the toggle/close button on the right */
+  }
+}
