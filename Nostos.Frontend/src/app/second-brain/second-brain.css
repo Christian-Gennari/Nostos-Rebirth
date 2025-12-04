@@ -387,3 +387,108 @@
 .note-card {
   animation: slideUpFade 0.4s cubic-bezier(0.2, 0, 0, 1) forwards;
 }
+
+
+/* --- MOBILE RESPONSIVENESS --- */
+
+/* 1. Mobile Back Button (Default Hidden) */
+.mobile-nav-header {
+  display: none;
+}
+
+@media (max-width: 768px) {
+
+  /* 2. Break the Grid */
+  .brain-layout {
+    display: block; /* Switch from grid to block flow */
+    position: relative;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* 3. Index Column Behavior */
+  .index-col {
+    width: 100%;
+    height: 100%;
+    border-right: none;
+  }
+
+  /* When class.mobile-hidden is active (Selection made), hide index completely */
+  .index-col.mobile-hidden {
+    display: none;
+  }
+
+  /* 4. Content Column Behavior */
+  .content-col {
+    display: none; /* Hidden by default on mobile (Landing state is Index) */
+    width: 100%;
+    height: 100%;
+    padding: 1.5rem; /* Less padding on mobile */
+    background-image: none; /* Cleaner look on small screens */
+  }
+
+  /* When class.mobile-visible is active, show it full screen */
+  .content-col.mobile-visible {
+    display: block;
+    overflow-y: auto;
+  }
+
+  /* 5. Mobile Back Button Style */
+  .mobile-nav-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-bottom: 1rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--color-primary);
+    font-weight: 500;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+
+  /* 6. Adjust Typography for Mobile */
+  .concept-title {
+    font-size: 2rem;
+  }
+
+  .cards-grid {
+    grid-template-columns: 1fr; /* Single column cards */
+  }
+
+  /* Disable "wide" card spanning on mobile */
+  .note-card.card-wide {
+    grid-column: span 1;
+  }
+
+  /* 5. Mobile Back Button (Refined) */
+  .mobile-nav-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    /* Layout */
+    width: 100%;
+    padding: 1rem 0; /* Vertical breathing room */
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color); /* Subtle divider */
+
+    /* Typography & Color - Matches .btn-back */
+    color: var(--color-text-light, #999);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+
+    cursor: pointer;
+    transition: color 0.2s ease, transform 0.2s ease;
+  }
+
+  .mobile-nav-header:hover {
+    color: var(--color-primary, #000);
+
+  }
+
+  .mobile-nav-header lucide-icon {
+    stroke-width: 2px;
+  }
+}

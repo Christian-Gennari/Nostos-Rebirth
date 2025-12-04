@@ -1,6 +1,6 @@
 <main class="layout-wrapper">
   <div class="layout-content brain-layout">
-    <aside class="index-col">
+    <aside class="index-col" [class.mobile-hidden]="selectedId()">
       <div class="index-header">
         <div class="header-row">
           <h1>Index</h1>
@@ -33,8 +33,13 @@
       </div>
     </aside>
 
-    <section class="content-col">
-      @if (loadingDetail()) {
+    <section class="content-col" [class.mobile-visible]="selectedId()">
+      @if (selectedId()) {
+      <div class="mobile-nav-header" (click)="clearSelection()">
+        <lucide-icon [img]="ArrowLeftIcon" [size]="18"></lucide-icon>
+        <span>Back to Index</span>
+      </div>
+      } @if (loadingDetail()) {
       <div class="loading-state">
         <div class="spinner"></div>
       </div>
@@ -49,12 +54,7 @@
 
       <div class="cards-grid">
         @for (note of detail.notes; track note.noteId; let i = $index) {
-        <div
-          class="note-card"
-          [class.card-wide]="shouldCardSpanTwoColumns(note)"
-          [style.animation-delay]="i * 50 + 'ms'"
-          animate.enter="slide-up-stagger"
-        >
+        <div class="note-card" [class.card-wide]="shouldCardSpanTwoColumns(note)">
           <div class="card-body">
             @if (note.selectedText) {
             <div class="highlight-block">
@@ -69,13 +69,11 @@
             ></p>
             }
           </div>
-
           <div class="card-footer">
             <div class="book-info">
               <span class="from-label">Source:</span>
               <span class="book-title">{{ note.bookTitle }}</span>
             </div>
-
             <a
               [routerLink]="['/library', note.bookId]"
               [queryParams]="{ cfi: note.cfiRange }"

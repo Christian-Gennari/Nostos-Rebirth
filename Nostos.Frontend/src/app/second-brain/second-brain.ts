@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { LucideAngularModule, Search, BrainCircuit, ArrowRight } from 'lucide-angular';
+import { LucideAngularModule, Search, BrainCircuit, ArrowLeft, ArrowRight } from 'lucide-angular';
 
 import {
   ConceptsService,
@@ -34,6 +34,7 @@ export class SecondBrain implements OnInit {
   SearchIcon = Search;
   BrainIcon = BrainCircuit;
   ArrowRightIcon = ArrowRight;
+  ArrowLeftIcon = ArrowLeft;
 
   // State
   concepts = signal<ConceptDto[]>([]);
@@ -87,6 +88,12 @@ export class SecondBrain implements OnInit {
         this.loadingDetail.set(false);
       },
     });
+  }
+
+  // New Method: Clears selection to return to Index on mobile
+  clearSelection() {
+    this.selectedId.set(null);
+    this.selectedDetail.set(null);
   }
 
   shouldCardSpanTwoColumns(note: NoteContextDto): boolean {
