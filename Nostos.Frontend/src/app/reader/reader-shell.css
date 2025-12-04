@@ -109,11 +109,7 @@
 .panel-header h3,
 .notes-header h3 {
   margin: 0;
-  font-size: 0.95rem;
   font-weight: 600;
-  font-family: 'Inter', sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: var(--color-text-main);
 }
 
