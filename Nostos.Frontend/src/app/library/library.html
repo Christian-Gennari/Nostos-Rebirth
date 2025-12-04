@@ -1,7 +1,7 @@
 <main class="layout-wrapper">
   <div class="layout-content">
     <header class="toolbar">
-      <h1>Library</h1>
+      <h1 id="library-title">Library</h1>
 
       <div class="toolbar-right">
         <div class="control-group">
@@ -51,11 +51,11 @@
       @if (viewMode() === 'list') {
       <div class="table-view">
         <div class="table-header">
-          <div>Title</div>
-          <div>Author</div>
-          <div>Format</div>
-          <div>Date</div>
-          <div style="text-align: right">Actions</div>
+          <div id="title-header">Title</div>
+          <div id="author-header">Author</div>
+          <div id="format-header">Format</div>
+          <div id="date-header">Date</div>
+          <div id="actions-header" style="text-align: right">Actions</div>
         </div>
 
         @for (book of books(); track book.id) {
@@ -79,7 +79,7 @@
           </div>
 
           <div class="col date" style="color: var(--color-text-light); font-size: 0.85rem">
-            Nov 26
+            {{ book.createdAt | date : 'shortDate' }}
           </div>
 
           <div class="col actions-cell">

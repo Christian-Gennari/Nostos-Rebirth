@@ -119,6 +119,10 @@
   opacity: 1;
 }
 
+.col.title {
+  font-weight: 500;
+}
+
 .col.author {
   color: var(--color-text-muted);
 }
@@ -289,5 +293,43 @@
   to {
     opacity: 0;
     transform: translateY(-10px);
+  }
+}
+
+/* MOBILE RESPONSIVENESS */
+
+@media (max-width: 768px) {
+  .table-view {
+    --table-grid-cols: 1fr 60px;
+  }
+
+  .col.format,
+  #format-header {
+    display: flex;
+    justify-content: right;
+  }
+
+  .table-row {
+    border-bottom: 1px dotted var(--border-color);
+    padding: 1.5rem 1rem;
+  }
+
+  #library-title {
+    display: none;
+  }
+
+  .toolbar {
+    justify-content: end;
+  }
+
+  /* 3. Hide specific elements */
+  .col .actions-cell,
+  .col.author,
+  .col.date,
+  .col.actions-cell,
+  #author-header, /* Author Header */
+  #date-header,  /* Date Header */
+  #actions-header {
+    display: none !important;
   }
 }
