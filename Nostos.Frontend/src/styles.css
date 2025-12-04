@@ -58,6 +58,11 @@ p {
   line-height: 1.6;
 }
 
+lucide-icon {
+  position: relative;
+  top: 1px;
+}
+
 /* ------------------------------
    GLOBAL LAYOUT UTILITIES
 ------------------------------ */
@@ -129,6 +134,7 @@ button {
 
 .icon-btn {
   all: unset;
+
   cursor: pointer;
   background: white;
   width: 32px;
@@ -137,7 +143,7 @@ button {
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  border-radius: 2px;
+  border-radius: var(--radius-sm)
 }
 
 .icon-btn:hover {
@@ -148,6 +154,8 @@ button {
 .icon-btn.delete:hover {
   color: var(--color-danger);
 }
+
+
 
 /* ------------------------------
    FORMS & INPUTS

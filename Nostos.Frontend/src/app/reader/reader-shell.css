@@ -246,11 +246,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.progress-display lucide-icon {
-  position: relative;
-  top: 1px;
-}
-
 /* =========================================
    ICON BUTTON OVERRIDES
    Matches src/styles.css .icon-btn
