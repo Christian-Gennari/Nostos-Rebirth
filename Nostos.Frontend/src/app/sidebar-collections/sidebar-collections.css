@@ -378,6 +378,8 @@
     transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out, background-color 0.2s;
   }
 
+
+
   /* Add a press effect for better mobile feel */
   .floating-toggle:active {
     transform: scale(0.95);

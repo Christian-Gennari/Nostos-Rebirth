@@ -6,7 +6,7 @@
   /* Uses Grid to define columns: minmax(280px, 320px) 1fr; */
   grid-template-columns: minmax(280px, 320px) 1fr;
 
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: var(--bg-body);
 }
@@ -50,7 +50,6 @@
   color: var(--color-text-light);
 }
 
-
 /* ROW 2: Search Box */
 .search-box {
   display: flex;
@@ -69,7 +68,7 @@
 .search-box:focus-within {
   border-color: #aaa;
   color: var(--color-text-main);
-  box-shadow: 0 0 0 2px rgba(0,0,0,0.05);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
 }
 
 .search-box input {
@@ -120,7 +119,7 @@
   background: var(--bg-surface);
   color: var(--color-primary);
   border: 1px solid var(--border-color);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .index-item .name {
@@ -217,19 +216,19 @@
   display: flex;
   flex-direction: column;
   transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
   opacity: 0;
 }
 
 .note-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
   border-color: #ccc;
 }
 
 /* NEW: Allow wide cards to span two columns */
 .note-card.card-wide {
-    grid-column: span 2;
+  grid-column: span 2;
 }
 
 .card-body {
@@ -242,9 +241,9 @@
 
 /* NEW: Improve readability for wide cards by limiting line length */
 .note-card.card-wide .highlight-text {
-    max-width: 80ch;
-    margin-left: auto;
-    margin-right: auto;
+  max-width: 80ch;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* --- ELEGANT QUOTE STYLES --- */
@@ -264,14 +263,12 @@
   padding-left: 1.25rem;
   padding-right: 1.25rem;
   font-family: 'Lora', serif;
-  font-style:italic;
+  font-style: italic;
 
   font-size: 1rem;
   margin: 0.25rem 0; /* Slight vertical margin inside the block */
   line-height: 1.7; /* Spacious line height */
 }
-
-
 
 /* Highlight Style */
 :host ::ng-deep .concept-tag {
@@ -337,7 +334,6 @@
   border-color: var(--border-color);
 }
 
-
 /* LANDING STATE */
 .landing-state {
   height: 100%;
@@ -361,7 +357,7 @@
   justify-content: center;
   margin-bottom: 1.5rem;
   color: var(--color-text-light);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
 }
 
 .landing-state h2 {
@@ -388,7 +384,6 @@
   animation: slideUpFade 0.4s cubic-bezier(0.2, 0, 0, 1) forwards;
 }
 
-
 /* --- MOBILE RESPONSIVENESS --- */
 
 /* 1. Mobile Back Button (Default Hidden) */
@@ -397,12 +392,11 @@
 }
 
 @media (max-width: 768px) {
-
   /* 2. Break the Grid */
   .brain-layout {
     display: block; /* Switch from grid to block flow */
     position: relative;
-    height: 100vh;
+    height: 100dvh;
     overflow: hidden;
   }
 
@@ -469,7 +463,7 @@
 
     /* Layout */
     width: 100%;
-    padding: 1rem 0; /* Vertical breathing room */
+    padding-bottom: 1rem; /* Vertical breathing room */
     margin-bottom: 1.5rem;
     border-bottom: 1px solid var(--border-color); /* Subtle divider */
 
@@ -485,7 +479,6 @@
 
   .mobile-nav-header:hover {
     color: var(--color-primary, #000);
-
   }
 
   .mobile-nav-header lucide-icon {

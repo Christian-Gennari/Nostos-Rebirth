@@ -1,6 +1,7 @@
 .workspace-layout {
   display: flex;
   height: 100vh;
+  height: 100dvh; /* Mobile viewport fix */
   width: 100%;
 }
 

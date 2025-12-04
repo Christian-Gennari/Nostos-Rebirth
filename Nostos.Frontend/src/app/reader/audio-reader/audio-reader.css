@@ -1,7 +1,7 @@
 :host {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 100dvh;
   width: 100%;
   align-items: center;
   justify-content: center;
@@ -155,7 +155,7 @@
   justify-content: center;
   cursor: pointer;
   transition: transform 0.2s ease, background 0.2s;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
 }
 
 .play-btn lucide-icon {
@@ -248,9 +248,9 @@
   font-weight: 500;
 
   /* --- CHANGED --- */
-  width: 3.5rem;        /* 1. Give them all a fixed width */
-  padding: 6px 0;       /* 2. Reduce horizontal padding (width handles the spacing now) */
-  display: flex;        /* 3. Use flexbox to center text inside the button */
+  width: 3.5rem; /* 1. Give them all a fixed width */
+  padding: 6px 0; /* 2. Reduce horizontal padding (width handles the spacing now) */
+  display: flex; /* 3. Use flexbox to center text inside the button */
   justify-content: center;
   align-items: center;
   /* ---------------- */
@@ -271,9 +271,8 @@
   border-color: var(--border-color);
   color: var(--color-primary);
   font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
-
 
 /* 2. Mobile Media Query */
 @media (max-width: 768px) {
@@ -281,4 +280,8 @@
     gap: 0.1rem;
   }
 
+  .cover-art {
+    width: 120px;
+    height: 180px;
+  }
 }
