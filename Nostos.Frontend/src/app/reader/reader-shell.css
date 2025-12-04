@@ -6,6 +6,7 @@
 :host {
   display: block;
   height: 100vh;
+  height: 100dvh; /* For mobile */
   width: 100vw;
   overflow: hidden;
   --toolbar-height: 60px;
@@ -352,5 +353,61 @@
 
 .reader-toolbar .icon-btn {
   border-radius: var(--radius-md);
+}
+
+
+
+/* 2. Mobile Media Query */
+@media (max-width: 768px) {
+
+  /* Make panels full width (You already had this, but ensure z-index is safe) */
+  .toc-panel,
+  .notes-panel {
+    width: 100%;
+    z-index: 200; /* Ensure it sits above everything */
+  }
+
+  /* Adjust Toolbar Padding */
+  .reader-toolbar {
+    padding: 0 0.5rem; /* Reduce side padding to save space */
+    gap: 0.25rem;
+  }
+
+  /* 3. Larger Touch Targets */
+  .icon-btn {
+    width: 44px;
+    height: 44px; /* Standard touch target size */
+  }
+
+  /* Adjust icon size inside if needed, or keep them centered */
+  .icon-btn lucide-icon {
+    top: 0; /* Reset specific positioning if needed for centering */
+  }
+
+  /* 4. Hide Non-Essential Controls to save space */
+  /* Example: Hide Zoom buttons on mobile (assuming pinch works or it's secondary) */
+  .toolbar-right .icon-btn:nth-child(1), /* Zoom Out */
+  .toolbar-right .icon-btn:nth-child(2) { /* Zoom In */
+    display: none;
+  }
+
+  /* Simplify Progress Display */
+  .progress-display {
+    min-width: auto; /* Allow it to shrink */
+    padding: 0.3rem;
+    font-size: 0.8rem;
+  }
+
+  .progress-display span {
+    max-width: 100px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Hide the info tooltip icon on mobile (interaction is tricky anyway) */
+  .info-tooltip {
+    display: none;
+  }
 }
 
