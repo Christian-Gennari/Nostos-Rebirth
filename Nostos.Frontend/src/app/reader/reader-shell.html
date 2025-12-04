@@ -102,6 +102,7 @@
     </div>
 
     <div class="toolbar-center">
+      @if (fileType() !== 'audio') {
       <button class="icon-btn" (click)="prevPage()" title="Previous">
         <lucide-icon [img]="Icons.Prev" [size]="20"></lucide-icon>
       </button>
@@ -120,6 +121,7 @@
       <button class="icon-btn" (click)="nextPage()" title="Next">
         <lucide-icon [img]="Icons.Next" [size]="20"></lucide-icon>
       </button>
+      }
     </div>
 
     <div class="toolbar-right">

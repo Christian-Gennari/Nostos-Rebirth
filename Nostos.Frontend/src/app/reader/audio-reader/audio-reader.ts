@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Howl } from 'howler';
 import { Subject } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
-import { LucideAngularModule, Play, Pause, AudioLines } from 'lucide-angular';
+import { LucideAngularModule, Play, Pause, AudioLines, RotateCcw, RotateCw } from 'lucide-angular';
 import { BooksService } from '../../services/books.services';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 import { Book } from '../../dtos/book.dtos';
@@ -21,7 +21,7 @@ export class AudioReader implements OnDestroy, IReader {
 
   private booksService = inject(BooksService);
 
-  Icons = { Play, Pause, AudioLines };
+  Icons = { Play, Pause, AudioLines, RotateCcw, RotateCw };
 
   // Data
   book = signal<Book | null>(null);
@@ -38,7 +38,7 @@ export class AudioReader implements OnDestroy, IReader {
   currentRate = signal(1);
 
   // Playback Speeds
-  availableRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
+  availableRates = [0.75, 0.9, 1, 1.25, 1.5];
 
   private progressSubject = new Subject<{ timestamp: number; percent: number }>();
   private progressTimer: any;

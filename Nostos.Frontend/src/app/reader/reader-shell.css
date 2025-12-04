@@ -340,9 +340,8 @@
 }
 
 #add-timestamp-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
+  top: 1px;
 }
 
 .icon-btn lucide-icon {

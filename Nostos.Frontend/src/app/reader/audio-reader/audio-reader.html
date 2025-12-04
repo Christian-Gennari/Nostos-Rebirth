@@ -33,21 +33,36 @@
     </div>
 
     <div class="playback-row">
-      <div class="rate-toggle">
-        <button class="btn-text" (click)="toggleRate()" title="Playback Speed">
-          {{ currentRate() }}x
+      <div class="main-controls">
+        <button class="skip-btn" (click)="skip(-15)" title="Rewind 15s">
+          <lucide-icon [img]="Icons.RotateCcw" [size]="24"></lucide-icon>
+          <span class="skip-label">15</span>
+        </button>
+
+        <button class="play-btn" (click)="togglePlay()">
+          @if(isPlaying()) {
+          <lucide-icon [img]="Icons.Pause" [size]="32" class="icon-fill"></lucide-icon>
+          } @else {
+          <lucide-icon [img]="Icons.Play" [size]="32" class="icon-fill ml-1"></lucide-icon>
+          }
+        </button>
+
+        <button class="skip-btn" (click)="skip(15)" title="Forward 15s">
+          <lucide-icon [img]="Icons.RotateCw" [size]="24"></lucide-icon>
+          <span class="skip-label">15</span>
         </button>
       </div>
+    </div>
 
-      <button class="play-btn" (click)="togglePlay()">
-        @if(isPlaying()) {
-        <lucide-icon [img]="Icons.Pause" [size]="32" class="icon-fill"></lucide-icon>
-        } @else {
-        <lucide-icon [img]="Icons.Play" [size]="32" class="icon-fill ml-1"></lucide-icon>
+    <div class="rate-selector">
+      <span class="rate-label">Speed</span>
+      <div class="rate-options">
+        @for (rate of availableRates; track rate) {
+        <button class="rate-btn" [class.active]="currentRate() === rate" (click)="setRate(rate)">
+          {{ rate }}x
+        </button>
         }
-      </button>
-
-      <div class="rate-spacer"></div>
+      </div>
     </div>
   </div>
 </div>
