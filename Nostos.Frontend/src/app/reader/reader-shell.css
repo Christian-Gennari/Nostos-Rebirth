@@ -53,13 +53,12 @@
   bottom: 0;
   width: var(--panel-width);
   background: var(--bg-surface);
-  z-index: 20;
+  z-index: 100;
   display: flex;
   flex-direction: column;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
 
   /* Smooth Slide Animation */
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s 0.3s;
 }
 
 .toc-panel {
@@ -235,16 +234,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent; /* Removed grey background for cleaner look */
-  border: 1px solid var(--border-color); /* Added subtle border instead */
-  gap: 8px;
-  padding: 0.3rem 1rem;
+  background: var(--bg-hover); /* Removed grey background for cleaner look */
+  outline: 1px solid var(--border-color);
+  gap: 6px;
+  padding: 0.3rem 0.5rem;
   border-radius: var(--radius-md); /* Match button radius */
   font-size: 0.85rem;
   font-weight: 500;
   min-width: 140px;
   color: var(--color-text-main);
   font-variant-numeric: tabular-nums;
+}
+
+.progress-display lucide-icon {
+  position: relative;
+  top: 1px;
 }
 
 /* =========================================
@@ -263,7 +267,6 @@
   background-color: var(--bg-surface);
   color: var(--color-primary);
   border-color: var(--color-primary); /* Brand highlight */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 /* Specific overrides for size if needed */
@@ -346,3 +349,14 @@
   align-items: center;
   justify-content: center;
 }
+
+.icon-btn lucide-icon {
+  position: relative;
+  top: 1px;
+  border-radius: var(--radius-md);
+}
+
+.reader-toolbar .icon-btn {
+  border-radius: var(--radius-md);
+}
+
