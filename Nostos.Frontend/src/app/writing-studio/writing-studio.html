@@ -78,12 +78,12 @@
       </div>
     </div>
 
-    <textarea
-      class="markdown-editor"
-      [ngModel]="editorText()"
-      (ngModelChange)="editorText.set($event)"
-      placeholder="Start writing..."
-    ></textarea>
+    <div class="editor-wrapper">
+      <app-markdown-editor
+        [initialContent]="editorText()"
+        (contentChange)="editorText.set($event)"
+      ></app-markdown-editor>
+    </div>
 
     } @else {
     <div class="empty-state">

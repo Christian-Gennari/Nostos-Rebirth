@@ -38,6 +38,8 @@ import { ConceptsService, ConceptDto } from '../services/concepts.services';
 import { FileTreeItem } from './file-tree-item/file-tree-item';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { WritingDto, WritingContentDto } from '../dtos/writing.dtos';
+// 1. Import the new editor
+import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.component';
 
 @Component({
   selector: 'app-writing-studio',
@@ -49,6 +51,7 @@ import { WritingDto, WritingContentDto } from '../dtos/writing.dtos';
     DragDropModule,
     FileTreeItem,
     NoteCardComponent,
+    MarkdownEditorComponent, // 2. Add to imports
   ],
   templateUrl: './writing-studio.html',
   styleUrls: ['./writing-studio.css'],
@@ -56,7 +59,7 @@ import { WritingDto, WritingContentDto } from '../dtos/writing.dtos';
 export class WritingStudio implements OnInit {
   private writingsService = inject(WritingsService);
   private conceptsService = inject(ConceptsService);
-  private destroyRef = inject(DestroyRef); // Used for cleanup
+  private destroyRef = inject(DestroyRef);
 
   Icons = {
     Menu,
@@ -95,8 +98,6 @@ export class WritingStudio implements OnInit {
   selectedConceptId = signal<string | null>(null);
   selectedConceptNotes = signal<any[]>([]);
 
-  // OPTIMIZATION: Computed signal for search filtering
-  // This caches the result and only re-runs when query or concepts change.
   filteredConcepts = computed(() => {
     const q = this.brainQuery().toLowerCase();
     const list = this.concepts();
@@ -105,29 +106,22 @@ export class WritingStudio implements OnInit {
   });
 
   constructor() {
-    // 1. Safe Window Resize Listener
     const onResize = () => {
       const mobile = window.innerWidth < 768;
       this.isMobile.set(mobile);
-      // Only force sidebar state if crossing the breakpoint
       if (!mobile && !this.showFileSidebar()) this.showFileSidebar.set(true);
     };
 
     window.addEventListener('resize', onResize);
-    // Cleanup to prevent memory leaks
     this.destroyRef.onDestroy(() => window.removeEventListener('resize', onResize));
 
-    // 2. Robust Auto-save Effect
     effect((onCleanup) => {
       const text = this.editorText();
       const title = this.editorTitle();
-
-      // Use untracked for activeItem so switching files doesn't trigger a "save" on the old one immediately
       const item = untracked(() => this.activeItem());
 
       if (!item) return;
 
-      // Check if actually dirty
       if (text === item.content && title === item.name) {
         this.saveStatus.set('Saved');
         return;
@@ -141,18 +135,14 @@ export class WritingStudio implements OnInit {
         this.writingsService.update(item.id, { name: title, content: text }).subscribe({
           next: (updated) => {
             this.saveStatus.set('Saved');
-
-            // Update the active item source of truth so the cycle resets
             this.activeItem.set(updated);
-
-            // Refresh tree if name changed
             if (title !== item.name) {
               this.loadTree();
             }
           },
-          error: () => this.saveStatus.set('Unsaved'), // Handle error state
+          error: () => this.saveStatus.set('Unsaved'),
         });
-      }, 2000); // 2 second debounce
+      }, 2000);
 
       onCleanup(() => clearTimeout(timer));
     });
@@ -184,7 +174,7 @@ export class WritingStudio implements OnInit {
       for (const node of nodes) {
         if (node.type === 'Folder') {
           ids.push(`folder-${node.id}`);
-          traverse(node.children || []); // Safe access
+          traverse(node.children || []);
         }
       }
     };
@@ -197,7 +187,6 @@ export class WritingStudio implements OnInit {
 
     this.writingsService.get(item.id).subscribe({
       next: (contentDto) => {
-        // Batch updates so effect runs once
         this.activeItem.set(contentDto);
         this.editorTitle.set(contentDto.name);
         this.editorText.set(contentDto.content);
@@ -207,18 +196,13 @@ export class WritingStudio implements OnInit {
     });
   }
 
-  // --- Drag & Drop Logic ---
   onDrop(event: CdkDragDrop<WritingDto[]>) {
     if (event.previousContainer === event.container) {
-      // Reorder in same list
-      // We must mutate the signal's array properly
       this.rootItems.update((items) => {
-        // Create a shallow copy if needed, though Cdk acts on references
         moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
-        return [...items]; // Trigger signal update
+        return [...items];
       });
     } else {
-      // Move between folders
       transferArrayItem(
         event.previousContainer.data,
         event.container.data,
@@ -236,7 +220,6 @@ export class WritingStudio implements OnInit {
 
   handleItemMove(event: { item: WritingDto; newParentId: string | null }) {
     console.log(`Moved ${event.item.name} to parent ${event.newParentId}`);
-    // this.writingsService.move(...)
   }
 
   createItem(type: 'Folder' | 'Document') {
@@ -245,7 +228,6 @@ export class WritingStudio implements OnInit {
     this.writingsService.create({ name, type, parentId: null }).subscribe(() => this.loadTree());
   }
 
-  // --- Brain Logic ---
   loadBrain() {
     this.conceptsService.list().subscribe((data) => this.concepts.set(data));
   }
