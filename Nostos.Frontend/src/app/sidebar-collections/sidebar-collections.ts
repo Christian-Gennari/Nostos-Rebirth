@@ -15,6 +15,7 @@ import {
   Edit2,
   BrainCircuit,
   Menu,
+  PenTool,
 } from 'lucide-angular';
 
 @Component({
@@ -38,6 +39,7 @@ export class SidebarCollections implements OnInit {
   Edit2Icon = Edit2;
   BrainIcon = BrainCircuit;
   MenuIcon = Menu;
+  PenToolIcon = PenTool;
 
   collections = signal<Collection[]>([]);
 

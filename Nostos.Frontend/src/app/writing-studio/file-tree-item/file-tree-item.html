@@ -1,26 +1,38 @@
-<div class="tree-node">
+<div class="tree-node-wrapper" cdkDrag [cdkDragData]="item">
+  <div *cdkDragPreview class="drag-preview">
+    <lucide-icon
+      [img]="item.type === 'Folder' ? Icons.Folder : Icons.FileText"
+      [size]="16"
+    ></lucide-icon>
+    {{ item.name }}
+  </div>
+
   <div
     class="node-row"
     [class.active]="activeId === item.id"
-    [style.padding-left.px]="level * 16"
+    [style.padding-left.px]="level * 12 + 8"
     (click)="handleSelect($event)"
   >
+    <div class="drag-handle" cdkDragHandle (click)="$event.stopPropagation()">
+      <lucide-icon [img]="Icons.GripVertical" [size]="14"></lucide-icon>
+    </div>
+
     <div class="toggle-icon" (click)="toggleExpand($event)">
       @if (item.type === 'Folder') { @if (expanded()) {
       <lucide-icon [img]="Icons.ChevronDown" [size]="14"></lucide-icon>
       } @else {
       <lucide-icon [img]="Icons.ChevronRight" [size]="14"></lucide-icon>
-      } } @else {
-      <span class="spacer"></span>
-      }
+      } }
     </div>
 
     <div class="type-icon">
-      @if (item.type === 'Folder') { @if (expanded()) {
-      <lucide-icon [img]="Icons.FolderOpen" [size]="16" class="folder-open"></lucide-icon>
+      @if (item.type === 'Folder') {
+      <lucide-icon
+        [img]="expanded() ? Icons.FolderOpen : Icons.Folder"
+        [size]="16"
+        class="folder-icon"
+      ></lucide-icon>
       } @else {
-      <lucide-icon [img]="Icons.Folder" [size]="16" class="folder-closed"></lucide-icon>
-      } } @else {
       <lucide-icon [img]="Icons.FileText" [size]="16" class="file-icon"></lucide-icon>
       }
     </div>
@@ -28,15 +40,26 @@
     <span class="node-name">{{ item.name }}</span>
   </div>
 
-  @if (expanded() && item.children.length > 0) {
-  <div class="node-children">
+  @if (item.type === 'Folder' && expanded()) {
+  <div
+    class="node-children"
+    cdkDropList
+    [id]="'folder-' + item.id"
+    [cdkDropListData]="item.children"
+    [cdkDropListConnectedTo]="connectedDropLists"
+    (cdkDropListDropped)="onDrop($event)"
+  >
     @for (child of item.children; track child.id) {
     <app-file-tree-item
       [item]="child"
       [level]="level + 1"
       [activeId]="activeId"
+      [connectedDropLists]="connectedDropLists"
       (itemSelected)="onChildSelected($event)"
+      (itemMoved)="onChildMoved($event)"
     ></app-file-tree-item>
+    } @if(item.children.length === 0) {
+    <div class="empty-folder-drop-zone">Empty</div>
     }
   </div>
   }

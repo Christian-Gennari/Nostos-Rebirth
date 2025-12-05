@@ -45,6 +45,20 @@
     </div>
 
     <div class="nav-group">
+      <button
+        class="nav-item"
+        routerLink="/studio"
+        (click)="activeId.set(null)"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        title="Writing Studio"
+      >
+        <lucide-icon [img]="PenToolIcon" [size]="18" strokeWidth="2"></lucide-icon>
+        @if (expanded()) { <span class="label">Writing Studio</span> }
+      </button>
+    </div>
+
+    <div class="nav-group">
       @if (expanded()) {
       <div class="section-label" animate.enter="fade-in">Collections</div>
       } @for (col of collections(); track col.id) { @if (editingId() === col.id) {

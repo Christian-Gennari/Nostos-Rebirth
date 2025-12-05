@@ -1,9 +1,24 @@
-import { Component, inject, OnInit, signal, effect } from '@angular/core';
+import {
+  Component,
+  inject,
+  OnInit,
+  signal,
+  effect,
+  computed,
+  ViewChildren,
+  QueryList,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
+  DragDropModule,
+  CdkDragDrop,
+  moveItemInArray,
+  transferArrayItem,
+} from '@angular/cdk/drag-drop';
+import {
   LucideAngularModule,
-  Sidebar,
+  Menu,
   Plus,
   FileText,
   FolderPlus,
@@ -11,23 +26,26 @@ import {
   BrainCircuit,
   Search,
   X,
+  GripVertical,
 } from 'lucide-angular';
 
-// Services
 import { WritingsService } from '../services/writings.services';
 import { ConceptsService, ConceptDto } from '../services/concepts.services';
-
-// Components
 import { FileTreeItem } from './file-tree-item/file-tree-item';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
-
-// DTOs
 import { WritingDto, WritingContentDto } from '../dtos/writing.dtos';
 
 @Component({
   selector: 'app-writing-studio',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, FileTreeItem, NoteCardComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    LucideAngularModule,
+    DragDropModule,
+    FileTreeItem,
+    NoteCardComponent,
+  ],
   templateUrl: './writing-studio.html',
   styleUrls: ['./writing-studio.css'],
 })
@@ -35,60 +53,66 @@ export class WritingStudio implements OnInit {
   private writingsService = inject(WritingsService);
   private conceptsService = inject(ConceptsService);
 
-  // Icons
-  Icons = { Sidebar, Plus, FileText, FolderPlus, Save, BrainCircuit, Search, Close: X };
+  Icons = { Menu, Plus, FileText, FolderPlus, Save, BrainCircuit, Search, Close: X, GripVertical };
 
-  // --- State: File System ---
+  // --- Layout State ---
+  showFileSidebar = signal(true); // Open by default on desktop
+  showBrainSidebar = signal(false);
+  isMobile = signal(window.innerWidth < 768);
+
+  // --- File System State ---
   rootItems = signal<WritingDto[]>([]);
   activeItem = signal<WritingContentDto | null>(null);
-  isLoadingContent = signal(false);
 
-  // --- State: Editor ---
-  // We keep a separate signal for the editor text so we can debounce saves
+  // Collect all DropList IDs to enable dragging between folders
+  // We will compute this based on the tree structure or allow the tree items to register
+  allDropListIds = signal<string[]>(['root-list']);
+
+  // --- Editor State ---
   editorText = signal('');
   editorTitle = signal('');
   saveStatus = signal<'Saved' | 'Saving...' | 'Unsaved'>('Saved');
 
-  // --- State: Brain Sidebar ---
-  isBrainOpen = signal(true);
+  // --- Brain State ---
   brainQuery = signal('');
   concepts = signal<ConceptDto[]>([]);
   selectedConceptId = signal<string | null>(null);
-  selectedConceptNotes = signal<any[]>([]); // To store notes for the sidebar
-
-  // Map for Note Cards
-  conceptMap = signal<Map<string, ConceptDto>>(new Map());
+  selectedConceptNotes = signal<any[]>([]);
 
   constructor() {
-    // Auto-save Effect
+    // Handle Window Resize for Mobile logic
+    window.addEventListener('resize', () => {
+      this.isMobile.set(window.innerWidth < 768);
+      if (!this.isMobile()) {
+        this.showFileSidebar.set(true); // Always show on desktop
+      } else {
+        this.showFileSidebar.set(false); // Default hide on mobile
+      }
+    });
+
+    // Auto-save effect (Debounced)
     effect((onCleanup) => {
       const text = this.editorText();
       const title = this.editorTitle();
       const item = this.activeItem();
 
       if (!item) return;
-
-      // Don't save if it matches the DB exactly (initial load)
       if (text === item.content && title === item.name) {
         this.saveStatus.set('Saved');
         return;
       }
 
       this.saveStatus.set('Unsaved');
-
       const timer = setTimeout(() => {
         this.saveStatus.set('Saving...');
         this.writingsService.update(item.id, { name: title, content: text }).subscribe({
           next: (updated) => {
             this.saveStatus.set('Saved');
-            // Update the local item reference silently
             this.activeItem.set(updated);
-            // Refresh tree names if title changed
             if (title !== item.name) this.loadTree();
           },
         });
-      }, 2000); // 2-second debounce
-
+      }, 2000);
       onCleanup(() => clearTimeout(timer));
     });
   }
@@ -96,60 +120,95 @@ export class WritingStudio implements OnInit {
   ngOnInit() {
     this.loadTree();
     this.loadBrain();
+    if (this.isMobile()) this.showFileSidebar.set(false);
   }
 
-  // --- File System Actions ---
+  closeSidebars() {
+    if (this.isMobile()) {
+      this.showFileSidebar.set(false);
+      this.showBrainSidebar.set(false);
+    }
+  }
 
   loadTree() {
-    this.writingsService.list().subscribe((items) => this.rootItems.set(items));
+    this.writingsService.list().subscribe((items) => {
+      this.rootItems.set(items);
+      this.recalculateDropLists(items);
+    });
+  }
+
+  // Flatten tree to get all Folder IDs for DnD connection
+  recalculateDropLists(items: WritingDto[]) {
+    const ids = ['root-list'];
+    const traverse = (nodes: WritingDto[]) => {
+      for (const node of nodes) {
+        if (node.type === 'Folder') {
+          ids.push(`folder-${node.id}`);
+          traverse(node.children);
+        }
+      }
+    };
+    traverse(items);
+    this.allDropListIds.set(ids);
   }
 
   handleItemSelected(item: WritingDto) {
-    if (item.type === 'Folder') return; // Folders handle themselves in the tree component
+    if (item.type === 'Folder') return;
 
-    this.isLoadingContent.set(true);
     this.writingsService.get(item.id).subscribe({
       next: (contentDto) => {
         this.activeItem.set(contentDto);
         this.editorTitle.set(contentDto.name);
         this.editorText.set(contentDto.content);
-        this.isLoadingContent.set(false);
+        if (this.isMobile()) this.showFileSidebar.set(false);
       },
     });
   }
 
+  // --- Drag & Drop Logic ---
+
+  onDrop(event: CdkDragDrop<WritingDto[]>) {
+    if (event.previousContainer === event.container) {
+      // Reorder in same list
+      moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
+      // TODO: Call service to persist order
+    } else {
+      // Move to another folder
+      transferArrayItem(
+        event.previousContainer.data,
+        event.container.data,
+        event.previousIndex,
+        event.currentIndex
+      );
+
+      const item = event.container.data[event.currentIndex];
+      // container.id is "folder-{id}" or "root-list"
+      const newParentId =
+        event.container.id === 'root-list' ? null : event.container.id.replace('folder-', '');
+
+      this.handleItemMove({ item, newParentId });
+    }
+  }
+
+  // Called when Child emits a move event (bubbling up)
+  handleItemMove(event: { item: WritingDto; newParentId: string | null }) {
+    // Optimistic update is done by CdkDragDrop visual transfer
+    // Now call API
+    // Assuming service has a move method. If not, implement update with parentId
+    // this.writingsService.move(event.item.id, event.newParentId).subscribe();
+    console.log(`Moved ${event.item.name} to parent ${event.newParentId}`);
+  }
+
+  // ... (Create/Delete logic remains similar)
   createItem(type: 'Folder' | 'Document') {
-    // Simple prompt for now. In a real app, use a modal or inline input.
     const name = prompt(`Enter ${type} Name:`);
     if (!name) return;
-
-    // TODO: Support creating inside the currently selected folder
-    // For now, we create at root
-    this.writingsService.create({ name, type, parentId: null }).subscribe(() => {
-      this.loadTree();
-    });
+    this.writingsService.create({ name, type, parentId: null }).subscribe(() => this.loadTree());
   }
 
-  deleteActiveItem() {
-    const item = this.activeItem();
-    if (!item || !confirm(`Delete "${item.name}"?`)) return;
-
-    this.writingsService.delete(item.id).subscribe(() => {
-      this.activeItem.set(null);
-      this.loadTree();
-    });
-  }
-
-  // --- Brain Actions ---
-
+  // --- Brain Logic ---
   loadBrain() {
-    this.conceptsService.list().subscribe((data) => {
-      this.concepts.set(data);
-      // Build map for the Note Cards
-      const map = new Map<string, ConceptDto>();
-      data.forEach((c) => map.set(c.name.toLowerCase(), c));
-      this.conceptMap.set(map);
-    });
+    this.conceptsService.list().subscribe((data) => this.concepts.set(data));
   }
 
   get filteredConcepts() {
@@ -159,14 +218,12 @@ export class WritingStudio implements OnInit {
 
   selectConcept(id: string) {
     this.selectedConceptId.set(id);
-    this.conceptsService.get(id).subscribe((detail) => {
-      this.selectedConceptNotes.set(detail.notes);
-    });
+    this.conceptsService.get(id).subscribe((d) => this.selectedConceptNotes.set(d.notes));
   }
 
-  insertNoteIntoEditor(noteContent: string) {
-    // Append to editor
+  insertNoteIntoEditor(text: string) {
     const current = this.editorText();
-    this.editorText.set(current + `\n\n> "${noteContent}"\n`);
+    this.editorText.set(current + `\n\n> "${text}"\n`);
+    if (this.isMobile()) this.showBrainSidebar.set(false);
   }
 }

@@ -1,65 +1,90 @@
 :host {
   display: block;
-  height: 100vh;
+  height: 100dvh;
   width: 100vw;
-  overflow: hidden;
-  background-color: #f9f9f9;
+  overflow: hidden; /* Clips the sidebars when they slide out */
+  background-color: var(--bg-body);
+  color: var(--color-text-main);
 }
 
 .studio-layout {
   display: flex;
   height: 100%;
   width: 100%;
+  position: relative;
+  overflow-x: hidden; /* Double safety to prevent horizontal scrollbars */
 }
 
 /* --- LEFT SIDEBAR (FILES) --- */
 .sidebar-left {
-  width: 260px;
-  background: #f3f3f3;
-  border-right: 1px solid #e0e0e0;
+  width: 280px;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  z-index: 20;
+
+  /* Desktop Transition */
+  transition: margin-left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* Optional: If you want the Left Sidebar to be collapsible on Desktop too */
+.sidebar-left.closed-desktop {
+  margin-left: -280px;
 }
 
 .sidebar-header {
-  height: 50px;
-  padding: 0 16px;
+  height: 60px;
+  padding: 0 1rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
-.sidebar-header h2,
-.sidebar-header h3 {
-  font-size: 14px;
+.sidebar-header h2 {
+  font-family: 'Lora', serif;
+  font-size: 1.1rem;
   font-weight: 600;
-  color: #555;
+  color: var(--color-primary);
   margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
-.actions button,
-.sidebar-header button {
-  background: none;
+.actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  background: transparent;
   border: none;
   cursor: pointer;
-  color: #666;
-  padding: 4px;
-  border-radius: 4px;
+  transition: all 0.2s;
 }
 
-.actions button:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #000;
+.icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--color-primary);
+}
+
+.icon-btn.active {
+  color: var(--color-accent);
+  background: var(--bg-hover);
 }
 
 .file-list {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: 0.5rem;
 }
 
 /* --- CENTER PANE (EDITOR) --- */
@@ -67,47 +92,77 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: white;
+  background: var(--bg-surface);
   position: relative;
+  min-width: 0; /* Prevents flex blowout */
+  transition: all 0.3s ease;
+  z-index: 10;
 }
 
 .editor-header {
   height: 60px;
   display: flex;
   align-items: center;
-  padding: 0 30px;
-  border-bottom: 1px solid #f0f0f0;
+  justify-content: space-between;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--border-color);
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.mobile-toggle {
+  display: none;
 }
 
 .title-input {
   flex: 1;
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-family: 'Lora', serif;
+  font-size: 1.25rem;
+  font-weight: 600;
   border: none;
   outline: none;
-  color: #333;
+  background: transparent;
+  color: var(--color-primary);
+  min-width: 0;
+}
+
+.title-input::placeholder {
+  color: var(--color-text-light);
+  font-weight: 400;
+}
+
+.meta-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
 }
 
 .status-badge {
-  font-size: 0.8rem;
-  color: #999;
-  margin-right: 16px;
+  font-size: 0.75rem;
+  color: var(--color-text-light);
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .status-badge.saving {
-  color: #007bff;
+  color: var(--color-accent);
 }
 
 .markdown-editor {
   flex: 1;
   border: none;
   resize: none;
-  padding: 40px 60px;
-  font-size: 1.1rem;
-  line-height: 1.7;
+  padding: 2rem 3rem;
+  font-size: 1.05rem;
+  line-height: 1.75;
   outline: none;
-  font-family: 'Georgia', serif; /* Writing feel */
-  color: #222;
+  font-family: 'Georgia', serif;
+  color: var(--color-text-main);
+  background: var(--bg-surface);
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
 }
 
 .empty-state {
@@ -116,25 +171,39 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #ccc;
+  color: var(--color-text-light);
+  gap: 1rem;
 }
 
 /* --- RIGHT SIDEBAR (BRAIN) --- */
 .sidebar-right {
-  width: 300px;
-  background: white;
-  border-left: 1px solid #e0e0e0;
+  width: 320px;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  z-index: 20;
+
+  /* Desktop Transition: Animate Margin to slide/push content */
+  transition: margin-right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+
+  /* Desktop Default: HIDDEN (Off Canvas) */
+  margin-right: -320px;
+}
+
+/* Desktop Open State */
+.sidebar-right.open {
+  margin-right: 0;
 }
 
 .search-box {
-  padding: 12px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .search-box input {
@@ -142,83 +211,118 @@
   outline: none;
   width: 100%;
   font-size: 0.9rem;
+  background: transparent;
+  color: var(--color-text-main);
 }
 
 .brain-content {
   flex: 1;
   overflow-y: auto;
-  padding: 0;
 }
 
 .concept-item {
-  padding: 10px 16px;
+  padding: 0.75rem 1rem;
   cursor: pointer;
   display: flex;
   justify-content: space-between;
-  border-bottom: 1px solid #f9f9f9;
+  align-items: center;
+  border-bottom: 1px solid var(--bg-body);
+  transition: background 0.2s;
 }
 
 .concept-item:hover {
-  background: #f5faff;
+  background: var(--bg-hover);
 }
 
-.count {
-  background: #eee;
-  padding: 2px 6px;
-  border-radius: 10px;
-  font-size: 0.75rem;
-  color: #666;
+.concept-item span {
+  font-weight: 500;
+  font-size: 0.9rem;
 }
 
 .back-btn {
   width: 100%;
   text-align: left;
-  background: #f9f9f9;
+  background: var(--bg-sidebar);
   border: none;
-  padding: 8px 16px;
+  padding: 0.75rem 1rem;
   cursor: pointer;
   font-size: 0.85rem;
-  color: #666;
-  border-bottom: 1px solid #eee;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 500;
 }
 
-/* Mini Note Cards */
+.back-btn:hover {
+  color: var(--color-primary);
+}
+
 .notes-list {
-  padding: 12px;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 1rem;
 }
 
-.mini-note-card {
-  background: #fff;
-  border: 1px solid #eee;
-  border-radius: 6px;
-  padding: 12px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+/* --- RESPONSIVE & MOBILE --- */
+.backdrop {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100dvh;
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(2px);
+  z-index: 30; /* Behind fixed sidebars */
 }
 
-.note-quote {
-  font-size: 0.9rem;
-  font-style: italic;
-  color: #444;
-  margin-bottom: 8px;
-  display: -webkit-box;
-  line-clamp: 4;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
+@media (max-width: 768px) {
+  .backdrop.visible {
+    display: block;
+  }
 
-.note-actions button {
-  background: #f0f0f0;
-  border: none;
-  padding: 4px 10px;
-  font-size: 0.75rem;
-  border-radius: 4px;
-  cursor: pointer;
-}
+  .sidebar-left {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    transform: translateX(-100%);
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+    z-index: 40;
+    margin-left: 0; /* Reset desktop margin logic */
+  }
 
-.note-actions button:hover {
-  background: #e0e0e0;
+  .sidebar-left.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-right {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100%;
+
+    /* Reset Desktop Margin Logic */
+    margin-right: 0;
+
+    /* Use Transform for Mobile */
+    transform: translateX(100%);
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+    z-index: 40;
+  }
+
+  .sidebar-right.open {
+    transform: translateX(0);
+  }
+
+  .mobile-toggle {
+    display: flex;
+  }
+
+  .markdown-editor {
+    padding: 1.5rem;
+    font-size: 1rem;
+  }
 }

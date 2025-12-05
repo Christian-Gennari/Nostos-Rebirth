@@ -1,68 +1,64 @@
-.tree-node {
-  display: flex;
-  flex-direction: column;
-  user-select: none;
+.tree-node-wrapper {
+  display: block;
 }
 
 .node-row {
   display: flex;
   align-items: center;
-  height: 28px;
-  padding-right: 8px;
+  padding: 0.4rem 0.5rem;
   cursor: pointer;
-  border-radius: 4px;
-  color: var(--text-secondary); /* Assuming you have these variables */
-  transition: background-color 0.1s ease;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-main);
+  transition: background 0.1s;
+  user-select: none;
 }
 
 .node-row:hover {
-  background-color: rgba(0, 0, 0, 0.04);
-  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 .node-row.active {
-  background-color: rgba(0, 0, 0, 0.08);
-  color: var(--primary-color, #000);
-  font-weight: 500;
+  background: #eff6ff; /* Light blue tint */
+  color: var(--color-accent);
 }
 
-/* Icons */
-.toggle-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  margin-right: 2px;
-  opacity: 0.6;
-  border-radius: 3px;
+.drag-handle {
+  color: var(--color-text-light);
+  cursor: grab;
+  padding: 0 4px;
+  opacity: 0.3;
+  transition: opacity 0.2s;
 }
 
-.toggle-icon:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+.node-row:hover .drag-handle {
   opacity: 1;
 }
 
-.spacer {
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.toggle-icon {
   width: 20px;
-  display: inline-block;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
 }
 
 .type-icon {
   margin-right: 8px;
   display: flex;
   align-items: center;
-  opacity: 0.8;
+  color: var(--color-text-muted);
 }
 
-/* Specific colors for icons */
-.folder-closed,
-.folder-open {
-  color: #8a8a8a;
+.folder-icon {
+  color: var(--color-primary);
 }
-
 .file-icon {
-  color: #555;
+  color: var(--color-text-light);
 }
 
 .node-name {
@@ -70,4 +66,41 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Dragging Styles */
+.cdk-drag-preview {
+  box-sizing: border-box;
+  border-radius: 4px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+  background: white;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  color: var(--color-primary);
+  opacity: 0.9;
+  z-index: 1000;
+}
+
+.cdk-drag-placeholder {
+  opacity: 0;
+}
+
+.cdk-drag-animating {
+  transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.node-children.cdk-drop-list-dragging .tree-node-wrapper:not(.cdk-drag-placeholder) {
+  transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.empty-folder-drop-zone {
+  padding: 0.5rem 0 0.5rem 2rem;
+  font-size: 0.8rem;
+  color: var(--color-text-light);
+  font-style: italic;
+  pointer-events: none; /* Let the drop happen on the list, not the text */
 }
