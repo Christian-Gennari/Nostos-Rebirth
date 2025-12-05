@@ -27,6 +27,11 @@ import {
   Search,
   X,
   GripVertical,
+  // --- NEW ICONS ADDED HERE ---
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  ArrowLeft,
 } from 'lucide-angular';
 
 import { WritingsService } from '../services/writings.services';
@@ -53,7 +58,22 @@ export class WritingStudio implements OnInit {
   private writingsService = inject(WritingsService);
   private conceptsService = inject(ConceptsService);
 
-  Icons = { Menu, Plus, FileText, FolderPlus, Save, BrainCircuit, Search, Close: X, GripVertical };
+  // Updated Icons object with missing icons
+  Icons = {
+    Menu,
+    Plus,
+    FileText,
+    FolderPlus,
+    Save,
+    BrainCircuit,
+    Search,
+    Close: X,
+    GripVertical,
+    PanelLeftClose,
+    PanelLeftOpen,
+    PanelRightClose,
+    ArrowLeft,
+  };
 
   // --- Layout State ---
   showFileSidebar = signal(true); // Open by default on desktop
@@ -65,7 +85,6 @@ export class WritingStudio implements OnInit {
   activeItem = signal<WritingContentDto | null>(null);
 
   // Collect all DropList IDs to enable dragging between folders
-  // We will compute this based on the tree structure or allow the tree items to register
   allDropListIds = signal<string[]>(['root-list']);
 
   // --- Editor State ---

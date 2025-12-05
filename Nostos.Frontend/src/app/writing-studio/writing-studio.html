@@ -10,13 +10,17 @@
       <h2>Studio</h2>
       <div class="actions">
         <button class="icon-btn" (click)="createItem('Folder')" title="New Folder">
-          <lucide-icon [img]="Icons.FolderPlus" [size]="18"></lucide-icon>
+          <lucide-icon [img]="Icons.FolderPlus" [size]="16"></lucide-icon>
         </button>
         <button class="icon-btn" (click)="createItem('Document')" title="New File">
-          <lucide-icon [img]="Icons.Plus" [size]="18"></lucide-icon>
+          <lucide-icon [img]="Icons.Plus" [size]="16"></lucide-icon>
         </button>
-        <button class="icon-btn mobile-toggle" (click)="showFileSidebar.set(false)">
-          <lucide-icon [img]="Icons.Close" [size]="18"></lucide-icon>
+        <button
+          class="icon-btn mobile-only"
+          (click)="showFileSidebar.set(false)"
+          *ngIf="isMobile()"
+        >
+          <lucide-icon [img]="Icons.Close" [size]="16"></lucide-icon>
         </button>
       </div>
     </div>
@@ -44,27 +48,42 @@
   <main class="editor-pane">
     @if (activeItem(); as item) {
     <div class="editor-header">
-      <button class="icon-btn mobile-toggle" (click)="showFileSidebar.set(true)">
-        <lucide-icon [img]="Icons.Menu" [size]="20"></lucide-icon>
+      <button
+        class="icon-btn"
+        (click)="showFileSidebar.set(!showFileSidebar())"
+        title="Toggle Files"
+      >
+        <lucide-icon
+          [img]="showFileSidebar() ? Icons.PanelLeftClose : Icons.PanelLeftOpen"
+          [size]="20"
+        ></lucide-icon>
       </button>
 
       <input
         class="title-input"
         [ngModel]="editorTitle()"
         (ngModelChange)="editorTitle.set($event)"
-        placeholder="Untitled"
+        placeholder="Untitled Document"
       />
 
-      <div class="meta-controls">
-        <div class="status-badge" [class.saving]="saveStatus() === 'Saving...'">
+      <div class="meta-controls" style="display: flex; align-items: center; gap: 10px">
+        <span
+          class="status-badge"
+          style="
+            font-size: 0.75rem;
+            color: var(--color-text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+          "
+        >
           {{ saveStatus() }}
-        </div>
+        </span>
 
         <button
           class="icon-btn brain-toggle"
           [class.active]="showBrainSidebar()"
           (click)="showBrainSidebar.set(!showBrainSidebar())"
-          title="Toggle Second Brain"
+          title="Toggle Brain"
         >
           <lucide-icon [img]="Icons.BrainCircuit" [size]="20"></lucide-icon>
         </button>
@@ -80,35 +99,47 @@
 
     } @else {
     <div class="empty-state">
-      <button
-        class="icon-btn mobile-toggle"
-        (click)="showFileSidebar.set(true)"
-        style="width: auto; padding: 10px; border: 1px solid var(--border-color)"
+      <div
+        class="icon-circle"
+        style="
+          width: 64px;
+          height: 64px;
+          background: #fff;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        "
       >
-        <lucide-icon [img]="Icons.Menu" [size]="20" style="margin-right: 8px"></lucide-icon>
-        Open File Browser
+        <lucide-icon
+          [img]="Icons.FileText"
+          [size]="32"
+          color="var(--color-text-light)"
+        ></lucide-icon>
+      </div>
+      <p>Select a file to begin writing</p>
+      <button
+        class="icon-btn"
+        (click)="showFileSidebar.set(true)"
+        style="width: auto; padding: 6px 12px; border: 1px solid var(--border-color)"
+      >
+        Open Sidebar
       </button>
-      <lucide-icon
-        [img]="Icons.FileText"
-        [size]="48"
-        color="var(--color-text-light)"
-        strokeWidth="1"
-      ></lucide-icon>
-      <p>Select a file to start writing</p>
     </div>
     }
   </main>
 
   <aside class="sidebar-right" [class.open]="showBrainSidebar()">
     <div class="sidebar-header">
-      <h2>Brain</h2>
+      <h2>Brain Context</h2>
       <button class="icon-btn" (click)="showBrainSidebar.set(false)">
-        <lucide-icon [img]="Icons.Close" [size]="18"></lucide-icon>
+        <lucide-icon [img]="Icons.PanelRightClose" [size]="16"></lucide-icon>
       </button>
     </div>
 
     <div class="search-box">
-      <lucide-icon [img]="Icons.Search" [size]="16" color="var(--color-text-muted)"></lucide-icon>
+      <lucide-icon [img]="Icons.Search" [size]="16"></lucide-icon>
       <input
         type="text"
         placeholder="Search concepts..."
@@ -119,30 +150,44 @@
 
     <div class="brain-content">
       @if (!selectedConceptId()) {
-      <div class="concept-list">
+      <div class="index-list" style="padding: 0">
         @for (c of filteredConcepts; track c.id) {
-        <div class="concept-item" (click)="selectConcept(c.id)">
-          <span>{{ c.name }}</span>
+        <button
+          class="concept-item"
+          style="width: 100%; border: none; background: transparent; text-align: left"
+          (click)="selectConcept(c.id)"
+        >
+          <span class="name">{{ c.name }}</span>
           <span class="badge-count">{{ c.usageCount }}</span>
-        </div>
+        </button>
         }
       </div>
       } @else {
-      <button class="back-btn" (click)="selectedConceptId.set(null)">← Back to Index</button>
+      <div
+        style="
+          padding-bottom: 1rem;
+          border-bottom: 1px solid var(--border-color);
+          margin-bottom: 1rem;
+        "
+      >
+        <button
+          class="goto-btn"
+          style="width: 100%; justify-content: start; padding-left: 0"
+          (click)="selectedConceptId.set(null)"
+        >
+          <lucide-icon [img]="Icons.ArrowLeft" [size]="16"></lucide-icon> Back to Index
+        </button>
+      </div>
 
       <div class="notes-list">
         @for (note of selectedConceptNotes(); track note.noteId) {
         <app-note-card
           [note]="note"
           (click)="insertNoteIntoEditor(note.selectedText)"
+          style="display: block; margin-bottom: 1rem"
         ></app-note-card>
         } @if(selectedConceptNotes().length === 0) {
-        <p
-          class="empty-msg"
-          style="padding: 1rem; color: var(--color-text-light); text-align: center"
-        >
-          No notes linked to this concept.
-        </p>
+        <p class="empty-index">No notes found for this concept.</p>
         }
       </div>
       }
