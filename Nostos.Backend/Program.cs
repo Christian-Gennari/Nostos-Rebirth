@@ -6,6 +6,7 @@ using Nostos.Backend.Features.Collections;
 using Nostos.Backend.Features.Concepts;
 using Nostos.Backend.Services;
 using Microsoft.AspNetCore.Http.Features;
+using Nostos.Backend.Features.Writings;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,6 +48,7 @@ app.MapBooksEndpoints();
 app.MapNotesEndpoints();
 app.MapCollectionsEndpoints();
 app.MapConceptsEndpoints();
+app.MapWritingsEndpoints();
 
 
 app.Run();

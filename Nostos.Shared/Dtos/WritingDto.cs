@@ -19,3 +19,19 @@ public record WritingContentDto(
     string Content,
     DateTime UpdatedAt
 );
+
+// 👇 ADD THESE NEW INPUT DTOS
+public record CreateWritingDto(
+    string Name,
+    string Type, // "Folder" or "Document"
+    Guid? ParentId
+);
+
+public record UpdateWritingDto(
+    string Name,
+    string? Content
+);
+
+public record MoveWritingDto(
+    Guid? NewParentId
+);
