@@ -1,16 +1,13 @@
-/* writing-studio.css */
-
 /* --- LAYOUT WRAPPER --- */
 .studio-layout {
   display: grid;
-  /* CHANGED: auto allows columns to shrink to 0 when sidebars collapse */
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr auto; /* Collapsible columns */
   height: 100dvh;
   overflow: hidden;
   background: var(--bg-body);
 }
 
-/* --- SHARED SIDEBAR STYLING (Left & Right) --- */
+/* --- SHARED SIDEBAR STYLING --- */
 .sidebar-left,
 .sidebar-right {
   background: var(--bg-surface);
@@ -19,27 +16,27 @@
   z-index: 2;
   height: 100%;
 
-  /* CRITICAL FOR ANIMATION: Prevent text wrapping when shrinking */
+  /* Prevent content squashing during width animation */
   white-space: nowrap;
   overflow: hidden;
   box-sizing: border-box;
 }
 
-/* --- DESKTOP COLLAPSE LOGIC (min-width: 769px) --- */
+/* --- DESKTOP ANIMATIONS (min-width: 769px) --- */
 @media (min-width: 769px) {
   .sidebar-left {
-    width: 260px; /* Default Open Width */
+    width: 260px;
     border-right: 1px solid var(--border-color);
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease, border 0.3s;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
   }
 
   .sidebar-right {
-    width: 300px; /* Default Open Width */
+    width: 300px;
     border-left: 1px solid var(--border-color);
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease, border 0.3s;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
   }
 
-  /* CLOSED STATES */
+  /* Closed States */
   .sidebar-left:not(.open) {
     width: 0;
     opacity: 0;
@@ -50,17 +47,16 @@
     width: 0;
     opacity: 0;
     border-left: none;
-    display: flex; /* Override default if needed */
   }
 
-  /* PREVENT SQUASHING: Keep content full width while container shrinks */
+  /* Content Protection */
   .sidebar-left > *,
   .sidebar-right > * {
-    min-width: 260px; /* Match your sidebar width */
+    min-width: 260px;
   }
 }
 
-/* --- SIDEBAR HEADER --- */
+/* --- SIDEBAR COMPONENTS --- */
 .sidebar-header {
   padding: 1.5rem 1.25rem 1rem 1.25rem;
   display: flex;
@@ -84,7 +80,7 @@
   gap: 0.5rem;
 }
 
-/* --- ICON BUTTONS --- */
+/* Buttons */
 .icon-btn {
   background: transparent;
   border: none;
@@ -104,6 +100,20 @@
   color: var(--color-primary);
 }
 
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--color-text-main);
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+.btn-outline:hover {
+  background: var(--bg-hover);
+}
+
 /* --- SEARCH BOX --- */
 .search-box {
   margin: 0 1.25rem 1rem 1.25rem;
@@ -120,7 +130,6 @@
 .search-box:focus-within {
   border-color: #aaa;
   color: var(--color-text-main);
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
 }
 
 .search-box input {
@@ -133,7 +142,7 @@
   color: var(--color-text-main);
 }
 
-/* --- LISTS (Files & Concepts) --- */
+/* --- LISTS & BRAIN CONTENT --- */
 .file-list,
 .brain-content {
   flex: 1;
@@ -141,7 +150,6 @@
   padding: 0 0.75rem 1.5rem 0.75rem;
 }
 
-/* Concept Items */
 .concept-item {
   display: flex;
   justify-content: space-between;
@@ -150,6 +158,10 @@
   margin-bottom: 2px;
   border-radius: var(--radius-md);
   cursor: pointer;
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
   color: var(--color-text-muted);
   font-size: 0.85rem;
   font-family: 'Inter', sans-serif;
@@ -167,7 +179,45 @@
   opacity: 0.6;
 }
 
-/* --- MIDDLE PANE: THE EDITOR --- */
+/* Brain Detail View */
+.brain-detail-header {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 1rem;
+}
+
+.goto-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: none;
+  color: var(--color-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  transition: opacity 0.2s;
+}
+.goto-btn:hover {
+  opacity: 0.8;
+}
+
+.clickable-note {
+  display: block;
+  margin-bottom: 1rem;
+  cursor: pointer;
+}
+
+.empty-index {
+  text-align: center;
+  font-style: italic;
+  color: var(--color-text-light);
+  font-size: 0.9rem;
+  margin-top: 2rem;
+}
+
+/* --- EDITOR PANE --- */
 .editor-pane {
   position: relative;
   display: flex;
@@ -179,11 +229,10 @@
   overflow-y: auto;
 }
 
-/* Floating Toolbar */
 .editor-header {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 1;
   padding: 1rem 2rem;
   display: flex;
   align-items: center;
@@ -205,12 +254,19 @@
   outline: none;
 }
 
-.title-input::placeholder {
-  color: var(--color-text-light);
-  font-style: italic;
+.meta-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-/* The "Paper" Sheet */
+.status-badge {
+  font-size: 0.75rem;
+  color: var(--color-text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 .markdown-editor {
   flex: 1;
   width: 100%;
@@ -230,10 +286,6 @@
   outline: none;
 }
 
-.markdown-editor::placeholder {
-  color: #ccc;
-}
-
 /* Empty State */
 .empty-state {
   display: flex;
@@ -242,16 +294,21 @@
   justify-content: center;
   height: 100%;
   color: var(--color-text-light);
-  gap: 1rem;
+  gap: 1.5rem;
 }
 
-.empty-state p {
-  font-family: 'Lora', serif;
-  font-size: 1.2rem;
-  font-style: italic;
+.icon-circle {
+  width: 64px;
+  height: 64px;
+  background: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
-/* --- MOBILE ADJUSTMENTS --- */
+/* --- MOBILE --- */
 .backdrop {
   position: fixed;
   inset: 0;
@@ -261,7 +318,6 @@
   pointer-events: none;
   transition: opacity 0.2s;
 }
-
 .backdrop.visible {
   opacity: 1;
   pointer-events: auto;
@@ -269,7 +325,7 @@
 
 @media (max-width: 768px) {
   .studio-layout {
-    display: block; /* Remove grid on mobile */
+    display: block;
     position: relative;
   }
 
@@ -278,12 +334,9 @@
     position: fixed;
     top: 0;
     bottom: 0;
-
-    /* OVERRIDE DESKTOP COLLAPSE LOGIC */
     width: 85% !important;
     max-width: 300px;
-    opacity: 1 !important;
-
+    opacity: 1 !important; /* Force visible for slide */
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
     transform: translateX(-100%);
     transition: transform 0.3s ease;

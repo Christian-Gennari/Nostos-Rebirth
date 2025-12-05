@@ -39,6 +39,7 @@
 
 .quote-text {
   font-family: 'Lora', serif;
+  text-wrap: wrap;
   font-style: italic;
   color: var(--color-text-main, #333);
   font-size: 0.95rem;

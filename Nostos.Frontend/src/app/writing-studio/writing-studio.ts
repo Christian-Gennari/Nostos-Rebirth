@@ -5,8 +5,8 @@ import {
   signal,
   effect,
   computed,
-  ViewChildren,
-  QueryList,
+  DestroyRef,
+  untracked,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -27,7 +27,6 @@ import {
   Search,
   X,
   GripVertical,
-  // --- NEW ICONS ADDED HERE ---
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
@@ -57,8 +56,8 @@ import { WritingDto, WritingContentDto } from '../dtos/writing.dtos';
 export class WritingStudio implements OnInit {
   private writingsService = inject(WritingsService);
   private conceptsService = inject(ConceptsService);
+  private destroyRef = inject(DestroyRef); // Used for cleanup
 
-  // Updated Icons object with missing icons
   Icons = {
     Menu,
     Plus,
@@ -76,15 +75,13 @@ export class WritingStudio implements OnInit {
   };
 
   // --- Layout State ---
-  showFileSidebar = signal(true); // Open by default on desktop
+  showFileSidebar = signal(true);
   showBrainSidebar = signal(false);
   isMobile = signal(window.innerWidth < 768);
 
   // --- File System State ---
   rootItems = signal<WritingDto[]>([]);
   activeItem = signal<WritingContentDto | null>(null);
-
-  // Collect all DropList IDs to enable dragging between folders
   allDropListIds = signal<string[]>(['root-list']);
 
   // --- Editor State ---
@@ -98,40 +95,65 @@ export class WritingStudio implements OnInit {
   selectedConceptId = signal<string | null>(null);
   selectedConceptNotes = signal<any[]>([]);
 
-  constructor() {
-    // Handle Window Resize for Mobile logic
-    window.addEventListener('resize', () => {
-      this.isMobile.set(window.innerWidth < 768);
-      if (!this.isMobile()) {
-        this.showFileSidebar.set(true); // Always show on desktop
-      } else {
-        this.showFileSidebar.set(false); // Default hide on mobile
-      }
-    });
+  // OPTIMIZATION: Computed signal for search filtering
+  // This caches the result and only re-runs when query or concepts change.
+  filteredConcepts = computed(() => {
+    const q = this.brainQuery().toLowerCase();
+    const list = this.concepts();
+    if (!q) return list;
+    return list.filter((c) => c.name.toLowerCase().includes(q));
+  });
 
-    // Auto-save effect (Debounced)
+  constructor() {
+    // 1. Safe Window Resize Listener
+    const onResize = () => {
+      const mobile = window.innerWidth < 768;
+      this.isMobile.set(mobile);
+      // Only force sidebar state if crossing the breakpoint
+      if (!mobile && !this.showFileSidebar()) this.showFileSidebar.set(true);
+    };
+
+    window.addEventListener('resize', onResize);
+    // Cleanup to prevent memory leaks
+    this.destroyRef.onDestroy(() => window.removeEventListener('resize', onResize));
+
+    // 2. Robust Auto-save Effect
     effect((onCleanup) => {
       const text = this.editorText();
       const title = this.editorTitle();
-      const item = this.activeItem();
+
+      // Use untracked for activeItem so switching files doesn't trigger a "save" on the old one immediately
+      const item = untracked(() => this.activeItem());
 
       if (!item) return;
+
+      // Check if actually dirty
       if (text === item.content && title === item.name) {
         this.saveStatus.set('Saved');
         return;
       }
 
       this.saveStatus.set('Unsaved');
+
       const timer = setTimeout(() => {
         this.saveStatus.set('Saving...');
+
         this.writingsService.update(item.id, { name: title, content: text }).subscribe({
           next: (updated) => {
             this.saveStatus.set('Saved');
+
+            // Update the active item source of truth so the cycle resets
             this.activeItem.set(updated);
-            if (title !== item.name) this.loadTree();
+
+            // Refresh tree if name changed
+            if (title !== item.name) {
+              this.loadTree();
+            }
           },
+          error: () => this.saveStatus.set('Unsaved'), // Handle error state
         });
-      }, 2000);
+      }, 2000); // 2 second debounce
+
       onCleanup(() => clearTimeout(timer));
     });
   }
@@ -156,14 +178,13 @@ export class WritingStudio implements OnInit {
     });
   }
 
-  // Flatten tree to get all Folder IDs for DnD connection
   recalculateDropLists(items: WritingDto[]) {
     const ids = ['root-list'];
     const traverse = (nodes: WritingDto[]) => {
       for (const node of nodes) {
         if (node.type === 'Folder') {
           ids.push(`folder-${node.id}`);
-          traverse(node.children);
+          traverse(node.children || []); // Safe access
         }
       }
     };
@@ -176,23 +197,28 @@ export class WritingStudio implements OnInit {
 
     this.writingsService.get(item.id).subscribe({
       next: (contentDto) => {
+        // Batch updates so effect runs once
         this.activeItem.set(contentDto);
         this.editorTitle.set(contentDto.name);
         this.editorText.set(contentDto.content);
+
         if (this.isMobile()) this.showFileSidebar.set(false);
       },
     });
   }
 
   // --- Drag & Drop Logic ---
-
   onDrop(event: CdkDragDrop<WritingDto[]>) {
     if (event.previousContainer === event.container) {
       // Reorder in same list
-      moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
-      // TODO: Call service to persist order
+      // We must mutate the signal's array properly
+      this.rootItems.update((items) => {
+        // Create a shallow copy if needed, though Cdk acts on references
+        moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
+        return [...items]; // Trigger signal update
+      });
     } else {
-      // Move to another folder
+      // Move between folders
       transferArrayItem(
         event.previousContainer.data,
         event.container.data,
@@ -201,7 +227,6 @@ export class WritingStudio implements OnInit {
       );
 
       const item = event.container.data[event.currentIndex];
-      // container.id is "folder-{id}" or "root-list"
       const newParentId =
         event.container.id === 'root-list' ? null : event.container.id.replace('folder-', '');
 
@@ -209,16 +234,11 @@ export class WritingStudio implements OnInit {
     }
   }
 
-  // Called when Child emits a move event (bubbling up)
   handleItemMove(event: { item: WritingDto; newParentId: string | null }) {
-    // Optimistic update is done by CdkDragDrop visual transfer
-    // Now call API
-    // Assuming service has a move method. If not, implement update with parentId
-    // this.writingsService.move(event.item.id, event.newParentId).subscribe();
     console.log(`Moved ${event.item.name} to parent ${event.newParentId}`);
+    // this.writingsService.move(...)
   }
 
-  // ... (Create/Delete logic remains similar)
   createItem(type: 'Folder' | 'Document') {
     const name = prompt(`Enter ${type} Name:`);
     if (!name) return;
@@ -230,19 +250,17 @@ export class WritingStudio implements OnInit {
     this.conceptsService.list().subscribe((data) => this.concepts.set(data));
   }
 
-  get filteredConcepts() {
-    const q = this.brainQuery().toLowerCase();
-    return this.concepts().filter((c) => c.name.toLowerCase().includes(q));
-  }
-
   selectConcept(id: string) {
     this.selectedConceptId.set(id);
     this.conceptsService.get(id).subscribe((d) => this.selectedConceptNotes.set(d.notes));
   }
 
   insertNoteIntoEditor(text: string) {
-    const current = this.editorText();
-    this.editorText.set(current + `\n\n> "${text}"\n`);
+    // Cleaner append logic
+    this.editorText.update((current) =>
+      current ? `${current}\n\n> "${text}"\n` : `> "${text}"\n`
+    );
+
     if (this.isMobile()) this.showBrainSidebar.set(false);
   }
 }
