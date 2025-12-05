@@ -29,6 +29,10 @@ export const routes: Routes = [
         loadComponent: () => import('./second-brain/second-brain').then((m) => m.SecondBrain),
       },
       {
+        path: 'studio',
+        loadComponent: () => import('./writing-studio/writing-studio').then((m) => m.WritingStudio),
+      },
+      {
         path: 'library/:id',
         loadComponent: () => import('./book-detail/book-detail').then((m) => m.BookDetail),
       },

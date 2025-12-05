@@ -1,0 +1,106 @@
+<div class="studio-layout">
+  <aside class="sidebar-left">
+    <div class="sidebar-header">
+      <h2>Studio</h2>
+      <div class="actions">
+        <button (click)="createItem('Folder')" title="New Folder">
+          <lucide-icon [img]="Icons.FolderPlus" [size]="18"></lucide-icon>
+        </button>
+        <button (click)="createItem('Document')" title="New File">
+          <lucide-icon [img]="Icons.Plus" [size]="18"></lucide-icon>
+        </button>
+      </div>
+    </div>
+
+    <div class="file-list">
+      @for (item of rootItems(); track item.id) {
+      <app-file-tree-item
+        [item]="item"
+        [activeId]="activeItem()?.id || null"
+        (itemSelected)="handleItemSelected($event)"
+      ></app-file-tree-item>
+      }
+    </div>
+  </aside>
+
+  <main class="editor-pane">
+    @if (activeItem(); as item) {
+    <div class="editor-header">
+      <input
+        class="title-input"
+        [ngModel]="editorTitle()"
+        (ngModelChange)="editorTitle.set($event)"
+        placeholder="Document Title"
+      />
+      <div class="status-badge" [class.saving]="saveStatus() === 'Saving...'">
+        {{ saveStatus() }}
+      </div>
+      <button class="brain-toggle" (click)="isBrainOpen.set(!isBrainOpen())">
+        <lucide-icon [img]="Icons.BrainCircuit" [size]="20"></lucide-icon>
+      </button>
+    </div>
+
+    <textarea
+      class="markdown-editor"
+      [ngModel]="editorText()"
+      (ngModelChange)="editorText.set($event)"
+      placeholder="Start writing..."
+    ></textarea>
+
+    } @else {
+    <div class="empty-state">
+      <lucide-icon [img]="Icons.FileText" [size]="48" strokeWidth="1"></lucide-icon>
+      <p>Select a file to start writing</p>
+    </div>
+    }
+  </main>
+
+  @if (isBrainOpen()) {
+  <aside class="sidebar-right">
+    <div class="sidebar-header">
+      <h3>Brain</h3>
+      <button (click)="isBrainOpen.set(false)">
+        <lucide-icon [img]="Icons.Close" [size]="18"></lucide-icon>
+      </button>
+    </div>
+
+    <div class="search-box">
+      <lucide-icon [img]="Icons.Search" [size]="14"></lucide-icon>
+      <input
+        type="text"
+        placeholder="Search concepts..."
+        [ngModel]="brainQuery()"
+        (ngModelChange)="brainQuery.set($event)"
+      />
+    </div>
+
+    <div class="brain-content">
+      @if (!selectedConceptId()) {
+      <div class="concept-list">
+        @for (c of filteredConcepts; track c.id) {
+        <div class="concept-item" (click)="selectConcept(c.id)">
+          <span>{{ c.name }}</span>
+          <span class="count">{{ c.usageCount }}</span>
+        </div>
+        }
+      </div>
+      } @else {
+      <button class="back-btn" (click)="selectedConceptId.set(null)">← Back to Index</button>
+
+      <div class="notes-list">
+        @for (note of selectedConceptNotes(); track note.noteId) {
+        <div class="mini-note-card">
+          <p class="note-quote">"{{ note.selectedText }}"</p>
+          <div class="note-actions">
+            <button (click)="insertNoteIntoEditor(note.selectedText)">Insert</button>
+          </div>
+        </div>
+        } @if(selectedConceptNotes().length === 0) {
+        <p class="empty-msg">No notes linked to this concept.</p>
+        }
+      </div>
+      }
+    </div>
+  </aside>
+  }
+</div>
