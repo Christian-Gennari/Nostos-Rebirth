@@ -1,0 +1,73 @@
+.tree-node {
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+.node-row {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding-right: 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  color: var(--text-secondary); /* Assuming you have these variables */
+  transition: background-color 0.1s ease;
+}
+
+.node-row:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+  color: var(--text-primary);
+}
+
+.node-row.active {
+  background-color: rgba(0, 0, 0, 0.08);
+  color: var(--primary-color, #000);
+  font-weight: 500;
+}
+
+/* Icons */
+.toggle-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 2px;
+  opacity: 0.6;
+  border-radius: 3px;
+}
+
+.toggle-icon:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  opacity: 1;
+}
+
+.spacer {
+  width: 20px;
+  display: inline-block;
+}
+
+.type-icon {
+  margin-right: 8px;
+  display: flex;
+  align-items: center;
+  opacity: 0.8;
+}
+
+/* Specific colors for icons */
+.folder-closed,
+.folder-open {
+  color: #8a8a8a;
+}
+
+.file-icon {
+  color: #555;
+}
+
+.node-name {
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

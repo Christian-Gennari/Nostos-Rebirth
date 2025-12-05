@@ -1,0 +1,43 @@
+<div class="tree-node">
+  <div
+    class="node-row"
+    [class.active]="activeId === item.id"
+    [style.padding-left.px]="level * 16"
+    (click)="handleSelect($event)"
+  >
+    <div class="toggle-icon" (click)="toggleExpand($event)">
+      @if (item.type === 'Folder') { @if (expanded()) {
+      <lucide-icon [img]="Icons.ChevronDown" [size]="14"></lucide-icon>
+      } @else {
+      <lucide-icon [img]="Icons.ChevronRight" [size]="14"></lucide-icon>
+      } } @else {
+      <span class="spacer"></span>
+      }
+    </div>
+
+    <div class="type-icon">
+      @if (item.type === 'Folder') { @if (expanded()) {
+      <lucide-icon [img]="Icons.FolderOpen" [size]="16" class="folder-open"></lucide-icon>
+      } @else {
+      <lucide-icon [img]="Icons.Folder" [size]="16" class="folder-closed"></lucide-icon>
+      } } @else {
+      <lucide-icon [img]="Icons.FileText" [size]="16" class="file-icon"></lucide-icon>
+      }
+    </div>
+
+    <span class="node-name">{{ item.name }}</span>
+  </div>
+
+  @if (expanded() && item.children.length > 0) {
+  <div class="node-children">
+    @for (child of item.children; track child.id) {
+    <app-file-tree-item
+      [item]="child"
+      [level]="level + 1"
+      [activeId]="activeId"
+      (itemSelected)="onChildSelected($event)"
+    ></app-file-tree-item>
+    }
+  </div>
+  }
+</div>
