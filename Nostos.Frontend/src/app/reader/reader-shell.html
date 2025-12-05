@@ -7,6 +7,8 @@
       <app-pdf-reader
         [bookId]="book()!.id"
         [initialLocation]="book()?.lastLocation"
+        [sidebarVisible]="tocOpen()"
+        (sidebarVisibleChange)="tocOpen.set($event)"
         (noteCreated)="handleNoteCreated()"
       />
       } @case ('epub') {
@@ -18,7 +20,7 @@
       } } }
     </main>
 
-    <aside class="toc-panel" [class.open]="tocOpen()">
+    <aside class="toc-panel" [class.open]="tocOpen() && fileType() !== 'pdf'">
       <div class="panel-header">
         <h3>Table of Contents</h3>
         <button class="icon-btn" (click)="toggleToc()">

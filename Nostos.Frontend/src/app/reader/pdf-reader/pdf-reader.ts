@@ -43,6 +43,10 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   initialLocation = input<string | undefined>();
   noteCreated = output<void>();
 
+  // 👇 ADD: Input/Output for Sidebar Visibility
+  sidebarVisible = input<boolean>(false);
+  sidebarVisibleChange = output<boolean>();
+
   pdfSrc = computed(() => `/api/books/${this.bookId()}/file`);
   savedHighlights: PageHighlight[] = [];
 
