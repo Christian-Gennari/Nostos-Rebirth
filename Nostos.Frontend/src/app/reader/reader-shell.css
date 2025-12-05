@@ -236,7 +236,6 @@
 }
 
 .icon-btn.active {
-  background-color: var(--bg-surface);
   color: var(--color-primary);
   border-color: var(--color-primary);
 }
@@ -347,6 +346,13 @@
   .icon-btn {
     width: 44px;
     height: 44px;
+  }
+
+  /* REMOVE HOVERS FOR MOBILE */
+  .icon-btn:hover {
+    background-color: transparent;
+    color: inherit;
+    border-color: inherit;
   }
 
   .icon-btn lucide-icon {

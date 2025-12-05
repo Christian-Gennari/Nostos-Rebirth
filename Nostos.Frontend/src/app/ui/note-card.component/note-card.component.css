@@ -135,3 +135,15 @@
   width: 24px;
   height: 24px;
 }
+
+@media (max-width: 768px) {
+  .note-actions .icon-btn:hover {
+    background-color: transparent;
+    color: inherit;
+  }
+
+  .note-actions .icon-btn.delete:hover {
+    background-color: transparent;
+    color: inherit;
+  }
+}
