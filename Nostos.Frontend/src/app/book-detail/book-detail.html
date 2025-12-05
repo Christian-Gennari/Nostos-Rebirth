@@ -58,14 +58,16 @@
             </button>
 
             <div class="cover-controls">
-              <button class="btn btn-xs btn-ghost" (click)="triggerCoverPicker()">
+              <button id="uploadorChangeCover" class="btn btn-xs btn-ghost" (click)="triggerCoverPicker()">
                 <lucide-icon [img]="ImageIcon" [size]="14"></lucide-icon>
                 {{ book()?.coverUrl ? 'Change' : 'Upload' }}
               </button>
 
               @if (book()?.coverUrl) {
               <div class="vertical-divider"></div>
-              <button class="btn btn-xs btn-ghost danger" (click)="deleteCover()">Remove</button>
+              <button id="removeCover" class="btn btn-xs btn-ghost danger" (click)="deleteCover()">
+                Remove
+              </button>
               }
             </div>
           </div>

@@ -121,7 +121,6 @@
   margin-bottom: 1.5rem;
 }
 
-
 .primary-actions {
   margin-bottom: 2rem;
   display: flex;
@@ -283,8 +282,6 @@
   margin: 0;
 }
 
-
-
 .new-note-box {
   position: relative;
   background: var(--bg-surface);
@@ -412,7 +409,6 @@
     (Keep these here or move to styles.css)
 ------------------------------ */
 @keyframes pulse {
-
   0%,
   100% {
     background-color: #f3f3f3;
@@ -460,7 +456,6 @@
   margin-top: 2rem;
 }
 
-
 /* =========================================
    MOBILE RESPONSIVENESS
    ========================================= */
@@ -476,7 +471,7 @@
   .detail-cover-col {
     width: 100%;
     max-width: 240px; /* Prevent it from being huge */
-    margin: 0 auto;   /* Center horizontally */
+    margin: 0 auto; /* Center horizontally */
   }
 
   /* 3. Center the text header for a cleaner mobile look */
@@ -509,7 +504,6 @@
     padding: 1.25rem 1rem; /* Less padding on sides */
   }
 }
-
 /* Extra small screens (Phones) */
 @media (max-width: 480px) {
   .meta-grid {
@@ -519,5 +513,32 @@
 
   .detail-cover-col {
     max-width: 180px; /* Smaller cover on small phones */
+  }
+
+  /* =========================================
+     REMOVE HOVER EFFECTS FOR MOBILE
+     ========================================= */
+
+  /* 1. Reset Expand Button (Keep transparent) */
+  .expand-btn:hover {
+    background-color: transparent;
+    border: 1px solid var(--border-color);
+    color: #555;
+  }
+
+  #uploadorChangeCover,
+  #removeCover:hover {
+    background-color: transparent;
+    color: #555;
+  }
+
+  /* 3. Reset Concept Tags (Keep original opacity) */
+  .concept-tag.clickable:hover {
+    opacity: 0.9;
+  }
+
+  /* Prevent the hover logic from processing on the row */
+  .note-row:hover .note-hover-actions {
+    opacity: 1;
   }
 }
