@@ -83,7 +83,7 @@ public static class MappingExtensions
                 Content: model.Content,
                 CfiRange: model.CfiRange,
                 SelectedText: model.SelectedText,
-                CreatedAt: model.CreatedAt // <--- ADD THIS
+                CreatedAt: model.CreatedAt
             );
 
     public static CollectionDto ToDto(this CollectionModel model) =>
@@ -95,6 +95,30 @@ public static class MappingExtensions
             model.Concept,
             model.NoteConcepts?.Count ?? 0
         );
+
+    // 👇 NEW: Writing Studio Mappings
+    public static WritingDto ToDto(this WritingModel model)
+    {
+        return new WritingDto(
+            model.Id,
+            model.Name,
+            model.Type.ToString(), // Convert Enum to String for DTO
+            model.ParentId,
+            model.UpdatedAt,
+            // Recursive mapping for the tree structure
+            model.Children.Select(c => c.ToDto()).ToList()
+        );
+    }
+
+    public static WritingContentDto ToContentDto(this WritingModel model)
+    {
+        return new WritingContentDto(
+            model.Id,
+            model.Name,
+            model.Content ?? string.Empty,
+            model.UpdatedAt
+        );
+    }
 
     // ------------------------------
     // Create mappings (Dto → Model)
