@@ -72,7 +72,12 @@ public static class MappingExtensions
 
             // Reading Progress
             LastLocation: model.LastLocation,
-            ProgressPercent: model.ProgressPercent
+            ProgressPercent: model.ProgressPercent,
+
+            // NEW FIELDS
+            Rating: model.Rating,
+            IsFavorite: model.IsFavorite,
+            FinishedAt: model.FinishedAt
         );
     }
 
@@ -96,7 +101,7 @@ public static class MappingExtensions
             model.NoteConcepts?.Count ?? 0
         );
 
-    // 👇 NEW: Writing Studio Mappings
+    // 👇 Writing Studio Mappings
     public static WritingDto ToDto(this WritingModel model)
     {
         return new WritingDto(
@@ -161,6 +166,11 @@ public static class MappingExtensions
         model.CreatedAt = DateTime.UtcNow;
         model.CollectionId = dto.CollectionId;
 
+        // New Fields
+        model.Rating = dto.Rating;
+        model.IsFavorite = dto.IsFavorite;
+        model.FinishedAt = dto.FinishedAt;
+
         return model;
     }
 
@@ -193,34 +203,62 @@ public static class MappingExtensions
     // ------------------------------
     public static void Apply(this BookModel model, UpdateBookDto dto)
     {
-        // 1. Apply Common Fields
-        model.Title = dto.Title;
-        model.Subtitle = dto.Subtitle;
-        model.Author = dto.Author;
-        model.Description = dto.Description;
-        model.Publisher = dto.Publisher;
-        model.PublishedDate = dto.PublishedDate;
-        model.Edition = dto.Edition;
-        model.Language = dto.Language;
-        model.Categories = dto.Categories;
-        model.Series = dto.Series;
-        model.VolumeNumber = dto.VolumeNumber;
-        model.CollectionId = dto.CollectionId;
+        // 1. Apply Common Fields (ONLY IF NOT NULL to support partial updates)
+        if (dto.Title != null) model.Title = dto.Title;
+        if (dto.Subtitle != null) model.Subtitle = dto.Subtitle;
+        if (dto.Author != null) model.Author = dto.Author;
+        if (dto.Description != null) model.Description = dto.Description;
+        if (dto.Publisher != null) model.Publisher = dto.Publisher;
+        if (dto.PublishedDate != null) model.PublishedDate = dto.PublishedDate;
+        if (dto.Edition != null) model.Edition = dto.Edition;
+        if (dto.Language != null) model.Language = dto.Language;
+        if (dto.Categories != null) model.Categories = dto.Categories;
+        if (dto.Series != null) model.Series = dto.Series;
+        if (dto.VolumeNumber != null) model.VolumeNumber = dto.VolumeNumber;
+        if (dto.CollectionId != null) model.CollectionId = dto.CollectionId;
+
+        // NEW FIELDS: Check if nullable (HasValue or != null) to see if they were sent
+        if (dto.Rating.HasValue) model.Rating = dto.Rating.Value;
+        if (dto.IsFavorite.HasValue) model.IsFavorite = dto.IsFavorite.Value;
+
+        // LOGIC FIX: Handle Finished Status
+        // 1. If a specific date is provided, use it (Manual edit)
+        if (dto.FinishedAt != null)
+        {
+            model.FinishedAt = dto.FinishedAt;
+        }
+        // 2. Else if the Toggle Flag is provided, use it
+        else if (dto.IsFinished.HasValue)
+        {
+            if (dto.IsFinished.Value)
+            {
+                // Mark as finished (Set to Now if not already set)
+                model.FinishedAt ??= DateTime.UtcNow;
+
+                // Optional: Force progress to 100% when marking as finished
+                model.ProgressPercent = 100;
+            }
+            else
+            {
+                // Mark as Unread (Clear the date)
+                model.FinishedAt = null;
+            }
+        }
 
         // 2. Apply Specific Fields (Pattern Matching)
         switch (model)
         {
             case PhysicalBookModel p:
-                p.Isbn = dto.Isbn;
-                p.PageCount = dto.PageCount;
+                if (dto.Isbn != null) p.Isbn = dto.Isbn;
+                if (dto.PageCount != null) p.PageCount = dto.PageCount;
                 break;
             case EBookModel e:
-                e.Isbn = dto.Isbn;
-                e.PageCount = dto.PageCount;
+                if (dto.Isbn != null) e.Isbn = dto.Isbn;
+                if (dto.PageCount != null) e.PageCount = dto.PageCount;
                 break;
             case AudioBookModel a:
-                a.Asin = dto.Asin;
-                a.Duration = dto.Duration;
+                if (dto.Asin != null) a.Asin = dto.Asin;
+                if (dto.Duration != null) a.Duration = dto.Duration;
                 break;
         }
     }

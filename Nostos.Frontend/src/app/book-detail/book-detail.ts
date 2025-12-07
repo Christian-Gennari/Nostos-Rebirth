@@ -204,26 +204,41 @@ export class BookDetail implements OnInit {
     const book = this.book();
     if (!book) return;
 
-    // Toggle logic: If has date -> remove it. If null -> set it.
-    const isFinished = !!book.finishedAt;
-    const newDate = isFinished ? null : new Date().toISOString();
-    // Auto-set progress to 100% if finishing, leave as is if un-finishing
-    const newProgress = isFinished ? book.progressPercent : 100;
+    // Check current state
+    const isCurrentlyFinished = !!book.finishedAt;
 
-    // Optimistic update
+    // Calculate new state
+    const newIsFinished = !isCurrentlyFinished;
+    const newDate = newIsFinished ? new Date().toISOString() : null;
+    const newProgress = newIsFinished ? 100 : book.progressPercent;
+
+    // 1. Optimistic UI update (Instant feedback)
     this.book.update((b) =>
-      b ? { ...b, finishedAt: newDate, progressPercent: newProgress } : null
+      b
+        ? {
+            ...b,
+            finishedAt: newDate,
+            progressPercent: newProgress,
+          }
+        : null
     );
 
-    this.booksService
-      .update(book.id, {
-        finishedAt: newDate,
-        // We also update progress to keep data consistent
-        ...(isFinished ? {} : { progressPercent: 100 }),
-      } as any)
-      .subscribe({
-        error: () => this.loadBook(book.id), // Reload on error to ensure sync
-      });
+    // 2. Send API Request
+    // We send 'isFinished' flag to let the backend handle the date logic securely
+    const updatePayload: any = {
+      isFinished: newIsFinished,
+    };
+
+    this.booksService.update(book.id, updatePayload).subscribe({
+      next: (updatedBook) => {
+        // Optional: Re-sync with actual server response (e.g. precise server timestamp)
+        this.book.set(updatedBook);
+      },
+      error: () => {
+        // Revert on error
+        this.loadBook(book.id);
+      },
+    });
   }
 
   onRate(newRating: number) {

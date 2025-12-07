@@ -3,25 +3,19 @@ using System;
 namespace Nostos.Shared.Dtos;
 
 public record BookDto(
-
-    // Polymorphic Discriminator
-    string Type, // "physical", "ebook", "audiobook"
-
+    string Type,
     Guid Id,
     string Title,
     string? Subtitle,
     string? Author,
     string? Description,
-
-    // Specific Fields (Nullable)
-    string? Isbn,       // Physical & Ebook
-    string? Asin,       // Audio
-    string? Duration,   // Audio
-    int? PageCount,     // Physical & Ebook
-
+    string? Isbn,
+    string? Asin,
+    string? Duration,
+    int? PageCount,
     string? Publisher,
     string? PublishedDate,
-    string? Edition,    // <--- NEW
+    string? Edition,
     string? Language,
     string? Categories,
     string? Series,
@@ -32,30 +26,16 @@ public record BookDto(
     string? CoverUrl,
     Guid? CollectionId,
     string? LastLocation,
-    int ProgressPercent
+    int ProgressPercent,
+
+    // NEW FIELDS
+    int Rating,
+    bool IsFavorite,
+    DateTime? FinishedAt
 );
 
 public record CreateBookDto(
-    string Type, // REQUIRED: Frontend must send this!
-    string Title,
-    string? Subtitle,
-    string? Author,
-    string? Description,
-    string? Isbn,
-    string? Asin,       // <--- NEW
-    string? Duration,   // <--- NEW
-    string? Publisher,
-    string? PublishedDate,
-    string? Edition,    // <--- NEW
-    int? PageCount,
-    string? Language,
-    string? Categories,
-    string? Series,
-    string? VolumeNumber,
-    Guid? CollectionId
-);
-
-public record UpdateBookDto(
+    string Type,
     string Title,
     string? Subtitle,
     string? Author,
@@ -71,7 +51,38 @@ public record UpdateBookDto(
     string? Categories,
     string? Series,
     string? VolumeNumber,
-    Guid? CollectionId
+    Guid? CollectionId,
+
+    // NEW FIELDS (Optional on create)
+    int Rating = 0,
+    bool IsFavorite = false,
+    DateTime? FinishedAt = null
+);
+
+public record UpdateBookDto(
+    // Make Title Nullable to allow partial updates (PATCH behavior)
+    string? Title,
+    string? Subtitle,
+    string? Author,
+    string? Description,
+    string? Isbn,
+    string? Asin,
+    string? Duration,
+    string? Publisher,
+    string? PublishedDate,
+    string? Edition,
+    int? PageCount,
+    string? Language,
+    string? Categories,
+    string? Series,
+    string? VolumeNumber,
+    Guid? CollectionId,
+
+    // NEW FIELDS
+    int? Rating,
+    bool? IsFavorite,
+    DateTime? FinishedAt,
+    bool? IsFinished // <--- NEW: Explicit toggle flag
 );
 
 public record UpdateProgressDto(string Location, int Percentage);

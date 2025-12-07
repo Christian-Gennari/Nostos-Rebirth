@@ -48,6 +48,7 @@ public abstract class BookModel
 
   // If FinishedAt is not null, the book is "Finished"
   public DateTime? FinishedAt { get; set; }
+  
 
 }
 

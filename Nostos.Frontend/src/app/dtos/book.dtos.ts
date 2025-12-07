@@ -83,6 +83,7 @@ export interface UpdateBookDto {
   rating?: number;
   isFavorite?: boolean;
   finishedAt?: string | null;
+  isFinished?: boolean; // <--- NEW
 }
 
 export interface UpdateProgressDto {

@@ -83,13 +83,17 @@ public static class BooksEndpoints
       var book = await db.Books.FindAsync(id);
       if (book is null) return Results.NotFound();
 
-      if (string.IsNullOrWhiteSpace(dto.Title))
-        return Results.BadRequest(new { error = "Title is required." });
+      // FIX: Only validate Title if the client is actually trying to change it.
+      // If dto.Title is null, it means "no change", so we skip validation.
+      if (dto.Title is not null && string.IsNullOrWhiteSpace(dto.Title))
+        return Results.BadRequest(new { error = "Title cannot be empty." });
 
-      // Ensure your MappingExtensions.Apply(dto) is updated to handle
-      // Rating, IsFavorite, and FinishedAt!
+      // Apply changes (handles null checks internally for partial updates)
       book.Apply(dto);
-      book.CollectionId = dto.CollectionId;
+
+      // Removed: book.CollectionId = dto.CollectionId;
+      // Reason: The Apply() method now handles this safely. Setting it here would
+      // accidentally set it to null during partial updates.
 
       await db.SaveChangesAsync();
 

@@ -1,14 +1,8 @@
-/* fileName: Nostos.Frontend/src/app/book-detail/book-detail.css */
-
-/* ------------------------------
-   LAYOUT GRID
------------------------------- */
 .back-nav {
   margin-bottom: 2rem;
 }
-
 .btn-back {
-  background: none;
+  background: 0 0;
   border: none;
   display: flex;
   align-items: center;
@@ -17,27 +11,20 @@
   font-size: 0.9rem;
   transition: color 0.2s;
 }
-
 .btn-back:hover {
   color: var(--color-primary);
 }
-
 .detail-grid {
   display: grid;
   grid-template-columns: 240px 1fr;
   gap: 3rem;
   align-items: start;
 }
-
-/* ------------------------------
-   LEFT COL: COVER
------------------------------- */
 .detail-cover-col {
   display: flex;
   flex-direction: column;
   align-items: center;
 }
-
 .cover-frame {
   width: 100%;
   aspect-ratio: 2/3;
@@ -51,13 +38,11 @@
   align-items: center;
   justify-content: center;
 }
-
 .cover-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-
 .placeholder-cover {
   display: flex;
   align-items: center;
@@ -66,10 +51,6 @@
   height: 100%;
   color: #ccc;
 }
-
-/* ------------------------------
-   COVER ACTIONS
------------------------------- */
 .cover-actions-links {
   width: 100%;
   display: flex;
@@ -77,28 +58,20 @@
   gap: 0.75rem;
   margin-top: 0.5rem;
 }
-
 .cover-controls {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
 }
-
 .vertical-divider {
   width: 1px;
   height: 12px;
   background-color: var(--border-color);
 }
-
-/* ------------------------------
-   RIGHT COL: INFO HEADER
------------------------------- */
 .info-header {
   margin-bottom: 1.5rem;
 }
-
-/* NEW: Top Row for Title & Favorite Button */
 .header-top-row {
   display: flex;
   justify-content: space-between;
@@ -106,57 +79,43 @@
   gap: 1rem;
   width: 100%;
 }
-
 .book-title {
   font-size: 2.5rem;
   line-height: 1.1;
   margin-bottom: 0.5rem;
   letter-spacing: -0.02em;
 }
-
-/* NEW: Favorite Button Styles */
 .favorite-btn {
-  background: transparent;
+  background: 0 0;
   border: none;
   cursor: pointer;
   padding: 4px;
   color: var(--color-text-muted);
   transition: transform 0.2s, color 0.2s;
   flex-shrink: 0;
-  margin-top: 0.5rem; /* Align visual center with title text */
+  margin-top: 0.5rem;
 }
-
 .favorite-btn:hover {
   transform: scale(1.1);
-  color: #ef4444; /* Red-500 */
+  color: #ef4444;
 }
-
 .favorite-btn.active {
   color: #ef4444;
 }
-
-/* Target the SVG inside to fill it */
-.favorite-btn.active ::ng-deep svg {
-  fill: currentColor;
-}
-
 .book-subtitle {
   font-size: 1.1rem;
   color: var(--color-text-light);
   margin: -0.25rem 0 0.5rem 0;
   font-weight: 400;
-  font-family: 'Inter', sans-serif;
+  font-family: Inter, sans-serif;
 }
-
 .book-author {
-  font-family: 'Inter', sans-serif;
+  font-family: Inter, sans-serif;
   font-size: 1.1rem;
   font-weight: 400;
   color: var(--color-text-muted);
   margin-bottom: 1rem;
 }
-
-/* NEW: User Metadata Row (Rating, Status Pill) */
 .user-metadata-row {
   display: flex;
   align-items: center;
@@ -164,13 +123,10 @@
   margin-bottom: 1.5rem;
   flex-wrap: wrap;
 }
-
 .user-metadata-row .vertical-divider {
   height: 20px;
   background-color: var(--border-color);
 }
-
-/* Status Pill (Finished Button) */
 .status-pill {
   display: flex;
   align-items: center;
@@ -178,50 +134,42 @@
   padding: 4px 12px;
   border-radius: 999px;
   border: 1px solid var(--border-color);
-  background: transparent;
+  background: 0 0;
   color: var(--color-text-muted);
   font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.2s;
 }
-
 .status-pill:hover {
-  background: #f9fafb; /* Light Gray Hover */
+  background: #f9fafb;
+  color: var(--bg-surface);
   border-color: var(--color-text-muted);
 }
-
 .status-pill.finished {
-  background-color: #dcfce7; /* Green-100 */
-  color: #166534; /* Green-800 */
+  background-color: #dcfce7;
+  color: #166534;
   border-color: transparent;
 }
-
 @media (prefers-color-scheme: dark) {
   .status-pill:hover {
     background: #2a2a2a;
   }
   .status-pill.finished {
-    background-color: #14532d;
+    background-color: #239751;
     color: #dcfce7;
   }
 }
-
 .primary-actions {
   margin-bottom: 2rem;
   display: flex;
   gap: 1rem;
 }
-
 .divider {
   border: none;
   border-bottom: 1px solid var(--border-color);
   margin: 2rem 0;
   opacity: 0.6;
 }
-
-/* ------------------------------
-   SYNOPSIS & METADATA
------------------------------- */
 .synopsis-metadata-block {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
@@ -231,13 +179,11 @@
   position: relative;
   transition: all 0.3s ease;
 }
-
 .synopsis-content {
   position: relative;
   overflow: hidden;
   margin-bottom: 1rem;
 }
-
 .synopsis-content h4 {
   text-transform: uppercase;
   font-weight: 600;
@@ -249,9 +195,8 @@
   padding-bottom: 0.5rem;
   display: inline-block;
 }
-
 .description-text {
-  font-family: 'Lora', serif;
+  font-family: Lora, serif;
   font-size: 1rem;
   line-height: 1.6;
   color: var(--color-text-main);
@@ -261,13 +206,11 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-
 .description-placeholder {
   color: var(--color-text-muted);
   font-style: italic;
   font-size: 0.9rem;
 }
-
 .fade-overlay {
   position: absolute;
   bottom: 0;
@@ -279,8 +222,6 @@
   opacity: 1;
   transition: opacity 0.2s;
 }
-
-/* Metadata Grid */
 .meta-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -289,17 +230,14 @@
   padding-top: 1rem;
   border-top: 1px dashed var(--border-color);
 }
-
 .meta-item {
   display: flex;
   flex-direction: column;
   font-size: 0.85rem;
 }
-
 .meta-item.full-width {
   grid-column: span 2;
 }
-
 .meta-item .label {
   display: flex;
   align-items: center;
@@ -310,13 +248,10 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-
 .meta-item .value {
   color: var(--color-text-main);
   font-weight: 500;
 }
-
-/* Expand Button */
 .expand-btn {
   display: inline-flex;
   align-items: center;
@@ -334,39 +269,30 @@
   gap: 0.5rem;
   transition: all 0.2s ease;
 }
-
 .expand-btn:hover {
   background-color: #1a1a1a;
   border-color: #1a1a1a;
   color: #fff;
 }
-
 .synopsis-metadata-block.expanded .description-text {
   line-clamp: unset;
   -webkit-line-clamp: unset;
 }
-
 .synopsis-metadata-block.expanded .fade-overlay {
   opacity: 0;
 }
-
-/* ------------------------------
-   NOTES SECTION
------------------------------- */
 .notes-header {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 1.5rem;
 }
-
 .notes-header h3 {
   font-size: 1rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin: 0;
 }
-
 .new-note-box {
   position: relative;
   background: var(--bg-surface);
@@ -376,52 +302,33 @@
   margin-bottom: 2rem;
   transition: box-shadow 0.2s;
 }
-
 .new-note-box:focus-within {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   border-color: #ddd;
 }
-
 .note-input {
   width: 100%;
   border: none;
-  background: transparent;
-  outline: none;
+  background: 0 0;
+  outline: 0;
   font-family: inherit;
   font-size: 0.95rem;
   resize: vertical;
   min-height: 40px;
   padding: 0.5rem;
 }
-
 .notes-feed {
   display: flex;
   flex-direction: column;
 }
-
 .note-row {
   padding: 1rem 0;
   border-bottom: 1px solid #f0f0f0;
   position: relative;
 }
-
 .note-row:first-child {
   padding-top: 0;
 }
-
-.note-hover-actions {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  position: absolute;
-  top: 5px;
-  right: 0;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.note-row:hover .note-hover-actions {
-  opacity: 1;
-}
-
 .edit-box {
   position: relative;
   background: var(--bg-surface);
@@ -429,56 +336,16 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
 }
-
 .row-actions {
   margin-top: 0.5rem;
   display: flex;
   gap: 0.5rem;
 }
-
-/* ------------------------------
-   UTILITIES / COMPONENTS
------------------------------- */
-.highlight-block {
-  display: flex;
-  gap: 0.75rem;
-  margin-bottom: 0.5rem;
-  padding: 0.75rem;
-  border-radius: 4px;
-}
-
-.quote-stripe {
-  width: 3px;
-  background-color: var(--color-text-muted);
-  border-radius: 1px;
-  flex-shrink: 0;
-}
-
-.highlight-text {
-  font-family: 'Lora', serif;
-  font-style: italic;
-  color: var(--color-text-main);
-  font-size: 0.95rem;
-  margin: 0;
-  line-height: 1.5;
-}
-
 .note-meta-placeholder {
   font-size: 0.85rem;
   color: #999;
   font-style: italic;
 }
-
-.concept-tag.clickable {
-  cursor: pointer;
-  opacity: 0.9;
-  transition: opacity 0.15s;
-}
-
-.concept-tag.clickable:hover {
-  opacity: 1;
-}
-
 .error-state {
   display: flex;
   flex-direction: column;
@@ -488,10 +355,6 @@
   text-align: center;
   color: var(--color-text-muted);
 }
-
-/* ------------------------------
-   SKELETONS
------------------------------- */
 @keyframes pulse {
   0%,
   100% {
@@ -501,139 +364,93 @@
     background-color: #e5e5e5;
   }
 }
-
+.skeleton-block,
 .skeleton-box,
-.skeleton-line,
-.skeleton-block {
+.skeleton-line {
   background-color: #f3f3f3;
   animation: pulse 1.5s ease-in-out infinite;
   border-radius: 4px;
 }
-
 .skeleton-box.cover-size {
   width: 100%;
   aspect-ratio: 2/3;
   border-radius: var(--radius-md);
 }
-
 .skeleton-line {
   height: 1.5rem;
   margin-bottom: 0.75rem;
 }
-
 .skeleton-line.title {
   height: 2.5rem;
   width: 60%;
   margin-bottom: 1rem;
 }
-
 .skeleton-line.author {
   height: 1.2rem;
   width: 30%;
   margin-bottom: 2rem;
 }
-
 .skeleton-block {
   width: 100%;
   height: 120px;
   margin-top: 2rem;
 }
-
-/* =========================================
-   MOBILE RESPONSIVENESS
-   ========================================= */
-
 @media (max-width: 900px) {
-  /* 1. Stack the layout vertically */
   .detail-grid {
-    grid-template-columns: 1fr; /* Single column */
+    grid-template-columns: 1fr;
     gap: 2rem;
   }
-
-  /* 2. Center the cover image and restrict width */
   .detail-cover-col {
     width: 100%;
-    max-width: 240px; /* Prevent it from being huge */
-    margin: 0 auto; /* Center horizontally */
+    max-width: 240px;
+    margin: 0 auto;
   }
-
-  /* 3. Center the text header for a cleaner mobile look */
   .info-header {
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
   }
-
-  /* NEW: Allow Top Row to flow centered on mobile */
   .header-top-row {
     justify-content: center;
     gap: 0.75rem;
   }
-
-  /* NEW: Center User Metadata on mobile */
   .user-metadata-row {
     justify-content: center;
   }
-
   .book-title {
-    font-size: 2rem; /* Slightly smaller title */
+    font-size: 2rem;
   }
-
-  /* 4. Make main action buttons full-width and stacked */
   .primary-actions {
     flex-direction: column;
     width: 100%;
     gap: 0.75rem;
   }
-
   .primary-actions .btn {
     width: 100%;
     justify-content: center;
-    height: 44px; /* Better touch target */
+    height: 44px;
   }
-
-  /* 5. Adjust Metadata Box padding */
   .synopsis-metadata-block {
-    padding: 1.25rem 1rem; /* Less padding on sides */
+    padding: 1.25rem 1rem;
   }
 }
-
-/* Extra small screens (Phones) */
 @media (max-width: 480px) {
   .meta-grid {
-    grid-template-columns: 1fr; /* Stack metadata fields */
+    grid-template-columns: 1fr;
     gap: 1rem;
   }
-
   .detail-cover-col {
-    max-width: 180px; /* Smaller cover on small phones */
+    max-width: 180px;
   }
-
-  /* =========================================
-     REMOVE HOVER EFFECTS FOR MOBILE
-     ========================================= */
-
-  /* 1. Reset Expand Button (Keep transparent) */
   .expand-btn:hover {
     background-color: transparent;
     border: 1px solid var(--border-color);
     color: #555;
   }
-
-  #uploadorChangeCover,
-  #removeCover:hover {
+  #removeCover:hover,
+  #uploadorChangeCover {
     background-color: transparent;
     color: #555;
-  }
-
-  /* 3. Reset Concept Tags (Keep original opacity) */
-  .concept-tag.clickable:hover {
-    opacity: 0.9;
-  }
-
-  /* Prevent the hover logic from processing on the row */
-  .note-row:hover .note-hover-actions {
-    opacity: 1;
   }
 }
