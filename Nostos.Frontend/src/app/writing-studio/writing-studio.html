@@ -46,6 +46,7 @@
   <main class="editor-pane">
     @if (activeItem(); as item) {
     <div class="editor-header">
+      @if (isMobile()) {
       <button
         class="icon-btn"
         (click)="showFileSidebar.set(!showFileSidebar())"
@@ -56,6 +57,7 @@
           [size]="20"
         ></lucide-icon>
       </button>
+      }
 
       <input
         class="title-input"
@@ -67,6 +69,7 @@
       <div class="meta-controls">
         <span class="status-badge">{{ saveStatus() }}</span>
 
+        @if (isMobile()) {
         <button
           class="icon-btn brain-toggle"
           [class.active]="showBrainSidebar()"
@@ -75,6 +78,7 @@
         >
           <lucide-icon [img]="Icons.BrainCircuit" [size]="20"></lucide-icon>
         </button>
+        }
       </div>
     </div>
 
@@ -95,7 +99,9 @@
         ></lucide-icon>
       </div>
       <p>Select a file to begin writing</p>
+      @if (isMobile()) {
       <button class="btn-outline" (click)="showFileSidebar.set(true)">Open Sidebar</button>
+      }
     </div>
     }
   </main>
@@ -103,9 +109,11 @@
   <aside class="sidebar-right" [class.open]="showBrainSidebar()">
     <div class="sidebar-header">
       <h2>Brain Context</h2>
+      @if (isMobile()) {
       <button class="icon-btn" (click)="showBrainSidebar.set(false)">
         <lucide-icon [img]="Icons.PanelRightClose" [size]="16"></lucide-icon>
       </button>
+      }
     </div>
 
     <div class="search-box">

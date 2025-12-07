@@ -38,7 +38,6 @@ import { ConceptsService, ConceptDto } from '../services/concepts.services';
 import { FileTreeItem } from './file-tree-item/file-tree-item';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { WritingDto, WritingContentDto } from '../dtos/writing.dtos';
-// 1. Import the new editor
 import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.component';
 
 @Component({
@@ -51,7 +50,7 @@ import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.c
     DragDropModule,
     FileTreeItem,
     NoteCardComponent,
-    MarkdownEditorComponent, // 2. Add to imports
+    MarkdownEditorComponent,
   ],
   templateUrl: './writing-studio.html',
   styleUrls: ['./writing-studio.css'],
@@ -78,9 +77,11 @@ export class WritingStudio implements OnInit {
   };
 
   // --- Layout State ---
-  showFileSidebar = signal(true);
-  showBrainSidebar = signal(false);
   isMobile = signal(window.innerWidth < 768);
+
+  // On Desktop, default both to TRUE. On Mobile, default Files to TRUE, Brain to FALSE.
+  showFileSidebar = signal(true);
+  showBrainSidebar = signal(!this.isMobile());
 
   // --- File System State ---
   rootItems = signal<WritingDto[]>([]);
@@ -109,7 +110,16 @@ export class WritingStudio implements OnInit {
     const onResize = () => {
       const mobile = window.innerWidth < 768;
       this.isMobile.set(mobile);
-      if (!mobile && !this.showFileSidebar()) this.showFileSidebar.set(true);
+
+      // If we switch to desktop, force both sidebars open
+      if (!mobile) {
+        this.showFileSidebar.set(true);
+        this.showBrainSidebar.set(true);
+      } else {
+        // Optional: When switching TO mobile, maybe close the brain sidebar to save space?
+        // keeping current state or closing it is up to preference.
+        // this.showBrainSidebar.set(false);
+      }
     };
 
     window.addEventListener('resize', onResize);
@@ -151,7 +161,13 @@ export class WritingStudio implements OnInit {
   ngOnInit() {
     this.loadTree();
     this.loadBrain();
-    if (this.isMobile()) this.showFileSidebar.set(false);
+    // Logic moved to property initialization, but double check here if needed
+    if (this.isMobile()) {
+      this.showFileSidebar.set(false); // Start closed on mobile? Or true?
+      // Original code had: if (this.isMobile()) this.showFileSidebar.set(false);
+      // I'll keep that behavior for mobile.
+      this.showFileSidebar.set(false);
+    }
   }
 
   closeSidebars() {
@@ -219,16 +235,12 @@ export class WritingStudio implements OnInit {
   }
 
   handleItemMove(event: { item: WritingDto; newParentId: string | null }) {
-    // 1. Call the backend to persist the move
     this.writingsService.move(event.item.id, event.newParentId).subscribe({
       next: () => {
-        // 2. On success, reload the tree to ensure the UI matches the database state
-        // (This fixes any potential sync issues from the drag-drop operation)
         this.loadTree();
       },
       error: (err) => {
         console.error('Failed to move item', err);
-        // Optional: Revert the change locally if needed, but reloading the tree is usually safest
         this.loadTree();
       },
     });
@@ -250,7 +262,6 @@ export class WritingStudio implements OnInit {
   }
 
   insertNoteIntoEditor(text: string) {
-    // Cleaner append logic
     this.editorText.update((current) =>
       current ? `${current}\n\n> "${text}"\n` : `> "${text}"\n`
     );
