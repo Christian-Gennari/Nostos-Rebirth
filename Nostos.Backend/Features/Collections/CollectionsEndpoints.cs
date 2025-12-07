@@ -15,8 +15,9 @@ public static class CollectionsEndpoints
     group.MapGet("/", async (NostosDbContext db) =>
     {
       var collections = await db.Collections
-              .OrderBy(c => c.Name)
-              .ToListAsync();
+          .Include(c => c.Children) // Load immediate children
+          .Where(c => c.ParentId == null) // Start from root
+          .ToListAsync();
 
       return Results.Ok(collections.Select(c => c.ToDto()));
     });

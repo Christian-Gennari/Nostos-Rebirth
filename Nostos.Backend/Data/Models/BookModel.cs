@@ -40,6 +40,15 @@ public abstract class BookModel
   // Reading Progress
   public string? LastLocation { get; set; } // CFI (EPUB), Page Number (PDF), or Timestamp (Audio)
   public int ProgressPercent { get; set; } = 0;
+
+  [Range(0, 5)]
+  public int Rating { get; set; } = 0;
+
+  public bool IsFavorite { get; set; } = false;
+
+  // If FinishedAt is not null, the book is "Finished"
+  public DateTime? FinishedAt { get; set; }
+
 }
 
 

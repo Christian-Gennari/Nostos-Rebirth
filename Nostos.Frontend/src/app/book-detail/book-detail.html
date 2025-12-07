@@ -58,7 +58,11 @@
             </button>
 
             <div class="cover-controls">
-              <button id="uploadorChangeCover" class="btn btn-xs btn-ghost" (click)="triggerCoverPicker()">
+              <button
+                id="uploadorChangeCover"
+                class="btn btn-xs btn-ghost"
+                (click)="triggerCoverPicker()"
+              >
                 <lucide-icon [img]="ImageIcon" [size]="14"></lucide-icon>
                 {{ book()?.coverUrl ? 'Change' : 'Upload' }}
               </button>
@@ -82,13 +86,46 @@
 
         <section class="detail-info-col">
           <header class="info-header">
-            <h1 class="book-title">{{ book()?.title }}</h1>
+            <div class="header-top-row">
+              <h1 class="book-title">{{ book()?.title }}</h1>
+              <button
+                class="btn-icon favorite-btn"
+                [class.active]="book()?.isFavorite"
+                (click)="toggleFavorite()"
+                title="Toggle Favorite"
+              >
+                <lucide-icon
+                  [img]="HeartIcon"
+                  [size]="24"
+                  [class.filled]="book()?.isFavorite"
+                ></lucide-icon>
+              </button>
+            </div>
 
             @if (book()?.subtitle) {
             <h3 class="book-subtitle">{{ book()?.subtitle }}</h3>
             }
 
             <h2 class="book-author">{{ book()?.author || 'Unknown Author' }}</h2>
+
+            <div class="user-metadata-row">
+              <app-star-rating
+                [rating]="book()?.rating || 0"
+                [size]="20"
+                (ratingChange)="onRate($event)"
+              ></app-star-rating>
+
+              <div class="vertical-divider"></div>
+
+              <button
+                class="status-pill"
+                [class.finished]="book()?.finishedAt"
+                (click)="toggleFinished()"
+              >
+                <lucide-icon [img]="CheckCircleIcon" [size]="16"></lucide-icon>
+                <span>{{ book()?.finishedAt ? 'Read' : 'Mark as Read' }}</span>
+              </button>
+            </div>
 
             <div class="primary-actions">
               @if (book()?.hasFile) {

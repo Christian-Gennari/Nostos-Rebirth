@@ -17,6 +17,7 @@ import { Note } from '../dtos/note.dtos';
 import { AddBookModal } from '../add-book-modal/add-book-modal';
 import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
+import { StarRatingComponent } from '../ui/star-rating/star-rating.component'; // <--- NEW IMPORT
 
 // Icons
 import {
@@ -38,6 +39,8 @@ import {
   Image,
   Headphones,
   Clock,
+  Heart, // <--- NEW
+  CheckCircle, // <--- NEW
 } from 'lucide-angular';
 
 @Component({
@@ -49,8 +52,9 @@ import {
     RouterLink,
     LucideAngularModule,
     AddBookModal,
-    ConceptInputComponent, // For the "New Note" input
-    NoteCardComponent, // For the list of existing notes
+    ConceptInputComponent,
+    NoteCardComponent,
+    StarRatingComponent, // <--- Add to imports
   ],
   templateUrl: './book-detail.html',
   styleUrls: ['./book-detail.css'],
@@ -82,6 +86,8 @@ export class BookDetail implements OnInit {
   ImageIcon = Image;
   HeadphonesIcon = Headphones;
   ClockIcon = Clock;
+  HeartIcon = Heart; // <--- NEW
+  CheckCircleIcon = CheckCircle; // <--- NEW
 
   // State
   loading = signal(true);
@@ -171,6 +177,64 @@ export class BookDetail implements OnInit {
 
   closeMetadataModal(): void {
     this.showMetadataModal.set(false);
+  }
+
+  // --- NEW: Ratings & Favorites Actions ---
+
+  toggleFavorite() {
+    const book = this.book();
+    if (!book) return;
+
+    const newStatus = !book.isFavorite;
+
+    // Optimistic UI update
+    this.book.update((b) => (b ? { ...b, isFavorite: newStatus } : null));
+
+    // Call API (Using 'any' cast if UpdateBookDto isn't fully updated in Service type definition yet)
+    this.booksService.update(book.id, { isFavorite: newStatus } as any).subscribe({
+      error: () => {
+        // Revert on error
+        this.book.update((b) => (b ? { ...b, isFavorite: !newStatus } : null));
+        this.error.set('Failed to update favorite status');
+      },
+    });
+  }
+
+  toggleFinished() {
+    const book = this.book();
+    if (!book) return;
+
+    // Toggle logic: If has date -> remove it. If null -> set it.
+    const isFinished = !!book.finishedAt;
+    const newDate = isFinished ? null : new Date().toISOString();
+    // Auto-set progress to 100% if finishing, leave as is if un-finishing
+    const newProgress = isFinished ? book.progressPercent : 100;
+
+    // Optimistic update
+    this.book.update((b) =>
+      b ? { ...b, finishedAt: newDate, progressPercent: newProgress } : null
+    );
+
+    this.booksService
+      .update(book.id, {
+        finishedAt: newDate,
+        // We also update progress to keep data consistent
+        ...(isFinished ? {} : { progressPercent: 100 }),
+      } as any)
+      .subscribe({
+        error: () => this.loadBook(book.id), // Reload on error to ensure sync
+      });
+  }
+
+  onRate(newRating: number) {
+    const book = this.book();
+    if (!book) return;
+
+    this.book.update((b) => (b ? { ...b, rating: newRating } : null));
+
+    this.booksService.update(book.id, { rating: newRating } as any).subscribe({
+      error: () => this.error.set('Failed to update rating'),
+    });
   }
 
   // --- Note Logic ---

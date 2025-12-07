@@ -12,12 +12,43 @@ public static class BooksEndpoints
   {
     var group = routes.MapGroup("/api/books");
 
-    // GET all books
-    group.MapGet("/", async (NostosDbContext db) =>
+    // GET all books (With Smart Filters & Sorting)
+    group.MapGet("/", async (NostosDbContext db, string? filter, string? sort) =>
     {
-      var books = await db.Books
-              .OrderByDescending(b => b.CreatedAt)
-              .ToListAsync();
+      var query = db.Books.AsQueryable();
+
+      // --- 1. Apply Smart Filters ---
+      if (!string.IsNullOrWhiteSpace(filter))
+      {
+        switch (filter.ToLower())
+        {
+          case "favorites":
+            query = query.Where(b => b.IsFavorite);
+            break;
+          case "finished":
+            query = query.Where(b => b.FinishedAt != null);
+            break;
+          case "reading":
+            // Started (progress > 0) but not finished
+            query = query.Where(b => b.FinishedAt == null && b.ProgressPercent > 0);
+            break;
+          case "unsorted":
+            // Books not assigned to any user collection
+            query = query.Where(b => b.CollectionId == null);
+            break;
+        }
+      }
+
+      // --- 2. Apply Sorting ---
+      // Default to "Recently Added" if no sort provided
+      query = (sort?.ToLower()) switch
+      {
+        "title" => query.OrderBy(b => b.Title),
+        "rating" => query.OrderByDescending(b => b.Rating), // Sort by your new Rating field
+        "recent" or _ => query.OrderByDescending(b => b.CreatedAt)
+      };
+
+      var books = await query.ToListAsync();
 
       return Results.Ok(books.Select(b => b.ToDto()));
     });
@@ -38,12 +69,11 @@ public static class BooksEndpoints
         return Results.BadRequest(new { error = "Title is required." });
 
       var model = dto.ToModel();
-      model.CollectionId = dto.CollectionId; // <--- Map CollectionId
+      model.CollectionId = dto.CollectionId;
 
       db.Books.Add(model);
       await db.SaveChangesAsync();
 
-      // Ensure your ToDto() extension method maps CollectionId, or update it manually
       return Results.Created($"/api/books/{model.Id}", model.ToDto());
     });
 
@@ -56,8 +86,10 @@ public static class BooksEndpoints
       if (string.IsNullOrWhiteSpace(dto.Title))
         return Results.BadRequest(new { error = "Title is required." });
 
+      // Ensure your MappingExtensions.Apply(dto) is updated to handle
+      // Rating, IsFavorite, and FinishedAt!
       book.Apply(dto);
-      book.CollectionId = dto.CollectionId; // <--- Map CollectionId
+      book.CollectionId = dto.CollectionId;
 
       await db.SaveChangesAsync();
 
@@ -72,6 +104,12 @@ public static class BooksEndpoints
 
       book.LastLocation = dto.Location;
       book.ProgressPercent = dto.Percentage;
+
+      // Optional: Auto-finish if percentage is 100%
+      if (book.ProgressPercent >= 100 && book.FinishedAt == null)
+      {
+        book.FinishedAt = DateTime.UtcNow;
+      }
 
       await db.SaveChangesAsync();
 
@@ -116,11 +154,6 @@ public static class BooksEndpoints
           "application/epub+zip", "application/pdf", "text/plain",
           "audio/mpeg", "audio/mp4", "audio/x-m4a"
       };
-
-      // M4B often comes as audio/mp4, but sometimes generic.
-      // Since we validate extensions in FileStorageService, strictly blocking MIME types here might be too aggressive for audio.
-      // Let's rely on the FileStorageService extension check as the source of truth,
-      // or at least expand this list significantly.
 
       if (!allowed.Contains(file.ContentType) && !file.FileName.EndsWith(".m4b", StringComparison.OrdinalIgnoreCase))
         return Results.BadRequest($"Unsupported file type: {file.ContentType}");
