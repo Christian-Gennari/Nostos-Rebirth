@@ -1,4 +1,3 @@
-/* fileName: Nostos.Frontend/src/app/sidebar-collections/sidebar-collections.css */
 :host {
   display: block;
   height: 100vh;
@@ -44,38 +43,32 @@
   display: flex;
   justify-content: center;
   color: var(--color-primary);
-
   opacity: 1;
   transition: opacity 0.2s ease;
 }
 
-/* Fade out during collapse */
 .sidebar.collapsing .brand-icon {
   opacity: 0;
 }
 
-/* Fade in after collapse completes */
 .sidebar.collapsed:not(.collapsing) .brand-icon {
   opacity: 1;
-  transition-delay: 0.2s; /* wait until width transition is done */
+  transition-delay: 0.2s;
 }
 
 /* SCROLL AREA */
 .nav-scroll-area {
   flex: 1;
   padding: 1rem;
-  /* Prevent scrollbar flashing during transition */
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 2rem;
-  /* Smoothly adjust padding when sidebar shrinks */
   transition: padding 0.3s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .sidebar.collapsed .nav-scroll-area {
-  /* Reduce padding so items can center properly */
   padding: 1rem 0;
 }
 
@@ -104,107 +97,23 @@
   transition: opacity 0.2s;
 }
 
-/* --- NAV ITEMS (Folders) --- */
-.nav-item-row {
+/* 👇 NEW: Root Drop List for Collections Tree */
+.root-drop-list {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  width: 100%;
-  margin-left: 0; /* Default position */
-  padding: 0.5rem 0.75rem;
-
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--color-text-muted);
-
-  height: 36px;
-
-  transform: translateX(0); /* Add this line */
-
-  /* Animate width and margin for the collapse effect */
-  transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+  flex-direction: column;
+  min-height: 20px; /* Ensure there's always a drop target */
+  /* Remove gap here if CollectionTreeItem has its own padding/margin */
+  gap: 2px;
 }
 
-.nav-item-row:hover {
-  background: var(--bg-hover);
-  color: var(--color-text-main);
-}
-
-.nav-item-row.active {
-  background: var(--bg-surface);
-  color: var(--color-primary);
-  border: 1px solid var(--border-color);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-/* Left side content (Icon + Label) */
-.nav-content {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  transition: gap 0.3s cubic-bezier(0.2, 0, 0, 1);
-  overflow: hidden;
-}
-
-.sidebar.collapsed .nav-content {
-  gap: 0;
-}
-
-.label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-/* Hover Actions (Edit/Delete) */
-.nav-actions {
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transform: translateX(10px);
-  transition: all 0.2s ease;
-}
-
-.nav-item-row:hover .nav-actions {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.action-mini {
-  background: transparent;
-  border: none;
-  color: var(--color-text-light);
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.action-mini:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: var(--color-primary);
-}
-.action-mini.danger:hover {
-  background: #fee2e2;
-  color: var(--color-danger);
-}
-
-/* --- NAV ITEM (Legacy / "New Collection" Button) --- */
+/* --- NAV ITEMS (Standard Buttons) --- */
 .nav-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-
   width: 100%;
   margin-left: 0;
   padding: 0.6rem 0.75rem;
-
   border: none;
   background: transparent;
   border-radius: 6px;
@@ -214,9 +123,7 @@
   font-size: 0.9rem;
   font-weight: 500;
   text-decoration: none;
-
-  transform: translateX(0); /* Add this line */
-
+  transform: translateX(0);
   transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
 }
 
@@ -231,6 +138,7 @@
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
+/* Add Button Specifics */
 .nav-item.action-add {
   color: var(--color-text-light);
   border: 1px dashed var(--border-color);
@@ -241,7 +149,12 @@
   color: var(--color-primary);
 }
 
-/* INPUT MODE (Rename/Create) */
+/* Input Mode (Rename/Create) */
+.nav-item.input-mode {
+  cursor: default;
+  background: transparent;
+}
+
 .sidebar-input {
   background: transparent;
   border: none;
@@ -257,7 +170,6 @@
 
 /* --- FOOTER --- */
 .sidebar-footer {
-  /* Animate padding to keep the icon stable relative to the sidebar edge */
   padding: 1.5rem;
   border-top: 1px solid var(--border-color);
   display: flex;
@@ -284,24 +196,19 @@
 }
 
 /* --- COLLAPSED OVERRIDES --- */
-
 .sidebar.collapsed .sidebar-header {
   padding: 0;
   justify-content: center;
 }
 
-/* This centers the 40px item within the 72px sidebar's 1rem padding */
-.sidebar.collapsed .nav-item,
-.sidebar.collapsed .nav-item-row {
+/* Center items in collapsed mode */
+.sidebar.collapsed .nav-item {
   width: 40px;
   height: 40px;
   margin-left: 16px;
   padding: 0;
   gap: 0;
   justify-content: center;
-  transition: width 0.3s cubic-bezier(0.2, 0, 0, 1), padding 0.3s cubic-bezier(0.2, 0, 0, 1),
-    gap 0.3s cubic-bezier(0.2, 0, 0, 1), margin-left 0.3s cubic-bezier(0.2, 0, 0, 1),
-    background 0.2s ease, color 0.2s ease;
 }
 
 .label {
@@ -311,21 +218,10 @@
 
 .sidebar.collapsed .label {
   opacity: 0;
-}
-
-.sidebar.collapsed .nav-item-row .nav-content {
-  /* The default gap: 0.75rem; is pushing the icon off-center. Remove it. */
-  gap: 0;
-
-  /* Ensure the inner wrapper centers its content (the icon) */
-  justify-content: center;
-
-  /* Ensure the wrapper takes up 100% of the 40px width to apply centering properly */
-  width: 100%;
+  display: none; /* Hide label layout completely */
 }
 
 /* --- ANIMATIONS --- */
-
 @keyframes smoothFadeIn {
   from {
     opacity: 0;
@@ -337,91 +233,62 @@
   }
 }
 
-/* Apply to both the "New Collection" button AND the "Input" mode */
-.nav-item,
-.nav-item.input-mode {
-  /* Triggers the animation every time the element is created by the @if block */
+.nav-item {
   animation: smoothFadeIn 0.3s cubic-bezier(0.2, 0, 0, 1) forwards;
 }
 
 .floating-toggle {
-  display: none; /* Completely hidden on desktop */
+  display: none;
 }
 
-/* --- 2. MOBILE RESPONSIVENESS (< 768px) --- */
+/* --- MOBILE RESPONSIVENESS --- */
 @media (max-width: 768px) {
-  /* Show the floating button fixed on screen */
   .floating-toggle {
     display: flex;
     align-items: center;
     justify-content: center;
-
-    position: fixed; /* Fixed relative to viewport */
-    bottom: 16px; /* Increased spacing from edge */
-    left: 16px; /* Increased spacing from edge */
-    z-index: 50; /* Above regular content */
-
-    width: 48px; /* Larger, comfortable touch target */
+    position: fixed;
+    bottom: 16px;
+    left: 16px;
+    z-index: 50;
+    width: 48px;
     height: 48px;
-    border-radius: 12px; /* Softer, modern rounded corner */
-
-    /* BRAND STYLING */
-    background: var(--color-primary); /* Use your main brand color */
-    color: #ffffff; /* White icon for contrast */
-    border: none; /* Remove generic gray border */
-
-    /* A nicer "lifted" shadow */
+    border-radius: 12px;
+    background: var(--color-primary);
+    color: #ffffff;
+    border: none;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
-
     cursor: pointer;
-    /* Smooth transition for the press effect */
-    transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out, background-color 0.2s;
+    transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
   }
 
-
-
-  /* Add a press effect for better mobile feel */
   .floating-toggle:active {
     transform: scale(0.95);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
   }
 
-  /* Hide the toggle if the sidebar is open (keeps UI clean) */
   .floating-toggle.hidden {
-    /* Adding opacity/transform transition for smoother disappearance */
     opacity: 0;
     transform: scale(0.8);
     pointer-events: none;
-    transition: opacity 0.2s, transform 0.2s ease-in-out;
-  }
-  /* Ensure the visible state overrides the hidden transition base */
-  .floating-toggle:not(.hidden) {
-    opacity: 1;
-    transform: scale(1);
   }
 
-  /* --- SIDEBAR MOBILE BEHAVIOR --- */
   .sidebar {
     position: fixed;
     height: 100%;
     top: 0;
     left: 0;
-    z-index: 100; /* Above the floating button */
-    width: 280px; /* Fixed width for mobile drawer */
-
-    /* When 'Expanded' (Open), it sits at 0 */
+    z-index: 100;
+    width: 280px;
     transform: translateX(0);
     box-shadow: 4px 0 12px rgba(0, 0, 0, 0.1);
   }
 
-  /* When 'Collapsed' (Closed), it slides off-screen */
   .sidebar.collapsed {
-    width: 280px; /* Keep width consistent */
+    width: 280px;
     transform: translateX(-100%);
   }
 
-  /* Mobile internal adjustments */
   .sidebar-footer {
-    justify-content: flex-end; /* Put the toggle/close button on the right */
+    justify-content: flex-end;
   }
 }

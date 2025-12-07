@@ -1,4 +1,5 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { ActivatedRoute } from '@angular/router'; // Import ActivatedRoute
 import { BooksService, Book } from '../services/books.services';
 import { CollectionsService } from '../services/collections.services';
 import { Collection } from '../dtos/collection.dtos';
@@ -26,6 +27,7 @@ import {
 export class Library implements OnInit {
   private booksService = inject(BooksService);
   private collectionsService = inject(CollectionsService);
+  private route = inject(ActivatedRoute); // Inject Route
 
   ListIcon = LayoutList;
   GridIcon = LayoutGrid;
@@ -46,21 +48,37 @@ export class Library implements OnInit {
 
   activeCollectionId = this.collectionsService.activeCollectionId;
 
+  // Filter Logic:
+  // 1. If backend 'filter' is active (Favorites/Reading), 'rawBooks' already contains ONLY those books.
+  // 2. If 'activeCollectionId' is set, we filter the rawBooks by that collection.
   books = computed(() => {
     const all = this.rawBooks();
     const activeId = this.activeCollectionId();
 
-    if (!activeId) return all;
-    return all.filter((b) => b.collectionId === activeId);
+    // If we have a user collection selected, filter by it
+    if (activeId) {
+      return all.filter((b) => b.collectionId === activeId);
+    }
+
+    // Otherwise return whatever the backend gave us (All Books OR Smart Filtered results)
+    return all;
   });
 
   ngOnInit(): void {
-    this.loadBooks();
+    // Subscribe to query params to reload data when filters change
+    this.route.queryParams.subscribe((params) => {
+      const filter = params['filter'];
+      const sort = params['sort'];
+
+      // Reload books whenever URL changes
+      this.loadBooks(filter, sort);
+    });
+
     this.loadCollections();
   }
 
-  loadBooks(): void {
-    this.booksService.list().subscribe({
+  loadBooks(filter?: string, sort?: string): void {
+    this.booksService.list(filter, sort).subscribe({
       next: (data) => this.rawBooks.set(data),
       error: (err) => console.error('Error loading books:', err),
     });
@@ -94,7 +112,9 @@ export class Library implements OnInit {
   }
 
   onBookUpdated(updated: Book): void {
-    this.loadBooks();
+    // Reload with current params to keep context
+    const params = this.route.snapshot.queryParams;
+    this.loadBooks(params['filter'], params['sort']);
     this.closeEditModal();
   }
 
@@ -103,7 +123,10 @@ export class Library implements OnInit {
     if (!confirm('Are you sure you want to delete this book?')) return;
 
     this.booksService.delete(id).subscribe({
-      next: () => this.loadBooks(),
+      next: () => {
+        const params = this.route.snapshot.queryParams;
+        this.loadBooks(params['filter'], params['sort']);
+      },
     });
   }
 }

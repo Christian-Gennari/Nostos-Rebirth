@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Book, CreateBookDto, UpdateBookDto, UpdateProgressDto } from '../dtos/book.dtos';
 
@@ -7,8 +7,18 @@ import { Book, CreateBookDto, UpdateBookDto, UpdateProgressDto } from '../dtos/b
 export class BooksService {
   constructor(private http: HttpClient) {}
 
-  list(): Observable<Book[]> {
-    return this.http.get<Book[]>('/api/books');
+  // UPDATED: Now accepts filter and sort parameters
+  list(filter?: string, sort?: string): Observable<Book[]> {
+    let params = new HttpParams();
+
+    if (filter) {
+      params = params.set('filter', filter);
+    }
+    if (sort) {
+      params = params.set('sort', sort);
+    }
+
+    return this.http.get<Book[]>('/api/books', { params });
   }
 
   get(id: string): Observable<Book> {
@@ -27,7 +37,6 @@ export class BooksService {
     return this.http.delete<void>(`/api/books/${id}`);
   }
 
-  // --- NEW METHOD ---
   updateProgress(id: string, location: string, percentage: number): Observable<any> {
     const dto: UpdateProgressDto = { location, percentage };
     return this.http.put(`/api/books/${id}/progress`, dto);

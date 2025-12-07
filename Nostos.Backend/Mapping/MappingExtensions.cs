@@ -91,8 +91,15 @@ public static class MappingExtensions
                 CreatedAt: model.CreatedAt
             );
 
+    // 👇 FIXED: Update CollectionDto to match the new recursive constructor
     public static CollectionDto ToDto(this CollectionModel model) =>
-        new CollectionDto(model.Id, model.Name);
+        new CollectionDto(
+            model.Id,
+            model.Name,
+            model.ParentId,
+            // Recursively map children (handle nulls safely)
+            model.Children?.Select(c => c.ToDto()).ToList() ?? new List<CollectionDto>()
+        );
 
     public static ConceptDto ToDto(this ConceptModel model) =>
         new ConceptDto(
@@ -184,11 +191,13 @@ public static class MappingExtensions
             SelectedText = dto.SelectedText
         };
 
+    // 👇 UPDATED: Handle ParentId on Create
     public static CollectionModel ToModel(this CreateCollectionDto dto) =>
         new CollectionModel
         {
             Id = Guid.NewGuid(),
-            Name = dto.Name
+            Name = dto.Name,
+            ParentId = dto.ParentId
         };
 
     public static ConceptModel ToModel(this CreateConceptDto dto) =>
@@ -263,9 +272,15 @@ public static class MappingExtensions
         }
     }
 
+    // 👇 UPDATED: Handle renaming AND moving (ParentId changes)
     public static void Apply(this CollectionModel model, UpdateCollectionDto dto)
     {
         model.Name = dto.Name;
+        // Check if ParentId is part of the update (depends on your DTO structure)
+        if (dto.ParentId != model.ParentId)
+        {
+            model.ParentId = dto.ParentId;
+        }
     }
 
     public static void Apply(this ConceptModel model, UpdateConceptDto dto)

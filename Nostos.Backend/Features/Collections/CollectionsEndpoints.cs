@@ -11,15 +11,20 @@ public static class CollectionsEndpoints
   {
     var group = routes.MapGroup("/api/collections");
 
-    // GET all collections
+    // GET all collections (Tree Structure)
     group.MapGet("/", async (NostosDbContext db) =>
     {
-      var collections = await db.Collections
-          .Include(c => c.Children) // Load immediate children
-          .Where(c => c.ParentId == null) // Start from root
-          .ToListAsync();
+      // STRATEGY: Load ALL collections into memory.
+      // EF Core's "Relationship Fix-up" will automatically populate the .Children list
+      // for every entity without needing recursive includes.
+      var allCollections = await db.Collections.ToListAsync();
 
-      return Results.Ok(collections.Select(c => c.ToDto()));
+      // Filter for roots (no parent) and convert to recursive DTOs
+      var roots = allCollections
+          .Where(c => c.ParentId == null)
+          .Select(c => c.ToDto());
+
+      return Results.Ok(roots);
     });
 
     // GET one collection
@@ -37,6 +42,7 @@ public static class CollectionsEndpoints
       if (string.IsNullOrWhiteSpace(dto.Name))
         return Results.BadRequest(new { error = "Name is required." });
 
+      // ToModel now handles ParentId mapping
       var model = dto.ToModel();
 
       db.Collections.Add(model);
@@ -54,7 +60,9 @@ public static class CollectionsEndpoints
       if (string.IsNullOrWhiteSpace(dto.Name))
         return Results.BadRequest(new { error = "Name is required." });
 
+      // Apply now handles renaming AND moving (ParentId changes)
       existing.Apply(dto);
+
       await db.SaveChangesAsync();
 
       return Results.Ok(existing.ToDto());
@@ -67,13 +75,18 @@ public static class CollectionsEndpoints
       if (existing is null) return Results.NotFound();
 
       // 1. Unlink all books first (Set their CollectionId to null)
+      // Note: This only unlinks books directly in THIS collection.
+      // Books in sub-collections will remain in those sub-collections
+      // (which will be deleted by cascade below).
       var booksInCollection = await db.Books.Where(b => b.CollectionId == id).ToListAsync();
       foreach (var book in booksInCollection)
       {
         book.CollectionId = null;
       }
 
-      // 2. Now delete the collection
+      // 2. Now delete the collection.
+      // If your DB has Cascade Delete on the Self-Referencing ParentId,
+      // this will also delete all child folders automatically.
       db.Collections.Remove(existing);
 
       await db.SaveChangesAsync();

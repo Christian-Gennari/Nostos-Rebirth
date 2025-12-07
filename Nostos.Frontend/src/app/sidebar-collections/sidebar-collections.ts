@@ -5,6 +5,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import {
+  DragDropModule,
+  CdkDropList,
+  CdkDragDrop,
+  moveItemInArray,
+  transferArrayItem,
+} from '@angular/cdk/drag-drop'; // Import DragDrop
+import {
   LucideAngularModule,
   Folder,
   Library,
@@ -16,20 +23,35 @@ import {
   BrainCircuit,
   Menu,
   PenTool,
+  Heart,
+  BookOpen,
+  CheckCircle,
+  Inbox,
 } from 'lucide-angular';
+
+// NEW IMPORT
+import { CollectionTreeItem } from './collection-tree-item/collection-tree-item';
 
 @Component({
   standalone: true,
   selector: 'app-sidebar-collections',
-  imports: [CommonModule, FormsModule, LucideAngularModule, RouterLink, RouterLinkActive],
+  imports: [
+    CommonModule,
+    FormsModule,
+    LucideAngularModule,
+    RouterLink,
+    RouterLinkActive,
+    DragDropModule, // Add this
+    CollectionTreeItem, // Add this
+  ],
   templateUrl: './sidebar-collections.html',
   styleUrls: ['./sidebar-collections.css'],
 })
 export class SidebarCollections implements OnInit {
+  // ... (Icons and State remain the same as before) ...
   private collectionsService = inject(CollectionsService);
   private router = inject(Router);
 
-  // Icons
   FolderIcon = Folder;
   LibraryIcon = Library;
   PanelLeftCloseIcon = PanelLeftClose;
@@ -40,31 +62,41 @@ export class SidebarCollections implements OnInit {
   BrainIcon = BrainCircuit;
   MenuIcon = Menu;
   PenToolIcon = PenTool;
+  HeartIcon = Heart;
+  BookOpenIcon = BookOpen;
+  CheckCircleIcon = CheckCircle;
+  InboxIcon = Inbox;
 
   collections = signal<Collection[]>([]);
-
   expanded = this.collectionsService.sidebarExpanded;
-
-  // State for Creating/Editing
   adding = signal(false);
   editingId = signal<string | null>(null);
   collapseSidebarProgress = signal(false);
-
   newName = model<string>('');
-
   private ignoreClick = false;
-
   activeId = this.collectionsService.activeCollectionId;
+
+  // Compute connected drop lists: 'root-list' + 'folder-{id}' for every folder
+  connectedDropLists = computed(() => {
+    const ids = ['root-list'];
+    const traverse = (items: Collection[]) => {
+      for (const item of items) {
+        ids.push(`folder-${item.id}`);
+        if (item.children) traverse(item.children);
+      }
+    };
+    traverse(this.collections());
+    return ids;
+  });
 
   ngOnInit(): void {
     this.load();
-
-    // 👇 ADD THIS: Check viewport width on init
-    // If screen is smaller than 768px (matching your CSS), close sidebar
     if (window.innerWidth < 768) {
       this.expanded.set(false);
     }
   }
+
+  // ... (HostListener, toggle, startAdd, resetInput, create, deleteCollection... KEEP THESE) ...
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
@@ -72,7 +104,6 @@ export class SidebarCollections implements OnInit {
       this.ignoreClick = false;
       return;
     }
-
     if (!this.adding() && !this.editingId()) return;
 
     const target = event.target as HTMLElement;
@@ -92,21 +123,16 @@ export class SidebarCollections implements OnInit {
 
   toggle(): void {
     const isCurrentlyExpanded = this.expanded();
-
-    // Only trigger collapseProgress when collapsing
     if (isCurrentlyExpanded) {
       this.collapseSidebarProgress.set(true);
       setTimeout(() => this.collapseSidebarProgress.set(false), 200);
     }
-
     this.expanded.set(!isCurrentlyExpanded);
   }
 
   select(id: string | null): void {
     this.collectionsService.activeCollectionId.set(id);
     this.router.navigate(['/library']);
-
-    // Optional: Auto-close sidebar on mobile when an item is selected
     if (window.innerWidth < 768) {
       this.expanded.set(false);
     }
@@ -130,7 +156,6 @@ export class SidebarCollections implements OnInit {
       this.resetInput();
       return;
     }
-
     this.collectionsService.create({ name }).subscribe({
       next: (newCol) => {
         this.resetInput();
@@ -154,7 +179,6 @@ export class SidebarCollections implements OnInit {
       this.cancelRename();
       return;
     }
-
     this.collectionsService.update(id, { name: newName }).subscribe({
       next: () => {
         this.editingId.set(null);
@@ -164,7 +188,48 @@ export class SidebarCollections implements OnInit {
   }
 
   deleteCollection(id: string): void {
-    if (!confirm('Are you sure? Books in this collection will remain in your library.')) return;
+    if (!confirm('Delete this collection?')) return;
     this.collectionsService.delete(id).subscribe({ next: () => this.load() });
+  }
+
+  // --- NEW: Drag & Drop Handlers ---
+
+  onRootDrop(event: CdkDragDrop<Collection[]>) {
+    if (event.previousContainer === event.container) {
+      moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
+    } else {
+      transferArrayItem(
+        event.previousContainer.data,
+        event.container.data,
+        event.previousIndex,
+        event.currentIndex
+      );
+      // Moved to Root (ParentId = null)
+      const movedItem = event.container.data[event.currentIndex];
+      this.moveCollection(movedItem, null);
+    }
+  }
+
+  onItemMoved(event: { item: Collection; newParentId: string | null }) {
+    this.moveCollection(event.item, event.newParentId);
+  }
+
+  moveCollection(item: Collection, newParentId: string | null) {
+    // If we dropped it in the same place, ignore
+    if (item.parentId === newParentId) return;
+
+    // Optimistic Update
+    // (Note: To do a true optimistic update with recursion is complex,
+    // simply reloading after API call is safer for now)
+
+    this.collectionsService
+      .update(item.id, {
+        name: item.name,
+        parentId: newParentId,
+      })
+      .subscribe({
+        next: () => this.load(),
+        error: () => this.load(), // Revert on error
+      });
   }
 }

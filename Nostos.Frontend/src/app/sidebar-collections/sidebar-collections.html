@@ -18,19 +18,69 @@
       <button
         class="nav-item"
         routerLink="/library"
-        #rlaAllBooks="routerLinkActive"
-        routerLinkActive="tmp-active"
+        [queryParams]="{}"
+        routerLinkActive="active"
         [routerLinkActiveOptions]="{ exact: true }"
         (click)="activeId.set(null)"
-        [class.active]="rlaAllBooks.isActive && activeId() === null"
         title="All Books"
       >
         <lucide-icon [img]="LibraryIcon" [size]="18" strokeWidth="2"></lucide-icon>
         @if (expanded()) { <span class="label">All Books</span> }
       </button>
+
+      <button
+        class="nav-item"
+        routerLink="/library"
+        [queryParams]="{ filter: 'reading' }"
+        routerLinkActive="active"
+        (click)="activeId.set(null)"
+        title="Continue Reading"
+      >
+        <lucide-icon [img]="BookOpenIcon" [size]="18" strokeWidth="2"></lucide-icon>
+        @if (expanded()) { <span class="label">Reading</span> }
+      </button>
+
+      <button
+        class="nav-item"
+        routerLink="/library"
+        [queryParams]="{ filter: 'favorites' }"
+        routerLinkActive="active"
+        (click)="activeId.set(null)"
+        title="Favorites"
+      >
+        <lucide-icon [img]="HeartIcon" [size]="18" strokeWidth="2"></lucide-icon>
+        @if (expanded()) { <span class="label">Favorites</span> }
+      </button>
+
+      <button
+        class="nav-item"
+        routerLink="/library"
+        [queryParams]="{ filter: 'finished' }"
+        routerLinkActive="active"
+        (click)="activeId.set(null)"
+        title="Finished"
+      >
+        <lucide-icon [img]="CheckCircleIcon" [size]="18" strokeWidth="2"></lucide-icon>
+        @if (expanded()) { <span class="label">Finished</span> }
+      </button>
+
+      <button
+        class="nav-item"
+        routerLink="/library"
+        [queryParams]="{ filter: 'unsorted' }"
+        routerLinkActive="active"
+        (click)="activeId.set(null)"
+        title="Unsorted"
+      >
+        <lucide-icon [img]="InboxIcon" [size]="18" strokeWidth="2"></lucide-icon>
+        @if (expanded()) { <span class="label">Unsorted</span> }
+      </button>
     </div>
 
     <div class="nav-group">
+      @if (expanded()) {
+      <div class="section-label" style="margin-top: 1rem">Apps</div>
+      }
       <button
         class="nav-item"
         routerLink="/second-brain"
@@ -42,9 +92,7 @@
         <lucide-icon [img]="BrainIcon" [size]="18" strokeWidth="2"></lucide-icon>
         @if (expanded()) { <span class="label">The Brain</span> }
       </button>
-    </div>
 
-    <div class="nav-group">
       <button
         class="nav-item"
         routerLink="/studio"
@@ -60,41 +108,43 @@
 
     <div class="nav-group">
       @if (expanded()) {
-      <div class="section-label" animate.enter="fade-in">Collections</div>
-      } @for (col of collections(); track col.id) { @if (editingId() === col.id) {
-      <div class="nav-item input-mode">
-        <lucide-icon [img]="FolderIcon" [size]="18" strokeWidth="2"></lucide-icon>
-        <input
-          #editInput
-          type="text"
-          class="sidebar-input"
-          [value]="col.name"
-          (keydown.enter)="saveRename(col.id, editInput.value)"
-          (keydown.escape)="cancelRename()"
-          autoFocus
-        />
-      </div>
-      } @else {
-      <div class="nav-item-row" [class.active]="activeId() === col.id" (click)="select(col.id)">
-        <div class="nav-content">
-          <lucide-icon [img]="FolderIcon" [size]="18" strokeWidth="2"></lucide-icon>
-          @if (expanded()) {
-          <span class="label truncate">{{ col.name }}</span>
-          }
-        </div>
+      <div class="section-label" animate.enter="fade-in" style="margin-top: 1rem">Collections</div>
 
-        @if (expanded()) {
-        <div class="nav-actions" (click)="$event.stopPropagation()">
-          <button class="action-mini" (click)="startRename(col)" title="Rename">
-            <lucide-icon [img]="Edit2Icon" [size]="12"></lucide-icon>
-          </button>
-          <button class="action-mini danger" (click)="deleteCollection(col.id)" title="Delete">
-            <lucide-icon [img]="Trash2Icon" [size]="12"></lucide-icon>
-          </button>
+      <div
+        cdkDropList
+        id="root-list"
+        [cdkDropListData]="collections()"
+        [cdkDropListConnectedTo]="connectedDropLists()"
+        (cdkDropListDropped)="onRootDrop($event)"
+        class="root-drop-list"
+        [style.min-height]="'50px'"
+      >
+        @for (col of collections(); track col.id) { @if (editingId() === col.id) {
+        <div class="nav-item input-mode">
+          <lucide-icon [img]="FolderIcon" [size]="18" strokeWidth="2"></lucide-icon>
+          <input
+            #editInput
+            type="text"
+            class="sidebar-input"
+            [value]="col.name"
+            (keydown.enter)="saveRename(col.id, editInput.value)"
+            (keydown.escape)="cancelRename()"
+            autoFocus
+          />
         </div>
-        }
+        } @else {
+        <app-collection-tree-item
+          [item]="col"
+          [activeId]="activeId()"
+          [connectedDropLists]="connectedDropLists()"
+          (selected)="select($event)"
+          (moved)="onItemMoved($event)"
+          (rename)="startRename($event)"
+          (delete)="deleteCollection($event)"
+        ></app-collection-tree-item>
+        } }
       </div>
-      } }
+      }
     </div>
 
     <div class="nav-group mt-auto">
