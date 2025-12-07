@@ -219,7 +219,19 @@ export class WritingStudio implements OnInit {
   }
 
   handleItemMove(event: { item: WritingDto; newParentId: string | null }) {
-    console.log(`Moved ${event.item.name} to parent ${event.newParentId}`);
+    // 1. Call the backend to persist the move
+    this.writingsService.move(event.item.id, event.newParentId).subscribe({
+      next: () => {
+        // 2. On success, reload the tree to ensure the UI matches the database state
+        // (This fixes any potential sync issues from the drag-drop operation)
+        this.loadTree();
+      },
+      error: (err) => {
+        console.error('Failed to move item', err);
+        // Optional: Revert the change locally if needed, but reloading the tree is usually safest
+        this.loadTree();
+      },
+    });
   }
 
   createItem(type: 'Folder' | 'Document') {
