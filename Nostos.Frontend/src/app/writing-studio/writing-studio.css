@@ -1,3 +1,4 @@
+/* --- LAYOUT FUNDAMENTALS (Restored from your working version) --- */
 .studio-layout {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -5,6 +6,7 @@
   overflow: hidden;
   background: var(--bg-body);
 }
+
 .sidebar-left,
 .sidebar-right {
   background: var(--bg-surface);
@@ -16,6 +18,7 @@
   overflow: hidden;
   box-sizing: border-box;
 }
+
 @media (min-width: 769px) {
   .sidebar-left {
     width: 260px;
@@ -23,7 +26,7 @@
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
   }
   .sidebar-right {
-    width: 300px;
+    width: 320px; /* Kept slightly wider for notes */
     border-left: 1px solid var(--border-color);
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
   }
@@ -37,18 +40,29 @@
     opacity: 0;
     border-left: none;
   }
+  /* Prevent content squashing during transition */
   .sidebar-left > *,
   .sidebar-right > * {
     min-width: 260px;
   }
 }
+
+/* --- SIDEBAR COMPONENTS --- */
 .sidebar-header {
-  padding: 1.5rem 1.25rem 1rem 1.25rem;
+  padding: 1.5rem 1.25rem 1rem;
+  flex-shrink: 0;
+}
+.sidebar-header.compact {
+  padding-bottom: 0;
+}
+
+.sidebar-title-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-shrink: 0;
+  margin-bottom: 0.5rem;
 }
+
 .sidebar-header h2 {
   font-family: Inter, sans-serif;
   font-size: 0.75rem;
@@ -58,10 +72,44 @@
   color: var(--color-text-light);
   margin: 0;
 }
+
+/* Tabs styling (New UI) */
+.sidebar-tabs {
+  display: flex;
+  gap: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 1rem;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  padding: 0.6rem 0.2rem;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.tab-btn:hover {
+  color: var(--color-text-main);
+}
+
+.tab-btn.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
 .actions {
   display: flex;
   gap: 0.5rem;
 }
+
 .icon-btn {
   background: 0 0;
   border: none;
@@ -79,6 +127,7 @@
   background: var(--bg-hover);
   color: var(--color-primary);
 }
+
 .btn-outline {
   background: 0 0;
   border: 1px solid var(--border-color);
@@ -92,8 +141,10 @@
 .btn-outline:hover {
   background: var(--bg-hover);
 }
+
+/* Search Box */
 .search-box {
-  margin: 0 1.25rem 1rem 1.25rem;
+  margin: 0 1.25rem 1rem;
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -116,64 +167,109 @@
   font-family: Inter, sans-serif;
   color: var(--color-text-main);
 }
+
+/* Lists & Items */
 .brain-content,
 .file-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0 0.75rem 1.5rem 0.75rem;
+  padding: 0 0.75rem 1.5rem;
 }
-.concept-item {
+
+/* Clean List Item Style (New UI) */
+.list-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 0.5rem 0.75rem;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
   margin-bottom: 2px;
+  background: transparent;
+  border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
-  width: 100%;
-  border: none;
-  background: 0 0;
   text-align: left;
-  color: var(--color-text-muted);
-  font-size: 0.85rem;
-  font-family: Inter, sans-serif;
-  font-weight: 500;
-  transition: all 0.1s ease-out;
+  transition: background-color 0.1s ease;
 }
-.concept-item:hover {
+.list-item:hover {
   background: var(--bg-hover);
+}
+
+.list-item-icon {
+  color: var(--color-text-muted);
+  margin-right: 0.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.list-item-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.list-item .name {
   color: var(--color-text-main);
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.list-item .subtext {
+  color: var(--color-text-light);
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+
 .badge-count {
-  font-size: 0.65rem;
-  opacity: 0.6;
+  font-size: 0.7rem;
+  background: var(--bg-body);
+  color: var(--color-text-muted);
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 0.5rem;
 }
+
+/* Detail Headers */
 .brain-detail-header {
   padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--border-color);
   margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
+
 .goto-btn {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   background: 0 0;
   border: none;
-  color: var(--color-primary);
+  color: var(--color-text-muted);
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   padding: 0;
-  transition: opacity 0.2s;
 }
 .goto-btn:hover {
-  opacity: 0.8;
+  color: var(--color-text-main);
 }
+
+.detail-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--color-text-light);
+}
+
 .clickable-note {
   display: block;
   margin-bottom: 1rem;
-  cursor: pointer;
+  cursor: copy;
 }
+
 .empty-index {
   text-align: center;
   font-style: italic;
@@ -181,6 +277,18 @@
   font-size: 0.9rem;
   margin-top: 2rem;
 }
+
+/* Tree Inputs */
+.title-input-tree {
+  width: 100%;
+  font-size: 0.9rem;
+  padding: 4px;
+  border: 1px solid var(--color-primary);
+  border-radius: 4px;
+  outline: none;
+}
+
+/* --- EDITOR PANE (Restored Scrolling Logic) --- */
 .editor-pane {
   position: relative;
   display: flex;
@@ -189,84 +297,76 @@
   background-color: var(--bg-body);
   background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
   background-size: 24px 24px;
-  overflow: hidden;
+  overflow: hidden; /* Important: Hides overflow so wrapper can scroll */
 }
+
 .editor-header {
   position: sticky;
   top: 0;
   z-index: 2;
-  padding: 0.3rem 0;
+  padding: 0.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #60a5fa;
-  transition: border-color 0.2s;
+  background-color: transparent;
 }
 .editor-header > * {
   max-width: 740px;
   width: 100%;
-  display: flex;
-  align-items: center;
-  padding: 0.1rem 0;
 }
-.title-input {
-  border: none;
-  background: 0 0;
-  font-family: Lora, serif;
-  font-size: 2rem;
-  font-weight: 700;
-  color: #fff;
-  text-align: center;
-  width: 100%;
-  outline: 0;
-  padding: 0.5rem 0;
-}
-.title-input::placeholder {
-  color: #ccc;
-  font-weight: 400;
-}
+
 .meta-controls {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
 }
+
 .status-badge {
-  font-size: 0.75rem;
-  font-weight: 300;
-  color: #ffffff;
+  font-size: 0.7rem;
+  color: var(--color-text-light);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+
+/* FIX: Restored `height: 100%` and `flex: 1` combination from your working version.
+   This ensures the wrapper is constrained to the screen size, allowing overflow-y to work.
+*/
 .editor-wrapper {
   flex: 1;
   width: 100%;
-  height: 100%;
+  height: 100%; /* Explicitly restore height */
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
+
 @media (min-width: 769px) {
   .editor-wrapper {
-    background: none;
-    box-shadow: none;
     margin: 0 auto;
   }
-  .editor-header * {
-    justify-content: center;
-  }
+
+  /* Desktop "Paper" Look */
   app-markdown-editor {
     width: 100%;
     max-width: 740px;
     background: var(--bg-surface);
-    border-radius: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    min-height: calc(100vh - 120px); /* Visual min-height only */
+    margin-bottom: 2rem;
+  }
+
+  .meta-controls {
+    justify-content: center;
   }
 }
+
 app-markdown-editor {
   flex: 1;
   display: block;
 }
+
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -286,6 +386,8 @@ app-markdown-editor {
   justify-content: center;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
+
+/* --- MOBILE OVERRIDES --- */
 .backdrop {
   position: fixed;
   inset: 0;
@@ -299,6 +401,7 @@ app-markdown-editor {
   opacity: 1;
   pointer-events: auto;
 }
+
 @media (max-width: 768px) {
   .studio-layout {
     display: block;
@@ -323,21 +426,15 @@ app-markdown-editor {
     transform: translateX(100%);
     border-left: none;
   }
-  .sidebar-left.open {
-    transform: translateX(0);
-  }
+  .sidebar-left.open,
   .sidebar-right.open {
     transform: translateX(0);
   }
+
   .editor-pane {
-    padding: 0;
-    background-image: none;
     background: #fff;
   }
-  .title-input {
-    font-size: 1.5rem;
-    color: #fff;
-  }
+
   .editor-wrapper {
     height: calc(100vh - 60px);
     max-width: 100%;
@@ -346,10 +443,12 @@ app-markdown-editor {
     border: none;
   }
 }
+
 .sidebar-left input {
   color: var(--color-text-main, #1a1a1a) !important;
   background: var(--bg-surface, #fff) !important;
 }
+
 .sidebar-header-brain-toggle,
 .sidebar-header-toggle {
   color: var(--bg-surface);

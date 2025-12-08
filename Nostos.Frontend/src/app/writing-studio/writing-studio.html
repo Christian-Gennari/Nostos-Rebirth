@@ -29,8 +29,7 @@
         <input
           #editInput
           type="text"
-          class="title-input"
-          style="width: 100%; font-size: 0.9rem; padding: 4px"
+          class="title-input-tree"
           [value]="getNameForId(id)"
           (keydown.enter)="saveRename(id, editInput.value)"
           (keydown.escape)="cancelRename()"
@@ -107,15 +106,37 @@
   </main>
 
   <aside class="sidebar-right" [class.open]="showBrainSidebar()">
-    <div class="sidebar-header">
-      <h2>Brain Context</h2>
-      @if (isMobile()) {
-      <button class="icon-btn" (click)="showBrainSidebar.set(false)">
-        <lucide-icon [img]="Icons.PanelRightClose" [size]="16"></lucide-icon>
-      </button>
-      }
+    <div class="sidebar-header compact">
+      <div class="sidebar-title-row">
+        <h2>Context</h2>
+        @if (isMobile()) {
+        <button class="icon-btn" (click)="showBrainSidebar.set(false)">
+          <lucide-icon [img]="Icons.PanelRightClose" [size]="16"></lucide-icon>
+        </button>
+        }
+      </div>
+
+      <div class="sidebar-tabs">
+        <button
+          class="tab-btn"
+          [class.active]="activeSidebarTab() === 'brain'"
+          (click)="activeSidebarTab.set('brain')"
+        >
+          <lucide-icon [img]="Icons.Sparkles" [size]="14"></lucide-icon>
+          <span>Concepts</span>
+        </button>
+        <button
+          class="tab-btn"
+          [class.active]="activeSidebarTab() === 'notes'"
+          (click)="activeSidebarTab.set('notes')"
+        >
+          <lucide-icon [img]="Icons.Book" [size]="14"></lucide-icon>
+          <span>Books</span>
+        </button>
+      </div>
     </div>
 
+    @if (activeSidebarTab() === 'brain') {
     <div class="search-box">
       <lucide-icon [img]="Icons.Search" [size]="16"></lucide-icon>
       <input
@@ -130,8 +151,10 @@
       @if (!selectedConceptId()) {
       <div class="index-list">
         @for (c of filteredConcepts(); track c.id) {
-        <button class="concept-item" (click)="selectConcept(c.id)">
-          <span class="name">{{ c.name }}</span>
+        <button class="list-item" (click)="selectConcept(c.id)">
+          <div class="list-item-content">
+            <span class="name">{{ c.name }}</span>
+          </div>
           <span class="badge-count">{{ c.usageCount }}</span>
         </button>
         }
@@ -140,22 +163,76 @@
       <div class="brain-detail-header">
         <button class="goto-btn" (click)="selectedConceptId.set(null)">
           <lucide-icon [img]="Icons.ArrowLeft" [size]="16"></lucide-icon>
-          Back to Index
+          Back
         </button>
+        <span class="detail-title">Concept Notes</span>
       </div>
 
       <div class="notes-list">
         @for (note of selectedConceptNotes(); track note.noteId) {
         <app-note-card
           [note]="note"
+          [conceptMap]="conceptMap()"
+          [showActions]="false"
           (click)="insertNoteIntoEditor(note.selectedText)"
           class="clickable-note"
         ></app-note-card>
         } @if(selectedConceptNotes().length === 0) {
-        <p class="empty-index">No notes found for this concept.</p>
+        <p class="empty-index">No notes linked to this concept.</p>
         }
       </div>
       }
     </div>
+    } @if (activeSidebarTab() === 'notes') {
+    <div class="search-box">
+      <lucide-icon [img]="Icons.Search" [size]="16"></lucide-icon>
+      <input
+        type="text"
+        placeholder="Search books..."
+        [ngModel]="bookQuery()"
+        (ngModelChange)="bookQuery.set($event)"
+      />
+    </div>
+
+    <div class="brain-content">
+      @if (!selectedBookId()) {
+      <div class="index-list">
+        @for (book of filteredBooks(); track book.id) {
+        <button class="list-item" (click)="selectBook(book.id)">
+          <div class="list-item-icon">
+            <lucide-icon [img]="Icons.Book" [size]="16"></lucide-icon>
+          </div>
+          <div class="list-item-content">
+            <span class="name">{{ book.title }}</span>
+            @if(book.author) { <span class="subtext">{{ book.author }}</span> }
+          </div>
+        </button>
+        }
+      </div>
+      } @else {
+      <div class="brain-detail-header">
+        <button class="goto-btn" (click)="selectedBookId.set(null)">
+          <lucide-icon [img]="Icons.ArrowLeft" [size]="16"></lucide-icon>
+          Back
+        </button>
+        <span class="detail-title">Book Notes</span>
+      </div>
+
+      <div class="notes-list">
+        @for (note of selectedBookNotes(); track note.id) {
+        <app-note-card
+          [note]="note"
+          [conceptMap]="conceptMap()"
+          [showActions]="false"
+          (click)="insertNoteIntoEditor(note.selectedText)"
+          class="clickable-note"
+        ></app-note-card>
+        } @if(selectedBookNotes().length === 0) {
+        <p class="empty-index">No notes found in this book.</p>
+        }
+      </div>
+      }
+    </div>
+    }
   </aside>
 </div>

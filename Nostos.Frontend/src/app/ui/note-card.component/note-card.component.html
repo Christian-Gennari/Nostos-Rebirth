@@ -37,20 +37,22 @@
     <div class="note-footer">
       <span class="note-date">{{ note.createdAt | date : 'short' }}</span>
 
+      @if (showNavigation || showActions) {
       <div class="note-actions">
         @if (showNavigation) {
         <button class="icon-btn xs" (click)="onCardClick($event)" title="Jump to location">
           <lucide-icon [img]="Icons.ArrowRight" [size]="14"></lucide-icon>
         </button>
-        }
-
+        } @if (showActions) {
         <button class="icon-btn xs" (click)="startEdit($event)">
           <lucide-icon [img]="Icons.Edit" [size]="14"></lucide-icon>
         </button>
         <button class="icon-btn xs delete" (click)="onDelete($event)">
           <lucide-icon [img]="Icons.Delete" [size]="14"></lucide-icon>
         </button>
+        }
       </div>
+      }
     </div>
   </div>
   }

@@ -8,7 +8,7 @@ import {
   Trash2,
   Check,
   X,
-  ArrowRight, // 👈 New Icon
+  ArrowRight,
 } from 'lucide-angular';
 
 import { Note } from '../../dtos/note.dtos';
@@ -26,7 +26,8 @@ import { NoteFormatPipe } from '../pipes/note-format.pipe';
 export class NoteCardComponent {
   @Input({ required: true }) note!: Note;
   @Input() conceptMap: Map<string, ConceptDto> = new Map();
-  @Input() showNavigation = false; // 👈 Controls visibility of the jump button
+  @Input() showNavigation = false;
+  @Input() showActions = true; // 👈 New Input to control Edit/Delete buttons
 
   @Output() update = new EventEmitter<{ id: string; content: string }>();
   @Output() delete = new EventEmitter<string>();
@@ -71,7 +72,6 @@ export class NoteCardComponent {
     this.delete.emit(this.note.id);
   }
 
-  // 👇 New explicit handler
   onCardClick(event?: Event) {
     event?.stopPropagation();
     this.cardClick.emit();

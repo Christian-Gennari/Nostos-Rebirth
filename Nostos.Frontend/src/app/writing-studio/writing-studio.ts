@@ -26,14 +26,18 @@ import {
   PanelLeftOpen,
   PanelRightClose,
   ArrowLeft,
+  Book,
+  Library,
+  Sparkles, // Added Sparkles icon for Concepts
 } from 'lucide-angular';
 
 import { WritingsService } from '../services/writings.services';
 import { ConceptsService, ConceptDto } from '../services/concepts.services';
+import { BooksService, Book as BookDto } from '../services/books.services';
+import { NotesService } from '../services/notes.services';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { WritingDto, WritingContentDto } from '../dtos/writing.dtos';
 import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.component';
-// 👇 CHANGED: Import the new Flat Tree Component
 import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
 
 @Component({
@@ -44,7 +48,7 @@ import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
     FormsModule,
     LucideAngularModule,
     DragDropModule,
-    FlatTreeComponent, // 👈 CHANGED: Use FlatTreeComponent
+    FlatTreeComponent,
     NoteCardComponent,
     MarkdownEditorComponent,
   ],
@@ -54,7 +58,9 @@ import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
 export class WritingStudio implements OnInit {
   private writingsService = inject(WritingsService);
   private conceptsService = inject(ConceptsService);
-  // REMOVED: private treeDragService
+  private booksService = inject(BooksService);
+  private notesService = inject(NotesService);
+
   private destroyRef = inject(DestroyRef);
 
   Icons = {
@@ -71,16 +77,19 @@ export class WritingStudio implements OnInit {
     PanelLeftOpen,
     PanelRightClose,
     ArrowLeft,
+    Book,
+    Library,
+    Sparkles,
   };
 
   isMobile = signal(window.innerWidth < 768);
   showFileSidebar = signal(true);
   showBrainSidebar = signal(!this.isMobile());
 
+  activeSidebarTab = signal<'brain' | 'notes'>('brain');
+
   rootItems = signal<WritingDto[]>([]);
   activeItem = signal<WritingContentDto | null>(null);
-
-  // REMOVED: connectedLists (Not needed for Flat Tree)
 
   editingId = signal<string | null>(null);
 
@@ -88,16 +97,41 @@ export class WritingStudio implements OnInit {
   editorTitle = signal('');
   saveStatus = signal<'Saved' | 'Saving...' | 'Unsaved'>('Saved');
 
+  // Brain / Concepts State
   brainQuery = signal('');
   concepts = signal<ConceptDto[]>([]);
   selectedConceptId = signal<string | null>(null);
   selectedConceptNotes = signal<any[]>([]);
+
+  // Books / Notes State
+  books = signal<BookDto[]>([]);
+  bookQuery = signal('');
+  selectedBookId = signal<string | null>(null);
+  selectedBookNotes = signal<any[]>([]);
+
+  // Computed Map for highlighting concepts in notes
+  conceptMap = computed(() => {
+    const map = new Map<string, ConceptDto>();
+    for (const c of this.concepts()) {
+      map.set(c.name.toLowerCase(), c);
+    }
+    return map;
+  });
 
   filteredConcepts = computed(() => {
     const q = this.brainQuery().toLowerCase();
     const list = this.concepts();
     if (!q) return list;
     return list.filter((c) => c.name.toLowerCase().includes(q));
+  });
+
+  filteredBooks = computed(() => {
+    const q = this.bookQuery().toLowerCase();
+    const list = this.books();
+    if (!q) return list;
+    return list.filter(
+      (b) => b.title.toLowerCase().includes(q) || (b.author && b.author.toLowerCase().includes(q))
+    );
   });
 
   constructor() {
@@ -148,16 +182,14 @@ export class WritingStudio implements OnInit {
   }
 
   ngOnInit() {
-    // REMOVED: treeDragService.register (No longer needed)
-
     this.loadTree();
     this.loadBrain();
+    this.loadBooks();
+
     if (this.isMobile()) {
       this.showFileSidebar.set(false);
     }
   }
-
-  // REMOVED: ngOnDestroy (No longer needed for drag registry)
 
   closeSidebars() {
     if (this.isMobile()) {
@@ -172,7 +204,6 @@ export class WritingStudio implements OnInit {
     });
   }
 
-  // 👇 ADDED: Helper for Template Input
   getNameForId(id: string): string {
     return this.rootItems().find((item) => item.id === id)?.name || '';
   }
@@ -193,9 +224,6 @@ export class WritingStudio implements OnInit {
     });
   }
 
-  // REMOVED: onDrop() method (FlatTreeComponent handles drops internally)
-
-  // 👇 UPDATED: Event signature matches FlatTree output
   handleItemMove(event: { item: any; newParentId: string | null }) {
     const item = event.item as WritingDto;
     const newParentId = event.newParentId;
@@ -255,8 +283,14 @@ export class WritingStudio implements OnInit {
     });
   }
 
+  // --- Brain & Notes Logic ---
+
   loadBrain() {
     this.conceptsService.list().subscribe((data) => this.concepts.set(data));
+  }
+
+  loadBooks() {
+    this.booksService.list().subscribe((data) => this.books.set(data));
   }
 
   selectConcept(id: string) {
@@ -264,7 +298,14 @@ export class WritingStudio implements OnInit {
     this.conceptsService.get(id).subscribe((d) => this.selectedConceptNotes.set(d.notes));
   }
 
+  selectBook(id: string) {
+    this.selectedBookId.set(id);
+    this.notesService.list(id).subscribe((notes) => this.selectedBookNotes.set(notes));
+  }
+
   insertNoteIntoEditor(text: string) {
+    if (!text) return;
+
     this.editorText.update((current) =>
       current ? `${current}\n\n> "${text}"\n` : `> "${text}"\n`
     );
