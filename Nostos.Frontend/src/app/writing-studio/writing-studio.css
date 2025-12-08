@@ -249,7 +249,7 @@
 }
 @media (min-width: 769px) {
   .editor-wrapper {
-    background: 0 0;
+    background: none;
     box-shadow: none;
     margin: 0 auto;
   }
@@ -260,7 +260,6 @@
     width: 100%;
     max-width: 740px;
     background: var(--bg-surface);
-    box-shadow: 0 0 5px 5px rgba(0, 0, 0, 0.05);
     border-radius: 1rem;
   }
 }
