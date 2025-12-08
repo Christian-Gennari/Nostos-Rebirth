@@ -26,10 +26,10 @@
     <div
       class="file-list"
       cdkDropList
-      [cdkDropListData]="rootItems()"
-      [cdkDropListConnectedTo]="allDropListIds()"
-      (cdkDropListDropped)="onDrop($event)"
       id="root-list"
+      [cdkDropListData]="rootItems()"
+      [cdkDropListConnectedTo]="connectedLists()"
+      (cdkDropListDropped)="onDrop($event)"
     >
       @for (item of rootItems(); track item.id) { @if (editingId() === item.id) {
       <div class="tree-node-wrapper input-mode" style="padding: 4px 8px">
@@ -49,7 +49,6 @@
       <app-tree-node
         [item]="item"
         [activeId]="activeItem()?.id || null"
-        [connectedDropLists]="allDropListIds()"
         [expandOnSelect]="true"
         [editable]="true"
         (nodeSelected)="handleItemSelected($event)"

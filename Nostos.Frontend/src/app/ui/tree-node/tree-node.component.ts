@@ -1,4 +1,14 @@
-import { Component, Input, Output, EventEmitter, signal, computed } from '@angular/core';
+import {
+  Component,
+  Input,
+  Output,
+  EventEmitter,
+  signal,
+  computed,
+  inject,
+  OnInit,
+  OnDestroy,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   DragDropModule,
@@ -18,6 +28,7 @@ import {
   Trash2,
 } from 'lucide-angular';
 import { TreeNode, TreeNodeMoveEvent } from './tree-node.interface';
+import { TreeDragService } from './tree-drag.service';
 
 @Component({
   selector: 'app-tree-node',
@@ -26,15 +37,17 @@ import { TreeNode, TreeNodeMoveEvent } from './tree-node.interface';
   templateUrl: './tree-node.component.html',
   styleUrls: ['./tree-node.component.css'],
 })
-export class TreeNodeComponent {
+export class TreeNodeComponent implements OnInit, OnDestroy {
+  private treeDragService = inject(TreeDragService);
+
   @Input({ required: true }) item!: TreeNode;
   @Input() level = 0;
   @Input() activeId: string | null = null;
-  @Input() connectedDropLists: string[] = [];
+  // REMOVED: @Input() connectedDropLists
 
   // --- Configuration Inputs ---
-  @Input() editable = false; // Shows Edit/Delete buttons (For Collections)
-  @Input() expandOnSelect = false; // Auto-expand folders on click (For Writing Studio)
+  @Input() editable = false;
+  @Input() expandOnSelect = false;
 
   // --- Outputs ---
   @Output() nodeSelected = new EventEmitter<TreeNode>();
@@ -47,8 +60,36 @@ export class TreeNodeComponent {
   // Icons registry
   Icons = { Folder, FolderOpen, FileText, ChevronRight, ChevronDown, GripVertical, Edit2, Trash2 };
 
-  // Helper to determine if current node is a folder
   isFolder = computed(() => !this.item.type || this.item.type === 'Folder');
+
+  // --- ID Getters ---
+  // We define these as getters to ensure consistency between registration and template
+  get folderDropId() {
+    return 'folder-drop-' + this.item.id;
+  }
+  get childrenDropId() {
+    return 'folder-' + this.item.id;
+  }
+
+  // Connect directly to the global service.
+  // No recursion = No thrashing = Stable Drag & Drop.
+  connectedLists = this.treeDragService.dropListIds;
+
+  ngOnInit() {
+    if (this.isFolder()) {
+      // Register both the "drop ON folder" and "drop IN folder" lists
+      this.treeDragService.register(this.folderDropId);
+      this.treeDragService.register(this.childrenDropId);
+    }
+  }
+
+  ngOnDestroy() {
+    // Cleanup to prevent memory leaks or "ghost" targets
+    if (this.isFolder()) {
+      this.treeDragService.unregister(this.folderDropId);
+      this.treeDragService.unregister(this.childrenDropId);
+    }
+  }
 
   toggleExpand(event: MouseEvent) {
     event.stopPropagation();
@@ -61,7 +102,6 @@ export class TreeNodeComponent {
     event.stopPropagation();
     this.nodeSelected.emit(this.item);
 
-    // Writing Studio behavior: expand folder when selected
     if (this.expandOnSelect && this.isFolder()) {
       this.expanded.set(true);
     }
@@ -84,6 +124,29 @@ export class TreeNodeComponent {
         newParentId: this.item.id,
       });
     }
+  }
+
+  // Handle dropping directly onto a folder row
+  onFolderDrop(event: CdkDragDrop<TreeNode>) {
+    // Safety check
+    if (!event.previousContainer.data || !Array.isArray(event.previousContainer.data)) return;
+
+    const draggedItem = event.previousContainer.data[event.previousIndex];
+
+    // Remove from previous location
+    event.previousContainer.data.splice(event.previousIndex, 1);
+
+    // Add to this folder's children
+    this.item.children.push(draggedItem);
+
+    // Emit the move event
+    this.nodeMoved.emit({
+      item: draggedItem,
+      newParentId: this.item.id,
+    });
+
+    // Auto-expand to show the dropped item
+    this.expanded.set(true);
   }
 
   // --- Bubble Up Events ---

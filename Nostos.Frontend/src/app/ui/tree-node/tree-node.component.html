@@ -14,6 +14,12 @@
     [class.active]="activeId === item.id"
     [style.padding-left.px]="level * 12 + 8"
     (click)="handleSelect($event)"
+    cdkDropList
+    [id]="folderDropId"
+    [cdkDropListData]="item"
+    [cdkDropListConnectedTo]="connectedLists()"
+    (cdkDropListDropped)="onFolderDrop($event)"
+    [cdkDropListEnterPredicate]="isFolder"
   >
     <div class="drag-handle" cdkDragHandle (click)="$event.stopPropagation()">
       <lucide-icon [img]="Icons.GripVertical" [size]="14"></lucide-icon>
@@ -57,9 +63,9 @@
   <div
     class="node-children"
     cdkDropList
-    [id]="'folder-' + item.id"
+    [id]="childrenDropId"
     [cdkDropListData]="item.children"
-    [cdkDropListConnectedTo]="connectedDropLists"
+    [cdkDropListConnectedTo]="connectedLists()"
     (cdkDropListDropped)="onDrop($event)"
   >
     @for (child of item.children; track child.id) {
@@ -67,7 +73,6 @@
       [item]="child"
       [level]="level + 1"
       [activeId]="activeId"
-      [connectedDropLists]="connectedDropLists"
       [editable]="editable"
       [expandOnSelect]="expandOnSelect"
       (nodeSelected)="onChildSelected($event)"

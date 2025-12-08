@@ -7,7 +7,6 @@
     @if (expanded()) {
     <img class="brand-icon" src="/logo_idea_pure-black.png" alt="logo" />
     <div class="brand" animate.enter="fade-in">Nostos</div>
-
     } @else {
     <img class="brand-icon" src="/logo_idea_pure-black.png" alt="logo" />
     }
@@ -137,7 +136,6 @@
           [item]="col"
           [level]="0"
           [activeId]="activeId()"
-          [connectedDropLists]="connectedDropLists()"
           [editable]="true"
           (nodeSelected)="select($event.id)"
           (nodeMoved)="onItemMoved($event)"

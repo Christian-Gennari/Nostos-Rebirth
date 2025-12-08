@@ -2,6 +2,7 @@ import {
   Component,
   inject,
   OnInit,
+  OnDestroy,
   signal,
   effect,
   computed,
@@ -38,10 +39,9 @@ import { ConceptsService, ConceptDto } from '../services/concepts.services';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { WritingDto, WritingContentDto } from '../dtos/writing.dtos';
 import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.component';
-
-// --- NEW IMPORTS ---
 import { TreeNodeComponent } from '../ui/tree-node/tree-node.component';
 import { TreeNode, TreeNodeMoveEvent } from '../ui/tree-node/tree-node.interface';
+import { TreeDragService } from '../ui/tree-node/tree-drag.service'; // Ensure path is correct
 
 @Component({
   selector: 'app-writing-studio',
@@ -58,9 +58,10 @@ import { TreeNode, TreeNodeMoveEvent } from '../ui/tree-node/tree-node.interface
   templateUrl: './writing-studio.html',
   styleUrls: ['./writing-studio.css'],
 })
-export class WritingStudio implements OnInit {
+export class WritingStudio implements OnInit, OnDestroy {
   private writingsService = inject(WritingsService);
   private conceptsService = inject(ConceptsService);
+  private treeDragService = inject(TreeDragService); // Inject the registry
   private destroyRef = inject(DestroyRef);
 
   Icons = {
@@ -79,26 +80,23 @@ export class WritingStudio implements OnInit {
     ArrowLeft,
   };
 
-  // --- Layout State ---
   isMobile = signal(window.innerWidth < 768);
-
   showFileSidebar = signal(true);
   showBrainSidebar = signal(!this.isMobile());
 
-  // --- File System State ---
   rootItems = signal<WritingDto[]>([]);
   activeItem = signal<WritingContentDto | null>(null);
-  allDropListIds = signal<string[]>(['root-list']);
 
-  // Track which item is currently being renamed
+  // CHANGED: Connect directly to the global service signal
+  // This replaces 'allDropListIds' and ensures the root list sees all folders
+  connectedLists = this.treeDragService.dropListIds;
+
   editingId = signal<string | null>(null);
 
-  // --- Editor State ---
   editorText = signal('');
   editorTitle = signal('');
   saveStatus = signal<'Saved' | 'Saving...' | 'Unsaved'>('Saved');
 
-  // --- Brain State ---
   brainQuery = signal('');
   concepts = signal<ConceptDto[]>([]);
   selectedConceptId = signal<string | null>(null);
@@ -159,11 +157,19 @@ export class WritingStudio implements OnInit {
   }
 
   ngOnInit() {
+    // Register the root list ID so children can be dragged back to the root
+    this.treeDragService.register('root-list');
+
     this.loadTree();
     this.loadBrain();
     if (this.isMobile()) {
       this.showFileSidebar.set(false);
     }
+  }
+
+  ngOnDestroy() {
+    // Cleanup the root list ID
+    this.treeDragService.unregister('root-list');
   }
 
   closeSidebars() {
@@ -176,25 +182,8 @@ export class WritingStudio implements OnInit {
   loadTree() {
     this.writingsService.list().subscribe((items) => {
       this.rootItems.set(items);
-      this.recalculateDropLists(items);
     });
   }
-
-  recalculateDropLists(items: WritingDto[]) {
-    const ids = ['root-list'];
-    const traverse = (nodes: WritingDto[]) => {
-      for (const node of nodes) {
-        if (node.type === 'Folder') {
-          ids.push(`folder-${node.id}`);
-          traverse(node.children || []);
-        }
-      }
-    };
-    traverse(items);
-    this.allDropListIds.set(ids);
-  }
-
-  // --- Tree Event Handlers ---
 
   handleItemSelected(node: TreeNode | WritingDto) {
     const item = node as WritingDto;
@@ -227,6 +216,7 @@ export class WritingStudio implements OnInit {
       );
 
       const item = event.container.data[event.currentIndex];
+      // If dropped on root, parent is null. Otherwise, parse 'folder-{id}'
       const newParentId =
         event.container.id === 'root-list' ? null : event.container.id.replace('folder-', '');
 
@@ -249,8 +239,6 @@ export class WritingStudio implements OnInit {
     });
   }
 
-  // --- Actions: Create, Rename, Delete ---
-
   createItem(type: 'Folder' | 'Document') {
     const name = prompt(`Enter ${type} Name:`);
     if (!name) return;
@@ -271,7 +259,6 @@ export class WritingStudio implements OnInit {
       this.loadTree();
       this.editingId.set(null);
 
-      // Update editor title if we renamed the currently active item
       if (this.activeItem()?.id === id) {
         this.editorTitle.set(newName);
       }
@@ -288,7 +275,6 @@ export class WritingStudio implements OnInit {
     this.writingsService.delete(id).subscribe(() => {
       this.loadTree();
 
-      // If deleted active item, clear editor
       if (this.activeItem()?.id === id) {
         this.activeItem.set(null);
         this.editorText.set('');
@@ -296,8 +282,6 @@ export class WritingStudio implements OnInit {
       }
     });
   }
-
-  // --- Brain Logic ---
 
   loadBrain() {
     this.conceptsService.list().subscribe((data) => this.concepts.set(data));

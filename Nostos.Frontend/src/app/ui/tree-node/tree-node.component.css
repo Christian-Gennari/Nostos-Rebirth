@@ -120,7 +120,8 @@
 }
 
 .node-children {
-  min-height: 2px; /* Ensure drop zone exists */
+  min-height: 10px; /* Gives a clear target area for empty folders */
+  padding-bottom: 2px; /* Adds breathing room between nested lists */
 }
 
 .empty-drop-zone {
@@ -138,4 +139,17 @@
 }
 .cdk-drag-animating {
   transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* Highlight folder when dragging over it */
+.node-row.cdk-drop-list-dragging {
+  background-color: var(--color-primary-light, #e0e7ff) !important;
+  border: 2px dashed var(--color-primary, #4f46e5);
+  border-radius: 4px;
+  z-index: 1999;
+}
+
+/* Prevent the folder row from being too small as a drop target */
+.node-row[cdkDropList] {
+  min-height: 32px;
 }
