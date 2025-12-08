@@ -54,32 +54,24 @@
   <main class="editor-pane">
     @if (activeItem(); as item) {
     <div class="editor-header">
-      @if (isMobile()) {
-      <button
-        class="icon-btn"
-        (click)="showFileSidebar.set(!showFileSidebar())"
-        title="Toggle Files"
-      >
-        <lucide-icon
-          [img]="showFileSidebar() ? Icons.PanelLeftClose : Icons.PanelLeftOpen"
-          [size]="20"
-        ></lucide-icon>
-      </button>
-      }
-
-      <input
-        class="title-input"
-        [ngModel]="editorTitle()"
-        (ngModelChange)="editorTitle.set($event)"
-        placeholder="Untitled Document"
-      />
-
       <div class="meta-controls">
+        @if (isMobile()) {
+        <button
+          class="icon-btn sidebar-header-toggle"
+          (click)="showFileSidebar.set(!showFileSidebar())"
+          title="Toggle Files"
+        >
+          <lucide-icon
+            [img]="showFileSidebar() ? Icons.PanelLeftClose : Icons.PanelLeftOpen"
+            [size]="20"
+          ></lucide-icon>
+        </button>
+        }
         <span class="status-badge">{{ saveStatus() }}</span>
 
         @if (isMobile()) {
         <button
-          class="icon-btn brain-toggle"
+          class="icon-btn sidebar-header-brain-toggle"
           [class.active]="showBrainSidebar()"
           (click)="showBrainSidebar.set(!showBrainSidebar())"
           title="Toggle Brain"

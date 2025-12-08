@@ -244,8 +244,8 @@
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 1rem; /* Inner breathing room */
+
+  padding: 0.1rem 0rem; /* Inner breathing room */
 }
 
 /* UPDATED: Substack-style Title */
@@ -255,7 +255,7 @@
   font-family: 'Lora', serif;
   font-size: 2rem; /* Large, publication style */
   font-weight: 700;
-  color: white;
+  color: white; /* This is the conflicting style */
   text-align: center;
   width: 100%;
   outline: none;
@@ -270,6 +270,7 @@
 .meta-controls {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
 }
 
@@ -301,6 +302,9 @@
     margin: 0 auto;
   }
 
+  .editor-header * {
+    justify-content: center; /* Center the content */
+  }
   /* The actual white page background lives on the editor component */
   app-markdown-editor {
     width: 100%;
@@ -416,16 +420,6 @@ app-markdown-editor {
     background: #fff;
   }
 
-  .editor-header {
-    background: var(--bg-surface);
-    padding: 0.2rem;
-  }
-
-  .editor-header > * {
-    max-width: 100%;
-    padding: 0;
-  }
-
   .title-input {
     font-size: 1.5rem;
     color: white;
@@ -438,4 +432,19 @@ app-markdown-editor {
     box-shadow: none;
     border: none;
   }
+}
+
+/* -------------------------------
+   FIX: Sidebar Input Color Conflict
+------------------------------- */
+/* Force input fields in the sidebar to use the main text color,
+   overriding any inherited white color from the editor context. */
+.sidebar-left input {
+  color: var(--color-text-main, #1a1a1a) !important;
+  background: var(--bg-surface, #ffffff) !important;
+}
+
+.sidebar-header-brain-toggle,
+.sidebar-header-toggle {
+  color: var(--bg-surface);
 }
