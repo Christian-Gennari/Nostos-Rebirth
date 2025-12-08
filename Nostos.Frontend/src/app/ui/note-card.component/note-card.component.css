@@ -60,13 +60,69 @@
   font-style: italic;
 }
 
+/* --- NEW: Source Section Styles --- */
+.source-section {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color, #f0f0f0);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.source-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.source-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  color: var(--color-text-light, #aaa);
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.source-title {
+  font-family: 'Lora', serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-muted, #666);
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.source-link {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--color-text-muted, #666);
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-sm, 4px);
+  transition: all 0.2s;
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.source-link:hover {
+  background: var(--bg-hover, #f3f3f3);
+  color: var(--color-primary, #111);
+  border-color: var(--border-color, #ddd);
+}
+
 /* --- Footer & Actions (Floating Pill Design) --- */
 .note-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 0.5rem;
-  height: 32px; /* Reserves space for the pill */
+  margin-top: 0.75rem; /* Increased slightly to separate from source if present */
+  height: 32px;
 }
 
 .note-date {
@@ -78,13 +134,9 @@
   display: flex;
   align-items: center;
   gap: 4px;
-
-  /* Animation State */
   opacity: 0;
   transform: translateY(4px);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-
-  /* Pill Container Styling */
   background-color: var(--bg-surface, #fff);
   border: 1px solid var(--border-color, #e5e5e5);
   border-radius: 100px;
@@ -92,13 +144,11 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* Reveal on Hover */
 .note-card-container:hover .note-actions {
   opacity: 1;
   transform: translateY(0);
 }
 
-/* Button Styling inside Pill */
 .note-actions .icon-btn {
   border-radius: 50%;
   transition: background-color 0.15s;
@@ -131,7 +181,6 @@
   border-top: 1px dashed var(--border-color, #eee);
 }
 
-/* Utility for sizing icons */
 .icon-btn.xs {
   width: 24px;
   height: 24px;
@@ -142,7 +191,6 @@
     background-color: transparent;
     color: inherit;
   }
-
   .note-actions .icon-btn.delete:hover {
     background-color: transparent;
     color: inherit;

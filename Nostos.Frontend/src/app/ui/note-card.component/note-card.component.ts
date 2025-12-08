@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router'; // 👈 Import RouterLink
 import {
   LucideAngularModule,
   MessageSquareQuote,
@@ -19,7 +20,14 @@ import { NoteFormatPipe } from '../pipes/note-format.pipe';
 @Component({
   selector: 'app-note-card',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, ConceptInputComponent, NoteFormatPipe],
+  imports: [
+    CommonModule,
+    FormsModule,
+    LucideAngularModule,
+    ConceptInputComponent,
+    NoteFormatPipe,
+    RouterLink, // 👈 Add to imports
+  ],
   templateUrl: './note-card.component.html',
   styleUrls: ['./note-card.component.css'],
 })
@@ -27,7 +35,8 @@ export class NoteCardComponent {
   @Input({ required: true }) note!: Note;
   @Input() conceptMap: Map<string, ConceptDto> = new Map();
   @Input() showNavigation = false;
-  @Input() showActions = true; // 👈 New Input to control Edit/Delete buttons
+  @Input() showActions = true;
+  @Input() showSource = false; // 👈 New Input for Source display
 
   @Output() update = new EventEmitter<{ id: string; content: string }>();
   @Output() delete = new EventEmitter<string>();
