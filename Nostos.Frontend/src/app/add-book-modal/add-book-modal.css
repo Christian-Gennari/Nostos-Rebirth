@@ -259,7 +259,6 @@ lucide-icon {
   }
 }
 
-/* ... existing modal structure styles ... */
 .modal-backdrop {
   position: fixed;
   top: 0;
@@ -393,4 +392,6 @@ lucide-icon {
   border-top: 1px solid var(--border-color);
 }
 
-/* ... keep loader and tooltip styles ... */
+#close-modal {
+  padding-bottom: 4px;
+}

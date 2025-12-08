@@ -3,7 +3,7 @@
   <div class="modal-content" (click)="$event.stopPropagation()">
     <header class="modal-header">
       <h2>{{ isEditMode() ? 'Edit Metadata' : 'Add New Book' }}</h2>
-      <button class="icon-btn" (click)="closeModal.emit()" title="Close">
+      <button id="close-modal" class="icon-btn" (click)="closeModal.emit()" title="Close">
         <lucide-icon [img]="XIcon" [size]="20"></lucide-icon>
       </button>
     </header>
