@@ -4,7 +4,6 @@ export interface WritingDto {
   type: 'Folder' | 'Document';
   parentId?: string | null;
   updatedAt: string;
-  children: WritingDto[]; // Recursive!
 }
 
 export interface WritingContentDto {

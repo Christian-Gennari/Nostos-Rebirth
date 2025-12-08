@@ -23,40 +23,31 @@
       </div>
     </div>
 
-    <div
-      class="file-list"
-      cdkDropList
-      id="root-list"
-      [cdkDropListData]="rootItems()"
-      [cdkDropListConnectedTo]="connectedLists()"
-      (cdkDropListDropped)="onDrop($event)"
-    >
-      @for (item of rootItems(); track item.id) { @if (editingId() === item.id) {
+    <div class="file-list">
+      @if (editingId(); as id) {
       <div class="tree-node-wrapper input-mode" style="padding: 4px 8px">
         <input
           #editInput
           type="text"
           class="title-input"
           style="width: 100%; font-size: 0.9rem; padding: 4px"
-          [value]="item.name"
-          (keydown.enter)="saveRename(item.id, editInput.value)"
+          [value]="getNameForId(id)"
+          (keydown.enter)="saveRename(id, editInput.value)"
           (keydown.escape)="cancelRename()"
           (blur)="cancelRename()"
           autoFocus
         />
       </div>
       } @else {
-      <app-tree-node
-        [item]="item"
+      <app-flat-tree
+        [items]="rootItems()"
         [activeId]="activeItem()?.id || null"
-        [expandOnSelect]="true"
-        [editable]="true"
         (nodeSelected)="handleItemSelected($event)"
         (nodeMoved)="handleItemMove($event)"
         (nodeRenamed)="startRename($event)"
         (nodeDeleted)="deleteItem($event)"
-      ></app-tree-node>
-      } }
+      ></app-flat-tree>
+      }
     </div>
   </aside>
 

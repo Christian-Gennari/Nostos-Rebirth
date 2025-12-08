@@ -1,18 +1,16 @@
 using System;
-using System.Collections.Generic;
 
 namespace Nostos.Shared.Dtos;
 
+// Removed "Children" property
 public record WritingDto(
     Guid Id,
     string Name,
     string Type,       // "Folder" or "Document"
     Guid? ParentId,
-    DateTime UpdatedAt,
-    List<WritingDto> Children // For the tree view
+    DateTime UpdatedAt
 );
 
-// A separate DTO for fetching the full content (to keep the tree lightweight)
 public record WritingContentDto(
     Guid Id,
     string Name,
@@ -20,10 +18,9 @@ public record WritingContentDto(
     DateTime UpdatedAt
 );
 
-// 👇 ADD THESE NEW INPUT DTOS
 public record CreateWritingDto(
     string Name,
-    string Type, // "Folder" or "Document"
+    string Type,
     Guid? ParentId
 );
 

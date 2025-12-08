@@ -12,24 +12,21 @@ public static class WritingsEndpoints
   {
     var group = routes.MapGroup("/api/writings");
 
-    // GET: Fetch the entire file tree
+
+    // GET: Fetch the entire file list (FLAT)
     group.MapGet("/", async (NostosDbContext db) =>
     {
-      // 1. Load ALL items into memory.
-      // Why? Because EF Core automatically "fixes up" the Parent/Child relationships
-      // for all tracked entities. This avoids N+1 query issues for recursive trees.
-      var allItems = await db.Writings.ToListAsync();
+      var items = await db.Writings
+              .Select(w => new WritingDto(
+                  w.Id,
+                  w.Name,
+                  w.Type.ToString(), // Convert Enum to String
+                  w.ParentId,
+                  w.UpdatedAt
+              ))
+              .ToListAsync();
 
-      // 2. Filter to just the Root items (ParentId == null).
-      // Because 'allItems' are in memory, the .ToDto() recursion will
-      // successfully find the Children without hitting the DB again.
-      var roots = allItems
-              .Where(w => w.ParentId == null)
-              .OrderBy(w => w.Type) // Folders first usually looks better
-              .ThenBy(w => w.Name)
-              .Select(w => w.ToDto());
-
-      return Results.Ok(roots);
+      return Results.Ok(items);
     });
 
     // GET: Fetch a single document (with Content)

@@ -91,14 +91,12 @@ public static class MappingExtensions
                 CreatedAt: model.CreatedAt
             );
 
-    // 👇 FIXED: Update CollectionDto to match the new recursive constructor
+    // 👇 FIXED: Removed the recursive Children mapping
     public static CollectionDto ToDto(this CollectionModel model) =>
         new CollectionDto(
             model.Id,
             model.Name,
-            model.ParentId,
-            // Recursively map children (handle nulls safely)
-            model.Children?.Select(c => c.ToDto()).ToList() ?? new List<CollectionDto>()
+            model.ParentId
         );
 
     public static ConceptDto ToDto(this ConceptModel model) =>
@@ -108,7 +106,7 @@ public static class MappingExtensions
             model.NoteConcepts?.Count ?? 0
         );
 
-    // 👇 Writing Studio Mappings
+    // 👇 FIXED: Removed the recursive Children mapping
     public static WritingDto ToDto(this WritingModel model)
     {
         return new WritingDto(
@@ -116,9 +114,7 @@ public static class MappingExtensions
             model.Name,
             model.Type.ToString(), // Convert Enum to String for DTO
             model.ParentId,
-            model.UpdatedAt,
-            // Recursive mapping for the tree structure
-            model.Children.Select(c => c.ToDto()).ToList()
+            model.UpdatedAt
         );
     }
 
@@ -191,7 +187,6 @@ public static class MappingExtensions
             SelectedText = dto.SelectedText
         };
 
-    // 👇 UPDATED: Handle ParentId on Create
     public static CollectionModel ToModel(this CreateCollectionDto dto) =>
         new CollectionModel
         {
@@ -272,7 +267,6 @@ public static class MappingExtensions
         }
     }
 
-    // 👇 UPDATED: Handle renaming AND moving (ParentId changes)
     public static void Apply(this CollectionModel model, UpdateCollectionDto dto)
     {
         model.Name = dto.Name;

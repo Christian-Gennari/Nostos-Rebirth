@@ -2,7 +2,6 @@ import {
   Component,
   inject,
   OnInit,
-  OnDestroy,
   signal,
   effect,
   computed,
@@ -11,12 +10,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import {
-  DragDropModule,
-  CdkDragDrop,
-  moveItemInArray,
-  transferArrayItem,
-} from '@angular/cdk/drag-drop';
+import { DragDropModule } from '@angular/cdk/drag-drop';
 import {
   LucideAngularModule,
   Menu,
@@ -39,9 +33,8 @@ import { ConceptsService, ConceptDto } from '../services/concepts.services';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { WritingDto, WritingContentDto } from '../dtos/writing.dtos';
 import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.component';
-import { TreeNodeComponent } from '../ui/tree-node/tree-node.component';
-import { TreeNode, TreeNodeMoveEvent } from '../ui/tree-node/tree-node.interface';
-import { TreeDragService } from '../ui/tree-node/tree-drag.service'; // Ensure path is correct
+// 👇 CHANGED: Import the new Flat Tree Component
+import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
 
 @Component({
   selector: 'app-writing-studio',
@@ -51,17 +44,17 @@ import { TreeDragService } from '../ui/tree-node/tree-drag.service'; // Ensure p
     FormsModule,
     LucideAngularModule,
     DragDropModule,
-    TreeNodeComponent,
+    FlatTreeComponent, // 👈 CHANGED: Use FlatTreeComponent
     NoteCardComponent,
     MarkdownEditorComponent,
   ],
   templateUrl: './writing-studio.html',
   styleUrls: ['./writing-studio.css'],
 })
-export class WritingStudio implements OnInit, OnDestroy {
+export class WritingStudio implements OnInit {
   private writingsService = inject(WritingsService);
   private conceptsService = inject(ConceptsService);
-  private treeDragService = inject(TreeDragService); // Inject the registry
+  // REMOVED: private treeDragService
   private destroyRef = inject(DestroyRef);
 
   Icons = {
@@ -87,9 +80,7 @@ export class WritingStudio implements OnInit, OnDestroy {
   rootItems = signal<WritingDto[]>([]);
   activeItem = signal<WritingContentDto | null>(null);
 
-  // CHANGED: Connect directly to the global service signal
-  // This replaces 'allDropListIds' and ensures the root list sees all folders
-  connectedLists = this.treeDragService.dropListIds;
+  // REMOVED: connectedLists (Not needed for Flat Tree)
 
   editingId = signal<string | null>(null);
 
@@ -157,8 +148,7 @@ export class WritingStudio implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    // Register the root list ID so children can be dragged back to the root
-    this.treeDragService.register('root-list');
+    // REMOVED: treeDragService.register (No longer needed)
 
     this.loadTree();
     this.loadBrain();
@@ -167,10 +157,7 @@ export class WritingStudio implements OnInit, OnDestroy {
     }
   }
 
-  ngOnDestroy() {
-    // Cleanup the root list ID
-    this.treeDragService.unregister('root-list');
-  }
+  // REMOVED: ngOnDestroy (No longer needed for drag registry)
 
   closeSidebars() {
     if (this.isMobile()) {
@@ -185,7 +172,12 @@ export class WritingStudio implements OnInit, OnDestroy {
     });
   }
 
-  handleItemSelected(node: TreeNode | WritingDto) {
+  // 👇 ADDED: Helper for Template Input
+  getNameForId(id: string): string {
+    return this.rootItems().find((item) => item.id === id)?.name || '';
+  }
+
+  handleItemSelected(node: any) {
     const item = node as WritingDto;
 
     if (item.type === 'Folder') return;
@@ -201,30 +193,10 @@ export class WritingStudio implements OnInit, OnDestroy {
     });
   }
 
-  onDrop(event: CdkDragDrop<WritingDto[]>) {
-    if (event.previousContainer === event.container) {
-      this.rootItems.update((items) => {
-        moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
-        return [...items];
-      });
-    } else {
-      transferArrayItem(
-        event.previousContainer.data,
-        event.container.data,
-        event.previousIndex,
-        event.currentIndex
-      );
+  // REMOVED: onDrop() method (FlatTreeComponent handles drops internally)
 
-      const item = event.container.data[event.currentIndex];
-      // If dropped on root, parent is null. Otherwise, parse 'folder-{id}'
-      const newParentId =
-        event.container.id === 'root-list' ? null : event.container.id.replace('folder-', '');
-
-      this.handleItemMove({ item, newParentId });
-    }
-  }
-
-  handleItemMove(event: TreeNodeMoveEvent | { item: WritingDto; newParentId: string | null }) {
+  // 👇 UPDATED: Event signature matches FlatTree output
+  handleItemMove(event: { item: any; newParentId: string | null }) {
     const item = event.item as WritingDto;
     const newParentId = event.newParentId;
 
@@ -245,7 +217,7 @@ export class WritingStudio implements OnInit, OnDestroy {
     this.writingsService.create({ name, type, parentId: null }).subscribe(() => this.loadTree());
   }
 
-  startRename(node: TreeNode) {
+  startRename(node: any) {
     this.editingId.set(node.id);
   }
 

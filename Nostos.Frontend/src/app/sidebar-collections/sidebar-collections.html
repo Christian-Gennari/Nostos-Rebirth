@@ -109,40 +109,31 @@
       @if (expanded()) {
       <div class="section-label" animate.enter="fade-in" style="margin-top: 1rem">Collections</div>
 
-      <div
-        cdkDropList
-        id="root-list"
-        [cdkDropListData]="collections()"
-        [cdkDropListConnectedTo]="connectedDropLists()"
-        (cdkDropListDropped)="onRootDrop($event)"
-        class="root-drop-list"
-        [style.min-height]="'50px'"
-      >
-        @for (col of collections(); track col.id) { @if (editingId() === col.id) {
+      <div class="root-drop-list" [style.min-height]="'50px'">
+        @if (editingId(); as id) {
         <div class="nav-item input-mode">
           <lucide-icon [img]="FolderIcon" [size]="18" strokeWidth="2"></lucide-icon>
           <input
             #editInput
             type="text"
             class="sidebar-input"
-            [value]="col.name"
-            (keydown.enter)="saveRename(col.id, editInput.value)"
+            [value]="getNameForId(id)"
+            (keydown.enter)="saveRename(id, editInput.value)"
             (keydown.escape)="cancelRename()"
             autoFocus
           />
         </div>
         } @else {
-        <app-tree-node
-          [item]="col"
-          [level]="0"
+        <app-flat-tree
+          [items]="collections()"
           [activeId]="activeId()"
-          [editable]="true"
+          typeField="dummy"
           (nodeSelected)="select($event.id)"
           (nodeMoved)="onItemMoved($event)"
           (nodeRenamed)="startRename($event)"
           (nodeDeleted)="deleteCollection($event)"
-        ></app-tree-node>
-        } }
+        ></app-flat-tree>
+        }
       </div>
       }
     </div>

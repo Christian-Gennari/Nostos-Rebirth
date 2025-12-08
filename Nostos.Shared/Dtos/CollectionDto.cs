@@ -1,19 +1,20 @@
+using System;
+
 namespace Nostos.Shared.Dtos;
 
-// Recursive DTO
+// Removed "Children" property
 public record CollectionDto(
     Guid Id,
     string Name,
-    Guid? ParentId,
-    List<CollectionDto> Children
+    Guid? ParentId
 );
 
 public record CreateCollectionDto(
     string Name,
-    Guid? ParentId // Optional: Create directly inside another folder
+    Guid? ParentId
 );
 
 public record UpdateCollectionDto(
     string Name,
-    Guid? ParentId // Optional: Move folder to another parent
+    Guid? ParentId
 );

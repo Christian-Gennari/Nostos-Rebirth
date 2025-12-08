@@ -1,0 +1,122 @@
+.flat-tree-container {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 20px;
+  width: 100%;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  cursor: pointer;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  color: var(--color-text-secondary, #666);
+  transition: background 0.1s;
+  user-select: none;
+}
+
+.tree-row:hover {
+  background: var(--color-bg-hover, #f5f5f5);
+  color: var(--color-text-primary, #000);
+}
+
+.tree-row.active {
+  background: var(--color-primary-light, #e0f0ff);
+  color: var(--color-primary, #007bff);
+  font-weight: 500;
+}
+
+.drag-handle {
+  opacity: 0;
+  cursor: grab;
+  margin-right: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.tree-row:hover .drag-handle {
+  opacity: 0.5;
+}
+
+.toggle-icon,
+.type-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+}
+
+.toggle-icon {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+.toggle-icon:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 3px;
+}
+
+.node-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.9rem;
+}
+
+.node-actions {
+  display: none; /* Hidden by default */
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.tree-row:hover .node-actions {
+  display: flex;
+}
+
+.action-mini {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  opacity: 0.6;
+  border-radius: 4px;
+}
+
+.action-mini:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.action-mini.danger:hover {
+  color: red;
+  background: rgba(255, 0, 0, 0.1);
+}
+
+/* Drag Preview Styles */
+.drag-preview {
+  background: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  border: 1px solid #ddd;
+}
+
+.cdk-drag-placeholder {
+  opacity: 0;
+}
+
+.cdk-drag-animating {
+  transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.flat-tree-container.cdk-drop-list-dragging .tree-row:not(.cdk-drag-placeholder) {
+  transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+}

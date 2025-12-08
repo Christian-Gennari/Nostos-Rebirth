@@ -1,26 +1,7 @@
-import {
-  Component,
-  OnInit,
-  OnDestroy,
-  inject,
-  signal,
-  model,
-  HostListener,
-  computed,
-} from '@angular/core';
-import { CollectionsService } from '../services/collections.services';
-import { Collection } from '../dtos/collection.dtos';
+import { Component, OnInit, inject, signal, model, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { TreeNodeComponent } from '../ui/tree-node/tree-node.component';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
-import {
-  DragDropModule,
-  CdkDropList,
-  CdkDragDrop,
-  moveItemInArray,
-  transferArrayItem,
-} from '@angular/cdk/drag-drop';
 import {
   LucideAngularModule,
   Folder,
@@ -38,7 +19,11 @@ import {
   CheckCircle,
   Inbox,
 } from 'lucide-angular';
-import { TreeDragService } from '../ui/tree-node/tree-drag.service'; // Import the service
+
+import { CollectionsService } from '../services/collections.services';
+import { Collection } from '../dtos/collection.dtos';
+// 👇 CHANGED: Import the new Flat Tree Component
+import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
 
 @Component({
   standalone: true,
@@ -49,15 +34,13 @@ import { TreeDragService } from '../ui/tree-node/tree-drag.service'; // Import t
     LucideAngularModule,
     RouterLink,
     RouterLinkActive,
-    DragDropModule,
-    TreeNodeComponent,
+    FlatTreeComponent, // 👈 CHANGED: Use FlatTreeComponent
   ],
   templateUrl: './sidebar-collections.html',
   styleUrls: ['./sidebar-collections.css'],
 })
-export class SidebarCollections implements OnInit, OnDestroy {
+export class SidebarCollections implements OnInit {
   private collectionsService = inject(CollectionsService);
-  private treeDragService = inject(TreeDragService); // Inject Registry
   private router = inject(Router);
 
   FolderIcon = Folder;
@@ -84,23 +67,15 @@ export class SidebarCollections implements OnInit, OnDestroy {
   private ignoreClick = false;
   activeId = this.collectionsService.activeCollectionId;
 
-  // CONNECT TO SERVICE: Use global list instead of local array
-  connectedDropLists = this.treeDragService.dropListIds;
-
   ngOnInit(): void {
-    // Register the root list ID
-    this.treeDragService.register('root-list');
-
+    // REMOVED: TreeDragService registration
     this.load();
     if (window.innerWidth < 768) {
       this.expanded.set(false);
     }
   }
 
-  ngOnDestroy(): void {
-    // Clean up
-    this.treeDragService.unregister('root-list');
-  }
+  // REMOVED: ngOnDestroy (no longer needed)
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
@@ -169,9 +144,9 @@ export class SidebarCollections implements OnInit, OnDestroy {
     });
   }
 
-  startRename(col: Collection): void {
+  startRename(item: any): void {
     this.ignoreClick = true;
-    this.editingId.set(col.id);
+    this.editingId.set(item.id);
   }
 
   cancelRename(): void {
@@ -196,22 +171,15 @@ export class SidebarCollections implements OnInit, OnDestroy {
     this.collectionsService.delete(id).subscribe({ next: () => this.load() });
   }
 
-  onRootDrop(event: CdkDragDrop<Collection[]>) {
-    if (event.previousContainer === event.container) {
-      moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
-    } else {
-      transferArrayItem(
-        event.previousContainer.data,
-        event.container.data,
-        event.previousIndex,
-        event.currentIndex
-      );
-      const movedItem = event.container.data[event.currentIndex];
-      this.moveCollection(movedItem, null);
-    }
+  // 👇 ADDED: Helper for the HTML template renaming input
+  getNameForId(id: string): string {
+    return this.collections().find((c) => c.id === id)?.name || '';
   }
 
-  onItemMoved(event: { item: Collection; newParentId: string | null }) {
+  // REMOVED: onRootDrop()
+
+  // 👇 UPDATED: Matches FlatTreeComponent event signature
+  onItemMoved(event: { item: any; newParentId: string | null }) {
     this.moveCollection(event.item, event.newParentId);
   }
 

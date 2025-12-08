@@ -1,0 +1,61 @@
+<div class="flat-tree-container" cdkDropList (cdkDropListDropped)="onDrop($event)">
+  @for (node of treeNodes(); track node.id) {
+  <div
+    class="tree-row"
+    [class.active]="activeId === node.id"
+    [style.padding-left.px]="node.level * 16 + 8"
+    (click)="handleSelect(node)"
+    cdkDrag
+    [cdkDragData]="node"
+    [cdkDragDisabled]="false"
+  >
+    <div *cdkDragPreview class="drag-preview">
+      <lucide-icon
+        [img]="node.type === 'Folder' ? Icons.Folder : Icons.FileText"
+        [size]="16"
+      ></lucide-icon>
+      {{ node.name }}
+    </div>
+
+    <div class="drag-handle" cdkDragHandle (click)="$event.stopPropagation()">
+      <lucide-icon [img]="Icons.GripVertical" [size]="14"></lucide-icon>
+    </div>
+
+    <div class="toggle-icon" (click)="toggleExpand($event, node)">
+      @if (node.expandable) {
+      <lucide-icon
+        [img]="node.isExpanded ? Icons.ChevronDown : Icons.ChevronRight"
+        [size]="14"
+      ></lucide-icon>
+      } @else {
+      <span style="display: inline-block; width: 14px"></span>
+      }
+    </div>
+
+    <div class="type-icon">
+      @if (node.type === 'Folder') {
+      <lucide-icon
+        [img]="node.isExpanded ? Icons.FolderOpen : Icons.Folder"
+        [size]="16"
+        class="folder-icon"
+      ></lucide-icon>
+      } @else {
+      <lucide-icon [img]="Icons.FileText" [size]="16" class="file-icon"></lucide-icon>
+      }
+    </div>
+
+    <span class="node-name">{{ node.name }}</span>
+
+    <div class="node-actions" (click)="$event.stopPropagation()">
+      <button class="action-mini" (click)="nodeRenamed.emit(node.originalData)" title="Rename">
+        <lucide-icon [img]="Icons.Edit2" [size]="12"></lucide-icon>
+      </button>
+      <button class="action-mini danger" (click)="nodeDeleted.emit(node.id)" title="Delete">
+        <lucide-icon [img]="Icons.Trash2" [size]="12"></lucide-icon>
+      </button>
+    </div>
+  </div>
+  } @if (treeNodes().length === 0) {
+  <div class="empty-state">No items</div>
+  }
+</div>

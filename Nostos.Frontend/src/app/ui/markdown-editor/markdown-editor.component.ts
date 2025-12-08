@@ -78,6 +78,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     ].join(' '),
 
     skin: 'oxide',
+    promotion: false,
     // --- 3. TOOLBAR (Word-Style Grouping) ---
     // | separates groups.
     // 'blocks' restores the Heading dropdown.

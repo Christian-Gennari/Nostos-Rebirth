@@ -11,20 +11,18 @@ public static class CollectionsEndpoints
   {
     var group = routes.MapGroup("/api/collections");
 
-    // GET all collections (Tree Structure)
+    // GET: Fetch all collections (FLAT)
     group.MapGet("/", async (NostosDbContext db) =>
     {
-      // STRATEGY: Load ALL collections into memory.
-      // EF Core's "Relationship Fix-up" will automatically populate the .Children list
-      // for every entity without needing recursive includes.
-      var allCollections = await db.Collections.ToListAsync();
+      var items = await db.Collections
+          .Select(c => new CollectionDto(
+              c.Id,
+              c.Name,
+              c.ParentId
+          ))
+          .ToListAsync();
 
-      // Filter for roots (no parent) and convert to recursive DTOs
-      var roots = allCollections
-          .Where(c => c.ParentId == null)
-          .Select(c => c.ToDto());
-
-      return Results.Ok(roots);
+      return Results.Ok(items);
     });
 
     // GET one collection
@@ -60,7 +58,33 @@ public static class CollectionsEndpoints
       if (string.IsNullOrWhiteSpace(dto.Name))
         return Results.BadRequest(new { error = "Name is required." });
 
-      // Apply now handles renaming AND moving (ParentId changes)
+      // --- CYCLE DETECTION START ---
+      if (dto.ParentId.HasValue)
+      {
+        // 1. Prevent self-nesting
+        if (dto.ParentId == id)
+          return Results.BadRequest(new { error = "Cannot move a collection into itself." });
+
+        // 2. Prevent moving into a descendant (A -> B -> A loop)
+        // Walk up the tree from the *target parent*. If we hit *this collection*, it's a loop.
+        var currentAncestorId = dto.ParentId;
+        while (currentAncestorId != null)
+        {
+          if (currentAncestorId == id)
+            return Results.BadRequest(new { error = "Cannot move a collection into its own child." });
+
+          // Fetch the next parent up the chain
+          // (Optimized to only fetch the ID we need)
+          var nextAncestor = await db.Collections
+              .Where(c => c.Id == currentAncestorId)
+              .Select(c => new { c.ParentId })
+              .FirstOrDefaultAsync();
+
+          currentAncestorId = nextAncestor?.ParentId;
+        }
+      }
+      // --- CYCLE DETECTION END ---
+
       existing.Apply(dto);
 
       await db.SaveChangesAsync();
