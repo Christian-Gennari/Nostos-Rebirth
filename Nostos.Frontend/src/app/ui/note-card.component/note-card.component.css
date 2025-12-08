@@ -60,31 +60,62 @@
   font-style: italic;
 }
 
-/* --- Footer & Actions (Floating Pill Design) --- */
+/* --- Footer & Actions --- */
 .note-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-top: 0.5rem;
-  height: 32px; /* Reserves space for the pill */
+  height: 32px;
 }
 
-.note-date {
+/* 👇 NEW: Metadata Container */
+.note-metadata {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.75rem;
   color: var(--color-text-light, #aaa);
+}
+
+.meta-separator {
+  opacity: 0.5;
+}
+
+/* 👇 NEW: Source Badge Styling */
+.source-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  background: transparent;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--color-text-light, #888);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  max-width: 200px; /* Prevent long titles from breaking layout */
+}
+
+.source-badge span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.source-badge:hover {
+  background-color: var(--bg-hover, #e5e5e5);
+  color: var(--color-primary, #111);
 }
 
 .note-actions {
   display: flex;
   align-items: center;
   gap: 4px;
-
-  /* Animation State */
   opacity: 0;
   transform: translateY(4px);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-
-  /* Pill Container Styling */
   background-color: var(--bg-surface, #fff);
   border: 1px solid var(--border-color, #e5e5e5);
   border-radius: 100px;
@@ -92,13 +123,11 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* Reveal on Hover */
 .note-card-container:hover .note-actions {
   opacity: 1;
   transform: translateY(0);
 }
 
-/* Button Styling inside Pill */
 .note-actions .icon-btn {
   border-radius: 50%;
   transition: background-color 0.15s;
@@ -131,7 +160,6 @@
   border-top: 1px dashed var(--border-color, #eee);
 }
 
-/* Utility for sizing icons */
 .icon-btn.xs {
   width: 24px;
   height: 24px;

@@ -35,7 +35,23 @@
     }
 
     <div class="note-footer">
-      <span class="note-date">{{ note.createdAt | date : 'short' }}</span>
+      <div class="note-metadata">
+        <span class="note-date">{{ note.createdAt | date : 'short' }}</span>
+
+        @if (showSource && note.bookTitle) {
+        <span class="meta-separator">•</span>
+        <a
+          class="source-badge"
+          [routerLink]="['/library', note.bookId]"
+          [queryParams]="{ cfi: note.cfiRange }"
+          (click)="$event.stopPropagation()"
+          title="Go to: {{ note.bookTitle }}"
+        >
+          <lucide-icon [img]="Icons.Library" [size]="12"></lucide-icon>
+          <span>{{ note.bookTitle }}</span>
+        </a>
+        }
+      </div>
 
       @if (showNavigation || showActions) {
       <div class="note-actions">

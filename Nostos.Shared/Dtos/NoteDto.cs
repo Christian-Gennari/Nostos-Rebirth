@@ -8,7 +8,8 @@ public record NoteDto(
     string Content,
     string? CfiRange,
     string? SelectedText,
-    DateTime CreatedAt // <--- ADD THIS
+    DateTime CreatedAt,
+    string? BookTitle // 👈 New Field
 );
 
 public record CreateNoteDto(
