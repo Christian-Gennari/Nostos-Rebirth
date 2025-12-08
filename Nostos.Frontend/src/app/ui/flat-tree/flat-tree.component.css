@@ -1,8 +1,11 @@
+/* src/app/ui/flat-tree/flat-tree.component.css */
+
 .flat-tree-container {
   display: flex;
   flex-direction: column;
-  padding-bottom: 20px;
   width: 100%;
+  position: relative;
+  padding-bottom: 0;
 }
 
 .tree-row {
@@ -15,6 +18,7 @@
   color: var(--color-text-secondary, #666);
   transition: background 0.1s;
   user-select: none;
+  background: transparent;
 }
 
 .tree-row:hover {
@@ -57,6 +61,17 @@
 .toggle-icon:hover {
   background: rgba(0, 0, 0, 0.05);
   border-radius: 3px;
+}
+
+/* 👇 FIX 2: Disable interactivity and hover effect for non-expandable nodes (Documents) */
+.toggle-icon--disabled {
+  cursor: default;
+  /* Block pointer events (like click/hover) on this element */
+  pointer-events: none;
+}
+
+.toggle-icon--disabled:hover {
+  background: none; /* Ensure no background appears */
 }
 
 .node-name {

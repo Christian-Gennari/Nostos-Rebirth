@@ -11,6 +11,7 @@ import {
   Edit2,
   Trash2,
   FolderOpen,
+  ArrowUp,
 } from 'lucide-angular';
 import { buildFlatTree, FlatTreeNode } from './flat-tree.helper';
 
@@ -22,10 +23,8 @@ import { buildFlatTree, FlatTreeNode } from './flat-tree.helper';
   styleUrls: ['./flat-tree.component.css'],
 })
 export class FlatTreeComponent {
-  // 👇 CHANGED: Create an internal signal for items
   private _items = signal<any[]>([]);
 
-  // 👇 CHANGED: Use a setter to update the signal when Input changes
   @Input({ required: true })
   set items(value: any[]) {
     this._items.set(value);
@@ -39,11 +38,20 @@ export class FlatTreeComponent {
   @Output() nodeRenamed = new EventEmitter<any>();
   @Output() nodeDeleted = new EventEmitter<string>();
 
-  Icons = { Folder, FolderOpen, FileText, ChevronRight, ChevronDown, GripVertical, Edit2, Trash2 };
+  Icons = {
+    Folder,
+    FolderOpen,
+    FileText,
+    ChevronRight,
+    ChevronDown,
+    GripVertical,
+    Edit2,
+    Trash2,
+    ArrowUp,
+  };
 
   expandedIds = signal<Set<string>>(new Set());
 
-  // 👇 CHANGED: Now depends on _items() signal, so it reacts to updates!
   treeNodes = computed(() => {
     return buildFlatTree(this._items(), this.expandedIds(), this.typeField);
   });
@@ -65,12 +73,23 @@ export class FlatTreeComponent {
     this.nodeSelected.emit(node.originalData);
   }
 
+  moveToRoot(node: FlatTreeNode, event: Event) {
+    event.stopPropagation();
+    this.nodeMoved.emit({
+      item: node.originalData,
+      newParentId: null,
+    });
+  }
+
   onDrop(event: CdkDragDrop<FlatTreeNode[]>) {
     const draggedNode = event.item.data as FlatTreeNode;
     const allVisibleNodes = this.treeNodes();
     const targetNode = allVisibleNodes[event.currentIndex];
 
-    if (!targetNode || draggedNode.id === targetNode.id) return;
+    // Safety check: If dropped outside a valid row, do nothing.
+    if (!targetNode) return;
+
+    if (draggedNode.id === targetNode.id) return;
 
     let newParentId = targetNode.parentId;
 

@@ -21,14 +21,16 @@
       <lucide-icon [img]="Icons.GripVertical" [size]="14"></lucide-icon>
     </div>
 
-    <div class="toggle-icon" (click)="toggleExpand($event, node)">
+    <div
+      class="toggle-icon"
+      [class.toggle-icon--disabled]="!node.expandable"
+      (click)="toggleExpand($event, node)"
+    >
       @if (node.expandable) {
       <lucide-icon
         [img]="node.isExpanded ? Icons.ChevronDown : Icons.ChevronRight"
         [size]="14"
       ></lucide-icon>
-      } @else {
-      <span style="display: inline-block; width: 14px"></span>
       }
     </div>
 
@@ -47,6 +49,12 @@
     <span class="node-name">{{ node.name }}</span>
 
     <div class="node-actions" (click)="$event.stopPropagation()">
+      @if (node.parentId !== null) {
+      <button class="action-mini" (click)="moveToRoot(node, $event)" title="Move to Root">
+        <lucide-icon [img]="Icons.ArrowUp" [size]="12"></lucide-icon>
+      </button>
+      }
+
       <button class="action-mini" (click)="nodeRenamed.emit(node.originalData)" title="Rename">
         <lucide-icon [img]="Icons.Edit2" [size]="12"></lucide-icon>
       </button>

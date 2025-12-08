@@ -1,4 +1,4 @@
-// ✅ NO IMPORTS from './flat-tree.helper' here!
+// src/app/ui/flat-tree/flat-tree.helper.ts
 
 export interface FlatTreeNode {
   id: string;
@@ -17,16 +17,22 @@ export function buildFlatTree(
   typeField: string = 'type'
 ): FlatTreeNode[] {
   // 1. Convert raw items to lightweight nodes
-  const nodes = items.map((item) => ({
-    id: item.id,
-    name: item.name,
-    type: item[typeField] || 'Folder',
-    parentId: item.parentId,
-    level: 0,
-    expandable: (item[typeField] || 'Folder') === 'Folder',
-    isExpanded: expandedIds.has(item.id),
-    originalData: item,
-  }));
+  const nodes = items.map((item) => {
+    // Determine type safely
+    const nodeType = item[typeField] || 'Folder';
+
+    return {
+      id: item.id,
+      name: item.name,
+      type: nodeType,
+      parentId: item.parentId,
+      level: 0,
+      // Only Folders are expandable
+      expandable: nodeType === 'Folder',
+      isExpanded: expandedIds.has(item.id),
+      originalData: item,
+    };
+  });
 
   const result: FlatTreeNode[] = [];
 
