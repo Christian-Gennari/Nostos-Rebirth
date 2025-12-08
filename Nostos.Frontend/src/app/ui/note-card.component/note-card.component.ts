@@ -10,6 +10,7 @@ import {
   Check,
   X,
   ArrowRight,
+  Library, // 👈 Import Library icon
 } from 'lucide-angular';
 
 import { Note } from '../../dtos/note.dtos';
@@ -26,8 +27,8 @@ import { NoteFormatPipe } from '../pipes/note-format.pipe';
     LucideAngularModule,
     ConceptInputComponent,
     NoteFormatPipe,
-    RouterLink, // 👈 Add to imports
-  ],
+    RouterLink,
+  ], // 👈 Add RouterLink
   templateUrl: './note-card.component.html',
   styleUrls: ['./note-card.component.css'],
 })
@@ -36,7 +37,7 @@ export class NoteCardComponent {
   @Input() conceptMap: Map<string, ConceptDto> = new Map();
   @Input() showNavigation = false;
   @Input() showActions = true;
-  @Input() showSource = false; // 👈 New Input for Source display
+  @Input() showSource = false; // 👈 New Input to toggle the source badge
 
   @Output() update = new EventEmitter<{ id: string; content: string }>();
   @Output() delete = new EventEmitter<string>();
@@ -54,6 +55,7 @@ export class NoteCardComponent {
     Check,
     Close: X,
     ArrowRight,
+    Library, // 👈 Add to Icons
   };
 
   startEdit(event?: Event) {

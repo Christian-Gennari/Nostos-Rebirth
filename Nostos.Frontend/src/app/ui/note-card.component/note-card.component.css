@@ -60,74 +60,53 @@
   font-style: italic;
 }
 
-/* --- NEW: Source Section Styles --- */
-.source-section {
-  margin-top: 1rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border-color, #f0f0f0);
+/* --- Footer & Actions --- */
+.note-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-top: 0.5rem;
+  height: 32px;
 }
 
-.source-details {
+/* 👇 NEW: Metadata Container */
+.note-metadata {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.source-label {
-  font-size: 0.65rem;
-  text-transform: uppercase;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
   color: var(--color-text-light, #aaa);
-  letter-spacing: 0.05em;
-  font-weight: 600;
 }
 
-.source-title {
-  font-family: 'Lora', serif;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--color-text-muted, #666);
-  max-width: 180px;
+.meta-separator {
+  opacity: 0.5;
+}
+
+/* 👇 NEW: Source Badge Styling */
+.source-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  background: transparent;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--color-text-light, #888);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  max-width: 200px; /* Prevent long titles from breaking layout */
+}
+
+.source-badge span {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.source-link {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: var(--color-text-muted, #666);
-  text-decoration: none;
-  font-size: 0.8rem;
-  font-weight: 500;
-  padding: 0.3rem 0.6rem;
-  border-radius: var(--radius-sm, 4px);
-  transition: all 0.2s;
-  background: transparent;
-  border: 1px solid transparent;
-}
-
-.source-link:hover {
-  background: var(--bg-hover, #f3f3f3);
+.source-badge:hover {
+  background-color: var(--bg-hover, #e5e5e5);
   color: var(--color-primary, #111);
-  border-color: var(--border-color, #ddd);
-}
-
-/* --- Footer & Actions (Floating Pill Design) --- */
-.note-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 0.75rem; /* Increased slightly to separate from source if present */
-  height: 32px;
-}
-
-.note-date {
-  font-size: 0.75rem;
-  color: var(--color-text-light, #aaa);
 }
 
 .note-actions {

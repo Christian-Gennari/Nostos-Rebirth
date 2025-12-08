@@ -89,7 +89,8 @@ public static class MappingExtensions
                 Content: model.Content,
                 CfiRange: model.CfiRange,
                 SelectedText: model.SelectedText,
-                CreatedAt: model.CreatedAt
+                CreatedAt: model.CreatedAt,
+                BookTitle: model.Book?.Title // 👈 Map the title
             );
 
     public static CollectionDto ToDto(this CollectionModel model) =>

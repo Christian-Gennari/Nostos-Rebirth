@@ -17,8 +17,9 @@ public static class NotesEndpoints
     group.MapGet("/books/{bookId}/notes", async (Guid bookId, NostosDbContext db) =>
     {
       var notes = await db.Notes
-                  .Where(n => n.BookId == bookId)
-                  .ToListAsync();
+                      .Include(n => n.Book) // 👈 ADDED: Load Book for Title
+                      .Where(n => n.BookId == bookId)
+                      .ToListAsync();
 
       return Results.Ok(notes.Select(n => n.ToDto()));
     });
@@ -34,15 +35,22 @@ public static class NotesEndpoints
       // Process [[Concepts]]
       await ProcessConcepts(db, model);
 
-      return Results.Created($"/api/notes/{model.Id}", model.ToDto());
+      // 👈 ADDED: Reload to get the Book Title for the response
+      // (The original 'model' doesn't have the Book navigation property loaded yet)
+      var createdNote = await db.Notes
+              .Include(n => n.Book)
+              .FirstAsync(n => n.Id == model.Id);
+
+      return Results.Created($"/api/notes/{model.Id}", createdNote.ToDto());
     });
 
     // UPDATE note
     group.MapPut("/notes/{id}", async (Guid id, UpdateNoteDto dto, NostosDbContext db) =>
     {
       var existing = await db.Notes
-              .Include(n => n.NoteConcepts) // Include existing links to clear them if needed
-              .FirstOrDefaultAsync(n => n.Id == id);
+                  .Include(n => n.NoteConcepts) // Include existing links to clear them if needed
+                  .Include(n => n.Book)         // 👈 ADDED: Load Book for Title
+                  .FirstOrDefaultAsync(n => n.Id == id);
 
       if (existing is null) return Results.NotFound();
 

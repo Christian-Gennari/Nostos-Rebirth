@@ -28,7 +28,7 @@ import {
   ArrowLeft,
   Book,
   Library,
-  Sparkles, // Added Sparkles icon for Concepts
+  Sparkles,
 } from 'lucide-angular';
 
 import { WritingsService } from '../services/writings.services';
@@ -101,6 +101,8 @@ export class WritingStudio implements OnInit {
   brainQuery = signal('');
   concepts = signal<ConceptDto[]>([]);
   selectedConceptId = signal<string | null>(null);
+
+  // 👇 Reverted to any[] to allow NoteContextDto (which has 'bookTitle') to pass through
   selectedConceptNotes = signal<any[]>([]);
 
   // Books / Notes State
@@ -295,6 +297,8 @@ export class WritingStudio implements OnInit {
 
   selectConcept(id: string) {
     this.selectedConceptId.set(id);
+    // 👇 Simply pass the notes as they are.
+    // They contain 'bookTitle', which works with [showSource]="true".
     this.conceptsService.get(id).subscribe((d) => this.selectedConceptNotes.set(d.notes));
   }
 

@@ -5,6 +5,7 @@ export interface Note {
   cfiRange?: string;
   selectedText?: string;
   createdAt: string; // <--- ADD THIS (Dates come as ISO strings from JSON)
+  bookTitle?: string; // 👈 Add this
 }
 
 export interface CreateNoteDto {
