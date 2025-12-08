@@ -1,9 +1,11 @@
-<div class="tree-node-wrapper" cdkDrag [cdkDragData]="item">
+<div
+  class="tree-node-wrapper"
+  cdkDrag
+  [cdkDragData]="item"
+  [cdkDragDisabled]="!isFolder() && !editable"
+>
   <div *cdkDragPreview class="drag-preview">
-    <lucide-icon
-      [img]="item.type === 'Folder' ? Icons.Folder : Icons.FileText"
-      [size]="16"
-    ></lucide-icon>
+    <lucide-icon [img]="isFolder() ? Icons.Folder : Icons.FileText" [size]="16"></lucide-icon>
     {{ item.name }}
   </div>
 
@@ -18,7 +20,7 @@
     </div>
 
     <div class="toggle-icon" (click)="toggleExpand($event)">
-      @if (item.type === 'Folder') { @if (expanded()) {
+      @if (isFolder()) { @if (expanded()) {
       <lucide-icon [img]="Icons.ChevronDown" [size]="14"></lucide-icon>
       } @else {
       <lucide-icon [img]="Icons.ChevronRight" [size]="14"></lucide-icon>
@@ -26,7 +28,7 @@
     </div>
 
     <div class="type-icon">
-      @if (item.type === 'Folder') {
+      @if (isFolder()) {
       <lucide-icon
         [img]="expanded() ? Icons.FolderOpen : Icons.Folder"
         [size]="16"
@@ -38,9 +40,20 @@
     </div>
 
     <span class="node-name">{{ item.name }}</span>
+
+    @if (editable) {
+    <div class="node-actions" (click)="$event.stopPropagation()">
+      <button class="action-mini" (click)="nodeRenamed.emit(item)">
+        <lucide-icon [img]="Icons.Edit2" [size]="12"></lucide-icon>
+      </button>
+      <button class="action-mini danger" (click)="nodeDeleted.emit(item.id)">
+        <lucide-icon [img]="Icons.Trash2" [size]="12"></lucide-icon>
+      </button>
+    </div>
+    }
   </div>
 
-  @if (item.type === 'Folder' && expanded()) {
+  @if (isFolder() && expanded()) {
   <div
     class="node-children"
     cdkDropList
@@ -50,16 +63,22 @@
     (cdkDropListDropped)="onDrop($event)"
   >
     @for (child of item.children; track child.id) {
-    <app-file-tree-item
+    <app-tree-node
       [item]="child"
       [level]="level + 1"
       [activeId]="activeId"
       [connectedDropLists]="connectedDropLists"
-      (itemSelected)="onChildSelected($event)"
-      (itemMoved)="onChildMoved($event)"
-    ></app-file-tree-item>
+      [editable]="editable"
+      [expandOnSelect]="expandOnSelect"
+      (nodeSelected)="onChildSelected($event)"
+      (nodeMoved)="onChildMoved($event)"
+      (nodeRenamed)="onChildRenamed($event)"
+      (nodeDeleted)="onChildDeleted($event)"
+    ></app-tree-node>
     } @if(item.children.length === 0) {
-    <div class="empty-folder-drop-zone">Empty</div>
+    <div class="empty-drop-zone">
+      {{ editable ? 'Drop items here...' : 'Empty' }}
+    </div>
     }
   </div>
   }

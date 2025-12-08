@@ -35,10 +35,13 @@ import {
 
 import { WritingsService } from '../services/writings.services';
 import { ConceptsService, ConceptDto } from '../services/concepts.services';
-import { FileTreeItem } from './file-tree-item/file-tree-item';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { WritingDto, WritingContentDto } from '../dtos/writing.dtos';
 import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.component';
+
+// --- NEW IMPORTS ---
+import { TreeNodeComponent } from '../ui/tree-node/tree-node.component';
+import { TreeNode, TreeNodeMoveEvent } from '../ui/tree-node/tree-node.interface';
 
 @Component({
   selector: 'app-writing-studio',
@@ -48,7 +51,7 @@ import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.c
     FormsModule,
     LucideAngularModule,
     DragDropModule,
-    FileTreeItem,
+    TreeNodeComponent,
     NoteCardComponent,
     MarkdownEditorComponent,
   ],
@@ -79,7 +82,6 @@ export class WritingStudio implements OnInit {
   // --- Layout State ---
   isMobile = signal(window.innerWidth < 768);
 
-  // On Desktop, default both to TRUE. On Mobile, default Files to TRUE, Brain to FALSE.
   showFileSidebar = signal(true);
   showBrainSidebar = signal(!this.isMobile());
 
@@ -87,6 +89,9 @@ export class WritingStudio implements OnInit {
   rootItems = signal<WritingDto[]>([]);
   activeItem = signal<WritingContentDto | null>(null);
   allDropListIds = signal<string[]>(['root-list']);
+
+  // Track which item is currently being renamed
+  editingId = signal<string | null>(null);
 
   // --- Editor State ---
   editorText = signal('');
@@ -111,14 +116,9 @@ export class WritingStudio implements OnInit {
       const mobile = window.innerWidth < 768;
       this.isMobile.set(mobile);
 
-      // If we switch to desktop, force both sidebars open
       if (!mobile) {
         this.showFileSidebar.set(true);
         this.showBrainSidebar.set(true);
-      } else {
-        // Optional: When switching TO mobile, maybe close the brain sidebar to save space?
-        // keeping current state or closing it is up to preference.
-        // this.showBrainSidebar.set(false);
       }
     };
 
@@ -161,11 +161,7 @@ export class WritingStudio implements OnInit {
   ngOnInit() {
     this.loadTree();
     this.loadBrain();
-    // Logic moved to property initialization, but double check here if needed
     if (this.isMobile()) {
-      this.showFileSidebar.set(false); // Start closed on mobile? Or true?
-      // Original code had: if (this.isMobile()) this.showFileSidebar.set(false);
-      // I'll keep that behavior for mobile.
       this.showFileSidebar.set(false);
     }
   }
@@ -198,7 +194,11 @@ export class WritingStudio implements OnInit {
     this.allDropListIds.set(ids);
   }
 
-  handleItemSelected(item: WritingDto) {
+  // --- Tree Event Handlers ---
+
+  handleItemSelected(node: TreeNode | WritingDto) {
+    const item = node as WritingDto;
+
     if (item.type === 'Folder') return;
 
     this.writingsService.get(item.id).subscribe({
@@ -234,8 +234,11 @@ export class WritingStudio implements OnInit {
     }
   }
 
-  handleItemMove(event: { item: WritingDto; newParentId: string | null }) {
-    this.writingsService.move(event.item.id, event.newParentId).subscribe({
+  handleItemMove(event: TreeNodeMoveEvent | { item: WritingDto; newParentId: string | null }) {
+    const item = event.item as WritingDto;
+    const newParentId = event.newParentId;
+
+    this.writingsService.move(item.id, newParentId).subscribe({
       next: () => {
         this.loadTree();
       },
@@ -246,11 +249,55 @@ export class WritingStudio implements OnInit {
     });
   }
 
+  // --- Actions: Create, Rename, Delete ---
+
   createItem(type: 'Folder' | 'Document') {
     const name = prompt(`Enter ${type} Name:`);
     if (!name) return;
     this.writingsService.create({ name, type, parentId: null }).subscribe(() => this.loadTree());
   }
+
+  startRename(node: TreeNode) {
+    this.editingId.set(node.id);
+  }
+
+  saveRename(id: string, newName: string) {
+    if (!newName.trim()) {
+      this.cancelRename();
+      return;
+    }
+
+    this.writingsService.update(id, { name: newName }).subscribe(() => {
+      this.loadTree();
+      this.editingId.set(null);
+
+      // Update editor title if we renamed the currently active item
+      if (this.activeItem()?.id === id) {
+        this.editorTitle.set(newName);
+      }
+    });
+  }
+
+  cancelRename() {
+    this.editingId.set(null);
+  }
+
+  deleteItem(id: string) {
+    if (!confirm('Are you sure you want to delete this item?')) return;
+
+    this.writingsService.delete(id).subscribe(() => {
+      this.loadTree();
+
+      // If deleted active item, clear editor
+      if (this.activeItem()?.id === id) {
+        this.activeItem.set(null);
+        this.editorText.set('');
+        this.editorTitle.set('');
+      }
+    });
+  }
+
+  // --- Brain Logic ---
 
   loadBrain() {
     this.conceptsService.list().subscribe((data) => this.concepts.set(data));

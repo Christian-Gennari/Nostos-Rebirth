@@ -3,6 +3,7 @@ import { CollectionsService } from '../services/collections.services';
 import { Collection } from '../dtos/collection.dtos';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { TreeNodeComponent } from '../ui/tree-node/tree-node.component';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import {
   DragDropModule,
@@ -29,9 +30,6 @@ import {
   Inbox,
 } from 'lucide-angular';
 
-// NEW IMPORT
-import { CollectionTreeItem } from './collection-tree-item/collection-tree-item';
-
 @Component({
   standalone: true,
   selector: 'app-sidebar-collections',
@@ -42,7 +40,7 @@ import { CollectionTreeItem } from './collection-tree-item/collection-tree-item'
     RouterLink,
     RouterLinkActive,
     DragDropModule, // Add this
-    CollectionTreeItem, // Add this
+    TreeNodeComponent, // Add this
   ],
   templateUrl: './sidebar-collections.html',
   styleUrls: ['./sidebar-collections.css'],

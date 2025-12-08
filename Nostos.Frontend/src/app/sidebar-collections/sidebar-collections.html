@@ -133,15 +133,17 @@
           />
         </div>
         } @else {
-        <app-collection-tree-item
+        <app-tree-node
           [item]="col"
+          [level]="0"
           [activeId]="activeId()"
           [connectedDropLists]="connectedDropLists()"
-          (selected)="select($event)"
-          (moved)="onItemMoved($event)"
-          (rename)="startRename($event)"
-          (delete)="deleteCollection($event)"
-        ></app-collection-tree-item>
+          [editable]="true"
+          (nodeSelected)="select($event.id)"
+          (nodeMoved)="onItemMoved($event)"
+          (nodeRenamed)="startRename($event)"
+          (nodeDeleted)="deleteCollection($event)"
+        ></app-tree-node>
         } }
       </div>
       }
