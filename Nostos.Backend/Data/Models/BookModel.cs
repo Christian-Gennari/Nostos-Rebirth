@@ -11,6 +11,7 @@ public abstract class BookModel
   public string Title { get; set; } = string.Empty;
 
   public string? Author { get; set; }
+  public string? Translator { get; set; } // <--- NEW FIELD
   public string? Subtitle { get; set; }
   public string? Description { get; set; }
 
@@ -48,7 +49,7 @@ public abstract class BookModel
 
   // If FinishedAt is not null, the book is "Finished"
   public DateTime? FinishedAt { get; set; }
-  
+
 
 }
 

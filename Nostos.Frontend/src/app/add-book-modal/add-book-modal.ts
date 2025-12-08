@@ -3,10 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
 import { finalize } from 'rxjs';
-import { LucideAngularModule, X, Info, UploadIcon } from 'lucide-angular';
-import { BooksService, Book } from '../services/books.services';
+import { LucideAngularModule, X, Info, UploadIcon, Book, Layers, FileText } from 'lucide-angular';
+import { BooksService, Book as BookModel } from '../services/books.services';
 import { Collection } from '../dtos/collection.dtos';
-import { BookType } from '../dtos/book.dtos'; // ✅ Import the new Type
+import { BookType } from '../dtos/book.dtos';
 
 @Component({
   selector: 'app-add-book-modal',
@@ -18,20 +18,26 @@ import { BookType } from '../dtos/book.dtos'; // ✅ Import the new Type
 export class AddBookModal {
   private booksService = inject(BooksService);
 
-  // Inputs
+  // Inputs & Outputs
   isOpen = input.required<boolean>();
   collections = input.required<Collection[]>();
-  book = input<Book | null>(null);
-
-  // Outputs
+  book = input<BookModel | null>(null);
   closeModal = output<void>();
   bookAdded = output<void>();
-  bookUpdated = output<Book>();
+  bookUpdated = output<BookModel>();
 
   // Icons
   XIcon = X;
   UploadIcon = UploadIcon;
   InfoIcon = Info;
+  // Tab Icons
+  GeneralIcon = Book;
+  MetadataIcon = Layers;
+  FileIcon = FileText;
+
+  // Tabs
+  tabs = ['General', 'Metadata', 'File'] as const;
+  activeTab = signal<(typeof this.tabs)[number]>('General');
 
   // Computed State
   isEditMode = computed(() => !!this.book());
@@ -39,27 +45,20 @@ export class AddBookModal {
 
   // Form State
   form = {
-    // ✅ Polymorphic Discriminator
     type: 'physical' as BookType,
-
     title: '',
     subtitle: '' as string | null,
     author: '' as string | null,
+    translator: '' as string | null, // <--- NEW FIELD
     description: '' as string | null,
 
-    // ✅ Specific IDs
     isbn: '' as string | null,
-    asin: '' as string | null, // NEW: For Audiobooks
-
-    // ✅ Metadata
+    asin: '' as string | null,
     publisher: '' as string | null,
     publishedDate: '' as string | null,
-    edition: '' as string | null, // NEW: For references
-
-    // ✅ Length (Conditional)
+    edition: '' as string | null,
     pageCount: null as number | null,
-    duration: '' as string | null, // NEW: For Audiobooks
-
+    duration: '' as string | null,
     language: 'en',
     categories: '' as string | null,
     series: '' as string | null,
@@ -67,7 +66,6 @@ export class AddBookModal {
     collectionId: null as string | null,
   };
 
-  // Upload State
   selectedFile: File | null = null;
   selectedCover: File | null = null;
   uploadProgress = signal<number | null>(null);
@@ -86,24 +84,25 @@ export class AddBookModal {
     });
   }
 
-  fillForm(b: Book) {
+  setTab(tab: (typeof this.tabs)[number]) {
+    this.activeTab.set(tab);
+  }
+
+  fillForm(b: BookModel) {
     this.form = {
-      type: b.type || 'physical', // Default to physical for legacy records
+      type: b.type || 'physical',
       title: b.title,
       subtitle: b.subtitle || '',
       author: b.author,
+      translator: b.translator || '', // <--- Map NEW FIELD
       description: b.description || '',
-
       isbn: b.isbn || '',
-      asin: b.asin || '', // ✅ Map new field
-
+      asin: b.asin || '',
       publisher: b.publisher || '',
       publishedDate: b.publishedDate || '',
-      edition: b.edition || '', // ✅ Map new field
-
+      edition: b.edition || '',
       pageCount: b.pageCount || null,
-      duration: b.duration || '', // ✅ Map new field
-
+      duration: b.duration || '',
       language: b.language || 'en',
       categories: b.categories || '',
       series: b.series || '',
@@ -112,26 +111,24 @@ export class AddBookModal {
     };
     this.selectedFile = null;
     this.selectedCover = null;
+    this.activeTab.set('General'); // Reset to first tab
   }
 
   resetForm(): void {
     this.form = {
-      type: 'physical', // Reset to default
+      type: 'physical',
       title: '',
       subtitle: null,
       author: null,
+      translator: null, // <--- Reset NEW FIELD
       description: null,
-
       isbn: null,
-      asin: null, // ✅ Reset
-
+      asin: null,
       publisher: null,
       publishedDate: null,
-      edition: null, // ✅ Reset
-
+      edition: null,
       pageCount: null,
-      duration: null, // ✅ Reset
-
+      duration: null,
       language: 'en',
       categories: null,
       series: null,
@@ -142,13 +139,12 @@ export class AddBookModal {
     this.selectedCover = null;
     this.uploadProgress.set(null);
     this.isFetching.set(false);
+    this.activeTab.set('General');
   }
 
-  // --- ISBN Fetching Logic ---
   fetchMetadata(): void {
     const isbn = this.form.isbn?.trim();
     if (!isbn) return;
-
     this.isFetching.set(true);
 
     this.booksService
@@ -167,23 +163,14 @@ export class AddBookModal {
             pageCount: data.pageCount || this.form.pageCount,
             language: this.getFullLanguageName(data.language) || this.form.language,
             categories: data.categories || this.form.categories,
-            // Keep existing fields user might have set
-            isbn: this.form.isbn,
-            collectionId: this.form.collectionId,
-            series: this.form.series,
-            volumeNumber: this.form.volumeNumber,
-            // ✅ Preserve new fields
-            type: this.form.type,
-            asin: this.form.asin,
-            duration: this.form.duration,
-            edition: this.form.edition,
           };
+          // Switch to general tab to show results
+          this.activeTab.set('General');
         },
         error: () => alert('Book details not found.'),
       });
   }
 
-  // --- File Handling ---
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     this.selectedFile = input.files?.[0] ?? null;
@@ -194,57 +181,36 @@ export class AddBookModal {
     this.selectedCover = input.files?.[0] ?? null;
   }
 
-  // --- Main Action ---
   submit(): void {
     if (!this.form.title.trim()) return;
-
-    // Normalize language code before saving
     if (this.form.language) {
       this.form.language = this.getFullLanguageName(this.form.language) || this.form.language;
     }
 
-    if (this.isEditMode()) {
-      this.saveEdit();
-    } else {
-      this.createBook();
-    }
-  }
+    const payload = { ...this.form, publishedDate: this.form.publishedDate || null };
 
-  saveEdit() {
-    const bookId = this.book()!.id;
-    this.booksService
-      .update(bookId, {
-        ...this.form,
-        publishedDate: this.form.publishedDate || null,
-      })
-      .subscribe({
+    if (this.isEditMode()) {
+      this.booksService.update(this.book()!.id, payload).subscribe({
         next: (updated) => {
           this.bookUpdated.emit(updated);
           this.closeModal.emit();
         },
         error: (err) => console.error('Update failed', err),
       });
-  }
-
-  createBook() {
-    this.booksService
-      .create({
-        ...this.form,
-        publishedDate: this.form.publishedDate || null,
-      })
-      .subscribe({
+    } else {
+      this.booksService.create(payload).subscribe({
         next: (createdBook) => {
-          if (this.selectedFile) {
-            this.handleFileUpload(createdBook);
-          } else {
-            this.uploadCoverIfNeeded(createdBook.id);
-          }
+          if (this.selectedFile) this.handleFileUpload(createdBook);
+          else this.uploadCoverIfNeeded(createdBook.id);
         },
         error: (err) => console.error('Creation failed', err),
       });
+    }
   }
 
-  handleFileUpload(createdBook: Book): void {
+  // ... (handleFileUpload, uploadCoverIfNeeded, finishAdd, getFullLanguageName remain largely the same)
+
+  handleFileUpload(createdBook: BookModel): void {
     this.uploadStartTime = performance.now();
     this.booksService.uploadFile(createdBook.id, this.selectedFile!).subscribe({
       next: (event) => {
@@ -253,13 +219,11 @@ export class AddBookModal {
           this.uploadProgress.set(percent);
         }
         if (event.type === HttpEventType.Response) {
-          const MIN_VISIBLE = 1200;
           const elapsed = performance.now() - (this.uploadStartTime ?? 0);
-          const remaining = Math.max(0, MIN_VISIBLE - elapsed);
           setTimeout(() => {
             this.uploadProgress.set(null);
             this.uploadCoverIfNeeded(createdBook.id);
-          }, remaining);
+          }, Math.max(0, 1200 - elapsed));
         }
       },
       error: () => this.uploadProgress.set(null),
@@ -285,16 +249,12 @@ export class AddBookModal {
     this.bookAdded.emit();
   }
 
-  // Helper to convert "en" -> "English"
   private getFullLanguageName(input: string | null): string | null {
     if (!input) return null;
     const clean = input.trim();
-
     if (clean.length > 3) return clean;
-
     try {
-      const displayNames = new Intl.DisplayNames(['en'], { type: 'language' });
-      return displayNames.of(clean) || clean;
+      return new Intl.DisplayNames(['en'], { type: 'language' }).of(clean) || clean;
     } catch (e) {
       return clean;
     }

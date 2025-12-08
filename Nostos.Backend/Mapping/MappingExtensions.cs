@@ -47,6 +47,7 @@ public static class MappingExtensions
             Title: model.Title,
             Subtitle: model.Subtitle,
             Author: model.Author,
+            Translator: model.Translator, // <--- NEW FIELD
             Description: model.Description,
 
             // Polymorphic Fields
@@ -91,7 +92,6 @@ public static class MappingExtensions
                 CreatedAt: model.CreatedAt
             );
 
-    // 👇 FIXED: Removed the recursive Children mapping
     public static CollectionDto ToDto(this CollectionModel model) =>
         new CollectionDto(
             model.Id,
@@ -106,7 +106,6 @@ public static class MappingExtensions
             model.NoteConcepts?.Count ?? 0
         );
 
-    // 👇 FIXED: Removed the recursive Children mapping
     public static WritingDto ToDto(this WritingModel model)
     {
         return new WritingDto(
@@ -158,6 +157,7 @@ public static class MappingExtensions
         model.Title = dto.Title;
         model.Subtitle = dto.Subtitle;
         model.Author = dto.Author;
+        model.Translator = dto.Translator; // <--- NEW FIELD
         model.Description = dto.Description;
         model.Publisher = dto.Publisher;
         model.PublishedDate = dto.PublishedDate;
@@ -211,6 +211,7 @@ public static class MappingExtensions
         if (dto.Title != null) model.Title = dto.Title;
         if (dto.Subtitle != null) model.Subtitle = dto.Subtitle;
         if (dto.Author != null) model.Author = dto.Author;
+        if (dto.Translator != null) model.Translator = dto.Translator; // <--- NEW FIELD
         if (dto.Description != null) model.Description = dto.Description;
         if (dto.Publisher != null) model.Publisher = dto.Publisher;
         if (dto.PublishedDate != null) model.PublishedDate = dto.PublishedDate;

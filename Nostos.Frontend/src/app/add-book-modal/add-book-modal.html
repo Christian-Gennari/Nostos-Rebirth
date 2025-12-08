@@ -8,199 +8,84 @@
       </button>
     </header>
 
+    <div class="modal-tabs">
+      <button
+        class="tab-btn"
+        [class.active]="activeTab() === 'General'"
+        (click)="setTab('General')"
+      >
+        <lucide-icon [img]="GeneralIcon" [size]="16"></lucide-icon> General
+      </button>
+      <button
+        class="tab-btn"
+        [class.active]="activeTab() === 'Metadata'"
+        (click)="setTab('Metadata')"
+      >
+        <lucide-icon [img]="MetadataIcon" [size]="16"></lucide-icon> Details
+      </button>
+      <button class="tab-btn" [class.active]="activeTab() === 'File'" (click)="setTab('File')">
+        <lucide-icon [img]="FileIcon" [size]="16"></lucide-icon> File & ID
+      </button>
+    </div>
+
     <div class="modal-body">
       <form (ngSubmit)="submit()" #bookForm="ngForm">
-        <div class="form-group">
-          <label class="form-label">Book Format</label>
-          <select
-            [(ngModel)]="form.type"
-            name="type"
-            class="select-input input"
-            [disabled]="isEditMode()"
-          >
-            <option value="physical">Physical Book</option>
-            <option value="ebook">E-Book</option>
-            <option value="audiobook">Audiobook</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <div class="input-group-fetch">
-            @if (form.type === 'audiobook') {
-            <input
-              id="asin"
-              class="input"
-              type="text"
-              placeholder="ASIN (e.g. B00...)"
-              [(ngModel)]="form.asin"
-              name="asin"
-            />
-            } @else {
-            <input
-              id="isbn"
-              class="input"
-              type="text"
-              placeholder="e.g., 978-0321765723"
-              [(ngModel)]="form.isbn"
-              name="isbn"
-              (keydown.enter)="$event.preventDefault(); fetchMetadata()"
-            />
-            <button
-              type="button"
-              class="btn btn-secondary btn-fetch"
-              [disabled]="!form.isbn || isFetching()"
-              (click)="fetchMetadata()"
-            >
-              @if (isFetching()) {
-              <span class="dot-loader"></span>
-              } @else { Fetch }
-            </button>
-            }
-          </div>
-          @if (form.type !== 'audiobook') {
-          <p class="form-help-text">Enter ISBN and click Fetch to auto-fill metadata.</p>
-          }
-        </div>
-
-        <hr class="divider" />
-
-        <div class="grid grid-2">
+        @if (activeTab() === 'General') {
+        <div class="tab-content fade-in">
           <div class="form-group">
             <label class="form-label">Title <span class="required">*</span></label>
             <input
               class="input"
               type="text"
-              placeholder="Book Title"
               [(ngModel)]="form.title"
               name="title"
               required
+              placeholder="Book Title"
             />
           </div>
+
           <div class="form-group">
             <label class="form-label">Subtitle</label>
             <input
               class="input"
               type="text"
-              placeholder="Subtitle"
               [(ngModel)]="form.subtitle"
               name="subtitle"
-            />
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Author</label>
-          <input
-            class="input"
-            type="text"
-            placeholder="Author Name"
-            [(ngModel)]="form.author"
-            name="author"
-          />
-        </div>
-
-        <div class="grid grid-3">
-          <div class="form-group">
-            <label class="form-label">Series</label>
-            <input
-              class="input"
-              type="text"
-              placeholder="Series Name"
-              [(ngModel)]="form.series"
-              name="series"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Volume #</label>
-            <input
-              class="input"
-              type="text"
-              placeholder="e.g. 1"
-              [(ngModel)]="form.volumeNumber"
-              name="volumeNumber"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Language</label>
-            <input
-              class="input"
-              type="text"
-              placeholder="en"
-              [(ngModel)]="form.language"
-              name="language"
-            />
-          </div>
-        </div>
-
-        <div class="grid grid-3">
-          <div class="form-group">
-            <label class="form-label">Publisher</label>
-            <input
-              class="input"
-              type="text"
-              placeholder="Publisher"
-              [(ngModel)]="form.publisher"
-              name="publisher"
+              placeholder="Subtitle"
             />
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Edition</label>
-            <input
-              class="input"
-              type="text"
-              placeholder="e.g. 2nd"
-              [(ngModel)]="form.edition"
-              name="edition"
-            />
-          </div>
-
-          <div class="form-group">
-            <div class="label-row">
-              <label class="form-label">Pub. Date</label>
-              <div class="info-tooltip">
-                <lucide-icon [img]="InfoIcon" [size]="14"></lucide-icon>
-                <span class="tooltip-text"> Formats: YYYY, YYYY-MM, or YYYY-MM-DD </span>
-              </div>
+          <div class="grid grid-2">
+            <div class="form-group">
+              <label class="form-label">Author</label>
+              <input
+                class="input"
+                type="text"
+                [(ngModel)]="form.author"
+                name="author"
+                placeholder="Author"
+              />
             </div>
-
-            <input
-              class="input"
-              type="text"
-              [(ngModel)]="form.publishedDate"
-              name="publishedDate"
-              placeholder="e.g. 2025"
-              pattern="^\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?$"
-              #pubDateModel="ngModel"
-            />
-
-            @if (pubDateModel.invalid && (pubDateModel.dirty || pubDateModel.touched)) {
-            <p class="error-text">Invalid format.</p>
-            }
+            <div class="form-group">
+              <label class="form-label">Translator</label>
+              <input
+                class="input"
+                type="text"
+                [(ngModel)]="form.translator"
+                name="translator"
+                placeholder="Translator (Optional)"
+              />
+            </div>
           </div>
-        </div>
 
-        <div class="grid grid-2">
           <div class="form-group">
-            @if (form.type === 'audiobook') {
-            <label class="form-label">Duration</label>
-            <input
-              class="input"
-              type="text"
-              placeholder="e.g. 12h 30m"
-              [(ngModel)]="form.duration"
-              name="duration"
-            />
-            } @else {
-            <label class="form-label">Pages</label>
-            <input
-              class="input"
-              type="number"
-              placeholder="e.g. 450"
-              [(ngModel)]="form.pageCount"
-              name="pageCount"
-            />
-            }
+            <label class="form-label">Description</label>
+            <textarea
+              class="input textarea"
+              rows="5"
+              [(ngModel)]="form.description"
+              name="description"
+            ></textarea>
           </div>
 
           <div class="form-group">
@@ -213,30 +98,158 @@
             </select>
           </div>
         </div>
+        } @if (activeTab() === 'Metadata') {
+        <div class="tab-content fade-in">
+          <div class="grid grid-2">
+            <div class="form-group">
+              <label class="form-label">Series</label>
+              <input
+                class="input"
+                type="text"
+                [(ngModel)]="form.series"
+                name="series"
+                placeholder="Series Name"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Volume #</label>
+              <input
+                class="input"
+                type="text"
+                [(ngModel)]="form.volumeNumber"
+                name="volumeNumber"
+                placeholder="e.g. 1"
+              />
+            </div>
+          </div>
 
-        <div class="form-group">
-          <label class="form-label">Genres</label>
-          <input
-            class="input"
-            type="text"
-            placeholder="Fiction, Sci-Fi..."
-            [(ngModel)]="form.categories"
-            name="categories"
-          />
+          <div class="grid grid-2">
+            <div class="form-group">
+              <label class="form-label">Publisher</label>
+              <input class="input" type="text" [(ngModel)]="form.publisher" name="publisher" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Edition</label>
+              <input
+                class="input"
+                type="text"
+                [(ngModel)]="form.edition"
+                name="edition"
+                placeholder="e.g. 2nd"
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-2">
+            <div class="form-group">
+              <label class="form-label">Published Date</label>
+              <input
+                class="input"
+                type="text"
+                [(ngModel)]="form.publishedDate"
+                name="publishedDate"
+                placeholder="YYYY or YYYY-MM-DD"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Language</label>
+              <input
+                class="input"
+                type="text"
+                [(ngModel)]="form.language"
+                name="language"
+                placeholder="en"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Genres</label>
+            <input
+              class="input"
+              type="text"
+              [(ngModel)]="form.categories"
+              name="categories"
+              placeholder="Fiction, Sci-Fi..."
+            />
+          </div>
         </div>
+        } @if (activeTab() === 'File') {
+        <div class="tab-content fade-in">
+          <div class="form-group">
+            <label class="form-label">Format</label>
+            <select
+              [(ngModel)]="form.type"
+              name="type"
+              class="select-input input"
+              [disabled]="isEditMode()"
+            >
+              <option value="physical">Physical Book</option>
+              <option value="ebook">E-Book</option>
+              <option value="audiobook">Audiobook</option>
+            </select>
+          </div>
 
-        <div class="form-group">
-          <label class="form-label">Description</label>
-          <textarea
-            class="input textarea"
-            rows="4"
-            [(ngModel)]="form.description"
-            name="description"
-          ></textarea>
-        </div>
+          <div class="form-group">
+            <label class="form-label"
+              >{{ form.type === 'audiobook' ? 'ASIN' : 'ISBN' }} (Fetchable)</label
+            >
+            <div class="input-group-fetch">
+              @if (form.type === 'audiobook') {
+              <input
+                class="input"
+                type="text"
+                [(ngModel)]="form.asin"
+                name="asin"
+                placeholder="ASIN (e.g. B00...)"
+              />
+              } @else {
+              <input
+                class="input"
+                type="text"
+                [(ngModel)]="form.isbn"
+                name="isbn"
+                placeholder="ISBN"
+                (keydown.enter)="$event.preventDefault(); fetchMetadata()"
+              />
+              <button
+                type="button"
+                class="btn btn-secondary btn-fetch"
+                [disabled]="!form.isbn || isFetching()"
+                (click)="fetchMetadata()"
+              >
+                {{ isFetching() ? '...' : 'Fetch' }}
+              </button>
+              }
+            </div>
+          </div>
 
-        @if (!isEditMode()) {
-        <div class="grid grid-2">
+          <div class="form-group">
+            <label class="form-label">{{
+              form.type === 'audiobook' ? 'Duration' : 'Page Count'
+            }}</label>
+            @if (form.type === 'audiobook') {
+            <input
+              class="input"
+              type="text"
+              [(ngModel)]="form.duration"
+              name="duration"
+              placeholder="e.g. 12h 30m"
+            />
+            } @else {
+            <input
+              class="input"
+              type="number"
+              [(ngModel)]="form.pageCount"
+              name="pageCount"
+              placeholder="e.g. 450"
+            />
+            }
+          </div>
+
+          <hr class="divider" />
+
+          @if (!isEditMode()) {
           <div class="form-group">
             <label class="form-label">Book File</label>
             <input
@@ -245,11 +258,6 @@
               (change)="onFileSelected($event)"
               accept=".epub,.pdf,.txt,.mobi,.mp3,.m4a,.m4b"
             />
-            @if (selectedFile) {
-            <p class="file-status-text">
-              Selected: <strong>{{ selectedFile.name }}</strong>
-            </p>
-            }
           </div>
           <div class="form-group">
             <label class="form-label">Cover Image</label>
@@ -259,20 +267,12 @@
               accept="image/*"
               (change)="onCoverSelected($event)"
             />
-            @if (selectedCover) {
-            <p class="file-status-text">
-              Selected: <strong>{{ selectedCover.name }}</strong>
-            </p>
-            }
           </div>
+          } @if (uploadProgress() !== null) {
+          <div class="upload-status">Uploading... {{ uploadProgress() }}%</div>
+          }
         </div>
-
-        @if (uploadProgress() !== null) {
-        <div class="upload-status">
-          <lucide-icon [img]="UploadIcon" [size]="16" class="animate-pulse"></lucide-icon>
-          Uploading... <strong>{{ uploadProgress() }}%</strong>
-        </div>
-        } }
+        }
 
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" (click)="closeModal.emit()">

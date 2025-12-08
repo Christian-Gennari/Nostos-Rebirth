@@ -8,6 +8,7 @@ public record BookDto(
     string Title,
     string? Subtitle,
     string? Author,
+    string? Translator, // <--- NEW
     string? Description,
     string? Isbn,
     string? Asin,
@@ -27,8 +28,6 @@ public record BookDto(
     Guid? CollectionId,
     string? LastLocation,
     int ProgressPercent,
-
-    // NEW FIELDS
     int Rating,
     bool IsFavorite,
     DateTime? FinishedAt
@@ -39,6 +38,7 @@ public record CreateBookDto(
     string Title,
     string? Subtitle,
     string? Author,
+    string? Translator, // <--- NEW
     string? Description,
     string? Isbn,
     string? Asin,
@@ -52,18 +52,16 @@ public record CreateBookDto(
     string? Series,
     string? VolumeNumber,
     Guid? CollectionId,
-
-    // NEW FIELDS (Optional on create)
     int Rating = 0,
     bool IsFavorite = false,
     DateTime? FinishedAt = null
 );
 
 public record UpdateBookDto(
-    // Make Title Nullable to allow partial updates (PATCH behavior)
     string? Title,
     string? Subtitle,
     string? Author,
+    string? Translator, // <--- NEW
     string? Description,
     string? Isbn,
     string? Asin,
@@ -77,12 +75,10 @@ public record UpdateBookDto(
     string? Series,
     string? VolumeNumber,
     Guid? CollectionId,
-
-    // NEW FIELDS
     int? Rating,
     bool? IsFavorite,
     DateTime? FinishedAt,
-    bool? IsFinished // <--- NEW: Explicit toggle flag
+    bool? IsFinished
 );
 
 public record UpdateProgressDto(string Location, int Percentage);

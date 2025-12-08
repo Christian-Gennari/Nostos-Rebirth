@@ -26,17 +26,18 @@ public class BookLookupService(IHttpClientFactory httpClientFactory)
     // 3. Merge Logic: Start with OpenLibrary (Priority 1), fill gaps with Google Books (Priority 2)
     // If OL is null, we just use GB.
     var baseData = olData ?? new CreateBookDto(
-        Type: "physical", // <--- NEW: Default to physical for ISBN lookups
+        Type: "physical",
         Title: "",
         Subtitle: null,
         Author: null,
+        Translator: null, // <--- FIXED: Added missing argument
         Description: null,
         Isbn: isbn,
-        Asin: null,       // <--- NEW
-        Duration: null,   // <--- NEW
+        Asin: null,
+        Duration: null,
         Publisher: null,
         PublishedDate: null,
-        Edition: null,    // <--- NEW
+        Edition: null,
         PageCount: null,
         Language: null,
         Categories: null,
@@ -53,6 +54,7 @@ public class BookLookupService(IHttpClientFactory httpClientFactory)
       Title = !string.IsNullOrWhiteSpace(baseData.Title) ? baseData.Title : gbData.Title,
       Subtitle = !string.IsNullOrWhiteSpace(baseData.Subtitle) ? baseData.Subtitle : gbData.Subtitle,
       Author = !string.IsNullOrWhiteSpace(baseData.Author) ? baseData.Author : gbData.Author,
+      Translator = !string.IsNullOrWhiteSpace(baseData.Translator) ? baseData.Translator : gbData.Translator, // Optional: Merge translator if you implement fetching later
       Description = !string.IsNullOrWhiteSpace(baseData.Description) ? baseData.Description : gbData.Description,
       Publisher = !string.IsNullOrWhiteSpace(baseData.Publisher) ? baseData.Publisher : gbData.Publisher,
       PublishedDate = !string.IsNullOrWhiteSpace(baseData.PublishedDate) ? baseData.PublishedDate : gbData.PublishedDate,
@@ -76,17 +78,18 @@ public class BookLookupService(IHttpClientFactory httpClientFactory)
       if (item is null) return null;
 
       return new CreateBookDto(
-          Type: "physical", // <--- NEW
+          Type: "physical",
           Title: item["title"]?.ToString() ?? "",
           Subtitle: item["subtitle"]?.ToString(),
           Author: ParseArray(item["authors"]),
+          Translator: null, // <--- FIXED: Added missing argument
           Description: item["description"]?.ToString(),
           Isbn: isbn,
-          Asin: null,      // <--- NEW
-          Duration: null,  // <--- NEW
+          Asin: null,
+          Duration: null,
           Publisher: item["publisher"]?.ToString(),
           PublishedDate: item["publishedDate"]?.ToString(),
-          Edition: null,   // <--- NEW
+          Edition: null,
           PageCount: item["pageCount"]?.GetValue<int>(),
           Language: item["language"]?.ToString(),
           Categories: ParseArray(item["categories"]),
@@ -115,19 +118,20 @@ public class BookLookupService(IHttpClientFactory httpClientFactory)
       var authors = authorsList != null ? string.Join(", ", authorsList!) : null;
 
       return new CreateBookDto(
-          Type: "physical", // <--- NEW
+          Type: "physical",
           Title: item["title"]?.ToString() ?? "",
           Subtitle: item["subtitle"]?.ToString(),
           Author: authors,
-          Description: null, // OL descriptions are complex (often objects), keeping simple for now
+          Translator: null, // <--- FIXED: Added missing argument
+          Description: null,
           Isbn: isbn,
-          Asin: null,      // <--- NEW
-          Duration: null,  // <--- NEW
+          Asin: null,
+          Duration: null,
           Publisher: item["publishers"]?[0]?["name"]?.ToString(),
           PublishedDate: item["publish_date"]?.ToString(),
-          Edition: null,   // <--- NEW
+          Edition: null,
           PageCount: item["number_of_pages"]?.GetValue<int>(),
-          Language: null, // OL doesn't always provide simple language codes here
+          Language: null,
           Categories: null,
           Series: null,
           VolumeNumber: null,

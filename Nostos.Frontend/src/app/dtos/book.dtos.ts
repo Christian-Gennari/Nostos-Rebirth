@@ -6,6 +6,7 @@ export interface Book {
   title: string;
   subtitle: string | null;
   author: string | null;
+  translator: string | null; // <--- NEW
   description: string | null;
 
   // NEW: Polymorphic Fields
@@ -42,6 +43,7 @@ export interface CreateBookDto {
   title: string;
   subtitle: string | null;
   author: string | null;
+  translator: string | null; // <--- NEW
   description: string | null;
 
   edition: string | null;
@@ -63,6 +65,7 @@ export interface UpdateBookDto {
   title?: string;
   subtitle?: string | null;
   author?: string | null;
+  translator: string | null; // <--- NEW
   description?: string | null;
 
   edition?: string | null;
