@@ -34,18 +34,13 @@
     <p class="note-meta-placeholder">No additional comment</p>
     } @if (showSource && note.bookTitle) {
     <div class="source-section">
-      <div class="source-details">
-        <span class="source-label">Source:</span>
-        <span class="source-title" [title]="note.bookTitle">{{ note.bookTitle }}</span>
-      </div>
+      <div class="source-details"></div>
       <a
         [routerLink]="['/library', note.bookId]"
         [queryParams]="{ cfi: note.cfiRange }"
         class="source-link"
         (click)="$event.stopPropagation()"
       >
-        <span>Open Book</span>
-        <lucide-icon [img]="Icons.ArrowRight" [size]="14"></lucide-icon>
       </a>
     </div>
     }
