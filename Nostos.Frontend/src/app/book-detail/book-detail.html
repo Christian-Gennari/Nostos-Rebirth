@@ -118,12 +118,16 @@
               <div class="vertical-divider"></div>
 
               <button
-                class="status-pill"
-                [class.finished]="book()?.finishedAt"
+                class="btn-icon finish-toggle-btn"
+                [class.active]="book()?.finishedAt"
                 (click)="toggleFinished()"
+                [title]="book()?.finishedAt ? 'Mark as Unread' : 'Mark as Read'"
               >
-                <lucide-icon [img]="CheckCircleIcon" [size]="16"></lucide-icon>
-                <span>{{ book()?.finishedAt ? 'Read' : 'Mark as Read' }}</span>
+                <lucide-icon
+                  [img]="CheckCircleIcon"
+                  [size]="20"
+                  [class.filled]="book()?.finishedAt"
+                ></lucide-icon>
               </button>
             </div>
 

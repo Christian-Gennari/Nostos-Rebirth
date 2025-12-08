@@ -58,6 +58,9 @@ export class StarRatingComponent {
 
   rate(val: number) {
     if (this.readonly) return;
-    this.ratingChange.emit(val);
+
+    // Logic change: If the clicked star value is the current rating, set it to 0 (reset). Otherwise, set it to the new value.
+    const newRating = this.rating === val ? 0 : val;
+    this.ratingChange.emit(newRating);
   }
 }
