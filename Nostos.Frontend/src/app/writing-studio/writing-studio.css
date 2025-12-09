@@ -453,5 +453,5 @@ app-markdown-editor {
 
 .sidebar-header-brain-toggle,
 .sidebar-header-toggle {
-  color: var(--bg-surface);
+  color: var(--color-text-muted);
 }

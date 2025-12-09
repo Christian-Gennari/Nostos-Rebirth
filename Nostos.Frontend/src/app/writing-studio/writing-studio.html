@@ -63,6 +63,7 @@
           <lucide-icon
             [img]="showFileSidebar() ? Icons.PanelLeftClose : Icons.PanelLeftOpen"
             [size]="20"
+            strokeWidth="1.5"
           ></lucide-icon>
         </button>
         }
@@ -75,7 +76,7 @@
           (click)="showBrainSidebar.set(!showBrainSidebar())"
           title="Toggle Brain"
         >
-          <lucide-icon [img]="Icons.BrainCircuit" [size]="20"></lucide-icon>
+          <lucide-icon [img]="Icons.BrainCircuit" [size]="20" strokeWidth="1.5"></lucide-icon>
         </button>
         }
       </div>
