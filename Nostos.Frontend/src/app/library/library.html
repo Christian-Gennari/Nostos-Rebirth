@@ -61,6 +61,20 @@
         <div class="table-row" [routerLink]="['/library', book.id]">
           <div class="col title">
             <button
+              class="finished-btn-list"
+              [class.active]="book.finishedAt"
+              (click)="toggleFinished(book, $event)"
+              [title]="book.finishedAt ? 'Mark as Unread' : 'Mark as Read'"
+            >
+              <lucide-icon
+                [img]="CheckCircleIcon"
+                [size]="16"
+                [class.filled-check]="book.finishedAt"
+              >
+              </lucide-icon>
+            </button>
+
+            <button
               class="fav-btn-list"
               [class.active]="book.isFavorite"
               (click)="toggleFavorite(book, $event)"
@@ -124,6 +138,20 @@
             } @else {
             <lucide-icon [img]="BookIcon" [size]="48" strokeWidth="1"></lucide-icon>
             }
+
+            <button
+              class="finished-btn-grid"
+              [class.active]="book.finishedAt"
+              (click)="toggleFinished(book, $event)"
+              [title]="book.finishedAt ? 'Mark as Unread' : 'Mark as Read'"
+            >
+              <lucide-icon
+                [img]="CheckCircleIcon"
+                [size]="18"
+                [class.filled-check]="book.finishedAt"
+              >
+              </lucide-icon>
+            </button>
 
             <button
               class="fav-btn-grid"

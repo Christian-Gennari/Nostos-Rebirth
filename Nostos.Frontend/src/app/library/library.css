@@ -99,23 +99,35 @@
   align-items: center;
 }
 
-/* List View Favorite Button */
-.fav-btn-list {
+/* List View Action Buttons (Common) */
+.fav-btn-list,
+.finished-btn-list {
   background: none;
   border: none;
   padding: 0;
-  margin-right: 0.75rem;
+  margin-right: 0.5rem;
   cursor: pointer;
   display: inline-flex;
   vertical-align: middle;
   color: #d1d5db;
   transition: all 0.2s ease;
 }
+
+/* Favorite Specifics */
 .fav-btn-list.active,
 .table-row:hover .fav-btn-list:hover {
   color: #ef4444;
 }
 .table-row:hover .fav-btn-list:not(.active) {
+  color: #9ca3af;
+}
+
+/* Finished Specifics */
+.finished-btn-list.active,
+.table-row:hover .finished-btn-list:hover {
+  color: #22c55e; /* Green for success/finished */
+}
+.table-row:hover .finished-btn-list:not(.active) {
   color: #9ca3af;
 }
 
@@ -169,11 +181,11 @@
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
 }
 
-/* Grid View Favorite Button */
-.fav-btn-grid {
+/* Grid View Overlay Buttons (Common) */
+.fav-btn-grid,
+.finished-btn-grid {
   position: absolute;
   top: 8px;
-  right: 8px;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(4px);
   border: none;
@@ -190,9 +202,17 @@
   transition: all 0.2s ease;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
+
 .book-card:hover .fav-btn-grid,
-.fav-btn-grid.active {
+.book-card:hover .finished-btn-grid,
+.fav-btn-grid.active,
+.finished-btn-grid.active {
   opacity: 1;
+}
+
+/* Favorite Specifics Grid */
+.fav-btn-grid {
+  right: 8px;
 }
 .fav-btn-grid.active {
   color: #ef4444;
@@ -203,7 +223,21 @@
   color: #ef4444;
 }
 
-.filled-heart {
+/* Finished Specifics Grid */
+.finished-btn-grid {
+  left: 8px; /* Positioned Top Left */
+}
+.finished-btn-grid.active {
+  color: #22c55e;
+  background: white;
+}
+.finished-btn-grid:hover {
+  transform: scale(1.1);
+  color: #22c55e;
+}
+
+.filled-heart,
+.filled-check {
   fill: currentColor;
 }
 
@@ -270,7 +304,6 @@
   margin-top: 0.35rem;
   opacity: 0.5;
   transition: opacity 0.2s;
-  /* min-height removed to allow complete collapse */
 }
 .book-card:hover .meta-rating {
   opacity: 1;

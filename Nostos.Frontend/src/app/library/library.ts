@@ -17,6 +17,7 @@ import {
   Edit2,
   Book as BookIcon,
   Heart,
+  CheckCircle, // <--- NEW IMPORT
 } from 'lucide-angular';
 
 @Component({
@@ -45,6 +46,7 @@ export class Library implements OnInit {
   Edit2Icon = Edit2;
   BookIcon = BookIcon;
   HeartIcon = Heart;
+  CheckCircleIcon = CheckCircle; // <--- NEW ICON
 
   rawBooks = signal<Book[]>([]);
   collections = signal<Collection[]>([]);
@@ -129,7 +131,7 @@ export class Library implements OnInit {
     });
   }
 
-  // === NEW FEATURES METHODS ===
+  // === FEATURES METHODS ===
 
   toggleFavorite(book: Book, event: Event): void {
     event.stopPropagation();
@@ -144,6 +146,34 @@ export class Library implements OnInit {
         // Revert on failure
         book.isFavorite = !newStatus;
         alert('Failed to update favorite status');
+      },
+    });
+  }
+
+  toggleFinished(book: Book, event: Event): void {
+    event.stopPropagation();
+
+    const isCurrentlyFinished = !!book.finishedAt;
+    const newIsFinished = !isCurrentlyFinished;
+
+    // Store old values for revert
+    const oldFinishedAt = book.finishedAt;
+    const oldProgress = book.progressPercent;
+
+    // Optimistic UI update
+    book.finishedAt = newIsFinished ? new Date().toISOString() : null;
+    book.progressPercent = newIsFinished ? 100 : book.progressPercent;
+
+    const updatePayload: any = {
+      isFinished: newIsFinished,
+    };
+
+    this.booksService.update(book.id, updatePayload).subscribe({
+      error: () => {
+        // Revert on failure
+        book.finishedAt = oldFinishedAt;
+        book.progressPercent = oldProgress;
+        alert('Failed to update finished status');
       },
     });
   }
