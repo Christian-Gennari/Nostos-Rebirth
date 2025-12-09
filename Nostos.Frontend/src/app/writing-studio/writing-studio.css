@@ -353,9 +353,10 @@
     max-width: 740px;
     background: var(--bg-surface);
     border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
     min-height: calc(100vh - 120px); /* Visual min-height only */
     margin-bottom: 2rem;
+    margin-top: 0.7rem;
   }
 
   .meta-controls {

@@ -2,7 +2,6 @@ import { Component, input, output, effect, OnDestroy, OnInit } from '@angular/co
 import { FormsModule } from '@angular/forms';
 import TurndownService from 'turndown';
 import { marked } from 'marked';
-import { skipUntil } from 'rxjs';
 
 // Import TinyMCE as a global type reference
 declare var tinymce: any;
@@ -16,21 +15,61 @@ declare var tinymce: any;
     `
       :host {
         display: block;
-        min-height: 100%;
+        height: 100%;
         position: relative;
       }
-      /* Remove the blue focus outline (The "Shell" glow) */
+
+      /* --- UI Overrides (The Shell) --- */
+
+      /* Remove the default heavy border and shadow */
       ::ng-deep .tox-tinymce {
         border: none !important;
         box-shadow: none !important;
+        background: transparent !important;
       }
-      /* Optional: Make the toolbar sticky at the top if the content gets long */
+
+      /* Style the Toolbar to match the brand (Clean White) */
+      ::ng-deep .tox-editor-header {
+        background-color: #ffffff !important; /* var(--bg-surface) */
+        border-bottom: 1px solid #e5e5e5 !important; /* var(--border-color) */
+        box-shadow: none !important;
+        padding: 0.5rem !important;
+        z-index: 10;
+      }
+
+      /* Make the toolbar sticky if needed, or let the parent handle it */
       ::ng-deep .tox-editor-header {
         position: sticky !important;
         top: 0;
-        z-index: 100;
-        background: #fff;
-        border-bottom: 1px solid #f0f0f0 !important;
+      }
+
+      /* Toolbar Buttons - Soft interaction states */
+      ::ng-deep .tox .tox-tbtn {
+        border-radius: 4px !important; /* var(--radius-sm) */
+        color: #4a4a4a !important; /* var(--color-text-muted) */
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+
+      ::ng-deep .tox .tox-tbtn:hover {
+        background: #f3f3f3 !important; /* var(--bg-hover) */
+        color: #111111 !important; /* var(--color-primary) */
+      }
+
+      ::ng-deep .tox .tox-tbtn--enabled,
+      ::ng-deep .tox .tox-tbtn--enabled:hover {
+        background: #eef2ff !important; /* Very faint accent tint */
+        color: #60a5fa !important; /* var(--color-accent) */
+      }
+
+      /* Status bar (bottom) - make it subtle */
+      ::ng-deep .tox .tox-statusbar {
+        border-top: 1px solid #e5e5e5 !important;
+        background-color: #fafafa !important; /* var(--bg-body) */
+        color: #888888 !important;
+      }
+
+      ::ng-deep .tox .tox-statusbar__path-item {
+        color: #888888 !important;
       }
     `,
   ],
@@ -42,7 +81,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   htmlContent = '';
   private editorId = 'markdown-tinymce-editor';
 
-  // Turndown converts HTML back to Markdown
   private turndownService = new TurndownService({
     headingStyle: 'atx',
     codeBlockStyle: 'fenced',
@@ -55,14 +93,16 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     license_key: 'gpl',
 
     // --- 1. APPEARANCE & LAYOUT ---
-    highlight_on_focus: false, // Removes the blue glow
-    min_height: 500, // Starts at a decent page size
-    menubar: true, // Keep it clean (hide File/Edit/View)
-    statusbar: true, // Hide the bottom bar (path/wordcount)
-    resize: false, // Autoresize handles this
+    highlight_on_focus: false, // Essential: Removes the blue "active" outline
+    min_height: 500,
+    menubar: true, // Minimalist: Hide the File/Edit/View menu
+    statusbar: true,
+    resize: false, // Handled by auto-resize
+    branding: false,
+    promotion: false,
+    skin: 'oxide', // Use standard skin, we override via CSS above
 
-    // --- 2. PLUGINS (The "Everything" List) ---
-    // Added: table, advlist (for fancy lists), searchreplace, visualblocks
+    // --- 2. PLUGINS ---
     plugins: [
       'lists',
       'link',
@@ -75,100 +115,121 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       'searchreplace',
       'visualblocks',
       'directionality',
+      'quickbars', // Adds the floating toolbar on text selection
     ].join(' '),
 
-    skin: 'oxide',
-    promotion: false,
-    branding: false,
-    // --- 3. TOOLBAR (Word-Style Grouping) ---
-    // | separates groups.
-    // 'blocks' restores the Heading dropdown.
+    // --- 3. TOOLBAR (Cleaned up) ---
     toolbar:
       'undo redo | ' +
       'blocks | ' +
-      'bold italic underline strikethrough | ' +
-      'alignleft aligncenter alignright alignjustify | ' +
-      'bullist numlist outdent indent | ' +
-      'link image table | ' +
-      'removeformat code searchreplace',
+      'bold italic underline | ' +
+      'bullist numlist | ' +
+      'link image | ' +
+      'removeformat',
 
-    // Configure what appears in the "Blocks" dropdown
+    // Floating toolbar for quick formatting (Very "Medium-like")
+    quickbars_selection_toolbar: 'bold italic | h2 h3 | blockquote',
+    quickbars_insert_toolbar: false, // Disable the slash menu if you don't want it
+
     block_formats:
       'Paragraph=p; Heading 1=h1; Heading 2=h2; Heading 3=h3; Quote=blockquote; Code=pre',
 
-    // --- 4. CONTENT STYLING (The "Paper" Look) ---
+    // --- 4. CONTENT STYLING (The "Paper" Internal Look) ---
     content_style: `
+      /* Import Brand Fonts */
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:ital,wght@0,400;0,700;1,400&display=swap');
 
-      body {
-        font-family: 'Lora', serif;
-        font-size: 18px; /* Slightly larger for modern feel */
-        line-height: 1.75;
-        color: #1a1a1a;
-        margin: 2rem 3rem; /* Generous margins like a real doc */
-        background-color: #fff;
-        overflow-x: hidden; /* Prevent horizontal scroll */
+      /* Define Brand Variables inside the iframe scope */
+      :root {
+        --bg-body: #fafafa;
+        --bg-surface: #ffffff;
+        --color-primary: #111111;
+        --color-text-main: #1a1a1a;
+        --color-text-muted: #4a4a4a;
+        --color-accent: #60a5fa;
+        --border-color: #e5e5e5;
       }
 
-      /* Clean Headings */
+      body {
+        font-family: 'Lora', serif; /* Primary writing font */
+        font-size: 18px;
+        line-height: 1.8;
+        color: var(--color-text-main);
+        margin: 2rem 3rem;
+        background-color: var(--bg-surface);
+        overflow-x: hidden;
+      }
+
+      /* Headings - Sans-serif for structure */
       h1, h2, h3, h4, h5, h6 {
         font-family: 'Inter', sans-serif;
         font-weight: 600;
-        color: #111;
+        color: var(--color-primary);
         margin-top: 1.5em;
         margin-bottom: 0.75em;
         letter-spacing: -0.02em;
       }
 
-      /* Clean Links */
-      a { color: #2563eb; text-decoration: underline; cursor: pointer; }
+      /* Links using brand accent */
+      a {
+        color: var(--color-accent);
+        text-decoration: none;
+        border-bottom: 1px solid rgba(96, 165, 250, 0.3);
+        transition: border-color 0.2s;
+        cursor: pointer;
+      }
+      a:hover {
+        border-bottom-color: var(--color-accent);
+      }
 
-      /* Blockquotes like modern editorial */
+      /* Quotes */
       blockquote {
-        border-left: 3px solid #e5e7eb;
+        border-left: 3px solid var(--border-color);
         margin-left: 0;
         padding-left: 1.25rem;
-        color: #4b5563;
+        color: var(--color-text-muted);
         font-style: italic;
       }
 
-      /* Tables (Clean grid) */
+      /* Code */
+      pre {
+        background: var(--bg-body);
+        padding: 1rem;
+        border-radius: 6px;
+        font-family: monospace;
+        font-size: 0.9em;
+        color: var(--color-text-muted);
+        border: 1px solid var(--border-color);
+      }
+
+      /* Tables */
       table {
         border-collapse: collapse;
         width: 100%;
         margin: 1.5rem 0;
       }
       table td, table th {
-        border: 1px solid #e5e7eb;
+        border: 1px solid var(--border-color);
         padding: 0.75rem;
       }
       table th {
-        background-color: #f9fafb;
+        background-color: var(--bg-body);
         font-weight: 600;
         text-align: left;
       }
 
-      /* Code Blocks */
-      pre {
-        background: #f3f4f6;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        font-family: monospace;
-        font-size: 0.9em;
-        color: #374151;
+      /* Placeholder override if needed */
+      .mce-content-body[data-mce-placeholder]:not(.mce-visual-blocks)::before {
+        color: #999;
+        font-style: italic;
       }
-
-      /* Remove outline on focus */
-      .mce-content-body:not([dir=rtl][data-mce-placeholder]) {
-        outline: none !important;
-      }
-
     `,
 
     setup: (editor: any) => {
       this.editor = editor;
       editor.on('Change Undo Redo blur', () => this.onHtmlChange(editor.getContent()));
       editor.on('init', () => {
+        // Fade in effect
         editor.getBody().style.opacity = '1';
       });
     },
