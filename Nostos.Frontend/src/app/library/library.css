@@ -5,33 +5,32 @@
   display: block;
   width: 100%;
   height: 100%;
-  overflow: hidden; /* Prevent component from spilling out of workspace */
-  /* Define the default sidebar width as a CSS variable */
+  overflow: hidden;
   --sidebar-width: 301px;
 }
 
-/* 2. Collapse State Class: Applied by the HTML binding */
-/* IMPORTANT: Redefine the variable when the sidebar is collapsed */
+/* 2. Collapse State Class */
 .layout-wrapper.sidebar-collapsed {
-  --sidebar-width: 72px; /* Set the new collapsed width */
+  --sidebar-width: 72px;
 }
 
 /* 3. Flex container for Sidebar + Content */
 .layout-wrapper {
   display: flex;
   width: 100%;
-  height: 100%; /* Important: Fill the :host height */
+  height: 100%;
   background-color: #fff;
+  position: relative; /* Needed for absolute positioning context on mobile */
 }
 
-/* 4. Sidebar Panel */
+/* 4. Sidebar Panel Component */
 app-sidebar-collections {
-  /* Use the variable for sizing and apply smooth transition */
+  /* Desktop: Participate in Flex layout */
   width: var(--sidebar-width);
   flex-basis: var(--sidebar-width);
   flex-shrink: 0;
 
-  /* UPDATED: Apply transition ONLY if the .no-transition class is NOT present */
+  /* Transition Logic */
   &:not(.no-transition) {
     transition: width 0.3s ease, flex-basis 0.3s ease;
   }
@@ -40,27 +39,27 @@ app-sidebar-collections {
   overflow-y: auto;
   height: 100%;
   display: block;
+  z-index: 20; /* Ensure sidebar sits above content */
 }
 
-/* 5. NEW: Class to suppress animation on load */
-/* This class must be temporarily applied to the app-sidebar-collections component */
 app-sidebar-collections.no-transition {
   transition: none !important;
 }
 
-/* 6. Right Side Content (Toolbar + Books) */
+/* 5. Right Side Content */
 .library-right-side {
-  flex: 1; /* Take remaining width, automatically filling the void left by the sidebar */
+  flex: 1;
   display: flex;
   flex-direction: column;
-  height: 100%; /* Fill height */
-  overflow-y: auto; /* SCROLLING HAPPENS HERE */
+  height: 100%;
+  overflow-y: auto;
   position: relative;
+  width: 100%; /* Ensure full width */
 }
 
 /* --- TOOLBAR --- */
 .toolbar {
-  position: sticky; /* Sticky works because it's inside the scrollable .library-right-side */
+  position: sticky;
   top: 0;
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(8px);
@@ -68,7 +67,7 @@ app-sidebar-collections.no-transition {
   padding: 1.5rem 3rem;
   border-bottom: 1px solid var(--border-color);
   display: flex;
-  justify-content: space-between;
+  justify-content: space-between; /* Space between Title and Controls */
   align-items: center;
   margin-bottom: 2rem;
 }
@@ -174,7 +173,7 @@ app-sidebar-collections.no-transition {
   align-items: center;
 }
 
-/* List View Action Buttons (Common) */
+/* Buttons (List) */
 .fav-btn-list,
 .finished-btn-list {
   background: none;
@@ -188,7 +187,6 @@ app-sidebar-collections.no-transition {
   transition: all 0.2s ease;
 }
 
-/* Favorite Specifics */
 .fav-btn-list.active,
 .table-row:hover .fav-btn-list:hover {
   color: #ef4444;
@@ -197,10 +195,9 @@ app-sidebar-collections.no-transition {
   color: #9ca3af;
 }
 
-/* Finished Specifics */
 .finished-btn-list.active,
 .table-row:hover .finished-btn-list:hover {
-  color: #22c55e; /* Green for success/finished */
+  color: #22c55e;
 }
 .table-row:hover .finished-btn-list:not(.active) {
   color: #9ca3af;
@@ -225,7 +222,6 @@ app-sidebar-collections.no-transition {
 
 .book-card {
   -webkit-tap-highlight-color: transparent;
-  -webkit-user-select: none;
   user-select: none;
   outline: 0;
   position: relative;
@@ -254,9 +250,6 @@ app-sidebar-collections.no-transition {
   height: 100%;
   object-fit: cover;
   transition: opacity 0.2s;
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  image-rendering: auto;
 }
 
 .book-card:hover .cover-wrapper {
@@ -264,7 +257,7 @@ app-sidebar-collections.no-transition {
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
 }
 
-/* Grid View Overlay Buttons (Common) */
+/* Buttons (Grid) */
 .fav-btn-grid,
 .finished-btn-grid {
   position: absolute;
@@ -293,7 +286,6 @@ app-sidebar-collections.no-transition {
   opacity: 1;
 }
 
-/* Favorite Specifics Grid */
 .fav-btn-grid {
   right: 8px;
 }
@@ -306,7 +298,6 @@ app-sidebar-collections.no-transition {
   color: #ef4444;
 }
 
-/* Finished Specifics Grid */
 .finished-btn-grid {
   left: 8px;
 }
@@ -362,7 +353,6 @@ app-sidebar-collections.no-transition {
 .book-card:hover .action-circle {
   transform: translateY(0);
 }
-
 .action-circle:hover {
   background: var(--color-primary);
   color: #fff;
@@ -370,12 +360,6 @@ app-sidebar-collections.no-transition {
 .action-circle.delete:hover {
   background: var(--color-danger);
   color: #fff;
-}
-
-.edit-actions-row {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
 }
 
 .meta-title {
@@ -390,16 +374,13 @@ app-sidebar-collections.no-transition {
   font-size: 0.85rem;
   color: var(--color-text-muted);
 }
-
 .meta-rating {
   margin-top: 0.35rem;
   opacity: 0.5;
   transition: opacity 0.2s;
 }
 
-/* ---------------------------------------------------------------------- */
-/* --- SKELETON LOADING STYLES (Copied from your Book Detail View) --- */
-/* ---------------------------------------------------------------------- */
+/* --- SKELETON --- */
 @keyframes pulse {
   0%,
   100% {
@@ -425,93 +406,93 @@ app-sidebar-collections.no-transition {
   height: 1.5rem;
   margin-bottom: 0.75rem;
 }
-/* Ensure skeleton lines within the table view match the look of the row content */
 .skeleton-list-view .table-row {
-  /* This prevents the entire row from pulsing, only the contained lines pulse */
   background: transparent !important;
   box-shadow: none !important;
   cursor: default;
-  align-items: center;
-}
-.skeleton-list-view .table-row .col div {
-  display: block;
 }
 .skeleton-list-view .table-row .col.rating .skeleton-line {
-  /* Make the rating placeholder smaller */
   height: 10px;
   margin-bottom: 0;
 }
 .skeleton-list-view .table-row .col .skeleton-line {
-  /* Adjust line height for table rows */
   height: 1rem;
   margin-bottom: 0;
 }
-/* ---------------------------------------------------------------------- */
 
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-@keyframes slideOut {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
+/* --- MOBILE BACKDROP --- */
+/* This is controlled by the library HTML based on sidebar state */
+.mobile-backdrop {
+  display: none;
 }
 
 /* --- MOBILE RESPONSIVE --- */
 @media (max-width: 768px) {
+  /* 1. Reset wrapper to block */
   .layout-wrapper {
-    flex-direction: column;
-    overflow: auto; /* Revert to standard scroll on mobile */
+    display: block;
+    overflow: hidden;
   }
 
+  /* 2. IMPORTANT FIX: Take sidebar out of flow so it doesn't push content */
   app-sidebar-collections {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid var(--border-color);
-    height: auto;
-    max-height: 40vh; /* Don't take whole screen */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0; /* Effectively hide the container's footprint */
+    height: 100%;
+    z-index: 50;
+    /* The internal .sidebar class handles the actual visual width and fixed positioning */
   }
 
+  /* 3. Content area takes full width */
   .library-right-side {
-    overflow: visible; /* Let body scroll handle it on mobile */
-    height: auto;
+    width: 100%;
+    height: 100%;
+    margin-left: 0;
+    overflow-y: auto;
   }
 
+  /* 4. Mobile Backdrop */
+  .mobile-backdrop {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 40; /* Behind sidebar (z-50), above content */
+    backdrop-filter: blur(2px);
+  }
+
+  /* 5. Toolbar Tweaks */
+  .toolbar {
+    padding: 1rem 1.5rem;
+  }
+
+  .btn-text {
+    display: none;
+  }
+  #library-title {
+    font-size: 1.25rem;
+  }
+
+  /* 6. List/Table Tweaks */
   .table-view {
     --table-grid-cols: 1fr 60px;
   }
-
   #format-header,
   .col.format {
     display: flex;
     justify-content: right;
   }
-
   .table-row {
     border-bottom: 1px dotted var(--border-color);
-    padding: 1.5rem 1rem;
+    padding: 1rem;
   }
 
-  #library-title {
-    display: none;
-  }
-
-  .toolbar {
-    justify-content: end;
-  }
-
+  /* Hide columns */
   #actions-header,
   #author-header,
   #date-header,

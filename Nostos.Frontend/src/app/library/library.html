@@ -1,4 +1,8 @@
 <main class="layout-wrapper" [class.sidebar-collapsed]="!sidebar.expanded()">
+  @if (sidebar.expanded()) {
+  <div class="mobile-backdrop" (click)="sidebar.toggle()"></div>
+  }
+
   <app-sidebar-collections
     class="sidebar-panel"
     #sidebar
@@ -29,7 +33,7 @@
 
         <button class="btn btn-primary" (click)="openAddModal()">
           <lucide-icon [img]="PlusIcon" [size]="18"></lucide-icon>
-          <span>Add Book</span>
+          <span class="btn-text">Add Book</span>
         </button>
       </div>
     </header>

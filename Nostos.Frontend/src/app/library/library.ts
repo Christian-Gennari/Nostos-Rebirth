@@ -50,7 +50,6 @@ export class Library implements OnInit {
   HeartIcon = Heart;
   CheckCircleIcon = CheckCircle;
 
-  // 📝 NEW: Loading signal for skeleton UI
   loading = signal(true);
 
   rawBooks = signal<Book[]>([]);
@@ -87,26 +86,20 @@ export class Library implements OnInit {
   }
 
   loadBooks(filter?: string, sort?: string): void {
-    // 1. Start loading state
     this.loading.set(true);
-
     this.booksService.list(filter, sort).subscribe({
       next: (data) => {
         this.rawBooks.set(data);
-        // 2. Stop loading state on success
         this.loading.set(false);
       },
       error: (err) => {
         console.error('Error loading books:', err);
-        // 3. Stop loading state on error
         this.loading.set(false);
       },
     });
   }
 
   loadCollections(): void {
-    // Note: Since collections are typically smaller, we don't need a separate loader,
-    // but the book loader handles the main UI block.
     this.collectionsService.list().subscribe({
       next: (data) => this.collections.set(data),
       error: (err) => console.error('Error loading collections:', err),
@@ -149,19 +142,13 @@ export class Library implements OnInit {
     });
   }
 
-  // === FEATURES METHODS ===
-
   toggleFavorite(book: Book, event: Event): void {
     event.stopPropagation();
-
     const newStatus = !book.isFavorite;
-
-    // Optimistic UI update
     book.isFavorite = newStatus;
 
     this.booksService.update(book.id, { isFavorite: newStatus }).subscribe({
       error: () => {
-        // Revert on failure
         book.isFavorite = !newStatus;
         alert('Failed to update favorite status');
       },
@@ -170,25 +157,16 @@ export class Library implements OnInit {
 
   toggleFinished(book: Book, event: Event): void {
     event.stopPropagation();
-
     const isCurrentlyFinished = !!book.finishedAt;
     const newIsFinished = !isCurrentlyFinished;
-
-    // Store old values for revert
     const oldFinishedAt = book.finishedAt;
     const oldProgress = book.progressPercent;
 
-    // Optimistic UI update
     book.finishedAt = newIsFinished ? new Date().toISOString() : null;
     book.progressPercent = newIsFinished ? 100 : book.progressPercent;
 
-    const updatePayload: any = {
-      isFinished: newIsFinished,
-    };
-
-    this.booksService.update(book.id, updatePayload).subscribe({
+    this.booksService.update(book.id, { isFinished: newIsFinished }).subscribe({
       error: () => {
-        // Revert on failure
         book.finishedAt = oldFinishedAt;
         book.progressPercent = oldProgress;
         alert('Failed to update finished status');
@@ -199,7 +177,6 @@ export class Library implements OnInit {
   updateRating(book: Book, newRating: number): void {
     const oldRating = book.rating;
     book.rating = newRating;
-
     this.booksService.update(book.id, { rating: newRating }).subscribe({
       error: () => {
         book.rating = oldRating;
