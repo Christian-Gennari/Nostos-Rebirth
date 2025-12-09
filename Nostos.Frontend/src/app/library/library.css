@@ -148,6 +148,7 @@
   position: relative;
   aspect-ratio: 2/3;
   background: #353535;
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   margin-bottom: 0.75rem;
   display: flex;
@@ -166,7 +167,6 @@
 .book-card:hover .cover-wrapper {
   transform: translateY(-4px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
-  border-color: rgba(0, 0, 0, 0.05);
 }
 
 /* Grid View Favorite Button */
