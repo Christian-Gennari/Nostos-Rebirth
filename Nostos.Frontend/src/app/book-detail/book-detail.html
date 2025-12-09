@@ -89,7 +89,7 @@
             <div class="header-top-row">
               <h1 class="book-title">{{ book()?.title }}</h1>
               <button
-                class="btn-icon favorite-btn"
+                class="btn-icon favorite-btn desktop-fav"
                 [class.active]="book()?.isFavorite"
                 (click)="toggleFavorite()"
                 title="Toggle Favorite"
@@ -127,6 +127,20 @@
                   [img]="CheckCircleIcon"
                   [size]="20"
                   [class.filled]="book()?.finishedAt"
+                ></lucide-icon>
+              </button>
+
+              <button
+                class="btn-icon favorite-btn mobile-fav"
+                [class.active]="book()?.isFavorite"
+                (click)="toggleFavorite()"
+                title="Toggle Favorite"
+                style="margin-top: 0"
+              >
+                <lucide-icon
+                  [img]="HeartIcon"
+                  [size]="24"
+                  [class.filled]="book()?.isFavorite"
                 ></lucide-icon>
               </button>
             </div>

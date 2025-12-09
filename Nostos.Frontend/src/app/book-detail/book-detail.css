@@ -143,6 +143,13 @@
 .finish-toggle-btn.active {
   color: #166534;
 }
+
+/* --- Added for Mobile Heart Logic --- */
+.mobile-fav {
+  display: none;
+}
+/* ------------------------------------ */
+
 @media (prefers-color-scheme: dark) {
   .finish-toggle-btn.active {
     color: #239751;
@@ -404,6 +411,16 @@
     justify-content: center;
     gap: 0.75rem;
   }
+
+  /* --- Added for Mobile Heart Logic --- */
+  .desktop-fav {
+    display: none;
+  }
+  .mobile-fav {
+    display: block;
+  }
+  /* ------------------------------------ */
+
   .user-metadata-row {
     justify-content: center;
   }
