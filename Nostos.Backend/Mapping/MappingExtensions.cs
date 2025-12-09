@@ -20,6 +20,8 @@ public static class MappingExtensions
         string? asin = null;
         string? duration = null;
         int? pageCount = null;
+        string? narrator = null;
+
 
         // Pattern Matching: Extract fields based on the specific subclass
         switch (model)
@@ -38,6 +40,7 @@ public static class MappingExtensions
                 type = "audiobook";
                 asin = a.Asin;
                 duration = a.Duration;
+                narrator = a.Narrator;
                 break;
         }
 
@@ -47,7 +50,7 @@ public static class MappingExtensions
             Title: model.Title,
             Subtitle: model.Subtitle,
             Author: model.Author,
-            Translator: model.Translator, // <--- NEW FIELD
+            Translator: model.Translator,
             Description: model.Description,
 
             // Polymorphic Fields
@@ -55,6 +58,7 @@ public static class MappingExtensions
             Isbn: isbn,
             Asin: asin,
             Duration: duration,
+            Narrator: narrator, // <--- ADDED HERE
 
             Publisher: model.Publisher,
             PublishedDate: model.PublishedDate,
@@ -139,7 +143,8 @@ public static class MappingExtensions
             "audiobook" => new AudioBookModel
             {
                 Asin = dto.Asin,
-                Duration = dto.Duration
+                Duration = dto.Duration,
+                Narrator = dto.Narrator
             },
             "ebook" => new EBookModel
             {
@@ -265,6 +270,7 @@ public static class MappingExtensions
             case AudioBookModel a:
                 if (dto.Asin != null) a.Asin = dto.Asin;
                 if (dto.Duration != null) a.Duration = dto.Duration;
+                if (dto.Narrator != null) a.Narrator = dto.Narrator; // <--- ADDED HERE
                 break;
         }
     }

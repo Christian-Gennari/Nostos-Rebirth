@@ -17,7 +17,7 @@ import { Note } from '../dtos/note.dtos';
 import { AddBookModal } from '../add-book-modal/add-book-modal';
 import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
-import { StarRatingComponent } from '../ui/star-rating/star-rating.component'; // <--- NEW IMPORT
+import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 
 // Icons
 import {
@@ -39,8 +39,9 @@ import {
   Image,
   Headphones,
   Clock,
-  Heart, // <--- NEW
-  CheckCircle, // <--- NEW
+  Heart,
+  CheckCircle,
+  Mic, // <--- NEW ICON
 } from 'lucide-angular';
 
 @Component({
@@ -54,7 +55,7 @@ import {
     AddBookModal,
     ConceptInputComponent,
     NoteCardComponent,
-    StarRatingComponent, // <--- Add to imports
+    StarRatingComponent,
   ],
   templateUrl: './book-detail.html',
   styleUrls: ['./book-detail.css'],
@@ -86,8 +87,9 @@ export class BookDetail implements OnInit {
   ImageIcon = Image;
   HeadphonesIcon = Headphones;
   ClockIcon = Clock;
-  HeartIcon = Heart; // <--- NEW
-  CheckCircleIcon = CheckCircle; // <--- NEW
+  HeartIcon = Heart;
+  CheckCircleIcon = CheckCircle;
+  MicIcon = Mic; // <--- NEW ICON
 
   // State
   loading = signal(true);
@@ -179,7 +181,7 @@ export class BookDetail implements OnInit {
     this.showMetadataModal.set(false);
   }
 
-  // --- NEW: Ratings & Favorites Actions ---
+  // --- Ratings & Favorites Actions ---
 
   toggleFavorite() {
     const book = this.book();

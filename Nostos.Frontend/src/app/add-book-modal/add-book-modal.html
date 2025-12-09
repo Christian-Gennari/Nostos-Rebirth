@@ -225,6 +225,19 @@
             </div>
           </div>
 
+          @if (form.type === 'audiobook') {
+          <div class="form-group fade-in">
+            <label class="form-label">Narrator</label>
+            <input
+              class="input"
+              type="text"
+              [(ngModel)]="form.narrator"
+              name="narrator"
+              placeholder="Narrator Name"
+            />
+          </div>
+          }
+
           <div class="form-group">
             <label class="form-label">{{
               form.type === 'audiobook' ? 'Duration' : 'Page Count'

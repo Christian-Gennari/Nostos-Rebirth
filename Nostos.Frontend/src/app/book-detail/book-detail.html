@@ -108,6 +108,9 @@
 
             <h2 class="book-author">{{ book()?.author || 'Unknown Author' }}</h2>
 
+            @if (book()?.translator) {
+            <div class="book-translator">Translated by {{ book()?.translator }}</div>
+            }
             <div class="user-metadata-row">
               <app-star-rating
                 [rating]="book()?.rating || 0"
@@ -206,8 +209,14 @@
                   {{ book()?.series }} {{ book()?.volumeNumber ? '#' + book()?.volumeNumber : '' }}
                 </span>
               </div>
+              } @if (isAudioBook(book()) && book()?.narrator) {
+              <div class="meta-item full-width">
+                <span class="label"
+                  ><lucide-icon [img]="MicIcon" [size]="12"></lucide-icon> Narrator</span
+                >
+                <span class="value">{{ book()?.narrator }}</span>
+              </div>
               }
-
               <div class="meta-item">
                 <span class="label">
                   @if (isAudioBook(book())) {

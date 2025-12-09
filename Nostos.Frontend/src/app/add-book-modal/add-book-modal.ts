@@ -51,6 +51,7 @@ export class AddBookModal {
     author: '' as string | null,
     translator: '' as string | null,
     description: '' as string | null,
+    narrator: '' as string | null, // <--- Added Narrator
 
     isbn: '' as string | null,
     asin: '' as string | null,
@@ -96,6 +97,7 @@ export class AddBookModal {
       author: b.author,
       translator: b.translator || '',
       description: b.description || '',
+      narrator: (b as any).narrator || '', // <--- Mapped Narrator (casted safely in case interface lags)
       isbn: b.isbn || '',
       asin: b.asin || '',
       publisher: b.publisher || '',
@@ -122,6 +124,7 @@ export class AddBookModal {
       author: null,
       translator: null,
       description: null,
+      narrator: null, // <--- Reset Narrator
       isbn: null,
       asin: null,
       publisher: null,

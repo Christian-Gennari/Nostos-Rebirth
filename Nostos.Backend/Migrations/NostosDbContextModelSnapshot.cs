@@ -2,7 +2,6 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nostos.Backend.Data;
 
@@ -11,11 +10,9 @@ using Nostos.Backend.Data;
 namespace Nostos.Backend.Migrations
 {
     [DbContext(typeof(NostosDbContext))]
-    [Migration("20251208202220_AddSeveralFeaturesForLibrary7")]
-    partial class AddSeveralFeaturesForLibrary7
+    partial class NostosDbContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.0");
@@ -228,6 +225,9 @@ namespace Nostos.Backend.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Duration")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Narrator")
                         .HasColumnType("TEXT");
 
                     b.HasDiscriminator().HasValue("audiobook");

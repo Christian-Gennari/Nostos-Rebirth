@@ -116,6 +116,17 @@
   color: var(--color-text-muted);
   margin-bottom: 1rem;
 }
+/* 👇 NEW STYLING 👇 */
+.book-translator {
+  font-family: Inter, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 400;
+  color: var(--color-text-light);
+  margin-top: -0.5rem;
+  margin-bottom: 1.5rem;
+}
+/* 👆 END NEW STYLING 👆 */
+
 .user-metadata-row {
   display: flex;
   align-items: center;
@@ -144,11 +155,9 @@
   color: #166534;
 }
 
-/* --- Added for Mobile Heart Logic --- */
 .mobile-fav {
   display: none;
 }
-/* ------------------------------------ */
 
 @media (prefers-color-scheme: dark) {
   .finish-toggle-btn.active {
@@ -412,14 +421,12 @@
     gap: 0.75rem;
   }
 
-  /* --- Added for Mobile Heart Logic --- */
   .desktop-fav {
     display: none;
   }
   .mobile-fav {
     display: block;
   }
-  /* ------------------------------------ */
 
   .user-metadata-row {
     justify-content: center;

@@ -27,7 +27,7 @@ import { LucideAngularModule, Star } from 'lucide-angular';
         gap: 2px;
       }
       .star-icon {
-        color: #e5e7eb; /* Gray-200 */
+        color: #c5c7ccff; /* Gray-200 */
         transition: all 0.2s ease;
       }
       /* Hover effects only if not readonly */

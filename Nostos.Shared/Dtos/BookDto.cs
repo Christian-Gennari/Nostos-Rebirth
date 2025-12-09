@@ -9,6 +9,7 @@ public record BookDto(
     string? Subtitle,
     string? Author,
     string? Translator, // <--- NEW
+    string? Narrator,
     string? Description,
     string? Isbn,
     string? Asin,
@@ -39,6 +40,7 @@ public record CreateBookDto(
     string? Subtitle,
     string? Author,
     string? Translator, // <--- NEW
+    string? Narrator,
     string? Description,
     string? Isbn,
     string? Asin,
@@ -62,6 +64,7 @@ public record UpdateBookDto(
     string? Subtitle,
     string? Author,
     string? Translator, // <--- NEW
+    string? Narrator,
     string? Description,
     string? Isbn,
     string? Asin,

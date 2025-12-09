@@ -14,6 +14,7 @@ export interface Book {
   edition: string | null;
   asin: string | null;
   duration: string | null;
+  narrator: string | null;
 
   isbn: string | null;
   publisher: string | null;

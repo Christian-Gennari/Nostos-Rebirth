@@ -31,6 +31,7 @@ public class BookLookupService(IHttpClientFactory httpClientFactory)
         Subtitle: null,
         Author: null,
         Translator: null, // <--- FIXED: Added missing argument
+        Narrator: null,
         Description: null,
         Isbn: isbn,
         Asin: null,
@@ -83,6 +84,7 @@ public class BookLookupService(IHttpClientFactory httpClientFactory)
           Subtitle: item["subtitle"]?.ToString(),
           Author: ParseArray(item["authors"]),
           Translator: null, // <--- FIXED: Added missing argument
+          Narrator: null,
           Description: item["description"]?.ToString(),
           Isbn: isbn,
           Asin: null,
@@ -123,6 +125,7 @@ public class BookLookupService(IHttpClientFactory httpClientFactory)
           Subtitle: item["subtitle"]?.ToString(),
           Author: authors,
           Translator: null, // <--- FIXED: Added missing argument
+          Narrator: null,
           Description: null,
           Isbn: isbn,
           Asin: null,

@@ -73,4 +73,5 @@ public class AudioBookModel : BookModel
 {
   public string? Asin { get; set; } // Amazon Standard ID
   public string? Duration { get; set; } // e.g. "12:30:15"
+  public string? Narrator { get; set; } // e.g. "John Doe"
 }
