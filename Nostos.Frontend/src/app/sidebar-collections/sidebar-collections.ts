@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, model, HostListener } from '@angular/core';
+import { Component, OnInit, inject, signal, model, HostListener, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
@@ -39,6 +39,7 @@ import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
 export class SidebarCollections implements OnInit {
   private collectionsService = inject(CollectionsService);
   private router = inject(Router);
+  private elementRef = inject(ElementRef);
 
   // Icons
   FolderIcon = Folder;
@@ -77,9 +78,21 @@ export class SidebarCollections implements OnInit {
       this.ignoreClick = false;
       return;
     }
-    if (!this.adding() && !this.editingId()) return;
 
     const target = event.target as HTMLElement;
+
+    // Mobile: Close sidebar if clicking outside
+    if (window.innerWidth < 768 && this.expanded()) {
+      const clickedInside = this.elementRef.nativeElement.contains(target);
+      if (!clickedInside) {
+        this.expanded.set(false);
+        // If the sidebar is closed via outside click, we can return early
+        return;
+      }
+    }
+
+    if (!this.adding() && !this.editingId()) return;
+
     const isInsideInputRow = target.closest('.nav-item.input-mode');
 
     if (!isInsideInputRow) {
