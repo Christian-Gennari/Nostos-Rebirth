@@ -6,10 +6,10 @@ export interface Book {
   title: string;
   subtitle: string | null;
   author: string | null;
-  translator: string | null; // <--- NEW
+  translator: string | null;
   description: string | null;
 
-  // NEW: Polymorphic Fields
+  // Polymorphic Fields
   type: BookType;
   edition: string | null;
   asin: string | null;
@@ -32,7 +32,7 @@ export interface Book {
   lastLocation: string | null;
   progressPercent: number;
 
-  // --- NEW METADATA FIELDS ---
+  // Metadata Fields
   rating: number;
   isFavorite: boolean;
   finishedAt: string | null;
@@ -43,7 +43,7 @@ export interface CreateBookDto {
   title: string;
   subtitle: string | null;
   author: string | null;
-  translator: string | null; // <--- NEW
+  translator: string | null;
   description: string | null;
 
   edition: string | null;
@@ -65,7 +65,7 @@ export interface UpdateBookDto {
   title?: string;
   subtitle?: string | null;
   author?: string | null;
-  translator: string | null; // <--- NEW
+  translator?: string | null; // <--- FIXED: Added '?' to make it optional
   description?: string | null;
 
   edition?: string | null;
@@ -82,11 +82,11 @@ export interface UpdateBookDto {
   volumeNumber?: string | null;
   collectionId?: string | null;
 
-  // --- NEW FIELDS FOR UPDATES ---
+  // Update Fields
   rating?: number;
   isFavorite?: boolean;
   finishedAt?: string | null;
-  isFinished?: boolean; // <--- NEW
+  isFinished?: boolean;
 }
 
 export interface UpdateProgressDto {

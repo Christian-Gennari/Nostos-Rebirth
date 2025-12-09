@@ -29,7 +29,6 @@
     </header>
 
     <div class="container lg">
-      <!-- Add Book Modal -->
       <app-add-book-modal
         [isOpen]="showAddModal()"
         [collections]="collections()"
@@ -47,12 +46,12 @@
       >
       </app-add-book-modal>
 
-      <!-- List View -->
       @if (viewMode() === 'list') {
       <div class="table-view">
         <div class="table-header">
           <div id="title-header">Title</div>
           <div id="author-header">Author</div>
+          <div id="rating-header">Rating</div>
           <div id="format-header">Format</div>
           <div id="date-header">Date</div>
           <div id="actions-header" style="text-align: right">Actions</div>
@@ -61,11 +60,31 @@
         @for (book of books(); track book.id) {
         <div class="table-row" [routerLink]="['/library', book.id]">
           <div class="col title">
+            <button
+              class="fav-btn-list"
+              [class.active]="book.isFavorite"
+              (click)="toggleFavorite(book, $event)"
+              title="Toggle Favorite"
+            >
+              <lucide-icon [img]="HeartIcon" [size]="16" [class.filled-heart]="book.isFavorite">
+              </lucide-icon>
+            </button>
             {{ book.title }}
           </div>
 
           <div class="col author">
             {{ book.author || 'Unknown' }}
+          </div>
+
+          <div class="col rating" (click)="$event.stopPropagation()">
+            @if (book.rating > 0) {
+            <app-star-rating
+              [rating]="book.rating"
+              [size]="14"
+              (ratingChange)="updateRating(book, $event)"
+            >
+            </app-star-rating>
+            }
           </div>
 
           <div class="col format">
@@ -94,10 +113,7 @@
         </div>
         }
       </div>
-      }
-
-      <!-- Grid View -->
-      @if (viewMode() === 'grid') {
+      } @if (viewMode() === 'grid') {
       <div class="book-grid">
         @for (book of books(); track book.id) {
 
@@ -108,6 +124,16 @@
             } @else {
             <lucide-icon [img]="BookIcon" [size]="48" strokeWidth="1"></lucide-icon>
             }
+
+            <button
+              class="fav-btn-grid"
+              [class.active]="book.isFavorite"
+              (click)="toggleFavorite(book, $event)"
+              title="Toggle Favorite"
+            >
+              <lucide-icon [img]="HeartIcon" [size]="18" [class.filled-heart]="book.isFavorite">
+              </lucide-icon>
+            </button>
 
             <div class="actions-overlay">
               <button
@@ -130,6 +156,17 @@
 
           <div class="meta-title">{{ book.title }}</div>
           <div class="meta-author">{{ book.author || 'Unknown' }}</div>
+
+          @if (book.rating > 0) {
+          <div class="meta-rating" (click)="$event.stopPropagation()">
+            <app-star-rating
+              [rating]="book.rating"
+              [size]="14"
+              (ratingChange)="updateRating(book, $event)"
+            >
+            </app-star-rating>
+          </div>
+          }
         </div>
 
         }
@@ -138,7 +175,6 @@
     </div>
   </div>
 
-  <!-- Edit Book Modal -->
   <app-add-book-modal
     [isOpen]="showEditModal()"
     [book]="editTarget()"

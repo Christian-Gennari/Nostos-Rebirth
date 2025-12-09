@@ -1,5 +1,5 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
-import { ActivatedRoute } from '@angular/router'; // Import ActivatedRoute
+import { ActivatedRoute } from '@angular/router';
 import { BooksService, Book } from '../services/books.services';
 import { CollectionsService } from '../services/collections.services';
 import { Collection } from '../dtos/collection.dtos';
@@ -7,6 +7,7 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AddBookModal } from '../add-book-modal/add-book-modal';
+import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import {
   LucideAngularModule,
   LayoutList,
@@ -15,19 +16,27 @@ import {
   Trash2,
   Edit2,
   Book as BookIcon,
+  Heart,
 } from 'lucide-angular';
 
 @Component({
   selector: 'app-library',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, LucideAngularModule, AddBookModal],
+  imports: [
+    CommonModule,
+    RouterLink,
+    FormsModule,
+    LucideAngularModule,
+    AddBookModal,
+    StarRatingComponent,
+  ],
   templateUrl: './library.html',
   styleUrls: ['./library.css'],
 })
 export class Library implements OnInit {
   private booksService = inject(BooksService);
   private collectionsService = inject(CollectionsService);
-  private route = inject(ActivatedRoute); // Inject Route
+  private route = inject(ActivatedRoute);
 
   ListIcon = LayoutList;
   GridIcon = LayoutGrid;
@@ -35,6 +44,7 @@ export class Library implements OnInit {
   Trash2Icon = Trash2;
   Edit2Icon = Edit2;
   BookIcon = BookIcon;
+  HeartIcon = Heart;
 
   rawBooks = signal<Book[]>([]);
   collections = signal<Collection[]>([]);
@@ -42,35 +52,27 @@ export class Library implements OnInit {
   viewMode = signal<'list' | 'grid'>('grid');
   showAddModal = signal(false);
 
-  // New modal edit system
+  // Modal edit system
   showEditModal = signal(false);
   editTarget = signal<Book | null>(null);
 
   activeCollectionId = this.collectionsService.activeCollectionId;
 
-  // Filter Logic:
-  // 1. If backend 'filter' is active (Favorites/Reading), 'rawBooks' already contains ONLY those books.
-  // 2. If 'activeCollectionId' is set, we filter the rawBooks by that collection.
   books = computed(() => {
     const all = this.rawBooks();
     const activeId = this.activeCollectionId();
 
-    // If we have a user collection selected, filter by it
     if (activeId) {
       return all.filter((b) => b.collectionId === activeId);
     }
 
-    // Otherwise return whatever the backend gave us (All Books OR Smart Filtered results)
     return all;
   });
 
   ngOnInit(): void {
-    // Subscribe to query params to reload data when filters change
     this.route.queryParams.subscribe((params) => {
       const filter = params['filter'];
       const sort = params['sort'];
-
-      // Reload books whenever URL changes
       this.loadBooks(filter, sort);
     });
 
@@ -91,7 +93,6 @@ export class Library implements OnInit {
     });
   }
 
-  // Add modal
   openAddModal(): void {
     this.showAddModal.set(true);
   }
@@ -100,7 +101,6 @@ export class Library implements OnInit {
     this.showAddModal.set(false);
   }
 
-  // Edit modal
   openEditModal(book: Book): void {
     this.editTarget.set(book);
     this.showEditModal.set(true);
@@ -112,7 +112,6 @@ export class Library implements OnInit {
   }
 
   onBookUpdated(updated: Book): void {
-    // Reload with current params to keep context
     const params = this.route.snapshot.queryParams;
     this.loadBooks(params['filter'], params['sort']);
     this.closeEditModal();
@@ -126,6 +125,37 @@ export class Library implements OnInit {
       next: () => {
         const params = this.route.snapshot.queryParams;
         this.loadBooks(params['filter'], params['sort']);
+      },
+    });
+  }
+
+  // === NEW FEATURES METHODS ===
+
+  toggleFavorite(book: Book, event: Event): void {
+    event.stopPropagation();
+
+    const newStatus = !book.isFavorite;
+
+    // Optimistic UI update
+    book.isFavorite = newStatus;
+
+    this.booksService.update(book.id, { isFavorite: newStatus }).subscribe({
+      error: () => {
+        // Revert on failure
+        book.isFavorite = !newStatus;
+        alert('Failed to update favorite status');
+      },
+    });
+  }
+
+  updateRating(book: Book, newRating: number): void {
+    const oldRating = book.rating;
+    book.rating = newRating;
+
+    this.booksService.update(book.id, { rating: newRating }).subscribe({
+      error: () => {
+        book.rating = oldRating;
+        alert('Failed to update rating');
       },
     });
   }
