@@ -60,13 +60,11 @@ import { CollectionsService } from '../../services/collections.services';
         gap: 4px;
         padding: 6px;
 
-        /* Subtle glass effect */
-        background: rgba(255, 255, 255, 0.75);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+        /* Solid minimal background */
+        background: #ffffff;
 
-        /* Minimal border */
-        border: 1px solid rgba(0, 0, 0, 0.06);
+        /* Subtle border with slight shadow effect */
+        border: 1px solid rgba(0, 0, 0, 0.08);
 
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
@@ -74,7 +72,8 @@ import { CollectionsService } from '../../services/collections.services';
       }
 
       .app-dock:hover {
-        background: rgba(255, 255, 255, 0.85);
+        background: #ffffff;
+        border-color: rgba(0, 0, 0, 0.12);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.08);
       }
 
@@ -129,8 +128,7 @@ import { CollectionsService } from '../../services/collections.services';
           border: none;
           border-top: 1px solid rgba(0, 0, 0, 0.06);
 
-          background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(16px);
+          background: #ffffff;
 
           justify-content: space-evenly;
           gap: 0;

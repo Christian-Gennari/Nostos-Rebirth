@@ -81,6 +81,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 0.9rem;
+  font-weight: 300;
 }
 
 .node-actions {
