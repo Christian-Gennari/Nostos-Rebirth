@@ -48,15 +48,21 @@ export class AddBookModal {
     type: 'physical' as BookType,
     title: '',
     subtitle: '' as string | null,
+
     author: '' as string | null,
+    editor: '' as string | null, // <--- NEW
     translator: '' as string | null,
+    narrator: '' as string | null,
+
     description: '' as string | null,
-    narrator: '' as string | null, // <--- Added Narrator
 
     isbn: '' as string | null,
     asin: '' as string | null,
+
     publisher: '' as string | null,
+    placeOfPublication: '' as string | null, // <--- NEW
     publishedDate: '' as string | null,
+
     edition: '' as string | null,
     pageCount: null as number | null,
     duration: '' as string | null,
@@ -65,6 +71,8 @@ export class AddBookModal {
     series: '' as string | null,
     volumeNumber: '' as string | null,
     collectionId: null as string | null,
+
+    personalReview: '' as string | null, // <--- NEW
   };
 
   selectedFile: File | null = null;
@@ -94,14 +102,21 @@ export class AddBookModal {
       type: b.type || 'physical',
       title: b.title,
       subtitle: b.subtitle || '',
+
       author: b.author,
+      editor: b.editor || '', // <--- NEW
       translator: b.translator || '',
+      narrator: b.narrator || '',
+
       description: b.description || '',
-      narrator: (b as any).narrator || '', // <--- Mapped Narrator (casted safely in case interface lags)
+
       isbn: b.isbn || '',
       asin: b.asin || '',
+
       publisher: b.publisher || '',
+      placeOfPublication: b.placeOfPublication || '', // <--- NEW
       publishedDate: b.publishedDate || '',
+
       edition: b.edition || '',
       pageCount: b.pageCount || null,
       duration: b.duration || '',
@@ -110,6 +125,8 @@ export class AddBookModal {
       series: b.series || '',
       volumeNumber: b.volumeNumber || '',
       collectionId: b.collectionId,
+
+      personalReview: b.personalReview || '', // <--- NEW
     };
     this.selectedFile = null;
     this.selectedCover = null;
@@ -121,14 +138,21 @@ export class AddBookModal {
       type: 'physical',
       title: '',
       subtitle: null,
+
       author: null,
+      editor: null, // <--- NEW
       translator: null,
+      narrator: null,
+
       description: null,
-      narrator: null, // <--- Reset Narrator
+
       isbn: null,
       asin: null,
+
       publisher: null,
+      placeOfPublication: null, // <--- NEW
       publishedDate: null,
+
       edition: null,
       pageCount: null,
       duration: null,
@@ -137,6 +161,8 @@ export class AddBookModal {
       series: null,
       volumeNumber: null,
       collectionId: null,
+
+      personalReview: null, // <--- NEW
     };
     this.selectedFile = null;
     this.selectedCover = null;
@@ -182,8 +208,10 @@ export class AddBookModal {
             title: data.title || this.form.title,
             subtitle: data.subtitle || this.form.subtitle,
             author: data.author || this.form.author,
+            // Note: Editor usually isn't returned clearly by basic lookup, but Place is:
             description: data.description || this.form.description,
             publisher: data.publisher || this.form.publisher,
+            placeOfPublication: data.placeOfPublication || this.form.placeOfPublication, // <--- Map from API
             // Sanitize the date coming from the API
             publishedDate: this.sanitizeDate(data.publishedDate) || this.form.publishedDate,
             pageCount: data.pageCount || this.form.pageCount,

@@ -8,7 +8,8 @@ public record BookDto(
     string Title,
     string? Subtitle,
     string? Author,
-    string? Translator, // <--- NEW
+    string? Editor,             // <--- NEW: Harvard "Edited by"
+    string? Translator,
     string? Narrator,
     string? Description,
     string? Isbn,
@@ -16,6 +17,7 @@ public record BookDto(
     string? Duration,
     int? PageCount,
     string? Publisher,
+    string? PlaceOfPublication, // <--- NEW: Harvard "Place: Publisher"
     string? PublishedDate,
     string? Edition,
     string? Language,
@@ -31,6 +33,7 @@ public record BookDto(
     int ProgressPercent,
     int Rating,
     bool IsFavorite,
+    string? PersonalReview,     // <--- NEW: Your review
     DateTime? FinishedAt
 );
 
@@ -39,13 +42,15 @@ public record CreateBookDto(
     string Title,
     string? Subtitle,
     string? Author,
-    string? Translator, // <--- NEW
+    string? Editor,             // <--- NEW
+    string? Translator,
     string? Narrator,
     string? Description,
     string? Isbn,
     string? Asin,
     string? Duration,
     string? Publisher,
+    string? PlaceOfPublication, // <--- NEW
     string? PublishedDate,
     string? Edition,
     int? PageCount,
@@ -56,6 +61,7 @@ public record CreateBookDto(
     Guid? CollectionId,
     int Rating = 0,
     bool IsFavorite = false,
+    string? PersonalReview = null, // <--- NEW
     DateTime? FinishedAt = null
 );
 
@@ -63,13 +69,15 @@ public record UpdateBookDto(
     string? Title,
     string? Subtitle,
     string? Author,
-    string? Translator, // <--- NEW
+    string? Editor,             // <--- NEW
+    string? Translator,
     string? Narrator,
     string? Description,
     string? Isbn,
     string? Asin,
     string? Duration,
     string? Publisher,
+    string? PlaceOfPublication, // <--- NEW
     string? PublishedDate,
     string? Edition,
     int? PageCount,
@@ -80,6 +88,7 @@ public record UpdateBookDto(
     Guid? CollectionId,
     int? Rating,
     bool? IsFavorite,
+    string? PersonalReview,     // <--- NEW
     DateTime? FinishedAt,
     bool? IsFinished
 );

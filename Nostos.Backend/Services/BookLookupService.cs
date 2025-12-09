@@ -30,13 +30,15 @@ public class BookLookupService(IHttpClientFactory httpClientFactory)
         Title: "",
         Subtitle: null,
         Author: null,
-        Translator: null, // <--- FIXED: Added missing argument
+        Editor: null,            // <--- NEW
+        Translator: null,
         Narrator: null,
         Description: null,
         Isbn: isbn,
         Asin: null,
         Duration: null,
         Publisher: null,
+        PlaceOfPublication: null, // <--- NEW
         PublishedDate: null,
         Edition: null,
         PageCount: null,
@@ -44,20 +46,29 @@ public class BookLookupService(IHttpClientFactory httpClientFactory)
         Categories: null,
         Series: null,
         VolumeNumber: null,
-        CollectionId: null
+        CollectionId: null,
+        Rating: 0,
+        IsFavorite: false,
+        PersonalReview: null,    // <--- NEW
+        FinishedAt: null
     );
 
     if (gbData is null) return baseData;
 
-    // Progressive Merging
+    // Progressive Merging: Keep baseData (OL) value if present, otherwise take gbData (GB)
     return baseData with
     {
       Title = !string.IsNullOrWhiteSpace(baseData.Title) ? baseData.Title : gbData.Title,
       Subtitle = !string.IsNullOrWhiteSpace(baseData.Subtitle) ? baseData.Subtitle : gbData.Subtitle,
       Author = !string.IsNullOrWhiteSpace(baseData.Author) ? baseData.Author : gbData.Author,
-      Translator = !string.IsNullOrWhiteSpace(baseData.Translator) ? baseData.Translator : gbData.Translator, // Optional: Merge translator if you implement fetching later
+      // Google Books rarely gives explicit Translator/Editor fields distinct from Authors in the simple API,
+      // so we mostly rely on what we have or user input.
       Description = !string.IsNullOrWhiteSpace(baseData.Description) ? baseData.Description : gbData.Description,
       Publisher = !string.IsNullOrWhiteSpace(baseData.Publisher) ? baseData.Publisher : gbData.Publisher,
+
+      // OpenLibrary is much better at PlaceOfPublication, but if we missed it and GB had it (unlikely), we merge.
+      PlaceOfPublication = !string.IsNullOrWhiteSpace(baseData.PlaceOfPublication) ? baseData.PlaceOfPublication : gbData.PlaceOfPublication,
+
       PublishedDate = !string.IsNullOrWhiteSpace(baseData.PublishedDate) ? baseData.PublishedDate : gbData.PublishedDate,
       PageCount = baseData.PageCount ?? gbData.PageCount,
       Language = !string.IsNullOrWhiteSpace(baseData.Language) ? baseData.Language : gbData.Language,
@@ -83,13 +94,15 @@ public class BookLookupService(IHttpClientFactory httpClientFactory)
           Title: item["title"]?.ToString() ?? "",
           Subtitle: item["subtitle"]?.ToString(),
           Author: ParseArray(item["authors"]),
-          Translator: null, // <--- FIXED: Added missing argument
+          Editor: null,             // API doesn't clearly separate editors
+          Translator: null,
           Narrator: null,
           Description: item["description"]?.ToString(),
           Isbn: isbn,
           Asin: null,
           Duration: null,
           Publisher: item["publisher"]?.ToString(),
+          PlaceOfPublication: null, // Google Books API rarely provides city/place
           PublishedDate: item["publishedDate"]?.ToString(),
           Edition: null,
           PageCount: item["pageCount"]?.GetValue<int>(),
@@ -97,7 +110,11 @@ public class BookLookupService(IHttpClientFactory httpClientFactory)
           Categories: ParseArray(item["categories"]),
           Series: null,
           VolumeNumber: null,
-          CollectionId: null
+          CollectionId: null,
+          Rating: 0,
+          IsFavorite: false,
+          PersonalReview: null,
+          FinishedAt: null
       );
     }
     catch { return null; }
@@ -119,18 +136,25 @@ public class BookLookupService(IHttpClientFactory httpClientFactory)
       var authorsList = item["authors"]?.AsArray().Select(a => a?["name"]?.ToString()).Where(x => x != null);
       var authors = authorsList != null ? string.Join(", ", authorsList!) : null;
 
+      // Extract Place of Publication (Critical for Harvard)
+      // OpenLibrary usually returns: "publish_places": [{"name": "London"}, ...]
+      var placesList = item["publish_places"]?.AsArray().Select(p => p?["name"]?.ToString()).Where(x => x != null);
+      var place = placesList?.FirstOrDefault(); // Pick the first one (e.g., "London")
+
       return new CreateBookDto(
           Type: "physical",
           Title: item["title"]?.ToString() ?? "",
           Subtitle: item["subtitle"]?.ToString(),
           Author: authors,
-          Translator: null, // <--- FIXED: Added missing argument
+          Editor: null,            // Hard to distinguish reliably from API data
+          Translator: null,
           Narrator: null,
-          Description: null,
+          Description: null,       // OL 'data' endpoint often lacks descriptions
           Isbn: isbn,
           Asin: null,
           Duration: null,
           Publisher: item["publishers"]?[0]?["name"]?.ToString(),
+          PlaceOfPublication: place, // <--- Fetched here
           PublishedDate: item["publish_date"]?.ToString(),
           Edition: null,
           PageCount: item["number_of_pages"]?.GetValue<int>(),
@@ -138,7 +162,11 @@ public class BookLookupService(IHttpClientFactory httpClientFactory)
           Categories: null,
           Series: null,
           VolumeNumber: null,
-          CollectionId: null
+          CollectionId: null,
+          Rating: 0,
+          IsFavorite: false,
+          PersonalReview: null,
+          FinishedAt: null
       );
     }
     catch { return null; }

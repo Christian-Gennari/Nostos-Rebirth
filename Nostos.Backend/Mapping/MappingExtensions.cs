@@ -50,6 +50,7 @@ public static class MappingExtensions
             Title: model.Title,
             Subtitle: model.Subtitle,
             Author: model.Author,
+            Editor: model.Editor,   // <--- NEW: Harvard "Edited by" support
             Translator: model.Translator,
             Description: model.Description,
 
@@ -58,9 +59,10 @@ public static class MappingExtensions
             Isbn: isbn,
             Asin: asin,
             Duration: duration,
-            Narrator: narrator, // <--- ADDED HERE
+            Narrator: narrator,
 
             Publisher: model.Publisher,
+            PlaceOfPublication: model.PlaceOfPublication, // <--- NEW: Harvard required field
             PublishedDate: model.PublishedDate,
             Edition: model.Edition,
             PageCount: pageCount,
@@ -79,9 +81,10 @@ public static class MappingExtensions
             LastLocation: model.LastLocation,
             ProgressPercent: model.ProgressPercent,
 
-            // NEW FIELDS
+            // User Interaction
             Rating: model.Rating,
             IsFavorite: model.IsFavorite,
+            PersonalReview: model.PersonalReview, // <--- NEW: Your review field
             FinishedAt: model.FinishedAt
         );
     }
@@ -163,10 +166,14 @@ public static class MappingExtensions
         model.Title = dto.Title;
         model.Subtitle = dto.Subtitle;
         model.Author = dto.Author;
-        model.Translator = dto.Translator; // <--- NEW FIELD
+        model.Editor = dto.Editor; // <--- NEW
+        model.Translator = dto.Translator;
         model.Description = dto.Description;
+
         model.Publisher = dto.Publisher;
+        model.PlaceOfPublication = dto.PlaceOfPublication; // <--- NEW
         model.PublishedDate = dto.PublishedDate;
+
         model.Edition = dto.Edition;
         model.Language = dto.Language;
         model.Categories = dto.Categories;
@@ -178,6 +185,7 @@ public static class MappingExtensions
         // New Fields
         model.Rating = dto.Rating;
         model.IsFavorite = dto.IsFavorite;
+        model.PersonalReview = dto.PersonalReview; // <--- NEW
         model.FinishedAt = dto.FinishedAt;
 
         return model;
@@ -217,10 +225,14 @@ public static class MappingExtensions
         if (dto.Title != null) model.Title = dto.Title;
         if (dto.Subtitle != null) model.Subtitle = dto.Subtitle;
         if (dto.Author != null) model.Author = dto.Author;
-        if (dto.Translator != null) model.Translator = dto.Translator; // <--- NEW FIELD
+        if (dto.Editor != null) model.Editor = dto.Editor; // <--- NEW
+        if (dto.Translator != null) model.Translator = dto.Translator;
         if (dto.Description != null) model.Description = dto.Description;
+
         if (dto.Publisher != null) model.Publisher = dto.Publisher;
+        if (dto.PlaceOfPublication != null) model.PlaceOfPublication = dto.PlaceOfPublication; // <--- NEW
         if (dto.PublishedDate != null) model.PublishedDate = dto.PublishedDate;
+
         if (dto.Edition != null) model.Edition = dto.Edition;
         if (dto.Language != null) model.Language = dto.Language;
         if (dto.Categories != null) model.Categories = dto.Categories;
@@ -231,6 +243,7 @@ public static class MappingExtensions
         // NEW FIELDS: Check if nullable (HasValue or != null) to see if they were sent
         if (dto.Rating.HasValue) model.Rating = dto.Rating.Value;
         if (dto.IsFavorite.HasValue) model.IsFavorite = dto.IsFavorite.Value;
+        if (dto.PersonalReview != null) model.PersonalReview = dto.PersonalReview; // <--- NEW
 
         // LOGIC FIX: Handle Finished Status
         // 1. If a specific date is provided, use it (Manual edit)
@@ -270,7 +283,7 @@ public static class MappingExtensions
             case AudioBookModel a:
                 if (dto.Asin != null) a.Asin = dto.Asin;
                 if (dto.Duration != null) a.Duration = dto.Duration;
-                if (dto.Narrator != null) a.Narrator = dto.Narrator; // <--- ADDED HERE
+                if (dto.Narrator != null) a.Narrator = dto.Narrator;
                 break;
         }
     }

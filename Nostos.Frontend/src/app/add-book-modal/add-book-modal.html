@@ -55,15 +55,26 @@
             />
           </div>
 
+          <div class="form-group">
+            <label class="form-label">Author</label>
+            <input
+              class="input"
+              type="text"
+              [(ngModel)]="form.author"
+              name="author"
+              placeholder="Primary Author"
+            />
+          </div>
+
           <div class="grid grid-2">
             <div class="form-group">
-              <label class="form-label">Author</label>
+              <label class="form-label">Editor <span class="info-text">(Harvard)</span></label>
               <input
                 class="input"
                 type="text"
-                [(ngModel)]="form.author"
-                name="author"
-                placeholder="Author"
+                [(ngModel)]="form.editor"
+                name="editor"
+                placeholder="Editor (ed.)"
               />
             </div>
             <div class="form-group">
@@ -73,7 +84,7 @@
                 type="text"
                 [(ngModel)]="form.translator"
                 name="translator"
-                placeholder="Translator (Optional)"
+                placeholder="Translator"
               />
             </div>
           </div>
@@ -129,13 +140,15 @@
               <input class="input" type="text" [(ngModel)]="form.publisher" name="publisher" />
             </div>
             <div class="form-group">
-              <label class="form-label">Edition</label>
+              <label class="form-label"
+                >Place of Pub. <span class="info-text">(Harvard)</span></label
+              >
               <input
                 class="input"
                 type="text"
-                [(ngModel)]="form.edition"
-                name="edition"
-                placeholder="e.g. 2nd"
+                [(ngModel)]="form.placeOfPublication"
+                name="placeOfPublication"
+                placeholder="e.g. London"
               />
             </div>
           </div>
@@ -153,6 +166,19 @@
               />
             </div>
             <div class="form-group">
+              <label class="form-label">Edition</label>
+              <input
+                class="input"
+                type="text"
+                [(ngModel)]="form.edition"
+                name="edition"
+                placeholder="e.g. 2nd edn"
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-2">
+            <div class="form-group">
               <label class="form-label">Language</label>
               <input
                 class="input"
@@ -162,17 +188,29 @@
                 placeholder="en"
               />
             </div>
+            <div class="form-group">
+              <label class="form-label">Genres</label>
+              <input
+                class="input"
+                type="text"
+                [(ngModel)]="form.categories"
+                name="categories"
+                placeholder="Fiction, Sci-Fi..."
+              />
+            </div>
           </div>
 
+          <hr class="divider" />
+
           <div class="form-group">
-            <label class="form-label">Genres</label>
-            <input
-              class="input"
-              type="text"
-              [(ngModel)]="form.categories"
-              name="categories"
-              placeholder="Fiction, Sci-Fi..."
-            />
+            <label class="form-label">Personal Review / Notes</label>
+            <textarea
+              class="input textarea"
+              rows="3"
+              [(ngModel)]="form.personalReview"
+              name="personalReview"
+              placeholder="Your thoughts on this book..."
+            ></textarea>
           </div>
         </div>
         } @if (activeTab() === 'File') {

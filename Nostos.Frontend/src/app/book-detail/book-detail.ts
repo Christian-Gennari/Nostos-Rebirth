@@ -41,7 +41,9 @@ import {
   Clock,
   Heart,
   CheckCircle,
-  Mic, // <--- NEW ICON
+  Mic,
+  MapPin, // <--- NEW
+  MessageSquareQuote, // <--- NEW
 } from 'lucide-angular';
 
 @Component({
@@ -89,7 +91,9 @@ export class BookDetail implements OnInit {
   ClockIcon = Clock;
   HeartIcon = Heart;
   CheckCircleIcon = CheckCircle;
-  MicIcon = Mic; // <--- NEW ICON
+  MicIcon = Mic;
+  MapPinIcon = MapPin; // <--- NEW
+  QuoteIcon = MessageSquareQuote; // <--- NEW
 
   // State
   loading = signal(true);
@@ -192,10 +196,9 @@ export class BookDetail implements OnInit {
     // Optimistic UI update
     this.book.update((b) => (b ? { ...b, isFavorite: newStatus } : null));
 
-    // Call API (Using 'any' cast if UpdateBookDto isn't fully updated in Service type definition yet)
+    // Call API
     this.booksService.update(book.id, { isFavorite: newStatus } as any).subscribe({
       error: () => {
-        // Revert on error
         this.book.update((b) => (b ? { ...b, isFavorite: !newStatus } : null));
         this.error.set('Failed to update favorite status');
       },
@@ -206,15 +209,12 @@ export class BookDetail implements OnInit {
     const book = this.book();
     if (!book) return;
 
-    // Check current state
     const isCurrentlyFinished = !!book.finishedAt;
-
-    // Calculate new state
     const newIsFinished = !isCurrentlyFinished;
     const newDate = newIsFinished ? new Date().toISOString() : null;
     const newProgress = newIsFinished ? 100 : book.progressPercent;
 
-    // 1. Optimistic UI update (Instant feedback)
+    // 1. Optimistic UI update
     this.book.update((b) =>
       b
         ? {
@@ -226,18 +226,15 @@ export class BookDetail implements OnInit {
     );
 
     // 2. Send API Request
-    // We send 'isFinished' flag to let the backend handle the date logic securely
     const updatePayload: any = {
       isFinished: newIsFinished,
     };
 
     this.booksService.update(book.id, updatePayload).subscribe({
       next: (updatedBook) => {
-        // Optional: Re-sync with actual server response (e.g. precise server timestamp)
         this.book.set(updatedBook);
       },
       error: () => {
-        // Revert on error
         this.loadBook(book.id);
       },
     });
@@ -272,7 +269,6 @@ export class BookDetail implements OnInit {
     });
   }
 
-  // Updated: Handles event from NoteCard
   onUpdateNote(event: { id: string; content: string }): void {
     const book = this.book();
     if (!book) return;
@@ -285,7 +281,6 @@ export class BookDetail implements OnInit {
     });
   }
 
-  // Updated: Handles event from NoteCard
   onDeleteNote(id: string): void {
     if (!confirm('Delete this note?')) return;
 

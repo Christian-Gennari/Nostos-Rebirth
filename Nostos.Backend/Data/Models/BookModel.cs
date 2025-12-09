@@ -10,47 +10,50 @@ public abstract class BookModel
   [Required]
   public string Title { get; set; } = string.Empty;
 
+  // --- AUTHORSHIP & CONTRIBUTIONS ---
   public string? Author { get; set; }
-  public string? Translator { get; set; } // <--- NEW FIELD
+  public string? Editor { get; set; }     // Required for Harvard "Edited by"
+  public string? Translator { get; set; }
   public string? Subtitle { get; set; }
-  public string? Description { get; set; }
+  public string? Description { get; set; } // The official book blurb
 
-  // Common Metadata
+  // --- PUBLICATION METADATA ---
   public string? Publisher { get; set; }
+  public string? PlaceOfPublication { get; set; } // Required for Harvard (e.g., "London")
   public string? PublishedDate { get; set; }
   public string? Language { get; set; }
   public string? Categories { get; set; }
   public string? Edition { get; set; }
 
-
-  // Edition & Series Info
+  // --- EDITION & SERIES INFO ---
   public string? Series { get; set; }
   public string? VolumeNumber { get; set; }
 
   public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-  // File Management
+  // --- FILE MANAGEMENT ---
   public bool HasFile { get; set; } = false;
   public string? FileName { get; set; }
   public string? CoverFileName { get; set; }
 
-  // Relationships
+  // --- RELATIONSHIPS ---
   public Guid? CollectionId { get; set; }
   public CollectionModel? Collection { get; set; }
 
-  // Reading Progress
+  // --- READING PROGRESS ---
   public string? LastLocation { get; set; } // CFI (EPUB), Page Number (PDF), or Timestamp (Audio)
   public int ProgressPercent { get; set; } = 0;
 
+  // --- USER INTERACTION ---
   [Range(0, 5)]
   public int Rating { get; set; } = 0;
 
   public bool IsFavorite { get; set; } = false;
 
+  public string? PersonalReview { get; set; } // <--- NEW: Your short review/notes
+
   // If FinishedAt is not null, the book is "Finished"
   public DateTime? FinishedAt { get; set; }
-
-
 }
 
 
