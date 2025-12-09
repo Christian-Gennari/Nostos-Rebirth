@@ -9,9 +9,9 @@
 
 
 # SQLite database files
-*.db
-#*.db-shm
-#*.db-wal
+#*.db
+*.db-shm
+*.db-wal
 
 # dotenv files
 .env
