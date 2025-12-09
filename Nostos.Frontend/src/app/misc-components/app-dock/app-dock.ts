@@ -16,11 +16,9 @@ import { CollectionsService } from '../../services/collections.services';
         class="dock-item"
         title="Library"
       >
-        <lucide-icon [img]="LibraryIcon" [size]="24" strokeWidth="2"></lucide-icon>
+        <lucide-icon [img]="LibraryIcon" [size]="22" strokeWidth="2"></lucide-icon>
         <span class="label">Library</span>
       </a>
-
-      <div class="divider"></div>
 
       <a
         routerLink="/second-brain"
@@ -29,7 +27,7 @@ import { CollectionsService } from '../../services/collections.services';
         class="dock-item"
         title="The Brain"
       >
-        <lucide-icon [img]="BrainIcon" [size]="24" strokeWidth="2"></lucide-icon>
+        <lucide-icon [img]="BrainIcon" [size]="22" strokeWidth="2"></lucide-icon>
         <span class="label">Brain</span>
       </a>
 
@@ -40,13 +38,14 @@ import { CollectionsService } from '../../services/collections.services';
         class="dock-item"
         title="Writing Studio"
       >
-        <lucide-icon [img]="PenToolIcon" [size]="24" strokeWidth="2"></lucide-icon>
+        <lucide-icon [img]="PenToolIcon" [size]="22" strokeWidth="2"></lucide-icon>
         <span class="label">Studio</span>
       </a>
     </nav>
   `,
   styles: [
     `
+      /* --- DESKTOP: Floating Pill --- */
       :host {
         position: fixed;
         bottom: 24px;
@@ -58,15 +57,19 @@ import { CollectionsService } from '../../services/collections.services';
       .app-dock {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem 0.75rem;
-        background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(0, 0, 0, 0.1);
-        border-radius: 999px; /* Pill shape */
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06),
-          0 12px 24px -8px rgba(0, 0, 0, 0.15);
+        gap: 0.35rem;
+        padding: 0.4rem;
+
+        /* Glass Effect */
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+
+        /* Brand Border */
+        border: 1px solid var(--border-color);
+
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 10px 15px -3px rgba(0, 0, 0, 0.08);
         transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
       }
 
@@ -75,25 +78,29 @@ import { CollectionsService } from '../../services/collections.services';
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 2px;
-        width: 64px;
-        height: 56px;
-        border-radius: 16px;
-        color: #666;
+        gap: 3px;
+        width: 34px;
+        height: 29px;
+        padding: 1.7rem;
+        border-radius: 0.5rem;
+        color: var(--color-text-muted);
         text-decoration: none;
-        transition: all 0.2s ease;
+        font-family: 'Inter', sans-serif;
+        transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
         position: relative;
       }
 
       .dock-item:hover {
-        background: rgba(0, 0, 0, 0.05);
-        color: #000;
+        background: var(--bg-hover, rgba(0, 0, 0, 0.04));
+        color: var(--color-text-main);
         transform: translateY(-2px);
       }
 
       .dock-item.active {
-        color: var(--color-primary, #000);
-        background: rgba(0, 0, 0, 0.08);
+        background: var(--color-primary);
+        color: #fff;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
       }
 
       .dock-item.active lucide-icon {
@@ -101,31 +108,52 @@ import { CollectionsService } from '../../services/collections.services';
       }
 
       .label {
-        font-size: 0.7rem;
-        font-weight: 500;
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
       }
 
-      .divider {
-        width: 1px;
-        height: 24px;
-        background: rgba(0, 0, 0, 0.1);
-        margin: 0 4px;
-      }
-
-      /* Mobile: Make it slightly more compact if needed */
+      /* --- MOBILE: Fixed Bottom Bar --- */
       @media (max-width: 768px) {
         :host {
-          bottom: 20px;
+          bottom: 0;
+          left: 0;
+          transform: none; /* Reset center transform */
+          width: 100%; /* Full width */
         }
+
         .app-dock {
-          padding: 0.4rem 0.6rem;
+          width: 100%;
+          border-radius: 0; /* Remove pill radius */
+          border: none;
+          border-top: 1px solid var(--border-color); /* Only top border */
+
+          /* Solid background usually looks cleaner on bottom bars */
+          background: rgba(255, 255, 255, 0.96);
+
+          /* Native App Tab Bar Spacing */
+          justify-content: space-evenly;
+          gap: 0;
+
+          /* Safe Area Padding for iPhone */
+          padding: 8px 16px;
+          padding-bottom: max(8px, env(safe-area-inset-bottom));
+
+          box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.03);
         }
+
         .dock-item {
-          width: 56px;
-          height: 50px;
+          width: auto;
+          flex: 1; /* Stretch to fill space */
+          height: auto;
+          padding: 8px 0;
+          border-radius: 0.5rem; /* Softer radius for touch feedback */
         }
-        .label {
-          font-size: 0.65rem;
+
+        /* Remove desktop hover lift on touch devices */
+        .dock-item:hover,
+        .dock-item.active {
+          transform: none;
         }
       }
     `,
@@ -139,7 +167,6 @@ export class AppDockComponent {
   PenToolIcon = PenTool;
 
   resetCollection() {
-    // Clear selected collection when switching main apps
     this.collectionsService.activeCollectionId.set(null);
   }
 }

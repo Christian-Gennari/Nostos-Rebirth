@@ -10,3 +10,7 @@
   overflow: hidden;
   position: relative;
 }
+
+app-sidebar-collections {
+  z-index: 10;
+}
