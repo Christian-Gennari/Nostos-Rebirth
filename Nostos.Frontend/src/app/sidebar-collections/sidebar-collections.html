@@ -78,35 +78,6 @@
 
     <div class="nav-group">
       @if (expanded()) {
-      <div class="section-label" style="margin-top: 1rem">Apps</div>
-      }
-      <button
-        class="nav-item"
-        routerLink="/second-brain"
-        (click)="activeId.set(null)"
-        routerLinkActive="active"
-        [routerLinkActiveOptions]="{ exact: true }"
-        title="The Brain"
-      >
-        <lucide-icon [img]="BrainIcon" [size]="18" strokeWidth="2"></lucide-icon>
-        @if (expanded()) { <span class="label">The Brain</span> }
-      </button>
-
-      <button
-        class="nav-item"
-        routerLink="/studio"
-        (click)="activeId.set(null)"
-        routerLinkActive="active"
-        [routerLinkActiveOptions]="{ exact: true }"
-        title="Writing Studio"
-      >
-        <lucide-icon [img]="PenToolIcon" [size]="18" strokeWidth="2"></lucide-icon>
-        @if (expanded()) { <span class="label">Writing Studio</span> }
-      </button>
-    </div>
-
-    <div class="nav-group">
-      @if (expanded()) {
       <div class="section-label" animate.enter="fade-in" style="margin-top: 1rem">Collections</div>
 
       <div class="root-drop-list" [style.min-height]="'50px'">

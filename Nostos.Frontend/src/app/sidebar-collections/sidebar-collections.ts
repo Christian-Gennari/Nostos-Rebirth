@@ -11,9 +11,7 @@ import {
   Plus,
   Trash2,
   Edit2,
-  BrainCircuit,
   Menu,
-  PenTool,
   Heart,
   BookOpen,
   CheckCircle,
@@ -22,7 +20,6 @@ import {
 
 import { CollectionsService } from '../services/collections.services';
 import { Collection } from '../dtos/collection.dtos';
-// 👇 CHANGED: Import the new Flat Tree Component
 import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
 
 @Component({
@@ -34,7 +31,7 @@ import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
     LucideAngularModule,
     RouterLink,
     RouterLinkActive,
-    FlatTreeComponent, // 👈 CHANGED: Use FlatTreeComponent
+    FlatTreeComponent,
   ],
   templateUrl: './sidebar-collections.html',
   styleUrls: ['./sidebar-collections.css'],
@@ -43,6 +40,7 @@ export class SidebarCollections implements OnInit {
   private collectionsService = inject(CollectionsService);
   private router = inject(Router);
 
+  // Icons
   FolderIcon = Folder;
   LibraryIcon = Library;
   PanelLeftCloseIcon = PanelLeftClose;
@@ -50,14 +48,13 @@ export class SidebarCollections implements OnInit {
   PlusIcon = Plus;
   Trash2Icon = Trash2;
   Edit2Icon = Edit2;
-  BrainIcon = BrainCircuit;
   MenuIcon = Menu;
-  PenToolIcon = PenTool;
   HeartIcon = Heart;
   BookOpenIcon = BookOpen;
   CheckCircleIcon = CheckCircle;
   InboxIcon = Inbox;
 
+  // State
   collections = signal<Collection[]>([]);
   expanded = this.collectionsService.sidebarExpanded;
   adding = signal(false);
@@ -68,14 +65,11 @@ export class SidebarCollections implements OnInit {
   activeId = this.collectionsService.activeCollectionId;
 
   ngOnInit(): void {
-    // REMOVED: TreeDragService registration
     this.load();
     if (window.innerWidth < 768) {
       this.expanded.set(false);
     }
   }
-
-  // REMOVED: ngOnDestroy (no longer needed)
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
@@ -171,14 +165,10 @@ export class SidebarCollections implements OnInit {
     this.collectionsService.delete(id).subscribe({ next: () => this.load() });
   }
 
-  // 👇 ADDED: Helper for the HTML template renaming input
   getNameForId(id: string): string {
     return this.collections().find((c) => c.id === id)?.name || '';
   }
 
-  // REMOVED: onRootDrop()
-
-  // 👇 UPDATED: Matches FlatTreeComponent event signature
   onItemMoved(event: { item: any; newParentId: string | null }) {
     this.moveCollection(event.item, event.newParentId);
   }
