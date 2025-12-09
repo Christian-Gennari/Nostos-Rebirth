@@ -16,7 +16,7 @@ import { CollectionsService } from '../../services/collections.services';
         class="dock-item"
         title="Library"
       >
-        <lucide-icon [img]="LibraryIcon" [size]="22" strokeWidth="2"></lucide-icon>
+        <lucide-icon [img]="LibraryIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
         <span class="label">Library</span>
       </a>
 
@@ -27,7 +27,7 @@ import { CollectionsService } from '../../services/collections.services';
         class="dock-item"
         title="The Brain"
       >
-        <lucide-icon [img]="BrainIcon" [size]="22" strokeWidth="2"></lucide-icon>
+        <lucide-icon [img]="BrainIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
         <span class="label">Brain</span>
       </a>
 
@@ -38,17 +38,17 @@ import { CollectionsService } from '../../services/collections.services';
         class="dock-item"
         title="Writing Studio"
       >
-        <lucide-icon [img]="PenToolIcon" [size]="22" strokeWidth="2"></lucide-icon>
+        <lucide-icon [img]="PenToolIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
         <span class="label">Studio</span>
       </a>
     </nav>
   `,
   styles: [
     `
-      /* --- DESKTOP: Floating Pill --- */
+      /* --- DESKTOP: Minimal Floating --- */
       :host {
         position: fixed;
-        bottom: 24px;
+        bottom: 20px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 50;
@@ -57,20 +57,25 @@ import { CollectionsService } from '../../services/collections.services';
       .app-dock {
         display: flex;
         align-items: center;
-        gap: 0.35rem;
-        padding: 0.4rem;
+        gap: 4px;
+        padding: 6px;
 
-        /* Glass Effect */
-        background: rgba(255, 255, 255, 0.9);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
+        /* Subtle glass effect */
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
 
-        /* Brand Border */
-        border: 1px solid var(--border-color);
+        /* Minimal border */
+        border: 1px solid rgba(0, 0, 0, 0.06);
 
-        border-radius: 0.5rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 10px 15px -3px rgba(0, 0, 0, 0.08);
-        transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+        transition: all 0.2s ease;
+      }
+
+      .app-dock:hover {
+        background: rgba(255, 255, 255, 0.85);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.08);
       }
 
       .dock-item {
@@ -78,82 +83,76 @@ import { CollectionsService } from '../../services/collections.services';
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 3px;
-        width: 34px;
-        height: 29px;
-        padding: 1.7rem;
-        border-radius: 0.5rem;
-        color: var(--color-text-muted);
+        gap: 2px;
+        padding: 10px 16px;
+        border-radius: 8px;
+        color: var(--color-text-muted, #6b7280);
         text-decoration: none;
-        font-family: 'Inter', sans-serif;
-        transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        transition: all 0.15s ease;
         position: relative;
       }
 
       .dock-item:hover {
-        background: var(--bg-hover, rgba(0, 0, 0, 0.04));
-        color: var(--color-text-main);
-        transform: translateY(-2px);
+        background: rgba(0, 0, 0, 0.03);
+        color: var(--color-text-main, #111827);
       }
 
       .dock-item.active {
-        background: var(--color-primary);
-        color: #fff;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        transform: translateY(-2px);
+        background: rgba(0, 0, 0, 0.04);
+        color: var(--color-primary, #2563eb);
       }
 
       .dock-item.active lucide-icon {
-        stroke-width: 2.5px;
+        stroke-width: 2px;
       }
 
       .label {
-        font-size: 0.65rem;
-        font-weight: 600;
-        letter-spacing: 0.02em;
+        font-size: 0.6rem;
+        font-weight: 500;
+        letter-spacing: 0.01em;
+        opacity: 0.9;
       }
 
-      /* --- MOBILE: Fixed Bottom Bar --- */
+      /* --- MOBILE: Subtle Bottom Bar --- */
       @media (max-width: 768px) {
         :host {
           bottom: 0;
           left: 0;
-          transform: none; /* Reset center transform */
-          width: 100%; /* Full width */
+          transform: none;
+          width: 100%;
         }
 
         .app-dock {
           width: 100%;
-          border-radius: 0; /* Remove pill radius */
+          border-radius: 0;
           border: none;
-          border-top: 1px solid var(--border-color); /* Only top border */
+          border-top: 1px solid rgba(0, 0, 0, 0.06);
 
-          /* Solid background usually looks cleaner on bottom bars */
-          background: rgba(255, 255, 255, 0.96);
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(16px);
 
-          /* Native App Tab Bar Spacing */
           justify-content: space-evenly;
           gap: 0;
 
-          /* Safe Area Padding for iPhone */
-          padding: 8px 16px;
-          padding-bottom: max(8px, env(safe-area-inset-bottom));
+          padding: 6px 16px;
+          padding-bottom: max(6px, env(safe-area-inset-bottom));
 
-          box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.03);
+          box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.04);
         }
 
         .dock-item {
-          width: auto;
-          flex: 1; /* Stretch to fill space */
-          height: auto;
-          padding: 8px 0;
-          border-radius: 0.5rem; /* Softer radius for touch feedback */
+          flex: 1;
+          padding: 10px 0;
+          border-radius: 8px;
         }
 
-        /* Remove desktop hover lift on touch devices */
-        .dock-item:hover,
+        .dock-item:hover {
+          background: transparent;
+        }
+
         .dock-item.active {
-          transform: none;
+          background: rgba(0, 0, 0, 0.03);
         }
       }
     `,
