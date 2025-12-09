@@ -32,25 +32,16 @@
     ></p>
     } @else {
     <p class="note-meta-placeholder">No additional comment</p>
-    } @if (showSource && note.bookTitle) {
-    <div class="source-section">
-      <div class="source-details"></div>
-      <a
-        [routerLink]="['/library', note.bookId]"
-        [queryParams]="{ cfi: note.cfiRange }"
-        class="source-link"
-        (click)="$event.stopPropagation()"
-      >
-      </a>
-    </div>
     }
 
     <div class="note-footer">
       <div class="note-metadata">
+        @if (showDate && note.createdAt) {
         <span class="note-date">{{ note.createdAt | date : 'short' }}</span>
-
-        @if (showSource && note.bookTitle) {
+        } @if (showSource && note.bookTitle) { @if (showDate && note.createdAt) {
         <span class="meta-separator">•</span>
+        }
+
         <a
           class="source-badge"
           [routerLink]="['/library', note.bookId]"

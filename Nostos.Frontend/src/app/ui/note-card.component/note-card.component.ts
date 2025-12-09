@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router'; // 👈 Import RouterLink
+import { RouterLink } from '@angular/router';
 import {
   LucideAngularModule,
   MessageSquareQuote,
@@ -10,7 +10,7 @@ import {
   Check,
   X,
   ArrowRight,
-  Library, // 👈 Import Library icon
+  Library,
 } from 'lucide-angular';
 
 import { Note } from '../../dtos/note.dtos';
@@ -28,7 +28,7 @@ import { NoteFormatPipe } from '../pipes/note-format.pipe';
     ConceptInputComponent,
     NoteFormatPipe,
     RouterLink,
-  ], // 👈 Add RouterLink
+  ],
   templateUrl: './note-card.component.html',
   styleUrls: ['./note-card.component.css'],
 })
@@ -37,7 +37,8 @@ export class NoteCardComponent {
   @Input() conceptMap: Map<string, ConceptDto> = new Map();
   @Input() showNavigation = false;
   @Input() showActions = true;
-  @Input() showSource = false; // 👈 New Input to toggle the source badge
+  @Input() showSource = false;
+  @Input() showDate = true; // Defaults to true for the Library view
 
   @Output() update = new EventEmitter<{ id: string; content: string }>();
   @Output() delete = new EventEmitter<string>();
@@ -55,7 +56,7 @@ export class NoteCardComponent {
     Check,
     Close: X,
     ArrowRight,
-    Library, // 👈 Add to Icons
+    Library,
   };
 
   startEdit(event?: Event) {
