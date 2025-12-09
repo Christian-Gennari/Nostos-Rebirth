@@ -45,7 +45,7 @@ import { CollectionsService } from '../../services/collections.services';
   `,
   styles: [
     `
-      /* --- DESKTOP: Minimal Floating --- */
+      /* --- DESKTOP: Minimal Floating with Expand/Collapse --- */
       :host {
         position: fixed;
         bottom: 20px;
@@ -68,7 +68,7 @@ import { CollectionsService } from '../../services/collections.services';
 
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
-        transition: all 0.2s ease;
+        transition: all 0.3s ease;
       }
 
       .app-dock:hover {
@@ -111,6 +111,40 @@ import { CollectionsService } from '../../services/collections.services';
         font-weight: 500;
         letter-spacing: 0.01em;
         opacity: 0.9;
+        transition: opacity 0.2s ease, max-height 0.3s ease;
+      }
+
+      /* Minimized state - hide labels by default on desktop */
+      @media (min-width: 769px) {
+        .app-dock {
+          gap: 2px;
+          padding: 4px;
+        }
+
+        .dock-item {
+          padding: 8px 10px;
+        }
+
+        .label {
+          max-height: 0;
+          opacity: 0;
+          overflow: hidden;
+        }
+
+        /* Expanded state on hover */
+        .app-dock:hover {
+          gap: 4px;
+          padding: 6px;
+        }
+
+        .app-dock:hover .dock-item {
+          padding: 10px 16px;
+        }
+
+        .app-dock:hover .label {
+          max-height: 20px;
+          opacity: 0.9;
+        }
       }
 
       /* --- MOBILE: Subtle Bottom Bar --- */
@@ -151,6 +185,12 @@ import { CollectionsService } from '../../services/collections.services';
 
         .dock-item.active {
           background: rgba(0, 0, 0, 0.03);
+        }
+
+        /* Keep labels visible on mobile */
+        .label {
+          max-height: none;
+          opacity: 0.9;
         }
       }
     `,
