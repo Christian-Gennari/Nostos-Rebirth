@@ -134,7 +134,13 @@
         <div class="book-card" [routerLink]="['/library', book.id]">
           <div class="cover-wrapper">
             @if (book.coverUrl) {
-            <img [src]="book.coverUrl" class="cover-image" alt="{{ book.title }} cover" />
+            <img
+              [src]="book.coverUrl"
+              class="cover-image"
+              alt="{{ book.title }} cover"
+              loading="lazy"
+              decoding="async"
+            />
             } @else {
             <lucide-icon [img]="BookIcon" [size]="48" strokeWidth="1"></lucide-icon>
             }

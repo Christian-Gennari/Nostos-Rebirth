@@ -42,6 +42,11 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+
+  /* --- FIX FOR HIGH RES PIXELATION --- */
+  transform: translateZ(0); /* Forces GPU texture scaling */
+  backface-visibility: hidden;
+  image-rendering: auto;
 }
 .placeholder-cover {
   display: flex;

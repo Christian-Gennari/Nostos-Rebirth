@@ -38,7 +38,13 @@
         <aside class="detail-cover-col">
           <div class="cover-frame">
             @if (book()?.coverUrl) {
-            <img [src]="book()?.coverUrl" alt="Book cover" class="cover-img" />
+            <img
+              [src]="book()?.coverUrl"
+              alt="Book cover"
+              class="cover-img"
+              loading="lazy"
+              decoding="async"
+            />
             } @else {
             <div class="placeholder-cover">
               <lucide-icon

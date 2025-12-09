@@ -169,13 +169,24 @@
   color: #ccc;
   overflow: hidden;
   transition: transform 0.2s, box-shadow 0.2s;
+  /* Ensure container clips correctly during transforms */
+  transform: translateZ(0);
 }
+
 .cover-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transition: opacity 0.2s;
+
+  /* --- FIX FOR HIGH RES PIXELATION --- */
+  /* Forces GPU rendering for smoother downscaling interpolation */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  /* Ensures standard smooth interpolation */
+  image-rendering: auto;
 }
+
 .book-card:hover .cover-wrapper {
   transform: translateY(-4px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
