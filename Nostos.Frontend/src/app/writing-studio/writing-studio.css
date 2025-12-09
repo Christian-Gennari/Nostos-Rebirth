@@ -21,7 +21,7 @@
 
 @media (min-width: 769px) {
   .sidebar-left {
-    width: 260px;
+    width: 320px;
     border-right: 1px solid var(--border-color);
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
   }

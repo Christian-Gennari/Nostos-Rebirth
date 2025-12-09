@@ -8,6 +8,7 @@ import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AddBookModal } from '../add-book-modal/add-book-modal';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
+import { SidebarCollections } from '../sidebar-collections/sidebar-collections';
 import {
   LucideAngularModule,
   LayoutList,
@@ -17,7 +18,7 @@ import {
   Edit2,
   Book as BookIcon,
   Heart,
-  CheckCircle, // <--- NEW IMPORT
+  CheckCircle,
 } from 'lucide-angular';
 
 @Component({
@@ -30,6 +31,7 @@ import {
     LucideAngularModule,
     AddBookModal,
     StarRatingComponent,
+    SidebarCollections,
   ],
   templateUrl: './library.html',
   styleUrls: ['./library.css'],
@@ -46,7 +48,10 @@ export class Library implements OnInit {
   Edit2Icon = Edit2;
   BookIcon = BookIcon;
   HeartIcon = Heart;
-  CheckCircleIcon = CheckCircle; // <--- NEW ICON
+  CheckCircleIcon = CheckCircle;
+
+  // 📝 NEW: Loading signal for skeleton UI
+  loading = signal(true);
 
   rawBooks = signal<Book[]>([]);
   collections = signal<Collection[]>([]);
@@ -82,13 +87,26 @@ export class Library implements OnInit {
   }
 
   loadBooks(filter?: string, sort?: string): void {
+    // 1. Start loading state
+    this.loading.set(true);
+
     this.booksService.list(filter, sort).subscribe({
-      next: (data) => this.rawBooks.set(data),
-      error: (err) => console.error('Error loading books:', err),
+      next: (data) => {
+        this.rawBooks.set(data);
+        // 2. Stop loading state on success
+        this.loading.set(false);
+      },
+      error: (err) => {
+        console.error('Error loading books:', err);
+        // 3. Stop loading state on error
+        this.loading.set(false);
+      },
     });
   }
 
   loadCollections(): void {
+    // Note: Since collections are typically smaller, we don't need a separate loader,
+    // but the book loader handles the main UI block.
     this.collectionsService.list().subscribe({
       next: (data) => this.collections.set(data),
       error: (err) => console.error('Error loading collections:', err),

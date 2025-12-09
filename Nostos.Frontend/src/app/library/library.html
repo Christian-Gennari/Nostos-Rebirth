@@ -1,5 +1,11 @@
-<main class="layout-wrapper">
-  <div class="layout-content">
+<main class="layout-wrapper" [class.sidebar-collapsed]="!sidebar.expanded()">
+  <app-sidebar-collections
+    class="sidebar-panel"
+    #sidebar
+    [class.no-transition]="!sidebar.isLoaded()"
+  ></app-sidebar-collections>
+
+  <div class="library-right-side">
     <header class="toolbar">
       <h1 id="library-title">Library</h1>
 
@@ -46,7 +52,65 @@
       >
       </app-add-book-modal>
 
-      @if (viewMode() === 'list') {
+      @if (loading()) { @if (viewMode() === 'list') {
+      <div class="table-view skeleton-list-view">
+        <div class="table-header">
+          <div id="title-header">Title</div>
+          <div id="author-header">Author</div>
+          <div id="rating-header">Rating</div>
+          <div id="format-header">Format</div>
+          <div id="date-header">Date</div>
+          <div id="actions-header" style="text-align: right">Actions</div>
+        </div>
+
+        @for (i of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; track i) {
+        <div class="table-row">
+          <div class="col title">
+            <div
+              class="skeleton-line"
+              [style.width]="100 - i * 5 + '%'"
+              style="height: 1rem; margin-bottom: 0"
+            ></div>
+          </div>
+          <div class="col author">
+            <div
+              class="skeleton-line"
+              [style.width]="80 - i * 5 + '%'"
+              style="height: 1rem; margin-bottom: 0"
+            ></div>
+          </div>
+          <div class="col rating">
+            <div class="skeleton-line" style="width: 50px; height: 10px; margin-bottom: 0"></div>
+          </div>
+          <div class="col format">
+            <div class="skeleton-line" style="width: 30px; height: 10px; margin-bottom: 0"></div>
+          </div>
+          <div class="col date">
+            <div class="skeleton-line" style="width: 40px; height: 10px; margin-bottom: 0"></div>
+          </div>
+          <div class="col actions-cell"></div>
+        </div>
+        }
+      </div>
+      } @if (viewMode() === 'grid') {
+      <div class="book-grid skeleton-grid-view">
+        @for (i of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; track i) {
+        <div class="skeleton-card">
+          <div class="skeleton-box cover-size"></div>
+          <div
+            class="skeleton-line"
+            [style.width]="70 + (i % 3) * 5 + '%'"
+            style="height: 0.8rem; margin-bottom: 0.5rem"
+          ></div>
+          <div
+            class="skeleton-line"
+            [style.width]="40 + (i % 4) * 3 + '%'"
+            style="height: 0.6rem; margin-bottom: 0.5rem"
+          ></div>
+        </div>
+        }
+      </div>
+      } } @if (!loading()) { @if (viewMode() === 'list') {
       <div class="table-view">
         <div class="table-header">
           <div id="title-header">Title</div>
@@ -205,16 +269,7 @@
 
         }
       </div>
-      }
+      } }
     </div>
   </div>
-
-  <app-add-book-modal
-    [isOpen]="showEditModal()"
-    [book]="editTarget()"
-    [collections]="collections()"
-    (closeModal)="closeEditModal()"
-    (bookUpdated)="onBookUpdated($event)"
-  >
-  </app-add-book-modal>
 </main>
