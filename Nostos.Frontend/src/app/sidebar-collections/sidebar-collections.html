@@ -23,7 +23,7 @@
         (click)="activeId.set(null)"
         title="All Books"
       >
-        <lucide-icon [img]="LibraryIcon" [size]="18" strokeWidth="2"></lucide-icon>
+        <lucide-icon [img]="LibraryIcon" [size]="18" strokeWidth="1"></lucide-icon>
         @if (expanded()) { <span class="label">All Books</span> }
       </button>
 
@@ -35,7 +35,7 @@
         (click)="activeId.set(null)"
         title="Continue Reading"
       >
-        <lucide-icon [img]="BookOpenIcon" [size]="18" strokeWidth="2"></lucide-icon>
+        <lucide-icon [img]="BookOpenIcon" [size]="18" strokeWidth="1"></lucide-icon>
         @if (expanded()) { <span class="label">Reading</span> }
       </button>
 
@@ -47,7 +47,7 @@
         (click)="activeId.set(null)"
         title="Favorites"
       >
-        <lucide-icon [img]="HeartIcon" [size]="18" strokeWidth="2"></lucide-icon>
+        <lucide-icon [img]="HeartIcon" [size]="18" strokeWidth="1"></lucide-icon>
         @if (expanded()) { <span class="label">Favorites</span> }
       </button>
 
@@ -59,7 +59,7 @@
         (click)="activeId.set(null)"
         title="Finished"
       >
-        <lucide-icon [img]="CheckCircleIcon" [size]="18" strokeWidth="2"></lucide-icon>
+        <lucide-icon [img]="CheckCircleIcon" [size]="18" strokeWidth="1"></lucide-icon>
         @if (expanded()) { <span class="label">Finished</span> }
       </button>
 
@@ -71,7 +71,7 @@
         (click)="activeId.set(null)"
         title="Unsorted"
       >
-        <lucide-icon [img]="InboxIcon" [size]="18" strokeWidth="2"></lucide-icon>
+        <lucide-icon [img]="InboxIcon" [size]="18" strokeWidth="1"></lucide-icon>
         @if (expanded()) { <span class="label">Unsorted</span> }
       </button>
     </div>
@@ -83,7 +83,7 @@
       <div class="root-drop-list" [style.min-height]="'50px'">
         @if (editingId(); as id) {
         <div class="nav-item input-mode">
-          <lucide-icon [img]="FolderIcon" [size]="18" strokeWidth="2"></lucide-icon>
+          <lucide-icon [img]="FolderIcon" [size]="18" strokeWidth="1"></lucide-icon>
           <input
             #editInput
             type="text"
@@ -112,7 +112,7 @@
     <div class="nav-group mt-auto">
       @if (adding()) {
       <div class="nav-item input-mode">
-        <lucide-icon [img]="PlusIcon" [size]="18" strokeWidth="2"></lucide-icon>
+        <lucide-icon [img]="PlusIcon" [size]="18" strokeWidth="1"></lucide-icon>
         @if (expanded()) {
         <input
           type="text"
@@ -127,7 +127,7 @@
       </div>
       } @else {
       <button class="nav-item action-add" (click)="startAdd()" title="Create Collection">
-        <lucide-icon [img]="PlusIcon" [size]="18" strokeWidth="2"></lucide-icon>
+        <lucide-icon [img]="PlusIcon" [size]="18" strokeWidth="1"></lucide-icon>
         @if (expanded()) {
         <span class="label">New Collection</span>
         }
@@ -139,9 +139,9 @@
   <div class="sidebar-footer">
     <button class="toggle-btn" (click)="toggle()">
       @if (expanded()) {
-      <lucide-icon [img]="PanelLeftCloseIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
+      <lucide-icon [img]="PanelLeftCloseIcon" [size]="18" strokeWidth="1"></lucide-icon>
       } @else {
-      <lucide-icon [img]="PanelLeftOpenIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
+      <lucide-icon [img]="PanelLeftOpenIcon" [size]="18" strokeWidth="1"></lucide-icon>
       }
     </button>
   </div>

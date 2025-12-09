@@ -2,10 +2,17 @@
 
 :root {
   /* Colors */
-  --bg-body: #fafafa;
+  /* CHANGED: Deepened to create contrast against white cards */
+  --bg-body: #f4f4f5; /* Was #fafafa */
+
+  /* CHANGED: Kept pure white to "pop" against the new body */
   --bg-surface: #ffffff;
-  --bg-hover: #f3f3f3;
-  --bg-sidebar: #fbfbfb;
+
+  /* CHANGED: Darkened slightly to be visible against white, distinct from body */
+  --bg-hover: #f0f0f0; /* Was #f3f3f3 */
+
+  /* CHANGED: Now sits clearly between Body and Surface */
+  --bg-sidebar: #f9f9f9; /* Was #fbfbfb */
 
   --color-primary: #111111;
   --color-primary-hover: #333333;
@@ -14,13 +21,15 @@
   --color-text-light: #888888;
   --color-danger: #d32f2f;
 
-  /* Brand Accents (New) */
-  --color-accent: #60a5fa; /* The blue you liked */
-  --color-accent-hover: #93c5fd; /* A lighter interaction state */
-  --color-accent-faint: rgba(96, 165, 250, 0.3); /* For subtle borders */
+  /* Brand Accents */
+  --color-accent: #60a5fa;
+  --color-accent-hover: #93c5fd;
+  --color-accent-faint: rgba(96, 165, 250, 0.3);
 
   /* Borders & Radius */
-  --border-color: #e5e5e5;
+  /* CHANGED: Made slightly darker to define edges "harder" */
+  --border-color: #e2e2e2; /* Was #e5e5e5 */
+
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;

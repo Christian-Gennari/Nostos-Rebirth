@@ -10,14 +10,14 @@
             [class.active]="viewMode() === 'list'"
             (click)="viewMode.set('list')"
           >
-            <lucide-icon [img]="ListIcon" [size]="18"></lucide-icon>
+            <lucide-icon [img]="ListIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
           </button>
           <button
             class="toggle-opt"
             [class.active]="viewMode() === 'grid'"
             (click)="viewMode.set('grid')"
           >
-            <lucide-icon [img]="GridIcon" [size]="18"></lucide-icon>
+            <lucide-icon [img]="GridIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
           </button>
         </div>
 

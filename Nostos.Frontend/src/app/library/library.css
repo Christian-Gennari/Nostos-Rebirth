@@ -147,7 +147,7 @@
 .cover-wrapper {
   position: relative;
   aspect-ratio: 2/3;
-  background: #f0f0f0;
+  background: #353535;
   border-radius: var(--radius-md);
   margin-bottom: 0.75rem;
   display: flex;
@@ -156,7 +156,6 @@
   color: #ccc;
   overflow: hidden;
   transition: transform 0.2s, box-shadow 0.2s;
-  border: 1px solid transparent;
 }
 .cover-image {
   width: 100%;
