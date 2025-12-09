@@ -149,6 +149,7 @@
                 [(ngModel)]="form.publishedDate"
                 name="publishedDate"
                 placeholder="YYYY or YYYY-MM-DD"
+                (blur)="form.publishedDate = sanitizeDate(form.publishedDate)"
               />
             </div>
             <div class="form-group">

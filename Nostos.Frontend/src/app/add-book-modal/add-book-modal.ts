@@ -49,7 +49,7 @@ export class AddBookModal {
     title: '',
     subtitle: '' as string | null,
     author: '' as string | null,
-    translator: '' as string | null, // <--- NEW FIELD
+    translator: '' as string | null,
     description: '' as string | null,
 
     isbn: '' as string | null,
@@ -94,7 +94,7 @@ export class AddBookModal {
       title: b.title,
       subtitle: b.subtitle || '',
       author: b.author,
-      translator: b.translator || '', // <--- Map NEW FIELD
+      translator: b.translator || '',
       description: b.description || '',
       isbn: b.isbn || '',
       asin: b.asin || '',
@@ -120,7 +120,7 @@ export class AddBookModal {
       title: '',
       subtitle: null,
       author: null,
-      translator: null, // <--- Reset NEW FIELD
+      translator: null,
       description: null,
       isbn: null,
       asin: null,
@@ -142,6 +142,28 @@ export class AddBookModal {
     this.activeTab.set('General');
   }
 
+  /**
+   * Helper to format dates into YYYY or YYYY-MM-DD
+   */
+  sanitizeDate(dateStr: string | null): string | null {
+    if (!dateStr) return null;
+    const clean = dateStr.trim();
+
+    // 1. If it's already just a year (e.g. "1999"), keep it.
+    if (/^\d{4}$/.test(clean)) return clean;
+
+    // 2. Try parsing as a standard date (handles "Jan 1, 2020", "2020/01/01")
+    const timestamp = Date.parse(clean);
+    if (!isNaN(timestamp)) {
+      const date = new Date(timestamp);
+      return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD
+    }
+
+    // 3. Fallback: Try to just find a 4-digit year in the string
+    const yearMatch = clean.match(/\d{4}/);
+    return yearMatch ? yearMatch[0] : clean;
+  }
+
   fetchMetadata(): void {
     const isbn = this.form.isbn?.trim();
     if (!isbn) return;
@@ -159,7 +181,8 @@ export class AddBookModal {
             author: data.author || this.form.author,
             description: data.description || this.form.description,
             publisher: data.publisher || this.form.publisher,
-            publishedDate: data.publishedDate || this.form.publishedDate,
+            // Sanitize the date coming from the API
+            publishedDate: this.sanitizeDate(data.publishedDate) || this.form.publishedDate,
             pageCount: data.pageCount || this.form.pageCount,
             language: this.getFullLanguageName(data.language) || this.form.language,
             categories: data.categories || this.form.categories,
@@ -183,11 +206,16 @@ export class AddBookModal {
 
   submit(): void {
     if (!this.form.title.trim()) return;
+
+    // Sanitize Language
     if (this.form.language) {
       this.form.language = this.getFullLanguageName(this.form.language) || this.form.language;
     }
 
-    const payload = { ...this.form, publishedDate: this.form.publishedDate || null };
+    // Sanitize Date
+    const cleanDate = this.sanitizeDate(this.form.publishedDate);
+
+    const payload = { ...this.form, publishedDate: cleanDate || null };
 
     if (this.isEditMode()) {
       this.booksService.update(this.book()!.id, payload).subscribe({
@@ -207,8 +235,6 @@ export class AddBookModal {
       });
     }
   }
-
-  // ... (handleFileUpload, uploadCoverIfNeeded, finishAdd, getFullLanguageName remain largely the same)
 
   handleFileUpload(createdBook: BookModel): void {
     this.uploadStartTime = performance.now();
