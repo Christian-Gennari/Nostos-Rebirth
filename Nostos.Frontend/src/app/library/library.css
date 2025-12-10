@@ -325,7 +325,7 @@ app-sidebar-collections.no-transition {
   overflow: hidden;
   transition: transform 0.2s, box-shadow 0.2s;
   /* IMPORTANT: Only use translateZ on hover if possible,
-     but keeping it here to prevent paint flashing. */
+       but keeping it here to prevent paint flashing. */
   transform: translateZ(0);
 }
 
@@ -470,6 +470,10 @@ app-sidebar-collections.no-transition {
   margin-top: 0.35rem;
   opacity: 0.5;
   transition: opacity 0.2s;
+}
+/* ADDED: This makes the rating solid when hovering the book card */
+.book-card:hover .meta-rating {
+  opacity: 1;
 }
 
 /* --- SKELETON --- */

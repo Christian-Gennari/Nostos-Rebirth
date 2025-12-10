@@ -1,5 +1,5 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router, NavigationEnd } from '@angular/router'; // Added Router, NavigationEnd
 import { BooksService, Book } from '../services/books.services';
 import { CollectionsService } from '../services/collections.services';
 import { Collection } from '../dtos/collection.dtos';
@@ -10,7 +10,7 @@ import { AddBookModal } from '../add-book-modal/add-book-modal';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { SidebarCollections } from '../sidebar-collections/sidebar-collections';
 import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators'; // Added filter
 import {
   LucideAngularModule,
   LayoutList,
@@ -44,6 +44,7 @@ export class Library implements OnInit {
   private booksService = inject(BooksService);
   private collectionsService = inject(CollectionsService);
   private route = inject(ActivatedRoute);
+  private router = inject(Router); // Inject Router
 
   ListIcon = LayoutList;
   GridIcon = LayoutGrid;
@@ -100,12 +101,24 @@ export class Library implements OnInit {
       this.refreshBooks();
     });
 
+    // FIX: Listen for re-entry events (Back Button) because RouteReuseStrategy skips ngOnInit
+    this.router.events.pipe(filter((event) => event instanceof NavigationEnd)).subscribe(() => {
+      // Only refresh if we are currently on the library page
+      // We pass 'false' to avoid showing the skeleton loader again
+      if (this.router.url.startsWith('/library')) {
+        this.refreshBooks(false);
+      }
+    });
+
     this.loadCollections();
   }
 
   // Unified load function: Combines Sidebar (URL) + Toolbar (Local State)
-  refreshBooks(): void {
-    this.loading.set(true);
+  // Added optional 'showLoading' param to allow background updates
+  refreshBooks(showLoading = true): void {
+    if (showLoading) {
+      this.loading.set(true);
+    }
 
     // Get Context (Sidebar)
     const filter = this.route.snapshot.queryParams['filter'];
@@ -162,7 +175,7 @@ export class Library implements OnInit {
   }
 
   onBookUpdated(updated: Book): void {
-    this.refreshBooks();
+    this.refreshBooks(false); // Background update
     this.closeEditModal();
   }
 
@@ -172,7 +185,7 @@ export class Library implements OnInit {
 
     this.booksService.delete(id).subscribe({
       next: () => {
-        this.refreshBooks();
+        this.refreshBooks(false);
       },
     });
   }

@@ -1,8 +1,9 @@
 import { Component, inject, OnInit, signal, model } from '@angular/core';
-import { ActivatedRoute, RouterLink, Router } from '@angular/router';
+import { ActivatedRoute, RouterLink, Router, NavigationEnd } from '@angular/router'; // Added NavigationEnd
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
+import { filter } from 'rxjs/operators'; // Added filter
 
 // Services & DTOs
 import { BooksService, Book } from '../services/books.services';
@@ -42,8 +43,8 @@ import {
   Heart,
   CheckCircle,
   Mic,
-  MapPin, // <--- NEW
-  MessageSquareQuote, // <--- NEW
+  MapPin,
+  MessageSquareQuote,
 } from 'lucide-angular';
 
 @Component({
@@ -92,8 +93,8 @@ export class BookDetail implements OnInit {
   HeartIcon = Heart;
   CheckCircleIcon = CheckCircle;
   MicIcon = Mic;
-  MapPinIcon = MapPin; // <--- NEW
-  QuoteIcon = MessageSquareQuote; // <--- NEW
+  MapPinIcon = MapPin;
+  QuoteIcon = MessageSquareQuote;
 
   // State
   loading = signal(true);
@@ -113,35 +114,58 @@ export class BookDetail implements OnInit {
   newNote = model<string>('');
 
   ngOnInit(): void {
-    // FIX: Subscribe to paramMap so that if the component is Reused,
-    // we detect the ID change and reload the data.
+    // 1. Standard Load: Handles first load AND ID changes (Book A -> Book B)
     this.route.paramMap.subscribe((params) => {
       const id = params.get('id');
+      this.handleRouteIdChange(id);
+    });
 
-      if (!id) {
-        this.error.set('Invalid book ID');
-        this.loading.set(false);
-        return;
+    // 2. Re-entry Load: Handles navigation back to same book (Library -> Book A)
+    // allowing us to refresh data even if the component was cached.
+    this.router.events.pipe(filter((event) => event instanceof NavigationEnd)).subscribe(() => {
+      // Ensure we are actually on this page
+      const id = this.route.snapshot.paramMap.get('id');
+      if (id && this.router.url.includes(`/library/${id}`)) {
+        // Perform a background refresh (don't show spinner)
+        this.loadBook(id, { showLoading: false });
       }
+    });
+  }
 
-      // 1. Reset state for the new book to prevent seeing old data
+  // Refactored to separate logic from subscription
+  private handleRouteIdChange(id: string | null): void {
+    if (!id) {
+      this.error.set('Invalid book ID');
+      this.loading.set(false);
+      return;
+    }
+
+    // Reset state only if ID has changed to a NEW book
+    // (This helps avoid flickering if reusing same ID in some edge cases)
+    if (this.book()?.id !== id) {
       this.loading.set(true);
       this.error.set(null);
       this.book.set(null);
       this.notes.set([]);
+    }
 
-      // 2. Load fresh data
-      this.loadBook(id);
-      this.loadNotes(id);
-      this.loadCollections();
-      this.loadConcepts();
-    });
+    this.loadBook(id, { showLoading: true });
+    this.loadNotes(id);
+    this.loadCollections();
+    this.loadConcepts();
   }
 
-  loadBook(id: string, forceRefresh = false): void {
+  // UPDATED: Accepts options object for better control
+  loadBook(id: string, options: { forceImageRefresh?: boolean; showLoading?: boolean } = {}): void {
+    const { forceImageRefresh = false, showLoading = true } = options;
+
+    if (showLoading) {
+      this.loading.set(true);
+    }
+
     this.booksService.get(id).subscribe({
       next: (book) => {
-        if (forceRefresh && book.coverUrl) {
+        if (forceImageRefresh && book.coverUrl) {
           book.coverUrl += `?t=${Date.now()}`;
         }
         this.book.set(book);
@@ -247,7 +271,7 @@ export class BookDetail implements OnInit {
         this.book.set(updatedBook);
       },
       error: () => {
-        this.loadBook(book.id);
+        this.loadBook(book.id, { showLoading: false });
       },
     });
   }
@@ -341,7 +365,7 @@ export class BookDetail implements OnInit {
     this.booksService.uploadCover(book.id, file).subscribe({
       next: (event) => {
         if (event.type === HttpEventType.Response) {
-          this.loadBook(book.id, true);
+          this.loadBook(book.id, { forceImageRefresh: true });
         }
       },
       error: () => this.error.set('Failed to upload cover'),
@@ -354,7 +378,7 @@ export class BookDetail implements OnInit {
     if (!confirm('Remove cover image?')) return;
 
     this.booksService.deleteCover(id).subscribe({
-      next: () => this.loadBook(id),
+      next: () => this.loadBook(id, { showLoading: false }),
       error: (err) => console.error('Delete cover error:', err),
     });
   }
@@ -376,7 +400,7 @@ export class BookDetail implements OnInit {
     this.booksService.uploadFile(book.id, file).subscribe({
       next: (event) => {
         if (event.type === HttpEventType.Response) {
-          this.loadBook(book.id);
+          this.loadBook(book.id, { showLoading: false });
         }
       },
       error: (err) => console.error('File upload error:', err),
