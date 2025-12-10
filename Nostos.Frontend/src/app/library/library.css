@@ -314,9 +314,9 @@ app-sidebar-collections.no-transition {
 .cover-wrapper {
   position: relative;
   aspect-ratio: 2/3;
-  background: #353535;
-  border: 1px solid var(--border-color);
+  background: var(--border-color);
   border-radius: var(--radius-md);
+  outline: 1px solid var(--border-color);
   margin-bottom: 0.75rem;
   display: flex;
   align-items: center;
