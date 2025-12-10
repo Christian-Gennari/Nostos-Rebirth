@@ -5,11 +5,12 @@
 
 
 # File storage
-# Nostos.Backend/Storage/
+Nostos.Backend/Storage
+
 
 
 # SQLite database files
-#*.db
+*.db
 *.db-shm
 *.db-wal
 
