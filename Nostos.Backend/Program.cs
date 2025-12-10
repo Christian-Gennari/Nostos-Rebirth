@@ -40,13 +40,6 @@ builder.Services.AddScoped<BookLookupService>();
 
 var app = builder.Build();
 
-// --- ANGULAR INTEGRATION START ---
-// 1. Serve Static Files
-// This serves the CSS, JS, and assets from the 'wwwroot' folder.
-// .NET 10 uses MapStaticAssets for optimized delivery.
-app.MapStaticAssets();
-// --- ANGULAR INTEGRATION END ---
-
 app.MapOpenApi();
 
 app.UseCors();
@@ -58,12 +51,5 @@ app.MapCollectionsEndpoints();
 app.MapConceptsEndpoints();
 app.MapWritingsEndpoints();
 
-// --- ANGULAR INTEGRATION START ---
-// 2. SPA Fallback
-// This must be placed AFTER all your API endpoints.
-// If a request comes in that is NOT an API call and NOT a static file,
-// serve index.html so Angular Routing takes over.
-app.MapFallbackToFile("index.html");
-// --- ANGULAR INTEGRATION END ---
 
 app.Run();
