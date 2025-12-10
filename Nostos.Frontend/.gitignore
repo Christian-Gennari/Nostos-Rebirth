@@ -5,8 +5,8 @@
 
 
 # File storage
-Nostos.Backend/Storage/
-Nostos.Frontend/dist/
+*Storage
+*dist
 
 
 # SQLite database files
