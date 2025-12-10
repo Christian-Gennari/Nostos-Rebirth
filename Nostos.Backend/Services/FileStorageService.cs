@@ -3,6 +3,7 @@ namespace Nostos.Backend.Services;
 public class FileStorageService
 {
   private readonly string _root;
+  private readonly ILogger<FileStorageService> _logger;
 
   // Centralized allowed extensions
   private readonly HashSet<string> _allowedBookExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -25,9 +26,10 @@ public class FileStorageService
     ".jpeg"
   };
 
-  public FileStorageService(IWebHostEnvironment env)
+  public FileStorageService(IWebHostEnvironment env, ILogger<FileStorageService> logger)
   {
     _root = Path.Combine(env.ContentRootPath, "Storage", "books");
+    _logger = logger;
     Directory.CreateDirectory(_root);
   }
 
@@ -40,7 +42,28 @@ public class FileStorageService
     var bookFolder = Path.Combine(_root, bookId.ToString());
     Directory.CreateDirectory(bookFolder);
 
-    var filePath = Path.Combine(bookFolder, file.FileName);
+    // Clean up existing book files to ensure only one "book.*" exists
+    // ignoring the current operation's target if it were to somehow exist already
+    var existingFiles = Directory
+        .EnumerateFiles(bookFolder)
+        .Where(f => _allowedBookExtensions.Contains(Path.GetExtension(f)))
+        .ToList();
+
+    foreach (var existingFile in existingFiles)
+    {
+      try
+      {
+        File.Delete(existingFile);
+      }
+      catch (Exception ex)
+      {
+        _logger.LogWarning(ex, "Failed to delete existing file during cleanup: {FileName}", existingFile);
+      }
+    }
+
+    // Normalize filename to "book" + extension
+    var fileName = $"book{ext}";
+    var filePath = Path.Combine(bookFolder, fileName);
 
     using var stream = new FileStream(filePath, FileMode.Create);
     await file.CopyToAsync(stream);

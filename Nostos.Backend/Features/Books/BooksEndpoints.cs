@@ -165,7 +165,8 @@ public static class BooksEndpoints
       await storage.SaveBookFileAsync(id, file);
 
       book.HasFile = true;
-      book.FileName = file.FileName;
+      // Normalizing the filename record in DB to match the normalized physical file
+      book.FileName = $"book{Path.GetExtension(file.FileName)}";
       await db.SaveChangesAsync();
 
       return Results.Ok(new { uploaded = true });
