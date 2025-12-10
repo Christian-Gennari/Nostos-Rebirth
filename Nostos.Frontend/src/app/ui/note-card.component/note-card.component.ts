@@ -11,6 +11,8 @@ import {
   X,
   ArrowRight,
   Library,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-angular';
 
 import { Note } from '../../dtos/note.dtos';
@@ -38,7 +40,7 @@ export class NoteCardComponent {
   @Input() showNavigation = false;
   @Input() showActions = true;
   @Input() showSource = false;
-  @Input() showDate = true; // Defaults to true for the Library view
+  @Input() showDate = true;
 
   @Output() update = new EventEmitter<{ id: string; content: string }>();
   @Output() delete = new EventEmitter<string>();
@@ -49,6 +51,11 @@ export class NoteCardComponent {
   isEditing = false;
   editContent = '';
 
+  // Collapse logic
+  isExpanded = false;
+  // Threshold includes both quote + content length
+  readonly CHAR_THRESHOLD = 250;
+
   Icons = {
     MessageSquareQuote,
     Edit: Edit2,
@@ -57,18 +64,37 @@ export class NoteCardComponent {
     Close: X,
     ArrowRight,
     Library,
+    ChevronDown,
+    ChevronUp,
   };
+
+  get shouldShowExpandBtn(): boolean {
+    // If we are editing, we usually don't show the expand button (we show full text in inputs)
+    if (this.isEditing) return false;
+
+    const quoteLen = this.note.selectedText?.length || 0;
+    const contentLen = this.note.content?.length || 0;
+    return quoteLen + contentLen > this.CHAR_THRESHOLD;
+  }
+
+  toggleExpand(event: Event) {
+    event.stopPropagation();
+    this.isExpanded = !this.isExpanded;
+  }
 
   startEdit(event?: Event) {
     event?.stopPropagation();
     this.editContent = this.note.content;
     this.isEditing = true;
+    // Auto-expand when editing if you prefer, or handle in template
+    this.isExpanded = true;
   }
 
   cancelEdit(event?: Event) {
     event?.stopPropagation();
     this.isEditing = false;
     this.editContent = '';
+    this.isExpanded = false; // Reset to collapsed on cancel
   }
 
   saveEdit(event?: Event) {
@@ -77,6 +103,7 @@ export class NoteCardComponent {
       this.update.emit({ id: this.note.id, content: this.editContent });
     }
     this.isEditing = false;
+    this.isExpanded = false; // Reset on save
   }
 
   onDelete(event?: Event) {
