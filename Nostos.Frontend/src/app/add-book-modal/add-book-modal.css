@@ -183,9 +183,7 @@
   margin-top: 1rem;
   flex-shrink: 0;
 }
-#close-modal {
-  padding-bottom: 4px;
-}
+
 @media (max-width: 768px) {
   .modal-content {
     width: 95%;
