@@ -13,7 +13,26 @@
     <header class="toolbar">
       <h1 id="library-title">Library</h1>
 
+      <div class="search-bar-container">
+        <lucide-icon [img]="SearchIcon" [size]="18" class="search-icon"></lucide-icon>
+        <input
+          type="text"
+          class="search-input"
+          placeholder="Search books..."
+          [value]="searchQuery()"
+          (input)="onSearch($event)"
+        />
+      </div>
+
       <div class="toolbar-right">
+        <div class="select-wrapper">
+          <select [ngModel]="activeSort()" (ngModelChange)="setSort($event)" class="sort-select">
+            <option value="recent">Recently Added</option>
+            <option value="title">Title (A-Z)</option>
+            <option value="rating">Highest Rated</option>
+          </select>
+        </div>
+
         <div class="control-group">
           <button
             class="toggle-opt"
@@ -43,7 +62,7 @@
         [isOpen]="showAddModal()"
         [collections]="collections()"
         (closeModal)="closeAddModal()"
-        (bookAdded)="loadBooks()"
+        (bookAdded)="refreshBooks()"
       >
       </app-add-book-modal>
 

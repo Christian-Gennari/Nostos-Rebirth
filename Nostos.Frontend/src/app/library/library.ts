@@ -9,6 +9,8 @@ import { FormsModule } from '@angular/forms';
 import { AddBookModal } from '../add-book-modal/add-book-modal';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { SidebarCollections } from '../sidebar-collections/sidebar-collections';
+import { Subject } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import {
   LucideAngularModule,
   LayoutList,
@@ -19,6 +21,8 @@ import {
   Book as BookIcon,
   Heart,
   CheckCircle,
+  Search,
+  ArrowUpDown,
 } from 'lucide-angular';
 
 @Component({
@@ -49,6 +53,8 @@ export class Library implements OnInit {
   BookIcon = BookIcon;
   HeartIcon = Heart;
   CheckCircleIcon = CheckCircle;
+  SearchIcon = Search;
+  SortIcon = ArrowUpDown;
 
   loading = signal(true);
 
@@ -57,6 +63,11 @@ export class Library implements OnInit {
 
   viewMode = signal<'list' | 'grid'>('grid');
   showAddModal = signal(false);
+
+  // Search & Sort State
+  searchQuery = signal('');
+  activeSort = signal('recent'); // Default sort
+  private searchSubject = new Subject<string>();
 
   // Modal edit system
   showEditModal = signal(false);
@@ -75,19 +86,35 @@ export class Library implements OnInit {
     return all;
   });
 
+  constructor() {
+    // Setup Debounce for Search
+    this.searchSubject.pipe(debounceTime(300), distinctUntilChanged()).subscribe((term) => {
+      this.searchQuery.set(term);
+      this.refreshBooks();
+    });
+  }
+
   ngOnInit(): void {
+    // Listen to sidebar/URL changes
     this.route.queryParams.subscribe((params) => {
-      const filter = params['filter'];
-      const sort = params['sort'];
-      this.loadBooks(filter, sort);
+      this.refreshBooks();
     });
 
     this.loadCollections();
   }
 
-  loadBooks(filter?: string, sort?: string): void {
+  // Unified load function: Combines Sidebar (URL) + Toolbar (Local State)
+  refreshBooks(): void {
     this.loading.set(true);
-    this.booksService.list(filter, sort).subscribe({
+
+    // Get Context (Sidebar)
+    const filter = this.route.snapshot.queryParams['filter'];
+
+    // Get Refinement (Toolbar)
+    const sort = this.activeSort();
+    const search = this.searchQuery();
+
+    this.booksService.list(filter, sort, search).subscribe({
       next: (data) => {
         this.rawBooks.set(data);
         this.loading.set(false);
@@ -97,6 +124,16 @@ export class Library implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  onSearch(event: Event): void {
+    const val = (event.target as HTMLInputElement).value;
+    this.searchSubject.next(val);
+  }
+
+  setSort(sort: string): void {
+    this.activeSort.set(sort);
+    this.refreshBooks();
   }
 
   loadCollections(): void {
@@ -125,8 +162,7 @@ export class Library implements OnInit {
   }
 
   onBookUpdated(updated: Book): void {
-    const params = this.route.snapshot.queryParams;
-    this.loadBooks(params['filter'], params['sort']);
+    this.refreshBooks();
     this.closeEditModal();
   }
 
@@ -136,8 +172,7 @@ export class Library implements OnInit {
 
     this.booksService.delete(id).subscribe({
       next: () => {
-        const params = this.route.snapshot.queryParams;
-        this.loadBooks(params['filter'], params['sort']);
+        this.refreshBooks();
       },
     });
   }

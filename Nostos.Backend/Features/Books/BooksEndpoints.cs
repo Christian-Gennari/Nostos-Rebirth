@@ -13,45 +13,42 @@ public static class BooksEndpoints
     var group = routes.MapGroup("/api/books");
 
     // GET all books (With Smart Filters & Sorting)
-    group.MapGet("/", async (NostosDbContext db, string? filter, string? sort) =>
-    {
-      var query = db.Books.AsQueryable();
+    group.MapGet("/", async (NostosDbContext db, string? filter, string? sort, string? search) =>
+ {
+   var query = db.Books.AsQueryable();
 
-      // --- 1. Apply Smart Filters ---
-      if (!string.IsNullOrWhiteSpace(filter))
-      {
-        switch (filter.ToLower())
-        {
-          case "favorites":
-            query = query.Where(b => b.IsFavorite);
-            break;
-          case "finished":
-            query = query.Where(b => b.FinishedAt != null);
-            break;
-          case "reading":
-            // Started (progress > 0) but not finished
-            query = query.Where(b => b.FinishedAt == null && b.ProgressPercent > 0);
-            break;
-          case "unsorted":
-            // Books not assigned to any user collection
-            query = query.Where(b => b.CollectionId == null);
-            break;
-        }
-      }
+   // 1. Search (Filters by Identity)
+   if (!string.IsNullOrWhiteSpace(search))
+   {
+     var term = search.ToLower();
+     query = query.Where(b =>
+        b.Title.ToLower().Contains(term) ||
+        (b.Author != null && b.Author.ToLower().Contains(term)));
+   }
 
-      // --- 2. Apply Sorting ---
-      // Default to "Recently Added" if no sort provided
-      query = (sort?.ToLower()) switch
-      {
-        "title" => query.OrderBy(b => b.Title),
-        "rating" => query.OrderByDescending(b => b.Rating), // Sort by your new Rating field
-        "recent" or _ => query.OrderByDescending(b => b.CreatedAt)
-      };
+   // 2. Smart Filters (Filters by Status - Matches your Sidebar!)
+   if (!string.IsNullOrWhiteSpace(filter))
+   {
+     switch (filter.ToLower())
+     {
+       case "favorites": query = query.Where(b => b.IsFavorite); break;
+       case "finished": query = query.Where(b => b.FinishedAt != null); break;
+       case "reading": query = query.Where(b => b.FinishedAt == null && b.ProgressPercent > 0); break;
+       case "unsorted": query = query.Where(b => b.CollectionId == null); break;
+     }
+   }
 
-      var books = await query.ToListAsync();
+   // 3. Sorting (Orders the results)
+   query = (sort?.ToLower()) switch
+   {
+     "title" => query.OrderBy(b => b.Title),
+     "rating" => query.OrderByDescending(b => b.Rating),
+     "recent" or _ => query.OrderByDescending(b => b.CreatedAt)
+   };
 
-      return Results.Ok(books.Select(b => b.ToDto()));
-    });
+   var books = await query.ToListAsync();
+   return Results.Ok(books.Select(b => b.ToDto()));
+ });
 
     // GET one book
     group.MapGet("/{id}", async (Guid id, NostosDbContext db) =>

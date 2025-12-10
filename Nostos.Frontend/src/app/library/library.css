@@ -70,18 +70,84 @@ app-sidebar-collections.no-transition {
   justify-content: space-between; /* Space between Title and Controls */
   align-items: center;
   margin-bottom: 2rem;
+  gap: 2rem; /* NEW: Spacing between title, search, and controls */
 }
 
 .toolbar h1 {
   font-size: 1.75rem;
   font-weight: 500;
   margin: 0;
+  white-space: nowrap; /* Prevent title from wrapping */
 }
 
+/* NEW: Search Bar Styles */
+.search-bar-container {
+  flex: 1; /* Allows search bar to fill available space */
+  max-width: 480px; /* But don't let it get too wide */
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: relative;
+  left: 30px;
+  color: var(--color-text-muted);
+  pointer-events: none; /* Let clicks pass through to input */
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.65rem 1rem 0.65rem 2.6rem; /* Left padding makes room for icon */
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  background: #f9f9f9;
+  transition: all 0.2s ease;
+  color: var(--color-text-main);
+}
+
+.search-input:focus {
+  background: #fff;
+  border-color: var(--color-primary);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+}
+
+/* NEW: Sort Dropdown Styles */
+.select-wrapper {
+  position: relative;
+  min-width: 140px;
+}
+
+.sort-select {
+  width: 100%;
+  padding: 0.6rem 2rem 0.6rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: var(--color-text-main);
+  outline: none;
+  appearance: none; /* Removes default OS arrow to style custom if needed, or keep simple */
+  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23666%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 1em;
+}
+
+.sort-select:hover {
+  background-color: #fafafa;
+  border-color: #ccc;
+}
+
+/* Toolbar Right Section */
 .toolbar-right {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex-shrink: 0; /* Prevent controls from squishing */
 }
 
 .control-group {
@@ -469,13 +535,31 @@ app-sidebar-collections.no-transition {
   /* 5. Toolbar Tweaks */
   .toolbar {
     padding: 1rem 1.5rem;
+    flex-direction: column; /* NEW: Stack items vertically on mobile */
+    align-items: stretch;
+    height: auto;
+    gap: 1rem;
+  }
+
+  /* Adjust order so Search comes after Title but before Controls */
+  .toolbar h1 {
+    font-size: 1.25rem;
+    text-align: left;
+  }
+
+  .search-bar-container {
+    max-width: 100%; /* Full width on mobile */
+    order: 2;
+  }
+
+  .toolbar-right {
+    justify-content: space-between; /* Spread controls out */
+    order: 3;
+    width: 100%;
   }
 
   .btn-text {
     display: none;
-  }
-  #library-title {
-    font-size: 1.25rem;
   }
 
   /* 6. List/Table Tweaks */
