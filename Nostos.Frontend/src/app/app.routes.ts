@@ -23,18 +23,23 @@ export const routes: Routes = [
       {
         path: 'library',
         loadComponent: () => import('./library/library').then((m) => m.Library),
+        data: { shouldReuse: true },
       },
       {
         path: 'second-brain',
         loadComponent: () => import('./second-brain/second-brain').then((m) => m.SecondBrain),
+        data: { shouldReuse: true },
       },
       {
         path: 'studio',
         loadComponent: () => import('./writing-studio/writing-studio').then((m) => m.WritingStudio),
+        data: { shouldReuse: true },
       },
+      // 👇 Added reuse here so BookDetail stays open
       {
         path: 'library/:id',
         loadComponent: () => import('./book-detail/book-detail').then((m) => m.BookDetail),
+        data: { shouldReuse: true },
       },
     ],
   },

@@ -1,5 +1,16 @@
-import { Component, input, output, effect, OnDestroy, OnInit } from '@angular/core';
+import {
+  Component,
+  input,
+  output,
+  effect,
+  OnDestroy,
+  OnInit,
+  ElementRef,
+  inject,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router, NavigationStart, NavigationEnd, Event as RouterEvent } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import TurndownService from 'turndown';
 import { marked } from 'marked';
 
@@ -75,6 +86,9 @@ declare var tinymce: any;
   ],
 })
 export class MarkdownEditorComponent implements OnInit, OnDestroy {
+  private router = inject(Router);
+  private elementRef = inject(ElementRef);
+
   initialContent = input<string>('');
   contentChange = output<string>();
 
@@ -93,14 +107,14 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     license_key: 'gpl',
 
     // --- 1. APPEARANCE & LAYOUT ---
-    highlight_on_focus: false, // Essential: Removes the blue "active" outline
+    highlight_on_focus: false,
     min_height: 500,
-    menubar: true, // Minimalist: Hide the File/Edit/View menu
+    menubar: true,
     statusbar: true,
-    resize: false, // Handled by auto-resize
+    resize: false,
     branding: false,
     promotion: false,
-    skin: 'oxide', // Use standard skin, we override via CSS above
+    skin: 'oxide',
 
     // --- 2. PLUGINS ---
     plugins: [
@@ -115,10 +129,10 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       'searchreplace',
       'visualblocks',
       'directionality',
-      'quickbars', // Adds the floating toolbar on text selection
+      'quickbars',
     ].join(' '),
 
-    // --- 3. TOOLBAR (Cleaned up) ---
+    // --- 3. TOOLBAR ---
     toolbar:
       'undo redo | ' +
       'blocks | ' +
@@ -127,19 +141,16 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       'link image | ' +
       'removeformat',
 
-    // Floating toolbar for quick formatting (Very "Medium-like")
     quickbars_selection_toolbar: 'bold italic | h2 h3 | blockquote',
-    quickbars_insert_toolbar: false, // Disable the slash menu if you don't want it
+    quickbars_insert_toolbar: false,
 
     block_formats:
       'Paragraph=p; Heading 1=h1; Heading 2=h2; Heading 3=h3; Quote=blockquote; Code=pre',
 
-    // --- 4. CONTENT STYLING (The "Paper" Internal Look) ---
+    // --- 4. CONTENT STYLING ---
     content_style: `
-      /* Import Brand Fonts */
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:ital,wght@0,400;0,700;1,400&display=swap');
 
-      /* Define Brand Variables inside the iframe scope */
       :root {
         --bg-body: #fafafa;
         --bg-surface: #ffffff;
@@ -151,7 +162,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       }
 
       body {
-        font-family: 'Lora', serif; /* Primary writing font */
+        font-family: 'Lora', serif;
         font-size: 18px;
         line-height: 1.8;
         color: var(--color-text-main);
@@ -160,7 +171,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
         overflow-x: hidden;
       }
 
-      /* Headings - Sans-serif for structure */
       h1, h2, h3, h4, h5, h6 {
         font-family: 'Inter', sans-serif;
         font-weight: 600;
@@ -170,7 +180,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
         letter-spacing: -0.02em;
       }
 
-      /* Links using brand accent */
       a {
         color: var(--color-accent);
         text-decoration: none;
@@ -182,7 +191,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
         border-bottom-color: var(--color-accent);
       }
 
-      /* Quotes */
       blockquote {
         border-left: 3px solid var(--border-color);
         margin-left: 0;
@@ -191,7 +199,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
         font-style: italic;
       }
 
-      /* Code */
       pre {
         background: var(--bg-body);
         padding: 1rem;
@@ -202,7 +209,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
         border: 1px solid var(--border-color);
       }
 
-      /* Tables */
       table {
         border-collapse: collapse;
         width: 100%;
@@ -218,7 +224,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
         text-align: left;
       }
 
-      /* Placeholder override if needed */
       .mce-content-body[data-mce-placeholder]:not(.mce-visual-blocks)::before {
         color: #999;
         font-style: italic;
@@ -229,36 +234,79 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       this.editor = editor;
       editor.on('Change Undo Redo blur', () => this.onHtmlChange(editor.getContent()));
       editor.on('init', () => {
-        // Fade in effect
         editor.getBody().style.opacity = '1';
       });
     },
   };
 
   constructor() {
+    // 1. Handle External Content Updates (e.g. clicking a new file in sidebar)
     effect(async () => {
       const markdown = this.initialContent();
+
+      // If editor is active, update it
       if (this.editor) {
+        // Only update if content is significantly different to avoid cursor jumping
         const currentMarkdown = this.turndownService.turndown(this.editor.getContent());
         if (currentMarkdown.trim() !== markdown.trim()) {
           this.editor.setContent(await marked.parse(markdown), { format: 'html' });
         }
-      } else if (markdown) {
+      } else {
+        // If editor is not ready (e.g. detached), just update the local model
+        // so it will be used when we re-init.
         this.htmlContent = await marked.parse(markdown);
       }
     });
+
+    // 2. Handle Route Reuse / Navigation
+    // Since RouteReuseStrategy keeps this component alive but detaches it from DOM,
+    // the iframe dies. We must kill and rebirth the editor on navigation.
+    this.router.events
+      .pipe(filter((e) => e instanceof NavigationStart || e instanceof NavigationEnd))
+      .subscribe((event: RouterEvent) => {
+        if (event instanceof NavigationStart) {
+          // Navigating away: Force a save and cleanup
+          this.destroyEditor();
+        }
+
+        if (event instanceof NavigationEnd) {
+          // Navigating back: If we are visible in the DOM, re-initialize
+          // (This check ensures we only init if this specific component is active)
+          if (document.body.contains(this.elementRef.nativeElement)) {
+            // Small delay to ensure DOM is settled
+            setTimeout(() => this.initEditor(), 0);
+          }
+        }
+      });
   }
 
   ngOnInit() {
+    this.initEditor();
+  }
+
+  ngOnDestroy() {
+    this.destroyEditor();
+  }
+
+  private initEditor() {
+    // Prevent double-init
+    if (this.editor) return;
+
     tinymce.init({
       selector: `#${this.editorId}`,
       ...this.editorConfig,
     });
   }
 
-  ngOnDestroy() {
+  private destroyEditor() {
     if (this.editor) {
+      // Capture final state before destroying
+      const finalHtml = this.editor.getContent();
+      this.onHtmlChange(finalHtml);
+
+      // Teardown
       tinymce.remove(this.editor);
+      this.editor = null;
     }
   }
 

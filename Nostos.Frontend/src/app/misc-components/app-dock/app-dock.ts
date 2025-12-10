@@ -1,7 +1,8 @@
 import { Component, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { LucideAngularModule, Library, BrainCircuit, PenTool } from 'lucide-angular';
 import { CollectionsService } from '../../services/collections.services';
+import { NavigationHistoryService } from '../../services/navigation-history.service';
 
 @Component({
   standalone: true,
@@ -10,9 +11,9 @@ import { CollectionsService } from '../../services/collections.services';
   template: `
     <nav class="app-dock">
       <a
-        routerLink="/library"
+        [routerLink]="getLink('/library')"
+        (click)="handleDockClick('/library', $event)"
         routerLinkActive="active"
-        (click)="resetCollection()"
         class="dock-item"
         title="Library"
       >
@@ -21,9 +22,9 @@ import { CollectionsService } from '../../services/collections.services';
       </a>
 
       <a
-        routerLink="/second-brain"
+        [routerLink]="getLink('/second-brain')"
+        (click)="handleDockClick('/second-brain', $event)"
         routerLinkActive="active"
-        (click)="resetCollection()"
         class="dock-item"
         title="The Brain"
       >
@@ -32,9 +33,9 @@ import { CollectionsService } from '../../services/collections.services';
       </a>
 
       <a
-        routerLink="/studio"
+        [routerLink]="getLink('/studio')"
+        (click)="handleDockClick('/studio', $event)"
         routerLinkActive="active"
-        (click)="resetCollection()"
         class="dock-item"
         title="Writing Studio"
       >
@@ -59,13 +60,8 @@ import { CollectionsService } from '../../services/collections.services';
         align-items: center;
         gap: 4px;
         padding: 6px;
-
-        /* Solid minimal background */
         background: #ffffff;
-
-        /* Subtle border with slight shadow effect */
         border: 1px solid rgba(0, 0, 0, 0.08);
-
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
         transition: all 0.3s ease;
@@ -90,6 +86,7 @@ import { CollectionsService } from '../../services/collections.services';
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         transition: all 0.15s ease;
         position: relative;
+        cursor: pointer;
       }
 
       .dock-item:hover {
@@ -114,40 +111,32 @@ import { CollectionsService } from '../../services/collections.services';
         transition: opacity 0.2s ease, max-height 0.3s ease;
       }
 
-      /* Minimized state - hide labels by default on desktop */
       @media (min-width: 769px) {
         .app-dock {
           gap: 2px;
           padding: 4px;
         }
-
         .dock-item {
           padding: 8px 10px;
         }
-
         .label {
           max-height: 0;
           opacity: 0;
           overflow: hidden;
         }
-
-        /* Expanded state on hover */
         .app-dock:hover {
           gap: 4px;
           padding: 6px;
         }
-
         .app-dock:hover .dock-item {
           padding: 10px 16px;
         }
-
         .app-dock:hover .label {
           max-height: 20px;
           opacity: 0.9;
         }
       }
 
-      /* --- MOBILE: Subtle Bottom Bar --- */
       @media (max-width: 768px) {
         :host {
           bottom: 0;
@@ -155,39 +144,29 @@ import { CollectionsService } from '../../services/collections.services';
           transform: none;
           width: 100%;
         }
-
         .app-dock {
           width: 100%;
           border-radius: 0;
           border: none;
           border-top: 1px solid rgba(0, 0, 0, 0.06);
-
           background: #ffffff;
-
           justify-content: space-evenly;
           gap: 0;
-
           padding: 6px 16px;
           padding-bottom: max(6px, env(safe-area-inset-bottom));
-
           box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.04);
         }
-
         .dock-item {
           flex: 1;
           padding: 10px 0;
           border-radius: 8px;
         }
-
         .dock-item:hover {
           background: transparent;
         }
-
         .dock-item.active {
           background: rgba(0, 0, 0, 0.03);
         }
-
-        /* Keep labels visible on mobile */
         .label {
           max-height: none;
           opacity: 0.9;
@@ -198,12 +177,27 @@ import { CollectionsService } from '../../services/collections.services';
 })
 export class AppDockComponent {
   private collectionsService = inject(CollectionsService);
+  private historyService = inject(NavigationHistoryService);
+  private router = inject(Router);
 
   LibraryIcon = Library;
   BrainIcon = BrainCircuit;
   PenToolIcon = PenTool;
 
-  resetCollection() {
-    this.collectionsService.activeCollectionId.set(null);
+  getLink(prefix: string): string {
+    return this.historyService.getLastUrl(prefix);
+  }
+
+  handleDockClick(prefix: string, event: Event) {
+    // Standard "Tab" behavior:
+    // If we are ALREADY in this section (e.g. inside a book in Library),
+    // and we click "Library" again, we should go back to the root (/library).
+    if (this.router.url.startsWith(prefix)) {
+      event.preventDefault(); // Stop the history link
+
+      this.collectionsService.activeCollectionId.set(null); // Reset filters
+      this.router.navigate([prefix]); // Go to root of this app
+    }
+    // Else: let the routerLink take us to the saved history location
   }
 }

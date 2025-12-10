@@ -113,17 +113,29 @@ export class BookDetail implements OnInit {
   newNote = model<string>('');
 
   ngOnInit(): void {
-    const id = this.route.snapshot.paramMap.get('id');
-    if (!id) {
-      this.error.set('Invalid book ID');
-      this.loading.set(false);
-      return;
-    }
+    // FIX: Subscribe to paramMap so that if the component is Reused,
+    // we detect the ID change and reload the data.
+    this.route.paramMap.subscribe((params) => {
+      const id = params.get('id');
 
-    this.loadBook(id);
-    this.loadNotes(id);
-    this.loadCollections();
-    this.loadConcepts();
+      if (!id) {
+        this.error.set('Invalid book ID');
+        this.loading.set(false);
+        return;
+      }
+
+      // 1. Reset state for the new book to prevent seeing old data
+      this.loading.set(true);
+      this.error.set(null);
+      this.book.set(null);
+      this.notes.set([]);
+
+      // 2. Load fresh data
+      this.loadBook(id);
+      this.loadNotes(id);
+      this.loadCollections();
+      this.loadConcepts();
+    });
   }
 
   loadBook(id: string, forceRefresh = false): void {
