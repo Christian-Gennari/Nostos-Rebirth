@@ -12,50 +12,65 @@ public static class BooksEndpoints
   {
     var group = routes.MapGroup("/api/books");
 
-    // GET all books (With Smart Filters & Sorting)
+    // GET all books (With Smart Filters, Sorting AND SEARCH)
+    // Updated signature to include 'string? search'
     group.MapGet("/", async (NostosDbContext db, string? filter, string? sort, string? search) =>
- {
-   var query = db.Books.AsQueryable();
+    {
+      var query = db.Books.AsQueryable();
 
-   // 1. Search (Filters by Identity)
-   if (!string.IsNullOrWhiteSpace(search))
-   {
-     var term = search.ToLower();
-     query = query.Where(b =>
-        b.Title.ToLower().Contains(term) ||
-        (b.Author != null && b.Author.ToLower().Contains(term)));
-   }
+      // --- 1. Apply Search (NEW) ---
+      if (!string.IsNullOrWhiteSpace(search))
+      {
+        var term = search.ToLower();
+        // Simple case-insensitive search on Title and Author
+        query = query.Where(b =>
+            b.Title.ToLower().Contains(term) ||
+            (b.Author != null && b.Author.ToLower().Contains(term))
+        );
+      }
 
-   // 2. Smart Filters (Filters by Status - Matches your Sidebar!)
-   if (!string.IsNullOrWhiteSpace(filter))
-   {
-     switch (filter.ToLower())
-     {
-       case "favorites": query = query.Where(b => b.IsFavorite); break;
-       case "finished": query = query.Where(b => b.FinishedAt != null); break;
-       case "reading": query = query.Where(b => b.FinishedAt == null && b.ProgressPercent > 0); break;
-       case "unsorted": query = query.Where(b => b.CollectionId == null); break;
-     }
-   }
+      // --- 2. Apply Smart Filters ---
+      if (!string.IsNullOrWhiteSpace(filter))
+      {
+        switch (filter.ToLower())
+        {
+          case "favorites":
+            query = query.Where(b => b.IsFavorite);
+            break;
+          case "finished":
+            query = query.Where(b => b.FinishedAt != null);
+            break;
+          case "reading":
+            // Started (progress > 0) but not finished
+            query = query.Where(b => b.FinishedAt == null && b.ProgressPercent > 0);
+            break;
+          case "unsorted":
+            // Books not assigned to any user collection
+            query = query.Where(b => b.CollectionId == null);
+            break;
+        }
+      }
 
-   // 3. Sorting (Orders the results)
-   query = (sort?.ToLower()) switch
-   {
-     "title" => query.OrderBy(b => b.Title),
-     "rating" => query.OrderByDescending(b => b.Rating),
-     "recent" or _ => query.OrderByDescending(b => b.CreatedAt)
-   };
+      // --- 3. Apply Sorting ---
+      query = (sort?.ToLower()) switch
+      {
+        "title" => query.OrderBy(b => b.Title),
+        "rating" => query.OrderByDescending(b => b.Rating),
+        "recent" or _ => query.OrderByDescending(b => b.CreatedAt)
+      };
 
-   var books = await query.ToListAsync();
-   return Results.Ok(books.Select(b => b.ToDto()));
- });
+      var books = await query.ToListAsync();
+
+      return Results.Ok(books.Select(b => b.ToDto()));
+    });
+
+    // ... (Keep the rest of your endpoints exactly as they were) ...
 
     // GET one book
     group.MapGet("/{id}", async (Guid id, NostosDbContext db) =>
     {
       var book = await db.Books.FindAsync(id);
       if (book is null) return Results.NotFound();
-
       return Results.Ok(book.ToDto());
     });
 
@@ -80,18 +95,10 @@ public static class BooksEndpoints
       var book = await db.Books.FindAsync(id);
       if (book is null) return Results.NotFound();
 
-      // FIX: Only validate Title if the client is actually trying to change it.
-      // If dto.Title is null, it means "no change", so we skip validation.
       if (dto.Title is not null && string.IsNullOrWhiteSpace(dto.Title))
         return Results.BadRequest(new { error = "Title cannot be empty." });
 
-      // Apply changes (handles null checks internally for partial updates)
       book.Apply(dto);
-
-      // Removed: book.CollectionId = dto.CollectionId;
-      // Reason: The Apply() method now handles this safely. Setting it here would
-      // accidentally set it to null during partial updates.
-
       await db.SaveChangesAsync();
 
       return Results.Ok(book.ToDto());
@@ -106,14 +113,12 @@ public static class BooksEndpoints
       book.LastLocation = dto.Location;
       book.ProgressPercent = dto.Percentage;
 
-      // Optional: Auto-finish if percentage is 100%
       if (book.ProgressPercent >= 100 && book.FinishedAt == null)
       {
         book.FinishedAt = DateTime.UtcNow;
       }
 
       await db.SaveChangesAsync();
-
       return Results.Ok(new { updated = true });
     });
 
@@ -123,10 +128,7 @@ public static class BooksEndpoints
       var book = await db.Books.FindAsync(id);
       if (book is null) return Results.NotFound();
 
-      // Delete physical files
       storage.DeleteBookFiles(id);
-
-      // Clear cover reference
       book.CoverFileName = null;
 
       db.Books.Remove(book);
@@ -135,13 +137,8 @@ public static class BooksEndpoints
       return Results.NoContent();
     });
 
-
     // Upload file
-    group.MapPost("/{id}/file", async (
-        Guid id,
-        HttpRequest request,
-        NostosDbContext db,
-        FileStorageService storage) =>
+    group.MapPost("/{id}/file", async (Guid id, HttpRequest request, NostosDbContext db, FileStorageService storage) =>
     {
       var book = await db.Books.FindAsync(id);
       if (book is null) return Results.NotFound();
@@ -150,19 +147,13 @@ public static class BooksEndpoints
       var file = form.Files.FirstOrDefault();
       if (file is null) return Results.BadRequest("Missing file.");
 
-      // Restrict formats
-      var allowed = new[] {
-          "application/epub+zip", "application/pdf", "text/plain",
-          "audio/mpeg", "audio/mp4", "audio/x-m4a"
-      };
-
+      var allowed = new[] { "application/epub+zip", "application/pdf", "text/plain", "audio/mpeg", "audio/mp4", "audio/x-m4a" };
       if (!allowed.Contains(file.ContentType) && !file.FileName.EndsWith(".m4b", StringComparison.OrdinalIgnoreCase))
         return Results.BadRequest($"Unsupported file type: {file.ContentType}");
 
       await storage.SaveBookFileAsync(id, file);
 
       book.HasFile = true;
-      // Normalizing the filename record in DB to match the normalized physical file
       book.FileName = $"book{Path.GetExtension(file.FileName)}";
       await db.SaveChangesAsync();
 
@@ -170,21 +161,16 @@ public static class BooksEndpoints
     });
 
     // Download file
-    group.MapGet("/{id}/file", (
-        Guid id,
-        FileStorageService storage) =>
+    group.MapGet("/{id}/file", (Guid id, FileStorageService storage) =>
     {
       var filePath = storage.GetBookFileName(id);
-      if (filePath is null)
-        return Results.NotFound();
+      if (filePath is null) return Results.NotFound();
 
       var contentType = GetContentType(filePath);
       var fileName = Path.GetFileName(filePath);
 
-
       return Results.File(filePath, contentType, fileName, enableRangeProcessing: true);
     });
-
 
     static string GetContentType(string filePath)
     {
@@ -194,21 +180,15 @@ public static class BooksEndpoints
         ".pdf" => "application/pdf",
         ".txt" => "text/plain",
         ".mobi" => "application/x-mobipocket-ebook",
-        // Audio
         ".mp3" => "audio/mpeg",
         ".m4a" => "audio/mp4",
-        ".m4b" => "audio/mp4", // Trick browser into treating m4b as standard mp4 audio
+        ".m4b" => "audio/mp4",
         _ => "application/octet-stream"
       };
     }
 
-
     // Upload cover image
-    group.MapPost("/{id}/cover", async (
-        Guid id,
-        HttpRequest request,
-        NostosDbContext db,
-        FileStorageService storage) =>
+    group.MapPost("/{id}/cover", async (Guid id, HttpRequest request, NostosDbContext db, FileStorageService storage) =>
     {
       var book = await db.Books.FindAsync(id);
       if (book is null) return Results.NotFound();
@@ -217,14 +197,12 @@ public static class BooksEndpoints
       var file = form.Files.FirstOrDefault();
       if (file is null) return Results.BadRequest("Missing cover file.");
 
-      // Restrict to images only
       var allowed = new[] { "image/png", "image/jpeg" };
       if (!allowed.Contains(file.ContentType))
         return Results.BadRequest("Only PNG or JPEG images allowed.");
 
       await storage.SaveBookCoverAsync(id, file);
 
-      // Store filename in DB
       book.CoverFileName = "cover.png";
       await db.SaveChangesAsync();
 
@@ -232,23 +210,15 @@ public static class BooksEndpoints
     });
 
     // Download cover image
-    group.MapGet("/{id}/cover", (
-        Guid id,
-        FileStorageService storage) =>
+    group.MapGet("/{id}/cover", (Guid id, FileStorageService storage) =>
     {
       var coverPath = storage.GetBookCoverPath(id);
-      if (coverPath is null)
-        return Results.NotFound();
-
+      if (coverPath is null) return Results.NotFound();
       return Results.File(coverPath, "image/png", "cover.png");
     });
 
-
     // DELETE cover
-    group.MapDelete("/{id}/cover", async (
-        Guid id,
-        NostosDbContext db,
-        FileStorageService storage) =>
+    group.MapDelete("/{id}/cover", async (Guid id, NostosDbContext db, FileStorageService storage) =>
     {
       var book = await db.Books.FindAsync(id);
       if (book is null) return Results.NotFound();
@@ -256,13 +226,11 @@ public static class BooksEndpoints
       var removed = storage.DeleteCover(id);
       if (!removed) return Results.NotFound();
 
-      // Reset metadata
       book.CoverFileName = null;
       await db.SaveChangesAsync();
 
       return Results.NoContent();
     });
-
 
     group.MapGet("/lookup/{isbn}", async (string isbn, BookLookupService service) =>
     {
@@ -272,5 +240,4 @@ public static class BooksEndpoints
 
     return routes;
   }
-
 }

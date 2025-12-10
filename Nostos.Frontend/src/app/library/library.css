@@ -91,27 +91,43 @@ app-sidebar-collections.no-transition {
 
 .search-icon {
   position: relative;
-  left: 30px;
-  color: var(--color-text-muted);
-  pointer-events: none; /* Let clicks pass through to input */
+  left: 28px;
+  color: #9ca3af;
+  pointer-events: none;
+  z-index: 1;
+  transition: color 0.2s ease;
 }
 
 .search-input {
   width: 100%;
-  padding: 0.65rem 1rem 0.65rem 2.6rem; /* Left padding makes room for icon */
-  border: 1px solid var(--border-color);
+  padding: 0.6rem 1rem 0.6rem 2.5rem;
+  border: 1px solid #e5e7eb;
   border-radius: var(--radius-md);
-  font-size: 0.95rem;
-  background: #f9f9f9;
+  font-size: 0.9rem;
+  background: #fff;
   transition: all 0.2s ease;
   color: var(--color-text-main);
+  font-family: inherit;
+}
+
+.search-input::placeholder {
+  color: #9ca3af;
+}
+
+.search-input:hover {
+  border-color: #d1d5db;
+  background: #fafafa;
 }
 
 .search-input:focus {
   background: #fff;
-  border-color: var(--color-primary);
+  border-color: #9ca3af;
   outline: none;
-  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+}
+
+.search-input:focus + .search-icon,
+.search-bar-container:has(.search-input:focus) .search-icon {
+  color: var(--color-text-main);
 }
 
 /* NEW: Sort Dropdown Styles */
@@ -123,23 +139,30 @@ app-sidebar-collections.no-transition {
 .sort-select {
   width: 100%;
   padding: 0.6rem 2rem 0.6rem 1rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid #e5e7eb;
   border-radius: var(--radius-md);
   background-color: #fff;
   font-size: 0.9rem;
   cursor: pointer;
   color: var(--color-text-main);
   outline: none;
-  appearance: none; /* Removes default OS arrow to style custom if needed, or keep simple */
-  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23666%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
+  appearance: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
   background-repeat: no-repeat;
-  background-position: right 0.7rem center;
+  background-position: right 0.75rem center;
   background-size: 1em;
 }
 
 .sort-select:hover {
   background-color: #fafafa;
-  border-color: #ccc;
+  border-color: #d1d5db;
+}
+
+.sort-select:focus {
+  border-color: #9ca3af;
+  background-color: #fff;
 }
 
 /* Toolbar Right Section */

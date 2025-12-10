@@ -7,7 +7,7 @@ import { Book, CreateBookDto, UpdateBookDto, UpdateProgressDto } from '../dtos/b
 export class BooksService {
   constructor(private http: HttpClient) {}
 
-  // UPDATED: Now accepts filter, sort, and search parameters
+  // UPDATED: Now accepts filter, sort, AND search parameters
   list(filter?: string, sort?: string, search?: string): Observable<Book[]> {
     let params = new HttpParams();
 
@@ -17,7 +17,7 @@ export class BooksService {
     if (sort) {
       params = params.set('sort', sort);
     }
-    // NEW: Add search query to params
+    // NEW: Pass search param to backend
     if (search) {
       params = params.set('search', search);
     }
