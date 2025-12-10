@@ -130,7 +130,7 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
         -webkit-backdrop-filter: blur(5px);
 
         /* Inner white border to separate glass from glow */
-        border: 1px solid rgba(255, 255, 255, 0.4);
+        border: 2px solid rgba(255, 255, 255, 0.4);
 
         border-radius: 20px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02); /* Very subtle internal shadow */

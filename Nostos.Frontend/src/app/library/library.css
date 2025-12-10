@@ -139,12 +139,11 @@ app-sidebar-collections.no-transition {
 .sort-select {
   width: 100%;
   padding: 0.6rem 2rem 0.6rem 1rem;
-  border: 1px solid #e5e7eb;
+  border: 0px solid var(--border-color);
   border-radius: var(--radius-md);
-  background-color: #fff;
   font-size: 0.9rem;
   cursor: pointer;
-  color: var(--color-text-main);
+  color: var(--color-text-muted);
   outline: none;
   appearance: none;
   font-family: inherit;
@@ -156,13 +155,7 @@ app-sidebar-collections.no-transition {
 }
 
 .sort-select:hover {
-  background-color: #fafafa;
-  border-color: #d1d5db;
-}
-
-.sort-select:focus {
-  border-color: #9ca3af;
-  background-color: #fff;
+  background-color: #eaeaea;
 }
 
 /* Toolbar Right Section */
