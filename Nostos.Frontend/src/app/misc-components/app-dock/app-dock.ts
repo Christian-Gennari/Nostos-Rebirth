@@ -9,131 +9,192 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
   selector: 'app-app-dock',
   imports: [RouterLink, RouterLinkActive, LucideAngularModule],
   template: `
-    <nav class="app-dock">
-      <a
-        [routerLink]="getLink('/library')"
-        (click)="handleDockClick('/library', $event)"
-        routerLinkActive="active"
-        class="dock-item"
-        title="Library"
-      >
-        <lucide-icon [img]="LibraryIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
-        <span class="label">Library</span>
-      </a>
+    <nav class="app-dock-container">
+      <div class="dock-glass">
+        <a
+          [routerLink]="getLink('/library')"
+          (click)="handleDockClick('/library', $event)"
+          routerLinkActive="active"
+          class="dock-item"
+          title="Library"
+        >
+          <lucide-icon [img]="LibraryIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
+          <span class="label">Library</span>
+        </a>
 
-      <a
-        [routerLink]="getLink('/second-brain')"
-        (click)="handleDockClick('/second-brain', $event)"
-        routerLinkActive="active"
-        class="dock-item"
-        title="The Brain"
-      >
-        <lucide-icon [img]="BrainIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
-        <span class="label">Brain</span>
-      </a>
+        <a
+          [routerLink]="getLink('/second-brain')"
+          (click)="handleDockClick('/second-brain', $event)"
+          routerLinkActive="active"
+          class="dock-item"
+          title="The Brain"
+        >
+          <lucide-icon [img]="BrainIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
+          <span class="label">Brain</span>
+        </a>
 
-      <a
-        [routerLink]="getLink('/studio')"
-        (click)="handleDockClick('/studio', $event)"
-        routerLinkActive="active"
-        class="dock-item"
-        title="Writing Studio"
-      >
-        <lucide-icon [img]="PenToolIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
-        <span class="label">Studio</span>
-      </a>
+        <a
+          [routerLink]="getLink('/studio')"
+          (click)="handleDockClick('/studio', $event)"
+          routerLinkActive="active"
+          class="dock-item"
+          title="Writing Studio"
+        >
+          <lucide-icon [img]="PenToolIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
+          <span class="label">Studio</span>
+        </a>
+      </div>
     </nav>
   `,
   styles: [
     `
-      /* --- DESKTOP: Minimal Floating with Expand/Collapse --- */
+      /* --- ANIMATION DEFINITIONS --- */
+      @property --gradient-angle {
+        syntax: '<angle>';
+        initial-value: 0deg;
+        inherits: false;
+      }
+
+      @keyframes rotate-gradient {
+        0% {
+          --gradient-angle: 0deg;
+        }
+        100% {
+          --gradient-angle: 360deg;
+        }
+      }
+
+      /* --- HOST & LAYOUT --- */
       :host {
         position: fixed;
-        bottom: 20px;
+        bottom: 24px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 50;
+        /* Ensure the glow doesn't get cut off */
+        padding: 10px;
       }
 
-      .app-dock {
+      .app-dock-container {
+        position: relative;
+        border-radius: 22px;
+        /* Using isolation to ensure z-index layering works perfectly */
+        isolation: isolate;
+      }
+
+      /* --- THE GLOWING BACKDROP (The "Pop") --- */
+      .app-dock-container::before {
+        content: '';
+        position: absolute;
+        inset: -3px; /* Extends slightly outside the glass */
+        z-index: -1;
+        border-radius: 24px;
+
+        /* The Magic: Soft Pastel Rainbow */
+        background: conic-gradient(
+          from var(--gradient-angle),
+          #a8c0ff,
+          /* Soft Blue */ #c4a8ff,
+          /* Lavender */ #ffafcc,
+          /* Soft Pink */ #ffc8a2,
+          /* Peach */ #bde0fe,
+          /* Light Blue */ #a8c0ff /* Loop back to start */
+        );
+
+        /* Blur it to make it look like a shadow/glow */
+        filter: blur(8px);
+        opacity: 0.65;
+
+        /* Animate it */
+        animation: rotate-gradient 6s linear infinite;
+        transition: opacity 0.3s ease, filter 0.3s ease;
+      }
+
+      /* Hover effect: Make the glow tighter and brighter */
+      .app-dock-container:hover::before {
+        filter: blur(5px);
+        opacity: 0.9;
+        inset: -2px;
+      }
+
+      /* --- THE GLASS FOREGROUND --- */
+      .dock-glass {
         display: flex;
         align-items: center;
-        gap: 4px;
-        padding: 6px;
-        background: #ffffff;
-        border: 1px solid rgba(0, 0, 0, 0.08);
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
-        transition: all 0.3s ease;
+        gap: 6px;
+        padding: 8px;
+
+        /* Solid enough to hide the rainbow center, transparent enough for glass feel */
+        background: rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+
+        /* Inner white border to separate glass from glow */
+        border: 1px solid rgba(255, 255, 255, 0.4);
+
+        border-radius: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02); /* Very subtle internal shadow */
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       }
 
-      .app-dock:hover {
-        background: #ffffff;
-        border-color: rgba(0, 0, 0, 0.12);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.08);
+      .app-dock-container:hover .dock-glass {
+        gap: 8px;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.8);
       }
 
+      /* --- DOCK ITEMS --- */
       .dock-item {
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         gap: 2px;
-        padding: 10px 16px;
-        border-radius: 8px;
+        padding: 10px 18px;
+        border-radius: 14px;
         color: var(--color-text-muted, #6b7280);
         text-decoration: none;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-        transition: all 0.15s ease;
+        font-family: 'Inter', sans-serif;
+        transition: all 0.2s ease;
         position: relative;
         cursor: pointer;
       }
 
       .dock-item:hover {
-        background: rgba(0, 0, 0, 0.03);
+        background: rgba(0, 0, 0, 0.05);
         color: var(--color-text-main, #111827);
+        transform: translateY(-2px);
       }
 
       .dock-item.active {
-        background: rgba(0, 0, 0, 0.04);
-        color: var(--color-primary, #2563eb);
-      }
-
-      .dock-item.active lucide-icon {
-        stroke-width: 2px;
+        background: #fff;
+        color: #111827;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
       }
 
       .label {
-        font-size: 0.6rem;
-        font-weight: 500;
+        font-size: 0.65rem;
+        font-weight: 600;
         letter-spacing: 0.01em;
         opacity: 0.9;
-        transition: opacity 0.2s ease, max-height 0.3s ease;
+        transition: opacity 0.3s ease, max-height 0.3s ease, transform 0.3s ease;
       }
 
+      /* --- MEDIA QUERIES --- */
       @media (min-width: 769px) {
-        .app-dock {
-          gap: 2px;
-          padding: 4px;
-        }
         .dock-item {
-          padding: 8px 10px;
+          padding: 8px 12px;
         }
         .label {
           max-height: 0;
           opacity: 0;
           overflow: hidden;
+          transform: translateY(5px);
         }
-        .app-dock:hover {
-          gap: 4px;
-          padding: 6px;
-        }
-        .app-dock:hover .dock-item {
-          padding: 10px 16px;
-        }
-        .app-dock:hover .label {
+        .app-dock-container:hover .label {
           max-height: 20px;
-          opacity: 0.9;
+          opacity: 1;
+          transform: translateY(0);
         }
       }
 
@@ -143,33 +204,53 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
           left: 0;
           transform: none;
           width: 100%;
+          padding: 0;
         }
-        .app-dock {
+
+        /* On mobile, we reduce the glow so it's just a top border accent */
+        .app-dock-container {
+          border-radius: 0;
           width: 100%;
+        }
+
+        .app-dock-container::before {
+          border-radius: 0;
+          top: -2px; /* Only show glow at the top */
+          bottom: 0;
+          left: 0;
+          right: 0;
+          inset: auto;
+          height: 100%;
+          width: 100%;
+          opacity: 0.4;
+          filter: blur(15px);
+        }
+
+        .dock-glass {
           border-radius: 0;
           border: none;
-          border-top: 1px solid rgba(0, 0, 0, 0.06);
-          background: #ffffff;
+          border-top: 1px solid rgba(255, 255, 255, 0.5);
+          width: 100%;
           justify-content: space-evenly;
-          gap: 0;
           padding: 6px 16px;
           padding-bottom: max(6px, env(safe-area-inset-bottom));
-          box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.04);
+          /* More opaque on mobile to cover content scrolling behind */
+          background: rgba(255, 255, 255, 0.9);
         }
+
         .dock-item {
           flex: 1;
-          padding: 10px 0;
-          border-radius: 8px;
+          margin: 0 4px;
+          padding: 8px 0;
         }
         .dock-item:hover {
           background: transparent;
-        }
-        .dock-item.active {
-          background: rgba(0, 0, 0, 0.03);
+          transform: none;
         }
         .label {
           max-height: none;
           opacity: 0.9;
+          transform: none;
         }
       }
     `,
@@ -189,15 +270,10 @@ export class AppDockComponent {
   }
 
   handleDockClick(prefix: string, event: Event) {
-    // Standard "Tab" behavior:
-    // If we are ALREADY in this section (e.g. inside a book in Library),
-    // and we click "Library" again, we should go back to the root (/library).
     if (this.router.url.startsWith(prefix)) {
-      event.preventDefault(); // Stop the history link
-
-      this.collectionsService.activeCollectionId.set(null); // Reset filters
-      this.router.navigate([prefix]); // Go to root of this app
+      event.preventDefault();
+      this.collectionsService.activeCollectionId.set(null);
+      this.router.navigate([prefix]);
     }
-    // Else: let the routerLink take us to the saved history location
   }
 }

@@ -331,6 +331,8 @@ app-sidebar-collections.no-transition {
   color: #ccc;
   overflow: hidden;
   transition: transform 0.2s, box-shadow 0.2s;
+  /* IMPORTANT: Only use translateZ on hover if possible,
+     but keeping it here to prevent paint flashing. */
   transform: translateZ(0);
 }
 
@@ -339,6 +341,14 @@ app-sidebar-collections.no-transition {
   height: 100%;
   object-fit: cover;
   transition: opacity 0.2s;
+
+  /* --- FIX FOR PIXELATED IMAGES --- */
+  /* This tells the browser to use high-quality interpolation for downscaling */
+  image-rendering: high-quality;
+
+  /* Fixes jagged edges during 3D transforms */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .book-card:hover .cover-wrapper {
