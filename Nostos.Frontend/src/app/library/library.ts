@@ -8,7 +8,7 @@ import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AddBookModal } from '../add-book-modal/add-book-modal';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
-import { SidebarCollections } from '../sidebar-collections/sidebar-collections';
+import { SidebarCollections } from './sidebar-collections/sidebar-collections';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators'; // Added filter
 import {

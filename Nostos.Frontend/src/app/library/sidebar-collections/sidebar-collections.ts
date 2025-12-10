@@ -18,9 +18,9 @@ import {
   Inbox,
 } from 'lucide-angular';
 
-import { CollectionsService } from '../services/collections.services';
-import { Collection } from '../dtos/collection.dtos';
-import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
+import { CollectionsService } from '../../services/collections.services';
+import { Collection } from '../../dtos/collection.dtos';
+import { FlatTreeComponent } from '../../ui/flat-tree/flat-tree.component';
 
 @Component({
   standalone: true,
