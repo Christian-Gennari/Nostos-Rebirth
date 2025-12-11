@@ -571,10 +571,15 @@ app-sidebar-collections.no-transition {
     gap: 1rem;
   }
 
+  .search-icon {
+    position: fixed;
+    left: 35px;
+    top: 80px;
+  }
+
   /* Adjust order so Search comes after Title but before Controls */
   .toolbar h1 {
-    font-size: 1.25rem;
-    text-align: left;
+    display: none;
   }
 
   .search-bar-container {
@@ -584,7 +589,7 @@ app-sidebar-collections.no-transition {
 
   .toolbar-right {
     justify-content: space-between; /* Spread controls out */
-    order: 3;
+    order: 1;
     width: 100%;
   }
 

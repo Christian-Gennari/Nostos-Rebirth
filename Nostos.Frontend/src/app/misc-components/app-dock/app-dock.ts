@@ -110,13 +110,6 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
         transition: opacity 0.3s ease, filter 0.3s ease;
       }
 
-      /* Hover effect: Make the glow tighter and brighter */
-      .app-dock-container:hover::before {
-        filter: blur(5px);
-        opacity: 0.9;
-        inset: -2px;
-      }
-
       /* --- THE GLASS FOREGROUND --- */
       .dock-glass {
         display: flex;
@@ -137,12 +130,6 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
         transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       }
 
-      .app-dock-container:hover .dock-glass {
-        gap: 20px;
-        padding: 10px;
-        background: rgba(255, 255, 255, 0.8);
-      }
-
       /* --- DOCK ITEMS --- */
       .dock-item {
         display: flex;
@@ -160,12 +147,6 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
         cursor: pointer;
       }
 
-      .dock-item:hover {
-        background: rgba(0, 0, 0, 0.08);
-        color: var(--color-text-main, #111827);
-        transform: translateY(-2px);
-      }
-
       .dock-item.active {
         background: #fff;
         color: #111827;
@@ -180,11 +161,34 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
         transition: opacity 0.3s ease, max-height 0.3s ease, transform 0.3s ease;
       }
 
-      /* --- MEDIA QUERIES --- */
+      /* --- DESKTOP / TABLET (HOVER ENABLED) --- */
       @media (min-width: 769px) {
         .dock-item {
           padding: 8px 12px;
         }
+
+        /* Generic Item Hover */
+        .dock-item:hover {
+          background: rgba(0, 0, 0, 0.08);
+          color: var(--color-text-main, #111827);
+          transform: translateY(-2px);
+        }
+
+        /* Container Hover: Tighter, brighter glow */
+        .app-dock-container:hover::before {
+          filter: blur(5px);
+          opacity: 0.9;
+          inset: -2px;
+        }
+
+        /* Container Hover: Expand glass */
+        .app-dock-container:hover .dock-glass {
+          gap: 20px;
+          padding: 10px;
+          background: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Label Animation Logic */
         .label {
           max-height: 0;
           opacity: 0;
@@ -198,6 +202,7 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
         }
       }
 
+      /* --- MOBILE --- */
       @media (max-width: 768px) {
         :host {
           bottom: 0;
@@ -243,10 +248,7 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
           margin: 0 4px;
           padding: 8px 0;
         }
-        .dock-item:hover {
-          background: transparent;
-          transform: none;
-        }
+
         .label {
           max-height: none;
           opacity: 0.9;
