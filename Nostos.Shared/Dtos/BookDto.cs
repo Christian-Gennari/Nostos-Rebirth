@@ -1,6 +1,15 @@
 using System;
+using System.Collections.Generic; // Added for IEnumerable
 
 namespace Nostos.Shared.Dtos;
+
+// --- NEW: Generic Pagination Wrapper ---
+public record PaginatedResponse<T>(
+    IEnumerable<T> Items,
+    int TotalCount,
+    int Page,
+    int PageSize
+);
 
 public record BookDto(
     string Type,
@@ -8,7 +17,7 @@ public record BookDto(
     string Title,
     string? Subtitle,
     string? Author,
-    string? Editor,             // <--- NEW: Harvard "Edited by"
+    string? Editor,
     string? Translator,
     string? Narrator,
     string? Description,
@@ -17,7 +26,7 @@ public record BookDto(
     string? Duration,
     int? PageCount,
     string? Publisher,
-    string? PlaceOfPublication, // <--- NEW: Harvard "Place: Publisher"
+    string? PlaceOfPublication,
     string? PublishedDate,
     string? Edition,
     string? Language,
@@ -33,8 +42,8 @@ public record BookDto(
     int ProgressPercent,
     int Rating,
     bool IsFavorite,
-    string? PersonalReview,     // <--- NEW: Your review
-    DateTime? LastReadAt,  // <--- NEW: last read time
+    string? PersonalReview,
+    DateTime? LastReadAt,
     DateTime? FinishedAt
 );
 
@@ -43,7 +52,7 @@ public record CreateBookDto(
     string Title,
     string? Subtitle,
     string? Author,
-    string? Editor,             // <--- NEW
+    string? Editor,
     string? Translator,
     string? Narrator,
     string? Description,
@@ -51,7 +60,7 @@ public record CreateBookDto(
     string? Asin,
     string? Duration,
     string? Publisher,
-    string? PlaceOfPublication, // <--- NEW
+    string? PlaceOfPublication,
     string? PublishedDate,
     string? Edition,
     int? PageCount,
@@ -62,7 +71,7 @@ public record CreateBookDto(
     Guid? CollectionId,
     int Rating = 0,
     bool IsFavorite = false,
-    string? PersonalReview = null, // <--- NEW
+    string? PersonalReview = null,
     DateTime? FinishedAt = null
 );
 
@@ -70,7 +79,7 @@ public record UpdateBookDto(
     string? Title,
     string? Subtitle,
     string? Author,
-    string? Editor,             // <--- NEW
+    string? Editor,
     string? Translator,
     string? Narrator,
     string? Description,
@@ -78,7 +87,7 @@ public record UpdateBookDto(
     string? Asin,
     string? Duration,
     string? Publisher,
-    string? PlaceOfPublication, // <--- NEW
+    string? PlaceOfPublication,
     string? PublishedDate,
     string? Edition,
     int? PageCount,
@@ -89,7 +98,7 @@ public record UpdateBookDto(
     Guid? CollectionId,
     int? Rating,
     bool? IsFavorite,
-    string? PersonalReview,     // <--- NEW
+    string? PersonalReview,
     DateTime? FinishedAt,
     bool? IsFinished
 );

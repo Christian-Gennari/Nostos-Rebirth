@@ -1,28 +1,40 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Book, CreateBookDto, UpdateBookDto, UpdateProgressDto } from '../dtos/book.dtos';
+import {
+  Book,
+  CreateBookDto,
+  UpdateBookDto,
+  UpdateProgressDto,
+  PaginatedResponse,
+} from '../dtos/book.dtos';
+
+// --- NEW: Options Interface for cleaner API calls ---
+export interface BookListOptions {
+  filter?: string;
+  sort?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
 
 @Injectable({ providedIn: 'root' })
 export class BooksService {
   constructor(private http: HttpClient) {}
 
-  // UPDATED: Now accepts filter, sort, AND search parameters
-  list(filter?: string, sort?: string, search?: string): Observable<Book[]> {
+  // UPDATED: Accepts a single options object
+  list(options: BookListOptions = {}): Observable<PaginatedResponse<Book>> {
     let params = new HttpParams();
 
-    if (filter) {
-      params = params.set('filter', filter);
-    }
-    if (sort) {
-      params = params.set('sort', sort);
-    }
-    // NEW: Pass search param to backend
-    if (search) {
-      params = params.set('search', search);
-    }
+    if (options.filter) params = params.set('filter', options.filter);
+    if (options.sort) params = params.set('sort', options.sort);
+    if (options.search) params = params.set('search', options.search);
 
-    return this.http.get<Book[]>('/api/books', { params });
+    // Pagination defaults
+    params = params.set('page', options.page ?? 1);
+    params = params.set('pageSize', options.pageSize ?? 20);
+
+    return this.http.get<PaginatedResponse<Book>>('/api/books', { params });
   }
 
   get(id: string): Observable<Book> {

@@ -102,7 +102,7 @@ export class WritingStudio implements OnInit {
   concepts = signal<ConceptDto[]>([]);
   selectedConceptId = signal<string | null>(null);
 
-  // 👇 Reverted to any[] to allow NoteContextDto (which has 'bookTitle') to pass through
+  // Reverted to any[] to allow NoteContextDto (which has 'bookTitle') to pass through
   selectedConceptNotes = signal<any[]>([]);
 
   // Books / Notes State
@@ -292,12 +292,20 @@ export class WritingStudio implements OnInit {
   }
 
   loadBooks() {
-    this.booksService.list().subscribe((data) => this.books.set(data));
+    // FIX: Using named parameters for clarity
+    this.booksService
+      .list({
+        page: 1,
+        pageSize: 50,
+      })
+      .subscribe((data) => {
+        this.books.set(data.items);
+      });
   }
 
   selectConcept(id: string) {
     this.selectedConceptId.set(id);
-    // 👇 Simply pass the notes as they are.
+    // Simply pass the notes as they are.
     // They contain 'bookTitle', which works with [showSource]="true".
     this.conceptsService.get(id).subscribe((d) => this.selectedConceptNotes.set(d.notes));
   }

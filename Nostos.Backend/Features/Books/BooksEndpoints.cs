@@ -12,17 +12,17 @@ public static class BooksEndpoints
   {
     var group = routes.MapGroup("/api/books");
 
-    // GET all books (With Smart Filters, Sorting AND SEARCH)
-    // Updated signature to include 'string? search'
-    group.MapGet("/", async (NostosDbContext db, string? filter, string? sort, string? search) =>
+    // GET all books (With Pagination, Smart Filters, Sorting AND SEARCH)
+    // Updated signature to include page and pageSize
+    group.MapGet("/", async (NostosDbContext db, string? filter, string? sort, string? search, int? page, int? pageSize) =>
     {
       var query = db.Books.AsQueryable();
 
-      // --- 1. Apply Search (NEW) ---
+      // --- 1. Apply Search ---
       if (!string.IsNullOrWhiteSpace(search))
       {
         var term = search.ToLower();
-        // Simple case-insensitive search on Title and Author
+        // Optimization Note: In Phase 2 we will replace this with EF.Functions.Like for SQLite performance
         query = query.Where(b =>
             b.Title.ToLower().Contains(term) ||
             (b.Author != null && b.Author.ToLower().Contains(term))
@@ -56,18 +56,30 @@ public static class BooksEndpoints
       {
         "title" => query.OrderBy(b => b.Title),
         "rating" => query.OrderByDescending(b => b.Rating),
-        // FIX: Sort by whether it has a value first, THEN by the date
         "lastread" => query.OrderByDescending(b => b.LastReadAt.HasValue)
                            .ThenByDescending(b => b.LastReadAt),
         "recent" or _ => query.OrderByDescending(b => b.CreatedAt)
       };
 
-      var books = await query.ToListAsync();
+      // --- 4. Apply Pagination (NEW) ---
+      // Defaults: Page 1, Size 20
+      var p = page ?? 1;
+      var ps = pageSize ?? 20;
 
-      return Results.Ok(books.Select(b => b.ToDto()));
+      // Important: Get total count BEFORE paging so the frontend knows how many items exist
+      var totalCount = await query.CountAsync();
+
+      var books = await query
+          .Skip((p - 1) * ps)
+          .Take(ps)
+          .ToListAsync();
+
+      var dtos = books.Select(b => b.ToDto());
+
+      return Results.Ok(new PaginatedResponse<BookDto>(dtos, totalCount, p, ps));
     });
 
-    // ... (Keep the rest of your endpoints exactly as they were) ...
+    // ... (Rest of your endpoints remain unchanged) ...
 
     // GET one book
     group.MapGet("/{id}", async (Guid id, NostosDbContext db) =>
@@ -116,7 +128,7 @@ public static class BooksEndpoints
       book.LastLocation = dto.Location;
       book.ProgressPercent = dto.Percentage;
 
-      //  NEW: Update LastReadAt whenever progress is saved
+      // Update LastReadAt whenever progress is saved
       book.LastReadAt = DateTime.UtcNow;
 
       if (book.ProgressPercent >= 100 && book.FinishedAt == null)

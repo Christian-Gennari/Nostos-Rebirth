@@ -1,5 +1,5 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
-import { ActivatedRoute, Router, NavigationEnd } from '@angular/router'; // Added Router, NavigationEnd
+import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
 import { BooksService, Book } from '../services/books.services';
 import { CollectionsService } from '../services/collections.services';
 import { Collection } from '../dtos/collection.dtos';
@@ -10,7 +10,7 @@ import { AddBookModal } from '../add-book-modal/add-book-modal';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { SidebarCollections } from './sidebar-collections/sidebar-collections';
 import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators'; // Added filter
+import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 import {
   LucideAngularModule,
   LayoutList,
@@ -23,6 +23,7 @@ import {
   CheckCircle,
   Search,
   ArrowUpDown,
+  Loader2,
 } from 'lucide-angular';
 
 @Component({
@@ -44,7 +45,7 @@ export class Library implements OnInit {
   private booksService = inject(BooksService);
   private collectionsService = inject(CollectionsService);
   private route = inject(ActivatedRoute);
-  private router = inject(Router); // Inject Router
+  private router = inject(Router);
 
   ListIcon = LayoutList;
   GridIcon = LayoutGrid;
@@ -56,9 +57,17 @@ export class Library implements OnInit {
   CheckCircleIcon = CheckCircle;
   SearchIcon = Search;
   SortIcon = ArrowUpDown;
+  LoaderIcon = Loader2;
 
   loading = signal(true);
+  loadingMore = signal(false);
 
+  // Pagination State
+  currentPage = signal(1);
+  pageSize = 20;
+  totalItems = signal(0);
+
+  // Data
   rawBooks = signal<Book[]>([]);
   collections = signal<Collection[]>([]);
 
@@ -67,7 +76,7 @@ export class Library implements OnInit {
 
   // Search & Sort State
   searchQuery = signal('');
-  activeSort = signal('lastread'); // Default sort
+  activeSort = signal('lastread');
   private searchSubject = new Subject<string>();
 
   // Modal edit system
@@ -83,60 +92,82 @@ export class Library implements OnInit {
     if (activeId) {
       return all.filter((b) => b.collectionId === activeId);
     }
-
     return all;
   });
 
+  hasMoreBooks = computed(() => {
+    return this.rawBooks().length < this.totalItems();
+  });
+
   constructor() {
-    // Setup Debounce for Search
     this.searchSubject.pipe(debounceTime(300), distinctUntilChanged()).subscribe((term) => {
       this.searchQuery.set(term);
-      this.refreshBooks();
+      this.refreshBooks(true); // True = Reset to page 1
     });
   }
 
   ngOnInit(): void {
-    // Listen to sidebar/URL changes
     this.route.queryParams.subscribe((params) => {
-      this.refreshBooks();
+      this.refreshBooks(true);
     });
 
-    // FIX: Listen for re-entry events (Back Button) because RouteReuseStrategy skips ngOnInit
     this.router.events.pipe(filter((event) => event instanceof NavigationEnd)).subscribe(() => {
-      // Only refresh if we are currently on the library page
-      // We pass 'false' to avoid showing the skeleton loader again
       if (this.router.url.startsWith('/library')) {
-        this.refreshBooks(false);
+        const shouldShowSkeleton = this.rawBooks().length === 0;
+        this.refreshBooks(true, shouldShowSkeleton);
       }
     });
 
     this.loadCollections();
   }
 
-  // Unified load function: Combines Sidebar (URL) + Toolbar (Local State)
-  // Added optional 'showLoading' param to allow background updates
-  refreshBooks(showLoading = true): void {
-    if (showLoading) {
-      this.loading.set(true);
+  refreshBooks(reset = true, showSkeleton = true): void {
+    if (reset) {
+      this.currentPage.set(1);
+      if (showSkeleton) this.loading.set(true);
+    } else {
+      this.loadingMore.set(true);
     }
 
-    // Get Context (Sidebar)
     const filter = this.route.snapshot.queryParams['filter'];
-
-    // Get Refinement (Toolbar)
     const sort = this.activeSort();
     const search = this.searchQuery();
+    const page = this.currentPage();
 
-    this.booksService.list(filter, sort, search).subscribe({
-      next: (data) => {
-        this.rawBooks.set(data);
-        this.loading.set(false);
-      },
-      error: (err) => {
-        console.error('Error loading books:', err);
-        this.loading.set(false);
-      },
-    });
+    // UPDATED: Using options object
+    this.booksService
+      .list({
+        filter,
+        sort,
+        search,
+        page,
+        pageSize: this.pageSize,
+      })
+      .subscribe({
+        next: (data) => {
+          if (reset) {
+            this.rawBooks.set(data.items);
+          } else {
+            this.rawBooks.update((current) => [...current, ...data.items]);
+          }
+
+          this.totalItems.set(data.totalCount);
+          this.loading.set(false);
+          this.loadingMore.set(false);
+        },
+        error: (err) => {
+          console.error('Error loading books:', err);
+          this.loading.set(false);
+          this.loadingMore.set(false);
+        },
+      });
+  }
+
+  loadMore(): void {
+    if (!this.hasMoreBooks() || this.loadingMore()) return;
+
+    this.currentPage.update((p) => p + 1);
+    this.refreshBooks(false); // False = Append mode
   }
 
   onSearch(event: Event): void {
@@ -146,7 +177,7 @@ export class Library implements OnInit {
 
   setSort(sort: string): void {
     this.activeSort.set(sort);
-    this.refreshBooks();
+    this.refreshBooks(true);
   }
 
   loadCollections(): void {
@@ -175,7 +206,7 @@ export class Library implements OnInit {
   }
 
   onBookUpdated(updated: Book): void {
-    this.refreshBooks(false); // Background update
+    this.refreshBooks(true, false);
     this.closeEditModal();
   }
 
@@ -185,7 +216,8 @@ export class Library implements OnInit {
 
     this.booksService.delete(id).subscribe({
       next: () => {
-        this.refreshBooks(false);
+        this.rawBooks.update((books) => books.filter((b) => b.id !== id));
+        this.totalItems.update((c) => c - 1);
       },
     });
   }

@@ -1,6 +1,14 @@
 // Define the valid types to match your backend Discriminator
 export type BookType = 'physical' | 'ebook' | 'audiobook';
 
+// --- NEW: Pagination Wrapper ---
+export interface PaginatedResponse<T> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface Book {
   id: string;
   title: string;
@@ -8,7 +16,7 @@ export interface Book {
 
   // Authorship
   author: string | null;
-  editor: string | null; // <--- NEW: Harvard "Edited by"
+  editor: string | null;
   translator: string | null;
   narrator: string | null;
 
@@ -22,7 +30,7 @@ export interface Book {
 
   isbn: string | null;
   publisher: string | null;
-  placeOfPublication: string | null; // <--- NEW: Harvard "Place: Publisher"
+  placeOfPublication: string | null;
   publishedDate: string | null;
   pageCount: number | null;
   language: string | null;
@@ -37,12 +45,12 @@ export interface Book {
 
   lastLocation: string | null;
   progressPercent: number;
-  lastReadAt: string | null; // <--- NEW: Frontend field
+  lastReadAt: string | null;
 
   // Metadata Fields
   rating: number;
   isFavorite: boolean;
-  personalReview: string | null; // <--- NEW: Your review
+  personalReview: string | null;
   finishedAt: string | null;
 }
 
@@ -52,9 +60,9 @@ export interface CreateBookDto {
   subtitle: string | null;
 
   author: string | null;
-  editor: string | null; // <--- NEW
+  editor: string | null;
   translator: string | null;
-  narrator: string | null; // <--- ADDED (Was missing in DTO)
+  narrator: string | null;
 
   description: string | null;
 
@@ -64,7 +72,7 @@ export interface CreateBookDto {
 
   isbn: string | null;
   publisher: string | null;
-  placeOfPublication: string | null; // <--- NEW
+  placeOfPublication: string | null;
   publishedDate: string | null;
   pageCount: number | null;
   language: string | null;
@@ -76,7 +84,7 @@ export interface CreateBookDto {
   // Initial Metadata
   rating?: number;
   isFavorite?: boolean;
-  personalReview?: string | null; // <--- NEW
+  personalReview?: string | null;
   finishedAt?: string | null;
 }
 
@@ -85,9 +93,9 @@ export interface UpdateBookDto {
   subtitle?: string | null;
 
   author?: string | null;
-  editor?: string | null; // <--- NEW
+  editor?: string | null;
   translator?: string | null;
-  narrator?: string | null; // <--- ADDED
+  narrator?: string | null;
 
   description?: string | null;
 
@@ -97,7 +105,7 @@ export interface UpdateBookDto {
 
   isbn?: string | null;
   publisher?: string | null;
-  placeOfPublication?: string | null; // <--- NEW
+  placeOfPublication?: string | null;
   publishedDate?: string | null;
   pageCount?: number | null;
   language?: string | null;
@@ -109,7 +117,7 @@ export interface UpdateBookDto {
   // Update Fields
   rating?: number;
   isFavorite?: boolean;
-  personalReview?: string | null; // <--- NEW
+  personalReview?: string | null;
   finishedAt?: string | null;
   isFinished?: boolean;
 }
