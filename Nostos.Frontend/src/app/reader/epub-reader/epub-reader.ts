@@ -11,7 +11,6 @@ import {
   ElementRef,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
 import ePub, { Book, Rendition } from 'epubjs';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
@@ -32,7 +31,6 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   bookId = input.required<string>();
   noteCreated = output<void>();
 
-  private http = inject(HttpClient);
   private notesService = inject(NotesService);
   private booksService = inject(BooksService);
   private injector = inject(Injector);
@@ -75,7 +73,11 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
         const viewerContainer = this.elementRef.nativeElement.querySelector('#epub-viewer');
         if (viewerContainer) {
           const { clientWidth, clientHeight } = viewerContainer;
-          this.rendition.resize(clientWidth, clientHeight);
+          try {
+            this.rendition.resize(clientWidth, clientHeight);
+          } catch (e) {
+            console.warn('Rendition resize failed (book might not be ready):', e);
+          }
         }
       }
     });
@@ -114,9 +116,13 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
 
   getCurrentLocation(): string | null {
     if (!this.rendition) return null;
-    const location = this.rendition.currentLocation() as any;
-    if (location && location.start) {
-      return location.start.cfi;
+    try {
+      const location = this.rendition.currentLocation() as any;
+      if (location && location.start) {
+        return location.start.cfi;
+      }
+    } catch (e) {
+      return null;
     }
     return null;
   }
@@ -151,83 +157,83 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     this.loading.set(true);
     this.locationsReady.set(false);
 
-    const url = `/api/books/${id}/file`;
+    // FIX 1: Append a dummy parameter ending in .epub
+    // This tricks epub.js into treating the URL as a file, not a directory.
+    const url = `/api/books/${id}/file?t=${Date.now()}.epub`;
 
-    this.http.get(url, { responseType: 'arraybuffer' }).subscribe({
-      next: (arrayBuffer) => {
-        this.book = ePub(arrayBuffer);
+    // FIX 2: Explicitly pass 'openAs: epub'
+    this.book = ePub(url, { openAs: 'epub' });
 
-        // 1. Generate Locations (Async)
-        this.book.ready
-          .then(() => {
-            if (this.book?.navigation) {
-              const toc = this.mapTocItems(this.book.navigation.toc);
-              this.toc.set(toc);
-            }
-            // Use standard chunk size (1000)
-            return this.book?.locations.generate(1000);
-          })
-          .then(() => {
-            this.locationsReady.set(true);
-            if (this.currentCfi) this.updateProgressState(this.currentCfi);
-          })
-          .catch((err) => console.error('Book setup failed:', err));
+    // 2. Setup Rendition Immediately
+    const viewer = this.elementRef.nativeElement.querySelector('#epub-viewer');
+    const width = viewer ? viewer.clientWidth : '100%';
+    const height = viewer ? viewer.clientHeight : '100%';
 
-        // 2. Render
-        const viewer = this.elementRef.nativeElement.querySelector('#epub-viewer');
-        const width = viewer ? viewer.clientWidth : '100%';
-        const height = viewer ? viewer.clientHeight : '100%';
-
-        this.rendition = this.book.renderTo('epub-viewer', {
-          width: width,
-          height: height,
-          flow: 'paginated',
-          manager: 'default',
-        });
-
-        // 3. Register Hooks
-        this.rendition.hooks.content.register((contents: any) => {
-          this.injectCustomStyles(contents);
-          this.annotationManager?.injectHighlightStyles(contents);
-        });
-
-        // Track location BEFORE display
-        this.rendition.on('relocated', (location: any) => {
-          this.currentCfi = location.start.cfi;
-          this.updateProgressState(location.start.cfi);
-        });
-
-        // 4. Display
-        this.rendition.display().then(() => {
-          this.loading.set(false);
-          this.applyTheme();
-          this.applyFontSize();
-
-          this.annotationManager = new EpubAnnotationManager(
-            this.rendition!,
-            id,
-            this.injector,
-            () => this.noteCreated.emit()
-          );
-          this.annotationManager.init();
-
-          this.notesService.list(id).subscribe({
-            next: (notes) => this.annotationManager?.restoreHighlights(notes),
-            error: (err) => console.error('Failed to load notes:', err),
-          });
-
-          this.booksService.get(id).subscribe((b) => {
-            if (b.lastLocation) {
-              this.rendition?.display(b.lastLocation);
-            }
-          });
-        });
-      },
-      error: (err) => {
-        console.error('Failed to load EPUB file:', err);
-        this.loading.set(false);
-      },
+    this.rendition = this.book.renderTo('epub-viewer', {
+      width: width,
+      height: height,
+      flow: 'paginated',
+      manager: 'default',
     });
+
+    // 3. Register Hooks
+    this.rendition.hooks.content.register((contents: any) => {
+      this.injectCustomStyles(contents);
+      this.annotationManager?.injectHighlightStyles(contents);
+    });
+
+    this.rendition.on('relocated', (location: any) => {
+      this.currentCfi = location.start.cfi;
+      this.updateProgressState(location.start.cfi);
+    });
+
+    // 4. Process Book Metadata (Async)
+    this.book.ready
+      .then(() => {
+        if (this.book?.navigation) {
+          const toc = this.mapTocItems(this.book.navigation.toc);
+          this.toc.set(toc);
+        }
+        // Use standard chunk size (1000)
+        return this.book?.locations.generate(1000);
+      })
+      .then(() => {
+        this.locationsReady.set(true);
+        if (this.currentCfi) this.updateProgressState(this.currentCfi);
+      })
+      .catch((err) => {
+        console.error('Book metadata setup failed:', err);
+        this.loading.set(false);
+      });
+
+    // 5. Display Book (Starts the stream/rendering)
+    this.rendition
+      .display()
+      .then(() => {
+        this.loading.set(false);
+        this.applyTheme();
+        this.applyFontSize();
+
+        this.annotationManager = new EpubAnnotationManager(this.rendition!, id, this.injector, () =>
+          this.noteCreated.emit()
+        );
+        this.annotationManager.init();
+
+        this.notesService.list(id).subscribe({
+          next: (notes) => this.annotationManager?.restoreHighlights(notes),
+          error: (err) => console.error('Failed to load notes:', err),
+        });
+
+        this.booksService.get(id).subscribe((b) => {
+          if (b.lastLocation) {
+            this.rendition?.display(b.lastLocation);
+          }
+        });
+      })
+      .catch((err) => {
+        console.error('Failed to render book:', err);
+        this.loading.set(false);
+      });
   }
 
   // --- Helpers ---
@@ -250,7 +256,6 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
       percent = Math.floor(val * 100);
 
       // 2. Time Estimation
-      // Assumption: 1 loc (1000 chars) ≈ 1 minute reading
       const currentLoc = this.book.locations.locationFromCfi(cfi) as any;
       const totalLocs = this.book.locations.length();
 
@@ -278,10 +283,7 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
         rateLabel = `${Math.round(secondsPerPercent / 60)} min`;
       }
 
-      // [Updated] Label: "12% • 45 min left"
       label = `${percent}% • ${timeLeftStr}`;
-
-      // [Updated] Tooltip: "1% ≈ 4 min" OR "1% ≈ 30 sec"
       tooltip = `1% ≈ ${rateLabel}`;
     } else {
       label = 'Calculating...';
