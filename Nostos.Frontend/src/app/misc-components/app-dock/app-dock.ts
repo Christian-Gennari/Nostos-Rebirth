@@ -138,7 +138,7 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
       }
 
       .app-dock-container:hover .dock-glass {
-        gap: 8px;
+        gap: 15px;
         padding: 10px;
         background: rgba(255, 255, 255, 0.8);
       }
@@ -161,7 +161,7 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
       }
 
       .dock-item:hover {
-        background: rgba(0, 0, 0, 0.05);
+        background: rgba(0, 0, 0, 0.08);
         color: var(--color-text-main, #111827);
         transform: translateY(-2px);
       }
@@ -169,7 +169,7 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
       .dock-item.active {
         background: #fff;
         color: #111827;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
       }
 
       .label {
@@ -177,7 +177,7 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
         font-weight: 600;
         letter-spacing: 0.01em;
         opacity: 0.9;
-        transition: opacity 0.3s ease, max-height 0.3s ease, transform 0.3s ease;
+        transition: opacity 0.15s ease, max-height 0.3s ease, transform 0.3s ease;
       }
 
       /* --- MEDIA QUERIES --- */

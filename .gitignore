@@ -8,6 +8,9 @@
 Nostos.Backend/Storage
 Nostos.Frontend/dist
 
+Nostos.Frontend/.angular
+Nostos.Frontend/.vscode
+
 
 
 # SQLite database files
