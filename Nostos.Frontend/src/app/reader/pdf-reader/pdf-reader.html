@@ -1,4 +1,4 @@
-<div class="pdf-container" (mouseup)="onTextSelection()">
+<div class="pdf-container" (mouseup)="onTextSelection()" (touchend)="onTextSelection()">
   <div id="pdf-viewer-wrapper">
     <ngx-extended-pdf-viewer
       [src]="pdfSrc()"

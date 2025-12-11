@@ -50,7 +50,7 @@ export class PdfAnnotationManager {
     });
   }
 
-  // ... (Keep the captureHighlight and captureNoteLocation methods exactly as they were before) ...
+
   captureHighlight(): {
     pageNumber: number;
     rects: HighlightRect[];
