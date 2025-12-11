@@ -237,14 +237,19 @@ export class ReaderShell implements OnInit {
 
   // --- HANDLERS FOR NOTE CARD ---
 
-  onUpdateNote(event: { id: string; content: string }) {
-    this.notesService.update(event.id, { content: event.content }).subscribe({
-      next: (updated) => {
-        this.dbNotes.update((notes) => notes.map((n) => (n.id === updated.id ? updated : n)));
-      },
-    });
+  onUpdateNote(event: { id: string; content: string; selectedText?: string }) {
+    this.notesService
+      .update(event.id, {
+        content: event.content,
+        selectedText: event.selectedText,
+      })
+      .subscribe({
+        next: (updated) => {
+          // Update local state so we see the change immediately without reload
+          this.dbNotes.update((notes) => notes.map((n) => (n.id === updated.id ? updated : n)));
+        },
+      });
   }
-
   onDeleteNote(noteId: string) {
     if (!confirm('Delete this note?')) return;
 

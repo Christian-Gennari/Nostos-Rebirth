@@ -18,4 +18,4 @@ public record CreateNoteDto(
     string? SelectedText = null
 );
 
-public record UpdateNoteDto(string Content);
+public record UpdateNoteDto(string Content, string? SelectedText = null); // <--- ADDED);

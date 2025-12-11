@@ -1,3 +1,4 @@
+// Nostos.Frontend/src/app/ui/note-card.component/note-card.component.ts
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -15,7 +16,7 @@ import {
   ChevronUp,
 } from 'lucide-angular';
 
-import { Note } from '../../dtos/note.dtos';
+import { Note, UpdateNoteDto } from '../../dtos/note.dtos';
 import { ConceptDto } from '../../services/concepts.services';
 import { ConceptInputComponent } from '../concept-input.component/concept-input.component';
 import { NoteFormatPipe } from '../pipes/note-format.pipe';
@@ -42,7 +43,8 @@ export class NoteCardComponent {
   @Input() showSource = false;
   @Input() showDate = true;
 
-  @Output() update = new EventEmitter<{ id: string; content: string }>();
+  // Updated Output signature to match UpdateNoteDto
+  @Output() update = new EventEmitter<{ id: string; content: string; selectedText?: string }>();
   @Output() delete = new EventEmitter<string>();
   @Output() conceptClick = new EventEmitter<string>();
   @Output() quoteClick = new EventEmitter<void>();
@@ -50,10 +52,10 @@ export class NoteCardComponent {
 
   isEditing = false;
   editContent = '';
+  editSelectedText = ''; // <--- New state for editing quote
 
   // Collapse logic
   isExpanded = false;
-  // Threshold includes both quote + content length
   readonly CHAR_THRESHOLD = 250;
 
   Icons = {
@@ -69,7 +71,6 @@ export class NoteCardComponent {
   };
 
   get shouldShowExpandBtn(): boolean {
-    // If we are editing, we usually don't show the expand button (we show full text in inputs)
     if (this.isEditing) return false;
 
     const quoteLen = this.note.selectedText?.length || 0;
@@ -85,8 +86,8 @@ export class NoteCardComponent {
   startEdit(event?: Event) {
     event?.stopPropagation();
     this.editContent = this.note.content;
+    this.editSelectedText = this.note.selectedText || ''; // Initialize quote editor
     this.isEditing = true;
-    // Auto-expand when editing if you prefer, or handle in template
     this.isExpanded = true;
   }
 
@@ -94,16 +95,28 @@ export class NoteCardComponent {
     event?.stopPropagation();
     this.isEditing = false;
     this.editContent = '';
-    this.isExpanded = false; // Reset to collapsed on cancel
+    this.editSelectedText = '';
+    this.isExpanded = false;
   }
 
   saveEdit(event?: Event) {
     event?.stopPropagation();
-    if (this.editContent.trim() !== this.note.content) {
-      this.update.emit({ id: this.note.id, content: this.editContent });
+    const cleanContent = this.editContent.trim();
+    const cleanQuote = this.editSelectedText.trim();
+
+    // Check if either field changed
+    const contentChanged = cleanContent !== this.note.content;
+    const quoteChanged = cleanQuote !== (this.note.selectedText || '');
+
+    if (contentChanged || quoteChanged) {
+      this.update.emit({
+        id: this.note.id,
+        content: cleanContent,
+        selectedText: cleanQuote, // Emit the new quote
+      });
     }
     this.isEditing = false;
-    this.isExpanded = false; // Reset on save
+    this.isExpanded = false;
   }
 
   onDelete(event?: Event) {

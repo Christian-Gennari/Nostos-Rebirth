@@ -307,5 +307,10 @@ public static class MappingExtensions
     public static void Apply(this NoteModel model, UpdateNoteDto dto)
     {
         model.Content = dto.Content;
+        // 👈 Update SelectedText if provided in the DTO
+        if (dto.SelectedText != null)
+        {
+            model.SelectedText = dto.SelectedText;
+        }
     }
 }

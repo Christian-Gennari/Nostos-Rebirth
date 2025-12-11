@@ -1,13 +1,16 @@
 <div class="note-card-container" [class.editing]="isEditing">
-  @if (isEditing) { @if (note.selectedText) {
-  <div class="note-quote">
-    <div class="quote-stripe"></div>
-    <lucide-icon [img]="Icons.MessageSquareQuote" [size]="14" class="quote-icon"></lucide-icon>
-    <p class="quote-text">"{{ note.selectedText }}"</p>
-  </div>
-  }
+  @if (isEditing) {
 
   <div class="edit-box" (click)="$event.stopPropagation()">
+    @if (note.selectedText || editSelectedText) {
+    <textarea
+      class="edit-quote-input"
+      [(ngModel)]="editSelectedText"
+      placeholder="Quote text..."
+      rows="2"
+    ></textarea>
+    }
+
     <app-concept-input
       [(ngModel)]="editContent"
       [rows]="3"
@@ -25,6 +28,7 @@
   </div>
 
   } @else {
+
   <div class="content-row">
     <div class="collapsible-body" [class.collapsed]="shouldShowExpandBtn && !isExpanded">
       @if (note.selectedText) {

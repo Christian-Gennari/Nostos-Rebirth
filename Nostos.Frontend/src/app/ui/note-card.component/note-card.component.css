@@ -1,3 +1,4 @@
+/* Nostos.Frontend/src/app/ui/note-card.component/note-card.component.css */
 :host {
   display: block;
 }
@@ -186,6 +187,27 @@
   border: 1px solid var(--border-color, #e5e5e5);
   border-radius: var(--radius-md, 6px);
   padding: 0.5rem;
+}
+
+/* NEW: Style for the quote input textarea */
+.edit-quote-input {
+  width: 100%;
+  border: 1px solid var(--border-color, #e5e5e5);
+  border-radius: var(--radius-sm, 4px);
+  background-color: var(--bg-hover, #f9fafb);
+  padding: 0.5rem;
+  font-family: 'Lora', serif;
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--color-text-main, #333);
+  resize: vertical;
+  min-height: 60px;
+  margin-bottom: 0.75rem;
+}
+
+.edit-quote-input:focus {
+  outline: none;
+  border-color: var(--color-primary, #666);
 }
 
 .edit-actions {

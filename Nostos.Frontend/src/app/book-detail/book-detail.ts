@@ -305,16 +305,22 @@ export class BookDetail implements OnInit {
     });
   }
 
-  onUpdateNote(event: { id: string; content: string }): void {
+  onUpdateNote(event: { id: string; content: string; selectedText?: string }): void {
     const book = this.book();
     if (!book) return;
 
-    this.notesService.update(event.id, { content: event.content }).subscribe({
-      next: () => {
-        this.loadNotes(book.id);
-        this.loadConcepts();
-      },
-    });
+    // Pass the full object, including selectedText
+    this.notesService
+      .update(event.id, {
+        content: event.content,
+        selectedText: event.selectedText,
+      })
+      .subscribe({
+        next: () => {
+          this.loadNotes(book.id);
+          this.loadConcepts();
+        },
+      });
   }
 
   onDeleteNote(id: string): void {
