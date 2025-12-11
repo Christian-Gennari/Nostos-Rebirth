@@ -294,20 +294,25 @@
         }
       </div>
       } @if (hasMoreBooks()) {
-      <div style="display: flex; justify-content: center; margin: 2rem 0; padding-bottom: 2rem">
-        <button
-          class="btn btn-primary"
-          (click)="loadMore()"
-          [disabled]="loadingMore()"
-          style="min-width: 150px"
-        >
-          @if (loadingMore()) {
-          <lucide-icon [img]="LoaderIcon" [size]="18" class="spin-animation"></lucide-icon>
-          <span>Loading...</span>
-          } @else {
-          <span>Load More</span>
-          }
-        </button>
+      <div
+        appInfiniteScroll
+        (scrolly)="loadMore()"
+        style="
+          display: flex;
+          justify-content: center;
+          padding: 2rem 0;
+          width: 100%;
+          min-height: 50px;
+        "
+      >
+        @if (loadingMore()) {
+        <lucide-icon
+          [img]="LoaderIcon"
+          [size]="24"
+          class="spin-animation"
+          color="var(--color-primary)"
+        ></lucide-icon>
+        }
       </div>
       } }
     </div>

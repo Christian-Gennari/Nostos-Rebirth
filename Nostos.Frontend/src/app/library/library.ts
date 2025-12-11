@@ -11,6 +11,8 @@ import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { SidebarCollections } from './sidebar-collections/sidebar-collections';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
+// 👇 IMPORT THE DIRECTIVE
+import { InfiniteScrollDirective } from '../directives/infinite-scroll.directive';
 import {
   LucideAngularModule,
   LayoutList,
@@ -37,11 +39,14 @@ import {
     AddBookModal,
     StarRatingComponent,
     SidebarCollections,
+    InfiniteScrollDirective, // 👇 ADD TO IMPORTS
   ],
   templateUrl: './library.html',
   styleUrls: ['./library.css'],
 })
 export class Library implements OnInit {
+  // ... (Keep existing code exactly as is)
+
   private booksService = inject(BooksService);
   private collectionsService = inject(CollectionsService);
   private route = inject(ActivatedRoute);
@@ -102,7 +107,7 @@ export class Library implements OnInit {
   constructor() {
     this.searchSubject.pipe(debounceTime(300), distinctUntilChanged()).subscribe((term) => {
       this.searchQuery.set(term);
-      this.refreshBooks(true); // True = Reset to page 1
+      this.refreshBooks(true);
     });
   }
 
@@ -134,7 +139,6 @@ export class Library implements OnInit {
     const search = this.searchQuery();
     const page = this.currentPage();
 
-    // UPDATED: Using options object
     this.booksService
       .list({
         filter,
@@ -170,6 +174,7 @@ export class Library implements OnInit {
     this.refreshBooks(false); // False = Append mode
   }
 
+  // ... (Keep remaining methods: onSearch, setSort, loadCollections, modals, etc.)
   onSearch(event: Event): void {
     const val = (event.target as HTMLInputElement).value;
     this.searchSubject.next(val);
