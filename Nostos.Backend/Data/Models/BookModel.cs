@@ -50,7 +50,10 @@ public abstract class BookModel
 
   public bool IsFavorite { get; set; } = false;
 
-  public string? PersonalReview { get; set; } // <--- NEW: Your short review/notes
+  public string? PersonalReview { get; set; } // Short personal reviews
+
+  // <--- NEW: Track when the book was last opened/read
+  public DateTime? LastReadAt { get; set; }
 
   // If FinishedAt is not null, the book is "Finished"
   public DateTime? FinishedAt { get; set; }

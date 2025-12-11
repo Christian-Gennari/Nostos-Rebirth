@@ -70,6 +70,9 @@ namespace Nostos.Backend.Migrations
                     b.Property<string>("LastLocation")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("LastReadAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("PersonalReview")
                         .HasColumnType("TEXT");
 

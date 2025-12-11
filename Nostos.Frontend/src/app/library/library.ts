@@ -67,7 +67,7 @@ export class Library implements OnInit {
 
   // Search & Sort State
   searchQuery = signal('');
-  activeSort = signal('recent'); // Default sort
+  activeSort = signal('lastread'); // Default sort
   private searchSubject = new Subject<string>();
 
   // Modal edit system

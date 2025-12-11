@@ -34,6 +34,7 @@ public record BookDto(
     int Rating,
     bool IsFavorite,
     string? PersonalReview,     // <--- NEW: Your review
+    DateTime? LastReadAt,  // <--- NEW: last read time
     DateTime? FinishedAt
 );
 

@@ -18,7 +18,7 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
           class="dock-item"
           title="Library"
         >
-          <lucide-icon [img]="LibraryIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
+          <lucide-icon [img]="LibraryIcon" [size]="20" strokeWidth="1"></lucide-icon>
           <span class="label">Library</span>
         </a>
 
@@ -29,7 +29,7 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
           class="dock-item"
           title="The Brain"
         >
-          <lucide-icon [img]="BrainIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
+          <lucide-icon [img]="BrainIcon" [size]="20" strokeWidth="1"></lucide-icon>
           <span class="label">Brain</span>
         </a>
 
@@ -40,7 +40,7 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
           class="dock-item"
           title="Writing Studio"
         >
-          <lucide-icon [img]="PenToolIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
+          <lucide-icon [img]="PenToolIcon" [size]="20" strokeWidth="1"></lucide-icon>
           <span class="label">Studio</span>
         </a>
       </div>
@@ -138,7 +138,7 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
       }
 
       .app-dock-container:hover .dock-glass {
-        gap: 15px;
+        gap: 20px;
         padding: 10px;
         background: rgba(255, 255, 255, 0.8);
       }
@@ -177,7 +177,7 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
         font-weight: 600;
         letter-spacing: 0.01em;
         opacity: 0.9;
-        transition: opacity 0.15s ease, max-height 0.3s ease, transform 0.3s ease;
+        transition: opacity 0.3s ease, max-height 0.3s ease, transform 0.3s ease;
       }
 
       /* --- MEDIA QUERIES --- */

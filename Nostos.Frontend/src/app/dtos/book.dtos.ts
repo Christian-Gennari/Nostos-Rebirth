@@ -37,6 +37,7 @@ export interface Book {
 
   lastLocation: string | null;
   progressPercent: number;
+  lastReadAt: string | null; // <--- NEW: Frontend field
 
   // Metadata Fields
   rating: number;

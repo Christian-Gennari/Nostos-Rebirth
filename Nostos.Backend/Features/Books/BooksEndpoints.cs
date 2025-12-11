@@ -56,6 +56,9 @@ public static class BooksEndpoints
       {
         "title" => query.OrderBy(b => b.Title),
         "rating" => query.OrderByDescending(b => b.Rating),
+        // FIX: Sort by whether it has a value first, THEN by the date
+        "lastread" => query.OrderByDescending(b => b.LastReadAt.HasValue)
+                           .ThenByDescending(b => b.LastReadAt),
         "recent" or _ => query.OrderByDescending(b => b.CreatedAt)
       };
 
@@ -112,6 +115,9 @@ public static class BooksEndpoints
 
       book.LastLocation = dto.Location;
       book.ProgressPercent = dto.Percentage;
+
+      //  NEW: Update LastReadAt whenever progress is saved
+      book.LastReadAt = DateTime.UtcNow;
 
       if (book.ProgressPercent >= 100 && book.FinishedAt == null)
       {

@@ -50,7 +50,7 @@ public static class MappingExtensions
             Title: model.Title,
             Subtitle: model.Subtitle,
             Author: model.Author,
-            Editor: model.Editor,   // <--- NEW: Harvard "Edited by" support
+            Editor: model.Editor,
             Translator: model.Translator,
             Description: model.Description,
 
@@ -62,7 +62,7 @@ public static class MappingExtensions
             Narrator: narrator,
 
             Publisher: model.Publisher,
-            PlaceOfPublication: model.PlaceOfPublication, // <--- NEW: Harvard required field
+            PlaceOfPublication: model.PlaceOfPublication,
             PublishedDate: model.PublishedDate,
             Edition: model.Edition,
             PageCount: pageCount,
@@ -80,11 +80,12 @@ public static class MappingExtensions
             // Reading Progress
             LastLocation: model.LastLocation,
             ProgressPercent: model.ProgressPercent,
+            LastReadAt: model.LastReadAt, // <--- NEW: Map the new field
 
             // User Interaction
             Rating: model.Rating,
             IsFavorite: model.IsFavorite,
-            PersonalReview: model.PersonalReview, // <--- NEW: Your review field
+            PersonalReview: model.PersonalReview,
             FinishedAt: model.FinishedAt
         );
     }
@@ -166,12 +167,12 @@ public static class MappingExtensions
         model.Title = dto.Title;
         model.Subtitle = dto.Subtitle;
         model.Author = dto.Author;
-        model.Editor = dto.Editor; // <--- NEW
+        model.Editor = dto.Editor;
         model.Translator = dto.Translator;
         model.Description = dto.Description;
 
         model.Publisher = dto.Publisher;
-        model.PlaceOfPublication = dto.PlaceOfPublication; // <--- NEW
+        model.PlaceOfPublication = dto.PlaceOfPublication;
         model.PublishedDate = dto.PublishedDate;
 
         model.Edition = dto.Edition;
@@ -185,7 +186,7 @@ public static class MappingExtensions
         // New Fields
         model.Rating = dto.Rating;
         model.IsFavorite = dto.IsFavorite;
-        model.PersonalReview = dto.PersonalReview; // <--- NEW
+        model.PersonalReview = dto.PersonalReview;
         model.FinishedAt = dto.FinishedAt;
 
         return model;
@@ -225,12 +226,12 @@ public static class MappingExtensions
         if (dto.Title != null) model.Title = dto.Title;
         if (dto.Subtitle != null) model.Subtitle = dto.Subtitle;
         if (dto.Author != null) model.Author = dto.Author;
-        if (dto.Editor != null) model.Editor = dto.Editor; // <--- NEW
+        if (dto.Editor != null) model.Editor = dto.Editor;
         if (dto.Translator != null) model.Translator = dto.Translator;
         if (dto.Description != null) model.Description = dto.Description;
 
         if (dto.Publisher != null) model.Publisher = dto.Publisher;
-        if (dto.PlaceOfPublication != null) model.PlaceOfPublication = dto.PlaceOfPublication; // <--- NEW
+        if (dto.PlaceOfPublication != null) model.PlaceOfPublication = dto.PlaceOfPublication;
         if (dto.PublishedDate != null) model.PublishedDate = dto.PublishedDate;
 
         if (dto.Edition != null) model.Edition = dto.Edition;
@@ -243,7 +244,7 @@ public static class MappingExtensions
         // NEW FIELDS: Check if nullable (HasValue or != null) to see if they were sent
         if (dto.Rating.HasValue) model.Rating = dto.Rating.Value;
         if (dto.IsFavorite.HasValue) model.IsFavorite = dto.IsFavorite.Value;
-        if (dto.PersonalReview != null) model.PersonalReview = dto.PersonalReview; // <--- NEW
+        if (dto.PersonalReview != null) model.PersonalReview = dto.PersonalReview;
 
         // LOGIC FIX: Handle Finished Status
         // 1. If a specific date is provided, use it (Manual edit)

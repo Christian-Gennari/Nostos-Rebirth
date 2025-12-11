@@ -27,6 +27,7 @@
       <div class="toolbar-right">
         <div class="select-wrapper">
           <select [ngModel]="activeSort()" (ngModelChange)="setSort($event)" class="sort-select">
+            <option value="lastread">Last Read</option>
             <option value="recent">Recently Added</option>
             <option value="title">Title (A-Z)</option>
             <option value="rating">Highest Rated</option>
