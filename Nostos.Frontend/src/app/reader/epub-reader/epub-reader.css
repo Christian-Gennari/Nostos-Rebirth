@@ -9,6 +9,8 @@
   height: 100%;
   overflow: hidden;
   position: relative;
+  /* PREVENT SCROLL CHAINING: Stop global scroll events reaching here */
+  overscroll-behavior: none;
 }
 
 .epub-container {
@@ -18,11 +20,20 @@
   align-items: center;
   justify-content: center;
   background: var(--bg-body, #fff);
+  /* PREVENT SCROLL: Safety lock on the outer flex container */
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 #epub-viewer {
   width: 100%;
   height: 100%;
+  /* PREVENT SCROLL: This is the critical fix.
+     It forces the browser to respect epub.js's internal layout
+     instead of trying to scroll the div when text is selected. */
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  position: relative;
 }
 
 /* The click zones exist on Mobile, but they are invisible */

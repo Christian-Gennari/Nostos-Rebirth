@@ -57,8 +57,7 @@
 ::ng-deep .highlight-box {
   position: absolute;
   background-color: #ffda00; /* Solid Yellow */
-  cursor: pointer;
-  pointer-events: auto; /* Re-enable clicks on the highlight itself */
+  cursor: text;
   opacity: 0.4; /* Apply opacity here OR on the group. */
 }
 
