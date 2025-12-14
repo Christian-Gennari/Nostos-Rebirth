@@ -50,7 +50,7 @@ export class AddBookModal {
     subtitle: '' as string | null,
 
     author: '' as string | null,
-    editor: '' as string | null, // <--- NEW
+    editor: '' as string | null,
     translator: '' as string | null,
     narrator: '' as string | null,
 
@@ -60,7 +60,7 @@ export class AddBookModal {
     asin: '' as string | null,
 
     publisher: '' as string | null,
-    placeOfPublication: '' as string | null, // <--- NEW
+    placeOfPublication: '' as string | null,
     publishedDate: '' as string | null,
 
     edition: '' as string | null,
@@ -72,7 +72,7 @@ export class AddBookModal {
     volumeNumber: '' as string | null,
     collectionId: null as string | null,
 
-    personalReview: '' as string | null, // <--- NEW
+    personalReview: '' as string | null,
   };
 
   selectedFile: File | null = null;
@@ -104,7 +104,7 @@ export class AddBookModal {
       subtitle: b.subtitle || '',
 
       author: b.author,
-      editor: b.editor || '', // <--- NEW
+      editor: b.editor || '',
       translator: b.translator || '',
       narrator: b.narrator || '',
 
@@ -114,7 +114,7 @@ export class AddBookModal {
       asin: b.asin || '',
 
       publisher: b.publisher || '',
-      placeOfPublication: b.placeOfPublication || '', // <--- NEW
+      placeOfPublication: b.placeOfPublication || '',
       publishedDate: b.publishedDate || '',
 
       edition: b.edition || '',
@@ -126,7 +126,7 @@ export class AddBookModal {
       volumeNumber: b.volumeNumber || '',
       collectionId: b.collectionId,
 
-      personalReview: b.personalReview || '', // <--- NEW
+      personalReview: b.personalReview || '',
     };
     this.selectedFile = null;
     this.selectedCover = null;
@@ -140,7 +140,7 @@ export class AddBookModal {
       subtitle: null,
 
       author: null,
-      editor: null, // <--- NEW
+      editor: null,
       translator: null,
       narrator: null,
 
@@ -150,7 +150,7 @@ export class AddBookModal {
       asin: null,
 
       publisher: null,
-      placeOfPublication: null, // <--- NEW
+      placeOfPublication: null,
       publishedDate: null,
 
       edition: null,
@@ -162,7 +162,7 @@ export class AddBookModal {
       volumeNumber: null,
       collectionId: null,
 
-      personalReview: null, // <--- NEW
+      personalReview: null,
     };
     this.selectedFile = null;
     this.selectedCover = null;
@@ -193,8 +193,20 @@ export class AddBookModal {
     return yearMatch ? yearMatch[0] : clean;
   }
 
+  /**
+   * Helper to clean ISBNs (remove dashes, spaces, keep only digits and X)
+   */
+  sanitizeIsbn(isbn: string | null): string | null {
+    if (!isbn) return null;
+    // Removes anything that is NOT a digit or 'X', and uppercases it
+    return isbn.replace(/[^0-9X]/gi, '').toUpperCase();
+  }
+
   fetchMetadata(): void {
-    const isbn = this.form.isbn?.trim();
+    // 1. Clean the ISBN immediately
+    this.form.isbn = this.sanitizeIsbn(this.form.isbn);
+    const isbn = this.form.isbn;
+
     if (!isbn) return;
     this.isFetching.set(true);
 
@@ -245,6 +257,9 @@ export class AddBookModal {
 
     // Sanitize Date
     const cleanDate = this.sanitizeDate(this.form.publishedDate);
+
+    // Sanitize ISBN (in case user typed it and hit save directly)
+    this.form.isbn = this.sanitizeIsbn(this.form.isbn);
 
     const payload = { ...this.form, publishedDate: cleanDate || null };
 

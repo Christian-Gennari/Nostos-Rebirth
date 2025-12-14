@@ -249,6 +249,7 @@
                 [(ngModel)]="form.isbn"
                 name="isbn"
                 placeholder="ISBN"
+                (blur)="form.isbn = sanitizeIsbn(form.isbn)"
                 (keydown.enter)="$event.preventDefault(); fetchMetadata()"
               />
               <button
