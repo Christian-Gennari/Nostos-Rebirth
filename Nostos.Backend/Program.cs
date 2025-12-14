@@ -1,12 +1,13 @@
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
 using Nostos.Backend.Features.Books;
-using Nostos.Backend.Features.Notes;
 using Nostos.Backend.Features.Collections;
 using Nostos.Backend.Features.Concepts;
-using Nostos.Backend.Services;
-using Microsoft.AspNetCore.Http.Features;
+using Nostos.Backend.Features.Notes;
 using Nostos.Backend.Features.Writings;
+using Nostos.Backend.Services;
+using Nostos.Backend.Workers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,8 +29,7 @@ builder.Services.Configure<FormOptions>(options =>
 
 builder.Services.AddCors(opt =>
 {
-    opt.AddDefaultPolicy(policy =>
-        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+    opt.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 });
 builder.Services.AddOpenApi();
 
@@ -37,6 +37,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton<FileStorageService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<BookLookupService>();
+builder.Services.AddHostedService<ConceptCleanupWorker>();
 
 var app = builder.Build();
 
@@ -50,6 +51,5 @@ app.MapNotesEndpoints();
 app.MapCollectionsEndpoints();
 app.MapConceptsEndpoints();
 app.MapWritingsEndpoints();
-
 
 app.Run();

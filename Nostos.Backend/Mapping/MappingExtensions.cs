@@ -10,9 +10,7 @@ public static class MappingExtensions
     // ------------------------------
     public static BookDto ToDto(this BookModel model)
     {
-        string? coverUrl = model.CoverFileName is null
-            ? null
-            : $"/api/books/{model.Id}/cover";
+        string? coverUrl = model.CoverFileName is null ? null : $"/api/books/{model.Id}/cover";
 
         // Default values for polymorphic fields
         string type = "physical";
@@ -21,7 +19,6 @@ public static class MappingExtensions
         string? duration = null;
         int? pageCount = null;
         string? narrator = null;
-
 
         // Pattern Matching: Extract fields based on the specific subclass
         switch (model)
@@ -53,14 +50,12 @@ public static class MappingExtensions
             Editor: model.Editor,
             Translator: model.Translator,
             Description: model.Description,
-
             // Polymorphic Fields
             Type: type,
             Isbn: isbn,
             Asin: asin,
             Duration: duration,
             Narrator: narrator,
-
             Publisher: model.Publisher,
             PlaceOfPublication: model.PlaceOfPublication,
             PublishedDate: model.PublishedDate,
@@ -70,18 +65,15 @@ public static class MappingExtensions
             Categories: model.Categories,
             Series: model.Series,
             VolumeNumber: model.VolumeNumber,
-
             CreatedAt: model.CreatedAt,
             HasFile: model.HasFile,
             FileName: model.FileName,
             CoverUrl: coverUrl,
             CollectionId: model.CollectionId,
-
             // Reading Progress
             LastLocation: model.LastLocation,
             ProgressPercent: model.ProgressPercent,
             LastReadAt: model.LastReadAt, // <--- NEW: Map the new field
-
             // User Interaction
             Rating: model.Rating,
             IsFavorite: model.IsFavorite,
@@ -91,29 +83,21 @@ public static class MappingExtensions
     }
 
     public static NoteDto ToDto(this NoteModel model) =>
-            new NoteDto(
-                Id: model.Id,
-                BookId: model.BookId,
-                Content: model.Content,
-                CfiRange: model.CfiRange,
-                SelectedText: model.SelectedText,
-                CreatedAt: model.CreatedAt,
-                BookTitle: model.Book?.Title // 👈 Map the title
-            );
+        new NoteDto(
+            Id: model.Id,
+            BookId: model.BookId,
+            Content: model.Content,
+            CfiRange: model.CfiRange,
+            SelectedText: model.SelectedText,
+            CreatedAt: model.CreatedAt,
+            BookTitle: model.Book?.Title // 👈 Map the title
+        );
 
     public static CollectionDto ToDto(this CollectionModel model) =>
-        new CollectionDto(
-            model.Id,
-            model.Name,
-            model.ParentId
-        );
+        new CollectionDto(model.Id, model.Name, model.ParentId);
 
     public static ConceptDto ToDto(this ConceptModel model) =>
-        new ConceptDto(
-            model.Id,
-            model.Concept,
-            model.NoteConcepts?.Count ?? 0
-        );
+        new ConceptDto(model.Id, model.Concept, model.NoteConcepts?.Count ?? 0);
 
     public static WritingDto ToDto(this WritingModel model)
     {
@@ -148,18 +132,14 @@ public static class MappingExtensions
             {
                 Asin = dto.Asin,
                 Duration = dto.Duration,
-                Narrator = dto.Narrator
+                Narrator = dto.Narrator,
             },
-            "ebook" => new EBookModel
-            {
-                Isbn = dto.Isbn,
-                PageCount = dto.PageCount
-            },
+            "ebook" => new EBookModel { Isbn = dto.Isbn, PageCount = dto.PageCount },
             _ => new PhysicalBookModel // Default fallback
             {
                 Isbn = dto.Isbn,
-                PageCount = dto.PageCount
-            }
+                PageCount = dto.PageCount,
+            },
         };
 
         // Map Shared Fields
@@ -199,7 +179,7 @@ public static class MappingExtensions
             BookId = bookId,
             Content = dto.Content,
             CfiRange = dto.CfiRange,
-            SelectedText = dto.SelectedText
+            SelectedText = dto.SelectedText,
         };
 
     public static CollectionModel ToModel(this CreateCollectionDto dto) =>
@@ -207,15 +187,11 @@ public static class MappingExtensions
         {
             Id = Guid.NewGuid(),
             Name = dto.Name,
-            ParentId = dto.ParentId
+            ParentId = dto.ParentId,
         };
 
     public static ConceptModel ToModel(this CreateConceptDto dto) =>
-        new ConceptModel
-        {
-            Id = Guid.NewGuid(),
-            Concept = dto.Concept
-        };
+        new ConceptModel { Id = Guid.NewGuid(), Concept = dto.Concept };
 
     // ------------------------------
     // Update mappings (Apply fields)
@@ -223,28 +199,46 @@ public static class MappingExtensions
     public static void Apply(this BookModel model, UpdateBookDto dto)
     {
         // 1. Apply Common Fields (ONLY IF NOT NULL to support partial updates)
-        if (dto.Title != null) model.Title = dto.Title;
-        if (dto.Subtitle != null) model.Subtitle = dto.Subtitle;
-        if (dto.Author != null) model.Author = dto.Author;
-        if (dto.Editor != null) model.Editor = dto.Editor;
-        if (dto.Translator != null) model.Translator = dto.Translator;
-        if (dto.Description != null) model.Description = dto.Description;
+        if (dto.Title != null)
+            model.Title = dto.Title;
+        if (dto.Subtitle != null)
+            model.Subtitle = dto.Subtitle;
+        if (dto.Author != null)
+            model.Author = dto.Author;
+        if (dto.Editor != null)
+            model.Editor = dto.Editor;
+        if (dto.Translator != null)
+            model.Translator = dto.Translator;
+        if (dto.Description != null)
+            model.Description = dto.Description;
 
-        if (dto.Publisher != null) model.Publisher = dto.Publisher;
-        if (dto.PlaceOfPublication != null) model.PlaceOfPublication = dto.PlaceOfPublication;
-        if (dto.PublishedDate != null) model.PublishedDate = dto.PublishedDate;
+        if (dto.Publisher != null)
+            model.Publisher = dto.Publisher;
+        if (dto.PlaceOfPublication != null)
+            model.PlaceOfPublication = dto.PlaceOfPublication;
+        if (dto.PublishedDate != null)
+            model.PublishedDate = dto.PublishedDate;
 
-        if (dto.Edition != null) model.Edition = dto.Edition;
-        if (dto.Language != null) model.Language = dto.Language;
-        if (dto.Categories != null) model.Categories = dto.Categories;
-        if (dto.Series != null) model.Series = dto.Series;
-        if (dto.VolumeNumber != null) model.VolumeNumber = dto.VolumeNumber;
-        if (dto.CollectionId != null) model.CollectionId = dto.CollectionId;
+        if (dto.Edition != null)
+            model.Edition = dto.Edition;
+        if (dto.Language != null)
+            model.Language = dto.Language;
+        if (dto.Categories != null)
+            model.Categories = dto.Categories;
+        if (dto.Series != null)
+            model.Series = dto.Series;
+        if (dto.VolumeNumber != null)
+            model.VolumeNumber = dto.VolumeNumber;
+        if (dto.CollectionId != null)
+            model.CollectionId = dto.CollectionId;
 
         // NEW FIELDS: Check if nullable (HasValue or != null) to see if they were sent
-        if (dto.Rating.HasValue) model.Rating = dto.Rating.Value;
-        if (dto.IsFavorite.HasValue) model.IsFavorite = dto.IsFavorite.Value;
-        if (dto.PersonalReview != null) model.PersonalReview = dto.PersonalReview;
+        if (dto.Rating.HasValue)
+            model.Rating = dto.Rating.Value;
+        if (dto.IsFavorite.HasValue)
+            model.IsFavorite = dto.IsFavorite.Value;
+        if (dto.PersonalReview != null)
+            model.PersonalReview = dto.PersonalReview;
 
         // LOGIC FIX: Handle Finished Status
         // 1. If a specific date is provided, use it (Manual edit)
@@ -274,17 +268,24 @@ public static class MappingExtensions
         switch (model)
         {
             case PhysicalBookModel p:
-                if (dto.Isbn != null) p.Isbn = dto.Isbn;
-                if (dto.PageCount != null) p.PageCount = dto.PageCount;
+                if (dto.Isbn != null)
+                    p.Isbn = dto.Isbn;
+                if (dto.PageCount != null)
+                    p.PageCount = dto.PageCount;
                 break;
             case EBookModel e:
-                if (dto.Isbn != null) e.Isbn = dto.Isbn;
-                if (dto.PageCount != null) e.PageCount = dto.PageCount;
+                if (dto.Isbn != null)
+                    e.Isbn = dto.Isbn;
+                if (dto.PageCount != null)
+                    e.PageCount = dto.PageCount;
                 break;
             case AudioBookModel a:
-                if (dto.Asin != null) a.Asin = dto.Asin;
-                if (dto.Duration != null) a.Duration = dto.Duration;
-                if (dto.Narrator != null) a.Narrator = dto.Narrator;
+                if (dto.Asin != null)
+                    a.Asin = dto.Asin;
+                if (dto.Duration != null)
+                    a.Duration = dto.Duration;
+                if (dto.Narrator != null)
+                    a.Narrator = dto.Narrator;
                 break;
         }
     }
