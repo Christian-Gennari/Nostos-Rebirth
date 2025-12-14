@@ -1,4 +1,12 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import {
+  Component,
+  inject,
+  OnInit,
+  signal,
+  computed,
+  ChangeDetectionStrategy,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop'; // 👈 NEW
 import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
 import { BooksService, Book } from '../services/books.services';
 import { CollectionsService } from '../services/collections.services';
@@ -11,7 +19,6 @@ import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { SidebarCollections } from './sidebar-collections/sidebar-collections';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
-// 👇 IMPORT THE DIRECTIVE
 import { InfiniteScrollDirective } from '../directives/infinite-scroll.directive';
 import {
   LucideAngularModule,
@@ -39,14 +46,13 @@ import {
     AddBookModal,
     StarRatingComponent,
     SidebarCollections,
-    InfiniteScrollDirective, // 👇 ADD TO IMPORTS
+    InfiniteScrollDirective,
   ],
   templateUrl: './library.html',
   styleUrls: ['./library.css'],
+  changeDetection: ChangeDetectionStrategy.OnPush, // 👈 OPTIMIZATION
 })
 export class Library implements OnInit {
-  // ... (Keep existing code exactly as is)
-
   private booksService = inject(BooksService);
   private collectionsService = inject(CollectionsService);
   private route = inject(ActivatedRoute);
@@ -105,24 +111,43 @@ export class Library implements OnInit {
   });
 
   constructor() {
-    this.searchSubject.pipe(debounceTime(300), distinctUntilChanged()).subscribe((term) => {
-      this.searchQuery.set(term);
-      this.refreshBooks(true);
-    });
+    // 1. Search Subscription (Auto-cleanup)
+    this.searchSubject
+      .pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        takeUntilDestroyed() // 👈 Safe
+      )
+      .subscribe((term) => {
+        this.searchQuery.set(term);
+        this.refreshBooks(true);
+      });
+
+    // 2. Query Params Subscription (Auto-cleanup)
+    this.route.queryParams
+      .pipe(takeUntilDestroyed()) // 👈 Safe
+      .subscribe((params) => {
+        // Only refresh if we have parameters or if it's strictly necessary to react to changes
+        // This logic remains the same, just safely subscribed.
+        this.refreshBooks(true);
+      });
+
+    // 3. Router Events (Auto-cleanup)
+    this.router.events
+      .pipe(
+        filter((event) => event instanceof NavigationEnd),
+        takeUntilDestroyed() // 👈 Safe
+      )
+      .subscribe(() => {
+        if (this.router.url.startsWith('/library')) {
+          const shouldShowSkeleton = this.rawBooks().length === 0;
+          this.refreshBooks(true, shouldShowSkeleton);
+        }
+      });
   }
 
   ngOnInit(): void {
-    this.route.queryParams.subscribe((params) => {
-      this.refreshBooks(true);
-    });
-
-    this.router.events.pipe(filter((event) => event instanceof NavigationEnd)).subscribe(() => {
-      if (this.router.url.startsWith('/library')) {
-        const shouldShowSkeleton = this.rawBooks().length === 0;
-        this.refreshBooks(true, shouldShowSkeleton);
-      }
-    });
-
+    // Moved subscriptions to constructor, just loading initial data here
     this.loadCollections();
   }
 
@@ -139,6 +164,8 @@ export class Library implements OnInit {
     const search = this.searchQuery();
     const page = this.currentPage();
 
+    // Note: HTTP Observables complete automatically, so they don't strictly need takeUntilDestroyed,
+    // but it's good practice in complex flows. For simple GETs, it's optional.
     this.booksService
       .list({
         filter,
@@ -171,10 +198,9 @@ export class Library implements OnInit {
     if (!this.hasMoreBooks() || this.loadingMore()) return;
 
     this.currentPage.update((p) => p + 1);
-    this.refreshBooks(false); // False = Append mode
+    this.refreshBooks(false);
   }
 
-  // ... (Keep remaining methods: onSearch, setSort, loadCollections, modals, etc.)
   onSearch(event: Event): void {
     const val = (event.target as HTMLInputElement).value;
     this.searchSubject.next(val);
@@ -192,24 +218,21 @@ export class Library implements OnInit {
     });
   }
 
+  // ... (Keep Modal and Action methods exactly as they are)
   openAddModal(): void {
     this.showAddModal.set(true);
   }
-
   closeAddModal(): void {
     this.showAddModal.set(false);
   }
-
   openEditModal(book: Book): void {
     this.editTarget.set(book);
     this.showEditModal.set(true);
   }
-
   closeEditModal(): void {
     this.showEditModal.set(false);
     this.editTarget.set(null);
   }
-
   onBookUpdated(updated: Book): void {
     this.refreshBooks(true, false);
     this.closeEditModal();
@@ -218,7 +241,6 @@ export class Library implements OnInit {
   deleteBook(id: string, event: Event): void {
     event.stopPropagation();
     if (!confirm('Are you sure you want to delete this book?')) return;
-
     this.booksService.delete(id).subscribe({
       next: () => {
         this.rawBooks.update((books) => books.filter((b) => b.id !== id));
@@ -231,7 +253,6 @@ export class Library implements OnInit {
     event.stopPropagation();
     const newStatus = !book.isFavorite;
     book.isFavorite = newStatus;
-
     this.booksService.update(book.id, { isFavorite: newStatus }).subscribe({
       error: () => {
         book.isFavorite = !newStatus;
