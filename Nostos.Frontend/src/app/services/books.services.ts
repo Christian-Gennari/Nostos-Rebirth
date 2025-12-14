@@ -8,11 +8,11 @@ import {
   UpdateProgressDto,
   PaginatedResponse,
 } from '../dtos/book.dtos';
+import { BookFilter, BookSort } from '../dtos/book.enums';
 
-// --- NEW: Options Interface for cleaner API calls ---
 export interface BookListOptions {
-  filter?: string;
-  sort?: string;
+  filter?: BookFilter | string;
+  sort?: BookSort | string;
   search?: string;
   page?: number;
   pageSize?: number;
@@ -22,7 +22,6 @@ export interface BookListOptions {
 export class BooksService {
   constructor(private http: HttpClient) {}
 
-  // UPDATED: Accepts a single options object
   list(options: BookListOptions = {}): Observable<PaginatedResponse<Book>> {
     let params = new HttpParams();
 
@@ -30,7 +29,6 @@ export class BooksService {
     if (options.sort) params = params.set('sort', options.sort);
     if (options.search) params = params.set('search', options.search);
 
-    // Pagination defaults
     params = params.set('page', options.page ?? 1);
     params = params.set('pageSize', options.pageSize ?? 20);
 
@@ -86,4 +84,6 @@ export class BooksService {
     return this.http.get<CreateBookDto>(`/api/books/lookup/${isbn}`);
   }
 }
+
+// 👈 FIXED: Use 'export type' to satisfy isolatedModules
 export type { Book };

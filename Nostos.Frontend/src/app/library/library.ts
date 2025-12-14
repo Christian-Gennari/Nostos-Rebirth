@@ -6,7 +6,7 @@ import {
   computed,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop'; // 👈 NEW
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
 import { BooksService, Book } from '../services/books.services';
 import { CollectionsService } from '../services/collections.services';
@@ -20,6 +20,7 @@ import { SidebarCollections } from './sidebar-collections/sidebar-collections';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 import { InfiniteScrollDirective } from '../directives/infinite-scroll.directive';
+import { BookFilter, BookSort } from '../dtos/book.enums'; // 👈 NEW: Import Enums
 import {
   LucideAngularModule,
   LayoutList,
@@ -50,7 +51,7 @@ import {
   ],
   templateUrl: './library.html',
   styleUrls: ['./library.css'],
-  changeDetection: ChangeDetectionStrategy.OnPush, // 👈 OPTIMIZATION
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Library implements OnInit {
   private booksService = inject(BooksService);
@@ -58,6 +59,7 @@ export class Library implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
 
+  // Icons
   ListIcon = LayoutList;
   GridIcon = LayoutGrid;
   PlusIcon = Plus;
@@ -69,6 +71,9 @@ export class Library implements OnInit {
   SearchIcon = Search;
   SortIcon = ArrowUpDown;
   LoaderIcon = Loader2;
+
+  // Enums for Template Access
+  BookSort = BookSort; // 👈 Expose Enum to template if needed
 
   loading = signal(true);
   loadingMore = signal(false);
@@ -87,7 +92,10 @@ export class Library implements OnInit {
 
   // Search & Sort State
   searchQuery = signal('');
-  activeSort = signal('lastread');
+
+  // 👈 CHANGED: Strongly typed signal with Enum default
+  activeSort = signal<BookSort>(BookSort.LastRead);
+
   private searchSubject = new Subject<string>();
 
   // Modal edit system
@@ -111,32 +119,24 @@ export class Library implements OnInit {
   });
 
   constructor() {
-    // 1. Search Subscription (Auto-cleanup)
+    // 1. Search Subscription
     this.searchSubject
-      .pipe(
-        debounceTime(300),
-        distinctUntilChanged(),
-        takeUntilDestroyed() // 👈 Safe
-      )
+      .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed())
       .subscribe((term) => {
         this.searchQuery.set(term);
         this.refreshBooks(true);
       });
 
-    // 2. Query Params Subscription (Auto-cleanup)
-    this.route.queryParams
-      .pipe(takeUntilDestroyed()) // 👈 Safe
-      .subscribe((params) => {
-        // Only refresh if we have parameters or if it's strictly necessary to react to changes
-        // This logic remains the same, just safely subscribed.
-        this.refreshBooks(true);
-      });
+    // 2. Query Params Subscription
+    this.route.queryParams.pipe(takeUntilDestroyed()).subscribe(() => {
+      this.refreshBooks(true);
+    });
 
-    // 3. Router Events (Auto-cleanup)
+    // 3. Router Events
     this.router.events
       .pipe(
         filter((event) => event instanceof NavigationEnd),
-        takeUntilDestroyed() // 👈 Safe
+        takeUntilDestroyed()
       )
       .subscribe(() => {
         if (this.router.url.startsWith('/library')) {
@@ -147,7 +147,6 @@ export class Library implements OnInit {
   }
 
   ngOnInit(): void {
-    // Moved subscriptions to constructor, just loading initial data here
     this.loadCollections();
   }
 
@@ -159,13 +158,12 @@ export class Library implements OnInit {
       this.loadingMore.set(true);
     }
 
-    const filter = this.route.snapshot.queryParams['filter'];
+    // 👈 CHANGED: Cast query param to Enum (Safe: invalid strings handled by backend default)
+    const filter = this.route.snapshot.queryParams['filter'] as BookFilter;
     const sort = this.activeSort();
     const search = this.searchQuery();
     const page = this.currentPage();
 
-    // Note: HTTP Observables complete automatically, so they don't strictly need takeUntilDestroyed,
-    // but it's good practice in complex flows. For simple GETs, it's optional.
     this.booksService
       .list({
         filter,
@@ -206,8 +204,9 @@ export class Library implements OnInit {
     this.searchSubject.next(val);
   }
 
-  setSort(sort: string): void {
-    this.activeSort.set(sort);
+  // 👈 CHANGED: Method now accepts Enum or String (e.g. from template)
+  setSort(sort: BookSort | string): void {
+    this.activeSort.set(sort as BookSort);
     this.refreshBooks(true);
   }
 
@@ -218,7 +217,7 @@ export class Library implements OnInit {
     });
   }
 
-  // ... (Keep Modal and Action methods exactly as they are)
+  // ... (Modals and Actions remain unchanged)
   openAddModal(): void {
     this.showAddModal.set(true);
   }
@@ -233,6 +232,7 @@ export class Library implements OnInit {
     this.showEditModal.set(false);
     this.editTarget.set(null);
   }
+
   onBookUpdated(updated: Book): void {
     this.refreshBooks(true, false);
     this.closeEditModal();

@@ -3,6 +3,7 @@ using Nostos.Backend.Data;
 using Nostos.Backend.Mapping;
 using Nostos.Backend.Services;
 using Nostos.Shared.Dtos;
+using Nostos.Shared.Enums;
 
 namespace Nostos.Backend.Features.Books;
 
@@ -13,7 +14,6 @@ public static class BooksEndpoints
         var group = routes.MapGroup("/api/books");
 
         // GET all books (With Pagination, Smart Filters, Sorting AND SEARCH)
-        // Updated signature to include page and pageSize
         group.MapGet(
             "/",
             async (
@@ -30,55 +30,44 @@ public static class BooksEndpoints
                 // --- 1. Apply Search (Optimized) ---
                 if (!string.IsNullOrWhiteSpace(search))
                 {
-                    // Optimization: Use EF.Functions.Like for efficient SQL translation.
-                    // SQLite 'LIKE' is case-insensitive by default.
-                    // We add % wildcards to search for the term anywhere in the string.
                     var term = $"%{search}%";
-
                     query = query.Where(b =>
-                        EF.Functions.Like(b.Title, term) || EF.Functions.Like(b.Author, term) // EF Core handles nulls in SQL automatically (NULL LIKE %...% is false)
+                        EF.Functions.Like(b.Title, term) || EF.Functions.Like(b.Author, term)
                     );
                 }
 
-                // --- 2. Apply Smart Filters ---
-                if (!string.IsNullOrWhiteSpace(filter))
+                // --- 2. Apply Smart Filters (Enum-based) ---
+                if (Enum.TryParse<BookFilter>(filter, true, out var filterEnum))
                 {
-                    switch (filter.ToLower())
+                    query = filterEnum switch
                     {
-                        case "favorites":
-                            query = query.Where(b => b.IsFavorite);
-                            break;
-                        case "finished":
-                            query = query.Where(b => b.FinishedAt != null);
-                            break;
-                        case "reading":
-                            // Started (progress > 0) but not finished
-                            query = query.Where(b => b.FinishedAt == null && b.ProgressPercent > 0);
-                            break;
-                        case "unsorted":
-                            // Books not assigned to any user collection
-                            query = query.Where(b => b.CollectionId == null);
-                            break;
-                    }
+                        BookFilter.Favorites => query.Where(b => b.IsFavorite),
+                        BookFilter.Finished => query.Where(b => b.FinishedAt != null),
+                        BookFilter.Reading => query.Where(b =>
+                            b.FinishedAt == null && b.ProgressPercent > 0
+                        ),
+                        BookFilter.Unsorted => query.Where(b => b.CollectionId == null),
+                        _ => query,
+                    };
                 }
 
-                // --- 3. Apply Sorting ---
-                query = (sort?.ToLower()) switch
+                // --- 3. Apply Sorting (Enum-based) ---
+                var sortEnum = Enum.TryParse<BookSort>(sort, true, out var s) ? s : BookSort.Recent;
+
+                query = sortEnum switch
                 {
-                    "title" => query.OrderBy(b => b.Title),
-                    "rating" => query.OrderByDescending(b => b.Rating),
-                    "lastread" => query
+                    BookSort.Title => query.OrderBy(b => b.Title),
+                    BookSort.Rating => query.OrderByDescending(b => b.Rating),
+                    BookSort.LastRead => query
                         .OrderByDescending(b => b.LastReadAt.HasValue)
                         .ThenByDescending(b => b.LastReadAt),
-                    "recent" or _ => query.OrderByDescending(b => b.CreatedAt),
+                    BookSort.Recent or _ => query.OrderByDescending(b => b.CreatedAt),
                 };
 
                 // --- 4. Apply Pagination ---
-                // Defaults: Page 1, Size 20
                 var p = page ?? 1;
                 var ps = pageSize ?? 20;
 
-                // Important: Get total count BEFORE paging so the frontend knows how many items exist
                 var totalCount = await query.CountAsync();
 
                 var books = await query.Skip((p - 1) * ps).Take(ps).ToListAsync();
