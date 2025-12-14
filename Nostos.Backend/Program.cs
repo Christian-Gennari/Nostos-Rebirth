@@ -5,6 +5,7 @@ using Nostos.Backend.Features.Books;
 using Nostos.Backend.Features.Collections;
 using Nostos.Backend.Features.Concepts;
 using Nostos.Backend.Features.Notes;
+using Nostos.Backend.Features.Opds;
 using Nostos.Backend.Features.Writings;
 using Nostos.Backend.Services;
 using Nostos.Backend.Workers;
@@ -51,5 +52,6 @@ app.MapNotesEndpoints();
 app.MapCollectionsEndpoints();
 app.MapConceptsEndpoints();
 app.MapWritingsEndpoints();
+app.MapOpdsEndpoints(); // <--- Added OPDS registration
 
 app.Run();

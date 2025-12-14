@@ -3,5 +3,10 @@
     "target": "http://localhost:5214",
     "secure": false,
     "changeOrigin": true
+  },
+  "/opds": {
+    "target": "http://localhost:5214",
+    "secure": false,
+    "changeOrigin": true
   }
 }
