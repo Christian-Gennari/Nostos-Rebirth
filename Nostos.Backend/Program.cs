@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
+using Nostos.Backend.Data.Repositories;
 using Nostos.Backend.Features.Books;
 using Nostos.Backend.Features.Collections;
 using Nostos.Backend.Features.Concepts;
@@ -40,6 +41,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddScoped<BookLookupService>();
 builder.Services.AddScoped<MediaMetadataService>();
 builder.Services.AddScoped<NoteProcessorService>();
+builder.Services.AddScoped<IBookRepository, BookRepository>();
 builder.Services.AddHostedService<ConceptCleanupWorker>();
 
 var app = builder.Build();

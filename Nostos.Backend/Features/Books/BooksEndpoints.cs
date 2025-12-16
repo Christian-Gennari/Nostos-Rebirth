@@ -1,7 +1,5 @@
-using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
-using Nostos.Backend.Data;
 using Nostos.Backend.Data.Models;
+using Nostos.Backend.Data.Repositories; // 👈 Import Repo namespace
 using Nostos.Backend.Mapping;
 using Nostos.Backend.Services;
 using Nostos.Shared.Dtos;
@@ -15,11 +13,11 @@ public static class BooksEndpoints
     {
         var group = routes.MapGroup("/api/books");
 
-        // GET all books
+        // GET all books (CLEANED UP!)
         group.MapGet(
             "/",
             async (
-                NostosDbContext db,
+                IBookRepository repo, // 👈 Inject Repo
                 string? filter,
                 string? sort,
                 string? search,
@@ -27,62 +25,29 @@ public static class BooksEndpoints
                 int? pageSize
             ) =>
             {
-                var query = db.Books.AsQueryable();
+                // Parse Enums
+                Enum.TryParse<BookFilter>(filter, true, out var filterEnum);
+                Enum.TryParse<BookSort>(sort, true, out var sortEnum);
 
-                // 1. Search
-                if (!string.IsNullOrWhiteSpace(search))
-                {
-                    var term = $"%{search}%";
-                    query = query.Where(b =>
-                        EF.Functions.Like(b.Title, term) || EF.Functions.Like(b.Author, term)
-                    );
-                }
-
-                // 2. Filters
-                if (Enum.TryParse<BookFilter>(filter, true, out var filterEnum))
-                {
-                    query = filterEnum switch
-                    {
-                        BookFilter.Favorites => query.Where(b => b.Progress.IsFavorite),
-                        BookFilter.Finished => query.Where(b => b.Progress.FinishedAt != null),
-                        BookFilter.Reading => query.Where(b =>
-                            b.Progress.FinishedAt == null && b.Progress.ProgressPercent > 0
-                        ),
-                        BookFilter.Unsorted => query.Where(b => b.CollectionId == null),
-                        _ => query,
-                    };
-                }
-
-                // 3. Sorting
-                var sortEnum = Enum.TryParse<BookSort>(sort, true, out var s) ? s : BookSort.Recent;
-
-                query = sortEnum switch
-                {
-                    BookSort.Title => query.OrderBy(b => b.Title),
-                    BookSort.Rating => query.OrderByDescending(b => b.Progress.Rating),
-                    BookSort.LastRead => query
-                        .OrderByDescending(b => b.Progress.LastReadAt.HasValue)
-                        .ThenByDescending(b => b.Progress.LastReadAt),
-                    BookSort.Recent or _ => query.OrderByDescending(b => b.CreatedAt),
-                };
-
-                // 4. Pagination
                 var p = page ?? 1;
                 var ps = pageSize ?? 20;
-                var totalCount = await query.CountAsync();
-                var books = await query.Skip((p - 1) * ps).Take(ps).ToListAsync();
-                var dtos = books.Select(b => b.ToDto());
 
-                return Results.Ok(new PaginatedResponse<BookDto>(dtos, totalCount, p, ps));
+                // Call Repo
+                var result = await repo.GetBooksAsync(search, filterEnum, sortEnum, p, ps);
+
+                // Map to DTOs
+                var dtos = result.Items.Select(b => b.ToDto());
+
+                return Results.Ok(new PaginatedResponse<BookDto>(dtos, result.TotalCount, p, ps));
             }
         );
 
         // GET one
         group.MapGet(
             "/{id}",
-            async (Guid id, NostosDbContext db) =>
+            async (Guid id, IBookRepository repo) =>
             {
-                var book = await db.Books.FindAsync(id);
+                var book = await repo.GetByIdAsync(id);
                 return book is null ? Results.NotFound() : Results.Ok(book.ToDto());
             }
         );
@@ -90,7 +55,7 @@ public static class BooksEndpoints
         // CREATE
         group.MapPost(
             "/",
-            async (CreateBookDto dto, NostosDbContext db) =>
+            async (CreateBookDto dto, IBookRepository repo) =>
             {
                 if (string.IsNullOrWhiteSpace(dto.Title))
                     return Results.BadRequest(new { error = "Title is required." });
@@ -98,8 +63,7 @@ public static class BooksEndpoints
                 var model = dto.ToModel();
                 model.CollectionId = dto.CollectionId;
 
-                db.Books.Add(model);
-                await db.SaveChangesAsync();
+                await repo.AddAsync(model);
 
                 return Results.Created($"/api/books/{model.Id}", model.ToDto());
             }
@@ -108,9 +72,9 @@ public static class BooksEndpoints
         // UPDATE
         group.MapPut(
             "/{id}",
-            async (Guid id, UpdateBookDto dto, NostosDbContext db) =>
+            async (Guid id, UpdateBookDto dto, IBookRepository repo) =>
             {
-                var book = await db.Books.FindAsync(id);
+                var book = await repo.GetByIdAsync(id);
                 if (book is null)
                     return Results.NotFound();
 
@@ -118,7 +82,7 @@ public static class BooksEndpoints
                     return Results.BadRequest(new { error = "Title cannot be empty." });
 
                 book.Apply(dto);
-                await db.SaveChangesAsync();
+                await repo.UpdateAsync(book);
 
                 return Results.Ok(book.ToDto());
             }
@@ -127,9 +91,9 @@ public static class BooksEndpoints
         // UPDATE Progress
         group.MapPut(
             "/{id}/progress",
-            async (Guid id, UpdateProgressDto dto, NostosDbContext db) =>
+            async (Guid id, UpdateProgressDto dto, IBookRepository repo) =>
             {
-                var book = await db.Books.FindAsync(id);
+                var book = await repo.GetByIdAsync(id);
                 if (book is null)
                     return Results.NotFound();
 
@@ -142,7 +106,7 @@ public static class BooksEndpoints
                     book.Progress.FinishedAt = DateTime.UtcNow;
                 }
 
-                await db.SaveChangesAsync();
+                await repo.UpdateAsync(book);
                 return Results.Ok(new { updated = true });
             }
         );
@@ -150,34 +114,32 @@ public static class BooksEndpoints
         // DELETE
         group.MapDelete(
             "/{id}",
-            async (Guid id, NostosDbContext db, FileStorageService storage) =>
+            async (Guid id, IBookRepository repo, FileStorageService storage) =>
             {
-                var book = await db.Books.FindAsync(id);
+                var book = await repo.GetByIdAsync(id);
                 if (book is null)
                     return Results.NotFound();
 
                 storage.DeleteBookFiles(id);
-                book.FileDetails.CoverFileName = null;
 
-                db.Books.Remove(book);
-                await db.SaveChangesAsync();
+                await repo.DeleteAsync(book);
 
                 return Results.NoContent();
             }
         );
 
-        // Upload file (UPDATED with Service)
+        // Upload file
         group.MapPost(
             "/{id}/file",
             async (
                 Guid id,
                 HttpRequest request,
-                NostosDbContext db,
+                IBookRepository repo,
                 FileStorageService storage,
-                MediaMetadataService metadataService // 👈 Inject Service
+                MediaMetadataService metadataService
             ) =>
             {
-                var book = await db.Books.FindAsync(id);
+                var book = await repo.GetByIdAsync(id);
                 if (book is null)
                     return Results.NotFound();
 
@@ -203,7 +165,6 @@ public static class BooksEndpoints
 
                 await storage.SaveBookFileAsync(id, file);
 
-                // --- Use the new Service ---
                 var filePath = storage.GetBookFileName(id);
                 if (filePath is not null)
                 {
@@ -213,12 +174,12 @@ public static class BooksEndpoints
                 book.FileDetails.HasFile = true;
                 book.FileDetails.FileName = $"book{Path.GetExtension(file.FileName)}";
 
-                await db.SaveChangesAsync();
+                await repo.UpdateAsync(book);
                 return Results.Ok(new { uploaded = true });
             }
         );
 
-        // Download file
+        // Download file (Read-only, doesn't necessarily need Repo, but Service is fine)
         group.MapGet(
             "/{id}/file",
             (Guid id, FileStorageService storage) =>
@@ -250,9 +211,14 @@ public static class BooksEndpoints
         // Upload cover
         group.MapPost(
             "/{id}/cover",
-            async (Guid id, HttpRequest request, NostosDbContext db, FileStorageService storage) =>
+            async (
+                Guid id,
+                HttpRequest request,
+                IBookRepository repo,
+                FileStorageService storage
+            ) =>
             {
-                var book = await db.Books.FindAsync(id);
+                var book = await repo.GetByIdAsync(id);
                 if (book is null)
                     return Results.NotFound();
 
@@ -266,7 +232,8 @@ public static class BooksEndpoints
 
                 await storage.SaveBookCoverAsync(id, file);
                 book.FileDetails.CoverFileName = "cover.png";
-                await db.SaveChangesAsync();
+
+                await repo.UpdateAsync(book);
 
                 return Results.Ok(new { uploaded = true });
             }
@@ -287,9 +254,9 @@ public static class BooksEndpoints
         // DELETE cover
         group.MapDelete(
             "/{id}/cover",
-            async (Guid id, NostosDbContext db, FileStorageService storage) =>
+            async (Guid id, IBookRepository repo, FileStorageService storage) =>
             {
-                var book = await db.Books.FindAsync(id);
+                var book = await repo.GetByIdAsync(id);
                 if (book is null)
                     return Results.NotFound();
 
@@ -297,12 +264,13 @@ public static class BooksEndpoints
                     return Results.NotFound();
 
                 book.FileDetails.CoverFileName = null;
-                await db.SaveChangesAsync();
+                await repo.UpdateAsync(book);
 
                 return Results.NoContent();
             }
         );
 
+        // Lookup Service doesn't interact with DB directly, so it stays as is
         group.MapGet(
             "/lookup/{isbn}",
             async (string isbn, BookLookupService service) =>
