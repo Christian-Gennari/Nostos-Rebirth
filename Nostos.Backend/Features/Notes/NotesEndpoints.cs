@@ -1,19 +1,14 @@
-using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
 using Nostos.Backend.Data.Models;
 using Nostos.Backend.Mapping;
+using Nostos.Backend.Services; // 👈 Required for the Service
 using Nostos.Shared.Dtos;
 
 namespace Nostos.Backend.Features.Notes;
 
-// changed to partial to support [GeneratedRegex]
-public static partial class NotesEndpoints
+public static class NotesEndpoints
 {
-    // 1. Define the Regex using the Source Generator (Compile-time optimization)
-    [GeneratedRegex(@"\[\[(.*?)\]\]", RegexOptions.Compiled)]
-    private static partial Regex ConceptRegex();
-
     public static IEndpointRouteBuilder MapNotesEndpoints(this IEndpointRouteBuilder routes)
     {
         var group = routes.MapGroup("/api");
@@ -35,24 +30,26 @@ public static partial class NotesEndpoints
         // CREATE note
         group.MapPost(
             "/books/{bookId}/notes",
-            async (Guid bookId, CreateNoteDto dto, NostosDbContext db) =>
+            async (
+                Guid bookId,
+                CreateNoteDto dto,
+                NostosDbContext db,
+                NoteProcessorService noteProcessor // 👈 Inject Service
+            ) =>
             {
                 var model = dto.ToModel(bookId);
 
                 db.Notes.Add(model);
-                // Optimization: We don't need to save here just to get the Note ID if we trust EF's tracking,
-                // but keeping it simple for now to ensure Note exists before linking concepts is fine.
-                // However, we CAN batch it all. Let's try to batch it in ProcessConcepts for maximum speed.
 
-                // To batch fully, we pass the 'model' (which is tracked) to ProcessConcepts.
-                // EF Core will insert the Note, then the Concepts, then the Links in one transaction.
-                await ProcessConcepts(db, model);
+                // Logic delegated to the service
+                // EF Core tracks 'model', so the service can add links to it before we save.
+                await noteProcessor.ProcessNoteAsync(model);
 
-                await db.SaveChangesAsync(); // <--- The ONLY SaveChanges call
+                await db.SaveChangesAsync();
 
                 // Reload to get the Book Title for the response
                 var createdNote = await db
-                    .Notes.AsNoTracking() // Optimization for read-only return
+                    .Notes.AsNoTracking()
                     .Include(n => n.Book)
                     .FirstAsync(n => n.Id == model.Id);
 
@@ -63,7 +60,12 @@ public static partial class NotesEndpoints
         // UPDATE note
         group.MapPut(
             "/notes/{id}",
-            async (Guid id, UpdateNoteDto dto, NostosDbContext db) =>
+            async (
+                Guid id,
+                UpdateNoteDto dto,
+                NostosDbContext db,
+                NoteProcessorService noteProcessor // 👈 Inject Service
+            ) =>
             {
                 var existing = await db
                     .Notes.Include(n => n.NoteConcepts)
@@ -75,10 +77,10 @@ public static partial class NotesEndpoints
 
                 existing.Apply(dto);
 
-                // Re-eval concepts (Changes tracked in memory)
-                await ProcessConcepts(db, existing);
+                // Re-process concepts (Service handles clearing old links + adding new ones)
+                await noteProcessor.ProcessNoteAsync(existing);
 
-                await db.SaveChangesAsync(); // <--- Single commit
+                await db.SaveChangesAsync();
 
                 return Results.Ok(existing.ToDto());
             }
@@ -100,78 +102,10 @@ public static partial class NotesEndpoints
                 db.Notes.Remove(existing);
                 await db.SaveChangesAsync();
 
-                // Note: CleanupOrphanedConcepts is removed from here.
-                // It will be handled by the Background Service.
-
                 return Results.NoContent();
             }
         );
 
         return routes;
-    }
-
-    // --- THE BRAIN: Optimized Concept Extraction ---
-    private static async Task ProcessConcepts(NostosDbContext db, NoteModel note)
-    {
-        // 1. Parse content using Generated Regex
-        var matches = ConceptRegex().Matches(note.Content);
-
-        var foundNames = matches
-            .Select(m => m.Groups[1].Value.Trim())
-            .Where(s => !string.IsNullOrEmpty(s))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        // 2. Clear existing links for this note (We rebuild them)
-        // If this is an update, we might have loaded NoteConcepts. If not, load them.
-        // For a new note, this list is empty.
-        var currentLinks = await db.NoteConcepts.Where(nc => nc.NoteId == note.Id).ToListAsync();
-
-        if (currentLinks.Count != 0)
-        {
-            db.NoteConcepts.RemoveRange(currentLinks);
-        }
-
-        if (foundNames.Count == 0)
-            return;
-
-        // 3. Find which concepts already exist in the DB
-        // (SQLite defaults to case-insensitive mostly, but we ensure correctness logic)
-        var existingConcepts = await db
-            .Concepts.Where(c => foundNames.Contains(c.Concept))
-            .ToListAsync();
-
-        var existingNames = existingConcepts
-            .Select(c => c.Concept)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        // 4. Identify new concepts to create
-        // ConceptModel generates its own Guid in the constructor, so we don't need the DB to do it.
-        var newConcepts = foundNames
-            .Where(name => !existingNames.Contains(name))
-            .Select(name => new ConceptModel { Concept = name })
-            .ToList();
-
-        if (newConcepts.Count != 0)
-        {
-            db.Concepts.AddRange(newConcepts); // EF Core tracks these as Added
-        }
-
-        // 5. Create the new Links
-        // We combine existing entities + new entities.
-        var allRelevantConcepts = existingConcepts.Concat(newConcepts);
-
-        foreach (var concept in allRelevantConcepts)
-        {
-            db.NoteConcepts.Add(
-                new NoteConceptModel
-                {
-                    Note = note, // Navigation property (handles FK automatically)
-                    Concept = concept, // Navigation property (handles FK automatically)
-                }
-            );
-        }
-
-        // No SaveChangesAsync here! The caller handles the transaction.
     }
 }

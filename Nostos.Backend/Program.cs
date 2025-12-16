@@ -38,6 +38,8 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton<FileStorageService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<BookLookupService>();
+builder.Services.AddScoped<MediaMetadataService>();
+builder.Services.AddScoped<NoteProcessorService>();
 builder.Services.AddHostedService<ConceptCleanupWorker>();
 
 var app = builder.Build();

@@ -1,7 +1,7 @@
-using System.Text.Json; // Added for JSON Serialization
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
-using Nostos.Backend.Data.Models; // Ensure Models namespace is imported for casting
+using Nostos.Backend.Data.Models;
 using Nostos.Backend.Mapping;
 using Nostos.Backend.Services;
 using Nostos.Shared.Dtos;
@@ -15,7 +15,7 @@ public static class BooksEndpoints
     {
         var group = routes.MapGroup("/api/books");
 
-        // GET all books (With Pagination, Smart Filters, Sorting AND SEARCH)
+        // GET all books
         group.MapGet(
             "/",
             async (
@@ -29,7 +29,7 @@ public static class BooksEndpoints
             {
                 var query = db.Books.AsQueryable();
 
-                // --- 1. Apply Search (Optimized) ---
+                // 1. Search
                 if (!string.IsNullOrWhiteSpace(search))
                 {
                     var term = $"%{search}%";
@@ -38,12 +38,11 @@ public static class BooksEndpoints
                     );
                 }
 
-                // --- 2. Apply Smart Filters (Enum-based) ---
+                // 2. Filters
                 if (Enum.TryParse<BookFilter>(filter, true, out var filterEnum))
                 {
                     query = filterEnum switch
                     {
-                        // FIX: Access properties via .Progress
                         BookFilter.Favorites => query.Where(b => b.Progress.IsFavorite),
                         BookFilter.Finished => query.Where(b => b.Progress.FinishedAt != null),
                         BookFilter.Reading => query.Where(b =>
@@ -54,13 +53,12 @@ public static class BooksEndpoints
                     };
                 }
 
-                // --- 3. Apply Sorting (Enum-based) ---
+                // 3. Sorting
                 var sortEnum = Enum.TryParse<BookSort>(sort, true, out var s) ? s : BookSort.Recent;
 
                 query = sortEnum switch
                 {
                     BookSort.Title => query.OrderBy(b => b.Title),
-                    // FIX: Access properties via .Progress
                     BookSort.Rating => query.OrderByDescending(b => b.Progress.Rating),
                     BookSort.LastRead => query
                         .OrderByDescending(b => b.Progress.LastReadAt.HasValue)
@@ -68,33 +66,28 @@ public static class BooksEndpoints
                     BookSort.Recent or _ => query.OrderByDescending(b => b.CreatedAt),
                 };
 
-                // --- 4. Apply Pagination ---
+                // 4. Pagination
                 var p = page ?? 1;
                 var ps = pageSize ?? 20;
-
                 var totalCount = await query.CountAsync();
-
                 var books = await query.Skip((p - 1) * ps).Take(ps).ToListAsync();
-
                 var dtos = books.Select(b => b.ToDto());
 
                 return Results.Ok(new PaginatedResponse<BookDto>(dtos, totalCount, p, ps));
             }
         );
 
-        // GET one book
+        // GET one
         group.MapGet(
             "/{id}",
             async (Guid id, NostosDbContext db) =>
             {
                 var book = await db.Books.FindAsync(id);
-                if (book is null)
-                    return Results.NotFound();
-                return Results.Ok(book.ToDto());
+                return book is null ? Results.NotFound() : Results.Ok(book.ToDto());
             }
         );
 
-        // CREATE book
+        // CREATE
         group.MapPost(
             "/",
             async (CreateBookDto dto, NostosDbContext db) =>
@@ -112,7 +105,7 @@ public static class BooksEndpoints
             }
         );
 
-        // UPDATE book
+        // UPDATE
         group.MapPut(
             "/{id}",
             async (Guid id, UpdateBookDto dto, NostosDbContext db) =>
@@ -124,7 +117,6 @@ public static class BooksEndpoints
                 if (dto.Title is not null && string.IsNullOrWhiteSpace(dto.Title))
                     return Results.BadRequest(new { error = "Title cannot be empty." });
 
-                // Apply handles the nested updates internally now
                 book.Apply(dto);
                 await db.SaveChangesAsync();
 
@@ -132,7 +124,7 @@ public static class BooksEndpoints
             }
         );
 
-        // UPDATE Reading Progress
+        // UPDATE Progress
         group.MapPut(
             "/{id}/progress",
             async (Guid id, UpdateProgressDto dto, NostosDbContext db) =>
@@ -141,11 +133,8 @@ public static class BooksEndpoints
                 if (book is null)
                     return Results.NotFound();
 
-                // FIX: Access properties via .Progress
                 book.Progress.LastLocation = dto.Location;
                 book.Progress.ProgressPercent = dto.Percentage;
-
-                // Update LastReadAt whenever progress is saved
                 book.Progress.LastReadAt = DateTime.UtcNow;
 
                 if (book.Progress.ProgressPercent >= 100 && book.Progress.FinishedAt == null)
@@ -158,7 +147,7 @@ public static class BooksEndpoints
             }
         );
 
-        // DELETE book
+        // DELETE
         group.MapDelete(
             "/{id}",
             async (Guid id, NostosDbContext db, FileStorageService storage) =>
@@ -168,8 +157,6 @@ public static class BooksEndpoints
                     return Results.NotFound();
 
                 storage.DeleteBookFiles(id);
-
-                // FIX: Access via .FileDetails
                 book.FileDetails.CoverFileName = null;
 
                 db.Books.Remove(book);
@@ -179,10 +166,16 @@ public static class BooksEndpoints
             }
         );
 
-        // Upload file
+        // Upload file (UPDATED with Service)
         group.MapPost(
             "/{id}/file",
-            async (Guid id, HttpRequest request, NostosDbContext db, FileStorageService storage) =>
+            async (
+                Guid id,
+                HttpRequest request,
+                NostosDbContext db,
+                FileStorageService storage,
+                MediaMetadataService metadataService // 👈 Inject Service
+            ) =>
             {
                 var book = await db.Books.FindAsync(id);
                 if (book is null)
@@ -210,53 +203,17 @@ public static class BooksEndpoints
 
                 await storage.SaveBookFileAsync(id, file);
 
-                // --- NEW: Metadata Extraction (Chapters & Duration) ---
+                // --- Use the new Service ---
                 var filePath = storage.GetBookFileName(id);
                 if (filePath is not null)
                 {
-                    try
-                    {
-                        var track = new ATL.Track(filePath);
-
-                        // 1. Extract Chapters (if any)
-                        if (track.Chapters != null && track.Chapters.Count > 0)
-                        {
-                            var chapters = track
-                                .Chapters.Select(c => new
-                                {
-                                    Title = c.Title,
-                                    StartTime = c.StartTime / 1000.0, // ATL uses ms, convert to seconds
-                                })
-                                .ToList();
-
-                            // FIX: Serialize to .FileDetails.ChaptersJson
-                            book.FileDetails.ChaptersJson = JsonSerializer.Serialize(chapters);
-                        }
-
-                        // 2. Auto-fill Duration (Only if Book is AudioBookModel)
-                        if (
-                            book is AudioBookModel audioBook
-                            && string.IsNullOrEmpty(audioBook.Duration)
-                            && track.Duration > 0
-                        )
-                        {
-                            var t = TimeSpan.FromSeconds(track.Duration);
-                            // Format: 12:30:45
-                            audioBook.Duration = t.ToString(@"hh\:mm\:ss");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[Metadata Extraction] Failed: {ex.Message}");
-                        // We swallow the exception so the upload doesn't fail just because of metadata
-                    }
+                    metadataService.EnrichBookMetadata(book, filePath);
                 }
 
-                // FIX: Access via .FileDetails
                 book.FileDetails.HasFile = true;
                 book.FileDetails.FileName = $"book{Path.GetExtension(file.FileName)}";
-                await db.SaveChangesAsync();
 
+                await db.SaveChangesAsync();
                 return Results.Ok(new { uploaded = true });
             }
         );
@@ -277,9 +234,8 @@ public static class BooksEndpoints
             }
         );
 
-        static string GetContentType(string filePath)
-        {
-            return Path.GetExtension(filePath).ToLower() switch
+        static string GetContentType(string filePath) =>
+            Path.GetExtension(filePath).ToLower() switch
             {
                 ".epub" => "application/epub+zip",
                 ".pdf" => "application/pdf",
@@ -290,9 +246,8 @@ public static class BooksEndpoints
                 ".m4b" => "audio/mp4",
                 _ => "application/octet-stream",
             };
-        }
 
-        // Upload cover image
+        // Upload cover
         group.MapPost(
             "/{id}/cover",
             async (Guid id, HttpRequest request, NostosDbContext db, FileStorageService storage) =>
@@ -306,13 +261,10 @@ public static class BooksEndpoints
                 if (file is null)
                     return Results.BadRequest("Missing cover file.");
 
-                var allowed = new[] { "image/png", "image/jpeg" };
-                if (!allowed.Contains(file.ContentType))
+                if (!new[] { "image/png", "image/jpeg" }.Contains(file.ContentType))
                     return Results.BadRequest("Only PNG or JPEG images allowed.");
 
                 await storage.SaveBookCoverAsync(id, file);
-
-                // FIX: Access via .FileDetails
                 book.FileDetails.CoverFileName = "cover.png";
                 await db.SaveChangesAsync();
 
@@ -320,15 +272,15 @@ public static class BooksEndpoints
             }
         );
 
-        // Download cover image
+        // Download cover
         group.MapGet(
             "/{id}/cover",
             (Guid id, FileStorageService storage) =>
             {
                 var coverPath = storage.GetBookCoverPath(id);
-                if (coverPath is null)
-                    return Results.NotFound();
-                return Results.File(coverPath, "image/png", "cover.png");
+                return coverPath is null
+                    ? Results.NotFound()
+                    : Results.File(coverPath, "image/png", "cover.png");
             }
         );
 
@@ -341,11 +293,9 @@ public static class BooksEndpoints
                 if (book is null)
                     return Results.NotFound();
 
-                var removed = storage.DeleteCover(id);
-                if (!removed)
+                if (!storage.DeleteCover(id))
                     return Results.NotFound();
 
-                // FIX: Access via .FileDetails
                 book.FileDetails.CoverFileName = null;
                 await db.SaveChangesAsync();
 
