@@ -43,10 +43,11 @@ public static class BooksEndpoints
                 {
                     query = filterEnum switch
                     {
-                        BookFilter.Favorites => query.Where(b => b.IsFavorite),
-                        BookFilter.Finished => query.Where(b => b.FinishedAt != null),
+                        // FIX: Access properties via .Progress
+                        BookFilter.Favorites => query.Where(b => b.Progress.IsFavorite),
+                        BookFilter.Finished => query.Where(b => b.Progress.FinishedAt != null),
                         BookFilter.Reading => query.Where(b =>
-                            b.FinishedAt == null && b.ProgressPercent > 0
+                            b.Progress.FinishedAt == null && b.Progress.ProgressPercent > 0
                         ),
                         BookFilter.Unsorted => query.Where(b => b.CollectionId == null),
                         _ => query,
@@ -59,10 +60,11 @@ public static class BooksEndpoints
                 query = sortEnum switch
                 {
                     BookSort.Title => query.OrderBy(b => b.Title),
-                    BookSort.Rating => query.OrderByDescending(b => b.Rating),
+                    // FIX: Access properties via .Progress
+                    BookSort.Rating => query.OrderByDescending(b => b.Progress.Rating),
                     BookSort.LastRead => query
-                        .OrderByDescending(b => b.LastReadAt.HasValue)
-                        .ThenByDescending(b => b.LastReadAt),
+                        .OrderByDescending(b => b.Progress.LastReadAt.HasValue)
+                        .ThenByDescending(b => b.Progress.LastReadAt),
                     BookSort.Recent or _ => query.OrderByDescending(b => b.CreatedAt),
                 };
 
@@ -122,6 +124,7 @@ public static class BooksEndpoints
                 if (dto.Title is not null && string.IsNullOrWhiteSpace(dto.Title))
                     return Results.BadRequest(new { error = "Title cannot be empty." });
 
+                // Apply handles the nested updates internally now
                 book.Apply(dto);
                 await db.SaveChangesAsync();
 
@@ -138,15 +141,16 @@ public static class BooksEndpoints
                 if (book is null)
                     return Results.NotFound();
 
-                book.LastLocation = dto.Location;
-                book.ProgressPercent = dto.Percentage;
+                // FIX: Access properties via .Progress
+                book.Progress.LastLocation = dto.Location;
+                book.Progress.ProgressPercent = dto.Percentage;
 
                 // Update LastReadAt whenever progress is saved
-                book.LastReadAt = DateTime.UtcNow;
+                book.Progress.LastReadAt = DateTime.UtcNow;
 
-                if (book.ProgressPercent >= 100 && book.FinishedAt == null)
+                if (book.Progress.ProgressPercent >= 100 && book.Progress.FinishedAt == null)
                 {
-                    book.FinishedAt = DateTime.UtcNow;
+                    book.Progress.FinishedAt = DateTime.UtcNow;
                 }
 
                 await db.SaveChangesAsync();
@@ -164,7 +168,9 @@ public static class BooksEndpoints
                     return Results.NotFound();
 
                 storage.DeleteBookFiles(id);
-                book.CoverFileName = null;
+
+                // FIX: Access via .FileDetails
+                book.FileDetails.CoverFileName = null;
 
                 db.Books.Remove(book);
                 await db.SaveChangesAsync();
@@ -223,8 +229,8 @@ public static class BooksEndpoints
                                 })
                                 .ToList();
 
-                            // Serialize to the new field in BookModel
-                            book.ChaptersJson = JsonSerializer.Serialize(chapters);
+                            // FIX: Serialize to .FileDetails.ChaptersJson
+                            book.FileDetails.ChaptersJson = JsonSerializer.Serialize(chapters);
                         }
 
                         // 2. Auto-fill Duration (Only if Book is AudioBookModel)
@@ -246,8 +252,9 @@ public static class BooksEndpoints
                     }
                 }
 
-                book.HasFile = true;
-                book.FileName = $"book{Path.GetExtension(file.FileName)}";
+                // FIX: Access via .FileDetails
+                book.FileDetails.HasFile = true;
+                book.FileDetails.FileName = $"book{Path.GetExtension(file.FileName)}";
                 await db.SaveChangesAsync();
 
                 return Results.Ok(new { uploaded = true });
@@ -305,7 +312,8 @@ public static class BooksEndpoints
 
                 await storage.SaveBookCoverAsync(id, file);
 
-                book.CoverFileName = "cover.png";
+                // FIX: Access via .FileDetails
+                book.FileDetails.CoverFileName = "cover.png";
                 await db.SaveChangesAsync();
 
                 return Results.Ok(new { uploaded = true });
@@ -337,7 +345,8 @@ public static class BooksEndpoints
                 if (!removed)
                     return Results.NotFound();
 
-                book.CoverFileName = null;
+                // FIX: Access via .FileDetails
+                book.FileDetails.CoverFileName = null;
                 await db.SaveChangesAsync();
 
                 return Results.NoContent();

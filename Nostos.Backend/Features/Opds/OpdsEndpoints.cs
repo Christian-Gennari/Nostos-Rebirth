@@ -18,9 +18,10 @@ public static class OpdsEndpoints
             async (HttpContext context, NostosDbContext db) =>
             {
                 // 1. Fetch books that actually have files
+                // FIX: Access via .FileDetails
                 var books = await db
                     .Books.AsNoTracking()
-                    .Where(b => b.HasFile && b.FileName != null)
+                    .Where(b => b.FileDetails.HasFile && b.FileDetails.FileName != null)
                     .OrderByDescending(b => b.CreatedAt)
                     .ToListAsync();
 
@@ -76,31 +77,34 @@ public static class OpdsEndpoints
                         );
                     }
 
-                    if (!string.IsNullOrEmpty(book.Description))
+                    // FIX: Access via .Metadata
+                    if (!string.IsNullOrEmpty(book.Metadata.Description))
                     {
                         entry.Add(
                             new XElement(
                                 atom + "content",
                                 new XAttribute("type", "text"),
-                                book.Description
+                                book.Metadata.Description
                             )
                         );
                     }
 
-                    if (!string.IsNullOrEmpty(book.Language))
+                    // FIX: Access via .Metadata
+                    if (!string.IsNullOrEmpty(book.Metadata.Language))
                     {
-                        entry.Add(new XElement(XNamespace.Xml + "lang", book.Language)); // standard xml:lang
+                        entry.Add(new XElement(XNamespace.Xml + "lang", book.Metadata.Language)); // standard xml:lang
                         entry.Add(
                             new XElement(
                                 atom + "category",
-                                new XAttribute("term", book.Language),
+                                new XAttribute("term", book.Metadata.Language),
                                 new XAttribute("label", "Language")
                             )
                         );
                     }
 
                     // Cover Image Link
-                    if (!string.IsNullOrEmpty(book.CoverFileName))
+                    // FIX: Access via .FileDetails
+                    if (!string.IsNullOrEmpty(book.FileDetails.CoverFileName))
                     {
                         entry.Add(
                             new XElement(
@@ -129,9 +133,10 @@ public static class OpdsEndpoints
                     }
 
                     // Acquisition Link (Download)
-                    if (book.FileName != null)
+                    // FIX: Access via .FileDetails
+                    if (book.FileDetails.FileName != null)
                     {
-                        var mimeType = GetMimeType(book.FileName);
+                        var mimeType = GetMimeType(book.FileDetails.FileName);
                         entry.Add(
                             new XElement(
                                 atom + "link",

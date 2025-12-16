@@ -11,7 +11,10 @@ public static class MappingExtensions
     // ------------------------------
     public static BookDto ToDto(this BookModel model)
     {
-        string? coverUrl = model.CoverFileName is null ? null : $"/api/books/{model.Id}/cover";
+        // 1. Access FileDetails for file-related info
+        string? coverUrl = model.FileDetails.CoverFileName is null
+            ? null
+            : $"/api/books/{model.Id}/cover";
 
         // Default values for polymorphic fields
         string type = "physical";
@@ -42,22 +45,19 @@ public static class MappingExtensions
                 break;
         }
 
-        // 👇 NEW: Deserialize Chapters from JSON
+        // 👇 NEW: Deserialize Chapters from JSON (stored in FileDetails)
         IEnumerable<BookChapterDto>? chapters = null;
-        if (!string.IsNullOrWhiteSpace(model.ChaptersJson))
+        if (!string.IsNullOrWhiteSpace(model.FileDetails.ChaptersJson))
         {
             try
             {
-                // We use case-insensitive matching just to be safe, though
-                // standard serialization usually preserves PascalCase.
                 chapters = JsonSerializer.Deserialize<List<BookChapterDto>>(
-                    model.ChaptersJson,
+                    model.FileDetails.ChaptersJson,
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
                 );
             }
             catch
             {
-                // If JSON is corrupt, we return null chapters rather than crashing
                 chapters = null;
                 Console.WriteLine("Failed to deserialize chapters");
             }
@@ -67,42 +67,43 @@ public static class MappingExtensions
         return new BookDto(
             Id: model.Id,
             Title: model.Title,
-            Subtitle: model.Subtitle,
-            Author: model.Author,
-            Editor: model.Editor,
-            Translator: model.Translator,
-            Description: model.Description,
-            // Polymorphic Fields
+            Author: model.Author, // Root Property
+            // --- MAPPED FROM METADATA ---
+            Subtitle: model.Metadata.Subtitle,
+            Editor: model.Metadata.Editor,
+            Translator: model.Metadata.Translator,
+            Description: model.Metadata.Description,
+            Publisher: model.Metadata.Publisher,
+            PlaceOfPublication: model.Metadata.PlaceOfPublication,
+            PublishedDate: model.Metadata.PublishedDate,
+            Edition: model.Metadata.Edition,
+            Language: model.Metadata.Language,
+            Categories: model.Metadata.Categories,
+            Series: model.Metadata.Series,
+            VolumeNumber: model.Metadata.VolumeNumber,
+            // --- POLYMORPHIC FIELDS ---
             Type: type,
             Isbn: isbn,
             Asin: asin,
             Duration: duration,
             Narrator: narrator,
-            Publisher: model.Publisher,
-            PlaceOfPublication: model.PlaceOfPublication,
-            PublishedDate: model.PublishedDate,
-            Edition: model.Edition,
             PageCount: pageCount,
-            Language: model.Language,
-            Categories: model.Categories,
-            Series: model.Series,
-            VolumeNumber: model.VolumeNumber,
+            // --- ROOT FIELDS ---
             CreatedAt: model.CreatedAt,
-            HasFile: model.HasFile,
-            FileName: model.FileName,
-            CoverUrl: coverUrl,
             CollectionId: model.CollectionId,
-            // Reading Progress
-            LastLocation: model.LastLocation,
-            ProgressPercent: model.ProgressPercent,
-            LastReadAt: model.LastReadAt,
-            // User Interaction
-            Rating: model.Rating,
-            IsFavorite: model.IsFavorite,
-            PersonalReview: model.PersonalReview,
-            FinishedAt: model.FinishedAt,
-            // 👇 NEW: Map the chapters
-            Chapters: chapters
+            // --- MAPPED FROM FILE DETAILS ---
+            HasFile: model.FileDetails.HasFile,
+            FileName: model.FileDetails.FileName,
+            CoverUrl: coverUrl,
+            Chapters: chapters,
+            // --- MAPPED FROM PROGRESS ---
+            LastLocation: model.Progress.LastLocation,
+            ProgressPercent: model.Progress.ProgressPercent,
+            LastReadAt: model.Progress.LastReadAt,
+            Rating: model.Progress.Rating,
+            IsFavorite: model.Progress.IsFavorite,
+            PersonalReview: model.Progress.PersonalReview,
+            FinishedAt: model.Progress.FinishedAt
         );
     }
 
@@ -166,32 +167,36 @@ public static class MappingExtensions
             },
         };
 
-        // Map Shared Fields
+        // 1. Map Shared Root Fields
         model.Id = Guid.NewGuid();
         model.Title = dto.Title;
-        model.Subtitle = dto.Subtitle;
         model.Author = dto.Author;
-        model.Editor = dto.Editor;
-        model.Translator = dto.Translator;
-        model.Description = dto.Description;
-
-        model.Publisher = dto.Publisher;
-        model.PlaceOfPublication = dto.PlaceOfPublication;
-        model.PublishedDate = dto.PublishedDate;
-
-        model.Edition = dto.Edition;
-        model.Language = dto.Language;
-        model.Categories = dto.Categories;
-        model.Series = dto.Series;
-        model.VolumeNumber = dto.VolumeNumber;
         model.CreatedAt = DateTime.UtcNow;
         model.CollectionId = dto.CollectionId;
 
-        // New Fields
-        model.Rating = dto.Rating;
-        model.IsFavorite = dto.IsFavorite;
-        model.PersonalReview = dto.PersonalReview;
-        model.FinishedAt = dto.FinishedAt;
+        // 2. Map Metadata (Owned Type)
+        // We can assign properties directly as the object is initialized in the constructor
+        model.Metadata.Subtitle = dto.Subtitle;
+        model.Metadata.Editor = dto.Editor;
+        model.Metadata.Translator = dto.Translator;
+        model.Metadata.Description = dto.Description;
+        model.Metadata.Publisher = dto.Publisher;
+        model.Metadata.PlaceOfPublication = dto.PlaceOfPublication;
+        model.Metadata.PublishedDate = dto.PublishedDate;
+        model.Metadata.Edition = dto.Edition;
+        model.Metadata.Language = dto.Language;
+        model.Metadata.Categories = dto.Categories;
+        model.Metadata.Series = dto.Series;
+        model.Metadata.VolumeNumber = dto.VolumeNumber;
+
+        // 3. Map Progress (Owned Type)
+        model.Progress.Rating = dto.Rating;
+        model.Progress.IsFavorite = dto.IsFavorite;
+        model.Progress.PersonalReview = dto.PersonalReview;
+        model.Progress.FinishedAt = dto.FinishedAt;
+
+        // 4. FileDetails
+        // Defaults are fine (HasFile=false), no DTO fields for files during creation usually.
 
         return model;
     }
@@ -222,73 +227,71 @@ public static class MappingExtensions
     // ------------------------------
     public static void Apply(this BookModel model, UpdateBookDto dto)
     {
-        // 1. Apply Common Fields (ONLY IF NOT NULL to support partial updates)
+        // 1. Apply Root Fields
         if (dto.Title != null)
             model.Title = dto.Title;
-        if (dto.Subtitle != null)
-            model.Subtitle = dto.Subtitle;
         if (dto.Author != null)
             model.Author = dto.Author;
-        if (dto.Editor != null)
-            model.Editor = dto.Editor;
-        if (dto.Translator != null)
-            model.Translator = dto.Translator;
-        if (dto.Description != null)
-            model.Description = dto.Description;
-
-        if (dto.Publisher != null)
-            model.Publisher = dto.Publisher;
-        if (dto.PlaceOfPublication != null)
-            model.PlaceOfPublication = dto.PlaceOfPublication;
-        if (dto.PublishedDate != null)
-            model.PublishedDate = dto.PublishedDate;
-
-        if (dto.Edition != null)
-            model.Edition = dto.Edition;
-        if (dto.Language != null)
-            model.Language = dto.Language;
-        if (dto.Categories != null)
-            model.Categories = dto.Categories;
-        if (dto.Series != null)
-            model.Series = dto.Series;
-        if (dto.VolumeNumber != null)
-            model.VolumeNumber = dto.VolumeNumber;
         if (dto.CollectionId != null)
             model.CollectionId = dto.CollectionId;
 
-        // NEW FIELDS: Check if nullable (HasValue or != null) to see if they were sent
+        // 2. Apply Metadata (Owned Type)
+        if (dto.Subtitle != null)
+            model.Metadata.Subtitle = dto.Subtitle;
+        if (dto.Editor != null)
+            model.Metadata.Editor = dto.Editor;
+        if (dto.Translator != null)
+            model.Metadata.Translator = dto.Translator;
+        if (dto.Description != null)
+            model.Metadata.Description = dto.Description;
+        if (dto.Publisher != null)
+            model.Metadata.Publisher = dto.Publisher;
+        if (dto.PlaceOfPublication != null)
+            model.Metadata.PlaceOfPublication = dto.PlaceOfPublication;
+        if (dto.PublishedDate != null)
+            model.Metadata.PublishedDate = dto.PublishedDate;
+        if (dto.Edition != null)
+            model.Metadata.Edition = dto.Edition;
+        if (dto.Language != null)
+            model.Metadata.Language = dto.Language;
+        if (dto.Categories != null)
+            model.Metadata.Categories = dto.Categories;
+        if (dto.Series != null)
+            model.Metadata.Series = dto.Series;
+        if (dto.VolumeNumber != null)
+            model.Metadata.VolumeNumber = dto.VolumeNumber;
+
+        // 3. Apply Progress (Owned Type)
         if (dto.Rating.HasValue)
-            model.Rating = dto.Rating.Value;
+            model.Progress.Rating = dto.Rating.Value;
+
         if (dto.IsFavorite.HasValue)
-            model.IsFavorite = dto.IsFavorite.Value;
+            model.Progress.IsFavorite = dto.IsFavorite.Value;
+
         if (dto.PersonalReview != null)
-            model.PersonalReview = dto.PersonalReview;
+            model.Progress.PersonalReview = dto.PersonalReview;
 
         // LOGIC FIX: Handle Finished Status
-        // 1. If a specific date is provided, use it (Manual edit)
         if (dto.FinishedAt != null)
         {
-            model.FinishedAt = dto.FinishedAt;
+            model.Progress.FinishedAt = dto.FinishedAt;
         }
-        // 2. Else if the Toggle Flag is provided, use it
         else if (dto.IsFinished.HasValue)
         {
             if (dto.IsFinished.Value)
             {
                 // Mark as finished (Set to Now if not already set)
-                model.FinishedAt ??= DateTime.UtcNow;
-
-                // Optional: Force progress to 100% when marking as finished
-                model.ProgressPercent = 100;
+                model.Progress.FinishedAt ??= DateTime.UtcNow;
+                model.Progress.ProgressPercent = 100;
             }
             else
             {
-                // Mark as Unread (Clear the date)
-                model.FinishedAt = null;
+                // Mark as Unread
+                model.Progress.FinishedAt = null;
             }
         }
 
-        // 2. Apply Specific Fields (Pattern Matching)
+        // 4. Apply Specific Fields (Pattern Matching)
         switch (model)
         {
             case PhysicalBookModel p:
@@ -317,7 +320,7 @@ public static class MappingExtensions
     public static void Apply(this CollectionModel model, UpdateCollectionDto dto)
     {
         model.Name = dto.Name;
-        // Check if ParentId is part of the update (depends on your DTO structure)
+        // Check if ParentId is part of the update
         if (dto.ParentId != model.ParentId)
         {
             model.ParentId = dto.ParentId;

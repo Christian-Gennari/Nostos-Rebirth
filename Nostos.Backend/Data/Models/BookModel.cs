@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.EntityFrameworkCore; // Required for [Owned]
 
 namespace Nostos.Backend.Data.Models;
 
@@ -10,59 +11,72 @@ public abstract class BookModel
     [Required]
     public string Title { get; set; } = string.Empty;
 
-    // --- AUTHORSHIP & CONTRIBUTIONS ---
+    // We keep Author on the root as it's a primary query field
     public string? Author { get; set; }
-    public string? Editor { get; set; } // Required for Harvard "Edited by"
-    public string? Translator { get; set; }
-    public string? Subtitle { get; set; }
-    public string? Description { get; set; } // The official book blurb
 
-    // --- PUBLICATION METADATA ---
-    public string? Publisher { get; set; }
-    public string? PlaceOfPublication { get; set; } // Required for Harvard (e.g., "London")
-    public string? PublishedDate { get; set; }
-    public string? Language { get; set; }
-    public string? Categories { get; set; }
-    public string? Edition { get; set; }
+    // --- 1. Publication Metadata (Grouped) ---
+    public BookMetadata Metadata { get; set; } = new();
 
-    // --- EDITION & SERIES INFO ---
-    public string? Series { get; set; }
-    public string? VolumeNumber { get; set; }
+    // --- 2. Reading Progress & User State (Grouped) ---
+    public ReadingProgress Progress { get; set; } = new();
+
+    // --- 3. File System Info (Grouped) ---
+    public FileInfoDetails FileDetails { get; set; } = new();
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    // --- FILE MANAGEMENT ---
-    public bool HasFile { get; set; } = false;
-    public string? FileName { get; set; }
-    public string? CoverFileName { get; set; }
 
     // --- RELATIONSHIPS ---
     public Guid? CollectionId { get; set; }
     public CollectionModel? Collection { get; set; }
+}
 
-    // --- READING PROGRESS ---
-    public string? LastLocation { get; set; } // CFI (EPUB), Page Number (PDF), or Timestamp (Audio)
+// --- NEW OWNED TYPES ---
+
+[Owned]
+public class BookMetadata
+{
+    public string? Subtitle { get; set; }
+    public string? Description { get; set; } // The official book blurb
+    public string? Editor { get; set; }
+    public string? Translator { get; set; }
+    public string? Publisher { get; set; }
+    public string? PlaceOfPublication { get; set; }
+    public string? PublishedDate { get; set; }
+    public string? Language { get; set; }
+    public string? Categories { get; set; }
+    public string? Edition { get; set; }
+    public string? Series { get; set; }
+    public string? VolumeNumber { get; set; }
+}
+
+[Owned]
+public class ReadingProgress
+{
+    public string? LastLocation { get; set; } // CFI, Page, or Timestamp
     public int ProgressPercent { get; set; } = 0;
 
-    // --- USER INTERACTION ---
     [Range(0, 5)]
     public int Rating { get; set; } = 0;
-
     public bool IsFavorite { get; set; } = false;
+    public string? PersonalReview { get; set; }
 
-    public string? PersonalReview { get; set; } // Short personal reviews
-
-    // <--- NEW: Track when the book was last opened/read
     public DateTime? LastReadAt { get; set; }
-
-    // If FinishedAt is not null, the book is "Finished"
     public DateTime? FinishedAt { get; set; }
+}
 
-    // Store chapters as a JSON string: "[{'Title':'Chapter 1', 'StartTime': 0}, ...]"
+[Owned]
+public class FileInfoDetails
+{
+    public bool HasFile { get; set; } = false;
+    public string? FileName { get; set; }
+    public string? CoverFileName { get; set; }
+
+    // Store chapters as a JSON string
     public string? ChaptersJson { get; set; }
 }
 
-// ACTUAL SUBCLASSES FOR SPECIFIC BOOK TYPES
+// --- SUBCLASSES (Remain mostly the same) ---
+
 public class PhysicalBookModel : BookModel
 {
     public string? Isbn { get; set; }
@@ -71,15 +85,13 @@ public class PhysicalBookModel : BookModel
 
 public class EBookModel : BookModel
 {
-    // E-books might define page count differently (or not at all),
-    // but often use ISBNs too.
     public string? Isbn { get; set; }
     public int? PageCount { get; set; }
 }
 
 public class AudioBookModel : BookModel
 {
-    public string? Asin { get; set; } // Amazon Standard ID
-    public string? Duration { get; set; } // e.g. "12:30:15"
-    public string? Narrator { get; set; } // e.g. "John Doe"
+    public string? Asin { get; set; }
+    public string? Duration { get; set; }
+    public string? Narrator { get; set; }
 }
