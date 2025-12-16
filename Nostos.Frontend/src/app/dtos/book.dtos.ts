@@ -9,6 +9,11 @@ export interface PaginatedResponse<T> {
   pageSize: number;
 }
 
+export interface BookChapter {
+  title: string;
+  startTime: number;
+}
+
 export interface Book {
   id: string;
   title: string;
@@ -52,6 +57,8 @@ export interface Book {
   isFavorite: boolean;
   personalReview: string | null;
   finishedAt: string | null;
+
+  chapters?: BookChapter[]; // <--- Add this
 }
 
 export interface CreateBookDto {

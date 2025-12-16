@@ -1,3 +1,4 @@
+using System.Text.Json; // 👈 Added for JSON deserialization
 using Nostos.Backend.Data.Models;
 using Nostos.Shared.Dtos;
 
@@ -41,6 +42,27 @@ public static class MappingExtensions
                 break;
         }
 
+        // 👇 NEW: Deserialize Chapters from JSON
+        IEnumerable<BookChapterDto>? chapters = null;
+        if (!string.IsNullOrWhiteSpace(model.ChaptersJson))
+        {
+            try
+            {
+                // We use case-insensitive matching just to be safe, though
+                // standard serialization usually preserves PascalCase.
+                chapters = JsonSerializer.Deserialize<List<BookChapterDto>>(
+                    model.ChaptersJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+                );
+            }
+            catch
+            {
+                // If JSON is corrupt, we return null chapters rather than crashing
+                chapters = null;
+                Console.WriteLine("Failed to deserialize chapters");
+            }
+        }
+
         // Use Named Arguments to prevent argument order mismatches
         return new BookDto(
             Id: model.Id,
@@ -73,12 +95,14 @@ public static class MappingExtensions
             // Reading Progress
             LastLocation: model.LastLocation,
             ProgressPercent: model.ProgressPercent,
-            LastReadAt: model.LastReadAt, // <--- NEW: Map the new field
+            LastReadAt: model.LastReadAt,
             // User Interaction
             Rating: model.Rating,
             IsFavorite: model.IsFavorite,
             PersonalReview: model.PersonalReview,
-            FinishedAt: model.FinishedAt
+            FinishedAt: model.FinishedAt,
+            // 👇 NEW: Map the chapters
+            Chapters: chapters
         );
     }
 
@@ -90,7 +114,7 @@ public static class MappingExtensions
             CfiRange: model.CfiRange,
             SelectedText: model.SelectedText,
             CreatedAt: model.CreatedAt,
-            BookTitle: model.Book?.Title // 👈 Map the title
+            BookTitle: model.Book?.Title
         );
 
     public static CollectionDto ToDto(this CollectionModel model) =>

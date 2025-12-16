@@ -1,5 +1,7 @@
+using System.Text.Json; // Added for JSON Serialization
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
+using Nostos.Backend.Data.Models; // Ensure Models namespace is imported for casting
 using Nostos.Backend.Mapping;
 using Nostos.Backend.Services;
 using Nostos.Shared.Dtos;
@@ -201,6 +203,48 @@ public static class BooksEndpoints
                     return Results.BadRequest($"Unsupported file type: {file.ContentType}");
 
                 await storage.SaveBookFileAsync(id, file);
+
+                // --- NEW: Metadata Extraction (Chapters & Duration) ---
+                var filePath = storage.GetBookFileName(id);
+                if (filePath is not null)
+                {
+                    try
+                    {
+                        var track = new ATL.Track(filePath);
+
+                        // 1. Extract Chapters (if any)
+                        if (track.Chapters != null && track.Chapters.Count > 0)
+                        {
+                            var chapters = track
+                                .Chapters.Select(c => new
+                                {
+                                    Title = c.Title,
+                                    StartTime = c.StartTime / 1000.0, // ATL uses ms, convert to seconds
+                                })
+                                .ToList();
+
+                            // Serialize to the new field in BookModel
+                            book.ChaptersJson = JsonSerializer.Serialize(chapters);
+                        }
+
+                        // 2. Auto-fill Duration (Only if Book is AudioBookModel)
+                        if (
+                            book is AudioBookModel audioBook
+                            && string.IsNullOrEmpty(audioBook.Duration)
+                            && track.Duration > 0
+                        )
+                        {
+                            var t = TimeSpan.FromSeconds(track.Duration);
+                            // Format: 12:30:45
+                            audioBook.Duration = t.ToString(@"hh\:mm\:ss");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[Metadata Extraction] Failed: {ex.Message}");
+                        // We swallow the exception so the upload doesn't fail just because of metadata
+                    }
+                }
 
                 book.HasFile = true;
                 book.FileName = $"book{Path.GetExtension(file.FileName)}";

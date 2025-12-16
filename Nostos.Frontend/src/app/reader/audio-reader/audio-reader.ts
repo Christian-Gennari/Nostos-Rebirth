@@ -54,7 +54,20 @@ export class AudioReader implements OnDestroy, IReader {
       const id = this.bookId();
       if (id) {
         // 1. Fetch Book Metadata (Cover, Title, etc.)
-        this.booksService.get(id).subscribe((b) => this.book.set(b));
+        this.booksService.get(id).subscribe((b) => {
+          this.book.set(b);
+
+          // 👇 NEW: Map Chapters to ToC
+          if (b.chapters && b.chapters.length > 0) {
+            this.toc.set(
+              b.chapters.map((c) => ({
+                label: c.title,
+                target: c.startTime, // Target is the timestamp in seconds
+                children: [],
+              }))
+            );
+          }
+        });
 
         // 2. Init Player
         this.initPlayer(id);

@@ -4,12 +4,9 @@ using System.Collections.Generic; // Added for IEnumerable
 namespace Nostos.Shared.Dtos;
 
 // --- NEW: Generic Pagination Wrapper ---
-public record PaginatedResponse<T>(
-    IEnumerable<T> Items,
-    int TotalCount,
-    int Page,
-    int PageSize
-);
+public record PaginatedResponse<T>(IEnumerable<T> Items, int TotalCount, int Page, int PageSize);
+
+public record BookChapterDto(string Title, double StartTime);
 
 public record BookDto(
     string Type,
@@ -44,7 +41,8 @@ public record BookDto(
     bool IsFavorite,
     string? PersonalReview,
     DateTime? LastReadAt,
-    DateTime? FinishedAt
+    DateTime? FinishedAt,
+    IEnumerable<BookChapterDto>? Chapters // <--- Add this
 );
 
 public record CreateBookDto(
