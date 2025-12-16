@@ -1,18 +1,14 @@
 import { Component, inject, OnInit, signal, model } from '@angular/core';
-import { ActivatedRoute, RouterLink, Router, NavigationEnd } from '@angular/router'; // Added NavigationEnd
+import { ActivatedRoute, RouterLink, Router, NavigationEnd } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpEventType } from '@angular/common/http';
-import { filter } from 'rxjs/operators'; // Added filter
+import { filter } from 'rxjs/operators';
 
-// Services & DTOs
-import { BooksService, Book } from '../services/books.services';
-import { NotesService } from '../services/notes.services';
-import { CollectionsService } from '../services/collections.services';
-import { ConceptDto, ConceptsService } from '../services/concepts.services';
-import { ConceptAutocompleteService } from '../misc-components/concept-autocomplete-panel/concept-autocomplete.service';
-import { Collection } from '../dtos/collection.dtos';
-import { Note } from '../dtos/note.dtos';
+// Store
+import { BookDetailStore } from './book-detail.store';
+
+// DTOs
+import { Book } from '../dtos/book.dtos';
 
 // UI Components
 import { AddBookModal } from '../add-book-modal/add-book-modal';
@@ -60,17 +56,16 @@ import {
     NoteCardComponent,
     StarRatingComponent,
   ],
+  providers: [BookDetailStore],
   templateUrl: './book-detail.html',
   styleUrls: ['./book-detail.css'],
 })
 export class BookDetail implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private booksService = inject(BooksService);
-  private notesService = inject(NotesService);
-  private collectionsService = inject(CollectionsService);
-  private conceptsService = inject(ConceptsService);
-  private autocompleteService = inject(ConceptAutocompleteService);
+
+  // Inject the Store
+  readonly store = inject(BookDetailStore);
 
   // Icons
   ArrowLeftIcon = ArrowLeft;
@@ -96,112 +91,78 @@ export class BookDetail implements OnInit {
   MapPinIcon = MapPin;
   QuoteIcon = MessageSquareQuote;
 
-  // State
-  loading = signal(true);
-  book = signal<Book | null>(null);
-  error = signal<string | null>(null);
-  collections = signal<Collection[]>([]);
-
-  // UI State
+  // Local UI State
   isDescriptionExpanded = signal(false);
   showMetadataModal = signal(false);
-
-  // Notes State
-  notes = signal<Note[]>([]);
-  conceptMap = signal<Map<string, ConceptDto>>(new Map());
-
-  // New Note Input (Still managed here)
   newNote = model<string>('');
 
   ngOnInit(): void {
-    // 1. Standard Load: Handles first load AND ID changes (Book A -> Book B)
+    // 1. Initial Load
     this.route.paramMap.subscribe((params) => {
       const id = params.get('id');
-      this.handleRouteIdChange(id);
+      if (id) this.store.loadAllData(id);
     });
 
-    // 2. Re-entry Load: Handles navigation back to same book (Library -> Book A)
-    // allowing us to refresh data even if the component was cached.
+    // 2. Re-entry / Background Refresh
     this.router.events.pipe(filter((event) => event instanceof NavigationEnd)).subscribe(() => {
-      // Ensure we are actually on this page
       const id = this.route.snapshot.paramMap.get('id');
       if (id && this.router.url.includes(`/library/${id}`)) {
-        // Perform a background refresh (don't show spinner)
-        this.loadBook(id, { showLoading: false });
+        this.store.loadBook(id, { background: true });
       }
     });
   }
 
-  // Refactored to separate logic from subscription
-  private handleRouteIdChange(id: string | null): void {
-    if (!id) {
-      this.error.set('Invalid book ID');
-      this.loading.set(false);
-      return;
-    }
+  // --- UI Actions (Delegating to Store) ---
 
-    // Reset state only if ID has changed to a NEW book
-    // (This helps avoid flickering if reusing same ID in some edge cases)
-    if (this.book()?.id !== id) {
-      this.loading.set(true);
-      this.error.set(null);
-      this.book.set(null);
-      this.notes.set([]);
-    }
-
-    this.loadBook(id, { showLoading: true });
-    this.loadNotes(id);
-    this.loadCollections();
-    this.loadConcepts();
+  toggleFavorite() {
+    this.store.toggleFavorite();
+  }
+  toggleFinished() {
+    this.store.toggleFinished();
+  }
+  onRate(rating: number) {
+    this.store.rate(rating);
   }
 
-  // UPDATED: Accepts options object for better control
-  loadBook(id: string, options: { forceImageRefresh?: boolean; showLoading?: boolean } = {}): void {
-    const { forceImageRefresh = false, showLoading = true } = options;
-
-    if (showLoading) {
-      this.loading.set(true);
-    }
-
-    this.booksService.get(id).subscribe({
-      next: (book) => {
-        if (forceImageRefresh && book.coverUrl) {
-          book.coverUrl += `?t=${Date.now()}`;
-        }
-        this.book.set(book);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.error.set('Book not found');
-        this.loading.set(false);
-      },
-    });
+  addNote(): void {
+    const content = this.newNote().trim();
+    if (!content) return;
+    this.store.addNote(content);
+    this.newNote.set('');
   }
 
-  loadNotes(bookId: string): void {
-    this.notesService.list(bookId).subscribe({
-      next: (notes) => this.notes.set(notes),
-    });
+  onUpdateNote(event: { id: string; content: string; selectedText?: string }): void {
+    this.store.updateNote(event.id, event.content, event.selectedText);
   }
 
-  loadCollections(): void {
-    this.collectionsService.list().subscribe({
-      next: (data) => this.collections.set(data),
-    });
+  onDeleteNote(id: string): void {
+    this.store.deleteNote(id);
   }
 
-  loadConcepts(): void {
-    this.conceptsService.list().subscribe({
-      next: (concepts) => {
-        const map = new Map<string, ConceptDto>();
-        concepts.forEach((c) => map.set(c.name.trim().toLowerCase(), c));
-        this.conceptMap.set(map);
-        this.autocompleteService.setConcepts(concepts);
-      },
-    });
+  // 👇 ADDED MISSING METHOD HERE
+  onConceptClick(conceptId: string): void {
+    this.goToConcept(conceptId);
   }
 
-  // --- Actions ---
+  // --- File Actions ---
+
+  onCoverSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) this.store.uploadCover(file);
+  }
+
+  deleteCover() {
+    this.store.deleteCover();
+  }
+
+  onFileUploadSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) this.store.uploadFile(file);
+  }
+
+  // --- Navigation & Helpers ---
 
   goToConcept(conceptId: string): void {
     this.router.navigate(['/second-brain'], { queryParams: { conceptId } });
@@ -210,216 +171,42 @@ export class BookDetail implements OnInit {
   toggleDescription() {
     this.isDescriptionExpanded.update((v) => !v);
   }
-
-  openMetadataModal(): void {
-    const b = this.book();
-    if (!b) return;
-    this.showMetadataModal.set(true);
+  openMetadataModal() {
+    if (this.store.book()) this.showMetadataModal.set(true);
   }
-
-  closeMetadataModal(): void {
+  closeMetadataModal() {
     this.showMetadataModal.set(false);
   }
 
-  // --- Ratings & Favorites Actions ---
-
-  toggleFavorite() {
-    const book = this.book();
-    if (!book) return;
-
-    const newStatus = !book.isFavorite;
-
-    // Optimistic UI update
-    this.book.update((b) => (b ? { ...b, isFavorite: newStatus } : null));
-
-    // Call API
-    this.booksService.update(book.id, { isFavorite: newStatus } as any).subscribe({
-      error: () => {
-        this.book.update((b) => (b ? { ...b, isFavorite: !newStatus } : null));
-        this.error.set('Failed to update favorite status');
-      },
-    });
+  onBookUpdated(updatedBook: Book): void {
+    this.store.book.set(updatedBook);
   }
-
-  toggleFinished() {
-    const book = this.book();
-    if (!book) return;
-
-    const isCurrentlyFinished = !!book.finishedAt;
-    const newIsFinished = !isCurrentlyFinished;
-    const newDate = newIsFinished ? new Date().toISOString() : null;
-    const newProgress = newIsFinished ? 100 : book.progressPercent;
-
-    // 1. Optimistic UI update
-    this.book.update((b) =>
-      b
-        ? {
-            ...b,
-            finishedAt: newDate,
-            progressPercent: newProgress,
-          }
-        : null
-    );
-
-    // 2. Send API Request
-    const updatePayload: any = {
-      isFinished: newIsFinished,
-    };
-
-    this.booksService.update(book.id, updatePayload).subscribe({
-      next: (updatedBook) => {
-        this.book.set(updatedBook);
-      },
-      error: () => {
-        this.loadBook(book.id, { showLoading: false });
-      },
-    });
-  }
-
-  onRate(newRating: number) {
-    const book = this.book();
-    if (!book) return;
-
-    this.book.update((b) => (b ? { ...b, rating: newRating } : null));
-
-    this.booksService.update(book.id, { rating: newRating } as any).subscribe({
-      error: () => this.error.set('Failed to update rating'),
-    });
-  }
-
-  // --- Note Logic ---
-
-  addNote(): void {
-    const book = this.book();
-    if (!book) return;
-
-    const content = this.newNote().trim();
-    if (!content) return;
-
-    this.notesService.create(book.id, { content }).subscribe({
-      next: () => {
-        this.newNote.set('');
-        this.loadNotes(book.id);
-        this.loadConcepts();
-      },
-    });
-  }
-
-  onUpdateNote(event: { id: string; content: string; selectedText?: string }): void {
-    const book = this.book();
-    if (!book) return;
-
-    // Pass the full object, including selectedText
-    this.notesService
-      .update(event.id, {
-        content: event.content,
-        selectedText: event.selectedText,
-      })
-      .subscribe({
-        next: () => {
-          this.loadNotes(book.id);
-          this.loadConcepts();
-        },
-      });
-  }
-
-  onDeleteNote(id: string): void {
-    if (!confirm('Delete this note?')) return;
-
-    this.notesService.delete(id).subscribe({
-      next: () => {
-        const book = this.book();
-        if (book) {
-          this.loadNotes(book.id);
-          this.loadConcepts();
-        }
-      },
-    });
-  }
-
-  onConceptClick(conceptId: string): void {
-    this.goToConcept(conceptId);
-  }
-
-  // --- Book Files / Metadata ---
 
   downloadFile() {
-    const id = this.book()?.id;
-    if (!id) return;
-    window.open(`/api/books/${id}/file`, '_blank');
+    const id = this.store.book()?.id;
+    if (id) window.open(`/api/books/${id}/file`, '_blank');
   }
 
   openReader() {
-    const id = this.book()?.id;
-    if (!id) return;
-    this.router.navigate(['/read', id]);
+    const id = this.store.book()?.id;
+    if (id) this.router.navigate(['/read', id]);
   }
 
   triggerCoverPicker() {
-    const input = document.querySelector('input[type=file][accept="image/*"]') as HTMLInputElement;
-    if (input) input.click();
-  }
-
-  onCoverSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-
-    const book = this.book();
-    if (!book) return;
-
-    this.booksService.uploadCover(book.id, file).subscribe({
-      next: (event) => {
-        if (event.type === HttpEventType.Response) {
-          this.loadBook(book.id, { forceImageRefresh: true });
-        }
-      },
-      error: () => this.error.set('Failed to upload cover'),
-    });
-  }
-
-  deleteCover() {
-    const id = this.book()?.id;
-    if (!id) return;
-    if (!confirm('Remove cover image?')) return;
-
-    this.booksService.deleteCover(id).subscribe({
-      next: () => this.loadBook(id, { showLoading: false }),
-      error: (err) => console.error('Delete cover error:', err),
-    });
+    (document.querySelector('input[type=file][accept="image/*"]') as HTMLInputElement)?.click();
   }
 
   triggerFilePicker() {
-    const input = document.querySelector(
-      'input[type=file][accept=".epub,.pdf,.txt,.mobi,.mp3,.m4a,.m4b"]'
-    ) as HTMLInputElement;
-    if (input) input.click();
-  }
-
-  onFileUploadSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-    const book = this.book();
-    if (!book) return;
-
-    this.booksService.uploadFile(book.id, file).subscribe({
-      next: (event) => {
-        if (event.type === HttpEventType.Response) {
-          this.loadBook(book.id, { showLoading: false });
-        }
-      },
-      error: (err) => console.error('File upload error:', err),
-    });
-  }
-
-  onBookUpdated(updatedBook: Book): void {
-    this.book.set(updatedBook);
+    (
+      document.querySelector(
+        'input[type=file][accept=".epub,.pdf,.txt,.mobi,.mp3,.m4a,.m4b"]'
+      ) as HTMLInputElement
+    )?.click();
   }
 
   getCollectionName(id: string | null | undefined): string {
     if (!id) return '—';
-    const col = this.collections().find((c) => c.id === id);
+    const col = this.store.collections().find((c) => c.id === id);
     return col ? col.name : '—';
   }
 

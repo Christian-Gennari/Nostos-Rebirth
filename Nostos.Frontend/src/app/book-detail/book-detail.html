@@ -1,7 +1,7 @@
 <main class="layout-wrapper">
   <div class="layout-content">
     <div class="container md">
-      @if (loading()) {
+      @if (store.loading()) {
       <div class="back-nav">
         <div class="skeleton-line" style="width: 100px; height: 20px"></div>
       </div>
@@ -15,17 +15,17 @@
           <div class="skeleton-block"></div>
         </section>
       </div>
-      } @if (error()) {
+      } @if (store.error()) {
       <div class="error-state">
         <lucide-icon
           [img]="AlertCircleIcon"
           [size]="32"
           style="margin-bottom: 1rem; color: var(--color-danger)"
         ></lucide-icon>
-        <p>{{ error() }}</p>
+        <p>{{ store.error() }}</p>
         <button class="btn btn-secondary" routerLink="/library">Return to Library</button>
       </div>
-      } @if (!loading() && !error() && book()) {
+      } @if (!store.loading() && !store.error() && store.book()) {
 
       <div class="back-nav">
         <button class="btn-back" routerLink="/library">
@@ -37,9 +37,9 @@
       <div class="detail-grid">
         <aside class="detail-cover-col">
           <div class="cover-frame">
-            @if (book()?.coverUrl) {
+            @if (store.book()?.coverUrl) {
             <img
-              [src]="book()?.coverUrl"
+              [src]="store.book()?.coverUrl"
               alt="Book cover"
               class="cover-img"
               loading="lazy"
@@ -70,10 +70,10 @@
                 (click)="triggerCoverPicker()"
               >
                 <lucide-icon [img]="ImageIcon" [size]="14"></lucide-icon>
-                {{ book()?.coverUrl ? 'Change' : 'Upload' }}
+                {{ store.book()?.coverUrl ? 'Change' : 'Upload' }}
               </button>
 
-              @if (book()?.coverUrl) {
+              @if (store.book()?.coverUrl) {
               <div class="vertical-divider"></div>
               <button id="removeCover" class="btn btn-xs btn-ghost danger" (click)="deleteCover()">
                 Remove
@@ -93,36 +93,36 @@
         <section class="detail-info-col">
           <header class="info-header">
             <div class="header-top-row">
-              <h1 class="book-title">{{ book()?.title }}</h1>
+              <h1 class="book-title">{{ store.book()?.title }}</h1>
               <button
                 class="btn-icon favorite-btn desktop-fav"
-                [class.active]="book()?.isFavorite"
+                [class.active]="store.book()?.isFavorite"
                 (click)="toggleFavorite()"
                 title="Toggle Favorite"
               >
                 <lucide-icon
                   [img]="HeartIcon"
                   [size]="24"
-                  [class.filled]="book()?.isFavorite"
+                  [class.filled]="store.book()?.isFavorite"
                 ></lucide-icon>
               </button>
             </div>
 
-            @if (book()?.subtitle) {
-            <h3 class="book-subtitle">{{ book()?.subtitle }}</h3>
+            @if (store.book()?.subtitle) {
+            <h3 class="book-subtitle">{{ store.book()?.subtitle }}</h3>
             }
 
-            <h2 class="book-author">{{ book()?.author || 'Unknown Author' }}</h2>
+            <h2 class="book-author">{{ store.book()?.author || 'Unknown Author' }}</h2>
 
-            @if (book()?.editor) {
-            <div class="book-contributor">Edited by {{ book()?.editor }}</div>
-            } @if (book()?.translator) {
-            <div class="book-contributor">Translated by {{ book()?.translator }}</div>
+            @if (store.book()?.editor) {
+            <div class="book-contributor">Edited by {{ store.book()?.editor }}</div>
+            } @if (store.book()?.translator) {
+            <div class="book-contributor">Translated by {{ store.book()?.translator }}</div>
             }
 
             <div class="user-metadata-row">
               <app-star-rating
-                [rating]="book()?.rating || 0"
+                [rating]="store.book()?.rating || 0"
                 [size]="20"
                 (ratingChange)="onRate($event)"
               ></app-star-rating>
@@ -131,20 +131,20 @@
 
               <button
                 class="btn-icon finish-toggle-btn"
-                [class.active]="book()?.finishedAt"
+                [class.active]="store.book()?.finishedAt"
                 (click)="toggleFinished()"
-                [title]="book()?.finishedAt ? 'Mark as Unread' : 'Mark as Read'"
+                [title]="store.book()?.finishedAt ? 'Mark as Unread' : 'Mark as Read'"
               >
                 <lucide-icon
                   [img]="CheckCircleIcon"
                   [size]="20"
-                  [class.filled]="book()?.finishedAt"
+                  [class.filled]="store.book()?.finishedAt"
                 ></lucide-icon>
               </button>
 
               <button
                 class="btn-icon favorite-btn mobile-fav"
-                [class.active]="book()?.isFavorite"
+                [class.active]="store.book()?.isFavorite"
                 (click)="toggleFavorite()"
                 title="Toggle Favorite"
                 style="margin-top: 0"
@@ -152,19 +152,19 @@
                 <lucide-icon
                   [img]="HeartIcon"
                   [size]="24"
-                  [class.filled]="book()?.isFavorite"
+                  [class.filled]="store.book()?.isFavorite"
                 ></lucide-icon>
               </button>
             </div>
 
             <div class="primary-actions">
-              @if (book()?.hasFile) {
+              @if (store.book()?.hasFile) {
               <button class="btn btn-secondary" (click)="downloadFile()">
                 <lucide-icon [img]="BookDownIcon" [size]="18"></lucide-icon>
                 <span>Download File</span>
               </button>
 
-              @if (isAudioBook(book())) {
+              @if (isAudioBook(store.book())) {
               <button class="btn btn-primary" (click)="openReader()">
                 <lucide-icon [img]="HeadphonesIcon" [size]="18"></lucide-icon>
                 <span>Listen</span>
@@ -191,19 +191,19 @@
           </header>
 
           <div class="synopsis-metadata-block" [class.expanded]="isDescriptionExpanded()">
-            @if (book()?.personalReview) {
+            @if (store.book()?.personalReview) {
             <div class="personal-review">
               <div class="review-label">
                 <lucide-icon [img]="QuoteIcon" [size]="14"></lucide-icon> My Review
               </div>
-              <p class="review-text">{{ book()?.personalReview }}</p>
+              <p class="review-text">{{ store.book()?.personalReview }}</p>
             </div>
             }
 
             <div class="synopsis-content">
               <h4>Synopsis</h4>
-              @if (book()?.description) {
-              <p class="description-text">{{ book()?.description }}</p>
+              @if (store.book()?.description) {
+              <p class="description-text">{{ store.book()?.description }}</p>
 
               @if (!isDescriptionExpanded()) {
               <div class="fade-overlay"></div>
@@ -212,7 +212,7 @@
               }
             </div>
 
-            @if (book()?.description) {
+            @if (store.book()?.description) {
             <button class="expand-btn" (click)="toggleDescription()">
               {{ isDescriptionExpanded() ? 'Show Less' : 'Read More' }}
               <span class="icon">{{ isDescriptionExpanded() ? '↑' : '↓' }}</span>
@@ -220,29 +220,34 @@
             }
 
             <div class="meta-grid">
-              @if (book()?.series) {
+              @if (store.book()?.series) {
               <div class="meta-item full-width">
                 <span class="label">Series</span>
                 <span class="value">
-                  {{ book()?.series }} {{ book()?.volumeNumber ? '#' + book()?.volumeNumber : '' }}
+                  {{ store.book()?.series }}
+                  {{ store.book()?.volumeNumber ? '#' + store.book()?.volumeNumber : '' }}
                 </span>
               </div>
-              } @if (isAudioBook(book()) && book()?.narrator) {
+              } @if (isAudioBook(store.book()) && store.book()?.narrator) {
               <div class="meta-item full-width">
                 <span class="label"
                   ><lucide-icon [img]="MicIcon" [size]="12"></lucide-icon> Narrator</span
                 >
-                <span class="value">{{ book()?.narrator }}</span>
+                <span class="value">{{ store.book()?.narrator }}</span>
               </div>
               }
               <div class="meta-item">
                 <span class="label">
-                  @if (isAudioBook(book())) {
+                  @if (isAudioBook(store.book())) {
                   <lucide-icon [img]="ClockIcon" [size]="12"></lucide-icon> Duration } @else {
                   <lucide-icon [img]="LayersIcon" [size]="12"></lucide-icon> Pages }
                 </span>
                 <span class="value">
-                  {{ (isAudioBook(book()) ? book()?.duration : book()?.pageCount) || '—' }}
+                  {{
+                    (isAudioBook(store.book())
+                      ? store.book()?.duration
+                      : store.book()?.pageCount) || '—'
+                  }}
                 </span>
               </div>
 
@@ -250,57 +255,57 @@
                 <span class="label"
                   ><lucide-icon [img]="CalendarIcon" [size]="12"></lucide-icon> Published</span
                 >
-                <span class="value">{{ book()?.publishedDate || '—' }}</span>
+                <span class="value">{{ store.book()?.publishedDate || '—' }}</span>
               </div>
 
               <div class="meta-item">
                 <span class="label"
                   ><lucide-icon [img]="BuildingIcon" [size]="12"></lucide-icon> Publisher</span
                 >
-                <span class="value">{{ book()?.publisher || '—' }}</span>
+                <span class="value">{{ store.book()?.publisher || '—' }}</span>
               </div>
 
               <div class="meta-item">
                 <span class="label"
                   ><lucide-icon [img]="MapPinIcon" [size]="12"></lucide-icon> Location</span
                 >
-                <span class="value">{{ book()?.placeOfPublication || '—' }}</span>
+                <span class="value">{{ store.book()?.placeOfPublication || '—' }}</span>
               </div>
 
               <div class="meta-item">
                 <span class="label">Edition</span>
-                <span class="value">{{ book()?.edition || '—' }}</span>
+                <span class="value">{{ store.book()?.edition || '—' }}</span>
               </div>
 
               <div class="meta-item">
                 <span class="label"
                   ><lucide-icon [img]="HashIcon" [size]="12"></lucide-icon>
-                  {{ isAudioBook(book()) ? 'ASIN' : 'ISBN' }}
+                  {{ isAudioBook(store.book()) ? 'ASIN' : 'ISBN' }}
                 </span>
                 <span class="value">
-                  {{ (isAudioBook(book()) ? book()?.asin : book()?.isbn) || '—' }}
+                  {{ (isAudioBook(store.book()) ? store.book()?.asin : store.book()?.isbn) || '—' }}
                 </span>
               </div>
 
               <div class="meta-item">
                 <span class="label">Language</span>
-                <span class="value">{{ book()?.language || '—' | uppercase }}</span>
+                <span class="value">{{ store.book()?.language || '—' | uppercase }}</span>
               </div>
 
-              @if(book()?.categories) {
+              @if(store.book()?.categories) {
               <div class="meta-item full-width">
                 <span class="label">Genres</span>
                 <div class="value" style="display: flex; gap: 0.5rem; flex-wrap: wrap">
-                  @for(cat of book()?.categories?.split(','); track cat) {
+                  @for(cat of store.book()?.categories?.split(','); track cat) {
                   <span class="tag">{{ cat.trim() }}</span>
                   }
                 </div>
               </div>
-              } @if(book()?.collectionId) {
+              } @if(store.book()?.collectionId) {
               <div class="meta-item full-width">
                 <span class="label">Collection</span>
                 <span class="value">
-                  {{ getCollectionName(book()?.collectionId) }}
+                  {{ getCollectionName(store.book()?.collectionId) }}
                 </span>
               </div>
               }
@@ -312,7 +317,7 @@
           <div class="notes-container">
             <div class="notes-header">
               <h3>Personal Notes</h3>
-              <span class="badge-count">{{ notes().length }}</span>
+              <span class="badge-count">{{ store.notes().length }}</span>
             </div>
 
             <div class="new-note-box">
@@ -329,10 +334,10 @@
             </div>
 
             <div class="notes-feed">
-              @for (note of notes(); track note.id) {
+              @for (note of store.notes(); track note.id) {
               <app-note-card
                 [note]="note"
-                [conceptMap]="conceptMap()"
+                [conceptMap]="store.conceptMap()"
                 (update)="onUpdateNote($event)"
                 (delete)="onDeleteNote($event)"
                 (conceptClick)="onConceptClick($event)"
@@ -348,8 +353,8 @@
 
   <app-add-book-modal
     [isOpen]="showMetadataModal()"
-    [book]="book()!"
-    [collections]="collections()"
+    [book]="store.book()!"
+    [collections]="store.collections()"
     (closeModal)="closeMetadataModal()"
     (bookUpdated)="onBookUpdated($event)"
   >
