@@ -254,6 +254,12 @@
 .reader-toolbar .icon-btn {
   border-radius: var(--radius-md);
 }
+
+.toc-subitems {
+  padding-left: 1.5rem; /* Indent children */
+  border-left: 1px solid rgba(0, 0, 0, 0.1); /* Optional: visual guide line */
+}
+
 @media (max-width: 768px) {
   .notes-panel,
   .toc-panel {

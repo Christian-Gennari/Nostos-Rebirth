@@ -27,12 +27,29 @@
           <lucide-icon [img]="Icons.Close" [size]="20"></lucide-icon>
         </button>
       </div>
+
       <div class="toc-list">
-        @for (item of toc(); track $index) {
-        <div class="toc-item" (click)="handleTocClick(item)">
-          {{ item.label }}
-        </div>
-        } @empty {
+        <ng-template #tocTemplate let-items>
+          @for (item of items; track $index) {
+          <div class="toc-item-wrapper">
+            <div class="toc-item" (click)="handleTocClick(item)">
+              {{ item.label }}
+            </div>
+
+            @if (item.children && item.children.length > 0) {
+            <div class="toc-subitems">
+              <ng-container
+                *ngTemplateOutlet="tocTemplate; context: { $implicit: item.children }"
+              ></ng-container>
+            </div>
+            }
+          </div>
+          }
+        </ng-template>
+
+        <ng-container *ngTemplateOutlet="tocTemplate; context: { $implicit: toc() }"></ng-container>
+
+        @if (toc().length === 0) {
         <div class="empty-state">No Table of Contents available.</div>
         }
       </div>
