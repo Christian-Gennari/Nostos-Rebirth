@@ -235,6 +235,10 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       editor.on('Change Undo Redo blur', () => this.onHtmlChange(editor.getContent()));
       editor.on('init', () => {
         editor.getBody().style.opacity = '1';
+        // Optional: Safety check in case content loaded before init
+        if (this.htmlContent && !editor.getContent()) {
+          editor.setContent(this.htmlContent);
+        }
       });
     },
   };
@@ -244,17 +248,21 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     effect(async () => {
       const markdown = this.initialContent();
 
-      // If editor is active, update it
+      // PARSE FIRST
+      // This ensures we have the HTML ready before deciding where to put it
+      const html = await marked.parse(markdown);
+
+      // Always update local model (used by template/init)
+      this.htmlContent = html;
+
+      // NOW check if editor exists.
+      // If editor initialized WHILE we were awaiting parse, this will now be true.
       if (this.editor) {
         // Only update if content is significantly different to avoid cursor jumping
         const currentMarkdown = this.turndownService.turndown(this.editor.getContent());
         if (currentMarkdown.trim() !== markdown.trim()) {
-          this.editor.setContent(await marked.parse(markdown), { format: 'html' });
+          this.editor.setContent(html);
         }
-      } else {
-        // If editor is not ready (e.g. detached), just update the local model
-        // so it will be used when we re-init.
-        this.htmlContent = await marked.parse(markdown);
       }
     });
 
