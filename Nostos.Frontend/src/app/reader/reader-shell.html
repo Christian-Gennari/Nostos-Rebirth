@@ -127,9 +127,19 @@
       </button>
 
       <div class="progress-display">
+        @if (progressState()?.pageNumber) {
+        <div class="page-navigation">
+          <input
+            type="number"
+            class="page-input"
+            [value]="progressState()?.pageNumber"
+            (keyup.enter)="onPageInput($event)"
+          />
+          <span class="total-pages"> / {{ progressState()?.pageCount }}</span>
+        </div>
+        } @else {
         <span>{{ progressLabel() }}</span>
-
-        @if (progressTooltip()) {
+        } @if (progressTooltip()) {
         <div class="info-tooltip">
           <lucide-icon [img]="Icons.Info" [size]="14"></lucide-icon>
           <span class="tooltip-text">{{ progressTooltip() }}</span>

@@ -277,4 +277,15 @@ export class ReaderShell implements OnInit {
     if (id) this.router.navigate(['/library', id]);
     else this.router.navigate(['/library']);
   }
+
+  onPageInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const page = parseInt(input.value, 10);
+
+    // check if it's a valid number and we have a reader
+    if (!isNaN(page) && this.activeReader()) {
+      this.activeReader()?.goTo(page);
+      input.blur(); // Optional: remove focus after jumping
+    }
+  }
 }

@@ -11,6 +11,8 @@ export interface ReaderProgress {
   label: string; // "Page 5 of 200" or "05:12 / 14:00 or 12% of book"
   percentage: number; // 0 to 100 (for progress bars)
   tooltip?: string; // "1% ≈ 4 min" (The pop-up hint) (For ebook)
+  pageNumber?: number; // Current page number (For PDF readers)
+  pageCount?: number; // Total number of pages (For PDF readers)
 }
 
 export interface IReader {

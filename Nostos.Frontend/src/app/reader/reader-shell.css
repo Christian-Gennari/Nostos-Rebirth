@@ -260,6 +260,32 @@
   border-left: 1px solid rgba(0, 0, 0, 0.1); /* Optional: visual guide line */
 }
 
+.page-navigation {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+
+.page-input {
+  width: 3ch; /* Auto-width based on characters */
+  min-width: 40px;
+  text-align: center;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 2px 4px;
+  background: transparent;
+  color: inherit;
+  font-weight: 500;
+}
+
+/* Remove spinner arrows from number input */
+.page-input::-webkit-outer-spin-button,
+.page-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 @media (max-width: 768px) {
   .notes-panel,
   .toc-panel {

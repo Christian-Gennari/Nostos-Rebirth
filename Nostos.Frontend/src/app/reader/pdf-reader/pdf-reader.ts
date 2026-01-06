@@ -265,7 +265,15 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
 
   private updateProgressState(page: number) {
     const percentage = this.totalPages > 0 ? Math.floor((page / this.totalPages) * 100) : 0;
-    this.progress.set({ label: `Page ${page} of ${this.totalPages}`, percentage });
+
+    // 👇 Update the signal with the specific page numbers
+    this.progress.set({
+      label: `Page ${page} of ${this.totalPages}`,
+      percentage,
+      pageNumber: page,
+      pageCount: this.totalPages,
+    });
+
     const location = JSON.stringify({ pageNumber: page, yPercent: 0, rects: [] });
     this.progressUpdater$.next({ location, percentage });
   }
