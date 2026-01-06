@@ -1,46 +1,182 @@
-## 🗺️ Roadmap & Status Update
+# Nostos Rebirth
 
-### ✅ Performance & Infrastructure (Completed)
+**Nostos Rebirth** is a modern, self-hosted Personal Knowledge Management (PKM) system and digital library. It seamlessly bridges the gap between consumption and creation by integrating a multi-format media library (E-books, Audiobooks, PDFs) with a "Second Brain" for concept mapping and a dedicated Writing Studio.
 
-- **Backend Optimization:**
-  - [x] **Pagination:** Implemented `page`/`pageSize` on `GET /api/books`.
-  - [x] **Streaming:** EPUBs now stream via Range Requests (no more RAM crashes).
-  - [x] **Database:** Switched to `EF.Functions.Like()` for fast, indexed search.
-  - [x] **Batching:** `ProcessConcepts` now batches DB operations in a single transaction.
-  - [x] **Background Workers:** Moved orphaned concept cleanup to `ConceptCleanupWorker`.
-- **Code Hygiene:**
-  - [x] **Strict Typing:** Refactored `BookLookupService` to use C# Records (no more `JsonNode`).
-  - [x] **Frontend Memory:** Applied `takeUntilDestroyed` and `OnPush` strategy.
-  - [x] **No Magic Strings:** Introduced `BookFilter` and `BookSort` enums.
+It is designed for users who want to own their data, linking the books they read directly to the thoughts and concepts they develop.
 
----
 
-### 📱 Mobile & Responsive UI
 
-- [x] **Restyle app-dock on mobile:** Removed gradient effect and tuned transparency.
-- [ ] **Fix "stuck hover" buttons:** Global buttons in `styles.css` need `@media (hover: hover)` wrappers to prevent double-tap issues on iOS/Android.
-- [ ] **Fix PDF note highlighting:** Mobile text selection events need handling in `pdf-reader.ts`.
-- [ ] **Fix PDF pagination reset:** Prevent position reset to top-left on orientation change/resize.
-- [ ] **Refactor CSS:** Break down the monolithic `styles.css` into modular partials or component-specific styles.
+## 🚀 Key Features
+
+### 📚 Universal Library
+
+Manage your entire collection in one place. Nostos supports distinct metadata and handling for:
+
+* **Physical Books:** Track your shelf, ISBN lookup, and reading status.
+* **E-Books (EPUB):** Built-in streaming reader with range request support for large files.
+* **PDFs:** Integrated viewer with virtualization.
+* **Audiobooks:** Web-based audio player with chapter support and metadata extraction.
+
+### 🧠 Second Brain & Note Taking
+
+Move beyond simple bookmarks.
+
+* **Contextual Notes:** Highlight text in EPUBs or PDFs and attach notes directly to that specific location (using CFI ranges).
+* **Concept Mapping:** Create and link abstract "Concepts" to build a knowledge graph.
+* **Deep Search:** Database-backed indexed search using `EF.Functions.Like` for performance.
 
 ### ✍️ Writing Studio
 
-- [ ] **Reference Generation:** Implement logic in `writing-studio.ts` to suggest links/citations.
-- [ ] **Fix Shadow Growth:** Ensure the container shadow scales with the editor content in `writing-studio.css`.
+A distraction-free environment to synthesize your reading into new content.
 
-### 📖 Reader Improvements
+* **Integrated Editor:** Write using a rich text/markdown editor.
+* **Reference System:** (Planned) Pull in citations and links from your library automatically.
 
-- [ ] **Add Bookmarks:** Add data model and UI for bookmarks in `pdf-reader.ts`, `epub-reader.ts`, and `audio-reader.ts`.
-- [x] **Fix PDF Sidebar:** Sidebar customization sections added to `pdf-reader.css`.
-- [ ] **Audio Reader ToC:** Populate the `chapters` signal in `audio-reader.ts` using the file metadata.
+### ⚡ High-Performance Architecture
 
-### 📚 Book Management & Components
+* **Streaming Content:** optimized for large media files; no memory crashes on large EPUBs.
+* **Background Processing:** Dedicated workers for cleanup and heavy lifting (e.g., `ConceptCleanupWorker`).
+* **Responsive UI:** Mobile-ready design with specialized touch handling.
 
-- [ ] **Dropdown Styling:** Create a custom dropdown component for `add-book-modal`.
-- [ ] **Collection Picker:** Implement a nested folder selector (Recursive Tree View).
-- [ ] **Improve Metadata Fetch:**
-  - [x] **ISBN Fetch:** Significantly improved robustness and merging logic in `BookLookupService.cs` (Strict Types + Regex).
-  - [ ] **ASIN Fetch:** Logic is currently set to `null`; needs a provider (e.g., OpenLibrary or a scraping fallback).
-- [ ] **Upload Feedback:**
-  - [x] **Add Modal:** Implemented in `AddBookModal`.
-  - [ ] **Book Details:** `BookDetail` currently only handles `HttpEventType.Response`. Need to handle `HttpEventType.UploadProgress` for the progress bar.
+
+
+## 🛠️ Tech Stack
+
+### Backend
+
+* **Framework:** .NET 10 (Preview) / ASP.NET Core
+* **Database:** SQLite (via Entity Framework Core 10)
+* **API:** Minimal APIs with OpenAPI/Swagger integration
+* **Audio Processing:** `z440.atl.core` for metadata extraction
+* **Architecture:**
+* Repository Pattern (`IBookRepository`)
+* Vertical Slice Architecture (Features organized by domain: Books, Notes, Concepts)
+* Background Hosted Services
+
+
+
+### Frontend
+
+* **Framework:** Angular 21
+* **Build Tool:** Angular CLI
+* **Core Libraries:**
+* `epubjs`: E-book rendering
+* `ngx-extended-pdf-viewer`: PDF rendering
+* `howler`: Audio playback
+* `lucide-angular`: Iconography
+* `tinymce` / `marked`: Content editing
+
+
+* **State & Performance:**
+* Signal-based reactivity
+* `OnPush` change detection
+* Virtual scrolling / Infinite scroll
+
+
+
+
+
+## 📂 Project Structure
+
+```text
+Nostos-Rebirth/
+├── Nostos.Backend/           # ASP.NET Core Web API
+│   ├── Data/                 # EF Core DbContext and Models
+│   ├── Features/             # Vertical slices (Endpoints + Logic)
+│   ├── Services/             # Core business logic (FileStorage, Metadata)
+│   └── Workers/              # Background tasks
+├── Nostos.Frontend/          # Angular SPA
+│   ├── src/app/
+│   │   ├── library/          # Book grid and management
+│   │   ├── reader/           # EPUB, PDF, and Audio players
+│   │   ├── second-brain/     # Concept graph and notes
+│   │   └── writing-studio/   # Content creation
+├── Nostos.Shared/            # Shared DTOs and Enums (C#)
+└── _brand-assets/            # Logos and design resources
+
+```
+
+
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+* [.NET 10 SDK](https://dotnet.microsoft.com/download) (or latest supported preview)
+* [Node.js](https://nodejs.org/) (LTS recommended)
+* [Angular CLI](https://angular.io/cli)
+
+### Backend Setup
+
+1. Navigate to the backend directory:
+```bash
+cd Nostos.Backend
+
+```
+
+
+2. Apply database migrations (SQLite database will be created as `nostos.db`):
+```bash
+dotnet ef database update
+
+```
+
+
+3. Run the API:
+```bash
+dotnet run
+
+```
+
+
+*The API will typically launch on `https://localhost:7xxx` (check console output).*
+
+### Frontend Setup
+
+1. Navigate to the frontend directory:
+```bash
+cd Nostos.Frontend
+
+```
+
+
+2. Install dependencies:
+```bash
+npm install
+
+```
+
+
+3. Start the development server:
+```bash
+ng serve
+
+```
+
+
+4. Open your browser to `http://localhost:4200`.
+
+
+
+## 🗺️ Roadmap
+
+The project is currently in active development.
+
+**Recently Completed:**
+
+* ✅ **Performance:** Implemented pagination, EPUB streaming, and batched DB operations.
+* ✅ **Code Hygiene:** Migration to C# Records and strict typing; Frontend memory leak fixes (`takeUntilDestroyed`).
+* ✅ **Search:** Optimized SQL indexing.
+
+**Upcoming Priorities:**
+
+* 🚧 **Mobile Experience:** Fix PDF note highlighting and interaction on touch devices.
+* 🚧 **Bookmarks:** Add robust bookmarking for all media types.
+* 🚧 **Metadata:** Implement ASIN fetching for Audiobooks.
+* 🚧 **Collection Picker:** Recursive tree view for better folder management.
+
+
+
+## 📄 License
+
+[MIT License](https://www.google.com/search?q=LICENSE)
