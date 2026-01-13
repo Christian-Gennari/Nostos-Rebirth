@@ -4,7 +4,12 @@
 
 It is designed for users who want to own their data, linking the books they read directly to the thoughts and concepts they develop.
 
+<div align="center">
+<img src="[https://github.com/user-attachments/assets/c267e5c2-b913-4280-9468-2caef8f23540](https://github.com/user-attachments/assets/c267e5c2-b913-4280-9468-2caef8f23540)" alt="main-library-view" width="100%">
+<em>The Main Library Dashboard</em>
+</div>
 
+---
 
 ## 🚀 Key Features
 
@@ -17,6 +22,35 @@ Manage your entire collection in one place. Nostos supports distinct metadata an
 * **PDFs:** Integrated viewer with virtualization.
 * **Audiobooks:** Web-based audio player with chapter support and metadata extraction.
 
+<details>
+<summary>📸 <strong>View Library & Management Screenshots</strong></summary>
+
+
+
+
+
+<table>
+<tr>
+<td width="50%">
+<strong>Book Details</strong>
+
+
+
+
+<img src="[https://github.com/user-attachments/assets/b079cc61-dc4b-4557-9548-7798d241cd6e](https://github.com/user-attachments/assets/b079cc61-dc4b-4557-9548-7798d241cd6e)" alt="book-details">
+</td>
+<td width="50%">
+<strong>Add Book Modal</strong>
+
+
+
+
+<img src="[https://github.com/user-attachments/assets/720d543d-9ba9-403c-998c-248f4be814a5](https://github.com/user-attachments/assets/720d543d-9ba9-403c-998c-248f4be814a5)" alt="add-book-modal">
+</td>
+</tr>
+</table>
+</details>
+
 ### 🧠 Second Brain & Note Taking
 
 Move beyond simple bookmarks.
@@ -25,6 +59,8 @@ Move beyond simple bookmarks.
 * **Concept Mapping:** Create and link abstract "Concepts" to build a knowledge graph.
 * **Deep Search:** Database-backed indexed search using `EF.Functions.Like` for performance.
 
+<img src="[https://github.com/user-attachments/assets/b38814ac-78ff-4ac9-bd0e-dd804dee433a](https://github.com/user-attachments/assets/b38814ac-78ff-4ac9-bd0e-dd804dee433a)" alt="second-brain" width="100%">
+
 ### ✍️ Writing Studio
 
 A distraction-free environment to synthesize your reading into new content.
@@ -32,13 +68,15 @@ A distraction-free environment to synthesize your reading into new content.
 * **Integrated Editor:** Write using a rich text/markdown editor.
 * **Reference System:** (Planned) Pull in citations and links from your library automatically.
 
+<img src="[https://github.com/user-attachments/assets/401e0738-78d7-43c0-ab50-916f2421d60f](https://github.com/user-attachments/assets/401e0738-78d7-43c0-ab50-916f2421d60f)" alt="writing-studio" width="100%">
+
 ### ⚡ High-Performance Architecture
 
 * **Streaming Content:** optimized for large media files; no memory crashes on large EPUBs.
 * **Background Processing:** Dedicated workers for cleanup and heavy lifting (e.g., `ConceptCleanupWorker`).
 * **Responsive UI:** Mobile-ready design with specialized touch handling.
 
-
+---
 
 ## 🛠️ Tech Stack
 
@@ -74,13 +112,13 @@ A distraction-free environment to synthesize your reading into new content.
 
 
 
-
+---
 
 ## 📂 Project Structure
 
 ```text
 Nostos-Rebirth/
-├── Nostos.Backend/           # ASP.NET Core Web API
+├── Nostos.Backend/             # ASP.NET Core Web API
 │   ├── Data/                 # EF Core DbContext and Models
 │   ├── Features/             # Vertical slices (Endpoints + Logic)
 │   ├── Services/             # Core business logic (FileStorage, Metadata)
@@ -95,8 +133,6 @@ Nostos-Rebirth/
 └── _brand-assets/            # Logos and design resources
 
 ```
-
-
 
 ## 🚀 Getting Started
 
@@ -156,8 +192,6 @@ ng serve
 
 4. Open your browser to `http://localhost:4200`.
 
-
-
 ## 🗺️ Roadmap
 
 The project is currently in active development.
@@ -174,8 +208,6 @@ The project is currently in active development.
 * 🚧 **Bookmarks:** Add robust bookmarking for all media types.
 * 🚧 **Metadata:** Implement ASIN fetching for Audiobooks.
 * 🚧 **Collection Picker:** Recursive tree view for better folder management.
-
-
 
 ## 📄 License
 
