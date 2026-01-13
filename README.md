@@ -5,7 +5,7 @@
 It is designed for users who want to own their data, linking the books they read directly to the thoughts and concepts they develop.
 
 <div align="center">
-<img src="[https://github.com/user-attachments/assets/c267e5c2-b913-4280-9468-2caef8f23540](https://github.com/user-attachments/assets/c267e5c2-b913-4280-9468-2caef8f23540)" alt="main-library-view" width="100%">
+  <img width="2559" height="1275" alt="main-library-view" src="https://github.com/user-attachments/assets/bcc8f37e-ba8a-4e34-942c-b78fbe52f12c" />
 <em>The Main Library Dashboard</em>
 </div>
 
@@ -36,8 +36,9 @@ Manage your entire collection in one place. Nostos supports distinct metadata an
 
 
 
+<img width="2559" height="1275" alt="book-details" src="https://github.com/user-attachments/assets/ddf4735e-28fc-4153-acb8-d147a5320ef8" />
 
-<img src="[https://github.com/user-attachments/assets/b079cc61-dc4b-4557-9548-7798d241cd6e](https://github.com/user-attachments/assets/b079cc61-dc4b-4557-9548-7798d241cd6e)" alt="book-details">
+
 </td>
 <td width="50%">
 <strong>Add Book Modal</strong>
@@ -45,7 +46,8 @@ Manage your entire collection in one place. Nostos supports distinct metadata an
 
 
 
-<img src="[https://github.com/user-attachments/assets/720d543d-9ba9-403c-998c-248f4be814a5](https://github.com/user-attachments/assets/720d543d-9ba9-403c-998c-248f4be814a5)" alt="add-book-modal">
+<img width="2558" height="1276" alt="add-book-modal" src="https://github.com/user-attachments/assets/7ca02323-c040-47f1-b3b4-85536fffe0b5" />
+
 </td>
 </tr>
 </table>
@@ -59,7 +61,7 @@ Move beyond simple bookmarks.
 * **Concept Mapping:** Create and link abstract "Concepts" to build a knowledge graph.
 * **Deep Search:** Database-backed indexed search using `EF.Functions.Like` for performance.
 
-<img src="[https://github.com/user-attachments/assets/b38814ac-78ff-4ac9-bd0e-dd804dee433a](https://github.com/user-attachments/assets/b38814ac-78ff-4ac9-bd0e-dd804dee433a)" alt="second-brain" width="100%">
+<img width="2558" height="1274" alt="second-brain" src="https://github.com/user-attachments/assets/865116ef-cb82-480b-af1f-91763731cc39" />
 
 ### ✍️ Writing Studio
 
@@ -68,7 +70,7 @@ A distraction-free environment to synthesize your reading into new content.
 * **Integrated Editor:** Write using a rich text/markdown editor.
 * **Reference System:** (Planned) Pull in citations and links from your library automatically.
 
-<img src="[https://github.com/user-attachments/assets/401e0738-78d7-43c0-ab50-916f2421d60f](https://github.com/user-attachments/assets/401e0738-78d7-43c0-ab50-916f2421d60f)" alt="writing-studio" width="100%">
+<img width="2553" height="1274" alt="writing-studio" src="https://github.com/user-attachments/assets/ed6659ba-80b8-4f78-a069-9b714b273066" />
 
 ### ⚡ High-Performance Architecture
 
