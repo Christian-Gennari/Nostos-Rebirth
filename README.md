@@ -4,7 +4,12 @@
 
 It is designed for users who want to own their data, linking the books they read directly to the thoughts and concepts they develop.
 
+<div align="center">
+  <img width="2559" height="1275" alt="main-library-view" src="https://github.com/user-attachments/assets/bcc8f37e-ba8a-4e34-942c-b78fbe52f12c" />
+<em>The Main Library Dashboard</em>
+</div>
 
+---
 
 ## 🚀 Key Features
 
@@ -17,6 +22,37 @@ Manage your entire collection in one place. Nostos supports distinct metadata an
 * **PDFs:** Integrated viewer with virtualization.
 * **Audiobooks:** Web-based audio player with chapter support and metadata extraction.
 
+<details>
+<summary>📸 <strong>View Library & Management Screenshots</strong></summary>
+
+
+
+
+
+<table>
+<tr>
+<td width="50%">
+<strong>Book Details</strong>
+
+
+
+<img width="2559" height="1275" alt="book-details" src="https://github.com/user-attachments/assets/ddf4735e-28fc-4153-acb8-d147a5320ef8" />
+
+
+</td>
+<td width="50%">
+<strong>Add Book Modal</strong>
+
+
+
+
+<img width="2558" height="1276" alt="add-book-modal" src="https://github.com/user-attachments/assets/7ca02323-c040-47f1-b3b4-85536fffe0b5" />
+
+</td>
+</tr>
+</table>
+</details>
+
 ### 🧠 Second Brain & Note Taking
 
 Move beyond simple bookmarks.
@@ -25,6 +61,8 @@ Move beyond simple bookmarks.
 * **Concept Mapping:** Create and link abstract "Concepts" to build a knowledge graph.
 * **Deep Search:** Database-backed indexed search using `EF.Functions.Like` for performance.
 
+<img width="2558" height="1274" alt="second-brain" src="https://github.com/user-attachments/assets/865116ef-cb82-480b-af1f-91763731cc39" />
+
 ### ✍️ Writing Studio
 
 A distraction-free environment to synthesize your reading into new content.
@@ -32,13 +70,15 @@ A distraction-free environment to synthesize your reading into new content.
 * **Integrated Editor:** Write using a rich text/markdown editor.
 * **Reference System:** (Planned) Pull in citations and links from your library automatically.
 
+<img width="2553" height="1274" alt="writing-studio" src="https://github.com/user-attachments/assets/ed6659ba-80b8-4f78-a069-9b714b273066" />
+
 ### ⚡ High-Performance Architecture
 
 * **Streaming Content:** optimized for large media files; no memory crashes on large EPUBs.
 * **Background Processing:** Dedicated workers for cleanup and heavy lifting (e.g., `ConceptCleanupWorker`).
 * **Responsive UI:** Mobile-ready design with specialized touch handling.
 
-
+---
 
 ## 🛠️ Tech Stack
 
@@ -74,13 +114,13 @@ A distraction-free environment to synthesize your reading into new content.
 
 
 
-
+---
 
 ## 📂 Project Structure
 
 ```text
 Nostos-Rebirth/
-├── Nostos.Backend/           # ASP.NET Core Web API
+├── Nostos.Backend/             # ASP.NET Core Web API
 │   ├── Data/                 # EF Core DbContext and Models
 │   ├── Features/             # Vertical slices (Endpoints + Logic)
 │   ├── Services/             # Core business logic (FileStorage, Metadata)
@@ -95,8 +135,6 @@ Nostos-Rebirth/
 └── _brand-assets/            # Logos and design resources
 
 ```
-
-
 
 ## 🚀 Getting Started
 
@@ -156,8 +194,6 @@ ng serve
 
 4. Open your browser to `http://localhost:4200`.
 
-
-
 ## 🗺️ Roadmap
 
 The project is currently in active development.
@@ -174,8 +210,6 @@ The project is currently in active development.
 * 🚧 **Bookmarks:** Add robust bookmarking for all media types.
 * 🚧 **Metadata:** Implement ASIN fetching for Audiobooks.
 * 🚧 **Collection Picker:** Recursive tree view for better folder management.
-
-
 
 ## 📄 License
 
