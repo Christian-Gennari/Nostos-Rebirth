@@ -23,11 +23,19 @@
   color: var(--color-primary);
   margin-bottom: 2rem;
   opacity: 0.8;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#nostos-logo {
+  width: 300px;
+  height: auto;
 }
 
 /* Typography */
 .hero-title {
-  font-family: "Lora", serif;
+  font-family: 'Lora', serif;
   font-size: 4.5rem;
   font-weight: 500;
   letter-spacing: -0.03em;
@@ -45,14 +53,13 @@
 }
 
 .hero-subtitle {
-  font-family: "Inter", sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 1.1rem;
   line-height: 1.6;
   color: var(--color-text-muted);
   font-weight: 300;
   margin-bottom: 3rem;
 }
-
 
 .hero-footer {
   position: absolute;
@@ -65,6 +72,26 @@
 
 /* Animations */
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .hero-title {
+    font-size: 3rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1rem;
+  }
+
+  #nostos-logo {
+    width: 200px;
+  }
 }
