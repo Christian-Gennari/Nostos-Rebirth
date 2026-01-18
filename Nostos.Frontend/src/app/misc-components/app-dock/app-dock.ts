@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, Router } from '@angular/router';
-import { LucideAngularModule, Library, BrainCircuit, PenTool } from 'lucide-angular';
+import { LucideAngularModule, Library, PenTool, BrainCog } from 'lucide-angular';
 import { CollectionsService } from '../../services/collections.services';
 import { NavigationHistoryService } from '../../services/navigation-history.service';
 
@@ -107,7 +107,9 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
 
         /* Animate it */
         animation: rotate-gradient 6s linear infinite;
-        transition: opacity 0.3s ease, filter 0.3s ease;
+        transition:
+          opacity 0.3s ease,
+          filter 0.3s ease;
       }
 
       /* --- THE GLASS FOREGROUND --- */
@@ -158,7 +160,10 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
         font-weight: 600;
         letter-spacing: 0.01em;
         opacity: 0.9;
-        transition: opacity 0.3s ease, max-height 0.3s ease, transform 0.3s ease;
+        transition:
+          opacity 0.3s ease,
+          max-height 0.3s ease,
+          transform 0.3s ease;
       }
 
       /* --- DESKTOP / TABLET (HOVER ENABLED) --- */
@@ -264,7 +269,7 @@ export class AppDockComponent {
   private router = inject(Router);
 
   LibraryIcon = Library;
-  BrainIcon = BrainCircuit;
+  BrainIcon = BrainCog;
   PenToolIcon = PenTool;
 
   getLink(prefix: string): string {
