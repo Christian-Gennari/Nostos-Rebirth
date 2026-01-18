@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <SpaRoot>..\Nostos.Frontend\</SpaRoot>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,8 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
-  <ProjectReference Include="..\Nostos.Shared\Nostos.Shared.csproj" />
-</ItemGroup>
+    <ProjectReference Include="..\Nostos.Shared\Nostos.Shared.csproj" />
+  </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Storage\" />
@@ -27,7 +28,22 @@
   </ItemGroup>
 
   <ItemGroup>
-  <None Include="Storage\**" CopyToOutputDirectory="PreserveNewest" />
-</ItemGroup>
+    <None Include="Storage\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="BuildFrontend" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Release' ">
+    <Message Text="Building Angular Frontend (Release Mode)..." Importance="high" />
+
+    <Exec Command="npm install" WorkingDirectory="$(SpaRoot)" Condition="!Exists('$(SpaRoot)node_modules') And '$(OS)' != 'Windows_NT'" />
+    <Exec Command="npm.cmd install" WorkingDirectory="$(SpaRoot)" Condition="!Exists('$(SpaRoot)node_modules') And '$(OS)' == 'Windows_NT'" />
+
+    <Exec Command="npm run build" WorkingDirectory="$(SpaRoot)" Condition="'$(OS)' != 'Windows_NT'" />
+    <Exec Command="npm.cmd run build" WorkingDirectory="$(SpaRoot)" Condition="'$(OS)' == 'Windows_NT'" />
+
+    <ItemGroup>
+      <FrontendFiles Include="$(SpaRoot)dist\Nostos.Frontend\browser\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(FrontendFiles)" DestinationFolder="wwwroot\%(RecursiveDir)" SkipUnchangedFiles="false" />
+  </Target>
 
 </Project>

@@ -6,6 +6,7 @@
 
 # File storage
 Nostos.Backend/Storage
+Nostos.Backend/wwwroot
 Nostos.Frontend/dist
 
 Nostos.Frontend/.angular
