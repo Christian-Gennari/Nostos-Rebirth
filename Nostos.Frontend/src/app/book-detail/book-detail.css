@@ -96,7 +96,9 @@
   cursor: pointer;
   padding: 4px;
   color: var(--color-text-muted);
-  transition: transform 0.2s, color 0.2s;
+  transition:
+    transform 0.2s,
+    color 0.2s;
   flex-shrink: 0;
   margin-top: 0.5rem;
 }
@@ -152,7 +154,9 @@
   cursor: pointer;
   padding: 4px;
   color: var(--color-text-muted);
-  transition: transform 0.2s, color 0.2s;
+  transition:
+    transform 0.2s,
+    color 0.2s;
   flex-shrink: 0;
 }
 .finish-toggle-btn:hover {
@@ -438,6 +442,7 @@
   .detail-grid {
     grid-template-columns: 1fr;
     gap: 2rem;
+    padding-bottom: 80px;
   }
   .detail-cover-col {
     width: 100%;
