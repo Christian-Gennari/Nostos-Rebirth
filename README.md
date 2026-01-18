@@ -1,15 +1,19 @@
 # Nostos Rebirth
 
-**Nostos Rebirth** is a modern, self-hosted Personal Knowledge Management (PKM) system and digital library. It seamlessly bridges the gap between consumption and creation by integrating a multi-format media library (E-books, Audiobooks, PDFs) with a "Second Brain" for concept mapping and a dedicated Writing Studio.
+**Nostos Rebirth** is a modern, self-hosted Personal Knowledge Management system and digital library. It bridges consumption and creation by integrating a multi-format media library (e-books, audiobooks, PDFs) with a Second Brain for concept mapping and a dedicated Writing Studio.
 
-It is designed for users who want to own their data, linking the books they read directly to the thoughts and concepts they develop.
+It is designed for users who want full data ownership while linking what they read directly to the ideas they develop.
 
 <div align="center">
-  <img width="2559" height="1275" alt="main-library-view" src="https://github.com/user-attachments/assets/bcc8f37e-ba8a-4e34-942c-b78fbe52f12c" />
-<em>The Main Library Dashboard</em>
+  <img
+    width="2559"
+    height="1275"
+    alt="main-library-view"
+    src="https://github.com/user-attachments/assets/bcc8f37e-ba8a-4e34-942c-b78fbe52f12c"
+  />
+  <br />
+  <em>The Main Library Dashboard</em>
 </div>
-
----
 
 ## 🚀 Key Features
 
@@ -17,200 +21,201 @@ It is designed for users who want to own their data, linking the books they read
 
 Manage your entire collection in one place. Nostos supports distinct metadata and handling for:
 
-* **Physical Books:** Track your shelf, ISBN lookup, and reading status.
-* **E-Books (EPUB):** Built-in streaming reader with range request support for large files.
-* **PDFs:** Integrated viewer with virtualization.
-* **Audiobooks:** Web-based audio player with chapter support and metadata extraction.
+- **Physical Books:** Track your shelf, ISBN lookup, and reading status
+- **E-Books (EPUB):** Built-in streaming reader with range request support for large files
+- **PDFs:** Integrated viewer with virtualization
+- **Audiobooks:** Web-based audio player with chapter support and metadata extraction
 
 <details>
-<summary>📸 <strong>View Library & Management Screenshots</strong></summary>
+  <summary>📸 <strong>View Library & Management Screenshots</strong></summary>
 
+  <br />
 
-
-
-
-<table>
-<tr>
-<td width="50%">
-<strong>Book Details</strong>
-
-
-
-<img width="2559" height="1275" alt="book-details" src="https://github.com/user-attachments/assets/ddf4735e-28fc-4153-acb8-d147a5320ef8" />
-
-
-</td>
-<td width="50%">
-<strong>Add Book Modal</strong>
-
-
-
-
-<img width="2558" height="1276" alt="add-book-modal" src="https://github.com/user-attachments/assets/7ca02323-c040-47f1-b3b4-85536fffe0b5" />
-
-</td>
-</tr>
-</table>
+  <table>
+    <tr>
+      <td width="50%">
+        <strong>Book Details</strong><br /><br />
+        <img
+          width="2559"
+          height="1275"
+          alt="book-details"
+          src="https://github.com/user-attachments/assets/ddf4735e-28fc-4153-acb8-d147a5320ef8"
+        />
+      </td>
+      <td width="50%">
+        <strong>Add Book Modal</strong><br /><br />
+        <img
+          width="2558"
+          height="1276"
+          alt="add-book-modal"
+          src="https://github.com/user-attachments/assets/7ca02323-c040-47f1-b3b4-85536fffe0b5"
+        />
+      </td>
+    </tr>
+  </table>
 </details>
 
 ### 🧠 Second Brain & Note Taking
 
 Move beyond simple bookmarks.
 
-* **Contextual Notes:** Highlight text in EPUBs or PDFs and attach notes directly to that specific location (using CFI ranges).
-* **Concept Mapping:** Create and link abstract "Concepts" to build a knowledge graph.
-* **Deep Search:** Database-backed indexed search using `EF.Functions.Like` for performance.
+- **Contextual Notes:** Highlight text in EPUBs or PDFs and attach notes directly to that location using CFI ranges
+- **Concept Mapping:** Create and link abstract concepts to build a knowledge graph
+- **Deep Search:** Database-backed indexed search using `EF.Functions.Like` for performance
 
-<img width="2558" height="1274" alt="second-brain" src="https://github.com/user-attachments/assets/865116ef-cb82-480b-af1f-91763731cc39" />
+<img
+  width="2558"
+  height="1274"
+  alt="second-brain"
+  src="https://github.com/user-attachments/assets/865116ef-cb82-480b-af1f-91763731cc39"
+/>
 
 ### ✍️ Writing Studio
 
-A distraction-free environment to synthesize your reading into new content.
+A distraction-free environment for synthesizing reading into new work.
 
-* **Integrated Editor:** Write using a rich text/markdown editor.
-* **Reference System:** (Planned) Pull in citations and links from your library automatically.
+- **Integrated Editor:** Rich text and Markdown editing
+- **Reference System:** Planned support for automatic citations from the library
 
-<img width="2553" height="1274" alt="writing-studio" src="https://github.com/user-attachments/assets/ed6659ba-80b8-4f78-a069-9b714b273066" />
+<img
+  width="2553"
+  height="1274"
+  alt="writing-studio"
+  src="https://github.com/user-attachments/assets/ed6659ba-80b8-4f78-a069-9b714b273066"
+/>
 
 ### ⚡ High-Performance Architecture
 
-* **Streaming Content:** optimized for large media files; no memory crashes on large EPUBs.
-* **Background Processing:** Dedicated workers for cleanup and heavy lifting (e.g., `ConceptCleanupWorker`).
-* **Responsive UI:** Mobile-ready design with specialized touch handling.
-
----
+- **Streaming Content:** Optimized for large media files
+- **Background Processing:** Dedicated workers for cleanup and heavy lifting
+- **Responsive UI:** Mobile-ready layout with specialized touch handling
 
 ## 🛠️ Tech Stack
 
 ### Backend
 
-* **Framework:** .NET 10 (Preview) / ASP.NET Core
-* **Database:** SQLite (via Entity Framework Core 10)
-* **API:** Minimal APIs with OpenAPI/Swagger integration
-* **Audio Processing:** `z440.atl.core` for metadata extraction
-* **Architecture:**
-* Repository Pattern (`IBookRepository`)
-* Vertical Slice Architecture (Features organized by domain: Books, Notes, Concepts)
-* Background Hosted Services
-
-
+- **Framework:** .NET 10 Preview / ASP.NET Core
+- **Database:** SQLite via Entity Framework Core 10
+- **API:** Minimal APIs with OpenAPI and Swagger
+- **Audio Processing:** `z440.atl.core`
+- **Architecture:**
+  - Repository Pattern
+  - Vertical Slice Architecture
+  - Background Hosted Services
 
 ### Frontend
 
-* **Framework:** Angular 21
-* **Build Tool:** Angular CLI
-* **Core Libraries:**
-* `epubjs`: E-book rendering
-* `ngx-extended-pdf-viewer`: PDF rendering
-* `howler`: Audio playback
-* `lucide-angular`: Iconography
-* `tinymce` / `marked`: Content editing
-
-
-* **State & Performance:**
-* Signal-based reactivity
-* `OnPush` change detection
-* Virtual scrolling / Infinite scroll
-
-
-
----
+- **Framework:** Angular 21
+- **Build Tool:** Angular CLI
+- **Core Libraries:**
+  - `epubjs`
+  - `ngx-extended-pdf-viewer`
+  - `howler`
+  - `lucide-angular`
+  - `tinymce`, `marked`
+- **State & Performance:**
+  - Signal-based reactivity
+  - `OnPush` change detection
+  - Virtual and infinite scrolling
 
 ## 📂 Project Structure
 
 ```text
 Nostos-Rebirth/
-├── Nostos.Backend/             # ASP.NET Core Web API
-│   ├── Data/                 # EF Core DbContext and Models
-│   ├── Features/             # Vertical slices (Endpoints + Logic)
-│   ├── Services/             # Core business logic (FileStorage, Metadata)
-│   └── Workers/              # Background tasks
-├── Nostos.Frontend/          # Angular SPA
-│   ├── src/app/
-│   │   ├── library/          # Book grid and management
-│   │   ├── reader/           # EPUB, PDF, and Audio players
-│   │   ├── second-brain/     # Concept graph and notes
-│   │   └── writing-studio/   # Content creation
-├── Nostos.Shared/            # Shared DTOs and Enums (C#)
-└── _brand-assets/            # Logos and design resources
-
+├── Nostos.Backend/
+│   ├── Data/
+│   ├── Features/
+│   ├── Services/
+│   └── Workers/
+├── Nostos.Frontend/
+│   └── src/app/
+│       ├── library/
+│       ├── reader/
+│       ├── second-brain/
+│       └── writing-studio/
+├── Nostos.Shared/
+└── _brand-assets/
 ```
 
-## 🚀 Getting Started
 
-### Prerequisites
+## 🚀 Running the Application
 
-* [.NET 10 SDK](https://dotnet.microsoft.com/download) (or latest supported preview)
-* [Node.js](https://nodejs.org/) (LTS recommended)
-* [Angular CLI](https://angular.io/cli)
+The application supports two running modes: **Development** (for active coding with hot-reload) and **Production** (unified build).
 
-### Backend Setup
+### 1. Development Mode (Hot Reload)
 
-1. Navigate to the backend directory:
+Use this mode when you are actively writing code. The Frontend and Backend run as separate processes to enable Angular's hot module replacement (HMR).
+
+**Step 1: Start the Backend**
+Runs the API server on port `5214`.
+
 ```bash
 cd Nostos.Backend
-
-```
-
-
-2. Apply database migrations (SQLite database will be created as `nostos.db`):
-```bash
-dotnet ef database update
-
-```
-
-
-3. Run the API:
-```bash
 dotnet run
-
 ```
 
+**Step 2: Start the Frontend**
+Runs the Angular development server on port `4200`.
 
-*The API will typically launch on `https://localhost:7xxx` (check console output).*
-
-### Frontend Setup
-
-1. Navigate to the frontend directory:
 ```bash
 cd Nostos.Frontend
-
-```
-
-
-2. Install dependencies:
-```bash
-npm install
-
-```
-
-
-3. Start the development server:
-```bash
+npm start
+# OR
 ng serve
-
 ```
 
+**Access the App:**
 
-4. Open your browser to `http://localhost:4200`.
+* Go to **[http://localhost:4200](https://www.google.com/search?q=http://localhost:4200)**
+* *Note: The frontend automatically proxies API requests to the backend.*
+
+---
+
+### 2. Production / Preview Mode (Unified)
+
+Use this mode to test the final build or run the application as a single deployable unit. The backend will automatically install dependencies, build the Angular frontend, and serve the static files from `wwwroot`.
+
+**Command:**
+
+```bash
+cd Nostos.Backend
+dotnet run -c Release
+```
+
+**What happens:**
+
+1. Backend triggers `npm install` and `npm run build` for the frontend.
+2. Frontend build artifacts are copied to the backend's `wwwroot` folder.
+3. Database migrations are automatically applied.
+4. The application starts as a single unit.
+
+**Access the App:**
+
+* Go to **[http://localhost:5214](http://localhost:5214)**
+
+### 🔧 Configuration Notes
+
+* **Proxy:** In Development mode, `proxy.conf.json` handles CORS by forwarding requests from `localhost:4200/api` to `localhost:5214`.
+* **Database:** The SQLite database (`nostos.db`) is automatically migrated on startup in both modes.
 
 ## 🗺️ Roadmap
 
-The project is currently in active development.
+**Recently Completed**
 
-**Recently Completed:**
+* ✅ Performance improvements for streaming and pagination
+* ✅ Code hygiene and strict typing
+* ✅ Optimized search indexing
 
-* ✅ **Performance:** Implemented pagination, EPUB streaming, and batched DB operations.
-* ✅ **Code Hygiene:** Migration to C# Records and strict typing; Frontend memory leak fixes (`takeUntilDestroyed`).
-* ✅ **Search:** Optimized SQL indexing.
+**Upcoming Priorities**
 
-**Upcoming Priorities:**
+* 🚧 Mobile interaction improvements
+* 🚧 Cross-media bookmarking
+* 🚧 Audiobook metadata enrichment
+* 🚧 Recursive collection picker
 
-* 🚧 **Mobile Experience:** Fix PDF note highlighting and interaction on touch devices.
-* 🚧 **Bookmarks:** Add robust bookmarking for all media types.
-* 🚧 **Metadata:** Implement ASIN fetching for Audiobooks.
-* 🚧 **Collection Picker:** Recursive tree view for better folder management.
+---
 
 ## 📄 License
 
-[MIT License](https://www.google.com/search?q=LICENSE)
+MIT License
+
