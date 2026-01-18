@@ -29,10 +29,6 @@ builder.Services.Configure<FormOptions>(options =>
     options.MultipartBodyLengthLimit = maxUploadSizeGB;
 });
 
-builder.Services.AddCors(opt =>
-{
-    opt.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
-});
 builder.Services.AddOpenApi();
 
 // Services Dependency Injection
@@ -46,9 +42,22 @@ builder.Services.AddHostedService<ConceptCleanupWorker>();
 
 var app = builder.Build();
 
+// --- AUTOMATIC DATABASE MIGRATION ---
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<NostosDbContext>();
+    db.Database.Migrate();
+}
+
+// ------------------------------------
+
 app.MapOpenApi();
 
-app.UseCors();
+// --- SERVE ANGULAR FRONTEND ---
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
+// ------------------------------
 
 // Map all endpoints
 app.MapBooksEndpoints();
@@ -56,6 +65,11 @@ app.MapNotesEndpoints();
 app.MapCollectionsEndpoints();
 app.MapConceptsEndpoints();
 app.MapWritingsEndpoints();
-app.MapOpdsEndpoints(); // <--- Added OPDS registration
+app.MapOpdsEndpoints();
+
+// --- HANDLE ANGULAR ROUTING ---
+app.MapFallbackToFile("index.html");
+
+// ------------------------------
 
 app.Run();
