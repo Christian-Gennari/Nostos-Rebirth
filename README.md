@@ -84,7 +84,7 @@ A distraction-free environment to synthesize your reading into new content.
 
 ### Backend
 
-* **Framework:** .NET 10 (Preview) / ASP.NET Core
+* **Framework:** .NET 10 / ASP.NET Core
 * **Database:** SQLite (via Entity Framework Core 10)
 * **API:** Minimal APIs with OpenAPI/Swagger integration
 * **Audio Processing:** `z440.atl.core` for metadata extraction
@@ -140,7 +140,7 @@ Nostos-Rebirth/
 
 ### Prerequisites
 
-* [.NET 10 SDK](https://dotnet.microsoft.com/download) (or latest supported preview)
+* [.NET 10 SDK](https://dotnet.microsoft.com/download)
 * [Node.js](https://nodejs.org/) (LTS recommended)
 * [Angular CLI](https://angular.io/cli)
 
