@@ -111,6 +111,38 @@ public static class BooksEndpoints
             }
         );
 
+        // GET Epub cached locations (Cached)
+        group.MapGet(
+            "/{id}/locations",
+            async (Guid id, IBookRepository repo) =>
+            {
+                var book = await repo.GetByIdAsync(id);
+                if (book is null)
+                    return Results.NotFound();
+
+                if (string.IsNullOrWhiteSpace(book.FileDetails.LocationsJson))
+                    return Results.NotFound();
+
+                return Results.Ok(new BookLocationsDto(book.FileDetails.LocationsJson));
+            }
+        );
+
+        // SAVE Locations (Cache them)
+        group.MapPost(
+            "/{id}/locations",
+            async (Guid id, BookLocationsDto dto, IBookRepository repo) =>
+            {
+                var book = await repo.GetByIdAsync(id);
+                if (book is null)
+                    return Results.NotFound();
+
+                book.FileDetails.LocationsJson = dto.Locations;
+                await repo.UpdateAsync(book);
+
+                return Results.Ok();
+            }
+        );
+
         // DELETE
         group.MapDelete(
             "/{id}",
@@ -173,6 +205,9 @@ public static class BooksEndpoints
 
                 book.FileDetails.HasFile = true;
                 book.FileDetails.FileName = $"book{Path.GetExtension(file.FileName)}";
+
+                // Clear old locations/chapters if a new file is uploaded
+                book.FileDetails.LocationsJson = null;
 
                 await repo.UpdateAsync(book);
                 return Results.Ok(new { uploaded = true });

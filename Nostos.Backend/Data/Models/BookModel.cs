@@ -73,6 +73,9 @@ public class FileInfoDetails
 
     // Store chapters as a JSON string
     public string? ChaptersJson { get; set; }
+
+    // Store epub.js locations (heavy JSON string) (For instant calculation of progress state, cache basically)
+    public string? LocationsJson { get; set; }
 }
 
 // --- SUBCLASSES (Remain mostly the same) ---

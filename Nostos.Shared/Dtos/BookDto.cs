@@ -8,6 +8,9 @@ public record PaginatedResponse<T>(IEnumerable<T> Items, int TotalCount, int Pag
 
 public record BookChapterDto(string Title, double StartTime);
 
+// Separate DTO for the heavy locations JSON to avoid bloating the main list
+public record BookLocationsDto(string Locations);
+
 public record BookDto(
     string Type,
     Guid Id,

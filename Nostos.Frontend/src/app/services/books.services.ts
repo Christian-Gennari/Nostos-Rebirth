@@ -18,6 +18,10 @@ export interface BookListOptions {
   pageSize?: number;
 }
 
+export interface BookLocationsDto {
+  locations: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class BooksService {
   constructor(private http: HttpClient) {}
@@ -54,6 +58,15 @@ export class BooksService {
   updateProgress(id: string, location: string, percentage: number): Observable<any> {
     const dto: UpdateProgressDto = { location, percentage };
     return this.http.put(`/api/books/${id}/progress`, dto);
+  }
+
+  // --- Cached Locations Management (instant epub progress state calculation) ---
+  getLocations(id: string): Observable<BookLocationsDto> {
+    return this.http.get<BookLocationsDto>(`/api/books/${id}/locations`);
+  }
+
+  saveLocations(id: string, locations: string): Observable<void> {
+    return this.http.post<void>(`/api/books/${id}/locations`, { locations });
   }
 
   uploadFile(bookId: string, file: File): Observable<any> {

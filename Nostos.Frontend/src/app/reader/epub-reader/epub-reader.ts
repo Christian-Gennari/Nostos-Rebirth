@@ -92,8 +92,8 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
       .pipe(
         debounceTime(1000),
         distinctUntilChanged(
-          (prev, curr) => prev.location === curr.location && prev.percentage === curr.percentage
-        )
+          (prev, curr) => prev.location === curr.location && prev.percentage === curr.percentage,
+        ),
       )
       .subscribe((data) => {
         this.booksService.updateProgress(this.bookId(), data.location, data.percentage).subscribe();
@@ -194,12 +194,33 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
           const toc = this.mapTocItems(this.book.navigation.toc);
           this.toc.set(toc);
         }
-        // Use standard chunk size (1000)
-        return this.book?.locations.generate(1000);
-      })
-      .then(() => {
-        this.locationsReady.set(true);
-        if (this.currentCfi) this.updateProgressState(this.currentCfi);
+
+        // --- OPTIMIZATION START ---
+        // Try to fetch locations from backend first
+        this.booksService.getLocations(id).subscribe({
+          next: (dto) => {
+            // Cache HIT: Load saved locations
+            if (this.book && dto.locations) {
+              this.book.locations.load(dto.locations);
+              this.locationsReady.set(true);
+              if (this.currentCfi) this.updateProgressState(this.currentCfi);
+            }
+          },
+          error: () => {
+            // Cache MISS: Generate locations (Expensive)
+            this.book?.locations.generate(1000).then(() => {
+              this.locationsReady.set(true);
+              if (this.currentCfi) this.updateProgressState(this.currentCfi);
+
+              // Save them for next time
+              const json = this.book?.locations.save();
+              if (json) {
+                this.booksService.saveLocations(id, json).subscribe();
+              }
+            });
+          },
+        });
+        // --- OPTIMIZATION END ---
       })
       .catch((err) => {
         console.error('Book metadata setup failed:', err);
@@ -215,7 +236,7 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
         this.applyFontSize();
 
         this.annotationManager = new EpubAnnotationManager(this.rendition!, id, this.injector, () =>
-          this.noteCreated.emit()
+          this.noteCreated.emit(),
         );
         this.annotationManager.init();
 
