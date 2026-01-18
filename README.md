@@ -94,14 +94,16 @@ A distraction-free environment for synthesizing reading into new work.
 
 ### Backend
 
-- **Framework:** .NET 10 Preview / ASP.NET Core
-- **Database:** SQLite via Entity Framework Core 10
-- **API:** Minimal APIs with OpenAPI and Swagger
-- **Audio Processing:** `z440.atl.core`
-- **Architecture:**
-  - Repository Pattern
-  - Vertical Slice Architecture
-  - Background Hosted Services
+* **Framework:** .NET 10 / ASP.NET Core
+* **Database:** SQLite (via Entity Framework Core 10)
+* **API:** Minimal APIs with OpenAPI/Swagger integration
+* **Audio Processing:** `z440.atl.core` for metadata extraction
+* **Architecture:**
+* Repository Pattern (`IBookRepository`)
+* Vertical Slice Architecture (Features organized by domain: Books, Notes, Concepts)
+* Background Hosted Services
+
+
 
 ### Frontend
 
@@ -122,33 +124,33 @@ A distraction-free environment for synthesizing reading into new work.
 
 ```text
 Nostos-Rebirth/
-├── Nostos.Backend/
-│   ├── Data/
-│   ├── Features/
-│   ├── Services/
-│   └── Workers/
-├── Nostos.Frontend/
-│   └── src/app/
-│       ├── library/
-│       ├── reader/
-│       ├── second-brain/
-│       └── writing-studio/
-├── Nostos.Shared/
-└── _brand-assets/
+├── Nostos.Backend/             # ASP.NET Core Web API
+│   ├── Data/                 # EF Core DbContext and Models
+│   ├── Features/             # Vertical slices (Endpoints + Logic)
+│   ├── Services/             # Core business logic (FileStorage, Metadata)
+│   └── Workers/              # Background tasks
+├── Nostos.Frontend/          # Angular SPA
+│   ├── src/app/
+│   │   ├── library/          # Book grid and management
+│   │   ├── reader/           # EPUB, PDF, and Audio players
+│   │   ├── second-brain/     # Concept graph and notes
+│   │   └── writing-studio/   # Content creation
+├── Nostos.Shared/            # Shared DTOs and Enums (C#)
+└── _brand-assets/            # Logos and design resources
+
 ```
 
+## 🚀 Getting Started
 
-## 🚀 Running the Application
+### Prerequisites
 
-The application supports two running modes: **Development** (for active coding with hot-reload) and **Production** (unified build).
+* [.NET 10 SDK](https://dotnet.microsoft.com/download) (or latest supported preview)
+* [Node.js](https://nodejs.org/) (LTS recommended)
+* [Angular CLI](https://angular.io/cli)
 
-### 1. Development Mode (Hot Reload)
+### Backend Setup
 
-Use this mode when you are actively writing code. The Frontend and Backend run as separate processes to enable Angular's hot module replacement (HMR).
-
-**Step 1: Start the Backend**
-Runs the API server on port `5214`.
-
+1. Navigate to the backend directory:
 ```bash
 cd Nostos.Backend
 dotnet run
