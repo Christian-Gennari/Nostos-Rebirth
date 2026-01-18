@@ -2,6 +2,7 @@
   <div id="pdf-viewer-wrapper">
     <ngx-extended-pdf-viewer
       [src]="pdfSrc()"
+      [height]="'100%'"
       [sidebarVisible]="sidebarVisible()"
       (sidebarVisibleChange)="sidebarVisibleChange.emit($event)"
       [(page)]="currentPage"

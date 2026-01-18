@@ -71,7 +71,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
       .pipe(
         filter(() => this.initialLoadComplete),
         debounceTime(1000),
-        distinctUntilChanged((prev, curr) => prev.location === curr.location)
+        distinctUntilChanged((prev, curr) => prev.location === curr.location),
       )
       .subscribe((data) => {
         this.booksService.updateProgress(this.bookId(), data.location, data.percentage).subscribe();
