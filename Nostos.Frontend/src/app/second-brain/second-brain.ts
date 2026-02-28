@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { LucideAngularModule, Search, BrainCircuit, ArrowLeft, ArrowRight } from 'lucide-angular';
 
+import { ToastService } from '../services/toast.service';
 import {
   ConceptsService,
   ConceptDto,
@@ -29,6 +30,7 @@ import { NoteFormatPipe } from '../ui/pipes/note-format.pipe';
 })
 export class SecondBrain implements OnInit {
   private conceptsService = inject(ConceptsService);
+  private toast = inject(ToastService);
 
   // Icons
   SearchIcon = Search;
@@ -64,7 +66,7 @@ export class SecondBrain implements OnInit {
       next: (data) => {
         this.concepts.set(data);
       },
-      error: (err) => console.error('Failed to load concepts:', err),
+      error: () => this.toast.error('Failed to load concepts'),
     });
   }
 
@@ -78,7 +80,7 @@ export class SecondBrain implements OnInit {
         this.loadingDetail.set(false);
       },
       error: (err) => {
-        console.error(err);
+        this.toast.error('Failed to load concept details');
         this.loadingDetail.set(false);
       },
     });

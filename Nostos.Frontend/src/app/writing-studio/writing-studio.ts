@@ -32,6 +32,7 @@ import {
 } from 'lucide-angular';
 
 import { WritingsService } from '../services/writings.services';
+import { ToastService } from '../services/toast.service';
 import { ConceptsService, ConceptDto, NoteContextDto } from '../services/concepts.services';
 import { BooksService, Book as BookDto } from '../services/books.services';
 import { NotesService } from '../services/notes.services';
@@ -58,6 +59,7 @@ import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
 })
 export class WritingStudio implements OnInit {
   private writingsService = inject(WritingsService);
+  private toast = inject(ToastService);
   private conceptsService = inject(ConceptsService);
   private booksService = inject(BooksService);
   private notesService = inject(NotesService);
@@ -233,8 +235,8 @@ export class WritingStudio implements OnInit {
       next: () => {
         this.loadTree();
       },
-      error: (err) => {
-        console.error('Failed to move item', err);
+      error: () => {
+        this.toast.error('Failed to move item');
         this.loadTree();
       },
     });

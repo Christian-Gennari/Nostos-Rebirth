@@ -5,6 +5,7 @@ import { HttpEventType } from '@angular/common/http';
 import { finalize } from 'rxjs';
 import { LucideAngularModule, X, Info, UploadIcon, Book, Layers, FileText } from 'lucide-angular';
 import { BooksService, Book as BookModel } from '../services/books.services';
+import { ToastService } from '../services/toast.service';
 import { Collection } from '../dtos/collection.dtos';
 import { BookType } from '../dtos/book.dtos';
 
@@ -17,6 +18,7 @@ import { BookType } from '../dtos/book.dtos';
 })
 export class AddBookModal {
   private booksService = inject(BooksService);
+  private toast = inject(ToastService);
 
   // Inputs & Outputs
   isOpen = input.required<boolean>();
@@ -233,7 +235,7 @@ export class AddBookModal {
           // Switch to general tab to show results
           this.activeTab.set('General');
         },
-        error: () => alert('Book details not found.'),
+        error: () => this.toast.error('Book details not found.'),
       });
   }
 
@@ -269,7 +271,7 @@ export class AddBookModal {
           this.bookUpdated.emit(updated);
           this.closeModal.emit();
         },
-        error: (err) => console.error('Update failed', err),
+        error: () => this.toast.error('Failed to update book'),
       });
     } else {
       this.booksService.create(payload).subscribe({
@@ -277,7 +279,7 @@ export class AddBookModal {
           if (this.selectedFile) this.handleFileUpload(createdBook);
           else this.uploadCoverIfNeeded(createdBook.id);
         },
-        error: (err) => console.error('Creation failed', err),
+        error: () => this.toast.error('Failed to create book'),
       });
     }
   }
@@ -292,10 +294,13 @@ export class AddBookModal {
         }
         if (event.type === HttpEventType.Response) {
           const elapsed = performance.now() - (this.uploadStartTime ?? 0);
-          setTimeout(() => {
-            this.uploadProgress.set(null);
-            this.uploadCoverIfNeeded(createdBook.id);
-          }, Math.max(0, 1200 - elapsed));
+          setTimeout(
+            () => {
+              this.uploadProgress.set(null);
+              this.uploadCoverIfNeeded(createdBook.id);
+            },
+            Math.max(0, 1200 - elapsed),
+          );
         }
       },
       error: () => this.uploadProgress.set(null),

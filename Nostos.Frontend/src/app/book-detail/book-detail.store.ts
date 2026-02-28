@@ -1,4 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
+import { ToastService } from '../services/toast.service';
 import { HttpEventType } from '@angular/common/http';
 import { finalize } from 'rxjs';
 
@@ -21,6 +22,7 @@ export class BookDetailStore {
   private collectionsService = inject(CollectionsService);
   private conceptsService = inject(ConceptsService);
   private autocompleteService = inject(ConceptAutocompleteService);
+  private toast = inject(ToastService);
 
   // --- STATE ---
   readonly loading = signal(false);
@@ -61,7 +63,10 @@ export class BookDetailStore {
           }
           this.book.set(data);
         },
-        error: (err) => this.error.set('Book not found'),
+        error: () => {
+          this.error.set('Book not found');
+          this.toast.error('Book not found');
+        },
       });
   }
 
@@ -104,7 +109,7 @@ export class BookDetailStore {
       error: () => {
         // Revert on error
         this.book.update((curr) => (curr ? { ...curr, isFavorite: !newStatus } : null));
-        this.error.set('Failed to update favorite');
+        this.toast.error('Failed to update favorite');
       },
     });
   }
@@ -126,7 +131,7 @@ export class BookDetailStore {
             finishedAt: newDate,
             progressPercent: newProgress,
           }
-        : null
+        : null,
     );
 
     // 2. API
@@ -143,7 +148,7 @@ export class BookDetailStore {
     this.book.update((curr) => (curr ? { ...curr, rating } : null));
 
     this.booksService.update(b.id, { rating } as any).subscribe({
-      error: () => this.error.set('Failed to update rating'),
+      error: () => this.toast.error('Failed to update rating'),
     });
   }
 
@@ -199,7 +204,7 @@ export class BookDetailStore {
           this.loadBook(b.id, { forceImageRefresh: true, background: true });
         }
       },
-      error: () => this.error.set('Failed to upload cover'),
+      error: () => this.toast.error('Failed to upload cover'),
     });
   }
 

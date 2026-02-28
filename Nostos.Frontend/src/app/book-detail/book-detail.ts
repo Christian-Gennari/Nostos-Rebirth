@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, model } from '@angular/core';
+import { Component, inject, OnInit, signal, model, ViewChild, ElementRef } from '@angular/core';
 import { ActivatedRoute, RouterLink, Router, NavigationEnd } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -95,6 +95,10 @@ export class BookDetail implements OnInit {
   isDescriptionExpanded = signal(false);
   showMetadataModal = signal(false);
   newNote = model<string>('');
+
+  // Template Refs for hidden file inputs
+  @ViewChild('coverInput') coverInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
   ngOnInit(): void {
     // 1. Initial Load
@@ -193,15 +197,11 @@ export class BookDetail implements OnInit {
   }
 
   triggerCoverPicker() {
-    (document.querySelector('input[type=file][accept="image/*"]') as HTMLInputElement)?.click();
+    this.coverInput?.nativeElement.click();
   }
 
   triggerFilePicker() {
-    (
-      document.querySelector(
-        'input[type=file][accept=".epub,.pdf,.txt,.mobi,.mp3,.m4a,.m4b"]'
-      ) as HTMLInputElement
-    )?.click();
+    this.fileInput?.nativeElement.click();
   }
 
   getCollectionName(id: string | null | undefined): string {

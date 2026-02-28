@@ -20,7 +20,8 @@ import { SidebarCollections } from './sidebar-collections/sidebar-collections';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 import { InfiniteScrollDirective } from '../directives/infinite-scroll.directive';
-import { BookFilter, BookSort } from '../dtos/book.enums'; // 👈 NEW: Import Enums
+import { BookFilter, BookSort } from '../dtos/book.enums';
+import { ToastService } from '../services/toast.service';
 import {
   LucideAngularModule,
   LayoutList,
@@ -58,6 +59,7 @@ export class Library implements OnInit {
   private collectionsService = inject(CollectionsService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private toast = inject(ToastService);
 
   // Icons
   ListIcon = LayoutList;
@@ -136,7 +138,7 @@ export class Library implements OnInit {
     this.router.events
       .pipe(
         filter((event) => event instanceof NavigationEnd),
-        takeUntilDestroyed()
+        takeUntilDestroyed(),
       )
       .subscribe(() => {
         if (this.router.url.startsWith('/library')) {
@@ -184,8 +186,8 @@ export class Library implements OnInit {
           this.loading.set(false);
           this.loadingMore.set(false);
         },
-        error: (err) => {
-          console.error('Error loading books:', err);
+        error: () => {
+          this.toast.error('Failed to load books');
           this.loading.set(false);
           this.loadingMore.set(false);
         },
@@ -213,7 +215,7 @@ export class Library implements OnInit {
   loadCollections(): void {
     this.collectionsService.list().subscribe({
       next: (data) => this.collections.set(data),
-      error: (err) => console.error('Error loading collections:', err),
+      error: () => this.toast.error('Failed to load collections'),
     });
   }
 
@@ -256,7 +258,7 @@ export class Library implements OnInit {
     this.booksService.update(book.id, { isFavorite: newStatus }).subscribe({
       error: () => {
         book.isFavorite = !newStatus;
-        alert('Failed to update favorite status');
+        this.toast.error('Failed to update favorite status');
       },
     });
   }
@@ -275,7 +277,7 @@ export class Library implements OnInit {
       error: () => {
         book.finishedAt = oldFinishedAt;
         book.progressPercent = oldProgress;
-        alert('Failed to update finished status');
+        this.toast.error('Failed to update finished status');
       },
     });
   }
@@ -286,7 +288,7 @@ export class Library implements OnInit {
     this.booksService.update(book.id, { rating: newRating }).subscribe({
       error: () => {
         book.rating = oldRating;
-        alert('Failed to update rating');
+        this.toast.error('Failed to update rating');
       },
     });
   }
