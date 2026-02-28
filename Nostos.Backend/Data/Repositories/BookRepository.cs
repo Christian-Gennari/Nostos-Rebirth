@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Nostos.Backend.Data.Interfaces;
 using Nostos.Backend.Data.Models;
 using Nostos.Shared.Dtos;
 using Nostos.Shared.Enums;
@@ -71,6 +72,15 @@ public class BookRepository : IBookRepository
     public async Task<BookModel?> GetByIdAsync(Guid id)
     {
         return await _db.Books.FindAsync(id);
+    }
+
+    public async Task<List<BookModel>> GetBooksWithFilesAsync()
+    {
+        return await _db
+            .Books.AsNoTracking()
+            .Where(b => b.FileDetails.HasFile && b.FileDetails.FileName != null)
+            .OrderByDescending(b => b.CreatedAt)
+            .ToListAsync();
     }
 
     public async Task AddAsync(BookModel book)

@@ -2,7 +2,7 @@ using Nostos.Backend.Data.Models;
 using Nostos.Shared.Dtos;
 using Nostos.Shared.Enums;
 
-namespace Nostos.Backend.Data.Repositories;
+namespace Nostos.Backend.Data.Interfaces;
 
 public interface IBookRepository
 {
