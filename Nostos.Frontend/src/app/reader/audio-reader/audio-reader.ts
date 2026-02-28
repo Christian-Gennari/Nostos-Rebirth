@@ -64,7 +64,7 @@ export class AudioReader implements OnDestroy, IReader {
                 label: c.title,
                 target: c.startTime, // Target is the timestamp in seconds
                 children: [],
-              }))
+              })),
             );
           }
         });
@@ -204,6 +204,10 @@ export class AudioReader implements OnDestroy, IReader {
     const s = Math.floor(seconds % 60);
     if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+
+  removeHighlight(_identifier: string): void {
+    // No-op: Audio reader does not support highlights
   }
 
   ngOnDestroy() {

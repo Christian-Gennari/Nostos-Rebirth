@@ -257,9 +257,9 @@ export class ReaderShell implements OnInit {
 
     this.notesService.delete(noteId).subscribe({
       next: () => {
-        if (this.fileType() === 'epub')
-          (this.epubReader as any)?.deleteHighlight(noteToDelete?.cfiRange);
-        if (this.fileType() === 'pdf') (this.pdfReader as any)?.removeHighlight(noteId);
+        if (this.fileType() === 'epub' && noteToDelete?.cfiRange)
+          this.activeReader()?.removeHighlight(noteToDelete.cfiRange);
+        if (this.fileType() === 'pdf') this.activeReader()?.removeHighlight(noteId);
 
         this.dbNotes.update((notes) => notes.filter((n) => n.id !== noteId));
       },

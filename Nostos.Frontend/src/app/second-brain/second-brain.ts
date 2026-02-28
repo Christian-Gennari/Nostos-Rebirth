@@ -44,13 +44,11 @@ export class SecondBrain implements OnInit {
   selectedDetail = signal<ConceptDetailDto | null>(null);
   loadingDetail = signal(false);
 
-  // 👇 Refactor: Computed Map for the Pipe to look up IDs efficiently
+  // Computed Map for the Pipe to look up IDs efficiently
   conceptMap = computed(() => {
     const map = new Map<string, ConceptDto>();
     this.concepts().forEach((c) => {
-      // @ts-ignore (Handling potential casing mismatch from API)
-      const name = c.name || c.Name || '';
-      map.set(name.trim().toLowerCase(), c);
+      map.set(c.name.trim().toLowerCase(), c);
     });
     return map;
   });
@@ -58,11 +56,7 @@ export class SecondBrain implements OnInit {
   // Computed Filter
   filteredConcepts = computed(() => {
     const q = this.searchQuery().toLowerCase();
-    return this.concepts().filter((c) => {
-      // @ts-ignore
-      const name = c.name || c.Name || '';
-      return name.toLowerCase().includes(q);
-    });
+    return this.concepts().filter((c) => c.name.toLowerCase().includes(q));
   });
 
   ngOnInit() {

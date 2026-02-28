@@ -8,105 +8,149 @@ namespace Nostos.Backend.Features.Writings;
 
 public static class WritingsEndpoints
 {
-  public static IEndpointRouteBuilder MapWritingsEndpoints(this IEndpointRouteBuilder routes)
-  {
-    var group = routes.MapGroup("/api/writings");
-
-
-    // GET: Fetch the entire file list (FLAT)
-    group.MapGet("/", async (NostosDbContext db) =>
+    public static IEndpointRouteBuilder MapWritingsEndpoints(this IEndpointRouteBuilder routes)
     {
-      var items = await db.Writings
-              .Select(w => new WritingDto(
-                  w.Id,
-                  w.Name,
-                  w.Type.ToString(), // Convert Enum to String
-                  w.ParentId,
-                  w.UpdatedAt
-              ))
-              .ToListAsync();
+        var group = routes.MapGroup("/api/writings");
 
-      return Results.Ok(items);
-    });
+        // GET: Fetch the entire file list (FLAT)
+        group.MapGet(
+            "/",
+            async (NostosDbContext db) =>
+            {
+                var items = await db
+                    .Writings.Select(w => new WritingDto(
+                        w.Id,
+                        w.Name,
+                        w.Type.ToString(), // Convert Enum to String
+                        w.ParentId,
+                        w.UpdatedAt
+                    ))
+                    .ToListAsync();
 
-    // GET: Fetch a single document (with Content)
-    group.MapGet("/{id}", async (Guid id, NostosDbContext db) =>
-    {
-      var item = await db.Writings.FindAsync(id);
-      if (item is null) return Results.NotFound();
+                return Results.Ok(items);
+            }
+        );
 
-      // We use ToContentDto() here to include the actual markdown text
-      return Results.Ok(item.ToContentDto());
-    });
+        // GET: Fetch a single document (with Content)
+        group.MapGet(
+            "/{id}",
+            async (Guid id, NostosDbContext db) =>
+            {
+                var item = await db.Writings.FindAsync(id);
+                if (item is null)
+                    return Results.NotFound();
 
-    // POST: Create new Folder or Document
-    group.MapPost("/", async (CreateWritingDto dto, NostosDbContext db) =>
-    {
-      // Parse string "Folder" -> Enum.Folder
-      if (!Enum.TryParse<WritingType>(dto.Type, true, out var type))
-      {
-        return Results.BadRequest("Invalid type. Must be 'Folder' or 'Document'.");
-      }
+                // We use ToContentDto() here to include the actual markdown text
+                return Results.Ok(item.ToContentDto());
+            }
+        );
 
-      var model = new WritingModel
-      {
-        Name = dto.Name,
-        Type = type,
-        ParentId = dto.ParentId
-      };
+        // POST: Create new Folder or Document
+        group.MapPost(
+            "/",
+            async (CreateWritingDto dto, NostosDbContext db) =>
+            {
+                // Parse string "Folder" -> Enum.Folder
+                if (!Enum.TryParse<WritingType>(dto.Type, true, out var type))
+                {
+                    return Results.BadRequest("Invalid type. Must be 'Folder' or 'Document'.");
+                }
 
-      db.Writings.Add(model);
-      await db.SaveChangesAsync();
+                var model = new WritingModel
+                {
+                    Name = dto.Name,
+                    Type = type,
+                    ParentId = dto.ParentId,
+                };
 
-      return Results.Created($"/api/writings/{model.Id}", model.ToDto());
-    });
+                db.Writings.Add(model);
+                await db.SaveChangesAsync();
 
-    // PUT: Update Name or Content (Auto-save)
-    group.MapPut("/{id}", async (Guid id, UpdateWritingDto dto, NostosDbContext db) =>
-    {
-      var item = await db.Writings.FindAsync(id);
-      if (item is null) return Results.NotFound();
+                return Results.Created($"/api/writings/{model.Id}", model.ToDto());
+            }
+        );
 
-      item.Name = dto.Name;
-      item.Content = dto.Content;
-      item.UpdatedAt = DateTime.UtcNow;
+        // PUT: Update Name or Content (Auto-save)
+        group.MapPut(
+            "/{id}",
+            async (Guid id, UpdateWritingDto dto, NostosDbContext db) =>
+            {
+                var item = await db.Writings.FindAsync(id);
+                if (item is null)
+                    return Results.NotFound();
 
-      await db.SaveChangesAsync();
+                item.Name = dto.Name;
+                item.Content = dto.Content;
+                item.UpdatedAt = DateTime.UtcNow;
 
-      return Results.Ok(item.ToContentDto());
-    });
+                await db.SaveChangesAsync();
 
-    // PUT: Move (Drag & Drop)
-    group.MapPut("/{id}/move", async (Guid id, MoveWritingDto dto, NostosDbContext db) =>
-    {
-      var item = await db.Writings.FindAsync(id);
-      if (item is null) return Results.NotFound();
+                return Results.Ok(item.ToContentDto());
+            }
+        );
 
-      // Simple cycle detection (prevent moving folder into itself)
-      if (dto.NewParentId == id)
-        return Results.BadRequest("Cannot move a folder into itself.");
+        // PUT: Move (Drag & Drop)
+        group.MapPut(
+            "/{id}/move",
+            async (Guid id, MoveWritingDto dto, NostosDbContext db) =>
+            {
+                var item = await db.Writings.FindAsync(id);
+                if (item is null)
+                    return Results.NotFound();
 
-      item.ParentId = dto.NewParentId;
-      item.UpdatedAt = DateTime.UtcNow;
+                // --- CYCLE DETECTION START ---
+                if (dto.NewParentId.HasValue)
+                {
+                    // 1. Prevent self-nesting
+                    if (dto.NewParentId == id)
+                        return Results.BadRequest("Cannot move a folder into itself.");
 
-      await db.SaveChangesAsync();
+                    // 2. Prevent moving into a descendant (A -> B -> A loop)
+                    // Walk up the tree from the *target parent*. If we hit *this item*, it's a cycle.
+                    var currentAncestorId = dto.NewParentId;
+                    while (currentAncestorId != null)
+                    {
+                        if (currentAncestorId == id)
+                            return Results.BadRequest(
+                                "Cannot move a folder into its own descendant."
+                            );
 
-      return Results.Ok(item.ToDto());
-    });
+                        var nextAncestor = await db
+                            .Writings.Where(w => w.Id == currentAncestorId)
+                            .Select(w => new { w.ParentId })
+                            .FirstOrDefaultAsync();
 
-    // DELETE
-    group.MapDelete("/{id}", async (Guid id, NostosDbContext db) =>
-    {
-      var item = await db.Writings.FindAsync(id);
-      if (item is null) return Results.NotFound();
+                        currentAncestorId = nextAncestor?.ParentId;
+                    }
+                }
+                // --- CYCLE DETECTION END ---
 
-      // Cascade delete is configured in DbContext, so this deletes all children too.
-      db.Writings.Remove(item);
-      await db.SaveChangesAsync();
+                item.ParentId = dto.NewParentId;
+                item.UpdatedAt = DateTime.UtcNow;
 
-      return Results.NoContent();
-    });
+                await db.SaveChangesAsync();
 
-    return routes;
-  }
+                return Results.Ok(item.ToDto());
+            }
+        );
+
+        // DELETE
+        group.MapDelete(
+            "/{id}",
+            async (Guid id, NostosDbContext db) =>
+            {
+                var item = await db.Writings.FindAsync(id);
+                if (item is null)
+                    return Results.NotFound();
+
+                // Cascade delete is configured in DbContext, so this deletes all children too.
+                db.Writings.Remove(item);
+                await db.SaveChangesAsync();
+
+                return Results.NoContent();
+            }
+        );
+
+        return routes;
+    }
 }

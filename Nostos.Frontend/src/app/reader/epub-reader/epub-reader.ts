@@ -357,6 +357,10 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     this.annotationManager?.removeHighlight(cfiRange);
   }
 
+  removeHighlight(identifier: string): void {
+    this.deleteHighlight(identifier);
+  }
+
   ngOnDestroy(): void {
     this.resizeObserver?.disconnect();
     if (this.book) {

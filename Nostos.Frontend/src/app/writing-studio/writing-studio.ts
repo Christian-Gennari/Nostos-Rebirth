@@ -32,11 +32,12 @@ import {
 } from 'lucide-angular';
 
 import { WritingsService } from '../services/writings.services';
-import { ConceptsService, ConceptDto } from '../services/concepts.services';
+import { ConceptsService, ConceptDto, NoteContextDto } from '../services/concepts.services';
 import { BooksService, Book as BookDto } from '../services/books.services';
 import { NotesService } from '../services/notes.services';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { WritingDto, WritingContentDto } from '../dtos/writing.dtos';
+import { Note } from '../dtos/note.dtos';
 import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.component';
 import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
 
@@ -101,15 +102,13 @@ export class WritingStudio implements OnInit {
   brainQuery = signal('');
   concepts = signal<ConceptDto[]>([]);
   selectedConceptId = signal<string | null>(null);
-
-  // Reverted to any[] to allow NoteContextDto (which has 'bookTitle') to pass through
-  selectedConceptNotes = signal<any[]>([]);
+  selectedConceptNotes = signal<Note[]>([]);
 
   // Books / Notes State
   books = signal<BookDto[]>([]);
   bookQuery = signal('');
   selectedBookId = signal<string | null>(null);
-  selectedBookNotes = signal<any[]>([]);
+  selectedBookNotes = signal<Note[]>([]);
 
   // Computed Map for highlighting concepts in notes
   conceptMap = computed(() => {
@@ -132,7 +131,7 @@ export class WritingStudio implements OnInit {
     const list = this.books();
     if (!q) return list;
     return list.filter(
-      (b) => b.title.toLowerCase().includes(q) || (b.author && b.author.toLowerCase().includes(q))
+      (b) => b.title.toLowerCase().includes(q) || (b.author && b.author.toLowerCase().includes(q)),
     );
   });
 
@@ -305,9 +304,19 @@ export class WritingStudio implements OnInit {
 
   selectConcept(id: string) {
     this.selectedConceptId.set(id);
-    // Simply pass the notes as they are.
-    // They contain 'bookTitle', which works with [showSource]="true".
-    this.conceptsService.get(id).subscribe((d) => this.selectedConceptNotes.set(d.notes));
+    this.conceptsService.get(id).subscribe((d) => {
+      // Map NoteContextDto (noteId) → Note (id) for NoteCardComponent compatibility
+      const mapped: Note[] = d.notes.map((n: NoteContextDto) => ({
+        id: n.noteId,
+        bookId: n.bookId,
+        content: n.content,
+        cfiRange: n.cfiRange,
+        selectedText: n.selectedText,
+        createdAt: '',
+        bookTitle: n.bookTitle,
+      }));
+      this.selectedConceptNotes.set(mapped);
+    });
   }
 
   selectBook(id: string) {
@@ -319,7 +328,7 @@ export class WritingStudio implements OnInit {
     if (!text) return;
 
     this.editorText.update((current) =>
-      current ? `${current}\n\n> "${text}"\n` : `> "${text}"\n`
+      current ? `${current}\n\n> "${text}"\n` : `> "${text}"\n`,
     );
 
     if (this.isMobile()) this.showBrainSidebar.set(false);
