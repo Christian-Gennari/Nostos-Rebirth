@@ -1,8 +1,8 @@
 using System.Text;
 using System.Xml.Linq;
-using Nostos.Backend.Data.Repositories;
+using Nostos.Backend.Data.Interfaces;
 
-namespace Nostos.Backend.Features.Opds;
+namespace Nostos.Backend.Endpoints;
 
 public static class OpdsEndpoints
 {
@@ -69,7 +69,6 @@ public static class OpdsEndpoints
                         );
                     }
 
-                    // FIX: Access via .Metadata
                     if (!string.IsNullOrEmpty(book.Metadata.Description))
                     {
                         entry.Add(
@@ -81,10 +80,9 @@ public static class OpdsEndpoints
                         );
                     }
 
-                    // FIX: Access via .Metadata
                     if (!string.IsNullOrEmpty(book.Metadata.Language))
                     {
-                        entry.Add(new XElement(XNamespace.Xml + "lang", book.Metadata.Language)); // standard xml:lang
+                        entry.Add(new XElement(XNamespace.Xml + "lang", book.Metadata.Language));
                         entry.Add(
                             new XElement(
                                 atom + "category",
@@ -95,7 +93,6 @@ public static class OpdsEndpoints
                     }
 
                     // Cover Image Link
-                    // FIX: Access via .FileDetails
                     if (!string.IsNullOrEmpty(book.FileDetails.CoverFileName))
                     {
                         entry.Add(
@@ -106,7 +103,7 @@ public static class OpdsEndpoints
                                     "href",
                                     GetAbsoluteUrl(context, $"/api/books/{book.Id}/cover")
                                 ),
-                                new XAttribute("type", "image/png") // Assuming PNG based on storage service
+                                new XAttribute("type", "image/png")
                             )
                         );
 
@@ -125,7 +122,6 @@ public static class OpdsEndpoints
                     }
 
                     // Acquisition Link (Download)
-                    // FIX: Access via .FileDetails
                     if (book.FileDetails.FileName != null)
                     {
                         var mimeType = GetMimeType(book.FileDetails.FileName);

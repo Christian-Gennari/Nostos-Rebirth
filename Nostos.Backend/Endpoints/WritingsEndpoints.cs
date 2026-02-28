@@ -1,9 +1,9 @@
+using Nostos.Backend.Data.Interfaces;
 using Nostos.Backend.Data.Models;
-using Nostos.Backend.Data.Repositories;
 using Nostos.Backend.Mapping;
 using Nostos.Shared.Dtos;
 
-namespace Nostos.Backend.Features.Writings;
+namespace Nostos.Backend.Endpoints;
 
 public static class WritingsEndpoints
 {

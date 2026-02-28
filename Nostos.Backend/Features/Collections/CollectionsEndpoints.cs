@@ -1,5 +1,4 @@
-using Microsoft.EntityFrameworkCore;
-using Nostos.Backend.Data;
+using Nostos.Backend.Data.Repositories;
 using Nostos.Backend.Mapping;
 using Nostos.Shared.Dtos;
 
@@ -12,47 +11,38 @@ public static class CollectionsEndpoints
     var group = routes.MapGroup("/api/collections");
 
     // GET: Fetch all collections (FLAT)
-    group.MapGet("/", async (NostosDbContext db) =>
+    group.MapGet("/", async (ICollectionRepository repo) =>
     {
-      var items = await db.Collections
-          .Select(c => new CollectionDto(
-              c.Id,
-              c.Name,
-              c.ParentId
-          ))
-          .ToListAsync();
-
-      return Results.Ok(items);
+      var items = await repo.GetAllAsync();
+      var dtos = items.Select(c => new CollectionDto(c.Id, c.Name, c.ParentId));
+      return Results.Ok(dtos);
     });
 
     // GET one collection
-    group.MapGet("/{id}", async (Guid id, NostosDbContext db) =>
+    group.MapGet("/{id}", async (Guid id, ICollectionRepository repo) =>
     {
-      var collection = await db.Collections.FindAsync(id);
+      var collection = await repo.GetByIdAsync(id);
       if (collection is null) return Results.NotFound();
 
       return Results.Ok(collection.ToDto());
     });
 
     // CREATE collection
-    group.MapPost("/", async (CreateCollectionDto dto, NostosDbContext db) =>
+    group.MapPost("/", async (CreateCollectionDto dto, ICollectionRepository repo) =>
     {
       if (string.IsNullOrWhiteSpace(dto.Name))
         return Results.BadRequest(new { error = "Name is required." });
 
-      // ToModel now handles ParentId mapping
       var model = dto.ToModel();
-
-      db.Collections.Add(model);
-      await db.SaveChangesAsync();
+      await repo.AddAsync(model);
 
       return Results.Created($"/api/collections/{model.Id}", model.ToDto());
     });
 
     // UPDATE collection
-    group.MapPut("/{id}", async (Guid id, UpdateCollectionDto dto, NostosDbContext db) =>
+    group.MapPut("/{id}", async (Guid id, UpdateCollectionDto dto, ICollectionRepository repo) =>
     {
-      var existing = await db.Collections.FindAsync(id);
+      var existing = await repo.GetByIdAsync(id);
       if (existing is null) return Results.NotFound();
 
       if (string.IsNullOrWhiteSpace(dto.Name))
@@ -61,59 +51,34 @@ public static class CollectionsEndpoints
       // --- CYCLE DETECTION START ---
       if (dto.ParentId.HasValue)
       {
-        // 1. Prevent self-nesting
         if (dto.ParentId == id)
           return Results.BadRequest(new { error = "Cannot move a collection into itself." });
 
-        // 2. Prevent moving into a descendant (A -> B -> A loop)
-        // Walk up the tree from the *target parent*. If we hit *this collection*, it's a loop.
         var currentAncestorId = dto.ParentId;
         while (currentAncestorId != null)
         {
           if (currentAncestorId == id)
             return Results.BadRequest(new { error = "Cannot move a collection into its own child." });
 
-          // Fetch the next parent up the chain
-          // (Optimized to only fetch the ID we need)
-          var nextAncestor = await db.Collections
-              .Where(c => c.Id == currentAncestorId)
-              .Select(c => new { c.ParentId })
-              .FirstOrDefaultAsync();
-
-          currentAncestorId = nextAncestor?.ParentId;
+          currentAncestorId = await repo.GetParentIdAsync(currentAncestorId.Value);
         }
       }
       // --- CYCLE DETECTION END ---
 
       existing.Apply(dto);
-
-      await db.SaveChangesAsync();
+      await repo.UpdateAsync(existing);
 
       return Results.Ok(existing.ToDto());
     });
 
     // DELETE collection
-    group.MapDelete("/{id}", async (Guid id, NostosDbContext db) =>
+    group.MapDelete("/{id}", async (Guid id, ICollectionRepository repo) =>
     {
-      var existing = await db.Collections.FindAsync(id);
+      var existing = await repo.GetByIdAsync(id);
       if (existing is null) return Results.NotFound();
 
-      // 1. Unlink all books first (Set their CollectionId to null)
-      // Note: This only unlinks books directly in THIS collection.
-      // Books in sub-collections will remain in those sub-collections
-      // (which will be deleted by cascade below).
-      var booksInCollection = await db.Books.Where(b => b.CollectionId == id).ToListAsync();
-      foreach (var book in booksInCollection)
-      {
-        book.CollectionId = null;
-      }
-
-      // 2. Now delete the collection.
-      // If your DB has Cascade Delete on the Self-Referencing ParentId,
-      // this will also delete all child folders automatically.
-      db.Collections.Remove(existing);
-
-      await db.SaveChangesAsync();
+      await repo.UnlinkBooksAsync(id);
+      await repo.DeleteAsync(existing);
 
       return Results.NoContent();
     });

@@ -1,11 +1,11 @@
+using Nostos.Backend.Data.Interfaces;
 using Nostos.Backend.Data.Models;
-using Nostos.Backend.Data.Repositories; // 👈 Import Repo namespace
 using Nostos.Backend.Mapping;
 using Nostos.Backend.Services;
 using Nostos.Shared.Dtos;
 using Nostos.Shared.Enums;
 
-namespace Nostos.Backend.Features.Books;
+namespace Nostos.Backend.Endpoints;
 
 public static class BooksEndpoints
 {
@@ -17,7 +17,7 @@ public static class BooksEndpoints
         group.MapGet(
             "/",
             async (
-                IBookRepository repo, // 👈 Inject Repo
+                IBookRepository repo,
                 string? filter,
                 string? sort,
                 string? search,
@@ -214,7 +214,7 @@ public static class BooksEndpoints
             }
         );
 
-        // Download file (Read-only, doesn't necessarily need Repo, but Service is fine)
+        // Download file
         group.MapGet(
             "/{id}/file",
             (Guid id, FileStorageService storage) =>
