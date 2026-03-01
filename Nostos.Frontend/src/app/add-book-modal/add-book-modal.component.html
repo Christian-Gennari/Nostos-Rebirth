@@ -11,26 +11,82 @@
       <div class="modal-tabs">
         <button
           class="tab-btn"
-          [class.active]="activeTab() === 'General'"
-          (click)="setTab('General')"
+          [class.active]="activeTab() === 'Book Info'"
+          (click)="setTab('Book Info')"
         >
-          <lucide-icon [img]="GeneralIcon" [size]="16"></lucide-icon> General
+          <lucide-icon [img]="GeneralIcon" [size]="16"></lucide-icon> Book Info
         </button>
         <button
           class="tab-btn"
-          [class.active]="activeTab() === 'Metadata'"
-          (click)="setTab('Metadata')"
+          [class.active]="activeTab() === 'Publishing'"
+          (click)="setTab('Publishing')"
         >
-          <lucide-icon [img]="MetadataIcon" [size]="16"></lucide-icon> Details
+          <lucide-icon [img]="MetadataIcon" [size]="16"></lucide-icon> Publishing
         </button>
-        <button class="tab-btn" [class.active]="activeTab() === 'File'" (click)="setTab('File')">
-          <lucide-icon [img]="FileIcon" [size]="16"></lucide-icon> File & ID
+        <button
+          class="tab-btn"
+          [class.active]="activeTab() === 'Files & Personal'"
+          (click)="setTab('Files & Personal')"
+        >
+          <lucide-icon [img]="FileIcon" [size]="16"></lucide-icon> Files & Personal
         </button>
       </div>
 
       <div class="modal-body">
         <form (ngSubmit)="submit()" #bookForm="ngForm">
-          <div class="tab-content" [hidden]="activeTab() !== 'General'">
+          <!-- TAB 1: Book Info -->
+          <div class="tab-content" [hidden]="activeTab() !== 'Book Info'">
+            <div class="form-group">
+              <label class="form-label">Format</label>
+              <select
+                [(ngModel)]="form.type"
+                name="type"
+                class="select-input input"
+                [disabled]="isEditMode()"
+              >
+                <option value="physical">Physical Book</option>
+                <option value="ebook">E-Book</option>
+                <option value="audiobook">Audiobook</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label"
+                >{{ form.type === 'audiobook' ? 'ASIN' : 'ISBN' }} (Fetchable)</label
+              >
+              <div class="input-group-fetch">
+                @if (form.type === 'audiobook') {
+                  <input
+                    class="input"
+                    type="text"
+                    [(ngModel)]="form.asin"
+                    name="asin"
+                    placeholder="ASIN (e.g. B00...)"
+                  />
+                } @else {
+                  <input
+                    class="input"
+                    type="text"
+                    [(ngModel)]="form.isbn"
+                    name="isbn"
+                    placeholder="ISBN"
+                    (blur)="form.isbn = sanitizeIsbn(form.isbn)"
+                    (keydown.enter)="$event.preventDefault(); fetchMetadata()"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-fetch"
+                    [disabled]="!form.isbn || isFetching()"
+                    (click)="fetchMetadata()"
+                  >
+                    {{ isFetching() ? '...' : 'Fetch' }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <hr class="divider" />
+
             <div class="form-group">
               <label class="form-label">Title <span class="required">*</span></label>
               <input
@@ -88,31 +144,19 @@
               </div>
             </div>
 
-            <div class="form-group">
-              <label class="form-label">Description</label>
-              <textarea
-                class="input textarea"
-                rows="5"
-                [(ngModel)]="form.description"
-                name="description"
-              ></textarea>
-            </div>
+            @if (form.type === 'audiobook') {
+              <div class="form-group fade-in">
+                <label class="form-label">Narrator</label>
+                <input
+                  class="input"
+                  type="text"
+                  [(ngModel)]="form.narrator"
+                  name="narrator"
+                  placeholder="Narrator Name"
+                />
+              </div>
+            }
 
-            <div class="form-group">
-              <label class="form-label">Collection</label>
-              <select
-                [(ngModel)]="form.collectionId"
-                name="collectionId"
-                class="select-input input"
-              >
-                <option [ngValue]="null">None</option>
-                @for (col of collections(); track col.id) {
-                  <option [value]="col.id">{{ col.name }}</option>
-                }
-              </select>
-            </div>
-          </div>
-          <div class="tab-content" [hidden]="activeTab() !== 'Metadata'">
             <div class="grid grid-2">
               <div class="form-group">
                 <label class="form-label">Series</label>
@@ -136,6 +180,18 @@
               </div>
             </div>
 
+            <div class="form-group">
+              <label class="form-label">Description</label>
+              <textarea
+                class="input textarea"
+                rows="5"
+                [(ngModel)]="form.description"
+                name="description"
+              ></textarea>
+            </div>
+          </div>
+          <!-- TAB 2: Publishing -->
+          <div class="tab-content" [hidden]="activeTab() !== 'Publishing'">
             <div class="grid grid-2">
               <div class="form-group">
                 <label class="form-label">Publisher</label>
@@ -202,82 +258,6 @@
               </div>
             </div>
 
-            <hr class="divider" />
-
-            <div class="form-group">
-              <label class="form-label">Personal Review / Notes</label>
-              <textarea
-                class="input textarea"
-                rows="3"
-                [(ngModel)]="form.personalReview"
-                name="personalReview"
-                placeholder="Your thoughts on this book..."
-              ></textarea>
-            </div>
-          </div>
-          <div class="tab-content" [hidden]="activeTab() !== 'File'">
-            <div class="form-group">
-              <label class="form-label">Format</label>
-              <select
-                [(ngModel)]="form.type"
-                name="type"
-                class="select-input input"
-                [disabled]="isEditMode()"
-              >
-                <option value="physical">Physical Book</option>
-                <option value="ebook">E-Book</option>
-                <option value="audiobook">Audiobook</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label"
-                >{{ form.type === 'audiobook' ? 'ASIN' : 'ISBN' }} (Fetchable)</label
-              >
-              <div class="input-group-fetch">
-                @if (form.type === 'audiobook') {
-                  <input
-                    class="input"
-                    type="text"
-                    [(ngModel)]="form.asin"
-                    name="asin"
-                    placeholder="ASIN (e.g. B00...)"
-                  />
-                } @else {
-                  <input
-                    class="input"
-                    type="text"
-                    [(ngModel)]="form.isbn"
-                    name="isbn"
-                    placeholder="ISBN"
-                    (blur)="form.isbn = sanitizeIsbn(form.isbn)"
-                    (keydown.enter)="$event.preventDefault(); fetchMetadata()"
-                  />
-                  <button
-                    type="button"
-                    class="btn btn-secondary btn-fetch"
-                    [disabled]="!form.isbn || isFetching()"
-                    (click)="fetchMetadata()"
-                  >
-                    {{ isFetching() ? '...' : 'Fetch' }}
-                  </button>
-                }
-              </div>
-            </div>
-
-            @if (form.type === 'audiobook') {
-              <div class="form-group fade-in">
-                <label class="form-label">Narrator</label>
-                <input
-                  class="input"
-                  type="text"
-                  [(ngModel)]="form.narrator"
-                  name="narrator"
-                  placeholder="Narrator Name"
-                />
-              </div>
-            }
-
             <div class="form-group">
               <label class="form-label">{{
                 form.type === 'audiobook' ? 'Duration' : 'Page Count'
@@ -300,9 +280,9 @@
                 />
               }
             </div>
-
-            <hr class="divider" />
-
+          </div>
+          <!-- TAB 3: Files & Personal -->
+          <div class="tab-content" [hidden]="activeTab() !== 'Files & Personal'">
             @if (!isEditMode()) {
               <div class="form-group">
                 <label class="form-label">Book File</label>
@@ -326,6 +306,33 @@
             @if (uploadProgress() !== null) {
               <div class="upload-status">Uploading... {{ uploadProgress() }}%</div>
             }
+
+            <hr class="divider" />
+
+            <div class="form-group">
+              <label class="form-label">Collection</label>
+              <select
+                [(ngModel)]="form.collectionId"
+                name="collectionId"
+                class="select-input input"
+              >
+                <option [ngValue]="null">None</option>
+                @for (col of collections(); track col.id) {
+                  <option [value]="col.id">{{ col.name }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Personal Review / Notes</label>
+              <textarea
+                class="input textarea"
+                rows="3"
+                [(ngModel)]="form.personalReview"
+                name="personalReview"
+                placeholder="Your thoughts on this book..."
+              ></textarea>
+            </div>
           </div>
 
           <div class="modal-actions">

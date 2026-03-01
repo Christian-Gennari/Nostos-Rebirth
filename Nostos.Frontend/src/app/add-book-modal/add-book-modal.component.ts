@@ -38,8 +38,8 @@ export class AddBookModal {
   FileIcon = FileText;
 
   // Tabs
-  tabs = ['General', 'Metadata', 'File'] as const;
-  activeTab = signal<(typeof this.tabs)[number]>('General');
+  tabs = ['Book Info', 'Publishing', 'Files & Personal'] as const;
+  activeTab = signal<(typeof this.tabs)[number]>('Book Info');
 
   // Computed State
   isEditMode = computed(() => !!this.book());
@@ -132,7 +132,7 @@ export class AddBookModal {
     };
     this.selectedFile = null;
     this.selectedCover = null;
-    this.activeTab.set('General'); // Reset to first tab
+    this.activeTab.set('Book Info'); // Reset to first tab
   }
 
   resetForm(): void {
@@ -170,7 +170,7 @@ export class AddBookModal {
     this.selectedCover = null;
     this.uploadProgress.set(null);
     this.isFetching.set(false);
-    this.activeTab.set('General');
+    this.activeTab.set('Book Info');
   }
 
   /**
