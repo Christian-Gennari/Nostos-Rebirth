@@ -119,29 +119,32 @@ Nostos-Rebirth/
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - [Node.js](https://nodejs.org/) (LTS)
 
-### Development (two terminals)
+### Quick Start
+
+All commands run from the project root. Use `npm run help` to see the full list.
 
 ```bash
-# Terminal 1 — Backend (http://localhost:5214)
-cd Nostos.Backend
-dotnet run
+npm install          # install root tooling (concurrently)
+npm start            # dev server — backend + frontend together
+```
 
-# Terminal 2 — Frontend (http://localhost:4200)
-cd Nostos.Frontend
-npm install
-npm start
+### Production
+
+```bash
+npm run prod         # builds the Angular frontend, then serves everything via .NET in Release mode
+```
+
+This runs `npm install` + `npm run build` for the frontend, copies the output to `wwwroot`, applies database migrations, and serves everything at **http://localhost:5214**.
+
+### Individual Services
+
+```bash
+npm run backend      # .NET backend only — Debug (http://localhost:5214)
+npm run frontend     # Angular dev server only (http://localhost:4200)
+npm run build:frontend  # Angular production build
 ```
 
 The frontend proxies `/api` requests to the backend via `proxy.conf.json`.
-
-### Production (single binary)
-
-```bash
-cd Nostos.Backend
-dotnet run -c Release
-```
-
-This automatically runs `npm install` + `npm run build` for the frontend, copies the output to `wwwroot`, applies database migrations, and serves everything at **http://localhost:5214**.
 
 ### Configuration
 
