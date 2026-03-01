@@ -28,6 +28,9 @@ export interface IReader {
   zoomIn(): void;
   zoomOut(): void;
 
+  // Highlight Management
+  removeHighlight(identifier: string): void;
+
   // Reactive State
   toc: Signal<TocItem[]>;
   progress: Signal<ReaderProgress>;

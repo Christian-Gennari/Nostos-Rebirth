@@ -1,5 +1,4 @@
-using Microsoft.EntityFrameworkCore;
-using Nostos.Backend.Data;
+using Nostos.Backend.Data.Interfaces;
 
 namespace Nostos.Backend.Workers;
 
@@ -58,23 +57,15 @@ public class ConceptCleanupWorker(
     /// <summary>
     /// Periodically cleans up orphaned concepts (concepts with no links to notes).
     /// </summary>
-    /// <remarks>
-    /// This method is designed to be called periodically, such as from a timer.
-    /// It will log information about the number of concepts cleaned up.
-    /// If the method is cancelled, it will log a message indicating that it has been stopped.
-    /// </remarks>
-    /// <param name="stoppingToken">The cancellation token to watch for stopping the task.</param>
     private async Task DoWorkAsync(CancellationToken stoppingToken)
     {
         using var scope = scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<NostosDbContext>();
+        var conceptRepo = scope.ServiceProvider.GetRequiredService<IConceptRepository>();
 
         logger.LogInformation("Scanning for orphaned concepts...");
 
         // Efficient Bulk Delete for concepts with no links
-        var deletedCount = await db
-            .Concepts.Where(c => !c.NoteConcepts.Any())
-            .ExecuteDeleteAsync(stoppingToken);
+        var deletedCount = await conceptRepo.DeleteOrphanedAsync(stoppingToken);
 
         if (deletedCount > 0)
         {

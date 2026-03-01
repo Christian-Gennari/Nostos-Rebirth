@@ -1,0 +1,165 @@
+/* Nostos.Frontend/src/app/reader/pdf-reader/pdf-reader.css */
+
+:host {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.pdf-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: var(--bg-body, #fff);
+}
+
+#pdf-viewer-wrapper {
+  width: 100%;
+  height: 100%;
+}
+
+/* --- Highlight Layer Styles --- */
+::ng-deep .custom-highlight-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* NEW: The Group handles the blending.
+   This flattens the children so overlapping boxes don't double-darken.
+*/
+::ng-deep .highlight-group {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Let clicks pass through empty areas */
+
+  /* Use Multiply for better text contrast, or normal opacity if that fails */
+  mix-blend-mode: multiply;
+}
+
+/* NEW: The Box is now SOLID color.
+   Solid Yellow + Solid Yellow = Solid Yellow (No stripes).
+*/
+::ng-deep .highlight-box {
+  position: absolute;
+  background-color: var(--color-highlight); /* Solid Yellow */
+  cursor: text;
+  opacity: 0.4; /* Apply opacity here OR on the group. */
+}
+
+/* FIX for "Middle Row":
+   If we put opacity on the BOX, we get stripes.
+   If we put opacity on the GROUP, we get a flat shape.
+*/
+::ng-deep .highlight-group {
+  opacity: 0.4; /* Controls the transparency of the whole note */
+  mix-blend-mode: multiply;
+}
+
+::ng-deep .highlight-box {
+  opacity: 1; /* Reset opacity so they merge as solids */
+}
+
+::ng-deep .highlight-box:hover {
+  background-color: var(--color-highlight-hover); /* Slight darken on hover */
+}
+
+/* --- UI Tweaks --- */
+::ng-deep #mainContainer.toolbar-hidden {
+  margin-top: -34px !important;
+}
+
+::ng-deep #viewerContainer {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+::ng-deep #viewerContainer::-webkit-scrollbar {
+  display: none !important;
+}
+/* =========================================
+   SIDEBAR CUSTOMIZATION (Match Custom TOC)
+   ========================================= */
+
+/* 1. Sidebar Container - Match Dimensions & Background */
+::ng-deep #sidebarContainer {
+  background-color: var(--bg-surface) !important;
+  border-right: 1px solid var(--border-color) !important;
+  padding: 3rem !important;
+}
+
+::ng-deep #outlineView {
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* 3. Content Area - Push down to account for taller header */
+::ng-deep #sidebarContent {
+  all: unset;
+  border-right: 1px solid var(--border-color) !important;
+  box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.5) !important;
+
+  top: 0 !important;
+  bottom: 0 !important;
+  background-color: var(--bg-surface) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* 4. The TOC Items (Correct Selector: .treeItem) */
+::ng-deep .treeItem > a {
+  color: var(--color-text-main) !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 0.9rem !important;
+  font-weight: var(--fw-medium) !important;
+  font-style: normal;
+  padding: 1rem 0rem !important;
+}
+
+::ng-deep .treeItem {
+  border-top: 1px solid var(--border-color) !important;
+  padding-left: 1.5rem !important;
+  border-radius: 0 !important;
+}
+
+::ng-deep .treeItemToggler {
+  margin-top: 15px;
+}
+
+::ng-deep .treeItem .treeItem a {
+  font-weight: var(--fw-regular) !important;
+  font-style: normal;
+}
+
+/* Hover State */
+::ng-deep .treeItem > a:hover {
+  background-color: var(--bg-hover) !important;
+  color: var(--color-primary) !important;
+  border-bottom-color: transparent !important;
+}
+
+/* Selected State */
+::ng-deep .treeItem.selected > a {
+  background-color: var(--bg-hover) !important;
+  color: var(--color-primary) !important;
+}
+
+/* 5. Toolbar Icons (Outline/Thumbnail switchers) */
+::ng-deep #toolbarSidebar .toolbarButton {
+  display: none !important;
+  height: 0 !important;
+}

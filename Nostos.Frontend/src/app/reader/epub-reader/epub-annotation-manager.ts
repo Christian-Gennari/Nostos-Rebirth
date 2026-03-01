@@ -1,8 +1,8 @@
 // Nostos.Frontend/src/app/reader/epub-reader/epub-annotation-manager.ts
 import { Rendition } from 'epubjs';
 import { signal, Injector } from '@angular/core';
-import { NotesService } from '../../services/notes.services';
-import { Note } from '../../dtos/note.dtos';
+import { NotesService } from '../../core/services/notes.service';
+import { Note } from '../../core/dtos/note.dtos';
 
 export class EpubAnnotationManager {
   // Signal to track saved highlights (CFI strings)
@@ -14,7 +14,7 @@ export class EpubAnnotationManager {
     private rendition: Rendition,
     private bookId: string,
     private injector: Injector,
-    private onNoteCreated?: () => void // <--- NEW: Callback to notify parent
+    private onNoteCreated?: () => void,
   ) {
     this.notesService = this.injector.get(NotesService);
   }

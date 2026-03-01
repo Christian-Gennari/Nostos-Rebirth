@@ -1,0 +1,234 @@
+<div class="studio-layout">
+  <div
+    class="backdrop"
+    [class.visible]="isMobile() && (showFileSidebar() || showBrainSidebar())"
+    (click)="closeSidebars()"
+  ></div>
+
+  <aside class="sidebar-left" [class.open]="showFileSidebar()">
+    <div class="sidebar-header">
+      <h2>Studio</h2>
+      <div class="actions">
+        <button class="icon-btn" (click)="createItem('Folder')" title="New Folder">
+          <lucide-icon [img]="Icons.FolderPlus" [size]="16"></lucide-icon>
+        </button>
+        <button class="icon-btn" (click)="createItem('Document')" title="New File">
+          <lucide-icon [img]="Icons.Plus" [size]="16"></lucide-icon>
+        </button>
+        @if (isMobile()) {
+          <button class="icon-btn mobile-only" (click)="showFileSidebar.set(false)">
+            <lucide-icon [img]="Icons.Close" [size]="16"></lucide-icon>
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="file-list">
+      <app-flat-tree
+        [items]="rootItems()"
+        [activeId]="activeItem()?.id || null"
+        [editingId]="editingId()"
+        (nodeSelected)="handleItemSelected($event)"
+        (nodeMoved)="handleItemMove($event)"
+        (nodeRenamed)="startRename($event)"
+        (nodeDeleted)="deleteItem($event)"
+        (nodeRenameSaved)="saveRename($event.id, $event.newName)"
+        (nodeRenameCancelled)="cancelRename()"
+      ></app-flat-tree>
+    </div>
+  </aside>
+
+  <main class="editor-pane">
+    @if (activeItem(); as item) {
+      <div class="editor-header">
+        <div class="meta-controls">
+          @if (isMobile()) {
+            <button
+              class="icon-btn sidebar-header-toggle"
+              (click)="showFileSidebar.set(!showFileSidebar())"
+              title="Toggle Files"
+            >
+              <lucide-icon
+                [img]="showFileSidebar() ? Icons.PanelLeftClose : Icons.PanelLeftOpen"
+                [size]="20"
+                strokeWidth="1.5"
+              ></lucide-icon>
+            </button>
+          }
+          <span class="status-badge">{{ saveStatus() }}</span>
+
+          @if (isMobile()) {
+            <button
+              class="icon-btn sidebar-header-brain-toggle"
+              [class.active]="showBrainSidebar()"
+              (click)="showBrainSidebar.set(!showBrainSidebar())"
+              title="Toggle Brain"
+            >
+              <lucide-icon [img]="Icons.BrainCircuit" [size]="20" strokeWidth="1.5"></lucide-icon>
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="editor-wrapper">
+        <app-markdown-editor
+          [initialContent]="editorText()"
+          (contentChange)="editorText.set($event)"
+        ></app-markdown-editor>
+      </div>
+    } @else {
+      <div class="empty-state">
+        <div class="icon-circle">
+          <lucide-icon
+            [img]="Icons.FileText"
+            [size]="32"
+            color="var(--color-text-light)"
+          ></lucide-icon>
+        </div>
+        <p>Select a file to begin writing</p>
+        @if (isMobile()) {
+          <button class="btn-outline" (click)="showFileSidebar.set(true)">Open Sidebar</button>
+        }
+      </div>
+    }
+  </main>
+
+  <aside class="sidebar-right" [class.open]="showBrainSidebar()">
+    <div class="sidebar-header compact">
+      <div class="sidebar-title-row">
+        <h2>Context</h2>
+        @if (isMobile()) {
+          <button class="icon-btn" (click)="showBrainSidebar.set(false)">
+            <lucide-icon [img]="Icons.PanelRightClose" [size]="16"></lucide-icon>
+          </button>
+        }
+      </div>
+
+      <div class="sidebar-tabs">
+        <button
+          class="tab-btn"
+          [class.active]="activeSidebarTab() === 'brain'"
+          (click)="activeSidebarTab.set('brain')"
+        >
+          <lucide-icon [img]="Icons.Sparkles" [size]="14"></lucide-icon>
+          <span>Concepts</span>
+        </button>
+        <button
+          class="tab-btn"
+          [class.active]="activeSidebarTab() === 'notes'"
+          (click)="activeSidebarTab.set('notes')"
+        >
+          <lucide-icon [img]="Icons.Book" [size]="14"></lucide-icon>
+          <span>Books</span>
+        </button>
+      </div>
+    </div>
+
+    @if (activeSidebarTab() === 'brain') {
+      <div class="search-box">
+        <lucide-icon [img]="Icons.Search" [size]="16"></lucide-icon>
+        <input
+          type="text"
+          placeholder="Search concepts..."
+          [ngModel]="brainQuery()"
+          (ngModelChange)="brainQuery.set($event)"
+        />
+      </div>
+
+      <div class="brain-content">
+        @if (!selectedConceptId()) {
+          <div class="index-list">
+            @for (c of filteredConcepts(); track c.id) {
+              <button class="list-item" (click)="selectConcept(c.id)">
+                <div class="list-item-content">
+                  <span class="name">{{ c.name }}</span>
+                </div>
+                <span class="badge-count">{{ c.usageCount }}</span>
+              </button>
+            }
+          </div>
+        } @else {
+          <div class="brain-detail-header">
+            <button class="goto-btn" (click)="selectedConceptId.set(null)">
+              <lucide-icon [img]="Icons.ArrowLeft" [size]="16"></lucide-icon>
+              Back
+            </button>
+            <span class="detail-title">Concept Notes</span>
+          </div>
+
+          <div class="notes-list">
+            @for (note of selectedConceptNotes(); track note.id) {
+              <app-note-card
+                [note]="note"
+                [conceptMap]="conceptMap()"
+                [showActions]="false"
+                [showSource]="true"
+                (click)="insertNoteIntoEditor(note.selectedText ?? '')"
+                class="clickable-note"
+              ></app-note-card>
+            }
+            @if (selectedConceptNotes().length === 0) {
+              <p class="empty-index">No notes linked to this concept.</p>
+            }
+          </div>
+        }
+      </div>
+    }
+    @if (activeSidebarTab() === 'notes') {
+      <div class="search-box">
+        <lucide-icon [img]="Icons.Search" [size]="16"></lucide-icon>
+        <input
+          type="text"
+          placeholder="Search books..."
+          [ngModel]="bookQuery()"
+          (ngModelChange)="bookQuery.set($event)"
+        />
+      </div>
+
+      <div class="brain-content">
+        @if (!selectedBookId()) {
+          <div class="index-list">
+            @for (book of filteredBooks(); track book.id) {
+              <button class="list-item" (click)="selectBook(book.id)">
+                <div class="list-item-icon">
+                  <lucide-icon [img]="Icons.Book" [size]="16"></lucide-icon>
+                </div>
+                <div class="list-item-content">
+                  <span class="name">{{ book.title }}</span>
+                  @if (book.author) {
+                    <span class="subtext">{{ book.author }}</span>
+                  }
+                </div>
+              </button>
+            }
+          </div>
+        } @else {
+          <div class="brain-detail-header">
+            <button class="goto-btn" (click)="selectedBookId.set(null)">
+              <lucide-icon [img]="Icons.ArrowLeft" [size]="16"></lucide-icon>
+              Back
+            </button>
+            <span class="detail-title">Book Notes</span>
+          </div>
+
+          <div class="notes-list">
+            @for (note of selectedBookNotes(); track note.id) {
+              <app-note-card
+                [note]="note"
+                [conceptMap]="conceptMap()"
+                [showActions]="false"
+                [showSource]="true"
+                [showDate]="false"
+                (click)="insertNoteIntoEditor(note.selectedText ?? '')"
+                class="clickable-note"
+              ></app-note-card>
+            }
+            @if (selectedBookNotes().length === 0) {
+              <p class="empty-index">No notes found in this book.</p>
+            }
+          </div>
+        }
+      </div>
+    }
+  </aside>
+</div>

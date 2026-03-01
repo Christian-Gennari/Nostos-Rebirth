@@ -14,22 +14,31 @@ export interface FlatTreeNode {
 export function buildFlatTree(
   items: any[],
   expandedIds: Set<string>,
-  typeField: string = 'type'
+  typeField: string = 'type',
 ): FlatTreeNode[] {
+  // Build a set of IDs that have at least one child
+  const parentIdsWithChildren = new Set<string | null>();
+  for (const item of items) {
+    parentIdsWithChildren.add(item.parentId ?? null);
+  }
+
   // 1. Convert raw items to lightweight nodes
   const nodes = items.map((item) => {
     // Determine type safely
     const nodeType = item[typeField] || 'Folder';
+    // Normalize: treat undefined as null for root-level items
+    const normalizedParentId = item.parentId ?? null;
+    // Only Folders that actually have children are expandable
+    const isExpandable = nodeType === 'Folder' && parentIdsWithChildren.has(item.id);
 
     return {
       id: item.id,
       name: item.name,
       type: nodeType,
-      parentId: item.parentId,
+      parentId: normalizedParentId,
       level: 0,
-      // Only Folders are expandable
-      expandable: nodeType === 'Folder',
-      isExpanded: expandedIds.has(item.id),
+      expandable: isExpandable,
+      isExpanded: isExpandable && expandedIds.has(item.id),
       originalData: item,
     };
   });

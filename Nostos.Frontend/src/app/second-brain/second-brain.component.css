@@ -1,0 +1,492 @@
+/* fileName: Nostos.Frontend/src/app/second-brain/second-brain.css */
+
+/* LAYOUT */
+.brain-layout {
+  display: grid;
+  /* Uses Grid to define columns: minmax(280px, 320px) 1fr; */
+  grid-template-columns: minmax(280px, 320px) 1fr;
+
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--bg-body);
+}
+
+/* --- LEFT COLUMN: INDEX --- */
+.index-col {
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+/* HEADER: Refactored for Tight Alignment and Hierarchy */
+.index-header {
+  /* Unified padding for alignment */
+  padding: 1.5rem 1.25rem 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  z-index: 2;
+}
+
+/* ROW 1: Title */
+.header-row {
+  height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* New style for the "Index" label (sidebar-label class must be added to HTML) */
+.sidebar-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.75rem;
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-light);
+}
+
+/* ROW 2: Search Box */
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--bg-body);
+  border: 1px solid var(--border-color);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  transition: all 0.2s;
+  /* Margins removed - spacing controlled by parent gap */
+  margin: 0;
+}
+
+.search-box:focus-within {
+  border-color: var(--border-focus);
+  color: var(--color-text-main);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
+}
+
+.search-box input {
+  border: none;
+  background: transparent;
+  outline: none;
+  width: 100%;
+  font-size: 0.9rem;
+  font-family: 'Inter', sans-serif;
+  color: var(--color-text-main);
+}
+.search-box input::placeholder {
+  color: var(--color-text-light);
+}
+
+/* LIST */
+.index-list {
+  flex: 1;
+  overflow-y: auto;
+  /* Padding matches header horizontal padding exactly */
+  padding: 0 1.25rem 1.5rem 1.25rem;
+}
+
+.index-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  /* Adjusted vertical padding for tighter density */
+  padding: 0.5rem 0.75rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  text-align: left;
+  transition: all 0.1s ease-out;
+  margin-bottom: 2px;
+  color: var(--color-text-muted);
+}
+
+.index-item:hover {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+/* CHANGED: Adopted lighter style from Collection Folders (Request 3) */
+.index-item.active {
+  background: var(--bg-surface);
+  color: var(--color-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.index-item .name {
+  font-family: 'Inter', sans-serif;
+  font-weight: var(--fw-medium);
+  /* Adjusted font size for better content utilization */
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 8px;
+}
+
+.index-item .count {
+  font-size: 0.65rem;
+  color: inherit;
+  opacity: 0.6;
+  min-width: 20px;
+  text-align: right;
+}
+
+/* Ensure count uses the primary color when active */
+.index-item.active .count {
+  color: var(--color-primary);
+  opacity: 0.8;
+}
+
+.empty-index {
+  padding: 2rem 0;
+  text-align: center;
+  color: var(--color-text-light);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+/* --- RIGHT COLUMN: CONTENT --- */
+.content-col {
+  flex: 1;
+  overflow-y: auto;
+  padding: 3rem;
+  background-image: radial-gradient(var(--border-color) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-color: var(--bg-body);
+}
+
+/* HEADER */
+.concept-header {
+  margin-bottom: 3rem;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+
+.super-title {
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-size: 0.75rem;
+  color: var(--color-text-light);
+  margin-bottom: 0.75rem;
+  font-weight: var(--fw-semibold);
+}
+
+.concept-title {
+  font-family: 'Lora', serif;
+  font-weight: var(--fw-semibold);
+  font-size: 3rem;
+  color: var(--color-primary);
+  margin: 0 0 0.5rem 0;
+  line-height: 1.1;
+}
+
+.concept-meta {
+  color: var(--color-text-muted);
+  font-family: 'Lora', serif;
+  font-style: italic;
+  font-size: 1.1rem;
+}
+
+/* GRID */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* CARDS */
+.note-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s,
+    border-color 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  opacity: 0;
+}
+
+.note-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+  border-color: var(--color-text-faint);
+}
+
+/* NEW: Allow wide cards to span two columns */
+.note-card.card-wide {
+  grid-column: span 2;
+}
+
+.card-body {
+  padding: 1.5rem;
+  flex: 1;
+  /* Added display/flex-direction to make it easier to manage spacing between elements */
+  display: flex;
+  flex-direction: column;
+}
+
+/* NEW: Improve readability for wide cards by limiting line length */
+.note-card.card-wide .highlight-text {
+  max-width: 80ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* --- ELEGANT QUOTE STYLES --- */
+.highlight-block {
+  /* Minimalist: No heavy background, rely on a subtle border and typography */
+  padding: 0;
+  background: none;
+  /* Replace yellow stripe/background with an elegant, thin left border */
+  border-left: 3px solid var(--border-color);
+  border-radius: 0;
+  margin-bottom: 1rem; /* Creates spacious separation from the user's comment */
+  display: block;
+}
+
+.highlight-text {
+  /* Give the text some horizontal padding to push it away from the vertical border */
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  font-family: 'Lora', serif;
+  font-style: italic;
+
+  font-size: 1rem;
+  margin: 0.25rem 0; /* Slight vertical margin inside the block */
+  line-height: 1.7; /* Spacious line height */
+}
+
+/* Highlight Style */
+:host ::ng-deep .concept-tag {
+  color: var(--color-accent);
+  font-weight: var(--fw-medium);
+  background: transparent;
+  border-bottom: 1px solid var(--color-accent-faint);
+  padding-bottom: 1px;
+}
+
+.card-footer {
+  padding: 0.75rem 1.5rem;
+  background: var(--bg-surface-alt);
+  border-top: 1px solid var(--border-color);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.book-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.from-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  color: var(--color-text-light);
+  letter-spacing: 0.05em;
+  font-weight: var(--fw-semibold);
+}
+
+.book-title {
+  font-family: 'Lora', serif;
+  font-size: 0.85rem;
+  font-weight: var(--fw-semibold);
+  color: var(--color-text-muted);
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.goto-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: var(--fw-medium);
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.goto-btn:hover {
+  background: var(--bg-hover);
+  color: var(--color-primary);
+  border-color: var(--border-color);
+}
+
+/* LANDING STATE */
+.landing-state {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--color-text-muted);
+  opacity: 0.8;
+}
+
+.icon-circle {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--color-text-light);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  margin-bottom: 1.25rem;
+}
+
+.landing-state h2 {
+  font-family: 'Lora', serif;
+  font-size: 1.5rem;
+  color: var(--color-primary);
+  margin-bottom: 0.5rem;
+  font-weight: var(--fw-medium);
+}
+
+/* ANIMATIONS */
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.note-card {
+  animation: slideUpFade 0.4s cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+
+/* --- MOBILE RESPONSIVENESS --- */
+
+/* 1. Mobile Back Button (Default Hidden) */
+.mobile-nav-header {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* 2. Break the Grid */
+  .brain-layout {
+    display: block; /* Switch from grid to block flow */
+    position: relative;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  /* 3. Index Column Behavior */
+  .index-col {
+    width: 100%;
+    height: 100%;
+    border-right: none;
+  }
+
+  /* When class.mobile-hidden is active (Selection made), hide index completely */
+  .index-col.mobile-hidden {
+    display: none;
+  }
+
+  /* 4. Content Column Behavior */
+  .content-col {
+    display: none; /* Hidden by default on mobile (Landing state is Index) */
+    width: 100%;
+    height: 100%;
+    padding: 1.5rem; /* Less padding on mobile */
+    background-image: none; /* Cleaner look on small screens */
+  }
+
+  /* When class.mobile-visible is active, show it full screen */
+  .content-col.mobile-visible {
+    display: block;
+    overflow-y: auto;
+  }
+
+  /* 5. Mobile Back Button Style */
+  .mobile-nav-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-bottom: 1rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--color-primary);
+    font-weight: var(--fw-medium);
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+
+  /* 6. Adjust Typography for Mobile */
+  .concept-title {
+    font-size: 2rem;
+  }
+
+  .cards-grid {
+    grid-template-columns: 1fr; /* Single column cards */
+  }
+
+  /* Disable "wide" card spanning on mobile */
+  .note-card.card-wide {
+    grid-column: span 1;
+  }
+
+  /* 5. Mobile Back Button (Refined) */
+  .mobile-nav-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    /* Layout */
+    width: 100%;
+    padding-bottom: 1rem; /* Vertical breathing room */
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color); /* Subtle divider */
+
+    /* Typography & Color - Matches .btn-back */
+    color: var(--color-text-light, var(--color-text-light));
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    font-weight: var(--fw-medium);
+
+    cursor: pointer;
+    transition:
+      color 0.2s ease,
+      transform 0.2s ease;
+  }
+
+  .mobile-nav-header:hover {
+    color: var(--color-primary, var(--color-primary));
+  }
+
+  .mobile-nav-header lucide-icon {
+    stroke-width: 2px;
+  }
+}

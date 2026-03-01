@@ -5,14 +5,14 @@
 
 .note-card-container {
   padding: 1rem;
-  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  border-bottom: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   position: relative;
   transition: background-color 0.2s ease;
 }
 
 .note-card-container:hover {
-  background-color: var(--bg-hover, #fafafa);
+  background-color: var(--bg-hover);
 }
 
 /* --- Collapsible Body Wrapper --- */
@@ -39,9 +39,9 @@
   background: none;
   padding: 4px 0;
   margin-top: 4px;
-  color: var(--color-primary, #666);
+  color: var(--color-primary);
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   cursor: pointer;
   opacity: 0.8;
   transition: opacity 0.2s;
@@ -58,19 +58,19 @@
   gap: 0.75rem;
   margin-bottom: 0.75rem;
   padding: 0.5rem 0.75rem;
-  background-color: var(--bg-hover, #f9fafb);
+  background-color: var(--bg-hover);
   border-radius: var(--radius-sm, 4px);
 }
 
 .quote-stripe {
   width: 3px;
-  background-color: var(--color-text-light, #888);
+  background-color: var(--color-text-light);
   border-radius: 1px;
   flex-shrink: 0;
 }
 
 .quote-icon {
-  color: var(--color-text-light, #888);
+  color: var(--color-text-light);
   margin-top: 2px;
   flex-shrink: 0;
 }
@@ -79,7 +79,7 @@
   font-family: 'Lora', serif;
   text-wrap: wrap;
   font-style: italic;
-  color: var(--color-text-main, #333);
+  color: var(--color-text-main);
   font-size: 0.95rem;
   margin: 0;
   line-height: 1.5;
@@ -88,13 +88,13 @@
 /* --- Content Block --- */
 .note-text {
   line-height: 1.6;
-  color: var(--color-text-main, #1a1a1a);
+  color: var(--color-text-main);
   white-space: pre-wrap;
 }
 
 .note-meta-placeholder {
   font-size: 0.85rem;
-  color: var(--color-text-light, #999);
+  color: var(--color-text-light);
   font-style: italic;
 }
 
@@ -113,7 +113,7 @@
   align-items: center;
   gap: 6px;
   font-size: 0.75rem;
-  color: var(--color-text-light, #aaa);
+  color: var(--color-text-light);
 }
 
 .meta-separator {
@@ -129,7 +129,7 @@
   background: transparent;
   padding: 2px 6px;
   border-radius: 4px;
-  color: var(--color-text-light, #888);
+  color: var(--color-text-light);
   font-size: 0.75rem;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -143,8 +143,8 @@
 }
 
 .source-badge:hover {
-  background-color: var(--bg-hover, #e5e5e5);
-  color: var(--color-primary, #111);
+  background-color: var(--bg-hover);
+  color: var(--color-primary);
 }
 
 .note-actions {
@@ -154,8 +154,8 @@
   opacity: 0;
   transform: translateY(4px);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  background-color: var(--bg-surface, #fff);
-  border: 1px solid var(--border-color, #e5e5e5);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
   border-radius: 100px;
   padding: 2px 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
@@ -172,34 +172,34 @@
 }
 
 .note-actions .icon-btn:hover {
-  background-color: var(--bg-hover, #f3f3f3);
-  color: var(--color-primary, #111);
+  background-color: var(--bg-hover);
+  color: var(--color-primary);
 }
 
 .note-actions .icon-btn.delete:hover {
-  background-color: #fee2e2;
-  color: var(--color-danger, #d32f2f);
+  background-color: var(--color-danger-bg);
+  color: var(--color-danger);
 }
 
 /* --- Edit Mode Styles --- */
 .edit-box {
-  background: var(--bg-surface, #fff);
-  border: 1px solid var(--border-color, #e5e5e5);
-  border-radius: var(--radius-md, 6px);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
   padding: 0.5rem;
 }
 
 /* NEW: Style for the quote input textarea */
 .edit-quote-input {
   width: 100%;
-  border: 1px solid var(--border-color, #e5e5e5);
-  border-radius: var(--radius-sm, 4px);
-  background-color: var(--bg-hover, #f9fafb);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-hover);
   padding: 0.5rem;
   font-family: 'Lora', serif;
   font-style: italic;
   font-size: 0.95rem;
-  color: var(--color-text-main, #333);
+  color: var(--color-text-main);
   resize: vertical;
   min-height: 60px;
   margin-bottom: 0.75rem;
@@ -207,7 +207,7 @@
 
 .edit-quote-input:focus {
   outline: none;
-  border-color: var(--color-primary, #666);
+  border-color: var(--color-primary);
 }
 
 .edit-actions {
@@ -216,7 +216,7 @@
   gap: 0.5rem;
   margin-top: 0.5rem;
   padding-top: 0.5rem;
-  border-top: 1px dashed var(--border-color, #eee);
+  border-top: 1px dashed var(--border-color);
 }
 
 .icon-btn.xs {

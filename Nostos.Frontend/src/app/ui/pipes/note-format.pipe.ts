@@ -1,12 +1,11 @@
 import { Pipe, PipeTransform } from '@angular/core';
-import { ConceptDto } from '../../services/concepts.services';
+import { ConceptDto } from '../../core/services/concepts.service';
 
 @Pipe({
   name: 'noteFormat',
-  standalone: true
+  standalone: true,
 })
 export class NoteFormatPipe implements PipeTransform {
-
   transform(content: string, conceptMap: Map<string, ConceptDto> | null): string {
     if (!content) return '';
     if (!conceptMap || conceptMap.size === 0) return content;

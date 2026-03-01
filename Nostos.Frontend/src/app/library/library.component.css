@@ -1,0 +1,623 @@
+/* --- LAYOUT STRUCTURE --- */
+
+/* 1. Ensure the component itself fills the parent (workspace-content) */
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  --sidebar-width: 301px;
+}
+
+/* 2. Collapse State Class */
+.layout-wrapper.sidebar-collapsed {
+  --sidebar-width: 72px;
+}
+
+/* 3. Flex container for Sidebar + Content */
+.layout-wrapper {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-surface);
+  position: relative; /* Needed for absolute positioning context on mobile */
+}
+
+/* 4. Sidebar Panel Component */
+app-sidebar-collections {
+  /* Desktop: Participate in Flex layout */
+  width: var(--sidebar-width);
+  flex-basis: var(--sidebar-width);
+  flex-shrink: 0;
+
+  /* Transition Logic */
+  &:not(.no-transition) {
+    transition:
+      width 0.3s ease,
+      flex-basis 0.3s ease;
+  }
+
+  background-color: var(--bg-surface-alt);
+  overflow-y: auto;
+  height: 100%;
+  display: block;
+  z-index: 20; /* Ensure sidebar sits above content */
+}
+
+app-sidebar-collections.no-transition {
+  transition: none !important;
+}
+
+/* 5. Right Side Content */
+.library-right-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  position: relative;
+  width: 100%; /* Ensure full width */
+}
+
+/* --- TOOLBAR --- */
+.toolbar {
+  position: sticky;
+  top: 0;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  z-index: 5;
+  padding: 1.5rem 3rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between; /* Space between Title and Controls */
+  align-items: center;
+  margin-bottom: 2rem;
+  gap: 2rem; /* NEW: Spacing between title, search, and controls */
+}
+
+.toolbar h1 {
+  font-size: 1.75rem;
+  font-weight: var(--fw-medium);
+  margin: 0;
+  white-space: nowrap; /* Prevent title from wrapping */
+}
+
+/* NEW: Search Bar Styles */
+.search-bar-container {
+  flex: 1; /* Allows search bar to fill available space */
+  max-width: 480px; /* But don't let it get too wide */
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: relative;
+  left: 28px;
+  color: var(--color-text-placeholder);
+  pointer-events: none;
+  z-index: 1;
+  transition: color 0.2s ease;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.6rem 1rem 0.6rem 2.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  background: var(--bg-surface);
+  transition: all 0.2s ease;
+  color: var(--color-text-main);
+  font-family: inherit;
+}
+
+.search-input::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+.search-input:hover {
+  border-color: var(--border-color);
+  background: var(--bg-surface-alt);
+}
+
+.search-input:focus {
+  background: var(--bg-surface);
+  border-color: var(--border-focus);
+  outline: none;
+}
+
+.search-input:focus + .search-icon,
+.search-bar-container:has(.search-input:focus) .search-icon {
+  color: var(--color-text-main);
+}
+
+/* NEW: Sort Dropdown Styles */
+.select-wrapper {
+  position: relative;
+  min-width: 140px;
+}
+
+.sort-select {
+  width: 100%;
+  padding: 0.6rem 2rem 0.6rem 1rem;
+  border: 0px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  outline: none;
+  appearance: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1em;
+}
+
+.sort-select:hover {
+  background-color: var(--bg-hover);
+}
+
+/* Toolbar Right Section */
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0; /* Prevent controls from squishing */
+}
+
+.control-group {
+  display: flex;
+  background: var(--bg-hover);
+  padding: 3px;
+  border-radius: var(--radius-md);
+  gap: 2px;
+}
+
+.toggle-opt {
+  background: 0 0;
+  border: none;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-light);
+  display: flex;
+}
+
+.toggle-opt:hover {
+  color: var(--color-text-main);
+}
+
+.toggle-opt.active {
+  background: var(--bg-surface);
+  color: var(--color-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* --- LIST VIEW --- */
+.table-view {
+  --table-grid-cols: 2fr 1.5fr 100px 1fr 60px 80px;
+}
+
+.table-header {
+  display: grid;
+  grid-template-columns: var(--table-grid-cols);
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--color-text-light);
+  font-size: 0.75rem;
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: var(--table-grid-cols);
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid transparent;
+  align-items: center;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  font-size: 0.95rem;
+  color: var(--color-text-main);
+  border-radius: var(--radius-sm);
+}
+
+.table-row:hover {
+  background: var(--bg-hover);
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.table-row .actions-cell {
+  opacity: 0;
+  transition: opacity 0.2s;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.table-row:hover .actions-cell {
+  opacity: 1;
+}
+
+.col.title {
+  font-weight: var(--fw-medium);
+  display: flex;
+  align-items: center;
+}
+
+.col.author {
+  color: var(--color-text-muted);
+}
+
+.col.rating {
+  display: flex;
+  align-items: center;
+}
+
+/* Buttons (List) */
+.fav-btn-list,
+.finished-btn-list {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-right: 0.5rem;
+  cursor: pointer;
+  display: inline-flex;
+  vertical-align: middle;
+  color: var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.fav-btn-list.active,
+.table-row:hover .fav-btn-list:hover {
+  color: var(--color-danger-vivid);
+}
+.table-row:hover .fav-btn-list:not(.active) {
+  color: var(--color-text-placeholder);
+}
+
+.finished-btn-list.active,
+.table-row:hover .finished-btn-list:hover {
+  color: var(--color-success);
+}
+.table-row:hover .finished-btn-list:not(.active) {
+  color: var(--color-text-placeholder);
+}
+
+/* .badge is defined globally in styles.css — no component duplicate needed */
+
+/* --- GRID VIEW --- */
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 2.5rem;
+  padding-bottom: 4rem;
+}
+
+.book-card {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  outline: 0;
+  position: relative;
+  cursor: pointer;
+  padding-bottom: 0.5rem;
+}
+
+.cover-wrapper {
+  position: relative;
+  aspect-ratio: 2/3;
+  background: var(--border-color);
+  border-radius: var(--radius-md);
+  outline: 1px solid var(--border-color);
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-faint);
+  overflow: hidden;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+  /* IMPORTANT: Only use translateZ on hover if possible,
+       but keeping it here to prevent paint flashing. */
+  transform: translateZ(0);
+}
+
+.cover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 0.2s;
+
+  /* --- FIX FOR PIXELATED IMAGES --- */
+  /* This tells the browser to use high-quality interpolation for downscaling */
+  image-rendering: high-quality;
+
+  /* Fixes jagged edges during 3D transforms */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.book-card:hover .cover-wrapper {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* Buttons (Grid) */
+.fav-btn-grid,
+.finished-btn-grid {
+  position: absolute;
+  top: 8px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(4px);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  color: var(--color-text-placeholder);
+  opacity: 0;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.book-card:hover .fav-btn-grid,
+.book-card:hover .finished-btn-grid,
+.fav-btn-grid.active,
+.finished-btn-grid.active {
+  opacity: 1;
+}
+
+.fav-btn-grid {
+  right: 8px;
+}
+.fav-btn-grid.active {
+  color: var(--color-danger-vivid);
+  background: var(--bg-surface);
+}
+.fav-btn-grid:hover {
+  transform: scale(1.1);
+  color: var(--color-danger-vivid);
+}
+
+.finished-btn-grid {
+  left: 8px;
+}
+.finished-btn-grid.active {
+  color: var(--color-success);
+  background: var(--bg-surface);
+}
+.finished-btn-grid:hover {
+  transform: scale(1.1);
+  color: var(--color-success);
+}
+
+.filled-heart,
+.filled-check {
+  fill: currentColor;
+}
+
+.actions-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--overlay-medium);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 1;
+}
+
+.book-card:hover .actions-overlay {
+  opacity: 1;
+}
+
+.action-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-primary);
+  transform: translateY(10px);
+  transition: all 0.2s ease;
+}
+
+.book-card:hover .action-circle {
+  transform: translateY(0);
+}
+.action-circle:hover {
+  background: var(--color-primary);
+  color: var(--bg-surface);
+}
+.action-circle.delete:hover {
+  background: var(--color-danger);
+  color: var(--bg-surface);
+}
+
+.meta-title {
+  font-weight: var(--fw-semibold);
+  font-size: 1rem;
+  color: var(--color-primary);
+  line-height: 1.3;
+  margin-bottom: 0.2rem;
+}
+
+.meta-author {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+.meta-rating {
+  margin-top: 0.35rem;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+/* ADDED: This makes the rating solid when hovering the book card */
+.book-card:hover .meta-rating {
+  opacity: 1;
+}
+
+/* --- SKELETON --- */
+@keyframes pulse {
+  0%,
+  100% {
+    background-color: var(--bg-skeleton);
+  }
+  50% {
+    background-color: var(--border-color);
+  }
+}
+.skeleton-block,
+.skeleton-box,
+.skeleton-line {
+  background-color: var(--bg-skeleton);
+  animation: pulse 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+.skeleton-box.cover-size {
+  width: 100%;
+  aspect-ratio: 2/3;
+  border-radius: var(--radius-md);
+}
+.skeleton-line {
+  height: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+.skeleton-list-view .table-row {
+  background: transparent !important;
+  box-shadow: none !important;
+  cursor: default;
+}
+.skeleton-list-view .table-row .col.rating .skeleton-line {
+  height: 10px;
+  margin-bottom: 0;
+}
+.skeleton-list-view .table-row .col .skeleton-line {
+  height: 1rem;
+  margin-bottom: 0;
+}
+
+/* --- MOBILE BACKDROP --- */
+/* This is controlled by the library HTML based on sidebar state */
+.mobile-backdrop {
+  display: none;
+}
+
+/* --- MOBILE RESPONSIVE --- */
+@media (max-width: 768px) {
+  /* 1. Reset wrapper to block */
+  .layout-wrapper {
+    display: block;
+    overflow: hidden;
+  }
+
+  /* 2. IMPORTANT FIX: Take sidebar out of flow so it doesn't push content */
+  app-sidebar-collections {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0; /* Effectively hide the container's footprint */
+    height: 100%;
+    z-index: 50;
+    /* The internal .sidebar class handles the actual visual width and fixed positioning */
+  }
+
+  /* 3. Content area takes full width */
+  .library-right-side {
+    width: 100%;
+    height: 100%;
+    margin-left: 0;
+    overflow-y: auto;
+  }
+
+  /* 4. Mobile Backdrop */
+  .mobile-backdrop {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--overlay-medium);
+    z-index: 40; /* Behind sidebar (z-50), above content */
+    backdrop-filter: blur(2px);
+  }
+
+  /* 5. Toolbar Tweaks */
+  .toolbar {
+    padding: 1rem 1.5rem;
+    flex-direction: column; /* NEW: Stack items vertically on mobile */
+    align-items: stretch;
+    height: auto;
+    gap: 1rem;
+  }
+
+  .search-icon {
+    position: fixed;
+    left: 35px;
+    top: 80px;
+  }
+
+  /* Adjust order so Search comes after Title but before Controls */
+  .toolbar h1 {
+    display: none;
+  }
+
+  .search-bar-container {
+    max-width: 100%; /* Full width on mobile */
+    order: 2;
+  }
+
+  .toolbar-right {
+    justify-content: space-between; /* Spread controls out */
+    order: 1;
+    width: 100%;
+  }
+
+  .btn-text {
+    display: none;
+  }
+
+  /* 6. List/Table Tweaks */
+  .table-view {
+    --table-grid-cols: 1fr 60px;
+  }
+  #format-header,
+  .col.format {
+    display: flex;
+    justify-content: right;
+  }
+  .table-row {
+    border-bottom: 1px dotted var(--border-color);
+    padding: 1rem;
+  }
+
+  /* Hide columns */
+  #actions-header,
+  #author-header,
+  #date-header,
+  #rating-header,
+  .col .actions-cell,
+  .col.actions-cell,
+  .col.author,
+  .col.rating,
+  .col.date {
+    display: none !important;
+  }
+}

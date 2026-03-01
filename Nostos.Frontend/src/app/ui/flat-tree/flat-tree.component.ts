@@ -1,4 +1,13 @@
-import { Component, Input, Output, EventEmitter, signal, computed } from '@angular/core';
+import {
+  Component,
+  Input,
+  Output,
+  EventEmitter,
+  signal,
+  computed,
+  inject,
+  ElementRef,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DragDropModule, CdkDragDrop } from '@angular/cdk/drag-drop';
 import {
@@ -23,6 +32,7 @@ import { buildFlatTree, FlatTreeNode } from './flat-tree.helper';
   styleUrls: ['./flat-tree.component.css'],
 })
 export class FlatTreeComponent {
+  private elRef = inject(ElementRef);
   private _items = signal<any[]>([]);
 
   @Input({ required: true })
@@ -33,10 +43,33 @@ export class FlatTreeComponent {
   @Input() activeId: string | null = null;
   @Input() typeField = 'type';
 
+  private _editingId: string | null = null;
+
+  @Input()
+  set editingId(value: string | null) {
+    this._editingId = value;
+    if (value) {
+      setTimeout(() => {
+        const input = this.elRef.nativeElement.querySelector(
+          '.inline-rename-input',
+        ) as HTMLInputElement;
+        if (input) {
+          input.focus();
+          input.select();
+        }
+      });
+    }
+  }
+  get editingId(): string | null {
+    return this._editingId;
+  }
+
   @Output() nodeSelected = new EventEmitter<any>();
   @Output() nodeMoved = new EventEmitter<{ item: any; newParentId: string | null }>();
   @Output() nodeRenamed = new EventEmitter<any>();
   @Output() nodeDeleted = new EventEmitter<string>();
+  @Output() nodeRenameSaved = new EventEmitter<{ id: string; newName: string }>();
+  @Output() nodeRenameCancelled = new EventEmitter<void>();
 
   Icons = {
     Folder,
@@ -70,7 +103,22 @@ export class FlatTreeComponent {
   }
 
   handleSelect(node: FlatTreeNode) {
+    // Auto-toggle expand for expandable (folder) nodes
+    if (node.expandable) {
+      const newSet = new Set(this.expandedIds());
+      if (newSet.has(node.id)) {
+        newSet.delete(node.id);
+      } else {
+        newSet.add(node.id);
+      }
+      this.expandedIds.set(newSet);
+    }
     this.nodeSelected.emit(node.originalData);
+  }
+
+  onRenameSave(id: string, event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.nodeRenameSaved.emit({ id, newName: input.value });
   }
 
   moveToRoot(node: FlatTreeNode, event: Event) {

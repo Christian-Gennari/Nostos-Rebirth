@@ -3,7 +3,7 @@ import { provideRouter, RouteReuseStrategy } from '@angular/router';
 
 import { routes } from './app.routes';
 import { provideHttpClient } from '@angular/common/http';
-import { AppRouteReuseStrategy } from './strategies/app-route-reuse-strategy';
+import { AppRouteReuseStrategy } from './core/strategies/app-route-reuse-strategy';
 
 export const appConfig: ApplicationConfig = {
   providers: [

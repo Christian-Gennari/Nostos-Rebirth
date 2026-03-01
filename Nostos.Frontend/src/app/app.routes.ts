@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
-import { Home } from './home/home';
-import { WorkspaceLayout } from './workspace-layout/workspace-layout';
+import { Home } from './home/home.component';
+import { WorkspaceLayout } from './layout/workspace-layout/workspace-layout.component';
 
 export const routes: Routes = [
   {
@@ -8,11 +8,10 @@ export const routes: Routes = [
     component: Home,
   },
 
-  // --- NEW: Dedicated Reader Route ---
-  // Placed outside WorkspaceLayout for full-screen immersive mode
+  // Dedicated Reader Route (full-screen immersive mode)
   {
     path: 'read/:id',
-    loadComponent: () => import('./reader/reader-shell').then((m) => m.ReaderShell),
+    loadComponent: () => import('./reader/reader-shell.component').then((m) => m.ReaderShell),
   },
 
   // Wrap ONLY library + brain inside workspace layout
@@ -22,25 +21,33 @@ export const routes: Routes = [
     children: [
       {
         path: 'library',
-        loadComponent: () => import('./library/library').then((m) => m.Library),
+        loadComponent: () => import('./library/library.component').then((m) => m.Library),
         data: { shouldReuse: true },
       },
       {
         path: 'second-brain',
-        loadComponent: () => import('./second-brain/second-brain').then((m) => m.SecondBrain),
+        loadComponent: () =>
+          import('./second-brain/second-brain.component').then((m) => m.SecondBrain),
         data: { shouldReuse: true },
       },
       {
         path: 'studio',
-        loadComponent: () => import('./writing-studio/writing-studio').then((m) => m.WritingStudio),
+        loadComponent: () =>
+          import('./writing-studio/writing-studio.component').then((m) => m.WritingStudio),
         data: { shouldReuse: true },
       },
-      // 👇 Added reuse here so BookDetail stays open
       {
         path: 'library/:id',
-        loadComponent: () => import('./book-detail/book-detail').then((m) => m.BookDetail),
+        loadComponent: () =>
+          import('./book-detail/book-detail.component').then((m) => m.BookDetail),
         data: { shouldReuse: true },
       },
     ],
+  },
+
+  // Catch-all: redirect unknown routes to library
+  {
+    path: '**',
+    redirectTo: 'library',
   },
 ];

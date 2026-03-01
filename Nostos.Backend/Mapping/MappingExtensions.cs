@@ -1,4 +1,5 @@
-using System.Text.Json; // 👈 Added for JSON deserialization
+using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Nostos.Backend.Data.Models;
 using Nostos.Shared.Dtos;
 
@@ -6,6 +7,11 @@ namespace Nostos.Backend.Mapping;
 
 public static class MappingExtensions
 {
+    private static readonly ILoggerFactory _loggerFactory = LoggerFactory.Create(builder =>
+        builder.AddConsole()
+    );
+    private static readonly ILogger _logger = _loggerFactory.CreateLogger("MappingExtensions");
+
     // ------------------------------
     // Read mappings (Model → DTO)
     // ------------------------------
@@ -45,7 +51,7 @@ public static class MappingExtensions
                 break;
         }
 
-        // 👇 NEW: Deserialize Chapters from JSON (stored in FileDetails)
+        // Deserialize Chapters from JSON (stored in FileDetails)
         IEnumerable<BookChapterDto>? chapters = null;
         if (!string.IsNullOrWhiteSpace(model.FileDetails.ChaptersJson))
         {
@@ -56,10 +62,14 @@ public static class MappingExtensions
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
                 );
             }
-            catch
+            catch (JsonException ex)
             {
                 chapters = null;
-                Console.WriteLine("Failed to deserialize chapters");
+                _logger.LogWarning(
+                    ex,
+                    "Failed to deserialize chapters JSON for book {BookId}",
+                    model.Id
+                );
             }
         }
 
@@ -222,6 +232,10 @@ public static class MappingExtensions
     public static ConceptModel ToModel(this CreateConceptDto dto) =>
         new ConceptModel { Id = Guid.NewGuid(), Concept = dto.Concept };
 
+    // Helper: treats empty string as null (allows clearing optional fields)
+    private static string? NullIfEmpty(string? value) =>
+        value is not null ? (string.IsNullOrEmpty(value) ? null : value) : null;
+
     // ------------------------------
     // Update mappings (Apply fields)
     // ------------------------------
@@ -231,35 +245,35 @@ public static class MappingExtensions
         if (dto.Title != null)
             model.Title = dto.Title;
         if (dto.Author != null)
-            model.Author = dto.Author;
+            model.Author = NullIfEmpty(dto.Author);
         if (dto.CollectionId != null)
             model.CollectionId = dto.CollectionId;
 
-        // 2. Apply Metadata (Owned Type)
+        // 2. Apply Metadata (Owned Type) — empty string clears the field
         if (dto.Subtitle != null)
-            model.Metadata.Subtitle = dto.Subtitle;
+            model.Metadata.Subtitle = NullIfEmpty(dto.Subtitle);
         if (dto.Editor != null)
-            model.Metadata.Editor = dto.Editor;
+            model.Metadata.Editor = NullIfEmpty(dto.Editor);
         if (dto.Translator != null)
-            model.Metadata.Translator = dto.Translator;
+            model.Metadata.Translator = NullIfEmpty(dto.Translator);
         if (dto.Description != null)
-            model.Metadata.Description = dto.Description;
+            model.Metadata.Description = NullIfEmpty(dto.Description);
         if (dto.Publisher != null)
-            model.Metadata.Publisher = dto.Publisher;
+            model.Metadata.Publisher = NullIfEmpty(dto.Publisher);
         if (dto.PlaceOfPublication != null)
-            model.Metadata.PlaceOfPublication = dto.PlaceOfPublication;
+            model.Metadata.PlaceOfPublication = NullIfEmpty(dto.PlaceOfPublication);
         if (dto.PublishedDate != null)
-            model.Metadata.PublishedDate = dto.PublishedDate;
+            model.Metadata.PublishedDate = NullIfEmpty(dto.PublishedDate);
         if (dto.Edition != null)
-            model.Metadata.Edition = dto.Edition;
+            model.Metadata.Edition = NullIfEmpty(dto.Edition);
         if (dto.Language != null)
-            model.Metadata.Language = dto.Language;
+            model.Metadata.Language = NullIfEmpty(dto.Language);
         if (dto.Categories != null)
-            model.Metadata.Categories = dto.Categories;
+            model.Metadata.Categories = NullIfEmpty(dto.Categories);
         if (dto.Series != null)
-            model.Metadata.Series = dto.Series;
+            model.Metadata.Series = NullIfEmpty(dto.Series);
         if (dto.VolumeNumber != null)
-            model.Metadata.VolumeNumber = dto.VolumeNumber;
+            model.Metadata.VolumeNumber = NullIfEmpty(dto.VolumeNumber);
 
         // 3. Apply Progress (Owned Type)
         if (dto.Rating.HasValue)
@@ -269,7 +283,7 @@ public static class MappingExtensions
             model.Progress.IsFavorite = dto.IsFavorite.Value;
 
         if (dto.PersonalReview != null)
-            model.Progress.PersonalReview = dto.PersonalReview;
+            model.Progress.PersonalReview = NullIfEmpty(dto.PersonalReview);
 
         // LOGIC FIX: Handle Finished Status
         if (dto.FinishedAt != null)
@@ -335,7 +349,7 @@ public static class MappingExtensions
     public static void Apply(this NoteModel model, UpdateNoteDto dto)
     {
         model.Content = dto.Content;
-        // 👈 Update SelectedText if provided in the DTO
+        // Update SelectedText if provided in the DTO
         if (dto.SelectedText != null)
         {
             model.SelectedText = dto.SelectedText;

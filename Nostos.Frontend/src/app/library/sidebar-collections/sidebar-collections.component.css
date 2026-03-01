@@ -1,0 +1,299 @@
+:host {
+  display: block;
+  height: 100vh;
+  /* Desktop default: Sticky works fine here */
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 300px;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.sidebar.collapsed {
+  width: 72px;
+}
+
+/* BRAND */
+.sidebar-header {
+  height: 80px;
+  display: flex;
+  align-items: center;
+  padding: 0px 20px;
+  gap: 12px;
+}
+
+.brand {
+  font-family: 'Lora', serif;
+  font-weight: var(--fw-medium);
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
+}
+
+.brand-icon {
+  width: 40px;
+  height: auto;
+  display: flex;
+  justify-content: center;
+  color: var(--color-primary);
+  opacity: 1;
+  animation: smoothFadeIn 2s cubic-bezier(0.6, 0, 0, 1) forwards;
+}
+
+.sidebar.collapsing .brand-icon {
+  opacity: 0;
+}
+.sidebar.collapsed:not(.collapsing) .brand-icon {
+  opacity: 1;
+  transition-delay: 0.2s;
+}
+
+/* SCROLL AREA */
+.nav-scroll-area {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  transition: padding 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.sidebar.collapsed .nav-scroll-area {
+  padding: 1rem 0;
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.nav-group.mt-auto {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid transparent;
+}
+
+.section-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-light);
+  padding: 0 0.75rem;
+  margin-bottom: 0.5rem;
+  font-weight: var(--fw-semibold);
+  opacity: 1;
+  transition: opacity 0.2s;
+}
+
+.root-drop-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 20px;
+  gap: 2px;
+}
+
+/* --- NAV ITEMS --- */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  margin-left: 0;
+  padding: 0.6rem 0.75rem;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  font-weight: var(--fw-light);
+  text-decoration: none;
+  transform: translateX(0);
+  transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+  text-wrap: nowrap;
+}
+
+.nav-item:hover {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.nav-item.active {
+  background: var(--color-primary);
+  color: var(--bg-surface);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Add Button Specifics */
+.nav-item.action-add {
+  color: var(--color-text-light);
+  border: 1px dashed var(--border-color);
+}
+.nav-item.action-add:hover {
+  border-color: var(--color-text-light);
+  background: transparent;
+  color: var(--color-primary);
+}
+
+/* Input Mode */
+.nav-item.input-mode {
+  cursor: default;
+  background: transparent;
+}
+
+.sidebar-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-primary);
+  border-radius: 0;
+  padding: 2px 0;
+  font-size: 0.9rem;
+  color: var(--color-text-main);
+  width: 100%;
+  outline: none;
+  font-family: inherit;
+}
+
+/* --- FOOTER --- */
+.sidebar-footer {
+  padding: 1.5rem;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  transition: padding 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.toggle-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-light);
+  cursor: pointer;
+  transition: color 0.2s;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+}
+.toggle-btn:hover {
+  color: var(--color-primary);
+  background: var(--bg-hover);
+}
+
+/* --- COLLAPSED OVERRIDES --- */
+.sidebar.collapsed .sidebar-header {
+  padding: 0;
+  justify-content: center;
+}
+.sidebar.collapsed .nav-item {
+  width: 40px;
+  height: 40px;
+  margin-left: 16px;
+  padding: 0;
+  gap: 0;
+  justify-content: center;
+}
+
+.label {
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+.sidebar.collapsed .label {
+  opacity: 0;
+  display: none;
+}
+
+/* --- ANIMATIONS --- */
+@keyframes smoothFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(0px) scale(1);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.nav-item {
+  animation: smoothFadeIn 0.3s cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+
+.floating-toggle {
+  display: none;
+}
+
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 768px) {
+  /* Reset Host to allow library.css to control it via absolute positioning */
+  :host {
+    height: auto;
+    position: static;
+    z-index: auto;
+  }
+
+  /* Your existing button logic */
+  .floating-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    bottom: 95px;
+    left: 16px;
+    z-index: 60; /* Higher than sidebar z-index */
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--color-primary);
+    color: var(--bg-surface);
+    border: none;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+    transition:
+      transform 0.1s ease-in-out,
+      box-shadow 0.1s ease-in-out;
+  }
+
+  .floating-toggle:active {
+    transform: scale(0.95);
+  }
+  .floating-toggle.hidden {
+    opacity: 0;
+    transform: scale(0.8);
+    pointer-events: none;
+  }
+
+  .sidebar {
+    position: fixed;
+    height: 100%; /* Full height */
+    top: 0;
+    left: 0;
+    z-index: 100;
+    width: 280px;
+    transform: translateX(0);
+    box-shadow: 4px 0 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .sidebar.collapsed {
+    width: 280px;
+    transform: translateX(-100%);
+  }
+
+  .sidebar-footer {
+    justify-content: flex-end;
+  }
+}

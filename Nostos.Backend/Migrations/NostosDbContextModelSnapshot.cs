@@ -43,7 +43,11 @@ namespace Nostos.Backend.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Author");
+
                     b.HasIndex("CollectionId");
+
+                    b.HasIndex("Title");
 
                     b.ToTable("Books");
 
@@ -83,6 +87,9 @@ namespace Nostos.Backend.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Concept")
+                        .IsUnique();
 
                     b.ToTable("Concepts");
                 });

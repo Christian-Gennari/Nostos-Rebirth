@@ -1,13 +1,10 @@
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
+using Nostos.Backend.Data.Interfaces;
 using Nostos.Backend.Data.Repositories;
-using Nostos.Backend.Features.Books;
-using Nostos.Backend.Features.Collections;
-using Nostos.Backend.Features.Concepts;
-using Nostos.Backend.Features.Notes;
-using Nostos.Backend.Features.Opds;
-using Nostos.Backend.Features.Writings;
+using Nostos.Backend.Endpoints;
 using Nostos.Backend.Services;
 using Nostos.Backend.Workers;
 
@@ -30,14 +27,19 @@ builder.Services.Configure<FormOptions>(options =>
 });
 
 builder.Services.AddOpenApi();
+builder.Services.AddProblemDetails();
 
 // Services Dependency Injection
-builder.Services.AddSingleton<FileStorageService>();
+builder.Services.AddSingleton<IFileStorageService, FileStorageService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<BookLookupService>();
 builder.Services.AddScoped<MediaMetadataService>();
 builder.Services.AddScoped<NoteProcessorService>();
 builder.Services.AddScoped<IBookRepository, BookRepository>();
+builder.Services.AddScoped<ICollectionRepository, CollectionRepository>();
+builder.Services.AddScoped<INoteRepository, NoteRepository>();
+builder.Services.AddScoped<IConceptRepository, ConceptRepository>();
+builder.Services.AddScoped<IWritingRepository, WritingRepository>();
 builder.Services.AddHostedService<ConceptCleanupWorker>();
 
 var app = builder.Build();
@@ -50,6 +52,42 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ------------------------------------
+
+// --- GLOBAL ERROR HANDLING ---
+app.UseExceptionHandler(exceptionApp =>
+{
+    exceptionApp.Run(async context =>
+    {
+        context.Response.ContentType = "application/problem+json";
+        var exceptionFeature = context.Features.Get<IExceptionHandlerFeature>();
+        var logger = context
+            .RequestServices.GetRequiredService<ILoggerFactory>()
+            .CreateLogger("GlobalExceptionHandler");
+
+        if (exceptionFeature?.Error is not null)
+        {
+            logger.LogError(
+                exceptionFeature.Error,
+                "Unhandled exception on {Method} {Path}",
+                context.Request.Method,
+                context.Request.Path
+            );
+        }
+
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        await context.Response.WriteAsJsonAsync(
+            new
+            {
+                type = "https://tools.ietf.org/html/rfc9110#section-15.6.1",
+                title = "An unexpected error occurred.",
+                status = 500,
+            }
+        );
+    });
+});
+app.UseStatusCodePages();
+
+// -----------------------------
 
 app.MapOpenApi();
 

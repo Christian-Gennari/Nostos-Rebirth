@@ -4,7 +4,7 @@ using Nostos.Shared.Dtos;
 
 namespace Nostos.Backend.Services;
 
-public partial class BookLookupService(IHttpClientFactory httpClientFactory)
+public partial class BookLookupService(IHttpClientFactory httpClientFactory, ILogger<BookLookupService> logger)
 {
     [GeneratedRegex("[^0-9X]", RegexOptions.IgnoreCase)]
     private static partial Regex IsbnCleanupRegex();
@@ -140,8 +140,9 @@ public partial class BookLookupService(IHttpClientFactory httpClientFactory)
                 FinishedAt: null
             );
         }
-        catch
+        catch (Exception ex)
         {
+            logger.LogWarning(ex, "Google Books API lookup failed for ISBN {Isbn}", isbn);
             return null;
         }
     }
@@ -193,8 +194,9 @@ public partial class BookLookupService(IHttpClientFactory httpClientFactory)
                 FinishedAt: null
             );
         }
-        catch
+        catch (Exception ex)
         {
+            logger.LogWarning(ex, "OpenLibrary API lookup failed for ISBN {Isbn}", isbn);
             return null;
         }
     }
