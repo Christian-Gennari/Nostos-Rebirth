@@ -4,13 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { LucideAngularModule, Search, BrainCircuit, ArrowLeft, ArrowRight } from 'lucide-angular';
 
-import { ToastService } from '../services/toast.service';
+import { ToastService } from '../core/services/toast.service';
 import {
   ConceptsService,
   ConceptDto,
   ConceptDetailDto,
   NoteContextDto,
-} from '../services/concepts.service';
+} from '../core/services/concepts.service';
 
 import { NoteFormatPipe } from '../ui/pipes/note-format.pipe';
 

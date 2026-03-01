@@ -1,5 +1,5 @@
 import { Pipe, PipeTransform } from '@angular/core';
-import { ConceptDto } from '../../services/concepts.service';
+import { ConceptDto } from '../../core/services/concepts.service';
 
 @Pipe({
   name: 'noteFormat',

@@ -31,14 +31,14 @@ import {
   Sparkles,
 } from 'lucide-angular';
 
-import { WritingsService } from '../services/writings.service';
-import { ToastService } from '../services/toast.service';
-import { ConceptsService, ConceptDto, NoteContextDto } from '../services/concepts.service';
-import { BooksService, Book as BookDto } from '../services/books.service';
-import { NotesService } from '../services/notes.service';
+import { WritingsService } from '../core/services/writings.service';
+import { ToastService } from '../core/services/toast.service';
+import { ConceptsService, ConceptDto, NoteContextDto } from '../core/services/concepts.service';
+import { BooksService, Book as BookDto } from '../core/services/books.service';
+import { NotesService } from '../core/services/notes.service';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
-import { WritingDto, WritingContentDto } from '../dtos/writing.dtos';
-import { Note } from '../dtos/note.dtos';
+import { WritingDto, WritingContentDto } from '../core/dtos/writing.dtos';
+import { Note } from '../core/dtos/note.dtos';
 import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.component';
 import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
 

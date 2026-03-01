@@ -8,9 +8,9 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
-import { BooksService, Book } from '../services/books.service';
-import { CollectionsService } from '../services/collections.service';
-import { Collection } from '../dtos/collection.dtos';
+import { BooksService, Book } from '../core/services/books.service';
+import { CollectionsService } from '../core/services/collections.service';
+import { Collection } from '../core/dtos/collection.dtos';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -20,8 +20,8 @@ import { SidebarCollections } from './sidebar-collections/sidebar-collections.co
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 import { InfiniteScrollDirective } from '../core/directives/infinite-scroll.directive';
-import { BookFilter, BookSort } from '../dtos/book.enums';
-import { ToastService } from '../services/toast.service';
+import { BookFilter, BookSort } from '../core/dtos/book.enums';
+import { ToastService } from '../core/services/toast.service';
 import {
   LucideAngularModule,
   LayoutList,

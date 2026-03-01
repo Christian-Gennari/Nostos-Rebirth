@@ -18,8 +18,8 @@ import {
   Inbox,
 } from 'lucide-angular';
 
-import { CollectionsService } from '../../services/collections.service';
-import { Collection } from '../../dtos/collection.dtos';
+import { CollectionsService } from '../../core/services/collections.service';
+import { Collection } from '../../core/dtos/collection.dtos';
 import { FlatTreeComponent } from '../../ui/flat-tree/flat-tree.component';
 
 @Component({

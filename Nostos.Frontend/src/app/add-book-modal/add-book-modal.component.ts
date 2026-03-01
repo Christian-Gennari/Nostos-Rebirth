@@ -4,10 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
 import { finalize } from 'rxjs';
 import { LucideAngularModule, X, Info, UploadIcon, Book, Layers, FileText } from 'lucide-angular';
-import { BooksService, Book as BookModel } from '../services/books.service';
-import { ToastService } from '../services/toast.service';
-import { Collection } from '../dtos/collection.dtos';
-import { BookType } from '../dtos/book.dtos';
+import { BooksService, Book as BookModel } from '../core/services/books.service';
+import { ToastService } from '../core/services/toast.service';
+import { Collection } from '../core/dtos/collection.dtos';
+import { BookType } from '../core/dtos/book.dtos';
 
 @Component({
   selector: 'app-add-book-modal',

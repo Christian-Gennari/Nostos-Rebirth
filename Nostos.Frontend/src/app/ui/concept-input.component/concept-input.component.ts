@@ -18,7 +18,7 @@ import { Subscription } from 'rxjs';
 import { ConceptAutocompleteDirective } from '../../core/directives/concept-autocomplete.directive';
 import { ConceptAutocompletePanel } from '../concept-autocomplete-panel/concept-autocomplete-panel.component';
 // Import the global service that holds the master list
-import { ConceptDto, ConceptsService } from '../../services/concepts.service';
+import { ConceptDto, ConceptsService } from '../../core/services/concepts.service';
 // Import the local service that handles UI state for THIS input
 import { ConceptAutocompleteService } from '../concept-autocomplete-panel/concept-autocomplete.service';
 

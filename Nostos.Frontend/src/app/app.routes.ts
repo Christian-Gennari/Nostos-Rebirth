@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 import { Home } from './home/home.component';
-import { WorkspaceLayout } from './workspace-layout/workspace-layout.component';
+import { WorkspaceLayout } from './layout/workspace-layout/workspace-layout.component';
 
 export const routes: Routes = [
   {

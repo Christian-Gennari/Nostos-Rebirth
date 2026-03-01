@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { ToastService } from '../../services/toast.service';
+import { ToastService } from '../../core/services/toast.service';
 import { LucideAngularModule, X, CheckCircle, AlertTriangle, Info } from 'lucide-angular';
 
 @Component({

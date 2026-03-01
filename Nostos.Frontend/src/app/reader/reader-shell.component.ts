@@ -24,13 +24,13 @@ import {
 } from 'lucide-angular';
 
 // Services
-import { BooksService } from '../services/books.service';
-import { NotesService } from '../services/notes.service';
-import { ConceptsService, ConceptDto } from '../services/concepts.service';
+import { BooksService } from '../core/services/books.service';
+import { NotesService } from '../core/services/notes.service';
+import { ConceptsService, ConceptDto } from '../core/services/concepts.service';
 import { ConceptAutocompleteService } from '../ui/concept-autocomplete-panel/concept-autocomplete.service';
 
 // DTOs & Interfaces
-import { Note } from '../dtos/note.dtos';
+import { Note } from '../core/dtos/note.dtos';
 import { IReader, TocItem } from './reader.interface';
 
 // Components

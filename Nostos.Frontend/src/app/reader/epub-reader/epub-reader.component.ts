@@ -16,8 +16,8 @@ import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
 import { EpubAnnotationManager } from './epub-annotation-manager';
-import { NotesService } from '../../services/notes.service';
-import { BooksService } from '../../services/books.service';
+import { NotesService } from '../../core/services/notes.service';
+import { BooksService } from '../../core/services/books.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 
 @Component({

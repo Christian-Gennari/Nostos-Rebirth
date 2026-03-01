@@ -18,7 +18,7 @@ import { filter } from 'rxjs/operators';
 import { BookDetailStore } from './book-detail.store';
 
 // DTOs
-import { Book } from '../dtos/book.dtos';
+import { Book } from '../core/dtos/book.dtos';
 
 // UI Components
 import { AddBookModal } from '../add-book-modal/add-book-modal.component';

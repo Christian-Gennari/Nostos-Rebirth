@@ -1,17 +1,17 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { ToastService } from '../services/toast.service';
+import { ToastService } from '../core/services/toast.service';
 import { HttpEventType } from '@angular/common/http';
 import { finalize } from 'rxjs';
 
 // DTOs & Services
-import { Book } from '../dtos/book.dtos';
-import { Note } from '../dtos/note.dtos';
-import { Collection } from '../dtos/collection.dtos';
-import { ConceptDto } from '../services/concepts.service';
-import { BooksService } from '../services/books.service';
-import { NotesService } from '../services/notes.service';
-import { CollectionsService } from '../services/collections.service';
-import { ConceptsService } from '../services/concepts.service';
+import { Book } from '../core/dtos/book.dtos';
+import { Note } from '../core/dtos/note.dtos';
+import { Collection } from '../core/dtos/collection.dtos';
+import { ConceptDto } from '../core/services/concepts.service';
+import { BooksService } from '../core/services/books.service';
+import { NotesService } from '../core/services/notes.service';
+import { CollectionsService } from '../core/services/collections.service';
+import { ConceptsService } from '../core/services/concepts.service';
 import { ConceptAutocompleteService } from '../ui/concept-autocomplete-panel/concept-autocomplete.service';
 
 @Injectable()
