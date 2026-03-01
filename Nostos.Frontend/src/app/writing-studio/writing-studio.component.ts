@@ -31,11 +31,11 @@ import {
   Sparkles,
 } from 'lucide-angular';
 
-import { WritingsService } from '../services/writings.services';
+import { WritingsService } from '../services/writings.service';
 import { ToastService } from '../services/toast.service';
-import { ConceptsService, ConceptDto, NoteContextDto } from '../services/concepts.services';
-import { BooksService, Book as BookDto } from '../services/books.services';
-import { NotesService } from '../services/notes.services';
+import { ConceptsService, ConceptDto, NoteContextDto } from '../services/concepts.service';
+import { BooksService, Book as BookDto } from '../services/books.service';
+import { NotesService } from '../services/notes.service';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { WritingDto, WritingContentDto } from '../dtos/writing.dtos';
 import { Note } from '../dtos/note.dtos';
@@ -54,8 +54,8 @@ import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
     NoteCardComponent,
     MarkdownEditorComponent,
   ],
-  templateUrl: './writing-studio.html',
-  styleUrls: ['./writing-studio.css'],
+  templateUrl: './writing-studio.component.html',
+  styleUrls: ['./writing-studio.component.css'],
 })
 export class WritingStudio implements OnInit {
   private writingsService = inject(WritingsService);

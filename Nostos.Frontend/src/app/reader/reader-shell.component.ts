@@ -24,9 +24,9 @@ import {
 } from 'lucide-angular';
 
 // Services
-import { BooksService } from '../services/books.services';
-import { NotesService } from '../services/notes.services';
-import { ConceptsService, ConceptDto } from '../services/concepts.services';
+import { BooksService } from '../services/books.service';
+import { NotesService } from '../services/notes.service';
+import { ConceptsService, ConceptDto } from '../services/concepts.service';
 import { ConceptAutocompleteService } from '../misc-components/concept-autocomplete-panel/concept-autocomplete.service';
 
 // DTOs & Interfaces
@@ -34,9 +34,9 @@ import { Note } from '../dtos/note.dtos';
 import { IReader, TocItem } from './reader.interface';
 
 // Components
-import { PdfReader } from './pdf-reader/pdf-reader';
-import { EpubReader } from './epub-reader/epub-reader';
-import { AudioReader } from './audio-reader/audio-reader';
+import { PdfReader } from './pdf-reader/pdf-reader.component';
+import { EpubReader } from './epub-reader/epub-reader.component';
+import { AudioReader } from './audio-reader/audio-reader.component';
 import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 
@@ -53,8 +53,8 @@ import { NoteCardComponent } from '../ui/note-card.component/note-card.component
     ConceptInputComponent,
     NoteCardComponent,
   ],
-  templateUrl: './reader-shell.html',
-  styleUrl: './reader-shell.css',
+  templateUrl: './reader-shell.component.html',
+  styleUrl: './reader-shell.component.css',
 })
 export class ReaderShell implements OnInit {
   @ViewChild(EpubReader) epubReader?: IReader;

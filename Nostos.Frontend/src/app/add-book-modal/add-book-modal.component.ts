@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
 import { finalize } from 'rxjs';
 import { LucideAngularModule, X, Info, UploadIcon, Book, Layers, FileText } from 'lucide-angular';
-import { BooksService, Book as BookModel } from '../services/books.services';
+import { BooksService, Book as BookModel } from '../services/books.service';
 import { ToastService } from '../services/toast.service';
 import { Collection } from '../dtos/collection.dtos';
 import { BookType } from '../dtos/book.dtos';
@@ -13,8 +13,8 @@ import { BookType } from '../dtos/book.dtos';
   selector: 'app-add-book-modal',
   standalone: true,
   imports: [CommonModule, FormsModule, LucideAngularModule],
-  templateUrl: './add-book-modal.html',
-  styleUrl: './add-book-modal.css',
+  templateUrl: './add-book-modal.component.html',
+  styleUrl: './add-book-modal.component.css',
 })
 export class AddBookModal {
   private booksService = inject(BooksService);

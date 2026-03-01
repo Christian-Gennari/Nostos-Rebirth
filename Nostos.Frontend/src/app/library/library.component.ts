@@ -8,15 +8,15 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
-import { BooksService, Book } from '../services/books.services';
-import { CollectionsService } from '../services/collections.services';
+import { BooksService, Book } from '../services/books.service';
+import { CollectionsService } from '../services/collections.service';
 import { Collection } from '../dtos/collection.dtos';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { AddBookModal } from '../add-book-modal/add-book-modal';
+import { AddBookModal } from '../add-book-modal/add-book-modal.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
-import { SidebarCollections } from './sidebar-collections/sidebar-collections';
+import { SidebarCollections } from './sidebar-collections/sidebar-collections.component';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 import { InfiniteScrollDirective } from '../directives/infinite-scroll.directive';
@@ -50,8 +50,8 @@ import {
     SidebarCollections,
     InfiniteScrollDirective,
   ],
-  templateUrl: './library.html',
-  styleUrls: ['./library.css'],
+  templateUrl: './library.component.html',
+  styleUrls: ['./library.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Library implements OnInit {

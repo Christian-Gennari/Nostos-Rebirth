@@ -146,7 +146,7 @@ public static class BooksEndpoints
         // DELETE
         group.MapDelete(
             "/{id}",
-            async (Guid id, IBookRepository repo, FileStorageService storage) =>
+            async (Guid id, IBookRepository repo, IFileStorageService storage) =>
             {
                 var book = await repo.GetByIdAsync(id);
                 if (book is null)
@@ -167,7 +167,7 @@ public static class BooksEndpoints
                 Guid id,
                 HttpRequest request,
                 IBookRepository repo,
-                FileStorageService storage,
+                IFileStorageService storage,
                 MediaMetadataService metadataService
             ) =>
             {
@@ -206,7 +206,7 @@ public static class BooksEndpoints
         // Download file
         group.MapGet(
             "/{id}/file",
-            (Guid id, FileStorageService storage) =>
+            (Guid id, IFileStorageService storage) =>
             {
                 var filePath = storage.GetBookFileName(id);
                 if (filePath is null)
@@ -226,7 +226,7 @@ public static class BooksEndpoints
                 Guid id,
                 HttpRequest request,
                 IBookRepository repo,
-                FileStorageService storage
+                IFileStorageService storage
             ) =>
             {
                 var book = await repo.GetByIdAsync(id);
@@ -242,7 +242,8 @@ public static class BooksEndpoints
                     return Results.BadRequest("Only PNG or JPEG images allowed.");
 
                 await storage.SaveBookCoverAsync(id, file);
-                book.FileDetails.CoverFileName = "cover.png";
+                var ext = Path.GetExtension(file.FileName).ToLower();
+                book.FileDetails.CoverFileName = $"cover{ext}";
 
                 await repo.UpdateAsync(book);
 
@@ -253,19 +254,26 @@ public static class BooksEndpoints
         // Download cover
         group.MapGet(
             "/{id}/cover",
-            (Guid id, FileStorageService storage) =>
+            (Guid id, IFileStorageService storage) =>
             {
                 var coverPath = storage.GetBookCoverPath(id);
-                return coverPath is null
-                    ? Results.NotFound()
-                    : Results.File(coverPath, "image/png", "cover.png");
+                if (coverPath is null)
+                    return Results.NotFound();
+
+                var ext = Path.GetExtension(coverPath).ToLower();
+                var mimeType = ext switch
+                {
+                    ".jpg" or ".jpeg" => "image/jpeg",
+                    _ => "image/png",
+                };
+                return Results.File(coverPath, mimeType, Path.GetFileName(coverPath));
             }
         );
 
         // DELETE cover
         group.MapDelete(
             "/{id}/cover",
-            async (Guid id, IBookRepository repo, FileStorageService storage) =>
+            async (Guid id, IBookRepository repo, IFileStorageService storage) =>
             {
                 var book = await repo.GetByIdAsync(id);
                 if (book is null)

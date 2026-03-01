@@ -21,16 +21,16 @@ import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 
 import { PdfAnnotationManager, PageHighlight } from './pdf-annotation-manager';
-import { NotesService } from '../../services/notes.services';
-import { BooksService } from '../../services/books.services';
+import { NotesService } from '../../services/notes.service';
+import { BooksService } from '../../services/books.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 
 @Component({
   selector: 'app-pdf-reader',
   standalone: true,
   imports: [NgxExtendedPdfViewerModule],
-  templateUrl: './pdf-reader.html',
-  styleUrl: './pdf-reader.css',
+  templateUrl: './pdf-reader.component.html',
+  styleUrl: './pdf-reader.component.css',
 })
 export class PdfReader implements OnInit, OnDestroy, IReader {
   private highlightService = inject(PdfAnnotationManager);

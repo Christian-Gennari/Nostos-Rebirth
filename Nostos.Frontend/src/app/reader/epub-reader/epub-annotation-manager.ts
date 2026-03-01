@@ -1,7 +1,7 @@
 // Nostos.Frontend/src/app/reader/epub-reader/epub-annotation-manager.ts
 import { Rendition } from 'epubjs';
 import { signal, Injector } from '@angular/core';
-import { NotesService } from '../../services/notes.services';
+import { NotesService } from '../../services/notes.service';
 import { Note } from '../../dtos/note.dtos';
 
 export class EpubAnnotationManager {
@@ -14,7 +14,7 @@ export class EpubAnnotationManager {
     private rendition: Rendition,
     private bookId: string,
     private injector: Injector,
-    private onNoteCreated?: () => void
+    private onNoteCreated?: () => void,
   ) {
     this.notesService = this.injector.get(NotesService);
   }

@@ -2,7 +2,7 @@ import { Component, EventEmitter, inject, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 // 👇 Updated path to match your project structure
 import { ConceptAutocompleteService } from '../concept-autocomplete-panel/concept-autocomplete.service';
-import { ConceptDto } from '../../services/concepts.services';
+import { ConceptDto } from '../../services/concepts.service';
 
 @Component({
   standalone: true,

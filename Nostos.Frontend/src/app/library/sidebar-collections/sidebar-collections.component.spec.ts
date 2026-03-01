@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { SidebarCollections } from './sidebar-collections';
+import { SidebarCollections } from './sidebar-collections.component';
 
 describe('SidebarCollections', () => {
   let component: SidebarCollections;
@@ -8,9 +8,8 @@ describe('SidebarCollections', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [SidebarCollections]
-    })
-    .compileComponents();
+      imports: [SidebarCollections],
+    }).compileComponents();
 
     fixture = TestBed.createComponent(SidebarCollections);
     component = fixture.componentInstance;

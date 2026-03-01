@@ -105,6 +105,6 @@ public static class CollectionsEndpoints
             }
         );
 
-        return group;
+        return routes;
     }
 }

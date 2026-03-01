@@ -10,22 +10,16 @@ import {
   ConceptDto,
   ConceptDetailDto,
   NoteContextDto,
-} from '../services/concepts.services';
+} from '../services/concepts.service';
 
 import { NoteFormatPipe } from '../ui/pipes/note-format.pipe';
 
 @Component({
   standalone: true,
   selector: 'app-brain',
-  imports: [
-    CommonModule,
-    FormsModule,
-    RouterLink,
-    LucideAngularModule,
-    NoteFormatPipe,
-  ],
-  templateUrl: './second-brain.html',
-  styleUrls: ['./second-brain.css'],
+  imports: [CommonModule, FormsModule, RouterLink, LucideAngularModule, NoteFormatPipe],
+  templateUrl: './second-brain.component.html',
+  styleUrls: ['./second-brain.component.css'],
 })
 export class SecondBrain implements OnInit {
   private conceptsService = inject(ConceptsService);

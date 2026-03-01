@@ -5,7 +5,6 @@ namespace Nostos.Backend.Data;
 
 public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbContext(options)
 {
-
     // Register the Base class (books)
     public DbSet<BookModel> Books => Set<BookModel>();
 
@@ -27,36 +26,48 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
         base.OnModelCreating(modelBuilder);
 
         // --- POLYMORPHIC CONFIGURATION ---
-        modelBuilder.Entity<BookModel>()
+        modelBuilder
+            .Entity<BookModel>()
             .HasDiscriminator<string>("BookType") // Creates a hidden column 'BookType'
             .HasValue<PhysicalBookModel>("physical")
             .HasValue<EBookModel>("ebook")
             .HasValue<AudioBookModel>("audiobook");
 
-
-        modelBuilder.Entity<WritingModel>()
+        modelBuilder
+            .Entity<WritingModel>()
             .HasOne(w => w.Parent)
             .WithMany(w => w.Children)
             .HasForeignKey(w => w.ParentId)
             .OnDelete(DeleteBehavior.Cascade); // If you delete a folder, delete its contents
 
-
         // Configure Many-to-Many for Notes <-> Concepts
-        modelBuilder.Entity<NoteConceptModel>()
-                .HasKey(nc => new
-                {
-                    nc.NoteId,
-                    nc.ConceptId
-                });
+        modelBuilder.Entity<NoteConceptModel>().HasKey(nc => new { nc.NoteId, nc.ConceptId });
 
-        modelBuilder.Entity<NoteConceptModel>()
+        modelBuilder
+            .Entity<NoteConceptModel>()
             .HasOne(nc => nc.Note)
             .WithMany(n => n.NoteConcepts)
             .HasForeignKey(nc => nc.NoteId);
 
-        modelBuilder.Entity<NoteConceptModel>()
-                    .HasOne(nc => nc.Concept)
-                    .WithMany(c => c.NoteConcepts) // <--- UPDATED: Connects the navigation property
-                    .HasForeignKey(nc => nc.ConceptId);
+        modelBuilder
+            .Entity<NoteConceptModel>()
+            .HasOne(nc => nc.Concept)
+            .WithMany(c => c.NoteConcepts) // <--- UPDATED: Connects the navigation property
+            .HasForeignKey(nc => nc.ConceptId);
+
+        // --- INDEXES ---
+        modelBuilder.Entity<BookModel>().HasIndex(b => b.Title);
+
+        modelBuilder.Entity<BookModel>().HasIndex(b => b.Author);
+
+        modelBuilder.Entity<BookModel>().HasIndex(b => b.CollectionId);
+
+        modelBuilder.Entity<NoteModel>().HasIndex(n => n.BookId);
+
+        modelBuilder.Entity<CollectionModel>().HasIndex(c => c.ParentId);
+
+        modelBuilder.Entity<WritingModel>().HasIndex(w => w.ParentId);
+
+        modelBuilder.Entity<ConceptModel>().HasIndex(c => c.Concept).IsUnique();
     }
 }

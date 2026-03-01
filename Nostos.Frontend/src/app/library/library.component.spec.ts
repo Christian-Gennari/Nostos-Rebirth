@@ -1,18 +1,17 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { SecondBrain } from './second-brain';
+import { Library } from './library.component';
 
-describe('SecondBrain', () => {
-  let component: SecondBrain;
-  let fixture: ComponentFixture<SecondBrain>;
+describe('Library', () => {
+  let component: Library;
+  let fixture: ComponentFixture<Library>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [SecondBrain]
-    })
-    .compileComponents();
+      imports: [Library],
+    }).compileComponents();
 
-    fixture = TestBed.createComponent(SecondBrain);
+    fixture = TestBed.createComponent(Library);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });

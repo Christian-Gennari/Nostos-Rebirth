@@ -39,10 +39,11 @@ public class NoteRepository : INoteRepository
             .FirstOrDefaultAsync(n => n.Id == id);
     }
 
-    public async Task AddAsync(NoteModel note)
+    public Task AddAsync(NoteModel note)
     {
         _db.Notes.Add(note);
         // Don't save here — the endpoint calls ProcessNoteAsync first, then saves
+        return Task.CompletedTask;
     }
 
     public async Task SaveChangesAsync()

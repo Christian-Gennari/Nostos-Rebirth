@@ -1,18 +1,17 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { WorkspaceLayout } from './workspace-layout';
+import { AddBookModal } from './add-book-modal.component';
 
-describe('WorkspaceLayout', () => {
-  let component: WorkspaceLayout;
-  let fixture: ComponentFixture<WorkspaceLayout>;
+describe('AddBookModal', () => {
+  let component: AddBookModal;
+  let fixture: ComponentFixture<AddBookModal>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [WorkspaceLayout]
-    })
-    .compileComponents();
+      imports: [AddBookModal],
+    }).compileComponents();
 
-    fixture = TestBed.createComponent(WorkspaceLayout);
+    fixture = TestBed.createComponent(AddBookModal);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });

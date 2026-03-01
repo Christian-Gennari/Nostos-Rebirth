@@ -1,7 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { LucideAngularModule, Library, PenTool, BrainCog } from 'lucide-angular';
-import { CollectionsService } from '../../services/collections.services';
+import { CollectionsService } from '../../services/collections.service';
 import { NavigationHistoryService } from '../../services/navigation-history.service';
 
 @Component({

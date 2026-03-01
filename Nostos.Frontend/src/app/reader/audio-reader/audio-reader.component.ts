@@ -5,7 +5,7 @@ import { Howl } from 'howler';
 import { Subject } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { LucideAngularModule, Play, Pause, AudioLines, RotateCcw, RotateCw } from 'lucide-angular';
-import { BooksService } from '../../services/books.services';
+import { BooksService } from '../../services/books.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 import { Book } from '../../dtos/book.dtos';
 
@@ -13,8 +13,8 @@ import { Book } from '../../dtos/book.dtos';
   selector: 'app-audio-reader',
   standalone: true,
   imports: [CommonModule, FormsModule, LucideAngularModule],
-  templateUrl: './audio-reader.html',
-  styleUrl: './audio-reader.css',
+  templateUrl: './audio-reader.component.html',
+  styleUrl: './audio-reader.component.css',
 })
 export class AudioReader implements OnDestroy, IReader {
   bookId = input.required<string>();

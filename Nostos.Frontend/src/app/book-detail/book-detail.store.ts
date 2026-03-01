@@ -7,11 +7,11 @@ import { finalize } from 'rxjs';
 import { Book } from '../dtos/book.dtos';
 import { Note } from '../dtos/note.dtos';
 import { Collection } from '../dtos/collection.dtos';
-import { ConceptDto } from '../services/concepts.services';
-import { BooksService } from '../services/books.services';
-import { NotesService } from '../services/notes.services';
-import { CollectionsService } from '../services/collections.services';
-import { ConceptsService } from '../services/concepts.services';
+import { ConceptDto } from '../services/concepts.service';
+import { BooksService } from '../services/books.service';
+import { NotesService } from '../services/notes.service';
+import { CollectionsService } from '../services/collections.service';
+import { ConceptsService } from '../services/concepts.service';
 import { ConceptAutocompleteService } from '../misc-components/concept-autocomplete-panel/concept-autocomplete.service';
 
 @Injectable()

@@ -1,4 +1,13 @@
-import { Component, inject, OnInit, signal, model, ViewChild, ElementRef, DestroyRef } from '@angular/core';
+import {
+  Component,
+  inject,
+  OnInit,
+  signal,
+  model,
+  ViewChild,
+  ElementRef,
+  DestroyRef,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink, Router, NavigationEnd } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -12,7 +21,7 @@ import { BookDetailStore } from './book-detail.store';
 import { Book } from '../dtos/book.dtos';
 
 // UI Components
-import { AddBookModal } from '../add-book-modal/add-book-modal';
+import { AddBookModal } from '../add-book-modal/add-book-modal.component';
 import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
@@ -58,8 +67,8 @@ import {
     StarRatingComponent,
   ],
   providers: [BookDetailStore],
-  templateUrl: './book-detail.html',
-  styleUrls: ['./book-detail.css'],
+  templateUrl: './book-detail.component.html',
+  styleUrls: ['./book-detail.component.css'],
 })
 export class BookDetail implements OnInit {
   private route = inject(ActivatedRoute);

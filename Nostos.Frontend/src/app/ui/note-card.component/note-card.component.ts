@@ -17,7 +17,7 @@ import {
 } from 'lucide-angular';
 
 import { Note, UpdateNoteDto } from '../../dtos/note.dtos';
-import { ConceptDto } from '../../services/concepts.services';
+import { ConceptDto } from '../../services/concepts.service';
 import { ConceptInputComponent } from '../concept-input.component/concept-input.component';
 import { NoteFormatPipe } from '../pipes/note-format.pipe';
 

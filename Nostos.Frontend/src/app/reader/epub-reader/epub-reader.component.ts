@@ -16,16 +16,16 @@ import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
 import { EpubAnnotationManager } from './epub-annotation-manager';
-import { NotesService } from '../../services/notes.services';
-import { BooksService } from '../../services/books.services';
+import { NotesService } from '../../services/notes.service';
+import { BooksService } from '../../services/books.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 
 @Component({
   selector: 'app-epub-reader',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './epub-reader.html',
-  styleUrl: './epub-reader.css',
+  templateUrl: './epub-reader.component.html',
+  styleUrl: './epub-reader.component.css',
 })
 export class EpubReader implements OnInit, OnDestroy, IReader {
   bookId = input.required<string>();
