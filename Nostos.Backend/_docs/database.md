@@ -28,16 +28,16 @@ This means **no manual migration steps are needed** for deployment. The database
 
 ## Migration History
 
-| Migration | Date | Description |
-|---|---|---|
-| `AddNarratorFieldForBookMetadata1` | 2025-12-09 | Added `Narrator` field to audiobook metadata |
-| `AddHarvardMetadata` | 2025-12-09 | Added academic citation fields (editor, translator, place of publication, edition, series, volume) |
-| `AddLastReadAtField` | 2025-12-11 | Added `LastReadAt` timestamp to reading progress |
-| `AddSelectedTextFieldOnNoteUpdate` | 2025-12-11 | Added `SelectedText` field to notes |
-| `AddAudioBookReaderToCField` | 2025-12-16 | Added `Narrator` field for audiobook reader |
-| `RefactorBookModel` | 2025-12-16 | Refactored book model with TPH inheritance |
-| `AddLocationsJsonToBook` | 2026-01-18 | Added `LocationsJson` for epub cached locations |
-| `AddIndexes` | 2026-03-01 | Added performance indexes on frequently-queried columns |
+| Migration                          | Date       | Description                                                                                        |
+| ---------------------------------- | ---------- | -------------------------------------------------------------------------------------------------- |
+| `AddNarratorFieldForBookMetadata1` | 2025-12-09 | Added `Narrator` field to audiobook metadata                                                       |
+| `AddHarvardMetadata`               | 2025-12-09 | Added academic citation fields (editor, translator, place of publication, edition, series, volume) |
+| `AddLastReadAtField`               | 2025-12-11 | Added `LastReadAt` timestamp to reading progress                                                   |
+| `AddSelectedTextFieldOnNoteUpdate` | 2025-12-11 | Added `SelectedText` field to notes                                                                |
+| `AddAudioBookReaderToCField`       | 2025-12-16 | Added `Narrator` field for audiobook reader                                                        |
+| `RefactorBookModel`                | 2025-12-16 | Refactored book model with TPH inheritance                                                         |
+| `AddLocationsJsonToBook`           | 2026-01-18 | Added `LocationsJson` for epub cached locations                                                    |
+| `AddIndexes`                       | 2026-03-01 | Added performance indexes on frequently-queried columns                                            |
 
 ## Creating New Migrations
 
@@ -61,6 +61,7 @@ modelBuilder.Entity<BookModel>()
 ### Self-Referencing Trees
 
 **Writings:**
+
 ```csharp
 modelBuilder.Entity<WritingModel>()
     .HasOne(w => w.Parent)
@@ -81,14 +82,14 @@ modelBuilder.Entity<NoteConceptModel>().HasKey(nc => new { nc.NoteId, nc.Concept
 
 ## Database Sets
 
-| DbSet | Model | Description |
-|---|---|---|
-| `Books` | `BookModel` (base) | All book types via TPH |
-| `PhysicalBooks` | `PhysicalBookModel` | Physical books only |
-| `EBooks` | `EBookModel` | E-books only |
-| `AudioBooks` | `AudioBookModel` | Audiobooks only |
-| `Writings` | `WritingModel` | Writing studio files/folders |
-| `Notes` | `NoteModel` | Book annotations |
-| `Collections` | `CollectionModel` | Book collections (folders) |
-| `Concepts` | `ConceptModel` | Auto-extracted concepts |
-| `NoteConcepts` | `NoteConceptModel` | Note ↔ Concept join table |
+| DbSet           | Model               | Description                  |
+| --------------- | ------------------- | ---------------------------- |
+| `Books`         | `BookModel` (base)  | All book types via TPH       |
+| `PhysicalBooks` | `PhysicalBookModel` | Physical books only          |
+| `EBooks`        | `EBookModel`        | E-books only                 |
+| `AudioBooks`    | `AudioBookModel`    | Audiobooks only              |
+| `Writings`      | `WritingModel`      | Writing studio files/folders |
+| `Notes`         | `NoteModel`         | Book annotations             |
+| `Collections`   | `CollectionModel`   | Book collections (folders)   |
+| `Concepts`      | `ConceptModel`      | Auto-extracted concepts      |
+| `NoteConcepts`  | `NoteConceptModel`  | Note ↔ Concept join table    |

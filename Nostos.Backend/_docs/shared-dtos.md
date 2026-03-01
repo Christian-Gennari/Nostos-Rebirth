@@ -22,31 +22,31 @@ record PaginatedResponse<T>(IEnumerable<T> Items, int TotalCount, int Page, int 
 
 Full book representation returned from API.
 
-| Field | Type | Notes |
-|---|---|---|
-| `Type` | `string` | `"physical"`, `"ebook"`, `"audiobook"` |
-| `Id` | `Guid` | |
-| `Title` | `string` | |
-| `Subtitle`, `Author`, `Editor`, `Translator`, `Narrator` | `string?` | |
-| `Description` | `string?` | Synopsis |
-| `Isbn`, `Asin` | `string?` | Identifiers |
-| `Duration` | `string?` | `"hh:mm:ss"` for audiobooks |
-| `PageCount` | `int?` | Physical/ebook only |
-| `Publisher`, `PlaceOfPublication`, `PublishedDate`, `Edition` | `string?` | Publication info |
-| `Language`, `Categories` | `string?` | |
-| `Series`, `VolumeNumber` | `string?` | Series info |
-| `CreatedAt` | `DateTime` | |
-| `HasFile` | `bool` | Whether a file is uploaded |
-| `FileName` | `string?` | e.g. `"book.epub"` |
-| `CoverUrl` | `string?` | e.g. `"/api/books/{id}/cover"` |
-| `CollectionId` | `Guid?` | |
-| `LastLocation` | `string?` | Reading position |
-| `ProgressPercent` | `int` | 0–100 |
-| `Rating` | `int` | 0–5 |
-| `IsFavorite` | `bool` | |
-| `PersonalReview` | `string?` | |
-| `LastReadAt`, `FinishedAt` | `DateTime?` | |
-| `Chapters` | `IEnumerable<BookChapterDto>?` | Audio chapters |
+| Field                                                         | Type                           | Notes                                  |
+| ------------------------------------------------------------- | ------------------------------ | -------------------------------------- |
+| `Type`                                                        | `string`                       | `"physical"`, `"ebook"`, `"audiobook"` |
+| `Id`                                                          | `Guid`                         |                                        |
+| `Title`                                                       | `string`                       |                                        |
+| `Subtitle`, `Author`, `Editor`, `Translator`, `Narrator`      | `string?`                      |                                        |
+| `Description`                                                 | `string?`                      | Synopsis                               |
+| `Isbn`, `Asin`                                                | `string?`                      | Identifiers                            |
+| `Duration`                                                    | `string?`                      | `"hh:mm:ss"` for audiobooks            |
+| `PageCount`                                                   | `int?`                         | Physical/ebook only                    |
+| `Publisher`, `PlaceOfPublication`, `PublishedDate`, `Edition` | `string?`                      | Publication info                       |
+| `Language`, `Categories`                                      | `string?`                      |                                        |
+| `Series`, `VolumeNumber`                                      | `string?`                      | Series info                            |
+| `CreatedAt`                                                   | `DateTime`                     |                                        |
+| `HasFile`                                                     | `bool`                         | Whether a file is uploaded             |
+| `FileName`                                                    | `string?`                      | e.g. `"book.epub"`                     |
+| `CoverUrl`                                                    | `string?`                      | e.g. `"/api/books/{id}/cover"`         |
+| `CollectionId`                                                | `Guid?`                        |                                        |
+| `LastLocation`                                                | `string?`                      | Reading position                       |
+| `ProgressPercent`                                             | `int`                          | 0–100                                  |
+| `Rating`                                                      | `int`                          | 0–5                                    |
+| `IsFavorite`                                                  | `bool`                         |                                        |
+| `PersonalReview`                                              | `string?`                      |                                        |
+| `LastReadAt`, `FinishedAt`                                    | `DateTime?`                    |                                        |
+| `Chapters`                                                    | `IEnumerable<BookChapterDto>?` | Audio chapters                         |
 
 ### CreateBookDto (Request)
 
@@ -91,7 +91,7 @@ record UpdateCollectionDto(string Name, Guid? ParentId);
 ```csharp
 record ConceptDto(Guid Id, string Name, int UsageCount);
 record ConceptDetailDto(Guid Id, string Name, List<NoteContextDto> Notes);
-record NoteContextDto(Guid NoteId, string Content, string? SelectedText, 
+record NoteContextDto(Guid NoteId, string Content, string? SelectedText,
                       string? CfiRange, Guid BookId, string BookTitle);
 record CreateConceptDto(string Concept);
 record UpdateConceptDto(string Concept);
@@ -102,7 +102,7 @@ record UpdateConceptDto(string Concept);
 ## Note DTOs (`Nostos.Shared.Dtos.NoteDto`)
 
 ```csharp
-record NoteDto(Guid Id, Guid BookId, string Content, string? CfiRange, 
+record NoteDto(Guid Id, Guid BookId, string Content, string? CfiRange,
                string? SelectedText, DateTime CreatedAt, string? BookTitle);
 record CreateNoteDto(string Content, string? CfiRange = null, string? SelectedText = null);
 record UpdateNoteDto(string Content, string? SelectedText = null);

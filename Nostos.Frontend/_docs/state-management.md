@@ -10,11 +10,11 @@ Nostos uses **Angular Signals** for all reactive state. There are no third-party
 
 Services that are `providedIn: 'root'` expose `signal()` properties directly.
 
-| Service | Signals | Purpose |
-|---|---|---|
-| `CollectionsService` | `activeCollectionId`, `sidebarExpanded` | Shared sidebar filter state |
-| `ToastService` | `toasts` | Reactive toast notifications |
-| `ConceptAutocompleteService` | `suggestions`, `activeIndex` | Autocomplete dropdown state |
+| Service                      | Signals                                 | Purpose                      |
+| ---------------------------- | --------------------------------------- | ---------------------------- |
+| `CollectionsService`         | `activeCollectionId`, `sidebarExpanded` | Shared sidebar filter state  |
+| `ToastService`               | `toasts`                                | Reactive toast notifications |
+| `ConceptAutocompleteService` | `suggestions`, `activeIndex`            | Autocomplete dropdown state  |
 
 Components read these signals in templates: `@if (service.toasts().length)`.
 
@@ -25,6 +25,7 @@ Components read these signals in templates: `@if (service.toasts().length)`.
 `BookDetailStore` is an `@Injectable()` class (NOT `providedIn: 'root'`) — it is provided at the component level by `BookDetailComponent`. Each route activation gets its own instance.
 
 **Signals:**
+
 ```
 loading    = signal(false)
 error      = signal<string | null>(null)
@@ -43,9 +44,9 @@ conceptMap = signal<Map<string, ConceptDto>>(new Map())
 ```ts
 // toggleFavorite() — simplified
 const prev = this.book();
-this.book.update(b => ({ ...b, isFavorite: !b.isFavorite }));      // instant UI
+this.book.update((b) => ({ ...b, isFavorite: !b.isFavorite })); // instant UI
 this.booksService.update(id, { isFavorite: !prev.isFavorite }).subscribe({
-  error: () => this.book.set(prev)                                   // revert on failure
+  error: () => this.book.set(prev), // revert on failure
 });
 ```
 
@@ -55,9 +56,9 @@ Applies to: `toggleFavorite`, `toggleFinished`, `rate`.
 
 ```ts
 // ReaderShell
-fileType     = computed(() => detectType(this.book()?.fileName));
+fileType = computed(() => detectType(this.book()?.fileName));
 activeReader = computed(() => this.resolveReader(this.fileType()));
-toc          = computed(() => this.activeReader()?.toc() ?? []);
+toc = computed(() => this.activeReader()?.toc() ?? []);
 ```
 
 Computed signals auto-update when their dependencies change. Used heavily in `ReaderShell`, `FlatTreeComponent`, and `Library`.
@@ -77,6 +78,7 @@ Each `<app-concept-input>` instance gets its own autocomplete state — independ
 ### 6. Route Reuse Strategy
 
 `AppRouteReuseStrategy` preserves the entire component tree (including signal state) when navigating between workspace pages. This means:
+
 - Library's loaded books array survives navigation to Brain and back.
 - WritingStudio's active file and editor content survive navigation away.
 - No re-fetching required on return.
@@ -94,6 +96,7 @@ Template (reactive)
 ```
 
 There is no global application store. Each page manages its own data lifecycle:
+
 - **Library** — fetches on init, paginates via infinite scroll
 - **BookDetail** — `BookDetailStore.loadAllData(id)` on route change
 - **SecondBrain** — fetches concept list on init, detail on selection

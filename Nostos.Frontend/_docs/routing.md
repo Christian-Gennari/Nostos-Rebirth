@@ -2,22 +2,23 @@
 
 ## Route Table
 
-| Path | Component | Lazy | Reused | Notes |
-|---|---|---|---|---|
-| `""` | `Home` | No | No | Landing page |
-| `"read/:id"` | `ReaderShell` | Yes | No | Full-screen reader (outside workspace layout) |
-| `""` (parent) | `WorkspaceLayout` | No | — | Shell with router-outlet + dock bar |
-| `"library"` | `Library` | Yes | **Yes** | Book grid / list |
-| `"second-brain"` | `SecondBrain` | Yes | **Yes** | Concept explorer |
-| `"studio"` | `WritingStudio` | Yes | **Yes** | Writing environment |
-| `"library/:id"` | `BookDetail` | Yes | **Yes** | Single book detail |
-| `"**"` | redirect → `"library"` | — | — | Catch-all wildcard |
+| Path             | Component              | Lazy | Reused  | Notes                                         |
+| ---------------- | ---------------------- | ---- | ------- | --------------------------------------------- |
+| `""`             | `Home`                 | No   | No      | Landing page                                  |
+| `"read/:id"`     | `ReaderShell`          | Yes  | No      | Full-screen reader (outside workspace layout) |
+| `""` (parent)    | `WorkspaceLayout`      | No   | —       | Shell with router-outlet + dock bar           |
+| `"library"`      | `Library`              | Yes  | **Yes** | Book grid / list                              |
+| `"second-brain"` | `SecondBrain`          | Yes  | **Yes** | Concept explorer                              |
+| `"studio"`       | `WritingStudio`        | Yes  | **Yes** | Writing environment                           |
+| `"library/:id"`  | `BookDetail`           | Yes  | **Yes** | Single book detail                            |
+| `"**"`           | redirect → `"library"` | —    | —       | Catch-all wildcard                            |
 
 **File:** `src/app/app.routes.ts`
 
 ## Workspace Layout
 
 `WorkspaceLayout` is a wrapper shell that provides:
+
 - `<router-outlet>` for child page views
 - `<app-app-dock>` fixed bottom navigation bar
 
@@ -50,6 +51,7 @@ shouldReuseRoute()   → default Angular behavior
 `NavigationHistoryService` tracks the last visited URL within each section prefix (`/library`, `/second-brain`, `/studio`).
 
 The `AppDockComponent` uses this to restore context:
+
 - Click **Library** while on Studio → navigates to `/library/some-book-id` (last viewed book) instead of always `/library`.
 - Click the **same** dock item while already in that section → resets to the section root.
 

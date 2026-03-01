@@ -10,13 +10,13 @@ All endpoints return JSON. Base path: `/api` (except OPDS at `/opds`).
 
 List books with filtering, sorting, search, and pagination.
 
-| Query Param | Type | Default | Description |
-|---|---|---|---|
-| `search` | string | — | Search by title or author (LIKE) |
-| `filter` | string | — | `Favorites`, `Finished`, `Reading`, `Unsorted` |
-| `sort` | string | `Recent` | `Recent`, `Title`, `Rating`, `LastRead` |
-| `page` | int | 1 | Page number |
-| `pageSize` | int | 20 | Items per page |
+| Query Param | Type   | Default  | Description                                    |
+| ----------- | ------ | -------- | ---------------------------------------------- |
+| `search`    | string | —        | Search by title or author (LIKE)               |
+| `filter`    | string | —        | `Favorites`, `Finished`, `Reading`, `Unsorted` |
+| `sort`      | string | `Recent` | `Recent`, `Title`, `Rating`, `LastRead`        |
+| `page`      | int    | 1        | Page number                                    |
+| `pageSize`  | int    | 20       | Items per page                                 |
 
 **Response:** `PaginatedResponse<BookDto>` — `{ items, totalCount, page, pageSize }`
 
@@ -31,6 +31,7 @@ Get a single book by ID.
 Create a new book.
 
 **Body:** `CreateBookDto`
+
 ```json
 {
   "type": "physical|ebook|audiobook",
@@ -59,6 +60,7 @@ Update book metadata. All fields are optional — only provided fields are updat
 Update reading progress.
 
 **Body:**
+
 ```json
 {
   "location": "string (epub CFI or page number)",
@@ -149,6 +151,7 @@ List all notes for a book.
 Create a note. Concepts wrapped in `[[double brackets]]` are auto-extracted and linked.
 
 **Body:**
+
 ```json
 {
   "content": "This is about [[Philosophy]] and [[Ethics]]",
@@ -164,6 +167,7 @@ Create a note. Concepts wrapped in `[[double brackets]]` are auto-extracted and 
 Update a note. Re-processes `[[concept]]` links.
 
 **Body:**
+
 ```json
 {
   "content": "Updated content with [[NewConcept]]",
@@ -228,6 +232,7 @@ List all concepts with usage count, sorted by most-used first.
 Get concept detail with all related notes across books.
 
 **Response:**
+
 ```json
 {
   "id": "guid",
@@ -298,6 +303,7 @@ OPDS 1.2 Atom feed of all books with files. Compatible with OPDS reader apps (Mo
 **Response:** `application/atom+xml`
 
 Each entry includes:
+
 - Title, author, description, language
 - Cover image link (`http://opds-spec.org/image`)
 - Acquisition link (`http://opds-spec.org/acquisition`)

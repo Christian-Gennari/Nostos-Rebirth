@@ -59,7 +59,7 @@ interface Book {
 ```ts
 interface BookChapter {
   title: string;
-  startTime: number;   // seconds
+  startTime: number; // seconds
 }
 ```
 
@@ -99,17 +99,17 @@ interface UpdateProgressDto {
 
 ```ts
 enum BookFilter {
-  All       = '',
+  All = '',
   Favorites = 'favorites',
-  Finished  = 'finished',
-  Reading   = 'reading',
-  Unsorted  = 'unsorted',
+  Finished = 'finished',
+  Reading = 'reading',
+  Unsorted = 'unsorted',
 }
 
 enum BookSort {
-  Recent   = 'recent',
-  Title    = 'title',
-  Rating   = 'rating',
+  Recent = 'recent',
+  Title = 'title',
+  Rating = 'rating',
   LastRead = 'lastread',
 }
 ```
@@ -149,10 +149,10 @@ interface Note {
   id: string;
   bookId: string;
   content: string;
-  cfiRange?: string;       // epub CFI for highlights
-  selectedText?: string;   // quoted passage
-  createdAt: string;       // ISO date
-  bookTitle?: string;      // populated in some contexts
+  cfiRange?: string; // epub CFI for highlights
+  selectedText?: string; // quoted passage
+  createdAt: string; // ISO date
+  bookTitle?: string; // populated in some contexts
 }
 
 interface CreateNoteDto {
@@ -254,14 +254,14 @@ interface ReaderProgress {
 }
 
 interface IReader {
-  toc:      Signal<TocItem[]>;
+  toc: Signal<TocItem[]>;
   progress: Signal<ReaderProgress>;
-  next():     void;
+  next(): void;
   previous(): void;
   goTo(target: string | number): void;
   getCurrentLocation(): string;
-  zoomIn():   void;
-  zoomOut():  void;
+  zoomIn(): void;
+  zoomOut(): void;
   removeHighlight(identifier: string): void;
 }
 ```

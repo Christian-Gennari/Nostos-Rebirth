@@ -22,10 +22,10 @@ Provides ISBN-based metadata lookup by querying external APIs in parallel.
 
 ### External API Calls
 
-| API | URL Pattern | Returns |
-|---|---|---|
-| Google Books | `https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}` | Title, subtitle, authors, description, publisher, date, page count, language, categories |
-| Open Library | `https://openlibrary.org/api/books?bibkeys=ISBN:{isbn}&jscmd=data&format=json` | Title, subtitle, authors, publishers, publish places, publish date, page count |
+| API          | URL Pattern                                                                    | Returns                                                                                  |
+| ------------ | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Google Books | `https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}`                    | Title, subtitle, authors, description, publisher, date, page count, language, categories |
+| Open Library | `https://openlibrary.org/api/books?bibkeys=ISBN:{isbn}&jscmd=data&format=json` | Title, subtitle, authors, publishers, publish places, publish date, page count           |
 
 Both calls are fire-and-forget on failure — individual API errors are caught and logged as warnings.
 
@@ -50,15 +50,15 @@ Storage/
 
 ### Methods
 
-| Method | Description |
-|---|---|
-| `SaveBookFileAsync(bookId, file)` | Saves uploaded file as `book.{ext}`. Deletes any previous book file in the folder |
-| `GetBookFile(bookId)` | Returns `FileStream` for the book file, or `null` |
-| `GetBookFileName(bookId)` | Returns full filesystem path, or `null` |
-| `DeleteBookFiles(bookId)` | Deletes entire book folder recursively |
-| `SaveBookCoverAsync(bookId, file)` | Saves cover as `cover.{ext}`. Deletes any previous cover |
-| `GetBookCoverPath(bookId)` | Returns full path to cover file, or `null` |
-| `DeleteCover(bookId)` | Deletes just the cover file |
+| Method                             | Description                                                                       |
+| ---------------------------------- | --------------------------------------------------------------------------------- |
+| `SaveBookFileAsync(bookId, file)`  | Saves uploaded file as `book.{ext}`. Deletes any previous book file in the folder |
+| `GetBookFile(bookId)`              | Returns `FileStream` for the book file, or `null`                                 |
+| `GetBookFileName(bookId)`          | Returns full filesystem path, or `null`                                           |
+| `DeleteBookFiles(bookId)`          | Deletes entire book folder recursively                                            |
+| `SaveBookCoverAsync(bookId, file)` | Saves cover as `cover.{ext}`. Deletes any previous cover                          |
+| `GetBookCoverPath(bookId)`         | Returns full path to cover file, or `null`                                        |
+| `DeleteCover(bookId)`              | Deletes just the cover file                                                       |
 
 ### Supported File Types
 
@@ -78,10 +78,10 @@ Storage/
 
 ### Static Helpers
 
-| Method | Description |
-|---|---|
+| Method                                   | Description                                         |
+| ---------------------------------------- | --------------------------------------------------- |
 | `IsAllowedUpload(contentType, fileName)` | Validates upload by MIME type or extension fallback |
-| `GetContentType(filePath)` | Maps file extension to MIME type for HTTP responses |
+| `GetContentType(filePath)`               | Maps file extension to MIME type for HTTP responses |
 
 ---
 

@@ -18,7 +18,7 @@ App (app-root)
     │   └── <router-outlet>
     │       ├── Library (app-library)            [route: /library]
     │       │   └── SidebarCollections           [route: /library]
-    │       │       └── FlatTreeComponent        
+    │       │       └── FlatTreeComponent
     │       │
     │       ├── BookDetail (app-book-detail)     [route: /library/:id]
     │       │   ├── StarRatingComponent
@@ -47,10 +47,13 @@ App (app-root)
 ## Page Components
 
 ### Home (`/`)
+
 Landing page with navigation links. Simple component with title signal.
 
 ### Library (`/library`)
+
 Main book grid/list view. Features:
+
 - **Grid / List toggle** — persisted view mode
 - **Search** — debounced text search (queries backend)
 - **Sort** — Recent, Title, Rating, LastRead
@@ -61,7 +64,9 @@ Main book grid/list view. Features:
 - Uses `OnPush` change detection
 
 ### BookDetail (`/library/:id`)
+
 Full book detail with metadata, notes, and file management. Uses `BookDetailStore` (component-scoped service) for state. Features:
+
 - **Cover upload/delete** with preview
 - **File upload** with progress bar
 - **Star rating** (0-5, click to toggle)
@@ -72,14 +77,18 @@ Full book detail with metadata, notes, and file management. Uses `BookDetailStor
 - **Reader navigation** (opens `/read/:id`)
 
 ### SecondBrain (`/second-brain`)
+
 Master-detail concept explorer. Features:
+
 - **Left pane:** Searchable concept index (sorted by usage count)
 - **Right pane:** All notes linked to selected concept
 - **Concept tag navigation** — clicking a tag in a note switches to that concept
 - **Note card actions** — navigate to source book
 
 ### WritingStudio (`/studio`)
+
 Three-panel writing environment. Features:
+
 - **Left sidebar:** File tree (FlatTreeComponent) with folders/documents
 - **Center:** TinyMCE editor with auto-save (2s debounce, markdown round-trip)
 - **Right sidebar:** Context panel with two tabs:
@@ -88,12 +97,15 @@ Three-panel writing environment. Features:
 - **Mobile responsive** — sidebars collapse to overlays
 
 ### ReaderShell (`/read/:id`)
+
 Full-screen immersive reader. Auto-detects file type:
+
 - `.epub` → `EpubReader` (epub.js)
 - `.pdf` → `PdfReader` (ngx-extended-pdf-viewer)
 - `.m4b`, `.m4a`, `.mp3` → `AudioReader` (Howler.js)
 
 Unified features across all reader types:
+
 - **TOC sidebar** — collapsible table of contents
 - **Notes sidebar** — view/create/edit/delete notes
 - **Quick note** — text selection → note creation with optional concept autocomplete
@@ -104,10 +116,13 @@ Unified features across all reader types:
 ## Layout Components
 
 ### WorkspaceLayout
+
 Shell wrapper for the main application views. Contains `<router-outlet>` and `AppDockComponent`.
 
 ### AppDockComponent
+
 Fixed bottom navigation dock with three items: Library, Brain, Studio. Features:
+
 - **Rainbow glass effect** — animated gradient background
 - **Deep-link memory** — `NavigationHistoryService` remembers last visited URL per section
 - **Active state** — highlights current route

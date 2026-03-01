@@ -26,23 +26,34 @@ ReaderShell (app-reader-shell)
 
 ```ts
 interface IReader {
-  toc:      Signal<TocItem[]>;
+  toc: Signal<TocItem[]>;
   progress: Signal<ReaderProgress>;
 
-  next():     void;
+  next(): void;
   previous(): void;
   goTo(target: string | number): void;
   getCurrentLocation(): string;
-  zoomIn():   void;
-  zoomOut():  void;
+  zoomIn(): void;
+  zoomOut(): void;
   removeHighlight(identifier: string): void;
 }
 ```
 
 **Supporting types:**
+
 ```ts
-interface TocItem        { label: string; target: string | number; children?: TocItem[] }
-interface ReaderProgress { label: string; percentage: number; tooltip?: string; pageNumber?: number; pageCount?: number }
+interface TocItem {
+  label: string;
+  target: string | number;
+  children?: TocItem[];
+}
+interface ReaderProgress {
+  label: string;
+  percentage: number;
+  tooltip?: string;
+  pageNumber?: number;
+  pageCount?: number;
+}
 ```
 
 ## ReaderShell (Orchestrator)
@@ -81,6 +92,7 @@ Both sidebars are collapsible. On mobile, they overlay the reader.
 ### Progress Sync
 
 Progress is saved on every page turn / audio position change:
+
 - `location`: CFI string (epub), page number (pdf), time in seconds (audio)
 - `percentage`: 0–100 normalized progress
 
@@ -99,6 +111,7 @@ Progress is saved on every page turn / audio position change:
 **File:** `src/app/reader/epub-reader/epub-annotation-manager.ts`
 
 Non-injectable class, manually instantiated. Manages:
+
 - Listening for epub.js `'selected'` events
 - Extracting selected text from CFI range
 - Optimistic highlight rendering (add immediately, roll back on API error)
@@ -119,6 +132,7 @@ Non-injectable class, manually instantiated. Manages:
 **File:** `src/app/reader/pdf-reader/pdf-annotation-manager.ts`
 
 `@Injectable({ providedIn: 'root' })`. Methods:
+
 - `paint(textLayerDiv, highlights)` — renders percentage-positioned rectangles
 - `captureHighlight()` — reads native selection, normalizes rectangles relative to page
 - `captureNoteLocation()` — returns `{ pageNumber, yPercent }` for generic annotations
@@ -139,6 +153,7 @@ Non-injectable class, manually instantiated. Manages:
 Common across all reader types. Displays all `Note[]` for the book.
 
 Features:
+
 - **Jump to note:** Clicking a note with a `cfiRange` navigates the epub; clicking one with a page number navigates the PDF
 - **Edit inline:** Uses `NoteCardComponent` with concept tag support
 - **Delete:** With confirmation

@@ -61,6 +61,7 @@ dotnet build -c Release
 ```
 
 This triggers the MSBuild `BuildFrontend` target which:
+
 1. Runs `npm install` (if `node_modules/` doesn't exist)
 2. Runs `npm run build` (Angular production build)
 3. Copies the built files from `Nostos.Frontend/dist/Nostos.Frontend/browser/` to `Nostos.Backend/wwwroot/`
@@ -86,10 +87,10 @@ cd publish
 
 ### Backend (`appsettings.json`)
 
-| Setting | Default | Description |
-|---|---|---|
+| Setting                      | Default               | Description             |
+| ---------------------------- | --------------------- | ----------------------- |
 | `Kestrel:Endpoints:Http:Url` | `http://0.0.0.0:5214` | Listen address and port |
-| `Logging:LogLevel:Default` | `Information` | Minimum log level |
+| `Logging:LogLevel:Default`   | `Information`         | Minimum log level       |
 
 The SQLite connection string is hardcoded in `Program.cs` as `Data Source=nostos.db`. The database file is created in the working directory.
 
@@ -108,13 +109,13 @@ Kestrel and form options are configured for up to **4 GB** file uploads (for lar
 
 ## Project Structure Quick Reference
 
-| Path | Purpose |
-|---|---|
-| `Nostos.Backend/` | .NET 10 Web API |
-| `Nostos.Frontend/` | Angular 21 SPA |
-| `Nostos.Shared/` | Shared DTOs/Enums between backend layers |
-| `Nostos.Backend/Storage/books/` | Book file storage (not committed) |
-| `Nostos.Backend/nostos.db` | SQLite database (auto-created) |
+| Path                            | Purpose                                  |
+| ------------------------------- | ---------------------------------------- |
+| `Nostos.Backend/`               | .NET 10 Web API                          |
+| `Nostos.Frontend/`              | Angular 21 SPA                           |
+| `Nostos.Shared/`                | Shared DTOs/Enums between backend layers |
+| `Nostos.Backend/Storage/books/` | Book file storage (not committed)        |
+| `Nostos.Backend/nostos.db`      | SQLite database (auto-created)           |
 
 ## Database Migrations
 

@@ -13,29 +13,30 @@ A generic hierarchical tree rendered as a flat list with indent levels. Used by 
 
 ### Inputs
 
-| Input | Type | Description |
-|---|---|---|
-| `items` | `any[]` (required) | Flat array with `id`, `name`, `parentId` fields |
-| `activeId` | `string \| undefined` | Currently selected node ID |
-| `typeField` | `string` | Property name to distinguish folder vs. document (default: `'type'`) |
-| `editingId` | `string \| undefined` | Node currently being renamed (shows inline input) |
+| Input       | Type                  | Description                                                          |
+| ----------- | --------------------- | -------------------------------------------------------------------- |
+| `items`     | `any[]` (required)    | Flat array with `id`, `name`, `parentId` fields                      |
+| `activeId`  | `string \| undefined` | Currently selected node ID                                           |
+| `typeField` | `string`              | Property name to distinguish folder vs. document (default: `'type'`) |
+| `editingId` | `string \| undefined` | Node currently being renamed (shows inline input)                    |
 
 ### Outputs
 
-| Output | Type | Description |
-|---|---|---|
-| `nodeSelected` | `EventEmitter<TreeNode>` | Node clicked |
-| `nodeMoved` | `EventEmitter<TreeNodeMoveEvent>` | Drag-dropped onto new parent |
-| `nodeRenamed` | `EventEmitter<{id, name}>` | Inline rename triggered |
-| `nodeDeleted` | `EventEmitter<string>` | Delete requested |
-| `nodeRenameSaved` | `EventEmitter<{id, name}>` | Rename confirmed (Enter) |
-| `nodeRenameCancelled` | `EventEmitter<void>` | Rename cancelled (Escape / blur) |
+| Output                | Type                              | Description                      |
+| --------------------- | --------------------------------- | -------------------------------- |
+| `nodeSelected`        | `EventEmitter<TreeNode>`          | Node clicked                     |
+| `nodeMoved`           | `EventEmitter<TreeNodeMoveEvent>` | Drag-dropped onto new parent     |
+| `nodeRenamed`         | `EventEmitter<{id, name}>`        | Inline rename triggered          |
+| `nodeDeleted`         | `EventEmitter<string>`            | Delete requested                 |
+| `nodeRenameSaved`     | `EventEmitter<{id, name}>`        | Rename confirmed (Enter)         |
+| `nodeRenameCancelled` | `EventEmitter<void>`              | Rename cancelled (Escape / blur) |
 
 ### Helper: `buildFlatTree()`
 
 **File:** `src/app/ui/flat-tree/flat-tree.helper.ts`
 
 Converts a flat `parentId`-based array into an ordered `FlatTreeNode[]`:
+
 1. Groups items by `parentId` (normalizes `undefined` → `null`)
 2. Sorts: folders first, then alphabetical by `name`
 3. Recursively walks the tree, only emitting children of expanded folders
@@ -45,6 +46,7 @@ Converts a flat `parentId`-based array into an ordered `FlatTreeNode[]`:
 ### Drag & Drop
 
 Uses `@angular/cdk` `DragDropModule`. Drop targets:
+
 - **Folder node:** Reparents the dragged item under that folder
 - **Root area:** Moves item to root (`newParentId = null`)
 
@@ -61,24 +63,24 @@ Displays a single note with rich formatting. Supports inline editing, concept ta
 
 ### Inputs
 
-| Input | Type | Default | Description |
-|---|---|---|---|
-| `note` | `Note` (required) | — | Note data |
-| `conceptMap` | `Map<string, ConceptDto>` | `null` | For rendering `[[Concept]]` tags |
-| `showNavigation` | `boolean` | `true` | Show "Go to book" link |
-| `showActions` | `boolean` | `true` | Show edit/delete buttons |
-| `showSource` | `boolean` | `false` | Show book title source label |
-| `showDate` | `boolean` | `true` | Show creation date |
+| Input            | Type                      | Default | Description                      |
+| ---------------- | ------------------------- | ------- | -------------------------------- |
+| `note`           | `Note` (required)         | —       | Note data                        |
+| `conceptMap`     | `Map<string, ConceptDto>` | `null`  | For rendering `[[Concept]]` tags |
+| `showNavigation` | `boolean`                 | `true`  | Show "Go to book" link           |
+| `showActions`    | `boolean`                 | `true`  | Show edit/delete buttons         |
+| `showSource`     | `boolean`                 | `false` | Show book title source label     |
+| `showDate`       | `boolean`                 | `true`  | Show creation date               |
 
 ### Outputs
 
-| Output | Payload | Description |
-|---|---|---|
-| `update` | `{ id, content, selectedText? }` | Note edited and saved |
-| `delete` | `string` (note ID) | Delete requested |
-| `conceptClick` | `ConceptDto` | `[[Concept]]` tag clicked |
-| `quoteClick` | `Note` | "Insert quote" button clicked |
-| `cardClick` | `Note` | Card body clicked |
+| Output         | Payload                          | Description                   |
+| -------------- | -------------------------------- | ----------------------------- |
+| `update`       | `{ id, content, selectedText? }` | Note edited and saved         |
+| `delete`       | `string` (note ID)               | Delete requested              |
+| `conceptClick` | `ConceptDto`                     | `[[Concept]]` tag clicked     |
+| `quoteClick`   | `Note`                           | "Insert quote" button clicked |
+| `cardClick`    | `Note`                           | Card body clicked             |
 
 ### Features
 
@@ -96,14 +98,14 @@ Displays a single note with rich formatting. Supports inline editing, concept ta
 
 Click-to-rate stars (0–5). Clicking the same star resets to 0.
 
-| Input | Type | Description |
-|---|---|---|
-| `rating` | `number` | Current rating value |
-| `readonly` | `boolean` | Disable interaction |
-| `size` | `string` | CSS size for star icons |
+| Input      | Type      | Description             |
+| ---------- | --------- | ----------------------- |
+| `rating`   | `number`  | Current rating value    |
+| `readonly` | `boolean` | Disable interaction     |
+| `size`     | `string`  | CSS size for star icons |
 
-| Output | Payload |
-|---|---|
+| Output         | Payload  |
+| -------------- | -------- |
 | `ratingChange` | `number` |
 
 ---
@@ -138,12 +140,12 @@ Dropdown overlay rendered by `ConceptInputComponent` and `NoteCardComponent`. Re
 
 WYSIWYG editor wrapping TinyMCE with markdown round-trip.
 
-| Input | Type | Description |
-|---|---|---|
+| Input            | Type                  | Description              |
+| ---------------- | --------------------- | ------------------------ |
 | `initialContent` | `InputSignal<string>` | Markdown content to load |
 
-| Output | Payload |
-|---|---|
+| Output          | Payload             |
+| --------------- | ------------------- |
 | `contentChange` | `string` (markdown) |
 
 ### Implementation
@@ -163,8 +165,9 @@ WYSIWYG editor wrapping TinyMCE with markdown round-trip.
 Fixed top-right notification area. Renders `ToastService.toasts()` with slide-in animation.
 
 Color-coded left borders:
+
 - Green → success
-- Red → error  
+- Red → error
 - Purple → info
 
 ---

@@ -37,6 +37,7 @@ Concept names in notes are rendered as clickable tags (via `NoteFormatPipe`) tha
 ### 4. Writing Studio Integration
 
 The Writing Studio's right sidebar provides access to both:
+
 - **Concepts tab:** Browse concepts and their linked notes
 - **Books tab:** Browse books and their notes
 
@@ -51,11 +52,11 @@ ConceptModel (1) ←→ (M) NoteConceptModel (M) ←→ (1) NoteModel
                                                     BookModel
 ```
 
-| Table | Fields |
-|---|---|
-| `Concepts` | `Id`, `Concept` (unique, indexed) |
-| `NoteConcepts` | `NoteId`, `ConceptId` (composite PK) |
-| `Notes` | `Id`, `BookId`, `Content`, `CfiRange`, `SelectedText`, `CreatedAt` |
+| Table          | Fields                                                             |
+| -------------- | ------------------------------------------------------------------ |
+| `Concepts`     | `Id`, `Concept` (unique, indexed)                                  |
+| `NoteConcepts` | `NoteId`, `ConceptId` (composite PK)                               |
+| `Notes`        | `Id`, `BookId`, `Content`, `CfiRange`, `SelectedText`, `CreatedAt` |
 
 ## Autocomplete
 
@@ -77,7 +78,7 @@ The `NoteFormatPipe` transforms note content for display:
 
 ```
 Input:  "This relates to [[Stoicism]] and [[Ethics]]"
-Output: "This relates to <span class="concept-tag" data-concept-id="...">Stoicism</span> 
+Output: "This relates to <span class="concept-tag" data-concept-id="...">Stoicism</span>
          and <span class="concept-tag" data-concept-id="...">Ethics</span>"
 ```
 
