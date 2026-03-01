@@ -24,29 +24,17 @@
     </div>
 
     <div class="file-list">
-      @if (editingId(); as id) {
-        <div class="tree-node-wrapper input-mode" style="padding: 4px 8px">
-          <input
-            #editInput
-            type="text"
-            class="title-input-tree"
-            [value]="getNameForId(id)"
-            (keydown.enter)="saveRename(id, editInput.value)"
-            (keydown.escape)="cancelRename()"
-            (blur)="cancelRename()"
-            autoFocus
-          />
-        </div>
-      } @else {
-        <app-flat-tree
-          [items]="rootItems()"
-          [activeId]="activeItem()?.id || null"
-          (nodeSelected)="handleItemSelected($event)"
-          (nodeMoved)="handleItemMove($event)"
-          (nodeRenamed)="startRename($event)"
-          (nodeDeleted)="deleteItem($event)"
-        ></app-flat-tree>
-      }
+      <app-flat-tree
+        [items]="rootItems()"
+        [activeId]="activeItem()?.id || null"
+        [editingId]="editingId()"
+        (nodeSelected)="handleItemSelected($event)"
+        (nodeMoved)="handleItemMove($event)"
+        (nodeRenamed)="startRename($event)"
+        (nodeDeleted)="deleteItem($event)"
+        (nodeRenameSaved)="saveRename($event.id, $event.newName)"
+        (nodeRenameCancelled)="cancelRename()"
+      ></app-flat-tree>
     </div>
   </aside>
 

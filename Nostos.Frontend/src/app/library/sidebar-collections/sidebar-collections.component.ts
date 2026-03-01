@@ -195,7 +195,7 @@ export class SidebarCollections implements OnInit {
   }
 
   moveCollection(item: Collection, newParentId: string | null) {
-    if (item.parentId === newParentId) return;
+    if ((item.parentId ?? null) === newParentId) return;
 
     this.collectionsService
       .update(item.id, {

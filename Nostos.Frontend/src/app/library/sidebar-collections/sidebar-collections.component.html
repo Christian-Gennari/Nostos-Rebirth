@@ -5,10 +5,10 @@
 <nav class="sidebar" [class.collapsed]="!expanded()" [class.collapsing]="collapseSidebarProgress()">
   <div class="sidebar-header">
     @if (expanded()) {
-    <img class="brand-icon" src="logo-idea-gradient_2_no-bg.png" alt="logo" />
-    <div class="brand" animate.enter="fade-in">Collections</div>
+      <img class="brand-icon" src="logo-idea-gradient_2_no-bg.png" alt="logo" />
+      <div class="brand" animate.enter="fade-in">Collections</div>
     } @else {
-    <img class="brand-icon" src="logo-idea-gradient_2_no-bg.png" alt="logo" />
+      <img class="brand-icon" src="logo-idea-gradient_2_no-bg.png" alt="logo" />
     }
   </div>
 
@@ -24,7 +24,9 @@
         title="All Books"
       >
         <lucide-icon [img]="LibraryIcon" [size]="18" strokeWidth="1"></lucide-icon>
-        @if (expanded()) { <span class="label">All Books</span> }
+        @if (expanded()) {
+          <span class="label">All Books</span>
+        }
       </button>
 
       <button
@@ -36,7 +38,9 @@
         title="Continue Reading"
       >
         <lucide-icon [img]="BookOpenIcon" [size]="18" strokeWidth="1"></lucide-icon>
-        @if (expanded()) { <span class="label">Reading</span> }
+        @if (expanded()) {
+          <span class="label">Reading</span>
+        }
       </button>
 
       <button
@@ -48,7 +52,9 @@
         title="Favorites"
       >
         <lucide-icon [img]="HeartIcon" [size]="18" strokeWidth="1"></lucide-icon>
-        @if (expanded()) { <span class="label">Favorites</span> }
+        @if (expanded()) {
+          <span class="label">Favorites</span>
+        }
       </button>
 
       <button
@@ -60,7 +66,9 @@
         title="Finished"
       >
         <lucide-icon [img]="CheckCircleIcon" [size]="18" strokeWidth="1"></lucide-icon>
-        @if (expanded()) { <span class="label">Finished</span> }
+        @if (expanded()) {
+          <span class="label">Finished</span>
+        }
       </button>
 
       <button
@@ -72,66 +80,58 @@
         title="Unsorted"
       >
         <lucide-icon [img]="InboxIcon" [size]="18" strokeWidth="1"></lucide-icon>
-        @if (expanded()) { <span class="label">Unsorted</span> }
+        @if (expanded()) {
+          <span class="label">Unsorted</span>
+        }
       </button>
     </div>
 
     <div class="nav-group">
       @if (expanded()) {
-      <div class="section-label" animate.enter="fade-in" style="margin-top: 1rem">Collections</div>
-
-      <div class="root-drop-list" [style.min-height]="'50px'">
-        @if (editingId(); as id) {
-        <div class="nav-item input-mode">
-          <lucide-icon [img]="FolderIcon" [size]="18" strokeWidth="1"></lucide-icon>
-          <input
-            #editInput
-            type="text"
-            class="sidebar-input"
-            [value]="getNameForId(id)"
-            (keydown.enter)="saveRename(id, editInput.value)"
-            (keydown.escape)="cancelRename()"
-            autoFocus
-          />
+        <div class="section-label" animate.enter="fade-in" style="margin-top: 1rem">
+          Collections
         </div>
-        } @else {
-        <app-flat-tree
-          [items]="collections()"
-          [activeId]="activeId()"
-          typeField="dummy"
-          (nodeSelected)="select($event.id)"
-          (nodeMoved)="onItemMoved($event)"
-          (nodeRenamed)="startRename($event)"
-          (nodeDeleted)="deleteCollection($event)"
-        ></app-flat-tree>
-        }
-      </div>
+
+        <div class="root-drop-list" [style.min-height]="'50px'">
+          <app-flat-tree
+            [items]="collections()"
+            [activeId]="activeId()"
+            [editingId]="editingId()"
+            typeField="dummy"
+            (nodeSelected)="select($event.id)"
+            (nodeMoved)="onItemMoved($event)"
+            (nodeRenamed)="startRename($event)"
+            (nodeDeleted)="deleteCollection($event)"
+            (nodeRenameSaved)="saveRename($event.id, $event.newName)"
+            (nodeRenameCancelled)="cancelRename()"
+          ></app-flat-tree>
+        </div>
       }
     </div>
 
     <div class="nav-group mt-auto">
       @if (adding()) {
-      <div class="nav-item input-mode">
-        <lucide-icon [img]="PlusIcon" [size]="18" strokeWidth="1"></lucide-icon>
-        @if (expanded()) {
-        <input
-          type="text"
-          class="sidebar-input"
-          [(ngModel)]="newName"
-          (keydown.enter)="create()"
-          (keydown.escape)="resetInput()"
-          placeholder="Name..."
-          autoFocus
-        />
-        }
-      </div>
+        <div class="nav-item input-mode">
+          <lucide-icon [img]="PlusIcon" [size]="18" strokeWidth="1"></lucide-icon>
+          @if (expanded()) {
+            <input
+              type="text"
+              class="sidebar-input"
+              [(ngModel)]="newName"
+              (keydown.enter)="create()"
+              (keydown.escape)="resetInput()"
+              placeholder="Name..."
+              autoFocus
+            />
+          }
+        </div>
       } @else {
-      <button class="nav-item action-add" (click)="startAdd()" title="Create Collection">
-        <lucide-icon [img]="PlusIcon" [size]="18" strokeWidth="1"></lucide-icon>
-        @if (expanded()) {
-        <span class="label">New Collection</span>
-        }
-      </button>
+        <button class="nav-item action-add" (click)="startAdd()" title="Create Collection">
+          <lucide-icon [img]="PlusIcon" [size]="18" strokeWidth="1"></lucide-icon>
+          @if (expanded()) {
+            <span class="label">New Collection</span>
+          }
+        </button>
       }
     </div>
   </div>
@@ -139,9 +139,9 @@
   <div class="sidebar-footer">
     <button class="toggle-btn" (click)="toggle()">
       @if (expanded()) {
-      <lucide-icon [img]="PanelLeftCloseIcon" [size]="18" strokeWidth="1"></lucide-icon>
+        <lucide-icon [img]="PanelLeftCloseIcon" [size]="18" strokeWidth="1"></lucide-icon>
       } @else {
-      <lucide-icon [img]="PanelLeftOpenIcon" [size]="18" strokeWidth="1"></lucide-icon>
+        <lucide-icon [img]="PanelLeftOpenIcon" [size]="18" strokeWidth="1"></lucide-icon>
       }
     </button>
   </div>
