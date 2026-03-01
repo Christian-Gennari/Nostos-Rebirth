@@ -14,7 +14,7 @@ export class EpubAnnotationManager {
     private rendition: Rendition,
     private bookId: string,
     private injector: Injector,
-    private onNoteCreated?: () => void // <--- NEW: Callback to notify parent
+    private onNoteCreated?: () => void
   ) {
     this.notesService = this.injector.get(NotesService);
   }

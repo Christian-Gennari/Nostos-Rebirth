@@ -52,7 +52,7 @@ export class NoteCardComponent {
 
   isEditing = false;
   editContent = '';
-  editSelectedText = ''; // <--- New state for editing quote
+  editSelectedText = '';
 
   // Collapse logic
   isExpanded = false;

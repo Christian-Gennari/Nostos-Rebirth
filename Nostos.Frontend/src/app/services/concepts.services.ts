@@ -11,8 +11,8 @@ export interface ConceptDto {
 export interface NoteContextDto {
   noteId: string;
   content: string;
-  selectedText?: string; // <--- NEW
-  cfiRange?: string; // <--- NEW
+  selectedText?: string;
+  cfiRange?: string;
   bookId: string;
   bookTitle: string;
 }

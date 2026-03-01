@@ -9,7 +9,7 @@ public record NoteDto(
     string? CfiRange,
     string? SelectedText,
     DateTime CreatedAt,
-    string? BookTitle // 👈 New Field
+    string? BookTitle
 );
 
 public record CreateNoteDto(
@@ -18,4 +18,4 @@ public record CreateNoteDto(
     string? SelectedText = null
 );
 
-public record UpdateNoteDto(string Content, string? SelectedText = null); // <--- ADDED);
+public record UpdateNoteDto(string Content, string? SelectedText = null);

@@ -98,5 +98,4 @@ export class BooksService {
   }
 }
 
-// 👈 FIXED: Use 'export type' to satisfy isolatedModules
 export type { Book };

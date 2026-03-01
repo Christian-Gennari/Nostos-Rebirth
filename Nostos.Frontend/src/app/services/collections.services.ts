@@ -1,6 +1,6 @@
-import { Injectable, signal } from '@angular/core'; // <--- Import signal
+import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs'; // <--- Import tap
+import { Observable, tap } from 'rxjs';
 import { Collection, CreateCollectionDto, UpdateCollectionDto } from '../dtos/collection.dtos';
 
 @Injectable({ providedIn: 'root' })

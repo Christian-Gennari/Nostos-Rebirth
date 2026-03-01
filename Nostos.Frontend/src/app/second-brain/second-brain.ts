@@ -12,7 +12,6 @@ import {
   NoteContextDto,
 } from '../services/concepts.services';
 
-// 👇 Refactor: Import the shared pipe
 import { NoteFormatPipe } from '../ui/pipes/note-format.pipe';
 
 @Component({
@@ -23,7 +22,7 @@ import { NoteFormatPipe } from '../ui/pipes/note-format.pipe';
     FormsModule,
     RouterLink,
     LucideAngularModule,
-    NoteFormatPipe, // 👇 Added to imports
+    NoteFormatPipe,
   ],
   templateUrl: './second-brain.html',
   styleUrls: ['./second-brain.css'],
@@ -97,7 +96,7 @@ export class SecondBrain implements OnInit {
     return combinedLength > 300;
   }
 
-  // 👇 Refactor: New handler for clicking concepts inside the text
+  // Handler for clicking concepts inside the text
   handleContentClick(event: MouseEvent): void {
     const target = event.target as HTMLElement;
     // The pipe adds the 'concept-tag' class and 'data-concept-id' attribute

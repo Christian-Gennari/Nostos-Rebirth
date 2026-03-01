@@ -2,7 +2,6 @@ using System;
 
 namespace Nostos.Shared.Dtos;
 
-// Removed "Children" property
 public record CollectionDto(
     Guid Id,
     string Name,

@@ -65,7 +65,7 @@ export class SidebarCollections implements OnInit {
   private ignoreClick = false;
   activeId = this.collectionsService.activeCollectionId;
 
-  // NEW: State to control initial animation
+  // State to control initial animation
   isLoaded = signal(false);
 
   ngOnInit(): void {
@@ -74,7 +74,7 @@ export class SidebarCollections implements OnInit {
       this.expanded.set(false);
     }
 
-    // NEW: Set isLoaded to true after a minimal timeout
+    // Set isLoaded to true after a minimal timeout
     setTimeout(() => {
       this.isLoaded.set(true);
     }, 0);

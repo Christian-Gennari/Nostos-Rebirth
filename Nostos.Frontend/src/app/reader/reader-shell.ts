@@ -38,7 +38,6 @@ import { PdfReader } from './pdf-reader/pdf-reader';
 import { EpubReader } from './epub-reader/epub-reader';
 import { AudioReader } from './audio-reader/audio-reader';
 import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
-// 👇 FIX: Import NoteCardComponent
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 
 @Component({
@@ -52,7 +51,6 @@ import { NoteCardComponent } from '../ui/note-card.component/note-card.component
     EpubReader,
     AudioReader,
     ConceptInputComponent,
-    // 👇 FIX: Add to imports array so the HTML can recognize <app-note-card>
     NoteCardComponent,
   ],
   templateUrl: './reader-shell.html',
