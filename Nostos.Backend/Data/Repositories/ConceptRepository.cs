@@ -31,4 +31,45 @@ public class ConceptRepository : IConceptRepository
             .ThenInclude(n => n.Book)
             .FirstOrDefaultAsync(c => c.Id == id);
     }
+
+    // --- Methods for NoteProcessorService ---
+
+    public async Task<List<ConceptModel>> GetByNamesAsync(IEnumerable<string> names)
+    {
+        var nameList = names.ToList();
+        return await _db.Concepts
+            .Where(c => nameList.Contains(c.Concept))
+            .ToListAsync();
+    }
+
+    public void AddRange(IEnumerable<ConceptModel> concepts)
+    {
+        _db.Concepts.AddRange(concepts);
+    }
+
+    public async Task ClearNoteLinksAsync(Guid noteId)
+    {
+        var currentLinks = await _db.NoteConcepts
+            .Where(nc => nc.NoteId == noteId)
+            .ToListAsync();
+
+        if (currentLinks.Count != 0)
+        {
+            _db.NoteConcepts.RemoveRange(currentLinks);
+        }
+    }
+
+    public void AddNoteLink(NoteConceptModel link)
+    {
+        _db.NoteConcepts.Add(link);
+    }
+
+    // --- Method for ConceptCleanupWorker ---
+
+    public async Task<int> DeleteOrphanedAsync(CancellationToken ct = default)
+    {
+        return await _db.Concepts
+            .Where(c => !c.NoteConcepts.Any())
+            .ExecuteDeleteAsync(ct);
+    }
 }

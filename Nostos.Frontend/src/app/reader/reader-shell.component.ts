@@ -27,7 +27,7 @@ import {
 import { BooksService } from '../services/books.service';
 import { NotesService } from '../services/notes.service';
 import { ConceptsService, ConceptDto } from '../services/concepts.service';
-import { ConceptAutocompleteService } from '../misc-components/concept-autocomplete-panel/concept-autocomplete.service';
+import { ConceptAutocompleteService } from '../ui/concept-autocomplete-panel/concept-autocomplete.service';
 
 // DTOs & Interfaces
 import { Note } from '../dtos/note.dtos';

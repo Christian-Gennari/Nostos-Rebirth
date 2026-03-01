@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { AppDockComponent } from '../misc-components/app-dock/app-dock.component';
+import { AppDockComponent } from '../layout/app-dock/app-dock.component';
 
 @Component({
   standalone: true,

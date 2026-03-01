@@ -1,17 +1,16 @@
 using System.Text.RegularExpressions;
-using Microsoft.EntityFrameworkCore;
-using Nostos.Backend.Data;
+using Nostos.Backend.Data.Interfaces;
 using Nostos.Backend.Data.Models;
 
 namespace Nostos.Backend.Services;
 
 public partial class NoteProcessorService
 {
-    private readonly NostosDbContext _db;
+    private readonly IConceptRepository _conceptRepo;
 
-    public NoteProcessorService(NostosDbContext db)
+    public NoteProcessorService(IConceptRepository conceptRepo)
     {
-        _db = db;
+        _conceptRepo = conceptRepo;
     }
 
     // 1. Encapsulate the Regex here
@@ -34,21 +33,13 @@ public partial class NoteProcessorService
             .ToList();
 
         // B. Clear existing links for this note (Full refresh strategy)
-        // We load them first to ensure we are working with the tracked entities
-        var currentLinks = await _db.NoteConcepts.Where(nc => nc.NoteId == note.Id).ToListAsync();
-
-        if (currentLinks.Count != 0)
-        {
-            _db.NoteConcepts.RemoveRange(currentLinks);
-        }
+        await _conceptRepo.ClearNoteLinksAsync(note.Id);
 
         if (foundNames.Count == 0)
             return;
 
         // C. Find existing concepts in DB to reuse
-        var existingConcepts = await _db
-            .Concepts.Where(c => foundNames.Contains(c.Concept))
-            .ToListAsync();
+        var existingConcepts = await _conceptRepo.GetByNamesAsync(foundNames);
 
         var existingNames = existingConcepts
             .Select(c => c.Concept)
@@ -62,7 +53,7 @@ public partial class NoteProcessorService
 
         if (newConcepts.Count != 0)
         {
-            _db.Concepts.AddRange(newConcepts);
+            _conceptRepo.AddRange(newConcepts);
         }
 
         // E. Create Links
@@ -70,7 +61,7 @@ public partial class NoteProcessorService
 
         foreach (var concept in allRelevantConcepts)
         {
-            _db.NoteConcepts.Add(new NoteConceptModel { Note = note, Concept = concept });
+            _conceptRepo.AddNoteLink(new NoteConceptModel { Note = note, Concept = concept });
         }
     }
 }

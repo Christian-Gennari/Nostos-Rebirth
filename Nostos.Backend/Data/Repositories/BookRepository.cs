@@ -23,7 +23,7 @@ public class BookRepository : IBookRepository
         int pageSize
     )
     {
-        var query = _db.Books.AsQueryable();
+        var query = _db.Books.AsNoTracking().AsQueryable();
 
         // 1. Search
         if (!string.IsNullOrWhiteSpace(search))

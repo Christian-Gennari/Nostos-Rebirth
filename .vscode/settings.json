@@ -4,6 +4,10 @@
     "dotnet build": true,
     "npx ng": true,
     "git add": true,
-    "git commit": true
+    "git commit": true,
+    "dotnet ef": true,
+    "ForEach-Object": true,
+    "New-Item": true,
+    "Move-Item": true
   }
 }

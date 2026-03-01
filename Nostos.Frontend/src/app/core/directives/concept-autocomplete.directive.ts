@@ -1,6 +1,6 @@
 import { Directive, HostListener, Input, Output, EventEmitter, ElementRef } from '@angular/core';
-import { ConceptAutocompleteService } from '../misc-components/concept-autocomplete-panel/concept-autocomplete.service';
-import { ConceptDto } from '../services/concepts.service';
+import { ConceptAutocompleteService } from '../../ui/concept-autocomplete-panel/concept-autocomplete.service';
+import { ConceptDto } from '../../services/concepts.service';
 
 @Directive({
   selector: '[noteAutocomplete]',

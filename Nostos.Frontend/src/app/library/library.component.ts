@@ -19,7 +19,7 @@ import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { SidebarCollections } from './sidebar-collections/sidebar-collections.component';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
-import { InfiniteScrollDirective } from '../directives/infinite-scroll.directive';
+import { InfiniteScrollDirective } from '../core/directives/infinite-scroll.directive';
 import { BookFilter, BookSort } from '../dtos/book.enums';
 import { ToastService } from '../services/toast.service';
 import {
