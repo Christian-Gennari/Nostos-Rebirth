@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
@@ -26,6 +27,7 @@ builder.Services.Configure<FormOptions>(options =>
 });
 
 builder.Services.AddOpenApi();
+builder.Services.AddProblemDetails();
 
 // Services Dependency Injection
 builder.Services.AddSingleton<FileStorageService>();
@@ -50,6 +52,34 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ------------------------------------
+
+// --- GLOBAL ERROR HANDLING ---
+app.UseExceptionHandler(exceptionApp =>
+{
+    exceptionApp.Run(async context =>
+    {
+        context.Response.ContentType = "application/problem+json";
+        var exceptionFeature = context.Features.Get<IExceptionHandlerFeature>();
+        var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("GlobalExceptionHandler");
+
+        if (exceptionFeature?.Error is not null)
+        {
+            logger.LogError(exceptionFeature.Error, "Unhandled exception on {Method} {Path}",
+                context.Request.Method, context.Request.Path);
+        }
+
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        await context.Response.WriteAsJsonAsync(new
+        {
+            type = "https://tools.ietf.org/html/rfc9110#section-15.6.1",
+            title = "An unexpected error occurred.",
+            status = 500,
+        });
+    });
+});
+app.UseStatusCodePages();
+
+// -----------------------------
 
 app.MapOpenApi();
 
