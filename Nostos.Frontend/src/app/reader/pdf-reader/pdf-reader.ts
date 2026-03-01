@@ -43,7 +43,6 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   initialLocation = input<string | undefined>();
   noteCreated = output<void>();
 
-  // 👇 ADD: Input/Output for Sidebar Visibility
   sidebarVisible = input<boolean>(false);
   sidebarVisibleChange = output<boolean>();
 
@@ -59,6 +58,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   zoomLevel = signal<string | number>('page-fit');
   currentPage = 1;
   totalPages = 0;
+  private pdfDocRef: any = null;
 
   private initialLoadComplete = false;
 
@@ -155,9 +155,13 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   async onPdfLoaded(event: PdfLoadedEvent) {
     const pdfDoc = (event as any).source?.pdfDocument ?? (event as any).pdfDocument;
     if (pdfDoc) {
+      this.pdfDocRef = pdfDoc;
       try {
         const outline = await pdfDoc.getOutline();
-        if (outline) this.toc.set(this.mapPdfOutline(outline));
+        if (outline) {
+          const tocItems = await this.mapPdfOutline(outline, pdfDoc);
+          this.toc.set(tocItems);
+        }
       } catch (err) {
         console.error('Error fetching PDF outline', err);
       }
@@ -266,7 +270,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   private updateProgressState(page: number) {
     const percentage = this.totalPages > 0 ? Math.floor((page / this.totalPages) * 100) : 0;
 
-    // 👇 Update the signal with the specific page numbers
+    // Update the signal with the specific page numbers
     this.progress.set({
       label: `Page ${page} of ${this.totalPages}`,
       percentage,
@@ -278,12 +282,31 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     this.progressUpdater$.next({ location, percentage });
   }
 
-  private mapPdfOutline(outline: any[]): TocItem[] {
-    return outline.map((item: any) => ({
-      label: item.title,
-      target: 0,
-      children: item.items?.length ? this.mapPdfOutline(item.items) : [],
-    }));
+  private async mapPdfOutline(outline: any[], pdfDoc: any): Promise<TocItem[]> {
+    const items: TocItem[] = [];
+    for (const item of outline) {
+      let pageNumber = 1;
+      try {
+        if (item.dest) {
+          let dest = item.dest;
+          // Named destination — resolve to explicit destination array
+          if (typeof dest === 'string') {
+            dest = await pdfDoc.getDestination(dest);
+          }
+          if (Array.isArray(dest) && dest.length > 0) {
+            // dest[0] is a page reference object — resolve to 0-based page index
+            const pageIndex = await pdfDoc.getPageIndex(dest[0]);
+            pageNumber = pageIndex + 1; // convert to 1-based
+          }
+        }
+      } catch {
+        // If resolution fails, fall back to page 1
+        pageNumber = 1;
+      }
+      const children = item.items?.length ? await this.mapPdfOutline(item.items, pdfDoc) : [];
+      items.push({ label: item.title, target: pageNumber, children });
+    }
+    return items;
   }
 
   ngOnDestroy() {
