@@ -75,7 +75,7 @@ export class Library implements OnInit {
   LoaderIcon = Loader2;
 
   // Enums for Template Access
-  BookSort = BookSort; // 👈 Expose Enum to template if needed
+  BookSort = BookSort;
 
   loading = signal(true);
   loadingMore = signal(false);
@@ -95,7 +95,6 @@ export class Library implements OnInit {
   // Search & Sort State
   searchQuery = signal('');
 
-  // 👈 CHANGED: Strongly typed signal with Enum default
   activeSort = signal<BookSort>(BookSort.LastRead);
 
   private searchSubject = new Subject<string>();
@@ -160,7 +159,6 @@ export class Library implements OnInit {
       this.loadingMore.set(true);
     }
 
-    // 👈 CHANGED: Cast query param to Enum (Safe: invalid strings handled by backend default)
     const filter = this.route.snapshot.queryParams['filter'] as BookFilter;
     const sort = this.activeSort();
     const search = this.searchQuery();
@@ -206,7 +204,6 @@ export class Library implements OnInit {
     this.searchSubject.next(val);
   }
 
-  // 👈 CHANGED: Method now accepts Enum or String (e.g. from template)
   setSort(sort: BookSort | string): void {
     this.activeSort.set(sort as BookSort);
     this.refreshBooks(true);
@@ -254,10 +251,17 @@ export class Library implements OnInit {
   toggleFavorite(book: Book, event: Event): void {
     event.stopPropagation();
     const newStatus = !book.isFavorite;
-    book.isFavorite = newStatus;
+
+    // Optimistic update via signal (creates new object reference for OnPush)
+    this.rawBooks.update((books) =>
+      books.map((b) => (b.id === book.id ? { ...b, isFavorite: newStatus } : b)),
+    );
+
     this.booksService.update(book.id, { isFavorite: newStatus }).subscribe({
       error: () => {
-        book.isFavorite = !newStatus;
+        this.rawBooks.update((books) =>
+          books.map((b) => (b.id === book.id ? { ...b, isFavorite: !newStatus } : b)),
+        );
         this.toast.error('Failed to update favorite status');
       },
     });
@@ -270,13 +274,25 @@ export class Library implements OnInit {
     const oldFinishedAt = book.finishedAt;
     const oldProgress = book.progressPercent;
 
-    book.finishedAt = newIsFinished ? new Date().toISOString() : null;
-    book.progressPercent = newIsFinished ? 100 : book.progressPercent;
+    const newFinishedAt = newIsFinished ? new Date().toISOString() : null;
+    const newProgress = newIsFinished ? 100 : book.progressPercent;
+
+    // Optimistic update via signal
+    this.rawBooks.update((books) =>
+      books.map((b) =>
+        b.id === book.id ? { ...b, finishedAt: newFinishedAt, progressPercent: newProgress } : b,
+      ),
+    );
 
     this.booksService.update(book.id, { isFinished: newIsFinished }).subscribe({
       error: () => {
-        book.finishedAt = oldFinishedAt;
-        book.progressPercent = oldProgress;
+        this.rawBooks.update((books) =>
+          books.map((b) =>
+            b.id === book.id
+              ? { ...b, finishedAt: oldFinishedAt, progressPercent: oldProgress }
+              : b,
+          ),
+        );
         this.toast.error('Failed to update finished status');
       },
     });
@@ -284,10 +300,17 @@ export class Library implements OnInit {
 
   updateRating(book: Book, newRating: number): void {
     const oldRating = book.rating;
-    book.rating = newRating;
+
+    // Optimistic update via signal
+    this.rawBooks.update((books) =>
+      books.map((b) => (b.id === book.id ? { ...b, rating: newRating } : b)),
+    );
+
     this.booksService.update(book.id, { rating: newRating }).subscribe({
       error: () => {
-        book.rating = oldRating;
+        this.rawBooks.update((books) =>
+          books.map((b) => (b.id === book.id ? { ...b, rating: oldRating } : b)),
+        );
         this.toast.error('Failed to update rating');
       },
     });

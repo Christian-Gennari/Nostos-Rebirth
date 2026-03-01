@@ -363,6 +363,8 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
 
   ngOnDestroy(): void {
     this.resizeObserver?.disconnect();
+    this.resizeSubject$.complete();
+    this.progressUpdater$.complete();
     if (this.book) {
       this.book.destroy();
     }

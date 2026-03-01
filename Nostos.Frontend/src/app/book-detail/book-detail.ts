@@ -1,4 +1,5 @@
-import { Component, inject, OnInit, signal, model, ViewChild, ElementRef } from '@angular/core';
+import { Component, inject, OnInit, signal, model, ViewChild, ElementRef, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink, Router, NavigationEnd } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -63,6 +64,7 @@ import {
 export class BookDetail implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private destroyRef = inject(DestroyRef);
 
   // Inject the Store
   readonly store = inject(BookDetailStore);
@@ -108,12 +110,17 @@ export class BookDetail implements OnInit {
     });
 
     // 2. Re-entry / Background Refresh
-    this.router.events.pipe(filter((event) => event instanceof NavigationEnd)).subscribe(() => {
-      const id = this.route.snapshot.paramMap.get('id');
-      if (id && this.router.url.includes(`/library/${id}`)) {
-        this.store.loadBook(id, { background: true });
-      }
-    });
+    this.router.events
+      .pipe(
+        filter((event) => event instanceof NavigationEnd),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => {
+        const id = this.route.snapshot.paramMap.get('id');
+        if (id && this.router.url.includes(`/library/${id}`)) {
+          this.store.loadBook(id, { background: true });
+        }
+      });
   }
 
   // --- UI Actions (Delegating to Store) ---
@@ -143,7 +150,6 @@ export class BookDetail implements OnInit {
     this.store.deleteNote(id);
   }
 
-  // 👇 ADDED MISSING METHOD HERE
   onConceptClick(conceptId: string): void {
     this.goToConcept(conceptId);
   }

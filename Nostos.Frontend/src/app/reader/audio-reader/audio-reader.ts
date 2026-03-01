@@ -57,7 +57,7 @@ export class AudioReader implements OnDestroy, IReader {
         this.booksService.get(id).subscribe((b) => {
           this.book.set(b);
 
-          // 👇 NEW: Map Chapters to ToC
+          // Map chapters to table of contents
           if (b.chapters && b.chapters.length > 0) {
             this.toc.set(
               b.chapters.map((c) => ({
@@ -212,6 +212,7 @@ export class AudioReader implements OnDestroy, IReader {
 
   ngOnDestroy() {
     this.stopProgressTracking();
+    this.progressSubject.complete();
     this.player?.unload();
   }
 }
