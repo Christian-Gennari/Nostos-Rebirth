@@ -1,4 +1,5 @@
-using System.Text.Json; // 👈 Added for JSON deserialization
+using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Nostos.Backend.Data.Models;
 using Nostos.Shared.Dtos;
 
@@ -6,6 +7,8 @@ namespace Nostos.Backend.Mapping;
 
 public static class MappingExtensions
 {
+    private static readonly ILoggerFactory _loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+    private static readonly ILogger _logger = _loggerFactory.CreateLogger("MappingExtensions");
     // ------------------------------
     // Read mappings (Model → DTO)
     // ------------------------------
@@ -45,7 +48,7 @@ public static class MappingExtensions
                 break;
         }
 
-        // 👇 NEW: Deserialize Chapters from JSON (stored in FileDetails)
+        // Deserialize Chapters from JSON (stored in FileDetails)
         IEnumerable<BookChapterDto>? chapters = null;
         if (!string.IsNullOrWhiteSpace(model.FileDetails.ChaptersJson))
         {
@@ -56,10 +59,10 @@ public static class MappingExtensions
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
                 );
             }
-            catch
+            catch (JsonException ex)
             {
                 chapters = null;
-                Console.WriteLine("Failed to deserialize chapters");
+                _logger.LogWarning(ex, "Failed to deserialize chapters JSON for book {BookId}", model.Id);
             }
         }
 
@@ -335,7 +338,7 @@ public static class MappingExtensions
     public static void Apply(this NoteModel model, UpdateNoteDto dto)
     {
         model.Content = dto.Content;
-        // 👈 Update SelectedText if provided in the DTO
+        // Update SelectedText if provided in the DTO
         if (dto.SelectedText != null)
         {
             model.SelectedText = dto.SelectedText;
