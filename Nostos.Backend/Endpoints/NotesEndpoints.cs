@@ -27,10 +27,19 @@ public static class NotesEndpoints
             async (
                 Guid bookId,
                 CreateNoteDto dto,
+                IBookRepository bookRepo,
                 INoteRepository repo,
                 NoteProcessorService noteProcessor
             ) =>
             {
+                // Validate that the book exists
+                var book = await bookRepo.GetByIdAsync(bookId);
+                if (book is null)
+                    return Results.NotFound(new { error = $"Book {bookId} not found." });
+
+                if (string.IsNullOrWhiteSpace(dto.Content) && string.IsNullOrWhiteSpace(dto.SelectedText))
+                    return Results.BadRequest(new { error = "Note must have content or selected text." });
+
                 var model = dto.ToModel(bookId);
 
                 await repo.AddAsync(model);
