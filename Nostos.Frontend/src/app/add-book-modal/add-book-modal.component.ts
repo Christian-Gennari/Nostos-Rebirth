@@ -232,8 +232,7 @@ export class AddBookModal {
             language: this.getFullLanguageName(data.language) || this.form.language,
             categories: data.categories || this.form.categories,
           };
-          // Switch to general tab to show results
-          this.activeTab.set('General');
+          this.toast.success('Metadata fetched successfully.');
         },
         error: () => this.toast.error('Book details not found.'),
       });

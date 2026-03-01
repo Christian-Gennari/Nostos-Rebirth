@@ -44,11 +44,11 @@ import { LucideAngularModule, X, CheckCircle, AlertTriangle, Info } from 'lucide
         gap: 0.6rem;
         padding: 0.75rem 1rem;
         border-radius: var(--radius-md, 8px);
-        background: var(--bg-surface, #1e1e2e);
-        border: 1px solid var(--border-color, #333);
-        color: var(--color-text, #e0e0e0);
+        background: var(--bg-surface, #ffffff);
+        border: 1px solid var(--border-color, #e0e0e0);
+        color: var(--color-text-main, #1a1a1a);
         font-size: 0.875rem;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         pointer-events: auto;
         animation: toast-slide-in 0.25s ease-out;
       }
@@ -91,7 +91,7 @@ import { LucideAngularModule, X, CheckCircle, AlertTriangle, Info } from 'lucide
         transition: color 0.15s;
       }
       .toast-dismiss:hover {
-        color: var(--color-text, #e0e0e0);
+        color: var(--color-text-main, #1a1a1a);
       }
 
       @keyframes toast-slide-in {
