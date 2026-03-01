@@ -37,9 +37,7 @@ public class ConceptRepository : IConceptRepository
     public async Task<List<ConceptModel>> GetByNamesAsync(IEnumerable<string> names)
     {
         var nameList = names.ToList();
-        return await _db.Concepts
-            .Where(c => nameList.Contains(c.Concept))
-            .ToListAsync();
+        return await _db.Concepts.Where(c => nameList.Contains(c.Concept)).ToListAsync();
     }
 
     public void AddRange(IEnumerable<ConceptModel> concepts)
@@ -49,9 +47,7 @@ public class ConceptRepository : IConceptRepository
 
     public async Task ClearNoteLinksAsync(Guid noteId)
     {
-        var currentLinks = await _db.NoteConcepts
-            .Where(nc => nc.NoteId == noteId)
-            .ToListAsync();
+        var currentLinks = await _db.NoteConcepts.Where(nc => nc.NoteId == noteId).ToListAsync();
 
         if (currentLinks.Count != 0)
         {
@@ -68,8 +64,6 @@ public class ConceptRepository : IConceptRepository
 
     public async Task<int> DeleteOrphanedAsync(CancellationToken ct = default)
     {
-        return await _db.Concepts
-            .Where(c => !c.NoteConcepts.Any())
-            .ExecuteDeleteAsync(ct);
+        return await _db.Concepts.Where(c => !c.NoteConcepts.Any()).ExecuteDeleteAsync(ct);
     }
 }
