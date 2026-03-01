@@ -352,10 +352,15 @@
 .icon-circle {
   width: 64px;
   height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   color: var(--color-text-light);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  margin-bottom: 1.25rem;
 }
 
 .landing-state h2 {

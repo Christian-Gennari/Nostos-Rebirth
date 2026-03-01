@@ -385,7 +385,7 @@ app-markdown-editor {
   width: 64px;
   height: 64px;
   background: var(--bg-surface);
-  border-radius: 50%;
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
