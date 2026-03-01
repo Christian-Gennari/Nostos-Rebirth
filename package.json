@@ -1,0 +1,12 @@
+{
+  "name": "nostos",
+  "private": true,
+  "scripts": {
+    "start": "concurrently --kill-others-on-fail --prefix-colors cyan.bold,magenta.bold --names \"🔧 BACKEND\",\"🎨 FRONTEND\" --timestamp-format HH:mm:ss -p \"[{time} {name}]\" \"npm run backend\" \"npm run frontend\"",
+    "backend": "cd Nostos.Backend && dotnet run",
+    "frontend": "cd Nostos.Frontend && npm start"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
