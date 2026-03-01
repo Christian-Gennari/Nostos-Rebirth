@@ -8,8 +8,7 @@ export const routes: Routes = [
     component: Home,
   },
 
-  // --- NEW: Dedicated Reader Route ---
-  // Placed outside WorkspaceLayout for full-screen immersive mode
+  // Dedicated Reader Route (full-screen immersive mode)
   {
     path: 'read/:id',
     loadComponent: () => import('./reader/reader-shell').then((m) => m.ReaderShell),
@@ -35,12 +34,17 @@ export const routes: Routes = [
         loadComponent: () => import('./writing-studio/writing-studio').then((m) => m.WritingStudio),
         data: { shouldReuse: true },
       },
-      // 👇 Added reuse here so BookDetail stays open
       {
         path: 'library/:id',
         loadComponent: () => import('./book-detail/book-detail').then((m) => m.BookDetail),
         data: { shouldReuse: true },
       },
     ],
+  },
+
+  // Catch-all: redirect unknown routes to library
+  {
+    path: '**',
+    redirectTo: 'library',
   },
 ];
