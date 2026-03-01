@@ -17,9 +17,9 @@ public class ConceptRepository : IConceptRepository
     public async Task<List<ConceptDto>> GetAllWithUsageCountAsync()
     {
         return await _db
-            .Concepts.Select(c => new ConceptDto(c.Id, c.Concept, c.NoteConcepts.Count()))
-            .OrderByDescending(x => x.UsageCount)
-            .ThenBy(x => x.Name)
+            .Concepts.OrderByDescending(c => c.NoteConcepts.Count())
+            .ThenBy(c => c.Concept)
+            .Select(c => new ConceptDto(c.Id, c.Concept, c.NoteConcepts.Count()))
             .ToListAsync();
     }
 
