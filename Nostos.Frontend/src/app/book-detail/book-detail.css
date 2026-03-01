@@ -28,9 +28,8 @@
 .cover-frame {
   width: 100%;
   aspect-ratio: 2/3;
-  background: #f3f3f3;
+  background: var(--bg-skeleton);
   border-radius: var(--radius-md);
-  overflow: hidden;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
   border: 1px solid rgba(0, 0, 0, 0.05);
   margin-bottom: 1rem;
@@ -54,7 +53,7 @@
   justify-content: center;
   width: 100%;
   height: 100%;
-  color: #ccc;
+  color: var(--color-text-faint);
 }
 .cover-actions-links {
   width: 100%;
@@ -104,22 +103,22 @@
 }
 .favorite-btn:hover {
   transform: scale(1.1);
-  color: #ef4444;
+  color: var(--color-danger-vivid);
 }
 .favorite-btn.active {
-  color: #ef4444;
+  color: var(--color-danger-vivid);
 }
 .book-subtitle {
   font-size: 1.1rem;
   color: var(--color-text-light);
   margin: -0.25rem 0 0.5rem 0;
-  font-weight: 400;
+  font-weight: var(--fw-regular);
   font-family: Inter, sans-serif;
 }
 .book-author {
   font-family: Inter, sans-serif;
   font-size: 1.1rem;
-  font-weight: 400;
+  font-weight: var(--fw-regular);
   color: var(--color-text-muted);
   margin-bottom: 1rem;
 }
@@ -128,7 +127,7 @@
 .book-contributor {
   font-family: Inter, sans-serif;
   font-size: 0.95rem;
-  font-weight: 400;
+  font-weight: var(--fw-regular);
   color: var(--color-text-light);
   margin-top: -0.5rem;
   margin-bottom: 0.5rem;
@@ -164,17 +163,11 @@
   color: var(--color-text-main);
 }
 .finish-toggle-btn.active {
-  color: #166534;
+  color: var(--color-success-dark);
 }
 
 .mobile-fav {
   display: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  .finish-toggle-btn.active {
-    color: #239751;
-  }
 }
 .primary-actions {
   margin-bottom: 2rem;
@@ -203,12 +196,12 @@
 }
 .synopsis-content h4 {
   text-transform: uppercase;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   font-size: 0.75rem;
   letter-spacing: 0.12em;
   margin-bottom: 0.75rem;
-  color: #6b7280;
-  border-bottom: 1px solid #e5e7eb;
+  color: var(--color-text-light);
+  border-bottom: 1px solid var(--border-color);
   padding-bottom: 0.5rem;
   display: inline-block;
 }
@@ -224,7 +217,7 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--color-primary);
   margin-bottom: 0.75rem;
   text-transform: uppercase;
@@ -293,7 +286,7 @@
 }
 .meta-item .value {
   color: var(--color-text-main);
-  font-weight: 500;
+  font-weight: var(--fw-medium);
 }
 .expand-btn {
   display: inline-flex;
@@ -305,17 +298,17 @@
   background-color: transparent;
   border: 1px solid var(--border-color);
   border-radius: 2rem;
-  color: #555;
+  color: var(--color-text-muted);
   font-size: 0.8rem;
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   cursor: pointer;
   gap: 0.5rem;
   transition: all 0.2s ease;
 }
 .expand-btn:hover {
-  background-color: #1a1a1a;
-  border-color: #1a1a1a;
-  color: #fff;
+  background-color: var(--color-text-main);
+  border-color: var(--color-text-main);
+  color: var(--bg-surface);
 }
 .synopsis-metadata-block.expanded .description-text {
   line-clamp: unset;
@@ -347,7 +340,7 @@
 }
 .new-note-box:focus-within {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  border-color: #ddd;
+  border-color: var(--scrollbar-thumb);
 }
 .note-input {
   width: 100%;
@@ -366,7 +359,7 @@
 }
 .note-row {
   padding: 1rem 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--bg-hover);
   position: relative;
 }
 .note-row:first-child {
@@ -386,7 +379,7 @@
 }
 .note-meta-placeholder {
   font-size: 0.85rem;
-  color: #999;
+  color: var(--color-text-light);
   font-style: italic;
 }
 .error-state {
@@ -398,19 +391,20 @@
   text-align: center;
   color: var(--color-text-muted);
 }
+/* Skeleton animation defined globally in styles.css/library.css — reuse @keyframes pulse */
 @keyframes pulse {
   0%,
   100% {
-    background-color: #f3f3f3;
+    background-color: var(--bg-skeleton);
   }
   50% {
-    background-color: #e5e5e5;
+    background-color: var(--border-color);
   }
 }
 .skeleton-block,
 .skeleton-box,
 .skeleton-line {
-  background-color: #f3f3f3;
+  background-color: var(--bg-skeleton);
   animation: pulse 1.5s ease-in-out infinite;
   border-radius: 4px;
 }
@@ -498,11 +492,11 @@
   .expand-btn:hover {
     background-color: transparent;
     border: 1px solid var(--border-color);
-    color: #555;
+    color: var(--color-text-muted);
   }
   #removeCover:hover,
   #uploadorChangeCover {
     background-color: transparent;
-    color: #555;
+    color: var(--color-text-muted);
   }
 }

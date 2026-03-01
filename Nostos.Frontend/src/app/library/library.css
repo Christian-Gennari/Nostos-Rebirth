@@ -19,7 +19,7 @@
   display: flex;
   width: 100%;
   height: 100%;
-  background-color: #fff;
+  background-color: var(--bg-surface);
   position: relative; /* Needed for absolute positioning context on mobile */
 }
 
@@ -32,10 +32,12 @@ app-sidebar-collections {
 
   /* Transition Logic */
   &:not(.no-transition) {
-    transition: width 0.3s ease, flex-basis 0.3s ease;
+    transition:
+      width 0.3s ease,
+      flex-basis 0.3s ease;
   }
 
-  background-color: #fafafa;
+  background-color: var(--bg-surface-alt);
   overflow-y: auto;
   height: 100%;
   display: block;
@@ -75,7 +77,7 @@ app-sidebar-collections.no-transition {
 
 .toolbar h1 {
   font-size: 1.75rem;
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   margin: 0;
   white-space: nowrap; /* Prevent title from wrapping */
 }
@@ -92,7 +94,7 @@ app-sidebar-collections.no-transition {
 .search-icon {
   position: relative;
   left: 28px;
-  color: #9ca3af;
+  color: var(--color-text-placeholder);
   pointer-events: none;
   z-index: 1;
   transition: color 0.2s ease;
@@ -101,27 +103,27 @@ app-sidebar-collections.no-transition {
 .search-input {
   width: 100%;
   padding: 0.6rem 1rem 0.6rem 2.5rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   font-size: 0.9rem;
-  background: #fff;
+  background: var(--bg-surface);
   transition: all 0.2s ease;
   color: var(--color-text-main);
   font-family: inherit;
 }
 
 .search-input::placeholder {
-  color: #9ca3af;
+  color: var(--color-text-placeholder);
 }
 
 .search-input:hover {
-  border-color: #d1d5db;
-  background: #fafafa;
+  border-color: var(--border-color);
+  background: var(--bg-surface-alt);
 }
 
 .search-input:focus {
-  background: #fff;
-  border-color: #9ca3af;
+  background: var(--bg-surface);
+  border-color: var(--border-focus);
   outline: none;
 }
 
@@ -155,7 +157,7 @@ app-sidebar-collections.no-transition {
 }
 
 .sort-select:hover {
-  background-color: #eaeaea;
+  background-color: var(--bg-hover);
 }
 
 /* Toolbar Right Section */
@@ -168,7 +170,7 @@ app-sidebar-collections.no-transition {
 
 .control-group {
   display: flex;
-  background: #eaeaea;
+  background: var(--bg-hover);
   padding: 3px;
   border-radius: var(--radius-md);
   gap: 2px;
@@ -189,8 +191,8 @@ app-sidebar-collections.no-transition {
 }
 
 .toggle-opt.active {
-  background: #fff;
-  color: #000;
+  background: var(--bg-surface);
+  color: var(--color-primary);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
@@ -206,7 +208,7 @@ app-sidebar-collections.no-transition {
   border-bottom: 1px solid var(--border-color);
   color: var(--color-text-light);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -225,7 +227,7 @@ app-sidebar-collections.no-transition {
 }
 
 .table-row:hover {
-  background: #f3f3f3;
+  background: var(--bg-hover);
   box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
 }
 
@@ -241,7 +243,7 @@ app-sidebar-collections.no-transition {
 }
 
 .col.title {
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   display: flex;
   align-items: center;
 }
@@ -265,34 +267,27 @@ app-sidebar-collections.no-transition {
   cursor: pointer;
   display: inline-flex;
   vertical-align: middle;
-  color: #d1d5db;
+  color: var(--border-color);
   transition: all 0.2s ease;
 }
 
 .fav-btn-list.active,
 .table-row:hover .fav-btn-list:hover {
-  color: #ef4444;
+  color: var(--color-danger-vivid);
 }
 .table-row:hover .fav-btn-list:not(.active) {
-  color: #9ca3af;
+  color: var(--color-text-placeholder);
 }
 
 .finished-btn-list.active,
 .table-row:hover .finished-btn-list:hover {
-  color: #22c55e;
+  color: var(--color-success);
 }
 .table-row:hover .finished-btn-list:not(.active) {
-  color: #9ca3af;
+  color: var(--color-text-placeholder);
 }
 
-.badge {
-  font-size: 0.7rem;
-  padding: 2px 6px;
-  background: #eee;
-  border-radius: 4px;
-  color: #555;
-  font-weight: 600;
-}
+/* .badge is defined globally in styles.css — no component duplicate needed */
 
 /* --- GRID VIEW --- */
 .book-grid {
@@ -321,9 +316,11 @@ app-sidebar-collections.no-transition {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ccc;
+  color: var(--color-text-faint);
   overflow: hidden;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
   /* IMPORTANT: Only use translateZ on hover if possible,
        but keeping it here to prevent paint flashing. */
   transform: translateZ(0);
@@ -365,7 +362,7 @@ app-sidebar-collections.no-transition {
   justify-content: center;
   cursor: pointer;
   z-index: 2;
-  color: #9ca3af;
+  color: var(--color-text-placeholder);
   opacity: 0;
   transition: all 0.2s ease;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -382,24 +379,24 @@ app-sidebar-collections.no-transition {
   right: 8px;
 }
 .fav-btn-grid.active {
-  color: #ef4444;
-  background: white;
+  color: var(--color-danger-vivid);
+  background: var(--bg-surface);
 }
 .fav-btn-grid:hover {
   transform: scale(1.1);
-  color: #ef4444;
+  color: var(--color-danger-vivid);
 }
 
 .finished-btn-grid {
   left: 8px;
 }
 .finished-btn-grid.active {
-  color: #22c55e;
-  background: white;
+  color: var(--color-success);
+  background: var(--bg-surface);
 }
 .finished-btn-grid:hover {
   transform: scale(1.1);
-  color: #22c55e;
+  color: var(--color-success);
 }
 
 .filled-heart,
@@ -413,7 +410,7 @@ app-sidebar-collections.no-transition {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--overlay-medium);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -431,7 +428,7 @@ app-sidebar-collections.no-transition {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--bg-surface);
   border: none;
   display: flex;
   align-items: center;
@@ -447,15 +444,15 @@ app-sidebar-collections.no-transition {
 }
 .action-circle:hover {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--bg-surface);
 }
 .action-circle.delete:hover {
   background: var(--color-danger);
-  color: #fff;
+  color: var(--bg-surface);
 }
 
 .meta-title {
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   font-size: 1rem;
   color: var(--color-primary);
   line-height: 1.3;
@@ -480,16 +477,16 @@ app-sidebar-collections.no-transition {
 @keyframes pulse {
   0%,
   100% {
-    background-color: #f3f3f3;
+    background-color: var(--bg-skeleton);
   }
   50% {
-    background-color: #e5e5e5;
+    background-color: var(--border-color);
   }
 }
 .skeleton-block,
 .skeleton-box,
 .skeleton-line {
-  background-color: #f3f3f3;
+  background-color: var(--bg-skeleton);
   animation: pulse 1.5s ease-in-out infinite;
   border-radius: 4px;
 }
@@ -557,7 +554,7 @@ app-sidebar-collections.no-transition {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.4);
+    background: var(--overlay-medium);
     z-index: 40; /* Behind sidebar (z-50), above content */
     backdrop-filter: blur(2px);
   }

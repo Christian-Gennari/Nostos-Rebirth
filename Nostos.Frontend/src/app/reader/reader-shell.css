@@ -69,7 +69,7 @@
 .notes-header h3,
 .panel-header h3 {
   margin: 0;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--color-text-main);
 }
 .quick-note {
@@ -83,10 +83,12 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 0.5rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 .quick-note .input-wrapper:focus-within {
-  border-color: #aaa;
+  border-color: var(--border-focus);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 .quick-actions {
@@ -116,10 +118,8 @@
 }
 .empty-state p {
   margin: 1rem 0 0.5rem 0;
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   color: var(--color-text-main);
-}
-.empty-state small {
   font-size: 0.85rem;
   opacity: 0.8;
 }
@@ -172,7 +172,7 @@
   padding: 0.3rem 0.5rem;
   border-radius: var(--radius-md);
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   min-width: 140px;
   color: var(--color-text-main);
   font-variant-numeric: tabular-nums;
@@ -213,19 +213,21 @@
   opacity: 0;
   width: 140px;
   background-color: var(--color-primary);
-  color: #fff;
+  color: var(--bg-surface);
   text-align: center;
   border-radius: 6px;
   padding: 8px;
   font-size: 0.75rem;
-  font-weight: 400;
+  font-weight: var(--fw-regular);
   position: absolute;
   bottom: 145%;
   left: 50%;
   transform: translateX(-50%);
   z-index: 100;
   pointer-events: none;
-  transition: opacity 0.2s, bottom 0.2s ease;
+  transition:
+    opacity 0.2s,
+    bottom 0.2s ease;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 .tooltip-text::after {
@@ -257,7 +259,7 @@
 
 .toc-subitems {
   padding-left: 1.5rem; /* Indent children */
-  border-left: 1px solid rgba(0, 0, 0, 0.1); /* Optional: visual guide line */
+  border-left: 1px solid var(--border-light); /* Optional: visual guide line */
 }
 
 .page-navigation {
@@ -271,12 +273,12 @@
   width: 3ch; /* Auto-width based on characters */
   min-width: 40px;
   text-align: center;
-  border: 1px solid #ccc;
+  border: 1px solid var(--color-text-faint);
   border-radius: 4px;
   padding: 2px 4px;
   background: transparent;
   color: inherit;
-  font-weight: 500;
+  font-weight: var(--fw-medium);
 }
 
 /* Remove spinner arrows from number input */

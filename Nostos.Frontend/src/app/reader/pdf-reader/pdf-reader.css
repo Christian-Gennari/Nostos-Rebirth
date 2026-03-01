@@ -56,7 +56,7 @@
 */
 ::ng-deep .highlight-box {
   position: absolute;
-  background-color: #ffda00; /* Solid Yellow */
+  background-color: var(--color-highlight); /* Solid Yellow */
   cursor: text;
   opacity: 0.4; /* Apply opacity here OR on the group. */
 }
@@ -75,7 +75,7 @@
 }
 
 ::ng-deep .highlight-box:hover {
-  background-color: #f0cc00; /* Slight darken on hover */
+  background-color: var(--color-highlight-hover); /* Slight darken on hover */
 }
 
 /* --- UI Tweaks --- */
@@ -125,7 +125,7 @@
   color: var(--color-text-main) !important;
   font-family: 'Inter', sans-serif !important;
   font-size: 0.9rem !important;
-  font-weight: 500 !important;
+  font-weight: var(--fw-medium) !important;
   font-style: normal;
   padding: 1rem 0rem !important;
 }
@@ -141,7 +141,7 @@
 }
 
 ::ng-deep .treeItem .treeItem a {
-  font-weight: 400 !important;
+  font-weight: var(--fw-regular) !important;
   font-style: normal;
 }
 

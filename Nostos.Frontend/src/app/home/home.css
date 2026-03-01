@@ -37,7 +37,7 @@
 .hero-title {
   font-family: 'Lora', serif;
   font-size: 4.5rem;
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   letter-spacing: -0.03em;
   margin: 0;
   line-height: 1;
@@ -57,7 +57,7 @@
   font-size: 1.1rem;
   line-height: 1.6;
   color: var(--color-text-muted);
-  font-weight: 300;
+  font-weight: var(--fw-light);
   margin-bottom: 3rem;
 }
 
@@ -65,7 +65,7 @@
   position: absolute;
   bottom: 2rem;
   font-size: 0.75rem;
-  color: #ccc;
+  color: var(--color-text-faint);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }

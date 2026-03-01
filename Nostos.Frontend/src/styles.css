@@ -1,40 +1,77 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Lora:ital,wght@0,400..700;1,400..700&display=swap');
 
 :root {
-  /* Colors */
-  /* CHANGED: Deepened to create contrast against white cards */
-  --bg-body: #f4f4f5; /* Was #fafafa */
-
-  /* CHANGED: Kept pure white to "pop" against the new body */
+  /* ── Surfaces ── */
+  --bg-body: #f4f4f5;
   --bg-surface: #ffffff;
+  --bg-surface-alt: #f9f9f9;
+  --bg-sidebar: #f9f9f9;
+  --bg-input: #ffffff;
+  --bg-hover: #f0f0f0;
+  --bg-skeleton: #f3f3f3;
 
-  /* CHANGED: Darkened slightly to be visible against white, distinct from body */
-  --bg-hover: #f0f0f0; /* Was #f3f3f3 */
-
-  /* CHANGED: Now sits clearly between Body and Surface */
-  --bg-sidebar: #f9f9f9; /* Was #fbfbfb */
-
-  --color-primary: #111111;
-  --color-primary-hover: #333333;
+  /* ── Text ── */
   --color-text-main: #1a1a1a;
   --color-text-muted: #4a4a4a;
   --color-text-light: #888888;
-  --color-danger: #d32f2f;
+  --color-text-placeholder: #9ca3af;
+  --color-text-faint: #cccccc;
 
-  /* Brand Accents */
+  /* ── Interactive / Primary ── */
+  --color-primary: #111111;
+  --color-primary-hover: #333333;
+  --color-primary-dim: #666666;
+
+  /* ── Accent (Blue) ── */
   --color-accent: #60a5fa;
   --color-accent-hover: #93c5fd;
   --color-accent-faint: rgba(96, 165, 250, 0.3);
+  --color-accent-bg: #e0f0ff;
 
-  /* Borders & Radius */
-  /* CHANGED: Made slightly darker to define edges "harder" */
-  --border-color: #e2e2e2; /* Was #e5e5e5 */
+  /* ── Danger ── */
+  --color-danger: #d32f2f;
+  --color-danger-vivid: #ef4444;
+  --color-danger-bg: #fee2e2;
 
+  /* ── Success ── */
+  --color-success: #22c55e;
+  --color-success-dark: #166534;
+
+  /* ── Info ── */
+  --color-info: #0050b3;
+  --color-info-border: #91d5ff;
+  --color-info-bg: #e6f7ff;
+
+  /* ── Highlight ── */
+  --color-highlight: #ffda00;
+  --color-highlight-hover: #f0cc00;
+
+  /* ── Borders ── */
+  --border-color: #e2e2e2;
+  --border-light: #eeeeee;
+  --border-focus: #aaaaaa;
+
+  /* ── Scrollbar ── */
+  --scrollbar-thumb: #dddddd;
+  --scrollbar-thumb-hover: #bbbbbb;
+
+  /* ── Overlays ── */
+  --overlay-heavy: rgba(0, 0, 0, 0.7);
+  --overlay-medium: rgba(0, 0, 0, 0.4);
+  --overlay-light: rgba(0, 0, 0, 0.3);
+
+  /* ── Radius ── */
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
 
-  /* Spacing */
+  /* ── Font Weights ── */
+  --fw-light: 300;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* ── Spacing ── */
   --container-width-md: 800px;
   --container-width-lg: 1200px;
 }
@@ -123,14 +160,14 @@ button {
   padding: 0.5rem 1rem;
   border-radius: var(--radius-sm);
   font-size: 0.9rem;
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   transition: all 0.2s ease;
   text-decoration: none;
 }
 
 .btn-primary {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--bg-surface);
   border: 1px solid var(--color-primary);
 }
 .btn-primary:hover {
@@ -151,7 +188,7 @@ button {
   all: unset;
 
   cursor: pointer;
-  background: white;
+  background: var(--bg-surface);
   width: 32px;
   height: 32px;
   display: inline-flex;
@@ -173,24 +210,6 @@ button {
 /* ------------------------------
    FORMS & INPUTS
 ------------------------------ */
-.input,
-.textarea {
-  width: 100%;
-  padding: 0.6rem 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: 0.95rem;
-  font-family: 'Inter', sans-serif;
-  background: var(--bg-surface);
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.input:focus,
-.textarea:focus {
-  border-color: #aaa;
-}
-
 .textarea {
   resize: vertical;
   min-height: 100px;
@@ -226,19 +245,19 @@ input[type='file']::file-selector-button:hover {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #ddd;
+  background: var(--scrollbar-thumb);
   border-radius: 1px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #bbb;
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* ------------------------------
    SELECTION
 ------------------------------ */
 ::selection {
-  background: #000;
-  color: #fff;
+  background: var(--color-primary);
+  color: var(--bg-surface);
 }
 
 /* ------------------------------
@@ -246,7 +265,7 @@ input[type='file']::file-selector-button:hover {
 ------------------------------ */
 .concept-tag {
   color: var(--color-accent);
-  font-weight: 400;
+  font-weight: var(--fw-regular);
   cursor: pointer;
   transition: all 0.2s ease;
   border-bottom: 1px solid var(--color-accent-faint); /* Very subtle underline */
@@ -288,7 +307,7 @@ input[type='file']::file-selector-button:hover {
   color: var(--color-primary);
 }
 .btn-ghost.danger:hover {
-  background: #fee2e2;
+  background: var(--color-danger-bg);
   color: var(--color-danger);
 }
 
@@ -304,23 +323,25 @@ input[type='file']::file-selector-button:hover {
   font-family: 'Inter', sans-serif;
   background: var(--bg-surface);
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 .input:focus,
 .textarea:focus,
 .select-input:focus {
-  border-color: #aaa;
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05); /* Subtle focus ring */
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
 }
 
 .badge {
   font-size: 0.7rem;
   padding: 2px 6px;
-  background: #eee;
-  border-radius: 4px;
-  color: #555;
-  font-weight: 600;
+  background: var(--border-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-weight: var(--fw-semibold);
 }
 
 .badge-count {
@@ -329,7 +350,7 @@ input[type='file']::file-selector-button:hover {
   font-size: 0.7rem;
   padding: 2px 8px;
   border-radius: 12px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   border: 1px solid var(--border-color);
 }
 

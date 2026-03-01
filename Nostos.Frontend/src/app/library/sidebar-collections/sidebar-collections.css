@@ -33,7 +33,7 @@
 
 .brand {
   font-family: 'Lora', serif;
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   font-size: 1.5rem;
   letter-spacing: -0.02em;
   color: var(--color-primary);
@@ -90,10 +90,10 @@
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #999;
+  color: var(--color-text-light);
   padding: 0 0.75rem;
   margin-bottom: 0.5rem;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   opacity: 1;
   transition: opacity 0.2s;
 }
@@ -120,7 +120,7 @@
   color: var(--color-text-muted);
   font-family: 'Inter', sans-serif;
   font-size: 0.9rem;
-  font-weight: 300;
+  font-weight: var(--fw-light);
   text-decoration: none;
   transform: translateX(0);
   transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
@@ -128,13 +128,13 @@
 }
 
 .nav-item:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--bg-hover);
   color: var(--color-text-main);
 }
 
 .nav-item.active {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--bg-surface);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
@@ -144,7 +144,7 @@
   border: 1px dashed var(--border-color);
 }
 .nav-item.action-add:hover {
-  border-color: #999;
+  border-color: var(--color-text-light);
   background: transparent;
   color: var(--color-primary);
 }
@@ -259,11 +259,13 @@
     height: 48px;
     border-radius: 12px;
     background: var(--color-primary);
-    color: #ffffff;
+    color: var(--bg-surface);
     border: none;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
     cursor: pointer;
-    transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+    transition:
+      transform 0.1s ease-in-out,
+      box-shadow 0.1s ease-in-out;
   }
 
   .floating-toggle:active {
