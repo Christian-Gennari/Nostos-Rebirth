@@ -180,19 +180,8 @@ public static class BooksEndpoints
                 if (file is null)
                     return Results.BadRequest("Missing file.");
 
-                var allowed = new[]
-                {
-                    "application/epub+zip",
-                    "application/pdf",
-                    "text/plain",
-                    "audio/mpeg",
-                    "audio/mp4",
-                    "audio/x-m4a",
-                };
-                if (
-                    !allowed.Contains(file.ContentType)
-                    && !file.FileName.EndsWith(".m4b", StringComparison.OrdinalIgnoreCase)
-                )
+                var allowed = FileStorageService.IsAllowedUpload(file.ContentType, file.FileName);
+                if (!allowed)
                     return Results.BadRequest($"Unsupported file type: {file.ContentType}");
 
                 await storage.SaveBookFileAsync(id, file);
@@ -223,25 +212,12 @@ public static class BooksEndpoints
                 if (filePath is null)
                     return Results.NotFound();
 
-                var contentType = GetContentType(filePath);
+                var contentType = FileStorageService.GetContentType(filePath);
                 var fileName = Path.GetFileName(filePath);
 
                 return Results.File(filePath, contentType, fileName, enableRangeProcessing: true);
             }
         );
-
-        static string GetContentType(string filePath) =>
-            Path.GetExtension(filePath).ToLower() switch
-            {
-                ".epub" => "application/epub+zip",
-                ".pdf" => "application/pdf",
-                ".txt" => "text/plain",
-                ".mobi" => "application/x-mobipocket-ebook",
-                ".mp3" => "audio/mpeg",
-                ".m4a" => "audio/mp4",
-                ".m4b" => "audio/mp4",
-                _ => "application/octet-stream",
-            };
 
         // Upload cover
         group.MapPost(

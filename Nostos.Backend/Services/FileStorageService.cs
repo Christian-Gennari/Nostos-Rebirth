@@ -26,6 +26,52 @@ public class FileStorageService
     ".jpeg"
   };
 
+  // Centralized MIME-to-extension mapping for upload validation
+  private static readonly Dictionary<string, string> MimeToExtension = new(StringComparer.OrdinalIgnoreCase)
+  {
+      ["application/epub+zip"] = ".epub",
+      ["application/pdf"] = ".pdf",
+      ["text/plain"] = ".txt",
+      ["audio/mpeg"] = ".mp3",
+      ["audio/mp4"] = ".m4a",
+      ["audio/x-m4a"] = ".m4a",
+      ["audio/x-m4b"] = ".m4b",
+      ["application/x-mobipocket-ebook"] = ".mobi",
+      ["application/octet-stream"] = "", // handled by extension fallback
+  };
+
+  /// <summary>
+  /// Returns true if the file is an accepted book upload based on MIME type or file extension.
+  /// </summary>
+  public static bool IsAllowedUpload(string contentType, string fileName)
+  {
+      if (MimeToExtension.ContainsKey(contentType))
+          return true;
+
+      // Fallback: check extension for types like .m4b that may arrive as application/octet-stream
+      var ext = Path.GetExtension(fileName);
+      return ext.Equals(".m4b", StringComparison.OrdinalIgnoreCase)
+          || ext.Equals(".mobi", StringComparison.OrdinalIgnoreCase)
+          || ext.Equals(".azw3", StringComparison.OrdinalIgnoreCase);
+  }
+
+  /// <summary>
+  /// Maps a file path to the correct Content-Type for download responses.
+  /// </summary>
+  public static string GetContentType(string filePath) =>
+      Path.GetExtension(filePath).ToLower() switch
+      {
+          ".epub" => "application/epub+zip",
+          ".pdf" => "application/pdf",
+          ".txt" => "text/plain",
+          ".mobi" => "application/x-mobipocket-ebook",
+          ".azw3" => "application/x-mobipocket-ebook",
+          ".mp3" => "audio/mpeg",
+          ".m4a" => "audio/mp4",
+          ".m4b" => "audio/mp4",
+          _ => "application/octet-stream",
+      };
+
   public FileStorageService(IWebHostEnvironment env, ILogger<FileStorageService> logger)
   {
     _root = Path.Combine(env.ContentRootPath, "Storage", "books");
