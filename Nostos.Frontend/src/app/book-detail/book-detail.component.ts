@@ -1,5 +1,5 @@
 import { Component, inject, OnInit, signal, model, ViewChild, ElementRef } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -61,6 +61,7 @@ import {
 })
 export class BookDetail implements OnInit {
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
   // Inject the Store
   readonly store = inject(BookDetailStore);
