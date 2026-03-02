@@ -251,9 +251,7 @@ export class AudioReader implements OnDestroy, IReader {
       title: book.title,
       artist: book.author || book.narrator || undefined,
       album: book.series || undefined,
-      artwork: book.coverUrl
-        ? [{ src: book.coverUrl, sizes: '512x512', type: 'image/jpeg' }]
-        : [],
+      artwork: book.coverUrl ? [{ src: book.coverUrl, sizes: '512x512', type: 'image/jpeg' }] : [],
     });
 
     // Register action handlers so notification controls sync back to our component
@@ -308,8 +306,16 @@ export class AudioReader implements OnDestroy, IReader {
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = null;
       navigator.mediaSession.playbackState = 'none';
-      for (const action of ['play', 'pause', 'seekbackward', 'seekforward', 'seekto'] as MediaSessionAction[]) {
-        try { navigator.mediaSession.setActionHandler(action, null); } catch {}
+      for (const action of [
+        'play',
+        'pause',
+        'seekbackward',
+        'seekforward',
+        'seekto',
+      ] as MediaSessionAction[]) {
+        try {
+          navigator.mediaSession.setActionHandler(action, null);
+        } catch {}
       }
     }
 

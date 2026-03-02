@@ -1,13 +1,19 @@
-<div class="flat-tree-container" cdkDropList (cdkDropListDropped)="onDrop($event)">
+﻿<div class="flat-tree-container" cdkDropList (cdkDropListDropped)="onDrop($event)" role="tree">
   @for (node of treeNodes(); track node.id) {
     <div
       class="tree-row"
-      [class.active]="activeId === node.id"
+      role="treeitem"
+      [attr.aria-expanded]="node.expandable ? node.isExpanded : null"
+      [attr.aria-level]="node.level + 1"
+      [attr.aria-selected]="activeId() === node.id"
+      [class.active]="activeId() === node.id"
       [style.padding-left.px]="node.level * 16 + 8"
       (click)="handleSelect(node)"
       cdkDrag
       [cdkDragData]="node"
-      [cdkDragDisabled]="editingId === node.id"
+      [cdkDragDisabled]="editingId() === node.id"
+      [tabindex]="activeId() === node.id ? 0 : -1"
+      (keydown)="onKeydown($event, node)"
     >
       <div *cdkDragPreview class="drag-preview">
         <lucide-icon
@@ -21,18 +27,19 @@
         <lucide-icon [img]="Icons.GripVertical" [size]="14"></lucide-icon>
       </div>
 
-      <div
-        class="toggle-icon"
-        [class.toggle-icon--disabled]="!node.expandable"
-        (click)="toggleExpand($event, node)"
-      >
-        @if (node.expandable) {
+      @if (node.expandable) {
+        <button
+          class="toggle-btn"
+          type="button"
+          (click)="toggleExpand($event, node)"
+          [attr.aria-label]="node.isExpanded ? 'Collapse ' + node.name : 'Expand ' + node.name"
+        >
           <lucide-icon
             [img]="node.isExpanded ? Icons.ChevronDown : Icons.ChevronRight"
             [size]="14"
           ></lucide-icon>
-        }
-      </div>
+        </button>
+      }
 
       <div class="type-icon">
         @if (node.type === 'Folder') {
@@ -46,8 +53,9 @@
         }
       </div>
 
-      @if (editingId === node.id) {
+      @if (editingId() === node.id) {
         <input
+          #renameInput
           class="inline-rename-input"
           type="text"
           [value]="node.name"
@@ -55,6 +63,7 @@
           (keydown.escape)="nodeRenameCancelled.emit()"
           (blur)="nodeRenameCancelled.emit()"
           (click)="$event.stopPropagation()"
+          aria-label="Rename item"
         />
       } @else {
         <span class="node-name">{{ node.name }}</span>
@@ -62,15 +71,33 @@
 
       <div class="node-actions" (click)="$event.stopPropagation()">
         @if (node.parentId !== null) {
-          <button class="action-mini" (click)="moveToRoot(node, $event)" title="Move to Root">
+          <button
+            class="action-mini"
+            type="button"
+            (click)="moveToRoot(node, $event)"
+            title="Move to Root"
+            aria-label="Move to root"
+          >
             <lucide-icon [img]="Icons.ArrowUp" [size]="12"></lucide-icon>
           </button>
         }
 
-        <button class="action-mini" (click)="nodeRenamed.emit(node.originalData)" title="Rename">
+        <button
+          class="action-mini"
+          type="button"
+          (click)="nodeRenamed.emit(node.originalData)"
+          title="Rename"
+          aria-label="Rename"
+        >
           <lucide-icon [img]="Icons.Edit2" [size]="12"></lucide-icon>
         </button>
-        <button class="action-mini danger" (click)="nodeDeleted.emit(node.id)" title="Delete">
+        <button
+          class="action-mini danger"
+          type="button"
+          (click)="nodeDeleted.emit(node.id)"
+          title="Delete"
+          aria-label="Delete"
+        >
           <lucide-icon [img]="Icons.Trash2" [size]="12"></lucide-icon>
         </button>
       </div>

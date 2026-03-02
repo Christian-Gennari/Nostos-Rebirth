@@ -1,6 +1,13 @@
-// src/app/ui/flat-tree/flat-tree.helper.ts
+﻿// src/app/ui/flat-tree/flat-tree.helper.ts
 
-export interface FlatTreeNode {
+export interface TreeItem {
+  id: string;
+  name: string;
+  parentId?: string | null;
+  type?: 'Folder' | 'Document';
+}
+
+export interface FlatTreeNode<T extends TreeItem = TreeItem> {
   id: string;
   name: string;
   type: 'Folder' | 'Document';
@@ -8,67 +15,66 @@ export interface FlatTreeNode {
   level: number;
   expandable: boolean;
   isExpanded: boolean;
-  originalData: any;
+  originalData: T;
 }
 
-export function buildFlatTree(
-  items: any[],
+export function buildFlatTree<T extends TreeItem>(
+  items: T[],
   expandedIds: Set<string>,
-  typeField: string = 'type',
-): FlatTreeNode[] {
-  // Build a set of IDs that have at least one child
+  treatAllAsFolders = false,
+): FlatTreeNode<T>[] {
+  const childrenMap = new Map<string | null, T[]>();
   const parentIdsWithChildren = new Set<string | null>();
+
   for (const item of items) {
-    parentIdsWithChildren.add(item.parentId ?? null);
+    const pid = item.parentId ?? null;
+    parentIdsWithChildren.add(pid);
+    let siblings = childrenMap.get(pid);
+    if (!siblings) {
+      siblings = [];
+      childrenMap.set(pid, siblings);
+    }
+    siblings.push(item);
   }
 
-  // 1. Convert raw items to lightweight nodes
-  const nodes = items.map((item) => {
-    // Determine type safely
-    const nodeType = item[typeField] || 'Folder';
-    // Normalize: treat undefined as null for root-level items
-    const normalizedParentId = item.parentId ?? null;
-    // Only Folders that actually have children are expandable
-    const isExpandable = nodeType === 'Folder' && parentIdsWithChildren.has(item.id);
+  const result: FlatTreeNode<T>[] = [];
 
-    return {
-      id: item.id,
-      name: item.name,
-      type: nodeType,
-      parentId: normalizedParentId,
-      level: 0,
-      expandable: isExpandable,
-      isExpanded: isExpandable && expandedIds.has(item.id),
-      originalData: item,
-    };
-  });
-
-  const result: FlatTreeNode[] = [];
-
-  // 2. Recursive function to walk the tree in order
   function process(parentId: string | null, level: number, visible: boolean) {
-    const children = nodes
-      .filter((n) => n.parentId === parentId)
-      .sort((a, b) => {
-        // Sort: Folders first, then Alphabetical
-        if (a.type !== b.type) return a.type === 'Folder' ? -1 : 1;
-        return a.name.localeCompare(b.name);
-      });
+    const children = childrenMap.get(parentId);
+    if (!children) return;
+
+    children.sort((a, b) => {
+      const aType = treatAllAsFolders ? 'Folder' : (a.type ?? 'Folder');
+      const bType = treatAllAsFolders ? 'Folder' : (b.type ?? 'Folder');
+      if (aType !== bType) return aType === 'Folder' ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
 
     for (const child of children) {
-      child.level = level;
+      const nodeType: 'Folder' | 'Document' = treatAllAsFolders
+        ? 'Folder'
+        : (child.type ?? 'Folder');
+      const isExpandable =
+        nodeType === 'Folder' && parentIdsWithChildren.has(child.id);
+      const isExpanded = isExpandable && expandedIds.has(child.id);
 
       if (visible) {
-        result.push(child);
+        result.push({
+          id: child.id,
+          name: child.name,
+          type: nodeType,
+          parentId: child.parentId ?? null,
+          level,
+          expandable: isExpandable,
+          isExpanded,
+          originalData: child,
+        });
       }
 
-      // If this node is visible AND expanded, its children are visible
-      const childrenVisible = visible && child.isExpanded;
-      process(child.id, level + 1, childrenVisible);
+      process(child.id, level + 1, visible && isExpanded);
     }
   }
 
   process(null, 0, true);
-
   return result;
 }

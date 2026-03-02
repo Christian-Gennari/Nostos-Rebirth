@@ -8,6 +8,7 @@
     "dotnet ef": true,
     "ForEach-Object": true,
     "New-Item": true,
-    "Move-Item": true
+    "Move-Item": true,
+    "Set-Content": true
   }
 }

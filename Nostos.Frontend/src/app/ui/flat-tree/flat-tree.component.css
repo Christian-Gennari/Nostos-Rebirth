@@ -44,34 +44,32 @@
   opacity: 0.5;
 }
 
-.toggle-icon,
+.toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 2px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.toggle-btn:hover {
+  background: var(--bg-hover);
+}
+
 .type-icon {
   display: flex;
   align-items: center;
   justify-content: center;
   margin-right: 6px;
-}
-
-.toggle-icon {
-  cursor: pointer;
-  width: 16px;
-  height: 16px;
-}
-
-.toggle-icon:hover {
-  background: var(--bg-hover);
-  border-radius: 3px;
-}
-
-/* 👇 FIX 2: Disable interactivity and hover effect for non-expandable nodes (Documents) */
-.toggle-icon--disabled {
-  cursor: default;
-  /* Block pointer events (like click/hover) on this element */
-  pointer-events: none;
-}
-
-.toggle-icon--disabled:hover {
-  background: none; /* Ensure no background appears */
+  flex-shrink: 0;
 }
 
 .node-name {

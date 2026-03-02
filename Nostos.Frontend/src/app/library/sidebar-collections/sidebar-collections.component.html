@@ -97,7 +97,7 @@
             [items]="collections()"
             [activeId]="activeId()"
             [editingId]="editingId()"
-            typeField="dummy"
+            [treatAllAsFolders]="true"
             (nodeSelected)="select($event.id)"
             (nodeMoved)="onItemMoved($event)"
             (nodeRenamed)="startRename($event)"

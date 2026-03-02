@@ -1,14 +1,14 @@
-import {
+﻿import {
   Component,
-  Input,
-  Output,
-  EventEmitter,
+  input,
+  output,
   signal,
   computed,
-  inject,
+  effect,
+  viewChild,
   ElementRef,
+  ChangeDetectionStrategy,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { DragDropModule, CdkDragDrop } from '@angular/cdk/drag-drop';
 import {
   LucideAngularModule,
@@ -22,56 +22,29 @@ import {
   FolderOpen,
   ArrowUp,
 } from 'lucide-angular';
-import { buildFlatTree, FlatTreeNode } from './flat-tree.helper';
+import { buildFlatTree, FlatTreeNode, TreeItem } from './flat-tree.helper';
 
 @Component({
   selector: 'app-flat-tree',
-  standalone: true,
-  imports: [CommonModule, DragDropModule, LucideAngularModule],
+  imports: [DragDropModule, LucideAngularModule],
   templateUrl: './flat-tree.component.html',
   styleUrls: ['./flat-tree.component.css'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FlatTreeComponent {
-  private elRef = inject(ElementRef);
-  private _items = signal<any[]>([]);
+  readonly items = input.required<TreeItem[]>();
+  readonly activeId = input<string | null>(null);
+  readonly treatAllAsFolders = input(false);
+  readonly editingId = input<string | null>(null);
 
-  @Input({ required: true })
-  set items(value: any[]) {
-    this._items.set(value);
-  }
+  readonly nodeSelected = output<TreeItem>();
+  readonly nodeMoved = output<{ item: TreeItem; newParentId: string | null }>();
+  readonly nodeRenamed = output<TreeItem>();
+  readonly nodeDeleted = output<string>();
+  readonly nodeRenameSaved = output<{ id: string; newName: string }>();
+  readonly nodeRenameCancelled = output<void>();
 
-  @Input() activeId: string | null = null;
-  @Input() typeField = 'type';
-
-  private _editingId: string | null = null;
-
-  @Input()
-  set editingId(value: string | null) {
-    this._editingId = value;
-    if (value) {
-      setTimeout(() => {
-        const input = this.elRef.nativeElement.querySelector(
-          '.inline-rename-input',
-        ) as HTMLInputElement;
-        if (input) {
-          input.focus();
-          input.select();
-        }
-      });
-    }
-  }
-  get editingId(): string | null {
-    return this._editingId;
-  }
-
-  @Output() nodeSelected = new EventEmitter<any>();
-  @Output() nodeMoved = new EventEmitter<{ item: any; newParentId: string | null }>();
-  @Output() nodeRenamed = new EventEmitter<any>();
-  @Output() nodeDeleted = new EventEmitter<string>();
-  @Output() nodeRenameSaved = new EventEmitter<{ id: string; newName: string }>();
-  @Output() nodeRenameCancelled = new EventEmitter<void>();
-
-  Icons = {
+  protected readonly Icons = {
     Folder,
     FolderOpen,
     FileText,
@@ -83,65 +56,63 @@ export class FlatTreeComponent {
     ArrowUp,
   };
 
-  expandedIds = signal<Set<string>>(new Set());
+  readonly expandedIds = signal<Set<string>>(new Set());
 
-  treeNodes = computed(() => {
-    return buildFlatTree(this._items(), this.expandedIds(), this.typeField);
-  });
+  private readonly renameInput =
+    viewChild<ElementRef<HTMLInputElement>>('renameInput');
 
-  toggleExpand(event: MouseEvent, node: FlatTreeNode) {
-    event.stopPropagation();
-    if (!node.expandable) return;
-
-    const newSet = new Set(this.expandedIds());
-    if (newSet.has(node.id)) {
-      newSet.delete(node.id);
-    } else {
-      newSet.add(node.id);
-    }
-    this.expandedIds.set(newSet);
-  }
-
-  handleSelect(node: FlatTreeNode) {
-    // Auto-toggle expand for expandable (folder) nodes
-    if (node.expandable) {
-      const newSet = new Set(this.expandedIds());
-      if (newSet.has(node.id)) {
-        newSet.delete(node.id);
-      } else {
-        newSet.add(node.id);
+  constructor() {
+    effect(() => {
+      const el = this.renameInput();
+      if (el) {
+        el.nativeElement.focus();
+        el.nativeElement.select();
       }
-      this.expandedIds.set(newSet);
-    }
-    this.nodeSelected.emit(node.originalData);
-  }
-
-  onRenameSave(id: string, event: Event) {
-    const input = event.target as HTMLInputElement;
-    this.nodeRenameSaved.emit({ id, newName: input.value });
-  }
-
-  moveToRoot(node: FlatTreeNode, event: Event) {
-    event.stopPropagation();
-    this.nodeMoved.emit({
-      item: node.originalData,
-      newParentId: null,
     });
   }
 
-  onDrop(event: CdkDragDrop<FlatTreeNode[]>) {
+  readonly treeNodes = computed(() =>
+    buildFlatTree(this.items(), this.expandedIds(), this.treatAllAsFolders()),
+  );
+
+  private toggleExpandState(nodeId: string): void {
+    this.expandedIds.update((set) => {
+      const next = new Set(set);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      return next;
+    });
+  }
+
+  toggleExpand(event: MouseEvent, node: FlatTreeNode): void {
+    event.stopPropagation();
+    if (!node.expandable) return;
+    this.toggleExpandState(node.id);
+  }
+
+  handleSelect(node: FlatTreeNode): void {
+    this.nodeSelected.emit(node.originalData);
+  }
+
+  onRenameSave(id: string, event: Event): void {
+    const el = event.target as HTMLInputElement;
+    this.nodeRenameSaved.emit({ id, newName: el.value });
+  }
+
+  moveToRoot(node: FlatTreeNode, event: Event): void {
+    event.stopPropagation();
+    this.nodeMoved.emit({ item: node.originalData, newParentId: null });
+  }
+
+  onDrop(event: CdkDragDrop<FlatTreeNode[]>): void {
     const draggedNode = event.item.data as FlatTreeNode;
     const allVisibleNodes = this.treeNodes();
     const targetNode = allVisibleNodes[event.currentIndex];
 
-    // Safety check: If dropped outside a valid row, do nothing.
-    if (!targetNode) return;
-
-    if (draggedNode.id === targetNode.id) return;
+    if (!targetNode || draggedNode.id === targetNode.id) return;
 
     let newParentId = targetNode.parentId;
 
-    // Drop ON a folder -> Nest inside
     if (targetNode.type === 'Folder') {
       newParentId = targetNode.id;
       this.expandedIds.update((set) => {
@@ -153,9 +124,28 @@ export class FlatTreeComponent {
 
     if (draggedNode.parentId === newParentId) return;
 
-    this.nodeMoved.emit({
-      item: draggedNode.originalData,
-      newParentId: newParentId,
-    });
+    this.nodeMoved.emit({ item: draggedNode.originalData, newParentId });
+  }
+
+  onKeydown(event: KeyboardEvent, node: FlatTreeNode): void {
+    switch (event.key) {
+      case 'Enter':
+      case ' ':
+        event.preventDefault();
+        this.handleSelect(node);
+        break;
+      case 'ArrowRight':
+        if (node.expandable && !node.isExpanded) {
+          event.preventDefault();
+          this.toggleExpandState(node.id);
+        }
+        break;
+      case 'ArrowLeft':
+        if (node.expandable && node.isExpanded) {
+          event.preventDefault();
+          this.toggleExpandState(node.id);
+        }
+        break;
+    }
   }
 }
