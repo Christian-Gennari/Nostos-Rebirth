@@ -1,8 +1,10 @@
-﻿<div class="flat-tree-container" cdkDropList (cdkDropListDropped)="onDrop($event)" role="tree">
+﻿<div class="flat-tree-container" cdkDropList [cdkDropListSortingDisabled]="true" role="tree">
   @for (node of treeNodes(); track node.id) {
     <div
       class="tree-row"
       role="treeitem"
+      [attr.data-node-id]="node.id"
+      [attr.data-drop-zone]="dropIndicator()?.nodeId === node.id ? dropIndicator()?.zone : null"
       [attr.aria-expanded]="node.expandable ? node.isExpanded : null"
       [attr.aria-level]="node.level + 1"
       [attr.aria-selected]="activeId() === node.id"
@@ -12,6 +14,9 @@
       cdkDrag
       [cdkDragData]="node"
       [cdkDragDisabled]="editingId() === node.id"
+      (cdkDragStarted)="onDragStarted(node)"
+      (cdkDragMoved)="onDragMoved($event)"
+      (cdkDragEnded)="onDragEnded()"
       [tabindex]="activeId() === node.id ? 0 : -1"
       (keydown)="onKeydown($event, node)"
     >
@@ -103,7 +108,14 @@
       </div>
     </div>
   }
-  @if (treeNodes().length === 0) {
+
+  @if (isDragging()) {
+    <div class="root-drop-zone" [class.active]="dropIndicator()?.nodeId === '__root__'">
+      Drop here to move to root
+    </div>
+  }
+
+  @if (treeNodes().length === 0 && !isDragging()) {
     <div class="empty-state">No items</div>
   }
 </div>

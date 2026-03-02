@@ -6,10 +6,11 @@
   computed,
   effect,
   viewChild,
+  inject,
   ElementRef,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { DragDropModule, CdkDragDrop } from '@angular/cdk/drag-drop';
+import { DragDropModule, CdkDragMove } from '@angular/cdk/drag-drop';
 import {
   LucideAngularModule,
   Folder,
@@ -24,6 +25,11 @@ import {
 } from 'lucide-angular';
 import { buildFlatTree, FlatTreeNode, TreeItem } from './flat-tree.helper';
 
+export interface DropIndicator {
+  nodeId: string;
+  zone: 'above' | 'inside' | 'below';
+}
+
 @Component({
   selector: 'app-flat-tree',
   imports: [DragDropModule, LucideAngularModule],
@@ -32,6 +38,8 @@ import { buildFlatTree, FlatTreeNode, TreeItem } from './flat-tree.helper';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FlatTreeComponent {
+  private readonly elRef = inject(ElementRef);
+
   readonly items = input.required<TreeItem[]>();
   readonly activeId = input<string | null>(null);
   readonly treatAllAsFolders = input(false);
@@ -57,9 +65,13 @@ export class FlatTreeComponent {
   };
 
   readonly expandedIds = signal<Set<string>>(new Set());
+  readonly dropIndicator = signal<DropIndicator | null>(null);
+  readonly isDragging = signal(false);
 
-  private readonly renameInput =
-    viewChild<ElementRef<HTMLInputElement>>('renameInput');
+  private draggedNode: FlatTreeNode | null = null;
+  private wasExpanded = false;
+
+  private readonly renameInput = viewChild<ElementRef<HTMLInputElement>>('renameInput');
 
   constructor() {
     effect(() => {
@@ -104,28 +116,153 @@ export class FlatTreeComponent {
     this.nodeMoved.emit({ item: node.originalData, newParentId: null });
   }
 
-  onDrop(event: CdkDragDrop<FlatTreeNode[]>): void {
-    const draggedNode = event.item.data as FlatTreeNode;
-    const allVisibleNodes = this.treeNodes();
-    const targetNode = allVisibleNodes[event.currentIndex];
+  // ── Drag & Drop ──────────────────────────────────────────────
 
-    if (!targetNode || draggedNode.id === targetNode.id) return;
+  onDragStarted(node: FlatTreeNode): void {
+    this.draggedNode = node;
+    this.isDragging.set(true);
 
-    let newParentId = targetNode.parentId;
+    // Collapse expanded folder so children visually travel with it
+    if (node.isExpanded) {
+      this.wasExpanded = true;
+      this.expandedIds.update((set) => {
+        const next = new Set(set);
+        next.delete(node.id);
+        return next;
+      });
+    } else {
+      this.wasExpanded = false;
+    }
+  }
 
-    if (targetNode.type === 'Folder') {
+  onDragMoved(event: CdkDragMove): void {
+    if (!this.draggedNode) return;
+
+    const pointerY = event.pointerPosition.y;
+    const rows: NodeListOf<HTMLElement> = this.elRef.nativeElement.querySelectorAll(
+      '.tree-row:not(.cdk-drag-placeholder)',
+    );
+
+    let indicator: DropIndicator | null = null;
+
+    for (const row of rows) {
+      const rect = row.getBoundingClientRect();
+      if (pointerY < rect.top || pointerY > rect.bottom) continue;
+
+      const nodeId = row.dataset['nodeId'];
+      if (!nodeId || nodeId === this.draggedNode.id) break;
+
+      const node = this.treeNodes().find((n) => n.id === nodeId);
+      if (!node) break;
+
+      const ratio = (pointerY - rect.top) / rect.height;
+
+      if (ratio < 0.25) {
+        indicator = { nodeId, zone: 'above' };
+      } else if (ratio > 0.75) {
+        indicator = { nodeId, zone: 'below' };
+      } else if (node.type === 'Folder') {
+        indicator = { nodeId, zone: 'inside' };
+      } else {
+        indicator = { nodeId, zone: 'below' };
+      }
+
+      // Validate: reject no-ops and circular nesting
+      if (indicator) {
+        const newParentId = indicator.zone === 'inside' ? nodeId : node.parentId;
+
+        if (
+          this.draggedNode.parentId === newParentId ||
+          (newParentId !== null && this.isDescendantOf(newParentId, this.draggedNode.id))
+        ) {
+          indicator = null;
+        }
+      }
+
+      break;
+    }
+
+    // Below all rows → root drop zone
+    if (!indicator && rows.length > 0 && this.draggedNode.parentId !== null) {
+      const lastRow = rows[rows.length - 1];
+      const lastRect = lastRow.getBoundingClientRect();
+      if (pointerY > lastRect.bottom) {
+        indicator = { nodeId: '__root__', zone: 'inside' };
+      }
+    }
+
+    this.dropIndicator.set(indicator);
+  }
+
+  onDragEnded(): void {
+    const dragged = this.draggedNode;
+    const indicator = this.dropIndicator();
+
+    if (dragged && indicator) {
+      this.performDrop(dragged, indicator);
+    } else if (dragged && this.wasExpanded) {
+      // Restore expanded state for cancelled drag
+      this.expandedIds.update((set) => {
+        const s = new Set(set);
+        s.add(dragged.id);
+        return s;
+      });
+    }
+
+    this.draggedNode = null;
+    this.isDragging.set(false);
+    this.dropIndicator.set(null);
+    this.wasExpanded = false;
+  }
+
+  private performDrop(dragged: FlatTreeNode, indicator: DropIndicator): void {
+    // Root drop zone
+    if (indicator.nodeId === '__root__') {
+      if (dragged.parentId !== null) {
+        this.nodeMoved.emit({ item: dragged.originalData, newParentId: null });
+      }
+      return;
+    }
+
+    const targetNode = this.treeNodes().find((n) => n.id === indicator.nodeId);
+    if (!targetNode) return;
+
+    let newParentId: string | null;
+
+    if (indicator.zone === 'inside') {
       newParentId = targetNode.id;
       this.expandedIds.update((set) => {
         const s = new Set(set);
         s.add(targetNode.id);
         return s;
       });
+    } else {
+      newParentId = targetNode.parentId;
     }
 
-    if (draggedNode.parentId === newParentId) return;
+    if (dragged.parentId === newParentId) return;
+    if (newParentId !== null && this.isDescendantOf(newParentId, dragged.id)) {
+      return;
+    }
 
-    this.nodeMoved.emit({ item: draggedNode.originalData, newParentId });
+    this.nodeMoved.emit({ item: dragged.originalData, newParentId });
   }
+
+  private isDescendantOf(nodeId: string, potentialAncestorId: string): boolean {
+    if (nodeId === potentialAncestorId) return true;
+    const allItems = this.items();
+    let currentId: string | null = nodeId;
+    while (currentId !== null) {
+      const item = allItems.find((i) => i.id === currentId);
+      if (!item) return false;
+      const pid = item.parentId ?? null;
+      if (pid === potentialAncestorId) return true;
+      currentId = pid;
+    }
+    return false;
+  }
+
+  // ── Keyboard Navigation ──────────────────────────────────────
 
   onKeydown(event: KeyboardEvent, node: FlatTreeNode): void {
     switch (event.key) {
