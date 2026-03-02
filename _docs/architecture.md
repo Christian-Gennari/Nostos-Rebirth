@@ -84,9 +84,9 @@ The entire frontend uses Angular's standalone component model — no `NgModule` 
 
 Angular Signals are used throughout instead of external state libraries (NgRx, Akita, etc.). Services expose reactive `signal()` properties and components use `computed()` for derived state.
 
-### 4. Custom Route Reuse Strategy
+### 4. Scroll Position Restoration
 
-A custom `RouteReuseStrategy` (see `AppRouteReuseStrategy`) preserves component state for routes tagged with `data: { shouldReuse: true }`. This avoids re-fetching data and losing scroll/filter state when navigating between Library, Second Brain, and Studio.
+The Angular router is configured with `scrollPositionRestoration: 'enabled'` to automatically restore scroll position on back navigation. State preservation across navigation is handled at the service/store level using signals, not at the DOM level.
 
 ### 5. Repository Pattern (Backend)
 

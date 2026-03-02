@@ -75,13 +75,9 @@ Computed signals auto-update when their dependencies change. Used heavily in `Re
 
 Each `<app-concept-input>` instance gets its own autocomplete state — independent suggestions, independent keyboard navigation index.
 
-### 6. Route Reuse Strategy
+### 6. Component Lifecycle
 
-`AppRouteReuseStrategy` preserves the entire component tree (including signal state) when navigating between workspace pages. This means:
-
-- Library's loaded books array survives navigation to Brain and back.
-- WritingStudio's active file and editor content survive navigation away.
-- No re-fetching required on return.
+Components are destroyed and recreated on navigation (standard Angular behavior). State that needs to survive navigation is held in singleton services and signal-based stores, not in the component tree. The router is configured with `scrollPositionRestoration: 'enabled'` to handle scroll position automatically.
 
 ## Data Flow Summary
 

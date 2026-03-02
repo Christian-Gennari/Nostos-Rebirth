@@ -7,18 +7,17 @@ import {
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { BooksService, Book } from '../core/services/books.service';
 import { CollectionsService } from '../core/services/collections.service';
 import { Collection } from '../core/dtos/collection.dtos';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AddBookModal } from '../add-book-modal/add-book-modal.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { SidebarCollections } from './sidebar-collections/sidebar-collections.component';
 import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { InfiniteScrollDirective } from '../core/directives/infinite-scroll.directive';
 import { BookFilter, BookSort } from '../core/dtos/book.enums';
 import { ToastService } from '../core/services/toast.service';
@@ -58,7 +57,6 @@ export class Library implements OnInit {
   private booksService = inject(BooksService);
   private collectionsService = inject(CollectionsService);
   private route = inject(ActivatedRoute);
-  private router = inject(Router);
   private toast = inject(ToastService);
 
   // Icons
@@ -132,19 +130,6 @@ export class Library implements OnInit {
     this.route.queryParams.pipe(takeUntilDestroyed()).subscribe(() => {
       this.refreshBooks(true);
     });
-
-    // 3. Router Events
-    this.router.events
-      .pipe(
-        filter((event) => event instanceof NavigationEnd),
-        takeUntilDestroyed(),
-      )
-      .subscribe(() => {
-        if (this.router.url.startsWith('/library')) {
-          const shouldShowSkeleton = this.rawBooks().length === 0;
-          this.refreshBooks(true, shouldShowSkeleton);
-        }
-      });
   }
 
   ngOnInit(): void {

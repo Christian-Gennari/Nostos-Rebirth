@@ -1,18 +1,7 @@
-import {
-  Component,
-  inject,
-  OnInit,
-  signal,
-  model,
-  ViewChild,
-  ElementRef,
-  DestroyRef,
-} from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink, Router, NavigationEnd } from '@angular/router';
+import { Component, inject, OnInit, signal, model, ViewChild, ElementRef } from '@angular/core';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { filter } from 'rxjs/operators';
 
 // Store
 import { BookDetailStore } from './book-detail.store';
@@ -72,8 +61,6 @@ import {
 })
 export class BookDetail implements OnInit {
   private route = inject(ActivatedRoute);
-  private router = inject(Router);
-  private destroyRef = inject(DestroyRef);
 
   // Inject the Store
   readonly store = inject(BookDetailStore);
@@ -112,24 +99,10 @@ export class BookDetail implements OnInit {
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
   ngOnInit(): void {
-    // 1. Initial Load
     this.route.paramMap.subscribe((params) => {
       const id = params.get('id');
       if (id) this.store.loadAllData(id);
     });
-
-    // 2. Re-entry / Background Refresh
-    this.router.events
-      .pipe(
-        filter((event) => event instanceof NavigationEnd),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe(() => {
-        const id = this.route.snapshot.paramMap.get('id');
-        if (id && this.router.url.includes(`/library/${id}`)) {
-          this.store.loadBook(id, { background: true });
-        }
-      });
   }
 
   // --- UI Actions (Delegating to Store) ---

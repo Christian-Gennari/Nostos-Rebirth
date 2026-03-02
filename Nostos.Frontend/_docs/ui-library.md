@@ -152,7 +152,6 @@ WYSIWYG editor wrapping TinyMCE with markdown round-trip.
 
 - Content is converted from markdown to HTML (`marked.parse()`) on load
 - On every keystroke, HTML is converted back to markdown (`TurndownService`) and emitted
-- **Route reuse handling:** TinyMCE iframe is destroyed on `NavigationStart` and recreated on `NavigationEnd` to prevent stale state
 - Typography: Lora (serif) for body, Inter (sans-serif) for headings
 
 ---

@@ -1,16 +1,13 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideRouter, RouteReuseStrategy } from '@angular/router';
+import { provideRouter, withRouterConfig } from '@angular/router';
 
 import { routes } from './app.routes';
 import { provideHttpClient } from '@angular/common/http';
-import { AppRouteReuseStrategy } from './core/strategies/app-route-reuse-strategy';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideRouter(routes),
+    provideRouter(routes, withRouterConfig({ scrollPositionRestoration: 'enabled' })),
     provideHttpClient(),
-    // Register our custom reuse strategy
-    { provide: RouteReuseStrategy, useClass: AppRouteReuseStrategy },
   ],
 };

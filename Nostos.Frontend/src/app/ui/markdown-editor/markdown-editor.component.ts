@@ -9,8 +9,7 @@ import {
   inject,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, NavigationStart, NavigationEnd, Event as RouterEvent } from '@angular/router';
-import { filter } from 'rxjs/operators';
+
 import TurndownService from 'turndown';
 import { marked } from 'marked';
 
@@ -58,7 +57,9 @@ declare var tinymce: any;
       ::ng-deep .tox .tox-tbtn {
         border-radius: 4px !important; /* var(--radius-sm) */
         color: #4a4a4a !important; /* var(--color-text-muted) */
-        transition: background 0.2s ease, color 0.2s ease;
+        transition:
+          background 0.2s ease,
+          color 0.2s ease;
       }
 
       ::ng-deep .tox .tox-tbtn:hover {
@@ -86,7 +87,6 @@ declare var tinymce: any;
   ],
 })
 export class MarkdownEditorComponent implements OnInit, OnDestroy {
-  private router = inject(Router);
   private elementRef = inject(ElementRef);
 
   initialContent = input<string>('');
@@ -265,27 +265,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
         }
       }
     });
-
-    // 2. Handle Route Reuse / Navigation
-    // Since RouteReuseStrategy keeps this component alive but detaches it from DOM,
-    // the iframe dies. We must kill and rebirth the editor on navigation.
-    this.router.events
-      .pipe(filter((e) => e instanceof NavigationStart || e instanceof NavigationEnd))
-      .subscribe((event: RouterEvent) => {
-        if (event instanceof NavigationStart) {
-          // Navigating away: Force a save and cleanup
-          this.destroyEditor();
-        }
-
-        if (event instanceof NavigationEnd) {
-          // Navigating back: If we are visible in the DOM, re-initialize
-          // (This check ensures we only init if this specific component is active)
-          if (document.body.contains(this.elementRef.nativeElement)) {
-            // Small delay to ensure DOM is settled
-            setTimeout(() => this.initEditor(), 0);
-          }
-        }
-      });
   }
 
   ngOnInit() {
