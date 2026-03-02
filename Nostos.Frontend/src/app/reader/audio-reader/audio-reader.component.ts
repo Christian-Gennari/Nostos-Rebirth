@@ -42,6 +42,7 @@ export class AudioReader implements OnDestroy, IReader {
 
   private progressSubject = new Subject<{ timestamp: number; percent: number }>();
   private progressTimer: any;
+  private onVisibilityChange = this.handleVisibilityChange.bind(this);
 
   constructor() {
     this.progressSubject.pipe(debounceTime(2000)).subscribe((data) => {
@@ -49,6 +50,9 @@ export class AudioReader implements OnDestroy, IReader {
         .updateProgress(this.bookId(), data.timestamp.toString(), data.percent)
         .subscribe();
     });
+
+    // Sync state when tab becomes visible again (setInterval is throttled in background tabs)
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
 
     effect(() => {
       const id = this.bookId();
@@ -107,20 +111,24 @@ export class AudioReader implements OnDestroy, IReader {
         this.duration.set(this.player?.duration() || 0);
         this.restoreProgress(id);
         this.updateProgressState();
+        this.updateMediaSessionMetadata();
       },
       onplay: () => {
         this.isPlaying.set(true);
         this.startProgressTracking();
+        this.updateMediaSessionPlaybackState('playing');
       },
       onpause: () => {
         this.isPlaying.set(false);
         this.stopProgressTracking();
+        this.updateMediaSessionPlaybackState('paused');
       },
       onend: () => {
         this.isPlaying.set(false);
         this.stopProgressTracking();
         this.currentTime.set(this.duration());
         this.updateProgressState();
+        this.updateMediaSessionPlaybackState('none');
       },
     });
   }
@@ -155,6 +163,7 @@ export class AudioReader implements OnDestroy, IReader {
       this.player.seek(seconds);
       this.currentTime.set(seconds);
       this.updateProgressState();
+      this.updateMediaSessionPositionState();
     }
   }
 
@@ -173,6 +182,7 @@ export class AudioReader implements OnDestroy, IReader {
   setRate(rate: number) {
     this.player?.rate(rate);
     this.currentRate.set(rate);
+    this.updateMediaSessionPositionState();
   }
 
   startProgressTracking() {
@@ -210,9 +220,99 @@ export class AudioReader implements OnDestroy, IReader {
     // No-op: Audio reader does not support highlights
   }
 
+  // --- Visibility Change: Resync after background tab throttling ---
+  private handleVisibilityChange() {
+    if (document.visibilityState === 'visible' && this.player) {
+      const actualTime = this.player.seek() as number;
+      const actuallyPlaying = this.player.playing();
+
+      // Sync current time from the actual audio element position
+      this.currentTime.set(actualTime);
+      this.isPlaying.set(actuallyPlaying);
+      this.updateProgressState();
+
+      // Restart the interval timer if still playing (it was likely killed/throttled)
+      if (actuallyPlaying) {
+        this.startProgressTracking();
+      }
+
+      // Keep Media Session position in sync
+      this.updateMediaSessionPositionState();
+    }
+  }
+
+  // --- Media Session API: Sync with Android notification controls ---
+  private updateMediaSessionMetadata() {
+    if (!('mediaSession' in navigator)) return;
+    const book = this.book();
+    if (!book) return;
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: book.title,
+      artist: book.author || book.narrator || undefined,
+      album: book.series || undefined,
+      artwork: book.coverUrl
+        ? [{ src: book.coverUrl, sizes: '512x512', type: 'image/jpeg' }]
+        : [],
+    });
+
+    // Register action handlers so notification controls sync back to our component
+    navigator.mediaSession.setActionHandler('play', () => {
+      this.player?.play();
+    });
+
+    navigator.mediaSession.setActionHandler('pause', () => {
+      this.player?.pause();
+    });
+
+    navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+      this.skip(-(details.seekOffset || 15));
+    });
+
+    navigator.mediaSession.setActionHandler('seekforward', (details) => {
+      this.skip(details.seekOffset || 15);
+    });
+
+    navigator.mediaSession.setActionHandler('seekto', (details) => {
+      if (details.seekTime != null) {
+        this.goToTime(details.seekTime!);
+      }
+    });
+  }
+
+  private updateMediaSessionPlaybackState(state: MediaSessionPlaybackState) {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.playbackState = state;
+    this.updateMediaSessionPositionState();
+  }
+
+  private updateMediaSessionPositionState() {
+    if (!('mediaSession' in navigator) || !this.player) return;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: this.duration(),
+        playbackRate: this.currentRate(),
+        position: Math.min(this.currentTime(), this.duration()),
+      });
+    } catch {
+      // setPositionState can throw if values are invalid (e.g., duration=0)
+    }
+  }
+
   ngOnDestroy() {
     this.stopProgressTracking();
     this.progressSubject.complete();
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
+
+    // Clean up Media Session
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = null;
+      navigator.mediaSession.playbackState = 'none';
+      for (const action of ['play', 'pause', 'seekbackward', 'seekforward', 'seekto'] as MediaSessionAction[]) {
+        try { navigator.mediaSession.setActionHandler(action, null); } catch {}
+      }
+    }
+
     this.player?.unload();
   }
 }
