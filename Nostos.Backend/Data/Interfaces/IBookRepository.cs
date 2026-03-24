@@ -12,7 +12,8 @@ public interface IBookRepository
         BookFilter? filter,
         BookSort? sort,
         int page,
-        int pageSize
+        int pageSize,
+        Guid? collectionId = null
     );
 
     Task<BookModel?> GetByIdAsync(Guid id);

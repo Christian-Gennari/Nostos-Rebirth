@@ -16,6 +16,7 @@ export interface BookListOptions {
   search?: string;
   page?: number;
   pageSize?: number;
+  collectionId?: string;
 }
 
 export interface BookLocationsDto {
@@ -32,6 +33,7 @@ export class BooksService {
     if (options.filter) params = params.set('filter', options.filter);
     if (options.sort) params = params.set('sort', options.sort);
     if (options.search) params = params.set('search', options.search);
+    if (options.collectionId) params = params.set('collectionId', options.collectionId);
 
     params = params.set('page', options.page ?? 1);
     params = params.set('pageSize', options.pageSize ?? 20);

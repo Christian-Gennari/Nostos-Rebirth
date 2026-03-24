@@ -5,6 +5,8 @@ import {
   signal,
   computed,
   ChangeDetectionStrategy,
+  effect,
+  untracked,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -103,15 +105,7 @@ export class Library implements OnInit {
 
   activeCollectionId = this.collectionsService.activeCollectionId;
 
-  books = computed(() => {
-    const all = this.rawBooks();
-    const activeId = this.activeCollectionId();
-
-    if (activeId) {
-      return all.filter((b) => b.collectionId === activeId);
-    }
-    return all;
-  });
+  books = computed(() => this.rawBooks());
 
   hasMoreBooks = computed(() => {
     return this.rawBooks().length < this.totalItems();
@@ -129,6 +123,14 @@ export class Library implements OnInit {
     // 2. Query Params Subscription
     this.route.queryParams.pipe(takeUntilDestroyed()).subscribe(() => {
       this.refreshBooks(true);
+    });
+
+    // 3. Collection Change Effect
+    effect(() => {
+      const colId = this.activeCollectionId();
+      untracked(() => {
+        this.refreshBooks(true);
+      });
     });
   }
 
@@ -148,6 +150,7 @@ export class Library implements OnInit {
     const sort = this.activeSort();
     const search = this.searchQuery();
     const page = this.currentPage();
+    const collectionId = this.activeCollectionId();
 
     this.booksService
       .list({
@@ -156,6 +159,7 @@ export class Library implements OnInit {
         search,
         page,
         pageSize: this.pageSize,
+        collectionId: collectionId ?? undefined,
       })
       .subscribe({
         next: (data) => {

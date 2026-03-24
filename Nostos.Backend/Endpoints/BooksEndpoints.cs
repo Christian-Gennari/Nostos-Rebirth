@@ -22,7 +22,8 @@ public static class BooksEndpoints
                 string? sort,
                 string? search,
                 int? page,
-                int? pageSize
+                int? pageSize,
+                Guid? collectionId
             ) =>
             {
                 // Parse Enums
@@ -33,7 +34,7 @@ public static class BooksEndpoints
                 var ps = pageSize ?? 20;
 
                 // Call Repo
-                var result = await repo.GetBooksAsync(search, filterEnum, sortEnum, p, ps);
+                var result = await repo.GetBooksAsync(search, filterEnum, sortEnum, p, ps, collectionId);
 
                 // Map to DTOs
                 var dtos = result.Items.Select(b => b.ToDto());

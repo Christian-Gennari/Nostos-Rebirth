@@ -20,7 +20,8 @@ public class BookRepository : IBookRepository
         BookFilter? filter,
         BookSort? sort,
         int page,
-        int pageSize
+        int pageSize,
+        Guid? collectionId = null
     )
     {
         var query = _db.Books.AsNoTracking().AsQueryable();
@@ -49,7 +50,13 @@ public class BookRepository : IBookRepository
             };
         }
 
-        // 3. Sorting
+        // 3. Collection filtering (Explicit)
+        if (collectionId.HasValue)
+        {
+            query = query.Where(b => b.CollectionId == collectionId.Value);
+        }
+
+        // 4. Sorting
         var sortValue = sort ?? BookSort.Recent;
         query = sortValue switch
         {
@@ -61,7 +68,7 @@ public class BookRepository : IBookRepository
             BookSort.Recent or _ => query.OrderByDescending(b => b.CreatedAt),
         };
 
-        // 4. Pagination
+        // 5. Pagination
         var totalCount = await query.CountAsync();
 
         var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
