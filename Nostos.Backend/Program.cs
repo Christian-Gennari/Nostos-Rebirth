@@ -46,6 +46,7 @@ builder.Services.AddScoped<INoteRepository, NoteRepository>();
 builder.Services.AddScoped<IConceptRepository, ConceptRepository>();
 builder.Services.AddScoped<IWritingRepository, WritingRepository>();
 builder.Services.AddHostedService<ConceptCleanupWorker>();
+builder.Services.AddHostedService<BackupWorker>();
 
 var app = builder.Build();
 
