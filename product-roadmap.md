@@ -17,6 +17,14 @@ Items are grouped by area and sorted by impact × effort priority within each gr
 
 ---
 
+## Recently Completed
+
+- **Backup & Restore System** (April 2026) — Automated scheduling, manual triggers, disk scanning, and integrity verification.
+- **Maintenance Mode Middleware** (April 2026) — Standardized API protection during restore operations.
+- **Project Standardization** (April 2026) — Port 5099, absolute path database resolution, and PM2 integration.
+
+---
+
 ## 1. Reading Experience
 
 ### 1.1 Dark Mode / Reading Themes

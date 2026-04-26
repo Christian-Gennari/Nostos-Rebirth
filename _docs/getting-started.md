@@ -38,7 +38,7 @@ cd Nostos.Backend
 dotnet run
 ```
 
-The API starts on `http://localhost:5214`. The database (`nostos.db`) is auto-created and migrated on first run.
+The API starts on `http://localhost:5099`. The database (`nostos.db`) is auto-created and migrated on first run using an absolute path relative to the content root.
 
 ### Terminal 2 — Frontend Dev Server
 
@@ -47,7 +47,7 @@ cd Nostos.Frontend
 ng serve
 ```
 
-The Angular dev server starts on `http://localhost:4200` and proxies `/api` and `/opds` requests to the backend at `:5214` (configured in `src/proxy.conf.json`).
+The Angular dev server starts on `http://localhost:4200` and proxies `/api` and `/opds` requests to the backend at `:5099` (configured in `src/proxy.conf.json`).
 
 **Open** `http://localhost:4200` in your browser.
 
@@ -87,23 +87,22 @@ cd publish
 
 ### Backend (`appsettings.json`)
 
-| Setting                      | Default               | Description             |
-| ---------------------------- | --------------------- | ----------------------- |
-| `Kestrel:Endpoints:Http:Url` | `http://0.0.0.0:5214` | Listen address and port |
-| `Logging:LogLevel:Default`   | `Information`         | Minimum log level       |
+| Setting                    | Default       | Description       |
+| -------------------------- | ------------- | ----------------- |
+| `Logging:LogLevel:Default` | `Information` | Minimum log level |
 
-The SQLite connection string is hardcoded in `Program.cs` as `Data Source=nostos.db`. The database file is created in the working directory.
+The SQLite database file path is resolved in `Program.cs` using `Path.Combine(builder.Environment.ContentRootPath, "nostos.db")` to ensure an absolute path is used regardless of the working directory.
 
 ### Upload Limits
 
-Kestrel and form options are configured for up to **4 GB** file uploads (for large audiobooks).
+Kestrel and form options are configured for up to **100 GB** file uploads to support large library archives and audiobooks.
 
 ### Frontend Proxy (`src/proxy.conf.json`)
 
 ```json
 {
-  "/api": { "target": "http://localhost:5214", "secure": false },
-  "/opds": { "target": "http://localhost:5214", "secure": false }
+  "/api": { "target": "http://localhost:5099", "secure": false },
+  "/opds": { "target": "http://localhost:5099", "secure": false }
 }
 ```
 

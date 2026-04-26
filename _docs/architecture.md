@@ -31,7 +31,9 @@ Nostos.sln
 │   ├── Mapping/             # DTO ↔ Model mapping extensions
 │   ├── Workers/             # Background services
 │   ├── Migrations/          # EF Core migrations
-│   ├── Storage/books/       # File storage root (book files, covers)
+│   ├── Storage/             # File storage root
+│   │   ├── books/           #   Book files and covers
+│   │   └── backups/         #   Backup archives (.nostos files)
 │   └── wwwroot/             # Built Angular app (production)
 │
 ├── Nostos.Frontend/         # Angular 21 SPA
@@ -104,6 +106,10 @@ Book files and covers are stored in `Storage/books/{bookId}/` directories on-dis
 
 Notes use `[[Concept Name]]` syntax. The `NoteProcessorService` parses these on save, auto-creates concepts if new, and maintains a many-to-many `NoteConcepts` join table. A background worker (`ConceptCleanupWorker`) periodically removes orphaned concepts.
 
+### 10. Automated Backup & Restore
+
+Scheduled background workers (`BackupWorker`) create ZIP archives containing the database and book files. The system implements a maintenance mode (via middleware) that blocks API access during restoration to prevent data corruption.
+
 ## Data Flow
 
 ```
@@ -121,5 +127,5 @@ User Action → Angular Component
 ## Communication
 
 - **Frontend ↔ Backend:** REST over HTTP (JSON)
-- **Dev Proxy:** Angular dev server proxies `/api` and `/opds` to `http://localhost:5214`
+- **Dev Proxy:** Angular dev server proxies `/api` and `/opds` to `http://localhost:5099`
 - **Production:** Backend serves frontend directly from `wwwroot/`

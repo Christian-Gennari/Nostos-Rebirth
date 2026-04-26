@@ -138,3 +138,55 @@ A background worker that runs every **1 hour** and removes orphaned concepts (co
 4. Logs the count of deleted concepts if any
 5. Gracefully handles cancellation on shutdown
 6. Catches and logs individual cycle errors without crashing
+
+---
+
+## BackupSettingsProvider
+
+**Registration:** `builder.Services.AddSingleton<BackupSettingsProvider>()`  
+**Persistence:** `{ContentRootPath}/backup-settings.json`
+
+A thread-safe singleton that manages the application's backup configuration and runtime state.
+
+### Responsibilities
+1. **Settings Persistence:** Handles atomic reads/writes of `BackupSettings` to a local JSON file.
+2. **Maintenance Mode:** Manages a reference-counted state (`IsInMaintenanceMode`) using `Interlocked` operations to safely block API access during restoration.
+3. **Progress Tracking:** Provides a volatile storage for the current backup/restore step, percentage, and step count.
+
+---
+
+## BackupService
+
+**Registration:** `builder.Services.AddScoped<IBackupService, BackupService>()`  
+**Backups Root:** `{ContentRootPath}/Storage/backups/`
+
+The core orchestrator for library preservation and recovery.
+
+### Backup Workflow (5 Steps)
+1. **Preparing:** Initializes record and ensures storage directory exists.
+2. **Collecting Files:** Copies the database (via SQLite `VACUUM INTO`) and book files to a temporary directory.
+3. **Compressing:** Creates a `.nostos` ZIP archive containing the manifest, database, and books.
+4. **Verifying:** Calculates SHA256 checksums to ensure archive integrity.
+5. **Finalizing:** Moves the archive to permanent storage and updates the database record.
+
+### Restore Workflow (3 Steps)
+1. **Verifying:** Validates ZIP structure and checks manifest checksums.
+2. **Restoring Data:** Enters maintenance mode, takes a safety snapshot of the current DB, and overwrites with backup content.
+3. **Completing:** Cleans up temporary files and exits maintenance mode.
+
+### Storage Scanning
+The `ImportExistingBackupsAsync` method allows users to manually copy `.nostos` files into the storage directory and register them in the app history after verification.
+
+---
+
+## BackupWorker
+
+**Registration:** `builder.Services.AddHostedService<BackupWorker>()`  
+**Type:** `BackgroundService`
+
+A background worker that polls every **5 minutes** to check if a scheduled backup is due.
+
+1. Queries the database for the last successful backup timestamp.
+2. Evaluates `IsEnabled` toggle and `IntervalHours` threshold.
+3. Triggers a new backup cycle if requirements are met.
+4. Enforces the `MaxBackups` retention policy by deleting the oldest archives.

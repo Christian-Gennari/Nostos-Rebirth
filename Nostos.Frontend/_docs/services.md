@@ -148,6 +148,25 @@ Subscribes to `NavigationEnd` router events. Maintains a `Record<string, string>
 | `choose`              | `()` → `ConceptDto \| null` | Return selected concept               |
 | `clear`               | `()`                        | Reset                                 |
 
+---
+
+## BackupService
+
+**File:** `src/app/core/services/backup.service.ts`
+
+| Method           | Return                       | Purpose                                      |
+| ---------------- | ---------------------------- | -------------------------------------------- |
+| `getStatus`      | `Observable<BackupStatus>`   | Get last backup time and scheduled status     |
+| `getSettings`    | `Observable<BackupSettings>` | Get retention and interval config            |
+| `updateSettings` | `Observable<BackupSettings>` | Save new backup preferences                  |
+| `triggerBackup`  | `Observable<any>`            | Manually start a backup                      |
+| `restore`        | `Observable<RestoreResult>`  | Trigger restoration from ID                  |
+| `getHistory`     | `Observable<HistoryItem[]>`  | List all known backup archives               |
+| `deleteBackup`   | `Observable<void>`           | Remove record and archive from server        |
+| `getDownloadUrl` | `string`                     | Returns direct URL for archive download      |
+| `importExisting` | `Observable<imported[]>`     | Scan server disk for untracked archives      |
+| `getProgress`    | `Observable<BackupProgress>` | Poll current step/percentage (every 1s)      |
+
 **Signals:** `suggestions = signal<ConceptDto[]>([])`, `activeIndex = signal<number>(0)`
 
 > **Note:** Declared `providedIn: 'root'` but `ConceptInputComponent` provides it at the component level, so each textarea gets independent autocomplete state.

@@ -71,6 +71,13 @@ A self-hosted personal library and knowledge management system. Manage books, e-
 - **Reference insertion** — Browse concepts or books in the sidebar, click a note to insert the quote
 - **Auto-save** — 2-second debounced save on every keystroke
 
+### Maintenance & Safety
+
+- **Backup & Restore** — Automated weekly backups with manual triggers and real-time progress tracking
+- **Integrity Verification** — Archive checksum validation and safety database snapshots before restoration
+- **Maintenance Mode** — Automatic API protection during critical system updates
+- **Storage Scanning** — Scan for existing `.nostos` backup files on disk to import history
+
 <img
   width="2553"
   height="1274"
@@ -134,12 +141,12 @@ npm start            # dev server — backend + frontend together
 npm run prod         # builds the Angular frontend, then serves everything via .NET in Release mode
 ```
 
-This runs `npm install` + `npm run build` for the frontend, copies the output to `wwwroot`, applies database migrations, and serves everything at **http://localhost:5214**.
+This runs `npm install` + `npm run build` for the frontend, copies the output to `wwwroot`, applies database migrations, and serves everything at **http://localhost:5099**.
 
 ### Individual Services
 
 ```bash
-npm run backend      # .NET backend only — Debug (http://localhost:5214)
+npm run backend      # .NET backend only — Debug (http://localhost:5099)
 npm run frontend     # Angular dev server only (http://localhost:4200)
 npm run build:frontend  # Angular production build
 ```

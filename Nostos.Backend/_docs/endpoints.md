@@ -11,6 +11,7 @@ app.MapCollectionsEndpoints();
 app.MapConceptsEndpoints();
 app.MapWritingsEndpoints();
 app.MapOpdsEndpoints();
+app.MapBackupEndpoints();
 ```
 
 ## Endpoint Groups
@@ -76,6 +77,29 @@ app.MapOpdsEndpoints();
 | Method | Route | Description                | Dependencies      |
 | ------ | ----- | -------------------------- | ----------------- |
 | `GET`  | `/`   | OPDS 1.2 Atom catalog feed | `IBookRepository` |
+
+### BackupEndpoints (`/api/backup`)
+
+| Method     | Route            | Description                                | Dependencies                   |
+| ---------- | ---------------- | ------------------------------------------ | ------------------------------ |
+| `GET`      | `/status`        | Get last backup time and scheduled status   | `IBackupService`               |
+| `GET`      | `/settings`      | Get current retention and interval settings | `IBackupService`               |
+| `PUT`      | `/settings`      | Update backup configuration                | `IBackupService`               |
+| `POST`     | `/trigger`       | Manually start a backup immediately        | `IBackupService`               |
+| `POST`     | `/restore/{id}`  | Restore library from a specific archive     | `IBackupService`               |
+| `GET`      | `/history`       | List all backup records                    | `IBackupService`               |
+| `DELETE`   | `/history/{id}`  | Delete a backup record and its archive file | `IBackupService`               |
+| `GET`      | `/download/{id}` | Stream `.nostos` archive to browser        | `IBackupService`               |
+| `POST`     | `/import`        | Scan `/backups` folder for untracked files | `IBackupService`               |
+| `GET`      | `/progress`      | Real-time step-by-step progress tracking   | `BackupSettingsProvider`       |
+
+## Maintenance Mode Middleware
+
+The application includes middleware that intercepts requests to `/api` when `BackupSettingsProvider.IsInMaintenanceMode` is true.
+
+- **Status Code:** 503 Service Unavailable
+- **Response:** `{"error": "Application is in maintenance mode during restore."}`
+- **Purpose:** Prevents concurrent database access and file modifications during sensitive restore operations.
 
 ## Cycle Detection
 

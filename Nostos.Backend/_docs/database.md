@@ -6,10 +6,11 @@ Nostos uses **SQLite** via Entity Framework Core 10. The database file is `nosto
 
 ### Connection String
 
-Configured in `Program.cs`:
+Configured in `Program.cs` to ensure an absolute path is used regardless of the application's working directory:
 
 ```csharp
-options.UseSqlite("Data Source=nostos.db");
+var dbPath = Path.Combine(builder.Environment.ContentRootPath, "nostos.db");
+options.UseSqlite($"Data Source={dbPath}");
 ```
 
 ## Auto-Migration
@@ -38,6 +39,10 @@ This means **no manual migration steps are needed** for deployment. The database
 | `RefactorBookModel`                | 2025-12-16 | Refactored book model with TPH inheritance                                                         |
 | `AddLocationsJsonToBook`           | 2026-01-18 | Added `LocationsJson` for epub cached locations                                                    |
 | `AddIndexes`                       | 2026-03-01 | Added performance indexes on frequently-queried columns                                            |
+| `AddBackupRecords`                 | 2026-04-26 | Added `BackupRecords` table for archive tracking                                                   |
+| `AddLocalArchivePath`              | 2026-04-26 | Added `LocalArchivePath` column to track backup files on disk                                      |
+| `AddErrorMessageToBackupRecord`    | 2026-04-26 | Added `ErrorMessage` field for failure diagnostics                                                 |
+| `RemoveGoogleDriveFields`          | 2026-04-26 | Cleaned up schema to remove deprecated cloud provider fields                                       |
 
 ## Creating New Migrations
 
@@ -93,3 +98,4 @@ modelBuilder.Entity<NoteConceptModel>().HasKey(nc => new { nc.NoteId, nc.Concept
 | `Collections`   | `CollectionModel`   | Book collections (folders)   |
 | `Concepts`      | `ConceptModel`      | Auto-extracted concepts      |
 | `NoteConcepts`  | `NoteConceptModel`  | Note ↔ Concept join table    |
+| `BackupRecords` | `BackupRecord`      | Backup archive history       |
