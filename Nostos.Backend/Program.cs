@@ -10,6 +10,8 @@ using Nostos.Backend.Workers;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.Configure<BackupSettings>(builder.Configuration.GetSection("BackupSettings"));
+
 builder.Services.AddDbContext<NostosDbContext>(options =>
 {
     var dbPath = Path.Combine(builder.Environment.ContentRootPath, "nostos.db");
@@ -32,6 +34,7 @@ builder.Services.AddProblemDetails();
 
 // Services Dependency Injection
 builder.Services.AddSingleton<IFileStorageService, FileStorageService>();
+builder.Services.AddSingleton<BackupSettingsProvider>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<BookLookupService>();
 builder.Services.AddScoped<MediaMetadataService>();
