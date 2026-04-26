@@ -104,6 +104,28 @@ app.UseExceptionHandler(exceptionApp =>
 });
 app.UseStatusCodePages();
 
+// ----------------------------
+
+// --- MAINTENANCE MODE MIDDLEWARE ---
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api"))
+    {
+        var settingsProvider = context.RequestServices.GetRequiredService<BackupSettingsProvider>();
+        if (settingsProvider.IsInMaintenanceMode)
+        {
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsJsonAsync(new { error = "Application is in maintenance mode during restore." });
+            return;
+        }
+    }
+
+    await next(context);
+});
+
+// -----------------------------------
+
 // -----------------------------
 
 app.MapOpenApi();
@@ -121,6 +143,7 @@ app.MapCollectionsEndpoints();
 app.MapConceptsEndpoints();
 app.MapWritingsEndpoints();
 app.MapOpdsEndpoints();
+app.MapBackupEndpoints();
 
 // --- HANDLE ANGULAR ROUTING ---
 app.MapFallbackToFile("index.html");
