@@ -39,6 +39,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddScoped<BookLookupService>();
 builder.Services.AddScoped<MediaMetadataService>();
 builder.Services.AddScoped<NoteProcessorService>();
+builder.Services.AddScoped<IBackupService, BackupService>();
 builder.Services.AddScoped<IBookRepository, BookRepository>();
 builder.Services.AddScoped<ICollectionRepository, CollectionRepository>();
 builder.Services.AddScoped<INoteRepository, NoteRepository>();
