@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, Router } from '@angular/router';
-import { LucideAngularModule, Library, PenTool, BrainCog } from 'lucide-angular';
+import { LucideAngularModule, Library, PenTool, BrainCog, Settings } from 'lucide-angular';
 import { CollectionsService } from '../../core/services/collections.service';
 import { NavigationHistoryService } from '../../core/services/navigation-history.service';
 
@@ -42,6 +42,16 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
         >
           <lucide-icon [img]="PenToolIcon" [size]="20" strokeWidth="1"></lucide-icon>
           <span class="label">Studio</span>
+        </a>
+
+        <a
+          routerLink="/settings"
+          routerLinkActive="active"
+          class="dock-item"
+          title="Settings"
+        >
+          <lucide-icon [img]="SettingsIcon" [size]="20" strokeWidth="1"></lucide-icon>
+          <span class="label">Settings</span>
         </a>
       </div>
     </nav>
@@ -271,6 +281,7 @@ export class AppDockComponent {
   LibraryIcon = Library;
   BrainIcon = BrainCog;
   PenToolIcon = PenTool;
+  SettingsIcon = Settings;
 
   getLink(prefix: string): string {
     return this.historyService.getLastUrl(prefix);

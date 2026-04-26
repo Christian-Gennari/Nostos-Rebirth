@@ -38,6 +38,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./book-detail/book-detail.component').then((m) => m.BookDetail),
       },
+      {
+        path: 'settings',
+        loadComponent: () =>
+          import('./settings/settings.component').then((m) => m.SettingsComponent),
+      },
     ],
   },
 
