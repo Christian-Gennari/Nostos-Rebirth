@@ -12,7 +12,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<NostosDbContext>(options =>
 {
-    options.UseSqlite("Data Source=nostos.db");
+    var dbPath = Path.Combine(builder.Environment.ContentRootPath, "nostos.db");
+    options.UseSqlite($"Data Source={dbPath}");
 });
 
 // 4GB in bytes
