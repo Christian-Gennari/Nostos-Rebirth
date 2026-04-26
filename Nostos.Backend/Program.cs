@@ -12,6 +12,16 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<BackupSettings>(builder.Configuration.GetSection("BackupSettings"));
 
+const long maxUploadSize = 100L * 1024 * 1024 * 1024; // 100GB
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = maxUploadSize;
+});
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = maxUploadSize;
+});
+
 builder.Services.AddDbContext<NostosDbContext>(options =>
 {
     var dbPath = Path.Combine(builder.Environment.ContentRootPath, "nostos.db");
@@ -30,6 +40,7 @@ builder.Services.Configure<FormOptions>(options =>
 });
 
 builder.Services.AddOpenApi();
+builder.Services.AddProblemDetails();
 builder.Services.AddProblemDetails();
 
 // Services Dependency Injection
