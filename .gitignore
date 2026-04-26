@@ -12,12 +12,15 @@ Nostos.Frontend/dist
 Nostos.Frontend/.angular
 Nostos.Frontend/.vscode
 
+Nostos.Backend/backup-settings.json
+
 
 
 # SQLite database files
 *.db
 *.db-shm
 *.db-wal
+nostos.db.pre-restore*
 
 # dotenv files
 .env
