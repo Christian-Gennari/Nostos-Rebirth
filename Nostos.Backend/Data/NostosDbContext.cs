@@ -20,6 +20,7 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
     public DbSet<CollectionModel> Collections => Set<CollectionModel>();
     public DbSet<ConceptModel> Concepts => Set<ConceptModel>();
     public DbSet<NoteConceptModel> NoteConcepts => Set<NoteConceptModel>();
+    public DbSet<BackupRecord> BackupRecords => Set<BackupRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

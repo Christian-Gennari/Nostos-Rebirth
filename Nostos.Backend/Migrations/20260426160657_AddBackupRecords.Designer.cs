@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nostos.Backend.Data;
 
@@ -10,9 +11,11 @@ using Nostos.Backend.Data;
 namespace Nostos.Backend.Migrations
 {
     [DbContext(typeof(NostosDbContext))]
-    partial class NostosDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260426160657_AddBackupRecords")]
+    partial class AddBackupRecords
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.0");
@@ -26,20 +29,17 @@ namespace Nostos.Backend.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("ErrorMessage")
-                        .HasColumnType("TEXT");
-
                     b.Property<bool>("IncludeBookFiles")
                         .HasColumnType("INTEGER");
-
-                    b.Property<string>("LocalArchivePath")
-                        .HasColumnType("TEXT");
 
                     b.Property<string>("ManifestJson")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Provider")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RemoteId")
                         .HasColumnType("TEXT");
 
                     b.Property<long>("SizeBytes")

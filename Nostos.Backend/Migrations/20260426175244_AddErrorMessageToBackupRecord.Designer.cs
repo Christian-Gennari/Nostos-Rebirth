@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nostos.Backend.Data;
 
@@ -10,9 +11,11 @@ using Nostos.Backend.Data;
 namespace Nostos.Backend.Migrations
 {
     [DbContext(typeof(NostosDbContext))]
-    partial class NostosDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260426175244_AddErrorMessageToBackupRecord")]
+    partial class AddErrorMessageToBackupRecord
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.0");
@@ -40,6 +43,9 @@ namespace Nostos.Backend.Migrations
 
                     b.Property<string>("Provider")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RemoteId")
                         .HasColumnType("TEXT");
 
                     b.Property<long>("SizeBytes")
