@@ -181,4 +181,8 @@ Detailed documentation is available in the `_docs/` directories:
 
 ## License
 
-MIT
+This project is licensed under the **GNU General Public License v3.0 or later**.
+
+Copyright (C) 2026 Christian Gennari
+
+See the [LICENSE](./LICENSE) file for the full license text.
