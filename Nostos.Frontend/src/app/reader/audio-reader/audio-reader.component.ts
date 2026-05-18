@@ -2,8 +2,8 @@ import { Component, input, effect, inject, signal, OnDestroy } from '@angular/co
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Howl } from 'howler';
-import { Subject } from 'rxjs';
-import { debounceTime } from 'rxjs/operators';
+import { Subject, Subscription } from 'rxjs';
+import { sampleTime, filter } from 'rxjs/operators';
 import { LucideAngularModule, Play, Pause, AudioLines, RotateCcw, RotateCw } from 'lucide-angular';
 import { BooksService } from '../../core/services/books.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
@@ -41,18 +41,28 @@ export class AudioReader implements OnDestroy, IReader {
   availableRates = [0.75, 0.9, 1, 1.25, 1.5];
 
   private progressSubject = new Subject<{ timestamp: number; percent: number }>();
+  private progressSubscription!: Subscription;
   private progressTimer: any;
+  private isInitialized = false;
   private onVisibilityChange = this.handleVisibilityChange.bind(this);
+  private onBeforeUnload = this.saveProgressImmediately.bind(this);
+  private onPageHide = this.saveProgressImmediately.bind(this);
 
   constructor() {
-    this.progressSubject.pipe(debounceTime(2000)).subscribe((data) => {
+    this.progressSubscription = this.progressSubject.pipe(
+      sampleTime(2000),
+      filter(() => this.isInitialized),
+    ).subscribe((data) => {
       this.booksService
         .updateProgress(this.bookId(), data.timestamp.toString(), data.percent)
-        .subscribe();
+        .subscribe({
+          error: (err) => console.error('Failed to save progress:', err),
+        });
     });
 
-    // Sync state when tab becomes visible again (setInterval is throttled in background tabs)
     document.addEventListener('visibilitychange', this.onVisibilityChange);
+    window.addEventListener('beforeunload', this.onBeforeUnload);
+    window.addEventListener('pagehide', this.onPageHide);
 
     effect(() => {
       const id = this.bookId();
@@ -110,7 +120,6 @@ export class AudioReader implements OnDestroy, IReader {
       onload: () => {
         this.duration.set(this.player?.duration() || 0);
         this.restoreProgress(id);
-        this.updateProgressState();
         this.updateMediaSessionMetadata();
       },
       onplay: () => {
@@ -121,6 +130,7 @@ export class AudioReader implements OnDestroy, IReader {
       onpause: () => {
         this.isPlaying.set(false);
         this.stopProgressTracking();
+        this.saveProgressImmediately();
         this.updateMediaSessionPlaybackState('paused');
       },
       onend: () => {
@@ -134,11 +144,18 @@ export class AudioReader implements OnDestroy, IReader {
   }
 
   restoreProgress(id: string) {
-    this.booksService.get(id).subscribe((book) => {
-      if (book.lastLocation) {
-        const timestamp = parseFloat(book.lastLocation);
-        if (!isNaN(timestamp)) this.goToTime(timestamp);
-      }
+    this.booksService.get(id).subscribe({
+      next: (book) => {
+        if (book.lastLocation) {
+          const timestamp = parseFloat(book.lastLocation);
+          if (!isNaN(timestamp)) this.goToTime(timestamp);
+        }
+        this.updateProgressState();
+        this.isInitialized = true;
+      },
+      error: () => {
+        this.isInitialized = true;
+      },
     });
   }
 
@@ -220,24 +237,38 @@ export class AudioReader implements OnDestroy, IReader {
     // No-op: Audio reader does not support highlights
   }
 
-  // --- Visibility Change: Resync after background tab throttling ---
+  // --- Visibility Change: Save on hidden, resync on visible ---
   private handleVisibilityChange() {
-    if (document.visibilityState === 'visible' && this.player) {
-      const actualTime = this.player.seek() as number;
-      const actuallyPlaying = this.player.playing();
+    if (!this.player) return;
 
-      // Sync current time from the actual audio element position
-      this.currentTime.set(actualTime);
-      this.isPlaying.set(actuallyPlaying);
-      this.updateProgressState();
+    if (document.visibilityState === 'hidden') {
+      this.saveProgressImmediately();
+      return;
+    }
 
-      // Restart the interval timer if still playing (it was likely killed/throttled)
-      if (actuallyPlaying) {
-        this.startProgressTracking();
-      }
+    const actualTime = this.player.seek() as number;
+    const actuallyPlaying = this.player.playing();
 
-      // Keep Media Session position in sync
-      this.updateMediaSessionPositionState();
+    this.currentTime.set(actualTime);
+    this.isPlaying.set(actuallyPlaying);
+    this.updateProgressState();
+
+    if (actuallyPlaying) {
+      this.startProgressTracking();
+    }
+
+    this.updateMediaSessionPositionState();
+  }
+
+  private saveProgressImmediately() {
+    if (!this.player || !this.isInitialized) return;
+    const seek = this.player.seek() as number;
+    if (seek > 0) {
+      this.booksService.updateProgress(
+        this.bookId(),
+        seek.toString(),
+        this.duration() > 0 ? Math.floor((seek / this.duration()) * 100) : 0,
+      ).subscribe();
     }
   }
 
@@ -298,9 +329,13 @@ export class AudioReader implements OnDestroy, IReader {
   }
 
   ngOnDestroy() {
+    this.saveProgressImmediately();
     this.stopProgressTracking();
+    this.progressSubscription?.unsubscribe();
     this.progressSubject.complete();
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    window.removeEventListener('beforeunload', this.onBeforeUnload);
+    window.removeEventListener('pagehide', this.onPageHide);
 
     // Clean up Media Session
     if ('mediaSession' in navigator) {
