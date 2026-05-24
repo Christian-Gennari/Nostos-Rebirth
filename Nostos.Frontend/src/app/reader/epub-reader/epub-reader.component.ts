@@ -30,6 +30,9 @@ import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 export class EpubReader implements OnInit, OnDestroy, IReader {
   bookId = input.required<string>();
   noteCreated = output<void>();
+  highlightMode = input<boolean>(false);
+  selectionCaptured = output<string>();
+  commitFailed = output<void>();
 
   private notesService = inject(NotesService);
   private booksService = inject(BooksService);
@@ -62,6 +65,13 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     effect(() => {
       if (this.bookId()) {
         this.loadBook(this.bookId());
+      }
+    });
+
+    effect(() => {
+      const mode = this.highlightMode();
+      if (this.annotationManager) {
+        this.annotationManager.setHighlightMode(mode);
       }
     });
   }
@@ -235,8 +245,16 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
         this.applyTheme();
         this.applyFontSize();
 
-        this.annotationManager = new EpubAnnotationManager(this.rendition!, id, this.injector, () =>
-          this.noteCreated.emit(),
+        this.annotationManager = new EpubAnnotationManager(
+          this.rendition!,
+          id,
+          this.injector,
+          () => this.noteCreated.emit(),
+          () => this.commitFailed.emit(),
+        );
+        this.annotationManager.setHighlightMode(this.highlightMode());
+        this.annotationManager.setOnSelectionCaptured((text) =>
+          this.selectionCaptured.emit(text),
         );
         this.annotationManager.init();
 
@@ -359,6 +377,14 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
 
   removeHighlight(identifier: string): void {
     this.deleteHighlight(identifier);
+  }
+
+  commitHighlight(): void {
+    this.annotationManager?.commitHighlight();
+  }
+
+  discardHighlight(): void {
+    this.annotationManager?.discardHighlight();
   }
 
   ngOnDestroy(): void {

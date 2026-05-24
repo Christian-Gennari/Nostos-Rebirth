@@ -6,6 +6,7 @@ import {
   LucideAngularModule,
   ArrowLeft,
   NotebookPen,
+  Highlighter,
   MessageSquareQuote,
   StickyNote,
   Edit2,
@@ -14,6 +15,7 @@ import {
   Check,
   Clock,
   List,
+  MoreHorizontal,
   ZoomIn,
   ZoomOut,
   ChevronLeft,
@@ -71,11 +73,14 @@ export class ReaderShell implements OnInit {
   // Icons
   Icons = {
     ArrowLeft,
+    Highlighter,
     NotebookPen,
     StickyNote,
     Close: X,
+    Check,
     Clock,
     List,
+    MoreHorizontal,
     ZoomIn,
     ZoomOut,
     Prev: ChevronLeft,
@@ -90,6 +95,10 @@ export class ReaderShell implements OnInit {
   notesOpen = signal(false);
   tocOpen = signal(false);
   ready = signal(false);
+  highlightMode = signal(false);
+  pendingSelectionText = signal<string | null>(null);
+  overflowOpen = signal(false);
+  private lastPendingText: string | null = null;
 
   dbNotes = signal<Note[]>([]);
   quickNoteContent = signal('');
@@ -150,6 +159,11 @@ export class ReaderShell implements OnInit {
   ngOnInit() {
     this.loadConcepts();
 
+    const mql = window.matchMedia('(min-width: 769px)');
+    mql.addEventListener('change', (e) => {
+      if (e.matches) this.overflowOpen.set(false);
+    });
+
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.booksService.get(id).subscribe({
@@ -190,11 +204,49 @@ export class ReaderShell implements OnInit {
       this.loadNotes(id);
       if (!this.notesOpen()) this.notesOpen.set(true);
     }
+    this.lastPendingText = null;
   }
 
   toggleNotes() {
     this.notesOpen.update((v) => !v);
     if (this.notesOpen()) this.tocOpen.set(false);
+  }
+
+  toggleHighlightMode() {
+    const newMode = !this.highlightMode();
+    if (!newMode && this.pendingSelectionText()) {
+      this.activeReader()?.discardHighlight();
+      this.pendingSelectionText.set(null);
+    }
+    this.lastPendingText = null;
+    this.highlightMode.set(newMode);
+  }
+
+  toggleOverflow() {
+    this.overflowOpen.update((v) => !v);
+  }
+
+  commitHighlight() {
+    this.lastPendingText = this.pendingSelectionText();
+    this.pendingSelectionText.set(null);
+    this.activeReader()?.commitHighlight();
+  }
+
+  handleCommitFailed() {
+    if (this.lastPendingText !== null) {
+      this.pendingSelectionText.set(this.lastPendingText);
+      this.lastPendingText = null;
+    }
+  }
+
+  discardHighlight() {
+    this.activeReader()?.discardHighlight();
+    this.pendingSelectionText.set(null);
+    this.lastPendingText = null;
+  }
+
+  handleSelectionCaptured(text: string) {
+    this.pendingSelectionText.set(text);
   }
 
   toggleToc() {
