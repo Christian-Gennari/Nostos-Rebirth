@@ -51,7 +51,7 @@ export class PdfAnnotationManager {
   }
 
 
-  captureHighlight(): {
+  captureHighlight(keepSelection = false): {
     pageNumber: number;
     rects: HighlightRect[];
     selectedText: string;
@@ -79,7 +79,9 @@ export class PdfAnnotationManager {
       height: r.height / pageRect.height,
     }));
 
-    selection.removeAllRanges();
+    if (!keepSelection) {
+      selection.removeAllRanges();
+    }
 
     return {
       pageNumber,

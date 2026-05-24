@@ -199,7 +199,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   onTextSelection() {
     if (!this.highlightMode()) return;
 
-    const highlight = this.highlightService.captureHighlight();
+    const highlight = this.highlightService.captureHighlight(true);
     if (!highlight) return;
 
     if (this.pendingHighlight) {
@@ -209,14 +209,6 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     }
 
     const tempId = `temp-${Date.now()}`;
-    const newHighlight: PageHighlight = {
-      id: tempId,
-      pageNumber: highlight.pageNumber,
-      rects: highlight.rects,
-    };
-
-    this.savedHighlights.push(newHighlight);
-    this.repaintPage(highlight.pageNumber);
 
     this.pendingHighlight = {
       tempId,
@@ -268,6 +260,17 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     if (!this.pendingHighlight) return;
 
     const p = this.pendingHighlight;
+    const newHighlight: PageHighlight = {
+      id: p.tempId,
+      pageNumber: p.pageNumber,
+      rects: p.rects,
+    };
+    this.savedHighlights.push(newHighlight);
+    this.repaintPage(p.pageNumber);
+
+    const selection = window.getSelection();
+    if (selection) selection.removeAllRanges();
+
     const cfiPayload = { pageNumber: p.pageNumber, rects: p.rects };
 
     this.notesService
@@ -297,9 +300,9 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   discardHighlight() {
     if (!this.pendingHighlight) return;
 
-    const p = this.pendingHighlight;
-    this.savedHighlights = this.savedHighlights.filter((h) => h.id !== p.tempId);
-    this.repaintPage(p.pageNumber);
+    const selection = window.getSelection();
+    if (selection) selection.removeAllRanges();
+
     this.pendingHighlight = null;
   }
 

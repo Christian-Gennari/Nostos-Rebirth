@@ -16,6 +16,7 @@ export class EpubAnnotationManager {
 
   private highlightMode = false;
   private pendingHighlight: PendingEpubHighlight | null = null;
+  private pendingContents: any = null;
   private onSelectionCaptured?: (text: string) => void;
 
   constructor(
@@ -50,29 +51,19 @@ export class EpubAnnotationManager {
         fill-opacity: 0.3;
         mix-blend-mode: multiply;
       }
-      ::selection {
-        background: rgba(255, 255, 0, 0.3);
-      }
     `;
     contents.document.head.appendChild(style);
   }
 
-private handleSelection(cfiRange: string, contents: any) {
-    if (!this.highlightMode) return;
+  private handleSelection(cfiRange: string, contents: any) {
+    if (!this.highlightMode || !cfiRange) return;
 
     const range = this.rendition.getRange(cfiRange);
-    const selectedText = range ? range.toString() : '';
+    const selectedText = range ? range.toString().trim() : '';
+    if (!selectedText) return;
 
-    const selection = contents.window.getSelection();
-    selection?.removeAllRanges();
-
-    if (this.pendingHighlight) {
-      this.rendition.annotations.remove(this.pendingHighlight.cfiRange, 'highlight');
-    }
-
-    this.rendition.annotations.add('highlight', cfiRange);
     this.pendingHighlight = { cfiRange, selectedText };
-
+    this.pendingContents = contents;
     this.onSelectionCaptured?.(selectedText);
   }
 
@@ -80,6 +71,13 @@ private handleSelection(cfiRange: string, contents: any) {
     if (!this.pendingHighlight) return;
 
     const p = this.pendingHighlight;
+
+    this.rendition.annotations.add('highlight', p.cfiRange);
+
+    if (this.pendingContents) {
+      const selection = this.pendingContents.window.getSelection();
+      if (selection) selection.removeAllRanges();
+    }
 
     this.notesService
       .create(this.bookId, {
@@ -91,11 +89,13 @@ private handleSelection(cfiRange: string, contents: any) {
         next: (note) => {
           this.highlights.update((current) => [...current, p.cfiRange]);
           this.pendingHighlight = null;
+          this.pendingContents = null;
           if (this.onNoteCreated) this.onNoteCreated();
         },
         error: () => {
           this.rendition.annotations.remove(p.cfiRange, 'highlight');
           this.pendingHighlight = null;
+          this.pendingContents = null;
           this.onCommitFailed?.();
         },
       });
@@ -104,8 +104,13 @@ private handleSelection(cfiRange: string, contents: any) {
   discardHighlight() {
     if (!this.pendingHighlight) return;
 
-    this.rendition.annotations.remove(this.pendingHighlight.cfiRange, 'highlight');
+    if (this.pendingContents) {
+      const selection = this.pendingContents.window.getSelection();
+      if (selection) selection.removeAllRanges();
+    }
+
     this.pendingHighlight = null;
+    this.pendingContents = null;
   }
 
   public restoreHighlights(notes: Note[]) {
