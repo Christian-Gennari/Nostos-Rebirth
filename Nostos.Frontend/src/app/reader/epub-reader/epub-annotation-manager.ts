@@ -4,46 +4,52 @@ import { signal, Injector } from '@angular/core';
 import { NotesService } from '../../core/services/notes.service';
 import { Note } from '../../core/dtos/note.dtos';
 
+interface PendingEpubHighlight {
+  cfiRange: string;
+  selectedText: string;
+}
+
 export class EpubAnnotationManager {
-  // Signal to track saved highlights (CFI strings)
   public highlights = signal<string[]>([]);
 
   private notesService: NotesService;
+
+  private highlightMode = false;
+  private pendingHighlight: PendingEpubHighlight | null = null;
+  private onSelectionCaptured?: (text: string) => void;
 
   constructor(
     private rendition: Rendition,
     private bookId: string,
     private injector: Injector,
     private onNoteCreated?: () => void,
+    private onCommitFailed?: () => void,
   ) {
     this.notesService = this.injector.get(NotesService);
   }
 
-  /**
-   * Initialize listeners for selection events.
-   * Works for both Mouse (PC) and Touch (Mobile).
-   */
+  setHighlightMode(enabled: boolean) {
+    this.highlightMode = enabled;
+  }
+
+  setOnSelectionCaptured(callback: (text: string) => void) {
+    this.onSelectionCaptured = callback;
+  }
+
   public init() {
     this.rendition.on('selected', (cfiRange: string, contents: any) => {
       this.handleSelection(cfiRange, contents);
     });
   }
 
-  /**
-   * Inject necessary CSS for highlights into the EPUB iframe.
-   * Call this inside the rendition.hooks.content.register hook.
-   */
   public injectHighlightStyles(contents: any) {
     const style = contents.document.createElement('style');
     style.innerHTML = `
-      /* Custom Highlight Style (Yellow Marker) */
       .epubjs-hl {
         fill: yellow;
         fill-opacity: 0.3;
         mix-blend-mode: multiply;
       }
-
-      /* Mobile/PC Native Selection Color (Match the highlight) */
       ::selection {
         background: rgba(255, 255, 0, 0.3);
       }
@@ -51,50 +57,57 @@ export class EpubAnnotationManager {
     contents.document.head.appendChild(style);
   }
 
-  /**
-   * Core logic when text is selected.
-   */
-  private handleSelection(cfiRange: string, contents: any) {
-    console.log('Selection detected:', cfiRange);
+private handleSelection(cfiRange: string, contents: any) {
+    if (!this.highlightMode) return;
 
-    // 1. Extract the selected text using the CFI
     const range = this.rendition.getRange(cfiRange);
     const selectedText = range ? range.toString() : '';
 
-    // 2. Visually add the highlight immediately (Optimistic UI)
-    this.rendition.annotations.add('highlight', cfiRange);
-
-    // 3. Clear the native browser selection
     const selection = contents.window.getSelection();
     selection?.removeAllRanges();
 
-    // 4. Save to Backend
+    if (this.pendingHighlight) {
+      this.rendition.annotations.remove(this.pendingHighlight.cfiRange, 'highlight');
+    }
+
+    this.rendition.annotations.add('highlight', cfiRange);
+    this.pendingHighlight = { cfiRange, selectedText };
+
+    this.onSelectionCaptured?.(selectedText);
+  }
+
+  commitHighlight() {
+    if (!this.pendingHighlight) return;
+
+    const p = this.pendingHighlight;
+
     this.notesService
       .create(this.bookId, {
-        content: '', // User can add a comment later
-        cfiRange: cfiRange,
-        selectedText: selectedText,
+        content: '',
+        cfiRange: p.cfiRange,
+        selectedText: p.selectedText,
       })
       .subscribe({
         next: (note) => {
-          console.log('Highlight saved to DB:', note.id);
-          this.highlights.update((current) => [...current, cfiRange]);
-
-          // Notify the parent component so it can refresh the sidebar
+          this.highlights.update((current) => [...current, p.cfiRange]);
+          this.pendingHighlight = null;
           if (this.onNoteCreated) this.onNoteCreated();
         },
-        error: (err) => {
-          console.error('Failed to save highlight:', err);
-          // Rollback: Remove the highlight if the save failed
-          this.rendition.annotations.remove(cfiRange, 'highlight');
+        error: () => {
+          this.rendition.annotations.remove(p.cfiRange, 'highlight');
+          this.pendingHighlight = null;
+          this.onCommitFailed?.();
         },
       });
   }
 
-  /**
-   * Restore previously saved highlights from the backend
-   * Accepts Note[] objects (which contain the cfiRange)
-   */
+  discardHighlight() {
+    if (!this.pendingHighlight) return;
+
+    this.rendition.annotations.remove(this.pendingHighlight.cfiRange, 'highlight');
+    this.pendingHighlight = null;
+  }
+
   public restoreHighlights(notes: Note[]) {
     notes.forEach((note) => {
       if (note.cfiRange) {
@@ -105,11 +118,7 @@ export class EpubAnnotationManager {
   }
 
   public removeHighlight(cfiRange: string) {
-    // 1. Tell epub.js to remove the SVG/DOM elements for this CFI
-    // The second argument 'highlight' must match the type used in .add()
     this.rendition.annotations.remove(cfiRange, 'highlight');
-
-    // 2. Update the local signal state to reflect the removal
     this.highlights.update((current) => current.filter((cfi) => cfi !== cfiRange));
   }
 }

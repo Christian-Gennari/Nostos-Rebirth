@@ -8,16 +8,34 @@
         [bookId]="book()!.id"
         [initialLocation]="book()?.lastLocation"
         [sidebarVisible]="tocOpen()"
+        [highlightMode]="highlightMode()"
         (sidebarVisibleChange)="tocOpen.set($event)"
         (noteCreated)="handleNoteCreated()"
+        (selectionCaptured)="handleSelectionCaptured($event)"
+        (commitFailed)="handleCommitFailed()"
       />
       } @case ('epub') {
-      <app-epub-reader [bookId]="book()!.id" (noteCreated)="handleNoteCreated()" />
+      <app-epub-reader [bookId]="book()!.id" [highlightMode]="highlightMode()" (noteCreated)="handleNoteCreated()" (selectionCaptured)="handleSelectionCaptured($event)" (commitFailed)="handleCommitFailed()" />
       } @case ('audio') {
       <app-audio-reader [bookId]="book()!.id" />
       } @default {
       <div class="error">Unsupported file format.</div>
       } } }
+
+      @if (pendingSelectionText() !== null) {
+      <div class="highlight-confirmation">
+        <div class="confirmation-content">
+          <p class="selected-text">"{{ pendingSelectionText()!.length > 60 ? pendingSelectionText()!.slice(0, 60) + '...' : pendingSelectionText()! }}"</p>
+          <div class="confirmation-actions">
+            <button class="btn btn-secondary" (click)="discardHighlight()">Cancel</button>
+            <button class="btn btn-primary" (click)="commitHighlight()">
+              <lucide-icon [img]="Icons.Check" [size]="16"></lucide-icon>
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+      }
     </main>
 
     <aside class="toc-panel" [class.open]="tocOpen() && fileType() !== 'pdf'">
@@ -155,6 +173,14 @@
 
     <div class="toolbar-right">
       @if (fileType() !== 'audio') {
+      <button
+        class="icon-btn"
+        [class.active]="highlightMode()"
+        (click)="toggleHighlightMode()"
+        title="Highlight mode"
+      >
+        <lucide-icon [img]="Icons.Highlighter" [size]="20"></lucide-icon>
+      </button>
       <button class="icon-btn desktop-only" (click)="zoomOut()">
         <lucide-icon [img]="Icons.ZoomOut" [size]="20"></lucide-icon>
       </button>

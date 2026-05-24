@@ -30,6 +30,8 @@ export interface IReader {
 
   // Highlight Management
   removeHighlight(identifier: string): void;
+  commitHighlight(): void;
+  discardHighlight(): void;
 
   // Reactive State
   toc: Signal<TocItem[]>;

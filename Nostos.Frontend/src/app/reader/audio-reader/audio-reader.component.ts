@@ -237,6 +237,14 @@ export class AudioReader implements OnDestroy, IReader {
     // No-op: Audio reader does not support highlights
   }
 
+  commitHighlight(): void {
+    // No-op: Audio reader does not support highlights
+  }
+
+  discardHighlight(): void {
+    // No-op: Audio reader does not support highlights
+  }
+
   // --- Visibility Change: Save on hidden, resync on visible ---
   private handleVisibilityChange() {
     if (!this.player) return;

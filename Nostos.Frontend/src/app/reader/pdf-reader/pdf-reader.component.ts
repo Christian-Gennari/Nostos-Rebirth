@@ -25,6 +25,13 @@ import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 
+interface PendingPdfHighlight {
+  tempId: string;
+  pageNumber: number;
+  rects: { left: number; top: number; width: number; height: number }[];
+  selectedText: string;
+}
+
 @Component({
   selector: 'app-pdf-reader',
   standalone: true,
@@ -42,12 +49,17 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   bookId = input.required<string>();
   initialLocation = input<string | undefined>();
   noteCreated = output<void>();
+  highlightMode = input<boolean>(false);
+  selectionCaptured = output<string>();
+  commitFailed = output<void>();
 
   sidebarVisible = input<boolean>(false);
   sidebarVisibleChange = output<boolean>();
 
   pdfSrc = computed(() => `/api/books/${this.bookId()}/file`);
   savedHighlights: PageHighlight[] = [];
+
+  private pendingHighlight: PendingPdfHighlight | null = null;
 
   // --- IReader Implementation ---
   toc = signal<TocItem[]>([]);
@@ -185,8 +197,16 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   // --- Selection Logic ---
 
   onTextSelection() {
+    if (!this.highlightMode()) return;
+
     const highlight = this.highlightService.captureHighlight();
     if (!highlight) return;
+
+    if (this.pendingHighlight) {
+      const old = this.pendingHighlight;
+      this.savedHighlights = this.savedHighlights.filter((h) => h.id !== old.tempId);
+      this.repaintPage(old.pageNumber);
+    }
 
     const tempId = `temp-${Date.now()}`;
     const newHighlight: PageHighlight = {
@@ -198,26 +218,14 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     this.savedHighlights.push(newHighlight);
     this.repaintPage(highlight.pageNumber);
 
-    const cfiPayload = { pageNumber: highlight.pageNumber, rects: highlight.rects };
-    this.notesService
-      .create(this.bookId(), {
-        content: '',
-        selectedText: highlight.selectedText,
-        cfiRange: JSON.stringify(cfiPayload),
-      })
-      .subscribe({
-        next: (createdNote) => {
-          const index = this.savedHighlights.findIndex((h) => h.id === tempId);
-          if (index !== -1) {
-            this.savedHighlights[index].id = createdNote.id;
-          }
-          this.noteCreated.emit();
-        },
-        error: () => {
-          this.savedHighlights = this.savedHighlights.filter((h) => h.id !== tempId);
-          this.repaintPage(highlight.pageNumber);
-        },
-      });
+    this.pendingHighlight = {
+      tempId,
+      pageNumber: highlight.pageNumber,
+      rects: highlight.rects,
+      selectedText: highlight.selectedText,
+    };
+
+    this.selectionCaptured.emit(highlight.selectedText);
   }
 
   // --- Helpers ---
@@ -254,6 +262,45 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
       this.savedHighlights.splice(index, 1);
       this.repaintPage(pageNumber);
     }
+  }
+
+  commitHighlight() {
+    if (!this.pendingHighlight) return;
+
+    const p = this.pendingHighlight;
+    const cfiPayload = { pageNumber: p.pageNumber, rects: p.rects };
+
+    this.notesService
+      .create(this.bookId(), {
+        content: '',
+        selectedText: p.selectedText,
+        cfiRange: JSON.stringify(cfiPayload),
+      })
+      .subscribe({
+        next: (createdNote) => {
+          const index = this.savedHighlights.findIndex((h) => h.id === p.tempId);
+          if (index !== -1) {
+            this.savedHighlights[index].id = createdNote.id;
+          }
+          this.pendingHighlight = null;
+          this.noteCreated.emit();
+        },
+        error: () => {
+          this.savedHighlights = this.savedHighlights.filter((h) => h.id !== p.tempId);
+          this.repaintPage(p.pageNumber);
+          this.pendingHighlight = null;
+          this.commitFailed.emit();
+        },
+      });
+  }
+
+  discardHighlight() {
+    if (!this.pendingHighlight) return;
+
+    const p = this.pendingHighlight;
+    this.savedHighlights = this.savedHighlights.filter((h) => h.id !== p.tempId);
+    this.repaintPage(p.pageNumber);
+    this.pendingHighlight = null;
   }
 
   private repaintPage(pageNumber: number) {

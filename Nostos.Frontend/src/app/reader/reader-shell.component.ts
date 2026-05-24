@@ -6,6 +6,7 @@ import {
   LucideAngularModule,
   ArrowLeft,
   NotebookPen,
+  Highlighter,
   MessageSquareQuote,
   StickyNote,
   Edit2,
@@ -71,9 +72,11 @@ export class ReaderShell implements OnInit {
   // Icons
   Icons = {
     ArrowLeft,
+    Highlighter,
     NotebookPen,
     StickyNote,
     Close: X,
+    Check,
     Clock,
     List,
     ZoomIn,
@@ -90,6 +93,9 @@ export class ReaderShell implements OnInit {
   notesOpen = signal(false);
   tocOpen = signal(false);
   ready = signal(false);
+  highlightMode = signal(false);
+  pendingSelectionText = signal<string | null>(null);
+  private lastPendingText: string | null = null;
 
   dbNotes = signal<Note[]>([]);
   quickNoteContent = signal('');
@@ -190,11 +196,45 @@ export class ReaderShell implements OnInit {
       this.loadNotes(id);
       if (!this.notesOpen()) this.notesOpen.set(true);
     }
+    this.lastPendingText = null;
   }
 
   toggleNotes() {
     this.notesOpen.update((v) => !v);
     if (this.notesOpen()) this.tocOpen.set(false);
+  }
+
+  toggleHighlightMode() {
+    const newMode = !this.highlightMode();
+    if (!newMode && this.pendingSelectionText()) {
+      this.activeReader()?.discardHighlight();
+      this.pendingSelectionText.set(null);
+    }
+    this.lastPendingText = null;
+    this.highlightMode.set(newMode);
+  }
+
+  commitHighlight() {
+    this.lastPendingText = this.pendingSelectionText();
+    this.pendingSelectionText.set(null);
+    this.activeReader()?.commitHighlight();
+  }
+
+  handleCommitFailed() {
+    if (this.lastPendingText !== null) {
+      this.pendingSelectionText.set(this.lastPendingText);
+      this.lastPendingText = null;
+    }
+  }
+
+  discardHighlight() {
+    this.activeReader()?.discardHighlight();
+    this.pendingSelectionText.set(null);
+    this.lastPendingText = null;
+  }
+
+  handleSelectionCaptured(text: string) {
+    this.pendingSelectionText.set(text);
   }
 
   toggleToc() {
