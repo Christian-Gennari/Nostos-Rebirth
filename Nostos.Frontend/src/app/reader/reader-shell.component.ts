@@ -15,6 +15,7 @@ import {
   Check,
   Clock,
   List,
+  MoreHorizontal,
   ZoomIn,
   ZoomOut,
   ChevronLeft,
@@ -79,6 +80,7 @@ export class ReaderShell implements OnInit {
     Check,
     Clock,
     List,
+    MoreHorizontal,
     ZoomIn,
     ZoomOut,
     Prev: ChevronLeft,
@@ -95,6 +97,7 @@ export class ReaderShell implements OnInit {
   ready = signal(false);
   highlightMode = signal(false);
   pendingSelectionText = signal<string | null>(null);
+  overflowOpen = signal(false);
   private lastPendingText: string | null = null;
 
   dbNotes = signal<Note[]>([]);
@@ -156,6 +159,11 @@ export class ReaderShell implements OnInit {
   ngOnInit() {
     this.loadConcepts();
 
+    const mql = window.matchMedia('(min-width: 769px)');
+    mql.addEventListener('change', (e) => {
+      if (e.matches) this.overflowOpen.set(false);
+    });
+
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.booksService.get(id).subscribe({
@@ -212,6 +220,10 @@ export class ReaderShell implements OnInit {
     }
     this.lastPendingText = null;
     this.highlightMode.set(newMode);
+  }
+
+  toggleOverflow() {
+    this.overflowOpen.update((v) => !v);
   }
 
   commitHighlight() {

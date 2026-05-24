@@ -128,14 +128,37 @@
     </aside>
   </div>
 
+  @if (overflowOpen()) {
+  <div class="overflow-backdrop" (click)="overflowOpen.set(false)"></div>
+  <div class="overflow-menu">
+    <button class="overflow-item" (click)="goBack(); overflowOpen.set(false)">
+      <lucide-icon [img]="Icons.ArrowLeft" [size]="18"></lucide-icon>
+      <span>Back to Library</span>
+    </button>
+    <button class="overflow-item" (click)="toggleToc(); overflowOpen.set(false)">
+      <lucide-icon [img]="Icons.List" [size]="18"></lucide-icon>
+      <span>Table of Contents</span>
+    </button>
+    <button class="overflow-item" (click)="toggleNotes(); overflowOpen.set(false)">
+      <lucide-icon [img]="Icons.NotebookPen" [size]="18"></lucide-icon>
+      <span>Notes & Highlights</span>
+    </button>
+  </div>
+  }
+
   <header class="reader-toolbar">
     <div class="toolbar-left">
-      <button class="icon-btn" (click)="goBack()">
-        <lucide-icon [img]="Icons.ArrowLeft" [size]="20"></lucide-icon>
+      <button class="icon-btn overflow-toggle" (click)="toggleOverflow()" title="More">
+        <lucide-icon [img]="Icons.MoreHorizontal" [size]="20"></lucide-icon>
       </button>
-      <button class="icon-btn" (click)="toggleToc()" title="Table of Contents">
-        <lucide-icon [img]="Icons.List" [size]="20"></lucide-icon>
-      </button>
+      <div class="toolbar-desktop-nav">
+        <button class="icon-btn" (click)="goBack()">
+          <lucide-icon [img]="Icons.ArrowLeft" [size]="20"></lucide-icon>
+        </button>
+        <button class="icon-btn" (click)="toggleToc()" title="Table of Contents">
+          <lucide-icon [img]="Icons.List" [size]="20"></lucide-icon>
+        </button>
+      </div>
     </div>
 
     <div class="toolbar-center">
@@ -188,7 +211,7 @@
         <lucide-icon [img]="Icons.ZoomIn" [size]="20"></lucide-icon>
       </button>
       }
-      <button class="icon-btn" (click)="toggleNotes()" [class.active]="notesOpen()">
+      <button class="icon-btn desktop-only" (click)="toggleNotes()" [class.active]="notesOpen()">
         <lucide-icon [img]="Icons.NotebookPen" [size]="20"></lucide-icon>
       </button>
     </div>

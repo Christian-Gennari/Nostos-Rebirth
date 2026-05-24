@@ -141,6 +141,58 @@
   background-color: var(--bg-hover);
   color: var(--color-primary);
 }
+.toolbar-desktop-nav {
+  display: contents;
+}
+
+.overflow-toggle {
+  display: none;
+}
+
+.overflow-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: transparent;
+}
+
+.overflow-menu {
+  position: fixed;
+  bottom: var(--toolbar-height);
+  left: 0;
+  right: 0;
+  z-index: 41;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-color);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
+  padding: 0.5rem;
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+.overflow-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--color-text-main);
+  font-size: 0.9rem;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  min-height: 48px;
+}
+
+.overflow-item:hover {
+  background-color: var(--bg-hover);
+}
+
+.overflow-item lucide-icon {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
 .reader-toolbar {
   height: var(--toolbar-height);
   background: var(--bg-surface);
@@ -357,11 +409,23 @@
     color: inherit;
     border-color: inherit;
   }
+  .icon-btn.active,
+  .icon-btn.active:hover {
+    background-color: var(--color-primary);
+    color: #fff;
+    border-color: var(--color-primary);
+  }
   .icon-btn lucide-icon {
     top: 0;
   }
   .desktop-only {
     display: none;
+  }
+  .toolbar-desktop-nav {
+    display: none;
+  }
+  .overflow-toggle {
+    display: inline-flex;
   }
   .progress-display {
     min-width: auto;
