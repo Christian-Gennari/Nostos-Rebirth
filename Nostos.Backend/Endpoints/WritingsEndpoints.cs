@@ -99,8 +99,14 @@ public static class WritingsEndpoints
                         return Results.BadRequest("Cannot move a folder into itself.");
 
                     var currentAncestorId = dto.NewParentId;
+                    var visited = new HashSet<Guid>();
                     while (currentAncestorId != null)
                     {
+                        if (!visited.Add(currentAncestorId.Value))
+                            return Results.BadRequest(
+                                "Circular reference detected in folder hierarchy."
+                            );
+
                         if (currentAncestorId == id)
                             return Results.BadRequest(
                                 "Cannot move a folder into its own descendant."

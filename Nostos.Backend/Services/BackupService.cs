@@ -505,22 +505,42 @@ public class BackupService : IBackupService
         }
     }
 
-    private static void AddDirectoryToArchive(ZipArchive archive, string sourceDir, string entryPrefix)
+    private static void AddDirectoryToArchive(ZipArchive archive, string sourceDir, string entryPrefix, int maxDepth = 100)
     {
-        foreach (var file in Directory.EnumerateFiles(sourceDir))
-        {
-            var entryName = string.IsNullOrEmpty(entryPrefix)
-                ? Path.GetFileName(file)
-                : $"{entryPrefix}/{Path.GetFileName(file)}";
+        var stack = new Stack<(string dir, string prefix, int depth)>();
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        stack.Push((sourceDir, entryPrefix, 0));
 
-            archive.CreateEntryFromFile(file, entryName);
-        }
-
-        foreach (var dir in Directory.EnumerateDirectories(sourceDir))
+        while (stack.Count > 0)
         {
-            var dirName = Path.GetFileName(dir);
-            var prefix = string.IsNullOrEmpty(entryPrefix) ? dirName : $"{entryPrefix}/{dirName}";
-            AddDirectoryToArchive(archive, dir, prefix);
+            var (dir, prefix, depth) = stack.Pop();
+
+            if (depth > maxDepth)
+                throw new InvalidOperationException($"Directory nesting exceeds maximum depth of {maxDepth}. Path: {dir}");
+
+            var realPath = Path.GetFullPath(dir);
+            if (!visited.Add(realPath))
+                throw new InvalidOperationException($"Circular symlink detected. Path: {dir}");
+
+            foreach (var file in Directory.EnumerateFiles(dir))
+            {
+                var entryName = string.IsNullOrEmpty(prefix)
+                    ? Path.GetFileName(file)
+                    : $"{prefix}/{Path.GetFileName(file)}";
+
+                archive.CreateEntryFromFile(file, entryName);
+            }
+
+            foreach (var subDir in Directory.EnumerateDirectories(dir))
+            {
+                var subRealPath = Path.GetFullPath(subDir);
+                if (subRealPath != realPath)
+                {
+                    var dirName = Path.GetFileName(subDir);
+                    var subPrefix = string.IsNullOrEmpty(prefix) ? dirName : $"{prefix}/{dirName}";
+                    stack.Push((subDir, subPrefix, depth + 1));
+                }
+            }
         }
     }
 
@@ -536,7 +556,7 @@ public class BackupService : IBackupService
     {
         var delays = new[] { TimeSpan.FromMilliseconds(500), TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2) };
 
-        for (var attempt = 0; ; attempt++)
+        for (var attempt = 0; attempt <= delays.Length; attempt++)
         {
             try
             {

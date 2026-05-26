@@ -70,8 +70,14 @@ public static class CollectionsEndpoints
                         );
 
                     var currentAncestorId = dto.ParentId;
+                    var visited = new HashSet<Guid>();
                     while (currentAncestorId != null)
                     {
+                        if (!visited.Add(currentAncestorId.Value))
+                            return Results.BadRequest(
+                                new { error = "Circular reference detected in collection hierarchy." }
+                            );
+
                         if (currentAncestorId == id)
                             return Results.BadRequest(
                                 new { error = "Cannot move a collection into its own child." }
