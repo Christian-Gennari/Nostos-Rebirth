@@ -151,7 +151,12 @@
   outline: none;
 }
 
-.time-label-btn:hover:not(:disabled),
+.time-label-btn:hover:not(:disabled) {
+  background: var(--bg-hover, rgba(0, 0, 0, 0.04));
+  border-color: var(--border-color);
+  color: var(--color-text-main);
+}
+
 .time-label-btn:focus-visible {
   background: var(--bg-hover, rgba(0, 0, 0, 0.04));
   border-color: var(--border-color);
