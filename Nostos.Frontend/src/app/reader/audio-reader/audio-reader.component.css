@@ -104,6 +104,10 @@
   cursor: pointer;
 }
 
+.range-input:focus {
+  outline: none;
+}
+
 .range-input::-webkit-slider-thumb {
   -webkit-appearance: none;
   height: 12px;
@@ -141,6 +145,10 @@
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
   user-select: none;
+}
+
+.time-label-btn:focus {
+  outline: none;
 }
 
 .time-label-btn:hover:not(:disabled),
