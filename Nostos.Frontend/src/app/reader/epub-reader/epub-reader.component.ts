@@ -5,6 +5,7 @@ import {
   OnInit,
   OnDestroy,
   signal,
+  computed,
   effect,
   inject,
   Injector,
@@ -50,6 +51,32 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   // --- IReader Interface Implementation ---
   toc = signal<TocItem[]>([]);
   progress = signal<ReaderProgress>({ label: '', percentage: 0 });
+  currentHref = signal<string | null>(null);
+  currentLocationTarget = computed(() => {
+    const href = this.currentHref();
+    if (!href) return null;
+    const baseHref = href.split('#')[0];
+    const toc = this.toc();
+    if (toc.length === 0) return null;
+
+    let activeTarget: string | number | null = null;
+
+    const traverse = (items: TocItem[]): boolean => {
+      for (const item of items) {
+        if (item.target.toString().split('#')[0] === baseHref) {
+          activeTarget = item.target;
+          return true;
+        }
+        if (item.children && traverse(item.children)) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    traverse(toc);
+    return activeTarget;
+  });
 
   // Internal Zoom State
   private currentFontSize = signal(100); // 100%
@@ -194,6 +221,7 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
 
     this.rendition.on('relocated', (location: any) => {
       this.currentCfi = location.start.cfi;
+      this.currentHref.set(location.start.href);
       this.updateProgressState(location.start.cfi);
     });
 

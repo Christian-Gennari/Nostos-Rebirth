@@ -36,4 +36,5 @@ export interface IReader {
   // Reactive State
   toc: Signal<TocItem[]>;
   progress: Signal<ReaderProgress>;
+  currentLocationTarget?: Signal<string | number | null>;
 }
