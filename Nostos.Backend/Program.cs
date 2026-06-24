@@ -5,6 +5,7 @@ using Nostos.Backend.Data;
 using Nostos.Backend.Data.Interfaces;
 using Nostos.Backend.Data.Repositories;
 using Nostos.Backend.Endpoints;
+using Nostos.Backend.Serialization;
 using Nostos.Backend.Services;
 using Nostos.Backend.Workers;
 
@@ -37,6 +38,11 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.Configure<FormOptions>(options =>
 {
     options.MultipartBodyLengthLimit = maxUploadSizeGB;
+});
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new UtcDateTimeJsonConverter());
 });
 
 builder.Services.AddOpenApi();
