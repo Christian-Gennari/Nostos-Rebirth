@@ -27,7 +27,32 @@
         class="range-input"
       />
       <div class="time-labels">
-        <span>{{ formatTime(currentTime()) }}</span>
+        @if (isEditingTime()) {
+          <input
+            #timeInput
+            class="time-edit-input"
+            type="text"
+            inputmode="text"
+            [value]="timeInputValue()"
+            (keydown.enter)="commitTimeEdit(timeInput.value); $event.preventDefault()"
+            (keydown.escape)="cancelTimeEdit(); $event.stopPropagation(); $event.preventDefault()"
+            (blur)="commitTimeEdit(timeInput.value)"
+            aria-label="Enter time to jump to, format minutes colon seconds"
+            data-testid="audio-time-input"
+          />
+        } @else {
+          <button
+            #timeButton
+            type="button"
+            class="time-label-btn"
+            (click)="startEditingTime()"
+            [disabled]="duration() <= 0"
+            aria-label="Current playback time, click to jump to a specific time"
+            data-testid="audio-time-button"
+          >
+            {{ formatTime(currentTime()) }}
+          </button>
+        }
         <span>{{ formatTime(duration()) }}</span>
       </div>
     </div>
