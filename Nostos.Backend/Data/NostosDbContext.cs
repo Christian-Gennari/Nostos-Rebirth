@@ -22,6 +22,12 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
     public DbSet<NoteConceptModel> NoteConcepts => Set<NoteConceptModel>();
     public DbSet<BackupRecord> BackupRecords => Set<BackupRecord>();
 
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeValueConverter>();
+        configurationBuilder.Properties<DateTime?>().HaveConversion<NullableUtcDateTimeValueConverter>();
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
