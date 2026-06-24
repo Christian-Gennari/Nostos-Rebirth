@@ -132,25 +132,26 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Shared layout properties to guarantee zero layout shift */
+/* Shared layout properties to guarantee zero layout shift and straight edges */
 .time-label-btn,
 .time-edit-input {
-  width: 80px;
+  width: 96px;
   min-height: 44px;
   font: inherit;
   font-variant-numeric: tabular-nums;
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem 0.25rem;
   text-align: center;
   box-sizing: border-box;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm, 4px);
+  border: none;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
 }
 
 .time-label-btn {
   background: none;
   color: var(--color-text-light);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition: background-color 0.15s, color 0.15s;
   user-select: none;
 }
 
@@ -160,13 +161,11 @@
 
 .time-label-btn:hover:not(:disabled) {
   background: var(--bg-hover, rgba(0, 0, 0, 0.04));
-  border-color: var(--border-color);
   color: var(--color-text-main);
 }
 
 .time-label-btn:focus-visible {
   background: var(--bg-hover, rgba(0, 0, 0, 0.04));
-  border-color: var(--border-color);
   color: var(--color-text-main);
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
@@ -180,13 +179,14 @@
 .time-edit-input {
   color: var(--color-text-main);
   background: transparent;
+  border-bottom-color: var(--border-color);
   outline: none;
-  transition: background-color 0.15s, border-color 0.15s;
+  transition: border-bottom-color 0.15s, box-shadow 0.15s;
 }
 
 .time-edit-input:focus {
-  background: var(--bg-hover, rgba(0, 0, 0, 0.04));
   border-bottom-color: var(--color-primary);
+  box-shadow: 0 1px 0 0 var(--color-primary);
 }
 
 /* Playback Row */
