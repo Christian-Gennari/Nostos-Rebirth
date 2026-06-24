@@ -1,4 +1,4 @@
-import { Component, input, effect, inject, signal, OnDestroy } from '@angular/core';
+import { Component, input, effect, inject, signal, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Howl } from 'howler';
@@ -36,9 +36,10 @@ export class AudioReader implements OnDestroy, IReader {
   currentTime = signal(0);
   duration = signal(0);
   currentRate = signal(1);
+  isOpen = signal(false);
 
   // Playback Speeds
-  availableRates = [0.75, 0.9, 1, 1.25, 1.5];
+  availableRates = [0.75, 0.9, 1, 1.1, 1.25, 1.5];
 
   private progressSubject = new Subject<{ timestamp: number; percent: number }>();
   private progressSubscription!: Subscription;
@@ -200,6 +201,37 @@ export class AudioReader implements OnDestroy, IReader {
     this.player?.rate(rate);
     this.currentRate.set(rate);
     this.updateMediaSessionPositionState();
+  }
+
+  // Dropdown
+  toggleDropdown() {
+    this.isOpen.update(v => !v);
+  }
+
+  closeDropdown() {
+    this.isOpen.set(false);
+  }
+
+  selectRate(rate: number) {
+    this.setRate(rate);
+    this.closeDropdown();
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    if (!this.isOpen()) return;
+    const target = event.target as HTMLElement;
+    const selectorEl = target.closest('.rate-selector');
+    if (!selectorEl) {
+      this.closeDropdown();
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  onKeydownEscape() {
+    if (this.isOpen()) {
+      this.closeDropdown();
+    }
   }
 
   startProgressTracking() {
