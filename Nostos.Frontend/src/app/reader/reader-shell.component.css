@@ -136,10 +136,20 @@
   font-size: 0.95rem;
   color: var(--color-text-main);
   border-radius: var(--radius-sm);
+  transition: background-color 0.2s, color 0.2s, border-left-color 0.2s;
 }
 .toc-item:hover {
   background-color: var(--bg-hover);
   color: var(--color-primary);
+}
+.toc-item.active {
+  background-color: var(--bg-hover);
+  color: var(--color-primary);
+  font-weight: var(--fw-semibold);
+  border-left: 3px solid var(--color-primary);
+  border-bottom-left-radius: 0;
+  border-top-left-radius: 0;
+  padding-left: calc(1rem - 3px);
 }
 .toolbar-desktop-nav {
   display: contents;

@@ -104,6 +104,10 @@
   cursor: pointer;
 }
 
+.range-input:focus {
+  outline: none;
+}
+
 .range-input::-webkit-slider-thumb {
   -webkit-appearance: none;
   height: 12px;
@@ -128,25 +132,40 @@
   font-variant-numeric: tabular-nums;
 }
 
-.time-label-btn {
-  background: none;
-  border: 1px solid transparent;
-  color: var(--color-text-light);
+/* Shared layout properties to guarantee zero layout shift */
+.time-label-btn,
+.time-edit-input {
+  width: 96px;
+  min-height: 44px;
   font: inherit;
   font-variant-numeric: tabular-nums;
-  padding: 0.5rem 0.75rem;
-  min-height: 44px;
-  min-width: 64px;
+  padding: 0.5rem 0.25rem;
+  text-align: center;
+  box-sizing: border-box;
+  border: none;
+  border-bottom: 1px solid transparent;
+}
+
+.time-label-btn {
+  background: none;
+  color: var(--color-text-light);
   border-radius: var(--radius-sm, 4px);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition: background-color 0.15s, color 0.15s;
   user-select: none;
 }
 
-.time-label-btn:hover:not(:disabled),
+.time-label-btn:focus {
+  outline: none;
+}
+
+.time-label-btn:hover:not(:disabled) {
+  background: var(--bg-hover, rgba(0, 0, 0, 0.04));
+  color: var(--color-text-main);
+}
+
 .time-label-btn:focus-visible {
   background: var(--bg-hover, rgba(0, 0, 0, 0.04));
-  border-color: var(--border-color);
   color: var(--color-text-main);
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
@@ -158,21 +177,17 @@
 }
 
 .time-edit-input {
-  font: inherit;
-  font-variant-numeric: tabular-nums;
   color: var(--color-text-main);
-  background: var(--bg-surface);
-  border: 1px solid var(--color-primary, var(--border-color));
-  border-radius: var(--radius-sm, 4px);
-  padding: 0.4rem 0.6rem;
-  min-height: 44px;
-  min-width: 80px;
+  background: transparent;
+  border-bottom-color: var(--border-color);
+  border-radius: 0;
   outline: none;
+  transition: border-bottom-color 0.15s, box-shadow 0.15s;
 }
 
 .time-edit-input:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px var(--color-primary-alpha, rgba(0, 0, 0, 0.08));
+  border-bottom-color: var(--color-primary);
+  box-shadow: 0 1px 0 0 var(--color-primary);
 }
 
 /* Playback Row */

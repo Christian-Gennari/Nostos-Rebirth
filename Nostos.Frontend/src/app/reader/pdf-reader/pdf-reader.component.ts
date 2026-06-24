@@ -64,6 +64,30 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   // --- IReader Implementation ---
   toc = signal<TocItem[]>([]);
   progress = signal<ReaderProgress>({ label: '', percentage: 0 });
+  currentLocationTarget = computed(() => {
+    const page = this.progress()?.pageNumber ?? 1;
+    const toc = this.toc();
+    if (toc.length === 0) return null;
+
+    let activeTarget: string | number | null = null;
+    let maxPage = -1;
+
+    const traverse = (items: TocItem[]) => {
+      for (const item of items) {
+        const itemPage = typeof item.target === 'number' ? item.target : parseInt(item.target, 10);
+        if (!isNaN(itemPage) && itemPage <= page && itemPage > maxPage) {
+          maxPage = itemPage;
+          activeTarget = item.target;
+        }
+        if (item.children) {
+          traverse(item.children);
+        }
+      }
+    };
+
+    traverse(toc);
+    return activeTarget;
+  });
 
   // Internal State
   // CHANGE: Set default to 'page-fit' for the initial load

@@ -8,6 +8,7 @@ import {
   input,
   effect,
   signal,
+  computed,
   OnDestroy,
   HostListener,
 } from '@angular/core';
@@ -41,6 +42,20 @@ export class AudioReader implements OnDestroy, IReader {
   // IReader Interface
   toc = signal<TocItem[]>([]);
   progress = signal<ReaderProgress>({ label: '0:00', percentage: 0 });
+  currentLocationTarget = computed(() => {
+    const time = this.currentTime();
+    const toc = this.toc();
+    let activeTarget: string | number | null = null;
+    let maxStart = -1;
+    for (const item of toc) {
+      const start = typeof item.target === 'number' ? item.target : parseFloat(item.target);
+      if (!isNaN(start) && start <= time && start > maxStart) {
+        maxStart = start;
+        activeTarget = item.target;
+      }
+    }
+    return activeTarget;
+  });
 
   // Player State
   player: Howl | null = null;

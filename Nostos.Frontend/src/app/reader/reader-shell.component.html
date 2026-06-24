@@ -50,7 +50,7 @@
         <ng-template #tocTemplate let-items>
           @for (item of items; track $index) {
           <div class="toc-item-wrapper">
-            <div class="toc-item" (click)="handleTocClick(item)">
+            <div class="toc-item" [class.active]="isActive(item)" (click)="handleTocClick(item)">
               {{ item.label }}
             </div>
 

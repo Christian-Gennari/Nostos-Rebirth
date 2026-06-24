@@ -154,6 +154,11 @@ export class ReaderShell implements OnInit {
     this.tocOpen.set(false);
   }
 
+  isActive(item: TocItem): boolean {
+    const activeTarget = this.activeReader()?.currentLocationTarget?.();
+    return activeTarget != null && item.target === activeTarget;
+  }
+
   // --- INITIALIZATION ---
 
   ngOnInit() {
