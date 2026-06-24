@@ -132,7 +132,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Shared layout properties to guarantee zero layout shift and straight edges */
+/* Shared layout properties to guarantee zero layout shift */
 .time-label-btn,
 .time-edit-input {
   width: 96px;
@@ -144,12 +144,12 @@
   box-sizing: border-box;
   border: none;
   border-bottom: 1px solid transparent;
-  border-radius: 0;
 }
 
 .time-label-btn {
   background: none;
   color: var(--color-text-light);
+  border-radius: var(--radius-sm, 4px);
   cursor: pointer;
   transition: background-color 0.15s, color 0.15s;
   user-select: none;
@@ -180,6 +180,7 @@
   color: var(--color-text-main);
   background: transparent;
   border-bottom-color: var(--border-color);
+  border-radius: 0;
   outline: none;
   transition: border-bottom-color 0.15s, box-shadow 0.15s;
 }
