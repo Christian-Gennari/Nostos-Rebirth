@@ -1,4 +1,16 @@
-import { Component, input, effect, inject, signal, OnDestroy, HostListener } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  Injector,
+  ViewChild,
+  afterNextRender,
+  inject,
+  input,
+  effect,
+  signal,
+  OnDestroy,
+  HostListener,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Howl } from 'howler';
@@ -37,6 +49,27 @@ export class AudioReader implements OnDestroy, IReader {
   duration = signal(0);
   currentRate = signal(1);
   isOpen = signal(false);
+
+  // --- Jump-to-timestamp (issue #6) ---
+  isEditingTime = signal(false);
+  timeInputValue = signal('');
+
+  @ViewChild('timeInput') set timeInputRef(el: ElementRef<HTMLInputElement> | undefined) {
+    if (el) {
+      el.nativeElement.focus();
+      el.nativeElement.select();
+    }
+  }
+
+  @ViewChild('timeButton') timeButtonRef?: ElementRef<HTMLButtonElement>;
+
+  private injector = inject(Injector);
+
+  private restoreFocusToTimeButton(): void {
+    afterNextRender(() => {
+      this.timeButtonRef?.nativeElement.focus();
+    }, { injector: this.injector });
+  }
 
   // Playback Speeds
   availableRates = [0.75, 0.9, 1, 1.1, 1.25, 1.5];
@@ -265,6 +298,32 @@ export class AudioReader implements OnDestroy, IReader {
     return `${m}:${s.toString().padStart(2, '0')}`;
   }
 
+  // --- Jump-to-timestamp (issue #6) ---
+  startEditingTime(): void {
+    if (this.duration() <= 0) return;
+    this.timeInputValue.set(this.formatTime(this.currentTime()));
+    this.isEditingTime.set(true);
+  }
+
+  commitTimeEdit(value: string): void {
+    if (!this.isEditingTime()) return;
+    const seconds = parseTimeString(value);
+    this.isEditingTime.set(false);
+    if (seconds == null) {
+      this.restoreFocusToTimeButton();
+      return;
+    }
+    const clamped = Math.max(0, Math.min(seconds, this.duration()));
+    this.goToTime(clamped);
+    this.restoreFocusToTimeButton();
+  }
+
+  cancelTimeEdit(): void {
+    if (!this.isEditingTime()) return;
+    this.isEditingTime.set(false);
+    this.restoreFocusToTimeButton();
+  }
+
   removeHighlight(_identifier: string): void {
     // No-op: Audio reader does not support highlights
   }
@@ -396,4 +455,24 @@ export class AudioReader implements OnDestroy, IReader {
 
     this.player?.unload();
   }
+}
+
+/**
+ * Parse a time string in `[H:]MM:SS` format into total seconds.
+ * Accepts 1 or 2 digits per segment, trims surrounding whitespace.
+ * Each segment is treated as a raw integer — out-of-range minute/second
+ * values are NOT rejected here; the caller clamps the result to a
+ * maximum (e.g. `duration()`). Returns null for any malformed input
+ * (empty, negative, extra segments, non-digits).
+ */
+export function parseTimeString(input: string): number | null {
+  const trimmed = (input ?? '').trim();
+  if (!trimmed) return null;
+  const match = /^(\d{1,2})(?::(\d{1,2}))(?::(\d{1,2}))?$/.exec(trimmed);
+  if (!match) return null;
+  const hasHours = match[3] != null;
+  const hours = hasHours ? parseInt(match[1], 10) : 0;
+  const minutes = hasHours ? parseInt(match[2], 10) : parseInt(match[1], 10);
+  const seconds = hasHours ? parseInt(match[3], 10) : parseInt(match[2], 10);
+  return hours * 3600 + minutes * 60 + seconds;
 }
