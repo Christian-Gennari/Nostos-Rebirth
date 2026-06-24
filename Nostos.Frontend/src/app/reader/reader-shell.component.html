@@ -128,7 +128,7 @@
     </aside>
   </div>
 
-  @if (overflowOpen()) {
+  @if (overflowOpen() && fileType() !== 'audio') {
   <div class="overflow-backdrop" (click)="overflowOpen.set(false)"></div>
   <div class="overflow-menu">
     <button class="overflow-item" (click)="goBack(); overflowOpen.set(false)">
@@ -148,17 +148,26 @@
 
   <header class="reader-toolbar">
     <div class="toolbar-left">
-      <button class="icon-btn overflow-toggle" (click)="toggleOverflow()" title="More">
-        <lucide-icon [img]="Icons.MoreHorizontal" [size]="20"></lucide-icon>
-      </button>
-      <div class="toolbar-desktop-nav">
-        <button class="icon-btn" (click)="goBack()">
+      @if (fileType() === 'audio') {
+        <button class="icon-btn" (click)="goBack()" title="Back to Library">
           <lucide-icon [img]="Icons.ArrowLeft" [size]="20"></lucide-icon>
         </button>
-        <button class="icon-btn" (click)="toggleToc()" title="Table of Contents">
+        <button class="icon-btn" (click)="toggleToc()" title="Table of Contents" [class.active]="tocOpen()">
           <lucide-icon [img]="Icons.List" [size]="20"></lucide-icon>
         </button>
-      </div>
+      } @else {
+        <button class="icon-btn overflow-toggle" (click)="toggleOverflow()" title="More">
+          <lucide-icon [img]="Icons.MoreHorizontal" [size]="20"></lucide-icon>
+        </button>
+        <div class="toolbar-desktop-nav">
+          <button class="icon-btn" (click)="goBack()">
+            <lucide-icon [img]="Icons.ArrowLeft" [size]="20"></lucide-icon>
+          </button>
+          <button class="icon-btn" (click)="toggleToc()" title="Table of Contents" [class.active]="tocOpen()">
+            <lucide-icon [img]="Icons.List" [size]="20"></lucide-icon>
+          </button>
+        </div>
+      }
     </div>
 
     <div class="toolbar-center">
@@ -195,25 +204,29 @@
     </div>
 
     <div class="toolbar-right">
-      @if (fileType() !== 'audio') {
-      <button
-        class="icon-btn"
-        [class.active]="highlightMode()"
-        (click)="toggleHighlightMode()"
-        title="Highlight mode"
-      >
-        <lucide-icon [img]="Icons.Highlighter" [size]="20"></lucide-icon>
-      </button>
-      <button class="icon-btn desktop-only" (click)="zoomOut()">
-        <lucide-icon [img]="Icons.ZoomOut" [size]="20"></lucide-icon>
-      </button>
-      <button class="icon-btn desktop-only" (click)="zoomIn()">
-        <lucide-icon [img]="Icons.ZoomIn" [size]="20"></lucide-icon>
-      </button>
+      @if (fileType() === 'audio') {
+        <button class="icon-btn" (click)="toggleNotes()" [class.active]="notesOpen()" title="Notes & Highlights">
+          <lucide-icon [img]="Icons.NotebookPen" [size]="20"></lucide-icon>
+        </button>
+      } @else {
+        <button
+          class="icon-btn"
+          [class.active]="highlightMode()"
+          (click)="toggleHighlightMode()"
+          title="Highlight mode"
+        >
+          <lucide-icon [img]="Icons.Highlighter" [size]="20"></lucide-icon>
+        </button>
+        <button class="icon-btn desktop-only" (click)="zoomOut()">
+          <lucide-icon [img]="Icons.ZoomOut" [size]="20"></lucide-icon>
+        </button>
+        <button class="icon-btn desktop-only" (click)="zoomIn()">
+          <lucide-icon [img]="Icons.ZoomIn" [size]="20"></lucide-icon>
+        </button>
+        <button class="icon-btn desktop-only" (click)="toggleNotes()" [class.active]="notesOpen()" title="Notes & Highlights">
+          <lucide-icon [img]="Icons.NotebookPen" [size]="20"></lucide-icon>
+        </button>
       }
-      <button class="icon-btn desktop-only" (click)="toggleNotes()" [class.active]="notesOpen()">
-        <lucide-icon [img]="Icons.NotebookPen" [size]="20"></lucide-icon>
-      </button>
     </div>
   </header>
 </div>
