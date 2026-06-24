@@ -55,14 +55,33 @@
     </div>
 
     <div class="rate-selector">
-      <span class="rate-label">Speed</span>
-      <div class="rate-options">
-        @for (rate of availableRates; track rate) {
-        <button class="rate-btn" [class.active]="currentRate() === rate" (click)="setRate(rate)">
-          {{ rate }}x
-        </button>
-        }
+      <label class="rate-label">Speed</label>
+      <div class="rate-pill"
+           tabindex="0"
+           role="button"
+           aria-haspopup="listbox"
+           [attr.aria-expanded]="isOpen()"
+           aria-label="Playback speed"
+           (click)="toggleDropdown()"
+           (keydown.escape)="closeDropdown()"
+           (keydown.enter)="toggleDropdown()">
+        <span class="rate-value">{{ currentRate() }}x</span>
+        <svg class="rate-arrow" width="8" height="5" viewBox="0 0 8 5" aria-hidden="true">
+          <path d="M1 1l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
       </div>
+      @if (isOpen()) {
+        <div class="rate-dropdown" role="listbox" aria-label="Playback speed">
+          @for (rate of availableRates; track rate) {
+            <button class="rate-option"
+                    role="option"
+                    [attr.aria-selected]="rate === currentRate()"
+                    (click)="selectRate(rate)">
+              {{ rate }}x
+            </button>
+          }
+        </div>
+      }
     </div>
   </div>
 </div>
