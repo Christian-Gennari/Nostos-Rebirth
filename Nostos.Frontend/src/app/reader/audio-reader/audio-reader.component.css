@@ -135,12 +135,11 @@
 /* Shared layout properties to guarantee zero layout shift */
 .time-label-btn,
 .time-edit-input {
-  width: 96px;
   min-height: 44px;
   font: inherit;
   font-variant-numeric: tabular-nums;
   padding: 0.5rem 0.25rem;
-  text-align: center;
+  text-align: left;
   box-sizing: border-box;
   border: none;
   border-bottom: 1px solid transparent;
