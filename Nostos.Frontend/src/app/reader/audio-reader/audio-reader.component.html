@@ -32,6 +32,7 @@
             #timeInput
             class="time-edit-input"
             type="text"
+            size="6"
             inputmode="text"
             [value]="timeInputValue()"
             (keydown.enter)="commitTimeEdit(timeInput.value); $event.preventDefault()"
