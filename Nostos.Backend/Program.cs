@@ -16,6 +16,15 @@ using Nostos.Backend.Workers;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// --- LOCAL ONE-SHOT READING IMPORT (Task 11B2) ---
+// An import run must emit exactly one JSON document on stdout; drop console
+// logging so no startup log can pollute it. Detection here mirrors the
+// command's own exact-token detection and only affects import runs.
+if (HermesReadingImportCommand.IsImportInvocation(args))
+{
+    builder.Logging.ClearProviders();
+}
+
 builder.Services.Configure<BackupSettings>(builder.Configuration.GetSection("BackupSettings"));
 builder.Services.Configure<ReadingTrainingOptions>(builder.Configuration.GetSection("ReadingTraining"));
 
@@ -119,6 +128,7 @@ builder.Services.AddScoped<IReadingTrainingService, ReadingTrainingService>();
 builder.Services.AddScoped<IReadingGatewayDispatcher, ReadingGatewayDispatcher>();
 builder.Services.AddScoped<IReadingNotificationOutbox, ReadingNotificationOutbox>();
 builder.Services.AddScoped<IHermesReadingImportService, HermesReadingImportService>();
+builder.Services.AddTransient<HermesReadingImportCommand>();
 builder.Services.AddHostedService<ConceptCleanupWorker>();
 builder.Services.AddHostedService<BackupWorker>();
 builder.Services.AddHostedService<ReadingNotificationWorker>();
@@ -126,11 +136,46 @@ builder.Services.AddHostedService<ReadingWeeklyReviewWorker>();
 
 var app = builder.Build();
 
-// --- AUTOMATIC DATABASE MIGRATION ---
-using (var scope = app.Services.CreateScope())
+var importEngaged = HermesReadingImportCommand.TryParse(
+    args, out var importArguments, out var importParseError);
+if (!importEngaged && importParseError is not null)
 {
+    var exitCode = HermesReadingImportCommand.WriteArgumentError(importParseError, Console.Out);
+    await app.DisposeAsync();
+    return exitCode;
+}
+
+// --- AUTOMATIC DATABASE MIGRATION ---
+try
+{
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<NostosDbContext>();
     db.Database.Migrate();
+}
+catch when (importEngaged)
+{
+    var exitCode = HermesReadingImportCommand.WriteStartupError(
+        HermesReadingImportCommand.ErrorCodes.DatabaseMigrationFailed, Console.Out);
+    await app.DisposeAsync();
+    return exitCode;
+}
+
+// ------------------------------------
+
+// --- LOCAL ONE-SHOT READING IMPORT (Task 11B2) ---
+// Purely local CLI: when the exact `--reading-import <absolute-directory>`
+// argument is present, run a single dry run (default) or a confirmed commit
+// through the DI service and exit. Kestrel and the background workers never
+// start, so nothing listens on the network and no live data is touched by
+// this branch itself. All other argument shapes leave normal startup below
+// untouched.
+if (importEngaged)
+{
+    await using var commandScope = app.Services.CreateAsyncScope();
+    var importCommand = commandScope.ServiceProvider.GetRequiredService<HermesReadingImportCommand>();
+    var exitCode = await importCommand.RunAsync(importArguments!, Console.Out);
+    await app.DisposeAsync();
+    return exitCode;
 }
 
 // ------------------------------------
@@ -247,5 +292,6 @@ app.MapFallbackToFile("index.html");
 // ------------------------------
 
 app.Run();
+return 0;
 
 public partial class Program;
