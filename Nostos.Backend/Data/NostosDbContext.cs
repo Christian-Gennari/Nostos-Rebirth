@@ -117,9 +117,9 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
         modelBuilder.Entity<ReadingProgramme>(e =>
         {
             e.HasIndex(p => p.SingletonSlot).IsUnique();
-            e.HasCheckConstraint(
+            e.ToTable(t => t.HasCheckConstraint(
                 "CK_ReadingProgrammes_SingletonSlot",
-                $"SingletonSlot = {ReadingProgramme.SingletonSentinel}");
+                $"SingletonSlot = {ReadingProgramme.SingletonSentinel}"));
         });
 
         // Multiple assignments allowed; one default per mode via the nullable
@@ -129,9 +129,9 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
         {
             e.HasIndex(a => a.DefaultSlot).IsUnique();
             e.HasIndex(a => new { a.Mode, a.Status, a.QueueOrder });
-            e.HasCheckConstraint(
+            e.ToTable(t => t.HasCheckConstraint(
                 "CK_ReadingBookAssignments_DefaultSlot_Mode_Status",
-                $"DefaultSlot IS NULL OR (DefaultSlot = Mode AND Status = {(int)ReadingAssignmentStatus.Active})");
+                $"DefaultSlot IS NULL OR (DefaultSlot = Mode AND Status = {(int)ReadingAssignmentStatus.Active})"));
             e.HasOne(a => a.Book)
                 .WithMany()
                 .HasForeignKey(a => a.BookId)
@@ -150,10 +150,10 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
             // SQLite treats a NULL CHECK expression as satisfied, so the
             // sentinel comparison must be guarded by OpenSlot IS NOT NULL:
             // "OpenSlot = 0" alone would silently pass for NULL slots.
-            e.HasCheckConstraint(
+            e.ToTable(t => t.HasCheckConstraint(
                 "CK_ReadingSessions_OpenSlot_Matches_Status",
                 $"(OpenSlot IS NOT NULL AND Status IN ({string.Join(", ", OpenSessionStatuses.Select(s => (int)s))}) AND OpenSlot = {ReadingSession.OpenSentinel}) " +
-                $"OR (OpenSlot IS NULL AND Status IN ({string.Join(", ", ClosedSessionStatuses.Select(s => (int)s))}))");
+                $"OR (OpenSlot IS NULL AND Status IN ({string.Join(", ", ClosedSessionStatuses.Select(s => (int)s))}))"));
             e.HasOne(s => s.BookAssignment)
                 .WithMany()
                 .HasForeignKey(s => s.BookAssignmentId)
