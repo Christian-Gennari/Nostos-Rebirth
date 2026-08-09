@@ -135,6 +135,44 @@ public sealed class HermesImportDryRunTests
         report.Skips.Should().ContainSingle(x => x.Code == HermesImportCodes.IncidentPollution);
     }
 
+    [Fact]
+    public void SessionWhoseBookIsAbsentFromStateQueue_UsesNullAssignmentAndWarns()
+    {
+        var dir = Fixture(log: SessionJson("history-only", "completed", incident: false) + "\n",
+            includeOptional: true);
+        var statePath = Path.Combine(dir, "training-state.json");
+        var state = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(statePath))!.AsObject();
+        state["queue"] = new System.Text.Json.Nodes.JsonArray();
+        File.WriteAllText(statePath, state.ToJsonString(), Utf8NoBom);
+
+        var report = Plan(dir, [new(CandideBookId, "Candide", "Voltaire")]);
+
+        report.Blocked.Should().BeFalse();
+        report.Sessions.Should().ContainSingle();
+        report.Sessions.Single().BookAssignmentId.Should().BeNull();
+        report.Warnings.Should().Contain(x => x.Code == HermesImportCodes.SessionBookNotInQueue);
+    }
+
+    [Fact]
+    public void DuplicateStateQueueIds_BlockWithoutThrowingOrCreatingDuplicateAssignments()
+    {
+        var dir = Fixture();
+        var statePath = Path.Combine(dir, "training-state.json");
+        var state = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(statePath))!.AsObject();
+        var firstBook = state["queue"]!.AsArray()[0]!.DeepClone();
+        var duplicateQueue = new System.Text.Json.Nodes.JsonArray();
+        duplicateQueue.Add(firstBook);
+        duplicateQueue.Add(firstBook.DeepClone());
+        state["queue"] = duplicateQueue;
+        File.WriteAllText(statePath, state.ToJsonString(), Utf8NoBom);
+
+        var act = () => Plan(dir, [new(CandideBookId, "Candide", "Voltaire")]);
+
+        var report = act.Should().NotThrow().Which;
+        report.Blockers.Should().ContainSingle(x => x.Code == HermesImportCodes.DuplicateQueueEntry);
+        report.Assignments.Should().ContainSingle();
+    }
+
     [Theory]
     [InlineData("{\"schema_version\":1,\"schema_version\":1}", HermesImportCodes.DuplicateJsonKey)]
     [InlineData("{\"schema_version\":1} trailing", HermesImportCodes.MalformedJson)]

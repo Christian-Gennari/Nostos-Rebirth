@@ -97,6 +97,15 @@ public sealed partial class HermesReadingImportPlanner
             .ToList();
 
         var sourceBooks = CollectBooks(state, queueMirrorBooks, retainedSessions, captures);
+        if (state is not null)
+        {
+            foreach (var duplicate in state.Queue.GroupBy(x => x.Id, StringComparer.Ordinal)
+                         .Where(x => x.Count() > 1).OrderBy(x => x.Key, StringComparer.Ordinal))
+            {
+                blockers.Add(new(HermesImportCodes.DuplicateQueueEntry,
+                    "duplicate source queue id", "training-state.json"));
+            }
+        }
         var decisions = ReconcileBooks(sourceBooks, library, explicitBookMappings, blockers);
         var resolved = decisions.Where(d => d.BookId.HasValue)
             .ToDictionary(d => d.SourceBookId, d => d.BookId!.Value, StringComparer.Ordinal);
@@ -110,7 +119,7 @@ public sealed partial class HermesReadingImportPlanner
         var assignmentBySource = assignments.ToDictionary(a => a.SourceBookId, a => a.Id, StringComparer.Ordinal);
         var ratingSkippedIds = ratingsSkipped.Select(x => x.SessionId).ToHashSet(StringComparer.Ordinal);
         var plannedSessions = BuildSessions(retainedSessions, resolved, assignmentBySource,
-            ratingSkippedIds, skips);
+            ratingSkippedIds, warnings, skips);
         var sessionIds = plannedSessions.ToDictionary(s => s.SourceSessionId, s => s.Id, StringComparer.Ordinal);
         var plannedCaptures = BuildCaptures(captures, resolved, sessionIds, skips);
 
@@ -542,8 +551,10 @@ public sealed partial class HermesReadingImportPlanner
     {
         var result = new List<HermesPlannedAssignment>();
         var defaultModes = new HashSet<ReadingMode>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var book in books)
         {
+            if (!seen.Add(book.Id)) continue;
             if (!resolved.TryGetValue(book.Id, out var bookId)) continue;
             if (!TryMode(book.CurrentMode, out var mode))
             { skips.Add(new(HermesImportCodes.UnrecognizedQueueMode, "unrecognized queue mode", SourceId: book.Id)); continue; }
@@ -561,7 +572,8 @@ public sealed partial class HermesReadingImportPlanner
 
     private static List<HermesPlannedSession> BuildSessions(List<HermesSourceSession> sources,
         Dictionary<string, Guid> resolved, Dictionary<string, Guid> assignments,
-        HashSet<string> ratingSkippedIds, List<HermesImportSkip> skips)
+        HashSet<string> ratingSkippedIds, List<HermesImportIssue> warnings,
+        List<HermesImportSkip> skips)
     {
         var result = new List<HermesPlannedSession>();
         foreach (var source in sources)
@@ -573,6 +585,17 @@ public sealed partial class HermesReadingImportPlanner
             { skips.Add(new(HermesImportCodes.UnrecognizedSessionStatus, "unrecognized session status", "reading-log.jsonl", source.Line, source.SessionId)); continue; }
             if (!TryConstraint(source.Constraint, out var constraint))
             { skips.Add(new(HermesImportCodes.UnrecognizedConstraint, "unrecognized constraint", "reading-log.jsonl", source.Line, source.SessionId)); continue; }
+            Guid? assignmentId = null;
+            if (assignments.TryGetValue(source.BookId, out var matchedAssignmentId))
+            {
+                assignmentId = matchedAssignmentId;
+            }
+            else
+            {
+                warnings.Add(new(HermesImportCodes.SessionBookNotInQueue,
+                    "session book has no planned assignment; session linkage will be null",
+                    "reading-log.jsonl", source.Line));
+            }
             result.Add(new(DeterministicGuid.SessionFor(source.SessionId), source.SessionId,
                 mode, status, constraint, source.SessionTarget, source.PlannedTarget,
                 source.ProgressionEligible, source.CountsAsFailure,
@@ -581,7 +604,7 @@ public sealed partial class HermesReadingImportPlanner
                 source.ClockMinutes, source.ActualMinutes, source.ReportedMinutes,
                 source.Effort, source.Focus, ratingSkippedIds.Contains(source.SessionId), source.CompletedTarget,
                 source.CompletedPlannedTarget, source.Notes, source.BookId, bookId,
-                assignments.GetValueOrDefault(source.BookId), source.Line));
+                assignmentId, source.Line));
         }
         return result;
     }
