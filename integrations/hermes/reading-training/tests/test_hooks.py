@@ -227,8 +227,9 @@ class TestRegistration:
         assert seen == ["reading-training", "custom-key"]
 
     def test_register_without_config_still_registers_and_warns_once(
-        self, plugin_ctx, manager, caplog
+        self, plugin_ctx, manager, caplog, monkeypatch
     ):
+        monkeypatch.setattr(hooks, "_load_hermes_config", lambda _section: None)
         with caplog.at_level(logging.WARNING, logger=_HOOK_LOGGER):
             hooks.register(plugin_ctx)
             for _ in range(3):
