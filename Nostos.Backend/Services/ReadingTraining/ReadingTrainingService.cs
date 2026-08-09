@@ -614,6 +614,46 @@ public sealed class ReadingTrainingService : IReadingTrainingService
                 var raced = await retryDb.ReadingCommandReceipts.AsNoTracking()
                     .SingleOrDefaultAsync(x => x.ClientId == clientId && x.IdempotencyKey == idempotencyKey, ct);
                 if (raced is not null) return Deserialize(raced.ResponseJson) with { Duplicate = true };
+
+                // A different process may have committed this ISO week under
+                // another idempotency key after our pre-check. The unique week
+                // index is the final guard; convert that race into the same
+                // immutable "already reviewed" response and persist this
+                // caller's receipt instead of leaking a uniqueness 500.
+                if (commandKind == "CommitWeeklyReview" && result.Data is ReadingWeeklyReviewDto attempted)
+                {
+                    var committed = await retryDb.ReadingWeeklyReviews.AsNoTracking()
+                        .Include(r => r.Decisions)
+                        .SingleOrDefaultAsync(r => r.WeekKey == attempted.WeekKey, ct);
+                    if (committed is not null)
+                    {
+                        var converged = Result(
+                            ReadingReplyFormatter.WeekAlreadyCommitted(committed.WeekKey),
+                            ToDto(committed), committed.StateVersionAfter);
+                        retryDb.ReadingCommandReceipts.Add(new ReadingCommandReceipt
+                        {
+                            ClientId = clientId,
+                            IdempotencyKey = idempotencyKey,
+                            CommandKind = commandKind,
+                            ResponseJson = Serialize(converged),
+                            CreatedAt = Now,
+                        });
+                        try
+                        {
+                            await retryDb.SaveChangesAsync(ct);
+                            return converged;
+                        }
+                        catch (DbUpdateException)
+                        {
+                            retryDb.ChangeTracker.Clear();
+                            var receipt = await retryDb.ReadingCommandReceipts.AsNoTracking()
+                                .SingleOrDefaultAsync(x => x.ClientId == clientId && x.IdempotencyKey == idempotencyKey, ct);
+                            if (receipt is not null)
+                                return Deserialize(receipt.ResponseJson) with { Duplicate = true };
+                            throw;
+                        }
+                    }
+                }
                 throw;
             }
         }
@@ -705,7 +745,8 @@ public sealed class ReadingTrainingService : IReadingTrainingService
     // converted separately, so DST transitions never shift the boundary.
     private DateTime? ValidateWeek(int year, int week)
     {
-        if (year < 1 || week < 1 || week > ISOWeek.GetWeeksInYear(year)) return null;
+        if (year is < 1 or > 9999 || week < 1) return null;
+        if (week > ISOWeek.GetWeeksInYear(year)) return null;
         return ISOWeek.ToDateTime(year, week, DayOfWeek.Monday);
     }
 

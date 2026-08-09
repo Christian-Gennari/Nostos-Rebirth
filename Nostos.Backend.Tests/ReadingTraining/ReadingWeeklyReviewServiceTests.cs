@@ -49,6 +49,25 @@ public sealed class ReadingWeeklyReviewServiceTests : IClassFixture<ReadingTrain
     }
 
     [Fact]
+    public async Task Week_boundary_remains_local_midnight_across_stockholm_dst_fallback()
+    {
+        var h = Harness();
+        await h.Init();
+        // Sunday 2026-10-25 23:30 CET is 22:30 UTC and remains in ISO week 43.
+        await SeedSession(h, ReadingMode.Endurance,
+            new DateTime(2026, 10, 25, 22, 30, 0, DateTimeKind.Utc), 2400, effort: 5, focus: 8);
+        // Monday 2026-10-26 00:30 CET is 23:30 UTC and belongs to ISO week 44.
+        await SeedSession(h, ReadingMode.Endurance,
+            new DateTime(2026, 10, 25, 23, 30, 0, DateTimeKind.Utc), 2700, effort: 5, focus: 8);
+
+        var week43 = (ReadingWeeklyReviewDto)(await h.Service.PreviewWeeklyReviewAsync(new(2026, 43))).Data!;
+        var week44 = (ReadingWeeklyReviewDto)(await h.Service.PreviewWeeklyReviewAsync(new(2026, 44))).Data!;
+
+        week43.TotalVolumeMinutes.Should().Be(40);
+        week44.TotalVolumeMinutes.Should().Be(45);
+    }
+
+    [Fact]
     public async Task Preview_is_read_only_and_leaves_database_and_state_unchanged()
     {
         var h = Harness();
@@ -440,12 +459,15 @@ public sealed class ReadingWeeklyReviewServiceTests : IClassFixture<ReadingTrain
         ((ReadingErrorDto)result.Data!).Code.Should().Be("not_initialized");
     }
 
-    [Fact]
-    public async Task Invalid_iso_week_is_rejected()
+    [Theory]
+    [InlineData(2026, 54)]
+    [InlineData(10000, 1)]
+    [InlineData(0, 1)]
+    public async Task Invalid_iso_week_is_rejected(int year, int week)
     {
         var h = Harness();
         await h.Init();
-        var result = await h.Service.PreviewWeeklyReviewAsync(new(2026, 54));
+        var result = await h.Service.PreviewWeeklyReviewAsync(new(year, week));
         ((ReadingErrorDto)result.Data!).Code.Should().Be("invalid_week");
     }
 
