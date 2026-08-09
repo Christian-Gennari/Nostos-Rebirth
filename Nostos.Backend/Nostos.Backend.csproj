@@ -17,6 +17,9 @@
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.1.0" />
+    <!-- Pinned YAML parser for the Hermes reading-data import planner (Task 11A);
+         only the low-level Parser event API is used, never type-tag deserialization. -->
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
     <PackageReference Include="z440.atl.core" Version="7.9.0" />
   </ItemGroup>
 
