@@ -54,7 +54,6 @@ export class SessionHistoryComponent {
   readonly statusOptions: ReadonlyArray<{ value: ReadingSessionStatus | 'all'; label: string }> = [
     { value: 'all', label: 'All statuses' },
     { value: ReadingSessionStatus.Completed, label: 'Completed' },
-    { value: ReadingSessionStatus.AwaitingFeedback, label: 'Awaiting feedback' },
     { value: ReadingSessionStatus.Cancelled, label: 'Cancelled' },
   ];
 
