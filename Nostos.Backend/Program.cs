@@ -5,13 +5,16 @@ using Nostos.Backend.Data;
 using Nostos.Backend.Data.Interfaces;
 using Nostos.Backend.Data.Repositories;
 using Nostos.Backend.Endpoints;
+using Nostos.Backend.Configuration;
 using Nostos.Backend.Serialization;
 using Nostos.Backend.Services;
+using Nostos.Backend.Services.ReadingTraining;
 using Nostos.Backend.Workers;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<BackupSettings>(builder.Configuration.GetSection("BackupSettings"));
+builder.Services.Configure<ReadingTrainingOptions>(builder.Configuration.GetSection("ReadingTraining"));
 
 const long maxUploadSize = 100L * 1024 * 1024 * 1024; // 100GB
 builder.WebHost.ConfigureKestrel(options =>
@@ -23,7 +26,7 @@ builder.Services.Configure<FormOptions>(options =>
     options.MultipartBodyLengthLimit = maxUploadSize;
 });
 
-builder.Services.AddDbContext<NostosDbContext>(options =>
+builder.Services.AddDbContextFactory<NostosDbContext>(options =>
 {
     var dbPath = Path.Combine(builder.Environment.ContentRootPath, "nostos.db");
     options.UseSqlite($"Data Source={dbPath}");
@@ -47,7 +50,6 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
-builder.Services.AddProblemDetails();
 
 // Services Dependency Injection
 builder.Services.AddSingleton<IFileStorageService, FileStorageService>();
@@ -62,6 +64,10 @@ builder.Services.AddScoped<ICollectionRepository, CollectionRepository>();
 builder.Services.AddScoped<INoteRepository, NoteRepository>();
 builder.Services.AddScoped<IConceptRepository, ConceptRepository>();
 builder.Services.AddScoped<IWritingRepository, WritingRepository>();
+builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ReadingTrainingOptions>>().Value);
+builder.Services.AddSingleton<IReadingClock, SystemReadingClock>();
+builder.Services.AddScoped<IReadingTrainingService, ReadingTrainingService>();
+builder.Services.AddScoped<IReadingNotificationOutbox, ReadingNotificationOutbox>();
 builder.Services.AddHostedService<ConceptCleanupWorker>();
 builder.Services.AddHostedService<BackupWorker>();
 
@@ -150,6 +156,7 @@ app.MapConceptsEndpoints();
 app.MapWritingsEndpoints();
 app.MapOpdsEndpoints();
 app.MapBackupEndpoints();
+app.MapReadingTrainingEndpoints();
 
 // --- HANDLE ANGULAR ROUTING ---
 app.MapFallbackToFile("index.html");
@@ -157,3 +164,5 @@ app.MapFallbackToFile("index.html");
 // ------------------------------
 
 app.Run();
+
+public partial class Program;
