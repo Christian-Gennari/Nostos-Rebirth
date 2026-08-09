@@ -31,13 +31,12 @@
       <label class="field-label" for="book-assignment-mode">Mode</label>
       <select
         id="book-assignment-mode"
-        [value]="mode()"
         (change)="onModeChange($event)"
         [disabled]="busy()"
       >
-        <option [value]="modeEnum.Endurance">Endurance</option>
-        <option [value]="modeEnum.Deep">Deep</option>
-        <option [value]="modeEnum.Recovery">Recovery</option>
+        <option [attr.value]="modeEnum.Endurance" [selected]="mode() === modeEnum.Endurance">Endurance</option>
+        <option [attr.value]="modeEnum.Deep" [selected]="mode() === modeEnum.Deep">Deep</option>
+        <option [attr.value]="modeEnum.Recovery" [selected]="mode() === modeEnum.Recovery">Recovery</option>
       </select>
     </div>
 

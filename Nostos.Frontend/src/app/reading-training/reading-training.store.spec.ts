@@ -342,6 +342,150 @@ describe('ReadingTrainingStore', () => {
     expect(store.dashboard()).toEqual(updated);
   });
 
+  // --- inbox and history reads ---
+
+  it('starts with empty inbox and history arrays, exposed read-only', () => {
+    expect(store.inbox()).toEqual([]);
+    expect(store.history()).toEqual([]);
+    // asReadonly() surfaces signals without the writable API.
+    expect((store.inbox as { set?: unknown }).set).toBeUndefined();
+    expect((store.history as { set?: unknown }).set).toBeUndefined();
+  });
+
+  it('loadInbox and loadHistory are cold: no request until subscribed', () => {
+    const inbox$ = store.loadInbox();
+    const history$ = store.loadHistory();
+    expect(httpMock.match(`${base}/inbox`)).toHaveLength(0);
+    expect(httpMock.match(`${base}/history`)).toHaveLength(0);
+
+    inbox$.subscribe();
+    // match() consumes requests, so keep a reference before flushing.
+    const inboxReqs = httpMock.match(`${base}/inbox`);
+    expect(inboxReqs).toHaveLength(1);
+    expect(httpMock.match(`${base}/history`)).toHaveLength(0);
+    inboxReqs[0].flush(envelope([capture]));
+    expect(store.inbox()).toEqual([capture]);
+
+    history$.subscribe();
+    const historyReqs = httpMock.match(`${base}/history`);
+    expect(historyReqs).toHaveLength(1);
+    historyReqs[0].flush(envelope([pausedSession]));
+    expect(store.history()).toEqual([pausedSession]);
+  });
+
+  it('loadInbox applies the exact server result and emits the authoritative inbox', () => {
+    let emitted: ReadingCapture[] | undefined;
+    store.loadInbox().subscribe((v) => (emitted = v));
+    httpMock.expectOne(`${base}/inbox`).flush(envelope([capture]));
+
+    expect(emitted).toEqual([capture]);
+    expect(store.inbox()).toEqual([capture]);
+    expect(store.error()).toBeNull();
+  });
+
+  it('loadHistory applies the exact server result', () => {
+    let emitted: ReadingSession[] | undefined;
+    store.loadHistory().subscribe((v) => (emitted = v));
+    httpMock.expectOne(`${base}/history`).flush(envelope([session, pausedSession]));
+
+    expect(emitted).toEqual([session, pausedSession]);
+    expect(store.history()).toEqual([session, pausedSession]);
+    expect(store.error()).toBeNull();
+  });
+
+  it('a null inbox payload preserves the last good inbox (never fabricated)', () => {
+    store.loadInbox().subscribe();
+    httpMock.expectOne(`${base}/inbox`).flush(envelope([capture]));
+    expect(store.inbox()).toEqual([capture]);
+
+    store.loadInbox().subscribe();
+    httpMock.expectOne(`${base}/inbox`).flush(envelope(null));
+    expect(store.inbox()).toEqual([capture]);
+    expect(store.error()).toBeNull();
+  });
+
+  it('an older overlapping inbox response never overwrites a newer one', () => {
+    store.loadInbox().subscribe(); // seq 1 (older)
+    store.loadInbox().subscribe(); // seq 2 (newer)
+    const reqs = httpMock.match(`${base}/inbox`);
+    expect(reqs).toHaveLength(2);
+    const [olderReq, newerReq] = reqs;
+
+    const fresh: ReadingCapture = { ...capture, text: 'A newer stoic thought.' };
+    newerReq.flush(envelope([fresh]));
+    expect(store.inbox()).toEqual([fresh]);
+
+    olderReq.flush(envelope([capture]));
+    expect(store.inbox()).toEqual([fresh]);
+  });
+
+  it('an inbox load failure preserves the last good inbox, surfaces a concise error, and never rethrows', () => {
+    store.loadInbox().subscribe();
+    httpMock.expectOne(`${base}/inbox`).flush(envelope([capture]));
+
+    let completed = false;
+    let streamError: unknown;
+    store.loadInbox().subscribe({ complete: () => (completed = true), error: (e) => (streamError = e) });
+    httpMock.expectOne(`${base}/inbox`).flush(
+      { title: 'Unavailable' },
+      { status: 503, statusText: 'Service Unavailable' }
+    );
+
+    expect(store.inbox()).toEqual([capture]);
+    expect(store.error()).toBe('Unable to load inbox: Unavailable');
+    expect(completed).toBe(true); // refresh convention: completes without emitting
+    expect(streamError).toBeUndefined();
+  });
+
+  it('a successful inbox load clears a prior inbox load error', () => {
+    store.loadInbox().subscribe();
+    httpMock.expectOne(`${base}/inbox`).error(new ProgressEvent('error'));
+    expect(store.error()).toBe('Unable to load inbox: network error');
+
+    store.loadInbox().subscribe();
+    httpMock.expectOne(`${base}/inbox`).flush(envelope([capture]));
+    expect(store.error()).toBeNull();
+    expect(store.inbox()).toEqual([capture]);
+  });
+
+  it('inbox and history loads are independent resources', () => {
+    let inboxEmitted: ReadingCapture[] | undefined;
+    let historyEmitted: ReadingSession[] | undefined;
+    store.loadInbox().subscribe((v) => (inboxEmitted = v));
+    store.loadHistory().subscribe((v) => (historyEmitted = v));
+
+    httpMock.expectOne(`${base}/history`).flush(envelope([pausedSession]));
+    expect(store.history()).toEqual([pausedSession]);
+    expect(historyEmitted).toEqual([pausedSession]);
+    expect(store.inbox()).toEqual([]); // untouched by history
+
+    httpMock.expectOne(`${base}/inbox`).flush(envelope([capture]));
+    expect(store.inbox()).toEqual([capture]);
+    expect(inboxEmitted).toEqual([capture]);
+    expect(store.history()).toEqual([pausedSession]); // untouched by inbox
+  });
+
+  it('disconnect() keeps loaded inbox/history; no polling or listeners for these reads', () => {
+    store.loadInbox().subscribe();
+    httpMock.expectOne(`${base}/inbox`).flush(envelope([capture]));
+    store.loadHistory().subscribe();
+    httpMock.expectOne(`${base}/history`).flush(envelope([pausedSession]));
+
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    store.disconnect();
+    expect(store.inbox()).toEqual([capture]);
+    expect(store.history()).toEqual([pausedSession]);
+
+    // The 30s timer drives the dashboard refresh only — never inbox/history.
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    vi.advanceTimersByTime(30_000);
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expect(httpMock.match(`${base}/inbox`)).toHaveLength(0);
+    expect(httpMock.match(`${base}/history`)).toHaveLength(0);
+  });
+
   // --- display-only elapsed seconds ---
 
   it('ticks once per second from the server anchor while the session is Active', () => {

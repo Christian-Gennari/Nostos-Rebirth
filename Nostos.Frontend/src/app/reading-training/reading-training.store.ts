@@ -94,6 +94,11 @@ export class ReadingTrainingStore {
   private readonly lastReplyState = signal<string | null>(null);
   private readonly connectedState = signal(false);
 
+  /** Authoritative server inbox (unresolved Question/Bookmark captures). */
+  private readonly inboxState = signal<ReadingCapture[]>([]);
+  /** Authoritative server session history, newest-first per the backend. */
+  private readonly historyState = signal<ReadingSession[]>([]);
+
   /** Display-only anchor: server `measuredSeconds` at the last dashboard response. */
   private readonly displayAnchor = signal<{ measuredSeconds: number; clientTime: number } | null>(null);
 
@@ -102,6 +107,12 @@ export class ReadingTrainingStore {
 
   /** Monotonic refresh sequence: stale responses (older than the latest issued refresh) are dropped. */
   private refreshSeq = 0;
+
+  /** Monotonic inbox fetch sequence: stale responses are dropped per resource. */
+  private inboxSeq = 0;
+
+  /** Monotonic history fetch sequence: stale responses are dropped per resource. */
+  private historySeq = 0;
 
   private refreshTimer: Subscription | null = null;
   private clockTimer: Subscription | null = null;
@@ -118,6 +129,8 @@ export class ReadingTrainingStore {
   readonly error = this.errorState.asReadonly();
   readonly lastReply = this.lastReplyState.asReadonly();
   readonly connected = this.connectedState.asReadonly();
+  readonly inbox = this.inboxState.asReadonly();
+  readonly history = this.historyState.asReadonly();
 
   // --- derived selectors (pure projections of the authoritative snapshot) ---
 
@@ -231,6 +244,85 @@ export class ReadingTrainingStore {
     // Refresh only when the document becomes visible again.
     if (document.visibilityState === 'visible' && this.connected()) this.refresh();
   };
+
+  // --- read-only resources (inbox / history) ---
+
+  /**
+   * Fetches the server inbox (unresolved Question/Bookmark captures) and
+   * applies `result.data` only when non-null; a null payload or a failure
+   * preserves the last good inbox, so the arrays are never fabricated.
+   *
+   * Cold: no request is issued until the returned observable is subscribed.
+   * Overlapping fetches converge via a per-resource monotonic sequence (like
+   * the dashboard refresh), so an older in-flight response can never
+   * overwrite a newer one. GET failures never rethrow — they follow the
+   * refresh convention: the last good data is preserved, `error` is set via
+   * describeError, and the stream completes without emitting. Emits the
+   * authoritative inbox after it is applied.
+   */
+  loadInbox(): Observable<ReadingCapture[]> {
+    return defer(() => {
+      const seq = ++this.inboxSeq;
+      return this.service.getInbox().pipe(
+        filter((result) => seq === this.inboxSeq),
+        take(1),
+        catchError((err: unknown) => {
+          if (seq !== this.inboxSeq) return EMPTY;
+          this.errorState.set(describeError('Unable to load inbox', err));
+          return EMPTY;
+        }),
+        map((result) => {
+          this.applyInbox(result);
+          return this.inboxState();
+        })
+      );
+    });
+  }
+
+  /**
+   * Fetches the server session history and applies `result.data` only when
+   * non-null; a null payload or a failure preserves the last good history.
+   * Same coldness, stale-response protection, error convention, and emission
+   * contract as {@link loadInbox} — inbox and history converge independently.
+   */
+  loadHistory(): Observable<ReadingSession[]> {
+    return defer(() => {
+      const seq = ++this.historySeq;
+      return this.service.getHistory().pipe(
+        filter((result) => seq === this.historySeq),
+        take(1),
+        catchError((err: unknown) => {
+          if (seq !== this.historySeq) return EMPTY;
+          this.errorState.set(describeError('Unable to load history', err));
+          return EMPTY;
+        }),
+        map((result) => {
+          this.applyHistory(result);
+          return this.historyState();
+        })
+      );
+    });
+  }
+
+  private applyInbox(result: ReadingCommandResult<ReadingCapture[]>): void {
+    const data = result.data;
+    if (!data) {
+      // No payload (e.g. not initialized): keep the last good inbox.
+      return;
+    }
+    this.inboxState.set(data);
+    this.errorState.set(null);
+  }
+
+  private applyHistory(result: ReadingCommandResult<ReadingSession[]>): void {
+    const data = result.data;
+    if (!data) {
+      // No payload (e.g. not initialized): keep the last good history.
+      return;
+    }
+    this.historyState.set(data);
+    this.errorState.set(null);
+  }
 
   // --- commands (forward verbatim; refresh from the server after success) ---
 

@@ -35,7 +35,9 @@ export function modeLabel(mode: ReadingMode): string {
 /**
  * Standalone book-assignment form. Pure input/output: the page supplies the
  * available Nostos books, and the form emits a typed add-book draft including
- * the queue/default intent (`makeDefault`) when the user opts in.
+ * the queue/default intent (`makeDefault`) when the user opts in. The optional
+ * `preferredMode` input (e.g. the lane that requested the dialog) seeds the
+ * mode default and keeps driving it only until the user picks a mode.
  */
 @Component({
   standalone: true,
@@ -49,6 +51,8 @@ export class BookAssignmentFormComponent {
 
   /** Books the user may assign, supplied by the page. */
   readonly availableBooks = input<AvailableBook[]>([]);
+  /** Optional mode hint (e.g. the lane that requested the dialog); used only until the user picks a mode. */
+  readonly preferredMode = input<ReadingMode | null>(null);
   readonly busy = input<boolean>(false);
 
   readonly add = output<BookAssignmentDraft>();
@@ -57,6 +61,9 @@ export class BookAssignmentFormComponent {
   readonly mode = signal<ReadingMode>(ReadingMode.Endurance);
   readonly makeDefault = signal(false);
   readonly submitted = signal(false);
+
+  /** True once the user has explicitly picked a mode; `preferredMode` then stops driving `mode`. */
+  private readonly userChoseMode = signal(false);
 
   readonly bookError = computed(() =>
     this.selectedBookId() === '' ? 'Choose a book to assign.' : null,
@@ -73,6 +80,16 @@ export class BookAssignmentFormComponent {
         this.selectedBookId.set(list[0].bookId);
       }
     });
+
+    // The preferred mode drives the initial default and follows later input
+    // changes — but only until the user makes an explicit choice, which is
+    // tracked separately and never clobbered.
+    effect(() => {
+      const preferred = this.preferredMode();
+      if (preferred !== null && !this.userChoseMode()) {
+        this.mode.set(preferred);
+      }
+    });
   }
 
   onBookChange(event: Event): void {
@@ -80,6 +97,7 @@ export class BookAssignmentFormComponent {
   }
 
   onModeChange(event: Event): void {
+    this.userChoseMode.set(true);
     this.mode.set(Number((event.target as HTMLSelectElement).value) as ReadingMode);
   }
 

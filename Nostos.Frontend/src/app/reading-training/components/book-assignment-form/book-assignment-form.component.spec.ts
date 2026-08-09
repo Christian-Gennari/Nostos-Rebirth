@@ -59,6 +59,12 @@ describe('BookAssignmentFormComponent', () => {
     fixture.detectChanges();
   }
 
+  function pickMode(mode: ReadingMode): void {
+    modeSelect().value = String(mode);
+    modeSelect().dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+  }
+
   it('defaults to the first available book from the input and shows title and author', () => {
     setBooks([
       book({ bookId: 'b1', title: 'Letters', author: null }),
@@ -68,6 +74,53 @@ describe('BookAssignmentFormComponent', () => {
     expect(text()).toContain('Letters');
     expect(text()).toContain('Meditations');
     expect(text()).toContain('Marcus Aurelius');
+  });
+
+  it('prefers the preferredMode input as the initial mode default', () => {
+    fixture.componentRef.setInput('preferredMode', ReadingMode.Deep);
+    setBooks([book({ bookId: 'b1' })]);
+    expect(modeSelect().value).toBe(String(ReadingMode.Deep));
+
+    const drafts: BookAssignmentDraft[] = [];
+    component.add.subscribe((d) => drafts.push(d));
+    submit();
+    expect(drafts).toEqual([{ bookId: 'b1', mode: ReadingMode.Deep, makeDefault: false }]);
+  });
+
+  it('a later preferredMode change still drives the mode until the user chooses', () => {
+    fixture.componentRef.setInput('preferredMode', ReadingMode.Endurance);
+    setBooks([book({ bookId: 'b1' })]);
+    expect(modeSelect().value).toBe(String(ReadingMode.Endurance));
+
+    fixture.componentRef.setInput('preferredMode', ReadingMode.Recovery);
+    fixture.detectChanges();
+    expect(modeSelect().value).toBe(String(ReadingMode.Recovery));
+  });
+
+  it('keeps the Endurance default when no preferred mode is supplied (or it is null)', () => {
+    setBooks([book({ bookId: 'b1' })]);
+    expect(modeSelect().value).toBe(String(ReadingMode.Endurance));
+
+    fixture.componentRef.setInput('preferredMode', null);
+    fixture.detectChanges();
+    expect(modeSelect().value).toBe(String(ReadingMode.Endurance));
+  });
+
+  it('never clobbers an explicit user mode choice when preferredMode changes later', () => {
+    fixture.componentRef.setInput('preferredMode', ReadingMode.Deep);
+    setBooks([book({ bookId: 'b1' })]);
+    expect(modeSelect().value).toBe(String(ReadingMode.Deep));
+
+    pickMode(ReadingMode.Recovery);
+
+    fixture.componentRef.setInput('preferredMode', ReadingMode.Endurance);
+    fixture.detectChanges();
+    expect(modeSelect().value).toBe(String(ReadingMode.Recovery));
+
+    const drafts: BookAssignmentDraft[] = [];
+    component.add.subscribe((d) => drafts.push(d));
+    submit();
+    expect(drafts).toEqual([{ bookId: 'b1', mode: ReadingMode.Recovery, makeDefault: false }]);
   });
 
   it('emits the exact add-book draft with numeric enum mode', () => {
