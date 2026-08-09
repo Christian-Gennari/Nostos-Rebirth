@@ -93,23 +93,32 @@ app.UseExceptionHandler(exceptionApp =>
             .RequestServices.GetRequiredService<ILoggerFactory>()
             .CreateLogger("GlobalExceptionHandler");
 
-        if (exceptionFeature?.Error is not null)
+        var error = exceptionFeature?.Error;
+        var statusCode = error is BadHttpRequestException badRequest
+            ? badRequest.StatusCode
+            : StatusCodes.Status500InternalServerError;
+
+        if (error is not null && statusCode >= StatusCodes.Status500InternalServerError)
         {
             logger.LogError(
-                exceptionFeature.Error,
+                error,
                 "Unhandled exception on {Method} {Path}",
                 context.Request.Method,
                 context.Request.Path
             );
         }
 
-        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.StatusCode = statusCode;
         await context.Response.WriteAsJsonAsync(
             new
             {
-                type = "https://tools.ietf.org/html/rfc9110#section-15.6.1",
-                title = "An unexpected error occurred.",
-                status = 500,
+                type = statusCode == StatusCodes.Status400BadRequest
+                    ? "https://tools.ietf.org/html/rfc9110#section-15.5.1"
+                    : "https://tools.ietf.org/html/rfc9110#section-15.6.1",
+                title = statusCode == StatusCodes.Status400BadRequest
+                    ? "The request could not be processed."
+                    : "An unexpected error occurred.",
+                status = statusCode,
             }
         );
     });

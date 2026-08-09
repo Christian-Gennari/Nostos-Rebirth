@@ -12,6 +12,7 @@ app.MapConceptsEndpoints();
 app.MapWritingsEndpoints();
 app.MapOpdsEndpoints();
 app.MapBackupEndpoints();
+app.MapReadingTrainingEndpoints();
 ```
 
 ## Endpoint Groups
@@ -92,6 +93,38 @@ app.MapBackupEndpoints();
 | `GET`      | `/download/{id}` | Stream `.nostos` archive to browser        | `IBackupService`               |
 | `POST`     | `/import`        | Scan `/backups` folder for untracked files | `IBackupService`               |
 | `GET`      | `/progress`      | Real-time step-by-step progress tracking   | `BackupSettingsProvider`       |
+
+### ReadingTrainingEndpoints (`/api/reading-training`)
+
+All responses use the stable `ReadingCommandResultDto` envelope. Mutations are
+exact-once by `(clientId, idempotencyKey)` and delegate to
+`IReadingTrainingService`; the endpoint layer contains no training rules.
+
+| Method  | Route                                             | Description |
+| ------- | ------------------------------------------------- | ----------- |
+| `POST`  | `/initialize`                                     | Initialize the programme idempotently |
+| `GET`   | `/dashboard`                                      | Programme, books, open session and current review |
+| `GET`   | `/status`                                         | Current open-session status |
+| `GET`   | `/history`                                        | Session history |
+| `GET`   | `/inbox`                                          | Unresolved captures |
+| `POST`  | `/books`                                          | Add a library book assignment |
+| `POST`  | `/books/default`                                  | Set a mode's default assignment |
+| `POST`  | `/books/complete`                                 | Finish a training assignment |
+| `POST`  | `/books/reorder`                                  | Reorder active assignments |
+| `POST`  | `/sessions/plan`                                  | Plan a session |
+| `POST`  | `/sessions/start`                                 | Start a planned session |
+| `POST`  | `/sessions/start-new`                             | Create and start a session |
+| `POST`  | `/sessions/pause`                                 | Pause the open session |
+| `POST`  | `/sessions/resume`                                | Resume the open session |
+| `POST`  | `/sessions/complete`                              | Stop timing and record actual minutes |
+| `POST`  | `/sessions/rate`                                  | Submit effort, focus and optional rating |
+| `POST`  | `/sessions/skip-ratings`                          | Close without ratings |
+| `POST`  | `/sessions/cancel`                                | Cancel the open session |
+| `POST`  | `/captures`                                       | Capture text verbatim |
+| `PATCH` | `/captures/{captureId}/resolve`                   | Dismiss or keep a capture |
+| `POST`  | `/captures/{captureId}/promote-to-note`           | Append a capture to an existing note |
+| `GET`   | `/weekly-reviews/{year}/{week}/preview`           | Preview an ISO-week decision |
+| `POST`  | `/weekly-reviews/commit`                           | Persist an immutable ISO-week review |
 
 ## Maintenance Mode Middleware
 

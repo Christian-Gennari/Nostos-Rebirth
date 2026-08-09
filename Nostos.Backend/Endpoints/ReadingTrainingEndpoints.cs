@@ -43,6 +43,114 @@ public static class ReadingTrainingEndpoints
             CancellationToken ct) =>
             ToHttp(await service.PreviewWeeklyReviewAsync(new ReadingWeeklyReviewRequest(year, week), ct)));
 
+        // --- books / queue ---
+        group.MapPost("/books", async (
+            ReadingAddBookAssignmentRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.AddBookAssignmentAsync(request, ct)));
+
+        group.MapPost("/books/default", async (
+            ReadingSetDefaultBookRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.SetDefaultBookAsync(request, ct)));
+
+        group.MapPost("/books/complete", async (
+            ReadingCompleteBookRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.CompleteBookAsync(request, ct)));
+
+        group.MapPost("/books/reorder", async (
+            ReadingReorderQueueRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.ReorderQueueAsync(request, ct)));
+
+        // --- sessions ---
+        group.MapPost("/sessions/plan", async (
+            ReadingPlanSessionRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.PlanSessionAsync(request, ct)));
+
+        group.MapPost("/sessions/start", async (
+            ReadingStartSessionRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.StartSessionAsync(request, ct)));
+
+        group.MapPost("/sessions/start-new", async (
+            ReadingStartNewSessionRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.StartNewSessionAsync(request, ct)));
+
+        group.MapPost("/sessions/pause", async (
+            ReadingSessionCommandRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.PauseSessionAsync(request, ct)));
+
+        group.MapPost("/sessions/resume", async (
+            ReadingSessionCommandRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.ResumeSessionAsync(request, ct)));
+
+        group.MapPost("/sessions/complete", async (
+            ReadingCompleteSessionRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.CompleteSessionAsync(request, ct)));
+
+        group.MapPost("/sessions/rate", async (
+            ReadingRateSessionRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.RateSessionAsync(request, ct)));
+
+        group.MapPost("/sessions/skip-ratings", async (
+            ReadingSkipRatingsRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.SkipRatingsAsync(request, ct)));
+
+        group.MapPost("/sessions/cancel", async (
+            ReadingSessionCommandRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.CancelSessionAsync(request, ct)));
+
+        // --- captures / inbox ---
+        group.MapPost("/captures", async (
+            ReadingCaptureRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.CaptureAsync(request, ct)));
+
+        group.MapPatch("/captures/{captureId:guid}/resolve", async (
+            Guid captureId,
+            ReadingResolveCaptureRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.ResolveCaptureAsync(captureId, request, ct)));
+
+        group.MapPost("/captures/{captureId:guid}/promote-to-note", async (
+            Guid captureId,
+            ReadingPromoteCaptureRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.PromoteCaptureToNoteAsync(captureId, request, ct)));
+
+        // --- weekly reviews ---
+        group.MapPost("/weekly-reviews/commit", async (
+            ReadingCommitWeeklyReviewRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.CommitWeeklyReviewAsync(request, ct)));
+
         return routes;
     }
 
