@@ -214,12 +214,18 @@ public record ReadingSessionDto(
     DateTime? CompletedAt
 );
 
+// Authoritative current-week summary for the dashboard, derived by the same
+// progression policy that powers the weekly review (Completed +
+// AwaitingFeedback evidence, floor minutes, qualifying semantics). An empty
+// current week is still a non-null zero summary once the programme is
+// initialized. CompletionThreshold is the policy's completion-rate threshold
+// (0.8) a mode must clear before any increase is permitted.
 public record ReadingWeekSummaryDto(
     string WeekKey,
     int CompletedSessions,
     int QualifyingSessions,
     int VolumeMinutes,
-    int CompletionThreshold,
+    double CompletionThreshold,
     bool ReviewCommitted
 );
 

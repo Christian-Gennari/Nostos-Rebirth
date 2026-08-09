@@ -344,6 +344,179 @@ public sealed class ReadingTrainingServiceTests : IClassFixture<ReadingTrainingS
         persisted.PromotedNoteId.Should().BeNull();
     }
 
+    // --- dashboard current-week summary ---------------------------------------
+    // The harness clock starts at 2026-08-09 08:00 UTC = Sunday 10:00 CEST,
+    // i.e. ISO week 32 2026: [2026-08-02T22:00:00Z, 2026-08-09T22:00:00Z).
+    private static readonly DateTime Week32StartUtc = new(2026, 8, 2, 22, 0, 0, DateTimeKind.Utc);
+    private static readonly DateTime Week33StartUtc = new(2026, 8, 9, 22, 0, 0, DateTimeKind.Utc);
+
+    [Fact]
+    public async Task Dashboard_current_week_is_a_non_null_zero_summary_once_initialized()
+    {
+        var h = Harness();
+        await h.Init();
+
+        var week = ((ReadingDashboardDto)(await h.Service.GetDashboardAsync()).Data!).CurrentWeek;
+
+        week.Should().NotBeNull();
+        week!.WeekKey.Should().Be("2026-W32");
+        week.CompletedSessions.Should().Be(0);
+        week.QualifyingSessions.Should().Be(0);
+        week.VolumeMinutes.Should().Be(0);
+        week.CompletionThreshold.Should().Be(ReadingProgressionPolicy.IncreaseCompletionRate);
+        week.ReviewCommitted.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Dashboard_current_week_mixes_modes_statuses_and_constraints()
+    {
+        var h = Harness();
+        await h.Init();
+        // Three qualifying endurance, one qualifying deep.
+        await SeedSession(h, ReadingMode.Endurance, Week32StartUtc.AddHours(2), 2400, effort: 5, focus: 8);
+        await SeedSession(h, ReadingMode.Endurance, Week32StartUtc.AddHours(26), 2400, effort: 5, focus: 8);
+        await SeedSession(h, ReadingMode.Endurance, Week32StartUtc.AddHours(50), 2400, effort: 5, focus: 8);
+        await SeedSession(h, ReadingMode.Deep, Week32StartUtc.AddHours(74), 1800, effort: 5, focus: 8);
+        // Constrained: volume only, never qualifying evidence.
+        await SeedSession(h, ReadingMode.Endurance, Week32StartUtc.AddHours(98), 2400,
+            effort: 5, focus: 8, constraint: ReadingConstraint.TimeConstrained);
+        // Recovery: volume only by policy, even when unconstrained and rated.
+        await SeedSession(h, ReadingMode.Recovery, Week32StartUtc.AddHours(122), 1200, effort: 5, focus: 8);
+        // AwaitingFeedback: counts as completed volume, but cannot qualify yet.
+        await SeedSession(h, ReadingMode.Endurance, Week32StartUtc.AddHours(146), 2400,
+            status: ReadingSessionStatus.AwaitingFeedback);
+
+        var week = ((ReadingDashboardDto)(await h.Service.GetDashboardAsync()).Data!).CurrentWeek!;
+
+        week.WeekKey.Should().Be("2026-W32");
+        week.CompletedSessions.Should().Be(7);
+        week.QualifyingSessions.Should().Be(4);
+        week.VolumeMinutes.Should().Be(250);
+        week.CompletionThreshold.Should().Be(ReadingProgressionPolicy.IncreaseCompletionRate);
+        week.ReviewCommitted.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Dashboard_current_week_boundary_follows_stockholm_local_week()
+    {
+        var h = Harness();
+        await h.Init();
+        // Sunday 2026-08-09 22:30 CEST = 20:30 UTC still belongs to ISO week 32.
+        await SeedSession(h, ReadingMode.Endurance, new DateTime(2026, 8, 9, 20, 30, 0, DateTimeKind.Utc),
+            2400, effort: 5, focus: 8);
+
+        // Sunday 23:30 CEST (21:30 UTC): the local date is still week 32.
+        h.Clock.Advance(TimeSpan.FromHours(13) + TimeSpan.FromMinutes(30));
+        var sunday = ((ReadingDashboardDto)(await h.Service.GetDashboardAsync()).Data!).CurrentWeek!;
+        sunday.WeekKey.Should().Be("2026-W32");
+        sunday.CompletedSessions.Should().Be(1);
+        sunday.VolumeMinutes.Should().Be(40);
+
+        // Monday 10:00 CEST (08:00 UTC): the local date is now week 33 and the
+        // Sunday session no longer counts toward the current week.
+        h.Clock.Advance(TimeSpan.FromHours(10) + TimeSpan.FromMinutes(30));
+        var monday = ((ReadingDashboardDto)(await h.Service.GetDashboardAsync()).Data!).CurrentWeek!;
+        monday.WeekKey.Should().Be("2026-W33");
+        monday.CompletedSessions.Should().Be(0);
+        monday.QualifyingSessions.Should().Be(0);
+        monday.VolumeMinutes.Should().Be(0);
+
+        // Monday 00:30 CEST = Sunday 22:30 UTC is the new week's first session.
+        await SeedSession(h, ReadingMode.Endurance, new DateTime(2026, 8, 9, 22, 30, 0, DateTimeKind.Utc),
+            2400, effort: 5, focus: 8);
+        var mondayWithSession = ((ReadingDashboardDto)(await h.Service.GetDashboardAsync()).Data!).CurrentWeek!;
+        mondayWithSession.WeekKey.Should().Be("2026-W33");
+        mondayWithSession.CompletedSessions.Should().Be(1);
+        mondayWithSession.QualifyingSessions.Should().Be(1);
+        mondayWithSession.VolumeMinutes.Should().Be(40);
+    }
+
+    [Fact]
+    public async Task Dashboard_current_week_review_committed_flag_reflects_persisted_review()
+    {
+        var h = Harness();
+        await h.Init();
+        await SeedSession(h, ReadingMode.Endurance, Week32StartUtc.AddHours(2), 2400, effort: 5, focus: 8);
+        await SeedSession(h, ReadingMode.Endurance, Week32StartUtc.AddHours(26), 2400, effort: 5, focus: 8);
+        await SeedSession(h, ReadingMode.Endurance, Week32StartUtc.AddHours(50), 2400, effort: 5, focus: 8);
+        await SeedSession(h, ReadingMode.Deep, Week32StartUtc.AddHours(74), 1800, effort: 5, focus: 8);
+
+        var before = ((ReadingDashboardDto)(await h.Service.GetDashboardAsync()).Data!).CurrentWeek!;
+        before.ReviewCommitted.Should().BeFalse();
+        before.VolumeMinutes.Should().Be(150);
+        before.QualifyingSessions.Should().Be(4);
+
+        var committed = await h.Service.CommitWeeklyReviewAsync(new("ui", "commit-w32", 2026, 32));
+        committed.StateVersion.Should().Be("2");
+
+        var after = ((ReadingDashboardDto)(await h.Service.GetDashboardAsync()).Data!).CurrentWeek!;
+        after.WeekKey.Should().Be("2026-W32");
+        after.ReviewCommitted.Should().BeTrue();
+        after.CompletedSessions.Should().Be(4);
+        after.QualifyingSessions.Should().Be(4);
+        after.VolumeMinutes.Should().Be(150);
+    }
+
+    private async Task SeedSession(
+        HarnessContext h,
+        ReadingMode mode,
+        DateTime completedAtUtc,
+        int accumulatedSeconds,
+        int effort = 0,
+        int focus = 0,
+        ReadingConstraint constraint = ReadingConstraint.None,
+        ReadingSessionStatus status = ReadingSessionStatus.Completed,
+        int? plannedTargetMinutes = null)
+    {
+        await using var db = h.Factory.CreateDbContext();
+        var book = new PhysicalBookModel { Title = $"Book-{Guid.NewGuid():N}" };
+        var assignment = new ReadingBookAssignment
+        {
+            Book = book,
+            BookId = book.Id,
+            Mode = mode,
+            QueueOrder = 0,
+            Status = ReadingAssignmentStatus.Active,
+            CreatedAt = completedAtUtc,
+            StartedAt = completedAtUtc,
+        };
+        var planned = plannedTargetMinutes ?? mode switch
+        {
+            ReadingMode.Deep => 30,
+            ReadingMode.Recovery => 20,
+            _ => 40,
+        };
+        var session = new ReadingSession
+        {
+            BookAssignment = assignment,
+            BookAssignmentId = assignment.Id,
+            Book = book,
+            BookId = book.Id,
+            Mode = mode,
+            Status = status,
+            OpenSlot = status is ReadingSessionStatus.Planned or ReadingSessionStatus.Active
+                or ReadingSessionStatus.Paused or ReadingSessionStatus.AwaitingFeedback
+                ? ReadingSession.OpenSentinel
+                : null,
+            TargetMinutes = planned,
+            PlannedTargetMinutes = planned,
+            Constraint = constraint,
+            AccumulatedSeconds = accumulatedSeconds,
+            ReportedMinutes = null,
+            Effort = effort,
+            Focus = focus,
+            RatingsSkipped = false,
+            CompletedAt = completedAtUtc,
+            PlannedAt = completedAtUtc,
+            CreatedAt = completedAtUtc,
+            UpdatedAt = completedAtUtc,
+        };
+        db.Books.Add(book);
+        db.ReadingBookAssignments.Add(assignment);
+        db.ReadingSessions.Add(session);
+        await db.SaveChangesAsync();
+    }
+
     private HarnessContext Harness()
     {
         var path = _fixture.CreateDatabasePath();

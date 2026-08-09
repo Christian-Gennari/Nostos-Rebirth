@@ -68,8 +68,9 @@ public sealed class ReadingTrainingService : IReadingTrainingService
         var books = await db.ReadingBookAssignments.AsNoTracking().Include(x => x.Book)
             .OrderBy(x => x.QueueOrder).ThenBy(x => x.CreatedAt).ToListAsync(ct);
         var open = await OpenSessionQuery(db).AsNoTracking().SingleOrDefaultAsync(ct);
+        var currentWeek = await CurrentWeekSummaryAsync(db, programme, ct);
         var dashboard = new ReadingDashboardDto(
-            ToDto(programme), books.Select(ToDto).ToList(), open is null ? null : ToDto(open), null);
+            ToDto(programme), books.Select(ToDto).ToList(), open is null ? null : ToDto(open), currentWeek);
         return Result(ReadingReplyFormatter.Dashboard, dashboard, programme.StateVersion);
     }
 
@@ -818,7 +819,32 @@ public sealed class ReadingTrainingService : IReadingTrainingService
                 ConsecutiveIncreasesFor(programme, mode),
                 sessions)))
             .ToList();
-        return new WeekEvaluation(WeekKey(isoYear, isoWeek), previousVolume, results);
+        return new WeekEvaluation(WeekKey(isoYear, isoWeek), previousVolume, results, completed.Count);
+    }
+
+    // Authoritative current-week summary for the dashboard: the ISO week that
+    // contains the current Europe/Stockholm local date, evaluated by the same
+    // weekly-review query and policy used by preview and commit, so the
+    // dashboard can never diverge from committed weekly evidence. An empty
+    // current week is still a non-null zero summary once the programme is
+    // initialized.
+    private async Task<ReadingWeekSummaryDto> CurrentWeekSummaryAsync(
+        NostosDbContext db, ReadingProgramme programme, CancellationToken ct)
+    {
+        var localNow = LocalNow;
+        var isoYear = ISOWeek.GetYear(localNow);
+        var isoWeek = ISOWeek.GetWeekOfYear(localNow);
+        var localMonday = ISOWeek.ToDateTime(isoYear, isoWeek, DayOfWeek.Monday);
+        var evaluation = await EvaluateWeekAsync(db, programme, isoYear, isoWeek, localMonday, ct);
+        var reviewCommitted = await db.ReadingWeeklyReviews.AsNoTracking()
+            .AnyAsync(r => r.WeekKey == evaluation.WeekKey, ct);
+        return new ReadingWeekSummaryDto(
+            evaluation.WeekKey,
+            evaluation.CompletedSessionCount,
+            evaluation.Results.Sum(r => r.QualifyingCount),
+            evaluation.TotalVolumeMinutes,
+            ReadingProgressionPolicy.IncreaseCompletionRate,
+            reviewCommitted);
     }
 
     private static ReadingProgressionSession ToProgressionSession(ReadingSession session) => new(
@@ -866,7 +892,8 @@ public sealed class ReadingTrainingService : IReadingTrainingService
     private readonly record struct WeekEvaluation(
         string WeekKey,
         int PreviousWeekVolumeMinutes,
-        IReadOnlyList<ReadingProgressionResult> Results)
+        IReadOnlyList<ReadingProgressionResult> Results,
+        int CompletedSessionCount)
     {
         // The policy computes the same all-mode weekly volume for every mode.
         public int TotalVolumeMinutes => Results[0].TotalVolumeMinutes;

@@ -197,7 +197,18 @@ public sealed class ReadingTrainingHttpTests
         dashData.GetProperty("programme").GetProperty("id").ValueKind.Should().Be(JsonValueKind.String);
         dashData.GetProperty("books").ValueKind.Should().Be(JsonValueKind.Array);
         dashData.GetProperty("openSession").ValueKind.Should().Be(JsonValueKind.Null);
-        dashData.GetProperty("currentWeek").ValueKind.Should().Be(JsonValueKind.Null);
+        // An initialized dashboard always carries a non-null current-week
+        // summary; with no sessions it is a zero summary keyed to the real
+        // Europe/Stockholm ISO week at the moment of the request.
+        var currentWeek = dashData.GetProperty("currentWeek");
+        currentWeek.ValueKind.Should().Be(JsonValueKind.Object);
+        currentWeek.GetProperty("weekKey").GetString().Should().MatchRegex(@"^\d{4}-W\d{2}$");
+        currentWeek.GetProperty("completedSessions").GetInt32().Should().Be(0);
+        currentWeek.GetProperty("qualifyingSessions").GetInt32().Should().Be(0);
+        currentWeek.GetProperty("volumeMinutes").GetInt32().Should().Be(0);
+        currentWeek.GetProperty("completionThreshold").GetDouble()
+            .Should().Be(ReadingProgressionPolicy.IncreaseCompletionRate);
+        currentWeek.GetProperty("reviewCommitted").GetBoolean().Should().BeFalse();
 
         var status = await Envelope(await client.GetAsync("/api/reading-training/status"));
         status.GetProperty("data").ValueKind.Should().Be(JsonValueKind.Null);
