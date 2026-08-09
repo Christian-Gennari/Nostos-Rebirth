@@ -1,0 +1,49 @@
+<section class="week-strip" aria-labelledby="week-strip-heading">
+  <header class="strip-header">
+    <h2 id="week-strip-heading">This week</h2>
+    @if (week(); as week) {
+      <span class="week-label">
+        <lucide-icon [img]="CalendarIcon" [size]="14" strokeWidth="2" aria-hidden="true"></lucide-icon>
+        {{ weekLabel() }}
+      </span>
+    }
+  </header>
+
+  @if (week(); as week) {
+    <dl class="week-stats">
+      <div class="stat">
+        <dt>Volume</dt>
+        <dd>{{ week.volumeMinutes }} min</dd>
+      </div>
+      <div class="stat">
+        <dt>Target</dt>
+        <dd>{{ totalTargetMinutes() ?? '—' }} min</dd>
+      </div>
+      <div class="stat">
+        <dt>Completed</dt>
+        <dd>{{ week.completedSessions }}</dd>
+      </div>
+      <div class="stat">
+        <dt>Qualifying</dt>
+        <dd>{{ week.qualifyingSessions }}</dd>
+      </div>
+    </dl>
+
+    <div class="strip-footer">
+      @if (week.reviewCommitted) {
+        <span class="committed-note">
+          <lucide-icon [img]="ReviewIcon" [size]="14" strokeWidth="2" aria-hidden="true"></lucide-icon>
+          Weekly review committed
+        </span>
+      } @else {
+        <button type="button" class="btn btn-primary btn-sm" (click)="reviewRequested.emit(week)">
+          Review week
+        </button>
+      }
+    </div>
+
+    <p class="volume-note">Constrained and recovery sessions add volume only.</p>
+  } @else {
+    <p class="strip-empty">Weekly totals appear here once sessions are completed.</p>
+  }
+</section>

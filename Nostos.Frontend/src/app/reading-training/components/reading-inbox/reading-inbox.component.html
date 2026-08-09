@@ -1,0 +1,64 @@
+<section class="reading-inbox" aria-labelledby="inbox-heading">
+  <header class="section-header">
+    <h2 id="inbox-heading">Reading inbox</h2>
+    @if (captures().length > 0) {
+      <span class="count-badge">{{ captures().length }}</span>
+    }
+  </header>
+
+  @if (captures().length === 0) {
+    <p class="empty-note">No captures waiting. Questions and bookmarks from reading sessions appear here.</p>
+  } @else {
+    <ul class="capture-list">
+      @for (capture of captures(); track capture.id) {
+        <li class="capture-item">
+          <span
+            class="capture-type"
+            [class.type-question]="capture.type === typeEnum.Question"
+            [class.type-bookmark]="capture.type === typeEnum.Bookmark"
+          >
+            <lucide-icon [img]="typeIcons[capture.type]" [size]="14" strokeWidth="2" aria-hidden="true"></lucide-icon>
+            {{ captureTypeLabel(capture.type) }}
+          </span>
+
+          <p class="capture-text">{{ capture.text }}</p>
+
+          <p class="capture-meta">{{ bookLabel(capture) }} · {{ formatTime(capture.createdAt) }}</p>
+
+          <div class="capture-actions">
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm"
+              (click)="keepRequested.emit(capture)"
+              [disabled]="mutating()"
+              [attr.aria-label]="'Keep capture: ' + capture.text"
+            >
+              <lucide-icon [img]="CheckIcon" [size]="14" strokeWidth="2" aria-hidden="true"></lucide-icon>
+              Keep
+            </button>
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm"
+              (click)="promoteRequested.emit(capture)"
+              [disabled]="mutating()"
+              [attr.aria-label]="'Promote capture to a note: ' + capture.text"
+            >
+              <lucide-icon [img]="PromoteIcon" [size]="14" strokeWidth="2" aria-hidden="true"></lucide-icon>
+              Promote to note
+            </button>
+            <button
+              type="button"
+              class="btn btn-ghost-danger btn-sm"
+              (click)="dismiss.emit(capture)"
+              [disabled]="mutating()"
+              [attr.aria-label]="'Dismiss capture: ' + capture.text"
+            >
+              <lucide-icon [img]="DismissIcon" [size]="14" strokeWidth="2" aria-hidden="true"></lucide-icon>
+              Dismiss
+            </button>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</section>
