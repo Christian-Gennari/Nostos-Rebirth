@@ -352,9 +352,18 @@ public sealed partial class HermesReadingImportService : IHermesReadingImportSer
     }
 
     // --- receipt payload ---------------------------------------------------
+    //
+    // Fail-closed sanitizer: the immutable receipt is built from dedicated
+    // receipt-only DTOs that structurally cannot express book titles/authors,
+    // match detail, or issue/skip detail strings — those exist only in the
+    // planner report. Whitelist, never blocklist.
 
     private string SerializePayload(HermesImportDryRunReport report, Guid backupId, DateTime committedAtUtc) =>
-        JsonSerializer.Serialize(new HermesImportReceiptPayload(
+        JsonSerializer.Serialize(BuildReceiptPayload(report, backupId, committedAtUtc), ReceiptJson);
+
+    private static HermesImportReceiptPayload BuildReceiptPayload(
+        HermesImportDryRunReport report, Guid backupId, DateTime committedAtUtc) =>
+        new(
             Version: "1",
             report.AggregateFingerprint,
             backupId,
@@ -362,10 +371,16 @@ public sealed partial class HermesReadingImportService : IHermesReadingImportSer
             report.SourceCounts,
             report.PlannedCounts,
             new HermesCommittedCounts(report.Assignments.Count, report.Sessions.Count, report.Captures.Count),
-            report.BookMappings,
-            report.Skips,
-            report.Warnings,
-            committedAtUtc), ReceiptJson);
+            report.BookMappings
+                .Select(m => new HermesReceiptBookMapping(m.SourceBookId, m.Decision, m.BookId))
+                .ToArray(),
+            report.Skips
+                .Select(s => new HermesReceiptSkip(s.Code, s.File, s.Line, s.SourceId))
+                .ToArray(),
+            report.Warnings
+                .Select(w => new HermesReceiptIssue(w.Code, w.File, w.Line))
+                .ToArray(),
+            committedAtUtc);
 
     private static HermesImportCommitResult Duplicate(
         HermesImportDryRunReport report, ReadingImportReceipt stored)

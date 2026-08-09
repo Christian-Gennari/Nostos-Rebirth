@@ -494,6 +494,68 @@ public sealed class HermesImportCommitTests : IDisposable
         result.ResultJson.Should().NotContain(dir);
     }
 
+    [Fact]
+    public async Task Receipt_ExcludesSecretBookMappingFields_OnlySafeMappingKeysRemain()
+    {
+        var h = await NewHarnessAsync();
+        await h.SeedBook("Candide", "Voltaire", CandideBookId);
+        await h.SeedBook("Meditations", "Marcus Aurelius", MeditationsBookId);
+        var dir = FullSourceFixture();
+        var report = new HermesReadingImportPlanner().Plan(
+            dir, [new(CandideBookId, "Candide", "Voltaire"), new(MeditationsBookId, "Meditations", "Marcus Aurelius")]);
+        report.Blocked.Should().BeFalse();
+
+        // The planner report legitimately carries the secrets; the immutable
+        // receipt must not. This is the exact leak surface found in live data.
+        report.BookMappings.Should().HaveCount(2);
+        report.BookMappings.Should().Contain(m =>
+            m.SourceBookId == "voltaire-candide" &&
+            m.SourceTitle == "Candide" && m.SourceAuthor == "Voltaire" &&
+            m.MatchedTitle == "Candide" && m.MatchedAuthor == "Voltaire");
+        report.BookMappings.Single(m => m.SourceBookId == "voltaire-candide").Detail
+            .Should().Be("unique normalized title and author match");
+
+        var result = await h.Service.CommitAsync(report);
+        result.Status.Should().Be(HermesImportCommitStatus.Committed);
+        var json = result.ResultJson!;
+
+        // Secret source/matched titles, authors, and match detail strings.
+        json.Should().NotContain("Candide");
+        json.Should().NotContain("Voltaire");
+        json.Should().NotContain("Meditations");
+        json.Should().NotContain("Marcus Aurelius");
+        json.Should().NotContain("unique normalized title and author match");
+        json.Should().NotContain("\"sourceTitle\"");
+        json.Should().NotContain("\"sourceAuthor\"");
+        json.Should().NotContain("\"matchedTitle\"");
+        json.Should().NotContain("\"matchedAuthor\"");
+        // Free-text detail is excluded everywhere in the receipt: no mapping
+        // detail, no warning detail, no skip detail.
+        json.Should().NotContain("session book has no planned assignment");
+        json.Should().NotContain("\"detail\"");
+
+        // Fail-closed: every bookMappings row carries exactly the safe keys
+        // and no others, and their values survive the sanitizer.
+        using var doc = JsonDocument.Parse(json);
+        var mappings = doc.RootElement.GetProperty("bookMappings").EnumerateArray().ToArray();
+        mappings.Should().HaveCount(2);
+        foreach (var mapping in mappings)
+            mapping.EnumerateObject().Select(p => p.Name).OrderBy(n => n)
+                .Should().Equal("bookId", "decision", "sourceBookId");
+        var candide = mappings.Single(m => m.GetProperty("sourceBookId").GetString() == "voltaire-candide");
+        candide.GetProperty("decision").GetString().Should().Be(HermesImportCodes.DecisionUniqueAuto);
+        candide.GetProperty("bookId").GetGuid().Should().Be(CandideBookId);
+
+        // The stored payload still round-trips through the sanitized DTOs.
+        var payload = JsonSerializer.Deserialize<HermesImportReceiptPayload>(
+            json, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        payload!.BookMappings.Should().Contain(m =>
+            m.SourceBookId == "voltaire-candide" && m.Decision == HermesImportCodes.DecisionUniqueAuto &&
+            m.BookId == CandideBookId);
+        payload.Warnings.Should().Contain(w => w.Code == HermesImportCodes.SessionBookNotInQueue);
+        payload.Skips.Should().BeEmpty();
+    }
+
     // ------------------------------------------------------------------
     // 12. Cancellation boundaries.
     // ------------------------------------------------------------------

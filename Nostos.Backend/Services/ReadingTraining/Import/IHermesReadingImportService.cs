@@ -50,8 +50,37 @@ public sealed record HermesImportCommitResult(
 public sealed record HermesCommittedCounts(int Assignments, int Sessions, int Captures);
 
 /// <summary>
+/// Privacy-sanitized book reconciliation row for the immutable receipt.
+/// Carries only the safe keys (source book id, decision, resolved book id);
+/// source/matched titles, authors, and match detail exist only in the
+/// planner report and never reach the receipt.
+/// </summary>
+public sealed record HermesReceiptBookMapping(
+    string SourceBookId,
+    string Decision,
+    Guid? BookId);
+
+/// <summary>Privacy-sanitized skip row for the receipt: code and location
+/// only, never the planner's free-text detail.</summary>
+public sealed record HermesReceiptSkip(
+    string Code,
+    string? File = null,
+    long? Line = null,
+    string? SourceId = null);
+
+/// <summary>Privacy-sanitized warning row for the receipt: code and location
+/// only, never the planner's free-text detail.</summary>
+public sealed record HermesReceiptIssue(
+    string Code,
+    string? File = null,
+    long? Line = null);
+
+/// <summary>
 /// Versioned canonical receipt payload (ResultJson, version "1"). Excludes
-/// capture text, session notes, and raw source paths by construction.
+/// capture text, session notes, raw source paths, book titles/authors,
+/// match detail, and issue/skip detail strings by construction; the only
+/// expressible mapping fields are the safe receipt subset
+/// (see <see cref="HermesReceiptBookMapping"/>).
 /// </summary>
 public sealed record HermesImportReceiptPayload(
     string Version,
@@ -61,9 +90,9 @@ public sealed record HermesImportReceiptPayload(
     HermesSourceCounts SourceCounts,
     HermesPlannedCounts PlannedCounts,
     HermesCommittedCounts Committed,
-    IReadOnlyList<HermesBookMappingDecision> BookMappings,
-    IReadOnlyList<HermesImportSkip> Skips,
-    IReadOnlyList<HermesImportIssue> Warnings,
+    IReadOnlyList<HermesReceiptBookMapping> BookMappings,
+    IReadOnlyList<HermesReceiptSkip> Skips,
+    IReadOnlyList<HermesReceiptIssue> Warnings,
     DateTime CommittedAtUtc);
 
 public interface IHermesReadingImportService
