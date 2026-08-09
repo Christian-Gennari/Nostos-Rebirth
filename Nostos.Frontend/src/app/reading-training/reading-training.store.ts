@@ -409,10 +409,18 @@ export class ReadingTrainingStore {
   /**
    * Serialized command pipeline: one mutation at a time. The lock is held from
    * command dispatch until the authoritative refresh that follows a successful
-   * command completes, so command responses can never reorder dashboard
-   * refreshes. Emits the original `ReadingCommandResult<T>` so callers can use
-   * command data (e.g. dialog flow); command failures rethrow the original
-   * error without refreshing or retrying.
+   * command completes — then it is released exactly once, immediately before
+   * the command result is delivered downstream (so a caller can start a
+   * follow-up command from its result handler, e.g. rating a just-completed
+   * session) and before a command error is rethrown. The per-subscription
+   * `release()` closure is idempotent: the first command's later completion
+   * can never clear a lock a subsequent command has already acquired.
+   *
+   * Emits the original `ReadingCommandResult<T>` so callers can use command
+   * data (e.g. dialog flow); command failures rethrow the original error
+   * without refreshing or retrying. Synchronous throws from the command
+   * factory, empty completions, and early unsubscription all release the lock
+   * through the same guarded finalizer.
    */
   private runCommand<T>(
     actionLabel: string,
@@ -424,18 +432,34 @@ export class ReadingTrainingStore {
       }
       this.mutatingState.set(true);
       this.errorState.set(null);
-      return invoke().pipe(
+      let released = false;
+      const release = (): void => {
+        if (released) return;
+        released = true;
+        this.mutatingState.set(false);
+      };
+      // The inner defer turns a synchronous throw from invoke() into a stream
+      // error so the lock is still released and reported consistently.
+      return defer(() => invoke()).pipe(
         switchMap((result) => {
           this.lastReplyState.set(result.reply);
-          // A refresh failure is exposed through store.error by loadDashboard,
-          // but cannot erase a command that the server already committed.
-          return this.loadDashboard().pipe(defaultIfEmpty(undefined), map(() => result));
+          return this.loadDashboard().pipe(
+            defaultIfEmpty(undefined),
+            map(() => {
+              // Refresh-before-result: the result only leaves after the
+              // authoritative refresh finished; the lock drops just before it
+              // reaches the caller.
+              release();
+              return result;
+            })
+          );
         }),
         catchError((err: unknown) => {
+          release();
           this.errorState.set(describeError(`Failed to ${actionLabel}`, err));
           return throwError(() => err);
         }),
-        finalize(() => this.mutatingState.set(false))
+        finalize(() => release())
       );
     });
   }

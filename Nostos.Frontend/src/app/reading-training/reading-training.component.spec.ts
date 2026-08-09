@@ -983,6 +983,140 @@ describe('ReadingTrainingComponent', () => {
     expect(dialog.querySelector('[role="status"]')).toBeNull();
     expect(dialog.textContent).toContain('First line of the note');
   });
+
+  it('offers only Active assignments for the planner; queued assignments are never plan candidates', () => {
+    const queuedBook: ReadingBookAssignment = {
+      ...secondBook,
+      id: 'a3',
+      bookId: 'b3',
+      bookTitle: 'On the Shortness of Life',
+      status: ReadingAssignmentStatus.Queued,
+      queueOrder: 1,
+    };
+    mock.dashboard.set(initializedDashboard());
+    mock.books.set([enduranceBook, queuedBook]);
+    fixture.detectChanges();
+
+    clickButton('Plan a session');
+    const planner = fixture.nativeElement.querySelector('app-session-planner') as HTMLElement;
+    expect(planner).toBeTruthy();
+    const bookSelect = planner.querySelector('#session-planner-book') as HTMLSelectElement;
+    expect(bookSelect).toBeTruthy();
+    const titles = Array.from(bookSelect.querySelectorAll('option')).map((o) =>
+      (o as HTMLOptionElement).textContent?.trim()
+    );
+    expect(titles).toContain('Meditations');
+    expect(titles).not.toContain('On the Shortness of Life');
+  });
+
+  it('traps Tab focus inside a dialog, closes with Escape, and restores trigger focus', () => {
+    mock.dashboard.set(initializedDashboard());
+    fixture.detectChanges();
+
+    const captureButton = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
+      (b) => (b as HTMLButtonElement).textContent?.trim() === 'Capture'
+    ) as HTMLButtonElement;
+    captureButton.focus();
+    captureButton.click();
+    fixture.detectChanges();
+
+    const dialog = fixture.nativeElement.querySelector('.dialog') as HTMLElement;
+    expect(document.activeElement).toBe(dialog);
+
+    const focusables = Array.from(dialog.querySelectorAll<HTMLElement>('button, input, select, textarea')).filter(
+      (el) => !(el as HTMLButtonElement).disabled
+    );
+    expect(focusables.length).toBeGreaterThanOrEqual(2);
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+
+    // Tab from the last focusable wraps to the first.
+    last.focus();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    expect(document.activeElement).toBe(first);
+
+    // Shift+Tab from the first focusable wraps to the last.
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true }));
+    expect(document.activeElement).toBe(last);
+
+    // Escape closes the active dialog and restores focus to the trigger.
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.dialog')).toBeNull();
+    expect(document.activeElement).toBe(captureButton);
+  });
+
+  it('registers the focus-trap keydown listener only while a dialog is open and cleans it up on destroy', () => {
+    const addSpy = vi.spyOn(document, 'addEventListener');
+    const removeSpy = vi.spyOn(document, 'removeEventListener');
+    mock.dashboard.set(initializedDashboard());
+    fixture.detectChanges();
+
+    // No listener before any dialog opens.
+    expect(addSpy).not.toHaveBeenCalledWith('keydown', expect.any(Function), true);
+
+    clickButton('Capture');
+    expect(addSpy).toHaveBeenCalledWith('keydown', expect.any(Function), true);
+
+    // Closing via the close button removes the single listener again.
+    clickByAria('Close capture dialog');
+    expect(removeSpy).toHaveBeenCalledWith('keydown', expect.any(Function), true);
+    removeSpy.mockClear();
+
+    // Destroying the page with a dialog still open also removes the listener.
+    clickButton('Capture');
+    fixture.destroy();
+    expect(removeSpy).toHaveBeenCalledWith('keydown', expect.any(Function), true);
+  });
+
+  it('ignores a stale weekly preview response after a newer preview superseded it', () => {
+    const firstPreview = new Subject<ReadingCommandResult<ReadingWeeklyReview>>();
+    readingServiceMock.previewWeeklyReview.mockReturnValueOnce(firstPreview);
+    mock.dashboard.set(initializedDashboard());
+    mock.currentWeek.set(weekSummary);
+    fixture.detectChanges();
+
+    clickButton('Review week');
+    const dialog = fixture.nativeElement.querySelector('.dialog') as HTMLElement;
+    expect(dialog.textContent).toContain('Preparing the weekly review…');
+
+    // Close and reopen — the newer preview request supersedes the first.
+    const secondPreview = new Subject<ReadingCommandResult<ReadingWeeklyReview>>();
+    readingServiceMock.previewWeeklyReview.mockReturnValueOnce(secondPreview);
+    clickByAria('Close weekly review dialog');
+    fixture.detectChanges();
+    clickButton('Review week');
+
+    const newerReview: ReadingWeeklyReview = { ...weeklyReview, totalVolumeMinutes: 999 };
+    secondPreview.next(envelope(newerReview));
+    secondPreview.complete();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('999 min this week');
+
+    // The stale first response lands late and must not overwrite the newer week.
+    firstPreview.next(envelope(weeklyReview));
+    firstPreview.complete();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('999 min this week');
+    expect(fixture.nativeElement.textContent).not.toContain('60 min this week');
+  });
+
+  it('stops page callbacks after destroy while the store still owns the in-flight command', () => {
+    const completeSubject = new Subject<ReadingCommandResult<ReadingSession>>();
+    mock.completeSession.mockReturnValue(completeSubject);
+    openSessionFixture(ReadingSessionStatus.AwaitingFeedback);
+    setInput('input[aria-label="Actual minutes read"]', '30');
+    clickButton('Complete');
+    expect(mock.completeSession).toHaveBeenCalledTimes(1);
+
+    fixture.destroy();
+
+    // The page subscription is torn down: the late result must not run page
+    // callbacks (no history reload) and must not throw.
+    completeSubject.next(envelope(makeSession({ status: ReadingSessionStatus.Completed })));
+    completeSubject.complete();
+    expect(mock.loadHistory).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('ReadingTraining route wiring', () => {

@@ -36,7 +36,7 @@
       <span class="spinner" aria-hidden="true"></span>
       <p>Loading reading training…</p>
     </section>
-  } @else if (store.dashboard(); as dashboard) {
+  } @else if (store.dashboard()) {
     @if (store.error(); as error) {
       <section class="error-banner" role="alert">
         <p class="error-text">{{ error }}</p>

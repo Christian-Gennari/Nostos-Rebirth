@@ -1,8 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { EMPTY } from 'rxjs';
 
 import { ReadingTrainingStore } from './reading-training.store';
+import { ReadingTrainingService } from '../core/services/reading-training.service';
 import {
   ReadingAssignmentStatus,
   ReadingBookAssignment,
@@ -808,5 +810,115 @@ describe('ReadingTrainingStore', () => {
     expect(store.error()).toBe('Failed to rate session: network error');
     expect(store.mutating()).toBe(false);
     expect(store.dashboard()).toEqual(dashboard());
+  });
+
+  it('releases the lock before emitting a result so a follow-up command starts from the result handler', () => {
+    let completeEmitted: ReadingCommandResult<ReadingSession> | undefined;
+    let rateEmitted: ReadingCommandResult<ReadingSession> | undefined;
+    let rateError: unknown;
+
+    store
+      .completeSession({ clientId, idempotencyKey, reportedMinutes: 25 })
+      .subscribe({
+        next: (result) => {
+          completeEmitted = result;
+          // The page's onRate flow: the second command must be able to start
+          // from the first command's result handler without hitting
+          // mutation_in_progress.
+          store
+            .rateSession({ clientId, idempotencyKey: 'key-2', effort: 6, focus: 7 })
+            .subscribe({
+              next: (rated) => (rateEmitted = rated),
+              error: (e) => (rateError = e),
+            });
+        },
+        error: () => void 0,
+      });
+
+    const completeReq = httpMock.expectOne(`${base}/sessions/complete`);
+    expect(completeReq.request.method).toBe('POST');
+    completeReq.flush(envelope({ ...session, status: ReadingSessionStatus.AwaitingFeedback }, { reply: 'session completed' }));
+
+    // The lock stays held through the first command's authoritative refresh...
+    expect(store.mutating()).toBe(true);
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expect(completeEmitted).toBeDefined();
+
+    // ...then the rate POST is issued from the result handler, no mutation error.
+    expect(rateError).toBeUndefined();
+    const rateReq = httpMock.expectOne(`${base}/sessions/rate`);
+    expect(rateReq.request.method).toBe('POST');
+    expect(rateReq.request.body).toEqual({ clientId, idempotencyKey: 'key-2', effort: 6, focus: 7 });
+    expect(store.mutating()).toBe(true); // the second command holds the lock now
+
+    // Refresh-before-result for the second command: still in flight after the
+    // POST, so no result yet and the lock is still held.
+    rateReq.flush(envelope({ ...session, effort: 6, focus: 7 }, { reply: 'session rated' }));
+    expect(rateEmitted).toBeUndefined();
+    expect(store.mutating()).toBe(true);
+
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expect(rateEmitted).toBeDefined();
+    expect(rateEmitted?.data?.effort).toBe(6);
+    expect(store.lastReply()).toBe('session rated');
+    expect(store.mutating()).toBe(false);
+  });
+
+  it('releases the lock before a command error is delivered, so a follow-up command can start from the error handler', () => {
+    let followUpEmitted = false;
+    let followUpError: unknown;
+
+    store
+      .completeSession({ clientId, idempotencyKey, reportedMinutes: 25 })
+      .subscribe({
+        error: () => {
+          // Store contract: the lock is already released before the error is
+          // delivered. The page deliberately sends no follow-up on failure,
+          // but the store must not keep rejecting the next mutation.
+          store
+            .rateSession({ clientId, idempotencyKey: 'key-2', effort: 6, focus: 7 })
+            .subscribe({
+              next: () => (followUpEmitted = true),
+              error: (e) => (followUpError = e),
+            });
+        },
+        next: () => void 0,
+      });
+
+    httpMock.expectOne(`${base}/sessions/complete`).flush(
+      { reply: 'Cannot complete: no active session', data: { code: 'invalid_transition' }, stateVersion: '17', duplicate: false },
+      { status: 409, statusText: 'Conflict' }
+    );
+
+    expect(followUpError).toBeUndefined();
+    httpMock.expectOne(`${base}/sessions/rate`).flush(envelope({ ...session, effort: 6, focus: 7 }, { reply: 'session rated' }));
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expect(followUpEmitted).toBe(true);
+    expect(store.mutating()).toBe(false);
+  });
+
+  it('a command factory that throws synchronously still releases the mutation lock', () => {
+    const service = TestBed.inject(ReadingTrainingService);
+    vi.spyOn(service, 'pauseSession').mockImplementation(() => {
+      throw new Error('command factory exploded');
+    });
+
+    let error: unknown;
+    store.pauseSession({ clientId, idempotencyKey }).subscribe({ error: (e) => (error = e) });
+    expect((error as Error).message).toBe('command factory exploded');
+    expect(store.error()).toBe('Failed to pause session: command factory exploded');
+    expect(store.mutating()).toBe(false);
+    expect(httpMock.match(`${base}/sessions/pause`)).toHaveLength(0);
+  });
+
+  it('a command that completes without emitting still releases the mutation lock', () => {
+    const service = TestBed.inject(ReadingTrainingService);
+    vi.spyOn(service, 'pauseSession').mockReturnValue(EMPTY);
+
+    let completed = false;
+    store.pauseSession({ clientId, idempotencyKey }).subscribe({ complete: () => (completed = true) });
+    expect(completed).toBe(true);
+    expect(store.mutating()).toBe(false);
+    expect(httpMock.match(`${base}/sessions/pause`)).toHaveLength(0);
   });
 });
