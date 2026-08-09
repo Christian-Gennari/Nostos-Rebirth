@@ -15,9 +15,8 @@ namespace Nostos.Backend.Services.ReadingTraining;
 //   * Modes adapt independently. Recovery sessions are volume-only: they count
 //     toward weekly volume but can never be qualifying evidence and can never
 //     cause an increase of Endurance or Deep.
-//   * Only Completed sessions count. Cancelled sessions never count as volume
-//     or evidence, but a Cancelled normal-target session does count as an
-//     attempt for the completion rate.
+//   * Only Completed sessions count. Cancelled sessions never count as volume,
+//     attempts, failures, or evidence.
 //   * A qualifying normal-target attempt is Endurance/Deep, Constraint=None,
 //     ratings present (Effort/Focus > 0 and not skipped), and effective
 //     minutes at least the session's PlannedTargetMinutes. ReportedMinutes
@@ -76,7 +75,7 @@ public sealed record ReadingProgressionResult(
     int TargetBeforeMinutes,
     int TargetAfterMinutes,
     int QualifyingCount,
-    double CompletionRate,         // 0..1 over normal-target attempts (Completed + Cancelled)
+    double CompletionRate,         // 0..1: target-met / completed normal-target sessions
     int? MedianEffort,             // null when no rated completed normal-target session exists
     int? MedianFocus,
     int TotalVolumeMinutes,        // effective minutes of every Completed session (all modes)
@@ -123,6 +122,7 @@ public static class ReadingProgressionPolicy
     public const string ReasonLowFocus = "low-focus";
     public const string ReasonVolumeGuard = "volume-guard";
     public const string ReasonConsolidation = "consolidation";
+    public const string ReasonRecoveryVolumeOnly = "recovery-volume-only";
 
     public static ReadingProgressionResult Evaluate(ReadingProgressionInput input)
     {
@@ -142,15 +142,10 @@ public static class ReadingProgressionPolicy
             .Where(s => s.Status == ReadingSessionStatus.Completed)
             .Sum(EffectiveMinutes);
 
-        // Normal-target attempts of this mode: terminal sessions with
-        // Constraint == None. Cancelled counts as an attempt (lowers the
-        // completion rate) but never as completed volume or evidence.
+        // Normal-target attempts are completed, unconstrained sessions only.
+        // Cancelled sessions are ignored completely: cancelling is not failure.
         var normalCompleted = modeSessions
             .Where(s => s.Status == ReadingSessionStatus.Completed
-                        && s.Constraint == ReadingConstraint.None)
-            .ToList();
-        var normalCancelled = modeSessions
-            .Where(s => s.Status == ReadingSessionStatus.Cancelled
                         && s.Constraint == ReadingConstraint.None)
             .ToList();
 
@@ -173,8 +168,17 @@ public static class ReadingProgressionPolicy
                 input.ConsecutiveIncreases);
         }
 
-        var completionRate = normalCompleted.Count
-                             / (double)(normalCompleted.Count + normalCancelled.Count);
+        var targetMetCount = normalCompleted.Count(s => EffectiveMinutes(s) >= s.PlannedTargetMinutes);
+        var completionRate = targetMetCount / (double)normalCompleted.Count;
+
+        // Recovery contributes volume only. It never adapts any target and a
+        // difficult Recovery week is not treated as failure.
+        if (input.Mode == ReadingMode.Recovery)
+        {
+            return Result(input, KindHold, ReasonRecoveryVolumeOnly, input.TargetBeforeMinutes,
+                0, completionRate, medianEffort, medianFocus, totalVolume,
+                input.ConsecutiveIncreases);
+        }
 
         // --- Bad week: deterministic deload by exactly 5, floored at baseline. ---
         var badWeek = completionRate < DeloadCompletionRate
@@ -226,8 +230,8 @@ public static class ReadingProgressionPolicy
         // --- Hold with the first unmet criterion (deterministic order). ---
         // A qualifying count >= 3 guarantees rated sessions exist, so the
         // medians are non-null here; the null-coalescing is defensive only.
-        var holdReason = qualifying.Count < MinQualifyingAttempts ? ReasonInsufficientQualifying
-            : completionRate < IncreaseCompletionRate ? ReasonCompletionRate
+        var holdReason = completionRate < IncreaseCompletionRate ? ReasonCompletionRate
+            : qualifying.Count < MinQualifyingAttempts ? ReasonInsufficientQualifying
             : (medianEffort ?? 0) > MaxIncreaseMedianEffort ? ReasonHighEffort
             : ReasonLowFocus;
         return Result(input, KindHold, holdReason, input.TargetBeforeMinutes,

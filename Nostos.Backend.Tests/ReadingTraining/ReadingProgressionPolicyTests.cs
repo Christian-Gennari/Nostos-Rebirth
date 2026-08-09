@@ -97,7 +97,7 @@ public sealed class ReadingProgressionPolicyTests
 
         // Recovery is volume-only: never qualifying, therefore never increasing.
         result.DecisionKind.Should().Be(ReadingProgressionPolicy.KindHold);
-        result.Reason.Should().Be(ReadingProgressionPolicy.ReasonInsufficientQualifying);
+        result.Reason.Should().Be(ReadingProgressionPolicy.ReasonRecoveryVolumeOnly);
         result.QualifyingCount.Should().Be(0);
         result.TargetAfterMinutes.Should().Be(20);
         result.TotalVolumeMinutes.Should().Be(60);
@@ -293,13 +293,13 @@ public sealed class ReadingProgressionPolicyTests
             ReadingMode.Endurance,
             sessions:
             [
-                .. GoodEnduranceWeek(),
-                S(ReadingMode.Endurance, status: ReadingSessionStatus.Cancelled),
-                S(ReadingMode.Endurance, status: ReadingSessionStatus.Cancelled),
-                S(ReadingMode.Endurance, status: ReadingSessionStatus.Cancelled),
+                S(ReadingMode.Endurance),
+                S(ReadingMode.Endurance),
+                S(ReadingMode.Endurance, accumulatedSeconds: 10 * 60),
+                S(ReadingMode.Endurance, accumulatedSeconds: 10 * 60),
             ]));
 
-        // 3 completed / 6 attempts = 0.5: exactly half is NOT below the 0.5
+        // 2 target-met / 4 completed attempts = 0.5: exactly half is NOT below the 0.5
         // deload bar, so the week holds on the 0.8 increase bar instead.
         result.CompletionRate.Should().Be(0.5);
         result.DecisionKind.Should().Be(ReadingProgressionPolicy.KindHold);
@@ -310,33 +310,49 @@ public sealed class ReadingProgressionPolicyTests
             sessions:
             [
                 S(ReadingMode.Endurance),
-                S(ReadingMode.Endurance, status: ReadingSessionStatus.Cancelled),
-                S(ReadingMode.Endurance, status: ReadingSessionStatus.Cancelled),
+                S(ReadingMode.Endurance, accumulatedSeconds: 10 * 60),
+                S(ReadingMode.Endurance, accumulatedSeconds: 10 * 60),
+                S(ReadingMode.Endurance, accumulatedSeconds: 10 * 60),
             ]));
 
-        // 1 completed / 3 attempts = 0.33 < 0.5 -> deload despite the good single session.
+        // 1 target-met / 4 completed attempts = 0.25 < 0.5 -> deload.
         deload.DecisionKind.Should().Be(ReadingProgressionPolicy.KindDeload);
         deload.Reason.Should().Be(ReadingProgressionPolicy.ReasonCompletionRate);
-        deload.CompletionRate.Should().BeApproximately(1.0 / 3.0, 0.0001);
+        deload.CompletionRate.Should().Be(0.25);
         deload.TargetAfterMinutes.Should().Be(40);
     }
 
     [Fact]
-    public void Recovery_bad_week_can_deload_but_never_below_twenty()
+    public void Recovery_difficult_week_is_volume_only_and_never_deloads()
     {
         var result = ReadingProgressionPolicy.Evaluate(Input(
             ReadingMode.Recovery, targetBefore: 20, established: 20,
             sessions:
             [
-                S(ReadingMode.Recovery, planned: 20, accumulatedSeconds: 20 * 60),
-                S(ReadingMode.Recovery, status: ReadingSessionStatus.Cancelled),
-                S(ReadingMode.Recovery, status: ReadingSessionStatus.Cancelled),
+                S(ReadingMode.Recovery, planned: 20, accumulatedSeconds: 5 * 60, effort: 10, focus: 1),
+                S(ReadingMode.Recovery, planned: 20, accumulatedSeconds: 5 * 60, effort: 10, focus: 1),
             ]));
 
-        // Recovery never increases, but a bad week still reduces (floor 20).
-        result.DecisionKind.Should().Be(ReadingProgressionPolicy.KindDeload);
-        result.Reason.Should().Be(ReadingProgressionPolicy.ReasonCompletionRate);
+        result.DecisionKind.Should().Be(ReadingProgressionPolicy.KindHold);
+        result.Reason.Should().Be(ReadingProgressionPolicy.ReasonRecoveryVolumeOnly);
         result.TargetAfterMinutes.Should().Be(20);
+    }
+
+    [Fact]
+    public void Cancelled_sessions_never_lower_completion_rate_or_trigger_deload()
+    {
+        var result = ReadingProgressionPolicy.Evaluate(Input(
+            ReadingMode.Endurance,
+            sessions:
+            [
+                .. GoodEnduranceWeek(),
+                S(ReadingMode.Endurance, status: ReadingSessionStatus.Cancelled),
+                S(ReadingMode.Endurance, status: ReadingSessionStatus.Cancelled),
+            ]));
+
+        result.CompletionRate.Should().Be(1.0);
+        result.DecisionKind.Should().Be(ReadingProgressionPolicy.KindIncrease);
+        result.QualifyingCount.Should().Be(3);
     }
 
     // --- Empty / no-evidence hold -----------------------------------------------------
@@ -485,8 +501,9 @@ public sealed class ReadingProgressionPolicyTests
             ]));
 
         result.QualifyingCount.Should().Be(2);
+        result.CompletionRate.Should().BeApproximately(2.0 / 3.0, 0.0001);
         result.DecisionKind.Should().Be(ReadingProgressionPolicy.KindHold);
-        result.Reason.Should().Be(ReadingProgressionPolicy.ReasonInsufficientQualifying);
+        result.Reason.Should().Be(ReadingProgressionPolicy.ReasonCompletionRate);
         result.TotalVolumeMinutes.Should().Be(100);
     }
 
@@ -535,8 +552,7 @@ public sealed class ReadingProgressionPolicyTests
     public void Cancelled_sessions_never_count_as_volume_or_qualifying()
     {
         // Two completed sessions plus two cancelled 60-minute sessions: the
-        // cancelled ones add no volume and no qualifying evidence, and the
-        // 2/4 = 0.5 completion rate keeps the week at hold (not a deload).
+        // cancelled ones add no volume, no attempt, and no qualifying evidence.
         var result = ReadingProgressionPolicy.Evaluate(Input(
             ReadingMode.Endurance,
             sessions:
@@ -550,12 +566,13 @@ public sealed class ReadingProgressionPolicyTests
         result.QualifyingCount.Should().Be(2);
         // Only the completed sessions contribute volume; the cancelled 60s do not.
         result.TotalVolumeMinutes.Should().Be(80);
-        result.CompletionRate.Should().Be(0.5);
+        result.CompletionRate.Should().Be(1.0);
         result.DecisionKind.Should().Be(ReadingProgressionPolicy.KindHold);
+        result.Reason.Should().Be(ReadingProgressionPolicy.ReasonInsufficientQualifying);
     }
 
     [Fact]
-    public void Cancelled_sessions_drag_the_completion_rate_below_increase_threshold()
+    public void Cancelled_sessions_do_not_drag_completion_rate_below_increase_threshold()
     {
         var result = ReadingProgressionPolicy.Evaluate(Input(
             ReadingMode.Endurance,
@@ -566,10 +583,9 @@ public sealed class ReadingProgressionPolicyTests
                 S(ReadingMode.Endurance, status: ReadingSessionStatus.Cancelled),
             ]));
 
-        // 3 / 5 = 0.6: not a bad week (>= 0.5) but below the 0.8 increase bar.
-        result.CompletionRate.Should().Be(0.6);
-        result.DecisionKind.Should().Be(ReadingProgressionPolicy.KindHold);
-        result.Reason.Should().Be(ReadingProgressionPolicy.ReasonCompletionRate);
+        result.CompletionRate.Should().Be(1.0);
+        result.DecisionKind.Should().Be(ReadingProgressionPolicy.KindIncrease);
+        result.Reason.Should().Be(ReadingProgressionPolicy.ReasonCriteriaMet);
         result.QualifyingCount.Should().Be(3);
     }
 
