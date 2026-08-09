@@ -55,6 +55,12 @@
       </button>
     </div>
 
+    <app-pending-notices
+      [notices]="store.pendingNotices()"
+      [busy]="store.notificationsBusy()"
+      (acknowledge)="onAcknowledgeNotice($event)"
+    />
+
     <app-week-strip
       [week]="store.currentWeek()"
       [programme]="store.programme()"

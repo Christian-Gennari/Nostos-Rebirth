@@ -1,11 +1,12 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { EMPTY } from 'rxjs';
+import { EMPTY, Subject } from 'rxjs';
 
 import { ReadingTrainingStore } from './reading-training.store';
 import { ReadingTrainingService } from '../core/services/reading-training.service';
 import {
+  ReadingAckNotificationResult,
   ReadingAssignmentStatus,
   ReadingBookAssignment,
   ReadingCapture,
@@ -14,6 +15,7 @@ import {
   ReadingConstraint,
   ReadingDashboard,
   ReadingMode,
+  ReadingNotification,
   ReadingProgramme,
   ReadingSession,
   ReadingSessionStatus,
@@ -182,6 +184,40 @@ describe('ReadingTrainingStore', () => {
     return { reply: 'ok', stateVersion: '17', duplicate: false, data, ...overrides };
   }
 
+  const noticeId1 = 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1';
+  const noticeId2 = 'cccccccc-cccc-4ccc-8ccc-ccccccccccc2';
+  const leaseUntil = '2026-08-09T19:00:00+02:00';
+
+  function notice(id: string, overrides: Partial<ReadingNotification> = {}): ReadingNotification {
+    return {
+      notificationId: id,
+      payload: {
+        notificationId: id,
+        sessionId,
+        bookId,
+        mode: ReadingMode.Deep,
+        plannedTargetMinutes: 10,
+        effectiveElapsedSeconds: 605,
+        message: 'Reading target reached.',
+      },
+      leaseUntil,
+      ...overrides,
+    };
+  }
+
+  function matchLeases() {
+    return httpMock.match((request) => request.url === `${base}/notifications/lease`);
+  }
+
+  function expectLease() {
+    return httpMock.expectOne((request) => request.url === `${base}/notifications/lease`);
+  }
+
+  /** Flushes every outstanding notification lease request with `rows`. */
+  function flushLease(rows: ReadingNotification[] = []): void {
+    for (const req of matchLeases()) req.flush(rows);
+  }
+
   beforeEach(() => {
     // Vitest fake timers also fake Date, so `Date.now()` is deterministic and
     // advances with `vi.advanceTimersByTime` — no clock seam needed in the store.
@@ -212,34 +248,42 @@ describe('ReadingTrainingStore', () => {
     req.flush(envelope(dashboard()));
     expect(store.loading()).toBe(false);
     expect(store.dashboard()).toEqual(dashboard());
+    flushLease();
 
     // No refresh before 30s have elapsed.
     vi.advanceTimersByTime(29_999);
     expect(httpMock.match(`${base}/dashboard`)).toHaveLength(0);
+    expect(matchLeases()).toHaveLength(0);
 
     vi.advanceTimersByTime(1);
     req = httpMock.expectOne(`${base}/dashboard`);
     req.flush(envelope(dashboard({ openSession: { ...session, measuredSeconds: 1000 } })));
     expect(store.openSession()?.measuredSeconds).toBe(1000);
+    expectLease().flush([]);
   });
 
   it('refreshes on window focus, on window online, and on visibility becoming visible (not hidden)', () => {
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
 
     window.dispatchEvent(new Event('focus'));
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expectLease().flush([]);
 
     window.dispatchEvent(new Event('online'));
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expectLease().flush([]);
 
     Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
     document.dispatchEvent(new Event('visibilitychange'));
     expect(httpMock.match(`${base}/dashboard`)).toHaveLength(0);
+    expect(matchLeases()).toHaveLength(0);
 
     Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
     document.dispatchEvent(new Event('visibilitychange'));
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expectLease().flush([]);
   });
 
   it('connect() is idempotent: repeated calls do not duplicate requests, timers, or listeners', () => {
@@ -250,19 +294,23 @@ describe('ReadingTrainingStore', () => {
 
     // Exactly one immediate load.
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
 
     // Exactly one 30s refresh (a duplicated timer would produce two requests).
     vi.advanceTimersByTime(30_000);
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expectLease().flush([]);
 
     // Exactly one focus listener (a duplicated listener would produce two requests).
     window.dispatchEvent(new Event('focus'));
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expectLease().flush([]);
   });
 
   it('disconnect() stops timers and removes listeners; no later refresh fires', () => {
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
     store.disconnect();
     expect(store.connected()).toBe(false);
 
@@ -273,18 +321,22 @@ describe('ReadingTrainingStore', () => {
     document.dispatchEvent(new Event('visibilitychange'));
 
     expect(httpMock.match(`${base}/dashboard`)).toHaveLength(0);
+    expect(matchLeases()).toHaveLength(0);
     expect(store.dashboard()).toEqual(dashboard());
   });
 
   it('reconnecting after disconnect reloads the dashboard and restarts the lifecycle', () => {
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
     store.disconnect();
 
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
     vi.advanceTimersByTime(30_000);
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expectLease().flush([]);
   });
 
   // --- dashboard selectors and refresh convergence ---
@@ -292,6 +344,7 @@ describe('ReadingTrainingStore', () => {
   it('exposes derived selectors from the dashboard snapshot', () => {
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
 
     expect(store.programme()).toEqual(programme);
     expect(store.books()).toEqual([assignment, queuedAssignment, completedAssignment, deepAssignment]);
@@ -315,12 +368,14 @@ describe('ReadingTrainingStore', () => {
   it('replaces the snapshot atomically on each successful refresh', () => {
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
 
     const updated = dashboard({
       openSession: { ...session, status: ReadingSessionStatus.Paused, pausedAt: '2026-08-09T08:25:00+02:00' },
     });
     window.dispatchEvent(new Event('focus'));
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(updated));
+    expectLease().flush([]);
 
     expect(store.dashboard()).toEqual(updated);
     expect(store.sessionPaused()).toBe(true);
@@ -329,6 +384,7 @@ describe('ReadingTrainingStore', () => {
 
   it('an older overlapping refresh response never overwrites a newer one', () => {
     store.connect();
+    flushLease();
     const older = httpMock.expectOne(`${base}/dashboard`);
 
     store.refresh();
@@ -475,6 +531,7 @@ describe('ReadingTrainingStore', () => {
 
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
     store.disconnect();
     expect(store.inbox()).toEqual([capture]);
     expect(store.history()).toEqual([pausedSession]);
@@ -482,8 +539,10 @@ describe('ReadingTrainingStore', () => {
     // The 30s timer drives the dashboard refresh only — never inbox/history.
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
     vi.advanceTimersByTime(30_000);
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expectLease().flush([]);
     expect(httpMock.match(`${base}/inbox`)).toHaveLength(0);
     expect(httpMock.match(`${base}/history`)).toHaveLength(0);
   });
@@ -493,6 +552,7 @@ describe('ReadingTrainingStore', () => {
   it('ticks once per second from the server anchor while the session is Active', () => {
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
     expect(store.displayedElapsedSeconds()).toBe(900);
 
     vi.advanceTimersByTime(5_000);
@@ -505,6 +565,7 @@ describe('ReadingTrainingStore', () => {
   it('paused, planned, awaiting-feedback, and completed sessions never tick', () => {
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard({ openSession: pausedSession })));
+    flushLease();
     expect(store.displayedElapsedSeconds()).toBe(1200);
     vi.advanceTimersByTime(10_000);
     expect(store.displayedElapsedSeconds()).toBe(1200);
@@ -521,12 +582,14 @@ describe('ReadingTrainingStore', () => {
   it('a server refresh re-anchors the display to the new measuredSeconds', () => {
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
     vi.advanceTimersByTime(10_000);
     expect(store.displayedElapsedSeconds()).toBe(910);
 
     // 30s authoritative refresh reports server-measured 950 seconds.
     vi.advanceTimersByTime(20_000);
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard({ openSession: { ...session, measuredSeconds: 950 } })));
+    expectLease().flush([]);
     expect(store.displayedElapsedSeconds()).toBe(950);
 
     vi.advanceTimersByTime(3_000);
@@ -536,6 +599,7 @@ describe('ReadingTrainingStore', () => {
   it('clamps a client clock moving backwards to zero added seconds', () => {
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
 
     // Move the (fake) client clock backwards relative to the anchor time.
     vi.setSystemTime(Date.now() - 5_000);
@@ -546,6 +610,7 @@ describe('ReadingTrainingStore', () => {
   it('freezes displayed time while disconnected and excludes offline wall time on reconnect', () => {
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
     vi.advanceTimersByTime(5_000);
     expect(store.displayedElapsedSeconds()).toBe(905);
 
@@ -558,6 +623,7 @@ describe('ReadingTrainingStore', () => {
     httpMock.expectOne(`${base}/dashboard`).flush(
       envelope(dashboard({ openSession: { ...session, measuredSeconds: 970 } }))
     );
+    flushLease();
     expect(store.displayedElapsedSeconds()).toBe(970);
   });
 
@@ -708,6 +774,7 @@ describe('ReadingTrainingStore', () => {
   it('a rejected command does not refresh or retry and preserves the dashboard', () => {
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
     expect(store.error()).toBeNull();
 
     let error: unknown;
@@ -721,6 +788,7 @@ describe('ReadingTrainingStore', () => {
 
     expect(error).toBeInstanceOf(HttpErrorResponse);
     expect(httpMock.match(`${base}/dashboard`)).toHaveLength(0); // no refresh after rejection
+    expect(matchLeases()).toHaveLength(0);
     expect(store.error()).toBe('Failed to pause session: invalid_transition');
     expect(store.dashboard()).toEqual(dashboard()); // last good dashboard preserved
     expect(store.lastReply()).toBeNull(); // only successful commands record a reply
@@ -730,9 +798,11 @@ describe('ReadingTrainingStore', () => {
   it('a network error while refreshing preserves the last good dashboard and exposes a concise error', () => {
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
 
     window.dispatchEvent(new Event('focus'));
     httpMock.expectOne(`${base}/dashboard`).error(new ProgressEvent('error'));
+    expectLease().flush([]);
 
     expect(store.dashboard()).toEqual(dashboard());
     expect(store.error()).toBe('Unable to load dashboard: network error');
@@ -745,6 +815,7 @@ describe('ReadingTrainingStore', () => {
       { reply: 'not initialized', data: { code: 'not_initialized' }, stateVersion: '0', duplicate: false },
       { status: 409, statusText: 'Conflict' }
     );
+    flushLease();
 
     expect(store.dashboard()).toBeNull();
     expect(store.programme()).toBeNull();
@@ -758,16 +829,19 @@ describe('ReadingTrainingStore', () => {
   it('errors clear on the next successful refresh', () => {
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).error(new ProgressEvent('error'));
+    flushLease();
     expect(store.error()).toBe('Unable to load dashboard: network error');
 
     window.dispatchEvent(new Event('focus'));
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expectLease().flush([]);
     expect(store.error()).toBeNull();
   });
 
   it('serializes mutations: a concurrent command fails deterministically with mutation_in_progress', () => {
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
 
     const planRequest = { clientId, idempotencyKey, bookAssignmentId: assignmentId, mode: ReadingMode.Endurance, targetMinutes: 40 };
     let planned: ReadingCommandResult<ReadingSession> | undefined;
@@ -799,6 +873,7 @@ describe('ReadingTrainingStore', () => {
   it('a command HTTP failure releases the mutation lock without refreshing', () => {
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
 
     let error: unknown;
     store.rateSession({ clientId, idempotencyKey, effort: 6, focus: 7 }).subscribe({ error: (e) => (error = e) });
@@ -920,5 +995,382 @@ describe('ReadingTrainingStore', () => {
     expect(completed).toBe(true);
     expect(store.mutating()).toBe(false);
     expect(httpMock.match(`${base}/sessions/pause`)).toHaveLength(0);
+  });
+
+  // --- pending notifications (lease) ---
+
+  it('starts with empty pendingNotices and idle notification flags, exposed read-only', () => {
+    expect(store.pendingNotices()).toEqual([]);
+    expect(store.notificationsLoading()).toBe(false);
+    expect(store.acknowledgingNotificationId()).toBeNull();
+    expect(store.notificationsBusy()).toBe(false);
+    // asReadonly() surfaces signals without the writable API.
+    expect((store.pendingNotices as { set?: unknown }).set).toBeUndefined();
+    expect((store.notificationsLoading as { set?: unknown }).set).toBeUndefined();
+    expect((store.acknowledgingNotificationId as { set?: unknown }).set).toBeUndefined();
+  });
+
+  it('loadNotifications is cold and leases with the default maxCount/leaseSeconds', () => {
+    const lease$ = store.loadNotifications();
+    expect(matchLeases()).toHaveLength(0);
+    expect(store.notificationsLoading()).toBe(false);
+
+    let emitted: ReadingNotification[] | undefined;
+    lease$.subscribe((v) => (emitted = v));
+    expect(store.notificationsLoading()).toBe(true);
+
+    const req = expectLease();
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('maxCount')).toBe('10');
+    expect(req.request.params.get('leaseSeconds')).toBe('60');
+    req.flush([notice(noticeId1)]);
+
+    expect(emitted).toEqual([notice(noticeId1)]);
+    expect(store.pendingNotices()).toEqual([notice(noticeId1)]);
+    expect(store.notificationsLoading()).toBe(false);
+    expect(store.error()).toBeNull();
+  });
+
+  it('loadNotifications forwards explicit maxCount/leaseSeconds unchanged', () => {
+    store.loadNotifications(5, 120).subscribe();
+    const req = expectLease();
+    expect(req.request.params.get('maxCount')).toBe('5');
+    expect(req.request.params.get('leaseSeconds')).toBe('120');
+    req.flush([]);
+    expect(store.pendingNotices()).toEqual([]);
+  });
+
+  it('merges newly leased rows into displayed unacknowledged rows by id, keeping exact objects and order', () => {
+    store.loadNotifications().subscribe();
+    const first = notice(noticeId1);
+    expectLease().flush([first]);
+    expect(store.pendingNotices()).toEqual([first]);
+
+    // The server re-issues the same id (fresh object) plus one new row.
+    const reshown = notice(noticeId1, { leaseUntil: '2026-08-09T19:30:00+02:00' });
+    const fresh = notice(noticeId2);
+    store.loadNotifications().subscribe();
+    expectLease().flush([reshown, fresh]);
+
+    const displayed = store.pendingNotices();
+    expect(displayed).toHaveLength(2);
+    // The exact displayed object is preserved for the existing id...
+    expect(displayed[0]).toBe(first);
+    // ...and the new row is appended in server order after the current rows.
+    expect(displayed[1]).toBe(fresh);
+  });
+
+  it('an empty periodic lease result preserves currently displayed notices', () => {
+    store.loadNotifications().subscribe();
+    expectLease().flush([notice(noticeId1)]);
+    expect(store.pendingNotices()).toHaveLength(1);
+
+    store.loadNotifications().subscribe();
+    expectLease().flush([]);
+    expect(store.pendingNotices()).toEqual([notice(noticeId1)]); // never hidden before ack
+    expect(store.notificationsLoading()).toBe(false);
+  });
+
+  it('an older overlapping lease response never overwrites a newer one', () => {
+    store.loadNotifications().subscribe(); // seq 1 (older)
+    store.loadNotifications().subscribe(); // seq 2 (newer)
+    const reqs = matchLeases();
+    expect(reqs).toHaveLength(2);
+    const [olderReq, newerReq] = reqs;
+
+    newerReq.flush([notice(noticeId2)]);
+    expect(store.pendingNotices()).toEqual([notice(noticeId2)]);
+
+    olderReq.flush([notice(noticeId1)]);
+    expect(store.pendingNotices()).toEqual([notice(noticeId2)]);
+  });
+
+  it('a lease failure preserves displayed notices, surfaces a concise error, and never rethrows', () => {
+    store.loadNotifications().subscribe();
+    expectLease().flush([notice(noticeId1)]);
+
+    let completed = false;
+    let streamError: unknown;
+    store.loadNotifications().subscribe({ complete: () => (completed = true), error: (e) => (streamError = e) });
+    expectLease().flush(
+      { title: 'Unavailable' },
+      { status: 503, statusText: 'Service Unavailable' }
+    );
+
+    expect(store.pendingNotices()).toEqual([notice(noticeId1)]);
+    expect(store.error()).toBe('Unable to load reading notices: Unavailable');
+    expect(completed).toBe(true); // refresh convention: completes without emitting
+    expect(streamError).toBeUndefined();
+    expect(store.notificationsLoading()).toBe(false);
+  });
+
+  it('a successful lease clears a prior lease error', () => {
+    store.loadNotifications().subscribe();
+    expectLease().error(new ProgressEvent('error'));
+    expect(store.error()).toBe('Unable to load reading notices: network error');
+
+    store.loadNotifications().subscribe();
+    expectLease().flush([notice(noticeId1)]);
+    expect(store.error()).toBeNull();
+    expect(store.pendingNotices()).toEqual([notice(noticeId1)]);
+  });
+
+  it('connect() leases notices immediately alongside the dashboard and then every 30s', () => {
+    store.connect();
+    expect(store.notificationsLoading()).toBe(true);
+
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    const first = expectLease();
+    expect(first.request.params.get('maxCount')).toBe('10');
+    expect(first.request.params.get('leaseSeconds')).toBe('60');
+    first.flush([notice(noticeId1)]);
+    expect(store.pendingNotices()).toEqual([notice(noticeId1)]);
+    expect(store.notificationsLoading()).toBe(false);
+
+    vi.advanceTimersByTime(29_999);
+    expect(matchLeases()).toHaveLength(0);
+
+    vi.advanceTimersByTime(1);
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expectLease().flush([notice(noticeId2)]);
+    expect(store.pendingNotices()).toEqual([notice(noticeId1), notice(noticeId2)]);
+  });
+
+  it('never issues overlapping notification leases', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    // The immediate lease is still in flight. `match()` consumes it, so keep
+    // the request reference while checking that no second lease is created.
+    const leases = matchLeases();
+    expect(leases).toHaveLength(1);
+    const inFlightLease = leases[0];
+
+    // Focus and a 30s tick must not stack a second lease on top of it.
+    window.dispatchEvent(new Event('focus'));
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    vi.advanceTimersByTime(30_000);
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expect(matchLeases()).toHaveLength(0);
+
+    // Once the in-flight lease lands, the next tick leases again.
+    inFlightLease.flush([notice(noticeId1)]);
+    vi.advanceTimersByTime(30_000);
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expectLease().flush([notice(noticeId2)]);
+    expect(store.pendingNotices()).toEqual([notice(noticeId1), notice(noticeId2)]);
+  });
+
+  it('disconnect() stops notices timers/listeners but preserves displayed notices', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expectLease().flush([notice(noticeId1)]);
+    expect(store.pendingNotices()).toEqual([notice(noticeId1)]);
+
+    store.disconnect();
+    vi.advanceTimersByTime(120_000);
+    window.dispatchEvent(new Event('focus'));
+    window.dispatchEvent(new Event('online'));
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    expect(httpMock.match(`${base}/dashboard`)).toHaveLength(0);
+    expect(matchLeases()).toHaveLength(0);
+    expect(store.pendingNotices()).toEqual([notice(noticeId1)]); // preserved
+  });
+
+  it('reconnecting after disconnect re-leases notices and restarts the notices lifecycle', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expectLease().flush([notice(noticeId1)]);
+    store.disconnect();
+
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expectLease().flush([notice(noticeId2)]);
+    expect(store.pendingNotices()).toEqual([notice(noticeId1), notice(noticeId2)]);
+
+    vi.advanceTimersByTime(30_000);
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    expectLease().flush([]);
+    expect(store.pendingNotices()).toEqual([notice(noticeId1), notice(noticeId2)]);
+  });
+
+  // --- notification acknowledgement ---
+
+  it('acknowledgeNotification is cold and posts the exact id with no body or idempotency key', () => {
+    store.loadNotifications().subscribe();
+    expectLease().flush([notice(noticeId1)]);
+    expect(store.pendingNotices()).toHaveLength(1);
+
+    const ack$ = store.acknowledgeNotification(noticeId1);
+    expect(httpMock.match(`${base}/notifications/${noticeId1}/ack`)).toHaveLength(0);
+    expect(store.acknowledgingNotificationId()).toBeNull();
+
+    let emitted: ReadingAckNotificationResult | undefined;
+    ack$.subscribe((r) => (emitted = r));
+    expect(store.acknowledgingNotificationId()).toBe(noticeId1);
+    expect(store.notificationsBusy()).toBe(true);
+
+    const req = httpMock.expectOne(`${base}/notifications/${noticeId1}/ack`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toBeNull();
+    expect(req.request.params.keys()).toHaveLength(0);
+    req.flush({ notificationId: noticeId1, acknowledged: true });
+
+    expect(emitted).toEqual({ notificationId: noticeId1, acknowledged: true });
+    expect(store.pendingNotices()).toEqual([]); // removed only after confirmed success
+    expect(store.acknowledgingNotificationId()).toBeNull();
+    expect(store.notificationsBusy()).toBe(false);
+  });
+
+  it('removes only the acknowledged notice, leaving other rows in place', () => {
+    store.loadNotifications().subscribe();
+    expectLease().flush([notice(noticeId1), notice(noticeId2)]);
+
+    store.acknowledgeNotification(noticeId1).subscribe();
+    httpMock.expectOne(`${base}/notifications/${noticeId1}/ack`).flush({ notificationId: noticeId1, acknowledged: true });
+
+    expect(store.pendingNotices()).toEqual([notice(noticeId2)]);
+  });
+
+  it('an acknowledged:false response preserves the notice', () => {
+    store.loadNotifications().subscribe();
+    expectLease().flush([notice(noticeId1)]);
+
+    store.acknowledgeNotification(noticeId1).subscribe();
+    httpMock.expectOne(`${base}/notifications/${noticeId1}/ack`).flush({ notificationId: noticeId1, acknowledged: false });
+
+    expect(store.pendingNotices()).toEqual([notice(noticeId1)]); // preserved
+    expect(store.acknowledgingNotificationId()).toBeNull();
+  });
+
+  it('an ack response for a different notificationId preserves the notice', () => {
+    store.loadNotifications().subscribe();
+    expectLease().flush([notice(noticeId1)]);
+
+    store.acknowledgeNotification(noticeId1).subscribe();
+    httpMock.expectOne(`${base}/notifications/${noticeId1}/ack`).flush({ notificationId: 'other-id', acknowledged: true });
+
+    expect(store.pendingNotices()).toEqual([notice(noticeId1)]); // mismatch: preserved
+  });
+
+  it('an ack HTTP failure preserves the notice, surfaces a concise error, and releases the lock', () => {
+    store.loadNotifications().subscribe();
+    expectLease().flush([notice(noticeId1)]);
+
+    let error: unknown;
+    store.acknowledgeNotification(noticeId1).subscribe({ error: (e) => (error = e) });
+    expect(store.acknowledgingNotificationId()).toBe(noticeId1);
+
+    httpMock.expectOne(`${base}/notifications/${noticeId1}/ack`).flush(
+      { title: 'Unavailable' },
+      { status: 503, statusText: 'Service Unavailable' }
+    );
+
+    expect(error).toBeInstanceOf(HttpErrorResponse);
+    expect(store.pendingNotices()).toEqual([notice(noticeId1)]); // preserved
+    expect(store.error()).toBe('Failed to acknowledge reading notice: Unavailable');
+    expect(store.acknowledgingNotificationId()).toBeNull();
+
+    // Lock released: the next ack runs normally.
+    store.acknowledgeNotification(noticeId1).subscribe();
+    httpMock.expectOne(`${base}/notifications/${noticeId1}/ack`).flush({ notificationId: noticeId1, acknowledged: true });
+    expect(store.pendingNotices()).toEqual([]);
+  });
+
+  it('prevents duplicate concurrent acks and fails deterministically without an HTTP request', () => {
+    store.loadNotifications().subscribe();
+    expectLease().flush([notice(noticeId1)]);
+
+    store.acknowledgeNotification(noticeId1).subscribe();
+    expect(store.acknowledgingNotificationId()).toBe(noticeId1);
+
+    let concurrentError: unknown;
+    store.acknowledgeNotification(noticeId1).subscribe({ error: (e) => (concurrentError = e) });
+    expect(concurrentError).toBeInstanceOf(Error);
+    expect((concurrentError as Error).message).toBe('notification_ack_in_progress');
+    const ackRequests = httpMock.match(`${base}/notifications/${noticeId1}/ack`);
+    expect(ackRequests).toHaveLength(1);
+    expect(store.error()).toBeNull();
+
+    ackRequests[0].flush({ notificationId: noticeId1, acknowledged: true });
+    expect(store.pendingNotices()).toEqual([]);
+    expect(store.acknowledgingNotificationId()).toBeNull();
+  });
+
+  it('acknowledgements are independent of the domain mutation lock', () => {
+    store.loadNotifications().subscribe();
+    expectLease().flush([notice(noticeId1)]);
+
+    // A domain command in flight never blocks an acknowledgement...
+    store.pauseSession({ clientId, idempotencyKey }).subscribe();
+    expect(store.mutating()).toBe(true);
+
+    let ackError: unknown;
+    store.acknowledgeNotification(noticeId1).subscribe({ error: (e) => (ackError = e) });
+    expect(ackError).toBeUndefined();
+    expect(store.acknowledgingNotificationId()).toBe(noticeId1);
+    httpMock.expectOne(`${base}/notifications/${noticeId1}/ack`).flush({ notificationId: noticeId1, acknowledged: true });
+    expect(store.pendingNotices()).toEqual([]);
+    httpMock.expectOne(`${base}/sessions/pause`).flush(envelope({ ...session, status: ReadingSessionStatus.Paused }));
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+
+    // ...and an in-flight acknowledgement never blocks a domain command.
+    store.loadNotifications().subscribe();
+    expectLease().flush([notice(noticeId2)]);
+    store.acknowledgeNotification(noticeId2).subscribe();
+    expect(store.acknowledgingNotificationId()).toBe(noticeId2);
+
+    let commandError: unknown;
+    store.cancelSession({ clientId, idempotencyKey: 'key-2' }).subscribe({ error: (e) => (commandError = e) });
+    expect(commandError).toBeUndefined();
+    expect(store.mutating()).toBe(true);
+    httpMock.expectOne(`${base}/sessions/cancel`).flush(envelope({ ...session, status: ReadingSessionStatus.Planned }));
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    httpMock.expectOne(`${base}/notifications/${noticeId2}/ack`).flush({ notificationId: noticeId2, acknowledged: true });
+
+    expect(store.mutating()).toBe(false);
+    expect(store.acknowledgingNotificationId()).toBeNull();
+  });
+
+  it('an ack that throws synchronously still releases the ack lock', () => {
+    const service = TestBed.inject(ReadingTrainingService);
+    vi.spyOn(service, 'acknowledgeNotification').mockImplementation(() => {
+      throw new Error('ack factory exploded');
+    });
+
+    let error: unknown;
+    store.acknowledgeNotification(noticeId1).subscribe({ error: (e) => (error = e) });
+    expect((error as Error).message).toBe('ack factory exploded');
+    expect(store.error()).toBe('Failed to acknowledge reading notice: ack factory exploded');
+    expect(store.acknowledgingNotificationId()).toBeNull();
+  });
+
+  it('an ack that completes without emitting still releases the ack lock', () => {
+    const service = TestBed.inject(ReadingTrainingService);
+    vi.spyOn(service, 'acknowledgeNotification').mockReturnValue(EMPTY);
+
+    let completed = false;
+    store.acknowledgeNotification(noticeId1).subscribe({ complete: () => (completed = true) });
+    expect(completed).toBe(true);
+    expect(store.acknowledgingNotificationId()).toBeNull();
+  });
+
+  it('early unsubscription releases the ack lock', () => {
+    const service = TestBed.inject(ReadingTrainingService);
+    const ackSubject = new Subject<ReadingAckNotificationResult>();
+    vi.spyOn(service, 'acknowledgeNotification').mockReturnValue(ackSubject);
+
+    const sub = store.acknowledgeNotification(noticeId1).subscribe();
+    expect(store.acknowledgingNotificationId()).toBe(noticeId1);
+
+    sub.unsubscribe();
+    expect(store.acknowledgingNotificationId()).toBeNull();
+
+    // A late result must not resurrect the lock or remove anything.
+    ackSubject.next({ notificationId: noticeId1, acknowledged: true });
+    ackSubject.complete();
+    expect(store.acknowledgingNotificationId()).toBeNull();
+    expect(store.pendingNotices()).toEqual([]);
   });
 });

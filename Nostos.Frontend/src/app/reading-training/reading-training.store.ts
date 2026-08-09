@@ -18,6 +18,7 @@ import {
 } from 'rxjs';
 
 import {
+  ReadingAckNotificationResult,
   ReadingAddBookAssignmentRequest,
   ReadingAssignmentStatus,
   ReadingBookAssignment,
@@ -30,6 +31,7 @@ import {
   ReadingCompleteSessionRequest,
   ReadingDashboard,
   ReadingMode,
+  ReadingNotification,
   ReadingPlanSessionRequest,
   ReadingProgramme,
   ReadingPromoteCaptureRequest,
@@ -50,6 +52,8 @@ import { ReadingTrainingService } from '../core/services/reading-training.servic
 
 /** Authoritative dashboard refresh cadence while connected. */
 const REFRESH_INTERVAL_MS = 30_000;
+/** Notification lease cadence while connected (matches the backend scan/lease). */
+const NOTICES_REFRESH_INTERVAL_MS = 30_000;
 /** Display-clock cadence; drives the local ticking of `displayedElapsedSeconds`. */
 const CLOCK_TICK_MS = 1_000;
 
@@ -58,6 +62,12 @@ const CLOCK_TICK_MS = 1_000;
  * another mutation (command + its authoritative refresh) is still in flight.
  */
 const MUTATION_IN_PROGRESS = 'mutation_in_progress';
+
+/**
+ * Raised deterministically when an acknowledgement is attempted while another
+ * acknowledgement is still in flight.
+ */
+const NOTIFICATION_ACK_IN_PROGRESS = 'notification_ack_in_progress';
 
 /**
  * Authoritative Angular signal store for Reading Training.
@@ -99,6 +109,17 @@ export class ReadingTrainingStore {
   /** Authoritative server session history, newest-first per the backend. */
   private readonly historyState = signal<ReadingSession[]>([]);
 
+  /**
+   * UI lease state for pending reading notices. This is display state only —
+   * the server owns the notification outbox; rows appear here because this
+   * client holds their lease, and disappear only after a confirmed ack.
+   */
+  private readonly pendingNoticesState = signal<ReadingNotification[]>([]);
+  /** True while any notification lease request is in flight. */
+  private readonly notificationsLoadingState = signal(false);
+  /** The notification id whose ack is currently in flight, or null. */
+  private readonly acknowledgingNotificationIdState = signal<string | null>(null);
+
   /** Display-only anchor: server `measuredSeconds` at the last dashboard response. */
   private readonly displayAnchor = signal<{ measuredSeconds: number; clientTime: number } | null>(null);
 
@@ -114,8 +135,18 @@ export class ReadingTrainingStore {
   /** Monotonic history fetch sequence: stale responses are dropped per resource. */
   private historySeq = 0;
 
+  /** Monotonic notice lease sequence: stale lease responses are dropped. */
+  private noticesSeq = 0;
+
   private refreshTimer: Subscription | null = null;
   private clockTimer: Subscription | null = null;
+
+  /** Periodic notification lease; kept separate from the dashboard timer. */
+  private noticesTimer: Subscription | null = null;
+  /** The in-flight notification lease subscription, if any. */
+  private noticesLeaseSubscription: Subscription | null = null;
+  /** True while a notification lease request is outstanding (no overlap). */
+  private noticesLeaseInFlight = false;
 
   constructor() {
     this.destroyRef.onDestroy(() => this.disconnect());
@@ -131,6 +162,14 @@ export class ReadingTrainingStore {
   readonly connected = this.connectedState.asReadonly();
   readonly inbox = this.inboxState.asReadonly();
   readonly history = this.historyState.asReadonly();
+  readonly pendingNotices = this.pendingNoticesState.asReadonly();
+  readonly notificationsLoading = this.notificationsLoadingState.asReadonly();
+  readonly acknowledgingNotificationId = this.acknowledgingNotificationIdState.asReadonly();
+
+  /** True while any notification lease or acknowledgement is in flight. */
+  readonly notificationsBusy = computed(
+    () => this.notificationsLoading() || this.acknowledgingNotificationId() !== null
+  );
 
   // --- derived selectors (pure projections of the authoritative snapshot) ---
 
@@ -176,8 +215,9 @@ export class ReadingTrainingStore {
 
   /**
    * Route lifecycle: loads the dashboard immediately, starts the 1s display
-   * clock and the 30s authoritative refresh, and registers focus/online/
-   * visibilitychange listeners. Idempotent — repeated calls while connected
+   * clock and the 30s authoritative refresh, leases pending reading notices
+   * immediately and then every 30s, and registers focus/online/visibilitychange
+   * listeners that refresh both. Idempotent — repeated calls while connected
    * are no-ops and never duplicate timers or listeners.
    */
   connect(): void {
@@ -193,7 +233,9 @@ export class ReadingTrainingStore {
     );
     this.connectedState.set(true);
     this.refresh();
+    this.refreshNotices();
     this.refreshTimer = interval(REFRESH_INTERVAL_MS).subscribe(() => this.refresh());
+    this.noticesTimer = interval(NOTICES_REFRESH_INTERVAL_MS).subscribe(() => this.refreshNotices());
     this.clockTimer = interval(CLOCK_TICK_MS).subscribe(() => this.clockTick.update((v) => v + 1));
     window.addEventListener('focus', this.onWindowFocus);
     window.addEventListener('online', this.onWindowOnline);
@@ -202,7 +244,8 @@ export class ReadingTrainingStore {
 
   /**
    * Route lifecycle: stops timers and removes listeners. Idempotent and safe
-   * to call when already disconnected; the last dashboard snapshot is kept.
+   * to call when already disconnected; the last dashboard snapshot and the
+   * displayed notices are kept.
    */
   disconnect(): void {
     if (!this.connected()) return;
@@ -215,8 +258,12 @@ export class ReadingTrainingStore {
     this.connectedState.set(false);
     this.refreshTimer?.unsubscribe();
     this.refreshTimer = null;
+    this.noticesTimer?.unsubscribe();
+    this.noticesTimer = null;
     this.clockTimer?.unsubscribe();
     this.clockTimer = null;
+    this.noticesLeaseSubscription?.unsubscribe();
+    this.noticesLeaseSubscription = null;
     window.removeEventListener('focus', this.onWindowFocus);
     window.removeEventListener('online', this.onWindowOnline);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
@@ -233,16 +280,23 @@ export class ReadingTrainingStore {
   }
 
   private readonly onWindowFocus = (): void => {
-    if (this.connected()) this.refresh();
+    if (!this.connected()) return;
+    this.refresh();
+    this.refreshNotices();
   };
 
   private readonly onWindowOnline = (): void => {
-    if (this.connected()) this.refresh();
+    if (!this.connected()) return;
+    this.refresh();
+    this.refreshNotices();
   };
 
   private readonly onVisibilityChange = (): void => {
     // Refresh only when the document becomes visible again.
-    if (document.visibilityState === 'visible' && this.connected()) this.refresh();
+    if (document.visibilityState === 'visible' && this.connected()) {
+      this.refresh();
+      this.refreshNotices();
+    }
   };
 
   // --- read-only resources (inbox / history) ---
@@ -322,6 +376,150 @@ export class ReadingTrainingStore {
     }
     this.historyState.set(data);
     this.errorState.set(null);
+  }
+
+  // --- pending reading notices (UI lease state, not command envelopes) ---
+
+  /**
+   * Leases pending reading notices from the server (GET notifications/lease,
+   * exact `maxCount`/`leaseSeconds` forwarded verbatim) and merges the rows
+   * into the currently displayed unacknowledged notices.
+   *
+   * Merging, not replacing: a periodic empty result means "no *new* notices"
+   * — currently displayed notices stay leased and visible until the server
+   * confirms their ack. Existing rows keep their exact object and relative
+   * display order; newly leased rows are appended in server order.
+   *
+   * Cold: no request is issued until the returned observable is subscribed.
+   * Overlapping leases converge via a monotonic sequence, so an older
+   * in-flight response can never overwrite a newer one. Failures follow the
+   * refresh convention: the displayed notices are preserved, a concise error
+   * is surfaced, and the stream completes without emitting or retrying.
+   * Emits the authoritative displayed list after it is applied.
+   */
+  loadNotifications(maxCount = 10, leaseSeconds = 60): Observable<ReadingNotification[]> {
+    return defer(() => {
+      const seq = ++this.noticesSeq;
+      this.notificationsLoadingState.set(true);
+      return this.service.leaseNotifications(maxCount, leaseSeconds).pipe(
+        filter((rows) => seq === this.noticesSeq),
+        take(1),
+        catchError((err: unknown) => {
+          if (seq !== this.noticesSeq) return EMPTY;
+          this.errorState.set(describeError('Unable to load reading notices', err));
+          return EMPTY;
+        }),
+        map((rows) => {
+          this.applyLeasedNotices(rows);
+          return this.pendingNoticesState();
+        }),
+        finalize(() => {
+          if (seq === this.noticesSeq) this.notificationsLoadingState.set(false);
+        })
+      );
+    });
+  }
+
+  private applyLeasedNotices(rows: ReadingNotification[]): void {
+    if (!rows || rows.length === 0) {
+      // Never hide still-visible leased notices on an empty periodic result.
+      this.clearNotificationError();
+      return;
+    }
+    const current = this.pendingNoticesState();
+    const merged = [...current];
+    const known = new Set(current.map((n) => n.notificationId));
+    for (const row of rows) {
+      if (known.has(row.notificationId)) continue;
+      merged.push(row);
+      known.add(row.notificationId);
+    }
+    this.pendingNoticesState.set(merged);
+    this.clearNotificationError();
+  }
+
+  /** Clear only errors produced by the notification lease/ack resource. */
+  private clearNotificationError(): void {
+    const error = this.errorState();
+    if (
+      error?.startsWith('Unable to load reading notices:') ||
+      error?.startsWith('Failed to acknowledge reading notice:')
+    ) {
+      this.errorState.set(null);
+    }
+  }
+
+  /**
+   * Acknowledges one pending notice via the service (POST
+   * notifications/{id}/ack with no body and no idempotency key — the ack
+   * endpoint is inherently idempotent). The notice is removed from the
+   * display only after the server confirms `{ acknowledged: true,
+   * notificationId }` for the exact id; a `false`/mismatched/unknown response
+   * preserves it. Failures preserve the notice, surface a concise error
+   * through the existing error convention, and never retry.
+   *
+   * Cold, and single-flight: a concurrent acknowledgement fails
+   * deterministically with `notification_ack_in_progress` without issuing a
+   * request; `acknowledgingNotificationId` exposes the busy id. The lock
+   * releases on every terminal path (success, error, early unsubscription).
+   * This is UI lease state and is independent of the domain `mutating`
+   * command lock — it neither reuses nor generates command idempotency.
+   */
+  acknowledgeNotification(notificationId: string): Observable<ReadingAckNotificationResult> {
+    return defer(() => {
+      if (this.acknowledgingNotificationId() !== null) {
+        return throwError(() => new Error(NOTIFICATION_ACK_IN_PROGRESS));
+      }
+      this.acknowledgingNotificationIdState.set(notificationId);
+      this.clearNotificationError();
+      let released = false;
+      const release = (): void => {
+        if (released) return;
+        released = true;
+        this.acknowledgingNotificationIdState.set(null);
+      };
+      // The inner defer turns a synchronous throw from the service into a
+      // stream error so the lock is still released and reported consistently.
+      return defer(() => this.service.acknowledgeNotification(notificationId)).pipe(
+        map((result) => {
+          if (result.acknowledged === true && result.notificationId === notificationId) {
+            this.removePendingNotice(notificationId);
+          }
+          return result;
+        }),
+        catchError((err: unknown) => {
+          release();
+          this.errorState.set(describeError('Failed to acknowledge reading notice', err));
+          return throwError(() => err);
+        }),
+        finalize(() => release())
+      );
+    });
+  }
+
+  private removePendingNotice(notificationId: string): void {
+    this.pendingNoticesState.set(
+      this.pendingNoticesState().filter((notice) => notice.notificationId !== notificationId)
+    );
+  }
+
+  /**
+   * One notification lease at a time: while a lease is outstanding, further
+   * triggers (timer ticks, focus/online/visibility events) are skipped so
+   * requests never overlap. The in-flight flag clears on every terminal
+   * path, including disconnect's unsubscription.
+   */
+  private refreshNotices(): void {
+    if (this.noticesLeaseInFlight) return;
+    this.noticesLeaseInFlight = true;
+    this.noticesLeaseSubscription = this.loadNotifications()
+      .pipe(
+        finalize(() => {
+          this.noticesLeaseInFlight = false;
+          this.noticesLeaseSubscription = null;
+        })
+      )
+      .subscribe({ error: () => void 0 });
   }
 
   // --- commands (forward verbatim; refresh from the server after success) ---

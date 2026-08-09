@@ -10,6 +10,7 @@ import {
   ReadingCapture,
   ReadingConstraint,
   ReadingMode,
+  ReadingNotification,
   ReadingSessionStatus,
   ReadingWeekSummary,
   ReadingWeeklyReview,
@@ -26,6 +27,7 @@ import {
 } from './components/book-assignment-form/book-assignment-form.component';
 import { CapacityLaneView, CapacityLanesComponent } from './components/capacity-lanes/capacity-lanes.component';
 import { CaptureDraft, CaptureFormComponent } from './components/capture-form/capture-form.component';
+import { PendingNoticesComponent } from './components/pending-notices/pending-notices.component';
 import { ReadingInboxComponent } from './components/reading-inbox/reading-inbox.component';
 import { RateSessionDraft, SessionFeedbackComponent, SkipRatingsDraft } from './components/session-feedback/session-feedback.component';
 import { SessionHistoryComponent } from './components/session-history/session-history.component';
@@ -91,6 +93,7 @@ interface OpenDialog {
     BookAssignmentFormComponent,
     CapacityLanesComponent,
     CaptureFormComponent,
+    PendingNoticesComponent,
     ReadingInboxComponent,
     SessionFeedbackComponent,
     SessionHistoryComponent,
@@ -301,6 +304,18 @@ export class ReadingTrainingComponent implements OnInit, OnDestroy {
 
   onRefresh(): void {
     this.store.refresh();
+  }
+
+  /**
+   * Forwards the exact notice id to the store; the store owns the lease/ack
+   * lifecycle and removes the notice only after the server confirms the ack.
+   * No idempotency key and no local removal here.
+   */
+  onAcknowledgeNotice(notice: ReadingNotification): void {
+    this.store
+      .acknowledgeNotification(notice.notificationId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ error: () => void 0 });
   }
 
   onSetup(): void {

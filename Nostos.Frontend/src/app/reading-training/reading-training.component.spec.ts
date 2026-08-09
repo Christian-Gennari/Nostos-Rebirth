@@ -18,6 +18,7 @@ import {
   ReadingConstraint,
   ReadingDashboard,
   ReadingMode,
+  ReadingNotification,
   ReadingProgramme,
   ReadingSession,
   ReadingSessionStatus,
@@ -176,6 +177,25 @@ const booksPage: PaginatedResponse<Book> = {
   pageSize: 100,
 };
 
+function pendingNotice(id: string, mode: ReadingMode): ReadingNotification {
+  return {
+    notificationId: id,
+    payload: {
+      notificationId: id,
+      sessionId: 's1',
+      bookId: 'b1',
+      mode,
+      plannedTargetMinutes: 40,
+      effectiveElapsedSeconds: 2500,
+      message: 'Reading target reached.',
+    },
+    leaseUntil: '2026-08-09T19:00:00+02:00',
+  };
+}
+
+const pendingNotice1 = pendingNotice('notice-1', ReadingMode.Endurance);
+const pendingNotice2 = pendingNotice('notice-2', ReadingMode.Recovery);
+
 interface StoreMock {
   dashboard: WritableSignal<ReadingDashboard | null>;
   loading: WritableSignal<boolean>;
@@ -189,11 +209,17 @@ interface StoreMock {
   currentWeek: WritableSignal<ReadingWeekSummary | null>;
   inbox: WritableSignal<ReadingCapture[]>;
   history: WritableSignal<ReadingSession[]>;
+  pendingNotices: WritableSignal<ReadingNotification[]>;
+  notificationsLoading: WritableSignal<boolean>;
+  acknowledgingNotificationId: WritableSignal<string | null>;
+  notificationsBusy: WritableSignal<boolean>;
   displayedElapsedSeconds: WritableSignal<number>;
   defaultBookForMode: ReturnType<typeof vi.fn>;
   connect: ReturnType<typeof vi.fn>;
   disconnect: ReturnType<typeof vi.fn>;
   refresh: ReturnType<typeof vi.fn>;
+  loadNotifications: ReturnType<typeof vi.fn>;
+  acknowledgeNotification: ReturnType<typeof vi.fn>;
   initialize: ReturnType<typeof vi.fn>;
   startSession: ReturnType<typeof vi.fn>;
   startNewSession: ReturnType<typeof vi.fn>;
@@ -231,11 +257,17 @@ function createStoreMock(): StoreMock {
     currentWeek: signal<ReadingWeekSummary | null>(null),
     inbox: signal<ReadingCapture[]>([]),
     history: signal<ReadingSession[]>([]),
+    pendingNotices: signal<ReadingNotification[]>([]),
+    notificationsLoading: signal(false),
+    acknowledgingNotificationId: signal<string | null>(null),
+    notificationsBusy: signal(false),
     displayedElapsedSeconds: signal(0),
     defaultBookForMode: vi.fn(() => null),
     connect: vi.fn(),
     disconnect: vi.fn(),
     refresh: vi.fn(),
+    loadNotifications: vi.fn(() => of([] as ReadingNotification[])),
+    acknowledgeNotification: vi.fn(() => of({ notificationId: '', acknowledged: true })),
     initialize: command(),
     startSession: command(),
     startNewSession: command(),
@@ -368,6 +400,11 @@ describe('ReadingTrainingComponent', () => {
     expect(mock.connect).toHaveBeenCalledTimes(1);
     fixture.destroy();
     expect(mock.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('leases notices only through the store-owned lifecycle; the page never calls loadNotifications', () => {
+    expect(mock.connect).toHaveBeenCalledTimes(1);
+    expect(mock.loadNotifications).not.toHaveBeenCalled();
   });
 
   it('renders a loading region while loading without a dashboard', () => {
@@ -1116,6 +1153,100 @@ describe('ReadingTrainingComponent', () => {
     completeSubject.next(envelope(makeSession({ status: ReadingSessionStatus.Completed })));
     completeSubject.complete();
     expect(mock.loadHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the pending notices panel with store notices inside the initialized workspace', () => {
+    mock.dashboard.set(initializedDashboard());
+    mock.pendingNotices.set([pendingNotice1, pendingNotice2]);
+    fixture.detectChanges();
+
+    const panel = fixture.nativeElement.querySelector('app-pending-notices') as HTMLElement;
+    expect(panel).toBeTruthy();
+    expect(panel.textContent).toContain('Reading notices');
+    expect(panel.textContent).toContain('Endurance');
+    expect(panel.textContent).toContain('Recovery');
+    expect(panel.textContent).toContain('Acknowledge');
+    expect((panel.querySelector('.count-badge') as HTMLElement).textContent?.trim()).toBe('2');
+
+    // Outside the initialized workspace (no dashboard) the panel is absent.
+    mock.dashboard.set(null);
+    mock.error.set(null);
+    mock.loading.set(false);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-pending-notices')).toBeNull();
+  });
+
+  it('acknowledge forwards the exact notification id with no idempotency envelope', () => {
+    mock.dashboard.set(initializedDashboard());
+    mock.pendingNotices.set([pendingNotice1]);
+    fixture.detectChanges();
+
+    const panel = fixture.nativeElement.querySelector('app-pending-notices') as HTMLElement;
+    const ackButton = panel.querySelector('.acknowledge-button') as HTMLButtonElement;
+    expect(ackButton).toBeTruthy();
+    ackButton.click();
+    fixture.detectChanges();
+
+    expect(mock.acknowledgeNotification).toHaveBeenCalledTimes(1);
+    expect(mock.acknowledgeNotification).toHaveBeenCalledWith(pendingNotice1.notificationId);
+    // Exactly one argument: the id — no key, no command envelope.
+    expect(mock.acknowledgeNotification.mock.calls[0]).toHaveLength(1);
+  });
+
+  it('never removes a notice locally: removal is store-driven after a confirmed ack', () => {
+    mock.dashboard.set(initializedDashboard());
+    mock.pendingNotices.set([pendingNotice1]);
+    fixture.detectChanges();
+
+    const panel = fixture.nativeElement.querySelector('app-pending-notices') as HTMLElement;
+    (panel.querySelector('.acknowledge-button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    // The page forwards the id only; the notices signal is untouched here
+    // (the real store removes the row only on `{ acknowledged: true }`).
+    expect(mock.pendingNotices()).toEqual([pendingNotice1]);
+  });
+
+  it('an ack failure neither removes the notice nor throws', () => {
+    mock.dashboard.set(initializedDashboard());
+    mock.pendingNotices.set([pendingNotice1]);
+    mock.acknowledgeNotification.mockReturnValueOnce(throwError(() => new Error('ack failed')));
+    fixture.detectChanges();
+
+    const panel = fixture.nativeElement.querySelector('app-pending-notices') as HTMLElement;
+    (panel.querySelector('.acknowledge-button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(mock.acknowledgeNotification).toHaveBeenCalledWith(pendingNotice1.notificationId);
+    expect(mock.pendingNotices()).toEqual([pendingNotice1]); // preserved
+  });
+
+  it('disables acknowledge buttons only while a notification lease/ack is busy', () => {
+    mock.dashboard.set(initializedDashboard());
+    mock.pendingNotices.set([pendingNotice1]);
+    fixture.detectChanges();
+
+    let ackButton = fixture.nativeElement.querySelector(
+      'app-pending-notices .acknowledge-button'
+    ) as HTMLButtonElement;
+    expect(ackButton.disabled).toBe(false);
+
+    // A lease or ack in flight disables the panel's buttons.
+    mock.notificationsBusy.set(true);
+    fixture.detectChanges();
+    ackButton = fixture.nativeElement.querySelector(
+      'app-pending-notices .acknowledge-button'
+    ) as HTMLButtonElement;
+    expect(ackButton.disabled).toBe(true);
+
+    // An unrelated domain mutation must not disable the notices panel.
+    mock.notificationsBusy.set(false);
+    mock.mutating.set(true);
+    fixture.detectChanges();
+    ackButton = fixture.nativeElement.querySelector(
+      'app-pending-notices .acknowledge-button'
+    ) as HTMLButtonElement;
+    expect(ackButton.disabled).toBe(false);
   });
 });
 
