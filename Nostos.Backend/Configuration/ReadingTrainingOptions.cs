@@ -26,4 +26,15 @@ public sealed class ReadingTrainingOptions
     // Calm polling interval (seconds) of the target-reached notification
     // scanner worker. The worker clamps the effective value to 1..300.
     public int NotificationPollSeconds { get; set; } = 15;
+
+    // Calm polling interval (seconds) of the weekly-review catch-up worker.
+    // The worker clamps the effective value to 1..3600; eligibility itself is
+    // owned by the worker (Monday 07:00 local), so this only controls how
+    // promptly a newly eligible week is committed.
+    public int WeeklyReviewPollSeconds { get; set; } = 300;
+
+    // Maximum completed ISO weeks one catch-up scan may commit after
+    // prolonged downtime; a longer backlog is drained across consecutive
+    // scans (every commit is idempotent, so this never double-commits).
+    public int WeeklyReviewMaxCatchUpWeeks { get; set; } = 4;
 }

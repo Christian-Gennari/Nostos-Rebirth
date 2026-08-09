@@ -71,6 +71,7 @@ builder.Services.AddScoped<IReadingNotificationOutbox, ReadingNotificationOutbox
 builder.Services.AddHostedService<ConceptCleanupWorker>();
 builder.Services.AddHostedService<BackupWorker>();
 builder.Services.AddHostedService<ReadingNotificationWorker>();
+builder.Services.AddHostedService<ReadingWeeklyReviewWorker>();
 
 var app = builder.Build();
 

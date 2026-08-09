@@ -136,7 +136,16 @@ claimed list (`notificationId`, `payload`, `leaseUntil`) in claim order.
 including duplicate acks — and 404 ProblemDetails for an unknown id. The
 scanner worker (`ReadingNotificationWorker`) enqueues target-reached rows on a
 calm poll interval (`ReadingTraining.NotificationPollSeconds`, default 15s,
-clamped 1..300) and never claims or acknowledges.
+clamped 1..300) and never claims or acknowledges. The weekly-review catch-up
+worker (`ReadingWeeklyReviewWorker`) owns the commit schedule: a completed ISO
+week becomes eligible at 07:00 local time (programme timezone) on the Monday
+that starts the following week, and the worker commits every eligible
+uncommitted week through the same exact-once service command (deterministic
+client `reading-weekly-review-worker`, idempotency key `weekly-review:{yyyy}-W{ww}`),
+so restarts and duplicate workers converge. It polls every
+`ReadingTraining.WeeklyReviewPollSeconds` (default 300s, clamped 1..3600) and
+drains a downtime backlog across scans, capped at
+`ReadingTraining.WeeklyReviewMaxCatchUpWeeks` (default 4) per scan.
 
 ## Maintenance Mode Middleware
 
