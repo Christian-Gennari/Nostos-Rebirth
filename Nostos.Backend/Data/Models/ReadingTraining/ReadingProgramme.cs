@@ -1,15 +1,20 @@
 namespace Nostos.Backend.Data.Models.ReadingTraining;
 
 // Singleton policy row. Exactly one row is enforced by the unique index on
-// SingletonSlot. The fixed Id lets the service address the singleton directly.
+// SingletonSlot plus the CK_ReadingProgrammes_SingletonSlot check; the fixed
+// Id lets the service address the singleton directly.
 public class ReadingProgramme
 {
     public static readonly Guid WellKnownId = new("8F7D3C1A-5B2E-4F4A-9C6D-1E2F3A4B5C6D");
 
+    // Fixed sentinel for the unique singleton index; must be non-null and
+    // constant. Enforced by a CHECK constraint so a wrong value is rejected.
+    public const int SingletonSentinel = 1;
+
     public Guid Id { get; set; } = WellKnownId;
 
     // Sentinel for the unique singleton index; must be non-null and constant.
-    public int SingletonSlot { get; set; } = 1;
+    public int SingletonSlot { get; set; } = SingletonSentinel;
 
     public string TimezoneId { get; set; } = "Europe/Stockholm";
 

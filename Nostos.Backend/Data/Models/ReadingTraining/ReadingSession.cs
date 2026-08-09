@@ -3,13 +3,15 @@ using Nostos.Shared.Enums;
 namespace Nostos.Backend.Data.Models.ReadingTraining;
 
 // A single training session. At most one session may be open globally at a
-// time: OpenSlot holds a constant sentinel while the session is open (Active,
-// Paused, AwaitingFeedback) and is NULL otherwise; the unique index therefore
-// enforces the single global open slot.
+// time: OpenSlot holds a constant sentinel while the session is open (Planned,
+// Active, Paused, AwaitingFeedback) and is NULL otherwise; the unique index
+// and the CK_ReadingSessions_OpenSlot_Matches_Status check therefore enforce
+// the single global open slot.
 public class ReadingSession
 {
     // Value placed in OpenSlot while this session occupies the global open
-    // slot. The unique index on OpenSlot then allows at most one open session.
+    // slot. The unique index on OpenSlot then allows at most one open session;
+    // the status/slot correlation is enforced by a CHECK constraint.
     public const int OpenSentinel = 0;
 
     public Guid Id { get; set; } = Guid.NewGuid();

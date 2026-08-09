@@ -7,6 +7,24 @@ namespace Nostos.Backend.Data;
 
 public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbContext(options)
 {
+    // Open and closed session status sets backing the
+    // CK_ReadingSessions_OpenSlot_Matches_Status CHECK constraint. Kept in
+    // sync with ReadingSessionStatus so the constraint SQL never drifts.
+    private static readonly ReadingSessionStatus[] OpenSessionStatuses =
+    [
+        ReadingSessionStatus.Planned,
+        ReadingSessionStatus.Active,
+        ReadingSessionStatus.Paused,
+        ReadingSessionStatus.AwaitingFeedback,
+    ];
+
+    private static readonly ReadingSessionStatus[] ClosedSessionStatuses =
+    [
+        ReadingSessionStatus.Idle,
+        ReadingSessionStatus.Completed,
+        ReadingSessionStatus.Cancelled,
+    ];
+
     // Register the Base class (books)
     public DbSet<BookModel> Books => Set<BookModel>();
 
@@ -92,30 +110,50 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
 
         // --- READING TRAINING ---
 
-        // Singleton policy row: exactly one ReadingProgramme.
+        // Singleton policy row: exactly one ReadingProgramme. The fixed
+        // sentinel value is enforced by a CHECK constraint; the unique index
+        // on SingletonSlot then allows at most one row (the service later
+        // ensures the row exists).
         modelBuilder.Entity<ReadingProgramme>(e =>
         {
             e.HasIndex(p => p.SingletonSlot).IsUnique();
+            e.HasCheckConstraint(
+                "CK_ReadingProgrammes_SingletonSlot",
+                $"SingletonSlot = {ReadingProgramme.SingletonSentinel}");
         });
 
         // Multiple assignments allowed; one default per mode via the nullable
-        // DefaultSlot sentinel unique index.
+        // DefaultSlot sentinel unique index. A default slot is either NULL or
+        // equals the numeric Mode while the assignment is Active.
         modelBuilder.Entity<ReadingBookAssignment>(e =>
         {
             e.HasIndex(a => a.DefaultSlot).IsUnique();
             e.HasIndex(a => new { a.Mode, a.Status, a.QueueOrder });
+            e.HasCheckConstraint(
+                "CK_ReadingBookAssignments_DefaultSlot_Mode_Status",
+                $"DefaultSlot IS NULL OR (DefaultSlot = Mode AND Status = {(int)ReadingAssignmentStatus.Active})");
             e.HasOne(a => a.Book)
                 .WithMany()
                 .HasForeignKey(a => a.BookId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // One globally open session via the nullable OpenSlot sentinel unique index.
+        // One globally open session via the nullable OpenSlot sentinel unique
+        // index. Planned, Active, Paused and AwaitingFeedback are open states
+        // and must hold the OpenSentinel value; Idle, Completed and Cancelled
+        // must hold NULL. The CHECK constraint keeps status and slot aligned.
         modelBuilder.Entity<ReadingSession>(e =>
         {
             e.HasIndex(s => s.OpenSlot).IsUnique();
             e.HasIndex(s => s.BookId);
             e.HasIndex(s => new { s.Status, s.Mode });
+            // SQLite treats a NULL CHECK expression as satisfied, so the
+            // sentinel comparison must be guarded by OpenSlot IS NOT NULL:
+            // "OpenSlot = 0" alone would silently pass for NULL slots.
+            e.HasCheckConstraint(
+                "CK_ReadingSessions_OpenSlot_Matches_Status",
+                $"(OpenSlot IS NOT NULL AND Status IN ({string.Join(", ", OpenSessionStatuses.Select(s => (int)s))}) AND OpenSlot = {ReadingSession.OpenSentinel}) " +
+                $"OR (OpenSlot IS NULL AND Status IN ({string.Join(", ", ClosedSessionStatuses.Select(s => (int)s))}))");
             e.HasOne(s => s.BookAssignment)
                 .WithMany()
                 .HasForeignKey(s => s.BookAssignmentId)
@@ -163,7 +201,10 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
 
         modelBuilder.Entity<ReadingNotification>(e =>
         {
-            e.HasIndex(n => n.AckedAt);
+            // Pending outbox claims: filter unacknowledged rows (AckedAt IS
+            // NULL) and take expired leases (LeaseUntil < now); the composite
+            // index serves both predicates and the AckedAt-only prefix.
+            e.HasIndex(n => new { n.AckedAt, n.LeaseUntil });
         });
 
         // Exact-once command idempotency.
