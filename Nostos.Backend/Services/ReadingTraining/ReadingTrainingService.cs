@@ -314,12 +314,12 @@ public sealed class ReadingTrainingService : IReadingTrainingService
                 return Outcome.Unchanged(Failure("not_started", ReadingReplyFormatter.NotStartedToComplete, programme.StateVersion));
             if (session.Status == ReadingSessionStatus.AwaitingFeedback)
                 return Outcome.Unchanged(Result(ReadingReplyFormatter.AlreadyLoggedHowDidItGo, ToDto(session), programme.StateVersion));
-            if (session.Status == ReadingSessionStatus.Active) Accumulate(session);
             if (request.ReportedMinutes is <= 0)
                 return Outcome.Unchanged(Failure("invalid_minutes", "Actual minutes must be greater than zero.", programme.StateVersion));
             var isStale = session.StartedAt is not null && Now - session.StartedAt.Value > TimeSpan.FromHours(_options.StaleAfterHours);
             if (isStale && request.ReportedMinutes is null)
                 return Outcome.Unchanged(Failure("needs_actual_minutes", ReadingReplyFormatter.StaleActive(session.Book?.Title ?? "Book"), programme.StateVersion));
+            if (session.Status == ReadingSessionStatus.Active) Accumulate(session);
             session.ReportedMinutes = request.ReportedMinutes;
             session.Status = ReadingSessionStatus.AwaitingFeedback;
             session.RatingRequestedAt = Now;

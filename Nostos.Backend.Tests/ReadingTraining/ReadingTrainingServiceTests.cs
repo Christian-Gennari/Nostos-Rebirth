@@ -233,8 +233,33 @@ public sealed class ReadingTrainingServiceTests : IClassFixture<ReadingTrainingS
         var stale = await h.Service.CompleteSessionAsync(new("ui", "done"));
         ((ReadingErrorDto)stale.Data!).Code.Should().Be("needs_actual_minutes");
         ((ReadingSessionDto)(await h.Service.GetStatusAsync()).Data!).Status.Should().Be(ReadingSessionStatus.Active);
+        await using (var verifyRejected = h.Factory.CreateDbContext())
+        {
+            var persisted = await verifyRejected.ReadingSessions.SingleAsync(x => x.Id == session.Id);
+            persisted.AccumulatedSeconds.Should().Be(0);
+            persisted.MeasuredSeconds.Should().Be(0);
+        }
         var recovered = await h.Service.CompleteSessionAsync(new("ui", "actual", 35));
         ((ReadingSessionDto)recovered.Data!).ReportedMinutes.Should().Be(35);
+    }
+
+    [Fact]
+    public async Task Invalid_reported_minutes_do_not_persist_elapsed_time()
+    {
+        var h = Harness();
+        await h.Init();
+        var session = await h.PlanDefault("Candide", ReadingMode.Endurance);
+        await h.Service.StartSessionAsync(new("ui", "start", session.Id));
+        h.Clock.Advance(TimeSpan.FromMinutes(10));
+
+        var rejected = await h.Service.CompleteSessionAsync(new("ui", "invalid-minutes", 0));
+
+        ((ReadingErrorDto)rejected.Data!).Code.Should().Be("invalid_minutes");
+        await using var verify = h.Factory.CreateDbContext();
+        var persisted = await verify.ReadingSessions.SingleAsync(x => x.Id == session.Id);
+        persisted.Status.Should().Be(ReadingSessionStatus.Active);
+        persisted.AccumulatedSeconds.Should().Be(0);
+        persisted.MeasuredSeconds.Should().Be(0);
     }
 
     [Fact]

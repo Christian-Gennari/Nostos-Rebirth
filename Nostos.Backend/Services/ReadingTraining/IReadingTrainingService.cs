@@ -8,10 +8,6 @@ namespace Nostos.Backend.Services.ReadingTraining;
 // behind a process-local async command gate, and returns the stored original
 // response on duplicate retries; database constraints remain the final
 // concurrency guard.
-//
-// Task 4A1 vertical slice: programme initialization, books/queue, and
-// plan/start/pause/resume. Complete/rate/skip/cancel, captures, and the
-// weekly review are added by Task 4A2.
 public interface IReadingTrainingService
 {
     // --- programme ---
