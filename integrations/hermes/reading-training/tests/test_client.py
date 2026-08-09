@@ -220,14 +220,24 @@ class TestAvailability:
     def test_unavailable_error_leaks_no_credentials_or_body(self):
         port = _closed_port()
         with pytest.raises(NostosUnavailableError) as excinfo:
-            client(f"http://user:sekrit-token@{'127.0.0.1'}:{port}", timeout=1.0).dispatch(
+            client(f"http://127.0.0.1:{port}", timeout=1.0).dispatch(
                 "c", "k", "top-secret-body"
             )
         message = str(excinfo.value)
-        assert "sekrit-token" not in message
-        assert "user:" not in message
         assert "top-secret-body" not in message
+        assert "user:" not in message
         assert f"127.0.0.1:{port}" in message
+
+    def test_protocol_error_leaks_no_body_or_location(self, gateway_server):
+        _GatewayHandler.response_queue.append(
+            (302, "redirect-body-marker", "text/html", {"Location": "http://evil.example/leak"})
+        )
+        with pytest.raises(NostosProtocolError) as excinfo:
+            client(gateway_server).dispatch("c", "k", "x")
+        message = str(excinfo.value)
+        assert "redirect-body-marker" not in message
+        assert "evil.example" not in message
+        assert "leak" not in message
 
     def test_client_is_stateless_after_failure(self, gateway_server):
         # One failed call must not poison the client for the next call.
@@ -236,6 +246,63 @@ class TestAvailability:
         _GatewayHandler.response_queue.append((200, envelope("ok"), "application/json"))
         result = client(gateway_server).dispatch("c", "k", "x")
         assert result.reply == "ok"
+
+
+# --------------------------------------------------------------------------
+# Redirects: never followed — exactly one request, typed protocol error
+# --------------------------------------------------------------------------
+
+
+class TestRedirects:
+    @pytest.mark.parametrize(
+        "status",
+        [301, 302, 303, 307, 308],
+    )
+    def test_redirect_surfaces_typed_error_one_request_no_follow(
+        self, gateway_server, recorded_requests, status
+    ):
+        _GatewayHandler.response_queue.append(
+            (status, "moved", "text/html", {"Location": "http://127.0.0.1:9/elsewhere"})
+        )
+        with pytest.raises(NostosProtocolError) as excinfo:
+            client(gateway_server).dispatch("c", "k", "x")
+        assert str(status) in str(excinfo.value)
+        assert "redirect" in str(excinfo.value)
+        assert "elsewhere" not in str(excinfo.value)  # Location never leaks
+        assert len(recorded_requests) == 1  # the Location was never contacted
+        assert recorded_requests[0][1] == DISPATCH_PATH
+
+    def test_redirect_body_never_parsed_as_envelope(self, gateway_server, recorded_requests):
+        # A redirect whose body *looks like* a valid envelope must still be a
+        # protocol error — a 3xx is never an authoritative command result.
+        _GatewayHandler.response_queue.append(
+            (302, envelope("ok", state_version="0"), "application/json", {"Location": "http://127.0.0.1:9/x"})
+        )
+        with pytest.raises(NostosProtocolError):
+            client(gateway_server).dispatch("c", "k", "x")
+        assert len(recorded_requests) == 1
+
+    def test_304_never_parsed_as_envelope(self, gateway_server, recorded_requests):
+        # 304 does not go through redirect_request; the defensive 3xx check
+        # in the HTTPError path must reject it the same way.
+        _GatewayHandler.response_queue.append(
+            (304, "", "text/html", {"Location": "http://127.0.0.1:9/cached"})
+        )
+        with pytest.raises(NostosProtocolError) as excinfo:
+            client(gateway_server).dispatch("c", "k", "x")
+        assert "304" in str(excinfo.value)
+        assert len(recorded_requests) == 1
+
+    def test_client_stateless_after_redirect(self, gateway_server, recorded_requests):
+        _GatewayHandler.response_queue.append(
+            (302, "moved", "text/html", {"Location": "http://127.0.0.1:9/x"})
+        )
+        with pytest.raises(NostosProtocolError):
+            client(gateway_server).dispatch("c", "k", "x")
+        _GatewayHandler.response_queue.append((200, envelope("ok"), "application/json"))
+        result = client(gateway_server).dispatch("c", "k", "x")
+        assert result.reply == "ok"
+        assert len(recorded_requests) == 2  # exactly one request per attempt
 
 
 # --------------------------------------------------------------------------
@@ -253,11 +320,23 @@ class TestConstruction:
             "http://127.0.0.1:5214/some/path",
             "http://127.0.0.1:5214?x=1",
             "http://127.0.0.1:5214#frag",
+            "http://user@127.0.0.1:5214",
+            "http://user:sekrit-token@127.0.0.1:5214",
+            "https://user:sekrit-token@example.com",
+            "http://:password@127.0.0.1:5214",
         ],
     )
     def test_invalid_base_url(self, base_url):
         with pytest.raises(ValueError):
             NostosClient(base_url)
+
+    def test_userinfo_rejected_even_with_credential_shaped_parts(self):
+        # Credentials in URLs are refused at construction — they never reach
+        # the transport, the origin string, or any error message.
+        with pytest.raises(ValueError, match="userinfo"):
+            NostosClient("http://sekrit-token@127.0.0.1:5214")
+        with pytest.raises(ValueError, match="userinfo"):
+            NostosClient("http://user:sekrit-token@127.0.0.1:5214")
 
     @pytest.mark.parametrize("timeout", [0, -1, float("inf"), float("nan"), True, "5"])
     def test_invalid_timeout(self, timeout):

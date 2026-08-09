@@ -1,6 +1,6 @@
-"""Optional thin Nostos reading connector — client and routing primitives.
+"""Optional thin Nostos reading connector — client, routing, and Hermes hooks.
 
-Source-only package (Task 10B1). Contains:
+Source-only optional connector (Tasks 10B1 + 10B2). Contains:
 
 * :class:`nostos_reading_connector.client.NostosClient` — a stateless,
   stdlib-only HTTP client for the Nostos reading gateway dispatch route and
@@ -8,11 +8,17 @@ Source-only package (Task 10B1). Contains:
 * :mod:`nostos_reading_connector.routing` — pure, deterministic Telegram
   routing primitives (exact owner/platform/chat/thread scope + message
   hygiene) and stable idempotency-key derivation.
+* :mod:`nostos_reading_connector.hooks` — optional Hermes plugin hooks
+  (``pre_gateway_dispatch`` / ``pre_llm_call``) that forward eligible
+  Reading-topic text to the Nostos gateway exactly once and inject ephemeral
+  committed-command context into the same turn. Missing/invalid config makes
+  every hook a safe no-op; the plugin is never required for Nostos to work.
 
 No domain state, no retries, no key generation, no Telegram sending, no
-Hermes imports, and no plugin wiring (``plugin.yaml``/hooks/deploy arrive in
-later slices). The client is a thin transport; the Nostos backend owns all
-reading-training state.
+notification delivery, and no Hermes imports at package import time. The
+client is a thin transport; the Nostos backend owns all reading-training
+state. Deploying this plugin is optional and documented in
+``integrations/hermes/README.md``.
 """
 
 from .client import (
@@ -69,4 +75,18 @@ __all__ = [
     "config_issues",
     "idempotency_key",
     "is_active",
+    "register",
 ]
+
+
+def register(ctx) -> None:
+    """Hermes plugin entrypoint (called by the plugin loader).
+
+    Loads the connector config from ``plugins.entries.reading-training`` in
+    Hermes config.yaml and registers both lifecycle hooks. Missing/invalid
+    config still registers the hooks — they become safe no-ops with one
+    clear startup warning.
+    """
+    from . import hooks as _hooks
+
+    _hooks.register(ctx)

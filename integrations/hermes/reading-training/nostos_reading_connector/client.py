@@ -19,6 +19,10 @@ Contract rules:
 * Non-2xx responses carrying the stable ``ReadingCommandResultDto`` envelope
   (``{reply, data, stateVersion, duplicate}``) are returned as typed domain
   results — the status code is preserved on the result.
+* Redirects are never followed: any 3xx surfaces as
+  :class:`NostosProtocolError` after exactly one request (a redirect body is
+  never parsed as an envelope, and ``Location`` is never contacted). URLs
+  carrying userinfo (``user:pass@host``) are rejected at construction.
 * Transport failures (connection refused, timeout, DNS) raise
   :class:`NostosUnavailableError`; malformed/unexpected responses raise
   :class:`NostosProtocolError`. Error messages never include request bodies,
@@ -48,6 +52,25 @@ NOTIFICATIONS_ACK_PATH = "/api/reading-training/notifications/{notification_id}/
 
 _JSON_HEADERS = {"Accept": "application/json"}
 _JSON_POST_HEADERS = {"Accept": "application/json", "Content-Type": "application/json; charset=utf-8"}
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Never follow a redirect: a 3xx is a protocol error, not a detour.
+
+    ``redirect_request`` raising inside urllib's error machinery aborts the
+    one in-flight request immediately — ``Location`` is never contacted and
+    the redirect body is never parsed as an envelope. The message is built
+    by the owning client (origin only, no headers/body/credentials).
+    """
+
+    def __init__(self, msg_fn) -> None:
+        super().__init__()
+        self._msg_fn = msg_fn
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D102
+        raise NostosProtocolError(
+            self._msg_fn(f"unexpected redirect (HTTP {code}); redirects are not followed")
+        )
 
 
 class NostosClientError(Exception):
@@ -149,6 +172,8 @@ class NostosClient:
         parts = urllib.parse.urlsplit(base_url)
         if parts.scheme not in ("http", "https") or not parts.hostname:
             raise ValueError("base_url must be an http(s) origin, e.g. http://127.0.0.1:5214")
+        if parts.username is not None or parts.password is not None:
+            raise ValueError("base_url must not include userinfo (user:pass@)")
         if parts.path not in ("", "/"):
             raise ValueError("base_url must not include a path")
         if parts.query or parts.fragment:
@@ -159,7 +184,11 @@ class NostosClient:
             raise ValueError("timeout must be a finite positive number")
         self._base_url = base_url.rstrip("/")
         self._timeout = float(timeout)
-        self._opener = urllib.request.build_opener()
+        # Custom opener: redirects (301/302/303/307/308) raise a typed
+        # protocol error from the handler instead of being followed.
+        self._opener = urllib.request.build_opener(
+            _NoRedirectHandler(self._msg),
+        )
 
     # ------------------------------------------------------------------ API
 
@@ -283,6 +312,12 @@ class NostosClient:
                 raw = response.read()
         except urllib.error.HTTPError as exc:  # non-2xx with a body we must inspect
             status = int(exc.code)
+            if 300 <= status < 400:  # redirects never followed, never an envelope
+                raise NostosProtocolError(
+                    self._msg(
+                        f"unexpected redirect (HTTP {status}); redirects are not followed"
+                    )
+                ) from exc
             raw = exc.read()
         except urllib.error.URLError as exc:
             raise self._availability_error(exc) from exc

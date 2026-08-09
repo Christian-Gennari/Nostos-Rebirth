@@ -44,12 +44,16 @@ class _GatewayHandler(BaseHTTPRequestHandler):
             self.send_response(500)
             self.end_headers()
             return
-        status, payload, content_type = type(self).response_queue.pop(0)
+        item = type(self).response_queue.pop(0)
+        status, payload, content_type = item[:3]
+        extra_headers = item[3] if len(item) > 3 else {}
         if isinstance(payload, str):
             payload = payload.encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", content_type or "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(payload)))
+        for name, value in extra_headers.items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(payload)
 
