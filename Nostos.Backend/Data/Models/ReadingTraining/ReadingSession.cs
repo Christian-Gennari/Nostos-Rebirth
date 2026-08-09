@@ -30,6 +30,13 @@ public class ReadingSession
     public int? OpenSlot { get; set; }
 
     public int TargetMinutes { get; set; }
+
+    // Established sustainable target for the mode at plan time (the base the
+    // weekly review later adapts). Kept on the session so replies such as
+    // "Stay at {planned} minutes for now" remain faithful even after the
+    // programme targets change in a later review.
+    public int PlannedTargetMinutes { get; set; }
+
     public ReadingConstraint Constraint { get; set; } = ReadingConstraint.None;
 
     public DateTime PlannedAt { get; set; }
@@ -37,6 +44,10 @@ public class ReadingSession
     public DateTime? LastStartedAt { get; set; }
     public DateTime? PausedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
+
+    // When the session entered AwaitingFeedback (the ratings prompt was
+    // issued). Drives the stale-session recovery flow; null until then.
+    public DateTime? RatingRequestedAt { get; set; }
 
     // Elapsed seconds excluding pauses (the training evidence).
     public int AccumulatedSeconds { get; set; }

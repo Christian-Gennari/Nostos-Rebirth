@@ -14,6 +14,8 @@ public sealed record ReadingCommandResultDto(
     bool Duplicate = false
 );
 
+public sealed record ReadingErrorDto(string Code);
+
 // --- BASE REQUEST ---
 public record ReadingCommandRequest(string ClientId, string IdempotencyKey);
 
@@ -188,7 +190,10 @@ public record ReadingSessionDto(
     ReadingMode Mode,
     ReadingSessionStatus Status,
     int TargetMinutes,
+    int PlannedTargetMinutes,
     ReadingConstraint Constraint,
+    bool ProgressionEligible,
+    bool CountsAsFailure,
     int AccumulatedSeconds,
     int MeasuredSeconds,
     int? ReportedMinutes,
@@ -198,6 +203,7 @@ public record ReadingSessionDto(
     bool RatingsSkipped,
     DateTime PlannedAt,
     DateTime? StartedAt,
+    DateTime? LastStartedAt,
     DateTime? PausedAt,
     DateTime? CompletedAt
 );
@@ -206,6 +212,7 @@ public record ReadingWeekSummaryDto(
     string WeekKey,
     int CompletedSessions,
     int QualifyingSessions,
+    int VolumeMinutes,
     int CompletionThreshold,
     bool ReviewCommitted
 );
