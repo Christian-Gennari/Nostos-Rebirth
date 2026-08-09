@@ -171,6 +171,9 @@ describe('SessionPlannerComponent', () => {
     fixture.detectChanges();
 
     expect(inputById('session-planner-constrained-minutes')).toBeTruthy();
+    const startNow = buttons().find((button) => button.textContent?.includes('Start now'));
+    expect(startNow?.disabled).toBe(true);
+    expect(startNow?.getAttribute('aria-describedby')).toBe('session-planner-start-note');
 
     // Invalid constrained minutes block the emission.
     const drafts: SessionPlanDraft[] = [];

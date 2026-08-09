@@ -14,6 +14,7 @@
         (change)="onBookChange($event)"
         [disabled]="busy()"
         [attr.aria-invalid]="submitted() && bookError() ? 'true' : null"
+        [attr.aria-describedby]="submitted() && bookError() ? 'book-assignment-book-error' : null"
       >
         @for (book of availableBooks(); track book.bookId) {
           <option [value]="book.bookId">

@@ -10,7 +10,10 @@ export const EFFORT_MAX = 10;
 export const FOCUS_MIN = 1;
 export const FOCUS_MAX = 10;
 
-/** Typed local event: the page forwards this as `rateSession`. */
+/**
+ * Typed local event: the page first forwards `reportedMinutes` through
+ * `completeSession`, then sends `effort` and `focus` through `rateSession`.
+ */
 export interface RateSessionDraft {
   sessionId: string;
   reportedMinutes: number;
