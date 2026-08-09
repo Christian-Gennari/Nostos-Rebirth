@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
@@ -110,7 +112,7 @@ public sealed partial class HermesReadingImportService : IHermesReadingImportSer
             return Failed(report, HermesImportCommitCodes.Blocked);
         if (report.Programme is null)
             return Failed(report, HermesImportCommitCodes.BlockedNoProgramme);
-        if (!FingerprintRegex().IsMatch(report.AggregateFingerprint))
+        if (!HasValidFileManifest(report))
             return Failed(report, HermesImportCommitCodes.BlockedInvalidFingerprint);
         if (report.Assignments.Any(a => a.BookId == Guid.Empty) ||
             report.Sessions.Any(s => s.BookId == Guid.Empty) ||
@@ -152,7 +154,8 @@ public sealed partial class HermesReadingImportService : IHermesReadingImportSer
         var archivePath = _backups.GetLocalArchivePath(backup.Id);
         if (backup.Status != BackupStatus.Completed || backup.Id == Guid.Empty ||
             string.IsNullOrEmpty(archivePath) ||
-            !archivePath.EndsWith(".nostos", StringComparison.OrdinalIgnoreCase))
+            !archivePath.EndsWith(".nostos", StringComparison.OrdinalIgnoreCase) ||
+            !File.Exists(archivePath))
         {
             return Failed(report, HermesImportCommitCodes.BackupFailed);
         }
@@ -399,6 +402,37 @@ public sealed partial class HermesReadingImportService : IHermesReadingImportSer
     }
 
     private DateTime NowUtc => DateTime.SpecifyKind(_clock.UtcNow, DateTimeKind.Utc);
+
+    private static bool HasValidFileManifest(HermesImportDryRunReport report)
+    {
+        if (!FingerprintRegex().IsMatch(report.AggregateFingerprint) || report.Files.Count == 0)
+            return false;
+
+        var known = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "config.yaml", "training-state.json", "active-session.json",
+            "reading-queue.yaml", "reading-log.jsonl", "reading-inbox.jsonl",
+        };
+        var required = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "config.yaml", "training-state.json", "reading-queue.yaml",
+        };
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        var canonical = new StringBuilder();
+        foreach (var file in report.Files.OrderBy(x => x.Name, StringComparer.Ordinal))
+        {
+            if (!known.Contains(file.Name) || !names.Add(file.Name) || file.Length < 0 ||
+                !FingerprintRegex().IsMatch(file.Sha256))
+                return false;
+            canonical.Append(file.Name).Append(':').Append(file.Length).Append(':')
+                .Append(file.Sha256).Append('\n');
+        }
+        if (!required.IsSubsetOf(names)) return false;
+
+        var computed = SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString()));
+        var supplied = Convert.FromHexString(report.AggregateFingerprint);
+        return CryptographicOperations.FixedTimeEquals(computed, supplied);
+    }
 
     [GeneratedRegex("^[0-9a-f]{64}$", RegexOptions.CultureInvariant)]
     private static partial Regex FingerprintRegex();

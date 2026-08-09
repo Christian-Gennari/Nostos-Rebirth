@@ -89,6 +89,18 @@ public sealed class HermesImportCommitTests : IDisposable
         var badFingerprint = await h.Service.CommitAsync(report with { AggregateFingerprint = "not-hex!" });
         badFingerprint.ErrorCode.Should().Be(HermesImportCommitCodes.BlockedInvalidFingerprint);
 
+        var forgedAggregate = await h.Service.CommitAsync(report with { AggregateFingerprint = new string('a', 64) });
+        forgedAggregate.ErrorCode.Should().Be(HermesImportCommitCodes.BlockedInvalidFingerprint);
+
+        var tamperedFiles = report.Files.ToArray();
+        tamperedFiles[0] = tamperedFiles[0] with { Sha256 = new string('b', 64) };
+        var tamperedManifest = await h.Service.CommitAsync(report with { Files = tamperedFiles });
+        tamperedManifest.ErrorCode.Should().Be(HermesImportCommitCodes.BlockedInvalidFingerprint);
+
+        var duplicateFiles = report.Files.Append(report.Files[0]).ToArray();
+        var duplicateManifest = await h.Service.CommitAsync(report with { Files = duplicateFiles });
+        duplicateManifest.ErrorCode.Should().Be(HermesImportCommitCodes.BlockedInvalidFingerprint);
+
         h.Backup.CreateCalls.Should().Be(0);
         (await h.CountsAsync()).Should().Be((0, 0, 0, 0, 0));
     }
@@ -399,12 +411,14 @@ public sealed class HermesImportCommitTests : IDisposable
         // Completed status but no local archive file.
         h.Backup.OnCreate = () => new(Guid.NewGuid(), BackupStatus.Completed, 1, DateTime.UtcNow);
         h.Backup.SkipArchiveWrite = true;
+        h.Backup.ReturnMissingArchivePath = true;
         var missing = await h.Service.CommitAsync(report);
         missing.ErrorCode.Should().Be(HermesImportCommitCodes.BackupFailed);
         (await h.CountsAsync()).Should().Be((0, 0, 0, 0, 0));
 
         // Archive path that does not end with .nostos.
         h.Backup.SkipArchiveWrite = false;
+        h.Backup.ReturnMissingArchivePath = false;
         h.Backup.OnCreate = () => new(Guid.NewGuid(), BackupStatus.Completed, 1, DateTime.UtcNow);
         h.Backup.ArchivePathOverride = Path.Combine(Path.GetTempPath(), $"backup-{Guid.NewGuid():N}.zip");
         var wrongSuffix = await h.Service.CommitAsync(report);
@@ -626,6 +640,7 @@ public sealed class HermesImportCommitTests : IDisposable
         public Func<TriggerBackupResultDto>? OnCreate { get; set; }
         public Action? BeforeCreate { get; set; }
         public bool SkipArchiveWrite { get; set; }
+        public bool ReturnMissingArchivePath { get; set; }
         public string? ArchivePathOverride { get; set; }
         public string? ArchivePath { get; private set; }
 
@@ -653,7 +668,7 @@ public sealed class HermesImportCommitTests : IDisposable
         public string? GetLocalArchivePath(Guid id)
         {
             var path = ArchivePathOverride ?? Path.Combine(_archiveDir, $"{id:N}.nostos");
-            return File.Exists(path) ? path : null;
+            return ReturnMissingArchivePath || File.Exists(path) ? path : null;
         }
 
         public void Dispose()
