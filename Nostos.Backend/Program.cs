@@ -11,6 +11,7 @@ using Nostos.Backend.Integrations.Mcp;
 using Nostos.Backend.Serialization;
 using Nostos.Backend.Services;
 using Nostos.Backend.Services.ReadingTraining;
+using Nostos.Backend.Services.ReadingTraining.Import;
 using Nostos.Backend.Workers;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -117,6 +118,7 @@ builder.Services.AddSingleton<IReadingClock, SystemReadingClock>();
 builder.Services.AddScoped<IReadingTrainingService, ReadingTrainingService>();
 builder.Services.AddScoped<IReadingGatewayDispatcher, ReadingGatewayDispatcher>();
 builder.Services.AddScoped<IReadingNotificationOutbox, ReadingNotificationOutbox>();
+builder.Services.AddScoped<IHermesReadingImportService, HermesReadingImportService>();
 builder.Services.AddHostedService<ConceptCleanupWorker>();
 builder.Services.AddHostedService<BackupWorker>();
 builder.Services.AddHostedService<ReadingNotificationWorker>();

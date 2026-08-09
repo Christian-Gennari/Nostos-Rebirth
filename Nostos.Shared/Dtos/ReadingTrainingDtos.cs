@@ -190,7 +190,7 @@ public record ReadingBookAssignmentDto(
 
 public record ReadingSessionDto(
     Guid Id,
-    Guid BookAssignmentId,
+    Guid? BookAssignmentId,
     Guid BookId,
     string? BookTitle,
     ReadingMode Mode,

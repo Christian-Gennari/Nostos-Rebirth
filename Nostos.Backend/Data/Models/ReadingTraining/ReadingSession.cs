@@ -16,7 +16,10 @@ public class ReadingSession
 
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    public Guid BookAssignmentId { get; set; }
+    // Nullable: historical sessions imported from the legacy Hermes data may
+    // predate any queue assignment for their book (the session survives with
+    // a null assignment link).
+    public Guid? BookAssignmentId { get; set; }
     public ReadingBookAssignment? BookAssignment { get; set; }
 
     // Denormalised to the Nostos book for querying and capture linking.
