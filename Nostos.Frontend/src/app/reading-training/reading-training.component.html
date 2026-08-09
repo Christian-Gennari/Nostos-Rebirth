@@ -1,0 +1,61 @@
+<div class="reading-training-page">
+  <header class="page-header">
+    <div>
+      <h1>Reading Training</h1>
+      <p class="page-subtitle">A quiet instrument for building sustainable reading capacity.</p>
+    </div>
+    @if (store.dashboard()) {
+      <button
+        type="button"
+        class="icon-btn"
+        (click)="onRefresh()"
+        [disabled]="store.loading()"
+        aria-label="Refresh reading training"
+      >
+        <lucide-icon [img]="RefreshIcon" [size]="18" strokeWidth="1.5" [class.spin]="store.loading()"></lucide-icon>
+      </button>
+    }
+  </header>
+
+  @if (notInitialized()) {
+    <section class="panel setup-panel" role="region" aria-label="Reading training setup">
+      <lucide-icon [img]="SetupIcon" [size]="28" strokeWidth="1"></lucide-icon>
+      <h2>Reading training is not set up yet</h2>
+      <p>Set up your programme to begin building sustainable reading capacity.</p>
+      <button type="button" class="btn btn-primary btn-lg" (click)="onSetup()" [disabled]="store.mutating()">
+        Set up reading training
+      </button>
+    </section>
+  } @else if (store.error() && !store.dashboard()) {
+    <section class="panel error-panel" role="alert">
+      <p class="error-text">{{ store.error() }}</p>
+      <button type="button" class="btn btn-secondary" (click)="onRefresh()">Try again</button>
+    </section>
+  } @else if (store.loading() && !store.dashboard()) {
+    <section class="panel loading-panel" role="status" aria-live="polite">
+      <span class="spinner" aria-hidden="true"></span>
+      <p>Loading reading training…</p>
+    </section>
+  } @else if (store.dashboard(); as dashboard) {
+    @if (store.error(); as error) {
+      <section class="error-banner" role="alert">
+        <p class="error-text">{{ error }}</p>
+        <button type="button" class="btn btn-secondary btn-sm" (click)="onRefresh()">Try again</button>
+      </section>
+    }
+
+    <app-capacity-lanes [lanes]="lanes()" />
+
+    <app-today-session
+      [openSession]="openSession()"
+      [elapsedSeconds]="store.displayedElapsedSeconds()"
+      [mutating]="store.mutating()"
+      [lastReply]="store.lastReply()"
+      (start)="onStart()"
+      (pause)="onPause()"
+      (resume)="onResume()"
+      (complete)="onComplete($event)"
+      (cancel)="onCancel()"
+    />
+  }
+</div>

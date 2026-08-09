@@ -1,0 +1,32 @@
+<section class="capacity-lanes" aria-label="Reading capacity lanes">
+  @for (lane of lanes(); track lane.mode) {
+    <article
+      class="lane"
+      [class.lane-endurance]="lane.mode === modeEnum.Endurance"
+      [class.lane-deep]="lane.mode === modeEnum.Deep"
+      [class.lane-recovery]="lane.mode === modeEnum.Recovery"
+    >
+      <header class="lane-header">
+        <h3>{{ lane.title }}</h3>
+        @if (lane.volumeOnly) {
+          <span class="volume-tag">Volume only</span>
+        }
+      </header>
+
+      <div class="lane-target">
+        <span class="target-minutes">{{ lane.targetMinutes }}</span>
+        <span class="target-unit">min</span>
+      </div>
+
+      @if (lane.establishedMinutes !== lane.targetMinutes) {
+        <p class="lane-baseline">Baseline {{ lane.establishedMinutes }} min</p>
+      }
+
+      @if (lane.reason; as reason) {
+        <p class="lane-reason">Recent adaptation: {{ reason }}</p>
+      }
+
+      <p class="lane-book">{{ lane.bookTitle ?? 'No book assigned' }}</p>
+    </article>
+  }
+</section>

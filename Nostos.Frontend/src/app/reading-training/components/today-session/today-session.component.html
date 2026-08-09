@@ -1,0 +1,83 @@
+<section class="today-session" aria-labelledby="today-heading">
+  <header class="session-header">
+    <h2 id="today-heading">Today</h2>
+    @if (openSession(); as session) {
+      <span class="status-badge">{{ sessionStatusLabel(session.status) }}</span>
+    }
+  </header>
+
+  @if (openSession(); as session) {
+    <p class="session-book">{{ session.bookTitle ?? 'Reading session' }}</p>
+
+    <dl class="session-meta">
+      <div class="meta-row">
+        <dt>Planned target</dt>
+        <dd>{{ session.plannedTargetMinutes }} min</dd>
+      </div>
+      <div class="meta-row">
+        <dt>Elapsed</dt>
+        <dd class="elapsed" aria-live="off">{{ formatElapsed(elapsedSeconds()) }}</dd>
+      </div>
+    </dl>
+
+    @if (status() === statusEnum.AwaitingFeedback) {
+      <label class="minutes-field">
+        <span>Actual minutes</span>
+        <input
+          type="number"
+          min="0"
+          step="1"
+          inputmode="numeric"
+          [value]="reportedMinutes()"
+          (input)="onMinutesInput($event)"
+          aria-label="Actual minutes read"
+        />
+      </label>
+    }
+
+    <div class="session-actions">
+      @switch (status()) {
+        @case (statusEnum.Planned) {
+          <button type="button" class="btn btn-primary" (click)="start.emit()" [disabled]="mutating()">
+            Start
+          </button>
+        }
+        @case (statusEnum.Active) {
+          <button type="button" class="btn btn-primary" (click)="pause.emit()" [disabled]="mutating()">
+            Pause
+          </button>
+        }
+        @case (statusEnum.Paused) {
+          <button type="button" class="btn btn-primary" (click)="resume.emit()" [disabled]="mutating()">
+            Resume
+          </button>
+          <button type="button" class="btn btn-ghost-danger" (click)="cancel.emit()" [disabled]="mutating()">
+            Cancel
+          </button>
+        }
+        @case (statusEnum.AwaitingFeedback) {
+          <button type="button" class="btn btn-primary" (click)="onComplete()" [disabled]="mutating()">
+            Complete
+          </button>
+          <button type="button" class="btn btn-ghost-danger" (click)="cancel.emit()" [disabled]="mutating()">
+            Cancel
+          </button>
+        }
+        @default {
+          <p class="session-finished">This session is finished.</p>
+        }
+      }
+    </div>
+  } @else {
+    <p class="session-empty">No session in progress.</p>
+    <div class="session-actions">
+      <button type="button" class="btn btn-primary" (click)="start.emit()" [disabled]="mutating()">
+        Start reading
+      </button>
+    </div>
+  }
+
+  @if (lastReply(); as reply) {
+    <p class="status-region" aria-live="polite">{{ reply }}</p>
+  }
+</section>

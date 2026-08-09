@@ -1,0 +1,129 @@
+/* Three parallel capacity lanes, each reading like the spine of a book on a
+   shelf. Colour marks mode only (Endurance / Deep / Recovery); state is never
+   conveyed by colour alone — every lane carries its target, book, and any
+   adaptation note as text. */
+
+.capacity-lanes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.lane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  min-height: 190px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-top: 3px solid var(--lane-accent, var(--border-color));
+  border-left: 1px solid var(--lane-accent, var(--border-color));
+  border-radius: var(--radius-lg);
+  transition:
+    transform var(--transition-normal),
+    box-shadow var(--transition-normal);
+}
+
+.lane:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.lane-endurance {
+  --lane-accent: #60a5fa;
+}
+
+.lane-deep {
+  --lane-accent: #4b5563;
+}
+
+.lane-recovery {
+  --lane-accent: #6f8f72;
+}
+
+.lane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.lane-header h3 {
+  font-family: 'Lora', serif;
+  font-size: var(--text-lg);
+  font-weight: var(--fw-semibold);
+  margin: 0;
+}
+
+.volume-tag {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-light);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.lane-target {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: var(--space-sm);
+}
+
+.target-minutes {
+  font-family: 'Lora', serif;
+  font-size: 2rem;
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-main);
+}
+
+.target-unit {
+  font-size: var(--text-sm);
+  color: var(--color-text-light);
+}
+
+.lane-baseline,
+.lane-reason {
+  font-size: var(--text-xs);
+  color: var(--color-text-light);
+  margin: 0;
+}
+
+.lane-book {
+  margin-top: auto;
+  padding-top: var(--space-sm);
+  font-family: 'Lora', serif;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  border-top: 1px solid var(--border-light);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .capacity-lanes {
+    grid-template-columns: 1fr;
+  }
+
+  .lane {
+    min-height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lane {
+    transition: none;
+  }
+
+  .lane:hover {
+    transform: none;
+  }
+}
