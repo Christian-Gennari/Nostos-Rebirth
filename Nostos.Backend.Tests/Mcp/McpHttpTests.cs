@@ -206,6 +206,40 @@ public sealed class McpHttpTests
     }
 
     [Fact]
+    public async Task Auth_DuplicateAuthorizationHeaders_FailClosed_WithoutLeakingToken()
+    {
+        using var env = SetEnvVar(TestEnvVar, TestToken);
+        using var factory = new McpHttpFactory(enabled: true, envVarName: TestEnvVar);
+        using var client = factory.CreateClient();
+
+        // Duplicate Authorization headers are never first-valid: the server
+        // sees the joined header value, which can never be the exact
+        // `Bearer <token>` form, so both identical valid tokens and a
+        // valid+garbage pair fail closed (no token may leak into responses).
+        foreach (var headers in new[]
+        {
+            new[] { $"Bearer {TestToken}", $"Bearer {TestToken}" },
+            new[] { $"Bearer {TestToken}", $"Bearer wrong-token" },
+        })
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/mcp")
+            {
+                Content = InitializeBody(),
+            };
+            foreach (var header in headers)
+            {
+                request.Headers.TryAddWithoutValidation("Authorization", header);
+            }
+
+            using var response = await client.SendAsync(request);
+            response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+            var body = await response.Content.ReadAsStringAsync();
+            body.Should().NotContain(TestToken);
+            response.Headers.WwwAuthenticate.ToString().Should().NotContain(TestToken);
+        }
+    }
+
+    [Fact]
     public async Task Protocol_InitializeAndToolsList_SucceedWithToken()
     {
         using var env = SetEnvVar(TestEnvVar, TestToken);
@@ -226,11 +260,12 @@ public sealed class McpHttpTests
         serverInfo.GetProperty("name").GetString().Should().Be("nostos");
         serverInfo.GetProperty("version").GetString().Should().NotBeNullOrEmpty();
         // Task 9A registered only the static identity tool; Task 9B1 replaced
-        // it with the read-only Reading Training tool surface, and Task 9B2
-        // adds the nine exact-once mutation tools. The protocol-level
-        // tools/list call below verifies discovery over the real transport:
-        // exactly the sixteen tools, no bootstrap identity tool, and no
-        // client id/key arguments on the read surface.
+        // it with the read-only Reading Training tool surface, Task 9B2 adds
+        // the nine exact-once session/capture mutation tools, and Task 9B2b
+        // adds the five book/capture/weekly-review mutations. The protocol-
+        // level tools/list call below verifies discovery over the real
+        // transport: exactly the twenty-one tools, no bootstrap identity
+        // tool, and no client id/key arguments on the read surface.
         var toolsList = await PostWithAuth(client, TestToken, body: ToolsListBody());
         toolsList.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -262,6 +297,11 @@ public sealed class McpHttpTests
             "reading_cancel_session",
             "reading_capture",
             "reading_answer_now",
+            "reading_add_book",
+            "reading_set_default_book",
+            "reading_finish_book",
+            "reading_resolve_capture",
+            "reading_commit_review",
         };
         var names = tools.EnumerateArray().Select(t => t.GetProperty("name").GetString()).ToList();
         names.Should().HaveCount(expectedReadNames.Length + expectedMutationNames.Length)
@@ -412,6 +452,61 @@ public sealed class McpHttpTests
         captureProps.GetProperty("type").GetProperty("type").GetString().Should().Be("string");
         captureProps.GetProperty("type").GetProperty("enum").EnumerateArray().Select(e => e.GetString())
             .Should().BeEquivalentTo("Thought", "Question", "Bookmark");
+
+        // Add book: an existing Nostos book is assigned by id only — no
+        // title/author/page arguments are invented; makeDefault is the only
+        // optional flag, and the description explicitly says pages are
+        // optional book progress, never the training target.
+        var addSchema = byName["reading_add_book"].GetProperty("inputSchema");
+        addSchema.GetProperty("required").EnumerateArray().Select(r => r.GetString())
+            .Should().BeEquivalentTo("idempotencyKey", "bookId", "mode");
+        var addProps = addSchema.GetProperty("properties");
+        addProps.GetProperty("bookId").GetProperty("type").GetString().Should().Be("string");
+        addProps.GetProperty("bookId").GetProperty("format").GetString().Should().Be("uuid");
+        addProps.GetProperty("makeDefault").GetProperty("type").GetString().Should().Be("boolean");
+        addProps.TryGetProperty("pages", out _).Should().BeFalse("the assignment DTO has no page fields");
+        addProps.TryGetProperty("title", out _).Should().BeFalse("the book is assigned by id, never by title");
+        addProps.TryGetProperty("author", out _).Should().BeFalse("the book is assigned by id, never by author");
+        var addDescription = byName["reading_add_book"].GetProperty("description").GetString()!;
+        addDescription.Should().Contain("Pages are optional")
+            .And.Contain("never the training target");
+
+        // Set default: exact assignment id + mode from the request DTO; the
+        // tool never infers which assignment is or should be default.
+        var setDefaultSchema = byName["reading_set_default_book"].GetProperty("inputSchema");
+        setDefaultSchema.GetProperty("required").EnumerateArray().Select(r => r.GetString())
+            .Should().BeEquivalentTo("idempotencyKey", "bookAssignmentId", "mode");
+        setDefaultSchema.GetProperty("properties").TryGetProperty("sessionId", out _)
+            .Should().BeFalse("the assignment is addressed by bookAssignmentId only");
+
+        // Finish book: assignment id only.
+        byName["reading_finish_book"].GetProperty("inputSchema")
+            .GetProperty("required").EnumerateArray().Select(r => r.GetString())
+            .Should().BeEquivalentTo("idempotencyKey", "bookAssignmentId");
+
+        // Resolve capture: captureId and the keep action are required; noteId
+        // is optional exactly because the request DTO declares it optional —
+        // the server validates ids and the note requirement.
+        var resolveSchema = byName["reading_resolve_capture"].GetProperty("inputSchema");
+        resolveSchema.GetProperty("required").EnumerateArray().Select(r => r.GetString())
+            .Should().BeEquivalentTo("idempotencyKey", "captureId", "keep");
+        var resolveProps = resolveSchema.GetProperty("properties");
+        resolveProps.GetProperty("keep").GetProperty("type").GetString().Should().Be("boolean");
+        resolveProps.GetProperty("captureId").GetProperty("format").GetString().Should().Be("uuid");
+        resolveProps.TryGetProperty("noteId", out _).Should().BeTrue("the resolve request DTO has an optional note id");
+
+        // Commit review: explicit ISO year/week required integers; the
+        // description is neutral — the server recomputes the review and
+        // never claims a preview is binding.
+        var commitSchema = byName["reading_commit_review"].GetProperty("inputSchema");
+        commitSchema.GetProperty("required").EnumerateArray().Select(r => r.GetString())
+            .Should().BeEquivalentTo("idempotencyKey", "year", "week");
+        var commitProps = commitSchema.GetProperty("properties");
+        commitProps.GetProperty("year").GetProperty("type").GetString().Should().Be("integer");
+        commitProps.GetProperty("week").GetProperty("type").GetString().Should().Be("integer");
+        var commitDescription = byName["reading_commit_review"].GetProperty("description").GetString()!;
+        commitDescription.Should().Contain("recomputes");
+        commitDescription.Should().NotContain("preview").And.NotContain("binding");
     }
 
     [Fact]
@@ -487,22 +582,27 @@ public sealed class McpHttpTests
         using var factory = new McpHttpFactory(enabled: true, envVarName: TestEnvVar);
         using var client = factory.CreateClient();
 
-        // REST bootstrap: initialize the programme, then seed a real library
-        // book through a factory scope (book ops are outside the nine MCP
-        // tools) and add an Endurance assignment over REST.
+        // REST bootstrap: initialize the programme, then seed real library
+        // books through a factory scope (creating catalog books is outside
+        // the MCP surface — reading_add_book assigns an existing book by id)
+        // and add an Endurance assignment over REST.
         var initialize = await client.PostAsync(
             "/api/reading-training/initialize",
             JsonBody(new { clientId = "mcp-tests", idempotencyKey = "9b2-bootstrap" }));
         initialize.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        Guid bookId;
+        Guid bookId, deepBookId, enduranceBookId;
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<NostosDbContext>();
             var book = new PhysicalBookModel { Title = "Candide", Author = "Voltaire" };
-            db.PhysicalBooks.Add(book);
+            var deepBook = new PhysicalBookModel { Title = "Meditations", Author = "Marcus Aurelius" };
+            var enduranceBook = new PhysicalBookModel { Title = "De Rerum Natura", Author = "Lucretius" };
+            db.PhysicalBooks.AddRange(book, deepBook, enduranceBook);
             await db.SaveChangesAsync();
             bookId = book.Id;
+            deepBookId = deepBook.Id;
+            enduranceBookId = enduranceBook.Id;
         }
 
         using var addResponse = await client.PostAsJsonAsync("/api/reading-training/books",
@@ -510,6 +610,72 @@ public sealed class McpHttpTests
         addResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         using var addJson = JsonDocument.Parse(await addResponse.Content.ReadAsStringAsync());
         var assignmentId = addJson.RootElement.GetProperty("data").GetProperty("id").GetGuid();
+
+        // --- reading_add_book: existing Nostos book by id, fresh command ---
+        var addDeep = await ToolCallAsync(client, TestToken, "reading_add_book", new
+        {
+            idempotencyKey = "e2e-add-deep",
+            bookId = deepBookId.ToString(),
+            mode = "Deep",
+            makeDefault = true,
+        });
+        addDeep.GetProperty("duplicate").GetBoolean().Should().BeFalse();
+        addDeep.GetProperty("data").GetProperty("mode").GetString().Should().Be("Deep");
+        addDeep.GetProperty("data").GetProperty("isDefault").GetBoolean().Should().BeTrue();
+        var deepAssignmentId = addDeep.GetProperty("data").GetProperty("id").GetGuid();
+        var addDeepVersion = addDeep.GetProperty("stateVersion").GetString();
+
+        // Same key again: duplicate=true with the identical committed result
+        // (same assignment id, same state version — the stored original reply).
+        var addDeepDuplicate = await ToolCallAsync(client, TestToken, "reading_add_book", new
+        {
+            idempotencyKey = "e2e-add-deep",
+            bookId = deepBookId.ToString(),
+            mode = "Deep",
+            makeDefault = true,
+        });
+        addDeepDuplicate.GetProperty("duplicate").GetBoolean().Should().BeTrue();
+        addDeepDuplicate.GetProperty("data").GetProperty("id").GetGuid().Should().Be(deepAssignmentId);
+        addDeepDuplicate.GetProperty("stateVersion").GetString().Should().Be(addDeepVersion);
+
+        // A second Endurance assignment, added WITHOUT makeDefault: the flag
+        // is optional and must not default to true.
+        var addEndurance = await ToolCallAsync(client, TestToken, "reading_add_book", new
+        {
+            idempotencyKey = "e2e-add-endurance",
+            bookId = enduranceBookId.ToString(),
+            mode = "Endurance",
+        });
+        addEndurance.GetProperty("data").GetProperty("isDefault").GetBoolean().Should().BeFalse();
+        var enduranceAssignmentId = addEndurance.GetProperty("data").GetProperty("id").GetGuid();
+
+        // --- reading_set_default_book: exact assignment id + mode, no client
+        // inference — the Endurance default switches to the new assignment ---
+        var setDefault = await ToolCallAsync(client, TestToken, "reading_set_default_book", new
+        {
+            idempotencyKey = "e2e-set-default",
+            bookAssignmentId = enduranceAssignmentId.ToString(),
+            mode = "Endurance",
+        });
+        setDefault.GetProperty("duplicate").GetBoolean().Should().BeFalse();
+        setDefault.GetProperty("data").GetProperty("id").GetGuid().Should().Be(enduranceAssignmentId);
+        setDefault.GetProperty("data").GetProperty("isDefault").GetBoolean().Should().BeTrue();
+        var setDefaultVersion = setDefault.GetProperty("stateVersion").GetString();
+
+        // --- REST sees the same book queue state, including the switched
+        // Endurance default and the new Deep default ---
+        using var booksResponse = await client.GetAsync("/api/reading-training/dashboard");
+        booksResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var booksJson = JsonDocument.Parse(await booksResponse.Content.ReadAsStringAsync());
+        booksJson.RootElement.GetProperty("stateVersion").GetString().Should().Be(setDefaultVersion);
+        var books = booksJson.RootElement.GetProperty("data").GetProperty("books")
+            .EnumerateArray().ToList();
+        books.Single(b => b.GetProperty("id").GetGuid() == assignmentId)
+            .GetProperty("isDefault").GetBoolean().Should().BeFalse("the Endurance default switched away");
+        books.Single(b => b.GetProperty("id").GetGuid() == enduranceAssignmentId)
+            .GetProperty("isDefault").GetBoolean().Should().BeTrue();
+        books.Single(b => b.GetProperty("id").GetGuid() == deepAssignmentId)
+            .GetProperty("isDefault").GetBoolean().Should().BeTrue();
 
         // --- reading_plan_session: fresh command, planned session ---
         var plan = await ToolCallAsync(client, TestToken, "reading_plan_session", new
@@ -562,9 +728,10 @@ public sealed class McpHttpTests
         var captureId = capture.GetProperty("data").GetProperty("id").GetGuid();
         capture.GetProperty("data").GetProperty("text").GetString().Should().Be(verbatim);
         capture.GetProperty("data").GetProperty("type").GetString().Should().Be("Question");
-        // The capture is the last mutation, so its state version is the
-        // authoritative version the dashboard must report afterwards.
-        var finalVersion = capture.GetProperty("stateVersion").GetString();
+        // The capture is the last mutation of the session flow, so its state
+        // version is the authoritative version the dashboard must report at
+        // this point (the resolve step below moves the version forward).
+        var sessionFlowVersion = capture.GetProperty("stateVersion").GetString();
 
         // Same capture key again: duplicate=true, same committed capture, and
         // no second row anywhere.
@@ -598,7 +765,7 @@ public sealed class McpHttpTests
         var openSession = dashJson.RootElement.GetProperty("data").GetProperty("openSession");
         openSession.GetProperty("id").GetGuid().Should().Be(sessionId);
         openSession.GetProperty("status").GetInt32().Should().Be((int)ReadingSessionStatus.Paused);
-        dashJson.RootElement.GetProperty("stateVersion").GetString().Should().Be(finalVersion);
+        dashJson.RootElement.GetProperty("stateVersion").GetString().Should().Be(sessionFlowVersion);
 
         // --- REST history only ever lists completed/cancelled sessions: the
         // paused session must not be fabricated into it ---
@@ -608,6 +775,45 @@ public sealed class McpHttpTests
         historyJson.RootElement.GetProperty("data").EnumerateArray()
             .Select(s => s.GetProperty("id").GetGuid()).Should().NotContain(sessionId);
 
+        // --- reading_resolve_capture: keep=false dismisses the capture; the
+        // capture id and action are forwarded verbatim for the server ---
+        var resolve = await ToolCallAsync(client, TestToken, "reading_resolve_capture", new
+        {
+            idempotencyKey = "e2e-resolve-capture",
+            captureId = captureId.ToString(),
+            keep = false,
+        });
+        resolve.GetProperty("duplicate").GetBoolean().Should().BeFalse();
+        resolve.GetProperty("data").GetProperty("id").GetGuid().Should().Be(captureId);
+        resolve.GetProperty("data").GetProperty("resolved").GetBoolean().Should().BeTrue();
+
+        // Same key again: duplicate=true with the same committed capture.
+        var resolveDuplicate = await ToolCallAsync(client, TestToken, "reading_resolve_capture", new
+        {
+            idempotencyKey = "e2e-resolve-capture",
+            captureId = captureId.ToString(),
+            keep = false,
+        });
+        resolveDuplicate.GetProperty("duplicate").GetBoolean().Should().BeTrue();
+        resolveDuplicate.GetProperty("data").GetProperty("id").GetGuid().Should().Be(captureId);
+
+        // The resolution is the last mutation, so its state version is the
+        // authoritative version both REST and a fresh service scope report.
+        var finalVersion = resolve.GetProperty("stateVersion").GetString();
+
+        // --- REST inbox no longer lists the dismissed capture ---
+        using var resolvedInboxResponse = await client.GetAsync("/api/reading-training/inbox");
+        resolvedInboxResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var resolvedInboxJson = JsonDocument.Parse(await resolvedInboxResponse.Content.ReadAsStringAsync());
+        resolvedInboxJson.RootElement.GetProperty("data").EnumerateArray()
+            .Select(c => c.GetProperty("id").GetGuid()).Should().NotContain(captureId);
+
+        // --- REST dashboard reports the resolution's state version ---
+        using var finalDashboardResponse = await client.GetAsync("/api/reading-training/dashboard");
+        finalDashboardResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var finalDashJson = JsonDocument.Parse(await finalDashboardResponse.Content.ReadAsStringAsync());
+        finalDashJson.RootElement.GetProperty("stateVersion").GetString().Should().Be(finalVersion);
+
         // --- Fresh service scope over the same database: authoritative
         // service view and exactly one receipt per MCP key (no second row) ---
         using var freshScope = factory.Services.CreateScope();
@@ -616,7 +822,19 @@ public sealed class McpHttpTests
             r.ClientId == "nostos-mcp" && r.IdempotencyKey == "e2e-capture").Should().Be(1);
         freshDb.ReadingCommandReceipts.Count(r =>
             r.ClientId == "nostos-mcp" && r.IdempotencyKey == "e2e-plan").Should().Be(1);
+        freshDb.ReadingCommandReceipts.Count(r =>
+            r.ClientId == "nostos-mcp" && r.IdempotencyKey == "e2e-add-deep").Should().Be(1);
+        freshDb.ReadingCommandReceipts.Count(r =>
+            r.ClientId == "nostos-mcp" && r.IdempotencyKey == "e2e-add-endurance").Should().Be(1);
+        freshDb.ReadingCommandReceipts.Count(r =>
+            r.ClientId == "nostos-mcp" && r.IdempotencyKey == "e2e-set-default").Should().Be(1);
+        freshDb.ReadingCommandReceipts.Count(r =>
+            r.ClientId == "nostos-mcp" && r.IdempotencyKey == "e2e-resolve-capture").Should().Be(1);
         freshDb.ReadingCaptures.Count(c => c.Text == verbatim).Should().Be(1);
+        freshDb.ReadingBookAssignments.Count(a =>
+            a.BookId == deepBookId && a.Mode == ReadingMode.Deep).Should().Be(1);
+        freshDb.ReadingBookAssignments.Count(a =>
+            a.BookId == enduranceBookId && a.Mode == ReadingMode.Endurance).Should().Be(1);
 
         var service = freshScope.ServiceProvider.GetRequiredService<IReadingTrainingService>();
         var serviceDashboard = await service.GetDashboardAsync();
@@ -625,6 +843,9 @@ public sealed class McpHttpTests
         serviceDash.OpenSession!.Id.Should().Be(sessionId);
         serviceDash.OpenSession!.Status.Should().Be(ReadingSessionStatus.Paused);
         serviceDash.Programme.StateVersion.Should().Be(finalVersion);
+        serviceDash.Books.Single(b => b.Id == assignmentId).IsDefault.Should().BeFalse();
+        serviceDash.Books.Single(b => b.Id == enduranceAssignmentId).IsDefault.Should().BeTrue();
+        serviceDash.Books.Single(b => b.Id == deepAssignmentId).IsDefault.Should().BeTrue();
     }
 
     [Fact]

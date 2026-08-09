@@ -7,12 +7,12 @@ using Xunit;
 
 namespace Nostos.Backend.Tests.Mcp;
 
-// Direct invocation of the Task 9B1 read-only Reading Training MCP tools
-// against a recording fake of the service. Each test proves the tool calls
-// exactly one service method (once), passes the request cancellation token
-// through, and returns the exact service envelope — including the sub-envelope
-// tools (week, books), which must copy server facts verbatim instead of
-// recomputing or inferring anything.
+// Direct invocation of the Task 9B1 read-only and Task 9B2 mutating Reading
+// Training MCP tools against a recording fake of the service. Each test
+// proves the tool calls exactly one service method (once), passes the
+// request cancellation token through, and returns the exact service envelope
+// — including the sub-envelope tools (week, books), which must copy server
+// facts verbatim instead of recomputing or inferring anything.
 public sealed class ReadingTrainingMcpToolsTests
 {
     [Fact]
@@ -373,6 +373,140 @@ public sealed class ReadingTrainingMcpToolsTests
         service.LastToken.Should().Be(cts.Token);
     }
 
+    [Fact]
+    public async Task AddBook_ForwardsExactDtoOnce_WithOptionalMakeDefault()
+    {
+        var service = new FakeReadingTrainingService();
+        var envelope = Ok("Added to queue.", Book());
+        service.AddBookResult = envelope;
+        var tools = new ReadingTrainingMcpTools(service);
+        var bookId = Guid.NewGuid();
+        using var cts = new CancellationTokenSource();
+
+        var result = await tools.AddBookAsync("add-key-1", bookId, ReadingMode.Deep, true, cts.Token);
+
+        // The book is assigned by id only: no title/author/page arguments
+        // are invented; the optional makeDefault flag is forwarded verbatim.
+        result.Should().BeSameAs(envelope);
+        service.Called.Should().Equal(nameof(FakeReadingTrainingService.AddBookAssignmentAsync));
+        service.LastAddBookRequest.Should().Be(new ReadingAddBookAssignmentRequest(
+            "nostos-mcp", "add-key-1", bookId, ReadingMode.Deep, true));
+        service.LastToken.Should().Be(cts.Token);
+    }
+
+    [Fact]
+    public async Task AddBook_WithoutMakeDefault_DefaultsToFalse()
+    {
+        var service = new FakeReadingTrainingService();
+        var tools = new ReadingTrainingMcpTools(service);
+        var bookId = Guid.NewGuid();
+
+        await tools.AddBookAsync("add-key-2", bookId, ReadingMode.Endurance, false, CancellationToken.None);
+
+        service.LastAddBookRequest.Should().Be(new ReadingAddBookAssignmentRequest(
+            "nostos-mcp", "add-key-2", bookId, ReadingMode.Endurance));
+        service.Called.Should().Equal(nameof(FakeReadingTrainingService.AddBookAssignmentAsync));
+    }
+
+    [Fact]
+    public async Task SetDefaultBook_ForwardsExactAssignmentIdAndModeOnce()
+    {
+        var service = new FakeReadingTrainingService();
+        var envelope = Ok("Default set.", Book());
+        service.SetDefaultBookResult = envelope;
+        var tools = new ReadingTrainingMcpTools(service);
+        var assignmentId = Guid.NewGuid();
+        using var cts = new CancellationTokenSource();
+
+        var result = await tools.SetDefaultBookAsync("default-key-1", assignmentId, ReadingMode.Endurance, cts.Token);
+
+        // Exact assignment/mode semantics from the request DTO: no client-side
+        // inference about which assignment is or should be default.
+        result.Should().BeSameAs(envelope);
+        service.Called.Should().Equal(nameof(FakeReadingTrainingService.SetDefaultBookAsync));
+        service.LastSetDefaultRequest.Should().Be(new ReadingSetDefaultBookRequest(
+            "nostos-mcp", "default-key-1", assignmentId, ReadingMode.Endurance));
+        service.LastToken.Should().Be(cts.Token);
+    }
+
+    [Fact]
+    public async Task FinishBook_ForwardsExactAssignmentIdOnce()
+    {
+        var service = new FakeReadingTrainingService();
+        var envelope = Ok("Marked finished.", Book());
+        service.CompleteBookResult = envelope;
+        var tools = new ReadingTrainingMcpTools(service);
+        var assignmentId = Guid.NewGuid();
+        using var cts = new CancellationTokenSource();
+
+        var result = await tools.FinishBookAsync("finish-key-1", assignmentId, cts.Token);
+
+        result.Should().BeSameAs(envelope);
+        service.Called.Should().Equal(nameof(FakeReadingTrainingService.CompleteBookAsync));
+        service.LastCompleteBookRequest.Should().Be(new ReadingCompleteBookRequest(
+            "nostos-mcp", "finish-key-1", assignmentId));
+        service.LastToken.Should().Be(cts.Token);
+    }
+
+    [Fact]
+    public async Task ResolveCapture_ForwardsExactIdsAndActionOnce_WithOptionalNoteId()
+    {
+        var service = new FakeReadingTrainingService();
+        var envelope = Ok("Capture promoted.", Capture());
+        service.ResolveCaptureResult = envelope;
+        var tools = new ReadingTrainingMcpTools(service);
+        var captureId = Guid.NewGuid();
+        var noteId = Guid.NewGuid();
+        using var cts = new CancellationTokenSource();
+
+        var result = await tools.ResolveCaptureAsync("resolve-key-1", captureId, true, noteId, cts.Token);
+
+        // The capture id stays outside the request DTO exactly as in the
+        // service signature; keep and noteId are forwarded for the service
+        // to validate (note_required, note_not_found, note_book_mismatch).
+        result.Should().BeSameAs(envelope);
+        service.Called.Should().Equal(nameof(FakeReadingTrainingService.ResolveCaptureAsync));
+        service.LastResolveCaptureId.Should().Be(captureId);
+        service.LastResolveCaptureRequest.Should().Be(new ReadingResolveCaptureRequest(
+            "nostos-mcp", "resolve-key-1", true, noteId));
+        service.LastToken.Should().Be(cts.Token);
+    }
+
+    [Fact]
+    public async Task ResolveCapture_WithoutNoteId_Dismisses()
+    {
+        var service = new FakeReadingTrainingService();
+        var tools = new ReadingTrainingMcpTools(service);
+        var captureId = Guid.NewGuid();
+
+        await tools.ResolveCaptureAsync("resolve-key-2", captureId, false, null, CancellationToken.None);
+
+        service.LastResolveCaptureRequest.Should().Be(new ReadingResolveCaptureRequest(
+            "nostos-mcp", "resolve-key-2", false));
+        service.LastResolveCaptureId.Should().Be(captureId);
+        service.Called.Should().Equal(nameof(FakeReadingTrainingService.ResolveCaptureAsync));
+    }
+
+    [Fact]
+    public async Task CommitReview_ForwardsExplicitIsoYearWeekOnce_AndReturnsExactEnvelope()
+    {
+        var service = new FakeReadingTrainingService();
+        var envelope = Ok("2026-W32 committed.", Preview());
+        service.CommitReviewResult = envelope;
+        var tools = new ReadingTrainingMcpTools(service);
+        using var cts = new CancellationTokenSource();
+
+        var result = await tools.CommitReviewAsync("commit-key-1", 2026, 32, cts.Token);
+
+        // Explicit ISO year/week plus the caller key: the service recomputes
+        // the review authoritatively and returns the immutable result.
+        result.Should().BeSameAs(envelope);
+        service.Called.Should().Equal(nameof(FakeReadingTrainingService.CommitWeeklyReviewAsync));
+        service.LastCommitReviewRequest.Should().Be(new ReadingCommitWeeklyReviewRequest(
+            "nostos-mcp", "commit-key-1", 2026, 32));
+        service.LastToken.Should().Be(cts.Token);
+    }
+
     [Theory]
     [MemberData(nameof(MutationCases))]
     public async Task Mutations_DuplicateKeyReachesServiceAgain_AndRejectionsPassThrough(
@@ -405,6 +539,11 @@ public sealed class ReadingTrainingMcpToolsTests
         service.RateResult = rejection;
         service.CancelResult = rejection;
         service.CaptureResult = rejection;
+        service.AddBookResult = rejection;
+        service.SetDefaultBookResult = rejection;
+        service.CompleteBookResult = rejection;
+        service.ResolveCaptureResult = rejection;
+        service.CommitReviewResult = rejection;
         service.Called.Clear();
         invoke(tools, service);
         service.Called.Should().HaveCount(1, caseName);
@@ -416,6 +555,7 @@ public sealed class ReadingTrainingMcpToolsTests
     public static TheoryData<string, Action<ReadingTrainingMcpTools, FakeReadingTrainingService>> MutationCases()
     {
         var assignmentId = Guid.NewGuid();
+        var captureId = Guid.NewGuid();
         return new TheoryData<string, Action<ReadingTrainingMcpTools, FakeReadingTrainingService>>
         {
             { "plan", (tools, _) => tools.PlanSessionAsync("dup-key", assignmentId, ReadingMode.Endurance, 40, ReadingConstraint.None, CancellationToken.None).GetAwaiter().GetResult() },
@@ -427,6 +567,11 @@ public sealed class ReadingTrainingMcpToolsTests
             { "cancel", (tools, _) => tools.CancelSessionAsync("dup-key", CancellationToken.None).GetAwaiter().GetResult() },
             { "capture", (tools, _) => tools.CaptureAsync("dup-key", "text", ReadingCaptureType.Thought, null, null, null, CancellationToken.None).GetAwaiter().GetResult() },
             { "answerNow", (tools, _) => tools.AnswerNowAsync("dup-key", CancellationToken.None).GetAwaiter().GetResult() },
+            { "addBook", (tools, _) => tools.AddBookAsync("dup-key", assignmentId, ReadingMode.Deep, false, CancellationToken.None).GetAwaiter().GetResult() },
+            { "setDefaultBook", (tools, _) => tools.SetDefaultBookAsync("dup-key", assignmentId, ReadingMode.Endurance, CancellationToken.None).GetAwaiter().GetResult() },
+            { "finishBook", (tools, _) => tools.FinishBookAsync("dup-key", assignmentId, CancellationToken.None).GetAwaiter().GetResult() },
+            { "resolveCapture", (tools, _) => tools.ResolveCaptureAsync("dup-key", captureId, true, null, CancellationToken.None).GetAwaiter().GetResult() },
+            { "commitReview", (tools, _) => tools.CommitReviewAsync("dup-key", 2026, 32, CancellationToken.None).GetAwaiter().GetResult() },
         };
     }
 
@@ -472,9 +617,9 @@ public sealed class ReadingTrainingMcpToolsTests
 
 // Records which service methods the tools actually invoke, the cancellation
 // token passed for each call, and the exact request DTO of every mutation.
-// The nine session/capture methods exercised by the Task 9B2 tools return a
+// The fourteen mutation methods exercised by the Task 9B2 tools return a
 // configurable envelope; the remaining mutation surface throws: neither the
-// read-only tools nor the nine mutation tools may ever reach them.
+// read-only tools nor the fourteen mutation tools may ever reach them.
 public sealed class FakeReadingTrainingService : IReadingTrainingService
 {
     public ReadingCommandResultDto DashboardResult { get; set; } = Ok(null);
@@ -491,6 +636,11 @@ public sealed class FakeReadingTrainingService : IReadingTrainingService
     public ReadingCommandResultDto RateResult { get; set; } = Ok(null);
     public ReadingCommandResultDto CancelResult { get; set; } = Ok(null);
     public ReadingCommandResultDto CaptureResult { get; set; } = Ok(null);
+    public ReadingCommandResultDto AddBookResult { get; set; } = Ok(null);
+    public ReadingCommandResultDto SetDefaultBookResult { get; set; } = Ok(null);
+    public ReadingCommandResultDto CompleteBookResult { get; set; } = Ok(null);
+    public ReadingCommandResultDto ResolveCaptureResult { get; set; } = Ok(null);
+    public ReadingCommandResultDto CommitReviewResult { get; set; } = Ok(null);
 
     public List<string> Called { get; } = new();
     public CancellationToken? LastToken { get; private set; }
@@ -504,6 +654,12 @@ public sealed class FakeReadingTrainingService : IReadingTrainingService
     public ReadingRateSessionRequest? LastRateRequest { get; private set; }
     public ReadingSessionCommandRequest? LastCancelRequest { get; private set; }
     public ReadingCaptureRequest? LastCaptureRequest { get; private set; }
+    public ReadingAddBookAssignmentRequest? LastAddBookRequest { get; private set; }
+    public ReadingSetDefaultBookRequest? LastSetDefaultRequest { get; private set; }
+    public ReadingCompleteBookRequest? LastCompleteBookRequest { get; private set; }
+    public Guid? LastResolveCaptureId { get; private set; }
+    public ReadingResolveCaptureRequest? LastResolveCaptureRequest { get; private set; }
+    public ReadingCommitWeeklyReviewRequest? LastCommitReviewRequest { get; private set; }
 
     // The envelope of the most recent mutation call (shared by the duplicate
     // and rejection assertions in the mutation theory).
@@ -560,19 +716,25 @@ public sealed class FakeReadingTrainingService : IReadingTrainingService
     public Task<ReadingCommandResultDto> AddBookAssignmentAsync(ReadingAddBookAssignmentRequest request, CancellationToken ct = default)
     {
         Record(nameof(AddBookAssignmentAsync), ct);
-        throw new NotSupportedException();
+        LastAddBookRequest = request;
+        LastMutationResult = AddBookResult;
+        return Task.FromResult(AddBookResult);
     }
 
     public Task<ReadingCommandResultDto> SetDefaultBookAsync(ReadingSetDefaultBookRequest request, CancellationToken ct = default)
     {
         Record(nameof(SetDefaultBookAsync), ct);
-        throw new NotSupportedException();
+        LastSetDefaultRequest = request;
+        LastMutationResult = SetDefaultBookResult;
+        return Task.FromResult(SetDefaultBookResult);
     }
 
     public Task<ReadingCommandResultDto> CompleteBookAsync(ReadingCompleteBookRequest request, CancellationToken ct = default)
     {
         Record(nameof(CompleteBookAsync), ct);
-        throw new NotSupportedException();
+        LastCompleteBookRequest = request;
+        LastMutationResult = CompleteBookResult;
+        return Task.FromResult(CompleteBookResult);
     }
 
     public Task<ReadingCommandResultDto> ReorderQueueAsync(ReadingReorderQueueRequest request, CancellationToken ct = default)
@@ -652,7 +814,9 @@ public sealed class FakeReadingTrainingService : IReadingTrainingService
     public Task<ReadingCommandResultDto> CommitWeeklyReviewAsync(ReadingCommitWeeklyReviewRequest request, CancellationToken ct = default)
     {
         Record(nameof(CommitWeeklyReviewAsync), ct);
-        throw new NotSupportedException();
+        LastCommitReviewRequest = request;
+        LastMutationResult = CommitReviewResult;
+        return Task.FromResult(CommitReviewResult);
     }
 
     public Task<ReadingCommandResultDto> CaptureAsync(ReadingCaptureRequest request, CancellationToken ct = default)
@@ -666,7 +830,10 @@ public sealed class FakeReadingTrainingService : IReadingTrainingService
     public Task<ReadingCommandResultDto> ResolveCaptureAsync(Guid captureId, ReadingResolveCaptureRequest request, CancellationToken ct = default)
     {
         Record(nameof(ResolveCaptureAsync), ct);
-        throw new NotSupportedException();
+        LastResolveCaptureId = captureId;
+        LastResolveCaptureRequest = request;
+        LastMutationResult = ResolveCaptureResult;
+        return Task.FromResult(ResolveCaptureResult);
     }
 
     public Task<ReadingCommandResultDto> PromoteCaptureToNoteAsync(Guid captureId, ReadingPromoteCaptureRequest request, CancellationToken ct = default)

@@ -171,4 +171,61 @@ public sealed class ReadingTrainingMcpTools
         [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
         CancellationToken ct = default) =>
         _service.PauseSessionAsync(new ReadingSessionCommandRequest(ClientId, idempotencyKey), ct);
+
+    // --- book queue, capture resolution, and weekly review mutations ---
+    // Same exact-once contract as the session tools above: the tool only
+    // builds the accepted public DTO with the fixed ClientId and delegates
+    // once; ids, modes, and weeks are forwarded verbatim for the service to
+    // validate, and no client-side inference replaces a server decision.
+
+    [McpServerTool(Name = "reading_add_book")]
+    [Description("Adds an existing Nostos book (by id) to the training queue in the given mode, optionally as the mode's default book. Pages are optional book progress and never the training target; sessions are measured in minutes.")]
+    public Task<ReadingCommandResultDto> AddBookAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        [Description("Id of the existing Nostos book to add to the queue.")] Guid bookId,
+        [Description("Queue mode for the book: Endurance, Deep, or Recovery.")] ReadingMode mode,
+        [Description("Optional: make this book the mode's default book.")] bool makeDefault = false,
+        CancellationToken ct = default) =>
+        _service.AddBookAssignmentAsync(new ReadingAddBookAssignmentRequest(
+            ClientId, idempotencyKey, bookId, mode, makeDefault), ct);
+
+    [McpServerTool(Name = "reading_set_default_book")]
+    [Description("Makes the given active book assignment the default book of its mode. The assignment must already belong to that mode.")]
+    public Task<ReadingCommandResultDto> SetDefaultBookAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        [Description("Id of the active book assignment to make the default.")] Guid bookAssignmentId,
+        [Description("Mode the assignment belongs to: Endurance, Deep, or Recovery.")] ReadingMode mode,
+        CancellationToken ct = default) =>
+        _service.SetDefaultBookAsync(new ReadingSetDefaultBookRequest(
+            ClientId, idempotencyKey, bookAssignmentId, mode), ct);
+
+    [McpServerTool(Name = "reading_finish_book")]
+    [Description("Marks the given book assignment as finished. The server rejects the command while the book has an open session; finish or cancel that session first.")]
+    public Task<ReadingCommandResultDto> FinishBookAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        [Description("Id of the active book assignment to finish.")] Guid bookAssignmentId,
+        CancellationToken ct = default) =>
+        _service.CompleteBookAsync(new ReadingCompleteBookRequest(
+            ClientId, idempotencyKey, bookAssignmentId), ct);
+
+    [McpServerTool(Name = "reading_resolve_capture")]
+    [Description("Resolves an unresolved inbox capture: keep=true saves it to the existing note given by noteId, keep=false dismisses it. The server validates the capture and note ids and rejects keep=true without a matching note.")]
+    public Task<ReadingCommandResultDto> ResolveCaptureAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        [Description("Id of the unresolved capture to resolve.")] Guid captureId,
+        [Description("True to keep the capture (requires noteId), false to dismiss it.")] bool keep,
+        [Description("Optional id of the existing note to keep the capture on; required when keep is true.")] Guid? noteId = null,
+        CancellationToken ct = default) =>
+        _service.ResolveCaptureAsync(captureId, new ReadingResolveCaptureRequest(
+            ClientId, idempotencyKey, keep, noteId), ct);
+
+    [McpServerTool(Name = "reading_commit_review")]
+    [Description("Commits the weekly review for the given ISO year and week. The server recomputes the review from the recorded sessions, persists it, and returns the immutable committed result.")]
+    public Task<ReadingCommandResultDto> CommitReviewAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        [Description("ISO-8601 week-numbering year of the week to commit.")] int year,
+        [Description("ISO-8601 week number of the year (1-53).")] int week,
+        CancellationToken ct = default) =>
+        _service.CommitWeeklyReviewAsync(new ReadingCommitWeeklyReviewRequest(
+            ClientId, idempotencyKey, year, week), ct);
 }
