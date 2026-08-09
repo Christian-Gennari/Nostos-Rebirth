@@ -9,6 +9,11 @@ public class ReadingNotification
     public string Kind { get; set; } = string.Empty;
     public string PayloadJson { get; set; } = string.Empty;
 
+    // Stable logical event key (e.g. "target-reached:{sessionId}"). The
+    // unique index on DedupeKey makes enqueue idempotent: retries, restarts
+    // and concurrent scanners can never produce more than one row per event.
+    public string DedupeKey { get; set; } = string.Empty;
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LeaseUntil { get; set; }
     public DateTime? AckedAt { get; set; }

@@ -550,4 +550,37 @@ public class ReadingTrainingModelTests : IClassFixture<ReadingTrainingSqliteFixt
 
         (await db.ReadingCommandReceipts.CountAsync()).Should().Be(2);
     }
+
+    [Fact]
+    public async Task Duplicate_notification_dedupe_key_is_rejected()
+    {
+        await using var db = _fixture.CreateContext();
+        db.ReadingNotifications.Add(new ReadingNotification { DedupeKey = "target-reached:abc" });
+        await db.SaveChangesAsync();
+
+        db.ReadingNotifications.Add(new ReadingNotification { DedupeKey = "target-reached:abc" });
+        await Saving(db).Should().ThrowAsync<DbUpdateException>();
+
+        (await db.ReadingNotifications.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Notifications_with_distinct_dedupe_keys_may_coexist()
+    {
+        await using var db = _fixture.CreateContext();
+        db.ReadingNotifications.Add(new ReadingNotification { DedupeKey = "target-reached:abc" });
+        db.ReadingNotifications.Add(new ReadingNotification { DedupeKey = "target-reached:def" });
+        await db.SaveChangesAsync();
+
+        (await db.ReadingNotifications.CountAsync()).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Notification_dedupe_key_is_required_and_non_empty()
+    {
+        await using var db = _fixture.CreateContext();
+        db.ReadingNotifications.Add(new ReadingNotification());
+
+        await Saving(db).Should().ThrowAsync<DbUpdateException>();
+    }
 }

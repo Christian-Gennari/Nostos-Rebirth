@@ -196,6 +196,14 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
 
         modelBuilder.Entity<ReadingNotification>(e =>
         {
+            // Exactly one outbox row per logical event: the required unique
+            // key makes enqueue idempotent under retries and concurrent scans.
+            e.Property(n => n.DedupeKey).IsRequired().HasMaxLength(128);
+            e.HasIndex(n => n.DedupeKey).IsUnique();
+            e.ToTable(t => t.HasCheckConstraint(
+                "CK_ReadingNotifications_DedupeKey_NotEmpty",
+                "length(DedupeKey) > 0"));
+
             // Pending outbox claims: filter unacknowledged rows (AckedAt IS
             // NULL) and take expired leases (LeaseUntil < now); the composite
             // index serves both predicates and the AckedAt-only prefix.
