@@ -135,17 +135,18 @@ public static class ReadingProgressionPolicy
 
         var modeSessions = input.Sessions.Where(s => s.Mode == input.Mode).ToList();
 
-        // Total completed weekly volume across ALL modes: constrained and
-        // recovery sessions count as volume; cancelled sessions never do.
+        // Reading is evidence-complete once the timer is stopped. A session
+        // awaiting ratings counts as volume/target completion but cannot
+        // qualify for progression until ratings close it as Completed.
         // Effective minutes = ReportedMinutes ?? floor(AccumulatedSeconds / 60).
         var totalVolume = input.Sessions
-            .Where(s => s.Status == ReadingSessionStatus.Completed)
+            .Where(CountsAsCompletedAttempt)
             .Sum(EffectiveMinutes);
 
-        // Normal-target attempts are completed, unconstrained sessions only.
+        // Normal-target attempts are evidence-complete, unconstrained sessions.
         // Cancelled sessions are ignored completely: cancelling is not failure.
         var normalCompleted = modeSessions
-            .Where(s => s.Status == ReadingSessionStatus.Completed
+            .Where(s => CountsAsCompletedAttempt(s)
                         && s.Constraint == ReadingConstraint.None)
             .ToList();
 
@@ -244,6 +245,9 @@ public static class ReadingProgressionPolicy
     // ReportedMinutes overrides the accumulated measured minutes.
     private static int EffectiveMinutes(ReadingProgressionSession s) =>
         s.ReportedMinutes ?? (int)Math.Floor(s.AccumulatedSeconds / 60.0);
+
+    private static bool CountsAsCompletedAttempt(ReadingProgressionSession s) =>
+        s.Status is ReadingSessionStatus.Completed or ReadingSessionStatus.AwaitingFeedback;
 
     // Endurance/Deep only, unconstrained, rated, and at least the planned
     // target. Recovery is volume-only and never qualifies.

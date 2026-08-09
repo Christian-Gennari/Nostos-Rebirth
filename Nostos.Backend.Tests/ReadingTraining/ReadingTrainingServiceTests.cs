@@ -68,12 +68,13 @@ public sealed class ReadingTrainingServiceTests : IClassFixture<ReadingTrainingS
         var assignment = (ReadingBookAssignmentDto)added.Data!;
 
         var planned = await h.Service.PlanSessionAsync(new(
-            "ui", "plan", assignment.Id, ReadingMode.Endurance, 15, ReadingConstraint.TimeConstrained));
+            "ui", "plan", assignment.Id, ReadingMode.Endurance, 15, ReadingConstraint.None));
         var session = (ReadingSessionDto)planned.Data!;
 
         session.Status.Should().Be(ReadingSessionStatus.Planned);
         session.TargetMinutes.Should().Be(15);
         session.PlannedTargetMinutes.Should().Be(40);
+        session.Constraint.Should().Be(ReadingConstraint.TimeConstrained);
         session.ProgressionEligible.Should().BeFalse();
         session.CountsAsFailure.Should().BeFalse();
         planned.Reply.Should().Contain("today's available load");
@@ -102,7 +103,8 @@ public sealed class ReadingTrainingServiceTests : IClassFixture<ReadingTrainingS
         var h = Harness();
         await h.Init();
         var session = await h.PlanDefault("Candide", ReadingMode.Endurance);
-        await h.Service.StartSessionAsync(new("ui", "start", session.Id));
+        var started = await h.Service.StartSessionAsync(new("ui", "start", session.Id));
+        started.Reply.Should().Contain("Started: 10:00");
 
         h.Clock.Advance(TimeSpan.FromMinutes(12));
         var paused = await h.Service.PauseSessionAsync(new("ui", "pause"));
@@ -219,6 +221,7 @@ public sealed class ReadingTrainingServiceTests : IClassFixture<ReadingTrainingS
         var skipped = await h.Service.SkipRatingsAsync(new("ui", "skip"));
         ((ReadingSessionDto)skipped.Data!).RatingsSkipped.Should().BeTrue();
         ((ReadingSessionDto)skipped.Data!).Status.Should().Be(ReadingSessionStatus.Completed);
+        ((ReadingSessionDto)skipped.Data!).CountsAsFailure.Should().BeTrue();
     }
 
     [Fact]
@@ -319,6 +322,26 @@ public sealed class ReadingTrainingServiceTests : IClassFixture<ReadingTrainingS
         ((ReadingCaptureDto)promoted.Data!).PromotedNoteId.Should().Be(noteId);
         await using var verify = h.Factory.CreateDbContext();
         (await verify.Notes.SingleAsync(x => x.Id == noteId)).Content.Should().Be("Existing note\n\nThe garden is a discipline.");
+    }
+
+    [Fact]
+    public async Task Resolve_keep_requires_a_valid_same_book_note_without_partial_mutation()
+    {
+        var h = Harness();
+        await h.Init();
+        var session = await h.PlanDefault("Candide", ReadingMode.Endurance);
+        var capture = (ReadingCaptureDto)(await h.Service.CaptureAsync(new(
+            "ui", "capture-keep", "Keep this question.", ReadingCaptureType.Question,
+            SessionId: session.Id))).Data!;
+
+        var rejected = await h.Service.ResolveCaptureAsync(capture.Id,
+            new("ui", "resolve-keep", true, NoteId: null));
+
+        ((ReadingErrorDto)rejected.Data!).Code.Should().Be("note_required");
+        await using var verify = h.Factory.CreateDbContext();
+        var persisted = await verify.ReadingCaptures.SingleAsync(x => x.Id == capture.Id);
+        persisted.Resolved.Should().BeFalse();
+        persisted.PromotedNoteId.Should().BeNull();
     }
 
     private HarnessContext Harness()

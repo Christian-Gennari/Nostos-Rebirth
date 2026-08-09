@@ -589,6 +589,24 @@ public sealed class ReadingProgressionPolicyTests
         result.QualifyingCount.Should().Be(3);
     }
 
+    [Fact]
+    public void Awaiting_feedback_counts_volume_and_target_completion_but_never_qualifies()
+    {
+        var result = ReadingProgressionPolicy.Evaluate(Input(
+            ReadingMode.Endurance,
+            sessions:
+            [
+                S(ReadingMode.Endurance, status: ReadingSessionStatus.AwaitingFeedback,
+                    accumulatedSeconds: 40 * 60, effort: 0, focus: 0),
+            ]));
+
+        result.TotalVolumeMinutes.Should().Be(40);
+        result.CompletionRate.Should().Be(1.0);
+        result.QualifyingCount.Should().Be(0);
+        result.DecisionKind.Should().Be(ReadingProgressionPolicy.KindHold);
+        result.Reason.Should().Be(ReadingProgressionPolicy.ReasonInsufficientQualifying);
+    }
+
     // --- Mode independence -----------------------------------------------------------------
 
     [Fact]

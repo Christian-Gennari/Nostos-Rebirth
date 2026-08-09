@@ -212,10 +212,13 @@ public sealed class ReadingTrainingService : IReadingTrainingService
             var planned = TargetFor(programme, request.Mode);
             var requested = request.TargetMinutes > 0 ? request.TargetMinutes : planned;
             var constrained = request.Constraint != ReadingConstraint.None || requested < planned;
+            var effectiveConstraint = request.Constraint == ReadingConstraint.None && requested < planned
+                ? ReadingConstraint.TimeConstrained
+                : request.Constraint;
             var target = request.Mode == ReadingMode.Recovery && !constrained
                 ? Math.Clamp(requested, _options.RecoveryMinMinutes, _options.RecoveryMaxMinutes)
                 : Math.Max(1, Math.Min(requested, planned));
-            var session = NewSession(assignment, request.Mode, target, planned, request.Constraint, ReadingSessionStatus.Planned);
+            var session = NewSession(assignment, request.Mode, target, planned, effectiveConstraint, ReadingSessionStatus.Planned);
             db.ReadingSessions.Add(session);
             return Outcome.Changed(Result(
                 ReadingReplyFormatter.Plan(ReadingReplyFormatter.ModeWord(request.Mode), target, assignment.Book?.Title ?? "Book", constrained),
@@ -237,7 +240,7 @@ public sealed class ReadingTrainingService : IReadingTrainingService
                 return Outcome.Unchanged(Failure("invalid_transition", StatusReply(ToDto(session)), programme.StateVersion));
             Start(session);
             return Outcome.Changed(Result(
-                ReadingReplyFormatter.Start(session.Book?.Title ?? "Book", ReadingReplyFormatter.ModeUpper(session.Mode), session.TargetMinutes, ReadingReplyFormatter.StartTime(Now)),
+                ReadingReplyFormatter.Start(session.Book?.Title ?? "Book", ReadingReplyFormatter.ModeUpper(session.Mode), session.TargetMinutes, ReadingReplyFormatter.StartTime(LocalNow)),
                 ToDto(session), programme.StateVersion));
         }, ct);
 
@@ -266,7 +269,7 @@ public sealed class ReadingTrainingService : IReadingTrainingService
             session.LastStartedAt = Now;
             db.ReadingSessions.Add(session);
             return Outcome.Changed(Result(
-                ReadingReplyFormatter.Start(assignment.Book?.Title ?? "Book", ReadingReplyFormatter.ModeUpper(mode), target, ReadingReplyFormatter.StartTime(Now)),
+                ReadingReplyFormatter.Start(assignment.Book?.Title ?? "Book", ReadingReplyFormatter.ModeUpper(mode), target, ReadingReplyFormatter.StartTime(LocalNow)),
                 ToDto(session), programme.StateVersion));
         }, ct);
 
@@ -536,6 +539,16 @@ public sealed class ReadingTrainingService : IReadingTrainingService
             var capture = await db.ReadingCaptures.SingleOrDefaultAsync(x => x.Id == captureId, token);
             if (capture is null) return Outcome.Unchanged(Failure("capture_not_found", ReadingReplyFormatter.CaptureNotFound, programme.StateVersion));
             if (capture.Resolved) return Outcome.Unchanged(Result(ReadingReplyFormatter.AlreadyDisposed, ToDto(capture), programme.StateVersion));
+            if (request.Keep)
+            {
+                if (request.NoteId is not Guid noteId)
+                    return Outcome.Unchanged(Failure("note_required", "Choose a note before keeping this capture.", programme.StateVersion));
+                var note = await db.Notes.AsNoTracking().SingleOrDefaultAsync(x => x.Id == noteId, token);
+                if (note is null)
+                    return Outcome.Unchanged(Failure("note_not_found", ReadingReplyFormatter.NoteNotFound, programme.StateVersion));
+                if (note.BookId != capture.BookId)
+                    return Outcome.Unchanged(Failure("note_book_mismatch", "The note belongs to a different book.", programme.StateVersion));
+            }
             capture.Resolved = true;
             capture.PromotedNoteId = request.Keep ? request.NoteId : null;
             return Outcome.Changed(Result(ReadingReplyFormatter.Disposed(1, request.Keep ? "promoted" : "dismissed"), ToDto(capture), programme.StateVersion));
@@ -784,11 +797,13 @@ public sealed class ReadingTrainingService : IReadingTrainingService
         var previousStartUtc = ToUtc(localMonday.AddDays(-7));
 
         var completed = await db.ReadingSessions.AsNoTracking()
-            .Where(s => s.Status == ReadingSessionStatus.Completed && s.CompletedAt != null
+            .Where(s => (s.Status == ReadingSessionStatus.Completed
+                    || s.Status == ReadingSessionStatus.AwaitingFeedback) && s.CompletedAt != null
                 && s.CompletedAt >= weekStartUtc && s.CompletedAt < weekEndUtc)
             .ToListAsync(ct);
         var previous = await db.ReadingSessions.AsNoTracking()
-            .Where(s => s.Status == ReadingSessionStatus.Completed && s.CompletedAt != null
+            .Where(s => (s.Status == ReadingSessionStatus.Completed
+                    || s.Status == ReadingSessionStatus.AwaitingFeedback) && s.CompletedAt != null
                 && s.CompletedAt >= previousStartUtc && s.CompletedAt < weekStartUtc)
             .ToListAsync(ct);
 
@@ -874,7 +889,10 @@ public sealed class ReadingTrainingService : IReadingTrainingService
             session.Mode, session.Status, session.TargetMinutes, session.PlannedTargetMinutes,
             session.Constraint,
             session.Mode != ReadingMode.Recovery && session.Constraint == ReadingConstraint.None,
-            false,
+            session.Status == ReadingSessionStatus.Completed
+                && session.Mode != ReadingMode.Recovery
+                && session.Constraint == ReadingConstraint.None
+                && (session.ReportedMinutes ?? accumulated / 60) < session.PlannedTargetMinutes,
             accumulated, measured, session.ReportedMinutes, session.Effort, session.Focus,
             session.Rating, session.RatingsSkipped, session.PlannedAt, session.StartedAt,
             session.LastStartedAt, session.PausedAt, session.CompletedAt);
@@ -920,6 +938,7 @@ public sealed class ReadingTrainingService : IReadingTrainingService
     }
 
     private DateTime Now => DateTime.SpecifyKind(_clock.UtcNow, DateTimeKind.Utc);
+    private DateTime LocalNow => TimeZoneInfo.ConvertTimeFromUtc(Now, _timezone);
 
     private static string NextVersion(string version) =>
         (long.TryParse(version, out var parsed) ? parsed + 1 : 1).ToString();

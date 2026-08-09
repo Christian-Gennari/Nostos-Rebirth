@@ -452,6 +452,39 @@ public sealed class ReadingWeeklyReviewServiceTests : IClassFixture<ReadingTrain
     }
 
     [Fact]
+    public async Task Awaiting_feedback_is_committed_as_volume_and_target_completion_before_rating()
+    {
+        var h = Harness();
+        await h.Init();
+        await SeedSession(h, ReadingMode.Endurance, Week32StartUtc.AddHours(2), 40 * 60,
+            status: ReadingSessionStatus.AwaitingFeedback);
+
+        var committed = (ReadingWeeklyReviewDto)(await h.Service.CommitWeeklyReviewAsync(
+            new("ui", "awaiting-review", 2026, 32))).Data!;
+        var endurance = Mode(committed.Modes, ReadingMode.Endurance);
+
+        committed.TotalVolumeMinutes.Should().Be(40);
+        endurance.CompletionRate.Should().Be(1.0);
+        endurance.QualifyingCount.Should().Be(0);
+        endurance.DecisionKind.Should().Be(ReadingProgressionPolicy.KindHold);
+
+        // Ratings arriving after the immutable review must not make the
+        // finished session disappear or rewrite the committed week.
+        await using (var update = h.Factory.CreateDbContext())
+        {
+            var session = await update.ReadingSessions.SingleAsync();
+            session.Status = ReadingSessionStatus.Completed;
+            session.OpenSlot = null;
+            session.Effort = 5;
+            session.Focus = 8;
+            await update.SaveChangesAsync();
+        }
+        var replay = (ReadingWeeklyReviewDto)(await h.Service.CommitWeeklyReviewAsync(
+            new("ui", "after-rating", 2026, 32))).Data!;
+        replay.Should().BeEquivalentTo(committed);
+    }
+
+    [Fact]
     public async Task Preview_without_programme_returns_not_initialized()
     {
         var h = Harness();
@@ -525,7 +558,10 @@ public sealed class ReadingWeeklyReviewServiceTests : IClassFixture<ReadingTrain
             BookId = book.Id,
             Mode = mode,
             Status = status,
-            OpenSlot = null,
+            OpenSlot = status is ReadingSessionStatus.Planned or ReadingSessionStatus.Active
+                or ReadingSessionStatus.Paused or ReadingSessionStatus.AwaitingFeedback
+                ? ReadingSession.OpenSentinel
+                : null,
             TargetMinutes = planned,
             PlannedTargetMinutes = planned,
             Constraint = constraint,

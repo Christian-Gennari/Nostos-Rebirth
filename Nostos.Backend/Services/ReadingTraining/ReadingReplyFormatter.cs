@@ -186,6 +186,6 @@ public static class ReadingReplyFormatter
 
     public static string ModeUpper(ReadingMode mode) => ModeWord(mode).ToUpperInvariant();
 
-    public static string StartTime(DateTime utcNow) =>
-        utcNow.ToString("HH:mm", CultureInfo.InvariantCulture);
+    public static string StartTime(DateTime localNow) =>
+        localNow.ToString("HH:mm", CultureInfo.InvariantCulture);
 }
