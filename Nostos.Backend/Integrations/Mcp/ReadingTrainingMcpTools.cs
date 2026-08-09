@@ -2,21 +2,31 @@ using System.ComponentModel;
 using ModelContextProtocol.Server;
 using Nostos.Backend.Services.ReadingTraining;
 using Nostos.Shared.Dtos;
+using Nostos.Shared.Enums;
 
 namespace Nostos.Backend.Integrations.Mcp;
 
 /// <summary>
-/// Read-only Reading Training tools (Task 9B1). Every tool forwards to the
-/// deterministic <see cref="IReadingTrainingService"/>, which is the sole
-/// authority for the SQLite-backed reading state: no EF context, filesystem,
-/// or Hermes runtime is touched here, and no tool mutates state. Sub-envelope
+/// Reading Training MCP tools. Every tool forwards to the deterministic
+/// <see cref="IReadingTrainingService"/>, which is the sole authority for the
+/// SQLite-backed reading state: no EF context, filesystem, or Hermes runtime
+/// is touched here. Read-only tools (Task 9B1) never mutate state; sub-envelope
 /// tools (week, books) extract their payload verbatim from the server's
-/// dashboard envelope, preserving reply/stateVersion/error semantics exactly;
-/// they never recompute policy or infer client-side.
+/// dashboard envelope. Every mutating tool (Task 9B2) requires a
+/// caller-supplied idempotency key, constructs the accepted public request
+/// DTO with the fixed client id <see cref="ClientId"/>, and delegates exactly
+/// once to the service — retries are the caller's concern, the service owns
+/// duplicate convergence and returns the authoritative envelope unchanged.
 /// </summary>
 [McpServerToolType]
 public sealed class ReadingTrainingMcpTools
 {
+    // Stable client identity for the Nostos MCP surface: receipts are keyed
+    // by (ClientId, IdempotencyKey), so this fixed id keeps MCP retries
+    // converging on the same command regardless of which client or session
+    // issued them.
+    private const string ClientId = "nostos-mcp";
+
     private readonly IReadingTrainingService _service;
 
     public ReadingTrainingMcpTools(IReadingTrainingService service)
@@ -69,6 +79,96 @@ public sealed class ReadingTrainingMcpTools
     public Task<ReadingCommandResultDto> PreviewWeeklyReviewAsync(
         [Description("ISO-8601 week-numbering year of the week to preview.")] int year,
         [Description("ISO-8601 week number of the year (1-53).")] int week,
-        CancellationToken ct) =>
+        CancellationToken ct = default) =>
         _service.PreviewWeeklyReviewAsync(new ReadingWeeklyReviewRequest(year, week), ct);
+
+    // --- session and capture mutations (Task 9B2) ---
+    // Every tool below requires a caller-supplied idempotencyKey (no default,
+    // no generated key), builds the accepted public request DTO with the fixed
+    // ClientId, and delegates exactly once to the service; the service's
+    // envelope — success or rejection, duplicate or fresh — is returned
+    // unchanged. No domain rules are precomputed or validated here.
+
+    [McpServerTool(Name = "reading_plan_session")]
+    [Description("Plans a reading session for the given active book and mode. The target is minutes; pages are optional book progress, never the training target.")]
+    public Task<ReadingCommandResultDto> PlanSessionAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        [Description("Id of the active book assignment to plan the session for.")] Guid bookAssignmentId,
+        [Description("Session mode: Endurance, Deep, or Recovery.")] ReadingMode mode,
+        [Description("Planned session length in minutes.")] int targetMinutes,
+        [Description("Optional session constraint: None, TimeConstrained, or FatigueConstrained.")] ReadingConstraint constraint = ReadingConstraint.None,
+        CancellationToken ct = default) =>
+        _service.PlanSessionAsync(new ReadingPlanSessionRequest(
+            ClientId, idempotencyKey, bookAssignmentId, mode, targetMinutes, constraint), ct);
+
+    [McpServerTool(Name = "reading_start_session")]
+    [Description("Starts the planned reading session. Omit sessionId to start the open planned session.")]
+    public Task<ReadingCommandResultDto> StartSessionAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        [Description("Optional id of the planned session to start; omitted starts the open planned session.")] Guid? sessionId = null,
+        CancellationToken ct = default) =>
+        _service.StartSessionAsync(new ReadingStartSessionRequest(ClientId, idempotencyKey, sessionId), ct);
+
+    [McpServerTool(Name = "reading_pause_session")]
+    [Description("Pauses the open reading session.")]
+    public Task<ReadingCommandResultDto> PauseSessionAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        CancellationToken ct = default) =>
+        _service.PauseSessionAsync(new ReadingSessionCommandRequest(ClientId, idempotencyKey), ct);
+
+    [McpServerTool(Name = "reading_resume_session")]
+    [Description("Resumes the paused reading session.")]
+    public Task<ReadingCommandResultDto> ResumeSessionAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        CancellationToken ct = default) =>
+        _service.ResumeSessionAsync(new ReadingSessionCommandRequest(ClientId, idempotencyKey), ct);
+
+    [McpServerTool(Name = "reading_complete_session")]
+    [Description("Finishes the open reading session and requests ratings. reportedMinutes is optional; if you tracked pages instead of a timer, estimate the minutes read — pages are optional book progress, not the training target.")]
+    public Task<ReadingCommandResultDto> CompleteSessionAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        [Description("Optional actual minutes read; omitted uses the measured time.")] int? reportedMinutes = null,
+        CancellationToken ct = default) =>
+        _service.CompleteSessionAsync(new ReadingCompleteSessionRequest(ClientId, idempotencyKey, reportedMinutes), ct);
+
+    [McpServerTool(Name = "reading_rate_session")]
+    [Description("Records effort and focus ratings (1-10) for the finished session. They are self-reported measurements of the session, not achievements or gamification; rating is an optional overall mark.")]
+    public Task<ReadingCommandResultDto> RateSessionAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        [Description("Self-reported effort during the session, 1 (low) to 10 (high).")] int effort,
+        [Description("Self-reported focus during the session, 1 (low) to 10 (high).")] int focus,
+        [Description("Optional overall rating for the session.")] int? rating = null,
+        CancellationToken ct = default) =>
+        _service.RateSessionAsync(new ReadingRateSessionRequest(ClientId, idempotencyKey, effort, focus, rating), ct);
+
+    [McpServerTool(Name = "reading_cancel_session")]
+    [Description("Cancels the open reading session. It will not count toward training.")]
+    public Task<ReadingCommandResultDto> CancelSessionAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        CancellationToken ct = default) =>
+        _service.CancelSessionAsync(new ReadingSessionCommandRequest(ClientId, idempotencyKey), ct);
+
+    [McpServerTool(Name = "reading_capture")]
+    [Description("Saves a verbatim reading capture (thought, question, or bookmark). Text is stored exactly as given — no trimming or rewriting; pages are optional context, never the training target.")]
+    public Task<ReadingCommandResultDto> CaptureAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        [Description("The exact text to save, stored verbatim.")] string text,
+        [Description("Capture kind: Thought, Question, or Bookmark.")] ReadingCaptureType type,
+        [Description("Optional book to attach the capture to; omitted attaches to the open session's book.")] Guid? bookId = null,
+        [Description("Optional session to attach the capture to; omitted attaches to the open session.")] Guid? sessionId = null,
+        [Description("Optional external identifier for exact-once capture retries.")] string? externalId = null,
+        CancellationToken ct = default) =>
+        _service.CaptureAsync(new ReadingCaptureRequest(
+            ClientId, idempotencyKey, text, type, bookId, sessionId, externalId), ct);
+
+    // "Answer now" pauses the current session through the service's
+    // authoritative pause operation so a saved question can be answered; the
+    // question text itself is served separately by reading_list_inbox. The
+    // tool neither reads EF nor synthesizes a pause or any text of its own.
+    [McpServerTool(Name = "reading_answer_now")]
+    [Description("Pauses the current reading session so a saved question can be answered. The question text is available through reading_list_inbox.")]
+    public Task<ReadingCommandResultDto> AnswerNowAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        CancellationToken ct = default) =>
+        _service.PauseSessionAsync(new ReadingSessionCommandRequest(ClientId, idempotencyKey), ct);
 }

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using FluentAssertions;
@@ -9,8 +10,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Nostos.Backend.Data;
+using Nostos.Backend.Data.Models;
 using Nostos.Backend.Services;
+using Nostos.Backend.Services.ReadingTraining;
 using Nostos.Backend.Tests.ReadingTraining;
+using Nostos.Shared.Dtos;
+using Nostos.Shared.Enums;
 using Xunit;
 
 namespace Nostos.Backend.Tests.Mcp;
@@ -220,11 +225,12 @@ public sealed class McpHttpTests
         var serverInfo = result.GetProperty("serverInfo");
         serverInfo.GetProperty("name").GetString().Should().Be("nostos");
         serverInfo.GetProperty("version").GetString().Should().NotBeNullOrEmpty();
-        // Task 9A registered only the static identity tool; Task 9B1 replaces
-        // it with the read-only Reading Training tool surface. The
-        // protocol-level tools/list call below verifies discovery over the
-        // real transport: exactly the seven read-only tools, no mutation
-        // tools, no bootstrap identity tool, and no client/key arguments.
+        // Task 9A registered only the static identity tool; Task 9B1 replaced
+        // it with the read-only Reading Training tool surface, and Task 9B2
+        // adds the nine exact-once mutation tools. The protocol-level
+        // tools/list call below verifies discovery over the real transport:
+        // exactly the sixteen tools, no bootstrap identity tool, and no
+        // client id/key arguments on the read surface.
         var toolsList = await PostWithAuth(client, TestToken, body: ToolsListBody());
         toolsList.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -235,7 +241,7 @@ public sealed class McpHttpTests
         hasTools.Should().BeTrue($"tools/list response was {listJson.RootElement.GetRawText()}");
         tools.ValueKind.Should().Be(JsonValueKind.Array);
 
-        var expectedNames = new[]
+        var expectedReadNames = new[]
         {
             "reading_get_dashboard",
             "reading_get_status",
@@ -245,20 +251,33 @@ public sealed class McpHttpTests
             "reading_list_inbox",
             "reading_preview_review",
         };
+        var expectedMutationNames = new[]
+        {
+            "reading_plan_session",
+            "reading_start_session",
+            "reading_pause_session",
+            "reading_resume_session",
+            "reading_complete_session",
+            "reading_rate_session",
+            "reading_cancel_session",
+            "reading_capture",
+            "reading_answer_now",
+        };
         var names = tools.EnumerateArray().Select(t => t.GetProperty("name").GetString()).ToList();
-        names.Should().HaveCount(expectedNames.Length)
-            .And.BeEquivalentTo(expectedNames);
+        names.Should().HaveCount(expectedReadNames.Length + expectedMutationNames.Length)
+            .And.BeEquivalentTo(expectedReadNames.Concat(expectedMutationNames));
         names.Should().NotContain("nostos_server_info");
 
         var byName = tools.EnumerateArray().ToDictionary(t => t.GetProperty("name").GetString()!);
-        foreach (var tool in tools.EnumerateArray())
-        {
-            var toolName = tool.GetProperty("name").GetString()!;
-            // Every tool is declared read-only to the client.
-            tool.GetProperty("annotations").GetProperty("readOnlyHint").GetBoolean()
-                .Should().BeTrue(toolName);
 
-            // Reads never accept client id or idempotency key arguments.
+        // Reads: declared read-only, and never accept client id or
+        // idempotency key arguments.
+        foreach (var name in expectedReadNames)
+        {
+            var tool = byName[name];
+            tool.GetProperty("annotations").GetProperty("readOnlyHint").GetBoolean()
+                .Should().BeTrue(name);
+
             var schema = tool.GetProperty("inputSchema");
             schema.GetProperty("type").GetString().Should().Be("object");
             var rawSchema = schema.GetRawText().ToLowerInvariant();
@@ -267,7 +286,7 @@ public sealed class McpHttpTests
         }
 
         // The five no-argument reads expose an empty properties bag.
-        foreach (var name in expectedNames.Where(n => n != "reading_preview_review"))
+        foreach (var name in expectedReadNames.Where(n => n != "reading_preview_review"))
         {
             var schema = byName[name].GetProperty("inputSchema");
             if (schema.TryGetProperty("properties", out var props))
@@ -276,7 +295,7 @@ public sealed class McpHttpTests
             }
         }
 
-        // Preview is the only tool with arguments: ISO year and week are
+        // Preview is the only read with arguments: ISO year and week are
         // required integers, exactly the fields of the read-only service
         // request, with no client/key arguments.
         var previewSchema = byName["reading_preview_review"].GetProperty("inputSchema");
@@ -286,6 +305,113 @@ public sealed class McpHttpTests
         previewProps.GetProperty("week").GetProperty("type").GetString().Should().Be("integer");
         previewSchema.GetProperty("required").EnumerateArray().Select(r => r.GetString())
             .Should().BeEquivalentTo("year", "week");
+
+        // Mutations: never advertised read-only, and every one requires a
+        // caller-supplied idempotencyKey (no default, no client id — the
+        // fixed client identity is injected by the tool, never by the client).
+        foreach (var name in expectedMutationNames)
+        {
+            var tool = byName[name];
+            // The SDK omits annotations for tools that declare none; when
+            // present, a mutation must never be advertised read-only (only
+            // the seven read tools carry readOnlyHint: true) and never
+            // destructive.
+            if (tool.TryGetProperty("annotations", out var annotations))
+            {
+                if (annotations.TryGetProperty("readOnlyHint", out var readOnlyHint))
+                {
+                    readOnlyHint.GetBoolean()
+                        .Should().BeFalse($"tool {name} raw: {tool.GetRawText()}");
+                }
+
+                if (annotations.TryGetProperty("destructiveHint", out var destructiveHint))
+                {
+                    destructiveHint.GetBoolean()
+                        .Should().BeFalse($"tool {name} raw: {tool.GetRawText()}");
+                }
+            }
+
+            var schema = tool.GetProperty("inputSchema");
+            schema.GetProperty("type").GetString().Should().Be("object");
+            var required = schema.GetProperty("required").EnumerateArray()
+                .Select(r => r.GetString()).ToArray();
+            required.Should().Contain("idempotencyKey", $"tool {name} raw: {tool.GetRawText()}");
+            var props = schema.GetProperty("properties");
+            props.TryGetProperty("clientId", out _).Should().BeFalse($"tool {name} raw: {tool.GetRawText()}");
+            props.GetProperty("idempotencyKey").TryGetProperty("default", out _)
+                .Should().BeFalse($"tool {name} raw: {tool.GetRawText()}");
+
+            // Descriptions stay neutral: no streak/debt/guilt framing.
+            var rawTool = tool.GetRawText().ToLowerInvariant();
+            rawTool.Should().NotContain("streak").And.NotContain("debt").And.NotContain("guilt");
+        }
+
+        // Plan: assignment, mode, and target are required; constraint is the
+        // optional enum with its service default. Numeric enums are accepted
+        // as string-typed enums over MCP (names, never REST numbers).
+        var planSchema = byName["reading_plan_session"].GetProperty("inputSchema");
+        planSchema.GetProperty("required").EnumerateArray().Select(r => r.GetString())
+            .Should().BeEquivalentTo("idempotencyKey", "bookAssignmentId", "mode", "targetMinutes");
+        var planProps = planSchema.GetProperty("properties");
+        planProps.TryGetProperty("constraint", out _).Should().BeTrue();
+        planProps.GetProperty("mode").GetProperty("type").GetString().Should().Be("string");
+        planProps.GetProperty("mode").GetProperty("enum").EnumerateArray().Select(e => e.GetString())
+            .Should().BeEquivalentTo("Endurance", "Deep", "Recovery");
+        planProps.GetProperty("constraint").GetProperty("enum").EnumerateArray()
+            .Select(e => e.GetString())
+            .Should().BeEquivalentTo("None", "TimeConstrained", "FatigueConstrained");
+
+        // Start: sessionId is optional (properties, not required).
+        var startSchema = byName["reading_start_session"].GetProperty("inputSchema");
+        startSchema.GetProperty("required").EnumerateArray().Select(r => r.GetString())
+            .Should().BeEquivalentTo("idempotencyKey");
+        startSchema.GetProperty("properties").TryGetProperty("sessionId", out _).Should().BeTrue();
+
+        // Open-session commands act on the open session: no sessionId
+        // property at all (their exact required sets are asserted per tool).
+        foreach (var name in new[]
+        {
+            "reading_pause_session", "reading_resume_session", "reading_complete_session",
+            "reading_rate_session", "reading_cancel_session", "reading_answer_now",
+        })
+        {
+            var schema = byName[name].GetProperty("inputSchema");
+            schema.GetProperty("required").EnumerateArray().Select(r => r.GetString())
+                .Should().Contain("idempotencyKey", name);
+            schema.GetProperty("properties").TryGetProperty("sessionId", out _)
+                .Should().BeFalse($"tool {name} raw: {schema.GetRawText()}");
+        }
+
+        var completeProps = byName["reading_complete_session"].GetProperty("inputSchema")
+            .GetProperty("properties");
+        completeProps.TryGetProperty("reportedMinutes", out _).Should().BeTrue();
+
+        // Rate: effort and focus required, rating optional; the description
+        // frames ratings as measurements, not as achievements/gamification.
+        var rateSchema = byName["reading_rate_session"].GetProperty("inputSchema");
+        rateSchema.GetProperty("required").EnumerateArray().Select(r => r.GetString())
+            .Should().BeEquivalentTo("idempotencyKey", "effort", "focus");
+        rateSchema.GetProperty("properties").TryGetProperty("rating", out _).Should().BeTrue();
+        var rateDescription = byName["reading_rate_session"].GetProperty("description").GetString()!;
+        rateDescription.Should().Contain("measurements")
+            .And.Contain("ratings")
+            .And.Contain("not achievements");
+
+        // Capture: text/type/key required; attachments optional; no invented
+        // page field (the capture DTO has no page properties).
+        var captureSchema = byName["reading_capture"].GetProperty("inputSchema");
+        captureSchema.GetProperty("required").EnumerateArray().Select(r => r.GetString())
+            .Should().BeEquivalentTo("idempotencyKey", "text", "type");
+        var captureProps = captureSchema.GetProperty("properties");
+        foreach (var optional in new[] { "bookId", "sessionId", "externalId" })
+        {
+            captureProps.TryGetProperty(optional, out _).Should().BeTrue(optional);
+        }
+
+        captureProps.TryGetProperty("pages", out _).Should().BeFalse("the capture DTO has no page fields");
+        captureProps.GetProperty("type").GetProperty("type").GetString().Should().Be("string");
+        captureProps.GetProperty("type").GetProperty("enum").EnumerateArray().Select(e => e.GetString())
+            .Should().BeEquivalentTo("Thought", "Question", "Bookmark");
     }
 
     [Fact]
@@ -352,6 +478,153 @@ public sealed class McpHttpTests
         previewData.GetProperty("modes").GetArrayLength().Should().Be(3);
         previewData.GetProperty("stateVersion").GetString()
             .Should().Be(dashEnvelope.GetProperty("stateVersion").GetString());
+    }
+
+    [Fact]
+    public async Task ToolsCall_Mutations_AreExactOnce_AndRestSeesAuthoritativeState()
+    {
+        using var env = SetEnvVar(TestEnvVar, TestToken);
+        using var factory = new McpHttpFactory(enabled: true, envVarName: TestEnvVar);
+        using var client = factory.CreateClient();
+
+        // REST bootstrap: initialize the programme, then seed a real library
+        // book through a factory scope (book ops are outside the nine MCP
+        // tools) and add an Endurance assignment over REST.
+        var initialize = await client.PostAsync(
+            "/api/reading-training/initialize",
+            JsonBody(new { clientId = "mcp-tests", idempotencyKey = "9b2-bootstrap" }));
+        initialize.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        Guid bookId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NostosDbContext>();
+            var book = new PhysicalBookModel { Title = "Candide", Author = "Voltaire" };
+            db.PhysicalBooks.Add(book);
+            await db.SaveChangesAsync();
+            bookId = book.Id;
+        }
+
+        using var addResponse = await client.PostAsJsonAsync("/api/reading-training/books",
+            new ReadingAddBookAssignmentRequest("mcp-tests", "9b2-add", bookId, ReadingMode.Endurance, MakeDefault: true));
+        addResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var addJson = JsonDocument.Parse(await addResponse.Content.ReadAsStringAsync());
+        var assignmentId = addJson.RootElement.GetProperty("data").GetProperty("id").GetGuid();
+
+        // --- reading_plan_session: fresh command, planned session ---
+        var plan = await ToolCallAsync(client, TestToken, "reading_plan_session", new
+        {
+            idempotencyKey = "e2e-plan",
+            bookAssignmentId = assignmentId.ToString(),
+            mode = "Endurance",
+            targetMinutes = 40,
+        });
+        plan.GetProperty("duplicate").GetBoolean().Should().BeFalse();
+        plan.GetProperty("reply").GetString().Should().NotBeNullOrEmpty();
+        plan.GetProperty("stateVersion").GetString().Should().NotBeNullOrEmpty();
+        plan.GetProperty("data").GetProperty("status").GetString().Should().Be("Planned");
+        var sessionId = plan.GetProperty("data").GetProperty("id").GetGuid();
+        var planVersion = plan.GetProperty("stateVersion").GetString();
+
+        // Same key again: duplicate=true with the identical committed result
+        // (same session id, same state version — the stored original reply).
+        var planDuplicate = await ToolCallAsync(client, TestToken, "reading_plan_session", new
+        {
+            idempotencyKey = "e2e-plan",
+            bookAssignmentId = assignmentId.ToString(),
+            mode = "Endurance",
+            targetMinutes = 40,
+        });
+        planDuplicate.GetProperty("duplicate").GetBoolean().Should().BeTrue();
+        planDuplicate.GetProperty("data").GetProperty("id").GetGuid().Should().Be(sessionId);
+        planDuplicate.GetProperty("stateVersion").GetString().Should().Be(planVersion);
+
+        // --- reading_start_session: no sessionId → the open planned session ---
+        var start = await ToolCallAsync(client, TestToken, "reading_start_session",
+            new { idempotencyKey = "e2e-start" });
+        start.GetProperty("data").GetProperty("status").GetString().Should().Be("Active");
+
+        // --- reading_answer_now: the service's authoritative pause ---
+        var answerNow = await ToolCallAsync(client, TestToken, "reading_answer_now",
+            new { idempotencyKey = "e2e-answer" });
+        answerNow.GetProperty("data").GetProperty("status").GetString().Should().Be("Paused");
+
+        // --- reading_capture: verbatim text, type Question, explicit book ---
+        const string verbatim = "  What is in our power?  ";
+        var capture = await ToolCallAsync(client, TestToken, "reading_capture", new
+        {
+            idempotencyKey = "e2e-capture",
+            text = verbatim,
+            type = "Question",
+            bookId = bookId.ToString(),
+        });
+        capture.GetProperty("duplicate").GetBoolean().Should().BeFalse();
+        var captureId = capture.GetProperty("data").GetProperty("id").GetGuid();
+        capture.GetProperty("data").GetProperty("text").GetString().Should().Be(verbatim);
+        capture.GetProperty("data").GetProperty("type").GetString().Should().Be("Question");
+        // The capture is the last mutation, so its state version is the
+        // authoritative version the dashboard must report afterwards.
+        var finalVersion = capture.GetProperty("stateVersion").GetString();
+
+        // Same capture key again: duplicate=true, same committed capture, and
+        // no second row anywhere.
+        var captureDuplicate = await ToolCallAsync(client, TestToken, "reading_capture", new
+        {
+            idempotencyKey = "e2e-capture",
+            text = verbatim,
+            type = "Question",
+            bookId = bookId.ToString(),
+        });
+        captureDuplicate.GetProperty("duplicate").GetBoolean().Should().BeTrue();
+        captureDuplicate.GetProperty("data").GetProperty("id").GetGuid().Should().Be(captureId);
+
+        // --- REST inbox sees the capture exactly once, verbatim ---
+        using var inboxResponse = await client.GetAsync("/api/reading-training/inbox");
+        inboxResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var inboxJson = JsonDocument.Parse(await inboxResponse.Content.ReadAsStringAsync());
+        var inboxRows = inboxJson.RootElement.GetProperty("data").EnumerateArray()
+            .Where(c => c.GetProperty("id").GetGuid() == captureId).ToList();
+        inboxRows.Should().ContainSingle();
+        inboxRows[0].GetProperty("text").GetString().Should().Be(verbatim);
+        inboxRows[0].GetProperty("type").GetInt32().Should().Be((int)ReadingCaptureType.Question);
+        // No second row for the same key: exactly one capture with this text.
+        inboxJson.RootElement.GetProperty("data").EnumerateArray()
+            .Count(c => c.GetProperty("text").GetString() == verbatim).Should().Be(1);
+
+        // --- REST dashboard sees the paused open session and the last state ---
+        using var dashboardResponse = await client.GetAsync("/api/reading-training/dashboard");
+        dashboardResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var dashJson = JsonDocument.Parse(await dashboardResponse.Content.ReadAsStringAsync());
+        var openSession = dashJson.RootElement.GetProperty("data").GetProperty("openSession");
+        openSession.GetProperty("id").GetGuid().Should().Be(sessionId);
+        openSession.GetProperty("status").GetInt32().Should().Be((int)ReadingSessionStatus.Paused);
+        dashJson.RootElement.GetProperty("stateVersion").GetString().Should().Be(finalVersion);
+
+        // --- REST history only ever lists completed/cancelled sessions: the
+        // paused session must not be fabricated into it ---
+        using var historyResponse = await client.GetAsync("/api/reading-training/history");
+        historyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var historyJson = JsonDocument.Parse(await historyResponse.Content.ReadAsStringAsync());
+        historyJson.RootElement.GetProperty("data").EnumerateArray()
+            .Select(s => s.GetProperty("id").GetGuid()).Should().NotContain(sessionId);
+
+        // --- Fresh service scope over the same database: authoritative
+        // service view and exactly one receipt per MCP key (no second row) ---
+        using var freshScope = factory.Services.CreateScope();
+        var freshDb = freshScope.ServiceProvider.GetRequiredService<NostosDbContext>();
+        freshDb.ReadingCommandReceipts.Count(r =>
+            r.ClientId == "nostos-mcp" && r.IdempotencyKey == "e2e-capture").Should().Be(1);
+        freshDb.ReadingCommandReceipts.Count(r =>
+            r.ClientId == "nostos-mcp" && r.IdempotencyKey == "e2e-plan").Should().Be(1);
+        freshDb.ReadingCaptures.Count(c => c.Text == verbatim).Should().Be(1);
+
+        var service = freshScope.ServiceProvider.GetRequiredService<IReadingTrainingService>();
+        var serviceDashboard = await service.GetDashboardAsync();
+        var serviceDash = (ReadingDashboardDto)serviceDashboard.Data!;
+        serviceDash.OpenSession.Should().NotBeNull();
+        serviceDash.OpenSession!.Id.Should().Be(sessionId);
+        serviceDash.OpenSession!.Status.Should().Be(ReadingSessionStatus.Paused);
+        serviceDash.Programme.StateVersion.Should().Be(finalVersion);
     }
 
     [Fact]
