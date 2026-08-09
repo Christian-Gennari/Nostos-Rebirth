@@ -400,6 +400,89 @@ describe('ReadingTrainingStore', () => {
     expect(store.dashboard()).toEqual(updated);
   });
 
+  // --- stateVersion retention (UI/REST/MCP version identity) ---
+
+  it('stateVersion is null until the first successful envelope and is exposed read-only', () => {
+    expect(store.stateVersion()).toBeNull();
+    // asReadonly() surfaces the signal without the writable API.
+    expect((store.stateVersion as { set?: unknown }).set).toBeUndefined();
+  });
+
+  it('a successful dashboard envelope retains its stateVersion; later refreshes replace it', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
+    expect(store.stateVersion()).toBe('17');
+
+    // A later refresh carries a newer version and replaces the retained one.
+    window.dispatchEvent(new Event('focus'));
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard(), { stateVersion: '18' }));
+    expectLease().flush([]);
+    expect(store.stateVersion()).toBe('18');
+  });
+
+  it('a mutation envelope updates the retained stateVersion even when the follow-up refresh fails', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
+    expect(store.stateVersion()).toBe('17');
+
+    let emitted: ReadingCommandResult<ReadingSession> | undefined;
+    store.pauseSession({ clientId, idempotencyKey }).subscribe((r) => (emitted = r));
+
+    // The command envelope carries the version that includes this mutation...
+    httpMock.expectOne(`${base}/sessions/pause`).flush(
+      envelope(pausedSession, { reply: 'session paused', stateVersion: '18' })
+    );
+    // ...and even when the authoritative refresh fails, that version is retained.
+    httpMock.expectOne(`${base}/dashboard`).flush(
+      { title: 'Unavailable' },
+      { status: 503, statusText: 'Service Unavailable' }
+    );
+
+    expect(emitted?.data?.status).toBe(ReadingSessionStatus.Paused);
+    expect(store.stateVersion()).toBe('18');
+    expect(store.dashboard()).toEqual(dashboard()); // last good dashboard preserved
+    expect(store.error()).toBe('Unable to load dashboard: Unavailable');
+  });
+
+  it('a failed dashboard refresh preserves the last retained stateVersion', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
+    expect(store.stateVersion()).toBe('17');
+
+    window.dispatchEvent(new Event('focus'));
+    httpMock.expectOne(`${base}/dashboard`).error(new ProgressEvent('error'));
+    expectLease().flush([]);
+
+    expect(store.stateVersion()).toBe('17');
+    expect(store.dashboard()).toEqual(dashboard());
+  });
+
+  it('a rejected command does not change the retained stateVersion', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
+    expect(store.stateVersion()).toBe('17');
+
+    let error: unknown;
+    store.pauseSession({ clientId, idempotencyKey }).subscribe({ error: (e) => (error = e) });
+    httpMock.expectOne(`${base}/sessions/pause`).flush(
+      {
+        reply: 'Cannot pause: no active session',
+        data: { code: 'invalid_transition' },
+        stateVersion: '17',
+        duplicate: false,
+      },
+      { status: 409, statusText: 'Conflict' }
+    );
+
+    expect(error).toBeInstanceOf(HttpErrorResponse);
+    expect(store.stateVersion()).toBe('17'); // rejection bodies never fabricate a version
+    expect(store.mutating()).toBe(false);
+  });
+
   // --- inbox and history reads ---
 
   it('starts with empty inbox and history arrays, exposed read-only', () => {
@@ -822,6 +905,7 @@ describe('ReadingTrainingStore', () => {
     expect(store.books()).toEqual([]);
     expect(store.openSession()).toBeNull();
     expect(store.displayedElapsedSeconds()).toBe(0);
+    expect(store.stateVersion()).toBeNull(); // no successful envelope: no version identity
     expect(store.error()).toBe('Unable to load dashboard: not_initialized');
     expect(store.loading()).toBe(false);
   });

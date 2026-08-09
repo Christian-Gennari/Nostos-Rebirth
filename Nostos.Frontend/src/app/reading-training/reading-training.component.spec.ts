@@ -203,6 +203,7 @@ interface StoreMock {
   error: WritableSignal<string | null>;
   lastReply: WritableSignal<string | null>;
   connected: WritableSignal<boolean>;
+  stateVersion: WritableSignal<string | null>;
   programme: WritableSignal<ReadingProgramme | null>;
   books: WritableSignal<ReadingBookAssignment[]>;
   openSession: WritableSignal<ReadingSession | null>;
@@ -251,6 +252,7 @@ function createStoreMock(): StoreMock {
     error: signal<string | null>(null),
     lastReply: signal<string | null>(null),
     connected: signal(false),
+    stateVersion: signal<string | null>(null),
     programme: signal<ReadingProgramme | null>(null),
     books: signal<ReadingBookAssignment[]>([]),
     openSession: signal<ReadingSession | null>(null),
@@ -422,6 +424,26 @@ describe('ReadingTrainingComponent', () => {
     expect(alert.nativeElement.textContent).toContain('Unable to load dashboard');
     clickButton('Try again');
     expect(mock.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  // --- stateVersion page attribute (UI/REST/MCP version identity) ---
+
+  it('surfaces the retained stateVersion on the page root as data-state-version, non-visually', () => {
+    const root = fixture.nativeElement.querySelector('.reading-training-page') as HTMLElement;
+    expect(root).toBeTruthy();
+    // Null before the first successful envelope: the attribute is absent.
+    expect(root.hasAttribute('data-state-version')).toBe(false);
+
+    mock.stateVersion.set('17');
+    fixture.detectChanges();
+    expect(root.getAttribute('data-state-version')).toBe('17');
+    // Non-visual: the version is never rendered as page text or an element.
+    expect(fixture.nativeElement.textContent).not.toContain('17');
+
+    // The attribute mirrors the signal exactly: clearing it removes it again.
+    mock.stateVersion.set(null);
+    fixture.detectChanges();
+    expect(root.hasAttribute('data-state-version')).toBe(false);
   });
 
   it('shows the not-initialized panel and sets up on a single explicit action', () => {

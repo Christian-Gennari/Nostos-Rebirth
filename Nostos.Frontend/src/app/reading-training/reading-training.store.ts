@@ -103,6 +103,7 @@ export class ReadingTrainingStore {
   private readonly errorState = signal<string | null>(null);
   private readonly lastReplyState = signal<string | null>(null);
   private readonly connectedState = signal(false);
+  private readonly stateVersionState = signal<string | null>(null);
 
   /** Authoritative server inbox (unresolved Question/Bookmark captures). */
   private readonly inboxState = signal<ReadingCapture[]>([]);
@@ -160,6 +161,16 @@ export class ReadingTrainingStore {
   readonly error = this.errorState.asReadonly();
   readonly lastReply = this.lastReplyState.asReadonly();
   readonly connected = this.connectedState.asReadonly();
+
+  /**
+   * Authoritative server state version, retained from the `stateVersion` of
+   * the last successful dashboard or mutation envelope (the same value REST
+   * and MCP report, so the UI shares their version identity). Null until the
+   * first successful envelope; failures and rejected commands never change
+   * it. Surfaced non-visually as `data-state-version` on the page root —
+   * never rendered as visible text.
+   */
+  readonly stateVersion = this.stateVersionState.asReadonly();
   readonly inbox = this.inboxState.asReadonly();
   readonly history = this.historyState.asReadonly();
   readonly pendingNotices = this.pendingNoticesState.asReadonly();
@@ -641,6 +652,10 @@ export class ReadingTrainingStore {
       return defer(() => invoke()).pipe(
         switchMap((result) => {
           this.lastReplyState.set(result.reply);
+          // Retain the version this mutation's envelope reports; the
+          // authoritative refresh below replaces it with the newest version
+          // when it succeeds, and this one survives when it fails.
+          this.stateVersionState.set(result.stateVersion);
           return this.loadDashboard().pipe(
             defaultIfEmpty(undefined),
             map(() => {
@@ -694,6 +709,7 @@ export class ReadingTrainingStore {
       return;
     }
     this.dashboardState.set(data);
+    this.stateVersionState.set(result.stateVersion);
     this.errorState.set(null);
     const session = data.openSession;
     this.displayAnchor.set(session ? { measuredSeconds: session.measuredSeconds, clientTime: Date.now() } : null);
