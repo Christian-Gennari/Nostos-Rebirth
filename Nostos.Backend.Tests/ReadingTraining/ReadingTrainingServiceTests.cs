@@ -186,6 +186,116 @@ public sealed class ReadingTrainingServiceTests : IClassFixture<ReadingTrainingS
         status.BookTitle.Should().Be("Candide");
     }
 
+    [Fact]
+    public async Task Complete_and_rate_use_exact_prompt_and_release_open_slot()
+    {
+        var h = Harness();
+        await h.Init();
+        var session = await h.PlanDefault("Candide", ReadingMode.Endurance);
+        await h.Service.StartSessionAsync(new("ui", "start", session.Id));
+        h.Clock.Advance(TimeSpan.FromMinutes(43));
+
+        var completed = await h.Service.CompleteSessionAsync(new("ui", "done"));
+        completed.Reply.Should().Be("Effort 1–10?\nFocus 1–10?");
+        ((ReadingSessionDto)completed.Data!).Status.Should().Be(ReadingSessionStatus.AwaitingFeedback);
+        var rated = await h.Service.RateSessionAsync(new("ui", "rate", 4, 8));
+        var ratedSession = (ReadingSessionDto)rated.Data!;
+        ratedSession.Status.Should().Be(ReadingSessionStatus.Completed);
+        rated.Reply.Should().Contain("Candide").And.Contain("43 min").And.Contain("Effort 4/10").And.Contain("Focus 8/10");
+        (await h.Service.GetStatusAsync()).Reply.Should().Be(ReadingReplyFormatter.NoActiveSession);
+    }
+
+    [Fact]
+    public async Task Reported_minutes_override_measured_time_and_skip_closes_session()
+    {
+        var h = Harness();
+        await h.Init();
+        var session = await h.PlanDefault("Candide", ReadingMode.Endurance);
+        await h.Service.StartSessionAsync(new("ui", "start", session.Id));
+        h.Clock.Advance(TimeSpan.FromMinutes(12));
+
+        var completed = await h.Service.CompleteSessionAsync(new("ui", "done", 19));
+        ((ReadingSessionDto)completed.Data!).ReportedMinutes.Should().Be(19);
+        var skipped = await h.Service.SkipRatingsAsync(new("ui", "skip"));
+        ((ReadingSessionDto)skipped.Data!).RatingsSkipped.Should().BeTrue();
+        ((ReadingSessionDto)skipped.Data!).Status.Should().Be(ReadingSessionStatus.Completed);
+    }
+
+    [Fact]
+    public async Task Stale_session_requires_actual_minutes_without_mutation()
+    {
+        var h = Harness();
+        await h.Init();
+        var session = await h.PlanDefault("Candide", ReadingMode.Endurance);
+        await h.Service.StartSessionAsync(new("ui", "start", session.Id));
+        h.Clock.Advance(TimeSpan.FromHours(9));
+
+        var stale = await h.Service.CompleteSessionAsync(new("ui", "done"));
+        ((ReadingErrorDto)stale.Data!).Code.Should().Be("needs_actual_minutes");
+        ((ReadingSessionDto)(await h.Service.GetStatusAsync()).Data!).Status.Should().Be(ReadingSessionStatus.Active);
+        var recovered = await h.Service.CompleteSessionAsync(new("ui", "actual", 35));
+        ((ReadingSessionDto)recovered.Data!).ReportedMinutes.Should().Be(35);
+    }
+
+    [Fact]
+    public async Task Cancel_releases_slot_without_completed_training_evidence()
+    {
+        var h = Harness();
+        await h.Init();
+        var session = await h.PlanDefault("Candide", ReadingMode.Endurance);
+        await h.Service.StartSessionAsync(new("ui", "start", session.Id));
+        h.Clock.Advance(TimeSpan.FromMinutes(5));
+
+        var cancelled = await h.Service.CancelSessionAsync(new("ui", "cancel"));
+        ((ReadingSessionDto)cancelled.Data!).Status.Should().Be(ReadingSessionStatus.Cancelled);
+        (await h.Service.GetStatusAsync()).Data.Should().BeNull();
+        var history = (IReadOnlyList<ReadingSessionDto>)(await h.Service.GetHistoryAsync()).Data!;
+        history.Should().ContainSingle(x => x.Status == ReadingSessionStatus.Cancelled);
+    }
+
+    [Fact]
+    public async Task Captures_are_verbatim_idempotent_and_inbox_items_resolve()
+    {
+        var h = Harness();
+        await h.Init();
+        var session = await h.PlanDefault("Candide", ReadingMode.Endurance);
+        const string text = "  Is cultivation another form of vanity?  ";
+        var request = new ReadingCaptureRequest("telegram", "capture-1", text, ReadingCaptureType.Question, SessionId: session.Id, ExternalId: "msg-42");
+
+        var first = await h.Service.CaptureAsync(request);
+        var retry = await h.Service.CaptureAsync(request);
+        ((ReadingCaptureDto)first.Data!).Text.Should().Be(text);
+        retry.Duplicate.Should().BeTrue();
+        var inbox = (IReadOnlyList<ReadingCaptureDto>)(await h.Service.ListInboxAsync()).Data!;
+        inbox.Should().ContainSingle().Which.Text.Should().Be(text);
+        var resolved = await h.Service.ResolveCaptureAsync(inbox[0].Id, new("ui", "resolve", false));
+        ((ReadingCaptureDto)resolved.Data!).Resolved.Should().BeTrue();
+        ((IReadOnlyList<ReadingCaptureDto>)(await h.Service.ListInboxAsync()).Data!).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Promote_capture_appends_verbatim_text_to_same_book_note()
+    {
+        var h = Harness();
+        await h.Init();
+        var session = await h.PlanDefault("Candide", ReadingMode.Endurance);
+        var capture = (ReadingCaptureDto)(await h.Service.CaptureAsync(new(
+            "ui", "capture", "The garden is a discipline.", ReadingCaptureType.Thought, SessionId: session.Id))).Data!;
+        Guid noteId;
+        await using (var db = h.Factory.CreateDbContext())
+        {
+            var note = new NoteModel { BookId = session.BookId, Content = "Existing note" };
+            db.Notes.Add(note);
+            await db.SaveChangesAsync();
+            noteId = note.Id;
+        }
+
+        var promoted = await h.Service.PromoteCaptureToNoteAsync(capture.Id, new("ui", "promote", noteId));
+        ((ReadingCaptureDto)promoted.Data!).PromotedNoteId.Should().Be(noteId);
+        await using var verify = h.Factory.CreateDbContext();
+        (await verify.Notes.SingleAsync(x => x.Id == noteId)).Content.Should().Be("Existing note\n\nThe garden is a discipline.");
+    }
+
     private HarnessContext Harness()
     {
         var path = _fixture.CreateDatabasePath();

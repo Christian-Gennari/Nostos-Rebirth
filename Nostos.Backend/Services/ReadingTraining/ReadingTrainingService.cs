@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Configuration;
 using Nostos.Backend.Data;
+using Nostos.Backend.Data.Models;
 using Nostos.Backend.Data.Models.ReadingTraining;
 using Nostos.Shared.Dtos;
 using Nostos.Shared.Enums;
@@ -301,6 +302,175 @@ public sealed class ReadingTrainingService : IReadingTrainingService
             return Outcome.Changed(Result(ReadingReplyFormatter.Resumed(session.Book?.Title ?? "Book"), ToDto(session), programme.StateVersion));
         }, ct);
 
+    public Task<ReadingCommandResultDto> CompleteSessionAsync(
+        ReadingCompleteSessionRequest request, CancellationToken ct = default) =>
+        MutateAsync(request.ClientId, request.IdempotencyKey, "CompleteSession", async (db, token) =>
+        {
+            var programme = await ProgrammeAsync(db, token);
+            if (programme is null) return Outcome.Unchanged(Failure("not_initialized", "Reading training is not initialized."));
+            var session = await OpenSessionQuery(db).SingleOrDefaultAsync(token);
+            if (session is null) return Outcome.Unchanged(Failure("no_active_session", ReadingReplyFormatter.NoActiveSessionToComplete, programme.StateVersion));
+            if (session.Status == ReadingSessionStatus.Planned)
+                return Outcome.Unchanged(Failure("not_started", ReadingReplyFormatter.NotStartedToComplete, programme.StateVersion));
+            if (session.Status == ReadingSessionStatus.AwaitingFeedback)
+                return Outcome.Unchanged(Result(ReadingReplyFormatter.AlreadyLoggedHowDidItGo, ToDto(session), programme.StateVersion));
+            if (session.Status == ReadingSessionStatus.Active) Accumulate(session);
+            if (request.ReportedMinutes is <= 0)
+                return Outcome.Unchanged(Failure("invalid_minutes", "Actual minutes must be greater than zero.", programme.StateVersion));
+            var isStale = session.StartedAt is not null && Now - session.StartedAt.Value > TimeSpan.FromHours(_options.StaleAfterHours);
+            if (isStale && request.ReportedMinutes is null)
+                return Outcome.Unchanged(Failure("needs_actual_minutes", ReadingReplyFormatter.StaleActive(session.Book?.Title ?? "Book"), programme.StateVersion));
+            session.ReportedMinutes = request.ReportedMinutes;
+            session.Status = ReadingSessionStatus.AwaitingFeedback;
+            session.RatingRequestedAt = Now;
+            session.CompletedAt = Now;
+            session.LastStartedAt = null;
+            session.PausedAt = null;
+            session.UpdatedAt = Now;
+            return Outcome.Changed(Result(ReadingReplyFormatter.RatePrompt, ToDto(session), programme.StateVersion));
+        }, ct);
+
+    public Task<ReadingCommandResultDto> RateSessionAsync(
+        ReadingRateSessionRequest request, CancellationToken ct = default) =>
+        MutateAsync(request.ClientId, request.IdempotencyKey, "RateSession", async (db, token) =>
+        {
+            var programme = await ProgrammeAsync(db, token);
+            if (programme is null) return Outcome.Unchanged(Failure("not_initialized", "Reading training is not initialized."));
+            if (request.Effort is < 1 or > 10 || request.Focus is < 1 or > 10 || request.Rating is < 0 or > 5)
+                return Outcome.Unchanged(Failure("invalid_ratings", ReadingReplyFormatter.GiveRatings, programme.StateVersion));
+            var session = await OpenSessionQuery(db).SingleOrDefaultAsync(token);
+            if (session is null) return Outcome.Unchanged(Failure("no_ratings_pending", ReadingReplyFormatter.NoRatingsPending, programme.StateVersion));
+            if (session.Status != ReadingSessionStatus.AwaitingFeedback)
+                return Outcome.Unchanged(Failure("invalid_transition", ReadingReplyFormatter.NoRatingsPending, programme.StateVersion));
+            session.Effort = request.Effort;
+            session.Focus = request.Focus;
+            session.Rating = request.Rating;
+            session.RatingsSkipped = false;
+            CloseCompleted(session);
+            var minutes = EffectiveMinutes(session);
+            return Outcome.Changed(Result(
+                ReadingReplyFormatter.LoggedRating(session.Book?.Title ?? "Book", minutes, request.Effort, request.Focus),
+                ToDto(session), programme.StateVersion));
+        }, ct);
+
+    public Task<ReadingCommandResultDto> SkipRatingsAsync(
+        ReadingSkipRatingsRequest request, CancellationToken ct = default) =>
+        MutateAsync(request.ClientId, request.IdempotencyKey, "SkipRatings", async (db, token) =>
+        {
+            var programme = await ProgrammeAsync(db, token);
+            if (programme is null) return Outcome.Unchanged(Failure("not_initialized", "Reading training is not initialized."));
+            var session = await OpenSessionQuery(db).SingleOrDefaultAsync(token);
+            if (session is null) return Outcome.Unchanged(Failure("no_ratings_pending", ReadingReplyFormatter.NoRatingsPendingSkip, programme.StateVersion));
+            if (session.Status != ReadingSessionStatus.AwaitingFeedback)
+                return Outcome.Unchanged(Failure("invalid_transition", ReadingReplyFormatter.NoRatingsPendingSkip, programme.StateVersion));
+            session.RatingsSkipped = true;
+            CloseCompleted(session);
+            return Outcome.Changed(Result(ReadingReplyFormatter.RatingsSkipped, ToDto(session), programme.StateVersion));
+        }, ct);
+
+    public Task<ReadingCommandResultDto> CancelSessionAsync(
+        ReadingSessionCommandRequest request, CancellationToken ct = default) =>
+        MutateAsync(request.ClientId, request.IdempotencyKey, "CancelSession", async (db, token) =>
+        {
+            var programme = await ProgrammeAsync(db, token);
+            if (programme is null) return Outcome.Unchanged(Failure("not_initialized", "Reading training is not initialized."));
+            var session = await OpenSessionQuery(db).SingleOrDefaultAsync(token);
+            if (session is null) return Outcome.Unchanged(Failure("no_active_session", ReadingReplyFormatter.NoSessionToCancel, programme.StateVersion));
+            if (session.Status == ReadingSessionStatus.Active) Accumulate(session);
+            session.Status = ReadingSessionStatus.Cancelled;
+            session.OpenSlot = null;
+            session.LastStartedAt = null;
+            session.PausedAt = null;
+            session.CompletedAt = Now;
+            session.UpdatedAt = Now;
+            return Outcome.Changed(Result(ReadingReplyFormatter.Cancelled, ToDto(session), programme.StateVersion));
+        }, ct);
+
+    public Task<ReadingCommandResultDto> CaptureAsync(
+        ReadingCaptureRequest request, CancellationToken ct = default) =>
+        MutateAsync(request.ClientId, request.IdempotencyKey, "Capture", async (db, token) =>
+        {
+            var programme = await ProgrammeAsync(db, token);
+            if (programme is null) return Outcome.Unchanged(Failure("not_initialized", "Reading training is not initialized."));
+            if (string.IsNullOrWhiteSpace(request.Text))
+                return Outcome.Unchanged(Failure("empty_capture", ReadingReplyFormatter.NothingToCapture, programme.StateVersion));
+            if (!string.IsNullOrWhiteSpace(request.ExternalId))
+            {
+                var existing = await db.ReadingCaptures.AsNoTracking().SingleOrDefaultAsync(x => x.ExternalId == request.ExternalId, token);
+                if (existing is not null)
+                    return Outcome.Unchanged(Result(ReadingReplyFormatter.AlreadyCaptured, ToDto(existing), programme.StateVersion));
+            }
+            ReadingSession? session = null;
+            if (request.SessionId is Guid sessionId)
+                session = await db.ReadingSessions.SingleOrDefaultAsync(x => x.Id == sessionId, token);
+            else
+                session = await OpenSessionQuery(db).SingleOrDefaultAsync(token);
+            var bookId = request.BookId ?? session?.BookId;
+            if (bookId is null || !await db.Books.AnyAsync(x => x.Id == bookId.Value, token))
+                return Outcome.Unchanged(Failure("no_active_book", ReadingReplyFormatter.NoActiveBookToAttach, programme.StateVersion));
+            var capture = new ReadingCapture
+            {
+                Text = request.Text,
+                Type = request.Type,
+                BookId = bookId.Value,
+                SessionId = session?.Id,
+                ExternalId = string.IsNullOrWhiteSpace(request.ExternalId) ? null : request.ExternalId,
+                CreatedAt = Now,
+            };
+            db.ReadingCaptures.Add(capture);
+            var reply = request.Type switch
+            {
+                ReadingCaptureType.Question => ReadingReplyFormatter.QuestionAdded,
+                ReadingCaptureType.Bookmark => ReadingReplyFormatter.BookmarkAdded,
+                _ => ReadingReplyFormatter.ThoughtCaptured,
+            };
+            return Outcome.Changed(Result(reply, ToDto(capture), programme.StateVersion));
+        }, ct);
+
+    public async Task<ReadingCommandResultDto> ListInboxAsync(CancellationToken ct = default)
+    {
+        await using var db = await _contexts.CreateDbContextAsync(ct);
+        var programme = await db.ReadingProgrammes.AsNoTracking().SingleOrDefaultAsync(ct);
+        var captures = await db.ReadingCaptures.AsNoTracking()
+            .Where(x => !x.Resolved && x.Type != ReadingCaptureType.Thought)
+            .OrderBy(x => x.CreatedAt).ToListAsync(ct);
+        var data = captures.Select(ToDto).ToList();
+        return Result(data.Count == 0 ? ReadingReplyFormatter.InboxEmpty : ReadingReplyFormatter.InboxCount(data.Count), data, programme?.StateVersion ?? "0");
+    }
+
+    public Task<ReadingCommandResultDto> ResolveCaptureAsync(
+        Guid captureId, ReadingResolveCaptureRequest request, CancellationToken ct = default) =>
+        MutateAsync(request.ClientId, request.IdempotencyKey, "ResolveCapture", async (db, token) =>
+        {
+            var programme = await ProgrammeAsync(db, token);
+            if (programme is null) return Outcome.Unchanged(Failure("not_initialized", "Reading training is not initialized."));
+            var capture = await db.ReadingCaptures.SingleOrDefaultAsync(x => x.Id == captureId, token);
+            if (capture is null) return Outcome.Unchanged(Failure("capture_not_found", ReadingReplyFormatter.CaptureNotFound, programme.StateVersion));
+            if (capture.Resolved) return Outcome.Unchanged(Result(ReadingReplyFormatter.AlreadyDisposed, ToDto(capture), programme.StateVersion));
+            capture.Resolved = true;
+            capture.PromotedNoteId = request.Keep ? request.NoteId : null;
+            return Outcome.Changed(Result(ReadingReplyFormatter.Disposed(1, request.Keep ? "promoted" : "dismissed"), ToDto(capture), programme.StateVersion));
+        }, ct);
+
+    public Task<ReadingCommandResultDto> PromoteCaptureToNoteAsync(
+        Guid captureId, ReadingPromoteCaptureRequest request, CancellationToken ct = default) =>
+        MutateAsync(request.ClientId, request.IdempotencyKey, "PromoteCaptureToNote", async (db, token) =>
+        {
+            var programme = await ProgrammeAsync(db, token);
+            if (programme is null) return Outcome.Unchanged(Failure("not_initialized", "Reading training is not initialized."));
+            var capture = await db.ReadingCaptures.SingleOrDefaultAsync(x => x.Id == captureId, token);
+            if (capture is null) return Outcome.Unchanged(Failure("capture_not_found", ReadingReplyFormatter.CaptureNotFound, programme.StateVersion));
+            if (capture.Resolved) return Outcome.Unchanged(Result(ReadingReplyFormatter.AlreadyDisposed, ToDto(capture), programme.StateVersion));
+            var note = await db.Notes.SingleOrDefaultAsync(x => x.Id == request.NoteId, token);
+            if (note is null) return Outcome.Unchanged(Failure("note_not_found", ReadingReplyFormatter.NoteNotFound, programme.StateVersion));
+            if (note.BookId != capture.BookId)
+                return Outcome.Unchanged(Failure("note_book_mismatch", "The note belongs to a different book.", programme.StateVersion));
+            note.Content = string.IsNullOrWhiteSpace(note.Content) ? capture.Text : $"{note.Content}\n\n{capture.Text}";
+            capture.PromotedNoteId = note.Id;
+            capture.Resolved = true;
+            return Outcome.Changed(Result(ReadingReplyFormatter.Disposed(1, "promoted"), ToDto(capture), programme.StateVersion));
+        }, ct);
+
     private async Task<ReadingCommandResultDto> MutateAsync(
         string clientId,
         string idempotencyKey,
@@ -404,6 +574,23 @@ public sealed class ReadingTrainingService : IReadingTrainingService
         if (session.StartedAt is not null)
             session.MeasuredSeconds = Math.Max(session.MeasuredSeconds, Math.Max(0, (int)(Now - session.StartedAt.Value).TotalSeconds));
     }
+
+    private void CloseCompleted(ReadingSession session)
+    {
+        session.Status = ReadingSessionStatus.Completed;
+        session.OpenSlot = null;
+        session.LastStartedAt = null;
+        session.PausedAt = null;
+        session.CompletedAt ??= Now;
+        session.UpdatedAt = Now;
+    }
+
+    private static int EffectiveMinutes(ReadingSession session) =>
+        session.ReportedMinutes ?? Math.Max(0, (int)Math.Round(session.AccumulatedSeconds / 60.0, MidpointRounding.AwayFromZero));
+
+    private static ReadingCaptureDto ToDto(ReadingCapture capture) => new(
+        capture.Id, capture.Text, capture.Type, capture.BookId, capture.SessionId,
+        capture.ExternalId, capture.Resolved, capture.PromotedNoteId, capture.CreatedAt);
 
     private ReadingSessionDto ToDto(ReadingSession session)
     {
