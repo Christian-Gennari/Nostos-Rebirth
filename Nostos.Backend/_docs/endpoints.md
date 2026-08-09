@@ -147,6 +147,51 @@ so restarts and duplicate workers converge. It polls every
 drains a downtime backlog across scans, capped at
 `ReadingTraining.WeeklyReviewMaxCatchUpWeeks` (default 4) per scan.
 
+### Reading gateway dispatch (`POST /api/reading/gateway/dispatch`)
+
+The exact route used by optional gateway connectors (Telegram/agent
+messaging). It accepts raw free text and returns the same stable
+`ReadingCommandResultDto` envelope and status mapping as every other reading
+command. The connector forwards the raw message verbatim with a caller-supplied
+`(clientId, idempotencyKey)`; Nostos performs at most one underlying service
+mutation per dispatch, and duplicate dispatches converge through the existing
+exact-once receipts.
+
+| Field | Type | Notes |
+| ----- | ---- | ----- |
+| `clientId` | string | Caller identity (receipts are keyed by client + key) |
+| `idempotencyKey` | string | Caller-supplied; reuse to replay the same message |
+| `text` | string | Raw message text, forwarded byte-for-byte |
+
+Accepted grammar (case-insensitive, outer whitespace ignored; the captured
+text is never altered):
+
+- **status** — `status`, `what am i reading`, `what am i currently reading`,
+  or text containing `how long`, `elapsed`, `time left`, `minutes left`,
+  `time remaining`, `how much time`, or `time so far`
+- **start** — `start`, `start now`; **start new** — `start a new reading
+  session`, `start new`, `start new session`, `new session`
+- **pause** — `pause`, `pause reading`; `answer now` / `answer now please`
+  also pause authoritatively (the saved question stays in the inbox for the
+  connector to inject into model discussion)
+- **resume** — `resume`, `resume reading`
+- **done** — `done`, `stop`, `stop reading`, `end`, `end reading`,
+  `end session`, `end reading session`, or compact `done <minutes>` forms
+  (`done 42m`, `done 42`, `done 42 effort 4 focus 8` — compact effort/focus
+  are parsed for recognition only; ratings stay in the two-turn flow)
+- **skip** — `skip ratings`, `skip rating`, `skip`
+- **cancel** — `cancel`, `cancel session`, `abandon`, `discard`, `discard it`,
+  `abandon session`
+- **rate pair** — `4, 8`, `4; 8`, `rate 4 8` (effort, focus 1–10)
+
+Anything else is a raw capture while a session is Active (or while Paused only
+with an explicit `thought:` / `question:` / `bookmark:` prefix), classified
+question/thought/bookmark like the legacy coach and stored verbatim,
+byte-for-byte. Slash commands, model-driven queries (`review`, `weekly
+review`, `inbox`, queue adds, `finish <book>`, and the legacy `read`
+prescription), and ordinary text with no active session return the stable
+`gateway_ignored` no-op (422) and create no state.
+
 ## Maintenance Mode Middleware
 
 The application includes middleware that intercepts requests to `/api` when `BackupSettingsProvider.IsInMaintenanceMode` is true.

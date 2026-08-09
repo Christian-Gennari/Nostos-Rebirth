@@ -115,6 +115,7 @@ builder.Services.AddScoped<IWritingRepository, WritingRepository>();
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ReadingTrainingOptions>>().Value);
 builder.Services.AddSingleton<IReadingClock, SystemReadingClock>();
 builder.Services.AddScoped<IReadingTrainingService, ReadingTrainingService>();
+builder.Services.AddScoped<IReadingGatewayDispatcher, ReadingGatewayDispatcher>();
 builder.Services.AddScoped<IReadingNotificationOutbox, ReadingNotificationOutbox>();
 builder.Services.AddHostedService<ConceptCleanupWorker>();
 builder.Services.AddHostedService<BackupWorker>();
@@ -159,18 +160,15 @@ app.UseExceptionHandler(exceptionApp =>
         }
 
         context.Response.StatusCode = statusCode;
-        await context.Response.WriteAsJsonAsync(
-            new
-            {
-                type = statusCode == StatusCodes.Status400BadRequest
-                    ? "https://tools.ietf.org/html/rfc9110#section-15.5.1"
-                    : "https://tools.ietf.org/html/rfc9110#section-15.6.1",
-                title = statusCode == StatusCodes.Status400BadRequest
-                    ? "The request could not be processed."
-                    : "An unexpected error occurred.",
-                status = statusCode,
-            }
-        );
+        await Results.Problem(
+            statusCode: statusCode,
+            type: statusCode == StatusCodes.Status400BadRequest
+                ? "https://tools.ietf.org/html/rfc9110#section-15.5.1"
+                : "https://tools.ietf.org/html/rfc9110#section-15.6.1",
+            title: statusCode == StatusCodes.Status400BadRequest
+                ? "The request could not be processed."
+                : "An unexpected error occurred."
+        ).ExecuteAsync(context);
     });
 });
 app.UseStatusCodePages();

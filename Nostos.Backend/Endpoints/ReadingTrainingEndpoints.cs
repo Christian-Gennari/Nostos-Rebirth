@@ -201,6 +201,22 @@ public static class ReadingTrainingEndpoints
             CancellationToken ct) =>
             ToHttp(await service.CommitWeeklyReviewAsync(request, ct)));
 
+        // --- raw-text gateway (Task 10A) ---
+        // Exact route required by the optional gateway connector contract
+        // (deliberately outside the /api/reading-training group). Accepts
+        // raw free text, dispatches canonical controls and verbatim
+        // active-session captures through the deterministic
+        // ReadingGatewayDispatcher, and returns the same stable envelope and
+        // status mapping as every other reading command.
+        var gatewayGroup = routes.MapGroup("/api/reading/gateway")
+            .WithTags("Reading Training");
+
+        gatewayGroup.MapPost("/dispatch", async (
+            ReadingGatewayDispatchRequest request,
+            IReadingGatewayDispatcher dispatcher,
+            CancellationToken ct) =>
+            ToHttp(await dispatcher.DispatchAsync(request, ct)));
+
         return routes;
     }
 
