@@ -1,8 +1,8 @@
 namespace Nostos.Backend.Configuration;
 
 // Reading Training service configuration. Defaults mirror the v1 parity
-// contract and the accepted behaviours of the Python reading coach; the
-// configuration section is bound by the hosting application in a later slice.
+// contract and are bound from the host's `ReadingTraining` configuration
+// section while retaining these values as production-safe defaults.
 public sealed class ReadingTrainingOptions
 {
     // Week boundaries and session dates are computed in this IANA timezone.

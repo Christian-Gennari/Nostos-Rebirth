@@ -826,8 +826,6 @@ public sealed class ReadingTrainingHttpTests
             "maxCount=101&leaseSeconds=60",   // above maxCount bound
             "maxCount=10&leaseSeconds=0",     // below leaseSeconds bound
             "maxCount=10&leaseSeconds=3601",  // above leaseSeconds bound
-            "maxCount=10",                    // leaseSeconds missing → 0
-            "leaseSeconds=60",                // maxCount missing → 0
         };
         foreach (var query in invalidQueries)
         {
@@ -842,6 +840,12 @@ public sealed class ReadingTrainingHttpTests
         var ok = await client.GetAsync("/api/reading-training/notifications/lease?maxCount=1&leaseSeconds=1");
         ok.StatusCode.Should().Be(HttpStatusCode.OK);
         (await Envelope(ok)).EnumerateArray().Should().BeEmpty();
+
+        // Omitted query values use the documented transport defaults
+        // (maxCount=10, leaseSeconds=60).
+        var defaults = await client.GetAsync("/api/reading-training/notifications/lease");
+        defaults.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Envelope(defaults)).EnumerateArray().Should().BeEmpty();
     }
 
     private static Task<HttpResponseMessage> InitializeAsync(

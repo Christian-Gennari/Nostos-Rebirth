@@ -151,17 +151,17 @@ public static class ReadingTrainingEndpoints
             IReadingNotificationOutbox outbox,
             CancellationToken ct) =>
         {
-            // Nullable parameters so a missing query value flows through this
-            // validation (and its ProblemDetails) instead of the framework's
-            // generic binding-failure 400.
-            if (maxCount is null or < 1 or > 100)
+            maxCount ??= 10;
+            leaseSeconds ??= 60;
+
+            if (maxCount is < 1 or > 100)
             {
                 return Results.Problem(
                     statusCode: StatusCodes.Status400BadRequest,
                     title: "Invalid maxCount.",
                     detail: "maxCount must be between 1 and 100.");
             }
-            if (leaseSeconds is null or < 1 or > 3600)
+            if (leaseSeconds is < 1 or > 3600)
             {
                 return Results.Problem(
                     statusCode: StatusCodes.Status400BadRequest,
