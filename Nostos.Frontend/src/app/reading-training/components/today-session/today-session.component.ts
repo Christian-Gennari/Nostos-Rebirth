@@ -61,14 +61,32 @@ export class TodaySessionComponent {
   readonly statusEnum = ReadingSessionStatus;
   readonly status = computed(() => this.openSession()?.status ?? ReadingSessionStatus.Idle);
 
-  /** Numeric actual-minutes field, shown only while AwaitingFeedback. */
+  /**
+   * Numeric actual-minutes field, shown while the session is in progress
+   * (Active/Paused). Optional: stale sessions — where the server cannot trust
+   * the tracked elapsed time — require it, but a blank value is always a
+   * valid "let the server derive it" signal.
+   */
   readonly reportedMinutes = signal('');
+
+  /** The session the minutes field was last attached to; guards against carrying values across sessions. */
+  private minutesSessionId: string | null = null;
 
   constructor() {
     effect(() => {
-      if (this.openSession()?.status !== ReadingSessionStatus.AwaitingFeedback) {
+      const session = this.openSession();
+      const inProgress =
+        session !== null &&
+        (session.status === ReadingSessionStatus.Active || session.status === ReadingSessionStatus.Paused);
+      if (!inProgress) {
+        this.reportedMinutes.set('');
+        this.minutesSessionId = null;
+        return;
+      }
+      if (this.minutesSessionId !== null && this.minutesSessionId !== session.id) {
         this.reportedMinutes.set('');
       }
+      this.minutesSessionId = session.id;
     });
   }
 
@@ -83,6 +101,8 @@ export class TodaySessionComponent {
       return;
     }
     const minutes = Number(raw);
-    this.complete.emit(Number.isFinite(minutes) ? Math.max(0, minutes) : undefined);
+    // Only positive, finite values are meaningful; anything else (blank,
+    // zero, negative, garbage) defers to the server's derivation.
+    this.complete.emit(Number.isFinite(minutes) && minutes > 0 ? minutes : undefined);
   }
 }

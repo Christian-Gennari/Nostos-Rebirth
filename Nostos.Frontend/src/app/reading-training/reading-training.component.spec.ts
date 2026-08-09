@@ -518,26 +518,20 @@ describe('ReadingTrainingComponent', () => {
     clickButton('Cancel');
     expect(mock.cancelSession).toHaveBeenCalledTimes(1);
 
-    // AwaitingFeedback: Complete carries the reported minutes.
-    mock.openSession.set(makeSession({ status: ReadingSessionStatus.AwaitingFeedback }));
+    // Active: Finish carries the reported minutes into completeSession.
+    mock.openSession.set(makeSession({ status: ReadingSessionStatus.Active }));
     fixture.detectChanges();
-    const minutesInput = fixture.nativeElement.querySelector('input[aria-label="Actual minutes read"]') as HTMLInputElement;
-    expect(minutesInput).toBeTruthy();
-    minutesInput.value = '25';
-    minutesInput.dispatchEvent(new Event('input'));
-    fixture.detectChanges();
-    clickButton('Complete');
+    setInput('input[aria-label="Actual minutes read (optional)"]', '25');
+    clickButton('Finish');
     expect(mock.completeSession).toHaveBeenCalledTimes(1);
     const completeReq = mock.completeSession.mock.calls[0][0] as { reportedMinutes?: number };
     expect(completeReq.reportedMinutes).toBe(25);
 
-    // A later feedback state must not inherit the previous session's value.
-    mock.openSession.set(makeSession({ status: ReadingSessionStatus.Active }));
-    fixture.detectChanges();
-    mock.openSession.set(makeSession({ id: 's2', status: ReadingSessionStatus.AwaitingFeedback }));
+    // A later session must not inherit the previous session's minutes value.
+    mock.openSession.set(makeSession({ id: 's2', status: ReadingSessionStatus.Active }));
     fixture.detectChanges();
     const nextMinutesInput = fixture.nativeElement.querySelector(
-      'input[aria-label="Actual minutes read"]'
+      'input[aria-label="Actual minutes read (optional)"]'
     ) as HTMLInputElement;
     expect(nextMinutesInput.value).toBe('');
 
@@ -922,10 +916,10 @@ describe('ReadingTrainingComponent', () => {
     expect(mock.loadHistory).toHaveBeenCalledTimes(2);
   });
 
-  it('reloads history after today-session completion as well', () => {
-    openSessionFixture(ReadingSessionStatus.AwaitingFeedback);
-    setInput('input[aria-label="Actual minutes read"]', '30');
-    clickButton('Complete');
+  it('reloads history after a today-session finish as well', () => {
+    openSessionFixture(ReadingSessionStatus.Active);
+    setInput('input[aria-label="Actual minutes read (optional)"]', '30');
+    clickButton('Finish');
     expect(mock.completeSession).toHaveBeenCalledTimes(1);
     expect(mock.loadHistory).toHaveBeenCalledTimes(2);
   });
@@ -1141,9 +1135,9 @@ describe('ReadingTrainingComponent', () => {
   it('stops page callbacks after destroy while the store still owns the in-flight command', () => {
     const completeSubject = new Subject<ReadingCommandResult<ReadingSession>>();
     mock.completeSession.mockReturnValue(completeSubject);
-    openSessionFixture(ReadingSessionStatus.AwaitingFeedback);
-    setInput('input[aria-label="Actual minutes read"]', '30');
-    clickButton('Complete');
+    openSessionFixture(ReadingSessionStatus.Active);
+    setInput('input[aria-label="Actual minutes read (optional)"]', '30');
+    clickButton('Finish');
     expect(mock.completeSession).toHaveBeenCalledTimes(1);
 
     fixture.destroy();

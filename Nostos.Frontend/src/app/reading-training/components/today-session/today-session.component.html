@@ -20,17 +20,17 @@
       </div>
     </dl>
 
-    @if (status() === statusEnum.AwaitingFeedback) {
+    @if (status() === statusEnum.Active || status() === statusEnum.Paused) {
       <label class="minutes-field">
-        <span>Actual minutes</span>
+        <span>Actual minutes read (optional)</span>
         <input
           type="number"
-          min="0"
+          min="1"
           step="1"
           inputmode="numeric"
           [value]="reportedMinutes()"
           (input)="onMinutesInput($event)"
-          aria-label="Actual minutes read"
+          aria-label="Actual minutes read (optional)"
         />
       </label>
     }
@@ -46,19 +46,23 @@
           <button type="button" class="btn btn-primary" (click)="pause.emit()" [disabled]="mutating()">
             Pause
           </button>
+          <button type="button" class="btn btn-primary" (click)="onComplete()" [disabled]="mutating()">
+            Finish
+          </button>
         }
         @case (statusEnum.Paused) {
           <button type="button" class="btn btn-primary" (click)="resume.emit()" [disabled]="mutating()">
             Resume
+          </button>
+          <button type="button" class="btn btn-primary" (click)="onComplete()" [disabled]="mutating()">
+            Finish
           </button>
           <button type="button" class="btn btn-ghost-danger" (click)="cancel.emit()" [disabled]="mutating()">
             Cancel
           </button>
         }
         @case (statusEnum.AwaitingFeedback) {
-          <button type="button" class="btn btn-primary" (click)="onComplete()" [disabled]="mutating()">
-            Complete
-          </button>
+          <p class="session-finished">Awaiting your ratings below.</p>
           <button type="button" class="btn btn-ghost-danger" (click)="cancel.emit()" [disabled]="mutating()">
             Cancel
           </button>
