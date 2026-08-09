@@ -1,15 +1,19 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { WritableSignal, signal } from '@angular/core';
-import { of } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 
 import { ReadingTrainingComponent } from './reading-training.component';
 import { ReadingTrainingStore } from './reading-training.store';
 import { routes } from '../app.routes';
 import { WorkspaceLayout } from '../layout/workspace-layout/workspace-layout.component';
+import { Book, PaginatedResponse } from '../core/dtos/book.dtos';
+import { Note } from '../core/dtos/note.dtos';
 import {
   ReadingAssignmentStatus,
   ReadingBookAssignment,
+  ReadingCapture,
+  ReadingCaptureType,
   ReadingCommandResult,
   ReadingConstraint,
   ReadingDashboard,
@@ -18,7 +22,12 @@ import {
   ReadingSession,
   ReadingSessionStatus,
   ReadingTargets,
+  ReadingWeekSummary,
+  ReadingWeeklyReview,
 } from '../core/dtos/reading-training.dtos';
+import { BooksService } from '../core/services/books.service';
+import { NotesService } from '../core/services/notes.service';
+import { ReadingTrainingService } from '../core/services/reading-training.service';
 
 const targets: ReadingTargets = {
   enduranceTargetMinutes: 40,
@@ -49,6 +58,82 @@ const enduranceBook: ReadingBookAssignment = {
   createdAt: '2026-08-09T08:00:00+02:00',
   startedAt: '2026-08-09T08:00:00+02:00',
   completedAt: null,
+};
+
+const secondBook: ReadingBookAssignment = {
+  ...enduranceBook,
+  id: 'a2',
+  bookId: 'b2',
+  bookTitle: 'Letters from a Stoic',
+  bookAuthor: 'Seneca',
+  queueOrder: 1,
+  isDefault: false,
+};
+
+const libraryBook = {
+  id: 'lib1',
+  title: 'The Enchiridion',
+  author: 'Epictetus',
+} as unknown as Book;
+
+const note1: Note = {
+  id: 'n1',
+  bookId: 'b1',
+  content: 'First line of the note\nSecond line',
+  createdAt: '2026-08-01T10:00:00+02:00',
+};
+
+const note2: Note = {
+  id: 'n2',
+  bookId: 'b1',
+  content: 'Another note',
+  createdAt: '2026-08-02T10:00:00+02:00',
+};
+
+const capture: ReadingCapture = {
+  id: 'c1',
+  text: 'What is virtue?',
+  type: ReadingCaptureType.Question,
+  bookId: 'b1',
+  sessionId: 's1',
+  externalId: null,
+  resolved: false,
+  promotedNoteId: null,
+  createdAt: '2026-08-09T10:00:00+02:00',
+};
+
+const weekSummary: ReadingWeekSummary = {
+  weekKey: '2026-W33',
+  completedSessions: 2,
+  qualifyingSessions: 1,
+  volumeMinutes: 60,
+  completionThreshold: 3,
+  reviewCommitted: false,
+};
+
+const weeklyReview: ReadingWeeklyReview = {
+  weekKey: '2026-W33',
+  isoYear: 2026,
+  isoWeek: 33,
+  committed: false,
+  committedAt: null,
+  totalVolumeMinutes: 60,
+  previousWeekVolumeMinutes: 45,
+  modes: [
+    {
+      mode: ReadingMode.Endurance,
+      targetBeforeMinutes: 40,
+      targetAfterMinutes: 45,
+      decisionKind: 'increase',
+      reason: 'completed above threshold',
+      qualifyingCount: 2,
+      completionRate: 0.67,
+      medianEffort: 7,
+      medianFocus: 6,
+      nextConsecutiveIncreases: 1,
+    },
+  ],
+  stateVersion: '1',
 };
 
 function makeSession(overrides: Partial<ReadingSession> = {}): ReadingSession {
@@ -84,6 +169,13 @@ function envelope<T>(data: T | null = null): ReadingCommandResult<T> {
   return { reply: 'ok', data, stateVersion: '1', duplicate: false };
 }
 
+const booksPage: PaginatedResponse<Book> = {
+  items: [libraryBook],
+  totalCount: 1,
+  page: 1,
+  pageSize: 100,
+};
+
 interface StoreMock {
   dashboard: WritableSignal<ReadingDashboard | null>;
   loading: WritableSignal<boolean>;
@@ -94,7 +186,9 @@ interface StoreMock {
   programme: WritableSignal<ReadingProgramme | null>;
   books: WritableSignal<ReadingBookAssignment[]>;
   openSession: WritableSignal<ReadingSession | null>;
-  currentWeek: WritableSignal<null>;
+  currentWeek: WritableSignal<ReadingWeekSummary | null>;
+  inbox: WritableSignal<ReadingCapture[]>;
+  history: WritableSignal<ReadingSession[]>;
   displayedElapsedSeconds: WritableSignal<number>;
   defaultBookForMode: ReturnType<typeof vi.fn>;
   connect: ReturnType<typeof vi.fn>;
@@ -107,9 +201,23 @@ interface StoreMock {
   resumeSession: ReturnType<typeof vi.fn>;
   completeSession: ReturnType<typeof vi.fn>;
   cancelSession: ReturnType<typeof vi.fn>;
+  loadInbox: ReturnType<typeof vi.fn>;
+  loadHistory: ReturnType<typeof vi.fn>;
+  addBook: ReturnType<typeof vi.fn>;
+  setDefaultBook: ReturnType<typeof vi.fn>;
+  completeBook: ReturnType<typeof vi.fn>;
+  reorderQueue: ReturnType<typeof vi.fn>;
+  planSession: ReturnType<typeof vi.fn>;
+  rateSession: ReturnType<typeof vi.fn>;
+  skipRatings: ReturnType<typeof vi.fn>;
+  capture: ReturnType<typeof vi.fn>;
+  resolveCapture: ReturnType<typeof vi.fn>;
+  promoteCapture: ReturnType<typeof vi.fn>;
+  commitWeeklyReview: ReturnType<typeof vi.fn>;
 }
 
 function createStoreMock(): StoreMock {
+  const command = () => vi.fn(() => of(envelope<unknown>(null)));
   return {
     dashboard: signal<ReadingDashboard | null>(null),
     loading: signal(false),
@@ -120,31 +228,69 @@ function createStoreMock(): StoreMock {
     programme: signal<ReadingProgramme | null>(null),
     books: signal<ReadingBookAssignment[]>([]),
     openSession: signal<ReadingSession | null>(null),
-    currentWeek: signal(null),
+    currentWeek: signal<ReadingWeekSummary | null>(null),
+    inbox: signal<ReadingCapture[]>([]),
+    history: signal<ReadingSession[]>([]),
     displayedElapsedSeconds: signal(0),
     defaultBookForMode: vi.fn(() => null),
     connect: vi.fn(),
     disconnect: vi.fn(),
     refresh: vi.fn(),
-    initialize: vi.fn(() => of(envelope<unknown>(null))),
-    startSession: vi.fn(() => of(envelope<unknown>(null))),
-    startNewSession: vi.fn(() => of(envelope<unknown>(null))),
-    pauseSession: vi.fn(() => of(envelope<unknown>(null))),
-    resumeSession: vi.fn(() => of(envelope<unknown>(null))),
-    completeSession: vi.fn(() => of(envelope<unknown>(null))),
-    cancelSession: vi.fn(() => of(envelope<unknown>(null))),
+    initialize: command(),
+    startSession: command(),
+    startNewSession: command(),
+    pauseSession: command(),
+    resumeSession: command(),
+    completeSession: command(),
+    cancelSession: command(),
+    loadInbox: vi.fn(() => of(envelope<ReadingCapture[]>([]))),
+    loadHistory: vi.fn(() => of(envelope<ReadingSession[]>([]))),
+    addBook: command(),
+    setDefaultBook: command(),
+    completeBook: command(),
+    reorderQueue: command(),
+    planSession: command(),
+    rateSession: command(),
+    skipRatings: command(),
+    capture: command(),
+    resolveCapture: command(),
+    promoteCapture: command(),
+    commitWeeklyReview: command(),
   };
+}
+
+interface BooksServiceMock {
+  list: ReturnType<typeof vi.fn>;
+}
+
+interface NotesServiceMock {
+  list: ReturnType<typeof vi.fn>;
+}
+
+interface ReadingServiceMock {
+  previewWeeklyReview: ReturnType<typeof vi.fn>;
 }
 
 describe('ReadingTrainingComponent', () => {
   let mock: StoreMock;
+  let booksMock: BooksServiceMock;
+  let notesMock: NotesServiceMock;
+  let readingServiceMock: ReadingServiceMock;
   let fixture: ComponentFixture<ReadingTrainingComponent>;
 
   beforeEach(async () => {
     mock = createStoreMock();
+    booksMock = { list: vi.fn(() => of(booksPage)) };
+    notesMock = { list: vi.fn(() => of([note1, note2])) };
+    readingServiceMock = { previewWeeklyReview: vi.fn(() => of(envelope(weeklyReview))) };
     await TestBed.configureTestingModule({
       imports: [ReadingTrainingComponent],
-      providers: [{ provide: ReadingTrainingStore, useValue: mock as unknown as ReadingTrainingStore }],
+      providers: [
+        { provide: ReadingTrainingStore, useValue: mock as unknown as ReadingTrainingStore },
+        { provide: BooksService, useValue: booksMock as unknown as BooksService },
+        { provide: NotesService, useValue: notesMock as unknown as NotesService },
+        { provide: ReadingTrainingService, useValue: readingServiceMock as unknown as ReadingTrainingService },
+      ],
     }).compileComponents();
     fixture = TestBed.createComponent(ReadingTrainingComponent);
     fixture.detectChanges();
@@ -164,6 +310,55 @@ describe('ReadingTrainingComponent', () => {
     const button = Array.from(buttons).find((b) => (b as HTMLButtonElement).textContent?.trim() === text);
     expect(button, `button "${text}"`).toBeTruthy();
     (button as HTMLButtonElement).click();
+    fixture.detectChanges();
+  }
+
+  function clickByAria(label: string): void {
+    const button = fixture.nativeElement.querySelector(
+      `button[aria-label="${label}"]`
+    ) as HTMLButtonElement;
+    expect(button, `button[aria-label="${label}"]`).toBeTruthy();
+    button.click();
+    fixture.detectChanges();
+  }
+
+  function clickDialogButton(text: string): void {
+    const dialogs = fixture.nativeElement.querySelectorAll('.dialog');
+    expect(dialogs.length, 'an open dialog').toBeGreaterThan(0);
+    const buttons = dialogs[dialogs.length - 1].querySelectorAll('button');
+    const button = Array.from(buttons).find((b) => (b as HTMLButtonElement).textContent?.trim() === text);
+    expect(button, `dialog button "${text}"`).toBeTruthy();
+    (button as HTMLButtonElement).click();
+    fixture.detectChanges();
+  }
+
+  function setInput(selector: string, value: string): void {
+    const el = fixture.nativeElement.querySelector(selector) as HTMLInputElement;
+    expect(el, selector).toBeTruthy();
+    el.value = value;
+    el.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+  }
+
+  function setChecked(selector: string, checked: boolean): void {
+    const el = fixture.nativeElement.querySelector(selector) as HTMLInputElement;
+    expect(el, selector).toBeTruthy();
+    el.checked = checked;
+    el.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+  }
+
+  function setSelect(selector: string, value: string): void {
+    const el = fixture.nativeElement.querySelector(selector) as HTMLSelectElement;
+    expect(el, selector).toBeTruthy();
+    el.value = value;
+    el.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+  }
+
+  function openSessionFixture(status: ReadingSessionStatus, overrides: Partial<ReadingSession> = {}): void {
+    mock.dashboard.set(initializedDashboard());
+    mock.openSession.set(makeSession({ status, ...overrides }));
     fixture.detectChanges();
   }
 
@@ -373,6 +568,420 @@ describe('ReadingTrainingComponent', () => {
     mock.lastReply.set('Session paused.');
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).not.toMatch(forbidden);
+  });
+
+  // --- Task 7D: panels, forms, and manual workflows ---
+
+  it('loads inbox and history once on connect', () => {
+    expect(mock.loadInbox).toHaveBeenCalledTimes(1);
+    expect(mock.loadHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders all committed panels beside the lanes and today card', () => {
+    mock.dashboard.set(initializedDashboard());
+    mock.books.set([enduranceBook, secondBook]);
+    mock.inbox.set([capture]);
+    mock.history.set([makeSession({ status: ReadingSessionStatus.Completed })]);
+    mock.currentWeek.set(weekSummary);
+    fixture.detectChanges();
+
+    const page = fixture.nativeElement;
+    expect(page.querySelector('app-week-strip')).toBeTruthy();
+    expect(page.querySelector('app-active-books')).toBeTruthy();
+    expect(page.querySelector('app-reading-inbox')).toBeTruthy();
+    expect(page.querySelector('app-session-history')).toBeTruthy();
+    // Inbox shows the real capture text and book title from store books.
+    expect(page.textContent).toContain('What is virtue?');
+    expect(page.textContent).toContain('Meditations');
+    expect(page.textContent).toContain('Week 33');
+
+    // Planner and feedback are hidden until their conditions are met.
+    expect(page.querySelector('app-session-planner')).toBeNull();
+    expect(page.querySelector('app-session-feedback')).toBeNull();
+
+    mock.openSession.set(makeSession({ status: ReadingSessionStatus.AwaitingFeedback }));
+    fixture.detectChanges();
+    expect(page.querySelector('app-session-feedback')).toBeTruthy();
+    expect(page.querySelector('app-session-planner')).toBeNull();
+  });
+
+  it('opens the planner explicitly and closes it when a session exists', () => {
+    mock.dashboard.set(initializedDashboard());
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-session-planner')).toBeNull();
+
+    clickButton('Plan a session');
+    expect(fixture.nativeElement.querySelector('app-session-planner')).toBeTruthy();
+
+    // A real open session hides the planner and resets the open flag.
+    mock.openSession.set(makeSession({ status: ReadingSessionStatus.Planned }));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-session-planner')).toBeNull();
+
+    // It does not reappear when the session ends; only an explicit action reopens it.
+    mock.openSession.set(null);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-session-planner')).toBeNull();
+    clickButton('Plan a session');
+    expect(fixture.nativeElement.querySelector('app-session-planner')).toBeTruthy();
+  });
+
+  it('plans a session with constrained minutes mapped to targetMinutes', () => {
+    mock.dashboard.set(initializedDashboard());
+    mock.books.set([enduranceBook]);
+    fixture.detectChanges();
+    clickButton('Plan a session');
+
+    setInput('#session-planner-target', '40');
+    clickButton('Plan session');
+    expect(mock.planSession).toHaveBeenCalledTimes(1);
+    const plain = mock.planSession.mock.calls[0][0] as {
+      bookAssignmentId: string;
+      mode: ReadingMode;
+      targetMinutes: number;
+      constraint?: ReadingConstraint;
+    };
+    expect(plain.bookAssignmentId).toBe('a1');
+    expect(plain.mode).toBe(ReadingMode.Endurance);
+    expect(plain.targetMinutes).toBe(40);
+    expect(plain.constraint).toBeUndefined();
+
+    setChecked('#session-planner-constrained', true);
+    setInput('#session-planner-constrained-minutes', '20');
+    clickButton('Plan session');
+    expect(mock.planSession).toHaveBeenCalledTimes(2);
+    const constrained = mock.planSession.mock.calls[1][0] as {
+      targetMinutes: number;
+      constraint?: ReadingConstraint;
+    };
+    expect(constrained.targetMinutes).toBe(20);
+    expect(constrained.constraint).toBe(ReadingConstraint.TimeConstrained);
+  });
+
+  it('start-now drops target and constraint and sends assignment plus mode', () => {
+    mock.dashboard.set(initializedDashboard());
+    mock.books.set([enduranceBook]);
+    fixture.detectChanges();
+    clickButton('Plan a session');
+
+    setInput('#session-planner-target', '40');
+    clickButton('Start now');
+    expect(mock.startNewSession).toHaveBeenCalledTimes(1);
+    const req = mock.startNewSession.mock.calls[0][0] as Record<string, unknown>;
+    expect(req['bookAssignmentId']).toBe('a1');
+    expect(req['mode']).toBe(ReadingMode.Endurance);
+    expect(req['clientId']).toBeTruthy();
+    expect(req['idempotencyKey']).toBeTruthy();
+    expect(req).not.toHaveProperty('targetMinutes');
+    expect(req).not.toHaveProperty('constraint');
+    expect(mock.planSession).not.toHaveBeenCalled();
+  });
+
+  it('forwards active-book commands with exact DTO fields, stable client, fresh keys', () => {
+    mock.dashboard.set(initializedDashboard());
+    mock.books.set([enduranceBook, secondBook]);
+    fixture.detectChanges();
+
+    // Set default on the non-default Active book.
+    clickByAria('Make Letters from a Stoic the default Endurance book');
+    expect(mock.setDefaultBook).toHaveBeenCalledTimes(1);
+    const defaultReq = mock.setDefaultBook.mock.calls[0][0] as Record<string, unknown>;
+    expect(defaultReq['bookAssignmentId']).toBe('a2');
+    expect(defaultReq['mode']).toBe(ReadingMode.Endurance);
+
+    // Finish an Active book.
+    clickByAria('Finish training book: Meditations');
+    expect(mock.completeBook).toHaveBeenCalledTimes(1);
+    const finishReq = mock.completeBook.mock.calls[0][0] as Record<string, unknown>;
+    expect(finishReq['bookAssignmentId']).toBe('a1');
+
+    // Reorder: moving Meditations down yields [a2, a1].
+    clickByAria('Move Meditations down');
+    expect(mock.reorderQueue).toHaveBeenCalledTimes(1);
+    const reorderReq = mock.reorderQueue.mock.calls[0][0] as Record<string, unknown>;
+    expect(reorderReq['assignmentIds']).toEqual(['a2', 'a1']);
+
+    const clientId = defaultReq['clientId'];
+    expect(clientId).toBeTruthy();
+    expect(finishReq['clientId']).toBe(clientId);
+    expect(reorderReq['clientId']).toBe(clientId);
+    const keys = [defaultReq['idempotencyKey'], finishReq['idempotencyKey'], reorderReq['idempotencyKey']];
+    expect(new Set(keys).size).toBe(3);
+  });
+
+  it('opens the book form from a lane with the preferred mode and maps the real catalogue', () => {
+    const booksSubject = new Subject<PaginatedResponse<Book>>();
+    booksMock.list.mockReturnValue(booksSubject);
+    mock.dashboard.set(initializedDashboard());
+    fixture.detectChanges();
+
+    clickByAria('Add book to Deep');
+    const dialog = fixture.nativeElement.querySelector('.dialog') as HTMLElement;
+    expect(dialog).toBeTruthy();
+    expect(dialog.getAttribute('role')).toBe('dialog');
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    // Deterministic loading state first.
+    expect(dialog.textContent).toContain('Loading library books…');
+
+    booksSubject.next(booksPage);
+    booksSubject.complete();
+    fixture.detectChanges();
+
+    const bookSelect = dialog.querySelector('#book-assignment-book') as HTMLSelectElement;
+    expect(bookSelect.value).toBe('lib1');
+    expect(dialog.textContent).toContain('The Enchiridion — Epictetus');
+    const modeSelect = dialog.querySelector('#book-assignment-mode') as HTMLSelectElement;
+    expect(modeSelect.value).toBe(String(ReadingMode.Deep));
+
+    setChecked('#book-assignment-make-default', true);
+    clickDialogButton('Add book');
+    expect(mock.addBook).toHaveBeenCalledTimes(1);
+    const req = mock.addBook.mock.calls[0][0] as Record<string, unknown>;
+    expect(req['bookId']).toBe('lib1');
+    expect(req['mode']).toBe(ReadingMode.Deep);
+    expect(req['makeDefault']).toBe(true);
+    expect(req['clientId']).toBeTruthy();
+    expect(req['idempotencyKey']).toBeTruthy();
+    // Dialog closes on command success.
+    expect(fixture.nativeElement.querySelector('.dialog')).toBeNull();
+  });
+
+  it('surfaces catalogue loading failures with a retry that never invents books', () => {
+    booksMock.list.mockReturnValueOnce(throwError(() => new Error('catalogue down')));
+    mock.dashboard.set(initializedDashboard());
+    fixture.detectChanges();
+
+    clickByAria('Add book to Endurance');
+    let dialog = fixture.nativeElement.querySelector('.dialog') as HTMLElement;
+    expect(dialog.textContent).toContain('Unable to load the library book list.');
+    expect(dialog.querySelector('app-book-assignment-form')).toBeNull();
+
+    clickDialogButton('Retry loading books');
+    dialog = fixture.nativeElement.querySelector('.dialog') as HTMLElement;
+    expect(dialog.querySelector('#book-assignment-book')).toBeTruthy();
+    expect(booksMock.list).toHaveBeenCalledTimes(2);
+  });
+
+  it('captures verbatim text enriched with the open session, then reloads the inbox', () => {
+    openSessionFixture(ReadingSessionStatus.Active);
+    clickButton('Capture');
+    expect(fixture.nativeElement.querySelector('.dialog')).toBeTruthy();
+
+    setInput('#capture-form-text', '  A thought worth keeping  ');
+    clickDialogButton('Save capture');
+    expect(mock.capture).toHaveBeenCalledTimes(1);
+    const req = mock.capture.mock.calls[0][0] as Record<string, unknown>;
+    expect(req['text']).toBe('  A thought worth keeping  ');
+    expect(req['type']).toBe(ReadingCaptureType.Thought);
+    expect(req['bookId']).toBe('b1');
+    expect(req['sessionId']).toBe('s1');
+    expect(req['clientId']).toBeTruthy();
+    expect(req['idempotencyKey']).toBeTruthy();
+    // Dialog closes on success and the inbox reloads.
+    expect(fixture.nativeElement.querySelector('.dialog')).toBeNull();
+    expect(mock.loadInbox).toHaveBeenCalledTimes(2);
+  });
+
+  it('captures without an open session omit book and session enrichment', () => {
+    mock.dashboard.set(initializedDashboard());
+    fixture.detectChanges();
+    clickButton('Capture');
+    setInput('#capture-form-text', 'standalone note');
+    setSelect('#capture-form-type', String(ReadingCaptureType.Question));
+    clickDialogButton('Save capture');
+    const req = mock.capture.mock.calls[0][0] as Record<string, unknown>;
+    expect(req['text']).toBe('standalone note');
+    expect(req['type']).toBe(ReadingCaptureType.Question);
+    expect(req).not.toHaveProperty('bookId');
+    expect(req).not.toHaveProperty('sessionId');
+  });
+
+  it('reloads the inbox after resolve (keep and dismiss) and promote successes', () => {
+    mock.dashboard.set(initializedDashboard());
+    mock.inbox.set([capture]);
+    fixture.detectChanges();
+
+    clickButton('Keep');
+    expect(mock.resolveCapture).toHaveBeenCalledWith('c1', expect.objectContaining({ keep: true }));
+    expect(mock.loadInbox).toHaveBeenCalledTimes(2);
+
+    clickButton('Dismiss');
+    expect(mock.resolveCapture).toHaveBeenCalledWith('c1', expect.objectContaining({ keep: false }));
+    expect(mock.loadInbox).toHaveBeenCalledTimes(3);
+
+    clickButton('Promote to note');
+    expect(notesMock.list).toHaveBeenCalledWith('b1');
+    setSelect('#note-chooser-select', 'n1');
+    clickDialogButton('Promote capture');
+    expect(mock.promoteCapture).toHaveBeenCalledWith('c1', expect.objectContaining({ noteId: 'n1' }));
+    expect(mock.loadInbox).toHaveBeenCalledTimes(4);
+    expect(fixture.nativeElement.querySelector('.dialog')).toBeNull();
+  });
+
+  it('requires choosing an existing note before promoting', () => {
+    mock.dashboard.set(initializedDashboard());
+    mock.inbox.set([capture]);
+    fixture.detectChanges();
+    clickButton('Promote to note');
+
+    const dialog = fixture.nativeElement.querySelector('.dialog') as HTMLElement;
+    const promote = Array.from(dialog.querySelectorAll('button')).find(
+      (b) => (b as HTMLButtonElement).textContent?.trim() === 'Promote capture'
+    ) as HTMLButtonElement;
+    expect(promote.disabled).toBe(true);
+    // No note id may be invented: nothing is dispatched before a choice.
+    promote.click();
+    fixture.detectChanges();
+    expect(mock.promoteCapture).not.toHaveBeenCalled();
+
+    setSelect('#note-chooser-select', 'n2');
+    expect(promote.disabled).toBe(false);
+    promote.click();
+    fixture.detectChanges();
+    expect(mock.promoteCapture).toHaveBeenCalledWith('c1', expect.objectContaining({ noteId: 'n2' }));
+  });
+
+  it('rates in two steps with fresh keys and reloads history only on success', () => {
+    openSessionFixture(ReadingSessionStatus.AwaitingFeedback);
+    setInput('#session-feedback-minutes', '25');
+    setInput('#session-feedback-effort', '7');
+    setInput('#session-feedback-focus', '6');
+    clickButton('Log ratings');
+
+    expect(mock.completeSession).toHaveBeenCalledTimes(1);
+    const completeReq = mock.completeSession.mock.calls[0][0] as Record<string, unknown>;
+    expect(completeReq['reportedMinutes']).toBe(25);
+    expect(completeReq['clientId']).toBeTruthy();
+
+    expect(mock.rateSession).toHaveBeenCalledTimes(1);
+    const rateReq = mock.rateSession.mock.calls[0][0] as Record<string, unknown>;
+    expect(rateReq['effort']).toBe(7);
+    expect(rateReq['focus']).toBe(6);
+    expect(rateReq['clientId']).toBe(completeReq['clientId']);
+    expect(rateReq['idempotencyKey']).not.toBe(completeReq['idempotencyKey']);
+    expect(mock.loadHistory).toHaveBeenCalledTimes(2);
+  });
+
+  it('never sends ratings when the first step fails', () => {
+    openSessionFixture(ReadingSessionStatus.AwaitingFeedback);
+    mock.completeSession.mockReturnValueOnce(throwError(() => new Error('complete failed')));
+    setInput('#session-feedback-minutes', '25');
+    setInput('#session-feedback-effort', '7');
+    setInput('#session-feedback-focus', '6');
+    clickButton('Log ratings');
+
+    expect(mock.completeSession).toHaveBeenCalledTimes(1);
+    expect(mock.rateSession).not.toHaveBeenCalled();
+    expect(mock.loadHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips ratings and reloads history', () => {
+    openSessionFixture(ReadingSessionStatus.AwaitingFeedback);
+    clickButton('Skip ratings');
+    expect(mock.skipRatings).toHaveBeenCalledTimes(1);
+    const req = mock.skipRatings.mock.calls[0][0] as { clientId: string; idempotencyKey: string };
+    expect(req.clientId).toBeTruthy();
+    expect(req.idempotencyKey).toBeTruthy();
+    expect(mock.loadHistory).toHaveBeenCalledTimes(2);
+  });
+
+  it('reloads history after today-session completion as well', () => {
+    openSessionFixture(ReadingSessionStatus.AwaitingFeedback);
+    setInput('input[aria-label="Actual minutes read"]', '30');
+    clickButton('Complete');
+    expect(mock.completeSession).toHaveBeenCalledTimes(1);
+    expect(mock.loadHistory).toHaveBeenCalledTimes(2);
+  });
+
+  it('previews the exact week through the GET endpoint and commits with a fresh key', () => {
+    mock.dashboard.set(initializedDashboard());
+    mock.currentWeek.set(weekSummary);
+    fixture.detectChanges();
+
+    clickButton('Review week');
+    expect(readingServiceMock.previewWeeklyReview).toHaveBeenCalledWith(2026, 33);
+
+    const dialog = fixture.nativeElement.querySelector('.dialog') as HTMLElement;
+    expect(dialog.getAttribute('role')).toBe('dialog');
+    expect(dialog.textContent).toContain('2026-W33');
+    expect(dialog.textContent).toContain('Increase target');
+    expect(dialog.textContent).toContain('40 → 45 min');
+    expect(dialog.textContent).toContain('67%');
+
+    // A failed commit keeps the dialog open; a later success closes it.
+    mock.commitWeeklyReview.mockReturnValueOnce(throwError(() => new Error('commit failed')));
+    clickDialogButton('Commit weekly review');
+    expect(mock.commitWeeklyReview).toHaveBeenCalledTimes(1);
+    expect(fixture.nativeElement.querySelector('.dialog')).toBeTruthy();
+
+    clickDialogButton('Commit weekly review');
+    expect(mock.commitWeeklyReview).toHaveBeenCalledTimes(2);
+    const req = mock.commitWeeklyReview.mock.calls[1][0] as Record<string, unknown>;
+    expect(req['year']).toBe(2026);
+    expect(req['week']).toBe(33);
+    expect(req['clientId']).toBeTruthy();
+    expect(req['idempotencyKey']).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.dialog')).toBeNull();
+  });
+
+  it('shows a preview error when the week cannot be previewed', () => {
+    readingServiceMock.previewWeeklyReview.mockReturnValueOnce(
+      throwError(() => new Error('preview down'))
+    );
+    mock.dashboard.set(initializedDashboard());
+    mock.currentWeek.set(weekSummary);
+    fixture.detectChanges();
+
+    clickButton('Review week');
+    const dialog = fixture.nativeElement.querySelector('.dialog') as HTMLElement;
+    expect(dialog.textContent).toContain("Unable to preview this week's review.");
+    // The dialog stays open so the reader can close it and try again.
+    expect(dialog).toBeTruthy();
+  });
+
+  it('keeps dialogs accessible and disables mutation controls while busy', () => {
+    mock.dashboard.set(initializedDashboard());
+    fixture.detectChanges();
+    clickButton('Capture');
+
+    const dialog = fixture.nativeElement.querySelector('.dialog') as HTMLElement;
+    expect(dialog.getAttribute('role')).toBe('dialog');
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(dialog.getAttribute('aria-labelledby')).toBeTruthy();
+    // Focus moves into the opened dialog for keyboard users.
+    expect(document.activeElement).toBe(dialog);
+
+    mock.mutating.set(true);
+    fixture.detectChanges();
+    const save = Array.from(dialog.querySelectorAll('button')).find(
+      (b) => (b as HTMLButtonElement).textContent?.trim() === 'Save capture'
+    ) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    // The close affordance stays available while a mutation is in flight.
+    const close = dialog.querySelector('button[aria-label="Close capture dialog"]') as HTMLButtonElement;
+    expect(close.disabled).toBe(false);
+
+    // No gamified language anywhere, dialogs included.
+    expect(fixture.nativeElement.textContent).not.toMatch(forbidden);
+  });
+
+  it('shows a polite loading region inside the note chooser until notes arrive', () => {
+    const notesSubject = new Subject<Note[]>();
+    notesMock.list.mockReturnValue(notesSubject);
+    mock.dashboard.set(initializedDashboard());
+    mock.inbox.set([capture]);
+    fixture.detectChanges();
+
+    clickButton('Promote to note');
+    let dialog = fixture.nativeElement.querySelector('.dialog') as HTMLElement;
+    expect(dialog.querySelector('[role="status"]')?.textContent).toContain('Loading notes…');
+
+    notesSubject.next([note1]);
+    notesSubject.complete();
+    fixture.detectChanges();
+    dialog = fixture.nativeElement.querySelector('.dialog') as HTMLElement;
+    expect(dialog.querySelector('[role="status"]')).toBeNull();
+    expect(dialog.textContent).toContain('First line of the note');
   });
 });
 

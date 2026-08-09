@@ -1,11 +1,36 @@
-import { Component, OnDestroy, OnInit, computed, inject } from '@angular/core';
-import { LucideAngularModule, BookOpenCheck, RefreshCw } from 'lucide-angular';
+import { Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { LucideAngularModule, BookOpenCheck, RefreshCw, X } from 'lucide-angular';
 import { Observable } from 'rxjs';
 
-import { ReadingMode, ReadingSessionStatus } from '../core/dtos/reading-training.dtos';
+import { Note } from '../core/dtos/note.dtos';
+import {
+  ReadingAssignmentStatus,
+  ReadingBookAssignment,
+  ReadingCapture,
+  ReadingConstraint,
+  ReadingMode,
+  ReadingSessionStatus,
+  ReadingWeekSummary,
+  ReadingWeeklyReview,
+} from '../core/dtos/reading-training.dtos';
+import { BooksService } from '../core/services/books.service';
+import { NotesService } from '../core/services/notes.service';
+import { ReadingTrainingService } from '../core/services/reading-training.service';
 import { ReadingTrainingStore } from './reading-training.store';
+import { ActiveBooksComponent, ActiveBooksReorderEvent } from './components/active-books/active-books.component';
+import {
+  AvailableBook,
+  BookAssignmentDraft,
+  BookAssignmentFormComponent,
+} from './components/book-assignment-form/book-assignment-form.component';
 import { CapacityLaneView, CapacityLanesComponent } from './components/capacity-lanes/capacity-lanes.component';
+import { CaptureDraft, CaptureFormComponent } from './components/capture-form/capture-form.component';
+import { ReadingInboxComponent } from './components/reading-inbox/reading-inbox.component';
+import { RateSessionDraft, SessionFeedbackComponent, SkipRatingsDraft } from './components/session-feedback/session-feedback.component';
+import { SessionHistoryComponent } from './components/session-history/session-history.component';
+import { SessionPlanDraft, SessionPlannerComponent, modeLabel } from './components/session-planner/session-planner.component';
 import { TodaySessionComponent } from './components/today-session/today-session.component';
+import { WeekStripComponent } from './components/week-strip/week-strip.component';
 
 /** Mode presentation facts; Recovery is volume-only by policy. */
 const MODE_LANES: ReadonlyArray<{ mode: ReadingMode; title: string; volumeOnly: boolean }> = [
@@ -14,31 +39,72 @@ const MODE_LANES: ReadonlyArray<{ mode: ReadingMode; title: string; volumeOnly: 
   { mode: ReadingMode.Recovery, title: 'Recovery', volumeOnly: true },
 ];
 
+/** Reader-facing labels for the backend's lowercase weekly-review decision kinds. */
+const DECISION_LABELS: Record<string, string> = {
+  increase: 'Increase target',
+  hold: 'Hold target',
+  deload: 'Deload',
+  consolidate: 'Consolidate',
+};
+
+function decisionLabel(kind: string): string {
+  return DECISION_LABELS[kind] ?? kind;
+}
+
+/** Parses an ISO "YYYY-Www" week key; returns null when unparseable. */
+function parseWeekKey(weekKey: string): { year: number; week: number } | null {
+  const match = /^(\d{4})-W(\d{1,2})$/i.exec(weekKey.trim());
+  if (!match) return null;
+  const year = Number(match[1]);
+  const week = Number(match[2]);
+  return week >= 1 && week <= 53 ? { year, week } : null;
+}
+
 /**
  * Reading Training page shell.
  *
  * Orchestration only: it connects the store for the route lifetime, renders
- * the store's signals (loading / error / not-initialized / initialized), and
- * forwards child-component events as typed store commands. The page owns
- * idempotency: a stable client id per page instance and a fresh idempotency
- * key generated once per user action. Mutations are never retried
- * automatically.
+ * the store's signals (loading / error / not-initialized / initialized) and
+ * the committed reading-training panels (week strip, lanes, today session,
+ * feedback, planner, active books, inbox, history), and forwards child-component
+ * events as typed store commands. The page owns idempotency: a stable client
+ * id per page instance and a fresh idempotency key generated once per user
+ * action. Mutations are never retried automatically; dialog/panel visibility
+ * is page-local UI state only and dialogs close on command success, never on
+ * failure. Read-only resources (inbox, history) load on connect and reload
+ * after the commands that change them.
  */
 @Component({
   standalone: true,
   selector: 'app-reading-training',
-  imports: [LucideAngularModule, CapacityLanesComponent, TodaySessionComponent],
+  imports: [
+    LucideAngularModule,
+    ActiveBooksComponent,
+    BookAssignmentFormComponent,
+    CapacityLanesComponent,
+    CaptureFormComponent,
+    ReadingInboxComponent,
+    SessionFeedbackComponent,
+    SessionHistoryComponent,
+    SessionPlannerComponent,
+    TodaySessionComponent,
+    WeekStripComponent,
+  ],
   templateUrl: './reading-training.component.html',
   styleUrl: './reading-training.component.css',
 })
 export class ReadingTrainingComponent implements OnInit, OnDestroy {
   readonly store = inject(ReadingTrainingStore);
+  private readonly booksService = inject(BooksService);
+  private readonly notesService = inject(NotesService);
+  private readonly readingService = inject(ReadingTrainingService);
 
   /** Stable UI client id for this page instance (never generated by store/service). */
   private readonly clientId = crypto.randomUUID();
 
   RefreshIcon = RefreshCw;
   SetupIcon = BookOpenCheck;
+  CloseIcon = X;
 
   /** Programme absent because the server reported `not_initialized`. */
   readonly notInitialized = computed(
@@ -87,8 +153,111 @@ export class ReadingTrainingComponent implements OnInit, OnDestroy {
     });
   });
 
+  // --- UI-only dialog / panel state (never sent to the server) ---
+
+  private readonly bookFormOpenState = signal(false);
+  private readonly bookFormModeState = signal<ReadingMode | null>(null);
+  private readonly availableBooksState = signal<AvailableBook[]>([]);
+  private readonly availableBooksLoadingState = signal(false);
+  private readonly availableBooksErrorState = signal<string | null>(null);
+
+  private readonly plannerOpenState = signal(false);
+
+  private readonly captureOpenState = signal(false);
+
+  private readonly chooserOpenState = signal(false);
+  private readonly chooserCaptureState = signal<ReadingCapture | null>(null);
+  private readonly chooserNotesState = signal<Note[]>([]);
+  private readonly chooserNotesLoadingState = signal(false);
+  private readonly chooserNotesErrorState = signal<string | null>(null);
+  private readonly chooserNoteIdState = signal('');
+
+  private readonly reviewOpenState = signal(false);
+  private readonly reviewState = signal<ReadingWeeklyReview | null>(null);
+  private readonly reviewLoadingState = signal(false);
+  private readonly reviewErrorState = signal<string | null>(null);
+  private readonly reviewWeekState = signal<{ year: number; week: number } | null>(null);
+
+  readonly bookFormOpen = this.bookFormOpenState.asReadonly();
+  readonly bookFormMode = this.bookFormModeState.asReadonly();
+  readonly availableBooks = this.availableBooksState.asReadonly();
+  readonly availableBooksLoading = this.availableBooksLoadingState.asReadonly();
+  readonly availableBooksError = this.availableBooksErrorState.asReadonly();
+
+  readonly plannerOpen = this.plannerOpenState.asReadonly();
+  readonly captureOpen = this.captureOpenState.asReadonly();
+
+  readonly chooserOpen = this.chooserOpenState.asReadonly();
+  readonly chooserCapture = this.chooserCaptureState.asReadonly();
+  readonly chooserNotes = this.chooserNotesState.asReadonly();
+  readonly chooserNotesLoading = this.chooserNotesLoadingState.asReadonly();
+  readonly chooserNotesError = this.chooserNotesErrorState.asReadonly();
+  readonly chooserNoteId = this.chooserNoteIdState.asReadonly();
+
+  readonly reviewOpen = this.reviewOpenState.asReadonly();
+  readonly review = this.reviewState.asReadonly();
+  readonly reviewLoading = this.reviewLoadingState.asReadonly();
+  readonly reviewError = this.reviewErrorState.asReadonly();
+
+  // --- derived projections ---
+
+  /** The feedback form is shown only while the open session awaits ratings. */
+  readonly sessionAwaitingFeedback = computed(
+    () => this.openSession()?.status === ReadingSessionStatus.AwaitingFeedback
+  );
+
+  /** The planner is visible only with no open session and after an explicit open. */
+  readonly plannerVisible = computed(() => this.plannerOpenState() && !this.openSession());
+
+  /** Assignments eligible for a new session: Active/Queued, in queue order. */
+  readonly plannerBooks = computed<ReadingBookAssignment[]>(() =>
+    this.store
+      .books()
+      .filter(
+        (book) =>
+          book.status === ReadingAssignmentStatus.Active || book.status === ReadingAssignmentStatus.Queued
+      )
+      .sort((a, b) => a.queueOrder - b.queueOrder)
+  );
+
+  /** Library bookId -> title map for the inbox, derived from store books only. */
+  readonly bookTitles = computed<Record<string, string>>(() => {
+    const titles: Record<string, string> = {};
+    for (const book of this.store.books()) {
+      if (book.bookTitle) titles[book.bookId] = book.bookTitle;
+    }
+    return titles;
+  });
+
+  /** Dialog elements (focused when their dialog opens; no focus trap). */
+  private readonly bookFormDialogEl = viewChild<ElementRef<HTMLElement>>('bookFormDialog');
+  private readonly captureDialogEl = viewChild<ElementRef<HTMLElement>>('captureDialog');
+  private readonly chooserDialogEl = viewChild<ElementRef<HTMLElement>>('chooserDialog');
+  private readonly reviewDialogEl = viewChild<ElementRef<HTMLElement>>('reviewDialog');
+
+  constructor() {
+    // Once a real open session exists the planner closes permanently; it only
+    // ever reappears through an explicit user action.
+    effect(() => {
+      if (this.openSession() !== null) this.plannerOpenState.set(false);
+    });
+
+    // Move focus into an opened dialog so keyboard users land on it. Closing
+    // never steals focus (the closed dialog element is gone by then).
+    effect(() => {
+      this.focusDialog(this.bookFormDialogEl(), this.bookFormOpen());
+      this.focusDialog(this.captureDialogEl(), this.captureOpen());
+      this.focusDialog(this.chooserDialogEl(), this.chooserOpen());
+      this.focusDialog(this.reviewDialogEl(), this.reviewOpen());
+    });
+  }
+
   ngOnInit(): void {
     this.store.connect();
+    // Read-only resources: load once on connect; failures keep the last good
+    // data and are surfaced through store.error (swallowed subscriptions).
+    this.store.loadInbox().subscribe({ error: () => void 0 });
+    this.store.loadHistory().subscribe({ error: () => void 0 });
   }
 
   ngOnDestroy(): void {
@@ -123,8 +292,10 @@ export class ReadingTrainingComponent implements OnInit, OnDestroy {
   }
 
   onComplete(reportedMinutes?: number): void {
-    this.runAction((key) =>
-      this.store.completeSession({ clientId: this.clientId, idempotencyKey: key, reportedMinutes })
+    this.runAction(
+      (key) =>
+        this.store.completeSession({ clientId: this.clientId, idempotencyKey: key, reportedMinutes }),
+      () => this.reloadHistory()
     );
   }
 
@@ -132,12 +303,346 @@ export class ReadingTrainingComponent implements OnInit, OnDestroy {
     this.runAction((key) => this.store.cancelSession({ clientId: this.clientId, idempotencyKey: key }));
   }
 
+  // --- session feedback (AwaitingFeedback only) ---
+
+  /**
+   * Two-step rate flow: first report the actual minutes through
+   * `completeSession`, then — only on its success — send effort/focus through
+   * `rateSession`. Each step gets its own fresh idempotency key; nothing is
+   * retried or optimistically applied, and the server stays authoritative.
+   */
+  onRate(draft: RateSessionDraft): void {
+    const session = this.openSession();
+    if (!session || session.id !== draft.sessionId) return;
+    this.store
+      .completeSession({
+        clientId: this.clientId,
+        idempotencyKey: crypto.randomUUID(),
+        reportedMinutes: draft.reportedMinutes,
+      })
+      .subscribe({
+        next: () => {
+          this.store
+            .rateSession({
+              clientId: this.clientId,
+              idempotencyKey: crypto.randomUUID(),
+              effort: draft.effort,
+              focus: draft.focus,
+            })
+            .subscribe({
+              next: () => this.reloadHistory(),
+              error: () => void 0,
+            });
+        },
+        error: () => void 0,
+      });
+  }
+
+  onSkip(draft: SkipRatingsDraft): void {
+    const session = this.openSession();
+    if (!session || session.id !== draft.sessionId) return;
+    this.runAction(
+      (key) => this.store.skipRatings({ clientId: this.clientId, idempotencyKey: key }),
+      () => this.reloadHistory()
+    );
+  }
+
+  // --- active books ---
+
+  /**
+   * Opens the book-assignment dialog for one mode and loads the real library
+   * catalogue through BooksService (never invented client-side).
+   */
+  onAddRequested(mode: ReadingMode): void {
+    this.bookFormModeState.set(mode);
+    this.bookFormOpenState.set(true);
+    this.loadAvailableBooks();
+  }
+
+  loadAvailableBooks(): void {
+    this.availableBooksState.set([]);
+    this.availableBooksErrorState.set(null);
+    this.availableBooksLoadingState.set(true);
+    this.booksService.list({ page: 1, pageSize: 100 }).subscribe({
+      next: (page) => {
+        this.availableBooksLoadingState.set(false);
+        this.availableBooksState.set(
+          page.items.map((book) => ({ bookId: book.id, title: book.title, author: book.author }))
+        );
+      },
+      error: () => {
+        this.availableBooksLoadingState.set(false);
+        this.availableBooksErrorState.set('Unable to load the library book list.');
+      },
+    });
+  }
+
+  closeBookForm(): void {
+    this.bookFormOpenState.set(false);
+  }
+
+  onAddBook(draft: BookAssignmentDraft): void {
+    this.runAction(
+      (key) =>
+        this.store.addBook({
+          clientId: this.clientId,
+          idempotencyKey: key,
+          bookId: draft.bookId,
+          mode: draft.mode,
+          makeDefault: draft.makeDefault,
+        }),
+      () => this.bookFormOpenState.set(false)
+    );
+  }
+
+  onSetDefault(book: ReadingBookAssignment): void {
+    this.runAction((key) =>
+      this.store.setDefaultBook({
+        clientId: this.clientId,
+        idempotencyKey: key,
+        bookAssignmentId: book.id,
+        mode: book.mode,
+      })
+    );
+  }
+
+  onFinish(book: ReadingBookAssignment): void {
+    this.runAction((key) =>
+      this.store.completeBook({ clientId: this.clientId, idempotencyKey: key, bookAssignmentId: book.id })
+    );
+  }
+
+  onReorder(event: ActiveBooksReorderEvent): void {
+    this.runAction((key) =>
+      this.store.reorderQueue({ clientId: this.clientId, idempotencyKey: key, assignmentIds: event.assignmentIds })
+    );
+  }
+
+  // --- session planner ---
+
+  openPlanner(): void {
+    this.plannerOpenState.set(true);
+  }
+
+  closePlanner(): void {
+    this.plannerOpenState.set(false);
+  }
+
+  /** Plan uses the constrained minutes when a constraint applies, else the target. */
+  onPlan(draft: SessionPlanDraft): void {
+    this.runAction((key) =>
+      this.store.planSession({
+        clientId: this.clientId,
+        idempotencyKey: key,
+        bookAssignmentId: draft.bookAssignmentId,
+        mode: draft.mode,
+        targetMinutes: draft.constrainedMinutes ?? draft.targetMinutes,
+        constraint: draft.constraint !== ReadingConstraint.None ? draft.constraint : undefined,
+      })
+    );
+  }
+
+  /** Start-now drops target/constraint and sends only the assignment + mode. */
+  onStartNew(draft: SessionPlanDraft): void {
+    this.runAction((key) =>
+      this.store.startNewSession({
+        clientId: this.clientId,
+        idempotencyKey: key,
+        bookAssignmentId: draft.bookAssignmentId,
+        mode: draft.mode,
+      })
+    );
+  }
+
+  // --- capture form ---
+
+  openCapture(): void {
+    this.captureOpenState.set(true);
+  }
+
+  closeCapture(): void {
+    this.captureOpenState.set(false);
+  }
+
+  /** Verbatim text; enriches the request with the open session's book/session. */
+  onCapture(draft: CaptureDraft): void {
+    const session = this.openSession();
+    this.runAction(
+      (key) =>
+        this.store.capture({
+          clientId: this.clientId,
+          idempotencyKey: key,
+          text: draft.text,
+          type: draft.type,
+          ...(session ? { bookId: session.bookId, sessionId: session.id } : {}),
+        }),
+      () => {
+        this.captureOpenState.set(false);
+        this.reloadInbox();
+      }
+    );
+  }
+
+  // --- inbox: resolve (dismiss/keep) and promote ---
+
+  onDismissCapture(capture: ReadingCapture): void {
+    this.runAction(
+      (key) =>
+        this.store.resolveCapture(capture.id, {
+          clientId: this.clientId,
+          idempotencyKey: key,
+          keep: false,
+        }),
+      () => this.reloadInbox()
+    );
+  }
+
+  onKeepCapture(capture: ReadingCapture): void {
+    this.runAction(
+      (key) =>
+        this.store.resolveCapture(capture.id, {
+          clientId: this.clientId,
+          idempotencyKey: key,
+          keep: true,
+        }),
+      () => this.reloadInbox()
+    );
+  }
+
+  /** Opens the note chooser and loads the capture book's real notes. */
+  onPromoteCapture(capture: ReadingCapture): void {
+    this.chooserCaptureState.set(capture);
+    this.chooserNoteIdState.set('');
+    this.chooserOpenState.set(true);
+    this.loadChooserNotes(capture.bookId);
+  }
+
+  loadChooserNotes(bookId: string): void {
+    this.chooserNotesState.set([]);
+    this.chooserNotesErrorState.set(null);
+    this.chooserNotesLoadingState.set(true);
+    this.notesService.list(bookId).subscribe({
+      next: (notes) => {
+        this.chooserNotesLoadingState.set(false);
+        this.chooserNotesState.set(notes);
+      },
+      error: () => {
+        this.chooserNotesLoadingState.set(false);
+        this.chooserNotesErrorState.set('Unable to load notes for this book.');
+      },
+    });
+  }
+
+  closeChooser(): void {
+    this.chooserOpenState.set(false);
+  }
+
+  onChooserNoteChange(event: Event): void {
+    this.chooserNoteIdState.set((event.target as HTMLSelectElement).value);
+  }
+
+  /** Requires an existing note id; the server remains authoritative. */
+  onPromoteNote(): void {
+    const capture = this.chooserCaptureState();
+    const noteId = this.chooserNoteIdState();
+    if (!capture || noteId === '') return;
+    this.runAction(
+      (key) =>
+        this.store.promoteCapture(capture.id, { clientId: this.clientId, idempotencyKey: key, noteId }),
+      () => {
+        this.chooserOpenState.set(false);
+        this.reloadInbox();
+      }
+    );
+  }
+
+  noteLabel(note: Note): string {
+    const firstLine = note.content.split('\n')[0].trim();
+    return firstLine === '' ? 'Untitled note' : firstLine;
+  }
+
+  // --- weekly review ---
+
+  /** Parses the exact "YYYY-Www" key and previews that week via the GET endpoint. */
+  onReviewRequested(week: ReadingWeekSummary): void {
+    const parsed = parseWeekKey(week.weekKey);
+    if (!parsed) return;
+    this.reviewWeekState.set(parsed);
+    this.reviewState.set(null);
+    this.reviewErrorState.set(null);
+    this.reviewOpenState.set(true);
+    this.reviewLoadingState.set(true);
+    this.readingService.previewWeeklyReview(parsed.year, parsed.week).subscribe({
+      next: (result) => {
+        this.reviewLoadingState.set(false);
+        if (!result.data) {
+          this.reviewErrorState.set('No weekly review data is available for that week yet.');
+          return;
+        }
+        this.reviewState.set(result.data);
+      },
+      error: () => {
+        this.reviewLoadingState.set(false);
+        this.reviewErrorState.set("Unable to preview this week's review.");
+      },
+    });
+  }
+
+  closeReview(): void {
+    this.reviewOpenState.set(false);
+  }
+
+  onCommitWeeklyReview(): void {
+    const week = this.reviewWeekState();
+    if (!week) return;
+    this.runAction(
+      (key) =>
+        this.store.commitWeeklyReview({
+          clientId: this.clientId,
+          idempotencyKey: key,
+          year: week.year,
+          week: week.week,
+        }),
+      () => this.reviewOpenState.set(false)
+    );
+  }
+
+  modeLabel(mode: ReadingMode): string {
+    return modeLabel(mode);
+  }
+
+  decisionLabel(kind: string): string {
+    return decisionLabel(kind);
+  }
+
+  completionRatePercent(rate: number): string {
+    return `${Math.round(rate * 100)}%`;
+  }
+
+  // --- internals ---
+
+  private reloadInbox(): void {
+    this.store.loadInbox().subscribe({ error: () => void 0 });
+  }
+
+  private reloadHistory(): void {
+    this.store.loadHistory().subscribe({ error: () => void 0 });
+  }
+
+  private focusDialog(el: ElementRef<HTMLElement> | undefined, opened: boolean): void {
+    if (opened && el) el.nativeElement.focus();
+  }
+
   /**
    * Dispatches one user action with a fresh idempotency key, generated here —
    * once per action — never by the store or service. Command failures are
    * surfaced by the store's error/lastReply signals; nothing is retried.
+   * `onSuccess` runs only after the command's authoritative refresh.
    */
-  private runAction(invoke: (idempotencyKey: string) => Observable<unknown>): void {
-    invoke(crypto.randomUUID()).subscribe({ error: () => void 0 });
+  private runAction(invoke: (idempotencyKey: string) => Observable<unknown>, onSuccess?: () => void): void {
+    invoke(crypto.randomUUID()).subscribe({
+      next: () => onSuccess?.(),
+      error: () => void 0,
+    });
   }
 }
