@@ -123,10 +123,16 @@ public record ReadingPromoteCaptureRequest(
 );
 
 // --- WEEKLY REVIEW ---
+public record ReadingWeeklyReviewRequest(
+    int Year,
+    int Week
+);
+
 public record ReadingCommitWeeklyReviewRequest(
     string ClientId,
     string IdempotencyKey,
-    string? WeekKey = null
+    int Year,
+    int Week
 );
 
 // --- NOTIFICATION OUTBOX ---
@@ -224,6 +230,34 @@ public record ReadingReviewDecisionDto(
     int TargetAfterMinutes,
     string DecisionKind,
     string Reason
+);
+
+// Semantic weekly review result shared by the read-only preview and the
+// exact-once commit. Committed reviews expose the persisted StateVersionAfter;
+// previews expose the current state version with Committed = false.
+public record ReadingWeeklyReviewDto(
+    string WeekKey,
+    int IsoYear,
+    int IsoWeek,
+    bool Committed,
+    DateTime? CommittedAt,
+    int TotalVolumeMinutes,
+    int PreviousWeekVolumeMinutes,
+    IReadOnlyList<ReadingModeReviewDto> Modes,
+    string StateVersion
+);
+
+public record ReadingModeReviewDto(
+    ReadingMode Mode,
+    int TargetBeforeMinutes,
+    int TargetAfterMinutes,
+    string DecisionKind,
+    string Reason,
+    int QualifyingCount,
+    double CompletionRate,
+    int? MedianEffort,
+    int? MedianFocus,
+    int NextConsecutiveIncreases
 );
 
 public record ReadingCaptureDto(

@@ -151,6 +151,22 @@ public static class ReadingReplyFormatter
     public static string History(int count) =>
         $"History: {count} session(s).";
 
+    // --- weekly review ---
+    public static string InvalidWeek(int year, int week) =>
+        $"Week {year}-W{week:00} is not a valid ISO week.";
+
+    public static string WeekPreview(string weekKey, IReadOnlyList<ReadingProgressionResult> results) =>
+        $"Week {weekKey} preview — {WeekModesSummary(results)}.";
+
+    public static string WeekCommitted(string weekKey, IReadOnlyList<ReadingProgressionResult> results) =>
+        $"Week {weekKey} committed — {WeekModesSummary(results)}.";
+
+    public static string WeekAlreadyCommitted(string weekKey) =>
+        $"Week {weekKey} was already reviewed.";
+
+    private static string WeekModesSummary(IReadOnlyList<ReadingProgressionResult> results) =>
+        string.Join(" · ", results.Select(r => $"{ModeLabel(r.Mode)} {r.TargetBeforeMinutes}→{r.TargetAfterMinutes}"));
+
     // --- mode words ---
     public static string ModeWord(ReadingMode mode) => mode switch
     {

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Configuration;
@@ -13,10 +14,13 @@ public sealed class ReadingTrainingService : IReadingTrainingService
 {
     private static readonly SemaphoreSlim CommandGate = new(1, 1);
     private static readonly JsonSerializerOptions ReceiptJson = CreateReceiptJson();
+    private static readonly ReadingMode[] ReadingModeValues =
+        [ReadingMode.Endurance, ReadingMode.Deep, ReadingMode.Recovery];
 
     private readonly IDbContextFactory<NostosDbContext> _contexts;
     private readonly IReadingClock _clock;
     private readonly ReadingTrainingOptions _options;
+    private readonly TimeZoneInfo _timezone;
 
     public ReadingTrainingService(
         IDbContextFactory<NostosDbContext> contexts,
@@ -26,6 +30,7 @@ public sealed class ReadingTrainingService : IReadingTrainingService
         _contexts = contexts;
         _clock = clock;
         _options = options ?? new ReadingTrainingOptions();
+        _timezone = ResolveTimezone(_options.TimezoneId);
     }
 
     public Task<ReadingCommandResultDto> InitializeProgrammeAsync(
@@ -386,6 +391,90 @@ public sealed class ReadingTrainingService : IReadingTrainingService
             return Outcome.Changed(Result(ReadingReplyFormatter.Cancelled, ToDto(session), programme.StateVersion));
         }, ct);
 
+    public async Task<ReadingCommandResultDto> PreviewWeeklyReviewAsync(
+        ReadingWeeklyReviewRequest request, CancellationToken ct = default)
+    {
+        await using var db = await _contexts.CreateDbContextAsync(ct);
+        var programme = await db.ReadingProgrammes.AsNoTracking().SingleOrDefaultAsync(ct);
+        if (programme is null) return Failure("not_initialized", "Reading training is not initialized.");
+        var localMonday = ValidateWeek(request.Year, request.Week);
+        if (localMonday is null)
+            return Failure("invalid_week", ReadingReplyFormatter.InvalidWeek(request.Year, request.Week), programme.StateVersion);
+
+        var evaluation = await EvaluateWeekAsync(db, programme, request.Year, request.Week, localMonday.Value, ct);
+        var dto = ToPreviewDto(evaluation.WeekKey, request.Year, request.Week, evaluation, programme.StateVersion);
+        return Result(ReadingReplyFormatter.WeekPreview(evaluation.WeekKey, evaluation.Results), dto, programme.StateVersion);
+    }
+
+    public Task<ReadingCommandResultDto> CommitWeeklyReviewAsync(
+        ReadingCommitWeeklyReviewRequest request, CancellationToken ct = default) =>
+        MutateAsync(request.ClientId, request.IdempotencyKey, "CommitWeeklyReview", async (db, token) =>
+        {
+            var programme = await ProgrammeAsync(db, token);
+            if (programme is null) return Outcome.Unchanged(Failure("not_initialized", "Reading training is not initialized."));
+            var localMonday = ValidateWeek(request.Year, request.Week);
+            if (localMonday is null)
+                return Outcome.Unchanged(Failure("invalid_week", ReadingReplyFormatter.InvalidWeek(request.Year, request.Week), programme.StateVersion));
+
+            var weekKey = WeekKey(request.Year, request.Week);
+            var existing = await db.ReadingWeeklyReviews.AsNoTracking()
+                .Include(r => r.Decisions)
+                .SingleOrDefaultAsync(r => r.WeekKey == weekKey, token);
+            if (existing is not null)
+                return Outcome.Unchanged(Result(
+                    ReadingReplyFormatter.WeekAlreadyCommitted(weekKey), ToDto(existing), programme.StateVersion));
+
+            var evaluation = await EvaluateWeekAsync(db, programme, request.Year, request.Week, localMonday.Value, token);
+
+            var review = new ReadingWeeklyReview
+            {
+                WeekKey = weekKey,
+                CommittedAt = Now,
+                TotalVolumeMinutes = evaluation.TotalVolumeMinutes,
+                PreviousWeekVolumeMinutes = evaluation.PreviousWeekVolumeMinutes,
+            };
+            foreach (var result in evaluation.Results)
+            {
+                review.Decisions.Add(new ReadingModeDecision
+                {
+                    Mode = result.Mode,
+                    TargetBeforeMinutes = result.TargetBeforeMinutes,
+                    TargetAfterMinutes = result.TargetAfterMinutes,
+                    DecisionKind = result.DecisionKind,
+                    Reason = result.Reason,
+                    QualifyingCount = result.QualifyingCount,
+                    CompletionRate = result.CompletionRate,
+                    MedianEffort = result.MedianEffort,
+                    MedianFocus = result.MedianFocus,
+                    NextConsecutiveIncreases = result.NextConsecutiveIncreases,
+                });
+            }
+            db.ReadingWeeklyReviews.Add(review);
+
+            foreach (var result in evaluation.Results)
+            {
+                switch (result.Mode)
+                {
+                    case ReadingMode.Endurance:
+                        programme.EnduranceTargetMinutes = result.TargetAfterMinutes;
+                        programme.EnduranceConsecutiveIncreases = result.NextConsecutiveIncreases;
+                        break;
+                    case ReadingMode.Deep:
+                        programme.DeepTargetMinutes = result.TargetAfterMinutes;
+                        programme.DeepConsecutiveIncreases = result.NextConsecutiveIncreases;
+                        break;
+                    // Recovery is completed-volume-only: its target and
+                    // counter are deliberately left untouched.
+                }
+            }
+
+            var versionAfter = NextVersion(programme.StateVersion);
+            review.StateVersionAfter = versionAfter;
+            return Outcome.Changed(Result(
+                ReadingReplyFormatter.WeekCommitted(weekKey, evaluation.Results),
+                ToDto(review), versionAfter));
+        }, ct);
+
     public Task<ReadingCommandResultDto> CaptureAsync(
         ReadingCaptureRequest request, CancellationToken ct = default) =>
         MutateAsync(request.ClientId, request.IdempotencyKey, "Capture", async (db, token) =>
@@ -587,6 +676,145 @@ public sealed class ReadingTrainingService : IReadingTrainingService
 
     private static int EffectiveMinutes(ReadingSession session) =>
         session.ReportedMinutes ?? Math.Max(0, (int)Math.Round(session.AccumulatedSeconds / 60.0, MidpointRounding.AwayFromZero));
+
+    // --- weekly review helpers -------------------------------------------------
+
+    // Server-authoritative effective minutes for weekly volume and evidence:
+    // ReportedMinutes overrides the accumulated measured minutes, floored to
+    // whole minutes (the policy contract's definition).
+    private static int EffectiveFloorMinutes(ReadingSession session) =>
+        session.ReportedMinutes ?? Math.Max(0, (int)Math.Floor(session.AccumulatedSeconds / 60.0));
+
+    private static string WeekKey(int isoYear, int week) => $"{isoYear}-W{week:00}";
+
+    private static int IsoYearOf(string weekKey)
+    {
+        var dash = weekKey.IndexOf('-');
+        return dash > 0 && int.TryParse(weekKey[..dash], out var year) ? year : 0;
+    }
+
+    private static int IsoWeekOf(string weekKey)
+    {
+        var dash = weekKey.IndexOf('-');
+        return dash >= 0 && weekKey.Length > dash + 2 && int.TryParse(weekKey[(dash + 2)..], out var week) ? week : 0;
+    }
+
+    // The requested ISO week's Monday 00:00 in the configured timezone,
+    // converted to UTC; null when the (year, week) pair is not a valid ISO
+    // week. The previous week's start is the same local Monday minus 7 days,
+    // converted separately, so DST transitions never shift the boundary.
+    private DateTime? ValidateWeek(int year, int week)
+    {
+        if (year < 1 || week < 1 || week > ISOWeek.GetWeeksInYear(year)) return null;
+        return ISOWeek.ToDateTime(year, week, DayOfWeek.Monday);
+    }
+
+    private DateTime ToUtc(DateTime local) =>
+        TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(local, DateTimeKind.Unspecified), _timezone);
+
+    private static TimeZoneInfo ResolveTimezone(string id)
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(id);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Europe/Stockholm");
+        }
+        catch (InvalidTimeZoneException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Europe/Stockholm");
+        }
+    }
+
+    // Completed sessions of the requested week (all modes) with the previous
+    // ISO week's completed volume, evaluated per mode by the pure policy.
+    private async Task<WeekEvaluation> EvaluateWeekAsync(
+        NostosDbContext db,
+        ReadingProgramme programme,
+        int isoYear,
+        int isoWeek,
+        DateTime localMonday,
+        CancellationToken ct)
+    {
+        var weekStartUtc = ToUtc(localMonday);
+        var weekEndUtc = ToUtc(localMonday.AddDays(7));
+        var previousStartUtc = ToUtc(localMonday.AddDays(-7));
+
+        var completed = await db.ReadingSessions.AsNoTracking()
+            .Where(s => s.Status == ReadingSessionStatus.Completed && s.CompletedAt != null
+                && s.CompletedAt >= weekStartUtc && s.CompletedAt < weekEndUtc)
+            .ToListAsync(ct);
+        var previous = await db.ReadingSessions.AsNoTracking()
+            .Where(s => s.Status == ReadingSessionStatus.Completed && s.CompletedAt != null
+                && s.CompletedAt >= previousStartUtc && s.CompletedAt < weekStartUtc)
+            .ToListAsync(ct);
+
+        var previousVolume = previous.Sum(EffectiveFloorMinutes);
+        var sessions = completed.Select(ToProgressionSession).ToList();
+        var results = ReadingModeValues
+            .Select(mode => ReadingProgressionPolicy.Evaluate(new ReadingProgressionInput(
+                mode,
+                TargetFor(programme, mode),
+                EstablishedFor(programme, mode),
+                previousVolume,
+                ConsecutiveIncreasesFor(programme, mode),
+                sessions)))
+            .ToList();
+        return new WeekEvaluation(WeekKey(isoYear, isoWeek), previousVolume, results);
+    }
+
+    private static ReadingProgressionSession ToProgressionSession(ReadingSession session) => new(
+        session.Mode, session.Status, session.Constraint, session.PlannedTargetMinutes,
+        session.AccumulatedSeconds, session.ReportedMinutes, session.Effort, session.Focus,
+        session.RatingsSkipped);
+
+    private static int EstablishedFor(ReadingProgramme programme, ReadingMode mode) => mode switch
+    {
+        ReadingMode.Deep => programme.DeepEstablishedMinutes,
+        ReadingMode.Recovery => programme.RecoveryEstablishedMinutes,
+        _ => programme.EnduranceEstablishedMinutes,
+    };
+
+    private static int ConsecutiveIncreasesFor(ReadingProgramme programme, ReadingMode mode) => mode switch
+    {
+        ReadingMode.Deep => programme.DeepConsecutiveIncreases,
+        ReadingMode.Recovery => 0, // Recovery never increases and has no counter
+        _ => programme.EnduranceConsecutiveIncreases,
+    };
+
+    private static ReadingWeeklyReviewDto ToPreviewDto(
+        string weekKey, int isoYear, int isoWeek, WeekEvaluation evaluation, string stateVersion) => new(
+        weekKey, isoYear, isoWeek, Committed: false, null,
+        evaluation.TotalVolumeMinutes, evaluation.PreviousWeekVolumeMinutes,
+        evaluation.Results.Select(ToDto).ToList(), stateVersion);
+
+    private static ReadingWeeklyReviewDto ToDto(ReadingWeeklyReview review) => new(
+        review.WeekKey, IsoYearOf(review.WeekKey), IsoWeekOf(review.WeekKey),
+        Committed: true, review.CommittedAt,
+        review.TotalVolumeMinutes, review.PreviousWeekVolumeMinutes,
+        review.Decisions.OrderBy(d => (int)d.Mode).Select(ToDto).ToList(),
+        review.StateVersionAfter);
+
+    private static ReadingModeReviewDto ToDto(ReadingProgressionResult result) => new(
+        result.Mode, result.TargetBeforeMinutes, result.TargetAfterMinutes, result.DecisionKind,
+        result.Reason, result.QualifyingCount, result.CompletionRate, result.MedianEffort,
+        result.MedianFocus, result.NextConsecutiveIncreases);
+
+    private static ReadingModeReviewDto ToDto(ReadingModeDecision decision) => new(
+        decision.Mode, decision.TargetBeforeMinutes, decision.TargetAfterMinutes, decision.DecisionKind,
+        decision.Reason, decision.QualifyingCount, decision.CompletionRate, decision.MedianEffort,
+        decision.MedianFocus, decision.NextConsecutiveIncreases);
+
+    private readonly record struct WeekEvaluation(
+        string WeekKey,
+        int PreviousWeekVolumeMinutes,
+        IReadOnlyList<ReadingProgressionResult> Results)
+    {
+        // The policy computes the same all-mode weekly volume for every mode.
+        public int TotalVolumeMinutes => Results[0].TotalVolumeMinutes;
+    }
 
     private static ReadingCaptureDto ToDto(ReadingCapture capture) => new(
         capture.Id, capture.Text, capture.Type, capture.BookId, capture.SessionId,

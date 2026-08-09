@@ -180,24 +180,19 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // Unique committed review per completed ISO week and mode.
+        // One immutable committed review per completed ISO week.
         modelBuilder.Entity<ReadingWeeklyReview>(e =>
         {
-            e.HasIndex(r => new { r.WeekKey, r.Mode }).IsUnique();
+            e.HasIndex(r => r.WeekKey).IsUnique();
             e.HasMany(r => r.Decisions)
                 .WithOne(d => d.WeeklyReview)
                 .HasForeignKey(d => d.WeeklyReviewId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<ReadingModeDecision>(e =>
-        {
-            e.HasIndex(d => d.SessionId);
-            e.HasOne(d => d.Session)
-                .WithMany()
-                .HasForeignKey(d => d.SessionId)
-                .OnDelete(DeleteBehavior.SetNull);
-        });
+        // Per-mode policy outcomes under a weekly review; the WeeklyReviewId
+        // FK index is created by convention.
+        modelBuilder.Entity<ReadingModeDecision>();
 
         modelBuilder.Entity<ReadingNotification>(e =>
         {

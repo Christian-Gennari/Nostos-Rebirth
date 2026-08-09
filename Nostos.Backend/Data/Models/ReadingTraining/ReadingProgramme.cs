@@ -30,7 +30,11 @@ public class ReadingProgramme
     public int DeepEstablishedMinutes { get; set; } = 30;
     public int RecoveryEstablishedMinutes { get; set; } = 20;
 
-    public int ConsolidationWeeks { get; set; }
+    // Consecutive weekly increases carried per mode (Recovery never increases
+    // and has no counter). Two consecutive increases make the next
+    // otherwise-good week a consolidation hold.
+    public int EnduranceConsecutiveIncreases { get; set; }
+    public int DeepConsecutiveIncreases { get; set; }
 
     public bool DeloadActive { get; set; }
     public DateTime? DeloadStartedAt { get; set; }

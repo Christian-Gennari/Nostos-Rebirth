@@ -282,41 +282,33 @@ public class ReadingTrainingModelTests : IClassFixture<ReadingTrainingSqliteFixt
     }
 
     [Fact]
-    public async Task Weekly_review_is_unique_per_iso_week_and_mode()
+    public async Task Weekly_review_is_unique_per_iso_week()
     {
         await using var db = _fixture.CreateContext();
         db.ReadingWeeklyReviews.Add(new ReadingWeeklyReview
         {
             WeekKey = "2026-W32",
-            Mode = ReadingMode.Deep,
-            DecisionKind = "Hold",
         });
         await db.SaveChangesAsync();
 
         db.ReadingWeeklyReviews.Add(new ReadingWeeklyReview
         {
             WeekKey = "2026-W32",
-            Mode = ReadingMode.Deep,
-            DecisionKind = "Hold",
         });
         await Saving(db).Should().ThrowAsync<DbUpdateException>();
     }
 
     [Fact]
-    public async Task Weekly_reviews_for_different_modes_in_same_week_may_coexist()
+    public async Task Weekly_reviews_for_different_weeks_may_coexist()
     {
         await using var db = _fixture.CreateContext();
         db.ReadingWeeklyReviews.Add(new ReadingWeeklyReview
         {
             WeekKey = "2026-W32",
-            Mode = ReadingMode.Deep,
-            DecisionKind = "Hold",
         });
         db.ReadingWeeklyReviews.Add(new ReadingWeeklyReview
         {
-            WeekKey = "2026-W32",
-            Mode = ReadingMode.Endurance,
-            DecisionKind = "Promote",
+            WeekKey = "2026-W33",
         });
         await db.SaveChangesAsync();
 

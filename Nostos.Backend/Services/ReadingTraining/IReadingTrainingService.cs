@@ -35,6 +35,12 @@ public interface IReadingTrainingService
     Task<ReadingCommandResultDto> SkipRatingsAsync(ReadingSkipRatingsRequest request, CancellationToken ct = default);
     Task<ReadingCommandResultDto> CancelSessionAsync(ReadingSessionCommandRequest request, CancellationToken ct = default);
 
+    // --- weekly review ---
+    Task<ReadingCommandResultDto> PreviewWeeklyReviewAsync(
+        ReadingWeeklyReviewRequest request, CancellationToken ct = default);
+    Task<ReadingCommandResultDto> CommitWeeklyReviewAsync(
+        ReadingCommitWeeklyReviewRequest request, CancellationToken ct = default);
+
     // --- captures / inbox ---
     Task<ReadingCommandResultDto> CaptureAsync(ReadingCaptureRequest request, CancellationToken ct = default);
     Task<ReadingCommandResultDto> ListInboxAsync(CancellationToken ct = default);
