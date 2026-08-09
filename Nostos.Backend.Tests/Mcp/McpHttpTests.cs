@@ -220,10 +220,11 @@ public sealed class McpHttpTests
         var serverInfo = result.GetProperty("serverInfo");
         serverInfo.GetProperty("name").GetString().Should().Be("nostos");
         serverInfo.GetProperty("version").GetString().Should().NotBeNullOrEmpty();
-        // Task 9A registers only the static, non-domain identity tool; Task 9B
-        // adds the Reading Training tool surface. The protocol-level
-        // tools/list call below verifies discovery over the real transport.
-
+        // Task 9A registered only the static identity tool; Task 9B1 replaces
+        // it with the read-only Reading Training tool surface. The
+        // protocol-level tools/list call below verifies discovery over the
+        // real transport: exactly the seven read-only tools, no mutation
+        // tools, no bootstrap identity tool, and no client/key arguments.
         var toolsList = await PostWithAuth(client, TestToken, body: ToolsListBody());
         toolsList.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -233,8 +234,124 @@ public sealed class McpHttpTests
         var hasTools = listResult.TryGetProperty("tools", out var tools);
         hasTools.Should().BeTrue($"tools/list response was {listJson.RootElement.GetRawText()}");
         tools.ValueKind.Should().Be(JsonValueKind.Array);
-        tools.GetArrayLength().Should().Be(1);
-        tools[0].GetProperty("name").GetString().Should().Be("nostos_server_info");
+
+        var expectedNames = new[]
+        {
+            "reading_get_dashboard",
+            "reading_get_status",
+            "reading_get_week",
+            "reading_list_history",
+            "reading_list_books",
+            "reading_list_inbox",
+            "reading_preview_review",
+        };
+        var names = tools.EnumerateArray().Select(t => t.GetProperty("name").GetString()).ToList();
+        names.Should().HaveCount(expectedNames.Length)
+            .And.BeEquivalentTo(expectedNames);
+        names.Should().NotContain("nostos_server_info");
+
+        var byName = tools.EnumerateArray().ToDictionary(t => t.GetProperty("name").GetString()!);
+        foreach (var tool in tools.EnumerateArray())
+        {
+            var toolName = tool.GetProperty("name").GetString()!;
+            // Every tool is declared read-only to the client.
+            tool.GetProperty("annotations").GetProperty("readOnlyHint").GetBoolean()
+                .Should().BeTrue(toolName);
+
+            // Reads never accept client id or idempotency key arguments.
+            var schema = tool.GetProperty("inputSchema");
+            schema.GetProperty("type").GetString().Should().Be("object");
+            var rawSchema = schema.GetRawText().ToLowerInvariant();
+            rawSchema.Should().NotContain("client")
+                .And.NotContain("idempotency");
+        }
+
+        // The five no-argument reads expose an empty properties bag.
+        foreach (var name in expectedNames.Where(n => n != "reading_preview_review"))
+        {
+            var schema = byName[name].GetProperty("inputSchema");
+            if (schema.TryGetProperty("properties", out var props))
+            {
+                props.EnumerateObject().Should().BeEmpty(name);
+            }
+        }
+
+        // Preview is the only tool with arguments: ISO year and week are
+        // required integers, exactly the fields of the read-only service
+        // request, with no client/key arguments.
+        var previewSchema = byName["reading_preview_review"].GetProperty("inputSchema");
+        var previewProps = previewSchema.GetProperty("properties");
+        previewProps.EnumerateObject().Select(p => p.Name).Should().BeEquivalentTo("year", "week");
+        previewProps.GetProperty("year").GetProperty("type").GetString().Should().Be("integer");
+        previewProps.GetProperty("week").GetProperty("type").GetString().Should().Be("integer");
+        previewSchema.GetProperty("required").EnumerateArray().Select(r => r.GetString())
+            .Should().BeEquivalentTo("year", "week");
+    }
+
+    [Fact]
+    public async Task ToolsCall_ReadOnlyTools_ReturnExactServiceEnvelopes()
+    {
+        using var env = SetEnvVar(TestEnvVar, TestToken);
+        using var factory = new McpHttpFactory(enabled: true, envVarName: TestEnvVar);
+        using var client = factory.CreateClient();
+
+        // Bootstrap the programme over the unauthenticated REST surface so the
+        // read-only MCP tools have real server state to report, then exercise
+        // the authenticated transport end-to-end (DI wiring included).
+        var initialize = await client.PostAsync(
+            "/api/reading-training/initialize",
+            JsonBody(new { clientId = "mcp-tests", idempotencyKey = "9b1-bootstrap" }));
+        initialize.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        (await PostWithAuth(client, TestToken)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // --- reading_get_dashboard: the exact service envelope/data ---
+        var dashEnvelope = await ToolCallAsync(client, TestToken, "reading_get_dashboard", new { });
+        dashEnvelope.GetProperty("reply").GetString().Should().Contain("Dashboard");
+        dashEnvelope.GetProperty("stateVersion").GetString().Should().NotBeNullOrEmpty();
+        dashEnvelope.GetProperty("duplicate").GetBoolean().Should().BeFalse();
+        var dashData = dashEnvelope.GetProperty("data");
+        dashData.GetProperty("programme").GetProperty("timezoneId").GetString().Should().Be("Europe/Stockholm");
+        dashData.GetProperty("books").ValueKind.Should().Be(JsonValueKind.Array);
+        dashData.GetProperty("currentWeek").GetProperty("weekKey").GetString()
+            .Should().MatchRegex(@"^\d{4}-W\d{2}$");
+
+        // --- reading_get_week: only the server's current-week summary ---
+        var weekData = (await ToolCallAsync(client, TestToken, "reading_get_week", new { }))
+            .GetProperty("data");
+        weekData.GetProperty("weekKey").GetString().Should().MatchRegex(@"^\d{4}-W\d{2}$");
+        weekData.GetProperty("completedSessions").GetInt32().Should().Be(0);
+        weekData.GetProperty("volumeMinutes").GetInt32().Should().Be(0);
+        weekData.TryGetProperty("books", out _).Should().BeFalse();
+        weekData.TryGetProperty("programme", out _).Should().BeFalse();
+
+        // --- reading_list_books: only the server's book queue ---
+        var booksData = (await ToolCallAsync(client, TestToken, "reading_list_books", new { }))
+            .GetProperty("data");
+        booksData.ValueKind.Should().Be(JsonValueKind.Array);
+        booksData.GetRawText().Should().NotContain("weekKey");
+
+        // --- reading_get_status: no active session, same server state ---
+        var statusEnvelope = await ToolCallAsync(client, TestToken, "reading_get_status", new { });
+        statusEnvelope.GetProperty("reply").GetString().Should().Be("No active reading session.");
+        statusEnvelope.GetProperty("stateVersion").GetString()
+            .Should().Be(dashEnvelope.GetProperty("stateVersion").GetString());
+
+        // --- reading_list_history / reading_list_inbox: server collections ---
+        (await ToolCallAsync(client, TestToken, "reading_list_history", new { }))
+            .GetProperty("data").ValueKind.Should().Be(JsonValueKind.Array);
+        (await ToolCallAsync(client, TestToken, "reading_list_inbox", new { }))
+            .GetProperty("data").ValueKind.Should().Be(JsonValueKind.Array);
+
+        // --- reading_preview_review: read-only preview for an explicit week ---
+        var previewData = (await ToolCallAsync(
+            client, TestToken, "reading_preview_review", new { year = 2026, week = 32 }))
+            .GetProperty("data");
+        previewData.GetProperty("weekKey").GetString().Should().Be("2026-W32");
+        previewData.GetProperty("committed").GetBoolean().Should().BeFalse();
+        previewData.GetProperty("modes").GetArrayLength().Should().Be(3);
+        previewData.GetProperty("stateVersion").GetString()
+            .Should().Be(dashEnvelope.GetProperty("stateVersion").GetString());
     }
 
     [Fact]
@@ -416,6 +533,41 @@ public sealed class McpHttpTests
             jsonrpc = "2.0",
             id = 2,
             method = "tools/list",
+        };
+        return JsonBody(payload);
+    }
+
+    // Invokes a tool over the real authenticated transport and returns the
+    // parsed JSON of the tool's single text content block (the serialized
+    // tool return value, i.e. the service envelope).
+    private static async Task<JsonElement> ToolCallAsync(
+        HttpClient client, string token, string name, object arguments)
+    {
+        var response = await PostWithAuth(client, token, body: ToolsCallBody(name, arguments));
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var json = await ReadJsonRpcAsync(response);
+        var result = json.RootElement.GetProperty("result");
+        if (result.TryGetProperty("isError", out var isError))
+        {
+            isError.GetBoolean().Should().BeFalse($"tool {name} returned an error: {result}");
+        }
+
+        var content = result.GetProperty("content");
+        content.GetArrayLength().Should().Be(1);
+        content[0].GetProperty("type").GetString().Should().Be("text");
+        var text = content[0].GetProperty("text").GetString()!;
+        return JsonDocument.Parse(text).RootElement.Clone();
+    }
+
+    private static StringContent ToolsCallBody(string name, object arguments)
+    {
+        var payload = new
+        {
+            jsonrpc = "2.0",
+            id = 3,
+            method = "tools/call",
+            @params = new { name, arguments },
         };
         return JsonBody(payload);
     }
