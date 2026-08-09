@@ -157,6 +157,8 @@ public sealed class HermesImportDryRunTests
     [Theory]
     [InlineData("schema_version: 1\ntimezone: Europe/Stockholm\ntimezone: UTC\n", HermesImportCodes.DuplicateYamlKey)]
     [InlineData("schema_version: 1\ntimezone: &zone Europe/Stockholm\n", HermesImportCodes.UnsafeYamlAlias)]
+    [InlineData("schema_version: 1\ntimezone: Europe/Stockholm\ninitial_targets: !unsafe { endurance_minutes: 40, deep_minutes: 30, recovery_minutes: 20 }\n", HermesImportCodes.UnsafeYamlTag)]
+    [InlineData("schema_version: 1\ntimezone: Europe/Stockholm\ninitial_targets: !unsafe [40, 30, 20]\n", HermesImportCodes.UnsafeYamlTag)]
     public void StrictYaml_RejectsDuplicateKeysAndAnchors(string config, string code)
     {
         var dir = Fixture();

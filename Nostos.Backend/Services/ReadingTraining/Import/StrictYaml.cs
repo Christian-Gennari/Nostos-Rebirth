@@ -192,6 +192,10 @@ internal static class StrictYaml
                         {
                             return Error("anchors are not supported", mappingStart.Start.Line);
                         }
+                        if (!TagAllowed(mappingStart.Tag))
+                        {
+                            return Error($"unsafe YAML tag '{mappingStart.Tag.Value}'", mappingStart.Start.Line);
+                        }
                         if (stack.Count > 0 && stack.Peek() is MappingFrame { PendingKey: null })
                         {
                             return Error("mapping used as a mapping key", mappingStart.Start.Line);
@@ -211,6 +215,10 @@ internal static class StrictYaml
                         if (!sequenceStart.Anchor.IsEmpty)
                         {
                             return Error("anchors are not supported", sequenceStart.Start.Line);
+                        }
+                        if (!TagAllowed(sequenceStart.Tag))
+                        {
+                            return Error($"unsafe YAML tag '{sequenceStart.Tag.Value}'", sequenceStart.Start.Line);
                         }
                         if (stack.Count > 0 && stack.Peek() is MappingFrame { PendingKey: null })
                         {
