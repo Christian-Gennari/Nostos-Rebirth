@@ -299,6 +299,16 @@ describe('ReadingTrainingComponent', () => {
     const completeReq = mock.completeSession.mock.calls[0][0] as { reportedMinutes?: number };
     expect(completeReq.reportedMinutes).toBe(25);
 
+    // A later feedback state must not inherit the previous session's value.
+    mock.openSession.set(makeSession({ status: ReadingSessionStatus.Active }));
+    fixture.detectChanges();
+    mock.openSession.set(makeSession({ id: 's2', status: ReadingSessionStatus.AwaitingFeedback }));
+    fixture.detectChanges();
+    const nextMinutesInput = fixture.nativeElement.querySelector(
+      'input[aria-label="Actual minutes read"]'
+    ) as HTMLInputElement;
+    expect(nextMinutesInput.value).toBe('');
+
     // Per-action keys are fresh; the UI client stays stable.
     mock.openSession.set(makeSession({ status: ReadingSessionStatus.Active }));
     fixture.detectChanges();

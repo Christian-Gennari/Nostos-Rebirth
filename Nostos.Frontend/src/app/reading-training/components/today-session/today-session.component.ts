@@ -1,4 +1,4 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, computed, effect, input, output, signal } from '@angular/core';
 
 import { ReadingSession, ReadingSessionStatus } from '../../../core/dtos/reading-training.dtos';
 
@@ -63,6 +63,14 @@ export class TodaySessionComponent {
 
   /** Numeric actual-minutes field, shown only while AwaitingFeedback. */
   readonly reportedMinutes = signal('');
+
+  constructor() {
+    effect(() => {
+      if (this.openSession()?.status !== ReadingSessionStatus.AwaitingFeedback) {
+        this.reportedMinutes.set('');
+      }
+    });
+  }
 
   onMinutesInput(event: Event): void {
     this.reportedMinutes.set((event.target as HTMLInputElement).value);
