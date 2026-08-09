@@ -22,4 +22,8 @@ public sealed class ReadingTrainingOptions
 
     // Qualifying sessions required per week before a +5 increase may apply.
     public int QualificationThreshold { get; set; } = 3;
+
+    // Calm polling interval (seconds) of the target-reached notification
+    // scanner worker. The worker clamps the effective value to 1..300.
+    public int NotificationPollSeconds { get; set; } = 15;
 }

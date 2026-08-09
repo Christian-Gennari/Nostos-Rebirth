@@ -70,6 +70,7 @@ builder.Services.AddScoped<IReadingTrainingService, ReadingTrainingService>();
 builder.Services.AddScoped<IReadingNotificationOutbox, ReadingNotificationOutbox>();
 builder.Services.AddHostedService<ConceptCleanupWorker>();
 builder.Services.AddHostedService<BackupWorker>();
+builder.Services.AddHostedService<ReadingNotificationWorker>();
 
 var app = builder.Build();
 

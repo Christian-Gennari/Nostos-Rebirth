@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -10,7 +11,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Nostos.Backend.Data;
 using Nostos.Backend.Data.Models;
+using Nostos.Backend.Data.Models.ReadingTraining;
 using Nostos.Backend.Services.ReadingTraining;
+using Nostos.Backend.Workers;
 using Nostos.Shared.Dtos;
 using Nostos.Shared.Enums;
 using Xunit;
@@ -34,10 +37,22 @@ public sealed class ReadingTrainingHttpFactory : WebApplicationFactory<Program>
 
     public string DatabasePath => _dbPath;
 
+    // True when production DI (Program.cs) registered the reading
+    // notification scanner worker before the test host strips every hosted
+    // service — proves the production registration exists without ever
+    // starting the worker inside the test host.
+    public bool ReadingNotificationWorkerRegistered { get; private set; }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureServices(services =>
         {
+            // Capture the production hosted-service registration before the
+            // test host removes all hosted services.
+            ReadingNotificationWorkerRegistered = services.Any(d =>
+                d.ServiceType == typeof(IHostedService) &&
+                d.ImplementationType == typeof(ReadingNotificationWorker));
+
             // Replace the production SQLite registration: both the scoped
             // NostosDbContext and the IDbContextFactory<NostosDbContext> must
             // resolve against the same temporary file. The options are
@@ -48,8 +63,9 @@ public sealed class ReadingTrainingHttpFactory : WebApplicationFactory<Program>
             services.RemoveAll<NostosDbContext>();
             services.RemoveAll<IDbContextFactory<NostosDbContext>>();
 
-            // Disable the production hosted workers (concept cleanup + backup
-            // poller) so they cannot race the temporary database in tests.
+            // Disable the production hosted workers (concept cleanup, backup
+            // poller and the reading notification scanner) so they cannot race
+            // the temporary database in tests; HTTP tests stay deterministic.
             services.RemoveAll<IHostedService>();
 
             services.AddDbContext<NostosDbContext>(
@@ -685,6 +701,149 @@ public sealed class ReadingTrainingHttpTests
         (await EnvelopeCode(invalid)).Should().Be("invalid_week");
     }
 
+    [Fact]
+    public async Task ProductionDi_RegistersNotificationWorker_ButTestHostRunsNoWorkers()
+    {
+        using var factory = new ReadingTrainingHttpFactory();
+        using var client = factory.CreateClient(); // forces the host to build
+
+        // Program.cs registers the scanner as a hosted service; the test host
+        // strips all user hosted services (the generic web host's own
+        // GenericWebHostService remains, which is not a user worker), so the
+        // scanner never runs against the temporary database.
+        factory.ReadingNotificationWorkerRegistered.Should().BeTrue();
+        factory.Services.GetServices<IHostedService>()
+            .Should().NotContain(s => s is ReadingNotificationWorker);
+    }
+
+    [Fact]
+    public async Task NotificationLeaseAndAck_Lifecycle_OverHttp()
+    {
+        using var factory = new ReadingTrainingHttpFactory();
+        using var client = factory.CreateClient();
+        (await InitializeAsync(client)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Seed a book, assignment and an Active session already over its
+        // target (server-authoritative elapsed = AccumulatedSeconds + wall
+        // time since LastStartedAt), then run one scanner cycle through the
+        // production outbox.
+        var sessionId = await SeedOpenSessionAtTarget(factory);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var outbox = scope.ServiceProvider.GetRequiredService<IReadingNotificationOutbox>();
+            (await outbox.EnqueueTargetReachedAsync()).Should().Be(1);
+        }
+
+        // First lease claims exactly one typed notification with the calm
+        // message and a lease timestamp.
+        var lease = await client.GetAsync(
+            "/api/reading-training/notifications/lease?maxCount=10&leaseSeconds=60");
+        lease.StatusCode.Should().Be(HttpStatusCode.OK);
+        var leaseJson = await Envelope(lease);
+        leaseJson.ValueKind.Should().Be(JsonValueKind.Array);
+        var claimed = leaseJson.EnumerateArray().Should().ContainSingle().Subject;
+
+        var payload = claimed.GetProperty("payload");
+        payload.GetProperty("sessionId").GetGuid().Should().Be(sessionId);
+        payload.GetProperty("bookId").ValueKind.Should().Be(JsonValueKind.String);
+        payload.GetProperty("mode").ValueKind.Should().Be(JsonValueKind.Number);
+        payload.GetProperty("plannedTargetMinutes").GetInt32().Should().Be(10);
+        payload.GetProperty("effectiveElapsedSeconds").GetInt64().Should().BeGreaterThanOrEqualTo(600);
+        payload.GetProperty("message").GetString().Should()
+            .Contain("Reading target reached").And.Contain("minutes elapsed (planned 10 minutes).");
+
+        var notificationId = claimed.GetProperty("notificationId").GetGuid();
+        payload.GetProperty("notificationId").GetGuid().Should().Be(notificationId);
+        var leaseUntil = DateTime.Parse(
+            claimed.GetProperty("leaseUntil").GetString()!,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.RoundtripKind);
+        leaseUntil.Kind.Should().Be(DateTimeKind.Utc);
+        leaseUntil.Should().BeAfter(DateTime.UtcNow.AddMinutes(-1));
+
+        // While the lease is held the row is hidden.
+        var held = await client.GetAsync(
+            "/api/reading-training/notifications/lease?maxCount=10&leaseSeconds=60");
+        held.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Envelope(held)).EnumerateArray().Should().BeEmpty();
+
+        // Unknown id → 404 ProblemDetails.
+        var unknown = await client.PostAsync(
+            $"/api/reading-training/notifications/{Guid.NewGuid()}/ack", null);
+        unknown.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        unknown.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+        var unknownProblem = await Envelope(unknown);
+        unknownProblem.GetProperty("status").GetInt32().Should().Be(404);
+        unknownProblem.GetProperty("title").GetString().Should().NotBeNullOrEmpty();
+
+        // Ack is 200 for the existing row and idempotent on repeat.
+        var ack = await client.PostAsync(
+            $"/api/reading-training/notifications/{notificationId}/ack", null);
+        ack.StatusCode.Should().Be(HttpStatusCode.OK);
+        var ackJson = await Envelope(ack);
+        ackJson.GetProperty("notificationId").GetGuid().Should().Be(notificationId);
+        ackJson.GetProperty("acknowledged").GetBoolean().Should().BeTrue();
+
+        var ackAgain = await client.PostAsync(
+            $"/api/reading-training/notifications/{notificationId}/ack", null);
+        ackAgain.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Envelope(ackAgain)).GetProperty("acknowledged").GetBoolean().Should().BeTrue();
+
+        // After ack the lease is empty...
+        var afterAck = await client.GetAsync(
+            "/api/reading-training/notifications/lease?maxCount=10&leaseSeconds=60");
+        (await Envelope(afterAck)).EnumerateArray().Should().BeEmpty();
+
+        // ...and a restart (fresh scope + fresh client) can neither recreate
+        // nor redeliver the row.
+        using (var scope = factory.Services.CreateScope())
+        {
+            var outbox = scope.ServiceProvider.GetRequiredService<IReadingNotificationOutbox>();
+            (await outbox.EnqueueTargetReachedAsync()).Should().Be(0);
+        }
+
+        using var restartedClient = factory.CreateClient();
+        var restartLease = await restartedClient.GetAsync(
+            "/api/reading-training/notifications/lease?maxCount=10&leaseSeconds=60");
+        (await Envelope(restartLease)).EnumerateArray().Should().BeEmpty();
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NostosDbContext>();
+            (await db.ReadingNotifications.CountAsync()).Should().Be(1);
+        }
+    }
+
+    [Fact]
+    public async Task NotificationLease_ValidatesQueryBounds_WithProblemDetails()
+    {
+        using var factory = new ReadingTrainingHttpFactory();
+        using var client = factory.CreateClient();
+
+        var invalidQueries = new[]
+        {
+            "maxCount=0&leaseSeconds=60",     // below maxCount bound
+            "maxCount=101&leaseSeconds=60",   // above maxCount bound
+            "maxCount=10&leaseSeconds=0",     // below leaseSeconds bound
+            "maxCount=10&leaseSeconds=3601",  // above leaseSeconds bound
+            "maxCount=10",                    // leaseSeconds missing → 0
+            "leaseSeconds=60",                // maxCount missing → 0
+        };
+        foreach (var query in invalidQueries)
+        {
+            var response = await client.GetAsync($"/api/reading-training/notifications/lease?{query}");
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest, query);
+            response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json", query);
+            var problem = await Envelope(response);
+            problem.GetProperty("status").GetInt32().Should().Be(400, query);
+        }
+
+        // Boundary values are valid and an empty outbox answers an empty list.
+        var ok = await client.GetAsync("/api/reading-training/notifications/lease?maxCount=1&leaseSeconds=1");
+        ok.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Envelope(ok)).EnumerateArray().Should().BeEmpty();
+    }
+
     private static Task<HttpResponseMessage> InitializeAsync(
         HttpClient client, string key = "init-1", string clientId = "http-test") =>
         client.PostAsJsonAsync(
@@ -700,4 +859,48 @@ public sealed class ReadingTrainingHttpTests
 
     private static async Task<string?> EnvelopeCode(HttpResponseMessage response) =>
         (await Envelope(response)).GetProperty("data").GetProperty("code").GetString();
+
+    // Seeds an Active session that is already over its planned target by
+    // persisted accumulated time alone (wall time since LastStartedAt only
+    // adds more), exactly like the outbox unit-test harness.
+    private static async Task<Guid> SeedOpenSessionAtTarget(ReadingTrainingHttpFactory factory)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NostosDbContext>();
+        var now = DateTime.UtcNow;
+
+        var book = new PhysicalBookModel { Title = $"Notification-{Guid.NewGuid():N}" };
+        var assignment = new ReadingBookAssignment
+        {
+            Book = book,
+            BookId = book.Id,
+            Mode = ReadingMode.Deep,
+            QueueOrder = 0,
+            Status = ReadingAssignmentStatus.Active,
+            CreatedAt = now,
+        };
+        var session = new ReadingSession
+        {
+            BookAssignment = assignment,
+            BookAssignmentId = assignment.Id,
+            Book = book,
+            BookId = book.Id,
+            Mode = ReadingMode.Deep,
+            Status = ReadingSessionStatus.Active,
+            OpenSlot = ReadingSession.OpenSentinel,
+            TargetMinutes = 10,
+            PlannedTargetMinutes = 10,
+            AccumulatedSeconds = 700,
+            PlannedAt = now.AddHours(-1),
+            StartedAt = now.AddSeconds(-60),
+            LastStartedAt = now.AddSeconds(-60),
+            CreatedAt = now.AddHours(-1),
+            UpdatedAt = now.AddHours(-1),
+        };
+        db.Books.Add(book);
+        db.ReadingBookAssignments.Add(assignment);
+        db.ReadingSessions.Add(session);
+        await db.SaveChangesAsync();
+        return session.Id;
+    }
 }

@@ -144,6 +144,56 @@ public static class ReadingTrainingEndpoints
             CancellationToken ct) =>
             ToHttp(await service.PromoteCaptureToNoteAsync(captureId, request, ct)));
 
+        // --- notifications ---
+        group.MapGet("/notifications/lease", async (
+            int? maxCount,
+            int? leaseSeconds,
+            IReadingNotificationOutbox outbox,
+            CancellationToken ct) =>
+        {
+            // Nullable parameters so a missing query value flows through this
+            // validation (and its ProblemDetails) instead of the framework's
+            // generic binding-failure 400.
+            if (maxCount is null or < 1 or > 100)
+            {
+                return Results.Problem(
+                    statusCode: StatusCodes.Status400BadRequest,
+                    title: "Invalid maxCount.",
+                    detail: "maxCount must be between 1 and 100.");
+            }
+            if (leaseSeconds is null or < 1 or > 3600)
+            {
+                return Results.Problem(
+                    statusCode: StatusCodes.Status400BadRequest,
+                    title: "Invalid leaseSeconds.",
+                    detail: "leaseSeconds must be between 1 and 3600.");
+            }
+
+            var claimed = await outbox.ClaimDueAsync(
+                maxCount.Value, TimeSpan.FromSeconds(leaseSeconds.Value), ct);
+            return Results.Ok(claimed);
+        });
+
+        group.MapPost("/notifications/{notificationId:guid}/ack", async (
+            Guid notificationId,
+            IReadingNotificationOutbox outbox,
+            CancellationToken ct) =>
+        {
+            var acknowledged = await outbox.AcknowledgeAsync(notificationId, ct);
+            if (!acknowledged)
+            {
+                return Results.Problem(
+                    statusCode: StatusCodes.Status404NotFound,
+                    title: "Notification not found.",
+                    detail: $"No notification exists with id '{notificationId:D}'.");
+            }
+
+            // Acknowledging is intrinsically idempotent: an existing row —
+            // including one already acknowledged — answers 200; no receipt
+            // record is created anywhere.
+            return Results.Ok(new { notificationId, acknowledged = true });
+        });
+
         // --- weekly reviews ---
         group.MapPost("/weekly-reviews/commit", async (
             ReadingCommitWeeklyReviewRequest request,

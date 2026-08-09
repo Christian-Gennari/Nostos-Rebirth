@@ -125,6 +125,18 @@ exact-once by `(clientId, idempotencyKey)` and delegate to
 | `POST`  | `/captures/{captureId}/promote-to-note`           | Append a capture to an existing note |
 | `GET`   | `/weekly-reviews/{year}/{week}/preview`           | Preview an ISO-week decision |
 | `POST`  | `/weekly-reviews/commit`                           | Persist an immutable ISO-week review |
+| `GET`   | `/notifications/lease?maxCount&leaseSeconds`       | Claim due target-reached notifications under a lease |
+| `POST`  | `/notifications/{notificationId}/ack`              | Acknowledge a delivered notification (idempotent) |
+
+`GET /notifications/lease` validates `maxCount` (1..100) and `leaseSeconds`
+(1..3600); invalid values return 400 ProblemDetails. The response is the typed
+claimed list (`notificationId`, `payload`, `leaseUntil`) in claim order.
+`POST /notifications/{notificationId}/ack` returns 200
+`{ notificationId, acknowledged: true }` for any existing notification —
+including duplicate acks — and 404 ProblemDetails for an unknown id. The
+scanner worker (`ReadingNotificationWorker`) enqueues target-reached rows on a
+calm poll interval (`ReadingTraining.NotificationPollSeconds`, default 15s,
+clamped 1..300) and never claims or acknowledges.
 
 ## Maintenance Mode Middleware
 
