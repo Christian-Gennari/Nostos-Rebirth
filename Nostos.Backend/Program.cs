@@ -89,6 +89,7 @@ builder.Services.AddDbContextFactory<NostosDbContext>(options =>
     var dbPath = Path.Combine(builder.Environment.ContentRootPath, "nostos.db");
     options.UseSqlite($"Data Source={dbPath}");
 });
+builder.Services.AddScoped<IDatabaseBootstrapService, DatabaseBootstrapService>();
 
 // 4GB in bytes
 const long maxUploadSizeGB = 4L * 1024 * 1024 * 1024;
@@ -145,12 +146,17 @@ if (!importEngaged && importParseError is not null)
     return exitCode;
 }
 
-// --- AUTOMATIC DATABASE MIGRATION ---
+// --- DATABASE BOOTSTRAP / MIGRATION ---
+// A truly empty SQLite database (brand-new or zero tables) is bootstrapped
+// to the complete current schema with an accurate EF migration-history
+// baseline, in one transaction (see DatabaseBootstrapService). Any existing
+// database goes through the ordinary EF migration path and is never
+// rebaselined; a partial or unknown schema fails closed here.
 try
 {
     using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<NostosDbContext>();
-    db.Database.Migrate();
+    var bootstrap = scope.ServiceProvider.GetRequiredService<IDatabaseBootstrapService>();
+    await bootstrap.EnsureReadyAsync();
 }
 catch when (importEngaged)
 {
