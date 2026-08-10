@@ -117,5 +117,29 @@
       "given": { "replyVocabulary": "accepted replies" },
       "expect": { "forbiddenTerms": ["streak", "debt", "catch-up", "guilt", "compulsory"] }
     }
+  ],
+  "stressCases": [
+    {
+      "id": "heavy-week-016",
+      "name": "Ten-plus session heavy week with constrained and recovery mix commits deterministically",
+      "$comment": "Stress contract: 11 completed sessions in one ISO week (4 endurance + 2 constrained endurance + 3 deep + 1 constrained deep + 1 recovery) over a previous-week volume of 320 min. Constrained and recovery sessions are volume but never qualifying evidence; the deload-bait constrained deep session (effort 9, focus 3) and the under-target constrained endurance sessions must not pollute completion rate, medians, or decisions.",
+      "given": {
+        "sessions": 11,
+        "previousWeekVolumeMinutes": 320,
+        "endurance": { "normal": 4, "constrained": 2 },
+        "deep": { "normal": 3, "constrained": 1 },
+        "recovery": { "normal": 1 }
+      },
+      "when": "preview then commit ISO week 32, then commit again under a second idempotency key",
+      "expect": {
+        "preview": { "totalVolumeMinutes": 325, "previousWeekVolumeMinutes": 320 },
+        "endurance": { "targetBefore": 40, "targetAfter": 45, "decision": "increase", "qualifying": 4, "completionRate": 1.0, "medianEffort": 5, "medianFocus": 8 },
+        "deep": { "targetBefore": 30, "targetAfter": 35, "decision": "increase", "qualifying": 3, "completionRate": 1.0, "medianEffort": 5, "medianFocus": 8 },
+        "recovery": { "targetBefore": 20, "targetAfter": 20, "decision": "hold", "reason": "recovery-volume-only", "qualifying": 0 },
+        "noDeload": true,
+        "commit": { "reviewRows": 1, "modeDecisions": 3, "stateVersionAfter": "2" },
+        "secondCommit": { "idempotent": true, "reviewRows": 1, "modeDecisions": 3, "enduranceTarget": 45, "deepTarget": 35, "recoveryTarget": 20 }
+      }
+    }
   ]
 }
