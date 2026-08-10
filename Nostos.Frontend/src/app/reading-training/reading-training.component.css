@@ -71,6 +71,13 @@ app-pending-notices {
 }
 
 .spin {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  transform-origin: 50% 50%;
   animation: rt-spin 1s linear infinite;
 }
 
@@ -192,6 +199,11 @@ app-pending-notices {
   border-radius: var(--radius-lg);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
   padding: var(--space-lg);
+}
+
+.planner-dialog {
+  padding: 0;
+  border: 0;
 }
 
 .dialog-wide {

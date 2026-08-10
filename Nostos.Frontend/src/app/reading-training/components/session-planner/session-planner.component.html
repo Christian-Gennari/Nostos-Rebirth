@@ -1,6 +1,9 @@
 <section class="planner-card" aria-labelledby="session-planner-heading">
   <header class="card-header">
     <h2 id="session-planner-heading">Plan a session</h2>
+    <button type="button" class="btn btn-ghost btn-sm" (click)="close.emit()">
+      Close session planner
+    </button>
   </header>
 
   @if (books().length === 0) {

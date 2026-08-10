@@ -119,7 +119,24 @@ public sealed class ReadingTrainingService : IReadingTrainingService
             var existing = await db.ReadingBookAssignments.Include(x => x.Book)
                 .SingleOrDefaultAsync(x => x.BookId == request.BookId && x.Mode == request.Mode && x.Status != ReadingAssignmentStatus.Archived, token);
             if (existing is not null)
-                return Outcome.Unchanged(Result(ReadingReplyFormatter.AlreadyInQueue(book.Title), ToDto(existing), programme.StateVersion));
+            {
+                if (existing.Status != ReadingAssignmentStatus.Completed)
+                    return Outcome.Unchanged(Result(ReadingReplyFormatter.AlreadyInQueue(book.Title), ToDto(existing), programme.StateVersion));
+
+                if (request.MakeDefault)
+                {
+                    var oldDefaults = await db.ReadingBookAssignments
+                        .Where(x => x.Mode == request.Mode && x.DefaultSlot != null && x.Id != existing.Id).ToListAsync(token);
+                    foreach (var old in oldDefaults) old.DefaultSlot = null;
+                }
+                existing.Status = ReadingAssignmentStatus.Active;
+                existing.CompletedAt = null;
+                existing.StartedAt ??= Now;
+                existing.DefaultSlot = request.MakeDefault
+                    ? ReadingBookAssignment.DefaultSentinelFor(request.Mode)
+                    : null;
+                return Outcome.Changed(Result(ReadingReplyFormatter.ReturnedToQueue(book.Title), ToDto(existing), programme.StateVersion));
+            }
 
             if (request.MakeDefault)
             {

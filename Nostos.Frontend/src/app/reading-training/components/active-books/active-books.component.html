@@ -104,6 +104,17 @@
                 <lucide-icon [img]="CheckIcon" [size]="14" strokeWidth="2" aria-hidden="true"></lucide-icon>
                 <span class="finished-title">{{ bookTitle(book) }}</span>
                 <span class="finished-label">{{ book.status === statusEnum.Archived ? 'Archived' : 'Finished' }}</span>
+                @if (book.status === statusEnum.Completed) {
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-sm"
+                    (click)="reactivate.emit(book)"
+                    [disabled]="mutating()"
+                    [attr.aria-label]="'Return ' + bookTitle(book) + ' to the ' + group.label + ' queue'"
+                  >
+                    Return to queue
+                  </button>
+                }
               </li>
             }
           </ul>

@@ -682,6 +682,11 @@ describe('ReadingTrainingComponent', () => {
 
     clickButton('Plan a session');
     expect(fixture.nativeElement.querySelector('app-session-planner')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[role="dialog"][aria-modal="true"]')).toBeTruthy();
+
+    clickButton('Close session planner');
+    expect(fixture.nativeElement.querySelector('app-session-planner')).toBeNull();
+    clickButton('Plan a session');
 
     // A real open session hides the planner and resets the open flag.
     mock.openSession.set(makeSession({ status: ReadingSessionStatus.Planned }));

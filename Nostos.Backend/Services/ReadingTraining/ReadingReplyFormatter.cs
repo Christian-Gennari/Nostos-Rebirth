@@ -128,6 +128,9 @@ public static class ReadingReplyFormatter
     public static string AddedToQueue(string title) =>
         $"{title} added to the reading queue.";
 
+    public static string ReturnedToQueue(string title) =>
+        $"{title} returned to the reading queue.";
+
     public static string NotAssignedToMode(string title, string mode) =>
         $"{title} isn't assigned to {mode}.";
 

@@ -161,6 +161,26 @@ test('desktop: setup panel initializes the programme; REST seeds two books', asy
   await expect(capacityLanes.getByRole('heading', { name: 'Recovery' })).toBeVisible();
 });
 
+test('desktop: finishing a book is reversible and the planner opens as a dialog', async ({ page }) => {
+  await page.goto(`${fixture.baseUrl}/training`);
+
+  await page.getByRole('button', { name: 'Finish training book: Candide' }).click();
+  const finishedCandide = page.locator('.finished-item').filter({ hasText: 'Candide' });
+  await expect(finishedCandide).toContainText('Finished');
+  await expect(finishedCandide.getByRole('button', { name: /Return Candide to the Deep queue/ })).toBeVisible();
+
+  await finishedCandide.getByRole('button', { name: /Return Candide to the Deep queue/ }).click();
+  await expect(page.locator('.queue-item').filter({ hasText: 'Candide' })).toBeVisible();
+
+  await openPlanner(page);
+  const planner = page.getByRole('dialog', { name: 'Plan a session' });
+  await expect(planner).toBeVisible();
+  await expect(planner).toBeFocused();
+  await expect(page.locator('#session-planner-book option', { hasText: 'Candide' })).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(planner).toBeHidden();
+});
+
 test('desktop: full session lifecycle survives a backend restart', async ({ page }) => {
   await page.goto(`${fixture.baseUrl}/training`);
   await expect(page.locator('section.active-books')).toContainText('Candide');

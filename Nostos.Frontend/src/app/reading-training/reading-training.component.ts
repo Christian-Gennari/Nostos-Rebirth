@@ -238,6 +238,7 @@ export class ReadingTrainingComponent implements OnInit, OnDestroy {
   });
 
   /** Dialog elements; the focus trap targets whichever of these is open. */
+  private readonly plannerDialogEl = viewChild<ElementRef<HTMLElement>>('plannerDialog');
   private readonly bookFormDialogEl = viewChild<ElementRef<HTMLElement>>('bookFormDialog');
   private readonly captureDialogEl = viewChild<ElementRef<HTMLElement>>('captureDialog');
   private readonly chooserDialogEl = viewChild<ElementRef<HTMLElement>>('chooserDialog');
@@ -257,6 +258,7 @@ export class ReadingTrainingComponent implements OnInit, OnDestroy {
     isOpen: () => boolean;
     close: () => void;
   }> = [
+    { el: () => this.plannerDialogEl(), isOpen: () => this.plannerVisible(), close: () => this.closePlanner() },
     { el: () => this.bookFormDialogEl(), isOpen: () => this.bookFormOpen(), close: () => this.closeBookForm() },
     { el: () => this.captureDialogEl(), isOpen: () => this.captureOpen(), close: () => this.closeCapture() },
     { el: () => this.chooserDialogEl(), isOpen: () => this.chooserOpen(), close: () => this.closeChooser() },
@@ -463,6 +465,18 @@ export class ReadingTrainingComponent implements OnInit, OnDestroy {
   onFinish(book: ReadingBookAssignment): void {
     this.runAction((key) =>
       this.store.completeBook({ clientId: this.clientId, idempotencyKey: key, bookAssignmentId: book.id })
+    );
+  }
+
+  onReactivate(book: ReadingBookAssignment): void {
+    this.runAction((key) =>
+      this.store.addBook({
+        clientId: this.clientId,
+        idempotencyKey: key,
+        bookId: book.bookId,
+        mode: book.mode,
+        makeDefault: false,
+      })
     );
   }
 

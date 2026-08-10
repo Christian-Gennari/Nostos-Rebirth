@@ -103,7 +103,8 @@ describe('SessionPlannerComponent', () => {
 
     const drafts: SessionPlanDraft[] = [];
     component.plan.subscribe((d) => drafts.push(d));
-    expect(buttons()).toHaveLength(0);
+    expect(buttons()).toHaveLength(1);
+    expect(buttons()[0]?.textContent).toContain('Close session planner');
     expect(drafts).toEqual([]);
   });
 
@@ -249,11 +250,14 @@ describe('SessionPlannerComponent', () => {
     expect(fixture.nativeElement.querySelector('#session-planner-target-error[role="alert"]')).toBeTruthy();
   });
 
-  it('disables all controls while busy', () => {
+  it('disables mutation controls while busy but keeps close available', () => {
     setBooks([assignment({ id: 'a1' })]);
     fixture.componentRef.setInput('busy', true);
     fixture.detectChanges();
-    for (const button of buttons()) {
+    const allButtons = buttons();
+    const close = allButtons.find((button) => button.textContent?.includes('Close session planner'));
+    expect(close?.disabled).toBe(false);
+    for (const button of allButtons.filter((candidate) => candidate !== close)) {
       expect(button.disabled).toBe(true);
     }
     expect(selectById('session-planner-book').disabled).toBe(true);

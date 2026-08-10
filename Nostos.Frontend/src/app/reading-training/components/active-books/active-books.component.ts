@@ -59,6 +59,7 @@ export class ActiveBooksComponent {
 
   readonly setDefault = output<ReadingBookAssignment>();
   readonly finish = output<ReadingBookAssignment>();
+  readonly reactivate = output<ReadingBookAssignment>();
   readonly reorder = output<ActiveBooksReorderEvent>();
   readonly addRequested = output<ReadingMode>();
 

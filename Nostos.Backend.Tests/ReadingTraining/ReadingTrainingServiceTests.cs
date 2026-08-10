@@ -56,6 +56,15 @@ public sealed class ReadingTrainingServiceTests : IClassFixture<ReadingTrainingS
         ((IReadOnlyList<ReadingBookAssignmentDto>)reordered.Data!).Select(x => x.Id).Should().ContainInOrder(a2.Id, a1.Id);
         var completed = await h.Service.CompleteBookAsync(new("ui", "finish", a1.Id));
         ((ReadingBookAssignmentDto)completed.Data!).Status.Should().Be(ReadingAssignmentStatus.Completed);
+
+        var reactivated = await h.Service.AddBookAssignmentAsync(new(
+            "ui", "return-c", candide, ReadingMode.Endurance, true));
+        var returned = (ReadingBookAssignmentDto)reactivated.Data!;
+        returned.Id.Should().Be(a1.Id, "returning a finished book must preserve its session history");
+        returned.Status.Should().Be(ReadingAssignmentStatus.Active);
+        returned.CompletedAt.Should().BeNull();
+        returned.IsDefault.Should().BeTrue();
+        reactivated.Reply.Should().Be(ReadingReplyFormatter.ReturnedToQueue("Candide"));
     }
 
     [Fact]

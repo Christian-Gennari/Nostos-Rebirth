@@ -66,6 +66,7 @@ export class SessionPlannerComponent {
 
   readonly plan = output<SessionPlanDraft>();
   readonly startNew = output<SessionPlanDraft>();
+  readonly close = output<void>();
 
   readonly selectedAssignmentId = signal('');
   readonly mode = signal<ReadingMode | null>(null);

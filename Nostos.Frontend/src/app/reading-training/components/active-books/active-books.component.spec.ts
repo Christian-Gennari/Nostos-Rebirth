@@ -172,6 +172,22 @@ describe('ActiveBooksComponent', () => {
     expect(finishButtons.length).toBe(1);
   });
 
+  it('offers a completed book a reversible return-to-queue action', () => {
+    const emitted: ReadingBookAssignment[] = [];
+    component.reactivate.subscribe((book) => emitted.push(book));
+    const completed = assignment({
+      id: 'a2',
+      status: ReadingAssignmentStatus.Completed,
+      completedAt: '2026-08-10T08:20:49+02:00',
+    });
+    setBooks([completed]);
+
+    const returnButton = buttons().find((button) => button.textContent?.includes('Return to queue'));
+    expect(returnButton).toBeDefined();
+    returnButton?.click();
+    expect(emitted).toEqual([completed]);
+  });
+
   it('disables every action button while mutating', () => {
     const book = assignment({ id: 'a1' });
     setBooks([book]);
