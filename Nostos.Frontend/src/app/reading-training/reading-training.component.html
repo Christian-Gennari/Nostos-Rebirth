@@ -12,7 +12,11 @@
         [disabled]="store.loading()"
         aria-label="Refresh reading training"
       >
-        <lucide-icon [img]="RefreshIcon" [size]="18" strokeWidth="1.5" [class.spin]="store.loading()"></lucide-icon>
+        @if (store.loading()) {
+          <span class="refresh-spinner" aria-hidden="true"></span>
+        } @else {
+          <lucide-icon [img]="RefreshIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
+        }
       </button>
     }
   </header>

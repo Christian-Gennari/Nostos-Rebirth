@@ -417,6 +417,21 @@ describe('ReadingTrainingComponent', () => {
     expect(status.nativeElement.textContent).toContain('Loading reading training');
   });
 
+  it('uses a symmetric loading ring instead of rotating the asymmetric refresh glyph', () => {
+    mock.dashboard.set(initializedDashboard());
+    fixture.detectChanges();
+    const refresh = fixture.nativeElement.querySelector(
+      'button[aria-label="Refresh reading training"]',
+    ) as HTMLButtonElement;
+    expect(refresh.querySelector('lucide-icon')).toBeTruthy();
+    expect(refresh.querySelector('.refresh-spinner')).toBeNull();
+
+    mock.loading.set(true);
+    fixture.detectChanges();
+    expect(refresh.querySelector('lucide-icon')).toBeNull();
+    expect(refresh.querySelector('.refresh-spinner')).toBeTruthy();
+  });
+
   it('renders an error panel without a dashboard and retries via refresh', () => {
     mock.error.set('Unable to load dashboard: network error');
     fixture.detectChanges();

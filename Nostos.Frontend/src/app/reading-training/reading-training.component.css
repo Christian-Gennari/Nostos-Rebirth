@@ -70,15 +70,15 @@ app-pending-notices {
   cursor: not-allowed;
 }
 
-.spin {
-  display: inline-flex;
-  width: 18px;
-  height: 18px;
-  align-items: center;
-  justify-content: center;
-  line-height: 0;
-  transform-origin: 50% 50%;
-  animation: rt-spin 1s linear infinite;
+.refresh-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: rt-spin 0.8s linear infinite;
 }
 
 @keyframes rt-spin {
@@ -161,8 +161,8 @@ app-pending-notices {
     animation-duration: 1.6s;
   }
 
-  .spin {
-    animation: none;
+  .refresh-spinner {
+    animation-duration: 1.6s;
   }
 }
 
