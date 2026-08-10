@@ -583,7 +583,7 @@ public sealed class BackupServiceTests
         public IFileProvider ContentRootFileProvider { get; set; } =
             new PhysicalFileProvider(Path.GetTempPath());
 
-        public string? WebRootPath { get; set; }
+        public string WebRootPath { get; set; } = Path.GetTempPath();
 
         public IFileProvider WebRootFileProvider { get; set; } =
             new PhysicalFileProvider(Path.GetTempPath());

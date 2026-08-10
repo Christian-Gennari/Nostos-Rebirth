@@ -11,7 +11,7 @@ public class BackupSettingsProvider
     private BackupSettings _current;
     private readonly object _lock = new();
     private int _maintenanceRefCount;
-    private volatile BackupProgressDto? _progress;
+    private BackupProgressDto? _progress;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
