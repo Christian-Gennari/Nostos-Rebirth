@@ -24,7 +24,7 @@ describe('ReadingTrainingService', () => {
   let service: ReadingTrainingService;
   let httpMock: HttpTestingController;
 
-  const base = '/api/reading-training';
+  const base = '/api/reading';
   const clientId = 'test-client';
   const idempotencyKey = 'key-1';
   const sessionId = '11111111-1111-1111-1111-111111111111';
@@ -216,7 +216,7 @@ describe('ReadingTrainingService', () => {
     service.getHistory().subscribe((r) => (history = r));
     service.getInbox().subscribe((r) => (inbox = r));
 
-    expectCommand('GET', `${base}/history`, undefined, envelope([session]));
+    expectCommand('GET', `${base}/sessions`, undefined, envelope([session]));
     expectCommand('GET', `${base}/inbox`, undefined, envelope([capture]));
 
     expect(history?.data).toEqual([session]);
@@ -227,7 +227,7 @@ describe('ReadingTrainingService', () => {
     let result: ReadingCommandResult<ReadingWeeklyReview> | undefined;
     service.previewWeeklyReview(2026, 33).subscribe((r) => (result = r));
 
-    expectCommand('GET', `${base}/weekly-reviews/2026/33/preview`, undefined, envelope(review));
+    expectCommand('POST', `${base}/reviews/preview`, { year: 2026, week: 33 }, envelope(review));
 
     expect(result?.data?.weekKey).toBe('2026-W33');
     expect(result?.data?.modes[0].decisionKind).toBe('increase');
@@ -239,7 +239,7 @@ describe('ReadingTrainingService', () => {
 
     expectCommand(
       'POST',
-      `${base}/weekly-reviews/commit`,
+      `${base}/reviews/commit`,
       { clientId, idempotencyKey, year: 2026, week: 33 },
       envelope(review, { reply: 'week committed', stateVersion: '18' })
     );
@@ -259,8 +259,8 @@ describe('ReadingTrainingService', () => {
     service.reorderQueue({ clientId, idempotencyKey, assignmentIds: [assignmentId] }).subscribe((r) => (reorder = r));
 
     expectCommand('POST', `${base}/books`, { clientId, idempotencyKey, bookId, mode: 0, makeDefault: true }, envelope(assignment));
-    expectCommand('POST', `${base}/books/default`, { clientId, idempotencyKey, bookAssignmentId: assignmentId, mode: 0 }, envelope(assignment));
-    expectCommand('POST', `${base}/books/complete`, { clientId, idempotencyKey, bookAssignmentId: assignmentId }, envelope(assignment));
+    expectCommand('PATCH', `${base}/books/${assignmentId}`, { clientId, idempotencyKey, bookAssignmentId: assignmentId, mode: 0 }, envelope(assignment));
+    expectCommand('POST', `${base}/books/${assignmentId}/finish`, { clientId, idempotencyKey, bookAssignmentId: assignmentId }, envelope(assignment));
     expectCommand('POST', `${base}/books/reorder`, { clientId, idempotencyKey, assignmentIds: [assignmentId] }, envelope([assignment]));
 
     expect(add?.data).toEqual(assignment);
@@ -288,23 +288,23 @@ describe('ReadingTrainingService', () => {
     service.startSession({ ...baseCommand, sessionId }).subscribe((r) => (started = r));
     expectCommand('POST', `${base}/sessions/start`, { ...baseCommand, sessionId }, envelope(session));
 
-    service.pauseSession(baseCommand).subscribe((r) => (paused = r));
-    expectCommand('POST', `${base}/sessions/pause`, baseCommand, envelope(session));
+    service.pauseSession(baseCommand, sessionId).subscribe((r) => (paused = r));
+    expectCommand('POST', `${base}/sessions/${sessionId}/pause`, baseCommand, envelope(session));
 
-    service.resumeSession(baseCommand).subscribe((r) => (resumed = r));
-    expectCommand('POST', `${base}/sessions/resume`, baseCommand, envelope(session));
+    service.resumeSession(baseCommand, sessionId).subscribe((r) => (resumed = r));
+    expectCommand('POST', `${base}/sessions/${sessionId}/resume`, baseCommand, envelope(session));
 
-    service.completeSession({ ...baseCommand, reportedMinutes: 42 }).subscribe((r) => (completed = r));
-    expectCommand('POST', `${base}/sessions/complete`, { ...baseCommand, reportedMinutes: 42 }, envelope(session));
+    service.completeSession({ ...baseCommand, reportedMinutes: 42 }, sessionId).subscribe((r) => (completed = r));
+    expectCommand('POST', `${base}/sessions/${sessionId}/complete`, { ...baseCommand, reportedMinutes: 42 }, envelope(session));
 
-    service.rateSession({ ...baseCommand, effort: 6, focus: 7, rating: 4 }).subscribe((r) => (rated = r));
-    expectCommand('POST', `${base}/sessions/rate`, { ...baseCommand, effort: 6, focus: 7, rating: 4 }, envelope(session));
+    service.rateSession({ ...baseCommand, effort: 6, focus: 7, rating: 4 }, sessionId).subscribe((r) => (rated = r));
+    expectCommand('POST', `${base}/sessions/${sessionId}/rate`, { ...baseCommand, effort: 6, focus: 7, rating: 4 }, envelope(session));
 
-    service.skipRatings(baseCommand).subscribe((r) => (skipped = r));
-    expectCommand('POST', `${base}/sessions/skip-ratings`, baseCommand, envelope(session));
+    service.skipRatings(baseCommand, sessionId).subscribe((r) => (skipped = r));
+    expectCommand('POST', `${base}/sessions/${sessionId}/skip-ratings`, baseCommand, envelope(session));
 
-    service.cancelSession(baseCommand).subscribe((r) => (cancelled = r));
-    expectCommand('POST', `${base}/sessions/cancel`, baseCommand, envelope(session));
+    service.cancelSession(baseCommand, sessionId).subscribe((r) => (cancelled = r));
+    expectCommand('DELETE', `${base}/sessions/${sessionId}/open`, baseCommand, envelope(session));
 
     expect(planned?.data?.status).toBe(ReadingSessionStatus.Active);
     expect(started?.data?.accumulatedSeconds).toBe(900);
@@ -336,7 +336,7 @@ describe('ReadingTrainingService', () => {
     expectCommand('POST', `${base}/captures`, { clientId, idempotencyKey, text: 'A stoic thought.', type: 0, bookId, sessionId }, envelope(capture));
 
     service.resolveCapture(captureId, { clientId, idempotencyKey, keep: true, noteId }).subscribe((r) => (resolved = r));
-    expectCommand('PATCH', `${base}/captures/${captureId}/resolve`, { clientId, idempotencyKey, keep: true, noteId }, envelope(capture));
+    expectCommand('PATCH', `${base}/captures/${captureId}`, { clientId, idempotencyKey, keep: true, noteId }, envelope(capture));
 
     service.promoteCapture(captureId, { clientId, idempotencyKey, noteId }).subscribe((r) => (promoted = r));
     expectCommand('POST', `${base}/captures/${captureId}/promote-to-note`, { clientId, idempotencyKey, noteId }, envelope(capture));

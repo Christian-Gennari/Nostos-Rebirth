@@ -680,6 +680,12 @@ public sealed class FakeReadingTrainingService : IReadingTrainingService
         return Task.FromResult(DashboardResult);
     }
 
+    public Task<ReadingCommandResultDto> GetBooksAsync(CancellationToken ct = default)
+    {
+        Record(nameof(GetBooksAsync), ct);
+        return Task.FromResult(Ok(Array.Empty<ReadingBookAssignmentDto>()));
+    }
+
     public Task<ReadingCommandResultDto> GetStatusAsync(CancellationToken ct = default)
     {
         Record(nameof(GetStatusAsync), ct);

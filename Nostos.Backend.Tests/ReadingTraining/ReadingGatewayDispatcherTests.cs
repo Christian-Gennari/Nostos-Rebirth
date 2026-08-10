@@ -93,6 +93,8 @@ public sealed class ReadingGatewayDispatcherTests
             Task.FromResult(MutationEnvelope);
         public Task<ReadingCommandResultDto> GetDashboardAsync(CancellationToken ct = default) =>
             Task.FromResult(MutationEnvelope);
+        public Task<ReadingCommandResultDto> GetBooksAsync(CancellationToken ct = default) =>
+            Task.FromResult(MutationEnvelope);
         public Task<ReadingCommandResultDto> GetHistoryAsync(CancellationToken ct = default) =>
             Task.FromResult(MutationEnvelope);
         public Task<ReadingCommandResultDto> AddBookAssignmentAsync(ReadingAddBookAssignmentRequest request, CancellationToken ct = default) =>

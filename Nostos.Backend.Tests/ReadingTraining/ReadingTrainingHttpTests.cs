@@ -409,9 +409,9 @@ public sealed class ReadingTrainingHttpTests
         (await unknown.Content.ReadAsStringAsync()).Should().NotContain("stateVersion")
             .And.NotContain(ReadingTrainingHttpFactory.SpaShellMarker);
 
-        // GET on the POST-only /books route: the API boundary answers 404,
-        // never the shell.
-        var wrongMethod = await client.GetAsync("/api/reading-training/books");
+        // GET on the POST-only /initialize route: the API boundary answers
+        // 404, never the shell or a domain envelope.
+        var wrongMethod = await client.GetAsync("/api/reading-training/initialize");
         wrongMethod.StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await wrongMethod.Content.ReadAsStringAsync()).Should().NotContain("stateVersion")
             .And.NotContain(ReadingTrainingHttpFactory.SpaShellMarker);

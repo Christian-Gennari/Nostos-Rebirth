@@ -31,7 +31,7 @@ import {
 
 /**
  * Typed HTTP client for the Reading Training REST surface
- * (`/api/reading-training`, see ReadingTrainingEndpoints.cs).
+ * (`/api/reading`, see ReadingTrainingEndpoints.cs).
  *
  * Every mutating command returns the stable `ReadingCommandResult<T>`
  * envelope; the notification lease/ack endpoints return their own shapes.
@@ -41,7 +41,7 @@ import {
  */
 @Injectable({ providedIn: 'root' })
 export class ReadingTrainingService {
-  private readonly baseUrl = '/api/reading-training';
+  private readonly baseUrl = '/api/reading';
 
   constructor(private readonly http: HttpClient) {}
 
@@ -60,7 +60,7 @@ export class ReadingTrainingService {
   }
 
   getHistory(): Observable<ReadingCommandResult<ReadingSession[]>> {
-    return this.http.get<ReadingCommandResult<ReadingSession[]>>(`${this.baseUrl}/history`);
+    return this.http.get<ReadingCommandResult<ReadingSession[]>>(`${this.baseUrl}/sessions`);
   }
 
   getInbox(): Observable<ReadingCommandResult<ReadingCapture[]>> {
@@ -70,13 +70,14 @@ export class ReadingTrainingService {
   // --- weekly reviews ---
 
   previewWeeklyReview(year: number, week: number): Observable<ReadingCommandResult<ReadingWeeklyReview>> {
-    return this.http.get<ReadingCommandResult<ReadingWeeklyReview>>(
-      `${this.baseUrl}/weekly-reviews/${year}/${week}/preview`
+    return this.http.post<ReadingCommandResult<ReadingWeeklyReview>>(
+      `${this.baseUrl}/reviews/preview`,
+      { year, week }
     );
   }
 
   commitWeeklyReview(request: ReadingCommitWeeklyReviewRequest): Observable<ReadingCommandResult<ReadingWeeklyReview>> {
-    return this.http.post<ReadingCommandResult<ReadingWeeklyReview>>(`${this.baseUrl}/weekly-reviews/commit`, request);
+    return this.http.post<ReadingCommandResult<ReadingWeeklyReview>>(`${this.baseUrl}/reviews/commit`, request);
   }
 
   // --- books / queue ---
@@ -86,11 +87,17 @@ export class ReadingTrainingService {
   }
 
   setDefaultBook(request: ReadingSetDefaultBookRequest): Observable<ReadingCommandResult<ReadingBookAssignment>> {
-    return this.http.post<ReadingCommandResult<ReadingBookAssignment>>(`${this.baseUrl}/books/default`, request);
+    return this.http.patch<ReadingCommandResult<ReadingBookAssignment>>(
+      `${this.baseUrl}/books/${request.bookAssignmentId}`,
+      request
+    );
   }
 
   completeBook(request: ReadingCompleteBookRequest): Observable<ReadingCommandResult<ReadingBookAssignment>> {
-    return this.http.post<ReadingCommandResult<ReadingBookAssignment>>(`${this.baseUrl}/books/complete`, request);
+    return this.http.post<ReadingCommandResult<ReadingBookAssignment>>(
+      `${this.baseUrl}/books/${request.bookAssignmentId}/finish`,
+      request
+    );
   }
 
   reorderQueue(request: ReadingReorderQueueRequest): Observable<ReadingCommandResult<ReadingBookAssignment[]>> {
@@ -111,28 +118,30 @@ export class ReadingTrainingService {
     return this.http.post<ReadingCommandResult<ReadingSession>>(`${this.baseUrl}/sessions/start-new`, request);
   }
 
-  pauseSession(request: ReadingSessionCommandRequest): Observable<ReadingCommandResult<ReadingSession>> {
-    return this.http.post<ReadingCommandResult<ReadingSession>>(`${this.baseUrl}/sessions/pause`, request);
+  pauseSession(request: ReadingSessionCommandRequest, sessionId: string): Observable<ReadingCommandResult<ReadingSession>> {
+    return this.http.post<ReadingCommandResult<ReadingSession>>(`${this.baseUrl}/sessions/${sessionId}/pause`, request);
   }
 
-  resumeSession(request: ReadingSessionCommandRequest): Observable<ReadingCommandResult<ReadingSession>> {
-    return this.http.post<ReadingCommandResult<ReadingSession>>(`${this.baseUrl}/sessions/resume`, request);
+  resumeSession(request: ReadingSessionCommandRequest, sessionId: string): Observable<ReadingCommandResult<ReadingSession>> {
+    return this.http.post<ReadingCommandResult<ReadingSession>>(`${this.baseUrl}/sessions/${sessionId}/resume`, request);
   }
 
-  completeSession(request: ReadingCompleteSessionRequest): Observable<ReadingCommandResult<ReadingSession>> {
-    return this.http.post<ReadingCommandResult<ReadingSession>>(`${this.baseUrl}/sessions/complete`, request);
+  completeSession(request: ReadingCompleteSessionRequest, sessionId: string): Observable<ReadingCommandResult<ReadingSession>> {
+    return this.http.post<ReadingCommandResult<ReadingSession>>(`${this.baseUrl}/sessions/${sessionId}/complete`, request);
   }
 
-  rateSession(request: ReadingRateSessionRequest): Observable<ReadingCommandResult<ReadingSession>> {
-    return this.http.post<ReadingCommandResult<ReadingSession>>(`${this.baseUrl}/sessions/rate`, request);
+  rateSession(request: ReadingRateSessionRequest, sessionId: string): Observable<ReadingCommandResult<ReadingSession>> {
+    return this.http.post<ReadingCommandResult<ReadingSession>>(`${this.baseUrl}/sessions/${sessionId}/rate`, request);
   }
 
-  skipRatings(request: ReadingSkipRatingsRequest): Observable<ReadingCommandResult<ReadingSession>> {
-    return this.http.post<ReadingCommandResult<ReadingSession>>(`${this.baseUrl}/sessions/skip-ratings`, request);
+  skipRatings(request: ReadingSkipRatingsRequest, sessionId: string): Observable<ReadingCommandResult<ReadingSession>> {
+    return this.http.post<ReadingCommandResult<ReadingSession>>(`${this.baseUrl}/sessions/${sessionId}/skip-ratings`, request);
   }
 
-  cancelSession(request: ReadingSessionCommandRequest): Observable<ReadingCommandResult<ReadingSession>> {
-    return this.http.post<ReadingCommandResult<ReadingSession>>(`${this.baseUrl}/sessions/cancel`, request);
+  cancelSession(request: ReadingSessionCommandRequest, sessionId: string): Observable<ReadingCommandResult<ReadingSession>> {
+    return this.http.delete<ReadingCommandResult<ReadingSession>>(`${this.baseUrl}/sessions/${sessionId}/open`, {
+      body: request,
+    });
   }
 
   // --- captures / inbox ---
@@ -146,7 +155,7 @@ export class ReadingTrainingService {
     request: ReadingResolveCaptureRequest
   ): Observable<ReadingCommandResult<ReadingCapture>> {
     return this.http.patch<ReadingCommandResult<ReadingCapture>>(
-      `${this.baseUrl}/captures/${captureId}/resolve`,
+      `${this.baseUrl}/captures/${captureId}`,
       request
     );
   }

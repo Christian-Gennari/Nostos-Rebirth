@@ -97,6 +97,17 @@ public sealed class ReadingTrainingService : IReadingTrainingService
         return Result(ReadingReplyFormatter.History(data.Count), data, programme?.StateVersion ?? "0");
     }
 
+    public async Task<ReadingCommandResultDto> GetBooksAsync(CancellationToken ct = default)
+    {
+        await using var db = await _contexts.CreateDbContextAsync(ct);
+        var programme = await db.ReadingProgrammes.AsNoTracking().SingleOrDefaultAsync(ct);
+        if (programme is null) return Failure("not_initialized", "Reading training is not initialized.");
+
+        var books = await db.ReadingBookAssignments.AsNoTracking().Include(x => x.Book)
+            .OrderBy(x => x.QueueOrder).ThenBy(x => x.CreatedAt).ToListAsync(ct);
+        return Result(ReadingReplyFormatter.Queue(books.Count), books.Select(ToDto).ToList(), programme.StateVersion);
+    }
+
     public Task<ReadingCommandResultDto> AddBookAssignmentAsync(
         ReadingAddBookAssignmentRequest request, CancellationToken ct = default) =>
         MutateAsync(request.ClientId, request.IdempotencyKey, "AddBookAssignment", async (db, token) =>

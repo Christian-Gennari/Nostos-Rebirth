@@ -51,6 +51,8 @@ import {
 } from '../core/dtos/reading-training.dtos';
 import { ReadingTrainingService } from '../core/services/reading-training.service';
 
+const EMPTY_SESSION_ID = '00000000-0000-0000-0000-000000000000';
+
 /** Authoritative dashboard refresh cadence while connected. */
 const REFRESH_INTERVAL_MS = 30_000;
 /** Notification lease cadence while connected (matches the backend scan/lease). */
@@ -574,27 +576,39 @@ export class ReadingTrainingStore {
   }
 
   pauseSession(request: ReadingSessionCommandRequest): Observable<ReadingCommandResult<ReadingSession>> {
-    return this.runCommand('pause session', () => this.service.pauseSession(request));
+    return this.runCommand('pause session', () =>
+      this.service.pauseSession(request, this.openSession()?.id ?? EMPTY_SESSION_ID)
+    );
   }
 
   resumeSession(request: ReadingSessionCommandRequest): Observable<ReadingCommandResult<ReadingSession>> {
-    return this.runCommand('resume session', () => this.service.resumeSession(request));
+    return this.runCommand('resume session', () =>
+      this.service.resumeSession(request, this.openSession()?.id ?? EMPTY_SESSION_ID)
+    );
   }
 
   completeSession(request: ReadingCompleteSessionRequest): Observable<ReadingCommandResult<ReadingSession>> {
-    return this.runCommand('complete session', () => this.service.completeSession(request));
+    return this.runCommand('complete session', () =>
+      this.service.completeSession(request, this.openSession()?.id ?? EMPTY_SESSION_ID)
+    );
   }
 
   rateSession(request: ReadingRateSessionRequest): Observable<ReadingCommandResult<ReadingSession>> {
-    return this.runCommand('rate session', () => this.service.rateSession(request));
+    return this.runCommand('rate session', () =>
+      this.service.rateSession(request, this.openSession()?.id ?? EMPTY_SESSION_ID)
+    );
   }
 
   skipRatings(request: ReadingSkipRatingsRequest): Observable<ReadingCommandResult<ReadingSession>> {
-    return this.runCommand('skip ratings', () => this.service.skipRatings(request));
+    return this.runCommand('skip ratings', () =>
+      this.service.skipRatings(request, this.openSession()?.id ?? EMPTY_SESSION_ID)
+    );
   }
 
   cancelSession(request: ReadingSessionCommandRequest): Observable<ReadingCommandResult<ReadingSession>> {
-    return this.runCommand('cancel session', () => this.service.cancelSession(request));
+    return this.runCommand('cancel session', () =>
+      this.service.cancelSession(request, this.openSession()?.id ?? EMPTY_SESSION_ID)
+    );
   }
 
   capture(request: ReadingCaptureRequest): Observable<ReadingCommandResult<ReadingCapture>> {

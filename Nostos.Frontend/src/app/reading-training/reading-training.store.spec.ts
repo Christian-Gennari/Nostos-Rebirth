@@ -27,10 +27,15 @@ describe('ReadingTrainingStore', () => {
   let store: ReadingTrainingStore;
   let httpMock: HttpTestingController;
 
-  const base = '/api/reading-training';
+  const base = '/api/reading';
   const clientId = 'test-client';
   const idempotencyKey = 'key-1';
   const sessionId = '11111111-1111-1111-1111-111111111111';
+  const emptySessionId = '00000000-0000-0000-0000-000000000000';
+
+  function sessionCommandUrl(suffix: string): string {
+    return `${base}/sessions/${store.openSession()?.id ?? emptySessionId}/${suffix}`;
+  }
   const assignmentId = '22222222-2222-2222-2222-222222222222';
   const deepAssignmentId = '77777777-7777-7777-7777-777777777777';
   const bookId = '33333333-3333-3333-3333-333333333333';
@@ -431,7 +436,7 @@ describe('ReadingTrainingStore', () => {
     store.pauseSession({ clientId, idempotencyKey }).subscribe((r) => (emitted = r));
 
     // The command envelope carries the version that includes this mutation...
-    httpMock.expectOne(`${base}/sessions/pause`).flush(
+    httpMock.expectOne(sessionCommandUrl('pause')).flush(
       envelope(pausedSession, { reply: 'session paused', stateVersion: '18' })
     );
     // ...and even when the authoritative refresh fails, that version is retained.
@@ -468,7 +473,7 @@ describe('ReadingTrainingStore', () => {
 
     let error: unknown;
     store.pauseSession({ clientId, idempotencyKey }).subscribe({ error: (e) => (error = e) });
-    httpMock.expectOne(`${base}/sessions/pause`).flush(
+    httpMock.expectOne(sessionCommandUrl('pause')).flush(
       {
         reply: 'Cannot pause: no active session',
         data: { code: 'invalid_transition' },
@@ -497,18 +502,18 @@ describe('ReadingTrainingStore', () => {
     const inbox$ = store.loadInbox();
     const history$ = store.loadHistory();
     expect(httpMock.match(`${base}/inbox`)).toHaveLength(0);
-    expect(httpMock.match(`${base}/history`)).toHaveLength(0);
+    expect(httpMock.match(`${base}/sessions`)).toHaveLength(0);
 
     inbox$.subscribe();
     // match() consumes requests, so keep a reference before flushing.
     const inboxReqs = httpMock.match(`${base}/inbox`);
     expect(inboxReqs).toHaveLength(1);
-    expect(httpMock.match(`${base}/history`)).toHaveLength(0);
+    expect(httpMock.match(`${base}/sessions`)).toHaveLength(0);
     inboxReqs[0].flush(envelope([capture]));
     expect(store.inbox()).toEqual([capture]);
 
     history$.subscribe();
-    const historyReqs = httpMock.match(`${base}/history`);
+    const historyReqs = httpMock.match(`${base}/sessions`);
     expect(historyReqs).toHaveLength(1);
     historyReqs[0].flush(envelope([pausedSession]));
     expect(store.history()).toEqual([pausedSession]);
@@ -527,7 +532,7 @@ describe('ReadingTrainingStore', () => {
   it('loadHistory applies the exact server result', () => {
     let emitted: ReadingSession[] | undefined;
     store.loadHistory().subscribe((v) => (emitted = v));
-    httpMock.expectOne(`${base}/history`).flush(envelope([session, pausedSession]));
+    httpMock.expectOne(`${base}/sessions`).flush(envelope([session, pausedSession]));
 
     expect(emitted).toEqual([session, pausedSession]);
     expect(store.history()).toEqual([session, pausedSession]);
@@ -595,7 +600,7 @@ describe('ReadingTrainingStore', () => {
     store.loadInbox().subscribe((v) => (inboxEmitted = v));
     store.loadHistory().subscribe((v) => (historyEmitted = v));
 
-    httpMock.expectOne(`${base}/history`).flush(envelope([pausedSession]));
+    httpMock.expectOne(`${base}/sessions`).flush(envelope([pausedSession]));
     expect(store.history()).toEqual([pausedSession]);
     expect(historyEmitted).toEqual([pausedSession]);
     expect(store.inbox()).toEqual([]); // untouched by history
@@ -610,7 +615,7 @@ describe('ReadingTrainingStore', () => {
     store.loadInbox().subscribe();
     httpMock.expectOne(`${base}/inbox`).flush(envelope([capture]));
     store.loadHistory().subscribe();
-    httpMock.expectOne(`${base}/history`).flush(envelope([pausedSession]));
+    httpMock.expectOne(`${base}/sessions`).flush(envelope([pausedSession]));
 
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
@@ -627,7 +632,7 @@ describe('ReadingTrainingStore', () => {
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
     expectLease().flush([]);
     expect(httpMock.match(`${base}/inbox`)).toHaveLength(0);
-    expect(httpMock.match(`${base}/history`)).toHaveLength(0);
+    expect(httpMock.match(`${base}/sessions`)).toHaveLength(0);
   });
 
   // --- display-only elapsed seconds ---
@@ -739,11 +744,11 @@ describe('ReadingTrainingStore', () => {
   it('keeps commands cold until subscription', () => {
     const command$ = store.pauseSession({ clientId, idempotencyKey });
     expect(store.mutating()).toBe(false);
-    expect(httpMock.match(`${base}/sessions/pause`)).toHaveLength(0);
+    expect(httpMock.match(sessionCommandUrl('pause'))).toHaveLength(0);
 
     command$.subscribe();
     expect(store.mutating()).toBe(true);
-    httpMock.expectOne(`${base}/sessions/pause`).flush(envelope(pausedSession));
+    httpMock.expectOne(sessionCommandUrl('pause')).flush(envelope(pausedSession));
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard({ openSession: pausedSession })));
     expect(store.mutating()).toBe(false);
   });
@@ -757,7 +762,7 @@ describe('ReadingTrainingStore', () => {
       next: (value) => (emitted = value),
       error: (error) => (streamError = error),
     });
-    httpMock.expectOne(`${base}/sessions/pause`).flush(result);
+    httpMock.expectOne(sessionCommandUrl('pause')).flush(result);
     httpMock.expectOne(`${base}/dashboard`).flush(
       { title: 'Unavailable' },
       { status: 503, statusText: 'Service Unavailable' }
@@ -786,13 +791,13 @@ describe('ReadingTrainingStore', () => {
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
 
     store.pauseSession(baseCommand).subscribe((r) => (paused = r));
-    req = httpMock.expectOne(`${base}/sessions/pause`);
+    req = httpMock.expectOne(sessionCommandUrl('pause'));
     expect(req.request.body).toEqual(baseCommand);
     req.flush(envelope({ ...session, status: ReadingSessionStatus.Paused }));
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard({ openSession: pausedSession })));
 
     store.rateSession(rateRequest).subscribe((r) => (rated = r));
-    req = httpMock.expectOne(`${base}/sessions/rate`);
+    req = httpMock.expectOne(sessionCommandUrl('rate'));
     expect(req.request.body).toEqual(rateRequest);
     req.flush(envelope({ ...session, effort: 6, focus: 7, rating: 4 }));
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
@@ -826,7 +831,7 @@ describe('ReadingTrainingStore', () => {
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
 
     store.resolveCapture(captureId, resolveRequest).subscribe((r) => (resolved = r));
-    req = httpMock.expectOne(`${base}/captures/${captureId}/resolve`);
+    req = httpMock.expectOne(`${base}/captures/${captureId}`);
     expect(req.request.method).toBe('PATCH');
     expect(req.request.body).toEqual(resolveRequest);
     req.flush(envelope({ ...capture, resolved: true }));
@@ -844,7 +849,7 @@ describe('ReadingTrainingStore', () => {
     let emitted: ReadingCommandResult<ReadingWeeklyReview> | undefined;
     store.commitWeeklyReview(request).subscribe((r) => (emitted = r));
 
-    const cmd = httpMock.expectOne(`${base}/weekly-reviews/commit`);
+    const cmd = httpMock.expectOne(`${base}/reviews/commit`);
     expect(cmd.request.body).toEqual(request);
     cmd.flush(result);
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
@@ -863,7 +868,7 @@ describe('ReadingTrainingStore', () => {
     let error: unknown;
     store.pauseSession({ clientId, idempotencyKey }).subscribe({ error: (e) => (error = e) });
 
-    const cmd = httpMock.expectOne(`${base}/sessions/pause`);
+    const cmd = httpMock.expectOne(sessionCommandUrl('pause'));
     cmd.flush(
       { reply: 'Cannot pause: no active session', data: { code: 'invalid_transition' }, stateVersion: '17', duplicate: false },
       { status: 409, statusText: 'Conflict' }
@@ -922,7 +927,7 @@ describe('ReadingTrainingStore', () => {
     store.loadInbox().subscribe();
     httpMock.expectOne(`${base}/inbox`).flush(envelope([capture]));
     store.loadHistory().subscribe();
-    httpMock.expectOne(`${base}/history`).flush(envelope([pausedSession]));
+    httpMock.expectOne(`${base}/sessions`).flush(envelope([pausedSession]));
 
     expect(store.inbox()).toEqual([capture]);
     expect(store.history()).toEqual([pausedSession]);
@@ -1001,7 +1006,7 @@ describe('ReadingTrainingStore', () => {
     store.pauseSession({ clientId, idempotencyKey: 'key-2' }).subscribe({ error: (e) => (concurrentError = e) });
     expect(concurrentError).toBeInstanceOf(Error);
     expect((concurrentError as Error).message).toBe('mutation_in_progress');
-    expect(httpMock.match(`${base}/sessions/pause`)).toHaveLength(0);
+    expect(httpMock.match(sessionCommandUrl('pause'))).toHaveLength(0);
     expect(store.error()).toBeNull();
 
     // The first command still completes normally and refreshes.
@@ -1012,7 +1017,7 @@ describe('ReadingTrainingStore', () => {
 
     // Once the lock is released, the next mutation runs normally.
     store.pauseSession({ clientId, idempotencyKey: 'key-2' }).subscribe();
-    httpMock.expectOne(`${base}/sessions/pause`).flush(envelope({ ...session, status: ReadingSessionStatus.Paused }));
+    httpMock.expectOne(sessionCommandUrl('pause')).flush(envelope({ ...session, status: ReadingSessionStatus.Paused }));
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
     expect(store.mutating()).toBe(false);
   });
@@ -1026,7 +1031,7 @@ describe('ReadingTrainingStore', () => {
     store.rateSession({ clientId, idempotencyKey, effort: 6, focus: 7 }).subscribe({ error: (e) => (error = e) });
     expect(store.mutating()).toBe(true);
 
-    httpMock.expectOne(`${base}/sessions/rate`).error(new ProgressEvent('error'));
+    httpMock.expectOne(sessionCommandUrl('rate')).error(new ProgressEvent('error'));
     expect(error).toBeInstanceOf(HttpErrorResponse);
     expect(httpMock.match(`${base}/dashboard`)).toHaveLength(0);
     expect(store.error()).toBe('Failed to rate session: network error');
@@ -1057,7 +1062,7 @@ describe('ReadingTrainingStore', () => {
         error: () => void 0,
       });
 
-    const completeReq = httpMock.expectOne(`${base}/sessions/complete`);
+    const completeReq = httpMock.expectOne(sessionCommandUrl('complete'));
     expect(completeReq.request.method).toBe('POST');
     completeReq.flush(envelope({ ...session, status: ReadingSessionStatus.AwaitingFeedback }, { reply: 'session completed' }));
 
@@ -1068,7 +1073,7 @@ describe('ReadingTrainingStore', () => {
 
     // ...then the rate POST is issued from the result handler, no mutation error.
     expect(rateError).toBeUndefined();
-    const rateReq = httpMock.expectOne(`${base}/sessions/rate`);
+    const rateReq = httpMock.expectOne(sessionCommandUrl('rate'));
     expect(rateReq.request.method).toBe('POST');
     expect(rateReq.request.body).toEqual({ clientId, idempotencyKey: 'key-2', effort: 6, focus: 7 });
     expect(store.mutating()).toBe(true); // the second command holds the lock now
@@ -1107,13 +1112,13 @@ describe('ReadingTrainingStore', () => {
         next: () => void 0,
       });
 
-    httpMock.expectOne(`${base}/sessions/complete`).flush(
+    httpMock.expectOne(sessionCommandUrl('complete')).flush(
       { reply: 'Cannot complete: no active session', data: { code: 'invalid_transition' }, stateVersion: '17', duplicate: false },
       { status: 409, statusText: 'Conflict' }
     );
 
     expect(followUpError).toBeUndefined();
-    httpMock.expectOne(`${base}/sessions/rate`).flush(envelope({ ...session, effort: 6, focus: 7 }, { reply: 'session rated' }));
+    httpMock.expectOne(sessionCommandUrl('rate')).flush(envelope({ ...session, effort: 6, focus: 7 }, { reply: 'session rated' }));
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
     expect(followUpEmitted).toBe(true);
     expect(store.mutating()).toBe(false);
@@ -1130,7 +1135,7 @@ describe('ReadingTrainingStore', () => {
     expect((error as Error).message).toBe('command factory exploded');
     expect(store.error()).toBe('Failed to pause session: command factory exploded');
     expect(store.mutating()).toBe(false);
-    expect(httpMock.match(`${base}/sessions/pause`)).toHaveLength(0);
+    expect(httpMock.match(sessionCommandUrl('pause'))).toHaveLength(0);
   });
 
   it('a command that completes without emitting still releases the mutation lock', () => {
@@ -1141,7 +1146,7 @@ describe('ReadingTrainingStore', () => {
     store.pauseSession({ clientId, idempotencyKey }).subscribe({ complete: () => (completed = true) });
     expect(completed).toBe(true);
     expect(store.mutating()).toBe(false);
-    expect(httpMock.match(`${base}/sessions/pause`)).toHaveLength(0);
+    expect(httpMock.match(sessionCommandUrl('pause'))).toHaveLength(0);
   });
 
   // --- pending notifications (lease) ---
@@ -1459,7 +1464,7 @@ describe('ReadingTrainingStore', () => {
     expect(store.acknowledgingNotificationId()).toBe(noticeId1);
     httpMock.expectOne(`${base}/notifications/${noticeId1}/ack`).flush({ notificationId: noticeId1, acknowledged: true });
     expect(store.pendingNotices()).toEqual([]);
-    httpMock.expectOne(`${base}/sessions/pause`).flush(envelope({ ...session, status: ReadingSessionStatus.Paused }));
+    httpMock.expectOne(sessionCommandUrl('pause')).flush(envelope({ ...session, status: ReadingSessionStatus.Paused }));
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
 
     // ...and an in-flight acknowledgement never blocks a domain command.
@@ -1472,7 +1477,7 @@ describe('ReadingTrainingStore', () => {
     store.cancelSession({ clientId, idempotencyKey: 'key-2' }).subscribe({ error: (e) => (commandError = e) });
     expect(commandError).toBeUndefined();
     expect(store.mutating()).toBe(true);
-    httpMock.expectOne(`${base}/sessions/cancel`).flush(envelope({ ...session, status: ReadingSessionStatus.Planned }));
+    httpMock.expectOne(sessionCommandUrl('open')).flush(envelope({ ...session, status: ReadingSessionStatus.Planned }));
     httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
     httpMock.expectOne(`${base}/notifications/${noticeId2}/ack`).flush({ notificationId: noticeId2, acknowledged: true });
 

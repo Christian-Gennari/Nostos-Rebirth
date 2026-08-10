@@ -151,6 +151,9 @@ public static class ReadingReplyFormatter
     public static string History(int count) =>
         $"History: {count} session(s).";
 
+    public static string Queue(int count) =>
+        $"Queue: {count} assignment(s).";
+
     // --- weekly review ---
     public static string InvalidWeek(int year, int week) =>
         $"Week {year}-W{week:00} is not a valid ISO week.";

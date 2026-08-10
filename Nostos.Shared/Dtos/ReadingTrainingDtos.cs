@@ -98,6 +98,14 @@ public record ReadingReorderQueueRequest(
     IReadOnlyList<Guid> AssignmentIds
 );
 
+// Canonical PATCH /books/{assignmentId} body: makes the named assignment the
+// default for its mode (the only per-assignment update the domain exposes).
+public record ReadingUpdateBookAssignmentRequest(
+    string ClientId,
+    string IdempotencyKey,
+    ReadingMode Mode
+);
+
 // --- CAPTURE / INBOX ---
 public record ReadingCaptureRequest(
     string ClientId,

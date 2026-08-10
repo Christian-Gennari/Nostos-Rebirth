@@ -94,39 +94,46 @@ app.MapReadingTrainingEndpoints();
 | `POST`     | `/import`        | Scan `/backups` folder for untracked files | `IBackupService`               |
 | `GET`      | `/progress`      | Real-time step-by-step progress tracking   | `BackupSettingsProvider`       |
 
-### ReadingTrainingEndpoints (`/api/reading-training`)
+### ReadingTrainingEndpoints (`/api/reading`)
+
+`/api/reading` is the canonical surface. The complete canonical group is also
+mapped under `/api/reading-training` for backward compatibility; previously
+shipped body-only command shapes remain available there while clients migrate.
+All variants call the same service and share command receipts/state versions.
 
 All responses use the stable `ReadingCommandResultDto` envelope. Mutations are
 exact-once by `(clientId, idempotencyKey)` and delegate to
 `IReadingTrainingService`; the endpoint layer contains no training rules.
 
-| Method  | Route                                             | Description |
-| ------- | ------------------------------------------------- | ----------- |
-| `POST`  | `/initialize`                                     | Initialize the programme idempotently |
-| `GET`   | `/dashboard`                                      | Programme, books, open session and current review |
-| `GET`   | `/status`                                         | Current open-session status |
-| `GET`   | `/history`                                        | Session history |
-| `GET`   | `/inbox`                                          | Unresolved captures |
-| `POST`  | `/books`                                          | Add a library book assignment |
-| `POST`  | `/books/default`                                  | Set a mode's default assignment |
-| `POST`  | `/books/complete`                                 | Finish a training assignment |
-| `POST`  | `/books/reorder`                                  | Reorder active assignments |
-| `POST`  | `/sessions/plan`                                  | Plan a session |
-| `POST`  | `/sessions/start`                                 | Start a planned session |
-| `POST`  | `/sessions/start-new`                             | Create and start a session |
-| `POST`  | `/sessions/pause`                                 | Pause the open session |
-| `POST`  | `/sessions/resume`                                | Resume the open session |
-| `POST`  | `/sessions/complete`                              | Stop timing and record actual minutes |
-| `POST`  | `/sessions/rate`                                  | Submit effort, focus and optional rating |
-| `POST`  | `/sessions/skip-ratings`                          | Close without ratings |
-| `POST`  | `/sessions/cancel`                                | Cancel the open session |
-| `POST`  | `/captures`                                       | Capture text verbatim |
-| `PATCH` | `/captures/{captureId}/resolve`                   | Dismiss or keep a capture |
-| `POST`  | `/captures/{captureId}/promote-to-note`           | Append a capture to an existing note |
-| `GET`   | `/weekly-reviews/{year}/{week}/preview`           | Preview an ISO-week decision |
-| `POST`  | `/weekly-reviews/commit`                           | Persist an immutable ISO-week review |
-| `GET`   | `/notifications/lease?maxCount&leaseSeconds`       | Claim due target-reached notifications under a lease |
-| `POST`  | `/notifications/{notificationId}/ack`              | Acknowledge a delivered notification (idempotent) |
+| Method   | Route                                             | Description |
+| -------- | ------------------------------------------------- | ----------- |
+| `POST`   | `/initialize`                                     | Initialize the programme idempotently |
+| `GET`    | `/dashboard`                                      | Programme, books, open session and current review |
+| `GET`    | `/status`                                         | Current open-session status |
+| `GET`    | `/week?week=YYYY-Www`                             | ISO-week summary/review |
+| `GET`    | `/sessions?from=&to=&bookId=&mode=`               | Filtered session history |
+| `POST`   | `/sessions/plan`                                  | Plan a session |
+| `POST`   | `/sessions/start`                                 | Start a planned session |
+| `POST`   | `/sessions/start-new`                             | Create and start a session |
+| `POST`   | `/sessions/{id}/pause`                            | Pause the named open session |
+| `POST`   | `/sessions/{id}/resume`                           | Resume the named open session |
+| `POST`   | `/sessions/{id}/complete`                         | Stop timing and record actual minutes |
+| `POST`   | `/sessions/{id}/rate`                             | Submit effort, focus and optional rating |
+| `POST`   | `/sessions/{id}/skip-ratings`                     | Close without ratings |
+| `DELETE` | `/sessions/{id}/open`                             | Cancel the named open session |
+| `GET`    | `/books`                                          | List training assignments |
+| `POST`   | `/books`                                          | Add a library book assignment |
+| `PATCH`  | `/books/{assignmentId}`                           | Make the assignment default for its mode |
+| `POST`   | `/books/{assignmentId}/finish`                    | Finish a training assignment |
+| `GET`    | `/inbox`                                          | Unresolved captures |
+| `POST`   | `/captures`                                       | Capture text verbatim |
+| `PATCH`  | `/captures/{id}`                                  | Dismiss or keep a capture |
+| `POST`   | `/captures/{id}/promote-to-note`                  | Append a capture to an existing note |
+| `POST`   | `/reviews/preview`                                | Preview an ISO-week decision |
+| `POST`   | `/reviews/commit`                                 | Persist an immutable ISO-week review |
+| `POST`   | `/gateway/dispatch`                               | Dispatch optional connector text |
+| `GET`    | `/notifications/lease?maxCount&leaseSeconds`      | Claim due target-reached notifications under a lease |
+| `POST`   | `/notifications/{id}/ack`                         | Acknowledge a delivered notification idempotently |
 
 `GET /notifications/lease` validates `maxCount` (1..100) and `leaseSeconds`
 (1..3600); invalid values return 400 ProblemDetails. The response is the typed

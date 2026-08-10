@@ -17,6 +17,7 @@ public interface IReadingTrainingService
     Task<ReadingCommandResultDto> GetDashboardAsync(CancellationToken ct = default);
     Task<ReadingCommandResultDto> GetStatusAsync(CancellationToken ct = default);
     Task<ReadingCommandResultDto> GetHistoryAsync(CancellationToken ct = default);
+    Task<ReadingCommandResultDto> GetBooksAsync(CancellationToken ct = default);
 
     // --- books / queue ---
     Task<ReadingCommandResultDto> AddBookAssignmentAsync(ReadingAddBookAssignmentRequest request, CancellationToken ct = default);
