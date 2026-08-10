@@ -6,10 +6,23 @@
   min-height: 100%;
 }
 
-/* Pending reading notices sit between the action toolbar and the weekly strip. */
-app-pending-notices {
+/* Main dashboard sections are ruled, not cards: each section carries a
+   straight neutral top rule inside its own component; the page supplies the
+   vertical rhythm between them. Today leads directly under the toolbar. */
+app-pending-notices,
+app-week-strip,
+app-today-session,
+app-session-feedback,
+app-capacity-lanes,
+app-active-books,
+app-reading-inbox,
+app-session-history {
   display: block;
-  margin-bottom: var(--space-md);
+  margin-top: var(--space-lg);
+}
+
+app-today-session {
+  margin-top: 0;
 }
 
 .reading-training-page {
@@ -158,6 +171,33 @@ app-pending-notices {
 }
 
 @media (max-width: 768px) {
+  .reading-training-page {
+    padding: 20px 16px calc(var(--space-xl) * 4);
+  }
+
+  .page-header {
+    margin-bottom: var(--space-md);
+  }
+
+  .toolbar {
+    margin-bottom: var(--space-md);
+  }
+
+  app-pending-notices,
+  app-week-strip,
+  app-session-feedback,
+  app-capacity-lanes,
+  app-active-books,
+  app-reading-inbox,
+  app-session-history {
+    margin-top: var(--space-md);
+  }
+
+  .icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+
   .btn,
   .btn-lg {
     min-height: 44px;
@@ -166,11 +206,11 @@ app-pending-notices {
 
 @media (prefers-reduced-motion: reduce) {
   .spinner {
-    animation-duration: 1.6s;
+    animation: none;
   }
 
   .refresh-spinner::after {
-    animation-duration: 1.6s;
+    animation: none;
   }
 }
 

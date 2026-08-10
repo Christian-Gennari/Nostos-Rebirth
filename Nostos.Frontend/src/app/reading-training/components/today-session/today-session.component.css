@@ -1,8 +1,11 @@
+/* Today leads the reading sheet: flat section with a straight neutral top
+   rule, no card shell. The page removes its top margin so it begins cleanly
+   under the action toolbar. Session status is plain utility text, not a
+   capsule. Form controls and buttons keep their interactive styling. */
+
 .today-session {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: var(--space-lg);
+  border-top: 1px solid var(--border-color);
+  padding-top: var(--space-md);
 }
 
 .session-header {
@@ -19,6 +22,7 @@
   margin: 0;
 }
 
+/* Plain utility status text — no capsule. */
 .status-badge {
   flex-shrink: 0;
   font-size: 0.65rem;
@@ -26,24 +30,20 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--color-text-muted);
-  background: var(--bg-surface-alt);
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  padding: 3px 10px;
 }
 
 .session-book {
   font-family: 'Lora', serif;
   font-size: var(--text-lg);
   color: var(--color-text-main);
-  margin: 0 0 var(--space-md);
+  margin: 0 0 var(--space-sm);
 }
 
 .session-meta {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-md);
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-sm);
 }
 
 .meta-row dt {

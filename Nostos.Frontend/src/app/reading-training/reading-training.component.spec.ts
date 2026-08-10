@@ -1229,6 +1229,60 @@ describe('ReadingTrainingComponent', () => {
     expect(fixture.nativeElement.querySelector('app-pending-notices')).toBeNull();
   });
 
+  it('omits the pending notices panel entirely while no notices are pending, and restores it when one arrives', () => {
+    mock.dashboard.set(initializedDashboard());
+    mock.pendingNotices.set([]);
+    fixture.detectChanges();
+
+    // Empty collection: no empty-state framing, no panel at all.
+    expect(fixture.nativeElement.querySelector('app-pending-notices')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Reading notices');
+    expect(fixture.nativeElement.textContent).not.toContain('No reading notices waiting');
+
+    // A single notice brings the panel back with its content.
+    mock.pendingNotices.set([pendingNotice1]);
+    fixture.detectChanges();
+    const panel = fixture.nativeElement.querySelector('app-pending-notices') as HTMLElement;
+    expect(panel).toBeTruthy();
+    expect(panel.textContent).toContain('Reading notices');
+    expect(panel.textContent).toContain('Endurance');
+
+    // Acknowledged away: the panel disappears again without empty-state filler.
+    mock.pendingNotices.set([]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-pending-notices')).toBeNull();
+  });
+
+  it('places Today and session feedback directly after the action toolbar, above the week ledger and capacity lanes', () => {
+    mock.dashboard.set(initializedDashboard());
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement;
+    const toolbar = root.querySelector('.toolbar') as HTMLElement;
+    const today = root.querySelector('app-today-session') as HTMLElement;
+    const week = root.querySelector('app-week-strip') as HTMLElement;
+    const lanes = root.querySelector('app-capacity-lanes') as HTMLElement;
+    expect(toolbar).toBeTruthy();
+    expect(today).toBeTruthy();
+    expect(week).toBeTruthy();
+    expect(lanes).toBeTruthy();
+
+    // Today is the first section: it follows the toolbar with nothing between.
+    expect(toolbar.nextElementSibling?.tagName).toBe('APP-TODAY-SESSION');
+
+    // …and precedes the week ledger and capacity lanes.
+    expect(today.compareDocumentPosition(week) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(today.compareDocumentPosition(lanes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // Session feedback follows Today immediately when ratings are pending.
+    mock.openSession.set(makeSession({ status: ReadingSessionStatus.AwaitingFeedback }));
+    fixture.detectChanges();
+    const feedback = root.querySelector('app-session-feedback') as HTMLElement;
+    expect(feedback).toBeTruthy();
+    expect(today.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(feedback.compareDocumentPosition(week) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('acknowledge forwards the exact notification id with no idempotency envelope', () => {
     mock.dashboard.set(initializedDashboard());
     mock.pendingNotices.set([pendingNotice1]);

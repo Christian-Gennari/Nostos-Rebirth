@@ -72,10 +72,99 @@ test('mobile: 390x844 route, layout, and session controls', async ({ page }) => 
   await expect(page.locator('section.active-books')).toContainText('Mobile Guide');
   await expect(page.getByText('No session in progress.')).toBeVisible();
 
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+  const overflow = await page.evaluate(() => {
+    const workspace = document.querySelector('main.workspace-content');
+    return {
+      document: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      workspace: workspace ? workspace.scrollWidth - workspace.clientWidth : Number.POSITIVE_INFINITY,
+    };
+  });
+  expect(overflow.document).toBeLessThanOrEqual(0);
+  expect(overflow.workspace).toBeLessThanOrEqual(0);
+
+  // --- editorial hierarchy: Today leads, sections are ruled, not card shells ---
+
+  // Today must come before the week ledger and the capacity lanes.
+  const order = await page.evaluate(() => {
+    const today = document.querySelector('section.today-session');
+    const week = document.querySelector('section.week-strip');
+    const lanes = document.querySelector('app-capacity-lanes');
+    if (!today || !week || !lanes) return null;
+    const follows = (a: Element, b: Element) =>
+      (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    return {
+      todayBeforeWeek: follows(today, week),
+      todayBeforeLanes: follows(today, lanes),
+      toolbarBeforeToday: (() => {
+        const toolbar = document.querySelector('.toolbar');
+        return toolbar ? follows(toolbar, today) : false;
+      })(),
+    };
+  });
+  expect(order).toEqual({ todayBeforeWeek: true, todayBeforeLanes: true, toolbarBeforeToday: true });
+
+  // Main section roots are flat ruled sections on mobile: no radius, no side or
+  // bottom border, no surface background — a straight top rule only.
+  const ruled = await page.evaluate(() => {
+    const selectors = [
+      'section.week-strip',
+      'section.today-session',
+      'section.reading-inbox',
+      'section.session-history',
+    ];
+    const results: Record<string, { radius: string; sides: string; top: string; background: string }> = {};
+    for (const selector of selectors) {
+      const el = document.querySelector(selector);
+      if (!el) continue;
+      const style = getComputedStyle(el);
+      results[selector] = {
+        radius: style.borderTopLeftRadius,
+        sides: `${style.borderLeftWidth} ${style.borderRightWidth} ${style.borderBottomWidth}`,
+        top: style.borderTopWidth,
+        background: style.backgroundColor,
+      };
+    }
+    // The notices panel is conditional; flatten it too whenever it is present.
+    const notices = document.querySelector('section.pending-notices');
+    if (notices) {
+      const style = getComputedStyle(notices);
+      results['section.pending-notices'] = {
+        radius: style.borderTopLeftRadius,
+        sides: `${style.borderLeftWidth} ${style.borderRightWidth} ${style.borderBottomWidth}`,
+        top: style.borderTopWidth,
+        background: style.backgroundColor,
+      };
+    }
+    return results;
+  });
+  expect(Object.keys(ruled).length).toBeGreaterThanOrEqual(4);
+  for (const [selector, value] of Object.entries(ruled)) {
+    expect(value.radius, `${selector} corner radius`).toBe('0px');
+    expect(value.sides, `${selector} side/bottom borders`).toBe('0px 0px 0px');
+    expect(value.top, `${selector} straight top rule`).toBe('1px');
+    expect(value.background, `${selector} surface background`).toBe('rgba(0, 0, 0, 0)');
+  }
+
+  const laneStyles = await page.locator('.capacity-lanes .lane').evaluateAll((lanes) =>
+    lanes.map((lane) => {
+      const style = getComputedStyle(lane);
+      return {
+        radius: style.borderTopLeftRadius,
+        top: style.borderTopWidth,
+        sides: `${style.borderLeftWidth} ${style.borderRightWidth} ${style.borderBottomWidth}`,
+        background: style.backgroundColor,
+        transform: style.transform,
+      };
+    })
   );
-  expect(overflow).toBeLessThanOrEqual(0);
+  expect(laneStyles).toHaveLength(3);
+  for (const [index, lane] of laneStyles.entries()) {
+    expect(lane.radius, `lane ${index + 1} corner radius`).toBe('0px');
+    expect(lane.top, `lane ${index + 1} straight colour rule`).toBe('3px');
+    expect(lane.sides, `lane ${index + 1} side/bottom borders`).toBe('0px 0px 0px');
+    expect(lane.background, `lane ${index + 1} surface background`).toBe('rgba(0, 0, 0, 0)');
+    expect(lane.transform, `lane ${index + 1} hover lift`).toBe('none');
+  }
 
   // --- plan (mobile UI) ---
   await page.getByRole('button', { name: 'Plan a session', exact: true }).click();

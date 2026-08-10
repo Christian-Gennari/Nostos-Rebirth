@@ -1,8 +1,11 @@
+/* Inline feedback section on the reading sheet: rendered directly below
+   Today in page flow, so it carries the same flat treatment — a straight
+   neutral top rule, no card shell. The rating form controls inside keep
+   their interactive styling untouched. */
+
 .feedback-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: var(--space-lg);
+  border-top: 1px solid var(--border-color);
+  padding-top: var(--space-md);
 }
 
 .card-header {

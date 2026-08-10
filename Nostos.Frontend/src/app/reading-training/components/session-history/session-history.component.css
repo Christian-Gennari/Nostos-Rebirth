@@ -1,8 +1,11 @@
+/* Flat ruled section on the reading sheet: no card shell, no radius — a
+   straight neutral top rule marks the section and history rows are separated
+   by straight rules. Mode/constraint/status markers are quiet utility text;
+   filter inputs keep their interactive styling. */
+
 .session-history {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: var(--space-lg);
+  border-top: 1px solid var(--border-color);
+  padding-top: var(--space-md);
 }
 
 .section-header {
@@ -10,7 +13,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-sm);
 }
 
 .section-header h2 {
@@ -24,7 +27,7 @@
   align-items: flex-end;
   gap: var(--space-md);
   flex-wrap: wrap;
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-sm);
 }
 
 .filter-field {
@@ -40,7 +43,7 @@
 
 .filter-field select,
 .filter-field input {
-  min-height: 36px;
+  min-height: 44px;
   padding: 0.4rem 0.6rem;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
@@ -83,7 +86,6 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: var(--space-xs);
 }
 
 .session-item {
@@ -91,9 +93,8 @@
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: var(--space-md);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .session-book {
@@ -113,6 +114,7 @@
   margin: 0;
 }
 
+/* Quiet utility markers — colour marks mode, no capsules. */
 .mode-tag,
 .constraint-tag,
 .status-tag {
@@ -120,39 +122,30 @@
   font-weight: var(--fw-semibold);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  border-radius: 999px;
-  padding: 2px 8px;
 }
 
 .mode-tag {
   color: var(--color-text-muted);
-  background: var(--bg-hover);
-  border: 1px solid var(--border-color);
 }
 
 .mode-endurance {
   color: #3d5a80;
-  border-color: #c7d4e6;
 }
 
 .mode-deep {
   color: #6a5aa8;
-  border-color: #d5d0e8;
 }
 
 .mode-recovery {
   color: #8a6d3f;
-  border-color: #e4d8c3;
 }
 
 .constraint-tag {
   color: var(--color-text-light);
-  border: 1px solid var(--border-color);
 }
 
 .status-tag {
   color: var(--color-text-muted);
-  border: 1px dashed var(--border-color);
 }
 
 .session-figures {

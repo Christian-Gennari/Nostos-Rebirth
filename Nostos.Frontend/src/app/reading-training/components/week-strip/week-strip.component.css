@@ -1,8 +1,10 @@
+/* Flat ruled section on the reading sheet: a straight neutral top rule marks
+   the weekly ledger; no card shell, no radius. On mobile the ledger compacts
+   to two rows at full readable size with a touch-safe Review control. */
+
 .week-strip {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: var(--space-lg);
+  border-top: 1px solid var(--border-color);
+  padding-top: var(--space-md);
 }
 
 .strip-header {
@@ -32,7 +34,7 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-md);
-  margin: 0 0 var(--space-md);
+  margin: 0 0 var(--space-sm);
 }
 
 .stat dt {
@@ -80,6 +82,7 @@
 @media (max-width: 768px) {
   .week-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-sm) var(--space-md);
   }
 
   .btn {

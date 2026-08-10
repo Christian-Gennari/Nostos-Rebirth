@@ -59,20 +59,6 @@
       </button>
     </div>
 
-    <app-pending-notices
-      [notices]="store.pendingNotices()"
-      [busy]="store.notificationsBusy()"
-      (acknowledge)="onAcknowledgeNotice($event)"
-    />
-
-    <app-week-strip
-      [week]="store.currentWeek()"
-      [programme]="store.programme()"
-      (reviewRequested)="onReviewRequested($event)"
-    />
-
-    <app-capacity-lanes [lanes]="lanes()" />
-
     <app-today-session
       [openSession]="openSession()"
       [elapsedSeconds]="store.displayedElapsedSeconds()"
@@ -93,6 +79,22 @@
         (skip)="onSkip($event)"
       />
     }
+
+    @if (store.pendingNotices().length > 0) {
+      <app-pending-notices
+        [notices]="store.pendingNotices()"
+        [busy]="store.notificationsBusy()"
+        (acknowledge)="onAcknowledgeNotice($event)"
+      />
+    }
+
+    <app-week-strip
+      [week]="store.currentWeek()"
+      [programme]="store.programme()"
+      (reviewRequested)="onReviewRequested($event)"
+    />
+
+    <app-capacity-lanes [lanes]="lanes()" />
 
     @if (plannerVisible()) {
       <div class="dialog-backdrop">

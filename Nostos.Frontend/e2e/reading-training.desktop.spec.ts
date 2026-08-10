@@ -642,21 +642,36 @@ test('desktop: keyboard, focus, and aria on dialogs and controls', async ({ page
   await expect(page.getByRole('button', { name: 'Refresh reading training' })).toBeVisible();
 
   // --- reduced motion: the dashboard honors prefers-reduced-motion ---
-  const refreshIcon = page
-    .getByRole('button', { name: 'Refresh reading training' })
-    .locator('lucide-icon');
-  // Baseline: the spin affordance animates by default.
-  await refreshIcon.evaluate((el) => el.classList.add('spin'));
-  expect(await refreshIcon.evaluate((el) => getComputedStyle(el).animationName)).toContain('rt-spin');
-  await refreshIcon.evaluate((el) => el.classList.remove('spin'));
+  const refreshButton = page.getByRole('button', { name: 'Refresh reading training' });
+  const dashboardRoute = '**/api/reading/dashboard';
+  const delayedDashboard = async (route: import('@playwright/test').Route): Promise<void> => {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    await route.continue();
+  };
 
-  // With the media query active the same affordance must not animate.
+  // Baseline: inspect the actual spinner rendered during a delayed refresh.
+  await page.route(dashboardRoute, delayedDashboard);
+  await refreshButton.click();
+  const refreshSpinner = refreshButton.locator('.refresh-spinner');
+  await expect(refreshSpinner).toBeVisible();
+  expect(
+    await refreshSpinner.evaluate((spinner) => getComputedStyle(spinner, '::after').animationName)
+  ).toContain('rt-spin');
+  await expect(refreshSpinner).toBeHidden();
+  await page.unroute(dashboardRoute, delayedDashboard);
+
+  // With the media query active the same real affordance must not animate.
   await page.emulateMedia({ reducedMotion: 'reduce' });
   expect(
     await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)
   ).toBe(true);
-  await refreshIcon.evaluate((el) => el.classList.add('spin'));
-  expect(await refreshIcon.evaluate((el) => getComputedStyle(el).animationName)).toBe('none');
-  await refreshIcon.evaluate((el) => el.classList.remove('spin'));
+  await page.route(dashboardRoute, delayedDashboard);
+  await refreshButton.click();
+  await expect(refreshSpinner).toBeVisible();
+  expect(
+    await refreshSpinner.evaluate((spinner) => getComputedStyle(spinner, '::after').animationName)
+  ).toBe('none');
+  await expect(refreshSpinner).toBeHidden();
+  await page.unroute(dashboardRoute, delayedDashboard);
 
 });
