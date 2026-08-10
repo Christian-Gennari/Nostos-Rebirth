@@ -26,7 +26,15 @@ namespace Nostos.Backend.Tests.Mcp;
 // temporary-file SQLite database.
 public sealed class McpHttpFactory : WebApplicationFactory<Program>
 {
+    // Marker embedded in the guaranteed test SPA shell (see
+    // ReadingTrainingHttpFactory): the factory hosts its own temporary web
+    // root so the MCP namespace's never-serve-the-shell contract is
+    // asserted against a real index.html, independent of any Release build
+    // artifact in Nostos.Backend/wwwroot.
+    public const string SpaShellMarker = "nostos-test-spa-shell";
+
     private readonly string _dbPath;
+    private readonly string _webRootPath;
     private readonly bool _enabled;
     private readonly string? _path;
     private readonly string? _envVarName;
@@ -35,13 +43,30 @@ public sealed class McpHttpFactory : WebApplicationFactory<Program>
     {
         _dbPath = Path.Combine(Path.GetTempPath(), $"nostos-mcp-{Guid.NewGuid():N}.db");
         ReadingTrainingHttpBootstrap.EnsureSchemaAndHistory(_dbPath);
+        _webRootPath = CreateSpaShellWebRoot();
         _enabled = enabled;
         _path = path;
         _envVarName = envVarName;
     }
 
+    // Private web root containing a minimal index.html, so the SPA
+    // fallback is exercised deterministically (isolation versus shell
+    // serving) regardless of whether a Release build populated
+    // Nostos.Backend/wwwroot.
+    private static string CreateSpaShellWebRoot()
+    {
+        var webRoot = Path.Combine(Path.GetTempPath(), $"nostos-mcp-webroot-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(webRoot);
+        File.WriteAllText(
+            Path.Combine(webRoot, "index.html"),
+            $"<!doctype html><html><head><title>nostos test shell</title></head><body>{SpaShellMarker}</body></html>");
+        return webRoot;
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseWebRoot(_webRootPath);
+
         builder.ConfigureServices(services =>
         {
             // Same isolation as the Reading Training HTTP factory: a
@@ -93,6 +118,15 @@ public sealed class McpHttpFactory : WebApplicationFactory<Program>
                 // Best-effort cleanup only.
             }
         }
+
+        try
+        {
+            Directory.Delete(_webRootPath, recursive: true);
+        }
+        catch (IOException)
+        {
+            // Best-effort cleanup only.
+        }
     }
 }
 
@@ -120,11 +154,9 @@ public sealed class McpHttpTests
         var rest = await client.GetAsync("/api/reading-training/status");
         rest.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // With MCP disabled the route is not mapped: it behaves exactly like
-        // any other unknown path in this application. Non-GET requests fall
-        // through to the SPA fallback's method constraint (405, identical to
-        // an arbitrary unmapped route), and GET serves the SPA like any other
-        // client-side route.
+        // With MCP disabled the route is not mapped: non-GET requests to
+        // /mcp resolve through the method-constrained fallback exactly like
+        // any other unmapped route (405), and never reach the MCP surface.
         var controlPost = await PostAsync(client, "/definitely-not-a-route", InitializeBody());
         controlPost.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
 
@@ -134,9 +166,17 @@ public sealed class McpHttpTests
         var delete = await client.DeleteAsync("/mcp");
         delete.StatusCode.Should().Be(controlPost.StatusCode);
 
+        // The conventional MCP namespace is never answered by the SPA shell
+        // while MCP is disabled: GET /mcp is a plain 404, while an ordinary
+        // unknown client route still serves the guaranteed test shell.
         var get = await client.GetAsync("/mcp");
+        get.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await get.Content.ReadAsStringAsync()).Should().NotContain(McpHttpFactory.SpaShellMarker);
+
         var controlGet = await client.GetAsync("/definitely-not-a-route");
-        get.StatusCode.Should().Be(controlGet.StatusCode);
+        controlGet.StatusCode.Should().Be(HttpStatusCode.OK);
+        controlGet.Content.Headers.ContentType?.MediaType.Should().Be("text/html");
+        (await controlGet.Content.ReadAsStringAsync()).Should().Contain(McpHttpFactory.SpaShellMarker);
     }
 
     [Fact]
@@ -856,17 +896,33 @@ public sealed class McpHttpTests
         using var client = factory.CreateClient();
 
         // The default path is neither gated nor mapped when a custom path is
-        // configured: it falls through to the SPA fallback like any other
-        // unknown route (method constraint 405 for non-GET).
+        // configured: non-GET requests resolve through the
+        // method-constrained fallback exactly like any other unmapped route
+        // (405), and GET is a 404 that never serves the SPA shell.
         var fallback = await PostAsync(client, "/definitely-not-a-route", InitializeBody());
         fallback.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
         (await PostAsync(client, "/mcp", InitializeBody())).StatusCode.Should().Be(fallback.StatusCode);
+
+        var defaultGet = await client.GetAsync("/mcp");
+        defaultGet.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await defaultGet.Content.ReadAsStringAsync()).Should().NotContain(McpHttpFactory.SpaShellMarker);
 
         // The configured path serves MCP with the token.
         (await PostWithAuth(client, TestToken, path: "/custom-mcp")).StatusCode.Should().Be(HttpStatusCode.OK);
 
         // Descendants of the configured path are gated.
         (await PostAsync(client, "/custom-mcp/anything", ToolsListBody())).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        // An unknown descendant of the configured path is never answered by
+        // the SPA shell, even with a valid token: routing misses the exact
+        // MCP endpoint and the fallback boundary returns 404.
+        using (var request = new HttpRequestMessage(HttpMethod.Get, "/custom-mcp/anything"))
+        {
+            request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {TestToken}");
+            using var response = await client.SendAsync(request);
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            (await response.Content.ReadAsStringAsync()).Should().NotContain(McpHttpFactory.SpaShellMarker);
+        }
     }
 
     [Fact]

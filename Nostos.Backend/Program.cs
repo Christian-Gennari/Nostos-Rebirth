@@ -287,7 +287,50 @@ if (mcpOptions.Enabled)
 }
 
 // --- HANDLE ANGULAR ROUTING ---
-app.MapFallbackToFile("index.html");
+// The SPA shell is served ONLY for client-side routes. The API and MCP
+// namespaces are never answered by index.html: unknown /api paths, wrong
+// methods on API routes, and the MCP route family (the configured path
+// when enabled, plus the conventional /mcp namespace in every
+// configuration) resolve as ordinary 404/405 responses, so probes and
+// misdirected clients never receive the Angular application shell. The
+// fallback is deliberately method-constrained (GET/HEAD only), mirroring
+// the static-file layer: every other verb on an unmapped path stays a 405
+// instead of being answered with the shell.
+RequestDelegate serveClientRoute = async context =>
+{
+    if (!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
+    {
+        context.Response.StatusCode = StatusCodes.Status405MethodNotAllowed;
+        return;
+    }
+
+    var path = context.Request.Path;
+    var isMcpPath = mcpOptions.Enabled && mcpOptions.Path.Length > 0 &&
+                    path.StartsWithSegments(mcpOptions.Path);
+    if (path.StartsWithSegments("/api") || path.StartsWithSegments("/mcp") || isMcpPath)
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    var indexHtml = Path.Combine(app.Environment.WebRootPath, "index.html");
+    if (!File.Exists(indexHtml))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    context.Response.ContentType = "text/html";
+    await context.Response.SendFileAsync(indexHtml);
+};
+
+// The fallback endpoint carries the same GET/HEAD method constraint as the
+// static-file layer (and the previous MapFallbackToFile): the routing
+// method matcher keeps answering every other verb on unmapped paths with
+// 405 before this delegate ever runs, so mapped POST routes are never
+// shadowed.
+app.MapFallback(serveClientRoute)
+    .WithMetadata(new HttpMethodMetadata(new[] { "GET", "HEAD" }));
 
 // ------------------------------
 

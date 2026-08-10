@@ -240,15 +240,19 @@ public sealed class ReadingGatewayHttpTests
         var dashboard = await client.GetAsync("/api/reading-training/dashboard");
         dashboard.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // This host's SPA/fallback pipeline resolves an unsupported method on
-        // the absolute gateway route as not found; the key invariant is that
-        // it never dispatches or returns success.
+        // This host's SPA fallback answers the GET on the POST-only
+        // absolute gateway route as not found; the key invariant is that it
+        // never dispatches, never returns success, and never serves the
+        // Angular shell — even though the factory's guaranteed index.html
+        // is present and would otherwise be served.
         var get = await client.GetAsync("/api/reading/gateway/dispatch");
         get.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await get.Content.ReadAsStringAsync()).Should().NotContain(ReadingTrainingHttpFactory.SpaShellMarker);
 
         // sibling routes under /api/reading/gateway do not exist
         var sibling = await client.GetAsync("/api/reading/gateway");
-        sibling.StatusCode.Should().NotBe(HttpStatusCode.OK);
+        sibling.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await sibling.Content.ReadAsStringAsync()).Should().NotContain(ReadingTrainingHttpFactory.SpaShellMarker);
 
         // OpenAPI still describes the new route
         var openApi = await client.GetStringAsync("/openapi/v1.json");

@@ -27,12 +27,21 @@ namespace Nostos.Backend.Tests.ReadingTraining;
 // end-to-end instead of through unit-test mocks.
 public sealed class ReadingTrainingHttpFactory : WebApplicationFactory<Program>
 {
+    // Marker embedded in the guaranteed test SPA shell. The factory hosts
+    // its own temporary web root so the SPA-fallback behavior under test
+    // is independent of any Release build artifact in
+    // Nostos.Backend/wwwroot: client routes always serve this shell and
+    // API/MCP boundaries must never return it.
+    public const string SpaShellMarker = "nostos-test-spa-shell";
+
     private readonly string _dbPath;
+    private readonly string _webRootPath;
 
     public ReadingTrainingHttpFactory()
     {
         _dbPath = Path.Combine(Path.GetTempPath(), $"nostos-reading-http-{Guid.NewGuid():N}.db");
         ReadingTrainingHttpBootstrap.EnsureSchemaAndHistory(_dbPath);
+        _webRootPath = CreateSpaShellWebRoot();
     }
 
     public string DatabasePath => _dbPath;
@@ -43,8 +52,24 @@ public sealed class ReadingTrainingHttpFactory : WebApplicationFactory<Program>
     // starting the worker inside the test host.
     public bool ReadingNotificationWorkerRegistered { get; private set; }
 
+    // Private web root containing a minimal index.html, so the SPA
+    // fallback is exercised deterministically (isolation versus shell
+    // serving) regardless of whether a Release build populated
+    // Nostos.Backend/wwwroot.
+    private static string CreateSpaShellWebRoot()
+    {
+        var webRoot = Path.Combine(Path.GetTempPath(), $"nostos-http-webroot-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(webRoot);
+        File.WriteAllText(
+            Path.Combine(webRoot, "index.html"),
+            $"<!doctype html><html><head><title>nostos test shell</title></head><body>{SpaShellMarker}</body></html>");
+        return webRoot;
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseWebRoot(_webRootPath);
+
         builder.ConfigureServices(services =>
         {
             // Capture the production hosted-service registration before the
@@ -95,6 +120,15 @@ public sealed class ReadingTrainingHttpFactory : WebApplicationFactory<Program>
             {
                 // Best-effort cleanup only.
             }
+        }
+
+        try
+        {
+            Directory.Delete(_webRootPath, recursive: true);
+        }
+        catch (IOException)
+        {
+            // Best-effort cleanup only.
         }
     }
 }
@@ -359,25 +393,47 @@ public sealed class ReadingTrainingHttpTests
         using var factory = new ReadingTrainingHttpFactory();
         using var client = factory.CreateClient();
 
-        // Unknown path: no endpoint maps it — the SPA fallback cannot serve a
-        // missing index.html and its static-file layer rejects the non-GET
-        // verb, so no domain envelope appears.
+        // The factory guarantees an index.html in its private web root, so
+        // the SPA fallback is live for every request below: these
+        // assertions prove the API boundary rejects unknown paths and
+        // wrong methods even when the Angular shell exists to be served
+        // (build-artifact-independent — they pass with or without a
+        // Release-built wwwroot).
+
+        // Unknown path: no endpoint maps it. The method-constrained
+        // fallback answers 405 (identical to any unmapped route) and the
+        // body is never the SPA shell or a domain envelope.
         var unknown = await client.PostAsJsonAsync(
             "/api/reading-training/nonexistent", new ReadingCommandRequest("http-test", "boundary-1"));
         unknown.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
-        (await unknown.Content.ReadAsStringAsync()).Should().NotContain("stateVersion");
+        (await unknown.Content.ReadAsStringAsync()).Should().NotContain("stateVersion")
+            .And.NotContain(ReadingTrainingHttpFactory.SpaShellMarker);
 
-        // GET on the POST-only /books route falls to the SPA fallback (missing
-        // index.html → 404) and is never treated as a command.
+        // GET on the POST-only /books route: the API boundary answers 404,
+        // never the shell.
         var wrongMethod = await client.GetAsync("/api/reading-training/books");
         wrongMethod.StatusCode.Should().Be(HttpStatusCode.NotFound);
-        (await wrongMethod.Content.ReadAsStringAsync()).Should().NotContain("stateVersion");
+        (await wrongMethod.Content.ReadAsStringAsync()).Should().NotContain("stateVersion")
+            .And.NotContain(ReadingTrainingHttpFactory.SpaShellMarker);
 
         // POST on the GET-only /dashboard route is likewise not a command.
         var postOnRead = await client.PostAsJsonAsync("/api/reading-training/dashboard",
             new ReadingCommandRequest("http-test", "boundary-2"));
         postOnRead.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
-        (await postOnRead.Content.ReadAsStringAsync()).Should().NotContain("stateVersion");
+        (await postOnRead.Content.ReadAsStringAsync()).Should().NotContain("stateVersion")
+            .And.NotContain(ReadingTrainingHttpFactory.SpaShellMarker);
+
+        // GET on an unknown API path is a 404, never the shell.
+        var unknownGet = await client.GetAsync("/api/reading-training/nonexistent");
+        unknownGet.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await unknownGet.Content.ReadAsStringAsync()).Should().NotContain(ReadingTrainingHttpFactory.SpaShellMarker);
+
+        // A normal client-side route still serves the SPA shell: the
+        // boundary isolates the API/MCP namespaces only.
+        var clientRoute = await client.GetAsync("/training");
+        clientRoute.StatusCode.Should().Be(HttpStatusCode.OK);
+        clientRoute.Content.Headers.ContentType?.MediaType.Should().Be("text/html");
+        (await clientRoute.Content.ReadAsStringAsync()).Should().Contain(ReadingTrainingHttpFactory.SpaShellMarker);
     }
 
     [Fact]
