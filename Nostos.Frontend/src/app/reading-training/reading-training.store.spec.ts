@@ -910,6 +910,50 @@ describe('ReadingTrainingStore', () => {
     expect(store.loading()).toBe(false);
   });
 
+  it('an HTTP-200 semantic error envelope never becomes a dashboard or advances the retained state version', () => {
+    store.connect();
+    // Real-wire shape (reproduced end-to-end against a fresh backend): the
+    // dashboard GET answers 200 with the stable envelope carrying
+    // `data: { code: 'not_initialized' }` — not an HttpErrorResponse.
+    httpMock.expectOne(`${base}/dashboard`).flush({
+      reply: 'not initialized',
+      data: { code: 'not_initialized' },
+      stateVersion: '0',
+      duplicate: false,
+    });
+    flushLease();
+
+    expect(store.dashboard()).toBeNull();
+    expect(store.programme()).toBeNull();
+    expect(store.books()).toEqual([]);
+    expect(store.openSession()).toBeNull();
+    expect(store.displayedElapsedSeconds()).toBe(0);
+    expect(store.stateVersion()).toBeNull(); // no successful envelope: no version identity
+    expect(store.error()).toBe('Unable to load dashboard: not_initialized');
+    expect(store.loading()).toBe(false);
+  });
+
+  it('an HTTP-200 semantic error envelope after a good dashboard preserves dashboard and retained version', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
+    expect(store.stateVersion()).toBe('17');
+
+    window.dispatchEvent(new Event('focus'));
+    httpMock.expectOne(`${base}/dashboard`).flush({
+      reply: 'not initialized',
+      data: { code: 'not_initialized' },
+      stateVersion: '0',
+      duplicate: false,
+    });
+    expectLease().flush([]);
+
+    expect(store.dashboard()).toEqual(dashboard());
+    expect(store.stateVersion()).toBe('17'); // semantic failure never advances the retained version
+    expect(store.error()).toBe('Unable to load dashboard: not_initialized');
+    expect(store.loading()).toBe(false);
+  });
+
   it('errors clear on the next successful refresh', () => {
     store.connect();
     httpMock.expectOne(`${base}/dashboard`).error(new ProgressEvent('error'));

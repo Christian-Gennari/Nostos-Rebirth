@@ -47,6 +47,7 @@ import {
   ReadingStartSessionRequest,
   ReadingWeekSummary,
   ReadingWeeklyReview,
+  isReadingError,
 } from '../core/dtos/reading-training.dtos';
 import { ReadingTrainingService } from '../core/services/reading-training.service';
 
@@ -703,6 +704,14 @@ export class ReadingTrainingStore {
 
   private applyDashboard(result: ReadingCommandResult<ReadingDashboard>): void {
     const data = result.data;
+    if (isReadingError(data)) {
+      // HTTP-200 semantic error envelope (e.g. `not_initialized`): the
+      // server reports a domain rejection without a dashboard payload.
+      // Surface the code, keep the last good dashboard, and never advance
+      // the retained state version.
+      this.errorState.set(describeError('Unable to load dashboard', data));
+      return;
+    }
     if (!data) {
       // No snapshot (e.g. not initialized): keep the last good dashboard and
       // never fabricate a programme.
@@ -732,7 +741,8 @@ export class ReadingTrainingStore {
 /**
  * Extracts a concise, actionable code/message from backend error bodies:
  * command envelopes (`{ data: { code } }`), Problem Details (`detail`/`title`),
- * HTTP status, or network failure.
+ * an HTTP-200 semantic error payload (`{ code }`), HTTP status, or network
+ * failure.
  */
 function extractErrorCode(err: unknown): string | null {
   if (err instanceof HttpErrorResponse) {
@@ -745,6 +755,8 @@ function extractErrorCode(err: unknown): string | null {
     if (err.status === 0) return 'network error';
     return null;
   }
+  // Semantic error payload delivered in an HTTP-200 envelope (no HTTP failure).
+  if (isReadingError(err)) return err.code;
   if (err instanceof Error && err.message) return err.message;
   return null;
 }

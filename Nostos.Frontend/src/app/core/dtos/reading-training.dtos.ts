@@ -65,6 +65,23 @@ export interface ReadingError {
   code: string;
 }
 
+/**
+ * Narrowing guard for the semantic error payload the backend places in a
+ * command envelope's `data` slot (`{ code }`, e.g. `not_initialized`). No
+ * successful response DTO carries a `code` field, so any non-null payload
+ * with a non-empty string `code` is a semantic error — even inside an
+ * HTTP-200 envelope, which the transport layer cannot otherwise distinguish
+ * from a successful payload.
+ */
+export function isReadingError(value: unknown): value is ReadingError {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { code?: unknown }).code === 'string' &&
+    (value as { code?: unknown }).code !== ''
+  );
+}
+
 // --- BASE REQUEST ---
 export interface ReadingCommandRequest {
   clientId: string;
