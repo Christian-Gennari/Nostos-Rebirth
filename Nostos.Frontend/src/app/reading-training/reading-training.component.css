@@ -71,9 +71,17 @@ app-pending-notices {
 }
 
 .refresh-spinner {
+  position: relative;
   display: inline-block;
   width: 16px;
   height: 16px;
+  flex: 0 0 16px;
+}
+
+.refresh-spinner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
   box-sizing: border-box;
   border: 2px solid currentColor;
   border-right-color: transparent;
@@ -161,7 +169,7 @@ app-pending-notices {
     animation-duration: 1.6s;
   }
 
-  .refresh-spinner {
+  .refresh-spinner::after {
     animation-duration: 1.6s;
   }
 }
