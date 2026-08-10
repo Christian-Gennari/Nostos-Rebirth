@@ -451,8 +451,8 @@
               <li class="training-session-item">
                 <span
                   class="training-mode-tag"
-                  [class.mode-endurance]="session.mode === 0"
-                  [class.mode-deep]="session.mode === 1"
+                  [class.mode-endurance]="session.mode === readingModeEnum.Endurance"
+                  [class.mode-deep]="session.mode === readingModeEnum.Deep"
                   >{{ trainingModeLabel(session.mode) }}</span
                 >
                 <span class="training-session-date">{{ trainingSessionDate(session) }}</span>

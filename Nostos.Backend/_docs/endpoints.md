@@ -125,6 +125,7 @@ exact-once by `(clientId, idempotencyKey)` and delegate to
 | `POST`   | `/books`                                          | Add a library book assignment |
 | `PATCH`  | `/books/{assignmentId}`                           | Make the assignment default for its mode |
 | `POST`   | `/books/{assignmentId}/finish`                    | Finish a training assignment |
+| `POST`   | `/books/reorder`                                  | Reorder active assignments (UI extension) |
 | `GET`    | `/inbox`                                          | Unresolved captures |
 | `POST`   | `/captures`                                       | Capture text verbatim |
 | `PATCH`  | `/captures/{id}`                                  | Dismiss or keep a capture |
