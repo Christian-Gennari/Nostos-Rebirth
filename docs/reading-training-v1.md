@@ -9,6 +9,10 @@ them. The Python implementation is the behaviour oracle during porting and is
 never a runtime dependency of Nostos. Nothing in this contract is owned,
 cached, or computed outside Nostos.
 
+The complete language-neutral specification is split across
+[`docs/reading-training/`](reading-training/README.md): state machine,
+progression policy, service/persistence contracts, and mirrored fixtures.
+
 ## Non-negotiables
 
 - **Nostos owns everything.** Nostos SQLite is the single source of truth for

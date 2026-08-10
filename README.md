@@ -182,7 +182,7 @@ Detailed documentation is available in the `_docs/` directories:
 | `Nostos.Backend/_docs/`  | Data models, repositories, services, endpoints, database                   |
 | `Nostos.Frontend/_docs/` | Components, services, routing, state management, reader system, UI library |
 
-Reading Training's frozen behaviour contract is in [`docs/reading-training-v1.md`](docs/reading-training-v1.md). REST and gateway routes are documented in [`Nostos.Backend/_docs/endpoints.md`](Nostos.Backend/_docs/endpoints.md); optional Hermes deployment and rollback are documented in [`integrations/hermes/README.md`](integrations/hermes/README.md).
+Reading Training's domain contract is in [`docs/reading-training/`](docs/reading-training/README.md), with the concise frozen-v1 summary in [`docs/reading-training-v1.md`](docs/reading-training-v1.md). REST and gateway routes are documented in [`Nostos.Backend/_docs/endpoints.md`](Nostos.Backend/_docs/endpoints.md); optional Hermes deployment and rollback are documented in [`integrations/hermes/README.md`](integrations/hermes/README.md).
 
 ## Roadmap
 
