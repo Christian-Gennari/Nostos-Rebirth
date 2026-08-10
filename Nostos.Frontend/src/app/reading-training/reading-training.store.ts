@@ -377,7 +377,7 @@ export class ReadingTrainingStore {
       return;
     }
     this.inboxState.set(data);
-    this.errorState.set(null);
+    this.clearResourceError('Unable to load inbox:');
   }
 
   private applyHistory(result: ReadingCommandResult<ReadingSession[]>): void {
@@ -387,7 +387,12 @@ export class ReadingTrainingStore {
       return;
     }
     this.historyState.set(data);
-    this.errorState.set(null);
+    this.clearResourceError('Unable to load history:');
+  }
+
+  /** Clear a successful resource's own error without hiding another resource's failure. */
+  private clearResourceError(prefix: string): void {
+    if (this.errorState()?.startsWith(prefix)) this.errorState.set(null);
   }
 
   // --- pending reading notices (UI lease state, not command envelopes) ---

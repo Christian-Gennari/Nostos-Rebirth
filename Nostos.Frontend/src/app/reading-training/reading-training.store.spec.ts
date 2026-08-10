@@ -910,6 +910,25 @@ describe('ReadingTrainingStore', () => {
     expect(store.loading()).toBe(false);
   });
 
+  it('successful inbox and history loads never clear a dashboard not_initialized error', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(
+      { reply: 'not initialized', data: { code: 'not_initialized' }, stateVersion: '0', duplicate: false },
+      { status: 409, statusText: 'Conflict' }
+    );
+    flushLease();
+    expect(store.error()).toBe('Unable to load dashboard: not_initialized');
+
+    store.loadInbox().subscribe();
+    httpMock.expectOne(`${base}/inbox`).flush(envelope([capture]));
+    store.loadHistory().subscribe();
+    httpMock.expectOne(`${base}/history`).flush(envelope([pausedSession]));
+
+    expect(store.inbox()).toEqual([capture]);
+    expect(store.history()).toEqual([pausedSession]);
+    expect(store.error()).toBe('Unable to load dashboard: not_initialized');
+  });
+
   it('an HTTP-200 semantic error envelope never becomes a dashboard or advances the retained state version', () => {
     store.connect();
     // Real-wire shape (reproduced end-to-end against a fresh backend): the

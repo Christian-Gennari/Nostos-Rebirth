@@ -467,6 +467,23 @@ describe('ReadingTrainingComponent', () => {
     expect(second.idempotencyKey).not.toBe(first.idempotencyKey);
   });
 
+  it('keeps a confirmed not-initialized panel actionable during a background refresh', () => {
+    mock.error.set('Unable to load dashboard: not_initialized');
+    mock.loading.set(true);
+    fixture.detectChanges();
+
+    const panel = fixture.debugElement.query(By.css('.setup-panel'));
+    expect(panel).toBeTruthy();
+    const setup = Array.from(
+      panel.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>
+    ).find((button) => button.textContent?.trim() === 'Set up reading training');
+    expect(setup).toBeTruthy();
+    expect(setup!.disabled).toBe(false);
+
+    setup!.click();
+    expect(mock.initialize).toHaveBeenCalledTimes(1);
+  });
+
   it('never auto-retries the initialize mutation', () => {
     mock.error.set('Unable to load dashboard: not_initialized');
     fixture.detectChanges();

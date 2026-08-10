@@ -121,7 +121,6 @@ export class ReadingTrainingComponent implements OnInit, OnDestroy {
   /** Programme absent because the server reported `not_initialized`. */
   readonly notInitialized = computed(
     () =>
-      !this.store.loading() &&
       this.store.dashboard() === null &&
       (this.store.error()?.includes('not_initialized') ?? false)
   );
