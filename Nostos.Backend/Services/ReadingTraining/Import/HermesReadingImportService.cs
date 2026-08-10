@@ -420,7 +420,10 @@ public sealed partial class HermesReadingImportService : IHermesReadingImportSer
 
     private static bool HasValidFileManifest(HermesImportDryRunReport report)
     {
-        if (!FingerprintRegex().IsMatch(report.AggregateFingerprint) || report.Files.Count == 0)
+        // A null Files collection is a malformed manifest, not a commit
+        // failure: classify it exactly like any other invalid manifest.
+        if (report.Files is null ||
+            !FingerprintRegex().IsMatch(report.AggregateFingerprint) || report.Files.Count == 0)
             return false;
 
         var known = new HashSet<string>(StringComparer.Ordinal)

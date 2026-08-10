@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using FluentAssertions;
 using Nostos.Backend.Services.ReadingTraining.Import;
@@ -234,6 +235,143 @@ public sealed class HermesImportDryRunTests
         var dir = Fixture();
         File.Delete(Path.Combine(dir, "reading-queue.yaml"));
         Plan(dir, []).Blockers.Should().Contain(x => x.Code == HermesImportCodes.FileMissing && x.File == "reading-queue.yaml");
+    }
+
+    // ------------------------------------------------------------------
+    // Fault injection: every inaccessible or malformed input must fail
+    // closed with a stable blocker code and no partial plan.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void MissingSourceDirectory_IsAHardBlocker()
+    {
+        var missing = Path.Combine(Path.GetTempPath(), "nostos-import-missing-" + Guid.NewGuid().ToString("N"));
+        var report = Plan(missing, [new(CandideBookId, "Candide", "Voltaire")]);
+
+        report.Blocked.Should().BeTrue();
+        report.Blockers.Should().ContainSingle(x => x.Code == HermesImportCodes.DirectoryNotFound);
+        report.Files.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void MissingConfigYaml_IsAHardBlocker()
+    {
+        var dir = Fixture();
+        File.Delete(Path.Combine(dir, "config.yaml"));
+
+        var report = Plan(dir, []);
+
+        report.Blocked.Should().BeTrue();
+        report.Blockers.Should().Contain(x => x.Code == HermesImportCodes.FileMissing && x.File == "config.yaml");
+    }
+
+    [Fact]
+    public void UnreadableFile_IsAHardBlocker_WhenReadIsDenied()
+    {
+        if (!OperatingSystem.IsLinux())
+            return; // the Unix permission model is the deterministic trigger here
+
+        var dir = Fixture();
+        var config = Path.Combine(dir, "config.yaml");
+        File.SetUnixFileMode(config, UnixFileMode.None);
+        try
+        {
+            if (CanOpen(config))
+            {
+                // Running with a read override (e.g. root): permission denial
+                // cannot be simulated, and the equivalent deterministic
+                // inaccessible-input case is covered by
+                // DirectoryInPlaceOfRequiredFile_FailsClosed.
+                return;
+            }
+
+            var report = Plan(dir, [new(CandideBookId, "Candide", "Voltaire")]);
+
+            report.Blocked.Should().BeTrue();
+            report.Blockers.Should().Contain(x => x.Code == HermesImportCodes.UnreadableFile && x.File == "config.yaml");
+        }
+        finally
+        {
+            File.SetUnixFileMode(config, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
+    }
+
+    [Fact]
+    public void DirectoryInPlaceOfRequiredFile_FailsClosed()
+    {
+        var dir = Fixture();
+        var config = Path.Combine(dir, "config.yaml");
+        File.Delete(config);
+        Directory.CreateDirectory(config);
+
+        var report = Plan(dir, []);
+
+        // A directory is not a readable regular file; regardless of platform
+        // or privileges this input is inaccessible, and the plan must fail
+        // closed (the exact code may be file_missing or unreadable_file).
+        report.Blocked.Should().BeTrue();
+        report.Blockers.Should().Contain(x =>
+            (x.Code == HermesImportCodes.FileMissing || x.Code == HermesImportCodes.UnreadableFile) &&
+            x.File == "config.yaml");
+    }
+
+    [Fact]
+    public void TruncatedJsonlLastRecord_IsAHardBlocker_WithExactLine()
+    {
+        // Line 1 is a valid session; line 2 is a partial record truncated
+        // mid-object with no trailing newline (crash-during-append input).
+        var log = SessionJson("s1", "completed", incident: false) + "\n" +
+                  "{\"schema_version\":1,\"record_type\":\"session\",\"session_id\":\"partial\",\"status\":\"completed\"";
+        var dir = Fixture(log: log, includeOptional: true);
+
+        var report = Plan(dir, [new(CandideBookId, "Candide", "Voltaire")]);
+
+        report.Blocked.Should().BeTrue();
+        report.Blockers.Should().Contain(x =>
+            x.Code == HermesImportCodes.MalformedJson && x.File == "reading-log.jsonl" && x.Line == 2);
+    }
+
+    [Fact]
+    public void AggregateFingerprint_PinsExactCanonicalFormIncludingTrailingNewline()
+    {
+        var dir = Fixture(includeOptional: true);
+        var report = Plan(dir, [new(CandideBookId, "Candide", "Voltaire")]);
+        report.Blocked.Should().BeFalse();
+
+        // The canonical form is "name:length:sha256" per line, sorted by name
+        // ordinal, with a trailing newline AFTER the last entry. Recompute it
+        // independently: any drift in the canonical form must break the
+        // fingerprint (the commit gate then fails closed).
+        var canonical = new StringBuilder();
+        foreach (var file in report.Files.OrderBy(f => f.Name, StringComparer.Ordinal))
+            canonical.Append(file.Name).Append(':').Append(file.Length).Append(':').Append(file.Sha256).Append('\n');
+
+        var expected = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString()))).ToLowerInvariant();
+        report.AggregateFingerprint.Should().Be(expected);
+
+        // The trailing newline is significant: hashing the same entries
+        // without it yields a different digest, so a manifest built with the
+        // wrong line ending can never match.
+        var withoutFinalNewline = Convert.ToHexString(
+            SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString(0, canonical.Length - 1)))).ToLowerInvariant();
+        withoutFinalNewline.Should().NotBe(report.AggregateFingerprint);
+    }
+
+    private static bool CanOpen(string path)
+    {
+        try
+        {
+            using var stream = File.OpenRead(path);
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
     }
 
     private static HermesImportDryRunReport Plan(string dir, IReadOnlyList<LibraryBookCandidate> books) =>

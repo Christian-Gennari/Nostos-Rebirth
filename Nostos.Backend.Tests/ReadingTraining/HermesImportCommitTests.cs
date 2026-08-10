@@ -105,6 +105,76 @@ public sealed class HermesImportCommitTests : IDisposable
         (await h.CountsAsync()).Should().Be((0, 0, 0, 0, 0));
     }
 
+    [Fact]
+    public async Task Commit_MalformedManifest_FilesNullOrPathLikeNames_NoBackupNoWrites()
+    {
+        var h = await NewHarnessAsync();
+        var report = new HermesReadingImportPlanner().Plan(
+            Fixture(), [new(CandideBookId, "Candide", "Voltaire")]);
+        report.Blocked.Should().BeFalse();
+
+        // Malformed manifests must fail closed at the commit gate with the
+        // stable blocked_invalid_fingerprint code:
+        //  - Files=null (a structurally invalid manifest);
+        //  - a path-like name that escaped canonicalization ("../config.yaml");
+        //  - a nested path pretending to be a known file ("sub/config.yaml");
+        //  - a trailing newline smuggled into a file name.
+        HermesImportCommitResult[] results =
+        [
+            await h.Service.CommitAsync(report with { Files = null! }),
+            await h.Service.CommitAsync(report with
+            {
+                Files = report.Files.Select(f => f with { Name = "../config.yaml" }).ToArray(),
+            }),
+            await h.Service.CommitAsync(report with
+            {
+                Files = report.Files.Select(f => f with { Name = "sub/config.yaml" }).ToArray(),
+            }),
+            await h.Service.CommitAsync(report with
+            {
+                Files = report.Files.Select(f => f with { Name = "config.yaml\n" }).ToArray(),
+            }),
+        ];
+
+        foreach (var result in results)
+            result.Status.Should().Be(HermesImportCommitStatus.Failed);
+        results.Select(r => r.ErrorCode).Distinct()
+            .Should().ContainSingle().Which.Should().Be(HermesImportCommitCodes.BlockedInvalidFingerprint);
+
+        h.Backup.CreateCalls.Should().Be(0);
+        (await h.CountsAsync()).Should().Be((0, 0, 0, 0, 0));
+    }
+
+    [Fact]
+    public async Task PlanAndCommit_TruncatedJsonlOrMissingSourceDirectory_NoBackupNoWrites()
+    {
+        var h = await NewHarnessAsync();
+        await h.SeedBook("Candide", "Voltaire", CandideBookId);
+
+        // Malformed/partial JSONL input: line 1 is a valid session, line 2 is
+        // truncated mid-object. The whole plan is blocked, so the valid first
+        // record is NOT written.
+        var truncatedDir = Fixture(includeOptional: true);
+        File.WriteAllText(Path.Combine(truncatedDir, "reading-log.jsonl"),
+            SessionJson("s1", "completed") + "\n" +
+            "{\"schema_version\":1,\"record_type\":\"session\",\"session_id\":\"partial\",\"status\":\"completed\"",
+            Utf8NoBom);
+
+        var truncated = await h.Service.PlanAndCommitAsync(truncatedDir, null);
+        truncated.Status.Should().Be(HermesImportCommitStatus.Failed);
+        truncated.ErrorCode.Should().Be(HermesImportCommitCodes.Blocked);
+        h.Backup.CreateCalls.Should().Be(0);
+        (await h.CountsAsync()).Should().Be((0, 0, 0, 0, 0));
+
+        // Missing source path: the directory does not exist.
+        var missing = Path.Combine(Path.GetTempPath(), "nostos-import-missing-" + Guid.NewGuid().ToString("N"));
+        var noDir = await h.Service.PlanAndCommitAsync(missing, null);
+        noDir.Status.Should().Be(HermesImportCommitStatus.Failed);
+        noDir.ErrorCode.Should().Be(HermesImportCommitCodes.Blocked);
+        h.Backup.CreateCalls.Should().Be(0);
+        (await h.CountsAsync()).Should().Be((0, 0, 0, 0, 0));
+    }
+
     // ------------------------------------------------------------------
     // 3. Successful commit: exact programme/assignment/session/capture rows.
     // ------------------------------------------------------------------
