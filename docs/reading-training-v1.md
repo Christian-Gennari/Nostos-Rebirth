@@ -27,7 +27,7 @@ cached, or computed outside Nostos.
   return the stored response without re-running the command.
 - **Exact-once captures.** `ReadingCapture.ExternalId` is unique when present.
 - **UTC persistence.** All `DateTime` columns are UTC. Europe/Stockholm week
-  conversion happens only in the service layer, later.
+  conversion happens only in the service layer.
 - **Immutability.** Completed sessions and committed weekly reviews are never
   rewritten by public commands.
 - **No silent data loss.** Deleting a Nostos book that has reading history is
@@ -57,4 +57,6 @@ cached, or computed outside Nostos.
 12. No streak, debt, catch-up, guilt, or compulsory-reflection language.
 
 See `tests/fixtures/reading-training/behaviour-v1.json` for the machine-readable
-expected-input/expected-output cases the Nostos engine must satisfy.
+expected-input/expected-output cases the Nostos engine must satisfy. Its
+`cases` array remains the exact 15-case frozen parity contract; `stressCases`
+is separate and drives the 11-session mixed-mode heavy-week verification.

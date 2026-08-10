@@ -51,6 +51,15 @@ A self-hosted personal library and knowledge management system. Manage books, e-
   </table>
 </details>
 
+### Reading Training
+
+- **Standalone manual workflow** — Open `/training` to initialize the programme, assign library books, plan, start, pause, resume, finish, rate, and review sessions without Hermes.
+- **Sustainable capacity** — Independent Endurance, Deep, and Recovery lanes begin at 40/30/20 minutes and adapt through deterministic weekly evidence rather than streaks or debt.
+- **Multiple books and verbatim captures** — Train with different books in the same week; thoughts, questions, and bookmarks retain their exact text and book/session link.
+- **Restart-safe and exact-once** — SQLite constraints, persisted elapsed time, command receipts, and idempotency keys prevent duplicate effects and preserve active or paused sessions across restarts.
+- **Nostos-owned automation** — Weekly review and notification-outbox workers run inside Nostos. Reading data is included in normal `.nostos` backup/restore archives.
+- **Optional integrations** — Authenticated local MCP exposes the same service as REST. The optional Hermes connector only routes the configured Telegram Reading topic and owns no state.
+
 ### Second Brain
 
 - **Contextual notes** — Highlight text in EPUBs or PDFs and attach notes to the exact location
@@ -160,6 +169,8 @@ The frontend proxies `/api` requests to the backend via `proxy.conf.json`.
 | Database     | SQLite (`nostos.db`), auto-migrated on startup               |
 | File storage | `Storage/books/` (configurable via `FileStorageSettings`)    |
 | CORS (dev)   | Handled by `proxy.conf.json` — no backend CORS config needed |
+| Reading UI   | `/training`; fully functional with MCP and Hermes disabled   |
+| Reading MCP  | Opt-in `Mcp:Enabled`; bearer token is read from an environment variable only |
 
 ## Documentation
 
@@ -170,6 +181,8 @@ Detailed documentation is available in the `_docs/` directories:
 | `_docs/`                 | Architecture, API reference, getting started, concept system               |
 | `Nostos.Backend/_docs/`  | Data models, repositories, services, endpoints, database                   |
 | `Nostos.Frontend/_docs/` | Components, services, routing, state management, reader system, UI library |
+
+Reading Training's frozen behaviour contract is in [`docs/reading-training-v1.md`](docs/reading-training-v1.md). REST and gateway routes are documented in [`Nostos.Backend/_docs/endpoints.md`](Nostos.Backend/_docs/endpoints.md); optional Hermes deployment and rollback are documented in [`integrations/hermes/README.md`](integrations/hermes/README.md).
 
 ## Roadmap
 

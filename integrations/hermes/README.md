@@ -46,6 +46,16 @@ From the repository root:
 
 The tests exercise the real Hermes `PluginContext`/`PluginManager`, synthetic plugin-loader import shape, exact routing, raw HTTP wire contract, idempotency, answer-now retrieval, fail-open behaviour, no retries, redirect rejection, and credential-safe URL handling.
 
-## Not yet deployed
+## Deployment and cutover
 
-This source tree does **not** install the plugin, change Hermes configuration, restart the gateway, disable the old reading coach, or migrate data. Live notification delivery with acknowledge-after-confirmed-send is also a later slice. Deployment and cutover require the remaining end-to-end acceptance gates.
+This source tree never installs or enables itself. Deploy only after the Nostos REST, MCP, and connector suites pass:
+
+1. Copy `integrations/hermes/reading-training/` to the active Hermes profile's plugin directory as `reading-training`.
+2. Configure the exact owner, platform, chat, numeric Reading thread, Nostos base URL, timeout, and client ID. Keep MCP bearer tokens in environment-backed secret configuration; the connector itself carries no credential.
+3. Enable `reading-training`, disable the legacy `reading-coach`, and restart the Hermes gateway so the hook set is reloaded.
+4. In the configured Reading topic, send a read-only `status` message and verify its Nostos `stateVersion` matches REST and MCP before accepting mutations.
+5. Only then pause legacy reading cron jobs and make the legacy Hermes reading-data directory read-only. Keep the pre-cutover archive and original mode manifest for rollback.
+
+Rollback reverses those steps: stop accepting new Nostos reading mutations, restore legacy file modes/data from the recorded archive, re-enable the old plugin/jobs, disable the connector, and restart Hermes. Never run both state owners as writers.
+
+The v1 connector is inbound and stateless. Optional Telegram delivery of leased Nostos notification-outbox items is not enabled; Nostos continues to own and preserve those rows until a delivery adapter acknowledges them after confirmed send.
