@@ -13,6 +13,10 @@ describe('AddBookModal', () => {
 
     fixture = TestBed.createComponent(AddBookModal);
     component = fixture.componentInstance;
+    // isOpen and collections are required inputs; provide them before the first
+    // change detection so the constructor effect and template can read them.
+    fixture.componentRef.setInput('isOpen', true);
+    fixture.componentRef.setInput('collections', []);
     await fixture.whenStable();
   });
 
