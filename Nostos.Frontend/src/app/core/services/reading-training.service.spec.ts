@@ -8,12 +8,14 @@ import {
   ReadingBookAssignment,
   ReadingCapture,
   ReadingCaptureType,
+  ReadingChangeBookModeData,
   ReadingCommandResult,
   ReadingConstraint,
   ReadingDashboard,
   ReadingMode,
   ReadingNotification,
   ReadingProgramme,
+  ReadingRemoveBookAssignmentData,
   ReadingSession,
   ReadingSessionStatus,
   ReadingTargets,
@@ -323,6 +325,55 @@ describe('ReadingTrainingService', () => {
     expectCommand('POST', `${base}/sessions/start-new`, { clientId, idempotencyKey }, envelope(session));
 
     expect(result?.data).toEqual(session);
+  });
+
+  it('PATCHes the assignment mode onto the /mode path with the command body', () => {
+    const changeData: ReadingChangeBookModeData = {
+      assignmentId,
+      bookId,
+      previousMode: ReadingMode.Endurance,
+      mode: ReadingMode.Deep,
+      queueOrder: 0,
+      defaultSlot: null,
+      collisionAbsorbed: false,
+      absorbedAssignmentId: null,
+    };
+    let result: ReadingCommandResult<ReadingChangeBookModeData> | undefined;
+    service
+      .changeBookMode(assignmentId, { clientId, idempotencyKey, mode: ReadingMode.Deep })
+      .subscribe((r) => (result = r));
+
+    expectCommand(
+      'PATCH',
+      `${base}/books/${assignmentId}/mode`,
+      { clientId, idempotencyKey, mode: ReadingMode.Deep },
+      envelope(changeData, { reply: 'Meditations moved to Deep.' })
+    );
+
+    expect(result?.data).toEqual(changeData);
+    expect(result?.data?.collisionAbsorbed).toBe(false);
+    expect(result?.data?.absorbedAssignmentId).toBeNull();
+  });
+
+  it('DELETEs the assignment on its path with the command body and passes the envelope through', () => {
+    const removeData: ReadingRemoveBookAssignmentData = {
+      assignmentId,
+      bookId,
+      mode: ReadingMode.Endurance,
+      queueOrder: 0,
+    };
+    let result: ReadingCommandResult<ReadingRemoveBookAssignmentData> | undefined;
+    service
+      .removeBookAssignment(assignmentId, { clientId, idempotencyKey })
+      .subscribe((r) => (result = r));
+
+    const req = httpMock.expectOne(`${base}/books/${assignmentId}`);
+    expect(req.request.method).toBe('DELETE');
+    expect(req.request.body).toEqual({ clientId, idempotencyKey });
+    req.flush(envelope(removeData, { reply: 'Meditations removed from the queue.' }));
+
+    expect(result?.data).toEqual(removeData);
+    expect(result?.reply).toBe('Meditations removed from the queue.');
   });
 
   it('covers capture, PATCH resolve, and promote-to-note', () => {

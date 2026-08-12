@@ -19,7 +19,11 @@ import { BooksService } from '../core/services/books.service';
 import { NotesService } from '../core/services/notes.service';
 import { ReadingTrainingService } from '../core/services/reading-training.service';
 import { ReadingTrainingStore } from './reading-training.store';
-import { ActiveBooksComponent, ActiveBooksReorderEvent } from './components/active-books/active-books.component';
+import {
+  ActiveBooksChangeModeEvent,
+  ActiveBooksComponent,
+  ActiveBooksReorderEvent,
+} from './components/active-books/active-books.component';
 import {
   AvailableBook,
   BookAssignmentDraft,
@@ -484,6 +488,16 @@ export class ReadingTrainingComponent implements OnInit, OnDestroy {
     this.runAction((key) =>
       this.store.reorderQueue({ clientId: this.clientId, idempotencyKey: key, assignmentIds: event.assignmentIds })
     );
+  }
+
+  /** Optimistic queue mutation; the store owns the command identity. */
+  onChangeMode(event: ActiveBooksChangeModeEvent): void {
+    this.runAction(() => this.store.changeBookMode(event.assignment.id, event.mode));
+  }
+
+  /** Optimistic queue removal; the store owns the command identity. */
+  onRemoveBook(book: ReadingBookAssignment): void {
+    this.runAction(() => this.store.removeBookAssignment(book.id));
   }
 
   // --- session planner ---

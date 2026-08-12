@@ -214,6 +214,8 @@ interface StoreMock {
   notificationsLoading: WritableSignal<boolean>;
   acknowledgingNotificationId: WritableSignal<string | null>;
   notificationsBusy: WritableSignal<boolean>;
+  changingModeAssignmentId: WritableSignal<string | null>;
+  removingAssignmentId: WritableSignal<string | null>;
   displayedElapsedSeconds: WritableSignal<number>;
   defaultBookForMode: ReturnType<typeof vi.fn>;
   connect: ReturnType<typeof vi.fn>;
@@ -234,6 +236,8 @@ interface StoreMock {
   setDefaultBook: ReturnType<typeof vi.fn>;
   completeBook: ReturnType<typeof vi.fn>;
   reorderQueue: ReturnType<typeof vi.fn>;
+  changeBookMode: ReturnType<typeof vi.fn>;
+  removeBookAssignment: ReturnType<typeof vi.fn>;
   planSession: ReturnType<typeof vi.fn>;
   rateSession: ReturnType<typeof vi.fn>;
   skipRatings: ReturnType<typeof vi.fn>;
@@ -263,6 +267,8 @@ function createStoreMock(): StoreMock {
     notificationsLoading: signal(false),
     acknowledgingNotificationId: signal<string | null>(null),
     notificationsBusy: signal(false),
+    changingModeAssignmentId: signal<string | null>(null),
+    removingAssignmentId: signal<string | null>(null),
     displayedElapsedSeconds: signal(0),
     defaultBookForMode: vi.fn(() => null),
     connect: vi.fn(),
@@ -283,6 +289,8 @@ function createStoreMock(): StoreMock {
     setDefaultBook: command(),
     completeBook: command(),
     reorderQueue: command(),
+    changeBookMode: vi.fn(() => of(envelope<unknown>(null))),
+    removeBookAssignment: vi.fn(() => of(envelope<unknown>(null))),
     planSession: command(),
     rateSession: command(),
     skipRatings: command(),
@@ -797,6 +805,41 @@ describe('ReadingTrainingComponent', () => {
     expect(reorderReq['clientId']).toBe(clientId);
     const keys = [defaultReq['idempotencyKey'], finishReq['idempotencyKey'], reorderReq['idempotencyKey']];
     expect(new Set(keys).size).toBe(3);
+  });
+
+  it('forwards a queue-row mode change as changeBookMode with the assignment id and mode', () => {
+    mock.dashboard.set(initializedDashboard());
+    mock.books.set([enduranceBook]);
+    fixture.detectChanges();
+
+    const select = fixture.nativeElement.querySelector('#mode-select-a1') as HTMLSelectElement;
+    expect(select).toBeTruthy();
+    select.value = String(ReadingMode.Deep);
+    select.dispatchEvent(new Event('change'));
+
+    expect(mock.changeBookMode).toHaveBeenCalledTimes(1);
+    expect(mock.changeBookMode).toHaveBeenCalledWith('a1', ReadingMode.Deep);
+  });
+
+  it('forwards a confirmed queue-row removal as removeBookAssignment, and cancel does not', () => {
+    mock.dashboard.set(initializedDashboard());
+    mock.books.set([enduranceBook]);
+    fixture.detectChanges();
+
+    // Opening the confirmation does not dispatch.
+    clickByAria('Remove Meditations from the queue');
+    expect(mock.removeBookAssignment).not.toHaveBeenCalled();
+
+    // Cancelling closes the confirmation without dispatching.
+    clickButton('Cancel');
+    expect(mock.removeBookAssignment).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('.remove-confirm')).toBeNull();
+
+    // Confirming dispatches with the assignment id.
+    clickByAria('Remove Meditations from the queue');
+    clickButton('Remove');
+    expect(mock.removeBookAssignment).toHaveBeenCalledTimes(1);
+    expect(mock.removeBookAssignment).toHaveBeenCalledWith('a1');
   });
 
   it('opens the book form from a lane with the preferred mode and maps the real catalogue', () => {

@@ -24,6 +24,8 @@ import {
   ReadingBookAssignment,
   ReadingCapture,
   ReadingCaptureRequest,
+  ReadingChangeBookModeData,
+  ReadingChangeBookModeRequest,
   ReadingCommandRequest,
   ReadingCommandResult,
   ReadingCommitWeeklyReviewRequest,
@@ -36,6 +38,8 @@ import {
   ReadingProgramme,
   ReadingPromoteCaptureRequest,
   ReadingRateSessionRequest,
+  ReadingRemoveBookAssignmentData,
+  ReadingRemoveBookAssignmentRequest,
   ReadingReorderQueueRequest,
   ReadingResolveCaptureRequest,
   ReadingSession,
@@ -81,8 +85,13 @@ const NOTIFICATION_ACK_IN_PROGRESS = 'notification_ack_in_progress';
  *    caller owns `clientId`/`idempotencyKey` — this store never generates
  *    them), records the backend reply, and refreshes the dashboard from the
  *    server after the command succeeds;
- *  - it never applies optimistic updates, never infers transitions, and never
- *    retries commands;
+ *  - the two optimistic queue commands (`changeBookMode`,
+ *    `removeBookAssignment`) are the exception: the store owns their command
+ *    identity (a stable per-instance client id and a fresh idempotency key per
+ *    command), applies the row change immediately from the server-supplied
+ *    DTOs, reconciles the row from the success envelope, and restores the
+ *    exact pre-command books snapshot on failure;
+ *  - it never infers transitions and never retries commands;
  *  - commands are serialized one at a time; a concurrent command fails
  *    deterministically with `mutation_in_progress`;
  *  - overlapping dashboard refreshes converge via a monotonic sequence, so an
@@ -123,6 +132,18 @@ export class ReadingTrainingStore {
   private readonly notificationsLoadingState = signal(false);
   /** The notification id whose ack is currently in flight, or null. */
   private readonly acknowledgingNotificationIdState = signal<string | null>(null);
+
+  /** Assignment id whose mode-change command is in flight, or null. */
+  private readonly changingModeAssignmentIdState = signal<string | null>(null);
+  /** Assignment id whose remove command is in flight, or null. */
+  private readonly removingAssignmentIdState = signal<string | null>(null);
+
+  /**
+   * Stable command identity for the optimistic queue mutations. Generated
+   * once per store instance (mirroring the page's per-instance client id);
+   * every command also gets a fresh idempotency key.
+   */
+  private readonly clientId = crypto.randomUUID();
 
   /** Display-only anchor: server `measuredSeconds` at the last dashboard response. */
   private readonly displayAnchor = signal<{ measuredSeconds: number; clientTime: number } | null>(null);
@@ -179,6 +200,8 @@ export class ReadingTrainingStore {
   readonly pendingNotices = this.pendingNoticesState.asReadonly();
   readonly notificationsLoading = this.notificationsLoadingState.asReadonly();
   readonly acknowledgingNotificationId = this.acknowledgingNotificationIdState.asReadonly();
+  readonly changingModeAssignmentId = this.changingModeAssignmentIdState.asReadonly();
+  readonly removingAssignmentId = this.removingAssignmentIdState.asReadonly();
 
   /** True while any notification lease or acknowledgement is in flight. */
   readonly notificationsBusy = computed(
@@ -633,6 +656,150 @@ export class ReadingTrainingStore {
     return this.runCommand('commit weekly review', () => this.service.commitWeeklyReview(request));
   }
 
+  /**
+   * Optimistic queue mutation: change an Active assignment's mode (PATCH
+   * books/{id}/mode). Unlike the forwarded commands above, the store owns the
+   * command identity — a stable per-instance client id and a fresh idempotency
+   * key per command — and the caller supplies only the assignment id + mode.
+   *
+   * The row moves immediately (mode set, old default cleared, queue order
+   * untouched); the server envelope then reconciles the row (final default
+   * slot, absorbed collider removal) and advances `stateVersion` through the
+   * shared result handling. Any HTTP or semantic failure restores the exact
+   * pre-command books snapshot and surfaces the envelope through the shared
+   * semantic-error path. Selecting the assignment's current mode is a no-op:
+   * no request is issued and no pending state is set. The serialized-command
+   * guard still applies: a concurrent command fails deterministically with
+   * `mutation_in_progress`. `changingModeAssignmentId` exposes the busy
+   * assignment until every terminal path (success, error, unsubscription).
+   */
+  changeBookMode(
+    assignmentId: string,
+    mode: ReadingMode
+  ): Observable<ReadingCommandResult<ReadingChangeBookModeData>> {
+    return defer(() => {
+      if (this.mutating()) {
+        return throwError(() => new Error(MUTATION_IN_PROGRESS));
+      }
+      const snapshot = this.books();
+      const current = snapshot.find((book) => book.id === assignmentId);
+      if (current && current.mode === mode) {
+        // Same mode: nothing to change; never call the server.
+        return EMPTY;
+      }
+      this.mutatingState.set(true);
+      this.errorState.set(null);
+      this.changingModeAssignmentIdState.set(assignmentId);
+      // Optimistic projection: move the source row, clear its old default,
+      // keep its queue order; every other row is untouched.
+      this.patchBooks((books) =>
+        books.map((book) => (book.id === assignmentId ? { ...book, mode, isDefault: false } : book))
+      );
+      const request: ReadingChangeBookModeRequest = {
+        clientId: this.clientId,
+        idempotencyKey: crypto.randomUUID(),
+        mode,
+      };
+      let released = false;
+      const release = (): void => {
+        if (released) return;
+        released = true;
+        this.mutatingState.set(false);
+        this.changingModeAssignmentIdState.set(null);
+      };
+      // The inner defer turns a synchronous throw from the service into a
+      // stream error so the lock is still released and reported consistently.
+      return defer(() => this.service.changeBookMode(assignmentId, request)).pipe(
+        map((result) => {
+          if (isReadingError(result.data)) {
+            // HTTP-200 semantic rejection envelope (defensive — the REST
+            // mapping delivers these as 409s): restore, surface, and let the
+            // error reach the caller.
+            this.patchBooks(() => snapshot);
+            this.errorState.set(describeError('Failed to change book mode', result.data));
+            throw result.data;
+          }
+          if (result.data) {
+            this.reconcileModeChange(assignmentId, result.data);
+          }
+          this.lastReplyState.set(result.reply);
+          this.stateVersionState.set(result.stateVersion);
+          release();
+          return result;
+        }),
+        catchError((err: unknown) => {
+          if (!isReadingError(err)) {
+            // HTTP/network failure: restore the full snapshot and describe it.
+            this.patchBooks(() => snapshot);
+            this.errorState.set(describeError('Failed to change book mode', err));
+          }
+          release();
+          return throwError(() => err);
+        }),
+        finalize(() => release())
+      );
+    });
+  }
+
+  /**
+   * Optimistic queue mutation: remove an Active assignment (DELETE
+   * books/{id}). The row disappears immediately; the success envelope
+   * advances `stateVersion` (a replay arrives with `duplicate: true` and is
+   * treated as success — the row simply stays removed). Any HTTP or semantic
+   * failure restores the exact pre-command books snapshot and surfaces the
+   * envelope through the shared semantic-error path. No renumbering is ever
+   * applied client-side — the server owns queue orders. The serialized-command
+   * guard applies; `removingAssignmentId` exposes the busy assignment until
+   * every terminal path.
+   */
+  removeBookAssignment(
+    assignmentId: string
+  ): Observable<ReadingCommandResult<ReadingRemoveBookAssignmentData>> {
+    return defer(() => {
+      if (this.mutating()) {
+        return throwError(() => new Error(MUTATION_IN_PROGRESS));
+      }
+      const snapshot = this.books();
+      this.mutatingState.set(true);
+      this.errorState.set(null);
+      this.removingAssignmentIdState.set(assignmentId);
+      this.patchBooks((books) => books.filter((book) => book.id !== assignmentId));
+      const request: ReadingRemoveBookAssignmentRequest = {
+        clientId: this.clientId,
+        idempotencyKey: crypto.randomUUID(),
+      };
+      let released = false;
+      const release = (): void => {
+        if (released) return;
+        released = true;
+        this.mutatingState.set(false);
+        this.removingAssignmentIdState.set(null);
+      };
+      return defer(() => this.service.removeBookAssignment(assignmentId, request)).pipe(
+        map((result) => {
+          if (isReadingError(result.data)) {
+            this.patchBooks(() => snapshot);
+            this.errorState.set(describeError('Failed to remove book assignment', result.data));
+            throw result.data;
+          }
+          this.lastReplyState.set(result.reply);
+          this.stateVersionState.set(result.stateVersion);
+          release();
+          return result;
+        }),
+        catchError((err: unknown) => {
+          if (!isReadingError(err)) {
+            this.patchBooks(() => snapshot);
+            this.errorState.set(describeError('Failed to remove book assignment', err));
+          }
+          release();
+          return throwError(() => err);
+        }),
+        finalize(() => release())
+      );
+    });
+  }
+
   // --- internals ---
 
   /**
@@ -748,6 +915,36 @@ export class ReadingTrainingStore {
     return this.books().filter(
       (b) =>
         b.mode === mode && (b.status === ReadingAssignmentStatus.Active || b.status === ReadingAssignmentStatus.Queued)
+    );
+  }
+
+  /**
+   * Replaces the dashboard's books with a new array built by `update`.
+   * Never mutates the current array in place — the optimistic queue commands
+   * and their rollbacks always swap in a fresh array.
+   */
+  private patchBooks(update: (books: ReadingBookAssignment[]) => ReadingBookAssignment[]): void {
+    const current = this.dashboardState();
+    if (!current) return;
+    this.dashboardState.set({ ...current, books: update(current.books) });
+  }
+
+  /**
+   * Applies the server's mode-change envelope to the books snapshot: drops the
+   * absorbed collider row when one was consumed and reconciles the moved
+   * source row's mode, queue order, and default flag (the server's
+   * `defaultSlot` sentinel decides `isDefault`).
+   */
+  private reconcileModeChange(assignmentId: string, data: ReadingChangeBookModeData): void {
+    const absorbedId = data.absorbedAssignmentId;
+    this.patchBooks((books) =>
+      books
+        .filter((book) => absorbedId === null || book.id !== absorbedId)
+        .map((book) =>
+          book.id === assignmentId
+            ? { ...book, mode: data.mode, isDefault: data.defaultSlot !== null, queueOrder: data.queueOrder }
+            : book
+        )
     );
   }
 

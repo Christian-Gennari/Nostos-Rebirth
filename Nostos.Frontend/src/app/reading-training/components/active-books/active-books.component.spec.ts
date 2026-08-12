@@ -215,4 +215,148 @@ describe('ActiveBooksComponent', () => {
     ]);
     expect(text()).not.toMatch(FORBIDDEN);
   });
+
+  it('renders a compact mode selector with the three modes and the current mode selected', () => {
+    const book = assignment({ id: 'a1', mode: ReadingMode.Deep });
+    setBooks([book]);
+
+    const select = fixture.nativeElement.querySelector('.mode-select') as HTMLSelectElement;
+    expect(select).toBeTruthy();
+    const options = Array.from(select.querySelectorAll('option')).map((o) => (o as HTMLOptionElement).textContent);
+    expect(options).toEqual(['Endurance', 'Deep', 'Recovery']);
+    expect(select.value).toBe(String(ReadingMode.Deep));
+  });
+
+  it('emits changeMode with the assignment and requested mode, and never for the current mode', () => {
+    const events: Array<{ assignment: ReadingBookAssignment; mode: ReadingMode }> = [];
+    component.changeMode.subscribe((e) => events.push(e));
+    const book = assignment({ id: 'a1', mode: ReadingMode.Endurance });
+    setBooks([book]);
+    const select = fixture.nativeElement.querySelector('.mode-select') as HTMLSelectElement;
+
+    // Selecting the current mode must not dispatch anything.
+    select.value = String(ReadingMode.Endurance);
+    select.dispatchEvent(new Event('change'));
+    expect(events).toEqual([]);
+
+    select.value = String(ReadingMode.Recovery);
+    select.dispatchEvent(new Event('change'));
+    expect(events).toEqual([{ assignment: book, mode: ReadingMode.Recovery }]);
+  });
+
+  it('exposes an accessible remove button labelled with the book title', () => {
+    const book = assignment({ id: 'a1', bookTitle: 'Meditations' });
+    setBooks([book]);
+
+    const trash = fixture.nativeElement.querySelector('.trash-button') as HTMLButtonElement;
+    expect(trash).toBeTruthy();
+    expect(trash.getAttribute('aria-label')).toContain('Remove Meditations');
+    expect(trash.getAttribute('aria-label')).toContain('from the queue');
+  });
+
+  it('provides a visually-hidden label wired to the mode select', () => {
+    setBooks([assignment({ id: 'a1', bookTitle: 'Meditations' })]);
+
+    const label = fixture.nativeElement.querySelector('label[for="mode-select-a1"]') as HTMLLabelElement;
+    expect(label).toBeTruthy();
+    expect(label.textContent).toContain('Mode for Meditations');
+    const select = fixture.nativeElement.querySelector('#mode-select-a1') as HTMLSelectElement;
+    expect(select).toBeTruthy();
+  });
+
+  it('confirms removal inline: request shows the confirm pair, cancel dismisses, confirm emits the exact assignment', () => {
+    const removed: ReadingBookAssignment[] = [];
+    component.remove.subscribe((book) => removed.push(book));
+    const book = assignment({ id: 'a1' });
+    setBooks([book]);
+
+    (fixture.nativeElement.querySelector('.trash-button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(component.confirmingRemovalId()).toBe('a1');
+    expect(fixture.nativeElement.querySelector('.trash-button')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.remove-confirm')).toBeTruthy();
+    expect(text()).toContain('Cancel');
+
+    // Cancel: closes the confirmation without emitting.
+    const cancelButton = buttons().find((b) => b.textContent?.trim() === 'Cancel');
+    cancelButton?.click();
+    fixture.detectChanges();
+    expect(component.confirmingRemovalId()).toBeNull();
+    expect(removed).toEqual([]);
+    expect(fixture.nativeElement.querySelector('.trash-button')).toBeTruthy();
+
+    // Confirm: emits the exact assignment and closes the confirmation.
+    (fixture.nativeElement.querySelector('.trash-button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const removeButton = buttons().find((b) => b.textContent?.trim() === 'Remove');
+    removeButton?.click();
+    expect(removed).toEqual([book]);
+    expect(component.confirmingRemovalId()).toBeNull();
+  });
+
+  it('keeps the removal confirmation row-local: unrelated rows keep their normal controls', () => {
+    const first = assignment({ id: 'a1', queueOrder: 0 });
+    const second = assignment({ id: 'a2', queueOrder: 1 });
+    setBooks([first, second]);
+
+    const trashes = Array.from(fixture.nativeElement.querySelectorAll('.trash-button')) as HTMLButtonElement[];
+    trashes[0]?.click();
+    fixture.detectChanges();
+
+    const items = Array.from(fixture.nativeElement.querySelectorAll('.queue-item')) as HTMLElement[];
+    expect(items[0]?.querySelector('.remove-confirm')).toBeTruthy();
+    expect(items[0]?.querySelector('.trash-button')).toBeNull();
+    expect(items[1]?.querySelector('.trash-button')).toBeTruthy();
+    expect(items[1]?.querySelector('.remove-confirm')).toBeNull();
+  });
+
+  it('disables a row whose assignment owns the open session, leaving unrelated rows enabled', () => {
+    const first = assignment({ id: 'a1', queueOrder: 0 });
+    const second = assignment({ id: 'a2', queueOrder: 1 });
+    setBooks([first, second]);
+
+    fixture.componentRef.setInput('openAssignmentId', 'a1');
+    fixture.detectChanges();
+
+    const selects = Array.from(fixture.nativeElement.querySelectorAll('.mode-select')) as HTMLSelectElement[];
+    const trashes = Array.from(fixture.nativeElement.querySelectorAll('.trash-button')) as HTMLButtonElement[];
+    expect(selects[0]?.disabled).toBe(true);
+    expect(trashes[0]?.disabled).toBe(true);
+    expect(selects[1]?.disabled).toBe(false);
+    expect(trashes[1]?.disabled).toBe(false);
+  });
+
+  it('disables only the pending row while its mutation is in flight, and re-enables it after the pending state clears', () => {
+    const first = assignment({ id: 'a1', queueOrder: 0 });
+    const second = assignment({ id: 'a2', queueOrder: 1 });
+    setBooks([first, second]);
+
+    // Mode change pending on a1: only a1 locks.
+    fixture.componentRef.setInput('changingModeAssignmentId', 'a1');
+    fixture.detectChanges();
+    let selects = Array.from(fixture.nativeElement.querySelectorAll('.mode-select')) as HTMLSelectElement[];
+    let trashes = Array.from(fixture.nativeElement.querySelectorAll('.trash-button')) as HTMLButtonElement[];
+    expect(selects[0]?.disabled).toBe(true);
+    expect(trashes[0]?.disabled).toBe(true);
+    expect(selects[1]?.disabled).toBe(false);
+    expect(trashes[1]?.disabled).toBe(false);
+
+    // Rollback: pending clears, the row's controls re-enable.
+    fixture.componentRef.setInput('changingModeAssignmentId', null);
+    fixture.detectChanges();
+    selects = Array.from(fixture.nativeElement.querySelectorAll('.mode-select')) as HTMLSelectElement[];
+    trashes = Array.from(fixture.nativeElement.querySelectorAll('.trash-button')) as HTMLButtonElement[];
+    expect(selects[0]?.disabled).toBe(false);
+    expect(trashes[0]?.disabled).toBe(false);
+
+    // Removal pending on a2: only a2 locks.
+    fixture.componentRef.setInput('removingAssignmentId', 'a2');
+    fixture.detectChanges();
+    selects = Array.from(fixture.nativeElement.querySelectorAll('.mode-select')) as HTMLSelectElement[];
+    trashes = Array.from(fixture.nativeElement.querySelectorAll('.trash-button')) as HTMLButtonElement[];
+    expect(selects[0]?.disabled).toBe(false);
+    expect(selects[1]?.disabled).toBe(true);
+    expect(trashes[0]?.disabled).toBe(false);
+    expect(trashes[1]?.disabled).toBe(true);
+  });
 });
