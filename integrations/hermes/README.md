@@ -4,7 +4,7 @@ This directory contains the source for a thin, stateless Hermes connector to the
 
 ## Behaviour
 
-The plugin registers `pre_gateway_dispatch` and `pre_llm_call` hooks. It only considers inbound human Telegram messages when owner ID, chat ID, and numeric thread ID exactly match configuration. It rejects slash commands, bot/outgoing messages, cron deliveries, synthetic delegation messages, and every other chat or topic.
+The plugin registers `pre_gateway_dispatch` and `pre_llm_call` hooks. It only considers inbound human messages on the configured lanes — a Telegram topic (owner ID, chat ID, and numeric thread ID must exactly match) or a Discord channel (owner + channel scope, channel-level without a thread). It rejects slash commands, bot/outgoing messages, cron deliveries, synthetic delegation messages, and every other chat or topic.
 
 An eligible message is forwarded once, verbatim, to:
 

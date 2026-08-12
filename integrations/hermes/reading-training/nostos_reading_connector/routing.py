@@ -1,17 +1,19 @@
-"""Pure, deterministic Telegram routing primitives for the optional Nostos
+"""Pure, deterministic routing primitives for the optional Nostos
 reading connector (Task 10B1).
 
 This module contains NO I/O, NO randomness, and NO reading-training domain
 state. It decides only two things, both from the message scope and hygiene:
 
 * whether the configured connector is active at all (exact owner id,
-  ``platform == "telegram"``, exact chat id, exact numeric thread id), and
+  ``platform`` in {telegram, discord}, exact chat id, and — for Telegram —
+  an exact numeric thread id), and
 * whether an inbound message is *eligible* to be forwarded verbatim to the
   Nostos gateway (``POST /api/reading/gateway/dispatch``).
 
 Scope and hygiene decisions are exact and deterministic:
 
-* accepted only when owner/platform/chat/thread all match the config exactly;
+* accepted only when owner/platform/chat/thread all match a configured scope
+  exactly (Discord scopes may be channel-level: no thread required);
 * rejected: every other chat/topic/sender, every slash command, bot/self and
   generated/outgoing messages, synthetic async-delegation deliveries,
   cron deliveries, empty text, and messages without a trusted event id.
@@ -44,7 +46,7 @@ Field mapping (verified against Hermes plugin hook conventions, legacy
 Synthetic/cron markers (verified in current Hermes source): async delegation
 completions arrive as ``[ASYNC DELEGATION ...`` (e.g. ``[ASYNC DELEGATION
 BATCH COMPLETE — ...]``), operator steering as ``[OUT-OF-BAND ...``, and cron
-deliveries are framed as ``[Cron delivery: <name>]\n<text>``.
+deliveries are framed as ``[Cron delivery: <name>]\\n<text>``.
 """
 
 from __future__ import annotations
@@ -53,10 +55,17 @@ from dataclasses import dataclass
 from typing import Any, Optional, Union
 
 PLATFORM_TELEGRAM = "telegram"
-"""The only platform this connector routes for (config inactive otherwise)."""
+PLATFORM_DISCORD = "discord"
+
+VALID_PLATFORMS = (PLATFORM_TELEGRAM, PLATFORM_DISCORD)
+"""Platforms this connector can route for. Telegram scopes require an exact
+numeric thread; Discord scopes may be channel-level (thread optional)."""
 
 DEFAULT_CLIENT_ID = "nostos-telegram"
 """Default connector identity used as the dispatch ``clientId``."""
+
+DEFAULT_DISCORD_CLIENT_ID = "nostos-discord"
+"""Default connector identity for Discord scopes."""
 
 DEFAULT_KEY_NAMESPACE = "nostos-reading"
 """Namespace prefix for deterministic idempotency keys."""
@@ -116,17 +125,32 @@ class ConnectorConfig:
     inactive. ``owner_id`` is compared as its exact string form. The config
     is *inactive* when any field is missing/invalid — the connector then
     fails open (all messages keep their ordinary Hermes path).
+
+    Platform rules:
+
+    * ``telegram`` — ``thread_id`` REQUIRED (Reading forum topic), exact match.
+    * ``discord`` — ``thread_id`` OPTIONAL: a channel-level scope (thread_id
+      unset) accepts any message in the channel; a thread-level scope
+      (thread_id set) accepts only that thread.
     """
 
     owner_id: Union[str, int]
     chat_id: Union[str, int]
-    thread_id: Union[str, int]
+    thread_id: Optional[Union[str, int]] = None
     platform: str = PLATFORM_TELEGRAM
     client_id: str = DEFAULT_CLIENT_ID
 
     @property
     def active(self) -> bool:
         return is_active(self)
+
+    @property
+    def is_telegram(self) -> bool:
+        return self.platform == PLATFORM_TELEGRAM
+
+    @property
+    def is_discord(self) -> bool:
+        return self.platform == PLATFORM_DISCORD
 
 
 @dataclass(frozen=True)
@@ -167,7 +191,7 @@ class RoutingDecision:
 
 def config_issues(config: ConnectorConfig) -> tuple[str, ...]:
     """Return the field names that make ``config`` inactive (empty = active)."""
-    if config.platform != PLATFORM_TELEGRAM:
+    if config.platform not in VALID_PLATFORMS:
         return ("platform",)
     if isinstance(config.owner_id, bool) or not isinstance(
         config.owner_id, (str, int)
@@ -175,8 +199,17 @@ def config_issues(config: ConnectorConfig) -> tuple[str, ...]:
         return ("owner_id",)
     if _positive_int(config.chat_id) is None:
         return ("chat_id",)
-    if _positive_int(config.thread_id) is None:
-        return ("thread_id",)
+    if config.is_telegram:
+        # Telegram scopes are forum-topic scopes: the numeric thread is
+        # mandatory (a Telegram channel without a topic is not a Reading
+        # scope for this connector).
+        if _positive_int(config.thread_id) is None:
+            return ("thread_id",)
+    else:
+        # Discord scopes may be channel-level (thread_id unset) or
+        # thread-level; an invalid non-empty thread is still a config error.
+        if config.thread_id is not None and _positive_int(config.thread_id) is None:
+            return ("thread_id",)
     if not isinstance(config.client_id, str) or config.client_id.strip() == "":
         return ("client_id",)
     return ()
@@ -227,8 +260,16 @@ def classify(config: ConnectorConfig, message: InboundMessage) -> RoutingDecisio
         return RoutingDecision(False, REASON_NOT_OWNER)
     if str(message.chat_id or "") != str(config.chat_id):
         return RoutingDecision(False, REASON_WRONG_CHAT)
-    if str(message.thread_id or "") != str(config.thread_id):
-        return RoutingDecision(False, REASON_WRONG_THREAD)
+    if config.is_telegram:
+        # Telegram: exact numeric thread required (forum topic scope).
+        if str(message.thread_id or "") != str(config.thread_id):
+            return RoutingDecision(False, REASON_WRONG_THREAD)
+    elif config.thread_id is not None:
+        # Discord thread-level scope: exact thread match.
+        if str(message.thread_id or "") != str(config.thread_id):
+            return RoutingDecision(False, REASON_WRONG_THREAD)
+    # Discord channel-level scope (thread_id unset): any message in the
+    # channel is in scope, threads included.
     if message.is_outgoing:
         return RoutingDecision(False, REASON_OUTGOING_MESSAGE)
     if message.is_bot:
