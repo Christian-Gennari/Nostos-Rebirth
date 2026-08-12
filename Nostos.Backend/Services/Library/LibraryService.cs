@@ -19,9 +19,9 @@ public sealed class LibraryService : ILibraryService
     // Process-local gate serializes library mutations (mirror of the reading
     // service). Static so the gate is shared across scoped service instances.
     private static readonly SemaphoreSlim CommandGate = new(1, 1);
-    private static readonly JsonSerializerOptions ReceiptJson = new()
+    private static readonly JsonSerializerOptions ReceiptJson = new(JsonSerializerDefaults.Web)
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new LibraryCommandResultJsonConverter() },
     };
 
     private readonly IDbContextFactory<NostosDbContext> _contexts;
@@ -49,8 +49,8 @@ public sealed class LibraryService : ILibraryService
         CancellationToken ct = default)
     {
         await using var db = await _contexts.CreateDbContextAsync(ct);
-        var state = await EnsureStateAsync(db, ct);
-        var version = state.StateVersion;
+        var state = await TryGetStateAsync(db, ct);
+        var version = state?.StateVersion ?? "0";
 
         var safePage = Math.Max(1, page);
         var safePageSize = Math.Clamp(pageSize, 1, 100);
@@ -103,8 +103,8 @@ public sealed class LibraryService : ILibraryService
     public async Task<LibraryCommandResultDto> GetBookAsync(Guid bookId, CancellationToken ct = default)
     {
         await using var db = await _contexts.CreateDbContextAsync(ct);
-        var state = await EnsureStateAsync(db, ct);
-        var version = state.StateVersion;
+        var state = await TryGetStateAsync(db, ct);
+        var version = state?.StateVersion ?? "0";
 
         var book = await db.Books.AsNoTracking().SingleOrDefaultAsync(b => b.Id == bookId, ct);
         if (book is null)
@@ -121,7 +121,7 @@ public sealed class LibraryService : ILibraryService
         var nAuthor = BookIdentityNormalizer.NormalizeAuthor(request.Author);
 
         await using var db = await _contexts.CreateDbContextAsync(ct);
-        await EnsureStateAsync(db, ct);
+        // Read-only: never creates the state row (strict read-only contract).
 
         // 1. Identifier resolution first (authoritative, indexed).
         BookModel? isbnMatch = null;
@@ -140,15 +140,19 @@ public sealed class LibraryService : ILibraryService
             return new LibraryResolveResult(LibraryResolution.ExactMatch, asinMatch.ToDto());
 
         // 2. Title/author resolution (in-memory; personal library scale).
+        //    Exact matching requires BOTH title and author: a title-only
+        //    request yields candidates, never an automatic match.
         if (!string.IsNullOrEmpty(nTitle))
         {
             var all = await db.Books.AsNoTracking().ToListAsync(ct);
-            var exact = all
-                .Where(b =>
-                    string.Equals(BookIdentityNormalizer.NormalizeTitle(b.Title), nTitle, StringComparison.Ordinal) &&
-                    (string.IsNullOrEmpty(nAuthor) ||
-                     string.Equals(BookIdentityNormalizer.NormalizeAuthor(b.Author), nAuthor, StringComparison.Ordinal)))
-                .ToList();
+            var hasAuthor = !string.IsNullOrEmpty(nAuthor);
+            var exact = hasAuthor
+                ? all
+                    .Where(b =>
+                        string.Equals(BookIdentityNormalizer.NormalizeTitle(b.Title), nTitle, StringComparison.Ordinal) &&
+                        string.Equals(BookIdentityNormalizer.NormalizeAuthor(b.Author), nAuthor, StringComparison.Ordinal))
+                    .ToList()
+                : [];
 
             if (exact.Count == 1)
                 return new LibraryResolveResult(LibraryResolution.ExactMatch, exact[0].ToDto());
@@ -181,26 +185,34 @@ public sealed class LibraryService : ILibraryService
         // 3. Not found locally; prefill from external metadata when an ISBN is
         //    available. External metadata is NEVER treated as membership.
         CreateBookDto? prefill = null;
+        string? lookupError = null;
         if (request.IncludeExternalMetadata && nIsbn is not null)
         {
             try
             {
-                prefill = await _lookup.LookupCombinedAsync(nIsbn);
+                prefill = await _lookup.LookupCombinedAsync(nIsbn, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception)
             {
-                // External lookup failure must not break local resolution.
+                // External lookup failure must not break local resolution;
+                // surface it as a typed lookup error instead of swallowing.
+                lookupError = "lookup_timeout";
                 prefill = null;
             }
         }
 
-        return new LibraryResolveResult(LibraryResolution.NotFound, Prefill: prefill);
+        return new LibraryResolveResult(LibraryResolution.NotFound, Prefill: prefill, LookupError: lookupError);
     }
 
     public async Task<LibraryCommandResultDto> ListCollectionsAsync(CancellationToken ct = default)
     {
         await using var db = await _contexts.CreateDbContextAsync(ct);
-        var state = await EnsureStateAsync(db, ct);
+        var state = await TryGetStateAsync(db, ct);
+        var version = state?.StateVersion ?? "0";
 
         var items = await db.Collections.AsNoTracking()
             .OrderBy(c => c.Name)
@@ -210,23 +222,24 @@ public sealed class LibraryService : ILibraryService
         return Result(
             LibraryReplyFormatter.CollectionList(items.Count),
             items.Select(c => new CollectionDto(c.Id, c.Name, c.ParentId)).ToList(),
-            state.StateVersion);
+            version);
     }
 
     public async Task<LibraryCommandResultDto> GetCollectionAsync(Guid collectionId, CancellationToken ct = default)
     {
         await using var db = await _contexts.CreateDbContextAsync(ct);
-        var state = await EnsureStateAsync(db, ct);
+        var state = await TryGetStateAsync(db, ct);
+        var version = state?.StateVersion ?? "0";
 
         var collection = await db.Collections.AsNoTracking()
             .SingleOrDefaultAsync(c => c.Id == collectionId, ct);
         if (collection is null)
-            return Failure("collection_not_found", LibraryReplyFormatter.CollectionNotFound, state.StateVersion);
+            return Failure("collection_not_found", LibraryReplyFormatter.CollectionNotFound, version);
 
         return Result(
             LibraryReplyFormatter.Collection(collection.Name),
             new CollectionDto(collection.Id, collection.Name, collection.ParentId),
-            state.StateVersion);
+            version);
     }
 
     // ------------------------------------------------------------------
@@ -243,6 +256,74 @@ public sealed class LibraryService : ILibraryService
     public Task<LibraryCommandResultDto> UpdateBookAsync(LibraryUpdateBookRequest request, CancellationToken ct = default) =>
         MutateAsync(request.ClientId, request.IdempotencyKey, "UpdateBook",
             (db, token) => UpdateBookCoreAsync(db, request, token), ct);
+
+    public async Task<LibraryCommandResultDto> UpdateProgressAsync(
+        Guid bookId,
+        string location,
+        int percentage,
+        CancellationToken ct = default)
+    {
+        await using var db = await _contexts.CreateDbContextAsync(ct);
+        var state = await EnsureStateAsync(db, ct);
+
+        var book = await db.Books.SingleOrDefaultAsync(b => b.Id == bookId, ct);
+        if (book is null)
+            return Failure("book_not_found", LibraryReplyFormatter.BookNotFound, state.StateVersion);
+
+        var clamped = Math.Clamp(percentage, 0, 100);
+        book.Progress.LastLocation = string.IsNullOrWhiteSpace(location) ? null : location;
+        book.Progress.ProgressPercent = clamped;
+        book.Progress.LastReadAt = Now;
+
+        // Keep FinishedAt aligned with the percentage (regression fix: a
+        // finished book that is read again becomes unfinished).
+        if (clamped >= 100)
+            book.Progress.FinishedAt ??= Now;
+        else if (book.Progress.FinishedAt is not null)
+            book.Progress.FinishedAt = null;
+
+        var version = NextVersion(state.StateVersion);
+        state.StateVersion = version;
+        state.UpdatedAt = Now;
+
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+
+        return Result(LibraryReplyFormatter.ProgressUpdated(book.Title), new { updated = true }, version);
+    }
+
+    public async Task<LibraryCommandResultDto> DeleteBookAsync(Guid bookId, CancellationToken ct = default)
+    {
+        await using var db = await _contexts.CreateDbContextAsync(ct);
+        var state = await EnsureStateAsync(db, ct);
+
+        var book = await db.Books.SingleOrDefaultAsync(b => b.Id == bookId, ct);
+        if (book is null)
+            return Failure("book_not_found", LibraryReplyFormatter.BookNotFound, state.StateVersion);
+
+        var version = NextVersion(state.StateVersion);
+        state.StateVersion = version;
+        state.UpdatedAt = Now;
+
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        db.Books.Remove(book);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            // Reading assignments/sessions/notes hold Restrict FKs; an in-use
+            // book must never be deleted (and its files must never be
+            // removed) around that guard.
+            await transaction.RollbackAsync(ct);
+            return Failure("book_in_use", LibraryReplyFormatter.BookInUse(book.Title), state.StateVersion);
+        }
+
+        await transaction.CommitAsync(ct);
+        return Result(LibraryReplyFormatter.BookDeleted(book.Title), new { deleted = true }, version);
+    }
 
     public Task<LibraryCommandResultDto> CreateCollectionAsync(LibraryCreateCollectionRequest request, CancellationToken ct = default) =>
         MutateAsync(request.ClientId, request.IdempotencyKey, "CreateCollection",
@@ -275,6 +356,17 @@ public sealed class LibraryService : ILibraryService
         var nAsin = BookIdentityNormalizer.NormalizeAsin(request.Asin);
         var nTitle = BookIdentityNormalizer.NormalizeTitle(request.Title);
         var nAuthor = BookIdentityNormalizer.NormalizeAuthor(request.Author);
+
+        // Type and identifier/type consistency: an identifier the target
+        // model cannot store must be rejected, never silently dropped after
+        // being used for matching (strong-identity contract). The unknown-type
+        // check runs first; identifier/type consistency runs AFTER identity
+        // resolution so exact identifier matches (and identity_conflict) stay
+        // reachable.
+        var normalizedType = string.IsNullOrWhiteSpace(request.Type) ? "physical" : request.Type.Trim().ToLowerInvariant();
+        if (normalizedType is not ("physical" or "ebook" or "audiobook"))
+            return NoChange(Failure("invalid_book_identity",
+                $"Unknown book type: {request.Type}. Use physical, ebook, or audiobook.", state.StateVersion));
 
         // 1. Explicit confirmation: use the caller-selected existing row.
         if (request.ConfirmedBookId.HasValue)
@@ -312,17 +404,31 @@ public sealed class LibraryService : ILibraryService
                 new LibraryCreateOrMatchResultDto("matched", asinMatch.Id, asinMatch.ToDto()),
                 state.StateVersion));
 
+        // Identifier/type consistency (after resolution, before creation): a
+        // fresh audiobook with an ISBN, or a physical/ebook with an ASIN, is
+        // rejected rather than silently dropping the identifier.
+        if (normalizedType == "audiobook" && nIsbn is not null)
+            return NoChange(Failure("invalid_book_identity",
+                "Audiobooks use ASIN, not ISBN.", state.StateVersion));
+        if (normalizedType != "audiobook" && nAsin is not null)
+            return NoChange(Failure("invalid_book_identity",
+                "Only audiobooks use ASIN.", state.StateVersion));
+
         // 3. Title/author resolution. forceCreate bypasses ambiguity; exact
-        //    identifier matches above always win over forceCreate.
+        //    identifier matches above always win over forceCreate. Exact
+        //    matching requires BOTH title and author: title-only requests
+        //    yield candidates below, never an automatic match.
         if (!request.ForceCreate && !string.IsNullOrEmpty(nTitle))
         {
             var all = await db.Books.AsNoTracking().ToListAsync(ct);
-            var exact = all
-                .Where(b =>
-                    string.Equals(BookIdentityNormalizer.NormalizeTitle(b.Title), nTitle, StringComparison.Ordinal) &&
-                    (string.IsNullOrEmpty(nAuthor) ||
-                     string.Equals(BookIdentityNormalizer.NormalizeAuthor(b.Author), nAuthor, StringComparison.Ordinal)))
-                .ToList();
+            var hasAuthor = !string.IsNullOrEmpty(nAuthor);
+            var exact = hasAuthor
+                ? all
+                    .Where(b =>
+                        string.Equals(BookIdentityNormalizer.NormalizeTitle(b.Title), nTitle, StringComparison.Ordinal) &&
+                        string.Equals(BookIdentityNormalizer.NormalizeAuthor(b.Author), nAuthor, StringComparison.Ordinal))
+                    .ToList()
+                : [];
 
             if (exact.Count == 1)
                 return NoChange(Result(
@@ -445,6 +551,15 @@ public sealed class LibraryService : ILibraryService
         if (request.Title is not null && string.IsNullOrWhiteSpace(request.Title))
             return NoChange(Failure("invalid_book_identity", "Title cannot be empty.", state.StateVersion));
 
+        // Identifier/type consistency: identifiers the model cannot store are
+        // rejected, never silently dropped.
+        if (book is AudioBookModel && !string.IsNullOrWhiteSpace(request.Isbn))
+            return NoChange(Failure("invalid_book_identity",
+                "Audiobooks use ASIN, not ISBN.", state.StateVersion));
+        if (book is not AudioBookModel && !string.IsNullOrWhiteSpace(request.Asin))
+            return NoChange(Failure("invalid_book_identity",
+                "Only audiobooks use ASIN.", state.StateVersion));
+
         // Null = leave unchanged; empty string = clear (repo convention).
         if (request.Title is not null)
             book.Title = request.Title;
@@ -561,7 +676,28 @@ public sealed class LibraryService : ILibraryService
                     LibraryReplyFormatter.DuplicateIdentifier(conflict[0].Title), state.StateVersion));
         }
 
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            // Another writer committed the identifier between the probe and
+            // this save; the filtered unique index is the final guard. Convert
+            // to a typed conflict, never a 500 (mirror of the create path).
+            await using var probeDb = await _contexts.CreateDbContextAsync(ct);
+            var raced = await probeDb.Books.AsNoTracking()
+                .Where(b => b.Id != book.Id &&
+                            ((nIsbn != null && b.NormalizedIsbn == nIsbn) ||
+                             (nAsin != null && b.NormalizedAsin == nAsin)))
+                .Select(b => new { b.Title })
+                .ToListAsync(ct);
+            if (raced.Count > 0)
+                return NoChange(Failure("duplicate_identifier",
+                    LibraryReplyFormatter.DuplicateIdentifier(raced[0].Title), state.StateVersion));
+            throw;
+        }
+
         return Change(Result(
             LibraryReplyFormatter.BookUpdated(book.Title),
             book.ToDto(),
@@ -684,6 +820,17 @@ public sealed class LibraryService : ILibraryService
                 cursor = parent.Value;
             }
 
+            // Sibling-name collision at the destination: moving a collection
+            // must behave like renaming into the target parent.
+            var nName = BookIdentityNormalizer.NormalizeTitle(collection.Name);
+            var siblings = await db.Collections.AsNoTracking()
+                .Where(c => c.Id != collection.Id && c.ParentId == request.NewParentId.Value)
+                .ToListAsync(ct);
+            if (siblings.Any(c =>
+                    string.Equals(BookIdentityNormalizer.NormalizeTitle(c.Name), nName, StringComparison.Ordinal)))
+                return NoChange(Failure("collection_name_conflict",
+                    LibraryReplyFormatter.CollectionNameConflict(collection.Name), state.StateVersion));
+
             collection.ParentId = request.NewParentId;
         }
         else
@@ -746,6 +893,8 @@ public sealed class LibraryService : ILibraryService
     {
         if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(idempotencyKey))
             return Failure("invalid_idempotency", "ClientId and IdempotencyKey are required.");
+        if (clientId.Length > 64 || idempotencyKey.Length > 128)
+            return Failure("invalid_idempotency", "ClientId is limited to 64 characters and IdempotencyKey to 128.");
 
         await CommandGate.WaitAsync(ct);
         try
@@ -807,6 +956,9 @@ public sealed class LibraryService : ILibraryService
         }
     }
 
+    private static async Task<LibraryState?> TryGetStateAsync(NostosDbContext db, CancellationToken ct) =>
+        await db.LibraryStates.AsNoTracking().SingleOrDefaultAsync(ct);
+
     private static async Task<LibraryState> EnsureStateAsync(NostosDbContext db, CancellationToken ct)
     {
         var state = await db.LibraryStates.SingleOrDefaultAsync(ct);
@@ -856,13 +1008,6 @@ public sealed class LibraryService : ILibraryService
         }
 
         return null;
-    }
-
-    private static void ApplyNormalizedIdentity(BookModel model, string? nIsbn, string? nAsin)
-    {
-        // Only types that actually carry the identifier get a normalized value.
-        model.NormalizedIsbn = model is PhysicalBookModel or EBookModel ? nIsbn : null;
-        model.NormalizedAsin = model is AudioBookModel ? nAsin : null;
     }
 
     private static LibraryCandidate ToCandidate(BookModel book, string reason) =>

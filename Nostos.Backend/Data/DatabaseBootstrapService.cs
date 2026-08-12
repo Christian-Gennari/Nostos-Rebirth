@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage;
+using Nostos.Backend.Data.Models;
 
 namespace Nostos.Backend.Data;
 
@@ -50,6 +51,7 @@ public sealed class DatabaseBootstrapService(NostosDbContext db) : IDatabaseBoot
             // is partial or unknown, MigrateAsync fails closed below.
             await db.Database.MigrateAsync(cancellationToken);
             await Services.Library.LibraryIdentityBackfill.BackfillAsync(db, cancellationToken);
+            await EnsureLibraryStateRowAsync(cancellationToken);
             return;
         }
 
@@ -92,6 +94,22 @@ public sealed class DatabaseBootstrapService(NostosDbContext db) : IDatabaseBoot
         }
 
         await transaction.CommitAsync(cancellationToken);
+
+        // Seed the library singleton row (read paths must never mutate).
+        await EnsureLibraryStateRowAsync(cancellationToken);
+    }
+
+    private async Task EnsureLibraryStateRowAsync(CancellationToken ct)
+    {
+        if (await db.LibraryStates.AnyAsync(ct))
+            return;
+
+        db.LibraryStates.Add(new LibraryState
+        {
+            Id = LibraryState.WellKnownId,
+            SingletonSlot = LibraryState.SingletonSentinel,
+        });
+        await db.SaveChangesAsync(ct);
     }
 
     // Mirror what EF Core's own Migrator stamps into ProductVersion

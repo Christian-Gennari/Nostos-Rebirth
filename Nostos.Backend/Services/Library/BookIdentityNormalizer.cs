@@ -75,7 +75,11 @@ public static class BookIdentityNormalizer
         var inWhitespace = false;
         foreach (var ch in normalized)
         {
-            if (char.IsWhiteSpace(ch))
+            // Punctuation runs normalize to a single space, so "Title :
+            // Subtitle" and "Title: Subtitle" share one identity (punctuation-
+            // spacing normalization per the frozen contract). Subtitle text is
+            // preserved; only the spacing changes.
+            if (char.IsWhiteSpace(ch) || char.IsPunctuation(ch))
             {
                 inWhitespace = true;
                 continue;

@@ -46,6 +46,20 @@ public interface ILibraryService
 
     Task<LibraryCommandResultDto> UpdateBookAsync(LibraryUpdateBookRequest request, CancellationToken ct = default);
 
+    /// <summary>
+    /// High-frequency progress update. Deliberately NOT receipt-guarded
+    /// (last-write-wins, idempotent by nature); validates 0..100 and keeps
+    /// FinishedAt aligned with the percentage.
+    /// </summary>
+    Task<LibraryCommandResultDto> UpdateProgressAsync(Guid bookId, string location, int percentage, CancellationToken ct = default);
+
+    /// <summary>
+    /// Deletes the library row first (reading/notes FKs reject in-use books
+    /// with book_in_use before any file is touched); the caller removes
+    /// storage files only after this succeeds.
+    /// </summary>
+    Task<LibraryCommandResultDto> DeleteBookAsync(Guid bookId, CancellationToken ct = default);
+
     Task<LibraryCommandResultDto> CreateCollectionAsync(LibraryCreateCollectionRequest request, CancellationToken ct = default);
 
     Task<LibraryCommandResultDto> RenameCollectionAsync(LibraryRenameCollectionRequest request, CancellationToken ct = default);

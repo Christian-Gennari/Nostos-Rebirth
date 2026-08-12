@@ -18,6 +18,7 @@ public sealed class LibraryServiceTests : IClassFixture<ReadingTrainingSqliteFix
     private const string Client = "test-client";
     private const string IsbnBorges = "9780141183848";
     private const string AsinExample = "B095TNRPXD";
+    private const string IsbnValid = "9780141183848";
 
     private readonly ReadingTrainingSqliteFixture _fixture;
 
@@ -71,7 +72,7 @@ public sealed class LibraryServiceTests : IClassFixture<ReadingTrainingSqliteFix
     {
         var h = Harness();
         var result = await h.Service.CreateOrMatchBookAsync(
-            CreateRequest("audiobook", "War and Peace", Asin: AsinExample, Isbn: IsbnBorges),
+            CreateRequest("audiobook", "War and Peace", Asin: AsinExample),
             strictConfirmation: true);
 
         var data = (LibraryCreateOrMatchResultDto)result.Data!;
@@ -79,6 +80,18 @@ public sealed class LibraryServiceTests : IClassFixture<ReadingTrainingSqliteFix
         var book = await db.AudioBooks.SingleAsync(b => b.Id == data.BookId);
         book.NormalizedAsin.Should().Be(AsinExample);
         book.NormalizedIsbn.Should().BeNull("an audiobook does not carry ISBN identity");
+    }
+
+    [Fact]
+    public async Task Create_audiobook_with_isbn_is_rejected_instead_of_silently_dropped()
+    {
+        var h = Harness();
+        var result = await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("audiobook", "War and Peace", Asin: AsinExample, Isbn: IsbnBorges),
+            strictConfirmation: true);
+
+        ((LibraryErrorDto)result.Data!).Code.Should().Be("invalid_book_identity",
+            "an identifier the model cannot store must never be silently dropped");
     }
 
     [Fact]
@@ -691,6 +704,161 @@ public sealed class LibraryServiceTests : IClassFixture<ReadingTrainingSqliteFix
     // ------------------------------------------------------------------
     // Harness
     // ------------------------------------------------------------------
+
+    // ------------------------------------------------------------------
+    // Expert acceptance regressions (issue #34 review)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task Create_title_only_with_one_existing_exact_title_strict_returns_confirmation()
+    {
+        var h = Harness();
+        await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Meditations", Author: "Marcus Aurelius"), strictConfirmation: true);
+
+        var result = await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Meditations"), strictConfirmation: true);
+
+        result.Data.Should().BeOfType<LibraryConfirmationErrorDto>();
+        ((LibraryConfirmationErrorDto)result.Data!).Code.Should().Be("confirmation_required",
+            "a title-only request must never auto-match, even with exactly one exact title");
+        ((LibraryConfirmationErrorDto)result.Data!).Candidates.Should().HaveCount(1);
+
+        // Non-strict (legacy REST) still creates.
+        var permissive = await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Meditations"), strictConfirmation: false);
+        ((LibraryCreateOrMatchResultDto)permissive.Data!).Outcome.Should().Be("created");
+    }
+
+    [Fact]
+    public async Task Resolve_title_only_single_exact_title_returns_candidates()
+    {
+        var h = Harness();
+        await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Meditations", Author: "Marcus Aurelius"), strictConfirmation: true);
+
+        var result = await h.Service.ResolveBookAsync(new LibraryResolveBookRequest(Title: "Meditations"));
+
+        result.Resolution.Should().Be(LibraryResolution.Candidates);
+        result.Candidates.Should().HaveCount(1);
+        result.MatchedBook.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Move_collection_into_sibling_with_same_name_returns_conflict()
+    {
+        var h = Harness();
+        var rootA = ((CollectionDto)(await h.Service.CreateCollectionAsync(
+            new LibraryCreateCollectionRequest(Client, Key(), "Root A"))).Data!)!;
+        await h.Service.CreateCollectionAsync(
+            new LibraryCreateCollectionRequest(Client, Key(), "Shared Name", rootA.Id));
+        // Same name at a DIFFERENT parent is allowed by create...
+        var rootB = ((CollectionDto)(await h.Service.CreateCollectionAsync(
+            new LibraryCreateCollectionRequest(Client, Key(), "Shared Name"))).Data!)!;
+
+        // ...but moving it under root A collides with the existing sibling.
+        var result = await h.Service.MoveCollectionAsync(
+            new LibraryMoveCollectionRequest(Client, Key(), rootB.Id, rootA.Id));
+
+        ((LibraryErrorDto)result.Data!).Code.Should().Be("collection_name_conflict");
+    }
+
+    [Fact]
+    public async Task Replay_returns_typed_payload_not_json_element()
+    {
+        var h = Harness();
+        var request = CreateRequest("physical", "Typed Replay", Author: "Author");
+        var first = await h.Service.CreateOrMatchBookAsync(request, strictConfirmation: true);
+        var firstOutcome = (LibraryCreateOrMatchResultDto)first.Data!;
+
+        var replay = await h.Service.CreateOrMatchBookAsync(request, strictConfirmation: true);
+
+        replay.Duplicate.Should().BeTrue();
+        replay.Data.Should().BeOfType<LibraryCreateOrMatchResultDto>(
+            "receipt replay must return the exact stored typed payload");
+        var replayedOutcome = (LibraryCreateOrMatchResultDto)replay.Data!;
+        replayedOutcome.Outcome.Should().Be("created");
+        replayedOutcome.BookId.Should().Be(firstOutcome.BookId);
+    }
+
+    [Fact]
+    public async Task Create_with_type_incompatible_identifier_is_rejected()
+    {
+        var h = Harness();
+        var audiobookWithIsbn = await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("audiobook", "Audio", Isbn: IsbnValid), strictConfirmation: true);
+        ((LibraryErrorDto)audiobookWithIsbn.Data!).Code.Should().Be("invalid_book_identity");
+
+        var physicalWithAsin = await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Paper", Asin: AsinExample), strictConfirmation: true);
+        ((LibraryErrorDto)physicalWithAsin.Data!).Code.Should().Be("invalid_book_identity");
+
+        var unknownType = await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("hologram", "Ghost"), strictConfirmation: true);
+        ((LibraryErrorDto)unknownType.Data!).Code.Should().Be("invalid_book_identity");
+
+        (await CountBooksAsync(h)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Update_with_type_incompatible_identifier_is_rejected()
+    {
+        var h = Harness();
+        var created = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("audiobook", "Audio Book", Asin: AsinExample), strictConfirmation: true)).Data!)!;
+
+        var result = await h.Service.UpdateBookAsync(new LibraryUpdateBookRequest(
+            Client, Key(), created.BookId!.Value, Isbn: IsbnValid));
+
+        ((LibraryErrorDto)result.Data!).Code.Should().Be("invalid_book_identity");
+    }
+
+    [Fact]
+    public async Task Backfill_throws_actionable_error_on_duplicate_identifiers()
+    {
+        var h = Harness();
+        await using (var db = await h.Factory.CreateDbContextAsync())
+        {
+            db.PhysicalBooks.AddRange(
+                new PhysicalBookModel { Id = Guid.NewGuid(), Title = "Dupe One", Isbn = "9780141183848" },
+                new PhysicalBookModel { Id = Guid.NewGuid(), Title = "Dupe Two", Isbn = "9780141183848" });
+            await db.SaveChangesAsync();
+        }
+
+        var act = async () => await LibraryIdentityBackfill.BackfillAsync(
+            await h.Factory.CreateDbContextAsync(), CancellationToken.None);
+
+        (await act.Should().ThrowAsync<InvalidOperationException>())
+            .Which.Message.Should().Contain("Dupe One").And.Contain("Dupe Two")
+            .And.Contain("9780141183848");
+    }
+
+    [Fact]
+    public async Task Mutate_with_oversized_idempotency_key_returns_invalid_idempotency()
+    {
+        var h = Harness();
+        var result = await h.Service.CreateOrMatchBookAsync(new LibraryCreateBookRequest(
+            Client, new string('k', 200), "physical", "Too Big"), strictConfirmation: true);
+
+        ((LibraryErrorDto)result.Data!).Code.Should().Be("invalid_idempotency");
+    }
+
+    [Fact]
+    public async Task Reads_do_not_create_library_state_row()
+    {
+        var h = Harness();
+        await h.Service.ListBooksAsync(BookFilter.All, BookSort.Recent, null, 1, 20, null);
+        await h.Service.ListCollectionsAsync();
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.LibraryStates.CountAsync()).Should().Be(0, "reads are strictly read-only");
+    }
+
+    // ------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------
+
+    private static string Key() => $"k-{Guid.NewGuid():N}";
 
     private static LibraryCreateBookRequest CreateRequest(
         string type,

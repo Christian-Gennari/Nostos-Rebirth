@@ -236,6 +236,17 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
             e.HasIndex(i => i.SourceFingerprint).IsUnique();
         });
 
+        // Idempotent receipt with bounded inputs (SQLite enforces the limits
+        // via the CHECK constraint, not the metadata-only MaxLength).
+        modelBuilder.Entity<LibraryCommandReceipt>(e =>
+        {
+            e.HasIndex(x => new { x.ClientId, x.IdempotencyKey }).IsUnique();
+            e.ToTable(t => t.HasCheckConstraint(
+                "CK_LibraryCommandReceipts_Bounds",
+                "length(\"ClientId\") <= 64 AND length(\"IdempotencyKey\") <= 128 AND " +
+                "length(\"CommandKind\") <= 32 AND length(\"ResponseJson\") <= 131072"));
+        });
+
         // --- LIBRARY DOMAIN (issue #34) ---
 
         // Singleton library state row: exactly one LibraryState. The fixed
@@ -250,7 +261,8 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
         });
 
         // Exact-once command idempotency for library mutations (separate from
-        // ReadingCommandReceipt so keys can never replay across domains).
+        // ReadingCommandReceipt so keys can never replay across domains; the
+        // bounds CHECK lives with the canonical config above).
         modelBuilder.Entity<LibraryCommandReceipt>(e =>
         {
             e.HasIndex(c => new { c.ClientId, c.IdempotencyKey }).IsUnique();

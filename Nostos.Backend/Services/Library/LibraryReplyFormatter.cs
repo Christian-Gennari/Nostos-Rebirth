@@ -10,6 +10,9 @@ public static class LibraryReplyFormatter
     public static string BookCreated(string title) => $"Book added: {title}.";
     public static string BookMatched(string title) => $"Already in library: {title}.";
     public static string BookUpdated(string title) => $"Book updated: {title}.";
+    public static string ProgressUpdated(string title) => $"Progress updated: {title}.";
+    public static string BookDeleted(string title) => $"Book deleted: {title}.";
+    public static string BookInUse(string title) => $"Book \"{title}\" is in use by reading training or notes and cannot be deleted.";
     public static string Book(string title) => $"Book: {title}.";
     public static string BookList(int count) => $"{count} book(s).";
     public static string BookNotFound => "Book not found.";

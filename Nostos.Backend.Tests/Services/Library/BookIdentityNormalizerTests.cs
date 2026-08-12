@@ -69,14 +69,19 @@ public sealed class BookIdentityNormalizerTests
         BookIdentityNormalizer.NormalizeTitle(input).Should().Be(expected);
 
     [Fact]
-    public void NormalizeTitle_unicode_normalizes_but_preserves_subtitles()
+    public void NormalizeTitle_unicode_normalizes_and_preserves_subtitles()
     {
-        // Full-width space collapses; subtitle is intentionally preserved.
-        BookIdentityNormalizer.NormalizeTitle("War\u3000and Peace : A Novel").Should().Be("WAR AND PEACE : A NOVEL");
+        // Full-width space collapses; subtitle TEXT is preserved while
+        // punctuation spacing normalizes (frozen contract): "Title : Subtitle"
+        // and "Title: Subtitle" share one identity.
+        BookIdentityNormalizer.NormalizeTitle("War\u3000and Peace : A Novel").Should().Be("WAR AND PEACE A NOVEL");
+        BookIdentityNormalizer.NormalizeTitle("War and Peace: A Novel").Should().Be("WAR AND PEACE A NOVEL");
+        BookIdentityNormalizer.NormalizeTitle("War and Peace:A Novel").Should().Be("WAR AND PEACE A NOVEL");
     }
 
     [Theory]
-    [InlineData("  Hans-Georg  Gadamer ", "HANS-GEORG GADAMER")]
+    [InlineData("  Hans-Georg  Gadamer ", "HANS GEORG GADAMER")] // punctuation spacing
+    [InlineData("Jean-Paul Sartre", "JEAN PAUL SARTRE")]
     [InlineData("José Ortega y Gasset", "JOSÉ ORTEGA Y GASSET")] // accents preserved
     [InlineData(null, "")]
     [InlineData("", "")]

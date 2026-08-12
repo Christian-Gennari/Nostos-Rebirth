@@ -123,8 +123,9 @@ public sealed record LibraryCandidate(
 public sealed record LibraryResolveResult(
     LibraryResolution Resolution,
     BookDto? MatchedBook = null,
-    IReadOnlyList<LibraryCandidate> Candidates = null!,
-    CreateBookDto? Prefill = null
+    IReadOnlyList<LibraryCandidate>? Candidates = null,
+    CreateBookDto? Prefill = null,
+    string? LookupError = null
 );
 
 // --- CREATE-OR-MATCH OUTCOME (data payload of LibraryCommandResultDto) ---
