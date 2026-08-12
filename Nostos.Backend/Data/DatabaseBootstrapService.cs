@@ -49,6 +49,7 @@ public sealed class DatabaseBootstrapService(NostosDbContext db) : IDatabaseBoot
             // rebaseline, never stamp, never rewrite history. If the schema
             // is partial or unknown, MigrateAsync fails closed below.
             await db.Database.MigrateAsync(cancellationToken);
+            await Services.Library.LibraryIdentityBackfill.BackfillAsync(db, cancellationToken);
             return;
         }
 

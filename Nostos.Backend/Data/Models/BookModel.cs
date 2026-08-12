@@ -25,6 +25,11 @@ public abstract class BookModel
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    // Normalized identity fields, maintained ONLY by the library service.
+    // Backed by filtered unique indexes (see NostosDbContext).
+    public string? NormalizedIsbn { get; set; }
+    public string? NormalizedAsin { get; set; }
+
     // --- RELATIONSHIPS ---
     public Guid? CollectionId { get; set; }
     public CollectionModel? Collection { get; set; }

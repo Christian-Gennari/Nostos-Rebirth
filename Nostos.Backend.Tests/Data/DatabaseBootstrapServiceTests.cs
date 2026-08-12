@@ -158,6 +158,18 @@ public sealed class DatabaseBootstrapServiceTests : IDisposable
             "UPDATE \"__EFMigrationsHistory\" SET \"ProductVersion\" = 'custom-probe' WHERE \"MigrationId\" = {0}",
             oldestMigrationId);
 
+        // The bootstrap above created the CURRENT model (including the newest
+        // migration's objects). Roll the schema back to the pre-newest state
+        // so the ordinary migration path really has something to apply.
+        if (newestMigrationId.Contains("AddLibraryCommandSurface"))
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                "DROP INDEX \"IX_Books_NormalizedIsbn\"; DROP INDEX \"IX_Books_NormalizedAsin\"; " +
+                "DROP TABLE \"LibraryCommandReceipts\"; DROP TABLE \"LibraryStates\"; " +
+                "ALTER TABLE \"Books\" DROP COLUMN \"NormalizedIsbn\"; " +
+                "ALTER TABLE \"Books\" DROP COLUMN \"NormalizedAsin\";");
+        }
+
         await new DatabaseBootstrapService(db).EnsureReadyAsync();
 
         // Data survived the normal migration path.
