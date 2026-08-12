@@ -63,6 +63,8 @@ public sealed class McpHttpFactory : WebApplicationFactory<Program>
         return webRoot;
     }
 
+    public string DatabasePath => _dbPath;
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseWebRoot(_webRootPath);
