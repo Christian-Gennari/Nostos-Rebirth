@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text.RegularExpressions;
 using Nostos.Shared.Enums;
 
@@ -80,7 +81,8 @@ public static class ReadingGatewayParser
         int? Effort = null,
         int? Focus = null,
         ReadingCaptureType? CaptureType = null,
-        bool ExplicitPrefix = false);
+        bool ExplicitPrefix = false,
+        bool Natural = false);
 
     // Recognition normalization: collapse whitespace, trim, lowercase. Used
     // ONLY for control matching; the captured text stays byte-for-byte raw.
@@ -244,6 +246,17 @@ public static class ReadingGatewayParser
             return Ignored();
         if (QueueAddRegex.IsMatch(norm))
             return Ignored();
+
+        // Natural conversational session-end phrasing ("Ok end this round, I
+        // actually maybe read 20 minutes max."). Full-message anchored: any
+        // unexplained prose fails the grammar and the message stays a normal
+        // capture candidate. Placed before the legacy "finish " model-query
+        // ignore so genuine completion phrases win, while other "finish X"
+        // prose keeps its existing Ignored routing.
+        if (TryParseNaturalComplete(norm, out var naturalMinutes))
+            return new ReadingGatewayIntent(
+                ReadingGatewayIntentKind.Complete, ReportedMinutes: naturalMinutes, Natural: true);
+
         if (norm.StartsWith("finished ", StringComparison.Ordinal) ||
             norm.StartsWith("finish ", StringComparison.Ordinal))
             return Ignored();
@@ -316,6 +329,137 @@ public static class ReadingGatewayParser
         return effort is >= 1 and <= 10 && focus is >= 1 and <= 10
             ? (effort, focus)
             : null;
+    }
+
+    // --- natural conversational completion grammar (issue #32) ---
+    // Full-message anchored, deterministic EN/SV session-end recognition:
+    // [leading filler]* + one completion phrase + (empty | terminal tail |
+    // constrained minute report). Any unexplained prose fails the grammar
+    // and the message stays a capture candidate. Bare "done"/"end"/"stop"
+    // remain owned by the exact forms above; this grammar only adds
+    // conversational shapes ("Ok end this round, I actually maybe read
+    // 20 minutes max.").
+
+    private static string[] LongestFirst(params string[] phrases) =>
+        phrases.OrderByDescending(p => p.Count(c => c == ' '))
+               .ThenByDescending(p => p.Length)
+               .ToArray();
+
+    private static readonly string[] NaturalCompleteLeadingFillers = LongestFirst(
+        "i think", "i guess", "jag tror",
+        "ok", "okay", "well", "so", "right", "alright", "yeah", "yes", "maybe", "actually",
+        "okej", "ja", "japp", "nå", "nåväl", "alltså", "så", "då", "kanske", "faktiskt");
+
+    private static readonly string[] NaturalCompletePhrases = LongestFirst(
+        // English
+        "end", "end this round", "end the round", "end this session", "end the session",
+        "end my session", "end this reading session", "end the reading session", "end reading",
+        "finish", "finish this round", "finish the round", "finish this session", "finish the session",
+        "finish reading",
+        "done", "i'm done", "im done", "i am done", "we're done", "were done", "we are done",
+        "done for now", "done for today", "done for tonight", "done with this round",
+        "done with this session", "done with reading",
+        "that's it", "thats it", "that's all", "thats all",
+        "stop here", "stopping here", "wrap up", "wrap it up", "wrapping up",
+        "call it", "calling it", "call it for now", "call it for today", "call it for tonight",
+        "call it a day",
+        // Swedish
+        "avsluta", "avslutar", "avsluta rundan", "avsluta den här rundan", "avsluta sessionen",
+        "avsluta den här sessionen", "avsluta läsningen", "avsluta läspasset", "avslutar rundan",
+        "avslutar sessionen", "avslutar läsningen", "avslutar läspasset",
+        "jag är klar", "jag är färdig", "vi är klara", "vi är färdiga",
+        "klar", "färdig", "klar nu", "färdig nu", "klar för idag", "färdig för idag",
+        "klar för ikväll", "färdig för ikväll",
+        "slut", "slut nu", "slut för idag", "slut för ikväll",
+        "det är allt", "det var allt",
+        "jag stannar här", "stannar här",
+        "runda av", "rundar av", "avrunda", "avrundar",
+        "sluta", "sluta läsa");
+
+    private static readonly HashSet<string> NaturalCompleteTerminalTails = new(StringComparer.Ordinal)
+    {
+        "now", "please", "for now", "for today", "for tonight",
+        "nu", "tack", "för nu", "för idag", "för ikväll",
+    };
+
+    // One constrained minute-report tail: optional connector, optional
+    // EN/SV reading-verb clause, optional approximation, minutes 1-4 digits,
+    // optional unit, optional max qualifier. Full-message anchored.
+    private static readonly Regex NaturalCompleteMinutesRegex = new(
+        @"^(?:(?:and|but)\s+)?"
+      + @"(?:(?:(?:i|we)\s+(?:(?:actually|maybe|probably|just|only)\s+){0,3}(?:read|read\s+for))"
+      + @"|(?:i\s+(?:think|guess))"
+      + @"|(?:(?:jag|vi)\s+(?:(?:faktiskt|kanske|bara|nog)\s+){0,3}(?:läste|läste\s+i|har\s+läst|läst))"
+      + @"|(?:jag\s+tror))?"
+      + @"\s*(?:about|around|roughly|approximately|approx|maybe|kanske|nog|ungefär|cirka|ca|typ)?\s*"
+      + @"(?<minutes>\d{1,4})\s*(?:m|min|mins|minute|minutes|minut|minuter)?"
+      + @"(?:\s+(?:max|at\s+most|tops|som\s+mest|högst))?$",
+      RegexOptions.Compiled);
+
+    private static string NormalizeNaturalControlText(string normalized)
+    {
+        // Curly apostrophes collapse to ASCII; every non-letter/digit
+        // separator becomes a space. Unicode-aware so Swedish letters
+        // (å/ä/ö) survive; the input is already lowercase.
+        var ascii = normalized.Replace('’', '\'');
+        return Regex.Replace(ascii, "[^\\p{L}\\p{N}']+", " ").Trim();
+    }
+
+    /// <summary>
+    /// Recognizes a conversational session-end statement. Returns true only
+    /// when the ENTIRE normalized message is leading filler, one completion
+    /// phrase, and optionally a terminal qualifier or a constrained minute
+    /// report. Any unexplained prose (interpretive thoughts containing
+    /// "end"/"done") fails and the message remains a capture candidate.
+    /// </summary>
+    private static bool TryParseNaturalComplete(string normalized, out int? reportedMinutes)
+    {
+        reportedMinutes = null;
+        var text = NormalizeNaturalControlText(normalized);
+        if (text.Length == 0) return false;
+
+        // Strip repeated leading filler, longest phrase first.
+        while (text.Length > 0)
+        {
+            var before = text;
+            foreach (var filler in NaturalCompleteLeadingFillers)
+            {
+                if (text == filler)
+                {
+                    text = string.Empty;
+                    break;
+                }
+                if (text.StartsWith(filler + " ", StringComparison.Ordinal))
+                {
+                    text = text[(filler.Length + 1)..];
+                    break;
+                }
+            }
+            if (text == before) break;
+        }
+        if (text.Length == 0) return false;
+
+        // One completion phrase at the start, longest first, token-safe
+        // ("end" never matches "ending", "endless", "weekend").
+        string? phrase = null;
+        foreach (var candidate in NaturalCompletePhrases)
+        {
+            if (!text.StartsWith(candidate, StringComparison.Ordinal)) continue;
+            if (text.Length > candidate.Length && text[candidate.Length] != ' ') continue;
+            phrase = candidate;
+            break;
+        }
+        if (phrase is null) return false;
+
+        var tail = text[phrase.Length..].Trim();
+        if (tail.Length == 0) return true;
+        if (NaturalCompleteTerminalTails.Contains(tail)) return true;
+
+        var m = NaturalCompleteMinutesRegex.Match(tail);
+        if (!m.Success) return false;
+        var minutes = int.Parse(m.Groups["minutes"].Value);
+        reportedMinutes = minutes is >= 1 and <= 999 ? minutes : null;
+        return true;
     }
 
     private static ReadingGatewayIntent Ignored() =>

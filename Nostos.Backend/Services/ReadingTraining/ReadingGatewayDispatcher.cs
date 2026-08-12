@@ -69,8 +69,9 @@ public sealed class ReadingGatewayDispatcher : IReadingGatewayDispatcher
                 await _service.ResumeSessionAsync(
                     new ReadingSessionCommandRequest(request.ClientId, request.IdempotencyKey), ct),
 
-            ReadingGatewayParser.ReadingGatewayIntentKind.Complete =>
-                await _service.CompleteSessionAsync(
+            ReadingGatewayParser.ReadingGatewayIntentKind.Complete => intent.Natural
+                ? await NaturalCompleteAsync(request, intent, ct)
+                : await _service.CompleteSessionAsync(
                     new ReadingCompleteSessionRequest(request.ClientId, request.IdempotencyKey, intent.ReportedMinutes), ct),
 
             ReadingGatewayParser.ReadingGatewayIntentKind.Rate =>
@@ -91,6 +92,29 @@ public sealed class ReadingGatewayDispatcher : IReadingGatewayDispatcher
 
             _ => Ignored(),
         };
+    }
+
+    /// <summary>
+    /// State-aware preflight for NATURAL completion phrasing (issue #32):
+    /// an active or paused session completes exactly like the canonical
+    /// "done" command; while ratings are pending the message re-prompts
+    /// without any mutation; with no open session it is the stable no-op.
+    /// The service remains authoritative for the actual transition (this
+    /// probe is read-only; the one-mutation rule is preserved).
+    /// </summary>
+    private async Task<ReadingCommandResultDto> NaturalCompleteAsync(
+        ReadingGatewayDispatchRequest request, ReadingGatewayParser.ReadingGatewayIntent intent, CancellationToken ct)
+    {
+        var status = await _service.GetStatusAsync(ct);
+        if (status.Data is not ReadingSessionDto session)
+            return Ignored();
+
+        if (session.Status == ReadingSessionStatus.AwaitingFeedback)
+            return new ReadingCommandResultDto(
+                ReadingReplyFormatter.RatePrompt, null, status.StateVersion);
+
+        return await _service.CompleteSessionAsync(
+            new ReadingCompleteSessionRequest(request.ClientId, request.IdempotencyKey, intent.ReportedMinutes), ct);
     }
 
     private async Task<ReadingCommandResultDto> CaptureAsync(
