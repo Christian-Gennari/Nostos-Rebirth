@@ -301,11 +301,14 @@ public sealed class McpHttpTests
         serverInfo.GetProperty("version").GetString().Should().NotBeNullOrEmpty();
         // Task 9A registered only the static identity tool; Task 9B1 replaced
         // it with the read-only Reading Training tool surface, Task 9B2 adds
-        // the nine exact-once session/capture mutation tools, and Task 9B2b
-        // adds the five book/capture/weekly-review mutations. The protocol-
-        // level tools/list call below verifies discovery over the real
-        // transport: exactly the twenty-one tools, no bootstrap identity
+        // the nine exact-once session/capture mutation tools, Task 9B2b
+        // adds the five book/capture/weekly-review mutations, and issue #29
+        // added the queue mode-change/remove tools. The protocol-level
+        // tools/list call below verifies discovery over the real transport:
+        // exactly the twenty-three reading tools, no bootstrap identity
         // tool, and no client id/key arguments on the read surface.
+        // (Issue #34 adds the library_* surface; its manifest is asserted in
+        // LibraryMcpHttpTests.)
         var toolsList = await PostWithAuth(client, TestToken, body: ToolsListBody());
         toolsList.StatusCode.Should().Be(HttpStatusCode.OK);
 
