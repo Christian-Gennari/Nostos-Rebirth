@@ -188,21 +188,10 @@ public sealed class LibraryService : ILibraryService
         string? lookupError = null;
         if (request.IncludeExternalMetadata && nIsbn is not null)
         {
-            try
-            {
-                prefill = await _lookup.LookupCombinedAsync(nIsbn, ct);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception)
-            {
-                // External lookup failure must not break local resolution;
-                // surface it as a typed lookup error instead of swallowing.
+            var outcome = await _lookup.LookupCombinedDetailedAsync(nIsbn, ct);
+            prefill = outcome.Metadata;
+            if (outcome.Failed)
                 lookupError = "lookup_timeout";
-                prefill = null;
-            }
         }
 
         return new LibraryResolveResult(LibraryResolution.NotFound, Prefill: prefill, LookupError: lookupError);
@@ -835,6 +824,17 @@ public sealed class LibraryService : ILibraryService
         }
         else
         {
+            // Move to root: the same sibling-name rule applies at the top
+            // level (normalized name, parentId=null).
+            var nName = BookIdentityNormalizer.NormalizeTitle(collection.Name);
+            var rootSiblings = await db.Collections.AsNoTracking()
+                .Where(c => c.Id != collection.Id && c.ParentId == null)
+                .ToListAsync(ct);
+            if (rootSiblings.Any(c =>
+                    string.Equals(BookIdentityNormalizer.NormalizeTitle(c.Name), nName, StringComparison.Ordinal)))
+                return NoChange(Failure("collection_name_conflict",
+                    LibraryReplyFormatter.CollectionNameConflict(collection.Name), state.StateVersion));
+
             collection.ParentId = null;
         }
 

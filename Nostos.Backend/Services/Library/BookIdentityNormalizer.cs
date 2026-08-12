@@ -55,17 +55,20 @@ public static class BookIdentityNormalizer
 
     /// <summary>
     /// Unicode-normalized, trimmed, whitespace-collapsed, case-folded title.
-    /// Subtitles are intentionally preserved.
+    /// Punctuation runs normalize to single spaces (frozen contract), so
+    /// "Title : Subtitle" and "Title: Subtitle" share one identity; subtitle
+    /// TEXT is preserved. Subtitles are intentionally preserved.
     /// </summary>
-    public static string NormalizeTitle(string? value) => NormalizeText(value);
+    public static string NormalizeTitle(string? value) => NormalizeText(value, collapsePunctuation: true);
 
     /// <summary>
     /// Unicode-normalized, trimmed, whitespace-collapsed, case-folded author
-    /// name. Accents and name order are intentionally preserved.
+    /// name. Accents, name order, and PUNCTUATION are intentionally preserved
+    /// (the punctuation-spacing rule applies to titles only).
     /// </summary>
-    public static string NormalizeAuthor(string? value) => NormalizeText(value);
+    public static string NormalizeAuthor(string? value) => NormalizeText(value, collapsePunctuation: false);
 
-    private static string NormalizeText(string? value)
+    private static string NormalizeText(string? value, bool collapsePunctuation)
     {
         if (string.IsNullOrWhiteSpace(value))
             return string.Empty;
@@ -75,11 +78,7 @@ public static class BookIdentityNormalizer
         var inWhitespace = false;
         foreach (var ch in normalized)
         {
-            // Punctuation runs normalize to a single space, so "Title :
-            // Subtitle" and "Title: Subtitle" share one identity (punctuation-
-            // spacing normalization per the frozen contract). Subtitle text is
-            // preserved; only the spacing changes.
-            if (char.IsWhiteSpace(ch) || char.IsPunctuation(ch))
+            if (char.IsWhiteSpace(ch) || (collapsePunctuation && char.IsPunctuation(ch)))
             {
                 inWhitespace = true;
                 continue;

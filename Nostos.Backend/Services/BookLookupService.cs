@@ -11,23 +11,72 @@ public partial class BookLookupService(IHttpClientFactory httpClientFactory, ILo
     [GeneratedRegex("[^0-9X]", RegexOptions.IgnoreCase)]
     private static partial Regex IsbnCleanupRegex();
 
-    public async Task<CreateBookDto?> LookupCombinedAsync(string isbn, CancellationToken ct = default)
+    public async Task<CreateBookDto?> LookupCombinedAsync(string isbn, CancellationToken ct = default) =>
+        (await LookupCombinedDetailedAsync(isbn, ct)).Metadata;
+
+    /// <summary>
+    /// Combined lookup that distinguishes "no metadata found" from "lookup
+    /// failed" (network error, timeout, provider 5xx). The caller decides
+    /// whether a failure is worth surfacing (e.g. the library resolver maps
+    /// it to lookup_timeout). Cancellation of the CALLER's token always
+    /// propagates; a provider timeout on a live caller token is treated as a
+    /// failure, not as caller cancellation.
+    /// </summary>
+    public async Task<BookLookupOutcome> LookupCombinedDetailedAsync(string isbn, CancellationToken ct = default)
     {
         var client = httpClientFactory.CreateClient(HttpClientName);
         isbn = CleanIsbn(isbn);
 
-        // 1. Fire both requests in parallel
-        var olTask = FetchOpenLibrary(client, isbn, ct);
-        var gbTask = FetchGoogleBooks(client, isbn, ct);
+        // 1. Fire both requests in parallel; provider failures are collected
+        //    into Failed without breaking the other provider.
+        var failed = false;
+        CreateBookDto? olData = null;
+        CreateBookDto? gbData = null;
+
+        var olTask = Task.Run(async () =>
+        {
+            try
+            {
+                return await FetchOpenLibrary(client, isbn, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "OpenLibrary API lookup failed for ISBN {Isbn}", isbn);
+                failed = true;
+                return null;
+            }
+        }, ct);
+
+        var gbTask = Task.Run(async () =>
+        {
+            try
+            {
+                return await FetchGoogleBooks(client, isbn, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Google Books API lookup failed for ISBN {Isbn}", isbn);
+                failed = true;
+                return null;
+            }
+        }, ct);
 
         await Task.WhenAll(olTask, gbTask);
 
-        var olData = olTask.Result;
-        var gbData = gbTask.Result;
+        olData = await olTask;
+        gbData = await gbTask;
 
         // 2. Fail fast
         if (olData is null && gbData is null)
-            return null;
+            return new BookLookupOutcome(null, failed);
 
         // 3. Base Data (Priority: OpenLibrary)
         var baseData =
@@ -61,10 +110,10 @@ public partial class BookLookupService(IHttpClientFactory httpClientFactory, ILo
             );
 
         if (gbData is null)
-            return baseData;
+            return new BookLookupOutcome(baseData, failed);
 
         // 4. Merge (Priority: Keep existing OL data, fill gaps with GB)
-        return baseData with
+        return new BookLookupOutcome(baseData with
         {
             Title = !string.IsNullOrWhiteSpace(baseData.Title) ? baseData.Title : gbData.Title,
             Subtitle = !string.IsNullOrWhiteSpace(baseData.Subtitle)
@@ -90,7 +139,7 @@ public partial class BookLookupService(IHttpClientFactory httpClientFactory, ILo
             Categories = !string.IsNullOrWhiteSpace(baseData.Categories)
                 ? baseData.Categories
                 : gbData.Categories,
-        };
+        }, failed);
     }
 
     private string CleanIsbn(string isbn)
@@ -103,108 +152,97 @@ public partial class BookLookupService(IHttpClientFactory httpClientFactory, ILo
     // --- GOOGLE BOOKS FETCH (Strictly Typed) ---
     private async Task<CreateBookDto?> FetchGoogleBooks(HttpClient client, string isbn, CancellationToken ct)
     {
-        try
-        {
-            // Note: Use 'volumeInfo' in the response record directly
-            var response = await client.GetFromJsonAsync<GoogleBooksResponse>(
-                $"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}",
-                ct
-            );
+        // Note: Use 'volumeInfo' in the response record directly
+        var response = await client.GetFromJsonAsync<GoogleBooksResponse>(
+            $"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}",
+            ct
+        );
 
-            var item = response?.Items?.FirstOrDefault()?.VolumeInfo;
-            if (item is null)
-                return null;
-
-            return new CreateBookDto(
-                Type: "physical",
-                Title: item.Title ?? "",
-                Subtitle: item.Subtitle,
-                Author: item.Authors is not null ? string.Join(", ", item.Authors) : null,
-                Editor: null,
-                Translator: null,
-                Narrator: null,
-                Description: item.Description,
-                Isbn: isbn,
-                Asin: null,
-                Duration: null,
-                Publisher: item.Publisher,
-                PlaceOfPublication: null,
-                PublishedDate: item.PublishedDate,
-                Edition: null,
-                PageCount: item.PageCount,
-                Language: item.Language,
-                Categories: item.Categories is not null ? string.Join(", ", item.Categories) : null,
-                Series: null,
-                VolumeNumber: null,
-                CollectionId: null,
-                Rating: 0,
-                IsFavorite: false,
-                PersonalReview: null,
-                FinishedAt: null
-            );
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Google Books API lookup failed for ISBN {Isbn}", isbn);
+        var item = response?.Items?.FirstOrDefault()?.VolumeInfo;
+        if (item is null)
             return null;
-        }
+
+        return new CreateBookDto(
+            Type: "physical",
+            Title: item.Title ?? "",
+            Subtitle: item.Subtitle,
+            Author: item.Authors is not null ? string.Join(", ", item.Authors) : null,
+            Editor: null,
+            Translator: null,
+            Narrator: null,
+            Description: item.Description,
+            Isbn: isbn,
+            Asin: null,
+            Duration: null,
+            Publisher: item.Publisher,
+            PlaceOfPublication: null,
+            PublishedDate: item.PublishedDate,
+            Edition: null,
+            PageCount: item.PageCount,
+            Language: item.Language,
+            Categories: item.Categories is not null ? string.Join(", ", item.Categories) : null,
+            Series: null,
+            VolumeNumber: null,
+            CollectionId: null,
+            Rating: 0,
+            IsFavorite: false,
+            PersonalReview: null,
+            FinishedAt: null
+        );
     }
 
     // --- OPEN LIBRARY FETCH (Strictly Typed) ---
     private async Task<CreateBookDto?> FetchOpenLibrary(HttpClient client, string isbn, CancellationToken ct)
     {
-        try
-        {
-            var key = $"ISBN:{isbn}";
+        var key = $"ISBN:{isbn}";
 
-            // OpenLibrary returns a Dictionary keyed by the ISBN string.
-            // We deserialize into a Dictionary<string, OpenLibraryBook>
-            var response = await client.GetFromJsonAsync<Dictionary<string, OpenLibraryBook>>(
-                $"https://openlibrary.org/api/books?bibkeys={key}&jscmd=data&format=json",
-                ct
-            );
+        // OpenLibrary returns a Dictionary keyed by the ISBN string.
+        // We deserialize into a Dictionary<string, OpenLibraryBook>
+        var response = await client.GetFromJsonAsync<Dictionary<string, OpenLibraryBook>>(
+            $"https://openlibrary.org/api/books?bibkeys={key}&jscmd=data&format=json",
+            ct
+        );
 
-            if (response is null || !response.TryGetValue(key, out var item))
-                return null;
-
-            var authors = item.Authors?.Select(a => a.Name).Where(x => !string.IsNullOrEmpty(x));
-            var place = item.PublishPlaces?.FirstOrDefault()?.Name;
-
-            return new CreateBookDto(
-                Type: "physical",
-                Title: item.Title ?? "",
-                Subtitle: item.Subtitle,
-                Author: authors != null ? string.Join(", ", authors) : null,
-                Editor: null,
-                Translator: null,
-                Narrator: null,
-                Description: null,
-                Isbn: isbn,
-                Asin: null,
-                Duration: null,
-                Publisher: item.Publishers?.FirstOrDefault()?.Name,
-                PlaceOfPublication: place,
-                PublishedDate: item.PublishDate,
-                Edition: null,
-                PageCount: item.NumberOfPages,
-                Language: null,
-                Categories: null,
-                Series: null,
-                VolumeNumber: null,
-                CollectionId: null,
-                Rating: 0,
-                IsFavorite: false,
-                PersonalReview: null,
-                FinishedAt: null
-            );
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "OpenLibrary API lookup failed for ISBN {Isbn}", isbn);
+        if (response is null || !response.TryGetValue(key, out var item))
             return null;
-        }
+
+        var authors = item.Authors?.Select(a => a.Name).Where(x => !string.IsNullOrEmpty(x));
+        var place = item.PublishPlaces?.FirstOrDefault()?.Name;
+
+        return new CreateBookDto(
+            Type: "physical",
+            Title: item.Title ?? "",
+            Subtitle: item.Subtitle,
+            Author: authors != null ? string.Join(", ", authors) : null,
+            Editor: null,
+            Translator: null,
+            Narrator: null,
+            Description: null,
+            Isbn: isbn,
+            Asin: null,
+            Duration: null,
+            Publisher: item.Publishers?.FirstOrDefault()?.Name,
+            PlaceOfPublication: place,
+            PublishedDate: item.PublishDate,
+            Edition: null,
+            PageCount: item.NumberOfPages,
+            Language: null,
+            Categories: null,
+            Series: null,
+            VolumeNumber: null,
+            CollectionId: null,
+            Rating: 0,
+            IsFavorite: false,
+            PersonalReview: null,
+            FinishedAt: null
+        );
     }
 }
+
+// Distinguishes "no metadata found" from "lookup failed" so callers can
+// surface provider failures (e.g. lookup_timeout) without breaking local
+// resolution.
+public sealed record BookLookupOutcome(CreateBookDto? Metadata, bool Failed);
 
 // --- STRICT TYPES (Internal) ---
 

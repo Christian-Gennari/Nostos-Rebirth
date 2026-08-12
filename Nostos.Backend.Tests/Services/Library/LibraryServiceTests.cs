@@ -854,6 +854,51 @@ public sealed class LibraryServiceTests : IClassFixture<ReadingTrainingSqliteFix
         (await db.LibraryStates.CountAsync()).Should().Be(0, "reads are strictly read-only");
     }
 
+    [Fact]
+    public async Task Move_collection_to_root_collides_with_root_sibling_name()
+    {
+        var h = Harness();
+        await h.Service.CreateCollectionAsync(
+            new LibraryCreateCollectionRequest(Client, Key(), "Root Name"));
+        var tmpParent = ((CollectionDto)(await h.Service.CreateCollectionAsync(
+            new LibraryCreateCollectionRequest(Client, Key(), "Tmp Parent"))).Data!)!;
+        // Same name under a DIFFERENT parent is allowed by create...
+        var child = ((CollectionDto)(await h.Service.CreateCollectionAsync(
+            new LibraryCreateCollectionRequest(Client, Key(), "Root Name", tmpParent.Id))).Data!)!;
+
+        // ...but moving it to the root collides with the existing root sibling.
+        var result = await h.Service.MoveCollectionAsync(
+            new LibraryMoveCollectionRequest(Client, Key(), child.Id, null));
+
+        ((LibraryErrorDto)result.Data!).Code.Should().Be("collection_name_conflict",
+            "the sibling-name rule applies at the root level too");
+    }
+
+    [Fact]
+    public async Task Resolve_external_lookup_failure_surfaces_lookup_timeout()
+    {
+        var h = Harness(new ThrowingHttpClientFactory());
+        var result = await h.Service.ResolveBookAsync(
+            new LibraryResolveBookRequest(Isbn: IsbnBorges, IncludeExternalMetadata: true));
+
+        result.Resolution.Should().Be(LibraryResolution.NotFound);
+        result.Prefill.Should().BeNull();
+        result.LookupError.Should().Be("lookup_timeout");
+    }
+
+    [Fact]
+    public async Task Resolve_external_lookup_cancellation_rethrows()
+    {
+        var h = Harness(new ThrowingHttpClientFactory());
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var act = () => h.Service.ResolveBookAsync(
+            new LibraryResolveBookRequest(Isbn: IsbnBorges, IncludeExternalMetadata: true), cts.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
@@ -898,7 +943,7 @@ public sealed class LibraryServiceTests : IClassFixture<ReadingTrainingSqliteFix
         return (BookDto)result.Data!;
     }
 
-    private TestHarness Harness()
+    private TestHarness Harness(IHttpClientFactory? lookupFactory = null)
     {
         var path = _fixture.CreateDatabasePath();
         var options = new DbContextOptionsBuilder<NostosDbContext>()
@@ -910,7 +955,7 @@ public sealed class LibraryServiceTests : IClassFixture<ReadingTrainingSqliteFix
         }
 
         var factory = new TestContextFactory(options);
-        var lookup = new BookLookupService(new NoopHttpClientFactory(), new SilentLogger<BookLookupService>());
+        var lookup = new BookLookupService(lookupFactory ?? new NoopHttpClientFactory(), new SilentLogger<BookLookupService>());
         var service = new LibraryService(factory, lookup);
         return new TestHarness(factory, service);
     }
@@ -927,6 +972,20 @@ public sealed class LibraryServiceTests : IClassFixture<ReadingTrainingSqliteFix
     private sealed class NoopHttpClientFactory : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => new();
+    }
+
+    // Every request fails with a transport error, simulating unreachable
+    // external metadata providers.
+    private sealed class ThrowingHttpClientFactory : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new(new ThrowingHandler());
+
+        private sealed class ThrowingHandler : HttpMessageHandler
+        {
+            protected override Task<HttpResponseMessage> SendAsync(
+                HttpRequestMessage request, CancellationToken cancellationToken) =>
+                throw new HttpRequestException("provider unreachable");
+        }
     }
 
     private sealed class SilentLogger<T> : ILogger<T>

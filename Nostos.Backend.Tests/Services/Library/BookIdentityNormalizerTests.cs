@@ -80,8 +80,9 @@ public sealed class BookIdentityNormalizerTests
     }
 
     [Theory]
-    [InlineData("  Hans-Georg  Gadamer ", "HANS GEORG GADAMER")] // punctuation spacing
-    [InlineData("Jean-Paul Sartre", "JEAN PAUL SARTRE")]
+    [InlineData("  Hans-Georg  Gadamer ", "HANS-GEORG GADAMER")] // author punctuation preserved
+    [InlineData("Jean-Paul Sartre", "JEAN-PAUL SARTRE")]
+    [InlineData("J.K. Rowling", "J.K. ROWLING")]
     [InlineData("José Ortega y Gasset", "JOSÉ ORTEGA Y GASSET")] // accents preserved
     [InlineData(null, "")]
     [InlineData("", "")]

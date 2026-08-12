@@ -19,22 +19,45 @@ app.MapReadingTrainingEndpoints();
 
 ### BooksEndpoints (`/api/books`)
 
+All book routes forward to the canonical `ILibraryService` (issue #34): the
+endpoint layer performs no repository writes and no title-matching logic.
+Metadata routes use the service; the `locations`, `file`, and `cover` routes
+keep their repository-backed implementations.
+
 | Method   | Route             | Description                                        | Dependencies                                                     |
 | -------- | ----------------- | -------------------------------------------------- | ---------------------------------------------------------------- |
-| `GET`    | `/`               | List books (paginated, filtered, sorted, searched) | `IBookRepository`                                                |
-| `GET`    | `/{id}`           | Get single book                                    | `IBookRepository`                                                |
-| `POST`   | `/`               | Create book                                        | `IBookRepository`                                                |
-| `PUT`    | `/{id}`           | Update book metadata                               | `IBookRepository`                                                |
-| `PUT`    | `/{id}/progress`  | Update reading progress                            | `IBookRepository`                                                |
+| `GET`    | `/`               | List books (paginated, filtered, sorted, searched) | `ILibraryService`                                                |
+| `GET`    | `/{id}`           | Get single book                                    | `ILibraryService`                                                |
+| `POST`   | `/`               | Create-or-match book (legacy permissive)           | `ILibraryService`                                                |
+| `PUT`    | `/{id}`           | Update book metadata                               | `ILibraryService`                                                |
+| `PUT`    | `/{id}/progress`  | Update reading progress (validated 0–100)          | `ILibraryService`                                                |
 | `GET`    | `/{id}/locations` | Get cached epub locations                          | `IBookRepository`                                                |
 | `POST`   | `/{id}/locations` | Save epub locations                                | `IBookRepository`                                                |
-| `DELETE` | `/{id}`           | Delete book + files                                | `IBookRepository`, `IFileStorageService`                         |
+| `DELETE` | `/{id}`           | Delete book + files (row first, then storage)      | `ILibraryService`, `IFileStorageService`                         |
 | `POST`   | `/{id}/file`      | Upload book file                                   | `IBookRepository`, `IFileStorageService`, `MediaMetadataService` |
 | `GET`    | `/{id}/file`      | Download/stream book file                          | `IFileStorageService`                                            |
 | `POST`   | `/{id}/cover`     | Upload cover image                                 | `IBookRepository`, `IFileStorageService`                         |
 | `GET`    | `/{id}/cover`     | Download cover image                               | `IFileStorageService`                                            |
 | `DELETE` | `/{id}/cover`     | Delete cover                                       | `IBookRepository`, `IFileStorageService`                         |
-| `GET`    | `/lookup/{isbn}`  | Lookup metadata by ISBN                            | `BookLookupService`                                              |
+| `GET`    | `/lookup/{isbn}`  | Lookup metadata by ISBN (15s timeout)              | `BookLookupService`                                              |
+
+`POST /` is the legacy-permissive create-or-match: an exact normalized
+identity match returns the existing book (`200 OK`, `outcome: matched`),
+otherwise a book is created (`201 Created` with `Location: /api/books/{id}`,
+`outcome: created`). Ambiguity creates rather than asks — the strict
+confirmation flow exists only on the MCP surface
+(`library_create_or_match_book`). `PUT /{id}/progress` validates the
+percentage 0–100 and aligns `FinishedAt` with the finished state. `DELETE
+/{id}` returns `409 book_in_use` when the book is referenced by a training
+assignment or a note, and storage files are removed only after the database
+row is gone.
+
+Errors are mapped by `LibraryHttpMapper` to Problem Details: `invalid_*` →
+400, `*_not_found` → 404, the conflict family (`identity_conflict`,
+`duplicate_identifier`, `confirmation_required`, `collection_name_conflict`,
+`collection_cycle`, `collection_has_children`, `book_in_use`) → 409,
+everything else → 422. `GET /lookup/{isbn}` rejects an invalid ISBN with 400
+and returns 404 when no metadata is found.
 
 ### NotesEndpoints (`/api`)
 
@@ -47,13 +70,24 @@ app.MapReadingTrainingEndpoints();
 
 ### CollectionsEndpoints (`/api/collections`)
 
+Routed through the canonical `ILibraryService` (issue #34).
+
 | Method   | Route   | Description                   | Dependencies            |
 | -------- | ------- | ----------------------------- | ----------------------- |
-| `GET`    | `/`     | List all collections          | `ICollectionRepository` |
-| `GET`    | `/{id}` | Get single collection         | `ICollectionRepository` |
-| `POST`   | `/`     | Create collection             | `ICollectionRepository` |
-| `PUT`    | `/{id}` | Update (with cycle detection) | `ICollectionRepository` |
-| `DELETE` | `/{id}` | Delete (unlinks books first)  | `ICollectionRepository` |
+| `GET`    | `/`     | List all collections (flat)   | `ILibraryService`       |
+| `GET`    | `/{id}` | Get single collection         | `ILibraryService`       |
+| `POST`   | `/`     | Create collection             | `ILibraryService`       |
+| `PUT`    | `/{id}` | Rename and/or move            | `ILibraryService`       |
+| `DELETE` | `/{id}` | Delete (unlinks books)        | `ILibraryService`       |
+
+`POST /` always returns `201 Created`; a sibling with the same normalized name
+under the same parent returns the existing collection instead of a duplicate.
+`PUT /{id}` performs the move and rename through the canonical service: a
+move into its own descendant returns `409 collection_cycle` and a sibling
+name collision at the destination returns `409 collection_name_conflict`.
+`DELETE /{id}` unlinks the books in the collection (never deletes them) and
+returns `409 collection_has_children` while the collection still has child
+collections.
 
 ### ConceptsEndpoints (`/api/concepts`)
 
@@ -200,9 +234,60 @@ review`, `inbox`, queue adds, `finish <book>`, and the legacy `read`
 prescription), and ordinary text with no active session return the stable
 `gateway_ignored` no-op (422) and create no state.
 
+## MCP (Model Context Protocol)
+
+The MCP surface is opt-in (`Mcp:Enabled`, default disabled) and served as a
+bearer-authenticated **Streamable HTTP** endpoint at `/mcp` (`Mcp:Path`). The
+token is resolved exclusively from the `Mcp:ApiKeyEnvironmentVariable`
+environment variable (default `NOSTOS_MCP_TOKEN`) at startup; enabling MCP
+without the token fails startup closed. Tools are discovered from the
+assembly (`WithToolsFromAssembly`) and registered under the `mcp__nostos__`
+prefix. Maintenance mode guards the MCP route as well as `/api`.
+
+The full surface is 34 tools: 23 Reading Training tools (contract in
+[`docs/reading-training/contracts.md`](../../docs/reading-training/contracts.md))
+plus the 11 Library tools below (manifest asserted in tests). All library
+tools forward to the canonical `ILibraryService` and return its envelope
+unchanged.
+
+### Library tools (issue #34)
+
+Every mutation requires a caller-supplied `idempotencyKey` (no default) and
+is exact-once on `(ClientId, IdempotencyKey)` with the fixed MCP client id
+`nostos-mcp`; retries replay the stored receipt instead of re-executing.
+Responses use the envelope `{ reply, data, stateVersion, duplicate }`, where
+`duplicate=true` only on receipt replay and `stateVersion` is the library
+state version string. Read-only tools never mutate.
+
+| Tool | Mutates | Behavior |
+| ---- | ------- | -------- |
+| `library_list_books` | no | Books with filter/sort/search/page/pageSize/collectionId |
+| `library_get_book` | no | One book by id |
+| `library_resolve_book` | no | Identity resolution: `exact_match` \| `candidates` \| `not_found` \| `identity_conflict`; external-metadata prefill when `includeExternalMetadata`; `lookupError: lookup_timeout` on lookup failure |
+| `library_create_or_match_book` | yes | Strict create-or-match (see below) |
+| `library_update_book` | yes | Patch metadata; empty string clears text fields; an identifier already held elsewhere → `duplicate_identifier` |
+| `library_list_collections` | no | Flat collection list (order is presentation-only) |
+| `library_get_collection` | no | One collection by id |
+| `library_create_collection` | yes | Duplicate sibling returns the existing collection |
+| `library_rename_collection` | yes | Sibling name collision → `collection_name_conflict` |
+| `library_move_collection` | yes | `newParentId` null = root; cycle → `collection_cycle`; name collision at destination → `collection_name_conflict` |
+| `library_delete_collection` | yes | `confirm=true` required; unlinks books; `collection_has_children` while children exist |
+
+`library_create_or_match_book` resolves in order: `confirmedBookId`, exact
+ISBN/ASIN, exactly one exact title+author match (returns `outcome: matched`
+without creating). Multiple title+author matches or an ambiguous bare title
+return `confirmation_required` with candidates — the caller must ask the
+user, then call again with a **new** idempotency key and either
+`confirmedBookId` or `forceCreate=true`; the original key is never reused.
+Type rules: audiobooks use ASIN only, physical/ebook books use ISBN only; a
+mismatch returns `invalid_book_identity`. Matching uses checksum-validated
+normalized ISBN/ASIN (filtered unique indexes) and normalized title+author —
+both title and author are required for an exact match (title-only yields
+candidates).
+
 ## Maintenance Mode Middleware
 
-The application includes middleware that intercepts requests to `/api` when `BackupSettingsProvider.IsInMaintenanceMode` is true.
+The application includes middleware that intercepts requests to `/api` (and the MCP route, when enabled) when `BackupSettingsProvider.IsInMaintenanceMode` is true.
 
 - **Status Code:** 503 Service Unavailable
 - **Response:** `{"error": "Application is in maintenance mode during restore."}`
@@ -210,15 +295,19 @@ The application includes middleware that intercepts requests to `/api` when `Bac
 
 ## Cycle Detection
 
-Both `CollectionsEndpoints` and `WritingsEndpoints` implement cycle detection when moving items:
+`WritingsEndpoints` implements cycle detection when moving items, and the
+canonical library service does the same for collection moves:
 
 ```
 1. Check: target parent != self
 2. Walk ancestors: starting from target parent, follow ParentId chain
-3. If any ancestor == moving item's ID → reject with 400
+3. If any ancestor == moving item's ID → reject
 ```
 
-This prevents a folder from being moved into its own descendant (which would create an infinite loop).
+`WritingsEndpoints` rejects with 400; collection moves return
+`409 collection_cycle` (Problem Details via `LibraryHttpMapper`). This
+prevents a folder or collection from being moved into its own descendant
+(which would create an infinite loop).
 
 ## Mapping
 
