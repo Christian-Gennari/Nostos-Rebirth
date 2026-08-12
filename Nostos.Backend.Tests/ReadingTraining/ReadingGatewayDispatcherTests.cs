@@ -352,4 +352,81 @@ public sealed class ReadingGatewayDispatcherTests
         await dispatcher.DispatchAsync(Request("pause"), cts.Token);
         service.LastToken.Should().Be(cts.Token);
     }
+
+    // --- natural completion phrasing (issue #32): state-aware, never captured ---
+
+    [Fact]
+    public async Task Dispatch_NaturalCompleteDuringActiveSession_CompletesWithoutCapture()
+    {
+        var service = new FakeReadingTrainingService { OpenSession = Session(ReadingSessionStatus.Active) };
+        var dispatcher = Dispatcher(service);
+
+        var result = await dispatcher.DispatchAsync(Request("Ok end this round, I actually maybe read 20 minutes max."));
+
+        result.Should().Be(MutationEnvelope);
+        service.Completions.Should().ContainSingle();
+        service.Completions[0].ReportedMinutes.Should().Be(20);
+        service.Captures.Should().BeEmpty();
+        service.CallLog.Should().ContainSingle(c => c == "GetStatus"); // state probe
+        service.CallLog.Should().ContainSingle(c => c == "Complete");
+        service.CallLog.Count(c => c == "Capture").Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Dispatch_NaturalCompleteDuringPausedSession_CompletesSession()
+    {
+        var service = new FakeReadingTrainingService { OpenSession = Session(ReadingSessionStatus.Paused) };
+        var dispatcher = Dispatcher(service);
+
+        var result = await dispatcher.DispatchAsync(Request("avsluta sessionen"));
+
+        result.Should().Be(MutationEnvelope);
+        service.Completions.Should().ContainSingle();
+        service.Completions[0].ReportedMinutes.Should().BeNull();
+        service.Captures.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Dispatch_NaturalCompleteWithoutOpenSession_ReturnsGatewayIgnored()
+    {
+        var service = new FakeReadingTrainingService { OpenSession = null };
+        var dispatcher = Dispatcher(service);
+
+        var result = await dispatcher.DispatchAsync(Request("end this round"));
+
+        result.Data.Should().BeOfType<ReadingErrorDto>().Which.Code.Should().Be(ReadingGatewayDispatcher.IgnoredCode);
+        result.Reply.Should().Be(ReadingGatewayDispatcher.IgnoredReply);
+        service.Completions.Should().BeEmpty();
+        service.Captures.Should().BeEmpty();
+        service.CallLog.Should().ContainSingle(c => c == "GetStatus"); // probe only
+        service.CommandKeys.Should().BeEmpty(); // no mutation, no receipt path
+    }
+
+    [Fact]
+    public async Task Dispatch_NaturalCompleteWhileAwaitingFeedback_RePromptsWithoutMutation()
+    {
+        var service = new FakeReadingTrainingService { OpenSession = Session(ReadingSessionStatus.AwaitingFeedback) };
+        var dispatcher = Dispatcher(service);
+
+        var result = await dispatcher.DispatchAsync(Request("I'm done"));
+
+        result.Reply.Should().Be(ReadingReplyFormatter.RatePrompt);
+        result.Data.Should().BeNull();
+        service.Completions.Should().BeEmpty();
+        service.Captures.Should().BeEmpty();
+        service.CallLog.Count(c => c == "GetStatus").Should().Be(1); // probe only
+    }
+
+    [Fact]
+    public async Task Dispatch_EndingObservationDuringActiveSession_IsCaptured()
+    {
+        var service = new FakeReadingTrainingService { OpenSession = Session(ReadingSessionStatus.Active) };
+        var dispatcher = Dispatcher(service);
+
+        var result = await dispatcher.DispatchAsync(Request("The ending forces us to reinterpret the opening."));
+
+        result.Should().Be(CaptureEnvelope);
+        service.Captures.Should().ContainSingle();
+        service.Completions.Should().BeEmpty();
+    }
 }

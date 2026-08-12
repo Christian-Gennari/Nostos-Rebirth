@@ -208,4 +208,30 @@ public sealed class ReadingGatewaySqliteTests : IDisposable
         second.Data.Should().BeEquivalentTo(first.Data);
         (await h.ReceiptCountAsync("gw", "p-1")).Should().Be(1);
     }
+
+    [Fact]
+    public async Task NaturalComplete_PersistsCompletionAndDoesNotPersistCapture()
+    {
+        var h = await HarnessAsync();
+        await h.SeedDefaultAssignment("Fictions", ReadingMode.Endurance);
+        await h.Service.StartNewSessionAsync(new ReadingStartNewSessionRequest("setup", "start-1"));
+
+        var result = await h.Dispatcher.DispatchAsync(new ReadingGatewayDispatchRequest(
+            "gw", "end-1", "Ok end this round, I actually maybe read 20 minutes max."));
+
+        result.Data.Should().NotBeOfType<ReadingErrorDto>();
+        var session = (ReadingSessionDto)result.Data!;
+        session.Status.Should().Be(ReadingSessionStatus.AwaitingFeedback);
+        session.ReportedMinutes.Should().Be(20);
+
+        // Database-level proof that the vault monitor has nothing to mirror.
+        (await h.CapturesAsync()).Should().BeEmpty();
+
+        // The completion itself persisted through a fresh context.
+        await using var db = h.Factory.CreateDbContext();
+        var persisted = await db.ReadingSessions.SingleAsync(s => s.OpenSlot != null);
+        persisted.Status.Should().Be(ReadingSessionStatus.AwaitingFeedback);
+        persisted.ReportedMinutes.Should().Be(20);
+        (await h.ReceiptCountAsync("gw", "end-1")).Should().Be(1);
+    }
 }

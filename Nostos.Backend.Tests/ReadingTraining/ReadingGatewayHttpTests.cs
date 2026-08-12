@@ -258,4 +258,38 @@ public sealed class ReadingGatewayHttpTests
         var openApi = await client.GetStringAsync("/openapi/v1.json");
         openApi.Should().Contain("/api/reading/gateway/dispatch");
     }
+
+    [Fact]
+    public async Task Gateway_IncidentPhrase_ReturnsCompletionEnvelopeAndNeverCaptures()
+    {
+        using var factory = new ReadingTrainingHttpFactory();
+        using var client = factory.CreateClient();
+        (await InitializeAsync(client)).StatusCode.Should().Be(HttpStatusCode.OK);
+        var bookId = await SeedBook(factory, "Fictions");
+        await AddDefaultAssignmentAsync(factory, client, bookId, ReadingMode.Endurance);
+        (await DispatchAsync(client, "start new session", "k-start")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var response = await DispatchAsync(client, "Ok end this round, I actually maybe read 20 minutes max.", "k-incident");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var envelope = await Envelope(response);
+        envelope.GetProperty("data").GetProperty("status").GetInt32()
+            .Should().Be((int)ReadingSessionStatus.AwaitingFeedback);
+        envelope.GetProperty("data").GetProperty("reportedMinutes").GetInt32().Should().Be(20);
+
+        // Replay with the same key performs NO second mutation: the session
+        // is already AwaitingFeedback, so the state-aware preflight answers
+        // the ratings prompt instead of completing again (and never echoes
+        // a duplicate completion).
+        var replay = await DispatchAsync(client, "Ok end this round, I actually maybe read 20 minutes max.", "k-incident");
+        replay.StatusCode.Should().Be(HttpStatusCode.OK);
+        var replayEnvelope = await Envelope(replay);
+        replayEnvelope.GetProperty("reply").GetString().Should().Contain("Effort");
+        replayEnvelope.GetProperty("data").ValueKind.Should().Be(JsonValueKind.Null);
+
+        // No capture was created anywhere; exactly one completion persisted.
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NostosDbContext>();
+        (await db.ReadingCaptures.CountAsync()).Should().Be(0);
+        (await db.ReadingSessions.CountAsync(s => s.Status == ReadingSessionStatus.AwaitingFeedback)).Should().Be(1);
+    }
 }
