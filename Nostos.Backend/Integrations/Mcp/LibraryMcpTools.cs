@@ -140,4 +140,60 @@ public sealed class LibraryMcpTools
             publisher, placeOfPublication, publishedDate, edition,
             pageCount, language, categories, series, volumeNumber,
             collectionId, clearCollection, rating, isFavorite, personalReview, finishedAt, isFinished), ct);
+
+    // ------------------------------------------------------------------
+    // Collections
+    // ------------------------------------------------------------------
+
+    [McpServerTool(Name = "library_list_collections", ReadOnly = true)]
+    [Description("Lists all Nostos collections as a flat list (id, name, parentId). Collection order is not persisted; treat the order as presentation-only.")]
+    public Task<LibraryCommandResultDto> ListCollectionsAsync(CancellationToken ct = default) =>
+        _service.ListCollectionsAsync(ct);
+
+    [McpServerTool(Name = "library_get_collection", ReadOnly = true)]
+    [Description("Gets one Nostos collection by id.")]
+    public Task<LibraryCommandResultDto> GetCollectionAsync(
+        [Description("Id of the collection to fetch.")] Guid collectionId,
+        CancellationToken ct = default) =>
+        _service.GetCollectionAsync(collectionId, ct);
+
+    [McpServerTool(Name = "library_create_collection")]
+    [Description("Creates a Nostos collection. A sibling with the same normalized name under the same parent returns the existing collection (reply says it already exists) instead of creating a duplicate.")]
+    public Task<LibraryCommandResultDto> CreateCollectionAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        [Description("Collection name (required).")] string name,
+        [Description("Optional parent collection id; omit or null for a top-level collection.")] Guid? parentId = null,
+        CancellationToken ct = default) =>
+        _service.CreateCollectionAsync(new LibraryCreateCollectionRequest(
+            ClientId, idempotencyKey, name, parentId), ct);
+
+    [McpServerTool(Name = "library_rename_collection")]
+    [Description("Renames a Nostos collection. A sibling with the same normalized name under the same parent returns collection_name_conflict.")]
+    public Task<LibraryCommandResultDto> RenameCollectionAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        [Description("Id of the collection to rename.")] Guid collectionId,
+        [Description("New name (required).")] string name,
+        CancellationToken ct = default) =>
+        _service.RenameCollectionAsync(new LibraryRenameCollectionRequest(
+            ClientId, idempotencyKey, collectionId, name), ct);
+
+    [McpServerTool(Name = "library_move_collection")]
+    [Description("Moves a Nostos collection under a new parent (null/omitted parentId moves it to the top level). Moving into its own descendant returns collection_cycle; a sibling with the same name at the destination returns collection_name_conflict; books stay in place.")]
+    public Task<LibraryCommandResultDto> MoveCollectionAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        [Description("Id of the collection to move.")] Guid collectionId,
+        [Description("Optional new parent id; null moves the collection to the top level.")] Guid? newParentId = null,
+        CancellationToken ct = default) =>
+        _service.MoveCollectionAsync(new LibraryMoveCollectionRequest(
+            ClientId, idempotencyKey, collectionId, newParentId), ct);
+
+    [McpServerTool(Name = "library_delete_collection")]
+    [Description("Deletes a Nostos collection (confirm=true required). Books in the collection are unlinked, never deleted; the deletion is rejected with collection_has_children while the collection has child collections.")]
+    public Task<LibraryCommandResultDto> DeleteCollectionAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        [Description("Id of the collection to delete.")] Guid collectionId,
+        [Description("Must be true to delete; the server rejects deletion without explicit confirmation.")] bool confirm,
+        CancellationToken ct = default) =>
+        _service.DeleteCollectionAsync(new LibraryDeleteCollectionRequest(
+            ClientId, idempotencyKey, collectionId, confirm), ct);
 }

@@ -358,6 +358,12 @@ public sealed class McpHttpTests
             "library_resolve_book",
             "library_create_or_match_book",
             "library_update_book",
+            "library_list_collections",
+            "library_get_collection",
+            "library_create_collection",
+            "library_rename_collection",
+            "library_move_collection",
+            "library_delete_collection",
         };
         var names = tools.EnumerateArray().Select(t => t.GetProperty("name").GetString()).ToList();
         names.Should().HaveCount(expectedReadNames.Length + expectedMutationNames.Length + expectedLibraryNames.Length)

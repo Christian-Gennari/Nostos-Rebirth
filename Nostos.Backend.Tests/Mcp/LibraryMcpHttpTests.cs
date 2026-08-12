@@ -25,12 +25,18 @@ public sealed class LibraryMcpHttpTests
         "library_list_books",
         "library_get_book",
         "library_resolve_book",
+        "library_list_collections",
+        "library_get_collection",
     ];
 
     private static readonly string[] LibraryMutationNames =
     [
         "library_create_or_match_book",
         "library_update_book",
+        "library_create_collection",
+        "library_rename_collection",
+        "library_move_collection",
+        "library_delete_collection",
     ];
 
     [Fact]
@@ -43,7 +49,7 @@ public sealed class LibraryMcpHttpTests
         var tools = await ListToolsAsync(client);
 
         var names = tools.EnumerateArray().Select(t => t.GetProperty("name").GetString()).ToList();
-        names.Should().HaveCount(28, "23 reading tools + 5 library tools");
+        names.Should().HaveCount(34, "23 reading tools + 11 library tools");
         names.Should().Contain(LibraryReadNames);
         names.Should().Contain(LibraryMutationNames);
 
@@ -285,6 +291,140 @@ public sealed class LibraryMcpHttpTests
 
         var missing = await ToolCallAsync(client, TestToken, "library_get_book", new { bookId = Guid.NewGuid().ToString() });
         missing.GetProperty("data").GetProperty("code").GetString().Should().Be("book_not_found");
+    }
+
+    [Fact]
+    public async Task Collections_LifecycleOverTransport()
+    {
+        using var env = SetEnvVar(TestEnvVar, TestToken);
+        using var factory = new McpHttpFactory(enabled: true, envVarName: TestEnvVar);
+        using var client = factory.CreateClient();
+
+        // Create parent + duplicate sibling name → existing returned.
+        var parent = await ToolCallAsync(client, TestToken, "library_create_collection", new
+        {
+            idempotencyKey = "mcp-col-1",
+            name = "Philosophy",
+        });
+        var parentId = parent.GetProperty("data").GetProperty("id").GetString();
+
+        var dup = await ToolCallAsync(client, TestToken, "library_create_collection", new
+        {
+            idempotencyKey = "mcp-col-2",
+            name = "philosophy",
+        });
+        dup.GetProperty("data").GetProperty("id").GetString().Should().Be(parentId);
+        dup.GetProperty("reply").GetString().Should().Contain("already exists");
+
+        // Create child, then move cycle rejection.
+        var child = await ToolCallAsync(client, TestToken, "library_create_collection", new
+        {
+            idempotencyKey = "mcp-col-3",
+            name = "Ancient",
+            parentId,
+        });
+        var childId = child.GetProperty("data").GetProperty("id").GetString();
+
+        var cycle = await ToolCallAsync(client, TestToken, "library_move_collection", new
+        {
+            idempotencyKey = "mcp-col-4",
+            collectionId = parentId,
+            newParentId = childId,
+        });
+        cycle.GetProperty("data").GetProperty("code").GetString().Should().Be("collection_cycle");
+
+        // Delete without confirm and with children are both rejected.
+        var noConfirm = await ToolCallAsync(client, TestToken, "library_delete_collection", new
+        {
+            idempotencyKey = "mcp-col-5",
+            collectionId = parentId,
+            confirm = false,
+        });
+        noConfirm.GetProperty("data").GetProperty("code").GetString().Should().Be("confirmation_required");
+
+        var hasChildren = await ToolCallAsync(client, TestToken, "library_delete_collection", new
+        {
+            idempotencyKey = "mcp-col-6",
+            collectionId = parentId,
+            confirm = true,
+        });
+        hasChildren.GetProperty("data").GetProperty("code").GetString().Should().Be("collection_has_children");
+
+        // Rename + verified move to root.
+        var renamed = await ToolCallAsync(client, TestToken, "library_rename_collection", new
+        {
+            idempotencyKey = "mcp-col-7",
+            collectionId = childId,
+            name = "Ancient Thought",
+        });
+        renamed.GetProperty("data").GetProperty("name").GetString().Should().Be("Ancient Thought");
+
+        // Moved to root: parentId is absent on the wire (null values are
+        // omitted by the MCP transport).
+        var moved = await ToolCallAsync(client, TestToken, "library_move_collection", new
+        {
+            idempotencyKey = "mcp-col-8",
+            collectionId = childId,
+            newParentId = (string?)null,
+        });
+        moved.GetProperty("data").TryGetProperty("parentId", out _).Should().BeFalse("moved to root");
+
+        // Delete child (no children), then parent (unlinks nothing but goes).
+        var childDeleted = await ToolCallAsync(client, TestToken, "library_delete_collection", new
+        {
+            idempotencyKey = "mcp-col-9",
+            collectionId = childId,
+            confirm = true,
+        });
+        childDeleted.GetProperty("data").GetProperty("booksUnlinked").GetInt32().Should().Be(0);
+
+        var parentDeleted = await ToolCallAsync(client, TestToken, "library_delete_collection", new
+        {
+            idempotencyKey = "mcp-col-10",
+            collectionId = parentId,
+            confirm = true,
+        });
+        parentDeleted.GetProperty("data").GetProperty("booksUnlinked").GetInt32().Should().Be(0);
+
+        var list = await ToolCallAsync(client, TestToken, "library_list_collections", new { });
+        list.GetProperty("data").GetArrayLength().Should().Be(0);
+    }
+
+    [Fact]
+    public async Task DeleteCollection_UnlinksBooks_NotDeletes()
+    {
+        using var env = SetEnvVar(TestEnvVar, TestToken);
+        using var factory = new McpHttpFactory(enabled: true, envVarName: TestEnvVar);
+        using var client = factory.CreateClient();
+
+        var collection = await ToolCallAsync(client, TestToken, "library_create_collection", new
+        {
+            idempotencyKey = "mcp-unlink-1",
+            name = "TBR Shelf",
+        });
+        var collectionId = collection.GetProperty("data").GetProperty("id").GetString();
+
+        var book = await ToolCallAsync(client, TestToken, "library_create_or_match_book", new
+        {
+            idempotencyKey = "mcp-unlink-2",
+            type = "physical",
+            title = "Unlink Me",
+            author = "Author",
+            collectionId,
+        });
+        var bookId = book.GetProperty("data").GetProperty("bookId").GetString();
+
+        var deleted = await ToolCallAsync(client, TestToken, "library_delete_collection", new
+        {
+            idempotencyKey = "mcp-unlink-3",
+            collectionId,
+            confirm = true,
+        });
+        deleted.GetProperty("data").GetProperty("booksUnlinked").GetInt32().Should().Be(1);
+
+        // The book survives, unlinked (collectionId absent on the wire).
+        var after = await ToolCallAsync(client, TestToken, "library_get_book", new { bookId });
+        after.GetProperty("data").TryGetProperty("collectionId", out _).Should().BeFalse("book unlinked");
     }
 
     // ------------------------------------------------------------------
