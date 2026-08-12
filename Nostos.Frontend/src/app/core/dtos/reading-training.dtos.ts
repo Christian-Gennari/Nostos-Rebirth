@@ -140,6 +140,35 @@ export interface ReadingReorderQueueRequest extends ReadingCommandRequest {
   assignmentIds: string[];
 }
 
+/** PATCH /api/reading/books/{assignmentId}/mode — the assignment id lives in the URL. */
+export interface ReadingChangeBookModeRequest extends ReadingCommandRequest {
+  mode: ReadingMode;
+}
+
+/** DELETE /api/reading/books/{assignmentId} — the assignment id lives in the URL. */
+export interface ReadingRemoveBookAssignmentRequest extends ReadingCommandRequest {}
+
+/** Server data for a successful mode change (absorbed collider optional). */
+export interface ReadingChangeBookModeData {
+  assignmentId: string;
+  bookId: string;
+  previousMode: ReadingMode;
+  mode: ReadingMode;
+  queueOrder: number;
+  /** The mode's default-slot sentinel when the assignment becomes the mode default, else null. */
+  defaultSlot: string | null;
+  collisionAbsorbed: boolean;
+  absorbedAssignmentId: string | null;
+}
+
+/** Server data for a successful queue removal. */
+export interface ReadingRemoveBookAssignmentData {
+  assignmentId: string;
+  bookId: string;
+  mode: ReadingMode;
+  queueOrder: number;
+}
+
 // --- CAPTURE / INBOX ---
 export interface ReadingCaptureRequest extends ReadingCommandRequest {
   text: string;

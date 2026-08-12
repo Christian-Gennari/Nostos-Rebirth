@@ -143,6 +143,42 @@ public static class ReadingReplyFormatter
     public static string SetDefault(string title, string mode) =>
         $"{title} is now the default {mode} book.";
 
+    // --- change mode / remove from queue ---
+    public static string ModeChanged(string title, ReadingMode mode) =>
+        $"{title} moved to {ModeWord(mode)}.";
+
+    public static string CollisionAbsorbed(string title, ReadingMode mode) =>
+        $"{title} moved to {ModeWord(mode)}. Duplicate queue entry removed.";
+
+    public static string CollisionRejected(string title, ReadingMode mode) =>
+        $"{title} already has a {ModeWord(mode)} assignment with sessions.";
+
+    public static string RemovedFromQueue(string title) =>
+        $"{title} removed from the queue.";
+
+    public static string ModeUnchanged(string title, ReadingMode mode) =>
+        $"{title} is already in {ModeWord(mode)}.";
+
+    public static string AssignmentHasSessions(string title) =>
+        $"{title} has sessions and cannot be changed.";
+
+    public static string AssignmentHasSessionsAndCannotBeRemoved(string title) =>
+        $"{title} has sessions and cannot be removed.";
+
+    public static string CompletedAssignmentCannotChange(string title) =>
+        $"{title} is completed and cannot be changed.";
+
+    public static string ArchivedAssignmentCannotChange(string title) =>
+        $"{title} is archived and cannot be changed.";
+
+    public static string AssignmentNotActiveChange(string title) =>
+        $"{title} is not active and cannot be changed.";
+
+    public static string AssignmentNotActiveRemoval(string title) =>
+        $"{title} is not active and cannot be removed.";
+
+    public const string AssignmentNotFound = "Reading assignment not found.";
+
     public const string Reordered = "Queue reordered.";
     public const string NothingToReorder = "Nothing to reorder.";
     public const string SessionNotOpen = "That session isn't open.";

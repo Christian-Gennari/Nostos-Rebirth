@@ -11,12 +11,16 @@ import {
   ReadingBookAssignment,
   ReadingCapture,
   ReadingCaptureType,
+  ReadingChangeBookModeData,
+  ReadingChangeBookModeRequest,
   ReadingCommandResult,
   ReadingConstraint,
   ReadingDashboard,
   ReadingMode,
   ReadingNotification,
   ReadingProgramme,
+  ReadingRemoveBookAssignmentData,
+  ReadingRemoveBookAssignmentRequest,
   ReadingSession,
   ReadingSessionStatus,
   ReadingTargets,
@@ -1147,6 +1151,353 @@ describe('ReadingTrainingStore', () => {
     expect(completed).toBe(true);
     expect(store.mutating()).toBe(false);
     expect(httpMock.match(sessionCommandUrl('pause'))).toHaveLength(0);
+  });
+
+  // --- optimistic queue mutations: change mode ---
+
+  function changeData(overrides: Partial<ReadingChangeBookModeData> = {}): ReadingChangeBookModeData {
+    return {
+      assignmentId,
+      bookId,
+      previousMode: ReadingMode.Endurance,
+      mode: ReadingMode.Deep,
+      queueOrder: 0,
+      defaultSlot: null,
+      collisionAbsorbed: false,
+      absorbedAssignmentId: null,
+      ...overrides,
+    };
+  }
+
+  function removeData(overrides: Partial<ReadingRemoveBookAssignmentData> = {}): ReadingRemoveBookAssignmentData {
+    return {
+      assignmentId,
+      bookId,
+      mode: ReadingMode.Endurance,
+      queueOrder: 0,
+      ...overrides,
+    };
+  }
+
+  it('exposes the queue-mutation pending ids read-only and idle initially', () => {
+    expect(store.changingModeAssignmentId()).toBeNull();
+    expect(store.removingAssignmentId()).toBeNull();
+    // asReadonly() surfaces the signals without the writable API.
+    expect((store.changingModeAssignmentId as { set?: unknown }).set).toBeUndefined();
+    expect((store.removingAssignmentId as { set?: unknown }).set).toBeUndefined();
+  });
+
+  it('changeBookMode applies the mode optimistically, preserves order, clears the old default, and reconciles from the envelope', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
+    expect(store.stateVersion()).toBe('17');
+
+    const result = envelope(changeData(), { reply: 'Meditations moved to Deep.', stateVersion: '18' });
+    let emitted: ReadingCommandResult<ReadingChangeBookModeData> | undefined;
+    store.changeBookMode(assignmentId, ReadingMode.Deep).subscribe((r) => (emitted = r));
+
+    // Optimistic projection applied synchronously on subscribe.
+    expect(store.mutating()).toBe(true);
+    expect(store.changingModeAssignmentId()).toBe(assignmentId);
+    expect(store.books()[0]).toEqual({ ...assignment, mode: ReadingMode.Deep, isDefault: false });
+    // Queue order and array order preserved; unrelated rows keep exact identity.
+    expect(store.books().map((b) => b.id)).toEqual([
+      assignmentId,
+      queuedAssignment.id,
+      completedAssignment.id,
+      deepAssignment.id,
+    ]);
+    expect(store.books()[1]).toBe(queuedAssignment);
+    expect(store.books()[3]).toBe(deepAssignment);
+
+    const req = httpMock.expectOne(`${base}/books/${assignmentId}/mode`);
+    expect(req.request.method).toBe('PATCH');
+    req.flush(result);
+
+    expect(emitted).toBe(result); // exact envelope forwarded
+    expect(store.stateVersion()).toBe('18');
+    expect(store.lastReply()).toBe('Meditations moved to Deep.');
+    expect(store.mutating()).toBe(false);
+    expect(store.changingModeAssignmentId()).toBeNull();
+    expect(store.error()).toBeNull();
+    // Reconcile: server mode + order, defaultSlot null → not the mode default.
+    expect(store.books()[0]).toEqual({ ...assignment, mode: ReadingMode.Deep, isDefault: false });
+    expect(store.defaultBookForMode(ReadingMode.Deep)?.id).toBe(deepAssignmentId);
+    expect(store.defaultBookForMode(ReadingMode.Endurance)).toBeNull();
+  });
+
+  it('changeBookMode drops the absorbed collider row and inherits the target default from the server data', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
+
+    const result = envelope(
+      changeData({ defaultSlot: 'deep', collisionAbsorbed: true, absorbedAssignmentId: deepAssignmentId }),
+      { reply: 'Meditations moved to Deep. Duplicate queue entry removed.', stateVersion: '18' }
+    );
+    store.changeBookMode(assignmentId, ReadingMode.Deep).subscribe();
+    httpMock.expectOne(`${base}/books/${assignmentId}/mode`).flush(result);
+
+    const books = store.books();
+    expect(books.some((b) => b.id === deepAssignmentId)).toBe(false); // collider removed
+    expect(books.map((b) => b.id)).toEqual([assignmentId, queuedAssignment.id, completedAssignment.id]);
+    const moved = books.find((b) => b.id === assignmentId);
+    expect(moved?.mode).toBe(ReadingMode.Deep);
+    expect(moved?.isDefault).toBe(true); // inherited the absorbed collider's default
+    expect(moved?.queueOrder).toBe(0);
+    expect(store.defaultBookForMode(ReadingMode.Deep)?.id).toBe(assignmentId);
+  });
+
+  it('changeBookMode creates clientId and a fresh idempotencyKey per command, PATCHing only the mode', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
+
+    store.changeBookMode(assignmentId, ReadingMode.Deep).subscribe();
+    let req = httpMock.expectOne(`${base}/books/${assignmentId}/mode`);
+    expect(req.request.method).toBe('PATCH');
+    const body = req.request.body as ReadingChangeBookModeRequest;
+    expect(body.mode).toBe(ReadingMode.Deep);
+    expect(typeof body.clientId).toBe('string');
+    expect(body.clientId.length).toBeGreaterThan(0);
+    expect(typeof body.idempotencyKey).toBe('string');
+    expect(body.idempotencyKey.length).toBeGreaterThan(0);
+    // The assignment id lives in the URL; the body never carries it.
+    expect(body).not.toHaveProperty('assignmentId');
+    const firstKey = body.idempotencyKey;
+    req.flush(envelope(changeData(), { stateVersion: '18' }));
+    expect(store.mutating()).toBe(false);
+
+    // The next command gets a fresh idempotency key.
+    store.changeBookMode(assignmentId, ReadingMode.Recovery).subscribe();
+    req = httpMock.expectOne(`${base}/books/${assignmentId}/mode`);
+    const secondKey = (req.request.body as ReadingChangeBookModeRequest).idempotencyKey;
+    expect(secondKey).not.toBe(firstKey);
+    req.flush(envelope(changeData({ mode: ReadingMode.Recovery }), { stateVersion: '19' }));
+    expect(store.stateVersion()).toBe('19');
+  });
+
+  it('changeBookMode ignores a same-mode selection without issuing a request', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
+
+    let emitted = false;
+    let completed = false;
+    store.changeBookMode(assignmentId, ReadingMode.Endurance).subscribe({
+      next: () => (emitted = true),
+      complete: () => (completed = true),
+    });
+
+    expect(emitted).toBe(false);
+    expect(completed).toBe(true); // no-op: completes without emitting
+    expect(httpMock.match(`${base}/books/${assignmentId}/mode`)).toHaveLength(0);
+    expect(store.mutating()).toBe(false);
+    expect(store.changingModeAssignmentId()).toBeNull();
+    expect(store.dashboard()).toEqual(dashboard()); // untouched
+    expect(store.error()).toBeNull();
+  });
+
+  it('changeBookMode restores the full snapshot on an HTTP failure and surfaces the error', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
+    const original = dashboard();
+
+    let error: unknown;
+    store.changeBookMode(assignmentId, ReadingMode.Deep).subscribe({ error: (e) => (error = e) });
+    expect(store.books()[0].mode).toBe(ReadingMode.Deep); // optimistic while in flight
+
+    httpMock.expectOne(`${base}/books/${assignmentId}/mode`).flush(
+      { title: 'Unavailable' },
+      { status: 503, statusText: 'Service Unavailable' }
+    );
+
+    expect(error).toBeInstanceOf(HttpErrorResponse);
+    expect(store.books()).toEqual(original.books); // exact snapshot restored
+    expect(store.dashboard()).toEqual(original);
+    expect(store.error()).toBe('Failed to change book mode: Unavailable');
+    expect(store.mutating()).toBe(false);
+    expect(store.changingModeAssignmentId()).toBeNull();
+    expect(store.stateVersion()).toBe('17'); // failure never advances the version
+    expect(httpMock.match(`${base}/dashboard`)).toHaveLength(0); // no refresh after failure
+  });
+
+  it('changeBookMode restores the full snapshot on a semantic rejection and surfaces its code', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
+    const original = dashboard();
+
+    let error: unknown;
+    store.changeBookMode(assignmentId, ReadingMode.Deep).subscribe({ error: (e) => (error = e) });
+
+    httpMock.expectOne(`${base}/books/${assignmentId}/mode`).flush(
+      {
+        reply: 'Meditations has sessions and cannot be changed.',
+        data: { code: 'assignment_has_sessions' },
+        stateVersion: '17',
+        duplicate: false,
+      },
+      { status: 409, statusText: 'Conflict' }
+    );
+
+    expect(error).toBeInstanceOf(HttpErrorResponse);
+    expect(store.books()).toEqual(original.books);
+    expect(store.error()).toBe('Failed to change book mode: assignment_has_sessions');
+    expect(store.mutating()).toBe(false);
+    expect(store.changingModeAssignmentId()).toBeNull();
+    expect(store.stateVersion()).toBe('17');
+  });
+
+  it('changeBookMode serializes with other mutations: a concurrent command fails with mutation_in_progress', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
+
+    store.changeBookMode(assignmentId, ReadingMode.Deep).subscribe();
+    expect(store.mutating()).toBe(true);
+
+    let concurrentError: unknown;
+    store.removeBookAssignment(queuedAssignment.id).subscribe({ error: (e) => (concurrentError = e) });
+    expect(concurrentError).toBeInstanceOf(Error);
+    expect((concurrentError as Error).message).toBe('mutation_in_progress');
+    expect(httpMock.match(`${base}/books/${queuedAssignment.id}`)).toHaveLength(0);
+    expect(store.error()).toBeNull();
+
+    // The first command still completes normally.
+    httpMock.expectOne(`${base}/books/${assignmentId}/mode`).flush(envelope(changeData(), { stateVersion: '18' }));
+    expect(store.mutating()).toBe(false);
+    expect(store.changingModeAssignmentId()).toBeNull();
+  });
+
+  it('changeBookMode releases the pending id on early unsubscription', () => {
+    const service = TestBed.inject(ReadingTrainingService);
+    const subject = new Subject<ReadingCommandResult<ReadingChangeBookModeData>>();
+    vi.spyOn(service, 'changeBookMode').mockReturnValue(subject);
+
+    const sub = store.changeBookMode(assignmentId, ReadingMode.Deep).subscribe();
+    expect(store.changingModeAssignmentId()).toBe(assignmentId);
+    expect(store.mutating()).toBe(true);
+
+    sub.unsubscribe();
+    expect(store.changingModeAssignmentId()).toBeNull();
+    expect(store.mutating()).toBe(false);
+
+    // A late result must not resurrect pending state or advance the version.
+    subject.next(envelope(changeData(), { stateVersion: '18' }));
+    subject.complete();
+    expect(store.changingModeAssignmentId()).toBeNull();
+    expect(store.stateVersion()).toBeNull();
+  });
+
+  // --- optimistic queue mutations: remove ---
+
+  it('removeBookAssignment removes the row optimistically without renumbering', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
+
+    const result = envelope(removeData(), { reply: 'Meditations removed from the queue.', stateVersion: '18' });
+    let emitted: ReadingCommandResult<ReadingRemoveBookAssignmentData> | undefined;
+    store.removeBookAssignment(assignmentId).subscribe((r) => (emitted = r));
+
+    expect(store.mutating()).toBe(true);
+    expect(store.removingAssignmentId()).toBe(assignmentId);
+    // Row removed immediately; survivors keep their exact orders (no renumbering).
+    expect(store.books().map((b) => b.id)).toEqual([
+      queuedAssignment.id,
+      completedAssignment.id,
+      deepAssignment.id,
+    ]);
+    expect(store.books()[0]).toBe(queuedAssignment);
+    expect(queuedAssignment.queueOrder).toBe(1);
+
+    const req = httpMock.expectOne(`${base}/books/${assignmentId}`);
+    expect(req.request.method).toBe('DELETE');
+    const body = req.request.body as ReadingRemoveBookAssignmentRequest;
+    expect(typeof body.clientId).toBe('string');
+    expect(body.clientId.length).toBeGreaterThan(0);
+    expect(typeof body.idempotencyKey).toBe('string');
+    expect(body.idempotencyKey.length).toBeGreaterThan(0);
+    req.flush(result);
+
+    expect(emitted).toBe(result); // exact envelope forwarded
+    expect(store.stateVersion()).toBe('18');
+    expect(store.lastReply()).toBe('Meditations removed from the queue.');
+    expect(store.mutating()).toBe(false);
+    expect(store.removingAssignmentId()).toBeNull();
+    expect(store.error()).toBeNull();
+  });
+
+  it('removeBookAssignment restores the snapshot on an HTTP failure and clears pending state', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
+    const original = dashboard();
+
+    let error: unknown;
+    store.removeBookAssignment(assignmentId).subscribe({ error: (e) => (error = e) });
+    expect(store.books().some((b) => b.id === assignmentId)).toBe(false); // optimistic
+
+    httpMock.expectOne(`${base}/books/${assignmentId}`).error(new ProgressEvent('error'));
+
+    expect(error).toBeInstanceOf(HttpErrorResponse);
+    expect(store.books()).toEqual(original.books); // exact snapshot restored
+    expect(store.error()).toBe('Failed to remove book assignment: network error');
+    expect(store.mutating()).toBe(false);
+    expect(store.removingAssignmentId()).toBeNull();
+    expect(store.stateVersion()).toBe('17');
+  });
+
+  it('removeBookAssignment restores the snapshot on a semantic rejection and surfaces its code', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
+    const original = dashboard();
+
+    let error: unknown;
+    store.removeBookAssignment(assignmentId).subscribe({ error: (e) => (error = e) });
+
+    httpMock.expectOne(`${base}/books/${assignmentId}`).flush(
+      {
+        reply: 'Meditations has sessions and cannot be removed.',
+        data: { code: 'assignment_has_sessions' },
+        stateVersion: '17',
+        duplicate: false,
+      },
+      { status: 409, statusText: 'Conflict' }
+    );
+
+    expect(error).toBeInstanceOf(HttpErrorResponse);
+    expect(store.books()).toEqual(original.books);
+    expect(store.error()).toBe('Failed to remove book assignment: assignment_has_sessions');
+    expect(store.mutating()).toBe(false);
+    expect(store.removingAssignmentId()).toBeNull();
+    expect(store.stateVersion()).toBe('17');
+  });
+
+  it('removeBookAssignment reconciles a duplicate replay envelope as success', () => {
+    store.connect();
+    httpMock.expectOne(`${base}/dashboard`).flush(envelope(dashboard()));
+    flushLease();
+
+    const result = envelope(removeData(), {
+      reply: 'Meditations removed from the queue.',
+      stateVersion: '18',
+      duplicate: true,
+    });
+    let emitted: ReadingCommandResult<ReadingRemoveBookAssignmentData> | undefined;
+    store.removeBookAssignment(assignmentId).subscribe((r) => (emitted = r));
+    httpMock.expectOne(`${base}/books/${assignmentId}`).flush(result);
+
+    expect(emitted?.duplicate).toBe(true);
+    expect(store.stateVersion()).toBe('18');
+    expect(store.books().some((b) => b.id === assignmentId)).toBe(false); // row stays removed
+    expect(store.error()).toBeNull();
+    expect(store.mutating()).toBe(false);
+    expect(store.removingAssignmentId()).toBeNull();
   });
 
   // --- pending notifications (lease) ---

@@ -68,6 +68,58 @@
                 </button>
               </div>
 
+              <div class="row-end-actions">
+                <label class="visually-hidden" [attr.for]="'mode-select-' + book.id">
+                  Mode for {{ bookTitle(book) }}
+                </label>
+                <select
+                  class="mode-select"
+                  [id]="'mode-select-' + book.id"
+                  [disabled]="rowActionsDisabled(book)"
+                  (change)="onModeChange(book, $event)"
+                >
+                  @for (mode of modeOptions; track mode) {
+                    <option [value]="mode" [selected]="mode === book.mode">{{ modeLabel(mode) }}</option>
+                  }
+                </select>
+
+                @if (confirmingRemovalId() === book.id) {
+                  <span
+                    class="remove-confirm"
+                    role="group"
+                    [attr.aria-label]="'Remove ' + bookTitle(book) + ' from the queue?'"
+                  >
+                    <button
+                      type="button"
+                      class="btn btn-ghost btn-sm danger"
+                      (click)="confirmRemoval(book)"
+                      [disabled]="rowActionsDisabled(book)"
+                    >
+                      Remove
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-ghost btn-sm"
+                      (click)="cancelRemoval()"
+                      [disabled]="rowActionsDisabled(book)"
+                    >
+                      Cancel
+                    </button>
+                  </span>
+                } @else {
+                  <button
+                    type="button"
+                    class="icon-button trash-button"
+                    (click)="requestRemoval(book)"
+                    [disabled]="rowActionsDisabled(book)"
+                    [attr.aria-label]="'Remove ' + bookTitle(book) + ' from the queue'"
+                    title="Remove from queue"
+                  >
+                    <lucide-icon [img]="Trash2Icon" [size]="16" strokeWidth="2" aria-hidden="true"></lucide-icon>
+                  </button>
+                }
+              </div>
+
               <div class="book-actions">
                 @if (canSetDefault(book)) {
                   <button

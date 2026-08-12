@@ -178,6 +178,27 @@ public static class ReadingTrainingEndpoints
             ToHttp(await service.SetDefaultBookAsync(
                 new ReadingSetDefaultBookRequest(request.ClientId, request.IdempotencyKey, assignmentId, request.Mode), ct)));
 
+        // Change-mode expression: moves an active, session-free assignment
+        // into the mode carried in the body, absorbing a session-free
+        // duplicate collider in the target mode when one exists.
+        group.MapPatch("/books/{assignmentId:guid}/mode", async (
+            Guid assignmentId,
+            ReadingChangeBookModeRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.ChangeBookModeAsync(
+                new ReadingChangeBookModeCommandRequest(request.ClientId, request.IdempotencyKey, assignmentId, request.Mode), ct)));
+
+        // Remove-from-queue expression: deletes an active, session-free
+        // assignment. The request body carries the exact-once identity.
+        group.MapDelete("/books/{assignmentId:guid}", async (
+            Guid assignmentId,
+            [FromBody] ReadingRemoveBookAssignmentRequest request,
+            IReadingTrainingService service,
+            CancellationToken ct) =>
+            ToHttp(await service.RemoveBookAssignmentAsync(
+                new ReadingRemoveBookAssignmentCommandRequest(request.ClientId, request.IdempotencyKey, assignmentId), ct)));
+
         group.MapPost("/books/{assignmentId:guid}/finish", async (
             Guid assignmentId,
             ReadingCompleteBookRequest request,
@@ -426,7 +447,10 @@ public static class ReadingTrainingEndpoints
 
         var statusCode = error.Code switch
         {
-            "not_initialized" or "already_active" or "invalid_transition" =>
+            "not_initialized" or "already_active" or "invalid_transition" or
+                "mode_unchanged" or "assignment_has_sessions" or
+                "mode_collision_has_sessions" or "assignment_completed" or
+                "assignment_archived" or "assignment_not_active" =>
                 StatusCodes.Status409Conflict,
             "invalid_week" or "invalid_idempotency" or "invalid_minutes" or
                 "invalid_order" or "invalid_ratings" or "invalid_assignment" or

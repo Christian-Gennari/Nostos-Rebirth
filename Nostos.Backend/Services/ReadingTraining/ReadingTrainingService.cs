@@ -222,6 +222,98 @@ public sealed class ReadingTrainingService : IReadingTrainingService
             return Outcome.Changed(Result(ReadingReplyFormatter.Reordered, data, programme.StateVersion));
         }, ct);
 
+    // Moves an active, session-free assignment into another mode. When an
+    // Active collider for the same book already exists in the target mode and
+    // has no sessions, the collider is absorbed: it is deleted and the source
+    // takes its place (inheriting the collider's default slot only when the
+    // collider was the target mode's default). The source keeps its identity,
+    // queue order and timestamps; nothing is renumbered. The absorb persists
+    // in two phases inside the same transaction because DefaultSlot carries a
+    // unique index: phase 1 releases the sentinels (source + collider), phase
+    // 2 moves the source and removes the collider.
+    public Task<ReadingCommandResultDto> ChangeBookModeAsync(
+        ReadingChangeBookModeCommandRequest request, CancellationToken ct = default) =>
+        MutateAsync(request.ClientId, request.IdempotencyKey, "ChangeBookMode", async (db, token) =>
+        {
+            var programme = await ProgrammeAsync(db, token);
+            if (programme is null) return Outcome.Unchanged(Failure("not_initialized", "Reading training is not initialized."));
+            if (request.Mode is < ReadingMode.Endurance or > ReadingMode.Recovery)
+                return Outcome.Unchanged(Failure("invalid_mode", ReadingReplyFormatter.UnknownMode, programme.StateVersion));
+            var source = await db.ReadingBookAssignments.Include(x => x.Book)
+                .SingleOrDefaultAsync(x => x.Id == request.AssignmentId, token);
+            if (source is null) return Outcome.Unchanged(Failure("assignment_not_found", ReadingReplyFormatter.AssignmentNotFound, programme.StateVersion));
+            if (source.Status == ReadingAssignmentStatus.Completed)
+                return Outcome.Unchanged(Failure("assignment_completed", ReadingReplyFormatter.CompletedAssignmentCannotChange(source.Book?.Title ?? "Book"), programme.StateVersion));
+            if (source.Status == ReadingAssignmentStatus.Archived)
+                return Outcome.Unchanged(Failure("assignment_archived", ReadingReplyFormatter.ArchivedAssignmentCannotChange(source.Book?.Title ?? "Book"), programme.StateVersion));
+            if (source.Status != ReadingAssignmentStatus.Active)
+                return Outcome.Unchanged(Failure("assignment_not_active", ReadingReplyFormatter.AssignmentNotActiveChange(source.Book?.Title ?? "Book"), programme.StateVersion));
+            if (source.Mode == request.Mode)
+                return Outcome.Unchanged(Failure("mode_unchanged", ReadingReplyFormatter.ModeUnchanged(source.Book?.Title ?? "Book", request.Mode), programme.StateVersion));
+            if (await db.ReadingSessions.AnyAsync(x => x.BookAssignmentId == source.Id, token))
+                return Outcome.Unchanged(Failure("assignment_has_sessions", ReadingReplyFormatter.AssignmentHasSessions(source.Book?.Title ?? "Book"), programme.StateVersion));
+
+            var collider = await db.ReadingBookAssignments.SingleOrDefaultAsync(
+                x => x.BookId == source.BookId && x.Mode == request.Mode
+                    && x.Id != source.Id && x.Status == ReadingAssignmentStatus.Active, token);
+            if (collider is not null
+                && await db.ReadingSessions.AnyAsync(x => x.BookAssignmentId == collider.Id, token))
+                return Outcome.Unchanged(Failure("mode_collision_has_sessions", ReadingReplyFormatter.CollisionRejected(source.Book?.Title ?? "Book", request.Mode), programme.StateVersion));
+
+            var previousMode = source.Mode;
+            var absorbed = collider is not null;
+            var inheritsDefault = collider?.DefaultSlot == ReadingBookAssignment.DefaultSentinelFor(request.Mode);
+
+            // Phase 1: release every involved default sentinel so the unique
+            // index on DefaultSlot is satisfied before any sentinel is claimed.
+            source.DefaultSlot = null;
+            if (collider is not null) collider.DefaultSlot = null;
+            await db.SaveChangesAsync(token);
+
+            // Phase 2: move the source into the target mode, inherit the
+            // target default only when the absorbed collider held it, and
+            // delete the collider.
+            source.Mode = request.Mode;
+            source.DefaultSlot = inheritsDefault ? ReadingBookAssignment.DefaultSentinelFor(request.Mode) : null;
+            if (collider is not null) db.ReadingBookAssignments.Remove(collider);
+            await db.SaveChangesAsync(token);
+
+            var data = new ReadingChangeBookModeDataDto(
+                source.Id, source.BookId, previousMode, source.Mode, source.QueueOrder,
+                source.DefaultSlot?.ToString(), absorbed, absorbed ? collider!.Id : null);
+            var reply = absorbed
+                ? ReadingReplyFormatter.CollisionAbsorbed(source.Book?.Title ?? "Book", request.Mode)
+                : ReadingReplyFormatter.ModeChanged(source.Book?.Title ?? "Book", request.Mode);
+            return Outcome.Changed(Result(reply, data, programme.StateVersion));
+        }, ct);
+
+    // Removes an active, session-free assignment from the queue. Deleting the
+    // row naturally clears its default slot; remaining assignments keep their
+    // queue order (a gap is left where the removed entry stood).
+    public Task<ReadingCommandResultDto> RemoveBookAssignmentAsync(
+        ReadingRemoveBookAssignmentCommandRequest request, CancellationToken ct = default) =>
+        MutateAsync(request.ClientId, request.IdempotencyKey, "RemoveBookAssignment", async (db, token) =>
+        {
+            var programme = await ProgrammeAsync(db, token);
+            if (programme is null) return Outcome.Unchanged(Failure("not_initialized", "Reading training is not initialized."));
+            var assignment = await db.ReadingBookAssignments.Include(x => x.Book)
+                .SingleOrDefaultAsync(x => x.Id == request.AssignmentId, token);
+            if (assignment is null) return Outcome.Unchanged(Failure("assignment_not_found", ReadingReplyFormatter.AssignmentNotFound, programme.StateVersion));
+            if (assignment.Status == ReadingAssignmentStatus.Completed)
+                return Outcome.Unchanged(Failure("assignment_completed", ReadingReplyFormatter.CompletedAssignmentCannotChange(assignment.Book?.Title ?? "Book"), programme.StateVersion));
+            if (assignment.Status == ReadingAssignmentStatus.Archived)
+                return Outcome.Unchanged(Failure("assignment_archived", ReadingReplyFormatter.ArchivedAssignmentCannotChange(assignment.Book?.Title ?? "Book"), programme.StateVersion));
+            if (assignment.Status != ReadingAssignmentStatus.Active)
+                return Outcome.Unchanged(Failure("assignment_not_active", ReadingReplyFormatter.AssignmentNotActiveRemoval(assignment.Book?.Title ?? "Book"), programme.StateVersion));
+            if (await db.ReadingSessions.AnyAsync(x => x.BookAssignmentId == assignment.Id, token))
+                return Outcome.Unchanged(Failure("assignment_has_sessions", ReadingReplyFormatter.AssignmentHasSessionsAndCannotBeRemoved(assignment.Book?.Title ?? "Book"), programme.StateVersion));
+
+            var data = new ReadingRemoveBookAssignmentDataDto(
+                assignment.Id, assignment.BookId, assignment.Mode, assignment.QueueOrder);
+            db.ReadingBookAssignments.Remove(assignment);
+            return Outcome.Changed(Result(ReadingReplyFormatter.RemovedFromQueue(assignment.Book?.Title ?? "Book"), data, programme.StateVersion));
+        }, ct);
+
     public Task<ReadingCommandResultDto> PlanSessionAsync(
         ReadingPlanSessionRequest request, CancellationToken ct = default) =>
         MutateAsync(request.ClientId, request.IdempotencyKey, "PlanSession", async (db, token) =>

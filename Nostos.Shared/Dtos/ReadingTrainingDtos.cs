@@ -106,6 +106,37 @@ public record ReadingUpdateBookAssignmentRequest(
     ReadingMode Mode
 );
 
+// PATCH /books/{assignmentId}/mode body: moves an active, session-free
+// assignment into another mode (absorbing a session-free duplicate collider
+// in the target mode when one exists).
+public record ReadingChangeBookModeRequest(
+    string ClientId,
+    string IdempotencyKey,
+    ReadingMode Mode
+);
+
+// DELETE /books/{assignmentId} body: removes an active, session-free
+// assignment from the queue entirely.
+public record ReadingRemoveBookAssignmentRequest(
+    string ClientId,
+    string IdempotencyKey
+);
+
+// Command forms carry the assignment id in the path, so the REST body stays
+// free of it; the service layer consumes these.
+public record ReadingChangeBookModeCommandRequest(
+    string ClientId,
+    string IdempotencyKey,
+    Guid AssignmentId,
+    ReadingMode Mode
+);
+
+public record ReadingRemoveBookAssignmentCommandRequest(
+    string ClientId,
+    string IdempotencyKey,
+    Guid AssignmentId
+);
+
 // --- CAPTURE / INBOX ---
 public record ReadingCaptureRequest(
     string ClientId,
@@ -194,6 +225,31 @@ public record ReadingBookAssignmentDto(
     DateTime CreatedAt,
     DateTime? StartedAt,
     DateTime? CompletedAt
+);
+
+// Result of a change-mode command. DefaultSlot is the assignment's default
+// sentinel (the target mode's integer sentinel) rendered as a string, or null
+// when the assignment is not the default of its (new) mode. When the move
+// absorbed a duplicate collider, CollisionAbsorbed is true and
+// AbsorbedAssignmentId names the removed duplicate.
+public record ReadingChangeBookModeDataDto(
+    Guid AssignmentId,
+    Guid BookId,
+    ReadingMode PreviousMode,
+    ReadingMode Mode,
+    int QueueOrder,
+    string? DefaultSlot,
+    bool CollisionAbsorbed,
+    Guid? AbsorbedAssignmentId
+);
+
+// Result of a remove-from-queue command; the row is gone, so the payload is
+// the last known identity of the removed assignment.
+public record ReadingRemoveBookAssignmentDataDto(
+    Guid AssignmentId,
+    Guid BookId,
+    ReadingMode Mode,
+    int QueueOrder
 );
 
 public record ReadingSessionDto(

@@ -127,6 +127,68 @@
   gap: var(--space-xs);
 }
 
+/* Row-end queue controls: compact mode selector + destructive remove. */
+.row-end-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Compact selector sized for the three short mode labels. */
+.mode-select {
+  padding: 0.3rem 0.45rem;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--color-text-main);
+  cursor: pointer;
+  outline: none;
+}
+
+.mode-select:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.mode-select:focus-visible {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08);
+}
+
+.mode-select:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.trash-button {
+  color: var(--color-danger);
+}
+
+.trash-button:hover:not(:disabled) {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-vivid);
+}
+
+.remove-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
 .icon-button {
   display: inline-flex;
   align-items: center;
@@ -214,6 +276,12 @@
     justify-content: flex-start;
   }
 
+  .row-end-actions {
+    grid-column: 2 / -1;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
   .btn {
     min-height: 44px;
   }
@@ -221,6 +289,10 @@
   .icon-button {
     width: 44px;
     height: 44px;
+    min-height: 44px;
+  }
+
+  .mode-select {
     min-height: 44px;
   }
 }

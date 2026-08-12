@@ -121,11 +121,16 @@
     <app-active-books
       [books]="store.books()"
       [mutating]="store.mutating()"
+      [changingModeAssignmentId]="store.changingModeAssignmentId()"
+      [removingAssignmentId]="store.removingAssignmentId()"
+      [openAssignmentId]="store.openSession()?.bookAssignmentId ?? null"
       (setDefault)="onSetDefault($event)"
       (finish)="onFinish($event)"
       (reactivate)="onReactivate($event)"
       (reorder)="onReorder($event)"
       (addRequested)="onAddRequested($event)"
+      (changeMode)="onChangeMode($event)"
+      (remove)="onRemoveBook($event)"
     />
 
     <app-reading-inbox

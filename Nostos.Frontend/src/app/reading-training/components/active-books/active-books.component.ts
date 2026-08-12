@@ -1,5 +1,5 @@
-import { Component, computed, input, output } from '@angular/core';
-import { LucideAngularModule, ArrowDown, ArrowUp, Check } from 'lucide-angular';
+import { Component, computed, input, output, signal } from '@angular/core';
+import { LucideAngularModule, ArrowDown, ArrowUp, Check, Trash2 } from 'lucide-angular';
 
 import {
   ReadingAssignmentStatus,
@@ -21,6 +21,12 @@ export interface ActiveBooksGroup {
 export interface ActiveBooksReorderEvent {
   mode: ReadingMode;
   assignmentIds: string[];
+}
+
+/** Mode-change event carrying the assignment and its requested mode. */
+export interface ActiveBooksChangeModeEvent {
+  assignment: ReadingBookAssignment;
+  mode: ReadingMode;
 }
 
 const MODE_LABELS: Record<ReadingMode, string> = {
@@ -53,18 +59,34 @@ export class ActiveBooksComponent {
   readonly ArrowUpIcon = ArrowUp;
   readonly ArrowDownIcon = ArrowDown;
   readonly CheckIcon = Check;
+  readonly Trash2Icon = Trash2;
 
   readonly books = input<ReadingBookAssignment[]>([]);
   readonly mutating = input<boolean>(false);
+
+  /** Assignment id whose mode change is in flight; only that row's controls lock. */
+  readonly changingModeAssignmentId = input<string | null>(null);
+  /** Assignment id whose removal is in flight; only that row's controls lock. */
+  readonly removingAssignmentId = input<string | null>(null);
+  /** Assignment id of the open session; its row's queue controls stay disabled. */
+  readonly openAssignmentId = input<string | null>(null);
 
   readonly setDefault = output<ReadingBookAssignment>();
   readonly finish = output<ReadingBookAssignment>();
   readonly reactivate = output<ReadingBookAssignment>();
   readonly reorder = output<ActiveBooksReorderEvent>();
   readonly addRequested = output<ReadingMode>();
+  readonly changeMode = output<ActiveBooksChangeModeEvent>();
+  readonly remove = output<ReadingBookAssignment>();
 
   readonly modeEnum = ReadingMode;
   readonly statusEnum = ReadingAssignmentStatus;
+
+  /** The three queueable modes, in display order. */
+  readonly modeOptions: readonly ReadingMode[] = MODE_ORDER;
+
+  /** Assignment id whose removal confirmation is showing, or null. */
+  readonly confirmingRemovalId = signal<string | null>(null);
 
   readonly hasAnyBooks = computed(() => this.books().length > 0);
 
@@ -102,6 +124,48 @@ export class ActiveBooksComponent {
   /** Queued (not yet defaulted) Active books can be made the mode default. */
   canSetDefault(book: ReadingBookAssignment): boolean {
     return book.status === ReadingAssignmentStatus.Active && !book.isDefault;
+  }
+
+  modeLabel(mode: ReadingMode): string {
+    return MODE_LABELS[mode];
+  }
+
+  /**
+   * Row-level queue controls (mode selector + remove) lock only when the row
+   * itself is busy: it owns the open session, its own mode change/removal is
+   * in flight, or any command is mutating (the store serializes mutations).
+   * An unrelated row's pending signal never locks this row.
+   */
+  rowActionsDisabled(book: ReadingBookAssignment): boolean {
+    return (
+      this.mutating() ||
+      this.openAssignmentId() === book.id ||
+      this.changingModeAssignmentId() === book.id ||
+      this.removingAssignmentId() === book.id
+    );
+  }
+
+  /** Emits the requested mode only when it differs from the assignment's current mode. */
+  onModeChange(book: ReadingBookAssignment, event: Event): void {
+    const mode = Number((event.target as HTMLSelectElement).value) as ReadingMode;
+    if (mode === book.mode) return;
+    this.changeMode.emit({ assignment: book, mode });
+  }
+
+  /** Opens the inline removal confirmation for this row. */
+  requestRemoval(book: ReadingBookAssignment): void {
+    this.confirmingRemovalId.set(book.id);
+  }
+
+  /** Confirms removal: emits the assignment and closes the confirmation. */
+  confirmRemoval(book: ReadingBookAssignment): void {
+    this.confirmingRemovalId.set(null);
+    this.remove.emit(book);
+  }
+
+  /** Closes the inline removal confirmation without emitting. */
+  cancelRemoval(): void {
+    this.confirmingRemovalId.set(null);
   }
 
   moveUp(mode: ReadingMode, index: number): void {

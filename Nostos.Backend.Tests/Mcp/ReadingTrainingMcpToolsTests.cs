@@ -449,6 +449,46 @@ public sealed class ReadingTrainingMcpToolsTests
     }
 
     [Fact]
+    public async Task ChangeBookMode_ForwardsExactAssignmentIdAndModeOnce()
+    {
+        var service = new FakeReadingTrainingService();
+        var envelope = Ok("Meditations moved to Deep.", new ReadingChangeBookModeDataDto(
+            Guid.NewGuid(), Guid.NewGuid(), ReadingMode.Endurance, ReadingMode.Deep, 0, "1", false, null));
+        service.ChangeBookModeResult = envelope;
+        var tools = new ReadingTrainingMcpTools(service);
+        var assignmentId = Guid.NewGuid();
+        using var cts = new CancellationTokenSource();
+
+        var result = await tools.ChangeBookModeAsync("change-key-1", assignmentId, ReadingMode.Deep, cts.Token);
+
+        result.Should().BeSameAs(envelope);
+        service.Called.Should().Equal(nameof(FakeReadingTrainingService.ChangeBookModeAsync));
+        service.LastChangeBookModeRequest.Should().Be(new ReadingChangeBookModeCommandRequest(
+            "nostos-mcp", "change-key-1", assignmentId, ReadingMode.Deep));
+        service.LastToken.Should().Be(cts.Token);
+    }
+
+    [Fact]
+    public async Task RemoveBook_ForwardsExactAssignmentIdOnce()
+    {
+        var service = new FakeReadingTrainingService();
+        var envelope = Ok("Meditations removed from the queue.", new ReadingRemoveBookAssignmentDataDto(
+            Guid.NewGuid(), Guid.NewGuid(), ReadingMode.Endurance, 0));
+        service.RemoveBookResult = envelope;
+        var tools = new ReadingTrainingMcpTools(service);
+        var assignmentId = Guid.NewGuid();
+        using var cts = new CancellationTokenSource();
+
+        var result = await tools.RemoveBookAsync("remove-key-1", assignmentId, cts.Token);
+
+        result.Should().BeSameAs(envelope);
+        service.Called.Should().Equal(nameof(FakeReadingTrainingService.RemoveBookAssignmentAsync));
+        service.LastRemoveBookRequest.Should().Be(new ReadingRemoveBookAssignmentCommandRequest(
+            "nostos-mcp", "remove-key-1", assignmentId));
+        service.LastToken.Should().Be(cts.Token);
+    }
+
+    [Fact]
     public async Task ResolveCapture_ForwardsExactIdsAndActionOnce_WithOptionalNoteId()
     {
         var service = new FakeReadingTrainingService();
@@ -542,6 +582,8 @@ public sealed class ReadingTrainingMcpToolsTests
         service.AddBookResult = rejection;
         service.SetDefaultBookResult = rejection;
         service.CompleteBookResult = rejection;
+        service.ChangeBookModeResult = rejection;
+        service.RemoveBookResult = rejection;
         service.ResolveCaptureResult = rejection;
         service.CommitReviewResult = rejection;
         service.Called.Clear();
@@ -570,6 +612,8 @@ public sealed class ReadingTrainingMcpToolsTests
             { "addBook", (tools, _) => tools.AddBookAsync("dup-key", assignmentId, ReadingMode.Deep, false, CancellationToken.None).GetAwaiter().GetResult() },
             { "setDefaultBook", (tools, _) => tools.SetDefaultBookAsync("dup-key", assignmentId, ReadingMode.Endurance, CancellationToken.None).GetAwaiter().GetResult() },
             { "finishBook", (tools, _) => tools.FinishBookAsync("dup-key", assignmentId, CancellationToken.None).GetAwaiter().GetResult() },
+            { "changeBookMode", (tools, _) => tools.ChangeBookModeAsync("dup-key", assignmentId, ReadingMode.Deep, CancellationToken.None).GetAwaiter().GetResult() },
+            { "removeBook", (tools, _) => tools.RemoveBookAsync("dup-key", assignmentId, CancellationToken.None).GetAwaiter().GetResult() },
             { "resolveCapture", (tools, _) => tools.ResolveCaptureAsync("dup-key", captureId, true, null, CancellationToken.None).GetAwaiter().GetResult() },
             { "commitReview", (tools, _) => tools.CommitReviewAsync("dup-key", 2026, 32, CancellationToken.None).GetAwaiter().GetResult() },
         };
@@ -617,9 +661,9 @@ public sealed class ReadingTrainingMcpToolsTests
 
 // Records which service methods the tools actually invoke, the cancellation
 // token passed for each call, and the exact request DTO of every mutation.
-// The fourteen mutation methods exercised by the Task 9B2 tools return a
+// The sixteen mutation methods exercised by the mutation tools return a
 // configurable envelope; the remaining mutation surface throws: neither the
-// read-only tools nor the fourteen mutation tools may ever reach them.
+// read-only tools nor the mutation tools may ever reach them.
 public sealed class FakeReadingTrainingService : IReadingTrainingService
 {
     public ReadingCommandResultDto DashboardResult { get; set; } = Ok(null);
@@ -639,6 +683,8 @@ public sealed class FakeReadingTrainingService : IReadingTrainingService
     public ReadingCommandResultDto AddBookResult { get; set; } = Ok(null);
     public ReadingCommandResultDto SetDefaultBookResult { get; set; } = Ok(null);
     public ReadingCommandResultDto CompleteBookResult { get; set; } = Ok(null);
+    public ReadingCommandResultDto ChangeBookModeResult { get; set; } = Ok(null);
+    public ReadingCommandResultDto RemoveBookResult { get; set; } = Ok(null);
     public ReadingCommandResultDto ResolveCaptureResult { get; set; } = Ok(null);
     public ReadingCommandResultDto CommitReviewResult { get; set; } = Ok(null);
 
@@ -657,6 +703,8 @@ public sealed class FakeReadingTrainingService : IReadingTrainingService
     public ReadingAddBookAssignmentRequest? LastAddBookRequest { get; private set; }
     public ReadingSetDefaultBookRequest? LastSetDefaultRequest { get; private set; }
     public ReadingCompleteBookRequest? LastCompleteBookRequest { get; private set; }
+    public ReadingChangeBookModeCommandRequest? LastChangeBookModeRequest { get; private set; }
+    public ReadingRemoveBookAssignmentCommandRequest? LastRemoveBookRequest { get; private set; }
     public Guid? LastResolveCaptureId { get; private set; }
     public ReadingResolveCaptureRequest? LastResolveCaptureRequest { get; private set; }
     public ReadingCommitWeeklyReviewRequest? LastCommitReviewRequest { get; private set; }
@@ -741,6 +789,22 @@ public sealed class FakeReadingTrainingService : IReadingTrainingService
         LastCompleteBookRequest = request;
         LastMutationResult = CompleteBookResult;
         return Task.FromResult(CompleteBookResult);
+    }
+
+    public Task<ReadingCommandResultDto> ChangeBookModeAsync(ReadingChangeBookModeCommandRequest request, CancellationToken ct = default)
+    {
+        Record(nameof(ChangeBookModeAsync), ct);
+        LastChangeBookModeRequest = request;
+        LastMutationResult = ChangeBookModeResult;
+        return Task.FromResult(ChangeBookModeResult);
+    }
+
+    public Task<ReadingCommandResultDto> RemoveBookAssignmentAsync(ReadingRemoveBookAssignmentCommandRequest request, CancellationToken ct = default)
+    {
+        Record(nameof(RemoveBookAssignmentAsync), ct);
+        LastRemoveBookRequest = request;
+        LastMutationResult = RemoveBookResult;
+        return Task.FromResult(RemoveBookResult);
     }
 
     public Task<ReadingCommandResultDto> ReorderQueueAsync(ReadingReorderQueueRequest request, CancellationToken ct = default)

@@ -7,6 +7,8 @@ import {
   ReadingBookAssignment,
   ReadingCapture,
   ReadingCaptureRequest,
+  ReadingChangeBookModeData,
+  ReadingChangeBookModeRequest,
   ReadingCommandRequest,
   ReadingCommandResult,
   ReadingCommitWeeklyReviewRequest,
@@ -18,6 +20,8 @@ import {
   ReadingProgramme,
   ReadingPromoteCaptureRequest,
   ReadingRateSessionRequest,
+  ReadingRemoveBookAssignmentData,
+  ReadingRemoveBookAssignmentRequest,
   ReadingReorderQueueRequest,
   ReadingResolveCaptureRequest,
   ReadingSession,
@@ -102,6 +106,26 @@ export class ReadingTrainingService {
 
   reorderQueue(request: ReadingReorderQueueRequest): Observable<ReadingCommandResult<ReadingBookAssignment[]>> {
     return this.http.post<ReadingCommandResult<ReadingBookAssignment[]>>(`${this.baseUrl}/books/reorder`, request);
+  }
+
+  changeBookMode(
+    assignmentId: string,
+    request: ReadingChangeBookModeRequest
+  ): Observable<ReadingCommandResult<ReadingChangeBookModeData>> {
+    return this.http.patch<ReadingCommandResult<ReadingChangeBookModeData>>(
+      `${this.baseUrl}/books/${assignmentId}/mode`,
+      request
+    );
+  }
+
+  removeBookAssignment(
+    assignmentId: string,
+    request: ReadingRemoveBookAssignmentRequest
+  ): Observable<ReadingCommandResult<ReadingRemoveBookAssignmentData>> {
+    return this.http.delete<ReadingCommandResult<ReadingRemoveBookAssignmentData>>(
+      `${this.baseUrl}/books/${assignmentId}`,
+      { body: request }
+    );
   }
 
   // --- sessions ---

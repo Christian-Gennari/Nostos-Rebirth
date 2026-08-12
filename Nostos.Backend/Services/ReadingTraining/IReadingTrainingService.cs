@@ -24,6 +24,8 @@ public interface IReadingTrainingService
     Task<ReadingCommandResultDto> SetDefaultBookAsync(ReadingSetDefaultBookRequest request, CancellationToken ct = default);
     Task<ReadingCommandResultDto> CompleteBookAsync(ReadingCompleteBookRequest request, CancellationToken ct = default);
     Task<ReadingCommandResultDto> ReorderQueueAsync(ReadingReorderQueueRequest request, CancellationToken ct = default);
+    Task<ReadingCommandResultDto> ChangeBookModeAsync(ReadingChangeBookModeCommandRequest request, CancellationToken ct = default);
+    Task<ReadingCommandResultDto> RemoveBookAssignmentAsync(ReadingRemoveBookAssignmentCommandRequest request, CancellationToken ct = default);
 
     // --- sessions ---
     Task<ReadingCommandResultDto> PlanSessionAsync(ReadingPlanSessionRequest request, CancellationToken ct = default);
