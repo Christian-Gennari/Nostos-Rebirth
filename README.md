@@ -20,6 +20,8 @@ A self-hosted personal library and knowledge management system. Manage books, e-
 - **PDFs** — Integrated viewer
 - **Audiobooks** — Chapter-aware player with M4B/M4A/MP3 metadata extraction
 - **Collections** — Nested folder hierarchy, drag-and-drop organisation
+- **Canonical library service** — Create-or-match dedupe on normalized ISBN/ASIN and exact title+author; validated progress; collections with sibling dedupe and cycle detection
+- **Library MCP tools** — 11 authenticated agent tools for books and collections (create-or-match, update, resolve, collections)
 - **Search, sort & filter** — By title, rating, recency, reading status, or collection
 
 <details>
@@ -58,7 +60,7 @@ A self-hosted personal library and knowledge management system. Manage books, e-
 - **Multiple books and verbatim captures** — Train with different books in the same week; thoughts, questions, and bookmarks retain their exact text and book/session link.
 - **Restart-safe and exact-once** — SQLite constraints, persisted elapsed time, command receipts, and idempotency keys prevent duplicate effects and preserve active or paused sessions across restarts.
 - **Nostos-owned automation** — Weekly review and notification-outbox workers run inside Nostos. Reading data is included in normal `.nostos` backup/restore archives.
-- **Optional integrations** — Authenticated local MCP exposes the same service as REST. The optional Hermes connector only routes the configured Telegram Reading topic and owns no state.
+- **Optional integrations** — Authenticated local MCP exposes the same service as REST (34 tools across reading training and the library). The optional Hermes connector only routes the configured Telegram Reading topic and Discord #reading channel, and owns no state.
 
 ### Second Brain
 
@@ -170,7 +172,7 @@ The frontend proxies `/api` requests to the backend via `proxy.conf.json`.
 | File storage | `Storage/books/` (configurable via `FileStorageSettings`)    |
 | CORS (dev)   | Handled by `proxy.conf.json` — no backend CORS config needed |
 | Reading UI   | `/training`; fully functional with MCP and Hermes disabled   |
-| Reading MCP  | Opt-in `Mcp:Enabled`; bearer token is read from an environment variable only |
+| MCP (reading + library) | Opt-in `Mcp:Enabled` (route `/mcp`); bearer token is read from an environment variable only (default `NOSTOS_MCP_TOKEN`) |
 
 ## Documentation
 
@@ -190,7 +192,6 @@ Reading Training's domain contract is in [`docs/reading-training/`](docs/reading
 - Cross-media bookmarking
 - Audiobook metadata enrichment
 - Recursive collection picker
-- OPDS catalog support
 
 ## License
 

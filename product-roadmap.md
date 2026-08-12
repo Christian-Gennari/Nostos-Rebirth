@@ -6,6 +6,10 @@
 
 ---
 
+> **Reviewed 2026-08-12:** several items below have since shipped — OPDS
+> catalog, Reading Training, MCP, and backup. See the README feature list for
+> the current surface; the items here are left untouched as historical.
+
 ## How to Read This Document
 
 Each item is tagged with:
