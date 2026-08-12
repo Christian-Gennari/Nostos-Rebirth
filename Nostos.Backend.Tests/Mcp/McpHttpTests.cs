@@ -339,6 +339,8 @@ public sealed class McpHttpTests
             "reading_answer_now",
             "reading_add_book",
             "reading_set_default_book",
+            "reading_change_book_mode",
+            "reading_remove_book",
             "reading_finish_book",
             "reading_resolve_capture",
             "reading_commit_review",

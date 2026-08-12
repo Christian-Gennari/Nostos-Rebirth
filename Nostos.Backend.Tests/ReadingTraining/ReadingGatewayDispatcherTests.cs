@@ -105,6 +105,10 @@ public sealed class ReadingGatewayDispatcherTests
             Task.FromResult(MutationEnvelope);
         public Task<ReadingCommandResultDto> ReorderQueueAsync(ReadingReorderQueueRequest request, CancellationToken ct = default) =>
             Task.FromResult(MutationEnvelope);
+        public Task<ReadingCommandResultDto> ChangeBookModeAsync(ReadingChangeBookModeCommandRequest request, CancellationToken ct = default) =>
+            Task.FromResult(MutationEnvelope);
+        public Task<ReadingCommandResultDto> RemoveBookAssignmentAsync(ReadingRemoveBookAssignmentCommandRequest request, CancellationToken ct = default) =>
+            Task.FromResult(MutationEnvelope);
         public Task<ReadingCommandResultDto> PlanSessionAsync(ReadingPlanSessionRequest request, CancellationToken ct = default) =>
             Task.FromResult(MutationEnvelope);
         public Task<ReadingCommandResultDto> PreviewWeeklyReviewAsync(ReadingWeeklyReviewRequest request, CancellationToken ct = default) =>

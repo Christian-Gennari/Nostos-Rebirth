@@ -208,6 +208,25 @@ public sealed class ReadingTrainingMcpTools
         _service.CompleteBookAsync(new ReadingCompleteBookRequest(
             ClientId, idempotencyKey, bookAssignmentId), ct);
 
+    [McpServerTool(Name = "reading_change_book_mode")]
+    [Description("Changes the mode of an active book assignment (Endurance, Deep, or Recovery). The server rejects the change while the assignment has any session, when the book already has a session-bearing assignment in the target mode, or when the mode would not change; a session-free duplicate in the target mode is absorbed — the duplicate queue entry is removed and the book keeps its queue position and history.")]
+    public Task<ReadingCommandResultDto> ChangeBookModeAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        [Description("Id of the active book assignment to change the mode of.")] Guid assignmentId,
+        [Description("Target mode for the book: Endurance, Deep, or Recovery.")] ReadingMode mode,
+        CancellationToken ct = default) =>
+        _service.ChangeBookModeAsync(new ReadingChangeBookModeCommandRequest(
+            ClientId, idempotencyKey, assignmentId, mode), ct);
+
+    [McpServerTool(Name = "reading_remove_book")]
+    [Description("Removes an active book assignment from the training queue. The server rejects the removal while the assignment has any session, or when the assignment is completed, archived, or missing.")]
+    public Task<ReadingCommandResultDto> RemoveBookAsync(
+        [Description("Caller-supplied key that makes retries of this command exact-once: reuse the same key to replay the same command.")] string idempotencyKey,
+        [Description("Id of the active book assignment to remove from the queue.")] Guid assignmentId,
+        CancellationToken ct = default) =>
+        _service.RemoveBookAssignmentAsync(new ReadingRemoveBookAssignmentCommandRequest(
+            ClientId, idempotencyKey, assignmentId), ct);
+
     [McpServerTool(Name = "reading_resolve_capture")]
     [Description("Resolves an unresolved inbox capture: keep=true saves it to the existing note given by noteId, keep=false dismisses it. The server validates the capture and note ids and rejects keep=true without a matching note.")]
     public Task<ReadingCommandResultDto> ResolveCaptureAsync(
