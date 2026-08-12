@@ -119,7 +119,7 @@ public sealed class LibraryMcpHttpTests
 
         // REST sees the same canonical row.
         var rest = await client.GetFromJsonAsync<PaginatedResponseDto>("/api/books?search=Fictions");
-        rest.TotalCount.Should().Be(1);
+        rest!.TotalCount.Should().Be(1);
     }
 
     [Fact]

@@ -899,6 +899,22 @@ public sealed class LibraryServiceTests : IClassFixture<ReadingTrainingSqliteFix
         await act.Should().ThrowAsync<OperationCanceledException>();
     }
 
+    [Fact]
+    public async Task Resolve_external_lookup_cancellation_mid_request_rethrows()
+    {
+        // Locks the exact path the reviewer wanted: cancellation arrives WHILE
+        // the provider request is in flight (not during the initial EF query),
+        // and the OperationCanceledException still propagates instead of being
+        // converted to lookup_timeout.
+        using var cts = new CancellationTokenSource();
+        var h = Harness(new CancelOnRequestHttpClientFactory(cts));
+
+        var act = () => h.Service.ResolveBookAsync(
+            new LibraryResolveBookRequest(Isbn: IsbnBorges, IncludeExternalMetadata: true), cts.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
@@ -985,6 +1001,31 @@ public sealed class LibraryServiceTests : IClassFixture<ReadingTrainingSqliteFix
             protected override Task<HttpResponseMessage> SendAsync(
                 HttpRequestMessage request, CancellationToken cancellationToken) =>
                 throw new HttpRequestException("provider unreachable");
+        }
+    }
+
+    // Cancels the CALLER's token the moment the first provider request
+    // arrives, then fails — the mid-flight cancellation path.
+    private sealed class CancelOnRequestHttpClientFactory : IHttpClientFactory
+    {
+        private readonly CancellationTokenSource _cts;
+
+        public CancelOnRequestHttpClientFactory(CancellationTokenSource cts) => _cts = cts;
+
+        public HttpClient CreateClient(string name) => new(new CancelOnRequestHandler(_cts));
+
+        private sealed class CancelOnRequestHandler : HttpMessageHandler
+        {
+            private readonly CancellationTokenSource _cts;
+
+            public CancelOnRequestHandler(CancellationTokenSource cts) => _cts = cts;
+
+            protected override Task<HttpResponseMessage> SendAsync(
+                HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                _cts.Cancel();
+                throw new OperationCanceledException(_cts.Token);
+            }
         }
     }
 
