@@ -2,6 +2,7 @@ using Nostos.Backend.Data.Interfaces;
 using Nostos.Backend.Data.Models;
 using Nostos.Backend.Mapping;
 using Nostos.Backend.Services;
+using Nostos.Backend.Services.Library;
 using Nostos.Shared.Dtos;
 using Nostos.Shared.Enums;
 
@@ -13,109 +14,101 @@ public static class BooksEndpoints
     {
         var group = routes.MapGroup("/api/books");
 
-        // GET all books (CLEANED UP!)
+        // GET all books
         group.MapGet(
             "/",
             async (
-                IBookRepository repo,
+                ILibraryService library,
                 string? filter,
                 string? sort,
                 string? search,
                 int? page,
                 int? pageSize,
-                Guid? collectionId
+                Guid? collectionId,
+                CancellationToken ct
             ) =>
             {
-                // Parse Enums
                 Enum.TryParse<BookFilter>(filter, true, out var filterEnum);
                 Enum.TryParse<BookSort>(sort, true, out var sortEnum);
 
-                var p = page ?? 1;
-                var ps = pageSize ?? 20;
+                var result = await library.ListBooksAsync(
+                    filterEnum, sortEnum, search, page ?? 1, pageSize ?? 20, collectionId, ct);
 
-                // Call Repo
-                var result = await repo.GetBooksAsync(search, filterEnum, sortEnum, p, ps, collectionId);
-
-                // Map to DTOs
-                var dtos = result.Items.Select(b => b.ToDto());
-
-                return Results.Ok(new PaginatedResponse<BookDto>(dtos, result.TotalCount, p, ps));
+                return LibraryHttpMapper.MapError(result) ?? Results.Ok(result.Data);
             }
         );
 
         // GET one
         group.MapGet(
             "/{id}",
-            async (Guid id, IBookRepository repo) =>
+            async (Guid id, ILibraryService library, CancellationToken ct) =>
             {
-                var book = await repo.GetByIdAsync(id);
-                return book is null ? Results.NotFound() : Results.Ok(book.ToDto());
+                var result = await library.GetBookAsync(id, ct);
+                return LibraryHttpMapper.MapError(result) ?? Results.Ok(result.Data);
             }
         );
 
-        // CREATE
+        // CREATE (create-or-match, legacy permissive semantics: ambiguity
+        // creates rather than asking; exact matches return the existing book)
         group.MapPost(
             "/",
-            async (CreateBookDto dto, IBookRepository repo) =>
+            async (CreateBookDto dto, ILibraryService library, CancellationToken ct) =>
             {
-                if (string.IsNullOrWhiteSpace(dto.Title))
-                    return Results.BadRequest(new { error = "Title is required." });
+                var request = new LibraryCreateBookRequest(
+                    "rest", $"rest-create-{Guid.NewGuid():N}",
+                    dto.Type, dto.Title,
+                    dto.Subtitle, dto.Author, dto.Editor, dto.Translator, dto.Narrator,
+                    dto.Description, dto.Isbn, dto.Asin, dto.Duration,
+                    dto.Publisher, dto.PlaceOfPublication, dto.PublishedDate, dto.Edition,
+                    dto.PageCount, dto.Language, dto.Categories, dto.Series, dto.VolumeNumber,
+                    dto.CollectionId, dto.Rating, dto.IsFavorite, dto.PersonalReview, dto.FinishedAt);
 
-                var model = dto.ToModel();
-                model.CollectionId = dto.CollectionId;
+                var result = await library.CreateOrMatchBookAsync(request, strictConfirmation: false, ct);
+                if (LibraryHttpMapper.MapError(result) is { } error)
+                    return error;
 
-                await repo.AddAsync(model);
-
-                return Results.Created($"/api/books/{model.Id}", model.ToDto());
+                var outcome = (LibraryCreateOrMatchResultDto)result.Data!;
+                return outcome.Outcome == "created"
+                    ? Results.Created($"/api/books/{outcome.BookId}", outcome.Book)
+                    : Results.Ok(outcome.Book);
             }
         );
 
         // UPDATE
         group.MapPut(
             "/{id}",
-            async (Guid id, UpdateBookDto dto, IBookRepository repo) =>
+            async (Guid id, UpdateBookDto dto, ILibraryService library, CancellationToken ct) =>
             {
-                var book = await repo.GetByIdAsync(id);
-                if (book is null)
-                    return Results.NotFound();
+                var request = new LibraryUpdateBookRequest(
+                    "rest", $"rest-update-{Guid.NewGuid():N}",
+                    id,
+                    dto.Title, dto.Subtitle, dto.Author, dto.Editor, dto.Translator, dto.Narrator,
+                    dto.Description, dto.Isbn, dto.Asin, dto.Duration,
+                    dto.Publisher, dto.PlaceOfPublication, dto.PublishedDate, dto.Edition,
+                    dto.PageCount, dto.Language, dto.Categories, dto.Series, dto.VolumeNumber,
+                    dto.CollectionId, ClearCollection: false,
+                    dto.Rating, dto.IsFavorite, dto.PersonalReview, dto.FinishedAt, dto.IsFinished);
 
-                if (dto.Title is not null && string.IsNullOrWhiteSpace(dto.Title))
-                    return Results.BadRequest(new { error = "Title cannot be empty." });
-
-                book.Apply(dto);
-                await repo.UpdateAsync(book);
-
-                return Results.Ok(book.ToDto());
+                var result = await library.UpdateBookAsync(request, ct);
+                return LibraryHttpMapper.MapError(result) ?? Results.Ok(result.Data);
             }
         );
 
-        // UPDATE Progress
+        // UPDATE Progress (canonical service; validated 0..100, FinishedAt
+        // alignment, version bump; not receipt-guarded by design)
         group.MapPut(
             "/{id}/progress",
-            async (Guid id, UpdateProgressDto dto, IBookRepository repo) =>
+            async (Guid id, UpdateProgressDto dto, ILibraryService library, CancellationToken ct) =>
             {
-                var book = await repo.GetByIdAsync(id);
-                if (book is null)
-                    return Results.NotFound();
-
-                book.Progress.LastLocation = dto.Location;
-                book.Progress.ProgressPercent = dto.Percentage;
-                book.Progress.LastReadAt = DateTime.UtcNow;
-
-                if (book.Progress.ProgressPercent >= 100 && book.Progress.FinishedAt == null)
-                {
-                    book.Progress.FinishedAt = DateTime.UtcNow;
-                }
-
-                await repo.UpdateAsync(book);
-                return Results.Ok(new { updated = true });
+                var result = await library.UpdateProgressAsync(id, dto.Location, dto.Percentage, ct);
+                return LibraryHttpMapper.MapError(result) ?? Results.Ok(result.Data);
             }
         );
 
         // GET Epub cached locations (Cached)
         group.MapGet(
             "/{id}/locations",
-            async (Guid id, IBookRepository repo) =>
+            async (Guid id, IBookRepository repo, CancellationToken ct) =>
             {
                 var book = await repo.GetByIdAsync(id);
                 if (book is null)
@@ -131,7 +124,7 @@ public static class BooksEndpoints
         // SAVE Locations (Cache them)
         group.MapPost(
             "/{id}/locations",
-            async (Guid id, BookLocationsDto dto, IBookRepository repo) =>
+            async (Guid id, BookLocationsDto dto, IBookRepository repo, CancellationToken ct) =>
             {
                 var book = await repo.GetByIdAsync(id);
                 if (book is null)
@@ -144,19 +137,18 @@ public static class BooksEndpoints
             }
         );
 
-        // DELETE
+        // DELETE (row first through the canonical service; storage files are
+        // removed only after the row is gone, so an in-use book keeps its
+        // files)
         group.MapDelete(
             "/{id}",
-            async (Guid id, IBookRepository repo, IFileStorageService storage) =>
+            async (Guid id, ILibraryService library, IFileStorageService storage, CancellationToken ct) =>
             {
-                var book = await repo.GetByIdAsync(id);
-                if (book is null)
-                    return Results.NotFound();
+                var result = await library.DeleteBookAsync(id, ct);
+                if (LibraryHttpMapper.MapError(result) is { } error)
+                    return error;
 
                 storage.DeleteBookFiles(id);
-
-                await repo.DeleteAsync(book);
-
                 return Results.NoContent();
             }
         );
@@ -169,14 +161,15 @@ public static class BooksEndpoints
                 HttpRequest request,
                 IBookRepository repo,
                 IFileStorageService storage,
-                MediaMetadataService metadataService
+                MediaMetadataService metadataService,
+                CancellationToken ct
             ) =>
             {
                 var book = await repo.GetByIdAsync(id);
                 if (book is null)
                     return Results.NotFound();
 
-                var form = await request.ReadFormAsync();
+                var form = await request.ReadFormAsync(ct);
                 var file = form.Files.FirstOrDefault();
                 if (file is null)
                     return Results.BadRequest("Missing file.");
@@ -227,14 +220,15 @@ public static class BooksEndpoints
                 Guid id,
                 HttpRequest request,
                 IBookRepository repo,
-                IFileStorageService storage
+                IFileStorageService storage,
+                CancellationToken ct
             ) =>
             {
                 var book = await repo.GetByIdAsync(id);
                 if (book is null)
                     return Results.NotFound();
 
-                var form = await request.ReadFormAsync();
+                var form = await request.ReadFormAsync(ct);
                 var file = form.Files.FirstOrDefault();
                 if (file is null)
                     return Results.BadRequest("Missing cover file.");
@@ -274,7 +268,7 @@ public static class BooksEndpoints
         // DELETE cover
         group.MapDelete(
             "/{id}/cover",
-            async (Guid id, IBookRepository repo, IFileStorageService storage) =>
+            async (Guid id, IBookRepository repo, IFileStorageService storage, CancellationToken ct) =>
             {
                 var book = await repo.GetByIdAsync(id);
                 if (book is null)
@@ -290,12 +284,15 @@ public static class BooksEndpoints
             }
         );
 
-        // Lookup Service doesn't interact with DB directly, so it stays as is
+        // ISBN metadata lookup (validated before any external call)
         group.MapGet(
             "/lookup/{isbn}",
-            async (string isbn, BookLookupService service) =>
+            async (string isbn, BookLookupService service, CancellationToken ct) =>
             {
-                var metadata = await service.LookupCombinedAsync(isbn);
+                if (BookIdentityNormalizer.NormalizeIsbn(isbn) is null)
+                    return Results.BadRequest(new { error = "Invalid ISBN." });
+
+                var metadata = await service.LookupCombinedAsync(isbn, ct);
                 return metadata is not null ? Results.Ok(metadata) : Results.NotFound();
             }
         );

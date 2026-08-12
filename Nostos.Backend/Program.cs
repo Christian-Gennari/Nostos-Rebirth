@@ -115,6 +115,12 @@ builder.Services.AddProblemDetails();
 builder.Services.AddSingleton<IFileStorageService, FileStorageService>();
 builder.Services.AddSingleton<BackupSettingsProvider>();
 builder.Services.AddHttpClient();
+builder.Services.AddHttpClient(BookLookupService.HttpClientName, client =>
+{
+    // External metadata lookups must never occupy the whole request budget;
+    // typed failure (null) flows out of the lookup service instead.
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
 builder.Services.AddScoped<BookLookupService>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
 builder.Services.AddScoped<MediaMetadataService>();

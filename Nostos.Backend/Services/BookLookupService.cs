@@ -6,17 +6,19 @@ namespace Nostos.Backend.Services;
 
 public partial class BookLookupService(IHttpClientFactory httpClientFactory, ILogger<BookLookupService> logger)
 {
+    public const string HttpClientName = "book-lookup";
+
     [GeneratedRegex("[^0-9X]", RegexOptions.IgnoreCase)]
     private static partial Regex IsbnCleanupRegex();
 
-    public async Task<CreateBookDto?> LookupCombinedAsync(string isbn)
+    public async Task<CreateBookDto?> LookupCombinedAsync(string isbn, CancellationToken ct = default)
     {
-        var client = httpClientFactory.CreateClient();
+        var client = httpClientFactory.CreateClient(HttpClientName);
         isbn = CleanIsbn(isbn);
 
         // 1. Fire both requests in parallel
-        var olTask = FetchOpenLibrary(client, isbn);
-        var gbTask = FetchGoogleBooks(client, isbn);
+        var olTask = FetchOpenLibrary(client, isbn, ct);
+        var gbTask = FetchGoogleBooks(client, isbn, ct);
 
         await Task.WhenAll(olTask, gbTask);
 
@@ -99,13 +101,14 @@ public partial class BookLookupService(IHttpClientFactory httpClientFactory, ILo
     }
 
     // --- GOOGLE BOOKS FETCH (Strictly Typed) ---
-    private async Task<CreateBookDto?> FetchGoogleBooks(HttpClient client, string isbn)
+    private async Task<CreateBookDto?> FetchGoogleBooks(HttpClient client, string isbn, CancellationToken ct)
     {
         try
         {
             // Note: Use 'volumeInfo' in the response record directly
             var response = await client.GetFromJsonAsync<GoogleBooksResponse>(
-                $"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}"
+                $"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}",
+                ct
             );
 
             var item = response?.Items?.FirstOrDefault()?.VolumeInfo;
@@ -148,7 +151,7 @@ public partial class BookLookupService(IHttpClientFactory httpClientFactory, ILo
     }
 
     // --- OPEN LIBRARY FETCH (Strictly Typed) ---
-    private async Task<CreateBookDto?> FetchOpenLibrary(HttpClient client, string isbn)
+    private async Task<CreateBookDto?> FetchOpenLibrary(HttpClient client, string isbn, CancellationToken ct)
     {
         try
         {
@@ -157,7 +160,8 @@ public partial class BookLookupService(IHttpClientFactory httpClientFactory, ILo
             // OpenLibrary returns a Dictionary keyed by the ISBN string.
             // We deserialize into a Dictionary<string, OpenLibraryBook>
             var response = await client.GetFromJsonAsync<Dictionary<string, OpenLibraryBook>>(
-                $"https://openlibrary.org/api/books?bibkeys={key}&jscmd=data&format=json"
+                $"https://openlibrary.org/api/books?bibkeys={key}&jscmd=data&format=json",
+                ct
             );
 
             if (response is null || !response.TryGetValue(key, out var item))
