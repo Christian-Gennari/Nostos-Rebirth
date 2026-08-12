@@ -350,9 +350,18 @@ public sealed class McpHttpTests
             "reading_resolve_capture",
             "reading_commit_review",
         };
+        // The library surface (issue #34) extends the reading manifest.
+        var expectedLibraryNames = new[]
+        {
+            "library_list_books",
+            "library_get_book",
+            "library_resolve_book",
+            "library_create_or_match_book",
+            "library_update_book",
+        };
         var names = tools.EnumerateArray().Select(t => t.GetProperty("name").GetString()).ToList();
-        names.Should().HaveCount(expectedReadNames.Length + expectedMutationNames.Length)
-            .And.BeEquivalentTo(expectedReadNames.Concat(expectedMutationNames));
+        names.Should().HaveCount(expectedReadNames.Length + expectedMutationNames.Length + expectedLibraryNames.Length)
+            .And.BeEquivalentTo(expectedReadNames.Concat(expectedMutationNames).Concat(expectedLibraryNames));
         names.Should().NotContain("nostos_server_info");
 
         var byName = tools.EnumerateArray().ToDictionary(t => t.GetProperty("name").GetString()!);
