@@ -345,6 +345,127 @@
               }
             </div>
           </div>
+
+          <hr class="divider" />
+
+          <section class="training-section" aria-labelledby="training-heading">
+            <div class="training-header">
+              <h3 id="training-heading">Reading Training</h3>
+              <a class="training-open-link" routerLink="/training">Open Reading Training</a>
+            </div>
+
+            @if (trainingStatus(); as status) {
+            <p class="training-status" role="status" aria-live="polite">{{ status }}</p>
+            }
+
+            @if (trainingNotInitialized()) {
+            <div class="training-empty-state">
+              <p>Reading training is not set up yet.</p>
+              <a class="btn btn-secondary training-setup-link" routerLink="/training"
+                >Open Reading Training</a
+              >
+            </div>
+            } @else if (!trainingDashboard() && trainingError(); as error) {
+            <div class="training-error" role="alert">
+              <p>{{ error }}</p>
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm"
+                (click)="retryTraining()"
+                aria-label="Retry loading reading training"
+              >
+                Try again
+              </button>
+            </div>
+            } @else if (!trainingDashboard()) {
+            <p class="training-loading" role="status">Loading reading training…</p>
+            } @else {
+            @if (trainingError(); as error) {
+            <div class="training-error" role="alert">
+              <p>{{ error }}</p>
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm"
+                (click)="retryTraining()"
+                aria-label="Retry loading reading training"
+              >
+                Try again
+              </button>
+            </div>
+            }
+
+            <div class="training-modes" role="group" aria-label="Reading training modes">
+              @for (mode of trainingModes; track mode) {
+              <div class="training-mode-row">
+                <span class="training-mode-name">{{ trainingModeLabel(mode) }}</span>
+                @if (trainingAssignmentFor(mode); as assignment) {
+                  @switch (assignment.status) {
+                    @case (assignmentStatusEnum.Active) {
+                      @if (assignment.isDefault) {
+                      <span class="training-badge">Default</span>
+                      } @else {
+                      <button
+                        type="button"
+                        class="btn btn-xs btn-ghost training-default-btn"
+                        (click)="makeTrainingDefault(assignment)"
+                        [disabled]="trainingBusy()"
+                        [attr.aria-label]="'Make ' + trainingModeLabel(mode) + ' the default training book'"
+                      >
+                        Make default
+                      </button>
+                      }
+                    }
+                    @case (assignmentStatusEnum.Queued) {
+                    <span class="training-badge">Queued</span>
+                    }
+                    @case (assignmentStatusEnum.Completed) {
+                    <span class="training-badge">Completed</span>
+                    }
+                    @default {
+                    <span class="training-badge">Archived</span>
+                    }
+                  }
+                } @else {
+                <button
+                  type="button"
+                  class="btn btn-xs btn-ghost training-assign-btn"
+                  (click)="assignToTraining(mode)"
+                  [disabled]="trainingBusy()"
+                  [attr.aria-label]="'Add to ' + trainingModeLabel(mode)"
+                >
+                  Add to {{ trainingModeLabel(mode) }}
+                </button>
+                }
+              </div>
+              }
+            </div>
+
+            <h4 class="training-sessions-heading">Recent sessions</h4>
+            @if (trainingHistoryLoading()) {
+            <p class="training-loading" role="status">Loading sessions…</p>
+            } @else if (recentSessions().length === 0) {
+            <p class="training-empty">No reading sessions for this book yet.</p>
+            } @else {
+            <ul class="training-session-list">
+              @for (session of recentSessions(); track session.id) {
+              <li class="training-session-item">
+                <span
+                  class="training-mode-tag"
+                  [class.mode-endurance]="session.mode === readingModeEnum.Endurance"
+                  [class.mode-deep]="session.mode === readingModeEnum.Deep"
+                  >{{ trainingModeLabel(session.mode) }}</span
+                >
+                <span class="training-session-date">{{ trainingSessionDate(session) }}</span>
+                <span class="training-session-minutes">{{ trainingSessionMinutes(session) }} min</span>
+                @if (trainingSessionStatusLabel(session.status); as status) {
+                <span class="training-session-status">{{ status }}</span>
+                }
+              </li>
+              }
+            </ul>
+            }
+            }
+          </section>
         </section>
       </div>
       }

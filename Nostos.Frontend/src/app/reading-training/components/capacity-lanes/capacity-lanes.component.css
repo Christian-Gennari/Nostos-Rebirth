@@ -1,0 +1,110 @@
+/* Three straight ruled modes — Endurance / Deep / Recovery. Each lane reads
+   like a row on a calm reading sheet, marked by a single 3px horizontal
+   colour rule. No card shell, no elevation, no hover movement. Colour marks
+   mode only; state is never conveyed by colour alone — every lane carries
+   its target, book, and any adaptation note as text. */
+
+.capacity-lanes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-lg);
+}
+
+.lane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding-top: 10px;
+  border-top: 3px solid var(--lane-accent, var(--border-color));
+}
+
+.lane-endurance {
+  --lane-accent: #60a5fa;
+}
+
+.lane-deep {
+  --lane-accent: #4b5563;
+}
+
+.lane-recovery {
+  --lane-accent: #6f8f72;
+}
+
+.lane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.lane-header h3 {
+  font-family: 'Lora', serif;
+  font-size: var(--text-lg);
+  font-weight: var(--fw-semibold);
+  margin: 0;
+}
+
+.volume-tag {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-light);
+}
+
+.lane-target {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: var(--space-sm);
+}
+
+.target-minutes {
+  font-family: 'Lora', serif;
+  font-size: 2rem;
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-main);
+}
+
+.target-unit {
+  font-size: var(--text-sm);
+  color: var(--color-text-light);
+}
+
+.lane-baseline,
+.lane-reason {
+  font-size: var(--text-xs);
+  color: var(--color-text-light);
+  margin: 0;
+}
+
+.lane-book {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  font-family: 'Lora', serif;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  border-top: 1px solid var(--border-light);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .capacity-lanes {
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+  }
+
+  .lane {
+    min-height: 0;
+    gap: 2px;
+    padding-top: 8px;
+  }
+
+  .lane-target {
+    margin-top: var(--space-xs);
+  }
+}

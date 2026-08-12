@@ -175,6 +175,431 @@ namespace Nostos.Backend.Migrations
                     b.ToTable("Notes");
                 });
 
+            modelBuilder.Entity("Nostos.Backend.Data.Models.ReadingTraining.ReadingBookAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("BookId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("DefaultSlot")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Mode")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("QueueOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("DefaultSlot")
+                        .IsUnique();
+
+                    b.HasIndex("Mode", "Status", "QueueOrder");
+
+                    b.ToTable("ReadingBookAssignments", t =>
+                        {
+                            t.HasCheckConstraint("CK_ReadingBookAssignments_DefaultSlot_Mode_Status", "DefaultSlot IS NULL OR (DefaultSlot = Mode AND Status = 0)");
+                        });
+                });
+
+            modelBuilder.Entity("Nostos.Backend.Data.Models.ReadingTraining.ReadingCapture", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("BookId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ExternalId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("PromotedNoteId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Resolved")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("SessionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("ExternalId")
+                        .IsUnique();
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("ReadingCaptures");
+                });
+
+            modelBuilder.Entity("Nostos.Backend.Data.Models.ReadingTraining.ReadingCommandReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ClientId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CommandKind")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ResponseJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientId", "IdempotencyKey")
+                        .IsUnique();
+
+                    b.ToTable("ReadingCommandReceipts");
+                });
+
+            modelBuilder.Entity("Nostos.Backend.Data.Models.ReadingTraining.ReadingImportReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ResultJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceFingerprint")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SourceFingerprint")
+                        .IsUnique();
+
+                    b.ToTable("ReadingImportReceipts");
+                });
+
+            modelBuilder.Entity("Nostos.Backend.Data.Models.ReadingTraining.ReadingModeDecision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("CompletionRate")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("DecisionKind")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("MedianEffort")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("MedianFocus")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Mode")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("NextConsecutiveIncreases")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("QualifyingCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("TargetAfterMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TargetBeforeMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("WeeklyReviewId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WeeklyReviewId");
+
+                    b.ToTable("ReadingModeDecisions");
+                });
+
+            modelBuilder.Entity("Nostos.Backend.Data.Models.ReadingTraining.ReadingNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("AckedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DedupeKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LeaseUntil")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DedupeKey")
+                        .IsUnique();
+
+                    b.HasIndex("AckedAt", "LeaseUntil");
+
+                    b.ToTable("ReadingNotifications", t =>
+                        {
+                            t.HasCheckConstraint("CK_ReadingNotifications_DedupeKey_NotEmpty", "length(DedupeKey) > 0");
+                        });
+                });
+
+            modelBuilder.Entity("Nostos.Backend.Data.Models.ReadingTraining.ReadingProgramme", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DeepConsecutiveIncreases")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("DeepEstablishedMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("DeepTargetMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("DeloadActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("DeloadStartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("EnduranceConsecutiveIncreases")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("EnduranceEstablishedMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("EnduranceTargetMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("RecoveryEstablishedMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("RecoveryTargetMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SingletonSlot")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("StateVersion")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TimezoneId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SingletonSlot")
+                        .IsUnique();
+
+                    b.ToTable("ReadingProgrammes", t =>
+                        {
+                            t.HasCheckConstraint("CK_ReadingProgrammes_SingletonSlot", "SingletonSlot = 1");
+                        });
+                });
+
+            modelBuilder.Entity("Nostos.Backend.Data.Models.ReadingTraining.ReadingSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("AccumulatedSeconds")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("BookAssignmentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("BookId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Constraint")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Effort")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Focus")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("LastStartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("MeasuredSeconds")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Mode")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("NoticeSent")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("OpenSlot")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("PausedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("PlannedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PlannedTargetMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("Rating")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("RatingRequestedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("RatingsSkipped")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ReportedMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TargetMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookAssignmentId");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("OpenSlot")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "Mode");
+
+                    b.ToTable("ReadingSessions", t =>
+                        {
+                            t.HasCheckConstraint("CK_ReadingSessions_OpenSlot_Matches_Status", "(OpenSlot IS NOT NULL AND Status IN (1, 2, 3, 4) AND OpenSlot = 0) OR (OpenSlot IS NULL AND Status IN (0, 5, 6))");
+                        });
+                });
+
+            modelBuilder.Entity("Nostos.Backend.Data.Models.ReadingTraining.ReadingWeeklyReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CommittedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PreviousWeekVolumeMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("StateVersionAfter")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("TotalVolumeMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("WeekKey")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WeekKey")
+                        .IsUnique();
+
+                    b.ToTable("ReadingWeeklyReviews");
+                });
+
             modelBuilder.Entity("Nostos.Backend.Data.Models.WritingModel", b =>
                 {
                     b.Property<Guid>("Id")
@@ -426,6 +851,64 @@ namespace Nostos.Backend.Migrations
                     b.Navigation("Book");
                 });
 
+            modelBuilder.Entity("Nostos.Backend.Data.Models.ReadingTraining.ReadingBookAssignment", b =>
+                {
+                    b.HasOne("Nostos.Backend.Data.Models.BookModel", "Book")
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Book");
+                });
+
+            modelBuilder.Entity("Nostos.Backend.Data.Models.ReadingTraining.ReadingCapture", b =>
+                {
+                    b.HasOne("Nostos.Backend.Data.Models.BookModel", "Book")
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Nostos.Backend.Data.Models.ReadingTraining.ReadingSession", "Session")
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Book");
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("Nostos.Backend.Data.Models.ReadingTraining.ReadingModeDecision", b =>
+                {
+                    b.HasOne("Nostos.Backend.Data.Models.ReadingTraining.ReadingWeeklyReview", "WeeklyReview")
+                        .WithMany("Decisions")
+                        .HasForeignKey("WeeklyReviewId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WeeklyReview");
+                });
+
+            modelBuilder.Entity("Nostos.Backend.Data.Models.ReadingTraining.ReadingSession", b =>
+                {
+                    b.HasOne("Nostos.Backend.Data.Models.ReadingTraining.ReadingBookAssignment", "BookAssignment")
+                        .WithMany()
+                        .HasForeignKey("BookAssignmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Nostos.Backend.Data.Models.BookModel", "Book")
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Book");
+
+                    b.Navigation("BookAssignment");
+                });
+
             modelBuilder.Entity("Nostos.Backend.Data.Models.WritingModel", b =>
                 {
                     b.HasOne("Nostos.Backend.Data.Models.WritingModel", "Parent")
@@ -449,6 +932,11 @@ namespace Nostos.Backend.Migrations
             modelBuilder.Entity("Nostos.Backend.Data.Models.NoteModel", b =>
                 {
                     b.Navigation("NoteConcepts");
+                });
+
+            modelBuilder.Entity("Nostos.Backend.Data.Models.ReadingTraining.ReadingWeeklyReview", b =>
+                {
+                    b.Navigation("Decisions");
                 });
 
             modelBuilder.Entity("Nostos.Backend.Data.Models.WritingModel", b =>

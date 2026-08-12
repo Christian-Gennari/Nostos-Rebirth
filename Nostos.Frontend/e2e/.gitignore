@@ -1,0 +1,7 @@
+# Task 13 E2E transient state (owned by the fixture launcher)
+fixture-state.json
+# Playwright + evidence output (report, artifacts, backend logs, screenshots)
+test-results/
+# db-bootstrap build output (owned by the fixture launcher)
+support/db-bootstrap/bin/
+support/db-bootstrap/obj/

@@ -1,0 +1,9 @@
+name: reading-training
+version: 1.0.0
+description: "Optional thin Nostos Reading Training connector: Telegram gateway dispatch plus ephemeral committed-command context. Source-only; deploy is optional and documented in the README."
+author: "Nostos Reading Training"
+kind: standalone
+entrypoint: __init__.py
+provides_hooks:
+  - pre_gateway_dispatch
+  - pre_llm_call

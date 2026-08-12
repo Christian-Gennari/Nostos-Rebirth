@@ -1,0 +1,44 @@
+<section class="capture-card" aria-labelledby="capture-form-heading">
+  <header class="card-header">
+    <h2 id="capture-form-heading">Capture</h2>
+  </header>
+
+  <div class="field">
+    <label class="field-label" for="capture-form-type">Kind</label>
+    <select
+      id="capture-form-type"
+      [value]="type()"
+      (change)="onTypeChange($event)"
+      [disabled]="busy()"
+    >
+      <option [value]="typeEnum.Thought">{{ captureTypeLabel(typeEnum.Thought) }}</option>
+      <option [value]="typeEnum.Question">{{ captureTypeLabel(typeEnum.Question) }}</option>
+      <option [value]="typeEnum.Bookmark">{{ captureTypeLabel(typeEnum.Bookmark) }}</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="capture-form-text">
+      {{ captureTypeLabel(type()) }} text
+    </label>
+    <textarea
+      id="capture-form-text"
+      rows="4"
+      [value]="text()"
+      (input)="onTextInput($event)"
+      [disabled]="busy()"
+      [attr.aria-invalid]="submitted() && textError() ? 'true' : null"
+      [attr.aria-describedby]="submitted() && textError() ? 'capture-form-text-error' : null"
+    ></textarea>
+    <p class="hint">Saved verbatim, exactly as written.</p>
+    @if (submitted() && textError(); as error) {
+      <p class="field-error" id="capture-form-text-error" role="alert">{{ error }}</p>
+    }
+  </div>
+
+  <div class="form-actions">
+    <button type="button" class="btn btn-primary" (click)="onSubmit()" [disabled]="busy()">
+      Save capture
+    </button>
+  </div>
+</section>

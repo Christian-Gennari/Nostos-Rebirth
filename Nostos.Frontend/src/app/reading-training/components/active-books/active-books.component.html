@@ -1,0 +1,125 @@
+<section class="active-books" aria-labelledby="active-books-heading">
+  <header class="section-header">
+    <h2 id="active-books-heading">Active books</h2>
+  </header>
+
+  @if (!hasAnyBooks()) {
+    <p class="empty-note">No training books yet. Add a library book to a mode to begin.</p>
+  }
+
+  <div class="mode-groups">
+    @for (group of groups(); track group.mode) {
+      <div
+        class="mode-group"
+        [class.mode-endurance]="group.mode === modeEnum.Endurance"
+        [class.mode-deep]="group.mode === modeEnum.Deep"
+        [class.mode-recovery]="group.mode === modeEnum.Recovery"
+      >
+        <header class="mode-header">
+          <h3>{{ group.label }}</h3>
+          <button
+            type="button"
+            class="btn btn-secondary btn-sm add-button"
+            (click)="addRequested.emit(group.mode)"
+            [disabled]="mutating()"
+            [attr.aria-label]="'Add book to ' + group.label"
+          >
+            Add book
+          </button>
+        </header>
+
+        @if (group.queue.length === 0 && group.finished.length === 0) {
+          <p class="group-empty">No books in this mode.</p>
+        }
+
+        <ol class="queue-list">
+          @for (book of group.queue; track book.id; let index = $index) {
+            <li class="queue-item">
+              <span class="position" aria-hidden="true">{{ index + 1 }}</span>
+
+              <div class="book-info">
+                <p class="book-title">
+                  {{ bookTitle(book) }}
+                  @if (book.isDefault) {
+                    <span class="default-tag">Default</span>
+                  }
+                </p>
+                <p class="book-source">{{ bookAuthor(book) }}</p>
+              </div>
+
+              <div class="reorder-controls" role="group" [attr.aria-label]="'Reorder ' + bookTitle(book)">
+                <button
+                  type="button"
+                  class="icon-button"
+                  (click)="moveUp(group.mode, index)"
+                  [disabled]="mutating() || index === 0"
+                  [attr.aria-label]="'Move ' + bookTitle(book) + ' up'"
+                >
+                  <lucide-icon [img]="ArrowUpIcon" [size]="16" strokeWidth="2" aria-hidden="true"></lucide-icon>
+                </button>
+                <button
+                  type="button"
+                  class="icon-button"
+                  (click)="moveDown(group.mode, index)"
+                  [disabled]="mutating() || index === group.queue.length - 1"
+                  [attr.aria-label]="'Move ' + bookTitle(book) + ' down'"
+                >
+                  <lucide-icon [img]="ArrowDownIcon" [size]="16" strokeWidth="2" aria-hidden="true"></lucide-icon>
+                </button>
+              </div>
+
+              <div class="book-actions">
+                @if (canSetDefault(book)) {
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-sm"
+                    (click)="setDefault.emit(book)"
+                    [disabled]="mutating()"
+                    [attr.aria-label]="'Make ' + bookTitle(book) + ' the default ' + group.label + ' book'"
+                  >
+                    Make default
+                  </button>
+                }
+                @if (canFinish(book)) {
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-sm"
+                    (click)="finish.emit(book)"
+                    [disabled]="mutating()"
+                    [attr.aria-label]="'Finish training book: ' + bookTitle(book)"
+                    title="The library copy stays in your library."
+                  >
+                    Finish training book
+                  </button>
+                }
+              </div>
+            </li>
+          }
+        </ol>
+
+        @if (group.finished.length > 0) {
+          <ul class="finished-list">
+            @for (book of group.finished; track book.id) {
+              <li class="finished-item">
+                <lucide-icon [img]="CheckIcon" [size]="14" strokeWidth="2" aria-hidden="true"></lucide-icon>
+                <span class="finished-title">{{ bookTitle(book) }}</span>
+                <span class="finished-label">{{ book.status === statusEnum.Archived ? 'Archived' : 'Finished' }}</span>
+                @if (book.status === statusEnum.Completed) {
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-sm"
+                    (click)="reactivate.emit(book)"
+                    [disabled]="mutating()"
+                    [attr.aria-label]="'Return ' + bookTitle(book) + ' to the ' + group.label + ' queue'"
+                  >
+                    Return to queue
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    }
+  </div>
+</section>

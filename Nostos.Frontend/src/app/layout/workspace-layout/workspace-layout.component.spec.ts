@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 
 import { WorkspaceLayout } from './workspace-layout.component';
 
@@ -9,6 +10,7 @@ describe('WorkspaceLayout', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [WorkspaceLayout],
+      providers: [provideRouter([])],
     }).compileComponents();
 
     fixture = TestBed.createComponent(WorkspaceLayout);

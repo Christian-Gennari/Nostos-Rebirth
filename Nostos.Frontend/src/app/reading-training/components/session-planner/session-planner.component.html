@@ -1,0 +1,120 @@
+<section class="planner-card" aria-labelledby="session-planner-heading">
+  <header class="card-header">
+    <h2 id="session-planner-heading">Plan a session</h2>
+    <button type="button" class="btn btn-ghost btn-sm" (click)="close.emit()">
+      Close session planner
+    </button>
+  </header>
+
+  @if (books().length === 0) {
+    <p class="empty-state">No eligible training books.</p>
+  } @else {
+    <div class="field">
+      <label class="field-label" for="session-planner-book">Book</label>
+      <select
+        id="session-planner-book"
+        [value]="selectedAssignmentId()"
+        (change)="onAssignmentChange($event)"
+        [disabled]="busy()"
+        [attr.aria-invalid]="submitted() && bookError() ? 'true' : null"
+        [attr.aria-describedby]="submitted() && bookError() ? 'session-planner-book-error' : null"
+      >
+        @for (book of books(); track book.id) {
+          <option [value]="book.id">{{ book.bookTitle ?? book.bookId }}</option>
+        }
+      </select>
+      @if (submitted() && bookError(); as error) {
+        <p class="field-error" id="session-planner-book-error" role="alert">{{ error }}</p>
+      }
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="session-planner-mode">Mode</label>
+      <select
+        id="session-planner-mode"
+        (change)="onModeChange($event)"
+        [disabled]="busy()"
+      >
+        <option [attr.value]="modeEnum.Endurance" [selected]="(mode() ?? modeEnum.Endurance) === modeEnum.Endurance">Endurance</option>
+        <option [attr.value]="modeEnum.Deep" [selected]="mode() === modeEnum.Deep">Deep</option>
+        <option [attr.value]="modeEnum.Recovery" [selected]="mode() === modeEnum.Recovery">Recovery</option>
+      </select>
+    </div>
+
+    @if (recovery()) {
+      <p class="recovery-note" id="session-planner-recovery-note">
+        Recovery sessions count volume only.
+      </p>
+    }
+
+    <div class="field">
+      <label class="field-label" for="session-planner-target">Target minutes</label>
+      <input
+        id="session-planner-target"
+        type="number"
+        min="1"
+        step="1"
+        inputmode="numeric"
+        [value]="targetMinutes()"
+        (input)="onTargetInput($event)"
+        [disabled]="busy()"
+        [attr.aria-invalid]="submitted() && targetError() ? 'true' : null"
+        [attr.aria-describedby]="submitted() && targetError() ? 'session-planner-target-error' : null"
+      />
+      @if (submitted() && targetError(); as error) {
+        <p class="field-error" id="session-planner-target-error" role="alert">{{ error }}</p>
+      }
+    </div>
+
+    <div class="check-field">
+      <input
+        id="session-planner-constrained"
+        type="checkbox"
+        [checked]="constrained()"
+        (change)="onConstrainedToggle($event)"
+        [disabled]="busy() || recovery()"
+        [attr.aria-describedby]="recovery() ? 'session-planner-recovery-note' : null"
+      />
+      <label class="check-label" for="session-planner-constrained">Constrained session</label>
+    </div>
+
+    @if (constrained() && !recovery()) {
+      <div class="field">
+        <label class="field-label" for="session-planner-constrained-minutes">Constrained minutes</label>
+        <input
+          id="session-planner-constrained-minutes"
+          type="number"
+          min="1"
+          step="1"
+          inputmode="numeric"
+          [value]="constrainedMinutes()"
+          (input)="onConstrainedMinutesInput($event)"
+          [disabled]="busy()"
+          [attr.aria-invalid]="submitted() && constrainedError() ? 'true' : null"
+          [attr.aria-describedby]="submitted() && constrainedError() ? 'session-planner-constrained-error' : null"
+        />
+        @if (submitted() && constrainedError(); as error) {
+          <p class="field-error" id="session-planner-constrained-error" role="alert">{{ error }}</p>
+        }
+      </div>
+    }
+
+    <div class="form-actions">
+      <button type="button" class="btn btn-primary" (click)="onSubmit('plan')" [disabled]="busy()">
+        Plan session
+      </button>
+      <button
+        type="button"
+        class="btn btn-secondary"
+        (click)="onSubmit('startNew')"
+        [disabled]="busy() || (constrained() && !recovery())"
+        [attr.aria-describedby]="constrained() && !recovery() ? 'session-planner-start-note' : null"
+      >
+        Start now
+      </button>
+    </div>
+    @if (constrained() && !recovery()) {
+      <p class="field-hint" id="session-planner-start-note">Plan the constrained session before starting it.</p>
+    }
+  }
+</section>

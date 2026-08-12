@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, Router } from '@angular/router';
-import { LucideAngularModule, Library, PenTool, BrainCog, Settings } from 'lucide-angular';
+import { LucideAngularModule, Library, PenTool, BrainCog, Settings, BookOpen } from 'lucide-angular';
 import { CollectionsService } from '../../core/services/collections.service';
 import { NavigationHistoryService } from '../../core/services/navigation-history.service';
 
@@ -42,6 +42,17 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
         >
           <lucide-icon [img]="PenToolIcon" [size]="20" strokeWidth="1"></lucide-icon>
           <span class="label">Studio</span>
+        </a>
+
+        <a
+          [routerLink]="getLink('/training')"
+          (click)="handleDockClick('/training', $event)"
+          routerLinkActive="active"
+          class="dock-item"
+          title="Training"
+        >
+          <lucide-icon [img]="TrainingIcon" [size]="20" strokeWidth="1"></lucide-icon>
+          <span class="label">Training</span>
         </a>
 
         <a
@@ -179,7 +190,7 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
       /* --- DESKTOP / TABLET (HOVER ENABLED) --- */
       @media (min-width: 769px) {
         .dock-item {
-          padding: 8px 12px;
+          padding: 8px 10px;
         }
 
         /* Generic Item Hover */
@@ -260,14 +271,16 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
 
         .dock-item {
           flex: 1;
-          margin: 0 4px;
+          margin: 0 2px;
           padding: 8px 0;
+          min-width: 0;
         }
 
         .label {
           max-height: none;
           opacity: 0.9;
           transform: none;
+          white-space: nowrap;
         }
       }
     `,
@@ -282,6 +295,7 @@ export class AppDockComponent {
   BrainIcon = BrainCog;
   PenToolIcon = PenTool;
   SettingsIcon = Settings;
+  TrainingIcon = BookOpen;
 
   getLink(prefix: string): string {
     return this.historyService.getLastUrl(prefix);
