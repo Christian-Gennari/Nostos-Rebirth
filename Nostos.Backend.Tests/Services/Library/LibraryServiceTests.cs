@@ -692,6 +692,41 @@ public sealed class LibraryServiceTests : IClassFixture<ReadingTrainingSqliteFix
     }
 
     [Fact]
+    public async Task List_books_progress_filters_cover_not_started_reading_and_finished()
+    {
+        var h = Harness();
+        _ = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Not Started Book", Author: "Author A"), strictConfirmation: true)).Data!).BookId!;
+        var inProgress = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "In Progress Book", Author: "Author B"), strictConfirmation: true)).Data!).BookId!.Value;
+        var finished = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Finished Book", Author: "Author C"), strictConfirmation: true)).Data!).BookId!.Value;
+
+        await h.Service.UpdateProgressAsync(inProgress, "loc-1", 50);
+        await h.Service.UpdateProgressAsync(finished, "loc-2", 100);
+
+        // NotStarted: only progressPercent == 0 books.
+        var notStartedPage = (PaginatedResponse<BookDto>)(await h.Service.ListBooksAsync(
+            BookFilter.NotStarted, BookSort.Recent, null, 1, 20, null)).Data!;
+        notStartedPage.TotalCount.Should().Be(1);
+        var notStartedBook = notStartedPage.Items.Single();
+        notStartedBook.Title.Should().Be("Not Started Book");
+        notStartedBook.ProgressPercent.Should().Be(0);
+
+        // Reading (unchanged semantics): not finished and 1..99 progress.
+        var readingPage = (PaginatedResponse<BookDto>)(await h.Service.ListBooksAsync(
+            BookFilter.Reading, BookSort.Recent, null, 1, 20, null)).Data!;
+        readingPage.TotalCount.Should().Be(1);
+        readingPage.Items.Single().Title.Should().Be("In Progress Book");
+
+        // Finished (unchanged semantics): FinishedAt set (aligned with 100%).
+        var finishedPage = (PaginatedResponse<BookDto>)(await h.Service.ListBooksAsync(
+            BookFilter.Finished, BookSort.Recent, null, 1, 20, null)).Data!;
+        finishedPage.TotalCount.Should().Be(1);
+        finishedPage.Items.Single().Title.Should().Be("Finished Book");
+    }
+
+    [Fact]
     public async Task Get_book_and_get_collection_not_found_envelopes()
     {
         var h = Harness();

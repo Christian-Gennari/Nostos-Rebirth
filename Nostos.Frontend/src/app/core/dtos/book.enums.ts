@@ -4,6 +4,7 @@ export enum BookFilter {
   Finished = 'finished',
   Reading = 'reading',
   Unsorted = 'unsorted',
+  NotStarted = 'notstarted',
 }
 
 export enum BookSort {

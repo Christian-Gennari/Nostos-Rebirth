@@ -103,4 +103,67 @@ describe('Library', () => {
     expect(listSpy).toHaveBeenCalledTimes(1);
     expect(listSpy.mock.calls[0][0].collectionId).toBeUndefined();
   });
+
+  it('filter dropdown renders all options', () => {
+    const trigger = fixture.nativeElement.querySelector('.filter-trigger') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+
+    const labels = Array.from(
+      fixture.nativeElement.querySelectorAll('.filter-option'),
+    ).map((el) => (el as HTMLElement).textContent?.trim());
+    expect(labels).toEqual([
+      'All Books',
+      'Not Started',
+      'In Progress',
+      'Finished',
+      'Favorites',
+      'Unsorted',
+    ]);
+  });
+
+  it('selecting a filter navigates with merge and triggers exactly one books request', async () => {
+    await router.navigate(['/library'], { queryParams: { collection: 'c1' } });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    listSpy.mockClear();
+
+    const trigger = fixture.nativeElement.querySelector('.filter-trigger') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+
+    const options = Array.from(fixture.nativeElement.querySelectorAll('.filter-option'));
+    const notStarted = options.find(
+      (el) => (el as HTMLElement).textContent?.trim() === 'Not Started',
+    ) as HTMLButtonElement;
+    notStarted.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(router.url).toContain('collection=c1');
+    expect(router.url).toContain('filter=notstarted');
+    expect(listSpy).toHaveBeenCalledTimes(1);
+    expect(listSpy.mock.calls[0][0].filter).toBe('notstarted');
+    expect(listSpy.mock.calls[0][0].collectionId).toBe('c1');
+  });
+
+  it('dropdown active state reflects the route filter param (In Progress = Reading)', async () => {
+    await router.navigate(['/library'], { queryParams: { filter: 'reading' } });
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(component.activeFilter()).toBe('reading');
+    expect(component.activeFilterLabel()).toBe('In Progress');
+
+    const trigger = fixture.nativeElement.querySelector('.filter-trigger') as HTMLButtonElement;
+    expect(trigger.textContent).toContain('In Progress');
+
+    trigger.click();
+    fixture.detectChanges();
+
+    const activeOption = fixture.nativeElement.querySelector(
+      '.filter-option.active',
+    ) as HTMLElement;
+    expect(activeOption.textContent).toContain('In Progress');
+  });
 });

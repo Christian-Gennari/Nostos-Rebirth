@@ -69,6 +69,7 @@ public sealed class LibraryService : ILibraryService
             BookFilter.Favorites => query.Where(b => b.Progress.IsFavorite),
             BookFilter.Finished => query.Where(b => b.Progress.FinishedAt != null),
             BookFilter.Reading => query.Where(b => b.Progress.FinishedAt == null && b.Progress.ProgressPercent > 0),
+            BookFilter.NotStarted => query.Where(b => b.Progress.ProgressPercent == 0),
             BookFilter.Unsorted => query.Where(b => b.CollectionId == null),
             _ => query,
         };
