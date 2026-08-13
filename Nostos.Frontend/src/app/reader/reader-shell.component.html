@@ -227,6 +227,39 @@
           <lucide-icon [img]="Icons.NotebookPen" [size]="20"></lucide-icon>
         </button>
       }
+
+      <div class="theme-toggle" role="group" aria-label="Reader theme">
+        <button
+          type="button"
+          class="theme-toggle-btn"
+          [class.active]="theme() === 'light'"
+          (click)="setTheme('light')"
+          title="Light theme"
+          aria-label="Light theme"
+        >
+          <lucide-icon [img]="Icons.Sun" [size]="16"></lucide-icon>
+        </button>
+        <button
+          type="button"
+          class="theme-toggle-btn"
+          [class.active]="theme() === 'dark'"
+          (click)="setTheme('dark')"
+          title="Dark theme"
+          aria-label="Dark theme"
+        >
+          <lucide-icon [img]="Icons.Moon" [size]="16"></lucide-icon>
+        </button>
+        <button
+          type="button"
+          class="theme-toggle-btn"
+          [class.active]="theme() === 'sepia'"
+          (click)="setTheme('sepia')"
+          title="Sepia theme"
+          aria-label="Sepia theme"
+        >
+          <lucide-icon [img]="Icons.BookOpenText" [size]="16"></lucide-icon>
+        </button>
+      </div>
     </div>
   </header>
 </div>

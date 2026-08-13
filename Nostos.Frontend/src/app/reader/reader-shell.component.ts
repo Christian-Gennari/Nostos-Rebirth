@@ -23,6 +23,9 @@ import {
   Save,
   Plus,
   Info,
+  Sun,
+  Moon,
+  BookOpenText,
 } from 'lucide-angular';
 
 // Services
@@ -30,6 +33,7 @@ import { BooksService } from '../core/services/books.service';
 import { NotesService } from '../core/services/notes.service';
 import { ConceptsService, ConceptDto } from '../core/services/concepts.service';
 import { ConceptAutocompleteService } from '../ui/concept-autocomplete-panel/concept-autocomplete.service';
+import { ThemeService, Theme } from '../core/services/theme.service';
 
 // DTOs & Interfaces
 import { Note } from '../core/dtos/note.dtos';
@@ -69,6 +73,7 @@ export class ReaderShell implements OnInit {
   private notesService = inject(NotesService);
   private conceptsService = inject(ConceptsService);
   private autocompleteService = inject(ConceptAutocompleteService);
+  private themeService = inject(ThemeService);
 
   // Icons
   Icons = {
@@ -88,6 +93,9 @@ export class ReaderShell implements OnInit {
     Save,
     Plus,
     Info,
+    Sun,
+    Moon,
+    BookOpenText,
   };
 
   book = signal<any>(null);
@@ -99,6 +107,9 @@ export class ReaderShell implements OnInit {
   pendingSelectionText = signal<string | null>(null);
   highlightSaving = signal(false);
   overflowOpen = signal(false);
+
+  // Reader theme (shared via ThemeService; persisted to localStorage)
+  theme = this.themeService.theme;
 
   dbNotes = signal<Note[]>([]);
   quickNoteContent = signal('');
@@ -230,6 +241,10 @@ export class ReaderShell implements OnInit {
 
   toggleOverflow() {
     this.overflowOpen.update((v) => !v);
+  }
+
+  setTheme(theme: Theme) {
+    this.themeService.setTheme(theme);
   }
 
   commitHighlight() {
