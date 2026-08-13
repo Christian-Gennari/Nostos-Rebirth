@@ -19,6 +19,18 @@ public static class CollectionsEndpoints
             }
         );
 
+        // GET: descendant-inclusive book counts for every collection
+        // (sidebar; REST-only — CollectionDto stays frozen for MCP).
+        // Registered before /{id} so the literal segment always wins.
+        group.MapGet(
+            "/counts",
+            async (ILibraryService library, CancellationToken ct) =>
+            {
+                var result = await library.ListCollectionCountsAsync(ct);
+                return LibraryHttpMapper.MapError(result) ?? Results.Ok(result.Data);
+            }
+        );
+
         // GET one collection
         group.MapGet(
             "/{id}",
@@ -48,36 +60,25 @@ public static class CollectionsEndpoints
             }
         );
 
-        // UPDATE collection (name and/or parent; canonical service performs
-        // sibling-collision and cycle detection)
+        // UPDATE collection (atomic full replacement, collections Phase 1):
+        // the canonical service performs sibling-collision and cycle
+        // detection and applies rename+move in ONE transaction, with one
+        // receipt and at most one stateVersion bump. Missing name OR missing
+        // parentId is a 400 ([JsonRequired]); explicit null parentId moves
+        // the collection to root.
         group.MapPut(
             "/{id}",
             async (Guid id, UpdateCollectionDto dto, ILibraryService library, CancellationToken ct) =>
             {
-                var current = await library.GetCollectionAsync(id, ct);
-                if (LibraryHttpMapper.MapError(current) is { } notFound)
-                    return notFound;
+                var result = await library.UpdateCollectionAsync(
+                    clientId: "rest",
+                    idempotencyKey: $"rest-collection-update-{Guid.NewGuid():N}",
+                    collectionId: id,
+                    name: dto.Name,
+                    parentId: dto.ParentId,
+                    ct);
 
-                var before = (CollectionDto)current.Data!;
-
-                if (before.ParentId != dto.ParentId)
-                {
-                    var moved = await library.MoveCollectionAsync(new LibraryMoveCollectionRequest(
-                        "rest", $"rest-collection-move-{Guid.NewGuid():N}", id, dto.ParentId), ct);
-                    if (LibraryHttpMapper.MapError(moved) is { } moveError)
-                        return moveError;
-                }
-
-                if (!string.Equals(before.Name, dto.Name, StringComparison.Ordinal))
-                {
-                    var renamed = await library.RenameCollectionAsync(new LibraryRenameCollectionRequest(
-                        "rest", $"rest-collection-rename-{Guid.NewGuid():N}", id, dto.Name), ct);
-                    if (LibraryHttpMapper.MapError(renamed) is { } renameError)
-                        return renameError;
-                }
-
-                var after = await library.GetCollectionAsync(id, ct);
-                return LibraryHttpMapper.MapError(after) ?? Results.Ok(after.Data);
+                return LibraryHttpMapper.MapError(result) ?? Results.Ok(result.Data);
             }
         );
 

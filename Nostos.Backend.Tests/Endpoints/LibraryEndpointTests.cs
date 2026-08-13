@@ -349,6 +349,92 @@ public sealed class LibraryEndpointTests : IClassFixture<ReadingTrainingHttpFact
         missing.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task Update_collection_missing_parent_id_returns_400_and_changes_nothing()
+    {
+        var collection = (await (await Client.PostAsJsonAsync("/api/collections", new { name = $"Presence {Guid.NewGuid():N}"[..24] }))
+            .Content.ReadFromJsonAsync<CollectionDto>())!;
+
+        var response = await Client.PutAsJsonAsync($"/api/collections/{collection.Id}", new { name = "Should Not Apply" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var after = (await Client.GetFromJsonAsync<CollectionDto>($"/api/collections/{collection.Id}"))!;
+        after.Name.Should().Be(collection.Name);
+        after.ParentId.Should().Be(collection.ParentId);
+    }
+
+    [Fact]
+    public async Task Update_collection_missing_name_returns_400_and_changes_nothing()
+    {
+        var collection = (await (await Client.PostAsJsonAsync("/api/collections", new { name = $"Presence {Guid.NewGuid():N}"[..24] }))
+            .Content.ReadFromJsonAsync<CollectionDto>())!;
+
+        var response = await Client.PutAsJsonAsync($"/api/collections/{collection.Id}", new { parentId = (Guid?)null });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var after = (await Client.GetFromJsonAsync<CollectionDto>($"/api/collections/{collection.Id}"))!;
+        after.Name.Should().Be(collection.Name);
+    }
+
+    [Fact]
+    public async Task Update_collection_whitespace_name_returns_400()
+    {
+        var collection = (await (await Client.PostAsJsonAsync("/api/collections", new { name = $"Space {Guid.NewGuid():N}"[..24] }))
+            .Content.ReadFromJsonAsync<CollectionDto>())!;
+
+        var response = await Client.PutAsJsonAsync($"/api/collections/{collection.Id}", new { name = "   ", parentId = collection.ParentId });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await Client.GetFromJsonAsync<CollectionDto>($"/api/collections/{collection.Id}"))!.Name.Should().Be(collection.Name);
+    }
+
+    [Fact]
+    public async Task Update_collection_explicit_null_parent_moves_to_root()
+    {
+        var root = (await (await Client.PostAsJsonAsync("/api/collections", new { name = $"MoveRoot {Guid.NewGuid():N}"[..24] }))
+            .Content.ReadFromJsonAsync<CollectionDto>())!;
+        var child = (await (await Client.PostAsJsonAsync("/api/collections", new { name = $"MoveMe {Guid.NewGuid():N}"[..24], parentId = root.Id }))
+            .Content.ReadFromJsonAsync<CollectionDto>())!;
+
+        var response = await Client.PutAsJsonAsync($"/api/collections/{child.Id}", new { name = child.Name, parentId = (Guid?)null });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var after = await response.Content.ReadFromJsonAsync<CollectionDto>();
+        after!.ParentId.Should().BeNull();
+        after.Name.Should().Be(child.Name);
+    }
+
+    [Fact]
+    public async Task Get_collection_counts_returns_descendant_inclusive_counts()
+    {
+        var root = (await (await Client.PostAsJsonAsync("/api/collections", new { name = $"CountRoot {Guid.NewGuid():N}"[..24] }))
+            .Content.ReadFromJsonAsync<CollectionDto>())!;
+        var child = (await (await Client.PostAsJsonAsync("/api/collections", new { name = $"CountChild {Guid.NewGuid():N}"[..24], parentId = root.Id }))
+            .Content.ReadFromJsonAsync<CollectionDto>())!;
+
+        await Client.PostAsJsonAsync("/api/books", new
+        {
+            type = "physical",
+            title = $"Counted Book {Guid.NewGuid():N}",
+            collectionId = child.Id,
+        });
+        await Client.PostAsJsonAsync("/api/books", new
+        {
+            type = "physical",
+            title = $"Uncounted Book {Guid.NewGuid():N}",
+        });
+
+        var counts = await Client.GetFromJsonAsync<CollectionCountDto[]>("/api/collections/counts");
+
+        counts.Should().NotBeNull();
+        counts!.Single(c => c.CollectionId == root.Id).BookCount.Should().Be(1,
+            "a parent's count includes its child's books");
+        counts.Single(c => c.CollectionId == child.Id).BookCount.Should().Be(1);
+        // The child's book counts once for the child and once for the parent;
+        // the uncollected book contributes to NO collection count.
+        counts.Sum(c => c.BookCount).Should().Be(2);
+    }
+
     // ------------------------------------------------------------------
 
     private async Task<NostosDbContext> OpenDbAsync()

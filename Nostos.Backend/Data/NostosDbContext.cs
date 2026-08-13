@@ -118,6 +118,22 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
 
         modelBuilder.Entity<CollectionModel>().HasIndex(c => c.ParentId);
 
+        // --- COLLECTIONS PHASE 1: EXPLICIT RESTRICTIVE FKs ---
+        // A collection that has children or books must never be deleted by
+        // a raw SQL DELETE: the database itself rejects it (the service
+        // unlinks books and refuses children first with typed codes).
+        modelBuilder.Entity<CollectionModel>()
+            .HasOne(c => c.Parent)
+            .WithMany(c => c.Children)
+            .HasForeignKey(c => c.ParentId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<BookModel>()
+            .HasOne(b => b.Collection)
+            .WithMany()
+            .HasForeignKey(b => b.CollectionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         modelBuilder.Entity<WritingModel>().HasIndex(w => w.ParentId);
 
         modelBuilder.Entity<ConceptModel>().HasIndex(c => c.Concept).IsUnique();

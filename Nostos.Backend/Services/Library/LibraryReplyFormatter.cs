@@ -26,6 +26,8 @@ public static class LibraryReplyFormatter
     public static string CollectionExists(string name) => $"Collection already exists: {name}.";
     public static string CollectionRenamed(string name) => $"Collection renamed: {name}.";
     public static string CollectionMoved(string name) => $"Collection moved: {name}.";
+    public static string CollectionUpdated(string name) => $"Collection updated: {name}.";
+    public static string CollectionCountList(int count) => $"{count} collection count(s).";
     public static string CollectionDeleted(string name) => $"Collection deleted: {name}.";
     public static string Collection(string name) => $"Collection: {name}.";
     public static string CollectionList(int count) => $"{count} collection(s).";
