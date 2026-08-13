@@ -201,6 +201,99 @@ public sealed class LibraryEndpointTests : IClassFixture<ReadingTrainingHttpFact
     }
 
     [Fact]
+    public async Task Progress_reset_clears_partially_read_book()
+    {
+        var created = await Client.PostAsJsonAsync("/api/books", new
+        {
+            type = "physical",
+            title = $"ResetPartial {Guid.NewGuid():N}",
+        });
+        var book = (await created.Content.ReadFromJsonAsync<BookDto>())!;
+
+        var updated = await Client.PutAsJsonAsync($"/api/books/{book.Id}/progress",
+            new { location = "epub.cfi", percentage = 50 });
+        updated.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var reset = await Client.PostAsync($"/api/books/{book.Id}/progress/reset", null);
+        reset.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var after = (await Client.GetFromJsonAsync<BookDto>($"/api/books/{book.Id}"))!;
+        after.ProgressPercent.Should().Be(0);
+        after.LastLocation.Should().BeNull();
+        after.LastReadAt.Should().BeNull();
+        after.FinishedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Progress_reset_clears_finished_book()
+    {
+        var created = await Client.PostAsJsonAsync("/api/books", new
+        {
+            type = "physical",
+            title = $"ResetFinished {Guid.NewGuid():N}",
+        });
+        var book = (await created.Content.ReadFromJsonAsync<BookDto>())!;
+
+        var at100 = await Client.PutAsJsonAsync($"/api/books/{book.Id}/progress",
+            new { location = "epub.cfi", percentage = 100 });
+        at100.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var reset = await Client.PostAsync($"/api/books/{book.Id}/progress/reset", null);
+        reset.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var after = (await Client.GetFromJsonAsync<BookDto>($"/api/books/{book.Id}"))!;
+        after.ProgressPercent.Should().Be(0);
+        after.LastLocation.Should().BeNull();
+        after.LastReadAt.Should().BeNull();
+        after.FinishedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Progress_reset_unknown_book_returns_404()
+    {
+        var response = await Client.PostAsync($"/api/books/{Guid.NewGuid()}/progress/reset", null);
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Progress_reset_already_reset_book_is_successful_noop()
+    {
+        var created = await Client.PostAsJsonAsync("/api/books", new
+        {
+            type = "physical",
+            title = $"ResetNoop {Guid.NewGuid():N}",
+        });
+        var book = (await created.Content.ReadFromJsonAsync<BookDto>())!;
+
+        var first = await Client.PostAsync($"/api/books/{book.Id}/progress/reset", null);
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var second = await Client.PostAsync($"/api/books/{book.Id}/progress/reset", null);
+        second.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Progress_update_at_zero_percent_is_not_a_reset()
+    {
+        var created = await Client.PostAsJsonAsync("/api/books", new
+        {
+            type = "physical",
+            title = $"ZeroPercent {Guid.NewGuid():N}",
+        });
+        var book = (await created.Content.ReadFromJsonAsync<BookDto>())!;
+
+        // A naive 0% update must NOT clear recency — that is reset-only.
+        var updated = await Client.PutAsJsonAsync($"/api/books/{book.Id}/progress",
+            new { location = "", percentage = 0 });
+        updated.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var after = (await Client.GetFromJsonAsync<BookDto>($"/api/books/{book.Id}"))!;
+        after.ProgressPercent.Should().Be(0);
+        after.LastLocation.Should().BeNull();
+        after.LastReadAt.Should().NotBeNull("an ordinary 0% update still records recency");
+    }
+
+    [Fact]
     public async Task Delete_book_removes_row_and_second_delete_is_404()
     {
         var created = await Client.PostAsJsonAsync("/api/books", new

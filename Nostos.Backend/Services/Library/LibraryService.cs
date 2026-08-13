@@ -325,6 +325,42 @@ public sealed class LibraryService : ILibraryService
         return Result(LibraryReplyFormatter.ProgressUpdated(book.Title), new { updated = true }, version);
     }
 
+    public async Task<LibraryCommandResultDto> ResetProgressAsync(Guid bookId, CancellationToken ct = default)
+    {
+        await using var db = await _contexts.CreateDbContextAsync(ct);
+        var state = await EnsureStateAsync(db, ct);
+
+        var book = await db.Books.SingleOrDefaultAsync(b => b.Id == bookId, ct);
+        if (book is null)
+            return Failure("book_not_found", LibraryReplyFormatter.BookNotFound, state.StateVersion);
+
+        // Canonical reset state; an already-reset book is a successful no-op
+        // (no state-version bump).
+        var progress = book.Progress;
+        var alreadyReset = progress.LastLocation is null
+            && progress.ProgressPercent == 0
+            && progress.FinishedAt is null
+            && progress.LastReadAt is null;
+
+        if (alreadyReset)
+            return Result(LibraryReplyFormatter.ProgressReset(book.Title), new { updated = false }, state.StateVersion);
+
+        progress.LastLocation = null;
+        progress.ProgressPercent = 0;
+        progress.FinishedAt = null;
+        progress.LastReadAt = null;
+
+        var version = NextVersion(state.StateVersion);
+        state.StateVersion = version;
+        state.UpdatedAt = Now;
+
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+
+        return Result(LibraryReplyFormatter.ProgressReset(book.Title), new { updated = true }, version);
+    }
+
     public async Task<LibraryCommandResultDto> DeleteBookAsync(Guid bookId, CancellationToken ct = default)
     {
         await using var db = await _contexts.CreateDbContextAsync(ct);

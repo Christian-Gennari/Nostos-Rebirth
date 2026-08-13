@@ -112,6 +112,17 @@ export class BookDetail implements OnInit {
   showMetadataModal = signal(false);
   newNote = model<string>('');
 
+  /**
+   * "Reset progress" is offered only for readable media that has progress
+   * worth clearing: non-zero percent, a saved location, finished state, or
+   * recency. A brand-new book has nothing to reset.
+   */
+  readonly canResetProgress = computed(() => {
+    const b = this.store.book();
+    if (!b || !b.hasFile) return false;
+    return b.progressPercent > 0 || !!b.lastLocation || !!b.finishedAt || !!b.lastReadAt;
+  });
+
   // --- Reading Training section (compact, server-authoritative) ---
 
   /** Modes the plan exposes on the book detail page; Recovery is volume-only. */
@@ -178,6 +189,9 @@ export class BookDetail implements OnInit {
   }
   onRate(rating: number) {
     this.store.rate(rating);
+  }
+  resetProgress() {
+    this.store.resetProgress();
   }
 
   addNote(): void {

@@ -61,6 +61,17 @@ public interface ILibraryService
     Task<LibraryCommandResultDto> UpdateProgressAsync(Guid bookId, string location, int percentage, CancellationToken ct = default);
 
     /// <summary>
+    /// Resets a book's reading progress to the canonical "not started" state
+    /// (LastLocation null, ProgressPercent 0, FinishedAt null, LastReadAt
+    /// null). Explicit reset intent — deliberately NOT a 0% progress update,
+    /// which would set LastReadAt to now and make the book look recently
+    /// read. Like UpdateProgressAsync, deliberately NOT receipt-guarded
+    /// (last-write-wins, idempotent by nature). An already-reset book
+    /// succeeds as a no-op with no state-version change.
+    /// </summary>
+    Task<LibraryCommandResultDto> ResetProgressAsync(Guid bookId, CancellationToken ct = default);
+
+    /// <summary>
     /// Deletes the library row first (reading/notes FKs reject in-use books
     /// with book_in_use before any file is touched); the caller removes
     /// storage files only after this succeeds.

@@ -142,6 +142,17 @@
                 ></lucide-icon>
               </button>
 
+              @if (canResetProgress()) {
+              <button
+                class="btn btn-xs btn-ghost danger reset-progress-btn"
+                (click)="resetProgress()"
+                [disabled]="store.resettingProgress()"
+                aria-label="Reset reading progress"
+              >
+                {{ store.resettingProgress() ? 'Resetting…' : 'Reset progress' }}
+              </button>
+              }
+
               <button
                 class="btn-icon favorite-btn mobile-fav"
                 [class.active]="store.book()?.isFavorite"
