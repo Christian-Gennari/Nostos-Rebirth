@@ -48,6 +48,11 @@ import {
 } from 'lucide-angular';
 import type { LucideIconData } from 'lucide-angular';
 
+/** localStorage key used to persist the Library grid/list view preference. */
+export const VIEW_MODE_STORAGE_KEY = 'nostos.viewMode';
+
+const VALID_VIEW_MODES: readonly ('grid' | 'list')[] = ['grid', 'list'];
+
 @Component({
   selector: 'app-library',
   standalone: true,
@@ -147,6 +152,25 @@ export class Library implements OnInit {
   viewMode = signal<'list' | 'grid'>('grid');
   showAddModal = signal(false);
 
+  /**
+   * Switches the Library grid/list view: updates the signal and persists
+   * the preference to localStorage. Invalid values are ignored.
+   */
+  setViewMode(mode: 'list' | 'grid'): void {
+    if (!VALID_VIEW_MODES.includes(mode)) return;
+
+    this.viewMode.set(mode);
+    localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
+  }
+
+  /** Restores a stored view preference on startup. Invalid or missing stored values fall back to the 'grid' default (nothing is written). */
+  private hydrateViewMode(): void {
+    const stored = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    if (stored === 'grid' || stored === 'list') {
+      this.viewMode.set(stored);
+    }
+  }
+
   // Search & Sort State
   searchQuery = signal('');
 
@@ -185,6 +209,9 @@ export class Library implements OnInit {
   });
 
   constructor() {
+    // 0. Hydrate the persisted view preference (localStorage, validated).
+    this.hydrateViewMode();
+
     // 1. Search Subscription
     this.searchSubject
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed())

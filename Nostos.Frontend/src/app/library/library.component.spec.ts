@@ -3,7 +3,7 @@ import { Component, signal } from '@angular/core';
 import { provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
 
-import { Library } from './library.component';
+import { Library, VIEW_MODE_STORAGE_KEY } from './library.component';
 import { BooksService } from '../core/services/books.service';
 import { CollectionsService } from '../core/services/collections.service';
 import { PaginatedResponse } from '../core/dtos/book.dtos';
@@ -18,6 +18,7 @@ describe('Library', () => {
   let listSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
+    localStorage.clear();
     listSpy = vi.fn(() => of({ items: [], totalCount: 0 } as PaginatedResponse<never>));
 
     await TestBed.configureTestingModule({
@@ -165,5 +166,43 @@ describe('Library', () => {
       '.filter-option.active',
     ) as HTMLElement;
     expect(activeOption.textContent).toContain('In Progress');
+  });
+
+  it('hydrates a stored valid viewMode from localStorage', () => {
+    localStorage.setItem(VIEW_MODE_STORAGE_KEY, 'list');
+
+    fixture.destroy();
+    fixture = TestBed.createComponent(Library);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    expect(component.viewMode()).toBe('list');
+  });
+
+  it('ignores an invalid stored viewMode and falls back to the default', () => {
+    localStorage.setItem(VIEW_MODE_STORAGE_KEY, 'cards');
+
+    fixture.destroy();
+    fixture = TestBed.createComponent(Library);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    expect(component.viewMode()).toBe('grid');
+  });
+
+  it('persists the viewMode to localStorage when toggled', () => {
+    const toggles = Array.from(
+      fixture.nativeElement.querySelectorAll('.toggle-opt'),
+    ) as HTMLButtonElement[];
+
+    toggles[0].click();
+    fixture.detectChanges();
+    expect(component.viewMode()).toBe('list');
+    expect(localStorage.getItem(VIEW_MODE_STORAGE_KEY)).toBe('list');
+
+    toggles[1].click();
+    fixture.detectChanges();
+    expect(component.viewMode()).toBe('grid');
+    expect(localStorage.getItem(VIEW_MODE_STORAGE_KEY)).toBe('grid');
   });
 });
