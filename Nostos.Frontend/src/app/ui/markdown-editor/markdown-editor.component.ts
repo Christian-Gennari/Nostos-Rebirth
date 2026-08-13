@@ -12,6 +12,7 @@ import { FormsModule } from '@angular/forms';
 
 import TurndownService from 'turndown';
 import { marked } from 'marked';
+import { ThemeService } from '../../core/services/theme.service';
 
 // Import TinyMCE as a global type reference
 declare var tinymce: any;
@@ -38,56 +39,35 @@ declare var tinymce: any;
         background: transparent !important;
       }
 
-      /* Style the Toolbar to match the brand (Clean White) */
+      /* Editor chrome colors come from the TinyMCE skin (oxide / oxide-dark),
+         which is selected to match the global theme — no hard-coded colors
+         here, so the menubar/toolbar follow the theme while the content
+         paper below stays white via content_style. */
       ::ng-deep .tox-editor-header {
-        background-color: #ffffff !important; /* var(--bg-surface) */
-        border-bottom: 1px solid #e5e5e5 !important; /* var(--border-color) */
+        border-bottom: 1px solid var(--border-color) !important;
         box-shadow: none !important;
         padding: 0.5rem !important;
         z-index: 10;
-      }
-
-      /* Make the toolbar sticky if needed, or let the parent handle it */
-      ::ng-deep .tox-editor-header {
         position: sticky !important;
         top: 0;
       }
 
-      /* Toolbar Buttons - Soft interaction states */
       ::ng-deep .tox .tox-tbtn {
-        border-radius: 4px !important; /* var(--radius-sm) */
-        color: #4a4a4a !important; /* var(--color-text-muted) */
+        border-radius: 4px !important;
         transition:
           background 0.2s ease,
           color 0.2s ease;
       }
 
-      ::ng-deep .tox .tox-tbtn:hover {
-        background: #f3f3f3 !important; /* var(--bg-hover) */
-        color: #111111 !important; /* var(--color-primary) */
-      }
-
-      ::ng-deep .tox .tox-tbtn--enabled,
-      ::ng-deep .tox .tox-tbtn--enabled:hover {
-        background: #eef2ff !important; /* Very faint accent tint */
-        color: #60a5fa !important; /* var(--color-accent) */
-      }
-
-      /* Status bar (bottom) - make it subtle */
       ::ng-deep .tox .tox-statusbar {
-        border-top: 1px solid #e5e5e5 !important;
-        background-color: #fafafa !important; /* var(--bg-body) */
-        color: #888888 !important;
-      }
-
-      ::ng-deep .tox .tox-statusbar__path-item {
-        color: #888888 !important;
+        border-top: 1px solid var(--border-color) !important;
       }
     `,
   ],
 })
 export class MarkdownEditorComponent implements OnInit, OnDestroy {
   private elementRef = inject(ElementRef);
+  private themeService = inject(ThemeService);
 
   initialContent = input<string>('');
   contentChange = output<string>();
@@ -101,6 +81,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   });
 
   private editor: any;
+  private appliedSkin: string | null = null;
 
   editorConfig = {
     base_url: '/tinymce',
@@ -114,8 +95,6 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     resize: false,
     branding: false,
     promotion: false,
-    skin: 'oxide',
-
     // --- 2. PLUGINS ---
     plugins: [
       'lists',
@@ -244,6 +223,26 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   };
 
   constructor() {
+    // Re-skin TinyMCE when the global theme changes: destroy + re-create the
+    // editor (content is preserved through htmlContent) so the chrome
+    // (menubar/toolbar) matches the theme while the paper stays white.
+    effect(() => {
+      const skin = this.getSkin();
+      if (this.appliedSkin === null) {
+        this.appliedSkin = skin;
+        return;
+      }
+      if (skin === this.appliedSkin) return;
+      this.appliedSkin = skin;
+
+      if (this.editor) {
+        const currentHtml = this.editor.getContent();
+        this.destroyEditor();
+        this.htmlContent = currentHtml;
+        this.initEditor();
+      }
+    });
+
     // 1. Handle External Content Updates (e.g. clicking a new file in sidebar)
     effect(async () => {
       const markdown = this.initialContent();
@@ -279,10 +278,18 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     // Prevent double-init
     if (this.editor) return;
 
+    this.appliedSkin = this.getSkin();
     tinymce.init({
       selector: `#${this.editorId}`,
       ...this.editorConfig,
+      skin: this.appliedSkin,
     });
+  }
+
+  /** Oxide chrome for light themes, oxide-dark for dark/sepia (paper stays white). */
+  private getSkin(): string {
+    const theme = this.themeService.theme();
+    return theme === 'dark' || theme === 'sepia' ? 'oxide-dark' : 'oxide';
   }
 
   private destroyEditor() {

@@ -96,7 +96,7 @@ app-sidebar-collections.no-transition {
 .search-icon {
   position: relative;
   left: 28px;
-  color: var(--color-text-placeholder);
+  color: var(--color-text-light);
   pointer-events: none;
   z-index: 1;
   transition: color 0.2s ease;
@@ -115,7 +115,7 @@ app-sidebar-collections.no-transition {
 }
 
 .search-input::placeholder {
-  color: var(--color-text-placeholder);
+  color: var(--color-text-light);
 }
 
 .search-input:hover {
@@ -143,11 +143,12 @@ app-sidebar-collections.no-transition {
 .sort-select {
   width: 100%;
   padding: 0.6rem 2rem 0.6rem 1rem;
-  border: 0px solid var(--border-color);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   font-size: 0.9rem;
   cursor: pointer;
   color: var(--color-text-muted);
+  background-color: var(--bg-input);
   outline: none;
   appearance: none;
   font-family: inherit;
@@ -473,6 +474,15 @@ app-sidebar-collections.no-transition {
 /* ADDED: This makes the rating solid when hovering the book card */
 .book-card:hover .meta-rating {
   opacity: 1;
+}
+
+/* --- DARK THEME CONTRAST FIXES --- */
+:host-context([data-theme='dark']) .cover-wrapper {
+  color: var(--color-text-light);
+}
+
+:host-context([data-theme='dark']) .meta-rating {
+  opacity: 0.75;
 }
 
 /* --- SKELETON --- */

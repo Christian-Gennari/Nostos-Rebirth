@@ -164,7 +164,7 @@
 
 .btn-primary {
   background: var(--color-primary);
-  color: white;
+  color: var(--bg-surface);
 }
 
 .btn-primary:hover:not(:disabled) {
