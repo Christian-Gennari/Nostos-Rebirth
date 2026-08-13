@@ -25,6 +25,7 @@ import {
   Menu,
   Heart,
   BookOpen,
+  CircleDashed,
   CheckCircle,
   Inbox,
 } from 'lucide-angular';
@@ -66,6 +67,7 @@ export class SidebarCollections implements OnInit {
   MenuIcon = Menu;
   HeartIcon = Heart;
   BookOpenIcon = BookOpen;
+  CircleDashedIcon = CircleDashed;
   CheckCircleIcon = CheckCircle;
   InboxIcon = Inbox;
 
@@ -161,6 +163,21 @@ export class SidebarCollections implements OnInit {
       setTimeout(() => this.collapseSidebarProgress.set(false), 200);
     }
     this.expanded.set(!isCurrentlyExpanded);
+  }
+
+  /**
+   * Status filters are URL-owned via routerLink + merge; this handler only
+   * manages the mobile drawer: after a selection the drawer closes and focus
+   * returns to its opener (the floating toggle) so it can be reopened
+   * immediately. Desktop selection leaves the sidebar untouched.
+   */
+  onStatusNavClick(): void {
+    if (window.innerWidth < 768 && this.expanded()) {
+      this.expanded.set(false);
+      (this.elementRef.nativeElement as HTMLElement)
+        .querySelector<HTMLButtonElement>('.floating-toggle')
+        ?.focus();
+    }
   }
 
   select(id: string | null): void {

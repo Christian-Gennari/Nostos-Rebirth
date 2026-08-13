@@ -105,67 +105,50 @@ describe('Library', () => {
     expect(listSpy.mock.calls[0][0].collectionId).toBeUndefined();
   });
 
-  it('filter dropdown renders all options', () => {
-    const trigger = fixture.nativeElement.querySelector('.filter-trigger') as HTMLButtonElement;
-    trigger.click();
-    fixture.detectChanges();
+  it('renders no toolbar progress-filter dropdown (trigger/menu/options removed)', () => {
+    expect(fixture.nativeElement.querySelector('.filter-dropdown')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.filter-trigger')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.filter-menu')).toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.filter-option').length).toBe(0);
 
-    const labels = Array.from(
-      fixture.nativeElement.querySelectorAll('.filter-option'),
-    ).map((el) => (el as HTMLElement).textContent?.trim());
-    expect(labels).toEqual([
-      'All Books',
-      'Not Started',
-      'In Progress',
-      'Finished',
-      'Favorites',
-      'Unsorted',
-    ]);
+    const filterButtons = Array.from(
+      fixture.nativeElement.querySelectorAll('.toolbar button') as NodeListOf<HTMLButtonElement>,
+    ).filter((el) => el.getAttribute('title')?.includes('Filter books') ?? false,
+    );
+    expect(filterButtons).toHaveLength(0);
   });
 
-  it('selecting a filter navigates with merge and triggers exactly one books request', async () => {
-    await router.navigate(['/library'], { queryParams: { collection: 'c1' } });
-    fixture.detectChanges();
-    await fixture.whenStable();
+  it('does not render a "Reading" label anywhere in the library UI', () => {
+    expect(fixture.nativeElement.textContent).not.toContain('Reading');
+    const readingTooltips = Array.from(
+      fixture.nativeElement.querySelectorAll('[title]') as NodeListOf<HTMLElement>,
+    ).filter((el) => el.getAttribute('title')?.includes('Reading') ?? false);
+    expect(readingTooltips).toHaveLength(0);
+  });
+
+  it('restores the filter from the initial URL and requests filtered books', async () => {
+    await router.navigate(['/library'], { queryParams: { filter: 'notstarted' } });
     listSpy.mockClear();
 
-    const trigger = fixture.nativeElement.querySelector('.filter-trigger') as HTMLButtonElement;
-    trigger.click();
-    fixture.detectChanges();
-
-    const options = Array.from(fixture.nativeElement.querySelectorAll('.filter-option'));
-    const notStarted = options.find(
-      (el) => (el as HTMLElement).textContent?.trim() === 'Not Started',
-    ) as HTMLButtonElement;
-    notStarted.click();
+    fixture.destroy();
+    fixture = TestBed.createComponent(Library);
+    component = fixture.componentInstance;
     fixture.detectChanges();
     await fixture.whenStable();
 
-    expect(router.url).toContain('collection=c1');
-    expect(router.url).toContain('filter=notstarted');
-    expect(listSpy).toHaveBeenCalledTimes(1);
-    expect(listSpy.mock.calls[0][0].filter).toBe('notstarted');
-    expect(listSpy.mock.calls[0][0].collectionId).toBe('c1');
+    expect(component.urlSelection().filter).toBe('notstarted');
+    expect(listSpy).toHaveBeenCalledWith(expect.objectContaining({ filter: 'notstarted' }));
   });
 
-  it('dropdown active state reflects the route filter param (In Progress = Reading)', async () => {
+  it('URL changes (history-driven) update the active filter request', async () => {
+    listSpy.mockClear();
+
     await router.navigate(['/library'], { queryParams: { filter: 'reading' } });
     fixture.detectChanges();
     await fixture.whenStable();
 
-    expect(component.activeFilter()).toBe('reading');
-    expect(component.activeFilterLabel()).toBe('In Progress');
-
-    const trigger = fixture.nativeElement.querySelector('.filter-trigger') as HTMLButtonElement;
-    expect(trigger.textContent).toContain('In Progress');
-
-    trigger.click();
-    fixture.detectChanges();
-
-    const activeOption = fixture.nativeElement.querySelector(
-      '.filter-option.active',
-    ) as HTMLElement;
-    expect(activeOption.textContent).toContain('In Progress');
+    expect(component.urlSelection().filter).toBe('reading');
+    expect(listSpy).toHaveBeenCalledWith(expect.objectContaining({ filter: 'reading' }));
   });
 
   it('hydrates a stored valid viewMode from localStorage', () => {
