@@ -282,6 +282,49 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
           white-space: nowrap;
         }
       }
+
+      /* --- DARK THEME (token-aligned glass; glow tamed; dark active pill) --- */
+      :host-context([data-theme='dark']) .app-dock-container::before {
+        opacity: 0.25;
+      }
+
+      :host-context([data-theme='dark']) .dock-glass {
+        background: rgba(23, 27, 34, 0.55);
+        border-color: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+      }
+
+      :host-context([data-theme='dark']) .dock-item.active {
+        background: rgba(255, 255, 255, 0.14);
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      }
+
+      :host-context([data-theme='dark']) .dock-item:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--color-text-main);
+      }
+
+      @media (min-width: 769px) {
+        :host-context([data-theme='dark']) .app-dock-container:hover::before {
+          opacity: 0.4;
+        }
+
+        :host-context([data-theme='dark']) .app-dock-container:hover .dock-glass {
+          background: rgba(23, 27, 34, 0.85);
+        }
+      }
+
+      @media (max-width: 768px) {
+        :host-context([data-theme='dark']) .app-dock-container::before {
+          opacity: 0.2;
+        }
+
+        :host-context([data-theme='dark']) .dock-glass {
+          background: rgba(23, 27, 34, 0.92);
+          border-top-color: rgba(255, 255, 255, 0.08);
+        }
+      }
     `,
   ],
 })
