@@ -6,7 +6,7 @@
       [sidebarVisible]="sidebarVisible()"
       (sidebarVisibleChange)="sidebarVisibleChange.emit($event)"
       [(page)]="currentPage"
-      [backgroundColor]="'#fefeff'"
+      [backgroundColor]="pdfBackgroundColor()"
       [scrollMode]="3"
       [showBorders]="false"
       [zoom]="zoomLevel()"

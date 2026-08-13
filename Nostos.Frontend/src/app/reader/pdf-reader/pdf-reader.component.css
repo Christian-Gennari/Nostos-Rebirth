@@ -79,17 +79,53 @@
 }
 
 /* --- UI Tweaks --- */
+
+/* Hidden internal pdf.js toolbar: the emitted DOM is
+   `#mainContainer.toolbar-hidden` (ngx-extended-pdf-viewer disables its
+   internal toolbar with that class and pulls the whole viewer up with a
+   negative margin). The shell toolbar below is a separate flex row, so the
+   negative margin must go; instead the scrollport offset the hidden toolbar
+   would have reserved is reset at #viewerContainer (its inline `top` is
+   otherwise kept at 33px by the pdf-viewer component). */
 ::ng-deep #mainContainer.toolbar-hidden {
-  margin-top: -34px !important;
+  margin-top: 0 !important;
+}
+
+::ng-deep #mainContainer.toolbar-hidden #viewerContainer {
+  top: 0 !important;
 }
 
 ::ng-deep #viewerContainer {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
+  /* Bottom scroll padding (toolbar height + safe-area inset) guarantees the
+     FINAL page can scroll fully clear of the shell toolbar on every screen. */
+  padding-bottom: calc(var(--toolbar-height, 60px) + env(safe-area-inset-bottom, 0px)) !important;
 }
 
 ::ng-deep #viewerContainer::-webkit-scrollbar {
   display: none !important;
+}
+
+/* --- Theme-specific PDF page edges (pages keep authored pixels) --- */
+:host {
+  --pdf-page-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  --pdf-page-outline: 1px solid #e4e4e7;
+}
+:host-context([data-theme='dark']) {
+  /* charcoal surround with a clear page outline */
+  --pdf-page-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
+  --pdf-page-outline: 1px solid #5d6a7d;
+}
+:host-context([data-theme='sepia']) {
+  /* warm surround and warm edge */
+  --pdf-page-shadow: 0 3px 12px rgba(90, 75, 50, 0.3);
+  --pdf-page-outline: 1px solid #ddd2b6;
+}
+::ng-deep #viewer .page {
+  border: none !important;
+  outline: var(--pdf-page-outline) !important;
+  box-shadow: var(--pdf-page-shadow) !important;
 }
 /* =========================================
    SIDEBAR CUSTOMIZATION (Match Custom TOC)

@@ -28,6 +28,10 @@
 #epub-viewer {
   width: 100%;
   height: 100%;
+  /* Theme the viewer surface with Nostos tokens so no pale gutter surrounds
+     the iframe while it loads or in any theme (the iframe document itself is
+     themed via the registered epub.js nostos-* themes). */
+  background: var(--bg-surface, #fff);
   /* PREVENT SCROLL: This is the critical fix.
      It forces the browser to respect epub.js's internal layout
      instead of trying to scroll the div when text is selected. */
