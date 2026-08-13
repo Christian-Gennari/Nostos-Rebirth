@@ -20,52 +20,32 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { EpubAnnotationManager } from './epub-annotation-manager';
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
-import { Theme } from '../../core/services/theme.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 
 /**
- * epub.js theme name for each app theme. These are registered once per
- * rendition and selected reactively (reader-shell `theme` input -> effect).
+ * Fixed light rendition name. The single Nostos light normalization is
+ * registered once per rendition and always selected — the theme system is
+ * gone, so this is a rendering invariant, not a choice.
  */
-const THEME_NAMES: Record<Theme, string> = {
-  light: 'nostos-light',
-  dark: 'nostos-dark',
-  sepia: 'nostos-sepia',
-};
+const NOSTOS_LIGHT_THEME = 'nostos-light';
 
 /**
- * Color-only rules for the epub.js iframe, mirroring the Nostos tokens from
- * styles.css (the iframe is a separate document and cannot read the parent's
- * CSS variables). Only foreground, background, links, and selection colors
- * are overridden; book typography, layout, emphasis, and images are left
- * untouched (images are never inverted).
+ * Color-only rules for the epub.js iframe, mirroring the Nostos light tokens
+ * from styles.css (the iframe is a separate document and cannot read the
+ * parent's CSS variables). Only foreground, background, links, and selection
+ * colors are overridden; book typography, layout, emphasis, and images are
+ * left untouched (images are never inverted).
  */
-const NOSTOS_THEME_RULES: Record<Theme, Record<string, Record<string, string>>> = {
-  light: {
-    html: { background: '#ffffff !important', color: '#1a1a1a !important' },
-    body: { background: '#ffffff !important', color: '#1a1a1a !important' },
-    // Publisher CSS often sets explicit text colors (e.g. h1 { color: #000 });
-    // normalize every element to inherit the theme text color so headings and
-    // body text stay readable in every theme. `a` comes AFTER `body *` so the
-    // theme link color wins for links (and their descendants).
-    'body *': { color: 'inherit !important' },
-    a: { color: '#60a5fa !important' },
-    '::selection': { background: 'rgba(96, 165, 250, 0.3) !important' },
-  },
-  dark: {
-    html: { background: '#161a21 !important', color: '#e6e8ec !important' },
-    body: { background: '#161a21 !important', color: '#e6e8ec !important' },
-    'body *': { color: 'inherit !important' },
-    a: { color: '#60a5fa !important' },
-    '::selection': { background: 'rgba(96, 165, 250, 0.3) !important' },
-  },
-  sepia: {
-    html: { background: '#faf5e8 !important', color: '#3a2f1d !important' },
-    body: { background: '#faf5e8 !important', color: '#3a2f1d !important' },
-    'body *': { color: 'inherit !important' },
-    a: { color: '#3d7fd9 !important' },
-    '::selection': { background: 'rgba(61, 127, 217, 0.3) !important' },
-  },
+const NOSTOS_LIGHT_RULES: Record<string, Record<string, string>> = {
+  html: { background: '#ffffff !important', color: '#1a1a1a !important' },
+  body: { background: '#ffffff !important', color: '#1a1a1a !important' },
+  // Publisher CSS often sets explicit text colors (e.g. h1 { color: #000 });
+  // normalize every element to inherit the theme text color so headings and
+  // body text stay readable. `a` comes AFTER `body *` so the link color wins
+  // for links (and their descendants).
+  'body *': { color: 'inherit !important' },
+  a: { color: '#60a5fa !important' },
+  '::selection': { background: 'rgba(96, 165, 250, 0.3) !important' },
 };
 
 @Component({
@@ -77,8 +57,6 @@ const NOSTOS_THEME_RULES: Record<Theme, Record<string, Record<string, string>>> 
 })
 export class EpubReader implements OnInit, OnDestroy, IReader {
   bookId = input.required<string>();
-  /** Reader-local theme supplied by reader-shell (never the global service). */
-  theme = input<Theme>('light');
   noteCreated = output<void>();
   highlightMode = input<boolean>(false);
   selectionCaptured = output<string>();
@@ -151,19 +129,6 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
       const mode = this.highlightMode();
       if (this.annotationManager) {
         this.annotationManager.setHighlightMode(mode);
-      }
-    });
-
-    // Reactive theme propagation: any in-session reader-theme change
-    // re-selects the epub.js theme on the live rendition without reopening
-    // the book. The initial selection is applied eagerly in loadBook()
-    // (before display) so the first section never flashes white; this effect
-    // only reacts to changes afterwards. Re-selecting the same theme is
-    // idempotent.
-    effect(() => {
-      const theme = this.theme();
-      if (this.rendition) {
-        this.rendition.themes.select(THEME_NAMES[theme]);
       }
     });
   }
@@ -279,12 +244,12 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
       manager: 'default',
     });
 
-    // Apply the reader theme at rendition creation: register the Nostos
-    // themes once per rendition and select the current one BEFORE display,
-    // so the first section is painted with the chosen palette (no white
-    // flash). epub.js injects the selected theme into every contents it
-    // creates afterwards, so later chapters inherit it.
-    this.registerThemes();
+    // Apply the fixed light normalization at rendition creation: register
+    // the Nostos light theme once per rendition and select it BEFORE
+    // display, so the first section is painted with the light palette (no
+    // white flash). epub.js injects the selected theme into every contents
+    // it creates afterwards, so later chapters inherit it.
+    this.registerLightTheme();
 
     // 3. Register Hooks
     this.rendition.hooks.content.register((contents: Contents) => {
@@ -451,17 +416,14 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     contents.document.head.appendChild(link);
   }
 
-  private registerThemes() {
+  private registerLightTheme() {
     const themes = this.rendition?.themes;
     if (!themes) return;
 
-    (['light', 'dark', 'sepia'] as const).forEach((theme) => {
-      themes.register(THEME_NAMES[theme], NOSTOS_THEME_RULES[theme]);
-    });
+    themes.register(NOSTOS_LIGHT_THEME, NOSTOS_LIGHT_RULES);
 
-    // Select the reader-shell theme so the first section is rendered with it
-    // (the reactive effect covers later in-session toggles).
-    themes.select(THEME_NAMES[this.theme()]);
+    // Select the fixed light theme so the first section is rendered with it.
+    themes.select(NOSTOS_LIGHT_THEME);
   }
 
   public deleteHighlight(cfiRange: string) {

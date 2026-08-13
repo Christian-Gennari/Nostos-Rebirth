@@ -15,7 +15,6 @@ import { BooksService } from '../core/services/books.service';
 import { NotesService } from '../core/services/notes.service';
 import { ConceptsService } from '../core/services/concepts.service';
 import { ConceptAutocompleteService } from '../ui/concept-autocomplete-panel/concept-autocomplete.service';
-import { ThemeService, THEME_STORAGE_KEY, READER_THEME_STORAGE_KEY } from '../core/services/theme.service';
 import { Book } from '../core/dtos/book.dtos';
 
 // The AudioReader is kept real so this spec guards the reader page's total
@@ -41,7 +40,6 @@ vi.mock('howler', () => ({
 @Component({ selector: 'app-pdf-reader', standalone: true, template: '' })
 class PdfReaderStub {
   bookId = input.required<string>();
-  theme = input<string | null>(null);
   initialLocation = input<string | null>(null);
   sidebarVisible = input(false);
   highlightMode = input(false);
@@ -54,7 +52,6 @@ class PdfReaderStub {
 @Component({ selector: 'app-epub-reader', standalone: true, template: '' })
 class EpubReaderStub {
   bookId = input.required<string>();
-  theme = input<string | null>(null);
   highlightMode = input(false);
   noteCreated = output<void>();
   selectionCaptured = output<unknown>();
@@ -150,8 +147,7 @@ function mockMatchMedia() {
 }
 
 // Builds a fresh TestBed module with the heavy reader children stubbed out.
-// Called per-test so localStorage can be primed (theme hydration) BEFORE the
-// component (and its root-provided ThemeService) is constructed.
+// Called per-test so each spec starts from a clean state.
 async function configureReaderShell(): Promise<ComponentFixture<ReaderShell>> {
   TestBed.overrideComponent(ReaderShell, {
     remove: {
@@ -196,8 +192,7 @@ describe('ReaderShell audiobook load (issue #7)', () => {
     booksGetSpy.mockReset();
     booksGetSpy.mockReturnValue(of(audiobook));
 
-    // Deterministic theme state for every test (ThemeService hydrates from
-    // localStorage on construction).
+    // Deterministic boot state for every test.
     localStorage.clear();
     document.documentElement.removeAttribute('data-theme');
 
@@ -228,7 +223,7 @@ describe('ReaderShell audiobook load (issue #7)', () => {
   });
 });
 
-describe('ReaderShell reader-local theme (no global spill)', () => {
+describe('ReaderShell toolbar contract (theme system removed)', () => {
   let fixture: ComponentFixture<ReaderShell>;
 
   beforeEach(() => {
@@ -246,108 +241,38 @@ describe('ReaderShell reader-local theme (no global spill)', () => {
     fixture.detectChanges();
   }
 
-  function toggleButtons() {
-    return fixture.debugElement.queryAll(By.css('.theme-toggle-btn'));
-  }
-
-  function readerLayout() {
-    return fixture.debugElement.query(By.css('.reader-layout'));
-  }
-
-  it('renders the theme toggle with the current theme and switches it on click', async () => {
+  it('renders no theme toggle and no data-theme binding anywhere in the shell', async () => {
     fixture = await configureReaderShell();
     render();
 
-    const toggle = fixture.debugElement.query(By.css('.theme-toggle'));
-    expect(toggle).not.toBeNull();
-
-    const buttons = toggleButtons();
-    expect(buttons.length).toBe(3);
-    // Light is the default and starts active.
-    expect(buttons[0].classes['active']).toBe(true);
-    expect(buttons[1].classes['active']).toBeUndefined();
-    expect(buttons[2].classes['active']).toBeUndefined();
-
-    buttons[2].nativeElement.click(); // sepia
-    fixture.detectChanges();
-
-    // The reader-local theme changed and persisted...
-    expect(fixture.componentInstance.readerTheme()).toBe('sepia');
-    expect(localStorage.getItem(READER_THEME_STORAGE_KEY)).toBe('sepia');
-    expect(buttons[2].classes['active']).toBe(true);
-    expect(buttons[0].classes['active']).toBeUndefined();
-    // ...and the GLOBAL theme was never touched: no 'nostos.theme' write and
-    // no documentElement attribute change.
-    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
-    expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
+    expect(fixture.debugElement.query(By.css('.theme-toggle'))).toBeNull();
+    expect(fixture.debugElement.query(By.css('.theme-toggle-btn'))).toBeNull();
+    const layout = fixture.debugElement.query(By.css('.reader-layout'));
+    expect(layout.nativeElement.hasAttribute('data-theme')).toBe(false);
   });
 
-  it('initializes from the global theme when no reader theme is stored, then stays independent', async () => {
-    // Global theme is dark (as if set app-wide via Settings). Priming the
-    // stored global key BEFORE the fixture is created makes the root
-    // ThemeService hydrate 'dark' when the shell first injects it — the same
-    // boot path a real user hits.
-    localStorage.setItem(THEME_STORAGE_KEY, 'dark');
-
-    fixture = await configureReaderShell();
-    render();
-
-    // The reader was seeded from the global theme...
-    expect(fixture.componentInstance.readerTheme()).toBe('dark');
-    // ...and the scoped host attribute mirrors the READER theme.
-    expect(readerLayout().nativeElement.getAttribute('data-theme')).toBe('dark');
-    // The global theme is applied app-wide (by ThemeService hydration), not
-    // by the reader.
-    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
-
-    // Toggling inside the reader must NOT change the global theme.
-    toggleButtons()[0].nativeElement.click(); // light
-    fixture.detectChanges();
-
-    expect(fixture.componentInstance.readerTheme()).toBe('light');
-    expect(localStorage.getItem(READER_THEME_STORAGE_KEY)).toBe('light');
-    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
-    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
-    expect(readerLayout().nativeElement.getAttribute('data-theme')).toBe('light');
-  });
-
-  it('restores a persisted reader theme independently of the global theme', async () => {
-    localStorage.setItem(READER_THEME_STORAGE_KEY, 'sepia');
-    localStorage.setItem(THEME_STORAGE_KEY, 'dark');
-
-    // The fixture is created AFTER storage is primed, so the shell hydrates
-    // its reader-local theme from 'nostos.readerTheme' on construction.
-    fixture = await configureReaderShell();
-    render();
-
-    expect(fixture.componentInstance.readerTheme()).toBe('sepia');
-    expect(readerLayout().nativeElement.getAttribute('data-theme')).toBe('sepia');
-    // The global theme stays dark and untouched by the reader.
-    expect(TestBed.inject(ThemeService).theme()).toBe('dark');
-    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
-
-    const buttons = toggleButtons();
-    expect(buttons[2].classes['active']).toBe(true);
-    expect(buttons[0].classes['active']).toBeUndefined();
-  });
-
-  it('passes the reader theme into the epub reader as an input', async () => {
+  it('renders each toolbar control exactly once: More, prev/next, highlight, notes', async () => {
+    // Non-audio book: the full toolbar (More, center nav, highlight, notes).
     const epubBook = { ...audiobook, id: 'book-epub', fileName: 'iliad.epub' } as Book;
     booksGetSpy.mockReturnValue(of(epubBook));
 
     fixture = await configureReaderShell();
     render();
 
-    const epubEl = fixture.debugElement.query(By.directive(EpubReaderStub));
-    expect(epubEl).not.toBeNull();
-    expect(epubEl.componentInstance.theme()).toBe('light');
+    const buttons = fixture.debugElement.queryAll(By.css('.reader-toolbar .icon-btn'));
+    const titles = buttons
+      .map((b) => b.nativeElement.getAttribute('title'))
+      .filter((t): t is string => !!t);
 
-    // Toggling the reader theme flows into the epub reader input.
-    toggleButtons()[1].nativeElement.click(); // dark
-    fixture.detectChanges();
+    expect(titles.filter((t) => t === 'More')).toHaveLength(1);
+    expect(titles.filter((t) => t === 'Previous')).toHaveLength(1);
+    expect(titles.filter((t) => t === 'Next')).toHaveLength(1);
+    expect(titles.filter((t) => t === 'Highlight mode')).toHaveLength(1);
+    expect(titles.filter((t) => t === 'Notes & Highlights')).toHaveLength(1);
 
-    expect(epubEl.componentInstance.theme()).toBe('dark');
-    expect(fixture.componentInstance.readerTheme()).toBe('dark');
-    expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
+    // The progress cluster sits between prev and next in the center group.
+    const center = fixture.debugElement.query(By.css('.toolbar-center'));
+    expect(center).not.toBeNull();
+    expect(center.query(By.css('.progress-display'))).not.toBeNull();
   });
 });

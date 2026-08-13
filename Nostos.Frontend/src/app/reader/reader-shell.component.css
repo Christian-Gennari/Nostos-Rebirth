@@ -250,43 +250,6 @@
   border-color: var(--color-primary);
 }
 
-/* --- READER THEME TOGGLE (light / dark / sepia) --- */
-.theme-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px;
-  margin-left: 0.25rem;
-  background: var(--bg-hover);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-}
-
-.theme-toggle-btn {
-  all: unset;
-
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: calc(var(--radius-md) - 2px);
-  color: var(--color-text-muted);
-  transition:
-    background-color 0.2s,
-    color 0.2s;
-}
-
-.theme-toggle-btn:hover {
-  background: var(--bg-surface);
-  color: var(--color-primary);
-}
-
-.theme-toggle-btn.active {
-  background: var(--color-primary);
-  color: var(--bg-surface);
-}
 .error,
 .loading {
   display: flex;
@@ -445,25 +408,23 @@
   .toc-panel {
     width: 100%;
   }
-  /* Expert design: two-row mobile toolbar.
-     Primary row = grid minmax(0,1fr) auto minmax(0,1fr): the middle track
-     is mathematically centered on the viewport regardless of side content.
-     Secondary row carries highlight/notes/theme so the 132px theme picker
-     can never distort the centered progress cluster. */
+  /* Expert design: single-row mobile toolbar.
+     Row = grid minmax(0,1fr) auto minmax(0,1fr): the middle track is
+     mathematically centered on the viewport regardless of side content.
+     Left = More; center = prev + progress + next; right = highlight + notes.
+     The removed 138px theme picker leaves no layout hole: with the theme
+     system gone, one 44px row carries everything. */
   .reader-toolbar {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-    grid-template-rows: 44px 44px;
-    grid-template-areas:
-      'left center empty'
-      'secondary secondary secondary';
+    grid-template-rows: 44px;
+    grid-template-areas: 'left center right';
     width: 100%;
     min-width: 0;
     min-height: auto;
     height: auto;
     padding: 4px 0 calc(4px + env(safe-area-inset-bottom, 0px));
     column-gap: 0;
-    row-gap: 4px;
     overflow: hidden;
   }
   .toolbar-left {
@@ -483,15 +444,14 @@
     gap: 0.25rem;
   }
   .toolbar-right {
-    grid-area: secondary;
-    justify-self: stretch;
+    grid-area: right;
+    justify-self: end;
     flex: none;
     width: auto;
     height: 44px;
-    justify-content: center;
-    gap: 0.375rem;
-    padding-inline: max(0.5rem, env(safe-area-inset-left, 0px))
-      max(0.5rem, env(safe-area-inset-right, 0px));
+    gap: 0.25rem;
+    padding-inline: max(0.25rem, env(safe-area-inset-left, 0px))
+      max(0.25rem, env(safe-area-inset-right, 0px));
     overflow: hidden;
   }
   .toolbar-desktop-nav,
@@ -520,24 +480,15 @@
   .icon-btn lucide-icon {
     top: 0;
   }
-  /* Theme picker: 138px = 3x44px targets + 4px padding + 2px border (true 44px floor) */
-  .theme-toggle {
-    flex: 0 0 138px;
-    width: 138px;
-    height: 44px;
-    grid-template-columns: repeat(3, 44px);
-    overflow: hidden;
-  }
-  .theme-toggle-btn {
-    width: 44px;
-    height: 44px;
-    border-radius: var(--radius-md);
-  }
   .progress-display {
     flex: 0 1 auto;
     width: auto;
     min-width: auto;
-    max-width: 96px;
+    /* One-row toolbar budget: 44px targets on both sides of the centered
+       group. The pill compresses (never the 44px targets) so the right
+       highlight/notes cluster fits its 1fr track without overlapping the
+       center group at 390px. */
+    max-width: 88px;
     padding: 0.3rem;
     font-size: 0.8rem;
     overflow: hidden;
@@ -560,15 +511,12 @@
 
 /* Very narrow phones (<=360px): shrink only the progress display, never touch targets */
 @media (max-width: 360px) {
-  .reader-toolbar {
-    row-gap: 2px;
-  }
   .toolbar-center {
     gap: 2px;
   }
   .progress-display,
   .progress-display span {
-    max-width: 72px;
+    max-width: 64px;
   }
   .toolbar-right {
     gap: 0.25rem;
