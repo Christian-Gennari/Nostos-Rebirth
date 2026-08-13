@@ -29,6 +29,14 @@ if (HermesReadingImportCommand.IsImportInvocation(args))
 builder.Services.Configure<BackupSettings>(builder.Configuration.GetSection("BackupSettings"));
 builder.Services.Configure<ReadingTrainingOptions>(builder.Configuration.GetSection("ReadingTraining"));
 
+// Library receipt retention (issue #51): the bound section is normalized
+// once (unsafe values clamped) and registered as a singleton so the
+// retention service and its hosted worker always agree on the effective
+// bounds.
+builder.Services.AddSingleton(LibraryReceiptRetentionOptions.Normalize(
+    builder.Configuration.GetSection("LibraryReceiptRetention").Get<LibraryReceiptRetentionOptions>()
+    ?? new LibraryReceiptRetentionOptions()));
+
 // --- MCP (Model Context Protocol) Streamable HTTP foundation (Task 9A) ---
 // Opt-in and disabled by default. When enabled, the bearer token is resolved
 // ONLY from the configured environment variable at startup; a missing token
@@ -123,6 +131,7 @@ builder.Services.AddHttpClient(BookLookupService.HttpClientName, client =>
 });
 builder.Services.AddScoped<BookLookupService>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
+builder.Services.AddScoped<LibraryReceiptRetentionService>();
 builder.Services.AddScoped<MediaMetadataService>();
 builder.Services.AddScoped<NoteProcessorService>();
 builder.Services.AddScoped<IBackupService, BackupService>();
@@ -142,6 +151,7 @@ builder.Services.AddHostedService<ConceptCleanupWorker>();
 builder.Services.AddHostedService<BackupWorker>();
 builder.Services.AddHostedService<ReadingNotificationWorker>();
 builder.Services.AddHostedService<ReadingWeeklyReviewWorker>();
+builder.Services.AddHostedService<LibraryReceiptRetentionWorker>();
 
 var app = builder.Build();
 
