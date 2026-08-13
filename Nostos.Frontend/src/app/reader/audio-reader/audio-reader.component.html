@@ -17,6 +17,17 @@
   </div>
 
   <div class="controls">
+    @if (loading()) {
+    <div class="audio-loading" role="status" data-testid="audio-loading">
+      <lucide-icon [img]="Icons.AudioLines" [size]="20" class="audio-loading-icon"></lucide-icon>
+      <span>Loading audio…</span>
+    </div>
+    }
+    @if (loadError()) {
+    <div class="audio-loading audio-load-error" role="alert" data-testid="audio-load-error">
+      <span>{{ loadError() }}</span>
+    </div>
+    }
     <div class="scrubber">
       <input
         type="range"
@@ -65,7 +76,7 @@
           <span class="skip-label">15</span>
         </button>
 
-        <button class="play-btn" (click)="togglePlay()">
+        <button class="play-btn" (click)="togglePlay()" [disabled]="loading()">
           @if(isPlaying()) {
           <lucide-icon [img]="Icons.Pause" [size]="32" class="icon-fill"></lucide-icon>
           } @else {

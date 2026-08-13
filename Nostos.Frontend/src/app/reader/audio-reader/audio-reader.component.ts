@@ -31,13 +31,13 @@ import { Book } from '../../core/dtos/book.dtos';
 })
 export class AudioReader implements OnDestroy, IReader {
   bookId = input.required<string>();
+  // The already-loaded book is passed in by the reader shell so this component
+  // never issues a second GET /api/books/{id} (issue #7).
+  book = input<Book | null>(null);
 
   private booksService = inject(BooksService);
 
   Icons = { Play, Pause, AudioLines, RotateCcw, RotateCw };
-
-  // Data
-  book = signal<Book | null>(null);
 
   // IReader Interface
   toc = signal<TocItem[]>([]);
@@ -64,6 +64,10 @@ export class AudioReader implements OnDestroy, IReader {
   duration = signal(0);
   currentRate = signal(1);
   isOpen = signal(false);
+  // True while Howl is initializing (between `new Howl` and the onload callback),
+  // so the UI can show a visible loading state instead of a dead-looking player.
+  loading = signal(true);
+  loadError = signal<string | null>(null);
 
   // --- Jump-to-timestamp (issue #6) ---
   isEditingTime = signal(false);
@@ -116,24 +120,25 @@ export class AudioReader implements OnDestroy, IReader {
     effect(() => {
       const id = this.bookId();
       if (id) {
-        // 1. Fetch Book Metadata (Cover, Title, etc.)
-        this.booksService.get(id).subscribe((b) => {
-          this.book.set(b);
-
-          // Map chapters to table of contents
-          if (b.chapters && b.chapters.length > 0) {
-            this.toc.set(
-              b.chapters.map((c) => ({
-                label: c.title,
-                target: c.startTime, // Target is the timestamp in seconds
-                children: [],
-              })),
-            );
-          }
-        });
-
-        // 2. Init Player
+        // Init Player
         this.initPlayer(id);
+      }
+    });
+
+    // Build the table of contents from the book passed in by the reader shell.
+    // No second GET /api/books/{id} (issue #7).
+    effect(() => {
+      const book = this.book();
+      if (!book) return;
+
+      if (book.chapters && book.chapters.length > 0) {
+        this.toc.set(
+          book.chapters.map((c) => ({
+            label: c.title,
+            target: c.startTime, // Target is the timestamp in seconds
+            children: [],
+          })),
+        );
       }
     });
   }
@@ -161,15 +166,25 @@ export class AudioReader implements OnDestroy, IReader {
   initPlayer(id: string) {
     if (this.player) this.player.unload();
 
+    this.loading.set(true);
+    this.loadError.set(null);
+
     const src = `/api/books/${id}/file`;
     this.player = new Howl({
       src: [src],
       html5: true,
       format: ['mp3', 'm4a', 'm4b'],
       onload: () => {
+        this.loading.set(false);
         this.duration.set(this.player?.duration() || 0);
-        this.restoreProgress(id);
+        this.restoreProgress();
         this.updateMediaSessionMetadata();
+      },
+      onloaderror: () => {
+        // Loading failed; drop the loading state so the UI can surface the error
+        // instead of appearing stuck forever.
+        this.loading.set(false);
+        this.loadError.set('Unable to load audio.');
       },
       onplay: () => {
         this.isPlaying.set(true);
@@ -192,20 +207,17 @@ export class AudioReader implements OnDestroy, IReader {
     });
   }
 
-  restoreProgress(id: string) {
-    this.booksService.get(id).subscribe({
-      next: (book) => {
-        if (book.lastLocation) {
-          const timestamp = parseFloat(book.lastLocation);
-          if (!isNaN(timestamp)) this.goToTime(timestamp);
-        }
-        this.updateProgressState();
-        this.isInitialized = true;
-      },
-      error: () => {
-        this.isInitialized = true;
-      },
-    });
+  restoreProgress() {
+    // The book (with its lastLocation) is passed in by the reader shell —
+    // no second GET /api/books/{id} (issue #7). If the book has not arrived
+    // yet, do nothing; the shell only renders this component once it has.
+    const book = this.book();
+    if (book?.lastLocation) {
+      const timestamp = parseFloat(book.lastLocation);
+      if (!isNaN(timestamp)) this.goToTime(timestamp);
+    }
+    this.updateProgressState();
+    this.isInitialized = true;
   }
 
   togglePlay() {

@@ -17,7 +17,7 @@
       } @case ('epub') {
       <app-epub-reader [bookId]="book()!.id" [highlightMode]="highlightMode()" (noteCreated)="handleNoteCreated()" (selectionCaptured)="handleSelectionCaptured($event)" (commitFailed)="handleCommitFailed()" />
       } @case ('audio') {
-      <app-audio-reader [bookId]="book()!.id" />
+      <app-audio-reader [bookId]="book()!.id" [book]="book()" />
       } @default {
       <div class="error">Unsupported file format.</div>
       } } }
