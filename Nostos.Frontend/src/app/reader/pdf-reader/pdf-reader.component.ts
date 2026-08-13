@@ -23,7 +23,7 @@ import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 import { PdfAnnotationManager, PageHighlight } from './pdf-annotation-manager';
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
-import { ThemeService, Theme } from '../../core/services/theme.service';
+import { Theme } from '../../core/services/theme.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 
 /**
@@ -56,11 +56,12 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   private highlightService = inject(PdfAnnotationManager);
   private notesService = inject(NotesService);
   private booksService = inject(BooksService);
-  private themeService = inject(ThemeService);
 
   @ViewChild(NgxExtendedPdfViewerComponent) pdfViewer!: NgxExtendedPdfViewerComponent;
 
   bookId = input.required<string>();
+  /** Reader-local theme supplied by reader-shell (never the global service). */
+  theme = input<Theme>('light');
   initialLocation = input<string | undefined>();
   noteCreated = output<void>();
   highlightMode = input<boolean>(false);
@@ -71,8 +72,8 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   sidebarVisibleChange = output<boolean>();
 
   pdfSrc = computed(() => `/api/books/${this.bookId()}/file`);
-  /** Themed surround canvas (replaces the hard-coded '#fefeff'). */
-  pdfBackgroundColor = computed(() => PDF_SURROUND[this.themeService.theme()]);
+  /** Themed surround canvas, following the reader-shell theme input. */
+  pdfBackgroundColor = computed(() => PDF_SURROUND[this.theme()]);
   savedHighlights: PageHighlight[] = [];
 
   private pendingHighlight: PendingPdfHighlight | null = null;

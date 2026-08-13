@@ -1,4 +1,4 @@
-<div class="reader-layout" [class.ready]="ready()">
+<div class="reader-layout" [attr.data-theme]="readerTheme()" [class.ready]="ready()">
   <div class="reader-body">
     <main class="reader-content">
       @if (loading()) {
@@ -6,6 +6,7 @@
       } @else { @switch (fileType()) { @case ('pdf') {
       <app-pdf-reader
         [bookId]="book()!.id"
+        [theme]="readerTheme()"
         [initialLocation]="book()?.lastLocation"
         [sidebarVisible]="tocOpen()"
         [highlightMode]="highlightMode()"
@@ -15,7 +16,7 @@
         (commitFailed)="handleCommitFailed()"
       />
       } @case ('epub') {
-      <app-epub-reader [bookId]="book()!.id" [highlightMode]="highlightMode()" (noteCreated)="handleNoteCreated()" (selectionCaptured)="handleSelectionCaptured($event)" (commitFailed)="handleCommitFailed()" />
+      <app-epub-reader [bookId]="book()!.id" [theme]="readerTheme()" [highlightMode]="highlightMode()" (noteCreated)="handleNoteCreated()" (selectionCaptured)="handleSelectionCaptured($event)" (commitFailed)="handleCommitFailed()" />
       } @case ('audio') {
       <app-audio-reader [bookId]="book()!.id" [book]="book()" />
       } @default {
@@ -232,7 +233,7 @@
         <button
           type="button"
           class="theme-toggle-btn"
-          [class.active]="theme() === 'light'"
+          [class.active]="readerTheme() === 'light'"
           (click)="setTheme('light')"
           title="Light theme"
           aria-label="Light theme"
@@ -242,7 +243,7 @@
         <button
           type="button"
           class="theme-toggle-btn"
-          [class.active]="theme() === 'dark'"
+          [class.active]="readerTheme() === 'dark'"
           (click)="setTheme('dark')"
           title="Dark theme"
           aria-label="Dark theme"
@@ -252,7 +253,7 @@
         <button
           type="button"
           class="theme-toggle-btn"
-          [class.active]="theme() === 'sepia'"
+          [class.active]="readerTheme() === 'sepia'"
           (click)="setTheme('sepia')"
           title="Sepia theme"
           aria-label="Sepia theme"

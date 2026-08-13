@@ -20,12 +20,12 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { EpubAnnotationManager } from './epub-annotation-manager';
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
-import { ThemeService, Theme } from '../../core/services/theme.service';
+import { Theme } from '../../core/services/theme.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 
 /**
  * epub.js theme name for each app theme. These are registered once per
- * rendition and selected reactively (ThemeService signal -> effect).
+ * rendition and selected reactively (reader-shell `theme` input -> effect).
  */
 const THEME_NAMES: Record<Theme, string> = {
   light: 'nostos-light',
@@ -77,6 +77,8 @@ const NOSTOS_THEME_RULES: Record<Theme, Record<string, Record<string, string>>> 
 })
 export class EpubReader implements OnInit, OnDestroy, IReader {
   bookId = input.required<string>();
+  /** Reader-local theme supplied by reader-shell (never the global service). */
+  theme = input<Theme>('light');
   noteCreated = output<void>();
   highlightMode = input<boolean>(false);
   selectionCaptured = output<string>();
@@ -84,7 +86,6 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
 
   private notesService = inject(NotesService);
   private booksService = inject(BooksService);
-  private themeService = inject(ThemeService);
   private injector = inject(Injector);
   private elementRef = inject(ElementRef);
 
@@ -153,13 +154,14 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
       }
     });
 
-    // Reactive theme propagation: any in-session theme toggle re-selects the
-    // epub.js theme on the live rendition without reopening the book. The
-    // initial selection is applied eagerly in loadBook() (before display) so
-    // the first section never flashes white; this effect only reacts to
-    // changes afterwards. Re-selecting the same theme is idempotent.
+    // Reactive theme propagation: any in-session reader-theme change
+    // re-selects the epub.js theme on the live rendition without reopening
+    // the book. The initial selection is applied eagerly in loadBook()
+    // (before display) so the first section never flashes white; this effect
+    // only reacts to changes afterwards. Re-selecting the same theme is
+    // idempotent.
     effect(() => {
-      const theme = this.themeService.theme();
+      const theme = this.theme();
       if (this.rendition) {
         this.rendition.themes.select(THEME_NAMES[theme]);
       }
@@ -457,9 +459,9 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
       themes.register(THEME_NAMES[theme], NOSTOS_THEME_RULES[theme]);
     });
 
-    // Select the persisted/current theme so the first section is rendered
-    // with it (the reactive effect covers later in-session toggles).
-    themes.select(THEME_NAMES[this.themeService.theme()]);
+    // Select the reader-shell theme so the first section is rendered with it
+    // (the reactive effect covers later in-session toggles).
+    themes.select(THEME_NAMES[this.theme()]);
   }
 
   public deleteHighlight(cfiRange: string) {
