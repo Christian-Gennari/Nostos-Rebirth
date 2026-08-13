@@ -1,0 +1,120 @@
+/**
+ * tinymce-nostos.css — global TinyMCE overlay overrides (expert design §3).
+ *
+ * Dropdowns, dialogs, notifications, and some quickbars are appended to the
+ * document body OUTSIDE the Angular component host, so component-scoped
+ * ::ng-deep rules cannot reach them. This global stylesheet owns every
+ * TinyMCE portal: menus, collections, dialogs, quickbars, and input fields.
+ *
+ * Everything is token-driven via the --editor-ui-* custom properties defined
+ * under the [data-theme='light'|'dark'|'sepia'] blocks in styles.css. The
+ * skin itself stays 'oxide' in every theme — these rules repaint it.
+ */
+
+/* Dropdowns and context collections */
+.tox-tinymce-aux .tox-menu,
+.tox-tinymce-aux .tox-collection,
+.tox-tinymce-aux .tox-dialog,
+.tox-tinymce-aux .tox-pop {
+  color: var(--editor-ui-text) !important;
+  background: var(--editor-ui-bg) !important;
+  border: 1px solid var(--editor-ui-border) !important;
+  border-radius: 9px !important;
+  box-shadow: var(--editor-ui-shadow) !important;
+}
+
+.tox-tinymce-aux .tox-collection__item {
+  min-height: 36px;
+  color: var(--editor-ui-text) !important;
+  background: transparent !important;
+  border-radius: 5px !important;
+}
+
+.tox-tinymce-aux .tox-collection__item:hover,
+.tox-tinymce-aux .tox-collection__item--active {
+  color: var(--editor-ui-text) !important;
+  background: var(--editor-ui-bg-hover) !important;
+}
+
+.tox-tinymce-aux .tox-collection__item--enabled {
+  color: var(--editor-ui-accent) !important;
+  background: var(--editor-ui-accent-soft) !important;
+}
+
+.tox-tinymce-aux .tox-collection__separator {
+  background: var(--editor-ui-border) !important;
+}
+
+/* Quickbars: restrained floating annotation strip */
+.tox-tinymce-aux .tox-pop {
+  padding: 4px !important;
+}
+
+.tox-tinymce-aux .tox-pop .tox-toolbar {
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.tox-tinymce-aux .tox-pop .tox-toolbar__group {
+  gap: 2px;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+.tox-tinymce-aux .tox-pop .tox-tbtn {
+  width: 32px;
+  height: 32px;
+  color: var(--editor-ui-muted) !important;
+  background: transparent !important;
+  border-radius: 5px !important;
+}
+
+.tox-tinymce-aux .tox-pop .tox-tbtn:hover {
+  color: var(--editor-ui-text) !important;
+  background: var(--editor-ui-bg-hover) !important;
+}
+
+/* Dialogs */
+.tox-tinymce-aux .tox-dialog__header,
+.tox-tinymce-aux .tox-dialog__body,
+.tox-tinymce-aux .tox-dialog__footer {
+  color: var(--editor-ui-text) !important;
+  background: var(--editor-ui-bg) !important;
+}
+
+.tox-tinymce-aux .tox-dialog__header {
+  border-bottom: 1px solid var(--editor-ui-border) !important;
+}
+
+.tox-tinymce-aux .tox-dialog__footer {
+  border-top: 1px solid var(--editor-ui-border) !important;
+}
+
+.tox-tinymce-aux .tox-dialog__title,
+.tox-tinymce-aux .tox-label,
+.tox-tinymce-aux .tox-checkbox__label {
+  color: var(--editor-ui-text) !important;
+}
+
+.tox-tinymce-aux .tox-textfield,
+.tox-tinymce-aux .tox-listbox,
+.tox-tinymce-aux .tox-selectfield select,
+.tox-tinymce-aux textarea {
+  color: var(--editor-ui-text) !important;
+  background: var(--editor-ui-bg-hover) !important;
+  border: 1px solid var(--editor-ui-border) !important;
+  border-radius: 6px !important;
+}
+
+.tox-tinymce-aux .tox-textfield:focus,
+.tox-tinymce-aux .tox-listbox:focus,
+.tox-tinymce-aux .tox-selectfield select:focus,
+.tox-tinymce-aux textarea:focus {
+  border-color: var(--editor-ui-focus) !important;
+  box-shadow: 0 0 0 2px var(--editor-ui-accent-soft) !important;
+}
+
+/* Never show quickbars in Zen. */
+body.nostos-zen .tox-tinymce-aux .tox-pop {
+  display: none !important;
+}

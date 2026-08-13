@@ -87,14 +87,16 @@
         <app-markdown-editor
           [initialContent]="editorText()"
           (contentChange)="editorText.set($event)"
+          (wordCountChange)="editorWordCount.set($event)"
         ></app-markdown-editor>
-      </div>
 
-      <div class="editor-status">
-        <span class="status-badge">{{ saveStatus() }}</span>
-        <span class="word-count"
-          >{{ wordCount() }} {{ wordCount() === 1 ? 'word' : 'words' }}</span
-        >
+        <div class="editor-status-pill" aria-live="polite">
+          {{ displayWordCount() }} {{ displayWordCount() === 1 ? 'word' : 'words' }}
+          @if (saveStatus() === 'Saved') {
+            <span aria-hidden="true">·</span>
+            <span class="pill-saved">Saved</span>
+          }
+        </div>
       </div>
     } @else {
       <div class="empty-state">
@@ -261,12 +263,5 @@
     >
       <lucide-icon [img]="Icons.Minimize2" [size]="18" strokeWidth="1.5"></lucide-icon>
     </button>
-
-    <div class="zen-word-count">
-      <span class="status-badge">{{ saveStatus() }}</span>
-      <span class="zen-word-count__words"
-        >{{ wordCount() }} {{ wordCount() === 1 ? 'word' : 'words' }}</span
-      >
-    </div>
   }
 </div>

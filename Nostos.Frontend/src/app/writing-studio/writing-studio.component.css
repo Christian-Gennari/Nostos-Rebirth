@@ -291,16 +291,18 @@
   outline: none;
 }
 
-/* --- EDITOR PANE (Restored Scrolling Logic) --- */
+/* --- EDITOR PANE (fixed paper frame — expert design §2) --- */
 .editor-pane {
   position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
   background-color: var(--bg-body);
   background-image: radial-gradient(var(--border-color) 1px, transparent 1px);
   background-size: 24px 24px;
-  overflow: hidden; /* Important: Hides overflow so wrapper can scroll */
+  overflow: hidden;
 }
 
 .editor-header {
@@ -323,74 +325,131 @@
   margin-left: auto;
 }
 
-.status-badge {
-  font-size: 0.7rem;
-  color: var(--color-text-light);
-  font-weight: var(--fw-medium);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* Save status + word count live together at the bottom of the editor pane. */
-.editor-status {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 0.5rem 1rem;
-  flex-shrink: 0;
-  background-color: var(--bg-surface);
-  border-top: 1px solid var(--border-color);
-}
-
-.word-count {
-  font-size: 0.7rem;
-  color: var(--color-text-light);
-  font-weight: var(--fw-medium);
-}
-
-/* The editor iframe is the only scroll owner: the wrapper never scrolls and
-   the TinyMCE surface is pinned to its height, so the iframe scrolls
-   internally. This keeps the same scroll surface across zen enter/exit. */
+/*
+ * The stage owns safe padding around the paper: the inline gutters give the
+ * sheet room on the sides, the top gutter gives it breathing space below the
+ * header, and the bottom dock clearance keeps the floating dock from covering
+ * the paper's lower edge. The padding is part of the editor layout, not page
+ * whitespace — and overflow is visible so the paper's shadow is never clipped.
+ */
 .editor-wrapper {
-  flex: 1;
+  --studio-inline-gutter: clamp(16px, 2.5vw, 32px);
+  --studio-top-gutter: 18px;
+  --studio-dock-clearance: 96px;
+
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+
   width: 100%;
   height: 100%;
   min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  box-sizing: border-box;
+
+  padding:
+    var(--studio-top-gutter)
+    var(--studio-inline-gutter)
+    var(--studio-dock-clearance);
+
+  overflow: visible;
 }
 
-@media (min-width: 769px) {
-  .editor-wrapper {
-    margin: 0 auto;
-  }
-
-  /* Desktop "Paper" Look */
-  app-markdown-editor {
-    width: 100%;
-    max-width: 740px;
-    background: var(--bg-surface);
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-    min-height: 0;
-    margin-top: 0.7rem;
-  }
-}
-
-app-markdown-editor {
-  flex: 1;
-  min-height: 0;
+/*
+ * The paper: app-markdown-editor owns the white sheet, its border, radius,
+ * and the three-layer physical shadow. TinyMCE fills the sheet and clips to
+ * its radius; the host — never the iframe body — owns the shadow, so the
+ * shadow stays put while the document scrolls inside the frame.
+ */
+.editor-wrapper app-markdown-editor {
   display: block;
+  position: relative;
+
+  flex: 1 1 auto;
+  width: min(100%, 740px);
+  height: 100%;
+  min-height: 0;
+
+  background: #ffffff;
+  border: 1px solid rgba(41, 37, 32, 0.12);
+  border-radius: 10px;
+
+  box-shadow:
+    0 1px 2px rgba(30, 26, 21, 0.08),
+    0 10px 30px rgba(30, 26, 21, 0.11),
+    0 28px 64px rgba(30, 26, 21, 0.06);
 }
 
-/* Pin the TinyMCE surface to its container so the iframe content scrolls
-   internally instead of growing the page (autoresize's inline height is
-   overridden). */
-:host ::ng-deep .tox-tinymce {
+/* Slightly warmer and softer against the sepia canvas. */
+:host-context([data-theme='sepia'])
+.editor-wrapper app-markdown-editor {
+  border-color: rgba(86, 67, 38, 0.15);
+  box-shadow:
+    0 1px 2px rgba(70, 52, 28, 0.08),
+    0 12px 32px rgba(70, 52, 28, 0.10),
+    0 30px 68px rgba(70, 52, 28, 0.06);
+}
+
+/*
+ * Dark mode keeps a white physical sheet. The faint light rim prevents
+ * its edge from disappearing into the near-black canvas.
+ */
+:host-context([data-theme='dark'])
+.editor-wrapper app-markdown-editor {
+  border-color: rgba(255, 255, 255, 0.10);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.035),
+    0 2px 5px rgba(0, 0, 0, 0.35),
+    0 18px 48px rgba(0, 0, 0, 0.52),
+    0 38px 86px rgba(0, 0, 0, 0.28);
+}
+
+/*
+ * TinyMCE fills and is clipped by the persistent paper frame.
+ * The host, not .tox-tinymce and not the iframe body, owns the shadow.
+ */
+:host ::ng-deep app-markdown-editor .tox-tinymce {
+  width: 100% !important;
   height: 100% !important;
+  min-height: 0 !important;
+
+  border: 0 !important;
+  border-radius: inherit !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+}
+
+/* --- App-owned status pill (expert design §5) ---
+   Word count + save state, floating above the stage's lower-right corner.
+   It belongs to the studio stage, never to the paper's text area. */
+.editor-status-pill {
+  position: absolute;
+  z-index: 3;
+  right: max(16px, var(--studio-inline-gutter));
+  bottom: calc(var(--studio-dock-clearance) - 32px);
+
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 5px 9px;
+  color: var(--editor-ui-muted);
+  background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+  border: 1px solid var(--editor-ui-border);
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(10px);
+
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  pointer-events: none;
+}
+
+:host-context(body.nostos-zen) .editor-status-pill {
+  opacity: 0;
 }
 
 .empty-state {
@@ -463,20 +522,6 @@ app-markdown-editor {
     flex-direction: column;
     height: 100dvh;
   }
-
-  .editor-wrapper {
-    flex: 1;
-    min-height: 0;
-    height: auto;
-    max-width: 100%;
-    margin: 0;
-    box-shadow: none;
-    border: none;
-  }
-
-  .editor-status {
-    background-color: var(--bg-surface);
-  }
 }
 
 .sidebar-left input {
@@ -487,6 +532,31 @@ app-markdown-editor {
 .sidebar-header-brain-toggle,
 .sidebar-header-toggle {
   color: var(--color-text-muted);
+}
+
+/*
+ * Mobile (<=700px): no room for a detached sheet. The paper goes edge-to-edge,
+ * the radius and the large outer shadow are dropped, and the sliding toolbar
+ * stays a single row inside the full-width frame.
+ */
+@media (max-width: 700px) {
+  .editor-wrapper {
+    --studio-inline-gutter: 0px;
+    --studio-top-gutter: 0px;
+    --studio-dock-clearance: 76px;
+  }
+
+  .editor-wrapper app-markdown-editor {
+    width: 100%;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  :host ::ng-deep app-markdown-editor .tox-tinymce {
+    border-radius: 0 !important;
+  }
 }
 
 /* --- ZEN (FOCUS) MODE — issue #49 --- */
@@ -514,43 +584,38 @@ app-markdown-editor {
   display: none;
 }
 
-/* Document header / action strip + bottom status row are chrome in zen;
-   the floating word-count pill and the fixed Exit-zen control replace them. */
-:host-context(body.nostos-zen) .editor-header,
-:host-context(body.nostos-zen) .editor-status {
+/* Document header / action strip is chrome in zen; the fixed Exit-zen
+   control replaces it. */
+:host-context(body.nostos-zen) .editor-header {
   display: none;
 }
 
 /* TinyMCE internal chrome (menubar, formatting toolbar, statusbar, quickbars
-   popups) is hidden in zen. Editing stays available via keyboard shortcuts. */
-:host-context(body.nostos-zen) ::ng-deep .tox-menubar,
-:host-context(body.nostos-zen) ::ng-deep .tox-toolbar-overlord,
-:host-context(body.nostos-zen) ::ng-deep .tox-statusbar,
+   popups) is hidden in zen. Editing stays available via keyboard shortcuts.
+   The paper — border, radius, shadow — stays. */
+:host-context(body.nostos-zen) ::ng-deep app-markdown-editor .tox-editor-header,
+:host-context(body.nostos-zen) ::ng-deep app-markdown-editor .tox-menubar,
+:host-context(body.nostos-zen) ::ng-deep app-markdown-editor .tox-toolbar-overlord,
+:host-context(body.nostos-zen) ::ng-deep app-markdown-editor .tox-statusbar {
+  display: none !important;
+}
+
 :host-context(body.nostos-zen) ::ng-deep .tox .tox-pop {
   display: none !important;
 }
 
-/* The app owns reading status: hide TinyMCE's own statusbar word count in
-   normal mode too, otherwise two word counts (TinyMCE vs the app pill) show. */
-::ng-deep .tox-statusbar {
-  display: none !important;
-}
-
-/* Center the writing surface at min(100%, 860px) with responsive padding. */
+/* Zen sizing: a wider sheet (860px), centered with responsive gutters. */
 :host-context(body.nostos-zen) .editor-wrapper {
-  align-items: center;
-  padding: 3.5rem clamp(1.25rem, 6vw, 6rem) 2.5rem;
+  --studio-inline-gutter: clamp(12px, 3vw, 40px);
+  --studio-top-gutter: 20px;
+  --studio-dock-clearance: 24px;
 }
 
-:host-context(body.nostos-zen) app-markdown-editor {
-  width: 100%;
-  max-width: min(100%, 860px);
+:host-context(body.nostos-zen)
+.editor-wrapper app-markdown-editor {
+  width: min(100%, 860px);
+  max-width: 860px;
   height: 100%;
-  min-height: 0;
-  margin: 0;
-  background: var(--bg-surface);
-  border-radius: 0;
-  box-shadow: none;
 }
 
 /* Fixed Exit-zen control: one subdued, always-visible escape hatch (Esc also
@@ -574,42 +639,9 @@ app-markdown-editor {
   color: var(--color-text-main);
 }
 
-.zen-word-count {
-  position: fixed;
-  bottom: 1.25rem;
-  right: 1.25rem;
-  z-index: 110;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.75rem;
-  font-weight: var(--fw-medium);
-  color: var(--color-text-light);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 0.4rem 0.8rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  pointer-events: none;
-}
-
 @media (max-width: 768px) {
-  :host-context(body.nostos-zen) .editor-wrapper {
-    height: 100%;
-    padding:
-      calc(env(safe-area-inset-top, 0px) + 3.5rem)
-      calc(env(safe-area-inset-right, 0px) + 1rem)
-      calc(env(safe-area-inset-bottom, 0px) + 1rem)
-      calc(env(safe-area-inset-left, 0px) + 1rem);
-  }
-
   :host-context(body.nostos-zen) .zen-exit {
     top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
     right: calc(env(safe-area-inset-right, 0px) + 0.75rem);
-  }
-
-  :host-context(body.nostos-zen) .zen-word-count {
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 1.25rem);
-    right: calc(env(safe-area-inset-right, 0px) + 1.25rem);
   }
 }

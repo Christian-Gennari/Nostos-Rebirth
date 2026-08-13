@@ -35,7 +35,7 @@
                 "output": "/tinymce/"
               }
             ],
-            "styles": ["src/styles.css"],
+            "styles": ["src/styles.css", "src/tinymce-nostos.css"],
             "scripts": ["node_modules/tinymce/tinymce.min.js"]
           },
           "configurations": {

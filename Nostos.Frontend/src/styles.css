@@ -604,3 +604,51 @@ input[type='file']::file-selector-button:hover {
 body.nostos-zen app-app-dock {
   display: none;
 }
+
+/* ------------------------------
+   EDITOR CHROME TOKENS (TinyMCE bridge — expert design §3)
+------------------------------ */
+/* The --editor-ui-* tokens are the stable contract between Nostos and the
+   TinyMCE override layer (component ::ng-deep rules + src/tinymce-nostos.css
+   portal rules). The skin stays 'oxide' in every theme; these tokens repaint
+   the chrome through plain CSS inheritance. Additive — do not disturb the
+   theme blocks above. */
+
+[data-theme='light'] {
+  --editor-ui-bg: var(--bg-surface);
+  --editor-ui-bg-hover: #f3f2ef;
+  --editor-ui-bg-active: #eceae5;
+  --editor-ui-text: var(--color-text-main);
+  --editor-ui-muted: #746f68;
+  --editor-ui-border: rgba(41, 37, 32, 0.11);
+  --editor-ui-focus: #687b91;
+  --editor-ui-accent: #536a82;
+  --editor-ui-accent-soft: #e8edf2;
+  --editor-ui-shadow: 0 12px 32px rgba(30, 26, 21, 0.14);
+}
+
+[data-theme='dark'] {
+  --editor-ui-bg: var(--bg-surface);
+  --editor-ui-bg-hover: #202630;
+  --editor-ui-bg-active: #29313d;
+  --editor-ui-text: var(--color-text-main);
+  --editor-ui-muted: #9ca4af;
+  --editor-ui-border: rgba(255, 255, 255, 0.09);
+  --editor-ui-focus: #9aaec3;
+  --editor-ui-accent: #b3c2d1;
+  --editor-ui-accent-soft: rgba(179, 194, 209, 0.13);
+  --editor-ui-shadow: 0 16px 44px rgba(0, 0, 0, 0.52);
+}
+
+[data-theme='sepia'] {
+  --editor-ui-bg: var(--bg-surface);
+  --editor-ui-bg-hover: #f1e9d8;
+  --editor-ui-bg-active: #e8ddc7;
+  --editor-ui-text: var(--color-text-main);
+  --editor-ui-muted: #786b57;
+  --editor-ui-border: rgba(86, 67, 38, 0.13);
+  --editor-ui-focus: #84725a;
+  --editor-ui-accent: #735f47;
+  --editor-ui-accent-soft: rgba(115, 95, 71, 0.11);
+  --editor-ui-shadow: 0 14px 36px rgba(70, 52, 28, 0.17);
+}
