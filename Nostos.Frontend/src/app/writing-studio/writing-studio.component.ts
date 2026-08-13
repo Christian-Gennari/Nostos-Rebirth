@@ -117,6 +117,14 @@ export class WritingStudio implements OnInit {
     return text ? text.split(/\s+/).length : 0;
   });
 
+  /**
+   * Word count reported by the TinyMCE wordcount plugin (authoritative for
+   * the rendered document). Falls back to the markdown-derived count until
+   * the editor boots and emits its first count.
+   */
+  editorWordCount = signal<number | null>(null);
+  displayWordCount = computed(() => this.editorWordCount() ?? this.wordCount());
+
   // Brain / Concepts State
   brainQuery = signal('');
   concepts = signal<ConceptDto[]>([]);

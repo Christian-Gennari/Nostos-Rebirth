@@ -1,21 +1,290 @@
-import {
-  Component,
-  input,
-  output,
-  effect,
-  OnDestroy,
-  OnInit,
-  ElementRef,
-  inject,
-} from '@angular/core';
+import { Component, input, output, effect, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import TurndownService from 'turndown';
 import { marked } from 'marked';
-import { ThemeService } from '../../core/services/theme.service';
 
 // Import TinyMCE as a global type reference
 declare var tinymce: any;
+
+/**
+ * Editor content page — warm ink on a white paper sheet, theme-independent.
+ * The paper intentionally does NOT follow the app theme: dark/sepia modes
+ * describe the room around the manuscript, never the manuscript itself.
+ * (Expert design §4 — keep verbatim.)
+ */
+const NOSTOS_EDITOR_CONTENT_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap');
+
+  :root {
+    color-scheme: light;
+
+    --paper: #ffffff;
+    --ink: #292622;
+    --ink-soft: #5f5952;
+    --ink-faint: #817a72;
+
+    --rule: #e7e2dc;
+    --rule-strong: #d8d1c8;
+
+    --link: #526d87;
+    --link-hover: #394f65;
+    --selection: rgba(104, 126, 148, 0.24);
+
+    --quote-bg: #faf8f4;
+    --quote-rule: #b9aa98;
+
+    --code-bg: #f5f3ef;
+    --code-ink: #3b3834;
+  }
+
+  html {
+    min-height: 100%;
+    background: var(--paper);
+    scroll-behavior: auto;
+  }
+
+  body {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 100%;
+    margin: 0;
+    padding:
+      clamp(2.5rem, 5.5vw, 4.5rem)
+      clamp(1.5rem, 7vw, 4.5rem)
+      7rem;
+
+    color: var(--ink);
+    background: var(--paper);
+
+    font-family: Lora, Georgia, 'Times New Roman', serif;
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 1.8;
+
+    text-rendering: optimizeLegibility;
+    font-kerning: normal;
+    font-variant-ligatures: common-ligatures;
+    overflow-wrap: break-word;
+  }
+
+  ::selection {
+    color: var(--ink);
+    background: var(--selection);
+  }
+
+  p {
+    margin: 0 0 1.35em;
+  }
+
+  h1,
+  h2,
+  h3 {
+    color: var(--ink);
+    font-family: Inter, system-ui, sans-serif;
+    font-weight: 600;
+    font-style: normal;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+
+  h1 {
+    margin: 0 0 1.25em;
+    font-size: 2rem;
+    line-height: 1.18;
+  }
+
+  h2 {
+    margin: 2.4em 0 0.75em;
+    font-size: 1.42rem;
+    line-height: 1.25;
+  }
+
+  h3 {
+    margin: 2em 0 0.65em;
+    font-size: 1.08rem;
+    line-height: 1.35;
+    letter-spacing: -0.012em;
+  }
+
+  h1 + h2,
+  h2 + h3 {
+    margin-top: 1.2em;
+  }
+
+  h1 + p,
+  h2 + p,
+  h3 + p {
+    margin-top: 0;
+  }
+
+  strong {
+    color: #211f1c;
+    font-weight: 600;
+  }
+
+  em {
+    font-style: italic;
+  }
+
+  a {
+    color: var(--link);
+    text-decoration-line: underline;
+    text-decoration-color: rgba(82, 109, 135, 0.42);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+  }
+
+  a:hover {
+    color: var(--link-hover);
+    text-decoration-color: currentColor;
+  }
+
+  blockquote {
+    margin: 2rem 0;
+    padding: 0.2rem 0 0.2rem 1.35rem;
+
+    color: var(--ink-soft);
+    background: linear-gradient(
+      90deg,
+      var(--quote-bg) 0,
+      rgba(250, 248, 244, 0) 82%
+    );
+    border-left: 2px solid var(--quote-rule);
+
+    font-style: italic;
+  }
+
+  blockquote p:last-child {
+    margin-bottom: 0;
+  }
+
+  ul,
+  ol {
+    margin: 0 0 1.4em;
+    padding-left: 1.6em;
+  }
+
+  li {
+    margin: 0.3em 0;
+    padding-left: 0.18em;
+  }
+
+  li::marker {
+    color: var(--ink-faint);
+  }
+
+  code {
+    padding: 0.12em 0.34em;
+    color: var(--code-ink);
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+
+    font-family:
+      'IBM Plex Mono',
+      'SFMono-Regular',
+      Consolas,
+      monospace;
+    font-size: 0.84em;
+  }
+
+  pre {
+    margin: 1.8rem 0;
+    padding: 1.15rem 1.25rem;
+    overflow-x: auto;
+
+    color: var(--code-ink);
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+
+    font-family:
+      'IBM Plex Mono',
+      'SFMono-Regular',
+      Consolas,
+      monospace;
+    font-size: 0.86rem;
+    line-height: 1.65;
+    white-space: pre-wrap;
+  }
+
+  pre code {
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    font-size: inherit;
+  }
+
+  hr {
+    width: 32%;
+    margin: 3.25rem auto;
+    border: 0;
+    border-top: 1px solid var(--rule-strong);
+  }
+
+  table {
+    width: 100%;
+    margin: 2rem 0;
+    border-collapse: collapse;
+    border-spacing: 0;
+
+    color: var(--ink);
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 0.84rem;
+    line-height: 1.55;
+  }
+
+  th,
+  td {
+    padding: 0.7rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  th {
+    color: var(--ink-soft);
+    background: #faf9f7;
+    border-top: 1px solid var(--rule-strong);
+    border-bottom-color: var(--rule-strong);
+    font-weight: 600;
+  }
+
+  tr:last-child td {
+    border-bottom-color: var(--rule-strong);
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 2rem auto;
+    border-radius: 3px;
+  }
+
+  .mce-content-body[data-mce-placeholder]::before {
+    color: #a39c93;
+    font-style: italic;
+  }
+
+  @media (max-width: 640px) {
+    body {
+      padding: 2rem 1.25rem 6rem;
+      font-size: 17px;
+      line-height: 1.72;
+    }
+
+    h1 {
+      font-size: 1.7rem;
+    }
+
+    h2 {
+      font-size: 1.3rem;
+    }
+  }
+`;
 
 @Component({
   selector: 'app-markdown-editor',
@@ -30,47 +299,108 @@ declare var tinymce: any;
         position: relative;
       }
 
-      /* --- UI Overrides (The Shell) --- */
+      /* --- Nostos chrome bridge (expert design §3) ---
+         One constant skin ('oxide'); every color below is driven by the
+         app's --editor-ui-* tokens, which follow the global theme through
+         plain CSS inheritance. Theme changes repaint instantly; the editor
+         is never destroyed or re-created. */
 
-      /* Remove the default heavy border and shadow */
-      ::ng-deep .tox-tinymce {
-        border: none !important;
+      /* Base font and color */
+      :host ::ng-deep .tox {
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        color: var(--editor-ui-text);
+      }
+
+      /* Header and toolbar become one quiet, shallow strip */
+      :host ::ng-deep .tox .tox-editor-header,
+      :host ::ng-deep .tox .tox-toolbar-overlord,
+      :host ::ng-deep .tox .tox-toolbar,
+      :host ::ng-deep .tox .tox-toolbar__primary {
+        background: var(--editor-ui-bg) !important;
         box-shadow: none !important;
+      }
+
+      :host ::ng-deep .tox .tox-editor-header {
+        border-bottom: 1px solid var(--editor-ui-border) !important;
+      }
+
+      :host ::ng-deep .tox .tox-toolbar__primary {
+        min-height: 46px;
+        padding: 5px 8px !important;
+      }
+
+      /* Remove Oxide's grouped-control appearance */
+      :host ::ng-deep .tox .tox-toolbar__group {
+        gap: 3px;
+        padding: 0 5px !important;
+        border: 0 !important;
+      }
+
+      /* Quiet toolbar controls */
+      :host ::ng-deep .tox .tox-tbtn,
+      :host ::ng-deep .tox .tox-mbtn {
+        min-width: 34px;
+        height: 34px;
+        margin: 0;
+        padding: 0 8px;
+
+        color: var(--editor-ui-muted) !important;
         background: transparent !important;
-      }
-
-      /* Editor chrome colors come from the TinyMCE skin (oxide / oxide-dark),
-         which is selected to match the global theme — no hard-coded colors
-         here, so the menubar/toolbar follow the theme while the content
-         paper below stays white via content_style. */
-      ::ng-deep .tox-editor-header {
-        border-bottom: 1px solid var(--border-color) !important;
+        border: 0 !important;
+        border-radius: 6px !important;
         box-shadow: none !important;
-        padding: 0.5rem !important;
-        z-index: 10;
-        position: sticky !important;
-        top: 0;
-      }
 
-      ::ng-deep .tox .tox-tbtn {
-        border-radius: 4px !important;
         transition:
-          background 0.2s ease,
-          color 0.2s ease;
+          color 120ms ease,
+          background-color 120ms ease;
       }
 
-      ::ng-deep .tox .tox-statusbar {
-        border-top: 1px solid var(--border-color) !important;
+      :host ::ng-deep .tox .tox-tbtn svg {
+        fill: currentColor !important;
+      }
+
+      /* Hover */
+      :host ::ng-deep .tox .tox-tbtn:hover,
+      :host ::ng-deep .tox .tox-mbtn:hover,
+      :host ::ng-deep .tox .tox-split-button:hover {
+        color: var(--editor-ui-text) !important;
+        background: var(--editor-ui-bg-hover) !important;
+      }
+
+      /* Active formatting state */
+      :host ::ng-deep .tox .tox-tbtn--enabled,
+      :host ::ng-deep .tox .tox-tbtn--enabled:hover,
+      :host ::ng-deep .tox .tox-mbtn--active {
+        color: var(--editor-ui-accent) !important;
+        background: var(--editor-ui-accent-soft) !important;
+      }
+
+      /* Keyboard focus must be clearer than hover */
+      :host ::ng-deep .tox .tox-tbtn:focus,
+      :host ::ng-deep .tox .tox-mbtn:focus,
+      :host ::ng-deep .tox .tox-split-button:focus-within {
+        outline: 2px solid var(--editor-ui-focus) !important;
+        outline-offset: 1px;
+      }
+
+      /* Blocks dropdown is text, not another bulky button */
+      :host ::ng-deep .tox .tox-tbtn--select {
+        min-width: 112px;
+        justify-content: space-between;
+      }
+
+      /* Hard removal even if config regresses */
+      :host ::ng-deep .tox .tox-menubar,
+      :host ::ng-deep .tox .tox-statusbar {
+        display: none !important;
       }
     `,
   ],
 })
 export class MarkdownEditorComponent implements OnInit, OnDestroy {
-  private elementRef = inject(ElementRef);
-  private themeService = inject(ThemeService);
-
   initialContent = input<string>('');
   contentChange = output<string>();
+  wordCountChange = output<number>();
 
   htmlContent = '';
   private editorId = 'markdown-tinymce-editor';
@@ -81,168 +411,79 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   });
 
   private editor: any;
-  private appliedSkin: string | null = null;
 
+  /**
+   * Final chrome (expert design §1): one constant 'oxide' skin, no menubar,
+   * no statusbar, no autoresize, sliding toolbar, quickbars for selection.
+   * The app theme reaches the chrome through the --editor-ui-* token layer
+   * (CSS inheritance), never through skin swapping or editor teardown.
+   */
   editorConfig = {
     base_url: '/tinymce',
+    suffix: '.min',
     license_key: 'gpl',
 
     // --- 1. APPEARANCE & LAYOUT ---
-    highlight_on_focus: false,
-    min_height: 500,
-    menubar: true,
-    statusbar: true,
-    resize: false,
+    skin: 'oxide',
+    content_css: false,
+    menubar: false,
+    statusbar: false,
     branding: false,
     promotion: false,
+    resize: false,
+
     // --- 2. PLUGINS ---
     plugins: [
       'lists',
       'link',
       'image',
       'table',
-      'code',
-      'help',
       'wordcount',
-      'autoresize',
       'searchreplace',
-      'visualblocks',
-      'directionality',
       'quickbars',
     ].join(' '),
 
     // --- 3. TOOLBAR ---
     toolbar:
-      'undo redo | ' +
-      'blocks | ' +
-      'bold italic underline | ' +
-      'bullist numlist | ' +
-      'link image | ' +
-      'removeformat',
+      'undo redo | blocks | bold italic underline | bullist numlist | link image | removeformat',
+    toolbar_mode: 'sliding',
+    toolbar_sticky: false,
 
-    quickbars_selection_toolbar: 'bold italic | h2 h3 | blockquote',
+    quickbars_selection_toolbar: 'bold italic | h2 h3 blockquote | link',
     quickbars_insert_toolbar: false,
+
+    contextmenu: false,
+    browser_spellcheck: true,
 
     block_formats:
       'Paragraph=p; Heading 1=h1; Heading 2=h2; Heading 3=h3; Quote=blockquote; Code=pre',
 
-    // --- 4. CONTENT STYLING ---
-    content_style: `
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:ital,wght@0,400;0,700;1,400&display=swap');
-
-      :root {
-        --bg-body: #fafafa;
-        --bg-surface: #ffffff;
-        --color-primary: #111111;
-        --color-text-main: #1a1a1a;
-        --color-text-muted: #4a4a4a;
-        --color-accent: #60a5fa;
-        --border-color: #e5e5e5;
-      }
-
-      body {
-        font-family: 'Lora', serif;
-        font-size: 18px;
-        line-height: 1.8;
-        color: var(--color-text-main);
-        margin: 2rem 3rem;
-        background-color: var(--bg-surface);
-        overflow-x: hidden;
-      }
-
-      h1, h2, h3, h4, h5, h6 {
-        font-family: 'Inter', sans-serif;
-        font-weight: 600;
-        color: var(--color-primary);
-        margin-top: 1.5em;
-        margin-bottom: 0.75em;
-        letter-spacing: -0.02em;
-      }
-
-      a {
-        color: var(--color-accent);
-        text-decoration: none;
-        border-bottom: 1px solid rgba(96, 165, 250, 0.3);
-        transition: border-color 0.2s;
-        cursor: pointer;
-      }
-      a:hover {
-        border-bottom-color: var(--color-accent);
-      }
-
-      blockquote {
-        border-left: 3px solid var(--border-color);
-        margin-left: 0;
-        padding-left: 1.25rem;
-        color: var(--color-text-muted);
-        font-style: italic;
-      }
-
-      pre {
-        background: var(--bg-body);
-        padding: 1rem;
-        border-radius: 6px;
-        font-family: monospace;
-        font-size: 0.9em;
-        color: var(--color-text-muted);
-        border: 1px solid var(--border-color);
-      }
-
-      table {
-        border-collapse: collapse;
-        width: 100%;
-        margin: 1.5rem 0;
-      }
-      table td, table th {
-        border: 1px solid var(--border-color);
-        padding: 0.75rem;
-      }
-      table th {
-        background-color: var(--bg-body);
-        font-weight: 600;
-        text-align: left;
-      }
-
-      .mce-content-body[data-mce-placeholder]:not(.mce-visual-blocks)::before {
-        color: #999;
-        font-style: italic;
-      }
-    `,
+    // --- 4. CONTENT STYLING (warm ink on white paper, theme-independent) ---
+    height: '100%',
+    content_style: NOSTOS_EDITOR_CONTENT_CSS,
 
     setup: (editor: any) => {
       this.editor = editor;
       editor.on('Change Undo Redo blur', () => this.onHtmlChange(editor.getContent()));
+
+      const updateWordCount = () => {
+        const count = editor.plugins?.wordcount?.body?.getWordCount?.() ?? 0;
+        this.wordCountChange.emit(count);
+      };
+
       editor.on('init', () => {
         editor.getBody().style.opacity = '1';
         // Optional: Safety check in case content loaded before init
         if (this.htmlContent && !editor.getContent()) {
           editor.setContent(this.htmlContent);
         }
+        updateWordCount();
       });
+      editor.on('SetContent Change Input Undo Redo', updateWordCount);
     },
   };
 
   constructor() {
-    // Re-skin TinyMCE when the global theme changes: destroy + re-create the
-    // editor (content is preserved through htmlContent) so the chrome
-    // (menubar/toolbar) matches the theme while the paper stays white.
-    effect(() => {
-      const skin = this.getSkin();
-      if (this.appliedSkin === null) {
-        this.appliedSkin = skin;
-        return;
-      }
-      if (skin === this.appliedSkin) return;
-      this.appliedSkin = skin;
-
-      if (this.editor) {
-        const currentHtml = this.editor.getContent();
-        this.destroyEditor();
-        this.htmlContent = currentHtml;
-        this.initEditor();
-      }
-    });
-
     // 1. Handle External Content Updates (e.g. clicking a new file in sidebar)
     effect(async () => {
       const markdown = this.initialContent();
@@ -278,18 +519,10 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     // Prevent double-init
     if (this.editor) return;
 
-    this.appliedSkin = this.getSkin();
     tinymce.init({
       selector: `#${this.editorId}`,
       ...this.editorConfig,
-      skin: this.appliedSkin,
     });
-  }
-
-  /** Oxide chrome for light themes, oxide-dark for dark/sepia (paper stays white). */
-  private getSkin(): string {
-    const theme = this.themeService.theme();
-    return theme === 'dark' || theme === 'sepia' ? 'oxide-dark' : 'oxide';
   }
 
   private destroyEditor() {
