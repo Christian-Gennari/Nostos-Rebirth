@@ -422,6 +422,144 @@
   font-weight: var(--fw-semibold);
 }
 
+/* --- SLEEP TIMER (issue #47) --- */
+.selector-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.sleep-selector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.sleep-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-light);
+  font-weight: var(--fw-semibold);
+}
+
+.sleep-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-width: 84px;
+  padding: 0.45rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  font-weight: var(--fw-semibold);
+  color: var(--color-text-main);
+  line-height: 1;
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+}
+
+.sleep-pill:hover {
+  border-color: var(--color-primary-dim);
+}
+
+.sleep-pill:focus-visible {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(102, 102, 102, 0.04);
+}
+
+.sleep-pill.armed {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.sleep-icon {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.sleep-value {
+  font-variant-numeric: tabular-nums;
+  position: relative;
+  z-index: 1;
+}
+
+.sleep-arrow {
+  color: var(--color-text-light);
+  display: block;
+  flex-shrink: 0;
+  pointer-events: none;
+  transition: transform 0.15s;
+}
+
+.sleep-pill[aria-expanded="true"] .sleep-arrow {
+  transform: rotate(180deg);
+}
+
+.sleep-dropdown {
+  position: absolute;
+  bottom: calc(100% + 0.35rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  min-width: 96px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sleep-option {
+  display: block;
+  width: 100%;
+  padding: 0.35rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-main);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  text-align: center;
+  line-height: 1;
+  transition: background 0.1s;
+}
+
+.sleep-option:hover {
+  background: var(--bg-hover);
+}
+
+.sleep-option[aria-selected="true"] {
+  color: var(--color-primary);
+  font-weight: var(--fw-semibold);
+}
+
+.sleep-status {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
 @media (max-width: 768px) {
   .cover-art {
     width: 120px;

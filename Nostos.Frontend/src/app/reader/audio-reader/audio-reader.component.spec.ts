@@ -316,3 +316,175 @@ describe('AudioReader single-fetch + restore + loading state (issue #7)', () => 
     expect(fixture.nativeElement.textContent).toContain('Unable to load audio');
   });
 });
+
+describe('AudioReader sleep timer (issue #47)', () => {
+  let fixture: ComponentFixture<AudioReader>;
+  let component: AudioReader;
+  const booksServiceMock = {
+    get: vi.fn(),
+    updateProgress: vi.fn(() => of(null)),
+  };
+
+  beforeEach(async () => {
+    howlerState.instances.length = 0;
+    booksServiceMock.get.mockReset();
+    booksServiceMock.updateProgress.mockReset();
+
+    await TestBed.configureTestingModule({
+      imports: [AudioReader],
+      providers: [{ provide: BooksService, useValue: booksServiceMock }],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(AudioReader);
+    component = fixture.componentInstance;
+    fixture.componentRef.setInput('bookId', 'test-book-id');
+    fixture.detectChanges();
+
+    // Scope fake timers to this suite only (the other suites use real timers).
+    // Fake just the timers the sleep timer uses; leave queueMicrotask real so
+    // Angular's signal/effect machinery keeps flushing normally.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('arms a preset: sets the timer state and shows the remaining time', () => {
+    expect(howlerState.instances[0]).toBeDefined();
+
+    component.selectSleepTimer(30);
+
+    expect(component.sleepTimerMinutes()).toBe(30);
+    expect(component.sleepRemainingSeconds()).toBe(1800);
+
+    fixture.detectChanges();
+    const label = fixture.nativeElement.querySelector('[data-testid="sleep-timer-label"]');
+    expect(label.textContent).toContain('30:00');
+
+    // The countdown ticks down once per second.
+    vi.advanceTimersByTime(60_000);
+    expect(component.sleepRemainingSeconds()).toBe(1740);
+
+    fixture.detectChanges();
+    expect(label.textContent).toContain('29:00');
+  });
+
+  it('pauses playback and clears the armed state when the timer expires', () => {
+    const howl = howlerState.instances[0];
+    expect(howl).toBeDefined();
+
+    component.selectSleepTimer(15);
+    vi.advanceTimersByTime(15 * 60 * 1000);
+
+    expect(howl.pause).toHaveBeenCalled();
+    expect(component.sleepTimerMinutes()).toBeNull();
+    expect(component.sleepDeadline()).toBeNull();
+    expect(component.sleepRemainingSeconds()).toBe(0);
+    expect(component.sleepStatusMessage()).toBe('Sleep timer finished. Playback paused.');
+
+    fixture.detectChanges();
+    const status = fixture.nativeElement.querySelector('[data-testid="sleep-status-message"]');
+    expect(status).not.toBeNull();
+    expect(status.textContent).toContain('Sleep timer finished');
+  });
+
+  it('resets the countdown when the preset is changed while armed', () => {
+    component.selectSleepTimer(45);
+    expect(component.sleepRemainingSeconds()).toBe(2700);
+
+    vi.advanceTimersByTime(10 * 60 * 1000);
+    expect(component.sleepRemainingSeconds()).toBe(2100);
+
+    component.selectSleepTimer(15);
+    expect(component.sleepTimerMinutes()).toBe(15);
+    expect(component.sleepRemainingSeconds()).toBe(900);
+
+    // The countdown restarted from the new preset, not the old deadline.
+    vi.advanceTimersByTime(60_000);
+    expect(component.sleepRemainingSeconds()).toBe(840);
+  });
+
+  it("disarms immediately when 'Off' is selected", () => {
+    const howl = howlerState.instances[0];
+    expect(howl).toBeDefined();
+
+    component.selectSleepTimer(30);
+    vi.advanceTimersByTime(2 * 60 * 1000);
+    expect(component.sleepRemainingSeconds()).toBe(1680);
+
+    component.selectSleepTimer(null);
+
+    expect(component.sleepTimerMinutes()).toBeNull();
+    expect(component.sleepDeadline()).toBeNull();
+    expect(component.sleepRemainingSeconds()).toBe(0);
+    // Off just disarms — it must not pause playback.
+    expect(howl.pause).not.toHaveBeenCalled();
+
+    // No countdown continues after disarming.
+    vi.advanceTimersByTime(5 * 60 * 1000);
+    expect(component.sleepTimerMinutes()).toBeNull();
+    expect(component.sleepRemainingSeconds()).toBe(0);
+  });
+
+  it('clears the countdown interval when the component is destroyed (no leaked timers)', () => {
+    component.selectSleepTimer(30);
+    const intervalId = (component as unknown as { sleepTimerInterval: number | null }).sleepTimerInterval;
+    expect(intervalId).not.toBeNull();
+
+    const clearSpy = vi.spyOn(globalThis, 'clearInterval');
+    fixture.destroy();
+
+    expect(clearSpy).toHaveBeenCalledWith(intervalId);
+
+    // Advancing time after destroy must not throw or resurrect any tick.
+    expect(() => vi.advanceTimersByTime(10 * 60 * 1000)).not.toThrow();
+  });
+
+  it('keeps counting down wall-clock time while playback is paused (wall-clock decision)', () => {
+    const howl = howlerState.instances[0];
+    expect(howl).toBeDefined();
+
+    component.selectSleepTimer(30);
+    // Simulate the user pausing playback (Howl fires onpause).
+    howl.config.onpause();
+    expect(component.isPlaying()).toBe(false);
+
+    vi.advanceTimersByTime(5 * 60 * 1000);
+
+    // The countdown kept running despite playback being paused — the timer is
+    // a wall-clock sleep timer, not a play-time quota.
+    expect(component.sleepTimerMinutes()).toBe(30);
+    expect(component.sleepRemainingSeconds()).toBe(1500);
+  });
+
+  it('shows a brief status message on expiry and clears it after a few seconds', () => {
+    component.selectSleepTimer(15);
+    vi.advanceTimersByTime(15 * 60 * 1000);
+
+    expect(component.sleepStatusMessage()).toBe('Sleep timer finished. Playback paused.');
+
+    vi.advanceTimersByTime(5000);
+    expect(component.sleepStatusMessage()).toBeNull();
+  });
+
+  it('offers the Off/15/30/45/60 presets in the sleep timer menu', () => {
+    expect(component.sleepMenuOpen()).toBe(false);
+
+    component.toggleSleepMenu();
+    fixture.detectChanges();
+
+    const menu = fixture.nativeElement.querySelector('.sleep-dropdown') as Element | null;
+    expect(menu).not.toBeNull();
+    const labels = Array.from(menu!.querySelectorAll('.sleep-option')).map((el: Element) =>
+      el.textContent?.trim(),
+    );
+    expect(labels).toEqual(['Off', '15 min', '30 min', '45 min', '60 min']);
+
+    // Re-selecting closes the menu and arms the chosen preset.
+    component.selectSleepTimer(45);
+    expect(component.sleepMenuOpen()).toBe(false);
+    expect(component.sleepTimerMinutes()).toBe(45);
+  });
+});
