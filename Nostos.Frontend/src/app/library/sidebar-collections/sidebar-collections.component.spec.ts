@@ -233,4 +233,156 @@ describe('SidebarCollections', () => {
       expect(toast.error).toHaveBeenCalledWith('Could not create collection.');
     });
   });
+
+  describe('status filters (single progress-filter surface)', () => {
+    function statusButtons(): HTMLButtonElement[] {
+      // The first .nav-group is the status list (All Books … Unsorted);
+      // later groups hold the collection tree and the New Collection action.
+      const statusGroup = fixture.nativeElement.querySelector('.nav-group') as HTMLElement;
+      return Array.from(
+        statusGroup.querySelectorAll('.nav-item') as NodeListOf<HTMLButtonElement>,
+      );
+    }
+
+    function statusButton(label: string): HTMLButtonElement {
+      return statusButtons().find((el) => el.textContent?.trim() === label) as HTMLButtonElement;
+    }
+
+    it('renders exactly six status choices in the expected order', () => {
+      fixture.detectChanges();
+
+      const labels = statusButtons().map((el) => el.textContent?.trim());
+      expect(labels).toEqual([
+        'All Books',
+        'Not Started',
+        'In Progress',
+        'Favorites',
+        'Finished',
+        'Unsorted',
+      ]);
+    });
+
+    it('does not show a "Reading" label or tooltip anywhere in the sidebar', () => {
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).not.toContain('Reading');
+      const readingTooltips = Array.from(
+        fixture.nativeElement.querySelectorAll('[title]') as NodeListOf<HTMLElement>,
+      ).filter((el) => el.getAttribute('title')?.includes('Reading') ?? false);
+      expect(readingTooltips).toHaveLength(0);
+    });
+
+    it('clicking "In Progress" writes filter=reading (canonical value kept)', async () => {
+      fixture.detectChanges();
+
+      statusButton('In Progress').click();
+      await fixture.whenStable();
+
+      expect(router.url).toContain('filter=reading');
+    });
+
+    it('clicking "Not Started" writes filter=notstarted', async () => {
+      fixture.detectChanges();
+
+      statusButton('Not Started').click();
+      await fixture.whenStable();
+
+      expect(router.url).toContain('filter=notstarted');
+    });
+
+    it('status selection merges with the existing collection query param', async () => {
+      await router.navigate(['/library'], { queryParams: { collection: 'c1' } });
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      statusButton('In Progress').click();
+      await fixture.whenStable();
+
+      expect(router.url).toContain('collection=c1');
+      expect(router.url).toContain('filter=reading');
+    });
+
+    it('clicking "All Books" clears both the filter and collection params', async () => {
+      await router.navigate(['/library'], {
+        queryParams: { collection: 'c1', filter: 'reading' },
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      statusButton('All Books').click();
+      await fixture.whenStable();
+
+      expect(router.url).toBe('/library');
+    });
+
+    it('active state is driven by the URL: initial URL and subsequent navigation', async () => {
+      await router.navigate(['/library'], { queryParams: { filter: 'finished' } });
+
+      fixture.destroy();
+      fixture = TestBed.createComponent(SidebarCollections);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      let active = fixture.nativeElement.querySelector('.nav-item.active') as HTMLElement;
+      expect(active.textContent).toContain('Finished');
+
+      // History-style navigation: the URL changes, the active item follows.
+      await router.navigate(['/library'], { queryParams: { filter: 'reading' } });
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      active = fixture.nativeElement.querySelector('.nav-item.active') as HTMLElement;
+      expect(active.textContent).toContain('In Progress');
+      expect(active.textContent).not.toContain('Finished');
+    });
+
+    it('mobile selection closes the drawer and restores focus to its opener', async () => {
+      const originalWidth = window.innerWidth;
+      Object.defineProperty(window, 'innerWidth', {
+        value: 390,
+        writable: true,
+        configurable: true,
+      });
+
+      try {
+        fixture.destroy();
+        fixture = TestBed.createComponent(SidebarCollections);
+        component = fixture.componentInstance;
+        await fixture.whenStable();
+
+        // On mobile the drawer starts closed; open it via the toggle.
+        expect(component.expanded()).toBe(false);
+        component.toggle();
+        fixture.detectChanges();
+        expect(component.expanded()).toBe(true);
+
+        statusButton('In Progress').click();
+        await fixture.whenStable();
+
+        expect(component.expanded()).toBe(false);
+        expect(document.activeElement).toBe(
+          fixture.nativeElement.querySelector('.floating-toggle'),
+        );
+      } finally {
+        Object.defineProperty(window, 'innerWidth', {
+          value: originalWidth,
+          writable: true,
+          configurable: true,
+        });
+      }
+    });
+
+    it('desktop selection keeps the sidebar open and does not move focus', async () => {
+      fixture.detectChanges();
+
+      statusButton('In Progress').click();
+      await fixture.whenStable();
+
+      expect(component.expanded()).toBe(true);
+      expect(document.activeElement).not.toBe(
+        fixture.nativeElement.querySelector('.floating-toggle'),
+      );
+    });
+  });
 });

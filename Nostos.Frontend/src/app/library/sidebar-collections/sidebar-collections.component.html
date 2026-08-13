@@ -17,10 +17,12 @@
       <button
         class="nav-item"
         routerLink="/library"
-        [queryParams]="{}"
+        [queryParams]="{ filter: null, collection: null }"
+        [queryParamsHandling]="'merge'"
         routerLinkActive="active"
         [routerLinkActiveOptions]="{ exact: true }"
         title="All Books"
+        (click)="onStatusNavClick()"
       >
         <lucide-icon [img]="LibraryIcon" [size]="18" strokeWidth="1"></lucide-icon>
         @if (expanded()) {
@@ -31,13 +33,30 @@
       <button
         class="nav-item"
         routerLink="/library"
-        [queryParams]="{ filter: 'reading' }"
+        [queryParams]="{ filter: 'notstarted' }"
+        [queryParamsHandling]="'merge'"
         routerLinkActive="active"
-        title="Continue Reading"
+        title="Not Started"
+        (click)="onStatusNavClick()"
+      >
+        <lucide-icon [img]="CircleDashedIcon" [size]="18" strokeWidth="1"></lucide-icon>
+        @if (expanded()) {
+          <span class="label">Not Started</span>
+        }
+      </button>
+
+      <button
+        class="nav-item"
+        routerLink="/library"
+        [queryParams]="{ filter: 'reading' }"
+        [queryParamsHandling]="'merge'"
+        routerLinkActive="active"
+        title="In Progress"
+        (click)="onStatusNavClick()"
       >
         <lucide-icon [img]="BookOpenIcon" [size]="18" strokeWidth="1"></lucide-icon>
         @if (expanded()) {
-          <span class="label">Reading</span>
+          <span class="label">In Progress</span>
         }
       </button>
 
@@ -45,8 +64,10 @@
         class="nav-item"
         routerLink="/library"
         [queryParams]="{ filter: 'favorites' }"
+        [queryParamsHandling]="'merge'"
         routerLinkActive="active"
         title="Favorites"
+        (click)="onStatusNavClick()"
       >
         <lucide-icon [img]="HeartIcon" [size]="18" strokeWidth="1"></lucide-icon>
         @if (expanded()) {
@@ -58,8 +79,10 @@
         class="nav-item"
         routerLink="/library"
         [queryParams]="{ filter: 'finished' }"
+        [queryParamsHandling]="'merge'"
         routerLinkActive="active"
         title="Finished"
+        (click)="onStatusNavClick()"
       >
         <lucide-icon [img]="CheckCircleIcon" [size]="18" strokeWidth="1"></lucide-icon>
         @if (expanded()) {
@@ -71,8 +94,10 @@
         class="nav-item"
         routerLink="/library"
         [queryParams]="{ filter: 'unsorted' }"
+        [queryParamsHandling]="'merge'"
         routerLinkActive="active"
         title="Unsorted"
+        (click)="onStatusNavClick()"
       >
         <lucide-icon [img]="InboxIcon" [size]="18" strokeWidth="1"></lucide-icon>
         @if (expanded()) {

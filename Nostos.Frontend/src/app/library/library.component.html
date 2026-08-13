@@ -25,34 +25,6 @@
       </div>
 
       <div class="toolbar-right">
-        <div class="filter-dropdown">
-          <button
-            class="filter-trigger"
-            [class.active]="activeFilter() !== BookFilter.All"
-            (click)="toggleFilterMenu()"
-            title="Filter books by reading progress"
-          >
-            <lucide-icon [img]="FilterIcon" [size]="16"></lucide-icon>
-            <span class="filter-label">{{ activeFilterLabel() }}</span>
-            <lucide-icon [img]="ChevronDownIcon" [size]="14"></lucide-icon>
-          </button>
-
-          @if (filterOpen()) {
-          <div class="filter-menu">
-            @for (option of filterOptions; track option.value) {
-            <button
-              class="filter-option"
-              [class.active]="activeFilter() === option.value"
-              (click)="setFilter(option.value)"
-            >
-              <lucide-icon [img]="option.icon" [size]="16" strokeWidth="1.5"></lucide-icon>
-              <span>{{ option.label }}</span>
-            </button>
-            }
-          </div>
-          }
-        </div>
-
         <div class="select-wrapper">
           <select [ngModel]="activeSort()" (ngModelChange)="setSort($event)" class="sort-select">
             <option value="lastread">Last Read</option>
