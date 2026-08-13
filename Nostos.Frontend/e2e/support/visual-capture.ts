@@ -7,8 +7,10 @@
  * e2e/visual-evidence/. It never modifies application code, the Playwright
  * config, or the shared fixture lifecycle.
  *
- * Artifact naming follows the expert protocol (expert_nostos_ui_fix_result.txt
- * section 4): <surface>-<theme>-<viewport>.png, e.g. epub-dark-mobile.png.
+ * Artifact naming follows the 10-image matrix in docs/visual-verification.md:
+ * <surface>-<state>-<viewport>.png, e.g. epub-light-desktop.png. All captures
+ * are the app's ONE fixed light rendering — the theme system is gone, so the
+ * harness never parameterizes by theme and never clicks theme controls.
  * Viewports are exactly 1440x900 (desktop) and 390x844 (mobile) and PNGs are
  * captured at deviceScaleFactor 1 so the artifact dimensions are exact.
  *
@@ -16,7 +18,7 @@
  * isolated e2e fixture cannot provide (no test assets exist in-repo; they are
  * never invented). Set VISUAL_QA_LIBRARY_URL to a running instance that has
  * real books AND serves the build under test; the harness then captures the
- * full 14-image matrix. Without it, reader surfaces skip with a clear message.
+ * full 10-image matrix. Without it, reader surfaces skip with a clear message.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -27,8 +29,6 @@ import type { Browser, Page } from '@playwright/test';
 // Types + constants
 // ---------------------------------------------------------------------------
 
-export type Theme = 'light' | 'dark' | 'sepia';
-
 export interface Viewport {
   width: number;
   height: number;
@@ -38,27 +38,17 @@ export interface Viewport {
 export const DESKTOP_VIEWPORT: Viewport = { width: 1440, height: 900 };
 export const MOBILE_VIEWPORT: Viewport = { width: 390, height: 844 };
 
-/** localStorage key used by ThemeService (mirrors core/services/theme.service.ts). */
-export const THEME_STORAGE_KEY = 'nostos.theme';
-
 /**
- * Expected reader-content colors per theme. Mirrors the app's single source
- * of truth — epub-reader.component.ts NOSTOS_THEME_RULES — and the shell
- * tokens in styles.css. If the app tokens change, update this table AND the
- * docs (docs/visual-verification.md §Tokens) in the same PR.
+ * Fixed light rendering invariants for the EPUB rendition. The app ships
+ * exactly one (light) theme; these constants mirror the single source of
+ * truth — epub-reader.component.ts NOSTOS_LIGHT_RULES and the :root tokens
+ * in styles.css. If the app tokens change, update these AND the docs
+ * (docs/visual-verification.md §Fixed rendering invariants) in the same PR.
  */
-export const READER_IFRAME_TOKENS: Record<Theme, { background: string; color: string }> = {
-  light: { background: '#ffffff', color: '#1a1a1a' },
-  dark: { background: '#161a21', color: '#e6e8ec' },
-  sepia: { background: '#faf5e8', color: '#3a2f1d' },
-};
+export const READER_IFRAME_LIGHT = { background: '#ffffff', color: '#1a1a1a' } as const;
 
-/** Shell surface per theme (--bg-surface tokens; #epub-viewer uses it). */
-export const READER_SHELL_TOKENS: Record<Theme, string> = {
-  light: '#ffffff',
-  dark: '#161a21',
-  sepia: '#faf5e8',
-};
+/** Shell surface (--bg-surface tokens; #epub-viewer uses it). */
+export const READER_SHELL_LIGHT = '#ffffff';
 
 /**
  * Target library filter contract (expert section 3): the sidebar is the
@@ -98,7 +88,6 @@ export interface CaptureMeta {
   name: string;
   surface: 'epub' | 'pdf' | 'studio' | 'library';
   viewport: Viewport;
-  theme: Theme;
   state: string;
 }
 
@@ -152,14 +141,13 @@ export async function writeGeometryReport(
 // ---------------------------------------------------------------------------
 
 /**
- * Opens a fresh context at the protocol viewport with the theme pre-applied
- * (localStorage + data-theme before app boot, exactly like ThemeService
- * hydration). mobile emulation adds touch/DPR-1 so artifact pixels are exact.
+ * Opens a fresh context at the protocol viewport. The app ships exactly one
+ * (light) rendering, so no theme state is pre-seeded. mobile emulation adds
+ * touch/DPR-1 so artifact pixels are exact.
  */
 export async function newCapturePage(
   browser: Browser,
   viewport: Viewport,
-  theme: Theme,
   mobile = false
 ): Promise<{ context: Awaited<ReturnType<Browser['newContext']>>; page: Page }> {
   const context = await browser.newContext({
@@ -168,13 +156,6 @@ export async function newCapturePage(
     hasTouch: mobile,
     deviceScaleFactor: 1, // exact protocol pixel dimensions in the PNG
   });
-  await context.addInitScript(
-    ({ key, theme: t }) => {
-      localStorage.setItem(key, t);
-      document.documentElement.setAttribute('data-theme', t);
-    },
-    { key: THEME_STORAGE_KEY, theme }
-  );
   const page = await context.newPage();
   return { context, page };
 }
@@ -191,50 +172,54 @@ function failCheck(id: string, message: string, metrics?: Record<string, unknown
   return { id, pass: false, message, metrics };
 }
 
-/** rgb(255, 255, 255) -> #ffffff (lowercase), for token comparisons. */
-function rgbToHex(rgb: string): string {
-  const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(rgb);
-  if (!m) return rgb.trim().toLowerCase();
-  return `#${[m[1], m[2], m[3]].map((v) => Number(v).toString(16).padStart(2, '0')).join('')}`;
-}
-
 /**
- * EPUB: the rendition iframe's foreground/background must match the theme
- * tokens, and the #epub-viewer shell surface must match the same theme so no
- * pale rim separates shell from content.
+ * EPUB: the rendition iframe's foreground/background must equal the fixed
+ * light normalization constants, and the #epub-viewer shell surface must
+ * match the same light surface so no pale rim separates shell from content.
+ * These are fixed rendering invariants — the app ships exactly one theme.
  */
-export async function checkEpubIframeTheme(page: Page, theme: Theme): Promise<GeometryCheck> {
-  const expected = READER_IFRAME_TOKENS[theme];
-  const shellExpected = READER_SHELL_TOKENS[theme];
+export async function checkEpubIframeLight(page: Page): Promise<GeometryCheck> {
+  const expected = READER_IFRAME_LIGHT;
+  const shellExpected = READER_SHELL_LIGHT;
   const frameLocator = page.frameLocator('#epub-viewer iframe');
   const body = frameLocator.locator('body').first();
   await body.waitFor({ timeout: 30_000 });
 
   const contentStyles = await body.evaluate(() => {
+    const hex = (rgb: string): string => {
+      const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(rgb);
+      if (!m) return rgb.trim().toLowerCase();
+      return `#${[m[1], m[2], m[3]].map((v) => Number(v).toString(16).padStart(2, '0')).join('')}`;
+    };
     const cs = (el: Element) => getComputedStyle(el);
     return {
-      bodyBg: cs(document.body).backgroundColor,
-      bodyColor: cs(document.body).color,
+      bodyBg: hex(cs(document.body).backgroundColor),
+      bodyColor: hex(cs(document.body).color),
     };
   });
   const shellBg = await page
     .locator('#epub-viewer')
-    .evaluate((el) => rgbToHex(getComputedStyle(el).backgroundColor));
+    .evaluate((el) => {
+      const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(getComputedStyle(el).backgroundColor);
+      return m
+        ? `#${[m[1], m[2], m[3]].map((v) => Number(v).toString(16).padStart(2, '0')).join('')}`
+        : getComputedStyle(el).backgroundColor.trim().toLowerCase();
+    });
 
-  const bodyBg = rgbToHex(contentStyles.bodyBg);
-  const bodyColor = rgbToHex(contentStyles.bodyColor);
+  const bodyBg = contentStyles.bodyBg;
+  const bodyColor = contentStyles.bodyColor;
   const ok = bodyBg === expected.background && bodyColor === expected.color && shellBg === shellExpected;
   return ok
     ? passCheck(
-        'epub-iframe-theme',
-        `iframe ${bodyBg}/${bodyColor} and shell ${shellBg} match theme '${theme}' tokens ` +
+        'epub-iframe-light',
+        `iframe ${bodyBg}/${bodyColor} and shell ${shellBg} match the fixed light invariants ` +
           `(${expected.background}/${expected.color}/${shellExpected})`,
         { bodyBg, bodyColor, shellBg, expected }
       )
     : failCheck(
-        'epub-iframe-theme',
-        `iframe/shell colors do not match theme '${theme}': got ${bodyBg}/${bodyColor} (shell ${shellBg}), ` +
-          `expected ${expected.background}/${expected.color} (shell ${shellExpected})`,
+        'epub-iframe-light',
+        `iframe/shell colors deviate from the fixed light rendering: got ${bodyBg}/${bodyColor} ` +
+          `(shell ${shellBg}), expected ${expected.background}/${expected.color} (shell ${shellExpected})`,
         { bodyBg, bodyColor, shellBg, expected }
       );
 }

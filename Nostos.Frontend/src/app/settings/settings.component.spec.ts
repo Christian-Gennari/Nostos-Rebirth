@@ -5,7 +5,6 @@ import { of } from 'rxjs';
 import { SettingsComponent } from './settings.component';
 import { BackupService } from '../core/services/backup.service';
 import { ToastService } from '../core/services/toast.service';
-import { ThemeService, THEME_STORAGE_KEY } from '../core/services/theme.service';
 
 const backupServiceMock = {
   getStatus: vi.fn(() =>
@@ -38,12 +37,11 @@ const backupServiceMock = {
   getProgress: vi.fn(() => of({})),
 };
 
-describe('SettingsComponent appearance', () => {
+describe('SettingsComponent backup-only surface', () => {
   let fixture: ComponentFixture<SettingsComponent>;
 
   beforeEach(async () => {
     localStorage.clear();
-    document.documentElement.removeAttribute('data-theme');
 
     await TestBed.configureTestingModule({
       imports: [SettingsComponent],
@@ -61,40 +59,32 @@ describe('SettingsComponent appearance', () => {
     localStorage.clear();
   });
 
-  function themeButtons() {
-    const group = fixture.debugElement.query(By.css('[aria-label="App theme"]'));
-    expect(group).not.toBeNull();
-    return group.queryAll(By.css('button'));
-  }
-
-  it('renders the Appearance card with Light, Dark, and Sepia options', () => {
+  it('renders no Appearance card and no theme controls', () => {
     const headers = fixture.debugElement
       .queryAll(By.css('.card-header h2'))
       .map((h) => h.nativeElement.textContent.trim());
-    expect(headers).toContain('Appearance');
-
-    const labels = themeButtons().map((b) => b.nativeElement.textContent.trim());
-    expect(labels).toEqual(['Light', 'Dark', 'Sepia']);
+    expect(headers).not.toContain('Appearance');
+    expect(fixture.debugElement.query(By.css('[aria-label="App theme"]'))).toBeNull();
+    expect(fixture.debugElement.queryAll(By.css('.setting-row')).length).toBeGreaterThan(0);
   });
 
-  it('selecting an option calls ThemeService.setTheme and persists globally', () => {
-    const themeService = TestBed.inject(ThemeService);
-
-    themeButtons()[1].nativeElement.click(); // Dark
-    fixture.detectChanges();
-
-    expect(themeService.theme()).toBe('dark');
-    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
-    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+  it('renders the Backup and Backup History cards', () => {
+    const headers = fixture.debugElement
+      .queryAll(By.css('.card-header h2'))
+      .map((h) => h.nativeElement.textContent.trim());
+    expect(headers).toContain('Backup');
+    expect(headers).toContain('Backup History');
+    // No empty section/divider where Appearance was: the first card is Backup.
+    expect(headers[0]).toBe('Backup');
   });
 
-  it('reflects the active theme on the segmented control', () => {
-    TestBed.inject(ThemeService).setTheme('sepia');
-    fixture.detectChanges();
-
-    const buttons = themeButtons();
-    expect(buttons[2].classes['btn-primary']).toBe(true);
-    expect(buttons[0].classes['btn-primary']).toBeUndefined();
-    expect(buttons[0].classes['btn-secondary']).toBe(true);
+  it('exposes the automatic-backup toggle and manual backup action', () => {
+    const toggles = fixture.debugElement.queryAll(By.css('input[type="checkbox"]'));
+    expect(toggles.length).toBe(2); // Automatic Backup + Include Book Files
+    const buttons = fixture.debugElement
+      .queryAll(By.css('button'))
+      .map((b) => b.nativeElement.textContent.trim());
+    expect(buttons).toContain('Back up now');
+    expect(buttons).toContain('Scan for Backups');
   });
 });

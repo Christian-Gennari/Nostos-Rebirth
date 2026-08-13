@@ -23,20 +23,17 @@ import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 import { PdfAnnotationManager, PageHighlight } from './pdf-annotation-manager';
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
-import { Theme } from '../../core/services/theme.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 
 /**
- * Surround-canvas colors for the pdf.js viewer, mirroring the Nostos tokens
- * from styles.css (--bg-surface per theme). Only the viewing canvas around
- * the PDF is themed; `pdfBackgroundColor` stays unset so page pixels remain
- * exactly as authored (no inversion, no filters).
+ * Fixed light surround color for the pdf.js viewer canvas, mirroring the
+ * Nostos light token from styles.css (--bg-surface). This is a rendering
+ * invariant: unbinding it would let the viewer library's gray default
+ * through and change the established light appearance. `pdfBackgroundColor`
+ * stays unset so page pixels remain exactly as authored (no inversion, no
+ * filters).
  */
-const PDF_SURROUND: Record<Theme, string> = {
-  light: '#fefeff',
-  dark: '#161a21',
-  sepia: '#faf5e8',
-};
+const PDF_LIGHT_SURROUND = '#fefeff';
 
 interface PendingPdfHighlight {
   tempId: string;
@@ -60,8 +57,6 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   @ViewChild(NgxExtendedPdfViewerComponent) pdfViewer!: NgxExtendedPdfViewerComponent;
 
   bookId = input.required<string>();
-  /** Reader-local theme supplied by reader-shell (never the global service). */
-  theme = input<Theme>('light');
   initialLocation = input<string | undefined>();
   noteCreated = output<void>();
   highlightMode = input<boolean>(false);
@@ -72,8 +67,6 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   sidebarVisibleChange = output<boolean>();
 
   pdfSrc = computed(() => `/api/books/${this.bookId()}/file`);
-  /** Themed surround canvas, following the reader-shell theme input. */
-  pdfBackgroundColor = computed(() => PDF_SURROUND[this.theme()]);
   savedHighlights: PageHighlight[] = [];
 
   private pendingHighlight: PendingPdfHighlight | null = null;

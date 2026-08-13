@@ -1,13 +1,12 @@
 {
   "artifact": "studio-document-desktop.png",
-  "capturedAt": "2026-08-13T12:37:26.813Z",
+  "capturedAt": "2026-08-13T15:26:12.426Z",
   "name": "studio-document-desktop",
   "surface": "studio",
   "viewport": {
     "width": 1440,
     "height": 900
   },
-  "theme": "light",
   "state": "document-open",
   "checks": [
     {
@@ -15,7 +14,7 @@
       "pass": true,
       "message": "document 'Visual QA Draft' open in the editor with normal chrome visible",
       "metrics": {
-        "png": "/home/dev/coding/worktrees/nostos-visual-qa/Nostos.Frontend/e2e/visual-evidence/studio-document-desktop.png"
+        "png": "/home/dev/coding/worktrees/nostos-theme-removal/Nostos.Frontend/e2e/visual-evidence/studio-document-desktop.png"
       }
     }
   ],

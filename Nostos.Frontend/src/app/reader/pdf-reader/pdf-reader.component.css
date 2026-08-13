@@ -107,22 +107,11 @@
   display: none !important;
 }
 
-/* --- Theme-specific PDF page edges (pages keep authored pixels) ---
-   Scoped by the reader-shell theme INPUT (classes bound in the template),
-   never by the global document theme. */
+/* --- Light PDF page edge (pages keep authored pixels) ---
+   The single fixed light surround: no theme variants remain. */
 :host {
   --pdf-page-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   --pdf-page-outline: 1px solid #e4e4e7;
-}
-.pdf-container.theme-dark {
-  /* charcoal surround with a clear page outline */
-  --pdf-page-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
-  --pdf-page-outline: 1px solid #5d6a7d;
-}
-.pdf-container.theme-sepia {
-  /* warm surround and warm edge */
-  --pdf-page-shadow: 0 3px 12px rgba(90, 75, 50, 0.3);
-  --pdf-page-outline: 1px solid #ddd2b6;
 }
 ::ng-deep #viewer .page {
   border: none !important;

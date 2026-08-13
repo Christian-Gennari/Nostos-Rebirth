@@ -23,9 +23,6 @@ import {
   Save,
   Plus,
   Info,
-  Sun,
-  Moon,
-  BookOpenText,
 } from 'lucide-angular';
 
 // Services
@@ -33,7 +30,6 @@ import { BooksService } from '../core/services/books.service';
 import { NotesService } from '../core/services/notes.service';
 import { ConceptsService, ConceptDto } from '../core/services/concepts.service';
 import { ConceptAutocompleteService } from '../ui/concept-autocomplete-panel/concept-autocomplete.service';
-import { ThemeService, Theme, READER_THEME_STORAGE_KEY } from '../core/services/theme.service';
 
 // DTOs & Interfaces
 import { Note } from '../core/dtos/note.dtos';
@@ -73,7 +69,6 @@ export class ReaderShell implements OnInit {
   private notesService = inject(NotesService);
   private conceptsService = inject(ConceptsService);
   private autocompleteService = inject(ConceptAutocompleteService);
-  private themeService = inject(ThemeService);
 
   // Icons
   Icons = {
@@ -93,9 +88,6 @@ export class ReaderShell implements OnInit {
     Save,
     Plus,
     Info,
-    Sun,
-    Moon,
-    BookOpenText,
   };
 
   book = signal<any>(null);
@@ -107,13 +99,6 @@ export class ReaderShell implements OnInit {
   pendingSelectionText = signal<string | null>(null);
   highlightSaving = signal(false);
   overflowOpen = signal(false);
-
-  // Reader-LOCAL theme: seeded once from the global theme at construction,
-  // then fully independent. Persisted under 'nostos.readerTheme'. The reader
-  // never writes the global theme ('nostos.theme'), documentElement, or
-  // ThemeService.setTheme — the scoped [attr.data-theme] on .reader-layout
-  // redefines the token blocks for this subtree only.
-  readerTheme = signal<Theme>(this.themeService.theme());
 
   dbNotes = signal<Note[]>([]);
   quickNoteContent = signal('');
@@ -175,16 +160,6 @@ export class ReaderShell implements OnInit {
   }
 
   // --- INITIALIZATION ---
-
-  constructor() {
-    // A previously persisted reader theme wins over the global seed; without
-    // one, the reader follows the global theme (seed above), then diverges
-    // only when the user toggles inside the reader.
-    const stored = localStorage.getItem(READER_THEME_STORAGE_KEY);
-    if (stored === 'light' || stored === 'dark' || stored === 'sepia') {
-      this.readerTheme.set(stored);
-    }
-  }
 
   ngOnInit() {
     this.loadConcepts();
@@ -255,12 +230,6 @@ export class ReaderShell implements OnInit {
 
   toggleOverflow() {
     this.overflowOpen.update((v) => !v);
-  }
-
-  setTheme(theme: Theme) {
-    // Reader-local only: never touches the global theme / documentElement.
-    this.readerTheme.set(theme);
-    localStorage.setItem(READER_THEME_STORAGE_KEY, theme);
   }
 
   commitHighlight() {

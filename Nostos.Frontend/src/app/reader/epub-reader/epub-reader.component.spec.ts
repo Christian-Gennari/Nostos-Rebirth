@@ -2,15 +2,10 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import ePub from 'epubjs';
 
-// @ts-expect-error — no @types/node in this repo; vitest resolves node:fs at
-// runtime. Used only for static source guards (component source files).
-import { readFileSync } from 'node:fs';
-
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
 import { EpubReader } from './epub-reader.component';
 import { EpubAnnotationManager } from './epub-annotation-manager';
-import { Theme } from '../../core/services/theme.service';
 
 vi.mock('epubjs', () => ({ default: vi.fn() }));
 
@@ -152,16 +147,15 @@ describe('EpubReader highlight-mode lifecycle (issue #16)', () => {
 });
 
 /**
- * Reader-theme propagation (reader-local theme input): the three Nostos
- * themes are registered once per rendition via `rendition.themes`, the theme
- * supplied by reader-shell is selected at rendition creation (before first
- * display), an Angular effect re-selects on `theme` input changes without
- * recreating the rendition, and newly rendered chapters inherit the selected
- * theme. The fake rendition's `themes` object mimics the verified epub.js
- * 0.3.93 Themes behavior: an inject hook registered on `hooks.content`
- * injects the CURRENT theme's rules and body class into every new contents.
+ * Fixed light normalization (theme system removed): the single Nostos light
+ * theme is registered once per rendition via `rendition.themes` and selected
+ * at rendition creation (before first display), and every newly rendered
+ * chapter inherits it. The fake rendition's `themes` object mimics the
+ * verified epub.js 0.3.93 Themes behavior: an inject hook registered on
+ * `hooks.content` injects the CURRENT theme's rules and body class into
+ * every new contents.
  */
-describe('EpubReader theme propagation (reader-local theme input)', () => {
+describe('EpubReader fixed light normalization', () => {
   let fixture: ComponentFixture<EpubReader>;
   let log: string[];
   let contentHooks: ((contents: any) => void)[];
@@ -301,101 +295,57 @@ describe('EpubReader theme propagation (reader-local theme input)', () => {
     vi.unstubAllGlobals();
   });
 
-  async function setupComponent(theme: Theme = 'light') {
+  async function setupComponent() {
     fixture = TestBed.createComponent(EpubReader);
     fixture.componentRef.setInput('bookId', 'book-1');
-    fixture.componentRef.setInput('theme', theme);
     fixture.detectChanges();
     // Settle book.ready + rendition.display() + service subscriptions + effects.
     await new Promise((resolve) => setTimeout(resolve, 0));
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
 
-  async function switchTheme(theme: Theme) {
-    fixture.componentRef.setInput('theme', theme);
-    fixture.detectChanges();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  }
-
-  it('registers nostos-light/dark/sepia once and selects the initial theme before first display', async () => {
+  it('registers the fixed light normalization exactly once and selects it before first display', async () => {
     await setupComponent();
 
     const themes = renditions[0].themes;
-    expect(themes.registered).toEqual(['nostos-light', 'nostos-dark', 'nostos-sepia']);
+    expect(themes.registered).toEqual(['nostos-light']);
+    expect(log.filter((l) => l.startsWith('register:')).length).toBe(1);
     // The eager selection at rendition creation happens BEFORE display().
     expect(log.indexOf('select:nostos-light')).toBeGreaterThanOrEqual(0);
     expect(log.indexOf('select:nostos-light')).toBeLessThan(log.indexOf('display'));
     expect(themes.current).toBe('nostos-light');
+    // The registered rules are the light tokens (white surface, dark ink,
+    // publisher-color normalization, link + selection colors).
+    const rules = themes.rules['nostos-light'];
+    expect(rules.body.background).toBe('#ffffff !important');
+    expect(rules.body.color).toBe('#1a1a1a !important');
+    expect(rules['body *'].color).toBe('inherit !important');
+    expect(rules.a.color).toBe('#60a5fa !important');
   });
 
-  it('selects the theme input at rendition creation (no first-section white flash)', async () => {
-    await setupComponent('dark');
-
-    const themes = renditions[0].themes;
-    expect(log.indexOf('select:nostos-dark')).toBeGreaterThanOrEqual(0);
-    expect(log.indexOf('select:nostos-dark')).toBeLessThan(log.indexOf('display'));
-    expect(themes.current).toBe('nostos-dark');
-  });
-
-  it('light -> dark -> sepia applies in-session without reopening the book', async () => {
+  it('a chapter rendered after the fixed selection inherits the light rules', async () => {
     await setupComponent();
-    const rendition = renditions[0];
-    const themes = rendition.themes;
-
-    await switchTheme('dark');
-    expect(themes.selected[themes.selected.length - 1]).toBe('nostos-dark');
-
-    await switchTheme('sepia');
-    expect(themes.selected[themes.selected.length - 1]).toBe('nostos-sepia');
-
-    // The book was never reopened and the rendition was never recreated.
-    expect(rendition.display).toHaveBeenCalledTimes(1);
-    expect(renditions.length).toBe(1);
-  });
-
-  it('theme switching does not recreate the rendition or lose reading position', async () => {
-    await setupComponent();
-    const book = books[0];
-    const rendition = renditions[0];
-
-    await switchTheme('dark');
-    await switchTheme('sepia');
-
-    expect(renditions.length).toBe(1);
-    expect(book.destroy).not.toHaveBeenCalled();
-    expect(fixture.componentInstance.getCurrentLocation()).toBe('epubcfi(/6/4)');
-  });
-
-  it('a chapter rendered after the switch inherits the selected theme', async () => {
-    await setupComponent();
-    await switchTheme('sepia');
 
     // Simulate a new section: epub.js fires every registered content hook
     // with the new contents document.
     const contents = makeContents();
     contentHooks.forEach((hook) => hook(contents));
 
-    expect(contents.document.body.classList.contains('nostos-sepia')).toBe(true);
-    const themeStyle = contents.document.getElementById('epubjs-inserted-css-nostos-sepia');
+    expect(contents.document.body.classList.contains('nostos-light')).toBe(true);
+    const themeStyle = contents.document.getElementById('epubjs-inserted-css-nostos-light');
     expect(themeStyle).not.toBeNull();
-    expect(themeStyle!.textContent).toContain('#faf5e8');
-    expect(contents.document.body.classList.contains('nostos-dark')).toBe(false);
+    expect(themeStyle!.textContent).toContain('#ffffff');
   });
 
-  it('annotation and pending-highlight styles stay visible after a theme switch', async () => {
+  it('annotation styles stay visible alongside the fixed light normalization', async () => {
     await setupComponent();
-    const destroySpy = vi.spyOn(EpubAnnotationManager.prototype, 'destroy');
-
-    await switchTheme('dark');
-
-    expect(destroySpy).not.toHaveBeenCalled();
 
     const contents = makeContents();
     contentHooks.forEach((hook) => hook(contents));
 
-    // Theme styles AND annotation styles coexist in the same contents head.
-    expect(contents.document.getElementById('epubjs-inserted-css-nostos-dark')).not.toBeNull();
+    // Light normalization styles AND annotation styles coexist in the same
+    // contents head.
+    expect(contents.document.getElementById('epubjs-inserted-css-nostos-light')).not.toBeNull();
     const annotationStyle = Array.from(contents.document.head.querySelectorAll('style')).find(
       (s) => s.textContent?.includes('.epubjs-hl'),
     );
@@ -422,44 +372,8 @@ describe('EpubReader theme propagation (reader-local theme input)', () => {
     // Exactly two content hooks per rendition (themes inject + component).
     expect(hookRegistrations).toBe(4);
 
-    // Each rendition registered the three themes exactly once.
-    expect(firstRendition.themes.registered).toEqual([
-      'nostos-light',
-      'nostos-dark',
-      'nostos-sepia',
-    ]);
-    expect(secondRendition.themes.registered).toEqual([
-      'nostos-light',
-      'nostos-dark',
-      'nostos-sepia',
-    ]);
-
-    // The destroyed instance's effect is gone: a toggle reaches only the new
-    // rendition, exactly once per switch.
-    const firstSelects = firstRendition.themes.selected.length;
-    await switchTheme('sepia');
-
-    expect(firstRendition.themes.selected.length).toBe(firstSelects);
-    expect(secondRendition.themes.selected[secondRendition.themes.selected.length - 1]).toBe(
-      'nostos-sepia',
-    );
-  });
-
-  it('never touches ThemeService, the global document theme, or documentElement', () => {
-    // Static guard: the epub reader must be driven purely by its `theme`
-    // input; any global-theme write in the reader tree is a regression.
-    // (Path derived from the spec's own file URL: `new URL(rel, import.meta.url)`
-    // is rewritten to the dev-server origin by vite, so a plain path is used.)
-    const source = readFileSync(
-      import.meta.url
-        .replace(/^file:\/\//, '')
-        .replace(/epub-reader\.component\.spec\.ts$/, 'epub-reader.component.ts'),
-      'utf-8',
-    );
-    expect(source).not.toContain('ThemeService');
-    expect(source).not.toContain('setTheme');
-    expect(source).not.toContain('documentElement');
-    expect(source).not.toContain('nostos.theme');
-    expect(source).toContain('theme = input<Theme>');
+    // Each rendition registered the fixed light theme exactly once.
+    expect(firstRendition.themes.registered).toEqual(['nostos-light']);
+    expect(secondRendition.themes.registered).toEqual(['nostos-light']);
   });
 });

@@ -12,7 +12,6 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
 import { PdfAnnotationManager } from './pdf-annotation-manager';
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
-import { Theme } from '../../core/services/theme.service';
 
 /**
  * Minimal stand-in for the heavy ngx-extended-pdf-viewer component (same
@@ -68,7 +67,7 @@ class PdfViewerStub {
 const readSource = (file: string) =>
   readFileSync(new URL(file, import.meta.url), 'utf-8');
 
-describe('PdfReader theme propagation and toolbar clearance', () => {
+describe('PdfReader fixed light surround and toolbar clearance', () => {
   let fixture: ComponentFixture<PdfReader>;
 
   const notesService = { list: vi.fn(() => of([])) };
@@ -104,10 +103,9 @@ describe('PdfReader theme propagation and toolbar clearance', () => {
     vi.restoreAllMocks();
   });
 
-  function setupComponent(theme: Theme = 'light') {
+  function setupComponent() {
     fixture = TestBed.createComponent(PdfReader);
     fixture.componentRef.setInput('bookId', 'book-1');
-    fixture.componentRef.setInput('theme', theme);
     fixture.detectChanges();
     return fixture;
   }
@@ -118,67 +116,38 @@ describe('PdfReader theme propagation and toolbar clearance', () => {
     return debugEl!.componentInstance as PdfViewerStub;
   }
 
-  it('has no hard-coded #fefeff in the template (surround is computed)', () => {
+  it('binds the fixed #fefeff light surround and keeps the pdfjs background unset', () => {
     const html = readSource('./pdf-reader.component.html');
-    // The old literal binding is gone and the pdfjs `pdfBackgroundColor`
-    // option stays unset (only the `backgroundColor` surround is bound).
-    expect(html).not.toContain("'#fefeff'");
+    // The surround is a fixed rendering invariant; the pdfjs
+    // `pdfBackgroundColor` option stays unset so page pixels are untouched.
+    expect(html).toContain("[backgroundColor]=\"'#fefeff'\"");
     expect(html).not.toContain('[pdfBackgroundColor]');
-    expect(html).toContain('[backgroundColor]="pdfBackgroundColor()"');
   });
 
-  it('viewer background responds to the theme input without reloading the document', () => {
+  it('renders the viewer with the fixed light surround without reloading the document', () => {
     setupComponent();
 
     expect(viewerStub().backgroundColor()).toBe('#fefeff');
     expect(viewerStub().src()).toBe('/api/books/book-1/file');
 
-    fixture.componentRef.setInput('theme', 'dark');
+    // A second change-detection pass leaves the document untouched.
     fixture.detectChanges();
-    expect(viewerStub().backgroundColor()).toBe('#161a21');
-    expect(viewerStub().src()).toBe('/api/books/book-1/file');
-
-    fixture.componentRef.setInput('theme', 'sepia');
-    fixture.detectChanges();
-    expect(viewerStub().backgroundColor()).toBe('#faf5e8');
-    expect(viewerStub().src()).toBe('/api/books/book-1/file');
-
-    // Still the same document — the src never changed, so no reload.
     expect(viewerStub().src()).toBe('/api/books/book-1/file');
   });
 
-  it('binds page-edge classes to the theme input (never the global document theme)', () => {
-    setupComponent('dark');
-    const container = fixture.debugElement.query(By.css('.pdf-container'));
-    expect(container.classes['theme-dark']).toBe(true);
-    expect(container.classes['theme-sepia']).toBeUndefined();
+  it('declares the base light page edge and no theme-variant classes', () => {
+    const html = readSource('./pdf-reader.component.html');
+    const css = readSource('./pdf-reader.component.css');
 
-    fixture.componentRef.setInput('theme', 'sepia');
-    fixture.detectChanges();
-    expect(container.classes['theme-sepia']).toBe(true);
-    expect(container.classes['theme-dark']).toBeUndefined();
-
-    fixture.componentRef.setInput('theme', 'light');
-    fixture.detectChanges();
-    expect(container.classes['theme-dark']).toBeUndefined();
-    expect(container.classes['theme-sepia']).toBeUndefined();
-  });
-
-  it('has no ThemeService or global-theme coupling in the implementation', () => {
-    const sources = [
-      readSource('./pdf-reader.component.html'),
-      readSource('./pdf-reader.component.css'),
-      readSource('./pdf-reader.component.ts'),
-    ].join('\n');
-
-    expect(sources).not.toContain('ThemeService');
-    expect(sources).not.toContain('themeService');
-    expect(sources).not.toContain('setTheme');
-    expect(sources).not.toContain('documentElement');
-    expect(sources).not.toContain('nostos.theme');
-    expect(sources).not.toContain('invert(');
-    expect(sources).not.toContain('hue-rotate(');
-    expect(sources).not.toMatch(/filter\s*:/);
+    // The theme input and its class bindings are gone.
+    expect(html).not.toContain('theme-dark');
+    expect(html).not.toContain('theme-sepia');
+    // The retained base light page edge stays token-driven.
+    expect(css).toContain('--pdf-page-outline');
+    expect(css).toContain('outline: var(--pdf-page-outline)');
+    expect(css).toContain('box-shadow: var(--pdf-page-shadow)');
+    expect(css).not.toContain('theme-dark');
+    expect(css).not.toContain('theme-sepia');
   });
 
   it('hidden-toolbar state uses no negative margin (offset reset at #viewerContainer)', () => {
@@ -212,19 +181,5 @@ describe('PdfReader theme propagation and toolbar clearance', () => {
     expect(viewerContainerRule).toContain(
       'calc(var(--toolbar-height, 60px) + env(safe-area-inset-bottom, 0px))',
     );
-  });
-
-  it('defines theme-specific page borders/shadows keyed on the input-driven classes', () => {
-    const css = readSource('./pdf-reader.component.css');
-
-    // The page keeps its authored pixels; only its edge is themed — scoped by
-    // the reader-shell theme input classes, never :host-context on the
-    // global document theme.
-    expect(css).not.toContain(':host-context([data-theme');
-    expect(css).toContain('.pdf-container.theme-dark');
-    expect(css).toContain('.pdf-container.theme-sepia');
-    expect(css).toContain('--pdf-page-outline');
-    expect(css).toContain('outline: var(--pdf-page-outline)');
-    expect(css).toContain('box-shadow: var(--pdf-page-shadow)');
   });
 });

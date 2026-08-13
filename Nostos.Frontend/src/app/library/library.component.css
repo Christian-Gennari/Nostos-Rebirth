@@ -63,8 +63,8 @@ app-sidebar-collections.no-transition {
 .toolbar {
   position: sticky;
   top: 0;
-  /* Theme-aware surface: follows --bg-surface via the active data-theme
-     token block (was hard-coded white, so it stayed light in dark mode). */
+  /* Theme-aware surface: follows --bg-surface from the single :root token
+     graph (was hard-coded white, so it stayed light in dark mode). */
   background: color-mix(in srgb, var(--bg-surface) 90%, transparent);
   backdrop-filter: blur(8px);
   z-index: 5;
@@ -474,15 +474,6 @@ app-sidebar-collections.no-transition {
 /* ADDED: This makes the rating solid when hovering the book card */
 .book-card:hover .meta-rating {
   opacity: 1;
-}
-
-/* --- DARK THEME CONTRAST FIXES --- */
-:host-context([data-theme='dark']) .cover-wrapper {
-  color: var(--color-text-light);
-}
-
-:host-context([data-theme='dark']) .meta-rating {
-  opacity: 0.75;
 }
 
 /* --- SKELETON --- */

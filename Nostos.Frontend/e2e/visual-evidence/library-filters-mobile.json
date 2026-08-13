@@ -1,13 +1,13 @@
 {
-  "artifact": "library-filters-desktop.png",
-  "capturedAt": "2026-08-13T15:26:37.465Z",
-  "name": "library-filters-desktop",
+  "artifact": "library-filters-mobile.png",
+  "capturedAt": "2026-08-13T15:26:59.097Z",
+  "name": "library-filters-mobile",
   "surface": "library",
   "viewport": {
-    "width": 1440,
-    "height": 900
+    "width": 390,
+    "height": 844
   },
-  "state": "filters",
+  "state": "drawer-open",
   "checks": [
     {
       "id": "library-no-progress-combobox",

@@ -383,22 +383,6 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
     expect(css).toContain('0 28px 64px rgba(30, 26, 21, 0.06)');
   });
 
-  it('declares the dark-theme paper variant: light rim + deep ambient shadow on a white sheet', () => {
-    const css = componentCss();
-
-    // (Angular rewrites :host-context selectors on injection; the unique
-    // shadow values are the contract.)
-    expect(css).toContain('0 0 0 1px rgba(255, 255, 255, 0.035)');
-    expect(css).toContain('0 38px 86px rgba(0, 0, 0, 0.28)');
-  });
-
-  it('declares the sepia-theme paper variant with a warmer, softer shadow', () => {
-    const css = componentCss();
-
-    expect(css).toContain('0 30px 68px rgba(70, 52, 28, 0.06)');
-    expect(css).toContain('rgba(86, 67, 38, 0.15)');
-  });
-
   it('lets .tox-tinymce fill and clip to the paper frame without its own shadow', () => {
     const css = componentCss();
 

@@ -1,11 +1,10 @@
 import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideAngularModule, Settings, Palette, Archive, RefreshCw, Download, Trash2, Loader2, FolderSearch } from 'lucide-angular';
+import { LucideAngularModule, Settings, Archive, RefreshCw, Download, Trash2, Loader2, FolderSearch } from 'lucide-angular';
 
 import { BackupService } from '../core/services/backup.service';
 import { ToastService } from '../core/services/toast.service';
-import { ThemeService, Theme } from '../core/services/theme.service';
 import {
   BackupStatus,
   BackupSettings,
@@ -33,51 +32,6 @@ const defaultProgress: BackupProgress = {
       <header class="settings-header">
         <h1>Settings</h1>
       </header>
-
-      <section class="settings-card">
-        <div class="card-header">
-          <lucide-icon [img]="PaletteIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
-          <h2>Appearance</h2>
-        </div>
-
-        <div class="card-body">
-          <div class="setting-row">
-            <div class="setting-label">
-              <span class="label-text">Theme</span>
-              <span class="label-desc">App-wide appearance. The reader keeps its own theme, set inside the reader.</span>
-            </div>
-            <div class="setting-control" role="group" aria-label="App theme">
-              <button
-                type="button"
-                class="btn btn-sm"
-                [class.btn-primary]="theme() === 'light'"
-                [class.btn-secondary]="theme() !== 'light'"
-                (click)="setTheme('light')"
-              >
-                Light
-              </button>
-              <button
-                type="button"
-                class="btn btn-sm"
-                [class.btn-primary]="theme() === 'dark'"
-                [class.btn-secondary]="theme() !== 'dark'"
-                (click)="setTheme('dark')"
-              >
-                Dark
-              </button>
-              <button
-                type="button"
-                class="btn btn-sm"
-                [class.btn-primary]="theme() === 'sepia'"
-                [class.btn-secondary]="theme() !== 'sepia'"
-                (click)="setTheme('sepia')"
-              >
-                Sepia
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <section class="settings-card">
         <div class="card-header">
@@ -286,23 +240,14 @@ const defaultProgress: BackupProgress = {
 export class SettingsComponent implements OnInit, OnDestroy {
   private backupService = inject(BackupService);
   private toast = inject(ToastService);
-  private themeService = inject(ThemeService);
 
   SettingsIcon = Settings;
-  PaletteIcon = Palette;
   ArchiveIcon = Archive;
   RefreshCwIcon = RefreshCw;
   DownloadIcon = Download;
   Trash2Icon = Trash2;
   LoaderIcon = Loader2;
   FolderSearchIcon = FolderSearch;
-
-  /** Global app theme signal (light/dark/sepia), set app-wide from here. */
-  theme = this.themeService.theme;
-
-  setTheme(theme: Theme): void {
-    this.themeService.setTheme(theme);
-  }
 
   status = signal<BackupStatus>({
     isEnabled: false,

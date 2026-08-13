@@ -1,13 +1,12 @@
 {
   "artifact": "studio-zen-desktop.png",
-  "capturedAt": "2026-08-13T12:37:28.358Z",
+  "capturedAt": "2026-08-13T15:26:13.837Z",
   "name": "studio-zen-desktop",
   "surface": "studio",
   "viewport": {
     "width": 1440,
     "height": 900
   },
-  "theme": "light",
   "state": "zen",
   "checks": [
     {
@@ -28,8 +27,8 @@
           ".sidebar-left": "none",
           ".sidebar-right": "none",
           ".editor-header": "none",
-          ".editor-status": "none",
-          ".tox-menubar": "none",
+          ".editor-status": "<absent>",
+          ".tox-menubar": "<absent>",
           ".tox-toolbar-overlord": "none"
         }
       }

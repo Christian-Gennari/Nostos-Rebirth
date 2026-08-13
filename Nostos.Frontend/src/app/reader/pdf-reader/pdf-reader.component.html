@@ -1,7 +1,5 @@
 <div
   class="pdf-container"
-  [class.theme-dark]="theme() === 'dark'"
-  [class.theme-sepia]="theme() === 'sepia'"
   (mouseup)="onTextSelection()"
   (touchend)="onTextSelection()"
 >
@@ -12,7 +10,7 @@
       [sidebarVisible]="sidebarVisible()"
       (sidebarVisibleChange)="sidebarVisibleChange.emit($event)"
       [(page)]="currentPage"
-      [backgroundColor]="pdfBackgroundColor()"
+      [backgroundColor]="'#fefeff'"
       [scrollMode]="3"
       [showBorders]="false"
       [zoom]="zoomLevel()"

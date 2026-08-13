@@ -1,4 +1,4 @@
-<div class="reader-layout" [attr.data-theme]="readerTheme()" [class.ready]="ready()">
+<div class="reader-layout" [class.ready]="ready()">
   <div class="reader-body">
     <main class="reader-content">
       @if (loading()) {
@@ -6,7 +6,6 @@
       } @else { @switch (fileType()) { @case ('pdf') {
       <app-pdf-reader
         [bookId]="book()!.id"
-        [theme]="readerTheme()"
         [initialLocation]="book()?.lastLocation"
         [sidebarVisible]="tocOpen()"
         [highlightMode]="highlightMode()"
@@ -16,7 +15,7 @@
         (commitFailed)="handleCommitFailed()"
       />
       } @case ('epub') {
-      <app-epub-reader [bookId]="book()!.id" [theme]="readerTheme()" [highlightMode]="highlightMode()" (noteCreated)="handleNoteCreated()" (selectionCaptured)="handleSelectionCaptured($event)" (commitFailed)="handleCommitFailed()" />
+      <app-epub-reader [bookId]="book()!.id" [highlightMode]="highlightMode()" (noteCreated)="handleNoteCreated()" (selectionCaptured)="handleSelectionCaptured($event)" (commitFailed)="handleCommitFailed()" />
       } @case ('audio') {
       <app-audio-reader [bookId]="book()!.id" [book]="book()" />
       } @default {
@@ -228,39 +227,6 @@
           <lucide-icon [img]="Icons.NotebookPen" [size]="20"></lucide-icon>
         </button>
       }
-
-      <div class="theme-toggle" role="group" aria-label="Reader theme">
-        <button
-          type="button"
-          class="theme-toggle-btn"
-          [class.active]="readerTheme() === 'light'"
-          (click)="setTheme('light')"
-          title="Light theme"
-          aria-label="Light theme"
-        >
-          <lucide-icon [img]="Icons.Sun" [size]="16"></lucide-icon>
-        </button>
-        <button
-          type="button"
-          class="theme-toggle-btn"
-          [class.active]="readerTheme() === 'dark'"
-          (click)="setTheme('dark')"
-          title="Dark theme"
-          aria-label="Dark theme"
-        >
-          <lucide-icon [img]="Icons.Moon" [size]="16"></lucide-icon>
-        </button>
-        <button
-          type="button"
-          class="theme-toggle-btn"
-          [class.active]="readerTheme() === 'sepia'"
-          (click)="setTheme('sepia')"
-          title="Sepia theme"
-          aria-label="Sepia theme"
-        >
-          <lucide-icon [img]="Icons.BookOpenText" [size]="16"></lucide-icon>
-        </button>
-      </div>
     </div>
   </header>
 </div>
