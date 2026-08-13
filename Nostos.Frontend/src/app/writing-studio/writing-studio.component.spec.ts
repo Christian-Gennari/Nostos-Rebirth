@@ -411,7 +411,7 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
   it('gives the stage safe padding: dock clearance reserves room for the floating dock', () => {
     const css = componentCss();
 
-    expect(css).toContain('--studio-dock-clearance: 96px');
+    expect(css).toContain('--studio-dock-clearance: 122px');
     expect(css).toContain('overflow: visible');
   });
 
