@@ -144,12 +144,18 @@
 
               @if (canResetProgress()) {
               <button
-                class="btn btn-xs btn-ghost danger reset-progress-btn"
-                (click)="resetProgress()"
+                class="btn-icon reset-progress-btn"
+                [class.active]="showResetConfirm()"
+                (click)="openResetConfirm()"
                 [disabled]="store.resettingProgress()"
+                [title]="store.resettingProgress() ? 'Resetting…' : 'Reset reading progress'"
                 aria-label="Reset reading progress"
               >
-                {{ store.resettingProgress() ? 'Resetting…' : 'Reset progress' }}
+                <lucide-icon
+                  [img]="RotateCcwIcon"
+                  [size]="20"
+                  [class.spinning]="store.resettingProgress()"
+                ></lucide-icon>
               </button>
               }
 
@@ -482,6 +488,31 @@
       }
     </div>
   </div>
+
+  @if (showResetConfirm()) {
+  <div class="reset-confirm-backdrop" (click)="cancelResetConfirm()">
+    <div
+      class="reset-confirm-dialog"
+      role="alertdialog"
+      aria-labelledby="reset-confirm-title"
+      aria-describedby="reset-confirm-body"
+      (click)="$event.stopPropagation()"
+    >
+      <h3 id="reset-confirm-title">Reset reading progress?</h3>
+      <p id="reset-confirm-body">
+        The next time you open this book, it will start from the beginning.
+      </p>
+      <div class="reset-confirm-actions">
+        <button class="btn btn-xs btn-ghost" (click)="cancelResetConfirm()" [disabled]="store.resettingProgress()">
+          Cancel
+        </button>
+        <button class="btn btn-xs btn-danger" (click)="resetProgress()" [disabled]="store.resettingProgress()">
+          {{ store.resettingProgress() ? 'Resetting…' : 'Reset' }}
+        </button>
+      </div>
+    </div>
+  </div>
+  }
 
   <app-add-book-modal
     [isOpen]="showMetadataModal()"

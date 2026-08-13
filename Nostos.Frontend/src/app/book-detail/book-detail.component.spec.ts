@@ -471,6 +471,18 @@ describe('BookDetail reset progress', () => {
     return fixture.nativeElement.querySelector('.reset-progress-btn');
   }
 
+  function resetDialog(): HTMLElement | null {
+    return fixture.nativeElement.querySelector('.reset-confirm-dialog');
+  }
+
+  function resetConfirmButton(): HTMLButtonElement | null {
+    return fixture.nativeElement.querySelector('.reset-confirm-dialog .btn-danger');
+  }
+
+  function resetCancelButton(): HTMLButtonElement | null {
+    return fixture.nativeElement.querySelector('.reset-confirm-dialog .btn-ghost');
+  }
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [BookDetail],
@@ -508,7 +520,7 @@ describe('BookDetail reset progress', () => {
     await setup(readableBook());
     const button = resetButton();
     expect(button).toBeTruthy();
-    expect(button!.textContent).toContain('Reset progress');
+    expect(button!.getAttribute('aria-label')).toBe('Reset reading progress');
   });
 
   it('is visible for a finished book', async () => {
@@ -529,25 +541,57 @@ describe('BookDetail reset progress', () => {
     expect(resetButton()).toBeTruthy();
   });
 
-  it('does nothing when the confirmation is cancelled', async () => {
-    await setup();
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('opens the styled confirmation dialog on click, with the next-open warning', async () => {
+    await setup(readableBook());
 
     resetButton()!.click();
     fixture.detectChanges();
 
-    expect(confirmSpy).toHaveBeenCalledWith(
-      'Reset reading progress? The next time you open this book, it will start from the beginning.'
-    );
+    const dialog = resetDialog();
+    expect(dialog).toBeTruthy();
+    expect(dialog!.textContent).toContain('Reset reading progress?');
+    expect(dialog!.textContent).toContain('start from the beginning');
+    expect(resetConfirmButton()).toBeTruthy();
+    expect(resetCancelButton()).toBeTruthy();
+    expect(httpMock.match((req) => req.method === 'POST' && req.url === '/api/books/b1/progress/reset').length).toBe(0);
+  });
+
+  it('does nothing when the confirmation is cancelled', async () => {
+    await setup(readableBook());
+
+    resetButton()!.click();
+    fixture.detectChanges();
+    expect(resetDialog()).toBeTruthy();
+
+    resetCancelButton()!.click();
+    fixture.detectChanges();
+
+    expect(resetDialog()).toBeNull();
     expect(httpMock.match((req) => req.method === 'POST' && req.url === '/api/books/b1/progress/reset').length).toBe(0);
     expect(component.store.book()?.progressPercent).toBe(42);
   });
 
-  it('confirms, then calls exactly one reset endpoint and refetches the book on success', async () => {
-    await setup();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('closes the dialog without submitting when the backdrop is clicked', async () => {
+    await setup(readableBook());
 
     resetButton()!.click();
+    fixture.detectChanges();
+    expect(resetDialog()).toBeTruthy();
+
+    const backdrop = fixture.nativeElement.querySelector('.reset-confirm-backdrop') as HTMLElement;
+    backdrop.click();
+    fixture.detectChanges();
+
+    expect(resetDialog()).toBeNull();
+    expect(httpMock.match((req) => req.method === 'POST' && req.url === '/api/books/b1/progress/reset').length).toBe(0);
+  });
+
+  it('confirms, then calls exactly one reset endpoint and refetches the book on success', async () => {
+    await setup(readableBook());
+
+    resetButton()!.click();
+    fixture.detectChanges();
+    resetConfirmButton()!.click();
     fixture.detectChanges();
 
     const posts = httpMock.match((req) => req.method === 'POST' && req.url === '/api/books/b1/progress/reset');
@@ -565,19 +609,23 @@ describe('BookDetail reset progress', () => {
     expect(component.store.book()?.progressPercent).toBe(0);
     expect(component.store.book()?.lastLocation).toBeNull();
     expect(resetButton()).toBeNull();
+    expect(resetDialog()).toBeNull();
     expect(toast.toasts().some((t) => t.message === 'Reading progress reset' && t.type === 'success')).toBe(true);
   });
 
   it('disables the button while the reset is pending and never submits twice', async () => {
-    await setup();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await setup(readableBook());
 
     resetButton()!.click();
     fixture.detectChanges();
+    resetConfirmButton()!.click();
+    fixture.detectChanges();
     expect(resetButton()!.disabled).toBe(true);
-    expect(resetButton()!.textContent).toContain('Resetting');
+    expect(resetButton()!.title).toContain('Resetting');
+    expect(resetButton()!.querySelector('.spinning')).toBeTruthy();
+    expect(resetDialog()).toBeNull();
 
-    // A second click on the disabled button must not fire another request.
+    // A second click on the disabled trigger must not fire another request.
     resetButton()!.click();
     fixture.detectChanges();
 
@@ -591,10 +639,11 @@ describe('BookDetail reset progress', () => {
   });
 
   it('preserves the displayed state and shows an error toast on failure', async () => {
-    await setup();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await setup(readableBook());
 
     resetButton()!.click();
+    fixture.detectChanges();
+    resetConfirmButton()!.click();
     fixture.detectChanges();
 
     httpMock
@@ -605,6 +654,7 @@ describe('BookDetail reset progress', () => {
     expect(httpMock.match((req) => req.method === 'GET' && req.url === '/api/books/b1').length).toBe(0);
     expect(component.store.book()?.progressPercent).toBe(42);
     expect(resetButton()).toBeTruthy();
+    expect(resetDialog()).toBeNull();
     expect(toast.toasts().some((t) => t.message === 'Failed to reset progress' && t.type === 'error')).toBe(true);
   });
 });

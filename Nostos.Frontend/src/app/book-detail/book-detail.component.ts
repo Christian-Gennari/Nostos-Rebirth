@@ -49,6 +49,7 @@ import {
   Clock,
   Heart,
   CheckCircle,
+  RotateCcw,
   Mic,
   MapPin,
   MessageSquareQuote,
@@ -103,6 +104,7 @@ export class BookDetail implements OnInit {
   ClockIcon = Clock;
   HeartIcon = Heart;
   CheckCircleIcon = CheckCircle;
+  RotateCcwIcon = RotateCcw;
   MicIcon = Mic;
   MapPinIcon = MapPin;
   QuoteIcon = MessageSquareQuote;
@@ -110,6 +112,7 @@ export class BookDetail implements OnInit {
   // Local UI State
   isDescriptionExpanded = signal(false);
   showMetadataModal = signal(false);
+  showResetConfirm = signal(false);
   newNote = model<string>('');
 
   /**
@@ -192,6 +195,13 @@ export class BookDetail implements OnInit {
   }
   resetProgress() {
     this.store.resetProgress();
+    this.showResetConfirm.set(false);
+  }
+  openResetConfirm() {
+    this.showResetConfirm.set(true);
+  }
+  cancelResetConfirm() {
+    this.showResetConfirm.set(false);
   }
 
   addNote(): void {
