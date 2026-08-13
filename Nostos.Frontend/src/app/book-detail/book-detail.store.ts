@@ -165,10 +165,6 @@ export class BookDetailStore {
     const b = this.book();
     if (!b || this.resettingProgress()) return;
 
-    if (!confirm('Reset reading progress? The next time you open this book, it will start from the beginning.')) {
-      return;
-    }
-
     this.resettingProgress.set(true);
     this.booksService
       .resetProgress(b.id)
