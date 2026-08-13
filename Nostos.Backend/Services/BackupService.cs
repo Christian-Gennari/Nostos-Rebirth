@@ -365,9 +365,18 @@ public class BackupService : IBackupService
                 var fileInfo = new FileInfo(file);
                 var id = Guid.Parse(Path.GetFileNameWithoutExtension(file));
 
+                // Real creation time: prefer the manifest timestamp (the
+                // archive's own record), fall back to the file's write time.
+                // Defaulting to UtcNow here made every import look brand-new,
+                // which broke pruner ordering and could delete recent backups.
+                var createdAt = manifest?.Timestamp != default
+                    ? manifest.Timestamp.ToUniversalTime()
+                    : fileInfo.LastWriteTimeUtc;
+
                 var record = new BackupRecord
                 {
                     Id = id,
+                    CreatedAt = createdAt,
                     SizeBytes = fileInfo.Length,
                     Provider = BackupProvider.Local,
                     Status = BackupStatus.Completed,

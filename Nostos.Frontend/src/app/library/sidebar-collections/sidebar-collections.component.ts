@@ -32,6 +32,7 @@ import {
 import { CollectionsService } from '../../core/services/collections.service';
 import { Collection, CollectionCountDto } from '../../core/dtos/collection.dtos';
 import { FlatTreeComponent } from '../../ui/flat-tree/flat-tree.component';
+import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   standalone: true,
@@ -52,6 +53,7 @@ export class SidebarCollections implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private elementRef = inject(ElementRef);
+  private toast = inject(ToastService);
 
   // Icons
   FolderIcon = Folder;
@@ -142,6 +144,7 @@ export class SidebarCollections implements OnInit {
   load(): void {
     this.collectionsService.list().subscribe({
       next: (cols) => this.collections.set(cols),
+      error: () => this.toast.error('Failed to load collections'),
     });
   }
 
@@ -197,6 +200,7 @@ export class SidebarCollections implements OnInit {
         this.loadCounts();
         this.select(newCol.id);
       },
+      error: () => this.toast.error('Could not create collection.'),
     });
   }
 
@@ -215,7 +219,8 @@ export class SidebarCollections implements OnInit {
       return;
     }
     const collection = this.collections().find((c) => c.id === id);
-    // PUT contract requires both fields: name + parentId (parentId null = root).
+    // Full-replace PUT: always send the current parentId (explicit null for
+    // root) so a rename never reads as "move to root".
     this.collectionsService
       .update(id, { name: newName, parentId: collection?.parentId ?? null })
       .subscribe({
@@ -224,6 +229,11 @@ export class SidebarCollections implements OnInit {
           this.load();
           this.loadCounts();
         },
+        error: (err) => {
+          this.editingId.set(null);
+          this.toast.error(this.describeCollectionError(err));
+          this.load();
+        },
       });
   }
 
@@ -231,6 +241,7 @@ export class SidebarCollections implements OnInit {
     if (!confirm('Delete this collection?')) return;
     this.collectionsService.delete(id).subscribe({
       next: () => {
+        this.toast.info('Collection deleted');
         this.load();
         this.loadCounts();
         // Selection lives in the URL; deleting the active collection clears it there.
@@ -241,7 +252,27 @@ export class SidebarCollections implements OnInit {
           });
         }
       },
+      error: (err) => {
+        this.toast.error(this.describeCollectionError(err));
+        this.load();
+      },
     });
+  }
+
+  private describeCollectionError(err: unknown): string {
+    const body = (err as { error?: { title?: string; detail?: string } })?.error;
+    switch (body?.title) {
+      case 'collection_has_children':
+        return 'Move or delete the child collections first.';
+      case 'collection_name_conflict':
+        return body.detail || 'A collection with that name already exists here.';
+      case 'collection_cycle':
+        return 'A collection cannot be moved into itself or its children.';
+      case 'invalid_collection_parent':
+        return body.detail || 'The destination collection no longer exists.';
+      default:
+        return body?.detail || 'Something went wrong.';
+    }
   }
 
   getNameForId(id: string): string {
@@ -265,7 +296,10 @@ export class SidebarCollections implements OnInit {
           this.load();
           this.loadCounts();
         },
-        error: () => this.load(),
+        error: (err) => {
+          this.toast.error(this.describeCollectionError(err));
+          this.load();
+        },
       });
   }
 }

@@ -1,6 +1,31 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
 
 import { AudioReader, parseTimeString } from './audio-reader.component';
+import { BooksService } from '../../core/services/books.service';
+import { Book } from '../../core/dtos/book.dtos';
+
+// Mock Howl so specs can drive the Howl lifecycle (onload / onloaderror)
+// without real media loading.
+const howlerState = vi.hoisted(() => ({ instances: [] as any[] }));
+
+vi.mock('howler', () => ({
+  // Regular function (not an arrow) so `new Howl(...)` works.
+  Howl: vi.fn(function (config: any) {
+    const instance = {
+      config,
+      unload: vi.fn(),
+      duration: vi.fn(() => 7200),
+      seek: vi.fn(() => 0),
+      playing: vi.fn(() => false),
+      play: vi.fn(),
+      pause: vi.fn(),
+      rate: vi.fn(),
+    };
+    howlerState.instances.push(instance);
+    return instance;
+  }),
+}));
 
 describe('parseTimeString (issue #6)', () => {
   it('parses M:SS', () => {
@@ -122,5 +147,172 @@ describe('AudioReader jump-to-timestamp (issue #6)', () => {
     }
     expect(seen).toEqual([600]);
     expect(component.isEditingTime()).toBe(false);
+  });
+});
+
+function makeBook(overrides: Partial<Book> = {}): Book {
+  return {
+    id: 'book-1',
+    title: 'The Iliad',
+    subtitle: null,
+    author: 'Homer',
+    editor: null,
+    translator: null,
+    narrator: null,
+    description: null,
+    type: 'audiobook',
+    edition: null,
+    asin: null,
+    duration: null,
+    isbn: null,
+    publisher: null,
+    placeOfPublication: null,
+    publishedDate: null,
+    pageCount: null,
+    language: null,
+    categories: null,
+    series: null,
+    volumeNumber: null,
+    createdAt: '2026-01-01T00:00:00Z',
+    hasFile: true,
+    fileName: 'iliad.m4b',
+    coverUrl: null,
+    collectionId: null,
+    lastLocation: null,
+    progressPercent: 0,
+    lastReadAt: null,
+    rating: 0,
+    isFavorite: false,
+    personalReview: null,
+    finishedAt: null,
+    ...overrides,
+  } as Book;
+}
+
+describe('AudioReader single-fetch + restore + loading state (issue #7)', () => {
+  let fixture: ComponentFixture<AudioReader>;
+  let component: AudioReader;
+  const booksServiceMock = {
+    get: vi.fn(),
+    updateProgress: vi.fn(() => of(null)),
+  };
+
+  beforeEach(async () => {
+    howlerState.instances.length = 0;
+    booksServiceMock.get.mockReset();
+    booksServiceMock.updateProgress.mockReset();
+
+    await TestBed.configureTestingModule({
+      imports: [AudioReader],
+      providers: [{ provide: BooksService, useValue: booksServiceMock }],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(AudioReader);
+    component = fixture.componentInstance;
+  });
+
+  function render(book: Book) {
+    fixture.componentRef.setInput('bookId', book.id);
+    fixture.componentRef.setInput('book', book);
+    fixture.detectChanges();
+  }
+
+  function captureGoToTime(): { seen: number[]; restore: () => void } {
+    const seen: number[] = [];
+    const original = (component as unknown as { goToTime: (n: number) => void }).goToTime;
+    (component as unknown as { goToTime: (n: number) => void }).goToTime = (n: number) => {
+      seen.push(n);
+    };
+    return { seen, restore: () => ((component as unknown as { goToTime: (n: number) => void }).goToTime = original) };
+  }
+
+  it('restores playback from the passed-in lastLocation without a second book fetch', () => {
+    render(makeBook({ lastLocation: '3721.5' }));
+
+    const { seen, restore } = captureGoToTime();
+    try {
+      component.restoreProgress();
+    } finally {
+      restore();
+    }
+
+    expect(seen).toEqual([3721.5]);
+    expect(booksServiceMock.get).not.toHaveBeenCalled();
+  });
+
+  it('does not seek when lastLocation is missing', () => {
+    render(makeBook({ lastLocation: null }));
+
+    const { seen, restore } = captureGoToTime();
+    try {
+      component.restoreProgress();
+    } finally {
+      restore();
+    }
+
+    expect(seen).toEqual([]);
+    expect(booksServiceMock.get).not.toHaveBeenCalled();
+  });
+
+  it('does not seek when lastLocation is not a valid timestamp', () => {
+    render(makeBook({ lastLocation: 'not-a-timestamp' }));
+
+    const { seen, restore } = captureGoToTime();
+    try {
+      component.restoreProgress();
+    } finally {
+      restore();
+    }
+
+    expect(seen).toEqual([]);
+    expect(booksServiceMock.get).not.toHaveBeenCalled();
+  });
+
+  it('builds the table of contents from the passed-in book chapters without a fetch', () => {
+    render(
+      makeBook({
+        chapters: [
+          { title: 'Book One', startTime: 0 },
+          { title: 'Book Two', startTime: 3661 },
+        ],
+      }),
+    );
+
+    expect(component.toc()).toEqual([
+      { label: 'Book One', target: 0, children: [] },
+      { label: 'Book Two', target: 3661, children: [] },
+    ]);
+    expect(booksServiceMock.get).not.toHaveBeenCalled();
+  });
+
+  it('shows the loading state while Howl initializes and clears it on load', () => {
+    render(makeBook());
+
+    const howl = howlerState.instances[0];
+    expect(howl).toBeDefined();
+    expect(component.loading()).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('Loading audio');
+
+    howl.config.onload();
+    fixture.detectChanges();
+
+    expect(component.loading()).toBe(false);
+    expect(component.duration()).toBe(7200);
+    expect(fixture.nativeElement.textContent).not.toContain('Loading audio');
+  });
+
+  it('clears the loading state and surfaces an error on load failure', () => {
+    render(makeBook());
+
+    const howl = howlerState.instances[0];
+    expect(howl).toBeDefined();
+    expect(component.loading()).toBe(true);
+
+    howl.config.onloaderror();
+    fixture.detectChanges();
+
+    expect(component.loading()).toBe(false);
+    expect(component.loadError()).toBe('Unable to load audio.');
+    expect(fixture.nativeElement.textContent).toContain('Unable to load audio');
   });
 });

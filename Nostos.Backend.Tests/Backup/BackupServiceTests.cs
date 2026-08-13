@@ -464,7 +464,96 @@ public sealed class BackupServiceTests
                 .ToList());
     }
 
+    [Fact]
+    public async Task RestoreBackup_RoundTripsBookFiles_WhenIncludeBookFiles()
+    {
+        using var h = BackupHarness.Create(includeBookFiles: true);
+
+        var bookDir = Path.Combine(h.ContentRoot, "Storage", "books", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(bookDir);
+        var payload = "EPUB-FILE-PAYLOAD-quixotic-42"u8.ToArray();
+        var bookFile = Path.Combine(bookDir, "book.epub");
+        await File.WriteAllBytesAsync(bookFile, payload);
+
+        var created = await h.Service.CreateBackupAsync();
+        created.Status.Should().Be(BackupStatus.Completed);
+
+        // Destructively remove the live file (simulates a lost book file).
+        File.Delete(bookFile);
+
+        var restored = await h.Service.RestoreBackupAsync(created.Id);
+        restored.Success.Should().BeTrue(restored.Message);
+
+        File.Exists(bookFile).Should().BeTrue();
+        (await File.ReadAllBytesAsync(bookFile)).Should().Equal(payload);
+    }
+
     // --- Harness -----------------------------------------------------------
+
+    [Fact]
+    public async Task ImportExistingBackups_UsesManifestTimestamp_NotUtcNow()
+    {
+        using var h = BackupHarness.Create();
+        var backupDir = Path.Combine(h.ContentRoot, "Storage", "backups");
+        Directory.CreateDirectory(backupDir);
+
+        var archivePath = Path.Combine(backupDir, $"{Guid.NewGuid():N}.nostos");
+        var manifestTimestamp = new DateTime(2026, 6, 15, 8, 30, 0, DateTimeKind.Utc);
+        // Mirror production: archives are written with camelCase JsonOpts
+        // (BackupService line 158), so the test manifest must be camelCase too.
+        var manifestJsonOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        using (var zip = ZipFile.Open(archivePath, ZipArchiveMode.Create))
+        {
+            var dbEntry = zip.CreateEntry("database/nostos.db");
+            await using (var s = dbEntry.Open())
+            await using (var w = new StreamWriter(s))
+                await w.WriteAsync("not-a-real-db");
+
+            var manifestEntry = zip.CreateEntry("manifest.json");
+            await using (var s = manifestEntry.Open())
+            {
+                var json = JsonSerializer.Serialize(new BackupManifestDto(
+                    Version: "1",
+                    Timestamp: manifestTimestamp,
+                    DatabaseSizeBytes: 0,
+                    BookFileCount: 0,
+                    TotalSizeBytes: 0,
+                    Checksum: ""), manifestJsonOpts);
+                await s.WriteAsync(System.Text.Encoding.UTF8.GetBytes(json));
+            }
+        }
+        // The file's write time must NOT win over the manifest timestamp.
+        File.SetLastWriteTimeUtc(archivePath, new DateTime(2026, 8, 1, 12, 0, 0, DateTimeKind.Utc));
+
+        var imported = await h.Service.ImportExistingBackupsAsync();
+
+        imported.Should().ContainSingle();
+        imported[0].CreatedAt.Should().Be(manifestTimestamp);
+    }
+
+    [Fact]
+    public async Task ImportExistingBackups_FallsBackToFileWriteTime_WhenNoManifest()
+    {
+        using var h = BackupHarness.Create();
+        var backupDir = Path.Combine(h.ContentRoot, "Storage", "backups");
+        Directory.CreateDirectory(backupDir);
+
+        var archivePath = Path.Combine(backupDir, $"{Guid.NewGuid():N}.nostos");
+        using (var zip = ZipFile.Open(archivePath, ZipArchiveMode.Create))
+        {
+            var dbEntry = zip.CreateEntry("database/nostos.db");
+            await using (var s = dbEntry.Open())
+            await using (var w = new StreamWriter(s))
+                await w.WriteAsync("not-a-real-db");
+        }
+        var writeTime = new DateTime(2026, 7, 20, 9, 15, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(archivePath, writeTime);
+
+        var imported = await h.Service.ImportExistingBackupsAsync();
+
+        imported.Should().ContainSingle();
+        imported[0].CreatedAt.Should().Be(writeTime);
+    }
 
     private sealed class BackupHarness : IDisposable
     {
@@ -493,7 +582,7 @@ public sealed class BackupServiceTests
 
         public NostosDbContext NewDbContext() => new(Options);
 
-        public static BackupHarness Create()
+        public static BackupHarness Create(bool includeBookFiles = false)
         {
             var contentRoot = Path.Combine(Path.GetTempPath(), $"nostos-backup-test-{Guid.NewGuid():N}");
             Directory.CreateDirectory(contentRoot);
@@ -520,7 +609,7 @@ public sealed class BackupServiceTests
                 Provider = "Local",
                 IntervalHours = 168,
                 MaxBackups = 10,
-                IncludeBookFiles = false,
+                IncludeBookFiles = includeBookFiles,
             }));
             services.AddSingleton(options);
             services.AddScoped<NostosDbContext>(sp =>
