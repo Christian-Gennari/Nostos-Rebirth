@@ -335,7 +335,7 @@
 .editor-wrapper {
   --studio-inline-gutter: clamp(16px, 2.5vw, 32px);
   --studio-top-gutter: 18px;
-  --studio-dock-clearance: 96px;
+  --studio-dock-clearance: 122px;
 
   position: relative;
   display: flex;
@@ -427,7 +427,7 @@
   position: absolute;
   z-index: 3;
   right: max(16px, var(--studio-inline-gutter));
-  bottom: calc(var(--studio-dock-clearance) - 32px);
+  bottom: calc(var(--studio-dock-clearance) + 8px);
 
   display: inline-flex;
   align-items: center;
