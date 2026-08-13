@@ -27,7 +27,7 @@ import { buildFlatTree, FlatTreeNode, TreeItem } from './flat-tree.helper';
 
 export interface DropIndicator {
   nodeId: string;
-  zone: 'above' | 'inside' | 'below';
+  zone: 'inside';
 }
 
 @Component({
@@ -155,25 +155,15 @@ export class FlatTreeComponent {
       const node = this.treeNodes().find((n) => n.id === nodeId);
       if (!node) break;
 
-      const ratio = (pointerY - rect.top) / rect.height;
-
-      if (ratio < 0.25) {
-        indicator = { nodeId, zone: 'above' };
-      } else if (ratio > 0.75) {
-        indicator = { nodeId, zone: 'below' };
-      } else if (node.type === 'Folder') {
+      // Honest drop model: only "drop inside a folder" is offered. No above/below
+      // insertion zones; siblings stay alphabetically sorted.
+      if (node.type === 'Folder') {
         indicator = { nodeId, zone: 'inside' };
-      } else {
-        indicator = { nodeId, zone: 'below' };
-      }
 
-      // Validate: reject no-ops and circular nesting
-      if (indicator) {
-        const newParentId = indicator.zone === 'inside' ? nodeId : node.parentId;
-
+        // Validate: reject no-ops and circular nesting
         if (
-          this.draggedNode.parentId === newParentId ||
-          (newParentId !== null && this.isDescendantOf(newParentId, this.draggedNode.id))
+          this.draggedNode.parentId === nodeId ||
+          this.isDescendantOf(nodeId, this.draggedNode.id)
         ) {
           indicator = null;
         }
@@ -227,21 +217,15 @@ export class FlatTreeComponent {
     const targetNode = this.treeNodes().find((n) => n.id === indicator.nodeId);
     if (!targetNode) return;
 
-    let newParentId: string | null;
-
-    if (indicator.zone === 'inside') {
-      newParentId = targetNode.id;
-      this.expandedIds.update((set) => {
-        const s = new Set(set);
-        s.add(targetNode.id);
-        return s;
-      });
-    } else {
-      newParentId = targetNode.parentId;
-    }
+    const newParentId = targetNode.id;
+    this.expandedIds.update((set) => {
+      const s = new Set(set);
+      s.add(targetNode.id);
+      return s;
+    });
 
     if (dragged.parentId === newParentId) return;
-    if (newParentId !== null && this.isDescendantOf(newParentId, dragged.id)) {
+    if (this.isDescendantOf(newParentId, dragged.id)) {
       return;
     }
 

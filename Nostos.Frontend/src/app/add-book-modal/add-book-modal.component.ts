@@ -8,6 +8,7 @@ import { BooksService, Book as BookModel } from '../core/services/books.service'
 import { ToastService } from '../core/services/toast.service';
 import { Collection } from '../core/dtos/collection.dtos';
 import { BookType } from '../core/dtos/book.dtos';
+import { buildFlatTree } from '../ui/flat-tree/flat-tree.helper';
 
 @Component({
   selector: 'app-add-book-modal',
@@ -44,6 +45,15 @@ export class AddBookModal {
   // Computed State
   isEditMode = computed(() => !!this.book());
   isFetching = signal(false);
+
+  // Hierarchical collection options: same flattening semantics as the sidebar
+  // (alphabetical folders, indentation derived from parentId). Every collection
+  // is treated as an expandable folder and all are expanded so the full
+  // hierarchy is selectable in one flat <select>.
+  readonly collectionOptions = computed(() => {
+    const cols = this.collections();
+    return buildFlatTree(cols, new Set(cols.map((c) => c.id)), true);
+  });
 
   // Form State
   form = {

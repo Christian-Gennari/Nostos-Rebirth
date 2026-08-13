@@ -90,6 +90,18 @@
   font-weight: var(--fw-light);
 }
 
+.count-badge {
+  flex-shrink: 0;
+  margin-left: 6px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  color: var(--color-text-light);
+  font-size: 0.72rem;
+  font-weight: var(--fw-medium);
+  line-height: 1.4;
+}
+
 .node-actions {
   display: none; /* Hidden by default */
   gap: 4px;
@@ -154,32 +166,6 @@
 }
 
 /* ── Drop Zone Indicators ────────────────────────────── */
-
-.tree-row[data-drop-zone='above']::before {
-  content: '';
-  position: absolute;
-  top: -1px;
-  left: 8px;
-  right: 8px;
-  height: 2px;
-  background: var(--color-primary);
-  border-radius: 1px;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.tree-row[data-drop-zone='below']::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 8px;
-  right: 8px;
-  height: 2px;
-  background: var(--color-primary);
-  border-radius: 1px;
-  z-index: 1;
-  pointer-events: none;
-}
 
 .tree-row[data-drop-zone='inside'] {
   background: var(--color-accent-bg);

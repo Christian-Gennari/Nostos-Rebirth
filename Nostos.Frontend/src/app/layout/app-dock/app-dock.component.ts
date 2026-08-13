@@ -1,7 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { LucideAngularModule, Library, PenTool, BrainCog, Settings, BookOpen } from 'lucide-angular';
-import { CollectionsService } from '../../core/services/collections.service';
 import { NavigationHistoryService } from '../../core/services/navigation-history.service';
 
 @Component({
@@ -287,7 +286,6 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
   ],
 })
 export class AppDockComponent {
-  private collectionsService = inject(CollectionsService);
   private historyService = inject(NavigationHistoryService);
   private router = inject(Router);
 
@@ -304,8 +302,11 @@ export class AppDockComponent {
   handleDockClick(prefix: string, event: Event) {
     if (this.router.url.startsWith(prefix)) {
       event.preventDefault();
-      this.collectionsService.activeCollectionId.set(null);
-      this.router.navigate([prefix]);
+      // Selection is URL-owned; re-clicking the Library dock item clears it.
+      void this.router.navigate([prefix], {
+        queryParams: { collection: null },
+        queryParamsHandling: 'merge',
+      });
     }
   }
 }

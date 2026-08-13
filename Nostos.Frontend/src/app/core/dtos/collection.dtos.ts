@@ -11,5 +11,10 @@ export interface CreateCollectionDto {
 
 export interface UpdateCollectionDto {
   name: string;
-  parentId?: string | null;
+  parentId: string | null;
+}
+
+export interface CollectionCountDto {
+  collectionId: string;
+  bookCount: number;
 }
