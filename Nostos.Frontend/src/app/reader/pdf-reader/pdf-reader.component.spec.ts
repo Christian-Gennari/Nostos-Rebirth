@@ -12,7 +12,7 @@ import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
 import { PdfAnnotationManager } from './pdf-annotation-manager';
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
-import { ThemeService } from '../../core/services/theme.service';
+import { Theme } from '../../core/services/theme.service';
 
 /**
  * Minimal stand-in for the heavy ngx-extended-pdf-viewer component (same
@@ -70,7 +70,6 @@ const readSource = (file: string) =>
 
 describe('PdfReader theme propagation and toolbar clearance', () => {
   let fixture: ComponentFixture<PdfReader>;
-  let themeService: ThemeService;
 
   const notesService = { list: vi.fn(() => of([])) };
   const booksService = { updateProgress: vi.fn(() => of(null)) };
@@ -98,8 +97,6 @@ describe('PdfReader theme propagation and toolbar clearance', () => {
         add: { imports: [PdfViewerStub] },
       })
       .compileComponents();
-
-    themeService = TestBed.inject(ThemeService);
   });
 
   afterEach(() => {
@@ -107,9 +104,10 @@ describe('PdfReader theme propagation and toolbar clearance', () => {
     vi.restoreAllMocks();
   });
 
-  function setupComponent() {
+  function setupComponent(theme: Theme = 'light') {
     fixture = TestBed.createComponent(PdfReader);
     fixture.componentRef.setInput('bookId', 'book-1');
+    fixture.componentRef.setInput('theme', theme);
     fixture.detectChanges();
     return fixture;
   }
@@ -129,18 +127,18 @@ describe('PdfReader theme propagation and toolbar clearance', () => {
     expect(html).toContain('[backgroundColor]="pdfBackgroundColor()"');
   });
 
-  it('viewer background responds to light/dark/sepia without reloading the document', () => {
+  it('viewer background responds to the theme input without reloading the document', () => {
     setupComponent();
 
     expect(viewerStub().backgroundColor()).toBe('#fefeff');
     expect(viewerStub().src()).toBe('/api/books/book-1/file');
 
-    themeService.setTheme('dark');
+    fixture.componentRef.setInput('theme', 'dark');
     fixture.detectChanges();
     expect(viewerStub().backgroundColor()).toBe('#161a21');
     expect(viewerStub().src()).toBe('/api/books/book-1/file');
 
-    themeService.setTheme('sepia');
+    fixture.componentRef.setInput('theme', 'sepia');
     fixture.detectChanges();
     expect(viewerStub().backgroundColor()).toBe('#faf5e8');
     expect(viewerStub().src()).toBe('/api/books/book-1/file');
@@ -149,13 +147,35 @@ describe('PdfReader theme propagation and toolbar clearance', () => {
     expect(viewerStub().src()).toBe('/api/books/book-1/file');
   });
 
-  it('uses no inversion or filter anywhere in the reader implementation', () => {
+  it('binds page-edge classes to the theme input (never the global document theme)', () => {
+    setupComponent('dark');
+    const container = fixture.debugElement.query(By.css('.pdf-container'));
+    expect(container.classes['theme-dark']).toBe(true);
+    expect(container.classes['theme-sepia']).toBeUndefined();
+
+    fixture.componentRef.setInput('theme', 'sepia');
+    fixture.detectChanges();
+    expect(container.classes['theme-sepia']).toBe(true);
+    expect(container.classes['theme-dark']).toBeUndefined();
+
+    fixture.componentRef.setInput('theme', 'light');
+    fixture.detectChanges();
+    expect(container.classes['theme-dark']).toBeUndefined();
+    expect(container.classes['theme-sepia']).toBeUndefined();
+  });
+
+  it('has no ThemeService or global-theme coupling in the implementation', () => {
     const sources = [
       readSource('./pdf-reader.component.html'),
       readSource('./pdf-reader.component.css'),
       readSource('./pdf-reader.component.ts'),
     ].join('\n');
 
+    expect(sources).not.toContain('ThemeService');
+    expect(sources).not.toContain('themeService');
+    expect(sources).not.toContain('setTheme');
+    expect(sources).not.toContain('documentElement');
+    expect(sources).not.toContain('nostos.theme');
     expect(sources).not.toContain('invert(');
     expect(sources).not.toContain('hue-rotate(');
     expect(sources).not.toMatch(/filter\s*:/);
@@ -194,12 +214,15 @@ describe('PdfReader theme propagation and toolbar clearance', () => {
     );
   });
 
-  it('defines theme-specific page borders/shadows for light, dark, and sepia', () => {
+  it('defines theme-specific page borders/shadows keyed on the input-driven classes', () => {
     const css = readSource('./pdf-reader.component.css');
 
-    // The page keeps its authored pixels; only its edge is themed.
-    expect(css).toContain(":host-context([data-theme='dark'])");
-    expect(css).toContain(":host-context([data-theme='sepia'])");
+    // The page keeps its authored pixels; only its edge is themed — scoped by
+    // the reader-shell theme input classes, never :host-context on the
+    // global document theme.
+    expect(css).not.toContain(':host-context([data-theme');
+    expect(css).toContain('.pdf-container.theme-dark');
+    expect(css).toContain('.pdf-container.theme-sepia');
     expect(css).toContain('--pdf-page-outline');
     expect(css).toContain('outline: var(--pdf-page-outline)');
     expect(css).toContain('box-shadow: var(--pdf-page-shadow)');

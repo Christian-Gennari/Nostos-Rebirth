@@ -63,7 +63,9 @@ app-sidebar-collections.no-transition {
 .toolbar {
   position: sticky;
   top: 0;
-  background: var(--bg-surface);
+  /* Theme-aware surface: follows --bg-surface via the active data-theme
+     token block (was hard-coded white, so it stayed light in dark mode). */
+  background: color-mix(in srgb, var(--bg-surface) 90%, transparent);
   backdrop-filter: blur(8px);
   z-index: 5;
   padding: 1.5rem 3rem;

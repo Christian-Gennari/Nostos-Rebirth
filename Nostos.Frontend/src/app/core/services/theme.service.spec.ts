@@ -1,11 +1,16 @@
 import { TestBed } from '@angular/core/testing';
 
-import { ThemeService, THEME_STORAGE_KEY } from './theme.service';
+import { ThemeService, THEME_STORAGE_KEY, READER_THEME_STORAGE_KEY } from './theme.service';
 
 describe('ThemeService', () => {
   beforeEach(() => {
     localStorage.clear();
     document.documentElement.removeAttribute('data-theme');
+  });
+
+  it('exports the reader-local theme storage key', () => {
+    expect(READER_THEME_STORAGE_KEY).toBe('nostos.readerTheme');
+    expect(READER_THEME_STORAGE_KEY).not.toBe(THEME_STORAGE_KEY);
   });
 
   it('defaults to light when no theme is stored', () => {

@@ -5,6 +5,13 @@ export type Theme = 'light' | 'dark' | 'sepia';
 /** localStorage key used to persist the chosen reader theme. */
 export const THEME_STORAGE_KEY = 'nostos.theme';
 
+/**
+ * localStorage key used to persist the READER-LOCAL theme. The reader owns
+ * its theme independently of the global app theme: toggling inside a reader
+ * writes only this key (never THEME_STORAGE_KEY / documentElement).
+ */
+export const READER_THEME_STORAGE_KEY = 'nostos.readerTheme';
+
 const VALID_THEMES: readonly Theme[] = ['light', 'dark', 'sepia'];
 
 /**
