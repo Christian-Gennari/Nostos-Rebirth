@@ -7,4 +7,5 @@ public enum BookFilter
     Finished,
     Reading,
     Unsorted,
+    NotStarted,
 }

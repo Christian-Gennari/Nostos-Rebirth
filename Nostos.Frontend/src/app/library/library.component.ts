@@ -7,9 +7,11 @@ import {
   ChangeDetectionStrategy,
   effect,
   untracked,
+  HostListener,
+  ElementRef,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { BooksService, Book } from '../core/services/books.service';
 import { CollectionsService } from '../core/services/collections.service';
 import { Collection } from '../core/dtos/collection.dtos';
@@ -22,7 +24,7 @@ import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, map } from 'rxjs/operators';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { InfiniteScrollDirective } from '../core/directives/infinite-scroll.directive';
-import { BookSort } from '../core/dtos/book.enums';
+import { BookFilter, BookSort } from '../core/dtos/book.enums';
 import { ToastService } from '../core/services/toast.service';
 import {
   LucideAngularModule,
@@ -37,7 +39,14 @@ import {
   Search,
   ArrowUpDown,
   Loader2,
+  ListFilter,
+  ChevronDown,
+  CircleDashed,
+  BookOpen,
+  Inbox,
+  Library as LibraryIcon,
 } from 'lucide-angular';
+import type { LucideIconData } from 'lucide-angular';
 
 @Component({
   selector: 'app-library',
@@ -60,7 +69,9 @@ export class Library implements OnInit {
   private booksService = inject(BooksService);
   private collectionsService = inject(CollectionsService);
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private toast = inject(ToastService);
+  private elementRef = inject(ElementRef);
 
   // Icons
   ListIcon = LayoutList;
@@ -74,9 +85,52 @@ export class Library implements OnInit {
   SearchIcon = Search;
   SortIcon = ArrowUpDown;
   LoaderIcon = Loader2;
+  FilterIcon = ListFilter;
+  ChevronDownIcon = ChevronDown;
 
   // Enums for Template Access
   BookSort = BookSort;
+  BookFilter = BookFilter;
+
+  // Filter dropdown (URL-owned, same pattern as the sidebar filters).
+  // 'In Progress' maps to the existing Reading filter value.
+  readonly filterOptions: { value: string; label: string; icon: LucideIconData }[] = [
+    { value: BookFilter.All, label: 'All Books', icon: LibraryIcon },
+    { value: BookFilter.NotStarted, label: 'Not Started', icon: CircleDashed },
+    { value: BookFilter.Reading, label: 'In Progress', icon: BookOpen },
+    { value: BookFilter.Finished, label: 'Finished', icon: CheckCircle },
+    { value: BookFilter.Favorites, label: 'Favorites', icon: Heart },
+    { value: BookFilter.Unsorted, label: 'Unsorted', icon: Inbox },
+  ];
+
+  filterOpen = signal(false);
+
+  activeFilter = computed(() => this.urlSelection().filter ?? BookFilter.All);
+
+  activeFilterLabel = computed(
+    () =>
+      this.filterOptions.find((option) => option.value === this.activeFilter())?.label ??
+      'All Books',
+  );
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (this.filterOpen() && !this.elementRef.nativeElement.contains(event.target)) {
+      this.filterOpen.set(false);
+    }
+  }
+
+  toggleFilterMenu(): void {
+    this.filterOpen.update((open) => !open);
+  }
+
+  setFilter(value: string): void {
+    this.filterOpen.set(false);
+    void this.router.navigate(['/library'], {
+      queryParams: { filter: value || null },
+      queryParamsHandling: 'merge',
+    });
+  }
 
   loading = signal(true);
   loadingMore = signal(false);
