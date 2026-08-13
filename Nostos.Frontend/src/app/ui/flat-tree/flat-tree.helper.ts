@@ -5,6 +5,8 @@ export interface TreeItem {
   name: string;
   parentId?: string | null;
   type?: 'Folder' | 'Document';
+  /** Optional per-node badge count (e.g. collection book counts). */
+  count?: number;
 }
 
 export interface FlatTreeNode<T extends TreeItem = TreeItem> {

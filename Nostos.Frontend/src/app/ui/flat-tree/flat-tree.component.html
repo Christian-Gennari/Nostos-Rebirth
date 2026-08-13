@@ -72,6 +72,9 @@
         />
       } @else {
         <span class="node-name">{{ node.name }}</span>
+        @if (node.originalData.count !== undefined && node.originalData.count > 0) {
+          <span class="count-badge">{{ node.originalData.count }}</span>
+        }
       }
 
       <div class="node-actions" (click)="$event.stopPropagation()">

@@ -19,9 +19,10 @@ import { AddBookModal } from '../add-book-modal/add-book-modal.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { SidebarCollections } from './sidebar-collections/sidebar-collections.component';
 import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, map } from 'rxjs/operators';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { InfiniteScrollDirective } from '../core/directives/infinite-scroll.directive';
-import { BookFilter, BookSort } from '../core/dtos/book.enums';
+import { BookSort } from '../core/dtos/book.enums';
 import { ToastService } from '../core/services/toast.service';
 import {
   LucideAngularModule,
@@ -103,7 +104,25 @@ export class Library implements OnInit {
   showEditModal = signal(false);
   editTarget = signal<Book | null>(null);
 
-  activeCollectionId = this.collectionsService.activeCollectionId;
+  // The URL owns selection: /library?collection=<id>&filter=<name>.
+  // The one source of truth for collection-driven loads is the route queryParamMap.
+  readonly urlSelection = toSignal(
+    this.route.queryParamMap.pipe(
+      map((params) => ({
+        collection: params.get('collection'),
+        filter: params.get('filter'),
+      })),
+      distinctUntilChanged(
+        (a, b) => a.collection === b.collection && a.filter === b.filter,
+      ),
+    ),
+    {
+      initialValue: {
+        collection: this.route.snapshot.queryParamMap.get('collection'),
+        filter: this.route.snapshot.queryParamMap.get('filter'),
+      },
+    },
+  );
 
   books = computed(() => this.rawBooks());
 
@@ -117,19 +136,14 @@ export class Library implements OnInit {
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed())
       .subscribe((term) => {
         this.searchQuery.set(term);
-        this.refreshBooks(true);
+        this.refreshBooks();
       });
 
-    // 2. Query Params Subscription
-    this.route.queryParams.pipe(takeUntilDestroyed()).subscribe(() => {
-      this.refreshBooks(true);
-    });
-
-    // 3. Collection Change Effect
+    // 2. URL-driven load: exactly one refresh per collection/filter change.
     effect(() => {
-      const colId = this.activeCollectionId();
+      void this.urlSelection();
       untracked(() => {
-        this.refreshBooks(true);
+        this.refreshBooks();
       });
     });
   }
@@ -146,20 +160,19 @@ export class Library implements OnInit {
       this.loadingMore.set(true);
     }
 
-    const filter = this.route.snapshot.queryParams['filter'] as BookFilter;
+    const { collection, filter } = this.urlSelection();
     const sort = this.activeSort();
     const search = this.searchQuery();
     const page = this.currentPage();
-    const collectionId = this.activeCollectionId();
 
     this.booksService
       .list({
-        filter,
+        filter: filter ?? undefined,
         sort,
         search,
         page,
         pageSize: this.pageSize,
-        collectionId: collectionId ?? undefined,
+        collectionId: collection ?? undefined,
       })
       .subscribe({
         next: (data) => {

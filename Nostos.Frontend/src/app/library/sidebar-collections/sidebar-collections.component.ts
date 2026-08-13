@@ -1,7 +1,18 @@
-import { Component, OnInit, inject, signal, model, HostListener, ElementRef } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  inject,
+  signal,
+  model,
+  computed,
+  HostListener,
+  ElementRef,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { map, distinctUntilChanged } from 'rxjs/operators';
 import {
   LucideAngularModule,
   Folder,
@@ -19,7 +30,7 @@ import {
 } from 'lucide-angular';
 
 import { CollectionsService } from '../../core/services/collections.service';
-import { Collection } from '../../core/dtos/collection.dtos';
+import { Collection, CollectionCountDto } from '../../core/dtos/collection.dtos';
 import { FlatTreeComponent } from '../../ui/flat-tree/flat-tree.component';
 import { ToastService } from '../../core/services/toast.service';
 
@@ -40,6 +51,7 @@ import { ToastService } from '../../core/services/toast.service';
 export class SidebarCollections implements OnInit {
   private collectionsService = inject(CollectionsService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private elementRef = inject(ElementRef);
   private toast = inject(ToastService);
 
@@ -59,19 +71,37 @@ export class SidebarCollections implements OnInit {
 
   // State
   collections = signal<Collection[]>([]);
+  counts = signal<CollectionCountDto[]>([]);
   expanded = this.collectionsService.sidebarExpanded;
   adding = signal(false);
   editingId = signal<string | null>(null);
   collapseSidebarProgress = signal(false);
   newName = model<string>('');
   private ignoreClick = false;
-  activeId = this.collectionsService.activeCollectionId;
+
+  // Selection is owned by the URL: /library?collection=<id>
+  readonly activeId = toSignal(
+    this.route.queryParamMap.pipe(
+      map((params) => params.get('collection')),
+      distinctUntilChanged(),
+    ),
+    { initialValue: this.route.snapshot.queryParamMap.get('collection') },
+  );
+
+  readonly countsMap = computed(
+    () => new Map<string, number>(this.counts().map((c) => [c.collectionId, c.bookCount])),
+  );
+
+  readonly treeItems = computed(() =>
+    this.collections().map((c) => ({ ...c, count: this.countsMap().get(c.id) ?? 0 })),
+  );
 
   // State to control initial animation
   isLoaded = signal(false);
 
   ngOnInit(): void {
     this.load();
+    this.loadCounts();
     if (window.innerWidth < 768) {
       this.expanded.set(false);
     }
@@ -118,6 +148,12 @@ export class SidebarCollections implements OnInit {
     });
   }
 
+  loadCounts(): void {
+    this.collectionsService.getCounts().subscribe({
+      next: (counts) => this.counts.set(counts),
+    });
+  }
+
   toggle(): void {
     const isCurrentlyExpanded = this.expanded();
     if (isCurrentlyExpanded) {
@@ -128,8 +164,12 @@ export class SidebarCollections implements OnInit {
   }
 
   select(id: string | null): void {
-    this.collectionsService.activeCollectionId.set(id);
-    this.router.navigate(['/library']);
+    void this.router.navigate(['/library'], {
+      queryParams: {
+        collection: id,
+      },
+      queryParamsHandling: 'merge',
+    });
     if (window.innerWidth < 768) {
       this.expanded.set(false);
     }
@@ -157,6 +197,7 @@ export class SidebarCollections implements OnInit {
       next: (newCol) => {
         this.resetInput();
         this.load();
+        this.loadCounts();
         this.select(newCol.id);
       },
       error: () => this.toast.error('Could not create collection.'),
@@ -177,15 +218,16 @@ export class SidebarCollections implements OnInit {
       this.cancelRename();
       return;
     }
+    const collection = this.collections().find((c) => c.id === id);
     // Full-replace PUT: always send the current parentId (explicit null for
     // root) so a rename never reads as "move to root".
-    const current = this.collections().find((c) => c.id === id);
     this.collectionsService
-      .update(id, { name: newName, parentId: current?.parentId ?? null })
+      .update(id, { name: newName, parentId: collection?.parentId ?? null })
       .subscribe({
         next: () => {
           this.editingId.set(null);
           this.load();
+          this.loadCounts();
         },
         error: (err) => {
           this.editingId.set(null);
@@ -201,6 +243,14 @@ export class SidebarCollections implements OnInit {
       next: () => {
         this.toast.info('Collection deleted');
         this.load();
+        this.loadCounts();
+        // Selection lives in the URL; deleting the active collection clears it there.
+        if (this.activeId() === id) {
+          void this.router.navigate(['/library'], {
+            queryParams: { collection: null },
+            queryParamsHandling: 'merge',
+          });
+        }
       },
       error: (err) => {
         this.toast.error(this.describeCollectionError(err));
@@ -242,7 +292,10 @@ export class SidebarCollections implements OnInit {
         parentId: newParentId,
       })
       .subscribe({
-        next: () => this.load(),
+        next: () => {
+          this.load();
+          this.loadCounts();
+        },
         error: (err) => {
           this.toast.error(this.describeCollectionError(err));
           this.load();

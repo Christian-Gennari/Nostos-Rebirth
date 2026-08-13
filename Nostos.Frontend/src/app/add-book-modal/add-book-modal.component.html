@@ -316,9 +316,11 @@
                 name="collectionId"
                 class="select-input input"
               >
-                <option [ngValue]="null">None</option>
-                @for (col of collections(); track col.id) {
-                  <option [value]="col.id">{{ col.name }}</option>
+                <option [ngValue]="null">No collection</option>
+                @for (option of collectionOptions(); track option.id) {
+                  <option [ngValue]="option.id">
+                    {{ '— '.repeat(option.level) }}{{ option.name }}
+                  </option>
                 }
               </select>
             </div>
