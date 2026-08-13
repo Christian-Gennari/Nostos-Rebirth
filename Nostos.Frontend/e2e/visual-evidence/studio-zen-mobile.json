@@ -1,13 +1,12 @@
 {
   "artifact": "studio-zen-mobile.png",
-  "capturedAt": "2026-08-13T12:37:30.275Z",
+  "capturedAt": "2026-08-13T15:26:15.786Z",
   "name": "studio-zen-mobile",
   "surface": "studio",
   "viewport": {
     "width": 390,
     "height": 844
   },
-  "theme": "light",
   "state": "zen",
   "checks": [
     {
@@ -28,8 +27,8 @@
           ".sidebar-left": "none",
           ".sidebar-right": "none",
           ".editor-header": "none",
-          ".editor-status": "none",
-          ".tox-menubar": "none",
+          ".editor-status": "<absent>",
+          ".tox-menubar": "<absent>",
           ".tox-toolbar-overlord": "none"
         }
       }
@@ -37,12 +36,12 @@
     {
       "id": "zen-gutters-balanced",
       "pass": true,
-      "message": "editor surface 358.0px wide in 390px viewport: left gutter 16.0px, right gutter 16.0px (delta 0.0px, balanced)",
+      "message": "editor surface 366.0px wide in 390px viewport: left gutter 12.0px, right gutter 12.0px (delta 0.0px, balanced)",
       "metrics": {
-        "leftGutter": 16,
-        "rightGutter": 16,
+        "leftGutter": 12,
+        "rightGutter": 12,
         "delta": 0,
-        "surfaceWidth": 358
+        "surfaceWidth": 366
       }
     }
   ],

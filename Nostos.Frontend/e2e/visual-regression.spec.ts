@@ -1,18 +1,22 @@
 /**
- * Visual-regression evidence harness — the 14-image matrix.
+ * Visual-regression evidence harness — the 10-image fixed-light matrix.
  *
- * Reusable, parameterized capture(surface, viewport, theme, state) that turns
- * the mandatory visual-verification protocol (expert section 4) into a
+ * Reusable, parameterized capture(surface, viewport, state) that turns the
+ * mandatory visual-verification protocol (expert section 4) into a
  * mechanical, committable artifact: each capture produces a PNG + a geometry
  * JSON report under e2e/visual-evidence/, and the automated geometry checks
  * from the protocol run as real assertions:
  *
- *   - EPUB iframe foreground/background match the theme tokens (and the shell
- *     surface matches too — no pale rim);
+ *   - EPUB iframe foreground/background equal the fixed light normalization
+ *     constants (and the shell surface matches too — no pale rim);
  *   - PDF scrollport bottom clears the shell toolbar at the final page;
  *   - Zen gutters balanced + all zen chrome display:none;
  *   - Library toolbar has no progress combobox; sidebar/drawer exposes the
  *     six contract filters.
+ *
+ * The theme system is gone: every capture is the app's ONE light rendering.
+ * There is no theme parameterization and no theme-toggle interaction; the
+ * EPUB/PDF reader checks are hardcoded fixed-light rendering invariants.
  *
  * Surfaces that need data the isolated fixture cannot provide are SKIPPED
  * with a clear, documented message — never faked:
@@ -33,7 +37,7 @@ import { apiPost, loadFixture, newRunId } from './support/fixture';
 import {
   artifactPath,
   capturePng,
-  checkEpubIframeTheme,
+  checkEpubIframeLight,
   checkLibraryFilterContract,
   checkLibraryNoProgressCombobox,
   checkPdfFinalPageClearance,
@@ -51,7 +55,6 @@ import {
   apiPut,
   type CaptureMeta,
   type GeometryCheck,
-  type Theme,
 } from './support/visual-capture';
 
 test.describe.configure({ mode: 'serial' });
@@ -66,10 +69,9 @@ function meta(
   name: string,
   surface: CaptureMeta['surface'],
   viewport: CaptureMeta['viewport'],
-  theme: Theme,
   state: string
 ): CaptureMeta {
-  return { name, surface, viewport, theme, state };
+  return { name, surface, viewport, state };
 }
 
 async function expectChecks(name: string, checks: GeometryCheck[], m: CaptureMeta): Promise<void> {
@@ -92,7 +94,7 @@ test.describe('visual matrix — Writing Studio (fixture-served)', () => {
 
   test('studio-empty-desktop', async ({ browser }) => {
     fixture = loadFixture();
-    const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT, 'light');
+    const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT);
     try {
       await page.goto(`${fixture.baseUrl}/studio`, { waitUntil: 'domcontentloaded' });
       await page.locator('.editor-pane .empty-state').waitFor({ timeout: 30_000 });
@@ -108,7 +110,7 @@ test.describe('visual matrix — Writing Studio (fixture-served)', () => {
             metrics: { png },
           },
         ],
-        meta('studio-empty-desktop', 'studio', DESKTOP_VIEWPORT, 'light', 'no-document')
+        meta('studio-empty-desktop', 'studio', DESKTOP_VIEWPORT, 'no-document')
       );
     } finally {
       await context.close();
@@ -131,7 +133,7 @@ test.describe('visual matrix — Writing Studio (fixture-served)', () => {
         'to give the writing surface a realistic height in the screenshot.',
     });
 
-    const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT, 'light');
+    const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT);
     try {
       await page.goto(`${fixture.baseUrl}/studio`, { waitUntil: 'domcontentloaded' });
       await page
@@ -153,7 +155,7 @@ test.describe('visual matrix — Writing Studio (fixture-served)', () => {
             metrics: { png },
           },
         ],
-        meta('studio-document-desktop', 'studio', DESKTOP_VIEWPORT, 'light', 'document-open')
+        meta('studio-document-desktop', 'studio', DESKTOP_VIEWPORT, 'document-open')
       );
     } finally {
       await context.close();
@@ -162,7 +164,7 @@ test.describe('visual matrix — Writing Studio (fixture-served)', () => {
 
   test('studio-zen-desktop', async ({ browser }) => {
     expect(docId, 'studio-document-desktop must run first (serial)').toBeTruthy();
-    const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT, 'light');
+    const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT);
     try {
       await page.goto(`${fixture.baseUrl}/studio`, { waitUntil: 'domcontentloaded' });
       await page.locator('.file-list .tree-row', { hasText: DOC_TITLE }).waitFor({ timeout: 30_000 });
@@ -177,7 +179,7 @@ test.describe('visual matrix — Writing Studio (fixture-served)', () => {
         await checkZenChromeHidden(page),
         await checkZenGuttersBalanced(page),
       ];
-      await expectChecks('studio-zen-desktop', checks, meta('studio-zen-desktop', 'studio', DESKTOP_VIEWPORT, 'light', 'zen'));
+      await expectChecks('studio-zen-desktop', checks, meta('studio-zen-desktop', 'studio', DESKTOP_VIEWPORT, 'zen'));
       await capturePng(page, 'studio-zen-desktop');
     } finally {
       await context.close();
@@ -186,7 +188,7 @@ test.describe('visual matrix — Writing Studio (fixture-served)', () => {
 
   test('studio-zen-mobile', async ({ browser }) => {
     expect(docId, 'studio-document-desktop must run first (serial)').toBeTruthy();
-    const { context, page } = await newCapturePage(browser, MOBILE_VIEWPORT, 'light', true);
+    const { context, page } = await newCapturePage(browser, MOBILE_VIEWPORT, true);
     try {
       await page.goto(`${fixture.baseUrl}/studio`, { waitUntil: 'domcontentloaded' });
       // On mobile the file sidebar starts closed; open it through the UI.
@@ -208,7 +210,7 @@ test.describe('visual matrix — Writing Studio (fixture-served)', () => {
         await checkZenChromeHidden(page),
         await checkZenGuttersBalanced(page),
       ];
-      await expectChecks('studio-zen-mobile', checks, meta('studio-zen-mobile', 'studio', MOBILE_VIEWPORT, 'light', 'zen'));
+      await expectChecks('studio-zen-mobile', checks, meta('studio-zen-mobile', 'studio', MOBILE_VIEWPORT, 'zen'));
       await capturePng(page, 'studio-zen-mobile');
     } finally {
       await context.close();
@@ -236,7 +238,7 @@ test.describe('visual matrix — Library (fixture-served)', () => {
   });
 
   test('library-filters-desktop', async ({ browser }) => {
-    const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT, 'light');
+    const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT);
     try {
       await page.goto(`${fixture.baseUrl}/library`, { waitUntil: 'domcontentloaded' });
       await page.locator('header.toolbar').waitFor({ timeout: 30_000 });
@@ -250,14 +252,14 @@ test.describe('visual matrix — Library (fixture-served)', () => {
       const checks: GeometryCheck[] = [];
       checks.push(await checkLibraryNoProgressCombobox(page));
       checks.push(await checkLibraryFilterContract(await libraryFilterLabels(page)));
-      await expectChecks('library-filters-desktop', checks, meta('library-filters-desktop', 'library', DESKTOP_VIEWPORT, 'light', 'filters'));
+      await expectChecks('library-filters-desktop', checks, meta('library-filters-desktop', 'library', DESKTOP_VIEWPORT, 'filters'));
     } finally {
       await context.close();
     }
   });
 
-  test('library-filters-mobile-open', async ({ browser }) => {
-    const { context, page } = await newCapturePage(browser, MOBILE_VIEWPORT, 'light', true);
+  test('library-filters-mobile', async ({ browser }) => {
+    const { context, page } = await newCapturePage(browser, MOBILE_VIEWPORT, true);
     try {
       await page.goto(`${fixture.baseUrl}/library`, { waitUntil: 'domcontentloaded' });
       await page.locator('header.toolbar').waitFor({ timeout: 30_000 });
@@ -267,43 +269,16 @@ test.describe('visual matrix — Library (fixture-served)', () => {
       await page.locator('.sidebar-panel nav.sidebar .nav-group .nav-item').first().waitFor({ timeout: 15_000 });
       await page.waitForTimeout(500);
 
-      await capturePng(page, 'library-filters-mobile-open');
+      await capturePng(page, 'library-filters-mobile');
 
       const checks: GeometryCheck[] = [];
       checks.push(await checkLibraryNoProgressCombobox(page));
       checks.push(await checkLibraryFilterContract(await libraryFilterLabels(page)));
-      await expectChecks('library-filters-mobile-open', checks, meta('library-filters-mobile-open', 'library', MOBILE_VIEWPORT, 'light', 'drawer-open'));
+      await expectChecks('library-filters-mobile', checks, meta('library-filters-mobile', 'library', MOBILE_VIEWPORT, 'drawer-open'));
     } finally {
       await context.close();
     }
   });
-
-  // The six-filter sidebar contract needs the progress-filter repair (expert
-  // section 3) merged into main. Until then these tests skip with the exact
-  // reason; when the repair lands they assert the contract for real.
-  const contractTests = [
-    { name: 'library-six-filter-contract-desktop', viewport: DESKTOP_VIEWPORT, mobile: false },
-    { name: 'library-six-filter-contract-mobile', viewport: MOBILE_VIEWPORT, mobile: true },
-  ];
-  for (const ct of contractTests) {
-    test(ct.name, async ({ browser }) => {
-      const { context, page } = await newCapturePage(browser, ct.viewport, 'light', ct.mobile);
-      try {
-        await page.goto(`${fixture.baseUrl}/library`, { waitUntil: 'domcontentloaded' });
-        if (ct.mobile) {
-          await page.locator('.floating-toggle').click();
-          await page.locator('.mobile-backdrop').waitFor({ timeout: 15_000 });
-        }
-        await page.locator('.sidebar-panel nav.sidebar .nav-group .nav-item').first().waitFor({ timeout: 15_000 });
-
-        const check = await checkLibraryFilterContract(await libraryFilterLabels(page));
-        test.skip(check.skipped ?? false, check.message);
-        await expectChecks(ct.name, [check], meta(ct.name, 'library', ct.viewport, 'light', 'contract'));
-      } finally {
-        await context.close();
-      }
-    });
-  }
 });
 
 // ---------------------------------------------------------------------------
@@ -313,21 +288,16 @@ test.describe('visual matrix — Library (fixture-served)', () => {
 interface ReaderCase {
   name: string;
   kind: 'epub' | 'pdf';
-  theme: Theme;
   viewport: { width: number; height: number };
   mobile: boolean;
   state: string;
 }
 
 const READER_MATRIX: ReaderCase[] = [
-  { name: 'epub-light-desktop', kind: 'epub', theme: 'light', viewport: DESKTOP_VIEWPORT, mobile: false, state: 'in-session-toggle' },
-  { name: 'epub-dark-desktop', kind: 'epub', theme: 'dark', viewport: DESKTOP_VIEWPORT, mobile: false, state: 'in-session-toggle' },
-  { name: 'epub-sepia-desktop', kind: 'epub', theme: 'sepia', viewport: DESKTOP_VIEWPORT, mobile: false, state: 'in-session-toggle' },
-  { name: 'epub-dark-mobile', kind: 'epub', theme: 'dark', viewport: MOBILE_VIEWPORT, mobile: true, state: 'in-session-toggle' },
-  { name: 'pdf-light-desktop', kind: 'pdf', theme: 'light', viewport: DESKTOP_VIEWPORT, mobile: false, state: 'final-page-bottom' },
-  { name: 'pdf-dark-desktop', kind: 'pdf', theme: 'dark', viewport: DESKTOP_VIEWPORT, mobile: false, state: 'final-page-bottom' },
-  { name: 'pdf-sepia-desktop', kind: 'pdf', theme: 'sepia', viewport: DESKTOP_VIEWPORT, mobile: false, state: 'final-page-bottom' },
-  { name: 'pdf-dark-mobile-bottom', kind: 'pdf', theme: 'dark', viewport: MOBILE_VIEWPORT, mobile: true, state: 'final-page-bottom' },
+  { name: 'epub-light-desktop', kind: 'epub', viewport: DESKTOP_VIEWPORT, mobile: false, state: 'fixed-light' },
+  { name: 'epub-light-mobile', kind: 'epub', viewport: MOBILE_VIEWPORT, mobile: true, state: 'fixed-light' },
+  { name: 'pdf-light-desktop', kind: 'pdf', viewport: DESKTOP_VIEWPORT, mobile: false, state: 'final-page-bottom' },
+  { name: 'pdf-light-mobile-bottom', kind: 'pdf', viewport: MOBILE_VIEWPORT, mobile: true, state: 'final-page-bottom' },
 ];
 
 test.describe('visual matrix — Reader surfaces (real library)', () => {
@@ -342,7 +312,7 @@ test.describe('visual matrix — Reader surfaces (real library)', () => {
           `add one to the real library to capture '${tc.name}' (see docs/visual-verification.md §Reader surfaces)`
       );
 
-      const { context, page } = await newCapturePage(browser, tc.viewport, 'light', tc.mobile);
+      const { context, page } = await newCapturePage(browser, tc.viewport, tc.mobile);
       try {
         await page.goto(`${LIBRARY_URL}/read/${book!.id}`, { waitUntil: 'domcontentloaded' });
 
@@ -357,13 +327,11 @@ test.describe('visual matrix — Reader surfaces (real library)', () => {
           await page.locator('#viewerContainer canvas').first().waitFor({ timeout: 60_000 });
         }
 
-        // In-session theme toggle (expert: dark/sepia "after an in-session toggle").
-        await page.getByRole('button', { name: `${tc.theme[0].toUpperCase()}${tc.theme.slice(1)} theme` }).click();
-        await page.waitForTimeout(1200); // rendition/pdf.js re-theme settle
-
+        // No theme interaction: the app ships exactly one light rendering and
+        // the reader checks below are fixed-light invariants.
         const checks: GeometryCheck[] = [];
         if (tc.kind === 'epub') {
-          checks.push(await checkEpubIframeTheme(page, tc.theme));
+          checks.push(await checkEpubIframeLight(page));
           // Highlight note: the app has no programmatic highlight-placement API —
           // highlights require real user selection inside the book, which the
           // harness cannot synthesize. Documented in docs/visual-verification.md.
@@ -371,7 +339,7 @@ test.describe('visual matrix — Reader surfaces (real library)', () => {
           checks.push(await checkPdfFinalPageClearance(page));
         }
 
-        await expectChecks(tc.name, checks, meta(tc.name, tc.kind, tc.viewport, tc.theme, tc.state));
+        await expectChecks(tc.name, checks, meta(tc.name, tc.kind, tc.viewport, tc.state));
         const png = await capturePng(page, tc.name);
         expect(artifactPath(tc.name, 'png')).toBe(png); // evidence path sanity
       } finally {

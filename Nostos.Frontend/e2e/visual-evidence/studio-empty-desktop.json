@@ -1,13 +1,12 @@
 {
   "artifact": "studio-empty-desktop.png",
-  "capturedAt": "2026-08-13T12:37:24.848Z",
+  "capturedAt": "2026-08-13T15:26:10.612Z",
   "name": "studio-empty-desktop",
   "surface": "studio",
   "viewport": {
     "width": 1440,
     "height": 900
   },
-  "theme": "light",
   "state": "no-document",
   "checks": [
     {
@@ -15,7 +14,7 @@
       "pass": true,
       "message": "empty studio shows the \"Select a file to begin writing\" state",
       "metrics": {
-        "png": "/home/dev/coding/worktrees/nostos-visual-qa/Nostos.Frontend/e2e/visual-evidence/studio-empty-desktop.png"
+        "png": "/home/dev/coding/worktrees/nostos-theme-removal/Nostos.Frontend/e2e/visual-evidence/studio-empty-desktop.png"
       }
     }
   ],
