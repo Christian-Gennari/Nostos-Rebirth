@@ -37,9 +37,7 @@
     <Folder Include="Storage\books\" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Include="Storage\**" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
+
 
   <Target Name="BuildFrontend" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Release' ">
     <Message Text="Building Angular Frontend (Release Mode)..." Importance="high" />
