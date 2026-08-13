@@ -86,6 +86,36 @@
   gap: 1.5rem;
 }
 
+/* Loading / error state */
+.audio-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  color: var(--color-text-light);
+}
+
+.audio-loading-icon {
+  animation: audio-loading-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes audio-loading-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.audio-load-error {
+  color: var(--color-danger, #b91c1c);
+}
+
 /* Scrubber */
 .scrubber {
   display: flex;

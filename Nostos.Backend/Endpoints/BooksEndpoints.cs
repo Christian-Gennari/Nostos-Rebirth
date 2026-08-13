@@ -197,9 +197,26 @@ public static class BooksEndpoints
             }
         );
 
-        // Download file
+        // Stream file (inline) for media playback; supports HTTP Range requests
         group.MapGet(
             "/{id}/file",
+            (Guid id, IFileStorageService storage) =>
+            {
+                var filePath = storage.GetBookFileName(id);
+                if (filePath is null)
+                    return Results.NotFound();
+
+                var contentType = FileStorageService.GetContentType(filePath);
+
+                // No fileName => no Content-Disposition: attachment, so browsers
+                // render the file inline (required for <audio>/Howler playback).
+                return Results.File(filePath, contentType, enableRangeProcessing: true);
+            }
+        );
+
+        // Download file (attachment) — used by the book detail "Download File" button
+        group.MapGet(
+            "/{id}/file/download",
             (Guid id, IFileStorageService storage) =>
             {
                 var filePath = storage.GetBookFileName(id);

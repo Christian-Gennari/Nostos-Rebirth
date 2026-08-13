@@ -239,7 +239,7 @@ export class BookDetail implements OnInit {
 
   downloadFile() {
     const id = this.store.book()?.id;
-    if (id) window.open(`/api/books/${id}/file`, '_blank');
+    if (id) window.open(`/api/books/${id}/file/download`, '_blank');
   }
 
   openReader() {
