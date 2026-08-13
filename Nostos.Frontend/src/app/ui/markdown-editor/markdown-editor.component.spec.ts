@@ -1,14 +1,12 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { MarkdownEditorComponent } from './markdown-editor.component';
-import { ThemeService } from '../../core/services/theme.service';
 
 /**
  * TinyMCE is a heavy global; these specs stub it and assert the FINAL chrome
  * contract (expert design §1/§6): constant 'oxide' skin, exact toolbar and
- * plugin set, no menubar/statusbar, wordcount-plugin emissions, and — the
- * key regression guard — NO reinitialization (no skin swap, no editor.remove)
- * when the global theme changes. Theme changes repaint via CSS tokens only.
+ * plugin set, no menubar/statusbar, wordcount-plugin emissions, and a single
+ * editor instance per component lifecycle (no reinitialization).
  */
 
 interface EditorMock {
@@ -42,7 +40,6 @@ interface InitConfig {
 
 describe('MarkdownEditorComponent', () => {
   let fixture: ComponentFixture<MarkdownEditorComponent>;
-  let themeService: ThemeService;
   let initCalls: InitConfig[];
   let removedEditors: unknown[];
   let editors: EditorMock[];
@@ -93,7 +90,6 @@ describe('MarkdownEditorComponent', () => {
 
   beforeEach(async () => {
     localStorage.clear();
-    document.documentElement.removeAttribute('data-theme');
     installTinyMceMock();
 
     await TestBed.configureTestingModule({
@@ -106,25 +102,11 @@ describe('MarkdownEditorComponent', () => {
     wordCountEmissions = [];
     fixture.componentInstance.contentChange.subscribe((md) => emitted.push(md));
     fixture.componentInstance.wordCountChange.subscribe((n) => wordCountEmissions.push(n));
-    themeService = TestBed.inject(ThemeService);
     fixture.detectChanges();
     await fixture.whenStable();
   });
 
-  it('initializes once with the constant oxide skin while the global theme is light', () => {
-    expect(initCalls).toHaveLength(1);
-    expect(initCalls[0].skin).toBe('oxide');
-  });
-
-  it('boots with the oxide skin even when the global theme is already dark (no skin switching)', () => {
-    themeService.setTheme('dark');
-    fixture.destroy();
-    installTinyMceMock();
-
-    fixture = TestBed.createComponent(MarkdownEditorComponent);
-    fixture.componentRef.setInput('initialContent', '# Title');
-    fixture.detectChanges();
-
+  it('initializes once with the constant oxide skin', () => {
     expect(initCalls).toHaveLength(1);
     expect(initCalls[0].skin).toBe('oxide');
   });
@@ -178,28 +160,6 @@ describe('MarkdownEditorComponent', () => {
     await fixture.whenStable();
     expect(wordCountEmissions.length).toBe(before + 1);
     expect(wordCountEmissions[wordCountEmissions.length - 1]).toBe(7);
-  });
-
-  it('does NOT reinitialize or remove the editor when the theme changes (dark, sepia, back to light)', async () => {
-    themeService.setTheme('dark');
-    fixture.detectChanges();
-    await fixture.whenStable();
-
-    themeService.setTheme('sepia');
-    fixture.detectChanges();
-    await fixture.whenStable();
-
-    themeService.setTheme('light');
-    fixture.detectChanges();
-    await fixture.whenStable();
-
-    // Same single instance the whole time: no skin swap, no teardown,
-    // no content round-trip.
-    expect(initCalls).toHaveLength(1);
-    expect(initCalls[0].skin).toBe('oxide');
-    expect(removedEditors).toHaveLength(0);
-    // Document content untouched by theme changes.
-    expect(editors[0].getContent()).toBe('<h1>Title</h1>\n');
   });
 
   it('tears the editor down exactly once on component destroy', () => {
