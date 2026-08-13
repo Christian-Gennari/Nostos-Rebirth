@@ -1,5 +1,6 @@
 using System.Net.Http;
 using FluentAssertions;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Nostos.Backend.Data;
@@ -702,6 +703,441 @@ public sealed class LibraryServiceTests : IClassFixture<ReadingTrainingSqliteFix
     }
 
     // ------------------------------------------------------------------
+    // Collections Phase 1 — atomic update contract
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task Update_collection_moves_to_root_with_explicit_null_parent()
+    {
+        var h = Harness();
+        var root = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Root"))).Data!;
+        var child = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Child", root.Id))).Data!;
+
+        var result = await h.Service.UpdateCollectionAsync(Client, Key(), child.Id, child.Name, null);
+
+        var dto = (CollectionDto)result.Data!;
+        dto.ParentId.Should().BeNull();
+        dto.Name.Should().Be(child.Name);
+        result.StateVersion.Should().Be("3");
+    }
+
+    [Fact]
+    public async Task Update_collection_rename_preserves_current_parent()
+    {
+        var h = Harness();
+        var root = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Root"))).Data!;
+        var child = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Child", root.Id))).Data!;
+
+        var result = await h.Service.UpdateCollectionAsync(Client, Key(), child.Id, "Renamed", child.ParentId);
+
+        var dto = (CollectionDto)result.Data!;
+        dto.Name.Should().Be("Renamed");
+        dto.ParentId.Should().Be(root.Id);
+    }
+
+    [Fact]
+    public async Task Update_collection_move_preserves_current_name()
+    {
+        var h = Harness();
+        var root = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Root"))).Data!;
+        var child = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Child"))).Data!;
+
+        var result = await h.Service.UpdateCollectionAsync(Client, Key(), child.Id, child.Name, root.Id);
+
+        var dto = (CollectionDto)result.Data!;
+        dto.ParentId.Should().Be(root.Id);
+        dto.Name.Should().Be(child.Name);
+    }
+
+    [Fact]
+    public async Task Update_collection_whitespace_name_returns_invalid_collection_name()
+    {
+        var h = Harness();
+        var root = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Root"))).Data!;
+
+        var result = await h.Service.UpdateCollectionAsync(Client, Key(), root.Id, "   ", null);
+
+        ((LibraryErrorDto)result.Data!).Code.Should().Be("invalid_collection_name");
+        (await GetCollectionDtoAsync(h, root.Id)).Name.Should().Be("Root");
+    }
+
+    [Fact]
+    public async Task Update_collection_missing_collection_returns_collection_not_found()
+    {
+        var h = Harness();
+        var result = await h.Service.UpdateCollectionAsync(Client, Key(), Guid.NewGuid(), "X", null);
+        ((LibraryErrorDto)result.Data!).Code.Should().Be("collection_not_found");
+    }
+
+    [Fact]
+    public async Task Update_collection_combined_rename_and_move_is_atomic_with_one_receipt_and_one_bump()
+    {
+        var h = Harness();
+        var root = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Root"))).Data!;
+        var other = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Other"))).Data!;
+        var target = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Target", root.Id))).Data!;
+
+        var result = await h.Service.UpdateCollectionAsync(Client, Key(), target.Id, "Moved + Renamed", other.Id);
+
+        result.StateVersion.Should().Be("4", "exactly one bump for the combined change");
+        var dto = (CollectionDto)result.Data!;
+        dto.Name.Should().Be("Moved + Renamed");
+        dto.ParentId.Should().Be(other.Id);
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.LibraryCommandReceipts.CountAsync()).Should().Be(4, "exactly one receipt for the combined change");
+        var stored = await db.Collections.SingleAsync(c => c.Id == target.Id);
+        stored.Name.Should().Be("Moved + Renamed");
+        stored.ParentId.Should().Be(other.Id);
+    }
+
+    [Fact]
+    public async Task Update_collection_destination_name_conflict_leaves_everything_unchanged()
+    {
+        var h = Harness();
+        var root = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Root"))).Data!;
+        var child = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Child", root.Id))).Data!;
+        await h.Service.CreateCollectionAsync(new(Client, Key(), "Taken", root.Id));
+
+        var result = await h.Service.UpdateCollectionAsync(Client, Key(), child.Id, "TAKEN", root.Id);
+
+        ((LibraryErrorDto)result.Data!).Code.Should().Be("collection_name_conflict");
+        result.StateVersion.Should().Be("3", "a rejected update never bumps the version");
+        var stored = await GetCollectionDtoAsync(h, child.Id);
+        stored.Name.Should().Be("Child");
+        stored.ParentId.Should().Be(root.Id);
+    }
+
+    [Fact]
+    public async Task Update_collection_invalid_destination_leaves_everything_unchanged()
+    {
+        var h = Harness();
+        var root = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Root"))).Data!;
+        var child = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Child", root.Id))).Data!;
+
+        var result = await h.Service.UpdateCollectionAsync(Client, Key(), child.Id, "New Name", Guid.NewGuid());
+
+        ((LibraryErrorDto)result.Data!).Code.Should().Be("invalid_collection_parent");
+        result.StateVersion.Should().Be("2");
+        var stored = await GetCollectionDtoAsync(h, child.Id);
+        stored.Name.Should().Be("Child");
+        stored.ParentId.Should().Be(root.Id);
+    }
+
+    [Fact]
+    public async Task Update_collection_move_to_descendant_leaves_everything_unchanged()
+    {
+        var h = Harness();
+        var root = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Root"))).Data!;
+        var child = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Child", root.Id))).Data!;
+        var grandchild = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Grandchild", child.Id))).Data!;
+
+        var result = await h.Service.UpdateCollectionAsync(Client, Key(), root.Id, root.Name, grandchild.Id);
+
+        ((LibraryErrorDto)result.Data!).Code.Should().Be("collection_cycle");
+        result.StateVersion.Should().Be("3");
+        var stored = await GetCollectionDtoAsync(h, root.Id);
+        stored.Name.Should().Be("Root");
+        stored.ParentId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Update_collection_same_name_and_parent_is_successful_noop()
+    {
+        var h = Harness();
+        var root = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Root"))).Data!;
+        var child = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Child", root.Id))).Data!;
+
+        var result = await h.Service.UpdateCollectionAsync(Client, Key(), child.Id, "Child", root.Id);
+
+        result.Duplicate.Should().BeFalse();
+        result.StateVersion.Should().Be("2", "a no-op never bumps the version");
+        result.Reply.Should().Be(LibraryReplyFormatter.CollectionUpdated("Child"));
+        var dto = (CollectionDto)result.Data!;
+        dto.Name.Should().Be("Child");
+        dto.ParentId.Should().Be(root.Id);
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.LibraryCommandReceipts.CountAsync()).Should().Be(3, "the no-op still writes its receipt");
+    }
+
+    [Fact]
+    public async Task Update_collection_same_key_replay_returns_duplicate_without_second_mutation()
+    {
+        var h = Harness();
+        var root = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Root"))).Data!;
+        var child = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Child"))).Data!;
+        var key = Key();
+
+        var first = await h.Service.UpdateCollectionAsync(Client, key, child.Id, "First", root.Id);
+        var replay = await h.Service.UpdateCollectionAsync(Client, key, child.Id, "Second", null);
+
+        replay.Duplicate.Should().BeTrue();
+        replay.StateVersion.Should().Be(first.StateVersion);
+        var dto = (CollectionDto)replay.Data!;
+        dto.Name.Should().Be("First");
+        dto.ParentId.Should().Be(root.Id);
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.LibraryCommandReceipts.CountAsync()).Should().Be(3, "the replay writes no second receipt");
+        var stored = await db.Collections.SingleAsync(c => c.Id == child.Id);
+        stored.Name.Should().Be("First");
+        stored.ParentId.Should().Be(root.Id);
+    }
+
+    [Fact]
+    public async Task Update_collection_key_reuse_after_noop_replays_the_noop()
+    {
+        var h = Harness();
+        var root = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Root"))).Data!;
+        var child = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Child", root.Id))).Data!;
+        var key = Key();
+
+        var noop = await h.Service.UpdateCollectionAsync(Client, key, child.Id, "Child", root.Id);
+        noop.Duplicate.Should().BeFalse();
+        noop.StateVersion.Should().Be("2");
+
+        // The same key must replay the stored no-op even though the new
+        // values WOULD mutate if re-executed (stale-retry hazard guard).
+        var replay = await h.Service.UpdateCollectionAsync(Client, key, child.Id, "Changed", null);
+        replay.Duplicate.Should().BeTrue();
+        replay.StateVersion.Should().Be("2");
+        ((CollectionDto)replay.Data!).Name.Should().Be("Child");
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var stored = await db.Collections.SingleAsync(c => c.Id == child.Id);
+        stored.Name.Should().Be("Child");
+        stored.ParentId.Should().Be(root.Id);
+        (await db.LibraryCommandReceipts.CountAsync()).Should().Be(3);
+    }
+
+    [Fact]
+    public async Task Update_collection_rejects_normalized_equivalent_sibling_name()
+    {
+        var h = Harness();
+        var target = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Sci-Fi"))).Data!;
+
+        // The service converges normalized-equivalent CREATES on the existing
+        // sibling, so the colliding sibling is seeded directly: a raw row
+        // that is a normalized twin of the target at the same parent.
+        await using (var db = await h.Factory.CreateDbContextAsync())
+        {
+            db.Collections.Add(new CollectionModel { Name = "sci fi" });
+            await db.SaveChangesAsync();
+        }
+
+        var result = await h.Service.UpdateCollectionAsync(Client, Key(), target.Id, "Sci - Fi", null);
+
+        ((LibraryErrorDto)result.Data!).Code.Should().Be("collection_name_conflict");
+        (await GetCollectionDtoAsync(h, target.Id)).Name.Should().Be("Sci-Fi");
+    }
+
+    [Fact]
+    public async Task Update_collection_move_rejects_normalized_equivalent_at_destination()
+    {
+        var h = Harness();
+        var parent = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Parent"))).Data!;
+        await h.Service.CreateCollectionAsync(new(Client, Key(), "Sci-Fi", parent.Id));
+        var target = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "sci fi"))).Data!;
+
+        var result = await h.Service.UpdateCollectionAsync(Client, Key(), target.Id, target.Name, parent.Id);
+
+        ((LibraryErrorDto)result.Data!).Code.Should().Be("collection_name_conflict");
+        (await GetCollectionDtoAsync(h, target.Id)).ParentId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Update_collection_combined_rename_and_move_checks_final_name_at_final_parent()
+    {
+        var h = Harness();
+        var parentA = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Parent A"))).Data!;
+        var parentB = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Parent B"))).Data!;
+        var target = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Target", parentA.Id))).Data!;
+        await h.Service.CreateCollectionAsync(new(Client, Key(), "Collision", parentB.Id));
+
+        // "collision" is legal under parentA (no such sibling there) but the
+        // move to parentB would collide — the WHOLE update must be rejected.
+        var result = await h.Service.UpdateCollectionAsync(Client, Key(), target.Id, "Collision", parentB.Id);
+
+        ((LibraryErrorDto)result.Data!).Code.Should().Be("collection_name_conflict");
+        var stored = await GetCollectionDtoAsync(h, target.Id);
+        stored.Name.Should().Be("Target");
+        stored.ParentId.Should().Be(parentA.Id);
+    }
+
+    [Fact]
+    public async Task Update_collection_same_name_allowed_under_different_parent()
+    {
+        var h = Harness();
+        var parentA = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Parent A"))).Data!;
+        var parentB = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Parent B"))).Data!;
+        var target = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "One", parentA.Id))).Data!;
+        await h.Service.CreateCollectionAsync(new(Client, Key(), "Shared", parentB.Id));
+
+        var renamed = await h.Service.UpdateCollectionAsync(Client, Key(), target.Id, "Shared", parentA.Id);
+        ((CollectionDto)renamed.Data!).Name.Should().Be("Shared", "no sibling under parentA collides");
+
+        var moved = await h.Service.UpdateCollectionAsync(Client, Key(), target.Id, "Shared", parentB.Id);
+        ((LibraryErrorDto)moved.Data!).Code.Should().Be("collection_name_conflict",
+            "the same normalized name under a different parent is fine, but not as a sibling");
+    }
+
+    [Fact]
+    public async Task Update_collection_move_to_root_rejects_root_sibling_collision()
+    {
+        var h = Harness();
+        await h.Service.CreateCollectionAsync(new(Client, Key(), "Root Name"));
+        var parent = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Parent"))).Data!;
+        var child = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Root Name", parent.Id))).Data!;
+
+        var result = await h.Service.UpdateCollectionAsync(Client, Key(), child.Id, child.Name, null);
+
+        ((LibraryErrorDto)result.Data!).Code.Should().Be("collection_name_conflict");
+        (await GetCollectionDtoAsync(h, child.Id)).ParentId.Should().Be(parent.Id);
+    }
+
+    [Fact]
+    public async Task Concurrent_normalized_equivalent_creates_produce_one_collection()
+    {
+        var h = Harness();
+        var results = await Task.WhenAll(
+            h.Service.CreateCollectionAsync(new(Client, Key(), "Sci-Fi")),
+            h.Service.CreateCollectionAsync(new(Client, Key(), "sci fi")));
+
+        results.Select(r => r.StateVersion).Distinct().Should().HaveCount(1);
+        results.Select(r => ((CollectionDto)r.Data!).Id).Distinct().Should().HaveCount(1,
+            "the mutation gate serializes; the loser converges on the existing collection");
+        (await CountCollectionsAsync(h)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Concurrent_same_key_updates_converge_on_one_receipt_and_one_mutation()
+    {
+        var h = Harness();
+        var root = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Root"))).Data!;
+        var child = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Child"))).Data!;
+        var key = Key();
+
+        var results = await Task.WhenAll(
+            h.Service.UpdateCollectionAsync(Client, key, child.Id, "First", root.Id),
+            h.Service.UpdateCollectionAsync(Client, key, child.Id, "Second", null));
+
+        results.Count(r => r.Duplicate).Should().Be(1);
+        var winner = results.Single(r => !r.Duplicate);
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.LibraryCommandReceipts.CountAsync()).Should().Be(3);
+        var stored = await db.Collections.SingleAsync(c => c.Id == child.Id);
+        stored.Name.Should().Be(((CollectionDto)winner.Data!).Name);
+        stored.ParentId.Should().Be(((CollectionDto)winner.Data!).ParentId);
+    }
+
+    // ------------------------------------------------------------------
+    // Collections Phase 1 — recursive filtering and counts
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task List_books_with_parent_collection_filter_includes_descendants_and_excludes_others()
+    {
+        var h = Harness();
+        var root = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Root"))).Data!;
+        var child = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Child", root.Id))).Data!;
+        var grandchild = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Grandchild", child.Id))).Data!;
+        var siblingRoot = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Sibling Root"))).Data!;
+
+        await CreateBookInAsync(h, "Root Book", root.Id);
+        await CreateBookInAsync(h, "Child Book", child.Id);
+        await CreateBookInAsync(h, "Grandchild Book", grandchild.Id);
+        await CreateBookInAsync(h, "Sibling Book", siblingRoot.Id);
+        await h.Service.CreateOrMatchBookAsync(CreateRequest("physical", "Uncollected Book"), strictConfirmation: true);
+
+        var rootPage = (PaginatedResponse<BookDto>)(await h.Service.ListBooksAsync(
+            BookFilter.All, BookSort.Recent, null, 1, 100, root.Id)).Data!;
+        rootPage.TotalCount.Should().Be(3, "parent includes direct + child + grandchild books");
+        rootPage.Items.Select(b => b.Title).Should().BeEquivalentTo(new[] { "Root Book", "Child Book", "Grandchild Book" });
+
+        var childPage = (PaginatedResponse<BookDto>)(await h.Service.ListBooksAsync(
+            BookFilter.All, BookSort.Recent, null, 1, 100, child.Id)).Data!;
+        childPage.TotalCount.Should().Be(2);
+        childPage.Items.Select(b => b.Title).Should().BeEquivalentTo(new[] { "Child Book", "Grandchild Book" });
+
+        var leafPage = (PaginatedResponse<BookDto>)(await h.Service.ListBooksAsync(
+            BookFilter.All, BookSort.Recent, null, 1, 100, grandchild.Id)).Data!;
+        leafPage.TotalCount.Should().Be(1, "a leaf returns only its own books");
+        leafPage.Items.Single().Title.Should().Be("Grandchild Book");
+
+        var siblingPage = (PaginatedResponse<BookDto>)(await h.Service.ListBooksAsync(
+            BookFilter.All, BookSort.Recent, null, 1, 100, siblingRoot.Id)).Data!;
+        siblingPage.TotalCount.Should().Be(1, "ancestors, siblings and unrelated roots stay excluded");
+        siblingPage.Items.Single().Title.Should().Be("Sibling Book");
+    }
+
+    [Fact]
+    public async Task List_collection_counts_rolls_up_descendants_and_excludes_uncollected()
+    {
+        var h = Harness();
+        var root = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Root"))).Data!;
+        var child = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Child", root.Id))).Data!;
+        var grandchild = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Grandchild", child.Id))).Data!;
+        await CreateBookInAsync(h, "Root Book", root.Id);
+        await CreateBookInAsync(h, "Child Book", child.Id);
+        await CreateBookInAsync(h, "Grandchild Book", grandchild.Id);
+        await h.Service.CreateOrMatchBookAsync(CreateRequest("physical", "Uncollected Book"), strictConfirmation: true);
+
+        var result = await h.Service.ListCollectionCountsAsync();
+        var counts = ((IEnumerable<CollectionCountDto>)result.Data!).ToDictionary(c => c.CollectionId, c => c.BookCount);
+
+        counts[root.Id].Should().Be(3, "sidebar count = direct + all descendants");
+        counts[child.Id].Should().Be(2);
+        counts[grandchild.Id].Should().Be(1);
+        // Each book is counted once per ancestor collection (root 3, child 2,
+        // grandchild 1); the uncollected book contributes to NO collection.
+        counts.Values.Sum().Should().Be(6);
+    }
+
+    [Fact]
+    public async Task List_collection_counts_returns_zero_for_empty_collections()
+    {
+        var h = Harness();
+        var empty = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Empty"))).Data!;
+
+        var result = await h.Service.ListCollectionCountsAsync();
+        var counts = ((IEnumerable<CollectionCountDto>)result.Data!).ToDictionary(c => c.CollectionId, c => c.BookCount);
+
+        counts.Should().ContainKey(empty.Id);
+        counts[empty.Id].Should().Be(0);
+    }
+
+    // ------------------------------------------------------------------
+    // Collections Phase 1 — restrictive foreign keys
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task Direct_sql_delete_of_referenced_collection_is_rejected_by_foreign_keys()
+    {
+        var h = Harness();
+        var parent = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Parent"))).Data!;
+        await h.Service.CreateCollectionAsync(new(Client, Key(), "Child", parent.Id));
+        await CreateBookInAsync(h, "Book", parent.Id);
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+
+        // A collection referenced by a child cannot be deleted directly.
+        var deleteParent = () => db.Database.ExecuteSqlRawAsync(
+            "DELETE FROM \"Collections\" WHERE \"Id\" = {0}", parent.Id);
+        await deleteParent.Should().ThrowAsync<SqliteException>();
+
+        // A collection referenced by a book cannot be deleted directly.
+        await deleteParent.Should().ThrowAsync<SqliteException>();
+
+        // An unreferenced empty leaf stays deletable directly.
+        var leaf = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, Key(), "Leaf"))).Data!;
+        var deleted = await db.Database.ExecuteSqlRawAsync(
+            "DELETE FROM \"Collections\" WHERE \"Id\" = {0}", leaf.Id);
+        deleted.Should().Be(1);
+    }
+
+    // ------------------------------------------------------------------
     // Harness
     // ------------------------------------------------------------------
 
@@ -957,6 +1393,20 @@ public sealed class LibraryServiceTests : IClassFixture<ReadingTrainingSqliteFix
     {
         var result = await h.Service.GetBookAsync(id);
         return (BookDto)result.Data!;
+    }
+
+    private async Task<CollectionDto> GetCollectionDtoAsync(TestHarness h, Guid id)
+    {
+        var result = await h.Service.GetCollectionAsync(id);
+        return (CollectionDto)result.Data!;
+    }
+
+    private async Task<Guid> CreateBookInAsync(TestHarness h, string title, Guid collectionId)
+    {
+        // Permissive create (legacy REST semantics): a bare title creates.
+        var created = await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", title, CollectionId: collectionId), strictConfirmation: false);
+        return ((LibraryCreateOrMatchResultDto)created.Data!).BookId!.Value;
     }
 
     private TestHarness Harness(IHttpClientFactory? lookupFactory = null)

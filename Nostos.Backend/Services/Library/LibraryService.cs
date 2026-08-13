@@ -74,7 +74,17 @@ public sealed class LibraryService : ILibraryService
         };
 
         if (collectionId.HasValue)
-            query = query.Where(b => b.CollectionId == collectionId.Value);
+        {
+            // Recursive filter (collections Phase 1): selecting a parent
+            // collection includes books assigned to ANY descendant. The
+            // subtree is expanded in memory from the flat id/parent list
+            // (no SQL CTE); the small HashSet translates to IN (...).
+            var collections = await db.Collections.AsNoTracking()
+                .Select(c => new CollectionModel { Id = c.Id, ParentId = c.ParentId })
+                .ToListAsync(ct);
+            var subtreeIds = GetSubtreeIds(collectionId.Value, collections);
+            query = query.Where(b => b.CollectionId.HasValue && subtreeIds.Contains(b.CollectionId.Value));
+        }
 
         query = sort switch
         {
@@ -214,6 +224,38 @@ public sealed class LibraryService : ILibraryService
             version);
     }
 
+    public async Task<LibraryCommandResultDto> ListCollectionCountsAsync(CancellationToken ct = default)
+    {
+        await using var db = await _contexts.CreateDbContextAsync(ct);
+        var state = await TryGetStateAsync(db, ct);
+        var version = state?.StateVersion ?? "0";
+
+        // One grouped query for DIRECT counts, then a single in-memory
+        // post-order rollup. Never one count query per collection, and the
+        // frontend never sums counts itself (canonical recursion lives here).
+        var collections = await db.Collections.AsNoTracking()
+            .OrderBy(c => c.Name)
+            .ThenBy(c => c.Id)
+            .Select(c => new CollectionModel { Id = c.Id, ParentId = c.ParentId })
+            .ToListAsync(ct);
+
+        var directCounts = await db.Books.AsNoTracking()
+            .Where(b => b.CollectionId != null)
+            .GroupBy(b => b.CollectionId!.Value)
+            .Select(g => new { CollectionId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.CollectionId, x => x.Count, ct);
+
+        var counts = RollUpDescendantCounts(collections, directCounts);
+        var items = collections
+            .Select(c => new CollectionCountDto(c.Id, counts[c.Id]))
+            .ToList();
+
+        return Result(
+            LibraryReplyFormatter.CollectionCountList(items.Count),
+            items,
+            version);
+    }
+
     public async Task<LibraryCommandResultDto> GetCollectionAsync(Guid collectionId, CancellationToken ct = default)
     {
         await using var db = await _contexts.CreateDbContextAsync(ct);
@@ -325,6 +367,17 @@ public sealed class LibraryService : ILibraryService
     public Task<LibraryCommandResultDto> MoveCollectionAsync(LibraryMoveCollectionRequest request, CancellationToken ct = default) =>
         MutateAsync(request.ClientId, request.IdempotencyKey, "MoveCollection",
             (db, token) => MoveCollectionCoreAsync(db, request, token), ct);
+
+    public Task<LibraryCommandResultDto> UpdateCollectionAsync(
+        string clientId,
+        string idempotencyKey,
+        Guid collectionId,
+        string name,
+        Guid? parentId,
+        CancellationToken ct = default) =>
+        MutateAsync(clientId, idempotencyKey, "UpdateCollection",
+            (db, token) => UpdateCollectionCoreAsync(db, collectionId, name, parentId,
+                treatUnchangedAsNoOp: true, token), ct);
 
     public Task<LibraryCommandResultDto> DeleteCollectionAsync(LibraryDeleteCollectionRequest request, CancellationToken ct = default) =>
         MutateAsync(request.ClientId, request.IdempotencyKey, "DeleteCollection",
@@ -740,32 +793,21 @@ public sealed class LibraryService : ILibraryService
         LibraryRenameCollectionRequest request,
         CancellationToken ct)
     {
+        // Preserve the historical check order (invalid name wins over
+        // collection_not_found) that the frozen MCP surface relies on; the
+        // shared core validates the name after loading the collection.
         var state = await EnsureStateAsync(db, ct);
-
         if (string.IsNullOrWhiteSpace(request.Name))
             return NoChange(Failure("invalid_collection_name", "Collection name is required.", state.StateVersion));
 
-        var collection = await db.Collections.SingleOrDefaultAsync(c => c.Id == request.CollectionId, ct);
-        if (collection is null)
-            return NoChange(Failure("collection_not_found", LibraryReplyFormatter.CollectionNotFound, state.StateVersion));
-
-        var nName = BookIdentityNormalizer.NormalizeTitle(request.Name);
-        var siblings = await db.Collections.AsNoTracking()
-            .Where(c => c.ParentId == collection.ParentId && c.Id != collection.Id)
-            .ToListAsync(ct);
-        var collision = siblings.FirstOrDefault(c =>
-            string.Equals(BookIdentityNormalizer.NormalizeTitle(c.Name), nName, StringComparison.Ordinal));
-        if (collision is not null)
-            return NoChange(Failure("collection_name_conflict",
-                LibraryReplyFormatter.CollectionNameConflict(collision.Name), state.StateVersion));
-
-        collection.Name = request.Name.Trim();
-        await db.SaveChangesAsync(ct);
-
-        return Change(Result(
-            LibraryReplyFormatter.CollectionRenamed(collection.Name),
-            new CollectionDto(collection.Id, collection.Name, collection.ParentId),
-            state.StateVersion));
+        var outcome = await UpdateCollectionCoreAsync(db, request.CollectionId, request.Name,
+            Optional<Guid?>.None, treatUnchangedAsNoOp: false, ct);
+        if (!outcome.DidChange)
+            return outcome;
+        return Change(outcome.Result with
+        {
+            Reply = LibraryReplyFormatter.CollectionRenamed(((CollectionDto)outcome.Result.Data!).Name),
+        });
     }
 
     private async Task<(bool DidChange, LibraryCommandResultDto Result)> MoveCollectionCoreAsync(
@@ -773,25 +815,60 @@ public sealed class LibraryService : ILibraryService
         LibraryMoveCollectionRequest request,
         CancellationToken ct)
     {
+        var outcome = await UpdateCollectionCoreAsync(db, request.CollectionId, Optional<string>.None,
+            request.NewParentId, treatUnchangedAsNoOp: false, ct);
+        if (!outcome.DidChange)
+            return outcome;
+        return Change(outcome.Result with
+        {
+            Reply = LibraryReplyFormatter.CollectionMoved(((CollectionDto)outcome.Result.Data!).Name),
+        });
+    }
+
+    /// <summary>
+    /// Shared atomic rename/move core (collections Phase 1). Runs inside one
+    /// MutateAsync transaction: loads the collection, validates the proposed
+    /// name, rejects invalid/self/descendant parents, checks the normalized
+    /// final name against the final parent's siblings, then assigns both
+    /// values with a single SaveChanges. When
+    /// <paramref name="treatUnchangedAsNoOp"/> is set (combined update), a
+    /// request whose name and parent are both unchanged succeeds without a
+    /// stateVersion bump; the two frozen MCP ops (rename/move) keep their
+    /// historical always-bump-on-success behavior.
+    /// </summary>
+    private async Task<(bool DidChange, LibraryCommandResultDto Result)> UpdateCollectionCoreAsync(
+        NostosDbContext db,
+        Guid collectionId,
+        Optional<string> name,
+        Optional<Guid?> parentId,
+        bool treatUnchangedAsNoOp,
+        CancellationToken ct)
+    {
         var state = await EnsureStateAsync(db, ct);
 
-        var collection = await db.Collections.SingleOrDefaultAsync(c => c.Id == request.CollectionId, ct);
+        var collection = await db.Collections.SingleOrDefaultAsync(c => c.Id == collectionId, ct);
         if (collection is null)
             return NoChange(Failure("collection_not_found", LibraryReplyFormatter.CollectionNotFound, state.StateVersion));
 
-        if (request.NewParentId.HasValue)
+        if (name.HasValue && string.IsNullOrWhiteSpace(name.Value))
+            return NoChange(Failure("invalid_collection_name", "Collection name is required.", state.StateVersion));
+
+        var finalName = name.HasValue ? name.Value.Trim() : collection.Name;
+        var finalParentId = parentId.HasValue ? parentId.Value : collection.ParentId;
+
+        if (finalParentId.HasValue)
         {
-            if (request.NewParentId.Value == collection.Id)
+            if (finalParentId.Value == collection.Id)
                 return NoChange(Failure("collection_cycle", LibraryReplyFormatter.CollectionCycle, state.StateVersion));
 
             var parentExists = await db.Collections.AsNoTracking()
-                .AnyAsync(c => c.Id == request.NewParentId.Value, ct);
+                .AnyAsync(c => c.Id == finalParentId.Value, ct);
             if (!parentExists)
                 return NoChange(Failure("invalid_collection_parent",
                     LibraryReplyFormatter.CollectionParentNotFound, state.StateVersion));
 
             // Ancestor walk: moving under one of our own descendants cycles.
-            var cursor = request.NewParentId.Value;
+            var cursor = finalParentId.Value;
             var visited = new HashSet<Guid>();
             while (cursor != Guid.Empty)
             {
@@ -808,40 +885,41 @@ public sealed class LibraryService : ILibraryService
                     break;
                 cursor = parent.Value;
             }
-
-            // Sibling-name collision at the destination: moving a collection
-            // must behave like renaming into the target parent.
-            var nName = BookIdentityNormalizer.NormalizeTitle(collection.Name);
-            var siblings = await db.Collections.AsNoTracking()
-                .Where(c => c.Id != collection.Id && c.ParentId == request.NewParentId.Value)
-                .ToListAsync(ct);
-            if (siblings.Any(c =>
-                    string.Equals(BookIdentityNormalizer.NormalizeTitle(c.Name), nName, StringComparison.Ordinal)))
-                return NoChange(Failure("collection_name_conflict",
-                    LibraryReplyFormatter.CollectionNameConflict(collection.Name), state.StateVersion));
-
-            collection.ParentId = request.NewParentId;
         }
-        else
+
+        // Sibling-name collision at the FINAL destination: the normalized
+        // final name must not collide with any OTHER sibling there (the
+        // root level is a sibling set like any other, parentId = null).
+        var nName = BookIdentityNormalizer.NormalizeTitle(finalName);
+        var siblings = await db.Collections.AsNoTracking()
+            .Where(c => c.Id != collection.Id && c.ParentId == finalParentId)
+            .ToListAsync(ct);
+        var collision = siblings.FirstOrDefault(c =>
+            string.Equals(BookIdentityNormalizer.NormalizeTitle(c.Name), nName, StringComparison.Ordinal));
+        if (collision is not null)
+            return NoChange(Failure("collection_name_conflict",
+                LibraryReplyFormatter.CollectionNameConflict(collision.Name), state.StateVersion));
+
+        var dto = new CollectionDto(collection.Id, collection.Name, collection.ParentId);
+
+        // No-op policy (combined update only): same name and same parent is
+        // a successful no-op — one receipt is still written, but the
+        // stateVersion is not bumped.
+        if (treatUnchangedAsNoOp &&
+            string.Equals(collection.Name, finalName, StringComparison.Ordinal) &&
+            collection.ParentId == finalParentId)
         {
-            // Move to root: the same sibling-name rule applies at the top
-            // level (normalized name, parentId=null).
-            var nName = BookIdentityNormalizer.NormalizeTitle(collection.Name);
-            var rootSiblings = await db.Collections.AsNoTracking()
-                .Where(c => c.Id != collection.Id && c.ParentId == null)
-                .ToListAsync(ct);
-            if (rootSiblings.Any(c =>
-                    string.Equals(BookIdentityNormalizer.NormalizeTitle(c.Name), nName, StringComparison.Ordinal)))
-                return NoChange(Failure("collection_name_conflict",
-                    LibraryReplyFormatter.CollectionNameConflict(collection.Name), state.StateVersion));
-
-            collection.ParentId = null;
+            return NoChange(Result(
+                LibraryReplyFormatter.CollectionUpdated(finalName),
+                dto, state.StateVersion));
         }
 
+        collection.Name = finalName;
+        collection.ParentId = finalParentId;
         await db.SaveChangesAsync(ct);
 
         return Change(Result(
-            LibraryReplyFormatter.CollectionMoved(collection.Name),
+            LibraryReplyFormatter.CollectionUpdated(collection.Name),
             new CollectionDto(collection.Id, collection.Name, collection.ParentId),
             state.StateVersion));
     }
@@ -1051,4 +1129,115 @@ public sealed class LibraryService : ILibraryService
     private static LibraryCommandResultDto Deserialize(string json) =>
         JsonSerializer.Deserialize<LibraryCommandResultDto>(json, ReceiptJson)
         ?? throw new InvalidOperationException("Stored library command receipt is invalid.");
+
+    // ------------------------------------------------------------------
+    // Collections Phase 1 helpers
+    // ------------------------------------------------------------------
+
+    // Tri-state argument for the shared rename/move core: HasValue=false
+    // means "leave the field unchanged" (distinct from an explicit null).
+    private readonly record struct Optional<T>(T Value, bool HasValue)
+    {
+        public static implicit operator Optional<T>(T value) => new(value, true);
+
+        public static Optional<T> None => default;
+    }
+
+    /// <summary>
+    /// Expands a collection subtree to the collection id plus every
+    /// descendant id, iteratively, from the flat id/parent list (personal
+    /// library scale; no recursive SQL needed).
+    /// </summary>
+    private static HashSet<Guid> GetSubtreeIds(
+        Guid rootId,
+        IReadOnlyCollection<CollectionModel> collections)
+    {
+        var childrenByParent = collections
+            .Where(c => c.ParentId.HasValue)
+            .GroupBy(c => c.ParentId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(c => c.Id).ToArray());
+
+        var result = new HashSet<Guid>();
+        var pending = new Stack<Guid>();
+        pending.Push(rootId);
+
+        while (pending.TryPop(out var id))
+        {
+            if (!result.Add(id))
+                continue;
+
+            if (childrenByParent.TryGetValue(id, out var children))
+            {
+                foreach (var child in children)
+                    pending.Push(child);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Rolls direct per-collection book counts upward in a post-order
+    /// traversal so every collection's count is descendant-inclusive.
+    /// Iterative and cycle-safe (the service forbids cycles; the visiting
+    /// guard makes an accidental one terminate instead of hanging).
+    /// </summary>
+    private static Dictionary<Guid, int> RollUpDescendantCounts(
+        IReadOnlyCollection<CollectionModel> collections,
+        IReadOnlyDictionary<Guid, int> directCounts)
+    {
+        var counts = collections.ToDictionary(c => c.Id, c => directCounts.GetValueOrDefault(c.Id));
+        var childrenByParent = collections
+            .Where(c => c.ParentId.HasValue)
+            .GroupBy(c => c.ParentId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(c => c.Id).ToArray());
+
+        var order = new List<Guid>(collections.Count);
+        var expanded = new HashSet<Guid>();
+        var visiting = new HashSet<Guid>();
+        var stack = new Stack<(Guid Id, bool Expanded)>();
+
+        foreach (var collection in collections)
+        {
+            if (expanded.Contains(collection.Id))
+                continue;
+            stack.Push((collection.Id, false));
+            while (stack.TryPop(out var item))
+            {
+                if (item.Expanded)
+                {
+                    order.Add(item.Id);
+                    expanded.Add(item.Id);
+                    visiting.Remove(item.Id);
+                    continue;
+                }
+                if (expanded.Contains(item.Id) || visiting.Contains(item.Id))
+                    continue;
+
+                visiting.Add(item.Id);
+                stack.Push((item.Id, true));
+                if (childrenByParent.TryGetValue(item.Id, out var children))
+                {
+                    foreach (var child in children)
+                    {
+                        if (!expanded.Contains(child) && !visiting.Contains(child))
+                            stack.Push((child, false));
+                    }
+                }
+            }
+        }
+
+        // Post-order guarantees children precede parents: a parent's total
+        // is its own direct count plus each child's already-rolled-up total.
+        foreach (var id in order)
+        {
+            if (childrenByParent.TryGetValue(id, out var children))
+            {
+                foreach (var child in children)
+                    counts[id] += counts[child];
+            }
+        }
+
+        return counts;
+    }
 }

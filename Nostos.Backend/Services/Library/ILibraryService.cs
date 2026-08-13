@@ -29,6 +29,13 @@ public interface ILibraryService
 
     Task<LibraryCommandResultDto> ListCollectionsAsync(CancellationToken ct = default);
 
+    /// <summary>
+    /// REST-only descendant-inclusive book counts for every collection
+    /// (sidebar). One grouped query for direct counts, then a post-order
+    /// rollup in memory; never one query per collection.
+    /// </summary>
+    Task<LibraryCommandResultDto> ListCollectionCountsAsync(CancellationToken ct = default);
+
     Task<LibraryCommandResultDto> GetCollectionAsync(Guid collectionId, CancellationToken ct = default);
 
     // --- Mutations (all exact-once) ---
@@ -65,6 +72,22 @@ public interface ILibraryService
     Task<LibraryCommandResultDto> RenameCollectionAsync(LibraryRenameCollectionRequest request, CancellationToken ct = default);
 
     Task<LibraryCommandResultDto> MoveCollectionAsync(LibraryMoveCollectionRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// Atomic full-replacement update (collections Phase 1): renames and/or
+    /// moves a collection in ONE transaction with ONE receipt and at most
+    /// ONE stateVersion bump. Missing/invalid name, invalid parent, cycles
+    /// and normalized sibling collisions reject the whole update. When name
+    /// and parent are both unchanged the operation succeeds as a no-op
+    /// (receipt written, stateVersion untouched).
+    /// </summary>
+    Task<LibraryCommandResultDto> UpdateCollectionAsync(
+        string clientId,
+        string idempotencyKey,
+        Guid collectionId,
+        string name,
+        Guid? parentId,
+        CancellationToken ct = default);
 
     Task<LibraryCommandResultDto> DeleteCollectionAsync(LibraryDeleteCollectionRequest request, CancellationToken ct = default);
 }
