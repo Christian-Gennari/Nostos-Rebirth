@@ -97,8 +97,8 @@ export class ReaderShell implements OnInit {
   ready = signal(false);
   highlightMode = signal(false);
   pendingSelectionText = signal<string | null>(null);
+  highlightSaving = signal(false);
   overflowOpen = signal(false);
-  private lastPendingText: string | null = null;
 
   dbNotes = signal<Note[]>([]);
   quickNoteContent = signal('');
@@ -209,7 +209,9 @@ export class ReaderShell implements OnInit {
       this.loadNotes(id);
       if (!this.notesOpen()) this.notesOpen.set(true);
     }
-    this.lastPendingText = null;
+    // The bar closes only on confirmed persistence.
+    this.pendingSelectionText.set(null);
+    this.highlightSaving.set(false);
   }
 
   toggleNotes() {
@@ -223,7 +225,6 @@ export class ReaderShell implements OnInit {
       this.activeReader()?.discardHighlight();
       this.pendingSelectionText.set(null);
     }
-    this.lastPendingText = null;
     this.highlightMode.set(newMode);
   }
 
@@ -232,22 +233,21 @@ export class ReaderShell implements OnInit {
   }
 
   commitHighlight() {
-    this.lastPendingText = this.pendingSelectionText();
-    this.pendingSelectionText.set(null);
+    if (this.highlightSaving()) return;
+    this.highlightSaving.set(true);
     this.activeReader()?.commitHighlight();
   }
 
   handleCommitFailed() {
-    if (this.lastPendingText !== null) {
-      this.pendingSelectionText.set(this.lastPendingText);
-      this.lastPendingText = null;
-    }
+    // Keep the bar open with the pending capture; the failed save must not
+    // lose a difficult mobile selection.
+    this.highlightSaving.set(false);
   }
 
   discardHighlight() {
     this.activeReader()?.discardHighlight();
     this.pendingSelectionText.set(null);
-    this.lastPendingText = null;
+    this.highlightSaving.set(false);
   }
 
   handleSelectionCaptured(text: string) {

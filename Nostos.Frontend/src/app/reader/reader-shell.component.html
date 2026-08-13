@@ -28,9 +28,9 @@
           <p class="selected-text">"{{ pendingSelectionText()!.length > 60 ? pendingSelectionText()!.slice(0, 60) + '...' : pendingSelectionText()! }}"</p>
           <div class="confirmation-actions">
             <button class="btn btn-secondary" (click)="discardHighlight()">Cancel</button>
-            <button class="btn btn-primary" (click)="commitHighlight()">
+            <button class="btn btn-primary" (click)="commitHighlight()" [disabled]="highlightSaving()">
               <lucide-icon [img]="Icons.Check" [size]="16"></lucide-icon>
-              Save
+              {{ highlightSaving() ? 'Saving…' : 'Save' }}
             </button>
           </div>
         </div>
