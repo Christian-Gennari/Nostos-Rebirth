@@ -41,7 +41,7 @@
   <main class="editor-pane">
     @if (activeItem(); as item) {
       <div class="editor-header">
-        <div class="meta-controls">
+        <div class="doc-actions">
           @if (isMobile()) {
             <button
               class="icon-btn sidebar-header-toggle"
@@ -55,20 +55,6 @@
               ></lucide-icon>
             </button>
           }
-          <span class="status-badge">{{ saveStatus() }}</span>
-
-          <button
-            class="icon-btn zen-toggle"
-            [class.active]="isZen()"
-            (click)="isZen() ? exitZen() : enterZen()"
-            [title]="isZen() ? 'Exit focus mode (Esc)' : 'Enter focus mode'"
-          >
-            <lucide-icon
-              [img]="isZen() ? Icons.Minimize2 : Icons.Maximize2"
-              [size]="20"
-              strokeWidth="1.5"
-            ></lucide-icon>
-          </button>
 
           @if (isMobile()) {
             <button
@@ -80,6 +66,20 @@
               <lucide-icon [img]="Icons.BrainCircuit" [size]="20" strokeWidth="1.5"></lucide-icon>
             </button>
           }
+
+          <button
+            class="icon-btn zen-toggle"
+            [class.active]="isZen()"
+            (click)="isZen() ? exitZen() : enterZen()"
+            [title]="isZen() ? 'Exit focus mode (Esc)' : 'Enter focus mode'"
+            [attr.aria-label]="isZen() ? 'Exit focus mode' : 'Enter focus mode'"
+          >
+            <lucide-icon
+              [img]="isZen() ? Icons.Minimize2 : Icons.Maximize2"
+              [size]="20"
+              strokeWidth="1.5"
+            ></lucide-icon>
+          </button>
         </div>
       </div>
 
@@ -88,6 +88,13 @@
           [initialContent]="editorText()"
           (contentChange)="editorText.set($event)"
         ></app-markdown-editor>
+      </div>
+
+      <div class="editor-status">
+        <span class="status-badge">{{ saveStatus() }}</span>
+        <span class="word-count"
+          >{{ wordCount() }} {{ wordCount() === 1 ? 'word' : 'words' }}</span
+        >
       </div>
     } @else {
       <div class="empty-state">
@@ -246,8 +253,20 @@
   </aside>
 
   @if (isZen()) {
+    <button
+      class="icon-btn zen-exit"
+      (click)="exitZen()"
+      title="Exit focus mode (Esc)"
+      aria-label="Exit focus mode"
+    >
+      <lucide-icon [img]="Icons.Minimize2" [size]="18" strokeWidth="1.5"></lucide-icon>
+    </button>
+
     <div class="zen-word-count">
-      {{ wordCount() }} {{ wordCount() === 1 ? 'word' : 'words' }}
+      <span class="status-badge">{{ saveStatus() }}</span>
+      <span class="zen-word-count__words"
+        >{{ wordCount() }} {{ wordCount() === 1 ? 'word' : 'words' }}</span
+      >
     </div>
   }
 </div>
