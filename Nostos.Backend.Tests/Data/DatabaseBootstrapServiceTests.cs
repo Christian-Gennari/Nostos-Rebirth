@@ -169,6 +169,13 @@ public sealed class DatabaseBootstrapServiceTests : IDisposable
                 "ALTER TABLE \"Books\" DROP COLUMN \"NormalizedIsbn\"; " +
                 "ALTER TABLE \"Books\" DROP COLUMN \"NormalizedAsin\";");
         }
+        else if (newestMigrationId.Contains("AddLibraryCommandReceiptRetentionIndex"))
+        {
+            // Roll back only the retention migration's object; the library
+            // command tables belong to older, already-applied migrations.
+            await db.Database.ExecuteSqlRawAsync(
+                "DROP INDEX \"IX_LibraryCommandReceipts_CreatedAt\"");
+        }
 
         await new DatabaseBootstrapService(db).EnsureReadyAsync();
 

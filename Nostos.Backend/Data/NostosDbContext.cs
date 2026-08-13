@@ -253,10 +253,12 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
         });
 
         // Idempotent receipt with bounded inputs (SQLite enforces the limits
-        // via the CHECK constraint, not the metadata-only MaxLength).
+        // via the CHECK constraint, not the metadata-only MaxLength). The
+        // CreatedAt index backs the retention prune (issue #51).
         modelBuilder.Entity<LibraryCommandReceipt>(e =>
         {
             e.HasIndex(x => new { x.ClientId, x.IdempotencyKey }).IsUnique();
+            e.HasIndex(x => x.CreatedAt);
             e.ToTable(t => t.HasCheckConstraint(
                 "CK_LibraryCommandReceipts_Bounds",
                 "length(\"ClientId\") <= 64 AND length(\"IdempotencyKey\") <= 128 AND " +

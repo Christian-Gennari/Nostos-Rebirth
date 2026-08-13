@@ -66,6 +66,16 @@ Post-creation duplicates: unique ISBN/ASIN indexes prevent strong-identity dups;
 - Bound client-id/key/response sizes (see reading receipt limits; keep response payloads small).
 - MCP tools delegate exactly once to `ILibraryService`, return the envelope unchanged; no EF, no filesystem, no lookup logic, no validation in the tool class.
 
+### 5.1 Receipt retention boundary (issue #51)
+
+Library command receipts are retained for a bounded window only; retention is part of the contract, not invisible cleanup.
+
+- Same-key replay is exact and frozen (`duplicate = true`, stored response replayed) **only while its receipt is retained**.
+- Receipt retention defaults to **90 days** and is additionally **count-bounded at 10,000 receipts** (oldest first); both bounds are configurable under `LibraryReceiptRetention` and clamped to safe ranges.
+- After expiry (or eviction past the count cap) the key is treated as **new**: the command executes again against current state, converging through the library's normalized identities and not-found/no-op rules.
+- **Clients must not treat idempotency keys as permanent command identifiers.** A command whose replay window has closed may legitimately re-execute; designs that need durable provenance must record the canonical `bookId`/`collectionId` returned in the response.
+- The retention policy is library-only. Reading Training receipts and import receipts are deliberately not pruned — some reading commands are not effect-idempotent after receipt loss.
+
 ## 6. Stable error codes
 
 `invalid_idempotency`, `book_not_found`, `collection_not_found`, `invalid_book_identity`,
