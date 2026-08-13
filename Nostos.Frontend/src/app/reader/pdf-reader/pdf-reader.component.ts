@@ -23,7 +23,20 @@ import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 import { PdfAnnotationManager, PageHighlight } from './pdf-annotation-manager';
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
+import { ThemeService, Theme } from '../../core/services/theme.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
+
+/**
+ * Surround-canvas colors for the pdf.js viewer, mirroring the Nostos tokens
+ * from styles.css (--bg-surface per theme). Only the viewing canvas around
+ * the PDF is themed; `pdfBackgroundColor` stays unset so page pixels remain
+ * exactly as authored (no inversion, no filters).
+ */
+const PDF_SURROUND: Record<Theme, string> = {
+  light: '#fefeff',
+  dark: '#161a21',
+  sepia: '#faf5e8',
+};
 
 interface PendingPdfHighlight {
   tempId: string;
@@ -43,6 +56,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   private highlightService = inject(PdfAnnotationManager);
   private notesService = inject(NotesService);
   private booksService = inject(BooksService);
+  private themeService = inject(ThemeService);
 
   @ViewChild(NgxExtendedPdfViewerComponent) pdfViewer!: NgxExtendedPdfViewerComponent;
 
@@ -57,6 +71,8 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   sidebarVisibleChange = output<boolean>();
 
   pdfSrc = computed(() => `/api/books/${this.bookId()}/file`);
+  /** Themed surround canvas (replaces the hard-coded '#fefeff'). */
+  pdfBackgroundColor = computed(() => PDF_SURROUND[this.themeService.theme()]);
   savedHighlights: PageHighlight[] = [];
 
   private pendingHighlight: PendingPdfHighlight | null = null;
