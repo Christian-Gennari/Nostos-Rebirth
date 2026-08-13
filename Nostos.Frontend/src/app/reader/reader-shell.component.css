@@ -329,6 +329,7 @@
   background: var(--bg-surface);
   border-top: 1px solid var(--border-color);
   padding: 0;
+  padding-bottom: max(var(--space-3, 0.75rem), env(safe-area-inset-bottom));
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
 }
 

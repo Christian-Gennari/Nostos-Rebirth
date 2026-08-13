@@ -10,9 +10,10 @@ import {
   inject,
   Injector,
   ElementRef,
+  untracked,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import ePub, { Book, Rendition } from 'epubjs';
+import ePub, { Book, Rendition, Contents } from 'epubjs';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
@@ -91,7 +92,10 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   constructor() {
     effect(() => {
       if (this.bookId()) {
-        this.loadBook(this.bookId());
+        // loadBook reads highlightMode() to sync the manager before display;
+        // untracked keeps that read out of this effect's dependencies so a
+        // mode toggle never re-triggers a full book reload.
+        untracked(() => this.loadBook(this.bookId()));
       }
     });
 
@@ -184,10 +188,11 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
 
   loadBook(id: string) {
     if (this.book) {
+      this.annotationManager?.destroy();
+      this.annotationManager = null;
       this.book.destroy();
       this.book = null;
       this.rendition = null;
-      this.annotationManager = null;
       this.currentCfi = null;
     }
 
@@ -214,10 +219,25 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     });
 
     // 3. Register Hooks
-    this.rendition.hooks.content.register((contents: any) => {
+    this.rendition.hooks.content.register((contents: Contents) => {
       this.injectCustomStyles(contents);
-      this.annotationManager?.injectHighlightStyles(contents);
+      this.annotationManager?.registerContents(contents);
     });
+
+    // Initialize the annotation manager BEFORE the first display so the
+    // opening section receives the injected styles and fallback listeners.
+    this.annotationManager = new EpubAnnotationManager(
+      this.rendition,
+      id,
+      this.injector,
+      () => this.noteCreated.emit(),
+      () => this.commitFailed.emit(),
+    );
+    this.annotationManager.setHighlightMode(this.highlightMode());
+    this.annotationManager.setOnSelectionCaptured((text) =>
+      this.selectionCaptured.emit(text),
+    );
+    this.annotationManager.init();
 
     this.rendition.on('relocated', (location: any) => {
       this.currentCfi = location.start.cfi;
@@ -272,19 +292,6 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
         this.loading.set(false);
         this.applyTheme();
         this.applyFontSize();
-
-        this.annotationManager = new EpubAnnotationManager(
-          this.rendition!,
-          id,
-          this.injector,
-          () => this.noteCreated.emit(),
-          () => this.commitFailed.emit(),
-        );
-        this.annotationManager.setHighlightMode(this.highlightMode());
-        this.annotationManager.setOnSelectionCaptured((text) =>
-          this.selectionCaptured.emit(text),
-        );
-        this.annotationManager.init();
 
         this.notesService.list(id).subscribe({
           next: (notes) => this.annotationManager?.restoreHighlights(notes),
@@ -419,6 +426,8 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     this.resizeObserver?.disconnect();
     this.resizeSubject$.complete();
     this.progressUpdater$.complete();
+    this.annotationManager?.destroy();
+    this.annotationManager = null;
     if (this.book) {
       this.book.destroy();
     }
