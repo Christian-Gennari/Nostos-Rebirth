@@ -63,11 +63,36 @@ logger = logging.getLogger(__name__)
 #       reading-training:
 #         owner_id: "<telegram user id>"      # required — exact string match
 #         chat_id: <telegram chat id>          # required — int or digit string
-#         thread_id: <numeric topic thread>    # required — int or digit string
+#         thread_id: <numeric topic thread>    # required (telegram) — int/digit
 #         base_url: "http://127.0.0.1:5214"    # optional — Nostos origin
 #         timeout: 5.0                         # optional — finite positive
 #         client_id: "nostos-telegram"         # optional — dispatch identity
-#         platform: "telegram"                 # optional — only telegram valid
+#         platform: "telegram"                 # optional — telegram|discord
+#
+# Multi-platform setups add a ``scopes`` list (each scope is one exact
+# platform/owner/chat/thread scope; ``base_url`` / ``timeout`` stay at the
+# top level and are shared):
+#
+#   plugins:
+#     entries:
+#       reading-training:
+#         base_url: "http://127.0.0.1:5214"
+#         timeout: 5.0
+#         scopes:
+#           - platform: telegram
+#             owner_id: "<telegram user id>"
+#             chat_id: <telegram chat id>
+#             thread_id: <numeric topic thread>
+#             client_id: nostos-telegram
+#           - platform: discord
+#             owner_id: "<discord user id>"
+#             chat_id: <discord channel id>
+#             client_id: nostos-discord
+#
+# When ``scopes`` is present it is authoritative; the flat single-scope form
+# above is treated as one telegram scope. Discord scopes may omit
+# ``thread_id`` (channel-level scope — any message in the channel counts) or
+# set it (thread-level scope).
 #
 # Missing or invalid values make the connector inactive: both hooks become
 # cheap no-ops (one clear startup warning) and every message keeps its
@@ -97,7 +122,8 @@ ANSWER_NOW_FORMS = frozenset({"answer now", "answer now please"})
 class HookState:
     """Process-local hook state — config, client, and ephemeral correlation.
 
-    Holds zero reading-training domain state. ``pending`` maps
+    Holds zero reading-training domain state. ``configs`` is the tuple of
+    exact routing scopes (one per platform/chat/thread), ``pending`` maps
     ``(chat_id, thread_id, sender_id, stripped_text)`` -> ephemeral context
     string for correlating a ``pre_gateway_dispatch`` outcome with the same
     turn's ``pre_llm_call``; entries are created only for messages the
@@ -105,22 +131,27 @@ class HookState:
     next event in the same scope.
     """
 
-    __slots__ = ("config", "client", "pending", "inactive_reason")
+    __slots__ = ("configs", "client", "pending", "inactive_reason")
 
     def __init__(
         self,
-        config: Optional[_routing.ConnectorConfig],
+        configs: Tuple[_routing.ConnectorConfig, ...],
         client: Optional[_client.NostosClient],
         inactive_reason: str = "",
     ) -> None:
-        self.config = config
+        self.configs = configs
         self.client = client
         self.pending: dict = {}
         self.inactive_reason = inactive_reason
 
     @property
+    def config(self) -> Optional[_routing.ConnectorConfig]:
+        """Back-compat: the first configured scope (tests / diagnostics)."""
+        return self.configs[0] if self.configs else None
+
+    @property
     def active(self) -> bool:
-        return self.config is not None and self.config.active and self.client is not None
+        return bool(self.configs) and self.client is not None
 
 
 # Module-level state, replaced by ``_configure`` (called from ``register``
@@ -139,29 +170,69 @@ def _is_answer_now(text: str) -> bool:
     return _normalize(text) in ANSWER_NOW_FORMS
 
 
+def _scope_from_mapping(
+    scope: Mapping[str, Any],
+) -> Tuple[Optional[_routing.ConnectorConfig], str]:
+    """Build one routing scope from a flat mapping, plus its inactive reason.
+
+    Returns ``(config, "")`` when the scope parses, else ``(None, reason)``
+    naming only the offending fields — never their values.
+    """
+    if not isinstance(scope, dict):
+        return None, "scope entry is not a mapping"
+    platform = str(scope.get("platform") or _routing.PLATFORM_TELEGRAM).strip()
+    default_client = (
+        _routing.DEFAULT_DISCORD_CLIENT_ID
+        if platform == _routing.PLATFORM_DISCORD
+        else _routing.DEFAULT_CLIENT_ID
+    )
+    config = _routing.ConnectorConfig(
+        owner_id=scope.get("owner_id"),
+        chat_id=scope.get("chat_id"),
+        thread_id=scope.get("thread_id"),
+        platform=platform,
+        client_id=scope.get("client_id", default_client),
+    )
+    issues: list = list(_routing.config_issues(config))
+    if issues:
+        return None, "invalid config field(s): " + ", ".join(sorted(set(issues)))
+    return config, ""
+
+
 def _config_from_mapping(
     mapping: Optional[Mapping[str, Any]]
-) -> Tuple[Optional[_routing.ConnectorConfig], Optional[_client.NostosClient], str]:
-    """Build (config, client, inactive_reason) from a config mapping.
+) -> Tuple[Tuple[_routing.ConnectorConfig, ...], Optional[_client.NostosClient], str]:
+    """Build (configs, client, inactive_reason) from a config mapping.
 
-    Any missing/invalid value yields an inactive state with a stable reason
-    string naming only the offending fields — never their values.
+    Accepts either the flat single-scope form (treated as one telegram
+    scope) or a ``scopes`` list (authoritative when present; ``base_url`` /
+    ``timeout`` are read from the top level in both forms). Any missing or
+    invalid value yields an inactive state with a stable reason string
+    naming only the offending fields — never their values.
     """
     if not isinstance(mapping, dict):
-        return None, None, f"missing/invalid config entry plugins.entries.{CONFIG_SECTION}"
+        return (), None, f"missing/invalid config entry plugins.entries.{CONFIG_SECTION}"
 
     base_url = mapping.get("base_url", _client.DEFAULT_BASE_URL)
     timeout = mapping.get("timeout", _client.DEFAULT_TIMEOUT)
 
-    config = _routing.ConnectorConfig(
-        owner_id=mapping.get("owner_id"),
-        chat_id=mapping.get("chat_id"),
-        thread_id=mapping.get("thread_id"),
-        platform=mapping.get("platform", _routing.PLATFORM_TELEGRAM),
-        client_id=mapping.get("client_id", _routing.DEFAULT_CLIENT_ID),
-    )
+    scopes = mapping.get("scopes")
+    if isinstance(scopes, list) and scopes:
+        raw_scopes: list = list(scopes)
+    else:
+        # Flat single-scope form -> one telegram scope (legacy behavior).
+        raw_scopes = [dict(mapping)]
 
-    issues: list = list(_routing.config_issues(config))
+    configs: list = []
+    issues: list = []
+    for raw in raw_scopes:
+        scope_cfg, reason = _scope_from_mapping(raw)
+        if scope_cfg is None:
+            issues.append(reason or "invalid scope")
+            continue
+        configs.append(scope_cfg)
+    if not configs:
+        return (), None, "; ".join(issues) or "no valid scope"
 
     base_url_valid = True
     if not isinstance(base_url, str) or not base_url.strip():
@@ -184,8 +255,8 @@ def _config_from_mapping(
         issues.append("timeout")
 
     if issues:
-        return config, None, "invalid config field(s): " + ", ".join(sorted(set(issues)))
-    return config, _client.NostosClient(base_url, timeout), ""
+        return (), None, "invalid config field(s): " + ", ".join(sorted(set(issues)))
+    return tuple(configs), _client.NostosClient(base_url, timeout), ""
 
 
 def _configure(mapping: Optional[Mapping[str, Any]] = None) -> HookState:
@@ -196,8 +267,8 @@ def _configure(mapping: Optional[Mapping[str, Any]] = None) -> HookState:
     no-op — no global effects.
     """
     global _state
-    config, client, reason = _config_from_mapping(mapping)
-    _state = HookState(config, client, reason)
+    configs, client, reason = _config_from_mapping(mapping)
+    _state = HookState(configs, client, reason)
     if not _state.active:
         logger.warning(
             "nostos reading connector inactive (%s); all messages keep their ordinary Hermes path",
@@ -333,17 +404,23 @@ def pre_gateway_dispatch(event: Any, gateway: Any = None, **_kwargs: Any) -> Opt
     state = _state
     if state is None or not state.active:
         return None
-    config = state.config
     client = state.client
-    if config is None or client is None:
+    if client is None:
         return None
 
     message = _message_from_event(event)
     if message is None:
         return None
 
-    decision = _routing.classify(config, message)
-    if not decision.eligible:
+    # First configured scope that matches the message wins (configs are
+    # ordered telegram-first by convention, but matching is scope-exact).
+    decision = None
+    for config in state.configs:
+        decision = _routing.classify(config, message)
+        if decision.eligible:
+            matched = config
+            break
+    else:
         return None
 
     key = _pending_key(message)
@@ -351,7 +428,7 @@ def pre_gateway_dispatch(event: Any, gateway: Any = None, **_kwargs: Any) -> Opt
 
     try:
         result = client.dispatch(
-            config.client_id, decision.idempotency_key, decision.text
+            matched.client_id, decision.idempotency_key, decision.text
         )
     except _client.NostosClientError:
         # Fail open: no local mutation, no fallback, no injection. The
@@ -425,17 +502,11 @@ def _llm_eligible_key(
     """Exact-scope gate for ``pre_llm_call`` (no MessageEvent available).
 
     The message-id-free analog of ``routing.classify``: exact owner /
-    platform / chat / thread from the parsed gateway session key plus the
-    same text hygiene (empty/slash/synthetic/cron). Returns the pending-map
-    key when the turn is in scope, else None.
+    platform / chat / thread (platform-aware — Telegram requires the exact
+    thread, Discord accepts channel-level) from the parsed gateway session
+    key plus the same text hygiene (empty/slash/synthetic/cron). Returns
+    the pending-map key when the turn is in scope, else None.
     """
-    config = state.config
-    if config is None:
-        return None
-    if platform != config.platform:
-        return None
-    if str(sender_id or "") != str(config.owner_id):
-        return None
     if not isinstance(text, str) or text.strip() == "":
         return None
     if text.startswith("/") or text.startswith(_routing.SYNTHETIC_DELIVERY_PREFIXES):
@@ -445,18 +516,32 @@ def _llm_eligible_key(
     source = _parse_session_key(session_id)
     if source is None:
         return None
-    if source.get("platform") != config.platform:
-        return None
-    if str(source.get("chat_id") or "") != str(config.chat_id):
-        return None
-    if str(source.get("thread_id") or "") != str(config.thread_id):
-        return None
-    return (
-        str(config.chat_id),
-        str(config.thread_id),
-        str(sender_id or ""),
-        text.strip(),
-    )
+    # First configured scope that matches the session scope wins.
+    for config in state.configs:
+        if platform != config.platform:
+            continue
+        if str(sender_id or "") != str(config.owner_id):
+            continue
+        if source.get("platform") != config.platform:
+            continue
+        if str(source.get("chat_id") or "") != str(config.chat_id):
+            continue
+        if config.is_telegram:
+            # Telegram: exact numeric thread required (forum topic scope).
+            if str(source.get("thread_id") or "") != str(config.thread_id):
+                continue
+        elif config.thread_id is not None:
+            # Discord thread-level scope: exact thread match.
+            if str(source.get("thread_id") or "") != str(config.thread_id):
+                continue
+        # Discord channel-level scope: any session in the channel matches.
+        return (
+            str(config.chat_id),
+            str(source.get("thread_id") or ""),
+            str(sender_id or ""),
+            text.strip(),
+        )
+    return None
 
 
 def pre_llm_call(

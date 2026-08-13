@@ -53,6 +53,10 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
     public DbSet<ReadingCommandReceipt> ReadingCommandReceipts => Set<ReadingCommandReceipt>();
     public DbSet<ReadingImportReceipt> ReadingImportReceipts => Set<ReadingImportReceipt>();
 
+    // Register Library domain (issue #34)
+    public DbSet<LibraryCommandReceipt> LibraryCommandReceipts => Set<LibraryCommandReceipt>();
+    public DbSet<LibraryState> LibraryStates => Set<LibraryState>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeValueConverter>();
@@ -99,6 +103,16 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
         modelBuilder.Entity<BookModel>().HasIndex(b => b.Author);
 
         modelBuilder.Entity<BookModel>().HasIndex(b => b.CollectionId);
+
+        // Normalized identity uniqueness (filtered: NULLs are unlimited).
+        modelBuilder.Entity<BookModel>()
+            .HasIndex(b => b.NormalizedIsbn)
+            .IsUnique()
+            .HasFilter("\"NormalizedIsbn\" IS NOT NULL");
+        modelBuilder.Entity<BookModel>()
+            .HasIndex(b => b.NormalizedAsin)
+            .IsUnique()
+            .HasFilter("\"NormalizedAsin\" IS NOT NULL");
 
         modelBuilder.Entity<NoteModel>().HasIndex(n => n.BookId);
 
@@ -220,6 +234,38 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
         modelBuilder.Entity<ReadingImportReceipt>(e =>
         {
             e.HasIndex(i => i.SourceFingerprint).IsUnique();
+        });
+
+        // Idempotent receipt with bounded inputs (SQLite enforces the limits
+        // via the CHECK constraint, not the metadata-only MaxLength).
+        modelBuilder.Entity<LibraryCommandReceipt>(e =>
+        {
+            e.HasIndex(x => new { x.ClientId, x.IdempotencyKey }).IsUnique();
+            e.ToTable(t => t.HasCheckConstraint(
+                "CK_LibraryCommandReceipts_Bounds",
+                "length(\"ClientId\") <= 64 AND length(\"IdempotencyKey\") <= 128 AND " +
+                "length(\"CommandKind\") <= 32 AND length(\"ResponseJson\") <= 131072"));
+        });
+
+        // --- LIBRARY DOMAIN (issue #34) ---
+
+        // Singleton library state row: exactly one LibraryState. The fixed
+        // sentinel is enforced by a CHECK constraint; the unique index on
+        // SingletonSlot then allows at most one row.
+        modelBuilder.Entity<LibraryState>(e =>
+        {
+            e.HasIndex(s => s.SingletonSlot).IsUnique();
+            e.ToTable(t => t.HasCheckConstraint(
+                "CK_LibraryStates_SingletonSlot",
+                $"SingletonSlot = {LibraryState.SingletonSentinel}"));
+        });
+
+        // Exact-once command idempotency for library mutations (separate from
+        // ReadingCommandReceipt so keys can never replay across domains; the
+        // bounds CHECK lives with the canonical config above).
+        modelBuilder.Entity<LibraryCommandReceipt>(e =>
+        {
+            e.HasIndex(c => new { c.ClientId, c.IdempotencyKey }).IsUnique();
         });
     }
 }

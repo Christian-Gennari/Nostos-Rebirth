@@ -1,5 +1,4 @@
-using Nostos.Backend.Data.Interfaces;
-using Nostos.Backend.Mapping;
+using Nostos.Backend.Services.Library;
 using Nostos.Shared.Dtos;
 
 namespace Nostos.Backend.Endpoints;
@@ -13,101 +12,85 @@ public static class CollectionsEndpoints
         // GET: Fetch all collections (FLAT)
         group.MapGet(
             "/",
-            async (ICollectionRepository repo) =>
+            async (ILibraryService library, CancellationToken ct) =>
             {
-                var items = await repo.GetAllAsync();
-                var dtos = items.Select(c => new CollectionDto(c.Id, c.Name, c.ParentId));
-                return Results.Ok(dtos);
+                var result = await library.ListCollectionsAsync(ct);
+                return LibraryHttpMapper.MapError(result) ?? Results.Ok(result.Data);
             }
         );
 
         // GET one collection
         group.MapGet(
             "/{id}",
-            async (Guid id, ICollectionRepository repo) =>
+            async (Guid id, ILibraryService library, CancellationToken ct) =>
             {
-                var collection = await repo.GetByIdAsync(id);
-                if (collection is null)
-                    return Results.NotFound();
-
-                return Results.Ok(collection.ToDto());
+                var result = await library.GetCollectionAsync(id, ct);
+                return LibraryHttpMapper.MapError(result) ?? Results.Ok(result.Data);
             }
         );
 
-        // CREATE collection
+        // CREATE collection (duplicate sibling name returns the existing
+        // collection, mirroring the canonical service contract)
         group.MapPost(
             "/",
-            async (CreateCollectionDto dto, ICollectionRepository repo) =>
+            async (CreateCollectionDto dto, ILibraryService library, CancellationToken ct) =>
             {
-                if (string.IsNullOrWhiteSpace(dto.Name))
-                    return Results.BadRequest(new { error = "Name is required." });
+                var request = new LibraryCreateCollectionRequest(
+                    "rest", $"rest-collection-create-{Guid.NewGuid():N}",
+                    dto.Name, dto.ParentId);
 
-                var model = dto.ToModel();
-                await repo.AddAsync(model);
+                var result = await library.CreateCollectionAsync(request, ct);
+                if (LibraryHttpMapper.MapError(result) is { } error)
+                    return error;
 
-                return Results.Created($"/api/collections/{model.Id}", model.ToDto());
+                var collection = (CollectionDto)result.Data!;
+                return Results.Created($"/api/collections/{collection.Id}", collection);
             }
         );
 
-        // UPDATE collection
+        // UPDATE collection (name and/or parent; canonical service performs
+        // sibling-collision and cycle detection)
         group.MapPut(
             "/{id}",
-            async (Guid id, UpdateCollectionDto dto, ICollectionRepository repo) =>
+            async (Guid id, UpdateCollectionDto dto, ILibraryService library, CancellationToken ct) =>
             {
-                var existing = await repo.GetByIdAsync(id);
-                if (existing is null)
-                    return Results.NotFound();
+                var current = await library.GetCollectionAsync(id, ct);
+                if (LibraryHttpMapper.MapError(current) is { } notFound)
+                    return notFound;
 
-                if (string.IsNullOrWhiteSpace(dto.Name))
-                    return Results.BadRequest(new { error = "Name is required." });
+                var before = (CollectionDto)current.Data!;
 
-                // --- CYCLE DETECTION START ---
-                if (dto.ParentId.HasValue)
+                if (before.ParentId != dto.ParentId)
                 {
-                    if (dto.ParentId == id)
-                        return Results.BadRequest(
-                            new { error = "Cannot move a collection into itself." }
-                        );
-
-                    var currentAncestorId = dto.ParentId;
-                    var visited = new HashSet<Guid>();
-                    while (currentAncestorId != null)
-                    {
-                        if (!visited.Add(currentAncestorId.Value))
-                            return Results.BadRequest(
-                                new { error = "Circular reference detected in collection hierarchy." }
-                            );
-
-                        if (currentAncestorId == id)
-                            return Results.BadRequest(
-                                new { error = "Cannot move a collection into its own child." }
-                            );
-
-                        currentAncestorId = await repo.GetParentIdAsync(currentAncestorId.Value);
-                    }
+                    var moved = await library.MoveCollectionAsync(new LibraryMoveCollectionRequest(
+                        "rest", $"rest-collection-move-{Guid.NewGuid():N}", id, dto.ParentId), ct);
+                    if (LibraryHttpMapper.MapError(moved) is { } moveError)
+                        return moveError;
                 }
-                // --- CYCLE DETECTION END ---
 
-                existing.Apply(dto);
-                await repo.UpdateAsync(existing);
+                if (!string.Equals(before.Name, dto.Name, StringComparison.Ordinal))
+                {
+                    var renamed = await library.RenameCollectionAsync(new LibraryRenameCollectionRequest(
+                        "rest", $"rest-collection-rename-{Guid.NewGuid():N}", id, dto.Name), ct);
+                    if (LibraryHttpMapper.MapError(renamed) is { } renameError)
+                        return renameError;
+                }
 
-                return Results.Ok(existing.ToDto());
+                var after = await library.GetCollectionAsync(id, ct);
+                return LibraryHttpMapper.MapError(after) ?? Results.Ok(after.Data);
             }
         );
 
-        // DELETE collection
+        // DELETE collection (books are unlinked, never deleted; children must
+        // be moved/deleted first)
         group.MapDelete(
             "/{id}",
-            async (Guid id, ICollectionRepository repo) =>
+            async (Guid id, ILibraryService library, CancellationToken ct) =>
             {
-                var existing = await repo.GetByIdAsync(id);
-                if (existing is null)
-                    return Results.NotFound();
+                var result = await library.DeleteCollectionAsync(new LibraryDeleteCollectionRequest(
+                    "rest", $"rest-collection-delete-{Guid.NewGuid():N}", id, Confirm: true), ct);
 
-                await repo.UnlinkBooksAsync(id);
-                await repo.DeleteAsync(existing);
-
-                return Results.NoContent();
+                return LibraryHttpMapper.MapError(result) ?? Results.NoContent();
             }
         );
 

@@ -10,6 +10,7 @@ Reading Training is a standalone Nostos capability. Nostos SQLite owns programme
 - [`progression.md`](progression.md) — Endurance, Deep, Recovery, weekly evidence, holds, increases, deloads, consolidation, and the volume guard.
 - [`contracts.md`](contracts.md) — exact-once commands/captures, assignments, weekly reviews, notification outbox, stable envelopes, and reply vocabulary.
 - [`fixtures/behaviour-v1.json`](fixtures/behaviour-v1.json) — the 15 frozen parity cases plus a separate heavy-week stress case.
+- [`../library-mcp-contracts.md`](../library-mcp-contracts.md) — the library-domain contract twin (frozen 2026-08-12, issue #34): canonical `ILibraryService`, the 11 library MCP tools, identity normalization, and exact-once rules for the books and collections the training programme draws on.
 
 The machine-readable fixture mirrors `tests/fixtures/reading-training/behaviour-v1.json`, whose cases execute against the real Nostos engine.
 

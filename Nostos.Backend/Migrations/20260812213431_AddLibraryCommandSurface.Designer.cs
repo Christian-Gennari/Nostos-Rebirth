@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nostos.Backend.Data;
 
@@ -10,9 +11,11 @@ using Nostos.Backend.Data;
 namespace Nostos.Backend.Migrations
 {
     [DbContext(typeof(NostosDbContext))]
-    partial class NostosDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260812213431_AddLibraryCommandSurface")]
+    partial class AddLibraryCommandSurface
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.0");
@@ -153,12 +156,10 @@ namespace Nostos.Backend.Migrations
 
                     b.Property<string>("ClientId")
                         .IsRequired()
-                        .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("CommandKind")
                         .IsRequired()
-                        .HasMaxLength(32)
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAt")
@@ -166,12 +167,10 @@ namespace Nostos.Backend.Migrations
 
                     b.Property<string>("IdempotencyKey")
                         .IsRequired()
-                        .HasMaxLength(128)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ResponseJson")
                         .IsRequired()
-                        .HasMaxLength(131072)
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -179,10 +178,7 @@ namespace Nostos.Backend.Migrations
                     b.HasIndex("ClientId", "IdempotencyKey")
                         .IsUnique();
 
-                    b.ToTable("LibraryCommandReceipts", t =>
-                        {
-                            t.HasCheckConstraint("CK_LibraryCommandReceipts_Bounds", "length(\"ClientId\") <= 64 AND length(\"IdempotencyKey\") <= 128 AND length(\"CommandKind\") <= 32 AND length(\"ResponseJson\") <= 131072");
-                        });
+                    b.ToTable("LibraryCommandReceipts");
                 });
 
             modelBuilder.Entity("Nostos.Backend.Data.Models.LibraryState", b =>

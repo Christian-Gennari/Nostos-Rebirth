@@ -63,6 +63,8 @@ public sealed class McpHttpFactory : WebApplicationFactory<Program>
         return webRoot;
     }
 
+    public string DatabasePath => _dbPath;
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseWebRoot(_webRootPath);
@@ -301,11 +303,14 @@ public sealed class McpHttpTests
         serverInfo.GetProperty("version").GetString().Should().NotBeNullOrEmpty();
         // Task 9A registered only the static identity tool; Task 9B1 replaced
         // it with the read-only Reading Training tool surface, Task 9B2 adds
-        // the nine exact-once session/capture mutation tools, and Task 9B2b
-        // adds the five book/capture/weekly-review mutations. The protocol-
-        // level tools/list call below verifies discovery over the real
-        // transport: exactly the twenty-one tools, no bootstrap identity
+        // the nine exact-once session/capture mutation tools, Task 9B2b
+        // adds the five book/capture/weekly-review mutations, and issue #29
+        // added the queue mode-change/remove tools. The protocol-level
+        // tools/list call below verifies discovery over the real transport:
+        // exactly the twenty-three reading tools, no bootstrap identity
         // tool, and no client id/key arguments on the read surface.
+        // (Issue #34 adds the library_* surface; its manifest is asserted in
+        // LibraryMcpHttpTests.)
         var toolsList = await PostWithAuth(client, TestToken, body: ToolsListBody());
         toolsList.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -345,9 +350,24 @@ public sealed class McpHttpTests
             "reading_resolve_capture",
             "reading_commit_review",
         };
+        // The library surface (issue #34) extends the reading manifest.
+        var expectedLibraryNames = new[]
+        {
+            "library_list_books",
+            "library_get_book",
+            "library_resolve_book",
+            "library_create_or_match_book",
+            "library_update_book",
+            "library_list_collections",
+            "library_get_collection",
+            "library_create_collection",
+            "library_rename_collection",
+            "library_move_collection",
+            "library_delete_collection",
+        };
         var names = tools.EnumerateArray().Select(t => t.GetProperty("name").GetString()).ToList();
-        names.Should().HaveCount(expectedReadNames.Length + expectedMutationNames.Length)
-            .And.BeEquivalentTo(expectedReadNames.Concat(expectedMutationNames));
+        names.Should().HaveCount(expectedReadNames.Length + expectedMutationNames.Length + expectedLibraryNames.Length)
+            .And.BeEquivalentTo(expectedReadNames.Concat(expectedMutationNames).Concat(expectedLibraryNames));
         names.Should().NotContain("nostos_server_info");
 
         var byName = tools.EnumerateArray().ToDictionary(t => t.GetProperty("name").GetString()!);

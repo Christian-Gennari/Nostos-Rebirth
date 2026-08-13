@@ -229,7 +229,11 @@ class TestRegistration:
     def test_register_without_config_still_registers_and_warns_once(
         self, plugin_ctx, manager, caplog, monkeypatch
     ):
-        monkeypatch.setattr(hooks, "_load_hermes_config", lambda _section: None)
+        # Hermetic: the host's real config.yaml may carry a valid
+        # reading-training entry, which would make registration active and
+        # suppress the warning. Pin "no config" explicitly so the register
+        # path is what's exercised, not the environment.
+        monkeypatch.setattr(hooks, "_load_hermes_config", lambda section: None)
         with caplog.at_level(logging.WARNING, logger=_HOOK_LOGGER):
             hooks.register(plugin_ctx)
             for _ in range(3):
@@ -290,7 +294,7 @@ class TestInactive:
             ({"thread_id": "abc"}, "thread_id"),
             ({"chat_id": "not-a-number"}, "chat_id"),
             ({"owner_id": ""}, "owner_id"),
-            ({"platform": "discord"}, "platform"),
+            ({"platform": "slack"}, "platform"),
         ],
     )
     def test_invalid_fields_named_in_warning(self, caplog, overrides, field):
@@ -581,6 +585,129 @@ class TestEligibleDispatch:
         result = llm_call("pause")
         assert hooks.COMMITTED_MARKER in result["context"]
         assert "Already handled." in result["context"]
+
+
+# --------------------------------------------------------------------------
+# Multi-platform scopes: telegram + discord in one connector config
+# --------------------------------------------------------------------------
+
+DISCORD_OWNER = "987654321012345678"
+DISCORD_CHANNEL = 112233445566778899
+
+
+class TestMultiScope:
+    def _multi_scope_config(self, gateway_server) -> dict:
+        return {
+            "base_url": gateway_server,
+            "timeout": 2.0,
+            "scopes": [
+                {
+                    "platform": "telegram",
+                    "owner_id": OWNER,
+                    "chat_id": CHAT,
+                    "thread_id": THREAD,
+                    "client_id": CLIENT_ID,
+                },
+                {
+                    "platform": "discord",
+                    "owner_id": DISCORD_OWNER,
+                    "chat_id": DISCORD_CHANNEL,
+                    "client_id": "nostos-discord",
+                },
+            ],
+        }
+
+    def test_multi_scope_state_active_with_both(self, gateway_server):
+        state = hooks._configure(self._multi_scope_config(gateway_server))
+        assert state.active
+        assert len(state.configs) == 2
+        assert state.configs[0].is_telegram
+        assert state.configs[1].is_discord
+        assert state.configs[1].thread_id is None  # channel-level scope
+
+    def test_telegram_message_routes_with_telegram_client_id(
+        self, gateway_server, recorded_requests
+    ):
+        state = hooks._configure(self._multi_scope_config(gateway_server))
+        assert state.active
+        _GatewayHandler.response_queue.append((200, envelope("ok"), "application/json"))
+        hooks.pre_gateway_dispatch(make_event(text="pause"), gateway=None)
+        (method, path, body), = recorded_requests
+        assert json.loads(body)["clientId"] == CLIENT_ID
+        assert json.loads(body)["text"] == "pause"
+
+    def test_discord_message_routes_with_discord_client_id(
+        self, gateway_server, recorded_requests
+    ):
+        state = hooks._configure(self._multi_scope_config(gateway_server))
+        assert state.active
+        _GatewayHandler.response_queue.append((200, envelope("ok"), "application/json"))
+        event = make_event(
+            text="start",
+            user_id=DISCORD_OWNER,
+            platform="discord",
+            chat_id=DISCORD_CHANNEL,
+            thread_id=None,
+            message_id="2001",
+        )
+        hooks.pre_gateway_dispatch(event, gateway=None)
+        (method, path, body), = recorded_requests
+        parsed = json.loads(body)
+        assert parsed["clientId"] == "nostos-discord"
+        assert parsed["idempotencyKey"] == f"nostos-reading:discord:{DISCORD_CHANNEL}:2001"
+        assert parsed["text"] == "start"
+
+    def test_discord_llm_call_injects_committed_context(
+        self, gateway_server, recorded_requests
+    ):
+        state = hooks._configure(self._multi_scope_config(gateway_server))
+        assert state.active
+        reply = "Session started."
+        _GatewayHandler.response_queue.append((200, envelope(reply), "application/json"))
+        hooks.pre_gateway_dispatch(
+            make_event(
+                text="start",
+                user_id=DISCORD_OWNER,
+                platform="discord",
+                chat_id=DISCORD_CHANNEL,
+                thread_id=None,
+                message_id="2001",
+            ),
+            gateway=None,
+        )
+        result = hooks.pre_llm_call(
+            user_message="start",
+            turn_id="t",
+            sender_id=DISCORD_OWNER,
+            platform="discord",
+            session_id=f"agent:main:discord:channel:{DISCORD_CHANNEL}",
+        )
+        assert result is not None and "context" in result
+        assert hooks.COMMITTED_MARKER in result["context"]
+        assert reply in result["context"]
+
+    def test_discord_wrong_sender_rejected(self, gateway_server, recorded_requests):
+        state = hooks._configure(self._multi_scope_config(gateway_server))
+        assert state.active
+        event = make_event(
+            text="start",
+            user_id="someone-else",
+            platform="discord",
+            chat_id=DISCORD_CHANNEL,
+            thread_id=None,
+            message_id="2001",
+        )
+        hooks.pre_gateway_dispatch(event, gateway=None)
+        assert recorded_requests == []  # never reaches Nostos
+
+    def test_telegram_still_works_after_discord_scope(self, gateway_server, recorded_requests):
+        state = hooks._configure(self._multi_scope_config(gateway_server))
+        assert state.active
+        _GatewayHandler.response_queue.append((200, envelope("ok"), "application/json"))
+        # Telegram event (no thread -> wrong_thread for the telegram scope).
+        hooks.pre_gateway_dispatch(make_event(text="pause"), gateway=None)
+        assert len(recorded_requests) == 1
+        assert json.loads(recorded_requests[0][2])["clientId"] == CLIENT_ID
 
 
 # --------------------------------------------------------------------------

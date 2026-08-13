@@ -10,6 +10,7 @@ using Nostos.Backend.Configuration;
 using Nostos.Backend.Integrations.Mcp;
 using Nostos.Backend.Serialization;
 using Nostos.Backend.Services;
+using Nostos.Backend.Services.Library;
 using Nostos.Backend.Services.ReadingTraining;
 using Nostos.Backend.Services.ReadingTraining.Import;
 using Nostos.Backend.Workers;
@@ -114,7 +115,14 @@ builder.Services.AddProblemDetails();
 builder.Services.AddSingleton<IFileStorageService, FileStorageService>();
 builder.Services.AddSingleton<BackupSettingsProvider>();
 builder.Services.AddHttpClient();
+builder.Services.AddHttpClient(BookLookupService.HttpClientName, client =>
+{
+    // External metadata lookups must never occupy the whole request budget;
+    // typed failure (null) flows out of the lookup service instead.
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
 builder.Services.AddScoped<BookLookupService>();
+builder.Services.AddScoped<ILibraryService, LibraryService>();
 builder.Services.AddScoped<MediaMetadataService>();
 builder.Services.AddScoped<NoteProcessorService>();
 builder.Services.AddScoped<IBackupService, BackupService>();

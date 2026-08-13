@@ -1,11 +1,14 @@
-"""Tests for the pure Telegram routing primitives (exact scope + hygiene)."""
+"""Tests for the pure routing primitives (exact scope + hygiene, telegram +
+discord)."""
 
 from __future__ import annotations
 
 import pytest
 
 from nostos_reading_connector.routing import (
+    DEFAULT_DISCORD_CLIENT_ID,
     DEFAULT_KEY_NAMESPACE,
+    PLATFORM_DISCORD,
     PLATFORM_TELEGRAM,
     ConnectorConfig,
     InboundMessage,
@@ -20,11 +23,25 @@ from nostos_reading_connector.routing import (
 OWNER = "123456789"
 CHAT = 987654321
 THREAD = 42
+DISCORD_OWNER = "987654321012345678"
+DISCORD_CHANNEL = 112233445566778899
 
 
 def config(**overrides) -> ConnectorConfig:
     values: dict[str, object] = dict(
         owner_id=OWNER, chat_id=CHAT, thread_id=THREAD, platform=PLATFORM_TELEGRAM
+    )
+    values.update(overrides)
+    return ConnectorConfig(**values)  # type: ignore[arg-type]
+
+
+def discord_config(**overrides) -> ConnectorConfig:
+    values: dict[str, object] = dict(
+        owner_id=DISCORD_OWNER,
+        chat_id=DISCORD_CHANNEL,
+        thread_id=None,
+        platform=PLATFORM_DISCORD,
+        client_id=DEFAULT_DISCORD_CLIENT_ID,
     )
     values.update(overrides)
     return ConnectorConfig(**values)  # type: ignore[arg-type]
@@ -66,7 +83,7 @@ class TestConfigActive:
     @pytest.mark.parametrize(
         "overrides,field",
         [
-            ({"platform": "discord"}, "platform"),
+            ({"platform": "slack"}, "platform"),
             ({"platform": ""}, "platform"),
             ({"owner_id": None}, "owner_id"),
             ({"owner_id": ""}, "owner_id"),
@@ -96,6 +113,30 @@ class TestConfigActive:
         cfg = config(**overrides)
         assert not is_active(cfg)
         assert field in config_issues(cfg)
+
+    def test_discord_channel_scope_active_without_thread(self):
+        # Channel-level Discord scope: thread_id unset is valid.
+        cfg = discord_config()
+        assert is_active(cfg)
+        assert config_issues(cfg) == ()
+        assert cfg.is_discord
+        assert cfg.thread_id is None
+
+    def test_discord_thread_scope_active_with_thread(self):
+        cfg = discord_config(thread_id=THREAD)
+        assert is_active(cfg)
+        assert config_issues(cfg) == ()
+        assert cfg.thread_id == THREAD
+
+    def test_discord_scope_invalid_thread(self):
+        cfg = discord_config(thread_id="bad")
+        assert not is_active(cfg)
+        assert "thread_id" in config_issues(cfg)
+
+    def test_discord_scope_invalid_platform(self):
+        cfg = discord_config(platform="matrix")
+        assert not is_active(cfg)
+        assert "platform" in config_issues(cfg)
 
 
 # --------------------------------------------------------------------------
@@ -138,6 +179,68 @@ class TestEligible:
         assert classify(
             config(chat_id=str(CHAT), thread_id=str(THREAD)), message()
         ).eligible
+
+
+class TestDiscordEligible:
+    def _dmessage(self, **overrides) -> InboundMessage:
+        values: dict[str, object] = dict(
+            platform=PLATFORM_DISCORD,
+            sender_id=DISCORD_OWNER,
+            chat_id=str(DISCORD_CHANNEL),
+            thread_id=None,
+            text="pause",
+            message_id="2001",
+        )
+        values.update(overrides)
+        return InboundMessage(**values)  # type: ignore[arg-type]
+
+    def test_channel_level_scope_matches_channel_message(self):
+        # No thread on either side: channel-level scope accepts it.
+        decision = classify(discord_config(), self._dmessage())
+        assert decision.eligible
+        assert decision.reason is None
+
+    def test_channel_level_scope_accepts_thread_messages(self):
+        # Channel-level scope (thread unset) also accepts messages inside
+        # Discord threads in that channel.
+        decision = classify(
+            discord_config(), self._dmessage(thread_id="999")
+        )
+        assert decision.eligible
+
+    def test_thread_level_scope_requires_exact_thread(self):
+        cfg = discord_config(thread_id=THREAD)
+        assert classify(cfg, self._dmessage(thread_id=str(THREAD))).eligible
+        decision = classify(cfg, self._dmessage(thread_id="999"))
+        assert not decision.eligible
+        assert decision.reason == "wrong_thread"
+        decision = classify(cfg, self._dmessage(thread_id=None))
+        assert not decision.eligible
+        assert decision.reason == "wrong_thread"
+
+    def test_wrong_platform_rejected(self):
+        decision = classify(discord_config(), self._dmessage(platform="telegram"))
+        assert not decision.eligible
+        assert decision.reason == "wrong_platform"
+
+    def test_not_owner_rejected(self):
+        decision = classify(discord_config(), self._dmessage(sender_id="999"))
+        assert not decision.eligible
+        assert decision.reason == "not_owner"
+
+    def test_wrong_channel_rejected(self):
+        decision = classify(discord_config(), self._dmessage(chat_id="111"))
+        assert not decision.eligible
+        assert decision.reason == "wrong_chat"
+
+    def test_hygiene_applies_to_discord_too(self):
+        assert classify(discord_config(), self._dmessage(text="/start")).reason == "slash_command"
+        assert classify(discord_config(), self._dmessage(text="[Cron delivery: x]")).reason == "cron_delivery"
+        assert classify(discord_config(), self._dmessage(message_id=None)).reason == "missing_event_id"
+        assert classify(discord_config(), self._dmessage(text="")).reason == "no_text"
+
+    def test_discord_client_id_default(self):
+        assert discord_config().client_id == DEFAULT_DISCORD_CLIENT_ID
 
 
 # --------------------------------------------------------------------------
