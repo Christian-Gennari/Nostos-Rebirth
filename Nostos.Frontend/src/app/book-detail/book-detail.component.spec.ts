@@ -6,6 +6,7 @@ import { of } from 'rxjs';
 
 import { BookDetail } from './book-detail.component';
 import { Book } from '../core/dtos/book.dtos';
+import { ToastService } from '../core/services/toast.service';
 import {
   ReadingAssignmentStatus,
   ReadingBookAssignment,
@@ -430,5 +431,180 @@ describe('BookDetail reading training section', () => {
     const status = fixture.nativeElement.querySelector('.training-status');
     expect(status?.getAttribute('aria-live')).toBe('polite');
     expect(status.textContent).toContain('is now the default Endurance book');
+  });
+});
+
+describe('BookDetail reset progress', () => {
+  let component: BookDetail;
+  let fixture: ComponentFixture<BookDetail>;
+  let httpMock: HttpTestingController;
+  let toast: ToastService;
+
+  /** Readable book with progress worth resetting (partial read). */
+  function readableBook(overrides: Partial<Book> = {}): Book {
+    return {
+      ...book,
+      hasFile: true,
+      progressPercent: 42,
+      lastLocation: 'epub.cfi',
+      lastReadAt: '2026-08-10T08:00:00+02:00',
+      ...overrides,
+    };
+  }
+
+  async function setup(initial: Book = readableBook()) {
+    fixture = TestBed.createComponent(BookDetail);
+    component = fixture.componentInstance;
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    httpMock.expectOne('/api/books/b1').flush(initial);
+    httpMock.expectOne('/api/books/b1/notes').flush([]);
+    httpMock.expectOne('/api/collections').flush([]);
+    httpMock.match('/api/concepts').forEach((request) => request.flush([]));
+    httpMock.expectOne('/api/reading/dashboard').flush(envelope(dashboard([])));
+    httpMock.expectOne('/api/reading/sessions').flush(envelope([]));
+    fixture.detectChanges();
+  }
+
+  function resetButton(): HTMLButtonElement | null {
+    return fixture.nativeElement.querySelector('.reset-progress-btn');
+  }
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [BookDetail],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: ActivatedRoute,
+          useValue: { paramMap: of(convertToParamMap({ id: book.id })) },
+        },
+      ],
+    }).compileComponents();
+
+    httpMock = TestBed.inject(HttpTestingController);
+    toast = TestBed.inject(ToastService);
+  });
+
+  afterEach(() => {
+    httpMock.match('/api/concepts').forEach((request) => request.flush([]));
+    httpMock.verify();
+  });
+
+  it('is hidden for an untouched book, even when it has a file', async () => {
+    await setup(readableBook({ progressPercent: 0, lastLocation: null, lastReadAt: null, finishedAt: null }));
+    expect(resetButton()).toBeNull();
+  });
+
+  it('is hidden for a book without a file even when progress exists', async () => {
+    await setup({ ...book, hasFile: false, progressPercent: 42, lastLocation: 'epub.cfi' });
+    expect(resetButton()).toBeNull();
+  });
+
+  it('is visible for a partially read book', async () => {
+    await setup(readableBook());
+    const button = resetButton();
+    expect(button).toBeTruthy();
+    expect(button!.textContent).toContain('Reset progress');
+  });
+
+  it('is visible for a finished book', async () => {
+    await setup(
+      readableBook({
+        progressPercent: 100,
+        finishedAt: '2026-08-10T08:00:00+02:00',
+      })
+    );
+    expect(resetButton()).toBeTruthy();
+  });
+
+  it('is visible when only a saved location or recency exists', async () => {
+    await setup(readableBook({ progressPercent: 0, lastLocation: 'epub.cfi', lastReadAt: null }));
+    expect(resetButton()).toBeTruthy();
+
+    await setup(readableBook({ progressPercent: 0, lastLocation: null, lastReadAt: '2026-08-10T08:00:00+02:00' }));
+    expect(resetButton()).toBeTruthy();
+  });
+
+  it('does nothing when the confirmation is cancelled', async () => {
+    await setup();
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    resetButton()!.click();
+    fixture.detectChanges();
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Reset reading progress? The next time you open this book, it will start from the beginning.'
+    );
+    expect(httpMock.match((req) => req.method === 'POST' && req.url === '/api/books/b1/progress/reset').length).toBe(0);
+    expect(component.store.book()?.progressPercent).toBe(42);
+  });
+
+  it('confirms, then calls exactly one reset endpoint and refetches the book on success', async () => {
+    await setup();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    resetButton()!.click();
+    fixture.detectChanges();
+
+    const posts = httpMock.match((req) => req.method === 'POST' && req.url === '/api/books/b1/progress/reset');
+    expect(posts.length).toBe(1);
+    expect(posts[0].request.body).toBeNull();
+
+    posts[0].flush({ updated: true });
+    const refetch = httpMock.expectOne('/api/books/b1');
+    expect(refetch.request.method).toBe('GET');
+    refetch.flush(
+      readableBook({ progressPercent: 0, lastLocation: null, lastReadAt: null, finishedAt: null })
+    );
+    fixture.detectChanges();
+
+    expect(component.store.book()?.progressPercent).toBe(0);
+    expect(component.store.book()?.lastLocation).toBeNull();
+    expect(resetButton()).toBeNull();
+    expect(toast.toasts().some((t) => t.message === 'Reading progress reset' && t.type === 'success')).toBe(true);
+  });
+
+  it('disables the button while the reset is pending and never submits twice', async () => {
+    await setup();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    resetButton()!.click();
+    fixture.detectChanges();
+    expect(resetButton()!.disabled).toBe(true);
+    expect(resetButton()!.textContent).toContain('Resetting');
+
+    // A second click on the disabled button must not fire another request.
+    resetButton()!.click();
+    fixture.detectChanges();
+
+    const posts = httpMock.match((req) => req.method === 'POST' && req.url === '/api/books/b1/progress/reset');
+    // Exactly one reset submission despite the duplicate click.
+    expect(posts.length).toBe(1);
+    posts[0].flush({ updated: true });
+    httpMock.expectOne('/api/books/b1').flush(readableBook({ progressPercent: 0, lastLocation: null, lastReadAt: null, finishedAt: null }));
+    fixture.detectChanges();
+    expect(resetButton()).toBeNull();
+  });
+
+  it('preserves the displayed state and shows an error toast on failure', async () => {
+    await setup();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    resetButton()!.click();
+    fixture.detectChanges();
+
+    httpMock
+      .expectOne((req) => req.method === 'POST' && req.url === '/api/books/b1/progress/reset')
+      .flush({ data: { code: 'book_not_found' } }, { status: 404, statusText: 'Not Found' });
+    fixture.detectChanges();
+
+    expect(httpMock.match((req) => req.method === 'GET' && req.url === '/api/books/b1').length).toBe(0);
+    expect(component.store.book()?.progressPercent).toBe(42);
+    expect(resetButton()).toBeTruthy();
+    expect(toast.toasts().some((t) => t.message === 'Failed to reset progress' && t.type === 'error')).toBe(true);
   });
 });

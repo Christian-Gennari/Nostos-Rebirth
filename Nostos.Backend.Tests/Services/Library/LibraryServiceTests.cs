@@ -738,6 +738,113 @@ public sealed class LibraryServiceTests : IClassFixture<ReadingTrainingSqliteFix
     }
 
     // ------------------------------------------------------------------
+    // Progress reset (issue #9) — explicit reset intent
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task Reset_progress_clears_all_four_fields_and_advances_state_version_exactly_once()
+    {
+        var h = Harness();
+        var bookId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Reset Me", Author: "Author A"), strictConfirmation: true)).Data!).BookId!.Value;
+
+        // A finished book exercises every field the reset must clear.
+        await h.Service.UpdateProgressAsync(bookId, "loc-1", 100);
+
+        var result = await h.Service.ResetProgressAsync(bookId);
+
+        result.Duplicate.Should().BeFalse();
+        result.StateVersion.Should().Be("3", "create + progress update + reset = exactly three bumps");
+        result.Reply.Should().Be(LibraryReplyFormatter.ProgressReset("Reset Me"));
+        result.Data.Should().BeEquivalentTo(new { updated = true });
+
+        var dto = await GetBookAsync(h, bookId);
+        dto.LastLocation.Should().BeNull();
+        dto.ProgressPercent.Should().Be(0);
+        dto.LastReadAt.Should().BeNull();
+        dto.FinishedAt.Should().BeNull();
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var stored = await db.Books.SingleAsync(b => b.Id == bookId);
+        stored.Progress.LastLocation.Should().BeNull();
+        stored.Progress.ProgressPercent.Should().Be(0);
+        stored.Progress.LastReadAt.Should().BeNull();
+        stored.Progress.FinishedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Reset_progress_partially_read_book_clears_location_percent_and_recency()
+    {
+        var h = Harness();
+        var bookId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Partial Me", Author: "Author B"), strictConfirmation: true)).Data!).BookId!.Value;
+
+        await h.Service.UpdateProgressAsync(bookId, "loc-1", 50);
+
+        var before = await GetBookAsync(h, bookId);
+        before.LastLocation.Should().Be("loc-1");
+        before.ProgressPercent.Should().Be(50);
+        before.LastReadAt.Should().NotBeNull();
+
+        var result = await h.Service.ResetProgressAsync(bookId);
+        result.StateVersion.Should().Be("3");
+        result.Data.Should().BeEquivalentTo(new { updated = true });
+
+        var dto = await GetBookAsync(h, bookId);
+        dto.LastLocation.Should().BeNull();
+        dto.ProgressPercent.Should().Be(0);
+        dto.LastReadAt.Should().BeNull();
+        dto.FinishedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Reset_progress_already_reset_book_is_successful_noop_without_version_bump()
+    {
+        var h = Harness();
+        var bookId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Noop Me", Author: "Author C"), strictConfirmation: true)).Data!).BookId!.Value;
+
+        var result = await h.Service.ResetProgressAsync(bookId);
+
+        result.Duplicate.Should().BeFalse();
+        result.StateVersion.Should().Be("1", "a no-op never bumps the version");
+        result.Reply.Should().Be(LibraryReplyFormatter.ProgressReset("Noop Me"));
+        result.Data.Should().BeEquivalentTo(new { updated = false });
+
+        var second = await h.Service.ResetProgressAsync(bookId);
+        second.StateVersion.Should().Be("1");
+        second.Data.Should().BeEquivalentTo(new { updated = false });
+    }
+
+    [Fact]
+    public async Task Reset_progress_unknown_book_returns_book_not_found()
+    {
+        var h = Harness();
+        var result = await h.Service.ResetProgressAsync(Guid.NewGuid());
+        ((LibraryErrorDto)result.Data!).Code.Should().Be("book_not_found");
+    }
+
+    [Fact]
+    public async Task Ordinary_zero_percent_update_does_not_acquire_reset_semantics()
+    {
+        var h = Harness();
+        var bookId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Zero Me", Author: "Author D"), strictConfirmation: true)).Data!).BookId!.Value;
+
+        await h.Service.UpdateProgressAsync(bookId, "", 0);
+
+        var dto = await GetBookAsync(h, bookId);
+        dto.ProgressPercent.Should().Be(0);
+        dto.LastLocation.Should().BeNull();
+        dto.LastReadAt.Should().NotBeNull("a 0% update is still a read event and must record recency");
+        dto.FinishedAt.Should().BeNull();
+
+        // Only the explicit reset intent clears recency.
+        await h.Service.ResetProgressAsync(bookId);
+        (await GetBookAsync(h, bookId)).LastReadAt.Should().BeNull();
+    }
+
+    // ------------------------------------------------------------------
     // Collections Phase 1 — atomic update contract
     // ------------------------------------------------------------------
 

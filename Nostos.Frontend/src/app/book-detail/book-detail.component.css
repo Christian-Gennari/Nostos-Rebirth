@@ -167,6 +167,15 @@
   color: var(--color-success-dark);
 }
 
+.reset-progress-btn {
+  color: var(--color-danger);
+  border: 1px solid var(--border-color);
+}
+.reset-progress-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .mobile-fav {
   display: none;
 }

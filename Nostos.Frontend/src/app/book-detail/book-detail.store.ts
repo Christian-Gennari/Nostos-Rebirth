@@ -33,6 +33,9 @@ export class BookDetailStore {
   readonly collections = signal<Collection[]>([]);
   readonly conceptMap = signal<Map<string, ConceptDto>>(new Map());
 
+  /** True while a reset-progress command is in flight (duplicate-click guard). */
+  readonly resettingProgress = signal(false);
+
   // --- ACTIONS ---
 
   loadAllData(id: string) {
@@ -150,6 +153,33 @@ export class BookDetailStore {
     this.booksService.update(b.id, { rating } as any).subscribe({
       error: () => this.toast.error('Failed to update rating'),
     });
+  }
+
+  /**
+   * Resets the book's reading progress to the canonical "not started" state.
+   * Local pending signal prevents duplicate submissions; on success the book
+   * is refetched from the backend (the server owns the reset state) and the
+   * user is told the next reader opening starts at the beginning.
+   */
+  resetProgress() {
+    const b = this.book();
+    if (!b || this.resettingProgress()) return;
+
+    if (!confirm('Reset reading progress? The next time you open this book, it will start from the beginning.')) {
+      return;
+    }
+
+    this.resettingProgress.set(true);
+    this.booksService
+      .resetProgress(b.id)
+      .pipe(finalize(() => this.resettingProgress.set(false)))
+      .subscribe({
+        next: () => {
+          this.loadBook(b.id, { background: true });
+          this.toast.success('Reading progress reset');
+        },
+        error: () => this.toast.error('Failed to reset progress'),
+      });
   }
 
   // --- NOTES ---

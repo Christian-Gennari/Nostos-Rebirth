@@ -62,6 +62,10 @@ export class BooksService {
     return this.http.put(`/api/books/${id}/progress`, dto);
   }
 
+  resetProgress(id: string): Observable<any> {
+    return this.http.post(`/api/books/${id}/progress/reset`, null);
+  }
+
   // --- Cached Locations Management (instant epub progress state calculation) ---
   getLocations(id: string): Observable<BookLocationsDto> {
     return this.http.get<BookLocationsDto>(`/api/books/${id}/locations`);

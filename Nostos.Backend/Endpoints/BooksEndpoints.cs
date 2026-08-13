@@ -105,6 +105,17 @@ public static class BooksEndpoints
             }
         );
 
+        // RESET Progress (explicit reset intent: clears location, percent,
+        // finished and recency; deliberately NOT a 0% progress update)
+        group.MapPost(
+            "/{id}/progress/reset",
+            async (Guid id, ILibraryService library, CancellationToken ct) =>
+            {
+                var result = await library.ResetProgressAsync(id, ct);
+                return LibraryHttpMapper.MapError(result) ?? Results.Ok(result.Data);
+            }
+        );
+
         // GET Epub cached locations (Cached)
         group.MapGet(
             "/{id}/locations",
