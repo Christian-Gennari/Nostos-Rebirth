@@ -3,6 +3,9 @@
  * restart persistence, REST/UI/MCP state-version agreement, direct MCP wire
  * tail with exact-once idempotency replay, weekly review, and keyboard/focus/
  * aria checks. Runs serially (single worker, single shared backend fixture).
+ * Issue #50 closes the remaining wire gaps: reading_answer_now same-key
+ * replay, reading_finish_book (incl. book_has_open_session rejection), and
+ * reading_commit_review convergence over MCP.
  *
  * Seeding always goes through the supported REST surface (never the live DB);
  * the only fixture control used mid-suite is `restart` (same temp DB + token,
@@ -18,12 +21,14 @@ import {
   apiPost,
   loadFixture,
   newRunId,
+  ReadingAssignmentStatus,
   ReadingCaptureType,
   ReadingMode,
   ReadingSessionStatus,
   seedKey,
   seedTrainingState,
   SEED_CLIENT,
+  type BookDto,
   type CommandEnvelope,
   type FixtureState,
   type ReadingBookAssignmentDto,
@@ -379,6 +384,92 @@ test('desktop: weekly review preview then commit from the UI', async ({ page }) 
     .toBe(true);
 });
 
+test('desktop: reading_commit_review via MCP converges on the committed week exactly once', async ({
+  page,
+}) => {
+  await page.goto(`${fixture.baseUrl}/training`);
+
+  // The suite already committed the current server week through the UI test
+  // above; the MCP surface must converge on the same immutable review — the
+  // persisted totals, mode decisions, and the StateVersionAfter recorded by
+  // the original commit — without a second mutation.
+  const dashBefore = await apiGet<CommandEnvelope<any>>(
+    fixture.baseUrl,
+    '/api/reading-training/dashboard'
+  );
+  const weekKey = dashBefore.data.currentWeek.weekKey as string;
+  expect(dashBefore.data.currentWeek.reviewCommitted).toBe(true);
+  // The suite's own sessions are the evidence behind this week's review.
+  expect(dashBefore.data.currentWeek.completedSessions).toBeGreaterThanOrEqual(2);
+  const weekMatch = /^(\d{4})-W(\d{2})$/.exec(weekKey);
+  expect(weekMatch).not.toBeNull();
+  const isoYear = Number(weekMatch![1]);
+  const isoWeek = Number(weekMatch![2]);
+
+  const session = new McpSession(fixture);
+  let committed: CommandEnvelope<any> | null = null;
+  await session.connect();
+  try {
+    committed = await session.command('reading_commit_review', {
+      idempotencyKey: seedKey('commitreview', runId, 'commit'),
+      year: isoYear,
+      week: isoWeek,
+    });
+    expect(committed.duplicate).toBe(false);
+    expect(committed.reply).toContain('was already reviewed');
+    expect(committed.data.weekKey).toBe(weekKey);
+    expect(committed.data.committed).toBe(true);
+    // Totals agree with the server's current-week summary (cross-surface).
+    expect(committed.data.totalVolumeMinutes).toBe(dashBefore.data.currentWeek.volumeMinutes);
+    expect(committed.data.modes.length).toBeGreaterThan(0);
+    expect(committed.data.modes[0].decisionKind).toBeTruthy();
+    // The review carries the StateVersionAfter of the original commit.
+    expect(committed.data.stateVersion).toBeTruthy();
+    // Converging on an already-committed week mutates nothing on the server.
+    expect(committed.stateVersion).toBe(dashBefore.stateVersion);
+
+    // Replaying the same key returns the frozen original envelope.
+    const replay = await session.command('reading_commit_review', {
+      idempotencyKey: seedKey('commitreview', runId, 'commit'),
+      year: isoYear,
+      week: isoWeek,
+    });
+    expect(replay.duplicate).toBe(true);
+    expect(replay.stateVersion).toBe(committed.stateVersion);
+    expect(replay.reply).toBe(committed.reply);
+    expect(replay.data.weekKey).toBe(weekKey);
+    expect(replay.data.stateVersion).toBe(committed.data.stateVersion);
+
+    // A different key cannot commit the week twice: same immutable result,
+    // same state version, no second domain effect.
+    const again = await session.command('reading_commit_review', {
+      idempotencyKey: seedKey('commitreview', runId, 'commit-again'),
+      year: isoYear,
+      week: isoWeek,
+    });
+    expect(again.duplicate).toBe(false);
+    expect(again.reply).toContain('was already reviewed');
+    expect(again.data.weekKey).toBe(weekKey);
+    expect(again.stateVersion).toBe(committed.stateVersion);
+  } finally {
+    await session.close();
+  }
+
+  // REST and UI agree: the week is committed and the version never moved.
+  const dash = await apiGet<CommandEnvelope<any>>(
+    fixture.baseUrl,
+    '/api/reading-training/dashboard'
+  );
+  expect(dash.data.currentWeek.reviewCommitted).toBe(true);
+  expect(dash.stateVersion).toBe(committed!.stateVersion);
+
+  await expect(page.locator('section.week-strip')).toContainText('Weekly review committed');
+  await expect(page.locator('.reading-training-page')).toHaveAttribute(
+    'data-state-version',
+    committed!.stateVersion
+  );
+});
+
 test('desktop: REST, UI, and MCP agree on stateVersion after mutations', async ({ page }) => {
   await page.goto(`${fixture.baseUrl}/training`);
 
@@ -674,4 +765,182 @@ test('desktop: keyboard, focus, and aria on dialogs and controls', async ({ page
   await expect(refreshSpinner).toBeHidden();
   await page.unroute(dashboardRoute, delayedDashboard);
 
+});
+
+test('desktop: reading_answer_now pauses exactly once under same-key replay', async () => {
+  const session = new McpSession(fixture);
+  await session.connect();
+  try {
+    const plan = await session.command('reading_plan_session', {
+      idempotencyKey: seedKey('answernow', runId, 'plan'),
+      bookAssignmentId: candideAssignment.id,
+      mode: ReadingMode.Deep,
+      targetMinutes: 30,
+    });
+    expect(plan.data.status).toBe('Planned');
+    const answerSessionId = plan.data.id as string;
+
+    const started = await session.command('reading_start_session', {
+      idempotencyKey: seedKey('answernow', runId, 'start'),
+    });
+    expect(started.data.status).toBe('Active');
+    expect(started.data.id).toBe(answerSessionId);
+
+    // answer_now pauses the active session through the authoritative pause op.
+    const paused = await session.command('reading_answer_now', {
+      idempotencyKey: seedKey('answernow', runId, 'pause'),
+    });
+    expect(paused.duplicate).toBe(false);
+    expect(paused.data.id).toBe(answerSessionId);
+    expect(paused.data.status).toBe('Paused');
+
+    // Replaying the same key returns the frozen original envelope: no second
+    // transition, no duplicated domain effect, identical version and data.
+    const replay = await session.command('reading_answer_now', {
+      idempotencyKey: seedKey('answernow', runId, 'pause'),
+    });
+    expect(replay.duplicate).toBe(true);
+    expect(replay.stateVersion).toBe(paused.stateVersion);
+    expect(replay.reply).toBe(paused.reply);
+    expect(replay.data.id).toBe(paused.data.id);
+    expect(replay.data.status).toBe('Paused');
+
+    // The server still holds exactly one Paused session at that version.
+    const status = await openSessionViaRest();
+    expect(status).not.toBeNull();
+    expect(status!.id).toBe(answerSessionId);
+    expect(status!.status).toBe(ReadingSessionStatus.Paused);
+    const dash = await apiGet<CommandEnvelope<any>>(
+      fixture.baseUrl,
+      '/api/reading-training/dashboard'
+    );
+    expect(dash.stateVersion).toBe(paused.stateVersion);
+
+    // Resume, then cancel, so the fixture is left clean.
+    const resumed = await session.command('reading_resume_session', {
+      idempotencyKey: seedKey('answernow', runId, 'resume'),
+    });
+    expect(resumed.data.status).toBe('Active');
+    expect(resumed.data.id).toBe(answerSessionId);
+    expect(resumed.stateVersion).not.toBe(paused.stateVersion);
+
+    const cancelled = await session.command('reading_cancel_session', {
+      idempotencyKey: seedKey('answernow', runId, 'cancel'),
+    });
+    expect(cancelled.data.status).toBe('Cancelled');
+    expect(cancelled.data.id).toBe(answerSessionId);
+  } finally {
+    await session.close();
+  }
+});
+
+test('desktop: reading_finish_book completes a book exactly once and rejects while a session is open', async () => {
+  // A fresh book + assignment created through the supported REST surface.
+  const book = await apiPost<BookDto>(fixture.baseUrl, '/api/books', {
+    type: 'physical',
+    title: 'Finish E2E Book',
+    author: 'E2E Suite',
+    language: 'English',
+    categories: 'literature',
+  });
+  const assigned = await apiPost<CommandEnvelope<ReadingBookAssignmentDto>>(
+    fixture.baseUrl,
+    '/api/reading-training/books',
+    {
+      clientId: SEED_CLIENT,
+      idempotencyKey: seedKey('finishbook', runId, 'assign'),
+      bookId: book.id,
+      mode: ReadingMode.Recovery,
+      makeDefault: false,
+    }
+  );
+  expect(assigned.data).not.toBeNull();
+  expect(assigned.data!.status).toBe(ReadingAssignmentStatus.Active);
+  const finishBookAssignmentId = assigned.data!.id;
+
+  const session = new McpSession(fixture);
+  await session.connect();
+  try {
+    const finished = await session.command('reading_finish_book', {
+      idempotencyKey: seedKey('finishbook', runId, 'finish'),
+      bookAssignmentId: finishBookAssignmentId,
+    });
+    expect(finished.duplicate).toBe(false);
+    expect(finished.reply).toContain('marked finished');
+    expect(finished.data.id).toBe(finishBookAssignmentId);
+    expect(finished.data.status).toBe('Completed');
+
+    // Replaying the same key returns the frozen original envelope.
+    const replay = await session.command('reading_finish_book', {
+      idempotencyKey: seedKey('finishbook', runId, 'finish'),
+      bookAssignmentId: finishBookAssignmentId,
+    });
+    expect(replay.duplicate).toBe(true);
+    expect(replay.stateVersion).toBe(finished.stateVersion);
+    expect(replay.reply).toBe(finished.reply);
+    expect(replay.data.id).toBe(finished.data.id);
+    expect(replay.data.status).toBe('Completed');
+
+    // REST agrees the assignment is Completed.
+    const dash = await apiGet<CommandEnvelope<any>>(
+      fixture.baseUrl,
+      '/api/reading-training/dashboard'
+    );
+    const finishedOnDash = (dash.data.books as ReadingBookAssignmentDto[]).find(
+      (b) => b.id === finishBookAssignmentId
+    );
+    expect(finishedOnDash?.status).toBe(ReadingAssignmentStatus.Completed);
+
+    // Rejection: finish_book is stable while the book has an open session.
+    const plan = await session.command('reading_plan_session', {
+      idempotencyKey: seedKey('finishbook', runId, 'open-plan'),
+      bookAssignmentId: meditationsAssignment.id,
+      mode: ReadingMode.Endurance,
+      targetMinutes: 20,
+    });
+    expect(plan.data.status).toBe('Planned');
+    const openSessionId = plan.data.id as string;
+
+    const started = await session.command('reading_start_session', {
+      idempotencyKey: seedKey('finishbook', runId, 'open-start'),
+    });
+    expect(started.data.status).toBe('Active');
+    expect(started.data.id).toBe(openSessionId);
+
+    const rejected = await session.command('reading_finish_book', {
+      idempotencyKey: seedKey('finishbook', runId, 'open-finish'),
+      bookAssignmentId: meditationsAssignment.id,
+    });
+    expect(rejected.duplicate).toBe(false);
+    expect(rejected.data?.code).toBe('book_has_open_session');
+    expect(rejected.stateVersion).toBe(started.stateVersion);
+
+    // The rejection is itself exact-once: same key, same frozen failure.
+    const rejectedReplay = await session.command('reading_finish_book', {
+      idempotencyKey: seedKey('finishbook', runId, 'open-finish'),
+      bookAssignmentId: meditationsAssignment.id,
+    });
+    expect(rejectedReplay.duplicate).toBe(true);
+    expect(rejectedReplay.data?.code).toBe('book_has_open_session');
+    expect(rejectedReplay.stateVersion).toBe(rejected.stateVersion);
+
+    // The book assignment survived the rejected finish untouched.
+    const dashAfter = await apiGet<CommandEnvelope<any>>(
+      fixture.baseUrl,
+      '/api/reading-training/dashboard'
+    );
+    const meditationsOnDash = (dashAfter.data.books as ReadingBookAssignmentDto[]).find(
+      (b) => b.id === meditationsAssignment.id
+    );
+    expect(meditationsOnDash?.status).toBe(ReadingAssignmentStatus.Active);
+
+    // Clean up the open session.
+    const cancelled = await session.command('reading_cancel_session', {
+      idempotencyKey: seedKey('finishbook', runId, 'open-cancel'),
+    });
+    expect(cancelled.data.status).toBe('Cancelled');
+    expect(cancelled.data.id).toBe(openSessionId);
+  } finally {
+    await session.close();
+  }
 });
