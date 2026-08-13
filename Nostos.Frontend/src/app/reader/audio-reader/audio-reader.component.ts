@@ -17,7 +17,7 @@ import { FormsModule } from '@angular/forms';
 import { Howl } from 'howler';
 import { Subject, Subscription } from 'rxjs';
 import { sampleTime, filter } from 'rxjs/operators';
-import { LucideAngularModule, Play, Pause, AudioLines, RotateCcw, RotateCw } from 'lucide-angular';
+import { LucideAngularModule, Play, Pause, AudioLines, RotateCcw, RotateCw, Moon } from 'lucide-angular';
 import { BooksService } from '../../core/services/books.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 import { Book } from '../../core/dtos/book.dtos';
@@ -37,7 +37,7 @@ export class AudioReader implements OnDestroy, IReader {
 
   private booksService = inject(BooksService);
 
-  Icons = { Play, Pause, AudioLines, RotateCcw, RotateCw };
+  Icons = { Play, Pause, AudioLines, RotateCcw, RotateCw, Moon };
 
   // IReader Interface
   toc = signal<TocItem[]>([]);
@@ -68,6 +68,23 @@ export class AudioReader implements OnDestroy, IReader {
   // so the UI can show a visible loading state instead of a dead-looking player.
   loading = signal(true);
   loadError = signal<string | null>(null);
+
+  // --- Sleep timer (issue #47) ---
+  // Armed preset in minutes; null means the timer is off. Session-only state:
+  // never persisted — a browser reload clears it.
+  sleepTimerMinutes = signal<number | null>(null);
+  // Wall-clock deadline (epoch ms) for the armed countdown. The timer counts
+  // real time, not play time: pausing playback does NOT pause the countdown
+  // (standard sleep-timer behavior — it's a clock, not a play-time quota).
+  sleepDeadline = signal<number | null>(null);
+  // Whole seconds remaining, refreshed once per second while armed.
+  sleepRemainingSeconds = signal(0);
+  // Brief status message shown when the timer expires.
+  sleepStatusMessage = signal<string | null>(null);
+  sleepMenuOpen = signal(false);
+  sleepPresets = [15, 30, 45, 60];
+  private sleepTimerInterval: any = null;
+  private sleepStatusTimeout: any = null;
 
   // --- Jump-to-timestamp (issue #6) ---
   isEditingTime = signal(false);
@@ -277,13 +294,88 @@ export class AudioReader implements OnDestroy, IReader {
     this.closeDropdown();
   }
 
+  // --- Sleep Timer (issue #47) ---
+  // Label for the timer control: the remaining mm:ss while armed, 'Off' otherwise.
+  sleepLabel = computed(() => {
+    const minutes = this.sleepTimerMinutes();
+    if (minutes == null) return 'Off';
+    return this.formatTime(this.sleepRemainingSeconds());
+  });
+
+  toggleSleepMenu() {
+    this.sleepMenuOpen.update((v) => !v);
+  }
+
+  closeSleepMenu() {
+    this.sleepMenuOpen.set(false);
+  }
+
+  selectSleepTimer(minutes: number | null) {
+    this.closeSleepMenu();
+    this.sleepStatusMessage.set(null);
+    if (minutes == null) {
+      this.disarmSleepTimer();
+      return;
+    }
+    // Arming (or re-arming with another preset) always restarts the countdown
+    // from the current wall-clock time.
+    this.sleepTimerMinutes.set(minutes);
+    this.sleepDeadline.set(Date.now() + minutes * 60_000);
+    this.sleepRemainingSeconds.set(minutes * 60);
+    this.startSleepTimerCountdown();
+  }
+
+  private disarmSleepTimer() {
+    this.stopSleepTimerCountdown();
+    this.sleepTimerMinutes.set(null);
+    this.sleepDeadline.set(null);
+    this.sleepRemainingSeconds.set(0);
+  }
+
+  private startSleepTimerCountdown() {
+    this.stopSleepTimerCountdown();
+    this.sleepTimerInterval = setInterval(() => this.tickSleepTimer(), 1000);
+  }
+
+  private stopSleepTimerCountdown() {
+    if (this.sleepTimerInterval != null) {
+      clearInterval(this.sleepTimerInterval);
+      this.sleepTimerInterval = null;
+    }
+  }
+
+  private tickSleepTimer() {
+    const deadline = this.sleepDeadline();
+    if (deadline == null) return;
+    const now = Date.now();
+    this.sleepRemainingSeconds.set(Math.max(0, Math.ceil((deadline - now) / 1000)));
+    if (now >= deadline) {
+      this.expireSleepTimer();
+    }
+  }
+
+  private expireSleepTimer() {
+    this.stopSleepTimerCountdown();
+    this.sleepTimerMinutes.set(null);
+    this.sleepDeadline.set(null);
+    this.sleepRemainingSeconds.set(0);
+    // Sleep timers stop the book, not the clock.
+    this.player?.pause();
+    this.sleepStatusMessage.set('Sleep timer finished. Playback paused.');
+    this.sleepStatusTimeout = window.setTimeout(() => {
+      this.sleepStatusMessage.set(null);
+    }, 5000);
+  }
+
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
-    if (!this.isOpen()) return;
+    if (!this.isOpen() && !this.sleepMenuOpen()) return;
     const target = event.target as HTMLElement;
-    const selectorEl = target.closest('.rate-selector');
-    if (!selectorEl) {
+    if (!target.closest('.rate-selector')) {
       this.closeDropdown();
+    }
+    if (!target.closest('.sleep-selector')) {
+      this.closeSleepMenu();
     }
   }
 
@@ -291,6 +383,9 @@ export class AudioReader implements OnDestroy, IReader {
   onKeydownEscape() {
     if (this.isOpen()) {
       this.closeDropdown();
+    }
+    if (this.sleepMenuOpen()) {
+      this.closeSleepMenu();
     }
   }
 
@@ -459,6 +554,12 @@ export class AudioReader implements OnDestroy, IReader {
     this.stopProgressTracking();
     this.progressSubscription?.unsubscribe();
     this.progressSubject.complete();
+    // Sleep timer: never leak the countdown interval or the status-message timeout.
+    this.stopSleepTimerCountdown();
+    if (this.sleepStatusTimeout != null) {
+      clearTimeout(this.sleepStatusTimeout);
+      this.sleepStatusTimeout = null;
+    }
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
     window.removeEventListener('beforeunload', this.onBeforeUnload);
     window.removeEventListener('pagehide', this.onPageHide);
