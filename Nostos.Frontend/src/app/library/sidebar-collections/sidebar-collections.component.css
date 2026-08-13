@@ -138,13 +138,6 @@
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
-/* DARK THEME: active pill stays dark, accent-tinted with light icon/label */
-:host-context([data-theme='dark']) .nav-item.active {
-  background: var(--color-accent-bg);
-  color: var(--color-accent);
-  box-shadow: none;
-}
-
 /* Add Button Specifics */
 .nav-item.action-add {
   color: var(--color-text-light);

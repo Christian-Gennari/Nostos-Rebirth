@@ -102,10 +102,6 @@
   line-height: 1.4;
 }
 
-:host-context([data-theme='dark']) .count-badge {
-  color: var(--color-text-muted);
-}
-
 .node-actions {
   display: none; /* Hidden by default */
   gap: 4px;

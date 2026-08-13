@@ -7,8 +7,8 @@
  * TinyMCE portal: menus, collections, dialogs, quickbars, and input fields.
  *
  * Everything is token-driven via the --editor-ui-* custom properties defined
- * under the [data-theme='light'|'dark'|'sepia'] blocks in styles.css. The
- * skin itself stays 'oxide' in every theme — these rules repaint it.
+ * on :root in styles.css (the single light token graph). The skin itself
+ * stays 'oxide' — these rules repaint it.
  */
 
 /* Dropdowns and context collections */
