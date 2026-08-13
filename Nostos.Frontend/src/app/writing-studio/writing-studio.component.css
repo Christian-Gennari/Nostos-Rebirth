@@ -530,6 +530,12 @@ app-markdown-editor {
   display: none !important;
 }
 
+/* The app owns reading status: hide TinyMCE's own statusbar word count in
+   normal mode too, otherwise two word counts (TinyMCE vs the app pill) show. */
+::ng-deep .tox-statusbar {
+  display: none !important;
+}
+
 /* Center the writing surface at min(100%, 860px) with responsive padding. */
 :host-context(body.nostos-zen) .editor-wrapper {
   align-items: center;
