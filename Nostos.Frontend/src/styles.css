@@ -594,3 +594,13 @@ input[type='file']::file-selector-button:hover {
   line-height: 1.6;
   color: var(--color-text-main);
 }
+
+/* ------------------------------
+   WRITING STUDIO ZEN MODE (issue #49)
+------------------------------ */
+/* Hides the app dock while the Writing Studio is in focus mode. The dock is
+   rendered by workspace-layout outside the studio component, so this helper
+   rule must live globally (component-scoped styles cannot reach it). */
+body.nostos-zen app-app-dock {
+  display: none;
+}

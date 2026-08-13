@@ -29,6 +29,8 @@ import {
   Book,
   Library,
   Sparkles,
+  Maximize2,
+  Minimize2,
 } from 'lucide-angular';
 
 import { WritingsService } from '../core/services/writings.service';
@@ -83,6 +85,8 @@ export class WritingStudio implements OnInit {
     Book,
     Library,
     Sparkles,
+    Maximize2,
+    Minimize2,
   };
 
   isMobile = signal(window.innerWidth < 768);
@@ -99,6 +103,14 @@ export class WritingStudio implements OnInit {
   editorText = signal('');
   editorTitle = signal('');
   saveStatus = signal<'Saved' | 'Saving...' | 'Unsaved'>('Saved');
+
+  // Zen (focus) mode — issue #49. Session-only: never persisted.
+  isZen = signal(false);
+
+  wordCount = computed(() => {
+    const text = this.editorText().trim();
+    return text ? text.split(/\s+/).length : 0;
+  });
 
   // Brain / Concepts State
   brainQuery = signal('');
@@ -151,6 +163,14 @@ export class WritingStudio implements OnInit {
     window.addEventListener('resize', onResize);
     this.destroyRef.onDestroy(() => window.removeEventListener('resize', onResize));
 
+    // Zen mode: Esc exits focus mode; listener removed on destroy.
+    window.addEventListener('keydown', this.onKeyDown);
+    this.destroyRef.onDestroy(() => {
+      window.removeEventListener('keydown', this.onKeyDown);
+      // Never leave the body class behind if the component is torn down mid-zen.
+      document.body.classList.remove('nostos-zen');
+    });
+
     effect((onCleanup) => {
       const text = this.editorText();
       const title = this.editorTitle();
@@ -199,6 +219,25 @@ export class WritingStudio implements OnInit {
       this.showFileSidebar.set(false);
       this.showBrainSidebar.set(false);
     }
+  }
+
+  // --- Zen (focus) mode — issue #49 ---
+
+  private readonly onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape' && this.isZen()) {
+      this.exitZen();
+    }
+  };
+
+  enterZen() {
+    this.isZen.set(true);
+    document.body.classList.add('nostos-zen');
+  }
+
+  exitZen() {
+    if (!this.isZen()) return;
+    this.isZen.set(false);
+    document.body.classList.remove('nostos-zen');
   }
 
   loadTree() {
