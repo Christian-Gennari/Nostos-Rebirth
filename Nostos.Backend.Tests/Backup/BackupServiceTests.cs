@@ -464,6 +464,30 @@ public sealed class BackupServiceTests
                 .ToList());
     }
 
+    [Fact]
+    public async Task RestoreBackup_RoundTripsBookFiles_WhenIncludeBookFiles()
+    {
+        using var h = BackupHarness.Create(includeBookFiles: true);
+
+        var bookDir = Path.Combine(h.ContentRoot, "Storage", "books", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(bookDir);
+        var payload = "EPUB-FILE-PAYLOAD-quixotic-42"u8.ToArray();
+        var bookFile = Path.Combine(bookDir, "book.epub");
+        await File.WriteAllBytesAsync(bookFile, payload);
+
+        var created = await h.Service.CreateBackupAsync();
+        created.Status.Should().Be(BackupStatus.Completed);
+
+        // Destructively remove the live file (simulates a lost book file).
+        File.Delete(bookFile);
+
+        var restored = await h.Service.RestoreBackupAsync(created.Id);
+        restored.Success.Should().BeTrue(restored.Message);
+
+        File.Exists(bookFile).Should().BeTrue();
+        (await File.ReadAllBytesAsync(bookFile)).Should().Equal(payload);
+    }
+
     // --- Harness -----------------------------------------------------------
 
     [Fact]
@@ -558,7 +582,7 @@ public sealed class BackupServiceTests
 
         public NostosDbContext NewDbContext() => new(Options);
 
-        public static BackupHarness Create()
+        public static BackupHarness Create(bool includeBookFiles = false)
         {
             var contentRoot = Path.Combine(Path.GetTempPath(), $"nostos-backup-test-{Guid.NewGuid():N}");
             Directory.CreateDirectory(contentRoot);
@@ -585,7 +609,7 @@ public sealed class BackupServiceTests
                 Provider = "Local",
                 IntervalHours = 168,
                 MaxBackups = 10,
-                IncludeBookFiles = false,
+                IncludeBookFiles = includeBookFiles,
             }));
             services.AddSingleton(options);
             services.AddScoped<NostosDbContext>(sp =>
