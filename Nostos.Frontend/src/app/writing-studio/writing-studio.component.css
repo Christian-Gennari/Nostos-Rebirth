@@ -458,3 +458,34 @@ app-markdown-editor {
 .sidebar-header-toggle {
   color: var(--color-text-muted);
 }
+
+/* --- ZEN (FOCUS) MODE — issue #49 --- */
+/* Full-bleed editor surface: the studio host covers the whole viewport and
+   both studio sidebars disappear. The app dock is hidden via a global rule
+   in styles.css (it lives outside this component's shadow). */
+:host-context(body.nostos-zen) {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+
+:host-context(body.nostos-zen) .sidebar-left,
+:host-context(body.nostos-zen) .sidebar-right {
+  display: none;
+}
+
+.zen-word-count {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 110;
+  font-size: 0.75rem;
+  font-weight: var(--fw-medium);
+  color: var(--color-text-light);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.4rem 0.8rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+}
