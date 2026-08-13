@@ -307,21 +307,20 @@
   position: sticky;
   top: 0;
   z-index: 2;
-  padding: 0.5rem;
+  padding: 0.5rem 0.75rem;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   background-color: transparent;
 }
-.editor-header > * {
-  max-width: 740px;
-  width: 100%;
-}
 
-.meta-controls {
+/* Document-action cluster: sits at the editor pane's upper-right. */
+.doc-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-left: auto;
 }
 
 .status-badge {
@@ -332,14 +331,33 @@
   letter-spacing: 0.05em;
 }
 
-/* FIX: Restored `height: 100%` and `flex: 1` combination from your working version.
-   This ensures the wrapper is constrained to the screen size, allowing overflow-y to work.
-*/
+/* Save status + word count live together at the bottom of the editor pane. */
+.editor-status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  flex-shrink: 0;
+  background-color: var(--bg-surface);
+  border-top: 1px solid var(--border-color);
+}
+
+.word-count {
+  font-size: 0.7rem;
+  color: var(--color-text-light);
+  font-weight: var(--fw-medium);
+}
+
+/* The editor iframe is the only scroll owner: the wrapper never scrolls and
+   the TinyMCE surface is pinned to its height, so the iframe scrolls
+   internally. This keeps the same scroll surface across zen enter/exit. */
 .editor-wrapper {
   flex: 1;
   width: 100%;
-  height: 100%; /* Explicitly restore height */
-  overflow-y: auto;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -357,19 +375,22 @@
     background: var(--bg-surface);
     border-radius: 8px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-    min-height: calc(100vh - 120px); /* Visual min-height only */
-    margin-bottom: 2rem;
+    min-height: 0;
     margin-top: 0.7rem;
-  }
-
-  .meta-controls {
-    justify-content: center;
   }
 }
 
 app-markdown-editor {
   flex: 1;
+  min-height: 0;
   display: block;
+}
+
+/* Pin the TinyMCE surface to its container so the iframe content scrolls
+   internally instead of growing the page (autoresize's inline height is
+   overridden). */
+:host ::ng-deep .tox-tinymce {
+  height: 100% !important;
 }
 
 .empty-state {
@@ -438,14 +459,23 @@ app-markdown-editor {
 
   .editor-pane {
     background: var(--bg-surface);
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
   }
 
   .editor-wrapper {
-    height: calc(100vh - 60px);
+    flex: 1;
+    min-height: 0;
+    height: auto;
     max-width: 100%;
     margin: 0;
     box-shadow: none;
     border: none;
+  }
+
+  .editor-status {
+    background-color: var(--bg-surface);
   }
 }
 
@@ -460,13 +490,23 @@ app-markdown-editor {
 }
 
 /* --- ZEN (FOCUS) MODE — issue #49 --- */
-/* Full-bleed editor surface: the studio host covers the whole viewport and
-   both studio sidebars disappear. The app dock is hidden via a global rule
-   in styles.css (it lives outside this component's shadow). */
+/* True immersion: the studio host covers the whole viewport, the grid
+   collapses to a single track, and every piece of chrome is hidden. The app
+   dock is hidden via a global rule in styles.css (it lives outside this
+   component's shadow). */
 :host-context(body.nostos-zen) {
   position: fixed;
   inset: 0;
+  width: 100vw;
+  height: 100dvh;
   z-index: 100;
+}
+
+/* THE root-cause fix: hiding the two auto-width sidebars used to leave the
+   editor auto-placed in the first narrow column with an empty 1fr track. */
+:host-context(body.nostos-zen) .studio-layout {
+  display: grid;
+  grid-template-columns: 1fr;
 }
 
 :host-context(body.nostos-zen) .sidebar-left,
@@ -474,11 +514,74 @@ app-markdown-editor {
   display: none;
 }
 
+/* Document header / action strip + bottom status row are chrome in zen;
+   the floating word-count pill and the fixed Exit-zen control replace them. */
+:host-context(body.nostos-zen) .editor-header,
+:host-context(body.nostos-zen) .editor-status {
+  display: none;
+}
+
+/* TinyMCE internal chrome (menubar, formatting toolbar, statusbar, quickbars
+   popups) is hidden in zen. Editing stays available via keyboard shortcuts. */
+:host-context(body.nostos-zen) ::ng-deep .tox-menubar,
+:host-context(body.nostos-zen) ::ng-deep .tox-toolbar-overlord,
+:host-context(body.nostos-zen) ::ng-deep .tox-statusbar,
+:host-context(body.nostos-zen) ::ng-deep .tox .tox-pop {
+  display: none !important;
+}
+
+/* The app owns reading status: hide TinyMCE's own statusbar word count in
+   normal mode too, otherwise two word counts (TinyMCE vs the app pill) show. */
+::ng-deep .tox-statusbar {
+  display: none !important;
+}
+
+/* Center the writing surface at min(100%, 860px) with responsive padding. */
+:host-context(body.nostos-zen) .editor-wrapper {
+  align-items: center;
+  padding: 3.5rem clamp(1.25rem, 6vw, 6rem) 2.5rem;
+}
+
+:host-context(body.nostos-zen) app-markdown-editor {
+  width: 100%;
+  max-width: min(100%, 860px);
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  background: var(--bg-surface);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Fixed Exit-zen control: one subdued, always-visible escape hatch (Esc also
+   exits, but the visible button is required for accessibility). */
+.zen-exit {
+  position: fixed;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 110;
+  color: var(--color-text-light);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 6px;
+  opacity: 0.85;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.zen-exit:hover {
+  opacity: 1;
+  color: var(--color-text-main);
+}
+
 .zen-word-count {
   position: fixed;
   bottom: 1.25rem;
   right: 1.25rem;
   z-index: 110;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   font-size: 0.75rem;
   font-weight: var(--fw-medium);
   color: var(--color-text-light);
@@ -488,4 +591,25 @@ app-markdown-editor {
   padding: 0.4rem 0.8rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  :host-context(body.nostos-zen) .editor-wrapper {
+    height: 100%;
+    padding:
+      calc(env(safe-area-inset-top, 0px) + 3.5rem)
+      calc(env(safe-area-inset-right, 0px) + 1rem)
+      calc(env(safe-area-inset-bottom, 0px) + 1rem)
+      calc(env(safe-area-inset-left, 0px) + 1rem);
+  }
+
+  :host-context(body.nostos-zen) .zen-exit {
+    top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+    right: calc(env(safe-area-inset-right, 0px) + 0.75rem);
+  }
+
+  :host-context(body.nostos-zen) .zen-word-count {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 1.25rem);
+    right: calc(env(safe-area-inset-right, 0px) + 1.25rem);
+  }
 }

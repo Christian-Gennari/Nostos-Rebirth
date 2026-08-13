@@ -94,10 +94,62 @@ describe('WritingStudio zen mode (issue #49)', () => {
     document.body.classList.remove('nostos-zen');
   });
 
+  const zenToggle = (): HTMLButtonElement | null =>
+    fixture.nativeElement.querySelector('.zen-toggle') as HTMLButtonElement | null;
+
+  const zenExit = (): HTMLButtonElement | null =>
+    fixture.nativeElement.querySelector('.zen-exit') as HTMLButtonElement | null;
+
+  const openDocument = () => {
+    component.activeItem.set(sampleDocument);
+    component.editorTitle.set(sampleDocument.name);
+    component.editorText.set(sampleDocument.content);
+    fixture.detectChanges();
+  };
+
   it('should create', () => {
     expect(component).toBeTruthy();
   });
 
+  // --- Placement: no zen control without an active document ---
+  it('shows no zen control and no status area without an active document', () => {
+    expect(zenToggle()).toBeNull();
+    expect(zenExit()).toBeNull();
+    expect(fixture.nativeElement.querySelector('.editor-status')).toBeNull();
+  });
+
+  it('shows the zen toggle in the document-action cluster with an active document', () => {
+    openDocument();
+
+    const button = zenToggle();
+    expect(button).toBeTruthy();
+
+    const header = fixture.nativeElement.querySelector('.editor-header') as HTMLElement;
+    const actions = fixture.nativeElement.querySelector('.doc-actions') as HTMLElement;
+    expect(header).toBeTruthy();
+    expect(actions).toBeTruthy();
+    expect(header.contains(button)).toBe(true);
+    expect(actions.contains(button)).toBe(true);
+  });
+
+  // --- Placement: "Saved" lives in the status/word-count area ---
+  it('renders save status and word count in the status area with an active document', () => {
+    openDocument();
+    component.editorText.set('one two three four');
+
+    const status = fixture.nativeElement.querySelector('.editor-status') as HTMLElement;
+    expect(status).toBeTruthy();
+    expect(status.querySelector('.status-badge')?.textContent?.trim()).toBe('Saved');
+    expect(status.querySelector('.word-count')?.textContent?.trim()).toBe('4 words');
+  });
+
+  it('has no status badge inside the document-action header', () => {
+    openDocument();
+    const header = fixture.nativeElement.querySelector('.editor-header') as HTMLElement;
+    expect(header.querySelector('.status-badge')).toBeNull();
+  });
+
+  // --- Enter/exit manages body.nostos-zen ---
   it('entering zen sets component state and adds the body class', () => {
     component.enterZen();
 
@@ -105,20 +157,34 @@ describe('WritingStudio zen mode (issue #49)', () => {
     expect(document.body.classList.contains('nostos-zen')).toBe(true);
   });
 
-  it('toggling the toolbar button enters and exits zen', () => {
-    component.activeItem.set(sampleDocument);
-    fixture.detectChanges();
+  it('toggling the zen button enters zen and the fixed Exit-zen control exits it', () => {
+    openDocument();
 
-    const button = fixture.nativeElement.querySelector('.zen-toggle') as HTMLButtonElement;
-    expect(button).toBeTruthy();
-
+    const button = zenToggle()!;
     button.click();
+    fixture.detectChanges();
     expect(component.isZen()).toBe(true);
     expect(document.body.classList.contains('nostos-zen')).toBe(true);
 
-    button.click();
+    const exit = zenExit();
+    expect(exit).toBeTruthy();
+    exit!.click();
+    fixture.detectChanges();
     expect(component.isZen()).toBe(false);
     expect(document.body.classList.contains('nostos-zen')).toBe(false);
+  });
+
+  it('renders the fixed Exit-zen control only while zen is active', () => {
+    openDocument();
+    expect(zenExit()).toBeNull();
+
+    component.enterZen();
+    fixture.detectChanges();
+    expect(zenExit()).toBeTruthy();
+
+    component.exitZen();
+    fixture.detectChanges();
+    expect(zenExit()).toBeNull();
   });
 
   it('Esc exits zen and removes the body class', () => {
@@ -138,6 +204,47 @@ describe('WritingStudio zen mode (issue #49)', () => {
     expect(document.body.classList.contains('nostos-zen')).toBe(false);
   });
 
+  it('entering zen twice is idempotent', () => {
+    component.enterZen();
+    component.enterZen();
+    expect(component.isZen()).toBe(true);
+    expect(document.body.classList.contains('nostos-zen')).toBe(true);
+
+    component.exitZen();
+    expect(document.body.classList.contains('nostos-zen')).toBe(false);
+  });
+
+  // --- Exit restores focus ---
+  it('restores focus to the element that opened zen after exit', () => {
+    openDocument();
+
+    const button = zenToggle()!;
+    button.focus();
+    button.click();
+    expect(document.body.classList.contains('nostos-zen')).toBe(true);
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+    expect(component.isZen()).toBe(false);
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('restores focus to the zen toggle when the original element is gone', () => {
+    openDocument();
+
+    const button = zenToggle()!;
+    const dummy = document.createElement('button');
+    document.body.appendChild(dummy);
+    dummy.focus();
+
+    component.enterZen();
+    dummy.remove();
+    component.exitZen();
+
+    expect(document.activeElement).toBe(button);
+  });
+
+  // --- Destruction always removes the body class ---
   it('does not leak zen state or listeners after destroy', () => {
     component.enterZen();
     expect(document.body.classList.contains('nostos-zen')).toBe(true);
@@ -147,6 +254,82 @@ describe('WritingStudio zen mode (issue #49)', () => {
 
     expect(removeSpy).toHaveBeenCalledWith('keydown', (component as any).onKeyDown);
     expect(document.body.classList.contains('nostos-zen')).toBe(false);
+  });
+
+  // --- Computed zen grid has one track ---
+  it('collapses the studio grid to a single 1fr track in zen', () => {
+    const layout = fixture.nativeElement.querySelector('.studio-layout') as HTMLElement;
+
+    component.enterZen();
+    fixture.detectChanges();
+
+    const cols = getComputedStyle(layout).gridTemplateColumns;
+    expect(cols).toBe('1fr');
+  });
+
+  // --- Sidebars, dock, menus, formatting toolbar hidden in zen ---
+  it('hides the document header/action strip and status area in zen', () => {
+    openDocument();
+    const header = fixture.nativeElement.querySelector('.editor-header') as HTMLElement;
+    const status = fixture.nativeElement.querySelector('.editor-status') as HTMLElement;
+
+    component.enterZen();
+    fixture.detectChanges();
+
+    expect(getComputedStyle(header).display).toBe('none');
+    expect(getComputedStyle(status).display).toBe('none');
+  });
+
+  it('hides both sidebars in zen', () => {
+    const left = fixture.nativeElement.querySelector('.sidebar-left') as HTMLElement;
+    const right = fixture.nativeElement.querySelector('.sidebar-right') as HTMLElement;
+
+    component.enterZen();
+    fixture.detectChanges();
+
+    expect(getComputedStyle(left).display).toBe('none');
+    expect(getComputedStyle(right).display).toBe('none');
+  });
+
+  it('caps the writing surface at 860px and centers it in zen', () => {
+    openDocument();
+    const editor = fixture.nativeElement.querySelector('app-markdown-editor') as HTMLElement;
+    const wrapper = fixture.nativeElement.querySelector('.editor-wrapper') as HTMLElement;
+
+    component.enterZen();
+    fixture.detectChanges();
+
+    expect(getComputedStyle(editor).maxWidth).toBe('min(100%, 860px)');
+    expect(getComputedStyle(wrapper).alignItems).toBe('center');
+  });
+
+  // --- Exactly one scroll container remains ---
+  it('keeps the editor wrapper non-scrollable in zen so the editor surface is the only scroll owner', () => {
+    openDocument();
+    const wrapper = fixture.nativeElement.querySelector('.editor-wrapper') as HTMLElement;
+    const pane = fixture.nativeElement.querySelector('.editor-pane') as HTMLElement;
+    const layout = fixture.nativeElement.querySelector('.studio-layout') as HTMLElement;
+
+    component.enterZen();
+    fixture.detectChanges();
+
+    expect(getComputedStyle(wrapper).overflow === 'hidden' || getComputedStyle(wrapper).overflowY === 'hidden').toBe(true);
+    expect(getComputedStyle(pane).overflow === 'hidden' || getComputedStyle(pane).overflowY === 'hidden').toBe(true);
+    expect(getComputedStyle(layout).overflow === 'hidden' || getComputedStyle(layout).overflowY === 'hidden').toBe(true);
+  });
+
+  // --- Scroll position survives enter/exit ---
+  it('does not recreate the editor surface across enter/exit (same scroll owner)', () => {
+    openDocument();
+    const editor = fixture.nativeElement.querySelector('app-markdown-editor') as HTMLElement;
+
+    component.enterZen();
+    fixture.detectChanges();
+    component.exitZen();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-markdown-editor')).toBe(editor);
+    expect(component.editorText()).toBe(sampleDocument.content);
   });
 
   it('computes the word count from the editor content', () => {
@@ -160,17 +343,19 @@ describe('WritingStudio zen mode (issue #49)', () => {
     expect(component.wordCount()).toBe(0);
   });
 
-  it('renders the floating word count in zen', () => {
-    component.editorText.set('one two three four');
+  it('renders the floating status/word-count pill in zen', () => {
+    openDocument();
     component.enterZen();
     fixture.detectChanges();
 
     const el = fixture.nativeElement.querySelector('.zen-word-count') as HTMLElement;
     expect(el).toBeTruthy();
-    expect(el.textContent?.trim()).toBe('4 words');
+    expect(el.querySelector('.status-badge')?.textContent?.trim()).toBe('Saved');
+    expect(el.querySelector('.zen-word-count__words')?.textContent?.trim()).toBe('4 words');
   });
 
-  it('hides the floating word count outside zen', () => {
+  it('hides the floating status/word-count pill outside zen', () => {
+    openDocument();
     expect(fixture.nativeElement.querySelector('.zen-word-count')).toBeNull();
   });
 });

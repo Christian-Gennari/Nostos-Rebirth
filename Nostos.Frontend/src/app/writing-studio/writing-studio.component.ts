@@ -7,6 +7,7 @@ import {
   computed,
   DestroyRef,
   untracked,
+  ElementRef,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -67,6 +68,7 @@ export class WritingStudio implements OnInit {
   private notesService = inject(NotesService);
 
   private destroyRef = inject(DestroyRef);
+  private hostElement = inject(ElementRef<HTMLElement>);
 
   Icons = {
     Menu,
@@ -106,6 +108,9 @@ export class WritingStudio implements OnInit {
 
   // Zen (focus) mode — issue #49. Session-only: never persisted.
   isZen = signal(false);
+
+  /** Element that had focus when zen was entered; restored on exit. */
+  private zenFocusReturn: HTMLElement | null = null;
 
   wordCount = computed(() => {
     const text = this.editorText().trim();
@@ -230,7 +235,11 @@ export class WritingStudio implements OnInit {
   };
 
   enterZen() {
+    if (this.isZen()) return;
     this.isZen.set(true);
+    // Remember where focus was so it can be restored on exit (accessibility).
+    this.zenFocusReturn =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     document.body.classList.add('nostos-zen');
   }
 
@@ -238,6 +247,16 @@ export class WritingStudio implements OnInit {
     if (!this.isZen()) return;
     this.isZen.set(false);
     document.body.classList.remove('nostos-zen');
+
+    // Restore focus to the element that opened zen, falling back to the
+    // (now visible again) zen toggle in the document-action cluster.
+    const fallback = this.hostElement.nativeElement.querySelector(
+      '.zen-toggle',
+    ) as HTMLButtonElement | null;
+    const target =
+      this.zenFocusReturn && this.zenFocusReturn.isConnected ? this.zenFocusReturn : fallback;
+    this.zenFocusReturn = null;
+    target?.focus();
   }
 
   loadTree() {
