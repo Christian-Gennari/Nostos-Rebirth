@@ -98,6 +98,208 @@
   --transition-normal: 200ms ease;
 }
 
+/* ------------------------------
+   DARK THEME (near-black surfaces, muted text hierarchy, blue accent kept)
+------------------------------ */
+[data-theme='dark'] {
+  /* ── Surfaces ── */
+  --bg-body: #0e1116;
+  --bg-surface: #161a21;
+  --bg-surface-alt: #1b2029;
+  --bg-sidebar: #13171d;
+  --bg-input: #1b2029;
+  --bg-hover: #222834;
+  --bg-skeleton: #1d222b;
+
+  /* ── Text ── */
+  --color-text-main: #e6e8ec;
+  --color-text-muted: #a6adba;
+  --color-text-light: #7e8796;
+  --color-text-placeholder: #5d6675;
+  --color-text-faint: #3b4352;
+
+  /* ── Interactive / Primary (inverted: light emphasis on dark surfaces) ── */
+  --color-primary: #e6e8ec;
+  --color-primary-hover: #ffffff;
+  --color-primary-dim: #9aa3b2;
+
+  /* ── Accent (Blue) ── */
+  --color-accent: #60a5fa;
+  --color-accent-hover: #93c5fd;
+  --color-accent-faint: rgba(96, 165, 250, 0.3);
+  --color-accent-bg: rgba(96, 165, 250, 0.15);
+
+  /* ── Danger ── */
+  --color-danger: #f87171;
+  --color-danger-vivid: #ef4444;
+  --color-danger-bg: rgba(239, 68, 68, 0.15);
+
+  /* ── Success ── */
+  --color-success: #4ade80;
+  --color-success-dark: #86efac;
+
+  /* ── Info ── */
+  --color-info: #7ab7ff;
+  --color-info-border: #3b5f8a;
+  --color-info-bg: #182b42;
+
+  /* ── Highlight ── */
+  --color-highlight: #f5c400;
+  --color-highlight-hover: #e0b400;
+
+  /* ── Borders ── */
+  --border-color: #2a303c;
+  --border-light: #232935;
+  --border-focus: #5d6a7d;
+
+  /* ── Scrollbar ── */
+  --scrollbar-thumb: #333b4a;
+  --scrollbar-thumb-hover: #47516a;
+
+  /* ── Overlays ── */
+  --overlay-heavy: rgba(0, 0, 0, 0.8);
+  --overlay-medium: rgba(0, 0, 0, 0.5);
+  --overlay-light: rgba(0, 0, 0, 0.35);
+
+  /* ── Radius ── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* ── Font Weights ── */
+  --fw-light: 300;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* ── Typography Scale ── */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+
+  /* ── Spacing ── */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --container-width-md: 800px;
+  --container-width-lg: 1200px;
+
+  /* ── Shadows ── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
+
+  /* ── Transitions ── */
+  --transition-fast: 120ms ease;
+  --transition-normal: 200ms ease;
+}
+
+/* ------------------------------
+   SEPIA THEME (warm paper surfaces, brownish ink text, same hierarchy)
+------------------------------ */
+[data-theme='sepia'] {
+  /* ── Surfaces ── */
+  --bg-body: #f4ecd8;
+  --bg-surface: #faf5e8;
+  --bg-surface-alt: #f1e9d5;
+  --bg-sidebar: #efe6cf;
+  --bg-input: #fbf6ea;
+  --bg-hover: #e9dfc7;
+  --bg-skeleton: #ece2ca;
+
+  /* ── Text ── */
+  --color-text-main: #3a2f1d;
+  --color-text-muted: #5c4f35;
+  --color-text-light: #7d7053;
+  --color-text-placeholder: #93856a;
+  --color-text-faint: #b3a689;
+
+  /* ── Interactive / Primary (brownish ink) ── */
+  --color-primary: #33291a;
+  --color-primary-hover: #4a3d28;
+  --color-primary-dim: #8a7a5c;
+
+  /* ── Accent (Blue, deepened for paper contrast) ── */
+  --color-accent: #3d7fd9;
+  --color-accent-hover: #7aa8ec;
+  --color-accent-faint: rgba(61, 127, 217, 0.3);
+  --color-accent-bg: #e3ebf7;
+
+  /* ── Danger ── */
+  --color-danger: #b3402f;
+  --color-danger-vivid: #c94f3d;
+  --color-danger-bg: #f3ddd7;
+
+  /* ── Success ── */
+  --color-success: #2f9e44;
+  --color-success-dark: #1e7a34;
+
+  /* ── Info ── */
+  --color-info: #2c5f9e;
+  --color-info-border: #a8c6e8;
+  --color-info-bg: #e4edf7;
+
+  /* ── Highlight ── */
+  --color-highlight: #e0b41e;
+  --color-highlight-hover: #cba416;
+
+  /* ── Borders ── */
+  --border-color: #ddd2b6;
+  --border-light: #e6dcc4;
+  --border-focus: #a8987a;
+
+  /* ── Scrollbar ── */
+  --scrollbar-thumb: #d8ccae;
+  --scrollbar-thumb-hover: #c3b493;
+
+  /* ── Overlays ── */
+  --overlay-heavy: rgba(58, 47, 29, 0.7);
+  --overlay-medium: rgba(58, 47, 29, 0.4);
+  --overlay-light: rgba(58, 47, 29, 0.3);
+
+  /* ── Radius ── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* ── Font Weights ── */
+  --fw-light: 300;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* ── Typography Scale ── */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+
+  /* ── Spacing ── */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --container-width-md: 800px;
+  --container-width-lg: 1200px;
+
+  /* ── Shadows ── */
+  --shadow-sm: 0 1px 2px rgba(90, 75, 50, 0.15);
+  --shadow-md: 0 4px 12px rgba(90, 75, 50, 0.2);
+  --shadow-lg: 0 8px 24px rgba(90, 75, 50, 0.25);
+
+  /* ── Transitions ── */
+  --transition-fast: 120ms ease;
+  --transition-normal: 200ms ease;
+}
+
 * {
   margin: 0;
   padding: 0;

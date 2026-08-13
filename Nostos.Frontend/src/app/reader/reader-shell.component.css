@@ -246,8 +246,46 @@
 }
 .icon-btn.active {
   background-color: var(--color-primary);
-  color: #fff;
+  color: var(--bg-surface);
   border-color: var(--color-primary);
+}
+
+/* --- READER THEME TOGGLE (light / dark / sepia) --- */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  margin-left: 0.25rem;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.theme-toggle-btn {
+  all: unset;
+
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: calc(var(--radius-md) - 2px);
+  color: var(--color-text-muted);
+  transition:
+    background-color 0.2s,
+    color 0.2s;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--bg-surface);
+  color: var(--color-primary);
+}
+
+.theme-toggle-btn.active {
+  background: var(--color-primary);
+  color: var(--bg-surface);
 }
 .error,
 .loading {
@@ -423,11 +461,15 @@
   .icon-btn.active,
   .icon-btn.active:hover {
     background-color: var(--color-primary);
-    color: #fff;
+    color: var(--bg-surface);
     border-color: var(--color-primary);
   }
   .icon-btn lucide-icon {
     top: 0;
+  }
+  .theme-toggle-btn {
+    width: 36px;
+    height: 36px;
   }
   .desktop-only {
     display: none;

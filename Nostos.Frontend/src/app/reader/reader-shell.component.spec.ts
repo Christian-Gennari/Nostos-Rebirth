@@ -15,6 +15,7 @@ import { BooksService } from '../core/services/books.service';
 import { NotesService } from '../core/services/notes.service';
 import { ConceptsService } from '../core/services/concepts.service';
 import { ConceptAutocompleteService } from '../ui/concept-autocomplete-panel/concept-autocomplete.service';
+import { ThemeService } from '../core/services/theme.service';
 import { Book } from '../core/dtos/book.dtos';
 
 // The AudioReader is kept real so this spec guards the reader page's total
@@ -128,62 +129,79 @@ const audiobook = {
   chapters: [{ title: 'Book One', startTime: 0 }],
 } as Book;
 
+const booksGetSpy = vi.fn();
+
+// jsdom does not implement matchMedia; the shell registers a change listener.
+function mockMatchMedia() {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+
+// Builds a fresh TestBed module with the heavy reader children stubbed out.
+// Called per-test so localStorage can be primed (theme hydration) BEFORE the
+// component (and its root-provided ThemeService) is constructed.
+async function configureReaderShell(): Promise<ComponentFixture<ReaderShell>> {
+  TestBed.overrideComponent(ReaderShell, {
+    remove: {
+      imports: [PdfReader, EpubReader, ConceptInputComponent, NoteCardComponent],
+    },
+    add: { imports: [PdfReaderStub, EpubReaderStub, ConceptInputStub, NoteCardStub] },
+  });
+
+  await TestBed.configureTestingModule({
+    imports: [ReaderShell],
+    providers: [
+      provideRouter([]),
+      {
+        provide: ActivatedRoute,
+        useValue: { snapshot: { paramMap: convertToParamMap({ id: 'book-1' }) } },
+      },
+      {
+        provide: BooksService,
+        useValue: { get: booksGetSpy, updateProgress: vi.fn(() => of(null)) },
+      },
+      {
+        provide: NotesService,
+        useValue: {
+          list: vi.fn(() => of([])),
+          create: vi.fn(),
+          update: vi.fn(),
+          delete: vi.fn(),
+        },
+      },
+      { provide: ConceptsService, useValue: { list: vi.fn(() => of([])) } },
+      { provide: ConceptAutocompleteService, useValue: { setConcepts: vi.fn() } },
+    ],
+  }).compileComponents();
+
+  return TestBed.createComponent(ReaderShell);
+}
+
 describe('ReaderShell audiobook load (issue #7)', () => {
   let fixture: ComponentFixture<ReaderShell>;
-  const booksGetSpy = vi.fn();
 
   beforeEach(async () => {
     booksGetSpy.mockReset();
     booksGetSpy.mockReturnValue(of(audiobook));
 
-    // jsdom does not implement matchMedia; the shell registers a change listener.
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: vi.fn().mockImplementation((query: string) => ({
-        matches: false,
-        media: query,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      })),
-    });
+    // Deterministic theme state for every test (ThemeService hydrates from
+    // localStorage on construction).
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
 
-    TestBed.overrideComponent(ReaderShell, {
-      remove: {
-        imports: [PdfReader, EpubReader, ConceptInputComponent, NoteCardComponent],
-      },
-      add: { imports: [PdfReaderStub, EpubReaderStub, ConceptInputStub, NoteCardStub] },
-    });
+    mockMatchMedia();
 
-    await TestBed.configureTestingModule({
-      imports: [ReaderShell],
-      providers: [
-        provideRouter([]),
-        {
-          provide: ActivatedRoute,
-          useValue: { snapshot: { paramMap: convertToParamMap({ id: 'book-1' }) } },
-        },
-        {
-          provide: BooksService,
-          useValue: { get: booksGetSpy, updateProgress: vi.fn(() => of(null)) },
-        },
-        {
-          provide: NotesService,
-          useValue: {
-            list: vi.fn(() => of([])),
-            create: vi.fn(),
-            update: vi.fn(),
-            delete: vi.fn(),
-          },
-        },
-        { provide: ConceptsService, useValue: { list: vi.fn(() => of([])) } },
-        { provide: ConceptAutocompleteService, useValue: { setConcepts: vi.fn() } },
-      ],
-    }).compileComponents();
-
-    fixture = TestBed.createComponent(ReaderShell);
+    fixture = await configureReaderShell();
   });
 
   function render() {
@@ -205,5 +223,63 @@ describe('ReaderShell audiobook load (issue #7)', () => {
     expect(audioReaderEl).not.toBeNull();
     expect(audioReaderEl.componentInstance.bookId()).toBe('book-1');
     expect(audioReaderEl.componentInstance.book()).toBe(audiobook);
+  });
+});
+
+describe('ReaderShell theme toggle (issue #45)', () => {
+  let fixture: ComponentFixture<ReaderShell>;
+
+  beforeEach(() => {
+    booksGetSpy.mockReset();
+    booksGetSpy.mockReturnValue(of(audiobook));
+
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+
+    mockMatchMedia();
+  });
+
+  function render() {
+    fixture.detectChanges();
+    fixture.detectChanges();
+  }
+
+  it('renders the theme toggle with the current theme and switches it on click', async () => {
+    fixture = await configureReaderShell();
+    render();
+
+    const toggle = fixture.debugElement.query(By.css('.theme-toggle'));
+    expect(toggle).not.toBeNull();
+
+    const buttons = fixture.debugElement.queryAll(By.css('.theme-toggle-btn'));
+    expect(buttons.length).toBe(3);
+    // Light is the default and starts active.
+    expect(buttons[0].classes['active']).toBe(true);
+    expect(buttons[1].classes['active']).toBeUndefined();
+    expect(buttons[2].classes['active']).toBeUndefined();
+
+    buttons[2].nativeElement.click(); // sepia
+    fixture.detectChanges();
+
+    const themeService = TestBed.inject(ThemeService);
+    expect(themeService.theme()).toBe('sepia');
+    expect(localStorage.getItem('nostos.theme')).toBe('sepia');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('sepia');
+    expect(buttons[2].classes['active']).toBe(true);
+    expect(buttons[0].classes['active']).toBeUndefined();
+  });
+
+  it('hydrates a persisted theme into the toggle on load', async () => {
+    localStorage.setItem('nostos.theme', 'dark');
+
+    // The fixture is created AFTER storage is primed, so the component's
+    // root-provided ThemeService hydrates from localStorage on construction.
+    fixture = await configureReaderShell();
+    render();
+
+    const buttons = fixture.debugElement.queryAll(By.css('.theme-toggle-btn'));
+    expect(buttons[1].classes['active']).toBe(true);
+    expect(buttons[0].classes['active']).toBeUndefined();
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
   });
 });
