@@ -11,23 +11,11 @@ using Nostos.Backend.Integrations.Mcp;
 using Nostos.Backend.Serialization;
 using Nostos.Backend.Services;
 using Nostos.Backend.Services.Library;
-using Nostos.Backend.Services.ReadingTraining;
-using Nostos.Backend.Services.ReadingTraining.Import;
 using Nostos.Backend.Workers;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- LOCAL ONE-SHOT READING IMPORT (Task 11B2) ---
-// An import run must emit exactly one JSON document on stdout; drop console
-// logging so no startup log can pollute it. Detection here mirrors the
-// command's own exact-token detection and only affects import runs.
-if (HermesReadingImportCommand.IsImportInvocation(args))
-{
-    builder.Logging.ClearProviders();
-}
-
 builder.Services.Configure<BackupSettings>(builder.Configuration.GetSection("BackupSettings"));
-builder.Services.Configure<ReadingTrainingOptions>(builder.Configuration.GetSection("ReadingTraining"));
 
 // Library receipt retention (issue #51): the bound section is normalized
 // once (unsafe values clamped) and registered as a singleton so the
@@ -60,11 +48,15 @@ if (mcpOptions.Enabled)
     if (string.IsNullOrWhiteSpace(mcpOptions.ApiKeyEnvironmentVariable))
     {
         throw new InvalidOperationException(
-            "MCP is enabled but 'Mcp:ApiKeyEnvironmentVariable' is not configured. Disable MCP (Mcp:Enabled=false) or configure the variable name.");
+            "MCP is enabled but 'Mcp:ApiKeyEnvironmentVariable' is empty. Configure an environment variable name.");
     }
 
-    mcpApiKey = Environment.GetEnvironmentVariable(mcpOptions.ApiKeyEnvironmentVariable) ?? string.Empty;
-    if (string.IsNullOrEmpty(mcpApiKey))
+    var resolvedToken = Environment.GetEnvironmentVariable(mcpOptions.ApiKeyEnvironmentVariable);
+    if (!string.IsNullOrWhiteSpace(resolvedToken))
+    {
+        mcpApiKey = resolvedToken.Trim();
+    }
+    else
     {
         throw new InvalidOperationException(
             $"MCP is enabled but environment variable '{mcpOptions.ApiKeyEnvironmentVariable}' is not set or empty. " +
@@ -140,29 +132,11 @@ builder.Services.AddScoped<ICollectionRepository, CollectionRepository>();
 builder.Services.AddScoped<INoteRepository, NoteRepository>();
 builder.Services.AddScoped<IConceptRepository, ConceptRepository>();
 builder.Services.AddScoped<IWritingRepository, WritingRepository>();
-builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ReadingTrainingOptions>>().Value);
-builder.Services.AddSingleton<IReadingClock, SystemReadingClock>();
-builder.Services.AddScoped<IReadingTrainingService, ReadingTrainingService>();
-builder.Services.AddScoped<IReadingGatewayDispatcher, ReadingGatewayDispatcher>();
-builder.Services.AddScoped<IReadingNotificationOutbox, ReadingNotificationOutbox>();
-builder.Services.AddScoped<IHermesReadingImportService, HermesReadingImportService>();
-builder.Services.AddTransient<HermesReadingImportCommand>();
 builder.Services.AddHostedService<ConceptCleanupWorker>();
 builder.Services.AddHostedService<BackupWorker>();
-builder.Services.AddHostedService<ReadingNotificationWorker>();
-builder.Services.AddHostedService<ReadingWeeklyReviewWorker>();
 builder.Services.AddHostedService<LibraryReceiptRetentionWorker>();
 
 var app = builder.Build();
-
-var importEngaged = HermesReadingImportCommand.TryParse(
-    args, out var importArguments, out var importParseError);
-if (!importEngaged && importParseError is not null)
-{
-    var exitCode = HermesReadingImportCommand.WriteArgumentError(importParseError, Console.Out);
-    await app.DisposeAsync();
-    return exitCode;
-}
 
 // --- DATABASE BOOTSTRAP / MIGRATION ---
 // A truly empty SQLite database (brand-new or zero tables) is bootstrapped
@@ -170,36 +144,10 @@ if (!importEngaged && importParseError is not null)
 // baseline, in one transaction (see DatabaseBootstrapService). Any existing
 // database goes through the ordinary EF migration path and is never
 // rebaselined; a partial or unknown schema fails closed here.
-try
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
     var bootstrap = scope.ServiceProvider.GetRequiredService<IDatabaseBootstrapService>();
     await bootstrap.EnsureReadyAsync();
-}
-catch when (importEngaged)
-{
-    var exitCode = HermesReadingImportCommand.WriteStartupError(
-        HermesReadingImportCommand.ErrorCodes.DatabaseMigrationFailed, Console.Out);
-    await app.DisposeAsync();
-    return exitCode;
-}
-
-// ------------------------------------
-
-// --- LOCAL ONE-SHOT READING IMPORT (Task 11B2) ---
-// Purely local CLI: when the exact `--reading-import <absolute-directory>`
-// argument is present, run a single dry run (default) or a confirmed commit
-// through the DI service and exit. Kestrel and the background workers never
-// start, so nothing listens on the network and no live data is touched by
-// this branch itself. All other argument shapes leave normal startup below
-// untouched.
-if (importEngaged)
-{
-    await using var commandScope = app.Services.CreateAsyncScope();
-    var importCommand = commandScope.ServiceProvider.GetRequiredService<HermesReadingImportCommand>();
-    var exitCode = await importCommand.RunAsync(importArguments!, Console.Out);
-    await app.DisposeAsync();
-    return exitCode;
 }
 
 // ------------------------------------
@@ -242,11 +190,10 @@ app.UseExceptionHandler(exceptionApp =>
         ).ExecuteAsync(context);
     });
 });
+
 app.UseStatusCodePages();
 
-// ----------------------------
-
-// --- MAINTENANCE MODE MIDDLEWARE ---
+// --- ROUTE & RESTORE MAINTENANCE GUARD ---
 // Guards both the REST API surface and (when enabled) the MCP route. This
 // middleware is registered before the MCP authentication gate, so
 // maintenance stays authoritative: during a restore, MCP requests receive
@@ -284,8 +231,6 @@ if (mcpOptions.Enabled)
 
 // -----------------------------------
 
-// -----------------------------
-
 app.MapOpenApi();
 
 // --- SERVE ANGULAR FRONTEND ---
@@ -302,7 +247,6 @@ app.MapConceptsEndpoints();
 app.MapWritingsEndpoints();
 app.MapOpdsEndpoints();
 app.MapBackupEndpoints();
-app.MapReadingTrainingEndpoints();
 
 // --- MCP STREAMABLE HTTP ENDPOINT ---
 if (mcpOptions.Enabled)
@@ -349,14 +293,11 @@ RequestDelegate serveClientRoute = async context =>
 };
 
 // The fallback endpoint carries the same GET/HEAD method constraint as the
-// static-file layer (and the previous MapFallbackToFile): the routing
-// method matcher keeps answering every other verb on unmapped paths with
-// 405 before this delegate ever runs, so mapped POST routes are never
-// shadowed.
+// static-file layer: the routing method matcher keeps answering every other
+// verb on unmapped paths with 405 before this delegate ever runs, so mapped
+// POST routes are never shadowed.
 app.MapFallback(serveClientRoute)
     .WithMetadata(new HttpMethodMetadata(new[] { "GET", "HEAD" }));
-
-// ------------------------------
 
 app.Run();
 return 0;

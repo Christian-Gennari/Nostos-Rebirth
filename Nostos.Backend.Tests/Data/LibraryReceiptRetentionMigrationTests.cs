@@ -35,7 +35,7 @@ public sealed class LibraryReceiptRetentionMigrationTests : IDisposable
         // attribute are not part of it).
         var migrationIds = GetMigrationsAssemblyIds(options);
         migrationIds.Should().Contain(name => name.Contains("AddLibraryCommandReceiptRetentionIndex"));
-        var retentionMigrationId = migrationIds[^1];
+        var retentionMigrationId = migrationIds.First(name => name.Contains("AddLibraryCommandReceiptRetentionIndex"));
 
         // Build the pre-retention state: schema WITHOUT the CreatedAt index,
         // history claiming every known migration except the retention one.
@@ -53,13 +53,16 @@ public sealed class LibraryReceiptRetentionMigrationTests : IDisposable
                 "\"MigrationId\" TEXT NOT NULL CONSTRAINT \"PK___EFMigrationsHistory\" PRIMARY KEY, " +
                 "\"ProductVersion\" TEXT NOT NULL)");
 
-            foreach (var id in migrationIds.Where(id => id != retentionMigrationId))
+            foreach (var id in migrationIds)
             {
                 await db.Database.ExecuteSqlRawAsync(
                     "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ({0}, {1})",
                     id,
                     "10.0.0");
             }
+            await db.Database.ExecuteSqlRawAsync(
+                "DELETE FROM \"__EFMigrationsHistory\" WHERE \"MigrationId\" = {0}",
+                retentionMigrationId);
         }
 
         // Apply pending migrations: exactly the retention migration.

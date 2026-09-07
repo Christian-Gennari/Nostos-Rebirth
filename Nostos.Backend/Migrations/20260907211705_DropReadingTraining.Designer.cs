@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nostos.Backend.Data;
 
@@ -10,9 +11,11 @@ using Nostos.Backend.Data;
 namespace Nostos.Backend.Migrations
 {
     [DbContext(typeof(NostosDbContext))]
-    partial class NostosDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260907211705_DropReadingTraining")]
+    partial class DropReadingTraining
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.0");
@@ -51,7 +54,7 @@ namespace Nostos.Backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("BackupRecords", (string)null);
+                    b.ToTable("BackupRecords");
                 });
 
             modelBuilder.Entity("Nostos.Backend.Data.Models.BookModel", b =>
@@ -100,7 +103,7 @@ namespace Nostos.Backend.Migrations
 
                     b.HasIndex("Title");
 
-                    b.ToTable("Books", (string)null);
+                    b.ToTable("Books");
 
                     b.HasDiscriminator<string>("BookType").HasValue("BookModel");
 
@@ -124,7 +127,7 @@ namespace Nostos.Backend.Migrations
 
                     b.HasIndex("ParentId");
 
-                    b.ToTable("Collections", (string)null);
+                    b.ToTable("Collections");
                 });
 
             modelBuilder.Entity("Nostos.Backend.Data.Models.ConceptModel", b =>
@@ -142,7 +145,7 @@ namespace Nostos.Backend.Migrations
                     b.HasIndex("Concept")
                         .IsUnique();
 
-                    b.ToTable("Concepts", (string)null);
+                    b.ToTable("Concepts");
                 });
 
             modelBuilder.Entity("Nostos.Backend.Data.Models.LibraryCommandReceipt", b =>
@@ -181,7 +184,7 @@ namespace Nostos.Backend.Migrations
                     b.HasIndex("ClientId", "IdempotencyKey")
                         .IsUnique();
 
-                    b.ToTable("LibraryCommandReceipts", null, t =>
+                    b.ToTable("LibraryCommandReceipts", t =>
                         {
                             t.HasCheckConstraint("CK_LibraryCommandReceipts_Bounds", "length(\"ClientId\") <= 64 AND length(\"IdempotencyKey\") <= 128 AND length(\"CommandKind\") <= 32 AND length(\"ResponseJson\") <= 131072");
                         });
@@ -208,7 +211,7 @@ namespace Nostos.Backend.Migrations
                     b.HasIndex("SingletonSlot")
                         .IsUnique();
 
-                    b.ToTable("LibraryStates", null, t =>
+                    b.ToTable("LibraryStates", t =>
                         {
                             t.HasCheckConstraint("CK_LibraryStates_SingletonSlot", "SingletonSlot = 1");
                         });
@@ -226,7 +229,7 @@ namespace Nostos.Backend.Migrations
 
                     b.HasIndex("ConceptId");
 
-                    b.ToTable("NoteConcepts", (string)null);
+                    b.ToTable("NoteConcepts");
                 });
 
             modelBuilder.Entity("Nostos.Backend.Data.Models.NoteModel", b =>
@@ -255,7 +258,7 @@ namespace Nostos.Backend.Migrations
 
                     b.HasIndex("BookId");
 
-                    b.ToTable("Notes", (string)null);
+                    b.ToTable("Notes");
                 });
 
             modelBuilder.Entity("Nostos.Backend.Data.Models.WritingModel", b =>
@@ -287,7 +290,7 @@ namespace Nostos.Backend.Migrations
 
                     b.HasIndex("ParentId");
 
-                    b.ToTable("Writings", (string)null);
+                    b.ToTable("Writings");
                 });
 
             modelBuilder.Entity("Nostos.Backend.Data.Models.AudioBookModel", b =>
@@ -329,7 +332,7 @@ namespace Nostos.Backend.Migrations
                     b.Property<int?>("PageCount")
                         .HasColumnType("INTEGER");
 
-                    b.ToTable("Books", null, t =>
+                    b.ToTable("Books", t =>
                         {
                             t.Property("Isbn")
                                 .HasColumnName("PhysicalBookModel_Isbn");
@@ -370,7 +373,7 @@ namespace Nostos.Backend.Migrations
 
                             b1.HasKey("BookModelId");
 
-                            b1.ToTable("Books", (string)null);
+                            b1.ToTable("Books");
 
                             b1.WithOwner()
                                 .HasForeignKey("BookModelId");
@@ -419,7 +422,7 @@ namespace Nostos.Backend.Migrations
 
                             b1.HasKey("BookModelId");
 
-                            b1.ToTable("Books", (string)null);
+                            b1.ToTable("Books");
 
                             b1.WithOwner()
                                 .HasForeignKey("BookModelId");
@@ -453,7 +456,7 @@ namespace Nostos.Backend.Migrations
 
                             b1.HasKey("BookModelId");
 
-                            b1.ToTable("Books", (string)null);
+                            b1.ToTable("Books");
 
                             b1.WithOwner()
                                 .HasForeignKey("BookModelId");

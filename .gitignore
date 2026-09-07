@@ -281,7 +281,7 @@ Generated_Code/
 # because we have git ;-)
 _UpgradeReport_Files/
 Backup*/
-# ...but the legacy Backup*/ rule must not swallow the Reading Training
+# ...but the legacy Backup*/ rule must not swallow the
 # backup integration tests (they live under Nostos.Backend.Tests/Backup/).
 !Nostos.Backend.Tests/Backup/
 UpgradeLog*.XML

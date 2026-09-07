@@ -5,7 +5,7 @@ namespace Nostos.Backend.Endpoints;
 
 /// <summary>
 /// Maps library-domain error envelopes to HTTP Problem Details, mirroring the
-/// reading-training ToHttp convention: invalid_* → 400, *_not_found → 404,
+/// Library ToHttp convention: invalid_* → 400, *_not_found → 404,
 /// the conflict family → 409, everything else → 422.
 /// </summary>
 public static class LibraryHttpMapper

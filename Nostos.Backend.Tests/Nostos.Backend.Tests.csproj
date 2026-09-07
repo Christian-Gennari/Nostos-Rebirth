@@ -33,10 +33,4 @@
     <ProjectReference Include="..\Nostos.Shared\Nostos.Shared.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Include="..\tests\fixtures\reading-training\behaviour-v1.json"
-          Link="fixtures\reading-training\behaviour-v1.json"
-          CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-
 </Project>

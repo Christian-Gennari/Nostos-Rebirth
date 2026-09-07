@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
-using Nostos.Backend.Tests.ReadingTraining;
+using Nostos.Backend.Tests.Support;
 using Nostos.Shared.Dtos;
 using Xunit;
 
@@ -13,13 +13,13 @@ namespace Nostos.Backend.Tests.Endpoints;
 // Phase 1b). The Angular UI and MCP tools share this exact surface; these
 // tests prove the refactored endpoints keep the legacy REST contracts while
 // routing through ILibraryService.
-public sealed class LibraryEndpointTests : IClassFixture<ReadingTrainingHttpFactory>
+public sealed class LibraryEndpointTests : IClassFixture<LibraryEndpointFactory>
 {
     private const string BorgesIsbn = "9780141183848";
 
-    private readonly ReadingTrainingHttpFactory _factory;
+    private readonly LibraryEndpointFactory _factory;
 
-    public LibraryEndpointTests(ReadingTrainingHttpFactory factory) => _factory = factory;
+    public LibraryEndpointTests(LibraryEndpointFactory factory) => _factory = factory;
 
     private HttpClient Client => _factory.CreateClient();
 
@@ -311,33 +311,33 @@ public sealed class LibraryEndpointTests : IClassFixture<ReadingTrainingHttpFact
     }
 
     [Fact]
-    public async Task Delete_book_that_is_queued_for_reading_returns_409_and_keeps_row()
+    public async Task Delete_book_that_has_notes_cascades_delete()
     {
-        // Initialize the singleton reading programme (idempotent).
-        await Client.PostAsJsonAsync("/api/reading/initialize", new { clientId = "lib-test", idempotencyKey = "lib-init" });
-
         var created = await Client.PostAsJsonAsync("/api/books", new
         {
             type = "physical",
-            title = $"QueuedBook {Guid.NewGuid():N}",
+            title = $"BookWithNotes {Guid.NewGuid():N}",
             author = "Author",
         });
         var book = (await created.Content.ReadFromJsonAsync<BookDto>())!;
 
-        var queued = await Client.PostAsJsonAsync("/api/reading/books", new
+        await using (var db = await OpenDbAsync())
         {
-            clientId = "lib-test",
-            idempotencyKey = $"lib-queue-{book.Id:N}",
-            bookId = book.Id,
-            mode = 0, // ReadingMode.Endurance (wire format is numeric)
-        });
-        queued.StatusCode.Should().Be(HttpStatusCode.OK);
+            db.Notes.Add(new Nostos.Backend.Data.Models.NoteModel
+            {
+                Id = Guid.NewGuid(),
+                BookId = book.Id,
+                Content = "A note attached to this book",
+                CreatedAt = DateTime.UtcNow,
+            });
+            await db.SaveChangesAsync();
+        }
 
         var deleted = await Client.DeleteAsync($"/api/books/{book.Id}");
-        deleted.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        deleted.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         var stillThere = await Client.GetAsync($"/api/books/{book.Id}");
-        stillThere.StatusCode.Should().Be(HttpStatusCode.OK);
+        stillThere.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]

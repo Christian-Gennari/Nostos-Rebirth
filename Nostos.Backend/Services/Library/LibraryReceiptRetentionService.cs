@@ -10,8 +10,7 @@ namespace Nostos.Backend.Services.Library;
 public sealed record LibraryReceiptPruneResult(int ExpiredDeleted, int OverCapDeleted, int Remaining);
 
 // Bounded retention for library command receipts (issue #51). Library-only
-// by design: Reading Training receipts and ReadingImportReceipt rows are
-// deliberately NOT pruned here because some reading commands are not
+// by design: LibraryCommandReceipt rows are pruned here because some
 // effect-idempotent after their receipt disappears. Library commands
 // converge safely through normalized identities and not-found/no-op
 // behavior, so one uniform age+count policy is defensible.

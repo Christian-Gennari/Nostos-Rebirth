@@ -43,13 +43,6 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./settings/settings.component').then((m) => m.SettingsComponent),
       },
-      {
-        path: 'training',
-        loadComponent: () =>
-          import('./reading-training/reading-training.component').then(
-            (m) => m.ReadingTrainingComponent
-          ),
-      },
     ],
   },
 

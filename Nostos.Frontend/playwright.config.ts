@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Task 13 — Playwright E2E config for Nostos Reading Training.
+ * Playwright E2E config for Nostos.
  *
  * The fixture is launched by globalSetup (fresh temp SQLite DB + real backend
  * + freshly built Angular app + MCP enabled with a random bearer token); the

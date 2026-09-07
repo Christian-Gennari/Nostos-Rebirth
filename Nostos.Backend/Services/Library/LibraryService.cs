@@ -382,9 +382,6 @@ public sealed class LibraryService : ILibraryService
         }
         catch (DbUpdateException)
         {
-            // Reading assignments/sessions/notes hold Restrict FKs; an in-use
-            // book must never be deleted (and its files must never be
-            // removed) around that guard.
             await transaction.RollbackAsync(ct);
             return Failure("book_in_use", LibraryReplyFormatter.BookInUse(book.Title), state.StateVersion);
         }

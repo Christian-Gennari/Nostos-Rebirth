@@ -6,7 +6,7 @@ using Nostos.Backend.Data;
 using Nostos.Backend.Data.Models;
 using Nostos.Backend.Services;
 using Nostos.Backend.Services.Library;
-using Nostos.Backend.Tests.ReadingTraining;
+using Nostos.Backend.Tests.Support;
 using Nostos.Shared.Dtos;
 using Xunit;
 
@@ -16,13 +16,13 @@ namespace Nostos.Backend.Tests.Services.Library;
 // service is exercised against real temporary-file SQLite (same fixture
 // family as the rest of the suite); receipts are aged by updating CreatedAt
 // directly, never through a clock abstraction.
-public sealed class LibraryReceiptRetentionServiceTests : IClassFixture<ReadingTrainingSqliteFixture>
+public sealed class LibraryReceiptRetentionServiceTests : IClassFixture<SqliteTestFixture>
 {
     private const string Client = "test-client";
 
-    private readonly ReadingTrainingSqliteFixture _fixture;
+    private readonly SqliteTestFixture _fixture;
 
-    public LibraryReceiptRetentionServiceTests(ReadingTrainingSqliteFixture fixture) => _fixture = fixture;
+    public LibraryReceiptRetentionServiceTests(SqliteTestFixture fixture) => _fixture = fixture;
 
     // ------------------------------------------------------------------
     // Age retention

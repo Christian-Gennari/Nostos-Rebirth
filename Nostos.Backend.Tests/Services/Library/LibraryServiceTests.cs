@@ -7,23 +7,23 @@ using Nostos.Backend.Data;
 using Nostos.Backend.Data.Models;
 using Nostos.Backend.Services;
 using Nostos.Backend.Services.Library;
-using Nostos.Backend.Tests.ReadingTraining;
+using Nostos.Backend.Tests.Support;
 using Nostos.Shared.Dtos;
 using Nostos.Shared.Enums;
 using Xunit;
 
 namespace Nostos.Backend.Tests.Services.Library;
 
-public sealed class LibraryServiceTests : IClassFixture<ReadingTrainingSqliteFixture>
+public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
 {
     private const string Client = "test-client";
     private const string IsbnBorges = "9780141183848";
     private const string AsinExample = "B095TNRPXD";
     private const string IsbnValid = "9780141183848";
 
-    private readonly ReadingTrainingSqliteFixture _fixture;
+    private readonly SqliteTestFixture _fixture;
 
-    public LibraryServiceTests(ReadingTrainingSqliteFixture fixture) => _fixture = fixture;
+    public LibraryServiceTests(SqliteTestFixture fixture) => _fixture = fixture;
 
     // ------------------------------------------------------------------
     // Create-or-match

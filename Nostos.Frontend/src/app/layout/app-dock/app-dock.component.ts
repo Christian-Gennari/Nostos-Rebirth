@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, Router } from '@angular/router';
-import { LucideAngularModule, Library, PenTool, BrainCog, Settings, BookOpen } from 'lucide-angular';
+import { LucideAngularModule, Library, PenTool, BrainCog, Settings } from 'lucide-angular';
 import { NavigationHistoryService } from '../../core/services/navigation-history.service';
 
 @Component({
@@ -41,17 +41,6 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
         >
           <lucide-icon [img]="PenToolIcon" [size]="20" strokeWidth="1"></lucide-icon>
           <span class="label">Studio</span>
-        </a>
-
-        <a
-          [routerLink]="getLink('/training')"
-          (click)="handleDockClick('/training', $event)"
-          routerLinkActive="active"
-          class="dock-item"
-          title="Training"
-        >
-          <lucide-icon [img]="TrainingIcon" [size]="20" strokeWidth="1"></lucide-icon>
-          <span class="label">Training</span>
         </a>
 
         <a
@@ -293,7 +282,6 @@ export class AppDockComponent {
   BrainIcon = BrainCog;
   PenToolIcon = PenTool;
   SettingsIcon = Settings;
-  TrainingIcon = BookOpen;
 
   getLink(prefix: string): string {
     return this.historyService.getLastUrl(prefix);
