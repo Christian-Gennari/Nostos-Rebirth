@@ -53,7 +53,7 @@
 
 /* --- SIDEBAR COMPONENTS --- */
 .sidebar-header {
-  padding: 1.5rem 1.25rem 1rem;
+  padding: 1.25rem 1.25rem 0.75rem;
   flex-shrink: 0;
 }
 .sidebar-header.compact {
@@ -67,37 +67,48 @@
   margin-bottom: 0.5rem;
 }
 
-.sidebar-header h2 {
-  font-family: Inter, sans-serif;
-  font-size: 0.75rem;
-  font-weight: var(--fw-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-text-light);
+.sidebar-left .sidebar-header h2 {
+  font-family: 'Lora', serif;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--color-text-main);
+  text-transform: none;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.sidebar-title-row h2 {
+  font-family: 'Lora', serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text-main);
+  text-transform: none;
   margin: 0;
 }
 
 /* Tabs styling (New UI) */
 .sidebar-tabs {
   display: flex;
-  gap: 1.5rem;
+  gap: 1rem;
   border-bottom: 1px solid var(--border-color);
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .tab-btn {
   background: none;
   border: none;
-  padding: 0.6rem 0.2rem;
-  font-size: 0.9rem;
-  color: var(--color-text-muted);
-  font-weight: var(--fw-medium);
+  padding: 0.6rem 0.4rem;
+  font-size: 0.85rem;
+  color: var(--color-text-light);
+  font-weight: 500;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: all 0.2s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .tab-btn:hover {
@@ -112,6 +123,24 @@
 .actions {
   display: flex;
   gap: 0.5rem;
+}
+
+.actions .icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+
+.actions .icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
 }
 
 /* Icon buttons - defer to global .icon-btn in styles.css, override only what's needed */
@@ -299,6 +328,7 @@
   height: 100%;
   min-width: 0;
   min-height: 0;
+  padding-bottom: 8rem;
   background-color: var(--bg-body);
   background-image: radial-gradient(var(--border-color) 1px, transparent 1px);
   background-size: 24px 24px;
@@ -352,6 +382,8 @@
     var(--studio-top-gutter)
     var(--studio-inline-gutter)
     var(--studio-dock-clearance);
+  /* Generous dock clearance so the floating dock never covers the text. */
+  padding-bottom: 8rem;
 
   overflow: visible;
 }
@@ -401,27 +433,31 @@
    It belongs to the studio stage, never to the paper's text area. */
 .editor-status-pill {
   position: absolute;
-  z-index: 3;
-  right: max(16px, var(--studio-inline-gutter));
-  bottom: calc(var(--studio-dock-clearance) + 8px);
+  bottom: 6.5rem;
+  right: 2rem;
+  z-index: 10;
 
   display: inline-flex;
   align-items: center;
   gap: 6px;
 
-  padding: 5px 9px;
-  color: var(--editor-ui-muted);
-  background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
-  border: 1px solid var(--editor-ui-border);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
   border-radius: 999px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(10px);
+  padding: 5px 14px;
 
   font-family: Inter, system-ui, sans-serif;
-  font-size: 12px;
+  font-size: 0.78rem;
   font-weight: 500;
   line-height: 1;
+  color: var(--color-text-muted);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   pointer-events: none;
+}
+
+.pill-saved {
+  color: var(--color-success, #16a34a);
+  font-weight: 600;
 }
 
 :host-context(body.nostos-zen) .editor-status-pill {
@@ -435,17 +471,34 @@
   justify-content: center;
   height: 100%;
   color: var(--color-text-light);
-  gap: 1.5rem;
+  gap: 0;
+  text-align: center;
 }
 .icon-circle {
-  width: 64px;
-  height: 64px;
-  background: var(--bg-surface);
-  border-radius: var(--radius-lg);
+  width: 72px;
+  height: 72px;
+  background: var(--bg-hover);
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 1.25rem;
+}
+.empty-state h2 {
+  font-family: 'Lora', serif;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--color-text-main);
+  margin: 0 0 0.5rem;
+}
+.empty-state .empty-subtext {
+  font-size: 0.9rem;
+  color: var(--color-text-light);
+  margin: 0 0 1rem;
+  max-width: 320px;
+}
+.empty-state .btn-outline {
+  margin-top: 0.5rem;
 }
 
 /* --- MOBILE OVERRIDES --- */
@@ -497,6 +550,8 @@
     display: flex;
     flex-direction: column;
     height: 100dvh;
+    /* The wrapper owns dock clearance on mobile; avoid doubling it. */
+    padding-bottom: 0;
   }
 }
 
@@ -520,6 +575,7 @@
     --studio-inline-gutter: 0px;
     --studio-top-gutter: 0px;
     --studio-dock-clearance: 76px;
+    padding-bottom: 76px;
   }
 
   .editor-wrapper app-markdown-editor {
@@ -585,6 +641,13 @@
   --studio-inline-gutter: clamp(12px, 3vw, 40px);
   --studio-top-gutter: 20px;
   --studio-dock-clearance: 24px;
+  /* The dock is hidden in zen, so drop the generous dock clearance. */
+  padding-bottom: 24px;
+}
+
+:host-context(body.nostos-zen) .editor-pane {
+  /* No dock in zen: let the paper use the full height. */
+  padding-bottom: 0;
 }
 
 :host-context(body.nostos-zen)
