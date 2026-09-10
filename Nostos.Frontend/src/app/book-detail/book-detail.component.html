@@ -191,7 +191,10 @@
                     <lucide-icon [img]="isAudioBook(store.book()) ? HeadphonesIcon : BookOpenIcon" [size]="16"></lucide-icon>
                   </div>
                   <div class="card-content">
-                    <span class="card-format-title">{{ getEditionLabel(store.book()!) }}</span>
+                    <span class="card-format-title">{{ getEditionFormat(store.book()!) }}</span>
+                    @if (getEditionSubtitle(store.book()!)) {
+                    <span class="card-format-sub">{{ getEditionSubtitle(store.book()!) }}</span>
+                    }
                     <div class="card-meta-line">
                       @if (store.book()?.progressPercent) {
                       <span class="card-progress">{{ store.book()?.progressPercent }}% read</span>
@@ -216,7 +219,10 @@
                     <lucide-icon [img]="edition.type === 'audiobook' ? HeadphonesIcon : BookOpenIcon" [size]="16"></lucide-icon>
                   </div>
                   <div class="card-content">
-                    <span class="card-format-title">{{ getSummaryEditionLabel(edition) }}</span>
+                    <span class="card-format-title">{{ getEditionFormat(edition) }}</span>
+                    @if (getEditionSubtitle(edition)) {
+                    <span class="card-format-sub">{{ getEditionSubtitle(edition) }}</span>
+                    }
                     <div class="card-meta-line">
                       @if (edition.progressPercent) {
                       <span class="card-progress">{{ edition.progressPercent }}% read</span>

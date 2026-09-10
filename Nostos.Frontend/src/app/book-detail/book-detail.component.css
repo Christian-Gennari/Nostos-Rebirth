@@ -1,3 +1,7 @@
+.container.md {
+  padding-bottom: 120px;
+}
+
 .back-nav {
   margin-bottom: 2rem;
 }
@@ -224,12 +228,18 @@
 }
 
 .card-format-title {
-  font-size: 0.84rem;
-  font-weight: var(--fw-medium);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 0.88rem;
+  font-weight: var(--fw-semibold);
   line-height: 1.25;
+}
+
+.card-format-sub {
+  font-size: 0.74rem;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+  margin-top: 2px;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .card-meta-line {

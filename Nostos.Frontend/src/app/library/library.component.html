@@ -254,7 +254,7 @@
         @for (book of books(); track book.id) {
 
         <div class="book-card" [routerLink]="['/library', book.id]">
-          <div class="cover-wrapper" [class.is-stacked]="book.otherEditions && book.otherEditions.length > 0">
+          <div class="cover-wrapper">
             @if (book.coverUrl) {
             <img
               [src]="book.coverUrl"

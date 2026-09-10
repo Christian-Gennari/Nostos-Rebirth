@@ -292,82 +292,62 @@ app-sidebar-collections.no-transition {
 
 /* .badge is defined globally in styles.css — no component duplicate needed */
 
-/* Stacked cover effect for multi-edition works */
-.cover-wrapper.is-stacked {
-  overflow: visible;
-}
-
-.cover-wrapper.is-stacked::before {
-  content: '';
-  position: absolute;
-  top: -3px;
-  right: -3px;
-  width: 100%;
-  height: 100%;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--bg-surface-alt) 85%, var(--color-primary));
-  border: 1px solid color-mix(in srgb, var(--border-color) 70%, var(--color-primary));
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.7;
-  transition: transform 0.2s, opacity 0.2s;
-}
-
-.book-card:hover .cover-wrapper.is-stacked::before {
-  transform: translate(2px, -2px);
-  opacity: 1;
-}
-
-.cover-wrapper .cover-image {
-  position: relative;
-  z-index: 1;
-  border-radius: var(--radius-md);
-}
-
 /* Format badge & Interactive edition menu */
 .format-badge {
   position: absolute;
   bottom: 8px;
   right: 8px;
-  z-index: 3;
+  z-index: 5;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 22px;
-  padding: 0 7px;
+  gap: 3.5px;
+  height: 20px;
+  padding: 0 6px;
   border-radius: var(--radius-sm, 4px);
   font-size: 10px;
   font-weight: var(--fw-semibold, 600);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   line-height: 1;
-  background: color-mix(in srgb, var(--bg-surface) 85%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 82%, transparent);
   backdrop-filter: blur(8px) saturate(140%);
   -webkit-backdrop-filter: blur(8px) saturate(140%);
   border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
   color: var(--color-text-main);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
-  transition: all 0.15s ease;
+  transition: opacity 160ms cubic-bezier(0.16, 1, 0.3, 1), transform 160ms ease, background 0.15s, color 0.15s, border-color 0.15s;
   user-select: none;
 }
 
 .format-badge.interactive {
   cursor: pointer;
   pointer-events: auto;
-  border-color: color-mix(in srgb, var(--color-primary) 35%, var(--border-color));
 }
 
 .format-badge.interactive:hover,
 .format-badge.interactive.active {
   background: var(--bg-surface);
-  border-color: var(--color-primary);
   color: var(--color-primary);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--border-color));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
 }
 
 .format-badge.audiobook {
   color: var(--color-primary);
   border-color: color-mix(in srgb, var(--color-primary) 30%, var(--border-color));
+}
+
+/* Suppress full-cover edit/delete overlay when interacting with the format badge/dropdown */
+.cover-wrapper:has(.format-badge.interactive:hover) .actions-overlay,
+.cover-wrapper:has(.edition-dropdown) .actions-overlay {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Hide format badge on hover ONLY if it is not interactive and the action overlay is showing */
+.book-card:hover .cover-wrapper:not(:has(.format-badge.interactive)) .format-badge {
+  opacity: 0;
+  transform: scale(0.95);
 }
 
 /* Edition Dropdown Popover */

@@ -191,6 +191,22 @@ export class BookDetail implements OnInit {
     void this.router.navigate(['/library', id]);
   }
 
+  getEditionFormat(book: Book | EditionSummaryDto): string {
+    const isAudio = book.type === 'audiobook' || book.type === 'audio';
+    if (isAudio) return 'Audiobook';
+    const fmt = 'format' in book ? book.format : undefined;
+    const formatLabel = this.getFormatLabel(book.type, book.fileName, fmt);
+    return formatLabel === 'EPUB' || formatLabel === 'PDF' ? formatLabel : 'EBook';
+  }
+
+  getEditionSubtitle(book: Book | EditionSummaryDto): string {
+    const isAudio = book.type === 'audiobook' || book.type === 'audio';
+    const details = isAudio
+      ? [book.duration, book.narrator, book.edition]
+      : [book.edition];
+    return details.filter((d): d is string => !!d?.trim()).join(' • ');
+  }
+
   getEditionLabel(book: Book): string {
     return this.buildEditionLabel(
       book.type,
