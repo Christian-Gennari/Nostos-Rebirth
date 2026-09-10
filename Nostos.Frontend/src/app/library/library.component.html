@@ -89,6 +89,7 @@
         @for (i of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; track i) {
         <div class="table-row">
           <div class="col title">
+            <div class="skeleton-block list-cover-skeleton"></div>
             <div
               class="skeleton-line"
               [style.width]="100 - i * 5 + '%'"
@@ -157,8 +158,7 @@
                 [img]="CheckCircleIcon"
                 [size]="16"
                 [class.filled-check]="book.finishedAt"
-              >
-              </lucide-icon>
+              ></lucide-icon>
             </button>
 
             <button
@@ -167,10 +167,29 @@
               (click)="toggleFavorite(book, $event)"
               title="Toggle Favorite"
             >
-              <lucide-icon [img]="HeartIcon" [size]="16" [class.filled-heart]="book.isFavorite">
-              </lucide-icon>
+              <lucide-icon
+                [img]="HeartIcon"
+                [size]="16"
+                [class.filled-heart]="book.isFavorite"
+              ></lucide-icon>
             </button>
-            {{ book.title }}
+
+            <div class="list-cover-frame">
+              @if (book.coverUrl) {
+                <img [src]="book.coverUrl" [alt]="book.title" class="list-cover-img" loading="lazy" />
+              } @else {
+                <div class="list-cover-placeholder">
+                  <lucide-icon [img]="BookIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
+                </div>
+              }
+            </div>
+
+            <div class="list-title-text">
+              <span class="list-book-title">{{ book.title }}</span>
+              @if (book.subtitle) {
+                <span class="list-book-subtitle">{{ book.subtitle }}</span>
+              }
+            </div>
           </div>
 
           <div class="col author">
@@ -181,10 +200,12 @@
             @if (book.rating > 0) {
             <app-star-rating
               [rating]="book.rating"
-              [size]="14"
+              [size]="13"
               (ratingChange)="updateRating(book, $event)"
             >
             </app-star-rating>
+            } @else {
+            <span class="unrated-dash">—</span>
             }
           </div>
 
@@ -217,17 +238,21 @@
             </div>
           </div>
 
-          <div class="col date" style="color: var(--color-text-light); font-size: 0.85rem">
-            {{ book.createdAt | date : 'shortDate' }}
+          <div class="col date">
+            {{ book.createdAt | date : 'MMM d, y' }}
           </div>
 
           <div class="col actions-cell">
-            <button class="icon-btn" (click)="openEditModal(book); $event.stopPropagation()">
-              <lucide-icon [img]="Edit2Icon" [size]="16"></lucide-icon>
+            <button
+              class="icon-btn edit"
+              (click)="openEditModal(book); $event.stopPropagation()"
+              title="Edit"
+            >
+              <lucide-icon [img]="Edit2Icon" [size]="15"></lucide-icon>
             </button>
 
-            <button class="icon-btn delete" (click)="deleteBook(book.id, $event)">
-              <lucide-icon [img]="Trash2Icon" [size]="16"></lucide-icon>
+            <button class="icon-btn delete" (click)="deleteBook(book.id, $event)" title="Delete">
+              <lucide-icon [img]="Trash2Icon" [size]="15"></lucide-icon>
             </button>
           </div>
         </div>
