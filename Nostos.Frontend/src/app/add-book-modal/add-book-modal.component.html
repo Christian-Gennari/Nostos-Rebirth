@@ -285,22 +285,44 @@
           <div class="tab-content" [hidden]="activeTab() !== 'Files & Personal'">
             @if (!isEditMode()) {
               <div class="form-group">
-                <label class="form-label">Book File</label>
-                <input
-                  type="file"
-                  class="file-input"
-                  (change)="onFileSelected($event)"
-                  accept=".epub,.pdf,.txt,.mobi,.mp3,.m4a,.m4b"
-                />
+                <span class="form-label">Book File</span>
+                <label
+                  class="file-drop-zone"
+                  [class.drag-active]="fileDragActive()"
+                  (dragover)="onDragOver($event, 'file')"
+                  (dragleave)="onDragLeave($event, 'file')"
+                  (drop)="onDragLeave($event, 'file')"
+                >
+                  <input
+                    type="file"
+                    class="file-input"
+                    (change)="onFileSelected($event)"
+                    accept=".epub,.pdf,.txt,.mobi,.mp3,.m4a,.m4b"
+                  />
+                  <lucide-icon [img]="UploadIcon" [size]="22" strokeWidth="1.5"></lucide-icon>
+                  <span class="drop-zone-title">Choose a book file or drop it here</span>
+                  <span class="drop-zone-hint">EPUB, PDF, TXT, MOBI, MP3, M4A, M4B</span>
+                </label>
               </div>
               <div class="form-group">
-                <label class="form-label">Cover Image</label>
-                <input
-                  type="file"
-                  class="file-input"
-                  accept="image/*"
-                  (change)="onCoverSelected($event)"
-                />
+                <span class="form-label">Cover Image</span>
+                <label
+                  class="file-drop-zone"
+                  [class.drag-active]="coverDragActive()"
+                  (dragover)="onDragOver($event, 'cover')"
+                  (dragleave)="onDragLeave($event, 'cover')"
+                  (drop)="onDragLeave($event, 'cover')"
+                >
+                  <input
+                    type="file"
+                    class="file-input"
+                    accept="image/*"
+                    (change)="onCoverSelected($event)"
+                  />
+                  <lucide-icon [img]="UploadIcon" [size]="22" strokeWidth="1.5"></lucide-icon>
+                  <span class="drop-zone-title">Choose a cover image or drop it here</span>
+                  <span class="drop-zone-hint">PNG, JPG, WEBP</span>
+                </label>
               </div>
             }
             @if (uploadProgress() !== null) {

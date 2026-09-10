@@ -92,6 +92,11 @@ export class AddBookModal {
   uploadProgress = signal<number | null>(null);
   uploadStartTime: number | null = null;
 
+  // Drag-over highlight for the two dropzones. The native file input stretched
+  // across each zone still owns the actual drop, so these only toggle styling.
+  fileDragActive = signal(false);
+  coverDragActive = signal(false);
+
   constructor() {
     effect(() => {
       if (this.isOpen()) {
@@ -180,6 +185,8 @@ export class AddBookModal {
     this.selectedCover = null;
     this.uploadProgress.set(null);
     this.isFetching.set(false);
+    this.fileDragActive.set(false);
+    this.coverDragActive.set(false);
     this.activeTab.set('Book Info');
   }
 
@@ -256,6 +263,18 @@ export class AddBookModal {
   onCoverSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     this.selectedCover = input.files?.[0] ?? null;
+  }
+
+  onDragOver(_event: DragEvent, zone: 'file' | 'cover'): void {
+    // Do not preventDefault: the native <input type="file"> is the real drop
+    // target and must populate its file list on drop.
+    if (zone === 'file') this.fileDragActive.set(true);
+    else this.coverDragActive.set(true);
+  }
+
+  onDragLeave(_event: DragEvent, zone: 'file' | 'cover'): void {
+    if (zone === 'file') this.fileDragActive.set(false);
+    else this.coverDragActive.set(false);
   }
 
   submit(): void {
