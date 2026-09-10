@@ -4,8 +4,9 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: var(--overlay-heavy);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 100;
   display: flex;
   align-items: center;
@@ -15,13 +16,16 @@
 }
 .modal-content {
   background: var(--bg-surface);
-  border-radius: var(--radius-lg);
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
   width: 100%;
   max-width: 700px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 24px 48px -12px rgba(0, 0, 0, 0.25),
+    0 4px 12px rgba(0, 0, 0, 0.08);
   transform: scale(0.95);
   opacity: 0;
   animation: modalEnter 0.2s ease-out forwards;
@@ -36,28 +40,29 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.5rem;
+  padding: 1.25rem 1.5rem;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 .modal-header h2 {
   margin: 0;
-  font-size: 1.5rem;
-  font-weight: var(--fw-medium);
+  font-family: 'Lora', serif;
+  font-size: 1.4rem;
+  font-weight: 600;
 }
 .modal-tabs {
   display: flex;
   border-bottom: 1px solid var(--border-color);
-  padding: 0 1rem;
+  padding: 0 1.25rem;
   background: var(--bg-surface-alt);
   flex-shrink: 0;
 }
 .tab-btn {
   background: none;
   border: none;
-  padding: 0.85rem 1rem;
-  font-size: 0.9rem;
-  font-weight: var(--fw-medium);
+  padding: 0.8rem 1rem;
+  font-size: 0.88rem;
+  font-weight: 500;
   color: var(--color-text-light);
   cursor: pointer;
   border-bottom: 2px solid transparent;
@@ -96,9 +101,9 @@
 }
 .form-label {
   display: block;
-  font-size: 0.9rem;
-  font-weight: var(--fw-medium);
-  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 0.35rem;
   color: var(--color-text-main);
 }
 .form-label .required {
@@ -110,18 +115,24 @@
   font-weight: normal;
   margin-left: 0.25rem;
 }
-.input {
+.input,
+.select-input {
   width: 100%;
-  padding: 0.6rem;
+  padding: 0.65rem 0.85rem;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   background: var(--bg-input);
   color: var(--color-text-main);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
-.input:focus {
-  outline: 2px solid var(--color-primary-dim);
+.input:focus,
+.select-input:focus {
   border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--border-focus);
+  outline: none;
 }
 .select-input {
   appearance: none;
@@ -130,11 +141,50 @@
   background-position: right 0.75rem center;
   padding-right: 2.5rem;
 }
+/* --- File Dropzone / Upload Area --- */
+.file-drop-zone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border: 1.5px dashed var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-hover);
+  padding: 1.5rem;
+  text-align: center;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+  cursor: pointer;
+  color: var(--color-text-light);
+}
+.file-drop-zone:hover,
+.file-drop-zone:focus-within,
+.file-drop-zone:active,
+.file-drop-zone.drag-active {
+  border-color: var(--color-primary);
+  background: var(--color-accent-bg);
+}
+.drop-zone-title {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--color-text-main);
+}
+.drop-zone-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-light);
+}
+/* The native control is stretched across the zone: clicks and dropped files
+   both land on the input while the decorative content stays visible. */
 .file-input {
-  display: block;
+  position: absolute;
+  inset: 0;
   width: 100%;
-  padding: 0.5rem 0;
-  font-size: 0.9rem;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
 }
 .divider {
   border: none;
@@ -182,6 +232,18 @@
   border-top: 1px solid var(--border-color);
   margin-top: 1rem;
   flex-shrink: 0;
+}
+.modal-actions .btn-secondary {
+  padding: 0.55rem 1.25rem;
+  border-radius: 999px;
+  font-weight: 500;
+}
+.modal-actions .btn-primary {
+  background: var(--color-primary);
+  color: var(--bg-surface);
+  padding: 0.55rem 1.4rem;
+  border-radius: 999px;
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {
