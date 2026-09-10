@@ -15,6 +15,8 @@ import { ConceptInputComponent } from '../ui/concept-input.component/concept-inp
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { LibraryPreferencesService } from '../core/services/library-preferences.service';
+import { BooksService } from '../core/services/books.service';
+import { ToastService } from '../core/services/toast.service';
 
 // Icons
 import {
@@ -42,6 +44,7 @@ import {
   Mic,
   MapPin,
   MessageSquareQuote,
+  FileText,
 } from 'lucide-angular';
 
 @Component({
@@ -68,6 +71,8 @@ export class BookDetail implements OnInit {
   // Inject the Store
   readonly store = inject(BookDetailStore);
   private preferences = inject(LibraryPreferencesService);
+  private booksService = inject(BooksService);
+  private toast = inject(ToastService);
   private rememberActiveEdition = effect(() => {
     const book = this.store.book();
     if (book) this.preferences.setActiveEditionId(book.workId, book.id);
@@ -97,12 +102,27 @@ export class BookDetail implements OnInit {
   MicIcon = Mic;
   MapPinIcon = MapPin;
   QuoteIcon = MessageSquareQuote;
+  FileTextIcon = FileText;
 
   // Local UI State
   isDescriptionExpanded = signal(false);
   showMetadataModal = signal(false);
   showResetConfirm = signal(false);
+  deleting = signal(false);
   newNote = model<string>('');
+
+  /**
+   * Human-readable reading status used by the header status chip.
+   * Finished wins over in-progress; any saved progress or location counts as
+   * "Reading", otherwise the book has not been started.
+   */
+  readonly readingStatus = computed<{ label: string; modifier: string }>(() => {
+    const b = this.store.book();
+    if (!b) return { label: 'Not Started', modifier: 'not-started' };
+    if (b.finishedAt) return { label: 'Finished', modifier: 'finished' };
+    if (b.progressPercent > 0 || b.lastLocation) return { label: 'Reading', modifier: 'reading' };
+    return { label: 'Not Started', modifier: 'not-started' };
+  });
 
   /**
    * "Reset progress" is offered only for readable media that has progress
@@ -185,6 +205,28 @@ export class BookDetail implements OnInit {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (file) this.store.uploadFile(file);
+  }
+
+  /**
+   * Deletes the current book after an explicit confirmation, then returns to
+   * the Library. A local pending signal guards against duplicate submissions.
+   */
+  deleteBook() {
+    const b = this.store.book();
+    if (!b || this.deleting()) return;
+    if (!confirm(`Delete "${b.title}"? This cannot be undone.`)) return;
+
+    this.deleting.set(true);
+    this.booksService.delete(b.id).subscribe({
+      next: () => {
+        this.toast.success('Book deleted');
+        void this.router.navigate(['/library']);
+      },
+      error: () => {
+        this.deleting.set(false);
+        this.toast.error('Failed to delete book');
+      },
+    });
   }
 
   // --- Navigation & Helpers ---
