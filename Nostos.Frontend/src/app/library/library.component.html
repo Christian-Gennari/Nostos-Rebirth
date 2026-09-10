@@ -83,7 +83,6 @@
           <div id="rating-header">Rating</div>
           <div id="format-header">Format</div>
           <div id="date-header">Date</div>
-          <div id="actions-header" style="text-align: right">Actions</div>
         </div>
 
         @for (i of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; track i) {
@@ -112,7 +111,6 @@
           <div class="col date">
             <div class="skeleton-line" style="width: 40px; height: 10px; margin-bottom: 0"></div>
           </div>
-          <div class="col actions-cell"></div>
         </div>
         }
       </div>
@@ -142,7 +140,6 @@
           <div id="rating-header">Rating</div>
           <div id="format-header">Format</div>
           <div id="date-header">Date</div>
-          <div id="actions-header" style="text-align: right">Actions</div>
         </div>
 
         @for (book of books(); track book.id) {
@@ -242,7 +239,7 @@
             {{ book.createdAt | date : 'MMM d, y' }}
           </div>
 
-          <div class="col actions-cell">
+          <div class="col actions-cell" (click)="$event.stopPropagation()">
             <button
               class="icon-btn edit"
               (click)="openEditModal(book); $event.stopPropagation()"
