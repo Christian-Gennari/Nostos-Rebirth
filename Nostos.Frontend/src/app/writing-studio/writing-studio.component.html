@@ -107,7 +107,8 @@
             color="var(--color-text-light)"
           ></lucide-icon>
         </div>
-        <p>Select a file to begin writing</p>
+        <h2>Select a file to begin writing</h2>
+        <p class="empty-subtext">Choose a document from the tree, or create a new one to start.</p>
         @if (isMobile()) {
           <button class="btn-outline" (click)="showFileSidebar.set(true)">Open Sidebar</button>
         }
