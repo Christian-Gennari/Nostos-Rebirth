@@ -73,6 +73,17 @@ public static class MappingExtensions
             }
         }
 
+        var workBooks = model.Work?.Books?.ToList();
+        if (workBooks is not null && workBooks.All(b => b.Id != model.Id))
+            workBooks.Add(model);
+
+        var otherEditions = workBooks is null
+            ? null
+            : workBooks
+                .Where(b => b.Id != model.Id)
+                .Select(ToEditionSummary)
+                .ToList();
+
         // Use Named Arguments to prevent argument order mismatches
         return new BookDto(
             Id: model.Id,
@@ -113,8 +124,36 @@ public static class MappingExtensions
             Rating: model.Progress.Rating,
             IsFavorite: model.Progress.IsFavorite,
             PersonalReview: model.Progress.PersonalReview,
-            FinishedAt: model.Progress.FinishedAt
+            FinishedAt: model.Progress.FinishedAt,
+            WorkId: model.WorkId,
+            EditionCount: workBooks?.Count ?? 1,
+            OtherEditions: otherEditions
         );
+    }
+
+    public static EditionSummaryDto ToEditionSummary(BookModel model)
+    {
+        var type = model switch
+        {
+            AudioBookModel => "audiobook",
+            EBookModel => "ebook",
+            _ => "physical",
+        };
+
+        return new EditionSummaryDto(
+            Id: model.Id,
+            Type: type,
+            // There is no separate persisted format field. Keep the format
+            // useful to clients by exposing the canonical polymorphic type.
+            Format: type,
+            ProgressPercent: model.Progress.ProgressPercent,
+            FinishedAt: model.Progress.FinishedAt,
+            LastReadAt: model.Progress.LastReadAt,
+            HasFile: model.FileDetails.HasFile,
+            FileName: model.FileDetails.FileName,
+            Narrator: (model as AudioBookModel)?.Narrator,
+            Duration: (model as AudioBookModel)?.Duration,
+            Edition: model.Metadata.Edition);
     }
 
     public static NoteDto ToDto(this NoteModel model) =>

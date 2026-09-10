@@ -32,6 +32,9 @@ import {
 
 import { CollectionsService } from '../../core/services/collections.service';
 import { Collection, CollectionCountDto } from '../../core/dtos/collection.dtos';
+import { LibraryStatusCountsDto } from '../../core/dtos/book.dtos';
+import { BooksService } from '../../core/services/books.service';
+import { LibraryPreferencesService } from '../../core/services/library-preferences.service';
 import { FlatTreeComponent } from '../../ui/flat-tree/flat-tree.component';
 import { ToastService } from '../../core/services/toast.service';
 
@@ -51,6 +54,8 @@ import { ToastService } from '../../core/services/toast.service';
 })
 export class SidebarCollections implements OnInit {
   private collectionsService = inject(CollectionsService);
+  private booksService = inject(BooksService);
+  private preferences = inject(LibraryPreferencesService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private elementRef = inject(ElementRef);
@@ -74,7 +79,8 @@ export class SidebarCollections implements OnInit {
   // State
   collections = signal<Collection[]>([]);
   counts = signal<CollectionCountDto[]>([]);
-  expanded = this.collectionsService.sidebarExpanded;
+  statusCounts = signal<LibraryStatusCountsDto | null>(null);
+  expanded = this.preferences.sidebarExpanded;
   adding = signal(false);
   editingId = signal<string | null>(null);
   collapseSidebarProgress = signal(false);
@@ -104,8 +110,9 @@ export class SidebarCollections implements OnInit {
   ngOnInit(): void {
     this.load();
     this.loadCounts();
+    this.loadStatusCounts();
     if (window.innerWidth < 768) {
-      this.expanded.set(false);
+      this.setExpanded(false);
     }
 
     // Set isLoaded to true after a minimal timeout
@@ -127,7 +134,7 @@ export class SidebarCollections implements OnInit {
     if (window.innerWidth < 768 && this.expanded()) {
       const clickedInside = this.elementRef.nativeElement.contains(target);
       if (!clickedInside) {
-        this.expanded.set(false);
+        this.setExpanded(false);
         // If the sidebar is closed via outside click, we can return early
         return;
       }
@@ -156,13 +163,24 @@ export class SidebarCollections implements OnInit {
     });
   }
 
+  loadStatusCounts(): void {
+    this.booksService.getStatusCounts().subscribe({
+      next: (counts) => this.statusCounts.set(counts),
+      error: () => this.toast.error('Failed to load library status counts'),
+    });
+  }
+
   toggle(): void {
     const isCurrentlyExpanded = this.expanded();
     if (isCurrentlyExpanded) {
       this.collapseSidebarProgress.set(true);
       setTimeout(() => this.collapseSidebarProgress.set(false), 200);
     }
-    this.expanded.set(!isCurrentlyExpanded);
+    this.setExpanded(!isCurrentlyExpanded);
+  }
+
+  private setExpanded(expanded: boolean): void {
+    this.preferences.setSidebarExpanded(expanded);
   }
 
   /**
@@ -173,7 +191,7 @@ export class SidebarCollections implements OnInit {
    */
   onStatusNavClick(): void {
     if (window.innerWidth < 768 && this.expanded()) {
-      this.expanded.set(false);
+      this.setExpanded(false);
       (this.elementRef.nativeElement as HTMLElement)
         .querySelector<HTMLButtonElement>('.floating-toggle')
         ?.focus();
@@ -188,14 +206,14 @@ export class SidebarCollections implements OnInit {
       queryParamsHandling: 'merge',
     });
     if (window.innerWidth < 768) {
-      this.expanded.set(false);
+      this.setExpanded(false);
     }
   }
 
   startAdd(): void {
     this.ignoreClick = true;
     this.adding.set(true);
-    if (!this.expanded()) this.expanded.set(true);
+    if (!this.expanded()) this.setExpanded(true);
   }
 
   resetInput(): void {

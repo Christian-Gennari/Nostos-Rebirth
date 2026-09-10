@@ -480,14 +480,6 @@ public class BackupService : IBackupService
 
                 var writings = await db.Writings.ToListAsync(ct);
                 await WriteJsonAsync(Path.Combine(metadataDir, "writings.json"), writings, ct);
-
-                // Reading Training recovery metadata: a whitelisted summary
-                // only. The archive's database/nostos.db is authoritative for
-                // restore; this file is informational, so it deliberately
-                // carries no titles, authors, capture text, command replies,
-                // receipt JSON, paths or raw session timestamps.
-                var readingTraining = await BuildReadingTrainingMetadataAsync(db, ct);
-                await WriteJsonAsync(Path.Combine(metadataDir, "reading-training.json"), readingTraining, ct);
             }
 
             var dbFileSize = new FileInfo(backupDbPath).Length;
@@ -701,62 +693,4 @@ public class BackupService : IBackupService
         await using var stream = File.Create(path);
         await JsonSerializer.SerializeAsync(stream, data, JsonOpts, ct);
     }
-
-    // Whitelisted Reading Training backup metadata. Counts and the singleton
-    // programme summary only — never the rows themselves, so titles, authors,
-    // capture text, command replies, receipt ResultJson, file paths and raw
-    // session timestamps cannot leak into the archive metadata. Any failure
-    // here propagates out of BuildArchiveAsync and fails the whole backup
-    // (fail closed): a backup is never completed without this summary.
-    private static async Task<ReadingTrainingBackupMetadata> BuildReadingTrainingMetadataAsync(
-        NostosDbContext db, CancellationToken ct)
-    {
-        var programme = await db.ReadingProgrammes.AsNoTracking().SingleOrDefaultAsync(ct);
-
-        return new ReadingTrainingBackupMetadata(
-            SchemaVersion: 1,
-            Programme: programme is null
-                ? null
-                : new ReadingTrainingProgrammeMetadata(
-                    StateVersion: programme.StateVersion,
-                    Timezone: programme.TimezoneId,
-                    Phase: programme.DeloadActive ? "deload" : "training",
-                    Targets: new ReadingTrainingTargetsMetadata(
-                        programme.EnduranceTargetMinutes,
-                        programme.DeepTargetMinutes,
-                        programme.RecoveryTargetMinutes)),
-            Assignments: await db.ReadingBookAssignments.CountAsync(ct),
-            Sessions: await db.ReadingSessions.CountAsync(ct),
-            Captures: await db.ReadingCaptures.CountAsync(ct),
-            Reviews: await db.ReadingWeeklyReviews.CountAsync(ct),
-            Decisions: await db.ReadingModeDecisions.CountAsync(ct),
-            Notifications: await db.ReadingNotifications.CountAsync(ct),
-            CommandReceipts: await db.ReadingCommandReceipts.CountAsync(ct),
-            ImportReceipts: await db.ReadingImportReceipts.CountAsync(ct),
-            OpenSessionCount: await db.ReadingSessions.CountAsync(s => s.OpenSlot != null, ct));
-    }
-
-    private sealed record ReadingTrainingBackupMetadata(
-        int SchemaVersion,
-        ReadingTrainingProgrammeMetadata? Programme,
-        int Assignments,
-        int Sessions,
-        int Captures,
-        int Reviews,
-        int Decisions,
-        int Notifications,
-        int CommandReceipts,
-        int ImportReceipts,
-        int OpenSessionCount);
-
-    private sealed record ReadingTrainingProgrammeMetadata(
-        string StateVersion,
-        string Timezone,
-        string Phase,
-        ReadingTrainingTargetsMetadata Targets);
-
-    private sealed record ReadingTrainingTargetsMetadata(
-        int EnduranceTargetMinutes,
-        int DeepTargetMinutes,
-        int RecoveryTargetMinutes);
 }

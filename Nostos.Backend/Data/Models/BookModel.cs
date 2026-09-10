@@ -31,6 +31,9 @@ public abstract class BookModel
     public string? NormalizedAsin { get; set; }
 
     // --- RELATIONSHIPS ---
+    public Guid WorkId { get; set; }
+    public WorkModel? Work { get; set; }
+
     public Guid? CollectionId { get; set; }
     public CollectionModel? Collection { get; set; }
 }

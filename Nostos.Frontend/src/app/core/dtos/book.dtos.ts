@@ -9,9 +9,32 @@ export interface PaginatedResponse<T> {
   pageSize: number;
 }
 
+export interface LibraryStatusCountsDto {
+  all: number;
+  notStarted: number;
+  reading: number;
+  favorites: number;
+  finished: number;
+  unsorted: number;
+}
+
 export interface BookChapter {
   title: string;
   startTime: number;
+}
+
+export interface EditionSummaryDto {
+  id: string;
+  type: 'ebook' | 'audiobook' | 'physical' | string;
+  format?: string;
+  progressPercent: number;
+  finishedAt?: string | null;
+  lastReadAt?: string | null;
+  hasFile: boolean;
+  fileName?: string | null;
+  narrator?: string | null;
+  duration?: string | null;
+  edition?: string | null;
 }
 
 export interface Book {
@@ -57,6 +80,10 @@ export interface Book {
   isFavorite: boolean;
   personalReview: string | null;
   finishedAt: string | null;
+
+  workId?: string;
+  editionCount?: number;
+  otherEditions?: EditionSummaryDto[];
 
   chapters?: BookChapter[]; // <--- Add this
 }

@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
-using Nostos.Backend.Tests.ReadingTraining;
+using Nostos.Backend.Tests.Support;
 using Nostos.Shared.Dtos;
 using Xunit;
 
@@ -13,13 +13,13 @@ namespace Nostos.Backend.Tests.Endpoints;
 // Phase 1b). The Angular UI and MCP tools share this exact surface; these
 // tests prove the refactored endpoints keep the legacy REST contracts while
 // routing through ILibraryService.
-public sealed class LibraryEndpointTests : IClassFixture<ReadingTrainingHttpFactory>
+public sealed class LibraryEndpointTests : IClassFixture<LibraryEndpointFactory>
 {
     private const string BorgesIsbn = "9780141183848";
 
-    private readonly ReadingTrainingHttpFactory _factory;
+    private readonly LibraryEndpointFactory _factory;
 
-    public LibraryEndpointTests(ReadingTrainingHttpFactory factory) => _factory = factory;
+    public LibraryEndpointTests(LibraryEndpointFactory factory) => _factory = factory;
 
     private HttpClient Client => _factory.CreateClient();
 
@@ -133,6 +133,71 @@ public sealed class LibraryEndpointTests : IClassFixture<ReadingTrainingHttpFact
         var clamped = await Client.GetFromJsonAsync<PaginatedResponse<BookDto>>("/api/books?page=0&pageSize=5000");
         clamped!.Page.Should().Be(1);
         clamped.PageSize.Should().Be(100);
+    }
+
+    [Fact]
+    public async Task Status_counts_returns_the_current_library_totals()
+    {
+        var before = (await Client.GetFromJsonAsync<LibraryStatusCountsDto>(
+            "/api/books/status-counts"))!;
+
+        var collectionResponse = await Client.PostAsJsonAsync(
+            "/api/collections",
+            new { name = $"Status Counts {Guid.NewGuid():N}" });
+        var collection = (await collectionResponse.Content.ReadFromJsonAsync<CollectionDto>())!;
+
+        var createdBookIds = new List<Guid>();
+        async Task<BookDto> CreateBook(bool favorite = false, Guid? collectionId = null)
+        {
+            var response = await Client.PostAsJsonAsync("/api/books", new
+            {
+                type = "physical",
+                title = $"Status Count Book {Guid.NewGuid():N}",
+                isFavorite = favorite,
+                collectionId,
+            });
+            var book = (await response.Content.ReadFromJsonAsync<BookDto>())!;
+            createdBookIds.Add(book.Id);
+            return book;
+        }
+
+        try
+        {
+            await CreateBook();
+            var reading = await CreateBook();
+            var favoriteReading = await CreateBook(favorite: true);
+            var finished = await CreateBook();
+            await CreateBook(collectionId: collection.Id);
+            var favoriteFinished = await CreateBook(favorite: true);
+
+            await Client.PutAsJsonAsync($"/api/books/{reading.Id}/progress",
+                new { location = "progress", percentage = 25 });
+            await Client.PutAsJsonAsync($"/api/books/{favoriteReading.Id}/progress",
+                new { location = "progress", percentage = 50 });
+            await Client.PutAsJsonAsync($"/api/books/{finished.Id}/progress",
+                new { location = "finished", percentage = 100 });
+            await Client.PutAsJsonAsync($"/api/books/{favoriteFinished.Id}/progress",
+                new { location = "finished", percentage = 100 });
+
+            var response = await Client.GetAsync("/api/books/status-counts");
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var after = (await response.Content.ReadFromJsonAsync<LibraryStatusCountsDto>())!;
+
+            after.All.Should().Be(before.All + 6);
+            after.NotStarted.Should().Be(before.NotStarted + 2);
+            after.Reading.Should().Be(before.Reading + 2);
+            after.Favorites.Should().Be(before.Favorites + 2);
+            after.Finished.Should().Be(before.Finished + 2);
+            after.Unsorted.Should().Be(before.Unsorted + 5);
+        }
+        finally
+        {
+            foreach (var id in createdBookIds)
+            {
+                await Client.DeleteAsync($"/api/books/{id}");
+            }
+            await Client.DeleteAsync($"/api/collections/{collection.Id}");
+        }
     }
 
     [Fact]
@@ -311,33 +376,33 @@ public sealed class LibraryEndpointTests : IClassFixture<ReadingTrainingHttpFact
     }
 
     [Fact]
-    public async Task Delete_book_that_is_queued_for_reading_returns_409_and_keeps_row()
+    public async Task Delete_book_that_has_notes_cascades_delete()
     {
-        // Initialize the singleton reading programme (idempotent).
-        await Client.PostAsJsonAsync("/api/reading/initialize", new { clientId = "lib-test", idempotencyKey = "lib-init" });
-
         var created = await Client.PostAsJsonAsync("/api/books", new
         {
             type = "physical",
-            title = $"QueuedBook {Guid.NewGuid():N}",
+            title = $"BookWithNotes {Guid.NewGuid():N}",
             author = "Author",
         });
         var book = (await created.Content.ReadFromJsonAsync<BookDto>())!;
 
-        var queued = await Client.PostAsJsonAsync("/api/reading/books", new
+        await using (var db = await OpenDbAsync())
         {
-            clientId = "lib-test",
-            idempotencyKey = $"lib-queue-{book.Id:N}",
-            bookId = book.Id,
-            mode = 0, // ReadingMode.Endurance (wire format is numeric)
-        });
-        queued.StatusCode.Should().Be(HttpStatusCode.OK);
+            db.Notes.Add(new Nostos.Backend.Data.Models.NoteModel
+            {
+                Id = Guid.NewGuid(),
+                BookId = book.Id,
+                Content = "A note attached to this book",
+                CreatedAt = DateTime.UtcNow,
+            });
+            await db.SaveChangesAsync();
+        }
 
         var deleted = await Client.DeleteAsync($"/api/books/{book.Id}");
-        deleted.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        deleted.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         var stillThere = await Client.GetAsync($"/api/books/{book.Id}");
-        stillThere.StatusCode.Should().Be(HttpStatusCode.OK);
+        stillThere.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -526,6 +591,80 @@ public sealed class LibraryEndpointTests : IClassFixture<ReadingTrainingHttpFact
         // The child's book counts once for the child and once for the parent;
         // the uncollected book contributes to NO collection count.
         counts.Sum(c => c.BookCount).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Work_edition_grouping_creates_separate_entities_sharing_same_work_id()
+    {
+        var title = $"The Devils {Guid.NewGuid():N}";
+        var author = "Fyodor Dostoevsky";
+
+        // 1. Create EPUB (eBook)
+        var ebookResp = await Client.PostAsJsonAsync("/api/books", new
+        {
+            type = "ebook",
+            title,
+            author,
+        });
+        ebookResp.StatusCode.Should().Be(HttpStatusCode.Created);
+        var ebook = (await ebookResp.Content.ReadFromJsonAsync<BookDto>())!;
+        ebook.WorkId.Should().NotBeNull();
+        ebook.WorkId.Should().NotBe(Guid.Empty);
+
+        // 2. Create Audiobook of the same Work (same title + author)
+        var audioResp = await Client.PostAsJsonAsync("/api/books", new
+        {
+            type = "audiobook",
+            title,
+            author,
+            narrator = "George Guidall",
+            duration = "26h 15m",
+        });
+        audioResp.StatusCode.Should().Be(HttpStatusCode.Created);
+        var audio = (await audioResp.Content.ReadFromJsonAsync<BookDto>())!;
+
+        // Different book entities in the database
+        audio.Id.Should().NotBe(ebook.Id);
+        audio.Type.Should().Be("audiobook");
+        ebook.Type.Should().Be("ebook");
+
+        // But both share the exact same WorkId!
+        audio.WorkId.Should().Be(ebook.WorkId);
+
+        try
+        {
+            // 3. Re-adding an eBook of the same work matches the existing eBook edition
+            var dupEbookResp = await Client.PostAsJsonAsync("/api/books", new
+            {
+                type = "ebook",
+                title,
+                author,
+            });
+            dupEbookResp.StatusCode.Should().Be(HttpStatusCode.OK); // matched!
+            var dupEbook = (await dupEbookResp.Content.ReadFromJsonAsync<BookDto>())!;
+            dupEbook.Id.Should().Be(ebook.Id);
+
+            // 4. Query with groupByWork=true returns 1 primary card representing the Work
+            var listResp = await Client.GetAsync($"/api/books?search={title}&groupByWork=true");
+            listResp.StatusCode.Should().Be(HttpStatusCode.OK);
+            var page = (await listResp.Content.ReadFromJsonAsync<PaginatedResponse<BookDto>>())!;
+            page.TotalCount.Should().Be(1);
+            var workCard = page.Items.Single();
+            workCard.WorkId.Should().Be(ebook.WorkId);
+            workCard.EditionCount.Should().Be(2);
+            workCard.OtherEditions.Should().NotBeNull();
+            workCard.OtherEditions!.Should().HaveCount(1);
+        }
+        finally
+        {
+            await Client.DeleteAsync($"/api/books/{ebook.Id}");
+            await Client.DeleteAsync($"/api/books/{audio.Id}");
+        }
+
+        // 5. Deleting all editions prunes the Work record from the database
+        await using var db = await OpenDbAsync();
+        var workRemaining = await db.Works.FindAsync(ebook.WorkId!.Value);
+        workRemaining.Should().BeNull();
     }
 
     // ------------------------------------------------------------------

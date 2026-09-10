@@ -3,8 +3,10 @@ using System.Data.Common;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Nostos.Backend.Data;
-using Nostos.Backend.Data.Models.ReadingTraining;
+using Nostos.Backend.Data.Models;
 using Xunit;
 
 namespace Nostos.Backend.Tests.Data;
@@ -26,9 +28,12 @@ public sealed class DatabaseBootstrapServiceTests : IDisposable
         "Notes",
         "NoteConcepts",
         "Writings",
+        "LibraryCommandReceipts",
+        "LibraryStates",
+        "Works",
     ];
 
-    private static readonly string[] ExpectedReadingTables =
+    private static readonly string[] RemovedReadingTables =
     [
         "ReadingBookAssignments",
         "ReadingCaptures",
@@ -69,7 +74,7 @@ public sealed class DatabaseBootstrapServiceTests : IDisposable
 
         var tables = TableNames(db);
         tables.Should().Contain(ExpectedCoreTables);
-        tables.Should().Contain(ExpectedReadingTables);
+        tables.Should().NotContain(RemovedReadingTables);
         tables.Should().Contain("__EFMigrationsHistory");
 
         var history = HistoryRows(db);
@@ -91,7 +96,7 @@ public sealed class DatabaseBootstrapServiceTests : IDisposable
         await new DatabaseBootstrapService(db).EnsureReadyAsync();
 
         TableNames(db).Should().Contain(ExpectedCoreTables);
-        TableNames(db).Should().Contain(ExpectedReadingTables);
+        TableNames(db).Should().NotContain(RemovedReadingTables);
         HistoryRows(db).Should().HaveCount(db.Database.GetMigrations().Count());
     }
 
@@ -128,73 +133,68 @@ public sealed class DatabaseBootstrapServiceTests : IDisposable
     public async Task ExistingDatabaseWithHistoryAndData_UsesNormalMigrationPathAndPreservesData()
     {
         var path = CreateDatabasePath();
-        await using var db = CreateContext(path);
+        List<string> migrations;
+        string oldestMigrationId;
+        string newestMigrationId;
+        string pendingMigrationId;
 
-        // A production-shaped database: bootstrapped, then with real data and
-        // a migration history that predates the newest migration.
-        await new DatabaseBootstrapService(db).EnsureReadyAsync();
-
-        var programme = new ReadingProgramme
+        await using (var db = CreateContext(path))
         {
-            Id = ReadingProgramme.WellKnownId,
-            SingletonSlot = ReadingProgramme.SingletonSentinel,
-            TimezoneId = "Europe/Stockholm",
-            StateVersion = "7",
-            EnduranceTargetMinutes = 45,
-        };
-        db.ReadingProgrammes.Add(programme);
-        await db.SaveChangesAsync();
+            await new DatabaseBootstrapService(db).EnsureReadyAsync();
 
-        var migrations = db.Database.GetMigrations().ToList();
-        var newestMigrationId = migrations[^1];
-        var oldestMigrationId = migrations[0];
+            var book = new PhysicalBookModel
+            {
+                Id = Guid.NewGuid(),
+                Title = "Preserved Book",
+                Author = "Author",
+                CreatedAt = DateTime.UtcNow,
+            };
+            db.PhysicalBooks.Add(book);
+            await db.SaveChangesAsync();
 
-        // Simulate a database created before the newest migration shipped:
-        // history stops at migration N-1, and one row carries a custom
-        // ProductVersion marker that a rebaseline would rewrite.
-        await db.Database.ExecuteSqlRawAsync(
-            "DELETE FROM \"__EFMigrationsHistory\" WHERE \"MigrationId\" = {0}", newestMigrationId);
-        await db.Database.ExecuteSqlRawAsync(
-            "UPDATE \"__EFMigrationsHistory\" SET \"ProductVersion\" = 'custom-probe' WHERE \"MigrationId\" = {0}",
-            oldestMigrationId);
+            migrations = AllKnownMigrationIds(db);
+            migrations.Should().NotBeEmpty();
+            oldestMigrationId = migrations[0];
+            newestMigrationId = migrations[^1];
 
-        // The bootstrap above created the CURRENT model (including the newest
-        // migration's objects). Roll the schema back to the pre-newest state
-        // so the ordinary migration path really has something to apply.
-        if (newestMigrationId.Contains("AddLibraryCommandSurface"))
-        {
+            pendingMigrationId = migrations.First(m => m.Contains("DropReadingTraining"));
+
+            // Re-write the oldest migration's row with a non-standard version
+            // to prove the baseline path never fires when history is present.
             await db.Database.ExecuteSqlRawAsync(
-                "DROP INDEX \"IX_Books_NormalizedIsbn\"; DROP INDEX \"IX_Books_NormalizedAsin\"; " +
-                "DROP TABLE \"LibraryCommandReceipts\"; DROP TABLE \"LibraryStates\"; " +
-                "ALTER TABLE \"Books\" DROP COLUMN \"NormalizedIsbn\"; " +
-                "ALTER TABLE \"Books\" DROP COLUMN \"NormalizedAsin\";");
-        }
-        else if (newestMigrationId.Contains("AddLibraryCommandReceiptRetentionIndex"))
-        {
-            // Roll back only the retention migration's object; the library
-            // command tables belong to older, already-applied migrations.
+                "UPDATE \"__EFMigrationsHistory\" SET \"ProductVersion\" = {0} WHERE \"MigrationId\" = {1}",
+                "custom-probe",
+                oldestMigrationId);
+
+            // Remove a safe pending migration from the history table: this creates
+            // an ordinary pending migration for the service to apply.
             await db.Database.ExecuteSqlRawAsync(
-                "DROP INDEX \"IX_LibraryCommandReceipts_CreatedAt\"");
+                "DELETE FROM \"__EFMigrationsHistory\" WHERE \"MigrationId\" = {0}",
+                pendingMigrationId);
         }
 
-        await new DatabaseBootstrapService(db).EnsureReadyAsync();
+        // New context pointing at the same database.
+        await using (var db = CreateContext(path))
+        {
+            await new DatabaseBootstrapService(db).EnsureReadyAsync();
 
-        // Data survived the normal migration path.
-        db.ReadingProgrammes.SingleOrDefault(p => p.Id == ReadingProgramme.WellKnownId)
-            .Should().NotBeNull();
+            // Data survived the normal migration path.
+            db.PhysicalBooks.SingleOrDefault(b => b.Title == "Preserved Book")
+                .Should().NotBeNull();
 
-        // The missing migration was applied through the ordinary path and the
-        // history is complete again.
-        var history = HistoryRows(db);
-        history.Should().HaveCount(migrations.Count);
-        history.Should().Contain(h => h.Id == newestMigrationId);
+            // The missing migration was applied through the ordinary path and the
+            // history is complete again.
+            var history = HistoryRows(db);
+            history.Should().HaveCount(migrations.Count);
+            history.Should().Contain(h => h.Id == pendingMigrationId);
 
-        // Never rebaselined: the custom marker and untouched rows survive.
-        history.Should().Contain(h => h.Id == oldestMigrationId && h.Version == "custom-probe");
+            // Never rebaselined: the custom marker and untouched rows survive.
+            history.Should().Contain(h => h.Id == oldestMigrationId && h.Version == "custom-probe");
 
-        // The ordinary path also remains a no-op on the next run.
-        await new DatabaseBootstrapService(db).EnsureReadyAsync();
-        HistoryRows(db).Should().HaveCount(migrations.Count);
+            // The ordinary path also remains a no-op on the next run.
+            await new DatabaseBootstrapService(db).EnsureReadyAsync();
+            HistoryRows(db).Should().HaveCount(migrations.Count);
+        }
     }
 
     [Fact]
@@ -225,7 +225,7 @@ public sealed class DatabaseBootstrapServiceTests : IDisposable
         // partial schema was left in place.
         var tables = TableNames(db);
         tables.Should().Contain("Books");
-        tables.Should().NotContain(ExpectedReadingTables);
+        tables.Should().NotContain(RemovedReadingTables);
 
         var history = HistoryRows(db);
         history.Should().OnlyContain(h => h.Id != db.Database.GetMigrations().Last());
@@ -250,9 +250,6 @@ public sealed class DatabaseBootstrapServiceTests : IDisposable
         }
     }
 
-    // TableNames excludes __EFMigrationsLock: the lock table is an EF-internal
-    // artifact created by the first Migrate() run, not part of the domain
-    // schema, so it must not disturb schema-equality assertions.
     private static List<string> TableNames(NostosDbContext db)
     {
         var names = new List<string>();
@@ -269,6 +266,11 @@ public sealed class DatabaseBootstrapServiceTests : IDisposable
             "SELECT \"MigrationId\", \"ProductVersion\" FROM \"__EFMigrationsHistory\" ORDER BY \"MigrationId\"",
             reader => rows.Add((reader.GetString(0), reader.GetString(1))));
         return rows;
+    }
+
+    private static List<string> AllKnownMigrationIds(NostosDbContext db)
+    {
+        return db.Database.GetMigrations().ToList();
     }
 
     private static void ExecuteReader(NostosDbContext db, string sql, Action<DbDataReader> read)

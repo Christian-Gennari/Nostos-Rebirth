@@ -27,6 +27,7 @@
         <lucide-icon [img]="LibraryIcon" [size]="18" strokeWidth="1"></lucide-icon>
         @if (expanded()) {
           <span class="label">All Books</span>
+          <span class="count-badge">{{ statusCounts()?.all }}</span>
         }
       </button>
 
@@ -42,6 +43,7 @@
         <lucide-icon [img]="CircleDashedIcon" [size]="18" strokeWidth="1"></lucide-icon>
         @if (expanded()) {
           <span class="label">Not Started</span>
+          <span class="count-badge">{{ statusCounts()?.notStarted }}</span>
         }
       </button>
 
@@ -57,6 +59,7 @@
         <lucide-icon [img]="BookOpenIcon" [size]="18" strokeWidth="1"></lucide-icon>
         @if (expanded()) {
           <span class="label">In Progress</span>
+          <span class="count-badge">{{ statusCounts()?.reading }}</span>
         }
       </button>
 
@@ -72,6 +75,7 @@
         <lucide-icon [img]="HeartIcon" [size]="18" strokeWidth="1"></lucide-icon>
         @if (expanded()) {
           <span class="label">Favorites</span>
+          <span class="count-badge">{{ statusCounts()?.favorites }}</span>
         }
       </button>
 
@@ -87,6 +91,7 @@
         <lucide-icon [img]="CheckCircleIcon" [size]="18" strokeWidth="1"></lucide-icon>
         @if (expanded()) {
           <span class="label">Finished</span>
+          <span class="count-badge">{{ statusCounts()?.finished }}</span>
         }
       </button>
 
@@ -102,6 +107,7 @@
         <lucide-icon [img]="InboxIcon" [size]="18" strokeWidth="1"></lucide-icon>
         @if (expanded()) {
           <span class="label">Unsorted</span>
+          <span class="count-badge">{{ statusCounts()?.unsorted }}</span>
         }
       </button>
     </div>
@@ -157,6 +163,16 @@
   </div>
 
   <div class="sidebar-footer">
+    @if (!expanded() && activeId()) {
+      <span
+        class="collapsed-collection-indicator"
+        role="status"
+        [attr.title]="'Viewing ' + (getNameForId(activeId()!) || 'collection')"
+        aria-label="A collection is selected"
+      >
+        <lucide-icon [img]="FolderIcon" [size]="14" strokeWidth="1.5"></lucide-icon>
+      </span>
+    }
     <button class="toggle-btn" (click)="toggle()">
       @if (expanded()) {
         <lucide-icon [img]="PanelLeftCloseIcon" [size]="18" strokeWidth="1"></lucide-icon>

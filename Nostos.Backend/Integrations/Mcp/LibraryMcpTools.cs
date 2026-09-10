@@ -40,7 +40,7 @@ public sealed class LibraryMcpTools
         [Description("Page size, clamped to 1..100.")] int pageSize = 20,
         [Description("Optional collection id to restrict the listing to.")] Guid? collectionId = null,
         CancellationToken ct = default) =>
-        _service.ListBooksAsync(filter, sort, search, page, pageSize, collectionId, ct);
+        _service.ListBooksAsync(filter, sort, search, page, pageSize, collectionId, ct: ct);
 
     [McpServerTool(Name = "library_get_book", ReadOnly = true)]
     [Description("Gets one book from the Nostos library by id.")]

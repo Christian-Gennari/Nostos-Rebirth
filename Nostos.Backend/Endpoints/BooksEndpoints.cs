@@ -25,6 +25,7 @@ public static class BooksEndpoints
                 int? page,
                 int? pageSize,
                 Guid? collectionId,
+                bool? groupByWork,
                 CancellationToken ct
             ) =>
             {
@@ -32,8 +33,19 @@ public static class BooksEndpoints
                 Enum.TryParse<BookSort>(sort, true, out var sortEnum);
 
                 var result = await library.ListBooksAsync(
-                    filterEnum, sortEnum, search, page ?? 1, pageSize ?? 20, collectionId, ct);
+                    filterEnum, sortEnum, search, page ?? 1, pageSize ?? 20,
+                    collectionId, groupByWork, ct);
 
+                return LibraryHttpMapper.MapError(result) ?? Results.Ok(result.Data);
+            }
+        );
+
+        // GET aggregate status counts for the library sidebar
+        group.MapGet(
+            "/status-counts",
+            async (ILibraryService library, CancellationToken ct) =>
+            {
+                var result = await library.GetStatusCountsAsync(ct);
                 return LibraryHttpMapper.MapError(result) ?? Results.Ok(result.Data);
             }
         );

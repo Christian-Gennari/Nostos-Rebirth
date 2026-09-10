@@ -11,9 +11,9 @@ using Xunit;
 namespace Nostos.Backend.Tests.Mcp;
 
 // Real authenticated MCP transport tests for the library tool surface
-// (issue #34 Phase 2). Discovery asserts the exact 5-tool manifest on top of
-// the 23 reading tools; tools/call proves create-or-match, exact-once replay,
-// resolution, and REST/MCP state convergence over the same database.
+// (issue #34 Phase 2). Discovery asserts the exact 11-tool manifest;
+// tools/call proves create-or-match, exact-once replay, resolution, and
+// REST/MCP state convergence over the same database.
 [Collection("McpEnvironment")]
 public sealed class LibraryMcpHttpTests
 {
@@ -49,7 +49,7 @@ public sealed class LibraryMcpHttpTests
         var tools = await ListToolsAsync(client);
 
         var names = tools.EnumerateArray().Select(t => t.GetProperty("name").GetString()).ToList();
-        names.Should().HaveCount(34, "23 reading tools + 11 library tools");
+        names.Should().HaveCount(11, "11 library tools");
         names.Should().Contain(LibraryReadNames);
         names.Should().Contain(LibraryMutationNames);
 

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nostos.Backend.Data;
 
@@ -10,9 +11,11 @@ using Nostos.Backend.Data;
 namespace Nostos.Backend.Migrations
 {
     [DbContext(typeof(NostosDbContext))]
-    partial class NostosDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260907211705_DropReadingTraining")]
+    partial class DropReadingTraining
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.0");
@@ -84,9 +87,6 @@ namespace Nostos.Backend.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("WorkId")
-                        .HasColumnType("TEXT");
-
                     b.HasKey("Id");
 
                     b.HasIndex("Author");
@@ -102,8 +102,6 @@ namespace Nostos.Backend.Migrations
                         .HasFilter("\"NormalizedIsbn\" IS NOT NULL");
 
                     b.HasIndex("Title");
-
-                    b.HasIndex("WorkId");
 
                     b.ToTable("Books");
 
@@ -263,38 +261,6 @@ namespace Nostos.Backend.Migrations
                     b.ToTable("Notes");
                 });
 
-            modelBuilder.Entity("Nostos.Backend.Data.Models.WorkModel", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Author")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("NormalizedAuthor")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("NormalizedTitle")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NormalizedAuthor");
-
-                    b.HasIndex("NormalizedTitle");
-
-                    b.ToTable("Works");
-                });
-
             modelBuilder.Entity("Nostos.Backend.Data.Models.WritingModel", b =>
                 {
                     b.Property<Guid>("Id")
@@ -384,12 +350,6 @@ namespace Nostos.Backend.Migrations
                         .WithMany()
                         .HasForeignKey("CollectionId")
                         .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Nostos.Backend.Data.Models.WorkModel", "Work")
-                        .WithMany("Books")
-                        .HasForeignKey("WorkId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
 
                     b.OwnsOne("Nostos.Backend.Data.Models.FileInfoDetails", "FileDetails", b1 =>
                         {
@@ -512,8 +472,6 @@ namespace Nostos.Backend.Migrations
 
                     b.Navigation("Progress")
                         .IsRequired();
-
-                    b.Navigation("Work");
                 });
 
             modelBuilder.Entity("Nostos.Backend.Data.Models.CollectionModel", b =>
@@ -579,11 +537,6 @@ namespace Nostos.Backend.Migrations
             modelBuilder.Entity("Nostos.Backend.Data.Models.NoteModel", b =>
                 {
                     b.Navigation("NoteConcepts");
-                });
-
-            modelBuilder.Entity("Nostos.Backend.Data.Models.WorkModel", b =>
-                {
-                    b.Navigation("Books");
                 });
 
             modelBuilder.Entity("Nostos.Backend.Data.Models.WritingModel", b =>

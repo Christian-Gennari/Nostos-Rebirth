@@ -5,6 +5,7 @@ import { of, throwError } from 'rxjs';
 
 import { SidebarCollections } from './sidebar-collections.component';
 import { CollectionsService } from '../../core/services/collections.service';
+import { LibraryPreferencesService } from '../../core/services/library-preferences.service';
 import { ToastService } from '../../core/services/toast.service';
 import { Collection } from '../../core/dtos/collection.dtos';
 
@@ -30,6 +31,7 @@ describe('SidebarCollections', () => {
   const nestedCollection: Collection = { id: 'nested-1', name: 'Nested', parentId: 'root-1' };
 
   beforeEach(async () => {
+    localStorage.clear();
     collectionsService = {
       sidebarExpanded: signal(true),
       list: vi.fn(() => of(sampleCollections)),
@@ -49,6 +51,8 @@ describe('SidebarCollections', () => {
       ],
     }).compileComponents();
 
+    const prefs = TestBed.inject(LibraryPreferencesService);
+    prefs.setSidebarExpanded(true);
     router = TestBed.inject(Router);
     fixture = TestBed.createComponent(SidebarCollections);
     component = fixture.componentInstance;
@@ -245,7 +249,10 @@ describe('SidebarCollections', () => {
     }
 
     function statusButton(label: string): HTMLButtonElement {
-      return statusButtons().find((el) => el.textContent?.trim() === label) as HTMLButtonElement;
+      return statusButtons().find((el) => {
+        const textSpan = el.querySelector('.label');
+        return (textSpan?.textContent?.trim() ?? el.textContent?.trim()) === label;
+      }) as HTMLButtonElement;
     }
 
     it('renders exactly six status choices in the expected order', () => {
