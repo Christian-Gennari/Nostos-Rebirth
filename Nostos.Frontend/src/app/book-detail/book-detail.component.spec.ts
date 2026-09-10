@@ -265,4 +265,26 @@ describe('BookDetail reset progress', () => {
     expect(resetDialog()).toBeNull();
     expect(toast.toasts().some((t) => t.message === 'Failed to reset progress' && t.type === 'error')).toBe(true);
   });
+
+  it('renders edition switcher tabs when multiple editions exist and calls switchEdition', async () => {
+    const multiEditionBook = readableBook({
+      otherEditions: [
+        {
+          id: 'b2',
+          type: 'audiobook',
+          format: 'AUDIO',
+          progressPercent: 15,
+          hasFile: true,
+          duration: '10h',
+          narrator: 'Narrator Guy',
+        },
+      ],
+    });
+    await setup(multiEditionBook);
+
+    const tabs = fixture.nativeElement.querySelectorAll('.edition-tab');
+    expect(tabs.length).toBe(2);
+    expect(tabs[0].textContent).toContain('EPUB');
+    expect(tabs[1].textContent).toContain('Audiobook');
+  });
 });

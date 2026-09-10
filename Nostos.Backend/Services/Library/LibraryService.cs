@@ -216,7 +216,21 @@ public sealed class LibraryService : ILibraryService
         if (book is null)
             return Failure("book_not_found", LibraryReplyFormatter.BookNotFound, version);
 
-        return Result(LibraryReplyFormatter.Book(book.Title), book.ToDto(), version);
+        var siblings = await db.Books.AsNoTracking()
+            .Where(b => b.WorkId == book.WorkId)
+            .ToListAsync(ct);
+
+        var dto = book.ToDto() with
+        {
+            WorkId = book.WorkId,
+            EditionCount = siblings.Count,
+            OtherEditions = siblings
+                .Where(s => s.Id != book.Id)
+                .Select(MappingExtensions.ToEditionSummary)
+                .ToList()
+        };
+
+        return Result(LibraryReplyFormatter.Book(book.Title), dto, version);
     }
 
     public async Task<LibraryResolveResult> ResolveBookAsync(LibraryResolveBookRequest request, CancellationToken ct = default)

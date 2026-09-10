@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { BooksService, Book } from '../core/services/books.service';
+import { BooksService } from '../core/services/books.service';
 import { CollectionsService } from '../core/services/collections.service';
 import { Collection } from '../core/dtos/collection.dtos';
 import { CommonModule } from '@angular/common';
@@ -18,6 +18,7 @@ import { FormsModule } from '@angular/forms';
 import { AddBookModal } from '../add-book-modal/add-book-modal.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { SidebarCollections } from './sidebar-collections/sidebar-collections.component';
+import { Book, EditionSummaryDto } from '../core/dtos/book.dtos';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, map } from 'rxjs/operators';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -195,6 +196,7 @@ export class Library implements OnInit {
         page,
         pageSize: this.pageSize(),
         collectionId: collection ?? undefined,
+        groupByWork: this.preferences.groupByWork(),
       })
       .subscribe({
         next: (data) => {
@@ -263,6 +265,45 @@ export class Library implements OnInit {
   onBookUpdated(updated: Book): void {
     this.refreshBooks(true, false);
     this.closeEditModal();
+  }
+
+  getFormatLabel(book: Book | EditionSummaryDto): string {
+    const extension = book.fileName?.split('.').pop()?.trim().toLowerCase();
+    if (extension) {
+      return extension.toUpperCase();
+    }
+
+    const format = 'format' in book ? book.format?.trim().toLowerCase() : undefined;
+    if (format) {
+      switch (format) {
+        case 'audiobook':
+        case 'audio':
+          return 'AUDIO';
+        case 'ebook':
+        case 'epub':
+          return 'EPUB';
+        case 'physical':
+          return 'PHYSICAL';
+        default:
+          return format.toUpperCase();
+      }
+    }
+
+    switch (book.type) {
+      case 'audiobook':
+        return 'AUDIO';
+      case 'ebook':
+        return 'EPUB';
+      case 'physical':
+        return 'PHYSICAL';
+      default:
+        return book.type.toUpperCase();
+    }
+  }
+
+  openEdition(editionId: string, event: Event): void {
+    event.stopPropagation();
+    void this.router.navigate(['/library', editionId]);
   }
 
   deleteBook(id: string, event: Event): void {

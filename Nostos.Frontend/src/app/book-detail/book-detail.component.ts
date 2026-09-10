@@ -7,7 +7,7 @@ import { FormsModule } from '@angular/forms';
 import { BookDetailStore } from './book-detail.store';
 
 // DTOs
-import { Book } from '../core/dtos/book.dtos';
+import { Book, EditionSummaryDto } from '../core/dtos/book.dtos';
 
 // UI Components
 import { AddBookModal } from '../add-book-modal/add-book-modal.component';
@@ -185,6 +185,78 @@ export class BookDetail implements OnInit {
 
   goToConcept(conceptId: string): void {
     this.router.navigate(['/second-brain'], { queryParams: { conceptId } });
+  }
+
+  switchEdition(id: string): void {
+    void this.router.navigate(['/library', id]);
+  }
+
+  getEditionLabel(book: Book): string {
+    return this.buildEditionLabel(
+      book.type,
+      book.fileName,
+      undefined,
+      book.duration,
+      book.narrator,
+      book.edition,
+    );
+  }
+
+  getSummaryEditionLabel(edition: EditionSummaryDto): string {
+    return this.buildEditionLabel(
+      edition.type,
+      edition.fileName,
+      edition.format,
+      edition.duration,
+      edition.narrator,
+      edition.edition,
+    );
+  }
+
+  private buildEditionLabel(
+    type: string,
+    fileName?: string | null,
+    format?: string,
+    duration?: string | null,
+    narrator?: string | null,
+    edition?: string | null,
+  ): string {
+    const normalizedType = type.toLowerCase();
+    const isAudio = normalizedType === 'audiobook' || normalizedType === 'audio';
+    const formatLabel = this.getFormatLabel(type, fileName, format);
+    const label = isAudio
+      ? 'Audiobook'
+      : formatLabel === 'EPUB' || formatLabel === 'PDF'
+        ? formatLabel
+        : normalizedType === 'physical'
+          ? 'Physical'
+          : formatLabel;
+
+    const details = isAudio
+      ? [duration, narrator, edition]
+      : [edition];
+    const detailText = details.filter((detail): detail is string => !!detail?.trim()).join(', ');
+
+    return detailText ? `${label} (${detailText})` : label;
+  }
+
+  private getFormatLabel(type: string, fileName?: string | null, format?: string): string {
+    const extension = fileName?.split('.').pop()?.trim().toLowerCase();
+    if (extension) return extension.toUpperCase();
+
+    const normalizedFormat = format?.trim().toLowerCase();
+    switch (normalizedFormat || type.toLowerCase()) {
+      case 'audiobook':
+      case 'audio':
+        return 'AUDIO';
+      case 'ebook':
+      case 'epub':
+        return 'EPUB';
+      case 'physical':
+        return 'PHYSICAL';
+      default:
+        return (normalizedFormat || type).toUpperCase();
+    }
   }
 
   toggleDescription() {

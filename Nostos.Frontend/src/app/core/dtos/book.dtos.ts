@@ -23,6 +23,20 @@ export interface BookChapter {
   startTime: number;
 }
 
+export interface EditionSummaryDto {
+  id: string;
+  type: 'ebook' | 'audiobook' | 'physical' | string;
+  format?: string;
+  progressPercent: number;
+  finishedAt?: string | null;
+  lastReadAt?: string | null;
+  hasFile: boolean;
+  fileName?: string | null;
+  narrator?: string | null;
+  duration?: string | null;
+  edition?: string | null;
+}
+
 export interface Book {
   id: string;
   title: string;
@@ -66,6 +80,10 @@ export interface Book {
   isFavorite: boolean;
   personalReview: string | null;
   finishedAt: string | null;
+
+  workId?: string;
+  editionCount?: number;
+  otherEditions?: EditionSummaryDto[];
 
   chapters?: BookChapter[]; // <--- Add this
 }
