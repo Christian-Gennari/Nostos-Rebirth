@@ -202,6 +202,7 @@ app-sidebar-collections.no-transition {
 /* --- LIST VIEW --- */
 .table-view {
   --table-grid-cols: 2fr 1.5fr 100px 1fr 60px 80px;
+  padding-bottom: 7.5rem;
 }
 
 .table-header {
@@ -495,7 +496,7 @@ app-sidebar-collections.no-transition {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 2.5rem;
-  padding-bottom: 4rem;
+  padding-bottom: 7.5rem;
 }
 
 .book-card {
