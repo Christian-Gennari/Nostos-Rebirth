@@ -24,7 +24,7 @@
         title="All Books"
         (click)="onStatusNavClick()"
       >
-        <lucide-icon [img]="LibraryIcon" [size]="18" strokeWidth="1"></lucide-icon>
+        <lucide-icon [img]="LibraryIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
         @if (expanded()) {
           <span class="label">All Books</span>
           <span class="count-badge">{{ statusCounts()?.all }}</span>
@@ -40,7 +40,7 @@
         title="Not Started"
         (click)="onStatusNavClick()"
       >
-        <lucide-icon [img]="CircleDashedIcon" [size]="18" strokeWidth="1"></lucide-icon>
+        <lucide-icon [img]="CircleDashedIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
         @if (expanded()) {
           <span class="label">Not Started</span>
           <span class="count-badge">{{ statusCounts()?.notStarted }}</span>
@@ -56,7 +56,7 @@
         title="In Progress"
         (click)="onStatusNavClick()"
       >
-        <lucide-icon [img]="BookOpenIcon" [size]="18" strokeWidth="1"></lucide-icon>
+        <lucide-icon [img]="BookOpenIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
         @if (expanded()) {
           <span class="label">In Progress</span>
           <span class="count-badge">{{ statusCounts()?.reading }}</span>
@@ -72,7 +72,7 @@
         title="Favorites"
         (click)="onStatusNavClick()"
       >
-        <lucide-icon [img]="HeartIcon" [size]="18" strokeWidth="1"></lucide-icon>
+        <lucide-icon [img]="HeartIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
         @if (expanded()) {
           <span class="label">Favorites</span>
           <span class="count-badge">{{ statusCounts()?.favorites }}</span>
@@ -88,7 +88,7 @@
         title="Finished"
         (click)="onStatusNavClick()"
       >
-        <lucide-icon [img]="CheckCircleIcon" [size]="18" strokeWidth="1"></lucide-icon>
+        <lucide-icon [img]="CheckCircleIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
         @if (expanded()) {
           <span class="label">Finished</span>
           <span class="count-badge">{{ statusCounts()?.finished }}</span>
@@ -104,7 +104,7 @@
         title="Unsorted"
         (click)="onStatusNavClick()"
       >
-        <lucide-icon [img]="InboxIcon" [size]="18" strokeWidth="1"></lucide-icon>
+        <lucide-icon [img]="InboxIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
         @if (expanded()) {
           <span class="label">Unsorted</span>
           <span class="count-badge">{{ statusCounts()?.unsorted }}</span>
@@ -125,7 +125,7 @@
         title="Audiobooks"
         (click)="onStatusNavClick()"
       >
-        <lucide-icon [img]="HeadphonesIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
+        <lucide-icon [img]="HeadphonesIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
         @if (expanded()) {
           <span class="label">Audiobooks</span>
           <span class="count-badge">{{ statusCounts()?.audiobooks }}</span>
@@ -141,7 +141,7 @@
         title="eBooks"
         (click)="onStatusNavClick()"
       >
-        <lucide-icon [img]="BookOpenIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
+        <lucide-icon [img]="BookOpenIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
         @if (expanded()) {
           <span class="label">eBooks</span>
           <span class="count-badge">{{ statusCounts()?.ebooks }}</span>
@@ -157,7 +157,7 @@
         title="PDFs"
         (click)="onStatusNavClick()"
       >
-        <lucide-icon [img]="FileTextIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
+        <lucide-icon [img]="FileTextIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
         @if (expanded()) {
           <span class="label">PDFs</span>
           <span class="count-badge">{{ statusCounts()?.pdfs }}</span>
@@ -191,7 +191,7 @@
     <div class="nav-group mt-auto">
       @if (adding()) {
         <div class="nav-item input-mode">
-          <lucide-icon [img]="PlusIcon" [size]="18" strokeWidth="1"></lucide-icon>
+          <lucide-icon [img]="PlusIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
           @if (expanded()) {
             <input
               type="text"
@@ -206,7 +206,7 @@
         </div>
       } @else {
         <button class="nav-item action-add" (click)="startAdd()" title="Create Collection">
-          <lucide-icon [img]="PlusIcon" [size]="18" strokeWidth="1"></lucide-icon>
+          <lucide-icon [img]="PlusIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
           @if (expanded()) {
             <span class="label">New Collection</span>
           }
