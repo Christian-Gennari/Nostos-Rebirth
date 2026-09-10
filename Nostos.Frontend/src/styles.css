@@ -97,6 +97,47 @@
   --transition-fast: 120ms ease;
   --transition-normal: 200ms ease;
 
+  /* ── Glass & Pastel Gradient design language ──
+     The "Apple Glass" layer. The floating dock is the full-strength
+     expression; panels, cards, and controls borrow the same recipe at
+     lower intensity so the app reads as one continuous material.
+
+     Recipe: translucent frosted surface + hairline light border +
+     ambient coloured depth + a pastel gradient accent for emphasis. */
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-bg-strong: rgba(255, 255, 255, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.65);
+  --glass-blur: blur(16px);
+  --glass-blur-strong: blur(24px);
+
+  /* Pastel gradient stops (shared with the dock's conic glow) */
+  --pastel-blue: #a8c0ff;
+  --pastel-lavender: #c4a8ff;
+  --pastel-pink: #ffafcc;
+  --pastel-peach: #ffc8a2;
+  --pastel-sky: #bde0fe;
+
+  /* Gradient accents */
+  --gradient-pastel: linear-gradient(
+    120deg,
+    var(--pastel-blue),
+    var(--pastel-lavender),
+    var(--pastel-pink),
+    var(--pastel-peach)
+  );
+  --gradient-pastel-soft: linear-gradient(
+    120deg,
+    rgba(168, 192, 255, 0.4),
+    rgba(196, 168, 255, 0.4),
+    rgba(255, 175, 204, 0.4)
+  );
+  --gradient-accent: linear-gradient(120deg, var(--pastel-lavender), var(--pastel-pink));
+
+  /* Ambient coloured depth (tinted, not flat black) */
+  --shadow-glass: 0 8px 24px -6px rgba(80, 70, 140, 0.13), 0 2px 6px rgba(0, 0, 0, 0.04);
+  --shadow-glass-lg: 0 16px 36px -8px rgba(80, 70, 140, 0.18), 0 4px 10px rgba(0, 0, 0, 0.05);
+  --shadow-glow: 0 6px 20px -4px rgba(196, 168, 255, 0.45);
+
   /* ── Editor chrome tokens (TinyMCE bridge — expert design §3) ──
      The --editor-ui-* tokens are the stable contract between Nostos and the
      TinyMCE override layer (component ::ng-deep rules + src/tinymce-nostos.css
@@ -123,13 +164,32 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  background: var(--bg-body);
+}
+
 html,
 body {
   font-family: 'Inter', sans-serif;
-  background: var(--bg-body);
   color: var(--color-text-main);
   overflow-x: hidden;
   height: 100dvh;
+}
+
+/* Soft pastel ambience behind everything. Gives frosted panels something to
+   refract, so the app reads as layered glass rather than flat grey.
+   Fixed attachment keeps the wash stable while content scrolls. */
+body {
+  background:
+    radial-gradient(1100px 620px at 12% -8%, rgba(168, 192, 255, 0.22), transparent 62%)
+      no-repeat fixed,
+    radial-gradient(900px 520px at 88% 4%, rgba(196, 168, 255, 0.16), transparent 60%) no-repeat
+      fixed,
+    radial-gradient(1000px 560px at 80% 108%, rgba(255, 175, 204, 0.18), transparent 62%) no-repeat
+      fixed,
+    radial-gradient(800px 460px at 4% 104%, rgba(189, 224, 254, 0.16), transparent 60%) no-repeat
+      fixed,
+    var(--bg-body);
 }
 
 h1,
@@ -409,6 +469,44 @@ input[type='file']::file-selector-button:hover {
 .note-text {
   line-height: 1.6;
   color: var(--color-text-main);
+}
+
+/* ------------------------------
+   GLASS SURFACES (shared material)
+------------------------------ */
+/* Reusable frosted panel. Components opt in with class="glass-panel" or
+   copy the recipe via the --glass-* tokens. */
+.glass-panel {
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-glass);
+}
+
+/* Gradient hairline accent — for emphasis edges on active/selected cards. */
+.gradient-edge {
+  position: relative;
+}
+.gradient-edge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--gradient-pastel);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.gradient-edge:hover::after,
+.gradient-edge.is-active::after {
+  opacity: 1;
 }
 
 /* ------------------------------
