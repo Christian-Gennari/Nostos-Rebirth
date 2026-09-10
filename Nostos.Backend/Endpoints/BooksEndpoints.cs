@@ -38,6 +38,16 @@ public static class BooksEndpoints
             }
         );
 
+        // GET aggregate status counts for the library sidebar
+        group.MapGet(
+            "/status-counts",
+            async (ILibraryService library, CancellationToken ct) =>
+            {
+                var result = await library.GetStatusCountsAsync(ct);
+                return LibraryHttpMapper.MapError(result) ?? Results.Ok(result.Data);
+            }
+        );
+
         // GET one
         group.MapGet(
             "/{id}",

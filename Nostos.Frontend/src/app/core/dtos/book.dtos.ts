@@ -9,6 +9,15 @@ export interface PaginatedResponse<T> {
   pageSize: number;
 }
 
+export interface LibraryStatusCountsDto {
+  all: number;
+  notStarted: number;
+  reading: number;
+  favorites: number;
+  finished: number;
+  unsorted: number;
+}
+
 export interface BookChapter {
   title: string;
   startTime: number;

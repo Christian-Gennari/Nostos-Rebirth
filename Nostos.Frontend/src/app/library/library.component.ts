@@ -23,6 +23,7 @@ import { debounceTime, distinctUntilChanged, map } from 'rxjs/operators';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { InfiniteScrollDirective } from '../core/directives/infinite-scroll.directive';
 import { BookSort } from '../core/dtos/book.enums';
+import { LibraryPreferencesService } from '../core/services/library-preferences.service';
 import { ToastService } from '../core/services/toast.service';
 import {
   LucideAngularModule,
@@ -39,10 +40,14 @@ import {
   Loader2,
 } from 'lucide-angular';
 
-/** localStorage key used to persist the Library grid/list view preference. */
+/** Legacy key retained for callers that need to verify the migration path. */
 export const VIEW_MODE_STORAGE_KEY = 'nostos.viewMode';
 
-const VALID_VIEW_MODES: readonly ('grid' | 'list')[] = ['grid', 'list'];
+function parseBookSort(value: string | null): BookSort | null {
+  return value && Object.values(BookSort).includes(value as BookSort)
+    ? (value as BookSort)
+    : null;
+}
 
 @Component({
   selector: 'app-library',
@@ -64,6 +69,7 @@ const VALID_VIEW_MODES: readonly ('grid' | 'list')[] = ['grid', 'list'];
 export class Library implements OnInit {
   private booksService = inject(BooksService);
   private collectionsService = inject(CollectionsService);
+  private preferences = inject(LibraryPreferencesService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private toast = inject(ToastService);
@@ -89,39 +95,26 @@ export class Library implements OnInit {
 
   // Pagination State
   currentPage = signal(1);
-  pageSize = 20;
+  pageSize = this.preferences.pageSize;
   totalItems = signal(0);
 
   // Data
   rawBooks = signal<Book[]>([]);
   collections = signal<Collection[]>([]);
 
-  viewMode = signal<'list' | 'grid'>('grid');
+  viewMode = this.preferences.viewMode;
   showAddModal = signal(false);
 
-  /**
-   * Switches the Library grid/list view: updates the signal and persists
-   * the preference to localStorage. Invalid values are ignored.
-   */
   setViewMode(mode: 'list' | 'grid'): void {
-    if (!VALID_VIEW_MODES.includes(mode)) return;
-
-    this.viewMode.set(mode);
-    localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
-  }
-
-  /** Restores a stored view preference on startup. Invalid or missing stored values fall back to the 'grid' default (nothing is written). */
-  private hydrateViewMode(): void {
-    const stored = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
-    if (stored === 'grid' || stored === 'list') {
-      this.viewMode.set(stored);
-    }
+    this.preferences.setViewMode(mode);
   }
 
   // Search & Sort State
   searchQuery = signal('');
 
-  activeSort = signal<BookSort>(BookSort.LastRead);
+  activeSort = signal<BookSort>(
+    parseBookSort(this.route.snapshot.queryParamMap.get('sort')) ?? this.preferences.sort(),
+  );
 
   private searchSubject = new Subject<string>();
 
@@ -136,15 +129,17 @@ export class Library implements OnInit {
       map((params) => ({
         collection: params.get('collection'),
         filter: params.get('filter'),
+        sort: params.get('sort'),
       })),
       distinctUntilChanged(
-        (a, b) => a.collection === b.collection && a.filter === b.filter,
+        (a, b) => a.collection === b.collection && a.filter === b.filter && a.sort === b.sort,
       ),
     ),
     {
       initialValue: {
         collection: this.route.snapshot.queryParamMap.get('collection'),
         filter: this.route.snapshot.queryParamMap.get('filter'),
+        sort: this.route.snapshot.queryParamMap.get('sort'),
       },
     },
   );
@@ -156,10 +151,7 @@ export class Library implements OnInit {
   });
 
   constructor() {
-    // 0. Hydrate the persisted view preference (localStorage, validated).
-    this.hydrateViewMode();
-
-    // 1. Search Subscription
+    // Search Subscription
     this.searchSubject
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed())
       .subscribe((term) => {
@@ -167,10 +159,12 @@ export class Library implements OnInit {
         this.refreshBooks();
       });
 
-    // 2. URL-driven load: exactly one refresh per collection/filter change.
+    // URL-driven load: exactly one refresh per collection/filter/sort change.
     effect(() => {
-      void this.urlSelection();
+      const selection = this.urlSelection();
       untracked(() => {
+        const routeSort = parseBookSort(selection.sort);
+        if (routeSort) this.activeSort.set(routeSort);
         this.refreshBooks();
       });
     });
@@ -199,7 +193,7 @@ export class Library implements OnInit {
         sort,
         search,
         page,
-        pageSize: this.pageSize,
+        pageSize: this.pageSize(),
         collectionId: collection ?? undefined,
       })
       .subscribe({
@@ -235,7 +229,11 @@ export class Library implements OnInit {
   }
 
   setSort(sort: BookSort | string): void {
-    this.activeSort.set(sort as BookSort);
+    const parsedSort = parseBookSort(sort);
+    if (!parsedSort) return;
+
+    this.activeSort.set(parsedSort);
+    this.preferences.setSort(parsedSort);
     this.refreshBooks(true);
   }
 

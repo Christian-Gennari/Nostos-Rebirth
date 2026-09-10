@@ -136,6 +136,71 @@ public sealed class LibraryEndpointTests : IClassFixture<LibraryEndpointFactory>
     }
 
     [Fact]
+    public async Task Status_counts_returns_the_current_library_totals()
+    {
+        var before = (await Client.GetFromJsonAsync<LibraryStatusCountsDto>(
+            "/api/books/status-counts"))!;
+
+        var collectionResponse = await Client.PostAsJsonAsync(
+            "/api/collections",
+            new { name = $"Status Counts {Guid.NewGuid():N}" });
+        var collection = (await collectionResponse.Content.ReadFromJsonAsync<CollectionDto>())!;
+
+        var createdBookIds = new List<Guid>();
+        async Task<BookDto> CreateBook(bool favorite = false, Guid? collectionId = null)
+        {
+            var response = await Client.PostAsJsonAsync("/api/books", new
+            {
+                type = "physical",
+                title = $"Status Count Book {Guid.NewGuid():N}",
+                isFavorite = favorite,
+                collectionId,
+            });
+            var book = (await response.Content.ReadFromJsonAsync<BookDto>())!;
+            createdBookIds.Add(book.Id);
+            return book;
+        }
+
+        try
+        {
+            await CreateBook();
+            var reading = await CreateBook();
+            var favoriteReading = await CreateBook(favorite: true);
+            var finished = await CreateBook();
+            await CreateBook(collectionId: collection.Id);
+            var favoriteFinished = await CreateBook(favorite: true);
+
+            await Client.PutAsJsonAsync($"/api/books/{reading.Id}/progress",
+                new { location = "progress", percentage = 25 });
+            await Client.PutAsJsonAsync($"/api/books/{favoriteReading.Id}/progress",
+                new { location = "progress", percentage = 50 });
+            await Client.PutAsJsonAsync($"/api/books/{finished.Id}/progress",
+                new { location = "finished", percentage = 100 });
+            await Client.PutAsJsonAsync($"/api/books/{favoriteFinished.Id}/progress",
+                new { location = "finished", percentage = 100 });
+
+            var response = await Client.GetAsync("/api/books/status-counts");
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var after = (await response.Content.ReadFromJsonAsync<LibraryStatusCountsDto>())!;
+
+            after.All.Should().Be(before.All + 6);
+            after.NotStarted.Should().Be(before.NotStarted + 2);
+            after.Reading.Should().Be(before.Reading + 2);
+            after.Favorites.Should().Be(before.Favorites + 2);
+            after.Finished.Should().Be(before.Finished + 2);
+            after.Unsorted.Should().Be(before.Unsorted + 5);
+        }
+        finally
+        {
+            foreach (var id in createdBookIds)
+            {
+                await Client.DeleteAsync($"/api/books/{id}");
+            }
+            await Client.DeleteAsync($"/api/collections/{collection.Id}");
+        }
+    }
+
+    [Fact]
     public async Task Update_book_changes_metadata_and_empty_string_clears()
     {
         var created = await Client.PostAsJsonAsync("/api/books", new

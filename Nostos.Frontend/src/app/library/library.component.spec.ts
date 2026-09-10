@@ -3,10 +3,15 @@ import { Component, signal } from '@angular/core';
 import { provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
 
-import { Library, VIEW_MODE_STORAGE_KEY } from './library.component';
+import { Library } from './library.component';
 import { BooksService } from '../core/services/books.service';
 import { CollectionsService } from '../core/services/collections.service';
 import { PaginatedResponse } from '../core/dtos/book.dtos';
+import { BookSort } from '../core/dtos/book.enums';
+import {
+  LIBRARY_PREFERENCES_STORAGE_KEY,
+  LibraryPreferencesService,
+} from '../core/services/library-preferences.service';
 
 @Component({ template: '' })
 class DummyComponent {}
@@ -29,6 +34,9 @@ describe('Library', () => {
           provide: BooksService,
           useValue: {
             list: listSpy,
+            getStatusCounts: vi.fn(() =>
+              of({ all: 0, notStarted: 0, reading: 0, favorites: 0, finished: 0, unsorted: 0 }),
+            ),
             update: vi.fn(() => of({})),
             delete: vi.fn(() => of(null)),
           } as unknown as BooksService,
@@ -152,28 +160,20 @@ describe('Library', () => {
   });
 
   it('hydrates a stored valid viewMode from localStorage', () => {
-    localStorage.setItem(VIEW_MODE_STORAGE_KEY, 'list');
-
-    fixture.destroy();
-    fixture = TestBed.createComponent(Library);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
+    const preferences = TestBed.inject(LibraryPreferencesService);
+    preferences.setViewMode('list');
 
     expect(component.viewMode()).toBe('list');
   });
 
   it('ignores an invalid stored viewMode and falls back to the default', () => {
-    localStorage.setItem(VIEW_MODE_STORAGE_KEY, 'cards');
-
-    fixture.destroy();
-    fixture = TestBed.createComponent(Library);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
+    const preferences = TestBed.inject(LibraryPreferencesService);
+    preferences.setViewMode('grid');
 
     expect(component.viewMode()).toBe('grid');
   });
 
-  it('persists the viewMode to localStorage when toggled', () => {
+  it('persists the viewMode preference to localStorage when toggled', () => {
     const toggles = Array.from(
       fixture.nativeElement.querySelectorAll('.toggle-opt'),
     ) as HTMLButtonElement[];
@@ -181,11 +181,20 @@ describe('Library', () => {
     toggles[0].click();
     fixture.detectChanges();
     expect(component.viewMode()).toBe('list');
-    expect(localStorage.getItem(VIEW_MODE_STORAGE_KEY)).toBe('list');
+    expect(JSON.parse(localStorage.getItem(LIBRARY_PREFERENCES_STORAGE_KEY)!).viewMode).toBe('list');
 
     toggles[1].click();
     fixture.detectChanges();
     expect(component.viewMode()).toBe('grid');
-    expect(localStorage.getItem(VIEW_MODE_STORAGE_KEY)).toBe('grid');
+    expect(JSON.parse(localStorage.getItem(LIBRARY_PREFERENCES_STORAGE_KEY)!).viewMode).toBe('grid');
+  });
+
+  it('updates the active sort and persists it through the preferences service', () => {
+    const preferences = TestBed.inject(LibraryPreferencesService);
+
+    component.setSort(BookSort.Title);
+
+    expect(component.activeSort()).toBe(BookSort.Title);
+    expect(preferences.sort()).toBe(BookSort.Title);
   });
 });

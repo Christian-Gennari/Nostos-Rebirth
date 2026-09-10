@@ -7,6 +7,7 @@ import {
   UpdateBookDto,
   UpdateProgressDto,
   PaginatedResponse,
+  LibraryStatusCountsDto,
 } from '../dtos/book.dtos';
 import { BookFilter, BookSort } from '../dtos/book.enums';
 
@@ -39,6 +40,10 @@ export class BooksService {
     params = params.set('pageSize', options.pageSize ?? 20);
 
     return this.http.get<PaginatedResponse<Book>>('/api/books', { params });
+  }
+
+  getStatusCounts(): Observable<LibraryStatusCountsDto> {
+    return this.http.get<LibraryStatusCountsDto>('/api/books/status-counts');
   }
 
   get(id: string): Observable<Book> {

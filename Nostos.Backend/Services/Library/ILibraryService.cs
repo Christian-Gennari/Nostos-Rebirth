@@ -23,6 +23,8 @@ public interface ILibraryService
         Guid? collectionId,
         CancellationToken ct = default);
 
+    Task<LibraryCommandResultDto> GetStatusCountsAsync(CancellationToken ct = default);
+
     Task<LibraryCommandResultDto> GetBookAsync(Guid bookId, CancellationToken ct = default);
 
     Task<LibraryResolveResult> ResolveBookAsync(LibraryResolveBookRequest request, CancellationToken ct = default);

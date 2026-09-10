@@ -100,25 +100,55 @@
   font-size: 0.72rem;
   font-weight: var(--fw-medium);
   line-height: 1.4;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .node-actions {
-  display: none; /* Hidden by default */
+  display: flex;
+  flex: 0 0 76px;
+  align-items: center;
+  justify-content: flex-end;
   gap: 4px;
   margin-left: 8px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(4px);
+  transition:
+    opacity 0.15s ease,
+    visibility 0s linear 0.15s,
+    transform 0.15s ease;
 }
 
-.tree-row:hover .node-actions {
-  display: flex;
+.tree-row:hover .node-actions,
+.tree-row:focus .node-actions,
+.tree-row:focus-within .node-actions {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(0);
+  transition-delay: 0s;
 }
 
 .action-mini {
-  background: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
   border: none;
-  padding: 4px;
+  padding: 5px;
   cursor: pointer;
   opacity: 0.6;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  transition:
+    opacity 0.15s,
+    background 0.15s,
+    color 0.15s;
 }
 
 .action-mini:hover {
@@ -129,6 +159,15 @@
 .action-mini.danger:hover {
   color: var(--color-danger);
   background: var(--color-danger-bg);
+}
+
+.action-mini.danger {
+  color: var(--color-danger);
+}
+
+.tree-row:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
 }
 
 /* Drag Preview Styles */

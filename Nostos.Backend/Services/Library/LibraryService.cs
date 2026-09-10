@@ -111,6 +111,24 @@ public sealed class LibraryService : ILibraryService
         return Result(LibraryReplyFormatter.BookList(totalCount), pageResult, version);
     }
 
+    public async Task<LibraryCommandResultDto> GetStatusCountsAsync(CancellationToken ct = default)
+    {
+        await using var db = await _contexts.CreateDbContextAsync(ct);
+        var state = await TryGetStateAsync(db, ct);
+        var version = state?.StateVersion ?? "0";
+
+        var all = await db.Books.AsNoTracking().CountAsync(ct);
+        var notStarted = await db.Books.AsNoTracking().CountAsync(b => b.Progress.ProgressPercent == 0, ct);
+        var reading = await db.Books.AsNoTracking().CountAsync(b => b.Progress.FinishedAt == null && b.Progress.ProgressPercent > 0, ct);
+        var favorites = await db.Books.AsNoTracking().CountAsync(b => b.Progress.IsFavorite, ct);
+        var finished = await db.Books.AsNoTracking().CountAsync(b => b.Progress.FinishedAt != null, ct);
+        var unsorted = await db.Books.AsNoTracking().CountAsync(b => b.CollectionId == null, ct);
+
+        var counts = new LibraryStatusCountsDto(all, notStarted, reading, favorites, finished, unsorted);
+
+        return Result(LibraryReplyFormatter.Success("Status counts retrieved."), counts, version);
+    }
+
     public async Task<LibraryCommandResultDto> GetBookAsync(Guid bookId, CancellationToken ct = default)
     {
         await using var db = await _contexts.CreateDbContextAsync(ct);

@@ -6,6 +6,8 @@ namespace Nostos.Backend.Services.Library;
 /// </summary>
 public static class LibraryReplyFormatter
 {
+    public static string Success(string message) => message;
+
     // Books
     public static string BookCreated(string title) => $"Book added: {title}.";
     public static string BookMatched(string title) => $"Already in library: {title}.";

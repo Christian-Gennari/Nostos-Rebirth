@@ -5,6 +5,14 @@ namespace Nostos.Shared.Dtos;
 
 public record PaginatedResponse<T>(IEnumerable<T> Items, int TotalCount, int Page, int PageSize);
 
+public record LibraryStatusCountsDto(
+    int All,
+    int NotStarted,
+    int Reading,
+    int Favorites,
+    int Finished,
+    int Unsorted);
+
 public record BookChapterDto(string Title, double StartTime);
 
 // Separate DTO for the heavy locations JSON to avoid bloating the main list
