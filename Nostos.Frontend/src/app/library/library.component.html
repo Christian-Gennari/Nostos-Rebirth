@@ -295,6 +295,12 @@
             >
               @if (book.type === 'audiobook') {
               <lucide-icon [img]="HeadphonesIcon" [size]="11" strokeWidth="2.2"></lucide-icon>
+              } @else if (getFormatLabel(book) === 'PDF') {
+              <lucide-icon [img]="FileTextIcon" [size]="11" strokeWidth="2"></lucide-icon>
+              } @else if (book.type === 'physical') {
+              <lucide-icon [img]="BookmarkIcon" [size]="11" strokeWidth="2"></lucide-icon>
+              } @else {
+              <lucide-icon [img]="BookOpenIcon" [size]="11" strokeWidth="2"></lucide-icon>
               }
               {{ getFormatLabel(book) }}
             </span>

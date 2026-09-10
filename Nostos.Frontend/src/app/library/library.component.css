@@ -320,6 +320,19 @@ app-sidebar-collections.no-transition {
   user-select: none;
 }
 
+/* By default in grid view, single-format badges are hidden so cover art is 100% clean */
+.cover-wrapper .format-badge:not(.interactive) {
+  opacity: 0;
+  transform: translateY(3px) scale(0.96);
+  pointer-events: none;
+}
+
+/* Smoothly reveal single-format badge on hover */
+.book-card:hover .cover-wrapper .format-badge:not(.interactive) {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
 .format-badge.interactive {
   cursor: pointer;
   pointer-events: auto;
@@ -343,12 +356,6 @@ app-sidebar-collections.no-transition {
 .book-card:has(.edition-dropdown) .actions-overlay {
   opacity: 0 !important;
   pointer-events: none !important;
-}
-
-/* Hide format badge on hover ONLY if it is not interactive and the action overlay is showing */
-.book-card:hover .cover-wrapper:not(:has(.format-badge.interactive)) .format-badge {
-  opacity: 0;
-  transform: scale(0.95);
 }
 
 .sheet-handle {

@@ -42,6 +42,9 @@ import {
   Loader2,
   Headphones,
   Layers,
+  BookOpen,
+  FileText,
+  Bookmark,
 } from 'lucide-angular';
 
 /** Legacy key retained for callers that need to verify the migration path. */
@@ -92,6 +95,9 @@ export class Library implements OnInit {
   LoaderIcon = Loader2;
   HeadphonesIcon = Headphones;
   LayersIcon = Layers;
+  BookOpenIcon = BookOpen;
+  FileTextIcon = FileText;
+  BookmarkIcon = Bookmark;
 
   // Enums for Template Access
   BookSort = BookSort;
