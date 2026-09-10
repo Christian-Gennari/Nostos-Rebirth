@@ -9,6 +9,7 @@
   flex: 1;
   overflow-y: auto;
   position: relative;
+  scroll-behavior: smooth;
 }
 
 app-sidebar-collections {

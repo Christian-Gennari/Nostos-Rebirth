@@ -29,45 +29,69 @@
 }
 
 #nostos-logo {
-  width: 300px;
+  width: 140px;
   height: auto;
+  margin: 0 auto;
+  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.08));
 }
 
 /* Typography */
 .hero-title {
   font-family: 'Lora', serif;
-  font-size: 4.5rem;
-  font-weight: var(--fw-medium);
-  letter-spacing: -0.03em;
-  margin: 0;
-  line-height: 1;
+  font-size: 3.8rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--color-primary);
+  line-height: 1.1;
+  margin: 0;
 }
 
 .hero-divider {
-  width: 60px;
+  width: 48px;
   height: 1px;
   background: var(--color-primary);
-  margin: 2.5rem auto;
   opacity: 0.2;
+  margin: 2rem auto;
 }
 
 .hero-subtitle {
   font-family: 'Inter', sans-serif;
-  font-size: 1.1rem;
-  line-height: 1.6;
+  font-size: 1.05rem;
+  line-height: 1.65;
   color: var(--color-text-muted);
-  font-weight: var(--fw-light);
-  margin-bottom: 3rem;
+  font-weight: 400;
+  margin-bottom: 2.5rem;
+}
+
+/* Call to Action */
+.btn.btn-primary.lg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.75rem 2rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  background: var(--color-primary);
+  color: var(--bg-surface);
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn.btn-primary.lg:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
 }
 
 .hero-footer {
   position: absolute;
   bottom: 2rem;
-  font-size: 0.75rem;
-  color: var(--color-text-faint);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  color: var(--color-text-light);
+  opacity: 0.7;
 }
 
 /* Animations */
@@ -92,6 +116,6 @@
   }
 
   #nostos-logo {
-    width: 200px;
+    width: 110px;
   }
 }
