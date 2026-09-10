@@ -191,21 +191,37 @@
 
           <div class="col format">
             @if (book.otherEditions && book.otherEditions.length > 0) {
-            <div class="format-pills">
-              <span class="format-pill format-pill-primary">
-                {{ getFormatLabel(book) }} <span class="format-pill-separator">•</span>
-                {{ book.progressPercent | number : '1.0-0' }}%
-              </span>
-              @for (edition of book.otherEditions; track edition.id) {
+            <div class="format-cell-wrapper">
               <button
                 type="button"
-                class="format-pill format-pill-secondary"
-                (click)="openEdition(edition.id, $event)"
-                [title]="'Open ' + getFormatLabel(edition) + ' edition'"
+                class="format-badge interactive"
+                [class.active]="activeEditionMenuId() === book.id"
+                (click)="toggleEditionMenu(book.id, $event)"
+                title="View all available editions"
               >
-                {{ getFormatLabel(edition) }} <span class="format-pill-separator">•</span>
-                {{ edition.progressPercent | number : '1.0-0' }}%
+                <lucide-icon [img]="LayersIcon" [size]="12"></lucide-icon>
+                <span>{{ book.otherEditions.length + 1 }} Formats ▾</span>
               </button>
+              @if (activeEditionMenuId() === book.id) {
+              <div class="edition-dropdown list-dropdown" (click)="$event.stopPropagation()">
+                <div class="edition-dropdown-header">Available Formats</div>
+                <div class="edition-dropdown-item active" (click)="openEdition(book.id, $event)">
+                  <lucide-icon [img]="book.type === 'audiobook' ? HeadphonesIcon : BookIcon" [size]="14"></lucide-icon>
+                  <div class="edition-item-text">
+                    <span class="edition-name">{{ getFormatLabel(book) }}</span>
+                    <span class="edition-sub">{{ book.progressPercent }}% read</span>
+                  </div>
+                </div>
+                @for (edition of book.otherEditions; track edition.id) {
+                <div class="edition-dropdown-item" (click)="openEdition(edition.id, $event)">
+                  <lucide-icon [img]="edition.type === 'audiobook' ? HeadphonesIcon : BookIcon" [size]="14"></lucide-icon>
+                  <div class="edition-item-text">
+                    <span class="edition-name">{{ getFormatLabel(edition) }}</span>
+                    <span class="edition-sub">{{ edition.progressPercent }}% read</span>
+                  </div>
+                </div>
+                }
+              </div>
               }
             </div>
             } @else {
@@ -238,7 +254,7 @@
         @for (book of books(); track book.id) {
 
         <div class="book-card" [routerLink]="['/library', book.id]">
-          <div class="cover-wrapper">
+          <div class="cover-wrapper" [class.is-stacked]="book.otherEditions && book.otherEditions.length > 0">
             @if (book.coverUrl) {
             <img
               [src]="book.coverUrl"
@@ -249,6 +265,51 @@
             />
             } @else {
             <lucide-icon [img]="BookIcon" [size]="48" strokeWidth="1"></lucide-icon>
+            }
+
+            @if (book.otherEditions && book.otherEditions.length > 0) {
+            <button
+              type="button"
+              class="format-badge interactive"
+              [class.active]="activeEditionMenuId() === book.id"
+              (click)="toggleEditionMenu(book.id, $event)"
+              title="View all available editions"
+            >
+              <lucide-icon [img]="LayersIcon" [size]="12"></lucide-icon>
+              <span>{{ book.otherEditions.length + 1 }} Formats ▾</span>
+            </button>
+            @if (activeEditionMenuId() === book.id) {
+            <div class="edition-dropdown" (click)="$event.stopPropagation()">
+              <div class="edition-dropdown-header">Available Formats</div>
+              <div class="edition-dropdown-item active" (click)="openEdition(book.id, $event)">
+                <lucide-icon [img]="book.type === 'audiobook' ? HeadphonesIcon : BookIcon" [size]="14"></lucide-icon>
+                <div class="edition-item-text">
+                  <span class="edition-name">{{ getFormatLabel(book) }}</span>
+                  <span class="edition-sub">{{ book.progressPercent }}% read</span>
+                </div>
+              </div>
+              @for (edition of book.otherEditions; track edition.id) {
+              <div class="edition-dropdown-item" (click)="openEdition(edition.id, $event)">
+                <lucide-icon [img]="edition.type === 'audiobook' ? HeadphonesIcon : BookIcon" [size]="14"></lucide-icon>
+                <div class="edition-item-text">
+                  <span class="edition-name">{{ getFormatLabel(edition) }}</span>
+                  <span class="edition-sub">{{ edition.progressPercent }}% read</span>
+                </div>
+              </div>
+              }
+            </div>
+            }
+            } @else {
+            <span
+              class="format-badge"
+              [class.audiobook]="book.type === 'audiobook'"
+              [attr.data-type]="book.type"
+            >
+              @if (book.type === 'audiobook') {
+              <lucide-icon [img]="HeadphonesIcon" [size]="11" strokeWidth="2.2"></lucide-icon>
+              }
+              {{ getFormatLabel(book) }}
+            </span>
             }
 
             <button
@@ -296,30 +357,6 @@
 
           <div class="meta-title">{{ book.title }}</div>
           <div class="meta-author">{{ book.author || 'Unknown' }}</div>
-
-          @if (book.otherEditions && book.otherEditions.length > 0) {
-          <div class="format-pills meta-format-pills">
-            <span class="format-pill format-pill-primary">
-              {{ getFormatLabel(book) }} <span class="format-pill-separator">•</span>
-              {{ book.progressPercent | number : '1.0-0' }}%
-            </span>
-            @for (edition of book.otherEditions; track edition.id) {
-            <button
-              type="button"
-              class="format-pill format-pill-secondary"
-              (click)="openEdition(edition.id, $event)"
-              [title]="'Open ' + getFormatLabel(edition) + ' edition'"
-            >
-              {{ getFormatLabel(edition) }} <span class="format-pill-separator">•</span>
-              {{ edition.progressPercent | number : '1.0-0' }}%
-            </button>
-            }
-          </div>
-          } @else if (book.fileName) {
-          <div class="meta-format-pills">
-            <span class="badge">{{ getFormatLabel(book) }}</span>
-          </div>
-          }
 
           @if (book.rating > 0) {
           <div class="meta-rating" (click)="$event.stopPropagation()">

@@ -120,43 +120,6 @@
             <div class="book-contributor">Translated by {{ store.book()?.translator }}</div>
             }
 
-            @if (store.book()?.otherEditions && store.book()!.otherEditions!.length > 0) {
-            <div class="edition-switcher" role="tablist" aria-label="Book editions">
-              <button
-                type="button"
-                class="edition-tab active"
-                role="tab"
-                aria-selected="true"
-                [title]="getEditionLabel(store.book()!)"
-              >
-                @if (isAudioBook(store.book())) {
-                <lucide-icon [img]="HeadphonesIcon" [size]="15"></lucide-icon>
-                } @else {
-                <lucide-icon [img]="BookOpenIcon" [size]="15"></lucide-icon>
-                }
-                <span>{{ getEditionLabel(store.book()!) }}</span>
-              </button>
-
-              @for (edition of store.book()!.otherEditions!; track edition.id) {
-              <button
-                type="button"
-                class="edition-tab"
-                role="tab"
-                aria-selected="false"
-                (click)="switchEdition(edition.id)"
-                [title]="'Switch to ' + getSummaryEditionLabel(edition)"
-              >
-                @if (edition.type === 'audiobook') {
-                <lucide-icon [img]="HeadphonesIcon" [size]="15"></lucide-icon>
-                } @else {
-                <lucide-icon [img]="BookOpenIcon" [size]="15"></lucide-icon>
-                }
-                <span>{{ getSummaryEditionLabel(edition) }}</span>
-              </button>
-              }
-            </div>
-            }
-
             <div class="user-metadata-row">
               <app-star-rating
                 [rating]="store.book()?.rating || 0"
@@ -210,6 +173,66 @@
                 ></lucide-icon>
               </button>
             </div>
+
+            @if (store.book()?.otherEditions && store.book()!.otherEditions!.length > 0) {
+            <div class="edition-section">
+              <div class="edition-section-header">
+                <lucide-icon [img]="LayersIcon" [size]="14"></lucide-icon>
+                <span class="edition-section-title">Available Formats & Editions</span>
+                <span class="edition-count-badge">{{ (store.book()?.otherEditions?.length || 0) + 1 }}</span>
+              </div>
+              <div class="edition-cards-grid">
+                <button
+                  type="button"
+                  class="edition-select-card active"
+                  [title]="getEditionLabel(store.book()!)"
+                >
+                  <div class="card-icon-frame">
+                    <lucide-icon [img]="isAudioBook(store.book()) ? HeadphonesIcon : BookOpenIcon" [size]="16"></lucide-icon>
+                  </div>
+                  <div class="card-content">
+                    <span class="card-format-title">{{ getEditionLabel(store.book()!) }}</span>
+                    <div class="card-meta-line">
+                      @if (store.book()?.progressPercent) {
+                      <span class="card-progress">{{ store.book()?.progressPercent }}% read</span>
+                      } @else {
+                      <span class="card-progress">Not started</span>
+                      }
+                      @if (store.book()?.finishedAt) {
+                      <span class="card-status-pill finished">Finished</span>
+                      }
+                    </div>
+                  </div>
+                </button>
+
+                @for (edition of store.book()!.otherEditions!; track edition.id) {
+                <button
+                  type="button"
+                  class="edition-select-card"
+                  (click)="switchEdition(edition.id)"
+                  [title]="'Switch to ' + getSummaryEditionLabel(edition)"
+                >
+                  <div class="card-icon-frame">
+                    <lucide-icon [img]="edition.type === 'audiobook' ? HeadphonesIcon : BookOpenIcon" [size]="16"></lucide-icon>
+                  </div>
+                  <div class="card-content">
+                    <span class="card-format-title">{{ getSummaryEditionLabel(edition) }}</span>
+                    <div class="card-meta-line">
+                      @if (edition.progressPercent) {
+                      <span class="card-progress">{{ edition.progressPercent }}% read</span>
+                      } @else {
+                      <span class="card-progress">Not started</span>
+                      }
+                      @if (edition.finishedAt) {
+                      <span class="card-status-pill finished">Finished</span>
+                      }
+                    </div>
+                  </div>
+                </button>
+                }
+              </div>
+            </div>
+            }
 
             <div class="primary-actions">
               @if (store.book()?.hasFile) {

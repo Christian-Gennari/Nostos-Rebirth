@@ -282,7 +282,7 @@ describe('BookDetail reset progress', () => {
     });
     await setup(multiEditionBook);
 
-    const tabs = fixture.nativeElement.querySelectorAll('.edition-tab');
+    const tabs = fixture.nativeElement.querySelectorAll('.edition-select-card');
     expect(tabs.length).toBe(2);
     expect(tabs[0].textContent).toContain('EPUB');
     expect(tabs[1].textContent).toContain('Audiobook');

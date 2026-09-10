@@ -7,6 +7,7 @@ import {
   ChangeDetectionStrategy,
   effect,
   untracked,
+  HostListener,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -39,6 +40,8 @@ import {
   Search,
   ArrowUpDown,
   Loader2,
+  Headphones,
+  Layers,
 } from 'lucide-angular';
 
 /** Legacy key retained for callers that need to verify the migration path. */
@@ -87,6 +90,8 @@ export class Library implements OnInit {
   SearchIcon = Search;
   SortIcon = ArrowUpDown;
   LoaderIcon = Loader2;
+  HeadphonesIcon = Headphones;
+  LayersIcon = Layers;
 
   // Enums for Template Access
   BookSort = BookSort;
@@ -105,6 +110,19 @@ export class Library implements OnInit {
 
   viewMode = this.preferences.viewMode;
   showAddModal = signal(false);
+  activeEditionMenuId = signal<string | null>(null);
+
+  toggleEditionMenu(bookId: string, event: Event): void {
+    event.stopPropagation();
+    this.activeEditionMenuId.update((current) => (current === bookId ? null : bookId));
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    if (this.activeEditionMenuId()) {
+      this.activeEditionMenuId.set(null);
+    }
+  }
 
   setViewMode(mode: 'list' | 'grid'): void {
     this.preferences.setViewMode(mode);
@@ -303,6 +321,7 @@ export class Library implements OnInit {
 
   openEdition(editionId: string, event: Event): void {
     event.stopPropagation();
+    this.activeEditionMenuId.set(null);
     void this.router.navigate(['/library', editionId]);
   }
 

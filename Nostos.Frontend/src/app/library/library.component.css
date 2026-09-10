@@ -292,64 +292,164 @@ app-sidebar-collections.no-transition {
 
 /* .badge is defined globally in styles.css — no component duplicate needed */
 
-.format-pills {
+/* Stacked cover effect for multi-edition works */
+.cover-wrapper.is-stacked {
+  overflow: visible;
+}
+
+.cover-wrapper.is-stacked::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-surface-alt) 85%, var(--color-primary));
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, var(--color-primary));
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.7;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.book-card:hover .cover-wrapper.is-stacked::before {
+  transform: translate(2px, -2px);
+  opacity: 1;
+}
+
+.cover-wrapper .cover-image {
+  position: relative;
+  z-index: 1;
+  border-radius: var(--radius-md);
+}
+
+/* Format badge & Interactive edition menu */
+.format-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: var(--radius-sm, 4px);
+  font-size: 10px;
+  font-weight: var(--fw-semibold, 600);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+  background: color-mix(in srgb, var(--bg-surface) 85%, transparent);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+  color: var(--color-text-main);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.format-badge.interactive {
+  cursor: pointer;
+  pointer-events: auto;
+  border-color: color-mix(in srgb, var(--color-primary) 35%, var(--border-color));
+}
+
+.format-badge.interactive:hover,
+.format-badge.interactive.active {
+  background: var(--bg-surface);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.format-badge.audiobook {
+  color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 30%, var(--border-color));
+}
+
+/* Edition Dropdown Popover */
+.edition-dropdown {
+  position: absolute;
+  bottom: 34px;
+  right: 8px;
+  width: 190px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  padding: 4px;
+  z-index: 25;
+  cursor: default;
+  text-align: left;
+}
+
+.edition-dropdown-header {
+  font-size: 0.68rem;
+  font-weight: var(--fw-semibold);
+  color: var(--color-text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 6px 8px 4px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 4px;
+}
+
+.edition-dropdown-item {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.12s ease;
+  color: var(--color-text-muted);
+}
+
+.edition-dropdown-item:hover {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.edition-dropdown-item.active {
+  background: var(--color-accent-bg);
+  color: var(--color-primary);
+  font-weight: var(--fw-medium);
+}
+
+.edition-item-text {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
 }
 
-.format-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-  min-height: 24px;
-  padding: 0.2rem 0.55rem;
-  border: 1px solid color-mix(in srgb, var(--border-color) 82%, var(--color-primary));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-surface) 78%, transparent);
-  backdrop-filter: blur(6px);
-  color: var(--color-text-muted);
+.edition-name {
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.edition-sub {
   font-size: 0.68rem;
-  font-weight: var(--fw-semibold);
-  line-height: 1.15;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
-  transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast),
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
-}
-
-.format-pill-primary {
-  color: var(--color-primary);
-  background: color-mix(in srgb, var(--bg-surface-alt) 88%, var(--color-accent));
-}
-
-.format-pill-secondary {
-  appearance: none;
-  cursor: pointer;
-  font: inherit;
-}
-
-.format-pill-secondary:hover,
-.format-pill-secondary:focus-visible {
-  border-color: var(--border-focus);
-  background: var(--bg-hover);
-  color: var(--color-primary);
-  box-shadow: var(--shadow-sm);
-  outline: none;
-}
-
-.format-pill-separator {
   color: var(--color-text-light);
 }
 
-.meta-format-pills {
-  margin-top: 0.45rem;
+.format-cell-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.format-cell-wrapper .format-badge {
+  position: static;
+}
+
+.format-cell-wrapper .edition-dropdown {
+  top: 100%;
+  bottom: auto;
+  left: 0;
+  right: auto;
+  margin-top: 4px;
 }
 
 /* --- GRID VIEW --- */
