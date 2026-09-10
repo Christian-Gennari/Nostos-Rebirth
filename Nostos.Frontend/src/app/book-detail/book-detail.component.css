@@ -37,8 +37,8 @@
   background: var(--bg-skeleton);
   border-radius: 8px;
   box-shadow:
-    0 14px 34px -8px rgba(0, 0, 0, 0.22),
-    0 2px 6px rgba(0, 0, 0, 0.08);
+    var(--shadow-glass-lg),
+    0 0 40px -12px rgba(196, 168, 255, 0.3);
   border: 1px solid rgba(0, 0, 0, 0.05);
   margin-bottom: 1rem;
   display: flex;
@@ -212,7 +212,7 @@
   padding: 1rem;
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--bg-surface-alt) 60%, transparent);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--glass-border);
 }
 
 .edition-section-header {
@@ -266,7 +266,7 @@
 .edition-select-card.active {
   border-color: var(--color-primary);
   background: var(--color-accent-bg);
-  box-shadow: 0 0 0 1px var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary), var(--shadow-glow);
 }
 
 .card-icon-frame {
@@ -421,7 +421,7 @@
   border-radius: var(--radius-md);
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-glass-lg);
 }
 .reset-confirm-dialog h3 {
   margin: 0 0 0.5rem;

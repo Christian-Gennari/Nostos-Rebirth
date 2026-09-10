@@ -5,7 +5,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: var(--bg-body);
+  background: transparent;
   position: relative;
   overflow: hidden;
 }
@@ -32,7 +32,7 @@
   width: 140px;
   height: auto;
   margin: 0 auto;
-  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.08));
+  filter: drop-shadow(0 8px 24px rgba(196, 168, 255, 0.25));
 }
 
 /* Typography */
@@ -48,9 +48,9 @@
 
 .hero-divider {
   width: 48px;
-  height: 1px;
-  background: var(--color-primary);
-  opacity: 0.2;
+  height: 2px;
+  background: var(--gradient-pastel);
+  opacity: 0.6;
   margin: 2rem auto;
 }
 
@@ -75,13 +75,13 @@
   background: var(--color-primary);
   color: var(--bg-surface);
   text-decoration: none;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-glass), 0 0 16px -4px rgba(196, 168, 255, 0.4);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .btn.btn-primary.lg:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
+  box-shadow: var(--shadow-glass-lg), 0 0 24px -4px rgba(196, 168, 255, 0.5);
 }
 
 .hero-footer {
