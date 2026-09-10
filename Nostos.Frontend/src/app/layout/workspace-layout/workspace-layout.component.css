@@ -10,6 +10,30 @@
   overflow-y: auto;
   position: relative;
   scroll-behavior: smooth;
+  padding-bottom: 96px;
+}
+
+/* The dock is global, but the library has a substantial left rail. Keep the
+   floating navigation centred over the usable reading area instead of the
+   rail/content boundary. */
+@media (min-width: 769px) {
+  .workspace-layout:has(.layout-wrapper:not(.sidebar-collapsed)) app-app-dock {
+    left: calc(50% + 150px);
+  }
+
+  .workspace-layout:has(.layout-wrapper.sidebar-collapsed) app-app-dock {
+    left: calc(50% + 36px);
+  }
+}
+
+@media (max-width: 768px) {
+  /* The drawer owns the mobile viewport while open; hide the bottom dock
+     so it never competes with or sits behind the drawer. */
+  .workspace-layout:has(.sidebar:not(.collapsed)) app-app-dock {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(100%);
+  }
 }
 
 app-sidebar-collections {

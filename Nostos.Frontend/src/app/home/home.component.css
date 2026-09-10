@@ -32,12 +32,12 @@
   width: 140px;
   height: auto;
   margin: 0 auto;
-  filter: drop-shadow(0 8px 24px rgba(196, 168, 255, 0.25));
+  filter: drop-shadow(0 8px 24px rgba(40, 55, 45, 0.18));
 }
 
 /* Typography */
 .hero-title {
-  font-family: 'Lora', serif;
+  font-family: 'Newsreader', serif;
   font-size: 3.8rem;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -55,7 +55,7 @@
 }
 
 .hero-subtitle {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Hanken Grotesk', sans-serif;
   font-size: 1.05rem;
   line-height: 1.65;
   color: var(--color-text-muted);
@@ -75,13 +75,13 @@
   background: var(--color-primary);
   color: var(--bg-surface);
   text-decoration: none;
-  box-shadow: var(--shadow-glass), 0 0 16px -4px rgba(196, 168, 255, 0.4);
+  box-shadow: var(--shadow-glass), 0 0 16px -4px rgba(138, 109, 88, 0.22);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .btn.btn-primary.lg:hover {
   transform: translateY(-1px);
-  box-shadow: var(--shadow-glass-lg), 0 0 24px -4px rgba(196, 168, 255, 0.5);
+  box-shadow: var(--shadow-glass-lg), 0 0 24px -4px rgba(138, 109, 88, 0.24);
 }
 
 .hero-footer {

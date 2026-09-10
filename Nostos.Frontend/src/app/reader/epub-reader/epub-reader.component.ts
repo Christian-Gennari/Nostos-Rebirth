@@ -409,7 +409,7 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
 
   private injectCustomStyles(contents: any) {
     const fontUrl =
-      'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Lora:wght@400;500;600&display=swap';
+      'https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600&family=Newsreader:wght@400;500;600&display=swap';
     const link = contents.document.createElement('link');
     link.setAttribute('rel', 'stylesheet');
     link.setAttribute('href', fontUrl);

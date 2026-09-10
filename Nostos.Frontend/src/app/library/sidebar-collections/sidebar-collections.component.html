@@ -1,5 +1,5 @@
 <button class="floating-toggle" (click)="toggle()" [class.hidden]="expanded()">
-  <lucide-icon [img]="MenuIcon" [size]="24"></lucide-icon>
+  <lucide-icon [img]="MenuIcon" [size]="20"></lucide-icon>
 </button>
 
 <nav class="sidebar" [class.collapsed]="!expanded()" [class.collapsing]="collapseSidebarProgress()">
@@ -177,6 +177,7 @@
             [activeId]="activeId()"
             [editingId]="editingId()"
             [treatAllAsFolders]="true"
+            [emptyLabel]="'No collections yet'"
             (nodeSelected)="select($event.id)"
             (nodeMoved)="onItemMoved($event)"
             (nodeRenamed)="startRename($event)"

@@ -70,7 +70,7 @@
 }
 
 .sidebar-left .sidebar-header h2 {
-  font-family: 'Lora', serif;
+  font-family: 'Newsreader', serif;
   font-size: 1.4rem;
   font-weight: 600;
   color: var(--color-text-main);
@@ -80,7 +80,7 @@
 }
 
 .sidebar-title-row h2 {
-  font-family: 'Lora', serif;
+  font-family: 'Newsreader', serif;
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--color-text-main);
@@ -198,7 +198,7 @@
   outline: 0;
   width: 100%;
   font-size: 0.85rem;
-  font-family: Inter, sans-serif;
+  font-family: 'Hanken Grotesk', sans-serif;
   color: var(--color-text-main);
 }
 
@@ -448,7 +448,7 @@
   border-radius: 999px;
   padding: 5px 14px;
 
-  font-family: Inter, system-ui, sans-serif;
+  font-family: 'Hanken Grotesk', system-ui, sans-serif;
   font-size: 0.78rem;
   font-weight: 500;
   line-height: 1;
@@ -480,7 +480,7 @@
   width: 72px;
   height: 72px;
   background: var(--gradient-pastel-soft);
-  box-shadow: 0 4px 12px rgba(196, 168, 255, 0.2);
+  box-shadow: 0 4px 12px rgba(138, 109, 88, 0.18);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -488,7 +488,7 @@
   margin-bottom: 1.25rem;
 }
 .empty-state h2 {
-  font-family: 'Lora', serif;
+  font-family: 'Newsreader', serif;
   font-size: 1.4rem;
   font-weight: 600;
   color: var(--color-text-main);

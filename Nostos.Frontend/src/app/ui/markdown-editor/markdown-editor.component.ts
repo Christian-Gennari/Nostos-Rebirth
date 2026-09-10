@@ -14,7 +14,7 @@ declare var tinymce: any;
  * (Expert design §4 — keep verbatim.)
  */
 const NOSTOS_EDITOR_CONTENT_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap');
 
   :root {
     color-scheme: light;
@@ -57,7 +57,7 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
     color: var(--ink);
     background: var(--paper);
 
-    font-family: Lora, Georgia, 'Times New Roman', serif;
+    font-family: Newsreader, Georgia, 'Times New Roman', serif;
     font-size: 18px;
     font-weight: 400;
     line-height: 1.8;
@@ -81,7 +81,7 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
   h2,
   h3 {
     color: var(--ink);
-    font-family: Inter, system-ui, sans-serif;
+    font-family: 'Hanken Grotesk', system-ui, sans-serif;
     font-weight: 600;
     font-style: normal;
     letter-spacing: -0.025em;
@@ -231,7 +231,7 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
     border-spacing: 0;
 
     color: var(--ink);
-    font-family: Inter, system-ui, sans-serif;
+    font-family: 'Hanken Grotesk', system-ui, sans-serif;
     font-size: 0.84rem;
     line-height: 1.55;
   }
@@ -307,7 +307,7 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
 
       /* Base font and color */
       :host ::ng-deep .tox {
-        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        font-family: 'Hanken Grotesk', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
         color: var(--editor-ui-text);
       }
 

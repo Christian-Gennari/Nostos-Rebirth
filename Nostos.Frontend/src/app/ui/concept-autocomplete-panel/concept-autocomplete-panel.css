@@ -40,7 +40,7 @@
 .item {
   padding: 0.6rem 0.75rem;
   font-size: 0.9rem;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Hanken Grotesk', sans-serif;
   color: var(--color-text-muted);
   border-radius: var(--radius-sm);
   cursor: pointer;

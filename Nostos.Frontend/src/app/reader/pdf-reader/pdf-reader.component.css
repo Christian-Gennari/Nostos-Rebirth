@@ -150,7 +150,7 @@
 /* 4. The TOC Items (Correct Selector: .treeItem) */
 ::ng-deep .treeItem > a {
   color: var(--color-text-main) !important;
-  font-family: 'Inter', sans-serif !important;
+  font-family: 'Hanken Grotesk', sans-serif !important;
   font-size: 0.9rem !important;
   font-weight: var(--fw-medium) !important;
   font-style: normal;

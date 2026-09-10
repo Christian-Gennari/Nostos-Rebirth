@@ -62,7 +62,7 @@
 }
 
 .book-title {
-  font-family: 'Lora', serif;
+  font-family: 'Newsreader', serif;
   font-weight: var(--fw-semibold);
   font-size: 1.25rem;
   color: var(--color-text-main);
@@ -73,7 +73,7 @@
 }
 
 .book-author {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.9rem;
   color: var(--color-text-muted);
 }
@@ -93,7 +93,7 @@
   justify-content: center;
   gap: 0.5rem;
   padding: 0.5rem;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.9rem;
   color: var(--color-text-light);
 }
@@ -156,7 +156,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.8rem;
   color: var(--color-text-light);
   font-variant-numeric: tabular-nums;
@@ -315,7 +315,7 @@
 }
 
 .rate-label {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.65rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -334,7 +334,7 @@
   border: 1px solid var(--border-color);
   background: transparent;
   cursor: pointer;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.95rem;
   font-weight: var(--fw-semibold);
   color: var(--color-text-main);
@@ -404,7 +404,7 @@
   border-radius: 6px;
   background: transparent;
   color: var(--color-text-main);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.85rem;
   font-weight: var(--fw-medium);
   cursor: pointer;
@@ -439,7 +439,7 @@
 }
 
 .sleep-label {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.65rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -459,7 +459,7 @@
   border: 1px solid var(--border-color);
   background: transparent;
   cursor: pointer;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.95rem;
   font-weight: var(--fw-semibold);
   color: var(--color-text-main);
@@ -535,7 +535,7 @@
   border-radius: 6px;
   background: transparent;
   color: var(--color-text-main);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.85rem;
   font-weight: var(--fw-medium);
   cursor: pointer;
@@ -554,7 +554,7 @@
 }
 
 .sleep-status {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.85rem;
   color: var(--color-text-muted);
   text-align: center;
