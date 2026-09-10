@@ -293,7 +293,7 @@ app-sidebar-collections.no-transition {
 
 /* .badge is defined globally in styles.css — no component duplicate needed */
 
-/* Format badges */
+/* Format badges: High-contrast dark frosted HUD capsule */
 .format-badge {
   position: absolute;
   bottom: 8px;
@@ -301,59 +301,48 @@ app-sidebar-collections.no-transition {
   z-index: 5;
   display: inline-flex;
   align-items: center;
-  gap: 3.5px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: var(--radius-sm, 4px);
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(18, 18, 18, 0.82);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
   font-size: 10px;
-  font-weight: var(--fw-semibold, 600);
+  font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   line-height: 1;
-  transition: opacity 160ms ease, transform 160ms ease;
+  pointer-events: none;
   user-select: none;
+  opacity: 0;
+  transform: translateY(4px) scale(0.96);
+  transition: opacity 160ms cubic-bezier(0.16, 1, 0.3, 1), transform 160ms ease;
 }
 
-.format-badge.micro-glyphs {
+.format-badge lucide-icon {
   display: inline-flex;
   align-items: center;
-  gap: 3.5px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: var(--radius-sm, 4px);
-  background: color-mix(in srgb, var(--bg-surface) 84%, transparent);
-  backdrop-filter: blur(8px) saturate(140%);
-  -webkit-backdrop-filter: blur(8px) saturate(140%);
-  border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
-  color: var(--color-text-main);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
-  pointer-events: none;
-  transition: opacity 160ms ease, transform 160ms ease;
 }
 
-.cover-wrapper .format-badge.single {
-  opacity: 0;
-  transform: translateY(3px) scale(0.96);
-  pointer-events: none;
+.format-badge lucide-icon svg {
+  stroke: #ffffff;
+  color: #ffffff;
 }
 
-.book-card:hover .cover-wrapper .format-badge.single {
+/* Micro-glyph variant (multi-format) */
+.format-badge.micro-glyphs {
+  gap: 4.5px;
+  padding: 0 7px;
+}
+
+/* REVEAL ON HOVER ACROSS ALL CARDS (both single and multi-format) */
+.book-card:hover .cover-wrapper .format-badge {
   opacity: 1;
   transform: translateY(0) scale(1);
-}
-
-.cover-wrapper .format-badge.micro-glyphs {
-  opacity: 0.9;
-  pointer-events: none;
-}
-
-.book-card:hover .cover-wrapper .format-badge.micro-glyphs {
-  opacity: 1;
-}
-
-.format-badge.audiobook {
-  color: var(--color-primary);
-  border-color: color-mix(in srgb, var(--color-primary) 30%, var(--border-color));
 }
 
 .format-cell-wrapper {
