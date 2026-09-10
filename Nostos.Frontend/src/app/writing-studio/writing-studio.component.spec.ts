@@ -380,7 +380,7 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
     // The three-layer shadow that must never move while the iframe scrolls.
     expect(css).toContain('0 1px 2px rgba(30, 26, 21, 0.08)');
     expect(css).toContain('0 10px 30px rgba(30, 26, 21, 0.11)');
-    expect(css).toContain('0 28px 64px rgba(30, 26, 21, 0.06)');
+    expect(css).toContain('0 28px 64px rgba(80, 70, 140, 0.08)');
   });
 
   it('lets .tox-tinymce fill and clip to the paper frame without its own shadow', () => {
