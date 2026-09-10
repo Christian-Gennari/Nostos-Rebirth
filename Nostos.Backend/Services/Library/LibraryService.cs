@@ -75,7 +75,7 @@ public sealed class LibraryService : ILibraryService
                     query = query.Where(b => b is AudioBookModel);
                     break;
                 case "pdf":
-                    query = query.Where(b => b is EBookModel && EF.Functions.Like(b.FileDetails.FileName, "%.pdf"));
+                    query = query.Where(b => b.FileDetails.FileName != null && EF.Functions.Like(b.FileDetails.FileName, "%.pdf"));
                     break;
                 case "ebook":
                 case "epub":
@@ -223,7 +223,7 @@ public sealed class LibraryService : ILibraryService
         var finished = await db.Books.AsNoTracking().CountAsync(b => b.Progress.FinishedAt != null, ct);
         var unsorted = await db.Books.AsNoTracking().CountAsync(b => b.CollectionId == null, ct);
         var audiobooks = await db.Books.AsNoTracking().OfType<AudioBookModel>().CountAsync(ct);
-        var pdfs = await db.Books.AsNoTracking().OfType<EBookModel>().CountAsync(
+        var pdfs = await db.Books.AsNoTracking().CountAsync(
             b => b.FileDetails.FileName != null && EF.Functions.Like(b.FileDetails.FileName, "%.pdf"), ct);
         var ebooks = await db.Books.AsNoTracking().OfType<EBookModel>().CountAsync(
             b => b.FileDetails.FileName == null || !EF.Functions.Like(b.FileDetails.FileName, "%.pdf"), ct);

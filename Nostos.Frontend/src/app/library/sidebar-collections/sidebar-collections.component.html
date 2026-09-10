@@ -112,10 +112,10 @@
       </button>
     </div>
 
-    @if (expanded()) {
-      <div class="nav-section-label">MEDIA</div>
-    }
     <div class="nav-group">
+      @if (expanded()) {
+        <div class="section-label" animate.enter="fade-in">MEDIA</div>
+      }
       <button
         class="nav-item"
         routerLink="/library"
@@ -167,7 +167,7 @@
 
     <div class="nav-group">
       @if (expanded()) {
-        <div class="section-label" animate.enter="fade-in" style="margin-top: 1rem">
+        <div class="section-label" animate.enter="fade-in">
           Collections
         </div>
 
