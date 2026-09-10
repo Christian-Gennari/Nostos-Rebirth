@@ -32,8 +32,8 @@
         </button>
       </div>
 
-      <div class="modal-body">
-        <form (ngSubmit)="submit()" #bookForm="ngForm">
+      <form (ngSubmit)="submit()" #bookForm="ngForm" class="modal-form">
+        <div class="modal-body">
           <!-- TAB 1: Book Info -->
           <div class="tab-content" [hidden]="activeTab() !== 'Book Info'">
             <div class="form-group">
@@ -359,20 +359,20 @@
             </div>
           </div>
 
-          <div class="modal-actions">
-            <button type="button" class="btn btn-secondary" (click)="closeModal.emit()">
-              Cancel
-            </button>
-            <button
-              type="submit"
-              class="btn btn-primary"
-              [disabled]="bookForm.invalid || !form.title.trim()"
-            >
-              {{ isEditMode() ? 'Save Changes' : 'Create Book' }}
-            </button>
-          </div>
-        </form>
-      </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" (click)="closeModal.emit()">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="btn btn-primary"
+            [disabled]="bookForm.invalid || !form.title.trim()"
+          >
+            {{ isEditMode() ? 'Save Changes' : 'Create Book' }}
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 }
