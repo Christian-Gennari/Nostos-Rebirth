@@ -7,10 +7,9 @@ import {
   ChangeDetectionStrategy,
   effect,
   untracked,
-  HostListener,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { BooksService } from '../core/services/books.service';
 import { CollectionsService } from '../core/services/collections.service';
 import { Collection } from '../core/dtos/collection.dtos';
@@ -29,6 +28,7 @@ import { LibraryPreferencesService } from '../core/services/library-preferences.
 import { ToastService } from '../core/services/toast.service';
 import {
   LucideAngularModule,
+  LucideIconData,
   LayoutList,
   LayoutGrid,
   Plus,
@@ -41,7 +41,6 @@ import {
   ArrowUpDown,
   Loader2,
   Headphones,
-  Layers,
   BookOpen,
   FileText,
   Bookmark,
@@ -54,6 +53,14 @@ function parseBookSort(value: string | null): BookSort | null {
   return value && Object.values(BookSort).includes(value as BookSort)
     ? (value as BookSort)
     : null;
+}
+
+type WorkFormatType = 'audio' | 'epub' | 'pdf' | 'physical';
+
+interface WorkFormatGlyph {
+  type: WorkFormatType;
+  icon: LucideIconData;
+  label: string;
 }
 
 @Component({
@@ -78,7 +85,6 @@ export class Library implements OnInit {
   private collectionsService = inject(CollectionsService);
   private preferences = inject(LibraryPreferencesService);
   private route = inject(ActivatedRoute);
-  private router = inject(Router);
   private toast = inject(ToastService);
 
   // Icons
@@ -94,7 +100,6 @@ export class Library implements OnInit {
   SortIcon = ArrowUpDown;
   LoaderIcon = Loader2;
   HeadphonesIcon = Headphones;
-  LayersIcon = Layers;
   BookOpenIcon = BookOpen;
   FileTextIcon = FileText;
   BookmarkIcon = Bookmark;
@@ -116,28 +121,6 @@ export class Library implements OnInit {
 
   viewMode = this.preferences.viewMode;
   showAddModal = signal(false);
-  activeEditionMenuId = signal<string | null>(null);
-
-  toggleEditionMenu(bookId: string, event: Event): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.activeEditionMenuId.update((current) => (current === bookId ? null : bookId));
-  }
-
-  closeEditionMenu(event?: Event): void {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    this.activeEditionMenuId.set(null);
-  }
-
-  @HostListener('document:click')
-  onDocumentClick(): void {
-    if (this.activeEditionMenuId()) {
-      this.activeEditionMenuId.set(null);
-    }
-  }
 
   setViewMode(mode: 'list' | 'grid'): void {
     this.preferences.setViewMode(mode);
@@ -341,11 +324,39 @@ export class Library implements OnInit {
     }
   }
 
-  openEdition(editionId: string, event: Event): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.activeEditionMenuId.set(null);
-    void this.router.navigate(['/library', editionId]);
+  getBookRouteId(book: Book): string {
+    return this.preferences.getActiveEditionId(book.workId, book.id);
+  }
+
+  getWorkFormatGlyphs(book: Book): WorkFormatGlyph[] {
+    const editions: (Book | EditionSummaryDto)[] = [book, ...(book.otherEditions || [])];
+    const presentFormats = new Set(editions.map((edition) => this.getWorkFormatType(edition)));
+    const formats: WorkFormatGlyph[] = [
+      { type: 'audio', icon: this.HeadphonesIcon, label: 'Audiobook' },
+      { type: 'epub', icon: this.BookOpenIcon, label: 'eBook' },
+      { type: 'pdf', icon: this.FileTextIcon, label: 'PDF' },
+      { type: 'physical', icon: this.BookmarkIcon, label: 'Physical Book' },
+    ];
+
+    return formats.filter((format) => presentFormats.has(format.type));
+  }
+
+  getWorkFormatsTooltip(book: Book): string {
+    const labels = this.getWorkFormatGlyphs(book).map((glyph) => glyph.label);
+    return `Available in ${labels.join(', ')}`;
+  }
+
+  private getWorkFormatType(book: Book | EditionSummaryDto): WorkFormatType {
+    const type = book.type.toLowerCase();
+    const format = 'format' in book ? book.format?.trim().toLowerCase() : undefined;
+    const extension = book.fileName?.split('.').pop()?.trim().toLowerCase();
+
+    if (type === 'audiobook' || type === 'audio' || format === 'audiobook' || format === 'audio') {
+      return 'audio';
+    }
+    if (type === 'physical' || format === 'physical') return 'physical';
+    if (extension === 'pdf' || format === 'pdf' || type === 'pdf') return 'pdf';
+    return 'epub';
   }
 
   deleteBook(id: string, event: Event): void {

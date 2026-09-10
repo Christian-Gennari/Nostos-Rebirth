@@ -2,10 +2,6 @@
   @if (sidebar.expanded()) {
   <div class="mobile-backdrop" (click)="sidebar.toggle()"></div>
   }
-  @if (activeEditionMenuId()) {
-  <div class="edition-sheet-backdrop" (click)="closeEditionMenu($event)"></div>
-  }
-
   <app-sidebar-collections
     class="sidebar-panel"
     #sidebar
@@ -149,7 +145,7 @@
         </div>
 
         @for (book of books(); track book.id) {
-        <div class="table-row" [routerLink]="['/library', book.id]">
+        <div class="table-row" [routerLink]="['/library', getBookRouteId(book)]">
           <div class="col title">
             <button
               class="finished-btn-list"
@@ -193,53 +189,32 @@
           </div>
 
           <div class="col format">
-            @if (book.otherEditions && book.otherEditions.length > 0) {
             <div class="format-cell-wrapper">
-              <button
-                type="button"
-                class="format-badge interactive"
-                [class.active]="activeEditionMenuId() === book.id"
-                (click)="toggleEditionMenu(book.id, $event)"
-                title="View all available editions"
-              >
-                <lucide-icon [img]="LayersIcon" [size]="12"></lucide-icon>
-                <span>{{ book.otherEditions.length + 1 }} Formats ▾</span>
-              </button>
-              @if (activeEditionMenuId() === book.id) {
-              <div class="edition-dropdown list-dropdown" (click)="$event.stopPropagation()">
-                <div class="sheet-handle"></div>
-                <div class="edition-dropdown-header">Available Formats</div>
-                <div class="edition-dropdown-item active" (click)="openEdition(book.id, $event)">
-                  <span class="edition-icon">
-                    <lucide-icon [img]="book.type === 'audiobook' ? HeadphonesIcon : BookIcon" [size]="14"></lucide-icon>
-                  </span>
-                  <div class="edition-item-text">
-                    <span class="edition-name">{{ getFormatLabel(book) }}</span>
-                    <span class="edition-sub">{{ book.progressPercent }}% read</span>
-                  </div>
-                  <span class="active-indicator">Current</span>
-                </div>
-                @for (edition of book.otherEditions; track edition.id) {
-                <div class="edition-dropdown-item" (click)="openEdition(edition.id, $event)">
-                  <span class="edition-icon">
-                    <lucide-icon [img]="edition.type === 'audiobook' ? HeadphonesIcon : BookIcon" [size]="14"></lucide-icon>
-                  </span>
-                  <div class="edition-item-text">
-                    <span class="edition-name">{{ getFormatLabel(edition) }}</span>
-                    <span class="edition-sub">{{ edition.progressPercent }}% read</span>
-                  </div>
-                </div>
-                }
-              </div>
+            @if (book.otherEditions && book.otherEditions.length > 0) {
+            <span class="format-badge micro-glyphs" [attr.title]="getWorkFormatsTooltip(book)">
+              @for (glyph of getWorkFormatGlyphs(book); track glyph.type) {
+                <lucide-icon [img]="glyph.icon" [size]="11" strokeWidth="2.2"></lucide-icon>
               }
+            </span>
+            } @else {
+            <span
+              class="format-badge single"
+              [class.audiobook]="book.type === 'audiobook'"
+              [attr.data-type]="book.type"
+            >
+              @if (book.type === 'audiobook') {
+                <lucide-icon [img]="HeadphonesIcon" [size]="11" strokeWidth="2.2"></lucide-icon>
+              } @else if (getFormatLabel(book) === 'PDF') {
+                <lucide-icon [img]="FileTextIcon" [size]="11" strokeWidth="2"></lucide-icon>
+              } @else if (book.type === 'physical') {
+                <lucide-icon [img]="BookmarkIcon" [size]="11" strokeWidth="2"></lucide-icon>
+              } @else {
+                <lucide-icon [img]="BookOpenIcon" [size]="11" strokeWidth="2"></lucide-icon>
+              }
+              {{ getFormatLabel(book) }}
+            </span>
+            }
             </div>
-            } @else {
-            @if (book.fileName) {
-            <span class="badge">{{ getFormatLabel(book) }}</span>
-            } @else {
-            <span class="badge" style="opacity: 0.5">—</span>
-            }
-            }
           </div>
 
           <div class="col date" style="color: var(--color-text-light); font-size: 0.85rem">
@@ -262,7 +237,7 @@
       <div class="book-grid">
         @for (book of books(); track book.id) {
 
-        <div class="book-card" [routerLink]="['/library', book.id]">
+        <div class="book-card" [routerLink]="['/library', getBookRouteId(book)]">
           <div class="cover-wrapper">
             @if (book.coverUrl) {
             <img
@@ -277,19 +252,14 @@
             }
 
             @if (book.otherEditions && book.otherEditions.length > 0) {
-            <button
-              type="button"
-              class="format-badge interactive"
-              [class.active]="activeEditionMenuId() === book.id"
-              (click)="toggleEditionMenu(book.id, $event)"
-              title="View all available editions"
-            >
-              <lucide-icon [img]="LayersIcon" [size]="12"></lucide-icon>
-              <span>{{ book.otherEditions.length + 1 }} Formats ▾</span>
-            </button>
+            <span class="format-badge micro-glyphs" [attr.title]="getWorkFormatsTooltip(book)">
+              @for (glyph of getWorkFormatGlyphs(book); track glyph.type) {
+                <lucide-icon [img]="glyph.icon" [size]="11" strokeWidth="2.2"></lucide-icon>
+              }
+            </span>
             } @else {
             <span
-              class="format-badge"
+              class="format-badge single"
               [class.audiobook]="book.type === 'audiobook'"
               [attr.data-type]="book.type"
             >
@@ -363,33 +333,6 @@
           </div>
           }
 
-          @if (activeEditionMenuId() === book.id && book.otherEditions && book.otherEditions.length > 0) {
-          <div class="edition-dropdown" (click)="$event.stopPropagation()">
-            <div class="sheet-handle"></div>
-            <div class="edition-dropdown-header">Available Formats</div>
-            <div class="edition-dropdown-item active" (click)="openEdition(book.id, $event)">
-              <span class="edition-icon">
-                <lucide-icon [img]="book.type === 'audiobook' ? HeadphonesIcon : BookIcon" [size]="14"></lucide-icon>
-              </span>
-              <div class="edition-item-text">
-                <span class="edition-name">{{ getFormatLabel(book) }}</span>
-                <span class="edition-sub">{{ book.progressPercent }}% read</span>
-              </div>
-              <span class="active-indicator">Current</span>
-            </div>
-            @for (edition of book.otherEditions; track edition.id) {
-            <div class="edition-dropdown-item" (click)="openEdition(edition.id, $event)">
-              <span class="edition-icon">
-                <lucide-icon [img]="edition.type === 'audiobook' ? HeadphonesIcon : BookIcon" [size]="14"></lucide-icon>
-              </span>
-              <div class="edition-item-text">
-                <span class="edition-name">{{ getFormatLabel(edition) }}</span>
-                <span class="edition-sub">{{ edition.progressPercent }}% read</span>
-              </div>
-            </div>
-            }
-          </div>
-          }
         </div>
 
         }

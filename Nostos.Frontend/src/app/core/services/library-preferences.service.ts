@@ -10,6 +10,7 @@ export interface LibraryPreferences {
 }
 
 export const LIBRARY_PREFERENCES_STORAGE_KEY = 'nostos.library.preferences';
+export const WORK_EDITIONS_STORAGE_KEY = 'nostos.work_editions';
 const LEGACY_VIEW_MODE_STORAGE_KEY = 'nostos.viewMode';
 
 const DEFAULT_PREFERENCES: LibraryPreferences = {
@@ -30,9 +31,11 @@ export class LibraryPreferencesService {
   readonly pageSize = signal(DEFAULT_PREFERENCES.pageSize);
   readonly sidebarExpanded = signal(DEFAULT_PREFERENCES.sidebarExpanded);
   readonly groupByWork = signal(DEFAULT_PREFERENCES.groupByWork);
+  private workEditions = new Map<string, string>();
 
   constructor() {
     this.hydrate();
+    this.hydrateWorkEditions();
 
     effect(() => {
       const preferences: LibraryPreferences = {
@@ -61,6 +64,17 @@ export class LibraryPreferencesService {
 
   setGroupByWork(grouped: boolean): void {
     this.groupByWork.set(grouped);
+  }
+
+  getActiveEditionId(workId: string | null | undefined, fallbackBookId: string): string {
+    return workId ? (this.workEditions.get(workId) ?? fallbackBookId) : fallbackBookId;
+  }
+
+  setActiveEditionId(workId: string | null | undefined, bookId: string): void {
+    if (!workId || this.workEditions.get(workId) === bookId) return;
+
+    this.workEditions.set(workId, bookId);
+    this.writeWorkEditions();
   }
 
   private hydrate(): void {
@@ -109,9 +123,34 @@ export class LibraryPreferencesService {
     this.groupByWork.set(preferences.groupByWork);
   }
 
+  private hydrateWorkEditions(): void {
+    const stored = this.readStorage(WORK_EDITIONS_STORAGE_KEY);
+    if (stored === null) return;
+
+    try {
+      const value: unknown = JSON.parse(stored);
+      if (!this.isRecord(value)) return;
+
+      for (const [workId, bookId] of Object.entries(value)) {
+        if (typeof bookId === 'string') this.workEditions.set(workId, bookId);
+      }
+    } catch {
+      // Ignore malformed edition memory and start with an empty map.
+    }
+  }
+
   private writePreferences(preferences: LibraryPreferences): void {
     try {
       localStorage.setItem(LIBRARY_PREFERENCES_STORAGE_KEY, JSON.stringify(preferences));
+    } catch {
+      // Persistence is best effort; private browsing and storage quotas can
+      // make localStorage unavailable without affecting the library UI.
+    }
+  }
+
+  private writeWorkEditions(): void {
+    try {
+      localStorage.setItem(WORK_EDITIONS_STORAGE_KEY, JSON.stringify(Object.fromEntries(this.workEditions)));
     } catch {
       // Persistence is best effort; private browsing and storage quotas can
       // make localStorage unavailable without affecting the library UI.

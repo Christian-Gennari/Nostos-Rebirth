@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, model, computed, ViewChild, ElementRef } from '@angular/core';
+import { Component, effect, inject, OnInit, signal, model, computed, ViewChild, ElementRef } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -14,6 +14,7 @@ import { AddBookModal } from '../add-book-modal/add-book-modal.component';
 import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
+import { LibraryPreferencesService } from '../core/services/library-preferences.service';
 
 // Icons
 import {
@@ -66,6 +67,11 @@ export class BookDetail implements OnInit {
 
   // Inject the Store
   readonly store = inject(BookDetailStore);
+  private preferences = inject(LibraryPreferencesService);
+  private rememberActiveEdition = effect(() => {
+    const book = this.store.book();
+    if (book) this.preferences.setActiveEditionId(book.workId, book.id);
+  });
 
   // Icons
   ArrowLeftIcon = ArrowLeft;
@@ -188,6 +194,7 @@ export class BookDetail implements OnInit {
   }
 
   switchEdition(id: string): void {
+    this.preferences.setActiveEditionId(this.store.book()?.workId, id);
     void this.router.navigate(['/library', id]);
   }
 
