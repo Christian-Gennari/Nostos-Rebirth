@@ -201,7 +201,7 @@ app-sidebar-collections.no-transition {
 
 /* --- LIST VIEW --- */
 .table-view {
-  --table-grid-cols: minmax(260px, 3.2fr) minmax(130px, 1.6fr) 90px 90px 100px 70px;
+  --table-grid-cols: minmax(260px, 3.2fr) minmax(130px, 1.6fr) 90px 90px minmax(90px, 110px);
   width: 100%;
   padding-bottom: 7.5rem;
 }
@@ -219,6 +219,7 @@ app-sidebar-collections.no-transition {
 }
 
 .table-row {
+  position: relative;
   display: grid;
   grid-template-columns: var(--table-grid-cols);
   align-items: center;
@@ -235,22 +236,25 @@ app-sidebar-collections.no-transition {
 }
 
 .table-row .actions-cell {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
-  justify-content: flex-end;
-  gap: 2px;
-}
-
-.table-row .actions-cell .icon-btn {
+  align-items: center;
+  gap: 4px;
   opacity: 0;
+  pointer-events: none;
   transition: opacity 0.15s ease;
+  background: var(--bg-hover);
+  padding-left: 8px;
+  border-radius: var(--radius-sm);
 }
 
-.table-row:hover .actions-cell .icon-btn {
+.table-row:hover .actions-cell,
+.table-row:focus-within .actions-cell {
   opacity: 1;
-}
-
-.table-row .actions-cell .icon-btn:focus-visible {
-  opacity: 1;
+  pointer-events: auto;
 }
 
 .icon-btn {
