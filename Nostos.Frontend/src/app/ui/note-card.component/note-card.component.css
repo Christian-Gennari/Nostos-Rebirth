@@ -76,7 +76,7 @@
 }
 
 .quote-text {
-  font-family: 'Lora', serif;
+  font-family: 'Newsreader', serif;
   text-wrap: wrap;
   font-style: italic;
   color: var(--color-text-main);
@@ -196,7 +196,7 @@
   border-radius: var(--radius-sm);
   background-color: var(--bg-hover);
   padding: 0.5rem;
-  font-family: 'Lora', serif;
+  font-family: 'Newsreader', serif;
   font-style: italic;
   font-size: 0.95rem;
   color: var(--color-text-main);

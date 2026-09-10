@@ -1,32 +1,32 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Lora:ital,wght@0,400..700;1,400..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,400&display=swap');
 
 :root {
   /* ── Surfaces ── */
-  --bg-body: #f4f4f5;
+  --bg-body: #FDF8F6;
   --bg-surface: #ffffff;
-  --bg-surface-alt: #f9f9f9;
-  --bg-sidebar: #f9f9f9;
+  --bg-surface-alt: #F7F3F0;
+  --bg-sidebar: #F7F3F0;
   --bg-input: #ffffff;
-  --bg-hover: #f0f0f0;
-  --bg-skeleton: #f3f3f3;
+  --bg-hover: #F2EDEB;
+  --bg-skeleton: #F2EDEB;
 
   /* ── Text ── */
-  --color-text-main: #1a1a1a;
-  --color-text-muted: #4a4a4a;
-  --color-text-light: #888888;
-  --color-text-placeholder: #9ca3af;
-  --color-text-faint: #cccccc;
+  --color-text-main: #1C1B1A;
+  --color-text-muted: #5C5A55;
+  --color-text-light: #8A8680;
+  --color-text-placeholder: #A8A39C;
+  --color-text-faint: #CFCAC2;
 
   /* ── Interactive / Primary ── */
-  --color-primary: #111111;
-  --color-primary-hover: #333333;
-  --color-primary-dim: #666666;
+  --color-primary: #28372D;
+  --color-primary-hover: #1F2B23;
+  --color-primary-dim: #5B6B60;
 
-  /* ── Accent (Blue) ── */
-  --color-accent: #60a5fa;
-  --color-accent-hover: #93c5fd;
-  --color-accent-faint: rgba(96, 165, 250, 0.3);
-  --color-accent-bg: #e0f0ff;
+  /* ── Accent (Clay) ── */
+  --color-accent: #8A6D58;
+  --color-accent-hover: #A08468;
+  --color-accent-faint: rgba(138, 109, 88, 0.3);
+  --color-accent-bg: #F4EDE7;
 
   /* ── Danger ── */
   --color-danger: #d32f2f;
@@ -47,13 +47,13 @@
   --color-highlight-hover: #f0cc00;
 
   /* ── Borders ── */
-  --border-color: #e2e2e2;
-  --border-light: #eeeeee;
-  --border-focus: #aaaaaa;
+  --border-color: #E4E1DB;
+  --border-light: #EFECE6;
+  --border-focus: #28372D;
 
   /* ── Scrollbar ── */
-  --scrollbar-thumb: #dddddd;
-  --scrollbar-thumb-hover: #bbbbbb;
+  --scrollbar-thumb: #DED9D1;
+  --scrollbar-thumb-hover: #C6BFB4;
 
   /* ── Overlays ── */
   --overlay-heavy: rgba(0, 0, 0, 0.7);
@@ -61,9 +61,9 @@
   --overlay-light: rgba(0, 0, 0, 0.3);
 
   /* ── Radius ── */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
 
   /* ── Font Weights ── */
   --fw-light: 300;
@@ -97,46 +97,29 @@
   --transition-fast: 120ms ease;
   --transition-normal: 200ms ease;
 
-  /* ── Glass & Pastel Gradient design language ──
-     The "Apple Glass" layer. The floating dock is the full-strength
-     expression; panels, cards, and controls borrow the same recipe at
-     lower intensity so the app reads as one continuous material.
+  /* ── Warm editorial accent layer ──
+     Translucent paper surfaces, hairline warm borders, and a restrained pine-to-clay
+     gradient keep the existing glass components grounded in the Nordic Editorial palette. */
+  --glass-bg: rgba(253, 248, 246, 0.6);
+  --glass-bg-strong: rgba(253, 248, 246, 0.85);
+  --glass-border: rgba(228, 225, 219, 0.85);
+  --glass-blur: blur(14px);
+  --glass-blur-strong: blur(20px);
 
-     Recipe: translucent frosted surface + hairline light border +
-     ambient coloured depth + a pastel gradient accent for emphasis. */
-  --glass-bg: rgba(255, 255, 255, 0.55);
-  --glass-bg-strong: rgba(255, 255, 255, 0.82);
-  --glass-border: rgba(255, 255, 255, 0.65);
-  --glass-blur: blur(16px);
-  --glass-blur-strong: blur(24px);
+  /* Editorial accent stops (same names retained for component compatibility) */
+  --pastel-blue: #8A6D58;
+  --pastel-lavender: #28372D;
+  --pastel-pink: #A08468;
+  --pastel-peach: #F4EDE7;
+  --pastel-sky: #5B6B60;
 
-  /* Pastel gradient stops (shared with the dock's conic glow) */
-  --pastel-blue: #a8c0ff;
-  --pastel-lavender: #c4a8ff;
-  --pastel-pink: #ffafcc;
-  --pastel-peach: #ffc8a2;
-  --pastel-sky: #bde0fe;
+  --gradient-pastel: linear-gradient(120deg, #28372D, #5B6B60, #8A6D58);
+  --gradient-pastel-soft: linear-gradient(120deg, rgba(40, 55, 45, 0.28), rgba(138, 109, 88, 0.28));
+  --gradient-accent: linear-gradient(120deg, #28372D, #8A6D58);
 
-  /* Gradient accents */
-  --gradient-pastel: linear-gradient(
-    120deg,
-    var(--pastel-blue),
-    var(--pastel-lavender),
-    var(--pastel-pink),
-    var(--pastel-peach)
-  );
-  --gradient-pastel-soft: linear-gradient(
-    120deg,
-    rgba(168, 192, 255, 0.4),
-    rgba(196, 168, 255, 0.4),
-    rgba(255, 175, 204, 0.4)
-  );
-  --gradient-accent: linear-gradient(120deg, var(--pastel-lavender), var(--pastel-pink));
-
-  /* Ambient coloured depth (tinted, not flat black) */
-  --shadow-glass: 0 8px 24px -6px rgba(80, 70, 140, 0.13), 0 2px 6px rgba(0, 0, 0, 0.04);
-  --shadow-glass-lg: 0 16px 36px -8px rgba(80, 70, 140, 0.18), 0 4px 10px rgba(0, 0, 0, 0.05);
-  --shadow-glow: 0 6px 20px -4px rgba(196, 168, 255, 0.45);
+  --shadow-glass: 0 8px 24px -6px rgba(28, 27, 26, 0.10), 0 2px 6px rgba(0, 0, 0, 0.03);
+  --shadow-glass-lg: 0 16px 36px -8px rgba(28, 27, 26, 0.14), 0 4px 10px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 6px 20px -4px rgba(138, 109, 88, 0.30);
 
   /* ── Editor chrome tokens (TinyMCE bridge — expert design §3) ──
      The --editor-ui-* tokens are the stable contract between Nostos and the
@@ -170,7 +153,7 @@ html {
 
 html,
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Hanken Grotesk', sans-serif;
   color: var(--color-text-main);
   overflow-x: hidden;
   height: 100dvh;
@@ -181,14 +164,7 @@ body {
    Fixed attachment keeps the wash stable while content scrolls. */
 body {
   background:
-    radial-gradient(1100px 620px at 12% -8%, rgba(168, 192, 255, 0.22), transparent 62%)
-      no-repeat fixed,
-    radial-gradient(900px 520px at 88% 4%, rgba(196, 168, 255, 0.16), transparent 60%) no-repeat
-      fixed,
-    radial-gradient(1000px 560px at 80% 108%, rgba(255, 175, 204, 0.18), transparent 62%) no-repeat
-      fixed,
-    radial-gradient(800px 460px at 4% 104%, rgba(189, 224, 254, 0.16), transparent 60%) no-repeat
-      fixed,
+    radial-gradient(1200px 700px at 50% -10%, rgba(138, 109, 88, 0.05), transparent 65%) no-repeat fixed,
     var(--bg-body);
 }
 
@@ -196,7 +172,7 @@ h1,
 h2,
 h3,
 h4 {
-  font-family: 'Lora', serif;
+  font-family: 'Newsreader', serif;
   color: var(--color-primary);
 }
 
@@ -420,7 +396,7 @@ input[type='file']::file-selector-button:hover {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   font-size: 0.95rem;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Hanken Grotesk', sans-serif;
   background: var(--bg-surface);
   outline: none;
   transition:

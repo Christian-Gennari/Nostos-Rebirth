@@ -119,6 +119,9 @@
   }
 
   @if (treeNodes().length === 0 && !isDragging()) {
-    <div class="empty-state">No items</div>
+    <div class="empty-state" role="status">
+      <lucide-icon [img]="Icons.FolderOpen" [size]="15" strokeWidth="1.4"></lucide-icon>
+      <span>{{ emptyLabel() }}</span>
+    </div>
   }
 </div>

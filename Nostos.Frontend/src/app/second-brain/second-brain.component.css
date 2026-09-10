@@ -43,7 +43,7 @@
 }
 
 .index-header h1 {
-  font-family: 'Lora', serif;
+  font-family: 'Newsreader', serif;
   font-size: 1.4rem;
   font-weight: 600;
   color: var(--color-text-main);
@@ -79,7 +79,7 @@
   outline: none;
   width: 100%;
   font-size: 0.88rem;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Hanken Grotesk', sans-serif;
   color: var(--color-text-main);
 }
 
@@ -107,7 +107,7 @@
   cursor: pointer;
   border-radius: 8px;
   text-align: left;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.88rem;
   font-weight: 500;
   color: var(--color-text-muted);
@@ -206,7 +206,7 @@
 }
 
 .concept-title {
-  font-family: 'Lora', serif;
+  font-family: 'Newsreader', serif;
   font-size: 2.2rem;
   font-weight: 600;
   color: var(--color-text-main);
@@ -270,7 +270,7 @@
 /* --- ELEGANT QUOTE STYLES --- */
 .highlight-block {
   border-left: 3px solid var(--pastel-lavender);
-  background: rgba(196, 168, 255, 0.08);
+  background: rgba(138, 109, 88, 0.08);
   padding: 0.75rem 1rem;
   border-radius: 0 8px 8px 0;
   margin-bottom: 1rem;
@@ -278,7 +278,7 @@
 }
 
 .highlight-text {
-  font-family: 'Lora', serif;
+  font-family: 'Newsreader', serif;
   font-style: italic;
   line-height: 1.5;
   color: var(--color-text-main);
@@ -326,7 +326,7 @@
 }
 
 .book-title {
-  font-family: 'Lora', serif;
+  font-family: 'Newsreader', serif;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--color-text-muted);
@@ -376,7 +376,7 @@
   height: 72px;
   border-radius: 50%;
   background: var(--gradient-pastel-soft);
-  box-shadow: 0 4px 12px rgba(196, 168, 255, 0.2);
+  box-shadow: 0 4px 12px rgba(138, 109, 88, 0.18);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -385,7 +385,7 @@
 }
 
 .landing-state h2 {
-  font-family: 'Lora', serif;
+  font-family: 'Newsreader', serif;
   font-size: 1.5rem;
   font-weight: 600;
   color: var(--color-text-main);
@@ -474,7 +474,7 @@
 
     /* Typography & Color - Matches .btn-back */
     color: var(--color-text-light, var(--color-text-light));
-    font-family: 'Inter', sans-serif;
+    font-family: 'Hanken Grotesk', sans-serif;
     font-size: 0.9rem;
     font-weight: var(--fw-medium);
 

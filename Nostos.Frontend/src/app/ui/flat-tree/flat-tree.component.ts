@@ -44,6 +44,7 @@ export class FlatTreeComponent {
   readonly activeId = input<string | null>(null);
   readonly treatAllAsFolders = input(false);
   readonly editingId = input<string | null>(null);
+  readonly emptyLabel = input('Nothing here yet');
 
   readonly nodeSelected = output<TreeItem>();
   readonly nodeMoved = output<{ item: TreeItem; newParentId: string | null }>();

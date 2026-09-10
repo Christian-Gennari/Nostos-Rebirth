@@ -128,7 +128,7 @@ app-sidebar-collections.no-transition {
   background: var(--bg-surface);
   border-color: var(--border-focus);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(196, 168, 255, 0.2);
+  box-shadow: 0 0 0 3px rgba(138, 109, 88, 0.18);
 }
 
 .search-input:focus + .search-icon,
@@ -198,7 +198,7 @@ app-sidebar-collections.no-transition {
 .toggle-opt.active {
   background: var(--bg-surface);
   color: var(--color-primary);
-  box-shadow: var(--shadow-sm), 0 0 0 1px rgba(196, 168, 255, 0.3);
+  box-shadow: var(--shadow-sm), 0 0 0 1px rgba(138, 109, 88, 0.22);
 }
 
 /* --- LIST VIEW --- */

@@ -33,9 +33,8 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
         </a>
 
         <a
-          [routerLink]="getLink('/studio')"
-          (click)="handleDockClick('/studio', $event)"
-          routerLinkActive="active"
+          [href]="getLink('/studio')"
+          [class.active]="isActive('/studio')"
           class="dock-item"
           title="Writing Studio"
         >
@@ -44,8 +43,8 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
         </a>
 
         <a
-          routerLink="/settings"
-          routerLinkActive="active"
+          href="/settings"
+          [class.active]="isActive('/settings')"
           class="dock-item"
           title="Settings"
         >
@@ -79,6 +78,10 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
         bottom: 24px;
         left: 50%;
         transform: translateX(-50%);
+        transition:
+          left 220ms cubic-bezier(0.22, 1, 0.36, 1),
+          opacity 180ms ease,
+          transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
         z-index: 50;
         /* Ensure the glow doesn't get cut off */
         padding: 10px;
@@ -282,6 +285,10 @@ export class AppDockComponent {
   BrainIcon = BrainCog;
   PenToolIcon = PenTool;
   SettingsIcon = Settings;
+
+  isActive(prefix: string): boolean {
+    return this.router.url.startsWith(prefix);
+  }
 
   getLink(prefix: string): string {
     return this.historyService.getLastUrl(prefix);
