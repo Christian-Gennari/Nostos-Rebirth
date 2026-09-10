@@ -13,8 +13,10 @@
 
 /* --- LEFT COLUMN: INDEX --- */
 .index-col {
-  background: var(--bg-surface);
-  border-right: 1px solid var(--border-color);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-right: 1px solid var(--glass-border);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -123,7 +125,7 @@
 .index-item.active {
   background: var(--color-primary);
   color: var(--bg-surface);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-sm), var(--shadow-glow);
 }
 
 .index-item .name {
@@ -182,7 +184,7 @@
   padding-bottom: 8.5rem;
   background-image: radial-gradient(var(--border-color) 1px, transparent 1px);
   background-size: 24px 24px;
-  background-color: var(--bg-body);
+  background-color: transparent;
 }
 
 /* HEADER */
@@ -229,12 +231,12 @@
 /* CARDS */
 .note-card {
   background: var(--bg-surface);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--glass-border);
   border-radius: 12px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-glass);
   transition:
     transform 0.15s ease,
     box-shadow 0.15s ease;
@@ -243,7 +245,7 @@
 
 .note-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-glass-lg);
 }
 
 /* Allow wide cards to span two columns */
@@ -267,8 +269,8 @@
 
 /* --- ELEGANT QUOTE STYLES --- */
 .highlight-block {
-  border-left: 3px solid var(--color-primary);
-  background: var(--bg-hover);
+  border-left: 3px solid var(--pastel-lavender);
+  background: rgba(196, 168, 255, 0.08);
   padding: 0.75rem 1rem;
   border-radius: 0 8px 8px 0;
   margin-bottom: 1rem;
@@ -373,7 +375,8 @@
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  background: var(--bg-hover);
+  background: var(--gradient-pastel-soft);
+  box-shadow: 0 4px 12px rgba(196, 168, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;

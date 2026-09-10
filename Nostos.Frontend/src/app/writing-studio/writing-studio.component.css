@@ -9,7 +9,9 @@
 
 .sidebar-left,
 .sidebar-right {
-  background: var(--bg-surface);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   display: flex;
   flex-direction: column;
   z-index: 2;
@@ -22,14 +24,14 @@
 @media (min-width: 769px) {
   .sidebar-left {
     width: 320px;
-    border-right: 1px solid var(--border-color);
+    border-right: 1px solid var(--glass-border);
     transition:
       width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
       opacity 0.2s ease;
   }
   .sidebar-right {
     width: 320px; /* Kept slightly wider for notes */
-    border-left: 1px solid var(--border-color);
+    border-left: 1px solid var(--glass-border);
     transition:
       width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
       opacity 0.2s ease;
@@ -410,7 +412,7 @@
   box-shadow:
     0 1px 2px rgba(30, 26, 21, 0.08),
     0 10px 30px rgba(30, 26, 21, 0.11),
-    0 28px 64px rgba(30, 26, 21, 0.06);
+    0 28px 64px rgba(80, 70, 140, 0.08);
 }
 
 /*
@@ -451,7 +453,7 @@
   font-weight: 500;
   line-height: 1;
   color: var(--color-text-muted);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-glass);
   pointer-events: none;
 }
 
@@ -477,7 +479,8 @@
 .icon-circle {
   width: 72px;
   height: 72px;
-  background: var(--bg-hover);
+  background: var(--gradient-pastel-soft);
+  box-shadow: 0 4px 12px rgba(196, 168, 255, 0.2);
   border-radius: 50%;
   display: flex;
   align-items: center;

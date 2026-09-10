@@ -65,11 +65,12 @@ app-sidebar-collections.no-transition {
   top: 0;
   /* Theme-aware surface: follows --bg-surface from the single :root token
      graph (was hard-coded white, so it stayed light in dark mode). */
-  background: color-mix(in srgb, var(--bg-surface) 90%, transparent);
-  backdrop-filter: blur(8px);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   z-index: 5;
   padding: 1.5rem 3rem;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--glass-border);
   display: flex;
   justify-content: space-between; /* Space between Title and Controls */
   align-items: center;
@@ -127,6 +128,7 @@ app-sidebar-collections.no-transition {
   background: var(--bg-surface);
   border-color: var(--border-focus);
   outline: none;
+  box-shadow: 0 0 0 3px rgba(196, 168, 255, 0.2);
 }
 
 .search-input:focus + .search-icon,
@@ -196,7 +198,7 @@ app-sidebar-collections.no-transition {
 .toggle-opt.active {
   background: var(--bg-surface);
   color: var(--color-primary);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm), 0 0 0 1px rgba(196, 168, 255, 0.3);
 }
 
 /* --- LIST VIEW --- */
@@ -232,7 +234,7 @@ app-sidebar-collections.no-transition {
 }
 
 .table-row:hover {
-  background: var(--bg-hover);
+  background: var(--glass-bg);
 }
 
 .table-row .actions-cell {
@@ -534,7 +536,7 @@ app-sidebar-collections.no-transition {
 
 .book-card:hover .cover-wrapper {
   transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-glass-lg);
 }
 
 /* Buttons (Grid) */
