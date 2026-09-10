@@ -23,6 +23,9 @@ Items are grouped by area and sorted by impact × effort priority within each gr
 
 ## Recently Completed
 
+- **Work / Multi-Edition Grouping & Matching Engine** (September 2026) — Group multiple editions (eBook, Audiobook, Physical) under a shared WorkModel, edition switcher on Book Detail page, format chips on Library cards, and smart non-collapsing title/author matcher.
+- **Library Preferences & State Persistence** (September 2026) — Centralized `LibraryPreferencesService` persisting viewMode, activeSort, pageSize, sidebarExpanded across browser reloads.
+- **Collections Sidebar Polish** (September 2026) — Persistent collapsed/expanded state, real-time live status count badges, refined tree action animations without layout jumps.
 - **Backup & Restore System** (April 2026) — Automated scheduling, manual triggers, disk scanning, and integrity verification.
 - **Maintenance Mode Middleware** (April 2026) — Standardized API protection during restore operations.
 - **Project Standardization** (April 2026) — Port 5099, absolute path database resolution, and PM2 integration.
