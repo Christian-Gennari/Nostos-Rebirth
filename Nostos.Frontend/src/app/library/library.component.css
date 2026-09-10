@@ -339,7 +339,7 @@ app-sidebar-collections.no-transition {
 
 /* Suppress full-cover edit/delete overlay when interacting with the format badge/dropdown */
 .cover-wrapper:has(.format-badge.interactive:hover) .actions-overlay,
-.cover-wrapper:has(.edition-dropdown) .actions-overlay {
+.book-card:has(.edition-dropdown) .actions-overlay {
   opacity: 0 !important;
   pointer-events: none !important;
 }
@@ -350,20 +350,45 @@ app-sidebar-collections.no-transition {
   transform: scale(0.95);
 }
 
+.sheet-handle {
+  display: none;
+}
+
+.edition-sheet-backdrop {
+  display: none;
+}
+
 /* Edition Dropdown Popover */
 .edition-dropdown {
   position: absolute;
-  bottom: 34px;
-  right: 8px;
-  width: 190px;
+  bottom: 96px;
+  right: 4px;
+  width: 216px;
+  max-width: min(250px, calc(100vw - 32px));
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-  padding: 4px;
-  z-index: 25;
+  border-radius: var(--radius-md, 8px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 6px;
+  z-index: 70;
   cursor: default;
   text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  box-sizing: border-box;
+  animation: dropdownPop 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dropdownPop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .edition-dropdown-header {
@@ -372,9 +397,9 @@ app-sidebar-collections.no-transition {
   color: var(--color-text-light);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 6px 8px 4px;
+  padding: 4px 6px 6px;
   border-bottom: 1px solid var(--border-color);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .edition-dropdown-item {
@@ -382,10 +407,12 @@ app-sidebar-collections.no-transition {
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-sm, 6px);
   cursor: pointer;
-  transition: background 0.12s ease;
+  transition: all 0.12s ease;
   color: var(--color-text-muted);
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .edition-dropdown-item:hover {
@@ -396,23 +423,54 @@ app-sidebar-collections.no-transition {
 .edition-dropdown-item.active {
   background: var(--color-accent-bg);
   color: var(--color-primary);
-  font-weight: var(--fw-medium);
+}
+
+.edition-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--border-color) 40%, transparent);
+  color: var(--color-text-muted);
+}
+
+.edition-dropdown-item.active .edition-icon {
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  color: var(--color-primary);
 }
 
 .edition-item-text {
   display: flex;
   flex-direction: column;
+  gap: 1px;
   min-width: 0;
+  flex: 1;
 }
 
 .edition-name {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+  font-weight: var(--fw-semibold);
   line-height: 1.2;
 }
 
 .edition-sub {
   font-size: 0.68rem;
   color: var(--color-text-light);
+  line-height: 1.1;
+}
+
+.active-indicator {
+  font-size: 0.62rem;
+  font-weight: var(--fw-medium);
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  color: var(--color-primary);
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
 }
 
 .format-cell-wrapper {
@@ -427,9 +485,9 @@ app-sidebar-collections.no-transition {
 .format-cell-wrapper .edition-dropdown {
   top: 100%;
   bottom: auto;
-  left: 0;
-  right: auto;
-  margin-top: 4px;
+  right: 0;
+  left: auto;
+  margin-top: 6px;
 }
 
 /* --- GRID VIEW --- */
@@ -704,17 +762,18 @@ app-sidebar-collections.no-transition {
 
   /* 5. Toolbar Tweaks */
   .toolbar {
-    padding: 1rem 1.5rem;
-    flex-direction: column; /* NEW: Stack items vertically on mobile */
+    padding: 12px 14px 10px;
+    flex-direction: column;
     align-items: stretch;
     height: auto;
-    gap: 1rem;
+    gap: 10px;
   }
 
   .search-icon {
-    position: fixed;
-    left: 35px;
-    top: 80px;
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
   }
 
   /* Adjust order so Search comes after Title but before Controls */
@@ -725,11 +784,23 @@ app-sidebar-collections.no-transition {
   .search-bar-container {
     max-width: 100%; /* Full width on mobile */
     order: 2;
+    position: relative;
   }
 
   .toolbar-right {
-    justify-content: space-between; /* Spread controls out */
+    justify-content: flex-end;
+    gap: 8px;
     order: 1;
+    width: 100%;
+    padding-left: 44px; /* Room for mobile collections button on top-left */
+  }
+
+  .toolbar-right .select-wrapper {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .toolbar-right .sort-select {
     width: 100%;
   }
 
@@ -762,5 +833,94 @@ app-sidebar-collections.no-transition {
   .col.rating,
   .col.date {
     display: none !important;
+  }
+
+  .book-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1.25rem 0.85rem !important;
+    padding: 0 0.85rem 8rem !important;
+  }
+
+  /* Mobile bottom sheet for Available Formats */
+  .edition-sheet-backdrop {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--overlay-medium);
+    z-index: 140;
+    backdrop-filter: blur(3px);
+  }
+
+  .sheet-handle {
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border-color);
+    margin: 0 auto 10px;
+  }
+
+  .edition-dropdown,
+  .book-card .edition-dropdown,
+  .format-cell-wrapper .edition-dropdown {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 16px 16px 0 0 !important;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.25) !important;
+    padding: 14px 16px calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+    z-index: 150 !important;
+    border: none !important;
+    border-top: 1px solid var(--border-color) !important;
+    gap: 6px !important;
+    animation: slideUpSheet 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  .edition-dropdown-header {
+    font-size: 0.72rem;
+    padding: 0 4px 8px;
+    margin-bottom: 4px;
+  }
+
+  .edition-dropdown-item {
+    padding: 10px 12px;
+    border-radius: 8px;
+    gap: 12px;
+  }
+
+  .edition-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .edition-name {
+    font-size: 0.88rem;
+  }
+
+  .edition-sub {
+    font-size: 0.74rem;
+  }
+
+  .active-indicator {
+    font-size: 0.68rem;
+    padding: 3px 7px;
+  }
+}
+
+@keyframes slideUpSheet {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }

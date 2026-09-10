@@ -113,8 +113,17 @@ export class Library implements OnInit {
   activeEditionMenuId = signal<string | null>(null);
 
   toggleEditionMenu(bookId: string, event: Event): void {
+    event.preventDefault();
     event.stopPropagation();
     this.activeEditionMenuId.update((current) => (current === bookId ? null : bookId));
+  }
+
+  closeEditionMenu(event?: Event): void {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    this.activeEditionMenuId.set(null);
   }
 
   @HostListener('document:click')
@@ -320,6 +329,7 @@ export class Library implements OnInit {
   }
 
   openEdition(editionId: string, event: Event): void {
+    event.preventDefault();
     event.stopPropagation();
     this.activeEditionMenuId.set(null);
     void this.router.navigate(['/library', editionId]);
