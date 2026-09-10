@@ -201,7 +201,8 @@ app-sidebar-collections.no-transition {
 
 /* --- LIST VIEW --- */
 .table-view {
-  --table-grid-cols: 2fr 1.5fr 100px 1fr 60px 80px;
+  --table-grid-cols: minmax(260px, 3.2fr) minmax(130px, 1.6fr) 90px 90px 100px 70px;
+  width: 100%;
   padding-bottom: 7.5rem;
 }
 
@@ -220,36 +221,119 @@ app-sidebar-collections.no-transition {
 .table-row {
   display: grid;
   grid-template-columns: var(--table-grid-cols);
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid transparent;
   align-items: center;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border-color);
   cursor: pointer;
-  transition: background 0.1s ease;
+  transition: background 0.12s ease;
   font-size: 0.95rem;
   color: var(--color-text-main);
-  border-radius: var(--radius-sm);
 }
 
 .table-row:hover {
   background: var(--bg-hover);
-  box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
 }
 
 .table-row .actions-cell {
-  opacity: 0;
-  transition: opacity 0.2s;
   display: flex;
   justify-content: flex-end;
+  gap: 2px;
 }
 
-.table-row:hover .actions-cell {
+.table-row .actions-cell .icon-btn {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.table-row:hover .actions-cell .icon-btn {
   opacity: 1;
+}
+
+.table-row .actions-cell .icon-btn:focus-visible {
+  opacity: 1;
+}
+
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+.icon-btn:hover {
+  background: var(--bg-surface);
+  color: var(--color-text-main);
+}
+
+.icon-btn.delete:hover {
+  color: var(--color-error, #e53935);
 }
 
 .col.title {
   font-weight: var(--fw-medium);
   display: flex;
   align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+/* Cover thumbnail in the list/title column */
+.list-cover-frame {
+  width: 32px;
+  height: 46px;
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+}
+
+.list-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.list-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-light);
+  background: var(--bg-surface);
+}
+
+.list-title-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.list-book-title {
+  font-weight: var(--fw-semibold, 600);
+  color: var(--color-text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.88rem;
+}
+
+.list-book-subtitle {
+  font-size: 0.75rem;
+  color: var(--color-text-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .col.author {
@@ -261,13 +345,23 @@ app-sidebar-collections.no-transition {
   align-items: center;
 }
 
+.unrated-dash {
+  color: var(--color-text-light);
+  font-size: 0.85rem;
+  opacity: 0.4;
+}
+
+.col.date {
+  font-size: 0.82rem;
+  color: var(--color-text-light);
+}
+
 /* Buttons (List) */
 .fav-btn-list,
 .finished-btn-list {
   background: none;
   border: none;
   padding: 0;
-  margin-right: 0.5rem;
   cursor: pointer;
   display: inline-flex;
   vertical-align: middle;
@@ -345,13 +439,41 @@ app-sidebar-collections.no-transition {
   transform: translateY(0) scale(1);
 }
 
-.format-cell-wrapper {
-  position: relative;
-  display: inline-block;
+/* --- FORMAT CELL (LIST/TABLE) --- */
+.table-view .format-cell-wrapper {
+  display: inline-flex;
+  align-items: center;
 }
 
-.format-cell-wrapper .format-badge {
-  position: static;
+.table-view .format-badge {
+  position: static !important;
+  opacity: 1 !important;
+  transform: none !important;
+  pointer-events: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3.5px !important;
+  height: 20px !important;
+  padding: 0 7px !important;
+  border-radius: 999px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--color-text-muted) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.table-view .format-badge.micro-glyphs {
+  gap: 4px !important;
+  padding: 0 6px !important;
+}
+
+.table-view .format-badge lucide-icon svg {
+  stroke: currentColor !important;
+  color: currentColor !important;
 }
 
 /* --- GRID VIEW --- */
@@ -559,6 +681,12 @@ app-sidebar-collections.no-transition {
   width: 100%;
   aspect-ratio: 2/3;
   border-radius: var(--radius-md);
+}
+.skeleton-block.list-cover-skeleton {
+  width: 32px;
+  height: 46px;
+  border-radius: 3px;
+  flex-shrink: 0;
 }
 .skeleton-line {
   height: 1.5rem;
