@@ -17,6 +17,15 @@ public static class LibraryIdentityBackfill
     public static async Task BackfillAsync(NostosDbContext db, CancellationToken ct = default)
     {
         var books = await db.Books.ToListAsync(ct);
+        var works = await db.Works.ToListAsync(ct);
+
+        // Work identity is deliberately a pair rather than a title-only key:
+        // the same title by different authors is a different work. Reusing
+        // this map also makes the operation idempotent for several legacy
+        // books that arrive in the same batch.
+        var worksByIdentity = works
+            .GroupBy(w => (w.NormalizedTitle, NormalizedAuthor: w.NormalizedAuthor ?? string.Empty))
+            .ToDictionary(g => g.Key, g => g.First());
 
         // Preflight: map every claimed identifier to its book BEFORE writing
         // anything. Conflicting rows must fail startup with an actionable
@@ -67,7 +76,8 @@ public static class LibraryIdentityBackfill
                 "Repair these books before startup. " + string.Join("; ", shown) + more);
         }
 
-        // Apply the (safe) diffs; books are tracked so a single save persists.
+        // Apply the (safe) diffs; books and any new works are tracked so a
+        // single save persists the complete relationship graph.
         var dirty = false;
         foreach (var book in books)
         {
@@ -78,6 +88,50 @@ public static class LibraryIdentityBackfill
                 book.NormalizedAsin = nAsin;
                 dirty = true;
             }
+
+            // A required WorkId was introduced after legacy books already
+            // existed. A zero id, or an id whose parent was deleted, is
+            // repaired from the same canonical title/author identity used by
+            // the live matching service.
+            var existingWork = book.WorkId == Guid.Empty
+                ? null
+                : works.FirstOrDefault(w => w.Id == book.WorkId);
+            if (existingWork is null)
+            {
+                var nTitle = BookIdentityNormalizer.NormalizeTitle(book.Title);
+                var nAuthor = BookIdentityNormalizer.NormalizeAuthor(book.Author);
+                var key = (nTitle, nAuthor);
+
+                if (!worksByIdentity.TryGetValue(key, out var work))
+                {
+                    work = new WorkModel
+                    {
+                        Id = Guid.NewGuid(),
+                        Title = book.Title,
+                        Author = book.Author,
+                        NormalizedTitle = nTitle,
+                        NormalizedAuthor = nAuthor,
+                        CreatedAt = book.CreatedAt,
+                    };
+                    db.Works.Add(work);
+                    works.Add(work);
+                    worksByIdentity[key] = work;
+                }
+
+                book.WorkId = work.Id;
+                book.Work = work;
+                dirty = true;
+            }
+        }
+
+        // The migration uses a zero-GUID placeholder solely to make the
+        // SQLite foreign-key transition safe. Once all books have real work
+        // ids it must not remain as a visible orphan row.
+        var placeholder = works.FirstOrDefault(w => w.Id == Guid.Empty);
+        if (placeholder is not null && !books.Any(b => b.WorkId == Guid.Empty))
+        {
+            db.Works.Remove(placeholder);
+            dirty = true;
         }
 
         if (dirty)

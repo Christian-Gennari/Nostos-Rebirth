@@ -18,6 +18,20 @@ public record BookChapterDto(string Title, double StartTime);
 // Separate DTO for the heavy locations JSON to avoid bloating the main list
 public record BookLocationsDto(string Locations);
 
+public record EditionSummaryDto(
+    Guid Id,
+    string Type,
+    string? Format,
+    int ProgressPercent,
+    DateTime? FinishedAt,
+    DateTime? LastReadAt,
+    bool HasFile,
+    string? FileName,
+    string? Narrator,
+    string? Duration,
+    string? Edition
+);
+
 public record BookDto(
     string Type,
     Guid Id,
@@ -52,7 +66,10 @@ public record BookDto(
     string? PersonalReview,
     DateTime? LastReadAt,
     DateTime? FinishedAt,
-    IEnumerable<BookChapterDto>? Chapters
+    IEnumerable<BookChapterDto>? Chapters,
+    Guid? WorkId = null,
+    int EditionCount = 1,
+    IEnumerable<EditionSummaryDto>? OtherEditions = null
 );
 
 public record CreateBookDto(

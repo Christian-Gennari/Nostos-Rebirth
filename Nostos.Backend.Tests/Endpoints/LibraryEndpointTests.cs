@@ -593,6 +593,80 @@ public sealed class LibraryEndpointTests : IClassFixture<LibraryEndpointFactory>
         counts.Sum(c => c.BookCount).Should().Be(2);
     }
 
+    [Fact]
+    public async Task Work_edition_grouping_creates_separate_entities_sharing_same_work_id()
+    {
+        var title = $"The Devils {Guid.NewGuid():N}";
+        var author = "Fyodor Dostoevsky";
+
+        // 1. Create EPUB (eBook)
+        var ebookResp = await Client.PostAsJsonAsync("/api/books", new
+        {
+            type = "ebook",
+            title,
+            author,
+        });
+        ebookResp.StatusCode.Should().Be(HttpStatusCode.Created);
+        var ebook = (await ebookResp.Content.ReadFromJsonAsync<BookDto>())!;
+        ebook.WorkId.Should().NotBeNull();
+        ebook.WorkId.Should().NotBe(Guid.Empty);
+
+        // 2. Create Audiobook of the same Work (same title + author)
+        var audioResp = await Client.PostAsJsonAsync("/api/books", new
+        {
+            type = "audiobook",
+            title,
+            author,
+            narrator = "George Guidall",
+            duration = "26h 15m",
+        });
+        audioResp.StatusCode.Should().Be(HttpStatusCode.Created);
+        var audio = (await audioResp.Content.ReadFromJsonAsync<BookDto>())!;
+
+        // Different book entities in the database
+        audio.Id.Should().NotBe(ebook.Id);
+        audio.Type.Should().Be("audiobook");
+        ebook.Type.Should().Be("ebook");
+
+        // But both share the exact same WorkId!
+        audio.WorkId.Should().Be(ebook.WorkId);
+
+        try
+        {
+            // 3. Re-adding an eBook of the same work matches the existing eBook edition
+            var dupEbookResp = await Client.PostAsJsonAsync("/api/books", new
+            {
+                type = "ebook",
+                title,
+                author,
+            });
+            dupEbookResp.StatusCode.Should().Be(HttpStatusCode.OK); // matched!
+            var dupEbook = (await dupEbookResp.Content.ReadFromJsonAsync<BookDto>())!;
+            dupEbook.Id.Should().Be(ebook.Id);
+
+            // 4. Query with groupByWork=true returns 1 primary card representing the Work
+            var listResp = await Client.GetAsync($"/api/books?search={title}&groupByWork=true");
+            listResp.StatusCode.Should().Be(HttpStatusCode.OK);
+            var page = (await listResp.Content.ReadFromJsonAsync<PaginatedResponse<BookDto>>())!;
+            page.TotalCount.Should().Be(1);
+            var workCard = page.Items.Single();
+            workCard.WorkId.Should().Be(ebook.WorkId);
+            workCard.EditionCount.Should().Be(2);
+            workCard.OtherEditions.Should().NotBeNull();
+            workCard.OtherEditions!.Should().HaveCount(1);
+        }
+        finally
+        {
+            await Client.DeleteAsync($"/api/books/{ebook.Id}");
+            await Client.DeleteAsync($"/api/books/{audio.Id}");
+        }
+
+        // 5. Deleting all editions prunes the Work record from the database
+        await using var db = await OpenDbAsync();
+        var workRemaining = await db.Works.FindAsync(ebook.WorkId!.Value);
+        workRemaining.Should().BeNull();
+    }
+
     // ------------------------------------------------------------------
 
     private async Task<NostosDbContext> OpenDbAsync()

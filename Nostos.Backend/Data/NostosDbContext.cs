@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data.Models;
+using Nostos.Backend.Services.Library;
 
 namespace Nostos.Backend.Data;
 
@@ -12,6 +13,7 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
     public DbSet<PhysicalBookModel> PhysicalBooks => Set<PhysicalBookModel>();
     public DbSet<EBookModel> EBooks => Set<EBookModel>();
     public DbSet<AudioBookModel> AudioBooks => Set<AudioBookModel>();
+    public DbSet<WorkModel> Works => Set<WorkModel>();
 
     // Register the Base class (writings)
     public DbSet<WritingModel> Writings => Set<WritingModel>();
@@ -25,6 +27,109 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
     // Register Library domain (issue #34)
     public DbSet<LibraryCommandReceipt> LibraryCommandReceipts => Set<LibraryCommandReceipt>();
     public DbSet<LibraryState> LibraryStates => Set<LibraryState>();
+
+    // A few legacy import/repository paths still add a BookModel directly.
+    // Keep those writes valid now that WorkId is a required foreign key. The
+    // library service always assigns the work explicitly; this is only a
+    // compatibility guard for rows that arrive with the old default value.
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        AssignMissingWorks();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override int SaveChanges() => SaveChanges(acceptAllChangesOnSuccess: true);
+
+    public override Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default)
+    {
+        return SaveChangesAsyncCore(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
+        SaveChangesAsyncCore(acceptAllChangesOnSuccess: true, cancellationToken);
+
+    private async Task<int> SaveChangesAsyncCore(
+        bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken)
+    {
+        await AssignMissingWorksAsync(cancellationToken);
+        return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void AssignMissingWorks()
+    {
+        var pending = MissingWorkBooks();
+        if (pending.Count == 0)
+            return;
+
+        var works = Works.Local.ToList();
+        foreach (var book in pending)
+        {
+            var normalizedTitle = BookIdentityNormalizer.NormalizeTitle(book.Title);
+            var normalizedAuthor = BookIdentityNormalizer.NormalizeAuthor(book.Author);
+            var work = works.FirstOrDefault(w =>
+                w.NormalizedTitle == normalizedTitle &&
+                w.NormalizedAuthor == normalizedAuthor);
+
+            if (work is null)
+            {
+                work = new WorkModel
+                {
+                    Title = book.Title,
+                    Author = book.Author,
+                    NormalizedTitle = normalizedTitle,
+                    NormalizedAuthor = normalizedAuthor,
+                    CreatedAt = book.CreatedAt,
+                };
+                Works.Add(work);
+                works.Add(work);
+            }
+
+            book.Work = work;
+            book.WorkId = work.Id;
+        }
+    }
+
+    private async Task AssignMissingWorksAsync(CancellationToken cancellationToken)
+    {
+        var pending = MissingWorkBooks();
+        if (pending.Count == 0)
+            return;
+
+        var works = await Works.ToListAsync(cancellationToken);
+        foreach (var book in pending)
+        {
+            var normalizedTitle = BookIdentityNormalizer.NormalizeTitle(book.Title);
+            var normalizedAuthor = BookIdentityNormalizer.NormalizeAuthor(book.Author);
+            var work = works.FirstOrDefault(w =>
+                w.NormalizedTitle == normalizedTitle &&
+                w.NormalizedAuthor == normalizedAuthor);
+
+            if (work is null)
+            {
+                work = new WorkModel
+                {
+                    Title = book.Title,
+                    Author = book.Author,
+                    NormalizedTitle = normalizedTitle,
+                    NormalizedAuthor = normalizedAuthor,
+                    CreatedAt = book.CreatedAt,
+                };
+                Works.Add(work);
+                works.Add(work);
+            }
+
+            book.Work = work;
+            book.WorkId = work.Id;
+        }
+    }
+
+    private List<BookModel> MissingWorkBooks() => ChangeTracker.Entries<BookModel>()
+        .Where(entry => entry.State == EntityState.Added && entry.Entity.WorkId == Guid.Empty)
+        .Select(entry => entry.Entity)
+        .ToList();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -72,6 +177,24 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
         modelBuilder.Entity<BookModel>().HasIndex(b => b.Author);
 
         modelBuilder.Entity<BookModel>().HasIndex(b => b.CollectionId);
+
+        modelBuilder.Entity<WorkModel>(b =>
+        {
+            b.HasKey(w => w.Id);
+            b.Property(w => w.Title).IsRequired();
+            b.Property(w => w.NormalizedTitle).IsRequired();
+            b.HasIndex(w => w.NormalizedTitle);
+            b.HasIndex(w => w.NormalizedAuthor);
+        });
+
+        modelBuilder.Entity<BookModel>(b =>
+        {
+            b.HasOne(bm => bm.Work)
+                .WithMany(w => w.Books)
+                .HasForeignKey(bm => bm.WorkId)
+                .OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(bm => bm.WorkId);
+        });
 
         // Normalized identity uniqueness (filtered: NULLs are unlimited).
         modelBuilder.Entity<BookModel>()

@@ -21,6 +21,7 @@ public interface ILibraryService
         int page,
         int pageSize,
         Guid? collectionId,
+        bool? groupByWork = false,
         CancellationToken ct = default);
 
     Task<LibraryCommandResultDto> GetStatusCountsAsync(CancellationToken ct = default);

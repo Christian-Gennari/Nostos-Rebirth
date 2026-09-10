@@ -46,6 +46,7 @@ public sealed class LibraryService : ILibraryService
         int page,
         int pageSize,
         Guid? collectionId,
+        bool? groupByWork = false,
         CancellationToken ct = default)
     {
         await using var db = await _contexts.CreateDbContextAsync(ct);
@@ -87,26 +88,102 @@ public sealed class LibraryService : ILibraryService
             query = query.Where(b => b.CollectionId.HasValue && subtreeIds.Contains(b.CollectionId.Value));
         }
 
-        query = sort switch
+        PaginatedResponse<BookDto> pageResult;
+        int totalCount;
+        if (groupByWork == true)
         {
-            BookSort.Title => query.OrderBy(b => b.Title),
-            BookSort.Rating => query.OrderByDescending(b => b.Progress.Rating),
-            BookSort.LastRead => query.OrderByDescending(b => b.Progress.LastReadAt.HasValue)
-                .ThenByDescending(b => b.Progress.LastReadAt),
-            _ => query.OrderByDescending(b => b.CreatedAt),
-        };
+            // Group after all book-level filters have been applied, but before
+            // pagination. A work therefore occupies one page slot while the
+            // primary still reflects the filtered result (for example, a
+            // favorites query can select a favorite edition).
+            var candidates = await query
+                .Include(b => b.Work)
+                .ToListAsync(ct);
 
-        var totalCount = await query.CountAsync(ct);
-        var items = await query
-            .Skip((safePage - 1) * safePageSize)
-            .Take(safePageSize)
-            .ToListAsync(ct);
+            var candidateWorkIds = candidates.Select(c => c.WorkId).Distinct().ToList();
+            var siblingBooks = await db.Books.AsNoTracking()
+                .Where(b => candidateWorkIds.Contains(b.WorkId))
+                .ToListAsync(ct);
+            var siblingsByWork = siblingBooks
+                .GroupBy(b => b.WorkId)
+                .ToDictionary(g => g.Key, g => g.ToList());
 
-        var pageResult = new PaginatedResponse<BookDto>(
-            items.Select(b => b.ToDto()),
-            totalCount,
-            safePage,
-            safePageSize);
+            var grouped = candidates
+                .GroupBy(b => b.WorkId)
+                .Select(g =>
+                {
+                    var primary = SelectPrimaryEdition(g);
+                    var allEditions = siblingsByWork.GetValueOrDefault(primary.WorkId) ?? g.ToList();
+                    var dto = primary.ToDto() with
+                    {
+                        WorkId = primary.WorkId,
+                        EditionCount = allEditions.Count,
+                        OtherEditions = allEditions
+                            .Where(b => b.Id != primary.Id)
+                            .Select(MappingExtensions.ToEditionSummary)
+                            .ToList(),
+                    };
+                    return new GroupedBook(primary, dto);
+                })
+                .ToList();
+
+            grouped = SortGroupedBooks(grouped, sort).ToList();
+            totalCount = grouped.Count;
+            pageResult = new PaginatedResponse<BookDto>(
+                grouped
+                    .Skip((safePage - 1) * safePageSize)
+                    .Take(safePageSize)
+                    .Select(g => g.Dto),
+                totalCount,
+                safePage,
+                safePageSize);
+        }
+        else
+        {
+            query = sort switch
+            {
+                BookSort.Title => query.OrderBy(b => b.Title),
+                BookSort.Rating => query.OrderByDescending(b => b.Progress.Rating),
+                BookSort.LastRead => query.OrderByDescending(b => b.Progress.LastReadAt.HasValue)
+                    .ThenByDescending(b => b.Progress.LastReadAt),
+                _ => query.OrderByDescending(b => b.CreatedAt),
+            };
+
+            totalCount = await query.CountAsync(ct);
+            var items = await query
+                .Include(b => b.Work)
+                .Skip((safePage - 1) * safePageSize)
+                .Take(safePageSize)
+                .ToListAsync(ct);
+
+            var pageWorkIds = items.Select(b => b.WorkId).Distinct().ToList();
+            var pageSiblings = await db.Books.AsNoTracking()
+                .Where(b => pageWorkIds.Contains(b.WorkId))
+                .ToListAsync(ct);
+            var pageSiblingsByWork = pageSiblings
+                .GroupBy(b => b.WorkId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var dtoList = items.Select(b =>
+            {
+                var siblings = pageSiblingsByWork.GetValueOrDefault(b.WorkId) ?? [b];
+                return b.ToDto() with
+                {
+                    WorkId = b.WorkId,
+                    EditionCount = siblings.Count,
+                    OtherEditions = siblings
+                        .Where(s => s.Id != b.Id)
+                        .Select(MappingExtensions.ToEditionSummary)
+                        .ToList()
+                };
+            }).ToList();
+
+            pageResult = new PaginatedResponse<BookDto>(
+                dtoList,
+                totalCount,
+                safePage,
+                safePageSize);
+        }
 
         return Result(LibraryReplyFormatter.BookList(totalCount), pageResult, version);
     }
@@ -397,6 +474,20 @@ public sealed class LibraryService : ILibraryService
         try
         {
             await db.SaveChangesAsync(ct);
+
+            if (book.WorkId != Guid.Empty)
+            {
+                var remainingInWork = await db.Books.AnyAsync(b => b.WorkId == book.WorkId, ct);
+                if (!remainingInWork)
+                {
+                    var work = await db.Works.FindAsync(new object[] { book.WorkId }, ct);
+                    if (work is not null)
+                    {
+                        db.Works.Remove(work);
+                        await db.SaveChangesAsync(ct);
+                    }
+                }
+            }
         }
         catch (DbUpdateException)
         {
@@ -512,6 +603,7 @@ public sealed class LibraryService : ILibraryService
         //    identifier matches above always win over forceCreate. Exact
         //    matching requires BOTH title and author: title-only requests
         //    yield candidates below, never an automatic match.
+        Guid? targetWorkId = null;
         if (!request.ForceCreate && !string.IsNullOrEmpty(nTitle))
         {
             var all = await db.Books.AsNoTracking().ToListAsync(ct);
@@ -524,22 +616,42 @@ public sealed class LibraryService : ILibraryService
                     .ToList()
                 : [];
 
-            if (exact.Count == 1)
-                return NoChange(Result(
-                    LibraryReplyFormatter.BookMatched(exact[0].Title),
-                    new LibraryCreateOrMatchResultDto("matched", exact[0].Id, exact[0].ToDto()),
-                    state.StateVersion));
-
-            if (exact.Count > 1)
+            if (exact.Count > 0)
             {
-                var candidates = exact
-                    .Select(b => ToCandidate(b, "exact title" + (string.IsNullOrEmpty(nAuthor) ? "" : "+author match")))
-                    .ToList();
-                if (strictConfirmation)
-                    return NoChange(Failure("confirmation_required",
-                        LibraryReplyFormatter.ConfirmationRequired(candidates.Count),
-                        state.StateVersion, candidates));
-                // Non-strict (legacy REST path): create anyway, as before.
+                targetWorkId = exact[0].WorkId;
+
+                var sameTypeEdition = exact.FirstOrDefault(b =>
+                    (normalizedType == "audiobook" && b is AudioBookModel) ||
+                    (normalizedType == "ebook" && b is EBookModel) ||
+                    (normalizedType == "physical" && b is PhysicalBookModel));
+
+                if (sameTypeEdition != null)
+                {
+                    var sameTypeCandidates = exact.Where(b => b.GetType() == sameTypeEdition.GetType()).ToList();
+                    if (sameTypeCandidates.Count > 1)
+                    {
+                        if (strictConfirmation)
+                        {
+                            var candidates = sameTypeCandidates
+                                .Select(b => ToCandidate(b, "exact title" + (string.IsNullOrEmpty(nAuthor) ? "" : "+author match")))
+                                .ToList();
+                            return NoChange(Failure("confirmation_required",
+                                LibraryReplyFormatter.ConfirmationRequired(candidates.Count),
+                                state.StateVersion, candidates));
+                        }
+                        // Non-strict (legacy REST path): multiple same-type editions exist; create anyway as before.
+                    }
+                    else
+                    {
+                        return NoChange(Result(
+                            LibraryReplyFormatter.BookMatched(sameTypeEdition.Title),
+                            new LibraryCreateOrMatchResultDto("matched", sameTypeEdition.Id, sameTypeEdition.ToDto()),
+                            state.StateVersion));
+                    }
+                }
+
+                // If same work exists but in different format/type:
+                // We do not return matched! We proceed to create the new edition attached to targetWorkId.
             }
             else if (string.IsNullOrEmpty(nAuthor) && strictConfirmation)
             {
@@ -607,6 +719,34 @@ public sealed class LibraryService : ILibraryService
         var (normIsbn, normAsin) = LibraryIdentityBackfill.ComputeNormalizedIdentity(model);
         model.NormalizedIsbn = normIsbn;
         model.NormalizedAsin = normAsin;
+
+        if (targetWorkId.HasValue && targetWorkId.Value != Guid.Empty)
+        {
+            model.WorkId = targetWorkId.Value;
+        }
+        else
+        {
+            var work = await db.Works.FirstOrDefaultAsync(w =>
+                w.NormalizedTitle == nTitle &&
+                w.NormalizedAuthor == (string.IsNullOrEmpty(nAuthor) ? null : nAuthor), ct);
+
+            if (work is null)
+            {
+                work = new WorkModel
+                {
+                    Id = Guid.NewGuid(),
+                    Title = request.Title,
+                    Author = request.Author,
+                    NormalizedTitle = nTitle,
+                    NormalizedAuthor = string.IsNullOrEmpty(nAuthor) ? null : nAuthor,
+                    CreatedAt = DateTime.UtcNow,
+                };
+                db.Works.Add(work);
+            }
+
+            model.WorkId = work.Id;
+            model.Work = work;
+        }
 
         db.Books.Add(model);
         try
@@ -1150,6 +1290,29 @@ public sealed class LibraryService : ILibraryService
             },
             book is AudioBookModel a ? a.Asin : null,
             reason);
+
+    private sealed record GroupedBook(BookModel Primary, BookDto Dto);
+
+    private static BookModel SelectPrimaryEdition(IEnumerable<BookModel> editions) => editions
+        .OrderByDescending(b => b.Progress.LastReadAt.HasValue)
+        .ThenByDescending(b => b.Progress.LastReadAt)
+        .ThenByDescending(b => b.Progress.ProgressPercent)
+        .ThenBy(b => b.CreatedAt)
+        .ThenBy(b => b.Id)
+        .First();
+
+    private static IEnumerable<GroupedBook> SortGroupedBooks(
+        IEnumerable<GroupedBook> books,
+        BookSort sort) => sort switch
+        {
+            BookSort.Title => books.OrderBy(b => b.Primary.Title).ThenBy(b => b.Primary.Id),
+            BookSort.Rating => books.OrderByDescending(b => b.Primary.Progress.Rating).ThenBy(b => b.Primary.Id),
+            BookSort.LastRead => books
+                .OrderByDescending(b => b.Primary.Progress.LastReadAt.HasValue)
+                .ThenByDescending(b => b.Primary.Progress.LastReadAt)
+                .ThenBy(b => b.Primary.Id),
+            _ => books.OrderByDescending(b => b.Primary.CreatedAt).ThenBy(b => b.Primary.Id),
+        };
 
     private static string? NullIfEmpty(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value;
