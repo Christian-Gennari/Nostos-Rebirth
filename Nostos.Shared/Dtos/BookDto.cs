@@ -11,7 +11,10 @@ public record LibraryStatusCountsDto(
     int Reading,
     int Favorites,
     int Finished,
-    int Unsorted);
+    int Unsorted,
+    int Audiobooks = 0,
+    int Ebooks = 0,
+    int Pdfs = 0);
 
 public record BookChapterDto(string Title, double StartTime);
 

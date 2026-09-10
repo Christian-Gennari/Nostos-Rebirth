@@ -80,6 +80,15 @@
   width: 100%;
 }
 
+.nav-section-label {
+  font-size: 0.68rem;
+  font-weight: var(--fw-semibold, 600);
+  color: var(--color-text-light);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 12px 14px 4px;
+}
+
 .nav-group.mt-auto {
   margin-top: auto;
   padding-top: 1rem;

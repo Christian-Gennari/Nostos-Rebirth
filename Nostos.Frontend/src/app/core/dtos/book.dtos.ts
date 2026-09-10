@@ -16,6 +16,9 @@ export interface LibraryStatusCountsDto {
   favorites: number;
   finished: number;
   unsorted: number;
+  audiobooks?: number;
+  ebooks?: number;
+  pdfs?: number;
 }
 
 export interface BookChapter {

@@ -26,6 +26,7 @@ public static class BooksEndpoints
                 int? pageSize,
                 Guid? collectionId,
                 bool? groupByWork,
+                string? format,
                 CancellationToken ct
             ) =>
             {
@@ -34,7 +35,7 @@ public static class BooksEndpoints
 
                 var result = await library.ListBooksAsync(
                     filterEnum, sortEnum, search, page ?? 1, pageSize ?? 20,
-                    collectionId, groupByWork, ct);
+                    collectionId, groupByWork, format, ct);
 
                 return LibraryHttpMapper.MapError(result) ?? Results.Ok(result.Data);
             }

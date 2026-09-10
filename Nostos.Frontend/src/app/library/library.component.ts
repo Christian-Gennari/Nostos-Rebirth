@@ -156,7 +156,7 @@ export class Library implements OnInit {
   showEditModal = signal(false);
   editTarget = signal<Book | null>(null);
 
-  // The URL owns selection: /library?collection=<id>&filter=<name>.
+  // The URL owns selection: /library?collection=<id>&filter=<name>&format=<format>.
   // The one source of truth for collection-driven loads is the route queryParamMap.
   readonly urlSelection = toSignal(
     this.route.queryParamMap.pipe(
@@ -164,9 +164,14 @@ export class Library implements OnInit {
         collection: params.get('collection'),
         filter: params.get('filter'),
         sort: params.get('sort'),
+        format: params.get('format'),
       })),
       distinctUntilChanged(
-        (a, b) => a.collection === b.collection && a.filter === b.filter && a.sort === b.sort,
+        (a, b) =>
+          a.collection === b.collection &&
+          a.filter === b.filter &&
+          a.sort === b.sort &&
+          a.format === b.format,
       ),
     ),
     {
@@ -174,6 +179,7 @@ export class Library implements OnInit {
         collection: this.route.snapshot.queryParamMap.get('collection'),
         filter: this.route.snapshot.queryParamMap.get('filter'),
         sort: this.route.snapshot.queryParamMap.get('sort'),
+        format: this.route.snapshot.queryParamMap.get('format'),
       },
     },
   );
@@ -216,7 +222,7 @@ export class Library implements OnInit {
       this.loadingMore.set(true);
     }
 
-    const { collection, filter } = this.urlSelection();
+    const { collection, filter, format } = this.urlSelection();
     const sort = this.activeSort();
     const search = this.searchQuery();
     const page = this.currentPage();
@@ -230,6 +236,7 @@ export class Library implements OnInit {
         pageSize: this.pageSize(),
         collectionId: collection ?? undefined,
         groupByWork: this.preferences.groupByWork(),
+        format,
       })
       .subscribe({
         next: (data) => {

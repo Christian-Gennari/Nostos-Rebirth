@@ -47,6 +47,7 @@ public sealed class LibraryService : ILibraryService
         int pageSize,
         Guid? collectionId,
         bool? groupByWork = false,
+        string? format = null,
         CancellationToken ct = default)
     {
         await using var db = await _contexts.CreateDbContextAsync(ct);
@@ -63,6 +64,27 @@ public sealed class LibraryService : ILibraryService
             var term = $"%{search}%";
             query = query.Where(b =>
                 EF.Functions.Like(b.Title, term) || EF.Functions.Like(b.Author, term));
+        }
+
+        if (!string.IsNullOrWhiteSpace(format))
+        {
+            switch (format.Trim().ToLowerInvariant())
+            {
+                case "audiobook":
+                case "audio":
+                    query = query.Where(b => b is AudioBookModel);
+                    break;
+                case "pdf":
+                    query = query.Where(b => b is EBookModel && EF.Functions.Like(b.FileDetails.FileName, "%.pdf"));
+                    break;
+                case "ebook":
+                case "epub":
+                    query = query.Where(b => b is EBookModel && (b.FileDetails.FileName == null || !EF.Functions.Like(b.FileDetails.FileName, "%.pdf")));
+                    break;
+                case "physical":
+                    query = query.Where(b => b is PhysicalBookModel);
+                    break;
+            }
         }
 
         query = filter switch
@@ -200,8 +222,14 @@ public sealed class LibraryService : ILibraryService
         var favorites = await db.Books.AsNoTracking().CountAsync(b => b.Progress.IsFavorite, ct);
         var finished = await db.Books.AsNoTracking().CountAsync(b => b.Progress.FinishedAt != null, ct);
         var unsorted = await db.Books.AsNoTracking().CountAsync(b => b.CollectionId == null, ct);
+        var audiobooks = await db.Books.AsNoTracking().OfType<AudioBookModel>().CountAsync(ct);
+        var pdfs = await db.Books.AsNoTracking().OfType<EBookModel>().CountAsync(
+            b => b.FileDetails.FileName != null && EF.Functions.Like(b.FileDetails.FileName, "%.pdf"), ct);
+        var ebooks = await db.Books.AsNoTracking().OfType<EBookModel>().CountAsync(
+            b => b.FileDetails.FileName == null || !EF.Functions.Like(b.FileDetails.FileName, "%.pdf"), ct);
 
-        var counts = new LibraryStatusCountsDto(all, notStarted, reading, favorites, finished, unsorted);
+        var counts = new LibraryStatusCountsDto(
+            all, notStarted, reading, favorites, finished, unsorted, audiobooks, ebooks, pdfs);
 
         return Result(LibraryReplyFormatter.Success("Status counts retrieved."), counts, version);
     }

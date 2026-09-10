@@ -28,6 +28,8 @@ import {
   CircleDashed,
   CheckCircle,
   Inbox,
+  Headphones,
+  FileText,
 } from 'lucide-angular';
 
 import { CollectionsService } from '../../core/services/collections.service';
@@ -75,6 +77,8 @@ export class SidebarCollections implements OnInit {
   CircleDashedIcon = CircleDashed;
   CheckCircleIcon = CheckCircle;
   InboxIcon = Inbox;
+  HeadphonesIcon = Headphones;
+  FileTextIcon = FileText;
 
   // State
   collections = signal<Collection[]>([]);

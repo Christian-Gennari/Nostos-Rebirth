@@ -19,6 +19,7 @@ export interface BookListOptions {
   pageSize?: number;
   collectionId?: string;
   groupByWork?: boolean;
+  format?: string | null;
 }
 
 export interface BookLocationsDto {
@@ -36,6 +37,7 @@ export class BooksService {
     if (options.sort) params = params.set('sort', options.sort);
     if (options.search) params = params.set('search', options.search);
     if (options.collectionId) params = params.set('collectionId', options.collectionId);
+    if (options.format) params = params.set('format', options.format);
     if (options.groupByWork !== undefined) {
       params = params.set('groupByWork', options.groupByWork.toString());
     }

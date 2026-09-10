@@ -727,6 +727,72 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
     }
 
     [Fact]
+    public async Task List_books_format_filters_include_supported_aliases_and_exclude_other_formats()
+    {
+        var h = Harness();
+        await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Physical Book", Author: "Format Tester"), strictConfirmation: true);
+        await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("audiobook", "Audio Book", Author: "Format Tester"), strictConfirmation: true);
+        await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("ebook", "EPUB Book", Author: "Format Tester"), strictConfirmation: true);
+        var pdf = (LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("ebook", "PDF Book", Author: "Format Tester"), strictConfirmation: true)).Data!;
+
+        await using (var db = await h.Factory.CreateDbContextAsync())
+        {
+            var pdfModel = await db.EBooks.SingleAsync(b => b.Id == pdf.BookId);
+            pdfModel.FileDetails.FileName = "document.pdf";
+            await db.SaveChangesAsync();
+        }
+
+        async Task<PaginatedResponse<BookDto>> ListByFormat(string format) =>
+            (PaginatedResponse<BookDto>)(await h.Service.ListBooksAsync(
+                BookFilter.All, BookSort.Title, null, 1, 100, null, format: format)).Data!;
+
+        (await ListByFormat("physical")).Items.Select(b => b.Title)
+            .Should().Equal("Physical Book");
+        (await ListByFormat("audiobook")).Items.Select(b => b.Title)
+            .Should().Equal("Audio Book");
+        (await ListByFormat("audio")).Items.Select(b => b.Title)
+            .Should().Equal("Audio Book");
+        (await ListByFormat("ebook")).Items.Select(b => b.Title)
+            .Should().Equal("EPUB Book");
+        (await ListByFormat("epub")).Items.Select(b => b.Title)
+            .Should().Equal("EPUB Book");
+        (await ListByFormat("pdf")).Items.Select(b => b.Title)
+            .Should().Equal("PDF Book");
+    }
+
+    [Fact]
+    public async Task Get_status_counts_includes_media_format_counts()
+    {
+        var h = Harness();
+        await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Physical Book", Author: "Format Tester"), strictConfirmation: true);
+        await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("audiobook", "Audio Book", Author: "Format Tester"), strictConfirmation: true);
+        await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("ebook", "EPUB Book", Author: "Format Tester"), strictConfirmation: true);
+        var pdf = (LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("ebook", "PDF Book", Author: "Format Tester"), strictConfirmation: true)).Data!;
+
+        await using (var db = await h.Factory.CreateDbContextAsync())
+        {
+            var pdfModel = await db.EBooks.SingleAsync(b => b.Id == pdf.BookId);
+            pdfModel.FileDetails.FileName = "document.pdf";
+            await db.SaveChangesAsync();
+        }
+
+        var counts = (LibraryStatusCountsDto)(await h.Service.GetStatusCountsAsync()).Data!;
+
+        counts.All.Should().Be(4);
+        counts.Audiobooks.Should().Be(1);
+        counts.Ebooks.Should().Be(1);
+        counts.Pdfs.Should().Be(1);
+    }
+
+    [Fact]
     public async Task Get_book_and_get_collection_not_found_envelopes()
     {
         var h = Harness();

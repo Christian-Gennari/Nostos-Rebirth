@@ -17,7 +17,7 @@
       <button
         class="nav-item"
         routerLink="/library"
-        [queryParams]="{ filter: null, collection: null }"
+        [queryParams]="{ filter: null, collection: null, format: null }"
         [queryParamsHandling]="'merge'"
         routerLinkActive="active"
         [routerLinkActiveOptions]="{ exact: true }"
@@ -108,6 +108,59 @@
         @if (expanded()) {
           <span class="label">Unsorted</span>
           <span class="count-badge">{{ statusCounts()?.unsorted }}</span>
+        }
+      </button>
+    </div>
+
+    @if (expanded()) {
+      <div class="nav-section-label">MEDIA</div>
+    }
+    <div class="nav-group">
+      <button
+        class="nav-item"
+        routerLink="/library"
+        [queryParams]="{ format: 'audiobook', filter: null, collection: null }"
+        [queryParamsHandling]="'merge'"
+        routerLinkActive="active"
+        title="Audiobooks"
+        (click)="onStatusNavClick()"
+      >
+        <lucide-icon [img]="HeadphonesIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
+        @if (expanded()) {
+          <span class="label">Audiobooks</span>
+          <span class="count-badge">{{ statusCounts()?.audiobooks }}</span>
+        }
+      </button>
+
+      <button
+        class="nav-item"
+        routerLink="/library"
+        [queryParams]="{ format: 'ebook', filter: null, collection: null }"
+        [queryParamsHandling]="'merge'"
+        routerLinkActive="active"
+        title="eBooks"
+        (click)="onStatusNavClick()"
+      >
+        <lucide-icon [img]="BookOpenIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
+        @if (expanded()) {
+          <span class="label">eBooks</span>
+          <span class="count-badge">{{ statusCounts()?.ebooks }}</span>
+        }
+      </button>
+
+      <button
+        class="nav-item"
+        routerLink="/library"
+        [queryParams]="{ format: 'pdf', filter: null, collection: null }"
+        [queryParamsHandling]="'merge'"
+        routerLinkActive="active"
+        title="PDFs"
+        (click)="onStatusNavClick()"
+      >
+        <lucide-icon [img]="FileTextIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
+        @if (expanded()) {
+          <span class="label">PDFs</span>
+          <span class="count-badge">{{ statusCounts()?.pdfs }}</span>
         }
       </button>
     </div>
