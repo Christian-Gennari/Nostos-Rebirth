@@ -98,7 +98,7 @@ test.describe('visual matrix — Writing Studio (fixture-served)', () => {
     try {
       await page.goto(`${fixture.baseUrl}/studio`, { waitUntil: 'domcontentloaded' });
       await page.locator('.editor-pane .empty-state').waitFor({ timeout: 30_000 });
-      await expect(page.locator('.editor-pane .empty-state p')).toContainText('Select a file to begin writing');
+      await expect(page.locator('.editor-pane .empty-state h2')).toContainText('Select a file to begin writing');
       const png = await capturePng(page, 'studio-empty-desktop');
       await writeGeometryReport(
         'studio-empty-desktop',
