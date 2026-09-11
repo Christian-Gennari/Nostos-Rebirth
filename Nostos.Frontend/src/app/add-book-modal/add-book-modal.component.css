@@ -18,6 +18,7 @@
   background: var(--bg-surface);
   border-radius: 14px;
   border: 1px solid var(--border-color);
+  overflow: clip;
   width: 100%;
   max-width: 700px;
   max-height: 90vh;
@@ -28,7 +29,7 @@
     0 4px 12px rgba(0, 0, 0, 0.08);
   transform: scale(0.95);
   opacity: 0;
-  animation: modalEnter 0.2s ease-out forwards;
+  animation: modalEnter var(--motion-base) var(--ease-out) forwards;
 }
 @keyframes modalEnter {
   to {

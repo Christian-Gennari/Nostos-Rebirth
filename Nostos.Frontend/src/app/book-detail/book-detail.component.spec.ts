@@ -131,6 +131,13 @@ describe('BookDetail reset progress', () => {
     expect(chip!.textContent).toContain('Reading');
   });
 
+  it('prompts to write the first note when the feed is empty', async () => {
+    await setup(readableBook());
+
+    const empty = fixture.nativeElement.querySelector('.notes-empty') as HTMLElement;
+    expect(empty?.textContent).toContain('first thought');
+  });
+
   it('toggles the status dropdown menu open and closed on chip click', async () => {
     await setup(readableBook());
 

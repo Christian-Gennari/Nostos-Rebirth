@@ -15,11 +15,13 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  transition: width 0.3s cubic-bezier(0.2, 0, 0, 1);
+  transition: width var(--motion-slow) var(--ease-standard);
+  animation: sidebar-enter var(--motion-base) var(--ease-out);
 }
 
 :host(.no-transition) .sidebar {
   transition: none !important;
+  animation: none !important;
 }
 
 .sidebar.collapsed {
@@ -70,7 +72,7 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  transition: padding 0.3s cubic-bezier(0.2, 0, 0, 1);
+  transition: padding var(--motion-slow) var(--ease-standard);
 }
 
 .sidebar.collapsed .nav-scroll-area {

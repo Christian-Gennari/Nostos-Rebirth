@@ -1,4 +1,4 @@
-import { Component, inject, input, output, signal, computed, effect } from '@angular/core';
+import { Component, ElementRef, HostListener, inject, input, output, signal, computed, effect, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
@@ -43,6 +43,7 @@ export class AddBookModal {
   // Tabs
   tabs = ['Book Info', 'Publishing', 'Files & Personal'] as const;
   activeTab = signal<(typeof this.tabs)[number]>('Book Info');
+  private titleInput = viewChild<ElementRef<HTMLInputElement>>('titleInput');
 
   // Computed State
   isEditMode = computed(() => !!this.book());
@@ -108,6 +109,7 @@ export class AddBookModal {
         } else {
           this.resetForm();
         }
+        setTimeout(() => this.titleInput()?.nativeElement.focus(), 0);
       }
     });
   }
@@ -354,6 +356,11 @@ export class AddBookModal {
     this.resetForm();
     this.closeModal.emit();
     this.bookAdded.emit();
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.isOpen()) this.closeModal.emit();
   }
 
   private getFullLanguageName(input: string | null): string | null {

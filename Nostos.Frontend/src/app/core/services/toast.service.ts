@@ -8,6 +8,8 @@ export interface Toast {
   type: ToastType;
 }
 
+const MAX_TOASTS = 3;
+
 @Injectable({ providedIn: 'root' })
 export class ToastService {
   private nextId = 0;
@@ -15,8 +17,16 @@ export class ToastService {
   readonly toasts = signal<Toast[]>([]);
 
   show(message: string, type: ToastType = 'info', durationMs = 4000): void {
+    const trimmed = message.trim();
+    if (!trimmed) return;
+
+    const existing = this.toasts().find((t) => t.message === trimmed && t.type === type);
+    if (existing) {
+      this.dismiss(existing.id);
+    }
+
     const id = this.nextId++;
-    this.toasts.update((list) => [...list, { id, message, type }]);
+    this.toasts.update((list) => [...list.slice(-(MAX_TOASTS - 1)), { id, message: trimmed, type }]);
 
     setTimeout(() => this.dismiss(id), durationMs);
   }

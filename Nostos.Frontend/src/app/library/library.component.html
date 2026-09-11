@@ -264,6 +264,20 @@
             </button>
           </div>
         </div>
+        } @empty {
+        <div class="books-empty-state">
+          <lucide-icon [img]="BookIcon" [size]="40" strokeWidth="1.2"></lucide-icon>
+          @if (searchQuery().trim()) {
+          <p>No books match "{{ searchQuery().trim() }}"</p>
+          <button class="btn btn-secondary" (click)="clearChip('search')">Clear search</button>
+          } @else if (activeFilterChips().length > 0) {
+          <p>Nothing matches these filters</p>
+          <button class="btn btn-secondary" (click)="filters.clearAll()">Clear filters</button>
+          } @else {
+          <p>Your library is empty</p>
+          <button class="btn btn-primary" (click)="openAddModal()">Add your first book</button>
+          }
+        </div>
         }
       </div>
       } @if (viewMode() === 'grid') {
@@ -368,6 +382,20 @@
 
         </div>
 
+        } @empty {
+        <div class="books-empty-state">
+          <lucide-icon [img]="BookIcon" [size]="40" strokeWidth="1.2"></lucide-icon>
+          @if (searchQuery().trim()) {
+          <p>No books match "{{ searchQuery().trim() }}"</p>
+          <button class="btn btn-secondary" (click)="clearChip('search')">Clear search</button>
+          } @else if (activeFilterChips().length > 0) {
+          <p>Nothing matches these filters</p>
+          <button class="btn btn-secondary" (click)="filters.clearAll()">Clear filters</button>
+          } @else {
+          <p>Your library is empty</p>
+          <button class="btn btn-primary" (click)="openAddModal()">Add your first book</button>
+          }
+        </div>
         }
       </div>
       } @if (hasMoreBooks()) {
