@@ -7,9 +7,10 @@ import {
   ChangeDetectionStrategy,
   effect,
   untracked,
+  ViewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { BooksService } from '../core/services/books.service';
 import { CollectionsService } from '../core/services/collections.service';
 import { Collection } from '../core/dtos/collection.dtos';
@@ -20,10 +21,10 @@ import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { SidebarCollections } from './sidebar-collections/sidebar-collections.component';
 import { Book, EditionSummaryDto } from '../core/dtos/book.dtos';
 import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged, map } from 'rxjs/operators';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { InfiniteScrollDirective } from '../core/directives/infinite-scroll.directive';
 import { BookSort } from '../core/dtos/book.enums';
+import { LibraryFilterService } from './library-filter.service';
 import { LibraryPreferencesService } from '../core/services/library-preferences.service';
 import { ToastService } from '../core/services/toast.service';
 import {
@@ -40,6 +41,7 @@ import {
   Search,
   ArrowUpDown,
   Loader2,
+  X,
   Headphones,
   BookOpen,
   FileText,
@@ -49,10 +51,38 @@ import {
 /** Legacy key retained for callers that need to verify the migration path. */
 export const VIEW_MODE_STORAGE_KEY = 'nostos.viewMode';
 
-function parseBookSort(value: string | null): BookSort | null {
-  return value && Object.values(BookSort).includes(value as BookSort)
-    ? (value as BookSort)
-    : null;
+function statusFilterLabel(value: string | null | undefined): string | null {
+  switch ((value ?? '').toLowerCase()) {
+    case 'notstarted':
+      return 'Not Started';
+    case 'reading':
+      return 'In Progress';
+    case 'favorites':
+      return 'Favorites';
+    case 'finished':
+      return 'Finished';
+    case 'unsorted':
+      return 'Unsorted';
+    default:
+      return null;
+  }
+}
+
+function formatFilterLabel(value: string | null | undefined): string | null {
+  switch ((value ?? '').toLowerCase()) {
+    case 'audiobook':
+    case 'audio':
+      return 'Audiobooks';
+    case 'ebook':
+    case 'epub':
+      return 'eBooks';
+    case 'pdf':
+      return 'PDFs';
+    case 'physical':
+      return 'Physical';
+    default:
+      return null;
+  }
 }
 
 type WorkFormatType = 'audio' | 'epub' | 'pdf' | 'physical';
@@ -84,8 +114,8 @@ export class Library implements OnInit {
   private booksService = inject(BooksService);
   private collectionsService = inject(CollectionsService);
   private preferences = inject(LibraryPreferencesService);
-  private route = inject(ActivatedRoute);
   private toast = inject(ToastService);
+  readonly filters = inject(LibraryFilterService);
 
   // Icons
   ListIcon = LayoutList;
@@ -97,6 +127,7 @@ export class Library implements OnInit {
   HeartIcon = Heart;
   CheckCircleIcon = CheckCircle;
   SearchIcon = Search;
+  XIcon = X;
   SortIcon = ArrowUpDown;
   LoaderIcon = Loader2;
   HeadphonesIcon = Headphones;
@@ -119,6 +150,8 @@ export class Library implements OnInit {
   rawBooks = signal<Book[]>([]);
   collections = signal<Collection[]>([]);
 
+  @ViewChild(SidebarCollections) private sidebar?: SidebarCollections;
+
   viewMode = this.preferences.viewMode;
   showAddModal = signal(false);
 
@@ -129,9 +162,7 @@ export class Library implements OnInit {
   // Search & Sort State
   searchQuery = signal('');
 
-  activeSort = signal<BookSort>(
-    parseBookSort(this.route.snapshot.queryParamMap.get('sort')) ?? this.preferences.sort(),
-  );
+  activeSort = signal<BookSort>(this.preferences.sort());
 
   private searchSubject = new Subject<string>();
 
@@ -139,39 +170,59 @@ export class Library implements OnInit {
   showEditModal = signal(false);
   editTarget = signal<Book | null>(null);
 
-  // The URL owns selection: /library?collection=<id>&filter=<name>&format=<format>.
-  // The one source of truth for collection-driven loads is the route queryParamMap.
-  readonly urlSelection = toSignal(
-    this.route.queryParamMap.pipe(
-      map((params) => ({
-        collection: params.get('collection'),
-        filter: params.get('filter'),
-        sort: params.get('sort'),
-        format: params.get('format'),
-      })),
-      distinctUntilChanged(
-        (a, b) =>
-          a.collection === b.collection &&
-          a.filter === b.filter &&
-          a.sort === b.sort &&
-          a.format === b.format,
-      ),
-    ),
-    {
-      initialValue: {
-        collection: this.route.snapshot.queryParamMap.get('collection'),
-        filter: this.route.snapshot.queryParamMap.get('filter'),
-        sort: this.route.snapshot.queryParamMap.get('sort'),
-        format: this.route.snapshot.queryParamMap.get('format'),
-      },
-    },
-  );
-
   books = computed(() => this.rawBooks());
 
   hasMoreBooks = computed(() => {
     return this.rawBooks().length < this.totalItems();
   });
+
+  pageTitle = computed(() => {
+    const search = this.searchQuery().trim();
+    if (search) return `Results for "${search}"`;
+    const parts: string[] = [];
+    const status = statusFilterLabel(this.filters.status());
+    const format = formatFilterLabel(this.filters.format());
+    if (status) parts.push(status);
+    if (format) parts.push(format);
+    let title = parts.join(' ') || 'Library';
+    const collectionName = this.collections().find((c) => c.id === this.filters.collectionId())?.name;
+    if (collectionName) title = title === 'Library' ? collectionName : `${title} in ${collectionName}`;
+    return title;
+  });
+
+  activeFilterChips = computed(() => {
+    const chips: { key: string; label: string }[] = [];
+    const status = statusFilterLabel(this.filters.status());
+    if (status) chips.push({ key: 'status', label: status });
+    const format = formatFilterLabel(this.filters.format());
+    if (format) chips.push({ key: 'format', label: format });
+    const collectionId = this.filters.collectionId();
+    if (collectionId) {
+      const name = this.collections().find((c) => c.id === collectionId)?.name ?? 'Collection';
+      chips.push({ key: 'collection', label: name });
+    }
+    const search = this.searchQuery().trim();
+    if (search) chips.push({ key: 'search', label: `"${search}"` });
+    return chips;
+  });
+
+  clearChip(key: string): void {
+    switch (key) {
+      case 'status':
+        this.filters.status.set('all');
+        break;
+      case 'format':
+        this.filters.format.set('all');
+        break;
+      case 'collection':
+        this.filters.collectionId.set(null);
+        break;
+      case 'search':
+        this.searchQuery.set('');
+        this.refreshBooks();
+        break;
+    }
+  }
 
   constructor() {
     // Search Subscription
@@ -182,14 +233,12 @@ export class Library implements OnInit {
         this.refreshBooks();
       });
 
-    // URL-driven load: exactly one refresh per collection/filter/sort change.
+    // Filter-driven load: exactly one refresh per filter change.
     effect(() => {
-      const selection = this.urlSelection();
-      untracked(() => {
-        const routeSort = parseBookSort(selection.sort);
-        if (routeSort) this.activeSort.set(routeSort);
-        this.refreshBooks();
-      });
+      this.filters.status();
+      this.filters.format();
+      this.filters.collectionId();
+      untracked(() => this.refreshBooks());
     });
   }
 
@@ -205,7 +254,9 @@ export class Library implements OnInit {
       this.loadingMore.set(true);
     }
 
-    const { collection, filter, format } = this.urlSelection();
+    const status = this.filters.status();
+    const format = this.filters.format();
+    const collectionId = this.filters.collectionId();
     const sort = this.activeSort();
     const search = this.searchQuery();
     const page = this.currentPage();
@@ -216,14 +267,14 @@ export class Library implements OnInit {
 
     this.booksService
       .list({
-        filter: filter ?? undefined,
+        filter: status === 'all' ? undefined : status,
         sort,
         search,
         page,
         pageSize,
-        collectionId: collection ?? undefined,
+        collectionId: collectionId ?? undefined,
         groupByWork: this.preferences.groupByWork(),
-        format,
+        format: format === 'all' ? null : format,
       })
       .subscribe({
         next: (data) => {
@@ -258,7 +309,8 @@ export class Library implements OnInit {
   }
 
   setSort(sort: BookSort | string): void {
-    const parsedSort = parseBookSort(sort);
+    const parsedSort =
+      sort && Object.values(BookSort).includes(sort as BookSort) ? (sort as BookSort) : null;
     if (!parsedSort) return;
 
     this.activeSort.set(parsedSort);
@@ -291,7 +343,44 @@ export class Library implements OnInit {
 
   onBookUpdated(updated: Book): void {
     this.refreshBooks(true, false);
+    this.refreshStatusCounts();
     this.closeEditModal();
+  }
+
+  onBookAdded(): void {
+    this.refreshBooks();
+    this.refreshStatusCounts();
+  }
+
+  private matchesActiveFilter(book: Book): boolean {
+    switch (this.filters.status()) {
+      case 'favorites':
+        return book.isFavorite;
+      case 'finished':
+        return !!book.finishedAt;
+      case 'reading':
+        return !book.finishedAt && book.progressPercent > 0;
+      case 'notstarted':
+        return book.progressPercent === 0;
+      case 'unsorted':
+        return !book.collectionId;
+      default:
+        return true;
+    }
+  }
+
+  private syncToggledBook(updated: Book): void {
+    if (this.matchesActiveFilter(updated)) {
+      this.rawBooks.update((books) => books.map((b) => (b.id === updated.id ? updated : b)));
+    } else {
+      this.rawBooks.update((books) => books.filter((b) => b.id !== updated.id));
+      this.totalItems.update((c) => Math.max(0, c - 1));
+    }
+    this.refreshStatusCounts();
+  }
+
+  private refreshStatusCounts(): void {
+    this.sidebar?.loadStatusCounts();
   }
 
   getFormatLabel(book: Book | EditionSummaryDto): string {
@@ -375,6 +464,7 @@ export class Library implements OnInit {
       next: () => {
         this.rawBooks.update((books) => books.filter((b) => b.id !== id));
         this.totalItems.update((c) => c - 1);
+        this.refreshStatusCounts();
       },
     });
   }
@@ -389,6 +479,7 @@ export class Library implements OnInit {
     );
 
     this.booksService.update(book.id, { isFavorite: newStatus }).subscribe({
+      next: (updated) => this.syncToggledBook(updated),
       error: () => {
         this.rawBooks.update((books) =>
           books.map((b) => (b.id === book.id ? { ...b, isFavorite: !newStatus } : b)),
@@ -416,6 +507,7 @@ export class Library implements OnInit {
     );
 
     this.booksService.update(book.id, { isFinished: newIsFinished }).subscribe({
+      next: (updated) => this.syncToggledBook(updated),
       error: () => {
         this.rawBooks.update((books) =>
           books.map((b) =>

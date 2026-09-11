@@ -16,13 +16,9 @@
     <div class="nav-group">
       <button
         class="nav-item"
-        routerLink="/library"
-        [queryParams]="{ filter: null, collection: null, format: null }"
-        [queryParamsHandling]="'merge'"
-        routerLinkActive="active"
-        [routerLinkActiveOptions]="{ exact: true }"
+        (click)="clearFilters()"
+        [class.active]="!hasSelection()"
         title="All Books"
-        (click)="onStatusNavClick()"
       >
         <lucide-icon [img]="LibraryIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
         @if (expanded()) {
@@ -33,12 +29,9 @@
 
       <button
         class="nav-item"
-        routerLink="/library"
-        [queryParams]="{ filter: 'notstarted' }"
-        [queryParamsHandling]="'merge'"
-        routerLinkActive="active"
+        (click)="toggleStatus('notstarted')"
+        [class.active]="filters.status() === 'notstarted'"
         title="Not Started"
-        (click)="onStatusNavClick()"
       >
         <lucide-icon [img]="CircleDashedIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
         @if (expanded()) {
@@ -49,12 +42,9 @@
 
       <button
         class="nav-item"
-        routerLink="/library"
-        [queryParams]="{ filter: 'reading' }"
-        [queryParamsHandling]="'merge'"
-        routerLinkActive="active"
+        (click)="toggleStatus('reading')"
+        [class.active]="filters.status() === 'reading'"
         title="In Progress"
-        (click)="onStatusNavClick()"
       >
         <lucide-icon [img]="BookOpenIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
         @if (expanded()) {
@@ -65,12 +55,9 @@
 
       <button
         class="nav-item"
-        routerLink="/library"
-        [queryParams]="{ filter: 'favorites' }"
-        [queryParamsHandling]="'merge'"
-        routerLinkActive="active"
+        (click)="toggleStatus('favorites')"
+        [class.active]="filters.status() === 'favorites'"
         title="Favorites"
-        (click)="onStatusNavClick()"
       >
         <lucide-icon [img]="HeartIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
         @if (expanded()) {
@@ -81,12 +68,9 @@
 
       <button
         class="nav-item"
-        routerLink="/library"
-        [queryParams]="{ filter: 'finished' }"
-        [queryParamsHandling]="'merge'"
-        routerLinkActive="active"
+        (click)="toggleStatus('finished')"
+        [class.active]="filters.status() === 'finished'"
         title="Finished"
-        (click)="onStatusNavClick()"
       >
         <lucide-icon [img]="CheckCircleIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
         @if (expanded()) {
@@ -97,12 +81,9 @@
 
       <button
         class="nav-item"
-        routerLink="/library"
-        [queryParams]="{ filter: 'unsorted' }"
-        [queryParamsHandling]="'merge'"
-        routerLinkActive="active"
+        (click)="toggleStatus('unsorted')"
+        [class.active]="filters.status() === 'unsorted'"
         title="Unsorted"
-        (click)="onStatusNavClick()"
       >
         <lucide-icon [img]="InboxIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
         @if (expanded()) {
@@ -118,12 +99,9 @@
       }
       <button
         class="nav-item"
-        routerLink="/library"
-        [queryParams]="{ format: 'audiobook', filter: null, collection: null }"
-        [queryParamsHandling]="'merge'"
-        routerLinkActive="active"
+        (click)="toggleFormat('audiobook')"
+        [class.active]="filters.format() === 'audiobook'"
         title="Audiobooks"
-        (click)="onStatusNavClick()"
       >
         <lucide-icon [img]="HeadphonesIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
         @if (expanded()) {
@@ -134,12 +112,9 @@
 
       <button
         class="nav-item"
-        routerLink="/library"
-        [queryParams]="{ format: 'ebook', filter: null, collection: null }"
-        [queryParamsHandling]="'merge'"
-        routerLinkActive="active"
+        (click)="toggleFormat('ebook')"
+        [class.active]="filters.format() === 'ebook'"
         title="eBooks"
-        (click)="onStatusNavClick()"
       >
         <lucide-icon [img]="BookOpenIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
         @if (expanded()) {
@@ -150,12 +125,9 @@
 
       <button
         class="nav-item"
-        routerLink="/library"
-        [queryParams]="{ format: 'pdf', filter: null, collection: null }"
-        [queryParamsHandling]="'merge'"
-        routerLinkActive="active"
+        (click)="toggleFormat('pdf')"
+        [class.active]="filters.format() === 'pdf'"
         title="PDFs"
-        (click)="onStatusNavClick()"
       >
         <lucide-icon [img]="FileTextIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
         @if (expanded()) {
@@ -174,7 +146,7 @@
         <div class="root-drop-list" [style.min-height]="'50px'">
           <app-flat-tree
             [items]="treeItems()"
-            [activeId]="activeId()"
+            [activeId]="filters.collectionId()"
             [editingId]="editingId()"
             [treatAllAsFolders]="true"
             [emptyLabel]="'No collections yet'"
@@ -217,11 +189,11 @@
   </div>
 
   <div class="sidebar-footer">
-    @if (!expanded() && activeId()) {
+    @if (!expanded() && filters.collectionId()) {
       <span
         class="collapsed-collection-indicator"
         role="status"
-        [attr.title]="'Viewing ' + (getNameForId(activeId()!) || 'collection')"
+        [attr.title]="'Viewing ' + (getNameForId(filters.collectionId()!) || 'collection')"
         aria-label="A collection is selected"
       >
         <lucide-icon [img]="FolderIcon" [size]="14" strokeWidth="1.5"></lucide-icon>

@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
-import { provideRouter, Router } from '@angular/router';
+import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
 import { Library } from './library.component';
@@ -19,7 +19,6 @@ class DummyComponent {}
 describe('Library', () => {
   let component: Library;
   let fixture: ComponentFixture<Library>;
-  let router: Router;
   let listSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
@@ -55,7 +54,6 @@ describe('Library', () => {
       ],
     }).compileComponents();
 
-    router = TestBed.inject(Router);
     fixture = TestBed.createComponent(Library);
     component = fixture.componentInstance;
     await fixture.whenStable();
@@ -70,12 +68,11 @@ describe('Library', () => {
     expect(listSpy.mock.calls[0][0].collectionId).toBeUndefined();
   });
 
-  it('one collection change triggers exactly one books request with collectionId', async () => {
+  it('one collection change triggers exactly one books request with collectionId', () => {
     listSpy.mockClear();
 
-    await router.navigate(['/library'], { queryParams: { collection: 'c1' } });
-    fixture.detectChanges();
-    await fixture.whenStable();
+    component.filters.toggleCollection('c1');
+    TestBed.flushEffects();
 
     const collectionCalls = listSpy.mock.calls.filter(
       (args: unknown[]) => (args[0] as { collectionId?: string }).collectionId !== undefined,
@@ -84,31 +81,25 @@ describe('Library', () => {
     expect((collectionCalls[0][0] as { collectionId: string }).collectionId).toBe('c1');
   });
 
-  it('restores grid filtering from the collection query param', async () => {
-    await router.navigate(['/library'], { queryParams: { collection: 'c1' } });
-    fixture.detectChanges();
-    await fixture.whenStable();
-
-    expect(component.urlSelection().collection).toBe('c1');
-    expect(listSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ collectionId: 'c1' }),
-    );
-  });
-
-  it('clearing selection removes the query param and reloads all books', async () => {
-    await router.navigate(['/library'], { queryParams: { collection: 'c1' } });
-    fixture.detectChanges();
-    await fixture.whenStable();
+  it('requests books for the selected collection', () => {
     listSpy.mockClear();
 
-    await router.navigate(['/library'], {
-      queryParams: { collection: null },
-      queryParamsHandling: 'merge',
-    });
-    fixture.detectChanges();
-    await fixture.whenStable();
+    component.filters.toggleCollection('c1');
+    TestBed.flushEffects();
 
-    expect(router.url).not.toContain('collection=');
+    expect(component.filters.collectionId()).toBe('c1');
+    expect(listSpy).toHaveBeenCalledWith(expect.objectContaining({ collectionId: 'c1' }));
+  });
+
+  it('toggling the collection off reloads all books', () => {
+    component.filters.toggleCollection('c1');
+    TestBed.flushEffects();
+    listSpy.mockClear();
+
+    component.filters.toggleCollection('c1');
+    TestBed.flushEffects();
+
+    expect(component.filters.collectionId()).toBeNull();
     expect(listSpy).toHaveBeenCalledTimes(1);
     expect(listSpy.mock.calls[0][0].collectionId).toBeUndefined();
   });
@@ -134,28 +125,13 @@ describe('Library', () => {
     expect(readingTooltips).toHaveLength(0);
   });
 
-  it('restores the filter from the initial URL and requests filtered books', async () => {
-    await router.navigate(['/library'], { queryParams: { filter: 'notstarted' } });
+  it('filter changes trigger exactly one books request', () => {
     listSpy.mockClear();
 
-    fixture.destroy();
-    fixture = TestBed.createComponent(Library);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-    await fixture.whenStable();
+    component.filters.toggleStatus('reading');
+    TestBed.flushEffects();
 
-    expect(component.urlSelection().filter).toBe('notstarted');
-    expect(listSpy).toHaveBeenCalledWith(expect.objectContaining({ filter: 'notstarted' }));
-  });
-
-  it('URL changes (history-driven) update the active filter request', async () => {
-    listSpy.mockClear();
-
-    await router.navigate(['/library'], { queryParams: { filter: 'reading' } });
-    fixture.detectChanges();
-    await fixture.whenStable();
-
-    expect(component.urlSelection().filter).toBe('reading');
+    expect(listSpy).toHaveBeenCalledTimes(1);
     expect(listSpy).toHaveBeenCalledWith(expect.objectContaining({ filter: 'reading' }));
   });
 
@@ -196,5 +172,57 @@ describe('Library', () => {
 
     expect(component.activeSort()).toBe(BookSort.Title);
     expect(preferences.sort()).toBe(BookSort.Title);
+  });
+
+  it('initializes the sort from preferences (not the URL)', () => {
+    expect(component.activeSort()).toBe(TestBed.inject(LibraryPreferencesService).sort());
+  });
+
+  it('shows "Library" with no chips when no filter is active', () => {
+    expect(component.pageTitle()).toBe('Library');
+    expect(component.activeFilterChips()).toEqual([]);
+    expect(fixture.nativeElement.querySelector('.active-filters')).toBeNull();
+  });
+
+  it('reflects a status filter in the title and chips', () => {
+    component.filters.toggleStatus('reading');
+    fixture.detectChanges();
+
+    expect(component.pageTitle()).toBe('In Progress');
+    expect(component.activeFilterChips()).toEqual([{ key: 'status', label: 'In Progress' }]);
+    expect(fixture.nativeElement.querySelector('.active-filters')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('#library-title').textContent).toContain(
+      'In Progress',
+    );
+  });
+
+  it('combines format and collection in the title and chips', () => {
+    component.collections.set([{ id: 'c1', name: 'Science Fiction', parentId: null }]);
+    component.filters.toggleFormat('audiobook');
+    component.filters.toggleCollection('c1');
+    fixture.detectChanges();
+
+    expect(component.pageTitle()).toBe('Audiobooks in Science Fiction');
+    expect(component.activeFilterChips()).toEqual([
+      { key: 'format', label: 'Audiobooks' },
+      { key: 'collection', label: 'Science Fiction' },
+    ]);
+  });
+
+  it('clearing a chip resets just that filter and reloads', () => {
+    component.filters.toggleStatus('finished');
+    component.filters.toggleFormat('ebook');
+    TestBed.flushEffects();
+    expect(component.activeFilterChips().length).toBe(2);
+    listSpy.mockClear();
+
+    component.clearChip('status');
+    TestBed.flushEffects();
+
+    expect(component.filters.status()).toBe('all');
+    expect(component.filters.format()).toBe('ebook');
+    expect(listSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ filter: undefined, format: 'ebook' }),
+    );
   });
 });

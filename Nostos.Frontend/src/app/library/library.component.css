@@ -83,6 +83,36 @@ app-sidebar-collections.no-transition {
   font-weight: var(--fw-medium);
   margin: 0;
   white-space: nowrap; /* Prevent title from wrapping */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0 3rem;
+  margin: -1rem 0 1.5rem;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.4rem 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: var(--fw-medium);
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+  border-radius: var(--radius-full, 999px);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.filter-chip:hover {
+  background: color-mix(in srgb, var(--color-primary) 22%, transparent);
 }
 
 /* NEW: Search Bar Styles */
@@ -801,6 +831,11 @@ app-sidebar-collections.no-transition {
   /* Adjust order so Search comes after Title but before Controls */
   .toolbar h1 {
     display: none;
+  }
+
+  .active-filters {
+    padding: 0 14px;
+    margin: -0.5rem 0 1rem;
   }
 
   .search-bar-container {
