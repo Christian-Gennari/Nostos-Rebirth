@@ -1062,7 +1062,7 @@ app-sidebar-collections.no-transition {
     height: 38px;
     font-size: 0.82rem;
     border-radius: var(--radius-md, 4px);
-    background-color: var(--bg-hover);
+    background-color: var(--bg-surface);
     border: 1px solid var(--border-color);
   }
 
@@ -1073,16 +1073,16 @@ app-sidebar-collections.no-transition {
     box-sizing: border-box;
     align-items: center;
     background: var(--bg-hover);
-    border: 1px solid var(--border-color);
+    border: none;
+    gap: 2px;
   }
 
   .toggle-opt {
-    height: 30px;
-    width: 30px;
+    height: 32px;
+    padding: 4px 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0;
     border-radius: var(--radius-sm, 3px);
   }
 
