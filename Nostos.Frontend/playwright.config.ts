@@ -34,7 +34,10 @@ export default defineConfig({
     {
       name: 'desktop-chromium',
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
-      testIgnore: [/mobile.*\.spec\.ts/],
+      // Anchored to the file NAME: an unanchored /mobile.*\.spec\.ts/ also
+      // matches the checkout path, so a worktree whose directory contains
+      // "mobile" makes this project ignore every spec ("No tests found").
+      testIgnore: [/[\\/]mobile[^\\/]*\.spec\.ts$/],
     },
     {
       name: 'mobile-chromium',
@@ -45,7 +48,7 @@ export default defineConfig({
         hasTouch: true,
         deviceScaleFactor: 2,
       },
-      testMatch: [/mobile.*\.spec\.ts/],
+      testMatch: [/[\\/]mobile[^\\/]*\.spec\.ts$/],
     },
   ],
 });
