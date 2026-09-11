@@ -8,5 +8,6 @@ public interface IFileStorageService
     void DeleteBookFiles(Guid bookId);
     Task<string> SaveBookCoverAsync(Guid bookId, IFormFile file);
     string? GetBookCoverPath(Guid bookId);
+    Task<string?> GetBookCoverThumbnailPathAsync(Guid bookId, int width, CancellationToken ct = default);
     bool DeleteCover(Guid bookId);
 }

@@ -173,7 +173,7 @@
 
             <div class="list-cover-frame">
               @if (book.coverUrl) {
-                <img [src]="book.coverUrl" [alt]="book.title" class="list-cover-img" loading="lazy" />
+                <img [src]="getLibraryCoverUrl(book.coverUrl)" [alt]="book.title" class="list-cover-img" loading="lazy" decoding="async" />
               } @else {
                 <div class="list-cover-placeholder">
                   <lucide-icon [img]="BookIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
@@ -263,7 +263,7 @@
           <div class="cover-wrapper">
             @if (book.coverUrl) {
             <img
-              [src]="book.coverUrl"
+              [src]="getLibraryCoverUrl(book.coverUrl)"
               class="cover-image"
               alt="{{ book.title }} cover"
               loading="lazy"

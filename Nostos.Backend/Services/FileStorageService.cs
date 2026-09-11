@@ -1,3 +1,7 @@
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Webp;
+using SixLabors.ImageSharp.Processing;
+
 namespace Nostos.Backend.Services;
 
 public class FileStorageService : IFileStorageService
@@ -193,6 +197,41 @@ public class FileStorageService : IFileStorageService
         return Directory
             .EnumerateFiles(folder, "cover.*")
             .FirstOrDefault(f => _allowedCoverExtensions.Contains(Path.GetExtension(f)));
+    }
+
+    public async Task<string?> GetBookCoverThumbnailPathAsync(
+        Guid bookId,
+        int width,
+        CancellationToken ct = default
+    )
+    {
+        var coverPath = GetBookCoverPath(bookId);
+        if (coverPath is null)
+            return null;
+
+        var safeWidth = Math.Clamp(width, 120, 640);
+        var thumbnailPath = Path.Combine(
+            Path.GetDirectoryName(coverPath)!,
+            $"cover-thumb-{safeWidth}.webp"
+        );
+
+        if (File.Exists(thumbnailPath))
+            return thumbnailPath;
+
+        using var image = await Image.LoadAsync(coverPath, ct);
+        image.Mutate(context => context.Resize(new ResizeOptions
+        {
+            Size = new Size(safeWidth, 0),
+            Mode = ResizeMode.Max,
+        }));
+
+        await image.SaveAsWebpAsync(
+            thumbnailPath,
+            new WebpEncoder { Quality = 82 },
+            ct
+        );
+
+        return thumbnailPath;
     }
 
     public bool DeleteCover(Guid bookId)

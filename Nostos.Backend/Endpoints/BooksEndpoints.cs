@@ -287,6 +287,22 @@ public static class BooksEndpoints
             }
         );
 
+        // Download a cached, resized WebP cover for card/list views
+        group.MapGet(
+            "/{id}/cover/thumbnail",
+            async (Guid id, int? width, IFileStorageService storage, CancellationToken ct) =>
+            {
+                var thumbnailPath = await storage.GetBookCoverThumbnailPathAsync(
+                    id,
+                    width ?? 320,
+                    ct
+                );
+                return thumbnailPath is null
+                    ? Results.NotFound()
+                    : Results.File(thumbnailPath, "image/webp");
+            }
+        );
+
         // Download cover
         group.MapGet(
             "/{id}/cover",

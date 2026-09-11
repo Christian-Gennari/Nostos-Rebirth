@@ -328,6 +328,11 @@ export class Library implements OnInit {
     }
   }
 
+  getLibraryCoverUrl(coverUrl: string | null): string | null {
+    if (!coverUrl) return null;
+    return `${coverUrl}/thumbnail?width=320`;
+  }
+
   getBookRouteId(book: Book): string {
     return this.preferences.getActiveEditionId(book.workId, book.id);
   }
