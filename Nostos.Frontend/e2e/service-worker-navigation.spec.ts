@@ -102,13 +102,27 @@ test('an API download navigation is never answered with the app shell', async ({
   let download: Download | null = null;
   probe.on('download', (d) => (download = d));
 
-  const response = await probe.goto(appUrl(`/api/books/${bookId}/file/download`)).catch(() => null);
+  let abortMessage = '';
+  const response = await probe.goto(appUrl(`/api/books/${bookId}/file/download`)).catch((err: Error) => {
+    abortMessage = err.message;
+    return null;
+  });
 
-  // The app-shell interception is identifiable: 200 + text/html served from the
-  // worker's app-shell cache, which then boots Angular and redirects to /library.
-  const contentType = response?.headers()['content-type'] ?? '';
-  expect(contentType, 'the API navigation must not be the Angular shell').not.toContain('text/html');
-  expect(await probe.title(), 'the API navigation must not boot the app').not.toContain('Nostos');
+  if (response === null) {
+    // Correct behaviour: the response is an attachment, so Chrome aborts the
+    // navigation and hands the payload to the download manager instead.
+    expect(abortMessage, 'a rejected navigation must be the download abort').toMatch(
+      /ERR_ABORTED|Download is starting/i
+    );
+  } else {
+    // Wrong behaviour, and the exact user-visible symptom: the worker answered
+    // from the app-shell cache with index.html, which booted Angular and
+    // redirected to /library because of the router's `**` route.
+    expect(response.headers()['content-type'] ?? '', 'the API navigation must not be the Angular shell').not.toContain(
+      'text/html'
+    );
+    expect(await probe.title(), 'the API navigation must not boot the app').not.toContain('Nostos');
+  }
 
   await expect.poll(() => download !== null, { message: 'the download never started' }).toBe(true);
   await expectExactFile(download!);
