@@ -1,6 +1,6 @@
-<main class="layout-wrapper" [class.sidebar-collapsed]="!sidebar.expanded()">
-  @if (sidebar.expanded()) {
-  <div class="mobile-backdrop" (click)="sidebar.toggle()"></div>
+<main class="layout-wrapper" [class.sidebar-collapsed]="!sidebarExpanded()">
+  @if (sidebarExpanded()) {
+  <div class="mobile-backdrop" (click)="toggleSidebar()"></div>
   }
   <app-sidebar-collections
     class="sidebar-panel"

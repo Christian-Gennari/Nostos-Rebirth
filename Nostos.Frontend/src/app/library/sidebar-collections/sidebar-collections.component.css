@@ -43,8 +43,11 @@
   animation: sidebar-enter var(--motion-base) var(--ease-out);
 }
 
-:host(.no-transition) .sidebar {
-  animation: none !important;
+:host(.no-transition),
+:host(.no-transition) *,
+:host(.no-transition) *::before,
+:host(.no-transition) *::after {
+  transition: none !important;
 }
 
 /* BRAND */

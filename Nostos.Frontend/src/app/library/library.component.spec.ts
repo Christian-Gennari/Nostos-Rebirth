@@ -443,6 +443,20 @@ describe('Library', () => {
     expect(document.body.classList.contains('nostos-library')).toBe(false);
   });
 
+  it('reflects sidebarExpanded on layout-wrapper directly without depending on child initialization', () => {
+    const preferences = TestBed.inject(LibraryPreferencesService);
+    preferences.setSidebarExpanded(false);
+    fixture.detectChanges();
+
+    const wrapper = fixture.nativeElement.querySelector('.layout-wrapper') as HTMLElement;
+    expect(wrapper.classList.contains('sidebar-collapsed')).toBe(true);
+
+    component.toggleSidebar();
+    fixture.detectChanges();
+    expect(preferences.sidebarExpanded()).toBe(true);
+    expect(wrapper.classList.contains('sidebar-collapsed')).toBe(false);
+  });
+
   it('cross-fades instead of flashing the skeleton when re-entering the library', () => {
     // First visit: the skeleton is legitimate and the results are now known.
     expect(component.loading()).toBe(false);

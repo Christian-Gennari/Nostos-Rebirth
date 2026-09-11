@@ -189,7 +189,12 @@ export class Library implements OnInit, OnDestroy {
   @ViewChild(SidebarCollections) private sidebar?: SidebarCollections;
 
   viewMode = this.preferences.viewMode;
+  readonly sidebarExpanded = this.preferences.sidebarExpanded;
   showAddModal = signal(false);
+
+  toggleSidebar(): void {
+    this.preferences.setSidebarExpanded(!this.sidebarExpanded());
+  }
 
   setViewMode(mode: 'list' | 'grid'): void {
     this.preferences.setViewMode(mode);
