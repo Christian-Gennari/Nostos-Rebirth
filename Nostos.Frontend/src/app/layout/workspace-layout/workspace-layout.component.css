@@ -28,9 +28,26 @@
   }
 }
 
+.workspace-content:has(.settings-page) {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 @media (max-width: 768px) {
   /* Mobile library uses the workspace page scroll rather than a fixed-height
      nested scroller, so touch swipes can continue through the whole grid. */
+  .workspace-layout:has(.settings-page) {
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .workspace-content:has(.settings-page) {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+    padding-bottom: 96px;
+  }
+
   .workspace-layout:has(.library-right-side) {
     height: auto;
     min-height: 100dvh;
