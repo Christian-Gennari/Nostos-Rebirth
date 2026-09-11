@@ -1,5 +1,14 @@
-import { Component, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive, Router } from '@angular/router';
+import {
+  Component,
+  ElementRef,
+  HostListener,
+  afterNextRender,
+  inject,
+  viewChild,
+} from '@angular/core';
+import { RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { filter } from 'rxjs/operators';
 import { LucideAngularModule, Library, PenTool, BrainCog, Settings } from 'lucide-angular';
 import { NavigationHistoryService } from '../../core/services/navigation-history.service';
 import { LibraryFilterService } from '../../library/library-filter.service';
@@ -10,7 +19,8 @@ import { LibraryFilterService } from '../../library/library-filter.service';
   imports: [RouterLink, RouterLinkActive, LucideAngularModule],
   template: `
     <nav class="app-dock-container" aria-label="Main navigation">
-      <div class="dock-bar">
+      <div class="dock-bar" #dockBar>
+        <span class="dock-pill" aria-hidden="true"></span>
         <a
           [routerLink]="getLink('/library')"
           (click)="handleDockClick('/library', $event)"
@@ -78,11 +88,27 @@ import { LibraryFilterService } from '../../library/library-filter.service';
       }
 
       .dock-bar {
+        position: relative;
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 2px;
         padding: 3px 6px;
+      }
+
+      .dock-pill {
+        position: absolute;
+        bottom: 3px;
+        left: 0;
+        height: 2px;
+        width: 0;
+        background: var(--color-accent);
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          transform var(--motion-base) var(--ease-spring),
+          width var(--motion-base) var(--ease-spring),
+          opacity var(--motion-fast) ease;
       }
 
       .dock-item {
@@ -102,9 +128,8 @@ import { LibraryFilterService } from '../../library/library-filter.service';
         font-family: 'Hanken Grotesk', sans-serif;
         text-decoration: none;
         transition:
-          background-color 160ms ease,
-          border-color 160ms ease,
-          color 160ms ease;
+          background-color var(--motion-fast) ease,
+          color var(--motion-fast) ease;
       }
 
       .dock-item:hover {
@@ -118,7 +143,7 @@ import { LibraryFilterService } from '../../library/library-filter.service';
       }
 
       .dock-item.active {
-        border-bottom-color: var(--color-accent);
+        border-bottom-color: transparent;
         background: transparent;
         color: var(--color-primary);
       }
@@ -185,7 +210,8 @@ import { LibraryFilterService } from '../../library/library-filter.service';
 
       @media (prefers-reduced-motion: reduce) {
         :host,
-        .dock-item {
+        .dock-item,
+        .dock-pill {
           transition: none;
         }
       }
@@ -201,6 +227,40 @@ export class AppDockComponent {
   BrainIcon = BrainCog;
   PenToolIcon = PenTool;
   SettingsIcon = Settings;
+
+  private dockBar = viewChild<ElementRef<HTMLElement>>('dockBar');
+
+  constructor() {
+    this.router.events
+      .pipe(filter((event) => event instanceof NavigationEnd), takeUntilDestroyed())
+      .subscribe(() => this.movePill());
+    afterNextRender(() => this.movePill());
+  }
+
+  @HostListener('window:resize')
+  onResize(): void {
+    this.movePill();
+  }
+
+  private movePill(): void {
+    // routerLinkActive settles on the next frame; measure after that so the
+    // pill never chases a stale item.
+    requestAnimationFrame(() => {
+      const bar = this.dockBar()?.nativeElement;
+      const pill = bar?.querySelector<HTMLElement>('.dock-pill');
+      if (!bar || !pill) return;
+      const active = bar.querySelector<HTMLElement>('.dock-item.active');
+      if (!active) {
+        pill.style.opacity = '0';
+        return;
+      }
+      const barRect = bar.getBoundingClientRect();
+      const itemRect = active.getBoundingClientRect();
+      pill.style.opacity = '1';
+      pill.style.width = `${Math.max(0, itemRect.width - 24)}px`;
+      pill.style.transform = `translateX(${itemRect.left - barRect.left + 12}px)`;
+    });
+  }
 
   getLink(prefix: string): string {
     return this.historyService.getLastUrl(prefix);
