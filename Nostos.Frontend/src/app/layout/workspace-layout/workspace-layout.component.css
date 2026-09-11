@@ -23,10 +23,15 @@
     padding-bottom: 64px;
   }
 
-  /* The global navigation is a full-width editorial rail on desktop. */
-  .workspace-layout app-app-dock {
-    left: 0;
-    width: 100%;
+  /* The global navigation belongs to the content region, not the sidebar. */
+  .workspace-layout:has(.layout-wrapper:not(.sidebar-collapsed)) app-app-dock {
+    left: 301px;
+    width: calc(100% - 301px);
+  }
+
+  .workspace-layout:has(.layout-wrapper.sidebar-collapsed) app-app-dock {
+    left: 72px;
+    width: calc(100% - 72px);
   }
 }
 
