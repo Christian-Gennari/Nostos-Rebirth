@@ -466,6 +466,8 @@
                 (delete)="onDeleteNote($event)"
                 (conceptClick)="onConceptClick($event)"
               ></app-note-card>
+              } @empty {
+              <p class="notes-empty">No notes yet — jot down your first thought above.</p>
               }
             </div>
           </div>
