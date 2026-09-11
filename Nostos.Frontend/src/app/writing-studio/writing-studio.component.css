@@ -87,10 +87,11 @@
 
 .sidebar-title-row h2 {
   font-family: 'Newsreader', serif;
-  font-size: 1.25rem;
+  font-size: 1.4rem;
   font-weight: 600;
   color: var(--color-text-main);
   text-transform: none;
+  letter-spacing: -0.01em;
   margin: 0;
 }
 
@@ -188,14 +189,18 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  background: var(--bg-body);
+  background: var(--bg-input);
   border: 1px solid var(--border-color);
   padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   color: var(--color-text-muted);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .search-box:focus-within {
-  border-color: var(--border-focus);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--border-focus);
   color: var(--color-text-main);
 }
 .search-box input {
@@ -203,7 +208,7 @@
   background: 0 0;
   outline: 0;
   width: 100%;
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   font-family: 'Hanken Grotesk', sans-serif;
   color: var(--color-text-main);
 }
