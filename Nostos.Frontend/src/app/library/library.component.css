@@ -201,10 +201,18 @@ app-sidebar-collections.no-transition {
   /* Absolutely placed, not a flex sibling: in the flow its 18px box pushed the
      visible input 9px right of the container's centre, so the box on screen was
      never the box that was centred. Lifted out, `width: 100%` on the input spans
-     the container exactly and the icon sits at the same left offset. Matches the
-     mobile rule below. */
+     the container exactly and the icon sits at the same left offset.
+
+     12px inset, matching the mobile rule below. The input reserves a 2.5rem
+     (40px) left gutter for the text, so a 12px inset + the 18px glyph leaves an
+     11px gap between icon and text - balanced against the 12px edge inset
+     (measured: inset 12, gap 11). The old 28px was a leftover from when this
+     element was a `position: relative` flex sibling, where the value offset the
+     glyph from its layout box; once it became absolute it placed the glyph's left
+     EDGE at 28px instead, putting its right edge 5px past the start of the text
+     and overlapping the first glyph at every width. */
   position: absolute;
-  left: 28px;
+  left: 12px;
   top: 50%;
   transform: translateY(-50%);
   color: var(--color-text-light);
