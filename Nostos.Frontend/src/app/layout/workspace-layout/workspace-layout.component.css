@@ -20,18 +20,7 @@
    rail/content boundary. */
 @media (min-width: 769px) {
   .workspace-content {
-    padding-bottom: 32px;
-  }
-
-  /* Float the dock over the usable content area, never over the sidebar. */
-  .workspace-layout:has(.layout-wrapper:not(.sidebar-collapsed)) app-app-dock {
-    left: calc(301px + (100% - 301px) / 2);
-    width: auto;
-  }
-
-  .workspace-layout:has(.layout-wrapper.sidebar-collapsed) app-app-dock {
-    left: calc(72px + (100% - 72px) / 2);
-    width: auto;
+    padding-bottom: 0;
   }
 }
 

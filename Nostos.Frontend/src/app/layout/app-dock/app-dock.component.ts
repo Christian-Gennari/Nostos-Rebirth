@@ -61,15 +61,12 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
       :host {
         position: fixed;
         bottom: 24px;
-        left: 50%;
+        left: calc(301px + (100vw - 301px) / 2);
         z-index: 50;
         width: auto;
         padding: 0;
         transform: translateX(-50%);
-        transition:
-          left 220ms cubic-bezier(0.22, 1, 0.36, 1),
-          opacity 180ms ease,
-          transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+        transition: opacity 180ms ease;
       }
 
       .app-dock-container {
