@@ -20,18 +20,18 @@
    rail/content boundary. */
 @media (min-width: 769px) {
   .workspace-content {
-    padding-bottom: 64px;
+    padding-bottom: 32px;
   }
 
-  /* The global navigation belongs to the content region, not the sidebar. */
+  /* Float the dock over the usable content area, never over the sidebar. */
   .workspace-layout:has(.layout-wrapper:not(.sidebar-collapsed)) app-app-dock {
-    left: 301px;
-    width: calc(100% - 301px);
+    left: calc(301px + (100% - 301px) / 2);
+    width: auto;
   }
 
   .workspace-layout:has(.layout-wrapper.sidebar-collapsed) app-app-dock {
-    left: 72px;
-    width: calc(100% - 72px);
+    left: calc(72px + (100% - 72px) / 2);
+    width: auto;
   }
 }
 
