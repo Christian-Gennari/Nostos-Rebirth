@@ -289,10 +289,19 @@
    them. They never size the row, so hiding them moves nothing. The counter
    selectors are qualified the same way as their own rules below, otherwise
    `transition: background/color` would win on specificity and the counters
-   would pop while the labels faded. */
+   would pop while the labels faded.
+
+   The section labels ("MEDIA", "Collections") fade with the same timing. They
+   are the one group whose fold never actually closes: `grid-template-rows: 0fr`
+   is clamped to the text's base size, so the two label tracks settle at ~16px
+   instead of 0 (measured), leaving the text at full height AND full opacity for
+   the whole 320ms fold - it then vanished only when the delayed `visibility:
+   hidden` landed on the last frame. Fading them here means they are gone by
+   ~140ms, so nothing legible is left to be snapped away at the end. */
 .label,
 .nav-item .count-badge,
-.brand {
+.brand,
+.section-label {
   opacity: 1;
   transition: opacity var(--label-out);
 }
@@ -300,13 +309,15 @@
 /* Opening: let the rail get wide enough to hold the text before it fades in. */
 .sidebar:not(.collapsed) .label,
 .sidebar:not(.collapsed) .nav-item .count-badge,
-.sidebar:not(.collapsed) .brand {
+.sidebar:not(.collapsed) .brand,
+.sidebar:not(.collapsed) .section-label {
   transition: opacity var(--label-in);
 }
 
 .sidebar.collapsed .label,
 .sidebar.collapsed .nav-item .count-badge,
-.sidebar.collapsed .brand {
+.sidebar.collapsed .brand,
+.sidebar.collapsed .section-label {
   opacity: 0;
 }
 
@@ -332,8 +343,14 @@
 
 .sidebar.collapsed .collapsible > * {
   visibility: hidden;
-  /* Keep folded content out of the tab order, once the fold has run. */
-  transition: visibility 0s linear var(--motion-slow);
+  /* Keep folded content out of the tab order, once the fold has run.
+     This rule owns the folded child's `transition`, so the section-label fade
+     has to be declared HERE as well: a `transition` on the fade rule alone
+     loses to this shorthand (same specificity, later in source) and the label
+     would snap off instead of fading. */
+  transition:
+    visibility 0s linear var(--motion-slow),
+    opacity var(--label-out);
 }
 
 /* --- FOOTER --- */
@@ -475,7 +492,8 @@
      was: the drawer is either fully open or fully off screen. */
   .sidebar.collapsed .label,
   .sidebar.collapsed .count-badge,
-  .sidebar.collapsed .brand {
+  .sidebar.collapsed .brand,
+  .sidebar.collapsed .section-label {
     opacity: 1;
   }
 
