@@ -89,57 +89,25 @@ app-sidebar-collections.no-transition {
   z-index: 5;
   padding: 1.5rem 3rem;
   border-bottom: 1px solid var(--glass-border);
-  /* Three fixed tracks: the title track never sizes to its text, so the search
-     field's x/width depend only on the viewport. "Audiobooks in Science
-     Fiction" can no longer shove the whole toolbar around. */
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 480px) auto;
-  align-items: center;
   margin-bottom: 2rem;
+  /* Single row: static heading left, controls right, search centred against the
+     toolbar's own box. No track sizes to the heading any more, so nothing the
+     heading does can move a sibling. */
+  display: flex;
+  align-items: center;
   gap: 2rem;
 }
 
-/* --- TITLE CROSS-FADE -------------------------------------------------
-   A fixed-height stack: both the outgoing and the incoming title occupy the
-   exact same box, so no title length and no animation state can shift a
-   toolbar sibling. */
-.title-stage {
-  position: relative;
-  display: block;
-  height: 2.4rem;
+/* --- STATIC HEADING ---
+   Fixed text, so no reserved box, no cross-fade layers, no ellipsis dance. */
+.library-title {
   margin: 0;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.title-swap {
-  position: absolute;
-  inset: 0;
-  display: block;
+  flex: 0 0 auto;
   font-size: 1.75rem;
   font-weight: var(--fw-medium);
   line-height: 2.4rem;
   color: var(--color-text-main);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  /* Idle layer: blurred, nudged down, invisible. Flipping `.is-visible` between
-     the two layers reads as the old title resolving away and the new one
-     arriving — a lens-style cross-fade rather than a text cut. */
-  opacity: 0;
-  filter: blur(8px);
-  transform: translateY(4px);
-  pointer-events: none;
-  transition:
-    opacity 300ms var(--ease-out),
-    filter 300ms var(--ease-out),
-    transform 300ms var(--ease-out);
-}
-
-.title-swap.is-visible {
-  opacity: 1;
-  filter: blur(0);
-  transform: translateY(0);
 }
 
 /* --- ACTIVE FILTER CHIPS ----------------------------------------------
@@ -217,16 +185,28 @@ app-sidebar-collections.no-transition {
 
 /* NEW: Search Bar Styles */
 .search-bar-container {
-  flex: 1; /* Allows search bar to fill available space */
-  max-width: 480px; /* But don't let it get too wide */
-  position: relative;
+  /* Truthful centring: the field is pinned to the toolbar's centre and its width
+     is capped so it can never reach the 375px control cluster. 400px of
+     clearance per side = that cluster plus breathing room (measured). */
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(480px, calc(100% - 2 * 25rem));
   display: flex;
   align-items: center;
 }
 
 .search-icon {
-  position: relative;
+  /* Absolutely placed, not a flex sibling: in the flow its 18px box pushed the
+     visible input 9px right of the container's centre, so the box on screen was
+     never the box that was centred. Lifted out, `width: 100%` on the input spans
+     the container exactly and the icon sits at the same left offset. Matches the
+     mobile rule below. */
+  position: absolute;
   left: 28px;
+  top: 50%;
+  transform: translateY(-50%);
   color: var(--color-text-light);
   pointer-events: none;
   z-index: 1;
@@ -301,6 +281,7 @@ app-sidebar-collections.no-transition {
   align-items: center;
   gap: 1rem;
   flex-shrink: 0; /* Prevent controls from squishing */
+  margin-left: auto;
   justify-self: end;
 }
 
@@ -902,6 +883,37 @@ app-sidebar-collections.no-transition {
   display: none;
 }
 
+/* Below the width where a centred field would be squeezed under ~205px, the
+   search drops to its own full-width row instead of becoming a sliver. At 1440
+   the clearing is the 375px control cluster plus its breathing room, so the
+   field lands at ~245px there and grows to the 480px cap near 1700. */
+@media (max-width: 1400px) {
+  .toolbar {
+    flex-wrap: wrap;
+    row-gap: 0.75rem;
+  }
+
+  .library-title {
+    order: 0;
+  }
+
+  .toolbar-right {
+    order: 1;
+  }
+
+  .search-bar-container {
+    /* Relative, not static: the search icon is positioned against this box, and
+       the base rule's 50%/translate offsets must be released with it. */
+    position: relative;
+    left: auto;
+    top: auto;
+    transform: none;
+    order: 2;
+    width: 100%;
+    max-width: none;
+  }
+}
+
 @media (max-width: 768px) {
   /* Keep offscreen cards out of the layout/paint budget without changing the
      card's editorial surfaces, hover states, or touch feedback. */
@@ -982,12 +994,8 @@ app-sidebar-collections.no-transition {
   }
 
   /* Adjust order so Search comes after Title but before Controls */
-  .title-stage {
+  .library-title {
     order: 0;
-    height: 1.9rem;
-  }
-
-  .title-swap {
     font-size: 1.25rem;
     line-height: 1.9rem;
   }
@@ -1004,9 +1012,13 @@ app-sidebar-collections.no-transition {
   }
 
   .search-bar-container {
+    width: 100%;
     max-width: 100%; /* Full width on mobile */
     order: 2;
     position: relative;
+    left: auto;
+    top: auto;
+    transform: none;
   }
 
   .toolbar-right {
@@ -1086,17 +1098,11 @@ app-sidebar-collections.no-transition {
 }
 
 /* --- REDUCED MOTION ----------------------------------------------------
-   The swap commits instantly in TypeScript under this preference; these rules
-   remove the residual transitions and the blur/bounce affordances. */
+   The results-stage swap commits instantly in TypeScript under this preference;
+   these rules remove the residual transitions and the blur/bounce affordances. */
 @media (prefers-reduced-motion: reduce) {
   .results-stage,
   .results-stage.is-swapping {
-    transition-duration: 1ms;
-    filter: none;
-    transform: none;
-  }
-
-  .title-swap {
     transition-duration: 1ms;
     filter: none;
     transform: none;

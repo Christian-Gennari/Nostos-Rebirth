@@ -10,24 +10,10 @@
 
   <div class="library-right-side">
     <header class="toolbar">
-      <!-- Title cross-fade: tracking by the title string means a new span is
-           Two persistent layers, flipped on every change: the incoming title
-           resolves in while the outgoing one blurs away. Nothing is created or
-           destroyed (no leaked nodes, no leave-animation dependency) and the
-           new text is in the DOM on the same tick, so the visible heading is
-           never stale. Text is announced once via aria-label, so a screen
-           reader never reads both layers. -->
-      <h1 id="library-title" class="title-stage" [attr.aria-label]="pageTitle()">
-        <span
-          class="title-swap"
-          [class.is-visible]="!titleLayers().flip"
-          aria-hidden="true"
-          >{{ titleLayers().a }}</span
-        >
-        <span class="title-swap" [class.is-visible]="titleLayers().flip" aria-hidden="true">{{
-          titleLayers().b
-        }}</span>
-      </h1>
+      <!-- Static heading: the active-filter chips directly below (and the
+           sidebar highlight) already name the current scope, so the heading
+           never restates them. -->
+      <h1 id="library-title" class="library-title">Library</h1>
 
       <div class="search-bar-container">
         <lucide-icon [img]="SearchIcon" [size]="18" class="search-icon"></lucide-icon>

@@ -1,6 +1,6 @@
 {
   "artifact": "library-filters-mobile.png",
-  "capturedAt": "2026-09-11T14:07:09.148Z",
+  "capturedAt": "2026-09-11T15:16:34.124Z",
   "name": "library-filters-mobile",
   "surface": "library",
   "viewport": {
@@ -38,7 +38,7 @@
     {
       "id": "library-toolbar-stability",
       "pass": true,
-      "message": "title \"Results for \"zzz-no-such-book-in-this-library\"\": search x 14 -> 14 (Δ0px), search width Δ0px, title box x Δ0px, title box height Δ0px, results client width Δ0px (stable)",
+      "message": "title \"Library\": search x 14 -> 14 (Δ0px), search width Δ0px, title box x Δ0px, title box height Δ0px, results client width Δ0px, search centring skipped in stacked mode (full-width field) (stable)",
       "metrics": {
         "searchX": 14,
         "searchXAfter": 14,
@@ -50,7 +50,10 @@
         "titleBoxHeight": 30.4,
         "dTitleH": 0,
         "scrollClientWidth": 382,
-        "dScrollW": 0
+        "dScrollW": 0,
+        "searchCenterX": 191,
+        "toolbarCenterX": 191,
+        "dCenterX": 0
       }
     }
   ],

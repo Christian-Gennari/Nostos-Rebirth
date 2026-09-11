@@ -289,8 +289,8 @@ test.describe('visual matrix — Library (fixture-served)', () => {
       checks.push(await checkLibraryFilterContract(await libraryFilterLabels(page)));
 
       // Close the drawer so the search box is actionable, then assert the mobile
-      // toolbar/results column does not move when the title changes length and
-      // the page scrollbar disappears.
+      // toolbar/results column does not move when the search shrinks the result
+      // set and the page scrollbar disappears.
       // (Via a dispatched click: the toggle hides while open, and the backdrop's
       // centre sits under the drawer, so neither is a normal click target.)
       await page.locator('.mobile-backdrop').dispatchEvent('click');

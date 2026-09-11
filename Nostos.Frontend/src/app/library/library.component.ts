@@ -5,7 +5,6 @@ import {
   OnDestroy,
   signal,
   computed,
-  linkedSignal,
   ChangeDetectionStrategy,
   effect,
   untracked,
@@ -215,20 +214,6 @@ export class Library implements OnInit, OnDestroy {
     return this.rawBooks().length < this.totalItems();
   });
 
-  pageTitle = computed(() => {
-    const search = this.searchQuery().trim();
-    if (search) return `Results for "${search}"`;
-    const parts: string[] = [];
-    const status = statusFilterLabel(this.filters.status());
-    const format = formatFilterLabel(this.filters.format());
-    if (status) parts.push(status);
-    if (format) parts.push(format);
-    let title = parts.join(' ') || 'Library';
-    const collectionName = this.collections().find((c) => c.id === this.filters.collectionId())?.name;
-    if (collectionName) title = title === 'Library' ? collectionName : `${title} in ${collectionName}`;
-    return title;
-  });
-
   activeFilterChips = computed(() => {
     const chips: { key: string; label: string }[] = [];
     const status = statusFilterLabel(this.filters.status());
@@ -243,31 +228,6 @@ export class Library implements OnInit, OnDestroy {
     const search = this.searchQuery().trim();
     if (search) chips.push({ key: 'search', label: `"${search}"` });
     return chips;
-  });
-
-  /**
-   * Title cross-fade layers. Two persistent spans are alternated on every title
-   * change: the incoming layer resolves in while the outgoing one blurs away,
-   * both inside the same reserved box. Layers are persistent (nothing is created
-   * or destroyed, so no node leaks and no leave-animation is involved) and this
-   * is a `linkedSignal`, so the new text is already in the DOM on the same tick
-   * as the filter signal that produced it — the heading is never stale.
-   */
-  readonly titleLayers = linkedSignal<
-    string,
-    { a: string; b: string; flip: boolean }
-  >({
-    source: () => this.pageTitle(),
-    computation: (title, previous) => {
-      const layers = previous?.value;
-      // First paint: seed layer A with no transition.
-      if (!layers) return { a: title, b: '', flip: false };
-      // A repeated title must not re-animate.
-      if (title === layers.a || title === layers.b) return layers;
-      return layers.flip
-        ? { a: title, b: layers.b, flip: false } // B held the title: move to A
-        : { a: layers.a, b: title, flip: true }; // A held the title: move to B
-    },
   });
 
   clearChip(key: string): void {

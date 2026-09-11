@@ -200,7 +200,6 @@ describe('Library', () => {
   });
 
   it('shows "Library" with no chips when no filter is active', () => {
-    expect(component.pageTitle()).toBe('Library');
     expect(component.activeFilterChips()).toEqual([]);
     // The chip row stays mounted so its height can animate on the first chip;
     // with no chips it is collapsed and renders nothing to announce.
@@ -208,29 +207,42 @@ describe('Library', () => {
     expect(fixture.nativeElement.querySelectorAll('.filter-chip').length).toBe(0);
   });
 
-  it('reflects a status filter in the title and chips', () => {
+  it('reflects a status filter in chips', () => {
     component.filters.toggleStatus('reading');
     fixture.detectChanges();
 
-    expect(component.pageTitle()).toBe('In Progress');
     expect(component.activeFilterChips()).toEqual([{ key: 'status', label: 'In Progress' }]);
     expect(fixture.nativeElement.querySelector('.active-filters')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('#library-title').textContent).toContain(
-      'In Progress',
-    );
   });
 
-  it('combines format and collection in the title and chips', () => {
+  it('combines format and collection in chips', () => {
     component.collections.set([{ id: 'c1', name: 'Science Fiction', parentId: null }]);
     component.filters.toggleFormat('audiobook');
     component.filters.toggleCollection('c1');
     fixture.detectChanges();
 
-    expect(component.pageTitle()).toBe('Audiobooks in Science Fiction');
     expect(component.activeFilterChips()).toEqual([
       { key: 'format', label: 'Audiobooks' },
       { key: 'collection', label: 'Science Fiction' },
     ]);
+  });
+
+  it('keeps a static Library heading when filters and search change', () => {
+    fixture.detectChanges();
+    const title = fixture.nativeElement.querySelector('#library-title') as HTMLElement;
+
+    expect(title.textContent?.trim()).toBe('Library');
+    expect(title.classList.contains('library-title')).toBe(true);
+
+    component.collections.set([{ id: 'c1', name: 'Science Fiction', parentId: null }]);
+    component.filters.toggleStatus('reading');
+    component.filters.toggleFormat('audiobook');
+    component.filters.toggleCollection('c1');
+    component.searchQuery.set('zzz');
+    fixture.detectChanges();
+
+    expect(title.textContent?.trim()).toBe('Library');
+    expect(fixture.nativeElement.querySelectorAll('.title-swap').length).toBe(0);
   });
 
   it('clearing a chip resets just that filter and reloads', () => {
@@ -421,26 +433,6 @@ describe('Library', () => {
     } finally {
       vi.useRealTimers();
     }
-  });
-
-  it('cross-fades the dynamic title inside a fixed, reserved stage', () => {
-    fixture.detectChanges();
-    const title = fixture.nativeElement.querySelector('#library-title') as HTMLElement;
-    expect(title.classList.contains('title-stage')).toBe(true);
-    expect(title.getAttribute('aria-label')).toBe('Library');
-    expect(title.querySelector('.title-swap.is-visible')?.textContent?.trim()).toBe('Library');
-
-    component.filters.toggleStatus('reading');
-    fixture.detectChanges();
-
-    // aria-label tracks the computed title synchronously, so the toolbar text
-    // can never lag the results while the layers animate.
-    expect(title.getAttribute('aria-label')).toBe('In Progress');
-    expect(title.textContent).toContain('In Progress');
-    // The incoming layer is the visible one and the previous title fades out on
-    // the other layer, both inside the same reserved box.
-    expect(title.querySelector('.title-swap.is-visible')?.textContent?.trim()).toBe('In Progress');
-    expect(title.querySelectorAll('.title-swap').length).toBe(2);
   });
 
   it('reserves the page scrollbar gutter only while the library is mounted', () => {

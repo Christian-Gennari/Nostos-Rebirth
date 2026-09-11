@@ -1,6 +1,6 @@
 {
   "artifact": "library-filters-desktop.png",
-  "capturedAt": "2026-09-11T14:06:45.707Z",
+  "capturedAt": "2026-09-11T15:16:10.564Z",
   "name": "library-filters-desktop",
   "surface": "library",
   "viewport": {
@@ -38,19 +38,22 @@
     {
       "id": "library-toolbar-stability",
       "pass": true,
-      "message": "title \"Results for \"zzz-no-such-book-in-this-library\"\": search x 516 -> 516 (Δ0px), search width Δ0px, title box x Δ0px, title box height Δ0px, results client width Δ0px (stable)",
+      "message": "title \"Library\": search x 700 -> 700 (Δ0px), search width Δ0px, title box x Δ0px, title box height Δ0px, results client width Δ0px, search centre 866 vs toolbar content centre 866 (Δ0px) (stable)",
       "metrics": {
-        "searchX": 516,
-        "searchXAfter": 516,
+        "searchX": 700,
+        "searchXAfter": 700,
         "dSearchX": 0,
-        "searchWidth": 462,
+        "searchWidth": 332,
         "dSearchW": 0,
-        "titleX": 349,
+        "titleX": 348,
         "dTitleX": 0,
         "titleBoxHeight": 38.4,
         "dTitleH": 0,
-        "scrollClientWidth": 1131,
-        "dScrollW": 0
+        "scrollClientWidth": 1132,
+        "dScrollW": 0,
+        "searchCenterX": 866,
+        "toolbarCenterX": 866,
+        "dCenterX": 0
       }
     }
   ],

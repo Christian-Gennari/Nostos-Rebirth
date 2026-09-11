@@ -437,20 +437,22 @@ export async function apiPut<T = unknown>(baseUrl: string, urlPath: string, body
 // ---------------------------------------------------------------------------
 
 /**
- * The library toolbar must not move when the dynamic title changes length, and
- * the result container must not change width when a filter change removes the
- * scrollbar. Both were real defects: the title used to size its flex track (so
- * a long collection name shoved the search field), and a short/empty result set
- * dropped the styled 8px scrollbar and shifted every column.
+ * The library toolbar must keep its static heading and centred search geometry,
+ * and the result container must not change width when a filter change removes
+ * the scrollbar. Both were real defects: a long dynamic title used to shove the
+ * search field, and a short/empty result set dropped the styled 8px scrollbar
+ * and shifted every column.
  *
- * The change under test is driven through the real search box: typing produces
- * `Results for "<query>"` (a much longer title plus an active-filter chip) and
- * an empty result set, i.e. both shifts at once.
+ * The change under test is driven through the real search box: typing activates
+ * a search chip and produces an empty result set, exercising both stability
+ * guards at once.
  */
 export async function checkLibraryToolbarStability(page: Page): Promise<GeometryCheck> {
   const search = page.locator('.search-input');
   const title = page.locator('#library-title');
   const scroller = page.locator('.library-right-side');
+  const searchContainer = page.locator('.search-bar-container');
+  const toolbarEl = page.locator('.toolbar');
   await search.waitFor({ timeout: 30_000 });
 
   const before = await search.boundingBox();
@@ -464,8 +466,20 @@ export async function checkLibraryToolbarStability(page: Page): Promise<Geometry
   const after = await search.boundingBox();
   const titleAfter = await title.boundingBox();
   const scrollAfter = await scroller.evaluate((el) => el.clientWidth);
-  if (!before || !after || !titleBefore || !titleAfter) {
-    return failCheck('library-toolbar-stability', 'could not measure .search-input / #library-title');
+  const searchPosition = await searchContainer.evaluate((el) => getComputedStyle(el).position);
+  const toolbarBox = await toolbarEl.boundingBox();
+  const toolbarPadding = await toolbarEl.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return {
+      paddingLeft: parseFloat(style.paddingLeft),
+      paddingRight: parseFloat(style.paddingRight),
+    };
+  });
+  if (!before || !after || !titleBefore || !titleAfter || !toolbarBox) {
+    return failCheck(
+      'library-toolbar-stability',
+      'could not measure .search-input / #library-title',
+    );
   }
 
   const dSearchX = Math.abs(after.x - before.x);
@@ -473,7 +487,16 @@ export async function checkLibraryToolbarStability(page: Page): Promise<Geometry
   const dTitleX = Math.abs(titleAfter.x - titleBefore.x);
   const dTitleH = Math.abs(titleAfter.height - titleBefore.height);
   const dScrollW = Math.abs(scrollAfter - scrollBefore);
-  const ok = dSearchX <= 1 && dSearchW <= 1 && dTitleX <= 1 && dTitleH <= 1 && dScrollW <= 1;
+  const searchCenterX = after.x + after.width / 2;
+  const toolbarCenterX =
+    toolbarBox.x +
+    toolbarPadding.paddingLeft +
+    (toolbarBox.width - toolbarPadding.paddingLeft - toolbarPadding.paddingRight) / 2;
+  const dCenterX = Math.abs(searchCenterX - toolbarCenterX);
+  const singleRowCentered = searchPosition === 'absolute';
+  const centeringOk = !singleRowCentered || dCenterX <= 1;
+  const ok =
+    dSearchX <= 1 && dSearchW <= 1 && dTitleX <= 1 && dTitleH <= 1 && dScrollW <= 1 && centeringOk;
   const metrics = {
     searchX: r1(before.x),
     searchXAfter: r1(after.x),
@@ -486,11 +509,20 @@ export async function checkLibraryToolbarStability(page: Page): Promise<Geometry
     dTitleH: r1(dTitleH),
     scrollClientWidth: scrollBefore,
     dScrollW,
+    searchCenterX: r1(searchCenterX),
+    toolbarCenterX: r1(toolbarCenterX),
+    dCenterX: r1(dCenterX),
   };
+  const centeringMessage = singleRowCentered
+    ? `, search centre ${r1(searchCenterX)} vs toolbar content centre ${r1(toolbarCenterX)} ` +
+      `(Δ${r1(dCenterX)}px)`
+    : ', search centring skipped in stacked mode (full-width field)';
+  const titleText = (await title.textContent())?.trim() ?? '';
   const message =
-    `title "${(await title.getAttribute('aria-label')) ?? ''}": search x ${r1(before.x)} -> ${r1(after.x)} ` +
+    `title "${titleText}": search x ${r1(before.x)} -> ${r1(after.x)} ` +
     `(Δ${r1(dSearchX)}px), search width Δ${r1(dSearchW)}px, title box x Δ${r1(dTitleX)}px, ` +
-    `title box height Δ${r1(dTitleH)}px, results client width Δ${dScrollW}px (${ok ? 'stable' : 'SHIFTS'})`;
+    `title box height Δ${r1(dTitleH)}px, results client width Δ${dScrollW}px${centeringMessage} ` +
+    `(${ok ? 'stable' : 'SHIFTS'})`;
   return ok
     ? passCheck('library-toolbar-stability', message, metrics)
     : failCheck('library-toolbar-stability', message, metrics);
