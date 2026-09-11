@@ -445,17 +445,17 @@
     align-items: center;
     justify-content: center;
     position: fixed;
-    top: 14px;
+    top: 12px;
     left: 14px;
     bottom: auto;
     z-index: 60;
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.78);
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: var(--bg-hover);
     color: var(--color-primary);
     border: 1px solid var(--border-color);
-    box-shadow: var(--shadow-sm);
+    box-shadow: none;
     cursor: pointer;
     transition:
       transform var(--transition-fast),
@@ -464,8 +464,7 @@
   }
 
   .floating-toggle:hover {
-    background: var(--bg-hover);
-    box-shadow: var(--shadow-md);
+    background: var(--bg-surface);
   }
 
   .floating-toggle:active {

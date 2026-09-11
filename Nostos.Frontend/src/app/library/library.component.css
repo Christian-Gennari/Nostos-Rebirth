@@ -1003,12 +1003,19 @@ app-sidebar-collections.no-transition {
     transform: translateY(-50%);
   }
 
-  /* Adjust order so Search comes after Title but before Controls */
+  /* On mobile, the active bottom dock already identifies the Library section.
+     Clip the heading out of visual rendering while preserving an accessible,
+     measurable box for screen readers and stability assertions. */
   .library-title {
-    order: 0;
-    font-size: 1.25rem;
-    line-height: 1.9rem;
-    padding-left: 44px; /* Room for mobile collections button on top-left */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .active-filters {
@@ -1033,10 +1040,14 @@ app-sidebar-collections.no-transition {
   }
 
   .toolbar-right {
+    display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: 8px;
     order: 1;
     width: 100%;
+    padding-left: 46px; /* Room for mobile collections button (38px + 8px gap) */
+    box-sizing: border-box;
   }
 
   .toolbar-right .select-wrapper {
@@ -1046,6 +1057,41 @@ app-sidebar-collections.no-transition {
 
   .toolbar-right .sort-select {
     width: 100%;
+    height: 38px;
+    font-size: 0.82rem;
+    border-radius: 8px;
+    background-color: var(--bg-hover);
+    border: 1px solid var(--border-color);
+  }
+
+  .control-group {
+    height: 38px;
+    padding: 3px;
+    border-radius: 8px;
+    box-sizing: border-box;
+    align-items: center;
+    background: var(--bg-hover);
+    border: 1px solid var(--border-color);
+  }
+
+  .toggle-opt {
+    height: 30px;
+    width: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .toolbar-right .btn-primary {
+    height: 38px;
+    width: 38px;
+    min-width: 38px;
+    padding: 0;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .btn-text {
