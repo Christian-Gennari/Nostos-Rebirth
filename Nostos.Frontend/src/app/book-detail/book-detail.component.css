@@ -333,77 +333,115 @@
   margin-bottom: 1.5rem;
   flex-wrap: wrap;
 }
-.user-metadata-row .vertical-divider {
-  height: 20px;
-  background-color: var(--border-color);
+/* Status dropdown container */
+.status-dropdown-container {
+  position: relative;
+  display: inline-flex;
 }
 
-/* Reading status chip (Finished / Reading / Not Started) */
-.status-chip {
+/* Interactive status chip button */
+.status-chip-btn {
   display: inline-flex;
   align-items: center;
+  gap: 0.4rem;
   font-size: 0.8rem;
   font-weight: 500;
-  padding: 4px 10px;
+  padding: 5px 10px 5px 9px;
   border-radius: 999px;
+  border: 1px solid transparent;
   background: var(--bg-hover);
   color: var(--color-text-muted);
   line-height: 1.2;
   white-space: nowrap;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.18s ease;
 }
-.status-chip.finished {
+
+.status-chip-btn:hover {
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--bg-hover));
+  border-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.status-chip-btn.finished {
   background: color-mix(in srgb, var(--color-success) 15%, transparent);
   color: var(--color-success-dark);
 }
-.status-chip.reading {
+.status-chip-btn.finished:hover {
+  background: color-mix(in srgb, var(--color-success) 22%, transparent);
+}
+
+.status-chip-btn.reading {
   background: color-mix(in srgb, var(--color-primary) 12%, transparent);
   color: var(--color-primary);
 }
-.finish-toggle-btn {
-  background: 0 0;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  color: var(--color-text-muted);
-  transition:
-    transform 0.2s,
-    color 0.2s;
-  flex-shrink: 0;
-}
-.finish-toggle-btn:hover {
-  transform: scale(1.1);
-  color: var(--color-text-main);
-}
-.finish-toggle-btn.active {
-  color: var(--color-success-dark);
+.status-chip-btn.reading:hover {
+  background: color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
-.reset-progress-btn {
-  background: 0 0;
-  border: none;
-  cursor: pointer;
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.75;
+}
+
+.status-chevron {
+  transition: transform 0.2s ease;
+  opacity: 0.7;
+}
+
+.status-chip-btn.open .status-chevron {
+  transform: rotate(180deg);
+}
+
+/* Status dropdown menu */
+.status-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  min-width: 145px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 10px);
+  box-shadow: var(--shadow-glass-lg, 0 10px 25px -5px rgba(0, 0, 0, 0.1));
   padding: 4px;
-  color: var(--color-danger);
-  transition:
-    transform 0.2s,
-    color 0.2s;
-  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  backdrop-filter: blur(12px);
+  animation: fadeIn 0.15s ease;
 }
-.reset-progress-btn:hover {
-  transform: scale(1.1);
-  color: var(--color-danger-vivid);
+
+.status-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-main);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease, color 0.12s ease;
 }
-.reset-progress-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+
+.status-dropdown-item:hover {
+  background: var(--bg-hover);
+  color: var(--color-primary);
 }
-.reset-progress-btn .spinning {
-  animation: reset-spin 0.8s linear infinite;
-}
-@keyframes reset-spin {
-  to {
-    transform: rotate(360deg);
-  }
+
+.status-dropdown-item.selected {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+  font-weight: 600;
 }
 
 .reset-confirm-backdrop {
@@ -476,80 +514,6 @@
   color: var(--color-text-main);
 }
 
-/* --- Danger Zone Section (placed before Notes so users never scroll past endless notes) --- */
-.danger-zone-card {
-  margin: 1.5rem 0 2rem;
-  padding: 1.25rem 1.5rem;
-  border-radius: 12px;
-  background: var(--bg-surface);
-  border: 1px solid color-mix(in srgb, var(--color-danger) 24%, var(--border-color));
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.25rem;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.danger-zone-card:hover {
-  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--border-color));
-}
-
-.danger-zone-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.danger-zone-heading {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  color: var(--color-danger);
-}
-
-.danger-zone-heading h4 {
-  margin: 0;
-  font-size: 0.88rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
-.danger-zone-info p {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-  line-height: 1.4;
-}
-
-.btn-danger-outline {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.5rem 1.15rem;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--color-danger) 45%, var(--border-color));
-  background: color-mix(in srgb, var(--color-danger) 5%, var(--bg-surface));
-  color: var(--color-danger);
-  font-size: 0.84rem;
-  font-weight: 500;
-  white-space: nowrap;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all 0.18s ease;
-}
-
-.btn-danger-outline:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--color-danger) 14%, var(--bg-surface));
-  border-color: var(--color-danger);
-  transform: translateY(-1px);
-}
-
-.btn-danger-outline:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 .divider {
   border: none;
   border-bottom: 1px solid var(--border-color);
@@ -891,19 +855,6 @@
     width: 100%;
     justify-content: center;
     height: 44px;
-  }
-  .danger-zone-card {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1rem;
-    padding: 1.15rem 1rem;
-    text-align: left;
-  }
-  .danger-zone-card .btn-danger-outline {
-    width: 100%;
-    justify-content: center;
-    height: 44px;
-    font-size: 0.88rem;
   }
   .synopsis-metadata-block {
     padding: 1.25rem 1rem;

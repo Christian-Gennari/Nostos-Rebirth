@@ -120,11 +120,15 @@ export class BookDetailStore {
   toggleFinished() {
     const b = this.book();
     if (!b) return;
+    this.setFinished(!b.finishedAt);
+  }
 
-    const isFinished = !!b.finishedAt;
-    const newStatus = !isFinished;
-    const newDate = newStatus ? new Date().toISOString() : null;
-    const newProgress = newStatus ? 100 : b.progressPercent;
+  setFinished(isFinished: boolean) {
+    const b = this.book();
+    if (!b) return;
+
+    const newDate = isFinished ? new Date().toISOString() : null;
+    const newProgress = isFinished ? 100 : (b.progressPercent === 100 ? 0 : b.progressPercent);
 
     // 1. Optimistic
     this.book.update((curr) =>
@@ -138,9 +142,15 @@ export class BookDetailStore {
     );
 
     // 2. API
-    this.booksService.update(b.id, { isFinished: newStatus }).subscribe({
-      next: (updated) => this.book.set(updated), // Sync full state from server response
-      error: () => this.loadBook(b.id, { background: true }), // Revert/Refresh on error
+    this.booksService.update(b.id, { isFinished }).subscribe({
+      next: (updated) => {
+        this.book.set(updated);
+        this.toast.success(isFinished ? 'Marked as finished' : 'Marked as in progress');
+      },
+      error: () => {
+        this.loadBook(b.id, { background: true });
+        this.toast.error('Failed to update status');
+      },
     });
   }
 

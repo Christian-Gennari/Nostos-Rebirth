@@ -127,45 +127,57 @@
                 (ratingChange)="onRate($event)"
               ></app-star-rating>
 
-              <span
-                class="status-chip"
-                [class.finished]="readingStatus().modifier === 'finished'"
-                [class.reading]="readingStatus().modifier === 'reading'"
-              >
-                {{ readingStatus().label }}
-              </span>
+              <div class="status-dropdown-container">
+                <button
+                  type="button"
+                  class="status-chip status-chip-btn"
+                  [class.finished]="readingStatus().modifier === 'finished'"
+                  [class.reading]="readingStatus().modifier === 'reading'"
+                  [class.open]="statusDropdownOpen()"
+                  (click)="toggleStatusDropdown($event)"
+                  title="Change reading status"
+                  aria-haspopup="listbox"
+                  [attr.aria-expanded]="statusDropdownOpen()"
+                >
+                  <span class="status-dot"></span>
+                  <span>{{ readingStatus().label }}</span>
+                  <lucide-icon [img]="ChevronDownIcon" [size]="12" class="status-chevron"></lucide-icon>
+                </button>
 
-              <div class="vertical-divider"></div>
+                @if (statusDropdownOpen()) {
+                <div class="status-dropdown-menu" role="listbox" (click)="$event.stopPropagation()">
+                  <button
+                    type="button"
+                    class="status-dropdown-item"
+                    [class.selected]="readingStatus().modifier === 'not-started'"
+                    (click)="selectStatusOption('notstarted')"
+                  >
+                    <lucide-icon [img]="CircleDashedIcon" [size]="14"></lucide-icon>
+                    <span>Not Started</span>
+                  </button>
 
-              <button
-                class="btn-icon finish-toggle-btn"
-                [class.active]="store.book()?.finishedAt"
-                (click)="toggleFinished()"
-                [title]="store.book()?.finishedAt ? 'Mark as Unread' : 'Mark as Read'"
-              >
-                <lucide-icon
-                  [img]="CheckCircleIcon"
-                  [size]="20"
-                  [class.filled]="store.book()?.finishedAt"
-                ></lucide-icon>
-              </button>
+                  <button
+                    type="button"
+                    class="status-dropdown-item"
+                    [class.selected]="readingStatus().modifier === 'reading'"
+                    (click)="selectStatusOption('reading')"
+                  >
+                    <lucide-icon [img]="BookOpenIcon" [size]="14"></lucide-icon>
+                    <span>In Progress</span>
+                  </button>
 
-              @if (canResetProgress()) {
-              <button
-                class="btn-icon reset-progress-btn"
-                [class.active]="showResetConfirm()"
-                (click)="openResetConfirm()"
-                [disabled]="store.resettingProgress()"
-                [title]="store.resettingProgress() ? 'Resetting…' : 'Reset reading progress'"
-                aria-label="Reset reading progress"
-              >
-                <lucide-icon
-                  [img]="RotateCcwIcon"
-                  [size]="20"
-                  [class.spinning]="store.resettingProgress()"
-                ></lucide-icon>
-              </button>
-              }
+                  <button
+                    type="button"
+                    class="status-dropdown-item"
+                    [class.selected]="readingStatus().modifier === 'finished'"
+                    (click)="selectStatusOption('finished')"
+                  >
+                    <lucide-icon [img]="CheckCircleIcon" [size]="14"></lucide-icon>
+                    <span>Finished</span>
+                  </button>
+                </div>
+                }
+              </div>
 
               <button
                 class="btn-icon favorite-btn mobile-fav"
@@ -425,26 +437,6 @@
             </div>
           </div>
 
-          <section class="danger-zone-card">
-            <div class="danger-zone-info">
-              <div class="danger-zone-heading">
-                <lucide-icon [img]="AlertCircleIcon" [size]="16" class="danger-icon"></lucide-icon>
-                <h4>Danger Zone</h4>
-              </div>
-              <p>Permanently remove this book, its media files, and reading data from your library.</p>
-            </div>
-            <button
-              type="button"
-              class="btn btn-danger-outline delete-book-trigger"
-              (click)="openDeleteConfirm()"
-              [disabled]="deleting()"
-              title="Delete book"
-            >
-              <lucide-icon [img]="Trash2Icon" [size]="15"></lucide-icon>
-              <span>Delete Book</span>
-            </button>
-          </section>
-
           <hr class="divider" />
 
           <div class="notes-container">
@@ -484,27 +476,55 @@
     </div>
   </div>
 
-  @if (showResetConfirm()) {
-  <div class="reset-confirm-backdrop" (click)="cancelResetConfirm()">
+  @if (pendingStatus()) {
+  <div class="reset-confirm-backdrop" (click)="cancelStatusChange()">
     <div
-      class="reset-confirm-dialog"
+      class="reset-confirm-dialog status-confirm-dialog"
       role="alertdialog"
-      aria-labelledby="reset-confirm-title"
-      aria-describedby="reset-confirm-body"
+      aria-labelledby="status-confirm-title"
+      aria-describedby="status-confirm-body"
       (click)="$event.stopPropagation()"
     >
-      <h3 id="reset-confirm-title">Reset reading progress?</h3>
-      <p id="reset-confirm-body">
-        The next time you open this book, it will start from the beginning.
-      </p>
-      <div class="reset-confirm-actions">
-        <button class="btn btn-xs btn-ghost" (click)="cancelResetConfirm()" [disabled]="store.resettingProgress()">
-          Cancel
-        </button>
-        <button class="btn btn-xs btn-danger" (click)="resetProgress()" [disabled]="store.resettingProgress()">
-          {{ store.resettingProgress() ? 'Resetting…' : 'Reset' }}
-        </button>
-      </div>
+      @if (pendingStatus() === 'notstarted') {
+        <h3 id="status-confirm-title">Reset to Not Started?</h3>
+        <p id="status-confirm-body">
+          This will override your current progress and clear your saved page position. The next time you open this book, it will start from the beginning.
+        </p>
+        <div class="reset-confirm-actions">
+          <button class="btn btn-xs btn-ghost" (click)="cancelStatusChange()" [disabled]="store.resettingProgress()">
+            Cancel
+          </button>
+          <button class="btn btn-xs btn-danger" (click)="confirmStatusChange()" [disabled]="store.resettingProgress()">
+            {{ store.resettingProgress() ? 'Resetting…' : 'Reset Progress' }}
+          </button>
+        </div>
+      } @else if (pendingStatus() === 'finished') {
+        <h3 id="status-confirm-title">Mark as Finished?</h3>
+        <p id="status-confirm-body">
+          This will override your current reading progress and mark the book as 100% completed.
+        </p>
+        <div class="reset-confirm-actions">
+          <button class="btn btn-xs btn-ghost" (click)="cancelStatusChange()">
+            Cancel
+          </button>
+          <button class="btn btn-xs btn-primary" (click)="confirmStatusChange()">
+            Mark as Finished
+          </button>
+        </div>
+      } @else if (pendingStatus() === 'reading') {
+        <h3 id="status-confirm-title">Mark as In Progress?</h3>
+        <p id="status-confirm-body">
+          This will update the book's status back to in-progress.
+        </p>
+        <div class="reset-confirm-actions">
+          <button class="btn btn-xs btn-ghost" (click)="cancelStatusChange()">
+            Cancel
+          </button>
+          <button class="btn btn-xs btn-primary" (click)="confirmStatusChange()">
+            Set In Progress
+          </button>
+        </div>
+      }
     </div>
   </div>
   }

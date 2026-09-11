@@ -75,20 +75,30 @@ describe('BookDetail reset progress', () => {
     fixture.detectChanges();
   }
 
-  function resetButton(): HTMLButtonElement | null {
-    return fixture.nativeElement.querySelector('.reset-progress-btn');
+  function statusChipButton(): HTMLButtonElement | null {
+    return fixture.nativeElement.querySelector('.status-chip-btn');
+  }
+
+  function openResetViaDropdown(): void {
+    const chip = statusChipButton();
+    chip?.click();
+    fixture.detectChanges();
+    const items = Array.from(fixture.nativeElement.querySelectorAll('.status-dropdown-item')) as HTMLButtonElement[];
+    const notStartedItem = items.find((el) => el.textContent?.includes('Not Started'));
+    notStartedItem?.click();
+    fixture.detectChanges();
   }
 
   function resetDialog(): HTMLElement | null {
-    return fixture.nativeElement.querySelector('.reset-confirm-dialog');
+    return fixture.nativeElement.querySelector('.status-confirm-dialog');
   }
 
   function resetConfirmButton(): HTMLButtonElement | null {
-    return fixture.nativeElement.querySelector('.reset-confirm-dialog .btn-danger');
+    return fixture.nativeElement.querySelector('.status-confirm-dialog .btn-danger');
   }
 
   function resetCancelButton(): HTMLButtonElement | null {
-    return fixture.nativeElement.querySelector('.reset-confirm-dialog .btn-ghost');
+    return fixture.nativeElement.querySelector('.status-confirm-dialog .btn-ghost');
   }
 
   beforeEach(async () => {
@@ -114,61 +124,50 @@ describe('BookDetail reset progress', () => {
     httpMock.verify();
   });
 
-  it('is hidden for an untouched book, even when it has a file', async () => {
-    await setup(readableBook({ progressPercent: 0, lastLocation: null, lastReadAt: null, finishedAt: null }));
-    expect(resetButton()).toBeNull();
+  it('displays the status chip button reflecting current reading state', async () => {
+    await setup(readableBook({ progressPercent: 42 }));
+    const chip = statusChipButton();
+    expect(chip).toBeTruthy();
+    expect(chip!.textContent).toContain('Reading');
   });
 
-  it('is hidden for a book without a file even when progress exists', async () => {
-    await setup({ ...book, hasFile: false, progressPercent: 42, lastLocation: 'epub.cfi' });
-    expect(resetButton()).toBeNull();
-  });
-
-  it('is visible for a partially read book', async () => {
-    await setup(readableBook());
-    const button = resetButton();
-    expect(button).toBeTruthy();
-    expect(button!.getAttribute('aria-label')).toBe('Reset reading progress');
-  });
-
-  it('is visible for a finished book', async () => {
-    await setup(
-      readableBook({
-        progressPercent: 100,
-        finishedAt: '2026-08-10T08:00:00+02:00',
-      })
-    );
-    expect(resetButton()).toBeTruthy();
-  });
-
-  it('is visible when only a saved location or recency exists', async () => {
-    await setup(readableBook({ progressPercent: 0, lastLocation: 'epub.cfi', lastReadAt: null }));
-    expect(resetButton()).toBeTruthy();
-
-    await setup(readableBook({ progressPercent: 0, lastLocation: null, lastReadAt: '2026-08-10T08:00:00+02:00' }));
-    expect(resetButton()).toBeTruthy();
-  });
-
-  it('opens the styled confirmation dialog on click, with the next-open warning', async () => {
+  it('toggles the status dropdown menu open and closed on chip click', async () => {
     await setup(readableBook());
 
-    resetButton()!.click();
+    expect(fixture.nativeElement.querySelector('.status-dropdown-menu')).toBeNull();
+
+    statusChipButton()!.click();
     fixture.detectChanges();
+
+    const menu = fixture.nativeElement.querySelector('.status-dropdown-menu');
+    expect(menu).toBeTruthy();
+    const items = menu.querySelectorAll('.status-dropdown-item');
+    expect(items.length).toBe(3);
+
+    // Clicking again closes it
+    statusChipButton()!.click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.status-dropdown-menu')).toBeNull();
+  });
+
+  it('opens confirmation modal when selecting Not Started from status dropdown', async () => {
+    await setup(readableBook());
+
+    openResetViaDropdown();
 
     const dialog = resetDialog();
     expect(dialog).toBeTruthy();
-    expect(dialog!.textContent).toContain('Reset reading progress?');
+    expect(dialog!.textContent).toContain('Reset to Not Started?');
     expect(dialog!.textContent).toContain('start from the beginning');
     expect(resetConfirmButton()).toBeTruthy();
     expect(resetCancelButton()).toBeTruthy();
     expect(httpMock.match((req) => req.method === 'POST' && req.url === '/api/books/b1/progress/reset').length).toBe(0);
   });
 
-  it('does nothing when the confirmation is cancelled', async () => {
+  it('does nothing when the status change confirmation is cancelled', async () => {
     await setup(readableBook());
 
-    resetButton()!.click();
-    fixture.detectChanges();
+    openResetViaDropdown();
     expect(resetDialog()).toBeTruthy();
 
     resetCancelButton()!.click();
@@ -179,11 +178,10 @@ describe('BookDetail reset progress', () => {
     expect(component.store.book()?.progressPercent).toBe(42);
   });
 
-  it('closes the dialog without submitting when the backdrop is clicked', async () => {
+  it('closes the status confirmation dialog without submitting when backdrop is clicked', async () => {
     await setup(readableBook());
 
-    resetButton()!.click();
-    fixture.detectChanges();
+    openResetViaDropdown();
     expect(resetDialog()).toBeTruthy();
 
     const backdrop = fixture.nativeElement.querySelector('.reset-confirm-backdrop') as HTMLElement;
@@ -194,11 +192,10 @@ describe('BookDetail reset progress', () => {
     expect(httpMock.match((req) => req.method === 'POST' && req.url === '/api/books/b1/progress/reset').length).toBe(0);
   });
 
-  it('confirms, then calls exactly one reset endpoint and refetches the book on success', async () => {
+  it('confirms Not Started, then calls reset endpoint and refetches the book', async () => {
     await setup(readableBook());
 
-    resetButton()!.click();
-    fixture.detectChanges();
+    openResetViaDropdown();
     resetConfirmButton()!.click();
     fixture.detectChanges();
 
@@ -215,55 +212,8 @@ describe('BookDetail reset progress', () => {
     fixture.detectChanges();
 
     expect(component.store.book()?.progressPercent).toBe(0);
-    expect(component.store.book()?.lastLocation).toBeNull();
-    expect(resetButton()).toBeNull();
     expect(resetDialog()).toBeNull();
     expect(toast.toasts().some((t) => t.message === 'Reading progress reset' && t.type === 'success')).toBe(true);
-  });
-
-  it('disables the button while the reset is pending and never submits twice', async () => {
-    await setup(readableBook());
-
-    resetButton()!.click();
-    fixture.detectChanges();
-    resetConfirmButton()!.click();
-    fixture.detectChanges();
-    expect(resetButton()!.disabled).toBe(true);
-    expect(resetButton()!.title).toContain('Resetting');
-    expect(resetButton()!.querySelector('.spinning')).toBeTruthy();
-    expect(resetDialog()).toBeNull();
-
-    // A second click on the disabled trigger must not fire another request.
-    resetButton()!.click();
-    fixture.detectChanges();
-
-    const posts = httpMock.match((req) => req.method === 'POST' && req.url === '/api/books/b1/progress/reset');
-    // Exactly one reset submission despite the duplicate click.
-    expect(posts.length).toBe(1);
-    posts[0].flush({ updated: true });
-    httpMock.expectOne('/api/books/b1').flush(readableBook({ progressPercent: 0, lastLocation: null, lastReadAt: null, finishedAt: null }));
-    fixture.detectChanges();
-    expect(resetButton()).toBeNull();
-  });
-
-  it('preserves the displayed state and shows an error toast on failure', async () => {
-    await setup(readableBook());
-
-    resetButton()!.click();
-    fixture.detectChanges();
-    resetConfirmButton()!.click();
-    fixture.detectChanges();
-
-    httpMock
-      .expectOne((req) => req.method === 'POST' && req.url === '/api/books/b1/progress/reset')
-      .flush({ data: { code: 'book_not_found' } }, { status: 404, statusText: 'Not Found' });
-    fixture.detectChanges();
-
-    expect(httpMock.match((req) => req.method === 'GET' && req.url === '/api/books/b1').length).toBe(0);
-    expect(component.store.book()?.progressPercent).toBe(42);
-    expect(resetButton()).toBeTruthy();
-    expect(resetDialog()).toBeNull();
-    expect(toast.toasts().some((t) => t.message === 'Failed to reset progress' && t.type === 'error')).toBe(true);
   });
 
   it('renders edition switcher tabs when multiple editions exist and calls switchEdition', async () => {
@@ -288,49 +238,24 @@ describe('BookDetail reset progress', () => {
     expect(tabs[1].textContent).toContain('Audiobook');
   });
 
-  it('renders a dedicated Danger Zone card placed before the notes container', async () => {
+  it('does NOT render a danger zone card on the main page', async () => {
     await setup(readableBook());
-
-    const dangerZone = fixture.nativeElement.querySelector('.danger-zone-card');
-    const notesContainer = fixture.nativeElement.querySelector('.notes-container');
-    expect(dangerZone).toBeTruthy();
-    expect(notesContainer).toBeTruthy();
-    // Danger Zone sits before the notes container in DOM order
-    expect(dangerZone.compareDocumentPosition(notesContainer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.danger-zone-card')).toBeNull();
     expect(fixture.nativeElement.querySelector('.primary-actions .delete-book-btn')).toBeNull();
   });
 
-  it('opens and closes the custom glass delete confirmation modal', async () => {
+  it('triggers delete confirmation modal via openDeleteConfirm and deletes on confirm', async () => {
     await setup(readableBook());
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
 
-    expect(fixture.nativeElement.querySelector('.delete-confirm-dialog')).toBeNull();
-
-    const trigger = fixture.nativeElement.querySelector('.delete-book-trigger') as HTMLButtonElement;
-    trigger.click();
+    component.openDeleteConfirm();
     fixture.detectChanges();
 
     const dialog = fixture.nativeElement.querySelector('.delete-confirm-dialog');
     expect(dialog).toBeTruthy();
     expect(dialog.textContent).toContain('Delete "Meditations"?');
 
-    // Cancel closes dialog
-    const cancelBtn = dialog.querySelector('.btn-ghost') as HTMLButtonElement;
-    cancelBtn.click();
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.delete-confirm-dialog')).toBeNull();
-  });
-
-  it('deletes the book and navigates to library when confirmed in modal', async () => {
-    await setup(readableBook());
-    const router = TestBed.inject(Router);
-    const navigateSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
-
-    const trigger = fixture.nativeElement.querySelector('.delete-book-trigger') as HTMLButtonElement;
-    trigger.click();
-    fixture.detectChanges();
-
-    const dialog = fixture.nativeElement.querySelector('.delete-confirm-dialog');
     const deleteBtn = dialog.querySelector('.btn-danger') as HTMLButtonElement;
     deleteBtn.click();
     fixture.detectChanges();

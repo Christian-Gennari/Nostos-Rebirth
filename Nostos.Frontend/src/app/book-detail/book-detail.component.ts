@@ -1,4 +1,4 @@
-import { Component, effect, inject, OnInit, signal, model, computed, ViewChild, ElementRef } from '@angular/core';
+import { Component, effect, inject, OnInit, signal, model, computed, ViewChild, ElementRef, HostListener } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -45,6 +45,7 @@ import {
   MapPin,
   MessageSquareQuote,
   FileText,
+  CircleDashed,
 } from 'lucide-angular';
 
 @Component({
@@ -103,12 +104,14 @@ export class BookDetail implements OnInit {
   MapPinIcon = MapPin;
   QuoteIcon = MessageSquareQuote;
   FileTextIcon = FileText;
+  CircleDashedIcon = CircleDashed;
 
   // Local UI State
   isDescriptionExpanded = signal(false);
   showMetadataModal = signal(false);
-  showResetConfirm = signal(false);
   showDeleteConfirm = signal(false);
+  statusDropdownOpen = signal(false);
+  pendingStatus = signal<'notstarted' | 'reading' | 'finished' | null>(null);
   deleting = signal(false);
   newNote = model<string>('');
 
@@ -125,20 +128,16 @@ export class BookDetail implements OnInit {
     return { label: 'Not Started', modifier: 'not-started' };
   });
 
-  /**
-   * "Reset progress" is offered only for readable media that has progress
-   * worth clearing: non-zero percent, a saved location, finished state, or
-   * recency. A brand-new book has nothing to reset.
-   */
-  readonly canResetProgress = computed(() => {
-    const b = this.store.book();
-    if (!b || !b.hasFile) return false;
-    return b.progressPercent > 0 || !!b.lastLocation || !!b.finishedAt || !!b.lastReadAt;
-  });
-
   // Template Refs for hidden file inputs
   @ViewChild('coverInput') coverInput!: ElementRef<HTMLInputElement>;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    if (this.statusDropdownOpen()) {
+      this.statusDropdownOpen.set(false);
+    }
+  }
 
   ngOnInit(): void {
     this.route.paramMap.subscribe((params) => {
@@ -160,15 +159,36 @@ export class BookDetail implements OnInit {
   onRate(rating: number) {
     this.store.rate(rating);
   }
-  resetProgress() {
-    this.store.resetProgress();
-    this.showResetConfirm.set(false);
+
+  toggleStatusDropdown(event: Event): void {
+    event.stopPropagation();
+    this.statusDropdownOpen.update((open) => !open);
   }
-  openResetConfirm() {
-    this.showResetConfirm.set(true);
+
+  selectStatusOption(target: 'notstarted' | 'reading' | 'finished'): void {
+    this.statusDropdownOpen.set(false);
+    const current = this.readingStatus().modifier;
+    const currentCanonical = current === 'not-started' ? 'notstarted' : current;
+    if (target === currentCanonical) return;
+    this.pendingStatus.set(target);
   }
-  cancelResetConfirm() {
-    this.showResetConfirm.set(false);
+
+  cancelStatusChange(): void {
+    this.pendingStatus.set(null);
+  }
+
+  confirmStatusChange(): void {
+    const target = this.pendingStatus();
+    if (!target) return;
+
+    this.pendingStatus.set(null);
+    if (target === 'notstarted') {
+      this.store.resetProgress();
+    } else if (target === 'finished') {
+      this.store.setFinished(true);
+    } else if (target === 'reading') {
+      this.store.setFinished(false);
+    }
   }
 
   addNote(): void {
