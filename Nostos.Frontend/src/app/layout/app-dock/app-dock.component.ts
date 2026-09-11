@@ -61,7 +61,7 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
       :host {
         position: fixed;
         bottom: 24px;
-        left: calc(301px + (100vw - 301px) / 2);
+        left: 50%;
         z-index: 50;
         width: auto;
         padding: 0;
