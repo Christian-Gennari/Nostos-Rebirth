@@ -7,7 +7,9 @@
 
 .workspace-content {
   flex: 1;
-  overflow-y: auto;
+  /* Page layouts (library, book detail, second brain) own their scroll
+     surface. Keeping the shell clipped prevents nested/double scrollbars. */
+  overflow: hidden;
   position: relative;
   scroll-behavior: smooth;
   padding-bottom: 96px;
