@@ -196,6 +196,14 @@
   outline-offset: -2px;
 }
 
+/* The ring is inset, so on the active tile it would be drawn in the same
+   colour as the tile it sits on and disappear. Use the active tile's own
+   foreground colour instead. */
+.nav-item.active:focus-visible {
+  outline-color: var(--bg-surface);
+  outline-offset: -3px;
+}
+
 .nav-item.active {
   color: var(--bg-surface);
 }
@@ -205,11 +213,14 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
-/* Rail: the pill becomes a 40px square centred on the icon axis, and the row
-   surface a touch taller so it reads as a deliberate touch target. */
+/* Rail: the surface narrows to a 40px tile centred on the icon axis. It keeps
+   the row's own height (100%) instead of a fixed 40px square — a taller tile
+   overflows into the rows above and below (rows are 34.4px apart with a 4px
+   gap), so two adjacent hover/active tiles bled into each other. Filling the
+   row exactly means the morph is width-only and neighbouring tiles can never
+   touch. */
 .sidebar.collapsed .nav-item::before {
   width: 40px;
-  height: 40px;
 }
 
 .nav-item .count-badge {
