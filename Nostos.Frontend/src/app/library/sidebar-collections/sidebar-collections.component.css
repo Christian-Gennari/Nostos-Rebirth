@@ -18,6 +18,10 @@
   transition: width 0.3s cubic-bezier(0.2, 0, 0, 1);
 }
 
+:host(.no-transition) .sidebar {
+  transition: none !important;
+}
+
 .sidebar.collapsed {
   width: 72px;
 }
@@ -253,6 +257,10 @@
 }
 
 /* --- COLLAPSED OVERRIDES --- */
+:host(.no-transition) .brand-icon {
+  animation: none;
+}
+
 .sidebar.collapsed .sidebar-header {
   padding: 0;
   justify-content: center;
