@@ -1,4 +1,4 @@
-import { Component, HostListener, inject, input, output, signal, computed, effect } from '@angular/core';
+import { Component, ElementRef, HostListener, inject, input, output, signal, computed, effect, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
@@ -41,6 +41,7 @@ export class AddBookModal {
   // Tabs
   tabs = ['Book Info', 'Publishing', 'Files & Personal'] as const;
   activeTab = signal<(typeof this.tabs)[number]>('Book Info');
+  private titleInput = viewChild<ElementRef<HTMLInputElement>>('titleInput');
 
   // Computed State
   isEditMode = computed(() => !!this.book());
@@ -106,6 +107,7 @@ export class AddBookModal {
         } else {
           this.resetForm();
         }
+        setTimeout(() => this.titleInput()?.nativeElement.focus(), 0);
       }
     });
   }
