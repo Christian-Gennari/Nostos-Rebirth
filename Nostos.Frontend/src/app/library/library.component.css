@@ -720,10 +720,18 @@ app-sidebar-collections.no-transition {
 
 /* --- MOBILE RESPONSIVE --- */
 @media (max-width: 768px) {
+  :host {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+
   /* 1. Reset wrapper to block */
   .layout-wrapper {
     display: block;
-    overflow: hidden;
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
   }
 
   /* 2. IMPORTANT FIX: Take sidebar out of flow so it doesn't push content */
@@ -740,9 +748,10 @@ app-sidebar-collections.no-transition {
   /* 3. Content area takes full width */
   .library-right-side {
     width: 100%;
-    height: 100%;
+    height: auto;
+    min-height: 100%;
     margin-left: 0;
-    overflow-y: auto;
+    overflow: visible;
   }
 
   /* 4. Mobile Backdrop */

@@ -29,6 +29,20 @@
 }
 
 @media (max-width: 768px) {
+  /* Mobile library uses the workspace page scroll rather than a fixed-height
+     nested scroller, so touch swipes can continue through the whole grid. */
+  .workspace-layout:has(.library-right-side) {
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .workspace-content:has(.library-right-side) {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+    padding-bottom: 96px;
+  }
+
   /* The drawer owns the mobile viewport while open; hide the bottom dock
      so it never competes with or sits behind the drawer. */
   .workspace-layout:has(.sidebar:not(.collapsed)) app-app-dock {
