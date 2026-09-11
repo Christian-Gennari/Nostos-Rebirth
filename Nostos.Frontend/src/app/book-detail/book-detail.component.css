@@ -1,3 +1,41 @@
+/* ══ ENTERING A BOOK ═════════════════════════════════════════════════════════
+   Arriving at a book fades its content up rather than cutting to it, using the
+   same motion the Library uses for its results (`library-content-in`: 300ms on
+   `--ease-out`). Keep this duration equal to `--library-swap-in` in
+   library.component.css — two entrances into the same app should not disagree.
+
+   Every direct child of `.layout-content` carries it, so whichever branch
+   renders — skeleton, error, or the book itself — arrives the same way, and a
+   cold load does not pop into place before its own content fades in. The hero,
+   the stage and the body all mount together with the `@if`, so they fade as one
+   page instead of assembling piece by piece. The modal lives outside
+   `.layout-content`, so it keeps its own entrance.
+
+   Opacity ONLY, deliberately:
+     - `filter` here would promote this whole subtree (six blurred layers plus
+       two `backdrop-filter` surfaces) into an offscreen buffer for the duration
+       — the same class of compositing fault the cover card hit, for no gain.
+     - A transform would be worse: a `translateY` on the full-bleed band tears a
+       strip of bare page above it at the start of every entrance.
+   `both` holds the first frame at opacity 0 so nothing flashes before the
+   animation begins. None of these three blocks declares an opacity of its own,
+   so the fill has no later declaration to pin.                            */
+.layout-content > .book-hero,
+.layout-content > .hero-stage,
+.layout-content > .container {
+  --detail-enter: 300ms; /* == --library-swap-in */
+  animation: book-detail-in var(--detail-enter) var(--ease-out) both;
+}
+
+@keyframes book-detail-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* ══ HERO BAND ═══════════════════════════════════════════════════════════════
    The book's own cover art, defocused like a photograph shot wide open, fills a
    full-width band so the page OPENS with the book instead of with empty paper.
@@ -403,6 +441,13 @@
   .cover-frame:hover .cover-overlay,
   .cover-frame:focus-within .cover-overlay {
     transition: none;
+  }
+  /* Skip the entrance entirely rather than shortening it: a shortened fade
+     still paints one dimmed frame, and this one covers the whole page. */
+  .layout-content > .book-hero,
+  .layout-content > .hero-stage,
+  .layout-content > .container {
+    animation: none;
   }
 }
 .cover-overlay-btn {
