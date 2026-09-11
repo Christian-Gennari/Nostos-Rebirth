@@ -260,6 +260,13 @@ button {
   background: var(--bg-hover);
 }
 
+.btn:disabled,
+.btn-primary:disabled,
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .icon-btn {
   all: unset;
 
