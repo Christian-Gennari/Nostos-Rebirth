@@ -447,8 +447,7 @@
   background: var(--color-danger-vivid);
 }
 
-.mobile-fav,
-.mobile-delete {
+.mobile-fav {
   display: none;
 }
 .primary-actions {
@@ -828,32 +827,11 @@
     display: none;
   }
   .mobile-fav {
-    display: flex;
-  }
-  .desktop-delete {
-    display: none;
-  }
-  .mobile-delete {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin-left: 0;
-    width: 40px;
-    height: 40px;
-    flex-shrink: 0;
-    transition:
-      transform 0.2s,
-      color 0.2s,
-      border-color 0.2s,
-      background 0.2s;
-  }
-  .mobile-delete:hover:not(:disabled) {
-    transform: translateY(-1px);
+    display: block;
   }
 
   .user-metadata-row {
     justify-content: center;
-    gap: 0.75rem;
   }
   .book-title {
     font-size: 2rem;
