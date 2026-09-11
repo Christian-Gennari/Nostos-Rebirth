@@ -1,8 +1,37 @@
 # Book Detail Hero Gradient — Upgrade Plan
 
-**Goal:** Make the hero→page fade on Book Detail read as premium rather than merely correct, and decide honestly whether a third-party library earns its place.
+> **SUPERSEDED (same day) — read this first.**
+>
+> The plan was executed, and its central claim did not survive measurement.
+> **"The real defect is a missing dither layer" (below) is WRONG.** No banding
+> ever existed on this ramp: the 300px gradient resolves ~150-173 distinct 8-bit
+> levels with a longest plateau of 5-7px, which is healthy. The dither layer was
+> built, shipped behind a failing guard, measured, and **reverted** — it made the
+> dark cover *worse* (173 -> 161 levels) and would have cost GPU for nothing.
+> The blue-noise generator was abandoned too (void-and-cluster would not
+> converge) and deleted. Do not redo Phase 1.
+>
+> Actual outcome per phase:
+> - **Phase 0** — done. `tools/profile-fade.mjs` exists and is the thing that
+>   found the real defect.
+> - **Phase 1 (dither / blue noise)** — attempted, measured, **reverted**. Dead.
+> - **Phase 2 (lightness-derived stops)** — **shipped** as `d6beeee`. The fade
+>   now runs `.053/.193/.468/.764/.933`. This was the real win.
+> - **Phase 3 (@paper-design/shaders spike)** — never run, no longer proposed.
+>
+> Two later episodes also belong to this file's history: an anamorphic
+> SVG-filter blur was tried and **reverted** (`b5b1e37`) — it was never what made
+> the blur read cheap — and the actual cause of "flat and cheap" turned out to be
+> **colour**: stacked `saturate()` multipliers put the hero at 138% of its
+> cover's own chroma, so a muted cover came out hotter than the artwork. That is
+> fixed (`4444273`).
+>
+> Still valid and worth keeping: the `linear-gradient(in oklab, …)` no-op
+> measurement below, the `ditherjs` CC-BY-SA licence rejection, and the profiler.
 
-**Status:** Research complete. No code written. Plan only.
+**Status:** Executed and superseded the same day — see the block above for the
+outcome of each phase. Kept for the two findings that held up; do not action
+Phase 1 or 3.
 
 **Scope:** `Nostos.Frontend/src/app/book-detail/` hero band. Nothing else.
 
