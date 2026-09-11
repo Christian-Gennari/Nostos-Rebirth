@@ -5,12 +5,11 @@
 
 .detail-cover-ambient {
   position: absolute;
-  z-index: 0;
-  top: 0;
   left: 0;
   width: min(760px, 68vw);
   height: 560px;
-  background-size: cover;
+  object-fit: cover;
+  object-position: 12% 22%;
   filter: blur(30px) saturate(0.72);
   opacity: 0.15;
   mask-image: linear-gradient(135deg, #000 0 38%, transparent 82%);
@@ -862,7 +861,7 @@
     height: 430px;
     opacity: 0.09;
     filter: blur(26px) saturate(0.68);
-    background-position: center 8%;
+    object-position: center 8%;
     mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.6) 48%, transparent 88%);
     -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.6) 48%, transparent 88%);
   }

@@ -1,11 +1,14 @@
 <main class="layout-wrapper">
   <div class="layout-content">
     @if (store.book()?.coverUrl) {
-    <div
+    <img
       class="detail-cover-ambient"
       aria-hidden="true"
-      [style.background-image]="'url(' + store.book()?.coverUrl + ')'"
-    ></div>
+      alt=""
+      [src]="store.book()?.coverUrl"
+      loading="eager"
+      decoding="async"
+    />
     }
     <div class="container md">
       @if (store.loading()) {
