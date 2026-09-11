@@ -281,4 +281,58 @@ describe('BookDetail reset progress', () => {
     expect(metaStrip.textContent).not.toContain('File');
     expect(metaStrip.textContent).not.toContain('book.m4b');
   });
+
+  // ── Cover echo (decorative cover-derived wash) ──────────────────────────────
+  // Regression context: the echo must live INSIDE the content container. A
+  // previous version anchored it to the scroll area's top-left, which placed a
+  // visible slab ~250px away from the cover it echoes.
+
+  function coverEcho(): HTMLElement | null {
+    return fixture.nativeElement.querySelector('.cover-echo');
+  }
+
+  function coverEchoImg(): HTMLImageElement | null {
+    return fixture.nativeElement.querySelector('.cover-echo img');
+  }
+
+  it('renders no cover echo when the book has no cover', async () => {
+    await setup(readableBook({ coverUrl: null }));
+    expect(coverEcho()).toBeNull();
+  });
+
+  it('renders the cover echo as the first child of the content container', async () => {
+    await setup(readableBook({ coverUrl: '/api/books/b1/cover' }));
+
+    const echo = coverEcho();
+    expect(echo).toBeTruthy();
+
+    const container = fixture.nativeElement.querySelector('.container.md');
+    expect(container).toBeTruthy();
+    expect(container.firstElementChild).toBe(echo);
+  });
+
+  it('marks the cover echo decorative so it never captures pointer or a11y focus', async () => {
+    await setup(readableBook({ coverUrl: '/api/books/b1/cover' }));
+
+    expect(coverEcho()!.getAttribute('aria-hidden')).toBe('true');
+    expect(coverEchoImg()!.getAttribute('alt')).toBe('');
+  });
+
+  it('uses the cover thumbnail endpoint for the echo, not the full-size cover', async () => {
+    await setup(readableBook({ coverUrl: '/api/books/b1/cover' }));
+
+    // The wash is blurred to mush; the thumbnail keeps the layer cheap.
+    expect(coverEchoImg()!.getAttribute('src')).toBe('/api/books/b1/cover/thumbnail?width=320');
+  });
+
+  it('hides the cover echo when its thumbnail fails to load', async () => {
+    await setup(readableBook({ coverUrl: '/api/books/b1/cover' }));
+    expect(coverEcho()).toBeTruthy();
+
+    coverEchoImg()!.dispatchEvent(new Event('error'));
+    fixture.detectChanges();
+
+    // Otherwise the browser paints its broken-image glyph on the page.
+    expect(coverEcho()).toBeNull();
+  });
 });

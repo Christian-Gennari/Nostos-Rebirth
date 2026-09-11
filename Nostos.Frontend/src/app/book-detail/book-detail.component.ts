@@ -115,6 +115,13 @@ export class BookDetail implements OnInit {
   statusDropdownOpen = signal(false);
   pendingStatus = signal<'notstarted' | 'reading' | 'finished' | null>(null);
   deleting = signal(false);
+
+  /** True when the decorative cover thumbnail failed to load — the wash is hidden. */
+  coverEchoFailed = signal(false);
+
+  onCoverEchoError(): void {
+    this.coverEchoFailed.set(true);
+  }
   newNote = model<string>('');
 
   /**

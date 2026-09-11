@@ -1,6 +1,84 @@
 .container.md {
+  position: relative; /* containing block for .cover-echo — keeps the wash aligned with the cover */
   /* Clears the floating bottom dock at every scroll position. */
   padding-bottom: 8.5rem;
+}
+
+/* ── Cover echo ─────────────────────────────────────────────────────────────
+   A blurred, desaturated echo of the cover art that gives the cover and title
+   some atmosphere without competing with them.
+
+   THE INVARIANT THAT MATTERS: the mask must reach zero opacity strictly INSIDE
+   the layer on all four sides. A layer has `overflow: hidden`, so any opacity
+   remaining at a layer edge is clipped into a straight line — that is exactly
+   what shipped as "a weird square in the upper left" twice:
+     • `linear-gradient(135deg, #000 0 38%, …)` — brightest in the anchored
+       corner, i.e. a rectangle by construction;
+     • `clip-path: ellipse(… at 18% 10%)` — same corner defect;
+     • a radial mask centred ABOVE the layer top (`at 30% -6%`) — the bright core
+       was clipped by the top edge into a flat bright band.
+   So: keep the centre inside the layer and keep rx/ry smaller than the centre's
+   distance to every edge. The numbers below are checked in the geometry test.
+
+   Desktop layer is 800x560. The centre is placed in the VISIBLE page area to the
+   right of the cover column (a centre over the cover itself throws most of the
+   wash away behind opaque cover art, leaving only a thin strip). Centre
+   (55%, 45%) = (440, 252), radii (42%, 42%) = (336, 235):
+     left 440-336 = 104 ✓  right 800-776 = 24 ✓
+     top  252-235 = 17 ✓   bottom 560-487 = 73 ✓
+   Two further regressions this guards: the layer must live INSIDE .container.md
+   (anchoring it to the scroll area put the wash ~250px away from the cover it
+   echoes), and it must paint BELOW the page content (see the z-index note).   */
+.cover-echo {
+  position: absolute;
+  inset-inline: 0; /* never wider than the container: no horizontal overflow */
+  top: 0;
+  height: 560px;
+  overflow: hidden; /* contains the blur bleed */
+  pointer-events: none;
+  z-index: 0;
+  /* The extra mid stop keeps the outer falloff gentle so the boundary is never
+     perceptible. */
+  mask-image: radial-gradient(
+    ellipse 42% 42% at 55% 45%,
+    #000 0%,
+    rgba(0, 0, 0, 0.5) 35%,
+    rgba(0, 0, 0, 0.12) 70%,
+    transparent 100%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 42% 42% at 55% 45%,
+    #000 0%,
+    rgba(0, 0, 0, 0.5) 35%,
+    rgba(0, 0, 0, 0.12) 70%,
+    transparent 100%
+  );
+}
+
+.cover-echo img {
+  position: absolute;
+  top: -16%;
+  left: -16%;
+  /* Explicit size: an absolutely positioned REPLACED element with width:auto
+     takes its INTRINSIC width and ignores `right`, so `inset` alone would not
+     stretch it. */
+  width: 132%;
+  height: 132%;
+  object-fit: cover;
+  object-position: 18% 16%; /* frame the art's upper-left, where the cover leads */
+  filter: blur(34px) saturate(0.72);
+  /* Tuned against a reference wash measured on a light/sepia cover AND a dark/warm
+     cover: visible enough to read as the cover's aura, never garish. Lowering this
+     below ~0.2 makes the wash imperceptible on light covers; raising it past ~0.35
+     starts to compete with the cover art. */
+  opacity: 0.3;
+}
+
+/* Everything the reader reads paints above the wash. */
+.back-nav,
+.detail-grid {
+  position: relative;
+  z-index: 1;
 }
 
 .back-nav {
@@ -836,6 +914,35 @@
   margin-top: 2rem;
 }
 @media (max-width: 900px) {
+  /* Mobile: the cover column is centred and the container spans the viewport, so
+     the aura is centred on the cover. Layer is 382x430; centre (50%, 51%) =
+     (191, 219), radii (46%, 44%) = (176, 189):
+       left 191-176 = 15 ✓   right 191+176 = 367 < 382 ✓
+       top  219-189 = 30 ✓   bottom 219+189 = 408 < 430 ✓
+     Same invariant as desktop: zero opacity strictly inside every edge. */
+  .cover-echo {
+    height: 430px;
+    mask-image: radial-gradient(
+      ellipse 46% 44% at 50% 51%,
+      #000 0%,
+      rgba(0, 0, 0, 0.5) 35%,
+      rgba(0, 0, 0, 0.12) 70%,
+      transparent 100%
+    );
+    -webkit-mask-image: radial-gradient(
+      ellipse 46% 44% at 50% 51%,
+      #000 0%,
+      rgba(0, 0, 0, 0.5) 35%,
+      rgba(0, 0, 0, 0.12) 70%,
+      transparent 100%
+    );
+  }
+  .cover-echo img {
+    opacity: 0.28;
+    filter: blur(28px) saturate(0.68);
+    object-position: 50% 14%;
+  }
+
   .detail-grid {
     grid-template-columns: 1fr;
     gap: 2rem;

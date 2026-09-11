@@ -1,6 +1,20 @@
 <main class="layout-wrapper">
   <div class="layout-content">
     <div class="container md">
+      @if (store.book()?.coverUrl && !coverEchoFailed()) {
+      <!-- Decorative cover-derived wash. Uses the thumbnail, not the full cover:
+           it is blurred to mush anyway, and this keeps the layer cheap. -->
+      <div class="cover-echo" aria-hidden="true">
+        <img
+          [src]="store.book()!.coverUrl + '/thumbnail?width=320'"
+          alt=""
+          loading="eager"
+          fetchpriority="low"
+          decoding="async"
+          (error)="onCoverEchoError()"
+        />
+      </div>
+      }
       @if (store.loading()) {
       <div class="back-nav">
         <div class="skeleton-line" style="width: 100px; height: 20px"></div>

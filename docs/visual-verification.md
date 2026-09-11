@@ -41,6 +41,18 @@ This is the honest 14 → 10 reduction: the four redundant desktop dark/sepia
 reader captures are gone and the two mobile reader geometries formerly
 covered only in dark mode are captured in the app's single light rendering.
 
+### Book detail (real-library only)
+
+Two further artifacts cover the book detail page's cover-derived background
+wash. They are real-library-only for the same reason the reader surfaces are:
+the echo is derived from the book's own cover art, and the isolated fixture has
+no covers.
+
+| Artifact | Surface | Viewport | State |
+| --- | --- | --- | --- |
+| `book-detail-hero-desktop.png` | Book detail | 1440x900 | cover echo present |
+| `book-detail-hero-mobile.png` | Book detail | 390x844 | cover echo present |
+
 ## How to run
 
 Default run (isolated fixture — no book assets needed):
@@ -71,6 +83,18 @@ plus `npx ng serve --port <fresh-port> --proxy-config src/proxy.local.json`,
 then `VISUAL_QA_LIBRARY_URL=http://localhost:<fresh-port> npm run e2e`
 (delete the temp proxy file afterwards).
 
+Book detail only (needs a book with cover art):
+
+```sh
+cd Nostos.Frontend
+VISUAL_QA_LIBRARY_URL=http://localhost:4310 npm run e2e -- book-detail-visual.spec.ts
+```
+
+`book-detail-visual.spec.ts` captures both viewports from one spec (via
+`newCapturePage`'s own contexts), so it runs in the desktop project only — its
+file name deliberately avoids the `mobile*.spec.ts` pattern the desktop project
+ignores. Without `VISUAL_QA_LIBRARY_URL` both cases skip with a documented reason.
+
 ## Automated geometry checks (run on every capture)
 
 | Check | Applies to | Pass criterion |
@@ -82,6 +106,7 @@ then `VISUAL_QA_LIBRARY_URL=http://localhost:<fresh-port> npm run e2e`
 | `zen-gutters-balanced` | zen captures | editor surface horizontally centered: left/right gutters within 3px |
 | `library-no-progress-combobox` | library captures | toolbar progress filter is not a `<select>`; the only toolbar select is sort |
 | `library-six-sidebar-filters` | library captures | sidebar/drawer exposes exactly: All Books, Not Started, In Progress, Favorites, Finished, Unsorted — and no toolbar progress surface |
+| `book-detail-cover-echo` | book detail captures | the cover echo's mask fades to zero **strictly inside its own layer on all four sides** (centre ± radius within the layer box, both axes); the layer aligns with `.container.md` (±2px); it spans the cover's box; no horizontal overflow; `.book-title` owns its own pixel (content paints above the wash) |
 
 Every check is recorded in the capture's `.json` report with its
 metrics. **Skips are never failures and never fakes**: a check is skipped only
@@ -139,6 +164,14 @@ each PNG, record PASS/FAIL against the expert vision criteria:
 - Exactly one progress-filter surface is visible.
 - No clipping, horizontal overflow, illegible contrast, or overlapping controls.
 - The reader shell has no theme controls and no second toolbar row on mobile.
+- Book detail: the cover wash has **no visible edge, seam, rectangle, band or
+  corner** where it stops — it must fade smoothly into the paper background on
+  every side. A straight boundary is a FAIL even if subtle (this shipped three
+  times as "a weird square in the upper left").
+- Book detail: the wash sits **behind** the cover and title and reads as derived
+  from that cover's own art; the cover stays the clear focal point and text
+  remains the most legible element. If the wash competes with either, lower its
+  opacity rather than removing the check.
 
 Verdicts must be attached to the PR alongside the artifact names (e.g.
 "PASS 10/10 — `epub-light-mobile.png` verified against criterion list").

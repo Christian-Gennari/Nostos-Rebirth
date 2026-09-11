@@ -86,7 +86,7 @@ export interface GeometryCheck {
 
 export interface CaptureMeta {
   name: string;
-  surface: 'epub' | 'pdf' | 'studio' | 'library';
+  surface: 'epub' | 'pdf' | 'studio' | 'library' | 'book-detail';
   viewport: Viewport;
   state: string;
 }
@@ -498,4 +498,125 @@ export async function checkLibraryToolbarStability(page: Page): Promise<Geometry
 
 function r1(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+// ---------------------------------------------------------------------------
+// Book detail — cover echo (decorative cover-derived wash)
+// ---------------------------------------------------------------------------
+
+/** Finds a book that has cover art (the echo needs a real cover). */
+export async function findLibraryCoverBook(): Promise<{ id: string; title: string } | null> {
+  const res = await fetch(`${LIBRARY_URL}/api/books?pageSize=200`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error(`GET ${LIBRARY_URL}/api/books -> ${res.status}: ${await res.text()}`);
+  const data = (await res.json()) as {
+    items?: Array<{ id: string; title: string; coverUrl?: string | null }>;
+  };
+  const match = (data.items ?? []).find((b) => !!b.coverUrl);
+  return match ? { id: match.id, title: match.title } : null;
+}
+
+/**
+ * The cover echo's pass criteria. Each one guards a defect that actually shipped:
+ *
+ *  1. MASK CONTAINMENT (the important one). The layer is `overflow: hidden`, so
+ *     any mask opacity remaining at a layer edge is clipped into a straight
+ *     line. Three earlier versions shipped that as a visible slab ("a weird
+ *     square in the upper left"): a corner-anchored linear gradient, a
+ *     corner-anchored clip-path ellipse, and a radial mask centred above the
+ *     layer top. Assert centre ± radius lands strictly inside the layer on all
+ *     four sides — for BOTH axes, using the layer's real pixel box.
+ *  2. CONTAINER ALIGNMENT. Anchoring the layer to the scroll area instead of
+ *     `.container.md` put the wash ~250px away from the cover it echoes.
+ *  3. NO HORIZONTAL OVERFLOW (`.layout-content` is `overflow-y: auto`, which
+ *     makes `overflow-x` compute to `auto` too — a too-wide layer scrolls).
+ *  4. PAINT ORDER. `.book-title` must own its own pixel, i.e. content paints
+ *     above the wash.
+ */
+export async function checkBookDetailCoverEcho(page: Page): Promise<GeometryCheck> {
+  const echo = page.locator('.cover-echo');
+  const container = page.locator('.container.md').first();
+  const cover = page
+    .locator('.detail-cover-col .cover-img, .detail-cover-col .placeholder-cover')
+    .first();
+
+  await cover.waitFor({ timeout: 30_000 });
+  const echoBox = await echo.boundingBox();
+  const cBox = await container.boundingBox();
+  const coverBox = await cover.boundingBox();
+
+  // Parse the computed mask and check the gradient ellipse is fully inside the layer.
+  const mask = await echo.evaluate((el) => {
+    // Inline rounding: this callback runs in the browser, so module-scope helpers
+    // (r1) are not in scope.
+    const round1 = (v: number): number => Math.round(v * 10) / 10;
+    const cs = getComputedStyle(el);
+    const raw = cs.maskImage || cs.webkitMaskImage || '';
+    const rect = el.getBoundingClientRect();
+    // "radial-gradient(35% 42% at 37.5% 45%, ...)" (percentages, no explicit ellipse keyword)
+    const m = /radial-gradient\(\s*(?:ellipse\s+)?([\d.]+)%\s+([\d.]+)%\s+at\s+([\d.]+)%\s+([\d.]+)%/i.exec(raw);
+    if (!m) return { raw, parsed: false as const };
+    const [rxPct, ryPct, cxPct, cyPct] = m.slice(1, 5).map(Number);
+    const rx = (rxPct / 100) * rect.width;
+    const ry = (ryPct / 100) * rect.height;
+    const cx = (cxPct / 100) * rect.width;
+    const cy = (cyPct / 100) * rect.height;
+    return {
+      raw,
+      parsed: true as const,
+      layer: { w: Math.round(rect.width), h: Math.round(rect.height) },
+      centre: { x: round1(cx), y: round1(cy) },
+      radii: { x: round1(rx), y: round1(ry) },
+      // distance from the gradient's outer edge to each layer edge; any value <= 0
+      // means opacity survives to the edge and gets clipped into a hard line.
+      margins: {
+        left: round1(cx - rx),
+        right: round1(rect.width - (cx + rx)),
+        top: round1(cy - ry),
+        bottom: round1(rect.height - (cy + ry)),
+      },
+    };
+  });
+
+  const overflow = await page.evaluate(() => ({
+    docScroll: document.documentElement.scrollWidth,
+    docClient: document.documentElement.clientWidth,
+    contentScroll: document.querySelector('.layout-content')?.scrollWidth ?? 0,
+    contentClient: document.querySelector('.layout-content')?.clientWidth ?? 0,
+  }));
+
+  const titleHit = await page.evaluate(() => {
+    const el = document.querySelector('.book-title');
+    if (!el) return '<absent>';
+    const r = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return hit ? String(hit.className || hit.tagName) : '<null>';
+  });
+
+  const margins = mask.parsed ? mask.margins : null;
+  const contained = !!margins && Object.values(margins).every((v) => v > 0);
+  const aligned = !!echoBox && !!cBox && Math.abs(echoBox.x - cBox.x) <= 2;
+  const noOverflowX =
+    overflow.docScroll <= overflow.docClient + 1 &&
+    overflow.contentScroll <= overflow.contentClient + 1;
+  const spansCover =
+    !!echoBox && !!coverBox &&
+    echoBox.x <= coverBox.x + 2 &&
+    echoBox.x + echoBox.width >= coverBox.x + coverBox.width - 2;
+  const contentOnTop = /book-title/.test(titleHit);
+  const ok = contained && aligned && noOverflowX && spansCover && contentOnTop;
+
+  const metrics = { echoBox, cBox, coverBox, mask, overflow, titleHit };
+  const msg =
+    `mask ${contained ? 'fully fades inside the layer' : 'IS CLIPPED AT A LAYER EDGE'} ` +
+    `(margins L${margins?.left} R${margins?.right} T${margins?.top} B${margins?.bottom}px inside ` +
+    `${mask.parsed ? mask.layer.w : '?'}x${mask.parsed ? mask.layer.h : '?'}), ` +
+    `echo x ${echoBox ? r1(echoBox.x) : '?'} vs container x ${cBox ? r1(cBox.x) : '?'} ` +
+    `(${aligned ? 'aligned' : 'MISALIGNED'}), spans cover ${spansCover ? 'yes' : 'NO'}, ` +
+    `h-overflow ${noOverflowX ? 'none' : 'PRESENT'}, ` +
+    `title owns its pixel ${contentOnTop ? 'yes' : `NO (${titleHit})`}`;
+  return ok
+    ? passCheck('book-detail-cover-echo', msg, metrics)
+    : failCheck('book-detail-cover-echo', msg, metrics);
 }
