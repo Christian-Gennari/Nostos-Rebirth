@@ -139,6 +139,12 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
         }
 
         .app-dock-container {
+          /* The desktop dock is a floating pill sized to its content
+             (width: max-content). On phones the dock is a full-bleed rail, so
+             the container must stretch, otherwise it collapses to a narrow
+             left-aligned pill with sub-44px tap targets. */
+          width: 100%;
+          max-width: none;
           border-right: 0;
           border-bottom: 0;
           border-left: 0;
@@ -162,11 +168,13 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
         }
 
         .dock-item lucide-icon {
-          transform: scale(0.9);
+          /* 20px icons: the desktop 0.9 scale (18px) is too small to read or
+             hit comfortably on a phone. */
+          transform: none;
         }
 
         .label {
-          font-size: 0.62rem;
+          font-size: 0.7rem;
         }
 
         .dock-item:hover {
