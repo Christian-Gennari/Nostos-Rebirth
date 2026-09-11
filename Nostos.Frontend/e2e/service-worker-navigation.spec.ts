@@ -10,22 +10,32 @@
  * API URL such as `/api/books/{id}/file/download` was answered from the
  * app-shell cache with index.html. The router then matched its `**` route and
  * redirected to `/library` — the file never downloaded and the user was
- * thrown back to the home page. The same trap applies to
- * `/api/backup/download/{id}` and to the OPDS/MCP namespaces.
+ * thrown back to the home page.
  *
  * The fixture serves the real production build (service worker included) from
  * the real backend, so these tests exercise the shipped policy end to end:
- *   - an API navigation must leave the worker for the network and deliver the
- *     exact bytes of the uploaded file;
+ *   - an API download navigation must leave the worker for the network and
+ *     deliver the exact bytes of the uploaded file;
  *   - the book-detail Download button (window.open) must download the file
  *     instead of opening another copy of the app;
- *   - ordinary client routes must still be served by the worker (the
- *     exclusions must not be over-broad).
+ *   - the dotless backend namespaces (/api, /opds, /mcp) must reach the
+ *     network on a navigation request;
+ *   - client routes must still be answered from the worker's app-shell cache
+ *     (asserted with the network switched off, which only the cache satisfies).
+ *
+ * Note: `Response.fromServiceWorker()` is NOT a discriminator here — for a
+ * controlled page it is true for every response, including the ones the worker
+ * passes through to the network (verified against this fixture).
+ *
+ * Known limitation, not covered here: `Mcp:Path` is configurable at runtime
+ * (McpOptions), while `navigationUrls` is baked into the build. The exclusion
+ * covers the default `/mcp`; a deployment that moves MCP to another absolute
+ * path must add that path to ngsw-config.json too.
  *
  * The spec runs in the desktop project (playwright.config.ts testIgnore covers
  * the mobile project's `mobile.*.spec.ts` match).
  */
-import { expect, test, type Download, type Page } from '@playwright/test';
+import { expect, test, type Download, type Page, type Response } from '@playwright/test';
 import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
@@ -91,6 +101,17 @@ async function expectExactFile(download: Download): Promise<void> {
   expect(readFileSync(file!).equals(EPUB_BYTES), 'downloaded bytes match the uploaded file').toBe(true);
 }
 
+/**
+ * The app-shell interception is identifiable: index.html served for the URL
+ * (HTML content type) and Angular booted (`<app-root>` in the DOM). The
+ * backend serves the shell as a JSON API error or a real payload — so an HTML
+ * document here means the request never reached it.
+ */
+async function expectNotAppShell(page: Page, response: Response | null): Promise<void> {
+  expect(response?.headers()['content-type'] ?? '', 'the response must not be HTML').not.toContain('text/html');
+  expect(await page.locator('app-root').count(), 'the Angular app must not have booted').toBe(0);
+}
+
 test.beforeAll(async () => {
   ({ id: bookId } = await seedBookWithFile());
 });
@@ -115,13 +136,11 @@ test('an API download navigation is never answered with the app shell', async ({
       /ERR_ABORTED|Download is starting/i
     );
   } else {
-    // Wrong behaviour, and the exact user-visible symptom: the worker answered
-    // from the app-shell cache with index.html, which booted Angular and
-    // redirected to /library because of the router's `**` route.
-    expect(response.headers()['content-type'] ?? '', 'the API navigation must not be the Angular shell').not.toContain(
-      'text/html'
-    );
-    expect(await probe.title(), 'the API navigation must not boot the app').not.toContain('Nostos');
+    // The exact user-visible symptom: the worker answered from the app-shell
+    // cache with index.html, which booted Angular and redirected to /library
+    // because of the router's `**` route. This branch is what goes red on the
+    // pre-fix configuration.
+    await expectNotAppShell(probe, response);
   }
 
   await expect.poll(() => download !== null, { message: 'the download never started' }).toBe(true);
@@ -149,16 +168,37 @@ test('the book detail Download button delivers the file (not another app page)',
   await expectExactFile(download!);
 });
 
-test('client routes are still served by the app shell (exclusions are not over-broad)', async ({ page }) => {
+test('dotless backend namespaces are fetched from the network, not the shell', async ({ context, page }) => {
   await ensureServiceWorkerControl(page);
 
-  const response = await page.goto(appUrl(`/library/${bookId}`));
-  expect(response?.status(), 'client route status').toBe(200);
-  await expect(page.getByRole('heading', { name: bookTitle })).toBeVisible();
+  // Every dotless namespace the backend owns: the library API, the backup
+  // endpoints behind Settings → download, and the OPDS/MCP namespaces.
+  const namespaces = ['/api/books', '/api/backup/status', '/opds', '/mcp'];
 
-  // Routed without a server round trip: the worker answers with the cached shell.
-  const servedByWorker = await page.evaluate(
-    () => performance.getEntriesByType('navigation').length > 0 && !!navigator.serviceWorker.controller
-  );
-  expect(servedByWorker, 'a controlled client route is still served by the worker').toBe(true);
+  for (const namespace of namespaces) {
+    const probe = await context.newPage();
+    const response = await probe.goto(appUrl(namespace)).catch(() => null);
+    await expectNotAppShell(probe, response);
+    await probe.close();
+  }
+});
+
+test('client routes are still served from the app-shell cache (exclusions are not over-broad)', async ({
+  context,
+  page,
+}) => {
+  await ensureServiceWorkerControl(page);
+
+  // With the network off, only the worker's app-shell cache can answer a
+  // navigation to a client route. If the exclusions were widened to cover the
+  // app's own routes (e.g. `!/**`), this navigation fails instead.
+  await context.setOffline(true);
+  try {
+    const response = await page.goto(appUrl('/second-brain'));
+    expect(response?.status(), 'offline client-route status').toBe(200);
+    expect(response!.headers()['content-type'] ?? '', 'the cached shell is HTML').toContain('text/html');
+    await expect(page.locator('app-root')).toHaveCount(1);
+  } finally {
+    await context.setOffline(false);
+  }
 });
