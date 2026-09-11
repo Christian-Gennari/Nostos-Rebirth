@@ -243,4 +243,42 @@ describe('Library', () => {
       expect.objectContaining({ filter: undefined, format: 'ebook' }),
     );
   });
+
+  it('opens DeleteBookModal when delete button is clicked and cancels', () => {
+    const testBook = { id: 'b1', title: 'Test Book', type: 'ebook', progressPercent: 0 } as any;
+    component.rawBooks.set([testBook]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.delete-modal-card')).toBeNull();
+
+    component.openDeleteModal(testBook, new MouseEvent('click'));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.delete-modal-card')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.delete-title').textContent).toContain('Test Book');
+
+    component.cancelDelete();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.delete-modal-card')).toBeNull();
+  });
+
+  it('deletes book when confirmed through DeleteBookModal', () => {
+    const testBook = { id: 'b1', title: 'Test Book', type: 'ebook', progressPercent: 0 } as any;
+    component.rawBooks.set([testBook]);
+    fixture.detectChanges();
+
+    component.openDeleteModal(testBook, new MouseEvent('click'));
+    fixture.detectChanges();
+
+    const booksService = TestBed.inject(BooksService);
+    const deleteSpy = vi.spyOn(booksService, 'delete').mockReturnValue(of(null as any));
+
+    component.confirmDelete();
+    fixture.detectChanges();
+
+    expect(deleteSpy).toHaveBeenCalledWith('b1');
+    expect(component.rawBooks().length).toBe(0);
+    expect(fixture.nativeElement.querySelector('.delete-modal-card')).toBeNull();
+  });
 });

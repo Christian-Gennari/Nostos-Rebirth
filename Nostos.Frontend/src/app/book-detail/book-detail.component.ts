@@ -11,6 +11,7 @@ import { Book, EditionSummaryDto } from '../core/dtos/book.dtos';
 
 // UI Components
 import { AddBookModal } from '../add-book-modal/add-book-modal.component';
+import { DeleteBookModal } from '../ui/delete-book-modal/delete-book-modal.component';
 import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
@@ -57,6 +58,7 @@ import {
     RouterLink,
     LucideAngularModule,
     AddBookModal,
+    DeleteBookModal,
     ConceptInputComponent,
     NoteCardComponent,
     StarRatingComponent,

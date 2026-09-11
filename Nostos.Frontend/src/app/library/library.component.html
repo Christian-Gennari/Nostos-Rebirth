@@ -83,8 +83,18 @@
         [book]="editTarget()"
         (closeModal)="closeEditModal()"
         (bookUpdated)="onBookUpdated($event)"
+        (deleteBook)="openDeleteModal(editTarget()!); closeEditModal()"
       >
       </app-add-book-modal>
+
+      <app-delete-book-modal
+        [isOpen]="!!deleteTarget()"
+        [bookTitle]="deleteTarget()?.title"
+        [deleting]="deletingBook()"
+        (confirm)="confirmDelete()"
+        (cancel)="cancelDelete()"
+      >
+      </app-delete-book-modal>
 
       @if (loading()) { @if (viewMode() === 'list') {
       <div class="table-view skeleton-list-view">
@@ -259,7 +269,7 @@
               <lucide-icon [img]="Edit2Icon" [size]="15"></lucide-icon>
             </button>
 
-            <button class="icon-btn delete" (click)="deleteBook(book.id, $event)" title="Delete">
+            <button class="icon-btn delete" (click)="openDeleteModal(book, $event)" title="Delete">
               <lucide-icon [img]="Trash2Icon" [size]="15"></lucide-icon>
             </button>
           </div>
@@ -358,7 +368,7 @@
 
               <button
                 class="action-circle delete"
-                (click)="deleteBook(book.id, $event)"
+                (click)="openDeleteModal(book, $event)"
                 title="Delete"
               >
                 <lucide-icon [img]="Trash2Icon" [size]="16"></lucide-icon>

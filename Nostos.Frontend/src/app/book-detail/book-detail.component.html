@@ -523,30 +523,14 @@
   </div>
   }
 
-  @if (showDeleteConfirm()) {
-  <div class="reset-confirm-backdrop" (click)="cancelDeleteConfirm()">
-    <div
-      class="reset-confirm-dialog delete-confirm-dialog"
-      role="alertdialog"
-      aria-labelledby="delete-confirm-title"
-      aria-describedby="delete-confirm-body"
-      (click)="$event.stopPropagation()"
-    >
-      <h3 id="delete-confirm-title">Delete "{{ store.book()?.title }}"?</h3>
-      <p id="delete-confirm-body">
-        This action cannot be undone. The book file, annotations, and all reading progress will be permanently deleted.
-      </p>
-      <div class="reset-confirm-actions">
-        <button class="btn btn-xs btn-ghost" (click)="cancelDeleteConfirm()" [disabled]="deleting()">
-          Cancel
-        </button>
-        <button class="btn btn-xs btn-danger" (click)="confirmDeleteBook()" [disabled]="deleting()">
-          {{ deleting() ? 'Deleting…' : 'Delete Permanently' }}
-        </button>
-      </div>
-    </div>
-  </div>
-  }
+  <app-delete-book-modal
+    [isOpen]="showDeleteConfirm()"
+    [bookTitle]="store.book()?.title"
+    [deleting]="deleting()"
+    (confirm)="confirmDeleteBook()"
+    (cancel)="cancelDeleteConfirm()"
+  >
+  </app-delete-book-modal>
 
   <app-add-book-modal
     [isOpen]="showMetadataModal()"

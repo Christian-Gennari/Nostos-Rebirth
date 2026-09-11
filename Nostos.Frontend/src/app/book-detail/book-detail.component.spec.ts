@@ -259,11 +259,11 @@ describe('BookDetail reset progress', () => {
     component.openDeleteConfirm();
     fixture.detectChanges();
 
-    const dialog = fixture.nativeElement.querySelector('.delete-confirm-dialog');
+    const dialog = fixture.nativeElement.querySelector('.delete-modal-card');
     expect(dialog).toBeTruthy();
     expect(dialog.textContent).toContain('Delete "Meditations"?');
 
-    const deleteBtn = dialog.querySelector('.btn-danger') as HTMLButtonElement;
+    const deleteBtn = dialog.querySelector('.btn-delete-confirm') as HTMLButtonElement;
     deleteBtn.click();
     fixture.detectChanges();
 
@@ -271,7 +271,7 @@ describe('BookDetail reset progress', () => {
     fixture.detectChanges();
 
     expect(navigateSpy).toHaveBeenCalledWith(['/library']);
-    expect(fixture.nativeElement.querySelector('.delete-confirm-dialog')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.delete-modal-card')).toBeNull();
   });
 
   it('does not display the uploaded file name in the meta strip', async () => {

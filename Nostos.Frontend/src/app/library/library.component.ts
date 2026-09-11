@@ -17,6 +17,7 @@ import { Collection } from '../core/dtos/collection.dtos';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AddBookModal } from '../add-book-modal/add-book-modal.component';
+import { DeleteBookModal } from '../ui/delete-book-modal/delete-book-modal.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { SidebarCollections } from './sidebar-collections/sidebar-collections.component';
 import { Book, EditionSummaryDto } from '../core/dtos/book.dtos';
@@ -102,6 +103,7 @@ interface WorkFormatGlyph {
     FormsModule,
     LucideAngularModule,
     AddBookModal,
+    DeleteBookModal,
     StarRatingComponent,
     SidebarCollections,
     InfiniteScrollDirective,
@@ -166,9 +168,11 @@ export class Library implements OnInit {
 
   private searchSubject = new Subject<string>();
 
-  // Modal edit system
+  // Modal edit & delete system
   showEditModal = signal(false);
   editTarget = signal<Book | null>(null);
+  deleteTarget = signal<Book | null>(null);
+  deletingBook = signal(false);
 
   books = computed(() => this.rawBooks());
 
@@ -457,16 +461,45 @@ export class Library implements OnInit {
     return 'epub';
   }
 
-  deleteBook(id: string, event: Event): void {
-    event.stopPropagation();
-    if (!confirm('Are you sure you want to delete this book?')) return;
-    this.booksService.delete(id).subscribe({
+  openDeleteModal(book: Book, event?: Event): void {
+    event?.stopPropagation();
+    this.deleteTarget.set(book);
+  }
+
+  cancelDelete(): void {
+    if (this.deletingBook()) return;
+    this.deleteTarget.set(null);
+  }
+
+  confirmDelete(): void {
+    const target = this.deleteTarget();
+    if (!target || this.deletingBook()) return;
+
+    this.deletingBook.set(true);
+    this.booksService.delete(target.id).subscribe({
       next: () => {
-        this.rawBooks.update((books) => books.filter((b) => b.id !== id));
-        this.totalItems.update((c) => c - 1);
+        this.rawBooks.update((books) => books.filter((b) => b.id !== target.id));
+        this.totalItems.update((c) => Math.max(0, c - 1));
         this.refreshStatusCounts();
+        this.toast.success(`"${target.title}" deleted`);
+        this.deleteTarget.set(null);
+        this.deletingBook.set(false);
+      },
+      error: () => {
+        this.deletingBook.set(false);
+        this.toast.error('Failed to delete book');
       },
     });
+  }
+
+  deleteBook(bookOrId: Book | string, event: Event): void {
+    event.stopPropagation();
+    if (typeof bookOrId === 'string') {
+      const found = this.rawBooks().find((b) => b.id === bookOrId) ?? null;
+      this.deleteTarget.set(found ?? ({ id: bookOrId, title: 'Book' } as Book));
+    } else {
+      this.deleteTarget.set(bookOrId);
+    }
   }
 
   toggleFavorite(book: Book, event: Event): void {
