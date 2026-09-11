@@ -60,18 +60,18 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
     `
       :host {
         position: fixed;
-        left: 50%;
+        right: 0;
         bottom: 0;
+        left: 0;
         z-index: 50;
+        width: 100%;
         padding: 0;
-        transform: translateX(-50%);
-        transition:
-          left 220ms cubic-bezier(0.22, 1, 0.36, 1),
-          opacity 180ms ease,
-          transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+        transform: none;
+        transition: opacity 180ms ease;
       }
 
       .app-dock-container {
+        width: 100%;
         border-top: 1px solid var(--border-color);
         background: var(--bg-surface);
       }
@@ -79,6 +79,7 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
       .dock-bar {
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 2px;
         padding: 3px 6px;
       }
