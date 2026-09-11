@@ -281,17 +281,6 @@
                 <span>Edit</span>
               </button>
 
-              <button
-                type="button"
-                class="btn-icon delete-book-btn"
-                (click)="deleteBook()"
-                [disabled]="deleting()"
-                title="Delete book"
-                aria-label="Delete book"
-              >
-                <lucide-icon [img]="Trash2Icon" [size]="18"></lucide-icon>
-              </button>
-
               <input
                 type="file"
                 accept=".epub,.pdf,.txt,.mobi,.mp3,.m4a,.m4b"
@@ -436,6 +425,26 @@
             </div>
           </div>
 
+          <section class="danger-zone-card">
+            <div class="danger-zone-info">
+              <div class="danger-zone-heading">
+                <lucide-icon [img]="AlertCircleIcon" [size]="16" class="danger-icon"></lucide-icon>
+                <h4>Danger Zone</h4>
+              </div>
+              <p>Permanently remove this book, its media files, and reading data from your library.</p>
+            </div>
+            <button
+              type="button"
+              class="btn btn-danger-outline delete-book-trigger"
+              (click)="openDeleteConfirm()"
+              [disabled]="deleting()"
+              title="Delete book"
+            >
+              <lucide-icon [img]="Trash2Icon" [size]="15"></lucide-icon>
+              <span>Delete Book</span>
+            </button>
+          </section>
+
           <hr class="divider" />
 
           <div class="notes-container">
@@ -500,12 +509,38 @@
   </div>
   }
 
+  @if (showDeleteConfirm()) {
+  <div class="reset-confirm-backdrop" (click)="cancelDeleteConfirm()">
+    <div
+      class="reset-confirm-dialog delete-confirm-dialog"
+      role="alertdialog"
+      aria-labelledby="delete-confirm-title"
+      aria-describedby="delete-confirm-body"
+      (click)="$event.stopPropagation()"
+    >
+      <h3 id="delete-confirm-title">Delete "{{ store.book()?.title }}"?</h3>
+      <p id="delete-confirm-body">
+        This action cannot be undone. The book file, annotations, and all reading progress will be permanently deleted.
+      </p>
+      <div class="reset-confirm-actions">
+        <button class="btn btn-xs btn-ghost" (click)="cancelDeleteConfirm()" [disabled]="deleting()">
+          Cancel
+        </button>
+        <button class="btn btn-xs btn-danger" (click)="confirmDeleteBook()" [disabled]="deleting()">
+          {{ deleting() ? 'Deleting…' : 'Delete Permanently' }}
+        </button>
+      </div>
+    </div>
+  </div>
+  }
+
   <app-add-book-modal
     [isOpen]="showMetadataModal()"
     [book]="store.book()!"
     [collections]="store.collections()"
     (closeModal)="closeMetadataModal()"
     (bookUpdated)="onBookUpdated($event)"
+    (deleteBook)="openDeleteConfirm()"
   >
   </app-add-book-modal>
 </main>

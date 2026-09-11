@@ -476,31 +476,77 @@
   color: var(--color-text-main);
 }
 
-/* Circular danger action for deleting the book */
-.delete-book-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid var(--border-color);
+/* --- Danger Zone Section (placed before Notes so users never scroll past endless notes) --- */
+.danger-zone-card {
+  margin: 1.5rem 0 2rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 12px;
   background: var(--bg-surface);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 24%, var(--border-color));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.danger-zone-card:hover {
+  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--border-color));
+}
+
+.danger-zone-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.danger-zone-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--color-danger);
+}
+
+.danger-zone-heading h4 {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.danger-zone-info p {
+  margin: 0;
+  font-size: 0.85rem;
   color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.btn-danger-outline {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 0;
-  margin-left: auto;
-  transition:
-    color 0.2s,
-    border-color 0.2s,
-    background 0.2s;
-}
-.delete-book-btn:hover:not(:disabled) {
+  gap: 0.45rem;
+  padding: 0.5rem 1.15rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 45%, var(--border-color));
+  background: color-mix(in srgb, var(--color-danger) 5%, var(--bg-surface));
   color: var(--color-danger);
-  border-color: var(--color-danger);
-  background: color-mix(in srgb, var(--color-danger) 8%, var(--bg-surface));
+  font-size: 0.84rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.18s ease;
 }
-.delete-book-btn:disabled {
+
+.btn-danger-outline:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-danger) 14%, var(--bg-surface));
+  border-color: var(--color-danger);
+  transform: translateY(-1px);
+}
+
+.btn-danger-outline:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -845,6 +891,19 @@
     width: 100%;
     justify-content: center;
     height: 44px;
+  }
+  .danger-zone-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    padding: 1.15rem 1rem;
+    text-align: left;
+  }
+  .danger-zone-card .btn-danger-outline {
+    width: 100%;
+    justify-content: center;
+    height: 44px;
+    font-size: 0.88rem;
   }
   .synopsis-metadata-block {
     padding: 1.25rem 1rem;

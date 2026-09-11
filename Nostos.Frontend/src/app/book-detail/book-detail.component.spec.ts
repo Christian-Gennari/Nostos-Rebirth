@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
 
 import { BookDetail } from './book-detail.component';
@@ -286,5 +286,59 @@ describe('BookDetail reset progress', () => {
     expect(tabs.length).toBe(2);
     expect(tabs[0].textContent).toContain('EPUB');
     expect(tabs[1].textContent).toContain('Audiobook');
+  });
+
+  it('renders a dedicated Danger Zone card placed before the notes container', async () => {
+    await setup(readableBook());
+
+    const dangerZone = fixture.nativeElement.querySelector('.danger-zone-card');
+    const notesContainer = fixture.nativeElement.querySelector('.notes-container');
+    expect(dangerZone).toBeTruthy();
+    expect(notesContainer).toBeTruthy();
+    // Danger Zone sits before the notes container in DOM order
+    expect(dangerZone.compareDocumentPosition(notesContainer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.primary-actions .delete-book-btn')).toBeNull();
+  });
+
+  it('opens and closes the custom glass delete confirmation modal', async () => {
+    await setup(readableBook());
+
+    expect(fixture.nativeElement.querySelector('.delete-confirm-dialog')).toBeNull();
+
+    const trigger = fixture.nativeElement.querySelector('.delete-book-trigger') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+
+    const dialog = fixture.nativeElement.querySelector('.delete-confirm-dialog');
+    expect(dialog).toBeTruthy();
+    expect(dialog.textContent).toContain('Delete "Meditations"?');
+
+    // Cancel closes dialog
+    const cancelBtn = dialog.querySelector('.btn-ghost') as HTMLButtonElement;
+    cancelBtn.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.delete-confirm-dialog')).toBeNull();
+  });
+
+  it('deletes the book and navigates to library when confirmed in modal', async () => {
+    await setup(readableBook());
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    const trigger = fixture.nativeElement.querySelector('.delete-book-trigger') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+
+    const dialog = fixture.nativeElement.querySelector('.delete-confirm-dialog');
+    const deleteBtn = dialog.querySelector('.btn-danger') as HTMLButtonElement;
+    deleteBtn.click();
+    fixture.detectChanges();
+
+    httpMock.expectOne((req) => req.method === 'DELETE' && req.url === '/api/books/b1').flush(null);
+    fixture.detectChanges();
+
+    expect(navigateSpy).toHaveBeenCalledWith(['/library']);
+    expect(fixture.nativeElement.querySelector('.delete-confirm-dialog')).toBeNull();
   });
 });

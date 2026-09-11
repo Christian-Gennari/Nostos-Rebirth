@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
 import { finalize } from 'rxjs';
-import { LucideAngularModule, X, Info, UploadIcon, Book, Layers, FileText } from 'lucide-angular';
+import { LucideAngularModule, X, Info, UploadIcon, Book, Layers, FileText, Trash2 } from 'lucide-angular';
 import { BooksService, Book as BookModel } from '../core/services/books.service';
 import { ToastService } from '../core/services/toast.service';
 import { Collection } from '../core/dtos/collection.dtos';
@@ -28,11 +28,13 @@ export class AddBookModal {
   closeModal = output<void>();
   bookAdded = output<void>();
   bookUpdated = output<BookModel>();
+  deleteBook = output<void>();
 
   // Icons
   XIcon = X;
   UploadIcon = UploadIcon;
   InfoIcon = Info;
+  Trash2Icon = Trash2;
   // Tab Icons
   GeneralIcon = Book;
   MetadataIcon = Layers;

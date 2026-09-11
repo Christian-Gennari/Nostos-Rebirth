@@ -360,17 +360,29 @@
           </div>
 
         </div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" (click)="closeModal.emit()">
-            Cancel
-          </button>
-          <button
-            type="submit"
-            class="btn btn-primary"
-            [disabled]="bookForm.invalid || !form.title.trim()"
-          >
-            {{ isEditMode() ? 'Save Changes' : 'Create Book' }}
-          </button>
+        <div class="modal-actions" [class.has-danger]="isEditMode()">
+          @if (isEditMode()) {
+            <button
+              type="button"
+              class="btn btn-danger-ghost delete-modal-btn"
+              (click)="deleteBook.emit()"
+            >
+              <lucide-icon [img]="Trash2Icon" [size]="14"></lucide-icon>
+              <span>Delete Book</span>
+            </button>
+          }
+          <div class="right-actions">
+            <button type="button" class="btn btn-secondary" (click)="closeModal.emit()">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="btn btn-primary"
+              [disabled]="bookForm.invalid || !form.title.trim()"
+            >
+              {{ isEditMode() ? 'Save Changes' : 'Create Book' }}
+            </button>
+          </div>
         </div>
       </form>
     </div>

@@ -108,6 +108,7 @@ export class BookDetail implements OnInit {
   isDescriptionExpanded = signal(false);
   showMetadataModal = signal(false);
   showResetConfirm = signal(false);
+  showDeleteConfirm = signal(false);
   deleting = signal(false);
   newNote = model<string>('');
 
@@ -207,19 +208,30 @@ export class BookDetail implements OnInit {
     if (file) this.store.uploadFile(file);
   }
 
+  openDeleteConfirm(): void {
+    if (this.deleting()) return;
+    this.closeMetadataModal();
+    this.showDeleteConfirm.set(true);
+  }
+
+  cancelDeleteConfirm(): void {
+    if (this.deleting()) return;
+    this.showDeleteConfirm.set(false);
+  }
+
   /**
-   * Deletes the current book after an explicit confirmation, then returns to
+   * Deletes the current book after an explicit in-app confirmation, then returns to
    * the Library. A local pending signal guards against duplicate submissions.
    */
-  deleteBook() {
+  confirmDeleteBook(): void {
     const b = this.store.book();
     if (!b || this.deleting()) return;
-    if (!confirm(`Delete "${b.title}"? This cannot be undone.`)) return;
 
     this.deleting.set(true);
     this.booksService.delete(b.id).subscribe({
       next: () => {
         this.toast.success('Book deleted');
+        this.showDeleteConfirm.set(false);
         void this.router.navigate(['/library']);
       },
       error: () => {
@@ -227,6 +239,10 @@ export class BookDetail implements OnInit {
         this.toast.error('Failed to delete book');
       },
     });
+  }
+
+  deleteBook(): void {
+    this.openDeleteConfirm();
   }
 
   // --- Navigation & Helpers ---
