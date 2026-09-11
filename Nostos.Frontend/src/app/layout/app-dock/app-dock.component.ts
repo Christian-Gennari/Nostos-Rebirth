@@ -8,8 +8,8 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
   selector: 'app-app-dock',
   imports: [RouterLink, RouterLinkActive, LucideAngularModule],
   template: `
-    <nav class="app-dock-container">
-      <div class="dock-glass">
+    <nav class="app-dock-container" aria-label="Main navigation">
+      <div class="dock-bar">
         <a
           [routerLink]="getLink('/library')"
           (click)="handleDockClick('/library', $event)"
@@ -17,7 +17,7 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
           class="dock-item"
           title="Library"
         >
-          <lucide-icon [img]="LibraryIcon" [size]="20" strokeWidth="1"></lucide-icon>
+          <lucide-icon [img]="LibraryIcon" [size]="20" strokeWidth="1.6"></lucide-icon>
           <span class="label">Library</span>
         </a>
 
@@ -28,7 +28,7 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
           class="dock-item"
           title="The Brain"
         >
-          <lucide-icon [img]="BrainIcon" [size]="20" strokeWidth="1"></lucide-icon>
+          <lucide-icon [img]="BrainIcon" [size]="20" strokeWidth="1.6"></lucide-icon>
           <span class="label">Brain</span>
         </a>
 
@@ -39,7 +39,7 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
           class="dock-item"
           title="Writing Studio"
         >
-          <lucide-icon [img]="PenToolIcon" [size]="20" strokeWidth="1"></lucide-icon>
+          <lucide-icon [img]="PenToolIcon" [size]="20" strokeWidth="1.6"></lucide-icon>
           <span class="label">Studio</span>
         </a>
 
@@ -50,7 +50,7 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
           class="dock-item"
           title="Settings"
         >
-          <lucide-icon [img]="SettingsIcon" [size]="20" strokeWidth="1"></lucide-icon>
+          <lucide-icon [img]="SettingsIcon" [size]="20" strokeWidth="1.6"></lucide-icon>
           <span class="label">Settings</span>
         </a>
       </div>
@@ -58,222 +58,130 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
   `,
   styles: [
     `
-      /* --- ANIMATION DEFINITIONS --- */
-      @property --gradient-angle {
-        syntax: '<angle>';
-        initial-value: 0deg;
-        inherits: false;
-      }
-
-      @keyframes rotate-gradient {
-        0% {
-          --gradient-angle: 0deg;
-        }
-        100% {
-          --gradient-angle: 360deg;
-        }
-      }
-
-      /* --- HOST & LAYOUT --- */
       :host {
         position: fixed;
-        bottom: 24px;
         left: 50%;
+        bottom: 24px;
+        z-index: 50;
+        padding: 0;
         transform: translateX(-50%);
         transition:
           left 220ms cubic-bezier(0.22, 1, 0.36, 1),
           opacity 180ms ease,
           transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
-        z-index: 50;
-        /* Ensure the glow doesn't get cut off */
-        padding: 10px;
       }
 
       .app-dock-container {
-        position: relative;
-        border-radius: 22px;
-        /* Using isolation to ensure z-index layering works perfectly */
-        isolation: isolate;
+        border: 1px solid var(--border-color);
+        border-radius: 18px;
+        background: var(--bg-surface);
+        box-shadow: 0 10px 28px rgba(42, 38, 32, 0.12);
       }
 
-      /* --- THE GLOWING BACKDROP (The "Pop") --- */
-      .app-dock-container::before {
-        content: '';
-        position: absolute;
-        inset: -3px; /* Extends slightly outside the glass */
-        z-index: -1;
-        border-radius: 24px;
-
-        /* The Magic: Soft Pastel Rainbow */
-        background: conic-gradient(
-          from var(--gradient-angle),
-          #a8c0ff,
-          /* Soft Blue */ #c4a8ff,
-          /* Lavender */ #ffafcc,
-          /* Soft Pink */ #ffc8a2,
-          /* Peach */ #bde0fe,
-          /* Light Blue */ #a8c0ff /* Loop back to start */
-        );
-
-        /* Blur it to make it look like a shadow/glow */
-        filter: blur(8px);
-        opacity: 0.65;
-
-        /* Animate it */
-        animation: rotate-gradient 6s linear infinite;
-        transition:
-          opacity 0.3s ease,
-          filter 0.3s ease;
-      }
-
-      /* --- THE GLASS FOREGROUND --- */
-      .dock-glass {
+      .dock-bar {
         display: flex;
         align-items: center;
-        gap: 6px;
-        padding: 8px;
-
-        /* Solid enough to hide the rainbow center, transparent enough for glass feel */
-        background: rgba(255, 255, 255, 0.4);
-        backdrop-filter: blur(5px);
-        -webkit-backdrop-filter: blur(5px);
-
-        /* Inner white border to separate glass from glow */
-        border: 2px solid rgba(255, 255, 255, 0.4);
-
-        border-radius: 20px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02); /* Very subtle internal shadow */
-        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        gap: 4px;
+        padding: 6px;
       }
 
-      /* --- DOCK ITEMS --- */
       .dock-item {
-        display: flex;
+        position: relative;
+        display: inline-flex;
+        min-width: 78px;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 2px;
-        padding: 10px 18px;
-        border-radius: 14px;
-        color: var(--color-text-muted, #6b7280);
-        text-decoration: none;
-        font-family: 'Inter', sans-serif;
-        transition: all 0.2s ease;
-        position: relative;
+        gap: 4px;
+        padding: 9px 12px 8px;
+        border: 1px solid transparent;
+        border-radius: 13px;
+        color: var(--color-text-muted);
         cursor: pointer;
+        font-family: 'Hanken Grotesk', sans-serif;
+        text-decoration: none;
+        transition:
+          background-color 160ms ease,
+          border-color 160ms ease,
+          color 160ms ease,
+          transform 160ms ease;
+      }
+
+      .dock-item:hover {
+        background: var(--bg-hover);
+        color: var(--color-text-main);
+        transform: translateY(-1px);
+      }
+
+      .dock-item:focus-visible {
+        outline: 2px solid var(--color-accent);
+        outline-offset: 2px;
       }
 
       .dock-item.active {
-        background: #fff;
-        color: #111827;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        border-color: var(--color-accent-faint);
+        background: var(--color-accent-bg);
+        color: var(--color-primary);
+      }
+
+      .dock-item.active::after {
+        position: absolute;
+        right: 50%;
+        bottom: 3px;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: var(--color-accent);
+        content: '';
+        transform: translateX(50%);
       }
 
       .label {
-        font-size: 0.65rem;
+        font-size: 0.68rem;
         font-weight: 600;
-        letter-spacing: 0.01em;
-        opacity: 0.9;
-        transition:
-          opacity 0.3s ease,
-          max-height 0.3s ease,
-          transform 0.3s ease;
+        letter-spacing: 0.015em;
+        line-height: 1;
       }
 
-      /* --- DESKTOP / TABLET (HOVER ENABLED) --- */
-      @media (min-width: 769px) {
-        .dock-item {
-          padding: 8px 10px;
-        }
-
-        /* Generic Item Hover */
-        .dock-item:hover {
-          background: rgba(0, 0, 0, 0.08);
-          color: var(--color-text-main, #111827);
-          transform: translateY(-2px);
-        }
-
-        /* Container Hover: Tighter, brighter glow */
-        .app-dock-container:hover::before {
-          filter: blur(5px);
-          opacity: 0.9;
-          inset: -2px;
-        }
-
-        /* Container Hover: Expand glass */
-        .app-dock-container:hover .dock-glass {
-          gap: 20px;
-          padding: 10px;
-          background: rgba(255, 255, 255, 0.8);
-        }
-
-        /* Label Animation Logic */
-        .label {
-          max-height: 0;
-          opacity: 0;
-          overflow: hidden;
-          transform: translateY(5px);
-        }
-        .app-dock-container:hover .label {
-          max-height: 20px;
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      /* --- MOBILE --- */
       @media (max-width: 768px) {
         :host {
-          bottom: 0;
-          left: 0;
-          transform: none;
-          width: 100%;
-          padding: 0;
-        }
-
-        /* On mobile, we reduce the glow so it's just a top border accent */
-        .app-dock-container {
-          border-radius: 0;
-          width: 100%;
-        }
-
-        .app-dock-container::before {
-          border-radius: 0;
-          top: -2px; /* Only show glow at the top */
-          bottom: 0;
-          left: 0;
           right: 0;
-          inset: auto;
-          height: 100%;
+          bottom: 0;
+          left: 0;
           width: 100%;
-          opacity: 0.4;
-          filter: blur(15px);
+          transform: none;
         }
 
-        .dock-glass {
+        .app-dock-container {
+          border-right: 0;
+          border-bottom: 0;
+          border-left: 0;
           border-radius: 0;
-          border: none;
-          border-top: 1px solid rgba(255, 255, 255, 0.5);
+          box-shadow: 0 -6px 20px rgba(42, 38, 32, 0.1);
+        }
+
+        .dock-bar {
           width: 100%;
-          justify-content: space-evenly;
-          padding: 6px 16px;
-          padding-bottom: max(6px, env(safe-area-inset-bottom));
-          /* More opaque on mobile to cover content scrolling behind */
-          background: rgba(255, 255, 255, 0.9);
+          justify-content: space-around;
+          gap: 2px;
+          padding: 6px 10px max(6px, env(safe-area-inset-bottom));
         }
 
         .dock-item {
-          flex: 1;
-          margin: 0 2px;
-          padding: 8px 0;
           min-width: 0;
+          flex: 1;
+          padding: 8px 4px 9px;
         }
 
-        .label {
-          max-height: none;
-          opacity: 0.9;
+        .dock-item:hover {
           transform: none;
-          white-space: nowrap;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        :host,
+        .dock-item {
+          transition: none;
         }
       }
     `,
@@ -287,10 +195,6 @@ export class AppDockComponent {
   BrainIcon = BrainCog;
   PenToolIcon = PenTool;
   SettingsIcon = Settings;
-
-  isActive(prefix: string): boolean {
-    return this.router.url.startsWith(prefix);
-  }
 
   getLink(prefix: string): string {
     return this.historyService.getLastUrl(prefix);
