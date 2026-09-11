@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { LucideAngularModule, Library, PenTool, BrainCog, Settings } from 'lucide-angular';
 import { NavigationHistoryService } from '../../core/services/navigation-history.service';
+import { LibraryFilterService } from '../../library/library-filter.service';
 
 @Component({
   standalone: true,
@@ -186,6 +187,7 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
 export class AppDockComponent {
   private historyService = inject(NavigationHistoryService);
   private router = inject(Router);
+  private filters = inject(LibraryFilterService);
 
   LibraryIcon = Library;
   BrainIcon = BrainCog;
@@ -199,11 +201,8 @@ export class AppDockComponent {
   handleDockClick(prefix: string, event: Event) {
     if (this.router.url.startsWith(prefix)) {
       event.preventDefault();
-      // Selection is URL-owned; re-clicking the Library dock item clears it.
-      void this.router.navigate([prefix], {
-        queryParams: { collection: null },
-        queryParamsHandling: 'merge',
-      });
+      // Re-clicking the Library dock item clears the active filters.
+      if (prefix === '/library') this.filters.clearAll();
     }
   }
 }

@@ -10,9 +10,11 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink, RouterLinkActive } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { map, distinctUntilChanged } from 'rxjs/operators';
+import {
+  LibraryFilterService,
+  StatusFilter,
+  FormatFilter,
+} from '../library-filter.service';
 import {
   LucideAngularModule,
   Folder,
@@ -43,14 +45,7 @@ import { ToastService } from '../../core/services/toast.service';
 @Component({
   standalone: true,
   selector: 'app-sidebar-collections',
-  imports: [
-    CommonModule,
-    FormsModule,
-    LucideAngularModule,
-    RouterLink,
-    RouterLinkActive,
-    FlatTreeComponent,
-  ],
+  imports: [CommonModule, FormsModule, LucideAngularModule, FlatTreeComponent],
   templateUrl: './sidebar-collections.component.html',
   styleUrls: ['./sidebar-collections.component.css'],
 })
@@ -58,8 +53,7 @@ export class SidebarCollections implements OnInit {
   private collectionsService = inject(CollectionsService);
   private booksService = inject(BooksService);
   private preferences = inject(LibraryPreferencesService);
-  private router = inject(Router);
-  private route = inject(ActivatedRoute);
+  readonly filters = inject(LibraryFilterService);
   private elementRef = inject(ElementRef);
   private toast = inject(ToastService);
 
@@ -91,13 +85,11 @@ export class SidebarCollections implements OnInit {
   newName = model<string>('');
   private ignoreClick = false;
 
-  // Selection is owned by the URL: /library?collection=<id>
-  readonly activeId = toSignal(
-    this.route.queryParamMap.pipe(
-      map((params) => params.get('collection')),
-      distinctUntilChanged(),
-    ),
-    { initialValue: this.route.snapshot.queryParamMap.get('collection') },
+  readonly hasSelection = computed(
+    () =>
+      this.filters.status() !== 'all' ||
+      this.filters.format() !== 'all' ||
+      this.filters.collectionId() !== null,
   );
 
   readonly countsMap = computed(
@@ -188,12 +180,12 @@ export class SidebarCollections implements OnInit {
   }
 
   /**
-   * Status filters are URL-owned via routerLink + merge; this handler only
-   * manages the mobile drawer: after a selection the drawer closes and focus
-   * returns to its opener (the floating toggle) so it can be reopened
-   * immediately. Desktop selection leaves the sidebar untouched.
+   * Filter buttons only manage the mobile drawer: after a selection the
+   * drawer closes and focus returns to its opener (the floating toggle) so
+   * it can be reopened immediately. Desktop selection leaves the sidebar
+   * untouched.
    */
-  onStatusNavClick(): void {
+  private closeDrawerOnMobile(): void {
     if (window.innerWidth < 768 && this.expanded()) {
       this.setExpanded(false);
       (this.elementRef.nativeElement as HTMLElement)
@@ -202,16 +194,24 @@ export class SidebarCollections implements OnInit {
     }
   }
 
+  toggleStatus(status: StatusFilter): void {
+    this.filters.toggleStatus(status);
+    this.closeDrawerOnMobile();
+  }
+
+  toggleFormat(format: FormatFilter): void {
+    this.filters.toggleFormat(format);
+    this.closeDrawerOnMobile();
+  }
+
+  clearFilters(): void {
+    this.filters.clearAll();
+    this.closeDrawerOnMobile();
+  }
+
   select(id: string | null): void {
-    void this.router.navigate(['/library'], {
-      queryParams: {
-        collection: id,
-      },
-      queryParamsHandling: 'merge',
-    });
-    if (window.innerWidth < 768) {
-      this.setExpanded(false);
-    }
+    this.filters.toggleCollection(id);
+    this.closeDrawerOnMobile();
   }
 
   startAdd(): void {
@@ -283,12 +283,8 @@ export class SidebarCollections implements OnInit {
         this.toast.info('Collection deleted');
         this.load();
         this.loadCounts();
-        // Selection lives in the URL; deleting the active collection clears it there.
-        if (this.activeId() === id) {
-          void this.router.navigate(['/library'], {
-            queryParams: { collection: null },
-            queryParamsHandling: 'merge',
-          });
+        if (this.filters.collectionId() === id) {
+          this.filters.collectionId.set(null);
         }
       },
       error: (err) => {

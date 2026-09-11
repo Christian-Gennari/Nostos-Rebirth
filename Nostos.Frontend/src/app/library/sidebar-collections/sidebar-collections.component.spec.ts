@@ -1,6 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Component, signal } from '@angular/core';
-import { provideRouter, Router } from '@angular/router';
+import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
 
 import { SidebarCollections } from './sidebar-collections.component';
@@ -9,13 +8,9 @@ import { LibraryPreferencesService } from '../../core/services/library-preferenc
 import { ToastService } from '../../core/services/toast.service';
 import { Collection } from '../../core/dtos/collection.dtos';
 
-@Component({ template: '' })
-class DummyComponent {}
-
 describe('SidebarCollections', () => {
   let component: SidebarCollections;
   let fixture: ComponentFixture<SidebarCollections>;
-  let router: Router;
   let collectionsService: {
     sidebarExpanded: ReturnType<typeof signal<boolean>>;
     list: ReturnType<typeof vi.fn>;
@@ -45,7 +40,6 @@ describe('SidebarCollections', () => {
     await TestBed.configureTestingModule({
       imports: [SidebarCollections],
       providers: [
-        provideRouter([{ path: 'library', component: DummyComponent }]),
         { provide: CollectionsService, useValue: collectionsService },
         { provide: ToastService, useValue: toast },
       ],
@@ -53,7 +47,6 @@ describe('SidebarCollections', () => {
 
     const prefs = TestBed.inject(LibraryPreferencesService);
     prefs.setSidebarExpanded(true);
-    router = TestBed.inject(Router);
     fixture = TestBed.createComponent(SidebarCollections);
     component = fixture.componentInstance;
     await fixture.whenStable();
@@ -74,22 +67,15 @@ describe('SidebarCollections', () => {
     expect(fixture.nativeElement.textContent).toContain('5');
   });
 
-  it('selection navigates with the collection query param via the router', () => {
-    const navigateSpy = vi.spyOn(router, 'navigate');
+  it('selection sets the collection filter (no navigation)', () => {
     component.select('c1');
-    expect(navigateSpy).toHaveBeenCalledWith(['/library'], {
-      queryParams: { collection: 'c1' },
-      queryParamsHandling: 'merge',
-    });
+    expect(component.filters.collectionId()).toBe('c1');
   });
 
-  it('selection with null clears the collection query param', () => {
-    const navigateSpy = vi.spyOn(router, 'navigate');
-    component.select(null);
-    expect(navigateSpy).toHaveBeenCalledWith(['/library'], {
-      queryParams: { collection: null },
-      queryParamsHandling: 'merge',
-    });
+  it('selecting the active collection toggles it off', () => {
+    component.select('c1');
+    component.select('c1');
+    expect(component.filters.collectionId()).toBeNull();
   });
 
   it('rename sends both name and parentId', () => {
@@ -108,31 +94,28 @@ describe('SidebarCollections', () => {
     });
   });
 
-  it('delete of the active collection navigates with collection:null', async () => {
+  it('delete of the active collection clears the collection filter', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    await router.navigate(['/library'], { queryParams: { collection: 'c1' } });
+    component.select('c1');
     fixture.detectChanges();
-    await fixture.whenStable();
 
     component.deleteCollection('c1');
     fixture.detectChanges();
     await fixture.whenStable();
 
-    expect(router.url).not.toContain('collection=');
+    expect(component.filters.collectionId()).toBeNull();
   });
 
-  it('delete of a non-active collection does not navigate', async () => {
+  it('delete of a non-active collection keeps the active filter', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    await router.navigate(['/library'], { queryParams: { collection: 'c1' } });
+    component.select('c1');
     fixture.detectChanges();
-    await fixture.whenStable();
 
-    const navigateSpy = vi.spyOn(router, 'navigate');
     component.deleteCollection('c2');
     fixture.detectChanges();
     await fixture.whenStable();
 
-    expect(navigateSpy).not.toHaveBeenCalled();
+    expect(component.filters.collectionId()).toBe('c1');
   });
 
   describe('rename', () => {
@@ -239,20 +222,39 @@ describe('SidebarCollections', () => {
   });
 
   describe('status filters (single progress-filter surface)', () => {
-    function statusButtons(): HTMLButtonElement[] {
-      // The first .nav-group is the status list (All Books … Unsorted);
-      // later groups hold the collection tree and the New Collection action.
-      const statusGroup = fixture.nativeElement.querySelector('.nav-group') as HTMLElement;
+    function navGroups(): HTMLElement[] {
       return Array.from(
-        statusGroup.querySelectorAll('.nav-item') as NodeListOf<HTMLButtonElement>,
+        fixture.nativeElement.querySelectorAll('.nav-group') as NodeListOf<HTMLElement>,
       );
     }
 
-    function statusButton(label: string): HTMLButtonElement {
-      return statusButtons().find((el) => {
+    function statusButtons(): HTMLButtonElement[] {
+      // The first .nav-group is the status list (All Books … Unsorted).
+      return Array.from(
+        navGroups()[0].querySelectorAll('.nav-item') as NodeListOf<HTMLButtonElement>,
+      );
+    }
+
+    function formatButtons(): HTMLButtonElement[] {
+      // The second .nav-group holds the MEDIA format filters.
+      return Array.from(
+        navGroups()[1].querySelectorAll('.nav-item') as NodeListOf<HTMLButtonElement>,
+      );
+    }
+
+    function navButton(buttons: HTMLButtonElement[], label: string): HTMLButtonElement {
+      return buttons.find((el) => {
         const textSpan = el.querySelector('.label');
         return (textSpan?.textContent?.trim() ?? el.textContent?.trim()) === label;
       }) as HTMLButtonElement;
+    }
+
+    function statusButton(label: string): HTMLButtonElement {
+      return navButton(statusButtons(), label);
+    }
+
+    function formatButton(label: string): HTMLButtonElement {
+      return navButton(formatButtons(), label);
     }
 
     it('renders exactly six status choices in the expected order', () => {
@@ -279,63 +281,91 @@ describe('SidebarCollections', () => {
       expect(readingTooltips).toHaveLength(0);
     });
 
-    it('clicking "In Progress" writes filter=reading (canonical value kept)', async () => {
+    it('clicking "In Progress" sets the status filter (no URL involved)', async () => {
       fixture.detectChanges();
 
       statusButton('In Progress').click();
       await fixture.whenStable();
 
-      expect(router.url).toContain('filter=reading');
+      expect(component.filters.status()).toBe('reading');
     });
 
-    it('clicking "Not Started" writes filter=notstarted', async () => {
+    it('clicking the active status filter toggles it off', async () => {
+      fixture.detectChanges();
+
+      statusButton('In Progress').click();
+      await fixture.whenStable();
+      statusButton('In Progress').click();
+      await fixture.whenStable();
+
+      expect(component.filters.status()).toBe('all');
+    });
+
+    it('clicking "Not Started" sets status=notstarted', async () => {
       fixture.detectChanges();
 
       statusButton('Not Started').click();
       await fixture.whenStable();
 
-      expect(router.url).toContain('filter=notstarted');
+      expect(component.filters.status()).toBe('notstarted');
     });
 
-    it('status selection merges with the existing collection query param', async () => {
-      await router.navigate(['/library'], { queryParams: { collection: 'c1' } });
+    it('status selection keeps the existing collection filter', async () => {
+      component.select('c1');
       fixture.detectChanges();
-      await fixture.whenStable();
 
       statusButton('In Progress').click();
       await fixture.whenStable();
 
-      expect(router.url).toContain('collection=c1');
-      expect(router.url).toContain('filter=reading');
+      expect(component.filters.collectionId()).toBe('c1');
+      expect(component.filters.status()).toBe('reading');
     });
 
-    it('clicking "All Books" clears both the filter and collection params', async () => {
-      await router.navigate(['/library'], {
-        queryParams: { collection: 'c1', filter: 'reading' },
-      });
+    it('collection then format keeps both (order-independent)', async () => {
       fixture.detectChanges();
+
+      component.select('c1');
+      formatButton('Audiobooks').click();
       await fixture.whenStable();
+
+      expect(component.filters.collectionId()).toBe('c1');
+      expect(component.filters.format()).toBe('audiobook');
+    });
+
+    it('format then collection keeps both (order-independent)', async () => {
+      fixture.detectChanges();
+
+      formatButton('Audiobooks').click();
+      component.select('c1');
+      await fixture.whenStable();
+
+      expect(component.filters.collectionId()).toBe('c1');
+      expect(component.filters.format()).toBe('audiobook');
+    });
+
+    it('clicking "All Books" clears status, format and collection', async () => {
+      component.select('c1');
+      component.toggleStatus('reading');
+      component.toggleFormat('ebook');
+      fixture.detectChanges();
 
       statusButton('All Books').click();
       await fixture.whenStable();
 
-      expect(router.url).toBe('/library');
+      expect(component.filters.status()).toBe('all');
+      expect(component.filters.format()).toBe('all');
+      expect(component.filters.collectionId()).toBeNull();
     });
 
-    it('active state is driven by the URL: initial URL and subsequent navigation', async () => {
-      await router.navigate(['/library'], { queryParams: { filter: 'finished' } });
-
-      fixture.destroy();
-      fixture = TestBed.createComponent(SidebarCollections);
-      component = fixture.componentInstance;
+    it('active state follows the filter service', async () => {
+      component.toggleStatus('finished');
       fixture.detectChanges();
       await fixture.whenStable();
 
       let active = fixture.nativeElement.querySelector('.nav-item.active') as HTMLElement;
       expect(active.textContent).toContain('Finished');
 
-      // History-style navigation: the URL changes, the active item follows.
-      await router.navigate(['/library'], { queryParams: { filter: 'reading' } });
+      component.toggleStatus('reading');
       fixture.detectChanges();
       await fixture.whenStable();
 
