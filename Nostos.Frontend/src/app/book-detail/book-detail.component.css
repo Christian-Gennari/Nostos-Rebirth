@@ -327,17 +327,9 @@
   border-radius: 8px;
   box-shadow:
     var(--shadow-glass-lg),
-    0 0 40px -12px rgba(138, 109, 88, 0.22),
-    /* Was `.cover-card { filter: drop-shadow(0 26px 42px ...) }` — see the note
-       there for why it had to move.
-       The radius is 84px, NOT the 42px the drop-shadow used: `drop-shadow()`'s
-       radius is a 1-sigma Gaussian, whereas `box-shadow`'s blur radius is 2-sigma,
-       so a box-shadow needs DOUBLE the radius to render the same softness. Passing
-       42px here visibly weakened the shadow (measured up to 16/255 lighter in the
-       far field). Calibrated by rendering 42/56/63/70/84/96/110px against the
-       original and picking the closest: 84px, mean |delta| 0.38 vs 3.16 for 42px. */
-    0 26px 84px rgba(24, 16, 11, 0.34);
-  border: 1px solid rgba(0, 0, 0, 0.05);
+    0 0 24px -6px rgba(138, 109, 88, 0.16),
+    0 16px 40px rgba(24, 16, 11, 0.22);
+  border: none;
   margin-bottom: 1rem;
   display: flex;
   align-items: center;

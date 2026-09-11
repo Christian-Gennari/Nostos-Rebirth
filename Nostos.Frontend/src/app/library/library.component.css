@@ -1008,6 +1008,7 @@ app-sidebar-collections.no-transition {
     order: 0;
     font-size: 1.25rem;
     line-height: 1.9rem;
+    padding-left: 44px; /* Room for mobile collections button on top-left */
   }
 
   .active-filters {
@@ -1036,7 +1037,6 @@ app-sidebar-collections.no-transition {
     gap: 8px;
     order: 1;
     width: 100%;
-    padding-left: 44px; /* Room for mobile collections button on top-left */
   }
 
   .toolbar-right .select-wrapper {
