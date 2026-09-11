@@ -273,4 +273,12 @@ describe('BookDetail reset progress', () => {
     expect(navigateSpy).toHaveBeenCalledWith(['/library']);
     expect(fixture.nativeElement.querySelector('.delete-confirm-dialog')).toBeNull();
   });
+
+  it('does not display the uploaded file name in the meta strip', async () => {
+    await setup(readableBook({ fileName: 'book.m4b' }));
+    const metaStrip = fixture.nativeElement.querySelector('.meta-strip');
+    expect(metaStrip).toBeTruthy();
+    expect(metaStrip.textContent).not.toContain('File');
+    expect(metaStrip.textContent).not.toContain('book.m4b');
+  });
 });
