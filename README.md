@@ -4,10 +4,10 @@ A self-hosted personal library and knowledge management system. Manage books, e-
 
 <div align="center">
   <img
-    width="2559"
-    height="1275"
+    width="2880"
+    height="1800"
     alt="main-library-view"
-    src="https://github.com/user-attachments/assets/bcc8f37e-ba8a-4e34-942c-b78fbe52f12c"
+    src="docs/screenshots/library.png"
   />
 </div>
 
@@ -34,19 +34,19 @@ A self-hosted personal library and knowledge management system. Manage books, e-
       <td width="50%">
         <strong>Book Details</strong><br /><br />
         <img
-          width="2559"
-          height="1275"
+          width="2880"
+          height="1800"
           alt="book-details"
-          src="https://github.com/user-attachments/assets/ddf4735e-28fc-4153-acb8-d147a5320ef8"
+          src="docs/screenshots/book-details.png"
         />
       </td>
       <td width="50%">
         <strong>Add Book Modal</strong><br /><br />
         <img
-          width="2558"
-          height="1276"
+          width="2880"
+          height="1800"
           alt="add-book-modal"
-          src="https://github.com/user-attachments/assets/7ca02323-c040-47f1-b3b4-85536fffe0b5"
+          src="docs/screenshots/add-book-modal.png"
         />
       </td>
     </tr>
@@ -70,10 +70,10 @@ A self-hosted personal library and knowledge management system. Manage books, e-
 - **Orphan cleanup** — Background worker removes concepts with zero references
 
 <img
-  width="2558"
-  height="1274"
+  width="2880"
+  height="1800"
   alt="second-brain"
-  src="https://github.com/user-attachments/assets/865116ef-cb82-480b-af1f-91763731cc39"
+  src="docs/screenshots/second-brain.png"
 />
 
 ### Writing Studio
@@ -90,10 +90,10 @@ A self-hosted personal library and knowledge management system. Manage books, e-
 - **Storage Scanning** — Scan for existing `.nostos` backup files on disk to import history
 
 <img
-  width="2553"
-  height="1274"
+  width="2880"
+  height="1800"
   alt="writing-studio"
-  src="https://github.com/user-attachments/assets/ed6659ba-80b8-4f78-a069-9b714b273066"
+  src="docs/screenshots/writing-studio.png"
 />
 
 ## Tech Stack
