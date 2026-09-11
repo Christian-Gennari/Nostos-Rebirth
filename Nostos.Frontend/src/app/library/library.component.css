@@ -719,34 +719,11 @@ app-sidebar-collections.no-transition {
 }
 
 @media (max-width: 768px) {
-  /* Mobile painting budget: keep the editorial surfaces, but avoid expensive
-     blur/shadow work on every scroll frame and skip offscreen card layout. */
-  .toolbar {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-
-  .format-badge {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    box-shadow: none;
-    transition: none;
-  }
-
+  /* Keep offscreen cards out of the layout/paint budget without changing the
+     card's editorial surfaces, hover states, or touch feedback. */
   .book-card {
     content-visibility: auto;
     contain-intrinsic-size: 0 340px;
-    box-shadow: none;
-  }
-
-  .book-card,
-  .book-card * {
-    transition-duration: 0s !important;
-  }
-
-  .cover-wrapper,
-  .cover-image {
-    box-shadow: none;
   }
 
   /* --- MOBILE RESPONSIVE --- */

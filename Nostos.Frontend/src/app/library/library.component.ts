@@ -209,6 +209,10 @@ export class Library implements OnInit {
     const sort = this.activeSort();
     const search = this.searchQuery();
     const page = this.currentPage();
+    // Mobile cover decoding is the dominant first-paint cost. Load a smaller
+    // first batch there; the existing sentinel still fetches every book as the
+    // user scrolls.
+    const pageSize = window.innerWidth < 768 ? Math.min(this.pageSize(), 12) : this.pageSize();
 
     this.booksService
       .list({
@@ -216,7 +220,7 @@ export class Library implements OnInit {
         sort,
         search,
         page,
-        pageSize: this.pageSize(),
+        pageSize,
         collectionId: collection ?? undefined,
         groupByWork: this.preferences.groupByWork(),
         format,
