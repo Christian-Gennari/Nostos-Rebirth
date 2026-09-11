@@ -178,6 +178,24 @@ describe('Library', () => {
     expect(component.activeSort()).toBe(TestBed.inject(LibraryPreferencesService).sort());
   });
 
+  it('shows an empty state with a creation action when the library is empty', () => {
+    fixture.detectChanges();
+
+    const empty = fixture.nativeElement.querySelector('.container.lg .books-empty-state') as HTMLElement;
+    expect(empty.textContent).toContain('Your library is empty');
+    empty.querySelector('button')!.click();
+
+    expect(component.showAddModal()).toBe(true);
+  });
+
+  it('offers to clear the search when nothing matches', () => {
+    component.searchQuery.set('zzz');
+    fixture.detectChanges();
+
+    const empty = fixture.nativeElement.querySelector('.container.lg .books-empty-state') as HTMLElement;
+    expect(empty.textContent).toContain('No books match "zzz"');
+  });
+
   it('shows "Library" with no chips when no filter is active', () => {
     expect(component.pageTitle()).toBe('Library');
     expect(component.activeFilterChips()).toEqual([]);

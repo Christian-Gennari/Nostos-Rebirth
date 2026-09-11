@@ -265,7 +265,7 @@
           </div>
         </div>
         } @empty {
-        <div class="empty-state">
+        <div class="books-empty-state">
           <lucide-icon [img]="BookIcon" [size]="40" strokeWidth="1.2"></lucide-icon>
           @if (searchQuery().trim()) {
           <p>No books match "{{ searchQuery().trim() }}"</p>
@@ -383,7 +383,7 @@
         </div>
 
         } @empty {
-        <div class="empty-state">
+        <div class="books-empty-state">
           <lucide-icon [img]="BookIcon" [size]="40" strokeWidth="1.2"></lucide-icon>
           @if (searchQuery().trim()) {
           <p>No books match "{{ searchQuery().trim() }}"</p>

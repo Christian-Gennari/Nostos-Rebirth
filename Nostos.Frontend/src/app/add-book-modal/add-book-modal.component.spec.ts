@@ -31,6 +31,42 @@ describe('AddBookModal', () => {
     expect(component).toBeTruthy();
   });
 
+  it('exposes the dialog role', () => {
+    fixture.detectChanges();
+
+    const dialog = fixture.nativeElement.querySelector('.modal-content');
+    expect(dialog.getAttribute('role')).toBe('dialog');
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+  });
+
+  it('emits closeModal on Escape while open', () => {
+    const closeSpy = vi.fn();
+    component.closeModal.subscribe(closeSpy);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not emit closeModal on Escape while closed', () => {
+    const closeSpy = vi.fn();
+    component.closeModal.subscribe(closeSpy);
+    fixture.componentRef.setInput('isOpen', false);
+    fixture.detectChanges();
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    expect(closeSpy).not.toHaveBeenCalled();
+  });
+
+  it('focuses the title input on open', async () => {
+    fixture.detectChanges();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const title = fixture.nativeElement.querySelector('input[name="title"]');
+    expect(document.activeElement).toBe(title);
+  });
+
   it('renders hierarchical options with indentation derived from parentId', () => {
     fixture.detectChanges();
     const select = fixture.nativeElement.querySelector(

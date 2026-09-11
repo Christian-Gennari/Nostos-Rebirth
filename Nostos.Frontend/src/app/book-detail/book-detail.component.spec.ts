@@ -119,6 +119,13 @@ describe('BookDetail reset progress', () => {
     expect(resetButton()).toBeNull();
   });
 
+  it('prompts to write the first note when the feed is empty', async () => {
+    await setup(readableBook());
+
+    const empty = fixture.nativeElement.querySelector('.notes-empty') as HTMLElement;
+    expect(empty?.textContent).toContain('first thought');
+  });
+
   it('is hidden for a book without a file even when progress exists', async () => {
     await setup({ ...book, hasFile: false, progressPercent: 42, lastLocation: 'epub.cfi' });
     expect(resetButton()).toBeNull();

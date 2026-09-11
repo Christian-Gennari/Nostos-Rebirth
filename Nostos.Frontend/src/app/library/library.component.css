@@ -115,7 +115,7 @@ app-sidebar-collections.no-transition {
   background: color-mix(in srgb, var(--color-primary) 22%, transparent);
 }
 
-.empty-state {
+.books-empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -125,7 +125,7 @@ app-sidebar-collections.no-transition {
   color: var(--color-text-light);
 }
 
-.empty-state p {
+.books-empty-state p {
   margin: 0;
   font-size: 1rem;
   color: var(--color-text-main);
