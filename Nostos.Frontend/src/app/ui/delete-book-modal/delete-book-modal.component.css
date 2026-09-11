@@ -10,9 +10,9 @@
   align-items: center;
   justify-content: center;
   padding: 1.25rem;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(28, 27, 26, 0.34);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   animation: backdropFade var(--motion-base, 0.2s) ease-out forwards;
   overscroll-behavior: contain;
 }
@@ -31,17 +31,16 @@
   width: 100%;
   max-width: 420px;
   background: var(--bg-surface);
-  border: 1px solid color-mix(in srgb, var(--color-danger) 24%, var(--border-color));
-  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 18%, var(--border-color));
+  border-radius: 16px;
   padding: 1.75rem 1.75rem 1.5rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   box-shadow:
-    0 24px 60px -12px rgba(0, 0, 0, 0.28),
-    0 4px 16px rgba(0, 0, 0, 0.08),
-    0 0 36px -8px color-mix(in srgb, var(--color-danger) 20%, transparent);
+    0 24px 48px -12px rgba(42, 38, 32, 0.2),
+    0 4px 12px rgba(42, 38, 32, 0.06);
   animation: cardEnter var(--motion-base, 0.22s) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) forwards;
   overflow: hidden;
 }
@@ -58,17 +57,16 @@
 }
 
 .danger-icon-badge {
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-danger) 25%, transparent);
-  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 8%, var(--bg-surface-alt));
+  border: 1px solid color-mix(in srgb, var(--color-danger) 18%, var(--border-color));
+  color: color-mix(in srgb, var(--color-danger) 72%, var(--color-accent));
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 1.25rem;
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-danger) 15%, transparent);
   flex-shrink: 0;
 }
 
@@ -134,16 +132,16 @@
 }
 
 .btn-delete-confirm {
-  background: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 78%, var(--color-primary));
   border: 1px solid transparent;
   color: #fff;
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-danger) 35%, transparent);
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--color-danger) 20%, transparent);
 }
 
 .btn-delete-confirm:hover:not(:disabled) {
-  background: var(--color-danger-vivid);
+  background: color-mix(in srgb, var(--color-danger) 88%, var(--color-primary));
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-danger) 45%, transparent);
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--color-danger) 28%, transparent);
 }
 
 .btn-cancel:disabled,
