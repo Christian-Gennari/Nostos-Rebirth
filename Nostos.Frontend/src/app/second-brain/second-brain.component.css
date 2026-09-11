@@ -20,6 +20,7 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  animation: sidebar-enter var(--motion-base) var(--ease-out);
 }
 
 /* HEADER: Tight alignment and hierarchy */

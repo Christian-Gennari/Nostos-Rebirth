@@ -20,6 +20,12 @@
   overflow: hidden;
   box-sizing: border-box;
 }
+.sidebar-left {
+  animation: sidebar-enter var(--motion-base) var(--ease-out);
+}
+.sidebar-right {
+  animation: sidebar-enter-right var(--motion-base) var(--ease-out);
+}
 
 @media (min-width: 769px) {
   .sidebar-left {
