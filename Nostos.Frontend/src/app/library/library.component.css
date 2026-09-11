@@ -398,7 +398,10 @@ app-sidebar-collections.no-transition {
   position: absolute;
   bottom: 8px;
   right: 8px;
-  z-index: 5;
+  /* Sits above the cover art and the card's own overlay buttons (z-index 1-2)
+     in the grid. Kept below the app chrome tiers (sticky toolbar 5, dock 50)
+     so a badge can never tie with the header and paint over it. */
+  z-index: 3;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -453,6 +456,11 @@ app-sidebar-collections.no-transition {
 
 .table-view .format-badge {
   position: static !important;
+  /* The wrapper is inline-flex, so this badge is a flex item and z-index
+     applies even though it is static. As a plain in-row chip it must not
+     participate in stacking at all — otherwise it tied with the sticky
+     toolbar's z-index and painted over the header while scrolling. */
+  z-index: auto !important;
   opacity: 1 !important;
   transform: none !important;
   pointer-events: none !important;
