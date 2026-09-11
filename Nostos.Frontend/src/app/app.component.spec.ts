@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { SwUpdate } from '@angular/service-worker';
 import { App } from './app.component';
 
 describe('App', () => {
@@ -8,7 +9,15 @@ describe('App', () => {
 
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideRouter([])],
+      providers: [
+        provideRouter([]),
+        // The shell keeps the service worker's manifest fresh; there is no
+        // worker under test, so the update API only needs to exist.
+        {
+          provide: SwUpdate,
+          useValue: { isEnabled: false, checkForUpdate: () => Promise.resolve(false) },
+        },
+      ],
     }).compileComponents();
   });
 

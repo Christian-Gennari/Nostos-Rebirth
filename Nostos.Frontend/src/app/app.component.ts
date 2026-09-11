@@ -8,6 +8,7 @@ import {
   RouterOutlet,
 } from '@angular/router';
 import { ToastContainerComponent } from './ui/toast-container/toast-container.component';
+import { SwUpdateService } from './core/services/sw-update.service';
 
 @Component({
   selector: 'app-root',
@@ -20,6 +21,11 @@ export class App {
   readonly navigationPending = signal(false);
 
   constructor() {
+    // Keeps the service worker's navigation manifest fresh, so a deploy that
+    // changes how URLs are served (the app shell vs. the API) reaches an
+    // already-open client without a manual reload.
+    inject(SwUpdateService).start();
+
     this.router.events.subscribe((event) => {
       if (event instanceof NavigationStart) this.navigationPending.set(true);
       if (
