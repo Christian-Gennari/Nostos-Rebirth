@@ -82,7 +82,7 @@ import { LibraryFilterService } from '../../library/library-filter.service';
       .app-dock-container {
         width: max-content;
         border: 1px solid var(--border-color);
-        border-radius: 12px;
+        border-radius: var(--radius-sm);
         overflow: clip;
         background: var(--bg-surface);
         box-shadow: 0 8px 22px rgba(42, 38, 32, 0.12);
@@ -123,7 +123,7 @@ import { LibraryFilterService } from '../../library/library-filter.service';
         padding: 8px 12px 7px;
         border: 0;
         border-bottom: 2px solid transparent;
-        border-radius: 8px;
+        border-radius: var(--radius-sm);
         color: var(--color-text-muted);
         cursor: pointer;
         font-family: 'Hanken Grotesk', sans-serif;
