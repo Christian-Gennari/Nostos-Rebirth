@@ -634,6 +634,20 @@ app-sidebar-collections.no-transition {
   aspect-ratio: 2/3;
   background: var(--bg-skeleton);
   border-radius: var(--radius-lg, 8px);
+  /* Separation from the page. Without it a white cover has no edge at all
+     against `--bg-body` (#FDF8F6) — the artwork and the page merge into one
+     flat area. This is the same pair `.list-cover-frame` uses for its
+     thumbnails, so both library views now frame their art identically.
+     `f4933ea` dropped the grid's `outline: 1px solid var(--border-color)` while
+     repainting the mobile action overlays; nothing in that commit's intent
+     needed it gone, so it is restored here as a real `border` that clips into
+     the rounded corners with the image (global `box-sizing: border-box`, so the
+     card's outer size is unchanged).
+     The border, not the shadow, is what must carry this: the `max-width: 768px`
+     block zeroes the shadow on touch-hover, and a hairline keeps the frame
+     readable at every cover colour where a soft shadow washes out. */
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
   margin-bottom: 0.75rem;
   display: flex;
   align-items: center;
