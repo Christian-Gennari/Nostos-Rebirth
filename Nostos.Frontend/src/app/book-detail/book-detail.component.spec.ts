@@ -282,57 +282,112 @@ describe('BookDetail reset progress', () => {
     expect(metaStrip.textContent).not.toContain('book.m4b');
   });
 
-  // ── Cover echo (decorative cover-derived wash) ──────────────────────────────
-  // Regression context: the echo must live INSIDE the content container. A
-  // previous version anchored it to the scroll area's top-left, which placed a
-  // visible slab ~250px away from the cover it echoes.
+  // ── Hero band (cover-carried header) ────────────────────────────────────────
+  // Regression context: the page used to render the cover in a narrow left column
+  // inside an 800px centred container, which left most of a wide screen empty.
+  // The hero band is what fills the top of the page, so these tests guard that it
+  // exists, is driven by the book's own art, and degrades safely without a cover.
 
-  function coverEcho(): HTMLElement | null {
-    return fixture.nativeElement.querySelector('.cover-echo');
+  function hero(): HTMLElement | null {
+    return fixture.nativeElement.querySelector('.book-hero');
   }
 
-  function coverEchoImg(): HTMLImageElement | null {
-    return fixture.nativeElement.querySelector('.cover-echo img');
+  function heroArtImages(): HTMLImageElement[] {
+    return Array.from(fixture.nativeElement.querySelectorAll('.hero-art img'));
   }
 
-  it('renders no cover echo when the book has no cover', async () => {
+  it('renders the title and author inside the hero band, not a side column', async () => {
+    await setup(readableBook({ coverUrl: '/api/books/b1/cover' }));
+
+    const band = hero();
+    expect(band).toBeTruthy();
+    expect(band!.querySelector('.book-title')?.textContent).toContain('Meditations');
+    expect(band!.querySelector('.book-author')?.textContent).toContain('Marcus Aurelius');
+  });
+
+  it('drives the hero art from the cover, as real img elements not a CSS url() binding', async () => {
+    await setup(readableBook({ coverUrl: '/api/books/b1/cover' }));
+
+    const imgs = heroArtImages();
+    // Two layers (defocused base + halation bloom) share the same source.
+    expect(imgs.length).toBe(2);
+    for (const img of imgs) {
+      // A style-binding'd url() is stripped by the framework and renders an empty
+      // rectangle; a real src is the only reliable carrier.
+      expect(img.getAttribute('src')).toBeTruthy();
+      expect(img.getAttribute('src')).toContain('/api/books/b1/cover');
+    }
+  });
+
+  it('uses the small cover rendition for the hero art, not the full-size cover', async () => {
+    await setup(readableBook({ coverUrl: '/api/books/b1/cover' }));
+
+    // The art is defocused to the point where detail is irrelevant.
+    expect(heroArtImages()[0].getAttribute('src')).toBe('/api/books/b1/cover/thumbnail?width=640');
+  });
+
+  it('marks the hero art decorative so it never captures pointer or a11y focus', async () => {
+    await setup(readableBook({ coverUrl: '/api/books/b1/cover' }));
+
+    expect(fixture.nativeElement.querySelector('.hero-art')!.getAttribute('aria-hidden')).toBe('true');
+    for (const img of heroArtImages()) {
+      expect(img.getAttribute('alt')).toBe('');
+    }
+  });
+
+  it('falls back to a plain band (no art layers) when the book has no cover', async () => {
     await setup(readableBook({ coverUrl: null }));
-    expect(coverEcho()).toBeNull();
+
+    expect(hero()).toBeTruthy();
+    expect(hero()!.classList.contains('no-art')).toBe(true);
+    expect(heroArtImages().length).toBe(0);
+    // The band must still carry the title.
+    expect(hero()!.querySelector('.book-title')?.textContent).toContain('Meditations');
   });
 
-  it('renders the cover echo as the first child of the content container', async () => {
+  it('drops the hero art when its image fails to load', async () => {
     await setup(readableBook({ coverUrl: '/api/books/b1/cover' }));
+    expect(heroArtImages().length).toBe(2);
 
-    const echo = coverEcho();
-    expect(echo).toBeTruthy();
-
-    const container = fixture.nativeElement.querySelector('.container.md');
-    expect(container).toBeTruthy();
-    expect(container.firstElementChild).toBe(echo);
-  });
-
-  it('marks the cover echo decorative so it never captures pointer or a11y focus', async () => {
-    await setup(readableBook({ coverUrl: '/api/books/b1/cover' }));
-
-    expect(coverEcho()!.getAttribute('aria-hidden')).toBe('true');
-    expect(coverEchoImg()!.getAttribute('alt')).toBe('');
-  });
-
-  it('uses the cover thumbnail endpoint for the echo, not the full-size cover', async () => {
-    await setup(readableBook({ coverUrl: '/api/books/b1/cover' }));
-
-    // The wash is blurred to mush; the thumbnail keeps the layer cheap.
-    expect(coverEchoImg()!.getAttribute('src')).toBe('/api/books/b1/cover/thumbnail?width=320');
-  });
-
-  it('hides the cover echo when its thumbnail fails to load', async () => {
-    await setup(readableBook({ coverUrl: '/api/books/b1/cover' }));
-    expect(coverEcho()).toBeTruthy();
-
-    coverEchoImg()!.dispatchEvent(new Event('error'));
+    heroArtImages()[0].dispatchEvent(new Event('error'));
     fixture.detectChanges();
 
-    // Otherwise the browser paints its broken-image glyph on the page.
-    expect(coverEcho()).toBeNull();
+    // Otherwise the band keeps a broken image and, worse, keeps the scrim over a
+    // blank field. It must fall back to the flat gradient band.
+    expect(hero()!.classList.contains('no-art')).toBe(true);
+    expect(heroArtImages().length).toBe(0);
+  });
+
+  it('renders a single favorite control (no duplicated desktop/mobile variants)', async () => {
+    await setup(readableBook({ coverUrl: '/api/books/b1/cover' }));
+
+    // A previous iteration shipped two heart buttons toggled by media queries and
+    // leaked duplicates at intermediate widths.
+    const favs = fixture.nativeElement.querySelectorAll('.favorite-btn');
+    expect(favs.length).toBe(1);
+  });
+
+  it('keeps the details rail populated so the two-column body is never half empty', async () => {
+    await setup(readableBook({ coverUrl: '/api/books/b1/cover' }));
+
+    const side = fixture.nativeElement.querySelector('.detail-side') as HTMLElement | null;
+    expect(side).toBeTruthy();
+
+    // The editions block is conditional and absent for single-edition books, so
+    // without the details card the rail would be an empty 320px gutter — which is
+    // exactly the "empty right column" defect this layout exists to fix.
+    expect(side!.querySelector('.details-card')).toBeTruthy();
+    expect(side!.textContent).toContain('Publisher');
+    expect(side!.querySelector('.meta-strip')).toBeTruthy();
+  });
+
+  it('moves the details out of the synopsis card and into the rail', async () => {
+    await setup(readableBook({ coverUrl: '/api/books/b1/cover' }));
+
+    const block = fixture.nativeElement.querySelector('.synopsis-metadata-block');
+    expect(block).toBeTruthy();
+    // Leaving a copy behind would duplicate every metadata row on the page.
+    expect(block.querySelector('.meta-grid')).toBeNull();
+    expect(block.querySelector('.meta-strip')).toBeNull();
   });
 });

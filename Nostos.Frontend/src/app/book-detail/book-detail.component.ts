@@ -116,12 +116,24 @@ export class BookDetail implements OnInit {
   pendingStatus = signal<'notstarted' | 'reading' | 'finished' | null>(null);
   deleting = signal(false);
 
-  /** True when the decorative cover thumbnail failed to load — the wash is hidden. */
-  coverEchoFailed = signal(false);
+  /** True when the hero's decorative cover art failed to load — the band falls back to flat colour. */
+  heroArtFailed = signal(false);
 
-  onCoverEchoError(): void {
-    this.coverEchoFailed.set(true);
+  onHeroArtError(): void {
+    this.heroArtFailed.set(true);
   }
+
+  /**
+   * URL for the hero band's art layers. Prefers the 640px thumbnail: the art is
+   * defocused to the point where detail is irrelevant, and this keeps two
+   * full-bleed layers cheap. Null when the book has no cover, which drops the
+   * band back to a gradient.
+   */
+  readonly heroArtUrl = computed<string | null>(() => {
+    const cover = this.store.book()?.coverUrl;
+    return cover ? `${cover}/thumbnail?width=640` : null;
+  });
+
   newNote = model<string>('');
 
   /**

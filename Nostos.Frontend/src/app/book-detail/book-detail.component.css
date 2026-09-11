@@ -1,84 +1,201 @@
-.container.md {
-  position: relative; /* containing block for .cover-echo — keeps the wash aligned with the cover */
+/* ══ HERO BAND ═══════════════════════════════════════════════════════════════
+   The book's own cover art, defocused like a photograph shot wide open, fills a
+   full-width band so the page OPENS with the book instead of with empty paper.
+   This is the point of the layout: the cover carries the top of the page, the
+   title is prominent on it, and it fades down into the reading content.
+
+   The defocus is a real lens stack, not one `filter: blur()`. A single Gaussian
+   is a cheap digital smudge: uniformly soft (no depth), desaturated to grey, and
+   banded. Layers, bottom to top:
+     1 .art-base    defocused base — colour and contrast preserved
+     2 .art-prog    TRUE progressive defocus (`backdrop-filter` under a mask that
+                    ramps with depth) so blur grows away from the title
+     3 .art-bloom   halation — bright cores bleeding (mix-blend-mode: screen)
+     4 .art-grain   filmic grain; without it the wide gradients band
+     5 .art-vig     lens falloff at the corners
+     6 .art-scrim   warm (never black) scrim so white type is legible on ANY
+                    cover — a light cover is the failing case otherwise
+     7 .art-fade    the fade into the page below
+
+   Contrast must never depend on how dark a given cover is, which is why the
+   scrim is always present rather than tuned per book.                     */
+.book-hero {
+  position: relative;
+  flex-shrink: 0;
+  height: 470px;
+  overflow: hidden;
+  isolation: isolate;
+  /* Fallback behind the art: never a flash of unstyled paper. */
+  background: linear-gradient(160deg, #3d2c21 0%, #241a14 60%, #1b1310 100%);
+}
+.hero-art {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+/* Explicit sizes: an absolutely positioned REPLACED element with width:auto
+   takes its INTRINSIC width and ignores `right`, so `inset` would not stretch it. */
+.art-base,
+.art-bloom {
+  position: absolute;
+  top: -12%;
+  left: -12%;
+  width: 124%;
+  height: 124%;
+  object-fit: cover;
+  object-position: 50% 30%;
+}
+.art-base {
+  filter: blur(18px) saturate(1.18) contrast(1.03);
+}
+.art-prog {
+  position: absolute;
+  inset: 0;
+  -webkit-backdrop-filter: blur(26px) saturate(1.12);
+  backdrop-filter: blur(26px) saturate(1.12);
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.45) 42%, #000 100%);
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.45) 42%, #000 100%);
+}
+.art-bloom {
+  top: -22%;
+  left: -22%;
+  width: 144%;
+  height: 144%;
+  filter: blur(72px) brightness(1.5) saturate(1.55);
+  mix-blend-mode: screen;
+  opacity: 0.34;
+}
+.art-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.055;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.art-vig {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(128% 96% at 50% 26%, rgba(0, 0, 0, 0) 40%, rgba(26, 17, 12, 0.44) 100%);
+}
+.art-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(20, 14, 11, 0.46) 0%,
+    rgba(20, 14, 11, 0.28) 44%,
+    rgba(20, 14, 11, 0.52) 100%
+  );
+}
+.art-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 200px;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(253, 248, 246, 0) 0%,
+    rgba(253, 248, 246, 0.5) 52%,
+    rgba(253, 248, 246, 0.9) 80%,
+    var(--bg-body) 100%
+  );
+}
+/* No cover (or the art failed): the band stays a flat warm gradient, never a
+   broken-image glyph or a stripped-out rectangle. */
+.book-hero.no-art .hero-art {
+  display: none;
+}
+.hero-inner {
+  position: relative;
+  z-index: 3;
+  max-width: var(--container-width-lg);
+  margin: 0 auto;
+  height: 100%;
+  padding: 1.5rem 2rem 0;
+  display: flex;
+  flex-direction: column;
+}
+.hero-copy {
+  margin-top: auto;
+  /* Must clear the cover's overhang (see .stage-inner margin-top) plus breathing
+     room, or the sharp cover paints over the author line — it sits above the copy
+     in the stacking order. Overhang 8.5rem + 1.5rem gap = 10rem. */
+  padding-bottom: 10rem;
+  max-width: 44rem;
+}
+.hero-eyebrow {
+  font-size: 0.71rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: var(--fw-semibold);
+  color: rgba(255, 255, 255, 0.82);
+  margin-bottom: 0.85rem;
+}
+.hero-contributors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.2rem;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.72);
+  margin-top: 0.5rem;
+}
+.book-hero .btn-back {
+  align-self: flex-start;
+  color: rgba(255, 255, 255, 0.86);
+}
+.book-hero .btn-back:hover {
+  color: #fff;
+}
+
+/* ── Stage: the sharp cover hands over from the band, controls beside it ── */
+.hero-stage {
+  position: relative;
+  z-index: 4;
+  max-width: var(--container-width-lg);
+  margin: 0 auto;
+  padding: 0 2rem;
+  width: 100%;
+}
+.stage-inner {
+  display: grid;
+  grid-template-columns: 268px 1fr;
+  gap: 2.5rem;
+  align-items: end;
+  margin-top: -8.5rem; /* the cover overlaps the band's fade */
+}
+.cover-card {
+  position: relative;
+  filter: drop-shadow(0 26px 42px rgba(24, 16, 11, 0.34));
+}
+.stage-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-bottom: 0.5rem;
+  min-width: 0;
+}
+.strip-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.strip-progress {
+  font-size: 0.85rem;
+  font-weight: var(--fw-medium);
+  color: var(--color-text-muted);
+}
+
+.container.md,
+.container.lg {
+  width: 100%;
+}
+.container.lg {
   /* Clears the floating bottom dock at every scroll position. */
   padding-bottom: 8.5rem;
-}
-
-/* ── Cover echo ─────────────────────────────────────────────────────────────
-   A blurred, desaturated echo of the cover art that gives the cover and title
-   some atmosphere without competing with them.
-
-   THE INVARIANT THAT MATTERS: the mask must reach zero opacity strictly INSIDE
-   the layer on all four sides. A layer has `overflow: hidden`, so any opacity
-   remaining at a layer edge is clipped into a straight line — that is exactly
-   what shipped as "a weird square in the upper left" twice:
-     • `linear-gradient(135deg, #000 0 38%, …)` — brightest in the anchored
-       corner, i.e. a rectangle by construction;
-     • `clip-path: ellipse(… at 18% 10%)` — same corner defect;
-     • a radial mask centred ABOVE the layer top (`at 30% -6%`) — the bright core
-       was clipped by the top edge into a flat bright band.
-   So: keep the centre inside the layer and keep rx/ry smaller than the centre's
-   distance to every edge. The numbers below are checked in the geometry test.
-
-   Desktop layer is 800x560. The centre is placed in the VISIBLE page area to the
-   right of the cover column (a centre over the cover itself throws most of the
-   wash away behind opaque cover art, leaving only a thin strip). Centre
-   (55%, 45%) = (440, 252), radii (42%, 42%) = (336, 235):
-     left 440-336 = 104 ✓  right 800-776 = 24 ✓
-     top  252-235 = 17 ✓   bottom 560-487 = 73 ✓
-   Two further regressions this guards: the layer must live INSIDE .container.md
-   (anchoring it to the scroll area put the wash ~250px away from the cover it
-   echoes), and it must paint BELOW the page content (see the z-index note).   */
-.cover-echo {
-  position: absolute;
-  inset-inline: 0; /* never wider than the container: no horizontal overflow */
-  top: 0;
-  height: 560px;
-  overflow: hidden; /* contains the blur bleed */
-  pointer-events: none;
-  z-index: 0;
-  /* The extra mid stop keeps the outer falloff gentle so the boundary is never
-     perceptible. */
-  mask-image: radial-gradient(
-    ellipse 42% 42% at 55% 45%,
-    #000 0%,
-    rgba(0, 0, 0, 0.5) 35%,
-    rgba(0, 0, 0, 0.12) 70%,
-    transparent 100%
-  );
-  -webkit-mask-image: radial-gradient(
-    ellipse 42% 42% at 55% 45%,
-    #000 0%,
-    rgba(0, 0, 0, 0.5) 35%,
-    rgba(0, 0, 0, 0.12) 70%,
-    transparent 100%
-  );
-}
-
-.cover-echo img {
-  position: absolute;
-  top: -16%;
-  left: -16%;
-  /* Explicit size: an absolutely positioned REPLACED element with width:auto
-     takes its INTRINSIC width and ignores `right`, so `inset` alone would not
-     stretch it. */
-  width: 132%;
-  height: 132%;
-  object-fit: cover;
-  object-position: 18% 16%; /* frame the art's upper-left, where the cover leads */
-  filter: blur(34px) saturate(0.72);
-  /* Tuned against a reference wash measured on a light/sepia cover AND a dark/warm
-     cover: visible enough to read as the cover's aura, never garish. Lowering this
-     below ~0.2 makes the wash imperceptible on light covers; raising it past ~0.35
-     starts to compete with the cover art. */
-  opacity: 0.3;
-}
-
-/* Everything the reader reads paints above the wash. */
-.back-nav,
-.detail-grid {
-  position: relative;
-  z-index: 1;
 }
 
 .back-nav {
@@ -97,11 +214,58 @@
 .btn-back:hover {
   color: var(--color-primary);
 }
+
+/* Body: the reading column plus a details rail. The rail is what fills the width
+   the old cover column used to take, so the page reads full at any size. */
 .detail-grid {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: minmax(0, 1fr) 320px;
   gap: 3rem;
   align-items: start;
+}
+.detail-main {
+  min-width: 0;
+}
+.detail-side {
+  position: sticky;
+  top: 1.5rem;
+}
+/* Details rail card. The rail always has content, so the two-column body is never
+   left with an empty gutter — the editions block below it is conditional and
+   absent for most books. */
+.details-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.details-title {
+  text-transform: uppercase;
+  font-weight: var(--fw-semibold);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  color: var(--color-text-light);
+  margin: 0 0 0.75rem;
+}
+/* The strip and grid were laid out for the wide synopsis card; in the narrow rail
+   they stack, and a `span 2` item would be invalid in a single-column grid. */
+.details-card .meta-strip {
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+.details-card .meta-grid {
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+}
+.details-card .meta-item.full-width {
+  grid-column: auto;
+}
+.details-card .meta-strip-value {
+  white-space: normal;
 }
 .detail-cover-col {
   display: flex;
@@ -194,12 +358,33 @@
 .cover-overlay-btn.danger:hover {
   background: var(--color-danger-vivid);
 }
-/* Touch devices can't hover, so keep the actions visible. */
+/* Touch devices can't hover, so the actions stay reachable — but as two small
+   circular icon buttons in the cover's bottom corner, with no dark wash over the
+   artwork. Overlaying full-width pills hid most of the cover on a phone, which is
+   unacceptable now that the cover carries the top of the page. The buttons keep
+   their accessible names via aria-label because the text is hidden here. */
 @media (hover: none) {
   .cover-overlay {
     opacity: 1;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0) 55%);
+    flex-direction: row;
+    align-items: flex-end;
     justify-content: flex-end;
+    gap: 0.4rem;
+    padding: 0.5rem;
+    background: none;
+  }
+  .cover-overlay-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    gap: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(255, 255, 255, 0.55);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  }
+  .cover-overlay-btn span {
+    display: none;
   }
 }
 .vertical-divider {
@@ -207,23 +392,17 @@
   height: 12px;
   background-color: var(--border-color);
 }
-.info-header {
-  margin-bottom: 1.5rem;
-}
-.header-top-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  width: 100%;
-}
+/* Title block moves onto the hero band: large, white, and the focal point —
+   the "blog post header" moment where art and title carry the top of the page. */
 .book-title {
   font-family: 'Newsreader', serif;
-  font-size: 2.2rem;
-  font-weight: 600;
-  line-height: 1.2;
-  margin-bottom: 0.25rem;
-  letter-spacing: -0.01em;
+  font-size: 3.6rem;
+  font-weight: 500;
+  line-height: 1.02;
+  margin-bottom: 0.3rem;
+  letter-spacing: -0.02em;
+  color: #fff;
+  text-shadow: 0 2px 26px rgba(0, 0, 0, 0.42);
 }
 .favorite-btn {
   width: 40px;
@@ -258,31 +437,19 @@
   fill: currentColor;
 }
 .book-subtitle {
-  font-size: 1.1rem;
-  color: var(--color-text-light);
-  margin: -0.25rem 0 0.5rem 0;
+  font-size: 1.15rem;
+  color: rgba(255, 255, 255, 0.78);
+  margin: 0 0 0.5rem;
   font-weight: var(--fw-regular);
   font-family: 'Hanken Grotesk', sans-serif;
 }
 .book-author {
   font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 1.05rem;
-  font-weight: 400;
-  color: var(--color-text-muted);
-  margin-bottom: 1rem;
-}
-
-/* Updated styling for Editor & Translator */
-.book-contributor {
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.95rem;
-  font-weight: var(--fw-regular);
-  color: var(--color-text-light);
-  margin-top: -0.5rem;
-  margin-bottom: 0.5rem;
-}
-.book-contributor:last-of-type {
-  margin-bottom: 1.5rem;
+  font-size: 1.3rem;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.4);
 }
 
 .edition-section {
@@ -404,13 +571,6 @@
   font-weight: var(--fw-medium);
 }
 
-.user-metadata-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-}
 /* Status dropdown container */
 .status-dropdown-container {
   position: relative;
@@ -581,9 +741,6 @@
   background: var(--color-danger-vivid);
 }
 
-.mobile-fav {
-  display: none;
-}
 .primary-actions {
   margin-bottom: 2rem;
   display: flex;
@@ -591,6 +748,12 @@
   flex-wrap: nowrap;
   gap: 0.5rem;
   width: 100%;
+}
+/* Inside the hero strip the action row is the last element, so it owns no
+   bottom margin and may wrap once the viewport narrows. */
+.stage-strip .primary-actions {
+  margin-bottom: 0;
+  flex-wrap: wrap;
 }
 
 /* Pill-shaped CTAs */
@@ -914,84 +1077,85 @@
   margin-top: 2rem;
 }
 @media (max-width: 900px) {
-  /* Mobile: the cover column is centred and the container spans the viewport, so
-     the aura is centred on the cover. Layer is 382x430; centre (50%, 51%) =
-     (191, 219), radii (46%, 44%) = (176, 189):
-       left 191-176 = 15 ✓   right 191+176 = 367 < 382 ✓
-       top  219-189 = 30 ✓   bottom 219+189 = 408 < 430 ✓
-     Same invariant as desktop: zero opacity strictly inside every edge. */
-  .cover-echo {
-    height: 430px;
-    mask-image: radial-gradient(
-      ellipse 46% 44% at 50% 51%,
-      #000 0%,
-      rgba(0, 0, 0, 0.5) 35%,
-      rgba(0, 0, 0, 0.12) 70%,
-      transparent 100%
-    );
-    -webkit-mask-image: radial-gradient(
-      ellipse 46% 44% at 50% 51%,
-      #000 0%,
-      rgba(0, 0, 0, 0.5) 35%,
-      rgba(0, 0, 0, 0.12) 70%,
-      transparent 100%
-    );
+  /* Mobile keeps the same hero shape but shorter, with reduced blur radii so the
+     defocus stays soft without the art dissolving into a flat field. */
+  .book-hero {
+    height: 340px;
   }
-  .cover-echo img {
-    opacity: 0.28;
-    filter: blur(28px) saturate(0.68);
-    object-position: 50% 14%;
+  .hero-inner {
+    padding: 1.1rem 1.25rem 0;
+  }
+  .hero-copy {
+    /* Overhang is 6rem here; keep the same clearance rule as desktop. */
+    padding-bottom: 7.5rem;
+  }
+  .book-title {
+    font-size: 2.5rem;
+  }
+  .book-author {
+    font-size: 1.15rem;
+  }
+  .art-base {
+    filter: blur(14px) saturate(1.15) contrast(1.03);
+  }
+  .art-prog {
+    -webkit-backdrop-filter: blur(20px) saturate(1.1);
+    backdrop-filter: blur(20px) saturate(1.1);
+  }
+  .art-bloom {
+    filter: blur(56px) brightness(1.45) saturate(1.5);
+  }
+  .art-fade {
+    height: 150px;
+  }
+
+  .hero-stage {
+    padding: 0 1.25rem;
+  }
+  .stage-inner {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+    justify-items: center;
+    margin-top: -6rem;
+  }
+  .cover-card {
+    width: 190px;
+  }
+  .stage-strip {
+    width: 100%;
+    align-items: center;
+    text-align: center;
+  }
+  .strip-meta {
+    justify-content: center;
+  }
+  .stage-strip .primary-actions {
+    justify-content: center;
   }
 
   .detail-grid {
     grid-template-columns: 1fr;
     gap: 2rem;
-    padding-bottom: 80px;
+  }
+  .detail-side {
+    position: static;
   }
   .detail-cover-col {
     width: 100%;
     max-width: 240px;
     margin: 0 auto;
   }
-  .info-header {
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  .header-top-row {
-    justify-content: center;
-    gap: 0.75rem;
-  }
-
-  .desktop-fav {
-    display: none;
-  }
-  .mobile-fav {
-    display: block;
-  }
-
-  .user-metadata-row {
-    justify-content: center;
-  }
-  .book-title {
-    font-size: 2rem;
-  }
-  .primary-actions {
-    flex-direction: column;
-    width: 100%;
-    gap: 0.75rem;
-  }
-  .primary-actions .btn {
-    width: 100%;
-    justify-content: center;
-    height: 44px;
-  }
   .synopsis-metadata-block {
     padding: 1.25rem 1rem;
   }
 }
 @media (max-width: 480px) {
+  .book-hero {
+    height: 300px;
+  }
+  .book-title {
+    font-size: 2.1rem;
+  }
   .meta-grid {
     grid-template-columns: 1fr;
     gap: 1rem;

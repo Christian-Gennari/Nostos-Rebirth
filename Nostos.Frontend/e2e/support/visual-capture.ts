@@ -518,105 +518,93 @@ export async function findLibraryCoverBook(): Promise<{ id: string; title: strin
 }
 
 /**
- * The cover echo's pass criteria. Each one guards a defect that actually shipped:
+ * Book detail hero criteria. Each one guards a defect that actually shipped:
  *
- *  1. MASK CONTAINMENT (the important one). The layer is `overflow: hidden`, so
- *     any mask opacity remaining at a layer edge is clipped into a straight
- *     line. Three earlier versions shipped that as a visible slab ("a weird
- *     square in the upper left"): a corner-anchored linear gradient, a
- *     corner-anchored clip-path ellipse, and a radial mask centred above the
- *     layer top. Assert centre ± radius lands strictly inside the layer on all
- *     four sides — for BOTH axes, using the layer's real pixel box.
- *  2. CONTAINER ALIGNMENT. Anchoring the layer to the scroll area instead of
- *     `.container.md` put the wash ~250px away from the cover it echoes.
- *  3. NO HORIZONTAL OVERFLOW (`.layout-content` is `overflow-y: auto`, which
- *     makes `overflow-x` compute to `auto` too — a too-wide layer scrolls).
- *  4. PAINT ORDER. `.book-title` must own its own pixel, i.e. content paints
- *     above the wash.
+ *  1. FULL-BLEED BAND. The whole point of the layout is that the cover art fills
+ *     the top of the page; the page previously rendered the cover in a narrow
+ *     side column inside an 800px centred container, so most of a wide screen was
+ *     empty. The band must span the scroll container's full width.
+ *  2. ART ACTUALLY RENDERS. The art is carried by real `<img>` layers, never a
+ *     `[style.background-image]` binding (the framework strips that and leaves an
+ *     empty rectangle that still occupies space and still paints its scrim).
+ *  3. NO COPY/COVER COLLISION. The sharp cover hangs over the band's fade via a
+ *     negative margin and sits ABOVE the hero copy in the stacking order, so if
+ *     the copy's clearance is ever reduced the cover silently paints over the
+ *     author line. Assert the copy's last line ends above the cover's top edge.
+ *  4. TITLE OWNS ITS PIXEL. Content paints above the decorative art layers.
+ *  5. NO HORIZONTAL OVERFLOW (`.layout-content` is `overflow-y: auto`, which makes
+ *     `overflow-x` compute to `auto` too, so a too-wide band scrolls the page).
  */
-export async function checkBookDetailCoverEcho(page: Page): Promise<GeometryCheck> {
-  const echo = page.locator('.cover-echo');
-  const container = page.locator('.container.md').first();
-  const cover = page
-    .locator('.detail-cover-col .cover-img, .detail-cover-col .placeholder-cover')
-    .first();
+export async function checkBookDetailHero(page: Page): Promise<GeometryCheck> {
+  const hero = page.locator('.book-hero').first();
+  const title = page.locator('.book-title').first();
+  await title.waitFor({ timeout: 30_000 });
+  await hero.waitFor({ timeout: 30_000 });
 
-  await cover.waitFor({ timeout: 30_000 });
-  const echoBox = await echo.boundingBox();
-  const cBox = await container.boundingBox();
-  const coverBox = await cover.boundingBox();
-
-  // Parse the computed mask and check the gradient ellipse is fully inside the layer.
-  const mask = await echo.evaluate((el) => {
-    // Inline rounding: this callback runs in the browser, so module-scope helpers
-    // (r1) are not in scope.
-    const round1 = (v: number): number => Math.round(v * 10) / 10;
-    const cs = getComputedStyle(el);
-    const raw = cs.maskImage || cs.webkitMaskImage || '';
-    const rect = el.getBoundingClientRect();
-    // "radial-gradient(35% 42% at 37.5% 45%, ...)" (percentages, no explicit ellipse keyword)
-    const m = /radial-gradient\(\s*(?:ellipse\s+)?([\d.]+)%\s+([\d.]+)%\s+at\s+([\d.]+)%\s+([\d.]+)%/i.exec(raw);
-    if (!m) return { raw, parsed: false as const };
-    const [rxPct, ryPct, cxPct, cyPct] = m.slice(1, 5).map(Number);
-    const rx = (rxPct / 100) * rect.width;
-    const ry = (ryPct / 100) * rect.height;
-    const cx = (cxPct / 100) * rect.width;
-    const cy = (cyPct / 100) * rect.height;
+  const m = await page.evaluate(() => {
+    const q = (s: string) => document.querySelector(s);
+    const rect = (e: Element | null) => (e ? e.getBoundingClientRect() : null);
+    const round1 = (v: number) => Math.round(v * 10) / 10;
+    const heroEl = q('.book-hero');
+    const copy = q('.hero-copy');
+    const coverEl = q('.cover-card');
+    const cover = rect(coverEl);
+    const scroller = q('.layout-content');
+    // Last line of the hero copy, measured as the deepest content box so the
+    // copy's bottom PADDING (which deliberately reaches the band's edge) is not
+    // mistaken for the text's position.
+    const lines = copy ? Array.from(copy.children).map((c) => rect(c)).filter(Boolean) : [];
+    const copyContentBottom = lines.length
+      ? Math.max(...lines.map((r) => (r as DOMRect).bottom))
+      : null;
+    const artImgs = Array.from(document.querySelectorAll('.hero-art img')) as HTMLImageElement[];
+    const titleRect = rect(q('.book-title'));
+    const hit = titleRect
+      ? document.elementFromPoint(
+          titleRect.left + titleRect.width / 2,
+          titleRect.top + titleRect.height / 2
+        )
+      : null;
     return {
-      raw,
-      parsed: true as const,
-      layer: { w: Math.round(rect.width), h: Math.round(rect.height) },
-      centre: { x: round1(cx), y: round1(cy) },
-      radii: { x: round1(rx), y: round1(ry) },
-      // distance from the gradient's outer edge to each layer edge; any value <= 0
-      // means opacity survives to the edge and gets clipped into a hard line.
-      margins: {
-        left: round1(cx - rx),
-        right: round1(rect.width - (cx + rx)),
-        top: round1(cy - ry),
-        bottom: round1(rect.height - (cy + ry)),
-      },
+      hero: rect(heroEl),
+      heroHeight: heroEl ? round1(heroEl.getBoundingClientRect().height) : null,
+      scrollerWidth: scroller ? scroller.clientWidth : null,
+      scrollerScrollWidth: scroller ? scroller.scrollWidth : null,
+      copyContentBottom: copyContentBottom == null ? null : round1(copyContentBottom),
+      coverTop: cover ? round1(cover.top) : null,
+      artCount: artImgs.length,
+      artLoaded: artImgs.filter((i) => i.complete && i.naturalWidth > 0).map((i) =>
+        String(i.getAttribute('src')).split('/').pop()
+      ),
+      artSrcs: artImgs.map((i) => String(i.getAttribute('src'))),
+      noArt: heroEl ? heroEl.classList.contains('no-art') : null,
+      titleHit: hit ? String(hit.className || hit.tagName).slice(0, 48) : '<null>',
+      docScroll: document.documentElement.scrollWidth,
+      docClient: document.documentElement.clientWidth,
     };
   });
 
-  const overflow = await page.evaluate(() => ({
-    docScroll: document.documentElement.scrollWidth,
-    docClient: document.documentElement.clientWidth,
-    contentScroll: document.querySelector('.layout-content')?.scrollWidth ?? 0,
-    contentClient: document.querySelector('.layout-content')?.clientWidth ?? 0,
-  }));
+  const fullBleed = m.hero != null && m.scrollerWidth != null && Math.abs(m.hero.width - m.scrollerWidth) <= 2;
+  const isHero = (m.heroHeight ?? 0) >= 260;
+  const artRenders = m.artCount === 2 && m.artLoaded.length === 2 && m.noArt === false;
+  // Positive gap => the copy ends above the cover's top edge.
+  const clearance =
+    m.copyContentBottom != null && m.coverTop != null ? m.coverTop - m.copyContentBottom : null;
+  const noCollision = clearance != null && clearance >= 4;
+  const contentOnTop = /book-title/.test(m.titleHit);
+  const noOverflowX = m.docScroll <= m.docClient + 1;
 
-  const titleHit = await page.evaluate(() => {
-    const el = document.querySelector('.book-title');
-    if (!el) return '<absent>';
-    const r = el.getBoundingClientRect();
-    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-    return hit ? String(hit.className || hit.tagName) : '<null>';
-  });
-
-  const margins = mask.parsed ? mask.margins : null;
-  const contained = !!margins && Object.values(margins).every((v) => v > 0);
-  const aligned = !!echoBox && !!cBox && Math.abs(echoBox.x - cBox.x) <= 2;
-  const noOverflowX =
-    overflow.docScroll <= overflow.docClient + 1 &&
-    overflow.contentScroll <= overflow.contentClient + 1;
-  const spansCover =
-    !!echoBox && !!coverBox &&
-    echoBox.x <= coverBox.x + 2 &&
-    echoBox.x + echoBox.width >= coverBox.x + coverBox.width - 2;
-  const contentOnTop = /book-title/.test(titleHit);
-  const ok = contained && aligned && noOverflowX && spansCover && contentOnTop;
-
-  const metrics = { echoBox, cBox, coverBox, mask, overflow, titleHit };
+  const ok = fullBleed && isHero && artRenders && noCollision && contentOnTop && noOverflowX;
+  const metrics = { ...m, clearance };
   const msg =
-    `mask ${contained ? 'fully fades inside the layer' : 'IS CLIPPED AT A LAYER EDGE'} ` +
-    `(margins L${margins?.left} R${margins?.right} T${margins?.top} B${margins?.bottom}px inside ` +
-    `${mask.parsed ? mask.layer.w : '?'}x${mask.parsed ? mask.layer.h : '?'}), ` +
-    `echo x ${echoBox ? r1(echoBox.x) : '?'} vs container x ${cBox ? r1(cBox.x) : '?'} ` +
-    `(${aligned ? 'aligned' : 'MISALIGNED'}), spans cover ${spansCover ? 'yes' : 'NO'}, ` +
-    `h-overflow ${noOverflowX ? 'none' : 'PRESENT'}, ` +
-    `title owns its pixel ${contentOnTop ? 'yes' : `NO (${titleHit})`}`;
-  return ok
-    ? passCheck('book-detail-cover-echo', msg, metrics)
-    : failCheck('book-detail-cover-echo', msg, metrics);
+    `band ${m.hero ? `${Math.round(m.hero.width)}x${m.heroHeight}px` : '?'} ` +
+    `(${fullBleed ? 'full-bleed' : `NOT full-bleed vs ${m.scrollerWidth}px`}), ` +
+    `${isHero ? 'hero-height' : 'TOO SHORT'}, ` +
+    `art ${m.artLoaded.length}/${m.artCount} layers loaded ${artRenders ? '' : '(ART NOT RENDERING) '}` +
+    `src=${m.artSrcs[0] ?? 'none'}, ` +
+    `copy->cover clearance ${clearance}px ${noCollision ? '' : '(COPY/COVER COLLISION) '}` +
+    `[copy ends ${m.copyContentBottom}, cover starts ${m.coverTop}], ` +
+    `title owns its pixel ${contentOnTop ? 'yes' : `NO (${m.titleHit})`}, ` +
+    `h-overflow ${noOverflowX ? 'none' : 'PRESENT'}`;
+  return ok ? passCheck('book-detail-hero', msg, metrics) : failCheck('book-detail-hero', msg, metrics);
 }

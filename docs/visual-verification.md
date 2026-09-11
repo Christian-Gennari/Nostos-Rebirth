@@ -106,7 +106,7 @@ ignores. Without `VISUAL_QA_LIBRARY_URL` both cases skip with a documented reaso
 | `zen-gutters-balanced` | zen captures | editor surface horizontally centered: left/right gutters within 3px |
 | `library-no-progress-combobox` | library captures | toolbar progress filter is not a `<select>`; the only toolbar select is sort |
 | `library-six-sidebar-filters` | library captures | sidebar/drawer exposes exactly: All Books, Not Started, In Progress, Favorites, Finished, Unsorted — and no toolbar progress surface |
-| `book-detail-cover-echo` | book detail captures | the cover echo's mask fades to zero **strictly inside its own layer on all four sides** (centre ± radius within the layer box, both axes); the layer aligns with `.container.md` (±2px); it spans the cover's box; no horizontal overflow; `.book-title` owns its own pixel (content paints above the wash) |
+| `book-detail-hero` | book detail captures | the hero band spans the scroll container's full width (±2px) and is ≥260px tall; both decorative art layers are real `<img>`s that actually loaded (never a stripped `[style.background-image]`); the hero copy's last line ends above the sharp cover's top edge (a negative-margin overhang must never paint over the author line); `.book-title` owns its own pixel; no horizontal overflow |
 
 Every check is recorded in the capture's `.json` report with its
 metrics. **Skips are never failures and never fakes**: a check is skipped only

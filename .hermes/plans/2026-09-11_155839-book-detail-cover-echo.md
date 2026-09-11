@@ -1,5 +1,19 @@
 # Book Detail — Cover-First Hero (Cover Echo) Implementation Plan
 
+> **SUPERSEDED (same day).** The "cover echo" approach below — a blurred wash
+> behind the existing narrow two-column layout — was implemented, verified, and
+> then rejected by the user, correctly: it only tinted the ~65% of a wide screen
+> that the 800px centred container left empty. It coloured the dead space instead
+> of filling it. The shipped solution is a full-width hero band built from the
+> cover art with a real lens-defocus stack (see the commit that supersedes this
+> and the `book-detail-hero` check in `docs/visual-verification.md`). Kept for the
+> record because the mask-containment invariant in §Root cause is still correct
+> and still worth not re-learning.
+>
+> **Still valid from this plan:** Task 0 (baseline evidence), Task 7 (mandatory
+> vision review + fallback ladder), and the diagnosis in §2 of why a corner-anchored
+> mask is a rectangle by construction.
+
 > **For Hermes:** implement this task-by-task. Tasks 0, 8 and 11 are **not optional** —
 > they are this plan's whole point. The three previous attempts were committed without
 > ever looking at a rendered screenshot, and shipped a visible artifact three times.

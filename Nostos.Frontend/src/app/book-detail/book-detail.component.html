@@ -1,21 +1,7 @@
 <main class="layout-wrapper">
   <div class="layout-content">
+    @if (store.loading()) {
     <div class="container md">
-      @if (store.book()?.coverUrl && !coverEchoFailed()) {
-      <!-- Decorative cover-derived wash. Uses the thumbnail, not the full cover:
-           it is blurred to mush anyway, and this keeps the layer cheap. -->
-      <div class="cover-echo" aria-hidden="true">
-        <img
-          [src]="store.book()!.coverUrl + '/thumbnail?width=320'"
-          alt=""
-          loading="eager"
-          fetchpriority="low"
-          decoding="async"
-          (error)="onCoverEchoError()"
-        />
-      </div>
-      }
-      @if (store.loading()) {
       <div class="back-nav">
         <div class="skeleton-line" style="width: 100px; height: 20px"></div>
       </div>
@@ -29,7 +15,9 @@
           <div class="skeleton-block"></div>
         </section>
       </div>
-      } @if (store.error()) {
+    </div>
+    } @if (store.error()) {
+    <div class="container md">
       <div class="error-state">
         <lucide-icon
           [img]="AlertCircleIcon"
@@ -39,24 +27,69 @@
         <p>{{ store.error() }}</p>
         <button class="btn btn-secondary" routerLink="/library">Return to Library</button>
       </div>
-      } @if (!store.loading() && !store.error() && store.book()) {
+    </div>
+    } @if (!store.loading() && !store.error() && store.book()) {
 
-      <div class="back-nav">
+    <!-- ── Hero band ─────────────────────────────────────────────────────────
+         The book's own cover art, defocused like a photograph shot wide open,
+         filling a full-width band so the page opens with the book rather than
+         with empty paper. Layers, bottom to top (see .book-hero in the CSS):
+         defocused base -> progressive defocus -> halation -> grain -> vignette
+         -> legibility scrim -> fade into the page.                          -->
+    <section class="book-hero" [class.no-art]="!heroArtUrl() || heroArtFailed()">
+      @if (heroArtUrl() && !heroArtFailed()) {
+      <div class="hero-art" aria-hidden="true">
+        <img class="art-base" [src]="heroArtUrl()" alt="" (error)="onHeroArtError()" />
+        <div class="art-prog"></div>
+        <img class="art-bloom" [src]="heroArtUrl()" alt="" />
+        <div class="art-grain"></div>
+        <div class="art-vig"></div>
+        <div class="art-scrim"></div>
+      </div>
+      }
+      <div class="art-fade" aria-hidden="true"></div>
+
+      <div class="hero-inner">
         <button class="btn-back" routerLink="/library">
           <lucide-icon [img]="ArrowLeftIcon" [size]="16"></lucide-icon>
           <span>Library</span>
         </button>
-      </div>
 
-      <div class="detail-grid">
-        <aside class="detail-cover-col">
+        <div class="hero-copy">
+          <div class="hero-eyebrow">
+            {{ isAudioBook(store.book()) ? 'Audiobook' : 'Book' }}
+            @if (store.book()?.publisher) { · {{ store.book()?.publisher }} }
+          </div>
+
+          <h1 class="book-title">{{ store.book()?.title }}</h1>
+
+          @if (store.book()?.subtitle) {
+          <h3 class="book-subtitle">{{ store.book()?.subtitle }}</h3>
+          }
+
+          <h2 class="book-author">{{ store.book()?.author || 'Unknown Author' }}</h2>
+
+          @if (store.book()?.editor || store.book()?.translator) {
+          <div class="hero-contributors">
+            @if (store.book()?.editor) { <span>Edited by {{ store.book()?.editor }}</span> }
+            @if (store.book()?.translator) { <span>Translated by {{ store.book()?.translator }}</span> }
+          </div>
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Stage: the sharp cover hangs over the fade, controls sit beside it ── -->
+    <div class="hero-stage">
+      <div class="stage-inner">
+        <aside class="cover-card">
           <div class="cover-frame">
             @if (store.book()?.coverUrl) {
             <img
               [src]="store.book()?.coverUrl"
               alt="Book cover"
               class="cover-img"
-              loading="lazy"
+              loading="eager"
               decoding="async"
             />
             } @else {
@@ -75,6 +108,7 @@
                 type="button"
                 id="uploadorChangeCover"
                 class="cover-overlay-btn"
+                [attr.aria-label]="store.book()?.coverUrl ? 'Change cover' : 'Upload cover'"
                 (click)="triggerCoverPicker()"
               >
                 <lucide-icon [img]="ImageIcon" [size]="15"></lucide-icon>
@@ -86,6 +120,7 @@
                 type="button"
                 id="removeCover"
                 class="cover-overlay-btn danger"
+                aria-label="Remove cover"
                 (click)="deleteCover()"
               >
                 <lucide-icon [img]="Trash2Icon" [size]="15"></lucide-icon>
@@ -104,219 +139,133 @@
           />
         </aside>
 
-        <section class="detail-info-col">
-          <header class="info-header">
-            <div class="header-top-row">
-              <h1 class="book-title">{{ store.book()?.title }}</h1>
+        <div class="stage-strip">
+          <div class="strip-meta">
+            <app-star-rating
+              [rating]="store.book()?.rating || 0"
+              [size]="20"
+              (ratingChange)="onRate($event)"
+            ></app-star-rating>
+
+            <div class="status-dropdown-container">
               <button
-                class="btn-icon favorite-btn desktop-fav"
-                [class.active]="store.book()?.isFavorite"
-                (click)="toggleFavorite()"
-                title="Toggle Favorite"
+                type="button"
+                class="status-chip status-chip-btn"
+                [class.finished]="readingStatus().modifier === 'finished'"
+                [class.reading]="readingStatus().modifier === 'reading'"
+                [class.open]="statusDropdownOpen()"
+                (click)="toggleStatusDropdown($event)"
+                title="Change reading status"
+                aria-haspopup="listbox"
+                [attr.aria-expanded]="statusDropdownOpen()"
               >
-                <lucide-icon
-                  [img]="HeartIcon"
-                  [size]="24"
-                  [class.filled]="store.book()?.isFavorite"
-                ></lucide-icon>
+                <span class="status-dot"></span>
+                <span>{{ readingStatus().label }}</span>
+                <lucide-icon [img]="ChevronDownIcon" [size]="12" class="status-chevron"></lucide-icon>
               </button>
-            </div>
 
-            @if (store.book()?.subtitle) {
-            <h3 class="book-subtitle">{{ store.book()?.subtitle }}</h3>
-            }
-
-            <h2 class="book-author">{{ store.book()?.author || 'Unknown Author' }}</h2>
-
-            @if (store.book()?.editor) {
-            <div class="book-contributor">Edited by {{ store.book()?.editor }}</div>
-            } @if (store.book()?.translator) {
-            <div class="book-contributor">Translated by {{ store.book()?.translator }}</div>
-            }
-
-            <div class="user-metadata-row">
-              <app-star-rating
-                [rating]="store.book()?.rating || 0"
-                [size]="20"
-                (ratingChange)="onRate($event)"
-              ></app-star-rating>
-
-              <div class="status-dropdown-container">
+              @if (statusDropdownOpen()) {
+              <div class="status-dropdown-menu" role="listbox" (click)="$event.stopPropagation()">
                 <button
                   type="button"
-                  class="status-chip status-chip-btn"
-                  [class.finished]="readingStatus().modifier === 'finished'"
-                  [class.reading]="readingStatus().modifier === 'reading'"
-                  [class.open]="statusDropdownOpen()"
-                  (click)="toggleStatusDropdown($event)"
-                  title="Change reading status"
-                  aria-haspopup="listbox"
-                  [attr.aria-expanded]="statusDropdownOpen()"
+                  class="status-dropdown-item"
+                  [class.selected]="readingStatus().modifier === 'not-started'"
+                  (click)="selectStatusOption('notstarted')"
                 >
-                  <span class="status-dot"></span>
-                  <span>{{ readingStatus().label }}</span>
-                  <lucide-icon [img]="ChevronDownIcon" [size]="12" class="status-chevron"></lucide-icon>
+                  <lucide-icon [img]="CircleDashedIcon" [size]="14"></lucide-icon>
+                  <span>Not Started</span>
                 </button>
 
-                @if (statusDropdownOpen()) {
-                <div class="status-dropdown-menu" role="listbox" (click)="$event.stopPropagation()">
-                  <button
-                    type="button"
-                    class="status-dropdown-item"
-                    [class.selected]="readingStatus().modifier === 'not-started'"
-                    (click)="selectStatusOption('notstarted')"
-                  >
-                    <lucide-icon [img]="CircleDashedIcon" [size]="14"></lucide-icon>
-                    <span>Not Started</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    class="status-dropdown-item"
-                    [class.selected]="readingStatus().modifier === 'reading'"
-                    (click)="selectStatusOption('reading')"
-                  >
-                    <lucide-icon [img]="BookOpenIcon" [size]="14"></lucide-icon>
-                    <span>In Progress</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    class="status-dropdown-item"
-                    [class.selected]="readingStatus().modifier === 'finished'"
-                    (click)="selectStatusOption('finished')"
-                  >
-                    <lucide-icon [img]="CheckCircleIcon" [size]="14"></lucide-icon>
-                    <span>Finished</span>
-                  </button>
-                </div>
-                }
-              </div>
-
-              <button
-                class="btn-icon favorite-btn mobile-fav"
-                [class.active]="store.book()?.isFavorite"
-                (click)="toggleFavorite()"
-                title="Toggle Favorite"
-                style="margin-top: 0"
-              >
-                <lucide-icon
-                  [img]="HeartIcon"
-                  [size]="24"
-                  [class.filled]="store.book()?.isFavorite"
-                ></lucide-icon>
-              </button>
-            </div>
-
-            @if (store.book()?.otherEditions && store.book()!.otherEditions!.length > 0) {
-            <div class="edition-section">
-              <div class="edition-section-header">
-                <lucide-icon [img]="LayersIcon" [size]="14"></lucide-icon>
-                <span class="edition-section-title">Available Formats & Editions</span>
-                <span class="edition-count-badge">{{ (store.book()?.otherEditions?.length || 0) + 1 }}</span>
-              </div>
-              <div class="edition-cards-grid">
                 <button
                   type="button"
-                  class="edition-select-card active"
-                  [title]="getEditionLabel(store.book()!)"
+                  class="status-dropdown-item"
+                  [class.selected]="readingStatus().modifier === 'reading'"
+                  (click)="selectStatusOption('reading')"
                 >
-                  <div class="card-icon-frame">
-                    <lucide-icon [img]="isAudioBook(store.book()) ? HeadphonesIcon : BookOpenIcon" [size]="16"></lucide-icon>
-                  </div>
-                  <div class="card-content">
-                    <span class="card-format-title">{{ getEditionFormat(store.book()!) }}</span>
-                    @if (getEditionSubtitle(store.book()!)) {
-                    <span class="card-format-sub">{{ getEditionSubtitle(store.book()!) }}</span>
-                    }
-                    <div class="card-meta-line">
-                      @if (store.book()?.progressPercent) {
-                      <span class="card-progress">{{ store.book()?.progressPercent }}% read</span>
-                      } @else {
-                      <span class="card-progress">Not started</span>
-                      }
-                      @if (store.book()?.finishedAt) {
-                      <span class="card-status-pill finished">Finished</span>
-                      }
-                    </div>
-                  </div>
+                  <lucide-icon [img]="BookOpenIcon" [size]="14"></lucide-icon>
+                  <span>In Progress</span>
                 </button>
 
-                @for (edition of store.book()!.otherEditions!; track edition.id) {
                 <button
                   type="button"
-                  class="edition-select-card"
-                  (click)="switchEdition(edition.id)"
-                  [title]="'Switch to ' + getSummaryEditionLabel(edition)"
+                  class="status-dropdown-item"
+                  [class.selected]="readingStatus().modifier === 'finished'"
+                  (click)="selectStatusOption('finished')"
                 >
-                  <div class="card-icon-frame">
-                    <lucide-icon [img]="edition.type === 'audiobook' ? HeadphonesIcon : BookOpenIcon" [size]="16"></lucide-icon>
-                  </div>
-                  <div class="card-content">
-                    <span class="card-format-title">{{ getEditionFormat(edition) }}</span>
-                    @if (getEditionSubtitle(edition)) {
-                    <span class="card-format-sub">{{ getEditionSubtitle(edition) }}</span>
-                    }
-                    <div class="card-meta-line">
-                      @if (edition.progressPercent) {
-                      <span class="card-progress">{{ edition.progressPercent }}% read</span>
-                      } @else {
-                      <span class="card-progress">Not started</span>
-                      }
-                      @if (edition.finishedAt) {
-                      <span class="card-status-pill finished">Finished</span>
-                      }
-                    </div>
-                  </div>
+                  <lucide-icon [img]="CheckCircleIcon" [size]="14"></lucide-icon>
+                  <span>Finished</span>
                 </button>
-                }
               </div>
-            </div>
-            }
-
-            <div class="primary-actions">
-              @if (store.book()?.hasFile) { @if (isAudioBook(store.book())) {
-              <button class="btn btn-primary pill-btn" (click)="openReader()">
-                <lucide-icon [img]="HeadphonesIcon" [size]="18"></lucide-icon>
-                <span>Listen</span>
-              </button>
-              } @else {
-              <button class="btn btn-primary pill-btn" (click)="openReader()">
-                <lucide-icon [img]="BookOpenIcon" [size]="18"></lucide-icon>
-                <span>Read Book</span>
-              </button>
               }
-
-              <button class="btn btn-secondary pill-btn" (click)="downloadFile()">
-                <lucide-icon [img]="BookDownIcon" [size]="18"></lucide-icon>
-                <span>Download</span>
-              </button>
-              } @else {
-              <button class="btn btn-primary pill-btn" (click)="triggerFilePicker()">
-                <lucide-icon [img]="BookOpenIcon" [size]="18"></lucide-icon>
-                <span>Upload File</span>
-              </button>
-              }
-
-              <button
-                class="btn btn-secondary pill-btn edit-metadata-btn"
-                (click)="openMetadataModal()"
-                title="Edit Metadata"
-              >
-                <lucide-icon [img]="Edit2Icon" [size]="16"></lucide-icon>
-                <span>Edit</span>
-              </button>
-
-              <input
-                type="file"
-                accept=".epub,.pdf,.txt,.mobi,.mp3,.m4a,.m4b"
-                style="display: none"
-                #fileInput
-                (change)="onFileUploadSelected($event)"
-              />
             </div>
-          </header>
 
+            @if (store.book()?.progressPercent) {
+            <span class="strip-progress">{{ store.book()?.progressPercent }}%</span>
+            }
+
+            <button
+              class="btn-icon favorite-btn"
+              [class.active]="store.book()?.isFavorite"
+              (click)="toggleFavorite()"
+              title="Toggle Favorite"
+            >
+              <lucide-icon
+                [img]="HeartIcon"
+                [size]="22"
+                [class.filled]="store.book()?.isFavorite"
+              ></lucide-icon>
+            </button>
+          </div>
+
+          <div class="primary-actions">
+            @if (store.book()?.hasFile) { @if (isAudioBook(store.book())) {
+            <button class="btn btn-primary pill-btn" (click)="openReader()">
+              <lucide-icon [img]="HeadphonesIcon" [size]="18"></lucide-icon>
+              <span>Listen</span>
+            </button>
+            } @else {
+            <button class="btn btn-primary pill-btn" (click)="openReader()">
+              <lucide-icon [img]="BookOpenIcon" [size]="18"></lucide-icon>
+              <span>Read Book</span>
+            </button>
+            }
+
+            <button class="btn btn-secondary pill-btn" (click)="downloadFile()">
+              <lucide-icon [img]="BookDownIcon" [size]="18"></lucide-icon>
+              <span>Download</span>
+            </button>
+            } @else {
+            <button class="btn btn-primary pill-btn" (click)="triggerFilePicker()">
+              <lucide-icon [img]="BookOpenIcon" [size]="18"></lucide-icon>
+              <span>Upload File</span>
+            </button>
+            }
+
+            <button
+              class="btn btn-secondary pill-btn edit-metadata-btn"
+              (click)="openMetadataModal()"
+              title="Edit Metadata"
+            >
+              <lucide-icon [img]="Edit2Icon" [size]="16"></lucide-icon>
+              <span>Edit</span>
+            </button>
+
+            <input
+              type="file"
+              accept=".epub,.pdf,.txt,.mobi,.mp3,.m4a,.m4b"
+              style="display: none"
+              #fileInput
+              (change)="onFileUploadSelected($event)"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Body ─────────────────────────────────────────────────────────────── -->
+    <div class="container lg">
+      <div class="detail-grid">
+        <div class="detail-main">
           <div class="synopsis-metadata-block" [class.expanded]="isDescriptionExpanded()">
             @if (store.book()?.personalReview) {
             <div class="personal-review">
@@ -345,6 +294,51 @@
               <span class="icon">{{ isDescriptionExpanded() ? '↑' : '↓' }}</span>
             </button>
             }
+          </div>
+
+          <hr class="divider" />
+
+          <div class="notes-container">
+            <div class="notes-header">
+              <h3>Personal Notes</h3>
+              <span class="badge-count">{{ store.notes().length }}</span>
+            </div>
+
+            <div class="new-note-box">
+              <app-concept-input
+                placeholder="Jot down a thought..."
+                [(ngModel)]="newNote"
+                [rows]="1"
+                (submitTrigger)="addNote()"
+              ></app-concept-input>
+
+              @if (newNote().length > 0) {
+              <button class="btn btn-primary btn-sm" (click)="addNote()">Save</button>
+              }
+            </div>
+
+            <div class="notes-feed">
+              @for (note of store.notes(); track note.id) {
+              <app-note-card
+                [note]="note"
+                [conceptMap]="store.conceptMap()"
+                (update)="onUpdateNote($event)"
+                (delete)="onDeleteNote($event)"
+                (conceptClick)="onConceptClick($event)"
+              ></app-note-card>
+              } @empty {
+              <p class="notes-empty">No notes yet — jot down your first thought above.</p>
+              }
+            </div>
+          </div>
+        </div>
+
+        <aside class="detail-side">
+          <!-- The rail always carries the book's details, so the two-column body
+               never leaves an empty 320px gutter (the editions block below is
+               conditional and absent for single-edition books). -->
+          <div class="details-card">
+            <h4 class="details-title">Details</h4>
 
             <div class="meta-strip">
               <div class="meta-strip-item">
@@ -443,45 +437,75 @@
             </div>
           </div>
 
-          <hr class="divider" />
-
-          <div class="notes-container">
-            <div class="notes-header">
-              <h3>Personal Notes</h3>
-              <span class="badge-count">{{ store.notes().length }}</span>
+          @if (store.book()?.otherEditions && store.book()!.otherEditions!.length > 0) {
+          <div class="edition-section">
+            <div class="edition-section-header">
+              <lucide-icon [img]="LayersIcon" [size]="14"></lucide-icon>
+              <span class="edition-section-title">Available Formats & Editions</span>
+              <span class="edition-count-badge">{{ (store.book()?.otherEditions?.length || 0) + 1 }}</span>
             </div>
+            <div class="edition-cards-grid">
+              <button
+                type="button"
+                class="edition-select-card active"
+                [title]="getEditionLabel(store.book()!)"
+              >
+                <div class="card-icon-frame">
+                  <lucide-icon [img]="isAudioBook(store.book()) ? HeadphonesIcon : BookOpenIcon" [size]="16"></lucide-icon>
+                </div>
+                <div class="card-content">
+                  <span class="card-format-title">{{ getEditionFormat(store.book()!) }}</span>
+                  @if (getEditionSubtitle(store.book()!)) {
+                  <span class="card-format-sub">{{ getEditionSubtitle(store.book()!) }}</span>
+                  }
+                  <div class="card-meta-line">
+                    @if (store.book()?.progressPercent) {
+                    <span class="card-progress">{{ store.book()?.progressPercent }}% read</span>
+                    } @else {
+                    <span class="card-progress">Not started</span>
+                    }
+                    @if (store.book()?.finishedAt) {
+                    <span class="card-status-pill finished">Finished</span>
+                    }
+                  </div>
+                </div>
+              </button>
 
-            <div class="new-note-box">
-              <app-concept-input
-                placeholder="Jot down a thought..."
-                [(ngModel)]="newNote"
-                [rows]="1"
-                (submitTrigger)="addNote()"
-              ></app-concept-input>
-
-              @if (newNote().length > 0) {
-              <button class="btn btn-primary btn-sm" (click)="addNote()">Save</button>
-              }
-            </div>
-
-            <div class="notes-feed">
-              @for (note of store.notes(); track note.id) {
-              <app-note-card
-                [note]="note"
-                [conceptMap]="store.conceptMap()"
-                (update)="onUpdateNote($event)"
-                (delete)="onDeleteNote($event)"
-                (conceptClick)="onConceptClick($event)"
-              ></app-note-card>
-              } @empty {
-              <p class="notes-empty">No notes yet — jot down your first thought above.</p>
+              @for (edition of store.book()!.otherEditions!; track edition.id) {
+              <button
+                type="button"
+                class="edition-select-card"
+                (click)="switchEdition(edition.id)"
+                [title]="'Switch to ' + getSummaryEditionLabel(edition)"
+              >
+                <div class="card-icon-frame">
+                  <lucide-icon [img]="edition.type === 'audiobook' ? HeadphonesIcon : BookOpenIcon" [size]="16"></lucide-icon>
+                </div>
+                <div class="card-content">
+                  <span class="card-format-title">{{ getEditionFormat(edition) }}</span>
+                  @if (getEditionSubtitle(edition)) {
+                  <span class="card-format-sub">{{ getEditionSubtitle(edition) }}</span>
+                  }
+                  <div class="card-meta-line">
+                    @if (edition.progressPercent) {
+                    <span class="card-progress">{{ edition.progressPercent }}% read</span>
+                    } @else {
+                    <span class="card-progress">Not started</span>
+                    }
+                    @if (edition.finishedAt) {
+                    <span class="card-status-pill finished">Finished</span>
+                    }
+                  </div>
+                </div>
+              </button>
               }
             </div>
           </div>
-        </section>
+          }
+        </aside>
       </div>
-      }
     </div>
+    }
   </div>
 
   @if (pendingStatus()) {

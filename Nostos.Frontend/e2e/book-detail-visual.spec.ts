@@ -18,7 +18,7 @@ import { expect, test } from '@playwright/test';
 
 import {
   capturePng,
-  checkBookDetailCoverEcho,
+  checkBookDetailHero,
   DESKTOP_VIEWPORT,
   findLibraryCoverBook,
   LIBRARY_URL,
@@ -69,7 +69,7 @@ test.describe('visual matrix — Book detail (real library)', () => {
         const png = await capturePng(page, tc.name);
         expect(png).toContain(tc.name);
 
-        const check = await checkBookDetailCoverEcho(page);
+        const check = await checkBookDetailHero(page);
         const meta: CaptureMeta = {
           name: tc.name,
           surface: 'book-detail',
