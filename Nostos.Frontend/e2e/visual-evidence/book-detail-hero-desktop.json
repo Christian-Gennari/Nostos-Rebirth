@@ -1,6 +1,6 @@
 {
   "artifact": "book-detail-hero-desktop.png",
-  "capturedAt": "2026-09-11T16:36:20.842Z",
+  "capturedAt": "2026-09-11T17:04:42.147Z",
   "name": "book-detail-hero-desktop",
   "surface": "book-detail",
   "viewport": {
@@ -83,7 +83,7 @@
         "scrim": [
           {
             "a": 0.44,
-            "pos": 0
+            "pos": -1
           },
           {
             "a": 0.28,
@@ -99,7 +99,7 @@
           },
           {
             "a": 0,
-            "pos": 100
+            "pos": -1
           }
         ],
         "slopes": [

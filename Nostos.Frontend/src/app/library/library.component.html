@@ -183,7 +183,7 @@
         </div>
 
         @for (book of books(); track book.id) {
-        <div class="table-row" [routerLink]="['/library', getBookRouteId(book)]">
+        <div class="table-row" [routerLink]="['/library', getBookRouteId(book)]" (mouseenter)="prefetchHeroCover(book.coverUrl)">
           <div class="col title">
             <button
               class="finished-btn-list"
@@ -313,7 +313,7 @@
       <div class="book-grid">
         @for (book of books(); track book.id) {
 
-        <div class="book-card" [routerLink]="['/library', getBookRouteId(book)]">
+        <div class="book-card" [routerLink]="['/library', getBookRouteId(book)]" (mouseenter)="prefetchHeroCover(book.coverUrl)">
           <div class="cover-wrapper">
             @if (book.coverUrl) {
             <img

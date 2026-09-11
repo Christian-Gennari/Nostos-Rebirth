@@ -526,6 +526,36 @@ export class Library implements OnInit, OnDestroy {
     return `${coverUrl}/thumbnail?width=320`;
   }
 
+  /** Hero art in flight, keyed by URL, so a hover does not re-request it. */
+  private readonly prefetchedCovers = new Map<string, HTMLImageElement>();
+
+  /**
+   * Warm the HTTP cache for a book's hero art as soon as the pointer signals
+   * intent, so opening the detail page does not flash an empty dark band.
+   *
+   * The hero cannot start its own fetch until the book JSON arrives, because
+   * `heroArtUrl` is derived from `coverUrl` — the two requests are serialised.
+   * Prefetching on hover overlaps them, so by the time the click lands the 640px
+   * thumbnail is in flight or already cached and the band paints on its first
+   * frame. Costs nothing unless the user actually hovers.
+   */
+  prefetchHeroCover(coverUrl: string | null): void {
+    if (!coverUrl) return;
+
+    const url = `${coverUrl}/thumbnail?width=640`;
+    if (this.prefetchedCovers.has(url)) return;
+
+    const img = new Image();
+    img.decoding = 'async';
+    const release = () => this.prefetchedCovers.delete(url);
+    img.addEventListener('load', release);
+    img.addEventListener('error', release);
+    img.src = url;
+    // Hold a reference while in flight — an Image collected mid-request can have
+    // the fetch cancelled before it reaches the cache.
+    this.prefetchedCovers.set(url, img);
+  }
+
   getBookRouteId(book: Book): string {
     return this.preferences.getActiveEditionId(book.workId, book.id);
   }

@@ -1,3 +1,4 @@
+using Microsoft.Net.Http.Headers;
 using Nostos.Backend.Data.Interfaces;
 using Nostos.Backend.Data.Models;
 using Nostos.Backend.Mapping;
@@ -290,7 +291,7 @@ public static class BooksEndpoints
         // Download a cached, resized WebP cover for card/list views
         group.MapGet(
             "/{id}/cover/thumbnail",
-            async (Guid id, int? width, IFileStorageService storage, CancellationToken ct) =>
+            async (Guid id, int? width, IFileStorageService storage, HttpContext http, CancellationToken ct) =>
             {
                 var thumbnailPath = await storage.GetBookCoverThumbnailPathAsync(
                     id,
@@ -299,14 +300,14 @@ public static class BooksEndpoints
                 );
                 return thumbnailPath is null
                     ? Results.NotFound()
-                    : Results.File(thumbnailPath, "image/webp");
+                    : CachedImageFile(http, thumbnailPath, "image/webp");
             }
         );
 
         // Download cover
         group.MapGet(
             "/{id}/cover",
-            (Guid id, IFileStorageService storage) =>
+            (Guid id, IFileStorageService storage, HttpContext http) =>
             {
                 var coverPath = storage.GetBookCoverPath(id);
                 if (coverPath is null)
@@ -318,7 +319,7 @@ public static class BooksEndpoints
                     ".jpg" or ".jpeg" => "image/jpeg",
                     _ => "image/png",
                 };
-                return Results.File(coverPath, mimeType, Path.GetFileName(coverPath));
+                return CachedImageFile(http, coverPath, mimeType, Path.GetFileName(coverPath));
             }
         );
 
@@ -355,5 +356,45 @@ public static class BooksEndpoints
         );
 
         return routes;
+    }
+
+    /// <summary>
+    /// Serves a cover file with an ETag and a long, revalidating cache lifetime.
+    ///
+    /// Without this the browser re-downloaded EVERY thumbnail on EVERY
+    /// navigation — measured on a single library -> book-detail navigation: 21
+    /// requests, all 200, zero 304s. That re-fetch is what made the book-detail
+    /// hero flash an empty dark band before its blurred cover art arrived.
+    ///
+    /// Cover files are immutable except when replaced, so they are safe to cache
+    /// hard. The ETag is derived from the file itself (length + last write), so a
+    /// replaced cover produces a new validator and can never be served stale past
+    /// the next revalidation. `stale-while-revalidate` lets the browser paint the
+    /// cached copy immediately and refresh in the background, so the hero never
+    /// waits on a round trip.
+    /// </summary>
+    private static IResult CachedImageFile(
+        HttpContext http,
+        string path,
+        string contentType,
+        string? downloadName = null
+    )
+    {
+        var file = new FileInfo(path);
+        var etag = new EntityTagHeaderValue(
+            $"\"{file.Length:x}-{file.LastWriteTimeUtc.Ticks:x}\""
+        );
+
+        http.Response.Headers["Cache-Control"] =
+            "public, max-age=86400, stale-while-revalidate=2592000";
+
+        return Results.File(
+            path,
+            contentType,
+            downloadName,
+            enableRangeProcessing: false,
+            lastModified: new DateTimeOffset(file.LastWriteTimeUtc, TimeSpan.Zero),
+            entityTag: etag
+        );
     }
 }

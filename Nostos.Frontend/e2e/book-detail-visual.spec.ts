@@ -42,12 +42,19 @@ import {
  * falls (an ease-in-out) rather than accelerating after the peak.
  */
 function parseStops(backgroundImage: string): Array<{ a: number; pos: number }> {
-  const re = /rgba?\(([^)]+)\)\s+([\d.]+)%/g;
+  // Position is OPTIONAL. Minification drops the redundant `0%` / `100%` from a
+  // gradient's endpoints (and rewrites rgba() to hex), and Chrome serialises a
+  // positionless stop back without one. Requiring a percentage therefore
+  // silently dropped the FIRST and LAST stop of the scrim whenever this spec ran
+  // against a production build instead of the dev server — the guard covered 3
+  // of 5 stops and said nothing. `pos: -1` marks "no explicit position", which is
+  // valid CSS and only surfaces in a failure message.
+  const re = /rgba?\(([^)]+)\)(?:\s+([\d.]+)%)?/g;
   const out: Array<{ a: number; pos: number }> = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(backgroundImage)) !== null) {
     const parts = m[1].split(',').map((v) => parseFloat(v.trim()));
-    out.push({ a: parts.length >= 4 ? parts[3] : 1, pos: parseFloat(m[2]) });
+    out.push({ a: parts.length >= 4 ? parts[3] : 1, pos: m[2] ? parseFloat(m[2]) : -1 });
   }
   return out;
 }
