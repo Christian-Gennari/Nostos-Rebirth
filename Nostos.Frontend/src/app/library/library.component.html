@@ -10,7 +10,7 @@
 
   <div class="library-right-side">
     <header class="toolbar">
-      <h1 id="library-title">Library</h1>
+      <h1 id="library-title">{{ pageTitle() }}</h1>
 
       <div class="search-bar-container">
         <lucide-icon [img]="SearchIcon" [size]="18" class="search-icon"></lucide-icon>
@@ -57,12 +57,23 @@
       </div>
     </header>
 
+    @if (activeFilterChips().length > 0) {
+    <div class="active-filters" role="status" aria-label="Active filters">
+      @for (chip of activeFilterChips(); track chip.key) {
+      <button class="filter-chip" (click)="clearChip(chip.key)" [title]="'Clear ' + chip.label">
+        <span>{{ chip.label }}</span>
+        <lucide-icon [img]="XIcon" [size]="14"></lucide-icon>
+      </button>
+      }
+    </div>
+    }
+
     <div class="container lg">
       <app-add-book-modal
         [isOpen]="showAddModal()"
         [collections]="collections()"
         (closeModal)="closeAddModal()"
-        (bookAdded)="refreshBooks()"
+        (bookAdded)="onBookAdded()"
       >
       </app-add-book-modal>
 
