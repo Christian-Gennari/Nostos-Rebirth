@@ -1061,7 +1061,7 @@ app-sidebar-collections.no-transition {
     width: 100%;
     height: 38px;
     font-size: 0.82rem;
-    border-radius: 8px;
+    border-radius: var(--radius-md, 4px);
     background-color: var(--bg-hover);
     border: 1px solid var(--border-color);
   }
@@ -1069,7 +1069,7 @@ app-sidebar-collections.no-transition {
   .control-group {
     height: 38px;
     padding: 3px;
-    border-radius: 8px;
+    border-radius: var(--radius-md, 4px);
     box-sizing: border-box;
     align-items: center;
     background: var(--bg-hover);
@@ -1083,6 +1083,7 @@ app-sidebar-collections.no-transition {
     align-items: center;
     justify-content: center;
     padding: 0;
+    border-radius: var(--radius-sm, 3px);
   }
 
   .toolbar-right .btn-primary {
@@ -1090,7 +1091,7 @@ app-sidebar-collections.no-transition {
     width: 38px;
     min-width: 38px;
     padding: 0;
-    border-radius: 8px;
+    border-radius: var(--radius-sm, 3px);
     display: flex;
     align-items: center;
     justify-content: center;

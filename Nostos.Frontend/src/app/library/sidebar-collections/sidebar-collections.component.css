@@ -451,7 +451,7 @@
     z-index: 60;
     width: 38px;
     height: 38px;
-    border-radius: 8px;
+    border-radius: var(--radius-md, 4px);
     background: var(--bg-surface);
     color: var(--color-primary);
     border: 1px solid var(--border-color);
