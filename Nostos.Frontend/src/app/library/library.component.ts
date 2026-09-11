@@ -98,6 +98,13 @@ function formatFilterLabel(value: string | null | undefined): string | null {
  */
 const SWAP_OUT_MS = 200;
 
+/**
+ * A skeleton that was on screen for less than this was never really perceived
+ * (a fast or cached response). Cross-fading it would only add latency to a load
+ * the user never saw, so below this threshold the first results commit at once.
+ */
+const SKELETON_SEEN_MS = 120;
+
 /** True when the OS asks for reduced motion; the swap then commits instantly. */
 function prefersReducedMotion(): boolean {
   return (
@@ -169,6 +176,7 @@ export class Library implements OnInit, OnDestroy {
 
   private requestSeq = 0;
   private swapStartedAt = 0;
+  private skeletonStartedAt = 0;
 
   // Pagination State
   currentPage = signal(1);
@@ -321,7 +329,10 @@ export class Library implements OnInit, OnDestroy {
       this.currentPage.set(1);
       if (!this.preferences.hasLoadedBooks()) {
         // Genuine first paint: the skeleton's single legitimate use.
-        if (showSkeleton) this.loading.set(true);
+        if (showSkeleton) {
+          this.loading.set(true);
+          this.skeletonStartedAt = performance.now();
+        }
       } else if (showSkeleton && !prefersReducedMotion()) {
         // Filter/sort/search change, or re-entering the library from another
         // section: fade the results through the swap instead of tearing them
@@ -394,12 +405,28 @@ export class Library implements OnInit, OnDestroy {
       this.swapping.set(false); // releases the in-phase: new books resolve in
     };
 
-    // Nothing on screen to blur out (a freshly rebuilt component on re-entry):
-    // commit at once and let the in-phase carry the fade-in, instead of holding
-    // an empty stage for the whole out-phase.
-    if (!reset || !this.swapping() || this.rawBooks().length === 0 || prefersReducedMotion()) {
+    if (!reset || prefersReducedMotion()) {
       apply();
       return;
+    }
+
+    // Only fade out something the user can actually see: real results, or a
+    // skeleton that stayed up long enough to register. On a warm change the swap
+    // state was already set when the request went out (network time counts
+    // toward the out-phase); on a cold load the skeleton is what fades away.
+    const skeletonWasSeen =
+      this.loading() && performance.now() - this.skeletonStartedAt >= SKELETON_SEEN_MS;
+    if (!skeletonWasSeen && this.rawBooks().length === 0) {
+      // Nothing on screen to fade out — re-entry from another section, or a
+      // response that beat the skeleton. Commit now; if the swap state is
+      // already set, releasing it still fades the new results in.
+      apply();
+      return;
+    }
+
+    if (!this.swapping()) {
+      this.swapping.set(true);
+      this.swapStartedAt = performance.now();
     }
 
     // Network time already spent counts toward the out-phase, so a fast local

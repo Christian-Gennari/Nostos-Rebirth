@@ -859,6 +859,29 @@ app-sidebar-collections.no-transition {
   margin-bottom: 0;
 }
 
+/* The skeleton arrives with the same fade the results get, so a cold load never
+   pops into place. The results themselves animate in on mount too, which is
+   what guarantees the fade when arriving in the library from another section
+   (there the response can land before the swap state ever paints).
+   (The animation lives on the content blocks rather than on .results-stage: a
+   filled animation there would out-specify the swap state's dim/blur on the
+   same property.) */
+.skeleton-list-view,
+.skeleton-grid-view,
+.results-stage > .table-view:not(.skeleton-list-view),
+.results-stage > .book-grid:not(.skeleton-grid-view) {
+  animation: library-content-in var(--library-swap-in) var(--ease-out) both;
+}
+
+@keyframes library-content-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* --- MOBILE BACKDROP --- */
 /* This is controlled by the library HTML based on sidebar state */
 .mobile-backdrop {
@@ -1058,6 +1081,13 @@ app-sidebar-collections.no-transition {
     transition-duration: 1ms;
     filter: none;
     transform: none;
+  }
+
+  .skeleton-list-view,
+  .skeleton-grid-view,
+  .results-stage > .table-view:not(.skeleton-list-view),
+  .results-stage > .book-grid:not(.skeleton-grid-view) {
+    animation: none;
   }
 
   .filter-bar {

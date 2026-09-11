@@ -356,6 +356,40 @@ describe('Library', () => {
     expect(component.swapping()).toBe(false);
   });
 
+  it('fades the skeleton out when the first results arrive (cold load)', () => {
+    vi.useFakeTimers();
+    try {
+      const preferences = TestBed.inject(LibraryPreferencesService);
+      const book = { id: 'b1', title: 'First', type: 'ebook' } as never;
+      // A genuine cold start: nothing has been shown in this session, so the
+      // skeleton is on screen and the results are still in flight.
+      preferences.hasLoadedBooks.set(false);
+      const pending = new Subject<PaginatedResponse<never>>();
+      listSpy.mockReturnValueOnce(pending);
+
+      component.filters.toggleStatus('reading');
+      TestBed.flushEffects();
+      expect(component.loading()).toBe(true); // the skeleton is up
+
+      // The skeleton stays up long enough to be perceived, then the data lands.
+      vi.advanceTimersByTime(300);
+      pending.next({ items: [book], totalCount: 1 } as never);
+      pending.complete();
+
+      // The skeleton is still there, now blurring out — not replaced abruptly.
+      expect(component.loading()).toBe(true);
+      expect(component.swapping()).toBe(true);
+
+      vi.advanceTimersByTime(SWAP_BUDGET);
+      expect(component.rawBooks()).toEqual([book]);
+      expect(component.loading()).toBe(false);
+      expect(component.swapping()).toBe(false);
+      expect(preferences.hasLoadedBooks()).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('ignores a stale response that arrives after a newer filter change', () => {
     vi.useFakeTimers();
     try {

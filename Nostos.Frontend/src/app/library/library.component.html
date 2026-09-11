@@ -119,6 +119,15 @@
       >
       </app-delete-book-modal>
 
+      <!-- One stage for both states: the skeleton and the results live inside the
+           same element, so the skeleton fades in on arrival and then blurs out
+           for the first results to fade in — no swapping between separate
+           subtrees, and no jitter on a cold load. -->
+      <div
+        class="results-stage"
+        [class.is-swapping]="swapping()"
+        [attr.aria-busy]="swapping() || loading()"
+      >
       @if (loading()) { @if (viewMode() === 'list') {
       <div class="table-view skeleton-list-view">
         <div class="table-header">
@@ -177,15 +186,6 @@
         }
       </div>
       } } @if (!loading()) {
-      <!-- The single animated surface: filter/sort/search changes blur and fade
-           this stage out, the page is swapped invisibly at the bottom of the
-           blur, then the new books resolve back in. The infinite-scroll
-           sentinel stays outside it so appends never re-animate. -->
-      <div
-        class="results-stage"
-        [class.is-swapping]="swapping()"
-        [attr.aria-busy]="swapping()"
-      >
       @if (viewMode() === 'list') {
       <div class="table-view">
         <div class="table-header">
@@ -442,6 +442,7 @@
         }
       </div>
       }
+      }
       </div>
       @if (hasMoreBooks()) {
       <div
@@ -464,7 +465,7 @@
         ></lucide-icon>
         }
       </div>
-      } }
+      }
     </div>
   </div>
 </main>
