@@ -66,7 +66,6 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
         width: auto;
         padding: 0;
         transform: translateX(-50%);
-        transition: opacity 180ms ease;
       }
 
       .app-dock-container {
