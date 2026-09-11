@@ -293,6 +293,8 @@ describe('Library', () => {
   it('never returns to the ghost skeleton after the first load', () => {
     expect(component.loading()).toBe(false);
 
+    const onScreen = { id: 'b1', title: 'On Screen', type: 'ebook' } as never;
+    component.rawBooks.set([onScreen]);
     component.filters.toggleStatus('reading');
     fixture.detectChanges();
 
@@ -308,34 +310,50 @@ describe('Library', () => {
     vi.useFakeTimers();
     try {
       const oldBook = { id: 'old', title: 'Old', type: 'ebook' } as never;
-      listSpy.mockReturnValueOnce(of({ items: [oldBook], totalCount: 1 } as never));
+      const newBook = { id: 'new', title: 'New', type: 'ebook' } as never;
+      // There must be results on screen for the out-phase to be worth holding.
+      component.rawBooks.set([oldBook]);
+
+      listSpy.mockReturnValueOnce(of({ items: [newBook], totalCount: 1 } as never));
 
       component.filters.toggleStatus('reading');
       TestBed.flushEffects();
 
       expect(component.loading()).toBe(false);
       expect(component.swapping()).toBe(true);
-      expect(component.rawBooks()).toEqual([]);
-
-      vi.advanceTimersByTime(SWAP_BUDGET);
-      expect(component.rawBooks()).toEqual([oldBook]);
-      expect(component.swapping()).toBe(false);
-
-      const newBook = { id: 'new', title: 'New', type: 'ebook' } as never;
-      listSpy.mockReturnValueOnce(of({ items: [newBook], totalCount: 1 } as never));
-
-      component.filters.toggleStatus('finished');
-      TestBed.flushEffects();
-
-      // Still the old page at this instant: the DOM swaps at the bottom of the blur.
       expect(component.rawBooks()).toEqual([oldBook]);
 
       vi.advanceTimersByTime(SWAP_BUDGET);
       expect(component.rawBooks()).toEqual([newBook]);
       expect(component.swapping()).toBe(false);
+
+      const thirdBook = { id: 'third', title: 'Third', type: 'ebook' } as never;
+      listSpy.mockReturnValueOnce(of({ items: [thirdBook], totalCount: 1 } as never));
+
+      component.filters.toggleStatus('finished');
+      TestBed.flushEffects();
+
+      // Still the old page at this instant: the DOM swaps at the bottom of the blur.
+      expect(component.rawBooks()).toEqual([newBook]);
+
+      vi.advanceTimersByTime(SWAP_BUDGET);
+      expect(component.rawBooks()).toEqual([thirdBook]);
+      expect(component.swapping()).toBe(false);
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('commits at once when there is nothing on screen to blur out', () => {
+    const book = { id: 'b1', title: 'Only', type: 'ebook' } as never;
+    listSpy.mockReturnValueOnce(of({ items: [book], totalCount: 1 } as never));
+
+    component.filters.toggleStatus('reading');
+    TestBed.flushEffects();
+
+    // No empty stage holding for 200ms: the results (and their fade-in) start now.
+    expect(component.rawBooks()).toEqual([book]);
+    expect(component.swapping()).toBe(false);
   });
 
   it('ignores a stale response that arrives after a newer filter change', () => {
@@ -397,5 +415,26 @@ describe('Library', () => {
     fixture.destroy();
 
     expect(document.body.classList.contains('nostos-library')).toBe(false);
+  });
+
+  it('cross-fades instead of flashing the skeleton when re-entering the library', () => {
+    // First visit: the skeleton is legitimate and the results are now known.
+    expect(component.loading()).toBe(false);
+    expect(TestBed.inject(LibraryPreferencesService).hasLoadedBooks()).toBe(true);
+
+    // Leaving for the Studio / Second Brain destroys this component; coming back
+    // rebuilds it with no results in hand.
+    fixture.destroy();
+    const second = TestBed.createComponent(Library);
+    const secondComponent = second.componentInstance;
+    TestBed.flushEffects();
+    second.detectChanges();
+
+    expect(secondComponent.loading()).toBe(false);
+    expect(second.nativeElement.querySelector('.skeleton-grid-view')).toBeNull();
+    expect(second.nativeElement.querySelector('.skeleton-list-view')).toBeNull();
+    expect(second.nativeElement.querySelector('.results-stage')).not.toBeNull();
+
+    second.destroy();
   });
 });

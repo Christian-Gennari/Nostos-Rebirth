@@ -33,6 +33,14 @@ export class LibraryPreferencesService {
   readonly groupByWork = signal(DEFAULT_PREFERENCES.groupByWork);
   private workEditions = new Map<string, string>();
 
+  /**
+   * Whether the library has already shown results in this browser session.
+   * Intentionally session-only and never persisted: returning to the library
+   * from another section must cross-fade its results in, not flash the skeleton
+   * again (see Library.refreshBooks / commitResults).
+   */
+  readonly hasLoadedBooks = signal(false);
+
   constructor() {
     this.hydrate();
     this.hydrateWorkEditions();

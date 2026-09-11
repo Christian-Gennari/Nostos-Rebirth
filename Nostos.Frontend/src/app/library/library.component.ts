@@ -167,7 +167,6 @@ export class Library implements OnInit, OnDestroy {
   /** True while the existing results blur out before the new page is swapped in. */
   swapping = signal(false);
 
-  private hasLoadedOnce = false;
   private requestSeq = 0;
   private swapStartedAt = 0;
 
@@ -287,6 +286,11 @@ export class Library implements OnInit, OnDestroy {
     // result set cannot make the whole page jump sideways by 8px.
     this.document.body?.classList.add('nostos-library');
 
+    // Returning from the Studio or the Second Brain rebuilds this component with
+    // no results in hand. The user has already seen the library in this session,
+    // so cross-fade the results in instead of flashing the skeleton again.
+    if (this.preferences.hasLoadedBooks()) this.loading.set(false);
+
     // Search Subscription
     this.searchSubject
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed())
@@ -315,12 +319,13 @@ export class Library implements OnInit, OnDestroy {
   refreshBooks(reset = true, showSkeleton = true): void {
     if (reset) {
       this.currentPage.set(1);
-      if (!this.hasLoadedOnce) {
+      if (!this.preferences.hasLoadedBooks()) {
         // Genuine first paint: the skeleton's single legitimate use.
         if (showSkeleton) this.loading.set(true);
       } else if (showSkeleton && !prefersReducedMotion()) {
-        // A filter/sort/search change on an already-populated page: blur the
-        // current results out instead of tearing them down for a skeleton.
+        // Filter/sort/search change, or re-entering the library from another
+        // section: fade the results through the swap instead of tearing them
+        // down for a skeleton.
         // (Reduced motion skips the swap state entirely — no dimming, no blur.)
         this.swapping.set(true);
         this.swapStartedAt = performance.now();
@@ -383,13 +388,16 @@ export class Library implements OnInit, OnDestroy {
         this.rawBooks.update((current) => [...current, ...data.items]);
       }
       this.totalItems.set(data.totalCount);
-      this.hasLoadedOnce = true;
+      this.preferences.hasLoadedBooks.set(true);
       this.loading.set(false);
       this.loadingMore.set(false);
       this.swapping.set(false); // releases the in-phase: new books resolve in
     };
 
-    if (!reset || !this.swapping() || prefersReducedMotion()) {
+    // Nothing on screen to blur out (a freshly rebuilt component on re-entry):
+    // commit at once and let the in-phase carry the fade-in, instead of holding
+    // an empty stage for the whole out-phase.
+    if (!reset || !this.swapping() || this.rawBooks().length === 0 || prefersReducedMotion()) {
       apply();
       return;
     }
