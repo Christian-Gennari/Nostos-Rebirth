@@ -61,7 +61,7 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
       :host {
         position: fixed;
         left: 50%;
-        bottom: 24px;
+        bottom: 0;
         z-index: 50;
         padding: 0;
         transform: translateX(-50%);
@@ -72,17 +72,15 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
       }
 
       .app-dock-container {
-        border: 1px solid var(--border-color);
-        border-radius: 18px;
+        border-top: 1px solid var(--border-color);
         background: var(--bg-surface);
-        box-shadow: 0 10px 28px rgba(42, 38, 32, 0.12);
       }
 
       .dock-bar {
         display: flex;
         align-items: center;
-        gap: 4px;
-        padding: 6px;
+        gap: 2px;
+        padding: 3px 6px;
       }
 
       .dock-item {
@@ -93,9 +91,10 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
         align-items: center;
         justify-content: center;
         gap: 4px;
-        padding: 9px 12px 8px;
-        border: 1px solid transparent;
-        border-radius: 13px;
+        padding: 8px 12px 7px;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
         color: var(--color-text-muted);
         cursor: pointer;
         font-family: 'Hanken Grotesk', sans-serif;
@@ -103,24 +102,22 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
         transition:
           background-color 160ms ease,
           border-color 160ms ease,
-          color 160ms ease,
-          transform 160ms ease;
+          color 160ms ease;
       }
 
       .dock-item:hover {
         background: var(--bg-hover);
         color: var(--color-text-main);
-        transform: translateY(-1px);
       }
 
       .dock-item:focus-visible {
         outline: 2px solid var(--color-accent);
-        outline-offset: 2px;
+        outline-offset: -2px;
       }
 
       .dock-item.active {
-        border-color: var(--color-accent-faint);
-        background: var(--color-accent-bg);
+        border-bottom-color: var(--color-accent);
+        background: transparent;
         color: var(--color-primary);
       }
 
