@@ -1,5 +1,12 @@
 <main class="layout-wrapper">
   <div class="layout-content">
+    @if (store.book()?.coverUrl) {
+    <div
+      class="detail-cover-ambient"
+      aria-hidden="true"
+      [style.background-image]="'url(' + store.book()?.coverUrl + ')'"
+    ></div>
+    }
     <div class="container md">
       @if (store.loading()) {
       <div class="back-nav">

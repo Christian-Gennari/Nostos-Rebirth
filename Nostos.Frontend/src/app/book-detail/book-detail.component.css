@@ -1,4 +1,25 @@
+.layout-content {
+  position: relative;
+  isolation: isolate;
+}
+
+.detail-cover-ambient {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  left: 0;
+  width: min(760px, 68vw);
+  height: 560px;
+  background-size: cover;
+  filter: blur(30px) saturate(0.72);
+  opacity: 0.15;
+  mask-image: linear-gradient(135deg, #000 0 38%, transparent 82%);
+  -webkit-mask-image: linear-gradient(135deg, #000 0 38%, transparent 82%);
+}
+
 .container.md {
+  position: relative;
+  z-index: 1;
   /* Clears the floating bottom dock at every scroll position. */
   padding-bottom: 8.5rem;
 }
@@ -836,6 +857,16 @@
   margin-top: 2rem;
 }
 @media (max-width: 900px) {
+  .detail-cover-ambient {
+    width: 100%;
+    height: 430px;
+    opacity: 0.09;
+    filter: blur(26px) saturate(0.68);
+    background-position: center 8%;
+    mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.6) 48%, transparent 88%);
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.6) 48%, transparent 88%);
+  }
+
   .detail-grid {
     grid-template-columns: 1fr;
     gap: 2rem;
