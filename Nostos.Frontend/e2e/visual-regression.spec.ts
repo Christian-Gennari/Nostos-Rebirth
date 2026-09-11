@@ -191,13 +191,24 @@ test.describe('visual matrix — Writing Studio (fixture-served)', () => {
     const { context, page } = await newCapturePage(browser, MOBILE_VIEWPORT, true);
     try {
       await page.goto(`${fixture.baseUrl}/studio`, { waitUntil: 'domcontentloaded' });
-      // On mobile the file sidebar starts closed; open it through the UI.
-      const openSidebar = page.locator('.editor-pane .empty-state .btn-outline');
-      if (await openSidebar.isVisible().catch(() => false)) {
-        await openSidebar.click();
+      // On mobile the file sidebar starts closed, so it has to be opened
+      // through the UI before any tree row is reachable. Wait for the app to
+      // render first: a one-shot isVisible() probe races Angular's bootstrap,
+      // silently skips the click, and leaves the row off-screen (the drawer is
+      // translated -100% until it carries `.open`).
+      const fileRow = page.locator('.file-list .tree-row', { hasText: DOC_TITLE });
+      await fileRow.waitFor({ timeout: 30_000 });
+      const fileSidebar = page.locator('.sidebar-left');
+      if (!(await fileSidebar.evaluate((el) => el.classList.contains('open')))) {
+        // The empty state exposes "Open Sidebar"; when a document is already
+        // active the editor header exposes the toggle instead.
+        await page
+          .locator('.editor-pane .empty-state .btn-outline, .editor-header .sidebar-header-toggle')
+          .first()
+          .click();
       }
-      await page.locator('.file-list .tree-row', { hasText: DOC_TITLE }).waitFor({ timeout: 30_000 });
-      await page.locator('.file-list .tree-row', { hasText: DOC_TITLE }).click();
+      await expect(fileSidebar).toHaveClass(/\bopen\b/, { timeout: 15_000 });
+      await fileRow.click();
       await page.locator('.tox-tinymce').waitFor({ timeout: 45_000 });
       // Selecting a document closes the mobile sidebar; the zen toggle lives in
       // the (now visible) editor header.

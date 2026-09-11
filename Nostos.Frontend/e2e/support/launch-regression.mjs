@@ -40,16 +40,6 @@ const LAUNCHER = path.join(HERE, 'launch-fixture.mjs');
 const STATE_FILE = path.join(HERE, 'fixture-state.json');
 
 const DLL = path.join(BACKEND_DIR, 'bin', 'Debug', 'net10.0', 'Nostos.Backend.dll');
-const BOOTSTRAP_PROJ = path.join(E2E_DIR, 'support', 'db-bootstrap', 'DbBootstrap.csproj');
-const BOOTSTRAP_DLL = path.join(
-  E2E_DIR,
-  'support',
-  'db-bootstrap',
-  'bin',
-  'Debug',
-  'net10.0',
-  'Nostos.E2eDbBootstrap.dll'
-);
 const DIST_INDEX = path.join(FRONTEND_DIR, 'dist', 'Nostos.Frontend', 'browser', 'index.html');
 
 // The old hung behavior exceeded ANY bound; these are generous but bounded.
@@ -98,7 +88,6 @@ function runCli(args, boundMs) {
 function ensureArtifacts() {
   const steps = [
     { label: 'dotnet build backend', cmd: 'dotnet', args: ['build', path.join(BACKEND_DIR, 'Nostos.Backend.csproj'), '-c', 'Debug', '--nologo', '-v', 'q'], artifact: DLL },
-    { label: 'dotnet build db-bootstrap', cmd: 'dotnet', args: ['build', BOOTSTRAP_PROJ, '-c', 'Debug', '--nologo', '-v', 'q'], artifact: BOOTSTRAP_DLL },
     { label: 'npm run build (frontend)', cmd: 'npm', args: ['run', 'build'], artifact: DIST_INDEX },
   ];
   for (const step of steps) {
@@ -110,7 +99,7 @@ function ensureArtifacts() {
       process.exit(2);
     }
   }
-  console.log('  artifacts ready (backend DLL, db-bootstrap DLL, Angular dist)');
+  console.log('  artifacts ready (backend DLL, Angular dist)');
 }
 
 function alive(pid) {
