@@ -129,32 +129,20 @@ app-sidebar-collections.no-transition {
 }
 
 /* --- ACTIVE FILTER CHIPS ----------------------------------------------
-   Always mounted, collapsed via grid rows, so gaining/losing a chip animates
-   the row height instead of popping the grid down. All original spacing is
-   preserved by keeping the margins on the inner chip row, which means the
-   collapsed state occupies exactly zero height AND zero margin. */
+   The row itself never animates: no height growth, no clipped reveal. Each
+   chip fades in on its own (see .filter-chip), so the first chip behaves
+   exactly like every chip added after it. The bar still carries the spacing
+   so an empty row occupies zero height and zero margin — but with no
+   transition, so nothing slides underneath the toolbar. */
 .filter-bar {
-  display: grid;
-  grid-template-rows: 1fr;
-  /* The spacing lives on the bar itself, never on the clipped inner row:
-     a negative top margin inside the overflow-hidden box would shorten that
-     box and slice the top off every chip. */
   margin: 0;
-  transition:
-    grid-template-rows 220ms var(--ease-out),
-    margin 220ms var(--ease-out);
 }
 
 .filter-bar:not(.is-empty) {
   margin: -1rem 0 1.5rem;
 }
 
-.filter-bar.is-empty {
-  grid-template-rows: 0fr;
-}
-
 .filter-bar-inner {
-  overflow: hidden;
   min-height: 0;
 }
 
@@ -179,6 +167,17 @@ app-sidebar-collections.no-transition {
   border-radius: var(--radius-full, 999px);
   cursor: pointer;
   transition: background 0.15s ease;
+  /* Every chip — the first one included — fades up in place once. */
+  animation: chip-in 180ms var(--ease-out) both;
+}
+
+@keyframes chip-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .filter-chip:hover {
@@ -957,7 +956,7 @@ app-sidebar-collections.no-transition {
   }
 
   /* Same rule as desktop: the spacing belongs on the bar, outside the clipped
-     inner box, or the top of every chip gets sliced off. */
+     inner box. */
   .filter-bar:not(.is-empty) {
     margin: -0.5rem 0 1rem;
   }
@@ -1063,5 +1062,9 @@ app-sidebar-collections.no-transition {
 
   .filter-bar {
     transition-duration: 1ms;
+  }
+
+  .filter-chip {
+    animation: none;
   }
 }
