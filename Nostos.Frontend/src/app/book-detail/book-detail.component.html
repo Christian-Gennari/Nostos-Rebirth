@@ -180,6 +180,17 @@
                   [class.filled]="store.book()?.isFavorite"
                 ></lucide-icon>
               </button>
+
+              <button
+                type="button"
+                class="btn-icon delete-book-btn mobile-delete"
+                (click)="deleteBook()"
+                [disabled]="deleting()"
+                title="Delete book"
+                aria-label="Delete book"
+              >
+                <lucide-icon [img]="Trash2Icon" [size]="20"></lucide-icon>
+              </button>
             </div>
 
             @if (store.book()?.otherEditions && store.book()!.otherEditions!.length > 0) {
@@ -283,7 +294,7 @@
 
               <button
                 type="button"
-                class="btn-icon delete-book-btn"
+                class="btn-icon delete-book-btn desktop-delete"
                 (click)="deleteBook()"
                 [disabled]="deleting()"
                 title="Delete book"

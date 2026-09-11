@@ -287,4 +287,20 @@ describe('BookDetail reset progress', () => {
     expect(tabs[0].textContent).toContain('EPUB');
     expect(tabs[1].textContent).toContain('Audiobook');
   });
+
+  it('renders both desktop and mobile delete buttons, with mobile delete in the metadata row beside mobile-fav', async () => {
+    await setup(readableBook());
+
+    const desktopDelete = fixture.nativeElement.querySelector('.delete-book-btn.desktop-delete');
+    const mobileDelete = fixture.nativeElement.querySelector('.delete-book-btn.mobile-delete');
+    const mobileFav = fixture.nativeElement.querySelector('.mobile-fav');
+    const metadataRow = fixture.nativeElement.querySelector('.user-metadata-row');
+
+    expect(desktopDelete).toBeTruthy();
+    expect(mobileDelete).toBeTruthy();
+    expect(mobileFav).toBeTruthy();
+    expect(metadataRow.contains(mobileDelete)).toBe(true);
+    expect(metadataRow.contains(mobileFav)).toBe(true);
+    expect(mobileFav.nextElementSibling).toBe(mobileDelete);
+  });
 });
