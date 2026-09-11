@@ -38,8 +38,8 @@
          -> legibility scrim -> fade into the page.                          -->
     <section class="book-hero" [class.no-art]="!heroArtUrl() || heroArtFailed()">
       @if (heroArtUrl() && !heroArtFailed()) {
-      <div class="hero-art" aria-hidden="true">
-        <img class="art-base" [src]="heroArtUrl()" alt="" (error)="onHeroArtError()" />
+      <div class="hero-art" [class.loaded]="heroArtLoaded()" aria-hidden="true">
+        <img class="art-base" [src]="heroArtUrl()" alt="" (load)="onHeroArtLoad()" (error)="onHeroArtError()" />
         <div class="art-prog"></div>
         <img class="art-bloom" [src]="heroArtUrl()" alt="" />
         <div class="art-grain"></div>
@@ -89,8 +89,11 @@
               [src]="store.book()?.coverUrl"
               alt="Book cover"
               class="cover-img"
+              [class.loaded]="coverLoaded()"
               loading="eager"
               decoding="async"
+              (load)="onCoverLoad()"
+              (error)="onCoverLoad()"
             />
             } @else {
             <div class="placeholder-cover">

@@ -119,8 +119,35 @@ export class BookDetail implements OnInit {
   /** True when the hero's decorative cover art failed to load — the band falls back to flat colour. */
   heroArtFailed = signal(false);
 
+  /**
+   * True once the hero art has painted, so the band can fade it in.
+   *
+   * The art is a 128 KB webp. Measured on a throttled phone-class connection it
+   * lands **~1.7 s after** the page's entrance fade has finished — i.e. it drops
+   * into an already-visible, already-opaque band, which reads as a jolt rather
+   * than as the entrance. On localhost the file is ready before the first frame,
+   * so the defect is invisible there and only shows up on a real device.
+   */
+  heroArtLoaded = signal(false);
+
+  /** True once the stage cover has painted, for the same reason as above. */
+  coverLoaded = signal(false);
+
   onHeroArtError(): void {
     this.heroArtFailed.set(true);
+  }
+
+  onHeroArtLoad(): void {
+    this.heroArtLoaded.set(true);
+  }
+
+  /**
+   * Also bound to `error`, deliberately: a cover that fails must end up in the
+   * same state it had before this fade existed (a visible, empty frame) rather
+   * than being stranded at opacity 0.
+   */
+  onCoverLoad(): void {
+    this.coverLoaded.set(true);
   }
 
   /**

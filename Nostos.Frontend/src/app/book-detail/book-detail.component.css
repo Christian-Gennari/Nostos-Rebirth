@@ -77,6 +77,20 @@
   inset: 0;
   overflow: hidden;
   contain: paint;
+  /* Late-arriving artwork dissolves in instead of popping into a settled page.
+     On localhost the 128 KB art is ready before the first frame, so this is
+     invisible; on a phone over the tailnet it was measured landing ~1.7 s AFTER
+     the entrance fade finished — i.e. into a band that was already fully opaque
+     — which is the jolt that never reproduced locally.
+     The fade is on the CONTAINER so the whole stack (base, progressive defocus,
+     halation, grain) comes up together and no layer can arrive ahead of another.
+     `opacity: 1` creates no backdrop root, so once it settles this renders exactly
+     as it did before the fade existed. */
+  opacity: 0;
+  transition: opacity var(--detail-enter) var(--ease-out);
+}
+.hero-art.loaded {
+  opacity: 1;
 }
 /* Explicit sizes: an absolutely positioned REPLACED element with width:auto
    takes its INTRINSIC width and ignores `right`, so `inset` would not stretch it. */
@@ -390,6 +404,15 @@
   transform: translateZ(0); /* Forces GPU texture scaling */
   backface-visibility: hidden;
   image-rendering: auto;
+
+  /* Same late-arrival problem as the hero art: measured 2.4 s after the page's
+     entrance fade on a throttled phone-class connection, so the cover used to
+     punch into an empty frame that had already settled. */
+  opacity: 0;
+  transition: opacity var(--detail-enter) var(--ease-out);
+}
+.cover-img.loaded {
+  opacity: 1;
 }
 .placeholder-cover {
   display: flex;
@@ -448,6 +471,12 @@
   .layout-content > .hero-stage,
   .layout-content > .container {
     animation: none;
+  }
+  /* The artwork fades are decoration as well — show the art the moment it is
+     there rather than dissolving it in. */
+  .hero-art,
+  .cover-img {
+    transition: none;
   }
 }
 .cover-overlay-btn {
