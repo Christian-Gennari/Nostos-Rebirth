@@ -1,25 +1,4 @@
-.layout-content {
-  position: relative;
-  isolation: isolate;
-}
-
-.detail-cover-ambient {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  height: 520px;
-  object-fit: cover;
-  object-position: 18% 18%;
-  filter: blur(24px) saturate(0.72);
-  opacity: 0.18;
-  clip-path: ellipse(76% 72% at 18% 10%);
-  -webkit-clip-path: ellipse(76% 72% at 18% 10%);
-  pointer-events: none;
-}
-
 .container.md {
-  position: relative;
-  z-index: 1;
   /* Clears the floating bottom dock at every scroll position. */
   padding-bottom: 8.5rem;
 }
@@ -857,15 +836,6 @@
   margin-top: 2rem;
 }
 @media (max-width: 900px) {
-  .detail-cover-ambient {
-    width: 100%;
-    height: 430px;
-    filter: blur(22px) saturate(0.68);
-    opacity: 0.1;
-    clip-path: ellipse(88% 62% at 50% 4%);
-    -webkit-clip-path: ellipse(88% 62% at 50% 4%);
-  }
-
   .detail-grid {
     grid-template-columns: 1fr;
     gap: 2rem;

@@ -1,16 +1,6 @@
 <main class="layout-wrapper">
   <div class="layout-content">
     <div class="container md">
-      @if (store.book()?.coverUrl) {
-      <img
-        class="detail-cover-ambient"
-        aria-hidden="true"
-        alt=""
-        [src]="store.book()?.coverUrl"
-        loading="eager"
-        decoding="async"
-      />
-      }
       @if (store.loading()) {
       <div class="back-nav">
         <div class="skeleton-line" style="width: 100px; height: 20px"></div>
