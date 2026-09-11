@@ -2,14 +2,10 @@
   <lucide-icon [img]="MenuIcon" [size]="20"></lucide-icon>
 </button>
 
-<nav class="sidebar" [class.collapsed]="!expanded()" [class.collapsing]="collapseSidebarProgress()">
+<nav class="sidebar" [class.collapsed]="!expanded()">
   <div class="sidebar-header">
-    @if (expanded()) {
-      <img class="brand-icon" src="nostos-symbol-fullcolor-128.png" alt="logo" />
-      <div class="brand" animate.enter="fade-in">Collections</div>
-    } @else {
-      <img class="brand-icon" src="nostos-symbol-fullcolor-128.png" alt="logo" />
-    }
+    <img class="brand-icon" src="nostos-symbol-fullcolor-128.png" alt="" />
+    <span class="brand">Collections</span>
   </div>
 
   <div class="nav-scroll-area">
@@ -21,10 +17,8 @@
         title="All Books"
       >
         <lucide-icon [img]="LibraryIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
-        @if (expanded()) {
-          <span class="label">All Books</span>
-          <span class="count-badge">{{ statusCounts()?.all }}</span>
-        }
+        <span class="label">All Books</span>
+        <span class="count-badge">{{ statusCounts()?.all }}</span>
       </button>
 
       <button
@@ -34,10 +28,8 @@
         title="Not Started"
       >
         <lucide-icon [img]="CircleDashedIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
-        @if (expanded()) {
-          <span class="label">Not Started</span>
-          <span class="count-badge">{{ statusCounts()?.notStarted }}</span>
-        }
+        <span class="label">Not Started</span>
+        <span class="count-badge">{{ statusCounts()?.notStarted }}</span>
       </button>
 
       <button
@@ -47,10 +39,8 @@
         title="In Progress"
       >
         <lucide-icon [img]="BookOpenIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
-        @if (expanded()) {
-          <span class="label">In Progress</span>
-          <span class="count-badge">{{ statusCounts()?.reading }}</span>
-        }
+        <span class="label">In Progress</span>
+        <span class="count-badge">{{ statusCounts()?.reading }}</span>
       </button>
 
       <button
@@ -60,10 +50,8 @@
         title="Favorites"
       >
         <lucide-icon [img]="HeartIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
-        @if (expanded()) {
-          <span class="label">Favorites</span>
-          <span class="count-badge">{{ statusCounts()?.favorites }}</span>
-        }
+        <span class="label">Favorites</span>
+        <span class="count-badge">{{ statusCounts()?.favorites }}</span>
       </button>
 
       <button
@@ -73,10 +61,8 @@
         title="Finished"
       >
         <lucide-icon [img]="CheckCircleIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
-        @if (expanded()) {
-          <span class="label">Finished</span>
-          <span class="count-badge">{{ statusCounts()?.finished }}</span>
-        }
+        <span class="label">Finished</span>
+        <span class="count-badge">{{ statusCounts()?.finished }}</span>
       </button>
 
       <button
@@ -86,17 +72,16 @@
         title="Unsorted"
       >
         <lucide-icon [img]="InboxIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
-        @if (expanded()) {
-          <span class="label">Unsorted</span>
-          <span class="count-badge">{{ statusCounts()?.unsorted }}</span>
-        }
+        <span class="label">Unsorted</span>
+        <span class="count-badge">{{ statusCounts()?.unsorted }}</span>
       </button>
     </div>
 
     <div class="nav-group">
-      @if (expanded()) {
-        <div class="section-label" animate.enter="fade-in">MEDIA</div>
-      }
+      <div class="collapsible">
+        <div class="section-label">MEDIA</div>
+      </div>
+
       <button
         class="nav-item"
         (click)="toggleFormat('audiobook')"
@@ -104,10 +89,8 @@
         title="Audiobooks"
       >
         <lucide-icon [img]="HeadphonesIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
-        @if (expanded()) {
-          <span class="label">Audiobooks</span>
-          <span class="count-badge">{{ statusCounts()?.audiobooks }}</span>
-        }
+        <span class="label">Audiobooks</span>
+        <span class="count-badge">{{ statusCounts()?.audiobooks }}</span>
       </button>
 
       <button
@@ -117,10 +100,8 @@
         title="eBooks"
       >
         <lucide-icon [img]="BookOpenIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
-        @if (expanded()) {
-          <span class="label">eBooks</span>
-          <span class="count-badge">{{ statusCounts()?.ebooks }}</span>
-        }
+        <span class="label">eBooks</span>
+        <span class="count-badge">{{ statusCounts()?.ebooks }}</span>
       </button>
 
       <button
@@ -130,20 +111,18 @@
         title="PDFs"
       >
         <lucide-icon [img]="FileTextIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
-        @if (expanded()) {
-          <span class="label">PDFs</span>
-          <span class="count-badge">{{ statusCounts()?.pdfs }}</span>
-        }
+        <span class="label">PDFs</span>
+        <span class="count-badge">{{ statusCounts()?.pdfs }}</span>
       </button>
     </div>
 
     <div class="nav-group">
-      @if (expanded()) {
-        <div class="section-label" animate.enter="fade-in">
-          Collections
-        </div>
+      <div class="collapsible">
+        <div class="section-label">Collections</div>
+      </div>
 
-        <div class="root-drop-list" [style.min-height]="'50px'">
+      <div class="collapsible">
+        <div class="root-drop-list">
           <app-flat-tree
             [items]="treeItems()"
             [activeId]="filters.collectionId()"
@@ -158,53 +137,56 @@
             (nodeRenameCancelled)="cancelRename()"
           ></app-flat-tree>
         </div>
-      }
+      </div>
     </div>
 
     <div class="nav-group mt-auto">
       @if (adding()) {
         <div class="nav-item input-mode">
           <lucide-icon [img]="PlusIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
-          @if (expanded()) {
-            <input
-              type="text"
-              class="sidebar-input"
-              [(ngModel)]="newName"
-              (keydown.enter)="create()"
-              (keydown.escape)="resetInput()"
-              placeholder="Name..."
-              autoFocus
-            />
-          }
+          <input
+            type="text"
+            class="sidebar-input"
+            [(ngModel)]="newName"
+            (keydown.enter)="create()"
+            (keydown.escape)="resetInput()"
+            placeholder="Name..."
+            autoFocus
+          />
         </div>
       } @else {
         <button class="nav-item action-add" (click)="startAdd()" title="Create Collection">
           <lucide-icon [img]="PlusIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
-          @if (expanded()) {
-            <span class="label">New Collection</span>
-          }
+          <span class="label">New Collection</span>
         </button>
       }
     </div>
   </div>
 
   <div class="sidebar-footer">
-    @if (!expanded() && filters.collectionId()) {
-      <span
-        class="collapsed-collection-indicator"
-        role="status"
-        [attr.title]="'Viewing ' + (getNameForId(filters.collectionId()!) || 'collection')"
-        aria-label="A collection is selected"
-      >
-        <lucide-icon [img]="FolderIcon" [size]="14" strokeWidth="1.5"></lucide-icon>
-      </span>
-    }
-    <button class="toggle-btn" (click)="toggle()">
-      @if (expanded()) {
-        <lucide-icon [img]="PanelLeftCloseIcon" [size]="18" strokeWidth="1"></lucide-icon>
-      } @else {
-        <lucide-icon [img]="PanelLeftOpenIcon" [size]="18" strokeWidth="1"></lucide-icon>
+    <div class="footer-slot">
+      @if (!expanded() && filters.collectionId()) {
+        <span
+          class="collapsed-collection-indicator"
+          role="status"
+          [attr.title]="'Viewing ' + (getNameForId(filters.collectionId()!) || 'collection')"
+          aria-label="A collection is selected"
+        >
+          <lucide-icon [img]="FolderIcon" [size]="14" strokeWidth="1.5"></lucide-icon>
+        </span>
       }
-    </button>
+      <button
+        class="toggle-btn"
+        (click)="toggle()"
+        [attr.aria-expanded]="expanded()"
+        [attr.title]="expanded() ? 'Collapse sidebar' : 'Expand sidebar'"
+      >
+        <lucide-icon
+          [img]="expanded() ? PanelLeftCloseIcon : PanelLeftOpenIcon"
+          [size]="18"
+          strokeWidth="1"
+        ></lucide-icon>
+      </button>
+    </div>
   </div>
 </nav>

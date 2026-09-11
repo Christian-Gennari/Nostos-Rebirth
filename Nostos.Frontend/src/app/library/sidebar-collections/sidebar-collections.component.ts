@@ -81,7 +81,6 @@ export class SidebarCollections implements OnInit {
   expanded = this.preferences.sidebarExpanded;
   adding = signal(false);
   editingId = signal<string | null>(null);
-  collapseSidebarProgress = signal(false);
   newName = model<string>('');
   private ignoreClick = false;
 
@@ -167,12 +166,7 @@ export class SidebarCollections implements OnInit {
   }
 
   toggle(): void {
-    const isCurrentlyExpanded = this.expanded();
-    if (isCurrentlyExpanded) {
-      this.collapseSidebarProgress.set(true);
-      setTimeout(() => this.collapseSidebarProgress.set(false), 200);
-    }
-    this.setExpanded(!isCurrentlyExpanded);
+    this.setExpanded(!this.expanded());
   }
 
   private setExpanded(expanded: boolean): void {

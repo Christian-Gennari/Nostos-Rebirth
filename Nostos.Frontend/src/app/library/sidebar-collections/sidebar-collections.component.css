@@ -1,40 +1,68 @@
+/* ------------------------------------------------------------------------
+   Collections panel
+
+   Collapse contract: this panel keeps its full expanded geometry at all
+   times. The library column around it is the only thing that changes width,
+   and it clips this box. Nothing inside reflows, so no fade has to disguise a
+   layout shift:
+
+     - nav icons, pills, labels and counter badges stay on exactly the same
+       coordinates whether the rail is open or closed;
+     - labels/badges fade, the vertical groups (section labels, collection
+       tree) fold with animated grid tracks;
+     - the active pill morphs between "full row" and the 40px rail square.
+
+   Every horizontal element is centred on the rail axis (x = 36 of the 72px
+   rail): logo (16-56), nav icons (28-44), pills (16-56), footer button
+   (20-52).
+   ------------------------------------------------------------------------ */
+
 :host {
   display: block;
   height: 100vh;
-  /* Desktop default: Sticky works fine here */
+  /* Desktop default: sticky works fine here */
   position: sticky;
   top: 0;
   z-index: 10;
-  overflow: hidden;
 }
 
 .sidebar {
-  width: 300px;
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border-color);
+  --panel-width: 300px;
+  --rail-motion: var(--motion-slow) var(--ease-standard);
+  /* Text leaves a little faster than the rail narrows, and arrives a little
+     after the rail has opened far enough to hold it. */
+  --label-out: 140ms var(--ease-out);
+  --label-in: 200ms var(--ease-out) 120ms;
+
+  position: relative;
+  width: var(--panel-width);
   height: 100%;
   display: flex;
   flex-direction: column;
-  transition: width var(--motion-slow) var(--ease-standard);
+  background: var(--bg-sidebar);
   animation: sidebar-enter var(--motion-base) var(--ease-out);
 }
 
 :host(.no-transition) .sidebar {
-  transition: none !important;
   animation: none !important;
-}
-
-.sidebar.collapsed {
-  width: 72px;
 }
 
 /* BRAND */
 .sidebar-header {
+  flex: none;
   height: 68px;
   display: flex;
   align-items: center;
-  padding: 0 1.25rem;
   gap: 12px;
+  /* 16px puts the 40px mark on the rail axis: 16 + 20 = 36. */
+  padding: 0 1rem;
+}
+
+.brand-icon {
+  display: block;
+  flex: none;
+  width: 40px;
+  height: auto;
 }
 
 .brand {
@@ -42,41 +70,21 @@
   font-weight: var(--fw-medium);
   font-size: 1.5rem;
   letter-spacing: -0.02em;
+  line-height: 1;
+  white-space: nowrap;
   color: var(--color-primary);
-}
-
-.brand-icon {
-  width: 40px;
-  height: auto;
-  display: flex;
-  justify-content: center;
-  color: var(--color-primary);
-  opacity: 1;
-  animation: smoothFadeIn 2s cubic-bezier(0.6, 0, 0, 1) forwards;
-}
-
-.sidebar.collapsing .brand-icon {
-  opacity: 0;
-}
-.sidebar.collapsed:not(.collapsing) .brand-icon {
-  opacity: 1;
-  transition-delay: 0.2s;
 }
 
 /* SCROLL AREA */
 .nav-scroll-area {
   flex: 1;
+  min-height: 0;
   padding: 0.75rem 1rem;
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  transition: padding var(--motion-slow) var(--ease-standard);
-}
-
-.sidebar.collapsed .nav-scroll-area {
-  padding: 1rem 0;
 }
 
 .nav-group {
@@ -84,15 +92,6 @@
   flex-direction: column;
   gap: 0.25rem;
   width: 100%;
-}
-
-.nav-section-label {
-  font-size: 0.68rem;
-  font-weight: var(--fw-semibold, 600);
-  color: var(--color-text-light);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 12px 14px 4px;
 }
 
 .nav-group.mt-auto {
@@ -107,7 +106,6 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--color-text-light);
-  opacity: 0.75;
   padding: 0.6rem 0.75rem 0.25rem;
   margin-bottom: 0.15rem;
 }
@@ -115,17 +113,26 @@
 .root-drop-list {
   display: flex;
   flex-direction: column;
-  min-height: 20px;
+  /* Keeps a usable root drop target for the tree. */
+  min-height: 50px;
+  transition: min-height var(--rail-motion);
   gap: 2px;
+}
+
+.sidebar.collapsed .root-drop-list {
+  min-height: 0;
 }
 
 /* --- NAV ITEMS --- */
 .nav-item {
+  position: relative;
+  /* Own stacking context so the pill (z-index -1) sits above the panel
+     background but below the icon and label. */
+  z-index: 0;
   display: flex;
   align-items: center;
   gap: 0.65rem;
   width: 100%;
-  margin-left: 0;
   padding: 0.45rem 0.75rem;
   border: none;
   background: transparent;
@@ -137,23 +144,72 @@
   font-weight: 500;
   letter-spacing: -0.01em;
   text-decoration: none;
-  transition:
-    background 0.12s ease,
-    color 0.12s ease;
+  transition: color 0.12s ease;
   text-wrap: nowrap;
 }
 
+/* --- ENTRY --- */
+/* One short fade per row on mount. It never re-runs on collapse/expand (the
+   rows persist), and it only touches opacity, so it cannot move the rail. */
+@keyframes nav-item-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.nav-item {
+  animation: nav-item-in 0.3s cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+
+/* The pill is painted by a pseudo-element, so its geometry can morph between
+   the full row and the rail square without touching the icon's position. */
+.nav-item::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: translateY(-50%);
+  border-radius: 8px;
+  background: transparent;
+  transition:
+    width var(--rail-motion),
+    height var(--rail-motion),
+    background-color 0.12s ease;
+}
+
 .nav-item:hover {
-  background: var(--bg-hover);
   color: var(--color-text-main);
 }
 
+.nav-item:hover::before {
+  background: var(--bg-hover);
+}
+
+.nav-item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
 .nav-item.active {
-  background: var(--color-primary);
   color: var(--bg-surface);
-  border-radius: 8px;
-  font-weight: 500;
+}
+
+.nav-item.active::before {
+  background: var(--color-primary);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Rail: the pill becomes a 40px square centred on the icon axis, and the row
+   surface a touch taller so it reads as a deliberate touch target. */
+.sidebar.collapsed .nav-item::before {
+  width: 40px;
+  height: 40px;
 }
 
 .nav-item .count-badge {
@@ -184,19 +240,17 @@
 
 /* Add Button Specifics */
 .nav-item.action-add {
-  background: transparent;
   border: 1px solid transparent;
   color: var(--color-text-muted);
 }
+
 .nav-item.action-add:hover {
-  background: var(--bg-hover);
   color: var(--color-text-main);
 }
 
 /* Input Mode */
 .nav-item.input-mode {
   cursor: default;
-  background: transparent;
 }
 
 .sidebar-input {
@@ -216,14 +270,76 @@
   outline: none;
 }
 
+/* --- RAIL LABELS ------------------------------------------------------
+   Labels and counters stay in the DOM at every width; the rail simply fades
+   them. They never size the row, so hiding them moves nothing. The counter
+   selectors are qualified the same way as their own rules below, otherwise
+   `transition: background/color` would win on specificity and the counters
+   would pop while the labels faded. */
+.label,
+.nav-item .count-badge,
+.brand {
+  opacity: 1;
+  transition: opacity var(--label-out);
+}
+
+/* Opening: let the rail get wide enough to hold the text before it fades in. */
+.sidebar:not(.collapsed) .label,
+.sidebar:not(.collapsed) .nav-item .count-badge,
+.sidebar:not(.collapsed) .brand {
+  transition: opacity var(--label-in);
+}
+
+.sidebar.collapsed .label,
+.sidebar.collapsed .nav-item .count-badge,
+.sidebar.collapsed .brand {
+  opacity: 0;
+}
+
+/* --- FOLDING VERTICAL GROUPS -----------------------------------------
+   Section labels and the collection tree fold to zero height with animated
+   grid tracks, so the rail never grows a hole and the footer group (pinned to
+   the bottom) never jumps. */
+.collapsible {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--rail-motion);
+}
+
+.collapsible > * {
+  /* overflow: hidden also zeroes the item's automatic minimum size, which is
+     what lets the grid track actually close. */
+  overflow: hidden;
+}
+
+.sidebar.collapsed .collapsible {
+  grid-template-rows: 0fr;
+}
+
+.sidebar.collapsed .collapsible > * {
+  visibility: hidden;
+  /* Keep folded content out of the tab order, once the fold has run. */
+  transition: visibility 0s linear var(--motion-slow);
+}
+
 /* --- FOOTER --- */
 .sidebar-footer {
-  padding: 0.75rem 1rem;
+  flex: none;
+  /* 4px of left padding puts the 64px footer slot on the rail axis, so the
+     collapse button sits on the same centre line as the nav icons in both
+     states and never travels. */
+  padding: 0.75rem 1rem 0.75rem 4px;
   border-top: 1px solid var(--border-color);
   display: flex;
   align-items: center;
+}
+
+.footer-slot {
+  width: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  transition: padding 0.3s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .collapsed-collection-indicator {
@@ -257,61 +373,18 @@
   color: var(--color-primary);
   background: var(--bg-hover);
 }
-
-/* --- COLLAPSED OVERRIDES --- */
-:host(.no-transition) .brand-icon {
-  animation: none;
+.toggle-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
-.sidebar.collapsed .sidebar-header {
-  padding: 0;
-  justify-content: center;
-}
-
-.sidebar.collapsed .sidebar-footer {
-  justify-content: center;
-  padding: 1rem 0;
-}
-.sidebar.collapsed .nav-item {
-  width: 40px;
-  height: 40px;
-  margin-left: 16px;
-  padding: 0;
-  gap: 0;
-  justify-content: center;
-}
-
-.label {
-  opacity: 1;
-  transition: opacity 0.2s ease;
-}
-.sidebar.collapsed .label {
-  opacity: 0;
-  display: none;
-}
-
-/* --- ANIMATIONS --- */
-@keyframes smoothFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(0px) scale(1);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-.nav-item {
-  animation: smoothFadeIn 0.3s cubic-bezier(0.2, 0, 0, 1) forwards;
-}
-
+/* --- MOBILE DRAWER --- */
 .floating-toggle {
   display: none;
 }
 
-/* --- MOBILE RESPONSIVENESS --- */
 @media (max-width: 768px) {
-  /* Reset Host to allow library.css to control it via absolute positioning */
+  /* Reset the host so library.css can own the drawer's positioning. */
   :host {
     height: auto;
     position: static;
@@ -356,13 +429,15 @@
     pointer-events: none;
   }
 
+  /* The drawer slides as a whole: no clipped-rail behaviour, no fades. */
   .sidebar {
     position: fixed;
-    height: 100%; /* Full height */
     top: 0;
     left: 0;
     z-index: 100;
     width: 280px;
+    height: 100%;
+    border-right: 1px solid var(--border-color);
     transform: translateX(0);
     transition:
       transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -379,9 +454,41 @@
   .sidebar.collapsed {
     width: 280px;
     transform: translateX(-100%);
+    box-shadow: none;
   }
 
+  /* Labels must be readable in the drawer whatever the desktop rail state
+     was: the drawer is either fully open or fully off screen. */
+  .sidebar.collapsed .label,
+  .sidebar.collapsed .count-badge,
+  .sidebar.collapsed .brand {
+    opacity: 1;
+  }
+
+  .sidebar.collapsed .collapsible {
+    grid-template-rows: 1fr;
+  }
+
+  .sidebar.collapsed .collapsible > * {
+    visibility: visible;
+  }
+
+  /* Drawer content is wider than the rail: keep the footer at its right edge
+     with the indicator in front of the button. */
   .sidebar-footer {
     justify-content: flex-end;
+    padding: 0.75rem 1rem;
+  }
+
+  .footer-slot {
+    width: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sidebar *,
+  .sidebar *::before {
+    transition: none !important;
   }
 }
