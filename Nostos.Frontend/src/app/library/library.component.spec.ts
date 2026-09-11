@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 
 import { Library } from './library.component';
 import { BooksService } from '../core/services/books.service';
@@ -20,6 +20,9 @@ describe('Library', () => {
   let component: Library;
   let fixture: ComponentFixture<Library>;
   let listSpy: ReturnType<typeof vi.fn>;
+
+  /** Wall-clock budget a spec must advance to let a deferred swap commit. */
+  const SWAP_BUDGET = 400;
 
   beforeEach(async () => {
     localStorage.clear();
@@ -199,7 +202,10 @@ describe('Library', () => {
   it('shows "Library" with no chips when no filter is active', () => {
     expect(component.pageTitle()).toBe('Library');
     expect(component.activeFilterChips()).toEqual([]);
-    expect(fixture.nativeElement.querySelector('.active-filters')).toBeNull();
+    // The chip row stays mounted so its height can animate on the first chip;
+    // with no chips it is collapsed and renders nothing to announce.
+    expect(fixture.nativeElement.querySelector('.filter-bar.is-empty')).not.toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.filter-chip').length).toBe(0);
   });
 
   it('reflects a status filter in the title and chips', () => {
@@ -280,5 +286,116 @@ describe('Library', () => {
     expect(deleteSpy).toHaveBeenCalledWith('b1');
     expect(component.rawBooks().length).toBe(0);
     expect(fixture.nativeElement.querySelector('.delete-modal-card')).toBeNull();
+  });
+
+  // --- Filter/sort cross-fade (no ghost skeleton, no layout jitter) --------
+
+  it('never returns to the ghost skeleton after the first load', () => {
+    expect(component.loading()).toBe(false);
+
+    component.filters.toggleStatus('reading');
+    fixture.detectChanges();
+
+    // The skeleton belongs to the first paint only; a filter change cross-fades.
+    expect(component.loading()).toBe(false);
+    expect(fixture.nativeElement.querySelector('.skeleton-grid-view')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.skeleton-list-view')).toBeNull();
+    expect(component.swapping()).toBe(true);
+    expect(fixture.nativeElement.querySelector('.results-stage.is-swapping')).not.toBeNull();
+  });
+
+  it('holds the current results on screen until the out-phase ends, then swaps', () => {
+    vi.useFakeTimers();
+    try {
+      const oldBook = { id: 'old', title: 'Old', type: 'ebook' } as never;
+      listSpy.mockReturnValueOnce(of({ items: [oldBook], totalCount: 1 } as never));
+
+      component.filters.toggleStatus('reading');
+      TestBed.flushEffects();
+
+      expect(component.loading()).toBe(false);
+      expect(component.swapping()).toBe(true);
+      expect(component.rawBooks()).toEqual([]);
+
+      vi.advanceTimersByTime(SWAP_BUDGET);
+      expect(component.rawBooks()).toEqual([oldBook]);
+      expect(component.swapping()).toBe(false);
+
+      const newBook = { id: 'new', title: 'New', type: 'ebook' } as never;
+      listSpy.mockReturnValueOnce(of({ items: [newBook], totalCount: 1 } as never));
+
+      component.filters.toggleStatus('finished');
+      TestBed.flushEffects();
+
+      // Still the old page at this instant: the DOM swaps at the bottom of the blur.
+      expect(component.rawBooks()).toEqual([oldBook]);
+
+      vi.advanceTimersByTime(SWAP_BUDGET);
+      expect(component.rawBooks()).toEqual([newBook]);
+      expect(component.swapping()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ignores a stale response that arrives after a newer filter change', () => {
+    vi.useFakeTimers();
+    try {
+      const pending: Subject<PaginatedResponse<never>>[] = [];
+      listSpy.mockImplementation(() => {
+        const subject = new Subject<PaginatedResponse<never>>();
+        pending.push(subject);
+        return subject;
+      });
+
+      component.filters.toggleStatus('reading');
+      TestBed.flushEffects();
+      component.filters.toggleStatus('finished');
+      TestBed.flushEffects();
+      expect(pending).toHaveLength(2);
+
+      const newer = { id: 'newer', title: 'Newer', type: 'ebook' } as never;
+      const stale = { id: 'stale', title: 'Stale', type: 'ebook' } as never;
+      pending[1].next({ items: [newer], totalCount: 1 } as never);
+      pending[1].complete();
+      vi.advanceTimersByTime(SWAP_BUDGET);
+      expect(component.rawBooks()).toEqual([newer]);
+
+      // The abandoned request answers late: it must not repaint the list.
+      pending[0].next({ items: [stale], totalCount: 1 } as never);
+      pending[0].complete();
+      vi.advanceTimersByTime(SWAP_BUDGET);
+      expect(component.rawBooks()).toEqual([newer]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('cross-fades the dynamic title inside a fixed, reserved stage', () => {
+    fixture.detectChanges();
+    const title = fixture.nativeElement.querySelector('#library-title') as HTMLElement;
+    expect(title.classList.contains('title-stage')).toBe(true);
+    expect(title.getAttribute('aria-label')).toBe('Library');
+    expect(title.querySelector('.title-swap.is-visible')?.textContent?.trim()).toBe('Library');
+
+    component.filters.toggleStatus('reading');
+    fixture.detectChanges();
+
+    // aria-label tracks the computed title synchronously, so the toolbar text
+    // can never lag the results while the layers animate.
+    expect(title.getAttribute('aria-label')).toBe('In Progress');
+    expect(title.textContent).toContain('In Progress');
+    // The incoming layer is the visible one and the previous title fades out on
+    // the other layer, both inside the same reserved box.
+    expect(title.querySelector('.title-swap.is-visible')?.textContent?.trim()).toBe('In Progress');
+    expect(title.querySelectorAll('.title-swap').length).toBe(2);
+  });
+
+  it('reserves the page scrollbar gutter only while the library is mounted', () => {
+    expect(document.body.classList.contains('nostos-library')).toBe(true);
+
+    fixture.destroy();
+
+    expect(document.body.classList.contains('nostos-library')).toBe(false);
   });
 });

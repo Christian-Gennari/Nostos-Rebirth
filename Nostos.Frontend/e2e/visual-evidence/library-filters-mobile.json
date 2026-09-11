@@ -1,6 +1,6 @@
 {
   "artifact": "library-filters-mobile.png",
-  "capturedAt": "2026-09-11T10:11:29.310Z",
+  "capturedAt": "2026-09-11T13:41:39.517Z",
   "name": "library-filters-mobile",
   "surface": "library",
   "viewport": {
@@ -34,11 +34,29 @@
           "Unsorted"
         ]
       }
+    },
+    {
+      "id": "library-toolbar-stability",
+      "pass": true,
+      "message": "title \"Results for \"zzz-no-such-book-in-this-library\"\": search x 14 -> 14 (Δ0px), search width Δ0px, title box x Δ0px, title box height Δ0px, results client width Δ0px (stable)",
+      "metrics": {
+        "searchX": 14,
+        "searchXAfter": 14,
+        "dSearchX": 0,
+        "searchWidth": 354,
+        "dSearchW": 0,
+        "titleX": 14,
+        "dTitleX": 0,
+        "titleBoxHeight": 30.4,
+        "dTitleH": 0,
+        "scrollClientWidth": 382,
+        "dScrollW": 0
+      }
     }
   ],
   "summary": {
-    "total": 2,
-    "passed": 2,
+    "total": 3,
+    "passed": 3,
     "skipped": 0,
     "failed": 0
   }

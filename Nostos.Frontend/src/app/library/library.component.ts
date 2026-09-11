@@ -2,8 +2,10 @@ import {
   Component,
   inject,
   OnInit,
+  OnDestroy,
   signal,
   computed,
+  linkedSignal,
   ChangeDetectionStrategy,
   effect,
   untracked,
@@ -14,13 +16,13 @@ import { RouterLink } from '@angular/router';
 import { BooksService } from '../core/services/books.service';
 import { CollectionsService } from '../core/services/collections.service';
 import { Collection } from '../core/dtos/collection.dtos';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AddBookModal } from '../add-book-modal/add-book-modal.component';
 import { DeleteBookModal } from '../ui/delete-book-modal/delete-book-modal.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { SidebarCollections } from './sidebar-collections/sidebar-collections.component';
-import { Book, EditionSummaryDto } from '../core/dtos/book.dtos';
+import { Book, EditionSummaryDto, PaginatedResponse } from '../core/dtos/book.dtos';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { InfiniteScrollDirective } from '../core/directives/infinite-scroll.directive';
@@ -86,6 +88,24 @@ function formatFilterLabel(value: string | null | undefined): string | null {
   }
 }
 
+/**
+ * Results cross-fade: the out-phase is the one duration TypeScript must honour
+ * (it gates when the new page may be committed), so it lives here and must stay
+ * equal to — never longer than — `--library-swap-out` in library.component.css,
+ * or the DOM would swap while the old results are still moving.
+ * The in-phase (300ms desktop / 260ms mobile, `--library-swap-in`) needs no TS
+ * scheduler: it is purely the CSS release of `.is-swapping` once the commit lands.
+ */
+const SWAP_OUT_MS = 200;
+
+/** True when the OS asks for reduced motion; the swap then commits instantly. */
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+  );
+}
+
 type WorkFormatType = 'audio' | 'epub' | 'pdf' | 'physical';
 
 interface WorkFormatGlyph {
@@ -112,11 +132,12 @@ interface WorkFormatGlyph {
   styleUrls: ['./library.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class Library implements OnInit {
+export class Library implements OnInit, OnDestroy {
   private booksService = inject(BooksService);
   private collectionsService = inject(CollectionsService);
   private preferences = inject(LibraryPreferencesService);
   private toast = inject(ToastService);
+  private readonly document = inject(DOCUMENT);
   readonly filters = inject(LibraryFilterService);
 
   // Icons
@@ -142,6 +163,13 @@ export class Library implements OnInit {
 
   loading = signal(true);
   loadingMore = signal(false);
+
+  /** True while the existing results blur out before the new page is swapped in. */
+  swapping = signal(false);
+
+  private hasLoadedOnce = false;
+  private requestSeq = 0;
+  private swapStartedAt = 0;
 
   // Pagination State
   currentPage = signal(1);
@@ -210,6 +238,31 @@ export class Library implements OnInit {
     return chips;
   });
 
+  /**
+   * Title cross-fade layers. Two persistent spans are alternated on every title
+   * change: the incoming layer resolves in while the outgoing one blurs away,
+   * both inside the same reserved box. Layers are persistent (nothing is created
+   * or destroyed, so no node leaks and no leave-animation is involved) and this
+   * is a `linkedSignal`, so the new text is already in the DOM on the same tick
+   * as the filter signal that produced it — the heading is never stale.
+   */
+  readonly titleLayers = linkedSignal<
+    string,
+    { a: string; b: string; flip: boolean }
+  >({
+    source: () => this.pageTitle(),
+    computation: (title, previous) => {
+      const layers = previous?.value;
+      // First paint: seed layer A with no transition.
+      if (!layers) return { a: title, b: '', flip: false };
+      // A repeated title must not re-animate.
+      if (title === layers.a || title === layers.b) return layers;
+      return layers.flip
+        ? { a: title, b: layers.b, flip: false } // B held the title: move to A
+        : { a: layers.a, b: title, flip: true }; // A held the title: move to B
+    },
+  });
+
   clearChip(key: string): void {
     switch (key) {
       case 'status':
@@ -229,6 +282,11 @@ export class Library implements OnInit {
   }
 
   constructor() {
+    // Phones scroll the document itself. Reserve the styled scrollbar gutter for
+    // as long as the library is mounted so a filter that returns a short or empty
+    // result set cannot make the whole page jump sideways by 8px.
+    this.document.body?.classList.add('nostos-library');
+
     // Search Subscription
     this.searchSubject
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed())
@@ -250,14 +308,28 @@ export class Library implements OnInit {
     this.loadCollections();
   }
 
+  ngOnDestroy(): void {
+    this.document.body?.classList.remove('nostos-library');
+  }
+
   refreshBooks(reset = true, showSkeleton = true): void {
     if (reset) {
       this.currentPage.set(1);
-      if (showSkeleton) this.loading.set(true);
+      if (!this.hasLoadedOnce) {
+        // Genuine first paint: the skeleton's single legitimate use.
+        if (showSkeleton) this.loading.set(true);
+      } else if (showSkeleton && !prefersReducedMotion()) {
+        // A filter/sort/search change on an already-populated page: blur the
+        // current results out instead of tearing them down for a skeleton.
+        // (Reduced motion skips the swap state entirely — no dimming, no blur.)
+        this.swapping.set(true);
+        this.swapStartedAt = performance.now();
+      }
     } else {
       this.loadingMore.set(true);
     }
 
+    const seq = ++this.requestSeq;
     const status = this.filters.status();
     const format = this.filters.format();
     const collectionId = this.filters.collectionId();
@@ -282,22 +354,50 @@ export class Library implements OnInit {
       })
       .subscribe({
         next: (data) => {
-          if (reset) {
-            this.rawBooks.set(data.items);
-          } else {
-            this.rawBooks.update((current) => [...current, ...data.items]);
-          }
-
-          this.totalItems.set(data.totalCount);
-          this.loading.set(false);
-          this.loadingMore.set(false);
+          // A stale response must never paint over a newer request's results.
+          if (seq !== this.requestSeq) return;
+          this.commitResults(data, reset, seq);
         },
         error: () => {
+          if (seq !== this.requestSeq) return;
           this.toast.error('Failed to load books');
           this.loading.set(false);
           this.loadingMore.set(false);
+          this.swapping.set(false);
         },
       });
+  }
+
+  /**
+   * Replaces the visible page. When the stage is blurred out, the commit is
+   * deferred to the end of the out-phase so the DOM swap is never visible.
+   * The swap itself is a pure signal flip, which is legal from any async
+   * callback — the timer only co-ordinates the visual clock.
+   */
+  private commitResults(data: PaginatedResponse<Book>, reset: boolean, seq: number): void {
+    const apply = () => {
+      if (seq !== this.requestSeq) return;
+      if (reset) {
+        this.rawBooks.set(data.items);
+      } else {
+        this.rawBooks.update((current) => [...current, ...data.items]);
+      }
+      this.totalItems.set(data.totalCount);
+      this.hasLoadedOnce = true;
+      this.loading.set(false);
+      this.loadingMore.set(false);
+      this.swapping.set(false); // releases the in-phase: new books resolve in
+    };
+
+    if (!reset || !this.swapping() || prefersReducedMotion()) {
+      apply();
+      return;
+    }
+
+    // Network time already spent counts toward the out-phase, so a fast local
+    // response still gets the full blur instead of a one-frame blink.
+    const elapsed = performance.now() - this.swapStartedAt;
+    setTimeout(apply, Math.max(0, SWAP_OUT_MS - elapsed));
   }
 
   loadMore(): void {

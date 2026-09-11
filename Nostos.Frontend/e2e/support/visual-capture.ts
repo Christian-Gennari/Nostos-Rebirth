@@ -431,3 +431,71 @@ export async function apiPut<T = unknown>(baseUrl: string, urlPath: string, body
   if (!res.ok) throw new Error(`PUT ${urlPath} -> ${res.status}: ${await res.text()}`);
   return (await res.json()) as T;
 }
+
+// ---------------------------------------------------------------------------
+// Library toolbar stability (filter/sort cross-fade regression guard)
+// ---------------------------------------------------------------------------
+
+/**
+ * The library toolbar must not move when the dynamic title changes length, and
+ * the result container must not change width when a filter change removes the
+ * scrollbar. Both were real defects: the title used to size its flex track (so
+ * a long collection name shoved the search field), and a short/empty result set
+ * dropped the styled 8px scrollbar and shifted every column.
+ *
+ * The change under test is driven through the real search box: typing produces
+ * `Results for "<query>"` (a much longer title plus an active-filter chip) and
+ * an empty result set, i.e. both shifts at once.
+ */
+export async function checkLibraryToolbarStability(page: Page): Promise<GeometryCheck> {
+  const search = page.locator('.search-input');
+  const title = page.locator('#library-title');
+  const scroller = page.locator('.library-right-side');
+  await search.waitFor({ timeout: 30_000 });
+
+  const before = await search.boundingBox();
+  const titleBefore = await title.boundingBox();
+  const scrollBefore = await scroller.evaluate((el) => el.clientWidth);
+
+  await search.fill('zzz-no-such-book-in-this-library');
+  // 300ms input debounce + 200ms out-phase + 300ms in-phase + margin.
+  await page.waitForTimeout(1500);
+
+  const after = await search.boundingBox();
+  const titleAfter = await title.boundingBox();
+  const scrollAfter = await scroller.evaluate((el) => el.clientWidth);
+  if (!before || !after || !titleBefore || !titleAfter) {
+    return failCheck('library-toolbar-stability', 'could not measure .search-input / #library-title');
+  }
+
+  const dSearchX = Math.abs(after.x - before.x);
+  const dSearchW = Math.abs(after.width - before.width);
+  const dTitleX = Math.abs(titleAfter.x - titleBefore.x);
+  const dTitleH = Math.abs(titleAfter.height - titleBefore.height);
+  const dScrollW = Math.abs(scrollAfter - scrollBefore);
+  const ok = dSearchX <= 1 && dSearchW <= 1 && dTitleX <= 1 && dTitleH <= 1 && dScrollW <= 1;
+  const metrics = {
+    searchX: r1(before.x),
+    searchXAfter: r1(after.x),
+    dSearchX: r1(dSearchX),
+    searchWidth: r1(before.width),
+    dSearchW: r1(dSearchW),
+    titleX: r1(titleBefore.x),
+    dTitleX: r1(dTitleX),
+    titleBoxHeight: r1(titleBefore.height),
+    dTitleH: r1(dTitleH),
+    scrollClientWidth: scrollBefore,
+    dScrollW,
+  };
+  const message =
+    `title "${(await title.getAttribute('aria-label')) ?? ''}": search x ${r1(before.x)} -> ${r1(after.x)} ` +
+    `(Δ${r1(dSearchX)}px), search width Δ${r1(dSearchW)}px, title box x Δ${r1(dTitleX)}px, ` +
+    `title box height Δ${r1(dTitleH)}px, results client width Δ${dScrollW}px (${ok ? 'stable' : 'SHIFTS'})`;
+  return ok
+    ? passCheck('library-toolbar-stability', message, metrics)
+    : failCheck('library-toolbar-stability', message, metrics);
+}
+
+function r1(value: number): number {
+  return Math.round(value * 10) / 10;
+}

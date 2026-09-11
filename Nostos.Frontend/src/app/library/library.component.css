@@ -55,6 +55,10 @@ app-sidebar-collections.no-transition {
   flex-direction: column;
   height: 100%;
   overflow-y: auto;
+  /* Reserve the 8px styled scrollbar gutter permanently. Without this, a filter
+     that returns fewer books than fill the viewport removes the scrollbar and
+     every column — toolbar included — jumps sideways by 8px. */
+  scrollbar-gutter: stable;
   position: relative;
   width: 100%; /* Ensure full width */
 }
@@ -71,21 +75,87 @@ app-sidebar-collections.no-transition {
   z-index: 5;
   padding: 1.5rem 3rem;
   border-bottom: 1px solid var(--glass-border);
-  display: flex;
-  justify-content: space-between; /* Space between Title and Controls */
+  /* Three fixed tracks: the title track never sizes to its text, so the search
+     field's x/width depend only on the viewport. "Audiobooks in Science
+     Fiction" can no longer shove the whole toolbar around. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 480px) auto;
   align-items: center;
   margin-bottom: 2rem;
-  gap: 2rem; /* NEW: Spacing between title, search, and controls */
+  gap: 2rem;
 }
 
-.toolbar h1 {
+/* --- TITLE CROSS-FADE -------------------------------------------------
+   A fixed-height stack: both the outgoing and the incoming title occupy the
+   exact same box, so no title length and no animation state can shift a
+   toolbar sibling. */
+.title-stage {
+  position: relative;
+  display: block;
+  height: 2.4rem;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.title-swap {
+  position: absolute;
+  inset: 0;
+  display: block;
   font-size: 1.75rem;
   font-weight: var(--fw-medium);
-  margin: 0;
-  white-space: nowrap; /* Prevent title from wrapping */
+  line-height: 2.4rem;
+  color: var(--color-text-main);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 0;
+  /* Idle layer: blurred, nudged down, invisible. Flipping `.is-visible` between
+     the two layers reads as the old title resolving away and the new one
+     arriving — a lens-style cross-fade rather than a text cut. */
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateY(4px);
+  pointer-events: none;
+  transition:
+    opacity 300ms var(--ease-out),
+    filter 300ms var(--ease-out),
+    transform 300ms var(--ease-out);
+}
+
+.title-swap.is-visible {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateY(0);
+}
+
+/* --- ACTIVE FILTER CHIPS ----------------------------------------------
+   Always mounted, collapsed via grid rows, so gaining/losing a chip animates
+   the row height instead of popping the grid down. All original spacing is
+   preserved by keeping the margins on the inner chip row, which means the
+   collapsed state occupies exactly zero height AND zero margin. */
+.filter-bar {
+  display: grid;
+  grid-template-rows: 1fr;
+  /* The spacing lives on the bar itself, never on the clipped inner row:
+     a negative top margin inside the overflow-hidden box would shorten that
+     box and slice the top off every chip. */
+  margin: 0;
+  transition:
+    grid-template-rows 220ms var(--ease-out),
+    margin 220ms var(--ease-out);
+}
+
+.filter-bar:not(.is-empty) {
+  margin: -1rem 0 1.5rem;
+}
+
+.filter-bar.is-empty {
+  grid-template-rows: 0fr;
+}
+
+.filter-bar-inner {
+  overflow: hidden;
+  min-height: 0;
 }
 
 .active-filters {
@@ -93,7 +163,7 @@ app-sidebar-collections.no-transition {
   flex-wrap: wrap;
   gap: 0.5rem;
   padding: 0 3rem;
-  margin: -1rem 0 1.5rem;
+  margin: 0;
 }
 
 .filter-chip {
@@ -218,6 +288,7 @@ app-sidebar-collections.no-transition {
   align-items: center;
   gap: 1rem;
   flex-shrink: 0; /* Prevent controls from squishing */
+  justify-self: end;
 }
 
 .control-group {
@@ -721,6 +792,28 @@ app-sidebar-collections.no-transition {
   opacity: 1;
 }
 
+/* --- RESULTS STAGE: the cinematic filter/sort cross-fade ----------------
+   One animated surface. The out-phase duration is kept equal to SWAP_OUT_MS
+   in library.component.ts (that constant gates when the new page may be
+   committed), so the DOM swap always lands at the bottom of the blur. */
+.results-stage {
+  --library-swap-out: 200ms;
+  --library-swap-in: 300ms;
+  transition:
+    opacity var(--library-swap-in) var(--ease-out),
+    filter var(--library-swap-in) var(--ease-out),
+    transform var(--library-swap-in) var(--ease-out);
+}
+
+.results-stage.is-swapping {
+  opacity: 0.35;
+  filter: blur(5px) saturate(0.92);
+  transform: scale(0.995);
+  /* A blurred list must not accept clicks on the books it is discarding. */
+  pointer-events: none;
+  transition-duration: var(--library-swap-out);
+}
+
 /* --- SKELETON --- */
 @keyframes pulse {
   0%,
@@ -831,6 +924,8 @@ app-sidebar-collections.no-transition {
 
   /* 5. Toolbar Tweaks */
   .toolbar {
+    /* Overrides the desktop toolbar grid back to the mobile column stack. */
+    display: flex;
     padding: 12px 14px 10px;
     flex-direction: column;
     align-items: stretch;
@@ -846,17 +941,24 @@ app-sidebar-collections.no-transition {
   }
 
   /* Adjust order so Search comes after Title but before Controls */
-  .toolbar h1 {
-    display: block;
+  .title-stage {
     order: 0;
+    height: 1.9rem;
+  }
+
+  .title-swap {
     font-size: 1.25rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.9rem;
   }
 
   .active-filters {
     padding: 0 14px;
+    margin: 0;
+  }
+
+  /* Same rule as desktop: the spacing belongs on the bar, outside the clipped
+     inner box, or the top of every chip gets sliced off. */
+  .filter-bar:not(.is-empty) {
     margin: -0.5rem 0 1rem;
   }
 
@@ -920,4 +1022,46 @@ app-sidebar-collections.no-transition {
     padding: 0 0.85rem 8rem !important;
   }
 
+}
+
+/* --- MOBILE SWAP: fade only -------------------------------------------
+   Blurring a full grid of cover images is the expensive part of the swap on a
+   phone, and the covers are the content, so mobile gets the fade (composited,
+   cheap) without the filter. The transition is still one continuous motion. */
+@media (max-width: 768px) {
+  .results-stage.is-swapping {
+    opacity: 0.4;
+    filter: none;
+    transform: none;
+  }
+
+  /* Same out-phase as desktop (it is gated by SWAP_OUT_MS in the component —
+     never make this longer than that constant, or the DOM would swap
+     mid-blur); only the resolve-in is quicker on touch. */
+  .results-stage {
+    --library-swap-out: 200ms;
+    --library-swap-in: 260ms;
+  }
+}
+
+/* --- REDUCED MOTION ----------------------------------------------------
+   The swap commits instantly in TypeScript under this preference; these rules
+   remove the residual transitions and the blur/bounce affordances. */
+@media (prefers-reduced-motion: reduce) {
+  .results-stage,
+  .results-stage.is-swapping {
+    transition-duration: 1ms;
+    filter: none;
+    transform: none;
+  }
+
+  .title-swap {
+    transition-duration: 1ms;
+    filter: none;
+    transform: none;
+  }
+
+  .filter-bar {
+    transition-duration: 1ms;
+  }
 }

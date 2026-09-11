@@ -10,7 +10,24 @@
 
   <div class="library-right-side">
     <header class="toolbar">
-      <h1 id="library-title">{{ pageTitle() }}</h1>
+      <!-- Title cross-fade: tracking by the title string means a new span is
+           Two persistent layers, flipped on every change: the incoming title
+           resolves in while the outgoing one blurs away. Nothing is created or
+           destroyed (no leaked nodes, no leave-animation dependency) and the
+           new text is in the DOM on the same tick, so the visible heading is
+           never stale. Text is announced once via aria-label, so a screen
+           reader never reads both layers. -->
+      <h1 id="library-title" class="title-stage" [attr.aria-label]="pageTitle()">
+        <span
+          class="title-swap"
+          [class.is-visible]="!titleLayers().flip"
+          aria-hidden="true"
+          >{{ titleLayers().a }}</span
+        >
+        <span class="title-swap" [class.is-visible]="titleLayers().flip" aria-hidden="true">{{
+          titleLayers().b
+        }}</span>
+      </h1>
 
       <div class="search-bar-container">
         <lucide-icon [img]="SearchIcon" [size]="18" class="search-icon"></lucide-icon>
@@ -57,16 +74,22 @@
       </div>
     </header>
 
-    @if (activeFilterChips().length > 0) {
-    <div class="active-filters" role="status" aria-label="Active filters">
-      @for (chip of activeFilterChips(); track chip.key) {
-      <button class="filter-chip" (click)="clearChip(chip.key)" [title]="'Clear ' + chip.label">
-        <span>{{ chip.label }}</span>
-        <lucide-icon [img]="XIcon" [size]="14"></lucide-icon>
-      </button>
-      }
+    <div class="filter-bar" [class.is-empty]="activeFilterChips().length === 0">
+      <div class="filter-bar-inner">
+        <div class="active-filters" role="status" aria-label="Active filters">
+          @for (chip of activeFilterChips(); track chip.key) {
+          <button
+            class="filter-chip"
+            (click)="clearChip(chip.key)"
+            [title]="'Clear ' + chip.label"
+          >
+            <span>{{ chip.label }}</span>
+            <lucide-icon [img]="XIcon" [size]="14"></lucide-icon>
+          </button>
+          }
+        </div>
+      </div>
     </div>
-    }
 
     <div class="container lg">
       <app-add-book-modal
@@ -153,7 +176,17 @@
         </div>
         }
       </div>
-      } } @if (!loading()) { @if (viewMode() === 'list') {
+      } } @if (!loading()) {
+      <!-- The single animated surface: filter/sort/search changes blur and fade
+           this stage out, the page is swapped invisibly at the bottom of the
+           blur, then the new books resolve back in. The infinite-scroll
+           sentinel stays outside it so appends never re-animate. -->
+      <div
+        class="results-stage"
+        [class.is-swapping]="swapping()"
+        [attr.aria-busy]="swapping()"
+      >
+      @if (viewMode() === 'list') {
       <div class="table-view">
         <div class="table-header">
           <div id="title-header">Title</div>
@@ -408,7 +441,9 @@
         </div>
         }
       </div>
-      } @if (hasMoreBooks()) {
+      }
+      </div>
+      @if (hasMoreBooks()) {
       <div
         appInfiniteScroll
         (scrolly)="loadMore()"

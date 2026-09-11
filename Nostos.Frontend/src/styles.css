@@ -543,3 +543,18 @@ input[type='file']::file-selector-button:hover {
 body.nostos-zen app-app-dock {
   display: none;
 }
+
+/* ------------------------------
+   LIBRARY: stable page gutter
+------------------------------ */
+/* On phones the document itself scrolls, so a filter that returns a short or
+   empty result set removes the styled 8px scrollbar and every column —
+   toolbar and search field included — jumps sideways. Reserve the gutter for
+   as long as the library page is mounted (`body.nostos-library` is toggled by
+   the library component). Desktop is excluded on purpose: there the library
+   scrolls inside .library-right-side, which reserves its own gutter. */
+@media (max-width: 768px) {
+  body.nostos-library {
+    scrollbar-gutter: stable;
+  }
+}
