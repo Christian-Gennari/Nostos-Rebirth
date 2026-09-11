@@ -107,6 +107,7 @@ ignores. Without `VISUAL_QA_LIBRARY_URL` both cases skip with a documented reaso
 | `library-no-progress-combobox` | library captures | toolbar progress filter is not a `<select>`; the only toolbar select is sort |
 | `library-six-sidebar-filters` | library captures | sidebar/drawer exposes exactly: All Books, Not Started, In Progress, Favorites, Finished, Unsorted — and no toolbar progress surface |
 | `book-detail-hero` | book detail captures | the hero band spans the scroll container's full width (±2px) and is ≥260px tall; both decorative art layers are real `<img>`s that actually loaded (never a stripped `[style.background-image]`); the hero copy's last line ends above the sharp cover's top edge (a negative-margin overhang must never paint over the author line); `.book-title` owns its own pixel; no horizontal overflow |
+| `book-detail-fade` | book detail captures | the hero's fade into the page is a smooth **ease-in-out from its own gradient stops**: the scrim releases monotonically downward (it must never strengthen in the region the fade has to lighten) and the fade's per-segment slope rises then falls, with both end segments ≤ half the peak slope (a steeper end draws a visible onset/stop line across the band) |
 
 Every check is recorded in the capture's `.json` report with its
 metrics. **Skips are never failures and never fakes**: a check is skipped only

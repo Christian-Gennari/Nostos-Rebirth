@@ -25,6 +25,12 @@
   height: 470px;
   overflow: hidden;
   isolation: isolate;
+  /* Bound repaints to this subtree. The art layers are large (124%–144% of a
+     1440x470 box) and heavily blurred, so without containment any repaint
+     elsewhere on the page — including a button hover — can invalidate and
+     re-rasterize them, which shows up as the background flickering/fading.
+     Paint containment is free here because the band already clips. */
+  contain: paint;
   /* Fallback behind the art: never a flash of unstyled paper. */
   background: linear-gradient(160deg, #3d2c21 0%, #241a14 60%, #1b1310 100%);
 }
@@ -32,6 +38,7 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
+  contain: paint;
 }
 /* Explicit sizes: an absolutely positioned REPLACED element with width:auto
    takes its INTRINSIC width and ignores `right`, so `inset` would not stretch it. */
@@ -75,16 +82,24 @@
 .art-vig {
   position: absolute;
   inset: 0;
-  background: radial-gradient(128% 96% at 50% 26%, rgba(0, 0, 0, 0) 40%, rgba(26, 17, 12, 0.44) 100%);
+  /* Lens falloff, pulled up and softened so it does not darken the band's lower
+     centre — that competed with the fade and helped produce a visible band. */
+  background: radial-gradient(122% 74% at 50% 26%, rgba(0, 0, 0, 0) 48%, rgba(26, 17, 12, 0.34) 100%);
 }
 .art-scrim {
   position: absolute;
   inset: 0;
+  /* Legibility scrim for the white title. It RELEASES toward the bottom rather
+     than strengthening: the previous version went .28 -> .52 downward, which
+     darkened the band precisely where the fade had to lighten it, so the
+     luminance profile dipped and then jumped — read by the eye as a hard band. */
   background: linear-gradient(
     180deg,
-    rgba(20, 14, 11, 0.46) 0%,
-    rgba(20, 14, 11, 0.28) 44%,
-    rgba(20, 14, 11, 0.52) 100%
+    rgba(20, 14, 11, 0.44) 0%,
+    rgba(20, 14, 11, 0.28) 35%,
+    rgba(20, 14, 11, 0.15) 65%,
+    rgba(20, 14, 11, 0.05) 88%,
+    rgba(20, 14, 11, 0) 100%
   );
 }
 .art-fade {
@@ -92,14 +107,26 @@
   left: 0;
   right: 0;
   bottom: -1px;
-  height: 200px;
+  height: 300px;
   z-index: 2;
   pointer-events: none;
+  /* A cubic EASE-IN-OUT (smoothstep: alpha = 3t^2 - 2t^3). Both ends are gentle
+     and the middle is steepest, so the ramp has no knee at either edge and it
+     meets the flat dark band above and the flat page below with matching slope.
+     Sequence of earlier defects this avoids: a mid-ramp ACCELERATION (previous
+     stops went .5@52% -> .9@80%, so the fade got steeper half way down and then
+     stopped dead at 0/px, reading as a hard band), and a ramp that started at
+     full slope (+1.12/px straight off the flat region), putting a visible onset
+     line across the band.
+     Per-segment slope, %/px of the 300px ramp: .0014 .0035 .0047 .0047 .0035 .0014 */
   background: linear-gradient(
     180deg,
     rgba(253, 248, 246, 0) 0%,
-    rgba(253, 248, 246, 0.5) 52%,
-    rgba(253, 248, 246, 0.9) 80%,
+    rgba(253, 248, 246, 0.061) 15%,
+    rgba(253, 248, 246, 0.216) 30%,
+    rgba(253, 248, 246, 0.5) 50%,
+    rgba(253, 248, 246, 0.784) 70%,
+    rgba(253, 248, 246, 0.939) 85%,
     var(--bg-body) 100%
   );
 }
@@ -755,6 +782,18 @@
   margin-bottom: 0;
   flex-wrap: wrap;
 }
+/* The global `.btn` rule uses `transition: all`, which puts EVERY animatable
+   property into the hover transition; that is the usual reason a hover reads as a
+   flicker/fade instead of a crisp colour change. Scope an explicit list to the
+   hero controls rather than changing the shared global rule for the whole app. */
+.stage-strip .btn,
+.stage-strip .favorite-btn {
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
+}
 
 /* Pill-shaped CTAs */
 .primary-actions .pill-btn {
@@ -1106,7 +1145,8 @@
     filter: blur(56px) brightness(1.45) saturate(1.5);
   }
   .art-fade {
-    height: 150px;
+    /* Scales with the shorter 300px band; same monotonic ease-out stops. */
+    height: 210px;
   }
 
   .hero-stage {

@@ -1,6 +1,6 @@
 {
   "artifact": "book-detail-hero-mobile.png",
-  "capturedAt": "2026-09-11T14:56:39.900Z",
+  "capturedAt": "2026-09-11T15:11:43.643Z",
   "name": "book-detail-hero-mobile",
   "surface": "book-detail",
   "viewport": {
@@ -44,11 +44,79 @@
         "docClient": 390,
         "clearance": 24
       }
+    },
+    {
+      "id": "book-detail-fade",
+      "pass": true,
+      "message": "fade is a smooth ease-in-out over 210px: scrim releases monotonically (0.44 -> 0.28 -> 0.15 -> 0.05 -> 0), fade alpha rises to full (0 -> 0.063 -> 0.216 -> 0.5 -> 0.784 -> 0.937 -> 1), slope peaks at segment 2 then only decreases",
+      "metrics": {
+        "fade": [
+          {
+            "a": 0,
+            "pos": 0
+          },
+          {
+            "a": 0.063,
+            "pos": 15
+          },
+          {
+            "a": 0.216,
+            "pos": 30
+          },
+          {
+            "a": 0.5,
+            "pos": 50
+          },
+          {
+            "a": 0.784,
+            "pos": 70
+          },
+          {
+            "a": 0.937,
+            "pos": 85
+          },
+          {
+            "a": 1,
+            "pos": 100
+          }
+        ],
+        "scrim": [
+          {
+            "a": 0.44,
+            "pos": 0
+          },
+          {
+            "a": 0.28,
+            "pos": 35
+          },
+          {
+            "a": 0.15,
+            "pos": 65
+          },
+          {
+            "a": 0.05,
+            "pos": 88
+          },
+          {
+            "a": 0,
+            "pos": 100
+          }
+        ],
+        "slopes": [
+          0.0042,
+          0.010199999999999999,
+          0.0142,
+          0.0142,
+          0.010200000000000002,
+          0.004199999999999996
+        ],
+        "fadeHeight": 210
+      }
     }
   ],
   "summary": {
-    "total": 1,
-    "passed": 1,
+    "total": 2,
+    "passed": 2,
     "skipped": 0,
     "failed": 0
   }
