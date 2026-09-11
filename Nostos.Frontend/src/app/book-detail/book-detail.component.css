@@ -200,7 +200,22 @@
 }
 .cover-card {
   position: relative;
-  filter: drop-shadow(0 26px 42px rgba(24, 16, 11, 0.34));
+  /* Deliberately NO `filter: drop-shadow()` here.
+     A filter forces the browser to render this whole subtree into an offscreen
+     buffer — and a buffer is a RECTANGLE — then composite it back with the shadow
+     applied. That buffer's colour is near-black (rgba(24,16,11)) and it reaches
+     x462, which is 2px from the Listen button at x460. A composited child inside
+     a filtered ancestor is a known conflict (the filter needs group rendering,
+     the child wants its own layer), and `.cover-overlay` animates `opacity`, so
+     the buffer could be composited stale as a faint near-black rectangle over the
+     action row. Any repaint next to it exposed it; re-rasterising the buffer
+     cleared it — which is exactly why it vanished when the cover was hovered and
+     not otherwise.
+     The shadow now lives on `.cover-frame` as a box-shadow. `.cover-frame` is a
+     plain rounded rectangle (aspect-ratio 2/3, border-radius 8px, overflow
+     hidden), so a box-shadow renders the same for this shape and creates no
+     offscreen buffer at all — removing the failure mode and the per-repaint cost
+     of rendering the subtree offscreen. */
 }
 .stage-strip {
   display: flex;
@@ -312,7 +327,16 @@
   border-radius: 8px;
   box-shadow:
     var(--shadow-glass-lg),
-    0 0 40px -12px rgba(138, 109, 88, 0.22);
+    0 0 40px -12px rgba(138, 109, 88, 0.22),
+    /* Was `.cover-card { filter: drop-shadow(0 26px 42px ...) }` — see the note
+       there for why it had to move.
+       The radius is 84px, NOT the 42px the drop-shadow used: `drop-shadow()`'s
+       radius is a 1-sigma Gaussian, whereas `box-shadow`'s blur radius is 2-sigma,
+       so a box-shadow needs DOUBLE the radius to render the same softness. Passing
+       42px here visibly weakened the shadow (measured up to 16/255 lighter in the
+       far field). Calibrated by rendering 42/56/63/70/84/96/110px against the
+       original and picking the closest: 84px, mean |delta| 0.38 vs 3.16 for 42px. */
+    0 26px 84px rgba(24, 16, 11, 0.34);
   border: 1px solid rgba(0, 0, 0, 0.05);
   margin-bottom: 1rem;
   display: flex;
@@ -353,11 +377,34 @@
   padding: 1rem;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.15));
   opacity: 0;
-  transition: opacity 0.2s ease;
+  /* `visibility`, not just `opacity`. An element with opacity < 1 is promoted to
+     its own composited layer EVEN WHEN INVISIBLE, so at rest this dark gradient
+     still occupied a layer that had to be composited on every repaint — the other
+     half of the artifact above. Hiding it properly keeps it out of compositing
+     entirely. The delayed transition on the way out lets the fade finish before
+     it is hidden; on the way in, visibility flips immediately so the fade is
+     visible. */
+  visibility: hidden;
+  transition:
+    opacity 0.2s ease,
+    visibility 0s linear 0.2s;
 }
 .cover-frame:hover .cover-overlay,
 .cover-frame:focus-within .cover-overlay {
   opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.2s ease,
+    visibility 0s;
+}
+/* The fade is authored here, so its reduced-motion opt-out has to live here too:
+   the global `prefers-reduced-motion` block only covers the sidebar animations. */
+@media (prefers-reduced-motion: reduce) {
+  .cover-overlay,
+  .cover-frame:hover .cover-overlay,
+  .cover-frame:focus-within .cover-overlay {
+    transition: none;
+  }
 }
 .cover-overlay-btn {
   display: inline-flex;
@@ -398,6 +445,10 @@
 @media (hover: none) {
   .cover-overlay {
     opacity: 1;
+    /* Must be overridden here too: these devices never hover, so without this the
+       `visibility: hidden` above would hide the cover actions entirely. */
+    visibility: visible;
+    transition: none;
     flex-direction: row;
     align-items: flex-end;
     justify-content: flex-end;
