@@ -1144,11 +1144,9 @@ app-sidebar-collections.no-transition {
     box-shadow: none !important;
   }
 
-  /* Reveal format badge cleanly at rest on mobile so users know the book type */
-  .format-badge {
-    opacity: 1 !important;
-    transform: none !important;
-    pointer-events: none !important;
+  /* Hide format badge on mobile cards to keep artwork completely clean and uncluttered */
+  .book-card .format-badge {
+    display: none !important;
   }
 
   /* Don't show inactive hover favorite/finished buttons on mobile cards */
