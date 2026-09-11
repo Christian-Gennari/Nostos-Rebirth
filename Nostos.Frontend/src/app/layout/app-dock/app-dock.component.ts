@@ -124,18 +124,6 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
         color: var(--color-primary);
       }
 
-      .dock-item.active::after {
-        position: absolute;
-        right: 50%;
-        bottom: 3px;
-        width: 4px;
-        height: 4px;
-        border-radius: 50%;
-        background: var(--color-accent);
-        content: '';
-        transform: translateX(50%);
-      }
-
       .label {
         font-size: 0.68rem;
         font-weight: 600;
@@ -163,14 +151,24 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
         .dock-bar {
           width: 100%;
           justify-content: space-around;
-          gap: 2px;
-          padding: 6px 10px max(6px, env(safe-area-inset-bottom));
+          gap: 1px;
+          padding: 3px 10px max(3px, env(safe-area-inset-bottom));
         }
 
         .dock-item {
           min-width: 0;
+          min-height: 44px;
           flex: 1;
-          padding: 8px 4px 9px;
+          gap: 2px;
+          padding: 5px 4px 6px;
+        }
+
+        .dock-item lucide-icon {
+          transform: scale(0.9);
+        }
+
+        .label {
+          font-size: 0.62rem;
         }
 
         .dock-item:hover {
