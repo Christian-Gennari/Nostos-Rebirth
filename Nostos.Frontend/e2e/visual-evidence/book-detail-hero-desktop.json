@@ -1,6 +1,6 @@
 {
   "artifact": "book-detail-hero-desktop.png",
-  "capturedAt": "2026-09-11T15:11:41.538Z",
+  "capturedAt": "2026-09-11T15:37:49.207Z",
   "name": "book-detail-hero-desktop",
   "surface": "book-detail",
   "viewport": {
@@ -48,7 +48,7 @@
     {
       "id": "book-detail-fade",
       "pass": true,
-      "message": "fade is a smooth ease-in-out over 300px: scrim releases monotonically (0.44 -> 0.28 -> 0.15 -> 0.05 -> 0), fade alpha rises to full (0 -> 0.063 -> 0.216 -> 0.5 -> 0.784 -> 0.937 -> 1), slope peaks at segment 2 then only decreases",
+      "message": "fade is a smooth ease-in-out over 300px: scrim releases monotonically (0.44 -> 0.28 -> 0.15 -> 0.05 -> 0), fade alpha rises to full (0 -> 0.055 -> 0.192 -> 0.467 -> 0.765 -> 0.933 -> 1), slope peaks at segment 3 then only decreases",
       "metrics": {
         "fade": [
           {
@@ -56,23 +56,23 @@
             "pos": 0
           },
           {
-            "a": 0.063,
+            "a": 0.055,
             "pos": 15
           },
           {
-            "a": 0.216,
+            "a": 0.192,
             "pos": 30
           },
           {
-            "a": 0.5,
+            "a": 0.467,
             "pos": 50
           },
           {
-            "a": 0.784,
+            "a": 0.765,
             "pos": 70
           },
           {
-            "a": 0.937,
+            "a": 0.933,
             "pos": 85
           },
           {
@@ -103,12 +103,12 @@
           }
         ],
         "slopes": [
-          0.0042,
-          0.010199999999999999,
-          0.0142,
-          0.0142,
-          0.010200000000000002,
-          0.004199999999999996
+          0.0036666666666666666,
+          0.009133333333333334,
+          0.013750000000000002,
+          0.0149,
+          0.011200000000000003,
+          0.004466666666666663
         ],
         "fadeHeight": 300
       }

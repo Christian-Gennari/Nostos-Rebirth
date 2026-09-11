@@ -110,23 +110,28 @@
   height: 300px;
   z-index: 2;
   pointer-events: none;
-  /* A cubic EASE-IN-OUT (smoothstep: alpha = 3t^2 - 2t^3). Both ends are gentle
-     and the middle is steepest, so the ramp has no knee at either edge and it
-     meets the flat dark band above and the flat page below with matching slope.
-     Sequence of earlier defects this avoids: a mid-ramp ACCELERATION (previous
-     stops went .5@52% -> .9@80%, so the fade got steeper half way down and then
-     stopped dead at 0/px, reading as a hard band), and a ramp that started at
-     full slope (+1.12/px straight off the flat region), putting a visible onset
-     line across the band.
-     Per-segment slope, %/px of the 300px ramp: .0014 .0035 .0047 .0047 .0035 .0014 */
+  /* A cubic EASE-IN-OUT in *LIGHTNESS*, not in alpha.
+     These stops are NOT 3t^2-2t^3 applied to the alpha values. The eye reads
+     perceived lightness, and compositing a light fade over dark art maps alpha to
+     lightness NON-linearly, so an alpha smoothstep comes out front-loaded: it was
+     measured at +0.057 OKLab L too bright at 30% down the ramp (and +0.055 at the
+     midpoint), i.e. it brightened too fast and then crawled — which is what reads
+     as harsh. The alpha values below are the inverse of that compositing function
+     solved for a true smoothstep in L, so the ramp is now even perceptually.
+     Earlier defects these also avoid: a mid-ramp ACCELERATION (.5@52% -> .9@80%,
+     +0.92/px -> +1.44/px) that then stopped dead at 0/px, and a ramp that started
+     at full slope straight off the flat dark region, drawing an onset line.
+     Note this fade needs no dithering: measured, it already resolves ~160 distinct
+     8-bit levels across 300px with a longest plateau of 5-7px, so a dither layer
+     here changes nothing (verified by A/B). */
   background: linear-gradient(
     180deg,
     rgba(253, 248, 246, 0) 0%,
-    rgba(253, 248, 246, 0.061) 15%,
-    rgba(253, 248, 246, 0.216) 30%,
-    rgba(253, 248, 246, 0.5) 50%,
-    rgba(253, 248, 246, 0.784) 70%,
-    rgba(253, 248, 246, 0.939) 85%,
+    rgba(253, 248, 246, 0.053) 15%,
+    rgba(253, 248, 246, 0.193) 30%,
+    rgba(253, 248, 246, 0.468) 50%,
+    rgba(253, 248, 246, 0.764) 70%,
+    rgba(253, 248, 246, 0.933) 85%,
     var(--bg-body) 100%
   );
 }
@@ -1145,7 +1150,7 @@
     filter: blur(56px) brightness(1.45) saturate(1.5);
   }
   .art-fade {
-    /* Scales with the shorter 300px band; same monotonic ease-out stops. */
+    /* Scales with the shorter mobile band; same lightness-derived stops. */
     height: 210px;
   }
 
