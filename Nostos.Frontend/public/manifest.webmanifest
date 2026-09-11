@@ -1,0 +1,19 @@
+{
+  "name": "Nostos",
+  "short_name": "Nostos",
+  "description": "Your personal reading and writing space.",
+  "start_url": "/library",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FDF8F6",
+  "theme_color": "#28372D",
+  "icons": [
+    {
+      "src": "logo_idea_pure-black.png",
+      "sizes": "1280x1280",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

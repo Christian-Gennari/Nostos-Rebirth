@@ -1,0 +1,33 @@
+.route-progress {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 200;
+  height: 2px;
+  pointer-events: none;
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-primary), var(--color-accent));
+  transition: opacity 120ms ease;
+}
+
+.route-progress.active {
+  opacity: 1;
+  animation: route-progress 900ms ease-in-out infinite alternate;
+}
+
+@keyframes route-progress {
+  from {
+    transform: scaleX(0.12);
+  }
+  to {
+    transform: scaleX(0.82);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-progress.active {
+    animation: none;
+    transform: scaleX(0.5);
+  }
+}

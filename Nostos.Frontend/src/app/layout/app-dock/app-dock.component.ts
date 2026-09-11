@@ -33,8 +33,9 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
         </a>
 
         <a
-          [href]="getLink('/studio')"
-          [class.active]="isActive('/studio')"
+          [routerLink]="getLink('/studio')"
+          (click)="handleDockClick('/studio', $event)"
+          routerLinkActive="active"
           class="dock-item"
           title="Writing Studio"
         >
@@ -43,8 +44,9 @@ import { NavigationHistoryService } from '../../core/services/navigation-history
         </a>
 
         <a
-          href="/settings"
-          [class.active]="isActive('/settings')"
+          routerLink="/settings"
+          (click)="handleDockClick('/settings', $event)"
+          routerLinkActive="active"
           class="dock-item"
           title="Settings"
         >
