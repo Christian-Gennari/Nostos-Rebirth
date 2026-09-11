@@ -6,14 +6,15 @@
 .detail-cover-ambient {
   position: absolute;
   left: 0;
-  width: min(760px, 68vw);
-  height: 560px;
+  width: 100%;
+  height: 520px;
   object-fit: cover;
-  object-position: 12% 22%;
-  filter: blur(30px) saturate(0.72);
-  opacity: 0.15;
-  mask-image: linear-gradient(135deg, #000 0 38%, transparent 82%);
-  -webkit-mask-image: linear-gradient(135deg, #000 0 38%, transparent 82%);
+  object-position: 18% 18%;
+  filter: blur(24px) saturate(0.72);
+  opacity: 0.18;
+  clip-path: ellipse(76% 72% at 18% 10%);
+  -webkit-clip-path: ellipse(76% 72% at 18% 10%);
+  pointer-events: none;
 }
 
 .container.md {
@@ -859,11 +860,10 @@
   .detail-cover-ambient {
     width: 100%;
     height: 430px;
-    opacity: 0.09;
-    filter: blur(26px) saturate(0.68);
-    object-position: center 8%;
-    mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.6) 48%, transparent 88%);
-    -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.6) 48%, transparent 88%);
+    filter: blur(22px) saturate(0.68);
+    opacity: 0.1;
+    clip-path: ellipse(88% 62% at 50% 4%);
+    -webkit-clip-path: ellipse(88% 62% at 50% 4%);
   }
 
   .detail-grid {
