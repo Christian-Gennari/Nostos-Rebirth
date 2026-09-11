@@ -324,21 +324,38 @@
 /* --- FOLDING VERTICAL GROUPS -----------------------------------------
    Section labels and the collection tree fold to zero height with animated
    grid tracks, so the rail never grows a hole and the footer group (pinned to
-   the bottom) never jumps. */
+   the bottom) never jumps.
+
+   `minmax(0, 1fr)` rather than a bare `1fr`: a bare flex track carries an
+   `auto` minimum, which is clamped to the child's content size, so `0fr` never
+   actually reached zero - the two section labels settled at 15.98px (their line
+   box) and left dead space in the collapsed rail (measured: 39.9px between
+   "Unsorted" and "Audiobooks" where the group gap is 20px, and 76.9px before
+   the "New Collection" row).
+
+   The min must be declared on BOTH states, not just the collapsed one:
+   `1fr` -> `minmax(0, 0fr)` is a discrete transition and the fold SNAPS
+   (measured: 2 distinct heights, on both the computed track and the rendered
+   box). Keeping both as `minmax(0, <flex>)` makes them interpolation-compatible
+   and the fold stays smooth (measured: 10 computed / 14 rendered distinct
+   heights). The pre-fix `0fr` fold DID interpolate - it just stopped at ~16px.
+
+   Declaring `min-height: 0` on the child instead does nothing - the clamp is on
+   the track, not the item. */
 .collapsible {
   display: grid;
-  grid-template-rows: 1fr;
+  grid-template-rows: minmax(0, 1fr);
   transition: grid-template-rows var(--rail-motion);
 }
 
 .collapsible > * {
-  /* overflow: hidden also zeroes the item's automatic minimum size, which is
-     what lets the grid track actually close. */
+  /* overflow: hidden is what visually clips the folded child as the track
+     closes; it is not what allows the track to close. */
   overflow: hidden;
 }
 
 .sidebar.collapsed .collapsible {
-  grid-template-rows: 0fr;
+  grid-template-rows: minmax(0, 0fr);
 }
 
 .sidebar.collapsed .collapsible > * {

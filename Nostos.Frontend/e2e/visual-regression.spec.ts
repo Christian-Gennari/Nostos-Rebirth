@@ -41,6 +41,7 @@ import {
   checkLibraryFilterContract,
   checkLibraryToolbarStability,
   checkLibraryNoProgressCombobox,
+  checkLibrarySidebarRail,
   checkPdfFinalPageClearance,
   checkZenChromeHidden,
   checkZenFillsViewport,
@@ -265,6 +266,7 @@ test.describe('visual matrix — Library (fixture-served)', () => {
       checks.push(await checkLibraryNoProgressCombobox(page));
       checks.push(await checkLibraryFilterContract(await libraryFilterLabels(page)));
       checks.push(await checkLibraryToolbarStability(page));
+      checks.push(await checkLibrarySidebarRail(page));
       await expectChecks('library-filters-desktop', checks, meta('library-filters-desktop', 'library', DESKTOP_VIEWPORT, 'filters'));
     } finally {
       await context.close();

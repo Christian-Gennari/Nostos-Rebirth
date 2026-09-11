@@ -1,6 +1,6 @@
 {
   "artifact": "library-filters-desktop.png",
-  "capturedAt": "2026-09-11T15:16:10.564Z",
+  "capturedAt": "2026-09-11T15:53:04.355Z",
   "name": "library-filters-desktop",
   "surface": "library",
   "viewport": {
@@ -55,11 +55,27 @@
         "toolbarCenterX": 866,
         "dCenterX": 0
       }
+    },
+    {
+      "id": "library-sidebar-rail",
+      "pass": true,
+      "message": "rail 300 -> 72px: section labels fade out before the rail closes; settled label track 0px (closes fully); 13 distinct fold heights (continuous); search icon gap to text 11px (clear)",
+      "metrics": {
+        "expandedWidth": 300,
+        "collapsedWidth": 72,
+        "halfTravel": 186,
+        "settledTrackHeight": 0,
+        "distinctTrackHeights": 13,
+        "fadedWhileRailWide": true,
+        "iconGap": 11,
+        "reducedMotion": false,
+        "samples": 44
+      }
     }
   ],
   "summary": {
-    "total": 3,
-    "passed": 3,
+    "total": 4,
+    "passed": 4,
     "skipped": 0,
     "failed": 0
   }

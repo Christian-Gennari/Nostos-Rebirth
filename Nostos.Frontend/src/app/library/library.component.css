@@ -249,7 +249,9 @@ app-sidebar-collections.no-transition {
   box-shadow: 0 0 0 3px rgba(138, 109, 88, 0.18);
 }
 
-.search-input:focus + .search-icon,
+/* Focus turns the icon dark. Only the `:has()` form is used: the icon is the
+   input's PREVIOUS sibling in the template, so an `.search-input:focus +
+   .search-icon` half could never match anything. */
 .search-bar-container:has(.search-input:focus) .search-icon {
   color: var(--color-text-main);
 }

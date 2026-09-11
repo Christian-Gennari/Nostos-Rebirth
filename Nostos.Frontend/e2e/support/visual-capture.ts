@@ -528,6 +528,152 @@ export async function checkLibraryToolbarStability(page: Page): Promise<Geometry
     : failCheck('library-toolbar-stability', message, metrics);
 }
 
+// ---------------------------------------------------------------------------
+// Library — collections rail motion (fade, fold depth, fold continuity)
+// ---------------------------------------------------------------------------
+
+/**
+ * Guards the rail's collapse motion plus the search field's icon inset - all
+ * computed-CSS facts the unit tier cannot observe (it sees DOM and signals, not
+ * transition timing or used grid tracks). Each assertion pins a specific
+ * failure mode; the first, second and fourth were verified to FAIL against the
+ * pre-fix values, and the third against a half-applied fix:
+ *
+ *  1. The section labels must FADE with the rest of the rail text. Left out of
+ *     the opacity rules, they sat at opacity 1 for the whole 320ms fold and then
+ *     vanished on the delayed `visibility: hidden` - a legible sliver right up
+ *     to the last frame. Asserted as: at least one sample where the labels are
+ *     already <= 0.1 opacity while the rail is still past half its travel.
+ *  2. The fold must reach ZERO. A bare `1fr` track carries an `auto` minimum
+ *     clamped to the child's content, so `0fr` settled at the label's line box
+ *     (~16px) and left dead space in the rail. Asserted as: the settled track
+ *     height is <= 0.5px.
+ *  3. The fold must stay CONTINUOUS. This guards the FIX rather than the original
+ *     bug: the pre-fix fold did interpolate, it simply stopped at ~16px. But
+ *     declaring the min on only the collapsed state (`1fr` -> `minmax(0, 0fr)`)
+ *     IS discrete and snaps (measured: 2 distinct heights) - the plausible way
+ *     to half-apply the fold fix. Asserted as: more than three distinct heights.
+ *  4. The search icon must clear the placeholder text: the glyph's box has to
+ *     end before the text begins.
+ */
+export async function checkLibrarySidebarRail(page: Page): Promise<GeometryCheck> {
+  const ID = 'library-sidebar-rail';
+  await page.locator('.sidebar').first().waitFor({ timeout: 30_000 });
+
+  // Mobile renders this same element as an off-canvas drawer: no rail width
+  // motion and no fold, so the rail assertions do not apply.
+  const drawer = await page.evaluate(() => window.innerWidth < 768);
+  const railWidth = await page.evaluate(
+    () => document.querySelector('app-sidebar-collections')?.getBoundingClientRect().width ?? 0,
+  );
+  if (drawer || railWidth === 0) {
+    return {
+      id: ID,
+      pass: false,
+      skipped: true,
+      message: 'SKIPPED: mobile drawer — no rail width motion or fold to assert.',
+    };
+  }
+
+  const reduced = await page.evaluate(() =>
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  );
+
+  // Start expanded so the collapse we measure is a real transition.
+  const startsCollapsed = await page.evaluate(() =>
+    document.querySelector('.sidebar')!.classList.contains('collapsed'),
+  );
+  if (startsCollapsed) {
+    await page.locator('.toggle-btn').click();
+    await page.waitForTimeout(600);
+  }
+  const expandedWidth = await page.evaluate(
+    () => document.querySelector('app-sidebar-collections')!.getBoundingClientRect().width,
+  );
+
+  const samples = await page.evaluate(async () => {
+    type Sample = { railW: number; labelOpacity: number; trackH: number };
+    const out: Sample[] = [];
+    const railEl = document.querySelector('app-sidebar-collections')!;
+    const trackEl = document.querySelector('.collapsible')!;
+    const labels = Array.from(document.querySelectorAll('.section-label'));
+    const read = (): void => {
+      out.push({
+        railW: railEl.getBoundingClientRect().width,
+        labelOpacity: labels.length
+          ? Math.max(...labels.map((l) => parseFloat(getComputedStyle(l).opacity)))
+          : 0,
+        trackH: trackEl.getBoundingClientRect().height,
+      });
+    };
+    document.querySelector<HTMLButtonElement>('.toggle-btn')!.click();
+    await new Promise<void>((resolve) => {
+      const t0 = performance.now();
+      const iv = window.setInterval(() => {
+        read();
+        if (performance.now() - t0 > 700) {
+          window.clearInterval(iv);
+          resolve();
+        }
+      }, 16);
+    });
+    return out;
+  });
+
+  const last = samples[samples.length - 1];
+  const halfTravel = last.railW + (expandedWidth - last.railW) / 2;
+  const fadedWhileWide = samples.some((s) => s.labelOpacity <= 0.1 && s.railW > halfTravel);
+  const settledTrack = Math.round(last.trackH * 10) / 10;
+  const distinctTracks = new Set(samples.map((s) => Math.round(s.trackH))).size;
+
+  // Measured in-page rather than with locator.boundingBox(): lucide copies the
+  // `search-icon` class onto BOTH its host element and the inner <svg>, so a
+  // plain `.search-icon` locator is a strict-mode violation (two matches), and
+  // boundingBox() also waits on actionability. Reading the rendered geometry
+  // directly is unambiguous and never waits.
+  const icon = await page.evaluate(() => {
+    const el = document.querySelector('.search-icon');
+    const input = document.querySelector('.search-input');
+    if (!el || !input) return null;
+    const cs = getComputedStyle(input);
+    const ir = el.getBoundingClientRect();
+    const nr = input.getBoundingClientRect();
+    return {
+      iconRight: ir.right,
+      textStart: nr.left + parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft),
+    };
+  });
+  if (!icon) {
+    return failCheck(ID, 'could not measure .search-icon / .search-input');
+  }
+  const iconGap = r1(icon.textStart - icon.iconRight);
+
+  const foldOk = settledTrack <= 0.5;
+  const fadeOk = fadedWhileWide;
+  const continuityOk = reduced || distinctTracks > 3;
+  const iconOk = iconGap > 2;
+  const ok = foldOk && fadeOk && continuityOk && iconOk;
+
+  const metrics = {
+    expandedWidth: r1(expandedWidth),
+    collapsedWidth: r1(last.railW),
+    halfTravel: r1(halfTravel),
+    settledTrackHeight: settledTrack,
+    distinctTrackHeights: distinctTracks,
+    fadedWhileRailWide: fadedWhileWide,
+    iconGap,
+    reducedMotion: reduced,
+    samples: samples.length,
+  };
+  const message =
+    `rail ${r1(expandedWidth)} -> ${r1(last.railW)}px: section labels ` +
+    `${fadeOk ? 'fade out before the rail closes' : 'STAY VISIBLE until the fold ends'}; ` +
+    `settled label track ${settledTrack}px (${foldOk ? 'closes fully' : 'LEAVES DEAD SPACE'}); ` +
+    `${distinctTracks} distinct fold heights (${continuityOk ? 'continuous' : 'SNAPS'}); ` +
+    `search icon gap to text ${iconGap}px (${iconOk ? 'clear' : 'OVERLAPS'})`;
+  return ok ? passCheck(ID, message, metrics) : failCheck(ID, message, metrics);
+}
+
 function r1(value: number): number {
   return Math.round(value * 10) / 10;
 }
