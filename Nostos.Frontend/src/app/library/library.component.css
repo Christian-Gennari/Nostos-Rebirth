@@ -846,7 +846,12 @@ app-sidebar-collections.no-transition {
 
   /* Adjust order so Search comes after Title but before Controls */
   .toolbar h1 {
-    display: none;
+    display: block;
+    order: 0;
+    font-size: 1.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .active-filters {
