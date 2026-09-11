@@ -309,8 +309,9 @@ describe('BookDetail reset progress', () => {
     await setup(readableBook({ coverUrl: '/api/books/b1/cover' }));
 
     const imgs = heroArtImages();
-    // Two layers (defocused base + halation bloom) share the same source.
-    expect(imgs.length).toBe(2);
+    // Three layers (defocused base + progressive defocus + halation bloom) share
+    // the same source.
+    expect(imgs.length).toBe(3);
     for (const img of imgs) {
       // A style-binding'd url() is stripped by the framework and renders an empty
       // rectangle; a real src is the only reliable carrier.
@@ -345,9 +346,33 @@ describe('BookDetail reset progress', () => {
     expect(hero()!.querySelector('.book-title')?.textContent).toContain('Meditations');
   });
 
+  it('anamorphic kernels: every hero blur takes TWO deviations, wider than tall', async () => {
+    await setup(readableBook({ coverUrl: '/api/books/b1/cover' }));
+
+    // The whole point of the SVG filters: CSS `blur()` is isotropic, so anamorphic
+    // character is only possible via `feGaussianBlur`, whose `stdDeviation` takes
+    // an X and a Y radius. If a future edit reduces these to a single value the
+    // blur silently goes back to circular, which is exactly the regression this
+    // guards.
+    const kernels = fixture.nativeElement.querySelectorAll(
+      '.hero-filters feGaussianBlur',
+    ) as NodeListOf<Element>;
+    expect(kernels.length).toBeGreaterThan(0);
+
+    for (const k of Array.from(kernels)) {
+      const raw = k.getAttribute('stdDeviation');
+      expect(raw, 'kernel is missing stdDeviation').toBeTruthy();
+      const parts = raw!.trim().split(/\s+/).map(Number);
+      expect(parts.length, `stdDeviation "${raw}" is not two values`).toBe(2);
+      expect(parts.every((n) => Number.isFinite(n) && n > 0)).toBe(true);
+      // X must exceed Y, or the elongation runs the wrong way (vertical).
+      expect(parts[0], `stdDeviation "${raw}" is not wider than tall`).toBeGreaterThan(parts[1]);
+    }
+  });
+
   it('drops the hero art when its image fails to load', async () => {
     await setup(readableBook({ coverUrl: '/api/books/b1/cover' }));
-    expect(heroArtImages().length).toBe(2);
+    expect(heroArtImages().length).toBe(3);
 
     heroArtImages()[0].dispatchEvent(new Event('error'));
     fixture.detectChanges();

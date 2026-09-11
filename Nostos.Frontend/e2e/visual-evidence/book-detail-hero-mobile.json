@@ -1,6 +1,6 @@
 {
   "artifact": "book-detail-hero-mobile.png",
-  "capturedAt": "2026-09-11T16:05:05.218Z",
+  "capturedAt": "2026-09-11T16:20:10.763Z",
   "name": "book-detail-hero-mobile",
   "surface": "book-detail",
   "viewport": {
@@ -12,7 +12,7 @@
     {
       "id": "book-detail-hero",
       "pass": true,
-      "message": "band 390x300px (full-bleed), hero-height, art 2/2 layers loaded src=/api/books/f9c17fb2-e42d-4db5-a3d0-b0a45b73f12e/cover/thumbnail?width=640, copy->cover clearance 24px [copy ends 180, cover starts 204], title owns its pixel yes, h-overflow none",
+      "message": "band 390x300px (full-bleed), hero-height, art 3/3 layers loaded src=/api/books/f9c17fb2-e42d-4db5-a3d0-b0a45b73f12e/cover/thumbnail?width=640, copy->cover clearance 24px [copy ends 180, cover starts 204], title owns its pixel yes, h-overflow none",
       "metrics": {
         "hero": {
           "x": 0,
@@ -29,12 +29,14 @@
         "scrollerScrollWidth": 390,
         "copyContentBottom": 180,
         "coverTop": 204,
-        "artCount": 2,
+        "artCount": 3,
         "artLoaded": [
+          "thumbnail?width=640",
           "thumbnail?width=640",
           "thumbnail?width=640"
         ],
         "artSrcs": [
+          "/api/books/f9c17fb2-e42d-4db5-a3d0-b0a45b73f12e/cover/thumbnail?width=640",
           "/api/books/f9c17fb2-e42d-4db5-a3d0-b0a45b73f12e/cover/thumbnail?width=640",
           "/api/books/f9c17fb2-e42d-4db5-a3d0-b0a45b73f12e/cover/thumbnail?width=640"
         ],

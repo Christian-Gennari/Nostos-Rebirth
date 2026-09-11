@@ -764,7 +764,8 @@ export async function checkBookDetailHero(page: Page): Promise<GeometryCheck> {
 
   const fullBleed = m.hero != null && m.scrollerWidth != null && Math.abs(m.hero.width - m.scrollerWidth) <= 2;
   const isHero = (m.heroHeight ?? 0) >= 260;
-  const artRenders = m.artCount === 2 && m.artLoaded.length === 2 && m.noArt === false;
+  // Three art layers now: defocused base, progressive defocus, halation bloom.
+  const artRenders = m.artCount === 3 && m.artLoaded.length === 3 && m.noArt === false;
   // Positive gap => the copy ends above the cover's top edge.
   const clearance =
     m.copyContentBottom != null && m.coverTop != null ? m.coverTop - m.copyContentBottom : null;
