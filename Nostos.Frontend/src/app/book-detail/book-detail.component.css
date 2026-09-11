@@ -43,7 +43,6 @@
 /* Explicit sizes: an absolutely positioned REPLACED element with width:auto
    takes its INTRINSIC width and ignores `right`, so `inset` would not stretch it. */
 .art-base,
-.art-prog,
 .art-bloom {
   position: absolute;
   top: -12%;
@@ -53,49 +52,30 @@
   object-fit: cover;
   object-position: 50% 30%;
 }
-/* Zero-size host for the anamorphic `feGaussianBlur` kernels declared in the
-   template. It must exist in the document for `filter: url(#…)` to resolve. */
-.hero-filters {
-  position: absolute;
-  width: 0;
-  height: 0;
-  pointer-events: none;
-}
+/* NO `saturate()` on the art layers — deliberate, do not re-add.
+   The stack used to carry saturate(1.18) here, saturate(1.12) on `.art-prog` and
+   saturate(1.55) on the screen-blended bloom. Those compound, and the hero rendered
+   at 138% of the cover's own OKLab chroma, so a muted cover (Devils — ochres and
+   browns) came out visibly hotter than the artwork. A hero background should
+   reproduce the book's colours, not reinterpret them. `brightness` is fine on
+   halation, since light bleeding brightens without pushing chroma. */
 .art-base {
-  /* `url()` rather than `blur()`: CSS blur is isotropic and cannot make the
-     elongated bokeh that reads as anamorphic. See the template's filters.
-     NO `saturate()`/`contrast()` here. This layer used to carry
-     `saturate(1.18) contrast(1.03)`, and together with the bloom's
-     `saturate(1.55)` the hero rendered at 138% of the cover's own OKLab chroma —
-     a muted cover like Devils came out noticeably hotter than the artwork.
-     A hero should reproduce the book's colours, not reinterpret them. */
-  filter: url(#heroAnisoBase);
+  filter: blur(18px) contrast(1.03);
 }
-/* Progressive defocus: blur grows with depth away from the title.
-   This was an empty div with `backdrop-filter: blur(26px)`. That was isotropic, so
-   it re-blurred the anamorphic layer beneath it and flattened the elongation back
-   toward round — measured, it was the reason the anamorphic character barely
-   showed in the full stack. It also re-sampled the entire backdrop on every
-   repaint. It is now an anisotropic blurred copy of the cover under a depth ramp,
-   using the same framing as the base layer, which restores the elongation and
-   removes a backdrop-filter from the page. */
 .art-prog {
-  /* Saturation boost removed for the same reason as `.art-base`. */
-  filter: url(#heroAnisoProg);
-  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.3) 40%, rgba(0, 0, 0, 0.85) 78%, #000 100%);
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.3) 40%, rgba(0, 0, 0, 0.85) 78%, #000 100%);
+  position: absolute;
+  inset: 0;
+  -webkit-backdrop-filter: blur(26px);
+  backdrop-filter: blur(26px);
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.45) 42%, #000 100%);
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.45) 42%, #000 100%);
 }
 .art-bloom {
   top: -22%;
   left: -22%;
   width: 144%;
   height: 144%;
-  /* Halation, but elongated: the anamorphic signature is most visible in how the
-     bright cores stretch sideways.
-     `saturate(1.55)` removed — halation is light BLEEDING, and brightening a copy
-     of the art while also boosting its chroma is what pushed the hero past the
-     cover's own colours. `brightness` alone still blooms the highlights. */
-  filter: url(#heroAnisoBloom) brightness(1.5);
+  filter: blur(72px) brightness(1.5);
   mix-blend-mode: screen;
   opacity: 0.34;
 }
@@ -1210,14 +1190,14 @@
     font-size: 1.15rem;
   }
   .art-base {
-    /* Same anisotropy at ~78% of the desktop radii, via the `*Md` kernels. */
-    filter: url(#heroAnisoBaseMd);
+    filter: blur(14px) contrast(1.03);
   }
   .art-prog {
-    filter: url(#heroAnisoProgMd);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
   }
   .art-bloom {
-    filter: url(#heroAnisoBloomMd) brightness(1.45);
+    filter: blur(56px) brightness(1.45);
   }
   .art-fade {
     /* Scales with the shorter mobile band; same lightness-derived stops. */

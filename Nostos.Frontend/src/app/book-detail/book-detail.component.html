@@ -37,43 +37,10 @@
          defocused base -> progressive defocus -> halation -> grain -> vignette
          -> legibility scrim -> fade into the page.                          -->
     <section class="book-hero" [class.no-art]="!heroArtUrl() || heroArtFailed()">
-      <!-- Anamorphic blur kernels. CSS `blur()` is isotropic, so it can never
-           produce the horizontally-elongated bokeh a real anamorphic lens makes.
-           `feGaussianBlur` takes TWO deviations (X then Y), so X > Y gives a
-           genuinely elliptical blur kernel. Measured on the art region, this moved
-           the horizontal/vertical gradient ratio from 0.453 (isotropic) to 0.323 —
-           a 29% increase in elongation — and reviewed as "convincingly anamorphic"
-           without tipping into motion blur. A stronger 34x8/70x15/126x26 set was
-           tried and rejected: it read as a horizontal smear, not defocus.
-           Two sets are defined because `feGaussianBlur` takes its radii as
-           attributes, not CSS variables, so the mobile breakpoint cannot retune
-           them in place — it swaps to the `*Md` filter IDs instead. -->
-      <svg class="hero-filters" aria-hidden="true" focusable="false">
-        <defs>
-          <filter id="heroAnisoBase" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="26 9" />
-          </filter>
-          <filter id="heroAnisoProg" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="54 14" />
-          </filter>
-          <filter id="heroAnisoBloom" x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur stdDeviation="96 30" />
-          </filter>
-          <filter id="heroAnisoBaseMd" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="20 7" />
-          </filter>
-          <filter id="heroAnisoProgMd" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="42 11" />
-          </filter>
-          <filter id="heroAnisoBloomMd" x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur stdDeviation="75 23" />
-          </filter>
-        </defs>
-      </svg>
       @if (heroArtUrl() && !heroArtFailed()) {
       <div class="hero-art" aria-hidden="true">
         <img class="art-base" [src]="heroArtUrl()" alt="" (error)="onHeroArtError()" />
-        <img class="art-prog" [src]="heroArtUrl()" alt="" />
+        <div class="art-prog"></div>
         <img class="art-bloom" [src]="heroArtUrl()" alt="" />
         <div class="art-grain"></div>
         <div class="art-vig"></div>
