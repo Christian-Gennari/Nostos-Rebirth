@@ -117,35 +117,6 @@ function buildBackend() {
   );
   if (r.status !== 0) throw new Error(`dotnet build failed (exit ${r.status})`);
   if (!existsSync(DLL)) throw new Error(`Backend DLL not found: ${DLL}`);
-
-  // Fresh-DB bootstrap helper (schema from the EF model + migration history
-  // marked applied; the backend's startup Migrate() no-ops on it).
-  const bootstrapProj = path.join(E2E_DIR, 'support', 'db-bootstrap', 'DbBootstrap.csproj');
-  const r2 = spawnSync(
-    'dotnet',
-    ['build', bootstrapProj, '-c', 'Debug', '--nologo', '-v', 'q'],
-    { stdio: 'inherit', timeout: 600_000 }
-  );
-  if (r2.status !== 0) throw new Error(`db-bootstrap build failed (exit ${r2.status})`);
-}
-
-const BOOTSTRAP_DLL = path.join(
-  E2E_DIR,
-  'support',
-  'db-bootstrap',
-  'bin',
-  'Debug',
-  'net10.0',
-  'Nostos.E2eDbBootstrap.dll'
-);
-
-function bootstrapDb(tempDir) {
-  log('bootstrapping fresh temp DB (EnsureCreated + migration history)...');
-  const r = spawnSync('dotnet', [BOOTSTRAP_DLL, path.join(tempDir, 'nostos.db')], {
-    stdio: 'inherit',
-    timeout: 300_000,
-  });
-  if (r.status !== 0) throw new Error(`db-bootstrap failed (exit ${r.status})`);
 }
 
 function buildFrontend() {
@@ -207,7 +178,6 @@ export async function launch() {
     // exist) so the launch bound measures the lifecycle, not compile time.
     for (const [label, p] of [
       ['backend DLL', DLL],
-      ['db-bootstrap DLL', BOOTSTRAP_DLL],
       ['Angular dist index', path.join(DIST_BROWSER, 'index.html')],
     ]) {
       if (!existsSync(p)) {
@@ -223,7 +193,9 @@ export async function launch() {
   const tempDir = mkdtempSync(path.join(tmpdir(), 'nostos-e2e-'));
   const wwwroot = path.join(tempDir, 'wwwroot');
   cpSync(DIST_BROWSER, wwwroot, { recursive: true });
-  bootstrapDb(tempDir);
+  // The backend creates and bootstraps its own empty DB at
+  // <contentRoot>/nostos.db on startup (DatabaseBootstrapService), so the
+  // fixture needs no separate bootstrap step here.
 
   const port = await freePort();
   const state = {
