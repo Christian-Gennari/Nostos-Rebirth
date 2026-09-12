@@ -182,15 +182,24 @@
      at full slope straight off the flat dark region, drawing an onset line.
      Note this fade needs no dithering: measured, it already resolves ~160 distinct
      8-bit levels across 300px with a longest plateau of 5-7px, so a dither layer
-     here changes nothing (verified by A/B). */
+     here changes nothing (verified by A/B).
+
+     THE COLOUR IS `--bg-body`, NOT A LITERAL. These stops used to be hard-coded
+     `rgba(253, 248, 246, ...)` — the light paper. On the light theme that is
+     exactly `--bg-body`, so this is a pure re-expression there. On the dark theme
+     the literal painted a cream haze over dark art and then dropped to the near
+     black page, measured at an 84x luminance cliff (0.84 -> 0.009 over ~55px),
+     which reads as a glowing horizon line. Mixing the page colour into alpha
+     keeps the tuned ramp byte-identical in light and lands the ramp on the page
+     colour in dark. */
   background: linear-gradient(
     180deg,
-    rgba(253, 248, 246, 0) 0%,
-    rgba(253, 248, 246, 0.053) 15%,
-    rgba(253, 248, 246, 0.193) 30%,
-    rgba(253, 248, 246, 0.468) 50%,
-    rgba(253, 248, 246, 0.764) 70%,
-    rgba(253, 248, 246, 0.933) 85%,
+    color-mix(in srgb, var(--bg-body) 0%, transparent) 0%,
+    color-mix(in srgb, var(--bg-body) 5.3%, transparent) 15%,
+    color-mix(in srgb, var(--bg-body) 19.3%, transparent) 30%,
+    color-mix(in srgb, var(--bg-body) 46.8%, transparent) 50%,
+    color-mix(in srgb, var(--bg-body) 76.4%, transparent) 70%,
+    color-mix(in srgb, var(--bg-body) 93.3%, transparent) 85%,
     var(--bg-body) 100%
   );
 }
