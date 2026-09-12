@@ -7,28 +7,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#28372D" />
     <link rel="manifest" href="manifest.webmanifest" />
-    <!-- Nostos brand kit v1 favicons: theme-aware SVG pair (forest tile on light
-         browser chrome, paper tile on dark chrome) with the .ico as the
-         fallback for browsers without SVG favicons, so the tab icon stays
-         legible on either chrome. The kit itself ships no theme-aware pair, so
-         both files are generated from its geometry.
+    <!-- Nostos brand kit v1 favicon: ONE mark, the kit's primary variant
+         (forest tile + paper arch) on every colour scheme. There is no
+         theme-aware pair any more — the app's own brand mark is theme-invariant
+         too (see --brand-shape in styles.css), so the tab icon matches it in
+         both light and dark chrome.
+
+         The .ico carries the same forest-tile artwork and is the fallback for
+         browsers without SVG icons.
 
          `sizes` on the .ico link is LOAD-BEARING, not decoration: Chromium
-         otherwise always prefers the .ico over the SVG and the media-swapped
-         dark icon is never fetched (so dark chrome got the forest-tile .ico —
-         the inverse of the in-app dark mark). Do not remove it. -->
-    <link
-      rel="icon"
-      type="image/svg+xml"
-      href="favicon-light.svg"
-      media="(prefers-color-scheme: light)"
-    />
-    <link
-      rel="icon"
-      type="image/svg+xml"
-      href="favicon-dark.svg"
-      media="(prefers-color-scheme: dark)"
-    />
+         otherwise always prefers the .ico over the SVG. Verified against a
+         headed Chromium — with `sizes` the SVG wins, without it the .ico does.
+         Do not remove it. -->
+    <link rel="icon" type="image/svg+xml" href="favicon-light.svg" />
     <link rel="alternate icon" type="image/x-icon" href="favicon.ico" sizes="32x32" />
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
   </head>

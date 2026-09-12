@@ -45,8 +45,7 @@ repo were generated from the SVG geometry.
 
 | Repo path | Derived from | How |
 | --- | --- | --- |
-| `public/favicon-light.svg` | `01_Primary_Mark/nostos-mark-primary.svg` | forest tile + paper arch, transparent |
-| `public/favicon-dark.svg` | `02_Color_Variants/nostos-mark-reversed.svg` | paper tile + forest arch, transparent |
+| `public/favicon-light.svg` | `01_Primary_Mark/nostos-mark-primary.svg` | forest tile + paper arch, transparent. **The only favicon SVG** — the mark is theme-invariant, so there is no dark counterpart. |
 | `public/favicon.ico` | `03_Favicon/favicon.ico` | kit file verbatim (16/32/48 frames, paper-plated, arch verified present) |
 | `public/apple-touch-icon.png` | primary geometry | **full-bleed** forest canvas + arch (iOS masks it) |
 | `public/pwa-192.png` | `01_Primary_Mark/nostos-mark-primary.svg` | literal kit rendering, transparent |

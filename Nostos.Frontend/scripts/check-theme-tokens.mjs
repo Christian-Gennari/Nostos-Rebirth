@@ -25,8 +25,13 @@ const css = readFileSync(file, 'utf8');
  * Non-colour token families. These are theme-INVARIANT by design (geometry,
  * motion, type scale, spacing) so they are expected to be absent from the dark
  * block and must not be reported.
+ *
+ * `--brand-*` is here because the brand mark is deliberately ONE variant in both
+ * themes (forest tile / paper arch). It is a colour, but not a *themed* colour:
+ * the mark does not re-ink with the theme, so demanding a dark counterpart would
+ * push a needless override back into the dark block.
  */
-const INVARIANT = /^--(radius|motion|ease|text-(xs|sm|base|lg|xl|2xl)|space|container-width|fw|transition|glass-blur|modal-scrim-blur|sidebar-width)/;
+const INVARIANT = /^--(radius|motion|ease|text-(xs|sm|base|lg|xl|2xl)|space|container-width|fw|transition|glass-blur|modal-scrim-blur|sidebar-width|brand-)/;
 
 /**
  * Tokens whose value is a `color-mix()` of another token. They re-derive

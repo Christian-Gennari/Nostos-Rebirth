@@ -35,8 +35,16 @@
 
   /* ── Brand mark (kit v1) ──
      The mark is a solid rounded TILE with the arch knocked out of it, so these
-     two tokens are: shape = the tile fill, doorway = the arch fill. Light
-     reproduces the kit's primary variant exactly (forest tile / paper arch). */
+     two tokens are: shape = the tile fill, doorway = the arch fill.
+
+     DELIBERATELY THEME-INVARIANT — this is the kit's primary variant (forest
+     tile / paper arch) in both themes. The reversed variant is gone: a single
+     mark is simpler than swapping artwork per theme, and the tile still reads
+     on the dark rail (1.6:1 for the tile edge, but the paper arch inside it is
+     10.9:1, and the tile itself is a solid 40px block, not a hairline). The
+     dark block therefore does NOT override these; `check-theme-tokens.mjs`
+     lists the family as INVARIANT so the missing-counterpart guard stays
+     meaningful for every genuinely themed colour. */
   --brand-shape: #293E32;
   --brand-doorway: #FDF8F6;
 
@@ -331,14 +339,12 @@
   --color-primary-hover: #375A52;
   --color-primary-dim: #5C7A72;
 
-  /* ── Brand mark (kit v1, reversed variant) ──
-     The tile is the mark, so on the dark rail it must invert: a Paper tile with
-     the arch in Forest. This is the kit's own reversed variant, so the mark is
-     the same artwork as light, flipped — and it stays legible (Paper on the
-     dark sidebar measures 17.5:1, where a forest tile would fall to 1.6:1 and
-     dissolve). ── */
-  --brand-shape: #FDF8F6;
-  --brand-doorway: #293E32;
+  /* ── Brand mark ──
+     Not re-declared here on purpose: the mark is theme-invariant (see the light
+     block). Nothing in the dark theme overrides --brand-shape/--brand-doorway,
+     so both themes render the same forest tile + paper arch. The family is
+     listed as INVARIANT in `check-theme-tokens.mjs` to keep this intentional
+     rather than looking like an omission. ── */
 
   /* ── Accent (smoked warm; the light clay is only 3.74:1 here) ── */
   --color-accent: #D1AC8F;
