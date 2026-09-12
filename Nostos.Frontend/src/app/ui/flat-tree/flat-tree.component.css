@@ -209,7 +209,7 @@
 
 .tree-row[data-drop-zone='inside'] {
   background: var(--color-accent-bg);
-  outline: 1.5px dashed var(--color-primary);
+  outline: 1.5px dashed var(--focus-ring);
   outline-offset: -1.5px;
 }
 

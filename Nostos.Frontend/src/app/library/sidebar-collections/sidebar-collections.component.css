@@ -204,15 +204,16 @@
 }
 
 .nav-item:focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
 
-/* The ring is inset, so on the active tile it would be drawn in the same
-   colour as the tile it sits on and disappear. Use the active tile's own
-   foreground colour instead. */
+/* The ring is inset, so on the active row it cannot use the same colour as the
+   row underneath it. It used to borrow --on-primary (the light pill's
+   foreground); the active row is no longer a filled pill, so it uses the focus
+   token and just sits closer to the edge. */
 .nav-item.active:focus-visible {
-  outline-color: var(--on-primary);
+  outline-color: var(--focus-ring);
   outline-offset: -3px;
 }
 
@@ -221,7 +222,10 @@
 }
 
 .nav-item.active::before {
-  background: var(--color-primary);
+  /* `--primary-fill` (not `--color-primary`): the pill is a SURFACE, so it must
+     follow the fill role. The ink role is a light colour on dark and would make
+     this a washed-out light pill. */
+  background: var(--primary-fill);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
@@ -431,7 +435,7 @@
   background: var(--bg-hover);
 }
 .toggle-btn:focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 

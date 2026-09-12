@@ -77,6 +77,7 @@
   --border-color: #E4E1DB;
   --border-light: #EFECE6;
   --border-focus: #28372D;
+  --focus-ring: #28372D;   /* keyboard focus outline (see the dark block) */
 
   /* ── Scrollbar ── */
   --scrollbar-thumb: #DED9D1;
@@ -306,16 +307,20 @@
   --primary-ink: #ACCDC4;
   --primary-fill: #2D4B44;
   --on-primary: #F0F2F5;
-  --color-primary: #ACCDC4;      /* legacy alias -> ink role */
+  /* Legacy alias. Points at the DIM pine, not the mint ink: ~35 component rules
+     still read this as a foreground, and mint on all of them is what made the
+     theme read as "a lot of mint". Rules that specifically want the accent
+     should use --primary-ink. */
+  --color-primary: #8FA89A;
   --color-primary-hover: #375A52;
   --color-primary-dim: #5C7A72;
 
-  /* ── Brand mark: flip the value order, hold the internal delta.
-     Light is a dark arch on light paper; dark is a light arch on a dark
-     ground, with the doorway staying DARKER than the arch so the two-part
-     structure survives (measured 2.79 vs the light build's 2.91). ── */
-  --brand-shape: #ACCDC4;
-  --brand-doorway: #8A6D58;
+  /* ── Brand mark: porcelain arch + smoked-warm doorway.
+     Chosen explicitly over the mint alternative: the mark is the ONE place in
+     the app where a brand colour is right, and the user asked for porcelain
+     here rather than the accent, so the accent stays reserved for state. ── */
+  --brand-shape: #EDEEF2;
+  --brand-doorway: #D1AC8F;
 
   /* ── Accent (smoked warm; the light clay is only 3.74:1 here) ── */
   --color-accent: #D1AC8F;
@@ -330,8 +335,11 @@
   --color-danger: #FFB4AB;
   --color-danger-vivid: #FF8A7A;
   --color-danger-bg: #3A1A18;
-  --color-success: #ACCDC4;
-  --color-success-dark: #ACCDC4;
+  /* Distinct from the accent on purpose. Reusing one mint for both brand and
+     "success" means the Finished tick reads as a brand mark, and it multiplies
+     the visible mint count. */
+  --color-success: #8FC7A8;
+  --color-success-dark: #8FC7A8;
   --color-highlight: #E0C275;
   --color-highlight-hover: #F0D264;
 
@@ -343,7 +351,10 @@
   /* ── Borders / scrollbar ── */
   --border-color: #262A34;
   --border-light: #1F232B;
-  --border-focus: #ACCDC4;
+  --border-focus: #5C6B80;
+  /* Muted slate. A focus ring is a utility affordance, not a brand moment, and
+     on an accent-coloured control a mint ring vanishes into it. */
+  --focus-ring: #6E7C90;
   --scrollbar-thumb: #2C313B;
   --scrollbar-thumb-hover: #3B4250;
 
@@ -406,21 +417,43 @@
   color: var(--color-text-main);
 }
 
-/* Control-focus ring must be visible on dark; the surface-token foregrounds
-   below would otherwise resolve dark-on-dark (the original 1.24:1 bug). */
-:root[data-theme='dark'] .nav-item.active:focus-visible,
+/* Control-focus ring. NOT the mint ink — a mint focus ring reads as a brand
+   accent and, on an accent-coloured control, disappears into it. Muted slate
+   is what the reference uses for its focus border (#414846), lifted a little
+   here for visibility against the darker surfaces. */
 :root[data-theme='dark'] .nav-item:focus-visible {
-  outline-color: var(--primary-ink);
+  outline-color: var(--focus-ring);
+}
+/* The active row sits on a raised surface, so its inset ring needs to be
+   lighter than the slate that works on the page background. */
+:root[data-theme='dark'] .nav-item.active:focus-visible {
+  outline-color: #A9B6C6;
+}
+
+/* Text that was tinted with the accent in light mode (wordmark, cover titles,
+   section headings) follows the heading rule on dark: porcelain. The accent
+   stays for indicators, icons and focus, never for a run of text. */
+:root[data-theme='dark'] .brand,
+:root[data-theme='dark'] .meta-title {
+  color: var(--color-text-main);
 }
 
 /* Text on a primary fill. `--on-primary` replaces the surface tokens these
-   rules used to borrow, which invert under a dark theme. */
+   rules used to borrow, which invert under a dark theme. The active row keeps a
+   filled pill; it just uses the FILL role so the pill stays dark, which is what
+   stops the accent reading as washed out. */
 :root[data-theme='dark'] .nav-item.active,
 :root[data-theme='dark'] .nav-item.active .count-badge {
   color: var(--on-primary);
 }
 :root[data-theme='dark'] .nav-item.active .count-badge {
   background: rgba(0, 0, 0, 0.28);
+}
+/* Dim pine is too close to the sidebar ground to read as a selected row, so the
+   active pill takes a slightly raised tone instead of the brand fill. */
+:root[data-theme='dark'] .nav-item.active::before {
+  background: #2B323F;
+  box-shadow: none;
 }
 
 /* Selection follows the reference's smoked indigo. */
@@ -437,8 +470,20 @@
   border-color: #454E60;
   box-shadow:
     0 16px 40px rgba(0, 0, 0, 0.62),
-    0 3px 10px rgba(0, 0, 0, 0.45),
-    0 0 0 1px rgba(172, 205, 196, 0.06);
+    0 3px 10px rgba(0, 0, 0, 0.45);
+}
+
+/* Dock active state: porcelain label + the warm accent marker. Previously the
+   label was the mint ink while the marker was clay — two different accents in
+   one control, so neither read as *the* state colour. One accent now, and it
+   matches the sidebar's active treatment. */
+:root[data-theme='dark'] .dock-item.active {
+  color: var(--color-text-main);
+}
+
+/* Dock keyboard focus follows the same utility ring as everything else. */
+:root[data-theme='dark'] .dock-item:focus-visible {
+  outline-color: var(--focus-ring);
 }
 
 /* Cover art: the hairline alone is too weak on dark, so add a shadow. */
