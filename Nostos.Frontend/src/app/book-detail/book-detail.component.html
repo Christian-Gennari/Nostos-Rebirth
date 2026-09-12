@@ -1,22 +1,8 @@
 <main class="layout-wrapper">
-  <div class="layout-content">
-    @if (store.loading()) {
-    <div class="container md">
-      <div class="back-nav">
-        <div class="skeleton-line" style="width: 100px; height: 20px"></div>
-      </div>
-      <div class="detail-grid">
-        <aside class="detail-cover-col">
-          <div class="skeleton-box cover-size"></div>
-        </aside>
-        <section class="detail-info-col">
-          <div class="skeleton-line title"></div>
-          <div class="skeleton-line author"></div>
-          <div class="skeleton-block"></div>
-        </section>
-      </div>
-    </div>
-    } @if (store.error()) {
+  <div class="layout-content" [class.is-waiting]="store.loading()">
+    <div class="wait-field" [class.is-done]="!store.loading()" aria-hidden="true"></div>
+
+    @if (store.error()) {
     <div class="container md">
       <div class="error-state">
         <lucide-icon

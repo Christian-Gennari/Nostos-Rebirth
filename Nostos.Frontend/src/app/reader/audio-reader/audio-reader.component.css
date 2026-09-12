@@ -54,7 +54,7 @@
   align-items: center;
   justify-content: center;
   color: var(--color-text-light);
-  background: var(--bg-skeleton);
+  background: var(--surface-image-ground);
 }
 
 .track-info {
@@ -98,18 +98,10 @@
   color: var(--color-text-light);
 }
 
+/* Same waiting rhythm as the rest of the app. This used to blink at 1.2s between
+   0.4 and 1 — fast and deep enough to read as a flicker rather than a breath. */
 .audio-loading-icon {
-  animation: audio-loading-pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes audio-loading-pulse {
-  0%,
-  100% {
-    opacity: 0.4;
-  }
-  50% {
-    opacity: 1;
-  }
+  animation: wait-breathe var(--motion-wait) ease-in-out infinite;
 }
 
 .audio-load-error {

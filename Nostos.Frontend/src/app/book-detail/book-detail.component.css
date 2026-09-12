@@ -5,7 +5,7 @@
    library.component.css — two entrances into the same app should not disagree.
 
    Every direct child of `.layout-content` carries it, so whichever branch
-   renders — skeleton, error, or the book itself — arrives the same way, and a
+   renders — error, or the book itself — arrives the same way, and a
    cold load does not pop into place before its own content fades in. The hero,
    the stage and the body all mount together with the `@if`, so they fade as one
    page instead of assembling piece by piece. The modal lives outside
@@ -382,7 +382,7 @@
   position: relative;
   width: 100%;
   aspect-ratio: 2/3;
-  background: var(--bg-skeleton);
+  background: var(--surface-image-ground);
   border-radius: 8px;
   box-shadow:
     /* Calibrated so the cover reads as SITTING on the page, not smeared on it.
@@ -1215,46 +1215,14 @@
   text-align: center;
   color: var(--color-text-muted);
 }
-/* Skeleton animation defined globally in styles.css/library.css — reuse @keyframes pulse */
-@keyframes pulse {
-  0%,
-  100% {
-    background-color: var(--bg-skeleton);
-  }
-  50% {
-    background-color: var(--border-color);
-  }
+/* The waiting field is absolutely positioned, so the content column owns both
+   the positioning context and the height reserved while the book is in flight.
+   Nothing fakes the page's structure in the meantime. */
+.layout-content {
+  position: relative;
 }
-.skeleton-block,
-.skeleton-box,
-.skeleton-line {
-  background-color: var(--bg-skeleton);
-  animation: pulse 1.5s ease-in-out infinite;
-  border-radius: 4px;
-}
-.skeleton-box.cover-size {
-  width: 100%;
-  aspect-ratio: 2/3;
-  border-radius: var(--radius-md);
-}
-.skeleton-line {
-  height: 1.5rem;
-  margin-bottom: 0.75rem;
-}
-.skeleton-line.title {
-  height: 2.5rem;
-  width: 60%;
-  margin-bottom: 1rem;
-}
-.skeleton-line.author {
-  height: 1.2rem;
-  width: 30%;
-  margin-bottom: 2rem;
-}
-.skeleton-block {
-  width: 100%;
-  height: 120px;
-  margin-top: 2rem;
+.layout-content.is-waiting {
+  min-height: min(70vh, 720px);
 }
 @media (max-width: 900px) {
   /* Mobile keeps the same hero shape but shorter, with reduced blur radii so the

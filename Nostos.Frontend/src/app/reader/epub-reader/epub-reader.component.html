@@ -2,8 +2,8 @@
   <div id="epub-viewer"></div>
 </div>
 
-@if (loading()) {
-<div class="loading-overlay">
+<!-- Held mounted and released by a class rather than an @if: the page is already
+     rendered underneath, so revealing it is a fade + defocus instead of a blink. -->
+<div class="loading-overlay" [class.is-hidden]="!loading()" [attr.aria-hidden]="!loading()">
   <span>Opening book...</span>
 </div>
-}

@@ -178,6 +178,7 @@
 
 /* --- RIGHT COLUMN: CONTENT --- */
 .content-col {
+  position: relative;
   flex: 1;
   overflow-y: auto;
   padding: 3rem;
@@ -189,6 +190,25 @@
 }
 
 /* HEADER */
+/* The detail pane resolves in instead of cutting over from the waiting field.
+   (Nothing here faked the pane's structure — the markup asked for an
+   stylesheet animation that was never defined, so the pane simply appeared.) */
+.concept-header,
+.cards-grid {
+  animation: pane-in var(--motion-base) var(--ease-out) both;
+}
+
+@keyframes pane-in {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
 .concept-header {
   margin-bottom: 3rem;
   max-width: 800px;

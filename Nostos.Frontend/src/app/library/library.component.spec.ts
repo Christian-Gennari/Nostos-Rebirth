@@ -300,9 +300,9 @@ describe('Library', () => {
     expect(fixture.nativeElement.querySelector('.confirm-modal-card')).toBeNull();
   });
 
-  // --- Filter/sort cross-fade (no ghost skeleton, no layout jitter) --------
+  // --- Filter/sort cross-fade (no waiting placeholder, no layout jitter) --
 
-  it('never returns to the ghost skeleton after the first load', () => {
+  it('never puts the waiting field back up after the first load', () => {
     expect(component.loading()).toBe(false);
 
     const onScreen = { id: 'b1', title: 'On Screen', type: 'ebook' } as never;
@@ -310,10 +310,10 @@ describe('Library', () => {
     component.filters.toggleStatus('reading');
     fixture.detectChanges();
 
-    // The skeleton belongs to the first paint only; a filter change cross-fades.
+    // The waiting field belongs to the first paint only; a filter change
+    // cross-fades the results that are already on screen.
     expect(component.loading()).toBe(false);
-    expect(fixture.nativeElement.querySelector('.skeleton-grid-view')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.skeleton-list-view')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.wait-field:not(.is-done)')).toBeNull();
     expect(component.swapping()).toBe(true);
     expect(fixture.nativeElement.querySelector('.results-stage.is-swapping')).not.toBeNull();
   });
@@ -368,34 +368,37 @@ describe('Library', () => {
     expect(component.swapping()).toBe(false);
   });
 
-  it('fades the skeleton out when the first results arrive (cold load)', () => {
+  it('breathes the waiting field, then dissolves it when the first results arrive (cold load)', () => {
     vi.useFakeTimers();
     try {
       const preferences = TestBed.inject(LibraryPreferencesService);
       const book = { id: 'b1', title: 'First', type: 'ebook' } as never;
       // A genuine cold start: nothing has been shown in this session, so the
-      // skeleton is on screen and the results are still in flight.
+      // waiting field is up and the results are still in flight.
       preferences.hasLoadedBooks.set(false);
       const pending = new Subject<PaginatedResponse<never>>();
       listSpy.mockReturnValueOnce(pending);
 
       component.filters.toggleStatus('reading');
       TestBed.flushEffects();
-      expect(component.loading()).toBe(true); // the skeleton is up
+      fixture.detectChanges();
+      expect(component.loading()).toBe(true); // the field is up
+      expect(fixture.nativeElement.querySelector('.wait-field:not(.is-done)')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('.results-stage.is-waiting')).not.toBeNull();
 
-      // The skeleton stays up long enough to be perceived, then the data lands.
+      // The field stays up long enough to be perceived, then the data lands.
       vi.advanceTimersByTime(300);
       pending.next({ items: [book], totalCount: 1 } as never);
       pending.complete();
 
-      // The skeleton is still there, now blurring out — not replaced abruptly.
-      expect(component.loading()).toBe(true);
-      expect(component.swapping()).toBe(true);
-
-      vi.advanceTimersByTime(SWAP_BUDGET);
-      expect(component.rawBooks()).toEqual([book]);
+      // A cold load has no out-phase to wait for: the results commit at once and
+      // the field is released, dissolving in CSS under the content fading in.
+      fixture.detectChanges();
       expect(component.loading()).toBe(false);
       expect(component.swapping()).toBe(false);
+      expect(component.rawBooks()).toEqual([book]);
+      expect(fixture.nativeElement.querySelector('.wait-field:not(.is-done)')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.results-stage.is-waiting')).toBeNull();
       expect(preferences.hasLoadedBooks()).toBe(true);
     } finally {
       vi.useRealTimers();
@@ -457,8 +460,8 @@ describe('Library', () => {
     expect(wrapper.classList.contains('sidebar-collapsed')).toBe(false);
   });
 
-  it('cross-fades instead of flashing the skeleton when re-entering the library', () => {
-    // First visit: the skeleton is legitimate and the results are now known.
+  it('cross-fades rather than waiting again when re-entering the library', () => {
+    // First visit: the waiting field is legitimate and the results are now known.
     expect(component.loading()).toBe(false);
     expect(TestBed.inject(LibraryPreferencesService).hasLoadedBooks()).toBe(true);
 
@@ -471,8 +474,7 @@ describe('Library', () => {
     second.detectChanges();
 
     expect(secondComponent.loading()).toBe(false);
-    expect(second.nativeElement.querySelector('.skeleton-grid-view')).toBeNull();
-    expect(second.nativeElement.querySelector('.skeleton-list-view')).toBeNull();
+    expect(second.nativeElement.querySelector('.wait-field:not(.is-done)')).toBeNull();
     expect(second.nativeElement.querySelector('.results-stage')).not.toBeNull();
 
     second.destroy();

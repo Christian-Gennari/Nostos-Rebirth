@@ -1,6 +1,6 @@
 {
   "artifact": "book-detail-hero-mobile.png",
-  "capturedAt": "2026-09-11T17:39:15.156Z",
+  "capturedAt": "2026-09-12T12:10:20.223Z",
   "name": "book-detail-hero-mobile",
   "surface": "book-detail",
   "viewport": {
@@ -83,7 +83,7 @@
         "scrim": [
           {
             "a": 0.44,
-            "pos": -1
+            "pos": 0
           },
           {
             "a": 0.28,
@@ -99,7 +99,7 @@
           },
           {
             "a": 0,
-            "pos": -1
+            "pos": 100
           }
         ],
         "slopes": [

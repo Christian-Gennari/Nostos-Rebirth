@@ -36,7 +36,7 @@ export class LibraryPreferencesService {
   /**
    * Whether the library has already shown results in this browser session.
    * Intentionally session-only and never persisted: returning to the library
-   * from another section must cross-fade its results in, not flash the skeleton
+   * from another section must cross-fade its results in, not re-run the first-paint waiting field
    * again (see Library.refreshBooks / commitResults).
    */
   readonly hasLoadedBooks = signal(false);

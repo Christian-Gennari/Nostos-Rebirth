@@ -22,10 +22,12 @@ import { BooksService } from '../../core/services/books.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 import { Book } from '../../core/dtos/book.dtos';
 
+import { BloomArtDirective } from '../../ui/bloom-art/bloom-art.directive';
+
 @Component({
   selector: 'app-audio-reader',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule],
+  imports: [CommonModule, FormsModule, LucideAngularModule, BloomArtDirective],
   templateUrl: './audio-reader.component.html',
   styleUrl: './audio-reader.component.css',
 })

@@ -2,7 +2,7 @@
   <div class="cover-section">
     <div class="cover-art shadow-lg">
       @if (book()?.coverUrl) {
-      <img [src]="book()?.coverUrl" alt="Book Cover" class="cover-img" />
+      <img [src]="book()?.coverUrl" alt="Book Cover" appBloomArt class="cover-img" />
       } @else {
       <div class="placeholder-art">
         <lucide-icon [img]="Icons.AudioLines" [size]="48" class="placeholder-icon"></lucide-icon>

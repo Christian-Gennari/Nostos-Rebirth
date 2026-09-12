@@ -1,9 +1,10 @@
 <div class="reader-layout" [class.ready]="ready()">
   <div class="reader-body">
     <main class="reader-content">
-      @if (loading()) {
-      <div class="loading">Loading book...</div>
-      } @else { @switch (fileType()) { @case ('pdf') {
+      <!-- No loading copy here: the shell already sits at opacity 0 until
+           `ready`, so the frame fades up out of the paper with the reader in
+           place instead of announcing itself first and then swapping. -->
+      @if (!loading()) { @switch (fileType()) { @case ('pdf') {
       <app-pdf-reader
         [bookId]="book()!.id"
         [initialLocation]="book()?.lastLocation"

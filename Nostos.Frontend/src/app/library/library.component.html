@@ -108,73 +108,19 @@
       >
       </app-confirm-modal>
 
-      <!-- One stage for both states: the skeleton and the results live inside the
-           same element, so the skeleton fades in on arrival and then blurs out
-           for the first results to fade in — no swapping between separate
-           subtrees, and no jitter on a cold load. -->
+      <!-- One stage for both states. Nothing is faked while the first page is in
+           flight: a structureless waiting field breathes in place, then dissolves
+           out under the arriving results — nothing to jitter, and nothing whose
+           metrics could disagree with the real rows. -->
       <div
         class="results-stage"
         [class.is-swapping]="swapping()"
+        [class.is-waiting]="loading()"
         [attr.aria-busy]="swapping() || loading()"
       >
-      @if (loading()) { @if (viewMode() === 'list') {
-      <div class="table-view skeleton-list-view">
-        <div class="table-header">
-          <div id="title-header">Title</div>
-          <div id="author-header">Author</div>
-          <div id="rating-header">Rating</div>
-          <div id="format-header">Format</div>
-          <div id="date-header">Date</div>
-        </div>
+        <div class="wait-field" [class.is-done]="!loading()" aria-hidden="true"></div>
 
-        @for (i of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; track i) {
-        <div class="table-row">
-          <div class="col title">
-            <div class="skeleton-block list-cover-skeleton"></div>
-            <div
-              class="skeleton-line"
-              [style.width]="100 - i * 5 + '%'"
-              style="height: 1rem; margin-bottom: 0"
-            ></div>
-          </div>
-          <div class="col author">
-            <div
-              class="skeleton-line"
-              [style.width]="80 - i * 5 + '%'"
-              style="height: 1rem; margin-bottom: 0"
-            ></div>
-          </div>
-          <div class="col rating">
-            <div class="skeleton-line" style="width: 50px; height: 10px; margin-bottom: 0"></div>
-          </div>
-          <div class="col format">
-            <div class="skeleton-line" style="width: 30px; height: 10px; margin-bottom: 0"></div>
-          </div>
-          <div class="col date">
-            <div class="skeleton-line" style="width: 40px; height: 10px; margin-bottom: 0"></div>
-          </div>
-        </div>
-        }
-      </div>
-      } @if (viewMode() === 'grid') {
-      <div class="book-grid skeleton-grid-view">
-        @for (i of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; track i) {
-        <div class="skeleton-card">
-          <div class="skeleton-box cover-size"></div>
-          <div
-            class="skeleton-line"
-            [style.width]="70 + (i % 3) * 5 + '%'"
-            style="height: 0.8rem; margin-bottom: 0.5rem"
-          ></div>
-          <div
-            class="skeleton-line"
-            [style.width]="40 + (i % 4) * 3 + '%'"
-            style="height: 0.6rem; margin-bottom: 0.5rem"
-          ></div>
-        </div>
-        }
-      </div>
-      } } @if (!loading()) {
+        @if (!loading()) {
       @if (viewMode() === 'list') {
       <div class="table-view">
         <div class="table-header">
@@ -216,7 +162,7 @@
 
             <div class="list-cover-frame">
               @if (book.coverUrl) {
-                <img [src]="getLibraryCoverUrl(book.coverUrl)" [alt]="book.title" class="list-cover-img" loading="lazy" decoding="async" />
+                <img [src]="getLibraryCoverUrl(book.coverUrl)" [alt]="book.title" appBloomArt class="list-cover-img" loading="lazy" decoding="async" />
               } @else {
                 <div class="list-cover-placeholder">
                   <lucide-icon [img]="BookIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
@@ -321,6 +267,7 @@
             @if (book.coverUrl) {
             <img
               [src]="getLibraryCoverUrl(book.coverUrl)"
+              appBloomArt
               class="cover-image"
               alt="{{ book.title }} cover"
               loading="lazy"

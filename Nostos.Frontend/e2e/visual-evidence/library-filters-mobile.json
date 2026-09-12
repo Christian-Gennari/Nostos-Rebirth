@@ -1,6 +1,6 @@
 {
   "artifact": "library-filters-mobile.png",
-  "capturedAt": "2026-09-11T15:16:34.124Z",
+  "capturedAt": "2026-09-12T12:11:17.203Z",
   "name": "library-filters-mobile",
   "surface": "library",
   "viewport": {
@@ -45,9 +45,9 @@
         "dSearchX": 0,
         "searchWidth": 354,
         "dSearchW": 0,
-        "titleX": 14,
+        "titleX": 13,
         "dTitleX": 0,
-        "titleBoxHeight": 30.4,
+        "titleBoxHeight": 1,
         "dTitleH": 0,
         "scrollClientWidth": 382,
         "dScrollW": 0,

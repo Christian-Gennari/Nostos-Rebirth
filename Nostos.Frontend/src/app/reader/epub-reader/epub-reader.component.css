@@ -62,16 +62,41 @@
   right: 0;
 }
 
-/* Loading state */
+/* Waiting state — mounted for the life of the component and released by a class,
+   so the already-rendered page underneath is revealed by a fade + defocus rather
+   than a one-frame blink. The label breathes on the same slow rhythm the rest of
+   the app waits on (see `.wait-field` in styles.css). */
 .loading-overlay {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 0.5rem;
   background: var(--bg-surface, #fff);
   z-index: 20;
   color: var(--color-text-muted, #888);
+  transition:
+    opacity var(--motion-slow) var(--ease-out),
+    filter var(--motion-slow) var(--ease-out),
+    visibility 0s linear var(--motion-slow);
+}
+.loading-overlay span {
+  animation: wait-breathe var(--motion-wait) ease-in-out infinite;
+}
+.loading-overlay.is-hidden {
+  opacity: 0;
+  filter: blur(10px);
+  visibility: hidden;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-overlay span {
+    animation: none;
+  }
+  .loading-overlay.is-hidden {
+    filter: none;
+  }
 }
 
 /* =========================================

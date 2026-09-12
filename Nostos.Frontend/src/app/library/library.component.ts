@@ -25,6 +25,7 @@ import { Book, EditionSummaryDto, PaginatedResponse } from '../core/dtos/book.dt
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { InfiniteScrollDirective } from '../core/directives/infinite-scroll.directive';
+import { BloomArtDirective } from '../ui/bloom-art/bloom-art.directive';
 import { BookSort } from '../core/dtos/book.enums';
 import { LibraryFilterService } from './library-filter.service';
 import { LibraryPreferencesService } from '../core/services/library-preferences.service';
@@ -97,13 +98,6 @@ function formatFilterLabel(value: string | null | undefined): string | null {
  */
 const SWAP_OUT_MS = 200;
 
-/**
- * A skeleton that was on screen for less than this was never really perceived
- * (a fast or cached response). Cross-fading it would only add latency to a load
- * the user never saw, so below this threshold the first results commit at once.
- */
-const SKELETON_SEEN_MS = 120;
-
 /** True when the OS asks for reduced motion; the swap then commits instantly. */
 function prefersReducedMotion(): boolean {
   return (
@@ -133,6 +127,7 @@ interface WorkFormatGlyph {
     StarRatingComponent,
     SidebarCollections,
     InfiniteScrollDirective,
+    BloomArtDirective,
   ],
   templateUrl: './library.component.html',
   styleUrls: ['./library.component.css'],
@@ -175,7 +170,6 @@ export class Library implements OnInit, OnDestroy {
 
   private requestSeq = 0;
   private swapStartedAt = 0;
-  private skeletonStartedAt = 0;
 
   // Pagination State
   currentPage = signal(1);
@@ -267,7 +261,7 @@ export class Library implements OnInit, OnDestroy {
 
     // Returning from the Studio or the Second Brain rebuilds this component with
     // no results in hand. The user has already seen the library in this session,
-    // so cross-fade the results in instead of flashing the skeleton again.
+    // so cross-fade the results in instead of flashing a placeholder again.
     if (this.preferences.hasLoadedBooks()) this.loading.set(false);
 
     // Search Subscription
@@ -295,19 +289,18 @@ export class Library implements OnInit, OnDestroy {
     this.document.body?.classList.remove('nostos-library');
   }
 
-  refreshBooks(reset = true, showSkeleton = true): void {
+  refreshBooks(reset = true, showWaiting = true): void {
     if (reset) {
       this.currentPage.set(1);
       if (!this.preferences.hasLoadedBooks()) {
-        // Genuine first paint: the skeleton's single legitimate use.
-        if (showSkeleton) {
-          this.loading.set(true);
-          this.skeletonStartedAt = performance.now();
-        }
-      } else if (showSkeleton && !prefersReducedMotion()) {
+        // Genuine first paint: the waiting field's only appearance. Nothing is
+        // scheduled here — the field dissolves itself in CSS when the results
+        // land, so the arrival needs no timer.
+        if (showWaiting) this.loading.set(true);
+      } else if (showWaiting && !prefersReducedMotion()) {
         // Filter/sort/search change, or re-entering the library from another
         // section: fade the results through the swap instead of tearing them
-        // down for a skeleton.
+        // down.
         // (Reduced motion skips the swap state entirely — no dimming, no blur.)
         this.swapping.set(true);
         this.swapStartedAt = performance.now();
@@ -381,16 +374,13 @@ export class Library implements OnInit, OnDestroy {
       return;
     }
 
-    // Only fade out something the user can actually see: real results, or a
-    // skeleton that stayed up long enough to register. On a warm change the swap
-    // state was already set when the request went out (network time counts
-    // toward the out-phase); on a cold load the skeleton is what fades away.
-    const skeletonWasSeen =
-      this.loading() && performance.now() - this.skeletonStartedAt >= SKELETON_SEEN_MS;
-    if (!skeletonWasSeen && this.rawBooks().length === 0) {
-      // Nothing on screen to fade out — re-entry from another section, or a
-      // response that beat the skeleton. Commit now; if the swap state is
-      // already set, releasing it still fades the new results in.
+    // Only fade out something the user can actually see. With real results on
+    // screen the swap is deferred to the bottom of the blur; with an empty stage
+    // — a cold load's waiting field, or re-entering from another section — there
+    // is nothing to blur out, so the page commits now and the field dissolves
+    // itself in CSS under the arriving results. Holding an empty stage for the
+    // length of the out-phase would only delay a load the user is watching.
+    if (this.rawBooks().length === 0) {
       apply();
       return;
     }

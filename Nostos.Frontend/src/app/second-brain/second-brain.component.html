@@ -33,18 +33,16 @@
       </div>
     </aside>
 
-    <section class="content-col" [class.mobile-visible]="selectedId()">
+    <section class="content-col" [class.mobile-visible]="selectedId()" [class.is-waiting]="loadingDetail()">
       @if (selectedId()) {
       <div class="mobile-nav-header" (click)="clearSelection()">
         <lucide-icon [img]="ArrowLeftIcon" [size]="18"></lucide-icon>
         <span>Back to Index</span>
       </div>
       } @if (loadingDetail()) {
-      <div class="loading-state">
-        <div class="spinner"></div>
-      </div>
+      <div class="wait-field wait-field--breath" aria-hidden="true"></div>
       } @else if (selectedDetail(); as detail) {
-      <div class="concept-header" animate.enter="fade-in">
+      <div class="concept-header">
         <div class="super-title">Concept</div>
         <h1 class="concept-title">{{ detail.name }}</h1>
         <div class="concept-meta">
