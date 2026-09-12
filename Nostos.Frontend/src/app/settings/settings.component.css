@@ -121,15 +121,19 @@
   width: 18px;
   left: 3px;
   bottom: 3px;
-  background-color: white;
+  /* The knob stays light in both themes: it sits on the track, not the page. */
+  background-color: var(--on-primary);
   border-radius: 50%;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
   transition: transform 0.2s;
 }
 
 .toggle input:checked + .toggle-slider {
-  background-color: var(--color-primary);
-  box-shadow: 0 0 10px rgba(138, 109, 88, 0.28);
+  /* --primary-fill, not --color-primary: the track is a SURFACE. The ink role
+     is a light mint on dark, which would make an ON switch look like an OFF one
+     (light track = unchecked is the universal convention). */
+  background-color: var(--primary-fill);
+  box-shadow: 0 0 10px var(--color-accent-faint);
 }
 
 .toggle input:checked + .toggle-slider::before {
@@ -263,15 +267,6 @@
   border-radius: 12px;
 }
 
-.status-connected {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-
-.status-disconnected {
-  background: #fbe9e7;
-  color: #bf360c;
-}
 
 /* Status capsules: rounded pills shared by last-backup + history statuses. */
 .status-success,
@@ -301,24 +296,8 @@
   color: var(--color-text-light);
 }
 
-/* --- Warning Banner --- */
-.warning-banner {
-  margin: 12px 20px;
-  padding: 12px 16px;
-  background: #fff8e1;
-  border: 1px solid #ffe082;
-  border-radius: var(--radius-md);
-  font-size: var(--text-xs);
-  color: #6d4c00;
-  line-height: 1.5;
-}
 
-.warning-banner code {
-  background: rgba(0, 0, 0, 0.06);
-  padding: 1px 4px;
-  border-radius: 3px;
-  font-size: var(--text-xs);
-}
+
 
 /* --- Last Backup Info --- */
 .last-backup-info {

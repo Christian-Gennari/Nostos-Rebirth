@@ -261,8 +261,11 @@
 }
 
 .nav-item.active .count-badge {
-  background: rgba(255, 255, 255, 0.22);
-  color: #ffffff;
+  /* Driven from the on-fill foreground so it tracks the active row's fill in
+     either theme. This was a hardcoded white chip, which stayed pure white on
+     the dark theme while the equivalent badge in the Brain index adapted. */
+  background: color-mix(in srgb, var(--on-primary) 22%, transparent);
+  color: var(--on-primary);
 }
 
 /* Add Button Specifics */

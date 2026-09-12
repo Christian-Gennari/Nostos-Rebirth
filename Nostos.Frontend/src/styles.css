@@ -449,11 +449,22 @@
 :root[data-theme='dark'] .nav-item.active .count-badge {
   background: rgba(0, 0, 0, 0.28);
 }
-/* Dim pine is too close to the sidebar ground to read as a selected row, so the
-   active pill takes a slightly raised tone instead of the brand fill. */
+/* The dark override for this row lives with the shared state treatment rather
+   than here, so every "selected row" in the app resolves identically. */
+
+/* One selected-row treatment for the whole app.
+   The sidebar (library) and the concept index (Brain) are the same state, so
+   they share a fill; previously the sidebar was overridden to a neutral grey and
+   drifted from the Brain index. `--primary-fill` is the SURFACE role, which is
+   dark on dark and therefore reads as a deliberate selection rather than the
+   washed-out light pill the ink role would produce. */
 :root[data-theme='dark'] .nav-item.active::before {
-  background: #2B323F;
+  background: var(--primary-fill);
   box-shadow: none;
+}
+:root[data-theme='dark'] .index-item.active {
+  background: var(--primary-fill);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Selection follows the reference's smoked indigo. */

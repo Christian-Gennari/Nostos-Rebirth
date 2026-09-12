@@ -125,8 +125,10 @@
 }
 
 .tab-btn.active {
-  color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
+  /* Active state uses the accent ink in both themes. `--color-primary` is the
+     legacy alias (dim green on dark) which reads as a washed-out state. */
+  color: var(--primary-ink);
+  border-bottom-color: var(--primary-ink);
 }
 
 .actions {
@@ -166,7 +168,7 @@
 .icon-btn.active,
 .icon-btn:hover {
   background: var(--bg-hover);
-  color: var(--color-primary);
+  color: var(--primary-ink);
 }
 
 .btn-outline {
@@ -199,7 +201,7 @@
     box-shadow 0.15s ease;
 }
 .search-box:focus-within {
-  border-color: var(--color-primary);
+  border-color: var(--focus-ring);
   box-shadow: 0 0 0 2px var(--border-focus);
   color: var(--color-text-main);
 }
@@ -328,7 +330,7 @@
   width: 100%;
   font-size: 0.9rem;
   padding: 4px;
-  border: 1px solid var(--color-primary);
+  border: 1px solid var(--focus-ring);
   border-radius: 4px;
   outline: none;
 }
@@ -406,6 +408,14 @@
  * and the three-layer physical shadow. TinyMCE fills the sheet and clips to
  * its radius; the host — never the iframe body — owns the shadow, so the
  * shadow stays put while the document scrolls inside the frame.
+ *
+ * The sheet stays white in BOTH themes on purpose: it is the paper, the one
+ * physical object in the room, and its content CSS is a fixed light document
+ * (`color-scheme: light`). Tinting it would leave the editor's own ink and
+ * rules — which are literal values inside the iframe — off-palette. What does
+ * change is the FRAME: the border and shadows are warm-ink literals tuned for a
+ * warm page, and on the slate ground they read as a dirty halo, so they come
+ * from the shadow tokens instead.
  */
 .editor-wrapper app-markdown-editor {
   display: block;
@@ -417,13 +427,10 @@
   min-height: 0;
 
   background: #ffffff;
-  border: 1px solid rgba(41, 37, 32, 0.12);
+  border: 1px solid var(--border-color);
   border-radius: 10px;
 
-  box-shadow:
-    0 1px 2px rgba(30, 26, 21, 0.08),
-    0 10px 30px rgba(30, 26, 21, 0.11),
-    0 28px 64px rgba(80, 70, 140, 0.08);
+  box-shadow: var(--shadow-glass), var(--shadow-glass-lg);
 }
 
 /*
@@ -469,7 +476,7 @@
 }
 
 .pill-saved {
-  color: var(--color-success, #16a34a);
+  color: var(--color-success);
   font-weight: 600;
 }
 
@@ -491,7 +498,7 @@
   width: 72px;
   height: 72px;
   background: var(--gradient-pastel-soft);
-  box-shadow: 0 4px 12px rgba(138, 109, 88, 0.18);
+  box-shadow: 0 4px 12px var(--color-accent-faint);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -570,8 +577,8 @@
 }
 
 .sidebar-left input {
-  color: var(--color-text-main, #1a1a1a) !important;
-  background: var(--bg-surface, #fff) !important;
+  color: var(--color-text-main) !important;
+  background: var(--bg-surface) !important;
 }
 
 .sidebar-header-brain-toggle,

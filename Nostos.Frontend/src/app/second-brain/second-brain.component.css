@@ -164,8 +164,10 @@
 }
 
 .index-item.active .count {
-  background: rgba(255, 255, 255, 0.22);
-  color: #ffffff;
+  /* Was a hardcoded white chip. Driven from the on-fill foreground so it tracks
+     whatever the active row's fill resolves to in either theme. */
+  background: color-mix(in srgb, var(--on-primary) 22%, transparent);
+  color: var(--on-primary);
 }
 
 .empty-index {
@@ -290,8 +292,8 @@
 
 /* --- ELEGANT QUOTE STYLES --- */
 .highlight-block {
-  border-left: 3px solid var(--pastel-lavender);
-  background: rgba(138, 109, 88, 0.08);
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-accent-bg);
   padding: 0.75rem 1rem;
   border-radius: 0 8px 8px 0;
   margin-bottom: 1rem;
@@ -397,7 +399,7 @@
   height: 72px;
   border-radius: 50%;
   background: var(--gradient-pastel-soft);
-  box-shadow: 0 4px 12px rgba(138, 109, 88, 0.18);
+  box-shadow: 0 4px 12px var(--color-accent-faint);
   display: flex;
   align-items: center;
   justify-content: center;

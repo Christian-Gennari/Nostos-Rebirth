@@ -372,15 +372,23 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
   });
 
   // --- Paper frame (expert design §2): CSS-level contract ---
-  it('declares the fixed paper frame: 740px sheet, 10px radius, three-layer light shadow on the editor host', () => {
+  it('declares the fixed paper frame: 740px sheet, 10px radius, tokenised shadow on the editor host', () => {
     const css = componentCss();
 
     expect(css).toContain('width: min(100%, 740px)');
     expect(css).toContain('border-radius: 10px');
-    // The three-layer shadow that must never move while the iframe scrolls.
-    expect(css).toContain('0 1px 2px rgba(30, 26, 21, 0.08)');
-    expect(css).toContain('0 10px 30px rgba(30, 26, 21, 0.11)');
-    expect(css).toContain('0 28px 64px rgba(80, 70, 140, 0.08)');
+    // The sheet's white ground is deliberate in BOTH themes: it is the paper,
+    // and its content CSS is a fixed light document.
+    expect(css).toContain('background: #ffffff');
+    // The frame's shadow must stay on the HOST so it never moves while the
+    // iframe scrolls. It comes from the shadow tokens (not the warm-ink
+    // literals it used before), so the frame follows the theme while the sheet
+    // does not: on the dark ground a warm shadow read as a dirty halo.
+    expect(css).toContain('box-shadow: var(--shadow-glass), var(--shadow-glass-lg)');
+    expect(css).toContain('border: 1px solid var(--border-color)');
+    // Guard against the old hardcoded warm-ink values coming back.
+    expect(css).not.toContain('rgba(30, 26, 21');
+    expect(css).not.toContain('rgba(80, 70, 140');
   });
 
   it('lets .tox-tinymce fill and clip to the paper frame without its own shadow', () => {
