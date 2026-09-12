@@ -18,34 +18,32 @@
   z-index: 1;
 }
 
-/* Brand Mark */
-.brand-mark {
-  color: var(--color-primary);
+/* Kit v1 lockup. Replaces the separate mark + h1: the tile mark and the
+   wordmark are one piece of artwork, as the kit intends. */
+.hero-lockup {
   margin-bottom: 2rem;
-  opacity: 0.8;
   display: flex;
   justify-content: center;
   align-items: center;
 }
-
-#nostos-logo {
-  width: 140px;
+.hero-lockup svg {
+  width: 340px;
   height: auto;
-  margin: 0 auto;
-  filter: drop-shadow(0 8px 24px rgba(40, 55, 45, 0.18));
+  /* No opacity/shadow here: the mark is a solid tile now, and a translucent
+     tile reads as a washed-out block where a thin arch used to read fine. */
+}
+.hero-lockup__tile {
+  fill: var(--brand-shape);
+}
+.hero-lockup__arch {
+  fill: var(--brand-doorway);
+}
+.hero-lockup__word {
+  fill: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
 }
 
 /* Typography */
-.hero-title {
-  font-family: 'Newsreader', serif;
-  font-size: 3.8rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: var(--color-primary);
-  line-height: 1.1;
-  margin: 0;
-}
-
 .hero-divider {
   width: 48px;
   height: 2px;
@@ -107,15 +105,11 @@
 }
 
 @media (max-width: 768px) {
-  .hero-title {
-    font-size: 3rem;
-  }
-
   .hero-subtitle {
     font-size: 1rem;
   }
 
-  #nostos-logo {
-    width: 110px;
+  .hero-lockup svg {
+    width: 260px;
   }
 }

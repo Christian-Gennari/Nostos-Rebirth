@@ -1,15 +1,33 @@
 <main class="hero-wrapper">
   <div class="hero-content">
-    <div class="brand-mark">
-      <img src="nostos-symbol-fullcolor-512.png" alt="Nostos Logo" id="nostos-logo" width="120" height="120" />
-
-      <!-- <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"
-        stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path>
-      </svg> -->
+    <!-- Kit v1 horizontal lockup: the tile mark plus the wordmark. Inline (not
+         an <img>) so the tile can re-ink per theme and the wordmark uses the
+         app's Hanken Grotesk, exactly as the kit ships it. -->
+    <div class="hero-lockup">
+      <svg
+        viewBox="0 0 1840 512"
+        role="img"
+        aria-label="Nostos"
+        focusable="false"
+      >
+        <g transform="scale(0.5)">
+          <rect class="hero-lockup__tile" x="0" y="0" width="1024" height="1024" rx="205" />
+          <path
+            class="hero-lockup__arch"
+            d="M 282 764 L 282 509 A 229 234 0 0 1 740 509 L 740 764 Z M 358 764 L 358 509 A 110 112 0 0 1 578 509 L 578 764 Z"
+            fill-rule="evenodd"
+          />
+        </g>
+        <text
+          class="hero-lockup__word"
+          x="625"
+          y="345"
+          font-size="255"
+          font-weight="500"
+          letter-spacing="-8"
+        >nostos</text>
+      </svg>
     </div>
-
-    <h1 class="hero-title">Nostos</h1>
 
     <div class="hero-divider"></div>
 
