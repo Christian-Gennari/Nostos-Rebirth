@@ -953,6 +953,12 @@ export class SecondBrain implements AfterViewChecked {
     }
   }
 
+  private invalidateAllDetailEntries(): void {
+    this.detailRequestVersion += 1;
+    this.detailCache.clear();
+    this.pendingRequests.clear();
+  }
+
   private refreshIndexAndStats(): void {
     // Mutation responses update the visible row immediately. These background
     // reads reconcile counts and cover server-side deduplication after a merge,
@@ -993,13 +999,27 @@ export class SecondBrain implements AfterViewChecked {
       .subscribe({
         next: (updated) => {
           const current = this.detailCache.get(conceptId);
-          if (!current) return;
-          this.commitDetail(conceptId, {
-            ...current,
-            notes: current.notes.map((note) =>
-              note.noteId === event.id ? this.contextFromNote(updated, note) : note
-            ),
-          });
+          if (current) {
+            this.commitDetail(conceptId, {
+              ...current,
+              notes: current.notes.map((note) =>
+                note.noteId === event.id ? this.contextFromNote(updated, note) : note
+              ),
+            });
+          }
+
+          // Updating note text re-processes every [[Concept]] link on the
+          // server. A note can therefore leave one concept, join another, or
+          // change the aggregate reference count without changing its own id.
+          // Keep the optimistic card in place, but discard every potentially
+          // stale concept detail and related graph before reloading the active
+          // pane. The refresh is deliberately in-place: the pane background
+          // does not change, so it must not show a loading surface or arrival
+          // animation while the canonical membership lands.
+          this.invalidateAllDetailEntries();
+          this.invalidateRelatedData(true);
+          this.reloadDetailInPlace(conceptId);
+          this.refreshIndexAndStats();
           this.toast.success('Note updated');
         },
         error: () => {
@@ -1035,6 +1055,13 @@ export class SecondBrain implements AfterViewChecked {
     this.notesService.delete(target.noteId).subscribe({
       next: () => {
         this.adjustConceptUsage(conceptId, -1);
+        // Deleting a note removes all of its NoteConcept links, not just the
+        // link for the concept currently open. The optimistic card/count above
+        // makes the active pane immediate; these cache invalidations and
+        // background reads reconcile every concept row and aggregate stat.
+        this.invalidateAllDetailEntries();
+        this.invalidateRelatedData(true);
+        this.refreshIndexAndStats();
         this.deletingNote.set(false);
         this.deleteTarget.set(null);
         this.toast.success('Note deleted');
@@ -1051,6 +1078,30 @@ export class SecondBrain implements AfterViewChecked {
   private commitDetail(conceptId: string, detail: ConceptDetailDto): void {
     this.detailCache.set(conceptId, detail);
     if (this.selectedId() === conceptId) this.selectedDetail.set(detail);
+  }
+
+  private reloadDetailInPlace(id: string): void {
+    this.loadingDetail.set(true);
+    const requestVersion = this.detailRequestVersion;
+    this.pendingRequests.add(id);
+    this.conceptsService.get(id).subscribe({
+      next: (detail) => {
+        this.pendingRequests.delete(id);
+        if (requestVersion !== this.detailRequestVersion) return;
+        this.detailCache.set(id, detail);
+        if (this.selectedId() !== id) return;
+        this.selectedDetail.set(detail);
+        this.loadingDetail.set(false);
+        this.loadRelated(id);
+      },
+      error: () => {
+        this.pendingRequests.delete(id);
+        if (requestVersion !== this.detailRequestVersion) return;
+        if (this.selectedId() !== id) return;
+        this.loadingDetail.set(false);
+        this.toast.error('Note saved, but this concept could not be refreshed');
+      },
+    });
   }
 
   private contextFromNote(updated: Note, previous: NoteContextDto): NoteContextDto {

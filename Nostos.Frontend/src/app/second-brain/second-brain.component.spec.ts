@@ -105,7 +105,13 @@ describe('SecondBrain', () => {
     refreshedConcepts: ConceptDto[] = concepts,
     refreshedStats: ConceptStatsDto = stats
   ): void => {
-    http.expectOne('/api/concepts').flush(refreshedConcepts);
+    // Opening a note editor creates a self-contained concept autocomplete
+    // input, which also requests the list. The final list request is the
+    // mutation refresh; settle any earlier child requests first.
+    const listRequests = http.match('/api/concepts');
+    expect(listRequests.length).toBeGreaterThan(0);
+    listRequests.slice(0, -1).forEach((request) => request.flush(concepts));
+    listRequests.at(-1)!.flush(refreshedConcepts);
     http.expectOne('/api/concepts/stats').flush(refreshedStats);
   };
 
@@ -290,6 +296,12 @@ describe('SecondBrain', () => {
       createdAt: '2026-09-12T12:00:00Z',
       bookTitle: 'Meditations',
     });
+    http.expectOne('/api/concepts/c-alpha').flush({
+      ...detail('c-alpha', 'Alpha'),
+      notes: [{ ...detail('c-alpha', 'Alpha').notes[0], content: 'Updated note about [[Alpha]]' }],
+    });
+    http.expectOne('/api/concepts/c-alpha/related').flush([]);
+    flushMutationRefresh();
     await fixture.whenStable();
 
     component.selectConcept('c-beta');
@@ -333,8 +345,55 @@ describe('SecondBrain', () => {
     const removal = http.expectOne('/api/notes/c-alpha-n1');
     expect(removal.request.method).toBe('DELETE');
     removal.flush(null);
+    http.expectOne('/api/concepts/c-alpha/related').flush([]);
+    flushMutationRefresh();
     await fixture.whenStable();
     expect(fixture.nativeElement.querySelector('.confirm-modal-card')).toBeNull();
+  });
+
+  it('refreshes every stale concept count when an edit changes its [[ ]] links', async () => {
+    const alphaDetail: ConceptDetailDto = {
+      ...detail('c-alpha', 'Alpha'),
+      notes: [{
+        ...detail('c-alpha', 'Alpha').notes[0],
+        content: 'Old note about [[Alpha]] and [[Beta]]',
+      }],
+    };
+    component.selectConcept('c-alpha');
+    flushDetail('c-alpha', alphaDetail, [{ id: 'c-beta', name: 'Beta', sharedNotes: 1 }]);
+    await fixture.whenStable();
+
+    component.onUpdateNote({ id: 'c-alpha-n1', content: 'New note about [[Alpha]]', selectedText: '' });
+    expect(component.selectedDetail()?.notes[0].content).toBe('New note about [[Alpha]]');
+    const update = http.expectOne('/api/notes/c-alpha-n1');
+    update.flush({
+      id: 'c-alpha-n1',
+      bookId: 'b1',
+      content: 'New note about [[Alpha]]',
+      selectedText: undefined,
+      cfiRange: undefined,
+      createdAt: '2026-09-12T12:00:00Z',
+      bookTitle: 'Meditations',
+    });
+
+    http.expectOne('/api/concepts/c-alpha').flush({
+      ...alphaDetail,
+      notes: [{ ...alphaDetail.notes[0], content: 'New note about [[Alpha]]' }],
+    });
+    http.expectOne('/api/concepts/c-alpha/related').flush([]);
+    flushMutationRefresh(
+      [
+        { id: 'c-alpha', name: 'Alpha', usageCount: 9 },
+        { id: 'c-beta', name: 'Beta', usageCount: 2 },
+        concepts[2],
+      ],
+      { ...stats, totalReferences: 14 }
+    );
+    await fixture.whenStable();
+
+    expect(component.selectedDetail()?.notes[0].content).toBe('New note about [[Alpha]]');
+    expect(component.concepts().find((concept) => concept.id === 'c-beta')?.usageCount).toBe(2);
+    expect(component.conceptStats()?.totalReferences).toBe(14);
   });
 
   it('selects a concept tag rendered inside a note card', async () => {
