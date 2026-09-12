@@ -1,4 +1,10 @@
-# Nostos
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/logo-dark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="docs/brand/logo-light.svg" />
+    <img alt="Nostos" src="docs/brand/logo-light.svg" width="380" />
+  </picture>
+</div>
 
 A self-hosted personal library and knowledge management system. Manage books, e-books, audiobooks, and PDFs in one place — then link what you read to the ideas you develop through contextual notes, concept mapping, and a built-in writing environment.
 
@@ -129,6 +135,20 @@ Nostos-Rebirth/
 ├── _docs/                    # Project documentation
 └── _brand-assets/            # Logos and design resources
 ```
+
+## Brand
+
+The brand mark is a **Forest (`#293E32`) rounded tile with a Paper (`#FDF8F6`) arch knocked out of it** — a doorway that also reads as a lowercase `n`. The same mark is used in both light and dark themes: it is deliberately theme-invariant, and the app's own `--brand-shape`/`--brand-doorway` tokens are not overridden per theme.
+
+| Asset | Purpose |
+| ----- | ------- |
+| [`docs/brand/logo-light.svg`](docs/brand/logo-light.svg) | Horizontal lockup, Ink wordmark — for light surfaces |
+| [`docs/brand/logo-dark.svg`](docs/brand/logo-dark.svg) | Horizontal lockup, Paper wordmark — for dark surfaces |
+| [`docs/brand/mark.svg`](docs/brand/mark.svg) | Mark only, no wordmark |
+
+The master artwork, colour variants, and the full brand guidelines live in [`_brand-assets/brand-kit-v1/`](_brand-assets/brand-kit-v1/FILE-MAP.md).
+
+> **Wordmarks are outlined, not live text.** The kit's editable lockups use `<text>` + Hanken Grotesk. That is fine inside the app, but anywhere the file *leaves* the app — GitHub, READMEs, anywhere a sanitiser strips webfonts — the font is unavailable and the wordmark silently falls back to a default sans. The files in `docs/brand/` therefore carry the wordmark as vector paths, with glyph positions taken from the browser's own text layout so kerning matches the kit exactly. Regenerate rather than hand-editing.
 
 ## Getting Started
 
