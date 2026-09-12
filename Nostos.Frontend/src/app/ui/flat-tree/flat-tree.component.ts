@@ -88,18 +88,6 @@ export class FlatTreeComponent {
     buildFlatTree(this.items(), this.expandedIds(), this.treatAllAsFolders()),
   );
 
-  /**
-   * Whether any row in the current tree actually renders a chevron.
-   *
-   * This drives `--chevron-slot`, which is 0 when nothing is expandable and 18px
-   * (16px slot + 2px margin) otherwise. Collapsed that way, a flat list of
-   * collections starts its icon at the same x as the nav rows above it instead
-   * of being pushed 18px right by an empty disclosure column. The moment the
-   * data gains a parent, every row indents — so the column is either doing work
-   * or costing nothing, and the guide/label/fade offsets below follow it.
-   */
-  readonly hasExpandable = computed(() => this.treeNodes().some((n) => n.expandable));
-
   private toggleExpandState(nodeId: string): void {
     this.expandedIds.update((set) => {
       const next = new Set(set);

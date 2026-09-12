@@ -17,22 +17,11 @@
   position: relative;
   padding-bottom: 0;
 
-  --indent-step: 16px;
+  --indent-step: 12px;
   /* Matches .nav-item's own padding-left (12px), so a depth-0 collection row
-     starts its content exactly where a nav row does. */
+     starts its content exactly where a nav row does. It is ALSO the width of
+     the left gutter a nested row's chevron is centred in. */
   --indent-base: 12px;
-  /* 0px when no row in the tree is expandable (set from the template), 18px
-     otherwise = the 16px chevron slot + its 2px margin. Collapsing it away is
-     what keeps a flat list aligned with the nav rows above it: a leaf-only tree
-     has no chevrons to show, so reserving the column would push every icon 18px
-     right of the nav's. All three offsets below derive from it. */
-  --chevron-slot: 18px;
-  /* Content start -> centre of this row's own folder icon: chevron slot +
-     half the 16px icon. The nesting guide is positioned by this. */
-  --icon-axis: calc(var(--chevron-slot) + 8px);
-  /* Content start -> the name's left edge: chevron slot + 16px icon + 6px gap
-     = 28px, which lands the name level with a nav row's label. */
-  --name-offset: calc(var(--chevron-slot) + 22px);
   /* Width of the row-action overlay: 3 × 22px buttons + 2 × 2px gaps = 70px,
      plus the 6px right inset = 76px. */
   --actions-w: 76px;
@@ -64,9 +53,21 @@
 }
 
 /* ── NESTING GUIDES ───────────────────────────────────────
-   One hairline per nested row, drawn at its PARENT's icon axis. Every row
-   under the same parent draws the line at the same x, so a subtree reads as
-   one continuous guide rather than a staircase.
+   One hairline per nested row, drawn at its PARENT's chevron centre. Every row
+   under the same parent draws the line at the same x, so a subtree reads as one
+   continuous guide rather than a staircase.
+
+   The anchor is the parent's chevron CENTRE, not its icon centre. With the icon
+   centre the line landed inside the child's own chevron and collided with it:
+   the child's gutter spans its parent's content start to its own, and the
+   chevron now sits in that gutter, so the parent's icon centre (8px in) fell at
+   x=36 — dead through the middle of the child's chevron box (28..40).
+
+   The chevron is one --indent-base wide and starts one --indent-base left of the
+   row's content, so its centre is exactly half that width (6px) from the row's
+   own left edge — the anchor is therefore independent of the indent step:
+     left = (depth - 1) * step + 6px
+   At depth 1 the line sits at 6px, a 6px gap clear of the child's chevron at 12.
 
    Drawn only for nested rows (`level > 0`), because a root row has no parent
    axis to point at — and an unconditional line would sit on the row's own
@@ -76,9 +77,9 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: calc(
-    var(--indent-base) + (var(--depth, 0) - 1) * var(--indent-step) + var(--icon-axis)
-  );
+  /* 6px = half the chevron's width; expressed from --indent-base so the two
+     cannot drift if the gutter is ever resized. */
+  left: calc((var(--depth, 0) - 1) * var(--indent-step) + var(--indent-base) / 2);
   transform: translateX(-0.5px);
   width: 1px;
   background: var(--tree-guide);
@@ -110,33 +111,26 @@
   --row-ground: var(--primary-fill);
 }
 
-/* The chevron slot exists for EVERY row while the tree has anything
-   expandable — when the chevron was rendered only for expandable nodes, every
-   leaf row sat 18px left of its siblings. Its width is `--chevron-slot`, which
-   the container zeroes for a tree with no expandable rows at all, so a flat
-   list does not pay for a column it never uses. */
-.chevron-slot {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  margin-right: 2px;
-  flex-shrink: 0;
-}
+/* ── CHEVRON (overlay) ─────────────────────────────────────
+   Absolutely positioned inside the row's own left gutter, centred on it
+   (gutter = --indent-base). Because it is out of flow it contributes ZERO
+   width, so adding a child to a collection cannot push any row inward — the
+   regression this replaces. It is always visible while expanded (state must be
+   readable without hovering), and fades in on hover when collapsed.
 
-/* Collapsing the column has to remove the margin too, not just the 16px box —
-   `width: 0` alone would leave the 2px gap and a 2px misalignment against the
-   nav rows. */
-.flat-tree-container[style*='--chevron-slot: 0px'] .chevron-slot {
-  display: none;
-}
-
+   `z-index: 1` keeps it above the row's ::after fade layer, which otherwise
+   paints the row ground over the gutter on the right-hand rows. */
 .toggle-btn {
+  position: absolute;
+  left: calc(var(--depth, 0) * var(--indent-step));
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: var(--indent-base);
+  height: 20px;
   padding: 0;
   border: none;
   background: none;
@@ -144,12 +138,35 @@
   cursor: pointer;
   border-radius: 3px;
   flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+/* Collapsed: revealed by hover or keyboard focus on the row. */
+.tree-row:hover .toggle-btn,
+.tree-row:focus-within .toggle-btn {
+  opacity: 1;
+}
+
+/* Expanded: the state is always on screen, so the chevron must be too — a
+   collapsed/expanded distinction you can only see by hovering is not a state
+   indicator. */
+.tree-row .toggle-btn.expanded {
+  opacity: 1;
 }
 
 /* `currentColor`-derived rather than --bg-hover: on a filled active row a
    fixed surface tone would punch a light square out of the pill. */
 .toggle-btn:hover {
-  background: color-mix(in srgb, currentColor 14%, transparent);
+  background: color-mix(in srgb, currentColor 16%, transparent);
+}
+
+/* No hover on touch: an expand control hidden until hover is unreachable there,
+   so every chevron stays visible. */
+@media (hover: none) {
+  .toggle-btn {
+    opacity: 1;
+  }
 }
 
 .type-icon {
