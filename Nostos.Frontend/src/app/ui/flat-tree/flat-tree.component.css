@@ -1,4 +1,14 @@
-/* src/app/ui/flat-tree/flat-tree.component.css */
+/* src/app/ui/flat-tree/flat-tree.component.css
+
+   Shared by the library's collections tree and the writing studio's file tree,
+   so every rule here has to hold for both. The two consumers differ in one
+   way that matters: collections carry a count badge, documents do not (their
+   `count` is undefined, and the badge is not rendered at all in that case).
+
+   DEPTH. Indentation is driven by a single `--depth` custom property set from
+   the template, so the indent step, the indent guides and the row's own
+   geometry all derive from one number instead of three hardcoded expressions.
+   ------------------------------------------------------------------------ */
 
 .flat-tree-container {
   display: flex;
@@ -6,6 +16,14 @@
   width: 100%;
   position: relative;
   padding-bottom: 0;
+
+  --indent-step: 16px;
+  --indent-base: 8px;
+  /* From a row's content start to the CENTRE of its own folder icon:
+     drag-handle (14 + 4) + chevron slot (16 + 2) + half the 16px icon = 44px.
+     Named because the nesting guide below is positioned by it. */
+  --icon-axis: 44px;
+  --tree-guide: color-mix(in srgb, var(--color-text-light) 42%, transparent);
 }
 
 .tree-row {
@@ -26,6 +44,29 @@
   user-select: none;
   background: transparent;
   padding-right: 8px;
+  padding-left: calc(var(--depth, 0) * var(--indent-step) + var(--indent-base));
+}
+
+/* ── NESTING GUIDES ───────────────────────────────────────
+   One hairline per nested row, drawn at its PARENT's icon axis. Every row
+   under the same parent draws the line at the same x, so a subtree reads as
+   one continuous guide rather than a staircase.
+
+   Drawn only for nested rows (`level > 0`), because a root row has no parent
+   axis to point at — and an unconditional line would sit on the row's own
+   left edge and read as a stray border. */
+.tree-row.nested::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(
+    var(--indent-base) + (var(--depth, 0) - 1) * var(--indent-step) + var(--icon-axis)
+  );
+  transform: translateX(-0.5px);
+  width: 1px;
+  background: var(--tree-guide);
+  pointer-events: none;
 }
 
 .tree-row:hover {
@@ -33,9 +74,14 @@
   color: var(--color-text-main);
 }
 
+/* Active row follows the same role split as `.nav-item.active` in the sidebar:
+   the pill is a SURFACE (`--primary-fill`) and its text is the on-fill
+   foreground. It previously used `--color-accent-bg` + `--color-primary`,
+   which in dark resolved to sage text on a grey-blue tint — the ink role is a
+   light colour on dark, so the row never read as selected. */
 .tree-row.active {
-  background: var(--color-accent-bg);
-  color: var(--color-primary);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   font-weight: var(--fw-medium);
 }
 
@@ -46,6 +92,7 @@
   display: flex;
   align-items: center;
   transition: opacity 0.15s;
+  flex-shrink: 0;
 }
 
 .tree-row:hover .drag-handle {
@@ -56,13 +103,24 @@
   opacity: 1;
 }
 
+/* The chevron slot exists for EVERY row, expandable or not. When the chevron
+   was rendered only for expandable nodes, every leaf row sat 18px to the left
+   of its siblings and the tree looked ragged. */
+.chevron-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+
 .toggle-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 16px;
   height: 16px;
-  margin-right: 2px;
   padding: 0;
   border: none;
   background: none;
@@ -72,8 +130,10 @@
   flex-shrink: 0;
 }
 
+/* `currentColor`-derived rather than --bg-hover: on a filled active row a
+   fixed surface tone would punch a light square out of the pill. */
 .toggle-btn:hover {
-  background: var(--bg-hover);
+  background: color-mix(in srgb, currentColor 14%, transparent);
 }
 
 .type-icon {
@@ -117,43 +177,73 @@
 }
 
 .tree-row.active .count-badge {
-  background: color-mix(in srgb, var(--bg-surface) 24%, transparent);
-  color: inherit;
+  /* Tracks the active row's fill, like the sidebar's nav badge. */
+  background: color-mix(in srgb, var(--on-primary) 22%, transparent);
+  color: var(--on-primary);
 }
 
+/* ── ACTION SLOT ──────────────────────────────────────────
+   The row reserving room for both the badge and the actions is what made the
+   name reflow on hover. The actions are therefore taken OUT of flow and
+   overlaid on the badge's own slot: the badge fades out, the actions fade in,
+   and the label's truncation point never moves.
+
+   Fixed overlay width (3 × 22px + 2 × 2px gaps + 8px inset = 78px) so the
+   overlay cannot extend past the row's right padding. */
 .node-actions {
-  display: none;
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 2px;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-.tree-row:hover .count-badge {
-  display: none;
+  width: 74px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.15s,
+    visibility 0s linear 0.15s;
 }
 
 .tree-row:hover .node-actions,
 .tree-row:focus-within .node-actions {
-  display: flex;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 0.15s,
+    visibility 0s;
+}
+
+.tree-row:hover .count-badge {
+  opacity: 0;
 }
 
 .action-mini {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   background: transparent;
   border: none;
   padding: 0;
   cursor: pointer;
   border-radius: 4px;
   color: var(--color-text-muted);
+  flex-shrink: 0;
   transition:
-    opacity 0.15s,
     background 0.15s,
     color 0.15s;
+}
+
+/* On the filled active row the actions sit ON the pill, so their own hover
+   ground has to be derived from the pill's foreground rather than the page's. */
+.tree-row.active .action-mini {
+  color: color-mix(in srgb, var(--on-primary) 82%, transparent);
 }
 
 .action-mini:hover {
@@ -161,14 +251,28 @@
   color: var(--color-text-main);
 }
 
+.tree-row.active .action-mini:hover {
+  background: color-mix(in srgb, var(--on-primary) 20%, transparent);
+  color: var(--on-primary);
+}
+
+/* `--color-danger` rather than `--danger-ink`: on dark, --danger-ink is
+   deliberately porcelain (#F0F2F5) for the confirm modal's mark, so an icon
+   painted with it loses every trace of "destructive". --color-danger is the
+   app's own destructive-accent role and is re-inked per theme (#d32f2f light,
+   #E4796B dark). */
 .action-mini.danger:hover {
-  color: var(--color-error, #e53935);
-  background: rgba(229, 57, 53, 0.08);
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
 }
 
 .tree-row:focus-visible {
+  /* Inset so the ring is not clipped by the neighbouring rows' 2px gap, and
+     --focus-ring rather than --color-primary (an ink token: near-black in
+     light but a dim green in dark, which reads as a border colour on a
+     surface it is not meant to trace). */
   outline: 2px solid var(--focus-ring);
-  outline-offset: 1px;
+  outline-offset: -2px;
 }
 
 /* Drag Preview Styles */
@@ -192,7 +296,7 @@
   flex: 1;
   font-size: 0.9rem;
   font-weight: var(--fw-light);
-  border: 1px solid var(--color-primary);
+  border: 1px solid var(--border-focus);
   background: var(--bg-surface);
   color: var(--color-text-main);
   padding: 2px 6px;
@@ -207,9 +311,12 @@
 
 /* ── Drop Zone Indicators ────────────────────────────── */
 
+/* Distinct from the (now filled) active row: a tinted field plus a dashed
+   outline, so "this is where it will land" cannot be confused with "this is
+   what is selected". */
 .tree-row[data-drop-zone='inside'] {
-  background: var(--color-accent-bg);
-  outline: 1.5px dashed var(--focus-ring);
+  background: color-mix(in srgb, var(--primary-fill) 14%, transparent);
+  outline: 1.5px dashed var(--border-focus);
   outline-offset: -1.5px;
 }
 
@@ -258,7 +365,38 @@
 
 .root-drop-zone.active {
   opacity: 1;
-  background: var(--color-accent-bg);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  background: color-mix(in srgb, var(--primary-fill) 14%, transparent);
+  border-color: var(--border-focus);
+  color: var(--color-text-main);
+}
+
+/* ── TOUCH ────────────────────────────────────────────────
+   `:hover` never fires on a touch screen, so hover-revealed actions are
+   unreachable there. Where hover is unavailable, the actions are permanently
+   visible and the badge yields to them — the same slot swap, without the
+   hover trigger. */
+@media (hover: none) {
+  .node-actions {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .tree-row .count-badge {
+    opacity: 0;
+  }
+
+  .drag-handle {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tree-row,
+  .node-actions,
+  .count-badge,
+  .action-mini,
+  .drag-handle {
+    transition: none;
+  }
 }

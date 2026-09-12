@@ -9,7 +9,8 @@
       [attr.aria-level]="node.level + 1"
       [attr.aria-selected]="activeId() === node.id"
       [class.active]="activeId() === node.id"
-      [style.padding-left.px]="node.level * 16 + 8"
+      [class.nested]="node.level > 0"
+      [style.--depth]="node.level"
       (click)="handleSelect(node)"
       cdkDrag
       [cdkDragData]="node"
@@ -32,24 +33,31 @@
         <lucide-icon [img]="Icons.GripVertical" [size]="14"></lucide-icon>
       </div>
 
-      @if (node.expandable) {
-        <button
-          class="toggle-btn"
-          type="button"
-          (click)="toggleExpand($event, node)"
-          [attr.aria-label]="node.isExpanded ? 'Collapse ' + node.name : 'Expand ' + node.name"
-        >
-          <lucide-icon
-            [img]="node.isExpanded ? Icons.ChevronDown : Icons.ChevronRight"
-            [size]="14"
-          ></lucide-icon>
-        </button>
-      }
+      <!-- The chevron slot is ALWAYS rendered so leaf rows and parent rows keep
+           their icons on the same x. Previously the chevron only existed for
+           expandable nodes, so every leaf row sat 18px left of its siblings. -->
+      <div class="chevron-slot">
+        @if (node.expandable) {
+          <button
+            class="toggle-btn"
+            type="button"
+            (click)="toggleExpand($event, node)"
+            [attr.aria-label]="node.isExpanded ? 'Collapse ' + node.name : 'Expand ' + node.name"
+          >
+            <lucide-icon
+              [img]="node.isExpanded ? Icons.ChevronDown : Icons.ChevronRight"
+              [size]="14"
+            ></lucide-icon>
+          </button>
+        }
+      </div>
 
       <div class="type-icon">
         @if (node.type === 'Folder') {
+          <!-- Three states, not two: a folder that HAS children but is collapsed
+               shows FolderClosed, so it can never be mistaken for an empty one. -->
           <lucide-icon
-            [img]="node.isExpanded ? Icons.FolderOpen : Icons.Folder"
+            [img]="node.isExpanded ? Icons.FolderOpen : (node.expandable ? Icons.FolderClosed : Icons.Folder)"
             [size]="16"
             class="folder-icon"
           ></lucide-icon>
@@ -72,6 +80,12 @@
         />
       } @else {
         <span class="node-name">{{ node.name }}</span>
+        <!-- The count badge and the actions share one slot: showing both would
+             overflow a 300px rail. On hover/focus the badge yields to the
+             actions; on touch there is no hover, so the badge yields to them
+             permanently and the actions stay tappable.
+             Only rendered when a count EXISTS and is non-zero, so the writing
+             studio's documents (no count field) do not sprout a "0" chip. -->
         @if (node.originalData.count !== undefined && node.originalData.count > 0) {
           <span class="count-badge">{{ node.originalData.count }}</span>
         }
@@ -86,7 +100,7 @@
             title="Move to Root"
             aria-label="Move to root"
           >
-            <lucide-icon [img]="Icons.ArrowUp" [size]="12"></lucide-icon>
+            <lucide-icon [img]="Icons.CornerUpLeft" [size]="13"></lucide-icon>
           </button>
         }
 
@@ -97,7 +111,7 @@
           title="Rename"
           aria-label="Rename"
         >
-          <lucide-icon [img]="Icons.Edit2" [size]="12"></lucide-icon>
+          <lucide-icon [img]="Icons.Edit2" [size]="13"></lucide-icon>
         </button>
         <button
           class="action-mini danger"
@@ -106,7 +120,7 @@
           title="Delete"
           aria-label="Delete"
         >
-          <lucide-icon [img]="Icons.Trash2" [size]="12"></lucide-icon>
+          <lucide-icon [img]="Icons.Trash2" [size]="13"></lucide-icon>
         </button>
       </div>
     </div>

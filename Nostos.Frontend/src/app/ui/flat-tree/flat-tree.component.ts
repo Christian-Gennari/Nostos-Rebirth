@@ -14,6 +14,7 @@ import { DragDropModule, CdkDragMove } from '@angular/cdk/drag-drop';
 import {
   LucideAngularModule,
   Folder,
+  FolderClosed,
   FileText,
   ChevronRight,
   ChevronDown,
@@ -21,7 +22,7 @@ import {
   Edit2,
   Trash2,
   FolderOpen,
-  ArrowUp,
+  CornerUpLeft,
 } from 'lucide-angular';
 import { buildFlatTree, FlatTreeNode, TreeItem } from './flat-tree.helper';
 
@@ -56,13 +57,14 @@ export class FlatTreeComponent {
   protected readonly Icons = {
     Folder,
     FolderOpen,
+    FolderClosed,
     FileText,
     ChevronRight,
     ChevronDown,
     GripVertical,
     Edit2,
     Trash2,
-    ArrowUp,
+    CornerUpLeft,
   };
 
   readonly expandedIds = signal<Set<string>>(new Set());

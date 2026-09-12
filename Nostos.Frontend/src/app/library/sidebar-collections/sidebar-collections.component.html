@@ -149,7 +149,37 @@
 
     <div class="nav-group">
       <div class="collapsible">
-        <div class="section-label">Collections</div>
+        <div class="section-head">
+          <span class="section-label">Collections</span>
+          @if (!adding()) {
+            <button
+              class="section-add"
+              type="button"
+              (click)="startAdd()"
+              title="New Collection"
+              aria-label="New collection"
+            >
+              <lucide-icon [img]="PlusIcon" [size]="14" strokeWidth="1.8"></lucide-icon>
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="collapsible">
+        @if (adding()) {
+          <div class="nav-item input-mode">
+            <lucide-icon [img]="PlusIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
+            <input
+              type="text"
+              class="sidebar-input"
+              [(ngModel)]="newName"
+              (keydown.enter)="create()"
+              (keydown.escape)="resetInput()"
+              placeholder="Name..."
+              autoFocus
+            />
+          </div>
+        }
       </div>
 
       <div class="collapsible">
@@ -169,28 +199,6 @@
           ></app-flat-tree>
         </div>
       </div>
-    </div>
-
-    <div class="nav-group mt-auto">
-      @if (adding()) {
-        <div class="nav-item input-mode">
-          <lucide-icon [img]="PlusIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
-          <input
-            type="text"
-            class="sidebar-input"
-            [(ngModel)]="newName"
-            (keydown.enter)="create()"
-            (keydown.escape)="resetInput()"
-            placeholder="Name..."
-            autoFocus
-          />
-        </div>
-      } @else {
-        <button class="nav-item action-add" (click)="startAdd()" title="Create Collection">
-          <lucide-icon [img]="PlusIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
-          <span class="label">New Collection</span>
-        </button>
-      }
     </div>
   </div>
 

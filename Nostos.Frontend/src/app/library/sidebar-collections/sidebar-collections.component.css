@@ -106,10 +106,49 @@
   width: 100%;
 }
 
-.nav-group.mt-auto {
-  margin-top: auto;
-  padding-top: 1rem;
-  border-top: 1px solid transparent;
+/* The head owns the section's horizontal padding. The label inside drops its
+   own, so "Collections" starts at 12px — exactly where "MEDIA" does — instead
+   of inheriting the extra left padding and sitting 12px further in. */
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0 0.25rem 0.75rem;
+  margin-bottom: 0.15rem;
+}
+
+.section-head > .section-label {
+  padding: 0;
+  margin-bottom: 0;
+}
+
+.section-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-light);
+  border-radius: 5px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.section-add:hover {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.section-add:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
 }
 
 .section-label {
@@ -117,7 +156,11 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--color-text-light);
+  /* --color-text-muted, not --color-text-light: at 10.88px bold uppercase the
+     light tone measured 3.28:1 against the light sidebar (#8A8680 on #F7F3F0),
+     below the 4.5:1 small-text floor. The muted tone holds 6.24:1 there and
+     6.65:1 on the dark rail. */
+  color: var(--color-text-muted);
   padding: 0.6rem 0.75rem 0.25rem;
   margin-bottom: 0.15rem;
 }
@@ -269,16 +312,6 @@
 }
 
 /* Add Button Specifics */
-.nav-item.action-add {
-  border: 1px solid transparent;
-  color: var(--color-text-muted);
-}
-
-.nav-item.action-add:hover {
-  color: var(--color-text-main);
-}
-
-/* Input Mode */
 .nav-item.input-mode {
   cursor: default;
 }
