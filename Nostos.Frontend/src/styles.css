@@ -360,6 +360,21 @@
      rest and hover states. */
   --danger-solid: #A03A34;
   --danger-solid-hover: #B3453F;
+  /* The modal mark. Same landmine as the fill: --danger-ink mixed toward
+     --color-text-main, which FLIPS — in light it deepens to #812626 (correct), in
+     dark porcelain bleached it to #E8AEA8, collapsing saturation 53% -> 28%, which
+     is why the trash glyph read PINK.
+     The fix is NOT to pin a light red. Three attempts (#EE8271, #EF6A4E, #EF6C55)
+     all rendered as CORAL: a glyph light enough to clear 4.5:1 on a dark chip is
+     high-value, and a high-value red IS coral. Light mode escapes this only
+     because its glyph is DEEP (value 51%) on a pale field.
+     So the mark is inverted instead, mirroring light's structure: a deep-red FILL
+     with a porcelain glyph. It also now matches the button beneath it, so one
+     dialog shows one red family rather than a pink marker and a red action. */
+  --danger-ink: #F0F2F5;
+  --danger-surface: #A03A34;
+  /* Edge mirrors light's subtle rim/field step (light 1.45 -> here 1.79). */
+  --danger-hairline: #B8716E;
   /* Distinct from the accent on purpose. Reusing one mint for both brand and
      "success" means the Finished tick reads as a brand mark, and it multiplies
      the visible mint count. */
