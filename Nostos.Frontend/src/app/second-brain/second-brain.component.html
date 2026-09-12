@@ -40,16 +40,19 @@
         </div>
         <div class="index-tools">
           <label class="sort-label" for="brain-sort">Sort</label>
-          <select
-            id="brain-sort"
-            class="sort-select"
-            [ngModel]="indexSort()"
-            (ngModelChange)="setSort($event)"
-          >
-            <option value="usage">Most used</option>
-            <option value="az">A → Z</option>
-            <option value="za">Z → A</option>
-          </select>
+          <div class="select-shell sort-shell">
+            <select
+              id="brain-sort"
+              class="sort-select"
+              [ngModel]="indexSort()"
+              (ngModelChange)="setSort($event)"
+            >
+              <option value="usage">Most used</option>
+              <option value="az">A → Z</option>
+              <option value="za">Z → A</option>
+            </select>
+            <lucide-icon class="select-chevron" [img]="ExpandIcon" [size]="15" aria-hidden="true"></lucide-icon>
+          </div>
           <div class="control-group view-mode-control" role="group" aria-label="Index view">
             <button
               type="button"
@@ -320,6 +323,8 @@
               class="related-chip"
               [attr.aria-label]="'Select ' + related.name"
               [title]="related.name"
+              (mouseenter)="prefetch(related.id)"
+              (focus)="prefetch(related.id)"
               (click)="selectConcept(related.id)"
             >
               <span class="related-chip-name">{{ related.name }}</span>
@@ -363,31 +368,37 @@
 
         <div class="detail-select-wrap">
           <label class="detail-tool-label" for="source-filter">Source</label>
-          <select
-            id="source-filter"
-            class="detail-select"
-            [ngModel]="sourceFilter()"
-            (ngModelChange)="setSourceFilter($event)"
-          >
-            <option [value]="'all'">All sources ({{ detail.notes.length }})</option>
-            @for (source of sourceOptions(); track source.value) {
-            <option [value]="source.value">{{ source.label }} ({{ source.count }})</option>
-            }
-          </select>
+          <div class="select-shell detail-select-shell">
+            <select
+              id="source-filter"
+              class="detail-select"
+              [ngModel]="sourceFilter()"
+              (ngModelChange)="setSourceFilter($event)"
+            >
+              <option [value]="'all'">All sources ({{ detail.notes.length }})</option>
+              @for (source of sourceOptions(); track source.value) {
+              <option [value]="source.value">{{ source.label }} ({{ source.count }})</option>
+              }
+            </select>
+            <lucide-icon class="select-chevron" [img]="ExpandIcon" [size]="15" aria-hidden="true"></lucide-icon>
+          </div>
         </div>
 
         <div class="detail-select-wrap">
           <label class="detail-tool-label" for="note-sort">Sort</label>
-          <select
-            id="note-sort"
-            class="detail-select"
-            [ngModel]="noteSort()"
-            (ngModelChange)="setNoteSort($event)"
-          >
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-            <option value="source">Source</option>
-          </select>
+          <div class="select-shell detail-select-shell">
+            <select
+              id="note-sort"
+              class="detail-select"
+              [ngModel]="noteSort()"
+              (ngModelChange)="setNoteSort($event)"
+            >
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="source">Source</option>
+            </select>
+            <lucide-icon class="select-chevron" [img]="ExpandIcon" [size]="15" aria-hidden="true"></lucide-icon>
+          </div>
         </div>
 
         <span class="note-count" role="status" aria-live="polite" aria-atomic="true">
@@ -434,8 +445,6 @@
         }
       </div>
       }
-      } @else if (selectedId() && loadingDetail()) {
-      <div class="detail-wait-field wait-field wait-field--breath" role="status" aria-label="Loading concept"></div>
       } @else {
       <div class="landing-state">
         <div class="icon-circle">

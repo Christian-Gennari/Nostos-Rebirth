@@ -433,6 +433,9 @@ export class SecondBrain implements AfterViewChecked {
 
     const boundedIndex = Math.max(0, Math.min(index, rows.length - 1));
     this.cursorIndex.set(boundedIndex);
+    // Arrow-key navigation should warm the same detail cache as pointer
+    // hover/focus, before Enter commits the selection.
+    this.prefetch(rows[boundedIndex].id);
 
     const row = this.indexRows?.get(boundedIndex)?.nativeElement;
     if (!row) return;

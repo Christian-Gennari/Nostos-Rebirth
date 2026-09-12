@@ -32,10 +32,14 @@ const MAX_ZOOM = 2.5;
 const MAP_TOOLTIP_HALF_WIDTH = 112;
 const MAP_TOOLTIP_TOP = 88;
 const MAP_TOOLTIP_BOTTOM = MAP_HEIGHT - 16;
+const MAP_LABEL_HALF_WIDTH = 100;
+const MAP_DEFAULT_LABEL_LIMIT = 8;
 
 export interface ConceptMapNode extends ConceptDto {
   x: number;
   y: number;
+  labelX: number;
+  labelY: number;
   radius: number;
   connectionCount: number;
   labelEligible: boolean;
@@ -168,6 +172,14 @@ export function computeConceptMapLayout(
     ? (sortedUsages[middle - 1] + sortedUsages[middle]) / 2
     : sortedUsages[middle];
   const edges = deriveConceptMapEdges(concepts, relatedBySource);
+  // The map can live in a 280px rail. Showing every median-usage label makes
+  // a connected cluster unreadable, so reserve the quiet default labels for
+  // the most-referenced nodes; hover, focus and selection still reveal any
+  // other node's label.
+  const labelLimit = Math.min(
+    concepts.length,
+    Math.max(4, Math.min(MAP_DEFAULT_LABEL_LIMIT, Math.ceil(concepts.length * 0.35)))
+  );
   const nodeById = new Map<string, { concept: ConceptDto; x: number; y: number; radius: number }>();
 
   for (const concept of concepts) {
@@ -251,10 +263,15 @@ export function computeConceptMapLayout(
         ...concept,
         x: Number(point.x.toFixed(3)),
         y: Number(point.y.toFixed(3)),
+        // Labels are centered under their node, but the node layout may put a
+        // long name near the stage edge. Keep the text anchor inside the
+        // visible map so a long concept never disappears into the clip.
+        labelX: Number(clamp(point.x, MAP_LABEL_HALF_WIDTH, MAP_WIDTH - MAP_LABEL_HALF_WIDTH).toFixed(3)),
+        labelY: Number(clamp(point.y + point.radius + 18, 18, MAP_HEIGHT - 8).toFixed(3)),
         radius: point.radius,
         connectionCount: connectionCounts.get(concept.id) ?? 0,
-        labelEligible: concept.usageCount >= medianUsage,
-        showLabel: concept.usageCount >= medianUsage,
+        labelEligible: concepts.indexOf(concept) < labelLimit && concept.usageCount >= medianUsage,
+        showLabel: concepts.indexOf(concept) < labelLimit && concept.usageCount >= medianUsage,
       };
     }),
     edges,

@@ -192,16 +192,23 @@ describe('SecondBrain', () => {
     expect(el.querySelector('.index-tools')).not.toBeNull();
   });
 
-  it('uses a structureless wait field only before the first detail has painted', async () => {
+  it('keeps the existing pane visible during a cold switch without a loading surface', async () => {
     component.selectConcept('c-alpha');
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.detail-wait-field')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.landing-state')).toBeNull();
-
     flushDetail('c-alpha', detail('c-alpha', 'Alpha'));
     await fixture.whenStable();
+
+    component.selectConcept('c-gamma');
+    fixture.detectChanges();
+
+    expect(component.selectedDetail()?.name).toBe('Alpha');
+    expect(fixture.nativeElement.querySelector('.concept-title')?.textContent).toContain('Alpha');
+    expect(fixture.nativeElement.querySelector('.content-col .wait-field')).toBeNull();
     expect(fixture.nativeElement.querySelector('.detail-wait-field')).toBeNull();
+
+    flushDetail('c-gamma', detail('c-gamma', 'Gamma'));
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('.content-col .wait-field')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.concept-title')?.textContent).toContain('Gamma');
   });
 
   it('filters notes by source and keeps the live count in sync', async () => {

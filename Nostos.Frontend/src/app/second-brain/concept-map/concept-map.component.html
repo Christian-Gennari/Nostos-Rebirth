@@ -92,7 +92,7 @@
             aria-hidden="true"
           ></circle>
           @if (node.showLabel) {
-          <text class="map-node-label" [attr.x]="node.x" [attr.y]="node.y + node.radius + 18">
+          <text class="map-node-label" [attr.x]="node.labelX" [attr.y]="node.labelY">
             {{ tooltipLabel(node.name) }}
           </text>
           }
