@@ -1,10 +1,4 @@
-﻿<div
-  class="flat-tree-container"
-  cdkDropList
-  [cdkDropListSortingDisabled]="true"
-  role="tree"
-  [style.--chevron-slot]="hasExpandable() ? '18px' : '0px'"
->
+﻿<div class="flat-tree-container" cdkDropList [cdkDropListSortingDisabled]="true" role="tree">
   @for (node of treeNodes(); track node.id) {
     <div
       class="tree-row"
@@ -35,24 +29,25 @@
         {{ node.name }}
       </div>
 
-      <!-- The chevron slot is ALWAYS rendered so leaf rows and parent rows keep
-           their icons on the same x. Previously the chevron only existed for
-           expandable nodes, so every leaf row sat 18px left of its siblings. -->
-      <div class="chevron-slot">
-        @if (node.expandable) {
-          <button
-            class="toggle-btn"
-            type="button"
-            (click)="toggleExpand($event, node)"
-            [attr.aria-label]="node.isExpanded ? 'Collapse ' + node.name : 'Expand ' + node.name"
-          >
-            <lucide-icon
-              [img]="node.isExpanded ? Icons.ChevronDown : Icons.ChevronRight"
-              [size]="14"
-            ></lucide-icon>
-          </button>
-        }
-      </div>
+      <!-- The chevron is an OVERLAY, not a column: it is absolutely positioned
+           into the row's own left padding, so it costs no layout width in any
+           state. Reserving a slot for it pushed every row 18px right the moment
+           any collection gained a child, which is exactly the indent the user
+           asked us to remove. Rendered for expandable nodes only. -->
+      @if (node.expandable) {
+        <button
+          class="toggle-btn"
+          type="button"
+          [class.expanded]="node.isExpanded"
+          (click)="toggleExpand($event, node)"
+          [attr.aria-label]="node.isExpanded ? 'Collapse ' + node.name : 'Expand ' + node.name"
+        >
+          <lucide-icon
+            [img]="node.isExpanded ? Icons.ChevronDown : Icons.ChevronRight"
+            [size]="12"
+          ></lucide-icon>
+        </button>
+      }
 
       <!-- The icon doubles as the drag handle, so drag-to-reparent survives
            without spending a permanent column on a grip that is invisible
