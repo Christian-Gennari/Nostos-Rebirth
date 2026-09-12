@@ -5,6 +5,9 @@
         <div class="header-row">
           <h1>Index</h1>
           <span class="badge-count">{{ filteredConcepts().length }}</span>
+          <span class="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+            Showing {{ filteredConcepts().length }} of {{ concepts().length }} concepts
+          </span>
         </div>
         @if (conceptStats(); as stats) {
         <div class="index-stats">
@@ -76,7 +79,13 @@
         </div>
       </div>
 
-      <div class="index-list" [class.map-mode]="viewMode() === 'map'" [attr.aria-busy]="loadingConcepts()">
+      <div
+        class="index-list"
+        [class.map-mode]="viewMode() === 'map'"
+        [attr.aria-busy]="loadingConcepts()"
+        [attr.role]="viewMode() === 'map' ? null : 'list'"
+        [attr.aria-label]="viewMode() === 'map' ? null : 'Concept index'"
+      >
         @if (loadingConcepts()) {
         <div class="index-wait-field wait-field" role="status" aria-label="Loading concepts"></div>
         } @else if (concepts().length === 0) {
@@ -103,21 +112,9 @@
         @if (isLetterStart(i)) {
         <div class="letter-separator super-title" aria-hidden="true">{{ letterFor(c) }}</div>
         }
-        <div
-          #indexRow
-          class="index-item"
-          [class.active]="selectedId() === c.id"
-          [attr.tabindex]="cursorIndex() === null ? (i === 0 ? 0 : -1) : (cursorIndex() === i ? 0 : -1)"
-          role="button"
-          [attr.aria-label]="c.name"
-          [attr.aria-pressed]="selectedId() === c.id"
-          (click)="selectConcept(c.id)"
-          (mouseenter)="prefetch(c.id)"
-          (focus)="handleIndexFocus(i); prefetch(c.id)"
-          (keydown)="handleIndexKeydown($event, i, c.id)"
-        >
+        <div class="index-row-shell" role="listitem">
           @if (renameId() === c.id && renameSurface() === 'index') {
-          <div class="inline-rename" (click)="$event.stopPropagation()">
+          <div class="index-item inline-rename" (click)="$event.stopPropagation()">
             <input
               #renameInput
               type="text"
@@ -137,37 +134,51 @@
             }
           </div>
           } @else {
-          <span class="name">
-            @for (part of highlightName(c.name); track $index) {
-            @if (part.highlight) {
-            <mark>{{ part.text }}</mark>
-            } @else {
-            {{ part.text }}
-            }
-            }
-          </span>
-          }
-          <span class="row-tail">
-            <span class="count">{{ c.usageCount }}</span>
-            <span class="row-actions" (click)="$event.stopPropagation()">
-              <button
-                type="button"
-                class="row-action"
-                [attr.aria-label]="'Rename ' + c.name"
-                (click)="requestRename(c.id, $event)"
-              >
-                <lucide-icon [img]="RenameIcon" [size]="15"></lucide-icon>
-              </button>
-              <button
-                type="button"
-                class="row-action danger"
-                [attr.aria-label]="'Delete ' + c.name"
-                (click)="requestDelete(c.id, $event)"
-              >
-                <lucide-icon [img]="DeleteIcon" [size]="15"></lucide-icon>
-              </button>
+          <button
+            #indexRow
+            type="button"
+            class="index-item"
+            [class.active]="selectedId() === c.id"
+            [attr.tabindex]="cursorIndex() === null ? (i === 0 ? 0 : -1) : (cursorIndex() === i ? 0 : -1)"
+            [attr.aria-label]="c.name"
+            [attr.aria-pressed]="selectedId() === c.id"
+            (click)="selectConcept(c.id)"
+            (mouseenter)="prefetch(c.id)"
+            (focus)="handleIndexFocus(i); prefetch(c.id)"
+            (keydown)="handleIndexKeydown($event, i, c.id)"
+          >
+            <span class="name">
+              @for (part of highlightName(c.name); track $index) {
+              @if (part.highlight) {
+              <mark>{{ part.text }}</mark>
+              } @else {
+              {{ part.text }}
+              }
+              }
             </span>
-          </span>
+            <span class="row-tail">
+              <span class="count">{{ c.usageCount }}</span>
+            </span>
+          </button>
+          }
+          <div class="row-actions" (click)="$event.stopPropagation()">
+            <button
+              type="button"
+              class="row-action"
+              [attr.aria-label]="'Rename ' + c.name"
+              (click)="requestRename(c.id, $event)"
+            >
+              <lucide-icon [img]="RenameIcon" [size]="15"></lucide-icon>
+            </button>
+            <button
+              type="button"
+              class="row-action danger"
+              [attr.aria-label]="'Delete ' + c.name"
+              (click)="requestDelete(c.id, $event)"
+            >
+              <lucide-icon [img]="DeleteIcon" [size]="15"></lucide-icon>
+            </button>
+          </div>
         </div>
         }
         }
@@ -379,7 +390,7 @@
           </select>
         </div>
 
-        <span class="note-count" aria-live="polite">
+        <span class="note-count" role="status" aria-live="polite" aria-atomic="true">
           @if (noteFiltersActive()) {
           Showing {{ filteredNotes().length }} of {{ detail.notes.length }} notes
           } @else {
@@ -407,6 +418,7 @@
         @for (note of filteredNotes(); track note.noteId) {
         <div class="note-card">
           <app-note-card
+            #noteCardHost
             [note]="noteForCard(note)"
             [conceptMap]="conceptMap()"
             [showNavigation]="false"
@@ -422,6 +434,8 @@
         }
       </div>
       }
+      } @else if (selectedId() && loadingDetail()) {
+      <div class="detail-wait-field wait-field wait-field--breath" role="status" aria-label="Loading concept"></div>
       } @else {
       <div class="landing-state">
         <div class="icon-circle">

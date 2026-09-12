@@ -4,7 +4,29 @@
       <div class="map-eyebrow">Map</div>
       <p class="map-intro">A quiet view of the ideas that share a page.</p>
     </div>
-    <button type="button" class="map-reset" (click)="resetView()">Reset view</button>
+    <div class="map-controls" role="group" aria-label="Map controls">
+      <button
+        type="button"
+        class="map-zoom"
+        aria-label="Zoom out"
+        title="Zoom out"
+        [disabled]="zoom() <= minZoom"
+        (click)="zoomOut()"
+      >
+        −
+      </button>
+      <button
+        type="button"
+        class="map-zoom"
+        aria-label="Zoom in"
+        title="Zoom in"
+        [disabled]="zoom() >= maxZoom"
+        (click)="zoomIn()"
+      >
+        +
+      </button>
+      <button type="button" class="map-reset" (click)="resetView()">Reset view</button>
+    </div>
   </div>
 
   @if (isCapped()) {
@@ -51,7 +73,7 @@
           (mouseleave)="onNodeLeave(node.id)"
           (focus)="onNodeFocus(node.id)"
           (blur)="onNodeBlur(node.id)"
-          (pointerdown)="onNodePointerDown($event)"
+          (pointerdown)="onNodePointerDown($event, node.id)"
           (click)="selectNode(node.id)"
           (keydown)="onNodeKeydown($event, node.id)"
         >
@@ -71,7 +93,7 @@
           ></circle>
           @if (node.showLabel) {
           <text class="map-node-label" [attr.x]="node.x" [attr.y]="node.y + node.radius + 18">
-            {{ node.name }}
+            {{ tooltipLabel(node.name) }}
           </text>
           }
         </g>
@@ -81,7 +103,7 @@
       @if (tooltipNode(); as tooltip) {
       <g class="map-tooltip" [attr.transform]="tooltipTransform()">
         <rect x="-112" y="-88" width="224" height="72"></rect>
-        <text class="map-tooltip-name" x="-96" y="-62">{{ tooltip.name }}</text>
+        <text class="map-tooltip-name" x="-96" y="-62">{{ tooltipLabel(tooltip.name) }}</text>
         <text class="map-tooltip-meta" x="-96" y="-40">
           {{ tooltip.usageCount }} {{ tooltip.usageCount === 1 ? 'reference' : 'references' }} ·
           {{ tooltip.connectionCount }}
@@ -93,11 +115,11 @@
   </div>
 
   @if (relatedLoading()) {
-  <p class="map-status">Finding connections…</p>
+  <p class="map-status" role="status" aria-live="polite">Finding connections…</p>
   } @else if (displayedConcepts().length === 1) {
-  <p class="map-status">There are no connections yet.</p>
+  <p class="map-status" role="status" aria-live="polite">There are no connections yet.</p>
   } @else if (noConnections()) {
-  <p class="map-status">No connections yet</p>
+  <p class="map-status" role="status" aria-live="polite">No connections yet</p>
   }
 
   <ul class="map-accessible-list visually-hidden" aria-label="Concepts in this map">

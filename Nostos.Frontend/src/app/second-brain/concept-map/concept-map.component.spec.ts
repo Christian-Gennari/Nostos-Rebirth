@@ -140,4 +140,51 @@ describe('ConceptMapComponent', () => {
 
     expect(selected).toHaveBeenCalledWith('alpha');
   });
+
+  it('shows a tooltip immediately on a touch pointer-down and keeps it in the viewBox', () => {
+    setConcepts(concepts);
+    flushRelated();
+
+    component.panX.set(-1000);
+    component.panY.set(-2000);
+    component.zoom.set(2.5);
+    component.onNodePointerDown(
+      { stopPropagation: vi.fn() } as unknown as PointerEvent,
+      'alpha'
+    );
+
+    expect(component.hoveredId()).toBe('alpha');
+    expect(component.tooltipTransform()).toBe('translate(112 88)');
+  });
+
+  it('keeps the map accessible list available beside the visual graph', () => {
+    setConcepts(concepts);
+    flushRelated();
+
+    const accessibleList = fixture.nativeElement.querySelector('.map-accessible-list') as HTMLElement;
+    expect(accessibleList).toBeTruthy();
+    expect(accessibleList.getAttribute('aria-label')).toBe('Concepts in this map');
+    expect(accessibleList.querySelectorAll('button')).toHaveLength(concepts.length);
+    expect(fixture.nativeElement.querySelector('[aria-label="Zoom out"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[aria-label="Zoom in"]')).toBeTruthy();
+    expect(
+      [...accessibleList.querySelectorAll('button')].every(
+        (button) => button.textContent?.trim() && button.getAttribute('aria-pressed') !== null
+      )
+    ).toBe(true);
+  });
+
+  it('offers bounded keyboard and touch zoom controls', () => {
+    expect(component.zoom()).toBe(1);
+    component.zoomIn();
+    expect(component.zoom()).toBeCloseTo(1.12);
+
+    component.zoom.set(component.maxZoom);
+    component.zoomIn();
+    expect(component.zoom()).toBe(component.maxZoom);
+
+    component.zoom.set(component.minZoom);
+    component.zoomOut();
+    expect(component.zoom()).toBe(component.minZoom);
+  });
 });

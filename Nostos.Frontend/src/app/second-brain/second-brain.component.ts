@@ -1,4 +1,5 @@
 import {
+  AfterViewChecked,
   Component,
   computed,
   ElementRef,
@@ -101,7 +102,7 @@ function searchRank(name: string, query: string): number {
   templateUrl: './second-brain.component.html',
   styleUrls: ['./second-brain.component.css'],
 })
-export class SecondBrain {
+export class SecondBrain implements AfterViewChecked {
   private conceptsService = inject(ConceptsService);
   private http = inject(HttpClient);
   private notesService = inject(NotesService);
@@ -185,6 +186,8 @@ export class SecondBrain {
   private relatedRequestVersion = 0;
 
   @ViewChildren('indexRow') private indexRows!: QueryList<ElementRef<HTMLElement>>;
+  @ViewChildren('noteCardHost', { read: ElementRef })
+  private noteCardHosts!: QueryList<ElementRef<HTMLElement>>;
 
   // Computed Map for the Pipe to look up IDs efficiently
   conceptMap = computed(() => {
@@ -304,6 +307,36 @@ export class SecondBrain {
       // index unavailable or produce a toast for an otherwise usable page.
       error: () => undefined,
     });
+  }
+
+  /**
+   * NoteCardComponent is shared with older surfaces and its icon buttons do
+   * not all carry explicit labels. Label the buttons only in this surface,
+   * after Angular has rendered or switched a card into edit mode, without
+   * changing the shared component outside this phase's ownership boundary.
+   */
+  ngAfterViewChecked(): void {
+    for (const host of this.noteCardHosts ?? []) {
+      const actionButtons = host.nativeElement.querySelectorAll<HTMLButtonElement>(
+        '.note-actions .icon-btn, .edit-actions .icon-btn'
+      );
+      const editButtons = host.nativeElement.querySelectorAll<HTMLButtonElement>(
+        '.edit-actions .icon-btn'
+      );
+
+      actionButtons.forEach((button) => {
+        if (button.closest('.edit-actions')) {
+          const editIndex = Array.from(editButtons).indexOf(button);
+          button.setAttribute('aria-label', editIndex === 0 ? 'Save note' : 'Cancel note edit');
+        } else if (button.classList.contains('delete')) {
+          button.setAttribute('aria-label', 'Delete note');
+        } else if (button.getAttribute('title') === 'Jump to location') {
+          button.setAttribute('aria-label', 'Jump to note location');
+        } else {
+          button.setAttribute('aria-label', 'Edit note');
+        }
+      });
+    }
   }
 
   private compareForSort(a: ConceptDto, b: ConceptDto): number {

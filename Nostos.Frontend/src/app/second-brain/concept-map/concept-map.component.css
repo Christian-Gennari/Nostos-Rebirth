@@ -20,8 +20,15 @@
   gap: 0.75rem;
 }
 
+.map-controls {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 0.25rem;
+}
+
 .map-eyebrow {
-  color: var(--color-text-light);
+  color: var(--color-text-muted);
   font-size: 0.68rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -35,34 +42,55 @@
   line-height: 1.4;
 }
 
-.map-reset {
+.map-reset,
+.map-zoom {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 36px;
-  padding: 0 0.65rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--color-text-light);
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
   font-family: 'Hanken Grotesk', sans-serif;
+}
+
+.map-reset {
+  padding: 0 0.65rem;
   font-size: 0.74rem;
   white-space: nowrap;
 }
 
-.map-reset:hover {
+.map-zoom {
+  width: 36px;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.map-reset:hover,
+.map-zoom:hover:not(:disabled) {
   background: var(--bg-hover);
   color: var(--color-text-main);
 }
 
 .map-reset:focus-visible,
+.map-zoom:focus-visible,
 .map-accessible-list button:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
 
+.map-zoom:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .map-limit-note,
 .map-status {
   margin: 0;
-  color: var(--color-text-light);
+  color: var(--color-text-muted);
   font-size: 0.72rem;
   line-height: 1.4;
 }
@@ -79,7 +107,7 @@
   position: relative;
   min-height: 360px;
   overflow: hidden;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--color-text-light);
   border-radius: var(--radius-lg);
   background: var(--bg-body);
   box-shadow: var(--shadow-sm);
@@ -151,7 +179,7 @@
 
 .map-tooltip rect {
   fill: var(--bg-surface);
-  stroke: var(--border-color);
+  stroke: var(--color-text-light);
   stroke-width: 1;
   rx: var(--radius-lg);
   vector-effect: non-scaling-stroke;
@@ -170,7 +198,7 @@
 }
 
 .map-tooltip-meta {
-  fill: var(--color-text-light);
+  fill: var(--color-text-muted);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 12px;
 }
@@ -201,6 +229,21 @@
   }
 
   .map-reset {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .map-header {
+    display: block;
+  }
+
+  .map-controls {
+    justify-content: flex-end;
+    margin-top: 0.65rem;
+  }
+
+  .map-zoom {
+    width: 44px;
     min-height: 44px;
   }
 

@@ -192,6 +192,18 @@ describe('SecondBrain', () => {
     expect(el.querySelector('.index-tools')).not.toBeNull();
   });
 
+  it('uses a structureless wait field only before the first detail has painted', async () => {
+    component.selectConcept('c-alpha');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.detail-wait-field')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.landing-state')).toBeNull();
+
+    flushDetail('c-alpha', detail('c-alpha', 'Alpha'));
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('.detail-wait-field')).toBeNull();
+  });
+
   it('filters notes by source and keeps the live count in sync', async () => {
     component.selectConcept('c-alpha');
     flushDetail('c-alpha', detailWithNotes('c-alpha', 'Alpha'));
@@ -511,6 +523,40 @@ describe('SecondBrain', () => {
     expect(renameSpy).toHaveBeenCalledWith('c-alpha');
     expect(deleteSpy).toHaveBeenCalledWith('c-alpha');
     expect(component.selectedId()).toBeNull();
+  });
+
+  it('renders the index as a list of real buttons with a live result count', () => {
+    fixture.detectChanges();
+
+    const index = fixture.nativeElement.querySelector('.index-list') as HTMLElement;
+    expect(index.getAttribute('role')).toBe('list');
+    expect(index.getAttribute('aria-label')).toBe('Concept index');
+    expect(index.querySelectorAll('.index-row-shell[role="listitem"]')).toHaveLength(3);
+    expect(index.querySelectorAll('.index-item[role="button"]')).toHaveLength(0);
+    expect(index.querySelector('.index-row-shell .index-item')?.tagName).toBe('BUTTON');
+    expect(fixture.nativeElement.querySelector('.header-row [role="status"]')?.textContent).toContain(
+      'Showing 3 of 3 concepts'
+    );
+  });
+
+  it('gives every icon-only action an accessible name after note cards render', async () => {
+    component.selectConcept('c-alpha');
+    flushDetail('c-alpha', detail('c-alpha', 'Alpha'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const iconOnlyButtons = [...fixture.nativeElement.querySelectorAll('button')].filter((button) => {
+      return button.querySelector('lucide-icon') && !button.textContent?.trim();
+    }) as HTMLButtonElement[];
+
+    expect(iconOnlyButtons.length).toBeGreaterThan(0);
+    expect(iconOnlyButtons.every((button) => button.getAttribute('aria-label')?.trim())).toBe(true);
+  });
+
+  it('keeps the document width within a 390px mobile viewport', () => {
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
+      document.documentElement.clientWidth || document.documentElement.scrollWidth
+    );
   });
 
   it('renames inline, sends the concept body, updates the pane, and refreshes stats', async () => {

@@ -29,6 +29,9 @@ export const MAP_NODE_HIT_RADIUS = 52;
 const LAYOUT_ITERATIONS = 300;
 const MIN_ZOOM = 0.65;
 const MAX_ZOOM = 2.5;
+const MAP_TOOLTIP_HALF_WIDTH = 112;
+const MAP_TOOLTIP_TOP = 88;
+const MAP_TOOLTIP_BOTTOM = MAP_HEIGHT - 16;
 
 export interface ConceptMapNode extends ConceptDto {
   x: number;
@@ -277,6 +280,8 @@ export class ConceptMapComponent implements OnChanges {
   @Output() readonly conceptSelected = new EventEmitter<string>();
 
   readonly nodeHitRadius = MAP_NODE_HIT_RADIUS;
+  readonly minZoom = MIN_ZOOM;
+  readonly maxZoom = MAX_ZOOM;
 
   readonly displayedConcepts = signal<ConceptDto[]>([]);
   readonly nodes = signal<ConceptMapNode[]>([]);
@@ -325,7 +330,20 @@ export class ConceptMapComponent implements OnChanges {
   readonly tooltipTransform = computed(() => {
     const node = this.tooltipNode();
     if (!node) return null;
-    return `translate(${this.panX() + node.x * this.zoom()} ${this.panY() + node.y * this.zoom()})`;
+    // The tooltip lives inside the clipped SVG stage. Keep its fixed 224×72
+    // box inside the viewBox even when the selected node is near an edge or
+    // the user has panned/zoomed the map.
+    const x = clamp(
+      this.panX() + node.x * this.zoom(),
+      MAP_TOOLTIP_HALF_WIDTH,
+      MAP_WIDTH - MAP_TOOLTIP_HALF_WIDTH
+    );
+    const y = clamp(
+      this.panY() + node.y * this.zoom(),
+      MAP_TOOLTIP_TOP,
+      MAP_TOOLTIP_BOTTOM
+    );
+    return `translate(${x} ${y})`;
   });
   readonly noConnections = computed(() => this.edges().length === 0);
   readonly isCapped = computed(() => this.sourceCount() > MAX_MAP_CONCEPTS);
@@ -403,6 +421,16 @@ export class ConceptMapComponent implements OnChanges {
     this.zoom.set(1);
     this.panX.set(0);
     this.panY.set(0);
+  }
+
+  zoomOut(): void {
+    this.zoom.set(clamp(this.zoom() - 0.12, MIN_ZOOM, MAX_ZOOM));
+    this.clampPan();
+  }
+
+  zoomIn(): void {
+    this.zoom.set(clamp(this.zoom() + 0.12, MIN_ZOOM, MAX_ZOOM));
+    this.clampPan();
   }
 
   onWheel(event: WheelEvent): void {
@@ -502,11 +530,14 @@ export class ConceptMapComponent implements OnChanges {
     if (this.focusedId() === id) this.focusedId.set(null);
   }
 
-  onNodePointerDown(event: PointerEvent): void {
+  onNodePointerDown(event: PointerEvent, id: string): void {
     event.stopPropagation();
     // A node tap is a selection gesture, not a request to move the canvas.
     // This also clears a previous canvas drag before the browser's click event.
     this.didPan = false;
+    // Touch has no reliable hover phase. Set the same transient state on
+    // pointer-down so a tap reveals the tooltip before the click is dispatched.
+    this.hoveredId.set(id);
   }
 
   onNodeKeydown(event: KeyboardEvent, id: string): void {
@@ -522,6 +553,10 @@ export class ConceptMapComponent implements OnChanges {
 
   selectAccessibleNode(id: string): void {
     this.selectConcept(id);
+  }
+
+  tooltipLabel(name: string): string {
+    return name.length > 28 ? `${name.slice(0, 27)}…` : name;
   }
 
   private selectConcept(id: string): void {
