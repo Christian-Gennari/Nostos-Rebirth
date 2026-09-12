@@ -33,6 +33,16 @@
   --color-danger-vivid: #ef4444;
   --color-danger-bg: #fee2e2;
 
+  /* ── Restrained danger (confirmation surfaces) ──
+     The manifesto asks for "very restrained burgundy or slate" rather than an
+     alarm red: every value below is derived from --color-danger pulled toward
+     ink, so a destructive dialog reads as decided rather than urgent. */
+  --danger-ink: color-mix(in srgb, var(--color-danger) 55%, var(--color-text-main));
+  --danger-hairline: color-mix(in srgb, var(--color-danger) 22%, var(--border-color));
+  --danger-surface: color-mix(in srgb, var(--color-danger) 7%, var(--bg-surface-alt));
+  --danger-solid: color-mix(in srgb, var(--color-danger) 68%, var(--color-text-main));
+  --danger-solid-hover: color-mix(in srgb, var(--color-danger) 80%, var(--color-text-main));
+
   /* ── Success ── */
   --color-success: #22c55e;
   --color-success-dark: #166534;
@@ -59,6 +69,13 @@
   --overlay-heavy: rgba(0, 0, 0, 0.7);
   --overlay-medium: rgba(0, 0, 0, 0.4);
   --overlay-light: rgba(0, 0, 0, 0.3);
+
+  /* ── Modal scrim (shared by every dialog) ──
+     A warm ink dim rather than a frosted-glass wall: the brand avoids
+     glassmorphism, so the blur stays at the restrained value the library's
+     mobile backdrop already uses. One owner, so dialogs cannot drift apart. */
+  --modal-scrim: rgba(28, 27, 26, 0.42);
+  --modal-scrim-blur: 2px;
 
   /* ── Radius ── */
   --radius-sm: 3px;

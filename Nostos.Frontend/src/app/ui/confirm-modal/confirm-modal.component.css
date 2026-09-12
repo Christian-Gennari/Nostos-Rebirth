@@ -1,0 +1,217 @@
+/* Nostos confirmation surface — Nordic Editorial.
+   A quiet paper card on a warm dim: hairline border, small radius, restrained
+   type hierarchy. Deliberately NOT glassmorphic (the brand avoids it) and NOT
+   an alarm: the danger treatment is muted wine, and the action never lifts on
+   hover. */
+
+:host {
+  display: contents;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: var(--modal-scrim);
+  /* The scrim matches the library's mobile backdrop — a depth cue, not a
+     frosted-glass wall. See the --modal-scrim* tokens in styles.css. */
+  backdrop-filter: blur(var(--modal-scrim-blur));
+  -webkit-backdrop-filter: blur(var(--modal-scrim-blur));
+  animation: backdropFade var(--motion-base, 220ms) ease-out both;
+  overscroll-behavior: contain;
+}
+
+@keyframes backdropFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.confirm-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 6px);
+  padding: 1.5rem 1.5rem 1.25rem;
+  box-shadow:
+    0 18px 40px -14px rgba(28, 27, 26, 0.22),
+    0 2px 8px rgba(28, 27, 26, 0.05);
+  /* `both` so the first painted frame already sits at the `from` values —
+     otherwise the card flashes at full opacity before the entrance starts. */
+  animation: cardEnter var(--motion-base, 220ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both;
+}
+
+@keyframes cardEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.confirm-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+
+.confirm-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm, 3px);
+  background: var(--danger-surface);
+  border: 1px solid var(--danger-hairline);
+  color: var(--danger-ink);
+}
+
+.confirm-title {
+  margin: 0;
+  font-family: 'Newsreader', serif;
+  font-size: 1.15rem;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--color-text-main);
+  word-break: break-word;
+}
+
+.confirm-description {
+  margin: 0 0 1.35rem;
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+}
+
+.confirm-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.btn-cancel,
+.btn-confirm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 36px;
+  padding: 0 1rem;
+  border-radius: var(--radius-sm, 3px);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.86rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  /* Explicit property list, not `transition: all` — the latter animates every
+     animatable property and reads as a flicker on hover. */
+  transition:
+    background-color var(--motion-fast, 160ms) ease,
+    border-color var(--motion-fast, 160ms) ease,
+    color var(--motion-fast, 160ms) ease;
+}
+
+.btn-cancel {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--color-text-muted);
+}
+
+.btn-cancel:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.btn-confirm {
+  background: var(--color-primary);
+  border: 1px solid transparent;
+  color: var(--bg-surface);
+}
+
+.btn-confirm:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+/* Destructive tone: a deep wine rather than an alarm red — the fill is pulled
+   toward ink (measured #ad312f -> #982928, white-text contrast 6.45 -> 7.83:1)
+   and the accent glow is gone. No hover lift either: a confirmation should feel
+   decided, not excitable. Note the saturation is essentially unchanged — the
+   restraint comes from depth and the dropped glow, not from desaturating. */
+.tone-danger .btn-confirm {
+  background: var(--danger-solid);
+}
+
+.tone-danger .btn-confirm:hover:not(:disabled) {
+  background: var(--danger-solid-hover);
+}
+
+.btn-cancel:disabled,
+.btn-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spin-icon {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 480px) {
+  .confirm-modal-card {
+    padding: 1.25rem 1.15rem 1.1rem;
+  }
+
+  .confirm-actions {
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+  }
+
+  .btn-cancel,
+  .btn-confirm {
+    width: 100%;
+    height: 44px;
+  }
+}
+
+/* Authored here, beside the transitions it must switch off: a
+   prefers-reduced-motion block in a parent stylesheet cannot reach a component
+   stylesheet. The card's `from` values are opacity/transform, so killing the
+   animation alone would leave it invisible — pin the settled state explicitly. */
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop {
+    animation: none;
+  }
+
+  .confirm-modal-card {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .spin-icon {
+    animation: none;
+  }
+}

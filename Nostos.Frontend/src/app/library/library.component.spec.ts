@@ -262,26 +262,26 @@ describe('Library', () => {
     );
   });
 
-  it('opens DeleteBookModal when delete button is clicked and cancels', () => {
+  it('opens the confirm dialog when the delete button is clicked, and cancels', () => {
     const testBook = { id: 'b1', title: 'Test Book', type: 'ebook', progressPercent: 0 } as any;
     component.rawBooks.set([testBook]);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.delete-modal-card')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.confirm-modal-card')).toBeNull();
 
     component.openDeleteModal(testBook, new MouseEvent('click'));
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.delete-modal-card')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('.delete-title').textContent).toContain('Test Book');
+    expect(fixture.nativeElement.querySelector('.confirm-modal-card')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.confirm-title').textContent).toContain('Test Book');
 
     component.cancelDelete();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.delete-modal-card')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.confirm-modal-card')).toBeNull();
   });
 
-  it('deletes book when confirmed through DeleteBookModal', () => {
+  it('deletes book when confirmed through the confirm dialog', () => {
     const testBook = { id: 'b1', title: 'Test Book', type: 'ebook', progressPercent: 0 } as any;
     component.rawBooks.set([testBook]);
     fixture.detectChanges();
@@ -297,7 +297,7 @@ describe('Library', () => {
 
     expect(deleteSpy).toHaveBeenCalledWith('b1');
     expect(component.rawBooks().length).toBe(0);
-    expect(fixture.nativeElement.querySelector('.delete-modal-card')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.confirm-modal-card')).toBeNull();
   });
 
   // --- Filter/sort cross-fade (no ghost skeleton, no layout jitter) --------

@@ -18,7 +18,7 @@ import { Collection } from '../core/dtos/collection.dtos';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AddBookModal } from '../add-book-modal/add-book-modal.component';
-import { DeleteBookModal } from '../ui/delete-book-modal/delete-book-modal.component';
+import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { SidebarCollections } from './sidebar-collections/sidebar-collections.component';
 import { Book, EditionSummaryDto, PaginatedResponse } from '../core/dtos/book.dtos';
@@ -129,7 +129,7 @@ interface WorkFormatGlyph {
     FormsModule,
     LucideAngularModule,
     AddBookModal,
-    DeleteBookModal,
+    ConfirmModal,
     StarRatingComponent,
     SidebarCollections,
     InfiniteScrollDirective,
@@ -212,6 +212,12 @@ export class Library implements OnInit, OnDestroy {
   editTarget = signal<Book | null>(null);
   deleteTarget = signal<Book | null>(null);
   deletingBook = signal(false);
+
+  /** The confirmation question, composed here so the modal stays generic. */
+  deleteHeading = computed(() => {
+    const target = this.deleteTarget();
+    return target ? `Delete “${target.title}”?` : 'Delete book?';
+  });
 
   books = computed(() => this.rawBooks());
 

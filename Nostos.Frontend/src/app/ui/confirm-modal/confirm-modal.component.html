@@ -1,0 +1,43 @@
+@if (isOpen()) {
+  <div class="modal-backdrop" (click)="onBackdropClick()" role="presentation">
+    <div
+      class="confirm-modal-card"
+      [class.tone-danger]="tone() === 'danger'"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="confirm-dialog-title"
+      [attr.aria-describedby]="description() ? 'confirm-dialog-description' : null"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="confirm-modal-head">
+        @if (tone() === 'danger') {
+          <span class="confirm-mark" aria-hidden="true">
+            <lucide-icon [img]="Trash2Icon" [size]="15" [strokeWidth]="1.75"></lucide-icon>
+          </span>
+        }
+        <h2 id="confirm-dialog-title" class="confirm-title">{{ heading() }}</h2>
+      </div>
+
+      @if (description()) {
+        <p id="confirm-dialog-description" class="confirm-description">{{ description() }}</p>
+      }
+
+      <div class="confirm-actions">
+        <button type="button" class="btn-cancel" (click)="cancel.emit()" [disabled]="busy()">
+          {{ cancelLabel() }}
+        </button>
+        <button type="button" class="btn-confirm" (click)="confirm.emit()" [disabled]="busy()">
+          @if (busy()) {
+            <lucide-icon [img]="LoaderIcon" [size]="14" class="spin-icon"></lucide-icon>
+            <span>{{ busyLabel() }}</span>
+          } @else {
+            @if (tone() === 'danger') {
+              <lucide-icon [img]="Trash2Icon" [size]="14"></lucide-icon>
+            }
+            <span>{{ confirmLabel() }}</span>
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -564,14 +564,17 @@
   </div>
   }
 
-  <app-delete-book-modal
+  <app-confirm-modal
     [isOpen]="showDeleteConfirm()"
-    [bookTitle]="store.book()?.title"
-    [deleting]="deleting()"
+    [heading]="deleteHeading()"
+    description="This action cannot be undone. The book file, annotations, and all reading progress will be permanently deleted from your library."
+    confirmLabel="Delete Permanently"
+    busyLabel="Deleting…"
+    [busy]="deleting()"
     (confirm)="confirmDeleteBook()"
     (cancel)="cancelDeleteConfirm()"
   >
-  </app-delete-book-modal>
+  </app-confirm-modal>
 
   <app-add-book-modal
     [isOpen]="showMetadataModal()"

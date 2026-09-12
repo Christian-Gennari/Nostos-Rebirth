@@ -11,7 +11,7 @@ import { Book, EditionSummaryDto } from '../core/dtos/book.dtos';
 
 // UI Components
 import { AddBookModal } from '../add-book-modal/add-book-modal.component';
-import { DeleteBookModal } from '../ui/delete-book-modal/delete-book-modal.component';
+import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
@@ -58,7 +58,7 @@ import {
     RouterLink,
     LucideAngularModule,
     AddBookModal,
-    DeleteBookModal,
+    ConfirmModal,
     ConceptInputComponent,
     NoteCardComponent,
     StarRatingComponent,
@@ -115,6 +115,12 @@ export class BookDetail implements OnInit {
   statusDropdownOpen = signal(false);
   pendingStatus = signal<'notstarted' | 'reading' | 'finished' | null>(null);
   deleting = signal(false);
+
+  /** The confirmation question, composed here so the modal stays generic. */
+  deleteHeading = computed(() => {
+    const title = this.store.book()?.title;
+    return title ? `Delete “${title}”?` : 'Delete book?';
+  });
 
   /** True when the hero's decorative cover art failed to load — the band falls back to flat colour. */
   heroArtFailed = signal(false);

@@ -96,14 +96,17 @@
       >
       </app-add-book-modal>
 
-      <app-delete-book-modal
+      <app-confirm-modal
         [isOpen]="!!deleteTarget()"
-        [bookTitle]="deleteTarget()?.title"
-        [deleting]="deletingBook()"
+        [heading]="deleteHeading()"
+        description="This action cannot be undone. The book file, annotations, and all reading progress will be permanently deleted from your library."
+        confirmLabel="Delete Permanently"
+        busyLabel="Deleting…"
+        [busy]="deletingBook()"
         (confirm)="confirmDelete()"
         (cancel)="cancelDelete()"
       >
-      </app-delete-book-modal>
+      </app-confirm-modal>
 
       <!-- One stage for both states: the skeleton and the results live inside the
            same element, so the skeleton fades in on arrival and then blurs out

@@ -251,7 +251,7 @@ describe('BookDetail reset progress', () => {
     expect(fixture.nativeElement.querySelector('.primary-actions .delete-book-btn')).toBeNull();
   });
 
-  it('triggers delete confirmation modal via openDeleteConfirm and deletes on confirm', async () => {
+  it('triggers the confirm dialog via openDeleteConfirm and deletes on confirm', async () => {
     await setup(readableBook());
     const router = TestBed.inject(Router);
     const navigateSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
@@ -259,11 +259,11 @@ describe('BookDetail reset progress', () => {
     component.openDeleteConfirm();
     fixture.detectChanges();
 
-    const dialog = fixture.nativeElement.querySelector('.delete-modal-card');
+    const dialog = fixture.nativeElement.querySelector('.confirm-modal-card');
     expect(dialog).toBeTruthy();
-    expect(dialog.textContent).toContain('Delete "Meditations"?');
+    expect(dialog.textContent).toContain('Delete “Meditations”?');
 
-    const deleteBtn = dialog.querySelector('.btn-delete-confirm') as HTMLButtonElement;
+    const deleteBtn = dialog.querySelector('.btn-confirm') as HTMLButtonElement;
     deleteBtn.click();
     fixture.detectChanges();
 
@@ -271,7 +271,7 @@ describe('BookDetail reset progress', () => {
     fixture.detectChanges();
 
     expect(navigateSpy).toHaveBeenCalledWith(['/library']);
-    expect(fixture.nativeElement.querySelector('.delete-modal-card')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.confirm-modal-card')).toBeNull();
   });
 
   it('does not display the uploaded file name in the meta strip', async () => {
