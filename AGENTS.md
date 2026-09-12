@@ -1,7 +1,7 @@
 # Nostos — Agent Instructions
 
 This file is read automatically by coding agents working in this repo (Codex,
-OpenCode, Gemini CLI, Antigravity, Copilot, Cursor, and others — see
+OpenCode, Antigravity CLI, Copilot, Cursor, and others — see
 <https://agents.md>). If you are an agent, follow it.
 
 **Read this before making changes.** It is not a style guide; it is the
