@@ -4,32 +4,12 @@
 
 <nav class="sidebar" [class.collapsed]="!expanded()">
   <div class="sidebar-header">
-    <!-- Brand mark, token-driven. Kit v1 is a solid rounded TILE with the arch
-         knocked out of it, so the two fills swap roles: --brand-shape is the
-         tile, --brand-doorway is the arch. Light reproduces the kit's primary
-         (forest tile / paper arch); dark uses the kit's reversed variant
-         (paper tile / forest arch) so the tile stays legible on the dark rail. -->
-    <svg
-      class="brand-icon"
-      viewBox="0 0 1024 1024"
-      role="img"
-      aria-label="Nostos"
-      focusable="false"
-    >
-      <rect
-        class="brand-icon__shape"
-        x="0"
-        y="0"
-        width="1024"
-        height="1024"
-        rx="205"
-      />
-      <path
-        class="brand-icon__doorway"
-        d="M 282 764 L 282 509 A 229 234 0 0 1 740 509 L 740 764 Z M 358 764 L 358 509 A 110 112 0 0 1 578 509 L 578 764 Z"
-        fill-rule="evenodd"
-      />
-    </svg>
+    <!-- Kit v1 lockup: tile mark + wordmark as one piece of artwork. The tile is
+         token-driven (shape = tile fill, doorway = the arch knockout) so it can
+         re-ink with the theme: light reproduces the kit's primary (forest tile /
+         paper arch), dark uses the kit's reversed variant (paper tile / forest
+         arch), because a forest tile on the dark rail measures 1.6:1 and
+         dissolves where the paper tile holds 17.5:1. -->
     <svg
       class="brand-lockup"
       viewBox="0 0 1840 512"

@@ -61,22 +61,6 @@
   padding: 0 1rem;
 }
 
-.brand-icon {
-  display: block;
-  flex: none;
-  width: 40px;
-  height: auto;
-}
-
-/* Token-driven brand mark (see the template comment). The two paths take their
-   fills from the palette so the mark can never drift from a second asset. */
-.brand-icon__shape {
-  fill: var(--brand-shape);
-}
-.brand-icon__doorway {
-  fill: var(--brand-doorway);
-}
-
 /* Kit v1 lockup: the tile mark plus the wordmark. Sized so the tile keeps the
    40px footprint the rail is aligned to (16 + 20 = 36), which scales the whole
    1840x512 lockup to 40px tall on the mark. */
@@ -529,7 +513,7 @@
   }
 
   .sidebar .nav-item,
-  .sidebar .brand-icon {
+  .sidebar .brand-lockup {
     animation: none;
   }
 
