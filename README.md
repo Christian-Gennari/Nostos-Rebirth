@@ -5,9 +5,7 @@
     <img alt="Nostos" src="docs/brand/logo-light.svg" width="276" />
   </picture>
 </div>
-<br>
 <hr>
-<br>
 
 A self-hosted personal library and knowledge management system. Manage books, e-books, audiobooks, and PDFs in one place — then link what you read to the ideas you develop through contextual notes, concept mapping, and a built-in writing environment.
 
