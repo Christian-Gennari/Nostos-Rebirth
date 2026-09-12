@@ -11,10 +11,37 @@ public interface IConceptRepository
     Task<List<ConceptDto>> GetAllWithUsageCountAsync();
 
     /// <summary>
+    /// Returns aggregate concept and reference counts in a single database query.
+    /// </summary>
+    Task<ConceptStatsDto> GetStatsAsync();
+
+    /// <summary>
+    /// Returns concepts that share notes with the requested concept.
+    /// </summary>
+    Task<List<RelatedConceptDto>> GetRelatedAsync(Guid id);
+
+    /// <summary>
     /// Gets a concept with its linked notes (deep includes for Book and Note data).
     /// Returns null if not found.
     /// </summary>
     Task<ConceptModel?> GetByIdWithNotesAsync(Guid id);
+
+    /// <summary>
+    /// Renames a concept, merging its links into an existing target name when necessary.
+    /// Returns the surviving concept, or null when the source is not found.
+    /// </summary>
+    Task<ConceptModel?> RenameAsync(Guid id, string name);
+
+    /// <summary>
+    /// Merges the source concept into the target concept and returns the survivor.
+    /// Returns null when either concept is not found.
+    /// </summary>
+    Task<ConceptModel?> MergeAsync(Guid sourceId, Guid targetId);
+
+    /// <summary>
+    /// Deletes a concept and its note links. Returns false when it is not found.
+    /// </summary>
+    Task<bool> DeleteAsync(Guid id);
 
     // --- Methods for NoteProcessorService ---
 

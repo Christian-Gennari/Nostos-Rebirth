@@ -15,6 +15,9 @@ export interface NoteContextDto {
   cfiRange?: string;
   bookId: string;
   bookTitle: string;
+  // API responses include this; optional keeps existing local fixtures
+  // compatible until the detail-surface tests add their timestamp data.
+  createdAt?: string;
 }
 
 export interface ConceptDetailDto {
