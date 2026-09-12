@@ -2,7 +2,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/brand/logo-dark.svg" />
     <source media="(prefers-color-scheme: light)" srcset="docs/brand/logo-light.svg" />
-    <img alt="Nostos" src="docs/brand/logo-light.svg" width="380" />
+    <img alt="Nostos" src="docs/brand/logo-light.svg" width="276" />
   </picture>
 </div>
 
