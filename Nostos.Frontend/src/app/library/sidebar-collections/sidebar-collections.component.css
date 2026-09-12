@@ -78,8 +78,12 @@
 .brand-lockup__arch {
   fill: var(--brand-doorway);
 }
+/* The kit's wordmark colour is Ink, so this follows --color-text-main (ink in
+   light, porcelain in dark, matching the hero lockup). Deliberately NOT
+   --color-primary: in dark that token is a desaturated pine (#8FA89A), which
+   tints the wordmark green against the dark rail instead of reading neutral. */
 .brand-lockup__word {
-  fill: var(--color-primary);
+  fill: var(--color-text-main);
   font-family: 'Hanken Grotesk', sans-serif;
 }
 
