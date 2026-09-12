@@ -11,9 +11,23 @@
           <input
             type="text"
             placeholder="Search ideas..."
+            aria-label="Search concepts"
             [ngModel]="searchQuery()"
             (ngModelChange)="searchQuery.set($event)"
           />
+        </div>
+        <div class="index-tools">
+          <label class="sort-label" for="brain-sort">Sort</label>
+          <select
+            id="brain-sort"
+            class="sort-select"
+            [ngModel]="indexSort()"
+            (ngModelChange)="setSort($event)"
+          >
+            <option value="usage">Most used</option>
+            <option value="az">A → Z</option>
+            <option value="za">Z → A</option>
+          </select>
         </div>
       </div>
 
@@ -23,6 +37,8 @@
           class="index-item"
           [class.active]="selectedId() === c.id"
           (click)="selectConcept(c.id)"
+          (mouseenter)="prefetch(c.id)"
+          (focus)="prefetch(c.id)"
         >
           <span class="name">{{ c.name }}</span>
           <span class="count">{{ c.usageCount }}</span>
@@ -33,15 +49,13 @@
       </div>
     </aside>
 
-    <section class="content-col" [class.mobile-visible]="selectedId()" [class.is-waiting]="loadingDetail()">
+    <section class="content-col" [class.mobile-visible]="selectedId()">
       @if (selectedId()) {
       <div class="mobile-nav-header" (click)="clearSelection()">
         <lucide-icon [img]="ArrowLeftIcon" [size]="18"></lucide-icon>
         <span>Back to Index</span>
       </div>
-      } @if (loadingDetail()) {
-      <div class="wait-field wait-field--breath" aria-hidden="true"></div>
-      } @else if (selectedDetail(); as detail) {
+      } @if (selectedDetail(); as detail) {
       <div class="concept-header">
         <div class="super-title">Concept</div>
         <h1 class="concept-title">{{ detail.name }}</h1>

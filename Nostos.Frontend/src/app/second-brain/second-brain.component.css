@@ -90,6 +90,56 @@
   color: var(--color-text-light);
 }
 
+/* ROW 3: Sort. The index reads top-down by usage by default, but that is not
+   always the way you look for an idea, so the order is switchable and persists
+   across visits (see SecondBrain.setSort). */
+.index-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sort-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-light);
+  flex-shrink: 0;
+}
+
+.sort-select {
+  flex: 1;
+  min-width: 0;
+  padding: 0.35rem 1.75rem 0.35rem 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--bg-input);
+  color: var(--color-text-muted);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.82rem;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
+  background-repeat: no-repeat;
+  background-position: right 0.55rem center;
+  background-size: 0.9em;
+}
+
+.sort-select:hover {
+  background-color: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.sort-select:focus-visible {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 2px var(--border-focus);
+}
+
 /* LIST */
 .index-list {
   flex: 1;
@@ -202,25 +252,14 @@
 }
 
 /* HEADER */
-/* The detail pane resolves in instead of cutting over from the waiting field.
-   (Nothing here faked the pane's structure — the markup asked for an
-   stylesheet animation that was never defined, so the pane simply appeared.) */
-.concept-header,
-.cards-grid {
-  animation: pane-in var(--motion-base) var(--ease-out) both;
-}
-
-@keyframes pane-in {
-  from {
-    opacity: 0;
-    filter: blur(6px);
-  }
-  to {
-    opacity: 1;
-    filter: blur(0);
-  }
-}
-
+/* No arrival animation on the detail pane.
+   Every concept is rendered against exactly the same background, so an
+   entrance effect here animates between two states that are visually identical
+   and only ever reads as a flash. The previous implementation stacked a
+   `pane-in` blur on `.concept-header`/`.cards-grid` on top of a `slideUpFade`
+   on every `.note-card` (with `forwards` fill pinning the final opacity), so
+   each index click replayed a blur-and-rise across the whole pane. The pane now
+   simply swaps its content in place. */
 .concept-header {
   margin-bottom: 3rem;
   max-width: 800px;
@@ -273,7 +312,6 @@
   transition:
     transform 0.15s ease,
     box-shadow 0.15s ease;
-  opacity: 0;
 }
 
 .note-card:hover {
@@ -434,20 +472,9 @@
 }
 
 /* ANIMATIONS */
-@keyframes slideUpFade {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.note-card {
-  animation: slideUpFade 0.4s cubic-bezier(0.2, 0, 0, 1) forwards;
-}
+/* `slideUpFade` was removed with the pane-entrance animations: it ran on every
+   `.note-card` on every index click with `forwards` fill, which both replayed a
+   rise on each swap and permanently pinned each card's opacity. */
 
 /* --- MOBILE RESPONSIVENESS --- */
 

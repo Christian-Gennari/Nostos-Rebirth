@@ -1,22 +1,154 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
 
 import { SecondBrain } from './second-brain.component';
+import { ConceptDetailDto, ConceptDto } from '../core/services/concepts.service';
+
+/**
+ * Second Brain behaviour that the "flashing" complaint was about.
+ *
+ * The page's background is identical for every concept, so the detail pane must
+ * swap its content WITHOUT a loading surface and WITHOUT an arrival animation.
+ * These specs pin the two mechanisms that made it flash: the `loadingDetail`
+ * bit that used to drive a covering wait-field, and the re-fetch of an
+ * already-seen concept.
+ */
+const concepts: ConceptDto[] = [
+  { id: 'c-alpha', name: 'Alpha', usageCount: 9 },
+  { id: 'c-beta', name: 'Beta', usageCount: 3 },
+  { id: 'c-gamma', name: 'Gamma', usageCount: 3 },
+];
+
+const detail = (id: string, name: string): ConceptDetailDto => ({
+  id,
+  name,
+  notes: [
+    {
+      noteId: `${id}-n1`,
+      content: `A note about [[${name}]]`,
+      selectedText: undefined,
+      cfiRange: undefined,
+      bookId: 'b1',
+      bookTitle: 'Meditations',
+    },
+  ],
+});
 
 describe('SecondBrain', () => {
   let component: SecondBrain;
   let fixture: ComponentFixture<SecondBrain>;
+  let http: HttpTestingController;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [SecondBrain],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
 
     fixture = TestBed.createComponent(SecondBrain);
     component = fixture.componentInstance;
+    http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne('/api/concepts').flush(concepts);
     await fixture.whenStable();
+  });
+
+  afterEach(() => {
+    http.verify();
+    localStorage.clear();
   });
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('never raises the loading state when a concept is selected from cache', async () => {
+    component.selectConcept('c-alpha');
+    expect(component.loadingDetail()).toBe(true);
+    http.expectOne('/api/concepts/c-alpha').flush(detail('c-alpha', 'Alpha'));
+    await fixture.whenStable();
+    expect(component.loadingDetail()).toBe(false);
+
+    // Second visit to the same concept: served from the detail cache, so the
+    // pane must never enter — let alone render — a waiting state. No request,
+    // and `loadingDetail` never true.
+    component.selectConcept('c-beta');
+    http.expectOne('/api/concepts/c-beta').flush(detail('c-beta', 'Beta'));
+    await fixture.whenStable();
+
+    component.selectConcept('c-alpha');
+    expect(component.loadingDetail()).toBe(false);
+    expect(component.selectedDetail()!.name).toBe('Alpha');
+    http.expectNone('/api/concepts/c-alpha');
+  });
+
+  it('prefetches on hover so the click is already a cache hit', async () => {
+    component.prefetch('c-gamma');
+    http.expectOne('/api/concepts/c-gamma').flush(detail('c-gamma', 'Gamma'));
+    await fixture.whenStable();
+
+    component.selectConcept('c-gamma');
+    expect(component.loadingDetail()).toBe(false);
+    expect(component.selectedDetail()!.name).toBe('Gamma');
+  });
+
+  it('ignores a slow response for a concept the user has already left', async () => {
+    component.selectConcept('c-alpha');
+    const slow = http.expectOne('/api/concepts/c-alpha');
+    component.selectConcept('c-beta');
+    http.expectOne('/api/concepts/c-beta').flush(detail('c-beta', 'Beta'));
+    await fixture.whenStable();
+
+    // The abandoned Alpha response lands late and must not hijack the pane.
+    slow.flush(detail('c-alpha', 'Alpha'));
+    await fixture.whenStable();
+    expect(component.selectedDetail()!.name).toBe('Beta');
+  });
+
+  it('renders no loading surface and no arrival animation on the pane', async () => {
+    component.selectConcept('c-alpha');
+    http.expectOne('/api/concepts/c-alpha').flush(detail('c-alpha', 'Alpha'));
+    await fixture.whenStable();
+
+    const el: HTMLElement = fixture.nativeElement;
+    // The covering wait-field and the `is-waiting` dim class were the visible
+    // flash: both are gone from the template.
+    expect(el.querySelector('.wait-field')).toBeNull();
+    expect(el.querySelector('.is-waiting')).toBeNull();
+    expect(el.querySelector('.note-card')).not.toBeNull();
+    expect(el.querySelector('.index-tools')).not.toBeNull();
+  });
+
+  it('sorts the index by usage, A-Z and Z-A, and persists the choice', () => {
+    const names = () => component.filteredConcepts().map((c) => c.name);
+
+    expect(names()).toEqual(['Alpha', 'Beta', 'Gamma']);
+
+    component.setSort('az');
+    expect(names()).toEqual(['Alpha', 'Beta', 'Gamma']);
+    expect(localStorage.getItem('nostos.brain.indexSort')).toBe('az');
+
+    component.setSort('za');
+    expect(names()).toEqual(['Gamma', 'Beta', 'Alpha']);
+
+    component.setSort('usage');
+    expect(names()).toEqual(['Alpha', 'Beta', 'Gamma']);
+  });
+
+  it('filters by name and reports the filtered count', () => {
+    component.searchQuery.set('bet');
+    expect(component.filteredConcepts().map((c) => c.name)).toEqual(['Beta']);
+    component.searchQuery.set('nothing-matches-this');
+    expect(component.filteredConcepts().length).toBe(0);
+  });
+
+  it('restores the persisted sort order on construction', () => {
+    localStorage.setItem('nostos.brain.indexSort', 'za');
+    const second = TestBed.createComponent(SecondBrain);
+    expect(second.componentInstance.indexSort()).toBe('za');
+    // Flush the second instance's own list request before it is discarded.
+    http.expectOne('/api/concepts').flush(concepts);
   });
 });
