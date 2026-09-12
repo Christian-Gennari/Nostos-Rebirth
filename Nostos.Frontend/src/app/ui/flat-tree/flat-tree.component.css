@@ -22,13 +22,6 @@
      starts its content exactly where a nav row does. It is ALSO the width of
      the left gutter a nested row's chevron is centred in. */
   --indent-base: 12px;
-  /* Content start -> CENTRE of this row's own folder icon. Now that no chevron
-     column sits ahead of the icon, the icon begins exactly at the content start,
-     so this is simply half the 16px icon. The nesting guide is positioned by it:
-     a depth-d row draws its guide at (depth-1)*step + base + icon-axis, which is
-     its parent's icon centre (for depth 1: 12 + 8 = 20px inside the child's own
-     box, i.e. absolute x 36). */
-  --icon-axis: 8px;
   /* Width of the row-action overlay: 3 × 22px buttons + 2 × 2px gaps = 70px,
      plus the 6px right inset = 76px. */
   --actions-w: 76px;
@@ -60,16 +53,21 @@
 }
 
 /* ── NESTING GUIDES ───────────────────────────────────────
-   One hairline per nested row, drawn at its PARENT's icon centre. Every row
-   under the same parent draws the line at the same x, so a subtree reads as
-   one continuous guide rather than a staircase.
+   One hairline per nested row, drawn at its PARENT's chevron centre. Every row
+   under the same parent draws the line at the same x, so a subtree reads as one
+   continuous guide rather than a staircase.
 
-   The parent of a depth-d row sits at depth d-1, i.e. --indent-step to the
-   left, and its icon centre is --icon-axis into its own content:
-     left = (depth - 1) * step + base + icon-axis    [all in the row's own box]
-   For the default step=base=12 and icon-axis=26 this is 38px at depth 1, which
-   is inside the child's 12px gutter (12..24) and does NOT touch the child's own
-   icon at 28..44.
+   The anchor is the parent's chevron CENTRE, not its icon centre. With the icon
+   centre the line landed inside the child's own chevron and collided with it:
+   the child's gutter spans its parent's content start to its own, and the
+   chevron now sits in that gutter, so the parent's icon centre (8px in) fell at
+   x=36 — dead through the middle of the child's chevron box (28..40).
+
+   The chevron is one --indent-base wide and starts one --indent-base left of the
+   row's content, so its centre is exactly half that width (6px) from the row's
+   own left edge — the anchor is therefore independent of the indent step:
+     left = (depth - 1) * step + 6px
+   At depth 1 the line sits at 6px, a 6px gap clear of the child's chevron at 12.
 
    Drawn only for nested rows (`level > 0`), because a root row has no parent
    axis to point at — and an unconditional line would sit on the row's own
@@ -79,9 +77,9 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: calc(
-    (var(--depth, 0) - 1) * var(--indent-step) + var(--indent-base) + var(--icon-axis)
-  );
+  /* 6px = half the chevron's width; expressed from --indent-base so the two
+     cannot drift if the gutter is ever resized. */
+  left: calc((var(--depth, 0) - 1) * var(--indent-step) + var(--indent-base) / 2);
   transform: translateX(-0.5px);
   width: 1px;
   background: var(--tree-guide);
