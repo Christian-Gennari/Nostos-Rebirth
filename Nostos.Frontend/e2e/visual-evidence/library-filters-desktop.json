@@ -1,6 +1,6 @@
 {
   "artifact": "library-filters-desktop.png",
-  "capturedAt": "2026-09-12T12:10:53.774Z",
+  "capturedAt": "2026-09-12T16:18:13.189Z",
   "name": "library-filters-desktop",
   "surface": "library",
   "viewport": {
@@ -59,13 +59,13 @@
     {
       "id": "library-sidebar-rail",
       "pass": true,
-      "message": "rail 300 -> 72px: section labels fade out before the rail closes; settled label track 0px (closes fully); 14 distinct fold heights (continuous); search icon gap to text 11px (clear)",
+      "message": "rail 300 -> 72px: section labels fade out before the rail closes; settled label track 0px (closes fully); 15 distinct fold heights (continuous); search icon gap to text 11px (clear)",
       "metrics": {
         "expandedWidth": 300,
         "collapsedWidth": 72,
         "halfTravel": 186,
         "settledTrackHeight": 0,
-        "distinctTrackHeights": 14,
+        "distinctTrackHeights": 15,
         "fadedWhileRailWide": true,
         "iconGap": 11,
         "reducedMotion": false,
