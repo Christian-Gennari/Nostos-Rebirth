@@ -1,8 +1,26 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  ElementRef,
+  inject,
+  output,
+  QueryList,
+  signal,
+  ViewChildren,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { LucideAngularModule, Search, BrainCircuit, ArrowLeft, ArrowRight } from 'lucide-angular';
+import {
+  LucideAngularModule,
+  Search,
+  BrainCircuit,
+  ArrowLeft,
+  ArrowRight,
+  Pencil,
+  Trash2,
+  X,
+} from 'lucide-angular';
 
 import { ToastService } from '../core/services/toast.service';
 import {
@@ -10,6 +28,7 @@ import {
   ConceptDto,
   ConceptDetailDto,
   NoteContextDto,
+  ConceptStatsDto,
 } from '../core/services/concepts.service';
 
 import { NoteFormatPipe } from '../ui/pipes/note-format.pipe';
@@ -19,6 +38,22 @@ type IndexSort = 'usage' | 'az' | 'za';
 const INDEX_SORT_STORAGE_KEY = 'nostos.brain.indexSort';
 
 const INDEX_SORTS: readonly IndexSort[] = ['usage', 'az', 'za'];
+
+interface NamePart {
+  text: string;
+  highlight: boolean;
+}
+
+function normalizeSearchText(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function searchRank(name: string, query: string): number {
+  const normalizedName = normalizeSearchText(name);
+  if (normalizedName === query) return 0;
+  if (normalizedName.startsWith(query)) return 1;
+  return 2;
+}
 
 @Component({
   standalone: true,
@@ -36,11 +71,21 @@ export class SecondBrain {
   BrainIcon = BrainCircuit;
   ArrowRightIcon = ArrowRight;
   ArrowLeftIcon = ArrowLeft;
+  RenameIcon = Pencil;
+  DeleteIcon = Trash2;
+  ClearIcon = X;
+
+  // Phase 5 consumes these outputs to open the rename and confirmation flows.
+  readonly renameRequested = output<string>();
+  readonly deleteRequested = output<string>();
 
   // State
   concepts = signal<ConceptDto[]>([]);
+  conceptStats = signal<ConceptStatsDto | null>(null);
+  loadingConcepts = signal(true);
   searchQuery = signal('');
   indexSort = signal<IndexSort>(this.readStoredSort());
+  cursorIndex = signal<number | null>(null);
 
   selectedId = signal<string | null>(null);
   selectedDetail = signal<ConceptDetailDto | null>(null);
@@ -60,6 +105,8 @@ export class SecondBrain {
   private detailCache = new Map<string, ConceptDetailDto>();
   private pendingRequests = new Set<string>();
 
+  @ViewChildren('indexRow') private indexRows!: QueryList<ElementRef<HTMLElement>>;
+
   // Computed Map for the Pipe to look up IDs efficiently
   conceptMap = computed(() => {
     const map = new Map<string, ConceptDto>();
@@ -69,31 +116,197 @@ export class SecondBrain {
     return map;
   });
 
-  // Computed Filter + sort. Sorting is client-side because the index is already
+  // Computed filter + sort. Sorting is client-side because the index is already
   // fully in memory; the preference persists so the column comes back the way it
-  // was left.
+  // was left. Search ranking is deliberately separate from the active sort: an
+  // exact match always leads, while each match group retains the chosen order.
   filteredConcepts = computed(() => {
-    const q = this.searchQuery().trim().toLowerCase();
-    const rows = q
-      ? this.concepts().filter((c) => c.name.toLowerCase().includes(q))
+    const query = normalizeSearchText(this.searchQuery().trim());
+    const rows = query
+      ? this.concepts().filter((concept) => normalizeSearchText(concept.name).includes(query))
       : [...this.concepts()];
 
-    switch (this.indexSort()) {
-      case 'az':
-        return rows.sort((a, b) => a.name.localeCompare(b.name));
-      case 'za':
-        return rows.sort((a, b) => b.name.localeCompare(a.name));
-      default:
-        return rows.sort(
-          (a, b) => b.usageCount - a.usageCount || a.name.localeCompare(b.name)
-        );
-    }
+    return rows.sort((a, b) => {
+      if (query) {
+        const rankDifference = searchRank(a.name, query) - searchRank(b.name, query);
+        if (rankDifference !== 0) return rankDifference;
+      }
+      return this.compareForSort(a, b);
+    });
   });
+
+  showLetterSeparators = computed(
+    () => this.indexSort() !== 'usage' && this.filteredConcepts().length > 0
+  );
 
   constructor() {
     this.conceptsService.list().subscribe({
-      next: (data) => this.concepts.set(data),
-      error: () => this.toast.error('Failed to load concepts'),
+      next: (data) => {
+        this.concepts.set(data);
+        this.loadingConcepts.set(false);
+      },
+      error: () => {
+        this.loadingConcepts.set(false);
+        this.toast.error('Failed to load concepts');
+      },
+    });
+
+    this.conceptsService.getStats().subscribe({
+      next: (stats) => this.conceptStats.set(stats),
+      // Stats are editorial decoration. A failed request must not make the
+      // index unavailable or produce a toast for an otherwise usable page.
+      error: () => undefined,
+    });
+  }
+
+  private compareForSort(a: ConceptDto, b: ConceptDto): number {
+    switch (this.indexSort()) {
+      case 'az':
+        return a.name.localeCompare(b.name);
+      case 'za':
+        return b.name.localeCompare(a.name);
+      default:
+        return b.usageCount - a.usageCount || a.name.localeCompare(b.name);
+    }
+  }
+
+  setSearchQuery(query: string): void {
+    this.searchQuery.set(query);
+    this.cursorIndex.set(null);
+  }
+
+  clearSearch(): void {
+    this.setSearchQuery('');
+  }
+
+  handleSearchKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      if (this.searchQuery()) event.preventDefault();
+      this.clearSearch();
+      return;
+    }
+
+    if (event.key === 'ArrowDown' && this.filteredConcepts().length > 0) {
+      event.preventDefault();
+      this.focusCursor(0);
+    }
+  }
+
+  handleIndexFocus(index: number): void {
+    this.cursorIndex.set(index);
+  }
+
+  handleIndexKeydown(event: KeyboardEvent, index: number, id: string): void {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      this.focusCursor(Math.min(index + 1, this.filteredConcepts().length - 1));
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      this.focusCursor(Math.max(index - 1, 0));
+      return;
+    }
+
+    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+      event.preventDefault();
+      this.selectConcept(id);
+    }
+  }
+
+  private focusCursor(index: number): void {
+    const rows = this.filteredConcepts();
+    if (rows.length === 0) return;
+
+    const boundedIndex = Math.max(0, Math.min(index, rows.length - 1));
+    this.cursorIndex.set(boundedIndex);
+
+    const row = this.indexRows?.get(boundedIndex)?.nativeElement;
+    if (!row) return;
+    row.focus();
+    row.scrollIntoView?.({ block: 'nearest' });
+  }
+
+  letterFor(concept: ConceptDto): string {
+    const firstLetter = concept.name.trim().charAt(0);
+    return firstLetter ? firstLetter.toLocaleUpperCase() : '#';
+  }
+
+  isLetterStart(index: number): boolean {
+    if (!this.showLetterSeparators()) return false;
+    if (index === 0) return true;
+    const rows = this.filteredConcepts();
+    return this.letterFor(rows[index]) !== this.letterFor(rows[index - 1]);
+  }
+
+  highlightName(name: string): NamePart[] {
+    const query = normalizeSearchText(this.searchQuery().trim());
+    if (!query) return [{ text: name, highlight: false }];
+
+    const normalizedChars: string[] = [];
+    const sourceStarts: number[] = [];
+    const sourceEnds: number[] = [];
+
+    for (let index = 0; index < name.length; ) {
+      const codePoint = name.codePointAt(index);
+      if (codePoint === undefined) break;
+      const sourceChar = String.fromCodePoint(codePoint);
+      const normalizedChar = normalizeSearchText(sourceChar);
+      for (const character of normalizedChar) {
+        normalizedChars.push(character);
+        sourceStarts.push(index);
+        sourceEnds.push(index + sourceChar.length);
+      }
+      index += sourceChar.length;
+    }
+
+    const matchStart = normalizedChars.join('').indexOf(query);
+    if (matchStart < 0) return [{ text: name, highlight: false }];
+
+    const matchEnd = matchStart + query.length - 1;
+    const sourceStart = sourceStarts[matchStart];
+    const sourceEnd = sourceEnds[matchEnd];
+    return [
+      { text: name.slice(0, sourceStart), highlight: false },
+      { text: name.slice(sourceStart, sourceEnd), highlight: true },
+      { text: name.slice(sourceEnd), highlight: false },
+    ].filter((part) => part.text.length > 0);
+  }
+
+  requestRename(id: string, event: MouseEvent): void {
+    event.stopPropagation();
+    this.renameRequested.emit(id);
+  }
+
+  requestDelete(id: string, event: MouseEvent): void {
+    event.stopPropagation();
+    this.deleteRequested.emit(id);
+  }
+
+  /**
+   * Warm the detail cache without changing the selection. Called on hover/focus
+   * of an index row so the click itself is a cache hit and swaps with no wait.
+   */
+  prefetch(id: string): void {
+    if (this.detailCache.has(id) || this.pendingRequests.has(id)) return;
+    this.prefetchRequest(id);
+  }
+
+  private prefetchRequest(id: string): void {
+    this.pendingRequests.add(id);
+    this.conceptsService.get(id).subscribe({
+      next: (detail) => {
+        this.detailCache.set(id, detail);
+        this.pendingRequests.delete(id);
+        if (this.selectedId() !== id) return;
+        this.selectedDetail.set(detail);
+        this.loadingDetail.set(false);
+      },
+      error: () => {
+        this.pendingRequests.delete(id);
+        if (this.selectedId() === id) this.loadingDetail.set(false);
+      },
     });
   }
 
@@ -116,26 +329,6 @@ export class SecondBrain {
     }
   }
 
-  /**
-   * Warm the detail cache without changing the selection. Called on hover/focus
-   * of an index row so the click itself is a cache hit and swaps with no wait.
-   */
-  prefetch(id: string): void {
-    if (this.detailCache.has(id) || this.pendingRequests.has(id)) return;
-    this.prefetchRequest(id);
-  }
-
-  private prefetchRequest(id: string): void {
-    this.pendingRequests.add(id);
-    this.conceptsService.get(id).subscribe({
-      next: (detail) => {
-        this.detailCache.set(id, detail);
-        this.pendingRequests.delete(id);
-      },
-      error: () => this.pendingRequests.delete(id),
-    });
-  }
-
   selectConcept(id: string): void {
     this.selectedId.set(id);
 
@@ -150,9 +343,10 @@ export class SecondBrain {
 
     if (this.pendingRequests.has(id)) {
       // A prefetch is already in flight for exactly this concept; let it land
-      // and set loadingDetail then, so we do not dim content twice.
+      // and set the detail when it lands, so we do not start a duplicate
+      // request or dim content twice.
       this.loadingDetail.set(true);
-      this.pendingRequests.delete(id);
+      return;
     } else {
       this.loadingDetail.set(true);
     }

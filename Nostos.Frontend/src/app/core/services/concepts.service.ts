@@ -8,6 +8,14 @@ export interface ConceptDto {
   usageCount: number;
 }
 
+export interface ConceptStatsDto {
+  totalConcepts: number;
+  totalReferences: number;
+  singleNoteConcepts: number;
+  mostUsedName: string | null;
+  mostUsedCount: number;
+}
+
 export interface NoteContextDto {
   noteId: string;
   content: string;
@@ -32,6 +40,10 @@ export class ConceptsService {
 
   list(): Observable<ConceptDto[]> {
     return this.http.get<ConceptDto[]>('/api/concepts');
+  }
+
+  getStats(): Observable<ConceptStatsDto> {
+    return this.http.get<ConceptStatsDto>('/api/concepts/stats');
   }
 
   get(id: string): Observable<ConceptDetailDto> {

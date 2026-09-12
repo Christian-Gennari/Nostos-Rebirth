@@ -6,15 +6,34 @@
           <h1>Index</h1>
           <span class="badge-count">{{ filteredConcepts().length }}</span>
         </div>
+        @if (conceptStats(); as stats) {
+        <div class="index-stats">
+          {{ stats.totalConcepts }} {{ stats.totalConcepts === 1 ? 'concept' : 'concepts' }} ·
+          {{ stats.totalReferences }}
+          {{ stats.totalReferences === 1 ? 'reference' : 'references' }}
+        </div>
+        }
         <div class="search-box">
           <lucide-icon [img]="SearchIcon" [size]="16"></lucide-icon>
           <input
+            #searchInput
             type="text"
             placeholder="Search ideas..."
             aria-label="Search concepts"
             [ngModel]="searchQuery()"
-            (ngModelChange)="searchQuery.set($event)"
+            (ngModelChange)="setSearchQuery($event)"
+            (keydown)="handleSearchKeydown($event)"
           />
+          @if (searchQuery()) {
+          <button
+            type="button"
+            class="clear-search"
+            aria-label="Clear search"
+            (click)="clearSearch()"
+          >
+            <lucide-icon [img]="ClearIcon" [size]="15"></lucide-icon>
+          </button>
+          }
         </div>
         <div class="index-tools">
           <label class="sort-label" for="brain-sort">Sort</label>
@@ -31,20 +50,72 @@
         </div>
       </div>
 
-      <div class="index-list">
-        @for (c of filteredConcepts(); track c.id) {
-        <button
+      <div class="index-list" [attr.aria-busy]="loadingConcepts()">
+        @if (loadingConcepts()) {
+        <div class="index-wait-field wait-field" role="status" aria-label="Loading concepts"></div>
+        } @else if (concepts().length === 0) {
+        <div class="empty-index-state" role="status">
+          <div class="empty-eyebrow">The index is quiet</div>
+          <p>Concepts appear when you write <code>[[Concept Name]]</code> in a note.</p>
+          <p class="empty-example">Try a note with <code>[[A thought worth returning to]]</code>.</p>
+          <a routerLink="/library" class="empty-link">Go to Library</a>
+        </div>
+        } @else if (filteredConcepts().length === 0) {
+        <div class="empty-index-state" role="status">
+          <div class="empty-eyebrow">No match</div>
+          <p>No concepts match “{{ searchQuery().trim() }}”.</p>
+          <button type="button" class="empty-clear" (click)="clearSearch()">Clear search</button>
+        </div>
+        } @else {
+        @for (c of filteredConcepts(); track c.id; let i = $index) {
+        @if (isLetterStart(i)) {
+        <div class="letter-separator super-title" aria-hidden="true">{{ letterFor(c) }}</div>
+        }
+        <div
+          #indexRow
           class="index-item"
           [class.active]="selectedId() === c.id"
+          [attr.tabindex]="cursorIndex() === null ? (i === 0 ? 0 : -1) : (cursorIndex() === i ? 0 : -1)"
+          role="button"
+          [attr.aria-label]="c.name"
+          [attr.aria-pressed]="selectedId() === c.id"
           (click)="selectConcept(c.id)"
           (mouseenter)="prefetch(c.id)"
-          (focus)="prefetch(c.id)"
+          (focus)="handleIndexFocus(i); prefetch(c.id)"
+          (keydown)="handleIndexKeydown($event, i, c.id)"
         >
-          <span class="name">{{ c.name }}</span>
-          <span class="count">{{ c.usageCount }}</span>
-        </button>
-        } @if (filteredConcepts().length === 0) {
-        <div class="empty-index">No concepts found</div>
+          <span class="name">
+            @for (part of highlightName(c.name); track $index) {
+            @if (part.highlight) {
+            <mark>{{ part.text }}</mark>
+            } @else {
+            {{ part.text }}
+            }
+            }
+          </span>
+          <span class="row-tail">
+            <span class="count">{{ c.usageCount }}</span>
+            <span class="row-actions" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="row-action"
+                [attr.aria-label]="'Rename ' + c.name"
+                (click)="requestRename(c.id, $event)"
+              >
+                <lucide-icon [img]="RenameIcon" [size]="15"></lucide-icon>
+              </button>
+              <button
+                type="button"
+                class="row-action danger"
+                [attr.aria-label]="'Delete ' + c.name"
+                (click)="requestDelete(c.id, $event)"
+              >
+                <lucide-icon [img]="DeleteIcon" [size]="15"></lucide-icon>
+              </button>
+            </span>
+          </span>
+        </div>
+        }
         }
       </div>
     </aside>
