@@ -385,9 +385,21 @@
   background: var(--bg-skeleton);
   border-radius: 8px;
   box-shadow:
-    var(--shadow-glass-lg),
-    0 0 24px -6px rgba(138, 109, 88, 0.16),
-    0 16px 40px rgba(24, 16, 11, 0.22);
+    /* Calibrated so the cover reads as SITTING on the page, not smeared on it.
+       Density comes from the alpha, NOT from spread: the previous
+       `0 16px 40px rgba(24, 16, 11, 0.22)` was measured as a shallow wash that
+       fell to full page brightness ~40px out with no contact term at all, i.e.
+       it read as a diluted grey halo rather than a shadow. Do NOT lengthen the
+       radii to "soften" this — halving the radius off the ported
+       `box-shadow: 0 26px 84px ...` (which itself doubled drop-shadow's 42px,
+       because drop-shadow's radius is 1-sigma and box-shadow's is 2-sigma) is
+       what caused the dilution in the first place.
+       The warm `0 0 24px -6px rgba(138, 109, 88, 0.16)` ambient ring was
+       dropped: measured, it changed the shadow's warmth by 0.0 (R-B 7.2 with
+       and without it, against a page that is itself warm at 4.5), so it was
+       dead weight. */
+    0 2px 4px rgba(24, 16, 11, 0.22),
+    0 12px 30px -4px rgba(24, 16, 11, 0.40);
   border: none;
   margin-bottom: 1rem;
   display: flex;
