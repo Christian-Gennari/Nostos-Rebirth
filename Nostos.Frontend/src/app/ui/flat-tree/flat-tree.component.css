@@ -36,6 +36,9 @@
   /* Width of the row-action overlay: 3 × 22px buttons + 2 × 2px gaps = 70px,
      plus the 6px right inset = 76px. */
   --actions-w: 76px;
+  /* Focus-ring thickness. Shared so the fade layer below can inset by it and
+     never cover the ring. */
+  --ring-w: 2px;
   --tree-guide: color-mix(in srgb, var(--color-text-light) 42%, transparent);
 }
 
@@ -198,9 +201,20 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  right: 0;
+  /* Inset by the focus-ring width, and rounded to match the row. Without the
+     inset this layer painted the row's own fill — and its solid --row-ground
+     tail — on top of the focus ring, so a keyboard-focused row lost the right
+     half of its outline while the left half stayed: rounded on one side, hard
+     on the other. The inset applies to all four edges (the other three are
+     already transparent, so it costs nothing) purely so this layer can never
+     cover an outline this element draws. */
+  right: var(--ring-w);
+  bottom: var(--ring-w);
+  top: var(--ring-w);
   left: calc(100% - var(--actions-w) - 22px);
   pointer-events: none;
+  /* Must match the row's own radius, or this layer squares off the corners. */
+  border-radius: inherit;
   background: linear-gradient(
     to right,
     transparent,
@@ -330,9 +344,11 @@
   /* Inset so the ring is not clipped by the neighbouring rows' 2px gap, and
      --focus-ring rather than --color-primary (an ink token: near-black in
      light but a dim green in dark, which reads as a border colour on a
-     surface it is not meant to trace). */
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+     surface it is not meant to trace).
+     `--ring-w` is shared with the fade layer's inset below, so the layer can
+     never paint over the ring. */
+  outline: var(--ring-w) solid var(--focus-ring);
+  outline-offset: calc(-1 * var(--ring-w));
 }
 
 /* Drag Preview Styles */
