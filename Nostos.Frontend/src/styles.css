@@ -33,11 +33,12 @@
   --primary-fill: #28372D;  /* button/pill surfaces — background */
   --on-primary: #FFFFFF;    /* text sitting ON a primary fill */
 
-  /* ── Brand mark ──
-     The symbol is two flat fills. Driven from tokens so the dark variant
-     cannot drift out of sync with a second asset. */
+  /* ── Brand mark (kit v1) ──
+     The mark is a solid rounded TILE with the arch knocked out of it, so these
+     two tokens are: shape = the tile fill, doorway = the arch fill. Light
+     reproduces the kit's primary variant exactly (forest tile / paper arch). */
   --brand-shape: #293E32;
-  --brand-doorway: #A07859;
+  --brand-doorway: #FDF8F6;
 
   /* ── Accent (Clay) ── */
   --color-accent: #8A6D58;
@@ -330,12 +331,14 @@
   --color-primary-hover: #375A52;
   --color-primary-dim: #5C7A72;
 
-  /* ── Brand mark: porcelain arch + smoked-warm doorway.
-     Chosen explicitly over the mint alternative: the mark is the ONE place in
-     the app where a brand colour is right, and the user asked for porcelain
-     here rather than the accent, so the accent stays reserved for state. ── */
-  --brand-shape: #EDEEF2;
-  --brand-doorway: #D1AC8F;
+  /* ── Brand mark (kit v1, reversed variant) ──
+     The tile is the mark, so on the dark rail it must invert: a Paper tile with
+     the arch in Forest. This is the kit's own reversed variant, so the mark is
+     the same artwork as light, flipped — and it stays legible (Paper on the
+     dark sidebar measures 17.5:1, where a forest tile would fall to 1.6:1 and
+     dissolve). ── */
+  --brand-shape: #FDF8F6;
+  --brand-doorway: #293E32;
 
   /* ── Accent (smoked warm; the light clay is only 3.74:1 here) ── */
   --color-accent: #D1AC8F;

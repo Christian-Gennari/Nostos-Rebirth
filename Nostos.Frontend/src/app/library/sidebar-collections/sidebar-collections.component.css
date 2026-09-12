@@ -77,14 +77,26 @@
   fill: var(--brand-doorway);
 }
 
-.brand {
-  font-family: 'Newsreader', serif;
-  font-weight: var(--fw-medium);
-  font-size: 1.5rem;
-  letter-spacing: -0.02em;
-  line-height: 1;
-  white-space: nowrap;
-  color: var(--color-primary);
+/* Kit v1 lockup: the tile mark plus the wordmark. Sized so the tile keeps the
+   40px footprint the rail is aligned to (16 + 20 = 36), which scales the whole
+   1840x512 lockup to 40px tall on the mark. */
+.brand-lockup {
+  display: block;
+  flex: none;
+  height: 40px;
+  width: auto;
+}
+/* The tile is the mark here, so it has to re-ink with the theme just like the
+   standalone mark: shape = tile fill, arch = the knockout. */
+.brand-lockup__tile {
+  fill: var(--brand-shape);
+}
+.brand-lockup__arch {
+  fill: var(--brand-doorway);
+}
+.brand-lockup__word {
+  fill: var(--color-primary);
+  font-family: 'Hanken Grotesk', sans-serif;
 }
 
 /* SCROLL AREA */
@@ -318,6 +330,7 @@
 .label,
 .nav-item .count-badge,
 .brand,
+.brand-lockup__word,
 .section-label {
   opacity: 1;
   transition: opacity var(--label-out);
@@ -327,6 +340,7 @@
 .sidebar:not(.collapsed) .label,
 .sidebar:not(.collapsed) .nav-item .count-badge,
 .sidebar:not(.collapsed) .brand,
+.sidebar:not(.collapsed) .brand-lockup__word,
 .sidebar:not(.collapsed) .section-label {
   transition: opacity var(--label-in);
 }
@@ -334,6 +348,7 @@
 .sidebar.collapsed .label,
 .sidebar.collapsed .nav-item .count-badge,
 .sidebar.collapsed .brand,
+.sidebar.collapsed .brand-lockup__word,
 .sidebar.collapsed .section-label {
   opacity: 0;
 }
@@ -529,6 +544,7 @@
   .sidebar.collapsed .label,
   .sidebar.collapsed .count-badge,
   .sidebar.collapsed .brand,
+  .sidebar.collapsed .brand-lockup__word,
   .sidebar.collapsed .section-label {
     opacity: 1;
   }
