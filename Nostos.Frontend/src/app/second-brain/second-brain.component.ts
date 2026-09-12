@@ -22,6 +22,7 @@ import {
   X,
   ChevronDown,
   ChevronUp,
+  GitMerge,
 } from 'lucide-angular';
 
 import { ToastService } from '../core/services/toast.service';
@@ -52,6 +53,16 @@ interface RelatedConceptDto {
   id: string;
   name: string;
   sharedNotes: number;
+}
+
+type RenameSurface = 'index' | 'header';
+
+interface MergeRequest {
+  sourceId: string;
+  targetId: string;
+  sourceName: string;
+  targetName: string;
+  noteCount: number;
 }
 
 const INDEX_SORT_STORAGE_KEY = 'nostos.brain.indexSort';
@@ -103,10 +114,29 @@ export class SecondBrain {
   ClearIcon = X;
   ExpandIcon = ChevronDown;
   CollapseIcon = ChevronUp;
+  MergeIcon = GitMerge;
 
   // Phase 5 consumes these outputs to open the rename and confirmation flows.
   readonly renameRequested = output<string>();
   readonly deleteRequested = output<string>();
+
+  // Concept management state. Rename stays in the surface that initiated it;
+  // the confirmation state is separate from note deletion because the latter
+  // has a different consequence and tone.
+  renameId = signal<string | null>(null);
+  renameSurface = signal<RenameSurface>('index');
+  renameValue = signal('');
+  renameError = signal<string | null>(null);
+  renaming = signal(false);
+
+  mergePickerOpen = signal(false);
+  mergeSearchQuery = signal('');
+  mergeTargetId = signal<string | null>(null);
+  mergeConfirmation = signal<MergeRequest | null>(null);
+  mergingConcept = signal(false);
+
+  conceptDeleteTarget = signal<ConceptDto | null>(null);
+  deletingConcept = signal(false);
 
   // State
   concepts = signal<ConceptDto[]>([]);
@@ -144,8 +174,10 @@ export class SecondBrain {
    */
   private detailCache = new Map<string, ConceptDetailDto>();
   private pendingRequests = new Set<string>();
+  private detailRequestVersion = 0;
   private relatedCache = new Map<string, RelatedConceptDto[]>();
   private pendingRelatedRequests = new Set<string>();
+  private relatedRequestVersion = 0;
 
   @ViewChildren('indexRow') private indexRows!: QueryList<ElementRef<HTMLElement>>;
 
@@ -163,18 +195,40 @@ export class SecondBrain {
   // was left. Search ranking is deliberately separate from the active sort: an
   // exact match always leads, while each match group retains the chosen order.
   filteredConcepts = computed(() => {
-    const query = normalizeSearchText(this.searchQuery().trim());
-    const rows = query
-      ? this.concepts().filter((concept) => normalizeSearchText(concept.name).includes(query))
-      : [...this.concepts()];
+    return this.filterAndSortConcepts(this.searchQuery(), null);
+  });
 
-    return rows.sort((a, b) => {
-      if (query) {
-        const rankDifference = searchRank(a.name, query) - searchRank(b.name, query);
-        if (rankDifference !== 0) return rankDifference;
-      }
-      return this.compareForSort(a, b);
-    });
+  mergeCandidates = computed(() =>
+    this.filterAndSortConcepts(this.mergeSearchQuery(), this.selectedId())
+  );
+
+  mergeTarget = computed(() => {
+    const targetId = this.mergeTargetId();
+    return targetId ? this.concepts().find((concept) => concept.id === targetId) ?? null : null;
+  });
+
+  conceptDeleteHeading = computed(() => {
+    const target = this.conceptDeleteTarget();
+    return target ? `Delete “${target.name}”?` : 'Delete concept?';
+  });
+
+  conceptDeleteDescription = computed(() => {
+    const target = this.conceptDeleteTarget();
+    return target
+      ? `Deleting this concept removes its note links, but does not edit note text. The [[${target.name}]] reference stays in notes, and saving a note again will re-create the concept.`
+      : '';
+  });
+
+  mergeHeading = computed(() => {
+    const request = this.mergeConfirmation();
+    return request ? `Merge “${request.sourceName}” into “${request.targetName}”?` : 'Merge concepts?';
+  });
+
+  mergeDescription = computed(() => {
+    const request = this.mergeConfirmation();
+    if (!request) return '';
+    const noteLabel = request.noteCount === 1 ? 'note' : 'notes';
+    return `This will move ${request.noteCount} ${noteLabel} into “${request.targetName}” and the source concept “${request.sourceName}” will disappear.`;
   });
 
   showLetterSeparators = computed(
@@ -256,6 +310,21 @@ export class SecondBrain {
       default:
         return b.usageCount - a.usageCount || a.name.localeCompare(b.name);
     }
+  }
+
+  private filterAndSortConcepts(queryText: string, excludedId: string | null): ConceptDto[] {
+    const query = normalizeSearchText(queryText.trim());
+    const rows = this.concepts().filter(
+      (concept) => concept.id !== excludedId && (!query || normalizeSearchText(concept.name).includes(query))
+    );
+
+    return rows.sort((a, b) => {
+      if (query) {
+        const rankDifference = searchRank(a.name, query) - searchRank(b.name, query);
+        if (rankDifference !== 0) return rankDifference;
+      }
+      return this.compareForSort(a, b);
+    });
   }
 
   setSearchQuery(query: string): void {
@@ -379,13 +448,238 @@ export class SecondBrain {
     ].filter((part) => part.text.length > 0);
   }
 
+  startRename(id: string, surface: RenameSurface = 'index'): void {
+    if (this.renaming()) return;
+    const concept = this.concepts().find((candidate) => candidate.id === id);
+    const detail = this.selectedDetail();
+    const name = concept?.name ?? (detail?.id === id ? detail.name : null);
+    if (!name) return;
+
+    this.renameId.set(id);
+    this.renameSurface.set(surface);
+    this.renameValue.set(name);
+    this.renameError.set(null);
+  }
+
+  cancelRename(): void {
+    if (this.renaming()) return;
+    this.renameId.set(null);
+    this.renameValue.set('');
+    this.renameError.set(null);
+  }
+
+  selectRenameInput(event: FocusEvent): void {
+    (event.target as HTMLInputElement).select();
+  }
+
+  commitRename(id: string): void {
+    if (this.renaming() || this.renameId() !== id) return;
+
+    const name = this.renameValue().trim();
+    if (!name) {
+      this.renameError.set('A concept name is required.');
+      return;
+    }
+
+    const original = this.concepts().find((concept) => concept.id === id);
+    if (!original) {
+      this.cancelRename();
+      return;
+    }
+
+    this.renaming.set(true);
+    this.conceptsService.rename(id, name).subscribe({
+      next: (survivor) => {
+        this.renaming.set(false);
+        this.renameId.set(null);
+        this.renameValue.set('');
+        this.renameError.set(null);
+        this.applyRenameResult(id, survivor);
+      },
+      error: () => {
+        this.renaming.set(false);
+        this.cancelRename();
+        this.toast.error('Could not rename concept — changes were not saved');
+      },
+    });
+  }
+
+  private applyRenameResult(requestedId: string, survivor: ConceptDto): void {
+    const selectedBefore = this.selectedId();
+    const detailBefore = this.selectedDetail();
+    const merged = survivor.id !== requestedId;
+
+    this.invalidateRelatedData(!merged);
+    if (!merged) {
+      // Preserve an already-fetched detail for its in-place name update, but
+      // prevent an older prefetch response from restoring the old name.
+      this.detailRequestVersion += 1;
+    }
+
+    if (!merged) {
+      this.concepts.update((items) =>
+        items.map((concept) => (concept.id === requestedId ? survivor : concept))
+      );
+
+      const cached = this.detailCache.get(requestedId);
+      if (cached) this.commitDetail(requestedId, { ...cached, name: survivor.name });
+      if (detailBefore?.id === requestedId) {
+        this.selectedDetail.set({ ...detailBefore, name: survivor.name });
+      }
+      this.toast.success(`Renamed to ${survivor.name}`);
+    } else {
+      this.concepts.update((items) =>
+        items
+          .filter((concept) => concept.id !== requestedId)
+          .map((concept) => (concept.id === survivor.id ? survivor : concept))
+      );
+      this.invalidateDetailEntries(requestedId, survivor.id);
+
+      if (selectedBefore === requestedId) {
+        // Keep the existing pane painted while the surviving detail is
+        // re-fetched. This is deliberately not a loading overlay or landing
+        // state: the pane background does not change during the merge.
+        if (detailBefore) {
+          this.selectedDetail.set({
+            ...detailBefore,
+            id: survivor.id,
+            name: survivor.name,
+          });
+        }
+        this.selectConcept(survivor.id);
+      }
+      this.toast.success(`Merged into ${survivor.name}`);
+    }
+
+    this.refreshIndexAndStats();
+  }
+
+  openMergePicker(): void {
+    const sourceId = this.selectedId();
+    if (!sourceId || this.mergingConcept()) return;
+    this.mergeSearchQuery.set('');
+    this.mergeTargetId.set(null);
+    this.mergePickerOpen.set(true);
+  }
+
+  closeMergePicker(): void {
+    if (this.mergingConcept()) return;
+    this.mergePickerOpen.set(false);
+    this.mergeSearchQuery.set('');
+    this.mergeTargetId.set(null);
+  }
+
+  chooseMergeTarget(id: string): void {
+    if (id === this.selectedId()) return;
+    this.mergeTargetId.set(id);
+  }
+
+  openMergeConfirmation(): void {
+    const sourceId = this.selectedId();
+    const target = this.mergeTarget();
+    const source = sourceId ? this.concepts().find((concept) => concept.id === sourceId) : null;
+    if (!source || !target || source.id === target.id) return;
+
+    this.mergeConfirmation.set({
+      sourceId: source.id,
+      targetId: target.id,
+      sourceName: this.selectedDetail()?.name ?? source.name,
+      targetName: target.name,
+      noteCount: this.selectedDetail()?.notes.length ?? source.usageCount,
+    });
+    this.mergePickerOpen.set(false);
+  }
+
+  cancelMergeConfirmation(): void {
+    if (!this.mergingConcept()) this.mergeConfirmation.set(null);
+  }
+
+  confirmMerge(): void {
+    const request = this.mergeConfirmation();
+    if (!request || this.mergingConcept()) return;
+
+    this.mergingConcept.set(true);
+    this.conceptsService.merge(request.sourceId, request.targetId).subscribe({
+      next: (survivor) => {
+        this.mergingConcept.set(false);
+        this.mergeConfirmation.set(null);
+        const previousDetail = this.selectedDetail();
+
+        this.concepts.update((items) =>
+          items
+            .filter((concept) => concept.id !== request.sourceId)
+            .map((concept) => (concept.id === survivor.id ? survivor : concept))
+        );
+        this.invalidateDetailEntries(request.sourceId, request.targetId);
+        this.invalidateRelatedData(false);
+
+        if (this.selectedId() === request.sourceId) {
+          if (previousDetail) {
+            this.selectedDetail.set({
+              ...previousDetail,
+              id: survivor.id,
+              name: survivor.name,
+            });
+          }
+          this.selectConcept(survivor.id);
+        }
+
+        this.toast.success(`Merged ${request.sourceName} into ${survivor.name}`);
+        this.refreshIndexAndStats();
+      },
+      error: () => {
+        this.mergingConcept.set(false);
+        this.mergeConfirmation.set(null);
+        this.toast.error('Could not merge concepts — changes were not saved');
+      },
+    });
+  }
+
+  openDeleteConcept(id: string): void {
+    if (this.deletingConcept()) return;
+    const concept = this.concepts().find((candidate) => candidate.id === id);
+    if (concept) this.conceptDeleteTarget.set(concept);
+  }
+
+  cancelDeleteConcept(): void {
+    if (!this.deletingConcept()) this.conceptDeleteTarget.set(null);
+  }
+
+  confirmDeleteConcept(): void {
+    const target = this.conceptDeleteTarget();
+    if (!target || this.deletingConcept()) return;
+
+    this.deletingConcept.set(true);
+    this.conceptsService.delete(target.id).subscribe({
+      next: () => {
+        this.deletingConcept.set(false);
+        this.conceptDeleteTarget.set(null);
+        this.concepts.update((items) => items.filter((concept) => concept.id !== target.id));
+        this.invalidateDetailEntries(target.id);
+        this.invalidateRelatedData(false);
+        if (this.selectedId() === target.id) {
+          this.clearSelection();
+        }
+        this.toast.success(`Deleted ${target.name}`);
+        this.refreshIndexAndStats();
+      },
+      error: () => {
+        this.deletingConcept.set(false);
+        this.conceptDeleteTarget.set(null);
+        this.toast.error('Could not delete concept — it is still in your index');
+      },
+    });
+  }
+
   requestRename(id: string, event: MouseEvent): void {
     event.stopPropagation();
+    this.startRename(id, 'index');
     this.renameRequested.emit(id);
   }
 
   requestDelete(id: string, event: MouseEvent): void {
     event.stopPropagation();
+    this.openDeleteConcept(id);
     this.deleteRequested.emit(id);
   }
 
@@ -400,10 +694,12 @@ export class SecondBrain {
 
   private prefetchRequest(id: string): void {
     this.pendingRequests.add(id);
+    const requestVersion = this.detailRequestVersion;
     this.conceptsService.get(id).subscribe({
       next: (detail) => {
-        this.detailCache.set(id, detail);
         this.pendingRequests.delete(id);
+        if (requestVersion !== this.detailRequestVersion) return;
+        this.detailCache.set(id, detail);
         if (this.selectedId() !== id) return;
         this.selectedDetail.set(detail);
         this.loadingDetail.set(false);
@@ -411,6 +707,7 @@ export class SecondBrain {
       },
       error: () => {
         this.pendingRequests.delete(id);
+        if (requestVersion !== this.detailRequestVersion) return;
         if (this.selectedId() === id) this.loadingDetail.set(false);
       },
     });
@@ -490,8 +787,10 @@ export class SecondBrain {
       this.loadingDetail.set(true);
     }
 
+    const requestVersion = this.detailRequestVersion;
     this.conceptsService.get(id).subscribe({
       next: (detail) => {
+        if (requestVersion !== this.detailRequestVersion) return;
         this.detailCache.set(id, detail);
         // Ignore a response for a concept the user has already moved on from.
         if (this.selectedId() !== id) return;
@@ -499,6 +798,7 @@ export class SecondBrain {
         this.loadingDetail.set(false);
       },
       error: () => {
+        if (requestVersion !== this.detailRequestVersion) return;
         if (this.selectedId() !== id) return;
         this.toast.error('Failed to load concept details');
         this.loadingDetail.set(false);
@@ -510,6 +810,8 @@ export class SecondBrain {
   clearSelection(): void {
     this.selectedId.set(null);
     this.loadingDetail.set(false);
+    this.selectedDetail.set(null);
+    this.relatedConcepts.set([]);
   }
 
   /**
@@ -549,20 +851,57 @@ export class SecondBrain {
 
     this.pendingRelatedRequests.add(id);
     if (this.selectedId() === id) this.relatedLoading.set(true);
+    const requestVersion = this.relatedRequestVersion;
     this.http.get<RelatedConceptDto[]>(`/api/concepts/${id}/related`).subscribe({
       next: (related) => {
-        this.relatedCache.set(id, related);
         this.pendingRelatedRequests.delete(id);
+        if (requestVersion !== this.relatedRequestVersion) return;
+        this.relatedCache.set(id, related);
         if (this.selectedId() !== id) return;
         this.relatedConcepts.set(related);
         this.relatedLoading.set(false);
       },
       error: () => {
         this.pendingRelatedRequests.delete(id);
+        if (requestVersion !== this.relatedRequestVersion) return;
         if (this.selectedId() !== id) return;
         this.relatedConcepts.set([]);
         this.relatedLoading.set(false);
       },
+    });
+  }
+
+  private invalidateRelatedData(reloadSelected: boolean): void {
+    this.relatedRequestVersion += 1;
+    this.relatedCache.clear();
+    this.pendingRelatedRequests.clear();
+    this.relatedConcepts.set([]);
+    this.relatedExpanded.set(false);
+    this.relatedLoading.set(false);
+
+    const selectedId = this.selectedId();
+    if (reloadSelected && selectedId) this.loadRelated(selectedId);
+  }
+
+  private invalidateDetailEntries(...ids: string[]): void {
+    this.detailRequestVersion += 1;
+    for (const id of ids) {
+      this.detailCache.delete(id);
+      this.pendingRequests.delete(id);
+    }
+  }
+
+  private refreshIndexAndStats(): void {
+    // Mutation responses update the visible row immediately. These background
+    // reads reconcile counts and cover server-side deduplication after a merge,
+    // without toggling the list's wait field or covering the detail pane.
+    this.conceptsService.list().subscribe({
+      next: (data) => this.concepts.set(data),
+      error: () => this.toast.error('The concept index could not be refreshed'),
+    });
+    this.conceptsService.getStats().subscribe({
+      next: (stats) => this.conceptStats.set(stats),
+      error: () => this.toast.error('The concept statistics could not be refreshed'),
     });
   }
 

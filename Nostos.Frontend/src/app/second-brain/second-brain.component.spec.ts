@@ -101,6 +101,14 @@ describe('SecondBrain', () => {
     flushRelated(id, related);
   };
 
+  const flushMutationRefresh = (
+    refreshedConcepts: ConceptDto[] = concepts,
+    refreshedStats: ConceptStatsDto = stats
+  ): void => {
+    http.expectOne('/api/concepts').flush(refreshedConcepts);
+    http.expectOne('/api/concepts/stats').flush(refreshedStats);
+  };
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [SecondBrain],
@@ -503,6 +511,187 @@ describe('SecondBrain', () => {
     expect(renameSpy).toHaveBeenCalledWith('c-alpha');
     expect(deleteSpy).toHaveBeenCalledWith('c-alpha');
     expect(component.selectedId()).toBeNull();
+  });
+
+  it('renames inline, sends the concept body, updates the pane, and refreshes stats', async () => {
+    component.selectConcept('c-alpha');
+    flushDetail('c-alpha', detail('c-alpha', 'Alpha'));
+    await fixture.whenStable();
+
+    component.startRename('c-alpha', 'header');
+    fixture.detectChanges();
+    const input = fixture.nativeElement.querySelector('.header-rename .inline-rename-input') as HTMLInputElement;
+    expect(input.value).toBe('Alpha');
+
+    component.renameValue.set('Nietzsche');
+    component.commitRename('c-alpha');
+    const rename = http.expectOne('/api/concepts/c-alpha');
+    expect(rename.request.method).toBe('PUT');
+    expect(rename.request.body).toEqual({ concept: 'Nietzsche' });
+    rename.flush({ id: 'c-alpha', name: 'Nietzsche', usageCount: 9 });
+
+    http.expectOne('/api/concepts/c-alpha/related').flush([]);
+    flushMutationRefresh([
+      { id: 'c-alpha', name: 'Nietzsche', usageCount: 9 },
+      concepts[1],
+      concepts[2],
+    ]);
+    await fixture.whenStable();
+
+    expect(component.renameId()).toBeNull();
+    expect(component.concepts().find((concept) => concept.id === 'c-alpha')?.name).toBe('Nietzsche');
+    expect(component.selectedDetail()?.name).toBe('Nietzsche');
+    expect(TestBed.inject(ToastService).toasts().at(-1)?.message).toBe('Renamed to Nietzsche');
+  });
+
+  it('rejects an empty inline rename without a request and shows a quiet message', () => {
+    component.startRename('c-alpha');
+    fixture.detectChanges();
+    const input = fixture.nativeElement.querySelector('.inline-rename-input') as HTMLInputElement;
+    expect(input.value).toBe('Alpha');
+
+    component.renameValue.set('   ');
+    component.commitRename('c-alpha');
+    fixture.detectChanges();
+
+    expect(component.renameError()).toBe('A concept name is required.');
+    expect(http.match('/api/concepts/c-alpha')).toHaveLength(0);
+    expect(component.concepts().find((concept) => concept.id === 'c-alpha')?.name).toBe('Alpha');
+  });
+
+  it('rolls back a failed rename and reports the failure', async () => {
+    component.startRename('c-alpha');
+    component.renameValue.set('Unavailable');
+    component.commitRename('c-alpha');
+    http.expectOne('/api/concepts/c-alpha').error(new ProgressEvent('network-error'));
+    await fixture.whenStable();
+
+    expect(component.renameId()).toBeNull();
+    expect(component.concepts().find((concept) => concept.id === 'c-alpha')?.name).toBe('Alpha');
+    expect(TestBed.inject(ToastService).toasts().at(-1)?.message).toContain('changes were not saved');
+  });
+
+  it('treats rename onto an existing name as a merge and refreshes the row count', () => {
+    component.startRename('c-alpha');
+    component.renameValue.set('Beta');
+    component.commitRename('c-alpha');
+
+    const rename = http.expectOne('/api/concepts/c-alpha');
+    expect(rename.request.method).toBe('PUT');
+    expect(rename.request.body).toEqual({ concept: 'Beta' });
+    rename.flush({ id: 'c-beta', name: 'Beta', usageCount: 4 });
+    flushMutationRefresh(
+      [
+        { id: 'c-beta', name: 'Beta', usageCount: 4 },
+        concepts[2],
+      ],
+      { ...stats, totalConcepts: 2, totalReferences: 12 }
+    );
+
+    expect(component.concepts().map((concept) => concept.id)).toEqual(['c-beta', 'c-gamma']);
+    expect(component.concepts()).toHaveLength(2);
+    expect(TestBed.inject(ToastService).toasts().at(-1)?.message).toBe('Merged into Beta');
+  });
+
+  it('searches merge targets, confirms the consequence, and selects the survivor', async () => {
+    component.selectConcept('c-alpha');
+    flushDetail('c-alpha', detail('c-alpha', 'Alpha'));
+    await fixture.whenStable();
+
+    component.openMergePicker();
+    component.mergeSearchQuery.set('bet');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.merge-target')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('.merge-target')?.textContent).toContain('Beta');
+
+    component.chooseMergeTarget('c-beta');
+    component.openMergeConfirmation();
+    fixture.detectChanges();
+    const modal = fixture.nativeElement.querySelector('.confirm-modal-card') as HTMLElement;
+    expect(modal.textContent).toContain('move 1 note');
+    expect(modal.textContent).toContain('source concept “Alpha” will disappear');
+
+    (modal.querySelector('.btn-confirm') as HTMLButtonElement).click();
+    const merge = http.expectOne('/api/concepts/c-alpha/merge');
+    expect(merge.request.method).toBe('POST');
+    expect(merge.request.body).toEqual({ targetId: 'c-beta' });
+    expect(component.mergingConcept()).toBe(true);
+
+    merge.flush({ id: 'c-beta', name: 'Beta', usageCount: 4 });
+    http.expectOne('/api/concepts/c-beta/related').flush([]);
+    http.expectOne('/api/concepts/c-beta').flush(detail('c-beta', 'Beta'));
+    flushMutationRefresh(
+      [concepts[1], concepts[2]],
+      { ...stats, totalConcepts: 2, totalReferences: 14 }
+    );
+    await fixture.whenStable();
+
+    expect(component.mergingConcept()).toBe(false);
+    expect(component.selectedId()).toBe('c-beta');
+    expect(component.concepts().map((concept) => concept.id)).toEqual(['c-beta', 'c-gamma']);
+    expect(component.selectedDetail()?.name).toBe('Beta');
+    expect(component.conceptStats()?.totalConcepts).toBe(2);
+    expect(TestBed.inject(ToastService).toasts().at(-1)?.message).toContain('Merged Alpha into Beta');
+  });
+
+  it('rolls back a failed merge and keeps both concepts', async () => {
+    component.selectConcept('c-alpha');
+    flushDetail('c-alpha', detail('c-alpha', 'Alpha'));
+    await fixture.whenStable();
+    component.openMergePicker();
+    component.chooseMergeTarget('c-beta');
+    component.openMergeConfirmation();
+    component.confirmMerge();
+
+    http.expectOne('/api/concepts/c-alpha/merge').error(new ProgressEvent('network-error'));
+    await fixture.whenStable();
+    expect(component.mergingConcept()).toBe(false);
+    expect(component.concepts().map((concept) => concept.id)).toEqual(['c-alpha', 'c-beta', 'c-gamma']);
+    expect(component.selectedId()).toBe('c-alpha');
+    expect(TestBed.inject(ToastService).toasts().at(-1)?.message).toContain('changes were not saved');
+  });
+
+  it('confirms concept deletion with honest reference wording and refreshes the stats line', async () => {
+    component.selectConcept('c-alpha');
+    flushDetail('c-alpha', detail('c-alpha', 'Alpha'));
+    await fixture.whenStable();
+
+    component.openDeleteConcept('c-alpha');
+    fixture.detectChanges();
+    const modal = fixture.nativeElement.querySelector('.confirm-modal-card') as HTMLElement;
+    expect(modal.textContent).toContain('does not edit note text');
+    expect(modal.textContent).toContain('[[Alpha]] reference stays in notes');
+    expect(modal.textContent).toContain('saving a note again will re-create the concept');
+
+    (modal.querySelector('.btn-confirm') as HTMLButtonElement).click();
+    const deletion = http.expectOne('/api/concepts/c-alpha');
+    expect(deletion.request.method).toBe('DELETE');
+    expect(component.deletingConcept()).toBe(true);
+    deletion.flush(null);
+    flushMutationRefresh(
+      [concepts[1], concepts[2]],
+      { ...stats, totalConcepts: 2, totalReferences: 6 }
+    );
+    await fixture.whenStable();
+
+    expect(component.deletingConcept()).toBe(false);
+    expect(component.selectedId()).toBeNull();
+    expect(component.selectedDetail()).toBeNull();
+    expect(component.concepts().map((concept) => concept.id)).toEqual(['c-beta', 'c-gamma']);
+    expect(component.conceptStats()?.totalConcepts).toBe(2);
+    expect(fixture.nativeElement.querySelector('.concept-title')).toBeNull();
+  });
+
+  it('rolls back a failed concept deletion and leaves its row intact', async () => {
+    component.openDeleteConcept('c-alpha');
+    component.confirmDeleteConcept();
+    http.expectOne('/api/concepts/c-alpha').error(new ProgressEvent('network-error'));
+    await fixture.whenStable();
+
+    expect(component.deletingConcept()).toBe(false);
+    expect(component.conceptDeleteTarget()).toBeNull();
+    expect(component.concepts().some((concept) => concept.id === 'c-alpha')).toBe(true);
+    expect(TestBed.inject(ToastService).toasts().at(-1)?.message).toContain('still in your index');
   });
 
   it('restores the persisted sort order on construction', () => {

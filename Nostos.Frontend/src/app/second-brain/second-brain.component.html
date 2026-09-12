@@ -84,6 +84,27 @@
           (focus)="handleIndexFocus(i); prefetch(c.id)"
           (keydown)="handleIndexKeydown($event, i, c.id)"
         >
+          @if (renameId() === c.id && renameSurface() === 'index') {
+          <div class="inline-rename" (click)="$event.stopPropagation()">
+            <input
+              #renameInput
+              type="text"
+              class="inline-rename-input"
+              [value]="renameValue()"
+              (input)="renameValue.set($any($event.target).value)"
+              (keydown.enter)="$event.stopPropagation(); commitRename(c.id)"
+              (keydown.escape)="$event.stopPropagation(); cancelRename()"
+              (focus)="selectRenameInput($event)"
+              [attr.aria-label]="'Rename ' + c.name"
+              [attr.aria-invalid]="renameError() ? 'true' : null"
+              [disabled]="renaming()"
+              autofocus
+            />
+            @if (renameError(); as error) {
+            <span class="inline-rename-error" role="alert">{{ error }}</span>
+            }
+          </div>
+          } @else {
           <span class="name">
             @for (part of highlightName(c.name); track $index) {
             @if (part.highlight) {
@@ -93,6 +114,7 @@
             }
             }
           </span>
+          }
           <span class="row-tail">
             <span class="count">{{ c.usageCount }}</span>
             <span class="row-actions" (click)="$event.stopPropagation()">
@@ -129,10 +151,117 @@
       } @if (selectedDetail(); as detail) {
       <div class="concept-header">
         <div class="super-title">Concept</div>
+        @if (renameId() === detail.id && renameSurface() === 'header') {
+        <div class="inline-rename header-rename">
+          <input
+            #renameInput
+            type="text"
+            class="inline-rename-input"
+            [value]="renameValue()"
+            (input)="renameValue.set($any($event.target).value)"
+            (keydown.enter)="commitRename(detail.id)"
+            (keydown.escape)="cancelRename()"
+            (focus)="selectRenameInput($event)"
+            [attr.aria-label]="'Rename ' + detail.name"
+            [attr.aria-invalid]="renameError() ? 'true' : null"
+            [disabled]="renaming()"
+            autofocus
+          />
+          @if (renameError(); as error) {
+          <span class="inline-rename-error" role="alert">{{ error }}</span>
+          }
+        </div>
+        } @else {
         <h1 class="concept-title">{{ detail.name }}</h1>
+        }
         <div class="concept-meta">
           Referenced in {{ detail.notes.length }} {{ detail.notes.length === 1 ? 'note' : 'notes' }}
         </div>
+
+        <div class="concept-actions" aria-label="Manage concept">
+          <button
+            type="button"
+            class="concept-action"
+            [disabled]="renaming() || mergingConcept()"
+            (click)="startRename(detail.id, 'header')"
+          >
+            <lucide-icon [img]="RenameIcon" [size]="14"></lucide-icon>
+            <span>Rename</span>
+          </button>
+          <button
+            type="button"
+            class="concept-action"
+            [disabled]="renaming() || mergingConcept()"
+            (click)="openMergePicker()"
+          >
+            <lucide-icon [img]="MergeIcon" [size]="14"></lucide-icon>
+            <span>Merge into…</span>
+          </button>
+          <button
+            type="button"
+            class="concept-action danger"
+            [disabled]="renaming() || mergingConcept()"
+            (click)="openDeleteConcept(detail.id)"
+          >
+            <lucide-icon [img]="DeleteIcon" [size]="14"></lucide-icon>
+            <span>Delete</span>
+          </button>
+        </div>
+
+        @if (mergePickerOpen()) {
+        <div class="merge-picker" role="dialog" aria-label="Choose a concept to merge into">
+          <div class="merge-picker-head">
+            <span class="detail-tool-label">Merge into…</span>
+            <button
+              type="button"
+              class="merge-picker-close"
+              aria-label="Close merge picker"
+              (click)="closeMergePicker()"
+            >
+              <lucide-icon [img]="ClearIcon" [size]="15"></lucide-icon>
+            </button>
+          </div>
+          <div class="merge-search-box">
+            <lucide-icon [img]="SearchIcon" [size]="15"></lucide-icon>
+            <input
+              type="search"
+              placeholder="Search concepts..."
+              aria-label="Search merge targets"
+              [ngModel]="mergeSearchQuery()"
+              (ngModelChange)="mergeSearchQuery.set($event)"
+              (keydown.escape)="closeMergePicker()"
+            />
+          </div>
+          <div class="merge-target-list">
+            @if (mergeCandidates().length === 0) {
+            <span class="merge-picker-empty">No other concepts match.</span>
+            } @else {
+            @for (candidate of mergeCandidates(); track candidate.id) {
+            <button
+              type="button"
+              class="merge-target"
+              [class.selected]="mergeTargetId() === candidate.id"
+              (click)="chooseMergeTarget(candidate.id)"
+            >
+              <span>{{ candidate.name }}</span>
+              <span class="merge-target-count">{{ candidate.usageCount }}</span>
+            </button>
+            }
+            }
+          </div>
+          <div class="merge-picker-actions">
+            <button type="button" class="merge-picker-cancel" (click)="closeMergePicker()">Cancel</button>
+            <button
+              type="button"
+              class="merge-picker-confirm"
+              [disabled]="!mergeTarget()"
+              (click)="openMergeConfirmation()"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+        }
 
         <div class="related-row" aria-label="Related concepts">
           <span class="related-label">Connected concepts</span>
@@ -282,5 +411,29 @@
     [busy]="deletingNote()"
     (confirm)="confirmDeleteNote()"
     (cancel)="cancelDeleteNote()"
+  ></app-confirm-modal>
+
+  <app-confirm-modal
+    [isOpen]="!!mergeConfirmation()"
+    [heading]="mergeHeading()"
+    [description]="mergeDescription()"
+    confirmLabel="Merge concepts"
+    busyLabel="Merging…"
+    [busy]="mergingConcept()"
+    tone="neutral"
+    (confirm)="confirmMerge()"
+    (cancel)="cancelMergeConfirmation()"
+  ></app-confirm-modal>
+
+  <app-confirm-modal
+    [isOpen]="!!conceptDeleteTarget()"
+    [heading]="conceptDeleteHeading()"
+    [description]="conceptDeleteDescription()"
+    confirmLabel="Delete concept"
+    busyLabel="Deleting…"
+    [busy]="deletingConcept()"
+    tone="danger"
+    (confirm)="confirmDeleteConcept()"
+    (cancel)="cancelDeleteConcept()"
   ></app-confirm-modal>
 </main>

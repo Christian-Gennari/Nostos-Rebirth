@@ -49,4 +49,16 @@ export class ConceptsService {
   get(id: string): Observable<ConceptDetailDto> {
     return this.http.get<ConceptDetailDto>(`/api/concepts/${id}`);
   }
+
+  rename(id: string, concept: string): Observable<ConceptDto> {
+    return this.http.put<ConceptDto>(`/api/concepts/${id}`, { concept });
+  }
+
+  merge(sourceId: string, targetId: string): Observable<ConceptDto> {
+    return this.http.post<ConceptDto>(`/api/concepts/${sourceId}/merge`, { targetId });
+  }
+
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`/api/concepts/${id}`);
+  }
 }
