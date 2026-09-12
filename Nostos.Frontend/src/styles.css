@@ -57,8 +57,14 @@
   --danger-ink: color-mix(in srgb, var(--color-danger) 55%, var(--color-text-main));
   --danger-hairline: color-mix(in srgb, var(--color-danger) 22%, var(--border-color));
   --danger-surface: color-mix(in srgb, var(--color-danger) 7%, var(--bg-surface-alt));
-  --danger-solid: color-mix(in srgb, var(--color-danger) 68%, var(--color-text-main));
-  --danger-solid-hover: color-mix(in srgb, var(--color-danger) 80%, var(--color-text-main));
+  /* NOTE: mixing toward --color-text-main was the bug. That token is a DARK ink
+     in light mode (red deepens, correct) but a LIGHT ink in dark mode, so the
+     same formula bleached the fill to #F9C7C2 and porcelain text fell to 1.34:1.
+     Mix toward a fixed near-black instead: the fill deepens in BOTH themes, which
+     is what "restrained danger" asks for. */
+  --danger-deepen-to: #1C1B1A;
+  --danger-solid: color-mix(in srgb, var(--color-danger) 68%, var(--danger-deepen-to));
+  --danger-solid-hover: color-mix(in srgb, var(--color-danger) 80%, var(--danger-deepen-to));
 
   /* ── Success ── */
   --color-success: #22c55e;
@@ -82,6 +88,15 @@
   /* ── Scrollbar ── */
   --scrollbar-thumb: #DED9D1;
   --scrollbar-thumb-hover: #C6BFB4;
+
+  /* ── Cover-art action discs (grid card corners) ──
+     These sit ON the artwork, so they are chrome that must invert with the
+     theme — they were hardcoded rgba(255,255,255,.85) and stayed white on dark,
+     which is why the corners looked unrelated to the edit/delete discs beside
+     them in the middle of the card. */
+  --cover-disc-bg: rgba(255, 255, 255, 0.85);
+  --cover-disc-ink: #A8A39C;
+  --cover-disc-border: transparent;
 
   /* ── Overlays ── */
   --overlay-heavy: rgba(0, 0, 0, 0.7);
@@ -331,10 +346,20 @@
   /* ── Restrained secondary (container tint only — 1.92:1 as text) ── */
   --color-secondary: #3A4556;
 
-  /* ── Danger / success / highlight ── */
-  --color-danger: #FFB4AB;
-  --color-danger-vivid: #FF8A7A;
+  /* ── Danger / success / highlight ──
+     Warm brick, not the M3 default pink. #FFB4AB is a *light* red: it works as
+     ink on dark but turns the danger FILL pale, and the fill's text is porcelain
+     — so "Delete Permanently" measured 1.34:1. This is a red light enough to
+     read as ink on slate, but far enough from white to carry porcelain text. */
+  --color-danger: #E4796B;
+  --color-danger-vivid: #F08A76;
   --color-danger-bg: #3A1A18;
+  /* The destructive FILL is pinned rather than derived: the 68/80% mix that
+     reads correctly in light lands at 4.46:1 (and 3.61:1 on hover) against
+     porcelain here. Deep oxblood, so porcelain text clears 4.5:1 in both the
+     rest and hover states. */
+  --danger-solid: #A03A34;
+  --danger-solid-hover: #B3453F;
   /* Distinct from the accent on purpose. Reusing one mint for both brand and
      "success" means the Finished tick reads as a brand mark, and it multiplies
      the visible mint count. */
@@ -357,6 +382,12 @@
   --focus-ring: #6E7C90;
   --scrollbar-thumb: #2C313B;
   --scrollbar-thumb-hover: #3B4250;
+
+  /* Cover-art action discs: a dark frosted disc with a hairline, so the 1.0-1.6
+     separation against the scrim over a mid-tone cover still reads as a disc. */
+  --cover-disc-bg: rgba(33, 37, 46, 0.90);
+  --cover-disc-ink: #A8AFBB;
+  --cover-disc-border: rgba(255, 255, 255, 0.10);
 
   /* ── Overlays / glass ── */
   --overlay-heavy: rgba(0, 0, 0, 0.80);
@@ -513,6 +544,17 @@
 /* The waiting field's breathing glow is built by mixing the ground toward
    WHITE, which is a light-mode assumption. On dark that is ~13x brighter than
    the page: a bright blob during every load. Overlay a theme-relative film. */
+/* Cover-art action discs: on dark, --color-primary is the dim GREEN ink, so the
+   middle (edit/delete) discs read green while the corner (read/favourite) discs
+   read slate — one card showing two icon colours. The discs are chrome, so on
+   dark all four take the disc ink. Light is deliberately left alone: its stronger
+   brand ink on a white disc reads as the primary action and clears 12.5:1.
+   This lives here rather than in the component because Angular's emulated
+   encapsulation strips a `:root[...]` ancestor from a component rule. */
+:root[data-theme='dark'] .action-circle {
+  color: var(--cover-disc-ink);
+}
+
 :root[data-theme='dark'] .wait-field::before {
   background: radial-gradient(
     120% 85% at 50% 38%,

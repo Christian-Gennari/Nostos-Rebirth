@@ -506,7 +506,7 @@ app-sidebar-collections.no-transition {
   color: var(--color-danger-vivid);
 }
 .table-row:hover .fav-btn-list:not(.active) {
-  color: var(--color-text-placeholder);
+  color: var(--cover-disc-ink);
 }
 
 .finished-btn-list.active,
@@ -514,7 +514,7 @@ app-sidebar-collections.no-transition {
   color: var(--color-success);
 }
 .table-row:hover .finished-btn-list:not(.active) {
-  color: var(--color-text-placeholder);
+  color: var(--cover-disc-ink);
 }
 
 /* .badge is defined globally in styles.css — no component duplicate needed */
@@ -693,9 +693,9 @@ app-sidebar-collections.no-transition {
 .finished-btn-grid {
   position: absolute;
   top: 8px;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--cover-disc-bg);
   backdrop-filter: blur(4px);
-  border: none;
+  border: 1px solid var(--cover-disc-border);
   border-radius: 50%;
   width: 32px;
   height: 32px;
@@ -704,7 +704,7 @@ app-sidebar-collections.no-transition {
   justify-content: center;
   cursor: pointer;
   z-index: 2;
-  color: var(--color-text-placeholder);
+  color: var(--cover-disc-ink);
   opacity: 0;
   transition: all 0.2s ease;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -771,7 +771,9 @@ app-sidebar-collections.no-transition {
   height: 36px;
   border-radius: 50%;
   background: var(--bg-surface);
-  border: none;
+  /* A hairline: on dark the disc is only 1.0-1.6 from the scrim it sits on, so
+     without it the disc dissolves into the darkened cover. */
+  border: 1px solid var(--cover-disc-border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -788,8 +790,11 @@ app-sidebar-collections.no-transition {
   background: var(--primary-fill);
   color: var(--on-primary);
 }
+/* The destructive hover is the deep wine FILL, not --color-danger: that token is
+   a red meant to be read as ink, so using it as a fill put porcelain text on it
+   at 2.58:1 on dark. */
 .action-circle.delete:hover {
-  background: var(--color-danger);
+  background: var(--danger-solid);
   color: var(--on-primary);
 }
 
