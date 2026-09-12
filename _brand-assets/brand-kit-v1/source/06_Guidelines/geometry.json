@@ -1,0 +1,26 @@
+{
+  "canvas": 1024,
+  "corner_radius": 205,
+  "outer_arch": {
+    "left": 282,
+    "right": 740,
+    "top": 275,
+    "springline": 509,
+    "bottom": 764,
+    "rx": 229,
+    "ry": 234,
+    "center_x": 511
+  },
+  "inner_doorway": {
+    "left": 358,
+    "right": 578,
+    "top": 397,
+    "springline": 509,
+    "bottom": 764,
+    "rx": 110,
+    "ry": 112,
+    "center_x": 468,
+    "offset_from_outer_center_px": -43,
+    "offset_from_outer_center_percent": -4.199
+  }
+}

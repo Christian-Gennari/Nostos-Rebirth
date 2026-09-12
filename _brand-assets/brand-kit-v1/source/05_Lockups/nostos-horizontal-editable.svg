@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1840" height="512" viewBox="0 0 1840 512" role="img" aria-labelledby="title">
+  <title id="title">Nostos horizontal lockup</title>
+  <g transform="scale(0.5)">
+    <rect x="0" y="0" width="1024" height="1024" rx="205" fill="#293E32"/>
+    <path d="M 282 764 L 282 509 A 229 234 0 0 1 740 509 L 740 764 Z M 358 764 L 358 509 A 110 112 0 0 1 578 509 L 578 764 Z" fill="#FDF8F6" fill-rule="evenodd"/>
+  </g>
+  <text x="625" y="345" fill="#1C1B1A"
+        font-family="'Hanken Grotesk', sans-serif"
+        font-size="255" font-weight="500" letter-spacing="-8">nostos</text>
+</svg>

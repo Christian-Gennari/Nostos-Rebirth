@@ -1,0 +1,16 @@
+{
+  "brand": "Nostos",
+  "version": "1.0",
+  "canonical_master": "01_Primary_Mark/nostos-mark-primary.svg",
+  "geometry_locked": true,
+  "doorway_offset_px": -43,
+  "doorway_offset_percent": -4.199,
+  "colors": {
+    "forest": "#293E32",
+    "paper": "#FDF8F6",
+    "ink": "#1C1B1A",
+    "clay": "#A07859",
+    "muted": "#8A8680",
+    "border": "#E4E1DB"
+  }
+}

@@ -1,0 +1,11 @@
+:root {
+  --nostos-paper: #FDF8F6;
+  --nostos-forest: #293E32;
+  --nostos-ink: #1C1B1A;
+  --nostos-clay: #A07859;
+  --nostos-muted: #8A8680;
+  --nostos-border: #E4E1DB;
+
+  /* Locked logo geometry. Do not recenter the doorway. */
+  --nostos-doorway-offset-x: -4.199%;
+}
