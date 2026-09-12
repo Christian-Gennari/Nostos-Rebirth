@@ -1045,7 +1045,10 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 220px;
+  /* A floor for very short notes, not a fixed height. Grid rows stretch their
+     items to the tallest card in the row, so rows stay uniform while a short
+     excerpt no longer leaves a hollow middle. */
+  min-height: 150px;
   border-radius: var(--radius-lg);
   transition: transform var(--motion-fast) var(--ease-out);
 }
@@ -1083,12 +1086,23 @@
 
 :host ::ng-deep app-note-card .content-row {
   display: flex;
-  height: 100%;
   flex-direction: column;
+  /* Was `height: 100%`, which forced the inner column to fill the grid cell.
+     Combined with `min-height` on the card that produced the hollow middle: the
+     body stayed short and the footer was pushed to the bottom edge, leaving dead
+     space between them. Content now determines the stack, and the grid row still
+     aligns cards to the tallest item. */
+  height: auto;
+  min-height: 0;
 }
 
 :host ::ng-deep app-note-card .collapsible-body {
-  flex: 1 1 auto;
+  /* Content sets the card's height. This was `flex: 1 1 auto`, which stretched
+     the body to fill the forced 220px min-height below and left a ~90px hollow
+     middle in every short card (the excerpt top-aligned, the metadata pinned to
+     the bottom, nothing between). Grid rows still align because the grid row
+     stretches its items to the tallest card in that row. */
+  flex: 0 0 auto;
   min-height: 0;
 }
 
