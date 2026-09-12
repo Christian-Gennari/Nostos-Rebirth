@@ -275,8 +275,8 @@
   font-weight: 500;
 }
 .modal-actions .btn-primary {
-  background: var(--color-primary);
-  color: var(--bg-surface);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   padding: 0.55rem 1.4rem;
   border-radius: 999px;
   font-weight: 500;

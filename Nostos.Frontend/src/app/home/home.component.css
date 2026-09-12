@@ -72,8 +72,8 @@
   padding: 0.75rem 2rem;
   font-size: 0.95rem;
   font-weight: 500;
-  background: var(--color-primary);
-  color: var(--bg-surface);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   text-decoration: none;
   box-shadow: var(--shadow-glass), 0 0 16px -4px rgba(138, 109, 88, 0.22);
   transition: transform 0.15s ease, box-shadow 0.15s ease;

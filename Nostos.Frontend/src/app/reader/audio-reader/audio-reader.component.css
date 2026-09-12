@@ -233,8 +233,8 @@
   width: 72px;
   height: 72px;
   border-radius: 10%;
-  background: var(--color-primary);
-  color: var(--bg-surface);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   border: none;
   transition:
     transform 0.2s ease,

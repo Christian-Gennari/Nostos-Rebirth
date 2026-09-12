@@ -1,10 +1,11 @@
 import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideAngularModule, Settings, Archive, RefreshCw, Download, Trash2, Loader2, FolderSearch } from 'lucide-angular';
+import { LucideAngularModule, Settings, Archive, RefreshCw, Download, Trash2, Loader2, FolderSearch, Palette, Sun, Moon } from 'lucide-angular';
 
 import { BackupService } from '../core/services/backup.service';
 import { ToastService } from '../core/services/toast.service';
+import { ThemeService, Theme } from '../core/services/theme.service';
 import {
   BackupStatus,
   BackupSettings,
@@ -233,6 +234,49 @@ const defaultProgress: BackupProgress = {
           </div>
         }
       </section>
+
+      <section class="settings-card">
+        <div class="card-header">
+          <lucide-icon [img]="PaletteIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
+          <h2>Appearance</h2>
+        </div>
+
+        <div class="card-body">
+          <div class="setting-row">
+            <div class="setting-label">
+              <span class="label-text">Colour Theme</span>
+              <span class="label-desc">Dark mode is a companion palette for evening reading — same paper, lower light.</span>
+            </div>
+            <!-- Two explicit options rather than a light/dark switch: the
+                 control always shows both states, so the choice is legible
+                 before it is made. -->
+            <div class="theme-choice" role="radiogroup" aria-label="Colour theme">
+              <button
+                type="button"
+                class="theme-opt"
+                role="radio"
+                [attr.aria-checked]="theme() === 'light'"
+                [class.is-active]="theme() === 'light'"
+                (click)="setTheme('light')"
+              >
+                <lucide-icon [img]="SunIcon" [size]="15" strokeWidth="1.75"></lucide-icon>
+                Light
+              </button>
+              <button
+                type="button"
+                class="theme-opt"
+                role="radio"
+                [attr.aria-checked]="theme() === 'dark'"
+                [class.is-active]="theme() === 'dark'"
+                (click)="setTheme('dark')"
+              >
+                <lucide-icon [img]="MoonIcon" [size]="15" strokeWidth="1.75"></lucide-icon>
+                Dark
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   `,
   styleUrls: ['./settings.component.css'],
@@ -240,6 +284,14 @@ const defaultProgress: BackupProgress = {
 export class SettingsComponent implements OnInit, OnDestroy {
   private backupService = inject(BackupService);
   private toast = inject(ToastService);
+  private themeService = inject(ThemeService);
+
+  /** The active theme, exposed for the Appearance card. */
+  readonly theme = this.themeService.theme;
+
+  setTheme(theme: Theme): void {
+    this.themeService.setTheme(theme);
+  }
 
   SettingsIcon = Settings;
   ArchiveIcon = Archive;
@@ -248,6 +300,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
   Trash2Icon = Trash2;
   LoaderIcon = Loader2;
   FolderSearchIcon = FolderSearch;
+  PaletteIcon = Palette;
+  SunIcon = Sun;
+  MoonIcon = Moon;
 
   status = signal<BackupStatus>({
     isEnabled: false,

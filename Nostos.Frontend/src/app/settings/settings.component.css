@@ -136,6 +136,51 @@
   transform: translateX(18px);
 }
 
+/* --- Appearance: theme choice -------------------------------------------
+   Two explicit options, so both states are visible before choosing. Matches
+   the toolbar's view toggle (`--bg-hover` track, raised active segment). */
+.theme-choice {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-hover);
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.theme-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-light);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.theme-opt:hover {
+  color: var(--color-text-main);
+}
+
+.theme-opt.is-active {
+  background: var(--bg-surface);
+  color: var(--primary-ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.theme-opt:focus-visible {
+  outline: 2px solid var(--primary-ink);
+  outline-offset: 1px;
+}
+
 /* --- Select --- */
 .select-sm {
   font-size: 0.85rem;
@@ -173,8 +218,8 @@
 }
 
 .btn-primary {
-  background: var(--color-primary);
-  color: var(--bg-surface);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   border: none;
 }
 

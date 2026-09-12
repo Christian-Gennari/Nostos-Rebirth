@@ -245,9 +245,9 @@
   border-color: var(--border-color);
 }
 .icon-btn.active {
-  background-color: var(--color-primary);
-  color: var(--bg-surface);
-  border-color: var(--color-primary);
+  background-color: var(--primary-fill);
+  color: var(--on-primary);
+  border-color: var(--primary-fill);
 }
 
 .error {
@@ -275,8 +275,8 @@
   visibility: hidden;
   opacity: 0;
   width: 140px;
-  background-color: var(--color-primary);
-  color: var(--bg-surface);
+  background-color: var(--primary-fill);
+  color: var(--on-primary);
   text-align: center;
   border-radius: 6px;
   padding: 8px;
@@ -472,8 +472,8 @@
   }
   .icon-btn.active,
   .icon-btn.active:hover {
-    background-color: var(--color-primary);
-    color: var(--bg-surface);
+    background-color: var(--primary-fill);
+    color: var(--on-primary);
     border-color: var(--color-primary);
   }
   .icon-btn lucide-icon {

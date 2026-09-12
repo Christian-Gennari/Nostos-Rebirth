@@ -59,13 +59,44 @@ describe('SettingsComponent backup-only surface', () => {
     localStorage.clear();
   });
 
-  it('renders no Appearance card and no theme controls', () => {
+  /**
+   * Was `renders no Appearance card and no theme controls` — an assertion from
+   * the theme-system removal. Dark mode is back as a deliberate feature, so the
+   * contract is inverted rather than dropped: the card must exist, and the
+   * control must offer both themes.
+   */
+  it('renders the Appearance card with a working Light/Dark choice', () => {
     const headers = fixture.debugElement
       .queryAll(By.css('.card-header h2'))
       .map((h) => h.nativeElement.textContent.trim());
-    expect(headers).not.toContain('Appearance');
-    expect(fixture.debugElement.query(By.css('[aria-label="App theme"]'))).toBeNull();
-    expect(fixture.debugElement.queryAll(By.css('.setting-row')).length).toBeGreaterThan(0);
+    expect(headers).toContain('Appearance');
+
+    const options = fixture.debugElement.queryAll(By.css('.theme-opt'));
+    expect(options.map((o) => o.nativeElement.textContent.trim())).toEqual(['Light', 'Dark']);
+
+    // Defaults to light in a test environment (no stored choice, and
+    // matchMedia reports no dark preference).
+    expect(options[0].nativeElement.classList.contains('is-active')).toBe(true);
+    expect(document.documentElement.getAttribute('data-theme')).toBeNull();
+
+    options[1].nativeElement.click();
+    fixture.detectChanges();
+
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(localStorage.getItem('nostos.theme')).toBe('dark');
+  });
+
+  it('reverts to light and clears the attribute when Light is chosen', () => {
+    fixture.componentInstance.setTheme('dark');
+    fixture.detectChanges();
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+
+    fixture.componentInstance.setTheme('light');
+    fixture.detectChanges();
+    // Removing the attribute (not setting 'light') keeps `:root` the single
+    // owner of the light values.
+    expect(document.documentElement.getAttribute('data-theme')).toBeNull();
+    expect(localStorage.getItem('nostos.theme')).toBe('light');
   });
 
   it('renders the Backup and Backup History cards', () => {

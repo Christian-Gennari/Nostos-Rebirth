@@ -40,7 +40,11 @@ app-sidebar-collections {
       flex-basis var(--motion-slow) var(--ease-standard);
   }
 
-  background-color: var(--bg-surface-alt);
+  /* Must match `--bg-sidebar`, not `--bg-surface-alt`: the panel inside paints
+     `--bg-sidebar`, and in light the two tokens happen to share a value
+     (#F7F3F0) so the mismatch is invisible. In dark they diverge and the
+     collapsed rail would show a lighter band behind the panel. */
+  background-color: var(--bg-sidebar);
   /* clip (not hidden/auto): no scroll container is created, so the rail can
      never be scrolled sideways to reveal the collapsed labels. */
   overflow: clip;
@@ -781,12 +785,12 @@ app-sidebar-collections.no-transition {
   transform: translateY(0);
 }
 .action-circle:hover {
-  background: var(--color-primary);
-  color: var(--bg-surface);
+  background: var(--primary-fill);
+  color: var(--on-primary);
 }
 .action-circle.delete:hover {
   background: var(--color-danger);
-  color: var(--bg-surface);
+  color: var(--on-primary);
 }
 
 .meta-title {

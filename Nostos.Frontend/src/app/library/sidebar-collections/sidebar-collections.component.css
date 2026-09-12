@@ -68,6 +68,15 @@
   height: auto;
 }
 
+/* Token-driven brand mark (see the template comment). The two paths take their
+   fills from the palette so the mark can never drift from a second asset. */
+.brand-icon__shape {
+  fill: var(--brand-shape);
+}
+.brand-icon__doorway {
+  fill: var(--brand-doorway);
+}
+
 .brand {
   font-family: 'Newsreader', serif;
   font-weight: var(--fw-medium);
@@ -203,12 +212,12 @@
    colour as the tile it sits on and disappear. Use the active tile's own
    foreground colour instead. */
 .nav-item.active:focus-visible {
-  outline-color: var(--bg-surface);
+  outline-color: var(--on-primary);
   outline-offset: -3px;
 }
 
 .nav-item.active {
-  color: var(--bg-surface);
+  color: var(--on-primary);
 }
 
 .nav-item.active::before {

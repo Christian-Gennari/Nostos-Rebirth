@@ -22,6 +22,23 @@
   --color-primary-hover: #1F2B23;
   --color-primary-dim: #5B6B60;
 
+  /* ── Primary ROLE SPLIT ──
+     `--color-primary` historically did three jobs at once: heading/icon ink,
+     button+pill fill, and a pass-through for rules that used a surface token as
+     a foreground. One value cannot serve all three in a dark theme (fill needs
+     dark, ink needs light), which is what made the previous theme system
+     unmaintainable. These three tokens separate the roles. In light all three
+     are equal to today's values, so this split is behaviour-preserving. */
+  --primary-ink: #28372D;   /* headings, brand, icons — foreground */
+  --primary-fill: #28372D;  /* button/pill surfaces — background */
+  --on-primary: #FFFFFF;    /* text sitting ON a primary fill */
+
+  /* ── Brand mark ──
+     The symbol is two flat fills. Driven from tokens so the dark variant
+     cannot drift out of sync with a second asset. */
+  --brand-shape: #293E32;
+  --brand-doorway: #A07859;
+
   /* ── Accent (Clay) ── */
   --color-accent: #8A6D58;
   --color-accent-hover: #A08468;
@@ -254,6 +271,198 @@
   }
 }
 
+/* ══ DARK THEME ════════════════════════════════════════════════════════
+   "Nordic Nocturne": cool slate ground, spruce fill, pale-mint ink.
+
+   Must be `:root[data-theme='dark']`, NOT `html`: tokens live on `:root`
+   (specificity 0,1,0) which outranks a bare element selector, so an `html`
+   block silently does nothing.
+
+   Every colour token in the light graph has a counterpart here. A token left
+   out does not error — it silently keeps its LIGHT value and shows up as a
+   light patch inside the dark UI. `scripts/check-theme-tokens.mjs` enforces
+   this. */
+:root[data-theme='dark'] {
+  /* ── Surfaces — matte slate. One step up from the reference canvas so bright
+     cover art glares less; depth is a tonal ladder, not shadows. ── */
+  --bg-body: #15181F;
+  --bg-surface: #1B1E26;
+  --bg-surface-alt: #21252E;
+  --bg-sidebar: #12141A;
+  --bg-input: #1B1E26;
+  --bg-hover: #252A34;
+  --surface-image-ground: #1F232B;
+
+  /* ── Text ── */
+  --color-text-main: #EDEEF2;
+  --color-text-muted: #C5C9D0;
+  --color-text-light: #949CA9;
+  --color-text-placeholder: #7A8290;
+  --color-text-faint: #4A5260;
+
+  /* ── Primary role split ──
+     ink goes LIGHT (it is read on dark), fill goes DARK (it is read by the
+     text on top of it). This inversion is the whole point of the split. */
+  --primary-ink: #ACCDC4;
+  --primary-fill: #2D4B44;
+  --on-primary: #F0F2F5;
+  --color-primary: #ACCDC4;      /* legacy alias -> ink role */
+  --color-primary-hover: #375A52;
+  --color-primary-dim: #5C7A72;
+
+  /* ── Brand mark: flip the value order, hold the internal delta.
+     Light is a dark arch on light paper; dark is a light arch on a dark
+     ground, with the doorway staying DARKER than the arch so the two-part
+     structure survives (measured 2.79 vs the light build's 2.91). ── */
+  --brand-shape: #ACCDC4;
+  --brand-doorway: #8A6D58;
+
+  /* ── Accent (smoked warm; the light clay is only 3.74:1 here) ── */
+  --color-accent: #D1AC8F;
+  --color-accent-hover: #E5BFA1;
+  --color-accent-faint: rgba(209, 172, 143, 0.32);
+  --color-accent-bg: #2A2318;
+
+  /* ── Restrained secondary (container tint only — 1.92:1 as text) ── */
+  --color-secondary: #3A4556;
+
+  /* ── Danger / success / highlight ── */
+  --color-danger: #FFB4AB;
+  --color-danger-vivid: #FF8A7A;
+  --color-danger-bg: #3A1A18;
+  --color-success: #ACCDC4;
+  --color-success-dark: #ACCDC4;
+  --color-highlight: #E0C275;
+  --color-highlight-hover: #F0D264;
+
+  /* ── Info (the light blue-on-pale trio is 2.37:1 here) ── */
+  --color-info: #A8C4E8;
+  --color-info-border: #4A6A94;
+  --color-info-bg: #1A2433;
+
+  /* ── Borders / scrollbar ── */
+  --border-color: #262A34;
+  --border-light: #1F232B;
+  --border-focus: #ACCDC4;
+  --scrollbar-thumb: #2C313B;
+  --scrollbar-thumb-hover: #3B4250;
+
+  /* ── Overlays / glass ── */
+  --overlay-heavy: rgba(0, 0, 0, 0.80);
+  --overlay-medium: rgba(16, 18, 22, 0.72);
+  --overlay-light: rgba(0, 0, 0, 0.40);
+  --modal-scrim: rgba(8, 9, 12, 0.66);
+  --glass-bg: rgba(27, 30, 38, 0.60);
+  --glass-bg-strong: rgba(27, 30, 38, 0.92);
+  --glass-border: rgba(38, 42, 52, 0.90);
+
+  /* ── Shadows: a dark shadow on a dark ground carries no elevation, so
+     floating surfaces are raised TONALLY instead (see .app-dock-container). ── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.55);
+  --shadow-glass: 0 8px 24px -6px rgba(0, 0, 0, 0.50), 0 2px 6px rgba(0, 0, 0, 0.30);
+  --shadow-glass-lg: 0 16px 36px -8px rgba(0, 0, 0, 0.60), 0 4px 10px rgba(0, 0, 0, 0.35);
+  --shadow-glow: 0 6px 20px -4px rgba(172, 205, 196, 0.22);
+
+  /* ── Legacy gradient / pastel aliases (light stops are all DARK: the
+     gradients would vanish entirely on dark) ── */
+  --pastel-blue: #C7A98F;
+  --pastel-lavender: #ACCDC4;
+  --pastel-pink: #D1AC8F;
+  --pastel-peach: #2A2318;
+  --pastel-sky: #5C7A72;
+  --gradient-pastel: linear-gradient(120deg, #ACCDC4, #5C7A72, #D1AC8F);
+  --gradient-pastel-soft: linear-gradient(120deg, rgba(172, 205, 196, 0.28), rgba(209, 172, 143, 0.28));
+  --gradient-accent: linear-gradient(120deg, #ACCDC4, #D1AC8F);
+
+  /* ── Editor chrome bridge ── */
+  --editor-ui-bg: #1B1E26;
+  --editor-ui-bg-hover: #21252E;
+  --editor-ui-bg-active: #2A303C;
+  --editor-ui-text: #EDEEF2;
+  --editor-ui-muted: #9CA4AF;
+  --editor-ui-border: rgba(237, 238, 242, 0.10);
+  --editor-ui-focus: #9AAEC3;
+  --editor-ui-accent: #B3C2D1;
+  --editor-ui-accent-soft: rgba(179, 194, 209, 0.13);
+  --editor-ui-shadow: 0 16px 44px rgba(0, 0, 0, 0.60);
+
+  /* Native scrollbars, form controls and embedded viewers follow this. */
+  color-scheme: dark;
+}
+
+/* ══ DARK-ONLY RULES ═══════════════════════════════════════════════════
+   Things tokens alone cannot express. */
+
+/* Headings stay PORCELAIN. The brand accent is an accent: the reference screen
+   uses its bright ink ~70 times for titles and the accent ~15 times, never on a
+   heading. Mint titles also read as a *state*, because mint means "active"
+   elsewhere. */
+:root[data-theme='dark'] h1,
+:root[data-theme='dark'] h2,
+:root[data-theme='dark'] h3,
+:root[data-theme='dark'] h4 {
+  color: var(--color-text-main);
+}
+
+/* Control-focus ring must be visible on dark; the surface-token foregrounds
+   below would otherwise resolve dark-on-dark (the original 1.24:1 bug). */
+:root[data-theme='dark'] .nav-item.active:focus-visible,
+:root[data-theme='dark'] .nav-item:focus-visible {
+  outline-color: var(--primary-ink);
+}
+
+/* Text on a primary fill. `--on-primary` replaces the surface tokens these
+   rules used to borrow, which invert under a dark theme. */
+:root[data-theme='dark'] .nav-item.active,
+:root[data-theme='dark'] .nav-item.active .count-badge {
+  color: var(--on-primary);
+}
+:root[data-theme='dark'] .nav-item.active .count-badge {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+/* Selection follows the reference's smoked indigo. */
+:root[data-theme='dark'] ::selection {
+  background: #3A4556;
+  color: var(--on-primary);
+}
+
+/* The floating dock. In light it floats on a warm shadow (only 1.05 tonal
+   separation from the page). A dark shadow on a dark ground is invisible, so
+   the surface itself must carry the elevation: measured 1.55 vs the page. */
+:root[data-theme='dark'] .app-dock-container {
+  background: #323A48;
+  border-color: #454E60;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.62),
+    0 3px 10px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(172, 205, 196, 0.06);
+}
+
+/* Cover art: the hairline alone is too weak on dark, so add a shadow. */
+:root[data-theme='dark'] .cover-wrapper {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.50);
+}
+
+/* The waiting field's breathing glow is built by mixing the ground toward
+   WHITE, which is a light-mode assumption. On dark that is ~13x brighter than
+   the page: a bright blob during every load. Overlay a theme-relative film. */
+:root[data-theme='dark'] .wait-field::before {
+  background: radial-gradient(
+    120% 85% at 50% 38%,
+    color-mix(in srgb, var(--surface-image-ground) 82%, var(--color-text-main)) 0%,
+    transparent 72%
+  );
+}
+
+/* The dropdown chevron is a hard-coded light SVG in a data: URI and would be
+   invisible on dark. */
+:root[data-theme='dark'] .sort-select {
+  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23949CA9%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
+}
+
 :root {
   /* ── Font Weights ── */
   --fw-light: 300;
@@ -363,7 +572,7 @@ h2,
 h3,
 h4 {
   font-family: 'Newsreader', serif;
-  color: var(--color-primary);
+  color: var(--primary-ink);
 }
 
 p {
@@ -432,13 +641,30 @@ button {
 }
 
 .btn-primary {
-  background: var(--color-primary);
-  color: var(--bg-surface);
-  border: 1px solid var(--color-primary);
+  background: var(--primary-fill);
+  color: var(--on-primary);
+  border: 1px solid var(--primary-fill);
 }
 .btn-primary:hover {
   background: var(--color-primary-hover);
   border-color: var(--color-primary-hover);
+}
+
+/* Inverted porcelain CTA on dark. A dark brand fill cannot carry a primary
+   action on a dark ground, and a light accent used as a *surface* goes washed
+   out (the mirror of the original role collision). The porcelain pill is the
+   one inverted surface in the app, so the primary action is also the single
+   brightest element. The border is declared explicitly: `.btn-primary` uses
+   the same token for fill and border, so leaving it would ring the button in
+   the mint ink. */
+:root[data-theme='dark'] .btn-primary {
+  background: var(--on-primary);
+  color: var(--bg-body);
+  border-color: var(--on-primary);
+}
+:root[data-theme='dark'] .btn-primary:hover {
+  background: #C1C8C5;
+  border-color: #C1C8C5;
 }
 
 .btn-secondary {
@@ -529,8 +755,8 @@ input[type='file']::file-selector-button:hover {
    SELECTION
 ------------------------------ */
 ::selection {
-  background: var(--color-primary);
-  color: var(--bg-surface);
+  background: var(--primary-fill);
+  color: var(--on-primary);
 }
 
 /* ------------------------------
@@ -690,6 +916,21 @@ input[type='file']::file-selector-button:hover {
    rule must live globally (component-scoped styles cannot reach it). */
 body.nostos-zen app-app-dock {
   display: none;
+}
+
+/* ------------------------------
+   LIBRARY: toolbar search/control collision
+------------------------------ */
+/* The centred search field used to be sized against the toolbar's CONTENT box
+   (`calc(100% - 2 * 25rem)`), not the space actually left over after the
+   right-hand control cluster, so between ~1400px and ~1640px it overran the
+   cluster and sat on top of the "Last Read" dropdown by up to 23px. Measured
+   cluster width: sort 152 + gap 16 + toggle group 68 + gap 16 + Add Book 123
+   = 375px. Cap against that plus the toolbar's own padding and a clearance. */
+@media (min-width: 1401px) {
+  .toolbar .search-bar-container {
+    width: min(480px, calc(100% - 2 * (3rem + 375px + 1.5rem)));
+  }
 }
 
 /* ------------------------------

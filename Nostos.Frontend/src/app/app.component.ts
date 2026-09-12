@@ -9,6 +9,7 @@ import {
 } from '@angular/router';
 import { ToastContainerComponent } from './ui/toast-container/toast-container.component';
 import { SwUpdateService } from './core/services/sw-update.service';
+import { ThemeService } from './core/services/theme.service';
 
 @Component({
   selector: 'app-root',
@@ -21,6 +22,11 @@ export class App {
   readonly navigationPending = signal(false);
 
   constructor() {
+    // Applies the persisted theme immediately. `index.html` already set the
+    // attribute before first paint; this reconciles the signal with the DOM and
+    // owns the attribute for the rest of the session.
+    inject(ThemeService).theme();
+
     // Keeps the service worker's navigation manifest fresh, so a deploy that
     // changes how URLs are served (the app shell vs. the API) reaches an
     // already-open client without a manual reload.

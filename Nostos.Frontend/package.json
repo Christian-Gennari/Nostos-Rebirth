@@ -7,6 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "check:theme": "node scripts/check-theme-tokens.mjs",
     "e2e": "playwright test",
     "e2e:launcher-check": "node e2e/support/launch-regression.mjs",
     "profile:fade": "node tools/profile-fade.mjs"

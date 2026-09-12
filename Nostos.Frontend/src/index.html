@@ -28,6 +28,24 @@
   </head>
 
   <body>
+    <!-- Theme hydration, BEFORE first paint.
+         Without this, an app booted in dark would paint light for one frame and
+         then flip. The read must be synchronous and inline (a module would be
+         fetched too late), and it must mirror `theme.service.ts` exactly:
+         key `nostos.theme`, values `dark`/absent. Keep the two in sync. -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('nostos.theme');
+          var dark =
+            stored === 'dark' ||
+            (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+        } catch (e) {
+          /* storage unavailable — stay light */
+        }
+      })();
+    </script>
     <app-root></app-root>
   </body>
 </html>

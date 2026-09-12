@@ -124,8 +124,8 @@
 }
 
 .index-item.active {
-  background: var(--color-primary);
-  color: var(--bg-surface);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   box-shadow: var(--shadow-sm), var(--shadow-glow);
 }
 
