@@ -506,7 +506,13 @@
     height: 38px;
     border-radius: var(--radius-md, 4px);
     background: var(--bg-surface);
-    color: var(--color-primary);
+    /* The button sits on `--bg-surface`, so its glyph needs the foreground for
+       that ground — NOT the accent. `--color-primary` is the ink role and
+       resolves to sage (#8FA89A) on dark, which reads as a green hamburger
+       against the porcelain header (6.53:1) instead of the near-white the
+       other header controls use (measured 14.37:1 dark / 17.20:1 light).
+       Matches `.icon-btn`'s treatment on the same toolbar. */
+    color: var(--color-text-main);
     border: none;
     box-shadow: var(--shadow-sm);
     outline: 1px solid var(--border-color);
