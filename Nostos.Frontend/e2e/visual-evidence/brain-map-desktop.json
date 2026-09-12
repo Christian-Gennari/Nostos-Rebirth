@@ -1,0 +1,74 @@
+{
+  "artifact": "brain-map-desktop.png",
+  "capturedAt": "2026-09-12T21:18:41.794Z",
+  "name": "brain-map-desktop",
+  "surface": "brain",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "state": "map",
+  "checks": [
+    {
+      "id": "brain-map-geometry",
+      "pass": true,
+      "message": "map renders 3 node(s), matching the 3-concept index; radii stay within 14–34px",
+      "metrics": {
+        "conceptCount": 3,
+        "nodeCount": 3,
+        "accessibleConceptCount": 3,
+        "radii": [
+          14,
+          14,
+          14
+        ],
+        "radiusBounds": {
+          "min": 14,
+          "max": 34
+        }
+      }
+    },
+    {
+      "id": "brain-layout-overflow",
+      "pass": true,
+      "message": "Brain layout fits its tracks at 1440px with no horizontal overflow",
+      "metrics": {
+        "viewportWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440,
+        "layoutClientWidth": 1440,
+        "layoutScrollWidth": 1440,
+        "layoutLeft": 0,
+        "layoutRight": 1440,
+        "maxVisibleRight": 1440,
+        "tracks": [
+          {
+            "selector": ".index-col",
+            "visible": true,
+            "clientWidth": 319,
+            "scrollWidth": 319,
+            "left": 0,
+            "right": 320
+          },
+          {
+            "selector": ".content-col",
+            "visible": true,
+            "clientWidth": 1120,
+            "scrollWidth": 1120,
+            "left": 320,
+            "right": 1440
+          }
+        ],
+        "layoutWidth": 1440,
+        "trackViolations": [],
+        "pageOverflow": false
+      }
+    }
+  ],
+  "summary": {
+    "total": 2,
+    "passed": 2,
+    "skipped": 0,
+    "failed": 0
+  }
+}

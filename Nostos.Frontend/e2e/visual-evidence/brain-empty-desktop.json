@@ -1,0 +1,60 @@
+{
+  "artifact": "brain-empty-desktop.png",
+  "capturedAt": "2026-09-12T21:18:36.170Z",
+  "name": "brain-empty-desktop",
+  "surface": "brain",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "state": "empty-index",
+  "checks": [
+    {
+      "id": "brain-empty-state",
+      "pass": true,
+      "message": "fresh fixture shows the Second Brain [[ ]] empty state"
+    },
+    {
+      "id": "brain-layout-overflow",
+      "pass": true,
+      "message": "Brain layout fits its tracks at 1440px with no horizontal overflow",
+      "metrics": {
+        "viewportWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440,
+        "layoutClientWidth": 1440,
+        "layoutScrollWidth": 1440,
+        "layoutLeft": 0,
+        "layoutRight": 1440,
+        "maxVisibleRight": 1440,
+        "tracks": [
+          {
+            "selector": ".index-col",
+            "visible": true,
+            "clientWidth": 319,
+            "scrollWidth": 319,
+            "left": 0,
+            "right": 320
+          },
+          {
+            "selector": ".content-col",
+            "visible": true,
+            "clientWidth": 1120,
+            "scrollWidth": 1120,
+            "left": 320,
+            "right": 1440
+          }
+        ],
+        "layoutWidth": 1440,
+        "trackViolations": [],
+        "pageOverflow": false
+      }
+    }
+  ],
+  "summary": {
+    "total": 2,
+    "passed": 2,
+    "skipped": 0,
+    "failed": 0
+  }
+}

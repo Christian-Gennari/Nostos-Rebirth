@@ -1,0 +1,77 @@
+{
+  "artifact": "brain-concept-desktop.png",
+  "capturedAt": "2026-09-12T21:18:40.295Z",
+  "name": "brain-concept-desktop",
+  "surface": "brain",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "state": "concept-selected-notes",
+  "checks": [
+    {
+      "id": "brain-no-arrival-animation",
+      "pass": true,
+      "message": "selected concept pane has no covering wait field, waiting class, or running arrival animation",
+      "metrics": {
+        "animationNames": {
+          ".concept-header": "none",
+          ".note-card": "none"
+        },
+        "waitElements": [],
+        "runningAnimations": []
+      }
+    },
+    {
+      "id": "brain-layout-overflow",
+      "pass": true,
+      "message": "Brain layout fits its tracks at 1440px with no horizontal overflow",
+      "metrics": {
+        "viewportWidth": 1440,
+        "documentScrollWidth": 1440,
+        "bodyScrollWidth": 1440,
+        "layoutClientWidth": 1440,
+        "layoutScrollWidth": 1440,
+        "layoutLeft": 0,
+        "layoutRight": 1440,
+        "maxVisibleRight": 1440,
+        "tracks": [
+          {
+            "selector": ".index-col",
+            "visible": true,
+            "clientWidth": 319,
+            "scrollWidth": 319,
+            "left": 0,
+            "right": 320
+          },
+          {
+            "selector": ".content-col",
+            "visible": true,
+            "clientWidth": 1120,
+            "scrollWidth": 1120,
+            "left": 320,
+            "right": 1440
+          }
+        ],
+        "layoutWidth": 1440,
+        "trackViolations": [],
+        "pageOverflow": false
+      }
+    },
+    {
+      "id": "brain-flash-guard-sanity",
+      "pass": true,
+      "message": "flash guard rejected a temporary pane animation and passed after it was removed",
+      "metrics": {
+        "injectedCheck": "Brain pane flash guard failed: wait elements [—], animation names [.concept-header=brain-pane-regression-probe], running animations [brain-pane-regression-probe]",
+        "restoredCheck": "selected concept pane has no covering wait field, waiting class, or running arrival animation"
+      }
+    }
+  ],
+  "summary": {
+    "total": 3,
+    "passed": 3,
+    "skipped": 0,
+    "failed": 0
+  }
+}

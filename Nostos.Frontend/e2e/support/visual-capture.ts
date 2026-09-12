@@ -7,7 +7,7 @@
  * e2e/visual-evidence/. It never modifies application code, the Playwright
  * config, or the shared fixture lifecycle.
  *
- * Artifact naming follows the 10-image matrix in docs/visual-verification.md:
+ * Artifact naming follows the fixed-light matrix in docs/visual-verification.md:
  * <surface>-<state>-<viewport>.png, e.g. epub-light-desktop.png. All captures
  * are the app's ONE fixed light rendering — the theme system is gone, so the
  * harness never parameterizes by theme and never clicks theme controls.
@@ -86,10 +86,13 @@ export interface GeometryCheck {
 
 export interface CaptureMeta {
   name: string;
-  surface: 'epub' | 'pdf' | 'studio' | 'library' | 'book-detail';
+  surface: 'epub' | 'pdf' | 'studio' | 'library' | 'book-detail' | 'brain';
   viewport: Viewport;
   state: string;
 }
+
+/** The map component's public radius contract (concept-map.component.ts). */
+export const BRAIN_MAP_NODE_RADIUS = { min: 14, max: 34 } as const;
 
 // ---------------------------------------------------------------------------
 // Evidence artifacts
@@ -676,6 +679,183 @@ export async function checkLibrarySidebarRail(page: Page): Promise<GeometryCheck
 
 function r1(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+// ---------------------------------------------------------------------------
+// Second Brain — pane and layout regression guards
+// ---------------------------------------------------------------------------
+
+/**
+ * The Brain detail pane swaps content in place. This is the permanent visual
+ * guard for the original flash complaint: a selected concept must not leave a
+ * covering wait field, an `is-waiting` dim state, or an arrival animation
+ * behind. The check is intentionally scoped to `.content-col`; the index is
+ * allowed to retain its own shell animation.
+ */
+export async function checkBrainNoArrivalAnimation(page: Page): Promise<GeometryCheck> {
+  const pane = page.locator('.content-col');
+  await pane.locator('.concept-header').waitFor({ timeout: 30_000 });
+  await pane.locator('.note-card').first().waitFor({ timeout: 30_000 });
+
+  const state = await pane.evaluate((element) => {
+    const animationNames: Record<string, string> = {};
+    for (const selector of ['.concept-header', '.note-card']) {
+      const target = element.querySelector(selector);
+      animationNames[selector] = target ? getComputedStyle(target).animationName : '<absent>';
+    }
+
+    const waitElements = Array.from(element.querySelectorAll('.wait-field, .is-waiting')).map(
+      (target) => `${target.tagName.toLowerCase()}.${target.className}`
+    );
+    if (element.classList.contains('is-waiting')) waitElements.push('.content-col.is-waiting');
+
+    const runningAnimations = Array.from(document.getAnimations())
+      .filter((animation) => animation.playState === 'running')
+      .filter((animation) => {
+        const effect = animation.effect as (AnimationEffect & { target?: Element | null }) | null;
+        const target = effect?.target ?? null;
+        return !!target && (target === element || element.contains(target));
+      })
+      .map((animation) => {
+        const named = animation as Animation & { animationName?: string };
+        return named.animationName ?? animation.constructor.name;
+      });
+
+    return { animationNames, waitElements, runningAnimations };
+  });
+
+  const animationViolations = Object.entries(state.animationNames).filter(([, name]) => name !== 'none');
+  const ok =
+    state.waitElements.length === 0 &&
+    animationViolations.length === 0 &&
+    state.runningAnimations.length === 0;
+  const message = ok
+    ? 'selected concept pane has no covering wait field, waiting class, or running arrival animation'
+    : `Brain pane flash guard failed: wait elements [${state.waitElements.join(', ') || '—'}], ` +
+      `animation names [${animationViolations.map(([selector, name]) => `${selector}=${name}`).join(', ') || '—'}], ` +
+      `running animations [${state.runningAnimations.join(', ') || '—'}]`;
+
+  return ok
+    ? passCheck('brain-no-arrival-animation', message, state)
+    : failCheck('brain-no-arrival-animation', message, state);
+}
+
+/**
+ * Brain's desktop columns must fit their grid tracks; on mobile the same
+ * check becomes a page/visible-descendant horizontal-overflow guard. The
+ * measurements catch both a too-wide map stage and a detail card that causes
+ * a hidden horizontal scrollbar or pushes the floating dock off-screen.
+ */
+export async function checkBrainLayoutOverflow(page: Page): Promise<GeometryCheck> {
+  const metrics = await page.evaluate(() => {
+    const layout = document.querySelector<HTMLElement>('.brain-layout');
+    const selectors = ['.index-col', '.content-col'];
+    const tracks = selectors.map((selector) => {
+      const element = document.querySelector<HTMLElement>(selector);
+      if (!element) {
+        return { selector, visible: false, clientWidth: 0, scrollWidth: 0, left: 0, right: 0 };
+      }
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return {
+        selector,
+        visible: style.display !== 'none',
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        left: rect.left,
+        right: rect.right,
+      };
+    });
+    const visibleRightEdges = Array.from(document.querySelectorAll<HTMLElement>('.brain-layout *'))
+      .filter((element) => {
+        const style = getComputedStyle(element);
+        return style.display !== 'none' && style.visibility !== 'hidden';
+      })
+      .map((element) => element.getBoundingClientRect().right)
+      .filter((right) => Number.isFinite(right));
+    const viewportWidth = window.innerWidth;
+    const layoutRect = layout?.getBoundingClientRect();
+    return {
+      viewportWidth,
+      documentScrollWidth: document.documentElement.scrollWidth,
+      bodyScrollWidth: document.body.scrollWidth,
+      layoutClientWidth: layout?.clientWidth ?? 0,
+      layoutScrollWidth: layout?.scrollWidth ?? 0,
+      layoutLeft: layoutRect?.left ?? 0,
+      layoutRight: layoutRect?.right ?? viewportWidth,
+      maxVisibleRight: visibleRightEdges.length ? Math.max(...visibleRightEdges) : 0,
+      tracks,
+    };
+  });
+
+  const layoutWidth = Math.max(0, metrics.layoutRight - metrics.layoutLeft);
+  const trackViolations = metrics.tracks.filter(
+    (track) =>
+      track.visible &&
+      (track.scrollWidth > track.clientWidth + 1 ||
+        track.left < metrics.layoutLeft - 1 ||
+        track.right > metrics.layoutRight + 1)
+  );
+  const pageOverflow =
+    metrics.documentScrollWidth > metrics.viewportWidth + 1 ||
+    metrics.bodyScrollWidth > metrics.viewportWidth + 1 ||
+    metrics.maxVisibleRight > metrics.viewportWidth + 1;
+  const ok = !trackViolations.length && !pageOverflow;
+  const message = ok
+    ? `Brain layout fits its tracks at ${metrics.viewportWidth}px with no horizontal overflow`
+    : `Brain layout overflows at ${metrics.viewportWidth}px: ` +
+      `${trackViolations.map((track) => `${track.selector} scroll ${track.scrollWidth}/${track.clientWidth}`).join(', ') || 'page extent exceeds viewport'}`;
+
+  return ok
+    ? passCheck('brain-layout-overflow', message, { ...metrics, layoutWidth, trackViolations, pageOverflow })
+    : failCheck('brain-layout-overflow', message, { ...metrics, layoutWidth, trackViolations, pageOverflow });
+}
+
+/**
+ * The map layout is hand-rolled SVG, so its evidence check verifies the DOM
+ * graph rather than relying on pixels: every filtered concept has one node
+ * and every rendered radius stays in the component's documented 14–34px
+ * bounds.
+ */
+export async function checkBrainMapGeometry(page: Page): Promise<GeometryCheck> {
+  const map = page.locator('.concept-map');
+  await map.waitFor({ timeout: 30_000 });
+  await page.waitForFunction(
+    () => document.querySelector('.concept-map')?.getAttribute('aria-busy') === 'false',
+    undefined,
+    { timeout: 30_000 }
+  );
+  await map.locator('.map-node').first().waitFor({ timeout: 30_000 });
+
+  const measured = await page.evaluate(() => {
+    const badgeText = document.querySelector('.badge-count')?.textContent?.trim() ?? '';
+    const conceptCount = Number.parseInt(badgeText, 10);
+    const radii = Array.from(document.querySelectorAll<SVGCircleElement>('.map-node-visual')).map((circle) =>
+      Number(circle.getAttribute('r'))
+    );
+    return {
+      conceptCount,
+      nodeCount: document.querySelectorAll('.map-node').length,
+      accessibleConceptCount: document.querySelectorAll('.map-accessible-list li').length,
+      radii,
+    };
+  });
+  const radiiInBounds = measured.radii.every(
+    (radius) => Number.isFinite(radius) && radius >= BRAIN_MAP_NODE_RADIUS.min && radius <= BRAIN_MAP_NODE_RADIUS.max
+  );
+  const countMatches =
+    Number.isFinite(measured.conceptCount) &&
+    measured.nodeCount === measured.conceptCount &&
+    measured.accessibleConceptCount === measured.conceptCount;
+  const ok = countMatches && measured.radii.length === measured.nodeCount && radiiInBounds;
+  const message = ok
+    ? `map renders ${measured.nodeCount} node(s), matching the ${measured.conceptCount}-concept index; radii stay within ${BRAIN_MAP_NODE_RADIUS.min}–${BRAIN_MAP_NODE_RADIUS.max}px`
+    : `map geometry mismatch: ${measured.nodeCount} node(s), ${measured.conceptCount} concept(s), ` +
+      `${measured.accessibleConceptCount} accessible node(s), radii [${measured.radii.join(', ')}]`;
+
+  return ok
+    ? passCheck('brain-map-geometry', message, { ...measured, radiusBounds: BRAIN_MAP_NODE_RADIUS })
+    : failCheck('brain-map-geometry', message, { ...measured, radiusBounds: BRAIN_MAP_NODE_RADIUS });
 }
 
 // ---------------------------------------------------------------------------
