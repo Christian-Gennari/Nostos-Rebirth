@@ -451,8 +451,8 @@
    each index click replayed a blur-and-rise across the whole pane. The pane now
    simply swaps its content in place. */
 .concept-header {
-  margin-bottom: 3rem;
-  max-width: 800px;
+  margin-bottom: 1.25rem;
+  max-width: 1100px;
   margin-left: auto;
   margin-right: auto;
   text-align: center;
@@ -481,78 +481,293 @@
   color: var(--color-text-light);
 }
 
+.related-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  min-height: 30px;
+  text-align: left;
+}
+
+.related-label,
+.detail-tool-label {
+  color: var(--color-text-light);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.related-label {
+  margin-right: 0.15rem;
+}
+
+.related-empty {
+  color: var(--color-text-light);
+  font-size: 0.78rem;
+  font-style: italic;
+}
+
+.related-list {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.related-chip,
+.related-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  height: 30px;
+  max-width: 220px;
+  padding: 0 0.65rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.related-chip:hover,
+.related-more:hover {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.related-chip:focus-visible,
+.related-more:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.related-chip-name {
+  max-width: 18ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.related-chip-count {
+  color: var(--color-text-light);
+  flex-shrink: 0;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The detail controls are deliberately a single quiet rail: the notes remain
+   the visual centre, while source, search and order are available on demand. */
+.detail-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  max-width: 1100px;
+  margin: 0 auto 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.note-search-box,
+.detail-select-wrap {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--color-text-light);
+}
+
+.note-search-box {
+  flex: 1 1 220px;
+  gap: 0.5rem;
+  padding: 0 0.65rem;
+  border-radius: var(--radius-lg);
+}
+
+.note-search-box:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  color: var(--color-text-main);
+}
+
+.note-search-box input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.82rem;
+}
+
+.note-search-box input::placeholder {
+  color: var(--color-text-light);
+}
+
+.clear-note-search {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-light);
+  cursor: pointer;
+}
+
+.clear-note-search:hover {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.clear-note-search:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.detail-select-wrap {
+  gap: 0.45rem;
+  padding-left: 0.65rem;
+  border-radius: var(--radius-lg);
+}
+
+.detail-select {
+  min-width: 132px;
+  height: 36px;
+  padding: 0 1.5rem 0 0;
+  border: 0;
+  outline: 0;
+  background: var(--bg-input);
+  color: var(--color-text-main);
+  cursor: pointer;
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.78rem;
+}
+
+.detail-select-wrap:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.note-count {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--color-text-light);
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
 /* GRID */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  align-items: stretch;
+  gap: 1.25rem;
   max-width: 1100px;
   margin: 0 auto;
 }
 
 /* CARDS */
 .note-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  box-shadow: var(--shadow-glass);
+  min-width: 0;
+  min-height: 220px;
+  border-radius: var(--radius-lg);
   transition: transform var(--motion-fast) var(--ease-out);
 }
 
 .note-card:hover {
   transform: translateY(-2px);
+}
+
+/* The shared note card owns editing, concept input and source navigation. The
+   host wrapper supplies the grid boundary; these deep rules give each child a
+   full-height track and enforce the detail pane's hover/focus action contract. */
+:host ::ng-deep app-note-card {
+  display: block;
+  height: 100%;
+}
+
+:host ::ng-deep app-note-card .note-card-container {
+  box-sizing: border-box;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  padding: 1.25rem;
+  border: 1px solid var(--glass-border);
+  border-bottom: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-glass);
+  transition: none;
+}
+
+:host ::ng-deep app-note-card .note-card-container:hover {
+  background: var(--bg-surface);
   box-shadow: var(--shadow-glass-lg);
 }
 
-/* Allow wide cards to span two columns */
-.note-card.card-wide {
-  grid-column: span 2;
-}
-
-.card-body {
-  padding: 1.5rem;
-  flex: 1;
+:host ::ng-deep app-note-card .content-row {
   display: flex;
+  height: 100%;
   flex-direction: column;
 }
 
-/* Improve readability for wide cards by limiting line length */
-.note-card.card-wide .highlight-text {
-  max-width: 80ch;
-  margin-left: auto;
-  margin-right: auto;
+:host ::ng-deep app-note-card .collapsible-body {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-/* --- ELEGANT QUOTE STYLES --- */
-.highlight-block {
-  border-left: 3px solid var(--color-accent);
-  background: var(--color-accent-bg);
-  padding: 0.75rem 1rem;
-  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-  margin-bottom: 1rem;
-  display: block;
+:host ::ng-deep app-note-card .note-actions {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  box-shadow: var(--shadow-sm);
+  transition: opacity var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
 }
 
-.highlight-text {
-  font-family: 'Newsreader', serif;
-  font-style: italic;
-  line-height: 1.5;
-  color: var(--color-text-main);
-  font-size: 0.95rem;
-  margin: 0;
+:host ::ng-deep .note-card:hover app-note-card .note-actions,
+:host ::ng-deep .note-card:focus-within app-note-card .note-actions {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  transform: translateY(0) !important;
 }
 
-.note-text {
-  font-size: 0.9rem;
-  line-height: 1.55;
-  color: var(--color-text-muted);
-  margin: 0;
+:host ::ng-deep app-note-card button:focus-visible,
+:host ::ng-deep app-note-card a:focus-visible,
+:host ::ng-deep app-note-card textarea:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
 }
 
-/* Highlight Style */
+:host ::ng-deep app-note-card .note-actions .icon-btn {
+  transition: none;
+}
+
 :host ::ng-deep .concept-tag {
   color: var(--color-accent);
   font-weight: var(--fw-medium);
@@ -561,59 +776,21 @@
   padding-bottom: 1px;
 }
 
-.card-footer {
-  border-top: 1px solid var(--border-light);
-  padding: 0.75rem 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.book-info {
+.empty-notes-state {
   display: flex;
   flex-direction: column;
-  min-width: 0;
-}
-
-.from-label {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  color: var(--color-text-light);
-  letter-spacing: 0.05em;
-  font-weight: 600;
-}
-
-.book-title {
-  font-family: 'Newsreader', serif;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  max-width: 160px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.goto-btn {
-  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-surface);
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--color-text-main);
-  text-decoration: none;
-  white-space: nowrap;
-  flex-shrink: 0;
+  gap: 0.6rem;
+  max-width: 360px;
+  margin: 4rem auto;
+  text-align: center;
 }
 
-.goto-btn:hover {
-  background: var(--bg-hover);
-  border-color: var(--color-text-muted);
+.empty-notes-state p {
+  margin: 0;
+  color: var(--color-text-light);
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
 /* LANDING STATE */
@@ -666,6 +843,9 @@
 /* 1. Mobile Back Button (Default Hidden) */
 .mobile-nav-header {
   display: none;
+  border: 0;
+  background: transparent;
+  text-align: left;
 }
 
 @media (max-width: 768px) {
@@ -745,6 +925,32 @@
     background-image: none; /* Cleaner look on small screens */
   }
 
+  .detail-tools {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .note-search-box {
+    flex-basis: 100%;
+    min-height: 44px;
+  }
+
+  .detail-select-wrap {
+    flex: 1 1 150px;
+    min-height: 44px;
+  }
+
+  .detail-select {
+    height: 42px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .note-count {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+
   /* When class.mobile-visible is active, show it full screen */
   .content-col.mobile-visible {
     display: block;
@@ -774,7 +980,12 @@
   }
 
   .mobile-nav-header:hover {
-    color: var(--color-primary, var(--color-primary));
+    color: var(--color-text-main);
+  }
+
+  .mobile-nav-header:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
   }
 
   .mobile-nav-header lucide-icon {
@@ -790,9 +1001,25 @@
     grid-template-columns: 1fr; /* Single column cards */
   }
 
-  /* Disable "wide" card spanning on mobile */
-  .note-card.card-wide {
-    grid-column: span 1;
+  .related-row,
+  .related-list {
+    justify-content: flex-start;
+  }
+
+  .related-chip,
+  .related-more {
+    height: 44px;
+  }
+
+  :host ::ng-deep app-note-card .note-actions {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: none !important;
+  }
+
+  :host ::ng-deep app-note-card .note-actions .icon-btn {
+    min-width: 44px;
+    min-height: 44px;
   }
 }
 
@@ -803,5 +1030,10 @@
 
   .note-card:hover {
     transform: none;
+  }
+
+  :host ::ng-deep app-note-card .note-card-container,
+  :host ::ng-deep app-note-card .note-actions {
+    transition: none;
   }
 }

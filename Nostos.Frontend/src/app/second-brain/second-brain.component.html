@@ -122,10 +122,10 @@
 
     <section class="content-col" [class.mobile-visible]="selectedId()">
       @if (selectedId()) {
-      <div class="mobile-nav-header" (click)="clearSelection()">
+      <button type="button" class="mobile-nav-header" (click)="clearSelection()">
         <lucide-icon [img]="ArrowLeftIcon" [size]="18"></lucide-icon>
         <span>Back to Index</span>
-      </div>
+      </button>
       } @if (selectedDetail(); as detail) {
       <div class="concept-header">
         <div class="super-title">Concept</div>
@@ -133,41 +133,134 @@
         <div class="concept-meta">
           Referenced in {{ detail.notes.length }} {{ detail.notes.length === 1 ? 'note' : 'notes' }}
         </div>
-      </div>
 
-      <div class="cards-grid">
-        @for (note of detail.notes; track note.noteId; let i = $index) {
-        <div class="note-card" [class.card-wide]="shouldCardSpanTwoColumns(note)">
-          <div class="card-body">
-            @if (note.selectedText) {
-            <div class="highlight-block">
-              <p class="highlight-text">"{{ note.selectedText }}"</p>
-            </div>
-            } @if (note.content) {
-            <p
-              class="note-text"
-              [innerHTML]="note.content | noteFormat : conceptMap()"
-              (click)="handleContentClick($event)"
-            ></p>
+        <div class="related-row" aria-label="Related concepts">
+          <span class="related-label">Connected concepts</span>
+          @if (relatedLoading()) {
+          <span class="related-empty">Finding connections…</span>
+          } @else if (relatedConcepts().length === 0) {
+          <span class="related-empty">No connected concepts yet</span>
+          } @else {
+          <div class="related-list">
+            @for (related of visibleRelatedConcepts(); track related.id) {
+            <button
+              type="button"
+              class="related-chip"
+              [attr.aria-label]="'Select ' + related.name"
+              [title]="related.name"
+              (click)="selectConcept(related.id)"
+            >
+              <span class="related-chip-name">{{ related.name }}</span>
+              <span class="related-chip-count">· {{ related.sharedNotes }}</span>
+            </button>
+            }
+            @if (hiddenRelatedCount() > 0) {
+            <button type="button" class="related-more" (click)="toggleRelated()">
+              @if (relatedExpanded()) {
+              <lucide-icon [img]="CollapseIcon" [size]="13"></lucide-icon>
+              <span>Show fewer</span>
+              } @else {
+              <span>+{{ hiddenRelatedCount() }} more</span>
+              <lucide-icon [img]="ExpandIcon" [size]="13"></lucide-icon>
+              }
+            </button>
             }
           </div>
-          <div class="card-footer">
-            <div class="book-info">
-              <span class="from-label">Source:</span>
-              <span class="book-title">{{ note.bookTitle }}</span>
-            </div>
-            <a
-              [routerLink]="['/library', note.bookId]"
-              [queryParams]="{ cfi: note.cfiRange }"
-              class="goto-btn"
-            >
-              <span>Open Book</span>
-              <lucide-icon [img]="ArrowRightIcon" [size]="16"></lucide-icon>
-            </a>
-          </div>
+          }
+        </div>
+      </div>
+
+      @if (detail.notes.length > 0) {
+      <div class="detail-tools" aria-label="Filter and sort notes">
+        <div class="note-search-box">
+          <lucide-icon [img]="SearchIcon" [size]="15"></lucide-icon>
+          <label class="visually-hidden" for="note-search">Search notes</label>
+          <input
+            id="note-search"
+            type="search"
+            placeholder="Search notes..."
+            [ngModel]="noteSearchQuery()"
+            (ngModelChange)="setNoteSearchQuery($event)"
+          />
+          @if (noteSearchQuery()) {
+          <button type="button" class="clear-note-search" aria-label="Clear note search" (click)="clearNoteSearch()">
+            <lucide-icon [img]="ClearIcon" [size]="14"></lucide-icon>
+          </button>
+          }
+        </div>
+
+        <div class="detail-select-wrap">
+          <label class="detail-tool-label" for="source-filter">Source</label>
+          <select
+            id="source-filter"
+            class="detail-select"
+            [ngModel]="sourceFilter()"
+            (ngModelChange)="setSourceFilter($event)"
+          >
+            <option [value]="'all'">All sources ({{ detail.notes.length }})</option>
+            @for (source of sourceOptions(); track source.value) {
+            <option [value]="source.value">{{ source.label }} ({{ source.count }})</option>
+            }
+          </select>
+        </div>
+
+        <div class="detail-select-wrap">
+          <label class="detail-tool-label" for="note-sort">Sort</label>
+          <select
+            id="note-sort"
+            class="detail-select"
+            [ngModel]="noteSort()"
+            (ngModelChange)="setNoteSort($event)"
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="source">Source</option>
+          </select>
+        </div>
+
+        <span class="note-count" aria-live="polite">
+          @if (noteFiltersActive()) {
+          Showing {{ filteredNotes().length }} of {{ detail.notes.length }} notes
+          } @else {
+          {{ detail.notes.length }} {{ detail.notes.length === 1 ? 'note' : 'notes' }}
+          }
+        </span>
+      </div>
+      }
+
+      @if (detail.notes.length === 0) {
+      <div class="empty-notes-state" role="status">
+        <div class="empty-eyebrow">A quiet concept</div>
+        <p>No notes mention this concept yet.</p>
+      </div>
+      } @else if (filteredNotes().length === 0) {
+      <div class="empty-notes-state" role="status">
+        <div class="empty-eyebrow">No notes found</div>
+        <p>Nothing matches the current note filters.</p>
+        <button type="button" class="empty-clear" (click)="clearNoteSearch(); setSourceFilter('all')">
+          Clear filters
+        </button>
+      </div>
+      } @else {
+      <div class="cards-grid">
+        @for (note of filteredNotes(); track note.noteId) {
+        <div class="note-card">
+          <app-note-card
+            [note]="noteForCard(note)"
+            [conceptMap]="conceptMap()"
+            [showNavigation]="false"
+            [showActions]="true"
+            [showSource]="true"
+            [showDate]="true"
+            (update)="onUpdateNote($event)"
+            (delete)="onDeleteNote($event)"
+            (conceptClick)="selectConcept($event)"
+            (click)="handleContentClick($event)"
+          ></app-note-card>
         </div>
         }
       </div>
+      }
       } @else {
       <div class="landing-state">
         <div class="icon-circle">
@@ -179,4 +272,15 @@
       }
     </section>
   </div>
+
+  <app-confirm-modal
+    [isOpen]="!!deleteTarget()"
+    [heading]="deleteHeading()"
+    description="This note will be permanently removed from your library and from this concept."
+    confirmLabel="Delete Note"
+    busyLabel="Deleting…"
+    [busy]="deletingNote()"
+    (confirm)="confirmDeleteNote()"
+    (cancel)="cancelDeleteNote()"
+  ></app-confirm-modal>
 </main>

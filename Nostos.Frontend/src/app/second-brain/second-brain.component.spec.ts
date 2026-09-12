@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 
 import { SecondBrain } from './second-brain.component';
 import { ConceptDetailDto, ConceptDto, ConceptStatsDto } from '../core/services/concepts.service';
+import { ToastService } from '../core/services/toast.service';
 
 /**
  * Second Brain behaviour that the "flashing" complaint was about.
@@ -44,10 +45,61 @@ const detail = (id: string, name: string): ConceptDetailDto => ({
   ],
 });
 
+const detailWithNotes = (id: string, name: string): ConceptDetailDto => ({
+  id,
+  name,
+  notes: [
+    {
+      noteId: `${id}-newest`,
+      content: `Newest thought about [[${name}]]`,
+      selectedText: undefined,
+      cfiRange: 'epubcfi(/6/2)',
+      bookId: 'b-ideas',
+      bookTitle: 'Ideas in Motion',
+      createdAt: '2026-09-10T12:00:00Z',
+    },
+    {
+      noteId: `${id}-oldest`,
+      content: `Oldest thought about [[${name}]]`,
+      selectedText: 'An old passage',
+      cfiRange: 'epubcfi(/6/4)',
+      bookId: 'b-meditations',
+      bookTitle: 'Meditations',
+      createdAt: '2026-09-01T12:00:00Z',
+    },
+    {
+      noteId: `${id}-middle`,
+      content: `A middle thought about [[${name}]]`,
+      selectedText: undefined,
+      cfiRange: undefined,
+      bookId: 'b-ideas',
+      bookTitle: 'Ideas in Motion',
+      createdAt: '2026-09-05T12:00:00Z',
+    },
+  ],
+});
+
 describe('SecondBrain', () => {
   let component: SecondBrain;
   let fixture: ComponentFixture<SecondBrain>;
   let http: HttpTestingController;
+
+  const flushChildConceptLists = (): void => {
+    for (const request of http.match('/api/concepts')) {
+      if (!request.cancelled) request.flush(concepts);
+    }
+  };
+
+  const flushRelated = (id: string, related: object[] = []): void => {
+    http.expectOne(`/api/concepts/${id}/related`).flush(related);
+    fixture.detectChanges();
+    flushChildConceptLists();
+  };
+
+  const flushDetail = (id: string, value: ConceptDetailDto, related: object[] = []): void => {
+    http.expectOne(`/api/concepts/${id}`).flush(value);
+    flushRelated(id, related);
+  };
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -76,7 +128,7 @@ describe('SecondBrain', () => {
   it('never raises the loading state when a concept is selected from cache', async () => {
     component.selectConcept('c-alpha');
     expect(component.loadingDetail()).toBe(true);
-    http.expectOne('/api/concepts/c-alpha').flush(detail('c-alpha', 'Alpha'));
+    flushDetail('c-alpha', detail('c-alpha', 'Alpha'));
     await fixture.whenStable();
     expect(component.loadingDetail()).toBe(false);
 
@@ -84,7 +136,7 @@ describe('SecondBrain', () => {
     // pane must never enter — let alone render — a waiting state. No request,
     // and `loadingDetail` never true.
     component.selectConcept('c-beta');
-    http.expectOne('/api/concepts/c-beta').flush(detail('c-beta', 'Beta'));
+    flushDetail('c-beta', detail('c-beta', 'Beta'));
     await fixture.whenStable();
 
     component.selectConcept('c-alpha');
@@ -99,6 +151,7 @@ describe('SecondBrain', () => {
     await fixture.whenStable();
 
     component.selectConcept('c-gamma');
+    flushRelated('c-gamma');
     expect(component.loadingDetail()).toBe(false);
     expect(component.selectedDetail()!.name).toBe('Gamma');
   });
@@ -106,8 +159,9 @@ describe('SecondBrain', () => {
   it('ignores a slow response for a concept the user has already left', async () => {
     component.selectConcept('c-alpha');
     const slow = http.expectOne('/api/concepts/c-alpha');
+    flushRelated('c-alpha');
     component.selectConcept('c-beta');
-    http.expectOne('/api/concepts/c-beta').flush(detail('c-beta', 'Beta'));
+    flushDetail('c-beta', detail('c-beta', 'Beta'));
     await fixture.whenStable();
 
     // The abandoned Alpha response lands late and must not hijack the pane.
@@ -118,7 +172,7 @@ describe('SecondBrain', () => {
 
   it('renders no loading surface and no arrival animation on the pane', async () => {
     component.selectConcept('c-alpha');
-    http.expectOne('/api/concepts/c-alpha').flush(detail('c-alpha', 'Alpha'));
+    flushDetail('c-alpha', detail('c-alpha', 'Alpha'));
     await fixture.whenStable();
 
     const el: HTMLElement = fixture.nativeElement;
@@ -128,6 +182,155 @@ describe('SecondBrain', () => {
     expect(el.querySelector('.is-waiting')).toBeNull();
     expect(el.querySelector('.note-card')).not.toBeNull();
     expect(el.querySelector('.index-tools')).not.toBeNull();
+  });
+
+  it('filters notes by source and keeps the live count in sync', async () => {
+    component.selectConcept('c-alpha');
+    flushDetail('c-alpha', detailWithNotes('c-alpha', 'Alpha'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const source = fixture.nativeElement.querySelector('#source-filter') as HTMLSelectElement;
+    expect(source.textContent).toContain('Ideas in Motion (2)');
+    expect(source.textContent).toContain('Meditations (1)');
+    expect(component.filteredNotes()).toHaveLength(3);
+
+    component.setSourceFilter('Meditations');
+    fixture.detectChanges();
+    expect(component.filteredNotes().map((note) => note.noteId)).toEqual(['c-alpha-oldest']);
+    expect(fixture.nativeElement.querySelector('.note-count')?.textContent).toContain(
+      'Showing 1 of 3 notes'
+    );
+  });
+
+  it('sorts notes by newest, oldest and source order', async () => {
+    component.selectConcept('c-alpha');
+    flushDetail('c-alpha', detailWithNotes('c-alpha', 'Alpha'));
+    await fixture.whenStable();
+
+    const ids = () => component.filteredNotes().map((note) => note.noteId);
+    expect(ids()).toEqual(['c-alpha-newest', 'c-alpha-middle', 'c-alpha-oldest']);
+
+    component.setNoteSort('oldest');
+    expect(ids()).toEqual(['c-alpha-oldest', 'c-alpha-middle', 'c-alpha-newest']);
+
+    component.setNoteSort('source');
+    expect(ids()).toEqual(['c-alpha-middle', 'c-alpha-newest', 'c-alpha-oldest']);
+  });
+
+  it('renders related concepts and selects one in place', async () => {
+    component.selectConcept('c-alpha');
+    flushDetail('c-alpha', detail('c-alpha', 'Alpha'), [
+      { id: 'c-beta', name: 'Beta', sharedNotes: 4 },
+    ]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.related-chip')?.textContent).toContain('Beta');
+    (fixture.nativeElement.querySelector('.related-chip') as HTMLButtonElement).click();
+    expect(component.selectedId()).toBe('c-beta');
+
+    http.expectOne('/api/concepts/c-beta').flush(detail('c-beta', 'Beta'));
+    http.expectOne('/api/concepts/c-beta/related').flush([]);
+    fixture.detectChanges();
+    flushChildConceptLists();
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('.concept-title')?.textContent).toContain('Beta');
+  });
+
+  it('optimistically edits a note and keeps the updated detail cached', async () => {
+    component.selectConcept('c-alpha');
+    flushDetail('c-alpha', detail('c-alpha', 'Alpha'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.note-actions .icon-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const editor = fixture.nativeElement.querySelector('.note-input') as HTMLTextAreaElement;
+    editor.value = 'Updated note about [[Alpha]]';
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    (fixture.nativeElement.querySelector('.edit-actions .icon-btn') as HTMLButtonElement).click();
+
+    expect(component.selectedDetail()!.notes[0].content).toBe('Updated note about [[Alpha]]');
+    const update = http.expectOne('/api/notes/c-alpha-n1');
+    expect(update.request.method).toBe('PUT');
+    update.flush({
+      id: 'c-alpha-n1',
+      bookId: 'b1',
+      content: 'Updated note about [[Alpha]]',
+      selectedText: undefined,
+      cfiRange: undefined,
+      createdAt: '2026-09-12T12:00:00Z',
+      bookTitle: 'Meditations',
+    });
+    await fixture.whenStable();
+
+    component.selectConcept('c-beta');
+    http.expectOne('/api/concepts/c-beta').flush(detail('c-beta', 'Beta'));
+    flushRelated('c-beta');
+    await fixture.whenStable();
+    component.selectConcept('c-alpha');
+    expect(component.selectedDetail()!.notes[0].content).toBe('Updated note about [[Alpha]]');
+    http.expectNone('/api/concepts/c-alpha');
+  });
+
+  it('restores an optimistic note edit when saving fails', async () => {
+    component.selectConcept('c-alpha');
+    flushDetail('c-alpha', detail('c-alpha', 'Alpha'));
+    await fixture.whenStable();
+
+    component.onUpdateNote({ id: 'c-alpha-n1', content: 'Unsaved change', selectedText: '' });
+    expect(component.selectedDetail()!.notes[0].content).toBe('Unsaved change');
+    http.expectOne('/api/notes/c-alpha-n1').error(new ProgressEvent('network-error'));
+    await fixture.whenStable();
+
+    expect(component.selectedDetail()!.notes[0].content).toBe('A note about [[Alpha]]');
+    expect(TestBed.inject(ToastService).toasts().at(-1)?.message).toContain('changes reverted');
+  });
+
+  it('confirms deletion before removing the note card', async () => {
+    component.selectConcept('c-alpha');
+    flushDetail('c-alpha', detail('c-alpha', 'Alpha'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    component.onDeleteNote('c-alpha-n1');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.confirm-modal-card')).not.toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.note-card')).toHaveLength(1);
+    expect(http.match('/api/notes/c-alpha-n1')).toHaveLength(0);
+
+    (fixture.nativeElement.querySelector('.btn-confirm') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.note-card')).toHaveLength(0);
+    const removal = http.expectOne('/api/notes/c-alpha-n1');
+    expect(removal.request.method).toBe('DELETE');
+    removal.flush(null);
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('.confirm-modal-card')).toBeNull();
+  });
+
+  it('selects a concept tag rendered inside a note card', async () => {
+    component.selectConcept('c-alpha');
+    flushDetail(
+      'c-alpha',
+      {
+        ...detail('c-alpha', 'Alpha'),
+        notes: [{ ...detail('c-alpha', 'Alpha').notes[0], content: 'See [[Beta]] here' }],
+      },
+      []
+    );
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.concept-tag') as HTMLElement).click();
+    expect(component.selectedId()).toBe('c-beta');
+    http.expectOne('/api/concepts/c-beta').flush(detail('c-beta', 'Beta'));
+    http.expectOne('/api/concepts/c-beta/related').flush([]);
+    fixture.detectChanges();
+    flushChildConceptLists();
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('.concept-title')?.textContent).toContain('Beta');
   });
 
   it('sorts the index by usage, A-Z and Z-A, and persists the choice', () => {
@@ -221,8 +424,11 @@ describe('SecondBrain', () => {
 
     rows[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(component.selectedId()).toBe('c-beta');
-    http.expectOne('/api/concepts/c-beta').flush(detail('c-beta', 'Beta'));
+    flushRelated('c-beta');
     http.expectOne('/api/concepts/c-alpha').flush(detail('c-alpha', 'Alpha'));
+    http.expectOne('/api/concepts/c-beta').flush(detail('c-beta', 'Beta'));
+    fixture.detectChanges();
+    flushChildConceptLists();
     await fixture.whenStable();
   });
 
