@@ -127,6 +127,48 @@
   gap: 0.5rem;
 }
 
+.view-mode-control {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+}
+
+.view-mode-control .toggle-opt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 32px;
+  padding: 0 0.45rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-light);
+  cursor: pointer;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.view-mode-control .toggle-opt:hover {
+  color: var(--color-text-main);
+}
+
+.view-mode-control .toggle-opt.active {
+  background: var(--bg-surface);
+  color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+  outline: 1px solid var(--border-color);
+  outline-offset: -1px;
+}
+
+.view-mode-control .toggle-opt:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
 .sort-label {
   font-size: 0.68rem;
   font-weight: 600;
@@ -168,6 +210,11 @@
   position: relative;
   /* Padding matches header horizontal padding exactly */
   padding: 0 1.25rem 1.5rem;
+}
+
+.index-list.map-mode {
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .index-wait-field {
@@ -1126,6 +1173,10 @@
 
   .search-box,
   .sort-select {
+    min-height: 44px;
+  }
+
+  .view-mode-control .toggle-opt {
     min-height: 44px;
   }
 

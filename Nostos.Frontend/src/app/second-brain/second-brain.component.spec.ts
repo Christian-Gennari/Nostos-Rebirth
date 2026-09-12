@@ -702,4 +702,23 @@ describe('SecondBrain', () => {
     http.expectOne('/api/concepts').flush(concepts);
     http.expectOne('/api/concepts/stats').flush(stats);
   });
+
+  it('toggles between list and map views and persists the choice', () => {
+    const map = fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:last-child') as HTMLButtonElement;
+    map.click();
+    fixture.detectChanges();
+
+    expect(component.viewMode()).toBe('map');
+    expect(localStorage.getItem('nostos.brain.viewMode')).toBe('map');
+    expect(fixture.nativeElement.querySelector('app-concept-map')).toBeTruthy();
+    flushChildConceptLists();
+    http.match((request) => request.url.endsWith('/related')).forEach((request) => request.flush([]));
+
+    const list = fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:first-child') as HTMLButtonElement;
+    list.click();
+    fixture.detectChanges();
+    expect(component.viewMode()).toBe('list');
+    expect(localStorage.getItem('nostos.brain.viewMode')).toBe('list');
+    expect(fixture.nativeElement.querySelector('app-concept-map')).toBeNull();
+  });
 });

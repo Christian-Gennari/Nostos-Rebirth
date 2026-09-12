@@ -23,6 +23,8 @@ import {
   ChevronDown,
   ChevronUp,
   GitMerge,
+  LayoutList,
+  Map as MapIcon,
 } from 'lucide-angular';
 
 import { ToastService } from '../core/services/toast.service';
@@ -36,10 +38,13 @@ import {
   ConceptDetailDto,
   NoteContextDto,
   ConceptStatsDto,
+  RelatedConceptDto,
 } from '../core/services/concepts.service';
+import { ConceptMapComponent } from './concept-map/concept-map.component';
 
 type IndexSort = 'usage' | 'az' | 'za';
 type NoteSort = 'newest' | 'oldest' | 'source';
+type BrainViewMode = 'list' | 'map';
 
 const ALL_SOURCES = 'all';
 
@@ -47,12 +52,6 @@ interface SourceOption {
   value: string;
   label: string;
   count: number;
-}
-
-interface RelatedConceptDto {
-  id: string;
-  name: string;
-  sharedNotes: number;
 }
 
 type RenameSurface = 'index' | 'header';
@@ -66,8 +65,10 @@ interface MergeRequest {
 }
 
 const INDEX_SORT_STORAGE_KEY = 'nostos.brain.indexSort';
+const BRAIN_VIEW_MODE_STORAGE_KEY = 'nostos.brain.viewMode';
 
 const INDEX_SORTS: readonly IndexSort[] = ['usage', 'az', 'za'];
+const BRAIN_VIEW_MODES: readonly BrainViewMode[] = ['list', 'map'];
 
 interface NamePart {
   text: string;
@@ -95,6 +96,7 @@ function searchRank(name: string, query: string): number {
     LucideAngularModule,
     NoteCardComponent,
     ConfirmModal,
+    ConceptMapComponent,
   ],
   templateUrl: './second-brain.component.html',
   styleUrls: ['./second-brain.component.css'],
@@ -115,6 +117,8 @@ export class SecondBrain {
   ExpandIcon = ChevronDown;
   CollapseIcon = ChevronUp;
   MergeIcon = GitMerge;
+  ListIcon = LayoutList;
+  MapIcon = MapIcon;
 
   // Phase 5 consumes these outputs to open the rename and confirmation flows.
   readonly renameRequested = output<string>();
@@ -144,6 +148,7 @@ export class SecondBrain {
   loadingConcepts = signal(true);
   searchQuery = signal('');
   indexSort = signal<IndexSort>(this.readStoredSort());
+  viewMode = signal<BrainViewMode>(this.readStoredViewMode());
   cursorIndex = signal<number | null>(null);
 
   selectedId = signal<string | null>(null);
@@ -723,12 +728,33 @@ export class SecondBrain {
     }
   }
 
+  setViewMode(mode: string): void {
+    if (!BRAIN_VIEW_MODES.includes(mode as BrainViewMode)) return;
+    this.viewMode.set(mode as BrainViewMode);
+    try {
+      localStorage.setItem(BRAIN_VIEW_MODE_STORAGE_KEY, mode);
+    } catch {
+      /* private mode / storage disabled — a non-persisted view is acceptable */
+    }
+  }
+
   private readStoredSort(): IndexSort {
     try {
       const stored = localStorage.getItem(INDEX_SORT_STORAGE_KEY);
       return INDEX_SORTS.includes(stored as IndexSort) ? (stored as IndexSort) : 'usage';
     } catch {
       return 'usage';
+    }
+  }
+
+  private readStoredViewMode(): BrainViewMode {
+    try {
+      const stored = localStorage.getItem(BRAIN_VIEW_MODE_STORAGE_KEY);
+      return BRAIN_VIEW_MODES.includes(stored as BrainViewMode)
+        ? (stored as BrainViewMode)
+        : 'list';
+    } catch {
+      return 'list';
     }
   }
 

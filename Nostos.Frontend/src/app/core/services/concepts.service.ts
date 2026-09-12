@@ -16,6 +16,12 @@ export interface ConceptStatsDto {
   mostUsedCount: number;
 }
 
+export interface RelatedConceptDto {
+  id: string;
+  name: string;
+  sharedNotes: number;
+}
+
 export interface NoteContextDto {
   noteId: string;
   content: string;
@@ -48,6 +54,10 @@ export class ConceptsService {
 
   get(id: string): Observable<ConceptDetailDto> {
     return this.http.get<ConceptDetailDto>(`/api/concepts/${id}`);
+  }
+
+  getRelated(id: string): Observable<RelatedConceptDto[]> {
+    return this.http.get<RelatedConceptDto[]>(`/api/concepts/${id}/related`);
   }
 
   rename(id: string, concept: string): Observable<ConceptDto> {

@@ -47,10 +47,36 @@
             <option value="az">A → Z</option>
             <option value="za">Z → A</option>
           </select>
+          <div class="control-group view-mode-control" role="group" aria-label="Index view">
+            <button
+              type="button"
+              class="toggle-opt"
+              [class.active]="viewMode() === 'list'"
+              [attr.aria-pressed]="viewMode() === 'list'"
+              aria-label="List view"
+              title="List view"
+              (click)="setViewMode('list')"
+            >
+              <lucide-icon [img]="ListIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
+              <span>List</span>
+            </button>
+            <button
+              type="button"
+              class="toggle-opt"
+              [class.active]="viewMode() === 'map'"
+              [attr.aria-pressed]="viewMode() === 'map'"
+              aria-label="Map view"
+              title="Map view"
+              (click)="setViewMode('map')"
+            >
+              <lucide-icon [img]="MapIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
+              <span>Map</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <div class="index-list" [attr.aria-busy]="loadingConcepts()">
+      <div class="index-list" [class.map-mode]="viewMode() === 'map'" [attr.aria-busy]="loadingConcepts()">
         @if (loadingConcepts()) {
         <div class="index-wait-field wait-field" role="status" aria-label="Loading concepts"></div>
         } @else if (concepts().length === 0) {
@@ -66,6 +92,12 @@
           <p>No concepts match “{{ searchQuery().trim() }}”.</p>
           <button type="button" class="empty-clear" (click)="clearSearch()">Clear search</button>
         </div>
+        } @else if (viewMode() === 'map') {
+        <app-concept-map
+          [concepts]="filteredConcepts()"
+          [selectedId]="selectedId()"
+          (conceptSelected)="selectConcept($event)"
+        ></app-concept-map>
         } @else {
         @for (c of filteredConcepts(); track c.id; let i = $index) {
         @if (isLetterStart(i)) {
