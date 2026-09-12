@@ -11,7 +11,12 @@
          browser chrome, paper tile on dark chrome) with the .ico as the
          fallback for browsers without SVG favicons, so the tab icon stays
          legible on either chrome. The kit itself ships no theme-aware pair, so
-         both files are generated from its geometry. -->
+         both files are generated from its geometry.
+
+         `sizes` on the .ico link is LOAD-BEARING, not decoration: Chromium
+         otherwise always prefers the .ico over the SVG and the media-swapped
+         dark icon is never fetched (so dark chrome got the forest-tile .ico —
+         the inverse of the in-app dark mark). Do not remove it. -->
     <link
       rel="icon"
       type="image/svg+xml"
@@ -24,7 +29,7 @@
       href="favicon-dark.svg"
       media="(prefers-color-scheme: dark)"
     />
-    <link rel="alternate icon" type="image/x-icon" href="favicon.ico" />
+    <link rel="alternate icon" type="image/x-icon" href="favicon.ico" sizes="32x32" />
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
   </head>
 
