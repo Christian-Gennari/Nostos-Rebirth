@@ -416,9 +416,17 @@
   --overlay-medium: rgba(16, 18, 22, 0.72);
   --overlay-light: rgba(0, 0, 0, 0.40);
   --modal-scrim: rgba(8, 9, 12, 0.66);
-  --glass-bg: rgba(27, 30, 38, 0.60);
-  --glass-bg-strong: rgba(27, 30, 38, 0.92);
-  --glass-border: rgba(38, 42, 52, 0.90);
+  /* ── Frosted chrome (toolbar / panel headers) ──
+     These frost the PAGE ground, exactly as the light pair does: light's
+     rgba(253,248,246) IS --bg-body. Dark previously used --bg-surface's RGB
+     here (27,30,38), which made the frost a no-op against the content plane
+     (also --bg-surface) - so the library toolbar merged into the page where
+     light shows a tint. Using --bg-body's RGB restores the same relationship:
+     a chrome plane slightly darker than the content it floats over. At 0.95
+     only 5% of a cover bleeds through the blur, so the panel stays stable. */
+  --glass-bg: rgba(21, 24, 31, 0.60);
+  --glass-bg-strong: rgba(21, 24, 31, 0.95);
+  --glass-border: rgba(43, 47, 58, 1);
 
   /* ── Shadows: a dark shadow on a dark ground carries no elevation, so
      floating surfaces are raised TONALLY instead (see .app-dock-container). ── */
