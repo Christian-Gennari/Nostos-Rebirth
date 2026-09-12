@@ -563,6 +563,49 @@
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.50);
 }
 
+/* Grid card HOVER. The component's hover shadow is tuned for a BRIGHT ground and
+   every one of its three layers breaks on dark, in two different ways:
+
+   1. `0 14px 28px -6px rgba(28,27,26,0.15)` and `0 4px 10px -2px rgba(0,0,0,0.05)`
+      are a warm near-black at 15% and a neutral black at 5%. Both are *cast*
+      shadows: they assume the page is bright enough that a 5-15% darkening is
+      the visible part. On #15181F they measure 0 to -1 luminance — invisible.
+
+   2. `0 0 16px -2px var(--color-accent-faint)` is the warm CLAY halo. The token
+      flips with the theme — rgba(138,109,88,0.3) in light, rgba(209,172,143,0.32)
+      in dark — so a DARK halo on a bright ground becomes a LIGHT halo on a dark
+      one. Measured on dark, that layer alone is the entire visible hover shadow:
+      +15.8 luminance at the card's lip and +9 R-B (warm), against a page of
+      -15 R-B. It does not darken the surround, it GLOWS it — which is the
+      "white shadow that looks washed out and dirty" report.
+
+   So on dark the hover state was lightening the area around the card instead of
+   sinking it. This override is dark-only: light keeps the warm halo, where it
+   reads correctly as a soft lamp.
+
+   Values are a CONTACT term plus a cast, both neutral black, so the card has a
+   defined lip (~-7 luminance) and a cast that reaches page level in ~25px
+   rather than the ~10px nothing the old layers covered. Deliberately not a wide
+   low-opacity wash: this user reads a spread-out shadow as "too soft", and on a
+   dark ground a wash has no tonal range left to be visible in anyway.
+   Re-measure with a pixel profile before retuning — do not just soften these.
+
+   SELECTOR: the `.book-grid` step is load-bearing, not decoration. The component
+   rule compiles to `.book-card[_ngcontent-X]:hover .cover-wrapper[_ngcontent-X]`
+   — two classes, two attribute selectors, one pseudo-class = (0,5,0). A plain
+   `:root[data-theme='dark'] .book-card:hover .cover-wrapper` is also (0,5,0)
+   (:root + [data-theme] + .book-card + :hover + .cover-wrapper), so it is a
+   genuine TIE — verified live by injecting it first in <head>, where it LOST and
+   the old warm halo stayed. It only appeared to work when injected last, i.e. it
+   was winning on document order by accident of the global sheet beating the lazy
+   component chunk. Adding `.book-grid` (a real ancestor of `.book-card`) makes it
+   (0,6,0) and it wins from any position in the document. */
+:root[data-theme='dark'] .book-grid .book-card:hover .cover-wrapper {
+  box-shadow:
+    0 2px 4px -1px rgba(0, 0, 0, 0.55),
+    0 12px 24px -8px rgba(0, 0, 0, 0.55);
+}
+
 /* The view toggle (list/grid). Two problems on dark, both from untouched
    light-mode assumptions:
    1. The ACTIVE segment used --bg-surface, which is DARKER than the track
