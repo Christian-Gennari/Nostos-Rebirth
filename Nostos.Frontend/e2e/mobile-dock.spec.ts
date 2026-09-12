@@ -157,3 +157,44 @@ test('collection row actions are revealed by selection on touch, not always on',
     }
   }
 });
+
+/**
+ * The mobile header toggle sits on `--bg-surface`, so its glyph must take that
+ * surface's foreground — not the accent. `--color-primary` is the INK role and
+ * resolves to sage (#8FA89A) on dark, which rendered the hamburger green against
+ * the porcelain header (measured 6.53:1 against 14.37:1 for the correct token).
+ *
+ * This is the third time the same ink/fill role slip has appeared on this
+ * project (brand wordmark, active collection row, and this control), so it is
+ * asserted rather than left to review.
+ */
+test('the mobile header toggle uses the surface foreground, not the accent', async ({ page }) => {
+  await openLibrary(page);
+  await page.locator('.floating-toggle').click(); // hide it again so it is on screen in its resting state
+  await page.waitForTimeout(500);
+
+  const measured = await page.evaluate(() => {
+    const el = document.querySelector('.floating-toggle');
+    if (!el) return null;
+    const root = getComputedStyle(document.documentElement);
+    return {
+      color: getComputedStyle(el).color,
+      accent: root.getPropertyValue('--color-primary').trim(),
+      surfaceFg: root.getPropertyValue('--color-text-main').trim(),
+    };
+  });
+  expect(measured, 'the header toggle must be rendered on mobile').not.toBeNull();
+
+  // Resolve the expected token through the browser so both sides are compared in
+  // the same form (computed rgb vs. a hex literal never matches textually).
+  const expected = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--color-text-main)';
+    document.body.appendChild(probe);
+    const c = getComputedStyle(probe).color;
+    probe.remove();
+    return c;
+  });
+
+  expect(measured!.color, 'header toggle must use the surface foreground').toBe(expected);
+});
