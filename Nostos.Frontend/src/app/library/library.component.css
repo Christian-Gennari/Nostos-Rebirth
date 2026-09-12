@@ -835,7 +835,9 @@ app-sidebar-collections.no-transition {
 }
 
 /* Reserved, so the arrival of the first page cannot move the page's own
-   furniture (scrollbar, footer) as the waiting field dissolves. */
+   furniture (scrollbar, footer) as the results resolve in. The region is left
+   empty while the first page is in flight — nothing is drawn in the content's
+   place, so there is no placeholder to jitter against the real rows. */
 .results-stage.is-waiting {
   min-height: min(62vh, 560px);
 }

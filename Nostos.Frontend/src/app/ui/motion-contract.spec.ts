@@ -1,14 +1,20 @@
 /**
- * Motion-contract gate: the loading skeleton is gone from Nostos, and it stays
- * gone.
+ * Motion-contract gate: a loading skeleton must not come back, and the library
+ * must not put anything in the content's place while it loads.
  *
- * Every wait in the app is now one of two things — the structureless waiting
- * field (`.wait-field`, styles.css) or a fade/defocus applied to real content
- * that is already arriving. A skeleton is neither: it is a guessed structure
- * whose rows, bars and thumbnails never match the real metrics, so it jitters
- * against the content it is standing in for. That is the whole reason it was
- * removed, so a `skeleton` class, keyframe or markup block reappearing in a
- * template or stylesheet is a regression, not a style choice.
+ * Two rules, both learned the hard way:
+ *
+ * 1. A skeleton is a guessed structure — rows, bars, thumbnails at metrics that
+ *    are never quite the real ones — so it jitters against the content it stands
+ *    in for. A `skeleton` class, keyframe or markup block reappearing in a
+ *    template or stylesheet is a regression, not a style choice.
+ *
+ * 2. The library goes further: during its cold load the results region is left
+ *    EMPTY and simply holds its height, then the real results fade in over it.
+ *    Nothing is drawn in the content's place at all — not even the shared
+ *    structureless wait field (`.wait-field`, styles.css), which is still the
+ *    right answer where a surface would otherwise sit blank for a longer,
+ *    indeterminate read (book detail, the readers, the second brain).
  *
  * Scans templates and stylesheets under src/ (component styles included) and
  * reports every offending file. Comments count: naming the thing is how it
@@ -29,6 +35,12 @@ import { describe, expect, it } from 'vitest';
 const SRC = path.resolve(process.cwd(), 'src');
 const SCANNED_EXTENSIONS = ['.html', '.css', '.scss'];
 const FORBIDDEN = /skeleton/i;
+
+/** Files that must not name the wait field: the library draws nothing at all. */
+const LIBRARY_FILES = [
+  'app/library/library.component.html',
+  'app/library/library.component.css',
+];
 
 function collectFiles(dir: string, found: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -57,6 +69,18 @@ describe('motion contract', () => {
       .filter((file) => FORBIDDEN.test(readFileSync(file, 'utf8')))
       .map((file) => path.relative(SRC, file));
 
-    expect(offenders, 'remove the skeleton and use .wait-field / a fade instead').toEqual([]);
+    expect(offenders, 'remove the skeleton and let real content resolve in').toEqual([]);
+  });
+
+  it('draws nothing in the content’s place while the library loads', () => {
+    for (const relative of LIBRARY_FILES) {
+      const source = readFileSync(path.join(SRC, relative), 'utf8');
+      // Present, non-empty files only: a renamed or emptied template must fail
+      // rather than pass this guard vacuously.
+      expect(source.length, `${relative} looks empty`).toBeGreaterThan(200);
+      expect(source, `${relative} must not reference the wait field`).not.toMatch(
+        /wait-field|wait_field/,
+      );
+    }
   });
 });

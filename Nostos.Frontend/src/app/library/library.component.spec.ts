@@ -310,10 +310,9 @@ describe('Library', () => {
     component.filters.toggleStatus('reading');
     fixture.detectChanges();
 
-    // The waiting field belongs to the first paint only; a filter change
+    // The results region belongs to the first paint only; a filter change
     // cross-fades the results that are already on screen.
     expect(component.loading()).toBe(false);
-    expect(fixture.nativeElement.querySelector('.wait-field:not(.is-done)')).toBeNull();
     expect(component.swapping()).toBe(true);
     expect(fixture.nativeElement.querySelector('.results-stage.is-swapping')).not.toBeNull();
   });
@@ -368,13 +367,13 @@ describe('Library', () => {
     expect(component.swapping()).toBe(false);
   });
 
-  it('breathes the waiting field, then dissolves it when the first results arrive (cold load)', () => {
+  it('leaves the results region empty through a cold load, then resolves in', () => {
     vi.useFakeTimers();
     try {
       const preferences = TestBed.inject(LibraryPreferencesService);
       const book = { id: 'b1', title: 'First', type: 'ebook' } as never;
       // A genuine cold start: nothing has been shown in this session, so the
-      // waiting field is up and the results are still in flight.
+      // results region is held open and empty while the first page is in flight.
       preferences.hasLoadedBooks.set(false);
       const pending = new Subject<PaginatedResponse<never>>();
       listSpy.mockReturnValueOnce(pending);
@@ -382,23 +381,25 @@ describe('Library', () => {
       component.filters.toggleStatus('reading');
       TestBed.flushEffects();
       fixture.detectChanges();
-      expect(component.loading()).toBe(true); // the field is up
-      expect(fixture.nativeElement.querySelector('.wait-field:not(.is-done)')).not.toBeNull();
+      expect(component.loading()).toBe(true); // the region is reserved
       expect(fixture.nativeElement.querySelector('.results-stage.is-waiting')).not.toBeNull();
+      // Nothing is drawn in the content's place — no placeholder to jitter.
+      expect(fixture.nativeElement.querySelector('.book-grid')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.table-view')).toBeNull();
 
-      // The field stays up long enough to be perceived, then the data lands.
+      // The page lands after the region has been open a while.
       vi.advanceTimersByTime(300);
       pending.next({ items: [book], totalCount: 1 } as never);
       pending.complete();
 
       // A cold load has no out-phase to wait for: the results commit at once and
-      // the field is released, dissolving in CSS under the content fading in.
+      // fade in over the space that was already reserved for them.
       fixture.detectChanges();
       expect(component.loading()).toBe(false);
       expect(component.swapping()).toBe(false);
       expect(component.rawBooks()).toEqual([book]);
-      expect(fixture.nativeElement.querySelector('.wait-field:not(.is-done)')).toBeNull();
       expect(fixture.nativeElement.querySelector('.results-stage.is-waiting')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.book-grid')).not.toBeNull();
       expect(preferences.hasLoadedBooks()).toBe(true);
     } finally {
       vi.useRealTimers();
@@ -474,7 +475,6 @@ describe('Library', () => {
     second.detectChanges();
 
     expect(secondComponent.loading()).toBe(false);
-    expect(second.nativeElement.querySelector('.wait-field:not(.is-done)')).toBeNull();
     expect(second.nativeElement.querySelector('.results-stage')).not.toBeNull();
 
     second.destroy();

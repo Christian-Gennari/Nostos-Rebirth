@@ -108,18 +108,17 @@
       >
       </app-confirm-modal>
 
-      <!-- One stage for both states. Nothing is faked while the first page is in
-           flight: a structureless waiting field breathes in place, then dissolves
-           out under the arriving results — nothing to jitter, and nothing whose
-           metrics could disagree with the real rows. -->
+      <!-- One stage for both states. While the first page is in flight the region
+           is simply left empty — the page's own paper, held open to the height it
+           will need — and the results resolve in as they arrive. Nothing is
+           drawn in the content's place, so there is nothing whose metrics could
+           disagree with the real rows. -->
       <div
         class="results-stage"
         [class.is-swapping]="swapping()"
         [class.is-waiting]="loading()"
         [attr.aria-busy]="swapping() || loading()"
       >
-        <div class="wait-field" [class.is-done]="!loading()" aria-hidden="true"></div>
-
         @if (!loading()) {
       @if (viewMode() === 'list') {
       <div class="table-view">

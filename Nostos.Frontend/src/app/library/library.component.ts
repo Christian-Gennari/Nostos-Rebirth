@@ -293,9 +293,9 @@ export class Library implements OnInit, OnDestroy {
     if (reset) {
       this.currentPage.set(1);
       if (!this.preferences.hasLoadedBooks()) {
-        // Genuine first paint: the waiting field's only appearance. Nothing is
-        // scheduled here — the field dissolves itself in CSS when the results
-        // land, so the arrival needs no timer.
+        // Genuine first paint: the results region stays empty until the page
+        // lands. Nothing is scheduled here — the results resolve in as they
+        // arrive, so the arrival needs no timer.
         if (showWaiting) this.loading.set(true);
       } else if (showWaiting && !prefersReducedMotion()) {
         // Filter/sort/search change, or re-entering the library from another
