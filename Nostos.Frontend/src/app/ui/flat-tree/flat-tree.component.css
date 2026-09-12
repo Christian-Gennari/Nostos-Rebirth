@@ -23,6 +23,9 @@
      drag-handle (14 + 4) + chevron slot (16 + 2) + half the 16px icon = 44px.
      Named because the nesting guide below is positioned by it. */
   --icon-axis: 44px;
+  /* Width of the row-action overlay: 3 × 22px buttons + 2 × 2px gaps = 70px,
+     plus the 6px right inset = 76px. */
+  --actions-w: 76px;
   --tree-guide: color-mix(in srgb, var(--color-text-light) 42%, transparent);
 }
 
@@ -69,9 +72,17 @@
   pointer-events: none;
 }
 
+/* Keyboard focus with no hover: the row has no hover ground yet, so the fade
+   must paint the sidebar's own ground. Declared BEFORE the :hover rule so that
+   when both apply the hover ground (later, same specificity) wins. */
+.tree-row:focus-within {
+  --row-ground: var(--bg-sidebar);
+}
+
 .tree-row:hover {
   background: var(--bg-hover);
   color: var(--color-text-main);
+  --row-ground: var(--bg-hover);
 }
 
 /* Active row follows the same role split as `.nav-item.active` in the sidebar:
@@ -83,6 +94,7 @@
   background: var(--primary-fill);
   color: var(--on-primary);
   font-weight: var(--fw-medium);
+  --row-ground: var(--primary-fill);
 }
 
 .drag-handle {
@@ -154,6 +166,40 @@
   min-width: 0;
 }
 
+/* While the actions are on screen, the name's tail FADES into the row instead
+   of being cut off by the buttons. The actions are an overlay (so the name
+   never reflows), which means they sit ON TOP of whatever the name painted —
+   without this, the last ~43px of a long name were sharply hidden behind the
+   icons (measured: "1. Lycka och det goda livet" lost 43px of real glyphs).
+
+   The gradient is anchored to the OVERLAY's own left edge (100% - 76px on the
+   row) rather than to the name element's right edge, and it is painted by a
+   row-level pseudo-element. A mask on `.node-name` cannot work here: the name
+   box's right edge moves by whether the row renders a count badge (badge rows
+   stop 28px earlier), so one offset faded badge rows 48px too early and
+   blanked glyphs no button covered — and on studio rows, which have no badge
+   at all, the fade landed far inside the text. Anchoring to the overlay makes
+   the geometry one number, correct for both trees.
+
+   --actions-w - 22px is where the fade starts; it reaches full transparency
+   exactly at the overlay's left edge, so the name recedes INTO the buttons
+   rather than ending at a hard cut. */
+.tree-row:hover::after,
+.tree-row:focus-within::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: calc(100% - var(--actions-w) - 22px);
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--row-ground, transparent) 22px
+  );
+}
+
 .count-badge {
   margin-left: auto;
   min-width: 20px;
@@ -195,11 +241,17 @@
   right: 6px;
   top: 50%;
   transform: translateY(-50%);
+  /* Above the row's ::after fade layer: that pseudo-element paints the row's
+     ground over the name's tail (right up to the right edge), so without this
+     it would erase the buttons too. */
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 2px;
-  width: 74px;
+  /* 70px of buttons; the extra 6px is the overlay's own right inset already
+     applied by `right`, so total reserved width is --actions-w (76px). */
+  width: calc(var(--actions-w) - 6px);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
