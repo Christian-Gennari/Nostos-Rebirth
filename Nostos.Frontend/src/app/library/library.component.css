@@ -250,7 +250,7 @@ app-sidebar-collections.no-transition {
   background: var(--bg-surface);
   border-color: var(--border-focus);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(138, 109, 88, 0.18);
+  box-shadow: 0 0 0 3px var(--color-accent-faint);
 }
 
 /* Focus turns the icon dark. Only the `:has()` form is used: the icon is the
@@ -324,7 +324,12 @@ app-sidebar-collections.no-transition {
 .toggle-opt.active {
   background: var(--bg-surface);
   color: var(--color-primary);
-  box-shadow: var(--shadow-sm), 0 0 0 1px rgba(138, 109, 88, 0.22);
+  /* Was a hardcoded clay ring (rgba(138,109,88,.22)) — a literal, so it was
+     theme-blind and stayed warm brown on dark. Now an outline in the border
+     colour, which tracks the theme. */
+  box-shadow: var(--shadow-sm);
+  outline: 1px solid var(--border-color);
+  outline-offset: -1px;
 }
 
 /* --- LIST VIEW --- */
@@ -685,7 +690,7 @@ app-sidebar-collections.no-transition {
   box-shadow:
     0 14px 28px -6px rgba(28, 27, 26, 0.15),
     0 4px 10px -2px rgba(0, 0, 0, 0.05),
-    0 0 16px -2px rgba(138, 109, 88, 0.12);
+    0 0 16px -2px var(--color-accent-faint);
 }
 
 /* Buttons (Grid) */

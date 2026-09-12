@@ -131,7 +131,8 @@
 }
 .input:focus,
 .select-input:focus {
-  border-color: var(--color-primary);
+  /* Not --color-primary (the ink role — dim green on dark). */
+  border-color: var(--border-focus);
   box-shadow: 0 0 0 2px var(--border-focus);
   outline: none;
 }
@@ -161,11 +162,14 @@
   cursor: pointer;
   color: var(--color-text-light);
 }
+/* Border only, and NOT --color-primary: that is the ink role (dim green on
+   dark), so a hovered drop zone drew a green border. --border-focus is the
+   control-border role and is byte-identical in light (#28372D), slate on dark. */
 .file-drop-zone:hover,
 .file-drop-zone:focus-within,
 .file-drop-zone:active,
 .file-drop-zone.drag-active {
-  border-color: var(--color-primary);
+  border-color: var(--border-focus);
   background: var(--color-accent-bg);
 }
 .drop-zone-title {

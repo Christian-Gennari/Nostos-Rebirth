@@ -75,13 +75,13 @@
   background: var(--primary-fill);
   color: var(--on-primary);
   text-decoration: none;
-  box-shadow: var(--shadow-glass), 0 0 16px -4px rgba(138, 109, 88, 0.22);
+  box-shadow: var(--shadow-glass), 0 0 16px -4px var(--color-accent-faint);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .btn.btn-primary.lg:hover {
   transform: translateY(-1px);
-  box-shadow: var(--shadow-glass-lg), 0 0 24px -4px rgba(138, 109, 88, 0.24);
+  box-shadow: var(--shadow-glass-lg), 0 0 24px -4px var(--color-accent-faint);
 }
 
 .hero-footer {

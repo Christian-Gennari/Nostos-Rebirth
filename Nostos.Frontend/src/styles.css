@@ -341,7 +341,11 @@
   --color-accent: #D1AC8F;
   --color-accent-hover: #E5BFA1;
   --color-accent-faint: rgba(209, 172, 143, 0.32);
-  --color-accent-bg: #2A2318;
+  /* Was #2A2318 — the warm accent at 8% on a dark ground, which is a BROWN
+     (hue 37, val 16%). Low-value warm tints always read as mud on dark, and this
+     is the surface behind hovered drop zones, active tree rows and selected
+     edition cards. A cool tint instead: still a soft highlight, no brown. */
+  --color-accent-bg: #262B36;
 
   /* ── Restrained secondary (container tint only — 1.92:1 as text) ── */
   --color-secondary: #3A4556;
@@ -554,6 +558,21 @@
 /* Cover art: the hairline alone is too weak on dark, so add a shadow. */
 :root[data-theme='dark'] .cover-wrapper {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.50);
+}
+
+/* The view toggle (list/grid). Two problems on dark, both from untouched
+   light-mode assumptions:
+   1. The ACTIVE segment used --bg-surface, which is DARKER than the track
+      (--bg-hover) on dark — the elevation inverted, so the selected option sank
+      and the unselected pair looked raised. Light works only because its surface
+      is lighter than its hover.
+   2. --color-primary is the dim green ink here, so the active icon went green
+      while every other selected state in the app is white-on-raised.
+   #323A48 is the same raised tone the dock uses, so "raised on dark" is now one
+   value app-wide. */
+:root[data-theme='dark'] .toggle-opt.active {
+  background: #323A48;
+  color: var(--color-text-main);
 }
 
 /* The waiting field's breathing glow is built by mixing the ground toward

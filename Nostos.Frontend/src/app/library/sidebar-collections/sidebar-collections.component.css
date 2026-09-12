@@ -296,7 +296,8 @@
 }
 
 .sidebar-input:focus {
-  border-color: var(--color-primary);
+  /* Not --color-primary (the ink role — dim green on dark). */
+  border-color: var(--border-focus);
   outline: none;
 }
 
@@ -471,7 +472,9 @@
     background: var(--bg-surface);
     color: var(--color-primary);
     border: none;
-    box-shadow: var(--shadow-sm), 0 0 0 1px rgba(138, 109, 88, 0.22);
+    box-shadow: var(--shadow-sm);
+    outline: 1px solid var(--border-color);
+    outline-offset: -1px;
     cursor: pointer;
     transition:
       transform var(--transition-fast),

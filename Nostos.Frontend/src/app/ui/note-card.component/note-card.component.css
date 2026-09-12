@@ -207,7 +207,8 @@
 
 .edit-quote-input:focus {
   outline: none;
-  border-color: var(--color-primary);
+  /* Not --color-primary (the ink role — dim green on dark). */
+  border-color: var(--border-focus);
 }
 
 .edit-actions {
