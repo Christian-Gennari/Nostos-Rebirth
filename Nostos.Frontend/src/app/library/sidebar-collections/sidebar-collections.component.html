@@ -228,4 +228,19 @@
       </button>
     </div>
   </div>
+
+  <!-- The app's single confirmation surface, reused here so deleting a
+       collection asks the same question in the same language as deleting a
+       book. Held open while the request is in flight (`busy`) so the pending
+       state is visible rather than the dialog vanishing mid-action. -->
+  <app-confirm-modal
+    [isOpen]="!!deleteTarget()"
+    [heading]="deleteHeading()"
+    [description]="deleteDescription()"
+    confirmLabel="Delete Collection"
+    busyLabel="Deleting…"
+    [busy]="deleting()"
+    (confirm)="confirmDelete()"
+    (cancel)="cancelDelete()"
+  ></app-confirm-modal>
 </nav>

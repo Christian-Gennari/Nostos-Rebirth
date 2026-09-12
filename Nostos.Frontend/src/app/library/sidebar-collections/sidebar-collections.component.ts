@@ -38,6 +38,7 @@ import { CollectionsService } from '../../core/services/collections.service';
 import { Collection, CollectionCountDto } from '../../core/dtos/collection.dtos';
 import { LibraryStatusCountsDto } from '../../core/dtos/book.dtos';
 import { BooksService } from '../../core/services/books.service';
+import { ConfirmModal } from '../../ui/confirm-modal/confirm-modal.component';
 import { LibraryPreferencesService } from '../../core/services/library-preferences.service';
 import { FlatTreeComponent } from '../../ui/flat-tree/flat-tree.component';
 import { ToastService } from '../../core/services/toast.service';
@@ -45,7 +46,7 @@ import { ToastService } from '../../core/services/toast.service';
 @Component({
   standalone: true,
   selector: 'app-sidebar-collections',
-  imports: [CommonModule, FormsModule, LucideAngularModule, FlatTreeComponent],
+  imports: [CommonModule, FormsModule, LucideAngularModule, FlatTreeComponent, ConfirmModal],
   templateUrl: './sidebar-collections.component.html',
   styleUrls: ['./sidebar-collections.component.css'],
 })
@@ -83,6 +84,40 @@ export class SidebarCollections implements OnInit {
   editingId = signal<string | null>(null);
   newName = model<string>('');
   private ignoreClick = false;
+
+  /**
+   * The collection awaiting delete confirmation, plus whether that delete is in
+   * flight. Deletion asks through `ConfirmModal` (the app's single confirmation
+   * surface) rather than `window.confirm()`, which cannot carry theme tokens and
+   * breaks the visual language.
+   */
+  deleteTarget = signal<Collection | null>(null);
+  deleting = signal(false);
+
+  /**
+   * The confirmation question, composed here so the modal stays generic.
+   * Falls back to a bare "this collection?" only if the record somehow left the
+   * list between opening and rendering.
+   */
+  deleteHeading = computed(() => {
+    const target = this.deleteTarget();
+    return target ? `Delete “${target.name}”?` : 'Delete collection?';
+  });
+
+  /**
+   * What the delete actually does, so the user is not left guessing whether
+   * their books go with it. Books belong to the library, not to the collection,
+   * so nothing of theirs is destroyed — only the grouping is removed.
+   */
+  deleteDescription = computed(() => {
+    const target = this.deleteTarget();
+    if (!target) return '';
+    const books = this.countsMap().get(target.id) ?? 0;
+    const booksClause = books > 0
+      ? ` Its ${books} book${books === 1 ? '' : 's'} will be moved out of the collection, not deleted.`
+      : '';
+    return `Books stay in your library — only the collection is removed.${booksClause}`;
+  });
 
   readonly hasSelection = computed(
     () =>
@@ -270,20 +305,47 @@ export class SidebarCollections implements OnInit {
       });
   }
 
+  /**
+   * Entry point from the row's delete action. Opens the confirmation modal
+   * instead of asking through `window.confirm()`.
+   */
   deleteCollection(id: string): void {
-    if (!confirm('Delete this collection?')) return;
-    this.collectionsService.delete(id).subscribe({
+    const target = this.collections().find((c) => c.id === id) ?? null;
+    if (!target) return;
+    this.deleteTarget.set(target);
+  }
+
+  cancelDelete(): void {
+    if (this.deleting()) return;
+    this.deleteTarget.set(null);
+  }
+
+  /**
+   * Runs the delete the user just confirmed. The modal is held open (and locked)
+   * for the duration so the pending state is visible; on failure it stays open
+   * with the server's own explanation rather than vanishing mid-action.
+   */
+  confirmDelete(): void {
+    const target = this.deleteTarget();
+    if (!target || this.deleting()) return;
+
+    this.deleting.set(true);
+    this.collectionsService.delete(target.id).subscribe({
       next: () => {
         this.toast.info('Collection deleted');
         this.load();
         this.loadCounts();
-        if (this.filters.collectionId() === id) {
+        if (this.filters.collectionId() === target.id) {
           this.filters.collectionId.set(null);
         }
+        this.deleteTarget.set(null);
+        this.deleting.set(false);
       },
       error: (err) => {
         this.toast.error(this.describeCollectionError(err));
         this.load();
+        this.deleteTarget.set(null);
+        this.deleting.set(false);
       },
     });
   }
