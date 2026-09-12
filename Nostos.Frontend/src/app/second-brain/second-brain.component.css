@@ -69,7 +69,9 @@
 }
 
 .search-box:focus-within {
-  border-color: var(--color-primary);
+  /* Not --color-primary: that is the ink role (mint on dark), so focusing the
+     search box drew a green ring. */
+  border-color: var(--focus-ring);
   box-shadow: 0 0 0 2px var(--border-focus);
   color: var(--color-text-main);
 }
@@ -126,7 +128,15 @@
 .index-item.active {
   background: var(--primary-fill);
   color: var(--on-primary);
-  box-shadow: var(--shadow-sm), var(--shadow-glow);
+  box-shadow: var(--shadow-sm);
+}
+
+/* The index buttons had NO focus style at all (`outline-style: none`), so
+   keyboard users saw nothing. Same neutral ring as the library sidebar, so the
+   two sidebars behave alike. */
+.index-item:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
 }
 
 .index-item .name {

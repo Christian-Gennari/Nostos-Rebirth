@@ -132,8 +132,9 @@
   /* --primary-fill, not --color-primary: the track is a SURFACE. The ink role
      is a light mint on dark, which would make an ON switch look like an OFF one
      (light track = unchecked is the universal convention). */
+  /* No glow on the track. A 10px bloom around the largest surface in the
+     control reads as a halo, not as state — the fill change is the signal. */
   background-color: var(--primary-fill);
-  box-shadow: 0 0 10px var(--color-accent-faint);
 }
 
 .toggle input:checked + .toggle-slider::before {

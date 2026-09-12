@@ -77,7 +77,7 @@
   --border-color: #E4E1DB;
   --border-light: #EFECE6;
   --border-focus: #28372D;
-  --focus-ring: #28372D;   /* keyboard focus outline (see the dark block) */
+  --focus-ring: #6E7C90;   /* neutral slate; NOT the brand pine (see the dark block) */
 
   /* ── Scrollbar ── */
   --scrollbar-thumb: #DED9D1;
@@ -374,7 +374,9 @@
   --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.55);
   --shadow-glass: 0 8px 24px -6px rgba(0, 0, 0, 0.50), 0 2px 6px rgba(0, 0, 0, 0.30);
   --shadow-glass-lg: 0 16px 36px -8px rgba(0, 0, 0, 0.60), 0 4px 10px rgba(0, 0, 0, 0.35);
-  --shadow-glow: 0 6px 20px -4px rgba(172, 205, 196, 0.22);
+  /* Neutral, NOT the mint. This is a light source: tinting it with the accent
+     paints a green halo on whatever it sits under (it did, on selected rows). */
+  --shadow-glow: 0 6px 20px -4px rgba(0, 0, 0, 0.35);
 
   /* ── Legacy gradient / pastel aliases (light stops are all DARK: the
      gradients would vanish entirely on dark) ── */
@@ -424,8 +426,9 @@
 :root[data-theme='dark'] .nav-item:focus-visible {
   outline-color: var(--focus-ring);
 }
-/* The active row sits on a raised surface, so its inset ring needs to be
-   lighter than the slate that works on the page background. */
+/* The active row sits on a filled surface, so its inset ring needs to be
+   lighter than the slate that works on the page background. Same neutral family
+   — never the accent: a focus ring is an affordance, not state. */
 :root[data-theme='dark'] .nav-item.active:focus-visible {
   outline-color: #A9B6C6;
 }
@@ -452,19 +455,24 @@
 /* The dark override for this row lives with the shared state treatment rather
    than here, so every "selected row" in the app resolves identically. */
 
-/* One selected-row treatment for the whole app.
-   The sidebar (library) and the concept index (Brain) are the same state, so
-   they share a fill; previously the sidebar was overridden to a neutral grey and
-   drifted from the Brain index. `--primary-fill` is the SURFACE role, which is
-   dark on dark and therefore reads as a deliberate selection rather than the
-   washed-out light pill the ink role would produce. */
+/* One selected-row treatment for the whole app, and it is NEUTRAL.
+   The library sidebar and the Brain concept index are the same state. Both use
+   a raised neutral surface, not the brand fill: the fill role is a dark spruce,
+   and against the slate sidebar it reads as a green-tinted pill — which on a
+   focused row is indistinguishable from "green on focus". A selection is shown
+   by elevation, which is also how the dock works. */
+:root[data-theme='dark'] .nav-item.active::before,
+:root[data-theme='dark'] .index-item.active {
+  background: #2B323F;
+}
+
+/* Elevation, not a glow: `--shadow-glow` is a mint-tinted bloom and painted a
+   green halo around a selected row (it is the accent re-used as light). */
 :root[data-theme='dark'] .nav-item.active::before {
-  background: var(--primary-fill);
   box-shadow: none;
 }
 :root[data-theme='dark'] .index-item.active {
-  background: var(--primary-fill);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 /* Selection follows the reference's smoked indigo. */
