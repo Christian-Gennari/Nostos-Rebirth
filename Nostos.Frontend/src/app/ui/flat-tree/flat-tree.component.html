@@ -1,4 +1,10 @@
-﻿<div class="flat-tree-container" cdkDropList [cdkDropListSortingDisabled]="true" role="tree">
+﻿<div
+  class="flat-tree-container"
+  cdkDropList
+  [cdkDropListSortingDisabled]="true"
+  role="tree"
+  [style.--chevron-slot]="hasExpandable() ? '18px' : '0px'"
+>
   @for (node of treeNodes(); track node.id) {
     <div
       class="tree-row"
@@ -29,10 +35,6 @@
         {{ node.name }}
       </div>
 
-      <div class="drag-handle" cdkDragHandle (click)="$event.stopPropagation()">
-        <lucide-icon [img]="Icons.GripVertical" [size]="14"></lucide-icon>
-      </div>
-
       <!-- The chevron slot is ALWAYS rendered so leaf rows and parent rows keep
            their icons on the same x. Previously the chevron only existed for
            expandable nodes, so every leaf row sat 18px left of its siblings. -->
@@ -52,7 +54,11 @@
         }
       </div>
 
-      <div class="type-icon">
+      <!-- The icon doubles as the drag handle, so drag-to-reparent survives
+           without spending a permanent column on a grip that is invisible
+           until you hover. Revealing it on hover looks identical to before;
+           the difference is that nothing is reserved for it at rest. -->
+      <div class="type-icon" cdkDragHandle (click)="$event.stopPropagation()" title="Drag to move">
         @if (node.type === 'Folder') {
           <!-- Three states, not two: a folder that HAS children but is collapsed
                shows FolderClosed, so it can never be mistaken for an empty one. -->

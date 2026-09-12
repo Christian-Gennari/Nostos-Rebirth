@@ -18,11 +18,21 @@
   padding-bottom: 0;
 
   --indent-step: 16px;
-  --indent-base: 8px;
-  /* From a row's content start to the CENTRE of its own folder icon:
-     drag-handle (14 + 4) + chevron slot (16 + 2) + half the 16px icon = 44px.
-     Named because the nesting guide below is positioned by it. */
-  --icon-axis: 44px;
+  /* Matches .nav-item's own padding-left (12px), so a depth-0 collection row
+     starts its content exactly where a nav row does. */
+  --indent-base: 12px;
+  /* 0px when no row in the tree is expandable (set from the template), 18px
+     otherwise = the 16px chevron slot + its 2px margin. Collapsing it away is
+     what keeps a flat list aligned with the nav rows above it: a leaf-only tree
+     has no chevrons to show, so reserving the column would push every icon 18px
+     right of the nav's. All three offsets below derive from it. */
+  --chevron-slot: 18px;
+  /* Content start -> centre of this row's own folder icon: chevron slot +
+     half the 16px icon. The nesting guide is positioned by this. */
+  --icon-axis: calc(var(--chevron-slot) + 8px);
+  /* Content start -> the name's left edge: chevron slot + 16px icon + 6px gap
+     = 28px, which lands the name level with a nav row's label. */
+  --name-offset: calc(var(--chevron-slot) + 22px);
   /* Width of the row-action overlay: 3 × 22px buttons + 2 × 2px gaps = 70px,
      plus the 6px right inset = 76px. */
   --actions-w: 76px;
@@ -97,27 +107,11 @@
   --row-ground: var(--primary-fill);
 }
 
-.drag-handle {
-  opacity: 0;
-  cursor: grab;
-  margin-right: 4px;
-  display: flex;
-  align-items: center;
-  transition: opacity 0.15s;
-  flex-shrink: 0;
-}
-
-.tree-row:hover .drag-handle {
-  opacity: 0.3;
-}
-
-.tree-row:hover .drag-handle:hover {
-  opacity: 1;
-}
-
-/* The chevron slot exists for EVERY row, expandable or not. When the chevron
-   was rendered only for expandable nodes, every leaf row sat 18px to the left
-   of its siblings and the tree looked ragged. */
+/* The chevron slot exists for EVERY row while the tree has anything
+   expandable — when the chevron was rendered only for expandable nodes, every
+   leaf row sat 18px left of its siblings. Its width is `--chevron-slot`, which
+   the container zeroes for a tree with no expandable rows at all, so a flat
+   list does not pay for a column it never uses. */
 .chevron-slot {
   display: flex;
   align-items: center;
@@ -125,6 +119,13 @@
   width: 16px;
   margin-right: 2px;
   flex-shrink: 0;
+}
+
+/* Collapsing the column has to remove the margin too, not just the 16px box —
+   `width: 0` alone would leave the 2px gap and a 2px misalignment against the
+   nav rows. */
+.flat-tree-container[style*='--chevron-slot: 0px'] .chevron-slot {
+  display: none;
 }
 
 .toggle-btn {
@@ -152,8 +153,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 6px;
+  /* 0.65rem, the same icon-to-label gap `.nav-item` uses, so the name lands on
+     the same x as a nav row's label (icon 28..44, name 54). */
+  margin-right: 0.65rem;
   flex-shrink: 0;
+  cursor: grab;
+}
+
+.type-icon:active {
+  cursor: grabbing;
 }
 
 .node-name {
@@ -437,18 +445,13 @@
   .tree-row .count-badge {
     opacity: 0;
   }
-
-  .drag-handle {
-    display: none;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .tree-row,
   .node-actions,
   .count-badge,
-  .action-mini,
-  .drag-handle {
+  .action-mini {
     transition: none;
   }
 }
