@@ -5,26 +5,24 @@
  * and have already disagreed with the pixel data twice).
  */
 import { expect, test } from '@playwright/test';
-import { apiPost, loadFixture } from './support/fixture';
+import { loadFixture } from './support/fixture';
+import { cleanupBrain, seedBrain } from './support/brain-fixture';
 import { DESKTOP_VIEWPORT, newCapturePage } from './support/visual-capture';
 
 test('map margins are symmetric and the cluster is centred', async ({ browser }) => {
   const fixture = loadFixture();
-  const book = await apiPost<{ id: string }>(fixture.baseUrl, '/api/books', {
-    type: 'physical',
-    title: `Margins ${Date.now().toString(36)}`,
-    author: 'Nostos QA',
-    categories: 'visual-qa',
-  });
-  for (const content of [
-    'On [[Attention]] and [[Memory]].',
-    'On [[Attention]] and [[Practice]].',
-    'On [[Memory]] and [[Practice]].',
-    'On [[Solitude]] and [[Attention]].',
-    'On [[Reading]] and [[Memory]].',
-  ]) {
-    await apiPost(fixture.baseUrl, `/api/books/${book.id}/notes`, { content });
-  }
+  const seed = await seedBrain(
+    fixture.baseUrl,
+    `Margins ${Date.now().toString(36)}`,
+    [
+      'On [[Attention]] and [[Memory]].',
+      'On [[Attention]] and [[Practice]].',
+      'On [[Memory]] and [[Practice]].',
+      'On [[Solitude]] and [[Attention]].',
+      'On [[Reading]] and [[Memory]].',
+    ],
+    ['Attention', 'Memory', 'Practice', 'Solitude', 'Reading']
+  );
 
   const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT);
   try {
@@ -91,5 +89,6 @@ test('map margins are symmetric and the cluster is centred', async ({ browser })
     ).toBeLessThanOrEqual(tolH);
   } finally {
     await context.close();
+    await cleanupBrain(fixture.baseUrl, seed);
   }
 });

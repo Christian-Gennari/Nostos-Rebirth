@@ -9,7 +9,8 @@
  * Also captures a screenshot so the result can be eyeballed.
  */
 import { expect, test } from '@playwright/test';
-import { apiPost, loadFixture } from './support/fixture';
+import { loadFixture } from './support/fixture';
+import { cleanupBrain, seedBrain } from './support/brain-fixture';
 import {
   capturePng,
   DESKTOP_VIEWPORT,
@@ -21,21 +22,20 @@ test('brain note cards hug their content (no hollow middle)', async ({ browser }
 
   // Seed a realistic mix: one long note, several short ones, so the grid has
   // both tall and short cards and any forced height shows up immediately.
-  const book = await apiPost<{ id: string }>(fixture.baseUrl, '/api/books', {
-    type: 'physical',
-    title: `Hollow Check ${Date.now().toString(36)}`,
-    author: 'Nostos QA',
-    categories: 'visual-qa',
-  });
-  const notes = [
-    'A very short note on [[Gapcheck]].',
-    'Another short one about [[Gapcheck]] and [[Spacing]].',
-    'A deliberately long note on [[Gapcheck]] that runs to several lines so the grid contains both a tall card and short ones, which is exactly the situation where a forced card height leaves a hollow middle in the short cards and makes the row look broken.',
-    'Short again with [[Spacing]].',
-  ];
-  for (const content of notes) {
-    await apiPost(fixture.baseUrl, `/api/books/${book.id}/notes`, { content });
-  }
+  // `seedBrain` records what already existed so `cleanupBrain` can restore the
+  // fixture: the visual matrix's empty-state test runs later against this same
+  // database and requires it to be free of concepts.
+  const seed = await seedBrain(
+    fixture.baseUrl,
+    `Hollow Check ${Date.now().toString(36)}`,
+    [
+      'A very short note on [[Gapcheck]].',
+      'Another short one about [[Gapcheck]] and [[Spacing]].',
+      'A deliberately long note on [[Gapcheck]] that runs to several lines so the grid contains both a tall card and short ones, which is exactly the situation where a forced card height leaves a hollow middle in the short cards and makes the row look broken.',
+      'Short again with [[Spacing]].',
+    ],
+    ['Gapcheck', 'Spacing']
+  );
 
   const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT);
   try {
@@ -79,5 +79,6 @@ test('brain note cards hug their content (no hollow middle)', async ({ browser }
     expect(worst, 'no note card may have a hollow middle').toBeLessThanOrEqual(28);
   } finally {
     await context.close();
+    await cleanupBrain(fixture.baseUrl, seed);
   }
 });
