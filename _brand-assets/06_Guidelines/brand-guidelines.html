@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nostos Brand Kit v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper:#FDF8F6; --forest:#293E32; --ink:#1C1B1A;
+  --clay:#A07859; --muted:#8A8680; --border:#E4E1DB;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--paper); color:var(--ink); font-family:"Hanken Grotesk",sans-serif; }
+main { max-width:1180px; margin:0 auto; padding:64px 36px 100px; }
+header { display:flex; justify-content:space-between; align-items:end; border-bottom:1px solid var(--border); padding-bottom:24px; }
+h1 { font-size:30px; font-weight:500; margin:0; letter-spacing:.06em; text-transform:uppercase; }
+header span { color:var(--muted); font-size:13px; letter-spacing:.22em; text-transform:uppercase; }
+.hero { display:grid; grid-template-columns:430px 1fr; gap:70px; padding:72px 0; align-items:center; }
+.hero img { width:100%; }
+.kicker { color:var(--clay); font-size:13px; letter-spacing:.22em; text-transform:uppercase; }
+h2 { font-family:"Newsreader",serif; font-weight:400; font-size:62px; line-height:1; margin:12px 0 24px; }
+p { color:#5C5A55; line-height:1.7; max-width:62ch; }
+.offset { display:inline-block; background:#F4EDE7; color:#6f5543; padding:7px 10px; border-radius:4px; font-weight:600; }
+.grid { display:grid; grid-template-columns:repeat(4,1fr); gap:18px; border-top:1px solid var(--border); padding-top:40px; }
+.card { background:#fff; border:1px solid var(--border); padding:24px; min-height:190px; }
+.card img { width:110px; display:block; margin:0 auto 20px; }
+.card strong { display:block; font-weight:500; }
+.card small { color:var(--muted); }
+.swatches { display:flex; gap:12px; margin-top:54px; }
+.swatch { flex:1; height:110px; padding:72px 12px 10px; font-size:12px; }
+pre { background:#fff; padding:24px; border:1px solid var(--border); overflow:auto; }
+@media(max-width:800px) { .hero{grid-template-columns:1fr} .grid{grid-template-columns:1fr 1fr} }
+</style>
+</head>
+<body>
+<main>
+<header><h1>Nostos — Brand Kit</h1><span>v1.0 / locked geometry</span></header>
+<section class="hero">
+  <img src="../01_Primary_Mark/nostos-mark-primary.svg" alt="Nostos primary mark">
+  <div>
+    <div class="kicker">Primary mark</div>
+    <h2>A threshold, and an <em>n</em>.</h2>
+    <p>The visual tension comes from one deliberate detail: the outer arch is centered, while the inner doorway is shifted <span class="offset">4.20% left</span>. That asymmetry is part of the mark—not a rendering error.</p>
+    <p>Every exported size in this package is generated from the same vector source. No favicon redraws, no alternate proportions.</p>
+  </div>
+</section>
+<section class="grid">
+  <div class="card"><img src="../01_Primary_Mark/nostos-mark-primary.svg"><strong>Primary</strong><small>Forest + paper</small></div>
+  <div class="card"><img src="../02_Color_Variants/nostos-mark-reversed.svg"><strong>Reversed</strong><small>Paper + forest</small></div>
+  <div class="card"><img src="../02_Color_Variants/nostos-mark-monochrome-dark.svg"><strong>Monochrome</strong><small>Dark knockout</small></div>
+  <div class="card" style="background:#293E32"><img src="../02_Color_Variants/nostos-mark-monochrome-light.svg"><strong style="color:white">Light knockout</strong><small style="color:#ddd">Dark surfaces</small></div>
+</section>
+<div class="swatches">
+  <div class="swatch" style="background:#FDF8F6;border:1px solid #E4E1DB">Paper<br>#FDF8F6</div>
+  <div class="swatch" style="background:#293E32;color:white">Forest<br>#293E32</div>
+  <div class="swatch" style="background:#1C1B1A;color:white">Ink<br>#1C1B1A</div>
+  <div class="swatch" style="background:#A07859;color:white">Clay<br>#A07859</div>
+</div>
+</main>
+</body>
+</html>
