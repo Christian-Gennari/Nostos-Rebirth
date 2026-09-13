@@ -5,7 +5,6 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
   LucideAngularModule,
-  MessageSquareQuote,
   Edit2,
   Trash2,
   Check,
@@ -59,7 +58,6 @@ export class NoteCardComponent {
   readonly CHAR_THRESHOLD = 250;
 
   Icons = {
-    MessageSquareQuote,
     Edit: Edit2,
     Delete: Trash2,
     Check,
@@ -73,9 +71,15 @@ export class NoteCardComponent {
   get shouldShowExpandBtn(): boolean {
     if (this.isEditing) return false;
 
-    const quoteLen = this.note.selectedText?.length || 0;
+    // A quote is the reason the note exists and is set as the card's hero, so it
+    // is never truncated: collapsing the quotation and hiding it behind "Show
+    // more" buries the very thing the reader came for. Cards carrying a quote
+    // therefore expand to fit it; only a long *commentary* collapses, and only
+    // when there is no quote competing for the space.
+    if (this.note.selectedText) return false;
+
     const contentLen = this.note.content?.length || 0;
-    return quoteLen + contentLen > this.CHAR_THRESHOLD;
+    return contentLen > this.CHAR_THRESHOLD;
   }
 
   toggleExpand(event: Event) {

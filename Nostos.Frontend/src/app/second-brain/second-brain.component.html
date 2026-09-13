@@ -217,62 +217,66 @@
       </button>
       } @if (selectedDetail(); as detail) {
       <div class="concept-header">
-        <div class="super-title">Concept</div>
-        @if (renameId() === detail.id && renameSurface() === 'header') {
-        <div class="inline-rename header-rename">
-          <input
-            #renameInput
-            type="text"
-            class="inline-rename-input"
-            [value]="renameValue()"
-            (input)="renameValue.set($any($event.target).value)"
-            (keydown.enter)="commitRename(detail.id)"
-            (keydown.escape)="cancelRename()"
-            (focus)="selectRenameInput($event)"
-            [attr.aria-label]="'Rename ' + detail.name"
-            [attr.aria-invalid]="renameError() ? 'true' : null"
-            [disabled]="renaming()"
-            autofocus
-          />
-          @if (renameError(); as error) {
-          <span class="inline-rename-error" role="alert">{{ error }}</span>
-          }
-        </div>
-        } @else {
-        <h1 class="concept-title">{{ detail.name }}</h1>
-        }
-        <div class="concept-meta">
-          Referenced in {{ detail.notes.length }} {{ detail.notes.length === 1 ? 'note' : 'notes' }}
-        </div>
+        <div class="concept-head-row">
+          <div class="concept-head-copy">
+            <div class="super-title">Concept</div>
+            @if (renameId() === detail.id && renameSurface() === 'header') {
+            <div class="inline-rename header-rename">
+              <input
+                #renameInput
+                type="text"
+                class="inline-rename-input"
+                [value]="renameValue()"
+                (input)="renameValue.set($any($event.target).value)"
+                (keydown.enter)="commitRename(detail.id)"
+                (keydown.escape)="cancelRename()"
+                (focus)="selectRenameInput($event)"
+                [attr.aria-label]="'Rename ' + detail.name"
+                [attr.aria-invalid]="renameError() ? 'true' : null"
+                [disabled]="renaming()"
+                autofocus
+              />
+              @if (renameError(); as error) {
+              <span class="inline-rename-error" role="alert">{{ error }}</span>
+              }
+            </div>
+            } @else {
+            <h1 class="concept-title">{{ detail.name }}</h1>
+            }
+            <div class="concept-meta">
+              Referenced in {{ detail.notes.length }} {{ detail.notes.length === 1 ? 'note' : 'notes' }}
+            </div>
+          </div>
 
-        <div class="concept-actions" aria-label="Manage concept">
-          <button
-            type="button"
-            class="concept-action"
-            [disabled]="renaming() || mergingConcept()"
-            (click)="startRename(detail.id, 'header')"
-          >
-            <lucide-icon [img]="RenameIcon" [size]="14"></lucide-icon>
-            <span>Rename</span>
-          </button>
-          <button
-            type="button"
-            class="concept-action"
-            [disabled]="renaming() || mergingConcept()"
-            (click)="openMergePicker()"
-          >
-            <lucide-icon [img]="MergeIcon" [size]="14"></lucide-icon>
-            <span>Merge into…</span>
-          </button>
-          <button
-            type="button"
-            class="concept-action danger"
-            [disabled]="renaming() || mergingConcept()"
-            (click)="openDeleteConcept(detail.id)"
-          >
-            <lucide-icon [img]="DeleteIcon" [size]="14"></lucide-icon>
-            <span>Delete</span>
-          </button>
+          <div class="concept-actions" aria-label="Manage concept">
+            <button
+              type="button"
+              class="concept-action"
+              [disabled]="renaming() || mergingConcept()"
+              (click)="startRename(detail.id, 'header')"
+            >
+              <lucide-icon [img]="RenameIcon" [size]="14"></lucide-icon>
+              <span>Rename</span>
+            </button>
+            <button
+              type="button"
+              class="concept-action"
+              [disabled]="renaming() || mergingConcept()"
+              (click)="openMergePicker()"
+            >
+              <lucide-icon [img]="MergeIcon" [size]="14"></lucide-icon>
+              <span>Merge into…</span>
+            </button>
+            <button
+              type="button"
+              class="concept-action danger"
+              [disabled]="renaming() || mergingConcept()"
+              (click)="openDeleteConcept(detail.id)"
+            >
+              <lucide-icon [img]="DeleteIcon" [size]="14"></lucide-icon>
+              <span>Delete</span>
+            </button>
+          </div>
         </div>
 
         @if (mergePickerOpen()) {

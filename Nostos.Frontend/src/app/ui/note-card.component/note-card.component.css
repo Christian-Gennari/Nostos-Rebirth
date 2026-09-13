@@ -52,37 +52,37 @@
   text-decoration: underline;
 }
 
-/* --- Quote Block --- */
+/* --- Quote Block -----------------------------------------------------------
+   The quote is the reason a quote-note exists, so it is the hero of the card,
+   not a small tinted box competing with chrome for attention. Matches the
+   original Second Brain presentation: an accent rule on the left, generous
+   italic serif at a larger size than the commentary, and no box, icon, or fill
+   around it — those read as decoration and made the card look busy. */
 .note-quote {
-  display: flex;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-  padding: 0.5rem 0.75rem;
-  background-color: var(--bg-hover);
-  border-radius: var(--radius-sm, 4px);
-}
-
-.quote-stripe {
-  width: 3px;
-  background-color: var(--color-text-light);
-  border-radius: 1px;
-  flex-shrink: 0;
-}
-
-.quote-icon {
-  color: var(--color-text-light);
-  margin-top: 2px;
-  flex-shrink: 0;
+  position: relative;
+  margin: 0 0 0.9rem 0;
+  padding: 0.15rem 0 0.15rem 1.15rem;
+  border-left: 3px solid var(--color-accent);
+  background: transparent;
 }
 
 .quote-text {
   font-family: 'Newsreader', serif;
-  text-wrap: wrap;
+  text-wrap: pretty;
   font-style: italic;
   color: var(--color-text-main);
-  font-size: 0.95rem;
+  font-size: 1.12rem;
+  line-height: 1.6;
   margin: 0;
-  line-height: 1.5;
+  letter-spacing: 0.004em;
+}
+
+/* When a quote is present the commentary is subordinate to it: the eye should
+   land on the quotation first, exactly as it does in print. */
+.note-quote ~ .note-text {
+  color: var(--color-text-muted);
+  font-size: 0.94rem;
+  line-height: 1.6;
 }
 
 /* --- Content Block --- */

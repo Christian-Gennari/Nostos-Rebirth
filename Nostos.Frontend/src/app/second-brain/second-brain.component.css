@@ -16,7 +16,7 @@
 /* --- LEFT COLUMN: INDEX --- */
 .index-col {
   background: var(--bg-surface);
-  border-right: 1px solid var(--color-text-light);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -64,12 +64,17 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-text-light);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
   background: var(--bg-input);
   padding: 0.5rem 0.75rem;
   color: var(--color-text-muted);
   margin: 0;
+  transition: border-color 0.15s ease;
+}
+
+.search-box:hover {
+  border-color: var(--color-primary-dim);
 }
 
 .search-box:focus-within {
@@ -200,8 +205,8 @@
   min-width: 0;
   height: 36px;
   padding: 0 1.75rem 0 0.6rem;
-  border: 1px solid var(--color-text-light);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
   background-color: var(--bg-input);
   background-image: none !important;
   color: var(--color-text-muted);
@@ -352,14 +357,17 @@
 }
 
 /* --- COUNT BADGES (shared) --- */
+/* Counts are quiet editorial numerals, not notification bubbles. A filled pill
+   on every row read as an alert badge and pulled the eye away from the names. */
 .index-header .badge-count,
 .index-item .count {
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 500;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.76rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -368,8 +376,8 @@
 }
 
 .index-header .badge-count {
-  background: var(--bg-hover);
-  color: var(--color-text-muted);
+  background: transparent;
+  color: var(--color-text-light);
 }
 
 .index-item .count {
@@ -378,15 +386,15 @@
   right: 0;
   margin-left: auto;
   transform: translateY(-50%);
-  background: var(--bg-hover);
-  color: var(--color-text-muted);
+  background: transparent;
+  color: var(--color-text-light);
 }
 
 .index-item.active .count {
   /* Was a hardcoded white chip. Driven from the on-fill foreground so it tracks
      whatever the active row's fill resolves to in either theme. */
-  background: color-mix(in srgb, var(--on-primary) 22%, transparent);
-  color: var(--on-primary);
+  background: transparent;
+  color: color-mix(in srgb, var(--on-primary) 72%, transparent);
 }
 
 .row-actions {
@@ -485,7 +493,7 @@
 .empty-clear {
   min-height: 36px;
   padding: 0.45rem 0.7rem;
-  border: 1px solid var(--color-text-light);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-main);
@@ -523,9 +531,10 @@
   padding: 3rem;
   /* Dock clearance: keep floating dock from ever covering content */
   padding-bottom: 8.5rem;
-  background-image: radial-gradient(var(--border-color) 1px, transparent 1px);
-  background-size: 24px 24px;
-  background-color: transparent;
+  /* No background pattern: the manifesto asks for a warm paper surface, and the
+     dot grid read as graph paper (a design-tool texture) rather than a page.
+     The reading surfaces in this app are plain; the Brain should match. */
+  background: transparent;
 }
 
 /* --- MAP view: the map occupies the main stage --------------------------- */
@@ -561,7 +570,7 @@
   flex-shrink: 0;
   min-height: 36px;
   padding: 0.4rem 0.9rem;
-  border: 1px solid var(--color-text-light);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   background: var(--bg-surface);
   color: var(--color-text-main);
@@ -602,59 +611,76 @@
    on every `.note-card` (with `forwards` fill pinning the final opacity), so
    each index click replayed a blur-and-rise across the whole pane. The pane now
    simply swaps its content in place. */
+/* The concept header is editorial, not a marketing hero: the title anchors the
+   left edge like a chapter opening, its actions sit quietly opposite it, and the
+   title's own baseline does the work instead of a stack of centred blocks. */
 .concept-header {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
   max-width: 1100px;
   margin-left: auto;
   margin-right: auto;
-  text-align: center;
+}
+
+.concept-head-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
 }
 
 .super-title {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-muted);
-  margin-bottom: 0.25rem;
+  letter-spacing: 0.14em;
+  color: var(--color-text-light);
+  margin-bottom: 0.4rem;
 }
 
 .concept-title {
   font-family: 'Newsreader', serif;
-  font-size: 2.2rem;
-  font-weight: 600;
+  font-size: 2.4rem;
+  font-weight: 500;
   color: var(--color-text-main);
-  line-height: 1.2;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
   margin: 0 0 0.35rem 0;
 }
 
+/* Metadata reads as a quiet editorial caption, not a dashboard stat. */
 .concept-meta {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  color: var(--color-text-light);
 }
 
+/* Actions are quiet until needed: no border at rest, so the header is type and
+   air rather than three competing boxes. The hairline and fill arrive on hover,
+   which keeps the destructive action from carrying the same weight as the rest. */
 .concept-actions {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: 0.85rem;
+  gap: 0.15rem;
+  flex-shrink: 0;
+  /* Optically align with the title's cap height rather than its box top. */
+  margin-top: 1.35rem;
 }
 
 .concept-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
-  min-height: 36px;
-  padding: 0 0.7rem;
-  border: 1px solid var(--color-text-light);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
-  color: var(--color-text-muted);
+  gap: 0.32rem;
+  min-height: 32px;
+  padding: 0 0.6rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-light);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.76rem;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .concept-action:hover:not(:disabled) {
@@ -663,6 +689,7 @@
 }
 
 .concept-action.danger:hover:not(:disabled) {
+  background: var(--danger-surface);
   color: var(--color-danger);
 }
 
@@ -733,7 +760,7 @@
   width: min(100%, 520px);
   margin: 1rem auto 0;
   padding: 0.85rem;
-  border: 1px solid var(--color-text-light);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   background: var(--bg-surface);
   box-shadow: var(--shadow-sm);
@@ -775,7 +802,7 @@
   gap: 0.45rem;
   min-height: 40px;
   padding: 0 0.65rem;
-  border: 1px solid var(--color-text-light);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   background: var(--bg-input);
   color: var(--color-text-muted);
@@ -825,7 +852,7 @@
 
 .merge-target:hover,
 .merge-target.selected {
-  border-color: var(--color-text-light);
+  border-color: var(--color-primary-dim);
   background: var(--bg-hover);
   color: var(--color-text-main);
 }
@@ -885,23 +912,27 @@
   border-color: var(--color-primary-hover);
 }
 
+/* Connected concepts read as an inline editorial line, not a row of clickable
+   pill buttons. Each name is a quiet link in the accent ink; the count recedes
+   into the text. This is the single biggest "cartoonish" offender — outlined
+   pills everywhere made the page look like a dashboard of tags. */
 .related-row {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: baseline;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 1.25rem;
+  gap: 0.35rem 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
   min-height: 30px;
-  text-align: left;
 }
 
 .related-label,
 .detail-tool-label {
-  color: var(--color-text-muted);
-  font-size: 0.68rem;
+  color: var(--color-text-light);
+  font-size: 0.66rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -910,58 +941,63 @@
 }
 
 .related-empty {
-  color: var(--color-text-muted);
-  font-size: 0.78rem;
+  color: var(--color-text-light);
+  font-size: 0.8rem;
   font-style: italic;
 }
 
 .related-list {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: baseline;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.15rem 0.9rem;
 }
 
 .related-chip,
 .related-more {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.2rem;
-  height: 30px;
-  max-width: 220px;
-  padding: 0 0.65rem;
-  border: 1px solid var(--color-text-light);
-  border-radius: 999px;
-  background: var(--bg-surface);
-  color: var(--color-text-muted);
+  align-items: baseline;
+  gap: 0.28rem;
+  height: auto;
+  max-width: 260px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text-main);
   cursor: pointer;
   font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.76rem;
+  font-size: 0.84rem;
   white-space: nowrap;
+  border-bottom: 1px solid transparent;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .related-chip:hover,
 .related-more:hover {
-  background: var(--bg-hover);
-  color: var(--color-text-main);
+  background: transparent;
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent-faint);
 }
 
 .related-chip:focus-visible,
 .related-more:focus-visible {
   outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .related-chip-name {
-  max-width: 18ch;
+  max-width: 22ch;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .related-chip-count {
-  color: var(--color-text-muted);
+  color: var(--color-text-light);
+  font-size: 0.76rem;
   flex-shrink: 0;
 }
 
@@ -994,16 +1030,22 @@
   display: flex;
   align-items: center;
   min-height: 38px;
-  border: 1px solid var(--color-text-light);
+  border: 1px solid var(--border-color);
   background: var(--bg-input);
   color: var(--color-text-muted);
+  transition: border-color 0.15s ease;
+}
+
+.note-search-box:hover,
+.detail-select-wrap:hover {
+  border-color: var(--color-primary-dim);
 }
 
 .note-search-box {
   flex: 1 1 220px;
   gap: 0.5rem;
   padding: 0 0.65rem;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
 }
 
 .note-search-box:focus-within {
@@ -1093,9 +1135,9 @@
 /* GRID */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  align-items: stretch;
-  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  align-items: start;
+  gap: 1.25rem 1.5rem;
   max-width: 1100px;
   margin: 0 auto;
 }
@@ -1113,8 +1155,21 @@
   transition: transform var(--motion-fast) var(--ease-out);
 }
 
+/* A card carrying a quote takes the full row. A quotation set in a 300px column
+   wraps every 3-4 words, which reads as cramped rather than quoted; giving the
+   quote the whole measure is what turns it from an excerpt into a pull-quote. */
+.note-card:has(app-note-card .note-quote) {
+  grid-column: 1 / -1;
+}
+
 .note-card:hover {
   transform: translateY(-2px);
+}
+
+/* The pull-quote is the editorial moment of the page, so it takes a wider
+   measure than the commentary inside the same card. */
+:host ::ng-deep app-note-card .note-quote .quote-text {
+  max-width: 62ch;
 }
 
 /* The shared note card owns editing, concept input and source navigation. The
@@ -1130,18 +1185,26 @@
   display: flex;
   height: 100%;
   flex-direction: column;
-  padding: 1.25rem;
-  border: 1px solid var(--color-text-light);
-  border-bottom: 1px solid var(--color-text-light);
+  padding: 1.4rem 1.4rem 1.1rem;
+  /* Hairline border, not the secondary-TEXT colour. Using --color-text-light as
+     a border drew a dark 1px box around every card, which is what made the grid
+     look heavy and boxy next to the Library's quiet surfaces. */
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   background: var(--bg-surface);
-  box-shadow: var(--shadow-sm);
-  transition: none;
+  /* No resting shadow: the Library relies on border + spacing, and a shadow on
+     every card plus a border reads as a floating dashboard widget. Depth is
+     reserved for hover, where it marks the one card under the pointer. */
+  box-shadow: none;
+  transition:
+    border-color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out);
 }
 
 :host ::ng-deep app-note-card .note-card-container:hover {
   background: var(--bg-surface);
-  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary-dim);
+  box-shadow: var(--shadow-sm);
 }
 
 :host ::ng-deep app-note-card .content-row {
@@ -1232,7 +1295,10 @@
   line-height: 1.5;
 }
 
-/* LANDING STATE */
+/* LANDING STATE
+   No gradient disc or drop shadow: an empty page should look like a blank page,
+   not a splash screen. The mark is a quiet hairline ring and the copy does the
+   work — which is how the Library's empty states behave. */
 .landing-state {
   height: 100%;
   display: flex;
@@ -1244,24 +1310,25 @@
 }
 
 .icon-circle {
-  width: 72px;
-  height: 72px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
-  background: var(--gradient-pastel-soft);
-  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color);
+  background: transparent;
+  box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-muted);
-  margin-bottom: 1.25rem;
+  color: var(--color-text-light);
+  margin-bottom: 1.5rem;
 }
 
 .landing-state h2 {
   font-family: 'Newsreader', serif;
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--color-text-main);
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.6rem;
 }
 
 .landing-state p {
@@ -1425,7 +1492,7 @@
     width: 100%;
     padding-bottom: 1rem; /* Vertical breathing room */
     margin-bottom: 1.5rem;
-    border-bottom: 1px solid var(--color-text-light); /* Subtle divider */
+    border-bottom: 1px solid var(--border-color); /* Subtle divider */
 
     /* Typography & Color - Matches .btn-back */
     color: var(--color-text-muted);
