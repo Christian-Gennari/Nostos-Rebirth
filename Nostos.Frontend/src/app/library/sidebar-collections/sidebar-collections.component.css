@@ -261,14 +261,19 @@
 }
 
 .nav-item.active {
-  color: var(--on-primary);
+  color: var(--selection-ink);
 }
 
 .nav-item.active::before {
-  /* `--primary-fill` (not `--color-primary`): the pill is a SURFACE, so it must
-     follow the fill role. The ink role is a light colour on dark and would make
-     this a washed-out light pill. */
-  background: var(--primary-fill);
+  /* `--selection-surface`, not `--color-primary`: the pill is a SURFACE and it
+     is a SELECTION, so it follows the selection role — forest with white ink in
+     light, raised neutral slate with porcelain in dark. The ink role is a light
+     colour on dark and would make this a washed-out light pill; `--primary-fill`
+     is the dark spruce and reads as green against the slate sidebar. This token
+     is the single owner of the app's selection treatment, shared with the Brain
+     concept index, and consuming it here means no global dark override has to
+     out-specify this rule. */
+  background: var(--selection-surface);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 

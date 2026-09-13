@@ -14,7 +14,8 @@
     "check:css": "node scripts/check-css-integrity.mjs",
     "check": "npm run check:css && npm run check:theme",
     "capture:baseline": "node scripts/capture-baseline.mjs",
-    "check:sentinel": "node scripts/check-sentinel.mjs"
+    "check:freshness": "node scripts/check-freshness.mjs",
+    "probe:selection": "node scripts/probe-selection.mjs"
   },
   "prettier": {
     "printWidth": 100,

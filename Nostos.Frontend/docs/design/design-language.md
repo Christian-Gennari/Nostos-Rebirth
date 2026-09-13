@@ -105,7 +105,7 @@ list.**
 
 ### A global dark override racing an Angular-encapsulated component rule
 The dark theme is implemented in two halves: tokens in the `:root[data-theme]`
-block, and ~30 explicit override selectors for things tokens cannot express. The
+block, and explicit override selectors for things tokens cannot express. The
 overrides have to out-specify the component rule, and Angular rewrites a
 component selector to add `[_ngcontent]`, which raises its specificity.
 
@@ -113,11 +113,24 @@ When the two land on the **same** specificity, the component wins on source
 order (Angular appends component styles after `styles.css`). The failure is
 invisible in review, does not error, and only manifests in one theme.
 
-This has happened twice — `.book-grid .book-card:hover .cover-wrapper` and
+This happened twice — `.book-grid .book-card:hover .cover-wrapper` and
 `.index-list .index-row-shell:focus-within .index-item.active` — and both were
-fixed by naming an *enclosing* class purely to climb the ladder. **Prefer a
-token the component consumes over a specificity override.** A token re-declared
-on `:root` is specificity `(0,1,0)` and cannot race anything.
+fixed by naming an *enclosing* class purely to climb the ladder.
+
+**Prefer a token the component consumes over a specificity override.** A token
+re-declared on `:root` is specificity `(0,1,0)` and cannot race anything.
+
+Worked example — the selected-row fill. It has exactly two consumers
+(`.index-item.active` in the Brain index, `.nav-item.active::before` in the
+Library sidebar); every other `--primary-fill` use is a button, CTA or badge
+that is bright in both themes. Because both are *selection* states they must
+resolve identically, so the value lives on **`--selection-surface`**
+(`#28372D` forest with white ink in light, `#2B323F` raised slate with porcelain
+in dark) and the two component rules read it directly. The four-selector global
+override and its `.index-list` specificity padding are gone — the whole race is
+structurally removed rather than won. Verify with `npm run probe:selection`,
+which drives rest/hover/focus in both themes, because **this defect does not
+appear at rest**.
 
 ### A component token invisible to the token guard
 `check-theme-tokens.mjs` used to read only `styles.css`. The TinyMCE editor
@@ -135,10 +148,23 @@ using it as a foreground.** A name promises a role, not a hue.
 ### Measuring a stale build
 An audit session measured a bundle that predated a merge to `main`; every
 number it produced described the old code. `scripts/capture-baseline.mjs` now
-records a build fingerprint and **fails** if a sentinel selector is missing, and
-`scripts/check-sentinel.mjs` proves that sentinel can go false. Before
-interpreting any live number, confirm the served bundle is the code you think
-it is.
+checks freshness on every run and **fails** if the served stylesheet is not the
+newest build, or if the build is older than the newest source file.
+
+Prefer a **content/mtime** freshness check to a hard-coded sentinel **selector**.
+The first version of this guard asserted the served sheet contained
+`index-list .index-row-shell` (the specificity fix from #94) — and that marker
+was legitimately refactored away one phase later, so the guard failed on a
+correct build. A marker that names something the work is trying to delete will
+rot on schedule. `npm run check:freshness` proves the current check fails in
+both directions.
+
+### A flaky screenshot is not a regression
+`library-desktop-light` differs on roughly one run in three *with identical
+code* (measured: unstable between two consecutive runs of the same build, then
+byte-identical to baseline on the next two). Before reading any pixel delta as
+your change, re-run and compare two captures of the **same code** — otherwise a
+capture artifact gets reported as a regression.
 
 ---
 
@@ -164,8 +190,9 @@ Documented so the next reader does not "fix" it:
 
 ```bash
 npm run check              # css integrity + theme graph (incl. .ts theme modules)
-npm run capture:baseline   # 20 PNGs + painted-value JSON + build fingerprint
-npm run check:sentinel     # proves the build sentinel can go false
+npm run capture:baseline   # 20 PNGs + painted-value JSON + build freshness check
+npm run check:freshness    # proves the freshness check fails in both directions
+npm run probe:selection    # rest/hover/focus of a selected row, both themes
 ```
 
 A CSS refactor compiles perfectly while changing every surface, so **the build

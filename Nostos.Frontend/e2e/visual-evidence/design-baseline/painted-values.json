@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-09-13T16:02:58.358Z",
+ "generatedAt": "2026-09-13T16:24:35.947Z",
  "base": "http://127.0.0.1:5214",
  "captures": [
   {
@@ -5431,11 +5431,10 @@
   "html": "http://127.0.0.1:5214/",
   "sheets": [
    {
-    "href": "styles-OOUH22C2.css",
-    "bytes": 29740,
-    "hash": "9c0c9433"
+    "href": "styles-746QQMMO.css",
+    "bytes": 27974,
+    "hash": "4db27ad2"
    }
-  ],
-  "sentinel_darkIndexRow": true
+  ]
  }
 }

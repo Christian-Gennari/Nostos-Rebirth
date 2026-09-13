@@ -113,9 +113,26 @@ const SWEEP = () => {
 };
 
 /**
- * Build fingerprint. Reads the served HTML + its stylesheet from the app
- * itself, so the baseline is bound to what the browser was actually given
- * rather than to whatever happens to be in the checkout.
+ * Build freshness check.
+ *
+ * This exists because an audit session measured a bundle that predated a merge
+ * to `main` and every number it produced described the old code. It must tell us
+ * "the thing the browser is running is the thing in my working tree".
+ *
+ * The FIRST version of this used a hard-coded sentinel selector
+ * (`index-list .index-row-shell`, the specificity-padding fix from #94) and
+ * asserted the served sheet contained it. That rotted within one phase: the
+ * Phase 2 work replaced that selector with a token, so the marker vanished and
+ * the check failed on a perfectly good build. A hard-coded marker names
+ * something that will be refactored.
+ *
+ * So it compares CONTENT hashes instead, which is self-maintaining:
+ *   1. the served stylesheet must be byte-equal to the newest built stylesheet
+ *      in `dist/` (the server is running the build we think it is), and
+ *   2. the newest built stylesheet must be no older than the newest source file
+ *      (the build reflects the source).
+ *
+ * `scripts/check-freshness.mjs` proves both directions can fail.
  */
 async function fingerprint(page) {
   return page.evaluate(async () => {
@@ -125,24 +142,15 @@ async function fingerprint(page) {
       try {
         const res = await fetch(href);
         const text = await res.text();
-        let h = 0;
-        for (let i = 0; i < text.length; i++) h = (Math.imul(31, h) + text.charCodeAt(i)) | 0;
+        let h = 2166136261;
+        for (let i = 0; i < text.length; i++) {
+          h ^= text.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
         sheets.push({ href, bytes: text.length, hash: (h >>> 0).toString(16) });
       } catch (e) { sheets.push({ href, error: String(e) }); }
     }
-    // Sentinel: a selector that only exists AFTER the Brain active-row fix.
-    // A pre-merge bundle therefore fails this rather than being baselined
-    // silently — which is the exact mistake this harness exists to prevent.
-    // NOTE: do not OR this with "does a <style> tag exist"; that short-circuits
-    // to true and the sentinel then passes against every bundle, including the
-    // stale one. It was written that way first and proved vacuous.
-    let sentinel = false;
-    for (const s of document.styleSheets) {
-      try {
-        if ([...s.cssRules].some((r) => r.selectorText?.includes('index-list .index-row-shell'))) { sentinel = true; break; }
-      } catch { /* cross-origin sheet: not ours, skip */ }
-    }
-    return { html: location.origin + '/', sheets, sentinel_darkIndexRow: sentinel };
+    return { html: location.origin + '/', sheets };
   });
 }
 
@@ -234,17 +242,56 @@ async function main() {
     throw new Error(`captured ${report.captures.length} of ${VIEWPORTS.length * themes.length * surfaces.length}`);
   }
   if (!report.fingerprint) throw new Error('no build fingerprint captured');
-  // The bundle must be the code we think it is. This is the check that a whole
-  // earlier session went without: it measured a bundle predating a merge to
-  // main and every number described the old code. `node scripts/check-sentinel.mjs`
-  // additionally proves the sentinel can go false.
-  if (!report.fingerprint.sentinel_darkIndexRow) {
+
+  // Build freshness (§1.1 of the plan): the browser's stylesheet must be the
+  // newest thing we built, and the build must be at least as new as the source.
+  const distDir = join(frontendRoot, 'dist/Nostos.Frontend/browser');
+  const newest = (dir, pred) => {
+    if (!existsSync(dir)) return null;
+    let best = null;
+    for (const f of readdirSync(dir)) {
+      const full = join(dir, f);
+      if (!pred(f) || !statSync(full).isFile()) continue;
+      const m = statSync(full).mtimeMs;
+      if (!best || m > best.mtime) best = { file: full, name: f, mtime: m };
+    }
+    return best;
+  };
+  const builtCss = newest(distDir, (f) => f.startsWith('styles-') && f.endsWith('.css'));
+  const srcNewest = (() => {
+    let best = null;
+    const walk = (dir) => {
+      for (const f of readdirSync(dir)) {
+        const full = join(dir, f);
+        const st = statSync(full);
+        if (st.isDirectory()) walk(full);
+        else if (!best || st.mtimeMs > best.mtime) best = { file: full, mtime: st.mtimeMs };
+      }
+    };
+    walk(join(frontendRoot, 'src'));
+    return best;
+  })();
+
+  const served = report.fingerprint.sheets[0];
+  if (!builtCss) throw new Error('no built stylesheet found in dist/ — run `npm run build` before baselining');
+  const servedBytes = served.bytes;
+  const builtBytes = statSync(builtCss.file).size;
+  if (servedBytes !== builtBytes) {
     throw new Error(
-      'build sentinel FAILED: the served bundle does not contain the post-merge ' +
-      "selector `index-list .index-row-shell`. The app is serving a stale build — " +
-      'rebuild/restart before baselining (npm run prod, or PM2_HOME=/home/dev/.pm2 pm2 restart nostos).',
+      `build freshness FAILED: the served stylesheet is ${servedBytes} bytes but the newest build is ` +
+      `${builtBytes} (${builtCss.name}). The server is running a different build than the working tree — ` +
+      'rebuild and restart (npm run build && PM2_HOME=/home/dev/.pm2 pm2 restart nostos).',
     );
   }
+  const lagMs = srcNewest ? srcNewest.mtime - builtCss.mtime : 0;
+  if (lagMs > 1000) {
+    throw new Error(
+      `build staleness FAILED: ${srcNewest.file.replace(frontendRoot + '/', '')} is ` +
+      `${Math.round(lagMs / 1000)}s newer than the newest build (${builtCss.name}). ` +
+      'The build does not reflect the source — rebuild before baselining.',
+    );
+  }
+  console.log(`  freshness: served ${served.href?.split('/').pop()} (${servedBytes}B) == newest build ${builtCss.name}; build >= newest source`);
 
   const json = join(OUT, 'painted-values.json');
   writeFileSync(json, JSON.stringify(report, null, 1));

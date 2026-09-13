@@ -33,6 +33,30 @@
   --primary-fill: #28372D;  /* button/pill surfaces — background */
   --on-primary: #FFFFFF;    /* text sitting ON a primary fill */
 
+  /* ── Selection surface ──
+     The ONE owner of "this row is selected" across the app. Two consumers:
+     `.index-item.active` (Brain concept index) and `.nav-item.active::before`
+     (Library sidebar). Both are selection states, so they must resolve
+     identically — and they are the only two sites; every other `--primary-fill`
+     use in the codebase is a button, CTA, badge or active tool state that is
+     bright in BOTH themes, not a selection.
+
+     On dark this is a raised neutral slate rather than `--primary-fill`: the
+     fill role is a dark spruce, and spruce against the slate sidebar reads as a
+     green-tinted pill — indistinguishable from "green on focus". Selection is
+     shown by elevation, which is also how the dock works.
+
+     These were previously global `:root[data-theme='dark']` OVERRIDES, which had
+     to out-specify the component rule that sets the fill. Angular rewrites a
+     component selector to add `[_ngcontent]`, raising its specificity, so the
+     override had to be padded with an extra ancestor class to win — and when the
+     two landed on equal specificity the component won on source order. That is
+     exactly the defect fixed by hand in #94 (`.index-list` added purely to climb
+     the ladder). As a token re-declared on `:root`, the value is (`0,1,0`) and
+     cannot race anything: the override selectors below are gone. */
+  --selection-surface: #28372D;
+  --selection-ink: #FFFFFF;
+
   /* ── Brand mark (kit v1) ──
      The mark is a solid rounded TILE with the arch knocked out of it, so these
      two tokens are: shape = the tile fill, doorway = the arch fill.
@@ -414,6 +438,19 @@
   /* ── Restrained secondary (container tint only — 1.92:1 as text) ── */
   --color-secondary: #3A4556;
 
+  /* ── Selection surface ──
+     Raised neutral slate, NOT `--primary-fill`. The component rules set
+     `--primary-fill` (`#2D4B44`, dark spruce) and a global override repainted it
+     to `#2B323F`; spruce against the slate sidebar reads as a green-tinted pill,
+     indistinguishable from "green on focus". This token pins the corrected value
+     so the component rules can set a selection with no global override existing
+     at all — see the light-block note for why that matters (the specificity race
+     that #94 had to patch by hand). Value is exactly what the selection already
+     resolved to on dark, so nothing moves. */
+  --selection-surface: #2B323F;
+  /* Porcelain, matching light's white-on-forest structure. */
+  --selection-ink: #F0F2F5;
+
   /* ── Danger / success / highlight ──
      Warm brick, not the M3 default pink. #FFB4AB is a *light* red: it works as
      ink on dark but turns the danger FILL pale, and the fill's text is porcelain
@@ -525,16 +562,19 @@
 /* ══ DARK-ONLY RULES ═══════════════════════════════════════════════════
    Things tokens alone cannot express. */
 
-/* Headings stay PORCELAIN. The brand accent is an accent: the reference screen
-   uses its bright ink ~70 times for titles and the accent ~15 times, never on a
-   heading. Mint titles also read as a *state*, because mint means "active"
-   elsewhere. */
-:root[data-theme='dark'] h1,
-:root[data-theme='dark'] h2,
-:root[data-theme='dark'] h3,
-:root[data-theme='dark'] h4 {
-  color: var(--color-text-main);
-}
+/* Headings: no override needed, and there used to be one.
+   The rule here was `:root[data-theme='dark'] h1..h4 { color: var(--color-text-main) }`
+   for four selectors at (0,2,0). It was a genuine no-op: the base rule in this
+   sheet is `h1..h4 { color: var(--primary-ink) }`, and on dark
+   `--primary-ink` IS `var(--color-text-main)` — both resolve to #EDEEF2. The
+   override restated the value it was trying to change.
+
+   It was presumably written when --primary-ink held the mint and headings needed
+   rescuing to porcelain; once the token was corrected the override became dead
+   weight. Measured, deleting it moves no pixel in either theme (the value is
+   identical), which is why it is gone rather than left as harmless-looking
+   noise: an override that does nothing teaches the next reader that headings
+   need one. */
 
 /* Control-focus ring. NOT the mint ink — a mint focus ring reads as a brand
    accent and, on an accent-coloured control, disappears into it. Muted slate
@@ -572,31 +612,24 @@
 /* The dark override for this row lives with the shared state treatment rather
    than here, so every "selected row" in the app resolves identically. */
 
-/* One selected-row treatment for the whole app, and it is NEUTRAL.
-   The library sidebar and the Brain concept index are the same state. Both use
-   a raised neutral surface, not the brand fill: the fill role is a dark spruce,
-   and against the slate sidebar it reads as a green-tinted pill — which on a
-   focused row is indistinguishable from "green on focus". A selection is shown
-   by elevation, which is also how the dock works.
+/* ── Selected rows: now a TOKEN, not an override ──
+   This used to be a four-selector global override with `background: #2B323F`,
+   padded with an extra ancestor class purely to out-specify Angular's rewritten
+   component rule. That whole class of defect is gone: the value now lives on
+   `--selection-surface`, the two component rules consume it directly, and no
+   global rule has to win a specificity race at all.
 
-   The Brain's hover/focus variants are listed explicitly, because its own
-   component rule pairs the bare selector with `:hover` and `:focus-within`
-   variants. Scoped by Angular, those variants are
-   `.index-row-shell[_ngcontent]:focus-within .index-item.active[_ngcontent]`,
-   which is (0,6,0) — exactly what `:root[data-theme='dark']` + the two
-   variants resolves to, so the two TIE and the component wins on source order
-   (Angular appends component styles to <head> after this sheet). Measured on
-   dark: rest #2B323F, but hover AND focus-within #2D4B44 (green).
-   Naming the enclosing `.index-list` takes these selectors to (0,7,0), one
-   class above the component rule, so they win on specificity alone — no
-   `!important`, and the bare `.active` case (0,4,0 vs the component's 0,3,0)
-   keeps working as before. */
-:root[data-theme='dark'] .nav-item.active::before,
-:root[data-theme='dark'] .index-item.active,
-:root[data-theme='dark'] .index-list .index-row-shell:hover .index-item.active,
-:root[data-theme='dark'] .index-list .index-row-shell:focus-within .index-item.active {
-  background: #2B323F;
-}
+   What the selectors above used to fight over is recorded here because it is
+   the reason the token exists: the Brain's variants scoped to
+   `.index-row-shell[_ngcontent]:focus-within .index-item.active[_ngcontent]`
+   = (0,6,0), which TIED with `:root[data-theme='dark']` + the two variants, so
+   the component won on source order (Angular appends component styles after
+   this sheet). Measured on dark: rest #2B323F, but hover AND focus-within
+   #2D4B44 (the spruce green the user reported). A token cannot lose that race.
+
+   The two component rules that own the state:
+     second-brain.component.css  .index-item.active / :hover / :focus-within
+     sidebar-collections         .nav-item.active::before */
 
 /* Elevation, not a glow: `--shadow-glow` is a mint-tinted bloom and painted a
    green halo around a selected row (it is the accent re-used as light). */

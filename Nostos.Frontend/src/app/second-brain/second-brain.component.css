@@ -372,12 +372,22 @@
 
 /* Selection outranks hover, and must survive it: a selected row stays filled
    while the pointer is over it. Declared after the hover rule and with the
-   extra class, so it wins on both order and specificity. */
+   extra class, so it wins on both order and specificity.
+
+   The fill is `--selection-surface`, which owns the value in BOTH themes
+   (`#28372D` forest with white ink in light, raised slate `#2B323F` with
+   porcelain in dark). It used to be `--primary-fill`, which is the dark spruce
+   on dark and therefore read as a green pill; a global override repainted it,
+   and because Angular rewrites the three variant selectors below to add
+   `[_ngcontent]`, that override kept tying on specificity and only won by being
+   padded with an ancestor class (the fix in #94). Consuming the token removes
+   the race entirely — the component owns the state and there is no global rule
+   left to fight. */
 .index-item.active,
 .index-row-shell:hover .index-item.active,
 .index-row-shell:focus-within .index-item.active {
-  background: var(--primary-fill);
-  color: var(--on-primary);
+  background: var(--selection-surface);
+  color: var(--selection-ink);
   font-weight: var(--fw-medium);
 }
 
