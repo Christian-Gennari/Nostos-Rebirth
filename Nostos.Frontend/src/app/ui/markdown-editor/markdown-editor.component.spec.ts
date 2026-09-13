@@ -88,6 +88,12 @@ describe('MarkdownEditorComponent', () => {
     (editor as unknown as { _fire: (e: string) => void })._fire?.(event);
   }
 
+  /** All component CSS injected by Angular (emulated encapsulation). */
+  const componentCss = (): string =>
+    Array.from(document.querySelectorAll('style'))
+      .map((s) => s.textContent ?? '')
+      .join('\n');
+
   beforeEach(async () => {
     localStorage.clear();
     installTinyMceMock();
@@ -167,5 +173,20 @@ describe('MarkdownEditorComponent', () => {
     fixture.destroy();
     expect(removedEditors).toHaveLength(1);
     expect(removedEditors[0]).toBe(editors[0]);
+  });
+
+  it('kills Oxide focus rings, including the ::before pseudo-element ring', () => {
+    // Regression: Oxide paints the blue focus rectangle on
+    // .tox .tox-edit-area::before (2px solid #006ce7, opacity raised by
+    // .tox.tox-edit-focus). Resetting border/outline on .tox-edit-area and the
+    // iframe left the pseudo-element untouched, so the blue border stayed
+    // visible whenever the editor had focus.
+    const css = componentCss();
+
+    expect(css).toContain('.tox .tox-edit-area::before');
+    const ring = css.slice(css.indexOf('.tox .tox-edit-area::before'));
+    expect(ring).toContain('opacity: 0 !important');
+    // The reset must target the pseudo-element, not merely the element.
+    expect(css).toContain('.tox .tox-edit-area__iframe');
   });
 });
