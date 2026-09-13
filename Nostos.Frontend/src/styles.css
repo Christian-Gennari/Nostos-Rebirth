@@ -1164,8 +1164,8 @@ button {
 
   cursor: pointer;
   background: var(--bg-surface);
-  width: 32px;
-  height: 32px;
+  width: var(--control-h-md);
+  height: var(--control-h-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;

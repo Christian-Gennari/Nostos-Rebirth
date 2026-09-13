@@ -408,8 +408,9 @@ app-sidebar-collections.no-transition {
      tip below, not the absolutely positioned cluster, so the tip tracks the
      button it belongs to. */
   position: relative;
-  width: 28px;
-  height: 28px;
+  /* `--control-h-xs` is 28px — the measured value this rule already painted. */
+  width: var(--control-h-xs);
+  height: var(--control-h-xs);
   border-radius: 4px;
   display: inline-flex;
   align-items: center;
