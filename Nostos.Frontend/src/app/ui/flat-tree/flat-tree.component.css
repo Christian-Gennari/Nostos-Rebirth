@@ -25,9 +25,11 @@
   /* Width of the row-action overlay: 3 × 22px buttons + 2 × 2px gaps = 70px,
      plus the 6px right inset = 76px. */
   --actions-w: 76px;
-  /* Focus-ring thickness. Shared so the fade layer below can inset by it and
-     never cover the ring. */
-  --ring-w: 2px;
+  /* Focus-ring thickness. Was a local `--ring-w: 2px` duplicating the global
+     `--focus-ring-width`; now it aliases it, so the tree's fade layer and every
+     other focus ring in the app cannot drift apart. The alias is kept because the
+     fade layer below insets by it and never covering the ring is load-bearing. */
+  --ring-w: var(--focus-ring-width);
   --tree-guide: color-mix(in srgb, var(--color-text-light) 42%, transparent);
 }
 

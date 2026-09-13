@@ -752,7 +752,7 @@
                                    dark `--primary-ink` IS `--color-text-main`
                                    (#EDEEF2 both). 4 selectors.
      .nav-item:focus-visible     → base already is
-                                   `outline: 2px solid var(--focus-ring)`, and
+                                   `outline: var(--focus-ring-width) solid var(--focus-ring)`, and
                                    `--focus-ring` is #6E7C90 in BOTH themes.
      .dock-item:focus-visible    → base is `--color-accent`; #94 repointed the
                                    dock's active state and the ring is no longer
@@ -1095,7 +1095,7 @@ button {
   border-radius: var(--radius-sm);
   font-size: 0.9rem;
   font-weight: var(--fw-medium);
-  transition: all 0.2s ease;
+  transition: background-color, border-color, color, opacity 0.2s ease; 
   text-decoration: none;
 }
 
@@ -1147,7 +1147,7 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: background-color, color, opacity 0.2s ease; 
   border-radius: var(--radius-sm);
 }
 

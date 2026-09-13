@@ -98,10 +98,37 @@ a surface that changes size, see the `transition: all` warning below.
 Each of these is a real defect that shipped, not a style preference.
 
 ### `transition: all`
-23 sites animate every property, including layout ones. Because `all` includes
-padding and width, a hover that changes either animates layout — which reads as
-a fade or flicker where a crisp change was intended. **Use an explicit property
-list.**
+**Do not write `transition: all`. Name the properties that actually change.**
+
+The reason is not pedantry: `all` interpolates layout properties too, so a hover
+that changes size animates layout, which reads as a fade or flicker where a crisp
+change was intended.
+
+**Enumerate the properties by measuring, not by reading.** For each site, diff the
+base rule against its `:hover`/`:focus` variants and list only the properties that
+actually differ. In this codebase that pass converted 24 of 26 sites; the property
+sets were derived from the diff, so converting them is value-preserving *for the
+interpolated properties*.
+
+Two things that are **not** preserved, and why they are still worth knowing:
+
+- The painted `transitionProperty` / `transitionDuration` buckets move, and a
+  property-set change can shift *which* duration cluster an element lands in
+  (`.format-badge` painted 0.2s but reported 0.22s once `all` was replaced,
+  purely because the cluster it belonged to changed). This is why the painted-value
+  gate is compared per-bucket and the transition buckets are read separately from
+  the colour buckets.
+- One site is genuinely **high risk and must stay `all`**: a hover that changes
+  size. Those are enumerated in the design-language vendored list; convert them
+  only with eyes on the animation, not by script.
+
+**A trap that bit this change-set:** the conversion script dropped the terminating
+semicolon. `transition: background-color, color 0.2s ease` followed on the next
+line by `color: var(--color-text-main);` swallows that declaration as part of the
+transition *value*, so the element loses its colour and renders black. The result
+is valid CSS — every declaration parses, all stylesheets "parse cleanly", and no
+check fails. It shows up only as a new `rgb(0, 0, 0)` in the painted-value sweep.
+When editing transition declarations programmatically, assert the semicolon.
 
 ### A global dark override racing an Angular-encapsulated component rule
 The dark theme is implemented in two halves: tokens in the `:root[data-theme]`

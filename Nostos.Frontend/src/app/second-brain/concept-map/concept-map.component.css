@@ -38,7 +38,7 @@
   color: var(--color-text-muted);
   cursor: pointer;
   font-family: 'Hanken Grotesk', sans-serif;
-  transition: all 0.2s ease;
+  transition: background-color, color, opacity 0.2s ease
 }
 
 .map-reset:hover,
@@ -69,7 +69,7 @@
 .map-reset:focus-visible,
 .map-zoom:focus-visible,
 .map-accessible-list button:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -199,7 +199,7 @@
 }
 
 .map-node:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 

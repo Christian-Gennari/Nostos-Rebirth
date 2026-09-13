@@ -1132,7 +1132,7 @@
   font-weight: var(--fw-medium);
   cursor: pointer;
   gap: 0.5rem;
-  transition: all 0.2s ease;
+  transition: background-color, border-color, color 0.2s ease
 }
 .expand-btn:hover {
   background-color: var(--color-text-main);

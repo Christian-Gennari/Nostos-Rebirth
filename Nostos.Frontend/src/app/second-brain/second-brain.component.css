@@ -74,7 +74,7 @@
   padding: 0;
   color: var(--color-text-light);
   margin: 0;
-  transition: all 0.2s ease;
+  transition: background-color, border-color, box-shadow 0.2s ease
 }
 
 .search-box:hover {
@@ -138,7 +138,7 @@
 }
 
 .clear-search:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -208,7 +208,7 @@
 }
 
 .toggle-opt:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -241,7 +241,7 @@
   outline: none;
   appearance: none;
   font-family: inherit;
-  transition: all 0.2s ease;
+  transition: background-color, color 0.2s ease; 
   background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
@@ -257,7 +257,7 @@
 }
 
 .sort-select:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -398,7 +398,7 @@
    --color-primary (an ink token that reads as a border on a surface it is not
    meant to trace). */
 .index-item:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -611,7 +611,7 @@
 }
 
 .row-action:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -702,7 +702,7 @@
 
 .empty-link:focus-visible,
 .empty-clear:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -774,7 +774,7 @@
 }
 
 .map-open-notes:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -883,7 +883,7 @@
 .merge-picker-cancel:focus-visible,
 .merge-picker-confirm:focus-visible,
 .merge-target:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -915,7 +915,7 @@
 }
 
 .inline-rename-input:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -994,7 +994,7 @@
 }
 
 .merge-search-box:focus-within {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
   color: var(--color-text-main);
 }
@@ -1169,7 +1169,7 @@
 
 .related-chip:focus-visible,
 .related-more:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -1296,7 +1296,7 @@
   outline: none;
   appearance: none;
   font-family: inherit;
-  transition: all 0.2s ease;
+  transition: background-color, color 0.2s ease; 
   background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
@@ -1328,7 +1328,7 @@
 }
 
 .clear-note-search:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -1463,7 +1463,7 @@
 :host ::ng-deep app-note-card button:focus-visible,
 :host ::ng-deep app-note-card a:focus-visible,
 :host ::ng-deep app-note-card textarea:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -1769,7 +1769,7 @@
   }
 
   .mobile-nav-header:focus-visible {
-    outline: 2px solid var(--focus-ring);
+    outline: var(--focus-ring-width) solid var(--focus-ring);
     outline-offset: -2px;
   }
 

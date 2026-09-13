@@ -70,7 +70,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  transition: all 0.2s;
+  transition: color, background-color, border-color 0.2s
 }
 .tab-btn:hover {
   color: var(--color-text-main);
@@ -267,7 +267,7 @@
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color, border-color, color 0.15s ease
 }
 .btn-danger-ghost:hover {
   background: color-mix(in srgb, var(--color-danger) 10%, transparent);
