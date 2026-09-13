@@ -114,6 +114,17 @@
   gap: 6px;
   font-size: 0.75rem;
   color: var(--color-text-light);
+  /* The date and the source badge are siblings in a `space-between` footer. On
+     a narrow card they must be allowed to wrap rather than pile onto the
+     action cluster, and each must be able to truncate: a flex item's default
+     min-width is auto, so a long book title pushes the row wider than the card
+     and the parent scroll container grows a horizontal scrollbar. */
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.note-metadata .source-badge {
+  min-width: 0;
 }
 
 .meta-separator {

@@ -630,6 +630,23 @@
     height: 52px;
   }
 
+  /* Touch targets. The three header controls (open files, open reference,
+     focus mode) are 40px and the drawer's own close button is 36px — and the
+     close button is the only way out of a drawer that covers 84vw. 44px is the
+     contract the dock and Brain rows already meet. The header is a fixed 52px
+     tall, so a 44px control still fits without growing the strip. */
+  .doc-actions .icon-btn,
+  .sidebar-header .icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* The empty state's "Open Sidebar" is the only way to reach documents when no
+     document is open. */
+  .empty-state .btn-outline {
+    min-height: 44px;
+  }
+
   .header-doc-title {
     font-size: 0.95rem;
     max-width: 160px;

@@ -1586,6 +1586,14 @@
     min-height: 44px;
   }
 
+  /* A 44px-tall box whose inner INPUT is only 37px still leaves a 37px tap
+     area for the (portrait) tap that lands on the text, which is where a thumb
+     aims. Height the input itself rather than only the wrapper. */
+  .search-box input,
+  .note-search-box input {
+    min-height: 44px;
+  }
+
   .sort-shell,
   .detail-select-shell {
     min-height: 44px;
@@ -1596,6 +1604,9 @@
      `.toggle-opt`), and this only sets a touch-target size. */
   .toggle-opt {
     min-height: 44px;
+    /* 30px box at 44px tall: a tap had to land within an 8px-wide sliver to
+       register. Pad it out to the 44px square the rest of the app uses. */
+    min-width: 44px;
   }
 
   .clear-search {
@@ -1649,7 +1660,10 @@
     width: 100%;
     height: 100%;
     padding: 1.5rem; /* Less padding on mobile */
-    padding-bottom: 8.5rem; /* Preserve dock clearance */
+    /* Dock clearance. The mobile dock is a full-bleed rail 58px tall, flush to
+       the viewport bottom, so 96px clears it by 38px. The previous 8.5rem was
+       sized against the taller floating pill the dock used to be. */
+    padding-bottom: 96px;
     background-image: none; /* Cleaner look on small screens */
   }
 
@@ -1674,6 +1688,33 @@
     flex: 1;
   }
 
+  /* The concept detail sheet scrolls, and it opens at its top. "Back to Index"
+     is the only way back to the list (the index column is display:none while a
+     concept is open), so a static back control makes the list unreachable from
+     any scrolled position. Pin it to the top of the scrolling column and mask
+     the content passing under it.
+
+     The column pads 24px, so a sticky box inside that padding leaves 24px of
+     exposed page ground on each side of the masked strip — the white band
+     visibly stops short of the edges. This is the full definition (see the
+     `.mobile-nav-header` rule below for the type/divider half): negative inline
+     margins cancel the column padding, equal padding puts the content back on
+     the same 24px line as the rest of the sheet, and the `top` offset cancels
+     the column's top padding so the band holds against the viewport edge when
+     stuck. `width` is computed from the parent's full box (`100%` + both
+     negative margins) because the parent is a plain block, where `auto`
+     shrink-to-fits a flex box instead of filling it. */
+  .mobile-nav-header {
+    position: sticky;
+    top: -1.5rem;
+    z-index: 3;
+    background: var(--bg-surface);
+    margin: -1.5rem -1.5rem 1.5rem;
+    padding: 1.5rem 1.5rem 1rem;
+    width: calc(100% + 3rem);
+    box-sizing: border-box;
+  }
+
   .note-count {
     flex-basis: 100%;
     margin-left: 0;
@@ -1691,8 +1732,10 @@
     align-items: center;
     gap: 0.5rem;
 
-    /* Layout */
-    width: 100%;
+    /* Layout. The band's sticky geometry (negative margins, matching padding,
+       background, z-index) is defined in the rule above; this block only adds
+       the type, divider and spacing, so `width` must NOT be re-pinned to 100%
+       or the padded edges stop reaching the viewport. */
     padding-bottom: 1rem; /* Vertical breathing room */
     margin-bottom: 1.5rem;
     border-bottom: 1px solid var(--border-color); /* Subtle divider */
@@ -1784,6 +1827,59 @@
   :host ::ng-deep app-note-card .note-actions .icon-btn {
     min-width: 44px;
     min-height: 44px;
+  }
+
+  /* Give the footer and the concept header room to lay out as ROWS instead of
+     a single cramped line. Before this, each row was a nowrap flex whose two
+     44px buttons needed 102px of a 287px footer that was pinned to 32px tall:
+     the action cluster overhung the card by 49px, the header cluster by 69px,
+     and because `overflow-x` on .content-col is `auto` the whole pane grew a
+     horizontal scrollbar alongside the vertical one. Wrapping puts the actions
+     on their own full-width row inside the card, right-aligned, which is what
+     removes the overflow at its source rather than hiding it. */
+  :host ::ng-deep app-note-card .note-footer {
+    flex-wrap: wrap;
+    row-gap: 0.75rem;
+    /* The fixed 32px height was sized for the desktop 32px buttons; a wrapped
+       footer needs to grow to hold the 44px row. */
+    height: auto;
+    min-height: 32px;
+  }
+
+  :host ::ng-deep app-note-card .note-actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    /* The desktop treatment is a hover-revealed boxed pill. On touch it is
+       always visible, so the box is permanent chrome around two buttons that
+       already read as buttons — drop it and let them sit on the card. */
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .concept-head-row {
+    flex-wrap: wrap;
+    row-gap: 0.75rem;
+  }
+
+  /* The title is user-generated and can be a single long word. At 2rem it has a
+     min-content width that runs past the column, and nothing could break it, so
+     the detail column grew a horizontal scrollbar for a long name (measured
+     73px of overhang). */
+  .concept-head-copy {
+    min-width: 0;
+  }
+
+  .concept-title {
+    overflow-wrap: break-word;
+  }
+
+  .concept-actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
   }
 }
 
