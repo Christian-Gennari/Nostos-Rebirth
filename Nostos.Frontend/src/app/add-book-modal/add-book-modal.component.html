@@ -9,9 +9,14 @@
     >
       <header class="modal-header">
         <h2>{{ isEditMode() ? 'Edit Metadata' : 'Add New Book' }}</h2>
-        <button id="close-modal" class="icon-btn" (click)="closeModal.emit()" title="Close">
-          <lucide-icon [img]="XIcon" [size]="20"></lucide-icon>
-        </button>
+        <button
+          id="close-modal"
+          appIconButton
+          [icon]="XIcon"
+          [glyphSize]="20"
+          (click)="closeModal.emit()"
+          title="Close"
+        ></button>
       </header>
 
       <div class="modal-tabs">

@@ -112,6 +112,10 @@ const SURFACES = [
 const THEMES = ['light', 'dark'];
 
 /** Fields compared. Keep this list explicit: a new field must be a deliberate choice. */
+// Settle-by-polling budget: ~1.2s worst case, well past the 200ms control transition.
+const SETTLE_STEP_MS = 60;
+const SETTLE_ATTEMPTS = 20;
+
 const FIELDS = [
   'display', 'width', 'height', 'boxSizing', 'padding', 'margin',
   'borderRadius', 'borderTopWidth', 'borderTopColor', 'borderTopStyle',
@@ -142,6 +146,10 @@ const COLLECT = (fields) => {
       cls,
       dataTip: el.getAttribute('data-tip'),
       ariaLabel: el.getAttribute('aria-label'),
+      title: el.getAttribute('title'),
+      // Accessible name minus the native title, so a migration that drops
+      // a text label (or keeps one it should not) is caught.
+      text: (el.textContent || '').trim() || null,
       disabled: 'disabled' in el ? !!el.disabled : null,
       rect: { w: Math.round(rect.width), h: Math.round(rect.height) },
       glyph: glyph ? { w: Math.round(glyph.getBoundingClientRect().width), h: Math.round(glyph.getBoundingClientRect().height) } : null,
@@ -192,35 +200,75 @@ async function probe(page, theme) {
       for (const i of indexes) {
         const el = els[i];
         try {
-          if (state === 'hover') await el.hover({ timeout: 1500 });
-          else if (state === 'focus') await el.evaluate((e) => e.focus());
-          // Wait for the transition to finish so the sampled value is the settled
-          // one, not a mid-flight interpolation.
-          await page.waitForTimeout(60);
-          const snap = await page.evaluate(
-            ([idx, fields]) => {
-              const all = Array.from(document.querySelectorAll('[class*="icon-btn"]'));
-              const el = all[idx];
-              if (!el) return null;
-              const style = getComputedStyle(el);
-              const rect = el.getBoundingClientRect();
-              const values = {};
-              for (const f of fields) values[f] = style[f] ?? '';
-              const glyph = el.querySelector('lucide-icon, svg');
-              return {
-                id: el.id || `${el.tagName.toLowerCase()}:${(el.className || '').trim()}:${idx}`,
-                tag: el.tagName.toLowerCase(),
-                cls: (el.className || '').trim(),
-                dataTip: el.getAttribute('data-tip'),
-                ariaLabel: el.getAttribute('aria-label'),
-                disabled: 'disabled' in el ? !!el.disabled : null,
-                rect: { w: Math.round(rect.width), h: Math.round(rect.height) },
-                glyph: glyph ? { w: Math.round(glyph.getBoundingClientRect().width), h: Math.round(glyph.getBoundingClientRect().height) } : null,
-                values,
-              };
-            },
-            [i, FIELDS],
-          );
+          // Apply the state, and VERIFY it took. A hover that silently misses makes
+          // the sample a lie, so retry a few times and record the outcome.
+          const applyState = async () => {
+            if (state === 'hover') await el.hover({ timeout: 1500 });
+            else if (state === 'focus') await el.evaluate((e) => e.focus());
+          };
+          await applyState();
+          for (let attempt = 0; attempt < 3; attempt++) {
+            const applied = await el
+              .evaluate((e) => e.matches(':hover') || document.activeElement === e)
+              .catch(() => false);
+            if (applied) break;
+            await page.waitForTimeout(80);
+            await applyState();
+          }
+          // Settle by polling, NOT by a fixed magic wait. A fixed wait is what broke
+          // this probe: at 60ms a 200ms hover transition is sampled mid-flight, so
+          // the same CSS produced different numbers and the diff reported phantom
+          // regressions. Poll until two consecutive reads agree, so the sampled value
+          // is the settled one, and cap it so a genuinely animating property fails
+          // loudly rather than hanging.
+          const readOnce = () =>
+            page.evaluate(
+              ([idx, fields]) => {
+                const all = Array.from(document.querySelectorAll('[class*="icon-btn"]'));
+                const el = all[idx];
+                if (!el) return null;
+                const style = getComputedStyle(el);
+                const rect = el.getBoundingClientRect();
+                const values = {};
+                for (const f of fields) values[f] = style[f] ?? '';
+                const glyph = el.querySelector('lucide-icon, svg');
+                // Optical offset of the glyph against the button box. A component that
+                // changes the host's box model can leave the glyph correctly sized but
+                // off-centre, which is exactly the defect that survives a size check.
+                const grect = glyph ? glyph.getBoundingClientRect() : null;
+                const offset = grect
+                  ? { dx: +((grect.left + grect.width / 2) - (rect.left + rect.width / 2)).toFixed(2),
+                      dy: +((grect.top + grect.height / 2) - (rect.top + rect.height / 2)).toFixed(2) }
+                  : null;
+                return {
+                  id: el.id || `${el.tagName.toLowerCase()}:${(el.className || '').trim()}:${idx}`,
+                  offset,
+                  tag: el.tagName.toLowerCase(),
+                  cls: (el.className || '').trim(),
+                  dataTip: el.getAttribute('data-tip'),
+                  ariaLabel: el.getAttribute('aria-label'),
+                  title: el.getAttribute('title'),
+                  text: (el.textContent || '').trim() || null,
+                  disabled: 'disabled' in el ? !!el.disabled : null,
+                  rect: { w: Math.round(rect.width), h: Math.round(rect.height) },
+                  glyph: glyph ? { w: Math.round(glyph.getBoundingClientRect().width), h: Math.round(glyph.getBoundingClientRect().height) } : null,
+                  // Did the state we asked for actually take effect? Without this the
+                  // probe silently records the UN-hovered values in a `hover` sample
+                  // when the pointer misses (or Angular re-renders the node mid-hover),
+                  // and the diff then reports a phantom regression.
+                  stateApplied: el.matches(':hover') || document.activeElement === el,
+                  values,
+                };
+              },
+              [i, FIELDS],
+            );
+          let snap = await readOnce();
+          for (let attempt = 0; attempt < SETTLE_ATTEMPTS; attempt++) {
+            await page.waitForTimeout(SETTLE_STEP_MS);
+            const next = await readOnce();
+            if (JSON.stringify(next) === JSON.stringify(snap)) break;
+            snap = next;
+          }
           if (snap) collected.push(snap);
         } catch {
           collected.push({ id: `unreachable:${i}`, error: `${state} failed` });
@@ -271,6 +319,21 @@ if (argv.includes('--diff')) {
         if (JSON.stringify(btnA.rect) !== JSON.stringify(btnB.rect)) {
           console.log(`  ${k} [${stateA.state}] ${btnA.id} rect: ${JSON.stringify(btnA.rect)} -> ${JSON.stringify(btnB.rect)}`);
           diffs++;
+        }
+        if (JSON.stringify(btnA.offset) !== JSON.stringify(btnB.offset)) {
+          console.log(`  ${k} [${stateA.state}] ${btnA.id} glyph offset: ${JSON.stringify(btnA.offset)} -> ${JSON.stringify(btnB.offset)}`);
+          diffs++;
+        }
+        // Accessibility + interaction surface. Without these three the diff would
+        // happily report "identical" while a migration silently dropped an
+        // aria-label, a tooltip, or a disabled state — the component's whole
+        // reason to exist over a bare class.
+        for (const f of ['ariaLabel', 'dataTip', 'disabled', 'title', 'text', 'stateApplied']) {
+          if (btnA[f] === undefined && btnB[f] === undefined) continue;
+          if (JSON.stringify(btnA[f]) !== JSON.stringify(btnB[f])) {
+            console.log(`  ${k} [${stateA.state}] ${btnA.id} ${f}: ${JSON.stringify(btnA[f])} -> ${JSON.stringify(btnB[f])}`);
+            diffs++;
+          }
         }
       }
       for (const btnB of stateB.buttons) {
