@@ -1,0 +1,5441 @@
+{
+ "generatedAt": "2026-09-13T16:02:58.358Z",
+ "base": "http://127.0.0.1:5214",
+ "captures": [
+  {
+   "tag": "library-desktop-light",
+   "surface": "library",
+   "viewport": "desktop",
+   "theme": "light",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/library-desktop-light.png",
+   "applied": null,
+   "geo": {
+    "innerWidth": 1440,
+    "innerHeight": 900,
+    "dpr": 1,
+    "theme": null,
+    "bodyClass": "nostos-library",
+    "scrollHeight": 900,
+    "elementCount": 1029
+   },
+   "sweep": {
+    "painted": 851,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       680
+      ],
+      [
+       "50%",
+       80
+      ],
+      [
+       "999px",
+       34
+      ],
+      [
+       "6px",
+       26
+      ],
+      [
+       "4px",
+       13
+      ],
+      [
+       "8px",
+       9
+      ],
+      [
+       "3px",
+       8
+      ],
+      [
+       "5px",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "13.3333px",
+       425
+      ],
+      [
+       "16px",
+       198
+      ],
+      [
+       "14.08px",
+       90
+      ],
+      [
+       "10px",
+       90
+      ],
+      [
+       "13.6px",
+       20
+      ],
+      [
+       "11.52px",
+       14
+      ],
+      [
+       "10.88px",
+       6
+      ],
+      [
+       "14.4px",
+       6
+      ],
+      [
+       "255px",
+       1
+      ],
+      [
+       "28px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       625
+      ],
+      [
+       "600",
+       116
+      ],
+      [
+       "500",
+       110
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       850
+      ],
+      [
+       "Newsreader",
+       1
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       684
+      ],
+      [
+       "rgb(255, 255, 255)",
+       46
+      ],
+      [
+       "rgba(255, 255, 255, 0.85)",
+       39
+      ],
+      [
+       "rgb(242, 237, 235)",
+       34
+      ],
+      [
+       "rgba(18, 18, 18, 0.82)",
+       20
+      ],
+      [
+       "rgba(0, 0, 0, 0.4)",
+       20
+      ],
+      [
+       "rgb(253, 248, 246)",
+       2
+      ],
+      [
+       "rgb(247, 243, 240)",
+       2
+      ],
+      [
+       "color(srgb 1 1 1 / 0.22)",
+       1
+      ],
+      [
+       "rgba(253, 248, 246, 0.85)",
+       1
+      ],
+      [
+       "rgb(40, 55, 45)",
+       1
+      ],
+      [
+       "rgb(138, 109, 88)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(40, 55, 45)",
+       212
+      ],
+      [
+       "rgb(92, 90, 85)",
+       186
+      ],
+      [
+       "rgb(168, 163, 156)",
+       175
+      ],
+      [
+       "rgb(255, 255, 255)",
+       100
+      ],
+      [
+       "rgb(28, 27, 26)",
+       68
+      ],
+      [
+       "rgb(207, 202, 194)",
+       60
+      ],
+      [
+       "rgb(138, 134, 128)",
+       30
+      ],
+      [
+       "rgb(255, 218, 0)",
+       15
+      ],
+      [
+       "rgb(34, 197, 94)",
+       5
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       125
+      ]
+     ],
+     "borderC": [
+      [
+       "rgba(0, 0, 0, 0)",
+       80
+      ],
+      [
+       "rgb(228, 225, 219)",
+       24
+      ],
+      [
+       "rgba(255, 255, 255, 0.22)",
+       20
+      ],
+      [
+       "rgb(40, 55, 45)",
+       1
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.1) 0px 2px 4px 0px",
+       40
+      ],
+      [
+       "rgba(0, 0, 0, 0.12) 0px 1px 4px 0px",
+       20
+      ],
+      [
+       "rgba(0, 0, 0, 0.35) 0px 4px 12px 0px",
+       20
+      ],
+      [
+       "rgba(0, 0, 0, 0.06) 0px 1px 2px 0px",
+       1
+      ],
+      [
+       "rgba(42, 38, 32, 0.12) 0px 8px 22px 0px",
+       1
+      ]
+     ],
+     "outlineW": [
+      [
+       "1px",
+       1
+      ]
+     ],
+     "outlineC": [
+      [
+       "rgb(228, 225, 219)",
+       1
+      ]
+     ],
+     "transitionDur": [
+      [
+       "0.2s",
+       171
+      ],
+      [
+       "0.16s",
+       49
+      ],
+      [
+       "0.15s",
+       40
+      ],
+      [
+       "0.12s",
+       28
+      ],
+      [
+       "0.32s",
+       6
+      ],
+      [
+       "0s",
+       5
+      ],
+      [
+       "0.3s",
+       3
+      ],
+      [
+       "0.22s",
+       2
+      ]
+     ],
+     "transitionProp": [
+      [
+       "all",
+       88
+      ],
+      [
+       "opacity",
+       74
+      ],
+      [
+       "transform",
+       42
+      ],
+      [
+       "color",
+       36
+      ],
+      [
+       "background",
+       22
+      ],
+      [
+       "box-shadow",
+       20
+      ],
+      [
+       "outline-color",
+       5
+      ],
+      [
+       "visibility",
+       5
+      ],
+      [
+       "background-color",
+       4
+      ],
+      [
+       "grid-template-rows",
+       3
+      ],
+      [
+       "width",
+       2
+      ],
+      [
+       "flex-basis",
+       1
+      ],
+      [
+       "min-height",
+       1
+      ],
+      [
+       "filter",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       247
+      ],
+      [
+       "cubic-bezier(0.16, 1, 0.3, 1)",
+       44
+      ],
+      [
+       "cubic-bezier(0.4, 0, 0.2, 1)",
+       6
+      ],
+      [
+       "linear",
+       5
+      ],
+      [
+       "cubic-bezier(0.34, 1.35, 0.64, 1)",
+       2
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "brain-desktop-light",
+   "surface": "brain",
+   "viewport": "desktop",
+   "theme": "light",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/brain-desktop-light.png",
+   "applied": null,
+   "geo": {
+    "innerWidth": 1440,
+    "innerHeight": 900,
+    "dpr": 1,
+    "theme": null,
+    "bodyClass": "",
+    "scrollHeight": 900,
+    "elementCount": 222
+   },
+   "sweep": {
+    "painted": 161,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       133
+      ],
+      [
+       "4px",
+       11
+      ],
+      [
+       "3px",
+       7
+      ],
+      [
+       "999px",
+       5
+      ],
+      [
+       "6px",
+       4
+      ],
+      [
+       "50%",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       84
+      ],
+      [
+       "13.3333px",
+       49
+      ],
+      [
+       "14.08px",
+       12
+      ],
+      [
+       "11.52px",
+       6
+      ],
+      [
+       "10.88px",
+       5
+      ],
+      [
+       "14.4px",
+       3
+      ],
+      [
+       "22.4px",
+       1
+      ],
+      [
+       "24px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       137
+      ],
+      [
+       "500",
+       18
+      ],
+      [
+       "600",
+       6
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       159
+      ],
+      [
+       "Newsreader",
+       2
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       145
+      ],
+      [
+       "rgb(255, 255, 255)",
+       6
+      ],
+      [
+       "rgb(242, 237, 235)",
+       6
+      ],
+      [
+       "rgb(253, 248, 246)",
+       3
+      ],
+      [
+       "rgb(138, 109, 88)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(92, 90, 85)",
+       76
+      ],
+      [
+       "rgb(28, 27, 26)",
+       33
+      ],
+      [
+       "rgb(138, 134, 128)",
+       28
+      ],
+      [
+       "rgb(40, 55, 45)",
+       24
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       5
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(228, 225, 219)",
+       5
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.06) 0px 1px 2px 0px",
+       1
+      ],
+      [
+       "rgba(42, 38, 32, 0.12) 0px 8px 22px 0px",
+       1
+      ]
+     ],
+     "outlineW": [
+      [
+       "1px",
+       1
+      ]
+     ],
+     "outlineC": [
+      [
+       "rgb(228, 225, 219)",
+       1
+      ]
+     ],
+     "transitionDur": [
+      [
+       "0.15s",
+       39
+      ],
+      [
+       "0.16s",
+       9
+      ],
+      [
+       "0.12s",
+       8
+      ],
+      [
+       "0s",
+       4
+      ],
+      [
+       "0.2s",
+       3
+      ],
+      [
+       "0.22s",
+       2
+      ]
+     ],
+     "transitionProp": [
+      [
+       "color",
+       22
+      ],
+      [
+       "background",
+       17
+      ],
+      [
+       "opacity",
+       14
+      ],
+      [
+       "visibility",
+       4
+      ],
+      [
+       "background-color",
+       4
+      ],
+      [
+       "all",
+       2
+      ],
+      [
+       "transform",
+       1
+      ],
+      [
+       "width",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       59
+      ],
+      [
+       "linear",
+       4
+      ],
+      [
+       "cubic-bezier(0.34, 1.35, 0.64, 1)",
+       2
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "studio-desktop-light",
+   "surface": "studio",
+   "viewport": "desktop",
+   "theme": "light",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/studio-desktop-light.png",
+   "applied": null,
+   "geo": {
+    "innerWidth": 1440,
+    "innerHeight": 900,
+    "dpr": 1,
+    "theme": null,
+    "bodyClass": "",
+    "scrollHeight": 900,
+    "elementCount": 231
+   },
+   "sweep": {
+    "painted": 173,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       142
+      ],
+      [
+       "3px",
+       13
+      ],
+      [
+       "4px",
+       8
+      ],
+      [
+       "6px",
+       5
+      ],
+      [
+       "999px",
+       4
+      ],
+      [
+       "50%",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       79
+      ],
+      [
+       "13.3333px",
+       43
+      ],
+      [
+       "14.08px",
+       26
+      ],
+      [
+       "13.12px",
+       11
+      ],
+      [
+       "10.88px",
+       5
+      ],
+      [
+       "11.52px",
+       4
+      ],
+      [
+       "21.6px",
+       2
+      ],
+      [
+       "24px",
+       1
+      ],
+      [
+       "14.4px",
+       1
+      ],
+      [
+       "13.6px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       124
+      ],
+      [
+       "500",
+       36
+      ],
+      [
+       "600",
+       13
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       170
+      ],
+      [
+       "Newsreader",
+       3
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       154
+      ],
+      [
+       "rgb(255, 255, 255)",
+       6
+      ],
+      [
+       "rgb(242, 237, 235)",
+       6
+      ],
+      [
+       "rgb(253, 248, 246)",
+       3
+      ],
+      [
+       "rgb(247, 243, 240)",
+       2
+      ],
+      [
+       "rgba(0, 0, 0, 0.3)",
+       1
+      ],
+      [
+       "rgb(138, 109, 88)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(92, 90, 85)",
+       116
+      ],
+      [
+       "rgb(28, 27, 26)",
+       41
+      ],
+      [
+       "rgb(0, 0, 0)",
+       8
+      ],
+      [
+       "rgb(40, 55, 45)",
+       8
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       8
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(228, 225, 219)",
+       8
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.06) 0px 1px 2px 0px",
+       1
+      ],
+      [
+       "rgba(42, 38, 32, 0.12) 0px 8px 22px 0px",
+       1
+      ]
+     ],
+     "outlineW": [
+      [
+       "1px",
+       1
+      ]
+     ],
+     "outlineC": [
+      [
+       "rgb(228, 225, 219)",
+       1
+      ]
+     ],
+     "transitionDur": [
+      [
+       "0.16s",
+       23
+      ],
+      [
+       "0.12s",
+       15
+      ],
+      [
+       "0.15s",
+       15
+      ],
+      [
+       "0.22s",
+       4
+      ],
+      [
+       "0s",
+       3
+      ],
+      [
+       "0.32s",
+       2
+      ],
+      [
+       "0.2s",
+       1
+      ]
+     ],
+     "transitionProp": [
+      [
+       "color",
+       21
+      ],
+      [
+       "background",
+       11
+      ],
+      [
+       "background-color",
+       10
+      ],
+      [
+       "opacity",
+       9
+      ],
+      [
+       "width",
+       3
+      ],
+      [
+       "outline-color",
+       3
+      ],
+      [
+       "visibility",
+       3
+      ],
+      [
+       "border-color",
+       1
+      ],
+      [
+       "box-shadow",
+       1
+      ],
+      [
+       "transform",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       56
+      ],
+      [
+       "linear",
+       3
+      ],
+      [
+       "cubic-bezier(0.4, 0, 0.2, 1)",
+       2
+      ],
+      [
+       "cubic-bezier(0.34, 1.35, 0.64, 1)",
+       2
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "settings-desktop-light",
+   "surface": "settings",
+   "viewport": "desktop",
+   "theme": "light",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/settings-desktop-light.png",
+   "applied": null,
+   "geo": {
+    "innerWidth": 1440,
+    "innerHeight": 900,
+    "dpr": 1,
+    "theme": null,
+    "bodyClass": "",
+    "scrollHeight": 900,
+    "elementCount": 271
+   },
+   "sweep": {
+    "painted": 210,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       180
+      ],
+      [
+       "999px",
+       15
+      ],
+      [
+       "3px",
+       7
+      ],
+      [
+       "12px",
+       3
+      ],
+      [
+       "24px",
+       2
+      ],
+      [
+       "6px",
+       2
+      ],
+      [
+       "4px",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       99
+      ],
+      [
+       "12px",
+       55
+      ],
+      [
+       "13.6px",
+       27
+      ],
+      [
+       "14.4px",
+       7
+      ],
+      [
+       "12.8px",
+       7
+      ],
+      [
+       "11.52px",
+       4
+      ],
+      [
+       "10.88px",
+       4
+      ],
+      [
+       "15.2px",
+       3
+      ],
+      [
+       "14px",
+       3
+      ],
+      [
+       "35.2px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       110
+      ],
+      [
+       "500",
+       92
+      ],
+      [
+       "600",
+       8
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       204
+      ],
+      [
+       "Newsreader",
+       4
+      ],
+      [
+       "Arial",
+       2
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       182
+      ],
+      [
+       "rgb(255, 255, 255)",
+       14
+      ],
+      [
+       "color(srgb 0.133333 0.772549 0.368627 / 0.15)",
+       4
+      ],
+      [
+       "rgba(253, 248, 246, 0.6)",
+       3
+      ],
+      [
+       "rgb(40, 55, 45)",
+       3
+      ],
+      [
+       "rgb(253, 248, 246)",
+       2
+      ],
+      [
+       "rgb(242, 237, 235)",
+       1
+      ],
+      [
+       "rgb(138, 109, 88)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(28, 27, 26)",
+       131
+      ],
+      [
+       "rgb(92, 90, 85)",
+       33
+      ],
+      [
+       "rgb(211, 47, 47)",
+       15
+      ],
+      [
+       "rgb(138, 134, 128)",
+       14
+      ],
+      [
+       "rgb(255, 255, 255)",
+       7
+      ],
+      [
+       "rgb(40, 55, 45)",
+       6
+      ],
+      [
+       "rgb(22, 101, 52)",
+       4
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       17
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(228, 225, 219)",
+       10
+      ],
+      [
+       "rgba(228, 225, 219, 0.85)",
+       3
+      ],
+      [
+       "rgb(211, 47, 47)",
+       3
+      ],
+      [
+       "rgb(239, 236, 230)",
+       1
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(28, 27, 26, 0.1) 0px 8px 24px -6px, rgba(0, 0, 0, 0.03) 0px 2px 6px 0px",
+       3
+      ],
+      [
+       "rgba(0, 0, 0, 0.06) 0px 1px 2px 0px",
+       1
+      ],
+      [
+       "rgba(42, 38, 32, 0.12) 0px 8px 22px 0px",
+       1
+      ]
+     ],
+     "outlineW": [],
+     "outlineC": [],
+     "transitionDur": [
+      [
+       "0.15s",
+       11
+      ],
+      [
+       "0.16s",
+       9
+      ],
+      [
+       "0.12s",
+       7
+      ],
+      [
+       "0.2s",
+       2
+      ],
+      [
+       "0.22s",
+       2
+      ]
+     ],
+     "transitionProp": [
+      [
+       "all",
+       11
+      ],
+      [
+       "background-color",
+       6
+      ],
+      [
+       "color",
+       6
+      ],
+      [
+       "background",
+       5
+      ],
+      [
+       "transform",
+       1
+      ],
+      [
+       "width",
+       1
+      ],
+      [
+       "opacity",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       29
+      ],
+      [
+       "cubic-bezier(0.34, 1.35, 0.64, 1)",
+       2
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "home-desktop-light",
+   "surface": "home",
+   "viewport": "desktop",
+   "theme": "light",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/home-desktop-light.png",
+   "applied": null,
+   "geo": {
+    "innerWidth": 1440,
+    "innerHeight": 900,
+    "dpr": 1,
+    "theme": null,
+    "bodyClass": "",
+    "scrollHeight": 900,
+    "elementCount": 47
+   },
+   "sweep": {
+    "painted": 18,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       17
+      ],
+      [
+       "999px",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       13
+      ],
+      [
+       "11.52px",
+       2
+      ],
+      [
+       "255px",
+       1
+      ],
+      [
+       "16.8px",
+       1
+      ],
+      [
+       "15.2px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       16
+      ],
+      [
+       "500",
+       2
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       18
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       15
+      ],
+      [
+       "rgb(253, 248, 246)",
+       2
+      ],
+      [
+       "rgb(40, 55, 45)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(28, 27, 26)",
+       14
+      ],
+      [
+       "rgb(138, 134, 128)",
+       2
+      ],
+      [
+       "rgb(92, 90, 85)",
+       1
+      ],
+      [
+       "rgb(255, 255, 255)",
+       1
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       1
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(40, 55, 45)",
+       1
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(28, 27, 26, 0.1) 0px 8px 24px -6px, rgba(0, 0, 0, 0.03) 0px 2px 6px 0px, rgba(138, 109, 88, 0.3) 0px 0px 16px -4px",
+       1
+      ]
+     ],
+     "outlineW": [],
+     "outlineC": [],
+     "transitionDur": [
+      [
+       "0.15s",
+       2
+      ]
+     ],
+     "transitionProp": [
+      [
+       "transform",
+       1
+      ],
+      [
+       "box-shadow",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       2
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "library-desktop-dark",
+   "surface": "library",
+   "viewport": "desktop",
+   "theme": "dark",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/library-desktop-dark.png",
+   "applied": "dark",
+   "geo": {
+    "innerWidth": 1440,
+    "innerHeight": 900,
+    "dpr": 1,
+    "theme": "dark",
+    "bodyClass": "nostos-library",
+    "scrollHeight": 900,
+    "elementCount": 1029
+   },
+   "sweep": {
+    "painted": 851,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       680
+      ],
+      [
+       "50%",
+       80
+      ],
+      [
+       "999px",
+       34
+      ],
+      [
+       "6px",
+       26
+      ],
+      [
+       "4px",
+       13
+      ],
+      [
+       "8px",
+       9
+      ],
+      [
+       "3px",
+       8
+      ],
+      [
+       "5px",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "13.3333px",
+       425
+      ],
+      [
+       "16px",
+       198
+      ],
+      [
+       "14.08px",
+       90
+      ],
+      [
+       "10px",
+       90
+      ],
+      [
+       "13.6px",
+       20
+      ],
+      [
+       "11.52px",
+       14
+      ],
+      [
+       "10.88px",
+       6
+      ],
+      [
+       "14.4px",
+       6
+      ],
+      [
+       "255px",
+       1
+      ],
+      [
+       "28px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       625
+      ],
+      [
+       "600",
+       116
+      ],
+      [
+       "500",
+       110
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       850
+      ],
+      [
+       "Newsreader",
+       1
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       684
+      ],
+      [
+       "rgb(27, 30, 38)",
+       44
+      ],
+      [
+       "rgba(33, 37, 46, 0.9)",
+       39
+      ],
+      [
+       "rgb(31, 35, 43)",
+       20
+      ],
+      [
+       "rgba(18, 18, 18, 0.82)",
+       20
+      ],
+      [
+       "rgba(16, 18, 22, 0.72)",
+       20
+      ],
+      [
+       "rgb(37, 42, 52)",
+       14
+      ],
+      [
+       "rgb(21, 24, 31)",
+       2
+      ],
+      [
+       "rgb(18, 20, 26)",
+       2
+      ],
+      [
+       "rgb(50, 58, 72)",
+       2
+      ],
+      [
+       "color(srgb 0.941176 0.94902 0.960784 / 0.22)",
+       1
+      ],
+      [
+       "rgba(21, 24, 31, 0.95)",
+       1
+      ],
+      [
+       "rgb(240, 242, 245)",
+       1
+      ],
+      [
+       "rgb(209, 172, 143)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(168, 175, 187)",
+       355
+      ],
+      [
+       "rgb(197, 201, 208)",
+       186
+      ],
+      [
+       "rgb(237, 238, 242)",
+       100
+      ],
+      [
+       "rgb(255, 255, 255)",
+       90
+      ],
+      [
+       "rgb(74, 82, 96)",
+       60
+      ],
+      [
+       "rgb(148, 156, 169)",
+       30
+      ],
+      [
+       "rgb(224, 194, 117)",
+       15
+      ],
+      [
+       "rgb(240, 242, 245)",
+       6
+      ],
+      [
+       "rgb(143, 199, 168)",
+       5
+      ],
+      [
+       "rgb(21, 24, 31)",
+       4
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       125
+      ]
+     ],
+     "borderC": [
+      [
+       "rgba(255, 255, 255, 0.1)",
+       80
+      ],
+      [
+       "rgb(38, 42, 52)",
+       23
+      ],
+      [
+       "rgba(255, 255, 255, 0.22)",
+       20
+      ],
+      [
+       "rgb(240, 242, 245)",
+       1
+      ],
+      [
+       "rgb(69, 78, 96)",
+       1
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.1) 0px 2px 4px 0px",
+       40
+      ],
+      [
+       "rgba(0, 0, 0, 0.5) 0px 2px 12px 0px",
+       20
+      ],
+      [
+       "rgba(0, 0, 0, 0.35) 0px 4px 12px 0px",
+       20
+      ],
+      [
+       "rgba(0, 0, 0, 0.4) 0px 1px 2px 0px",
+       1
+      ],
+      [
+       "rgba(0, 0, 0, 0.62) 0px 16px 40px 0px, rgba(0, 0, 0, 0.45) 0px 3px 10px 0px",
+       1
+      ]
+     ],
+     "outlineW": [
+      [
+       "1px",
+       1
+      ]
+     ],
+     "outlineC": [
+      [
+       "rgb(38, 42, 52)",
+       1
+      ]
+     ],
+     "transitionDur": [
+      [
+       "0.2s",
+       171
+      ],
+      [
+       "0.16s",
+       49
+      ],
+      [
+       "0.15s",
+       40
+      ],
+      [
+       "0.12s",
+       28
+      ],
+      [
+       "0.32s",
+       6
+      ],
+      [
+       "0s",
+       5
+      ],
+      [
+       "0.3s",
+       3
+      ],
+      [
+       "0.22s",
+       2
+      ]
+     ],
+     "transitionProp": [
+      [
+       "all",
+       88
+      ],
+      [
+       "opacity",
+       74
+      ],
+      [
+       "transform",
+       42
+      ],
+      [
+       "color",
+       36
+      ],
+      [
+       "background",
+       22
+      ],
+      [
+       "box-shadow",
+       20
+      ],
+      [
+       "outline-color",
+       5
+      ],
+      [
+       "visibility",
+       5
+      ],
+      [
+       "background-color",
+       4
+      ],
+      [
+       "grid-template-rows",
+       3
+      ],
+      [
+       "width",
+       2
+      ],
+      [
+       "flex-basis",
+       1
+      ],
+      [
+       "min-height",
+       1
+      ],
+      [
+       "filter",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       247
+      ],
+      [
+       "cubic-bezier(0.16, 1, 0.3, 1)",
+       44
+      ],
+      [
+       "cubic-bezier(0.4, 0, 0.2, 1)",
+       6
+      ],
+      [
+       "linear",
+       5
+      ],
+      [
+       "cubic-bezier(0.34, 1.35, 0.64, 1)",
+       2
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "brain-desktop-dark",
+   "surface": "brain",
+   "viewport": "desktop",
+   "theme": "dark",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/brain-desktop-dark.png",
+   "applied": "dark",
+   "geo": {
+    "innerWidth": 1440,
+    "innerHeight": 900,
+    "dpr": 1,
+    "theme": "dark",
+    "bodyClass": "",
+    "scrollHeight": 900,
+    "elementCount": 222
+   },
+   "sweep": {
+    "painted": 161,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       133
+      ],
+      [
+       "4px",
+       11
+      ],
+      [
+       "3px",
+       7
+      ],
+      [
+       "999px",
+       5
+      ],
+      [
+       "6px",
+       4
+      ],
+      [
+       "50%",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       84
+      ],
+      [
+       "13.3333px",
+       49
+      ],
+      [
+       "14.08px",
+       12
+      ],
+      [
+       "11.52px",
+       6
+      ],
+      [
+       "10.88px",
+       5
+      ],
+      [
+       "14.4px",
+       3
+      ],
+      [
+       "22.4px",
+       1
+      ],
+      [
+       "24px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       137
+      ],
+      [
+       "500",
+       18
+      ],
+      [
+       "600",
+       6
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       159
+      ],
+      [
+       "Newsreader",
+       2
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       145
+      ],
+      [
+       "rgb(37, 42, 52)",
+       6
+      ],
+      [
+       "rgb(27, 30, 38)",
+       4
+      ],
+      [
+       "rgb(21, 24, 31)",
+       3
+      ],
+      [
+       "rgb(50, 58, 72)",
+       2
+      ],
+      [
+       "rgb(209, 172, 143)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(197, 201, 208)",
+       76
+      ],
+      [
+       "rgb(237, 238, 242)",
+       57
+      ],
+      [
+       "rgb(148, 156, 169)",
+       28
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       5
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(38, 42, 52)",
+       4
+      ],
+      [
+       "rgb(69, 78, 96)",
+       1
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.4) 0px 1px 2px 0px",
+       1
+      ],
+      [
+       "rgba(0, 0, 0, 0.62) 0px 16px 40px 0px, rgba(0, 0, 0, 0.45) 0px 3px 10px 0px",
+       1
+      ]
+     ],
+     "outlineW": [
+      [
+       "1px",
+       1
+      ]
+     ],
+     "outlineC": [
+      [
+       "rgb(38, 42, 52)",
+       1
+      ]
+     ],
+     "transitionDur": [
+      [
+       "0.15s",
+       39
+      ],
+      [
+       "0.16s",
+       9
+      ],
+      [
+       "0.12s",
+       8
+      ],
+      [
+       "0s",
+       4
+      ],
+      [
+       "0.2s",
+       3
+      ],
+      [
+       "0.22s",
+       2
+      ]
+     ],
+     "transitionProp": [
+      [
+       "color",
+       22
+      ],
+      [
+       "background",
+       17
+      ],
+      [
+       "opacity",
+       14
+      ],
+      [
+       "visibility",
+       4
+      ],
+      [
+       "background-color",
+       4
+      ],
+      [
+       "all",
+       2
+      ],
+      [
+       "transform",
+       1
+      ],
+      [
+       "width",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       59
+      ],
+      [
+       "linear",
+       4
+      ],
+      [
+       "cubic-bezier(0.34, 1.35, 0.64, 1)",
+       2
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "studio-desktop-dark",
+   "surface": "studio",
+   "viewport": "desktop",
+   "theme": "dark",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/studio-desktop-dark.png",
+   "applied": "dark",
+   "geo": {
+    "innerWidth": 1440,
+    "innerHeight": 900,
+    "dpr": 1,
+    "theme": "dark",
+    "bodyClass": "",
+    "scrollHeight": 900,
+    "elementCount": 231
+   },
+   "sweep": {
+    "painted": 173,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       142
+      ],
+      [
+       "3px",
+       13
+      ],
+      [
+       "4px",
+       8
+      ],
+      [
+       "6px",
+       5
+      ],
+      [
+       "999px",
+       4
+      ],
+      [
+       "50%",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       79
+      ],
+      [
+       "13.3333px",
+       43
+      ],
+      [
+       "14.08px",
+       26
+      ],
+      [
+       "13.12px",
+       11
+      ],
+      [
+       "10.88px",
+       5
+      ],
+      [
+       "11.52px",
+       4
+      ],
+      [
+       "21.6px",
+       2
+      ],
+      [
+       "24px",
+       1
+      ],
+      [
+       "14.4px",
+       1
+      ],
+      [
+       "13.6px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       124
+      ],
+      [
+       "500",
+       36
+      ],
+      [
+       "600",
+       13
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       170
+      ],
+      [
+       "Newsreader",
+       3
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       154
+      ],
+      [
+       "rgb(37, 42, 52)",
+       6
+      ],
+      [
+       "rgb(27, 30, 38)",
+       5
+      ],
+      [
+       "rgb(21, 24, 31)",
+       3
+      ],
+      [
+       "rgb(18, 20, 26)",
+       2
+      ],
+      [
+       "rgba(0, 0, 0, 0.4)",
+       1
+      ],
+      [
+       "rgb(50, 58, 72)",
+       1
+      ],
+      [
+       "rgb(209, 172, 143)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(197, 201, 208)",
+       116
+      ],
+      [
+       "rgb(237, 238, 242)",
+       49
+      ],
+      [
+       "rgb(255, 255, 255)",
+       8
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       8
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(38, 42, 52)",
+       7
+      ],
+      [
+       "rgb(69, 78, 96)",
+       1
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.4) 0px 1px 2px 0px",
+       1
+      ],
+      [
+       "rgba(0, 0, 0, 0.62) 0px 16px 40px 0px, rgba(0, 0, 0, 0.45) 0px 3px 10px 0px",
+       1
+      ]
+     ],
+     "outlineW": [
+      [
+       "1px",
+       1
+      ]
+     ],
+     "outlineC": [
+      [
+       "rgb(38, 42, 52)",
+       1
+      ]
+     ],
+     "transitionDur": [
+      [
+       "0.16s",
+       23
+      ],
+      [
+       "0.12s",
+       15
+      ],
+      [
+       "0.15s",
+       15
+      ],
+      [
+       "0.22s",
+       4
+      ],
+      [
+       "0s",
+       3
+      ],
+      [
+       "0.32s",
+       2
+      ],
+      [
+       "0.2s",
+       1
+      ]
+     ],
+     "transitionProp": [
+      [
+       "color",
+       21
+      ],
+      [
+       "background",
+       11
+      ],
+      [
+       "background-color",
+       10
+      ],
+      [
+       "opacity",
+       9
+      ],
+      [
+       "width",
+       3
+      ],
+      [
+       "outline-color",
+       3
+      ],
+      [
+       "visibility",
+       3
+      ],
+      [
+       "border-color",
+       1
+      ],
+      [
+       "box-shadow",
+       1
+      ],
+      [
+       "transform",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       56
+      ],
+      [
+       "linear",
+       3
+      ],
+      [
+       "cubic-bezier(0.4, 0, 0.2, 1)",
+       2
+      ],
+      [
+       "cubic-bezier(0.34, 1.35, 0.64, 1)",
+       2
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "settings-desktop-dark",
+   "surface": "settings",
+   "viewport": "desktop",
+   "theme": "dark",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/settings-desktop-dark.png",
+   "applied": "dark",
+   "geo": {
+    "innerWidth": 1440,
+    "innerHeight": 900,
+    "dpr": 1,
+    "theme": "dark",
+    "bodyClass": "",
+    "scrollHeight": 900,
+    "elementCount": 271
+   },
+   "sweep": {
+    "painted": 210,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       180
+      ],
+      [
+       "999px",
+       15
+      ],
+      [
+       "3px",
+       7
+      ],
+      [
+       "12px",
+       3
+      ],
+      [
+       "24px",
+       2
+      ],
+      [
+       "6px",
+       2
+      ],
+      [
+       "4px",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       99
+      ],
+      [
+       "12px",
+       55
+      ],
+      [
+       "13.6px",
+       27
+      ],
+      [
+       "14.4px",
+       7
+      ],
+      [
+       "12.8px",
+       7
+      ],
+      [
+       "11.52px",
+       4
+      ],
+      [
+       "10.88px",
+       4
+      ],
+      [
+       "15.2px",
+       3
+      ],
+      [
+       "14px",
+       3
+      ],
+      [
+       "35.2px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       110
+      ],
+      [
+       "500",
+       92
+      ],
+      [
+       "600",
+       8
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       204
+      ],
+      [
+       "Newsreader",
+       4
+      ],
+      [
+       "Arial",
+       2
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       182
+      ],
+      [
+       "rgb(27, 30, 38)",
+       13
+      ],
+      [
+       "color(srgb 0.560784 0.780392 0.658824 / 0.15)",
+       4
+      ],
+      [
+       "rgba(21, 24, 31, 0.6)",
+       3
+      ],
+      [
+       "rgb(21, 24, 31)",
+       2
+      ],
+      [
+       "rgb(45, 75, 68)",
+       2
+      ],
+      [
+       "rgb(240, 242, 245)",
+       1
+      ],
+      [
+       "rgb(37, 42, 52)",
+       1
+      ],
+      [
+       "rgb(50, 58, 72)",
+       1
+      ],
+      [
+       "rgb(209, 172, 143)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(237, 238, 242)",
+       133
+      ],
+      [
+       "rgb(197, 201, 208)",
+       33
+      ],
+      [
+       "rgb(148, 156, 169)",
+       18
+      ],
+      [
+       "rgb(228, 121, 107)",
+       15
+      ],
+      [
+       "rgb(21, 24, 31)",
+       7
+      ],
+      [
+       "rgb(143, 199, 168)",
+       4
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       17
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(38, 42, 52)",
+       9
+      ],
+      [
+       "rgb(43, 47, 58)",
+       3
+      ],
+      [
+       "rgb(228, 121, 107)",
+       3
+      ],
+      [
+       "rgb(31, 35, 43)",
+       1
+      ],
+      [
+       "rgb(69, 78, 96)",
+       1
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.5) 0px 8px 24px -6px, rgba(0, 0, 0, 0.3) 0px 2px 6px 0px",
+       3
+      ],
+      [
+       "rgba(0, 0, 0, 0.4) 0px 1px 2px 0px",
+       1
+      ],
+      [
+       "rgba(0, 0, 0, 0.62) 0px 16px 40px 0px, rgba(0, 0, 0, 0.45) 0px 3px 10px 0px",
+       1
+      ]
+     ],
+     "outlineW": [],
+     "outlineC": [],
+     "transitionDur": [
+      [
+       "0.15s",
+       11
+      ],
+      [
+       "0.16s",
+       9
+      ],
+      [
+       "0.12s",
+       7
+      ],
+      [
+       "0.2s",
+       2
+      ],
+      [
+       "0.22s",
+       2
+      ]
+     ],
+     "transitionProp": [
+      [
+       "all",
+       11
+      ],
+      [
+       "background-color",
+       6
+      ],
+      [
+       "color",
+       6
+      ],
+      [
+       "background",
+       5
+      ],
+      [
+       "transform",
+       1
+      ],
+      [
+       "width",
+       1
+      ],
+      [
+       "opacity",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       29
+      ],
+      [
+       "cubic-bezier(0.34, 1.35, 0.64, 1)",
+       2
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "home-desktop-dark",
+   "surface": "home",
+   "viewport": "desktop",
+   "theme": "dark",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/home-desktop-dark.png",
+   "applied": "dark",
+   "geo": {
+    "innerWidth": 1440,
+    "innerHeight": 900,
+    "dpr": 1,
+    "theme": "dark",
+    "bodyClass": "",
+    "scrollHeight": 900,
+    "elementCount": 47
+   },
+   "sweep": {
+    "painted": 18,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       17
+      ],
+      [
+       "999px",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       13
+      ],
+      [
+       "11.52px",
+       2
+      ],
+      [
+       "255px",
+       1
+      ],
+      [
+       "16.8px",
+       1
+      ],
+      [
+       "15.2px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       16
+      ],
+      [
+       "500",
+       2
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       18
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       15
+      ],
+      [
+       "rgb(21, 24, 31)",
+       2
+      ],
+      [
+       "rgb(45, 75, 68)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(237, 238, 242)",
+       14
+      ],
+      [
+       "rgb(148, 156, 169)",
+       2
+      ],
+      [
+       "rgb(197, 201, 208)",
+       1
+      ],
+      [
+       "rgb(240, 242, 245)",
+       1
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       1
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(240, 242, 245)",
+       1
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.5) 0px 8px 24px -6px, rgba(0, 0, 0, 0.3) 0px 2px 6px 0px, rgba(209, 172, 143, 0.32) 0px 0px 16px -4px",
+       1
+      ]
+     ],
+     "outlineW": [],
+     "outlineC": [],
+     "transitionDur": [
+      [
+       "0.15s",
+       2
+      ]
+     ],
+     "transitionProp": [
+      [
+       "transform",
+       1
+      ],
+      [
+       "box-shadow",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       2
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "library-mobile-light",
+   "surface": "library",
+   "viewport": "mobile",
+   "theme": "light",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/library-mobile-light.png",
+   "applied": null,
+   "geo": {
+    "innerWidth": 390,
+    "innerHeight": 844,
+    "dpr": 1,
+    "theme": null,
+    "bodyClass": "nostos-library",
+    "scrollHeight": 844,
+    "elementCount": 762
+   },
+   "sweep": {
+    "painted": 342,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       279
+      ],
+      [
+       "6px",
+       18
+      ],
+      [
+       "4px",
+       14
+      ],
+      [
+       "999px",
+       14
+      ],
+      [
+       "8px",
+       9
+      ],
+      [
+       "3px",
+       7
+      ],
+      [
+       "5px",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       145
+      ],
+      [
+       "14.08px",
+       90
+      ],
+      [
+       "13.3333px",
+       68
+      ],
+      [
+       "11.52px",
+       14
+      ],
+      [
+       "13.6px",
+       12
+      ],
+      [
+       "14.4px",
+       4
+      ],
+      [
+       "11.2px",
+       4
+      ],
+      [
+       "10.88px",
+       2
+      ],
+      [
+       "255px",
+       1
+      ],
+      [
+       "28px",
+       1
+      ],
+      [
+       "13.12px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       215
+      ],
+      [
+       "500",
+       109
+      ],
+      [
+       "600",
+       18
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       341
+      ],
+      [
+       "Newsreader",
+       1
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       303
+      ],
+      [
+       "rgb(242, 237, 235)",
+       26
+      ],
+      [
+       "rgb(255, 255, 255)",
+       6
+      ],
+      [
+       "rgb(253, 248, 246)",
+       2
+      ],
+      [
+       "rgb(247, 243, 240)",
+       1
+      ],
+      [
+       "color(srgb 1 1 1 / 0.22)",
+       1
+      ],
+      [
+       "rgba(253, 248, 246, 0.85)",
+       1
+      ],
+      [
+       "rgb(40, 55, 45)",
+       1
+      ],
+      [
+       "rgb(138, 109, 88)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(92, 90, 85)",
+       178
+      ],
+      [
+       "rgb(28, 27, 26)",
+       62
+      ],
+      [
+       "rgb(138, 134, 128)",
+       30
+      ],
+      [
+       "rgb(40, 55, 45)",
+       24
+      ],
+      [
+       "rgb(207, 202, 194)",
+       24
+      ],
+      [
+       "rgb(255, 218, 0)",
+       15
+      ],
+      [
+       "rgb(255, 255, 255)",
+       9
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       17
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(228, 225, 219)",
+       16
+      ],
+      [
+       "rgb(40, 55, 45)",
+       1
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.12) 0px 1px 4px 0px",
+       12
+      ],
+      [
+       "rgba(0, 0, 0, 0.06) 0px 1px 2px 0px",
+       2
+      ],
+      [
+       "rgba(42, 38, 32, 0.1) 0px -6px 20px 0px",
+       1
+      ]
+     ],
+     "outlineW": [
+      [
+       "1px",
+       2
+      ]
+     ],
+     "outlineC": [
+      [
+       "rgb(228, 225, 219)",
+       2
+      ]
+     ],
+     "transitionDur": [
+      [
+       "0.15s",
+       40
+      ],
+      [
+       "0.2s",
+       34
+      ],
+      [
+       "0.12s",
+       31
+      ],
+      [
+       "0.14s",
+       23
+      ],
+      [
+       "0.16s",
+       9
+      ],
+      [
+       "0s",
+       8
+      ],
+      [
+       "0.22s",
+       4
+      ],
+      [
+       "0.32s",
+       3
+      ],
+      [
+       "0.26s",
+       3
+      ]
+     ],
+     "transitionProp": [
+      [
+       "opacity",
+       36
+      ],
+      [
+       "color",
+       36
+      ],
+      [
+       "background",
+       23
+      ],
+      [
+       "transform",
+       16
+      ],
+      [
+       "box-shadow",
+       14
+      ],
+      [
+       "visibility",
+       8
+      ],
+      [
+       "all",
+       8
+      ],
+      [
+       "outline-color",
+       5
+      ],
+      [
+       "background-color",
+       4
+      ],
+      [
+       "grid-template-rows",
+       3
+      ],
+      [
+       "filter",
+       1
+      ],
+      [
+       "width",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       115
+      ],
+      [
+       "cubic-bezier(0.16, 1, 0.3, 1)",
+       26
+      ],
+      [
+       "linear",
+       8
+      ],
+      [
+       "cubic-bezier(0.4, 0, 0.2, 1)",
+       3
+      ],
+      [
+       "cubic-bezier(0.34, 1.35, 0.64, 1)",
+       2
+      ],
+      [
+       "cubic-bezier(0.22, 1, 0.36, 1)",
+       1
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "brain-mobile-light",
+   "surface": "brain",
+   "viewport": "mobile",
+   "theme": "light",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/brain-mobile-light.png",
+   "applied": null,
+   "geo": {
+    "innerWidth": 390,
+    "innerHeight": 844,
+    "dpr": 1,
+    "theme": null,
+    "bodyClass": "",
+    "scrollHeight": 844,
+    "elementCount": 222
+   },
+   "sweep": {
+    "painted": 143,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       117
+      ],
+      [
+       "4px",
+       11
+      ],
+      [
+       "3px",
+       6
+      ],
+      [
+       "999px",
+       5
+      ],
+      [
+       "6px",
+       4
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       68
+      ],
+      [
+       "13.3333px",
+       49
+      ],
+      [
+       "14.08px",
+       12
+      ],
+      [
+       "11.52px",
+       6
+      ],
+      [
+       "11.2px",
+       4
+      ],
+      [
+       "14.4px",
+       2
+      ],
+      [
+       "22.4px",
+       1
+      ],
+      [
+       "10.88px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       120
+      ],
+      [
+       "500",
+       17
+      ],
+      [
+       "600",
+       6
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       142
+      ],
+      [
+       "Newsreader",
+       1
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       127
+      ],
+      [
+       "rgb(255, 255, 255)",
+       6
+      ],
+      [
+       "rgb(242, 237, 235)",
+       6
+      ],
+      [
+       "rgb(253, 248, 246)",
+       3
+      ],
+      [
+       "rgb(138, 109, 88)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(92, 90, 85)",
+       74
+      ],
+      [
+       "rgb(28, 27, 26)",
+       31
+      ],
+      [
+       "rgb(40, 55, 45)",
+       24
+      ],
+      [
+       "rgb(138, 134, 128)",
+       14
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       4
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(228, 225, 219)",
+       4
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.06) 0px 1px 2px 0px",
+       1
+      ],
+      [
+       "rgba(42, 38, 32, 0.1) 0px -6px 20px 0px",
+       1
+      ]
+     ],
+     "outlineW": [
+      [
+       "1px",
+       1
+      ]
+     ],
+     "outlineC": [
+      [
+       "rgb(228, 225, 219)",
+       1
+      ]
+     ],
+     "transitionDur": [
+      [
+       "0.15s",
+       39
+      ],
+      [
+       "0.16s",
+       9
+      ],
+      [
+       "0.12s",
+       8
+      ],
+      [
+       "0s",
+       4
+      ],
+      [
+       "0.2s",
+       3
+      ],
+      [
+       "0.22s",
+       2
+      ]
+     ],
+     "transitionProp": [
+      [
+       "color",
+       22
+      ],
+      [
+       "background",
+       17
+      ],
+      [
+       "opacity",
+       14
+      ],
+      [
+       "visibility",
+       4
+      ],
+      [
+       "background-color",
+       4
+      ],
+      [
+       "all",
+       2
+      ],
+      [
+       "transform",
+       1
+      ],
+      [
+       "width",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       59
+      ],
+      [
+       "linear",
+       4
+      ],
+      [
+       "cubic-bezier(0.34, 1.35, 0.64, 1)",
+       2
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "studio-mobile-light",
+   "surface": "studio",
+   "viewport": "mobile",
+   "theme": "light",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/studio-mobile-light.png",
+   "applied": null,
+   "geo": {
+    "innerWidth": 390,
+    "innerHeight": 844,
+    "dpr": 1,
+    "theme": null,
+    "bodyClass": "",
+    "scrollHeight": 844,
+    "elementCount": 243
+   },
+   "sweep": {
+    "painted": 184,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       151
+      ],
+      [
+       "3px",
+       13
+      ],
+      [
+       "4px",
+       9
+      ],
+      [
+       "6px",
+       6
+      ],
+      [
+       "999px",
+       4
+      ],
+      [
+       "50%",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       89
+      ],
+      [
+       "13.3333px",
+       43
+      ],
+      [
+       "14.08px",
+       26
+      ],
+      [
+       "13.12px",
+       11
+      ],
+      [
+       "11.52px",
+       4
+      ],
+      [
+       "11.2px",
+       4
+      ],
+      [
+       "21.6px",
+       2
+      ],
+      [
+       "14.4px",
+       2
+      ],
+      [
+       "10.88px",
+       1
+      ],
+      [
+       "24px",
+       1
+      ],
+      [
+       "13.6px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       135
+      ],
+      [
+       "500",
+       36
+      ],
+      [
+       "600",
+       13
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       181
+      ],
+      [
+       "Newsreader",
+       3
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       163
+      ],
+      [
+       "rgb(255, 255, 255)",
+       8
+      ],
+      [
+       "rgb(242, 237, 235)",
+       6
+      ],
+      [
+       "rgb(253, 248, 246)",
+       3
+      ],
+      [
+       "rgb(247, 243, 240)",
+       2
+      ],
+      [
+       "rgba(0, 0, 0, 0.3)",
+       1
+      ],
+      [
+       "rgb(138, 109, 88)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(92, 90, 85)",
+       126
+      ],
+      [
+       "rgb(28, 27, 26)",
+       42
+      ],
+      [
+       "rgb(0, 0, 0)",
+       8
+      ],
+      [
+       "rgb(40, 55, 45)",
+       8
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       9
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(228, 225, 219)",
+       9
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.15) 0px 0px 24px 0px",
+       2
+      ],
+      [
+       "rgba(0, 0, 0, 0.06) 0px 1px 2px 0px",
+       1
+      ],
+      [
+       "rgba(42, 38, 32, 0.1) 0px -6px 20px 0px",
+       1
+      ]
+     ],
+     "outlineW": [
+      [
+       "1px",
+       1
+      ]
+     ],
+     "outlineC": [
+      [
+       "rgb(228, 225, 219)",
+       1
+      ]
+     ],
+     "transitionDur": [
+      [
+       "0.16s",
+       23
+      ],
+      [
+       "0.12s",
+       17
+      ],
+      [
+       "0.15s",
+       15
+      ],
+      [
+       "0.22s",
+       4
+      ],
+      [
+       "0.2s",
+       3
+      ],
+      [
+       "0s",
+       3
+      ]
+     ],
+     "transitionProp": [
+      [
+       "color",
+       22
+      ],
+      [
+       "background",
+       13
+      ],
+      [
+       "background-color",
+       10
+      ],
+      [
+       "opacity",
+       7
+      ],
+      [
+       "transform",
+       3
+      ],
+      [
+       "outline-color",
+       3
+      ],
+      [
+       "visibility",
+       3
+      ],
+      [
+       "all",
+       1
+      ],
+      [
+       "border-color",
+       1
+      ],
+      [
+       "box-shadow",
+       1
+      ],
+      [
+       "width",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       58
+      ],
+      [
+       "linear",
+       3
+      ],
+      [
+       "cubic-bezier(0.4, 0, 0.2, 1)",
+       2
+      ],
+      [
+       "cubic-bezier(0.34, 1.35, 0.64, 1)",
+       2
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "settings-mobile-light",
+   "surface": "settings",
+   "viewport": "mobile",
+   "theme": "light",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/settings-mobile-light.png",
+   "applied": null,
+   "geo": {
+    "innerWidth": 390,
+    "innerHeight": 844,
+    "dpr": 1,
+    "theme": null,
+    "bodyClass": "",
+    "scrollHeight": 844,
+    "elementCount": 271
+   },
+   "sweep": {
+    "painted": 210,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       181
+      ],
+      [
+       "999px",
+       15
+      ],
+      [
+       "3px",
+       6
+      ],
+      [
+       "12px",
+       3
+      ],
+      [
+       "24px",
+       2
+      ],
+      [
+       "6px",
+       2
+      ],
+      [
+       "4px",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       99
+      ],
+      [
+       "12px",
+       55
+      ],
+      [
+       "13.6px",
+       27
+      ],
+      [
+       "14.4px",
+       7
+      ],
+      [
+       "12.8px",
+       7
+      ],
+      [
+       "11.52px",
+       4
+      ],
+      [
+       "11.2px",
+       4
+      ],
+      [
+       "15.2px",
+       3
+      ],
+      [
+       "14px",
+       3
+      ],
+      [
+       "35.2px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       110
+      ],
+      [
+       "500",
+       92
+      ],
+      [
+       "600",
+       8
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       204
+      ],
+      [
+       "Newsreader",
+       4
+      ],
+      [
+       "Arial",
+       2
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       182
+      ],
+      [
+       "rgb(255, 255, 255)",
+       14
+      ],
+      [
+       "color(srgb 0.133333 0.772549 0.368627 / 0.15)",
+       4
+      ],
+      [
+       "rgba(253, 248, 246, 0.6)",
+       3
+      ],
+      [
+       "rgb(40, 55, 45)",
+       3
+      ],
+      [
+       "rgb(253, 248, 246)",
+       2
+      ],
+      [
+       "rgb(242, 237, 235)",
+       1
+      ],
+      [
+       "rgb(138, 109, 88)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(28, 27, 26)",
+       131
+      ],
+      [
+       "rgb(92, 90, 85)",
+       33
+      ],
+      [
+       "rgb(211, 47, 47)",
+       15
+      ],
+      [
+       "rgb(138, 134, 128)",
+       14
+      ],
+      [
+       "rgb(255, 255, 255)",
+       7
+      ],
+      [
+       "rgb(40, 55, 45)",
+       6
+      ],
+      [
+       "rgb(22, 101, 52)",
+       4
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       17
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(228, 225, 219)",
+       10
+      ],
+      [
+       "rgba(228, 225, 219, 0.85)",
+       3
+      ],
+      [
+       "rgb(211, 47, 47)",
+       3
+      ],
+      [
+       "rgb(239, 236, 230)",
+       1
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(28, 27, 26, 0.1) 0px 8px 24px -6px, rgba(0, 0, 0, 0.03) 0px 2px 6px 0px",
+       3
+      ],
+      [
+       "rgba(0, 0, 0, 0.06) 0px 1px 2px 0px",
+       1
+      ],
+      [
+       "rgba(42, 38, 32, 0.1) 0px -6px 20px 0px",
+       1
+      ]
+     ],
+     "outlineW": [],
+     "outlineC": [],
+     "transitionDur": [
+      [
+       "0.15s",
+       11
+      ],
+      [
+       "0.16s",
+       9
+      ],
+      [
+       "0.12s",
+       7
+      ],
+      [
+       "0.2s",
+       2
+      ],
+      [
+       "0.22s",
+       2
+      ]
+     ],
+     "transitionProp": [
+      [
+       "all",
+       11
+      ],
+      [
+       "background-color",
+       6
+      ],
+      [
+       "color",
+       6
+      ],
+      [
+       "background",
+       5
+      ],
+      [
+       "transform",
+       1
+      ],
+      [
+       "width",
+       1
+      ],
+      [
+       "opacity",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       29
+      ],
+      [
+       "cubic-bezier(0.34, 1.35, 0.64, 1)",
+       2
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "home-mobile-light",
+   "surface": "home",
+   "viewport": "mobile",
+   "theme": "light",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/home-mobile-light.png",
+   "applied": null,
+   "geo": {
+    "innerWidth": 390,
+    "innerHeight": 844,
+    "dpr": 1,
+    "theme": null,
+    "bodyClass": "",
+    "scrollHeight": 844,
+    "elementCount": 47
+   },
+   "sweep": {
+    "painted": 18,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       17
+      ],
+      [
+       "999px",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       14
+      ],
+      [
+       "11.52px",
+       2
+      ],
+      [
+       "255px",
+       1
+      ],
+      [
+       "15.2px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       16
+      ],
+      [
+       "500",
+       2
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       18
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       15
+      ],
+      [
+       "rgb(253, 248, 246)",
+       2
+      ],
+      [
+       "rgb(40, 55, 45)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(28, 27, 26)",
+       14
+      ],
+      [
+       "rgb(138, 134, 128)",
+       2
+      ],
+      [
+       "rgb(92, 90, 85)",
+       1
+      ],
+      [
+       "rgb(255, 255, 255)",
+       1
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       1
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(40, 55, 45)",
+       1
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(28, 27, 26, 0.1) 0px 8px 24px -6px, rgba(0, 0, 0, 0.03) 0px 2px 6px 0px, rgba(138, 109, 88, 0.3) 0px 0px 16px -4px",
+       1
+      ]
+     ],
+     "outlineW": [],
+     "outlineC": [],
+     "transitionDur": [
+      [
+       "0.15s",
+       2
+      ]
+     ],
+     "transitionProp": [
+      [
+       "transform",
+       1
+      ],
+      [
+       "box-shadow",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       2
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "library-mobile-dark",
+   "surface": "library",
+   "viewport": "mobile",
+   "theme": "dark",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/library-mobile-dark.png",
+   "applied": "dark",
+   "geo": {
+    "innerWidth": 390,
+    "innerHeight": 844,
+    "dpr": 1,
+    "theme": "dark",
+    "bodyClass": "nostos-library",
+    "scrollHeight": 844,
+    "elementCount": 762
+   },
+   "sweep": {
+    "painted": 342,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       279
+      ],
+      [
+       "6px",
+       18
+      ],
+      [
+       "4px",
+       14
+      ],
+      [
+       "999px",
+       14
+      ],
+      [
+       "8px",
+       9
+      ],
+      [
+       "3px",
+       7
+      ],
+      [
+       "5px",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       145
+      ],
+      [
+       "14.08px",
+       90
+      ],
+      [
+       "13.3333px",
+       68
+      ],
+      [
+       "11.52px",
+       14
+      ],
+      [
+       "13.6px",
+       12
+      ],
+      [
+       "14.4px",
+       4
+      ],
+      [
+       "11.2px",
+       4
+      ],
+      [
+       "10.88px",
+       2
+      ],
+      [
+       "255px",
+       1
+      ],
+      [
+       "28px",
+       1
+      ],
+      [
+       "13.12px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       215
+      ],
+      [
+       "500",
+       109
+      ],
+      [
+       "600",
+       18
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       341
+      ],
+      [
+       "Newsreader",
+       1
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       303
+      ],
+      [
+       "rgb(37, 42, 52)",
+       14
+      ],
+      [
+       "rgb(31, 35, 43)",
+       12
+      ],
+      [
+       "rgb(27, 30, 38)",
+       4
+      ],
+      [
+       "rgb(21, 24, 31)",
+       2
+      ],
+      [
+       "rgb(50, 58, 72)",
+       2
+      ],
+      [
+       "rgb(18, 20, 26)",
+       1
+      ],
+      [
+       "color(srgb 0.941176 0.94902 0.960784 / 0.22)",
+       1
+      ],
+      [
+       "rgba(21, 24, 31, 0.95)",
+       1
+      ],
+      [
+       "rgb(240, 242, 245)",
+       1
+      ],
+      [
+       "rgb(209, 172, 143)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(197, 201, 208)",
+       178
+      ],
+      [
+       "rgb(237, 238, 242)",
+       86
+      ],
+      [
+       "rgb(148, 156, 169)",
+       30
+      ],
+      [
+       "rgb(74, 82, 96)",
+       24
+      ],
+      [
+       "rgb(224, 194, 117)",
+       15
+      ],
+      [
+       "rgb(240, 242, 245)",
+       6
+      ],
+      [
+       "rgb(21, 24, 31)",
+       3
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       17
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(38, 42, 52)",
+       15
+      ],
+      [
+       "rgb(240, 242, 245)",
+       1
+      ],
+      [
+       "rgb(69, 78, 96)",
+       1
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.5) 0px 2px 12px 0px",
+       12
+      ],
+      [
+       "rgba(0, 0, 0, 0.4) 0px 1px 2px 0px",
+       2
+      ],
+      [
+       "rgba(0, 0, 0, 0.62) 0px 16px 40px 0px, rgba(0, 0, 0, 0.45) 0px 3px 10px 0px",
+       1
+      ]
+     ],
+     "outlineW": [
+      [
+       "1px",
+       2
+      ]
+     ],
+     "outlineC": [
+      [
+       "rgb(38, 42, 52)",
+       2
+      ]
+     ],
+     "transitionDur": [
+      [
+       "0.15s",
+       40
+      ],
+      [
+       "0.2s",
+       34
+      ],
+      [
+       "0.12s",
+       31
+      ],
+      [
+       "0.14s",
+       23
+      ],
+      [
+       "0.16s",
+       9
+      ],
+      [
+       "0s",
+       8
+      ],
+      [
+       "0.22s",
+       4
+      ],
+      [
+       "0.32s",
+       3
+      ],
+      [
+       "0.26s",
+       3
+      ]
+     ],
+     "transitionProp": [
+      [
+       "opacity",
+       36
+      ],
+      [
+       "color",
+       36
+      ],
+      [
+       "background",
+       23
+      ],
+      [
+       "transform",
+       16
+      ],
+      [
+       "box-shadow",
+       14
+      ],
+      [
+       "visibility",
+       8
+      ],
+      [
+       "all",
+       8
+      ],
+      [
+       "outline-color",
+       5
+      ],
+      [
+       "background-color",
+       4
+      ],
+      [
+       "grid-template-rows",
+       3
+      ],
+      [
+       "filter",
+       1
+      ],
+      [
+       "width",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       115
+      ],
+      [
+       "cubic-bezier(0.16, 1, 0.3, 1)",
+       26
+      ],
+      [
+       "linear",
+       8
+      ],
+      [
+       "cubic-bezier(0.4, 0, 0.2, 1)",
+       3
+      ],
+      [
+       "cubic-bezier(0.34, 1.35, 0.64, 1)",
+       2
+      ],
+      [
+       "cubic-bezier(0.22, 1, 0.36, 1)",
+       1
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "brain-mobile-dark",
+   "surface": "brain",
+   "viewport": "mobile",
+   "theme": "dark",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/brain-mobile-dark.png",
+   "applied": "dark",
+   "geo": {
+    "innerWidth": 390,
+    "innerHeight": 844,
+    "dpr": 1,
+    "theme": "dark",
+    "bodyClass": "",
+    "scrollHeight": 844,
+    "elementCount": 222
+   },
+   "sweep": {
+    "painted": 143,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       117
+      ],
+      [
+       "4px",
+       11
+      ],
+      [
+       "3px",
+       6
+      ],
+      [
+       "999px",
+       5
+      ],
+      [
+       "6px",
+       4
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       68
+      ],
+      [
+       "13.3333px",
+       49
+      ],
+      [
+       "14.08px",
+       12
+      ],
+      [
+       "11.52px",
+       6
+      ],
+      [
+       "11.2px",
+       4
+      ],
+      [
+       "14.4px",
+       2
+      ],
+      [
+       "22.4px",
+       1
+      ],
+      [
+       "10.88px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       120
+      ],
+      [
+       "500",
+       17
+      ],
+      [
+       "600",
+       6
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       142
+      ],
+      [
+       "Newsreader",
+       1
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       127
+      ],
+      [
+       "rgb(37, 42, 52)",
+       6
+      ],
+      [
+       "rgb(27, 30, 38)",
+       4
+      ],
+      [
+       "rgb(21, 24, 31)",
+       3
+      ],
+      [
+       "rgb(50, 58, 72)",
+       2
+      ],
+      [
+       "rgb(209, 172, 143)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(197, 201, 208)",
+       74
+      ],
+      [
+       "rgb(237, 238, 242)",
+       55
+      ],
+      [
+       "rgb(148, 156, 169)",
+       14
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       4
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(38, 42, 52)",
+       3
+      ],
+      [
+       "rgb(69, 78, 96)",
+       1
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.4) 0px 1px 2px 0px",
+       1
+      ],
+      [
+       "rgba(0, 0, 0, 0.62) 0px 16px 40px 0px, rgba(0, 0, 0, 0.45) 0px 3px 10px 0px",
+       1
+      ]
+     ],
+     "outlineW": [
+      [
+       "1px",
+       1
+      ]
+     ],
+     "outlineC": [
+      [
+       "rgb(38, 42, 52)",
+       1
+      ]
+     ],
+     "transitionDur": [
+      [
+       "0.15s",
+       39
+      ],
+      [
+       "0.16s",
+       9
+      ],
+      [
+       "0.12s",
+       8
+      ],
+      [
+       "0s",
+       4
+      ],
+      [
+       "0.2s",
+       3
+      ],
+      [
+       "0.22s",
+       2
+      ]
+     ],
+     "transitionProp": [
+      [
+       "color",
+       22
+      ],
+      [
+       "background",
+       17
+      ],
+      [
+       "opacity",
+       14
+      ],
+      [
+       "visibility",
+       4
+      ],
+      [
+       "background-color",
+       4
+      ],
+      [
+       "all",
+       2
+      ],
+      [
+       "transform",
+       1
+      ],
+      [
+       "width",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       59
+      ],
+      [
+       "linear",
+       4
+      ],
+      [
+       "cubic-bezier(0.34, 1.35, 0.64, 1)",
+       2
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "studio-mobile-dark",
+   "surface": "studio",
+   "viewport": "mobile",
+   "theme": "dark",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/studio-mobile-dark.png",
+   "applied": "dark",
+   "geo": {
+    "innerWidth": 390,
+    "innerHeight": 844,
+    "dpr": 1,
+    "theme": "dark",
+    "bodyClass": "",
+    "scrollHeight": 844,
+    "elementCount": 243
+   },
+   "sweep": {
+    "painted": 184,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       151
+      ],
+      [
+       "3px",
+       13
+      ],
+      [
+       "4px",
+       9
+      ],
+      [
+       "6px",
+       6
+      ],
+      [
+       "999px",
+       4
+      ],
+      [
+       "50%",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       89
+      ],
+      [
+       "13.3333px",
+       43
+      ],
+      [
+       "14.08px",
+       26
+      ],
+      [
+       "13.12px",
+       11
+      ],
+      [
+       "11.52px",
+       4
+      ],
+      [
+       "11.2px",
+       4
+      ],
+      [
+       "21.6px",
+       2
+      ],
+      [
+       "14.4px",
+       2
+      ],
+      [
+       "10.88px",
+       1
+      ],
+      [
+       "24px",
+       1
+      ],
+      [
+       "13.6px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       135
+      ],
+      [
+       "500",
+       36
+      ],
+      [
+       "600",
+       13
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       181
+      ],
+      [
+       "Newsreader",
+       3
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       163
+      ],
+      [
+       "rgb(27, 30, 38)",
+       7
+      ],
+      [
+       "rgb(37, 42, 52)",
+       6
+      ],
+      [
+       "rgb(21, 24, 31)",
+       3
+      ],
+      [
+       "rgb(18, 20, 26)",
+       2
+      ],
+      [
+       "rgba(0, 0, 0, 0.4)",
+       1
+      ],
+      [
+       "rgb(50, 58, 72)",
+       1
+      ],
+      [
+       "rgb(209, 172, 143)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(197, 201, 208)",
+       126
+      ],
+      [
+       "rgb(237, 238, 242)",
+       50
+      ],
+      [
+       "rgb(255, 255, 255)",
+       8
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       9
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(38, 42, 52)",
+       8
+      ],
+      [
+       "rgb(69, 78, 96)",
+       1
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.15) 0px 0px 24px 0px",
+       2
+      ],
+      [
+       "rgba(0, 0, 0, 0.4) 0px 1px 2px 0px",
+       1
+      ],
+      [
+       "rgba(0, 0, 0, 0.62) 0px 16px 40px 0px, rgba(0, 0, 0, 0.45) 0px 3px 10px 0px",
+       1
+      ]
+     ],
+     "outlineW": [
+      [
+       "1px",
+       1
+      ]
+     ],
+     "outlineC": [
+      [
+       "rgb(38, 42, 52)",
+       1
+      ]
+     ],
+     "transitionDur": [
+      [
+       "0.16s",
+       23
+      ],
+      [
+       "0.12s",
+       17
+      ],
+      [
+       "0.15s",
+       15
+      ],
+      [
+       "0.22s",
+       4
+      ],
+      [
+       "0.2s",
+       3
+      ],
+      [
+       "0s",
+       3
+      ]
+     ],
+     "transitionProp": [
+      [
+       "color",
+       22
+      ],
+      [
+       "background",
+       13
+      ],
+      [
+       "background-color",
+       10
+      ],
+      [
+       "opacity",
+       7
+      ],
+      [
+       "transform",
+       3
+      ],
+      [
+       "outline-color",
+       3
+      ],
+      [
+       "visibility",
+       3
+      ],
+      [
+       "all",
+       1
+      ],
+      [
+       "border-color",
+       1
+      ],
+      [
+       "box-shadow",
+       1
+      ],
+      [
+       "width",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       58
+      ],
+      [
+       "linear",
+       3
+      ],
+      [
+       "cubic-bezier(0.4, 0, 0.2, 1)",
+       2
+      ],
+      [
+       "cubic-bezier(0.34, 1.35, 0.64, 1)",
+       2
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "settings-mobile-dark",
+   "surface": "settings",
+   "viewport": "mobile",
+   "theme": "dark",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/settings-mobile-dark.png",
+   "applied": "dark",
+   "geo": {
+    "innerWidth": 390,
+    "innerHeight": 844,
+    "dpr": 1,
+    "theme": "dark",
+    "bodyClass": "",
+    "scrollHeight": 844,
+    "elementCount": 271
+   },
+   "sweep": {
+    "painted": 210,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       181
+      ],
+      [
+       "999px",
+       15
+      ],
+      [
+       "3px",
+       6
+      ],
+      [
+       "12px",
+       3
+      ],
+      [
+       "24px",
+       2
+      ],
+      [
+       "6px",
+       2
+      ],
+      [
+       "4px",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       99
+      ],
+      [
+       "12px",
+       55
+      ],
+      [
+       "13.6px",
+       27
+      ],
+      [
+       "14.4px",
+       7
+      ],
+      [
+       "12.8px",
+       7
+      ],
+      [
+       "11.52px",
+       4
+      ],
+      [
+       "11.2px",
+       4
+      ],
+      [
+       "15.2px",
+       3
+      ],
+      [
+       "14px",
+       3
+      ],
+      [
+       "35.2px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       110
+      ],
+      [
+       "500",
+       92
+      ],
+      [
+       "600",
+       8
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       204
+      ],
+      [
+       "Newsreader",
+       4
+      ],
+      [
+       "Arial",
+       2
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       182
+      ],
+      [
+       "rgb(27, 30, 38)",
+       13
+      ],
+      [
+       "color(srgb 0.560784 0.780392 0.658824 / 0.15)",
+       4
+      ],
+      [
+       "rgba(21, 24, 31, 0.6)",
+       3
+      ],
+      [
+       "rgb(21, 24, 31)",
+       2
+      ],
+      [
+       "rgb(45, 75, 68)",
+       2
+      ],
+      [
+       "rgb(240, 242, 245)",
+       1
+      ],
+      [
+       "rgb(37, 42, 52)",
+       1
+      ],
+      [
+       "rgb(50, 58, 72)",
+       1
+      ],
+      [
+       "rgb(209, 172, 143)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(237, 238, 242)",
+       133
+      ],
+      [
+       "rgb(197, 201, 208)",
+       33
+      ],
+      [
+       "rgb(148, 156, 169)",
+       18
+      ],
+      [
+       "rgb(228, 121, 107)",
+       15
+      ],
+      [
+       "rgb(21, 24, 31)",
+       7
+      ],
+      [
+       "rgb(143, 199, 168)",
+       4
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       17
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(38, 42, 52)",
+       9
+      ],
+      [
+       "rgb(43, 47, 58)",
+       3
+      ],
+      [
+       "rgb(228, 121, 107)",
+       3
+      ],
+      [
+       "rgb(31, 35, 43)",
+       1
+      ],
+      [
+       "rgb(69, 78, 96)",
+       1
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.5) 0px 8px 24px -6px, rgba(0, 0, 0, 0.3) 0px 2px 6px 0px",
+       3
+      ],
+      [
+       "rgba(0, 0, 0, 0.4) 0px 1px 2px 0px",
+       1
+      ],
+      [
+       "rgba(0, 0, 0, 0.62) 0px 16px 40px 0px, rgba(0, 0, 0, 0.45) 0px 3px 10px 0px",
+       1
+      ]
+     ],
+     "outlineW": [],
+     "outlineC": [],
+     "transitionDur": [
+      [
+       "0.15s",
+       11
+      ],
+      [
+       "0.16s",
+       9
+      ],
+      [
+       "0.12s",
+       7
+      ],
+      [
+       "0.2s",
+       2
+      ],
+      [
+       "0.22s",
+       2
+      ]
+     ],
+     "transitionProp": [
+      [
+       "all",
+       11
+      ],
+      [
+       "background-color",
+       6
+      ],
+      [
+       "color",
+       6
+      ],
+      [
+       "background",
+       5
+      ],
+      [
+       "transform",
+       1
+      ],
+      [
+       "width",
+       1
+      ],
+      [
+       "opacity",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       29
+      ],
+      [
+       "cubic-bezier(0.34, 1.35, 0.64, 1)",
+       2
+      ]
+     ]
+    }
+   },
+   "errors": []
+  },
+  {
+   "tag": "home-mobile-dark",
+   "surface": "home",
+   "viewport": "mobile",
+   "theme": "dark",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/home-mobile-dark.png",
+   "applied": "dark",
+   "geo": {
+    "innerWidth": 390,
+    "innerHeight": 844,
+    "dpr": 1,
+    "theme": "dark",
+    "bodyClass": "",
+    "scrollHeight": 844,
+    "elementCount": 47
+   },
+   "sweep": {
+    "painted": 18,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       17
+      ],
+      [
+       "999px",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       14
+      ],
+      [
+       "11.52px",
+       2
+      ],
+      [
+       "255px",
+       1
+      ],
+      [
+       "15.2px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       16
+      ],
+      [
+       "500",
+       2
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       18
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       15
+      ],
+      [
+       "rgb(21, 24, 31)",
+       2
+      ],
+      [
+       "rgb(45, 75, 68)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(237, 238, 242)",
+       14
+      ],
+      [
+       "rgb(148, 156, 169)",
+       2
+      ],
+      [
+       "rgb(197, 201, 208)",
+       1
+      ],
+      [
+       "rgb(240, 242, 245)",
+       1
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       1
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(240, 242, 245)",
+       1
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.5) 0px 8px 24px -6px, rgba(0, 0, 0, 0.3) 0px 2px 6px 0px, rgba(209, 172, 143, 0.32) 0px 0px 16px -4px",
+       1
+      ]
+     ],
+     "outlineW": [],
+     "outlineC": [],
+     "transitionDur": [
+      [
+       "0.15s",
+       2
+      ]
+     ],
+     "transitionProp": [
+      [
+       "transform",
+       1
+      ],
+      [
+       "box-shadow",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       2
+      ]
+     ]
+    }
+   },
+   "errors": []
+  }
+ ],
+ "fingerprint": {
+  "html": "http://127.0.0.1:5214/",
+  "sheets": [
+   {
+    "href": "styles-OOUH22C2.css",
+    "bytes": 29740,
+    "hash": "9c0c9433"
+   }
+  ],
+  "sentinel_darkIndexRow": true
+ }
+}

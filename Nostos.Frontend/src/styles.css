@@ -130,18 +130,53 @@
   --modal-scrim: rgba(28, 27, 26, 0.42);
   --modal-scrim-blur: 2px;
 
-  /* ── Radius ── */
+  /* ── Radius ──
+     `-sm/-md/-lg` are the named scale. `-pill` and `-round` name the two
+     shapes that were previously bare literals: measured over the painted DOM
+     across five surfaces and both themes, `999px` is 4.2% of all radii and
+     `50%` is 3.6%, and neither had a name. Same values — the point is that the
+     capsule and the circle become centrally changeable instead of 24 loose
+     literals spread over 12 files. */
   --radius-sm: 3px;
   --radius-md: 4px;
   --radius-lg: 6px;
+  --radius-pill: 999px;
+  --radius-round: 50%;
 
-  /* ── Motion ── */
+  /* ── Control heights ──
+     The measured heights of the small interactive controls, taken from the
+     running app rather than chosen: 28px (Library row action), 30px (the
+     segmented toggle in Library and Brain), 32px (global .icon-btn), 44px
+     (the touch floor the mobile blocks hand-roll per component). Naming them
+     is what lets `.icon-btn`'s five implementations converge later. */
+  --control-h-xs: 28px;
+  --control-h-sm: 30px;
+  --control-h-md: 32px;
+  --control-h-touch: 44px;
+
+  /* ── Focus ring ──
+     `--focus-ring` is the colour. This is the width. Measured, the ring is
+     `2px` at 22 call sites across 6 files; the OFFSET deliberately varies by
+     surface (inset for tiles and rows, outset for chips) and is NOT collapsed
+     here — that variation is a real distinction, not drift. */
+  --focus-ring-width: 2px;
+
+  /* ── Motion ──
+     The scale, plus the easing the app actually uses.
+     Measured over the painted DOM: 84% of all transitions run on plain `ease`
+     while `--ease-standard`/`--ease-out` together account for under 4%. That
+     is not a scale being followed — it is a scale being bypassed. `--ease-plain`
+     names the value the app really speaks, so the majority easing is at least
+     centrally changeable. It is deliberately equal to `ease`, so introducing
+     it moves no pixels; re-pointing it at a custom curve later is a one-line,
+     whole-app change and a visible one, which is why it is separate. */
   --motion-fast: 160ms;
   --motion-base: 220ms;
   --motion-slow: 320ms;
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.35, 0.64, 1);
+  --ease-plain: ease;
 
   /* ── Waiting + arrival ──
      `--motion-wait` is the waiting field's breath period: slow and shallow
@@ -227,11 +262,11 @@
   }
 }
 
-/* For a surface that is already empty when waiting begins: filling it would read
-   as a tonal flash, so only the breath shows. */
-.wait-field--breath {
-  background-color: transparent;
-}
+/* `.wait-field--breath` was removed: no template or `.ts` inline template ever
+   applied it. The documented intent — a surface that is already empty when
+   waiting begins, so only the breath shows — is worth keeping in mind, but a
+   class nothing uses cannot carry it. */
+
 .wait-field.is-done {
   opacity: 0;
   filter: blur(12px);
@@ -458,28 +493,23 @@
      floating surfaces are raised TONALLY instead (see .app-dock-container). ── */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.55);
   --shadow-glass: 0 8px 24px -6px rgba(0, 0, 0, 0.50), 0 2px 6px rgba(0, 0, 0, 0.30);
   --shadow-glass-lg: 0 16px 36px -8px rgba(0, 0, 0, 0.60), 0 4px 10px rgba(0, 0, 0, 0.35);
   /* Neutral, NOT the mint. This is a light source: tinting it with the accent
      paints a green halo on whatever it sits under (it did, on selected rows). */
   --shadow-glow: 0 6px 20px -4px rgba(0, 0, 0, 0.35);
 
-  /* ── Legacy gradient / pastel aliases (light stops are all DARK: the
-     gradients would vanish entirely on dark) ── */
-  --pastel-blue: #C7A98F;
-  --pastel-lavender: #ACCDC4;
-  --pastel-pink: #D1AC8F;
-  --pastel-peach: #2A2318;
-  --pastel-sky: #5C7A72;
+  /* ── Editorial gradient ──
+     Dark counterpart of the light token. The `--pastel-*` stops,
+     `--gradient-pastel-soft` and `--gradient-accent` are gone from BOTH blocks:
+     they were dead in both, so leaving them here would have kept the token
+     graph reporting them as "dark-only (new)" — an accurate report of a
+     half-done deletion, not of a deliberate dark-only token. */
   --gradient-pastel: linear-gradient(120deg, #ACCDC4, #5C7A72, #D1AC8F);
-  --gradient-pastel-soft: linear-gradient(120deg, rgba(172, 205, 196, 0.28), rgba(209, 172, 143, 0.28));
-  --gradient-accent: linear-gradient(120deg, #ACCDC4, #D1AC8F);
 
   /* ── Editor chrome bridge ── */
   --editor-ui-bg: #1B1E26;
   --editor-ui-bg-hover: #21252E;
-  --editor-ui-bg-active: #2A303C;
   --editor-ui-text: #EDEEF2;
   --editor-ui-muted: #9CA4AF;
   --editor-ui-border: rgba(237, 238, 242, 0.10);
@@ -705,66 +735,62 @@
   --fw-medium: 500;
   --fw-semibold: 600;
 
-  /* ── Typography Scale ── */
+  /* ── Typography Scale ──
+     Only `-xs` and `-sm` have readers. `-base`/`-lg`/`-xl`/`-2xl` were removed:
+     nothing referenced them, which is the same finding as the type scale being
+     mostly bypassed in favour of raw `rem` values. The scale is now the two
+     steps the app actually uses; extending it should come from the measured
+     scale (see docs/design/design-language.md), not from a guessed ladder. */
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
-  --text-base: 1rem;
-  --text-lg: 1.125rem;
-  --text-xl: 1.25rem;
-  --text-2xl: 1.5rem;
 
-  /* ── Spacing ── */
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 16px;
-  --space-lg: 24px;
-  --space-xl: 32px;
+  /* ── Container widths ── */
   --container-width-md: 800px;
   --container-width-lg: 1200px;
 
-  /* ── Shadows ── */
+  /* ── Shadows ──
+     `--shadow-sm` and `--shadow-md` have readers. `--shadow-lg` was removed:
+     unused, and the app's large elevations are carried by `--shadow-glass*`. */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
 
   /* ── Transitions ── */
   --transition-fast: 120ms ease;
-  --transition-normal: 200ms ease;
 
-  /* ── Warm editorial accent layer ──
-     Translucent paper surfaces, hairline warm borders, and a restrained pine-to-clay
-     gradient keep the existing glass components grounded in the Nordic Editorial palette. */
+  /* ── Glass family ──
+     All three are consumed by the library/reader chrome today
+     (`library.component.css` reads `--glass-bg-strong`). `--glass-blur-strong`
+     was removed with `.glass-panel`: it had no reader.
+     NOTE — `--glass-bg-strong` was nearly removed here by grouping it with the
+     blur. The dead-token list never contained it; `grep -rn 'var(--glass-bg-strong)'`
+     over src shows library.component.css:90. Verify each token individually
+     against `var()` uses, never as part of a family. */
   --glass-bg: rgba(253, 248, 246, 0.6);
   --glass-bg-strong: rgba(253, 248, 246, 0.85);
   --glass-border: rgba(228, 225, 219, 0.85);
   --glass-blur: blur(14px);
-  --glass-blur-strong: blur(20px);
 
-  /* Editorial accent stops (same names retained for component compatibility) */
-  --pastel-blue: #8A6D58;
-  --pastel-lavender: #28372D;
-  --pastel-pink: #A08468;
-  --pastel-peach: #F4EDE7;
-  --pastel-sky: #5B6B60;
-
+  /* ── Editorial gradient ──
+     `--gradient-pastel` is still consumed (the concept map's panel edge), so it
+     stays — carrying its own literal stops rather than referencing the
+     `--pastel-*` tokens, none of which had a reader. `--gradient-pastel-soft`
+     and `--gradient-accent` were removed: nothing referenced them, and the
+     stops they carried no longer corresponded to anything in the palette. */
   --gradient-pastel: linear-gradient(120deg, #28372D, #5B6B60, #8A6D58);
-  --gradient-pastel-soft: linear-gradient(120deg, rgba(40, 55, 45, 0.28), rgba(138, 109, 88, 0.28));
-  --gradient-accent: linear-gradient(120deg, #28372D, #8A6D58);
 
   --shadow-glass: 0 8px 24px -6px rgba(28, 27, 26, 0.10), 0 2px 6px rgba(0, 0, 0, 0.03);
   --shadow-glass-lg: 0 16px 36px -8px rgba(28, 27, 26, 0.14), 0 4px 10px rgba(0, 0, 0, 0.04);
   --shadow-glow: 0 6px 20px -4px rgba(138, 109, 88, 0.30);
 
-  /* ── Editor chrome tokens (TinyMCE bridge — expert design §3) ──
+  /* ── Editor chrome tokens (TinyMCE bridge) ──
      The --editor-ui-* tokens are the stable contract between Nostos and the
      TinyMCE override layer (component ::ng-deep rules + src/tinymce-nostos.css
      portal rules). The skin stays 'oxide'; these tokens repaint the chrome
      through plain CSS inheritance. Single light token graph: :root is the
      only owner, so body-appended TinyMCE portals always inherit the same
-     light values. */
+     light values. `--editor-ui-bg-active` was removed: no reader. */
   --editor-ui-bg: var(--bg-surface);
   --editor-ui-bg-hover: #f3f2ef;
-  --editor-ui-bg-active: #eceae5;
   --editor-ui-text: var(--color-text-main);
   --editor-ui-muted: #746f68;
   --editor-ui-border: rgba(41, 37, 32, 0.11);
@@ -1010,16 +1036,16 @@ input[type='file']::file-selector-button:hover {
   border-bottom-color: var(--color-accent-hover);
 }
 
-/* --- BUTTON SIZES --- */
+/* ------------------------------
+   BUTTON SIZES
+------------------------------ */
+/* `.btn-lg` was removed: measured with `var(--space-*)` and the dead tokens
+   below, it has no consumer in any template — including the inline templates
+   inside `.ts` files, which is where a `.html`-only search goes wrong. */
+
 .btn-sm {
   padding: 0.3rem 0.8rem;
   font-size: 0.85rem;
-}
-
-.btn-lg {
-  padding: 0.8rem 2.5rem;
-  font-size: 1rem;
-  letter-spacing: 0.02em;
 }
 
 .btn-xs {
@@ -1108,40 +1134,14 @@ input[type='file']::file-selector-button:hover {
 /* ------------------------------
    GLASS SURFACES (shared material)
 ------------------------------ */
-/* Reusable frosted panel. Components opt in with class="glass-panel" or
-   copy the recipe via the --glass-* tokens. */
-.glass-panel {
-  background: var(--glass-bg-strong);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-glass);
-}
-
-/* Gradient hairline accent — for emphasis edges on active/selected cards. */
-.gradient-edge {
-  position: relative;
-}
-.gradient-edge::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: var(--gradient-pastel);
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-.gradient-edge:hover::after,
-.gradient-edge.is-active::after {
-  opacity: 1;
-}
+/* `.glass-panel` and `.gradient-edge` were removed here.
+   Both had no consumer in any template or in the inline templates inside `.ts`
+   files, so they were pure surface area: a "reusable frosted panel" and a
+   gradient hairline that nothing opted into. `.glass-panel` also pulled in
+   `--glass-bg-strong` and `--glass-blur`, which no longer have a reader.
+   If a frosted panel is wanted later, the `--glass-*` token family is still
+   declared and documented — the recipe is a class away, and the removed
+   version can be recovered from git rather than carried indefinitely. */
 
 /* ------------------------------
    WRITING STUDIO ZEN MODE (issue #49)
