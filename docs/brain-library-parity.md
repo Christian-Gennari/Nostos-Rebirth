@@ -230,6 +230,26 @@ both painted.
 Icons are `[size]="18"` with `strokeWidth="1.5"` in the Library toggle.
 The Brain toggle must be markup- and metric-identical.
 
+**Use the BARE class, never scoped under a wrapper.** `styles.css` carries an
+app-wide dark treatment for the active segment:
+
+```css
+:root[data-theme='dark'] .toggle-opt.active { background: #323A48; color: var(--color-text-main); }
+```
+
+That rule is **(0,4,0)**. A component rule written as `.view-mode-control
+.toggle-opt.active` is *also* (0,4,0) — and the component chunk loads after the
+global sheet, so it wins and silently overrides the dark treatment. The active
+segment then keeps its light-mode tokens: `--bg-surface`, which on dark is
+DARKER than the track (elevation inverts, so the *unselected* pair looks raised),
+and `--color-primary`, the dim green **ink** role, so the icon goes sage while
+every other selected state in the app is white-on-raised.
+
+The Library's own rule is a bare `.toggle-opt.active` at (0,3,0) and therefore
+defers correctly. Match that specificity. This is why light mode looked right
+and only dark diverged — and why comparing geometry alone never caught it.
+Always compare computed COLOUR per theme, not just size.
+
 ## Filter chip
 
 ```css

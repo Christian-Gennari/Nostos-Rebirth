@@ -173,7 +173,17 @@
   gap: 2px;
 }
 
-.view-mode-control .toggle-opt {
+/* Verbatim copy of the Library's `.toggle-opt` — bare class, NOT scoped under
+   `.view-mode-control`. That scoping was the bug: `.view-mode-control
+   .toggle-opt.active` is (0,4,0), the same specificity as the app-wide
+   `:root[data-theme='dark'] .toggle-opt.active` in styles.css, and this chunk
+   loads later — so it overrode the dark treatment and the active segment kept
+   its light-mode tokens (--bg-surface, which is DARKER than the track on dark,
+   and --color-primary, the dim green INK). The Library's own rule is a bare
+   `.toggle-opt.active` at (0,3,0) and therefore correctly defers to the global
+   dark rule. Matching that specificity is what makes light AND dark agree.
+   The group class below still carries the layout. */
+.toggle-opt {
   background: 0 0;
   border: none;
   padding: 4px 6px;
@@ -183,11 +193,11 @@
   display: flex;
 }
 
-.view-mode-control .toggle-opt:hover {
+.toggle-opt:hover {
   color: var(--color-text-main);
 }
 
-.view-mode-control .toggle-opt.active {
+.toggle-opt.active {
   background: var(--bg-surface);
   color: var(--color-primary);
   box-shadow: var(--shadow-sm);
@@ -195,7 +205,7 @@
   outline-offset: -1px;
 }
 
-.view-mode-control .toggle-opt:focus-visible {
+.toggle-opt:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
@@ -1573,7 +1583,10 @@
     min-height: 44px;
   }
 
-  .view-mode-control .toggle-opt {
+  /* Bare class, matching the rules above: scoping under `.view-mode-control`
+     is the specificity pattern that broke the dark theme (see the note on
+     `.toggle-opt`), and this only sets a touch-target size. */
+  .toggle-opt {
     min-height: 44px;
   }
 

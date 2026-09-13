@@ -109,6 +109,87 @@ test('brain controls match the library controls', async ({ browser }) => {
     expect(brainToggleGroup!.borderRadius, 'toggle container radius').toBe(libToggleGroup!.borderRadius);
     expect(brainToggleOpt!.borderRadius, 'toggle option radius').toBe(libToggleOpt!.borderRadius);
 
+    // ── The view toggle must agree in BOTH themes ──────────────────────────
+    // Light happened to match while dark did not: the Brain's `.toggle-opt`
+    // rules were scoped under `.view-mode-control`, which raised them to (0,4,0)
+    // — the same specificity as the app-wide `:root[data-theme='dark']
+    // .toggle-opt.active`, and this chunk loads later, so it overrode the dark
+    // treatment. The Library's rule is a bare `.toggle-opt.active` (0,3,0) and
+    // defers correctly. Comparing computed COLOUR per theme is what catches it;
+    // comparing geometry alone does not.
+    // ThemeService is the only writer of `data-theme` and re-applies it from
+    // localStorage on every boot, so the theme must be set AFTER each navigation
+    // (setting it before would be wiped by the next page load). The stored value
+    // is set first so the inline anti-flash script agrees.
+    const setTheme = async (theme: 'light' | 'dark') => {
+      await page.evaluate((t) => {
+        localStorage.setItem('nostos.theme', t);
+        if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+        else document.documentElement.removeAttribute('data-theme');
+      }, theme);
+      await page.waitForTimeout(300);
+    };
+
+    const coloursIn = async (theme: 'light' | 'dark') => {
+      const readToggle = async (groupSel: string) =>
+        page.evaluate((sel) => {
+          const g = document.querySelector(sel);
+          const opts = g ? Array.from(g.querySelectorAll('.toggle-opt')) : [];
+          const rd = (el: Element | undefined) => {
+            if (!el) return null;
+            const c = getComputedStyle(el);
+            const svg = el.querySelector('svg');
+            return {
+              bg: c.backgroundColor,
+              color: c.color,
+              shadow: c.boxShadow,
+              outline: c.outline,
+              icon: svg ? getComputedStyle(svg).stroke : null,
+            };
+          };
+          return {
+            active: rd(opts.find((o) => o.classList.contains('active'))),
+            inactive: rd(opts.find((o) => !o.classList.contains('active'))),
+          };
+        }, groupSel);
+
+      // Library first, then Brain — same theme state on both.
+      await page.goto(`${fixture.baseUrl}/library`, { waitUntil: 'domcontentloaded' });
+      await page.locator('.control-group').waitFor({ timeout: 30_000 });
+      await setTheme(theme);
+      const lib = await readToggle('.control-group');
+
+      await page.goto(`${fixture.baseUrl}/second-brain`, { waitUntil: 'domcontentloaded' });
+      await page.locator('.view-mode-control').waitFor({ timeout: 30_000 });
+      await setTheme(theme);
+      const brain = await readToggle('.view-mode-control');
+
+      // Prove the theme actually applied, so a no-op cannot pass as a match.
+      const applied = await page.evaluate(() =>
+        document.documentElement.getAttribute('data-theme') ?? 'light'
+      );
+      expect(applied, `${theme}: theme actually applied`).toBe(theme);
+      return { lib, brain };
+    };
+
+    for (const theme of ['light', 'dark'] as const) {
+      const { lib, brain } = await coloursIn(theme);
+      console.log(`TOGGLE ${theme}  library:`, JSON.stringify(lib), '\n              brain  :', JSON.stringify(brain));
+      expect(brain.active, `${theme}: toggle active present`).toBeTruthy();
+      expect(brain.inactive, `${theme}: toggle inactive present`).toBeTruthy();
+      // Track and both segments must be identical — colour, shadow and outline.
+      expect(brain.active!.bg, `${theme}: active segment background`).toBe(lib.active!.bg);
+      expect(brain.active!.color, `${theme}: active segment text`).toBe(lib.active!.color);
+      expect(brain.active!.shadow, `${theme}: active segment shadow`).toBe(lib.active!.shadow);
+      expect(brain.active!.outline, `${theme}: active segment outline`).toBe(lib.active!.outline);
+      expect(brain.active!.icon, `${theme}: active icon stroke`).toBe(lib.active!.icon);
+      expect(brain.inactive!.color, `${theme}: inactive segment text`).toBe(lib.inactive!.color);
+      expect(brain.inactive!.icon, `${theme}: inactive icon stroke`).toBe(lib.inactive!.icon);
+    }
+    // Reset the stored theme: the specs share one browser context, and leaving
+    // 'dark' in localStorage would re-theme every later spec.
+    await setTheme('light');
+
     // The search and select must be the same height as the Library's, so the two
     // toolbars read at the same rhythm.
     expect(Math.abs(brainSearch!.height - libSearch!.height), 'search height').toBeLessThanOrEqual(2);
