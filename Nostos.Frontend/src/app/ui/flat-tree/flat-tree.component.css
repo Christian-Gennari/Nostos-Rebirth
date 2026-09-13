@@ -211,9 +211,14 @@
 
    --actions-w - 22px is where the fade starts; it reaches full transparency
    exactly at the overlay's left edge, so the name recedes INTO the buttons
-   rather than ending at a hard cut. */
-.tree-row:hover::after,
-.tree-row:focus-within::after {
+   rather than ending at a hard cut.
+
+   The layer is always in the DOM and toggled by `opacity`, rather than being
+   created only while a trigger matches. The geometry below is long and has to
+   agree with the overlay it fades into, so it is written once and each input
+   modality only adds itself to the trigger list — a modal that restated the
+   rule could drift out of step with this one. */
+.tree-row::after {
   content: '';
   position: absolute;
   top: 0;
@@ -237,6 +242,25 @@
     transparent,
     var(--row-ground, transparent) 22px
   );
+  /* Paired with `visibility` so the hidden state cannot cost a recomposite on
+     every repaint of the row (an `opacity: 0` element is still promoted). */
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.15s,
+    visibility 0s linear 0.15s;
+}
+
+/* Painted exactly when the actions overlay is on screen — never on its own, or
+   the row's ground would be wiped across the name's tail with nothing drawn
+   over it. Keep this trigger list in step with `.node-actions`' own. */
+.tree-row:hover::after,
+.tree-row:focus-within::after {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.15s,
+    visibility 0s;
 }
 
 .count-badge {
@@ -464,18 +488,47 @@
 }
 
 /* ── TOUCH ────────────────────────────────────────────────
-   `:hover` never fires on a touch screen, so hover-revealed actions are
-   unreachable there. Where hover is unavailable, the actions are permanently
-   visible and the badge yields to them — the same slot swap, without the
-   hover trigger. */
+   `:hover` never fires on a touch screen, so a hover-revealed control is
+   unreachable there. But showing the row actions unconditionally — as this
+   block used to — puts three buttons on every row at once, and six collections
+   read as a wall of icons: measured, actions were on screen for 6 of 6 rows at
+   rest.
+
+   On touch the row's SELECTION is the reveal instead of hover. A row that is
+   `:focus-within` (keyboard/assistive) or `.active` (the selected collection)
+   shows its actions; every other row stays clean like desktop. Selection
+   persists, so this is a stable state rather than a hover that a later tap
+   elsewhere steals.
+
+   The chevron is deliberately NOT part of this: it is the only affordance that
+   can expand a nested collection, so hiding it until selection would make
+   nesting unreachable on the rows that need it. */
 @media (hover: none) {
-  .node-actions {
+  .tree-row.active .node-actions,
+  .tree-row:focus-within .node-actions {
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
+    transition:
+      opacity 0.15s,
+      visibility 0s;
   }
 
-  .tree-row .count-badge {
+  /* Same pairing as the hover/focus triggers above: the fade paints only while
+     the actions that occlude the name are actually drawn. */
+  .tree-row.active::after,
+  .tree-row:focus-within::after {
+    opacity: 1;
+    visibility: visible;
+    transition:
+      opacity 0.15s,
+      visibility 0s;
+  }
+
+  /* The badge yields to the actions in the one state where they share the
+     slot. Mirrors the `:hover` rule, which does the same on pointer devices. */
+  .tree-row.active .count-badge,
+  .tree-row:focus-within .count-badge {
     opacity: 0;
   }
 }

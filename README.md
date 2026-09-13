@@ -214,10 +214,8 @@ Reading Training's domain contract is in [`docs/reading-training/`](docs/reading
 - Audiobook metadata enrichment
 - Recursive collection picker
 
-## License
+## License & Trademark
 
-This project is licensed under the **GNU General Public License v3.0 or later**.
+- **Software License:** This project is licensed under the **GNU General Public License v3.0 or later**. See the [LICENSE](./LICENSE) file for the full license text.
+- **Trademark Policy:** The names "Nostos", "Nostos Study", "Nostos Cloud", and the Nostos brand marks (forest tile + paper arch) are proprietary trademarks. Code forks and derivative works are welcome under the GPLv3, but must be rebranded and cannot use the official Nostos marks or logos. See [TRADEMARK.md](./TRADEMARK.md) for guidelines.
 
-Copyright (C) 2026 Christian Gennari
-
-See the [LICENSE](./LICENSE) file for the full license text.

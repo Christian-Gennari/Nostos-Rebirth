@@ -94,28 +94,68 @@ describe('SidebarCollections', () => {
     });
   });
 
+  /**
+   * Delete is now a two-step flow through the in-app `ConfirmModal` rather than
+   * `window.confirm()`. These helpers drive it the way the template does:
+   * the row action OPENS the dialog, and only `confirmDelete()` performs the
+   * delete.
+   */
+  const openDelete = (id: string) => {
+    component.deleteCollection(id);
+    fixture.detectChanges();
+  };
+  const acceptDelete = () => {
+    component.confirmDelete();
+    fixture.detectChanges();
+  };
+
   it('delete of the active collection clears the collection filter', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     component.select('c1');
     fixture.detectChanges();
 
-    component.deleteCollection('c1');
-    fixture.detectChanges();
+    openDelete('c1');
+    acceptDelete();
     await fixture.whenStable();
 
     expect(component.filters.collectionId()).toBeNull();
   });
 
   it('delete of a non-active collection keeps the active filter', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    // The delete only proceeds when the id resolves to a real collection, so
+    // the fixture must actually contain c2 — otherwise this passes vacuously.
+    collectionsService.list.mockReturnValue(of([...sampleCollections, { id: 'c2', name: 'Other', parentId: null }]));
+    component.load();
     component.select('c1');
     fixture.detectChanges();
 
-    component.deleteCollection('c2');
-    fixture.detectChanges();
+    openDelete('c2');
+    acceptDelete();
     await fixture.whenStable();
 
+    expect(collectionsService.delete, 'the delete must have run').toHaveBeenCalledWith('c2');
     expect(component.filters.collectionId()).toBe('c1');
+  });
+
+  it('opening delete asks in-app and does not delete until confirmed', () => {
+    fixture.detectChanges();
+
+    openDelete('c1');
+
+    expect(component.deleteTarget()?.id, 'the dialog must target the row').toBe('c1');
+    expect(collectionsService.delete, 'no delete before confirmation').not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('.confirm-modal-card')).toBeTruthy();
+  });
+
+  it('cancelling the dialog deletes nothing', () => {
+    fixture.detectChanges();
+
+    openDelete('c1');
+    component.cancelDelete();
+    fixture.detectChanges();
+
+    expect(collectionsService.delete).not.toHaveBeenCalled();
+    expect(component.deleteTarget()).toBeNull();
+    expect(fixture.nativeElement.querySelector('.confirm-modal-card')).toBeNull();
   });
 
   describe('rename', () => {
@@ -161,30 +201,46 @@ describe('SidebarCollections', () => {
 
   describe('delete', () => {
     it('explains that children must be removed first when delete is rejected', () => {
+      // The target must exist in the list for the confirm step to reach the API.
+      collectionsService.list.mockReturnValue(of([rootCollection]));
+      component.load();
       collectionsService.delete.mockReturnValue(
         throwError(() => ({
           error: { title: 'collection_has_children', detail: 'Collection contains children.' },
         })),
       );
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
 
-      component.deleteCollection('root-1');
+      openDelete('root-1');
+      acceptDelete();
 
       expect(toast.error).toHaveBeenCalledWith('Move or delete the child collections first.');
-      expect(component.collections()).toEqual(sampleCollections);
+      // The list is reloaded from the server on failure, so the tree reflects
+      // reality rather than a stale optimistic removal.
+      expect(component.collections()).toEqual([rootCollection]);
     });
 
-    it('confirms before deleting and reloads on success', () => {
+    it('confirms in-app before deleting and reloads on success', () => {
       collectionsService.list.mockReturnValue(of([rootCollection]));
       collectionsService.delete.mockReturnValue(of(undefined));
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
       component.load();
 
-      component.deleteCollection('root-1');
+      openDelete('root-1');
+      // Nothing happens on open — the dialog is a question, not an action.
+      expect(collectionsService.delete).not.toHaveBeenCalled();
 
-      expect(confirmSpy).toHaveBeenCalled();
+      acceptDelete();
+
       expect(collectionsService.delete).toHaveBeenCalledWith('root-1');
       expect(toast.info).toHaveBeenCalledWith('Collection deleted');
+    });
+
+    it('names the collection in the question so the dialog is unambiguous', () => {
+      fixture.detectChanges();
+
+      openDelete('c1');
+
+      expect(component.deleteHeading()).toContain('Philosophy');
+      expect(component.deleteDescription()).toContain('stay in your library');
     });
   });
 
