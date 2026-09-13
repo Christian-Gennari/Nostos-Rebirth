@@ -158,11 +158,14 @@
 }
 
 
-/* Verbatim copy of the Library's `.control-group` / `.toggle-opt`. It is
-   icon-only at 18px with strokeWidth 1.5 — the same as the Library's own
-   list/grid toggle — so the two read as one control from one app. The previous
-   version added text labels, a 32px min-height and a `--color-text-light`
-   outline on the active option, none of which exist in the Library. */
+/* The group/track the shared `.toggle-opt` recipe sits in. It pairs with
+   Library's `.control-group`, which declares the same track
+   (--bg-hover, 3px padding, --radius-md, 2px gap) under a different name; the two
+   are kept separate because this one is also a flex child with its own sizing.
+   Icon-only at 18px with strokeWidth 1.5, the same as Library's list/grid
+   toggle, so the two read as one control from one app. The previous version
+   added text labels, a 32px min-height and a `--color-text-light` outline on
+   the active option, none of which exist in the Library. */
 .view-mode-control {
   display: flex;
   flex: 0 0 auto;
@@ -172,45 +175,20 @@
   gap: 2px;
 }
 
-/* Verbatim copy of the Library's `.toggle-opt` — bare class, NOT scoped under
-   `.view-mode-control`. That scoping was the bug: `.view-mode-control
-   .toggle-opt.active` is (0,4,0), the same specificity as the app-wide
-   `:root[data-theme='dark'] .toggle-opt.active` in styles.css, and this chunk
-   loads later — so it overrode the dark treatment and the active segment kept
-   its light-mode tokens (--bg-surface, which is DARKER than the track on dark,
-   and --color-primary, the dim green INK). The Library's own rule is a bare
-   `.toggle-opt.active` at (0,3,0) and therefore correctly defers to the global
-   dark rule. Matching that specificity is what makes light AND dark agree.
-   The group class below still carries the layout. */
-.toggle-opt {
-  background: 0 0;
-  border: none;
-  padding: 4px 6px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  color: var(--color-text-light);
-  display: flex;
-}
+/* The `.toggle-opt` base recipe lives in styles.css — ONE copy, shared with
+   Library, which previously carried a byte-identical duplicate of these four
+   rules. A copy here would also be pointless now: a `.toggle-opt` rule in a
+   component stylesheet is scoped by Angular to this component, so it could never
+   apply to the other surface anyway.
 
-.toggle-opt:hover {
-  color: var(--color-text-main);
-}
-
-.toggle-opt.active {
-  /* `--control-active-*`: see the note in library.component.css — on dark
-     `--bg-surface` is darker than the track, so the elevation would invert. */
-  background: var(--control-active-fill);
-  color: var(--control-active-ink);
-  box-shadow: var(--shadow-sm);
-  outline: 1px solid var(--border-color);
-  outline-offset: -1px;
-}
-
-.toggle-opt:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: -2px;
-}
-
+   Historical note, kept because it is the reason the class is NOT scoped under
+   `.view-mode-control` in the markup: `.view-mode-control .toggle-opt.active`
+   is (0,4,0), which tied the app-wide dark override and won on load order, so
+   the active segment kept its light tokens while everything else went dark.
+   That override is gone — the dark treatment is now a TOKEN
+   (--control-active-fill / --control-active-ink) read by the shared rule — so
+   there is no longer anything for a scoped copy to race. The mobile override
+   below stays: Brain uses a 44px touch target where Library uses 32px. */
 .sort-label {
   font-size: 0.68rem;
   font-weight: 600;

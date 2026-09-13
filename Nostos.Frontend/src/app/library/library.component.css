@@ -307,41 +307,11 @@ app-sidebar-collections.no-transition {
   gap: 2px;
 }
 
-.toggle-opt {
-  background: 0 0;
-  border: none;
-  padding: 4px 6px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  color: var(--color-text-light);
-  display: flex;
-}
-
-.toggle-opt:hover {
-  color: var(--color-text-main);
-}
-
-.toggle-opt.active {
-  /* `--control-active-*`: on dark `--bg-surface` is DARKER than the track the
-     option sits in, so the elevation would invert and the selected option would
-     sink — the dark token is the same raised tone the dock uses. */
-  background: var(--control-active-fill);
-  color: var(--control-active-ink);
-  /* Was a hardcoded clay ring (rgba(138,109,88,.22)) — a literal, so it was
-     theme-blind and stayed warm brown on dark. Now an outline in the border
-     colour, which tracks the theme. */
-  box-shadow: var(--shadow-sm);
-  outline: 1px solid var(--border-color);
-  outline-offset: -1px;
-}
-
-/* Focus ring. Brain's copy of this control had one and the Library's did not, even
-   though the two are otherwise byte-identical — so the same control behaved
-   differently for keyboard users depending on which page they were on. */
-.toggle-opt:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: -2px;
-}
+/* The view toggle's base recipe is in styles.css — ONE copy shared with Brain.
+   Removed from here: a `.toggle-opt` rule in a component stylesheet is scoped by
+   Angular to this component, so it could only ever be a second copy to keep in
+   sync. The mobile override below stays: Library sets a 32px box where Brain uses
+   a 44px touch target, a real difference. */
 
 /* --- LIST VIEW --- */
 .table-view {
