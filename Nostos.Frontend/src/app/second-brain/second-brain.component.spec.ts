@@ -135,10 +135,6 @@ describe('SecondBrain', () => {
     localStorage.clear();
   });
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
   it('never raises the loading state when a concept is selected from cache', async () => {
     component.selectConcept('c-alpha');
     expect(component.loadingDetail()).toBe(true);

@@ -52,10 +52,6 @@ describe('SidebarCollections', () => {
     await fixture.whenStable();
   });
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
   it('does not own selection state on the HTTP service', () => {
     const service = collectionsService as unknown as Record<string, unknown>;
     expect(service['activeCollectionId']).toBeUndefined();

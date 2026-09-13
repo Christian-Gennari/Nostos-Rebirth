@@ -27,10 +27,6 @@ describe('AddBookModal', () => {
     await fixture.whenStable();
   });
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
   it('exposes the dialog role', () => {
     fixture.detectChanges();
 

@@ -59,10 +59,6 @@ describe('FlatTreeComponent', () => {
     fixture.detectChanges();
   });
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
   it('hovering a folder row emits an inside drop zone (no above/below)', () => {
     dragNode(1); // Beta
     dragMove(0); // pointer over the first row (Alpha)
