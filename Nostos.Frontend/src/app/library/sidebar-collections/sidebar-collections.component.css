@@ -253,10 +253,11 @@
 
 /* The ring is inset, so on the active row it cannot use the same colour as the
    row underneath it. It used to borrow --on-primary (the light pill's
-   foreground); the active row is no longer a filled pill, so it uses the focus
-   token and just sits closer to the edge. */
+   foreground); now the row is a selected surface, so `--selection-focus-ring`
+   owns the value — slate on light, one step lighter on dark, because the ring
+   has to read against a FILLED row rather than the page ground. */
 .nav-item.active:focus-visible {
-  outline-color: var(--focus-ring);
+  outline-color: var(--selection-focus-ring);
   outline-offset: -3px;
 }
 
@@ -310,9 +311,11 @@
 
 .nav-item.active .count-badge {
   /* Driven from the on-fill foreground so it tracks the active row's fill in
-     either theme. This was a hardcoded white chip, which stayed pure white on
-     the dark theme while the equivalent badge in the Brain index adapted. */
-  background: color-mix(in srgb, var(--on-primary) 22%, transparent);
+     either theme, and the chip's own ground from `--selection-badge-bg` — the
+     same pair the Brain index's equivalent chip uses, so the two selected-row
+     badges cannot drift apart again. This was a hardcoded white chip, which
+     stayed pure white on the dark theme. */
+  background: var(--selection-badge-bg);
   color: var(--on-primary);
 }
 

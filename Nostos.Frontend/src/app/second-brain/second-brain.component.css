@@ -472,9 +472,11 @@
 }
 
 /* Tracks the active row's fill, like the tree's badge on a selected
-   collection. Driven from the on-fill foreground so it re-inks per theme. */
+   collection. Both come from `--selection-badge-bg` + `--on-primary` so the
+   Library sidebar's chip and this one cannot drift apart again — they were two
+   separate `color-mix` expressions that happened to agree. */
 .index-item.active .count {
-  background: color-mix(in srgb, var(--on-primary) 22%, transparent);
+  background: var(--selection-badge-bg);
   color: var(--on-primary);
 }
 

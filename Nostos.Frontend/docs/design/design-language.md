@@ -132,6 +132,33 @@ structurally removed rather than won. Verify with `npm run probe:selection`,
 which drives rest/hover/focus in both themes, because **this defect does not
 appear at rest**.
 
+### The specificity arithmetic, measured (read this before writing an override)
+
+Angular adds **one `[_ngcontent]` attribute per COMPOUND selector**, so a
+component rule's effective specificity is roughly **2x its compound count**.
+That is why a global override's fate is decided by comparing compound counts —
+and why the same-looking override can win against one component rule and lose
+against its neighbour in the same file:
+
+| Rule | Specificity | Outcome |
+| --- | --- | --- |
+| `:root[data-theme='dark'] .nav-item.active .count-badge` (global) | (0,5,0) | — |
+| `.nav-item.active[_ngcontent] .count-badge[_ngcontent]` (component) | **(0,5,0)** | **TIE → component wins on source order** |
+| `:root[data-theme='dark'] .meta-title` (global) | (0,3,0) | — |
+| `.meta-title[_ngcontent]` (component) | (0,2,0) | override genuinely wins |
+
+Both rows were in the *same deleted override block*. The badge override was
+losing silently (a light chip survived on dark), the title override was working.
+**Check the count per rule; do not assume.** Resolve it with a token instead:
+a value on `:root` is (0,1,0) and is read by the component, so no global rule
+needs to win anything.
+
+Three instances of this class are confirmed in this repo: `.book-grid
+.book-card:hover .cover-wrapper`, `.index-list .index-row-shell:focus-within
+.index-item.active`, and `.nav-item.active .count-badge`. The first two were
+fixed by hand-padding a selector; the third is the one that motivated writing
+this table down.
+
 ### A component token invisible to the token guard
 `check-theme-tokens.mjs` used to read only `styles.css`. The TinyMCE editor
 content declares its own 13-token theme pair inside a `.ts` file and was

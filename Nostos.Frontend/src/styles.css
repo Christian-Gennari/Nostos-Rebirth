@@ -57,6 +57,30 @@
   --selection-surface: #28372D;
   --selection-ink: #FFFFFF;
 
+  /* ── Wordmark / secondary heading ink ──
+     The ink for lede text: the sidebar wordmark (`.brand`, which the template
+     does not actually apply — see below) and the library grid card titles
+     (`.meta-title`, `library.component.html:365`) both want it.
+
+     LIGHT keeps the pine the rule already used, so nothing moves here: the base
+     rule read `var(--color-primary)`, which is #28372D in light. Value-preserving
+     is the point of this token — see the note on the dark block for what changes
+     and why. */
+  --ink-lede: var(--color-primary);
+
+  /* ── Role tokens for things sitting ON a selection ──
+     A focus ring, a count badge and the browser's text highlight all sit on a
+     FILLED selection surface (or inside a filled control), so they cannot be
+     taken from the plain scale: the standard slate ring is too dark to read on
+     a filled pill, and a light badge chip is wrong on a dark fill. Each of these
+     had its own global `:root[data-theme='dark']` override; as tokens the values
+     live here and the component rule reads them, so no global rule has to win a
+     specificity race. Light keeps today's values, so nothing moves. */
+  --selection-focus-ring: var(--focus-ring);
+  --selection-badge-bg: color-mix(in srgb, var(--on-primary) 22%, transparent);
+  /* The browser's own text highlight (::selection) — not the row selection. */
+  --text-selection-bg: var(--primary-fill);
+
   /* ── Brand mark (kit v1) ──
      The mark is a solid rounded TILE with the arch knocked out of it, so these
      two tokens are: shape = the tile fill, doorway = the arch fill.
@@ -451,6 +475,66 @@
   /* Porcelain, matching light's white-on-forest structure. */
   --selection-ink: #F0F2F5;
 
+  /* Wordmark / secondary heading ink on dark: PORCELAIN, not an accent.
+     Behaviour-preserving: the deleted `:root[data-theme='dark'] .meta-title`
+     override was already resolving to porcelain here and WON, because the
+     component rule is a single compound (`.meta-title[_ngcontent]` = (0,2,0))
+     and the override is (0,3,0). The token simply keeps that value now that the
+     override is gone. Why porcelain and not the accent: on dark
+     `--color-primary` is the dim mint ink (#8FA89A), and a mint run of text
+     reads as a *state* — mint means "active" elsewhere. The accent stays for
+     indicators, icons and focus.
+
+     Note the asymmetry that made the deleted `.brand, .meta-title` rule so easy
+     to mis-read: Angular adds `[_ngcontent]` to EVERY compound selector, so a
+     component rule's effective specificity is (compounds x 2). Whether a global
+     override wins is therefore decided by its compound count versus the
+     component's. The sibling badge override in this file LOST on that arithmetic
+     (see the badge note) while this one won — same file, same (0,2,0)-style
+     global rule, opposite outcomes. */
+  --ink-lede: var(--color-text-main);
+
+  /* ── Role tokens for things sitting ON a selection ──
+     See the light block for why these are not just the plain scale. The ring on
+     a focused SELECTED row must be lighter than the slate that works on the page
+     background, because the row underneath it is now a filled surface.
+     `#A9B6C6` is the same neutral family, one step up — never the accent, since
+     a focus ring is an affordance, not state. */
+  --selection-focus-ring: #A9B6C6;
+  /* A dark chip on a raised selection fill. This is a BEHAVIOUR FIX (a tie bug),
+     and the one intended visual change in this change-set.
+
+     The badge painted a LIGHT chip (`color-mix(#F0F2F5 22%)`) on the dark raised
+     row. Cause is the #94 failure class — a specificity TIE, not a lost race:
+
+       global     :root[data-theme='dark'] .nav-item.active .count-badge
+                  = :root(1) + [data-theme](1) + .nav-item(1) + .active(1) + .count-badge(1) = (0,5,0)
+       component  .nav-item.active[_ngcontent] .count-badge[_ngcontent]
+                  = .nav-item(1) + .active(1) + [_ngcontent](1) + .count-badge(1) + [_ngcontent](1) = (0,5,0)
+
+     Angular adds one `[_ngcontent]` per COMPOUND selector, so a component rule
+     is worth 2x its compound count. Both land on (0,5,0); on a tie the component
+     wins on source order because Angular appends its styles after styles.css —
+     so the override silently lost and the light chip survived on dark.
+
+     Verified by re-injecting the original override into the live page: the
+     component's value kept winning, and the winning rules were listed from the
+     CSSOM. This is the THIRD instance of this class in the repo (after
+     `.book-grid .book-card:hover .cover-wrapper` and
+     `.index-list .index-row-shell:focus-within .index-item.active`), and like
+     those two it was fixed by hand by padding a selector. The token removes the
+     need to win at all: the component rule reads it directly, so there is
+     nothing to out-specify.
+
+     Counter-example in the same deleted block, which is why the arithmetic has to
+     be checked per rule rather than assumed: `--ink-lede` (`.meta-title`) was a
+     SINGLE compound, so the component rule was (0,2,0) against the override's
+     (0,3,0) and the override genuinely won. Same-shaped global rules, opposite
+     outcomes. */
+  --selection-badge-bg: rgba(0, 0, 0, 0.28);
+  /* Smoked indigo, as the text highlight. */
+  --text-selection-bg: #3A4556;
+
   /* ── Danger / success / highlight ──
      Warm brick, not the M3 default pink. #FFB4AB is a *light* red: it works as
      ink on dark but turns the danger FILL pale, and the fill's text is porcelain
@@ -560,54 +644,51 @@
 }
 
 /* ══ DARK-ONLY RULES ═══════════════════════════════════════════════════
-   Things tokens alone cannot express. */
+   Things tokens alone cannot express.
 
-/* Headings: no override needed, and there used to be one.
-   The rule here was `:root[data-theme='dark'] h1..h4 { color: var(--color-text-main) }`
-   for four selectors at (0,2,0). It was a genuine no-op: the base rule in this
-   sheet is `h1..h4 { color: var(--primary-ink) }`, and on dark
-   `--primary-ink` IS `var(--color-text-main)` — both resolve to #EDEEF2. The
-   override restated the value it was trying to change.
+   Six rules that used to live here are gone, and the distinction is worth
+   stating because it decides where the next one belongs:
 
-   It was presumably written when --primary-ink held the mint and headings needed
-   rescuing to porcelain; once the token was corrected the override became dead
-   weight. Measured, deleting it moves no pixel in either theme (the value is
-   identical), which is why it is gone rather than left as harmless-looking
-   noise: an override that does nothing teaches the next reader that headings
-   need one. */
+   NO-OPS (deleted outright — the override restated what the base rule already
+   produced, so removing it moved no pixel in either theme):
+     h1..h4                      → base is `color: var(--primary-ink)`, and on
+                                   dark `--primary-ink` IS `--color-text-main`
+                                   (#EDEEF2 both). 4 selectors.
+     .nav-item:focus-visible     → base already is
+                                   `outline: 2px solid var(--focus-ring)`, and
+                                   `--focus-ring` is #6E7C90 in BOTH themes.
+     .dock-item:focus-visible    → base is `--color-accent`; #94 repointed the
+                                   dock's active state and the ring is no longer
+                                   mint, so the override fought nothing.
 
-/* Control-focus ring. NOT the mint ink — a mint focus ring reads as a brand
-   accent and, on an accent-coloured control, disappears into it. Muted slate
-   is what the reference uses for its focus border (#414846), lifted a little
-   here for visibility against the darker surfaces. */
-:root[data-theme='dark'] .nav-item:focus-visible {
-  outline-color: var(--focus-ring);
-}
-/* The active row sits on a filled surface, so its inset ring needs to be
-   lighter than the slate that works on the page background. Same neutral family
-   — never the accent: a focus ring is an affordance, not state. */
-:root[data-theme='dark'] .nav-item.active:focus-visible {
-  outline-color: #A9B6C6;
-}
+   TOKEN-ISED (value moved to a token the owning rule reads, so no global rule
+   has to out-specify a component rule — see the notes in `:root`):
+     .nav-item.active:focus-visible  → --selection-focus-ring
+     .brand, .meta-title             → --ink-lede
+     .nav-item.active .count-badge   → --selection-badge-bg
+     ::selection                     → --text-selection-bg
 
-/* Text that was tinted with the accent in light mode (wordmark, cover titles,
-   section headings) follows the heading rule on dark: porcelain. The accent
-   stays for indicators, icons and focus, never for a run of text. */
-:root[data-theme='dark'] .brand,
-:root[data-theme='dark'] .meta-title {
-  color: var(--color-text-main);
-}
+   Worth noting because it is an easy trap: `.brand` was never applied by any
+   template. The sidebar lockup uses `.brand-lockup`, `.brand-lockup__tile`,
+   `.brand-lockup__arch` and `.brand-lockup__word` (sidebar-collections.html),
+   and the only other `.brand` reference is a rule in that component's stylesheet
+   that is itself unreachable. So half of the deleted override was styling a
+   class that cannot appear. */
 
 /* Text on a primary fill. `--on-primary` replaces the surface tokens these
    rules used to borrow, which invert under a dark theme. The active row keeps a
    filled pill; it just uses the FILL role so the pill stays dark, which is what
-   stops the accent reading as washed out. */
-:root[data-theme='dark'] .nav-item.active,
+   stops the accent reading as washed out.
+
+   Only the badge needs a rule here: the row's own ink now comes from
+   `--selection-ink` and its fill from `--selection-surface`, both set by the
+   component rule, so the two bare `.nav-item.active` selectors that used to sit
+   in this list are gone. The badge keeps `--on-primary` because it is a chip on
+   a FILLED surface and must track the fill's foreground; its background moves to
+   `--selection-badge-bg`. */
 :root[data-theme='dark'] .nav-item.active .count-badge {
   color: var(--on-primary);
-}
-:root[data-theme='dark'] .nav-item.active .count-badge {
-  background: rgba(0, 0, 0, 0.28);
+  background: var(--selection-badge-bg);
 }
 /* The dark override for this row lives with the shared state treatment rather
    than here, so every "selected row" in the app resolves identically. */
@@ -640,11 +721,10 @@
   box-shadow: none;
 }
 
-/* Selection follows the reference's smoked indigo. */
-:root[data-theme='dark'] ::selection {
-  background: #3A4556;
-  color: var(--on-primary);
-}
+/* The browser's text highlight. Token-ised: `--text-selection-bg` is
+   `--primary-fill` on light and smoked indigo on dark, read by the single
+   `::selection` rule in the SELECTION section below, so it does not need a
+   second rule here. */
 
 /* The floating dock. In light it floats on a warm shadow (only 1.05 tonal
    separation from the page). A dark shadow on a dark ground is invisible, so
@@ -665,10 +745,11 @@
   color: var(--color-text-main);
 }
 
-/* Dock keyboard focus follows the same utility ring as everything else. */
-:root[data-theme='dark'] .dock-item:focus-visible {
-  outline-color: var(--focus-ring);
-}
+/* Dock keyboard focus: no override needed. The base rule is
+   `outline: 2px solid var(--color-accent)`; #94 repointed the dock's active state
+   to the neutral palette, so this override was chasing a mint ring that is no
+   longer there. `--focus-ring` is also identical in both themes (#6E7C90), which
+   is why the nav equivalent was a no-op too. */
 
 /* Cover art: the hairline alone is too weak on dark, so add a shadow. */
 :root[data-theme='dark'] .cover-wrapper {
@@ -1048,8 +1129,12 @@ input[type='file']::file-selector-button:hover {
 /* ------------------------------
    SELECTION
 ------------------------------ */
+/* The browser's own text highlight, not the app's row selection.
+   `--text-selection-bg` is `--primary-fill` on light and smoked indigo on dark,
+   so one rule covers both themes — the separate dark override that used to
+   hardcode #3A4556 is gone. */
 ::selection {
-  background: var(--primary-fill);
+  background: var(--text-selection-bg);
   color: var(--on-primary);
 }
 
