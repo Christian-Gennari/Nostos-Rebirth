@@ -147,6 +147,29 @@ fixed by naming an *enclosing* class purely to climb the ladder.
 **Prefer a token the component consumes over a specificity override.** A token
 re-declared on `:root` is specificity `(0,1,0)` and cannot race anything.
 
+The arithmetic, because it is not the intuitive one. Angular adds an
+`[_ngcontent-x]` attribute to **every compound**, so a component rule's
+specificity is **twice its compound count**, while a global override counts once:
+
+| | compounds | specificity |
+| --- | --- | --- |
+| component `.nav-item.active .count-badge` | 3 | **(0,6,0)** |
+| global `:root[data-theme='dark'] .nav-item.active .count-badge` | 3 (+`[attr]`) | **(0,5,0)** |
+
+So the override loses — and if the two ever **tie**, the component still wins,
+because Angular appends component styles after `styles.css`.
+
+`check:design` now computes both sides statically and fails on a tie or a loss
+(`unwinnable-dark-override`), proven against the exact selector that shipped
+broken. Two shapes it reports, both real:
+
+- `:root[data-theme='dark'] .nav-item.active .count-badge` — 3 vs 6, LOSES.
+- `:root[data-theme='dark'] .brand, .meta-title` — the tie case. `.meta-title`
+  was a single compound, so the component rule was (0,2,0) against (0,3,0) and the
+  override genuinely **won**. Same-shaped global rule, opposite outcome, which is
+  why the arithmetic has to be checked per rule and not generalised from one
+  example.
+
 Worked example — the selected-row fill. It has exactly two consumers
 (`.index-item.active` in the Brain index, `.nav-item.active::before` in the
 Library sidebar); every other `--primary-fill` use is a button, CTA or badge

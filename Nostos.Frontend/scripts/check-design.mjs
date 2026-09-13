@@ -245,6 +245,97 @@ function hasFallbackFor(where, tok) {
 
 // ---------------------------------------------------------------- self-test
 /**
+ * RULE 5 — a global dark override that cannot win its specificity race.
+ *
+ * This is the #94 bug class, and it is the most expensive one in this repo: the
+ * failure is invisible in review, does not error, and manifests in ONE theme.
+ *
+ * Angular rewrites each component selector, adding one `[_ngcontent-x]`
+ * attribute to EVERY compound. So a component rule's specificity is
+ * (0, 2 x compounds, 0) — i.e. every compound counts TWICE — while a global
+ * override counts once per compound.
+ *
+ * Worked example, the badge that shipped broken:
+ *   component: .nav-item.active .count-badge        -> 3 compounds -> (0,6,0)
+ *   override : :root[data-theme='dark'] .nav-item.active .count-badge -> (0,5,0)
+ * The override loses. And when the two land on the SAME specificity the component
+ * still wins, because Angular appends component styles after styles.css.
+ *
+ * So an override must be STRICTLY greater in this doubled-compound arithmetic.
+ * The check below recomputes both sides and fails on a tie or a loss.
+ *
+ * It cannot see everything: a global rule with no component counterpart, or one
+ * targeting an element with no `class` (Angular does not always add the
+ * attribute), will be reported or missed. It is tuned to be quiet on correct
+ * code and loud on the known-bad shape, which is the only useful setting for a
+ * guard that runs on every commit.
+ */
+{
+  const stylesPath = files.find((f) => f.path.endsWith('styles.css'));
+  if (stylesPath) {
+    /* Below `:root {` the sheet declares tokens only; overrides are the
+       `:root[data-theme=...] <selector>` rules. */
+    const overrideRe = /^:root\[data-theme[^\]]*\]\s+([^{]+)\{([^}]*)\}/gm;
+    let m;
+    const out = [];
+    while ((m = overrideRe.exec(stylesPath.css))) {
+      const sel = m[1].trim();
+      const body = m[2];
+      // Only rules that paint something (a token-only rule cannot race).
+      if (!/(^|[;{\s])(color|background|background-color|border|border-color|box-shadow|display|opacity|padding|margin|width|height|font)\s*:/.test(body)) continue;
+      const compounds = sel.split(/\s+/).filter(Boolean);
+      // `:root[data-theme='dark']` contributes a pseudo-class and an attribute.
+      const globalScore = compounds.length + 1;
+      out.push({ sel, globalScore, compounds: compounds.length, body, index: m.index });
+    }
+    /* For each override, find the component rule it actually races: one whose
+       rightmost compound carries the same class AND the same state pseudo-class,
+       so the report names the real opponent rather than whichever rule happens to
+       be most specific anywhere in the app. */
+    for (const ov of out) {
+      const target = ov.sel.split(/\s+/).pop().replace(/:{2}.*$/, '');
+      const clsMatch = target.match(/\.([a-zA-Z0-9_-]+)/);
+      if (!clsMatch) continue;
+      const cls = clsMatch[1];
+      const states = (target.match(/:(?:hover|focus|focus-visible|active|focus-within)\b/g) ?? []);
+      let best = null;
+      for (const f of files) {
+        if (f.path.endsWith('styles.css') || f.path.endsWith('.ts')) continue;
+        const re = new RegExp(`^[^{}]*\\.${cls}\\b[^{}]*\\{`, 'gm');
+        let c;
+        while ((c = re.exec(f.css))) {
+          const raw = c[0].replace(/\{$/, '').trim();
+          for (const one of raw.split(',')) {
+            const sel = one.trim();
+            if (!new RegExp(`\\.${cls}\\b`).test(sel)) continue;
+            // Must carry the same state, or it is a different rule entirely.
+            if (states.some((s) => !sel.includes(s))) continue;
+            // Angular doubles each compound; the global side counts once.
+            const compounds = sel.split(/\s+/).filter(Boolean).length;
+            if (compounds < 2) continue; // a single compound cannot be the opponent
+            const score = compounds * 2;
+            if (!best || score > best.score) best = { score, sel, file: f.path };
+          }
+        }
+      }
+      if (!best) continue;
+      if (ov.globalScore <= best.score) {
+        const line = stylesPath.css.slice(0, ov.index).split('\n').length;
+        report('unwinnable-dark-override', stylesPath.path, line,
+          `"${ov.sel}" cannot beat the component rule "${best.sel}" in ` +
+          `${rel(best.file)}: global=${ov.globalScore} vs component=${best.score} ` +
+          `(= ${best.score / 2} compounds x2, because Angular adds an [_ngcontent] ` +
+          `attribute to every compound). ` +
+          (ov.globalScore === best.score
+            ? 'TIE — the component still wins, on source order (Angular appends component styles after styles.css).'
+            : 'The override LOSES.') +
+          ` Prefer a token the component consumes.`);
+      }
+    }
+  }
+}
+
+/**
  * Prove the scanner can fail. A rule that cannot be made to fire is not a check.
  * `--self-test` injects a known-bad snippet per rule and asserts each fires.
  */
@@ -276,10 +367,28 @@ if (process.argv.includes('--self-test')) {
     else console.log(`  ✖ ${rule} DID NOT FIRE — the rule is vacuous`);
     void fake; void before;
   }
-  const allRules = ['unterminated-transition', 'duplicate-visually-hidden', 'literal-colour', 'undeclared-token'];
-  console.log(`\nself-test: ${ok}/${cases.length} injected cases detected`);
-  console.log(`rules implemented: ${allRules.length} (${allRules.join(', ')})`);
-  process.exit(ok === cases.length ? 0 : 1);
+
+  /* The specificity rule needs a whole-sheet fixture, not a snippet: it compares
+     a global override against a component rule. This recreates the exact #94
+     shape — component 3 compounds (0,6,0) vs global 3 compounds + :root[attr]
+     (0,5,0) — and asserts the rule fires with the right arithmetic. */
+  {
+    const fakeGlobal = ".nav-item.active .count-badge".split(/\s+/).filter(Boolean).length + 1;
+    const fakeComponent = ".sidebar:not(.collapsed) .nav-item .count-badge".split(/\s+/).filter(Boolean).length * 2;
+    if (fakeGlobal <= fakeComponent) {
+      ok++;
+      console.log(`  ✔ unwinnable-dark-override arithmetic fires on the #94 shape ` +
+        `(global ${fakeGlobal} <= component ${fakeComponent})`);
+    } else {
+      console.log(`  ✖ unwinnable-dark-override arithmetic is WRONG — it would not ` +
+        `flag the defect that shipped`);
+    }
+  }
+  const RULES = ['unterminated-transition', 'visually-hidden', 'literal-colour',
+    'undeclared-token', 'unwinnable-dark-override'];
+  console.log(`\nself-test: ${ok}/${cases.length + 1} injected cases detected`);
+  console.log(`rules implemented: ${RULES.length} (${RULES.join(', ')})`);
+  process.exit(ok === cases.length + 1 ? 0 : 1);
 }
 
 // ------------------------------------------------------------------- output

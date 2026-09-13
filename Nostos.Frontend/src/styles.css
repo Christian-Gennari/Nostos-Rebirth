@@ -783,12 +783,14 @@
    in this list are gone. The badge keeps `--on-primary` because it is a chip on
    a FILLED surface and must track the fill's foreground; its background moves to
    `--selection-badge-bg`. */
-:root[data-theme='dark'] .nav-item.active .count-badge {
-  color: var(--on-primary);
-  background: var(--selection-badge-bg);
-}
-/* The dark override for this row lives with the shared state treatment rather
-   than here, so every "selected row" in the app resolves identically. */
+/* DELETED: `:root[data-theme='dark'] .nav-item.active .count-badge`. It tied the
+   component rule `.nav-item.active .count-badge[_ngcontent]` at (0,5,0) — :root,
+   [data-theme] and three classes on one side, two compounds each carrying
+   `[_ngcontent]` on the other — so it LOST on document order, and it had been
+   declaring exactly the same two values (`--on-primary`, `--selection-badge-bg`)
+   since the badge was token-ised. A rule that cannot win and says nothing new is
+   a landmine: the next person to "fix" it retunes the values and sees no effect.
+   `check:design` now flags this shape statically; see the specificity rule there. */
 
 /* ── Selected rows: now a TOKEN, not an override ──
    This used to be a four-selector global override with `background: #2B323F`,
