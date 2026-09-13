@@ -1,0 +1,138 @@
+<section class="concept-map" [attr.aria-busy]="relatedLoading()" aria-label="Concept map">
+  @if (isCapped()) {
+  <p class="map-limit-note">Showing the 150 most-referenced concepts.</p>
+  }
+
+  <!-- The graph IS the content, not a framed widget: no eyebrow, no explanatory
+       subtitle, no outer card. The sidebar toggle and the dock already say where
+       you are, so a "MAP / A quiet view of…" header on top of it was duplicate
+       chrome that no Library surface has. Zoom lives as a quiet overlay inside
+       the canvas, which is also where it belongs: it acts on the graph. -->
+  <div class="map-stage">
+    <div class="map-controls" role="group" aria-label="Map controls">
+      <button
+        type="button"
+        class="map-zoom"
+        aria-label="Zoom out"
+        title="Zoom out"
+        [disabled]="zoom() <= minZoom"
+        (click)="zoomOut()"
+      >
+        −
+      </button>
+      <button
+        type="button"
+        class="map-zoom"
+        aria-label="Zoom in"
+        title="Zoom in"
+        [disabled]="zoom() >= maxZoom"
+        (click)="zoomIn()"
+      >
+        +
+      </button>
+      <button type="button" class="map-reset" (click)="resetView()">Reset view</button>
+    </div>
+
+    <svg
+      class="map-svg"
+      viewBox="0 0 960 540"
+      role="img"
+      aria-label="Co-occurrence map of concepts"
+      (wheel)="onWheel($event)"
+      (pointerdown)="onPointerDown($event)"
+      (pointermove)="onPointerMove($event)"
+      (pointerup)="onPointerUp($event)"
+      (pointercancel)="onPointerCancel($event)"
+    >
+      <g [attr.transform]="'translate(' + panX() + ' ' + panY() + ') scale(' + zoom() + ')'">
+        @for (edge of renderEdges(); track edge.key) {
+        <line
+          class="map-edge"
+          [attr.x1]="edge.source?.x"
+          [attr.y1]="edge.source?.y"
+          [attr.x2]="edge.target?.x"
+          [attr.y2]="edge.target?.y"
+          [style.opacity]="edge.opacity"
+          [style.stroke-width]="edge.width"
+          [attr.aria-label]="edge.sharedNotes + ' shared notes'"
+        ></line>
+        }
+
+        @for (node of renderNodes(); track node.id) {
+        <g
+          class="map-node"
+          [class.selected]="selectedNodeId() === node.id"
+          [attr.tabindex]="0"
+          role="button"
+          [attr.aria-label]="
+            node.name + ', ' + node.usageCount + ' references, ' + node.connectionCount + ' connections'
+          "
+          [attr.aria-pressed]="selectedNodeId() === node.id"
+          (mouseenter)="onNodeEnter(node.id)"
+          (mouseleave)="onNodeLeave(node.id)"
+          (focus)="onNodeFocus(node.id)"
+          (blur)="onNodeBlur(node.id)"
+          (pointerdown)="onNodePointerDown($event, node.id)"
+          (click)="selectNode(node.id)"
+          (keydown)="onNodeKeydown($event, node.id)"
+        >
+          <circle
+            class="map-node-hit"
+            [attr.cx]="node.x"
+            [attr.cy]="node.y"
+            [attr.r]="nodeHitRadius"
+            aria-hidden="true"
+          ></circle>
+          <circle
+            class="map-node-visual"
+            [attr.cx]="node.x"
+            [attr.cy]="node.y"
+            [attr.r]="node.radius"
+            aria-hidden="true"
+          ></circle>
+          @if (node.showLabel) {
+          <text class="map-node-label" [attr.x]="node.labelX" [attr.y]="node.labelY">
+            {{ tooltipLabel(node.name) }}
+          </text>
+          }
+        </g>
+        }
+      </g>
+
+      @if (tooltipNode(); as tooltip) {
+      <g class="map-tooltip" [attr.transform]="tooltipTransform()">
+        <rect x="-112" y="-88" width="224" height="72"></rect>
+        <text class="map-tooltip-name" x="-96" y="-62">{{ tooltipLabel(tooltip.name) }}</text>
+        <text class="map-tooltip-meta" x="-96" y="-40">
+          {{ tooltip.usageCount }} {{ tooltip.usageCount === 1 ? 'reference' : 'references' }} ·
+          {{ tooltip.connectionCount }}
+          {{ tooltip.connectionCount === 1 ? 'connection' : 'connections' }}
+        </text>
+      </g>
+      }
+    </svg>
+  </div>
+
+  @if (relatedLoading()) {
+  <p class="map-status" role="status" aria-live="polite">Finding connections…</p>
+  } @else if (displayedConcepts().length === 1) {
+  <p class="map-status" role="status" aria-live="polite">There are no connections yet.</p>
+  } @else if (noConnections()) {
+  <p class="map-status" role="status" aria-live="polite">No connections yet</p>
+  }
+
+  <ul class="map-accessible-list visually-hidden" aria-label="Concepts in this map">
+    @for (node of renderNodes(); track node.id) {
+    <li>
+      <button
+        type="button"
+        [class.selected]="selectedNodeId() === node.id"
+        [attr.aria-pressed]="selectedNodeId() === node.id"
+        (click)="selectAccessibleNode(node.id)"
+      >
+        {{ node.name }} — {{ node.usageCount }} references, {{ node.connectionCount }} connections
+      </button>
+    </li>
+    }
+  </ul>
+</section>

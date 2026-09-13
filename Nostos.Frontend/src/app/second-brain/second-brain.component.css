@@ -5,18 +5,18 @@
   display: grid;
   /* Uses Grid to define columns: minmax(280px, 320px) 1fr; */
   grid-template-columns: minmax(280px, 320px) 1fr;
+  grid-template-rows: minmax(0, 1fr);
 
   height: 100dvh;
+  min-height: 0;
   overflow: hidden;
   background: var(--bg-body);
 }
 
 /* --- LEFT COLUMN: INDEX --- */
 .index-col {
-  background: var(--glass-bg-strong);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border-right: 1px solid var(--glass-border);
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -52,27 +52,54 @@
   letter-spacing: -0.01em;
 }
 
-/* ROW 2: Search Box */
+.index-stats {
+  margin-top: -0.55rem;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+/* ROW 2: Search Box
+   Copy of the Library's `.search-bar-container`/`.search-input`: the icon is
+   absolutely positioned and the INPUT owns the 2.5rem left gutter. As a flex
+   sibling the 18px icon box pushed the visible field off its own centre, so the
+   border drawn and the box centred were not the same box. */
 .search-box {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
-  background: var(--bg-input);
-  padding: 0.5rem 0.75rem;
-  color: var(--color-text-muted);
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+  background: var(--bg-surface);
+  padding: 0;
+  color: var(--color-text-light);
   margin: 0;
+  transition: all 0.2s ease;
+}
+
+.search-box:hover {
+  background: var(--bg-surface-alt);
+}
+
+.search-box .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 1;
+  transition: color 0.2s ease;
 }
 
 .search-box:focus-within {
-  /* Not --color-primary: that is the ink role (mint on dark), so focusing the
-     search box drew a green ring. */
-  border-color: var(--focus-ring);
-  box-shadow: 0 0 0 2px var(--border-focus);
+  background: var(--bg-surface);
+  border-color: var(--border-focus);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-accent-faint);
+  color: var(--color-text-main);
+}
+
+.search-box:has(input:focus) .search-icon {
   color: var(--color-text-main);
 }
 
@@ -81,7 +108,8 @@
   background: transparent;
   outline: none;
   width: 100%;
-  font-size: 0.88rem;
+  padding: 0.6rem 1rem 0.6rem 2.5rem;
+  font-size: 0.9rem;
   font-family: 'Hanken Grotesk', sans-serif;
   color: var(--color-text-main);
 }
@@ -90,36 +118,243 @@
   color: var(--color-text-light);
 }
 
+.clear-search {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.clear-search:hover {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.clear-search:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* ROW 3: Sort. The index reads top-down by usage by default, but that is not
+   always the way you look for an idea, so the order is switchable and persists
+   across visits (see SecondBrain.setSort). */
+.index-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.select-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+
+/* Verbatim copy of the Library's `.control-group` / `.toggle-opt`. It is
+   icon-only at 18px with strokeWidth 1.5 — the same as the Library's own
+   list/grid toggle — so the two read as one control from one app. The previous
+   version added text labels, a 32px min-height and a `--color-text-light`
+   outline on the active option, none of which exist in the Library. */
+.view-mode-control {
+  display: flex;
+  flex: 0 0 auto;
+  background: var(--bg-hover);
+  padding: 3px;
+  border-radius: var(--radius-md);
+  gap: 2px;
+}
+
+.view-mode-control .toggle-opt {
+  background: 0 0;
+  border: none;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-light);
+  display: flex;
+}
+
+.view-mode-control .toggle-opt:hover {
+  color: var(--color-text-main);
+}
+
+.view-mode-control .toggle-opt.active {
+  background: var(--bg-surface);
+  color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+  outline: 1px solid var(--border-color);
+  outline-offset: -1px;
+}
+
+.view-mode-control .toggle-opt:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.sort-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+/* Verbatim copy of the Library's `.sort-select` (see docs/brain-library-parity.md).
+   The chevron is a data-URI background-image, NOT a positioned <lucide-icon>
+   sibling: the sibling version put a second painted box inside the wrapper, and
+   its `background-image: none !important` was overriding the theme, which is the
+   "weird border issues" in the filter row. */
+.sort-select {
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+  min-height: 39px;
+  padding: 0.6rem 2rem 0.6rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  background-color: var(--bg-input);
+  outline: none;
+  appearance: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1em;
+}
+
+.sort-shell {
+  flex: 1;
+}
+
+.sort-select:hover {
+  background-color: var(--bg-hover);
+}
+
+.sort-select:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
 /* LIST */
 .index-list {
   flex: 1;
   overflow-y: auto;
+  position: relative;
   /* Padding matches header horizontal padding exactly */
   padding: 0 1.25rem 1.5rem;
 }
 
-.index-item {
+.index-wait-field {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.letter-separator {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.55rem;
+  padding: 0.9rem 0.75rem 0.35rem;
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  margin-bottom: 0;
+}
+
+.letter-separator::before {
+  content: '';
+  flex: 1;
+  order: 2;
+  border-top: 1px solid var(--border-light);
+}
+
+/* --- INDEX ROW -------------------------------------------------------------
+   Metric-for-metric copy of the rows in the Library's collections tree
+   (`ui/flat-tree` -> `.tree-row`, `.node-actions`, `.action-mini`), which is
+   the component that actually carries a count plus hover rename/delete on a
+   sidebar row.
+
+   The sidebar has TWO row styles and the index must follow the right one:
+     .nav-item  status filters: 8px radius, pill painted by ::before, with a
+                `0 1px 3px rgba(0,0,0,.08)` shadow.
+     .tree-row  collections: 6px radius, fill straight onto the row, no shadow,
+                and the row owning the hover rename/delete pair (22x22, 13px).
+   The index is the *collections* analogue — same affordances, same shared slot
+   for a count and two actions. An earlier pass copied `.nav-item`, giving this
+   list a pill it has no counterpart for and 34x32 actions with 15px glyphs. */
+.index-item {
+  position: relative;
+  display: flex;
+  align-items: center;
   width: 100%;
-  padding: 0.5rem 0.75rem;
+  min-height: 34px;
+  padding: 0 8px 0 12px;
   border: none;
   background: transparent;
+  border-radius: 6px;
   cursor: pointer;
-  border-radius: 8px;
   text-align: left;
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.88rem;
   font-weight: 500;
   color: var(--color-text-muted);
+  outline: none;
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  user-select: none;
   transition:
     background 0.12s ease,
     color 0.12s ease;
-  margin-bottom: 2px;
 }
 
+.index-row-shell {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 34px;
+  margin-bottom: 2px;
+  /* Ground for the ::after fade below, re-declared per state so the fade always
+     paints the tone the row is actually sitting on. On a filled active row a
+     fixed surface tone would punch a light notch out of the fill. */
+  --row-ground: transparent;
+  /* Width of the trailing slot: 3 x 22px buttons + 2 x 2px gaps (70px) + the 6px
+     right inset. One number feeds the tail, the actions overlay and the fade
+     layer's own left edge, so they cannot drift apart. */
+  --actions-w: 76px;
+}
+
+/* --row-ground is declared on the SHELL, not on `.index-item`: custom
+   properties inherit downward only, and `::after` is a child of the shell, so a
+   value set on the row could never reach it. */
+.index-row-shell:hover,
+.index-row-shell:focus-within {
+  --row-ground: var(--bg-hover);
+}
+
+.index-row-shell:has(.index-item.active) {
+  --row-ground: var(--primary-fill);
+}
+
+/* The row's fill is on the ROW, exactly as `.tree-row` does it — not on a
+   ::before overlay. That is what makes the hover ground and the active fill
+   share one geometry, so the row cannot appear to shift when selected. */
 .index-item:hover {
   background: var(--bg-hover);
   color: var(--color-text-main);
@@ -128,18 +363,31 @@
 .index-item.active {
   background: var(--primary-fill);
   color: var(--on-primary);
-  box-shadow: var(--shadow-sm);
+  font-weight: var(--fw-medium);
 }
 
-/* The index buttons had NO focus style at all (`outline-style: none`), so
-   keyboard users saw nothing. Same neutral ring as the library sidebar, so the
-   two sidebars behave alike. */
+/* The row is the click target, so it is what must ring. Inset by the ring width
+   so neighbouring rows' 2px gap cannot clip it, and --focus-ring rather than
+   --color-primary (an ink token that reads as a border on a surface it is not
+   meant to trace). */
 .index-item:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
 
+.index-row-shell:focus-within .index-item {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.index-row-shell:focus-within .index-item.active {
+  background: var(--primary-fill);
+  color: var(--on-primary);
+}
+
 .index-item .name {
+  display: block;
+  flex: 1 1 auto;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -147,186 +395,1064 @@
   margin-right: 8px;
 }
 
-/* --- COUNT BADGES (shared) --- */
+.index-item .name mark {
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-bg);
+  color: var(--color-text-main);
+  font-weight: var(--fw-medium);
+  padding: 0 0.1em;
+}
+
+/* --- TRAILING SLOT ----------------------------------------------------------
+   One slot shared by the count and the hover actions, as the tree does it: the
+   actions are out of flow and overlaid on the badge's slot, so the name's
+   truncation point never moves and both fit the 76px. */
+.row-tail {
+  position: relative;
+  flex: 0 0 var(--actions-w);
+  width: var(--actions-w);
+  height: 20px;
+  margin-left: auto;
+}
+
+/* --- COUNT BADGE ------------------------------------------------------------
+   Metric-for-metric copy of the tree's `.count-badge`: a real 20px pill, not
+   plain text — it is part of the sidebar's language. */
 .index-header .badge-count,
 .index-item .count {
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
   border-radius: 999px;
+  background: var(--bg-hover);
+  color: var(--color-text-light);
   font-size: 0.72rem;
   font-weight: 500;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
+  text-align: center;
   flex-shrink: 0;
-}
-
-.index-header .badge-count {
-  background: var(--bg-hover);
-  color: var(--color-text-light);
+  transition:
+    opacity 0.15s,
+    background 0.15s,
+    color 0.15s;
 }
 
 .index-item .count {
-  background: var(--bg-hover);
-  color: var(--color-text-light);
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  transform: translateY(-50%);
 }
 
+/* Tracks the active row's fill, like the tree's badge on a selected
+   collection. Driven from the on-fill foreground so it re-inks per theme. */
 .index-item.active .count {
-  /* Was a hardcoded white chip. Driven from the on-fill foreground so it tracks
-     whatever the active row's fill resolves to in either theme. */
   background: color-mix(in srgb, var(--on-primary) 22%, transparent);
   color: var(--on-primary);
 }
 
-.empty-index {
-  padding: 2rem 0;
-  text-align: center;
-  color: var(--color-text-light);
+/* --- ROW ACTIONS -----------------------------------------------------------
+   An overlay on the badge's own slot (not a second column), so the badge fades
+   out and the actions fade in without the name reflowing. z-index sits above
+   the row's ::after fade, which paints the ground across the name's tail and
+   would otherwise erase the buttons. */
+.row-actions {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  width: calc(var(--actions-w) - 6px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.15s,
+    visibility 0s linear 0.15s;
+}
+
+.index-row-shell:hover .row-actions,
+.index-row-shell:focus-within .row-actions {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 0.15s,
+    visibility 0s;
+}
+
+/* Painted only while the actions that occlude the name are actually on screen.
+   A gradient from transparent to the row's own ground lets the name's tail
+   recede INTO the buttons rather than ending at a hard cut behind them. */
+.index-row-shell::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* Inset by the focus-ring width so this layer can never paint over the row's
+     own outline, and rounded to match the row or it squares off the corners. */
+  right: 2px;
+  left: calc(100% - var(--actions-w) - 22px);
+  pointer-events: none;
+  border-radius: 6px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--row-ground, transparent) 22px
+  );
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.15s,
+    visibility 0s linear 0.15s;
+}
+
+.index-row-shell:hover::after,
+.index-row-shell:focus-within::after {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.15s,
+    visibility 0s;
+}
+
+/* The badge yields to the actions in the one state where they share the slot. */
+.index-row-shell:hover .count,
+.index-row-shell:focus-within .count {
+  opacity: 0;
+}
+
+/* 22x22 with a 13px glyph — the tree's `.action-mini`, not a 34x32 button. */
+.row-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+/* On the filled active row the actions sit ON the fill, so their own hover
+   ground has to derive from the pill's foreground, not the page's. */
+.index-item.active ~ .row-actions .row-action {
+  color: color-mix(in srgb, var(--on-primary) 82%, transparent);
+}
+
+.row-action:hover {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.index-item.active ~ .row-actions .row-action:hover {
+  background: color-mix(in srgb, var(--on-primary) 20%, transparent);
+  color: var(--on-primary);
+}
+
+/* `--color-danger` rather than `--danger-ink`: on dark, --danger-ink is
+   deliberately porcelain for the confirm modal's mark, so an icon painted with
+   it loses every trace of "destructive". */
+.row-action.danger:hover {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
+}
+
+.row-action:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* No hover on touch: a hover-revealed pair is unreachable there, so the selected
+   row (and a keyboard-focused one) reveals its actions instead. */
+@media (hover: none) {
+  .index-row-shell:has(.index-item.active) .row-actions,
+  .index-row-shell:focus-within .row-actions {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .index-row-shell:has(.index-item.active)::after,
+  .index-row-shell:focus-within::after {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .index-row-shell:has(.index-item.active) .count,
+  .index-row-shell:focus-within .count {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row-actions,
+  .index-row-shell::after,
+  .index-item,
+  .count {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row-actions {
+    transition: none;
+  }
+}
+
+.empty-index-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 3rem 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.empty-eyebrow {
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.empty-index-state p {
+  max-width: 26ch;
+  margin: 0;
+  color: var(--color-text-muted);
   font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.empty-index-state code {
+  color: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.82rem;
+}
+
+.empty-example {
+  color: var(--color-text-muted) !important;
   font-style: italic;
+}
+
+.empty-link,
+.empty-clear {
+  min-height: 36px;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.78rem;
+  text-decoration: none;
+}
+
+.empty-link:hover,
+.empty-clear:hover {
+  background: var(--bg-hover);
+}
+
+.empty-link:focus-visible,
+.empty-clear:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
 }
 
 /* --- RIGHT COLUMN: CONTENT --- */
 .content-col {
   position: relative;
   flex: 1;
+  min-width: 0;
+  min-height: 0;
   overflow-y: auto;
   padding: 3rem;
   /* Dock clearance: keep floating dock from ever covering content */
   padding-bottom: 8.5rem;
-  background-image: radial-gradient(var(--border-color) 1px, transparent 1px);
-  background-size: 24px 24px;
-  background-color: transparent;
+  /* No background pattern: the manifesto asks for a warm paper surface, and the
+     dot grid read as graph paper (a design-tool texture) rather than a page.
+     The reading surfaces in this app are plain; the Brain should match. */
+  background: transparent;
 }
+
+/* --- MAP view: the map occupies the main stage --------------------------- */
+
+/* A quiet bar above the graph showing what is selected, with the one action the
+   map cannot express — leaving it to read the notes. */
+.map-selection-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 1100px;
+  margin: 0 auto 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.map-selection-name {
+  font-family: 'Newsreader', serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--color-text-main);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-open-notes {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  color: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out);
+}
+
+.map-open-notes:hover {
+  background: var(--bg-hover);
+  border-color: var(--color-text-main);
+}
+
+.map-open-notes:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* The map takes the stage it is now on: it is the whole point of this view, so
+   give it the available height rather than the ~360px it needed as a sidebar
+   widget. */
+.content-col app-concept-map {
+  display: block;
+  max-width: 1100px;
+  margin: 0 auto;
+} 
 
 /* HEADER */
-/* The detail pane resolves in instead of cutting over from the waiting field.
-   (Nothing here faked the pane's structure — the markup asked for an
-   stylesheet animation that was never defined, so the pane simply appeared.) */
-.concept-header,
-.cards-grid {
-  animation: pane-in var(--motion-base) var(--ease-out) both;
-}
-
-@keyframes pane-in {
-  from {
-    opacity: 0;
-    filter: blur(6px);
-  }
-  to {
-    opacity: 1;
-    filter: blur(0);
-  }
-}
-
+/* No arrival animation on the detail pane.
+   Every concept is rendered against exactly the same background, so an
+   entrance effect here animates between two states that are visually identical
+   and only ever reads as a flash. The previous implementation stacked a
+   `pane-in` blur on `.concept-header`/`.cards-grid` on top of a `slideUpFade`
+   on every `.note-card` (with `forwards` fill pinning the final opacity), so
+   each index click replayed a blur-and-rise across the whole pane. The pane now
+   simply swaps its content in place. */
+/* The concept header is editorial, not a marketing hero: the title anchors the
+   left edge like a chapter opening, its actions sit quietly opposite it, and the
+   title's own baseline does the work instead of a stack of centred blocks. */
 .concept-header {
-  margin-bottom: 3rem;
-  max-width: 800px;
+  margin-bottom: 1.5rem;
+  max-width: 1100px;
   margin-left: auto;
   margin-right: auto;
-  text-align: center;
+}
+
+.concept-head-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
 }
 
 .super-title {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   color: var(--color-text-light);
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.4rem;
 }
 
 .concept-title {
   font-family: 'Newsreader', serif;
-  font-size: 2.2rem;
-  font-weight: 600;
+  font-size: 2.4rem;
+  font-weight: 500;
   color: var(--color-text-main);
-  line-height: 1.2;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
   margin: 0 0 0.35rem 0;
 }
 
+/* Metadata reads as a quiet editorial caption, not a dashboard stat. */
 .concept-meta {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--color-text-light);
+}
+
+/* Actions are quiet until needed: no border at rest, so the header is type and
+   air rather than three competing boxes. The hairline and fill arrive on hover,
+   which keeps the destructive action from carrying the same weight as the rest. */
+.concept-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  flex-shrink: 0;
+  /* Optically align with the title's cap height rather than its box top. */
+  margin-top: 1.35rem;
+}
+
+.concept-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.32rem;
+  min-height: 32px;
+  padding: 0 0.6rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-light);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.76rem;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.concept-action:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.concept-action.danger:hover:not(:disabled) {
+  background: var(--danger-surface);
+  color: var(--color-danger);
+}
+
+.concept-action:focus-visible,
+.merge-picker-close:focus-visible,
+.merge-picker-cancel:focus-visible,
+.merge-picker-confirm:focus-visible,
+.merge-target:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.concept-action:disabled,
+.merge-picker-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.inline-rename {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.inline-rename-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.88rem;
+  outline: none;
+}
+
+.inline-rename-input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.inline-rename-error {
+  flex: 0 0 auto;
+  color: var(--color-danger);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.header-rename {
+  justify-content: center;
+  max-width: 620px;
+  margin: 0 auto 0.35rem;
+}
+
+.header-rename .inline-rename-input {
+  font-family: 'Newsreader', serif;
+  font-size: 2.2rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.merge-picker {
+  width: min(100%, 520px);
+  margin: 1rem auto 0;
+  padding: 0.85rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+}
+
+.merge-picker-head,
+.merge-picker-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.merge-picker-head {
+  margin-bottom: 0.6rem;
+}
+
+.merge-picker-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.merge-picker-close:hover {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.merge-search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 40px;
+  padding: 0 0.65rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-input);
+  color: var(--color-text-muted);
+}
+
+.merge-search-box:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  color: var(--color-text-main);
+}
+
+.merge-search-box input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.82rem;
+}
+
+.merge-target-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-height: 220px;
+  margin: 0.65rem 0;
+  overflow-y: auto;
+}
+
+.merge-target {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 40px;
+  padding: 0 0.65rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.82rem;
+  text-align: left;
+}
+
+.merge-target:hover,
+.merge-target.selected {
+  border-color: var(--color-primary-dim);
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.merge-target-count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bg-body);
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.merge-picker-empty {
+  padding: 0.8rem 0.65rem;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-style: italic;
+}
+
+.merge-picker-actions {
+  justify-content: flex-end;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.merge-picker-cancel,
+.merge-picker-confirm {
+  min-height: 36px;
+  padding: 0 0.8rem;
+  border-radius: var(--radius-md);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.78rem;
+}
+
+.merge-picker-cancel {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.merge-picker-cancel:hover {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.merge-picker-confirm {
+  border: 1px solid var(--primary-fill);
+  background: var(--primary-fill);
+  color: var(--on-primary);
+}
+
+.merge-picker-confirm:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+/* Connected concepts read as an inline editorial line, not a row of clickable
+   pill buttons. Each name is a quiet link in the accent ink; the count recedes
+   into the text. This is the single biggest "cartoonish" offender — outlined
+   pills everywhere made the page look like a dashboard of tags. */
+.related-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+  min-height: 30px;
+}
+
+.related-label,
+.detail-tool-label {
+  color: var(--color-text-light);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.related-label {
+  margin-right: 0.15rem;
+}
+
+.related-empty {
+  color: var(--color-text-light);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.related-list {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.9rem;
+}
+
+.related-chip,
+.related-more {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  height: auto;
+  max-width: 260px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text-main);
+  cursor: pointer;
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.84rem;
+  white-space: nowrap;
+  border-bottom: 1px solid transparent;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.related-chip:hover,
+.related-more:hover {
+  background: transparent;
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent-faint);
+}
+
+.related-chip:focus-visible,
+.related-more:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.related-chip-name {
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.related-chip-count {
+  color: var(--color-text-light);
+  font-size: 0.76rem;
+  flex-shrink: 0;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The detail controls are deliberately a single quiet rail: the notes remain
+   the visual centre, while source, search and order are available on demand. */
+/* The detail controls reuse the Library's search + select recipe verbatim, so
+   the filter row and the Library toolbar are the same two controls at the same
+   metrics. Previously the search and both selects each drew their own border
+   around an inner control that also had one — the "weird border issues". */
+.detail-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 1100px;
+  margin: 0 auto 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Search: same recipe as `.search-box` above (absolute icon, input owns the
+   gutter), sized down to the compact rail. */
+.note-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 220px;
+  min-width: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.note-search-box:hover {
+  background: var(--bg-surface-alt);
+}
+
+.note-search-box .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 1;
+  color: var(--color-text-light);
+  transition: color 0.2s ease;
+}
+
+.note-search-box:focus-within {
+  background: var(--bg-surface);
+  border-color: var(--border-focus);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-accent-faint);
+}
+
+.note-search-box:has(input:focus) .search-icon {
+  color: var(--color-text-main);
+}
+
+.note-search-box input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.9rem;
+  padding: 0.6rem 0.75rem 0.6rem 2.5rem;
+}
+
+.note-search-box input::placeholder {
+  color: var(--color-text-light);
+}
+
+/* Selects: the wrapper carries NO border; the control itself is the Library's
+   `.sort-select`. A bordered wrapper around a bordered select is exactly the
+   double-outline defect called out on review. */
+.detail-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+}
+
+.detail-select {
+  width: 100%;
+  min-width: 0;
+  min-height: 39px;
+  padding: 0.6rem 2rem 0.6rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  background-color: var(--bg-input);
+  outline: none;
+  appearance: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1em;
+}
+
+.detail-select:hover {
+  background-color: var(--bg-hover);
+}
+
+.clear-note-search {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.clear-note-search:hover {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.clear-note-search:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* The inner shell only needs to hold the select; the wrapper above supplies
+   layout, and the select itself owns the border (see `.detail-select`). */
+.detail-select-shell {
+  flex: 1 1 auto;
+  position: relative;
+}
+
+.note-count {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: 0.74rem;
+  white-space: nowrap;
 }
 
 /* GRID */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  align-items: start;
+  gap: 1.25rem 1.5rem;
   max-width: 1100px;
   margin: 0 auto;
 }
 
 /* CARDS */
 .note-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--glass-border);
-  border-radius: 12px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  box-shadow: var(--shadow-glass);
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
-  opacity: 0;
+  min-width: 0;
+  /* A floor for very short notes, not a fixed height. Grid rows stretch their
+     items to the tallest card in the row, so rows stay uniform while a short
+     excerpt no longer leaves a hollow middle. */
+  min-height: 150px;
+  border-radius: var(--radius-lg);
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+/* A card carrying a quote takes the full row. A quotation set in a 300px column
+   wraps every 3-4 words, which reads as cramped rather than quoted; giving the
+   quote the whole measure is what turns it from an excerpt into a pull-quote. */
+.note-card:has(app-note-card .note-quote) {
+  grid-column: 1 / -1;
 }
 
 .note-card:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-glass-lg);
 }
 
-/* Allow wide cards to span two columns */
-.note-card.card-wide {
-  grid-column: span 2;
+/* The pull-quote is the editorial moment of the page, so it takes a wider
+   measure than the commentary inside the same card. */
+:host ::ng-deep app-note-card .note-quote .quote-text {
+  max-width: 62ch;
 }
 
-.card-body {
-  padding: 1.5rem;
-  flex: 1;
+/* The shared note card owns editing, concept input and source navigation. The
+   host wrapper supplies the grid boundary; these deep rules give each child a
+   full-height track and enforce the detail pane's hover/focus action contract. */
+:host ::ng-deep app-note-card {
+  display: block;
+  height: 100%;
+}
+
+:host ::ng-deep app-note-card .note-card-container {
+  box-sizing: border-box;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  padding: 1.4rem 1.4rem 1.1rem;
+  /* Hairline border, not the secondary-TEXT colour. Using --color-text-light as
+     a border drew a dark 1px box around every card, which is what made the grid
+     look heavy and boxy next to the Library's quiet surfaces. */
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  /* No resting shadow: the Library relies on border + spacing, and a shadow on
+     every card plus a border reads as a floating dashboard widget. Depth is
+     reserved for hover, where it marks the one card under the pointer. */
+  box-shadow: none;
+  transition:
+    border-color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out);
+}
+
+:host ::ng-deep app-note-card .note-card-container:hover {
+  background: var(--bg-surface);
+  border-color: var(--color-primary-dim);
+  box-shadow: var(--shadow-sm);
+}
+
+:host ::ng-deep app-note-card .content-row {
   display: flex;
   flex-direction: column;
+  /* Was `height: 100%`, which forced the inner column to fill the grid cell.
+     Combined with `min-height` on the card that produced the hollow middle: the
+     body stayed short and the footer was pushed to the bottom edge, leaving dead
+     space between them. Content now determines the stack, and the grid row still
+     aligns cards to the tallest item. */
+  height: auto;
+  min-height: 0;
 }
 
-/* Improve readability for wide cards by limiting line length */
-.note-card.card-wide .highlight-text {
-  max-width: 80ch;
-  margin-left: auto;
-  margin-right: auto;
+:host ::ng-deep app-note-card .collapsible-body {
+  /* Content sets the card's height. This was `flex: 1 1 auto`, which stretched
+     the body to fill the forced 220px min-height below and left a ~90px hollow
+     middle in every short card (the excerpt top-aligned, the metadata pinned to
+     the bottom, nothing between). Grid rows still align because the grid row
+     stretches its items to the tallest card in that row. */
+  flex: 0 0 auto;
+  min-height: 0;
 }
 
-/* --- ELEGANT QUOTE STYLES --- */
-.highlight-block {
-  border-left: 3px solid var(--color-accent);
-  background: var(--color-accent-bg);
-  padding: 0.75rem 1rem;
-  border-radius: 0 8px 8px 0;
-  margin-bottom: 1rem;
-  display: block;
+:host ::ng-deep app-note-card .note-actions {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  transition: opacity var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
 }
 
-.highlight-text {
-  font-family: 'Newsreader', serif;
-  font-style: italic;
-  line-height: 1.5;
-  color: var(--color-text-main);
-  font-size: 0.95rem;
-  margin: 0;
+:host ::ng-deep .note-card:hover app-note-card .note-actions,
+:host ::ng-deep .note-card:focus-within app-note-card .note-actions {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  transform: translateY(0) !important;
 }
 
-.note-text {
-  font-size: 0.9rem;
-  line-height: 1.55;
+:host ::ng-deep app-note-card button:focus-visible,
+:host ::ng-deep app-note-card a:focus-visible,
+:host ::ng-deep app-note-card textarea:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+:host ::ng-deep app-note-card .note-actions .icon-btn {
+  border-radius: var(--radius-md);
+  transition: none;
+}
+
+:host ::ng-deep app-note-card .source-badge {
   color: var(--color-text-muted);
-  margin: 0;
+  transition: none;
 }
 
-/* Highlight Style */
+:host ::ng-deep app-note-card .note-metadata {
+  color: var(--color-text-muted);
+}
+
+:host ::ng-deep app-note-card .expand-btn {
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
 :host ::ng-deep .concept-tag {
   color: var(--color-accent);
   font-weight: var(--fw-medium);
@@ -335,65 +1461,27 @@
   padding-bottom: 1px;
 }
 
-.card-footer {
-  border-top: 1px solid var(--border-light);
-  padding: 0.75rem 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.book-info {
+.empty-notes-state {
   display: flex;
   flex-direction: column;
-  min-width: 0;
-}
-
-.from-label {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  color: var(--color-text-light);
-  letter-spacing: 0.05em;
-  font-weight: 600;
-}
-
-.book-title {
-  font-family: 'Newsreader', serif;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  max-width: 160px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.goto-btn {
-  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-surface);
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--color-text-main);
-  text-decoration: none;
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition:
-    background 0.15s,
-    border-color 0.15s;
+  gap: 0.6rem;
+  max-width: 360px;
+  margin: 4rem auto;
+  text-align: center;
 }
 
-.goto-btn:hover {
-  background: var(--bg-hover);
-  border-color: var(--color-text-muted);
+.empty-notes-state p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
-/* LANDING STATE */
+/* LANDING STATE
+   No gradient disc or drop shadow: an empty page should look like a blank page,
+   not a splash screen. The mark is a quiet hairline ring and the copy does the
+   work — which is how the Library's empty states behave. */
 .landing-state {
   height: 100%;
   display: flex;
@@ -405,55 +1493,48 @@
 }
 
 .icon-circle {
-  width: 72px;
-  height: 72px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
-  background: var(--gradient-pastel-soft);
-  box-shadow: 0 4px 12px var(--color-accent-faint);
+  border: 1px solid var(--border-color);
+  background: transparent;
+  box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--color-text-light);
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 
 .landing-state h2 {
   font-family: 'Newsreader', serif;
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--color-text-main);
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.6rem;
 }
 
 .landing-state p {
   font-size: 0.9rem;
-  color: var(--color-text-light);
+  color: var(--color-text-muted);
   max-width: 360px;
   line-height: 1.5;
   margin: 0;
 }
 
 /* ANIMATIONS */
-@keyframes slideUpFade {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.note-card {
-  animation: slideUpFade 0.4s cubic-bezier(0.2, 0, 0, 1) forwards;
-}
+/* `slideUpFade` was removed with the pane-entrance animations: it ran on every
+   `.note-card` on every index click with `forwards` fill, which both replayed a
+   rise on each swap and permanently pinned each card's opacity. */
 
 /* --- MOBILE RESPONSIVENESS --- */
 
 /* 1. Mobile Back Button (Default Hidden) */
 .mobile-nav-header {
   display: none;
+  border: 0;
+  background: transparent;
+  text-align: left;
 }
 
 @media (max-width: 768px) {
@@ -461,8 +1542,14 @@
   .brain-layout {
     display: block; /* Switch from grid to block flow */
     position: relative;
-    height: 100dvh;
+    height: 100%;
+    min-height: 0;
     overflow: hidden;
+  }
+
+  .layout-wrapper {
+    height: 100%;
+    min-height: 0;
   }
 
   /* 3. Index Column Behavior */
@@ -470,6 +1557,65 @@
     width: 100%;
     height: 100%;
     border-right: none;
+  }
+
+  .index-header {
+    padding: 1rem 1rem 0.75rem;
+  }
+
+  .search-box,
+  .sort-select {
+    min-height: 44px;
+  }
+
+  .sort-shell,
+  .detail-select-shell {
+    min-height: 44px;
+  }
+
+  .view-mode-control .toggle-opt {
+    min-height: 44px;
+  }
+
+  .clear-search {
+    flex-basis: 44px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .index-list {
+    padding: 0 1rem 1.5rem;
+  }
+
+  .index-item {
+    min-height: 44px;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .index-row-shell {
+    min-height: 44px;
+  }
+
+  /* Touch targets: the buttons need 44px, but the row must not grow to a
+     desktop-inconsistent height just because the tap target did — the actions
+     are an out-of-flow overlay, so they can stay tall while the row stays 44px.
+     Widening --actions-w moves the tail, the overlay and the fade edge together. */
+  .index-row-shell {
+    --actions-w: 96px;
+  }
+
+  .row-tail,
+  .row-actions {
+    height: 44px;
+  }
+
+  /* NOT `opacity: 1` here. Revealing the pair on every row at rest is exactly
+     the wall-of-icons state the Library's tree avoids; the `(hover: none)` block
+     inside the component reveals them on the selected or focused row instead. */
+  .row-action {
+    width: 44px;
+    height: 44px;
   }
 
   /* When class.mobile-hidden is active (Selection made), hide index completely */
@@ -485,6 +1631,32 @@
     padding: 1.5rem; /* Less padding on mobile */
     padding-bottom: 8.5rem; /* Preserve dock clearance */
     background-image: none; /* Cleaner look on small screens */
+  }
+
+  .detail-tools {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .note-search-box {
+    flex-basis: 100%;
+    min-height: 44px;
+  }
+
+  .detail-select-wrap {
+    flex: 1 1 150px;
+    min-height: 44px;
+  }
+
+  .detail-select {
+    height: 42px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .note-count {
+    flex-basis: 100%;
+    margin-left: 0;
   }
 
   /* When class.mobile-visible is active, show it full screen */
@@ -506,23 +1678,31 @@
     border-bottom: 1px solid var(--border-color); /* Subtle divider */
 
     /* Typography & Color - Matches .btn-back */
-    color: var(--color-text-light, var(--color-text-light));
+    color: var(--color-text-muted);
     font-family: 'Hanken Grotesk', sans-serif;
     font-size: 0.9rem;
     font-weight: var(--fw-medium);
 
     cursor: pointer;
-    transition:
-      color 0.2s ease,
-      transform 0.2s ease;
+    min-height: 44px;
   }
 
   .mobile-nav-header:hover {
-    color: var(--color-primary, var(--color-primary));
+    color: var(--color-text-main);
+  }
+
+  .mobile-nav-header:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
   }
 
   .mobile-nav-header lucide-icon {
     stroke-width: 2px;
+  }
+
+  .empty-link,
+  .empty-clear {
+    min-height: 44px;
   }
 
   /* 6. Adjust Typography for Mobile */
@@ -530,12 +1710,83 @@
     font-size: 2rem;
   }
 
+  .concept-actions {
+    justify-content: stretch;
+  }
+
+  .concept-action {
+    flex: 1 1 30%;
+    min-height: 44px;
+  }
+
+  .header-rename .inline-rename-input {
+    font-size: 2rem;
+  }
+
+  .merge-search-box,
+  .merge-picker-cancel,
+  .merge-picker-confirm,
+  .merge-target {
+    min-height: 44px;
+  }
+
+  .merge-picker-close {
+    width: 44px;
+    height: 44px;
+  }
+
+  .clear-note-search {
+    flex-basis: 44px;
+    width: 44px;
+    height: 44px;
+  }
+
   .cards-grid {
     grid-template-columns: 1fr; /* Single column cards */
   }
 
-  /* Disable "wide" card spanning on mobile */
-  .note-card.card-wide {
-    grid-column: span 1;
+  .related-row,
+  .related-list {
+    justify-content: flex-start;
+  }
+
+  .related-chip,
+  .related-more {
+    height: 44px;
+  }
+
+  :host ::ng-deep app-note-card .note-actions {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: none !important;
+  }
+
+  :host ::ng-deep app-note-card .note-actions .icon-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .index-col {
+    animation: none;
+  }
+
+  .concept-action,
+  .row-actions {
+    transition: none;
+  }
+
+  .note-card {
+    transition: none;
+  }
+
+  .note-card:hover {
+    transform: none;
+  }
+
+  :host ::ng-deep app-note-card .note-card-container,
+  :host ::ng-deep app-note-card .note-actions {
+    transition: none;
   }
 }
