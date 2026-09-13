@@ -480,6 +480,9 @@ if (process.argv.includes('--self-test')) {
       '.x {\n  transition: background-color, color 0.2s ease\n  color: red;\n}'],
     ['literal-colour', '.x { color: #ff00ff; }'],
     ['undeclared-token', '.x { color: var(--definitely-not-declared); }'],
+    // RULE 8 needs a TEMPLATE and a matching .css class, so its case is checked by
+    // the same predicate the rule uses (a bare hyphenated attr that IS a known class).
+    ['bare-attribute-not-class', '<button appIconButton desktop-only></button>'],
   ];
   let ok = 0;
   for (const [rule, snippet] of cases) {
@@ -497,6 +500,16 @@ if (process.argv.includes('--self-test')) {
       }
     }
     if (rule === 'literal-colour') fired = /#ff00ff/.test(snippet);
+    if (rule === 'bare-attribute-not-class') {
+      // Mirror the rule's predicate: a bare hyphenated attribute whose name is a
+      // known class. The self-test's class set here is deliberately the real one
+      // minus the quoted-value stripping, which is what made the first attempt at
+      // this rule vacuous (it never saw a template at all).
+      const known = new Set(['desktop-only', 'mobile-only', 'zen-toggle']);
+      fired = /(?:^|\s)([a-z][a-z0-9]*(?:-[a-z0-9]+)+)(?=\s|>|$)/.test(snippet)
+        && [...snippet.matchAll(/(?:^|\s)([a-z][a-z0-9]*(?:-[a-z0-9]+)+)(?=\s|>|$)/g)]
+          .some((m) => known.has(m[1]));
+    }
     if (rule === 'undeclared-token') fired = /var\(\s*--definitely-not-declared/.test(snippet);
     if (fired) { ok++; console.log(`  ✔ ${rule} fires on its known-bad snippet`); }
     else console.log(`  ✖ ${rule} DID NOT FIRE — the rule is vacuous`);
@@ -546,11 +559,80 @@ if (process.argv.includes('--self-test')) {
   }
   const RULES = ['unterminated-transition', 'visually-hidden', 'literal-colour',
     'undeclared-token', 'possible-unwinnable-dark-override (ADVISORY)',
-    'backtick-in-inline-styles', 'transition-missing-duration'];
+    'backtick-in-inline-styles', 'transition-missing-duration',
+    'bare-attribute-not-class'];
   console.log(`\nself-test: ${ok}/${cases.length + 3} injected cases detected`);
   console.log(`rules implemented: ${RULES.length} (${RULES.join(', ')})`);
   process.exit(ok === cases.length + 3 ? 0 : 1);
 }
+
+/**
+ * RULE 8 — a utility written as a BARE ATTRIBUTE where the CSS expects a CLASS.
+ *
+ * "<button appIconButton zen-toggle>" is valid HTML and reads fine in a template,
+ * but "zen-toggle" is then an attribute, NOT a class, so ".zen-toggle { ... }" never
+ * matches. Migrating the icon buttons by hand produced exactly that: the studio's zen
+ * toggle and the reader's desktop-only zoom buttons silently lost their styling.
+ *
+ * Only flags names that some stylesheet actually uses as a CLASS selector, so real
+ * attributes and bare names no CSS keys off are ignored.
+ */
+{
+  // `walk()` deliberately collects only .css/.ts (every other rule is about
+  // stylesheets), so templates need their own walk. Found the hard way: this rule
+  // first reported nothing simply because no .html file was ever read.
+  const TEMPLATES = [];
+  (function walkHtml(dir) {
+    for (const entry of readdirSync(dir)) {
+      const p = join(dir, entry);
+      if (statSync(p).isDirectory()) { walkHtml(p); continue; }
+      if (extname(p) === '.html') TEMPLATES.push({ path: p, raw: readFileSync(p, 'utf8') });
+    }
+  })(SRC);
+
+  const classNames = new Set();
+  for (const f of files) for (const m of f.css.matchAll(/\.([a-zA-Z][a-zA-Z0-9_-]*)/g)) classNames.add(m[1]);
+  // Names that legitimately appear as bare attributes, not classes.
+  const ALLOWED = new Set(['disabled', 'required', 'autofocus', 'hidden', 'multiple',
+    'readonly', 'selected', 'checked', 'open', 'novalidate', 'autocomplete', 'type',
+    'role', 'value', 'name', 'for', 'placeholder', 'min', 'max', 'step', 'rows',
+    'cols', 'tabindex', 'colspan', 'rowspan', 'scope', 'target', 'rel', 'loading',
+    'decoding', 'draggable', 'contenteditable', 'spellcheck', 'translate', 'wrap',
+    'accept', 'capture', 'list', 'pattern', 'size', 'maxlength', 'minlength',
+    'inputmode', 'dirname', 'lang', 'dir', 'title', 'alt', 'src', 'href', 'id']);
+
+  for (const f of TEMPLATES) {
+    // Strip HTML comments and every quoted value BEFORE matching. Without this the
+    // rule fired on `class="btn btn-xs"` itself: the tokens INSIDE a class attribute
+    // are quoted text, not bare attributes, and quoting them produced 17 false
+    // findings in files untouched by this work. A noisy gate gets ignored, which is
+    // worse than no gate.
+    const cleaned = f.raw
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/"[^"\n]*"/g, '""')
+      .replace(/'[^'\n]*'/g, "''");
+    const lines = cleaned.split('\n');
+    // Keep original line numbers by splitting the ORIGINAL too.
+    const original = f.raw.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      // Only inside an element tag: the line must open a tag or be an attribute
+      // continuation (a bare attribute is indented under its opening tag).
+      if (!/<[a-zA-Z]/.test(line) && !/^\s{4,}[a-zA-Z]/.test(line)) continue;
+      for (const m of line.matchAll(/(?:^|\s)([a-z][a-z0-9]*(?:-[a-z0-9]+)+)(?=\s|>|$)/g)) {
+        const attr = m[1];
+        if (ALLOWED.has(attr)) continue;
+        if (!classNames.has(attr)) continue;
+        report('bare-attribute-not-class', f.path, i + 1,
+          `"${attr}" is a bare attribute, but the CSS has a .${attr} CLASS rule that can ` +
+          `never match it. Write class="${attr}". A bare attribute is not a class ` +
+          `(near: ${(original[i] || '').trim().slice(0, 60)})`);
+      }
+    }
+  }
+}
+
+
 
 // ------------------------------------------------------------------- output
 const byRule = new Map();
