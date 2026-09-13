@@ -1,12 +1,13 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { of, Subject } from 'rxjs';
 
 import { Library } from './library.component';
 import { BooksService } from '../core/services/books.service';
 import { CollectionsService } from '../core/services/collections.service';
 import { PaginatedResponse } from '../core/dtos/book.dtos';
+import { Book } from '../core/dtos/book.dtos';
 import { BookSort } from '../core/dtos/book.enums';
 import {
   LIBRARY_PREFERENCES_STORAGE_KEY,
@@ -179,6 +180,170 @@ describe('Library', () => {
 
   it('initializes the sort from preferences (not the URL)', () => {
     expect(component.activeSort()).toBe(TestBed.inject(LibraryPreferencesService).sort());
+  });
+
+  /**
+   * The list view's row contract. The status toggles used to sit in the left
+   * gutter BEFORE the cover, which pushed the artwork off the Title column's
+   * start and put two bare controls against the row's leading edge. These
+   * assertions pin the DOM order that keeps the row's left side clean: cover
+   * first, then the title, then the status pair at the end of the column.
+   */
+  it('orders the title cell as cover, title, then the status toggles', () => {
+    // Seeded through the component's own signal (the pattern the delete specs
+    // below use) so the row renders without re-stubbing the service.
+    component.rawBooks.set([
+      {
+        id: 'book-1',
+        title: 'A Title',
+        subtitle: 'A Subtitle',
+        author: 'An Author',
+        type: 'ebook',
+        coverUrl: null,
+        rating: 0,
+        isFavorite: true,
+        finishedAt: null,
+        progressPercent: 0,
+        createdAt: '2026-01-01T00:00:00Z',
+        otherEditions: [],
+      } as unknown as Book,
+    ]);
+    component.setViewMode('list');
+    fixture.detectChanges();
+
+    const cell = fixture.nativeElement.querySelector('.col.title') as HTMLElement;
+    expect(cell).toBeTruthy();
+
+    const ordered = Array.from(cell.children).map((el) => el.className.split(' ')[0]);
+    expect(ordered).toEqual(['list-cover-frame', 'list-title-text', 'list-row-status']);
+
+    // The toggles live INSIDE the status cluster, not loose in the cell, so the
+    // cluster can own their spacing and hover reveal as one unit.
+    const status = cell.querySelector('.list-row-status') as HTMLElement;
+    expect(status.querySelectorAll('.fav-btn-list, .finished-btn-list')).toHaveLength(2);
+  });
+
+  /**
+   * Clicking a status toggle must flip that status and NOT navigate to the book
+   * — the whole row is a routerLink, so an unguarded click on the heart would
+   * open the detail page instead. This is the behaviour the move into the
+   * `.list-row-status` wrapper (which stops the click) exists to preserve.
+   */
+  it('toggles a row status without navigating to the book', () => {
+    component.rawBooks.set([
+      {
+        id: 'book-1',
+        title: 'A Title',
+        author: 'An Author',
+        type: 'ebook',
+        coverUrl: null,
+        rating: 0,
+        isFavorite: false,
+        finishedAt: null,
+        progressPercent: 0,
+        createdAt: '2026-01-01T00:00:00Z',
+        otherEditions: [],
+      } as unknown as Book,
+    ]);
+    component.setViewMode('list');
+    fixture.detectChanges();
+
+    const booksService = TestBed.inject(BooksService);
+    const updated = {
+      id: 'book-1',
+      title: 'A Title',
+      type: 'ebook',
+      coverUrl: null,
+      rating: 0,
+      isFavorite: true,
+      finishedAt: null,
+      progressPercent: 0,
+      createdAt: '2026-01-01T00:00:00Z',
+      otherEditions: [],
+    } as unknown as Book;
+    const updateSpy = vi.spyOn(booksService, 'update').mockReturnValue(of(updated));
+    const router = TestBed.inject(Router);
+    const urlBefore = router.url;
+    const navigateSpy = vi.spyOn(router, 'navigateByUrl');
+
+    const fav = fixture.nativeElement.querySelector('.fav-btn-list') as HTMLButtonElement;
+    fav.click();
+    fixture.detectChanges();
+
+    expect(updateSpy).toHaveBeenCalledWith('book-1', { isFavorite: true });
+    expect(navigateSpy).not.toHaveBeenCalled();
+    expect(router.url).toBe(urlBefore);
+  });
+
+  it('keeps the row status out of the title text so the title stays the row lead', () => {
+    component.rawBooks.set([
+      {
+        id: 'book-1',
+        title: 'A Title',
+        author: 'An Author',
+        type: 'ebook',
+        coverUrl: null,
+        rating: 0,
+        isFavorite: false,
+        finishedAt: null,
+        progressPercent: 0,
+        createdAt: '2026-01-01T00:00:00Z',
+        otherEditions: [],
+      } as unknown as Book,
+    ]);
+    component.setViewMode('list');
+    fixture.detectChanges();
+
+    const titleText = fixture.nativeElement.querySelector('.list-title-text') as HTMLElement;
+    expect(titleText).toBeTruthy();
+    // No toggle may be nested inside the title block: its text has to read as
+    // the book's name alone, not as a name with controls woven into it.
+    expect(titleText.querySelector('.fav-btn-list, .finished-btn-list')).toBeNull();
+  });
+
+  /**
+   * The lag guard's DOM contract. The list reuses the grid's `.format-badge`
+   * class, so a naive reading of the stylesheet suggests every row still gets a
+   * frosted glass surface. This asserts the EFFECTIVE markup the row-status work
+   * depends on: the badge is a static in-row element whose wrapper exists for
+   * every row, and the status cluster is a sibling that owns the toggles.
+   *
+   * (The rendered `backdrop-filter: none` and the composited-layer count are
+   * asserted in tools/verify-library-list.mjs — Vitest does not apply the
+   * component stylesheet, so claiming computed styles here would be a false
+   * pass.)
+   */
+  it('renders the format badge as a static in-row element with the status cluster as a sibling', () => {
+    component.rawBooks.set([
+      {
+        id: 'book-1',
+        title: 'A Title',
+        author: 'An Author',
+        type: 'ebook',
+        coverUrl: null,
+        rating: 0,
+        isFavorite: false,
+        finishedAt: null,
+        progressPercent: 0,
+        createdAt: '2026-01-01T00:00:00Z',
+        otherEditions: [],
+      } as unknown as Book,
+    ]);
+    component.setViewMode('list');
+    fixture.detectChanges();
+
+    const row = fixture.nativeElement.querySelector('.table-row') as HTMLElement;
+    expect(row).toBeTruthy();
+
+    // The badge must not be nested in the cover frame (where the grid's overlay
+    // lives) — in the list it belongs to the format column.
+    const badge = row.querySelector('.col.format .format-badge') as HTMLElement;
+    expect(badge).toBeTruthy();
+    expect(row.querySelector('.list-cover-frame .format-badge')).toBeNull();
+
+    // Exactly one status cluster per row, holding exactly the two toggles.
+    expect(row.querySelectorAll('.list-row-status')).toHaveLength(1);
+    expect(row.querySelectorAll('.list-row-status button')).toHaveLength(2);
   });
 
   it('shows an empty state with a creation action when the library is empty', () => {
