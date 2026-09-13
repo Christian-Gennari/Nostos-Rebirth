@@ -447,6 +447,69 @@ Drift found and removed: Studio's track carried a `border` the other three lacke
 focus ring** while Brain's byte-identical copy did, so one control behaved
 differently for keyboard users depending on which page they were on.
 
+### What WAS unified: the icon button (30 call sites -> one component)
+
+`appIconButton` (`src/app/ui/icon-button/`) replaced 30 hand-built
+`<button class="icon-btn"><lucide-icon ...></lucide-icon></button>` copies across
+five templates. The five copies disagreed about SIZE, which is the thing the
+component now owns.
+
+`selector: 'button[appIconButton]'` means **the host is the native `<button>`**.
+Not a wrapper element: a custom host defaults to `display: inline`, breaks flex/grid
+alignment, and breaks descendant selectors this codebase relies on
+(`.reader-toolbar .icon-btn`, `.note-actions .icon-btn`, `button:focus-visible`).
+Not a plain directive either: a directive cannot own an encapsulated stylesheet.
+
+**Measured size rungs** (the only thing the component owns):
+
+| Rung | Box | Used by |
+| --- | --- | --- |
+| `md` (default) | 32px | reader toolbar, modal close, note-card edit-mode |
+| `xs` | 28px | Library list rows |
+| `xxs` | 24px | note-card's round row chips |
+
+Radius is deliberately NOT owned: it varies per surface on purpose (3px global
+`--radius-sm`, 4px Library rows and the reader toolbar, 6px studio zen toggle, 50%
+note-card chips) and mostly arrives through DESCENDANT rules that keep matching
+because the host is still a button. Encoding a radius rung here would have moved
+pixels on four surfaces to no benefit.
+
+Also deliberately NOT inputs, each for a measured reason:
+
+- **`ariaLabel`** — a `[attr.aria-label]` host binding OVERRIDES a static
+  `aria-label` on the call site, silently replacing Library's "Edit book" with
+  nothing. Since the host is the button, native `aria-label` already passes through;
+  the input only added a way to lose the label.
+- **`active`** — every surface styles selection with its own `.icon-btn.active`, and
+  a plain `[class.active]="tocOpen()"` works untouched. A second way to express one
+  state is guaranteed to drift.
+- **`aria-pressed`** — tri-state with a default of `null` (attribute absent). Most
+  icon buttons are actions, not toggles; emitting `aria-pressed="false"` would
+  misreport them.
+
+Kept in the surfaces: `data-tip` + the themed tooltip, the `.delete` danger hover,
+and every ancestor-scoped rule.
+
+**THE ENCAPSULATION BOUNDARY, MEASURED.** Angular puts one `_ngcontent` attribute per
+compound. The component host keeps the PARENT's scope attribute (so `.icon-btn` and
+`.reader-toolbar .icon-btn` still apply), but the glyph inside carries the CHILD's.
+Verified live: host `_ngcontent-ng-c1225754224`, glyph `_ngcontent-ng-c599134121`.
+So `.icon-btn lucide-icon { border-radius: ... }` silently STOPS MATCHING at a
+component boundary. Reader's glyph radius and its mobile `top: 0` override now cross
+explicitly with `:host ::ng-deep`, the convention this repo already uses for
+`second-brain -> note-card`.
+
+**And a bare attribute is not a class.** `<button appIconButton zen-toggle>` is valid
+HTML and reads fine, but `.zen-toggle` never matches it — this silently broke studio's
+zen toggle and the reader's `desktop-only` buttons during the migration. Now guarded
+by RULE 8.
+
+*(A latent bug found on the way and NOT fixed, because fixing it is a visual change:*
+studio passes `strokeWidth="1.5"`, but lucide coerced the static string and the app
+actually painted `stroke-width: 1`. The migration preserves the painted value with
+`[strokeWidth]="1"`. Honouring the written 1.5 would thicken six icons — worth doing,
+but as a deliberate visual change, not inside a refactor.)*
+
 ### What WAS unified: `.visually-hidden`
 It was declared twice, byte-identically (`second-brain` and `concept-map`). A
 utility with no per-surface variation should not be duplicated: the copies give
@@ -465,13 +528,15 @@ body; check that a renamed section still has its paragraph.)*
 ## 5. Running the harnesses
 
 ```bash
-npm run check                     # parse + token graph (incl. .ts theme modules) + 6 drift rules
-                                  #   (7th, possible-unwinnable-dark-override, is ADVISORY)
+npm run check                     # parse + token graph (incl. .ts theme modules) + 7 drift rules
+                                  #   (the 8th, possible-unwinnable-dark-override, is ADVISORY)
 npm run check:design -- --self-test   # proves each drift rule can actually fire
 npm run check:freshness           # proves the freshness check fails in both directions
 npm run capture:baseline -- --port 5214 --out /tmp/after
 npm run check:pixels -- /tmp/after    # the real acceptance test
 npm run probe:selection           # rest/hover/focus of a selected row, both themes
+node scripts/probe-iconbutton.mjs --port 5214 --out /tmp/before   # icon-button contract
+node scripts/probe-iconbutton.mjs --diff /tmp/before/iconbutton.json /tmp/after/iconbutton.json
 ```
 
 The capture set is **24 PNGs across 6 surfaces**: library, brain, studio, settings,
@@ -483,6 +548,42 @@ A CSS refactor compiles perfectly while changing every surface, so **the build
 passing is not evidence**. The acceptance test is the pixel gate. Byte-identical
 output is the expected result for a value-preserving refactor; when a change is
 *intended* to move pixels, regenerate the baseline and say so in the commit.
+
+### The icon-button probe, and why a screenshot is not enough
+
+`check:pixels` captures STATIC frames. It cannot see `:hover`, `:focus` or
+`disabled` — the blind spot that once let 25 transition sites ship snapping instead
+of animating while all 24 captures still matched. Classic CSS has no hover state in a
+static PNG, and state is exactly what a shared component is most likely to break.
+
+`scripts/probe-iconbutton.mjs` dumps **computed style** (27 fields including
+`transition-property`/`transition-duration`, size, radius, outline, glyph geometry)
+at rest/hover/focus, per surface and theme, then `--diff`s two runs. It is the
+acceptance test for a control migration; PNGs cannot be.
+
+Four instrument bugs found by using it, each of which made it lie:
+
+- **A fixed settle wait sampled mid-transition.** At 60ms against a 200ms transition
+  the same CSS produced different numbers, and the "regression" was the instrument.
+  Now: a minimum wait past the transition, then poll until two reads agree.
+- **Two equal reads before a transition STARTS look settled.** The probe recorded
+  REST values under a `hover` label, so a phantom diff appeared. `stateApplied` is now
+  recorded and compared.
+- **Only ~13 of 30 call sites render at rest.** The rest sit inside `@if` branches, so
+  each surface runs real interactions (open the TOC/notes panels, switch Library to
+  list view, open the modal, enter zen, open the note editor). Without that, most call
+  sites would be silently unverified.
+- **Sampling keyed on the class string missed whole variants.** Studio's 8 buttons all
+  carry `icon-btn` and differ by glyph size and stroke weight, so a per-class cap
+  sampled 3 and left 5 migrated-but-unverified. Sampling now keys on the painted
+  variant: 80 buttons, 12 variants.
+
+It also checks its OWN coverage and exits non-zero unless it captured at least two
+distinct variants, hover AND focus, the 24px rung, and the note-card edit-mode
+buttons. A probe that silently samples nothing is worse than no probe.
+
+**Its noise floor is measured, not assumed**: two consecutive runs of the same code
+are byte-identical (0 differences). Verify that before trusting any diff.
 
 Order matters for `check:pixels`: run `capture:baseline` **and** a fresh capture of
 the same build before trusting a failure, because a baseline written while the page
