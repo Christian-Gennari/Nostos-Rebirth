@@ -327,8 +327,9 @@
 
   /* ── Primary role split ──
      ink goes LIGHT (it is read on dark), fill goes DARK (it is read by the
-     text on top of it). This inversion is the whole point of the split. */
-  --primary-ink: #ACCDC4;
+     text on top of it). This inversion is the whole point of the split.
+     Porcelain #EDEEF2 is the heading & brand ink on dark, matching the brand guidelines. */
+  --primary-ink: #EDEEF2;
   --primary-fill: #2D4B44;
   --on-primary: #F0F2F5;
   /* Legacy alias. Points at the DIM pine, not the mint ink: ~35 component rules
