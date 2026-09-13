@@ -445,7 +445,7 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
       :host ::ng-deep .tox .tox-tbtn--enabled,
       :host ::ng-deep .tox .tox-tbtn--enabled:hover,
       :host ::ng-deep .tox .tox-mbtn--active {
-        color: var(--primary-ink) !important;
+        color: var(--color-text-main) !important;
         background: var(--color-accent-bg) !important;
       }
 
