@@ -84,10 +84,9 @@
 
       <div
         class="index-list"
-        [class.map-mode]="viewMode() === 'map'"
         [attr.aria-busy]="loadingConcepts()"
-        [attr.role]="viewMode() === 'map' ? null : 'list'"
-        [attr.aria-label]="viewMode() === 'map' ? null : 'Concept index'"
+        role="list"
+        aria-label="Concept index"
       >
         @if (loadingConcepts()) {
         <div class="index-wait-field wait-field" role="status" aria-label="Loading concepts"></div>
@@ -104,12 +103,6 @@
           <p>No concepts match “{{ searchQuery().trim() }}”.</p>
           <button type="button" class="empty-clear" (click)="clearSearch()">Clear search</button>
         </div>
-        } @else if (viewMode() === 'map') {
-        <app-concept-map
-          [concepts]="filteredConcepts()"
-          [selectedId]="selectedId()"
-          (conceptSelected)="selectConcept($event)"
-        ></app-concept-map>
         } @else {
         @for (c of filteredConcepts(); track c.id; let i = $index) {
         @if (isLetterStart(i)) {
@@ -188,8 +181,27 @@
       </div>
     </aside>
 
-    <section class="content-col" [class.mobile-visible]="selectedId()">
-      @if (selectedId()) {
+    <section class="content-col" [class.mobile-visible]="selectedId() || viewMode() === 'map'">
+      @if (viewMode() === 'map') {
+      <!-- The map lives on the main stage, not in the index rail: it is a
+           whole-brain view, and a force-directed graph squeezed into a ~320px
+           sidebar cannot be read. In this mode it replaces the concept pane
+           entirely; the index stays alongside as the filter/search surface. -->
+      @if (selectedConceptName(); as name) {
+      <div class="map-selection-bar" role="status">
+        <span class="map-selection-name">{{ name }}</span>
+        <button type="button" class="map-open-notes" (click)="openSelectedConcept()">
+          <span>Read notes</span>
+          <lucide-icon [img]="ArrowRightIcon" [size]="15"></lucide-icon>
+        </button>
+      </div>
+      }
+      <app-concept-map
+        [concepts]="filteredConcepts()"
+        [selectedId]="selectedId()"
+        (conceptSelected)="onMapConceptSelected($event)"
+      ></app-concept-map>
+      } @else { @if (selectedId()) {
       <button type="button" class="mobile-nav-header" (click)="clearSelection()">
         <lucide-icon [img]="ArrowLeftIcon" [size]="18"></lucide-icon>
         <span>Back to Index</span>
@@ -453,6 +465,7 @@
         <h2>Explore your Second Brain</h2>
         <p>Select a concept from the index to see how your ideas connect.</p>
       </div>
+      }
       }
     </section>
   </div>

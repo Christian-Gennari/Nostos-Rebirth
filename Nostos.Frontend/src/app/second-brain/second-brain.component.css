@@ -235,11 +235,6 @@
   padding: 0 1.25rem 1.5rem;
 }
 
-.index-list.map-mode {
-  padding-left: 0;
-  padding-right: 0;
-}
-
 .index-wait-field {
   position: absolute;
   inset: 0;
@@ -532,6 +527,71 @@
   background-size: 24px 24px;
   background-color: transparent;
 }
+
+/* --- MAP view: the map occupies the main stage --------------------------- */
+
+/* A quiet bar above the graph showing what is selected, with the one action the
+   map cannot express — leaving it to read the notes. */
+.map-selection-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 1100px;
+  margin: 0 auto 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.map-selection-name {
+  font-family: 'Newsreader', serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--color-text-main);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-open-notes {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--color-text-light);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  color: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out);
+}
+
+.map-open-notes:hover {
+  background: var(--bg-hover);
+  border-color: var(--color-text-main);
+}
+
+.map-open-notes:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* The map takes the stage it is now on: it is the whole point of this view, so
+   give it the available height rather than the ~360px it needed as a sidebar
+   widget. */
+.content-col app-concept-map {
+  display: block;
+  max-width: 1100px;
+  margin: 0 auto;
+} 
 
 /* HEADER */
 /* No arrival animation on the detail pane.

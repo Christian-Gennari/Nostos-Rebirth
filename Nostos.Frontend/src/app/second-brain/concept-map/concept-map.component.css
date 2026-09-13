@@ -113,10 +113,12 @@
   box-shadow: var(--shadow-sm);
 }
 
+/* The map is a whole-brain view on the main stage, so it takes the available
+   height rather than the modest fixed box it needed as a sidebar widget. */
 .map-svg {
   display: block;
   width: 100%;
-  height: clamp(360px, 52dvh, 560px);
+  height: clamp(420px, 62dvh, 760px);
   touch-action: none;
   cursor: grab;
 }

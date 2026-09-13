@@ -833,4 +833,49 @@ describe('SecondBrain', () => {
     expect(localStorage.getItem('nostos.brain.viewMode')).toBe('list');
     expect(fixture.nativeElement.querySelector('app-concept-map')).toBeNull();
   });
+
+  it('renders the map on the main stage, not in the index rail', () => {
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const map = fixture.nativeElement.querySelector('app-concept-map') as HTMLElement;
+    expect(map).toBeTruthy();
+    // The graph must live in the content column (the main stage). In the ~320px
+    // index rail it was unreadable; this pins the placement so a future change
+    // cannot quietly push it back into the sidebar.
+    expect(map.closest('.content-col')).not.toBeNull();
+    expect(map.closest('.index-col')).toBeNull();
+    expect(map.closest('.index-list')).toBeNull();
+
+    flushChildConceptLists();
+    http.match((request) => request.url.endsWith('/related')).forEach((request) => request.flush([]));
+  });
+
+  it('keeps the map visible when a node is selected and offers a way to the notes', () => {
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    flushChildConceptLists();
+    http.match((request) => request.url.endsWith('/related')).forEach((request) => request.flush([]));
+
+    // Selecting a concept from the map must NOT navigate away from the graph —
+    // that would hide the map the moment it was used.
+    component.onMapConceptSelected('c-beta');
+    fixture.detectChanges();
+    flushDetail('c-beta', detail('c-beta', 'Beta'));
+    fixture.detectChanges();
+
+    expect(component.viewMode()).toBe('map');
+    expect(fixture.nativeElement.querySelector('app-concept-map')).toBeTruthy();
+    expect(component.selectedConceptName()).toBe('Beta');
+
+    // ...and the selection bar is the explicit route to the notes.
+    const open = fixture.nativeElement.querySelector('.map-open-notes') as HTMLButtonElement;
+    expect(open).toBeTruthy();
+    open.click();
+    fixture.detectChanges();
+    expect(component.viewMode()).toBe('list');
+    expect(fixture.nativeElement.querySelector('app-concept-map')).toBeNull();
+  });
 });

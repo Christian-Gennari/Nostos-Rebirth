@@ -18,6 +18,7 @@ import {
   Search,
   BrainCircuit,
   ArrowLeft,
+  ArrowRight,
   Pencil,
   Trash2,
   X,
@@ -112,6 +113,7 @@ export class SecondBrain implements AfterViewChecked {
   SearchIcon = Search;
   BrainIcon = BrainCircuit;
   ArrowLeftIcon = ArrowLeft;
+  ArrowRightIcon = ArrowRight;
   RenameIcon = Pencil;
   DeleteIcon = Trash2;
   ClearIcon = X;
@@ -773,6 +775,37 @@ export class SecondBrain implements AfterViewChecked {
       /* private mode / storage disabled — a non-persisted view is acceptable */
     }
   }
+
+  /**
+   * Selecting a node on the map.
+   *
+   * The map now lives on the main stage, so clicking a node must NOT navigate
+   * away from it — that would hide the graph the moment you used it, which is
+   * the opposite of a whole-brain view. Selection highlights the node (and its
+   * index row); the detail is still fetched so the cache is warm if the user
+   * then opens it. Reading the notes is an explicit action via
+   * `openSelectedConcept()`.
+   */
+  onMapConceptSelected(id: string): void {
+    this.selectConcept(id);
+  }
+
+  /** Leave the map to read the selected concept's notes. */
+  openSelectedConcept(): void {
+    const id = this.selectedId();
+    if (!id) return;
+    this.setViewMode('list');
+  }
+
+  /** True when the map has a selection that can be opened. */
+  canOpenSelectedConcept = computed(() => !!this.selectedId() && this.viewMode() === 'map');
+
+  /** The selected concept's display name, for the map's selection bar. */
+  selectedConceptName = computed(() => {
+    const id = this.selectedId();
+    if (!id || this.viewMode() !== 'map') return null;
+    return this.concepts().find((concept) => concept.id === id)?.name ?? null;
+  });
 
   private readStoredSort(): IndexSort {
     try {

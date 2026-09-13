@@ -9,8 +9,8 @@ import {
   MAP_NODE_RADIUS_MIN,
   mapNodeRadius,
   MAX_MAP_CONCEPTS,
-  MAP_HEIGHT,
-  MAP_WIDTH,
+  MAP_VIEW_HEIGHT,
+  MAP_VIEW_WIDTH,
   RELATED_CONCEPT_LIMIT,
 } from './concept-map.component';
 import { ConceptDto } from '../../core/services/concepts.service';
@@ -81,8 +81,8 @@ describe('ConceptMapComponent', () => {
       },
     ]);
 
-    expect(layout.nodes.every((node) => node.labelX >= 100 && node.labelX <= MAP_WIDTH - 100)).toBe(true);
-    expect(layout.nodes.every((node) => node.labelY >= 18 && node.labelY <= MAP_HEIGHT - 8)).toBe(true);
+    expect(layout.nodes.every((node) => node.labelX >= 100 && node.labelX <= MAP_VIEW_WIDTH - 100)).toBe(true);
+    expect(layout.nodes.every((node) => node.labelY >= 18 && node.labelY <= MAP_VIEW_HEIGHT - 8)).toBe(true);
     expect(layout.nodes.filter((node) => node.labelEligible).length).toBeLessThanOrEqual(4);
     expect(layout.nodes.filter((node) => node.labelEligible).length).toBeGreaterThan(0);
   });

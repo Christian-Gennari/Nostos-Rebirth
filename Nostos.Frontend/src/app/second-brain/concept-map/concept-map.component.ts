@@ -22,16 +22,41 @@ export const MAX_MAP_CONCEPTS = 150;
 export const RELATED_CONCEPT_LIMIT = 30;
 export const MAP_WIDTH = 640;
 export const MAP_HEIGHT = 600;
+
+/**
+ * The map is laid out in this viewBox and then scaled into the stage.
+ *
+ * It used to be a fixed 640x600 (aspect 1.07) widget in the ~320px sidebar, so
+ * the box and the stage were both tall and the default `meet` scaling filled it.
+ * Moved to the main stage the stage became wide (~992x558, aspect ~1.78) while
+ * the viewBox stayed tall, so `meet` scaled to fit the HEIGHT and letterboxed the
+ * graph into the middle ~55% of a wide canvas — a small cluster adrift in a large
+ * empty frame.
+ *
+ * The viewBox now matches the stage's aspect (16:9) and the layout spreads the
+ * graph across it, so the cluster fills the space it is given instead of
+ * clustering in the centre. `MAP_HEIGHT` is kept for the layout maths and tests.
+ */
+export const MAP_VIEW_WIDTH = 960;
+export const MAP_VIEW_HEIGHT = 540;
 export const MAP_NODE_RADIUS_MIN = 14;
 export const MAP_NODE_RADIUS_MAX = 34;
 export const MAP_NODE_HIT_RADIUS = 52;
+/**
+ * Below this many concepts, label every node.
+ *
+ * The map used to live in a ~320px rail where a fully-labelled cluster was
+ * unreadable soup, so only a third of the nodes were named. On the main stage
+ * names fit, and an unnamed node reads as a mysterious dot.
+ */
+export const MAP_LABEL_ALL_BELOW = 24;
 
 const LAYOUT_ITERATIONS = 300;
 const MIN_ZOOM = 0.65;
 const MAX_ZOOM = 2.5;
 const MAP_TOOLTIP_HALF_WIDTH = 112;
 const MAP_TOOLTIP_TOP = 88;
-const MAP_TOOLTIP_BOTTOM = MAP_HEIGHT - 16;
+const MAP_TOOLTIP_BOTTOM = MAP_VIEW_HEIGHT - 16;
 const MAP_LABEL_HALF_WIDTH = 100;
 const MAP_DEFAULT_LABEL_LIMIT = 8;
 
@@ -166,38 +191,43 @@ export function computeConceptMapLayout(
   const usages = concepts.map((concept) => Math.max(0, concept.usageCount));
   const minimumUsage = Math.min(...usages);
   const maximumUsage = Math.max(...usages);
-  const sortedUsages = [...usages].sort((a, b) => a - b);
-  const middle = Math.floor(sortedUsages.length / 2);
-  const medianUsage = sortedUsages.length % 2 === 0
-    ? (sortedUsages[middle - 1] + sortedUsages[middle]) / 2
-    : sortedUsages[middle];
   const edges = deriveConceptMapEdges(concepts, relatedBySource);
-  // The map can live in a 280px rail. Showing every median-usage label makes
-  // a connected cluster unreadable, so reserve the quiet default labels for
-  // the most-referenced nodes; hover, focus and selection still reveal any
-  // other node's label.
-  const labelLimit = Math.min(
-    concepts.length,
-    Math.max(4, Math.min(MAP_DEFAULT_LABEL_LIMIT, Math.ceil(concepts.length * 0.35)))
-  );
+  // On the main stage there is room to name what is drawn. The old budget (a
+  // third of nodes, median-usage and above) existed because a ~320px rail turned
+  // a fully-labelled cluster into soup; on the wide stage an unnamed node just
+  // reads as a mystery, so name them — until the count is large enough that
+  // labels would genuinely collide, at which point fall back to the top N by
+  // usage (hover/focus/selection still reveal any other label).
+  const labelLimit =
+    concepts.length <= MAP_LABEL_ALL_BELOW
+      ? concepts.length
+      : Math.max(MAP_DEFAULT_LABEL_LIMIT, Math.ceil(concepts.length * 0.35));
   const nodeById = new Map<string, { concept: ConceptDto; x: number; y: number; radius: number }>();
 
   for (const concept of concepts) {
     const seed = hashSeed(concept.id);
     const angle = seed * Math.PI * 2;
     const radialSeed = hashSeed(`${concept.id}:radius`);
-    const radialX = concepts.length === 1 ? 0 : (MAP_WIDTH * 0.16) + radialSeed * MAP_WIDTH * 0.27;
-    const radialY = concepts.length === 1 ? 0 : (MAP_HEIGHT * 0.13) + radialSeed * MAP_HEIGHT * 0.18;
+    // Seed across the (wide) viewBox rather than a small central disc, so the
+    // cluster starts distributed and the spring settling has room to spread.
+    const radialX =
+      concepts.length === 1 ? 0 : MAP_VIEW_WIDTH * 0.22 + radialSeed * MAP_VIEW_WIDTH * 0.26;
+    const radialY =
+      concepts.length === 1 ? 0 : MAP_VIEW_HEIGHT * 0.2 + radialSeed * MAP_VIEW_HEIGHT * 0.26;
     nodeById.set(concept.id, {
       concept,
-      x: MAP_WIDTH / 2 + Math.cos(angle) * radialX,
-      y: MAP_HEIGHT / 2 + Math.sin(angle) * radialY,
+      x: MAP_VIEW_WIDTH / 2 + Math.cos(angle) * radialX,
+      y: MAP_VIEW_HEIGHT / 2 + Math.sin(angle) * radialY,
       radius: mapNodeRadius(concept.usageCount, minimumUsage, maximumUsage),
     });
   }
 
   if (concepts.length > 1) {
-    const k = clamp(Math.sqrt((MAP_WIDTH * MAP_HEIGHT) / concepts.length) * 0.5, 70, 150);
+    // Target spring length. Grown from the old 640x600 rail sizing: on a wide
+    // stage the same k left the cluster occupying under half the frame, so the
+    // graph read as adrift rather than as a map. Repulsion is nudged up with it
+    // to keep the cluster from collapsing back under attraction.
+    const k = clamp(Math.sqrt((MAP_VIEW_WIDTH * MAP_VIEW_HEIGHT) / concepts.length) * 0.62, 120, 260);
     const indexById = new Map(concepts.map((concept, index) => [concept.id, index]));
     const edgePairs = edges.map((edge) => ({
       first: nodeById.get(edge.sourceId)!,
@@ -217,8 +247,8 @@ export function computeConceptMapLayout(
           const deltaY = first.y - second.y;
           const distance = Math.max(1, Math.hypot(deltaX, deltaY));
           const repulsion = (k * k) / distance;
-          const forceX = (deltaX / distance) * repulsion * 0.003;
-          const forceY = (deltaY / distance) * repulsion * 0.003;
+          const forceX = (deltaX / distance) * repulsion * 0.0042;
+          const forceY = (deltaY / distance) * repulsion * 0.0042;
           forces[firstIndex].x += forceX;
           forces[firstIndex].y += forceY;
           forces[secondIndex].x -= forceX;
@@ -242,11 +272,42 @@ export function computeConceptMapLayout(
       const damping = 0.9 - iteration / (LAYOUT_ITERATIONS * 10);
       for (let index = 0; index < concepts.length; index += 1) {
         const point = nodeById.get(concepts[index].id)!;
-        forces[index].x += (MAP_WIDTH / 2 - point.x) * 0.001;
-        forces[index].y += (MAP_HEIGHT / 2 - point.y) * 0.001;
-        point.x = clamp(point.x + clamp(forces[index].x * damping, -10, 10), 48, MAP_WIDTH - 48);
-        point.y = clamp(point.y + clamp(forces[index].y * damping, -10, 10), 48, MAP_HEIGHT - 48);
+        forces[index].x += (MAP_VIEW_WIDTH / 2 - point.x) * 0.001;
+        forces[index].y += (MAP_VIEW_HEIGHT / 2 - point.y) * 0.001;
+        point.x = clamp(
+          point.x + clamp(forces[index].x * damping, -10, 10),
+          48,
+          MAP_VIEW_WIDTH - 48
+        );
+        point.y = clamp(
+          point.y + clamp(forces[index].y * damping, -10, 10),
+          48,
+          MAP_VIEW_HEIGHT - 48
+        );
       }
+    }
+  }
+
+  // Centre the settled cluster in the viewBox.
+  //
+  // The spring forces leave the bounding box slightly off-centre (measured 65px
+  // off vertically on the 5-concept fixture), which reads as the graph being
+  // adrift in the frame. Translation is the one adjustment that cannot change
+  // the shape of the layout — it moves the whole settled cluster as a unit, so
+  // the deterministic "same data, same graph" property is preserved.
+  if (nodeById.size > 0) {
+    const points = [...nodeById.values()];
+    const minX = Math.min(...points.map((point) => point.x));
+    const maxX = Math.max(...points.map((point) => point.x));
+    const minY = Math.min(...points.map((point) => point.y));
+    const maxY = Math.max(...points.map((point) => point.y));
+    const offsetX = MAP_VIEW_WIDTH / 2 - (minX + maxX) / 2;
+    const offsetY = MAP_VIEW_HEIGHT / 2 - (minY + maxY) / 2;
+    const clampCentred = (value: number, limit: number) =>
+      clamp(value, 48, limit - 48);
+    for (const point of points) {
+      point.x = clampCentred(point.x + offsetX, MAP_VIEW_WIDTH);
+      point.y = clampCentred(point.y + offsetY, MAP_VIEW_HEIGHT);
     }
   }
 
@@ -266,12 +327,16 @@ export function computeConceptMapLayout(
         // Labels are centered under their node, but the node layout may put a
         // long name near the stage edge. Keep the text anchor inside the
         // visible map so a long concept never disappears into the clip.
-        labelX: Number(clamp(point.x, MAP_LABEL_HALF_WIDTH, MAP_WIDTH - MAP_LABEL_HALF_WIDTH).toFixed(3)),
-        labelY: Number(clamp(point.y + point.radius + 18, 18, MAP_HEIGHT - 8).toFixed(3)),
+        labelX: Number(
+          clamp(point.x, MAP_LABEL_HALF_WIDTH, MAP_VIEW_WIDTH - MAP_LABEL_HALF_WIDTH).toFixed(3)
+        ),
+        labelY: Number(
+          clamp(point.y + point.radius + 18, 18, MAP_VIEW_HEIGHT - 8).toFixed(3)
+        ),
         radius: point.radius,
         connectionCount: connectionCounts.get(concept.id) ?? 0,
-        labelEligible: concepts.indexOf(concept) < labelLimit && concept.usageCount >= medianUsage,
-        showLabel: concepts.indexOf(concept) < labelLimit && concept.usageCount >= medianUsage,
+        labelEligible: concepts.indexOf(concept) < labelLimit,
+        showLabel: concepts.indexOf(concept) < labelLimit,
       };
     }),
     edges,
@@ -353,7 +418,7 @@ export class ConceptMapComponent implements OnChanges {
     const x = clamp(
       this.panX() + node.x * this.zoom(),
       MAP_TOOLTIP_HALF_WIDTH,
-      MAP_WIDTH - MAP_TOOLTIP_HALF_WIDTH
+      MAP_VIEW_WIDTH - MAP_TOOLTIP_HALF_WIDTH
     );
     const y = clamp(
       this.panY() + node.y * this.zoom(),
@@ -490,8 +555,8 @@ export class ConceptMapComponent implements OnChanges {
     const deltaX = (event.clientX - this.panStart.x) * scale / this.zoom();
     const deltaY = (event.clientY - this.panStart.y) * scale / this.zoom();
     if (Math.hypot(deltaX, deltaY) > 3) this.didPan = true;
-    this.panX.set(this.clampPanValue(this.panStart.panX + deltaX, MAP_WIDTH, this.zoom()));
-    this.panY.set(this.clampPanValue(this.panStart.panY + deltaY, MAP_HEIGHT, this.zoom()));
+    this.panX.set(this.clampPanValue(this.panStart.panX + deltaX, MAP_VIEW_WIDTH, this.zoom()));
+    this.panY.set(this.clampPanValue(this.panStart.panY + deltaY, MAP_VIEW_HEIGHT, this.zoom()));
   }
 
   onPointerUp(event: PointerEvent): void {
@@ -518,7 +583,7 @@ export class ConceptMapComponent implements OnChanges {
 
   private svgCoordinateScale(surface: SVGSVGElement): number {
     const width = surface.getBoundingClientRect().width;
-    return width > 0 ? MAP_WIDTH / width : 1;
+    return width > 0 ? MAP_VIEW_WIDTH / width : 1;
   }
 
   private clampPanValue(value: number, size: number, zoom: number): number {
@@ -527,8 +592,8 @@ export class ConceptMapComponent implements OnChanges {
   }
 
   private clampPan(): void {
-    this.panX.set(this.clampPanValue(this.panX(), MAP_WIDTH, this.zoom()));
-    this.panY.set(this.clampPanValue(this.panY(), MAP_HEIGHT, this.zoom()));
+    this.panX.set(this.clampPanValue(this.panX(), MAP_VIEW_WIDTH, this.zoom()));
+    this.panY.set(this.clampPanValue(this.panY(), MAP_VIEW_HEIGHT, this.zoom()));
   }
 
   onNodeEnter(id: string): void {
