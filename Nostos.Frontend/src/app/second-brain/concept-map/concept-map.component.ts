@@ -288,6 +288,27 @@ export function computeConceptMapLayout(
     }
   }
 
+  // Keep nodes out of the floating zoom overlay's corner, BEFORE centring.
+  //
+  // Measured on the real stage (822x420 CSS px for a 960x540 viewBox, so 1.168
+  // user units per px) the overlay occupies user-space x >= 806, y <= 51. A node
+  // placed there had its circle painted under the controls with only its label
+  // poking out. Nodes landing in that band are nudged down clear of it.
+  //
+  // This runs BEFORE the centring translation, not after: the nudge moves only
+  // some nodes, so applying it after centring re-introduces exactly the asymmetry
+  // the centring step exists to remove (measured: top 62px vs bottom 16px, a 46px
+  // imbalance, when it ran last).
+  if (nodeById.size > 0) {
+    const overlayLeft = MAP_VIEW_WIDTH - 190;
+    const overlayBandBottom = 74;
+    for (const point of nodeById.values()) {
+      if (point.y < overlayBandBottom && point.x > overlayLeft) {
+        point.y = clamp(overlayBandBottom, 48, MAP_VIEW_HEIGHT - 48);
+      }
+    }
+  }
+
   // Centre the settled cluster in the viewBox.
   //
   // The spring forces leave the bounding box slightly off-centre (measured 65px
@@ -308,22 +329,6 @@ export function computeConceptMapLayout(
     for (const point of points) {
       point.x = clampCentred(point.x + offsetX, MAP_VIEW_WIDTH);
       point.y = clampCentred(point.y + offsetY, MAP_VIEW_HEIGHT);
-    }
-
-    // Keep nodes out of the floating zoom overlay's corner.
-    //
-    // Measured on the real stage (822x420 CSS px for a 960x540 viewBox, so 1.168
-    // user units per px) the overlay occupies user-space x >= 806, y <= 51. A
-    // node placed there had its circle painted under the controls with only its
-    // label sticking out. The band below is that rectangle plus padding; a node
-    // landing inside it is nudged down out of the strip, which is a small move
-    // for a node near the top and cannot disturb the rest of the layout.
-    const overlayLeft = MAP_VIEW_WIDTH - 190;
-    const overlayBottom = 74;
-    for (const point of points) {
-      if (point.y < overlayBottom && point.x > overlayLeft) {
-        point.y = clamp(overlayBottom, 48, MAP_VIEW_HEIGHT - 48);
-      }
     }
   }
 
