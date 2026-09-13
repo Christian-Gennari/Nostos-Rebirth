@@ -306,6 +306,24 @@ The content hash excludes anything time-based on purpose. It must be stable acro
 two runs of the same code, or it carries no signal — which is also why the frozen
 clock and this hash are complementary rather than redundant.
 
+### Surface capture ORDER is load-bearing
+An intermittent `reader-desktop-dark` failure (~11,240 px) resisted the clock fix.
+The decisive measurement: it was **byte-identical across three consecutive
+single-surface runs and matched the baseline**, yet failed inside a full 6-surface
+run. Passing in isolation and failing in the suite means the variable is something
+that *accumulates across the run* — here, wall-clock time, because the reader paints
+a live elapsed-time readout and `clock.install` fixes the START time but the clock
+still advances.
+
+Two fixes were tried. The strong one — `clock.pauseAt` — **froze the app's own boot**
+and the reader came up empty (61 elements, 9 painted); the non-vacuity guard caught
+it and it was reverted. The one that works is ordering: the reader is captured
+**first**, so elapsed time is minimal and reproducible.
+
+Generalisable lesson: when a capture fails only in the suite, measure it *in
+isolation* before touching the CSS. The comparison that localises the cause is
+"passes alone, fails together", and it is cheap.
+
 ### The flake allowance is a rectangle list, not a pixel budget
 `check-pixels.mjs` ignores differences only inside explicitly declared
 rectangles, each with a recorded justification and measured size. A per-image

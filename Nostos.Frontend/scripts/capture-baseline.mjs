@@ -46,18 +46,31 @@ const ONLY_THEME = arg('theme', null);
 const ONLY_SURFACE = arg('surface', null);
 
 /** Surfaces worth pinning. Protected surfaces (pdf/tinymce) are out of scope. */
+/* ORDER IS LOAD-BEARING: the reader is captured FIRST.
+ *
+ * The reader paints a live elapsed-time readout, and the harness installs a fixed
+ * clock START but the clock still advances with real time. So the readout is a
+ * function of how long the page has been open — which meant `reader-desktop-dark`
+ * was byte-identical across three consecutive single-surface runs (and matched the
+ * baseline), yet differed by ~11,240 px inside a full 6-surface run. It passed in
+ * isolation and failed in the suite, which is the signature of accumulated
+ * wall-clock time rather than a styling problem.
+ *
+ * Capturing it first minimises elapsed time and makes it reproducible. The stronger
+ * fix (`clock.pauseAt`) was tried and REJECTED: it froze the app's own boot and the
+ * reader came up empty (61 elements, 9 painted), which the non-vacuity guard caught.
+ *
+ * The reader is covered at all because it is a ROUTE, not a tab — the first pass
+ * missed it, and `reader-shell.component.css` is exactly where a phantom token
+ * (`var(--space-3)`, declared nowhere in the repo) had been sitting unnoticed. The
+ * id is a real audio book so the route renders its player, not an empty state. */
 const SURFACES = [
+  { name: 'reader', route: '/read/f9c17fb2-e42d-4db5-a3d0-b0a45b73f12e', settle: 'networkidle' },
   { name: 'library', route: '/library', settle: 'networkidle' },
   { name: 'brain', route: '/second-brain', settle: 'networkidle' },
   { name: 'studio', route: '/studio', settle: 'networkidle' },
   { name: 'settings', route: '/settings', settle: 'networkidle' },
   { name: 'home', route: '/', settle: 'networkidle' },
-  /* The reader is a ROUTE, not a tab, so it was missed by the first pass — and
-     `reader-shell.component.css` is exactly where a phantom-token bug
-     (`var(--space-3)`, declared nowhere) had been sitting unnoticed. Covering it
-     is worth the extra capture pair. The id is a real audio book so the route
-     renders its player rather than an empty state. */
-  { name: 'reader', route: '/read/f9c17fb2-e42d-4db5-a3d0-b0a45b73f12e', settle: 'networkidle' },
 ];
 
 const VIEWPORTS = [
@@ -284,6 +297,11 @@ async function main() {
         const FROZEN_START = new Date('2026-01-01T00:00:00Z');
         if (page.clock && typeof page.clock.install === 'function') {
           await page.clock.install({ time: FROZEN_START });
+          /* NOTE: `pauseAt` is DELIBERATELY not used here. It froze the app's own
+             boot — the reader then rendered 61 elements / 9 painted and the
+             non-vacuity guard failed the capture. `install` alone fixes the START
+             time but still advances, which is handled by surface ORDER instead
+             (the reader is captured first, see SURFACES). */
         }
 
         // Seed the theme the way the app persists it, then let the app apply it.

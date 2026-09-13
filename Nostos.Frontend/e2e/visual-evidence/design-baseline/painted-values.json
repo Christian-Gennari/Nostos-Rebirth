@@ -1,7 +1,246 @@
 {
- "generatedAt": "2026-09-13T18:45:09.277Z",
+ "generatedAt": "2026-09-13T19:08:55.949Z",
  "base": "http://127.0.0.1:5214",
  "captures": [
+  {
+   "tag": "reader-desktop-light",
+   "surface": "reader",
+   "viewport": "desktop",
+   "theme": "light",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/reader-desktop-light.png",
+   "applied": null,
+   "geo": {
+    "innerWidth": 1440,
+    "innerHeight": 900,
+    "dpr": 1,
+    "theme": null,
+    "bodyClass": "",
+    "scrollHeight": 900,
+    "elementCount": 279
+   },
+   "sweep": {
+    "painted": 70,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       56
+      ],
+      [
+       "4px",
+       7
+      ],
+      [
+       "50%",
+       2
+      ],
+      [
+       "999px",
+       2
+      ],
+      [
+       "2px",
+       1
+      ],
+      [
+       "3px",
+       1
+      ],
+      [
+       "10%",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       35
+      ],
+      [
+       "13.3333px",
+       15
+      ],
+      [
+       "15.2px",
+       11
+      ],
+      [
+       "10.4px",
+       4
+      ],
+      [
+       "12.8px",
+       3
+      ],
+      [
+       "20px",
+       1
+      ],
+      [
+       "14.4px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       54
+      ],
+      [
+       "600",
+       16
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       68
+      ],
+      [
+       "Newsreader",
+       1
+      ],
+      [
+       "Arial",
+       1
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       59
+      ],
+      [
+       "rgb(255, 255, 255)",
+       5
+      ],
+      [
+       "rgb(253, 248, 246)",
+       4
+      ],
+      [
+       "rgb(228, 225, 219)",
+       1
+      ],
+      [
+       "rgb(40, 55, 45)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(28, 27, 26)",
+       55
+      ],
+      [
+       "rgb(138, 134, 128)",
+       9
+      ],
+      [
+       "rgb(255, 255, 255)",
+       4
+      ],
+      [
+       "rgb(92, 90, 85)",
+       1
+      ],
+      [
+       "rgb(157, 150, 142)",
+       1
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       4
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(228, 225, 219)",
+       4
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.08) 0px 10px 30px 0px",
+       1
+      ],
+      [
+       "rgba(0, 0, 0, 0.2) 0px 8px 20px 0px",
+       1
+      ]
+     ],
+     "outlineW": [],
+     "outlineC": [],
+     "transitionDur": [
+      [
+       "0.15s",
+       8
+      ],
+      [
+       "0.2s",
+       7
+      ],
+      [
+       "0s",
+       6
+      ],
+      [
+       "0.1s",
+       2
+      ],
+      [
+       "0.3s",
+       1
+      ]
+     ],
+     "transitionProp": [
+      [
+       "opacity",
+       6
+      ],
+      [
+       "transform",
+       5
+      ],
+      [
+       "background-color",
+       4
+      ],
+      [
+       "color",
+       4
+      ],
+      [
+       "border-color",
+       2
+      ],
+      [
+       "box-shadow",
+       2
+      ],
+      [
+       "background",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       24
+      ]
+     ]
+    }
+   },
+   "contentHash": {
+    "hash": "35c6c2a6",
+    "chars": 106,
+    "cards": 0,
+    "images": 1
+   },
+   "errors": []
+  },
   {
    "tag": "library-desktop-light",
    "surface": "library",
@@ -1410,17 +1649,17 @@
    "errors": []
   },
   {
-   "tag": "reader-desktop-light",
+   "tag": "reader-desktop-dark",
    "surface": "reader",
    "viewport": "desktop",
-   "theme": "light",
-   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/reader-desktop-light.png",
-   "applied": null,
+   "theme": "dark",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/reader-desktop-dark.png",
+   "applied": "dark",
    "geo": {
     "innerWidth": 1440,
     "innerHeight": 900,
     "dpr": 1,
-    "theme": null,
+    "theme": "dark",
     "bodyClass": "",
     "scrollHeight": 900,
     "elementCount": 279
@@ -1518,37 +1757,37 @@
        59
       ],
       [
-       "rgb(255, 255, 255)",
+       "rgb(27, 30, 38)",
        5
       ],
       [
-       "rgb(253, 248, 246)",
+       "rgb(21, 24, 31)",
        4
       ],
       [
-       "rgb(228, 225, 219)",
+       "rgb(38, 42, 52)",
        1
       ],
       [
-       "rgb(40, 55, 45)",
+       "rgb(45, 75, 68)",
        1
       ]
      ],
      "fg": [
       [
-       "rgb(28, 27, 26)",
+       "rgb(237, 238, 242)",
        55
       ],
       [
-       "rgb(138, 134, 128)",
+       "rgb(148, 156, 169)",
        9
       ],
       [
-       "rgb(255, 255, 255)",
+       "rgb(240, 242, 245)",
        4
       ],
       [
-       "rgb(92, 90, 85)",
+       "rgb(197, 201, 208)",
        1
       ],
       [
@@ -1564,7 +1803,7 @@
      ],
      "borderC": [
       [
-       "rgb(228, 225, 219)",
+       "rgb(38, 42, 52)",
        4
       ]
      ],
@@ -3088,19 +3327,19 @@
    "errors": []
   },
   {
-   "tag": "reader-desktop-dark",
+   "tag": "reader-mobile-light",
    "surface": "reader",
-   "viewport": "desktop",
-   "theme": "dark",
-   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/reader-desktop-dark.png",
-   "applied": "dark",
+   "viewport": "mobile",
+   "theme": "light",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/reader-mobile-light.png",
+   "applied": null,
    "geo": {
-    "innerWidth": 1440,
-    "innerHeight": 900,
+    "innerWidth": 390,
+    "innerHeight": 844,
     "dpr": 1,
-    "theme": "dark",
+    "theme": null,
     "bodyClass": "",
-    "scrollHeight": 900,
+    "scrollHeight": 844,
     "elementCount": 279
    },
    "sweep": {
@@ -3196,37 +3435,37 @@
        59
       ],
       [
-       "rgb(27, 30, 38)",
+       "rgb(255, 255, 255)",
        5
       ],
       [
-       "rgb(21, 24, 31)",
+       "rgb(253, 248, 246)",
        4
       ],
       [
-       "rgb(38, 42, 52)",
+       "rgb(228, 225, 219)",
        1
       ],
       [
-       "rgb(45, 75, 68)",
+       "rgb(40, 55, 45)",
        1
       ]
      ],
      "fg": [
       [
-       "rgb(237, 238, 242)",
+       "rgb(28, 27, 26)",
        55
       ],
       [
-       "rgb(148, 156, 169)",
+       "rgb(138, 134, 128)",
        9
       ],
       [
-       "rgb(240, 242, 245)",
+       "rgb(255, 255, 255)",
        4
       ],
       [
-       "rgb(197, 201, 208)",
+       "rgb(92, 90, 85)",
        1
       ],
       [
@@ -3242,7 +3481,7 @@
      ],
      "borderC": [
       [
-       "rgb(38, 42, 52)",
+       "rgb(228, 225, 219)",
        4
       ]
      ],
@@ -4694,17 +4933,17 @@
    "errors": []
   },
   {
-   "tag": "reader-mobile-light",
+   "tag": "reader-mobile-dark",
    "surface": "reader",
    "viewport": "mobile",
-   "theme": "light",
-   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/reader-mobile-light.png",
-   "applied": null,
+   "theme": "dark",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/reader-mobile-dark.png",
+   "applied": "dark",
    "geo": {
     "innerWidth": 390,
     "innerHeight": 844,
     "dpr": 1,
-    "theme": null,
+    "theme": "dark",
     "bodyClass": "",
     "scrollHeight": 844,
     "elementCount": 279
@@ -4802,37 +5041,37 @@
        59
       ],
       [
-       "rgb(255, 255, 255)",
+       "rgb(27, 30, 38)",
        5
       ],
       [
-       "rgb(253, 248, 246)",
+       "rgb(21, 24, 31)",
        4
       ],
       [
-       "rgb(228, 225, 219)",
+       "rgb(38, 42, 52)",
        1
       ],
       [
-       "rgb(40, 55, 45)",
+       "rgb(45, 75, 68)",
        1
       ]
      ],
      "fg": [
       [
-       "rgb(28, 27, 26)",
+       "rgb(237, 238, 242)",
        55
       ],
       [
-       "rgb(138, 134, 128)",
+       "rgb(148, 156, 169)",
        9
       ],
       [
-       "rgb(255, 255, 255)",
+       "rgb(240, 242, 245)",
        4
       ],
       [
-       "rgb(92, 90, 85)",
+       "rgb(197, 201, 208)",
        1
       ],
       [
@@ -4848,7 +5087,7 @@
      ],
      "borderC": [
       [
-       "rgb(228, 225, 219)",
+       "rgb(38, 42, 52)",
        4
       ]
      ],
@@ -6326,245 +6565,6 @@
     "images": 0
    },
    "errors": []
-  },
-  {
-   "tag": "reader-mobile-dark",
-   "surface": "reader",
-   "viewport": "mobile",
-   "theme": "dark",
-   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/reader-mobile-dark.png",
-   "applied": "dark",
-   "geo": {
-    "innerWidth": 390,
-    "innerHeight": 844,
-    "dpr": 1,
-    "theme": "dark",
-    "bodyClass": "",
-    "scrollHeight": 844,
-    "elementCount": 279
-   },
-   "sweep": {
-    "painted": 70,
-    "buckets": {
-     "radius": [
-      [
-       "0px",
-       56
-      ],
-      [
-       "4px",
-       7
-      ],
-      [
-       "50%",
-       2
-      ],
-      [
-       "999px",
-       2
-      ],
-      [
-       "2px",
-       1
-      ],
-      [
-       "3px",
-       1
-      ],
-      [
-       "10%",
-       1
-      ]
-     ],
-     "fontSize": [
-      [
-       "16px",
-       35
-      ],
-      [
-       "13.3333px",
-       15
-      ],
-      [
-       "15.2px",
-       11
-      ],
-      [
-       "10.4px",
-       4
-      ],
-      [
-       "12.8px",
-       3
-      ],
-      [
-       "20px",
-       1
-      ],
-      [
-       "14.4px",
-       1
-      ]
-     ],
-     "fontWeight": [
-      [
-       "400",
-       54
-      ],
-      [
-       "600",
-       16
-      ]
-     ],
-     "fontFamily": [
-      [
-       "Hanken Grotesk",
-       68
-      ],
-      [
-       "Newsreader",
-       1
-      ],
-      [
-       "Arial",
-       1
-      ]
-     ],
-     "bg": [
-      [
-       "rgba(0, 0, 0, 0)",
-       59
-      ],
-      [
-       "rgb(27, 30, 38)",
-       5
-      ],
-      [
-       "rgb(21, 24, 31)",
-       4
-      ],
-      [
-       "rgb(38, 42, 52)",
-       1
-      ],
-      [
-       "rgb(45, 75, 68)",
-       1
-      ]
-     ],
-     "fg": [
-      [
-       "rgb(237, 238, 242)",
-       55
-      ],
-      [
-       "rgb(148, 156, 169)",
-       9
-      ],
-      [
-       "rgb(240, 242, 245)",
-       4
-      ],
-      [
-       "rgb(197, 201, 208)",
-       1
-      ],
-      [
-       "rgb(157, 150, 142)",
-       1
-      ]
-     ],
-     "borderW": [
-      [
-       "1px",
-       4
-      ]
-     ],
-     "borderC": [
-      [
-       "rgb(38, 42, 52)",
-       4
-      ]
-     ],
-     "shadow": [
-      [
-       "rgba(0, 0, 0, 0.08) 0px 10px 30px 0px",
-       1
-      ],
-      [
-       "rgba(0, 0, 0, 0.2) 0px 8px 20px 0px",
-       1
-      ]
-     ],
-     "outlineW": [],
-     "outlineC": [],
-     "transitionDur": [
-      [
-       "0.15s",
-       8
-      ],
-      [
-       "0.2s",
-       7
-      ],
-      [
-       "0s",
-       6
-      ],
-      [
-       "0.1s",
-       2
-      ],
-      [
-       "0.3s",
-       1
-      ]
-     ],
-     "transitionProp": [
-      [
-       "opacity",
-       6
-      ],
-      [
-       "transform",
-       5
-      ],
-      [
-       "background-color",
-       4
-      ],
-      [
-       "color",
-       4
-      ],
-      [
-       "border-color",
-       2
-      ],
-      [
-       "box-shadow",
-       2
-      ],
-      [
-       "background",
-       1
-      ]
-     ],
-     "easing": [
-      [
-       "ease",
-       24
-      ]
-     ]
-    }
-   },
-   "contentHash": {
-    "hash": "35c6c2a6",
-    "chars": 106,
-    "cards": 0,
-    "images": 1
-   },
-   "errors": []
   }
  ],
  "fingerprint": {
@@ -6576,10 +6576,10 @@
     "hash": "fc9a8b4b"
    }
   ],
-  "contentHash": "660367fe",
+  "contentHash": "77c68191",
   "contentCounts": {
-   "cards": 20,
-   "images": 20
+   "cards": 0,
+   "images": 1
   }
  }
 }
