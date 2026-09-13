@@ -493,33 +493,86 @@ app-sidebar-collections.no-transition {
   color: var(--color-text-light);
 }
 
-/* Buttons (List) */
+/* Buttons (List)
+   ------------------------------------------------------------------
+   A row's own status — read / favourite — trailing the title. Hidden at
+   rest and revealed on the row's hover, exactly like the row's edit and
+   delete overlay; always visible in their active state, so a finished or
+   favourite book still reads at a glance without hovering.
+
+   The hit box is 26x26 around the 16px glyph. It was `padding: 0` before,
+   which left a 16x20 tap target — under the 24px minimum and visibly
+   cramped against the cover. The colour is `currentColor` throughout
+   (active states set it), rather than the old `var(--border-color)`: that
+   token is the hairline colour, so at rest these buttons resolved to
+   #E4E1DB on paper and #262A34 on dark — a hair above invisible. */
+.list-row-status {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  /* Symmetric breathing room, so the pair reads as its own group at the end of
+     the title column. Without the right pad the favourite's edge lands exactly
+     on the author column's start and the heart reads as a prefix to the author
+     name rather than as the row's own status. */
+  padding: 0 0.75rem;
+}
+
 .fav-btn-list,
 .finished-btn-list {
   background: none;
   border: none;
   padding: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   display: inline-flex;
-  vertical-align: middle;
-  color: var(--border-color);
-  transition: all 0.2s ease;
+  align-items: center;
+  justify-content: center;
+  color: var(--cover-disc-ink);
+  /* Only the two properties that actually change, never `all`: the row's
+     hover walks this whole subtree, and a blanket transition invalidates
+     every animatable property on every button. */
+  transition:
+    opacity 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+/* At rest only the active state is drawn; the inactive toggle waits for the
+   row's hover with the edit/delete pair, so forty barely-visible outlines do
+   not add noise to the list's left-hand rhythm. */
+.fav-btn-list:not(.active),
+.finished-btn-list:not(.active) {
+  opacity: 0;
+}
+
+.table-row:hover .fav-btn-list,
+.table-row:hover .finished-btn-list,
+.table-row:focus-within .fav-btn-list,
+.table-row:focus-within .finished-btn-list {
+  opacity: 1;
 }
 
 .fav-btn-list.active,
-.table-row:hover .fav-btn-list:hover {
+.table-row:hover .fav-btn-list:hover,
+.table-row:focus-within .fav-btn-list:focus-visible {
   color: var(--color-danger-vivid);
-}
-.table-row:hover .fav-btn-list:not(.active) {
-  color: var(--cover-disc-ink);
+  opacity: 1;
 }
 
 .finished-btn-list.active,
-.table-row:hover .finished-btn-list:hover {
+.table-row:hover .finished-btn-list:hover,
+.table-row:focus-within .finished-btn-list:focus-visible {
   color: var(--color-success);
+  opacity: 1;
 }
-.table-row:hover .finished-btn-list:not(.active) {
-  color: var(--cover-disc-ink);
+
+.fav-btn-list:hover,
+.finished-btn-list:hover {
+  background: var(--bg-hover);
 }
 
 /* .badge is defined globally in styles.css — no component duplicate needed */
@@ -609,6 +662,17 @@ app-sidebar-collections.no-transition {
   border: 1px solid var(--border-color) !important;
   color: var(--color-text-muted) !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  /* The grid's badge is a dark frosted HUD floating over cover art, so it
+     carries `backdrop-filter: blur(12px) saturate(160%)`. In the list the same
+     chip is a plain in-row capsule sitting on the page's own paper: the blur
+     has nothing to composite behind it except flat background, so all it does
+     is force a separate GPU backing surface for EVERY row's badge. With a
+     page's worth of rows that is dozens of live blur layers, and it is the
+     single largest scroll/hover cost unique to the list view. The list badge
+     is opaque and theme-aware, so dropping the filter changes nothing you can
+     see and removes every one of those surfaces. */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .table-view .format-badge.micro-glyphs {
@@ -921,6 +985,16 @@ app-sidebar-collections.no-transition {
     contain-intrinsic-size: 0 340px;
   }
 
+  /* The same containment for list rows, which previously had none: the grid
+     was skipping layout and paint for offscreen items while every offscreen
+     row in the list was still laid out and painted on each scroll frame. Rows
+     are a fixed 63px tall, so the placeholder size is exact and adding offscreen
+     rows to the page cannot shift the scroll position. */
+  .table-row {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 63px;
+  }
+
   /* --- MOBILE RESPONSIVE --- */
   :host {
     height: auto;
@@ -1102,6 +1176,28 @@ app-sidebar-collections.no-transition {
     padding: 1rem;
   }
 
+  /* The status pair stays inside the title column, but the row's second
+     column is now only 60px of format badge: two 26px buttons plus the title
+     would leave the title a sliver. The active state keeps its place (a
+     finished or favourite book must still read at a glance); the inactive
+     toggle behaves exactly as it does for the grid's cards on touch, where
+     the same pair is hidden and the state is changed from the detail page. */
+  .list-row-status {
+    padding: 0 0 0 0.5rem;
+  }
+
+  .fav-btn-list:not(.active),
+  .finished-btn-list:not(.active) {
+    display: none;
+  }
+
+  /* On a phone there is no hover to reveal the inactive toggle with, so the
+     hover fill can never fire. Drop it rather than leave a dead rule. */
+  .fav-btn-list,
+  .finished-btn-list {
+    background: none;
+  }
+
   /* Hide columns */
   #actions-header,
   #author-header,
@@ -1187,5 +1283,10 @@ app-sidebar-collections.no-transition {
 
   .filter-chip {
     animation: none;
+  }
+
+  .fav-btn-list,
+  .finished-btn-list {
+    transition: none;
   }
 }
