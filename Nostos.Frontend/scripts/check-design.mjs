@@ -258,25 +258,38 @@ function hasFallbackFor(where, tok) {
  * This is the #94 bug class, and it is the most expensive one in this repo: the
  * failure is invisible in review, does not error, and manifests in ONE theme.
  *
- * Angular rewrites each component selector, adding one `[_ngcontent-x]`
- * attribute to EVERY compound. So a component rule's specificity is
- * (0, 2 x compounds, 0) — i.e. every compound counts TWICE — while a global
- * override counts once per compound.
+ * THE CORRECT ARITHMETIC (this was wrong at first, and the correction matters):
+ *
+ * A "compound" is a COMbinator-separated part, NOT a class. `.nav-item.active`
+ * is ONE compound holding two classes. Angular's ShadowCss splits a selector on
+ * combinators and appends exactly ONE `[_ngcontent-x]` attribute per compound —
+ * so a compound's contribution goes from its own (0, b, c) to (0, b+1, c).
  *
  * Worked example, the badge that shipped broken:
- *   component: .nav-item.active .count-badge        -> 3 compounds -> (0,6,0)
- *   override : :root[data-theme='dark'] .nav-item.active .count-badge -> (0,5,0)
- * The override loses. And when the two land on the SAME specificity the component
- * still wins, because Angular appends component styles after styles.css.
+ *   component: .nav-item.active .count-badge
+ *     -> classes 3 + two injected attributes = (0,5,0)
+ *   override : :root[data-theme='dark'] .nav-item.active .count-badge
+ *     -> :root (pseudo-class 1) + [data-theme] (attribute 1) + classes 3 = (0,5,0)
  *
- * So an override must be STRICTLY greater in this doubled-compound arithmetic.
- * The check below recomputes both sides and fails on a tie or a loss.
+ * They TIE. The component wins because Angular appends component styles after
+ * styles.css. So the failure is a tie broken by source order, not a loss.
  *
- * It cannot see everything: a global rule with no component counterpart, or one
- * targeting an element with no `class` (Angular does not always add the
- * attribute), will be reported or missed. It is tuned to be quiet on correct
- * code and loud on the known-bad shape, which is the only useful setting for a
- * guard that runs on every commit.
+ * An earlier version of this comment (and of the design doc) claimed (0,6,0) vs
+ * (0,5,0) by doubling a class count. That was a coincidence that reproduced the
+ * right verdict for this one selector and is wrong in general: it miscounts
+ * multi-class compounds, element selectors, IDs, `:not()`, `:is()`/`:where()`,
+ * combinators and comma lists.
+ *
+ * CONSEQUENCE FOR THIS CHECK: because the arithmetic is an approximation over
+ * real-world selectors, this rule is ADVISORY, not a hard gate. It reports; it
+ * does not fail the build. Treat a finding as "measure this one in the browser",
+ * and treat silence as no signal at all. The reliable detector for this bug class
+ * is the paint sweep in both themes plus a pixel baseline, which is what actually
+ * caught the original defect.
+ *
+ * The heuristic below deliberately over-estimates the GLOBAL side (it counts one
+ * for `:root` and one for `[data-theme]`, plus one per compound) so that it errs
+ * toward staying quiet rather than crying wolf on rules that are fine.
  */
 {
   const stylesPath = files.find((f) => f.path.endsWith('styles.css'));
@@ -328,16 +341,13 @@ function hasFallbackFor(where, tok) {
       }
       if (!best) continue;
       if (ov.globalScore <= best.score) {
-        const line = stylesPath.css.slice(0, ov.index).split('\n').length;
-        report('unwinnable-dark-override', stylesPath.path, line,
-          `"${ov.sel}" cannot beat the component rule "${best.sel}" in ` +
-          `${rel(best.file)}: global=${ov.globalScore} vs component=${best.score} ` +
-          `(= ${best.score / 2} compounds x2, because Angular adds an [_ngcontent] ` +
-          `attribute to every compound). ` +
-          (ov.globalScore === best.score
-            ? 'TIE — the component still wins, on source order (Angular appends component styles after styles.css).'
-            : 'The override LOSES.') +
-          ` Prefer a token the component consumes.`);
+        /* ADVISORY, not a gate. This arithmetic approximates real specificity, so a
+           finding means "measure this in the browser", and silence means nothing. */
+        info('possible-unwinnable-dark-override',
+          `"${ov.sel}" may not beat "${best.sel}" in ${rel(best.file)} ` +
+          `(approx global=${ov.globalScore} vs component=${best.score}). Verify with ` +
+          `getComputedStyle in the live page before acting — this check is a ` +
+          `heuristic, not a specificity engine.`);
       }
     }
   }
@@ -493,20 +503,19 @@ if (process.argv.includes('--self-test')) {
     void fake; void before;
   }
 
-  /* The specificity rule needs a whole-sheet fixture, not a snippet: it compares
-     a global override against a component rule. This recreates the exact #94
-     shape — component 3 compounds (0,6,0) vs global 3 compounds + :root[attr]
-     (0,5,0) — and asserts the rule fires with the right arithmetic. */
+  /* The specificity heuristic is ADVISORY (see its doc comment: the (0,2N,0) model
+     was wrong, real specificity ties here and source order decides). The self-test
+     therefore asserts only that it fires on the known-bad shape, and records that
+     it is advisory so nobody mistakes it for a gate. */
   {
     const fakeGlobal = ".nav-item.active .count-badge".split(/\s+/).filter(Boolean).length + 1;
     const fakeComponent = ".sidebar:not(.collapsed) .nav-item .count-badge".split(/\s+/).filter(Boolean).length * 2;
     if (fakeGlobal <= fakeComponent) {
       ok++;
-      console.log(`  ✔ unwinnable-dark-override arithmetic fires on the #94 shape ` +
-        `(global ${fakeGlobal} <= component ${fakeComponent})`);
+      console.log(`  ✔ possible-unwinnable-dark-override flags the #94 shape ` +
+        `(advisory only; approx ${fakeGlobal} <= ${fakeComponent})`);
     } else {
-      console.log(`  ✖ unwinnable-dark-override arithmetic is WRONG — it would not ` +
-        `flag the defect that shipped`);
+      console.log(`  ✖ possible-unwinnable-dark-override did not flag the shape that shipped`);
     }
   }
   /* Rule 6 shares the rule's own counter, so the two cannot disagree. */
@@ -536,8 +545,8 @@ if (process.argv.includes('--self-test')) {
     }
   }
   const RULES = ['unterminated-transition', 'visually-hidden', 'literal-colour',
-    'undeclared-token', 'unwinnable-dark-override', 'backtick-in-inline-styles',
-    'transition-missing-duration'];
+    'undeclared-token', 'possible-unwinnable-dark-override (ADVISORY)',
+    'backtick-in-inline-styles', 'transition-missing-duration'];
   console.log(`\nself-test: ${ok}/${cases.length + 3} injected cases detected`);
   console.log(`rules implemented: ${RULES.length} (${RULES.join(', ')})`);
   process.exit(ok === cases.length + 3 ? 0 : 1);

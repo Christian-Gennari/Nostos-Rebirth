@@ -147,28 +147,41 @@ fixed by naming an *enclosing* class purely to climb the ladder.
 **Prefer a token the component consumes over a specificity override.** A token
 re-declared on `:root` is specificity `(0,1,0)` and cannot race anything.
 
-The arithmetic, because it is not the intuitive one. Angular adds an
-`[_ngcontent-x]` attribute to **every compound**, so a component rule's
-specificity is **twice its compound count**, while a global override counts once:
+The arithmetic, and a correction I had wrong at first.
 
-| | compounds | specificity |
-| --- | --- | --- |
-| component `.nav-item.active .count-badge` | 3 | **(0,6,0)** |
-| global `:root[data-theme='dark'] .nav-item.active .count-badge` | 3 (+`[attr]`) | **(0,5,0)** |
+A **compound** is a combinator-separated part, NOT a class: `.nav-item.active` is
+ONE compound holding two classes. Angular's `ShadowCss` splits a selector on
+combinators and appends exactly **one** `[_ngcontent-x]` per **compound**, so each
+compound's contribution becomes `(0, classes + 1, elements)`:
 
-So the override loses — and if the two ever **tie**, the component still wins,
-because Angular appends component styles after `styles.css`.
+| | classes | injected attributes | specificity |
+| --- | --- | --- | --- |
+| component `.nav-item.active .count-badge` | 3 | 2 | **(0,5,0)** |
+| global `:root[data-theme='dark'] .nav-item.active .count-badge` | 3 | `:root` + `[data-theme]` = 2 | **(0,5,0)** |
 
-`check:design` now computes both sides statically and fails on a tie or a loss
-(`unwinnable-dark-override`), proven against the exact selector that shipped
-broken. Two shapes it reports, both real:
+**They TIE**, and the component wins because Angular appends component styles after
+`styles.css`. So the failure mode is *a tie broken by source order*, not a loss.
 
-- `:root[data-theme='dark'] .nav-item.active .count-badge` — 3 vs 6, LOSES.
-- `:root[data-theme='dark'] .brand, .meta-title` — the tie case. `.meta-title`
-  was a single compound, so the component rule was (0,2,0) against (0,3,0) and the
-  override genuinely **won**. Same-shaped global rule, opposite outcome, which is
-  why the arithmetic has to be checked per rule and not generalised from one
-  example.
+My first version of this section claimed (0,6,0) vs (0,5,0) by doubling a class
+count. That reproduced the right verdict for this one selector and is **wrong in
+general** — it miscounts multi-class compounds, element selectors, IDs, `:not()`,
+`:is()`/`:where()`, combinators and comma lists. Two independent verifications now
+agree on the tie reading: re-injecting the override and enumerating winning rules
+from the CSSOM, and deleting the override with zero pixel change across 24 captures
+(the second is only consistent with the override never winning).
+
+**Consequence for the guard:** because real specificity is more complex than any
+count of classes, `check:design`'s `possible-unwinnable-dark-override` is
+**ADVISORY** — it reports, it does not fail the build, and its silence is not
+evidence. The reliable detector for this bug class is the paint sweep read in BOTH
+themes plus the pixel baseline, which is what actually caught the original defect.
+A static specificity check is a signpost, not a proof.
+
+The contrasting shape that made the whole bug class confusing: a global rule with
+`--ink-lede` targeted `.meta-title`, a **single-compound** selector. There the
+component rule is (0,2,0) against the global (0,3,0) and the override genuinely
+**won**. Same-shaped global rule, opposite outcome — which is exactly why this must
+be measured per rule rather than inferred.
 
 Worked example — the selected-row fill. It has exactly two consumers
 (`.index-item.active` in the Brain index, `.nav-item.active::before` in the
@@ -452,7 +465,8 @@ body; check that a renamed section still has its paragraph.)*
 ## 5. Running the harnesses
 
 ```bash
-npm run check                     # parse + token graph (incl. .ts theme modules) + 5 drift rules
+npm run check                     # parse + token graph (incl. .ts theme modules) + 6 drift rules
+                                  #   (7th, possible-unwinnable-dark-override, is ADVISORY)
 npm run check:design -- --self-test   # proves each drift rule can actually fire
 npm run check:freshness           # proves the freshness check fails in both directions
 npm run capture:baseline -- --port 5214 --out /tmp/after
