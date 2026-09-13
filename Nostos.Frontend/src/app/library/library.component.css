@@ -335,6 +335,14 @@ app-sidebar-collections.no-transition {
   outline-offset: -1px;
 }
 
+/* Focus ring. Brain's copy of this control had one and the Library's did not, even
+   though the two are otherwise byte-identical — so the same control behaved
+   differently for keyboard users depending on which page they were on. */
+.toggle-opt:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
 /* --- LIST VIEW --- */
 .table-view {
   --table-grid-cols: minmax(260px, 3.2fr) minmax(130px, 1.6fr) 90px 90px minmax(90px, 110px);
@@ -856,7 +864,7 @@ app-sidebar-collections.no-transition {
   z-index: 2;
   color: var(--cover-disc-ink);
   opacity: 0;
-  transition: all 0.2s ease;
+  transition: color, transform 0.2s ease;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 

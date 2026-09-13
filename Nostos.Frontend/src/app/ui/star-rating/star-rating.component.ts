@@ -28,7 +28,11 @@ import { LucideAngularModule, Star } from 'lucide-angular';
       }
       .star-icon {
         color: var(--color-text-placeholder);
-        transition: all 0.2s ease;
+        /* Named properties, not "all". What actually changes between states:
+           transform (the hover scale) and color/fill (the filled state).
+           transform stays in the list deliberately — the 1.1x hover scale is the
+           intended affordance, not an accidental layout animation. */
+        transition: transform 0.2s ease, color 0.2s ease;
       }
       /* Hover effects only if not readonly */
       .star-rating:not(.readonly) .star-icon:hover {

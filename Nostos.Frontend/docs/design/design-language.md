@@ -332,6 +332,12 @@ Documented so the next reader does not "fix" it:
   rows, outset for chips. A real distinction, not drift.
 - **The editor content's `--ink` / `--paper` vocabulary** — a separate visual
   world (warm ink on paper) injected into a TinyMCE iframe. Local by design.
+- **`0.85rem` (22 uses) vs `0.88rem` (12 uses) vs `0.9rem` (32 uses)** — the three
+  remaining sub-pixel-adjacent rungs. Kept because each is used enough to be a real
+  step in practice, and unlike the `0.875rem` outlier (ONE use against twelve, a
+  0.08px difference) collapsing them would visibly move tens of elements. Recorded
+  so the next reader knows the four-rung cluster was examined and deliberately left
+  as three.
 
 ### Deliberate literals in the toast component
 `toast-container.component.ts` paints its success and error accents with
@@ -344,6 +350,34 @@ theme change is not allowed to move a hue unasked.
 Everything else in that component read tokens correctly. Note the earlier claim
 that these components were "unthemed" was WRONG — they use `var()` with fallbacks
 and the tokens resolve; only the fallbacks were dead, and those are now removed.
+
+### The segmented control, and why it had to be fixed three separate times
+Four components render the same control under different names:
+
+| Component | Track | Option | Active option |
+| --- | --- | --- | --- |
+| Library | `.control-group` | `.toggle-opt` | `.toggle-opt.active` |
+| Brain | `.view-mode-control` | `.toggle-opt` | `.toggle-opt.active` |
+| Studio | `.sidebar-tabs` | `.tab-btn` | `.tab-btn.active` |
+| Settings | `.theme-choice` | `.theme-opt` | `.theme-opt.is-active` |
+
+Canonical recipe: `--bg-hover` track, 3px padding, `--radius-md`, 2px gap, **no
+border**, and an active option painted `--control-active-fill` /
+`--control-active-ink` with `--shadow-sm` plus a 1px `--border-color` outline.
+
+**The active option must never be `--bg-surface`.** On dark, `--bg-surface`
+(#1B1E26) is DARKER than the `--bg-hover` track (#252A34), so the selected option
+*sinks* and the unselected pair looks raised. This bug was written and fixed three
+separate times — Library, Brain, then Studio and Settings — because each copy was
+authored from the light theme, where `--bg-surface` is white and correct. Measured
+live on Studio before the fix: track `rgb(37,42,52)` vs active `rgb(27,30,38)`.
+
+Drift found and removed: Studio's track carried a `border` the other three lacked
+(it read as a boxed widget, not a raised track); Library's `.toggle-opt` had **no
+focus ring** while Brain's byte-identical copy did, so one control behaved
+differently for keyboard users depending on which page they were on.
+
+### What WAS unified: `.visually-hidden`
 It was declared twice, byte-identically (`second-brain` and `concept-map`). A
 utility with no per-surface variation should not be duplicated: the copies give
 no benefit and can drift, at which point one surface renders differently and
@@ -351,18 +385,37 @@ nothing says so. It now lives once in `styles.css`, and `check:design` fails if
 it is declared zero times (content that should be hidden becomes visible) or more
 than once (the drift can restart).
 
+*(Repair note: an earlier edit replaced this section's HEADING with the toast note
+and orphaned its body underneath, leaving the `visually-hidden` prose attached to
+the wrong heading. A text-level patch that matches only a heading can strand the
+body; check that a renamed section still has its paragraph.)*
+
 ---
 
 ## 5. Running the harnesses
 
 ```bash
-npm run check              # css integrity + theme graph (incl. .ts theme modules)
-npm run capture:baseline   # 20 PNGs + painted-value JSON + build freshness check
-npm run check:freshness    # proves the freshness check fails in both directions
-npm run probe:selection    # rest/hover/focus of a selected row, both themes
+npm run check                     # parse + token graph (incl. .ts theme modules) + 5 drift rules
+npm run check:design -- --self-test   # proves each drift rule can actually fire
+npm run check:freshness           # proves the freshness check fails in both directions
+npm run capture:baseline -- --port 5214 --out /tmp/after
+npm run check:pixels -- /tmp/after    # the real acceptance test
+npm run probe:selection           # rest/hover/focus of a selected row, both themes
 ```
 
+The capture set is **24 PNGs across 6 surfaces**: library, brain, studio, settings,
+home and the reader (`/read/:id` — a route, not a tab, which is why it was missed
+by the first pass), each at desktop and mobile in light and dark. Image decode is
+awaited and the clock is frozen, so two captures of one build are byte-identical.
+
 A CSS refactor compiles perfectly while changing every surface, so **the build
-passing is not evidence**. The acceptance test is the baseline comparison: after
-a change, re-capture and diff against `e2e/visual-evidence/design-baseline/`.
-Byte-identical output is the expected result for a value-preserving refactor.
+passing is not evidence**. The acceptance test is the pixel gate. Byte-identical
+output is the expected result for a value-preserving refactor; when a change is
+*intended* to move pixels, regenerate the baseline and say so in the commit.
+
+Order matters for `check:pixels`: run `capture:baseline` **and** a fresh capture of
+the same build before trusting a failure, because a baseline written while the page
+was still settling produces a diff that looks like a regression and is not one.
+Both tiers are needed: the pixel PNGs only see the captured viewport, while the
+paint sweep sees the whole document — during the segmented-control fix the sweep
+flagged mobile dark changes that the viewport-only screenshots never showed.

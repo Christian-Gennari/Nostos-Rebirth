@@ -183,9 +183,14 @@
 }
 
 .theme-opt.is-active {
-  background: var(--bg-surface);
-  color: var(--color-text-main);
+  /* Same correction as the Studio tabs: `--bg-surface` is darker than the track on
+     dark, so the active option sank. Also carries the hairline outline every other
+     segmented control's active option uses — this one was missing it. */
+  background: var(--control-active-fill);
+  color: var(--control-active-ink);
   box-shadow: var(--shadow-sm);
+  outline: 1px solid var(--border-color);
+  outline-offset: -1px;
 }
 
 .theme-opt:focus-visible {

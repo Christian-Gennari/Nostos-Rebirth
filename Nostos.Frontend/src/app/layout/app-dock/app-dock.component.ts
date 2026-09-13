@@ -144,7 +144,12 @@ import { LibraryFilterService } from '../../library/library-filter.service';
       }
 
       .dock-item:focus-visible {
-        outline: 2px solid var(--color-accent);
+        /* Width comes from the shared token like every other ring in the app. The
+           COLOUR stays local and deliberately so: this dock's items include
+           destructive actions, and an accent-coloured ring distinguishes "this dock
+           item" from the neutral slate used everywhere else. That is a role
+           difference, not drift — the drift was the hardcoded width. */
+        outline: var(--focus-ring-width) solid var(--color-accent);
         outline-offset: -2px;
       }
 

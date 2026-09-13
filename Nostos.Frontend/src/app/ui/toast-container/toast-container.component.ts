@@ -47,7 +47,11 @@ import { LucideAngularModule, X, CheckCircle, AlertTriangle, Info } from 'lucide
         background: var(--bg-surface);
         border: 1px solid var(--border-color);
         color: var(--color-text-main);
-        font-size: 0.875rem;
+        /* Was 0.875rem — a size used exactly ONCE in the codebase against twelve
+           uses of 0.88rem. The two differ by 0.08px, which is not a distinction
+           anyone can perceive; keeping both meant two rungs of a type scale that
+           stood for one measured size. */
+        font-size: 0.88rem;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         pointer-events: auto;
         animation: toast-slide-in 0.25s ease-out;

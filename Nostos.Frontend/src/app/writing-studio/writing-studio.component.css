@@ -95,13 +95,17 @@
   margin-bottom: 0.15rem;
 }
 
-/* Tabs styling (Nordic segmented buttons) */
+/* Tabs — the app's shared segmented control.
+   Ported to the same track recipe as Library `.control-group`, Brain
+   `.view-mode-control` and Settings `.theme-choice`, all four of which are now
+   `--bg-hover` / 3px / `--radius-md` / 2px gap with NO border. This one had drifted
+   by adding a border, which made the group read as a boxed widget rather than a
+   raised track. All four are the same control; they should not differ. */
 .sidebar-tabs {
   display: flex;
-  gap: 0.25rem;
+  gap: 2px;
   padding: 3px;
   background: var(--bg-hover);
-  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   margin-bottom: 0.85rem;
 }
@@ -131,12 +135,25 @@
 }
 
 .tab-btn.active {
-  background: var(--bg-surface);
-  color: var(--color-text-main);
+  /* `--control-active-fill`, not `--bg-surface`. On dark `--bg-surface` (#1B1E26) is
+     DARKER than the `--bg-hover` track (#252A34), so the selected tab SANK instead of
+     rising — measured live: track rgb(37,42,52) vs active rgb(27,30,38). Same defect
+     that was already fixed in Library and Brain; this was the third copy of it.
+     `font-weight: 600` is kept on purpose — these tabs carry text labels, so weight
+     is the only secondary cue that the icon-only toggles do not need. */
+  background: var(--control-active-fill);
+  color: var(--control-active-ink);
   font-weight: 600;
   box-shadow: var(--shadow-sm);
   outline: 1px solid var(--border-color);
   outline-offset: -1px;
+}
+
+/* Focus ring: this control had NONE, while all three sibling segmented controls
+   have one. Keyboard users could not see which tab was focused. */
+.tab-btn:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: -2px;
 }
 
 .actions {

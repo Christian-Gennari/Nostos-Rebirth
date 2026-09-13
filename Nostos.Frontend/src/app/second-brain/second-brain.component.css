@@ -1217,7 +1217,7 @@
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  transition: all 0.2s ease;
+  transition: background 0.2s ease;
 }
 
 .note-search-box:hover {
