@@ -247,3 +247,102 @@ test('the Brain index exposes 44px view-mode and search targets', async ({ page 
     `Brain index controls under ${MIN_TAP_TARGET}px: ${JSON.stringify(undersized)}`,
   ).toEqual([]);
 });
+
+/**
+ * Open a concept detail sheet and return the scrolling column, failing early if
+ * the fixture produced no note cards to measure.
+ */
+async function openConceptDetail(page: Page): Promise<void> {
+  const concept = `MobileNotes${Date.now()}`;
+  const book = await apiPost<{ id: string }>(fixture.baseUrl, '/api/books', {
+    type: 'physical',
+    title: `Mobile Notes Source ${concept}`,
+    author: 'Nostos Mobile QA',
+    categories: 'mobile-polish',
+  });
+  await apiPost(fixture.baseUrl, `/api/books/${book.id}/notes`, {
+    content: `A note about [[${concept}]] with enough text to give the card a body.`,
+  });
+
+  await page.goto(`${fixture.baseUrl}/second-brain`, { waitUntil: 'domcontentloaded' });
+  const item = page.locator('.index-item', { hasText: concept }).first();
+  await item.waitFor({ timeout: 30_000 });
+  await item.click();
+  await page.locator('app-note-card .note-card-container').first().waitFor({ timeout: 30_000 });
+}
+
+test('the concept detail pane has no horizontal scrollbar from card actions', async ({ page }) => {
+  await openConceptDetail(page);
+
+  const measured = await page.evaluate(() => {
+    const col = document.querySelector('.content-col') as HTMLElement | null;
+    if (!col) return null;
+    const box = col.getBoundingClientRect();
+    const limit = box.right - parseFloat(getComputedStyle(col).paddingRight);
+    const overflowing = Array.from(col.querySelectorAll('*'))
+      .filter((el) => {
+        const b = el.getBoundingClientRect();
+        return b.width > 0 && b.right > limit + 1;
+      })
+      .map((el) => ({
+        cls: (el.className || '').toString().slice(0, 40),
+        overBy: Math.round(el.getBoundingClientRect().right - limit),
+      }));
+    return {
+      horizontalOverflow: col.scrollWidth - col.clientWidth,
+      documentOverflow: document.documentElement.scrollWidth - window.innerWidth,
+      overflowing,
+    };
+  });
+  expect(measured, 'the concept detail column must be present').not.toBeNull();
+
+  // Regression: two 44px card-action buttons needed 102px of a 287px footer
+  // pinned to 32px tall, so the cluster overhung the card by 49px and
+  // `overflow-x: auto` turned that into a second scrollbar beside the vertical.
+  expect(
+    measured!.overflowing,
+    `elements must not overhang the detail column: ${JSON.stringify(measured!.overflowing)}`,
+  ).toEqual([]);
+  expect(measured!.horizontalOverflow, 'detail column must not scroll sideways').toBeLessThanOrEqual(
+    1,
+  );
+  expect(measured!.documentOverflow, 'page must not scroll sideways').toBeLessThanOrEqual(1);
+});
+
+test('card actions sit on their own row instead of overhanging the card', async ({ page }) => {
+  await openConceptDetail(page);
+
+  const geometry = await page.evaluate(() => {
+    const actions = document.querySelector('app-note-card .note-actions') as HTMLElement | null;
+    const footer = document.querySelector('app-note-card .note-footer') as HTMLElement | null;
+    const card = document.querySelector('app-note-card .note-card-container') as HTMLElement | null;
+    if (!actions || !footer || !card) return null;
+    const a = actions.getBoundingClientRect();
+    const f = footer.getBoundingClientRect();
+    const c = card.getBoundingClientRect();
+    const cs = getComputedStyle(actions);
+    return {
+      actionsWithinCard: a.right <= c.right + 1 && a.left >= c.left - 1,
+      actionsBelowMetadata: a.top >= f.top - 1,
+      actionsFullWidth: Math.abs(a.width - f.width) <= 1,
+      hasBoxChrome: cs.borderTopWidth !== '0px' || cs.boxShadow !== 'none',
+      buttonSizes: Array.from(actions.querySelectorAll('button')).map((b) => {
+        const r = b.getBoundingClientRect();
+        return { w: Math.round(r.width), h: Math.round(r.height) };
+      }),
+    };
+  });
+  expect(geometry, 'the note card must expose its footer and actions').not.toBeNull();
+
+  expect(geometry!.actionsWithinCard, 'the action cluster must not overhang the card').toBe(true);
+  expect(geometry!.actionsBelowMetadata, 'the actions must be on their own row').toBe(true);
+  expect(geometry!.actionsFullWidth, 'the action row must span the footer width').toBe(true);
+  // On touch the cluster is always visible, so the desktop hover-pill's border
+  // and shadow would be permanent chrome around two buttons.
+  expect(geometry!.hasBoxChrome, 'the hover pill box must be dropped on mobile').toBe(false);
+
+  for (const b of geometry!.buttonSizes) {
+    expect(b.w).toBeGreaterThanOrEqual(MIN_TAP_TARGET);
+    expect(b.h).toBeGreaterThanOrEqual(MIN_TAP_TARGET);
+  }
+});

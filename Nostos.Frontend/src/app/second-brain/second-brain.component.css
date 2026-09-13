@@ -1660,7 +1660,10 @@
     width: 100%;
     height: 100%;
     padding: 1.5rem; /* Less padding on mobile */
-    padding-bottom: 8.5rem; /* Preserve dock clearance */
+    /* Dock clearance. The mobile dock is a full-bleed rail 58px tall, flush to
+       the viewport bottom, so 96px clears it by 38px. The previous 8.5rem was
+       sized against the taller floating pill the dock used to be. */
+    padding-bottom: 96px;
     background-image: none; /* Cleaner look on small screens */
   }
 
@@ -1809,6 +1812,59 @@
   :host ::ng-deep app-note-card .note-actions .icon-btn {
     min-width: 44px;
     min-height: 44px;
+  }
+
+  /* Give the footer and the concept header room to lay out as ROWS instead of
+     a single cramped line. Before this, each row was a nowrap flex whose two
+     44px buttons needed 102px of a 287px footer that was pinned to 32px tall:
+     the action cluster overhung the card by 49px, the header cluster by 69px,
+     and because `overflow-x` on .content-col is `auto` the whole pane grew a
+     horizontal scrollbar alongside the vertical one. Wrapping puts the actions
+     on their own full-width row inside the card, right-aligned, which is what
+     removes the overflow at its source rather than hiding it. */
+  :host ::ng-deep app-note-card .note-footer {
+    flex-wrap: wrap;
+    row-gap: 0.75rem;
+    /* The fixed 32px height was sized for the desktop 32px buttons; a wrapped
+       footer needs to grow to hold the 44px row. */
+    height: auto;
+    min-height: 32px;
+  }
+
+  :host ::ng-deep app-note-card .note-actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    /* The desktop treatment is a hover-revealed boxed pill. On touch it is
+       always visible, so the box is permanent chrome around two buttons that
+       already read as buttons — drop it and let them sit on the card. */
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .concept-head-row {
+    flex-wrap: wrap;
+    row-gap: 0.75rem;
+  }
+
+  /* The title is user-generated and can be a single long word. At 2rem it has a
+     min-content width that runs past the column, and nothing could break it, so
+     the detail column grew a horizontal scrollbar for a long name (measured
+     73px of overhang). */
+  .concept-head-copy {
+    min-width: 0;
+  }
+
+  .concept-title {
+    overflow-wrap: break-word;
+  }
+
+  .concept-actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
   }
 }
 
