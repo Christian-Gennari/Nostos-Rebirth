@@ -130,11 +130,11 @@ Nostos-Rebirth/
 │       ├── pages/            #   Library, BookDetail, SecondBrain, WritingStudio, Home
 │       ├── reader/           #   EPUB, PDF, Audio readers + annotation managers
 │       ├── core/             #   Services, directives, route strategy
-│       ├── ui/               #   Shared components (FlatTree, NoteCard, StarRating, etc.)
-│       └── layout/           #   WorkspaceLayout, AppDock
+│   ├── ui/               #   Shared components (FlatTree, NoteCard, StarRating, etc.)
+│   └── layout/           #   WorkspaceLayout, AppDock
 ├── Nostos.Shared/            # Shared DTOs and enums (C#)
-├── _docs/                    # Project documentation
-└── _brand-assets/            # Logos and design resources
+├── docs/                     # Project documentation, guidelines, and visual specs
+└── _brand-assets/            # Logos, icons, and official brand kit
 ```
 
 ## Brand
@@ -147,7 +147,7 @@ The brand mark is a **Forest (`#293E32`) rounded tile with a Paper (`#FDF8F6`) a
 | [`docs/brand/logo-dark.svg`](docs/brand/logo-dark.svg) | Horizontal lockup, Paper wordmark — for dark surfaces |
 | [`docs/brand/mark.svg`](docs/brand/mark.svg) | Mark only, no wordmark |
 
-The master artwork, colour variants, and the full brand guidelines live in [`_brand-assets/brand-kit-v1/`](_brand-assets/brand-kit-v1/FILE-MAP.md).
+The master artwork, colour variants, and the full brand guidelines live in [`_brand-assets/`](_brand-assets/README.md).
 
 > **Wordmarks are outlined, not live text.** The kit's editable lockups use `<text>` + Hanken Grotesk. That is fine inside the app, but anywhere the file *leaves* the app — GitHub, READMEs, anywhere a sanitiser strips webfonts — the font is unavailable and the wordmark silently falls back to a default sans. The files in `docs/brand/` therefore carry the wordmark as vector paths, with glyph positions taken from the browser's own text layout so kerning matches the kit exactly. Regenerate rather than hand-editing.
 
@@ -192,20 +192,20 @@ The frontend proxies `/api` requests to the backend via `proxy.conf.json`.
 | Database     | SQLite (`nostos.db`), auto-migrated on startup               |
 | File storage | `Storage/books/` (configurable via `FileStorageSettings`)    |
 | CORS (dev)   | Handled by `proxy.conf.json` — no backend CORS config needed |
-| Reading UI   | `/training`; fully functional with MCP and Hermes disabled   |
+| Reading UI   | `/training`; fully functional with MCP disabled              |
 | MCP (reading + library) | Opt-in `Mcp:Enabled` (route `/mcp`); bearer token is read from an environment variable only (default `NOSTOS_MCP_TOKEN`) |
 
 ## Documentation
 
-Detailed documentation is available in the `_docs/` directories:
+Detailed documentation is available in the documentation directories:
 
 | Directory                | Contents                                                                   |
 | ------------------------ | -------------------------------------------------------------------------- |
-| `_docs/`                 | Architecture, API reference, getting started, concept system               |
+| `docs/`                  | Architecture, API reference, getting started, design manifesto, visual specs, brand |
 | `Nostos.Backend/_docs/`  | Data models, repositories, services, endpoints, database                   |
 | `Nostos.Frontend/_docs/` | Components, services, routing, state management, reader system, UI library |
 
-Reading Training's domain contract is in [`docs/reading-training/`](docs/reading-training/README.md), with the concise frozen-v1 summary in [`docs/reading-training-v1.md`](docs/reading-training-v1.md). REST and gateway routes are documented in [`Nostos.Backend/_docs/endpoints.md`](Nostos.Backend/_docs/endpoints.md); optional Hermes deployment and rollback are documented in [`integrations/hermes/README.md`](integrations/hermes/README.md).
+REST and gateway routes are documented in [`Nostos.Backend/_docs/endpoints.md`](Nostos.Backend/_docs/endpoints.md); library contracts and design principles are documented in [`docs/library-mcp-contracts.md`](docs/library-mcp-contracts.md) and [`docs/design-manifesto.md`](docs/design-manifesto.md).
 
 ## Roadmap
 

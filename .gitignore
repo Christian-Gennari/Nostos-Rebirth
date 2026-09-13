@@ -20,7 +20,8 @@ Nostos.Backend/backup-settings.json
 *.db
 *.db-shm
 *.db-wal
-nostos.db.pre-restore*
+nostos.db*
+*.db.bak*
 
 # dotenv files
 .env

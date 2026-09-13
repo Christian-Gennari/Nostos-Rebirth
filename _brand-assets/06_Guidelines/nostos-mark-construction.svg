@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1200" viewBox="0 0 1400 1200">
+  <rect width="1400" height="1200" fill="#FDF8F6"/>
+  <g transform="translate(188 70)">
+    <rect width="1024" height="1024" rx="205" fill="#293E32"/>
+    <path d="M 282 764 L 282 509 A 229 234 0 0 1 740 509 L 740 764 Z M 358 764 L 358 509 A 110 112 0 0 1 578 509 L 578 764 Z" fill="#FDF8F6" fill-rule="evenodd"/>
+    <line x1="511" y1="70" x2="511" y2="900" stroke="#D25555" stroke-width="4" stroke-dasharray="12 12"/>
+    <line x1="468" y1="350" x2="468" y2="900" stroke="#A07859" stroke-width="4" stroke-dasharray="12 12"/>
+    <line x1="282" y1="509" x2="740" y2="509" stroke="#8A8680" stroke-width="3" stroke-dasharray="10 10"/>
+  </g>
+  <text x="700" y="1140" text-anchor="middle" font-family="sans-serif" font-size="30" fill="#1C1B1A">
+    Red = outer arch center (511) • Clay = doorway center (468) • intentional left offset = −43 px / −4.20%
+  </text>
+</svg>

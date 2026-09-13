@@ -7,20 +7,23 @@
 
   <aside class="sidebar-left" [class.open]="showFileSidebar()">
     <div class="sidebar-header">
-      <h2>Studio</h2>
-      <div class="actions">
-        <button class="icon-btn" (click)="createItem('Folder')" title="New Folder">
-          <lucide-icon [img]="Icons.FolderPlus" [size]="16"></lucide-icon>
-        </button>
-        <button class="icon-btn" (click)="createItem('Document')" title="New File">
-          <lucide-icon [img]="Icons.Plus" [size]="16"></lucide-icon>
-        </button>
-        @if (isMobile()) {
-          <button class="icon-btn mobile-only" (click)="showFileSidebar.set(false)">
-            <lucide-icon [img]="Icons.Close" [size]="16"></lucide-icon>
+      <div class="sidebar-title-row">
+        <h2>Studio</h2>
+        <div class="actions">
+          <button class="icon-btn" (click)="createItem('Folder')" title="New Folder" aria-label="New folder">
+            <lucide-icon [img]="Icons.FolderPlus" [size]="16" strokeWidth="1.5"></lucide-icon>
           </button>
-        }
+          <button class="icon-btn" (click)="createItem('Document')" title="New Document" aria-label="New document">
+            <lucide-icon [img]="Icons.Plus" [size]="16" strokeWidth="1.5"></lucide-icon>
+          </button>
+          @if (isMobile()) {
+            <button class="icon-btn mobile-only" (click)="showFileSidebar.set(false)" aria-label="Close sidebar">
+              <lucide-icon [img]="Icons.Close" [size]="16"></lucide-icon>
+            </button>
+          }
+        </div>
       </div>
+      <div class="section-label">Documents</div>
     </div>
 
     <div class="file-list">
@@ -41,16 +44,24 @@
   <main class="editor-pane">
     @if (activeItem(); as item) {
       <div class="editor-header">
+        <div class="header-doc-meta">
+          <span class="header-doc-title">{{ editorTitle() || item.name }}</span>
+          <span class="header-save-status" [class.is-saving]="saveStatus() === 'Saving...'">
+            {{ saveStatus() }}
+          </span>
+        </div>
+
         <div class="doc-actions">
           @if (isMobile()) {
             <button
               class="icon-btn sidebar-header-toggle"
               (click)="showFileSidebar.set(!showFileSidebar())"
               title="Toggle Files"
+              aria-label="Toggle file sidebar"
             >
               <lucide-icon
                 [img]="showFileSidebar() ? Icons.PanelLeftClose : Icons.PanelLeftOpen"
-                [size]="20"
+                [size]="18"
                 strokeWidth="1.5"
               ></lucide-icon>
             </button>
@@ -61,9 +72,10 @@
               class="icon-btn sidebar-header-brain-toggle"
               [class.active]="showBrainSidebar()"
               (click)="showBrainSidebar.set(!showBrainSidebar())"
-              title="Toggle Brain"
+              title="Toggle Reference"
+              aria-label="Toggle reference sidebar"
             >
-              <lucide-icon [img]="Icons.BrainCircuit" [size]="20" strokeWidth="1.5"></lucide-icon>
+              <lucide-icon [img]="Icons.BrainCircuit" [size]="18" strokeWidth="1.5"></lucide-icon>
             </button>
           }
 
@@ -76,7 +88,7 @@
           >
             <lucide-icon
               [img]="isZen() ? Icons.Minimize2 : Icons.Maximize2"
-              [size]="20"
+              [size]="18"
               strokeWidth="1.5"
             ></lucide-icon>
           </button>
@@ -90,12 +102,8 @@
           (wordCountChange)="editorWordCount.set($event)"
         ></app-markdown-editor>
 
-        <div class="editor-status-pill" aria-live="polite">
-          {{ displayWordCount() }} {{ displayWordCount() === 1 ? 'word' : 'words' }}
-          @if (saveStatus() === 'Saved') {
-            <span aria-hidden="true">·</span>
-            <span class="pill-saved">Saved</span>
-          }
+        <div class="editor-desk-telemetry" aria-live="polite">
+          <span class="word-count-num">{{ displayWordCount() }}</span> {{ displayWordCount() === 1 ? 'word' : 'words' }}
         </div>
       </div>
     } @else {
@@ -103,8 +111,8 @@
         <div class="icon-circle">
           <lucide-icon
             [img]="Icons.FileText"
-            [size]="32"
-            color="var(--color-text-light)"
+            [size]="28"
+            strokeWidth="1.5"
           ></lucide-icon>
         </div>
         <h2>Select a file to begin writing</h2>
@@ -119,29 +127,33 @@
   <aside class="sidebar-right" [class.open]="showBrainSidebar()">
     <div class="sidebar-header compact">
       <div class="sidebar-title-row">
-        <h2>Context</h2>
+        <h2>Reference</h2>
         @if (isMobile()) {
-          <button class="icon-btn" (click)="showBrainSidebar.set(false)">
+          <button class="icon-btn" (click)="showBrainSidebar.set(false)" aria-label="Close reference sidebar">
             <lucide-icon [img]="Icons.PanelRightClose" [size]="16"></lucide-icon>
           </button>
         }
       </div>
 
-      <div class="sidebar-tabs">
+      <div class="sidebar-tabs" role="tablist">
         <button
           class="tab-btn"
+          role="tab"
+          [attr.aria-selected]="activeSidebarTab() === 'brain'"
           [class.active]="activeSidebarTab() === 'brain'"
           (click)="activeSidebarTab.set('brain')"
         >
-          <lucide-icon [img]="Icons.Sparkles" [size]="14"></lucide-icon>
+          <lucide-icon [img]="Icons.Sparkles" [size]="14" strokeWidth="1.5"></lucide-icon>
           <span>Concepts</span>
         </button>
         <button
           class="tab-btn"
+          role="tab"
+          [attr.aria-selected]="activeSidebarTab() === 'notes'"
           [class.active]="activeSidebarTab() === 'notes'"
           (click)="activeSidebarTab.set('notes')"
         >
-          <lucide-icon [img]="Icons.Book" [size]="14"></lucide-icon>
+          <lucide-icon [img]="Icons.Book" [size]="14" strokeWidth="1.5"></lucide-icon>
           <span>Books</span>
         </button>
       </div>

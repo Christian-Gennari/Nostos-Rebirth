@@ -1,0 +1,38 @@
+[
+  {
+    "file": "01_Primary_Mark/nostos-mark-primary.svg",
+    "ok": true
+  },
+  {
+    "file": "05_Lockups/nostos-stacked-editable.svg",
+    "ok": true
+  },
+  {
+    "file": "05_Lockups/nostos-horizontal-editable.svg",
+    "ok": true
+  },
+  {
+    "file": "06_Guidelines/nostos-mark-construction.svg",
+    "ok": true
+  },
+  {
+    "file": "04_App_Icon/nostos-app-icon.svg",
+    "ok": true
+  },
+  {
+    "file": "02_Color_Variants/nostos-mark-reversed.svg",
+    "ok": true
+  },
+  {
+    "file": "02_Color_Variants/nostos-mark-monochrome-light.svg",
+    "ok": true
+  },
+  {
+    "file": "02_Color_Variants/nostos-mark-forest-knockout.svg",
+    "ok": true
+  },
+  {
+    "file": "02_Color_Variants/nostos-mark-monochrome-dark.svg",
+    "ok": true
+  }
+]
