@@ -108,8 +108,11 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
   const zenExit = (): HTMLButtonElement | null =>
     fixture.nativeElement.querySelector('.zen-exit') as HTMLButtonElement | null;
 
-  const statusPill = (): HTMLElement | null =>
-    fixture.nativeElement.querySelector('.editor-status-pill') as HTMLElement | null;
+  const deskTelemetry = (): HTMLElement | null =>
+    fixture.nativeElement.querySelector('.editor-desk-telemetry') as HTMLElement | null;
+
+  const headerSaveStatus = (): HTMLElement | null =>
+    fixture.nativeElement.querySelector('.header-save-status') as HTMLElement | null;
 
   const openDocument = () => {
     component.activeItem.set(sampleDocument);
@@ -122,11 +125,11 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
     expect(component).toBeTruthy();
   });
 
-  // --- Placement: no status pill or zen control without an active document ---
-  it('shows no zen control and no status pill without an active document', () => {
+  // --- Placement: no telemetry or zen control without an active document ---
+  it('shows no zen control and no telemetry without an active document', () => {
     expect(zenToggle()).toBeNull();
     expect(zenExit()).toBeNull();
-    expect(statusPill()).toBeNull();
+    expect(deskTelemetry()).toBeNull();
   });
 
   it('shows the zen toggle in the document-action cluster with an active document', () => {
@@ -143,37 +146,35 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
     expect(actions.contains(button)).toBe(true);
   });
 
-  // --- Placement: the status pill floats on the stage, not in the header ---
-  it('renders save state and word count in the floating status pill with an active document', () => {
+  // --- Placement: save status in header, word count grounded on desk baseline ---
+  it('renders save state in header and word count in desk telemetry with an active document', () => {
     openDocument();
     component.editorText.set('one two three four');
+    fixture.detectChanges();
 
-    const pill = statusPill();
-    expect(pill).toBeTruthy();
-    expect(pill!.textContent).toContain('4 words');
-    expect(pill!.querySelector('.pill-saved')?.textContent?.trim()).toBe('Saved');
+    const telemetry = deskTelemetry();
+    expect(telemetry).toBeTruthy();
+    expect(telemetry!.textContent).toContain('4 words');
+
+    const saveStatus = headerSaveStatus();
+    expect(saveStatus).toBeTruthy();
+    expect(saveStatus!.textContent?.trim()).toBe('Saved');
   });
 
-  it('uses the singular word form in the status pill for a single word', () => {
+  it('uses the singular word form in desk telemetry for a single word', () => {
     openDocument();
     component.editorText.set('one');
     fixture.detectChanges();
 
-    expect(statusPill()?.textContent).toContain('1 word');
+    expect(deskTelemetry()?.textContent).toContain('1 word');
   });
 
-  it('prefers the editor wordcount-plugin count in the status pill when emitted', () => {
+  it('prefers the editor wordcount-plugin count in desk telemetry when emitted', () => {
     openDocument();
     component.editorWordCount.set(123);
     fixture.detectChanges();
 
-    expect(statusPill()?.textContent).toContain('123 words');
-  });
-
-  it('has no status badge inside the document-action header', () => {
-    openDocument();
-    const header = fixture.nativeElement.querySelector('.editor-header') as HTMLElement;
-    expect(header.querySelector('.pill-saved')).toBeNull();
+    expect(deskTelemetry()?.textContent).toContain('123 words');
   });
 
   // --- Enter/exit manages body.nostos-zen ---
@@ -295,17 +296,17 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
   });
 
   // --- Sidebars, dock, menus, formatting toolbar hidden in zen ---
-  it('hides the document header/action strip in zen and fades the status pill', () => {
+  it('hides the document header/action strip in zen and fades desk telemetry', () => {
     openDocument();
     const header = fixture.nativeElement.querySelector('.editor-header') as HTMLElement;
-    const pill = statusPill()!;
+    const telemetry = deskTelemetry()!;
 
     component.enterZen();
     fixture.detectChanges();
 
     expect(getComputedStyle(header).display).toBe('none');
-    // The pill belongs to the stage; zen makes it invisible (expert §5).
-    expect(getComputedStyle(pill).opacity).toBe('0');
+    // The telemetry belongs to the stage; zen makes it invisible (expert §5).
+    expect(getComputedStyle(telemetry).opacity).toBe('0');
   });
 
   it('hides both sidebars in zen', () => {
@@ -371,31 +372,21 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
     expect(component.wordCount()).toBe(0);
   });
 
-  // --- Paper frame (expert design §2): CSS-level contract ---
-  it('declares the fixed paper frame: 740px sheet, 10px radius, tokenised shadow on the editor host', () => {
+  // --- Seamless editorial canvas: CSS-level contract ---
+  it('declares the seamless editorial canvas on the editor host', () => {
     const css = componentCss();
 
-    expect(css).toContain('width: min(100%, 740px)');
-    expect(css).toContain('border-radius: 10px');
-    // The sheet's white ground is deliberate in BOTH themes: it is the paper,
-    // and its content CSS is a fixed light document.
-    expect(css).toContain('background: #ffffff');
-    // The frame's shadow must stay on the HOST so it never moves while the
-    // iframe scrolls. It comes from the shadow tokens (not the warm-ink
-    // literals it used before), so the frame follows the theme while the sheet
-    // does not: on the dark ground a warm shadow read as a dirty halo.
-    expect(css).toContain('box-shadow: var(--shadow-glass), var(--shadow-glass-lg)');
-    expect(css).toContain('border: 1px solid var(--border-color)');
-    // Guard against the old hardcoded warm-ink values coming back.
-    expect(css).not.toContain('rgba(30, 26, 21');
-    expect(css).not.toContain('rgba(80, 70, 140');
+    expect(css).toContain('max-width: 840px');
+    expect(css).toContain('background: var(--bg-surface)');
+    expect(css).toContain('border: none');
+    expect(css).toContain('box-shadow: none');
   });
 
-  it('lets .tox-tinymce fill and clip to the paper frame without its own shadow', () => {
+  it('lets .tox-tinymce fill the seamless surface without borders', () => {
     const css = componentCss();
 
-    expect(css).toContain('border-radius: inherit !important');
-    expect(css).toContain('overflow: hidden !important');
+    expect(css).toContain('border: 0 !important');
+    expect(css).toContain('border-radius: 0 !important');
     expect(css).toContain('box-shadow: none !important');
     expect(css).toContain('height: 100% !important');
   });
@@ -407,15 +398,10 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
     expect(css).toContain('overflow: visible');
   });
 
-  it('declares the zen sheet wider (860px) WITHOUT removing the paper shadow', () => {
+  it('declares the zen sheet wider (860px) on seamless surface', () => {
     const css = componentCss();
 
     expect(css).toContain('max-width: 860px');
-    // Zen must keep the physical paper: no shadow/radius reset in the zen block.
-    const zenBlock = css.slice(css.indexOf('max-width: 860px'));
-    const zenRule = zenBlock.slice(0, zenBlock.indexOf('}'));
-    expect(zenRule).not.toContain('box-shadow');
-    expect(zenRule).not.toContain('border-radius');
   });
 
   it('declares mobile edge-to-edge (<=700px): gutters zeroed, radius and shadow removed', () => {

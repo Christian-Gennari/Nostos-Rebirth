@@ -316,38 +316,38 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
       :host ::ng-deep .tox .tox-toolbar-overlord,
       :host ::ng-deep .tox .tox-toolbar,
       :host ::ng-deep .tox .tox-toolbar__primary {
-        background: var(--editor-ui-bg) !important;
+        background: var(--bg-surface) !important;
         box-shadow: none !important;
       }
 
       :host ::ng-deep .tox .tox-editor-header {
-        border-bottom: 1px solid var(--editor-ui-border) !important;
+        border-bottom: 1px solid var(--border-color) !important;
       }
 
       :host ::ng-deep .tox .tox-toolbar__primary {
-        min-height: 46px;
-        padding: 5px 8px !important;
+        min-height: 44px;
+        padding: 4px 10px !important;
       }
 
       /* Remove Oxide's grouped-control appearance */
       :host ::ng-deep .tox .tox-toolbar__group {
-        gap: 3px;
-        padding: 0 5px !important;
+        gap: 2px;
+        padding: 0 4px !important;
         border: 0 !important;
       }
 
       /* Quiet toolbar controls */
       :host ::ng-deep .tox .tox-tbtn,
       :host ::ng-deep .tox .tox-mbtn {
-        min-width: 34px;
-        height: 34px;
+        min-width: 32px;
+        height: 32px;
         margin: 0;
-        padding: 0 8px;
+        padding: 0 6px;
 
-        color: var(--editor-ui-muted) !important;
+        color: var(--color-text-muted) !important;
         background: transparent !important;
         border: 0 !important;
-        border-radius: 6px !important;
+        border-radius: var(--radius-sm, 4px) !important;
         box-shadow: none !important;
 
         transition:
@@ -363,23 +363,23 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
       :host ::ng-deep .tox .tox-tbtn:hover,
       :host ::ng-deep .tox .tox-mbtn:hover,
       :host ::ng-deep .tox .tox-split-button:hover {
-        color: var(--editor-ui-text) !important;
-        background: var(--editor-ui-bg-hover) !important;
+        color: var(--color-text-main) !important;
+        background: var(--bg-hover) !important;
       }
 
       /* Active formatting state */
       :host ::ng-deep .tox .tox-tbtn--enabled,
       :host ::ng-deep .tox .tox-tbtn--enabled:hover,
       :host ::ng-deep .tox .tox-mbtn--active {
-        color: var(--editor-ui-accent) !important;
-        background: var(--editor-ui-accent-soft) !important;
+        color: var(--primary-ink) !important;
+        background: var(--color-accent-bg) !important;
       }
 
       /* Keyboard focus must be clearer than hover */
       :host ::ng-deep .tox .tox-tbtn:focus,
       :host ::ng-deep .tox .tox-mbtn:focus,
       :host ::ng-deep .tox .tox-split-button:focus-within {
-        outline: 2px solid var(--editor-ui-focus) !important;
+        outline: 2px solid var(--focus-ring) !important;
         outline-offset: 1px;
       }
 

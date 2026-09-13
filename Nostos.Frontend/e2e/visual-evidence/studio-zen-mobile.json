@@ -1,6 +1,6 @@
 {
   "artifact": "studio-zen-mobile.png",
-  "capturedAt": "2026-09-12T17:58:23.200Z",
+  "capturedAt": "2026-09-13T10:20:14.701Z",
   "name": "studio-zen-mobile",
   "surface": "studio",
   "viewport": {
@@ -36,12 +36,12 @@
     {
       "id": "zen-gutters-balanced",
       "pass": true,
-      "message": "editor surface 366.0px wide in 390px viewport: left gutter 12.0px, right gutter 12.0px (delta 0.0px, balanced)",
+      "message": "editor surface 327.6px wide in 390px viewport: left gutter 31.2px, right gutter 31.2px (delta 0.0px, balanced)",
       "metrics": {
-        "leftGutter": 12,
-        "rightGutter": 12,
+        "leftGutter": 31.2,
+        "rightGutter": 31.2,
         "delta": 0,
-        "surfaceWidth": 366
+        "surfaceWidth": 328
       }
     }
   ],

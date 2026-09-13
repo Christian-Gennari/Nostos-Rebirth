@@ -9,9 +9,7 @@
 
 .sidebar-left,
 .sidebar-right {
-  background: var(--glass-bg-strong);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+  background: var(--bg-sidebar);
   display: flex;
   flex-direction: column;
   z-index: 2;
@@ -29,15 +27,15 @@
 
 @media (min-width: 769px) {
   .sidebar-left {
-    width: 320px;
-    border-right: 1px solid var(--glass-border);
+    width: 280px;
+    border-right: 1px solid var(--border-color);
     transition:
       width var(--motion-slow) var(--ease-standard),
       opacity var(--motion-base) ease;
   }
   .sidebar-right {
-    width: 320px; /* Kept slightly wider for notes */
-    border-left: 1px solid var(--glass-border);
+    width: 360px; /* Expansive reference companion */
+    border-left: 1px solid var(--border-color);
     transition:
       width var(--motion-slow) var(--ease-standard),
       opacity var(--motion-base) ease;
@@ -61,7 +59,7 @@
 
 /* --- SIDEBAR COMPONENTS --- */
 .sidebar-header {
-  padding: 1.25rem 1.25rem 0.75rem;
+  padding: 1.15rem 1.15rem 0.5rem;
   flex-shrink: 0;
 }
 .sidebar-header.compact {
@@ -72,52 +70,60 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
 }
 
-.sidebar-left .sidebar-header h2 {
-  font-family: 'Newsreader', serif;
-  font-size: 1.4rem;
-  font-weight: 600;
-  color: var(--color-text-main);
-  text-transform: none;
-  letter-spacing: -0.01em;
-  margin: 0;
-}
-
+.sidebar-left .sidebar-header h2,
+.sidebar-right .sidebar-header h2,
 .sidebar-title-row h2 {
   font-family: 'Newsreader', serif;
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   font-weight: 600;
-  color: var(--color-text-main);
+  color: var(--primary-ink);
   text-transform: none;
   letter-spacing: -0.01em;
   margin: 0;
 }
 
-/* Tabs styling (New UI) */
+.sidebar-header .section-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  padding: 0.25rem 0 0.25rem;
+  margin-bottom: 0.15rem;
+}
+
+/* Tabs styling (Nordic segmented buttons) */
 .sidebar-tabs {
   display: flex;
-  gap: 1rem;
-  border-bottom: 1px solid var(--border-color);
-  margin-bottom: 0.75rem;
+  gap: 0.25rem;
+  padding: 3px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  margin-bottom: 0.85rem;
 }
 
 .tab-btn {
+  flex: 1;
   background: none;
   border: none;
-  padding: 0.6rem 0.4rem;
-  font-size: 0.85rem;
-  color: var(--color-text-light);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.82rem;
+  font-family: 'Hanken Grotesk', sans-serif;
+  color: var(--color-text-muted);
   font-weight: 500;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   transition:
-    color 0.15s,
-    border-color 0.15s;
+    color var(--motion-fast),
+    background-color var(--motion-fast);
 }
 
 .tab-btn:hover {
@@ -125,10 +131,10 @@
 }
 
 .tab-btn.active {
-  /* Active state uses the accent ink in both themes. `--color-primary` is the
-     legacy alias (dim green on dark) which reads as a washed-out state. */
+  background: var(--bg-surface);
   color: var(--primary-ink);
-  border-bottom-color: var(--primary-ink);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
 }
 
 .actions {
@@ -187,18 +193,20 @@
 
 /* Search Box */
 .search-box {
-  margin: 0 1.25rem 1rem;
+  margin: 0 1.15rem 1rem;
   display: flex;
   align-items: center;
   gap: 0.6rem;
   background: var(--bg-input);
   border: 1px solid var(--border-color);
-  padding: 0.5rem 0.75rem;
-  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  border-radius: var(--radius-md);
   color: var(--color-text-muted);
+  box-sizing: border-box;
+  width: calc(100% - 2.3rem);
   transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+    border-color var(--motion-fast),
+    box-shadow var(--motion-fast);
 }
 .search-box:focus-within {
   border-color: var(--focus-ring);
@@ -207,12 +215,15 @@
 }
 .search-box input {
   border: none;
-  background: 0 0;
-  outline: 0;
+  background: transparent;
+  outline: none;
   width: 100%;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-family: 'Hanken Grotesk', sans-serif;
   color: var(--color-text-main);
+}
+.search-box input::placeholder {
+  color: var(--color-text-placeholder);
 }
 
 /* Lists & Items */
@@ -220,22 +231,24 @@
 .file-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0 0.75rem 1.5rem;
+  padding: 0 0.65rem 1.5rem;
 }
 
-/* Clean List Item Style (New UI) */
+/* Clean List Item Style (Nordic Editorial) */
 .list-item {
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 0.6rem 0.75rem;
+  padding: 0.55rem 0.65rem;
   margin-bottom: 2px;
   background: transparent;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   text-align: left;
-  transition: background-color 0.1s ease;
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast);
 }
 .list-item:hover {
   background: var(--bg-hover);
@@ -243,9 +256,10 @@
 
 .list-item-icon {
   color: var(--color-text-muted);
-  margin-right: 0.75rem;
+  margin-right: 0.65rem;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .list-item-content {
@@ -257,25 +271,28 @@
 
 .list-item .name {
   color: var(--color-text-main);
-  font-size: 0.9rem;
-  font-weight: var(--fw-medium);
+  font-size: 0.88rem;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .list-item .subtext {
-  color: var(--color-text-light);
+  color: var(--color-text-muted);
   font-size: 0.75rem;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .badge-count {
-  font-size: 0.7rem;
-  background: var(--bg-body);
+  font-size: 0.72rem;
+  font-family: 'Hanken Grotesk', sans-serif;
+  background: var(--bg-hover);
   color: var(--color-text-muted);
-  padding: 2px 6px;
-  border-radius: 10px;
+  padding: 1px 7px;
+  border-radius: 999px;
   margin-left: 0.5rem;
+  font-weight: 500;
+  border: 1px solid var(--border-color);
 }
 
 /* Detail Headers */
@@ -335,7 +352,7 @@
   outline: none;
 }
 
-/* --- EDITOR PANE (fixed paper frame — expert design §2) --- */
+/* --- EDITOR PANE (frameless seamless desk) --- */
 .editor-pane {
   position: relative;
   display: flex;
@@ -344,9 +361,7 @@
   min-width: 0;
   min-height: 0;
   padding-bottom: 8rem;
-  background-color: var(--bg-body);
-  background-image: radial-gradient(var(--border-color) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background-color: var(--bg-surface);
   overflow: hidden;
 }
 
@@ -354,11 +369,41 @@
   position: sticky;
   top: 0;
   z-index: 2;
-  padding: 0.5rem 0.75rem;
+  padding: 0.65rem 1.25rem;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  background-color: transparent;
+  justify-content: space-between;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.header-doc-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+.header-doc-title {
+  font-family: 'Newsreader', serif;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--color-text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+.header-save-status {
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.75rem;
+  color: var(--color-text-light);
+  transition: color var(--motion-fast);
+}
+
+.header-save-status.is-saving {
+  color: var(--color-accent);
 }
 
 /* Document-action cluster: sits at the editor pane's upper-right. */
@@ -367,19 +412,16 @@
   align-items: center;
   justify-content: flex-end;
   gap: 0.5rem;
-  margin-left: auto;
+  flex-shrink: 0;
 }
 
 /*
- * The stage owns safe padding around the paper: the inline gutters give the
- * sheet room on the sides, the top gutter gives it breathing space below the
- * header, and the bottom dock clearance keeps the floating dock from covering
- * the paper's lower edge. The padding is part of the editor layout, not page
- * whitespace — and overflow is visible so the paper's shadow is never clipped.
+ * The stage owns safe padding around the manuscript.
+ * The manuscript flows as a seamless, frameless desk surface.
  */
 .editor-wrapper {
-  --studio-inline-gutter: clamp(16px, 2.5vw, 32px);
-  --studio-top-gutter: 18px;
+  --studio-inline-gutter: clamp(24px, 5vw, 64px);
+  --studio-top-gutter: 0px;
   --studio-dock-clearance: 122px;
 
   position: relative;
@@ -404,38 +446,28 @@
 }
 
 /*
- * The paper: app-markdown-editor owns the white sheet, its border, radius,
- * and the three-layer physical shadow. TinyMCE fills the sheet and clips to
- * its radius; the host — never the iframe body — owns the shadow, so the
- * shadow stays put while the document scrolls inside the frame.
- *
- * The sheet stays white in BOTH themes on purpose: it is the paper, the one
- * physical object in the room, and its content CSS is a fixed light document
- * (`color-scheme: light`). Tinting it would leave the editor's own ink and
- * rules — which are literal values inside the iframe — off-palette. What does
- * change is the FRAME: the border and shadows are warm-ink literals tuned for a
- * warm page, and on the slate ground they read as a dirty halo, so they come
- * from the shadow tokens instead.
+ * The manuscript sheet: app-markdown-editor fills the desk space seamlessly.
+ * Without card borders or heavy outer shadows, the text breathes naturally at an
+ * optimal reading measure while filling the monitor harmoniously.
  */
 .editor-wrapper app-markdown-editor {
   display: block;
   position: relative;
 
   flex: 1 1 auto;
-  width: min(100%, 740px);
+  width: 100%;
+  max-width: 840px;
   height: 100%;
   min-height: 0;
 
-  background: #ffffff;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-
-  box-shadow: var(--shadow-glass), var(--shadow-glass-lg);
+  background: var(--bg-surface);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /*
- * TinyMCE fills and is clipped by the persistent paper frame.
- * The host, not .tox-tinymce and not the iframe body, owns the shadow.
+ * TinyMCE fills the seamless surface.
  */
 :host ::ng-deep app-markdown-editor .tox-tinymce {
   width: 100% !important;
@@ -443,44 +475,39 @@
   min-height: 0 !important;
 
   border: 0 !important;
-  border-radius: inherit !important;
+  border-radius: 0 !important;
   overflow: hidden !important;
   box-shadow: none !important;
 }
 
-/* --- App-owned status pill (expert design §5) ---
-   Word count + save state, floating above the stage's lower-right corner.
-   It belongs to the studio stage, never to the paper's text area. */
-.editor-status-pill {
+/* --- Desk telemetry (grounded typography) ---
+   Word count sits quietly on the desk baseline, raw typography without pills or shadows. */
+.editor-desk-telemetry {
   position: absolute;
-  bottom: 6.5rem;
-  right: 2rem;
+  bottom: 5.5rem;
+  right: 2.5rem;
   z-index: 10;
 
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
-
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  padding: 5px 14px;
+  align-items: baseline;
+  gap: 4px;
 
   font-family: 'Hanken Grotesk', system-ui, sans-serif;
   font-size: 0.78rem;
-  font-weight: 500;
+  font-weight: 400;
   line-height: 1;
-  color: var(--color-text-muted);
-  box-shadow: var(--shadow-glass);
+  color: var(--color-text-light);
+  letter-spacing: 0.01em;
   pointer-events: none;
 }
 
-.pill-saved {
-  color: var(--color-success);
-  font-weight: 600;
+.editor-desk-telemetry .word-count-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  color: var(--color-text-muted);
 }
 
-:host-context(body.nostos-zen) .editor-status-pill {
+:host-context(body.nostos-zen) .editor-desk-telemetry {
   opacity: 0;
 }
 
@@ -490,33 +517,37 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--color-text-light);
+  color: var(--color-text-muted);
   gap: 0;
   text-align: center;
+  padding: 2rem;
 }
 .icon-circle {
-  width: 72px;
-  height: 72px;
-  background: var(--gradient-pastel-soft);
-  box-shadow: 0 4px 12px var(--color-accent-faint);
+  width: 56px;
+  height: 56px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 1.25rem;
+  color: var(--primary-ink);
 }
 .empty-state h2 {
   font-family: 'Newsreader', serif;
-  font-size: 1.4rem;
-  font-weight: 600;
-  color: var(--color-text-main);
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--primary-ink);
   margin: 0 0 0.5rem;
 }
 .empty-state .empty-subtext {
   font-size: 0.9rem;
-  color: var(--color-text-light);
-  margin: 0 0 1rem;
+  font-family: 'Hanken Grotesk', sans-serif;
+  color: var(--color-text-muted);
+  margin: 0 0 1.25rem;
   max-width: 320px;
+  line-height: 1.5;
 }
 .empty-state .btn-outline {
   margin-top: 0.5rem;
@@ -547,17 +578,21 @@
     position: fixed;
     top: 0;
     bottom: 0;
-    width: 85% !important;
-    max-width: 300px;
     opacity: 1 !important;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 24px rgba(0, 0, 0, 0.15);
     transform: translateX(-100%);
-    transition: transform 0.3s ease;
+    transition: transform var(--motion-base) var(--ease-standard);
     z-index: 30;
+  }
+  .sidebar-left {
+    width: 84vw !important;
+    max-width: 320px;
   }
   .sidebar-right {
     right: 0;
     left: auto;
+    width: 100vw !important;
+    max-width: 100vw;
     transform: translateX(100%);
     border-left: none;
   }
@@ -571,8 +606,22 @@
     display: flex;
     flex-direction: column;
     height: 100dvh;
-    /* The wrapper owns dock clearance on mobile; avoid doubling it. */
     padding-bottom: 0;
+  }
+
+  .editor-header {
+    padding: 0.5rem 0.75rem;
+    height: 52px;
+  }
+
+  .header-doc-title {
+    font-size: 0.95rem;
+    max-width: 160px;
+  }
+
+  .editor-desk-telemetry {
+    bottom: 5.5rem;
+    right: 1.25rem;
   }
 }
 
@@ -601,6 +650,7 @@
 
   .editor-wrapper app-markdown-editor {
     width: 100%;
+    max-width: 100%;
     border-right: 0;
     border-left: 0;
     border-radius: 0;
@@ -657,10 +707,10 @@
   display: none !important;
 }
 
-/* Zen sizing: a wider sheet (860px), centered with responsive gutters. */
+/* Zen sizing: seamless full-width editorial desk, centered with generous margins. */
 :host-context(body.nostos-zen) .editor-wrapper {
-  --studio-inline-gutter: clamp(12px, 3vw, 40px);
-  --studio-top-gutter: 20px;
+  --studio-inline-gutter: clamp(20px, 8vw, 120px);
+  --studio-top-gutter: 32px;
   --studio-dock-clearance: 24px;
   /* The dock is hidden in zen, so drop the generous dock clearance. */
   padding-bottom: 24px;
