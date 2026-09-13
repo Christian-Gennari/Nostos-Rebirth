@@ -478,6 +478,46 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
       :host ::ng-deep .tox .tox-statusbar {
         display: none !important;
       }
+
+      /* --- Phone: one toolbar row, no wrapping, 44px targets ---
+         TinyMCE's sliding toolbar mode only engages while the toolbar is a
+         single row. The skin's flex-wrap: wrap let the groups wrap to four rows
+         on a 390px screen instead, so the sliding overflow button never
+         appeared and the whole strip stayed in the document (~124px of chrome
+         eating the writing surface). Pinning nowrap hands control back to
+         sliding: the excess collapses behind the toolbar's own overflow
+         chevron. 44px is the same touch-target contract the dock and Brain
+         use. */
+      @media (max-width: 768px) {
+        :host ::ng-deep .tox .tox-toolbar__primary {
+          flex-wrap: nowrap !important;
+          overflow-x: hidden !important;
+        }
+
+        :host ::ng-deep .tox .tox-toolbar__group {
+          flex-wrap: nowrap !important;
+        }
+
+        :host ::ng-deep .tox .tox-toolbar__primary .tox-tbtn {
+          min-width: 44px !important;
+          height: 44px !important;
+        }
+
+        /* The sliding overflow row is where most of the formatting controls
+           (bold/italic/underline/lists/link/image/clear) actually land on a
+           phone, so it needs the same target size — it is a sibling of
+           __primary inside the overlay, not a child of it. */
+        :host ::ng-deep .tox .tox-toolbar__overflow .tox-tbtn {
+          min-width: 44px !important;
+          height: 44px !important;
+        }
+
+        /* The Blocks label needs the width to stay readable; it was already
+           112px on desktop, so widen rather than let it truncate to fit. */
+        :host ::ng-deep .tox .tox-toolbar__primary .tox-tbtn--select {
+          min-width: 118px !important;
+        }
+      }
     `,
   ],
 })

@@ -541,3 +541,40 @@
     transition: none;
   }
 }
+
+/* --- Phone: 44px touch targets on the shared tree ---
+   The chevron was 12x20px and each row action 22x22px — well under the 44px the
+   app's dock and Brain rows use, and this tree is the only way to open a
+   document in the Studio (and to reach a collection in the Library). The row
+   itself stays 34px tall: the controls are out-of-flow overlays on the row, so
+   growing them costs no list height. */
+@media (max-width: 768px) {
+  .toggle-btn {
+    /* --indent-base drives the row's own left gutter and the chevron's offset,
+       so growing the variable would also shift every row's text. Instead hold
+       the 12px glyph at its exact centre (row-relative depth*step + 6) and grow
+       the tap box to a 44px square around it. The box extends 10px left of the
+       indent slot — the furthest it can go before the drawer's scroll container
+       (overflow-y: auto clips at its padding box) truncates it — and the rest
+       to the right, over the row's own padding. flex-start + 10px padding keeps
+       the glyph visually where it always was; centring it would shift it. */
+    width: 44px;
+    height: 44px;
+    left: calc(var(--depth, 0) * var(--indent-step) - 10px);
+    justify-content: flex-start;
+    padding-left: 10px;
+  }
+
+  .action-mini {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* The actions overlay reserves a fixed width (--actions-w, 76px on desktop)
+     so it can never overrun the row's right padding. Three 44px buttons plus
+     the 2px gaps need 140px; the reserved width and the name-fade edge both
+     read from the variable, so they follow automatically. */
+  .tree-row {
+    --actions-w: 140px;
+  }
+}

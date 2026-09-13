@@ -1586,6 +1586,14 @@
     min-height: 44px;
   }
 
+  /* A 44px-tall box whose inner INPUT is only 37px still leaves a 37px tap
+     area for the (portrait) tap that lands on the text, which is where a thumb
+     aims. Height the input itself rather than only the wrapper. */
+  .search-box input,
+  .note-search-box input {
+    min-height: 44px;
+  }
+
   .sort-shell,
   .detail-select-shell {
     min-height: 44px;
@@ -1596,6 +1604,9 @@
      `.toggle-opt`), and this only sets a touch-target size. */
   .toggle-opt {
     min-height: 44px;
+    /* 30px box at 44px tall: a tap had to land within an 8px-wide sliver to
+       register. Pad it out to the 44px square the rest of the app uses. */
+    min-width: 44px;
   }
 
   .clear-search {
@@ -1672,6 +1683,20 @@
     height: 42px;
     min-width: 0;
     flex: 1;
+  }
+
+  /* The concept detail sheet scrolls, and it opens at its top. "Back to Index"
+     is the only way back to the list (the index column is display:none while a
+     concept is open), so a static back control makes the list unreachable from
+     any scrolled position. Pin it to the top of the scrolling column and mask
+     the content passing under it. */
+  .mobile-nav-header {
+    position: sticky;
+    top: -1.5rem; /* cancels the column's own 1.5rem top padding */
+    z-index: 3;
+    background: var(--bg-surface);
+    padding-top: 1.5rem;
+    margin-top: -1.5rem;
   }
 
   .note-count {
