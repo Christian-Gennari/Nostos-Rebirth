@@ -1,8 +1,9 @@
-import { Component, input, output, effect, OnDestroy, OnInit } from '@angular/core';
+import { Component, input, output, effect, inject, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import TurndownService from 'turndown';
 import { marked } from 'marked';
+import { ThemeService } from '../../core/services/theme.service';
 
 // Import TinyMCE as a global type reference
 declare var tinymce: any;
@@ -17,7 +18,7 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap');
 
   :root {
-    color-scheme: light;
+    color-scheme: light dark;
 
     --paper: #ffffff;
     --ink: #292622;
@@ -36,6 +37,28 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
 
     --code-bg: #f5f3ef;
     --code-ink: #3b3834;
+  }
+
+  :root[data-theme='dark'] {
+    color-scheme: dark;
+
+    --paper: #1B1E26;
+    --ink: #EDEEF2;
+    --ink-soft: #C5C9D0;
+    --ink-faint: #949CA9;
+
+    --rule: #262A34;
+    --rule-strong: #333846;
+
+    --link: #8FA89A;
+    --link-hover: #ACCDC4;
+    --selection: rgba(172, 205, 196, 0.25);
+
+    --quote-bg: #21252E;
+    --quote-rule: #4A5260;
+
+    --code-bg: #15181F;
+    --code-ink: #EDEEF2;
   }
 
   html {
@@ -367,7 +390,7 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
       :host ::ng-deep .tox .tox-toolbar-overlord,
       :host ::ng-deep .tox .tox-toolbar,
       :host ::ng-deep .tox .tox-toolbar__primary {
-        background: var(--bg-surface) !important;
+        background: var(--editor-ui-bg, var(--bg-surface)) !important;
         box-shadow: none !important;
       }
 
@@ -462,6 +485,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   });
 
   private editor: any;
+  private themeService = inject(ThemeService);
 
   /**
    * Final chrome (expert design §1): one constant 'oxide' skin, no menubar,
@@ -524,6 +548,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
       editor.on('init', () => {
         editor.getBody().style.opacity = '1';
+        this.syncIframeTheme();
         // Optional: Safety check in case content loaded before init
         if (this.htmlContent && !editor.getContent()) {
           editor.setContent(this.htmlContent);
@@ -556,6 +581,12 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
         }
       }
     });
+
+    // 2. Reactively synchronize iframe document with the active theme
+    effect(() => {
+      this.themeService.theme(); // track theme signal changes
+      this.syncIframeTheme();
+    });
   }
 
   ngOnInit() {
@@ -564,6 +595,22 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.destroyEditor();
+  }
+
+  private syncIframeTheme() {
+    if (!this.editor) return;
+    try {
+      const doc = this.editor.getDoc();
+      if (!doc) return;
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (isDark) {
+        doc.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        doc.documentElement.removeAttribute('data-theme');
+      }
+    } catch {
+      // Ignored if iframe is not ready or cross-origin
+    }
   }
 
   private initEditor() {

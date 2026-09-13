@@ -143,6 +143,7 @@ describe('MarkdownEditorComponent', () => {
     const style = String(initCalls[0].content_style);
     expect(style).toContain('--paper: #ffffff');
     expect(style).toContain('--ink: #292622');
+    expect(style).toContain("data-theme='dark'");
     expect(style).toContain('font-family: Newsreader, Georgia');
     // The old generic dark-mode-coupled palette must be gone.
     expect(style).not.toContain('--color-text-main');

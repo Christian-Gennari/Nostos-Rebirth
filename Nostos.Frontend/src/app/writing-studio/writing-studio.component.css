@@ -79,7 +79,7 @@
   font-family: 'Newsreader', serif;
   font-size: 1.35rem;
   font-weight: 600;
-  color: var(--primary-ink);
+  color: var(--color-text-main);
   text-transform: none;
   letter-spacing: -0.01em;
   margin: 0;
@@ -532,13 +532,13 @@
   align-items: center;
   justify-content: center;
   margin-bottom: 1.25rem;
-  color: var(--primary-ink);
+  color: var(--color-text-muted);
 }
 .empty-state h2 {
   font-family: 'Newsreader', serif;
   font-size: 1.5rem;
   font-weight: 500;
-  color: var(--primary-ink);
+  color: var(--color-text-main);
   margin: 0 0 0.5rem;
 }
 .empty-state .empty-subtext {
