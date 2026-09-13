@@ -797,6 +797,19 @@ export class SecondBrain implements AfterViewChecked {
     this.setViewMode('list');
   }
 
+  /**
+   * Leave map view entirely, returning to the index.
+   *
+   * On mobile the map occupies the whole screen (the index is hidden), so this is
+   * the user's only way back — the same role `clearSelection()` plays for the
+   * concept pane. On desktop the index is still visible and switching back to
+   * list is a click away, but the control is harmless there and the template
+   * already hides `.mobile-nav-header` outside the mobile breakpoint.
+   */
+  leaveMap(): void {
+    this.setViewMode('list');
+  }
+
   /** True when the map has a selection that can be opened. */
   canOpenSelectedConcept = computed(() => !!this.selectedId() && this.viewMode() === 'map');
 

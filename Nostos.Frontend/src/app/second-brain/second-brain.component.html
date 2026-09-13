@@ -1,6 +1,9 @@
 <main class="layout-wrapper">
   <div class="layout-content brain-layout">
-    <aside class="index-col" [class.mobile-hidden]="selectedId()">
+    <aside
+      class="index-col"
+      [class.mobile-hidden]="selectedId() || viewMode() === 'map'"
+    >
       <div class="index-header">
         <div class="header-row">
           <h1>Index</h1>
@@ -196,6 +199,12 @@
         </button>
       </div>
       }
+      <!-- On mobile the map takes the whole screen (the index is hidden), so it
+           needs its own way back — the same affordance the concept pane uses. -->
+      <button type="button" class="mobile-nav-header" (click)="leaveMap()">
+        <lucide-icon [img]="ArrowLeftIcon" [size]="18"></lucide-icon>
+        <span>Back to Index</span>
+      </button>
       <app-concept-map
         [concepts]="filteredConcepts()"
         [selectedId]="selectedId()"
