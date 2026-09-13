@@ -4,218 +4,193 @@
     <source media="(prefers-color-scheme: light)" srcset="docs/brand/logo-light.svg" />
     <img alt="Nostos" src="docs/brand/logo-light.svg" width="276" />
   </picture>
-</div>
-<hr>
 
-A self-hosted personal library and knowledge management system. Manage books, e-books, audiobooks, and PDFs in one place — then link what you read to the ideas you develop through contextual notes, concept mapping, and a built-in writing environment.
+  <p><strong>A quiet digital study for serious readers, scholars, and thinkers.</strong></p>
+  <p>Self-hosted, local-first library and personal knowledge system — built to bridge what you read with what you write.</p>
+
+  <p>
+    <a href="#features">Features</a> •
+    <a href="#getting-started">Getting Started</a> •
+    <a href="#the-reading-training-program">Reading Training</a> •
+    <a href="#architecture--tech-stack">Tech Stack</a> •
+    <a href="#documentation">Docs</a> •
+    <a href="#license--trademark">License</a>
+  </p>
+</div>
+
+<hr>
 
 <div align="center">
   <img
     width="2880"
     height="1800"
-    alt="main-library-view"
+    alt="Nostos Library Interface"
     src="docs/screenshots/library.png"
   />
 </div>
 
+## The Vision: The Quiet Study
+
+Most modern software demands your attention with notification badges, reading streaks, algorithmic feeds, and aggressive upsells. **Nostos** takes the opposite approach:
+
+* **Nordic Editorial Aesthetic:** Warm paper tones, literary typography (Newsreader & Hanken Grotesk), and distraction-free layouts inspired by physical publishing and classical libraries.
+* **Local-First & Sovereign:** Your library, annotations, and personal ideas stay on your machine. Fully operational offline without mandatory third-party subscriptions.
+* **Ambient Intelligence:** AI features are strictly invited and local-first via MCP tools — never intrusive autocomplete bars or unprompted bots interrupting your focus.
+* **A Unified Intellectual Loop:** Read physical volumes, e-books, PDFs, or audiobooks; capture contextual notes with wiki-links; develop those thoughts into prose in the integrated Writing Studio.
+
+---
+
 ## Features
 
-### Library
-
-- **Physical books** — ISBN lookup, reading status, full metadata
-- **E-books (EPUB)** — Streaming reader with range request support
-- **PDFs** — Integrated viewer
-- **Audiobooks** — Chapter-aware player with M4B/M4A/MP3 metadata extraction
-- **Collections** — Nested folder hierarchy, drag-and-drop organisation
-- **Canonical library service** — Create-or-match dedupe on normalized ISBN/ASIN and exact title+author; validated progress; collections with sibling dedupe and cycle detection
-- **Library MCP tools** — 11 authenticated agent tools for books and collections (create-or-match, update, resolve, collections)
-- **Search, sort & filter** — By title, rating, recency, reading status, or collection
+### The Library
+Collect, organize, and consume your entire media collection in one unified repository:
+* **All Your Formats:** Physical books (ISBN metadata lookup), EPUBs (streaming reader with continuous range requests), PDFs (integrated clean viewer), and audiobooks (chapter-aware M4B/M4A/MP3 player).
+* **Thoughtful Organization:** Flexible nested collections, drag-and-drop management, custom tags, and multi-parameter filtering (by status, rating, recency, or collection).
+* **Smart Deduplication:** Clean canonical cataloging that automatically matches on normalized ISBNs or title + author pairs.
 
 <details>
-  <summary><strong>Screenshots</strong></summary>
-
+  <summary><strong>View Library Screenshots</strong></summary>
   <br />
-
   <table>
     <tr>
       <td width="50%">
-        <strong>Book Details</strong><br /><br />
-        <img
-          width="2880"
-          height="1800"
-          alt="book-details"
-          src="docs/screenshots/book-details.png"
-        />
+        <strong>Book Overview & Progress</strong><br /><br />
+        <img width="2880" height="1800" alt="Book Details" src="docs/screenshots/book-details.png" />
       </td>
       <td width="50%">
-        <strong>Add Book Modal</strong><br /><br />
-        <img
-          width="2880"
-          height="1800"
-          alt="add-book-modal"
-          src="docs/screenshots/add-book-modal.png"
-        />
+        <strong>Clean Cataloging & Import</strong><br /><br />
+        <img width="2880" height="1800" alt="Add Book Modal" src="docs/screenshots/add-book-modal.png" />
       </td>
     </tr>
   </table>
 </details>
 
-### Reading Training
+---
 
-- **Standalone manual workflow** — Open `/training` to initialize the programme, assign library books, plan, start, pause, resume, finish, rate, and review sessions without Hermes.
-- **Sustainable capacity** — Independent Endurance, Deep, and Recovery lanes begin at 40/30/20 minutes and adapt through deterministic weekly evidence rather than streaks or debt.
-- **Multiple books and verbatim captures** — Train with different books in the same week; thoughts, questions, and bookmarks retain their exact text and book/session link.
-- **Restart-safe and exact-once** — SQLite constraints, persisted elapsed time, command receipts, and idempotency keys prevent duplicate effects and preserve active or paused sessions across restarts.
-- **Nostos-owned automation** — Weekly review and notification-outbox workers run inside Nostos. Reading data is included in normal `.nostos` backup/restore archives.
-- **Optional integrations** — Authenticated local MCP exposes the same service as REST (34 tools across reading training and the library). The optional Hermes connector only routes the configured Telegram Reading topic and Discord #reading channel, and owns no state.
+### Second Brain & Concept Graph
+Transform passive reading into active, connected understanding:
+* **In-Context Annotations:** Highlight passages directly inside EPUBs and PDFs and link thoughts to exact paragraphs.
+* **Bi-Directional Wiki-Links:** Type `[[Concept]]` anywhere in your notes to automatically link or discover emerging ideas.
+* **Concept Explorer:** Browse all interconnected concepts, discover latent relationships across disparate books, and keep your graph clean with automated zero-reference cleanup.
 
-### Second Brain
+<div align="center">
+  <img
+    width="2880"
+    height="1800"
+    alt="Nostos Second Brain"
+    src="docs/screenshots/second-brain.png"
+  />
+</div>
 
-- **Contextual notes** — Highlight text in EPUBs or PDFs and attach notes to the exact location
-- **Wiki-link concepts** — Type `[[Concept]]` in any note to create or link a concept automatically
-- **Concept explorer** — Browse all concepts sorted by usage; view every linked note in one place
-- **Orphan cleanup** — Background worker removes concepts with zero references
-
-<img
-  width="2880"
-  height="1800"
-  alt="second-brain"
-  src="docs/screenshots/second-brain.png"
-/>
+---
 
 ### Writing Studio
+Bring your synthesis together without switching tools:
+* **Focused Three-Panel Workspace:** Manage your chapter tree, draft in a distraction-free markdown/rich editor (TinyMCE + Turndown), and inspect reference material simultaneously.
+* **Direct Citation & Note Insertion:** Keep your research library visible in the side panel. Click any note or highlight to insert exact quotations into your draft.
+* **Continuous Auto-Save:** Background, debounced saving keeps your drafts safe without breaking flow.
 
-- **Three-panel layout** — File tree, TinyMCE editor (markdown round-trip), and a context sidebar
-- **Reference insertion** — Browse concepts or books in the sidebar, click a note to insert the quote
-- **Auto-save** — 2-second debounced save on every keystroke
+<div align="center">
+  <img
+    width="2880"
+    height="1800"
+    alt="Writing Studio"
+    src="docs/screenshots/writing-studio.png"
+  />
+</div>
 
-### Maintenance & Safety
+---
 
-- **Backup & Restore** — Automated weekly backups with manual triggers and real-time progress tracking
-- **Integrity Verification** — Archive checksum validation and safety database snapshots before restoration
-- **Maintenance Mode** — Automatic API protection during critical system updates
-- **Storage Scanning** — Scan for existing `.nostos` backup files on disk to import history
+### Reading Training Program
+Build durable, deep-work reading habits based on sustainable capacity rather than gamified pressure:
+* **Capacity Over Guilt:** Three distinct lanes (**Endurance**, **Deep**, and **Recovery**) that adjust based on measured weekly evidence rather than punitive streaks or daily debt.
+* **Verbatim Session Captures:** Capture impressions, questions, and page anchors mid-session without context switching.
+* **Rock-Solid Reliability:** Restart-safe timer states, idempotent session logging, and self-hosted weekly reviews.
+* **Optional MCP Extensibility:** Exposes a full local Model Context Protocol (MCP) toolset for reading tracking and library management for those who want to automate workflows with local LLMs.
 
-<img
-  width="2880"
-  height="1800"
-  alt="writing-studio"
-  src="docs/screenshots/writing-studio.png"
-/>
+---
 
-## Tech Stack
+### Resilience & Safety
+* **Zero-Hassle Backups:** Create complete `.nostos` archives encompassing database, notes, and local files.
+* **Integrity First:** Checksum verification and pre-restore database snapshots ensure your data is never corrupted during updates.
+* **Autonomous Maintenance:** Automatic maintenance mode guarantees clean database migrations.
 
-| Layer          | Technology                                  |
-| -------------- | ------------------------------------------- |
-| Backend        | .NET 10 / ASP.NET Core Minimal APIs         |
-| Database       | SQLite via Entity Framework Core 10         |
-| Frontend       | Angular 21 (standalone components, Signals) |
-| Readers        | epub.js, ngx-extended-pdf-viewer, Howler.js |
-| Editor         | TinyMCE + marked + Turndown                 |
-| Icons          | Lucide Angular                              |
-| Audio metadata | z440.atl.core                               |
+---
 
-## Project Structure
+## Architecture & Tech Stack
 
-```
+Nostos is engineered as an efficient, low-overhead system capable of running comfortably on anything from a home server to a lightweight laptop:
+
+* **Backend:** [.NET 10](https://dotnet.microsoft.com/) Minimal APIs (ultra-fast, memory-efficient)
+* **Database:** SQLite via Entity Framework Core 10 (single-file, robust, zero configuration)
+* **Frontend:** [Angular 21](https://angular.dev/) (Standalone Components, Signals, high-performance UI)
+* **Readers:** `epub.js` (streaming e-reader), `ngx-extended-pdf-viewer`, `Howler.js` (audiobook engine)
+* **Editor:** TinyMCE with bidirectional markdown round-tripping
+* **Icons & Typography:** Lucide, Newsreader Serif, and Hanken Grotesk
+
+```text
 Nostos-Rebirth/
-├── Nostos.Backend/           # ASP.NET Core API
-│   ├── Data/                 #   DbContext, models, repositories
-│   ├── Endpoints/            #   Minimal API endpoint groups
-│   ├── Services/             #   File storage, metadata, note processing
-│   ├── Workers/              #   Background hosted services
-│   └── Migrations/           #   EF Core migrations
-├── Nostos.Frontend/          # Angular SPA
-│   └── src/app/
-│       ├── pages/            #   Library, BookDetail, SecondBrain, WritingStudio, Home
-│       ├── reader/           #   EPUB, PDF, Audio readers + annotation managers
-│       ├── core/             #   Services, directives, route strategy
-│   ├── ui/               #   Shared components (FlatTree, NoteCard, StarRating, etc.)
-│   └── layout/           #   WorkspaceLayout, AppDock
-├── Nostos.Shared/            # Shared DTOs and enums (C#)
-├── docs/                     # Project documentation, guidelines, and visual specs
-└── _brand-assets/            # Logos, icons, and official brand kit
+├── Nostos.Backend/       # ASP.NET Core Minimal API & background workers
+├── Nostos.Frontend/      # Angular SPA (Library, Readers, Notes, Studio)
+├── Nostos.Shared/        # Shared DTOs and business contracts
+├── docs/                 # Architectural specifications and design manifesto
+└── _brand-assets/        # Logos, typography, and visual guidelines
 ```
 
-## Brand
-
-The brand mark is a **Forest (`#293E32`) rounded tile with a Paper (`#FDF8F6`) arch knocked out of it** — a doorway that also reads as a lowercase `n`. The same mark is used in both light and dark themes: it is deliberately theme-invariant, and the app's own `--brand-shape`/`--brand-doorway` tokens are not overridden per theme.
-
-| Asset | Purpose |
-| ----- | ------- |
-| [`docs/brand/logo-light.svg`](docs/brand/logo-light.svg) | Horizontal lockup, Ink wordmark — for light surfaces |
-| [`docs/brand/logo-dark.svg`](docs/brand/logo-dark.svg) | Horizontal lockup, Paper wordmark — for dark surfaces |
-| [`docs/brand/mark.svg`](docs/brand/mark.svg) | Mark only, no wordmark |
-
-The master artwork, colour variants, and the full brand guidelines live in [`_brand-assets/`](_brand-assets/README.md).
-
-> **Wordmarks are outlined, not live text.** The kit's editable lockups use `<text>` + Hanken Grotesk. That is fine inside the app, but anywhere the file *leaves* the app — GitHub, READMEs, anywhere a sanitiser strips webfonts — the font is unavailable and the wordmark silently falls back to a default sans. The files in `docs/brand/` therefore carry the wordmark as vector paths, with glyph positions taken from the browser's own text layout so kerning matches the kit exactly. Regenerate rather than hand-editing.
+---
 
 ## Getting Started
 
 ### Prerequisites
+* [.NET 10 SDK](https://dotnet.microsoft.com/download)
+* [Node.js (LTS)](https://nodejs.org/)
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [Node.js](https://nodejs.org/) (LTS)
-
-### Quick Start
-
-All commands run from the project root. Use `npm run help` to see the full list.
+### Quick Start (Development)
+Clone the repository and start both backend and frontend concurrently:
 
 ```bash
-npm install          # install root tooling (concurrently)
-npm start            # dev server — backend + frontend together
-```
+git clone https://github.com/Christian-Gennari/Nostos-Rebirth.git
+cd Nostos-Rebirth
 
-### Production
+# Install dependencies and start the unified dev environment
+npm install
+npm start
+```
+The app will be live at `http://localhost:4200` (proxying API calls to backend port `5099`).
+
+### Production Build
+To build the frontend and serve everything through the single high-performance .NET host:
 
 ```bash
-npm run prod         # builds the Angular frontend, then serves everything via .NET in Release mode
+npm run prod
 ```
+Open **`http://localhost:5099`** in your browser.
 
-This runs `npm install` + `npm run build` for the frontend, copies the output to `wwwroot`, applies database migrations, and serves everything at **http://localhost:5099**.
+---
 
-### Individual Services
+## Brand & Aesthetic Dignity
 
-```bash
-npm run backend      # .NET backend only — Debug (http://localhost:5099)
-npm run frontend     # Angular dev server only (http://localhost:4200)
-npm run build:frontend  # Angular production build
-```
+The Nostos mark represents a doorway into a quiet study: a **Forest Green (`#293E32`)** rounded tile with a **Paper (`#FDF8F6`)** arch knocked out of it, forming a subtle lowercase `n`. 
 
-The frontend proxies `/api` requests to the backend via `proxy.conf.json`.
+The mark is deliberately theme-invariant across both light and dark study environments. Read our full philosophical foundation in the [Design Manifesto](docs/design-manifesto.md) and explore the brand kit in [`_brand-assets/`](_brand-assets/README.md).
 
-### Configuration
+---
 
-| Setting      | Detail                                                       |
-| ------------ | ------------------------------------------------------------ |
-| Database     | SQLite (`nostos.db`), auto-migrated on startup               |
-| File storage | `Storage/books/` (configurable via `FileStorageSettings`)    |
-| CORS (dev)   | Handled by `proxy.conf.json` — no backend CORS config needed |
-| Reading UI   | `/training`; fully functional with MCP disabled              |
-| MCP (reading + library) | Opt-in `Mcp:Enabled` (route `/mcp`); bearer token is read from an environment variable only (default `NOSTOS_MCP_TOKEN`) |
+## Documentation & Roadmap
 
-## Documentation
+* **[Design Manifesto](docs/design-manifesto.md):** The core principles and aesthetic guidelines of Nostos.
+* **[MCP Library Contracts](docs/library-mcp-contracts.md):** Specification for Model Context Protocol agents and tools.
+* **[Backend Endpoints](Nostos.Backend/_docs/endpoints.md):** REST API reference.
 
-Detailed documentation is available in the documentation directories:
+### Active Roadmap
+* [ ] Enhanced mobile navigation and touch interaction
+* [ ] Cross-media unified bookmarks
+* [ ] Automated bibliographic enrichment (ISBN / DOI / BibTeX)
+* [ ] Recursive collection hierarchy manager
 
-| Directory                | Contents                                                                   |
-| ------------------------ | -------------------------------------------------------------------------- |
-| `docs/`                  | Architecture, API reference, getting started, design manifesto, visual specs, brand |
-| `Nostos.Backend/_docs/`  | Data models, repositories, services, endpoints, database                   |
-| `Nostos.Frontend/_docs/` | Components, services, routing, state management, reader system, UI library |
-
-REST and gateway routes are documented in [`Nostos.Backend/_docs/endpoints.md`](Nostos.Backend/_docs/endpoints.md); library contracts and design principles are documented in [`docs/library-mcp-contracts.md`](docs/library-mcp-contracts.md) and [`docs/design-manifesto.md`](docs/design-manifesto.md).
-
-## Roadmap
-
-- Mobile interaction improvements
-- Cross-media bookmarking
-- Audiobook metadata enrichment
-- Recursive collection picker
+---
 
 ## License & Trademark
 
-- **Software License:** This project is licensed under the **GNU General Public License v3.0 or later**. See the [LICENSE](./LICENSE) file for the full license text.
-- **Trademark Policy:** The names "Nostos", "Nostos Study", "Nostos Cloud", and the Nostos brand marks (forest tile + paper arch) are proprietary trademarks. Code forks and derivative works are welcome under the GPLv3, but must be rebranded and cannot use the official Nostos marks or logos. See [TRADEMARK.md](./TRADEMARK.md) for guidelines.
-
+* **Software License:** Licensed under the **[GNU General Public License v3.0 (GPLv3)](./LICENSE)**. You are free to run, study, modify, and distribute the code under these terms.
+* **Trademark Policy:** "Nostos", "Nostos Study", and the distinctive arch logo are proprietary marks. Forks and community builds are welcomed under the GPLv3, but must be distributed under an independent name and distinct visual branding. See [TRADEMARK.md](./TRADEMARK.md) for details.
