@@ -323,13 +323,7 @@
   z-index: 0;
   pointer-events: none;
   background-color: var(--surface-image-ground);
-  transition:
-    opacity var(--motion-slow) var(--ease-out),
-    filter var(--motion-slow) var(--ease-out),
-    /* Once faded it must stop compositing. `visibility` is delayed to the end of
-       the fade so the dissolve is visible, then the layer is taken out for good:
-       an invisible backdrop-filter left over the page repaints every frame. */
-    visibility 0s linear var(--motion-slow);
+  /* EVERY item carries its own duration. `transition: opacity X linear var(--motion-slow), visibility 0s ...` looks like it gives opacity X, but a trailing time applies only to the LAST item — earlier items get 0s and SNAP instead of animating. Verified in the browser: `transition: background-color, border-color linear var(--motion-slow), box-shadow 0.2s ease` computed as `duration: 0s, 0s, 0.2s`. So the timing is repeated per item. */ transition: opacity var(--motion-slow) var(--ease-out), filter var(--motion-slow) var(--ease-out), visibility 0s linear var(--motion-slow);;
 }
 .wait-field::before {
   content: '';
@@ -1119,7 +1113,7 @@ button {
   border-radius: var(--radius-sm);
   font-size: 0.9rem;
   font-weight: var(--fw-medium);
-  transition: background-color, border-color, color, opacity 0.2s ease; 
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease; 
   text-decoration: none;
 }
 
@@ -1171,7 +1165,7 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background-color, color, opacity 0.2s ease; 
+  transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease; 
   border-radius: var(--radius-sm);
 }
 
@@ -1248,7 +1242,7 @@ input[type='file']::file-selector-button:hover {
   color: var(--color-accent);
   font-weight: var(--fw-regular);
   cursor: pointer;
-  transition: border-bottom-color, color 0.2s ease;
+  transition: border-bottom-color 0.2s ease, color 0.2s ease;
   border-bottom: 1px solid var(--color-accent-faint); /* Very subtle underline */
 }
 

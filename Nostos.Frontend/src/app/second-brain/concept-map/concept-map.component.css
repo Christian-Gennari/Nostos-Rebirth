@@ -38,8 +38,7 @@
   color: var(--color-text-muted);
   cursor: pointer;
   font-family: 'Hanken Grotesk', sans-serif;
-  transition: background-color, color, opacity 0.2s ease
-}
+  transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;}
 
 .map-reset:hover,
 .map-zoom:hover:not(:disabled) {

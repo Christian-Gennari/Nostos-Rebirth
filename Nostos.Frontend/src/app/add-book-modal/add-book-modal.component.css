@@ -70,8 +70,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  transition: color, background-color, border-color 0.2s
-}
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;}
 .tab-btn:hover {
   color: var(--color-text-main);
 }
@@ -267,8 +266,7 @@
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color, border-color, color 0.15s ease
-}
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;}
 .btn-danger-ghost:hover {
   background: color-mix(in srgb, var(--color-danger) 10%, transparent);
   border-color: color-mix(in srgb, var(--color-danger) 30%, transparent);

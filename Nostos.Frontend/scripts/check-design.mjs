@@ -407,6 +407,60 @@ function stylesBacktickCount(raw) {
 }
 
 /**
+ * RULE 7 — a multi-item `transition` whose earlier items have no duration.
+ *
+ * `transition` is a COMMA-SEPARATED LIST OF SHORTHANDS, and a trailing `<time>`
+ * binds only to the LAST item. So
+ *
+ *   transition: background-color, border-color, box-shadow 0.2s ease;
+ *
+ * means background-color and border-color at 0s (they SNAP) and only box-shadow
+ * animating. Verified in the browser: that declaration computes to
+ * `transitionDuration: "0s, 0s, 0.2s"`.
+ *
+ * This is the trap the `transition: all` -> explicit-properties conversion walks
+ * straight into, and it did: 16 sites were converted into exactly that shape. The
+ * pixel gate cannot see it, because a static screenshot of a non-hovered element
+ * looks identical whether it would animate or snap on hover.
+ *
+ * A `var()` in an item counts as that item's duration (tokens like `--motion-slow`
+ * ARE times), so those are accepted.
+ */
+{
+  const TIME = /(?<![\w.-])\d+(?:\.\d+)?(?:m?s)\b/;
+  const VAR_TIME = /var\(--[a-z-]*(?:motion|transition|duration|speed|rail)[a-z-]*\b/;
+  const splitTop = (v) => {
+    const out = []; let depth = 0; let cur = '';
+    for (const ch of v) {
+      if (ch === '(') depth++;
+      if (ch === ')') depth--;
+      if (ch === ',' && depth === 0) { out.push(cur); cur = ''; } else cur += ch;
+    }
+    out.push(cur);
+    return out.map((x) => x.trim()).filter(Boolean);
+  };
+  const hasTime = (item) => TIME.test(item) || VAR_TIME.test(item);
+  for (const f of files) {
+    for (const m of f.css.matchAll(/transition:\s*((?:[^;{}]|\n)*?)(?=;|})/g)) {
+      const v = m[1].replace(/\s+/g, ' ').trim();
+      if (!v || v.startsWith('none') || v.startsWith('all')) continue;
+      const items = splitTop(v);
+      if (items.length < 2) continue;
+      const missing = items.filter((i) => !hasTime(i));
+      if (!missing.length) continue;
+      // Only a bug when SOME item does have a duration: otherwise nothing was
+      // intended to animate and the whole declaration is inert.
+      if (!items.some(hasTime)) continue;
+      const line = f.css.slice(0, m.index).split('\n').length;
+      report('transition-missing-duration', f.path, line,
+        `${missing.length} of ${items.length} items have no duration, so they snap ` +
+        `instantly: [${missing.join(' | ').slice(0, 80)}]. A trailing time binds only ` +
+        `to the LAST item. Repeat the time on every item.`);
+    }
+  }
+}
+
+/**
  * Prove the scanner can fail. A rule that cannot be made to fire is not a check.
  * `--self-test` injects a known-bad snippet per rule and asserts each fires.
  */
@@ -466,11 +520,27 @@ if (process.argv.includes('--self-test')) {
       console.log(`  ✖ backtick-in-inline-styles DID NOT FIRE (counted ${ticks}) — the rule is vacuous`);
     }
   }
+  /* Rule 7: the exact shape the transition conversion produced, which computes to
+     `transitionDuration: "0s, 0s, 0.2s"` in the browser. */
+  {
+    const shape = 'transition: background-color, border-color, box-shadow 0.2s ease;';
+    const body = shape.replace(/^transition:\s*/, '').replace(/;$/,'');
+    const parts = body.split(',').map((x) => x.trim()).filter(Boolean);
+    const timed = parts.filter((p) => /\d+(?:\.\d+)?(?:m?s)\b/.test(p)).length;
+    if (parts.length > 1 && timed < parts.length) {
+      ok++;
+      console.log(`  ✔ transition-missing-duration fires on the converted shape ` +
+        `(${timed}/${parts.length} items carry a duration)`);
+    } else {
+      console.log(`  ✖ transition-missing-duration DID NOT FIRE — the rule is vacuous`);
+    }
+  }
   const RULES = ['unterminated-transition', 'visually-hidden', 'literal-colour',
-    'undeclared-token', 'unwinnable-dark-override', 'backtick-in-inline-styles'];
-  console.log(`\nself-test: ${ok}/${cases.length + 2} injected cases detected`);
+    'undeclared-token', 'unwinnable-dark-override', 'backtick-in-inline-styles',
+    'transition-missing-duration'];
+  console.log(`\nself-test: ${ok}/${cases.length + 3} injected cases detected`);
   console.log(`rules implemented: ${RULES.length} (${RULES.join(', ')})`);
-  process.exit(ok === cases.length + 2 ? 0 : 1);
+  process.exit(ok === cases.length + 3 ? 0 : 1);
 }
 
 // ------------------------------------------------------------------- output

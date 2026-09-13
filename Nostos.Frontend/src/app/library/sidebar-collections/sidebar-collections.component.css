@@ -232,10 +232,8 @@
   transform: translateY(-50%);
   border-radius: 8px;
   background: transparent;
-  transition:
-    width var(--rail-motion),
-    height var(--rail-motion),
-    background-color 0.12s ease;
+  /* width/height deliberately carry NO time: in the original shorthand they were
+     the leading items of a `transition: width var(--rail-motion), height ... 0.12s ease, background-color 0.12s ease` list, so they transitioned at 0s. Adding a duration here would be an unrelated motion change. */ transition: width var(--rail-motion), height var(--rail-motion), background-color 0.12s ease;;
 }
 
 .nav-item:hover {
@@ -426,9 +424,7 @@
      has to be declared HERE as well: a `transition` on the fade rule alone
      loses to this shorthand (same specificity, later in source) and the label
      would snap off instead of fading. */
-  transition:
-    visibility 0s linear var(--motion-slow),
-    opacity var(--label-out);
+  transition: visibility 0s linear var(--motion-slow), opacity var(--label-out) linear var(--motion-slow);;
 }
 
 /* --- FOOTER --- */

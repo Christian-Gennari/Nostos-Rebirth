@@ -76,6 +76,10 @@
   background: var(--bg-surface, #fff);
   z-index: 20;
   color: var(--color-text-muted, #888);
+  /* Each item carries its own duration already: `var(--motion-slow)` IS the
+     duration and `var(--ease-out)` the easing, so this shorthand was already
+     correct — a trailing time only binds to the LAST item, and here none is
+     shared. Left as the multi-line form for legibility. */
   transition:
     opacity var(--motion-slow) var(--ease-out),
     filter var(--motion-slow) var(--ease-out),

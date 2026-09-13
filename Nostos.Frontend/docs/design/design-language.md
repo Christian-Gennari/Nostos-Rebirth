@@ -324,6 +324,37 @@ Generalisable lesson: when a capture fails only in the suite, measure it *in
 isolation* before touching the CSS. The comparison that localises the cause is
 "passes alone, fails together", and it is cheap.
 
+### `transition: a, b 0.2s` — the time binds only to `b` (the worst bug in this work)
+`transition` is a **comma-separated list of shorthands**, and a trailing `<time>`
+applies only to the LAST item. So:
+
+```css
+transition: background-color, border-color, box-shadow 0.2s ease;
+```
+
+means `background-color` and `border-color` at **0s** (they SNAP) and only
+`box-shadow` animating. Confirmed in the browser — that declaration computes to
+`transitionDuration: "0s, 0s, 0.2s"`.
+
+This is precisely the trap the `transition: all` -> explicit-properties conversion
+walks into, and 25 sites were converted into exactly that shape before it was
+caught. Two properties that used to fade now snapped, and **the pixel gate cannot
+see it**: a static screenshot of a non-hovered element is identical whether it would
+animate or snap on hover. The paint sweep could not see it either — it reads
+`transitionProperty` and clusters `transitionDuration`, and a bucket of
+`0s, 0s, 0.2s` was recorded as the expected consequence of the conversion instead of
+as a defect.
+
+**What caught it: an adversarial review of the decisions, not the tooling.** The
+lesson is not "add another rule" (though `transition-missing-duration` now exists,
+and found 9 further sites the first fix missed) — it is that a gate built by the
+same reasoning that produced the change inherits that reasoning's blind spots. The
+pixel gate was designed to catch *visual* regressions; this defect is *temporal*,
+and no static capture can express it.
+
+Rule of thumb: when replacing `all` with a property list, repeat the timing on
+**every** item. `transition: a 0.2s ease, b 0.2s ease`.
+
 ### The flake allowance is a rectangle list, not a pixel budget
 `check-pixels.mjs` ignores differences only inside explicitly declared
 rectangles, each with a recorded justification and measured size. A per-image
