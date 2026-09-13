@@ -277,6 +277,14 @@ Documented so the next reader does not "fix" it:
 - **The editor content's `--ink` / `--paper` vocabulary** — a separate visual
   world (warm ink on paper) injected into a TinyMCE iframe. Local by design.
 
+### What WAS unified: `.visually-hidden`
+It was declared twice, byte-identically (`second-brain` and `concept-map`). A
+utility with no per-surface variation should not be duplicated: the copies give
+no benefit and can drift, at which point one surface renders differently and
+nothing says so. It now lives once in `styles.css`, and `check:design` fails if
+it is declared zero times (content that should be hidden becomes visible) or more
+than once (the drift can restart).
+
 ---
 
 ## 5. Running the harnesses

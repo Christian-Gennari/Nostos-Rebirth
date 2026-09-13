@@ -233,17 +233,9 @@
   font-size: 12px;
 }
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
+/* `.visually-hidden` moved to styles.css — it was duplicated here and in
+   second-brain.component.css with byte-identical bodies, so the two surfaces could
+   drift silently. One global definition; `npm run check:design` enforces it. */
 
 .map-accessible-list {
   list-style: none;

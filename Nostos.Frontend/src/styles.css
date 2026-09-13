@@ -1076,6 +1076,28 @@ lucide-icon {
 /* ------------------------------
    BUTTONS
 ------------------------------ */
+/* ---------------------------------------------------------------------------
+   Utilities
+   --------------------------------------------------------------------------- */
+
+/* Screen-reader-only. Declared ONCE, globally: it was duplicated in
+   second-brain.component.css and concept-map.component.css with byte-identical
+   bodies. Duplicated utilities are a drift risk with no upside — the copies do
+   not vary per surface, and Angular's encapsulation means a global rule is
+   exactly how a shared utility should be expressed. `check:design` fails if a
+   component redeclares it. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 button {
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;

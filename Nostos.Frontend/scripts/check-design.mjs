@@ -114,22 +114,19 @@ for (const f of files) {
       defs.push({ file: f.path, body: m[1].replace(/\s+/g, ' ').trim() });
     }
   }
-  const shapes = new Map();
-  for (const d of defs) shapes.set(d.body, (shapes.get(d.body) ?? 0) + 1);
-  if (defs.length > 1) {
-    const drifted = shapes.size > 1;
-    /* Informational while the copies still agree; a FAILURE once they drift,
-       because at that point one surface is rendering differently from the other
-       and nothing else in the suite would say so. */
-    if (drifted) {
-      report('duplicate-visually-hidden', defs[0].file, 1,
-        `.visually-hidden is declared ${defs.length}x and the copies have DRIFTED ` +
-        `(${shapes.size} distinct bodies) — one surface renders differently`);
-    } else {
-      info('duplicate-visually-hidden',
-        `.visually-hidden declared ${defs.length}x, ${shapes.size} distinct body — ` +
-        `verbatim duplicates, harmless today, consolidate when convenient`);
-    }
+  /* Exactly ONE definition is correct: the global utility in styles.css. Zero
+     means an element that should be hidden is not; more than one means the copies
+     can drift again. Neither is a style preference. */
+  if (defs.length === 0) {
+    report('visually-hidden', join(ROOT, 'src/styles.css'), 1,
+      `.visually-hidden is not declared anywhere — screen-reader-only content ` +
+      `would become visible`);
+  } else if (defs.length > 1) {
+    const bodies = new Set(defs.map((d) => d.body));
+    report('visually-hidden', defs.find((d) => !d.file.endsWith('styles.css'))?.file ?? defs[0].file, 1,
+      `.visually-hidden is declared ${defs.length}x (${bodies.size} distinct ` +
+      `body/bodies) — keep the ONE global definition in styles.css` +
+      (bodies.size > 1 ? '; the copies have already DRIFTED' : ''));
   }
 }
 
