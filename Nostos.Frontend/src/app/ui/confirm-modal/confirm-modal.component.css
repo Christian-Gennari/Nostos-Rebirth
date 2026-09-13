@@ -121,12 +121,12 @@
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  /* Explicit property list, not `transition: all` — the latter animates every
+  /* Explicit property list, not `transition: background-color, color, opacity ` — the latter animates every
      animatable property and reads as a flicker on hover. */
   transition:
     background-color var(--motion-fast, 160ms) ease,
     border-color var(--motion-fast, 160ms) ease,
-    color var(--motion-fast, 160ms) ease;
+    color var(--motion-fast, 160ms) ease
 }
 
 .btn-cancel {

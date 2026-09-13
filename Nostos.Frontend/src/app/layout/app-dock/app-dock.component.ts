@@ -81,11 +81,16 @@ import { LibraryFilterService } from '../../library/library-filter.service';
 
       .app-dock-container {
         width: max-content;
-        border: 1px solid var(--border-color);
+        /* The --dock-* tokens: on light the dock floats on a warm cast; on dark a
+           dark shadow carries no elevation, so the surface itself lifts (measured
+           1.55 tonal separation from the page). One rule, both themes.
+           NOTE: no backticks in this file - these styles live in a template
+           literal, and a backtick terminates it. */
+        border: 1px solid var(--dock-border);
         border-radius: var(--radius-sm);
         overflow: clip;
-        background: var(--bg-surface);
-        box-shadow: 0 8px 22px rgba(42, 38, 32, 0.12);
+        background: var(--dock-surface);
+        box-shadow: var(--dock-shadow);
       }
 
       .dock-bar {
@@ -139,14 +144,20 @@ import { LibraryFilterService } from '../../library/library-filter.service';
       }
 
       .dock-item:focus-visible {
-        outline: 2px solid var(--color-accent);
+        /* Width comes from the shared token like every other ring in the app. The
+           COLOUR stays local and deliberately so: this dock's items include
+           destructive actions, and an accent-coloured ring distinguishes "this dock
+           item" from the neutral slate used everywhere else. That is a role
+           difference, not drift — the drift was the hardcoded width. */
+        outline: var(--focus-ring-width) solid var(--color-accent);
         outline-offset: -2px;
       }
 
       .dock-item.active {
         border-bottom-color: transparent;
         background: transparent;
-        color: var(--color-primary);
+        /* Ink on light; porcelain on dark, matching the heading rule. */
+        color: var(--dock-item-active-ink);
       }
 
       .label {
@@ -176,7 +187,8 @@ import { LibraryFilterService } from '../../library/library-filter.service';
           border-bottom: 0;
           border-left: 0;
           border-radius: 0;
-          box-shadow: 0 -6px 20px rgba(42, 38, 32, 0.1);
+          /* The phone dock is a full-bleed rail, so its cast points UP. */
+          box-shadow: var(--dock-shadow-rail);
         }
 
         .dock-bar {

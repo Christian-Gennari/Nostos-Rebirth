@@ -1,7 +1,246 @@
 {
- "generatedAt": "2026-09-13T16:02:58.358Z",
+ "generatedAt": "2026-09-13T19:08:55.949Z",
  "base": "http://127.0.0.1:5214",
  "captures": [
+  {
+   "tag": "reader-desktop-light",
+   "surface": "reader",
+   "viewport": "desktop",
+   "theme": "light",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/reader-desktop-light.png",
+   "applied": null,
+   "geo": {
+    "innerWidth": 1440,
+    "innerHeight": 900,
+    "dpr": 1,
+    "theme": null,
+    "bodyClass": "",
+    "scrollHeight": 900,
+    "elementCount": 279
+   },
+   "sweep": {
+    "painted": 70,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       56
+      ],
+      [
+       "4px",
+       7
+      ],
+      [
+       "50%",
+       2
+      ],
+      [
+       "999px",
+       2
+      ],
+      [
+       "2px",
+       1
+      ],
+      [
+       "3px",
+       1
+      ],
+      [
+       "10%",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       35
+      ],
+      [
+       "13.3333px",
+       15
+      ],
+      [
+       "15.2px",
+       11
+      ],
+      [
+       "10.4px",
+       4
+      ],
+      [
+       "12.8px",
+       3
+      ],
+      [
+       "20px",
+       1
+      ],
+      [
+       "14.4px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       54
+      ],
+      [
+       "600",
+       16
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       68
+      ],
+      [
+       "Newsreader",
+       1
+      ],
+      [
+       "Arial",
+       1
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       59
+      ],
+      [
+       "rgb(255, 255, 255)",
+       5
+      ],
+      [
+       "rgb(253, 248, 246)",
+       4
+      ],
+      [
+       "rgb(228, 225, 219)",
+       1
+      ],
+      [
+       "rgb(40, 55, 45)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(28, 27, 26)",
+       55
+      ],
+      [
+       "rgb(138, 134, 128)",
+       9
+      ],
+      [
+       "rgb(255, 255, 255)",
+       4
+      ],
+      [
+       "rgb(92, 90, 85)",
+       1
+      ],
+      [
+       "rgb(157, 150, 142)",
+       1
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       4
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(228, 225, 219)",
+       4
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.08) 0px 10px 30px 0px",
+       1
+      ],
+      [
+       "rgba(0, 0, 0, 0.2) 0px 8px 20px 0px",
+       1
+      ]
+     ],
+     "outlineW": [],
+     "outlineC": [],
+     "transitionDur": [
+      [
+       "0.15s",
+       8
+      ],
+      [
+       "0.2s",
+       7
+      ],
+      [
+       "0s",
+       6
+      ],
+      [
+       "0.1s",
+       2
+      ],
+      [
+       "0.3s",
+       1
+      ]
+     ],
+     "transitionProp": [
+      [
+       "opacity",
+       6
+      ],
+      [
+       "transform",
+       5
+      ],
+      [
+       "background-color",
+       4
+      ],
+      [
+       "color",
+       4
+      ],
+      [
+       "border-color",
+       2
+      ],
+      [
+       "box-shadow",
+       2
+      ],
+      [
+       "background",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       24
+      ]
+     ]
+    }
+   },
+   "contentHash": {
+    "hash": "35c6c2a6",
+    "chars": 106,
+    "cards": 0,
+    "images": 1
+   },
+   "errors": []
+  },
   {
    "tag": "library-desktop-light",
    "surface": "library",
@@ -270,6 +509,10 @@
      "transitionDur": [
       [
        "0.2s",
+       176
+      ],
+      [
+       "0s",
        171
       ],
       [
@@ -289,10 +532,6 @@
        6
       ],
       [
-       "0s",
-       5
-      ],
-      [
        "0.3s",
        3
       ],
@@ -303,28 +542,28 @@
      ],
      "transitionProp": [
       [
-       "all",
-       88
-      ],
-      [
-       "opacity",
-       74
-      ],
-      [
        "transform",
-       42
+       127
       ],
       [
        "color",
-       36
+       123
+      ],
+      [
+       "opacity",
+       75
+      ],
+      [
+       "box-shadow",
+       61
+      ],
+      [
+       "background-color",
+       47
       ],
       [
        "background",
        22
-      ],
-      [
-       "box-shadow",
-       20
       ],
       [
        "outline-color",
@@ -335,15 +574,15 @@
        5
       ],
       [
-       "background-color",
-       4
-      ],
-      [
        "grid-template-rows",
        3
       ],
       [
        "width",
+       2
+      ],
+      [
+       "border-color",
        2
       ],
       [
@@ -362,7 +601,7 @@
      "easing": [
       [
        "ease",
-       247
+       418
       ],
       [
        "cubic-bezier(0.16, 1, 0.3, 1)",
@@ -382,6 +621,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "6ea0efe0",
+    "chars": 3256,
+    "cards": 20,
+    "images": 20
    },
    "errors": []
   },
@@ -577,7 +822,7 @@
       ],
       [
        "0s",
-       4
+       7
       ],
       [
        "0.2s",
@@ -591,7 +836,7 @@
      "transitionProp": [
       [
        "color",
-       22
+       23
       ],
       [
        "background",
@@ -602,16 +847,20 @@
        14
       ],
       [
+       "background-color",
+       6
+      ],
+      [
        "visibility",
        4
       ],
       [
-       "background-color",
-       4
+       "border-color",
+       1
       ],
       [
-       "all",
-       2
+       "box-shadow",
+       1
       ],
       [
        "transform",
@@ -625,7 +874,7 @@
      "easing": [
       [
        "ease",
-       59
+       62
       ],
       [
        "linear",
@@ -637,6 +886,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "319159f6",
+    "chars": 51,
+    "cards": 4,
+    "images": 0
    },
    "errors": []
   },
@@ -788,27 +1043,27 @@
       ],
       [
        "rgb(28, 27, 26)",
-       41
-      ],
-      [
-       "rgb(0, 0, 0)",
-       8
+       35
       ],
       [
        "rgb(40, 55, 45)",
+       14
+      ],
+      [
+       "rgb(0, 0, 0)",
        8
       ]
      ],
      "borderW": [
       [
        "1px",
-       8
+       7
       ]
      ],
      "borderC": [
       [
        "rgb(228, 225, 219)",
-       8
+       7
       ]
      ],
      "shadow": [
@@ -924,6 +1179,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
    },
    "errors": []
   },
@@ -1083,7 +1344,7 @@
      "fg": [
       [
        "rgb(28, 27, 26)",
-       131
+       123
       ],
       [
        "rgb(92, 90, 85)",
@@ -1098,12 +1359,12 @@
        14
       ],
       [
-       "rgb(255, 255, 255)",
-       7
+       "rgb(40, 55, 45)",
+       14
       ],
       [
-       "rgb(40, 55, 45)",
-       6
+       "rgb(255, 255, 255)",
+       7
       ],
       [
        "rgb(22, 101, 52)",
@@ -1148,9 +1409,23 @@
        1
       ]
      ],
-     "outlineW": [],
-     "outlineC": [],
+     "outlineW": [
+      [
+       "1px",
+       1
+      ]
+     ],
+     "outlineC": [
+      [
+       "rgb(228, 225, 219)",
+       1
+      ]
+     ],
      "transitionDur": [
+      [
+       "0s",
+       33
+      ],
       [
        "0.15s",
        11
@@ -1174,16 +1449,20 @@
      ],
      "transitionProp": [
       [
-       "all",
-       11
-      ],
-      [
        "background-color",
-       6
+       17
       ],
       [
        "color",
-       6
+       17
+      ],
+      [
+       "opacity",
+       12
+      ],
+      [
+       "border-color",
+       11
       ],
       [
        "background",
@@ -1196,16 +1475,12 @@
       [
        "width",
        1
-      ],
-      [
-       "opacity",
-       1
       ]
      ],
      "easing": [
       [
        "ease",
-       29
+       62
       ],
       [
        "cubic-bezier(0.34, 1.35, 0.64, 1)",
@@ -1213,6 +1488,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
    },
    "errors": []
   },
@@ -1358,6 +1639,251 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
+   },
+   "errors": []
+  },
+  {
+   "tag": "reader-desktop-dark",
+   "surface": "reader",
+   "viewport": "desktop",
+   "theme": "dark",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/reader-desktop-dark.png",
+   "applied": "dark",
+   "geo": {
+    "innerWidth": 1440,
+    "innerHeight": 900,
+    "dpr": 1,
+    "theme": "dark",
+    "bodyClass": "",
+    "scrollHeight": 900,
+    "elementCount": 279
+   },
+   "sweep": {
+    "painted": 70,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       56
+      ],
+      [
+       "4px",
+       7
+      ],
+      [
+       "50%",
+       2
+      ],
+      [
+       "999px",
+       2
+      ],
+      [
+       "2px",
+       1
+      ],
+      [
+       "3px",
+       1
+      ],
+      [
+       "10%",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       35
+      ],
+      [
+       "13.3333px",
+       15
+      ],
+      [
+       "15.2px",
+       11
+      ],
+      [
+       "10.4px",
+       4
+      ],
+      [
+       "12.8px",
+       3
+      ],
+      [
+       "20px",
+       1
+      ],
+      [
+       "14.4px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       54
+      ],
+      [
+       "600",
+       16
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       68
+      ],
+      [
+       "Newsreader",
+       1
+      ],
+      [
+       "Arial",
+       1
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       59
+      ],
+      [
+       "rgb(27, 30, 38)",
+       5
+      ],
+      [
+       "rgb(21, 24, 31)",
+       4
+      ],
+      [
+       "rgb(38, 42, 52)",
+       1
+      ],
+      [
+       "rgb(45, 75, 68)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(237, 238, 242)",
+       55
+      ],
+      [
+       "rgb(148, 156, 169)",
+       9
+      ],
+      [
+       "rgb(240, 242, 245)",
+       4
+      ],
+      [
+       "rgb(197, 201, 208)",
+       1
+      ],
+      [
+       "rgb(157, 150, 142)",
+       1
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       4
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(38, 42, 52)",
+       4
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.08) 0px 10px 30px 0px",
+       1
+      ],
+      [
+       "rgba(0, 0, 0, 0.2) 0px 8px 20px 0px",
+       1
+      ]
+     ],
+     "outlineW": [],
+     "outlineC": [],
+     "transitionDur": [
+      [
+       "0.15s",
+       8
+      ],
+      [
+       "0.2s",
+       7
+      ],
+      [
+       "0s",
+       6
+      ],
+      [
+       "0.1s",
+       2
+      ],
+      [
+       "0.3s",
+       1
+      ]
+     ],
+     "transitionProp": [
+      [
+       "opacity",
+       6
+      ],
+      [
+       "transform",
+       5
+      ],
+      [
+       "background-color",
+       4
+      ],
+      [
+       "color",
+       4
+      ],
+      [
+       "border-color",
+       2
+      ],
+      [
+       "box-shadow",
+       2
+      ],
+      [
+       "background",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       24
+      ]
+     ]
+    }
+   },
+   "contentHash": {
+    "hash": "35c6c2a6",
+    "chars": 106,
+    "cards": 0,
+    "images": 1
    },
    "errors": []
   },
@@ -1522,7 +2048,7 @@
        2
       ],
       [
-       "color(srgb 0.941176 0.94902 0.960784 / 0.22)",
+       "rgba(0, 0, 0, 0.28)",
        1
       ],
       [
@@ -1645,6 +2171,10 @@
      "transitionDur": [
       [
        "0.2s",
+       176
+      ],
+      [
+       "0s",
        171
       ],
       [
@@ -1664,10 +2194,6 @@
        6
       ],
       [
-       "0s",
-       5
-      ],
-      [
        "0.3s",
        3
       ],
@@ -1678,28 +2204,28 @@
      ],
      "transitionProp": [
       [
-       "all",
-       88
-      ],
-      [
-       "opacity",
-       74
-      ],
-      [
        "transform",
-       42
+       127
       ],
       [
        "color",
-       36
+       123
+      ],
+      [
+       "opacity",
+       75
+      ],
+      [
+       "box-shadow",
+       61
+      ],
+      [
+       "background-color",
+       47
       ],
       [
        "background",
        22
-      ],
-      [
-       "box-shadow",
-       20
       ],
       [
        "outline-color",
@@ -1710,15 +2236,15 @@
        5
       ],
       [
-       "background-color",
-       4
-      ],
-      [
        "grid-template-rows",
        3
       ],
       [
        "width",
+       2
+      ],
+      [
+       "border-color",
        2
       ],
       [
@@ -1737,7 +2263,7 @@
      "easing": [
       [
        "ease",
-       247
+       418
       ],
       [
        "cubic-bezier(0.16, 1, 0.3, 1)",
@@ -1757,6 +2283,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "6ea0efe0",
+    "chars": 3256,
+    "cards": 20,
+    "images": 20
    },
    "errors": []
   },
@@ -1956,7 +2488,7 @@
       ],
       [
        "0s",
-       4
+       7
       ],
       [
        "0.2s",
@@ -1970,7 +2502,7 @@
      "transitionProp": [
       [
        "color",
-       22
+       23
       ],
       [
        "background",
@@ -1981,16 +2513,20 @@
        14
       ],
       [
+       "background-color",
+       6
+      ],
+      [
        "visibility",
        4
       ],
       [
-       "background-color",
-       4
+       "border-color",
+       1
       ],
       [
-       "all",
-       2
+       "box-shadow",
+       1
       ],
       [
        "transform",
@@ -2004,7 +2540,7 @@
      "easing": [
       [
        "ease",
-       59
+       62
       ],
       [
        "linear",
@@ -2016,6 +2552,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "319159f6",
+    "chars": 51,
+    "cards": 4,
+    "images": 0
    },
    "errors": []
   },
@@ -2141,7 +2683,7 @@
       ],
       [
        "rgb(27, 30, 38)",
-       5
+       4
       ],
       [
        "rgb(21, 24, 31)",
@@ -2152,11 +2694,11 @@
        2
       ],
       [
-       "rgba(0, 0, 0, 0.4)",
-       1
+       "rgb(50, 58, 72)",
+       2
       ],
       [
-       "rgb(50, 58, 72)",
+       "rgba(0, 0, 0, 0.4)",
        1
       ],
       [
@@ -2181,13 +2723,13 @@
      "borderW": [
       [
        "1px",
-       8
+       7
       ]
      ],
      "borderC": [
       [
        "rgb(38, 42, 52)",
-       7
+       6
       ],
       [
        "rgb(69, 78, 96)",
@@ -2307,6 +2849,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
    },
    "errors": []
   },
@@ -2436,7 +2984,7 @@
       ],
       [
        "rgb(27, 30, 38)",
-       13
+       12
       ],
       [
        "color(srgb 0.560784 0.780392 0.658824 / 0.15)",
@@ -2455,15 +3003,15 @@
        2
       ],
       [
+       "rgb(50, 58, 72)",
+       2
+      ],
+      [
        "rgb(240, 242, 245)",
        1
       ],
       [
        "rgb(37, 42, 52)",
-       1
-      ],
-      [
-       "rgb(50, 58, 72)",
        1
       ],
       [
@@ -2539,9 +3087,23 @@
        1
       ]
      ],
-     "outlineW": [],
-     "outlineC": [],
+     "outlineW": [
+      [
+       "1px",
+       1
+      ]
+     ],
+     "outlineC": [
+      [
+       "rgb(38, 42, 52)",
+       1
+      ]
+     ],
      "transitionDur": [
+      [
+       "0s",
+       33
+      ],
       [
        "0.15s",
        11
@@ -2565,16 +3127,20 @@
      ],
      "transitionProp": [
       [
-       "all",
-       11
-      ],
-      [
        "background-color",
-       6
+       17
       ],
       [
        "color",
-       6
+       17
+      ],
+      [
+       "opacity",
+       12
+      ],
+      [
+       "border-color",
+       11
       ],
       [
        "background",
@@ -2587,16 +3153,12 @@
       [
        "width",
        1
-      ],
-      [
-       "opacity",
-       1
       ]
      ],
      "easing": [
       [
        "ease",
-       29
+       62
       ],
       [
        "cubic-bezier(0.34, 1.35, 0.64, 1)",
@@ -2604,6 +3166,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
    },
    "errors": []
   },
@@ -2749,6 +3317,251 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
+   },
+   "errors": []
+  },
+  {
+   "tag": "reader-mobile-light",
+   "surface": "reader",
+   "viewport": "mobile",
+   "theme": "light",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/reader-mobile-light.png",
+   "applied": null,
+   "geo": {
+    "innerWidth": 390,
+    "innerHeight": 844,
+    "dpr": 1,
+    "theme": null,
+    "bodyClass": "",
+    "scrollHeight": 844,
+    "elementCount": 279
+   },
+   "sweep": {
+    "painted": 70,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       56
+      ],
+      [
+       "4px",
+       7
+      ],
+      [
+       "50%",
+       2
+      ],
+      [
+       "999px",
+       2
+      ],
+      [
+       "2px",
+       1
+      ],
+      [
+       "3px",
+       1
+      ],
+      [
+       "10%",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       35
+      ],
+      [
+       "13.3333px",
+       15
+      ],
+      [
+       "15.2px",
+       11
+      ],
+      [
+       "10.4px",
+       4
+      ],
+      [
+       "12.8px",
+       3
+      ],
+      [
+       "20px",
+       1
+      ],
+      [
+       "14.4px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       54
+      ],
+      [
+       "600",
+       16
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       68
+      ],
+      [
+       "Newsreader",
+       1
+      ],
+      [
+       "Arial",
+       1
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       59
+      ],
+      [
+       "rgb(255, 255, 255)",
+       5
+      ],
+      [
+       "rgb(253, 248, 246)",
+       4
+      ],
+      [
+       "rgb(228, 225, 219)",
+       1
+      ],
+      [
+       "rgb(40, 55, 45)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(28, 27, 26)",
+       55
+      ],
+      [
+       "rgb(138, 134, 128)",
+       9
+      ],
+      [
+       "rgb(255, 255, 255)",
+       4
+      ],
+      [
+       "rgb(92, 90, 85)",
+       1
+      ],
+      [
+       "rgb(157, 150, 142)",
+       1
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       4
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(228, 225, 219)",
+       4
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.08) 0px 10px 30px 0px",
+       1
+      ],
+      [
+       "rgba(0, 0, 0, 0.2) 0px 8px 20px 0px",
+       1
+      ]
+     ],
+     "outlineW": [],
+     "outlineC": [],
+     "transitionDur": [
+      [
+       "0.15s",
+       8
+      ],
+      [
+       "0.2s",
+       7
+      ],
+      [
+       "0s",
+       6
+      ],
+      [
+       "0.1s",
+       2
+      ],
+      [
+       "0.3s",
+       1
+      ]
+     ],
+     "transitionProp": [
+      [
+       "opacity",
+       6
+      ],
+      [
+       "transform",
+       5
+      ],
+      [
+       "background-color",
+       4
+      ],
+      [
+       "color",
+       4
+      ],
+      [
+       "border-color",
+       2
+      ],
+      [
+       "box-shadow",
+       2
+      ],
+      [
+       "background",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       24
+      ]
+     ]
+    }
+   },
+   "contentHash": {
+    "hash": "35c6c2a6",
+    "chars": 106,
+    "cards": 0,
+    "images": 1
    },
    "errors": []
   },
@@ -2988,7 +3801,7 @@
       ],
       [
        "0.2s",
-       34
+       39
       ],
       [
        "0.12s",
@@ -2999,12 +3812,12 @@
        23
       ],
       [
-       "0.16s",
-       9
+       "0s",
+       14
       ],
       [
-       "0s",
-       8
+       "0.16s",
+       9
       ],
       [
        "0.22s",
@@ -3021,12 +3834,12 @@
      ],
      "transitionProp": [
       [
-       "opacity",
-       36
+       "color",
+       43
       ],
       [
-       "color",
-       36
+       "opacity",
+       37
       ],
       [
        "background",
@@ -3034,31 +3847,31 @@
       ],
       [
        "transform",
-       16
+       21
       ],
       [
        "box-shadow",
-       14
+       15
       ],
       [
        "visibility",
        8
       ],
       [
-       "all",
-       8
+       "background-color",
+       7
       ],
       [
        "outline-color",
        5
       ],
       [
-       "background-color",
-       4
-      ],
-      [
        "grid-template-rows",
        3
+      ],
+      [
+       "border-color",
+       2
       ],
       [
        "filter",
@@ -3072,7 +3885,7 @@
      "easing": [
       [
        "ease",
-       115
+       126
       ],
       [
        "cubic-bezier(0.16, 1, 0.3, 1)",
@@ -3096,6 +3909,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "7ab51244",
+    "chars": 1987,
+    "cards": 12,
+    "images": 12
    },
    "errors": []
   },
@@ -3287,7 +4106,7 @@
       ],
       [
        "0s",
-       4
+       7
       ],
       [
        "0.2s",
@@ -3301,7 +4120,7 @@
      "transitionProp": [
       [
        "color",
-       22
+       23
       ],
       [
        "background",
@@ -3312,16 +4131,20 @@
        14
       ],
       [
+       "background-color",
+       6
+      ],
+      [
        "visibility",
        4
       ],
       [
-       "background-color",
-       4
+       "border-color",
+       1
       ],
       [
-       "all",
-       2
+       "box-shadow",
+       1
       ],
       [
        "transform",
@@ -3335,7 +4158,7 @@
      "easing": [
       [
        "ease",
-       59
+       62
       ],
       [
        "linear",
@@ -3347,6 +4170,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "319159f6",
+    "chars": 51,
+    "cards": 4,
+    "images": 0
    },
    "errors": []
   },
@@ -3502,27 +4331,27 @@
       ],
       [
        "rgb(28, 27, 26)",
-       42
-      ],
-      [
-       "rgb(0, 0, 0)",
-       8
+       36
       ],
       [
        "rgb(40, 55, 45)",
+       14
+      ],
+      [
+       "rgb(0, 0, 0)",
        8
       ]
      ],
      "borderW": [
       [
        "1px",
-       9
+       8
       ]
      ],
      "borderC": [
       [
        "rgb(228, 225, 219)",
-       9
+       8
       ]
      ],
      "shadow": [
@@ -3565,22 +4394,22 @@
        15
       ],
       [
+       "0s",
+       5
+      ],
+      [
        "0.22s",
        4
       ],
       [
        "0.2s",
        3
-      ],
-      [
-       "0s",
-       3
       ]
      ],
      "transitionProp": [
       [
        "color",
-       22
+       23
       ],
       [
        "background",
@@ -3588,11 +4417,11 @@
       ],
       [
        "background-color",
-       10
+       11
       ],
       [
        "opacity",
-       7
+       8
       ],
       [
        "transform",
@@ -3605,10 +4434,6 @@
       [
        "visibility",
        3
-      ],
-      [
-       "all",
-       1
       ],
       [
        "border-color",
@@ -3626,7 +4451,7 @@
      "easing": [
       [
        "ease",
-       58
+       60
       ],
       [
        "linear",
@@ -3642,6 +4467,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
    },
    "errors": []
   },
@@ -3801,7 +4632,7 @@
      "fg": [
       [
        "rgb(28, 27, 26)",
-       131
+       123
       ],
       [
        "rgb(92, 90, 85)",
@@ -3816,12 +4647,12 @@
        14
       ],
       [
-       "rgb(255, 255, 255)",
-       7
+       "rgb(40, 55, 45)",
+       14
       ],
       [
-       "rgb(40, 55, 45)",
-       6
+       "rgb(255, 255, 255)",
+       7
       ],
       [
        "rgb(22, 101, 52)",
@@ -3866,9 +4697,23 @@
        1
       ]
      ],
-     "outlineW": [],
-     "outlineC": [],
+     "outlineW": [
+      [
+       "1px",
+       1
+      ]
+     ],
+     "outlineC": [
+      [
+       "rgb(228, 225, 219)",
+       1
+      ]
+     ],
      "transitionDur": [
+      [
+       "0s",
+       33
+      ],
       [
        "0.15s",
        11
@@ -3892,16 +4737,20 @@
      ],
      "transitionProp": [
       [
-       "all",
-       11
-      ],
-      [
        "background-color",
-       6
+       17
       ],
       [
        "color",
-       6
+       17
+      ],
+      [
+       "opacity",
+       12
+      ],
+      [
+       "border-color",
+       11
       ],
       [
        "background",
@@ -3914,16 +4763,12 @@
       [
        "width",
        1
-      ],
-      [
-       "opacity",
-       1
       ]
      ],
      "easing": [
       [
        "ease",
-       29
+       62
       ],
       [
        "cubic-bezier(0.34, 1.35, 0.64, 1)",
@@ -3931,6 +4776,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
    },
    "errors": []
   },
@@ -4072,6 +4923,251 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
+   },
+   "errors": []
+  },
+  {
+   "tag": "reader-mobile-dark",
+   "surface": "reader",
+   "viewport": "mobile",
+   "theme": "dark",
+   "png": "/home/dev/coding/projects/nostos-rebirth/Nostos.Frontend/e2e/visual-evidence/design-baseline/reader-mobile-dark.png",
+   "applied": "dark",
+   "geo": {
+    "innerWidth": 390,
+    "innerHeight": 844,
+    "dpr": 1,
+    "theme": "dark",
+    "bodyClass": "",
+    "scrollHeight": 844,
+    "elementCount": 279
+   },
+   "sweep": {
+    "painted": 70,
+    "buckets": {
+     "radius": [
+      [
+       "0px",
+       56
+      ],
+      [
+       "4px",
+       7
+      ],
+      [
+       "50%",
+       2
+      ],
+      [
+       "999px",
+       2
+      ],
+      [
+       "2px",
+       1
+      ],
+      [
+       "3px",
+       1
+      ],
+      [
+       "10%",
+       1
+      ]
+     ],
+     "fontSize": [
+      [
+       "16px",
+       35
+      ],
+      [
+       "13.3333px",
+       15
+      ],
+      [
+       "15.2px",
+       11
+      ],
+      [
+       "10.4px",
+       4
+      ],
+      [
+       "12.8px",
+       3
+      ],
+      [
+       "20px",
+       1
+      ],
+      [
+       "14.4px",
+       1
+      ]
+     ],
+     "fontWeight": [
+      [
+       "400",
+       54
+      ],
+      [
+       "600",
+       16
+      ]
+     ],
+     "fontFamily": [
+      [
+       "Hanken Grotesk",
+       68
+      ],
+      [
+       "Newsreader",
+       1
+      ],
+      [
+       "Arial",
+       1
+      ]
+     ],
+     "bg": [
+      [
+       "rgba(0, 0, 0, 0)",
+       59
+      ],
+      [
+       "rgb(27, 30, 38)",
+       5
+      ],
+      [
+       "rgb(21, 24, 31)",
+       4
+      ],
+      [
+       "rgb(38, 42, 52)",
+       1
+      ],
+      [
+       "rgb(45, 75, 68)",
+       1
+      ]
+     ],
+     "fg": [
+      [
+       "rgb(237, 238, 242)",
+       55
+      ],
+      [
+       "rgb(148, 156, 169)",
+       9
+      ],
+      [
+       "rgb(240, 242, 245)",
+       4
+      ],
+      [
+       "rgb(197, 201, 208)",
+       1
+      ],
+      [
+       "rgb(157, 150, 142)",
+       1
+      ]
+     ],
+     "borderW": [
+      [
+       "1px",
+       4
+      ]
+     ],
+     "borderC": [
+      [
+       "rgb(38, 42, 52)",
+       4
+      ]
+     ],
+     "shadow": [
+      [
+       "rgba(0, 0, 0, 0.08) 0px 10px 30px 0px",
+       1
+      ],
+      [
+       "rgba(0, 0, 0, 0.2) 0px 8px 20px 0px",
+       1
+      ]
+     ],
+     "outlineW": [],
+     "outlineC": [],
+     "transitionDur": [
+      [
+       "0.15s",
+       8
+      ],
+      [
+       "0.2s",
+       7
+      ],
+      [
+       "0s",
+       6
+      ],
+      [
+       "0.1s",
+       2
+      ],
+      [
+       "0.3s",
+       1
+      ]
+     ],
+     "transitionProp": [
+      [
+       "opacity",
+       6
+      ],
+      [
+       "transform",
+       5
+      ],
+      [
+       "background-color",
+       4
+      ],
+      [
+       "color",
+       4
+      ],
+      [
+       "border-color",
+       2
+      ],
+      [
+       "box-shadow",
+       2
+      ],
+      [
+       "background",
+       1
+      ]
+     ],
+     "easing": [
+      [
+       "ease",
+       24
+      ]
+     ]
+    }
+   },
+   "contentHash": {
+    "hash": "35c6c2a6",
+    "chars": 106,
+    "cards": 0,
+    "images": 1
    },
    "errors": []
   },
@@ -4224,7 +5320,7 @@
        1
       ],
       [
-       "color(srgb 0.941176 0.94902 0.960784 / 0.22)",
+       "rgba(0, 0, 0, 0.28)",
        1
       ],
       [
@@ -4323,7 +5419,7 @@
       ],
       [
        "0.2s",
-       34
+       39
       ],
       [
        "0.12s",
@@ -4334,12 +5430,12 @@
        23
       ],
       [
-       "0.16s",
-       9
+       "0s",
+       14
       ],
       [
-       "0s",
-       8
+       "0.16s",
+       9
       ],
       [
        "0.22s",
@@ -4356,12 +5452,12 @@
      ],
      "transitionProp": [
       [
-       "opacity",
-       36
+       "color",
+       43
       ],
       [
-       "color",
-       36
+       "opacity",
+       37
       ],
       [
        "background",
@@ -4369,31 +5465,31 @@
       ],
       [
        "transform",
-       16
+       21
       ],
       [
        "box-shadow",
-       14
+       15
       ],
       [
        "visibility",
        8
       ],
       [
-       "all",
-       8
+       "background-color",
+       7
       ],
       [
        "outline-color",
        5
       ],
       [
-       "background-color",
-       4
-      ],
-      [
        "grid-template-rows",
        3
+      ],
+      [
+       "border-color",
+       2
       ],
       [
        "filter",
@@ -4407,7 +5503,7 @@
      "easing": [
       [
        "ease",
-       115
+       126
       ],
       [
        "cubic-bezier(0.16, 1, 0.3, 1)",
@@ -4431,6 +5527,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "7ab51244",
+    "chars": 1987,
+    "cards": 12,
+    "images": 12
    },
    "errors": []
   },
@@ -4626,7 +5728,7 @@
       ],
       [
        "0s",
-       4
+       7
       ],
       [
        "0.2s",
@@ -4640,7 +5742,7 @@
      "transitionProp": [
       [
        "color",
-       22
+       23
       ],
       [
        "background",
@@ -4651,16 +5753,20 @@
        14
       ],
       [
+       "background-color",
+       6
+      ],
+      [
        "visibility",
        4
       ],
       [
-       "background-color",
-       4
+       "border-color",
+       1
       ],
       [
-       "all",
-       2
+       "box-shadow",
+       1
       ],
       [
        "transform",
@@ -4674,7 +5780,7 @@
      "easing": [
       [
        "ease",
-       59
+       62
       ],
       [
        "linear",
@@ -4686,6 +5792,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "319159f6",
+    "chars": 51,
+    "cards": 4,
+    "images": 0
    },
    "errors": []
   },
@@ -4811,7 +5923,7 @@
       ],
       [
        "rgb(27, 30, 38)",
-       7
+       6
       ],
       [
        "rgb(37, 42, 52)",
@@ -4826,11 +5938,11 @@
        2
       ],
       [
-       "rgba(0, 0, 0, 0.4)",
-       1
+       "rgb(50, 58, 72)",
+       2
       ],
       [
-       "rgb(50, 58, 72)",
+       "rgba(0, 0, 0, 0.4)",
        1
       ],
       [
@@ -4855,13 +5967,13 @@
      "borderW": [
       [
        "1px",
-       9
+       8
       ]
      ],
      "borderC": [
       [
        "rgb(38, 42, 52)",
-       8
+       7
       ],
       [
        "rgb(69, 78, 96)",
@@ -4908,22 +6020,22 @@
        15
       ],
       [
+       "0s",
+       5
+      ],
+      [
        "0.22s",
        4
       ],
       [
        "0.2s",
        3
-      ],
-      [
-       "0s",
-       3
       ]
      ],
      "transitionProp": [
       [
        "color",
-       22
+       23
       ],
       [
        "background",
@@ -4931,11 +6043,11 @@
       ],
       [
        "background-color",
-       10
+       11
       ],
       [
        "opacity",
-       7
+       8
       ],
       [
        "transform",
@@ -4948,10 +6060,6 @@
       [
        "visibility",
        3
-      ],
-      [
-       "all",
-       1
       ],
       [
        "border-color",
@@ -4969,7 +6077,7 @@
      "easing": [
       [
        "ease",
-       58
+       60
       ],
       [
        "linear",
@@ -4985,6 +6093,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
    },
    "errors": []
   },
@@ -5114,7 +6228,7 @@
       ],
       [
        "rgb(27, 30, 38)",
-       13
+       12
       ],
       [
        "color(srgb 0.560784 0.780392 0.658824 / 0.15)",
@@ -5133,15 +6247,15 @@
        2
       ],
       [
+       "rgb(50, 58, 72)",
+       2
+      ],
+      [
        "rgb(240, 242, 245)",
        1
       ],
       [
        "rgb(37, 42, 52)",
-       1
-      ],
-      [
-       "rgb(50, 58, 72)",
        1
       ],
       [
@@ -5217,9 +6331,23 @@
        1
       ]
      ],
-     "outlineW": [],
-     "outlineC": [],
+     "outlineW": [
+      [
+       "1px",
+       1
+      ]
+     ],
+     "outlineC": [
+      [
+       "rgb(38, 42, 52)",
+       1
+      ]
+     ],
      "transitionDur": [
+      [
+       "0s",
+       33
+      ],
       [
        "0.15s",
        11
@@ -5243,16 +6371,20 @@
      ],
      "transitionProp": [
       [
-       "all",
-       11
-      ],
-      [
        "background-color",
-       6
+       17
       ],
       [
        "color",
-       6
+       17
+      ],
+      [
+       "opacity",
+       12
+      ],
+      [
+       "border-color",
+       11
       ],
       [
        "background",
@@ -5265,16 +6397,12 @@
       [
        "width",
        1
-      ],
-      [
-       "opacity",
-       1
       ]
      ],
      "easing": [
       [
        "ease",
-       29
+       62
       ],
       [
        "cubic-bezier(0.34, 1.35, 0.64, 1)",
@@ -5282,6 +6410,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
    },
    "errors": []
   },
@@ -5424,6 +6558,12 @@
      ]
     }
    },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
+   },
    "errors": []
   }
  ],
@@ -5431,11 +6571,15 @@
   "html": "http://127.0.0.1:5214/",
   "sheets": [
    {
-    "href": "styles-OOUH22C2.css",
-    "bytes": 29740,
-    "hash": "9c0c9433"
+    "href": "styles-TFFX3TQA.css",
+    "bytes": 28317,
+    "hash": "fc9a8b4b"
    }
   ],
-  "sentinel_darkIndexRow": true
+  "contentHash": "77c68191",
+  "contentCounts": {
+   "cards": 0,
+   "images": 1
+  }
  }
 }

@@ -74,8 +74,7 @@
   padding: 0;
   color: var(--color-text-light);
   margin: 0;
-  transition: all 0.2s ease;
-}
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;}
 
 .search-box:hover {
   background: var(--bg-surface-alt);
@@ -138,7 +137,7 @@
 }
 
 .clear-search:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -198,15 +197,17 @@
 }
 
 .toggle-opt.active {
-  background: var(--bg-surface);
-  color: var(--color-primary);
+  /* `--control-active-*`: see the note in library.component.css — on dark
+     `--bg-surface` is darker than the track, so the elevation would invert. */
+  background: var(--control-active-fill);
+  color: var(--control-active-ink);
   box-shadow: var(--shadow-sm);
   outline: 1px solid var(--border-color);
   outline-offset: -1px;
 }
 
 .toggle-opt:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -239,7 +240,7 @@
   outline: none;
   appearance: none;
   font-family: inherit;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease; 
   background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
@@ -255,7 +256,7 @@
 }
 
 .sort-select:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -372,12 +373,22 @@
 
 /* Selection outranks hover, and must survive it: a selected row stays filled
    while the pointer is over it. Declared after the hover rule and with the
-   extra class, so it wins on both order and specificity. */
+   extra class, so it wins on both order and specificity.
+
+   The fill is `--selection-surface`, which owns the value in BOTH themes
+   (`#28372D` forest with white ink in light, raised slate `#2B323F` with
+   porcelain in dark). It used to be `--primary-fill`, which is the dark spruce
+   on dark and therefore read as a green pill; a global override repainted it,
+   and because Angular rewrites the three variant selectors below to add
+   `[_ngcontent]`, that override kept tying on specificity and only won by being
+   padded with an ancestor class (the fix in #94). Consuming the token removes
+   the race entirely — the component owns the state and there is no global rule
+   left to fight. */
 .index-item.active,
 .index-row-shell:hover .index-item.active,
 .index-row-shell:focus-within .index-item.active {
-  background: var(--primary-fill);
-  color: var(--on-primary);
+  background: var(--selection-surface);
+  color: var(--selection-ink);
   font-weight: var(--fw-medium);
 }
 
@@ -386,7 +397,7 @@
    --color-primary (an ink token that reads as a border on a surface it is not
    meant to trace). */
 .index-item:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -462,9 +473,11 @@
 }
 
 /* Tracks the active row's fill, like the tree's badge on a selected
-   collection. Driven from the on-fill foreground so it re-inks per theme. */
+   collection. Both come from `--selection-badge-bg` + `--on-primary` so the
+   Library sidebar's chip and this one cannot drift apart again — they were two
+   separate `color-mix` expressions that happened to agree. */
 .index-item.active .count {
-  background: color-mix(in srgb, var(--on-primary) 22%, transparent);
+  background: var(--selection-badge-bg);
   color: var(--on-primary);
 }
 
@@ -597,7 +610,7 @@
 }
 
 .row-action:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -688,7 +701,7 @@
 
 .empty-link:focus-visible,
 .empty-clear:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -760,7 +773,7 @@
 }
 
 .map-open-notes:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -869,7 +882,7 @@
 .merge-picker-cancel:focus-visible,
 .merge-picker-confirm:focus-visible,
 .merge-target:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -901,7 +914,7 @@
 }
 
 .inline-rename-input:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -980,7 +993,7 @@
 }
 
 .merge-search-box:focus-within {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
   color: var(--color-text-main);
 }
@@ -1155,7 +1168,7 @@
 
 .related-chip:focus-visible,
 .related-more:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -1172,17 +1185,9 @@
   flex-shrink: 0;
 }
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
+/* `.visually-hidden` moved to styles.css — it was duplicated here and in
+   second-brain.component.css with byte-identical bodies, so the two surfaces could
+   drift silently. One global definition; `npm run check:design` enforces it. */
 
 /* The detail controls are deliberately a single quiet rail: the notes remain
    the visual centre, while source, search and order are available on demand. */
@@ -1211,7 +1216,7 @@
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  transition: all 0.2s ease;
+  transition: background 0.2s ease;
 }
 
 .note-search-box:hover {
@@ -1282,7 +1287,7 @@
   outline: none;
   appearance: none;
   font-family: inherit;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease; 
   background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
@@ -1314,7 +1319,7 @@
 }
 
 .clear-note-search:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -1449,7 +1454,7 @@
 :host ::ng-deep app-note-card button:focus-visible,
 :host ::ng-deep app-note-card a:focus-visible,
 :host ::ng-deep app-note-card textarea:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -1755,7 +1760,7 @@
   }
 
   .mobile-nav-header:focus-visible {
-    outline: 2px solid var(--focus-ring);
+    outline: var(--focus-ring-width) solid var(--focus-ring);
     outline-offset: -2px;
   }
 

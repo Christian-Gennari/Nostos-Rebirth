@@ -121,7 +121,14 @@
   width: 18px;
   left: 3px;
   bottom: 3px;
-  /* The knob stays light in both themes: it sits on the track, not the page. */
+  /* The knob stays light in both themes: it sits on the track, not the page.
+     `--on-primary` is exactly right for it (#FFFFFF on light, #F0F2F5 on dark),
+     which is also the on-fill role — the track IS a primary fill when checked.
+     NOTE: a previous attempt in this change-set gave the knob its own token on the
+     theory that the CTA token-isation had moved `--on-primary`. It had not: the
+     settings problem was this component's own `.btn-primary` rule, fixed below.
+     The invented token silently changed the LIGHT knob from #FFFFFF to #F0F2F5 —
+     caught by the pixel diff, reverted. */
   background-color: var(--on-primary);
   border-radius: 50%;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
@@ -176,13 +183,18 @@
 }
 
 .theme-opt.is-active {
-  background: var(--bg-surface);
-  color: var(--color-text-main);
+  /* Same correction as the Studio tabs: `--bg-surface` is darker than the track on
+     dark, so the active option sank. Also carries the hairline outline every other
+     segmented control's active option uses — this one was missing it. */
+  background: var(--control-active-fill);
+  color: var(--control-active-ink);
   box-shadow: var(--shadow-sm);
+  outline: 1px solid var(--border-color);
+  outline-offset: -1px;
 }
 
 .theme-opt:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: 1px;
 }
 
@@ -214,8 +226,7 @@
   border-radius: 999px;
   border: none;
   cursor: pointer;
-  transition: all 0.15s ease;
-}
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;}
 
 .btn:disabled {
   opacity: 0.5;
@@ -223,13 +234,18 @@
 }
 
 .btn-primary {
-  background: var(--primary-fill);
-  color: var(--on-primary);
+  /* The CTA tokens, not `--primary-fill`/`--on-primary` directly. The global dark
+     override used to reach into this component and repaint it porcelain; now the
+     component asks for the CTA role and gets the same answer, with no global rule
+     needing to out-specify this one. Border stays `none` here (this component's
+     own choice) but the fill/ink come from the role. */
+  background: var(--cta-surface);
+  color: var(--cta-ink);
   border: none;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--color-primary-hover);
+  background: var(--cta-surface-hover);
 }
 
 .btn-secondary {
