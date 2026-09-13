@@ -91,6 +91,38 @@ const SURFACES = [
     },
   },
   {
+    name: 'brain-note-edit',
+    route: '/second-brain',
+    // note-card's EDIT-MODE buttons (save / cancel) only exist while a note is
+    // being edited, so without this surface they would be migrated with no
+    // coverage at all — the probe would report "identical" while seeing none of
+    // them. Open a concept, then click the note's edit action.
+    setup: async (page) => {
+      // The concept list is `.index-item` BUTTONS (no `.nav-item` here — that class
+      // matched the sidebar's NAV LINKS, so clicking it navigated to Library and the
+      // surface silently captured Library's buttons instead of note-card's).
+      const item = await page.waitForSelector('.index-item', { timeout: 10000 }).catch(() => null);
+      if (item) await item.click().catch(() => {});
+      // `:not([title])` is load-bearing: the sibling "Jump to location" button HAS a
+      // title and clicking it navigates to the reader, again swapping the capture.
+      //
+      // The click is dispatched in JS, not via `elementHandle.click()`. note-card
+      // reveals its actions on hover (`opacity: 0; pointer-events: none` at rest), so
+      // Playwright's real click is refused with "note-footer intercepts pointer
+      // events" and edit mode never opens — the two edit-mode buttons then went
+      // completely uncaptured while the run still reported success. Bypassing
+      // hit-testing is correct here: this probe measures computed style, it does not
+      // exercise pointer interaction, which is what the pixel gate and the specs are
+      // for. Verified: the same JS click opens edit mode and yields two 32px buttons.
+      const edit = await page
+        .waitForSelector('.note-actions .icon-btn:not(.delete):not([title])', { timeout: 8000 })
+        .catch(() => null);
+      if (edit) await edit.evaluate((e) => e.click()).catch(() => {});
+      // The two edit-mode buttons (save/cancel, 32px) only exist now.
+      await page.waitForSelector('.edit-actions .icon-btn', { timeout: 8000 }).catch(() => null);
+    },
+  },
+  {
     name: 'studio',
     route: '/studio',
     setup: async (page) => {
@@ -422,11 +454,16 @@ const hasStates = surfaces.some((s) => s.states.some((x) => x.state === 'hover' 
   && surfaces.some((s) => s.states.some((x) => x.state === 'focus' && x.buttons.length));
 // Variant keys look like '24pxx24px r=50% cls="icon-btn xs delete"'.
 const hasXs = [...variants.keys()].some((k) => k.startsWith('24pxx24px'));
+// note-card's edit-mode buttons exist ONLY while editing. If that interaction ever
+// stops working they drop out of coverage silently, and a migration of them would
+// "pass" while being invisible to the probe.
+const hasEditMode = [...variants.values()].some((r) => r.where.has('brain-note-edit'));
 const problems = [];
 if (total < 6) problems.push(`only ${total} buttons found — the probe is not seeing them`);
 if (variants.size < 2) problems.push(`only ${variants.size} distinct variant(s) — the component would be verified one way only`);
 if (!hasStates) problems.push('no hover/focus state captured — the probe cannot prove what a screenshot cannot show');
 if (!hasXs) problems.push('the 24px .xs rung was not captured — that is the size most likely to break');
+if (!hasEditMode) problems.push('the note-card edit-mode buttons were not captured (the edit interaction did not fire)');
 if (problems.length) {
   console.error('\n✖ probe coverage is insufficient, so nothing it reports can be trusted:');
   for (const p of problems) console.error(`   - ${p}`);

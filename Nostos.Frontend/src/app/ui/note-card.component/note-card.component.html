@@ -18,12 +18,8 @@
     ></app-concept-input>
 
     <div class="edit-actions">
-      <button class="icon-btn small" (click)="saveEdit($event)" title="Save">
-        <lucide-icon [img]="Icons.Check" [size]="16"></lucide-icon>
-      </button>
-      <button class="icon-btn small" (click)="cancelEdit($event)" title="Cancel">
-        <lucide-icon [img]="Icons.Close" [size]="16"></lucide-icon>
-      </button>
+      <button appIconButton [icon]="Icons.Check" [glyphSize]="16" (click)="saveEdit($event)" title="Save"></button>
+      <button appIconButton [icon]="Icons.Close" [glyphSize]="16" (click)="cancelEdit($event)" title="Cancel"></button>
     </div>
   </div>
 
@@ -80,16 +76,17 @@
       @if (showNavigation || showActions) {
       <div class="note-actions">
         @if (showNavigation) {
-        <button class="icon-btn xs" (click)="onCardClick($event)" title="Jump to location">
-          <lucide-icon [img]="Icons.ArrowRight" [size]="14"></lucide-icon>
-        </button>
+        <button appIconButton size="xxs" [icon]="Icons.ArrowRight" [glyphSize]="14" (click)="onCardClick($event)" title="Jump to location"></button>
         } @if (showActions) {
-        <button class="icon-btn xs" (click)="startEdit($event)">
-          <lucide-icon [img]="Icons.Edit" [size]="14"></lucide-icon>
-        </button>
-        <button class="icon-btn xs delete" (click)="onDelete($event)">
-          <lucide-icon [img]="Icons.Delete" [size]="14"></lucide-icon>
-        </button>
+        <button appIconButton size="xxs" [icon]="Icons.Edit" [glyphSize]="14" (click)="startEdit($event)"></button>
+        <button
+          appIconButton
+          class="delete"
+          size="xxs"
+          [icon]="Icons.Delete"
+          [glyphSize]="14"
+          (click)="onDelete($event)"
+        ></button>
         }
       </div>
       }

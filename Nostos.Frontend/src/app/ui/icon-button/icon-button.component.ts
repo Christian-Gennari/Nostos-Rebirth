@@ -69,9 +69,10 @@ export type IconButtonTone = 'default' | 'danger';
            library rows      28px  radius 4px
            note-card .xs     24px  radius 50%   <- round chip, NOT xs=28px
 
-         .small appears in note-card markup but has NO CSS rule anywhere, so it
-         already computes at 32px; it therefore maps to md, and size="small"
-         is not a rung. */
+         "small" appeared in note-card markup but had NO CSS rule anywhere, so it
+         already computed at 32px and maps to md; a "small" size is deliberately
+         not a rung, because inventing one would change those buttons' size. The
+         dead class was dropped during that migration. */
       :host(.icon-btn--xxs) {
         width: 24px;
         height: 24px;
