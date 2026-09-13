@@ -57,18 +57,29 @@ import { LucideAngularModule, X, CheckCircle, AlertTriangle, Info } from 'lucide
         animation: toast-slide-in 0.25s ease-out;
       }
 
+      /* Tokens, not literals. These were the last theme-blind colours in the app:
+         #4ade80 / #f87171 are a light-mode-tailwind green/red that sat on a dark
+         surface at the wrong value, and NOTHING else in the codebase hardcodes
+         these — every other surface (book-detail, settings, library, note-card,
+         flat-tree, second-brain, add-book-modal) reads --color-success /
+         --color-danger, which are theme-aware (#22c55e -> #8FC7A8 and
+         #d32f2f -> #E4796B). The "info" variant below already used
+         --color-primary, so the component was internally inconsistent as well.
+         The brand manifesto calls for "very restrained" accents and explicitly
+         avoids "neon gradients & colorful AI aesthetics"; a saturated mint on a
+         near-black surface was the one place that leaked through. */
       .toast-success {
-        border-left: 3px solid #4ade80;
+        border-left: 3px solid var(--color-success);
       }
       .toast-success lucide-icon {
-        color: #4ade80;
+        color: var(--color-success);
       }
 
       .toast-error {
-        border-left: 3px solid #f87171;
+        border-left: 3px solid var(--color-danger);
       }
       .toast-error lucide-icon {
-        color: #f87171;
+        color: var(--color-danger);
       }
 
       .toast-info {

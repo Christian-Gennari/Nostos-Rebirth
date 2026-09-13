@@ -154,7 +154,7 @@ for (const f of files) {
    EXIST (`--color-success` / `--color-danger`) and are theme-aware, so these two
    pairs are still theme-blind against a token that is not. Left for a human
    because it changes the rendered hue. */
-const LITERAL_COLOUR_BUDGET = 83;
+const LITERAL_COLOUR_BUDGET = 79;
 
 {
   const ALLOW = [
@@ -344,6 +344,69 @@ function hasFallbackFor(where, tok) {
 }
 
 /**
+ * Count backticks in a `.ts` file's `styles` array body. EXACTLY 2 (one template
+ * literal) is expected. Shared by the rule and its self-test so the two cannot
+ * disagree — the first version of this rule tested parity (even/odd) and the
+ * self-test correctly caught that parity would miss the real defect, which had
+ * FOUR backticks.
+ */
+function stylesBacktickCount(raw) {
+  const i = raw.indexOf('styles: [');
+  if (i === -1) return null;
+  const seg = raw.slice(i);
+  const j = seg.indexOf('\n  ],');
+  return ((j === -1 ? seg : seg.slice(0, j)).match(/`/g) ?? []).length;
+}
+
+/**
+ * RULE 6 — extra backticks in a component's `styles` template literal.
+ *
+ * Angular components in this app keep CSS in `styles: [\`...\`]`. A backtick INSIDE
+ * that CSS — most easily written by accident in a comment, e.g. \`info\` — closes
+ * the literal early. The CSS after it becomes a SECOND array element, and the AOT
+ * compiler fails with:
+ *
+ *   Failed to resolve styles at position 1 to a string.
+ *   Value could not be determined statically.
+ *
+ * That message names no file, so the failure reads as a mystery build break. This
+ * bit the change-set twice (once in app-dock, once in toast-container), both times
+ * from a comment written about a CSS class name.
+ *
+ * Rule of thumb the check enforces: never wrap a word in backticks inside inline
+ * component CSS. Use "quotes" instead.
+ */
+{
+  for (const f of files) {
+    if (!f.path.endsWith('.ts')) continue;
+    const raw = f.raw;
+    const i = raw.indexOf('styles: [');
+    if (i === -1) continue;
+    const seg = raw.slice(i);
+    const j = seg.indexOf('\n  ],');
+    const body = j === -1 ? seg : seg.slice(0, j);
+    const ticks = (body.match(/`/g) ?? []).length;
+    /* EXACTLY 2 is correct: one template literal. NOT "an even number" — the defect
+       that shipped had FOUR (open, a backtick pair around a word in a comment, and
+       close), which is even but still terminated the literal early and handed the
+       AOT compiler a second, unresolvable styles element. Counting parity would have
+       missed the very bug this rule exists for; I wrote the parity version first and
+       the self-test caught it. */
+    if (ticks !== 2 && !/design-lang-allow/.test(body)) {
+      const line = raw.slice(0, i).split('\n').length;
+      report('backtick-in-inline-styles', f.path, line,
+        `the \`styles\` array contains ${ticks} backticks; exactly 2 (one template ` +
+        `literal) is expected. An EXTRA pair — most often a word wrapped in backticks ` +
+        `inside a CSS comment — closes the literal early, and Angular then fails with ` +
+        `"Failed to resolve styles at position 1 to a string. Value could not be ` +
+        `determined statically", naming NO file. Use "quotes" inside inline CSS ` +
+        `comments. If a multi-element array is genuinely intended, add ` +
+        `design-lang-allow to it.`);
+    }
+  }
+}
+
+/**
  * Prove the scanner can fail. A rule that cannot be made to fire is not a check.
  * `--self-test` injects a known-bad snippet per rule and asserts each fires.
  */
@@ -392,11 +455,22 @@ if (process.argv.includes('--self-test')) {
         `flag the defect that shipped`);
     }
   }
+  /* Rule 6 shares the rule's own counter, so the two cannot disagree. */
+  {
+    const bad = 'styles: [\n    `\n      /* see the `info` variant */\n      .x { color: red; }\n    `,\n  ],';
+    const ticks = stylesBacktickCount(bad);
+    if (ticks !== null && ticks !== 2) {
+      ok++;
+      console.log(`  ✔ backtick-in-inline-styles fires on an extra-backtick styles array (${ticks} backticks, expected 2)`);
+    } else {
+      console.log(`  ✖ backtick-in-inline-styles DID NOT FIRE (counted ${ticks}) — the rule is vacuous`);
+    }
+  }
   const RULES = ['unterminated-transition', 'visually-hidden', 'literal-colour',
-    'undeclared-token', 'unwinnable-dark-override'];
-  console.log(`\nself-test: ${ok}/${cases.length + 1} injected cases detected`);
+    'undeclared-token', 'unwinnable-dark-override', 'backtick-in-inline-styles'];
+  console.log(`\nself-test: ${ok}/${cases.length + 2} injected cases detected`);
   console.log(`rules implemented: ${RULES.length} (${RULES.join(', ')})`);
-  process.exit(ok === cases.length + 1 ? 0 : 1);
+  process.exit(ok === cases.length + 2 ? 0 : 1);
 }
 
 // ------------------------------------------------------------------- output

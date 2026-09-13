@@ -339,17 +339,25 @@ Documented so the next reader does not "fix" it:
   so the next reader knows the four-rung cluster was examined and deliberately left
   as three.
 
-### Deliberate literals in the toast component
-`toast-container.component.ts` paints its success and error accents with
-`#4ade80` / `#f87171` directly, even though `--color-success` / `--color-danger`
-exist and are theme-aware (dark `#8FC7A8` / `#E4796B`). So the pair is
-theme-blind while a token that is not sits right beside it. Flagged rather than
-changed: swapping them moves the rendered hue, which is a taste call, and a
-theme change is not allowed to move a hue unasked.
+### The toast accents were the last theme-blind colours (now fixed)
+`toast-container.component.ts` painted its success and error accents with
+`#4ade80` / `#f87171` — light-mode Tailwind green/red hardcoded onto a surface that
+is near-black in dark mode. Resolved rather than merely flagged, on evidence:
 
-Everything else in that component read tokens correctly. Note the earlier claim
-that these components were "unthemed" was WRONG — they use `var()` with fallbacks
-and the tokens resolve; only the fallbacks were dead, and those are now removed.
+- **Nothing else in the app hardcodes these.** Every other surface (book-detail,
+  settings, library, note-card, flat-tree, second-brain, add-book-modal) reads
+  `--color-success` / `--color-danger`, which are theme-aware
+  (`#22c55e` -> `#8FC7A8`, `#d32f2f` -> `#E4796B`). Toast was the sole outlier.
+- **The component contradicted itself**: its `info` variant already used
+  `--color-primary`. So "error and success are literal, info is a token" was not a
+  considered distinction, just an unfinished one.
+- **The brand manifesto weighs in**: it calls for "very restrained" accents and
+  lists "neon gradients & colorful AI aesthetics" under *Avoid*. A saturated mint on
+  a near-black ground was the one place that leaked through.
+
+Note also that an earlier claim in this document — that these components were
+"unthemed" — was WRONG. They use `var()` with fallbacks and the tokens resolve;
+only the fallbacks were dead, and those were removed.
 
 ### The segmented control, and why it had to be fixed three separate times
 Four components render the same control under different names:
