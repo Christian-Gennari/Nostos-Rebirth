@@ -42,16 +42,36 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
     min-height: 100%;
     background: var(--paper);
     scroll-behavior: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule-strong) transparent;
+  }
+
+  html::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  html::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  html::-webkit-scrollbar-thumb {
+    background-color: var(--rule-strong);
+    border-radius: 999px;
+  }
+
+  html::-webkit-scrollbar-thumb:hover {
+    background-color: var(--ink-faint);
   }
 
   body {
     box-sizing: border-box;
     width: 100%;
+    max-width: 820px;
+    margin: 0 auto;
     min-height: 100%;
-    margin: 0;
     padding:
-      clamp(2.5rem, 5.5vw, 4.5rem)
-      clamp(1.5rem, 7vw, 4.5rem)
+      clamp(2rem, 4vw, 3.5rem)
+      clamp(1.5rem, 4vw, 2.5rem)
       7rem;
 
     color: var(--ink);
@@ -66,6 +86,12 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
     font-kerning: normal;
     font-variant-ligatures: common-ligatures;
     overflow-wrap: break-word;
+    outline: none !important;
+  }
+
+  body:focus,
+  body:focus-visible {
+    outline: none !important;
   }
 
   ::selection {
@@ -304,6 +330,31 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
          app's --editor-ui-* tokens, which follow the global theme through
          plain CSS inheritance. Theme changes repaint instantly; the editor
          is never destroyed or re-created. */
+
+      /* Kill Oxide container borders, drop shadows, and browser active outlines */
+      :host ::ng-deep .tox.tox-tinymce {
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        border-radius: 0 !important;
+      }
+
+      :host ::ng-deep .tox.tox-tinymce.tox-tinymce--focused,
+      :host ::ng-deep .tox.tox-tinymce:focus-within,
+      :host ::ng-deep .tox .tox-edit-area,
+      :host ::ng-deep .tox .tox-edit-area__iframe {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+      }
+
+      :host ::ng-deep .tox .tox-edit-area {
+        background: transparent !important;
+      }
+
+      :host ::ng-deep .tox .tox-edit-area__iframe {
+        background: transparent !important;
+      }
 
       /* Base font and color */
       :host ::ng-deep .tox {

@@ -320,7 +320,7 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
     expect(getComputedStyle(right).display).toBe('none');
   });
 
-  it('caps the writing surface at 860px and centers it in zen', () => {
+  it('caps the writing surface at 100% in zen', () => {
     openDocument();
     const editor = fixture.nativeElement.querySelector('app-markdown-editor') as HTMLElement;
     const wrapper = fixture.nativeElement.querySelector('.editor-wrapper') as HTMLElement;
@@ -328,8 +328,8 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
     component.enterZen();
     fixture.detectChanges();
 
-    expect(getComputedStyle(editor).maxWidth).toBe('860px');
-    expect(getComputedStyle(wrapper).alignItems).toBe('center');
+    expect(getComputedStyle(editor).maxWidth).toBe('100%');
+    expect(getComputedStyle(wrapper).alignItems).toBe('stretch');
   });
 
   // --- Exactly one scroll container remains ---
@@ -376,7 +376,7 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
   it('declares the seamless editorial canvas on the editor host', () => {
     const css = componentCss();
 
-    expect(css).toContain('max-width: 840px');
+    expect(css).toContain('max-width: 100%');
     expect(css).toContain('background: var(--bg-surface)');
     expect(css).toContain('border: none');
     expect(css).toContain('box-shadow: none');
@@ -398,10 +398,10 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
     expect(css).toContain('overflow: visible');
   });
 
-  it('declares the zen sheet wider (860px) on seamless surface', () => {
+  it('declares the zen sheet full-width on seamless surface', () => {
     const css = componentCss();
 
-    expect(css).toContain('max-width: 860px');
+    expect(css).toContain('max-width: 100%');
   });
 
   it('declares mobile edge-to-edge (<=700px): gutters zeroed, radius and shadow removed', () => {

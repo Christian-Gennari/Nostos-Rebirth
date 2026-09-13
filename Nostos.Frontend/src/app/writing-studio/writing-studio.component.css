@@ -420,7 +420,7 @@
  * The manuscript flows as a seamless, frameless desk surface.
  */
 .editor-wrapper {
-  --studio-inline-gutter: clamp(24px, 5vw, 64px);
+  --studio-inline-gutter: 0px;
   --studio-top-gutter: 0px;
   --studio-dock-clearance: 122px;
 
@@ -428,7 +428,7 @@
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
 
   width: 100%;
   height: 100%;
@@ -447,8 +447,8 @@
 
 /*
  * The manuscript sheet: app-markdown-editor fills the desk space seamlessly.
- * Without card borders or heavy outer shadows, the text breathes naturally at an
- * optimal reading measure while filling the monitor harmoniously.
+ * The reading measure (max-width: 820px) is owned inside the iframe body, so
+ * the scrollbar naturally hugs the viewport edge rather than floating beside prose.
  */
 .editor-wrapper app-markdown-editor {
   display: block;
@@ -456,7 +456,7 @@
 
   flex: 1 1 auto;
   width: 100%;
-  max-width: 840px;
+  max-width: 100%;
   height: 100%;
   min-height: 0;
 
@@ -707,10 +707,10 @@
   display: none !important;
 }
 
-/* Zen sizing: seamless full-width editorial desk, centered with generous margins. */
+/* Zen sizing: seamless full-width editorial desk */
 :host-context(body.nostos-zen) .editor-wrapper {
-  --studio-inline-gutter: clamp(20px, 8vw, 120px);
-  --studio-top-gutter: 32px;
+  --studio-inline-gutter: 0px;
+  --studio-top-gutter: 0px;
   --studio-dock-clearance: 24px;
   /* The dock is hidden in zen, so drop the generous dock clearance. */
   padding-bottom: 24px;
@@ -723,8 +723,8 @@
 
 :host-context(body.nostos-zen)
 .editor-wrapper app-markdown-editor {
-  width: min(100%, 860px);
-  max-width: 860px;
+  width: 100%;
+  max-width: 100%;
   height: 100%;
 }
 
