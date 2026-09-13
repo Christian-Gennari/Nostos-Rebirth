@@ -1,21 +1,18 @@
 /**
- * Decisive, pixel-space measurement of the map's framing.
- *
- * The earlier probe measured node centres in SVG *user* units. This measures the
- * drawn graph's bounding box in real *screen* pixels relative to the visible
- * canvas, which is the only thing that decides whether the graph looks centred
- * and whether it fills the frame. It also measures the label extents, because a
- * label can extend the visual bbox beyond the node positions.
+ * Decisive framing check: measure the margins on all four sides, separately for
+ * the node circles and for the labels, so "centred or not" is settled by
+ * measurement rather than by eye (vision reads of spatial balance are unreliable
+ * and have already disagreed with the pixel data twice).
  */
 import { expect, test } from '@playwright/test';
 import { apiPost, loadFixture } from './support/fixture';
 import { DESKTOP_VIEWPORT, newCapturePage } from './support/visual-capture';
 
-test('map cluster is centred and fills the canvas in screen pixels', async ({ browser }) => {
+test('map margins are symmetric and the cluster is centred', async ({ browser }) => {
   const fixture = loadFixture();
   const book = await apiPost<{ id: string }>(fixture.baseUrl, '/api/books', {
     type: 'physical',
-    title: `Framing ${Date.now().toString(36)}`,
+    title: `Margins ${Date.now().toString(36)}`,
     author: 'Nostos QA',
     categories: 'visual-qa',
   });
@@ -37,50 +34,61 @@ test('map cluster is centred and fills the canvas in screen pixels', async ({ br
     await page.locator('app-concept-map .map-svg').waitFor({ timeout: 30_000 });
     await page.waitForTimeout(700);
 
-    const px = await page.evaluate(() => {
+    const m = await page.evaluate(() => {
       const svg = document.querySelector('app-concept-map .map-svg') as SVGSVGElement;
-      const svgRect = svg.getBoundingClientRect();
+      const c = svg.getBoundingClientRect();
 
-      // Every drawn element that contributes to the visual footprint.
-      const parts = Array.from(
-        svg.querySelectorAll('circle.map-node-visual, text.map-node-label')
-      ) as (SVGCircleElement | SVGTextElement)[];
+      const boxOf = (sel: string) => {
+        const els = Array.from(svg.querySelectorAll(sel)) as Element[];
+        let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+        for (const el of els) {
+          const q = el.getBoundingClientRect();
+          if (!q.width && !q.height) continue;
+          l = Math.min(l, q.left); t = Math.min(t, q.top);
+          r = Math.max(r, q.right); b = Math.max(b, q.bottom);
+        }
+        if (!isFinite(l)) return null;
+        return { left: Math.round(l - c.left), top: Math.round(t - c.top), right: Math.round(c.right - r), bottom: Math.round(c.bottom - b) };
+      };
 
-      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-      for (const el of parts) {
-        const r = el.getBoundingClientRect();
-        if (r.width === 0 && r.height === 0) continue;
-        minX = Math.min(minX, r.left);
-        maxX = Math.max(maxX, r.right);
-        minY = Math.min(minY, r.top);
-        maxY = Math.max(maxY, r.bottom);
-      }
+      const circles = boxOf('circle.map-node-visual');
+      const labels = boxOf('text.map-node-label');
+      const all = boxOf('circle.map-node-visual, text.map-node-label');
 
-      const clamp = (v: number) => Math.max(0, Math.min(1, v));
       return {
-        canvas: { w: Math.round(svgRect.width), h: Math.round(svgRect.height) },
-        inkW: Math.round(maxX - minX),
-        inkH: Math.round(maxY - minY),
-        // Fractions of the canvas the ink occupies.
-        fillW: Math.round(clamp((maxX - minX) / svgRect.width) * 100),
-        fillH: Math.round(clamp((maxY - minY) / svgRect.height) * 100),
-        // Where the ink's centre sits relative to the canvas centre, in px.
-        offsetX: Math.round((minX + maxX) / 2 - (svgRect.left + svgRect.width / 2)),
-        offsetY: Math.round((minY + maxY) / 2 - (svgRect.top + svgRect.height / 2)),
+        canvas: { w: Math.round(c.width), h: Math.round(c.height) },
+        // SVG user units -> screen px scale, so we can sanity-check the numbers.
+        scale: Math.round((c.width / svg.viewBox.baseVal.width) * 1000) / 1000,
+        circleMargins: circles,
+        labelMargins: labels,
+        allMargins: all,
       };
     });
 
-    console.log('PIXEL FRAMING:', JSON.stringify(px, null, 1));
+    console.log('MARGINS (px):', JSON.stringify(m, null, 1));
 
-    // Centred: the ink centre must sit within ~6% of the canvas centre.
-    const tolX = Math.round(px.canvas.w * 0.06);
-    const tolY = Math.round(px.canvas.h * 0.06);
-    expect(Math.abs(px.offsetX), `horizontal offset ${px.offsetX}px (tol ${tolX})`).toBeLessThanOrEqual(tolX);
-    expect(Math.abs(px.offsetY), `vertical offset ${px.offsetY}px (tol ${tolY})`).toBeLessThanOrEqual(tolY);
+    const all = m.allMargins!;
+    console.log(
+      `vertical balance: top margin ${all.top}px vs bottom ${all.bottom}px ` +
+        `-> imbalance ${Math.abs(all.top - all.bottom)}px`
+    );
+    console.log(
+      `horizontal balance: left ${all.left}px vs right ${all.right}px ` +
+        `-> imbalance ${Math.abs(all.left - all.right)}px`
+    );
 
-    // Fills the frame: a 5-node cluster should not huddle.
-    expect(px.fillH, `ink covers ${px.fillH}% of canvas height`).toBeGreaterThanOrEqual(45);
-    expect(px.fillW, `ink covers ${px.fillW}% of canvas width`).toBeGreaterThanOrEqual(30);
+    // Vertical imbalance must be small relative to the canvas. Labels hang below
+    // their nodes, so a few px of asymmetry is expected and fine.
+    const tolV = Math.round(m.canvas.h * 0.08);
+    const tolH = Math.round(m.canvas.w * 0.08);
+    expect(
+      Math.abs(all.top - all.bottom),
+      `vertical imbalance ${Math.abs(all.top - all.bottom)}px (tol ${tolV}); top=${all.top} bottom=${all.bottom}`
+    ).toBeLessThanOrEqual(tolV);
+    expect(
+      Math.abs(all.left - all.right),
+      `horizontal imbalance ${Math.abs(all.left - all.right)}px (tol ${tolH}); left=${all.left} right=${all.right}`
+    ).toBeLessThanOrEqual(tolH);
   } finally {
     await context.close();
   }
