@@ -37,6 +37,12 @@ export type IconButtonTone = 'default' | 'danger';
  * pure de-duplication and every migration is pixel-identical. Moving them is a
  * follow-up, not a refactor.
  *
+ * THERE IS NO `active` INPUT, ON PURPOSE.
+ * Every surface's selected state is styled by its own `.icon-btn.active` rule, and
+ * because the host is the button a plain `[class.active]="tocOpen()"` keeps working
+ * untouched. An `active` input emitting `icon-btn--active` would be a SECOND way to
+ * express one state, and the two would drift.
+ *
  * THERE IS NO `ariaLabel` INPUT, ON PURPOSE.
  * A host binding like `[attr.aria-label]="ariaLabel() || null"` OVERRIDES a
  * static `aria-label` written on the call site, so `<button appIconButton
@@ -54,7 +60,6 @@ export type IconButtonTone = 'default' | 'danger';
   template: `<lucide-icon [img]="icon()" [size]="glyphSize()" />`,
   host: {
     class: 'icon-btn',
-    '[class.icon-btn--active]': 'active()',
     '[class.icon-btn--danger]': "tone() === 'danger'",
     '[class.icon-btn--xxs]': "size() === 'xxs'",
     '[class.icon-btn--xs]': "size() === 'xs'",
@@ -106,13 +111,6 @@ export class IconButtonComponent {
 
   /** `danger` tints the hover ink; the fill stays neutral by design. */
   readonly tone = input<IconButtonTone>('default');
-
-  /**
-   * Selected state. Applied as a class rather than an attribute because the
-   * reader's own `.icon-btn.active` rule already keys off the class, and the
-   * component must not fight it.
-   */
-  readonly active = input(false);
 
   /**
    * Tri-state `aria-pressed`. `null` (the default) leaves the attribute OFF

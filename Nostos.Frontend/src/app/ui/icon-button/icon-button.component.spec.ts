@@ -16,7 +16,7 @@ import { IconButtonComponent } from './icon-button.component';
     <button appIconButton [icon]="trash" size="xs" tone="danger" aria-label="Delete"></button>
     <button appIconButton [icon]="x" size="xxs" aria-label="Jump"></button>
     <button appIconButton [icon]="pencil" [disabled]="disabled()" (click)="clicks = clicks + 1"></button>
-    <button appIconButton [icon]="pencil" [active]="true" ariaLabel="TOC"></button>
+    <button appIconButton [icon]="pencil" [class.active]="true" aria-label="TOC"></button>
     <button appIconButton [icon]="pencil" [pressed]="pressed()"></button>
     <button appIconButton [icon]="pencil" class="desktop-only zen-toggle" aria-label="Extra"></button>
     <button appIconButton [icon]="pencil" [class.overflow-toggle]="toggleClass()" aria-label="Cond"></button>
@@ -111,10 +111,10 @@ describe('IconButtonComponent', () => {
     expect(f.componentInstance.clicks).toBe(1);
   });
 
-  it('marks the active state with a class, not an attribute the surface fights', async () => {
+  it('keeps a native [class.active] from the call site (the surface styles it)', async () => {
     const f = TestBed.createComponent(HostComponent);
     await f.whenStable();
-    expect(buttons(f)[4].classList.contains('icon-btn--active')).toBe(true);
+    expect(buttons(f)[4].classList.contains('active')).toBe(true);
   });
 
   it('omits aria-pressed entirely by default, and emits it only when set', async () => {

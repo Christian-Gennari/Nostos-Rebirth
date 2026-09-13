@@ -73,6 +73,25 @@ const SURFACES = [
     },
   },
   {
+    name: 'reader-mobile',
+    route: '/read/f9c17fb2-e42d-4db5-a3d0-b0a45b73f12e',
+    // The reader's mobile header uses a different button set (overflow-toggle,
+    // mobile-only zoom) than desktop. Same call sites, different branches.
+    viewport: { width: 420, height: 850 },
+  },
+  {
+    name: 'reader-overflow',
+    route: '/read/f9c17fb2-e42d-4db5-a3d0-b0a45b73f12e',
+    viewport: { width: 420, height: 850 },
+    // The overflow menu is where the desktop nav collapses to; its buttons are only
+    // in the DOM once the menu is open.
+    setup: async (page) => {
+      const t = await page.waitForSelector('.overflow-toggle', { timeout: 8000 }).catch(() => null);
+      if (t) await t.evaluate((e) => e.click()).catch(() => {});
+      await page.waitForTimeout(500);
+    },
+  },
+  {
     name: 'library-list',
     route: '/library',
     // The two row buttons (.edit / .delete) exist only in LIST view.
@@ -196,6 +215,11 @@ async function probe(page, theme) {
 
   const out = [];
   for (const surface of SURFACES) {
+    // A surface may need its own viewport: the reader hides most of its controls
+    // behind `mobile-only` / `desktop-only` / an overflow menu, so a desktop-only
+    // sweep would migrate ~10 of its 14 call sites with no coverage.
+    if (surface.viewport) await page.setViewportSize(surface.viewport);
+    else await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(BASE + surface.route, { waitUntil: 'networkidle' });
     await page.waitForTimeout(900); // let the surface settle before sampling
     // Expose branch-hidden buttons. A failure here is NOT fatal: the surface may
@@ -272,6 +296,11 @@ async function probe(page, theme) {
                   ? { dx: +((grect.left + grect.width / 2) - (rect.left + rect.width / 2)).toFixed(2),
                       dy: +((grect.top + grect.height / 2) - (rect.top + rect.height / 2)).toFixed(2) }
                   : null;
+                // The glyph's own computed style. Surfaces style the icon THROUGH the
+                // button (".icon-btn lucide-icon { top: 1px; border-radius: ... }") and
+                // a component boundary breaks descendant selectors like that, so the
+                // glyph must be measured, not assumed.
+                const gstyle = glyph ? getComputedStyle(glyph) : null;
                 return {
                   // Identity must NOT include className: the component legitimately
                   // adds `icon-btn--xs`, and hashing the class string turned every
@@ -288,7 +317,21 @@ async function probe(page, theme) {
                   text: (el.textContent || '').trim() || null,
                   disabled: 'disabled' in el ? !!el.disabled : null,
                   rect: { w: Math.round(rect.width), h: Math.round(rect.height) },
-                  glyph: glyph ? { w: Math.round(glyph.getBoundingClientRect().width), h: Math.round(glyph.getBoundingClientRect().height) } : null,
+                  glyph: glyph
+                    ? {
+                        w: Math.round(glyph.getBoundingClientRect().width),
+                        h: Math.round(glyph.getBoundingClientRect().height),
+                        tag: glyph.tagName.toLowerCase(),
+                        position: gstyle.position,
+                        top: gstyle.top,
+                        left: gstyle.left,
+                        margin: gstyle.margin,
+                        borderRadius: gstyle.borderRadius,
+                        transform: gstyle.transform,
+                        display: gstyle.display,
+                        color: gstyle.color,
+                      }
+                    : null,
                   // Did the state we asked for actually take effect? Without this the
                   // probe silently records the UN-hovered values in a `hover` sample
                   // when the pointer misses (or Angular re-renders the node mid-hover),

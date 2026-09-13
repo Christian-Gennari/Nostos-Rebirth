@@ -36,6 +36,7 @@ import { Note } from '../core/dtos/note.dtos';
 import { IReader, TocItem } from './reader.interface';
 
 // Components
+import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
 import { PdfReader } from './pdf-reader/pdf-reader.component';
 import { EpubReader } from './epub-reader/epub-reader.component';
 import { AudioReader } from './audio-reader/audio-reader.component';
@@ -54,6 +55,7 @@ import { NoteCardComponent } from '../ui/note-card.component/note-card.component
     AudioReader,
     ConceptInputComponent,
     NoteCardComponent,
+    IconButtonComponent,
   ],
   templateUrl: './reader-shell.component.html',
   styleUrl: './reader-shell.component.css',

@@ -313,7 +313,14 @@
   position: relative;
   top: 1px;
 }
-.icon-btn lucide-icon {
+/* The glyph radius has to reach THROUGH the appIconButton boundary: the button is
+   the component host (so `.icon-btn` rules still apply to it), but the icon inside
+   carries the CHILD's scope attribute, so a plain descendant selector no longer
+   matches. Measured before the migration: reader glyphs computed
+   `border-radius: 4px`, every other surface 0px. Without this the reader's icon
+   boxes lose their rounding. */
+:host ::ng-deep button[appIconButton] .icon-btn lucide-icon,
+:host ::ng-deep button[appIconButton] lucide-icon {
   border-radius: var(--radius-md);
 }
 .reader-toolbar .icon-btn {
@@ -479,7 +486,11 @@
     color: var(--on-primary);
     border-color: var(--color-primary);
   }
-  .icon-btn lucide-icon {
+  /* Mobile cancels the global 1px glyph nudge. This must cross the appIconButton
+     boundary for the same reason as the radius above: the glyph carries the child's
+     scope attribute, so a plain descendant selector stops matching. Caught by the
+     probe as a real 1px shift on the mobile toolbar before it could ship. */
+  :host ::ng-deep button[appIconButton] lucide-icon {
     top: 0;
   }
   .progress-display {
