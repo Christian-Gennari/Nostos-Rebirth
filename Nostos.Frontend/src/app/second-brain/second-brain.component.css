@@ -340,37 +340,42 @@
   width: 100%;
   min-height: 34px;
   margin-bottom: 2px;
-  /* Ground for the ::after fade below, re-declared per state so the fade always
-     paints the tone the row is actually sitting on. On a filled active row a
-     fixed surface tone would punch a light notch out of the fill. */
-  --row-ground: transparent;
-  /* Width of the trailing slot: 3 x 22px buttons + 2 x 2px gaps (70px) + the 6px
-     right inset. One number feeds the tail, the actions overlay and the fade
-     layer's own left edge, so they cannot drift apart. */
+  /* Width of the actions overlay: 3 x 22px buttons + 2 x 2px gaps (70px) + the 6px
+     right inset. */
   --actions-w: 76px;
+  /* How far the NAME box stops short of the row's right edge: the 8px row
+     padding plus the badge slot (badge min-width 20px). Together with
+     --actions-w this locates where the buttons begin *inside the name box*. */
+  --tail-reserve: 28px;
 }
 
-/* --row-ground is declared on the SHELL, not on `.index-item`: custom
-   properties inherit downward only, and `::after` is a child of the shell, so a
-   value set on the row could never reach it. */
-.index-row-shell:hover,
-.index-row-shell:focus-within {
-  --row-ground: var(--bg-hover);
-}
 
-.index-row-shell:has(.index-item.active) {
-  --row-ground: var(--primary-fill);
-}
 
-/* The row's fill is on the ROW, exactly as `.tree-row` does it — not on a
-   ::before overlay. That is what makes the hover ground and the active fill
-   share one geometry, so the row cannot appear to shift when selected. */
-.index-item:hover {
+/* The fill is driven by the SHELL, not by `.index-item:hover`.
+   The row is a <button>, so the action buttons CANNOT be nested inside it the
+   way the Library's tree nests them inside a <div role="treeitem">. They are a
+   sibling, which meant the two hover regions resolved to different rules:
+     - pointer over the NAME  -> `.index-item:hover` matched -> whole row filled;
+     - pointer over the ICONS -> only `.index-row-shell:hover` matched, so just
+       the ::after fade layer painted, giving a background over the right third.
+   Two competing hover effects on one row. Driving the fill from the shell's own
+   :hover fills the row ONCE from whichever child the pointer is over.
+
+   The fill is still painted on the row (not a ::before overlay), so the hover
+   ground and the active fill share one geometry and the row cannot appear to
+   shift when selected. */
+.index-row-shell:hover .index-item,
+.index-row-shell:focus-within .index-item {
   background: var(--bg-hover);
   color: var(--color-text-main);
 }
 
-.index-item.active {
+/* Selection outranks hover, and must survive it: a selected row stays filled
+   while the pointer is over it. Declared after the hover rule and with the
+   extra class, so it wins on both order and specificity. */
+.index-item.active,
+.index-row-shell:hover .index-item.active,
+.index-row-shell:focus-within .index-item.active {
   background: var(--primary-fill);
   color: var(--on-primary);
   font-weight: var(--fw-medium);
@@ -385,16 +390,6 @@
   outline-offset: -2px;
 }
 
-.index-row-shell:focus-within .index-item {
-  background: var(--bg-hover);
-  color: var(--color-text-main);
-}
-
-.index-row-shell:focus-within .index-item.active {
-  background: var(--primary-fill);
-  color: var(--on-primary);
-}
-
 .index-item .name {
   display: block;
   flex: 1 1 auto;
@@ -402,7 +397,11 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-right: 8px;
+  /* No margin-right: the tail's 76px slot already reserves the actions' width,
+     and the name must run INTO that slot for the mask to have anything to fade.
+     With a gap here the name stopped short of the buttons and the fade was
+     invisible, so a long name was still hard-cut. */
+  transition: opacity 0.15s;
 }
 
 .index-item .name mark {
@@ -417,12 +416,17 @@
    One slot shared by the count and the hover actions, as the tree does it: the
    actions are out of flow and overlaid on the badge's slot, so the name's
    truncation point never moves and both fit the 76px. */
+/* The badge's slot, exactly as the tree does it: an in-flow element pushed to
+   the right edge by `margin-left: auto`, with NO fixed width. The action buttons
+   are a separate absolutely-positioned overlay that lands on this same spot.
+   Giving the slot a fixed 76px width (as an earlier pass did) put the badge 8px
+   left of the buttons it is meant to coincide with. */
 .row-tail {
-  position: relative;
-  flex: 0 0 var(--actions-w);
-  width: var(--actions-w);
-  height: 20px;
+  display: inline-flex;
+  align-items: center;
   margin-left: auto;
+  flex-shrink: 0;
+  position: relative;
 }
 
 /* --- COUNT BADGE ------------------------------------------------------------
@@ -450,11 +454,11 @@
     color 0.15s;
 }
 
+/* Static: the wrapper above IS the slot, and the actions overlay lands on the
+   same right edge, so no further positioning is needed. */
 .index-item .count {
-  position: absolute;
-  top: 50%;
-  right: 0.75rem;
-  transform: translateY(-50%);
+  position: static;
+  transform: none;
 }
 
 /* Tracks the active row's fill, like the tree's badge on a selected
@@ -498,46 +502,56 @@
     visibility 0s;
 }
 
-/* Painted only while the actions that occlude the name are actually on screen.
-   A gradient from transparent to the row's own ground lets the name's tail
-   recede INTO the buttons rather than ending at a hard cut behind them. */
-.index-row-shell::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  /* Inset by the focus-ring width so this layer can never paint over the row's
-     own outline, and rounded to match the row or it squares off the corners. */
-  right: 2px;
-  left: calc(100% - var(--actions-w) - 22px);
-  pointer-events: none;
-  border-radius: 6px;
-  background: linear-gradient(
+/* The name's tail FADES OUT as it approaches the actions, so a long name recedes
+   into them instead of being cut off by a hard edge.
+   
+   The mechanism is a MASK on the name, not a painted overlay. The tree uses an
+   overlay gradient tinted to the row's ground, which works there because the
+   row's ground is painted by the row itself; here the row is a <button> with the
+   actions as a sibling, so an overlay tinted to the ground would paint a second,
+   slightly-different background over the tail — the competing-hover artefact.
+   Masking the name removes the glyphs' opacity instead, so whatever is behind
+   them (hover fill, active fill or nothing) shows through unaltered and there is
+   exactly one background on the row. */
+.index-item .name,
+.index-item .row-tail {
+  /* The fade must complete where the ACTION BUTTONS begin, not at the name box's
+     own right edge.
+     
+     Those are not the same place. The name stretches (`flex: 1 1 auto`) to end at
+     `--tail-reserve` (8px row padding + the 20px badge slot) from the row's right
+     edge, while the actions overlay starts a full `--actions-w` (76px) from it.
+     So the buttons begin `--actions-w - --tail-reserve` = 48px INSIDE the name
+     box, and text left opaque there is painted over by the icons.
+     
+     Stops are percentages of the NAME box (that is what `100%` resolves to inside
+     its own mask), so `--actions-overlap` converts the row-relative geometry into
+     box-relative offsets. An earlier version wrote the stops as
+     `100% - var(--actions-w)`, which both started the fade ~50px too late (text
+     ran under the icons) and, being mixed units, faded the wrong region. */
+  --actions-overlap: calc(var(--actions-w) - var(--tail-reserve));
+  --tail-fade: linear-gradient(
     to right,
-    transparent,
-    var(--row-ground, transparent) 22px
+    #000 calc(100% - var(--actions-overlap) - 26px),
+    transparent calc(100% - var(--actions-overlap) + 2px)
   );
-  opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity 0.15s,
-    visibility 0s linear 0.15s;
 }
 
-.index-row-shell:hover::after,
-.index-row-shell:focus-within::after {
-  opacity: 1;
-  visibility: visible;
-  transition:
-    opacity 0.15s,
-    visibility 0s;
+.index-row-shell:hover .index-item .name,
+.index-row-shell:focus-within .index-item .name {
+  -webkit-mask-image: var(--tail-fade);
+  mask-image: var(--tail-fade);
 }
 
-/* The badge yields to the actions in the one state where they share the slot. */
-.index-row-shell:hover .count,
-.index-row-shell:focus-within .count {
+/* The count badge yields the slot to the actions, exactly as the tree does it
+   (`.tree-row:hover .count-badge { opacity: 0 }`) — applied to the BADGE, not to
+   its wrapper, so the opacity lands on the element the parity spec measures. */
+.index-row-shell:hover .index-item .count,
+.index-row-shell:focus-within .index-item .count {
   opacity: 0;
 }
+
+
 
 /* 22x22 with a 13px glyph — the tree's `.action-mini`, not a 34x32 button. */
 .row-action {
@@ -611,15 +625,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .row-actions,
-  .index-row-shell::after,
   .index-item,
-  .count {
-    transition: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .row-actions {
+  .count,
+  .index-item .name {
     transition: none;
   }
 }
@@ -1618,7 +1626,6 @@
     --actions-w: 96px;
   }
 
-  .row-tail,
   .row-actions {
     height: 44px;
   }
