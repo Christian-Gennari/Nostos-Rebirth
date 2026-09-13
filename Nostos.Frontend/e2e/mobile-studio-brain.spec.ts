@@ -25,13 +25,31 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { apiPost, loadFixture } from './support/fixture';
 import { apiPut } from './support/visual-capture';
+import { cleanupBrain, seedBrain, type BrainSeed } from './support/brain-fixture';
 
 const MIN_TAP_TARGET = 44; // CSS px, Apple HIG / Material minimum
 
 let fixture: ReturnType<typeof loadFixture>;
 
+/**
+ * Concepts seeded by this spec, cleaned up in `afterAll`.
+ *
+ * Every Playwright spec shares ONE fixture instance, and
+ * `visual-regression.spec.ts`'s `brain-empty-desktop` asserts the *pristine*
+ * empty state. A spec that leaves concepts behind therefore poisons it for
+ * every later spec — which is exactly what happened before `seedBrain`/
+ * `cleanupBrain` were used here. See `support/brain-fixture.ts`.
+ */
+const seeds: BrainSeed[] = [];
+
 test.beforeAll(() => {
   fixture = loadFixture();
+});
+
+test.afterAll(async () => {
+  for (const seed of seeds) {
+    await cleanupBrain(fixture.baseUrl, seed);
+  }
 });
 
 /** Seed one document through the supported REST surface (as the visual matrix does). */
@@ -184,19 +202,19 @@ test('the studio document tree exposes 44px expand chevrons', async ({ page }) =
 
 test('the Brain back control stays reachable after scrolling the detail sheet', async ({ page }) => {
   // Notes are created through a book (the app has no standalone POST /api/notes),
-  // and a note's [[Concept]] reference is what materialises the concept.
+  // and a note's [[Concept]] reference is what materialises the concept. Seeded via
+  // the shared helper so `afterAll` can restore the fixture exactly.
   const concept = `MobilePolish${Date.now()}`;
-  const book = await apiPost<{ id: string }>(fixture.baseUrl, '/api/books', {
-    type: 'physical',
-    title: `Mobile Polish Brain ${concept}`,
-    author: 'Nostos Mobile QA',
-    categories: 'mobile-polish',
-  });
-  await apiPost(fixture.baseUrl, `/api/books/${book.id}/notes`, {
-    content:
+  const seed = await seedBrain(
+    fixture.baseUrl,
+    `Mobile Polish Brain ${concept}`,
+    [
       `A note referencing [[${concept}]] with enough surrounding text to push the ` +
-      'detail sheet well past the fold. '.repeat(30),
-  });
+        'detail sheet well past the fold. '.repeat(30),
+    ],
+    [concept],
+  );
+  seeds.push(seed);
 
   await page.goto(`${fixture.baseUrl}/second-brain`, { waitUntil: 'domcontentloaded' });
   const item = page.locator('.index-item', { hasText: concept }).first();
@@ -205,6 +223,50 @@ test('the Brain back control stays reachable after scrolling the detail sheet', 
 
   const back = page.locator('.mobile-nav-header');
   await expect(back).toBeVisible();
+
+  // The band must be full-bleed and its content must stay on the sheet's line.
+  // It is a sticky box inside a column that pads 24px: without the negative
+  // margins the white surface stopped 24px short of each edge and showed cream
+  // page ground beside the masked strip.
+  //
+  // The content line is derived from the COLUMN's own padding (and cross-checked
+  // against the note card), not from a sibling element that may not exist for a
+  // concept with no rendered header row.
+  const band = await page.evaluate(() => {
+    const nav = document.querySelector('.mobile-nav-header') as HTMLElement | null;
+    const col = document.querySelector('.content-col') as HTMLElement | null;
+    if (!nav || !col) return null;
+    const n = nav.getBoundingClientRect();
+    const glyph = nav.querySelector('svg') as HTMLElement | null;
+    const card = document.querySelector('app-note-card') as HTMLElement | null;
+    return {
+      leftGap: Math.round(n.left),
+      // A scrollbar occupies the column's right edge when the sheet overflows;
+      // allow it, but never the 24px content padding this bug produced.
+      rightGap: Math.round(window.innerWidth - n.right),
+      glyphLeft: glyph ? Math.round(glyph.getBoundingClientRect().left) : null,
+      columnContentLeft: Math.round(
+        col.getBoundingClientRect().left + parseFloat(getComputedStyle(col).paddingLeft),
+      ),
+      cardLeft: card ? Math.round(card.getBoundingClientRect().left) : null,
+    };
+  });
+  expect(band, 'the back band and the detail column must both be rendered').not.toBeNull();
+
+  // Regression: it used to start at x=24 with cream page ground to its left.
+  expect(band!.leftGap, 'the band must reach the left viewport edge').toBeLessThanOrEqual(1);
+  expect(
+    band!.rightGap,
+    'the band must reach the right edge (allowing for a scrollbar)',
+  ).toBeLessThanOrEqual(16);
+  // Full-bleed must not drag the content with it: the chevron stays on the same
+  // 24px line the column establishes for its content.
+  expect(band!.glyphLeft, 'the chevron must stay on the content line').toBe(band!.columnContentLeft);
+  if (band!.cardLeft !== null) {
+    expect(band!.cardLeft, 'the note card shares the same content line').toBe(
+      band!.columnContentLeft,
+    );
+  }
 
   // Scroll far enough that a static control would be gone for good.
   await page.locator('.content-col').evaluate((el) => {
@@ -254,15 +316,13 @@ test('the Brain index exposes 44px view-mode and search targets', async ({ page 
  */
 async function openConceptDetail(page: Page): Promise<void> {
   const concept = `MobileNotes${Date.now()}`;
-  const book = await apiPost<{ id: string }>(fixture.baseUrl, '/api/books', {
-    type: 'physical',
-    title: `Mobile Notes Source ${concept}`,
-    author: 'Nostos Mobile QA',
-    categories: 'mobile-polish',
-  });
-  await apiPost(fixture.baseUrl, `/api/books/${book.id}/notes`, {
-    content: `A note about [[${concept}]] with enough text to give the card a body.`,
-  });
+  const seed = await seedBrain(
+    fixture.baseUrl,
+    `Mobile Notes Source ${concept}`,
+    [`A note about [[${concept}]] with enough text to give the card a body.`],
+    [concept],
+  );
+  seeds.push(seed);
 
   await page.goto(`${fixture.baseUrl}/second-brain`, { waitUntil: 'domcontentloaded' });
   const item = page.locator('.index-item', { hasText: concept }).first();
@@ -278,7 +338,11 @@ test('the concept detail pane has no horizontal scrollbar from card actions', as
     const col = document.querySelector('.content-col') as HTMLElement | null;
     if (!col) return null;
     const box = col.getBoundingClientRect();
-    const limit = box.right - parseFloat(getComputedStyle(col).paddingRight);
+    // Measure against the column's BORDER box, not its padded content box: the
+    // "Back to Index" band is deliberately full-bleed (it spans the border box
+    // to mask content passing under it), so a content-box limit would flag that
+    // intentional edge as a defect. Nothing may escape the column itself.
+    const limit = box.right;
     const overflowing = Array.from(col.querySelectorAll('*'))
       .filter((el) => {
         const b = el.getBoundingClientRect();
@@ -297,11 +361,12 @@ test('the concept detail pane has no horizontal scrollbar from card actions', as
   expect(measured, 'the concept detail column must be present').not.toBeNull();
 
   // Regression: two 44px card-action buttons needed 102px of a 287px footer
-  // pinned to 32px tall, so the cluster overhung the card by 49px and
-  // `overflow-x: auto` turned that into a second scrollbar beside the vertical.
+  // pinned to 32px tall, so the cluster overhung the card by 49px (and the
+  // concept header by 69px); `overflow-x: auto` turned that into a second
+  // scrollbar beside the vertical one.
   expect(
     measured!.overflowing,
-    `elements must not overhang the detail column: ${JSON.stringify(measured!.overflowing)}`,
+    `elements must not escape the detail column: ${JSON.stringify(measured!.overflowing)}`,
   ).toEqual([]);
   expect(measured!.horizontalOverflow, 'detail column must not scroll sideways').toBeLessThanOrEqual(
     1,

@@ -1692,14 +1692,27 @@
      is the only way back to the list (the index column is display:none while a
      concept is open), so a static back control makes the list unreachable from
      any scrolled position. Pin it to the top of the scrolling column and mask
-     the content passing under it. */
+     the content passing under it.
+
+     The column pads 24px, so a sticky box inside that padding leaves 24px of
+     exposed page ground on each side of the masked strip — the white band
+     visibly stops short of the edges. This is the full definition (see the
+     `.mobile-nav-header` rule below for the type/divider half): negative inline
+     margins cancel the column padding, equal padding puts the content back on
+     the same 24px line as the rest of the sheet, and the `top` offset cancels
+     the column's top padding so the band holds against the viewport edge when
+     stuck. `width` is computed from the parent's full box (`100%` + both
+     negative margins) because the parent is a plain block, where `auto`
+     shrink-to-fits a flex box instead of filling it. */
   .mobile-nav-header {
     position: sticky;
-    top: -1.5rem; /* cancels the column's own 1.5rem top padding */
+    top: -1.5rem;
     z-index: 3;
     background: var(--bg-surface);
-    padding-top: 1.5rem;
-    margin-top: -1.5rem;
+    margin: -1.5rem -1.5rem 1.5rem;
+    padding: 1.5rem 1.5rem 1rem;
+    width: calc(100% + 3rem);
+    box-sizing: border-box;
   }
 
   .note-count {
@@ -1719,8 +1732,10 @@
     align-items: center;
     gap: 0.5rem;
 
-    /* Layout */
-    width: 100%;
+    /* Layout. The band's sticky geometry (negative margins, matching padding,
+       background, z-index) is defined in the rule above; this block only adds
+       the type, divider and spacing, so `width` must NOT be re-pinned to 100%
+       or the padded edges stop reaching the viewport. */
     padding-bottom: 1rem; /* Vertical breathing room */
     margin-bottom: 1.5rem;
     border-bottom: 1px solid var(--border-color); /* Subtle divider */
