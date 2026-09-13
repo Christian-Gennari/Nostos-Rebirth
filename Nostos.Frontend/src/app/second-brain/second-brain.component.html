@@ -1,88 +1,474 @@
 <main class="layout-wrapper">
   <div class="layout-content brain-layout">
-    <aside class="index-col" [class.mobile-hidden]="selectedId()">
+    <aside
+      class="index-col"
+      [class.mobile-hidden]="selectedId() || viewMode() === 'map'"
+    >
       <div class="index-header">
         <div class="header-row">
           <h1>Index</h1>
           <span class="badge-count">{{ filteredConcepts().length }}</span>
+          <span class="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+            Showing {{ filteredConcepts().length }} of {{ concepts().length }} concepts
+          </span>
         </div>
+        @if (conceptStats(); as stats) {
+        <div class="index-stats">
+          {{ stats.totalConcepts }} {{ stats.totalConcepts === 1 ? 'concept' : 'concepts' }} ·
+          {{ stats.totalReferences }}
+          {{ stats.totalReferences === 1 ? 'reference' : 'references' }}
+        </div>
+        }
         <div class="search-box">
-          <lucide-icon [img]="SearchIcon" [size]="16"></lucide-icon>
+          <lucide-icon [img]="SearchIcon" [size]="16" class="search-icon"></lucide-icon>
           <input
+            #searchInput
             type="text"
             placeholder="Search ideas..."
+            aria-label="Search concepts"
             [ngModel]="searchQuery()"
-            (ngModelChange)="searchQuery.set($event)"
+            (ngModelChange)="setSearchQuery($event)"
+            (keydown)="handleSearchKeydown($event)"
           />
+          @if (searchQuery()) {
+          <button
+            type="button"
+            class="clear-search"
+            aria-label="Clear search"
+            (click)="clearSearch()"
+          >
+            <lucide-icon [img]="ClearIcon" [size]="15"></lucide-icon>
+          </button>
+          }
+        </div>
+        <div class="index-tools">
+          <label class="sort-label" for="brain-sort">Sort</label>
+          <div class="select-shell sort-shell">
+            <select
+              id="brain-sort"
+              class="sort-select"
+              [ngModel]="indexSort()"
+              (ngModelChange)="setSort($event)"
+            >
+              <option value="usage">Most used</option>
+              <option value="az">A → Z</option>
+              <option value="za">Z → A</option>
+            </select>
+                      </div>
+          <!-- Icon-only at 18px/1.5, exactly the Library's list/grid control.
+               No text labels: the Library's toggle has none, and at this size
+               two labelled segments read as a button pair rather than one
+               segmented control. -->
+          <div class="control-group view-mode-control" role="group" aria-label="Brain view">
+            <button
+              type="button"
+              class="toggle-opt"
+              [class.active]="viewMode() === 'list'"
+              [attr.aria-pressed]="viewMode() === 'list'"
+              aria-label="Concept view"
+              title="Concept view"
+              (click)="setViewMode('list')"
+            >
+              <lucide-icon [img]="ListIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
+            </button>
+            <button
+              type="button"
+              class="toggle-opt"
+              [class.active]="viewMode() === 'map'"
+              [attr.aria-pressed]="viewMode() === 'map'"
+              aria-label="Map view"
+              title="Map view"
+              (click)="setViewMode('map')"
+            >
+              <lucide-icon [img]="MapIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
+            </button>
+          </div>
         </div>
       </div>
 
-      <div class="index-list">
-        @for (c of filteredConcepts(); track c.id) {
-        <button
-          class="index-item"
-          [class.active]="selectedId() === c.id"
-          (click)="selectConcept(c.id)"
-        >
-          <span class="name">{{ c.name }}</span>
-          <span class="count">{{ c.usageCount }}</span>
-        </button>
-        } @if (filteredConcepts().length === 0) {
-        <div class="empty-index">No concepts found</div>
+      <div
+        class="index-list"
+        [attr.aria-busy]="loadingConcepts()"
+        role="list"
+        aria-label="Concept index"
+      >
+        @if (loadingConcepts()) {
+        <div class="index-wait-field wait-field" role="status" aria-label="Loading concepts"></div>
+        } @else if (concepts().length === 0) {
+        <div class="empty-index-state" role="status">
+          <div class="empty-eyebrow">The index is quiet</div>
+          <p>Concepts appear when you write <code>[[Concept Name]]</code> in a note.</p>
+          <p class="empty-example">Try a note with <code>[[A thought worth returning to]]</code>.</p>
+          <a routerLink="/library" class="empty-link">Go to Library</a>
+        </div>
+        } @else if (filteredConcepts().length === 0) {
+        <div class="empty-index-state" role="status">
+          <div class="empty-eyebrow">No match</div>
+          <p>No concepts match “{{ searchQuery().trim() }}”.</p>
+          <button type="button" class="empty-clear" (click)="clearSearch()">Clear search</button>
+        </div>
+        } @else {
+        @for (c of filteredConcepts(); track c.id; let i = $index) {
+        @if (isLetterStart(i)) {
+        <div class="letter-separator super-title" aria-hidden="true">{{ letterFor(c) }}</div>
+        }
+        <div class="index-row-shell" role="listitem">
+          @if (renameId() === c.id && renameSurface() === 'index') {
+          <div class="index-item inline-rename" (click)="$event.stopPropagation()">
+            <input
+              #renameInput
+              type="text"
+              class="inline-rename-input"
+              [value]="renameValue()"
+              (input)="renameValue.set($any($event.target).value)"
+              (keydown.enter)="$event.stopPropagation(); commitRename(c.id)"
+              (keydown.escape)="$event.stopPropagation(); cancelRename()"
+              (focus)="selectRenameInput($event)"
+              [attr.aria-label]="'Rename ' + c.name"
+              [attr.aria-invalid]="renameError() ? 'true' : null"
+              [disabled]="renaming()"
+              autofocus
+            />
+            @if (renameError(); as error) {
+            <span class="inline-rename-error" role="alert">{{ error }}</span>
+            }
+          </div>
+          } @else {
+          <button
+            #indexRow
+            type="button"
+            class="index-item"
+            [class.active]="selectedId() === c.id"
+            [attr.tabindex]="cursorIndex() === null ? (i === 0 ? 0 : -1) : (cursorIndex() === i ? 0 : -1)"
+            [attr.aria-label]="c.name"
+            [attr.aria-pressed]="selectedId() === c.id"
+            (click)="selectConcept(c.id)"
+            (mouseenter)="prefetch(c.id)"
+            (focus)="handleIndexFocus(i); prefetch(c.id)"
+            (keydown)="handleIndexKeydown($event, i, c.id)"
+          >
+            <span class="name">
+              @for (part of highlightName(c.name); track $index) {
+              @if (part.highlight) {
+              <mark>{{ part.text }}</mark>
+              } @else {
+              {{ part.text }}
+              }
+              }
+            </span>
+            <span class="row-tail">
+              <span class="count">{{ c.usageCount }}</span>
+            </span>
+          </button>
+          }
+          <div class="row-actions" (click)="$event.stopPropagation()">
+            <button
+              type="button"
+              class="row-action"
+              [attr.aria-label]="'Rename ' + c.name"
+              (click)="requestRename(c.id, $event)"
+            >
+              <lucide-icon [img]="RenameIcon" [size]="13"></lucide-icon>
+            </button>
+            <button
+              type="button"
+              class="row-action danger"
+              [attr.aria-label]="'Delete ' + c.name"
+              (click)="requestDelete(c.id, $event)"
+            >
+              <lucide-icon [img]="DeleteIcon" [size]="13"></lucide-icon>
+            </button>
+          </div>
+        </div>
+        }
         }
       </div>
     </aside>
 
-    <section class="content-col" [class.mobile-visible]="selectedId()" [class.is-waiting]="loadingDetail()">
-      @if (selectedId()) {
-      <div class="mobile-nav-header" (click)="clearSelection()">
+    <section class="content-col" [class.mobile-visible]="selectedId() || viewMode() === 'map'">
+      @if (viewMode() === 'map') {
+      <!-- The map lives on the main stage, not in the index rail: it is a
+           whole-brain view, and a force-directed graph squeezed into a ~320px
+           sidebar cannot be read. In this mode it replaces the concept pane
+           entirely; the index stays alongside as the filter/search surface. -->
+      @if (selectedConceptName(); as name) {
+      <div class="map-selection-bar" role="status">
+        <span class="map-selection-name">{{ name }}</span>
+        <button type="button" class="map-open-notes" (click)="openSelectedConcept()">
+          <span>Read notes</span>
+          <lucide-icon [img]="ArrowRightIcon" [size]="15"></lucide-icon>
+        </button>
+      </div>
+      }
+      <!-- On mobile the map takes the whole screen (the index is hidden), so it
+           needs its own way back — the same affordance the concept pane uses. -->
+      <button type="button" class="mobile-nav-header" (click)="leaveMap()">
         <lucide-icon [img]="ArrowLeftIcon" [size]="18"></lucide-icon>
         <span>Back to Index</span>
-      </div>
-      } @if (loadingDetail()) {
-      <div class="wait-field wait-field--breath" aria-hidden="true"></div>
-      } @else if (selectedDetail(); as detail) {
+      </button>
+      <app-concept-map
+        [concepts]="filteredConcepts()"
+        [selectedId]="selectedId()"
+        (conceptSelected)="onMapConceptSelected($event)"
+      ></app-concept-map>
+      } @else { @if (selectedId()) {
+      <button type="button" class="mobile-nav-header" (click)="clearSelection()">
+        <lucide-icon [img]="ArrowLeftIcon" [size]="18"></lucide-icon>
+        <span>Back to Index</span>
+      </button>
+      } @if (selectedDetail(); as detail) {
       <div class="concept-header">
-        <div class="super-title">Concept</div>
-        <h1 class="concept-title">{{ detail.name }}</h1>
-        <div class="concept-meta">
-          Referenced in {{ detail.notes.length }} {{ detail.notes.length === 1 ? 'note' : 'notes' }}
-        </div>
-      </div>
-
-      <div class="cards-grid">
-        @for (note of detail.notes; track note.noteId; let i = $index) {
-        <div class="note-card" [class.card-wide]="shouldCardSpanTwoColumns(note)">
-          <div class="card-body">
-            @if (note.selectedText) {
-            <div class="highlight-block">
-              <p class="highlight-text">"{{ note.selectedText }}"</p>
+        <div class="concept-head-row">
+          <div class="concept-head-copy">
+            <div class="super-title">Concept</div>
+            @if (renameId() === detail.id && renameSurface() === 'header') {
+            <div class="inline-rename header-rename">
+              <input
+                #renameInput
+                type="text"
+                class="inline-rename-input"
+                [value]="renameValue()"
+                (input)="renameValue.set($any($event.target).value)"
+                (keydown.enter)="commitRename(detail.id)"
+                (keydown.escape)="cancelRename()"
+                (focus)="selectRenameInput($event)"
+                [attr.aria-label]="'Rename ' + detail.name"
+                [attr.aria-invalid]="renameError() ? 'true' : null"
+                [disabled]="renaming()"
+                autofocus
+              />
+              @if (renameError(); as error) {
+              <span class="inline-rename-error" role="alert">{{ error }}</span>
+              }
             </div>
-            } @if (note.content) {
-            <p
-              class="note-text"
-              [innerHTML]="note.content | noteFormat : conceptMap()"
-              (click)="handleContentClick($event)"
-            ></p>
+            } @else {
+            <h1 class="concept-title">{{ detail.name }}</h1>
+            }
+            <div class="concept-meta">
+              Referenced in {{ detail.notes.length }} {{ detail.notes.length === 1 ? 'note' : 'notes' }}
+            </div>
+          </div>
+
+          <div class="concept-actions" aria-label="Manage concept">
+            <button
+              type="button"
+              class="concept-action"
+              [disabled]="renaming() || mergingConcept()"
+              (click)="startRename(detail.id, 'header')"
+            >
+              <lucide-icon [img]="RenameIcon" [size]="14"></lucide-icon>
+              <span>Rename</span>
+            </button>
+            <button
+              type="button"
+              class="concept-action"
+              [disabled]="renaming() || mergingConcept()"
+              (click)="openMergePicker()"
+            >
+              <lucide-icon [img]="MergeIcon" [size]="14"></lucide-icon>
+              <span>Merge into…</span>
+            </button>
+            <button
+              type="button"
+              class="concept-action danger"
+              [disabled]="renaming() || mergingConcept()"
+              (click)="openDeleteConcept(detail.id)"
+            >
+              <lucide-icon [img]="DeleteIcon" [size]="14"></lucide-icon>
+              <span>Delete</span>
+            </button>
+          </div>
+        </div>
+
+        @if (mergePickerOpen()) {
+        <div class="merge-picker" role="dialog" aria-label="Choose a concept to merge into">
+          <div class="merge-picker-head">
+            <span class="detail-tool-label">Merge into…</span>
+            <button
+              type="button"
+              class="merge-picker-close"
+              aria-label="Close merge picker"
+              (click)="closeMergePicker()"
+            >
+              <lucide-icon [img]="ClearIcon" [size]="15"></lucide-icon>
+            </button>
+          </div>
+          <div class="merge-search-box">
+            <lucide-icon [img]="SearchIcon" [size]="15"></lucide-icon>
+            <input
+              type="search"
+              placeholder="Search concepts..."
+              aria-label="Search merge targets"
+              [ngModel]="mergeSearchQuery()"
+              (ngModelChange)="mergeSearchQuery.set($event)"
+              (keydown.escape)="closeMergePicker()"
+            />
+          </div>
+          <div class="merge-target-list">
+            @if (mergeCandidates().length === 0) {
+            <span class="merge-picker-empty">No other concepts match.</span>
+            } @else {
+            @for (candidate of mergeCandidates(); track candidate.id) {
+            <button
+              type="button"
+              class="merge-target"
+              [class.selected]="mergeTargetId() === candidate.id"
+              (click)="chooseMergeTarget(candidate.id)"
+            >
+              <span>{{ candidate.name }}</span>
+              <span class="merge-target-count">{{ candidate.usageCount }}</span>
+            </button>
+            }
             }
           </div>
-          <div class="card-footer">
-            <div class="book-info">
-              <span class="from-label">Source:</span>
-              <span class="book-title">{{ note.bookTitle }}</span>
-            </div>
-            <a
-              [routerLink]="['/library', note.bookId]"
-              [queryParams]="{ cfi: note.cfiRange }"
-              class="goto-btn"
+          <div class="merge-picker-actions">
+            <button type="button" class="merge-picker-cancel" (click)="closeMergePicker()">Cancel</button>
+            <button
+              type="button"
+              class="merge-picker-confirm"
+              [disabled]="!mergeTarget()"
+              (click)="openMergeConfirmation()"
             >
-              <span>Open Book</span>
-              <lucide-icon [img]="ArrowRightIcon" [size]="16"></lucide-icon>
-            </a>
+              Continue
+            </button>
           </div>
         </div>
         }
+
+        <div class="related-row" aria-label="Related concepts">
+          <span class="related-label">Connected concepts</span>
+          @if (relatedLoading()) {
+          <span class="related-empty">Finding connections…</span>
+          } @else if (relatedConcepts().length === 0) {
+          <span class="related-empty">No connected concepts yet</span>
+          } @else {
+          <div class="related-list">
+            @for (related of visibleRelatedConcepts(); track related.id) {
+            <button
+              type="button"
+              class="related-chip"
+              [attr.aria-label]="'Select ' + related.name"
+              [title]="related.name"
+              (mouseenter)="prefetch(related.id)"
+              (focus)="prefetch(related.id)"
+              (click)="selectConcept(related.id)"
+            >
+              <span class="related-chip-name">{{ related.name }}</span>
+              <span class="related-chip-count">· {{ related.sharedNotes }}</span>
+            </button>
+            }
+            @if (hiddenRelatedCount() > 0) {
+            <button type="button" class="related-more" (click)="toggleRelated()">
+              @if (relatedExpanded()) {
+              <lucide-icon [img]="CollapseIcon" [size]="13"></lucide-icon>
+              <span>Show fewer</span>
+              } @else {
+              <span>+{{ hiddenRelatedCount() }} more</span>
+              <lucide-icon [img]="ExpandIcon" [size]="13"></lucide-icon>
+              }
+            </button>
+            }
+          </div>
+          }
+        </div>
       </div>
+
+      @if (detail.notes.length > 0) {
+      <div class="detail-tools" aria-label="Filter and sort notes">
+        <div class="note-search-box">
+          <lucide-icon [img]="SearchIcon" [size]="15" class="search-icon"></lucide-icon>
+          <label class="visually-hidden" for="note-search">Search notes</label>
+          <input
+            id="note-search"
+            type="search"
+            placeholder="Search notes..."
+            [ngModel]="noteSearchQuery()"
+            (ngModelChange)="setNoteSearchQuery($event)"
+          />
+          @if (noteSearchQuery()) {
+          <button type="button" class="clear-note-search" aria-label="Clear note search" (click)="clearNoteSearch()">
+            <lucide-icon [img]="ClearIcon" [size]="14"></lucide-icon>
+          </button>
+          }
+        </div>
+
+        <div class="detail-select-wrap">
+          <label class="detail-tool-label" for="source-filter">Source</label>
+          <div class="select-shell detail-select-shell">
+            <select
+              id="source-filter"
+              class="detail-select"
+              [ngModel]="sourceFilter()"
+              (ngModelChange)="setSourceFilter($event)"
+            >
+              <option [value]="'all'">All sources ({{ detail.notes.length }})</option>
+              @for (source of sourceOptions(); track source.value) {
+              <option [value]="source.value">{{ source.label }} ({{ source.count }})</option>
+              }
+            </select>
+                      </div>
+        </div>
+
+        <div class="detail-select-wrap">
+          <label class="detail-tool-label" for="note-sort">Sort</label>
+          <div class="select-shell detail-select-shell">
+            <select
+              id="note-sort"
+              class="detail-select"
+              [ngModel]="noteSort()"
+              (ngModelChange)="setNoteSort($event)"
+            >
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="source">Source</option>
+            </select>
+                      </div>
+        </div>
+
+        <span class="note-count" role="status" aria-live="polite" aria-atomic="true">
+          @if (noteFiltersActive()) {
+          Showing {{ filteredNotes().length }} of {{ detail.notes.length }} notes
+          } @else {
+          {{ detail.notes.length }} {{ detail.notes.length === 1 ? 'note' : 'notes' }}
+          }
+        </span>
+      </div>
+      }
+
+      @if (detail.notes.length === 0) {
+      <div class="empty-notes-state" role="status">
+        <div class="empty-eyebrow">A quiet concept</div>
+        <p>No notes mention this concept yet.</p>
+      </div>
+      } @else if (filteredNotes().length === 0) {
+      <div class="empty-notes-state" role="status">
+        <div class="empty-eyebrow">No notes found</div>
+        <p>Nothing matches the current note filters.</p>
+        <button type="button" class="empty-clear" (click)="clearNoteSearch(); setSourceFilter('all')">
+          Clear filters
+        </button>
+      </div>
+      } @else {
+      <div class="cards-grid">
+        @for (note of filteredNotes(); track note.noteId) {
+        <div class="note-card">
+          <app-note-card
+            #noteCardHost
+            [note]="noteForCard(note)"
+            [conceptMap]="conceptMap()"
+            [showNavigation]="false"
+            [showActions]="true"
+            [showSource]="true"
+            [showDate]="true"
+            (update)="onUpdateNote($event)"
+            (delete)="onDeleteNote($event)"
+            (conceptClick)="selectConcept($event)"
+            (click)="handleContentClick($event)"
+          ></app-note-card>
+        </div>
+        }
+      </div>
+      }
       } @else {
       <div class="landing-state">
         <div class="icon-circle">
@@ -92,6 +478,42 @@
         <p>Select a concept from the index to see how your ideas connect.</p>
       </div>
       }
+      }
     </section>
   </div>
+
+  <app-confirm-modal
+    [isOpen]="!!deleteTarget()"
+    [heading]="deleteHeading()"
+    description="This note will be permanently removed from your library and from this concept."
+    confirmLabel="Delete Note"
+    busyLabel="Deleting…"
+    [busy]="deletingNote()"
+    (confirm)="confirmDeleteNote()"
+    (cancel)="cancelDeleteNote()"
+  ></app-confirm-modal>
+
+  <app-confirm-modal
+    [isOpen]="!!mergeConfirmation()"
+    [heading]="mergeHeading()"
+    [description]="mergeDescription()"
+    confirmLabel="Merge concepts"
+    busyLabel="Merging…"
+    [busy]="mergingConcept()"
+    tone="neutral"
+    (confirm)="confirmMerge()"
+    (cancel)="cancelMergeConfirmation()"
+  ></app-confirm-modal>
+
+  <app-confirm-modal
+    [isOpen]="!!conceptDeleteTarget()"
+    [heading]="conceptDeleteHeading()"
+    [description]="conceptDeleteDescription()"
+    confirmLabel="Delete concept"
+    busyLabel="Deleting…"
+    [busy]="deletingConcept()"
+    tone="danger"
+    (confirm)="confirmDeleteConcept()"
+    (cancel)="cancelDeleteConcept()"
+  ></app-confirm-modal>
 </main>

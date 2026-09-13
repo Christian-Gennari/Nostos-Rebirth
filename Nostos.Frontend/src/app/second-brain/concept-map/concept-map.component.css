@@ -1,0 +1,253 @@
+:host {
+  display: block;
+  width: 100%;
+  min-height: 100%;
+}
+
+.concept-map {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1rem;
+  background: var(--bg-surface);
+}
+
+/* Floating overlay inside the canvas rather than a toolbar above it: the control
+   acts on the graph, so it belongs on the graph. Metrics follow the Library's
+   controls — `--radius-md`, hairline border, surface fill. */
+.map-controls {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.map-reset,
+.map-zoom {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-family: 'Hanken Grotesk', sans-serif;
+  transition: all 0.2s ease;
+}
+
+.map-reset:hover,
+.map-zoom:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.map-reset:disabled,
+.map-zoom:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.map-reset {
+  padding: 0 0.65rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.map-zoom {
+  width: 32px;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.map-reset:focus-visible,
+.map-zoom:focus-visible,
+.map-accessible-list button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.map-zoom:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.map-limit-note,
+.map-status {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.map-limit-note {
+  font-style: italic;
+}
+
+.map-status {
+  text-align: center;
+}
+
+/* The graph is the content, so it sits directly on the page surface like a
+   Library grid would — no card frame, no shadow, no second background tone. The
+   previous card-in-panel look also put the stage's border under the floating
+   dock, which read as a box the nav was sitting on. */
+.map-stage {
+  position: relative;
+  min-height: 360px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+
+/* The map is a whole-brain view on the main stage, so it takes the available
+   height rather than the modest fixed box it needed as a sidebar widget. */
+.map-svg {
+  display: block;
+  width: 100%;
+  height: clamp(420px, 62dvh, 760px);
+  touch-action: none;
+  cursor: grab;
+}
+
+.map-svg:active {
+  cursor: grabbing;
+}
+
+.map-edge {
+  fill: none;
+  stroke: var(--color-accent);
+  vector-effect: non-scaling-stroke;
+}
+
+.map-node {
+  cursor: pointer;
+  outline: none;
+}
+
+.map-node-hit {
+  fill: var(--bg-surface);
+  opacity: 0;
+  stroke: none;
+}
+
+.map-node-visual {
+  fill: var(--bg-surface);
+  stroke: var(--color-primary);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.map-node:hover .map-node-visual,
+.map-node:focus-visible .map-node-visual {
+  fill: var(--bg-hover);
+  stroke: var(--color-text-main);
+}
+
+.map-node.selected .map-node-visual {
+  stroke: var(--color-text-main);
+  stroke-width: 3;
+}
+
+.map-node:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.map-node-label {
+  fill: var(--color-text-muted);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 13px;
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+.map-tooltip {
+  pointer-events: none;
+}
+
+.map-tooltip rect {
+  fill: var(--bg-surface);
+  stroke: var(--color-text-light);
+  stroke-width: 1;
+  rx: var(--radius-lg);
+  vector-effect: non-scaling-stroke;
+}
+
+.map-tooltip-name,
+.map-tooltip-meta {
+  pointer-events: none;
+}
+
+.map-tooltip-name {
+  fill: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.map-tooltip-meta {
+  fill: var(--color-text-muted);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 12px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.map-accessible-list {
+  list-style: none;
+}
+
+.map-accessible-list button {
+  min-height: 44px;
+}
+
+@media (max-width: 768px) {
+  .concept-map {
+    padding: 0.75rem;
+  }
+
+  .map-reset {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Controls stay in the canvas corner on mobile, but grow to a comfortable
+     tap target. */
+  .map-controls {
+    top: 0.5rem;
+    right: 0.5rem;
+  }
+
+  .map-zoom {
+    width: 44px;
+    min-height: 44px;
+  }
+
+  .map-stage {
+    min-height: 360px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-svg {
+    scroll-behavior: auto;
+  }
+}

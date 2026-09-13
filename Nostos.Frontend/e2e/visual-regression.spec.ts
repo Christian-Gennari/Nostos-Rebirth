@@ -1,5 +1,5 @@
 /**
- * Visual-regression evidence harness — the 10-image fixed-light matrix.
+ * Visual-regression evidence harness — the 15-image fixed-light matrix.
  *
  * Reusable, parameterized capture(surface, viewport, state) that turns the
  * mandatory visual-verification protocol (expert section 4) into a
@@ -55,6 +55,9 @@ import {
   READER_SKIP_REASON,
   writeGeometryReport,
   apiPut,
+  checkBrainLayoutOverflow,
+  checkBrainMapGeometry,
+  checkBrainNoArrivalAnimation,
   type CaptureMeta,
   type GeometryCheck,
 } from './support/visual-capture';
@@ -300,6 +303,208 @@ test.describe('visual matrix — Library (fixture-served)', () => {
       checks.push(await checkLibraryToolbarStability(page));
 
       await expectChecks('library-filters-mobile', checks, meta('library-filters-mobile', 'library', MOBILE_VIEWPORT, 'drawer-open'));
+    } finally {
+      await context.close();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Second Brain — fixture-served
+// ---------------------------------------------------------------------------
+
+interface BrainSeed {
+  bookId: string;
+  conceptNames: string[];
+}
+
+let brainSeed: BrainSeed | null = null;
+
+async function seedBrainFixture(): Promise<BrainSeed> {
+  if (brainSeed) return brainSeed;
+
+  fixture ??= loadFixture();
+  const suffix = RUN;
+  const created = await apiPost<{ id: string }>(fixture.baseUrl, '/api/books', {
+    type: 'physical',
+    title: `Visual QA Brain ${suffix}`,
+    author: 'Nostos Visual QA',
+    categories: 'visual-qa',
+  });
+  const notes = [
+    'A first reflection on [[Attention]] and [[Memory]].',
+    'A second reflection on [[Attention]] and [[Practice]].',
+    'A third reflection where [[Memory]] meets [[Practice]].',
+  ];
+  for (const content of notes) {
+    await apiPost(fixture.baseUrl, `/api/books/${created.id}/notes`, { content });
+  }
+
+  brainSeed = { bookId: created.id, conceptNames: ['Attention', 'Memory', 'Practice'] };
+  return brainSeed;
+}
+
+test.describe('visual matrix — Second Brain (fixture-served)', () => {
+  test('brain-empty-desktop', async ({ browser }) => {
+    // This runs before Brain seeding in the serial matrix, so the empty state
+    // proves the real fresh fixture rather than a client-side fake.
+    fixture = loadFixture();
+    const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT);
+    try {
+      await page.goto(`${fixture.baseUrl}/second-brain`, { waitUntil: 'domcontentloaded' });
+      const empty = page.locator('.empty-index-state');
+      await empty.waitFor({ timeout: 30_000 });
+      await expect(empty).toContainText('[[Concept Name]]');
+      await expect(page.locator('.index-item')).toHaveCount(0);
+      await page.waitForTimeout(400); // let the allowed index shell entrance settle
+
+      const checks: GeometryCheck[] = [
+        {
+          id: 'brain-empty-state',
+          pass: await empty.isVisible(),
+          message: 'fresh fixture shows the Second Brain [[ ]] empty state',
+        },
+        await checkBrainLayoutOverflow(page),
+      ];
+      const png = await capturePng(page, 'brain-empty-desktop');
+      await expectChecks(
+        'brain-empty-desktop',
+        checks,
+        meta('brain-empty-desktop', 'brain', DESKTOP_VIEWPORT, 'empty-index')
+      );
+      expect(artifactPath('brain-empty-desktop', 'png')).toBe(png);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test('brain-index-desktop', async ({ browser }) => {
+    await seedBrainFixture();
+    const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT);
+    try {
+      await page.goto(`${fixture.baseUrl}/second-brain`, { waitUntil: 'domcontentloaded' });
+      await page.locator('.index-item').first().waitFor({ timeout: 30_000 });
+      await expect(page.locator('.index-item')).toHaveCount(3);
+      await expect(page.locator('.index-stats')).toContainText('3 concepts');
+      await page.waitForTimeout(250);
+
+      const checks: GeometryCheck[] = [await checkBrainLayoutOverflow(page)];
+      const png = await capturePng(page, 'brain-index-desktop');
+      await expectChecks(
+        'brain-index-desktop',
+        checks,
+        meta('brain-index-desktop', 'brain', DESKTOP_VIEWPORT, 'index-list')
+      );
+      expect(artifactPath('brain-index-desktop', 'png')).toBe(png);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test('brain-index-mobile', async ({ browser }) => {
+    expect(brainSeed, 'brain-index-desktop must seed the fixture first').not.toBeNull();
+    const { context, page } = await newCapturePage(browser, MOBILE_VIEWPORT, true);
+    try {
+      await page.goto(`${fixture.baseUrl}/second-brain`, { waitUntil: 'domcontentloaded' });
+      await page.locator('.index-item').first().waitFor({ timeout: 30_000 });
+      await expect(page.locator('.index-col')).toBeVisible();
+      await expect(page.locator('.content-col')).toBeHidden();
+      await page.waitForTimeout(250);
+
+      const checks: GeometryCheck[] = [await checkBrainLayoutOverflow(page)];
+      const png = await capturePng(page, 'brain-index-mobile');
+      await expectChecks(
+        'brain-index-mobile',
+        checks,
+        meta('brain-index-mobile', 'brain', MOBILE_VIEWPORT, 'index-list')
+      );
+      expect(artifactPath('brain-index-mobile', 'png')).toBe(png);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test('brain-concept-desktop', async ({ browser }) => {
+    expect(brainSeed, 'brain-index-desktop must seed the fixture first').not.toBeNull();
+    const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT);
+    try {
+      await page.goto(`${fixture.baseUrl}/second-brain`, { waitUntil: 'domcontentloaded' });
+      const firstRow = page.locator('.index-item').first();
+      await firstRow.waitFor({ timeout: 30_000 });
+      // Hover is part of the supported interaction: it prefetches the detail,
+      // so the captured click exercises the no-flash, cache-hit path.
+      await firstRow.hover();
+      await page.waitForTimeout(250);
+      await firstRow.click();
+      await page.locator('.concept-header').waitFor({ timeout: 30_000 });
+      await page.locator('.note-card').first().waitFor({ timeout: 30_000 });
+      await page.waitForTimeout(250);
+
+      const paneCheck = await checkBrainNoArrivalAnimation(page);
+      const checks: GeometryCheck[] = [paneCheck, await checkBrainLayoutOverflow(page)];
+      const png = await capturePng(page, 'brain-concept-desktop');
+
+      // Exercise the guard's negative path in-browser, then remove the probe
+      // before writing the report. This is a cheap sanity check that a future
+      // pane-in animation would turn this gate red.
+      const probeStyle = await page.addStyleTag({
+        content:
+          '@keyframes brain-pane-regression-probe { from { opacity: .9; } to { opacity: 1; } }' +
+          '.content-col .concept-header { animation: brain-pane-regression-probe 1s linear !important; }',
+      });
+      const tampered = await checkBrainNoArrivalAnimation(page);
+      await probeStyle.evaluate((element) => element.remove());
+      await page.waitForTimeout(50);
+      const restored = await checkBrainNoArrivalAnimation(page);
+      expect(tampered.pass, 'flash guard must reject a temporary pane animation').toBe(false);
+      expect(restored.pass, 'flash guard must pass after the temporary animation is removed').toBe(true);
+      checks.push({
+        id: 'brain-flash-guard-sanity',
+        pass: !tampered.pass && restored.pass,
+        message: 'flash guard rejected a temporary pane animation and passed after it was removed',
+        metrics: {
+          injectedCheck: tampered.message,
+          restoredCheck: restored.message,
+        },
+      });
+
+      await expectChecks(
+        'brain-concept-desktop',
+        checks,
+        meta('brain-concept-desktop', 'brain', DESKTOP_VIEWPORT, 'concept-selected-notes')
+      );
+      expect(artifactPath('brain-concept-desktop', 'png')).toBe(png);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test('brain-map-desktop', async ({ browser }) => {
+    expect(brainSeed, 'brain-index-desktop must seed the fixture first').not.toBeNull();
+    const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT);
+    try {
+      await page.goto(`${fixture.baseUrl}/second-brain`, { waitUntil: 'domcontentloaded' });
+      await page.locator('.index-item').first().waitFor({ timeout: 30_000 });
+      await page.getByRole('button', { name: 'Map view' }).click();
+      await page.locator('.concept-map').waitFor({ timeout: 30_000 });
+      await page.locator('.map-node').first().waitFor({ timeout: 30_000 });
+      await page.waitForFunction(
+        () => document.querySelector('.concept-map')?.getAttribute('aria-busy') === 'false',
+        undefined,
+        { timeout: 30_000 }
+      );
+
+      const checks: GeometryCheck[] = [
+        await checkBrainMapGeometry(page),
+        await checkBrainLayoutOverflow(page),
+      ];
+      const png = await capturePng(page, 'brain-map-desktop');
+      await expectChecks(
+        'brain-map-desktop',
+        checks,
+        meta('brain-map-desktop', 'brain', DESKTOP_VIEWPORT, 'map')
+      );
+      expect(artifactPath('brain-map-desktop', 'png')).toBe(png);
     } finally {
       await context.close();
     }

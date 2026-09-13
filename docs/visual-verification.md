@@ -6,7 +6,7 @@ protocol below **before merge**. This is the mechanical, executable form of the
 mandatory protocol from the UI defect-remediation plan (expert section 4).
 
 The app ships exactly **one light rendering** — the theme system was removed.
-The visual matrix is therefore fixed-light: 10 images, no theme
+The visual matrix is therefore fixed-light: 15 images, no theme
 parameterization, no theme-toggle interaction, and the EPUB/PDF reader checks
 are hardcoded **fixed rendering invariants** (see below).
 
@@ -14,12 +14,12 @@ The harness lives in `Nostos.Frontend/e2e/`:
 
 | File | Role |
 | --- | --- |
-| `visual-regression.spec.ts` | The 10-image fixed-light matrix: parameterized `capture(surface, viewport, state)` -> PNG + geometry JSON |
+| `visual-regression.spec.ts` | The 15-image fixed-light matrix: parameterized `capture(surface, viewport, state)` -> PNG + geometry JSON |
 | `support/visual-capture.ts` | Reusable capture/geometry helpers (fixed light invariants, viewport contexts, artifact paths, checks) |
 | `visual-evidence/*.png` | Committed evidence artifacts (exact protocol filenames) |
 | `visual-evidence/*.json` | Per-capture geometry report: checks, metrics, pass/skip/fail |
 
-## The 10-image matrix
+## The 15-image matrix
 
 Viewports are **exactly** `1440x900` (desktop) and `390x844` (mobile);
 PNGs are captured at `deviceScaleFactor: 1` so artifact pixels are exact.
@@ -36,8 +36,13 @@ PNGs are captured at `deviceScaleFactor: 1` so artifact pixels are exact.
 | 8 | `studio-empty-desktop.png` | Writing Studio | 1440x900 | no document |
 | 9 | `library-filters-desktop.png` | Library | 1440x900 | sidebar + toolbar |
 | 10 | `library-filters-mobile.png` | Library | 390x844 | drawer open |
+| 11 | `brain-empty-desktop.png` | Second Brain | 1440x900 | no concepts, `[[ ]]` empty state |
+| 12 | `brain-index-desktop.png` | Second Brain | 1440x900 | seeded concept index, list view |
+| 13 | `brain-index-mobile.png` | Second Brain | 390x844 | seeded concept index, list view |
+| 14 | `brain-concept-desktop.png` | Second Brain | 1440x900 | selected concept, notes grid |
+| 15 | `brain-map-desktop.png` | Second Brain | 1440x900 | co-occurrence graph |
 
-This is the honest 14 → 10 reduction: the four redundant desktop dark/sepia
+The first ten rows preserve the honest 14 → 10 reduction: the four redundant desktop dark/sepia
 reader captures are gone and the two mobile reader geometries formerly
 covered only in dark mode are captured in the app's single light rendering.
 
@@ -62,11 +67,11 @@ cd Nostos.Frontend
 npm run e2e          # builds backend + frontend, boots temp-SQLite fixture, runs everything
 ```
 
-This captures images 5–10 (studio + library, fixture-served) and **skips**
+This captures images 5–15 (studio + library + Second Brain, fixture-served) and **skips**
 images 1–4 with a documented message: the isolated fixture has no EPUB/PDF
 book files and the harness never invents assets.
 
-Full 10-image run against a real library (reader surfaces need real books):
+Full 15-image run against a real library (reader surfaces need real books):
 
 ```sh
 cd Nostos.Frontend
@@ -95,6 +100,31 @@ VISUAL_QA_LIBRARY_URL=http://localhost:4310 npm run e2e -- book-detail-visual.sp
 file name deliberately avoids the `mobile*.spec.ts` pattern the desktop project
 ignores. Without `VISUAL_QA_LIBRARY_URL` both cases skip with a documented reason.
 
+## Second Brain feature contract
+
+The Second Brain indexes concept references written as `[[Name]]` in note
+content. Saving a note creates any referenced concepts and refreshes its note
+links; the hourly cleanup worker deletes concepts with zero note links, so a
+concept with no references is expected to disappear.
+
+The surface has three views: the index lists, searches, sorts and counts
+concepts; the detail pane filters and sorts linked notes and shows related
+concepts; and the map renders co-occurring concepts as an SVG graph. Index
+sort and list/map view persist under `nostos.brain.indexSort` and
+`nostos.brain.viewMode` respectively.
+
+Management actions have narrow, deliberate semantics:
+
+- Rename changes the concept name. If that name already exists, the two
+  concepts are merged; note text is not rewritten, so saving an old `[[Name]]`
+  reference can recreate it.
+- Merge moves unique note links from the source to the selected target and
+  deletes the source concept. Note text is unchanged.
+- Delete removes the concept and its note links but does not edit note text;
+  saving a note containing the reference can recreate the concept.
+- Note edit updates note content and re-processes its concept links. Note
+  delete permanently removes the note and its links after confirmation.
+
 ## Automated geometry checks (run on every capture)
 
 | Check | Applies to | Pass criterion |
@@ -106,6 +136,10 @@ ignores. Without `VISUAL_QA_LIBRARY_URL` both cases skip with a documented reaso
 | `zen-gutters-balanced` | zen captures | editor surface horizontally centered: left/right gutters within 3px |
 | `library-no-progress-combobox` | library captures | toolbar progress filter is not a `<select>`; the only toolbar select is sort |
 | `library-six-sidebar-filters` | library captures | sidebar/drawer exposes exactly: All Books, Not Started, In Progress, Favorites, Finished, Unsorted — and no toolbar progress surface |
+| `brain-no-arrival-animation` | selected Brain concept capture | detail pane has no `.wait-field`, no `is-waiting` class, `.concept-header`/`.note-card` computed `animation-name: none`, and no running animation targets in the pane |
+| `brain-layout-overflow` | Brain captures | desktop index/detail tracks stay within the grid and the 390px surface has no horizontal overflow |
+| `brain-map-geometry` | Brain map capture | SVG node count matches the concept badge and every node radius stays within the documented 14–34px bounds |
+| `brain-empty-state` | Brain empty capture | the fixture-served `[[Concept Name]]` empty state is visible and the concept list has no rows |
 | `book-detail-hero` | book detail captures | the hero band spans the scroll container's full width (±2px) and is ≥260px tall; both decorative art layers are real `<img>`s that actually loaded (never a stripped `[style.background-image]`); the hero copy's last line ends above the sharp cover's top edge (a negative-margin overhang must never paint over the author line); `.book-title` owns its own pixel; no horizontal overflow |
 | `book-detail-fade` | book detail captures | the hero's fade into the page is a smooth **ease-in-out from its own gradient stops**: the scrim releases monotonically downward (it must never strengthen in the region the fade has to lighten) and the fade's per-segment slope rises then falls, with both end segments ≤ half the peak slope (a steeper end draws a visible onset/stop line across the band). The stops are a smoothstep in **lightness**, not in alpha — compositing a light fade over dark art is non-linear, so an alpha smoothstep comes out front-loaded. Measure it with `npm run profile:fade -- --url <book-detail-url>`, which reports the ramp in OKLab L plus the deviation from a true smoothstep; the guard above only protects the *shape*, so a front-loading regression has to be caught by that profiler |
 
@@ -164,6 +198,7 @@ each PNG, record PASS/FAIL against the expert vision criteria:
 - Mobile dock overlays neither zen nor reader content.
 - Exactly one progress-filter surface is visible.
 - No clipping, horizontal overflow, illegible contrast, or overlapping controls.
+- Second Brain: the index, selected concept notes, map nodes and empty state are legible at their named viewports; the detail pane swaps without a covering flash or entrance animation; the map has no clipped nodes or non-tappable node sizes.
 - The reader shell has no theme controls and no second toolbar row on mobile.
 - Book detail: the cover wash has **no visible edge, seam, rectangle, band or
   corner** where it stops — it must fade smoothly into the paper background on
@@ -175,7 +210,7 @@ each PNG, record PASS/FAIL against the expert vision criteria:
   opacity rather than removing the check.
 
 Verdicts must be attached to the PR alongside the artifact names (e.g.
-"PASS 10/10 — `epub-light-mobile.png` verified against criterion list").
+"PASS 15/15 — `brain-concept-desktop.png` verified against criterion list").
 **Any unexplained FAIL blocks merge.**
 
 ## Human-override rule
@@ -190,7 +225,7 @@ waives. Silent or unexplained failures never merge.
 - [ ] `npx ng test --watch=false` green, no reduced test count
 - [ ] `npm run e2e` green (existing specs + visual matrix; skips documented)
 - [ ] `npx ng build` green
-- [ ] 10-image matrix captured from the branch's actual build
+- [ ] 15-image matrix captured from the branch's actual build
       (real-library run for images 1–4)
 - [ ] Geometry reports: no failed checks; skips documented
 - [ ] Vision review recorded per artifact (PASS/FAIL + artifact names)

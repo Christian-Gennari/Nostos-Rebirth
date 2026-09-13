@@ -33,9 +33,7 @@
     <div class="collapsible-body" [class.collapsed]="shouldShowExpandBtn && !isExpanded">
       @if (note.selectedText) {
       <div class="note-quote">
-        <div class="quote-stripe"></div>
-        <lucide-icon [img]="Icons.MessageSquareQuote" [size]="14" class="quote-icon"></lucide-icon>
-        <p class="quote-text">"{{ note.selectedText }}"</p>
+        <p class="quote-text">&ldquo;{{ note.selectedText }}&rdquo;</p>
       </div>
       } @if (note.content) {
       <p
