@@ -11,7 +11,6 @@
   <p>
     <a href="#features">Features</a> •
     <a href="#getting-started">Getting Started</a> •
-    <a href="#the-reading-training-program">Reading Training</a> •
     <a href="#architecture--tech-stack">Tech Stack</a> •
     <a href="#documentation">Docs</a> •
     <a href="#license--trademark">License</a>
@@ -98,15 +97,6 @@ Bring your synthesis together without switching tools:
     src="docs/screenshots/writing-studio.png"
   />
 </div>
-
----
-
-### Reading Training Program
-Build durable, deep-work reading habits based on sustainable capacity rather than gamified pressure:
-* **Capacity Over Guilt:** Three distinct lanes (**Endurance**, **Deep**, and **Recovery**) that adjust based on measured weekly evidence rather than punitive streaks or daily debt.
-* **Verbatim Session Captures:** Capture impressions, questions, and page anchors mid-session without context switching.
-* **Rock-Solid Reliability:** Restart-safe timer states, idempotent session logging, and self-hosted weekly reviews.
-* **Optional MCP Extensibility:** Exposes a full local Model Context Protocol (MCP) toolset for reading tracking and library management for those who want to automate workflows with local LLMs.
 
 ---
 
