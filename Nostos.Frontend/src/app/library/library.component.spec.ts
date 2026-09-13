@@ -63,10 +63,6 @@ describe('Library', () => {
     await fixture.whenStable();
   });
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
   it('loads books exactly once on init (no duplicate collection load)', () => {
     expect(listSpy).toHaveBeenCalledTimes(1);
     expect(listSpy.mock.calls[0][0].collectionId).toBeUndefined();

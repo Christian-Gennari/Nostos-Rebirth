@@ -121,10 +121,6 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
     fixture.detectChanges();
   };
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
   // --- Placement: no telemetry or zen control without an active document ---
   it('shows no zen control and no telemetry without an active document', () => {
     expect(zenToggle()).toBeNull();
