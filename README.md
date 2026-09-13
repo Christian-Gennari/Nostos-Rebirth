@@ -33,8 +33,8 @@
 Most modern software demands your attention with notification badges, reading streaks, algorithmic feeds, and aggressive upsells. **Nostos** takes the opposite approach:
 
 * **Nordic Editorial Aesthetic:** Warm paper tones, literary typography (Newsreader & Hanken Grotesk), and distraction-free layouts inspired by physical publishing and classical libraries.
-* **Local-First & Sovereign:** Your library, annotations, and personal ideas stay on your machine. Fully operational offline without mandatory third-party subscriptions.
-* **Ambient Intelligence:** AI features are strictly invited and local-first via MCP tools — never intrusive autocomplete bars or unprompted bots interrupting your focus.
+* **Local-First & Sovereign:** Your library, annotations, and personal thoughts stay completely on your machine. Fully operational offline without third-party subscriptions or cloud lock-in.
+* **No Rent-Seeking on Thought:** No algorithmic feeds, reading streaks, aggressive upsells, or distracting popups. Just your books and your ideas.
 * **A Unified Intellectual Loop:** Read physical volumes, e-books, PDFs, or audiobooks; capture contextual notes with wiki-links; develop those thoughts into prose in the integrated Writing Studio.
 
 ---
@@ -45,7 +45,7 @@ Most modern software demands your attention with notification badges, reading st
 Collect, organize, and consume your entire media collection in one unified repository:
 * **All Your Formats:** Physical books (ISBN metadata lookup), EPUBs (streaming reader with continuous range requests), PDFs (integrated clean viewer), and audiobooks (chapter-aware M4B/M4A/MP3 player).
 * **Thoughtful Organization:** Flexible nested collections, drag-and-drop management, custom tags, and multi-parameter filtering (by status, rating, recency, or collection).
-* **Smart Deduplication:** Clean canonical cataloging that automatically matches on normalized ISBNs or title + author pairs.
+* **Smart Deduplication & Works:** Canonical cataloging with multi-edition work grouping, automatically matching on normalized ISBNs or title + author pairs.
 
 <details>
   <summary><strong>View Library Screenshots</strong></summary>
@@ -70,7 +70,7 @@ Collect, organize, and consume your entire media collection in one unified repos
 Transform passive reading into active, connected understanding:
 * **In-Context Annotations:** Highlight passages directly inside EPUBs and PDFs and link thoughts to exact paragraphs.
 * **Bi-Directional Wiki-Links:** Type `[[Concept]]` anywhere in your notes to automatically link or discover emerging ideas.
-* **Concept Explorer:** Browse all interconnected concepts, discover latent relationships across disparate books, and keep your graph clean with automated zero-reference cleanup.
+* **Concept Explorer & Graph Map:** Browse all interconnected concepts, visualize the dynamic network of linked ideas in the interactive concept map, and keep your graph clean with automated zero-reference cleanup.
 
 <div align="center">
   <img
