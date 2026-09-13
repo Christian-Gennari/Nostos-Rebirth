@@ -53,6 +53,44 @@ await page.evaluate(() =>
 await page.reload({ waitUntil: 'networkidle' });
 await page.waitForTimeout(3000);
 
+/**
+ * Prerequisite setup: this check asserts that a row with an ACTIVE status still
+ * renders that toggle on touch, so it needs at least one active row. The real
+ * library may have none, and a data-dependent hard failure is a flaky check, so
+ * seed one through the app's own API when needed.
+ *
+ * This writes to the probe backend's database — which is a throwaway COPY
+ * snapshotted out of the production checkout by tools/probe-backend.sh, never
+ * the production file (see that script). Point PROBE_API elsewhere and this
+ * would write there instead, so keep it on the probe origin.
+ */
+const PROBE_API = process.env.PROBE_API ?? 'http://127.0.0.1:5099';
+
+async function hasActiveRow() {
+  return page.evaluate(() => !!document.querySelector('.fav-btn-list.active, .finished-btn-list.active'));
+}
+
+let seeded = null;
+if (!(await hasActiveRow())) {
+  const first = await page.evaluate(() => {
+    const link = document.querySelector('.table-row a[href], .table-row');
+    return link ? link.getAttribute('href') : null;
+  });
+  const list = await (await fetch(`${PROBE_API}/api/books?pageSize=1&sort=lastread`)).json();
+  const target = list.items?.[0];
+  if (!target) throw new Error('probe library is empty: nothing to seed');
+  const res = await fetch(`${PROBE_API}/api/books/${target.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ isFavorite: true }),
+  });
+  if (!res.ok) throw new Error(`seeding favourite failed: ${res.status} ${await res.text()}`);
+  seeded = { id: target.id, title: target.title, href: first };
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForTimeout(3000);
+  if (!(await hasActiveRow())) throw new Error('seeded a favourite but no active row rendered');
+}
+
 const report = await page.evaluate(() => {
   const rows = [...document.querySelectorAll('.table-row')];
   const rect = (el) => (el ? el.getBoundingClientRect() : null);
@@ -109,7 +147,7 @@ const report = await page.evaluate(() => {
 await page.screenshot({ path: path.join(OUT, 'mobile-list-full.png') });
 await page.locator('.results-stage').screenshot({ path: path.join(OUT, 'mobile-list.png') });
 
-writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(report, null, 2));
+writeFileSync(path.join(OUT, 'report.json'), JSON.stringify({ ...report, seeded }, null, 2));
 console.log(JSON.stringify(report, null, 2));
 
 const failures = [];
