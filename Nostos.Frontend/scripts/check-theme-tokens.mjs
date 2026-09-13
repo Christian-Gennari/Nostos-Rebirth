@@ -7,19 +7,28 @@
  * text) inside the dark UI. That failure mode is how the previous theme system
  * became unmaintainable, and nothing in a light-mode build ever reveals it.
  *
- * This compares the light `:root` token set against the dark block and fails on
- * any *colour* token that has no counterpart.
+ * Two rules, both the same counterpart comparison:
  *
- * Usage:  node scripts/check-theme-tokens.mjs [path/to/styles.css]
+ *   1. styles.css — the light `:root` set vs the `:root[data-theme='dark']`
+ *      set. Fails on any colour token with no counterpart.
+ *   2. Theme modules outside styles.css — a `.ts` component that injects its own
+ *      document (currently the TinyMCE editor content in `markdown-editor`)
+ *      declares its own light and dark blocks. Those were previously invisible
+ *      to this script, so a token added to only one of their two blocks would
+ *      silently keep the light value on dark and nothing would catch it.
+ *
+ * Usage:  node scripts/check-theme-tokens.mjs [path/to/theme-module.(mjs|ts)]
  * Exit 1 with a list of missing tokens, or 0 when the graph is complete.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { dirname, resolve, join, extname } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const file = process.argv[2] ?? resolve(here, '../src/styles.css');
+const srcRoot = resolve(here, '../src');
+const file = process.argv[2] ?? join(srcRoot, 'styles.css');
 const css = readFileSync(file, 'utf8');
+const rawSource = css;
 
 /**
  * Non-colour token families. These are theme-INVARIANT by design (geometry,
@@ -31,7 +40,7 @@ const css = readFileSync(file, 'utf8');
  * the mark does not re-ink with the theme, so demanding a dark counterpart would
  * push a needless override back into the dark block.
  */
-const INVARIANT = /^--(radius|motion|ease|text-(xs|sm|base|lg|xl|2xl)|space|container-width|fw|transition|glass-blur|modal-scrim-blur|sidebar-width|brand-)/;
+const INVARIANT = /^--(radius|motion|ease|text-(xs|sm|base|lg|xl|2xl)|space|container-width|fw|transition|glass-blur|modal-scrim-blur|sidebar-width|brand-|control-h|focus-ring-width)/;
 
 /**
  * Tokens whose value is a `color-mix()` of another token. They re-derive
@@ -90,6 +99,34 @@ function darkTokens(source) {
   );
 }
 
+/**
+ * Theme-invariant modules: stylesheets that live outside styles.css and own
+ * both of their theme blocks locally.
+ *
+ * `src/app/ui/markdown-editor/markdown-editor.component.ts` injects a document
+ * into a TinyMCE iframe. That document is self-contained: 13 tokens declared in
+ * its own `:root` with all 13 repeated in its own `:root[data-theme='dark']`,
+ * and it borrows nothing from the global graph. It is therefore NOT a leak —
+ * but until now it was also unguarded, so a token added to only one of its two
+ * blocks would silently keep the light value on dark and nothing would notice.
+ *
+ * This parses those modules with the SAME counterpart rule. It deliberately
+ * does not require the token namespaces to agree with styles.css: the editor
+ * content is a separate visual world (warm ink on paper) and its `--ink`/
+ * `--paper` vocabulary is local by design, not a duplicate of the app's.
+ */
+function inlineStyleModules(source) {
+  const modules = [];
+  for (const m of source.matchAll(/const\s+(\w*CSS\w*)\s*=\s*`([\s\S]*?)`;/g)) {
+    const [, name, body] = m;
+    const hasLight = /:root\s*\{/.test(body);
+    const hasDark = /:root\[data-theme=['"]dark['"]\]\s*\{/.test(body);
+    if (!hasLight && !hasDark) continue;
+    modules.push({ name, body });
+  }
+  return modules;
+}
+
 const light = lightTokens(css);
 const dark = darkTokens(css);
 
@@ -108,6 +145,90 @@ console.log(`  light tokens        : ${light.size}`);
 console.log(`  dark tokens         : ${dark.size}`);
 console.log(`  dark-only (new)     : ${introduced.length ? introduced.join(', ') : '—'}`);
 
+// Same rule, applied to every theme module found outside styles.css.
+// These live in `.ts` files (a component injecting its own document), which is
+// why reading only styles.css missed them entirely.
+function collectTs(dir, found = []) {
+  for (const entry of readdirSync(dir)) {
+    if (entry === 'node_modules' || entry === 'dist' || entry.startsWith('.')) continue;
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) collectTs(full, found);
+    else if (extname(entry) === '.ts' && !entry.endsWith('.spec.ts')) found.push(full);
+  }
+  return found;
+}
+
+const moduleFailures = [];
+const modulesSeen = [];
+for (const tsFile of collectTs(srcRoot)) {
+  const source = readFileSync(tsFile, 'utf8');
+  for (const { name, body } of inlineStyleModules(source)) {
+    const ml = tokenSetInBlock(body, /:root\s*\{/);
+    const md = tokenSetInBlock(body, /:root\[data-theme=['"]dark['"]\]\s*\{/);
+    if (!ml.size) continue;
+    const rel = tsFile.replace(srcRoot + '/', '');
+    modulesSeen.push(name);
+    const miss = [...ml.keys()].filter(
+      (t) => !md.has(t) && !INVARIANT.test(t) && !DERIVED.test(t),
+    );
+    console.log(`  module ${name.padEnd(26)} ${String(ml.size).padStart(2)} light / ${String(md.size).padStart(2)} dark   (${rel})`);
+    if (miss.length) moduleFailures.push({ name, rel, miss });
+  }
+}
+
+// Non-vacuity. The editor content module is the one known theme module; if the
+// scan stops finding it (renamed constant, refactored away, or a mis-rooted
+// walk) this guard would silently pass by finding nothing to check.
+const KNOWN_THEME_MODULE = 'NOSTOS_EDITOR_CONTENT_CSS';
+if (!modulesSeen.includes(KNOWN_THEME_MODULE)) {
+  console.error(`\n✖ theme-module scan did not find ${KNOWN_THEME_MODULE}.`);
+  console.error(`  Found: ${modulesSeen.length ? modulesSeen.join(', ') : '(none)'}`);
+  console.error('  The scan is mis-rooted or the module was renamed — this guard would pass vacuously.\n');
+  process.exit(1);
+}
+
+if (moduleFailures.length) {
+  console.error(`\n✖ ${moduleFailures.length} theme module(s) have an incomplete counterpart set.`);
+  for (const { name, rel, miss } of moduleFailures) {
+    console.error(`\n  ${name}  (${rel}) is missing a dark counterpart for:`);
+    for (const t of miss) console.error(`    ${t}`);
+  }
+  console.error('\n  A token left out of one block silently keeps the OTHER theme value.\n');
+  process.exit(1);
+}
+
+/**
+ * Read the custom properties declared in the first block matching `blockRe`,
+ * jumping to the block's own closing brace (a nested `{` must not end it).
+ */
+function tokenSetInBlock(source, blockRe) {
+  const m = source.match(blockRe);
+  if (!m) return new Map();
+  const brace = source.indexOf('{', m.index);
+  let depth = 0;
+  let end = brace;
+  for (let i = brace; i < source.length; i++) {
+    if (source[i] === '{') depth++;
+    else if (source[i] === '}') {
+      depth--;
+      if (depth === 0) { end = i; break; }
+    }
+  }
+  return new Map(
+    [...source.slice(brace, end).matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)].map((x) => [x[1], x[2].trim()]),
+  );
+}
+
+if (moduleFailures.length) {
+  console.error(`\n✖ ${moduleFailures.length} theme-invariant module(s) have an incomplete counterpart set.`);
+  for (const { name, miss } of moduleFailures) {
+    console.error(`\n  ${name} is missing a dark counterpart for:`);
+    for (const t of miss) console.error(`    ${t}`);
+  }
+  console.error('\n  A token left out of one block silently keeps the OTHER theme value.\n');
+  process.exit(1);
+}
+
 if (missing.length) {
   console.error(`\n✖ ${missing.length} colour token(s) have no dark counterpart.`);
   console.error('  Each will silently keep its LIGHT value inside the dark theme:\n');
@@ -117,4 +238,4 @@ if (missing.length) {
   process.exit(1);
 }
 
-console.log('\n✔ Every colour token has a dark counterpart.\n');
+console.log('\n✔ Every colour token has a dark counterpart, in styles.css and in every theme module.\n');
