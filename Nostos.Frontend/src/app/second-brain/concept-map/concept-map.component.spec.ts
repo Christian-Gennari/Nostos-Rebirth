@@ -5,8 +5,11 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import {
   ConceptMapComponent,
   computeConceptMapLayout,
+  MAP_LABEL_CHAR_RATIO,
+  MAP_LABEL_FONT_SIZE,
   MAP_NODE_RADIUS_MAX,
   MAP_NODE_RADIUS_MIN,
+  mapLabelWidth,
   mapNodeRadius,
   MAX_MAP_CONCEPTS,
   MAP_VIEW_HEIGHT,
@@ -71,7 +74,51 @@ describe('ConceptMapComponent', () => {
     );
   });
 
-  it('keeps long labels inside the map viewBox and limits the quiet default labels', () => {
+  it('handles the empty and single-concept boundaries', () => {
+    expect(computeConceptMapLayout([])).toEqual({ nodes: [], edges: [] });
+
+    const single = computeConceptMapLayout([
+      { id: 'only', name: 'Only Concept', usageCount: 1 },
+    ]);
+    expect(single.nodes).toHaveLength(1);
+    expect(single.edges).toHaveLength(0);
+
+    const node = single.nodes[0];
+    // One node sits centred, at full size, fully named and inside the frame.
+    expect(node.x).toBeCloseTo(MAP_VIEW_WIDTH / 2, 0);
+    expect(node.y).toBeCloseTo(MAP_VIEW_HEIGHT / 2, 0);
+    expect(node.radius).toBe(MAP_NODE_RADIUS_MIN);
+    expect(node.labelPriority).toBe(true);
+    expect(node.labelDeferred).toBe(false);
+
+    // A lone node has no neighbours, so nothing is dimmed and no edge is drawn.
+    setConcepts([{ id: 'only', name: 'Only Concept', usageCount: 1 }]);
+    flushRelated();
+    expect(component.noConnections()).toBe(true);
+    expect(component.renderNodes().every((item) => !item.dimmed)).toBe(true);
+  });
+
+  it('pins the label width model to the measured painted width', () => {
+    // The label collision guard derives its boxes from the SAME constant the
+    // placement uses, so on its own it cannot fail when that constant is wrong —
+    // verified by mutation: setting the ratio to 0.28 left the collision spec
+    // green. This is the guard that closes that hole, by pinning the model to
+    // widths measured from the real rendered text (Hanken Grotesk 13px:
+    // 5.82 viewBox units per character, measured on the painted labels of a
+    // 47-concept map via getBoundingClientRect).
+    const measuredUnitsPerChar = 5.82;
+    expect(MAP_LABEL_FONT_SIZE * MAP_LABEL_CHAR_RATIO).toBeGreaterThanOrEqual(measuredUnitsPerChar);
+
+    const text = 'Mind: Attention';
+    const predicted = mapLabelWidth(text);
+    // The model must not UNDER-estimate: an under-estimate is a real overlap,
+    // while an over-estimate only costs a placement slot.
+    expect(predicted).toBeGreaterThanOrEqual(text.length * measuredUnitsPerChar);
+    // ...and must not be so loose that it refuses placements it could make.
+    expect(predicted).toBeLessThanOrEqual(text.length * measuredUnitsPerChar * 1.25);
+  });
+
+  it('places every label inside the viewBox and never overlapping another', () => {
     const layout = computeConceptMapLayout([
       ...concepts,
       {
@@ -81,10 +128,39 @@ describe('ConceptMapComponent', () => {
       },
     ]);
 
-    expect(layout.nodes.every((node) => node.labelX >= 100 && node.labelX <= MAP_VIEW_WIDTH - 100)).toBe(true);
-    expect(layout.nodes.every((node) => node.labelY >= 18 && node.labelY <= MAP_VIEW_HEIGHT - 8)).toBe(true);
-    expect(layout.nodes.filter((node) => node.labelEligible).length).toBeLessThanOrEqual(4);
-    expect(layout.nodes.filter((node) => node.labelEligible).length).toBeGreaterThan(0);
+    // Boxes are derived from the label geometry the layout itself reports, and
+    // the anchor decides which side of labelX the text occupies. Asserting the
+    // BOX (rather than a distance from each edge) is the real contract: the point
+    // of a label is that it is readable, and a label 100 units from the edge can
+    // still overlap its neighbour or sit on a node.
+    const boxes = layout.nodes.map((node) => {
+      const half = node.labelWidth / 2;
+      const left = node.labelAnchor === 'start' ? node.labelX : node.labelX - half;
+      const right = node.labelAnchor === 'end' ? node.labelX : node.labelX + half;
+      return { id: node.id, left, right, top: node.labelY - 13, bottom: node.labelY + 4 };
+    });
+
+    expect(boxes.every((box) => box.left >= 0 && box.right <= MAP_VIEW_WIDTH)).toBe(true);
+    expect(boxes.every((box) => box.top >= 0 && box.bottom <= MAP_VIEW_HEIGHT)).toBe(true);
+
+    for (let i = 0; i < boxes.length; i += 1) {
+      for (let j = i + 1; j < boxes.length; j += 1) {
+        const a = boxes[i];
+        const b = boxes[j];
+        const overlaps =
+          a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+        expect(overlaps, `${a.id} and ${b.id} labels overlap`).toBe(false);
+      }
+    }
+  });
+
+  it('names the most-used concepts outright and keeps the rest quiet at zoom 1', () => {
+    const layout = computeConceptMapLayout(concepts);
+
+    // Every node is labelled: the old map drew a hard third and left the rest as
+    // anonymous dots, which reads the same at every zoom level.
+    expect(layout.nodes.every((node) => node.showLabel)).toBe(true);
+    expect(layout.nodes.filter((node) => node.labelPriority).length).toBe(concepts.length);
   });
 
   it('derives unique weighted edges from related responses', () => {
@@ -204,5 +280,123 @@ describe('ConceptMapComponent', () => {
     component.zoom.set(component.minZoom);
     component.zoomOut();
     expect(component.zoom()).toBe(component.minZoom);
+  });
+
+  it('never lets two node discs overlap, including after the overlay nudge', () => {
+    // Scale is chosen so the overlay band (top-right) has nodes in it, which is
+    // the exact condition that re-created an overlap when the nudge ran after
+    // separation: every banded node collapsed onto one y value.
+    const manyConcepts = Array.from({ length: 60 }, (_, index) => ({
+      id: `concept-${index}`,
+      name: `Concept ${index}`,
+      usageCount: 1 + (index % 7),
+    }));
+    const related = new Map<string, { id: string; name: string; sharedNotes: number }[]>();
+    for (let index = 0; index < 60; index += 1) {
+      related.set(`concept-${index}`, [
+        { id: `concept-${(index + 1) % 60}`, name: 'x', sharedNotes: 1 },
+        { id: `concept-${(index + 13) % 60}`, name: 'y', sharedNotes: 2 },
+      ]);
+    }
+
+    const layout = computeConceptMapLayout(manyConcepts, related);
+    let worstGap = Infinity;
+    for (let i = 0; i < layout.nodes.length; i += 1) {
+      for (let j = i + 1; j < layout.nodes.length; j += 1) {
+        const a = layout.nodes[i];
+        const b = layout.nodes[j];
+        const gap = Math.hypot(a.x - b.x, a.y - b.y) - a.radius - b.radius;
+        worstGap = Math.min(worstGap, gap);
+      }
+    }
+
+    expect(worstGap, `worst gap ${worstGap.toFixed(2)}px`).toBeGreaterThan(0);
+    expect(layout.nodes.every((node) => node.radius >= MAP_NODE_RADIUS_MIN - 0.001)).toBe(true);
+    expect(layout.nodes.every((node) => node.radius <= MAP_NODE_RADIUS_MAX + 0.001)).toBe(true);
+  });
+
+  it('resolves the mesh around the hovered node and clears on leave', () => {
+    setConcepts(concepts);
+    flushRelated([
+      { id: 'beta', name: 'Beta', sharedNotes: 3 },
+      { id: 'gamma', name: 'Gamma', sharedNotes: 1 },
+    ]);
+
+    expect(component.activeNodeId()).toBeNull();
+    expect(component.renderEdges().every((edge) => !edge.dimmed)).toBe(true);
+
+    component.onNodeEnter('alpha');
+
+    expect(component.activeNodeId()).toBe('alpha');
+    const active = component.renderEdges().filter((edge) => edge.active);
+    const dimmed = component.renderEdges().filter((edge) => edge.dimmed);
+    expect(active.length).toBeGreaterThan(0);
+    expect(dimmed.every((edge) => edge.renderOpacity < 0.1)).toBe(true);
+    expect(active.every((edge) => edge.renderOpacity > 0.5)).toBe(true);
+    // The active node and both its neighbours are named; everything else dims.
+    const named = component.renderNodes().filter((node) => node.labelOpacity > 0.5);
+    expect(named.map((node) => node.id).sort()).toEqual(['alpha', 'beta', 'gamma']);
+
+    component.onNodeLeave('alpha');
+    expect(component.activeNodeId()).toBeNull();
+    expect(component.renderEdges().every((edge) => !edge.dimmed)).toBe(true);
+  });
+
+  it('fades placed labels up with zoom and never reveals a deferred one', () => {
+    const manyConcepts = Array.from({ length: 18 }, (_, index) => ({
+      id: `concept-${index}`,
+      name: `Concept ${index}`,
+      usageCount: 18 - index,
+    }));
+    setConcepts(manyConcepts);
+    flushRelated();
+
+    const placed = component.renderNodes().find((item) => !item.labelPriority && !item.labelDeferred);
+    expect(placed, 'expected at least one placed unprioritised label').toBeTruthy();
+
+    component.zoom.set(1);
+    const atRest = component.renderNodes().find((item) => item.id === placed!.id)!.labelOpacity;
+    component.zoom.set(2);
+    const zoomedIn = component.renderNodes().find((item) => item.id === placed!.id)!.labelOpacity;
+
+    expect(atRest).toBeGreaterThan(0);
+    expect(atRest).toBeLessThan(0.5);
+    expect(zoomedIn).toBeGreaterThan(atRest);
+
+    // A deferred label must stay invisible at EVERY zoom. An earlier version
+    // faded these in between zoom 1.4 and 2.2, which read as reasonable and
+    // produced 16 colliding label pairs and 6 labels painted over a disc at 2.5,
+    // because a deferred label is by definition one with no free slot.
+    for (const deferred of component.renderNodes().filter((item) => item.labelDeferred)) {
+      component.zoom.set(0.65);
+      expect(component.renderNodes().find((item) => item.id === deferred.id)!.labelOpacity).toBe(0);
+      component.zoom.set(1.5);
+      expect(component.renderNodes().find((item) => item.id === deferred.id)!.labelOpacity).toBe(0);
+      component.zoom.set(2.5);
+      expect(component.renderNodes().find((item) => item.id === deferred.id)!.labelOpacity).toBe(0);
+    }
+  });
+
+  it('names a deferred node while it is the active one', () => {
+    // A dense fixture is what produces deferred labels: 150 concepts whose names
+    // are long enough that six candidate slots per node cannot all be free. A
+    // sparse fixture places everything and has no deferred node to test.
+    const dense = Array.from({ length: MAX_MAP_CONCEPTS }, (_, index) => ({
+      id: `dense-${index}`,
+      name: `A fairly long concept name number ${index}`,
+      usageCount: MAX_MAP_CONCEPTS - index,
+    }));
+    setConcepts(dense);
+    flushRelated();
+
+    const deferred = component.renderNodes().find((item) => item.labelDeferred);
+    expect(deferred, 'a dense map must defer some labels').toBeTruthy();
+
+    component.zoom.set(1);
+    expect(component.renderNodes().find((item) => item.id === deferred!.id)!.labelOpacity).toBe(0);
+
+    component.onNodeEnter(deferred!.id);
+    const active = component.renderNodes().find((item) => item.id === deferred!.id)!;
+    expect(active.labelOpacity).toBeGreaterThan(0.5);
   });
 });

@@ -48,6 +48,17 @@
   --brand-shape: #293E32;
   --brand-doorway: #FDF8F6;
 
+  /* ── Concept graph ──
+     The Second Brain's map was a wireframe of hollow rings: nodes are filled
+     discs now, and a fill is the one place a graph earns a token of its own
+     because it sits ON neither paper nor chrome — it must read as ink against
+     the stage and still separate from the clay edges. Kept in the existing
+     neutral/clay families rather than a new hue: a category palette was the
+     obvious alternative and it is exactly the "colourful AI aesthetic" the
+     design manifesto rules out. */
+  --graph-node: #57534C;       /* light: warm ink; 7.6:1 on the white stage */
+  --graph-node-head: #28372D;  /* the touched node: pine, the brand ink */
+
   /* ── Accent (Clay) ── */
   --color-accent: #8A6D58;
   --color-accent-hover: #A08468;
@@ -346,6 +357,14 @@
      so both themes render the same forest tile + paper arch. The family is
      listed as INVARIANT in `check-theme-tokens.mjs` to keep this intentional
      rather than looking like an omission. ── */
+
+  /* ── Concept graph ──
+     Warm sand rather than a cool grey: the stage is matte slate and a neutral
+     grey disc on it reads as an unfinished placeholder. Sand keeps the graph in
+     the same warm family as the light theme's ink and lifts off the ground at
+     7.2:1; the touched node goes to porcelain, matching --primary-ink on dark. */
+  --graph-node: #B0A99E;
+  --graph-node-head: #EDEEF2;
 
   /* ── Accent (smoked warm; the light clay is only 3.74:1 here) ── */
   --color-accent: #D1AC8F;
