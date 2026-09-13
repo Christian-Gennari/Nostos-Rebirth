@@ -81,6 +81,48 @@
   /* The browser's own text highlight (::selection) — not the row selection. */
   --text-selection-bg: var(--primary-fill);
 
+  /* ── Elevation role split (see docs/design/design-language.md) ──
+     The app has three tiers of "raised", and until now the dark values lived in
+     three separate global overrides that each had to out-specify a component
+     rule. They are tokens now, read by the rules that own the elements. */
+  /* The floating dock: surface + edge + cast, all three re-derived per theme
+     because a dark shadow on a dark ground carries no elevation, so the surface
+     itself has to lift. */
+  --dock-surface: var(--bg-surface);
+  --dock-border: var(--border-color);
+  --dock-shadow: 0 8px 22px rgba(42, 38, 32, 0.12);
+  /* The phone layout turns the dock into a full-bleed rail, so its cast points
+     UP. Kept separate from --dock-shadow because it is a different geometry, not
+     a different theme. */
+  --dock-shadow-rail: 0 -6px 20px rgba(42, 38, 32, 0.1);
+
+  /* The dock's selected item is ink, not the accent. */
+  --dock-item-active-ink: var(--color-primary);
+  /* Cover art in a grid frame. The hairline alone cannot read against a dark
+     page, so it also carries a shadow. */
+  --cover-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  /* The same frame under the pointer: cast + a warm clay halo (the "soft lamp"),
+     which is correct on a bright page and had to be replaced on dark. */
+  --cover-shadow-hover:
+    0 14px 28px -6px rgba(28, 27, 26, 0.15),
+    0 4px 10px -2px rgba(0, 0, 0, 0.05),
+    0 0 16px -2px var(--color-accent-faint);
+  /* The segmented control's selected option: the raised surface. On dark this is
+     NOT `--bg-surface`, which is darker than the track it sits in. */
+  --control-active-fill: var(--bg-surface);
+  --control-active-ink: var(--color-primary);
+  /* Discs that sit ON cover artwork take the cover-disc ink, not the brand ink:
+     this is chrome floating over an image, not an action on the page. */
+  --action-circle-ink: var(--color-primary);
+  /* The waiting field's breathing highlight. Built by mixing its ground toward
+     white, which is a light-mode assumption — see the dark value. */
+  --wait-glow: color-mix(in srgb, var(--surface-image-ground) 72%, #fff);
+  /* The primary action's inverted pill on dark: see the dark block. */
+  --cta-surface: var(--primary-fill);
+  --cta-ink: var(--on-primary);
+  --cta-border: var(--primary-fill);
+  --cta-surface-hover: var(--color-primary-hover);
+
   /* ── Brand mark (kit v1) ──
      The mark is a solid rounded TILE with the arch knocked out of it, so these
      two tokens are: shape = the tile fill, doorway = the arch fill.
@@ -295,7 +337,7 @@
   inset: 0;
   background: radial-gradient(
     120% 85% at 50% 38%,
-    color-mix(in srgb, var(--surface-image-ground) 72%, #fff) 0%,
+    var(--wait-glow) 0%,
     transparent 72%
   );
   animation: wait-breathe var(--motion-wait) ease-in-out infinite;
@@ -535,6 +577,61 @@
   /* Smoked indigo, as the text highlight. */
   --text-selection-bg: #3A4556;
 
+
+  /* ── Elevation role split — dark values ──
+     A dark shadow on a dark ground carries no elevation, so floating surfaces are
+     raised TONALLY: the surface itself lifts and the cast is deepened to keep the
+     lip defined. See the light block for what each token is for. */
+  /* Measured 1.55 tonal separation from the page, which is what makes the dock
+     read as floating at all on dark. */
+  --dock-surface: #323A48;
+  --dock-border: #454E60;
+  /* VALUE-PRESERVING, and it looks odd on purpose: on dark the container's own
+     cast also applied to the mobile rail, because the dark override
+     `:root[data-theme='dark'] .app-dock-container` (0,3,0) out-specified the
+     mobile rule `.app-dock-container[_ngcontent]` (0,2,0) inside its media query.
+     So dark's phone rail carried a DOWNWARD shadow. That is what shipped, so that
+     is what the token holds — the token's job is to record the current behaviour,
+     not to silently redesign it. If the rail should cast upward on dark, that is a
+     deliberate visual change and belongs in its own commit. */
+  --dock-shadow-rail:
+    0 16px 40px rgba(0, 0, 0, 0.62),
+    0 3px 10px rgba(0, 0, 0, 0.45);
+  --dock-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.62),
+    0 3px 10px rgba(0, 0, 0, 0.45);
+  /* Porcelain, matching the heading rule: on dark the dock's selected label is
+     ink, and the marker beside it is the accent — one state colour, not two. */
+  --dock-item-active-ink: var(--color-text-main);
+  --cover-shadow: 0 2px 12px rgba(0, 0, 0, 0.50);
+  /* Both layers neutral black: the light version's warm halo becomes a LIGHT
+     halo on a dark ground, which glows the surround instead of sinking it.
+     Contact term + cast, so the card keeps a defined lip. */
+  --cover-shadow-hover:
+    0 2px 4px -1px rgba(0, 0, 0, 0.55),
+    0 12px 24px -8px rgba(0, 0, 0, 0.55);
+  /* The same raised tone the dock uses, so "raised on dark" is one value
+     app-wide. `--bg-surface` would be DARKER than the track and the selected
+     option would sink. */
+  --control-active-fill: #323A48;
+  --control-active-ink: var(--color-text-main);
+  /* The discs are chrome on artwork, so they take the disc ink; the brand ink is
+     the dim green here, which made the middle discs green while the corner discs
+     read slate — one card showing two icon colours. */
+  --action-circle-ink: var(--cover-disc-ink);
+  /* Mixing the ground toward WHITE is a light-mode assumption: on dark that is
+     ~13x brighter than the page, so the breath showed as a bright blob during
+     every load. Mix toward the theme's text ink instead. */
+  --wait-glow: color-mix(in srgb, var(--surface-image-ground) 82%, var(--color-text-main));
+  /* A dark brand fill cannot carry a primary action on a dark ground, and a light
+     accent used as a *surface* goes washed out. The porcelain pill is the one
+     inverted surface in the app, so the primary action is also the single
+     brightest element. */
+  --cta-surface: var(--on-primary);
+  --cta-ink: var(--bg-body);
+  --cta-border: var(--on-primary);
+  --cta-surface-hover: #C1C8C5;
+
   /* ── Danger / success / highlight ──
      Warm brick, not the M3 default pink. #FFB4AB is a *light* red: it works as
      ink on dark but turns the danger FILL pale, and the fill's text is porcelain
@@ -713,51 +810,51 @@
      sidebar-collections         .nav-item.active::before */
 
 /* Elevation, not a glow: `--shadow-glow` is a mint-tinted bloom and painted a
-   green halo around a selected row (it is the accent re-used as light). */
-:root[data-theme='dark'] .nav-item.active::before {
-  box-shadow: none;
-}
-:root[data-theme='dark'] .index-item.active {
-  box-shadow: none;
-}
+   green halo around a selected row (it is the accent re-used as light).
+
+   BOTH rules that used to sit here are gone, and this is the clearest no-op pair
+   in the file — worth stating so nobody re-adds them:
+     `:root[data-theme='dark'] .nav-item.active::before { box-shadow: none }`
+     `:root[data-theme='dark'] .index-item.active        { box-shadow: none }`
+   Neither element ever had a box-shadow on dark to suppress. The sidebar pill
+   takes its shadow from `.nav-item::before`'s base rule (which declares
+   `background: transparent` and no shadow), and `.index-item.active`'s base rule
+   — the three-selector block above — declares only background, color and
+   font-weight. So "override the shadow away" was overriding nothing. Verified
+   from the painted DOM on dark: no element carrying these classes reports a
+   non-`none` box-shadow. Deleted rather than kept, because a suppression that
+   suppresses nothing is the same trap as the other no-ops removed here. */
 
 /* The browser's text highlight. Token-ised: `--text-selection-bg` is
    `--primary-fill` on light and smoked indigo on dark, read by the single
    `::selection` rule in the SELECTION section below, so it does not need a
    second rule here. */
 
-/* The floating dock. In light it floats on a warm shadow (only 1.05 tonal
-   separation from the page). A dark shadow on a dark ground is invisible, so
-   the surface itself must carry the elevation: measured 1.55 vs the page. */
-:root[data-theme='dark'] .app-dock-container {
-  background: #323A48;
-  border-color: #454E60;
-  box-shadow:
-    0 16px 40px rgba(0, 0, 0, 0.62),
-    0 3px 10px rgba(0, 0, 0, 0.45);
-}
+/* ── The floating dock ──
+   Token-ised: `--dock-surface`, `--dock-border`, `--dock-shadow`. In light the
+   dock floats on a warm shadow (only 1.05 tonal separation from the page); a dark
+   shadow on a dark ground is invisible, so on dark the SURFACE carries the
+   elevation (measured 1.55 vs the page). The component rule reads the tokens, so
+   no global rule has to win a specificity race.
+   The dock's active state and its focus ring are also token-only now — see
+   `--dock-item-active-ink`, and the note about the deleted focus override below. */
 
-/* Dock active state: porcelain label + the warm accent marker. Previously the
-   label was the mint ink while the marker was clay — two different accents in
-   one control, so neither read as *the* state colour. One accent now, and it
-   matches the sidebar's active treatment. */
-:root[data-theme='dark'] .dock-item.active {
-  color: var(--color-text-main);
-}
+/* Cover art in a grid frame. Token-ised: `--cover-shadow`. The hairline border is
+   not enough on dark, so the frame also carries a cast. `--cover-shadow-hover` is
+   the same idea for the HOVER state, and it needed the most care of any token
+   here: the light version is a cast plus a warm CLAY halo, and that halo layer
+   flips with the theme, so a dark halo on a bright ground becomes a LIGHT halo on
+   a dark one — it glows the surround instead of sinking it, which is the "white
+   shadow that looks washed out and dirty" report. Both dark layers are neutral
+   black: a contact term so the card keeps a defined lip, plus a cast.
+   NOTE: the hover override carried an extra `.book-grid` ancestor for a reason
+   that is now historical — it made the selector (0,6,0) instead of tying the
+   component at (0,5,0). With the value in a token the ancestor is unnecessary;
+   it is kept in the comment history rather than the selector. */
 
-/* Dock keyboard focus: no override needed. The base rule is
-   `outline: 2px solid var(--color-accent)`; #94 repointed the dock's active state
-   to the neutral palette, so this override was chasing a mint ring that is no
-   longer there. `--focus-ring` is also identical in both themes (#6E7C90), which
-   is why the nav equivalent was a no-op too. */
-
-/* Cover art: the hairline alone is too weak on dark, so add a shadow. */
-:root[data-theme='dark'] .cover-wrapper {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.50);
-}
-
-/* Grid card HOVER. The component's hover shadow is tuned for a BRIGHT ground and
-   every one of its three layers breaks on dark, in two different ways:
+/* Grid card HOVER — the reasoning, kept because it is why the token exists.
+   The component's hover shadow is tuned for a BRIGHT ground and every one of its
+   three layers breaks on dark, in two different ways:
 
    1. `0 14px 28px -6px rgba(28,27,26,0.15)` and `0 4px 10px -2px rgba(0,0,0,0.05)`
       are a warm near-black at 15% and a neutral black at 5%. Both are *cast*
@@ -765,41 +862,34 @@
       the visible part. On #15181F they measure 0 to -1 luminance — invisible.
 
    2. `0 0 16px -2px var(--color-accent-faint)` is the warm CLAY halo. The token
-      flips with the theme — rgba(138,109,88,0.3) in light, rgba(209,172,143,0.32)
-      in dark — so a DARK halo on a bright ground becomes a LIGHT halo on a dark
-      one. Measured on dark, that layer alone is the entire visible hover shadow:
-      +15.8 luminance at the card's lip and +9 R-B (warm), against a page of
-      -15 R-B. It does not darken the surround, it GLOWS it — which is the
+      flips with the theme, so a DARK halo on a bright ground becomes a LIGHT halo
+      on a dark one. Measured on dark, that layer alone was the entire visible
+      hover shadow: +15.8 luminance at the card's lip and +9 R-B (warm), against a
+      page of -15 R-B. It does not darken the surround, it GLOWS it — which is the
       "white shadow that looks washed out and dirty" report.
 
    So on dark the hover state was lightening the area around the card instead of
-   sinking it. This override is dark-only: light keeps the warm halo, where it
-   reads correctly as a soft lamp.
+   sinking it. Light keeps the warm halo, where it reads correctly as a soft lamp.
 
-   Values are a CONTACT term plus a cast, both neutral black, so the card has a
-   defined lip (~-7 luminance) and a cast that reaches page level in ~25px
+   The dark values are a CONTACT term plus a cast, both neutral black, so the card
+   has a defined lip (~-7 luminance) and a cast that reaches page level in ~25px
    rather than the ~10px nothing the old layers covered. Deliberately not a wide
-   low-opacity wash: this user reads a spread-out shadow as "too soft", and on a
-   dark ground a wash has no tonal range left to be visible in anyway.
+   low-opacity wash: a spread-out shadow reads as "too soft", and on a dark ground
+   a wash has no tonal range left to be visible in anyway.
    Re-measure with a pixel profile before retuning — do not just soften these.
 
-   SELECTOR: the `.book-grid` step is load-bearing, not decoration. The component
-   rule compiles to `.book-card[_ngcontent-X]:hover .cover-wrapper[_ngcontent-X]`
-   — two classes, two attribute selectors, one pseudo-class = (0,5,0). A plain
-   `:root[data-theme='dark'] .book-card:hover .cover-wrapper` is also (0,5,0)
-   (:root + [data-theme] + .book-card + :hover + .cover-wrapper), so it is a
-   genuine TIE — verified live by injecting it first in <head>, where it LOST and
-   the old warm halo stayed. It only appeared to work when injected last, i.e. it
-   was winning on document order by accident of the global sheet beating the lazy
-   component chunk. Adding `.book-grid` (a real ancestor of `.book-card`) makes it
-   (0,6,0) and it wins from any position in the document. */
-:root[data-theme='dark'] .book-grid .book-card:hover .cover-wrapper {
-  box-shadow:
-    0 2px 4px -1px rgba(0, 0, 0, 0.55),
-    0 12px 24px -8px rgba(0, 0, 0, 0.55);
-}
+   HISTORICAL: this used to be a global override whose SELECTOR was load-bearing.
+   The component rule compiles to
+   `.book-card[_ngcontent-X]:hover .cover-wrapper[_ngcontent-X]` = (0,5,0), and a
+   plain `:root[data-theme='dark'] .book-card:hover .cover-wrapper` is ALSO
+   (0,5,0) — a genuine TIE that lost on document order (it only appeared to work
+   when injected last). Adding `.book-grid` made it (0,6,0) so it won from any
+   position. Now that the value lives on `--cover-shadow-hover` and the component
+   rule reads it, there is nothing to out-specify and the ancestor is not needed.
+   Kept here because it is the clearest example of the tie failure mode. */
 
-/* The view toggle (list/grid). Two problems on dark, both from untouched
+/* The view toggle (list/grid) — token-ised as `--control-active-fill` /
+   `--control-active-ink`. Two problems it fixes on dark, both from untouched
    light-mode assumptions:
    1. The ACTIVE segment used --bg-surface, which is DARKER than the track
       (--bg-hover) on dark — the elevation inverted, so the selected option sank
@@ -807,37 +897,31 @@
       is lighter than its hover.
    2. --color-primary is the dim green ink here, so the active icon went green
       while every other selected state in the app is white-on-raised.
-   #323A48 is the same raised tone the dock uses, so "raised on dark" is now one
-   value app-wide. */
-:root[data-theme='dark'] .toggle-opt.active {
-  background: #323A48;
-  color: var(--color-text-main);
-}
+   #323A48 is the same raised tone the dock uses, so "raised on dark" is one value
+   app-wide. The component rule (`.toggle-opt.active`) reads both tokens. */
 
-/* The waiting field's breathing glow is built by mixing the ground toward
-   WHITE, which is a light-mode assumption. On dark that is ~13x brighter than
-   the page: a bright blob during every load. Overlay a theme-relative film. */
-/* Cover-art action discs: on dark, --color-primary is the dim GREEN ink, so the
-   middle (edit/delete) discs read green while the corner (read/favourite) discs
-   read slate — one card showing two icon colours. The discs are chrome, so on
-   dark all four take the disc ink. Light is deliberately left alone: its stronger
-   brand ink on a white disc reads as the primary action and clears 12.5:1.
-   This lives here rather than in the component because Angular's emulated
-   encapsulation strips a `:root[...]` ancestor from a component rule. */
-:root[data-theme='dark'] .action-circle {
-  color: var(--cover-disc-ink);
-}
+/* Cover-art action discs — token-ised as `--action-circle-ink`. On dark,
+   --color-primary is the dim GREEN ink, so the middle (edit/delete) discs read
+   green while the corner (read/favourite) discs read slate — one card showing two
+   icon colours. The discs are chrome, so on dark all four take the disc ink.
+   Light is deliberately left alone: its stronger brand ink on a white disc reads
+   as the primary action and clears 12.5:1.
+   NOTE: this had to live in the global sheet while it was an override, because
+   Angular's emulated encapsulation strips a `:root[...]` ancestor from a component
+   rule. As a token it can be read by the component rule like any other value. */
 
-:root[data-theme='dark'] .wait-field::before {
-  background: radial-gradient(
-    120% 85% at 50% 38%,
-    color-mix(in srgb, var(--surface-image-ground) 82%, var(--color-text-main)) 0%,
-    transparent 72%
-  );
-}
+/* The waiting field's breathing glow — token-ised as `--wait-glow`.
+   The glow is built by mixing the ground toward WHITE, which is a light-mode
+   assumption: on dark that is ~13x brighter than the page, so the breath showed
+   as a bright blob during every load. The dark token mixes toward the theme's own
+   text ink instead. */
 
 /* The dropdown chevron is a hard-coded light SVG in a data: URI and would be
-   invisible on dark. */
+   invisible on dark. STILL AN OVERRIDE, deliberately: the whole declaration is a
+   data: URI, and putting a `url()` in a custom property works but makes the
+   encoded SVG unreadable in the token graph and easy to corrupt with a stray
+   quote. It is one rule, it targets one component, and it cannot be reached by a
+   token without costing more clarity than it buys. Documented, not token-ised. */
 :root[data-theme='dark'] .sort-select {
   background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23949CA9%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
 }
@@ -1016,31 +1100,26 @@ button {
 }
 
 .btn-primary {
-  background: var(--primary-fill);
-  color: var(--on-primary);
-  border: 1px solid var(--primary-fill);
+  background: var(--cta-surface);
+  color: var(--cta-ink);
+  border: 1px solid var(--cta-border);
 }
 .btn-primary:hover {
-  background: var(--color-primary-hover);
-  border-color: var(--color-primary-hover);
+  background: var(--cta-surface-hover);
+  border-color: var(--cta-surface-hover);
 }
 
-/* Inverted porcelain CTA on dark. A dark brand fill cannot carry a primary
-   action on a dark ground, and a light accent used as a *surface* goes washed
-   out (the mirror of the original role collision). The porcelain pill is the
-   one inverted surface in the app, so the primary action is also the single
-   brightest element. The border is declared explicitly: `.btn-primary` uses
-   the same token for fill and border, so leaving it would ring the button in
-   the mint ink. */
-:root[data-theme='dark'] .btn-primary {
-  background: var(--on-primary);
-  color: var(--bg-body);
-  border-color: var(--on-primary);
-}
-:root[data-theme='dark'] .btn-primary:hover {
-  background: #C1C8C5;
-  border-color: #C1C8C5;
-}
+/* Inverted porcelain CTA — token-ised as `--cta-surface` / `--cta-ink` /
+   `--cta-border` / `--cta-surface-hover`. A dark brand fill cannot carry a
+   primary action on a dark ground, and a light accent used as a *surface* goes
+   washed out (the mirror of the original role collision). The porcelain pill is
+   the one inverted surface in the app, so the primary action is also the single
+   brightest element.
+   The border is a token of its own rather than reusing the fill: `.btn-primary`
+   declares `fill` and `border` from the same value on light, so on dark the
+   border has to move with the inverted fill or the button is ringed in the mint
+   ink. The rules above now read the tokens, so these two global overrides — which
+   had to out-specify `.btn[_ngcontent]` — are gone. */
 
 .btn-secondary {
   background: var(--bg-surface);

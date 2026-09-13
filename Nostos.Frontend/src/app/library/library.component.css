@@ -322,8 +322,11 @@ app-sidebar-collections.no-transition {
 }
 
 .toggle-opt.active {
-  background: var(--bg-surface);
-  color: var(--color-primary);
+  /* `--control-active-*`: on dark `--bg-surface` is DARKER than the track the
+     option sits in, so the elevation would invert and the selected option would
+     sink — the dark token is the same raised tone the dock uses. */
+  background: var(--control-active-fill);
+  color: var(--control-active-ink);
   /* Was a hardcoded clay ring (rgba(138,109,88,.22)) — a literal, so it was
      theme-blind and stayed warm brown on dark. Now an outline in the border
      colour, which tracks the theme. */
@@ -794,7 +797,9 @@ app-sidebar-collections.no-transition {
      block zeroes the shadow on touch-hover, and a hairline keeps the frame
      readable at every cover colour where a soft shadow washes out. */
   border: 1px solid var(--border-color);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  /* `--cover-shadow`: the hairline alone cannot read on a dark page, so the
+     frame also carries a cast (deeper on dark). */
+  box-shadow: var(--cover-shadow);
   margin-bottom: 0.75rem;
   display: flex;
   align-items: center;
@@ -825,10 +830,11 @@ app-sidebar-collections.no-transition {
 
 .book-card:hover .cover-wrapper {
   transform: translateY(-4px);
-  box-shadow:
-    0 14px 28px -6px rgba(28, 27, 26, 0.15),
-    0 4px 10px -2px rgba(0, 0, 0, 0.05),
-    0 0 16px -2px var(--color-accent-faint);
+  /* `--cover-shadow-hover`: light keeps the cast + warm clay halo ("soft lamp");
+     on dark that halo layer inverts to a LIGHT halo and GLOWS the surround
+     instead of sinking it, so the dark value is two neutral-black layers with a
+     contact term. See the token notes in styles.css. */
+  box-shadow: var(--cover-shadow-hover);
 }
 
 /* Buttons (Grid) */
@@ -921,8 +927,15 @@ app-sidebar-collections.no-transition {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: var(--color-primary);
+  /* `--action-circle-ink`: the discs sit ON cover artwork, so they are chrome and
+     take the disc ink on dark (the brand ink there is the dim green, which made
+     the middle discs green while the corner discs read slate). */
+  color: var(--action-circle-ink);
   transform: translateY(10px);
+  /* STILL `all`: converting this to an explicit property list is the transition
+     batch's job. Converting it here moved the painted transition duration from
+     0.2s to 0.22s (different `transitionProperty` sets cluster differently), and
+     an unrelated change is not allowed to move pixels. */
   transition: all 0.2s ease;
 }
 

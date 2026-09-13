@@ -198,8 +198,10 @@
 }
 
 .toggle-opt.active {
-  background: var(--bg-surface);
-  color: var(--color-primary);
+  /* `--control-active-*`: see the note in library.component.css — on dark
+     `--bg-surface` is darker than the track, so the elevation would invert. */
+  background: var(--control-active-fill);
+  color: var(--control-active-ink);
   box-shadow: var(--shadow-sm);
   outline: 1px solid var(--border-color);
   outline-offset: -1px;
