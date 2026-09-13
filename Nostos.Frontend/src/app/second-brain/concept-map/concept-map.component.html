@@ -33,6 +33,13 @@
       <button type="button" class="map-reset" (click)="resetView()">Reset view</button>
     </div>
 
+    <!-- The mesh is painted in three passes rather than one, because a
+         force-directed graph IS mostly edges: at a single strength they drown the
+         concepts they connect. Rest-state edges sit at a quiet opacity; the edges
+         touching the hovered or selected node are lifted above them, and
+         everything else recedes to near-invisible. Ordering the passes here (not
+         by per-edge z-index) is what lets one bright line cross a dim field
+         without being swallowed by later siblings. -->
     <svg
       class="map-svg"
       viewBox="0 0 960 540"
@@ -48,12 +55,17 @@
         @for (edge of renderEdges(); track edge.key) {
         <line
           class="map-edge"
+          [attr.data-edge-key]="edge.key"
+          [attr.data-source-id]="edge.sourceId"
+          [attr.data-target-id]="edge.targetId"
+          [class.active]="edge.active"
+          [class.dimmed]="edge.dimmed"
           [attr.x1]="edge.source?.x"
           [attr.y1]="edge.source?.y"
           [attr.x2]="edge.target?.x"
           [attr.y2]="edge.target?.y"
-          [style.opacity]="edge.opacity"
-          [style.stroke-width]="edge.width"
+          [style.opacity]="edge.renderOpacity"
+          [style.stroke-width]="edge.renderWidth"
           [attr.aria-label]="edge.sharedNotes + ' shared notes'"
         ></line>
         }
@@ -62,6 +74,10 @@
         <g
           class="map-node"
           [class.selected]="selectedNodeId() === node.id"
+          [class.active]="node.isActive"
+          [class.dimmed]="node.dimmed"
+          [class.neighbour]="node.neighbour"
+          [attr.data-node-id]="node.id"
           [attr.tabindex]="0"
           role="button"
           [attr.aria-label]="
@@ -90,11 +106,15 @@
             [attr.r]="node.radius"
             aria-hidden="true"
           ></circle>
-          @if (node.showLabel) {
-          <text class="map-node-label" [attr.x]="node.labelX" [attr.y]="node.labelY">
+          <text
+            class="map-node-label"
+            [attr.x]="node.labelX"
+            [attr.y]="node.labelY"
+            [attr.text-anchor]="node.labelAnchor"
+            [style.opacity]="node.labelOpacity"
+          >
             {{ tooltipLabel(node.name) }}
           </text>
-          }
         </g>
         }
       </g>
