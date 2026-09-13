@@ -1,8 +1,9 @@
-import { Component, input, output, effect, OnDestroy, OnInit } from '@angular/core';
+import { Component, input, output, effect, inject, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import TurndownService from 'turndown';
 import { marked } from 'marked';
+import { ThemeService } from '../../core/services/theme.service';
 
 // Import TinyMCE as a global type reference
 declare var tinymce: any;
@@ -17,7 +18,7 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap');
 
   :root {
-    color-scheme: light;
+    color-scheme: light dark;
 
     --paper: #ffffff;
     --ink: #292622;
@@ -38,20 +39,62 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
     --code-ink: #3b3834;
   }
 
+  :root[data-theme='dark'] {
+    color-scheme: dark;
+
+    --paper: #1B1E26;
+    --ink: #EDEEF2;
+    --ink-soft: #C5C9D0;
+    --ink-faint: #949CA9;
+
+    --rule: #262A34;
+    --rule-strong: #333846;
+
+    --link: #8FA89A;
+    --link-hover: #ACCDC4;
+    --selection: rgba(172, 205, 196, 0.25);
+
+    --quote-bg: #21252E;
+    --quote-rule: #4A5260;
+
+    --code-bg: #15181F;
+    --code-ink: #EDEEF2;
+  }
+
   html {
     min-height: 100%;
     background: var(--paper);
     scroll-behavior: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule-strong) transparent;
+  }
+
+  html::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  html::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  html::-webkit-scrollbar-thumb {
+    background-color: var(--rule-strong);
+    border-radius: 999px;
+  }
+
+  html::-webkit-scrollbar-thumb:hover {
+    background-color: var(--ink-faint);
   }
 
   body {
     box-sizing: border-box;
     width: 100%;
+    max-width: 820px;
+    margin: 0 auto;
     min-height: 100%;
-    margin: 0;
     padding:
-      clamp(2.5rem, 5.5vw, 4.5rem)
-      clamp(1.5rem, 7vw, 4.5rem)
+      clamp(2rem, 4vw, 3.5rem)
+      clamp(1.5rem, 4vw, 2.5rem)
       7rem;
 
     color: var(--ink);
@@ -66,6 +109,12 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
     font-kerning: normal;
     font-variant-ligatures: common-ligatures;
     overflow-wrap: break-word;
+    outline: none !important;
+  }
+
+  body:focus,
+  body:focus-visible {
+    outline: none !important;
   }
 
   ::selection {
@@ -305,6 +354,31 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
          plain CSS inheritance. Theme changes repaint instantly; the editor
          is never destroyed or re-created. */
 
+      /* Kill Oxide container borders, drop shadows, and browser active outlines */
+      :host ::ng-deep .tox.tox-tinymce {
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        border-radius: 0 !important;
+      }
+
+      :host ::ng-deep .tox.tox-tinymce.tox-tinymce--focused,
+      :host ::ng-deep .tox.tox-tinymce:focus-within,
+      :host ::ng-deep .tox .tox-edit-area,
+      :host ::ng-deep .tox .tox-edit-area__iframe {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+      }
+
+      :host ::ng-deep .tox .tox-edit-area {
+        background: transparent !important;
+      }
+
+      :host ::ng-deep .tox .tox-edit-area__iframe {
+        background: transparent !important;
+      }
+
       /* Base font and color */
       :host ::ng-deep .tox {
         font-family: 'Hanken Grotesk', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -316,7 +390,7 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
       :host ::ng-deep .tox .tox-toolbar-overlord,
       :host ::ng-deep .tox .tox-toolbar,
       :host ::ng-deep .tox .tox-toolbar__primary {
-        background: var(--bg-surface) !important;
+        background: var(--editor-ui-bg, var(--bg-surface)) !important;
         box-shadow: none !important;
       }
 
@@ -371,7 +445,7 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
       :host ::ng-deep .tox .tox-tbtn--enabled,
       :host ::ng-deep .tox .tox-tbtn--enabled:hover,
       :host ::ng-deep .tox .tox-mbtn--active {
-        color: var(--primary-ink) !important;
+        color: var(--color-text-main) !important;
         background: var(--color-accent-bg) !important;
       }
 
@@ -411,6 +485,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   });
 
   private editor: any;
+  private themeService = inject(ThemeService);
 
   /**
    * Final chrome (expert design §1): one constant 'oxide' skin, no menubar,
@@ -473,6 +548,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
       editor.on('init', () => {
         editor.getBody().style.opacity = '1';
+        this.syncIframeTheme();
         // Optional: Safety check in case content loaded before init
         if (this.htmlContent && !editor.getContent()) {
           editor.setContent(this.htmlContent);
@@ -505,6 +581,12 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
         }
       }
     });
+
+    // 2. Reactively synchronize iframe document with the active theme
+    effect(() => {
+      this.themeService.theme(); // track theme signal changes
+      this.syncIframeTheme();
+    });
   }
 
   ngOnInit() {
@@ -513,6 +595,22 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.destroyEditor();
+  }
+
+  private syncIframeTheme() {
+    if (!this.editor) return;
+    try {
+      const doc = this.editor.getDoc();
+      if (!doc) return;
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (isDark) {
+        doc.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        doc.documentElement.removeAttribute('data-theme');
+      }
+    } catch {
+      // Ignored if iframe is not ready or cross-origin
+    }
   }
 
   private initEditor() {
