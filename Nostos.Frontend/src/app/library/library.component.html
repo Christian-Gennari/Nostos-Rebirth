@@ -236,15 +236,25 @@
           </div>
 
           <div class="col actions-cell" (click)="$event.stopPropagation()">
+            <!-- `data-tip` drives the themed tip in the CSS below. `title` is
+                 deliberately gone: on desktop it fired the browser's own white,
+                 square-cornered tooltip a beat later and the two fought over the
+                 same spot. `aria-label` carries the name for assistive tech. -->
             <button
               class="icon-btn edit"
               (click)="openEditModal(book); $event.stopPropagation()"
-              title="Edit"
+              data-tip="Edit"
+              aria-label="Edit book"
             >
               <lucide-icon [img]="Edit2Icon" [size]="15"></lucide-icon>
             </button>
 
-            <button class="icon-btn delete" (click)="openDeleteModal(book, $event)" title="Delete">
+            <button
+              class="icon-btn delete"
+              (click)="openDeleteModal(book, $event)"
+              data-tip="Delete"
+              aria-label="Delete book"
+            >
               <lucide-icon [img]="Trash2Icon" [size]="15"></lucide-icon>
             </button>
           </div>

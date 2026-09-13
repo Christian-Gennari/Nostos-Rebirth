@@ -368,6 +368,18 @@ app-sidebar-collections.no-transition {
   background: var(--glass-bg);
 }
 
+/* The hover cluster, revealed by the row's hover. It hangs off the row's right
+   edge on purpose: it floats over the Date column, so it costs the grid nothing.
+
+   The rest state is a hard `visibility: hidden` (and `display: none` on touch,
+   below), not the `opacity: 0` + `pointer-events: none` it used to be. Two
+   reasons, both about the tips: a `visibility: hidden` subtree can never show
+   one, so a tip cannot leak out of an un-hovered row; and `opacity: 0` would
+   fade a tip *through* the very container it paints behind.
+
+   Opaque surface + hairline, so the date it floats over can no longer bleed
+   through the controls — that bleed-through is what made the old cluster read
+   as a smudge. */
 .table-row .actions-cell {
   position: absolute;
   right: 0.75rem;
@@ -376,21 +388,23 @@ app-sidebar-collections.no-transition {
   display: flex;
   align-items: center;
   gap: 4px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-  background: var(--bg-hover);
-  padding-left: 8px;
-  border-radius: var(--radius-sm);
+  padding: 2px;
+  visibility: hidden;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
 }
 
 .table-row:hover .actions-cell,
 .table-row:focus-within .actions-cell {
-  opacity: 1;
-  pointer-events: auto;
+  visibility: visible;
 }
 
 .icon-btn {
+  /* `position: relative` is what makes the BUTTON the containing block for the
+     tip below, not the absolutely positioned cluster, so the tip tracks the
+     button it belongs to. */
+  position: relative;
   width: 28px;
   height: 28px;
   border-radius: 4px;
@@ -401,15 +415,75 @@ app-sidebar-collections.no-transition {
   border: none;
   cursor: pointer;
   color: var(--color-text-muted);
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .icon-btn:hover {
-  background: var(--bg-surface);
+  background: var(--bg-hover);
   color: var(--color-text-main);
 }
 
+/* Destructive hover: --color-danger mixed 55% toward --color-text-main, so it
+   resolves to a light red on dark (#E4796B) and a deep one on light (#8C2A24).
+   --color-danger itself is a red meant to be read on light: on dark it lands
+   near 3.2:1 and fails as an icon ink. The fill stays the neutral --bg-hover,
+   matching the card's delete disc, which also avoids a danger-tinted surface. */
 .icon-btn.delete:hover {
-  color: var(--color-error, #e53935);
+  color: color-mix(in srgb, var(--color-danger) 55%, var(--color-text-main));
+}
+
+/* THEMED TIP. Replaces the native `title=` tooltip, which browsers paint as a
+   white, square-cornered box regardless of theme — a jarring rectangle on a
+   dark, rounded, warm-paper UI. Driven by `data-tip`, so the markup cost is one
+   attribute, and it resolves through the same token graph in both themes. */
+.icon-btn[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  right: 0;
+  padding: 0.3rem 0.55rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+  color: var(--color-text-main);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-medium);
+  line-height: 1.35;
+  white-space: nowrap;
+  /* Decorative AND non-interactive: a tip that accepted pointer events would be
+     a 1x1 target defect, and at this size it would swallow the row's click. */
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  /* Delay and fade both run --transition-fast, so the tip never trails the
+     pointer. */
+  transition:
+    opacity var(--transition-fast),
+    visibility 0s linear var(--transition-fast);
+}
+
+.icon-btn[data-tip]:hover::after,
+.icon-btn[data-tip]:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+/* Keyboard reveal carries the app's own ring. The tip's right edge is pinned to
+   the button's right edge — still 12px inside the row — so the ring's 2px can
+   never leave the row's box. */
+.icon-btn[data-tip]:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn[data-tip]::after {
+    transition: none;
+  }
 }
 
 .col.title {
@@ -1205,7 +1279,9 @@ app-sidebar-collections.no-transition {
     background: none;
   }
 
-  /* Hide columns */
+  /* Hide columns. `display: none` on the actions cluster is also what disables
+     the hover tips on touch: a phone has no hover, a tip is decoration, and
+     removing the buttons removes the anchors the tips hang off. */
   #actions-header,
   #author-header,
   #date-header,
