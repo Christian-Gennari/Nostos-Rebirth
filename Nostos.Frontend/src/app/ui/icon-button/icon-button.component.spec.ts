@@ -12,13 +12,14 @@ import { IconButtonComponent } from './icon-button.component';
   standalone: true,
   imports: [IconButtonComponent, LucideAngularModule],
   template: `
-    <button appIconButton [icon]="pencil" tip="Edit" ariaLabel="Edit book" (click)="clicks = clicks + 1"></button>
-    <button appIconButton [icon]="trash" size="xs" tone="danger" ariaLabel="Delete"></button>
-    <button appIconButton [icon]="x" size="xxs" shape="round" ariaLabel="Jump"></button>
+    <button appIconButton [icon]="pencil" aria-label="Edit book" (click)="clicks = clicks + 1"></button>
+    <button appIconButton [icon]="trash" size="xs" tone="danger" aria-label="Delete"></button>
+    <button appIconButton [icon]="x" size="xxs" aria-label="Jump"></button>
     <button appIconButton [icon]="pencil" [disabled]="disabled()" (click)="clicks = clicks + 1"></button>
     <button appIconButton [icon]="pencil" [active]="true" ariaLabel="TOC"></button>
     <button appIconButton [icon]="pencil" [pressed]="pressed()"></button>
-    <button appIconButton [icon]="pencil" class="desktop-only zen-toggle" ariaLabel="Extra"></button>
+    <button appIconButton [icon]="pencil" class="desktop-only zen-toggle" aria-label="Extra"></button>
+    <button appIconButton [icon]="pencil" [class.overflow-toggle]="toggleClass()" aria-label="Cond"></button>
   `,
 })
 class HostComponent {
@@ -34,6 +35,7 @@ class HostComponent {
    */
   readonly disabled = signal(false);
   readonly pressed = signal<boolean | null>(null);
+  readonly toggleClass = signal(true);
 }
 
 function buttons(f: ReturnType<typeof TestBed.createComponent<HostComponent>>) {
@@ -47,7 +49,7 @@ describe('IconButtonComponent', () => {
     const f = TestBed.createComponent(HostComponent);
     await f.whenStable();
     const all = buttons(f);
-    expect(all.length).toBe(7);
+    expect(all.length).toBe(8);
     // Every host is a real button; there is no custom element in between.
     expect(f.nativeElement.querySelector('app-icon-button')).toBeNull();
   });
@@ -70,6 +72,9 @@ describe('IconButtonComponent', () => {
     const all = buttons(f);
     expect(all[0].getAttribute('aria-label')).toBe('Edit book');
     expect(all[3].getAttribute('aria-label')).toBeNull();
+    // The bounds moved because a conditional-class button was appended; index 3
+    // is still the disabled one, which carries no label.
+    expect(all[2].getAttribute('aria-label')).toBe('Jump');
   });
 
   it('applies the measured size rungs as host classes', async () => {
@@ -78,7 +83,6 @@ describe('IconButtonComponent', () => {
     const all = buttons(f);
     expect(all[1].classList.contains('icon-btn--xs')).toBe(true);
     expect(all[2].classList.contains('icon-btn--xxs')).toBe(true);
-    expect(all[2].classList.contains('icon-btn--round')).toBe(true);
     // md is the default and needs no class: the base rule already is 32px.
     expect(all[0].classList.contains('icon-btn--md')).toBe(false);
   });
@@ -121,6 +125,27 @@ describe('IconButtonComponent', () => {
     f.componentInstance.pressed.set(true);
     await f.whenStable();
     expect(buttons(f)[5].getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('keeps a conditional [class.x] binding from the call site', async () => {
+    // The reader and studio drive their segments with [class.active] and
+    // [class.overflow-toggle]; a class host binding that clobbered those would
+    // silently break the toggle visuals.
+    const f = TestBed.createComponent(HostComponent);
+    await f.whenStable();
+    const b = buttons(f)[7];
+    expect(b.classList.contains('overflow-toggle')).toBe(true);
+    expect(b.classList.contains('icon-btn')).toBe(true);
+  });
+
+  it('does not require an ariaLabel input - native aria-label passes through', async () => {
+    // Regression guard: a `[attr.aria-label]` host binding overrides a static
+    // aria-label with null, which silently removed the accessible name from
+    // Library's edit/delete buttons. The input is gone for that reason.
+    const f = TestBed.createComponent(HostComponent);
+    await f.whenStable();
+    expect(buttons(f)[0].getAttribute('aria-label')).toBe('Edit book');
+    expect(buttons(f)[6].getAttribute('aria-label')).toBe('Extra');
   });
 
   it('leaves one-off utility classes untouched on the host', async () => {

@@ -416,9 +416,10 @@ app-sidebar-collections.no-transition {
      tip below, not the absolutely positioned cluster, so the tip tracks the
      button it belongs to. */
   position: relative;
-  /* `--control-h-xs` is 28px — the measured value this rule already painted. */
-  width: var(--control-h-xs);
-  height: var(--control-h-xs);
+  /* Size moved to appIconButton (`size="xs"`), which owns the rungs. Leaving it
+     here would tie with the component's `:host(.icon-btn--xs)` rule at (0,2,0)
+     and let stylesheet order decide the painted size. Radius stays: it is 4px
+     here versus the global 3px, a deliberate per-surface choice. */
   border-radius: 4px;
   display: inline-flex;
   align-items: center;

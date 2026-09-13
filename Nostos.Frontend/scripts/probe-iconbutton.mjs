@@ -241,10 +241,15 @@ async function probe(page, theme) {
                       dy: +((grect.top + grect.height / 2) - (rect.top + rect.height / 2)).toFixed(2) }
                   : null;
                 return {
-                  id: el.id || `${el.tagName.toLowerCase()}:${(el.className || '').trim()}:${idx}`,
+                  // Identity must NOT include className: the component legitimately
+                  // adds `icon-btn--xs`, and hashing the class string turned every
+                  // migrated button into "ABSENT + NEW", burying real diffs in churn.
+                  // Position within the (surface, theme, state) group is stable
+                  // because the same DOM order produces the same order here.
+                  id: el.id || `${el.tagName.toLowerCase()}#${idx}`,
+                  cls: (el.className || '').trim(),
                   offset,
                   tag: el.tagName.toLowerCase(),
-                  cls: (el.className || '').trim(),
                   dataTip: el.getAttribute('data-tip'),
                   ariaLabel: el.getAttribute('aria-label'),
                   title: el.getAttribute('title'),
@@ -290,6 +295,7 @@ if (argv.includes('--diff')) {
   const am = new Map(A.surfaces.map((s) => [key(s), s]));
   const bm = new Map(B.surfaces.map((s) => [key(s), s]));
   let diffs = 0;
+  const notes = [];
   for (const [k, sa] of am) {
     const sb = bm.get(k);
     if (!sb) { console.log(`  ${k}: MISSING in after`); diffs++; continue; }
@@ -328,6 +334,11 @@ if (argv.includes('--diff')) {
         // happily report "identical" while a migration silently dropped an
         // aria-label, a tooltip, or a disabled state — the component's whole
         // reason to exist over a bare class.
+        // A class-string difference is reported but is NOT a failure on its own:
+        // the component adds its rung class by design. Every other field below is.
+        if (btnA.cls !== btnB.cls) {
+          notes.push(`  (class) ${k} [${stateA.state}] ${btnA.id}: "${btnA.cls}" -> "${btnB.cls}"`);
+        }
         for (const f of ['ariaLabel', 'dataTip', 'disabled', 'title', 'text', 'stateApplied']) {
           if (btnA[f] === undefined && btnB[f] === undefined) continue;
           if (JSON.stringify(btnA[f]) !== JSON.stringify(btnB[f])) {
@@ -345,6 +356,11 @@ if (argv.includes('--diff')) {
     }
   }
   for (const k of bm.keys()) if (!am.has(k)) { console.log(`  ${k}: NEW surface after`); diffs++; }
+  if (notes.length) {
+    console.log(`\n  ${notes.length} class-only change(s) (informational, not failures):`);
+    for (const n of notes.slice(0, 8)) console.log(n);
+    if (notes.length > 8) console.log(`  ... and ${notes.length - 8} more`);
+  }
   console.log(diffs ? `\n✖ ${diffs} difference(s)` : '\n✔ probes identical');
   process.exit(diffs ? 1 : 0);
 }

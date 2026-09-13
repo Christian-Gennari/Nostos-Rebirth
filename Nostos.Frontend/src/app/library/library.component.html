@@ -241,22 +241,26 @@
                  square-cornered tooltip a beat later and the two fought over the
                  same spot. `aria-label` carries the name for assistive tech. -->
             <button
-              class="icon-btn edit"
+              appIconButton
+              class="edit"
+              size="xs"
+              [icon]="Edit2Icon"
+              [glyphSize]="15"
               (click)="openEditModal(book); $event.stopPropagation()"
               data-tip="Edit"
               aria-label="Edit book"
-            >
-              <lucide-icon [img]="Edit2Icon" [size]="15"></lucide-icon>
-            </button>
+            ></button>
 
             <button
-              class="icon-btn delete"
+              appIconButton
+              class="delete"
+              size="xs"
+              [icon]="Trash2Icon"
+              [glyphSize]="15"
               (click)="openDeleteModal(book, $event)"
               data-tip="Delete"
               aria-label="Delete book"
-            >
-              <lucide-icon [img]="Trash2Icon" [size]="15"></lucide-icon>
-            </button>
+            ></button>
           </div>
         </div>
         } @empty {

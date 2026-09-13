@@ -5,8 +5,6 @@ import { LucideAngularModule, LucideIconData } from 'lucide-angular';
 export type IconButtonSize = 'xxs' | 'xs' | 'md';
 /** Tone affects the hover ink only; the fill stays neutral. */
 export type IconButtonTone = 'default' | 'danger';
-/** Corner shape. `round` is the 50% chip used by note-card's dense row actions. */
-export type IconButtonShape = 'rounded' | 'round';
 
 /**
  * A single icon button, replacing 30 hand-built copies across 5 templates.
@@ -38,6 +36,15 @@ export type IconButtonShape = 'rounded' | 'round';
  * fill-on-hover. Those stay in the surfaces that own them so this remains a
  * pure de-duplication and every migration is pixel-identical. Moving them is a
  * follow-up, not a refactor.
+ *
+ * THERE IS NO `ariaLabel` INPUT, ON PURPOSE.
+ * A host binding like `[attr.aria-label]="ariaLabel() || null"` OVERRIDES a
+ * static `aria-label` written on the call site, so `<button appIconButton
+ * aria-label="Edit book">` had its label silently replaced with nothing — a
+ * real accessibility regression that no unit test caught and only the computed
+ * probe did. Because the host IS the `<button>`, native attributes already pass
+ * through untouched, so the input only ever added a way to lose the label.
+ * Write `aria-label` (or `title`) on the call site directly.
  */
 @Component({
   selector: 'button[appIconButton]',
@@ -49,10 +56,8 @@ export type IconButtonShape = 'rounded' | 'round';
     class: 'icon-btn',
     '[class.icon-btn--active]': 'active()',
     '[class.icon-btn--danger]': "tone() === 'danger'",
-    '[class.icon-btn--round]': "shape() === 'round'",
     '[class.icon-btn--xxs]': "size() === 'xxs'",
     '[class.icon-btn--xs]': "size() === 'xs'",
-    '[attr.aria-label]': 'ariaLabel() || null',
     '[attr.aria-pressed]': 'pressedAttr()',
   },
   styles: [
@@ -75,13 +80,13 @@ export type IconButtonShape = 'rounded' | 'round';
         width: var(--control-h-xs);
         height: var(--control-h-xs);
       }
-      :host(.icon-btn--round) {
-        border-radius: 50%;
-      }
-
-      /* Hover, active and the .delete tone stay in the surfaces and in styles.css,
-         which this component does not own; only the two things the copies
-         disagreed about (size, shape) live here. */
+      /* Size only. Radius deliberately NOT owned: it varies per surface on
+         purpose — 3px global (--radius-sm), 4px on Library rows and the reader
+         toolbar, 6px on the studio zen toggle, 50% on note-card's round chips —
+         and it mostly arrives through descendant rules that keep matching because
+         the host is still the button. Encoding a radius rung here would move
+         pixels on four surfaces to no benefit.
+         Hover, active and the .delete tone likewise stay with the surfaces. */
     `,
   ],
 })
@@ -95,20 +100,11 @@ export class IconButtonComponent {
    */
   readonly glyphSize = input<number>(16);
 
-  /**
-   * Becomes the host's `aria-label`, which is what an icon-only button needs.
-   * `null` when empty so the attribute is absent rather than empty.
-   */
-  readonly ariaLabel = input<string>('');
-
   /** `xxs` = 24px round chip, `xs` = 28px, `md` = 32px (the token default). */
   readonly size = input<IconButtonSize>('md');
 
   /** `danger` tints the hover ink; the fill stays neutral by design. */
   readonly tone = input<IconButtonTone>('default');
-
-  /** `round` for the dense circular row-actions on note cards. */
-  readonly shape = input<IconButtonShape>('rounded');
 
   /**
    * Selected state. Applied as a class rather than an attribute because the

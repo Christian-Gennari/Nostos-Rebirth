@@ -20,6 +20,7 @@ import { FormsModule } from '@angular/forms';
 import { AddBookModal } from '../add-book-modal/add-book-modal.component';
 import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
+import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
 import { SidebarCollections } from './sidebar-collections/sidebar-collections.component';
 import { Book, EditionSummaryDto, PaginatedResponse } from '../core/dtos/book.dtos';
 import { Subject } from 'rxjs';
@@ -125,6 +126,7 @@ interface WorkFormatGlyph {
     AddBookModal,
     ConfirmModal,
     StarRatingComponent,
+    IconButtonComponent,
     SidebarCollections,
     InfiniteScrollDirective,
     BloomArtDirective,
