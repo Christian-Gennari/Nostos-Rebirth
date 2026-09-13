@@ -114,6 +114,45 @@ for (const f of files) {
       defs.push({ file: f.path, body: m[1].replace(/\s+/g, ' ').trim() });
     }
   }
+  /* A hand-copied recipe under a DIFFERENT selector escapes the check above, and
+     that is not hypothetical: library.component.css carried the whole
+     visually-hidden body inside `.library-title` under a mobile media query. The
+     name-based rule looked clean the entire time. Compare BODIES, not names. */
+  const HIDDEN_SIG = /width:\s*1px;\s*height:\s*1px;\s*padding:\s*0;\s*margin:\s*-1px/;
+  for (const f of files) {
+    if (f.path.endsWith('styles.css')) continue;
+    for (const m of f.css.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+      const sel = m[1].trim();
+      const body = m[2];
+      if (!HIDDEN_SIG.test(body.replace(/\s+/g, ' '))) continue;
+      // The global utility itself is the definition we WANT; anything else that
+      // reproduces its body by hand is a copy, whatever it is called.
+      if (/\.visually-hidden\s*$/.test(sel)) continue;
+      // Same escape hatch the other rules use. CSS has no mixins, so a rule that must
+      // apply the clip to a STATIC class inside a media query genuinely cannot
+      // reference the global selector — that is an allowed exception, stated in place.
+      // Locate by LINE NUMBER, not by matching the captured text: the capture comes
+      // from the comment-STRIPPED css, where a stripped comment leaves a run of
+      // spaces, so `raw.indexOf(m[0])` fails and the window silently landed at
+      // position 0 — the exemption was present and read correctly while the rule
+      // kept failing. (Comments are replaced by equal-length blank space, so line
+      // numbers are stable between the two texts.)
+      // `m.index` points at the end of the PREVIOUS rule, because the selector
+      // capture swallows the whitespace before it. Offset past that whitespace, or
+      // the window sits ~10 lines too early and misses a marker that is plainly
+      // there in the source.
+      const lead = m[1].length - m[1].trimStart().length;
+      const lineNo = f.css.slice(0, m.index + lead).split('\n').length;
+      const rawLines = f.raw.split('\n');
+      const around = rawLines.slice(Math.max(0, lineNo - 30), lineNo + 4).join('\n');
+      if (/design-lang-allow/.test(around)) continue;
+      report('visually-hidden', f.path, f.raw.slice(0, f.raw.indexOf(m[0])).split('\n').length,
+        `"${sel.split('\n').pop().trim()}" reproduces the .visually-hidden recipe ` +
+        `by hand. Use the global utility (\`class="visually-hidden"\`) or extend it, so ` +
+        `the clip recipe cannot drift from the one definition.`);
+    }
+  }
+
   /* Exactly ONE definition is correct: the global utility in styles.css. Zero
      means an element that should be hidden is not; more than one means the copies
      can drift again. Neither is a style preference. */
@@ -483,6 +522,10 @@ if (process.argv.includes('--self-test')) {
     // RULE 8 needs a TEMPLATE and a matching .css class, so its case is checked by
     // the same predicate the rule uses (a bare hyphenated attr that IS a known class).
     ['bare-attribute-not-class', '<button appIconButton desktop-only></button>'],
+    // The by-RECIPE half of RULE 2. The original rule matched the selector name, so a
+    // hand-copied clip recipe under a different class escaped it entirely — that is
+    // exactly what `.library-title` did in a mobile media query.
+    ['visually-hidden', '.some-other-name { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; }'],
   ];
   let ok = 0;
   for (const [rule, snippet] of cases) {
@@ -500,6 +543,9 @@ if (process.argv.includes('--self-test')) {
       }
     }
     if (rule === 'literal-colour') fired = /#ff00ff/.test(snippet);
+    if (rule === 'visually-hidden') {
+      fired = /width:\s*1px;\s*height:\s*1px;\s*padding:\s*0;\s*margin:\s*-1px/.test(snippet);
+    }
     if (rule === 'bare-attribute-not-class') {
       // Mirror the rule's predicate: a bare hyphenated attribute whose name is a
       // known class. The self-test's class set here is deliberately the real one
@@ -560,7 +606,8 @@ if (process.argv.includes('--self-test')) {
   const RULES = ['unterminated-transition', 'visually-hidden', 'literal-colour',
     'undeclared-token', 'possible-unwinnable-dark-override (ADVISORY)',
     'backtick-in-inline-styles', 'transition-missing-duration',
-    'bare-attribute-not-class'];
+    'bare-attribute-not-class',
+    'visually-hidden (by-name + by-recipe)'];
   console.log(`\nself-test: ${ok}/${cases.length + 3} injected cases detected`);
   console.log(`rules implemented: ${RULES.length} (${RULES.join(', ')})`);
   process.exit(ok === cases.length + 3 ? 0 : 1);
