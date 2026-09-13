@@ -362,7 +362,10 @@
   height: 100%;
   min-width: 0;
   min-height: 0;
-  padding-bottom: 8rem;
+  /* The stage (.editor-wrapper) owns the dock clearance. Padding here too
+     doubled it: pane 128px + wrapper 122px reserved 250px under the toolbar
+     and left ~150px of dead desk below the word count. */
+  padding-bottom: 0;
   background-color: var(--bg-surface);
   overflow: hidden;
 }
@@ -424,7 +427,11 @@
 .editor-wrapper {
   --studio-inline-gutter: 0px;
   --studio-top-gutter: 0px;
-  --studio-dock-clearance: 122px;
+  /* Dock is 65px tall and floats 24px off the viewport bottom, so 96px clears
+     it by 7px. (89e9380 set 122px against an assumed 82px dock; the dock has
+     since shrunk, which is where the surplus stack below the word count came
+     from.) */
+  --studio-dock-clearance: 96px;
 
   position: relative;
   display: flex;
@@ -441,8 +448,11 @@
     var(--studio-top-gutter)
     var(--studio-inline-gutter)
     var(--studio-dock-clearance);
-  /* Generous dock clearance so the floating dock never covers the text. */
-  padding-bottom: 8rem;
+  /* Generous dock clearance so the floating dock never covers the text.
+     Single source of truth: the dock is 65px tall and floats 24px above the
+     viewport bottom (app-dock.component.ts), so 96px clears it by 7px. The
+     pane used to carry a second, independent 8rem pad on top of this one. */
+  padding-bottom: var(--studio-dock-clearance);
 
   overflow: visible;
 }
@@ -486,7 +496,11 @@
    Word count sits quietly on the desk baseline, raw typography without pills or shadows. */
 .editor-desk-telemetry {
   position: absolute;
-  bottom: 5.5rem;
+  /* Its baseline rides the editor surface's own bottom edge: with the pane
+     padding removed, the old detached 5.5rem parked the count level with the
+     dock's top line instead of above it. Sharing the token keeps it correct
+     across the mobile/zen clearance overrides. */
+  bottom: var(--studio-dock-clearance);
   right: 2.5rem;
   z-index: 10;
 
@@ -622,7 +636,6 @@
   }
 
   .editor-desk-telemetry {
-    bottom: 5.5rem;
     right: 1.25rem;
   }
 }
@@ -646,8 +659,10 @@
   .editor-wrapper {
     --studio-inline-gutter: 0px;
     --studio-top-gutter: 0px;
+    /* Mobile dock is flush to the bottom, so the clearance is its own height
+       plus the safe-area inset the dock pads for. */
     --studio-dock-clearance: 76px;
-    padding-bottom: 76px;
+    padding-bottom: var(--studio-dock-clearance);
   }
 
   .editor-wrapper app-markdown-editor {
@@ -715,7 +730,7 @@
   --studio-top-gutter: 0px;
   --studio-dock-clearance: 24px;
   /* The dock is hidden in zen, so drop the generous dock clearance. */
-  padding-bottom: 24px;
+  padding-bottom: var(--studio-dock-clearance);
 }
 
 :host-context(body.nostos-zen) .editor-pane {

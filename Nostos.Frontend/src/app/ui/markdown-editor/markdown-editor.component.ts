@@ -375,6 +375,16 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
         background: transparent !important;
       }
 
+      /* Oxide's focus ring is a PSEUDO-element: .tox .tox-edit-area::before
+         paints a 2px solid #006ce7 border and .tox.tox-edit-focus raises its
+         opacity to 1 (skins/ui/oxide/skin.css). The border/outline resets on
+         .tox-edit-area itself and on the iframe therefore never reach it, so
+         the blue rectangle survived every focused state. Opacity - not
+         display:none - so the pseudo box stays in the paint order. */
+      :host ::ng-deep .tox .tox-edit-area::before {
+        opacity: 0 !important;
+      }
+
       :host ::ng-deep .tox .tox-edit-area__iframe {
         background: transparent !important;
       }

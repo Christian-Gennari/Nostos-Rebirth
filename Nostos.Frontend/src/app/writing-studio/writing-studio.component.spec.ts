@@ -394,8 +394,44 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
   it('gives the stage safe padding: dock clearance reserves room for the floating dock', () => {
     const css = componentCss();
 
-    expect(css).toContain('--studio-dock-clearance: 122px');
+    // Dock is 65px tall, floating 24px off the viewport bottom: 96px clears it.
+    expect(css).toContain('--studio-dock-clearance: 96px');
     expect(css).toContain('overflow: visible');
+  });
+
+  it('reserves the dock clearance exactly once (pane must not pad it again)', () => {
+    const css = componentCss();
+
+    /**
+     * The declaration block for a selector, brace-balanced. Angular's emulated
+     * encapsulation rewrites selectors to `.editor-pane[_ngcontent-xxx]`, so
+     * match on the selector name and then walk to its opening brace.
+     */
+    const blockOf = (selector: string): string => {
+      const start = css.indexOf(selector);
+      expect(start, `${selector} missing from component CSS`).toBeGreaterThanOrEqual(0);
+      const open = css.indexOf('{', start);
+      expect(open, `${selector} has no declaration block`).toBeGreaterThanOrEqual(0);
+      return css.slice(open, css.indexOf('}', open));
+    };
+
+    // Regression: .editor-pane carried its own 8rem pad on top of the
+    // wrapper's clearance, which stacked to ~250px of dead desk below the
+    // word count and squeezed the editor surface.
+    const paneBlock = blockOf('.editor-pane');
+    expect(paneBlock).toContain('padding-bottom: 0');
+    expect(paneBlock).not.toContain('8rem');
+
+    // The wrapper consumes the token rather than a detached literal, so the
+    // clearance has one source of truth across zen/mobile overrides.
+    const wrapperBlock = blockOf('.editor-wrapper');
+    expect(wrapperBlock).toContain('padding-bottom: var(--studio-dock-clearance)');
+    expect(wrapperBlock).not.toContain('padding-bottom: 8rem');
+
+    // The word count's baseline rides the same token. A detached `bottom` here
+    // re-parks it against the dock whenever the clearance changes.
+    const telemetryBlock = blockOf('.editor-desk-telemetry');
+    expect(telemetryBlock).toContain('bottom: var(--studio-dock-clearance)');
   });
 
   it('declares the zen sheet full-width on seamless surface', () => {
