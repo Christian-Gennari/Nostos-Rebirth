@@ -43,35 +43,50 @@ import { LucideAngularModule, X, CheckCircle, AlertTriangle, Info } from 'lucide
         align-items: center;
         gap: 0.6rem;
         padding: 0.75rem 1rem;
-        border-radius: var(--radius-md, 8px);
-        background: var(--bg-surface, #ffffff);
-        border: 1px solid var(--border-color, #e0e0e0);
-        color: var(--color-text-main, #1a1a1a);
-        font-size: 0.875rem;
+        border-radius: var(--radius-md);
+        background: var(--bg-surface);
+        border: 1px solid var(--border-color);
+        color: var(--color-text-main);
+        /* Was 0.875rem — a size used exactly ONCE in the codebase against twelve
+           uses of 0.88rem. The two differ by 0.08px, which is not a distinction
+           anyone can perceive; keeping both meant two rungs of a type scale that
+           stood for one measured size. */
+        font-size: 0.88rem;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         pointer-events: auto;
         animation: toast-slide-in 0.25s ease-out;
       }
 
+      /* Tokens, not literals. These were the last theme-blind colours in the app:
+         #4ade80 / #f87171 are a light-mode-tailwind green/red that sat on a dark
+         surface at the wrong value, and NOTHING else in the codebase hardcodes
+         these — every other surface (book-detail, settings, library, note-card,
+         flat-tree, second-brain, add-book-modal) reads --color-success /
+         --color-danger, which are theme-aware (#22c55e -> #8FC7A8 and
+         #d32f2f -> #E4796B). The "info" variant below already used
+         --color-primary, so the component was internally inconsistent as well.
+         The brand manifesto calls for "very restrained" accents and explicitly
+         avoids "neon gradients & colorful AI aesthetics"; a saturated mint on a
+         near-black surface was the one place that leaked through. */
       .toast-success {
-        border-left: 3px solid #4ade80;
+        border-left: 3px solid var(--color-success);
       }
       .toast-success lucide-icon {
-        color: #4ade80;
+        color: var(--color-success);
       }
 
       .toast-error {
-        border-left: 3px solid #f87171;
+        border-left: 3px solid var(--color-danger);
       }
       .toast-error lucide-icon {
-        color: #f87171;
+        color: var(--color-danger);
       }
 
       .toast-info {
-        border-left: 3px solid var(--color-primary, #818cf8);
+        border-left: 3px solid var(--color-primary);
       }
       .toast-info lucide-icon {
-        color: var(--color-primary, #818cf8);
+        color: var(--color-primary);
       }
 
       .toast-message {
@@ -82,7 +97,7 @@ import { LucideAngularModule, X, CheckCircle, AlertTriangle, Info } from 'lucide
       .toast-dismiss {
         background: none;
         border: none;
-        color: var(--color-text-muted, #888);
+        color: var(--color-text-muted);
         cursor: pointer;
         padding: 2px;
         display: flex;
@@ -91,7 +106,7 @@ import { LucideAngularModule, X, CheckCircle, AlertTriangle, Info } from 'lucide
         transition: color 0.15s;
       }
       .toast-dismiss:hover {
-        color: var(--color-text-main, #1a1a1a);
+        color: var(--color-text-main);
       }
 
       @keyframes toast-slide-in {

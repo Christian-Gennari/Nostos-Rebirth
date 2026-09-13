@@ -147,7 +147,7 @@
 }
 
 .section-add:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: 1px;
 }
 
@@ -232,10 +232,8 @@
   transform: translateY(-50%);
   border-radius: 8px;
   background: transparent;
-  transition:
-    width var(--rail-motion),
-    height var(--rail-motion),
-    background-color 0.12s ease;
+  /* width/height deliberately carry NO time: in the original shorthand they were
+     the leading items of a `transition: width var(--rail-motion), height ... 0.12s ease, background-color 0.12s ease` list, so they transitioned at 0s. Adding a duration here would be an unrelated motion change. */ transition: width var(--rail-motion), height var(--rail-motion), background-color 0.12s ease;;
 }
 
 .nav-item:hover {
@@ -247,28 +245,34 @@
 }
 
 .nav-item:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
 /* The ring is inset, so on the active row it cannot use the same colour as the
    row underneath it. It used to borrow --on-primary (the light pill's
-   foreground); the active row is no longer a filled pill, so it uses the focus
-   token and just sits closer to the edge. */
+   foreground); now the row is a selected surface, so `--selection-focus-ring`
+   owns the value — slate on light, one step lighter on dark, because the ring
+   has to read against a FILLED row rather than the page ground. */
 .nav-item.active:focus-visible {
-  outline-color: var(--focus-ring);
+  outline-color: var(--selection-focus-ring);
   outline-offset: -3px;
 }
 
 .nav-item.active {
-  color: var(--on-primary);
+  color: var(--selection-ink);
 }
 
 .nav-item.active::before {
-  /* `--primary-fill` (not `--color-primary`): the pill is a SURFACE, so it must
-     follow the fill role. The ink role is a light colour on dark and would make
-     this a washed-out light pill. */
-  background: var(--primary-fill);
+  /* `--selection-surface`, not `--color-primary`: the pill is a SURFACE and it
+     is a SELECTION, so it follows the selection role — forest with white ink in
+     light, raised neutral slate with porcelain in dark. The ink role is a light
+     colour on dark and would make this a washed-out light pill; `--primary-fill`
+     is the dark spruce and reads as green against the slate sidebar. This token
+     is the single owner of the app's selection treatment, shared with the Brain
+     concept index, and consuming it here means no global dark override has to
+     out-specify this rule. */
+  background: var(--selection-surface);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
@@ -305,9 +309,11 @@
 
 .nav-item.active .count-badge {
   /* Driven from the on-fill foreground so it tracks the active row's fill in
-     either theme. This was a hardcoded white chip, which stayed pure white on
-     the dark theme while the equivalent badge in the Brain index adapted. */
-  background: color-mix(in srgb, var(--on-primary) 22%, transparent);
+     either theme, and the chip's own ground from `--selection-badge-bg` — the
+     same pair the Brain index's equivalent chip uses, so the two selected-row
+     badges cannot drift apart again. This was a hardcoded white chip, which
+     stayed pure white on the dark theme. */
+  background: var(--selection-badge-bg);
   color: var(--on-primary);
 }
 
@@ -418,9 +424,7 @@
      has to be declared HERE as well: a `transition` on the fade rule alone
      loses to this shorthand (same specificity, later in source) and the label
      would snap off instead of fading. */
-  transition:
-    visibility 0s linear var(--motion-slow),
-    opacity var(--label-out);
+  transition: visibility 0s linear var(--motion-slow), opacity var(--label-out) linear var(--motion-slow);;
 }
 
 /* --- FOOTER --- */
@@ -475,7 +479,7 @@
   background: var(--bg-hover);
 }
 .toggle-btn:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: 2px;
 }
 

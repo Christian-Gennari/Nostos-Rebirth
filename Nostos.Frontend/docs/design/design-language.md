@@ -98,14 +98,41 @@ a surface that changes size, see the `transition: all` warning below.
 Each of these is a real defect that shipped, not a style preference.
 
 ### `transition: all`
-23 sites animate every property, including layout ones. Because `all` includes
-padding and width, a hover that changes either animates layout — which reads as
-a fade or flicker where a crisp change was intended. **Use an explicit property
-list.**
+**Do not write `transition: all`. Name the properties that actually change.**
+
+The reason is not pedantry: `all` interpolates layout properties too, so a hover
+that changes size animates layout, which reads as a fade or flicker where a crisp
+change was intended.
+
+**Enumerate the properties by measuring, not by reading.** For each site, diff the
+base rule against its `:hover`/`:focus` variants and list only the properties that
+actually differ. In this codebase that pass converted 24 of 26 sites; the property
+sets were derived from the diff, so converting them is value-preserving *for the
+interpolated properties*.
+
+Two things that are **not** preserved, and why they are still worth knowing:
+
+- The painted `transitionProperty` / `transitionDuration` buckets move, and a
+  property-set change can shift *which* duration cluster an element lands in
+  (`.format-badge` painted 0.2s but reported 0.22s once `all` was replaced,
+  purely because the cluster it belonged to changed). This is why the painted-value
+  gate is compared per-bucket and the transition buckets are read separately from
+  the colour buckets.
+- One site is genuinely **high risk and must stay `all`**: a hover that changes
+  size. Those are enumerated in the design-language vendored list; convert them
+  only with eyes on the animation, not by script.
+
+**A trap that bit this change-set:** the conversion script dropped the terminating
+semicolon. `transition: background-color, color 0.2s ease` followed on the next
+line by `color: var(--color-text-main);` swallows that declaration as part of the
+transition *value*, so the element loses its colour and renders black. The result
+is valid CSS — every declaration parses, all stylesheets "parse cleanly", and no
+check fails. It shows up only as a new `rgb(0, 0, 0)` in the painted-value sweep.
+When editing transition declarations programmatically, assert the semicolon.
 
 ### A global dark override racing an Angular-encapsulated component rule
 The dark theme is implemented in two halves: tokens in the `:root[data-theme]`
-block, and ~30 explicit override selectors for things tokens cannot express. The
+block, and explicit override selectors for things tokens cannot express. The
 overrides have to out-specify the component rule, and Angular rewrites a
 component selector to add `[_ngcontent]`, which raises its specificity.
 
@@ -113,11 +140,87 @@ When the two land on the **same** specificity, the component wins on source
 order (Angular appends component styles after `styles.css`). The failure is
 invisible in review, does not error, and only manifests in one theme.
 
-This has happened twice — `.book-grid .book-card:hover .cover-wrapper` and
+This happened twice — `.book-grid .book-card:hover .cover-wrapper` and
 `.index-list .index-row-shell:focus-within .index-item.active` — and both were
-fixed by naming an *enclosing* class purely to climb the ladder. **Prefer a
-token the component consumes over a specificity override.** A token re-declared
-on `:root` is specificity `(0,1,0)` and cannot race anything.
+fixed by naming an *enclosing* class purely to climb the ladder.
+
+**Prefer a token the component consumes over a specificity override.** A token
+re-declared on `:root` is specificity `(0,1,0)` and cannot race anything.
+
+The arithmetic, and a correction I had wrong at first.
+
+A **compound** is a combinator-separated part, NOT a class: `.nav-item.active` is
+ONE compound holding two classes. Angular's `ShadowCss` splits a selector on
+combinators and appends exactly **one** `[_ngcontent-x]` per **compound**, so each
+compound's contribution becomes `(0, classes + 1, elements)`:
+
+| | classes | injected attributes | specificity |
+| --- | --- | --- | --- |
+| component `.nav-item.active .count-badge` | 3 | 2 | **(0,5,0)** |
+| global `:root[data-theme='dark'] .nav-item.active .count-badge` | 3 | `:root` + `[data-theme]` = 2 | **(0,5,0)** |
+
+**They TIE**, and the component wins because Angular appends component styles after
+`styles.css`. So the failure mode is *a tie broken by source order*, not a loss.
+
+My first version of this section claimed (0,6,0) vs (0,5,0) by doubling a class
+count. That reproduced the right verdict for this one selector and is **wrong in
+general** — it miscounts multi-class compounds, element selectors, IDs, `:not()`,
+`:is()`/`:where()`, combinators and comma lists. Two independent verifications now
+agree on the tie reading: re-injecting the override and enumerating winning rules
+from the CSSOM, and deleting the override with zero pixel change across 24 captures
+(the second is only consistent with the override never winning).
+
+**Consequence for the guard:** because real specificity is more complex than any
+count of classes, `check:design`'s `possible-unwinnable-dark-override` is
+**ADVISORY** — it reports, it does not fail the build, and its silence is not
+evidence. The reliable detector for this bug class is the paint sweep read in BOTH
+themes plus the pixel baseline, which is what actually caught the original defect.
+A static specificity check is a signpost, not a proof.
+
+The contrasting shape that made the whole bug class confusing: a global rule with
+`--ink-lede` targeted `.meta-title`, a **single-compound** selector. There the
+component rule is (0,2,0) against the global (0,3,0) and the override genuinely
+**won**. Same-shaped global rule, opposite outcome — which is exactly why this must
+be measured per rule rather than inferred.
+
+Worked example — the selected-row fill. It has exactly two consumers
+(`.index-item.active` in the Brain index, `.nav-item.active::before` in the
+Library sidebar); every other `--primary-fill` use is a button, CTA or badge
+that is bright in both themes. Because both are *selection* states they must
+resolve identically, so the value lives on **`--selection-surface`**
+(`#28372D` forest with white ink in light, `#2B323F` raised slate with porcelain
+in dark) and the two component rules read it directly. The four-selector global
+override and its `.index-list` specificity padding are gone — the whole race is
+structurally removed rather than won. Verify with `npm run probe:selection`,
+which drives rest/hover/focus in both themes, because **this defect does not
+appear at rest**.
+
+### The specificity arithmetic, measured (read this before writing an override)
+
+Angular adds **one `[_ngcontent]` attribute per COMPOUND selector**, so a
+component rule's effective specificity is roughly **2x its compound count**.
+That is why a global override's fate is decided by comparing compound counts —
+and why the same-looking override can win against one component rule and lose
+against its neighbour in the same file:
+
+| Rule | Specificity | Outcome |
+| --- | --- | --- |
+| `:root[data-theme='dark'] .nav-item.active .count-badge` (global) | (0,5,0) | — |
+| `.nav-item.active[_ngcontent] .count-badge[_ngcontent]` (component) | **(0,5,0)** | **TIE → component wins on source order** |
+| `:root[data-theme='dark'] .meta-title` (global) | (0,3,0) | — |
+| `.meta-title[_ngcontent]` (component) | (0,2,0) | override genuinely wins |
+
+Both rows were in the *same deleted override block*. The badge override was
+losing silently (a light chip survived on dark), the title override was working.
+**Check the count per rule; do not assume.** Resolve it with a token instead:
+a value on `:root` is (0,1,0) and is read by the component, so no global rule
+needs to win anything.
+
+Three instances of this class are confirmed in this repo: `.book-grid
+.book-card:hover .cover-wrapper`, `.index-list .index-row-shell:focus-within
+.index-item.active`, and `.nav-item.active .count-badge`. The first two were
+fixed by hand-padding a selector; the third is the one that motivated writing
+this table down.
 
 ### A component token invisible to the token guard
 `check-theme-tokens.mjs` used to read only `styles.css`. The TinyMCE editor
@@ -135,10 +238,144 @@ using it as a foreground.** A name promises a role, not a hue.
 ### Measuring a stale build
 An audit session measured a bundle that predated a merge to `main`; every
 number it produced described the old code. `scripts/capture-baseline.mjs` now
-records a build fingerprint and **fails** if a sentinel selector is missing, and
-`scripts/check-sentinel.mjs` proves that sentinel can go false. Before
-interpreting any live number, confirm the served bundle is the code you think
-it is.
+checks freshness on every run and **fails** if the served stylesheet is not the
+newest build, or if the build is older than the newest source file.
+
+Prefer a **content/mtime** freshness check to a hard-coded sentinel **selector**.
+The first version of this guard asserted the served sheet contained
+`index-list .index-row-shell` (the specificity fix from #94) — and that marker
+was legitimately refactored away one phase later, so the guard failed on a
+correct build. A marker that names something the work is trying to delete will
+rot on schedule. `npm run check:freshness` proves the current check fails in
+both directions.
+
+### A flaky screenshot is not a regression
+`library-desktop-light` differs on roughly one run in three *with identical
+code*. Before reading any pixel delta as your change, re-run and compare two
+captures of the **same code** — otherwise a capture artifact gets reported as a
+regression. `npm run check:pixels` now declares that region explicitly.
+
+### Two DIFFERENT PNGs from the SAME stylesheet hash
+This was the most expensive bug in the change-set, and it was in the harness,
+not the CSS.
+
+`library-desktop-dark.png` differed from the baseline by **338,467 pixels**
+(26% of the frame, max channel delta 255) while the paint sweep showed a single
+changed element. The obvious readings were both wrong: it was not a real
+styling regression, and it was not the known flake (that one is ~636 px).
+
+The decisive evidence was the **bundle hash**. Two capture sets taken minutes
+apart reported the *same* `styles-OTQI5LFS.css` hash `7f83f46e` and produced
+different images. Identical CSS cannot produce different paint, so the variable
+had to be the capture. The grid renders covers with
+`loading="lazy" decoding="async"`, and the harness waited a fixed 1500 ms — so
+whether each cover had decoded was a race.
+
+Two lessons, both now enforced:
+
+1. **Compare the bundle hash before blaming the CSS.** If the hash matches and
+   the pixels do not, stop looking at stylesheets. Record the hash in every
+   capture set (the fingerprint does) and diff it first.
+2. **Settle images, do not sleep on them.** `capture-baseline.mjs` now forces
+   `loading="eager"`, awaits load *and* `decode()`, and **fails the capture** if
+   any image is pending or broken. A harness that silently races makes every
+   comparison meaningless in both directions: it invents regressions and it can
+   also mask real ones.
+
+A useful tell: a difference that large with a clean sweep means the *sweep* is
+blind, not that the page is fine. Here the sweep was right and the harness was
+wrong — but the size of the discrepancy is what said "look at the harness".
+
+### A capture that depends on the wall clock cannot be compared to anything
+`reader-desktop-light` differed by ~11,300 px between two runs of identical code
+AND identical content, because the reader paints a live elapsed-time readout
+(`.time-label-btn`). No amount of image-settling fixes that: two correct captures
+of a clock are supposed to differ.
+
+The harness now installs a fixed clock (`page.clock.install`) before navigating, so
+the readout advances deterministically from a known instant. This changes *when*
+the app paints, never *what* it paints — the distinction matters, because a harness
+that alters the thing under test is not a harness.
+
+### Data-driven surfaces need a content fingerprint, not just a CSS hash
+The library grid paints a list read from `nostos.db`, and other agents write to
+that database while captures run (`nostos.db` was observed being written mid-run,
+and a book added to the grid moved ~100,000 px in **both** themes with a
+byte-identical CSS hash).
+
+Without recording the content, that is indistinguishable from a real regression —
+and it was initially misreported as one. Each capture now records a per-surface
+content hash (visible text, resolved image URLs with intrinsic sizes, element
+counts). The gate now says which of the two happened:
+
+- content changed → "most likely DATA, not styling";
+- CSS and content both match → "REAL styling change; regenerate the baseline
+  deliberately".
+
+A whole-run concatenated hash was tried first and was not good enough: it could not
+name *which* surface moved, so the failure stayed unattributable.
+
+The content hash excludes anything time-based on purpose. It must be stable across
+two runs of the same code, or it carries no signal — which is also why the frozen
+clock and this hash are complementary rather than redundant.
+
+### Surface capture ORDER is load-bearing
+An intermittent `reader-desktop-dark` failure (~11,240 px) resisted the clock fix.
+The decisive measurement: it was **byte-identical across three consecutive
+single-surface runs and matched the baseline**, yet failed inside a full 6-surface
+run. Passing in isolation and failing in the suite means the variable is something
+that *accumulates across the run* — here, wall-clock time, because the reader paints
+a live elapsed-time readout and `clock.install` fixes the START time but the clock
+still advances.
+
+Two fixes were tried. The strong one — `clock.pauseAt` — **froze the app's own boot**
+and the reader came up empty (61 elements, 9 painted); the non-vacuity guard caught
+it and it was reverted. The one that works is ordering: the reader is captured
+**first**, so elapsed time is minimal and reproducible.
+
+Generalisable lesson: when a capture fails only in the suite, measure it *in
+isolation* before touching the CSS. The comparison that localises the cause is
+"passes alone, fails together", and it is cheap.
+
+### `transition: a, b 0.2s` — the time binds only to `b` (the worst bug in this work)
+`transition` is a **comma-separated list of shorthands**, and a trailing `<time>`
+applies only to the LAST item. So:
+
+```css
+transition: background-color, border-color, box-shadow 0.2s ease;
+```
+
+means `background-color` and `border-color` at **0s** (they SNAP) and only
+`box-shadow` animating. Confirmed in the browser — that declaration computes to
+`transitionDuration: "0s, 0s, 0.2s"`.
+
+This is precisely the trap the `transition: all` -> explicit-properties conversion
+walks into, and 25 sites were converted into exactly that shape before it was
+caught. Two properties that used to fade now snapped, and **the pixel gate cannot
+see it**: a static screenshot of a non-hovered element is identical whether it would
+animate or snap on hover. The paint sweep could not see it either — it reads
+`transitionProperty` and clusters `transitionDuration`, and a bucket of
+`0s, 0s, 0.2s` was recorded as the expected consequence of the conversion instead of
+as a defect.
+
+**What caught it: an adversarial review of the decisions, not the tooling.** The
+lesson is not "add another rule" (though `transition-missing-duration` now exists,
+and found 9 further sites the first fix missed) — it is that a gate built by the
+same reasoning that produced the change inherits that reasoning's blind spots. The
+pixel gate was designed to catch *visual* regressions; this defect is *temporal*,
+and no static capture can express it.
+
+Rule of thumb: when replacing `all` with a property list, repeat the timing on
+**every** item. `transition: a 0.2s ease, b 0.2s ease`.
+
+### The flake allowance is a rectangle list, not a pixel budget
+`check-pixels.mjs` ignores differences only inside explicitly declared
+rectangles, each with a recorded justification and measured size. A per-image
+pixel budget was rejected: a real change (a switch knob moving is ~536 px) and a
+rendering artefact (the toolbar edge drift is ~636 px) are the same order of
+magnitude, so a budget cannot separate them. A rectangle can, because it is
+spatially specific. Anything outside the declared boxes is compared at a
+tolerance of 8/channel and fails the build.
 
 ---
 
@@ -157,18 +394,99 @@ Documented so the next reader does not "fix" it:
   rows, outset for chips. A real distinction, not drift.
 - **The editor content's `--ink` / `--paper` vocabulary** — a separate visual
   world (warm ink on paper) injected into a TinyMCE iframe. Local by design.
+- **`0.85rem` (22 uses) vs `0.88rem` (12 uses) vs `0.9rem` (32 uses)** — the three
+  remaining sub-pixel-adjacent rungs. Kept because each is used enough to be a real
+  step in practice, and unlike the `0.875rem` outlier (ONE use against twelve, a
+  0.08px difference) collapsing them would visibly move tens of elements. Recorded
+  so the next reader knows the four-rung cluster was examined and deliberately left
+  as three.
+
+### The toast accents were the last theme-blind colours (now fixed)
+`toast-container.component.ts` painted its success and error accents with
+`#4ade80` / `#f87171` — light-mode Tailwind green/red hardcoded onto a surface that
+is near-black in dark mode. Resolved rather than merely flagged, on evidence:
+
+- **Nothing else in the app hardcodes these.** Every other surface (book-detail,
+  settings, library, note-card, flat-tree, second-brain, add-book-modal) reads
+  `--color-success` / `--color-danger`, which are theme-aware
+  (`#22c55e` -> `#8FC7A8`, `#d32f2f` -> `#E4796B`). Toast was the sole outlier.
+- **The component contradicted itself**: its `info` variant already used
+  `--color-primary`. So "error and success are literal, info is a token" was not a
+  considered distinction, just an unfinished one.
+- **The brand manifesto weighs in**: it calls for "very restrained" accents and
+  lists "neon gradients & colorful AI aesthetics" under *Avoid*. A saturated mint on
+  a near-black ground was the one place that leaked through.
+
+Note also that an earlier claim in this document — that these components were
+"unthemed" — was WRONG. They use `var()` with fallbacks and the tokens resolve;
+only the fallbacks were dead, and those were removed.
+
+### The segmented control, and why it had to be fixed three separate times
+Four components render the same control under different names:
+
+| Component | Track | Option | Active option |
+| --- | --- | --- | --- |
+| Library | `.control-group` | `.toggle-opt` | `.toggle-opt.active` |
+| Brain | `.view-mode-control` | `.toggle-opt` | `.toggle-opt.active` |
+| Studio | `.sidebar-tabs` | `.tab-btn` | `.tab-btn.active` |
+| Settings | `.theme-choice` | `.theme-opt` | `.theme-opt.is-active` |
+
+Canonical recipe: `--bg-hover` track, 3px padding, `--radius-md`, 2px gap, **no
+border**, and an active option painted `--control-active-fill` /
+`--control-active-ink` with `--shadow-sm` plus a 1px `--border-color` outline.
+
+**The active option must never be `--bg-surface`.** On dark, `--bg-surface`
+(#1B1E26) is DARKER than the `--bg-hover` track (#252A34), so the selected option
+*sinks* and the unselected pair looks raised. This bug was written and fixed three
+separate times — Library, Brain, then Studio and Settings — because each copy was
+authored from the light theme, where `--bg-surface` is white and correct. Measured
+live on Studio before the fix: track `rgb(37,42,52)` vs active `rgb(27,30,38)`.
+
+Drift found and removed: Studio's track carried a `border` the other three lacked
+(it read as a boxed widget, not a raised track); Library's `.toggle-opt` had **no
+focus ring** while Brain's byte-identical copy did, so one control behaved
+differently for keyboard users depending on which page they were on.
+
+### What WAS unified: `.visually-hidden`
+It was declared twice, byte-identically (`second-brain` and `concept-map`). A
+utility with no per-surface variation should not be duplicated: the copies give
+no benefit and can drift, at which point one surface renders differently and
+nothing says so. It now lives once in `styles.css`, and `check:design` fails if
+it is declared zero times (content that should be hidden becomes visible) or more
+than once (the drift can restart).
+
+*(Repair note: an earlier edit replaced this section's HEADING with the toast note
+and orphaned its body underneath, leaving the `visually-hidden` prose attached to
+the wrong heading. A text-level patch that matches only a heading can strand the
+body; check that a renamed section still has its paragraph.)*
 
 ---
 
 ## 5. Running the harnesses
 
 ```bash
-npm run check              # css integrity + theme graph (incl. .ts theme modules)
-npm run capture:baseline   # 20 PNGs + painted-value JSON + build fingerprint
-npm run check:sentinel     # proves the build sentinel can go false
+npm run check                     # parse + token graph (incl. .ts theme modules) + 6 drift rules
+                                  #   (7th, possible-unwinnable-dark-override, is ADVISORY)
+npm run check:design -- --self-test   # proves each drift rule can actually fire
+npm run check:freshness           # proves the freshness check fails in both directions
+npm run capture:baseline -- --port 5214 --out /tmp/after
+npm run check:pixels -- /tmp/after    # the real acceptance test
+npm run probe:selection           # rest/hover/focus of a selected row, both themes
 ```
 
+The capture set is **24 PNGs across 6 surfaces**: library, brain, studio, settings,
+home and the reader (`/read/:id` — a route, not a tab, which is why it was missed
+by the first pass), each at desktop and mobile in light and dark. Image decode is
+awaited and the clock is frozen, so two captures of one build are byte-identical.
+
 A CSS refactor compiles perfectly while changing every surface, so **the build
-passing is not evidence**. The acceptance test is the baseline comparison: after
-a change, re-capture and diff against `e2e/visual-evidence/design-baseline/`.
-Byte-identical output is the expected result for a value-preserving refactor.
+passing is not evidence**. The acceptance test is the pixel gate. Byte-identical
+output is the expected result for a value-preserving refactor; when a change is
+*intended* to move pixels, regenerate the baseline and say so in the commit.
+
+Order matters for `check:pixels`: run `capture:baseline` **and** a fresh capture of
+the same build before trusting a failure, because a baseline written while the page
+was still settling produces a diff that looks like a regression and is not one.
+Both tiers are needed: the pixel PNGs only see the captured viewport, while the
+paint sweep sees the whole document — during the segmented-control fix the sweep
+flagged mobile dark changes that the viewport-only screenshots never showed.

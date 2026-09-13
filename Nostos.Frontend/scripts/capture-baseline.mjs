@@ -46,7 +46,26 @@ const ONLY_THEME = arg('theme', null);
 const ONLY_SURFACE = arg('surface', null);
 
 /** Surfaces worth pinning. Protected surfaces (pdf/tinymce) are out of scope. */
+/* ORDER IS LOAD-BEARING: the reader is captured FIRST.
+ *
+ * The reader paints a live elapsed-time readout, and the harness installs a fixed
+ * clock START but the clock still advances with real time. So the readout is a
+ * function of how long the page has been open — which meant `reader-desktop-dark`
+ * was byte-identical across three consecutive single-surface runs (and matched the
+ * baseline), yet differed by ~11,240 px inside a full 6-surface run. It passed in
+ * isolation and failed in the suite, which is the signature of accumulated
+ * wall-clock time rather than a styling problem.
+ *
+ * Capturing it first minimises elapsed time and makes it reproducible. The stronger
+ * fix (`clock.pauseAt`) was tried and REJECTED: it froze the app's own boot and the
+ * reader came up empty (61 elements, 9 painted), which the non-vacuity guard caught.
+ *
+ * The reader is covered at all because it is a ROUTE, not a tab — the first pass
+ * missed it, and `reader-shell.component.css` is exactly where a phantom token
+ * (`var(--space-3)`, declared nowhere in the repo) had been sitting unnoticed. The
+ * id is a real audio book so the route renders its player, not an empty state. */
 const SURFACES = [
+  { name: 'reader', route: '/read/f9c17fb2-e42d-4db5-a3d0-b0a45b73f12e', settle: 'networkidle' },
   { name: 'library', route: '/library', settle: 'networkidle' },
   { name: 'brain', route: '/second-brain', settle: 'networkidle' },
   { name: 'studio', route: '/studio', settle: 'networkidle' },
@@ -113,9 +132,26 @@ const SWEEP = () => {
 };
 
 /**
- * Build fingerprint. Reads the served HTML + its stylesheet from the app
- * itself, so the baseline is bound to what the browser was actually given
- * rather than to whatever happens to be in the checkout.
+ * Build freshness check.
+ *
+ * This exists because an audit session measured a bundle that predated a merge
+ * to `main` and every number it produced described the old code. It must tell us
+ * "the thing the browser is running is the thing in my working tree".
+ *
+ * The FIRST version of this used a hard-coded sentinel selector
+ * (`index-list .index-row-shell`, the specificity-padding fix from #94) and
+ * asserted the served sheet contained it. That rotted within one phase: the
+ * Phase 2 work replaced that selector with a token, so the marker vanished and
+ * the check failed on a perfectly good build. A hard-coded marker names
+ * something that will be refactored.
+ *
+ * So it compares CONTENT hashes instead, which is self-maintaining:
+ *   1. the served stylesheet must be byte-equal to the newest built stylesheet
+ *      in `dist/` (the server is running the build we think it is), and
+ *   2. the newest built stylesheet must be no older than the newest source file
+ *      (the build reflects the source).
+ *
+ * `scripts/check-freshness.mjs` proves both directions can fail.
  */
 async function fingerprint(page) {
   return page.evaluate(async () => {
@@ -125,26 +161,83 @@ async function fingerprint(page) {
       try {
         const res = await fetch(href);
         const text = await res.text();
-        let h = 0;
-        for (let i = 0; i < text.length; i++) h = (Math.imul(31, h) + text.charCodeAt(i)) | 0;
+        let h = 2166136261;
+        for (let i = 0; i < text.length; i++) {
+          h ^= text.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
         sheets.push({ href, bytes: text.length, hash: (h >>> 0).toString(16) });
       } catch (e) { sheets.push({ href, error: String(e) }); }
     }
-    // Sentinel: a selector that only exists AFTER the Brain active-row fix.
-    // A pre-merge bundle therefore fails this rather than being baselined
-    // silently — which is the exact mistake this harness exists to prevent.
-    // NOTE: do not OR this with "does a <style> tag exist"; that short-circuits
-    // to true and the sentinel then passes against every bundle, including the
-    // stale one. It was written that way first and proved vacuous.
-    let sentinel = false;
-    for (const s of document.styleSheets) {
-      try {
-        if ([...s.cssRules].some((r) => r.selectorText?.includes('index-list .index-row-shell'))) { sentinel = true; break; }
-      } catch { /* cross-origin sheet: not ours, skip */ }
+
+    /* Content fingerprint for the DATA-driven surfaces.
+       The library grid paints a list that comes from the database, and other agents
+       work in this repo concurrently — `nostos.db` was observed being written during
+       a capture run. A content change (a book added, covers re-fetched) moves
+       hundreds of thousands of pixels while the CSS is byte-identical, which is
+       indistinguishable from a real regression unless the harness records the
+       content too.
+
+       We record a hash of the visible text plus the resolved image URLs and sizes.
+       That is deliberately coarser than the DOM: it must be stable against
+       rendering noise and sensitive to a different book appearing. */
+    const gridText = (sel) => [...document.querySelectorAll(sel)]
+      .map((e) => (e.textContent || '').trim()).join('\u0001');
+    const imgs = [...document.images].map((i) => `${i.currentSrc || i.src}|${i.naturalWidth}x${i.naturalHeight}`);
+    const contentMaterial = [
+      gridText('.book-card, .index-item, .note-card, .nav-item'),
+      imgs.join('\u0002'),
+      document.querySelectorAll('.book-card, .index-item, .note-card').length,
+    ].join('\u0003');
+    let ch = 2166136261;
+    for (let i = 0; i < contentMaterial.length; i++) {
+      ch ^= contentMaterial.charCodeAt(i);
+      ch = Math.imul(ch, 16777619);
     }
-    return { html: location.origin + '/', sheets, sentinel_darkIndexRow: sentinel };
+    return {
+      html: location.origin + '/',
+      sheets,
+      contentHash: (ch >>> 0).toString(16),
+      contentCounts: {
+        cards: document.querySelectorAll('.book-card, .index-item, .note-card').length,
+        images: document.images.length,
+      },
+    };
   });
 }
+
+/**
+ * Content hash for ONE surface, evaluated right before its screenshot.
+ *
+ * Why per-surface: the library grid paints a list that comes from `nostos.db`, and
+ * other agents write to that DB concurrently — a book being added mid-run moves
+ * ~100,000 pixels with byte-identical CSS, which is indistinguishable from a real
+ * regression. A single concatenated hash for the whole run cannot say WHICH surface
+ * moved, so a failure would still be unattributable.
+ *
+ * It covers what renders as text or as an image: visible text, resolved image URLs
+ * with their intrinsic sizes, and element counts. It excludes anything time-based —
+ * the capture installs a frozen clock, and a timestamp here would change on every
+ * run and therefore carry no signal.
+ */
+const CONTENT_HASH = () => {
+  const text = [...document.querySelectorAll(
+    '.book-card, .index-item, .note-card, .nav-item, .map-node, .meta-title, .book-title')]
+    .map((e) => (e.textContent || '').trim()).join('\u0001');
+  const imgs = [...document.images]
+    .map((i) => `${i.currentSrc || i.src}|${i.naturalWidth}x${i.naturalHeight}`).join('\u0002');
+  const material = [text, imgs,
+    document.querySelectorAll('.book-card, .index-item, .note-card').length,
+    document.images.length].join('\u0003');
+  let h = 2166136261;
+  for (let i = 0; i < material.length; i++) {
+    h ^= material.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return { hash: (h >>> 0).toString(16), chars: material.length,
+    cards: document.querySelectorAll('.book-card, .index-item, .note-card').length,
+    images: document.images.length };
+};
 
 /** Counts serve as the non-vacuity guard for the sweep itself. */
 async function geometry(page) {
@@ -192,6 +285,25 @@ async function main() {
         page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 200)); });
         page.on('pageerror', (e) => errors.push(String(e).slice(0, 200)));
 
+        /* Freeze time for the whole capture.
+           The reader paints a live elapsed/clock readout (`.time-label-btn`), so
+           its pixels depend on WHEN the capture ran — `reader-desktop-light`
+           differed by ~11,300 px between two runs of identical code and identical
+           content. A capture that varies with wall-clock time cannot be compared
+           to a baseline at all. Installing a fixed clock (and letting it tick)
+           makes the readout advance deterministically from a known instant.
+           This is a harness fix, not a styling change: it does not alter what the
+           app paints, only when it paints it. */
+        const FROZEN_START = new Date('2026-01-01T00:00:00Z');
+        if (page.clock && typeof page.clock.install === 'function') {
+          await page.clock.install({ time: FROZEN_START });
+          /* NOTE: `pauseAt` is DELIBERATELY not used here. It froze the app's own
+             boot — the reader then rendered 61 elements / 9 painted and the
+             non-vacuity guard failed the capture. `install` alone fixes the START
+             time but still advances, which is handled by surface ORDER instead
+             (the reader is captured first, see SURFACES). */
+        }
+
         // Seed the theme the way the app persists it, then let the app apply it.
         await page.goto(BASE, { waitUntil: 'domcontentloaded' });
         await page.evaluate((t) => localStorage.setItem('nostos.theme', t), theme);
@@ -201,9 +313,41 @@ async function main() {
           // Let the wait-field breathe out and late art resolve before sampling.
           await page.waitForTimeout(1500);
 
+          /* Settle images BEFORE sampling. The library grid renders its covers with
+             `loading="lazy" decoding="async"`, so a fixed timeout is a race: a
+             capture could include covers that had decoded and another could not.
+             That produced two DIFFERENT PNGs from the SAME css bundle hash
+             (7f83f46e both), which made the pixel gate report phantom
+             regressions and, worse, made real ones look like flake.
+             Force eager + await decode + assert nothing is broken. */
+          const imgState = await page.evaluate(async () => {
+            const imgs = Array.from(document.images);
+            for (const i of imgs) i.loading = 'eager';
+            await Promise.all(imgs.map((i) => (i.complete && i.naturalWidth > 0)
+              ? Promise.resolve()
+              : new Promise((res) => { i.onload = res; i.onerror = res; })));
+            await Promise.all(imgs.map((i) => (i.decode ? i.decode().catch(() => {}) : Promise.resolve())));
+            return {
+              total: imgs.length,
+              broken: imgs.filter((i) => i.complete && i.naturalWidth === 0).map((i) => i.currentSrc || i.src),
+              pending: imgs.filter((i) => !i.complete).length,
+            };
+          });
+          if (imgState.pending > 0 || imgState.broken.length > 0) {
+            throw new Error(`${surface.name}: images did not settle ` +
+              `(pending=${imgState.pending}, broken=${imgState.broken.length}) — ` +
+              `a race here makes every downstream comparison meaningless`);
+          }
+
           const applied = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
           const geo = await geometry(page);
           const sweep = await page.evaluate(SWEEP);
+          /* Per-surface content hash. The report-level hash is a concatenation, so
+             it cannot tell WHICH surface's data moved. Recording it per capture lets
+             the gate attribute a pixel difference on a data-driven surface to the
+             data rather than to the CSS — these surfaces fetch from a database that
+             other agents write to concurrently. */
+          const contentHash = await page.evaluate(CONTENT_HASH);
           if (!report.fingerprint) report.fingerprint = await fingerprint(page);
 
           const tag = `${surface.name}-${vp.name}-${theme}`;
@@ -219,7 +363,7 @@ async function main() {
           const themeOk = theme === 'dark' ? applied === 'dark' : applied === null || applied === 'light';
           if (!themeOk) throw new Error(`${tag}: theme '${theme}' not applied (data-theme=${applied})`);
 
-          report.captures.push({ tag, surface: surface.name, viewport: vp.name, theme, png, applied, geo, sweep, errors });
+          report.captures.push({ tag, surface: surface.name, viewport: vp.name, theme, png, applied, geo, sweep, contentHash, errors });
           console.log(`  ✔ ${tag}  elements=${geo.elementCount} painted=${sweep.painted}${errors.length ? `  (${errors.length} console errors)` : ''}`);
         }
         await context.close();
@@ -234,17 +378,56 @@ async function main() {
     throw new Error(`captured ${report.captures.length} of ${VIEWPORTS.length * themes.length * surfaces.length}`);
   }
   if (!report.fingerprint) throw new Error('no build fingerprint captured');
-  // The bundle must be the code we think it is. This is the check that a whole
-  // earlier session went without: it measured a bundle predating a merge to
-  // main and every number described the old code. `node scripts/check-sentinel.mjs`
-  // additionally proves the sentinel can go false.
-  if (!report.fingerprint.sentinel_darkIndexRow) {
+
+  // Build freshness (§1.1 of the plan): the browser's stylesheet must be the
+  // newest thing we built, and the build must be at least as new as the source.
+  const distDir = join(frontendRoot, 'dist/Nostos.Frontend/browser');
+  const newest = (dir, pred) => {
+    if (!existsSync(dir)) return null;
+    let best = null;
+    for (const f of readdirSync(dir)) {
+      const full = join(dir, f);
+      if (!pred(f) || !statSync(full).isFile()) continue;
+      const m = statSync(full).mtimeMs;
+      if (!best || m > best.mtime) best = { file: full, name: f, mtime: m };
+    }
+    return best;
+  };
+  const builtCss = newest(distDir, (f) => f.startsWith('styles-') && f.endsWith('.css'));
+  const srcNewest = (() => {
+    let best = null;
+    const walk = (dir) => {
+      for (const f of readdirSync(dir)) {
+        const full = join(dir, f);
+        const st = statSync(full);
+        if (st.isDirectory()) walk(full);
+        else if (!best || st.mtimeMs > best.mtime) best = { file: full, mtime: st.mtimeMs };
+      }
+    };
+    walk(join(frontendRoot, 'src'));
+    return best;
+  })();
+
+  const served = report.fingerprint.sheets[0];
+  if (!builtCss) throw new Error('no built stylesheet found in dist/ — run `npm run build` before baselining');
+  const servedBytes = served.bytes;
+  const builtBytes = statSync(builtCss.file).size;
+  if (servedBytes !== builtBytes) {
     throw new Error(
-      'build sentinel FAILED: the served bundle does not contain the post-merge ' +
-      "selector `index-list .index-row-shell`. The app is serving a stale build — " +
-      'rebuild/restart before baselining (npm run prod, or PM2_HOME=/home/dev/.pm2 pm2 restart nostos).',
+      `build freshness FAILED: the served stylesheet is ${servedBytes} bytes but the newest build is ` +
+      `${builtBytes} (${builtCss.name}). The server is running a different build than the working tree — ` +
+      'rebuild and restart (npm run build && PM2_HOME=/home/dev/.pm2 pm2 restart nostos).',
     );
   }
+  const lagMs = srcNewest ? srcNewest.mtime - builtCss.mtime : 0;
+  if (lagMs > 1000) {
+    throw new Error(
+      `build staleness FAILED: ${srcNewest.file.replace(frontendRoot + '/', '')} is ` +
+      `${Math.round(lagMs / 1000)}s newer than the newest build (${builtCss.name}). ` +
+      'The build does not reflect the source — rebuild before baselining.',
+    );
+  }
+  console.log(`  freshness: served ${served.href?.split('/').pop()} (${servedBytes}B) == newest build ${builtCss.name}; build >= newest source`);
 
   const json = join(OUT, 'painted-values.json');
   writeFileSync(json, JSON.stringify(report, null, 1));
