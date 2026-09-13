@@ -1,9 +1,14 @@
 <section class="concept-map" [attr.aria-busy]="relatedLoading()" aria-label="Concept map">
-  <div class="map-header">
-    <div>
-      <div class="map-eyebrow">Map</div>
-      <p class="map-intro">A quiet view of the ideas that share a page.</p>
-    </div>
+  @if (isCapped()) {
+  <p class="map-limit-note">Showing the 150 most-referenced concepts.</p>
+  }
+
+  <!-- The graph IS the content, not a framed widget: no eyebrow, no explanatory
+       subtitle, no outer card. The sidebar toggle and the dock already say where
+       you are, so a "MAP / A quiet view of…" header on top of it was duplicate
+       chrome that no Library surface has. Zoom lives as a quiet overlay inside
+       the canvas, which is also where it belongs: it acts on the graph. -->
+  <div class="map-stage">
     <div class="map-controls" role="group" aria-label="Map controls">
       <button
         type="button"
@@ -27,13 +32,7 @@
       </button>
       <button type="button" class="map-reset" (click)="resetView()">Reset view</button>
     </div>
-  </div>
 
-  @if (isCapped()) {
-  <p class="map-limit-note">Showing the 150 most-referenced concepts.</p>
-  }
-
-  <div class="map-stage">
     <svg
       class="map-svg"
       viewBox="0 0 960 540"

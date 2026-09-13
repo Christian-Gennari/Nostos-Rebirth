@@ -13,33 +13,17 @@
   background: var(--bg-surface);
 }
 
-.map-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
+/* Floating overlay inside the canvas rather than a toolbar above it: the control
+   acts on the graph, so it belongs on the graph. Metrics follow the Library's
+   controls — `--radius-md`, hairline border, surface fill. */
 .map-controls {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 2;
   display: flex;
   align-items: center;
-  flex: 0 0 auto;
-  gap: 0.25rem;
-}
-
-.map-eyebrow {
-  color: var(--color-text-muted);
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.map-intro {
-  margin: 0.3rem 0 0;
-  color: var(--color-text-muted);
-  font-size: 0.78rem;
-  line-height: 1.4;
+  gap: 0.35rem;
 }
 
 .map-reset,
@@ -47,32 +31,39 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 36px;
-  border: 1px solid var(--color-text-light);
+  min-height: 32px;
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  background: transparent;
+  background: var(--bg-surface);
   color: var(--color-text-muted);
   cursor: pointer;
   font-family: 'Hanken Grotesk', sans-serif;
-}
-
-.map-reset {
-  padding: 0 0.65rem;
-  font-size: 0.74rem;
-  white-space: nowrap;
-}
-
-.map-zoom {
-  width: 36px;
-  padding: 0;
-  font-size: 1rem;
-  line-height: 1;
+  transition: all 0.2s ease;
 }
 
 .map-reset:hover,
 .map-zoom:hover:not(:disabled) {
   background: var(--bg-hover);
   color: var(--color-text-main);
+}
+
+.map-reset:disabled,
+.map-zoom:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.map-reset {
+  padding: 0 0.65rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.map-zoom {
+  width: 32px;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .map-reset:focus-visible,
@@ -103,14 +94,17 @@
   text-align: center;
 }
 
+/* The graph is the content, so it sits directly on the page surface like a
+   Library grid would — no card frame, no shadow, no second background tone. The
+   previous card-in-panel look also put the stage's border under the floating
+   dock, which read as a box the nav was sitting on. */
 .map-stage {
   position: relative;
   min-height: 360px;
   overflow: hidden;
-  border: 1px solid var(--color-text-light);
-  border-radius: var(--radius-lg);
-  background: var(--bg-body);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
 }
 
 /* The map is a whole-brain view on the main stage, so it takes the available
@@ -235,13 +229,11 @@
     min-height: 44px;
   }
 
-  .map-header {
-    display: block;
-  }
-
+  /* Controls stay in the canvas corner on mobile, but grow to a comfortable
+     tap target. */
   .map-controls {
-    justify-content: flex-end;
-    margin-top: 0.65rem;
+    top: 0.5rem;
+    right: 0.5rem;
   }
 
   .map-zoom {

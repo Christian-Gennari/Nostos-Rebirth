@@ -59,29 +59,47 @@
   letter-spacing: 0.02em;
 }
 
-/* ROW 2: Search Box */
+/* ROW 2: Search Box
+   Copy of the Library's `.search-bar-container`/`.search-input`: the icon is
+   absolutely positioned and the INPUT owns the 2.5rem left gutter. As a flex
+   sibling the 18px icon box pushed the visible field off its own centre, so the
+   border drawn and the box centred were not the same box. */
 .search-box {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
-  background: var(--bg-input);
-  padding: 0.5rem 0.75rem;
-  color: var(--color-text-muted);
+  background: var(--bg-surface);
+  padding: 0;
+  color: var(--color-text-light);
   margin: 0;
-  transition: border-color 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .search-box:hover {
-  border-color: var(--color-primary-dim);
+  background: var(--bg-surface-alt);
+}
+
+.search-box .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 1;
+  transition: color 0.2s ease;
 }
 
 .search-box:focus-within {
-  /* Not --color-primary: that is the ink role (mint on dark), so focusing the
-     search box drew a green ring. */
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  background: var(--bg-surface);
+  border-color: var(--border-focus);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-accent-faint);
+  color: var(--color-text-main);
+}
+
+.search-box:has(input:focus) .search-icon {
   color: var(--color-text-main);
 }
 
@@ -90,13 +108,14 @@
   background: transparent;
   outline: none;
   width: 100%;
-  font-size: 0.88rem;
+  padding: 0.6rem 1rem 0.6rem 2.5rem;
+  font-size: 0.9rem;
   font-family: 'Hanken Grotesk', sans-serif;
   color: var(--color-text-main);
 }
 
 .search-box input::placeholder {
-  color: var(--color-text-muted);
+  color: var(--color-text-light);
 }
 
 .clear-search {
@@ -139,38 +158,29 @@
   min-width: 0;
 }
 
-.select-chevron {
-  position: absolute;
-  top: 50%;
-  right: 0.45rem;
-  pointer-events: none;
-  color: var(--color-text-muted);
-  transform: translateY(-50%);
-}
 
+/* Verbatim copy of the Library's `.control-group` / `.toggle-opt`. It is
+   icon-only at 18px with strokeWidth 1.5 — the same as the Library's own
+   list/grid toggle — so the two read as one control from one app. The previous
+   version added text labels, a 32px min-height and a `--color-text-light`
+   outline on the active option, none of which exist in the Library. */
 .view-mode-control {
   display: flex;
   flex: 0 0 auto;
-  gap: 2px;
+  background: var(--bg-hover);
   padding: 3px;
   border-radius: var(--radius-md);
-  background: var(--bg-hover);
+  gap: 2px;
 }
 
 .view-mode-control .toggle-opt {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-  min-height: 32px;
-  padding: 0 0.45rem;
-  border: 0;
+  background: 0 0;
+  border: none;
+  padding: 4px 6px;
   border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-muted);
   cursor: pointer;
-  font-size: 0.72rem;
-  white-space: nowrap;
+  color: var(--color-text-light);
+  display: flex;
 }
 
 .view-mode-control .toggle-opt:hover {
@@ -181,7 +191,7 @@
   background: var(--bg-surface);
   color: var(--color-primary);
   box-shadow: var(--shadow-sm);
-  outline: 1px solid var(--color-text-light);
+  outline: 1px solid var(--border-color);
   outline-offset: -1px;
 }
 
@@ -199,22 +209,31 @@
   flex-shrink: 0;
 }
 
+/* Verbatim copy of the Library's `.sort-select` (see docs/brain-library-parity.md).
+   The chevron is a data-URI background-image, NOT a positioned <lucide-icon>
+   sibling: the sibling version put a second painted box inside the wrapper, and
+   its `background-image: none !important` was overriding the theme, which is the
+   "weird border issues" in the filter row. */
 .sort-select {
   width: 100%;
   flex: 1;
   min-width: 0;
-  height: 36px;
-  padding: 0 1.75rem 0 0.6rem;
+  min-height: 39px;
+  padding: 0.6rem 2rem 0.6rem 1rem;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  background-color: var(--bg-input);
-  background-image: none !important;
-  color: var(--color-text-muted);
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   cursor: pointer;
+  color: var(--color-text-muted);
+  background-color: var(--bg-input);
   outline: none;
   appearance: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1em;
 }
 
 .sort-shell {
@@ -223,7 +242,6 @@
 
 .sort-select:hover {
   background-color: var(--bg-hover);
-  color: var(--color-text-main);
 }
 
 .sort-select:focus-visible {
@@ -266,45 +284,80 @@
   border-top: 1px solid var(--border-light);
 }
 
+/* --- INDEX ROW -------------------------------------------------------------
+   Metric-for-metric copy of the Library sidebar's `.nav-item` (see
+   docs/brain-library-parity.md). The selected pill is painted by a
+   ::before pseudo-element so its geometry never moves the label, and it uses
+   the SURFACE role (`--primary-fill`) rather than the ink role — the previous
+   version painted `background` on the row itself at `--radius-lg` (6px) with a
+   `--shadow-sm`, which is why selecting a concept did not look like selecting
+   a collection in the Library. */
 .index-item {
+  position: relative;
+  z-index: 0; /* own stacking context so the pill (z-index -1) sits above the
+                 panel background but below the name and count */
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
   width: 100%;
-  min-height: 40px;
-  padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+  min-height: 34px;
+  padding: 0.45rem 0.75rem;
   border: none;
   background: transparent;
+  border-radius: 8px;
   cursor: pointer;
-  border-radius: var(--radius-lg);
   text-align: left;
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.88rem;
   font-weight: 500;
+  letter-spacing: -0.01em;
   color: var(--color-text-muted);
   outline: none;
   margin: 0;
   flex: 1 1 auto;
   min-width: 0;
+  transition: color 0.12s ease;
 }
 
 .index-row-shell {
   position: relative;
   display: flex;
   width: 100%;
-  min-height: 40px;
+  min-height: 34px;
   margin-bottom: 2px;
 }
 
+.index-item::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: translateY(-50%);
+  border-radius: 8px;
+  background: transparent;
+  transition: background-color 0.12s ease;
+}
+
 .index-item:hover {
-  background: var(--bg-hover);
+  background: transparent;
   color: var(--color-text-main);
 }
 
+.index-item:hover::before {
+  background: var(--bg-hover);
+}
+
 .index-item.active {
-  background: var(--primary-fill);
+  background: transparent;
   color: var(--on-primary);
-  box-shadow: var(--shadow-sm);
+}
+
+.index-item.active::before {
+  background: var(--primary-fill);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 /* The index buttons had NO focus style at all (`outline-style: none`), so
@@ -321,13 +374,21 @@
 }
 
 .index-row-shell:focus-within .index-item {
-  background: var(--bg-hover);
+  background: transparent;
   color: var(--color-text-main);
 }
 
+.index-row-shell:focus-within .index-item::before {
+  background: var(--bg-hover);
+}
+
 .index-row-shell:focus-within .index-item.active {
-  background: var(--primary-fill);
+  background: transparent;
   color: var(--on-primary);
+}
+
+.index-row-shell:focus-within .index-item.active::before {
+  background: var(--primary-fill);
 }
 
 .index-item .name {
@@ -348,26 +409,34 @@
   padding: 0 0.1em;
 }
 
+/* Reserves the trailing slot for the count / hover actions. Height must be the
+   BADGE's height, not a 32px box: this is a block-level child of the flex row, so
+   its height drove the row (46px vs the Library's 34px). 20px matches the badge
+   and lets the row's own 0.45rem padding set the rhythm, exactly as the Library's
+   `count-badge` does. */
 .row-tail {
   position: relative;
   flex: 0 0 76px;
   width: 76px;
-  height: 32px;
+  height: 20px;
   margin-left: auto;
 }
 
-/* --- COUNT BADGES (shared) --- */
-/* Counts are quiet editorial numerals, not notification bubbles. A filled pill
-   on every row read as an alert badge and pulled the eye away from the names. */
+/* --- COUNT BADGE ------------------------------------------------------------
+   Metric-for-metric copy of the Library sidebar's `.count-badge`: a real 20px
+   pill with a hover fill. An earlier pass flattened these to plain text, which
+   diverged from the Library for no reason — the badge is a deliberate element of
+   the sidebar language, not a "notification bubble" to be removed. */
 .index-header .badge-count,
 .index-item .count {
-  min-width: 0;
-  height: auto;
-  padding: 0;
-  border-radius: 0;
-  font-size: 0.76rem;
-  font-weight: 400;
-  font-variant-numeric: tabular-nums;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  color: var(--color-text-light);
+  font-size: 0.72rem;
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -376,25 +445,26 @@
 }
 
 .index-header .badge-count {
-  background: transparent;
+  background: var(--bg-hover);
   color: var(--color-text-light);
 }
 
 .index-item .count {
   position: absolute;
   top: 50%;
-  right: 0;
+  right: 0.75rem;
   margin-left: auto;
   transform: translateY(-50%);
-  background: transparent;
+  background: var(--bg-hover);
   color: var(--color-text-light);
 }
 
 .index-item.active .count {
-  /* Was a hardcoded white chip. Driven from the on-fill foreground so it tracks
-     whatever the active row's fill resolves to in either theme. */
-  background: transparent;
-  color: color-mix(in srgb, var(--on-primary) 72%, transparent);
+  /* Mirrors `:root[data-theme='dark'] .nav-item.active .count-badge` in the
+     global sheet: on a fill the badge recedes into the surface rather than
+     glowing. Driven from the on-fill foreground so it tracks the theme. */
+  background: color-mix(in srgb, var(--on-primary) 22%, transparent);
+  color: var(--on-primary);
 }
 
 .row-actions {
@@ -1015,42 +1085,57 @@
 
 /* The detail controls are deliberately a single quiet rail: the notes remain
    the visual centre, while source, search and order are available on demand. */
+/* The detail controls reuse the Library's search + select recipe verbatim, so
+   the filter row and the Library toolbar are the same two controls at the same
+   metrics. Previously the search and both selects each drew their own border
+   around an inner control that also had one — the "weird border issues". */
 .detail-tools {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.75rem;
   max-width: 1100px;
   margin: 0 auto 1.25rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-color);
 }
 
-.note-search-box,
-.detail-select-wrap {
+/* Search: same recipe as `.search-box` above (absolute icon, input owns the
+   gutter), sized down to the compact rail. */
+.note-search-box {
+  position: relative;
   display: flex;
   align-items: center;
-  min-height: 38px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-input);
-  color: var(--color-text-muted);
-  transition: border-color 0.15s ease;
-}
-
-.note-search-box:hover,
-.detail-select-wrap:hover {
-  border-color: var(--color-primary-dim);
-}
-
-.note-search-box {
   flex: 1 1 220px;
-  gap: 0.5rem;
-  padding: 0 0.65rem;
+  min-width: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.note-search-box:hover {
+  background: var(--bg-surface-alt);
+}
+
+.note-search-box .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 1;
+  color: var(--color-text-light);
+  transition: color 0.2s ease;
 }
 
 .note-search-box:focus-within {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  background: var(--bg-surface);
+  border-color: var(--border-focus);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-accent-faint);
+}
+
+.note-search-box:has(input:focus) .search-icon {
   color: var(--color-text-main);
 }
 
@@ -1062,11 +1147,49 @@
   background: transparent;
   color: var(--color-text-main);
   font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.9rem;
+  padding: 0.6rem 0.75rem 0.6rem 2.5rem;
 }
 
 .note-search-box input::placeholder {
+  color: var(--color-text-light);
+}
+
+/* Selects: the wrapper carries NO border; the control itself is the Library's
+   `.sort-select`. A bordered wrapper around a bordered select is exactly the
+   double-outline defect called out on review. */
+.detail-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+}
+
+.detail-select {
+  width: 100%;
+  min-width: 0;
+  min-height: 39px;
+  padding: 0.6rem 2rem 0.6rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  cursor: pointer;
   color: var(--color-text-muted);
+  background-color: var(--bg-input);
+  outline: none;
+  appearance: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1em;
+}
+
+.detail-select:hover {
+  background-color: var(--bg-hover);
 }
 
 .clear-note-search {
@@ -1094,34 +1217,11 @@
   outline-offset: -2px;
 }
 
-.detail-select-wrap {
-  gap: 0.45rem;
-  padding-left: 0.65rem;
-  border-radius: var(--radius-lg);
-}
-
-.detail-select {
-  width: 100%;
-  min-width: 132px;
-  height: 36px;
-  padding: 0 1.75rem 0 0;
-  border: 0;
-  outline: 0;
-  background: var(--bg-input);
-  color: var(--color-text-main);
-  cursor: pointer;
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.78rem;
-  appearance: none;
-}
-
+/* The inner shell only needs to hold the select; the wrapper above supplies
+   layout, and the select itself owns the border (see `.detail-select`). */
 .detail-select-shell {
   flex: 1 1 auto;
-}
-
-.detail-select-wrap:focus-within {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  position: relative;
 }
 
 .note-count {
@@ -1414,6 +1514,9 @@
     min-height: 44px;
   }
 
+  /* Touch targets: the actions themselves need 44px, but the row must not grow
+     to a desktop-inconsistent height just because the tap target did. The tail
+     is absolutely positioned by `.row-actions` below, so it can stay tall. */
   .row-tail,
   .row-actions {
     width: 92px;

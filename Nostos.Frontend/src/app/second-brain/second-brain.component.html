@@ -20,7 +20,7 @@
         </div>
         }
         <div class="search-box">
-          <lucide-icon [img]="SearchIcon" [size]="16"></lucide-icon>
+          <lucide-icon [img]="SearchIcon" [size]="16" class="search-icon"></lucide-icon>
           <input
             #searchInput
             type="text"
@@ -54,20 +54,22 @@
               <option value="az">A → Z</option>
               <option value="za">Z → A</option>
             </select>
-            <lucide-icon class="select-chevron" [img]="ExpandIcon" [size]="15" aria-hidden="true"></lucide-icon>
-          </div>
-          <div class="control-group view-mode-control" role="group" aria-label="Index view">
+                      </div>
+          <!-- Icon-only at 18px/1.5, exactly the Library's list/grid control.
+               No text labels: the Library's toggle has none, and at this size
+               two labelled segments read as a button pair rather than one
+               segmented control. -->
+          <div class="control-group view-mode-control" role="group" aria-label="Brain view">
             <button
               type="button"
               class="toggle-opt"
               [class.active]="viewMode() === 'list'"
               [attr.aria-pressed]="viewMode() === 'list'"
-              aria-label="List view"
-              title="List view"
+              aria-label="Concept view"
+              title="Concept view"
               (click)="setViewMode('list')"
             >
-              <lucide-icon [img]="ListIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
-              <span>List</span>
+              <lucide-icon [img]="ListIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
             </button>
             <button
               type="button"
@@ -78,8 +80,7 @@
               title="Map view"
               (click)="setViewMode('map')"
             >
-              <lucide-icon [img]="MapIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
-              <span>Map</span>
+              <lucide-icon [img]="MapIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
             </button>
           </div>
         </div>
@@ -375,7 +376,7 @@
       @if (detail.notes.length > 0) {
       <div class="detail-tools" aria-label="Filter and sort notes">
         <div class="note-search-box">
-          <lucide-icon [img]="SearchIcon" [size]="15"></lucide-icon>
+          <lucide-icon [img]="SearchIcon" [size]="15" class="search-icon"></lucide-icon>
           <label class="visually-hidden" for="note-search">Search notes</label>
           <input
             id="note-search"
@@ -405,8 +406,7 @@
               <option [value]="source.value">{{ source.label }} ({{ source.count }})</option>
               }
             </select>
-            <lucide-icon class="select-chevron" [img]="ExpandIcon" [size]="15" aria-hidden="true"></lucide-icon>
-          </div>
+                      </div>
         </div>
 
         <div class="detail-select-wrap">
@@ -422,8 +422,7 @@
               <option value="oldest">Oldest first</option>
               <option value="source">Source</option>
             </select>
-            <lucide-icon class="select-chevron" [img]="ExpandIcon" [size]="15" aria-hidden="true"></lucide-icon>
-          </div>
+                      </div>
         </div>
 
         <span class="note-count" role="status" aria-live="polite" aria-atomic="true">

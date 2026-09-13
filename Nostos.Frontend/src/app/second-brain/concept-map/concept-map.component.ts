@@ -309,6 +309,22 @@ export function computeConceptMapLayout(
       point.x = clampCentred(point.x + offsetX, MAP_VIEW_WIDTH);
       point.y = clampCentred(point.y + offsetY, MAP_VIEW_HEIGHT);
     }
+
+    // Keep nodes out of the floating zoom overlay's corner.
+    //
+    // Measured on the real stage (822x420 CSS px for a 960x540 viewBox, so 1.168
+    // user units per px) the overlay occupies user-space x >= 806, y <= 51. A
+    // node placed there had its circle painted under the controls with only its
+    // label sticking out. The band below is that rectangle plus padding; a node
+    // landing inside it is nudged down out of the strip, which is a small move
+    // for a node near the top and cannot disturb the rest of the layout.
+    const overlayLeft = MAP_VIEW_WIDTH - 190;
+    const overlayBottom = 74;
+    for (const point of points) {
+      if (point.y < overlayBottom && point.x > overlayLeft) {
+        point.y = clamp(overlayBottom, 48, MAP_VIEW_HEIGHT - 48);
+      }
+    }
   }
 
   const connectionCounts = new Map<string, number>();
