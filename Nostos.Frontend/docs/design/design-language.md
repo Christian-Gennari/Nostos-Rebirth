@@ -300,7 +300,17 @@ Documented so the next reader does not "fix" it:
 - **The editor content's `--ink` / `--paper` vocabulary** — a separate visual
   world (warm ink on paper) injected into a TinyMCE iframe. Local by design.
 
-### What WAS unified: `.visually-hidden`
+### Deliberate literals in the toast component
+`toast-container.component.ts` paints its success and error accents with
+`#4ade80` / `#f87171` directly, even though `--color-success` / `--color-danger`
+exist and are theme-aware (dark `#8FC7A8` / `#E4796B`). So the pair is
+theme-blind while a token that is not sits right beside it. Flagged rather than
+changed: swapping them moves the rendered hue, which is a taste call, and a
+theme change is not allowed to move a hue unasked.
+
+Everything else in that component read tokens correctly. Note the earlier claim
+that these components were "unthemed" was WRONG — they use `var()` with fallbacks
+and the tokens resolve; only the fallbacks were dead, and those are now removed.
 It was declared twice, byte-identically (`second-brain` and `concept-map`). A
 utility with no per-surface variation should not be duplicated: the copies give
 no benefit and can drift, at which point one surface renders differently and

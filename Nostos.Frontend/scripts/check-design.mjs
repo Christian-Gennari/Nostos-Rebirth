@@ -146,7 +146,15 @@ for (const f of files) {
  *
  * When you tokenise some, lower the budget in the same commit.
  */
-const LITERAL_COLOUR_BUDGET = 92;
+/* Lowered 92 -> 83 by dropping dead `var(--token, fallback)` fallbacks in
+   star-rating and toast-container: every one of those tokens IS declared, so the
+   fallback never rendered and only made the literal count misleading.
+   Deliberately still counted (banked as a taste call, see the report):
+   toast-container's `#4ade80` success and `#f87171` error — TOKEN EQUIVALENTS
+   EXIST (`--color-success` / `--color-danger`) and are theme-aware, so these two
+   pairs are still theme-blind against a token that is not. Left for a human
+   because it changes the rendered hue. */
+const LITERAL_COLOUR_BUDGET = 83;
 
 {
   const ALLOW = [

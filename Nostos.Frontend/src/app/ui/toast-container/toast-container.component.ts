@@ -43,10 +43,10 @@ import { LucideAngularModule, X, CheckCircle, AlertTriangle, Info } from 'lucide
         align-items: center;
         gap: 0.6rem;
         padding: 0.75rem 1rem;
-        border-radius: var(--radius-md, 8px);
-        background: var(--bg-surface, #ffffff);
-        border: 1px solid var(--border-color, #e0e0e0);
-        color: var(--color-text-main, #1a1a1a);
+        border-radius: var(--radius-md);
+        background: var(--bg-surface);
+        border: 1px solid var(--border-color);
+        color: var(--color-text-main);
         font-size: 0.875rem;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         pointer-events: auto;
@@ -68,10 +68,10 @@ import { LucideAngularModule, X, CheckCircle, AlertTriangle, Info } from 'lucide
       }
 
       .toast-info {
-        border-left: 3px solid var(--color-primary, #818cf8);
+        border-left: 3px solid var(--color-primary);
       }
       .toast-info lucide-icon {
-        color: var(--color-primary, #818cf8);
+        color: var(--color-primary);
       }
 
       .toast-message {
@@ -82,7 +82,7 @@ import { LucideAngularModule, X, CheckCircle, AlertTriangle, Info } from 'lucide
       .toast-dismiss {
         background: none;
         border: none;
-        color: var(--color-text-muted, #888);
+        color: var(--color-text-muted);
         cursor: pointer;
         padding: 2px;
         display: flex;
@@ -91,7 +91,7 @@ import { LucideAngularModule, X, CheckCircle, AlertTriangle, Info } from 'lucide
         transition: color 0.15s;
       }
       .toast-dismiss:hover {
-        color: var(--color-text-main, #1a1a1a);
+        color: var(--color-text-main);
       }
 
       @keyframes toast-slide-in {

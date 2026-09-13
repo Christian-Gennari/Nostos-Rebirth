@@ -27,7 +27,7 @@ import { LucideAngularModule, Star } from 'lucide-angular';
         gap: 2px;
       }
       .star-icon {
-        color: var(--color-text-placeholder, #c5c7cc);
+        color: var(--color-text-placeholder);
         transition: all 0.2s ease;
       }
       /* Hover effects only if not readonly */
@@ -41,8 +41,8 @@ import { LucideAngularModule, Star } from 'lucide-angular';
       }
 
       .star-icon.filled {
-        fill: var(--color-highlight, #fbbf24);
-        color: var(--color-highlight, #fbbf24);
+        fill: var(--color-highlight);
+        color: var(--color-highlight);
       }
     `,
   ],
