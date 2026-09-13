@@ -421,6 +421,37 @@ Note also that an earlier claim in this document — that these components were
 "unthemed" — was WRONG. They use `var()` with fallbacks and the tokens resolve;
 only the fallbacks were dead, and those were removed.
 
+### The segmented control is a shared RECIPE, not a shared component
+
+The `.toggle-opt` base recipe is declared ONCE, in `styles.css`. Library and Brain
+each used to carry a byte-identical copy of those four rules (only the comments
+differed), which had already caused real drift: the focus ring was added to one copy
+and not the other, so the same control behaved differently for keyboard users
+depending on which page they were on. The mobile overrides stay in their components
+because they genuinely differ (Library 32px box, Brain 44px touch target).
+
+The MARKUP stays duplicated on purpose, and this is a decision, not an oversight. The
+four surfaces sharing this visual recipe have four different interaction contracts:
+
+| Surface | ARIA | Active class |
+| --- | --- | --- |
+| Studio sidebar | `role="tablist"` / `role="tab"` / `aria-selected` | `.active` |
+| Settings theme | `role="radiogroup"` / `role="radio"` / `aria-checked` | `.is-active` |
+| Brain view | `role="group"` / `aria-pressed` | `.active` |
+| Library view | none at all | `.active` |
+
+So the real candidate pool was two call sites (Library and Brain), not four. A shared
+component would have to either keep those differences behind inputs — a leaky
+abstraction for two callers — or silently change one call site's rendered DOM.
+Extraction saves ZERO CSS now that the recipe is shared, and roughly 15 lines of
+markup across two templates.
+
+**Do not "finish" this by extracting the component.** Two earlier attempts were
+reverted for exactly this reason. Note also that the paths are NOT tempting targets
+for a quick a11y win: adding `aria-pressed` to Library would be a real improvement,
+but shipping it inside a dedup pass is an unrequested behaviour change. If that
+upgrade is wanted, it belongs in its own task with its own test updates.
+
 ### The segmented control, and why it had to be fixed three separate times
 Four components render the same control under different names:
 
