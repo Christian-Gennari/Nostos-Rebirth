@@ -99,6 +99,26 @@ const failures = [];
 const notes = [];
 
 // ---------------------------------------------------------------- tier 1: pixels
+/* Per-surface content hashes, so a pixel difference on a data-driven surface can be
+   attributed to the DATA rather than reported as a CSS regression. Read before the
+   pixel loop because the attribution needs them per tag. */
+const baseValues = JSON.parse(readFileSync(join(BASELINE, 'painted-values.json'), 'utf8'));
+const candValuesForContent = existsSync(join(CANDIDATE, 'painted-values.json'))
+  ? JSON.parse(readFileSync(join(CANDIDATE, 'painted-values.json'), 'utf8')) : null;
+const baseContent = new Map((baseValues.captures ?? []).map((c) => [c.tag, c.contentHash?.hash ?? null]));
+const candContent = new Map((candValuesForContent?.captures ?? []).map((c) => [c.tag, c.contentHash?.hash ?? null]));
+
+/* Surfaces whose pixels come from a database that other agents write concurrently.
+   For these, a content change is a legitimate explanation for a pixel difference,
+   and saying so is more honest than either failing or silently tolerating it. */
+const DATA_DRIVEN = new Set(['library', 'brain', 'studio']);
+
+
+/* Surfaces whose pixels come from a database that other agents write concurrently.
+   For these, a content change is a legitimate explanation for a pixel difference,
+   and saying so is more honest than either failing or silently tolerating it. */
+
+
 const baselinePngs = readdirSync(BASELINE).filter((f) => f.endsWith('.png')).sort();
 for (const file of baselinePngs) {
   const tag = basename(file, '.png');
@@ -128,18 +148,52 @@ for (const file of baselinePngs) {
     const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
     const maxDelta = Math.max(...outside.map((p) => p[2]));
     const worst = outside.slice().sort((p, q) => q[2] - p[2]).slice(0, 5);
+    const bHash = baseContent.get(tag), cHash = candContent.get(tag);
+    const dataMoved = bHash && cHash && bHash !== cHash;
+    const surface = tag.split('-')[0];
     failures.push(
       `${tag}: ${outside.length} unexpected pixel(s) differ outside the declared ` +
       `flake regions. bbox=x${x0}..${x1} y${y0}..${y1}, max channel delta ${maxDelta}, ` +
-      `worst at ${worst.map(([x, y, d]) => `(${x},${y})=${d}`).join(' ')}`);
+      `worst at ${worst.map(([x, y, d]) => `(${x},${y})=${d}`).join(' ')}` +
+      (dataMoved
+        ? `\n      ^ CONTENT on this surface changed (${bHash} -> ${cHash}), so this is ` +
+          `most likely DATA, not styling. Re-baseline once the data is stable, or ` +
+          `verify on a surface whose data is fixed.`
+        : (!DATA_DRIVEN.has(surface) ? '' :
+          `\n      ^ CSS and this surface's content both match the baseline, so this ` +
+          `is a REAL styling change and the baseline must be regenerated deliberately.`)));
   } else if (within) {
     notes.push(`${tag}: ${within} px differ, all inside declared flake regions`);
   }
 }
 
 // ------------------------------------------------------- tier 2: computed values
-const baseJson = JSON.parse(readFileSync(join(BASELINE, 'painted-values.json'), 'utf8'));
+const baseJson = baseValues; // same file, read once above
 const candPath = join(CANDIDATE, 'painted-values.json');
+
+/* Did the DATA change between the baseline and the candidate? If so, a pixel
+   difference on a data-driven surface is expected and says nothing about the CSS.
+   This matters here: `nostos.db` is written by other agents during a run, so the
+   library grid can legitimately show different books with byte-identical CSS. */
+let contentChanged = null;
+if (existsSync(candPath)) {
+  try {
+    const candJson = JSON.parse(readFileSync(candPath, 'utf8'));
+    const a = baseJson.fingerprint?.contentHash ?? null;
+    const b = candJson.fingerprint?.contentHash ?? null;
+    if (a && b && a !== b) {
+      contentChanged = { base: a, candidate: b,
+        baseCounts: baseJson.fingerprint?.contentCounts,
+        candCounts: candJson.fingerprint?.contentCounts };
+      notes.push(`CONTENT CHANGED between baseline and candidate ` +
+        `(${a} -> ${b}; cards ${contentChanged.baseCounts?.cards} -> ${contentChanged.candCounts?.cards}, ` +
+        `images ${contentChanged.baseCounts?.images} -> ${contentChanged.candCounts?.images}). ` +
+        `Pixel differences on data-driven surfaces (library) may be content, not CSS. ` +
+        `Re-baseline when the data is stable, or verify on a surface whose data is fixed.`);
+    }
+  } catch { /* reported below */ }
+}
+
 if (!existsSync(candPath)) {
   failures.push('painted-values.json: MISSING from the candidate set');
 } else {

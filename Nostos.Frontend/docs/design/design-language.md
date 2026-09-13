@@ -273,6 +273,39 @@ A useful tell: a difference that large with a clean sweep means the *sweep* is
 blind, not that the page is fine. Here the sweep was right and the harness was
 wrong — but the size of the discrepancy is what said "look at the harness".
 
+### A capture that depends on the wall clock cannot be compared to anything
+`reader-desktop-light` differed by ~11,300 px between two runs of identical code
+AND identical content, because the reader paints a live elapsed-time readout
+(`.time-label-btn`). No amount of image-settling fixes that: two correct captures
+of a clock are supposed to differ.
+
+The harness now installs a fixed clock (`page.clock.install`) before navigating, so
+the readout advances deterministically from a known instant. This changes *when*
+the app paints, never *what* it paints — the distinction matters, because a harness
+that alters the thing under test is not a harness.
+
+### Data-driven surfaces need a content fingerprint, not just a CSS hash
+The library grid paints a list read from `nostos.db`, and other agents write to
+that database while captures run (`nostos.db` was observed being written mid-run,
+and a book added to the grid moved ~100,000 px in **both** themes with a
+byte-identical CSS hash).
+
+Without recording the content, that is indistinguishable from a real regression —
+and it was initially misreported as one. Each capture now records a per-surface
+content hash (visible text, resolved image URLs with intrinsic sizes, element
+counts). The gate now says which of the two happened:
+
+- content changed → "most likely DATA, not styling";
+- CSS and content both match → "REAL styling change; regenerate the baseline
+  deliberately".
+
+A whole-run concatenated hash was tried first and was not good enough: it could not
+name *which* surface moved, so the failure stayed unattributable.
+
+The content hash excludes anything time-based on purpose. It must be stable across
+two runs of the same code, or it carries no signal — which is also why the frozen
+clock and this hash are complementary rather than redundant.
+
 ### The flake allowance is a rectangle list, not a pixel budget
 `check-pixels.mjs` ignores differences only inside explicitly declared
 rectangles, each with a recorded justification and measured size. A per-image

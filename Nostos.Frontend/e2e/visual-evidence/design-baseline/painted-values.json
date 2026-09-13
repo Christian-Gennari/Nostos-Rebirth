@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-09-13T17:28:53.768Z",
+ "generatedAt": "2026-09-13T18:14:21.723Z",
  "base": "http://127.0.0.1:5214",
  "captures": [
   {
@@ -387,6 +387,12 @@
      ]
     }
    },
+   "contentHash": {
+    "hash": "6ea0efe0",
+    "chars": 3256,
+    "cards": 20,
+    "images": 20
+   },
    "errors": []
   },
   {
@@ -645,6 +651,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "319159f6",
+    "chars": 51,
+    "cards": 4,
+    "images": 0
    },
    "errors": []
   },
@@ -932,6 +944,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
    },
    "errors": []
   },
@@ -1226,6 +1244,12 @@
      ]
     }
    },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
+   },
    "errors": []
   },
   {
@@ -1370,6 +1394,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
    },
    "errors": []
   },
@@ -1603,6 +1633,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "35c6c2a6",
+    "chars": 106,
+    "cards": 0,
+    "images": 1
    },
    "errors": []
   },
@@ -2007,6 +2043,12 @@
      ]
     }
    },
+   "contentHash": {
+    "hash": "6ea0efe0",
+    "chars": 3256,
+    "cards": 20,
+    "images": 20
+   },
    "errors": []
   },
   {
@@ -2269,6 +2311,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "319159f6",
+    "chars": 51,
+    "cards": 4,
+    "images": 0
    },
    "errors": []
   },
@@ -2560,6 +2608,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
    },
    "errors": []
   },
@@ -2862,6 +2916,12 @@
      ]
     }
    },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
+   },
    "errors": []
   },
   {
@@ -3006,6 +3066,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
    },
    "errors": []
   },
@@ -3239,6 +3305,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "35c6c2a6",
+    "chars": 106,
+    "cards": 0,
+    "images": 1
    },
    "errors": []
   },
@@ -3591,6 +3663,12 @@
      ]
     }
    },
+   "contentHash": {
+    "hash": "7ab51244",
+    "chars": 1987,
+    "cards": 12,
+    "images": 12
+   },
    "errors": []
   },
   {
@@ -3845,6 +3923,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "319159f6",
+    "chars": 51,
+    "cards": 4,
+    "images": 0
    },
    "errors": []
   },
@@ -4136,6 +4220,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
    },
    "errors": []
   },
@@ -4430,6 +4520,12 @@
      ]
     }
    },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
+   },
    "errors": []
   },
   {
@@ -4570,6 +4666,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
    },
    "errors": []
   },
@@ -4803,6 +4905,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "35c6c2a6",
+    "chars": 106,
+    "cards": 0,
+    "images": 1
    },
    "errors": []
   },
@@ -5167,6 +5275,12 @@
      ]
     }
    },
+   "contentHash": {
+    "hash": "7ab51244",
+    "chars": 1987,
+    "cards": 12,
+    "images": 12
+   },
    "errors": []
   },
   {
@@ -5425,6 +5539,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "319159f6",
+    "chars": 51,
+    "cards": 4,
+    "images": 0
    },
    "errors": []
   },
@@ -5720,6 +5840,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
    },
    "errors": []
   },
@@ -6022,6 +6148,12 @@
      ]
     }
    },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
+   },
    "errors": []
   },
   {
@@ -6162,6 +6294,12 @@
       ]
      ]
     }
+   },
+   "contentHash": {
+    "hash": "502337aa",
+    "chars": 5,
+    "cards": 0,
+    "images": 0
    },
    "errors": []
   },
@@ -6396,6 +6534,12 @@
      ]
     }
    },
+   "contentHash": {
+    "hash": "35c6c2a6",
+    "chars": 106,
+    "cards": 0,
+    "images": 1
+   },
    "errors": []
   }
  ],
@@ -6403,10 +6547,15 @@
   "html": "http://127.0.0.1:5214/",
   "sheets": [
    {
-    "href": "styles-OTQI5LFS.css",
-    "bytes": 28238,
-    "hash": "7f83f46e"
+    "href": "styles-H5JQKLWX.css",
+    "bytes": 28295,
+    "hash": "443b318f"
    }
-  ]
+  ],
+  "contentHash": "660367fe",
+  "contentCounts": {
+   "cards": 20,
+   "images": 20
+  }
  }
 }

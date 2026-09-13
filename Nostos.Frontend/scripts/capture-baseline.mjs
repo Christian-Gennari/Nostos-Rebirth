@@ -156,9 +156,75 @@ async function fingerprint(page) {
         sheets.push({ href, bytes: text.length, hash: (h >>> 0).toString(16) });
       } catch (e) { sheets.push({ href, error: String(e) }); }
     }
-    return { html: location.origin + '/', sheets };
+
+    /* Content fingerprint for the DATA-driven surfaces.
+       The library grid paints a list that comes from the database, and other agents
+       work in this repo concurrently — `nostos.db` was observed being written during
+       a capture run. A content change (a book added, covers re-fetched) moves
+       hundreds of thousands of pixels while the CSS is byte-identical, which is
+       indistinguishable from a real regression unless the harness records the
+       content too.
+
+       We record a hash of the visible text plus the resolved image URLs and sizes.
+       That is deliberately coarser than the DOM: it must be stable against
+       rendering noise and sensitive to a different book appearing. */
+    const gridText = (sel) => [...document.querySelectorAll(sel)]
+      .map((e) => (e.textContent || '').trim()).join('\u0001');
+    const imgs = [...document.images].map((i) => `${i.currentSrc || i.src}|${i.naturalWidth}x${i.naturalHeight}`);
+    const contentMaterial = [
+      gridText('.book-card, .index-item, .note-card, .nav-item'),
+      imgs.join('\u0002'),
+      document.querySelectorAll('.book-card, .index-item, .note-card').length,
+    ].join('\u0003');
+    let ch = 2166136261;
+    for (let i = 0; i < contentMaterial.length; i++) {
+      ch ^= contentMaterial.charCodeAt(i);
+      ch = Math.imul(ch, 16777619);
+    }
+    return {
+      html: location.origin + '/',
+      sheets,
+      contentHash: (ch >>> 0).toString(16),
+      contentCounts: {
+        cards: document.querySelectorAll('.book-card, .index-item, .note-card').length,
+        images: document.images.length,
+      },
+    };
   });
 }
+
+/**
+ * Content hash for ONE surface, evaluated right before its screenshot.
+ *
+ * Why per-surface: the library grid paints a list that comes from `nostos.db`, and
+ * other agents write to that DB concurrently — a book being added mid-run moves
+ * ~100,000 pixels with byte-identical CSS, which is indistinguishable from a real
+ * regression. A single concatenated hash for the whole run cannot say WHICH surface
+ * moved, so a failure would still be unattributable.
+ *
+ * It covers what renders as text or as an image: visible text, resolved image URLs
+ * with their intrinsic sizes, and element counts. It excludes anything time-based —
+ * the capture installs a frozen clock, and a timestamp here would change on every
+ * run and therefore carry no signal.
+ */
+const CONTENT_HASH = () => {
+  const text = [...document.querySelectorAll(
+    '.book-card, .index-item, .note-card, .nav-item, .map-node, .meta-title, .book-title')]
+    .map((e) => (e.textContent || '').trim()).join('\u0001');
+  const imgs = [...document.images]
+    .map((i) => `${i.currentSrc || i.src}|${i.naturalWidth}x${i.naturalHeight}`).join('\u0002');
+  const material = [text, imgs,
+    document.querySelectorAll('.book-card, .index-item, .note-card').length,
+    document.images.length].join('\u0003');
+  let h = 2166136261;
+  for (let i = 0; i < material.length; i++) {
+    h ^= material.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return { hash: (h >>> 0).toString(16), chars: material.length,
+    cards: document.querySelectorAll('.book-card, .index-item, .note-card').length,
+    images: document.images.length };
+};
 
 /** Counts serve as the non-vacuity guard for the sweep itself. */
 async function geometry(page) {
@@ -206,6 +272,20 @@ async function main() {
         page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 200)); });
         page.on('pageerror', (e) => errors.push(String(e).slice(0, 200)));
 
+        /* Freeze time for the whole capture.
+           The reader paints a live elapsed/clock readout (`.time-label-btn`), so
+           its pixels depend on WHEN the capture ran — `reader-desktop-light`
+           differed by ~11,300 px between two runs of identical code and identical
+           content. A capture that varies with wall-clock time cannot be compared
+           to a baseline at all. Installing a fixed clock (and letting it tick)
+           makes the readout advance deterministically from a known instant.
+           This is a harness fix, not a styling change: it does not alter what the
+           app paints, only when it paints it. */
+        const FROZEN_START = new Date('2026-01-01T00:00:00Z');
+        if (page.clock && typeof page.clock.install === 'function') {
+          await page.clock.install({ time: FROZEN_START });
+        }
+
         // Seed the theme the way the app persists it, then let the app apply it.
         await page.goto(BASE, { waitUntil: 'domcontentloaded' });
         await page.evaluate((t) => localStorage.setItem('nostos.theme', t), theme);
@@ -244,6 +324,12 @@ async function main() {
           const applied = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
           const geo = await geometry(page);
           const sweep = await page.evaluate(SWEEP);
+          /* Per-surface content hash. The report-level hash is a concatenation, so
+             it cannot tell WHICH surface's data moved. Recording it per capture lets
+             the gate attribute a pixel difference on a data-driven surface to the
+             data rather than to the CSS — these surfaces fetch from a database that
+             other agents write to concurrently. */
+          const contentHash = await page.evaluate(CONTENT_HASH);
           if (!report.fingerprint) report.fingerprint = await fingerprint(page);
 
           const tag = `${surface.name}-${vp.name}-${theme}`;
@@ -259,7 +345,7 @@ async function main() {
           const themeOk = theme === 'dark' ? applied === 'dark' : applied === null || applied === 'light';
           if (!themeOk) throw new Error(`${tag}: theme '${theme}' not applied (data-theme=${applied})`);
 
-          report.captures.push({ tag, surface: surface.name, viewport: vp.name, theme, png, applied, geo, sweep, errors });
+          report.captures.push({ tag, surface: surface.name, viewport: vp.name, theme, png, applied, geo, sweep, contentHash, errors });
           console.log(`  ✔ ${tag}  elements=${geo.elementCount} painted=${sweep.painted}${errors.length ? `  (${errors.length} console errors)` : ''}`);
         }
         await context.close();
