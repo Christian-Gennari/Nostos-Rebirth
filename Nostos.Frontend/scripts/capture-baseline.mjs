@@ -52,6 +52,12 @@ const SURFACES = [
   { name: 'studio', route: '/studio', settle: 'networkidle' },
   { name: 'settings', route: '/settings', settle: 'networkidle' },
   { name: 'home', route: '/', settle: 'networkidle' },
+  /* The reader is a ROUTE, not a tab, so it was missed by the first pass — and
+     `reader-shell.component.css` is exactly where a phantom-token bug
+     (`var(--space-3)`, declared nowhere) had been sitting unnoticed. Covering it
+     is worth the extra capture pair. The id is a real audio book so the route
+     renders its player rather than an empty state. */
+  { name: 'reader', route: '/read/f9c17fb2-e42d-4db5-a3d0-b0a45b73f12e', settle: 'networkidle' },
 ];
 
 const VIEWPORTS = [
@@ -208,6 +214,32 @@ async function main() {
           await page.goto(BASE + surface.route, { waitUntil: 'networkidle' });
           // Let the wait-field breathe out and late art resolve before sampling.
           await page.waitForTimeout(1500);
+
+          /* Settle images BEFORE sampling. The library grid renders its covers with
+             `loading="lazy" decoding="async"`, so a fixed timeout is a race: a
+             capture could include covers that had decoded and another could not.
+             That produced two DIFFERENT PNGs from the SAME css bundle hash
+             (7f83f46e both), which made the pixel gate report phantom
+             regressions and, worse, made real ones look like flake.
+             Force eager + await decode + assert nothing is broken. */
+          const imgState = await page.evaluate(async () => {
+            const imgs = Array.from(document.images);
+            for (const i of imgs) i.loading = 'eager';
+            await Promise.all(imgs.map((i) => (i.complete && i.naturalWidth > 0)
+              ? Promise.resolve()
+              : new Promise((res) => { i.onload = res; i.onerror = res; })));
+            await Promise.all(imgs.map((i) => (i.decode ? i.decode().catch(() => {}) : Promise.resolve())));
+            return {
+              total: imgs.length,
+              broken: imgs.filter((i) => i.complete && i.naturalWidth === 0).map((i) => i.currentSrc || i.src),
+              pending: imgs.filter((i) => !i.complete).length,
+            };
+          });
+          if (imgState.pending > 0 || imgState.broken.length > 0) {
+            throw new Error(`${surface.name}: images did not settle ` +
+              `(pending=${imgState.pending}, broken=${imgState.broken.length}) — ` +
+              `a race here makes every downstream comparison meaningless`);
+          }
 
           const applied = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
           const geo = await geometry(page);

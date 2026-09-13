@@ -12,10 +12,12 @@
     "e2e:launcher-check": "node e2e/support/launch-regression.mjs",
     "profile:fade": "node tools/profile-fade.mjs",
     "check:css": "node scripts/check-css-integrity.mjs",
-    "check": "npm run check:css && npm run check:theme",
+    "check:design": "node scripts/check-design.mjs",
+    "check": "npm run check:css && npm run check:theme && npm run check:design",
     "capture:baseline": "node scripts/capture-baseline.mjs",
     "check:freshness": "node scripts/check-freshness.mjs",
-    "probe:selection": "node scripts/probe-selection.mjs"
+    "probe:selection": "node scripts/probe-selection.mjs",
+    "check:pixels": "node scripts/check-pixels.mjs"
   },
   "prettier": {
     "printWidth": 100,
@@ -60,6 +62,7 @@
     "@types/howler": "^2.2.12",
     "@types/turndown": "^5.0.6",
     "jsdom": "^27.1.0",
+    "pngjs": "^7.0.0",
     "typescript": "~5.9.2",
     "vitest": "^4.0.8"
   },

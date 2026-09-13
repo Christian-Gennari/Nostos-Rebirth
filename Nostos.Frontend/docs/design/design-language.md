@@ -215,10 +215,49 @@ both directions.
 
 ### A flaky screenshot is not a regression
 `library-desktop-light` differs on roughly one run in three *with identical
-code* (measured: unstable between two consecutive runs of the same build, then
-byte-identical to baseline on the next two). Before reading any pixel delta as
-your change, re-run and compare two captures of the **same code** — otherwise a
-capture artifact gets reported as a regression.
+code*. Before reading any pixel delta as your change, re-run and compare two
+captures of the **same code** — otherwise a capture artifact gets reported as a
+regression. `npm run check:pixels` now declares that region explicitly.
+
+### Two DIFFERENT PNGs from the SAME stylesheet hash
+This was the most expensive bug in the change-set, and it was in the harness,
+not the CSS.
+
+`library-desktop-dark.png` differed from the baseline by **338,467 pixels**
+(26% of the frame, max channel delta 255) while the paint sweep showed a single
+changed element. The obvious readings were both wrong: it was not a real
+styling regression, and it was not the known flake (that one is ~636 px).
+
+The decisive evidence was the **bundle hash**. Two capture sets taken minutes
+apart reported the *same* `styles-OTQI5LFS.css` hash `7f83f46e` and produced
+different images. Identical CSS cannot produce different paint, so the variable
+had to be the capture. The grid renders covers with
+`loading="lazy" decoding="async"`, and the harness waited a fixed 1500 ms — so
+whether each cover had decoded was a race.
+
+Two lessons, both now enforced:
+
+1. **Compare the bundle hash before blaming the CSS.** If the hash matches and
+   the pixels do not, stop looking at stylesheets. Record the hash in every
+   capture set (the fingerprint does) and diff it first.
+2. **Settle images, do not sleep on them.** `capture-baseline.mjs` now forces
+   `loading="eager"`, awaits load *and* `decode()`, and **fails the capture** if
+   any image is pending or broken. A harness that silently races makes every
+   comparison meaningless in both directions: it invents regressions and it can
+   also mask real ones.
+
+A useful tell: a difference that large with a clean sweep means the *sweep* is
+blind, not that the page is fine. Here the sweep was right and the harness was
+wrong — but the size of the discrepancy is what said "look at the harness".
+
+### The flake allowance is a rectangle list, not a pixel budget
+`check-pixels.mjs` ignores differences only inside explicitly declared
+rectangles, each with a recorded justification and measured size. A per-image
+pixel budget was rejected: a real change (a switch knob moving is ~536 px) and a
+rendering artefact (the toolbar edge drift is ~636 px) are the same order of
+magnitude, so a budget cannot separate them. A rectangle can, because it is
+spatially specific. Anything outside the declared boxes is compared at a
+tolerance of 8/channel and fails the build.
 
 ---
 

@@ -150,7 +150,7 @@ app-sidebar-collections.no-transition {
   color: var(--color-primary);
   background: color-mix(in srgb, var(--color-primary) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
-  border-radius: var(--radius-full, 999px);
+  border-radius: var(--radius-pill);
   cursor: pointer;
   transition: background 0.15s ease;
   /* Every chip — the first one included — fades up in place once. */
