@@ -547,9 +547,24 @@
    a raised neutral surface, not the brand fill: the fill role is a dark spruce,
    and against the slate sidebar it reads as a green-tinted pill — which on a
    focused row is indistinguishable from "green on focus". A selection is shown
-   by elevation, which is also how the dock works. */
+   by elevation, which is also how the dock works.
+
+   The Brain's hover/focus variants are listed explicitly, because its own
+   component rule pairs the bare selector with `:hover` and `:focus-within`
+   variants. Scoped by Angular, those variants are
+   `.index-row-shell[_ngcontent]:focus-within .index-item.active[_ngcontent]`,
+   which is (0,6,0) — exactly what `:root[data-theme='dark']` + the two
+   variants resolves to, so the two TIE and the component wins on source order
+   (Angular appends component styles to <head> after this sheet). Measured on
+   dark: rest #2B323F, but hover AND focus-within #2D4B44 (green).
+   Naming the enclosing `.index-list` takes these selectors to (0,7,0), one
+   class above the component rule, so they win on specificity alone — no
+   `!important`, and the bare `.active` case (0,4,0 vs the component's 0,3,0)
+   keeps working as before. */
 :root[data-theme='dark'] .nav-item.active::before,
-:root[data-theme='dark'] .index-item.active {
+:root[data-theme='dark'] .index-item.active,
+:root[data-theme='dark'] .index-list .index-row-shell:hover .index-item.active,
+:root[data-theme='dark'] .index-list .index-row-shell:focus-within .index-item.active {
   background: #2B323F;
 }
 
