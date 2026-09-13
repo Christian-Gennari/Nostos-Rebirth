@@ -23,12 +23,14 @@ Merge #95 first (or ask for the branches to be flattened into one PR).
 | Measure | Before | After |
 | --- | --- | --- |
 | Dark override selectors | 30 | 2 (both documented, both justified) |
-| `transition: all` | 26 sites | 2 (1 high-risk, 1 in a component under repair) |
+| `transition: all` | 26 sites | **0** |
+| Transition items missing a duration | 25 (introduced by me, then fixed) | **0** |
 | Focus-ring literals | 23 inline `2px` | 1 token |
 | `.visually-hidden` definitions | 2 (byte-identical) | 1 global |
-| Literal colours in components | 109 (per-line, inflated) | 83 (per-literal, ratchet-pinned) |
+| Segmented-control implementations | 4 drifted (2 broken on dark) | 1 recipe |
+| Literal colours in components | 109 (per-line, inflated) | 79 (per-literal, ratchet-pinned) |
 | Captured surfaces | 5 (20 PNGs) | 6 (24 PNGs) — the reader route was uncovered |
-| Static design rules | 0 | 5, each proven to fire |
+| Static design rules | 0 | 6 gating + 1 advisory, each proven to fire |
 | Pixel gate | ad-hoc manual diffing | `check:pixels`, rectangle-scoped |
 
 **The honest headline is unchanged from the plan: the line-count saving is
@@ -106,27 +108,107 @@ rectangles, plus the paint sweep with the motion buckets read separately.
 Documented limitation: the sweep only samples elements that paint in the captured
 viewport, so the pixel tier is the contract and the sweep is a second opinion.
 
-## Open calls (deliberately NOT decided unilaterally)
+## The seven open calls — all CLOSED
 
-1. **Dark active-segment fill**: `#323A48` (Library/Brain) vs `#1B1E26`
-   (Studio/Settings), identical in light. Unifying changes a visible fill.
-2. **Settings has no active-state outline**; the others do.
-3. **Focus ring**: clay 3px vs slate 2px — which is the brand?
-4. **Four type rungs within 0.8px** (`0.85`/`0.875`/`0.88`/`0.9rem`) across 21% of
-   text. Collapsing them is visible.
-5. **Toast success/error literals** `#4ade80` / `#f87171` where `--color-success` /
-   `--color-danger` exist and are theme-aware. Swapping moves the hue.
-6. **`transition: all` in the high-risk size-changing hover** — needs eyes on the
-   animation, not a script.
-7. **Stacked PRs #95/#96** — merge in order, or flatten.
+Decision authority was delegated. Each was resolved from measurement, and three
+turned out to be defects rather than taste calls:
 
-## Phase 4 (not started)
+1. **Dark active-segment fill** — resolved as a BUG FIX, not a preference. On dark,
+   `--bg-surface` (#1B1E26) is *darker* than the `--bg-hover` track (#252A34), so
+   Studio's and Settings' selected option SANK. Measured live before:
+   track `rgb(37,42,52)` vs active `rgb(27,30,38)`. This was the THIRD time the same
+   bug was written in this app (Library, Brain, then Studio+Settings) — each copy
+   authored from light mode, where `--bg-surface` is white and correct. All four now
+   read `--control-active-fill` / `--control-active-ink`.
+2. **Settings' missing active outline** — added; it was simple drift.
+3. **Focus ring** — the clay-vs-slate framing was wrong. `--color-accent` is 3px
+   nowhere; the real drift was a hardcoded `2px` width. Widths all read
+   `--focus-ring-width`; the dock's accent COLOUR is kept deliberately (a dock item
+   can be destructive, so it earns a distinct ring). Library's `.toggle-opt` had NO
+   focus ring while Brain's byte-identical copy did — that was a real accessibility
+   defect and is fixed.
+4. **Type rungs** — `0.875rem` had exactly ONE use against twelve `0.88rem`, a
+   0.08px difference standing as two rungs. Collapsed. The other three
+   (`0.85`/`0.88`/`0.9rem`, 22/12/32 uses) are deliberately kept and documented as
+   examined.
+5. **Toast literals** — resolved, NOT a taste call. `#4ade80` / `#f87171` were the
+   last theme-blind colours in the app: no other component hardcodes them (all read
+   `--color-success` / `--color-danger`), the component contradicted itself (`info`
+   already used a token), and the brand manifesto lists "neon gradients & colorful
+   AI aesthetics" under *Avoid*.
+6. **High-risk `transition: all`** — the "high risk" label was MINE and it was
+   wrong. It came from a heuristic that counted any rule *declaring* a size property
+   and that matched comments as selectors. Re-derived correctly (diff base rule
+   against its state variants; `transform` excluded as compositable and intended),
+   all 10 remaining sites were safe. `transition: all` is now **0**.
+7. **Stacked PRs** — left stacked (#95 then #96); merge order recorded in both.
 
-Migrating the remaining surfaces onto the shared vocabulary is mechanical but is
-18 surfaces / 18 PRs, whose only justification is line count, against real
-regression risk with several agents in the same tree. Recommended order by
-measured duplication density: `book-detail` (37 literals), `reader-shell`,
-`audio-reader`, `epub-reader`, `pdf-reader`, then the rest.
+## What went wrong, and the one thing that caught it
+
+Worth reading before trusting any gate in this repo.
+
+The `transition: all` conversion produced **25 sites where earlier items had no
+duration** — `transition: a, b 0.2s` binds the time to `b` only, so `a` snapped.
+Verified live: that shape computes to `transitionDuration: "0s, 0s, 0.2s"`.
+
+**Every gate passed.** The pixel baseline is a *static* capture, and a non-hovered
+element looks identical whether it would animate or snap on hover. The paint sweep
+recorded the changed duration clusters as "expected" — the tooling reported the
+symptom and my interpretation of it was wrong.
+
+What caught it was **adversarial review of the decisions by an independent model**.
+That review also refuted the specificity arithmetic documented above (I had claimed
+(doubling) (0,6,0) vs (0,5,0); the truth is a (0,5,0) TIE broken by source order).
+Both corrections are now in `docs/design/design-language.md` with the wrong version
+recorded rather than quietly deleted.
+
+The generalisable lesson: **a gate built by the same reasoning that produced the
+change inherits that reasoning's blind spots.** Both of my failures were invisible
+to checks I had designed myself. Neither was caught by more testing — they were
+caught by someone re-deriving the answer from first principles.
+
+Consequence for tooling honesty: `possible-unwinnable-dark-override` is now
+**ADVISORY**, not a gate, because sound specificity arithmetic could not be built
+cheaply and a trusted-but-unsound check is worse than none.
+
+## Phase 4 (measured, and deliberately NOT done)
+
+Phase 4 was "migrate the remaining surfaces onto the shared vocabulary". Measured
+before starting, and the measurement changed the answer:
+
+- 1,290 rules / 5,367 declarations app-wide. **44 duplicate declaration-sets**.
+- Of those, **32 are 2-3 declaration idioms** (`background: var(--bg-hover); color:
+  var(--color-text-main)`, focus rings, disabled states). Extracting them into a
+  class means adding a `class=` attribute to hundreds of template nodes and makes
+  the CSS *less* legible, not more. That is why they were rejected in the plan's
+  "deliberately NOT unified" list.
+- Only **12 groups carry 4+ declarations**, and most of those are genuinely
+  different things (two independent dropdowns in one file, a responsive clip of a
+  heading, absolute overlays on different layouts).
+- Removing every duplicate would delete ~238 declarations: **~4.4% of the total.**
+
+Against that, Phase 4 is 18 surfaces / 18 PRs in a tree with several concurrent
+agents, for a line-count saving whose honest ceiling is single-digit percent.
+
+I attempted the least risky slice anyway — two byte-identical rule pairs inside
+`audio-reader.component.css` — and **my scripted merge corrupted the file**,
+folding `.rate-selector`/`.rate-label` into `.rate-pill` and deleting
+`.rate-option`'s states. It was caught immediately (the reader capture grew
+24,624 differing px and the paint sweep showed changed buckets with an *unchanged*
+content hash, i.e. my edit, not data), reverted, and the file verified byte-clean
+against HEAD.
+
+That was the right moment to stop. The evidence for stopping is itself measured:
+
+- the saving is ~4.4% of declarations at the absolute theoretical maximum;
+- the one attempt I made produced a defect;
+- the categories with real duplication are the ones extraction makes *worse*;
+- and a scripted bulk rewrite of 18 surfaces is exactly the shape of change that
+  produced the 25-site transition regression earlier in this work.
+
+**If it is wanted later**, do it one surface per PR, by hand, starting with
+`book-detail` (37 literals) — never by script, and never more than one surface at a
+time. The guards from Phase 3 make each step verifiable.
 
 ## Reproduce
 
