@@ -10,16 +10,10 @@
       <div class="sidebar-title-row">
         <h2>Studio</h2>
         <div class="actions">
-          <button class="icon-btn" (click)="createItem('Folder')" title="New Folder" aria-label="New folder">
-            <lucide-icon [img]="Icons.FolderPlus" [size]="16" strokeWidth="1.5"></lucide-icon>
-          </button>
-          <button class="icon-btn" (click)="createItem('Document')" title="New Document" aria-label="New document">
-            <lucide-icon [img]="Icons.Plus" [size]="16" strokeWidth="1.5"></lucide-icon>
-          </button>
+          <button appIconButton [icon]="Icons.FolderPlus" [glyphSize]="16" [strokeWidth]="1" (click)="createItem('Folder')" title="New Folder" aria-label="New folder"></button>
+          <button appIconButton [icon]="Icons.Plus" [glyphSize]="16" [strokeWidth]="1" (click)="createItem('Document')" title="New Document" aria-label="New document"></button>
           @if (isMobile()) {
-            <button class="icon-btn mobile-only" (click)="showFileSidebar.set(false)" aria-label="Close sidebar">
-              <lucide-icon [img]="Icons.Close" [size]="16"></lucide-icon>
-            </button>
+            <button appIconButton class="mobile-only" [icon]="Icons.Close" [glyphSize]="16" (click)="showFileSidebar.set(false)" aria-label="Close sidebar"></button>
           }
         </div>
       </div>
@@ -54,44 +48,42 @@
         <div class="doc-actions">
           @if (isMobile()) {
             <button
-              class="icon-btn sidebar-header-toggle"
+              appIconButton
+              class="sidebar-header-toggle"
+              [icon]="showFileSidebar() ? Icons.PanelLeftClose : Icons.PanelLeftOpen"
+              [glyphSize]="18"
+              [strokeWidth]="1"
               (click)="showFileSidebar.set(!showFileSidebar())"
               title="Toggle Files"
               aria-label="Toggle file sidebar"
-            >
-              <lucide-icon
-                [img]="showFileSidebar() ? Icons.PanelLeftClose : Icons.PanelLeftOpen"
-                [size]="18"
-                strokeWidth="1.5"
-              ></lucide-icon>
-            </button>
+            ></button>
           }
 
           @if (isMobile()) {
             <button
-              class="icon-btn sidebar-header-brain-toggle"
+              appIconButton
+              class="sidebar-header-brain-toggle"
               [class.active]="showBrainSidebar()"
+              [icon]="Icons.BrainCircuit"
+              [glyphSize]="18"
+              [strokeWidth]="1"
               (click)="showBrainSidebar.set(!showBrainSidebar())"
               title="Toggle Reference"
               aria-label="Toggle reference sidebar"
-            >
-              <lucide-icon [img]="Icons.BrainCircuit" [size]="18" strokeWidth="1.5"></lucide-icon>
-            </button>
+            ></button>
           }
 
           <button
-            class="icon-btn zen-toggle"
+            appIconButton
+            class="zen-toggle"
             [class.active]="isZen()"
+            [icon]="isZen() ? Icons.Minimize2 : Icons.Maximize2"
+            [glyphSize]="18"
+            [strokeWidth]="1"
             (click)="isZen() ? exitZen() : enterZen()"
             [title]="isZen() ? 'Exit focus mode (Esc)' : 'Enter focus mode'"
             [attr.aria-label]="isZen() ? 'Exit focus mode' : 'Enter focus mode'"
-          >
-            <lucide-icon
-              [img]="isZen() ? Icons.Minimize2 : Icons.Maximize2"
-              [size]="18"
-              strokeWidth="1.5"
-            ></lucide-icon>
-          </button>
+          ></button>
         </div>
       </div>
 
@@ -129,9 +121,7 @@
       <div class="sidebar-title-row">
         <h2>Reference</h2>
         @if (isMobile()) {
-          <button class="icon-btn" (click)="showBrainSidebar.set(false)" aria-label="Close reference sidebar">
-            <lucide-icon [img]="Icons.PanelRightClose" [size]="16"></lucide-icon>
-          </button>
+          <button appIconButton [icon]="Icons.PanelRightClose" [glyphSize]="16" (click)="showBrainSidebar.set(false)" aria-label="Close reference sidebar"></button>
         }
       </div>
 
@@ -269,12 +259,14 @@
 
   @if (isZen()) {
     <button
-      class="icon-btn zen-exit"
+      appIconButton
+      class="zen-exit"
+      [icon]="Icons.Minimize2"
+      [glyphSize]="18"
+      [strokeWidth]="1"
       (click)="exitZen()"
       title="Exit focus mode (Esc)"
       aria-label="Exit focus mode"
-    >
-      <lucide-icon [img]="Icons.Minimize2" [size]="18" strokeWidth="1.5"></lucide-icon>
-    </button>
+    ></button>
   }
 </div>

@@ -57,7 +57,7 @@ export type IconButtonTone = 'default' | 'danger';
   standalone: true,
   imports: [LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<lucide-icon [img]="icon()" [size]="glyphSize()" />`,
+  template: `<lucide-icon [img]="icon()" [size]="glyphSize()" [strokeWidth]="strokeWidth()" />`,
   host: {
     class: 'icon-btn',
     '[class.icon-btn--danger]': "tone() === 'danger'",
@@ -105,6 +105,13 @@ export class IconButtonComponent {
    * 14-15px glyph inside a 28px box, which is a deliberate optical choice.
    */
   readonly glyphSize = input<number>(16);
+
+  /**
+   * Glyph stroke weight. The studio draws its tool buttons at 1.5, so a single
+   * fixed weight would visibly thicken or thin those icons. Default matches
+   * lucide's own default.
+   */
+  readonly strokeWidth = input<number>(2);
 
   /** `xxs` = 24px round chip, `xs` = 28px, `md` = 32px (the token default). */
   readonly size = input<IconButtonSize>('md');

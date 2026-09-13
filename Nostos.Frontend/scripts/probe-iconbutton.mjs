@@ -73,6 +73,22 @@ const SURFACES = [
     },
   },
   {
+    name: 'studio-zen',
+    route: '/studio',
+    // Zen mode swaps the header buttons for zen-exit, a different branch.
+    setup: async (page) => {
+      const t = await page.$('.zen-toggle, button[aria-label*="focus mode"]');
+      if (t) await t.evaluate((e) => e.click()).catch(() => {});
+      await page.waitForTimeout(500);
+    },
+  },
+  {
+    name: 'studio-mobile',
+    route: '/studio',
+    // The mobile-only sidebar toggles only render under the mobile breakpoint.
+    viewport: { width: 420, height: 850 },
+  },
+  {
     name: 'reader-mobile',
     route: '/read/f9c17fb2-e42d-4db5-a3d0-b0a45b73f12e',
     // The reader's mobile header uses a different button set (overflow-toggle,
@@ -246,10 +262,28 @@ async function probe(page, theme) {
       const seen = new Map();
       const indexes = [];
       for (let i = 0; i < els.length; i++) {
-        const cls = (await els[i].getAttribute('class')) || '';
-        const n = seen.get(cls) ?? 0;
+        // Sample per VISUAL VARIANT, not per raw class string. Keying on the class
+        // alone meant a surface whose buttons all share `icon-btn` (the studio's 8,
+        // which differ by glyph size and stroke weight) had only the first 3 sampled,
+        // so half its call sites were migrated with no coverage. The key includes the
+        // painted box and the glyph so each distinct rendering is still seen once.
+        const sig = await els[i]
+          .evaluate((e) => {
+            const r = e.getBoundingClientRect();
+            const g = e.querySelector('lucide-icon, svg');
+            const svg = g ? (g.querySelector('svg') || g) : null;
+            const gr = g ? g.getBoundingClientRect() : { width: 0, height: 0 };
+            return [
+              (e.className || '').trim(),
+              Math.round(r.width) + 'x' + Math.round(r.height),
+              Math.round(gr.width) + 'x' + Math.round(gr.height),
+              svg ? svg.getAttribute('stroke-width') : '',
+            ].join('|');
+          })
+          .catch(() => 'unreadable');
+        const n = seen.get(sig) ?? 0;
         if (n >= MAX_PER_CLASS) continue;
-        seen.set(cls, n + 1);
+        seen.set(sig, n + 1);
         indexes.push(i);
       }
       const collected = [];
@@ -263,6 +297,13 @@ async function probe(page, theme) {
             else if (state === 'focus') await el.evaluate((e) => e.focus());
           };
           await applyState();
+          // A MINIMUM wait longer than the 200ms control transition, before polling.
+          // Without it, two consecutive reads taken before the transition even STARTS
+          // are equal, the poll loop concludes "settled", and the sample records the
+          // REST values under a `hover` label. That is the same class of instrument
+          // bug as the lazy-image race: the probe reported a phantom change because
+          // it sampled too early, not because the CSS moved.
+          await page.waitForTimeout(300);
           for (let attempt = 0; attempt < 3; attempt++) {
             const applied = await el
               .evaluate((e) => e.matches(':hover') || document.activeElement === e)
@@ -330,6 +371,9 @@ async function probe(page, theme) {
                         transform: gstyle.transform,
                         display: gstyle.display,
                         color: gstyle.color,
+                        // Stroke weight lives on the inner <svg>, and the component
+                        // could silently drop it — nothing else would notice.
+                        strokeWidth: (glyph.querySelector('svg') || glyph).getAttribute('stroke-width'),
                       }
                     : null,
                   // Did the state we asked for actually take effect? Without this the
@@ -409,10 +453,23 @@ if (argv.includes('--diff')) {
         // happily report "identical" while a migration silently dropped an
         // aria-label, a tooltip, or a disabled state — the component's whole
         // reason to exist over a bare class.
-        // A class-string difference is reported but is NOT a failure on its own:
-        // the component adds its rung class by design. Every other field below is.
+        // Class deltas are asymmetric, and treating them uniformly hid a real bug:
+        // the component ADDS `icon-btn--<rung>` by design (harmless), but a class
+        // that DISAPPEARS is a regression — utility classes like `desktop-only` and
+        // `zen-toggle` are what surface CSS keys off, and a bare attribute is not a
+        // class. Additions are noted; REMOVALS fail.
         if (btnA.cls !== btnB.cls) {
-          notes.push(`  (class) ${k} [${stateA.state}] ${btnA.id}: "${btnA.cls}" -> "${btnB.cls}"`);
+          const before = new Set((btnA.cls || '').split(/\s+/).filter(Boolean));
+          const after = new Set((btnB.cls || '').split(/\s+/).filter(Boolean));
+          const removed = [...before].filter((c) => !after.has(c));
+          const added = [...after].filter((c) => !before.has(c));
+          if (removed.length) {
+            console.log(`  ${k} [${stateA.state}] ${btnA.id} CLASS REMOVED: "${removed.join(' ')}" (was "${btnA.cls}" -> "${btnB.cls}")`);
+            diffs++;
+          }
+          if (added.length) {
+            notes.push(`  (class+) ${k} [${stateA.state}] ${btnA.id}: +"${added.join(' ')}"`);
+          }
         }
         for (const f of ['ariaLabel', 'dataTip', 'disabled', 'title', 'text', 'stateApplied']) {
           if (btnA[f] === undefined && btnB[f] === undefined) continue;

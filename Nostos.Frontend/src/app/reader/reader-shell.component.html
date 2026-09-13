@@ -149,7 +149,7 @@
         <button appIconButton [icon]="Icons.ArrowLeft" [glyphSize]="20" (click)="goBack()" title="Back to Library"></button>
         <button appIconButton [icon]="Icons.List" [glyphSize]="20" (click)="toggleToc()" title="Table of Contents" [class.active]="tocOpen()"></button>
       } @else {
-        <button appIconButton overflow-toggle [icon]="Icons.MoreHorizontal" [glyphSize]="20" (click)="toggleOverflow()" title="More"></button>
+        <button appIconButton class="overflow-toggle" [icon]="Icons.MoreHorizontal" [glyphSize]="20" (click)="toggleOverflow()" title="More"></button>
         <div class="toolbar-desktop-nav">
           <button appIconButton [icon]="Icons.ArrowLeft" [glyphSize]="20" (click)="goBack()"></button>
           <button appIconButton [icon]="Icons.List" [glyphSize]="20" (click)="toggleToc()" title="Table of Contents" [class.active]="tocOpen()"></button>
@@ -193,8 +193,8 @@
         <button appIconButton [icon]="Icons.Highlighter" [glyphSize]="20" [class.active]="highlightMode()"
           (click)="toggleHighlightMode()"
           title="Highlight mode"></button>
-        <button appIconButton desktop-only [icon]="Icons.ZoomOut" [glyphSize]="20" (click)="zoomOut()"></button>
-        <button appIconButton desktop-only [icon]="Icons.ZoomIn" [glyphSize]="20" (click)="zoomIn()"></button>
+        <button appIconButton class="desktop-only" [icon]="Icons.ZoomOut" [glyphSize]="20" (click)="zoomOut()"></button>
+        <button appIconButton class="desktop-only" [icon]="Icons.ZoomIn" [glyphSize]="20" (click)="zoomIn()"></button>
         <button appIconButton [icon]="Icons.NotebookPen" [glyphSize]="20" (click)="toggleNotes()" [class.active]="notesOpen()" title="Notes & Highlights"></button>
       }
     </div>

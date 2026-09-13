@@ -44,6 +44,7 @@ import { WritingDto, WritingContentDto } from '../core/dtos/writing.dtos';
 import { Note } from '../core/dtos/note.dtos';
 import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.component';
 import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
+import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
 
 @Component({
   selector: 'app-writing-studio',
@@ -56,6 +57,7 @@ import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
     FlatTreeComponent,
     NoteCardComponent,
     MarkdownEditorComponent,
+    IconButtonComponent,
   ],
   templateUrl: './writing-studio.component.html',
   styleUrls: ['./writing-studio.component.css'],
