@@ -985,15 +985,18 @@ app-sidebar-collections.no-transition {
     contain-intrinsic-size: 0 340px;
   }
 
-  /* The same containment for list rows, which previously had none: the grid
-     was skipping layout and paint for offscreen items while every offscreen
-     row in the list was still laid out and painted on each scroll frame. Rows
-     are a fixed 63px tall, so the placeholder size is exact and adding offscreen
-     rows to the page cannot shift the scroll position. */
-  .table-row {
-    content-visibility: auto;
-    contain-intrinsic-size: 0 63px;
-  }
+  /* NOTE: list rows deliberately do NOT get the same containment.
+     `content-visibility: auto` sizes an unrendered row from
+     `contain-intrinsic-size` until it is painted, and a row's height is not a
+     constant here — the mobile breakpoint's `padding: 1rem` plus a wrapping
+     title makes it ~79px against the 63px desktop row. Whenever a placeholder
+     disagrees with the real height (and whenever lazy covers land and resize a
+     row), every following row shifts, and because the list is infinite-scrolled
+     the error compounds: measured at 390x844 it displaced the scroll position by
+     up to 4421px for a requested step, against 693px with the containment
+     forced off. The grid's cards are a fixed aspect-ratio box, so its rule is
+     safe; the list's rows are not, and the row's own paint is cheap (no blur,
+     no shadow) so there is nothing here worth that price. */
 
   /* --- MOBILE RESPONSIVE --- */
   :host {
@@ -1181,9 +1184,13 @@ app-sidebar-collections.no-transition {
      would leave the title a sliver. The active state keeps its place (a
      finished or favourite book must still read at a glance); the inactive
      toggle behaves exactly as it does for the grid's cards on touch, where
-     the same pair is hidden and the state is changed from the detail page. */
+     the same pair is hidden and the state is changed from the detail page.
+     Padding stays symmetric: dropping the right pad put the toggle's edge at
+     the title column's edge and the heart ended up touching the format badge
+     (measured gap 0px), because the cluster is pushed right by margin-left:auto
+     and the pad sits inside it either way. */
   .list-row-status {
-    padding: 0 0 0 0.5rem;
+    padding: 0 0.5rem;
   }
 
   .fav-btn-list:not(.active),

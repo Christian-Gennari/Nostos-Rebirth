@@ -31,6 +31,8 @@ async function shoot(distDir, label, port) {
   await new Promise((r) => setTimeout(r, 1600));
 
   const browser = await chromium.launch();
+
+  // --- Desktop 1440 ------------------------------------------------
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
   await page.goto(`http://127.0.0.1:${port}/library`, { waitUntil: 'domcontentloaded' });
   await page.evaluate(() =>
@@ -42,7 +44,7 @@ async function shoot(distDir, label, port) {
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(2500);
 
-  // Same crop for both builds: the first N rows, header included, at 1:1.
+  // Same crop for both builds: the first rows, header included, at 1:1.
   const stage = page.locator('.results-stage');
   await stage.screenshot({ path: path.join(outDir, `${label}-rest.png`) });
 
@@ -51,13 +53,12 @@ async function shoot(distDir, label, port) {
   await stage.screenshot({ path: path.join(outDir, `${label}-hover.png`) });
 
   const shot = { label };
-  const blur = await page.evaluate(() =>
+  shot.liveBlurLayers = await page.evaluate(() =>
     [...document.querySelectorAll('*')].filter((el) => {
       const s = getComputedStyle(el);
       return s.backdropFilter && s.backdropFilter !== 'none' && s.display !== 'none' && s.opacity !== '0';
     }).length
   );
-  shot.liveBlurLayers = blur;
   shot.badgeFilter = await page.evaluate(() => {
     const b = document.querySelector('.table-view .format-badge');
     return b ? getComputedStyle(b).backdropFilter : null;
@@ -83,6 +84,68 @@ async function shoot(distDir, label, port) {
     };
   });
   shot.domNodes = await page.evaluate(() => document.getElementsByTagName('*').length);
+  await page.close();
+
+  // --- Mobile 390 (the protocol viewport) ------------------------------------
+  const mctx = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    deviceScaleFactor: 2,
+  });
+  const mpage = await mctx.newPage();
+  await mpage.goto(`http://127.0.0.1:${port}/library`, { waitUntil: 'domcontentloaded' });
+  await mpage.evaluate(() =>
+    localStorage.setItem(
+      'nostos.library.preferences',
+      JSON.stringify({ viewMode: 'list', sort: 'lastread', pageSize: 14, sidebarExpanded: false, groupByWork: true })
+    )
+  );
+  await mpage.reload({ waitUntil: 'networkidle' });
+  await mpage.waitForTimeout(2500);
+
+  const mstage = mpage.locator('.results-stage');
+  await mstage.screenshot({ path: path.join(outDir, `${label}-mobile-rest.png`) });
+
+  shot.mobile = await mpage.evaluate(() => {
+    const rows = [...document.querySelectorAll('.table-row')];
+    const visible = (el) => !!el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().width > 0;
+    const gone = (el) => !!el && getComputedStyle(el).display === 'none';
+    const row = rows[0];
+    const height = Math.round(row.getBoundingClientRect().height);
+    const toggles = [...row.querySelectorAll('.finished-btn-list, .fav-btn-list')].map((el) => ({
+      cls: el.className.split(' ')[0],
+      display: getComputedStyle(el).display,
+      visible: el.getBoundingClientRect().width > 0,
+    }));
+    // Any row carrying an active status must show that toggle on a phone.
+    const activeRows = rows.filter((r) => r.querySelector('.fav-btn-list.active, .finished-btn-list.active'));
+    return {
+      rowCount: rows.length,
+      rowHeight: height,
+      rowHeights: [...new Set(rows.map((r) => Math.round(r.getBoundingClientRect().height)))],
+      authorHidden: gone(row.querySelector('.col.author')),
+      ratingHidden: gone(row.querySelector('.col.rating')),
+      dateHidden: gone(row.querySelector('.col.date')),
+      actionsHidden: gone(row.querySelector('.actions-cell')),
+      formatVisible: visible(row.querySelector('.col.format')),
+      toggles,
+      unchangedRowHeights: (() => {
+        const hs = [...new Set(rows.map((r) => Math.round(r.getBoundingClientRect().height)))];
+        return hs.length === 1 ? hs[0] : `MIXED: ${hs.join(',')}`;
+      })(),
+      activeToggleRows: activeRows.length,
+      activeTogglesRendered: activeRows
+        .slice(0, 5)
+        .map((r) => {
+          const el = r.querySelector('.fav-btn-list.active, .finished-btn-list.active');
+          return { cls: el.className.split(' ')[0], w: Math.round(el.getBoundingClientRect().width) };
+        }),
+      contentVisibility: [...new Set(rows.map((r) => getComputedStyle(r).contentVisibility))],
+      overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+  await mctx.close();
 
   await browser.close();
   server.kill();
@@ -145,6 +208,13 @@ sheet(
   'BEFORE — row hovered (both toggles sit tight against the cover, 16x20 hit area)',
   path.join(outDir, 'after-hover.png'),
   'AFTER — row hovered (status pair trails the title, 26x26 hit area, clear of edit/delete)'
+);
+sheet(
+  'list-mobile-before-after',
+  path.join(outDir, 'before-mobile-rest.png'),
+  'BEFORE — mobile 390 (two 16x20 toggles lead every row, before the cover)',
+  path.join(outDir, 'after-mobile-rest.png'),
+  'AFTER — mobile 390 (cover leads; active status only, 79px rows unchanged)'
 );
 
 writeFileSync(path.join(outDir, 'evidence.json'), JSON.stringify({ before, after }, null, 2));
