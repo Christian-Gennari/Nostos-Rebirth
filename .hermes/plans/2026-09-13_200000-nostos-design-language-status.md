@@ -56,6 +56,24 @@ same thing, and — substantiated by the defects found — fewer one-theme bugs.
    in the change-set, and it was in the harness, not the CSS.
 8. **`toast-container` success/error accents** are theme-blind literals beside
    unused token equivalents — noted, not changed (see open calls).
+9. **`transition` semicolons dropped by my own conversion script** — where a
+   declaration followed on the next line it was absorbed into the transition
+   *value* and discarded, so elements rendered black. Valid CSS; 23 stylesheets
+   still "parse cleanly"; no check failed. Found only by the pixel sweep growing a
+   black fg bucket. Now rule 1 of `check:design`.
+10. **Two more phantom regressions in the harness** (found after the first fix, when
+    a "regression" appeared in both themes with a byte-identical CSS hash):
+    - the reader capture varied with the wall clock (live elapsed-time readout,
+      ~11,300 px between runs of identical code);
+    - library captures varied with the DATABASE, which other agents write during a
+      run (~60,000–100,000 px with identical CSS).
+    Both now handled: a frozen clock, and a per-surface content fingerprint that
+    lets the gate attribute a diff to data or to CSS rather than guessing.
+
+**Verification status:** `check:pixels` passes 24/24 on three consecutive captures,
+and was re-proven to still FAIL on a genuinely injected styling change (radius
+4px -> 9px), naming it as CSS rather than data. A gate hardened only until it stops
+complaining is worse than no gate.
 
 ## The harness bug, because it invalidates comparisons made before it was fixed
 
