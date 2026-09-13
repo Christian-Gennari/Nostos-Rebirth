@@ -42,7 +42,7 @@ Most modern software demands your attention with notification badges, reading st
 
 ## Features
 
-### 📚 The Library
+### The Library
 Collect, organize, and consume your entire media collection in one unified repository:
 * **All Your Formats:** Physical books (ISBN metadata lookup), EPUBs (streaming reader with continuous range requests), PDFs (integrated clean viewer), and audiobooks (chapter-aware M4B/M4A/MP3 player).
 * **Thoughtful Organization:** Flexible nested collections, drag-and-drop management, custom tags, and multi-parameter filtering (by status, rating, recency, or collection).
@@ -67,7 +67,7 @@ Collect, organize, and consume your entire media collection in one unified repos
 
 ---
 
-### 🧠 Second Brain & Concept Graph
+### Second Brain & Concept Graph
 Transform passive reading into active, connected understanding:
 * **In-Context Annotations:** Highlight passages directly inside EPUBs and PDFs and link thoughts to exact paragraphs.
 * **Bi-Directional Wiki-Links:** Type `[[Concept]]` anywhere in your notes to automatically link or discover emerging ideas.
@@ -84,7 +84,7 @@ Transform passive reading into active, connected understanding:
 
 ---
 
-### ✍️ Writing Studio
+### Writing Studio
 Bring your synthesis together without switching tools:
 * **Focused Three-Panel Workspace:** Manage your chapter tree, draft in a distraction-free markdown/rich editor (TinyMCE + Turndown), and inspect reference material simultaneously.
 * **Direct Citation & Note Insertion:** Keep your research library visible in the side panel. Click any note or highlight to insert exact quotations into your draft.
@@ -101,7 +101,7 @@ Bring your synthesis together without switching tools:
 
 ---
 
-### ⏱️ Reading Training Program
+### Reading Training Program
 Build durable, deep-work reading habits based on sustainable capacity rather than gamified pressure:
 * **Capacity Over Guilt:** Three distinct lanes (**Endurance**, **Deep**, and **Recovery**) that adjust based on measured weekly evidence rather than punitive streaks or daily debt.
 * **Verbatim Session Captures:** Capture impressions, questions, and page anchors mid-session without context switching.
@@ -110,7 +110,7 @@ Build durable, deep-work reading habits based on sustainable capacity rather tha
 
 ---
 
-### 🛡️ Resilience & Safety
+### Resilience & Safety
 * **Zero-Hassle Backups:** Create complete `.nostos` archives encompassing database, notes, and local files.
 * **Integrity First:** Checksum verification and pre-restore database snapshots ensure your data is never corrupted during updates.
 * **Autonomous Maintenance:** Automatic maintenance mode guarantees clean database migrations.
@@ -178,9 +178,9 @@ The mark is deliberately theme-invariant across both light and dark study enviro
 
 ## Documentation & Roadmap
 
-* 🏛️ **[Design Manifesto](docs/design-manifesto.md):** The core principles and aesthetic guidelines of Nostos.
-* 🔌 **[MCP Library Contracts](docs/library-mcp-contracts.md):** Specification for Model Context Protocol agents and tools.
-* 🛠️ **[Backend Endpoints](Nostos.Backend/_docs/endpoints.md):** REST API reference.
+* **[Design Manifesto](docs/design-manifesto.md):** The core principles and aesthetic guidelines of Nostos.
+* **[MCP Library Contracts](docs/library-mcp-contracts.md):** Specification for Model Context Protocol agents and tools.
+* **[Backend Endpoints](Nostos.Backend/_docs/endpoints.md):** REST API reference.
 
 ### Active Roadmap
 * [ ] Enhanced mobile navigation and touch interaction
