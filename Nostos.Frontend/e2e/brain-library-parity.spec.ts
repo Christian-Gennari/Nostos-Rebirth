@@ -11,17 +11,22 @@
  * See docs/brain-library-parity.md for the extracted values.
  */
 import { expect, test } from '@playwright/test';
-import { loadFixture } from './support/fixture';
-import { cleanupBrain, seedBrain, type BrainSeed } from './support/brain-fixture';
+import { apiPost, loadFixture } from './support/fixture';
+import { apiDelete, cleanupBrain, seedBrain, type BrainSeed } from './support/brain-fixture';
 import { DESKTOP_VIEWPORT, newCapturePage } from './support/visual-capture';
 
 /** Computed geometry for one control, in CSS pixels. */
 interface Box {
   height: number;
+  width: number;
   padding: string;
   borderRadius: string;
   borderWidth: string;
   outlineWidth: string;
+  position: string;
+  opacity: string;
+  visibility: string;
+  fontSize: string;
 }
 
 async function measure(
@@ -32,12 +37,18 @@ async function measure(
     const el = document.querySelector(sel);
     if (!el) return null;
     const c = getComputedStyle(el);
+    const rect = el.getBoundingClientRect();
     return {
-      height: Math.round(el.getBoundingClientRect().height * 10) / 10,
+      height: Math.round(rect.height * 10) / 10,
+      width: Math.round(rect.width * 10) / 10,
       padding: c.padding,
       borderRadius: c.borderRadius,
       borderWidth: c.borderTopWidth,
       outlineWidth: c.outlineWidth,
+      position: c.position,
+      opacity: c.opacity,
+      visibility: c.visibility,
+      fontSize: c.fontSize,
     };
   }, selector);
 }
@@ -110,6 +121,7 @@ test('brain controls match the library controls', async ({ browser }) => {
 });
 
 let seed: BrainSeed | null = null;
+let createdCollectionId: string | null = null;
 
 test('brain sidebar row matches the library sidebar row', async ({ browser }) => {
   const fixture = loadFixture();
@@ -125,21 +137,51 @@ test('brain sidebar row matches the library sidebar row', async ({ browser }) =>
     ['Attention', 'Memory', 'Practice']
   );
 
+  // The shared fixture ships no collections at all, so `.tree-row` never
+  // renders — but that is exactly the row style this test must compare against
+  // (it is the one carrying a count plus hover rename/delete). Create one and
+  // remove it in the finally block.
+  const created = await apiPost<{ id: string }>(fixture.baseUrl, '/api/collections', {
+    name: `Parity Collection ${Date.now().toString(36)}`,
+    parentId: null,
+  });
+  createdCollectionId = created.id;
+
   const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT);
   try {
     await page.goto(`${fixture.baseUrl}/library`, { waitUntil: 'domcontentloaded' });
-    await page.locator('.nav-item').first().waitFor({ timeout: 30_000 });
+    // `.tree-row` (a COLLECTION), not `.nav-item` (a status filter). The Library
+    // sidebar has two row styles; the concept index is the collections analogue
+    // because that is the row that carries a count plus hover rename/delete.
+    await page.locator('.tree-row').first().waitFor({ timeout: 30_000 });
     await page.waitForTimeout(300);
-    const libRow = await measure(page, '.nav-item');
-    const libBadge = await measure(page, '.nav-item .count-badge');
+    const libRow = await measure(page, '.tree-row');
+    const libBadge = await measure(page, '.tree-row .count-badge');
+    // The row actions are the pair the user reported as not matching. Measured
+    // BEFORE the hover deliberately: the buttons and their overlay keep their
+    // geometry whether or not they are visible (they are opacity/visibility
+    // toggled, not display), so this compares the box, and the visibility
+    // assertions below compare the reveal behaviour.
+    const libAction = await measure(page, '.tree-row .action-mini');
+    const libActionBox = await measure(page, '.tree-row .node-actions');
+    await page.locator('.tree-row').first().hover();
+    await page.waitForTimeout(250);
+    const libBadgeFontSize = await page.evaluate(() => {
+      const el = document.querySelector('.tree-row .count-badge') || document.querySelector('.count-badge');
+      return el ? getComputedStyle(el).fontSize : null;
+    });
 
     await page.goto(`${fixture.baseUrl}/second-brain`, { waitUntil: 'domcontentloaded' });
     await page.locator('.index-item').first().waitFor({ timeout: 30_000 });
     await page.waitForTimeout(300);
     const brainRow = await measure(page, '.index-item');
     const brainBadge = await measure(page, '.index-item .count');
+    await page.locator('.index-row-shell').first().hover();
+    await page.waitForTimeout(250);
+    const brainAction = await measure(page, '.index-row-shell .row-action');
+    const brainActionBox = await measure(page, '.index-row-shell .row-actions');
 
-    expect(libRow && brainRow && libBadge && brainBadge, 'sidebar rows present').toBeTruthy();
+    expect(libRow && brainRow && brainBadge, 'sidebar rows present').toBeTruthy();
 
     console.log('ROW   library:', JSON.stringify(libRow), '\n      brain  :', JSON.stringify(brainRow));
     console.log('BADGE library:', JSON.stringify(libBadge), '\n      brain  :', JSON.stringify(brainBadge));
@@ -153,11 +195,63 @@ test('brain sidebar row matches the library sidebar row', async ({ browser }) =>
       `row height: brain ${brainRow!.height} vs library ${libRow!.height}`
     ).toBeLessThanOrEqual(2);
 
-    // The count badge is a deliberate 20px pill in both, not plain text.
-    expect(brainBadge!.height, 'badge height').toBe(libBadge!.height);
-    expect(brainBadge!.borderRadius, 'badge radius').toBe(libBadge!.borderRadius);
+    // The count badge is a deliberate 20px pill, not plain text.
+    expect(brainBadge!.height, 'badge height').toBe(20);
+    expect(brainBadge!.borderRadius, 'badge radius').toBe('999px');
+    expect(brainBadge!.fontSize, 'badge font size').toBe(libBadgeFontSize ?? '11.52px');
+
+    // The Library only renders a badge for a NON-ZERO count (a brand-new
+    // collection has none), so compare against its live badge when it has one
+    // rather than assuming it always renders.
+    if (libBadge) {
+      expect(brainBadge!.height, 'badge height vs library').toBe(libBadge.height);
+      expect(brainBadge!.borderRadius, 'badge radius vs library').toBe(libBadge.borderRadius);
+    }
+
+    expect(libAction && brainAction && libActionBox && brainActionBox, 'row actions present').toBeTruthy();
+
+    console.log('ACTION library:', JSON.stringify(libAction), '\n       brain  :', JSON.stringify(brainAction));
+    console.log('ABOX   library:', JSON.stringify(libActionBox), '\n       brain  :', JSON.stringify(brainActionBox));
+
+    expect(
+      brainAction!.height,
+      `action height: brain ${brainAction!.height} vs library ${libAction!.height}`
+    ).toBe(libAction!.height);
+    expect(brainAction!.borderRadius, 'action radius').toBe(libAction!.borderRadius);
+    expect(brainActionBox!.height, 'action overlay height').toBe(libActionBox!.height);
+
+    // Behaviour, not just geometry: the actions must be hidden at rest and
+    // revealed on hover, exactly as the tree's are. A 22px button permanently on
+    // screen would satisfy the box checks above while looking nothing like the
+    // Library — which is the state this replaced.
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(300);
+    const restingReveal = await page.evaluate(() => {
+      const box = document.querySelector('.index-row-shell .row-actions');
+      const badge = document.querySelector('.index-row-shell .count');
+      return {
+        actions: box ? getComputedStyle(box).visibility : null,
+        badge: badge ? getComputedStyle(badge).opacity : null,
+      };
+    });
+    expect(restingReveal.actions, 'actions hidden at rest').toBe('hidden');
+    expect(Number(restingReveal.badge), 'badge visible at rest').toBe(1);
+
+    await page.locator('.index-row-shell').first().hover();
+    await page.waitForTimeout(300);
+    const hoverReveal = await page.evaluate(() => {
+      const box = document.querySelector('.index-row-shell .row-actions');
+      const badge = document.querySelector('.index-row-shell .count');
+      return {
+        actions: box ? getComputedStyle(box).visibility : null,
+        badge: badge ? getComputedStyle(badge).opacity : null,
+      };
+    });
+    expect(hoverReveal.actions, 'actions revealed on hover').toBe('visible');
+    expect(Number(hoverReveal.badge), 'badge yields on hover').toBe(0);
   } finally {
     await context.close();
     if (seed) await cleanupBrain(fixture.baseUrl, seed);
+    if (createdCollectionId) await apiDelete(fixture.baseUrl, `/api/collections/${createdCollectionId}`);
   }
 });

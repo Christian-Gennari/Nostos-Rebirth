@@ -4,8 +4,14 @@ The Brain page is not a new design; it is the same app. Every control whose
 equivalent exists in the Library must use the Library's **exact** geometry,
 colour roles and motion. Divergence is a bug.
 
-Verbatim values extracted from `library.component.css` and
-`library/sidebar-collections/sidebar-collections.component.css`.
+Verbatim values extracted from `library.component.css`,
+`library/sidebar-collections/sidebar-collections.component.css` and — for
+anything with per-row actions — `ui/flat-tree/flat-tree.component.css`, which is
+where the Library's collection rows actually come from.
+
+**Before porting anything, find the component the Library itself uses.** The
+collection rows are not bespoke sidebar CSS; they are the shared `app-flat-tree`.
+Copying CSS that merely looks similar is how the sidebar drift happened.
 
 ## Radii — use these, nothing else
 
@@ -20,53 +26,123 @@ There is **no** `--radius-full` token. Library filter chips hardcode `999px`.
 Do not reach for `--radius-lg` (6px) on a control — Library uses `--radius-md`
 (4px) for both the search input and the sort select.
 
-## Sidebar row (`nav-item`) — the selected state
+## Sidebar rows — there are TWO styles. Pick by affordance.
+
+The Library sidebar does not have "a" row style. It has two, and using the
+wrong one is a visible bug even though both look plausible in isolation:
+
+| | `.nav-item` | `.tree-row` |
+|---|---|---|
+| used by | status filters (All Books, In Progress, …) | **collections** (`ui/flat-tree`) |
+| radius | **8px** | **6px** |
+| fill | painted by a `::before` pill | painted straight onto the row |
+| shadow | `0 1px 3px rgba(0,0,0,.08)` | **none** |
+| padding | `0.45rem 0.75rem` | `0 8px 0 12px` |
+| row actions | none | **hover rename/delete, 22×22, 13px glyphs** |
+
+**Choose by affordance, not by looks.** If the row carries a count *and* hover
+rename/delete, it is a `.tree-row` analogue — copy that. `.nav-item` is for a
+filter that only toggles a status and has no per-row actions. The Second Brain
+index is a collections analogue (count + rename + delete), so it follows
+`.tree-row`; copying `.nav-item` gave it a pill and a shadow with no counterpart
+and left the actions at 34×32 with 15px glyphs.
+
+### `.tree-row` (collections) — the row with actions
 
 ```css
-.nav-item {
-  position: relative; z-index: 0;           /* own stacking ctx for the pill */
-  display: flex; align-items: center; gap: 0.65rem;
-  width: 100%; padding: 0.45rem 0.75rem;
-  border: none; background: transparent;
-  border-radius: 8px;
+.tree-row {
+  display: flex; align-items: center; position: relative;
+  height: 34px; margin-bottom: 2px;
+  padding-right: 8px; padding-left: 12px;   /* no vertical padding — height is fixed */
+  border-radius: 6px;
   color: var(--color-text-muted);
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.88rem; font-weight: 500; letter-spacing: -0.01em;
-  transition: color 0.12s ease;
+  font-size: 0.88rem; font-weight: 500;
+  background: transparent;
+  transition: background 0.12s ease, color 0.12s ease, outline-color 0.12s ease;
 }
-/* The pill is a PSEUDO-ELEMENT, so geometry can morph without moving the icon. */
-.nav-item::before {
-  content: ''; position: absolute; z-index: -1;
-  top: 50%; left: 0; width: 100%; height: 100%;
-  transform: translateY(-50%);
-  border-radius: 8px; background: transparent;
-  transition: background-color 0.12s ease;
-}
-.nav-item:hover { color: var(--color-text-main); }
-.nav-item:hover::before { background: var(--bg-hover); }
-
-.nav-item.active { color: var(--on-primary); }
-.nav-item.active::before {
+.tree-row:hover { background: var(--bg-hover); color: var(--color-text-main); }
+.tree-row.active {
   background: var(--primary-fill);           /* SURFACE role, never --color-primary */
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  color: var(--on-primary);
+  font-weight: var(--fw-medium);
+}
+.tree-row:focus-visible {                     /* inset so the 2px gap cannot clip it */
+  outline: 2px solid var(--focus-ring); outline-offset: -2px;
 }
 ```
 
-Dark theme override for the selected pill lives in `styles.css` and targets
-`.index-item.active` too, so keep that class name.
-
-### Count badge
+### `.tree-row`'s count badge and hover actions
 
 ```css
-.nav-item .count-badge {
+.count-badge {
   margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px;
   border-radius: 999px; background: var(--bg-hover);
   color: var(--color-text-light);
   font-size: 0.72rem; font-weight: 500; line-height: 1;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+.tree-row.active .count-badge {
+  background: color-mix(in srgb, var(--on-primary) 22%, transparent);
+  color: var(--on-primary);
+}
+
+/* One slot, shared: the actions are an OUT-OF-FLOW overlay on the badge's slot,
+   so the name's truncation point never moves when they appear. */
+.node-actions {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  z-index: 2;                                   /* above the ::after fade layer */
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 2px; width: calc(76px - 6px);            /* 76px = 3×22 + 2×2 + 6 inset */
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity 0.15s, visibility 0s linear 0.15s;
+}
+.tree-row:hover .node-actions,
+.tree-row:focus-within .node-actions {
+  opacity: 1; visibility: visible; pointer-events: auto;
+  transition: opacity 0.15s, visibility 0s;
+}
+.tree-row:hover .count-badge { opacity: 0; }    /* the badge yields the slot */
+
+.action-mini {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; padding: 0; border: none;
+  border-radius: 4px; background: transparent;
+  color: var(--color-text-muted); flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+/* On the filled active row the actions sit ON the fill, so their hover ground
+   derives from the pill's foreground, not the page's. */
+.tree-row.active .action-mini { color: color-mix(in srgb, var(--on-primary) 82%, transparent); }
+.action-mini:hover { background: var(--bg-hover); color: var(--color-text-main); }
+.tree-row.active .action-mini:hover {
+  background: color-mix(in srgb, var(--on-primary) 20%, transparent);
+  color: var(--on-primary);
+}
+.action-mini.danger:hover {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
 }
 ```
-Dark active: `:root[data-theme='dark'] .nav-item.active .count-badge` →
-`color: var(--on-primary); background: rgba(0,0,0,0.28)`.
+Icons are `[size]="13"`. On touch there is no hover, so the **selected** row
+(`.active`) shows its actions — never all rows at once, which reads as a wall of
+icons.
+
+### The name tail fades into the actions
+
+Because the actions are an overlay, they sit ON whatever the name painted. A
+row-level `::after` gradient (transparent → the row's own ground) makes the tail
+recede into the buttons instead of ending at a hard cut. Anchor the gradient to
+the OVERLAY's left edge (`100% - var(--actions-w) - 22px`), not to the name's
+right edge — the name box stops earlier on rows that render a badge.
+
+### `.nav-item` (status filters) — for completeness
+
+Same as the table above: `::before` pill at 8px with a shadow, `padding:
+0.45rem 0.75rem`, `gap: 0.65rem`, `letter-spacing: -0.01em`. No row actions, so
+nothing in the Brain should look like this.
+
+Dark theme override for the selected pill lives in `styles.css` and targets
+`.index-item.active` too, so keep that class name.
 
 ## Search input
 

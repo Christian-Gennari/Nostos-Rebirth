@@ -285,38 +285,43 @@
 }
 
 /* --- INDEX ROW -------------------------------------------------------------
-   Metric-for-metric copy of the Library sidebar's `.nav-item` (see
-   docs/brain-library-parity.md). The selected pill is painted by a
-   ::before pseudo-element so its geometry never moves the label, and it uses
-   the SURFACE role (`--primary-fill`) rather than the ink role — the previous
-   version painted `background` on the row itself at `--radius-lg` (6px) with a
-   `--shadow-sm`, which is why selecting a concept did not look like selecting
-   a collection in the Library. */
+   Metric-for-metric copy of the rows in the Library's collections tree
+   (`ui/flat-tree` -> `.tree-row`, `.node-actions`, `.action-mini`), which is
+   the component that actually carries a count plus hover rename/delete on a
+   sidebar row.
+
+   The sidebar has TWO row styles and the index must follow the right one:
+     .nav-item  status filters: 8px radius, pill painted by ::before, with a
+                `0 1px 3px rgba(0,0,0,.08)` shadow.
+     .tree-row  collections: 6px radius, fill straight onto the row, no shadow,
+                and the row owning the hover rename/delete pair (22x22, 13px).
+   The index is the *collections* analogue — same affordances, same shared slot
+   for a count and two actions. An earlier pass copied `.nav-item`, giving this
+   list a pill it has no counterpart for and 34x32 actions with 15px glyphs. */
 .index-item {
   position: relative;
-  z-index: 0; /* own stacking context so the pill (z-index -1) sits above the
-                 panel background but below the name and count */
   display: flex;
   align-items: center;
-  gap: 0.65rem;
   width: 100%;
   min-height: 34px;
-  padding: 0.45rem 0.75rem;
+  padding: 0 8px 0 12px;
   border: none;
   background: transparent;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   text-align: left;
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.88rem;
   font-weight: 500;
-  letter-spacing: -0.01em;
   color: var(--color-text-muted);
   outline: none;
   margin: 0;
   flex: 1 1 auto;
   min-width: 0;
-  transition: color 0.12s ease;
+  user-select: none;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
 }
 
 .index-row-shell {
@@ -325,70 +330,59 @@
   width: 100%;
   min-height: 34px;
   margin-bottom: 2px;
+  /* Ground for the ::after fade below, re-declared per state so the fade always
+     paints the tone the row is actually sitting on. On a filled active row a
+     fixed surface tone would punch a light notch out of the fill. */
+  --row-ground: transparent;
+  /* Width of the trailing slot: 3 x 22px buttons + 2 x 2px gaps (70px) + the 6px
+     right inset. One number feeds the tail, the actions overlay and the fade
+     layer's own left edge, so they cannot drift apart. */
+  --actions-w: 76px;
 }
 
-.index-item::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  top: 50%;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  transform: translateY(-50%);
-  border-radius: 8px;
-  background: transparent;
-  transition: background-color 0.12s ease;
+/* --row-ground is declared on the SHELL, not on `.index-item`: custom
+   properties inherit downward only, and `::after` is a child of the shell, so a
+   value set on the row could never reach it. */
+.index-row-shell:hover,
+.index-row-shell:focus-within {
+  --row-ground: var(--bg-hover);
 }
 
+.index-row-shell:has(.index-item.active) {
+  --row-ground: var(--primary-fill);
+}
+
+/* The row's fill is on the ROW, exactly as `.tree-row` does it — not on a
+   ::before overlay. That is what makes the hover ground and the active fill
+   share one geometry, so the row cannot appear to shift when selected. */
 .index-item:hover {
-  background: transparent;
+  background: var(--bg-hover);
   color: var(--color-text-main);
 }
 
-.index-item:hover::before {
-  background: var(--bg-hover);
-}
-
 .index-item.active {
-  background: transparent;
-  color: var(--on-primary);
-}
-
-.index-item.active::before {
   background: var(--primary-fill);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  color: var(--on-primary);
+  font-weight: var(--fw-medium);
 }
 
-/* The index buttons had NO focus style at all (`outline-style: none`), so
-   keyboard users saw nothing. Same neutral ring as the library sidebar, so the
-   two sidebars behave alike. */
+/* The row is the click target, so it is what must ring. Inset by the ring width
+   so neighbouring rows' 2px gap cannot clip it, and --focus-ring rather than
+   --color-primary (an ink token that reads as a border on a surface it is not
+   meant to trace). */
 .index-item:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
 
-.index-item:focus-within {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
-}
-
 .index-row-shell:focus-within .index-item {
-  background: transparent;
+  background: var(--bg-hover);
   color: var(--color-text-main);
 }
 
-.index-row-shell:focus-within .index-item::before {
-  background: var(--bg-hover);
-}
-
 .index-row-shell:focus-within .index-item.active {
-  background: transparent;
-  color: var(--on-primary);
-}
-
-.index-row-shell:focus-within .index-item.active::before {
   background: var(--primary-fill);
+  color: var(--on-primary);
 }
 
 .index-item .name {
@@ -409,24 +403,21 @@
   padding: 0 0.1em;
 }
 
-/* Reserves the trailing slot for the count / hover actions. Height must be the
-   BADGE's height, not a 32px box: this is a block-level child of the flex row, so
-   its height drove the row (46px vs the Library's 34px). 20px matches the badge
-   and lets the row's own 0.45rem padding set the rhythm, exactly as the Library's
-   `count-badge` does. */
+/* --- TRAILING SLOT ----------------------------------------------------------
+   One slot shared by the count and the hover actions, as the tree does it: the
+   actions are out of flow and overlaid on the badge's slot, so the name's
+   truncation point never moves and both fit the 76px. */
 .row-tail {
   position: relative;
-  flex: 0 0 76px;
-  width: 76px;
+  flex: 0 0 var(--actions-w);
+  width: var(--actions-w);
   height: 20px;
   margin-left: auto;
 }
 
 /* --- COUNT BADGE ------------------------------------------------------------
-   Metric-for-metric copy of the Library sidebar's `.count-badge`: a real 20px
-   pill with a hover fill. An earlier pass flattened these to plain text, which
-   diverged from the Library for no reason — the badge is a deliberate element of
-   the sidebar language, not a "notification bubble" to be removed. */
+   Metric-for-metric copy of the tree's `.count-badge`: a real 20px pill, not
+   plain text — it is part of the sidebar's language. */
 .index-header .badge-count,
 .index-item .count {
   min-width: 20px;
@@ -441,66 +432,126 @@
   align-items: center;
   justify-content: center;
   line-height: 1;
+  text-align: center;
   flex-shrink: 0;
-}
-
-.index-header .badge-count {
-  background: var(--bg-hover);
-  color: var(--color-text-light);
+  transition:
+    opacity 0.15s,
+    background 0.15s,
+    color 0.15s;
 }
 
 .index-item .count {
   position: absolute;
   top: 50%;
   right: 0.75rem;
-  margin-left: auto;
   transform: translateY(-50%);
-  background: var(--bg-hover);
-  color: var(--color-text-light);
 }
 
+/* Tracks the active row's fill, like the tree's badge on a selected
+   collection. Driven from the on-fill foreground so it re-inks per theme. */
 .index-item.active .count {
-  /* Mirrors `:root[data-theme='dark'] .nav-item.active .count-badge` in the
-     global sheet: on a fill the badge recedes into the surface rather than
-     glowing. Driven from the on-fill foreground so it tracks the theme. */
   background: color-mix(in srgb, var(--on-primary) 22%, transparent);
   color: var(--on-primary);
 }
 
+/* --- ROW ACTIONS -----------------------------------------------------------
+   An overlay on the badge's own slot (not a second column), so the badge fades
+   out and the actions fade in without the name reflowing. z-index sits above
+   the row's ::after fade, which paints the ground across the name's tail and
+   would otherwise erase the buttons. */
 .row-actions {
   position: absolute;
-  inset: 0 0 0 auto;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
   display: flex;
   align-items: center;
-  gap: 0.15rem;
-  width: 76px;
+  justify-content: flex-end;
+  gap: 2px;
+  width: calc(var(--actions-w) - 6px);
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition:
+    opacity 0.15s,
+    visibility 0s linear 0.15s;
 }
 
 .index-row-shell:hover .row-actions,
 .index-row-shell:focus-within .row-actions {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
+  transition:
+    opacity 0.15s,
+    visibility 0s;
 }
 
+/* Painted only while the actions that occlude the name are actually on screen.
+   A gradient from transparent to the row's own ground lets the name's tail
+   recede INTO the buttons rather than ending at a hard cut behind them. */
+.index-row-shell::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* Inset by the focus-ring width so this layer can never paint over the row's
+     own outline, and rounded to match the row or it squares off the corners. */
+  right: 2px;
+  left: calc(100% - var(--actions-w) - 22px);
+  pointer-events: none;
+  border-radius: 6px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--row-ground, transparent) 22px
+  );
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.15s,
+    visibility 0s linear 0.15s;
+}
+
+.index-row-shell:hover::after,
+.index-row-shell:focus-within::after {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.15s,
+    visibility 0s;
+}
+
+/* The badge yields to the actions in the one state where they share the slot. */
 .index-row-shell:hover .count,
 .index-row-shell:focus-within .count {
   opacity: 0;
 }
 
+/* 22x22 with a 13px glyph — the tree's `.action-mini`, not a 34x32 button. */
 .row-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 32px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: 4px;
   background: transparent;
   color: var(--color-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+/* On the filled active row the actions sit ON the fill, so their own hover
+   ground has to derive from the pill's foreground, not the page's. */
+.index-item.active ~ .row-actions .row-action {
+  color: color-mix(in srgb, var(--on-primary) 82%, transparent);
 }
 
 .row-action:hover {
@@ -508,13 +559,53 @@
   color: var(--color-text-main);
 }
 
+.index-item.active ~ .row-actions .row-action:hover {
+  background: color-mix(in srgb, var(--on-primary) 20%, transparent);
+  color: var(--on-primary);
+}
+
+/* `--color-danger` rather than `--danger-ink`: on dark, --danger-ink is
+   deliberately porcelain for the confirm modal's mark, so an icon painted with
+   it loses every trace of "destructive". */
 .row-action.danger:hover {
   color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
 }
 
 .row-action:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
+}
+
+/* No hover on touch: a hover-revealed pair is unreachable there, so the selected
+   row (and a keyboard-focused one) reveals its actions instead. */
+@media (hover: none) {
+  .index-row-shell:has(.index-item.active) .row-actions,
+  .index-row-shell:focus-within .row-actions {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .index-row-shell:has(.index-item.active)::after,
+  .index-row-shell:focus-within::after {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .index-row-shell:has(.index-item.active) .count,
+  .index-row-shell:focus-within .count {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row-actions,
+  .index-row-shell::after,
+  .index-item,
+  .count {
+    transition: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -581,14 +672,6 @@
 .empty-clear:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
-}
-
-.empty-index {
-  padding: 2rem 0;
-  text-align: center;
-  color: var(--color-text-muted);
-  font-size: 0.85rem;
-  font-style: italic;
 }
 
 /* --- RIGHT COLUMN: CONTENT --- */
@@ -1514,25 +1597,22 @@
     min-height: 44px;
   }
 
-  /* Touch targets: the actions themselves need 44px, but the row must not grow
-     to a desktop-inconsistent height just because the tap target did. The tail
-     is absolutely positioned by `.row-actions` below, so it can stay tall. */
+  /* Touch targets: the buttons need 44px, but the row must not grow to a
+     desktop-inconsistent height just because the tap target did — the actions
+     are an out-of-flow overlay, so they can stay tall while the row stays 44px.
+     Widening --actions-w moves the tail, the overlay and the fade edge together. */
+  .index-row-shell {
+    --actions-w: 96px;
+  }
+
   .row-tail,
   .row-actions {
-    width: 92px;
     height: 44px;
-    flex-basis: 92px;
   }
 
-  .row-actions {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .index-item .count {
-    visibility: hidden;
-  }
-
+  /* NOT `opacity: 1` here. Revealing the pair on every row at rest is exactly
+     the wall-of-icons state the Library's tree avoids; the `(hover: none)` block
+     inside the component reveals them on the selected or focused row instead. */
   .row-action {
     width: 44px;
     height: 44px;
