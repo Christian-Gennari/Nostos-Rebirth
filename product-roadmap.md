@@ -25,6 +25,7 @@ Items are grouped by area and sorted by impact × effort priority within each gr
 
 - **Work / Multi-Edition Grouping & Matching Engine** (September 2026) — Group multiple editions (eBook, Audiobook, Physical) under a shared WorkModel, edition switcher on Book Detail page, format chips on Library cards, and smart non-collapsing title/author matcher.
 - **Library Preferences & State Persistence** (September 2026) — Centralized `LibraryPreferencesService` persisting viewMode, activeSort, pageSize, sidebarExpanded across browser reloads.
+- **Multi-Collection Book Assignment** (September 2026) — A book can belong to any number of collections. Replaces the single-collection dropdown with a multi-select picker (chips + checkbox tree) in the Add/Edit modal, adds `PUT /api/books/{id}/collections` (full replacement set), and drops the legacy single-value `Books.CollectionId` column so `BookCollections` is the only record of membership. Also fixed: removing a book from a collection previously did nothing — REST hardcoded `ClearCollection: false`, so "No collection" silently reported success.
 - **Collections Sidebar Polish** (September 2026) — Persistent collapsed/expanded state, real-time live status count badges, refined tree action animations without layout jumps.
 - **Backup & Restore System** (April 2026) — Automated scheduling, manual triggers, disk scanning, and integrity verification.
 - **Maintenance Mode Middleware** (April 2026) — Standardized API protection during restore operations.
@@ -143,6 +144,7 @@ No multi-select exists. Each book can only be acted on individually.
 
 - Add checkbox multi-select on book cards/rows
 - Batch actions: Delete, Move to Collection, Update reading status, Rate
+  - "Move to Collection" can now reuse `CollectionPickerComponent` and the `PUT /api/books/{id}/collections` set endpoint; add/remove deltas apply per book
 - "Select all in current view" option
 - Confirmation dialog for destructive batch operations
 
@@ -167,9 +169,13 @@ No import from Calibre, OPDS, or bulk file drop exists.
 
 Collections can be drag-reordered, but books cannot be dragged into collections from the grid.
 
+Membership itself is now many-to-many (`PUT /api/books/{id}/collections`, and the
+multi-select picker in the book modal), so this item is only about the *gestures*
+— the write path already exists.
+
 - Enable CDK drag-drop from book grid to collection sidebar item
 - Visual drop indicator on collection folders
-- "Move to..." context menu on book cards as alternative
+- "Move to..." context menu on book cards (would reuse `CollectionPickerComponent`)
 
 **Files to touch:** `library.component.*`, `sidebar-collections.component.*`
 

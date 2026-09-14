@@ -26,7 +26,7 @@ List books with filtering, sorting, search, and pagination.
 | `sort`      | string | `Recent` | `Recent`, `Title`, `Rating`, `LastRead`        |
 | `page`      | int    | 1        | Page number                                    |
 | `pageSize`  | int    | 20       | Items per page                                 |
-| `collectionId` | guid | —      | Restrict the listing to one collection         |
+| `collectionId` | guid | —      | Restrict the listing to one collection (subtree-inclusive: descendants match too) |
 
 **Response:** `PaginatedResponse<BookDto>` — `{ items, totalCount, page, pageSize }`
 
@@ -50,7 +50,7 @@ Create a new book.
   "subtitle": "string?",
   "isbn": "string?",
   "publisher": "string?",
-  "collectionId": "guid?"
+  "collectionIds": ["guid", "..."]
   // ... all metadata fields
 }
 ```
@@ -68,6 +68,22 @@ Update book metadata. All fields are optional — only provided fields are updat
 **Body:** `UpdateBookDto`
 
 **Response:** `BookDto`
+
+### `PUT /api/books/{id}/collections`
+
+Set the book's collection membership. **Full replacement set**: send every
+collection the book should end up in.
+
+**Body:** `{ "collectionIds": ["guid", "..."] }`
+
+- adding a collection = include it in the set (a book may be in several);
+- removing one = omit it;
+- removing all = `[]`.
+
+Set semantics rather than add/remove verbs, so one call expresses every case and
+is naturally idempotent. Returns `200 OK` with the updated `BookDto`, or
+`404 collection_not_found` if any id does not exist. An unknown id rejects the
+whole call rather than applying part of it.
 
 ### `PUT /api/books/{id}/progress`
 
@@ -234,8 +250,8 @@ circular reference; a sibling name collision at the destination returns
 
 ### `DELETE /api/collections/{id}`
 
-Delete a collection. Books in the collection are **unlinked** (set to
-`collectionId: null`), never deleted.
+Delete a collection. Its membership rows are removed; the **books themselves
+are never deleted** and keep every other collection they belong to.
 
 **Response:** `204 No Content`, or `409 collection_has_children` while the
 collection still has child collections.

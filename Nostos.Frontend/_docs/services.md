@@ -36,11 +36,11 @@ All HTTP services are `providedIn: 'root'` singletons using Angular `HttpClient`
 | `list`   | `()`                                     | `Observable<Collection[]>` | All collections                                |
 | `create` | `(dto: CreateCollectionDto)`             | `Observable<Collection>`   | Create collection                              |
 | `update` | `(id: string, dto: UpdateCollectionDto)` | `Observable<Collection>`   | Update collection                              |
-| `delete` | `(id: string)`                           | `Observable<void>`         | Delete; resets `activeCollectionId` if deleted |
+| `delete` | `(id: string)`                           | `Observable<void>`         | Delete (`SidebarCollections` clears `LibraryFilterService.collectionId` if it was selected) |
 
 **Signal state (global singletons):**
 
-- `activeCollectionId = signal<string | null>(null)` — currently selected collection (`null` = "All Books")
+- `collectionId = signal<string | null>(null)` — the selected collections *filter* (`null` = "All Books"). It lives on `LibraryFilterService`, not on the HTTP service, so the URL/localStorage owns it rather than the API client.
 - `sidebarExpanded = signal(true)` — sidebar toggle state
 
 ---

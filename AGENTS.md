@@ -200,3 +200,73 @@ Do exactly what was asked, and no more.
 If you believe adjacent work is needed, **finish the requested change first,
 then raise the extra item** rather than folding it in. Unrequested "improvements"
 to files the user has already finished are treated as a defect, not a bonus.
+
+---
+
+## 7. Traps found the hard way
+
+Each of these has already cost time or data in this repo. They are not style
+preferences.
+
+### Multi-collection membership (books ↔ collections)
+
+- **`BookCollections` is the only record of membership.** `Books.CollectionId`
+  was dropped after a transition period; there is no mirror column, so
+  `Unsorted` means "in no collection at all".
+- **Anything that serialises a book must `Include(b => b.BookCollections)`.**
+  The book row alone no longer says which collections it is in, so a missed
+  include silently reports empty membership. `BackupService` is the one that
+  mattered: without it, backups stop carrying collections and a restore loses
+  them. `EnsureCreated`-based tests will NOT catch this.
+- **`BookDto` is a positional record.** Append new fields; inserting one
+  renumbers the JSON of every existing client.
+- **The MCP surface is FROZEN** (`docs/library-mcp-contracts.md`). Its singular
+  `collectionId`/`clearCollection` arguments are translated into set operations
+  *in the service* — never change a tool signature to add a capability.
+- **Deleting a collection deletes membership rows, never books.** The join
+  table's collection FK is `Restrict`, so membership rows must go first.
+- Membership is **per book (per edition)** by decision, not per work.
+
+### Migrations
+
+- **Tests use `EnsureCreated`, which never executes migrations.** A hand-written
+  backfill or guard is unverified by the suite even when every test passes. Prove
+  it on a real DB copy using a migration-proof procedure (below) and assert the
+  numbers on the file you intended — `dotnet ef` prints "Done." even when the
+  connection override did not take.
+- **Never invent a migration filename.** Run `dotnet ef migrations add <Name>`,
+  then patch the file it created; guessing the timestamp produces a duplicate
+  partial class and `CS0111`.
+- **A destructive migration must refuse to run when it would lose data.** SQLite
+  cannot `RAISE` outside a trigger, so guard with a one-row table whose
+  `CHECK (violation = 0)` is violated only when the invariant breaks:
+  `INSERT INTO guard SELECT 1 WHERE EXISTS (<bad rows>)` inserts nothing when
+  healthy and aborts with `SQLite Error 19` when not. See
+  `DropLegacyBookCollectionId.Up()` for the exact shape.
+- **`Down()` must backfill, never bare `AddColumn`** — restoring all-nulls
+  silently discards what the column represented.
+- EF warns that its generated `PRAGMA foreign_keys = 0` step cannot run in a
+  transaction for FK-dropping migrations. That is inherent to SQLite; put any
+  guard *before* it and note it in the PR rather than treating it as a failure.
+
+### Verification
+
+- **Never run a mutating call against production as a "check".** Exercise
+  writes on a migrated DB copy instead, then confirm production read-only. A
+  `PUT` with an empty body during a verification pass once stripped a real
+  book's collection from live data.
+- For a visual change, run the app and look at it at 1:1; a green test suite is
+  not the same as a screen you have actually seen.
+
+### Working in this repo
+
+- Run parallel work in a worktree and **commit + push early**. A worktree missing
+  from `.git/agent-worktrees/*.tsv` is classified as "0 commits → nothing to
+  lose" by `prune` (which the post-merge hook fires), so it can be deleted
+  mid-task, bypassing the 120-minute grace window.
+- `npm test` is the runner (`ng test`) — run it bare. `npx vitest run <file>`
+  fails with `describe is not defined`, and `ng test --include` breaks the
+  `.html` loader.
+- **Never `npx prettier --write`** — prettier is not a dependency and this
+  codebase is not formatted to it.
+
