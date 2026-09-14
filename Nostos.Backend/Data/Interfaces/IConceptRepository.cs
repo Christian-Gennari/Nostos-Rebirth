@@ -21,6 +21,12 @@ public interface IConceptRepository
     Task<List<RelatedConceptDto>> GetRelatedAsync(Guid id);
 
     /// <summary>
+    /// Returns the complete concept co-occurrence graph: all concepts as nodes
+    /// and one undirected edge for every pair that co-occur in at least one note.
+    /// </summary>
+    Task<ConceptGraphDto> GetGraphAsync();
+
+    /// <summary>
     /// Gets a concept with its linked notes (deep includes for Book and Note data).
     /// Returns null if not found.
     /// </summary>

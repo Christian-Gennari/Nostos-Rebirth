@@ -22,6 +22,23 @@ export interface RelatedConceptDto {
   sharedNotes: number;
 }
 
+export interface ConceptGraphNodeDto {
+  id: string;
+  name: string;
+  usageCount: number;
+}
+
+export interface ConceptGraphEdgeDto {
+  sourceId: string;
+  targetId: string;
+  sharedNotes: number;
+}
+
+export interface ConceptGraphDto {
+  nodes: ConceptGraphNodeDto[];
+  edges: ConceptGraphEdgeDto[];
+}
+
 export interface NoteContextDto {
   noteId: string;
   content: string;
@@ -58,6 +75,10 @@ export class ConceptsService {
 
   getRelated(id: string): Observable<RelatedConceptDto[]> {
     return this.http.get<RelatedConceptDto[]>(`/api/concepts/${id}/related`);
+  }
+
+  getGraph(): Observable<ConceptGraphDto> {
+    return this.http.get<ConceptGraphDto>('/api/concepts/graph');
   }
 
   rename(id: string, concept: string): Observable<ConceptDto> {

@@ -92,6 +92,47 @@ public class ConceptRepository : IConceptRepository
             .ToListAsync();
     }
 
+    public async Task<ConceptGraphDto> GetGraphAsync()
+    {
+        // All concepts as nodes, including isolates (0 note links).
+        var nodes = await _db
+            .Concepts.OrderByDescending(c => c.NoteConcepts.Count())
+            .ThenBy(c => c.Concept)
+            .Select(c => new ConceptGraphNodeDto(c.Id, c.Concept, c.NoteConcepts.Count()))
+            .ToListAsync();
+
+        // All note-concept pairs (note → concept id) in one query.
+        var pairs = await _db.NoteConcepts
+            .Select(nc => new { nc.NoteId, nc.ConceptId })
+            .ToListAsync();
+
+        // Group by note to find co-occurring pairs, then aggregate edge weights.
+        var byNote = pairs.GroupBy(p => p.NoteId);
+        var edgeMap = new Dictionary<(Guid, Guid), int>();
+
+        foreach (var group in byNote)
+        {
+            var conceptIds = group.Select(p => p.ConceptId).Distinct().OrderBy(id => id).ToList();
+            for (int i = 0; i < conceptIds.Count; i++)
+            {
+                for (int j = i + 1; j < conceptIds.Count; j++)
+                {
+                    var key = (conceptIds[i], conceptIds[j]);
+                    edgeMap[key] = edgeMap.GetValueOrDefault(key) + 1;
+                }
+            }
+        }
+
+        var edges = edgeMap
+            .Select(kv => new ConceptGraphEdgeDto(kv.Key.Item1, kv.Key.Item2, kv.Value))
+            .OrderByDescending(e => e.SharedNotes)
+            .ThenBy(e => e.SourceId)
+            .ThenBy(e => e.TargetId)
+            .ToList();
+
+        return new ConceptGraphDto(nodes, edges);
+    }
+
     public async Task<ConceptModel?> GetByIdWithNotesAsync(Guid id)
     {
         return await _db
