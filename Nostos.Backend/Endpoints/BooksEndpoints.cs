@@ -75,7 +75,8 @@ public static class BooksEndpoints
                     dto.Description, dto.Isbn, dto.Asin, dto.Duration,
                     dto.Publisher, dto.PlaceOfPublication, dto.PublishedDate, dto.Edition,
                     dto.PageCount, dto.Language, dto.Categories, dto.Series, dto.VolumeNumber,
-                    dto.CollectionId, dto.Rating, dto.IsFavorite, dto.PersonalReview, dto.FinishedAt);
+                    dto.CollectionId, dto.Rating, dto.IsFavorite, dto.PersonalReview, dto.FinishedAt,
+                    CollectionIds: dto.CollectionIds);
 
                 var result = await library.CreateOrMatchBookAsync(request, strictConfirmation: false, ct);
                 if (LibraryHttpMapper.MapError(result) is { } error)
@@ -100,15 +101,33 @@ public static class BooksEndpoints
                     dto.Description, dto.Isbn, dto.Asin, dto.Duration,
                     dto.Publisher, dto.PlaceOfPublication, dto.PublishedDate, dto.Edition,
                     dto.PageCount, dto.Language, dto.Categories, dto.Series, dto.VolumeNumber,
-                    dto.CollectionId, ClearCollection: false,
-                    dto.Rating, dto.IsFavorite, dto.PersonalReview, dto.FinishedAt, dto.IsFinished);
+                    dto.CollectionId, dto.ClearCollection,
+                    dto.Rating, dto.IsFavorite, dto.PersonalReview, dto.FinishedAt, dto.IsFinished,
+                    CollectionIds: dto.CollectionIds);
 
                 var result = await library.UpdateBookAsync(request, ct);
                 return LibraryHttpMapper.MapError(result) ?? Results.Ok(result.Data);
             }
         );
 
-        // UPDATE Progress (canonical service; validated 0..100, FinishedAt
+        // SET collection membership (full replacement set). A dedicated route so
+        // the client intent is explicit — "this book belongs to exactly these
+        // collections" — and it cannot be confused with a metadata save. Set
+        // semantics express add, remove and clear-all in one idempotent call.
+        group.MapPut(
+            "/{id}/collections",
+            async (Guid id, UpdateBookCollectionsDto dto, ILibraryService library, CancellationToken ct) =>
+            {
+                var request = new LibraryUpdateBookRequest(
+                    "rest", $"rest-collections-{Guid.NewGuid():N}",
+                    id, CollectionIds: dto.CollectionIds);
+
+                var result = await library.UpdateBookAsync(request, ct);
+                return LibraryHttpMapper.MapError(result) ?? Results.Ok(result.Data);
+            }
+        );
+
+        // UPDATE progress (canonical service; validated 0..100, FinishedAt
         // alignment, version bump; not receipt-guarded by design)
         group.MapPut(
             "/{id}/progress",

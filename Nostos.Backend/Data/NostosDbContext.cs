@@ -237,7 +237,7 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
 
         modelBuilder.Entity<BookCollectionModel>()
             .HasOne(bc => bc.Book)
-            .WithMany()
+            .WithMany(b => b.BookCollections)
             .HasForeignKey(bc => bc.BookId)
             .OnDelete(DeleteBehavior.Cascade);
 

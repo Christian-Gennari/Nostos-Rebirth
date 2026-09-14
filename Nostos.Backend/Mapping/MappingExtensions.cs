@@ -112,6 +112,12 @@ public static class MappingExtensions
             // --- ROOT FIELDS ---
             CreatedAt: model.CreatedAt,
             CollectionId: model.CollectionId,
+            // Membership falls back to the transitional column when the caller
+            // did not Include(BookCollections) — so a single book fetched
+            // without the include still reports its collection honestly.
+            CollectionIds: model.BookCollections.Count > 0
+                ? model.BookCollections.Select(bc => bc.CollectionId).OrderBy(id => id).ToList()
+                : (model.CollectionId.HasValue ? [model.CollectionId.Value] : []),
             // --- MAPPED FROM FILE DETAILS ---
             HasFile: model.FileDetails.HasFile,
             FileName: model.FileDetails.FileName,

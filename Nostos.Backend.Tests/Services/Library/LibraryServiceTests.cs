@@ -380,6 +380,189 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
         (await GetBookAsync(h, bookId)).CollectionId.Should().BeNull();
     }
 
+    // ------------------------------------------------------------------
+    // Multi-collection membership
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task Book_can_belong_to_multiple_collections()
+    {
+        var h = Harness();
+        var coll1 = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, "c1", "Philosophy"))).Data!;
+        var coll2 = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, "c2", "Fiction"))).Data!;
+        var bookId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Fictions", Author: "Borges"), strictConfirmation: true)).Data!).BookId!.Value;
+
+        var result = await h.Service.UpdateBookAsync(
+            new(Client, "m1", bookId, CollectionIds: [coll1.Id, coll2.Id]));
+
+        var dto = (BookDto)result.Data!;
+        dto.CollectionIds.Should().BeEquivalentTo([coll1.Id, coll2.Id],
+            "a book belongs to both collections at once");
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var rows = await db.BookCollections.Where(bc => bc.BookId == bookId).ToListAsync();
+        rows.Select(r => r.CollectionId).Should().BeEquivalentTo([coll1.Id, coll2.Id]);
+    }
+
+    [Fact]
+    public async Task Clearing_all_collections_is_expressed_by_an_empty_set()
+    {
+        var h = Harness();
+        var coll1 = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, "c1", "Philosophy"))).Data!;
+        var bookId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Fictions", Author: "Borges"), strictConfirmation: true)).Data!).BookId!.Value;
+
+        await h.Service.UpdateBookAsync(new(Client, "m1", bookId, CollectionIds: [coll1.Id]));
+        var cleared = await h.Service.UpdateBookAsync(new(Client, "m2", bookId, CollectionIds: []));
+
+        // This is the defect the set contract fixes: previously "remove from
+        // collection" was not expressible at all through REST.
+        ((BookDto)cleared.Data!).CollectionId.Should().BeNull();
+        ((BookDto)cleared.Data!).CollectionIds.Should().BeEmpty();
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.BookCollections.CountAsync(bc => bc.BookId == bookId)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Removing_one_membership_keeps_the_others()
+    {
+        var h = Harness();
+        var coll1 = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, "c1", "Philosophy"))).Data!;
+        var coll2 = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, "c2", "Fiction"))).Data!;
+        var bookId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Fictions", Author: "Borges"), strictConfirmation: true)).Data!).BookId!.Value;
+
+        await h.Service.UpdateBookAsync(new(Client, "m1", bookId, CollectionIds: [coll1.Id, coll2.Id]));
+        await h.Service.UpdateBookAsync(new(Client, "m2", bookId, CollectionIds: [coll2.Id]));
+
+        var dto = await GetBookAsync(h, bookId);
+        dto.CollectionIds.Should().BeEquivalentTo([coll2.Id]);
+        dto.CollectionId.Should().Be(coll2.Id, "the transitional mirror follows a surviving membership");
+    }
+
+    [Fact]
+    public async Task Collection_filter_matches_any_membership()
+    {
+        var h = Harness();
+        var coll1 = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, "c1", "Philosophy"))).Data!;
+        var coll2 = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, "c2", "Fiction"))).Data!;
+        var bookId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Fictions", Author: "Borges"), strictConfirmation: true)).Data!).BookId!.Value;
+
+        await h.Service.UpdateBookAsync(new(Client, "m1", bookId, CollectionIds: [coll1.Id, coll2.Id]));
+
+        // Filtering by the SECOND collection must find the book — with a single
+        // CollectionId column only the first would ever match.
+        var listed = await h.Service.ListBooksAsync(
+            BookFilter.All, BookSort.Title, null, 1, 20, coll2.Id, null, null);
+        var page = (PaginatedResponse<BookDto>)listed.Data!;
+        page.Items.Select(b => b.Id).Should().Contain(bookId);
+    }
+
+    [Fact]
+    public async Task Sidebar_counts_include_books_with_multiple_memberships()
+    {
+        var h = Harness();
+        var coll1 = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, "c1", "Philosophy"))).Data!;
+        var coll2 = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, "c2", "Fiction"))).Data!;
+        var bookId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Fictions", Author: "Borges"), strictConfirmation: true)).Data!).BookId!.Value;
+
+        await h.Service.UpdateBookAsync(new(Client, "m1", bookId, CollectionIds: [coll1.Id, coll2.Id]));
+
+        var counts = ((IEnumerable<CollectionCountDto>)(await h.Service.ListCollectionCountsAsync()).Data!)
+            .ToDictionary(c => c.CollectionId, c => c.BookCount);
+        counts[coll1.Id].Should().Be(1);
+        counts[coll2.Id].Should().Be(1, "the same book is counted in each of its collections");
+    }
+
+    [Fact]
+    public async Task Unsorted_excludes_books_that_belong_to_any_collection()
+    {
+        var h = Harness();
+        var coll1 = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, "c1", "Philosophy"))).Data!;
+        var bookId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Fictions", Author: "Borges"), strictConfirmation: true)).Data!).BookId!.Value;
+
+        await h.Service.UpdateBookAsync(new(Client, "m1", bookId, CollectionIds: [coll1.Id]));
+
+        var listed = await h.Service.ListBooksAsync(
+            BookFilter.Unsorted, BookSort.Title, null, 1, 50, null, null, null);
+        ((PaginatedResponse<BookDto>)listed.Data!).Items.Select(b => b.Id)
+            .Should().NotContain(bookId, "the book IS sorted, just also mirrored to CollectionId");
+    }
+
+    [Fact]
+    public async Task Set_update_with_unknown_collection_returns_collection_not_found()
+    {
+        var h = Harness();
+        var bookId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Fictions", Author: "Borges"), strictConfirmation: true)).Data!).BookId!.Value;
+
+        var result = await h.Service.UpdateBookAsync(
+            new(Client, "m1", bookId, CollectionIds: [Guid.NewGuid()]));
+
+        ((LibraryErrorDto)result.Data!).Code.Should().Be("collection_not_found");
+    }
+
+    [Fact]
+    public async Task Deleting_a_collection_keeps_a_books_other_memberships()
+    {
+        var h = Harness();
+        var coll1 = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, "c1", "Philosophy"))).Data!;
+        var coll2 = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, "c2", "Fiction"))).Data!;
+        var bookId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Fictions", Author: "Borges"), strictConfirmation: true)).Data!).BookId!.Value;
+
+        await h.Service.UpdateBookAsync(new(Client, "m1", bookId, CollectionIds: [coll1.Id, coll2.Id]));
+        var deleted = await h.Service.DeleteCollectionAsync(new(Client, "d1", coll1.Id, Confirm: true));
+        ((LibraryDeleteCollectionResultDto)deleted.Data!).BooksUnlinked.Should().Be(1);
+
+        var dto = await GetBookAsync(h, bookId);
+        dto.CollectionIds.Should().BeEquivalentTo([coll2.Id], "only the deleted membership is removed");
+        dto.CollectionId.Should().Be(coll2.Id, "the mirror must not point at the deleted collection");
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.BookCollections.CountAsync(bc => bc.BookId == bookId)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Creating_a_book_with_a_membership_set_files_it_everywhere()
+    {
+        var h = Harness();
+        var coll1 = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, "c1", "Philosophy"))).Data!;
+        var coll2 = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, "c2", "Fiction"))).Data!;
+
+        var created = await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Fictions", Author: "Borges", CollectionIds: [coll1.Id, coll2.Id]),
+            strictConfirmation: true);
+
+        var dto = ((LibraryCreateOrMatchResultDto)created.Data!).Book!;
+        dto.CollectionIds.Should().BeEquivalentTo([coll1.Id, coll2.Id]);
+    }
+
+    [Fact]
+    public async Task Legacy_single_collection_update_does_not_leave_stale_memberships()
+    {
+        var h = Harness();
+        var coll1 = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, "c1", "Philosophy"))).Data!;
+        var coll2 = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, "c2", "Fiction"))).Data!;
+        var bookId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Fictions", Author: "Borges"), strictConfirmation: true)).Data!).BookId!.Value;
+
+        await h.Service.UpdateBookAsync(new(Client, "m1", bookId, CollectionIds: [coll1.Id, coll2.Id]));
+        await h.Service.UpdateBookAsync(new(Client, "m2", bookId, CollectionId: coll1.Id));
+
+        var dto = await GetBookAsync(h, bookId);
+        dto.CollectionIds.Should().BeEquivalentTo([coll1.Id],
+            "the legacy single-value contract replaces the whole set, so the two cannot drift");
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.BookCollections.CountAsync(bc => bc.BookId == bookId)).Should().Be(1);
+    }
+
     [Fact]
     public async Task Update_isbn_recomputes_normalized_identity()
     {
@@ -1575,7 +1758,8 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
         Guid? CollectionId = null,
         Guid? ConfirmedBookId = null,
         bool ForceCreate = false,
-        string? Key = null) =>
+        string? Key = null,
+        IReadOnlyList<Guid>? CollectionIds = null) =>
         new(Client, Key ?? $"k-{Guid.NewGuid():N}", type, title,
             Subtitle: Subtitle,
             Author: Author,
@@ -1583,7 +1767,8 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
             Asin: Asin,
             CollectionId: CollectionId,
             ConfirmedBookId: ConfirmedBookId,
-            ForceCreate: ForceCreate);
+            ForceCreate: ForceCreate,
+            CollectionIds: CollectionIds);
 
     private async Task<int> CountBooksAsync(TestHarness h)
     {

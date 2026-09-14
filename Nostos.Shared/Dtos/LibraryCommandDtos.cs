@@ -56,7 +56,12 @@ public sealed record LibraryCreateBookRequest(
     string? PersonalReview = null,
     DateTime? FinishedAt = null,
     Guid? ConfirmedBookId = null,
-    bool ForceCreate = false
+    bool ForceCreate = false,
+    // Multi-collection membership at create time. APPENDED to the record so
+    // existing positional callers (REST/MCP) keep compiling. When supplied
+    // non-empty it is authoritative and CollectionId above acts as the legacy
+    // single-value form.
+    IReadOnlyList<Guid>? CollectionIds = null
 );
 
 // --- BOOK UPDATE ---
@@ -91,7 +96,12 @@ public sealed record LibraryUpdateBookRequest(
     bool? IsFavorite = null,
     string? PersonalReview = null,
     DateTime? FinishedAt = null,
-    bool? IsFinished = null
+    bool? IsFinished = null,
+    // Full replacement membership set. APPENDED so existing positional callers
+    // keep compiling. null = leave membership unchanged; an empty list clears
+    // every membership. Set semantics rather than add/remove verbs: one contract
+    // expresses add, remove and clear-all, and it is naturally idempotent.
+    IReadOnlyList<Guid>? CollectionIds = null
 );
 
 // --- RESOLVE (read-only identity resolution) ---
