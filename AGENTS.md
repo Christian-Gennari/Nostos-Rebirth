@@ -9,21 +9,63 @@ workflow contract for this repository.
 
 ---
 
+## 0. Working in parallel: isolate first, then branch
+
+**If a task is parallel work — a new branch, your own branch, more than one
+agent on this repo at once, or anything the user calls "in parallel" — do NOT
+branch inside this shared checkout.** Create an isolated worktree with its own
+branch, ports, and database copy instead, and do all work from there.
+
+```bash
+agent-worktree new <slug>          # sibling worktree + agent/<slug> branch
+source ../nostos-rebirth-<slug>/.agent/env.sh
+cd "$AGENT_WORKTREE"
+```
+
+`agent-worktree` gives you an isolated tree, a private writable copy of
+`nostos.db`, shared `Storage`/`node_modules` (symlinked, never copied), and a
+`frontend`/`backend` port pair that cannot collide with production (5214) or
+another agent. It retires the worktree automatically once the branch merges.
+See `agent-worktree` (no arguments) for usage.
+
+**Why the shared checkout is not safe for a new branch.** `git checkout -b`
+switches the branch of the *entire working tree*. Every other agent and the
+human share those files, so:
+
+- their uncommitted work silently follows you onto your branch;
+- a build you trigger writes the same `wwwroot/` that production is serving;
+- a `git stash` / `reset` / `clean` intended for your files can destroy theirs.
+
+This has already happened in this repo, more than once.
+
+**Staging and the shared tree.** Even when your change is not parallel work:
+
+- Run parallel work in a worktree (above). In the shared tree, stage explicit
+  paths — `git add AGENTS.md`, never `git add -A` or `git add .`.
+- In a dedicated worktree, `git add -A` is safe: you own every file in it.
+- Never `git stash`, `git checkout -- .`, `git reset --hard`, or `git clean`
+  in the shared tree while other work may be present.
+
+---
+
 ## 1. Never commit directly to `main`
 
 Every change goes through a branch and a pull request. No exceptions for
-"trivial" or "obvious" fixes.
+"trivial" or "obvious" fixes. For parallel work, follow §0 and create the branch
+in a worktree.
 
 ```bash
 git fetch origin
+agent-worktree new fix/short-description   # parallel work (§0)
+# — or, for a single-threaded change in the shared tree —
 git checkout main && git pull origin main
 git checkout -b fix/short-description
 ```
 
 ### Why this matters here
 
-Multiple agents (and the human) work in this repo **concurrently, in the same
-working tree**. Pushing straight to `main` has caused real damage:
+Multiple agents (and the human) work in this repo **concurrently**. Pushing
+straight to `main` has caused real damage:
 
 - concurrent agents overwriting each other's uncommitted files;
 - a stash/rebase cycle trampling another agent's in-flight edits;
@@ -115,16 +157,17 @@ enable auto-merge.
 
 ## 4. Working alongside other agents
 
-This is the single biggest source of lost work in this repo.
+This is the single biggest source of lost work in this repo. **§0 is the rule;
+this section is the detail for when you are in the shared tree.**
 
 - **Stay in your lane.** Only edit files your task requires. If you need to
   change something outside it, say so instead of doing it.
-- **Stage explicit paths.** `git add path/a path/b`, never `git add -A` or
-  `git add .` — the working tree usually contains other people's uncommitted
-  work.
+- **Stage explicit paths in the shared tree.** `git add path/a path/b`, never
+  `git add -A` or `git add .` — the working tree usually contains other people's
+  uncommitted work. Inside your own worktree (§0) `git add -A` is safe.
 - **Never `git stash`, `git checkout -- .`, `git reset --hard`, or
-  `git clean`** while other work may be present. These silently destroy
-  uncommitted edits and have already done so here.
+  `git clean`** in the shared tree while other work may be present. These
+  silently destroy uncommitted edits and have already done so here.
 - **Before `git rebase`/`git pull --rebase`, check `git status`** and stop if
   files you did not touch are modified.
 - If you find unexpected modifications, **leave them alone** and mention them
