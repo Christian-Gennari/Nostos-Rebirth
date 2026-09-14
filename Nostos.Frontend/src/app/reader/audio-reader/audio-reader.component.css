@@ -366,8 +366,17 @@
   transition: transform 0.15s;
 }
 
+/* Both chevrons flip in place: the rotation must not displace the centring.
+   `.rate-arrow` is absolutely positioned, so `translateY(-50%)` is what centres
+   it on the pill — and `transform` holds a single value. Writing
+   `transform: rotate(180deg)` here REPLACES the translate, so the chevron lost
+   its centring for the whole flip and settled 2.5px (half its 5px height) below
+   the pill centre. Measured in the browser, frame by frame: speed drifted
+   -0.01px -> +2.49px open, while the sleep chevron (a flex child, centred by
+   `align-items`, never translated) held -0.01px. Keep the translate and append
+   the rotation, so the flip interpolates as a pure rotation. */
 .rate-pill[aria-expanded="true"] .rate-arrow {
-  transform: rotate(180deg);
+  transform: translateY(-50%) rotate(180deg);
 }
 
 .rate-dropdown {
