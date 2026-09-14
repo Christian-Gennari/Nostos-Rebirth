@@ -344,19 +344,12 @@
             <hr class="divider" />
 
             <div class="form-group">
-              <label class="form-label">Collection</label>
-              <select
-                [(ngModel)]="form.collectionId"
-                name="collectionId"
-                class="select-input input"
-              >
-                <option [ngValue]="null">No collection</option>
-                @for (option of collectionOptions(); track option.id) {
-                  <option [ngValue]="option.id">
-                    {{ '— '.repeat(option.level) }}{{ option.name }}
-                  </option>
-                }
-              </select>
+              <app-collection-picker
+                label="Collections"
+                [collections]="collections()"
+                [selectedIds]="form.collectionIds"
+                (selectedIdsChange)="form.collectionIds = $event"
+              ></app-collection-picker>
             </div>
 
             <div class="form-group">

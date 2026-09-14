@@ -36,6 +36,13 @@ public abstract class BookModel
 
     public Guid? CollectionId { get; set; }
     public CollectionModel? Collection { get; set; }
+
+    /// <summary>
+    /// Authoritative multi-collection membership. Populated only when the query
+    /// includes it; <see cref="CollectionId"/> above remains the transitional
+    /// mirror, so mapping falls back to it when this is not loaded.
+    /// </summary>
+    public ICollection<BookCollectionModel> BookCollections { get; set; } = new List<BookCollectionModel>();
 }
 
 // --- NEW OWNED TYPES ---

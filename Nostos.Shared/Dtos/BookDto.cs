@@ -72,7 +72,11 @@ public record BookDto(
     IEnumerable<BookChapterDto>? Chapters,
     Guid? WorkId = null,
     int EditionCount = 1,
-    IEnumerable<EditionSummaryDto>? OtherEditions = null
+    IEnumerable<EditionSummaryDto>? OtherEditions = null,
+    // Multi-collection membership. APPENDED deliberately: BookDto is a
+    // positional record, so inserting a field would renumber the JSON of every
+    // existing client. Populated alongside the transitional CollectionId.
+    IEnumerable<Guid>? CollectionIds = null
 );
 
 public record CreateBookDto(
@@ -100,7 +104,10 @@ public record CreateBookDto(
     int Rating = 0,
     bool IsFavorite = false,
     string? PersonalReview = null,
-    DateTime? FinishedAt = null
+    DateTime? FinishedAt = null,
+    // Multi-collection membership at create time (REST-only, appended so the
+    // positional record stays source-compatible with existing callers).
+    IReadOnlyList<Guid>? CollectionIds = null
 );
 
 public record UpdateBookDto(
@@ -128,7 +135,21 @@ public record UpdateBookDto(
     bool? IsFavorite,
     string? PersonalReview,
     DateTime? FinishedAt,
-    bool? IsFinished
+    bool? IsFinished,
+    // Multi-collection membership. REST-only addition (the MCP surface keeps its
+    // frozen single-value contract). null = leave membership unchanged; an empty
+    // list clears every membership. Appended, so the positional record stays
+    // source-compatible with existing callers.
+    IReadOnlyList<Guid>? CollectionIds = null,
+    bool ClearCollection = false
 );
 
 public record UpdateProgressDto(string Location, int Percentage);
+
+/// <summary>
+/// Full replacement set of collections a book belongs to. An empty list clears
+/// every membership — which is how "remove from collection" is finally
+/// expressible (the legacy nullable CollectionId could not distinguish
+/// "leave unchanged" from "clear").
+/// </summary>
+public sealed record UpdateBookCollectionsDto(IReadOnlyList<Guid> CollectionIds);

@@ -1,7 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
 
 import { AddBookModal } from './add-book-modal.component';
-import { Book } from '../core/services/books.service';
+import { Book, BooksService } from '../core/services/books.service';
 
 const collections = [
   { id: 'root', name: 'Root', parentId: null },
@@ -63,17 +64,15 @@ describe('AddBookModal', () => {
     expect(document.activeElement).toBe(title);
   });
 
-  it('renders hierarchical options with indentation derived from parentId', () => {
+  it('renders the multi-select picker with the hierarchy intact', () => {
     fixture.detectChanges();
-    const select = fixture.nativeElement.querySelector(
-      'select[name="collectionId"]',
-    ) as HTMLSelectElement;
-    const labels = Array.from(select.options).map((o) => o.textContent?.trim() ?? '');
+    const options = Array.from<Element>(
+      fixture.nativeElement.querySelectorAll('app-collection-picker .option'),
+    ).map((b) => b.textContent?.trim() ?? '');
 
-    expect(labels[0]).toBe('No collection');
-    expect(labels).toContain('Root');
-    expect(labels).toContain('— Child');
-    expect(labels).toContain('Other');
+    expect(options).toContain('Root');
+    expect(options).toContain('Child');
+    expect(options).toContain('Other');
   });
 
   it('preselects the book current collection when editing', () => {
@@ -84,29 +83,42 @@ describe('AddBookModal', () => {
     } as unknown as Book);
     fixture.detectChanges();
 
-    expect(component.form.collectionId).toBe('child');
+    expect(component.form.collectionIds).toEqual(['child']);
   });
 
-  it('selecting "No collection" assigns null', () => {
+  it('preselects EVERY membership when the book is in several collections', () => {
+    // The defect this replaces: a single <select> could only show one of them.
+    fixture.componentRef.setInput('book', {
+      id: 'b1',
+      title: 'Meditations',
+      collectionId: 'child',
+      collectionIds: ['child', 'other'],
+    } as unknown as Book);
+    fixture.detectChanges();
+
+    expect(component.form.collectionIds).toEqual(['child', 'other']);
+  });
+
+  it('unchecking the last collection leaves an empty set, not a stale one', () => {
     fixture.componentRef.setInput('book', {
       id: 'b1',
       title: 'Meditations',
       collectionId: 'child',
     } as unknown as Book);
     fixture.detectChanges();
-    expect(component.form.collectionId).toBe('child');
+    expect(component.form.collectionIds).toEqual(['child']);
 
-    const select = fixture.nativeElement.querySelector(
-      'select[name="collectionId"]',
-    ) as HTMLSelectElement;
-    const nullOption = Array.from(select.options).find(
-      (o) => o.textContent?.trim() === 'No collection',
+    // Click the option that is actually selected (the picker sorts by name, so
+    // index 0 is not it) and confirm the set empties rather than keeping a
+    // stale id — the behaviour the old <select> could not express at all.
+    const picker = fixture.nativeElement.querySelector('app-collection-picker');
+    const pressed = Array.from<Element>(picker.querySelectorAll('.option')).find(
+      (b) => b.getAttribute('aria-pressed') === 'true',
     )!;
-    select.selectedIndex = nullOption.index;
-    select.dispatchEvent(new Event('change'));
+    (pressed as HTMLElement).click();
     fixture.detectChanges();
 
-    expect(component.form.collectionId).toBeNull();
+    expect(component.form.collectionIds).toEqual([]);
   });
 
   it('does not break when the book references a stale collection id', () => {
@@ -117,9 +129,23 @@ describe('AddBookModal', () => {
     } as unknown as Book);
     fixture.detectChanges();
 
-    expect(component.form.collectionId).toBe('gone');
-    expect(
-      fixture.nativeElement.querySelector('select[name="collectionId"]'),
-    ).toBeTruthy();
+    expect(component.form.collectionIds).toEqual(['gone']);
+    expect(fixture.nativeElement.querySelector('app-collection-picker')).toBeTruthy();
+  });
+
+  it('submits the membership set alongside the legacy mirror field', async () => {
+    const books = TestBed.inject(BooksService);
+    const createSpy = vi
+      .spyOn(books, 'create')
+      .mockReturnValue(of({ id: 'new' } as unknown as Book));
+    fixture.detectChanges();
+
+    component.form.title = 'Meditations';
+    component.form.collectionIds = ['child', 'other'];
+    component.submit();
+
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ collectionIds: ['child', 'other'], collectionId: 'child' }),
+    );
   });
 });

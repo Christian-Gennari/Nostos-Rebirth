@@ -415,12 +415,16 @@
                   }
                 </div>
               </div>
-              } @if(store.book()?.collectionId) {
+              } @if((store.book()?.collectionIds?.length || 0) > 0 || store.book()?.collectionId) {
               <div class="meta-item full-width">
-                <span class="label">Collection</span>
-                <span class="value">
-                  {{ getCollectionName(store.book()?.collectionId) }}
-                </span>
+                <span class="label">Collections</span>
+                <div class="value" style="display: flex; gap: 0.5rem; flex-wrap: wrap">
+                  <!-- Renders EVERY membership, not just the first: the rail used
+                       to show one name because the model only held one. -->
+                  @for (name of getCollectionNames(store.book()!); track name) {
+                  <span class="tag">{{ name }}</span>
+                  }
+                </div>
               </div>
               }
             </div>
