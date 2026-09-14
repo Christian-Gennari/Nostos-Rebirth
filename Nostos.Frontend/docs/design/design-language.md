@@ -478,7 +478,7 @@ four surfaces sharing this visual recipe have four different interaction contrac
 | Studio sidebar | `role="tablist"` / `role="tab"` / `aria-selected` | `.active` |
 | Settings theme | `role="radiogroup"` / `role="radio"` / `aria-checked` | `.is-active` |
 | Brain view | `role="group"` / `aria-pressed` | `.active` |
-| Library view | none at all | `.active` |
+| Library view | `role="group"` / `aria-pressed` | `.active` |
 
 So the real candidate pool was two call sites (Library and Brain), not four. A shared
 component would have to either keep those differences behind inputs — a leaky
@@ -487,10 +487,15 @@ Extraction saves ZERO CSS now that the recipe is shared, and roughly 15 lines of
 markup across two templates.
 
 **Do not "finish" this by extracting the component.** Two earlier attempts were
-reverted for exactly this reason. Note also that the paths are NOT tempting targets
-for a quick a11y win: adding `aria-pressed` to Library would be a real improvement,
-but shipping it inside a dedup pass is an unrequested behaviour change. If that
-upgrade is wanted, it belongs in its own task with its own test updates.
+reverted for exactly this reason.
+
+Library's ARIA was upgraded in its own follow-up task (NOT in the dedup pass), which
+is why it now matches Brain. Both icon-only controls previously announced as an
+unnamed "button" with a colour-only selected state; they now expose a labelled
+`role="group"` with `aria-pressed` tracking the visible view. The rule stands: a
+behaviour change rides in its own PR with its own spec, never folded into a
+behaviour-preserving refactor. See the `aria-pressed` note below for why the
+attribute is emitted on these two and deliberately NOT on the icon buttons.
 
 ### The segmented control, and why it had to be fixed three separate times
 Four components render the same control under different names:

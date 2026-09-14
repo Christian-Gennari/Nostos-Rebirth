@@ -36,17 +36,25 @@
           </select>
         </div>
 
-        <div class="control-group">
+        <div class="control-group" role="group" aria-label="Book view">
           <button
+            type="button"
             class="toggle-opt"
             [class.active]="viewMode() === 'list'"
+            [attr.aria-pressed]="viewMode() === 'list'"
+            aria-label="List view"
+            title="List view"
             (click)="setViewMode('list')"
           >
             <lucide-icon [img]="ListIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
           </button>
           <button
+            type="button"
             class="toggle-opt"
             [class.active]="viewMode() === 'grid'"
+            [attr.aria-pressed]="viewMode() === 'grid'"
+            aria-label="Grid view"
+            title="Grid view"
             (click)="setViewMode('grid')"
           >
             <lucide-icon [img]="GridIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
