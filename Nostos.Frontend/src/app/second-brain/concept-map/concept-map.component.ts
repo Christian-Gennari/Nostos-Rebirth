@@ -156,6 +156,10 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   private pendingRebuild = false;
   private resizeObserver: ResizeObserver | null = null;
 
+  /* Drag-to-reposition state */
+  private draggedNode: string | null = null;
+  private isDragging = false;
+
   /* State signals for the template. */
   readonly loading = signal(true);
   readonly hoveredId = signal<string | null>(null);
@@ -404,7 +408,7 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
           res['zIndex'] = 1;
           res['forceLabel'] = true;
         } else {
-          res['color'] = hexToRgba(component.theme.node, 0.22);
+          res['color'] = hexToRgba(component.theme.node, 0.55);
           res['label'] = '';
           res['zIndex'] = 0;
         }
@@ -427,7 +431,7 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
           res['size'] = ((data['size'] as number) ?? 1) * 1.6;
           res['zIndex'] = 1;
         } else {
-          res['color'] = hexToRgba(component.theme.edge, 0.06);
+          res['color'] = hexToRgba(component.theme.edge, 0.14);
           res['zIndex'] = 0;
         }
       }
@@ -438,15 +442,21 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
     // Event listeners.
     sigma.on('enterNode', ({ node }) => {
       component.hoveredId.set(node);
+      container.style.cursor = 'grab';
       sigma.refresh();
     });
 
     sigma.on('leaveNode', () => {
       component.hoveredId.set(null);
+      if (!component.draggedNode) {
+        container.style.cursor = 'default';
+      }
       sigma.refresh();
     });
 
     sigma.on('clickNode', ({ node }) => {
+      // If we just finished dragging, don't treat the mouseup as a click.
+      if (component.isDragging) return;
       component.selectedNodeId.set(node);
       component.conceptSelected.emit(node);
       sigma.refresh();
@@ -456,6 +466,46 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
       // Clicking empty space clears hover highlighting but keeps selection.
       component.hoveredId.set(null);
       sigma.refresh();
+    });
+
+    // ── Drag-to-reposition ──
+    // On mousedown over a node, start tracking; on mousemove, update the
+    // node's position in graph coordinates so the user can untangle clusters.
+    sigma.on('downNode', (e) => {
+      component.isDragging = false;
+      component.draggedNode = e.node;
+      // Prevent Sigma's default camera panning while dragging a node.
+      sigma.getCamera().disable();
+      container.classList.add('dragging');
+    });
+
+    // Sigma v3 fires 'mousemovebody' on every pointer-move over the canvas.
+    sigma.getMouseCaptor().on('mousemovebody', (e) => {
+      if (!component.draggedNode) return;
+      component.isDragging = true;
+
+      // Convert viewport coordinates to graph coordinates.
+      const pos = sigma.viewportToGraph({ x: e.x, y: e.y });
+      graph.setNodeAttribute(component.draggedNode, 'x', pos.x);
+      graph.setNodeAttribute(component.draggedNode, 'y', pos.y);
+
+      // Prevent Sigma's default camera panning while dragging.
+      e.preventSigmaDefault();
+    });
+
+    // On mouseup, finalize the drag.
+    sigma.getMouseCaptor().on('mouseup', () => {
+      if (component.draggedNode) {
+        // If we actually dragged (moved the pointer), suppress the click
+        // that would normally follow mouseup → clickNode.
+        if (component.isDragging) {
+          // The node stays where the user dropped it.
+          component.isDragging = false;
+        }
+        component.draggedNode = null;
+        sigma.getCamera().enable();
+        container.classList.remove('dragging');
+      }
     });
 
     // Resize observer to keep Sigma in sync with container size changes.
@@ -479,6 +529,8 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
       this.sigma = null;
     }
     this.graph = null;
+    this.draggedNode = null;
+    this.isDragging = false;
   }
 
   private refreshRendering(): void {

@@ -17,7 +17,15 @@ vi.mock('sigma', () => {
         animatedZoom: vi.fn(),
         animatedUnzoom: vi.fn(),
         animate: vi.fn(),
+        disable: vi.fn(),
+        enable: vi.fn(),
       };
+    }
+    getMouseCaptor() {
+      return { on: vi.fn().mockReturnThis() };
+    }
+    viewportToGraph(coords: { x: number; y: number }) {
+      return coords;
     }
   }
   return { default: MockSigma };

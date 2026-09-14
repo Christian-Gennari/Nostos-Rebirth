@@ -186,8 +186,14 @@
 .sigma-container {
   width: 100%;
   height: clamp(420px, 62dvh, 760px);
+  cursor: default;
   background:
     radial-gradient(circle at 50% 48%, var(--bg-surface) 0%, var(--bg-body) 72%);
+}
+
+/* Show grab cursor when hovering a node, grabbing while dragging. */
+.sigma-container.dragging {
+  cursor: grabbing;
 }
 
 .map-stage:fullscreen,

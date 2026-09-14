@@ -702,21 +702,29 @@
 /* --- MAP view: the map occupies the main stage --------------------------- */
 
 /* A quiet bar above the graph showing what is selected, with the one action the
-   map cannot express — leaving it to read the notes. */
+   map cannot express — leaving it to read the notes.
+   Floats as an overlay at the bottom-left of the map so it never pushes the
+   graph layout down. */
 .map-selection-bar {
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  z-index: 3;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  max-width: 1100px;
-  margin: 0 auto 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--border-light);
+  gap: 0.75rem;
+  max-width: min(420px, calc(100% - 2rem));
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--border-color) 18%, transparent);
 }
 
 .map-selection-name {
   font-family: 'Newsreader', serif;
-  font-size: 1.15rem;
+  font-size: 0.92rem;
   font-weight: 600;
   color: var(--color-text-main);
   min-width: 0;
@@ -758,10 +766,14 @@
 /* The map takes the stage it is now on: it is the whole point of this view, so
    give it the available height rather than the ~360px it needed as a sidebar
    widget. */
-.content-col app-concept-map {
-  display: block;
+.map-wrapper {
+  position: relative;
   max-width: 1100px;
   margin: 0 auto;
+}
+
+.map-wrapper app-concept-map {
+  display: block;
 } 
 
 /* HEADER */

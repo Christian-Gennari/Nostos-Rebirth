@@ -191,26 +191,28 @@
            whole-brain view, and a force-directed graph squeezed into a ~320px
            sidebar cannot be read. In this mode it replaces the concept pane
            entirely; the index stays alongside as the filter/search surface. -->
-      @if (selectedConceptName(); as name) {
-      <div class="map-selection-bar" role="status">
-        <span class="map-selection-name">{{ name }}</span>
-        <button type="button" class="map-open-notes" (click)="openSelectedConcept()">
-          <span>Read notes</span>
-          <lucide-icon [img]="ArrowRightIcon" [size]="15"></lucide-icon>
-        </button>
-      </div>
-      }
       <!-- On mobile the map takes the whole screen (the index is hidden), so it
            needs its own way back — the same affordance the concept pane uses. -->
       <button type="button" class="mobile-nav-header" (click)="leaveMap()">
         <lucide-icon [img]="ArrowLeftIcon" [size]="18"></lucide-icon>
         <span>Back to Index</span>
       </button>
-      <app-concept-map
-        [concepts]="filteredConcepts()"
-        [selectedId]="selectedId()"
-        (conceptSelected)="onMapConceptSelected($event)"
-      ></app-concept-map>
+      <div class="map-wrapper">
+        <app-concept-map
+          [concepts]="filteredConcepts()"
+          [selectedId]="selectedId()"
+          (conceptSelected)="onMapConceptSelected($event)"
+        ></app-concept-map>
+        @if (selectedConceptName(); as name) {
+        <div class="map-selection-bar" role="status">
+          <span class="map-selection-name">{{ name }}</span>
+          <button type="button" class="map-open-notes" (click)="openSelectedConcept()">
+            <span>Read notes</span>
+            <lucide-icon [img]="ArrowRightIcon" [size]="15"></lucide-icon>
+          </button>
+        </div>
+        }
+      </div>
       } @else { @if (selectedId()) {
       <button type="button" class="mobile-nav-header" (click)="clearSelection()">
         <lucide-icon [img]="ArrowLeftIcon" [size]="18"></lucide-icon>
