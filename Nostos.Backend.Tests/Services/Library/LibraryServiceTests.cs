@@ -479,7 +479,7 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
     }
 
     [Fact]
-    public async Task Unsorted_excludes_books_that_belong_to_any_collection()
+    public async Task Unsorted_excludes_books_whose_mirror_column_is_stale()
     {
         var h = Harness();
         var coll1 = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, "c1", "Philosophy"))).Data!;
@@ -488,10 +488,20 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
 
         await h.Service.UpdateBookAsync(new(Client, "m1", bookId, CollectionIds: [coll1.Id]));
 
+        // Simulate the only state in which the two representations can disagree:
+        // a row written before the backfill existed (mirror null, membership
+        // present). Unsorted must trust the authoritative membership, otherwise a
+        // sorted book leaks into Unsorted.
+        await using (var db = await h.Factory.CreateDbContextAsync())
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """UPDATE "Books" SET "CollectionId" = NULL WHERE "Id" = {0}""", bookId);
+        }
+
         var listed = await h.Service.ListBooksAsync(
             BookFilter.Unsorted, BookSort.Title, null, 1, 50, null, null, null);
         ((PaginatedResponse<BookDto>)listed.Data!).Items.Select(b => b.Id)
-            .Should().NotContain(bookId, "the book IS sorted, just also mirrored to CollectionId");
+            .Should().NotContain(bookId, "membership wins over a stale mirror column");
     }
 
     [Fact]
