@@ -52,6 +52,15 @@ vi.mock('sigma', () => {
     viewportToGraph(coords: { x: number; y: number }) {
       return coords;
     }
+    // Identity-ish conversions so the fit/centre maths has a coherent mapping to
+    // work against. The real component probes these; a mock that omits them
+    // makes every camera assertion vacuous.
+    graphToViewport(point: { x: number; y: number }, _override?: unknown) {
+      return { x: 400 + point.x, y: 300 - point.y };
+    }
+    viewportToFramedGraph(point: { x: number; y: number }, _override?: unknown) {
+      return { x: (point.x - 400) / 800, y: (300 - point.y) / 600 };
+    }
   }
   // Publish handles on globalThis so the specs can assert on the camera and the
   // settings the component actually shipped, without importing the mock.
@@ -510,12 +519,13 @@ describe('ConceptMapComponent', () => {
 
       expect(camera.animate).toHaveBeenCalled();
       const state = camera.animate.mock.calls.at(-1)![0];
+
       // The old code passed raw graph coordinates here, which threw all 53 of
-      // 53 nodes off screen. Framed coordinates are 0..1.
-      expect(state.x).toBeGreaterThanOrEqual(0);
-      expect(state.x).toBeLessThanOrEqual(1);
-      expect(state.y).toBeGreaterThanOrEqual(0);
-      expect(state.y).toBeLessThanOrEqual(1);
+      // 53 nodes off screen (camera y = -42.9). Framed coordinates live in a
+      // small range around 0.5 — the stage centre — so a magnitude of a few
+      // units is the signature of the bug, not a legitimate value.
+      expect(Math.abs(state.x), `framed x ${state.x} looks like raw graph units`).toBeLessThanOrEqual(2);
+      expect(Math.abs(state.y), `framed y ${state.y} looks like raw graph units`).toBeLessThanOrEqual(2);
       expect(state.ratio).toBeGreaterThan(0);
     });
 

@@ -487,7 +487,9 @@ test.describe('visual matrix — Second Brain (fixture-served)', () => {
       await page.locator('.index-item').first().waitFor({ timeout: 30_000 });
       await page.getByRole('button', { name: 'Map view' }).click();
       await page.locator('.concept-map').waitFor({ timeout: 30_000 });
-      await page.locator('.map-node').first().waitFor({ timeout: 30_000 });
+      // Wait on the Sigma renderer, not the pre-rewrite SVG node elements
+      // (`.map-node` no longer exists and made this wait impossible to satisfy).
+      await page.locator('.sigma-container canvas').first().waitFor({ timeout: 30_000 });
       await page.waitForFunction(
         () => document.querySelector('.concept-map')?.getAttribute('aria-busy') === 'false',
         undefined,

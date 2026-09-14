@@ -1,6 +1,6 @@
 {
   "artifact": "brain-map-desktop.png",
-  "capturedAt": "2026-09-13T08:31:33.197Z",
+  "capturedAt": "2026-09-14T23:05:40.081Z",
   "name": "brain-map-desktop",
   "surface": "brain",
   "viewport": {
@@ -12,19 +12,20 @@
     {
       "id": "brain-map-geometry",
       "pass": true,
-      "message": "map renders 3 node(s), matching the 3-concept index; radii stay within 14–34px",
+      "message": "map renders 3 node(s), matching the 3-concept index; sizes stay within 3–20px and all nodes are on screen",
       "metrics": {
         "conceptCount": 3,
         "nodeCount": 3,
         "accessibleConceptCount": 3,
-        "radii": [
-          14,
-          14,
-          14
+        "sizes": [
+          4,
+          4,
+          4
         ],
-        "radiusBounds": {
-          "min": 14,
-          "max": 34
+        "onScreen": true,
+        "sizeBounds": {
+          "min": 3,
+          "max": 20
         }
       }
     },
