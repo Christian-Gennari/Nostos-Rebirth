@@ -421,6 +421,22 @@ Note also that an earlier claim in this document — that these components were
 "unthemed" — was WRONG. They use `var()` with fallbacks and the tokens resolve;
 only the fallbacks were dead, and those were removed.
 
+### The three search boxes are near-copies, and deliberately left alone
+
+`second-brain` renders three search fields — `.search-box`, `.note-search-box` and
+`.merge-search-box` — and the first two are close relatives of Library's
+`.search-bar-container`. Measured, they are NOT byte-identical: they differ in flex
+sizing (`flex: 1 1 220px` vs none), input padding (`0.6rem 1rem` vs `0.6rem 0.75rem`),
+and transition shorthand (`background` vs `background-color, border-color, box-shadow`).
+Those are per-context choices, not drift.
+
+Unlike the `.toggle-opt` recipe — which WAS byte-identical and had already drifted — a
+merge here would require deciding which padding and which flex behaviour wins, for about
+six rules. That is a reconciliation dressed up as a dedup, so it is not done. If it is
+ever wanted, extract the shared parts (the absolute 18px icon in a 2.5rem gutter, the
+`--border-focus` + `--color-accent-faint` focus ring) as tokens rather than forcing the
+boxes to become one another.
+
 ### The segmented control is a shared RECIPE, not a shared component
 
 The `.toggle-opt` base recipe is declared ONCE, in `styles.css`. Library and Brain
