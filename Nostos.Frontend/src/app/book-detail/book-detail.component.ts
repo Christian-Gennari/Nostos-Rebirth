@@ -452,6 +452,18 @@ export class BookDetail implements OnInit {
     return col ? col.name : '—';
   }
 
+  /**
+   * Every collection this book belongs to, by name. Falls back to the singular
+   * field so the rail stays correct against a backend that predates the join
+   * table. Unknown ids are skipped rather than rendered as a dash — a books
+   * collection only makes sense to the reader if it still exists.
+   */
+  getCollectionNames(book: Book): string[] {
+    const ids = book.collectionIds ?? (book.collectionId ? [book.collectionId] : []);
+    const byId = new Map(this.store.collections().map((c) => [c.id, c.name]));
+    return ids.map((id) => byId.get(id)).filter((name): name is string => !!name);
+  }
+
   isAudioBook(book: Book | null): boolean {
     return book?.type === 'audiobook';
   }

@@ -74,6 +74,12 @@ export interface Book {
   coverUrl: string | null;
   collectionId: string | null;
 
+  /**
+   * Membership set. Optional so the field can be absent against a backend that
+   * predates the join table; the modal falls back to `collectionId` then.
+   */
+  collectionIds?: string[];
+
   lastLocation: string | null;
   progressPercent: number;
   lastReadAt: string | null;
@@ -118,6 +124,12 @@ export interface CreateBookDto {
   volumeNumber: string | null;
   collectionId: string | null;
 
+  /**
+   * Membership set. When non-empty it is authoritative and `collectionId` is
+   * ignored; the backend keeps the singular field coherent as a mirror.
+   */
+  collectionIds?: string[];
+
   // Initial Metadata
   rating?: number;
   isFavorite?: boolean;
@@ -150,6 +162,14 @@ export interface UpdateBookDto {
   series?: string | null;
   volumeNumber?: string | null;
   collectionId?: string | null;
+
+  /**
+   * Full replacement membership set. Sending `[]` clears every collection —
+   * which the singular nullable `collectionId` could never express, so
+   * "remove from collection" did nothing. Omit the field to leave membership
+   * untouched (e.g. a rating-only update).
+   */
+  collectionIds?: string[];
 
   // Update Fields
   rating?: number;

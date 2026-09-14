@@ -8,13 +8,19 @@ import { BooksService, Book as BookModel } from '../core/services/books.service'
 import { ToastService } from '../core/services/toast.service';
 import { Collection } from '../core/dtos/collection.dtos';
 import { BookType } from '../core/dtos/book.dtos';
-import { buildFlatTree } from '../ui/flat-tree/flat-tree.helper';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
+import { CollectionPickerComponent } from '../ui/collection-picker/collection-picker.component';
 
 @Component({
   selector: 'app-add-book-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, IconButtonComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    LucideAngularModule,
+    IconButtonComponent,
+    CollectionPickerComponent,
+  ],
   templateUrl: './add-book-modal.component.html',
   styleUrl: './add-book-modal.component.css',
 })
@@ -50,15 +56,6 @@ export class AddBookModal {
   isEditMode = computed(() => !!this.book());
   isFetching = signal(false);
 
-  // Hierarchical collection options: same flattening semantics as the sidebar
-  // (alphabetical folders, indentation derived from parentId). Every collection
-  // is treated as an expandable folder and all are expanded so the full
-  // hierarchy is selectable in one flat <select>.
-  readonly collectionOptions = computed(() => {
-    const cols = this.collections();
-    return buildFlatTree(cols, new Set(cols.map((c) => c.id)), true);
-  });
-
   // Form State
   form = {
     type: 'physical' as BookType,
@@ -86,7 +83,9 @@ export class AddBookModal {
     categories: '' as string | null,
     series: '' as string | null,
     volumeNumber: '' as string | null,
-    collectionId: null as string | null,
+    // A set, not a single id: a book may belong to any number of collections.
+    // The picker owns the checkbox list; this array is the value it edits.
+    collectionIds: [] as string[],
 
     personalReview: '' as string | null,
   };
@@ -146,7 +145,9 @@ export class AddBookModal {
       categories: b.categories || '',
       series: b.series || '',
       volumeNumber: b.volumeNumber || '',
-      collectionId: b.collectionId,
+      // Prefer the membership set; fall back to the singular field so the modal
+      // is still correct against a backend that has not yet run the migration.
+      collectionIds: b.collectionIds ?? (b.collectionId ? [b.collectionId] : []),
 
       personalReview: b.personalReview || '',
     };
@@ -182,7 +183,7 @@ export class AddBookModal {
       categories: null,
       series: null,
       volumeNumber: null,
-      collectionId: null,
+      collectionIds: [],
 
       personalReview: null,
     };
@@ -296,7 +297,15 @@ export class AddBookModal {
     // Sanitize ISBN (in case user typed it and hit save directly)
     this.form.isbn = this.sanitizeIsbn(this.form.isbn);
 
-    const payload = { ...this.form, publishedDate: cleanDate || null };
+    // Send BOTH representations: `collectionIds` is the authoritative set, and
+    // `collectionId` keeps the legacy mirror coherent for any tooling that still
+    // reads the singular field. The backend derives the mirror from the set, so
+    // the two cannot drift.
+    const payload = {
+      ...this.form,
+      publishedDate: cleanDate || null,
+      collectionId: this.form.collectionIds[0] ?? null,
+    };
 
     if (this.isEditMode()) {
       this.booksService.update(this.book()!.id, payload).subscribe({

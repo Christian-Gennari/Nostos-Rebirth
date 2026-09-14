@@ -1,0 +1,170 @@
+/* Multi-select collection picker.
+   Deliberately built only from existing theme tokens — a new colour token would
+   need a dark counterpart or `npm run check:theme` fails (AGENTS.md §5). The
+   selected-row recipe mirrors the sidebar's own fill/ink split
+   (--selection-surface / --selection-ink) so a chosen collection reads the same
+   here as it does in the rail. */
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.picker-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.picker-clear {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.picker-clear:hover {
+  color: var(--color-text-main);
+}
+
+.picker-clear:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ── Chips: current membership, removable one at a time ─────────────────── */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.25rem 0.125rem 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  font-size: 0.8125rem;
+  max-width: 100%;
+}
+
+.chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.chip-remove:hover {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.chip-remove:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+/* ── Options: the checkbox list ─────────────────────────────────────────── */
+
+.options {
+  display: flex;
+  flex-direction: column;
+  max-height: 14rem;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  padding: 0.25rem;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.375rem 0.5rem;
+  /* Indentation honours the tree depth without a fixed column, so nesting never
+     pushes the row's own content. */
+  padding-left: calc(0.5rem + var(--depth, 0) * 0.75rem);
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-text-main);
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.option:hover {
+  background: var(--bg-hover);
+}
+
+.option.selected {
+  background: var(--selection-surface);
+  color: var(--selection-ink);
+}
+
+.option:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: -1px;
+}
+
+.option-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--on-primary);
+}
+
+.option.selected .option-check {
+  background: var(--selection-ink);
+  border-color: var(--selection-ink);
+  color: var(--selection-surface);
+}
+
+.option-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.options-empty {
+  margin: 0;
+  padding: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
