@@ -53,10 +53,18 @@ const EDGE_ALPHA_RANGE = 0.38;
  *
  * Measured: at 0.55 a dimmed node retained only 21% of its contrast in the light
  * theme (1.66:1 against the field) — the "everything else melts into the
- * background" report. Sweeping the composite against the real field shows both
- * themes clear the 3:1 non-text minimum at 0.70 (light 3.70:1, dark 3.62:1),
- * which keeps the rest of the map legible while the active neighbourhood still
- * stands out.
+ * background" report.
+ *
+ * At 0.70, measured by compositing the reducer's own output over the field
+ * (scripts/map-audit/dim-reducer.mjs), both themes clear the 3:1 non-text
+ * minimum while the active neighbourhood still dominates:
+ *
+ *   light  composite rgb(137,133,127) on rgb(253,248,246) -> 3.48:1 (44% retained)
+ *   dark   composite rgb(130,126,120) on rgb(21,24,31)    -> 4.40:1 (50% retained)
+ *
+ * Prefer that probe over screenshot sampling: a node is a few pixels wide, so a
+ * "centre pixel" lands on an anti-aliased edge and understates the ink, and a
+ * patch-max probe instead catches whatever dark edge crosses the box.
  */
 const NODE_ALPHA_DIM = 0.7;
 
