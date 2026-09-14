@@ -51,21 +51,65 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+/** Stable initial coordinates keep captures and sessions reproducible. */
+function hashSeed(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 4294967295;
+}
+
+/**
+ * ForceAtlas2 works in arbitrary graph coordinates. Sigma fits those
+ * coordinates literally, so a compact ForceAtlas2 extent becomes a tiny
+ * cluster in a large stage. Normalize the settled extent into a padded square
+ * before handing it to Sigma; this preserves the graph shape while making the
+ * graph use the available stage.
+ */
+function normalizeGraphPositions(graph: Graph): void {
+  const points: Array<{ node: string; x: number; y: number }> = [];
+  graph.forEachNode((node, attrs) => {
+    points.push({ node, x: Number(attrs['x']) || 0, y: Number(attrs['y']) || 0 });
+  });
+  if (points.length === 0) return;
+
+  const minX = Math.min(...points.map((point) => point.x));
+  const maxX = Math.max(...points.map((point) => point.x));
+  const minY = Math.min(...points.map((point) => point.y));
+  const maxY = Math.max(...points.map((point) => point.y));
+  const span = Math.max(maxX - minX, maxY - minY, 1);
+  const centreX = (minX + maxX) / 2;
+  const centreY = (minY + maxY) / 2;
+  const scale = 1.76 / span;
+
+  for (const point of points) {
+    graph.setNodeAttribute(point.node, 'x', (point.x - centreX) * scale);
+    graph.setNodeAttribute(point.node, 'y', (point.y - centreY) * scale);
+  }
+}
+
 interface ThemeColors {
   node: string;
   nodeHead: string;
   edge: string;
   edgeActive: string;
+  edgeOpacityMin: number;
+  edgeOpacityRange: number;
   label: string;
   labelActive: string;
 }
 
 function readTheme(): ThemeColors {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
   return {
     node: getCssVar('--graph-node', '#8b8e99'),
     nodeHead: getCssVar('--graph-node-head', '#4a4d57'),
     edge: getCssVar('--color-accent', '#8b8e99'),
     edgeActive: getCssVar('--color-text-main', '#2b2d33'),
+    edgeOpacityMin: dark ? 0.12 : 0.24,
+    edgeOpacityRange: dark ? 0.16 : 0.22,
     label: getCssVar('--color-text-muted', '#6b6e78'),
     labelActive: getCssVar('--color-text-main', '#2b2d33'),
   };
@@ -219,8 +263,8 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
         label: node.name,
         size,
         color: this.theme.node,
-        x: Math.random() * 100 - 50,
-        y: Math.random() * 100 - 50,
+        x: hashSeed(`${node.id}:x`) * 2 - 1,
+        y: hashSeed(`${node.id}:y`) * 2 - 1,
         usageCount: node.usageCount,
         labelSize,
       });
@@ -233,7 +277,10 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
       try {
         graph.addEdge(edge.sourceId, edge.targetId, {
           size: edgeSize,
-          color: hexToRgba(this.theme.edge, 0.15 + strength * 0.25),
+          color: hexToRgba(
+            this.theme.edge,
+            this.theme.edgeOpacityMin + strength * this.theme.edgeOpacityRange
+          ),
           sharedNotes: edge.sharedNotes,
         });
       } catch {
@@ -261,17 +308,19 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
     // Run ForceAtlas2 layout synchronously.
     if (graph.order > 1) {
       forceAtlas2.assign(graph, {
-        iterations: 200,
+        iterations: 300,
         settings: {
-          gravity: 1,
-          scalingRatio: 10,
+          gravity: 0.4,
+          scalingRatio: 18,
           barnesHutOptimize: graph.order > 100,
           strongGravityMode: false,
-          slowDown: 5,
+          slowDown: 8,
           adjustSizes: true,
         },
       });
     }
+
+    normalizeGraphPositions(graph);
 
     // Create Sigma renderer.
     const sigma = new Sigma(graph, container, {
@@ -284,8 +333,9 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
       defaultEdgeType: 'line',
       enableEdgeEvents: false,
       allowInvalidContainer: true,
-      // Sigma v3 settings
-      itemSizesReference: 'positions',
+      // Node sizes are pixel sizes; graph coordinates are normalized separately
+      // so the visual scale does not change when the graph fills the stage.
+      itemSizesReference: 'screen',
       zoomToSizeRatioFunction: (ratio: number) => ratio,
     });
 

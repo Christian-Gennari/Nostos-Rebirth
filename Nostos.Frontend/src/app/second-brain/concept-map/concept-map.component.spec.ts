@@ -37,6 +37,12 @@ vi.mock('graphology', () => {
     }
     get order() { return this.nodes.size; }
     get size() { return this.edges.length; }
+    forEachNode(callback: (node: string, attrs: Record<string, unknown>) => void) {
+      for (const [node, attrs] of this.nodes) callback(node, attrs);
+    }
+    setNodeAttribute(node: string, attribute: string, value: unknown) {
+      this.nodes.get(node)![attribute] = value;
+    }
     forEachEdge(callback: (edge: string, attrs: Record<string, unknown>, source: string, target: string) => void) {
       for (const e of this.edges) {
         callback(e.key, e.attrs, e.source, e.target);
