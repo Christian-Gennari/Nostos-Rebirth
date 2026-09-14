@@ -231,10 +231,10 @@
   border-top: 1px dashed var(--border-color);
 }
 
-.icon-btn.xs {
-  width: 24px;
-  height: 24px;
-}
+/* `.icon-btn.xs` was removed: its only three call sites moved to appIconButton
+   `size="xxs"`, which owns the 24px rung. Left behind it would re-declare the
+   same measurement in a second place. The `.note-actions .icon-btn` radius and
+   hover rules stay — they are per-surface choices, not rungs. */
 
 @media (max-width: 768px) {
   .note-actions .icon-btn:hover {

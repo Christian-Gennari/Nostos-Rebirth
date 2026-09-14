@@ -421,6 +421,77 @@ Note also that an earlier claim in this document — that these components were
 "unthemed" — was WRONG. They use `var()` with fallbacks and the tokens resolve;
 only the fallbacks were dead, and those were removed.
 
+### `.empty-state` is four different messages, not one component
+
+The same class name is declared in four stylesheets, which looks like duplication until
+you read the bodies (all measured):
+
+| Surface | Shape |
+| --- | --- |
+| settings | plain centred text block, 32px padding |
+| flat-tree | inline dashed-border row, 42px min-height |
+| reader | full-height column, muted ink, `p` child |
+| writing-studio | full-height column with an icon-circle and an action button |
+
+Only two of the four share anything beyond the name (reader and writing-studio agree on
+`display: flex` / column / centred / muted ink / centred text — five declarations, and
+they disagree on padding, height and gap). The markup differs too: text-only, a status
+row, and an icon-plus-copy layout.
+
+An `app-empty-state` would therefore be an `<ng-content>` wrapper that changes the
+rendered DOM on four surfaces to save about four declarations, and it would still need
+per-surface padding and height passed in. The shared part is not a component, it is a
+naming collision — the same word used for four different messages. Left as-is; if the
+four should ever LOOK alike, that is a design decision to make deliberately, not a
+side-effect of a dedup.
+
+### The three search boxes are near-copies, and deliberately left alone
+
+`second-brain` renders three search fields — `.search-box`, `.note-search-box` and
+`.merge-search-box` — and the first two are close relatives of Library's
+`.search-bar-container`. Measured, they are NOT byte-identical: they differ in flex
+sizing (`flex: 1 1 220px` vs none), input padding (`0.6rem 1rem` vs `0.6rem 0.75rem`),
+and transition shorthand (`background` vs `background-color, border-color, box-shadow`).
+Those are per-context choices, not drift.
+
+Unlike the `.toggle-opt` recipe — which WAS byte-identical and had already drifted — a
+merge here would require deciding which padding and which flex behaviour wins, for about
+six rules. That is a reconciliation dressed up as a dedup, so it is not done. If it is
+ever wanted, extract the shared parts (the absolute 18px icon in a 2.5rem gutter, the
+`--border-focus` + `--color-accent-faint` focus ring) as tokens rather than forcing the
+boxes to become one another.
+
+### The segmented control is a shared RECIPE, not a shared component
+
+The `.toggle-opt` base recipe is declared ONCE, in `styles.css`. Library and Brain
+each used to carry a byte-identical copy of those four rules (only the comments
+differed), which had already caused real drift: the focus ring was added to one copy
+and not the other, so the same control behaved differently for keyboard users
+depending on which page they were on. The mobile overrides stay in their components
+because they genuinely differ (Library 32px box, Brain 44px touch target).
+
+The MARKUP stays duplicated on purpose, and this is a decision, not an oversight. The
+four surfaces sharing this visual recipe have four different interaction contracts:
+
+| Surface | ARIA | Active class |
+| --- | --- | --- |
+| Studio sidebar | `role="tablist"` / `role="tab"` / `aria-selected` | `.active` |
+| Settings theme | `role="radiogroup"` / `role="radio"` / `aria-checked` | `.is-active` |
+| Brain view | `role="group"` / `aria-pressed` | `.active` |
+| Library view | none at all | `.active` |
+
+So the real candidate pool was two call sites (Library and Brain), not four. A shared
+component would have to either keep those differences behind inputs — a leaky
+abstraction for two callers — or silently change one call site's rendered DOM.
+Extraction saves ZERO CSS now that the recipe is shared, and roughly 15 lines of
+markup across two templates.
+
+**Do not "finish" this by extracting the component.** Two earlier attempts were
+reverted for exactly this reason. Note also that the paths are NOT tempting targets
+for a quick a11y win: adding `aria-pressed` to Library would be a real improvement,
+but shipping it inside a dedup pass is an unrequested behaviour change. If that
+upgrade is wanted, it belongs in its own task with its own test updates.
+
 ### The segmented control, and why it had to be fixed three separate times
 Four components render the same control under different names:
 
@@ -447,6 +518,74 @@ Drift found and removed: Studio's track carried a `border` the other three lacke
 focus ring** while Brain's byte-identical copy did, so one control behaved
 differently for keyboard users depending on which page they were on.
 
+### What WAS unified: the icon button (30 call sites -> one component)
+
+`appIconButton` (`src/app/ui/icon-button/`) replaced 30 hand-built
+`<button class="icon-btn"><lucide-icon ...></lucide-icon></button>` copies across
+five templates. The five copies disagreed about SIZE, which is the thing the
+component now owns.
+
+`selector: 'button[appIconButton]'` means **the host is the native `<button>`**.
+Not a wrapper element: a custom host defaults to `display: inline`, breaks flex/grid
+alignment, and breaks descendant selectors this codebase relies on
+(`.reader-toolbar .icon-btn`, `.note-actions .icon-btn`, `button:focus-visible`).
+Not a plain directive either: a directive cannot own an encapsulated stylesheet.
+
+**Measured size rungs** (the only thing the component owns):
+
+| Rung | Box | Used by |
+| --- | --- | --- |
+| `md` (default) | 32px | reader toolbar, modal close, note-card edit-mode |
+| `xs` | 28px | Library list rows |
+| `xxs` | 24px | note-card's round row chips |
+
+Radius is deliberately NOT owned: it varies per surface on purpose (3px global
+`--radius-sm`, 4px Library rows and the reader toolbar, 6px studio zen toggle, 50%
+note-card chips) and mostly arrives through DESCENDANT rules that keep matching
+because the host is still a button. Encoding a radius rung here would have moved
+pixels on four surfaces to no benefit.
+
+Also deliberately NOT inputs, each for a measured reason:
+
+- **`ariaLabel`** — a `[attr.aria-label]` host binding OVERRIDES a static
+  `aria-label` on the call site, silently replacing Library's "Edit book" with
+  nothing. Since the host is the button, native `aria-label` already passes through;
+  the input only added a way to lose the label.
+- **`active`** — every surface styles selection with its own `.icon-btn.active`, and
+  a plain `[class.active]="tocOpen()"` works untouched. A second way to express one
+  state is guaranteed to drift.
+- **`aria-pressed`** — tri-state with a default of `null` (attribute absent). Most
+  icon buttons are actions, not toggles; emitting `aria-pressed="false"` would
+  misreport them.
+
+Kept in the surfaces: `data-tip` + the themed tooltip, the `.delete` danger hover,
+and every ancestor-scoped rule.
+
+**THE ENCAPSULATION BOUNDARY, MEASURED.** Angular puts one `_ngcontent` attribute per
+compound. The component host keeps the PARENT's scope attribute (so `.icon-btn` and
+`.reader-toolbar .icon-btn` still apply), but the glyph inside carries the CHILD's.
+Verified live: host `_ngcontent-ng-c1225754224`, glyph `_ngcontent-ng-c599134121`.
+So `.icon-btn lucide-icon { border-radius: ... }` silently STOPS MATCHING at a
+component boundary. Reader's glyph radius and its mobile `top: 0` override now cross
+explicitly with `:host ::ng-deep`, the convention this repo already uses for
+`second-brain -> note-card`.
+
+**And a bare attribute is not a class.** `<button appIconButton zen-toggle>` is valid
+HTML and reads fine, but `.zen-toggle` never matches it — this silently broke studio's
+zen toggle and the reader's `desktop-only` buttons during the migration. Now guarded
+by RULE 8.
+
+*(A latent bug found on the way and NOT fixed, because fixing it is a visual change:*
+studio passes `strokeWidth="1.5"`, but the app actually paints `stroke-width: 1`. The
+migration preserves the painted value with `[strokeWidth]="1"`.
+
+Confirmed at the source rather than inferred: `lucide-angular`'s `parseNumber` does
+`parseInt(value, 10)`, so a static `strokeWidth="1.5"` is truncated to `1` before it is
+written to the SVG. A plain `<svg stroke-width="1.5">` honours 1.5 verbatim (verified in
+a browser), so the truncation is lucide's, not the browser's. Honouring the written 1.5
+would thicken six studio icons — worth doing, but as a deliberate visual change with the
+pixel gate regenerated, not inside a refactor.)*
+
 ### What WAS unified: `.visually-hidden`
 It was declared twice, byte-identically (`second-brain` and `concept-map`). A
 utility with no per-surface variation should not be duplicated: the copies give
@@ -465,13 +604,15 @@ body; check that a renamed section still has its paragraph.)*
 ## 5. Running the harnesses
 
 ```bash
-npm run check                     # parse + token graph (incl. .ts theme modules) + 6 drift rules
-                                  #   (7th, possible-unwinnable-dark-override, is ADVISORY)
+npm run check                     # parse + token graph (incl. .ts theme modules) + 7 drift rules
+                                  #   (the 8th, possible-unwinnable-dark-override, is ADVISORY)
 npm run check:design -- --self-test   # proves each drift rule can actually fire
 npm run check:freshness           # proves the freshness check fails in both directions
 npm run capture:baseline -- --port 5214 --out /tmp/after
 npm run check:pixels -- /tmp/after    # the real acceptance test
 npm run probe:selection           # rest/hover/focus of a selected row, both themes
+npm run probe:iconbutton -- --port 5214 --out /tmp/before   # icon-button contract
+npm run probe:iconbutton -- --diff /tmp/before/iconbutton.json /tmp/after/iconbutton.json
 ```
 
 The capture set is **24 PNGs across 6 surfaces**: library, brain, studio, settings,
@@ -483,6 +624,42 @@ A CSS refactor compiles perfectly while changing every surface, so **the build
 passing is not evidence**. The acceptance test is the pixel gate. Byte-identical
 output is the expected result for a value-preserving refactor; when a change is
 *intended* to move pixels, regenerate the baseline and say so in the commit.
+
+### The icon-button probe, and why a screenshot is not enough
+
+`check:pixels` captures STATIC frames. It cannot see `:hover`, `:focus` or
+`disabled` — the blind spot that once let 25 transition sites ship snapping instead
+of animating while all 24 captures still matched. Classic CSS has no hover state in a
+static PNG, and state is exactly what a shared component is most likely to break.
+
+`scripts/probe-iconbutton.mjs` dumps **computed style** (27 fields including
+`transition-property`/`transition-duration`, size, radius, outline, glyph geometry)
+at rest/hover/focus, per surface and theme, then `--diff`s two runs. It is the
+acceptance test for a control migration; PNGs cannot be.
+
+Four instrument bugs found by using it, each of which made it lie:
+
+- **A fixed settle wait sampled mid-transition.** At 60ms against a 200ms transition
+  the same CSS produced different numbers, and the "regression" was the instrument.
+  Now: a minimum wait past the transition, then poll until two reads agree.
+- **Two equal reads before a transition STARTS look settled.** The probe recorded
+  REST values under a `hover` label, so a phantom diff appeared. `stateApplied` is now
+  recorded and compared.
+- **Only ~13 of 30 call sites render at rest.** The rest sit inside `@if` branches, so
+  each surface runs real interactions (open the TOC/notes panels, switch Library to
+  list view, open the modal, enter zen, open the note editor). Without that, most call
+  sites would be silently unverified.
+- **Sampling keyed on the class string missed whole variants.** Studio's 8 buttons all
+  carry `icon-btn` and differ by glyph size and stroke weight, so a per-class cap
+  sampled 3 and left 5 migrated-but-unverified. Sampling now keys on the painted
+  variant: 80 buttons, 12 variants.
+
+It also checks its OWN coverage and exits non-zero unless it captured at least two
+distinct variants, hover AND focus, the 24px rung, and the note-card edit-mode
+buttons. A probe that silently samples nothing is worse than no probe.
+
+**Its noise floor is measured, not assumed**: two consecutive runs of the same code
+are byte-identical (0 differences). Verify that before trusting any diff.
 
 Order matters for `check:pixels`: run `capture:baseline` **and** a fresh capture of
 the same build before trusting a failure, because a baseline written while the page

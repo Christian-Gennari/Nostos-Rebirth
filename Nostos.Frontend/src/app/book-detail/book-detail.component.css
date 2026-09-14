@@ -313,9 +313,6 @@
   padding-bottom: 8.5rem;
 }
 
-.back-nav {
-  margin-bottom: 2rem;
-}
 .btn-back {
   background: 0 0;
   border: none;
@@ -381,11 +378,6 @@
 }
 .details-card .meta-strip-value {
   white-space: normal;
-}
-.detail-cover-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 }
 .cover-frame {
   position: relative;
@@ -565,11 +557,6 @@
   .cover-overlay-btn span {
     display: none;
   }
-}
-.vertical-divider {
-  width: 1px;
-  height: 12px;
-  background-color: var(--border-color);
 }
 /* Title block moves onto the hero band: large, white, and the focal point —
    the "blog post header" moment where art and title carry the top of the page. */
@@ -1190,14 +1177,6 @@
   padding: 1rem 0;
   font-size: 0.9rem;
   color: var(--color-text-light);
-}
-.note-row {
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--bg-hover);
-  position: relative;
-}
-.note-row:first-child {
-  padding-top: 0;
 }
 .edit-box {
   position: relative;

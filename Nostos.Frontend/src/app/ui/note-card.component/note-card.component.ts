@@ -18,6 +18,7 @@ import {
 import { Note, UpdateNoteDto } from '../../core/dtos/note.dtos';
 import { ConceptDto } from '../../core/services/concepts.service';
 import { ConceptInputComponent } from '../concept-input.component/concept-input.component';
+import { IconButtonComponent } from '../icon-button/icon-button.component';
 import { NoteFormatPipe } from '../pipes/note-format.pipe';
 
 @Component({
@@ -27,6 +28,7 @@ import { NoteFormatPipe } from '../pipes/note-format.pipe';
     CommonModule,
     FormsModule,
     LucideAngularModule,
+    IconButtonComponent,
     ConceptInputComponent,
     NoteFormatPipe,
     RouterLink,

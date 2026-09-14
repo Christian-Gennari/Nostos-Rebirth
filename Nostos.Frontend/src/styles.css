@@ -896,6 +896,61 @@
    #323A48 is the same raised tone the dock uses, so "raised on dark" is one value
    app-wide. The component rule (`.toggle-opt.active`) reads both tokens. */
 
+/* ------------------------------
+   THE VIEW TOGGLE (segmented control)
+------------------------------
+   ONE recipe, declared once. Library and Brain each carried a byte-identical copy
+   of these four rules (only the comments differed), which is exactly the kind of
+   drift a design language exists to prevent: the focus ring was added to one copy
+   and not the other, so the same control behaved differently for keyboard users
+   depending on which page they were on.
+
+   The MARKUP stays duplicated on purpose — do not "finish" this by extracting a
+   component. The four surfaces that share this visual recipe have four DIFFERENT
+   interaction contracts: Studio is role="tablist"/role="tab"/aria-selected,
+   Settings is role="radiogroup"/role="radio"/aria-checked with `.is-active`,
+   Brain is role="group" with aria-pressed, and Library is a bare 2-button group
+   with no ARIA state at all. A shared component would have to either keep those
+   differences behind inputs (a leaky abstraction) or silently change one call
+   site's rendered DOM. Extraction also saves ZERO CSS now that this recipe is
+   shared, and about 15 lines of markup across two templates.
+
+   Deliberately NOT here: the mobile overrides, which genuinely differ — Library
+   sets a 32px box and Brain a 44px touch target. Those stay in their components. */
+
+.toggle-opt {
+  background: 0 0;
+  border: none;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-light);
+  display: flex;
+}
+
+.toggle-opt:hover {
+  color: var(--color-text-main);
+}
+
+.toggle-opt.active {
+  /* `--control-active-*`: on dark `--bg-surface` is DARKER than the track the
+     option sits in, so the elevation would invert and the selected option would
+     sink — the dark token is the same raised tone the dock uses. */
+  background: var(--control-active-fill);
+  color: var(--control-active-ink);
+  /* Was a hardcoded clay ring (rgba(138,109,88,.22)) — a literal, so it was
+     theme-blind and stayed warm brown on dark. Now an outline in the border
+     colour, which tracks the theme. */
+  box-shadow: var(--shadow-sm);
+  outline: 1px solid var(--border-color);
+  outline-offset: -1px;
+}
+
+.toggle-opt:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
 /* Cover-art action discs — token-ised as `--action-circle-ink`. On dark,
    --color-primary is the dim GREEN ink, so the middle (edit/delete) discs read
    green while the corner (read/favourite) discs read slate — one card showing two

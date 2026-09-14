@@ -9,11 +9,12 @@ import { ToastService } from '../core/services/toast.service';
 import { Collection } from '../core/dtos/collection.dtos';
 import { BookType } from '../core/dtos/book.dtos';
 import { buildFlatTree } from '../ui/flat-tree/flat-tree.helper';
+import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
 
 @Component({
   selector: 'app-add-book-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule],
+  imports: [CommonModule, FormsModule, LucideAngularModule, IconButtonComponent],
   templateUrl: './add-book-modal.component.html',
   styleUrl: './add-book-modal.component.css',
 })

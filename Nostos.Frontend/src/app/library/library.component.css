@@ -307,41 +307,11 @@ app-sidebar-collections.no-transition {
   gap: 2px;
 }
 
-.toggle-opt {
-  background: 0 0;
-  border: none;
-  padding: 4px 6px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  color: var(--color-text-light);
-  display: flex;
-}
-
-.toggle-opt:hover {
-  color: var(--color-text-main);
-}
-
-.toggle-opt.active {
-  /* `--control-active-*`: on dark `--bg-surface` is DARKER than the track the
-     option sits in, so the elevation would invert and the selected option would
-     sink — the dark token is the same raised tone the dock uses. */
-  background: var(--control-active-fill);
-  color: var(--control-active-ink);
-  /* Was a hardcoded clay ring (rgba(138,109,88,.22)) — a literal, so it was
-     theme-blind and stayed warm brown on dark. Now an outline in the border
-     colour, which tracks the theme. */
-  box-shadow: var(--shadow-sm);
-  outline: 1px solid var(--border-color);
-  outline-offset: -1px;
-}
-
-/* Focus ring. Brain's copy of this control had one and the Library's did not, even
-   though the two are otherwise byte-identical — so the same control behaved
-   differently for keyboard users depending on which page they were on. */
-.toggle-opt:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: -2px;
-}
+/* The view toggle's base recipe is in styles.css — ONE copy shared with Brain.
+   Removed from here: a `.toggle-opt` rule in a component stylesheet is scoped by
+   Angular to this component, so it could only ever be a second copy to keep in
+   sync. The mobile override below stays: Library sets a 32px box where Brain uses
+   a 44px touch target, a real difference. */
 
 /* --- LIST VIEW --- */
 .table-view {
@@ -416,9 +386,10 @@ app-sidebar-collections.no-transition {
      tip below, not the absolutely positioned cluster, so the tip tracks the
      button it belongs to. */
   position: relative;
-  /* `--control-h-xs` is 28px — the measured value this rule already painted. */
-  width: var(--control-h-xs);
-  height: var(--control-h-xs);
+  /* Size moved to appIconButton (`size="xs"`), which owns the rungs. Leaving it
+     here would tie with the component's `:host(.icon-btn--xs)` rule at (0,2,0)
+     and let stylesheet order decide the painted size. Radius stays: it is 4px
+     here versus the global 3px, a deliberate per-surface choice. */
   border-radius: 4px;
   display: inline-flex;
   align-items: center;
@@ -1174,6 +1145,17 @@ app-sidebar-collections.no-transition {
   /* On mobile, the active bottom dock already identifies the Library section.
      Clip the heading out of visual rendering while preserving an accessible,
      measurable box for screen readers and stability assertions. */
+  /* design-lang-allow: this reproduces the `.visually-hidden` recipe on purpose,
+     and it is the only such copy. The element carries a STATIC class and the clip
+     must apply only below this breakpoint; plain CSS cannot reference another
+     selector's declarations (`@extend` and mixins do not exist here). The
+     alternatives are worse: toggling the class from TypeScript by media query trades
+     a CSS constant for a JS breakpoint listener, and adding the utility class
+     unconditionally would hide the heading on desktop too.
+
+     This previously escaped the guard because that guard matched the selector NAME
+     rather than the recipe. The guard now compares bodies, so this is an explicit,
+     permitted exception rather than an unnoticed one. */
   .library-title {
     position: absolute;
     width: 1px;
