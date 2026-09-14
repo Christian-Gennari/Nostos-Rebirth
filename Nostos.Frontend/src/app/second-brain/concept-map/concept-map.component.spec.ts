@@ -5,30 +5,60 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 // Mock Sigma and graphology before importing the component.
 // Sigma requires WebGL2 which is not available in jsdom/Node.
 vi.mock('sigma', () => {
+  // A single shared camera instance so tests can assert on what the component
+  // animated the camera to. A fresh object per getCamera() call would make
+  // every assertion vacuous.
+  const camera = {
+    x: 0.5,
+    y: 0.5,
+    angle: 0,
+    ratio: 1,
+    animatedReset: vi.fn(),
+    animatedZoom: vi.fn(),
+    animatedUnzoom: vi.fn(),
+    animate: vi.fn(),
+    setState: vi.fn(),
+    getState: vi.fn(() => ({ x: camera.x, y: camera.y, angle: 0, ratio: camera.ratio })),
+    disable: vi.fn(),
+    enable: vi.fn(),
+  };
+
+  // Record the settings Sigma was constructed with, so tests can assert on the
+  // configuration the component actually ships rather than re-declaring it.
+  const lastSettings: Record<string, unknown> = {};
+
   class MockSigma {
-    constructor() {}
+    settings: Record<string, unknown>;
+    constructor(_graph: unknown, _container: unknown, settings: Record<string, unknown> = {}) {
+      Object.assign(lastSettings, settings);
+      this.settings = lastSettings;
+    }
     on() { return this; }
-    setSetting() {}
+    setSetting(key: string, value: unknown) {
+      lastSettings[key] = value;
+      return this;
+    }
     refresh() {}
     kill() {}
     getCamera() {
-      return {
-        animatedReset: vi.fn(),
-        animatedZoom: vi.fn(),
-        animatedUnzoom: vi.fn(),
-        animate: vi.fn(),
-        disable: vi.fn(),
-        enable: vi.fn(),
-      };
+      return camera;
     }
     getMouseCaptor() {
       return { on: vi.fn().mockReturnThis() };
+    }
+    getDimensions() {
+      return { width: 800, height: 600 };
     }
     viewportToGraph(coords: { x: number; y: number }) {
       return coords;
     }
   }
-  return { default: MockSigma };
+  // Publish handles on globalThis so the specs can assert on the camera and the
+  // settings the component actually shipped, without importing the mock.
+  (globalThis as unknown as { __camera: unknown }).__camera = camera;
+  (globalThis as unknown as { __settings: unknown }).__settings = lastSettings;
+
+  return { default: MockSigma, __camera: camera, __settings: lastSettings };
 });
 
 vi.mock('graphology', () => {
@@ -304,7 +334,6 @@ describe('ConceptMapComponent', () => {
 
   it('makes only a single /api/concepts/graph request, not N+1 related requests', () => {
     setConcepts(concepts);
-
     // Expect exactly one graph request, not per-concept related requests.
     const graphReqs = http.match('/api/concepts/graph');
     expect(graphReqs).toHaveLength(1);
@@ -314,5 +343,109 @@ describe('ConceptMapComponent', () => {
     const relatedReqs = http.match((req) => req.url.includes('/related'));
     expect(relatedReqs).toHaveLength(0);
     fixture.detectChanges();
+  });
+
+  /* ── Regression guards for the reported graph bugs ──
+   *
+   * Each of these fails against the behaviour that shipped, so they pin the
+   * fixes rather than merely describing them.
+   */
+
+  describe('graph readability', () => {
+    it('renders edges at an alpha that is actually visible', () => {
+      setConcepts(concepts);
+      flushGraph();
+
+      const graph = (globalThis as { __nostosGraph?: { forEachEdge: Function } }).__nostosGraph!;
+      const colors: string[] = [];
+      graph.forEachEdge((_e: string, attrs: { color: string }) => colors.push(attrs.color));
+
+      expect(colors.length).toBeGreaterThan(0);
+      for (const color of colors) {
+        const alpha = Number(color.match(/,\s*([\d.]+)\)$/)?.[1] ?? '0');
+        // 0.44-0.54 measured 1.05:1 against the field, i.e. invisible.
+        expect(alpha, `edge ${color} must be clearly visible`).toBeGreaterThanOrEqual(0.6);
+      }
+    });
+
+    it('shows labels for the smallest drawn nodes too', () => {
+      setConcepts(concepts);
+      flushGraph();
+
+      // The smallest node size must clear the label threshold, or the majority
+      // of concepts are permanently unlabelled (15 of 53 in production).
+      const settings = (globalThis as { __settings?: Record<string, unknown> }).__settings!;
+      expect(settings['labelRenderedSizeThreshold']).toBeLessThanOrEqual(4);
+    });
+
+    it('does not let autoRescale move nodes the user did not drag', () => {
+      setConcepts(concepts);
+      flushGraph();
+
+      const settings = (globalThis as { __settings?: Record<string, unknown> }).__settings!;
+      // autoRescale remaps the whole extent on every change, so dragging one
+      // node shrinks all the others (measured 57% -> 6.4% of stage width).
+      expect(settings['autoRescale']).toBe(false);
+      expect(settings['autoCenter']).toBe(false);
+    });
+  });
+
+  describe('camera controls', () => {
+    it('fits the graph by computing a framing ratio, not by resetting', () => {
+      setConcepts(concepts);
+      flushGraph();
+
+      const camera = (globalThis as { __camera?: { animate: ReturnType<typeof vi.fn>; animatedReset: ReturnType<typeof vi.fn> } })
+        .__camera!;
+      camera.animate.mockClear();
+
+      component.fitGraph();
+
+      expect(camera.animate).toHaveBeenCalled();
+      const state = camera.animate.mock.calls.at(-1)![0];
+      expect(state.ratio).toBeGreaterThan(0);
+      // A fit centres the graph; framed coordinates are 0..1.
+      expect(state.x).toBeCloseTo(0.5, 5);
+      expect(state.y).toBeCloseTo(0.5, 5);
+    });
+
+    it('centres the selected node in framed coordinates', () => {
+      setConcepts(concepts);
+      flushGraph();
+      component.selectAccessibleNode('alpha');
+
+      const camera = (globalThis as { __camera?: { animate: ReturnType<typeof vi.fn> } }).__camera!;
+      camera.animate.mockClear();
+
+      component.centerSelected();
+
+      expect(camera.animate).toHaveBeenCalled();
+      const state = camera.animate.mock.calls.at(-1)![0];
+      // The old code passed raw graph coordinates here, which threw all 53 of
+      // 53 nodes off screen. Framed coordinates are 0..1.
+      expect(state.x).toBeGreaterThanOrEqual(0);
+      expect(state.x).toBeLessThanOrEqual(1);
+      expect(state.y).toBeGreaterThanOrEqual(0);
+      expect(state.y).toBeLessThanOrEqual(1);
+      expect(state.ratio).toBeGreaterThan(0);
+    });
+
+    it('restores the settled layout on reset, not just the camera', () => {
+      setConcepts(concepts);
+      flushGraph();
+
+      const graph = (globalThis as {
+        __nostosGraph?: { setNodeAttribute: (n: string, a: string, v: unknown) => void; getNodeAttributes: (n: string) => Record<string, unknown> };
+      }).__nostosGraph!;
+
+      // Simulate the user having dragged a node far away.
+      const original = graph.getNodeAttributes('alpha');
+      graph.setNodeAttribute('alpha', 'x', 9999);
+      expect(graph.getNodeAttributes('alpha')['x']).toBe(9999);
+
+      component.resetView();
+
+      expect(graph.getNodeAttributes('alpha')['x']).toBe(original['x']);
+    });
   });
 });

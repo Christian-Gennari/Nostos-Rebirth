@@ -825,37 +825,73 @@ export async function checkBrainMapGeometry(page: Page): Promise<GeometryCheck> 
     undefined,
     { timeout: 30_000 }
   );
-  await map.locator('.map-node').first().waitFor({ timeout: 30_000 });
+  await map.locator('.sigma-container canvas').first().waitFor({ timeout: 30_000 });
+  await page.waitForTimeout(600);
 
+  // Node geometry comes from the live Sigma renderer: the map is a WebGL canvas,
+  // so there are no per-node DOM elements to measure (the earlier SVG-based
+  // version of this check read `circle.map-node-visual`, which no longer exists).
   const measured = await page.evaluate(() => {
     const badgeText = document.querySelector('.badge-count')?.textContent?.trim() ?? '';
     const conceptCount = Number.parseInt(badgeText, 10);
-    const radii = Array.from(document.querySelectorAll<SVGCircleElement>('.map-node-visual')).map((circle) =>
-      Number(circle.getAttribute('r'))
-    );
+
+    const globals = globalThis as unknown as {
+      __nostosSigma?: {
+        getDimensions(): { width: number; height: number };
+        graphToViewport(p: { x: number; y: number }): { x: number; y: number };
+      };
+      __nostosGraph?: { order: number; forEachNode(cb: (id: string, attrs: { x: number; y: number; size: number }) => void): void };
+    };
+    const sigma = globals.__nostosSigma;
+    const graph = globals.__nostosGraph;
+
+    const sizes: number[] = [];
+    const margins: number[] = [];
+    if (sigma && graph) {
+      const d = sigma.getDimensions();
+      const xs: number[] = [];
+      const ys: number[] = [];
+      graph.forEachNode((_id, attrs) => {
+        sizes.push(attrs.size);
+        const p = sigma.graphToViewport({ x: attrs.x, y: attrs.y });
+        xs.push(p.x);
+        ys.push(p.y);
+      });
+      if (xs.length) {
+        margins.push(
+          Math.min(...xs),
+          d.width - Math.max(...xs),
+          Math.min(...ys),
+          d.height - Math.max(...ys)
+        );
+      }
+    }
+
     return {
       conceptCount,
-      nodeCount: document.querySelectorAll('.map-node').length,
+      nodeCount: graph ? graph.order : 0,
       accessibleConceptCount: document.querySelectorAll('.map-accessible-list li').length,
-      radii,
+      sizes,
+      onScreen: margins.every((v) => v >= -1),
     };
   });
-  const radiiInBounds = measured.radii.every(
-    (radius) => Number.isFinite(radius) && radius >= BRAIN_MAP_NODE_RADIUS.min && radius <= BRAIN_MAP_NODE_RADIUS.max
+
+  const sizesInBounds = measured.sizes.every(
+    (size) => Number.isFinite(size) && size >= BRAIN_MAP_NODE_RADIUS.min && size <= BRAIN_MAP_NODE_RADIUS.max
   );
   const countMatches =
     Number.isFinite(measured.conceptCount) &&
     measured.nodeCount === measured.conceptCount &&
     measured.accessibleConceptCount === measured.conceptCount;
-  const ok = countMatches && measured.radii.length === measured.nodeCount && radiiInBounds;
+  const ok = countMatches && sizesInBounds && measured.onScreen;
   const message = ok
-    ? `map renders ${measured.nodeCount} node(s), matching the ${measured.conceptCount}-concept index; radii stay within ${BRAIN_MAP_NODE_RADIUS.min}–${BRAIN_MAP_NODE_RADIUS.max}px`
+    ? `map renders ${measured.nodeCount} node(s), matching the ${measured.conceptCount}-concept index; sizes stay within ${BRAIN_MAP_NODE_RADIUS.min}–${BRAIN_MAP_NODE_RADIUS.max}px and all nodes are on screen`
     : `map geometry mismatch: ${measured.nodeCount} node(s), ${measured.conceptCount} concept(s), ` +
-      `${measured.accessibleConceptCount} accessible node(s), radii [${measured.radii.join(', ')}]`;
+      `${measured.accessibleConceptCount} accessible node(s), sizes [${measured.sizes.map((s) => s.toFixed(1)).join(', ')}], onScreen=${measured.onScreen}`;
 
   return ok
-    ? passCheck('brain-map-geometry', message, { ...measured, radiusBounds: BRAIN_MAP_NODE_RADIUS })
-    : failCheck('brain-map-geometry', message, { ...measured, radiusBounds: BRAIN_MAP_NODE_RADIUS });
+    ? passCheck('brain-map-geometry', message, { ...measured, sizeBounds: BRAIN_MAP_NODE_RADIUS })
+    : failCheck('brain-map-geometry', message, { ...measured, sizeBounds: BRAIN_MAP_NODE_RADIUS });
 }
 
 // ---------------------------------------------------------------------------

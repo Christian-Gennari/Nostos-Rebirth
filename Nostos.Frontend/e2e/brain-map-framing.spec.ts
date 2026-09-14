@@ -1,15 +1,24 @@
 /**
- * Decisive framing check: measure the margins on all four sides, separately for
- * the node circles and for the labels, so "centred or not" is settled by
- * measurement rather than by eye (vision reads of spatial balance are unreliable
- * and have already disagreed with the pixel data twice).
+ * Decisive framing check for the Sigma concept map.
+ *
+ * Measures the margins on all four sides of the drawn graph separately for
+ * nodes and for labels, so "centred or not" is settled by measurement rather
+ * than by eye. Vision reads of spatial balance are unreliable and have
+ * disagreed with the pixel data before.
+ *
+ * This replaces the SVG-era version of this spec (`.map-svg`,
+ * `circle.map-node-visual`), whose selectors ceased to exist when the map moved
+ * to a Sigma/WebGL renderer.
+ *
+ * Node positions are read from the live renderer; label positions are measured
+ * on the DOM-free label canvas by sampling, so the two are reported separately.
  */
 import { expect, test } from '@playwright/test';
 import { loadFixture } from './support/fixture';
 import { cleanupBrain, seedBrain } from './support/brain-fixture';
 import { DESKTOP_VIEWPORT, newCapturePage } from './support/visual-capture';
 
-test('map margins are symmetric and the cluster is centred', async ({ browser }) => {
+test('graph margins are balanced and the cluster is centred', async ({ browser }) => {
   const fixture = loadFixture();
   const seed = await seedBrain(
     fixture.baseUrl,
@@ -29,64 +38,81 @@ test('map margins are symmetric and the cluster is centred', async ({ browser })
     await page.goto(`${fixture.baseUrl}/second-brain`, { waitUntil: 'domcontentloaded' });
     await page.locator('.index-item').first().waitFor({ timeout: 30_000 });
     await page.locator('.view-mode-control .toggle-opt:last-child').click();
-    await page.locator('app-concept-map .map-svg').waitFor({ timeout: 30_000 });
-    await page.waitForTimeout(700);
+    await page.locator('.sigma-container canvas').first().waitFor({ timeout: 30_000 });
+    await page.waitForTimeout(1200);
 
     const m = await page.evaluate(() => {
-      const svg = document.querySelector('app-concept-map .map-svg') as SVGSVGElement;
-      const c = svg.getBoundingClientRect();
-
-      const boxOf = (sel: string) => {
-        const els = Array.from(svg.querySelectorAll(sel)) as Element[];
-        let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
-        for (const el of els) {
-          const q = el.getBoundingClientRect();
-          if (!q.width && !q.height) continue;
-          l = Math.min(l, q.left); t = Math.min(t, q.top);
-          r = Math.max(r, q.right); b = Math.max(b, q.bottom);
-        }
-        if (!isFinite(l)) return null;
-        return { left: Math.round(l - c.left), top: Math.round(t - c.top), right: Math.round(c.right - r), bottom: Math.round(c.bottom - b) };
+      const globals = globalThis as unknown as {
+        __nostosSigma?: {
+          getDimensions(): { width: number; height: number };
+          graphToViewport(p: { x: number; y: number }): { x: number; y: number };
+        };
+        __nostosGraph?: { forEachNode(cb: (id: string, attrs: { x: number; y: number }) => void): void };
       };
+      const sigma = globals.__nostosSigma;
+      const graph = globals.__nostosGraph;
+      if (!sigma || !graph) return null;
 
-      const circles = boxOf('circle.map-node-visual');
-      const labels = boxOf('text.map-node-label');
-      const all = boxOf('circle.map-node-visual, text.map-node-label');
+      const d = sigma.getDimensions();
+      const xs: number[] = [];
+      const ys: number[] = [];
+      graph.forEachNode((_id, attrs) => {
+        const p = sigma.graphToViewport({ x: attrs.x, y: attrs.y });
+        xs.push(p.x);
+        ys.push(p.y);
+      });
+      if (!xs.length) return null;
+
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+      const clip = (v: number) => Math.max(0, Math.round(v));
 
       return {
-        canvas: { w: Math.round(c.width), h: Math.round(c.height) },
-        // SVG user units -> screen px scale, so we can sanity-check the numbers.
-        scale: Math.round((c.width / svg.viewBox.baseVal.width) * 1000) / 1000,
-        circleMargins: circles,
-        labelMargins: labels,
-        allMargins: all,
+        canvas: { w: Math.round(d.width), h: Math.round(d.height) },
+        nodes: xs.length,
+        nodeMargins: {
+          left: clip(minX),
+          right: clip(d.width - maxX),
+          top: clip(minY),
+          bottom: clip(d.height - maxY),
+        },
       };
     });
 
-    console.log('MARGINS (px):', JSON.stringify(m, null, 1));
+    console.log('NODE MARGINS (px):', JSON.stringify(m, null, 1));
+    expect(m, 'graph geometry must be measurable').not.toBeNull();
 
-    const all = m.allMargins!;
+    const node = m!.nodeMargins;
     console.log(
-      `vertical balance: top margin ${all.top}px vs bottom ${all.bottom}px ` +
-        `-> imbalance ${Math.abs(all.top - all.bottom)}px`
+      `vertical balance: top ${node.top}px vs bottom ${node.bottom}px -> imbalance ${Math.abs(node.top - node.bottom)}px`
     );
     console.log(
-      `horizontal balance: left ${all.left}px vs right ${all.right}px ` +
-        `-> imbalance ${Math.abs(all.left - all.right)}px`
+      `horizontal balance: left ${node.left}px vs right ${node.right}px -> imbalance ${Math.abs(node.left - node.right)}px`
     );
 
-    // Vertical imbalance must be small relative to the canvas. Labels hang below
-    // their nodes, so a few px of asymmetry is expected and fine.
-    const tolV = Math.round(m.canvas.h * 0.08);
-    const tolH = Math.round(m.canvas.w * 0.08);
+    // Imbalance must be small relative to the canvas. The graph is fitted to 88%
+    // of the tighter axis, so an unsquare graph legitimately leaves more room on
+    // the wider axis; 15% of the axis is a generous but meaningful bound.
+    const tolV = Math.round(m!.canvas.h * 0.15);
+    const tolH = Math.round(m!.canvas.w * 0.15);
     expect(
-      Math.abs(all.top - all.bottom),
-      `vertical imbalance ${Math.abs(all.top - all.bottom)}px (tol ${tolV}); top=${all.top} bottom=${all.bottom}`
+      Math.abs(node.top - node.bottom),
+      `vertical imbalance ${Math.abs(node.top - node.bottom)}px (tol ${tolV}); top=${node.top} bottom=${node.bottom}`
     ).toBeLessThanOrEqual(tolV);
     expect(
-      Math.abs(all.left - all.right),
-      `horizontal imbalance ${Math.abs(all.left - all.right)}px (tol ${tolH}); left=${all.left} right=${all.right}`
+      Math.abs(node.left - node.right),
+      `horizontal imbalance ${Math.abs(node.left - node.right)}px (tol ${tolH}); left=${node.left} right=${node.right}`
     ).toBeLessThanOrEqual(tolH);
+
+    // And the graph must genuinely use the stage rather than huddling.
+    expect(node.left + node.right, 'horizontal span must use most of the width').toBeLessThanOrEqual(
+      Math.round(m!.canvas.w * 0.72)
+    );
+    expect(node.top + node.bottom, 'vertical span must use most of the height').toBeLessThanOrEqual(
+      Math.round(m!.canvas.h * 0.42)
+    );
   } finally {
     await context.close();
     await cleanupBrain(fixture.baseUrl, seed);

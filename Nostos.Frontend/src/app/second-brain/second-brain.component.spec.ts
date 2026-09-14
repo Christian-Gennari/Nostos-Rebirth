@@ -13,15 +13,25 @@ vi.mock('sigma', () => {
     kill() {}
     getCamera() {
       return {
+        x: 0.5,
+        y: 0.5,
+        angle: 0,
+        ratio: 1,
         animatedReset: vi.fn(),
         animatedZoom: vi.fn(),
         animatedUnzoom: vi.fn(),
+        animate: vi.fn(),
+        setState: vi.fn(),
+        getState: vi.fn(() => ({ x: 0.5, y: 0.5, angle: 0, ratio: 1 })),
         disable: vi.fn(),
         enable: vi.fn(),
       };
     }
     getMouseCaptor() {
       return { on: vi.fn().mockReturnThis() };
+    }
+    getDimensions() {
+      return { width: 800, height: 600 };
     }
     viewportToGraph(coords: { x: number; y: number }) {
       return coords;
