@@ -275,4 +275,39 @@ describe('ReaderShell toolbar contract (theme system removed)', () => {
     expect(center).not.toBeNull();
     expect(center.query(By.css('.progress-display'))).not.toBeNull();
   });
+
+  /**
+   * These classes are CSS HOOKS, not decoration: `.overflow-toggle` is `display: none`
+   * on desktop and `display: inline-flex` at mobile widths (it is the only way to reach
+   * the desktop nav on a phone), and `.desktop-only` is hidden at mobile widths. The
+   * buttons were migrated to `appIconButton`, which adds its own `icon-btn--<rung>`
+   * class to the host, so a mistake here would silently break the responsive swap —
+   * the kind of thing a desktop-only screenshot cannot see.
+   *
+   * A bare `overflow-toggle` ATTRIBUTE instead of `class="overflow-toggle"` is exactly
+   * the bug this guards: it is valid HTML, compiles, and matches nothing.
+   */
+  it('keeps the CSS hook classes on the migrated toolbar buttons', async () => {
+    // A NON-audio book: the overflow toggle and the desktop-only zoom pair live in the
+    // `@else` branch, so an audiobook fixture renders none of them and the assertions
+    // below would pass vacuously against an empty list.
+    const epubBook = { ...audiobook, id: 'book-epub', fileName: 'iliad.epub' } as Book;
+    booksGetSpy.mockReturnValue(of(epubBook));
+
+    fixture = await configureReaderShell();
+    render();
+
+    const overflow = fixture.debugElement.queryAll(By.css('button.overflow-toggle'));
+    expect(overflow.length).toBe(1);
+
+    const desktopOnly = fixture.debugElement.queryAll(By.css('button.desktop-only'));
+    expect(desktopOnly.length).toBe(2); // zoom out + zoom in
+
+    // And every one of them is still a real button carrying the shared class.
+    for (const b of [...overflow, ...desktopOnly]) {
+      const el = b.nativeElement as HTMLButtonElement;
+      expect(el.tagName).toBe('BUTTON');
+      expect(el.classList.contains('icon-btn')).toBe(true);
+    }
+  });
 });
