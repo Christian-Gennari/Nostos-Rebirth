@@ -552,10 +552,15 @@ zen toggle and the reader's `desktop-only` buttons during the migration. Now gua
 by RULE 8.
 
 *(A latent bug found on the way and NOT fixed, because fixing it is a visual change:*
-studio passes `strokeWidth="1.5"`, but lucide coerced the static string and the app
-actually painted `stroke-width: 1`. The migration preserves the painted value with
-`[strokeWidth]="1"`. Honouring the written 1.5 would thicken six icons — worth doing,
-but as a deliberate visual change, not inside a refactor.)*
+studio passes `strokeWidth="1.5"`, but the app actually paints `stroke-width: 1`. The
+migration preserves the painted value with `[strokeWidth]="1"`.
+
+Confirmed at the source rather than inferred: `lucide-angular`'s `parseNumber` does
+`parseInt(value, 10)`, so a static `strokeWidth="1.5"` is truncated to `1` before it is
+written to the SVG. A plain `<svg stroke-width="1.5">` honours 1.5 verbatim (verified in
+a browser), so the truncation is lucide's, not the browser's. Honouring the written 1.5
+would thicken six studio icons — worth doing, but as a deliberate visual change with the
+pixel gate regenerated, not inside a refactor.)*
 
 ### What WAS unified: `.visually-hidden`
 It was declared twice, byte-identically (`second-brain` and `concept-map`). A
