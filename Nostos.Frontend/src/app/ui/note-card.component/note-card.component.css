@@ -75,6 +75,9 @@
   line-height: 1.6;
   margin: 0;
   letter-spacing: 0.004em;
+  /* Long vault quotations arrive as several paragraphs; without this they
+     collapse into one undifferentiated block of italic text. */
+  white-space: pre-line;
 }
 
 /* When a quote is present the commentary is subordinate to it: the eye should
