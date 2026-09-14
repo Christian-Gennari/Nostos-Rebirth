@@ -627,16 +627,40 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
       }, 0);
     });
 
+    // Sigma measures the container when it is constructed, which can be before
+    // the surrounding layout has settled — on a portrait phone the stage is
+    // narrower at build time than it ends up, and the fit computed from that
+    // stale width under-zoomed and left 5 nodes off screen on first open.
+    // Re-fit once the browser has laid the stage out, and whenever it changes
+    // size without the user having navigated away.
+    window.requestAnimationFrame(() => {
+      if (this.destroyed || !this.sigma) return;
+      this.sigma.refresh();
+      this.fitGraph();
+    });
+
     // Resize observer to keep Sigma in sync with container size changes.
     this.resizeObserver?.disconnect();
     if (typeof ResizeObserver !== 'undefined') {
+      let lastWidth = container.clientWidth;
+      let lastHeight = container.clientHeight;
       this.resizeObserver = new ResizeObserver(() => {
-        if (this.sigma && !this.destroyed) {
-          this.sigma.refresh();
+        if (!this.sigma || this.destroyed) return;
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        this.sigma.refresh();
+        // A genuine size change invalidates the framing, so re-fit — but only
+        // when the size actually moved, so a sub-pixel observer tick does not
+        // yank the camera back while the user is exploring.
+        if (Math.abs(w - lastWidth) > 1 || Math.abs(h - lastHeight) > 1) {
+          lastWidth = w;
+          lastHeight = h;
+          this.fitGraph();
         }
       });
       this.resizeObserver.observe(container);
     }
+
     // Frame the graph on first paint.
     this.fitGraph();
   }
@@ -683,25 +707,24 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   }
 
   /**
-   * The camera state that frames the whole graph.
+   * The camera state that frames the whole graph, derived from Sigma's own
+   * coordinate conversion rather than from hand-rolled maths.
    *
-   * Sigma's own coordinate model, with `autoRescale: false`, is the authority
-   * here. From its `process()` and `createNormalizationFunction`:
+   * `sigma.graphToViewport(point, { cameraState })` evaluates the mapping for a
+   * SUPPLIED camera state, so it is an exact oracle: probe the graph extent at
+   * ratio 1, and since the on-screen span scales as 1/ratio, the ratio that just
+   * fits is `max(spanX / (W * occupancy), spanY / (H * occupancy))`.
    *
-   *   - the normalization extents are centred on the graph's centre,
-   *   - both axes are divided by `max(stageWidth, stageHeight)`, not by their
-   *     own axis, and
-   *   - the camera's x/y are FRAMED coordinates in 0..1, i.e. the graph point
-   *     shown at the centre of the stage.
+   * Two earlier attempts got this wrong and both shipped:
+   *   - `min(W * occupancy / spanX, ...)` is the reciprocal of the answer;
+   *   - dividing both axes by `max(W, H)` matches Sigma's normalizer but is not
+   *     the ratio maths, and silently under-fits whenever W < H.
+   * The desktop stage (990x558, W > H) hid both errors behind a coincidence. On
+   * a portrait phone (316x523) the second one shipped a ratio of 0.604 where 1.0
+   * was needed, leaving **5 of 53 nodes off screen on first open**.
    *
-   * So `framed(g) = 0.5 + (g - centre) / max(W, H)`, and the viewport mapping is
-   * `vpx = W/2 + (framed.x - cam.x) * W / ratio` (with y inverted). Inverting
-   * those for "the span occupies `occupancy` of the stage" gives the ratio below.
-   *
-   * The previous implementation called `camera.animatedReset()`, which returns
-   * to the camera's captured initial state. That state is normally already
-   * current, so Fit and Reset did nothing at all — measured: after dragging a
-   * node the graph filled 6.4% of the stage and clicking Fit changed no pixel.
+   * Asking Sigma instead of re-deriving its algebra keeps this correct for any
+   * viewport aspect and any future change to its internals.
    */
   private fitCameraState(occupancy = FIT_OCCUPANCY): { x: number; y: number; ratio: number } | null {
     const extent = this.graphExtent();
@@ -711,29 +734,55 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
     const { width, height } = sigma.getDimensions();
     if (!width || !height) return null;
 
-    const spanX = Math.max(extent.maxX - extent.minX, 1e-6);
-    const spanY = Math.max(extent.maxY - extent.minY, 1e-6);
-    const normalizer = Math.max(width, height);
+    // Probe the extent at ratio 1 through Sigma's own mapping.
+    const probe = { x: 0.5, y: 0.5, angle: 0, ratio: 1 };
+    const cornerA = sigma.graphToViewport({ x: extent.minX, y: extent.minY }, { cameraState: probe });
+    const cornerB = sigma.graphToViewport({ x: extent.maxX, y: extent.maxY }, { cameraState: probe });
+    const spanX = Math.abs(cornerB.x - cornerA.x);
+    const spanY = Math.abs(cornerB.y - cornerA.y);
 
-    // Fit both axes and take whichever is tighter, so nothing spills out.
-    const ratioX = spanX / (normalizer * occupancy);
-    const ratioY = (spanY * width) / (normalizer * height * occupancy);
+    // Prefer the oracle; fall back to the raw extent if a probe degenerates.
+    const effectiveX = spanX > 0 ? spanX : Math.max(extent.maxX - extent.minX, 1e-6);
+    const effectiveY = spanY > 0 ? spanY : Math.max(extent.maxY - extent.minY, 1e-6);
 
-    return { x: 0.5, y: 0.5, ratio: Math.max(ratioX, ratioY) };
+    const ratio = Math.max(
+      effectiveX / (width * occupancy),
+      effectiveY / (height * occupancy),
+      1e-6
+    );
+
+    return { x: 0.5, y: 0.5, ratio };
   }
 
   /**
-   * Convert a point in graph coordinates to the camera's framed coordinates.
+   * Convert a point in graph coordinates to the camera's framed coordinates,
+   * using Sigma's own conversion so the result is exact for any viewport aspect.
+   *
+   * The earlier hand-derived `0.5 + (g - centre) / max(W, H)` matched Sigma's
+   * normalizer but not its viewport mapping, so it only held when W > H. On a
+   * portrait phone the same expression put the target node off centre.
+   *
+   * Method: the point shown at the CENTRE of the stage has camera coordinates
+   * (0.5, 0.5). Placing our target there means asking Sigma what camera state
+   * maps our target to the stage centre — which is exactly
+   * `viewportToFramedGraph` evaluated on the point we want at the centre.
    */
   private graphPointToFramed(x: number, y: number): { x: number; y: number } | null {
-    const extent = this.graphExtent();
     const sigma = this.sigma;
-    if (!extent || !sigma) return null;
+    if (!sigma) return null;
+
     const { width, height } = sigma.getDimensions();
-    const normalizer = Math.max(width, height, 1);
-    const centreX = (extent.minX + extent.maxX) / 2;
-    const centreY = (extent.minY + extent.maxY) / 2;
-    return { x: 0.5 + (x - centreX) / normalizer, y: 0.5 + (y - centreY) / normalizer };
+    if (!width || !height) return null;
+
+    // Where does the target land with the camera centred and unzoomed?
+    const probe = { x: 0.5, y: 0.5, angle: 0, ratio: 1 };
+    const viewportPoint = sigma.graphToViewport({ x, y }, { cameraState: probe });
+
+    // Framed coordinates are the inverse: the camera state that would put this
+    // viewport point at the centre.
+    const framed = sigma.viewportToFramedGraph(viewportPoint, { cameraState: probe });
+    if (!Number.isFinite(framed.x) || !Number.isFinite(framed.y)) return null;
+    return { x: framed.x, y: framed.y };
   }
 
   /** Frame the whole graph. */
