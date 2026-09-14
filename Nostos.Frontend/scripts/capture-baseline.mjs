@@ -241,15 +241,33 @@ const CONTENT_HASH = () => {
 
 /** Counts serve as the non-vacuity guard for the sweep itself. */
 async function geometry(page) {
-  return page.evaluate(() => ({
-    innerWidth: window.innerWidth,
-    innerHeight: window.innerHeight,
-    dpr: window.devicePixelRatio,
-    theme: document.documentElement.getAttribute('data-theme'),
-    bodyClass: document.body.className,
-    scrollHeight: document.documentElement.scrollHeight,
-    elementCount: document.querySelectorAll('*').length,
-  }));
+  return page.evaluate(() => {
+    const all = document.querySelectorAll('*');
+    return {
+      innerWidth: window.innerWidth,
+      innerHeight: window.innerHeight,
+      dpr: window.devicePixelRatio,
+      theme: document.documentElement.getAttribute('data-theme'),
+      bodyClass: document.body.className,
+      scrollHeight: document.documentElement.scrollHeight,
+      elementCount: all.length,
+      /**
+       * A class-based canary, reported ALONGSIDE the raw element count.
+       *
+       * `elementCount` is not stable: the `bloom-art` directive adds `is-bloomed` to a
+       * cover when its image finishes decoding, and the reader/library paths each
+       * render one cover image. That lands asynchronously, so the same build reports
+       * 279 or 280 elements depending on whether the decode beat the measurement —
+       * measured as a 11239-pixel diff in the reader's cover region (x661..778
+       * y171..342) with an IDENTICAL contentHash, i.e. the instrument moved, not the
+       * styling. `elementCount` is kept for the non-vacuity floor below, but a change
+       * in it should be read against `bloomed` before being called a regression: an
+       * elementCount delta with an unchanged `bloomed` count and content hash is a
+       * decode race, not a styling change.
+       */
+      bloomed: document.querySelectorAll('.is-bloomed').length,
+    };
+  });
 }
 
 function walkCss(dir, out = []) {
@@ -338,6 +356,34 @@ async function main() {
               `(pending=${imgState.pending}, broken=${imgState.broken.length}) — ` +
               `a race here makes every downstream comparison meaningless`);
           }
+
+          /* Decoded is not SETTLED. The `bloom-art` directive adds `is-bloomed` to a
+             cover AFTER the image loads, and that lands a frame or two later, so a
+             capture could still catch the pre-bloom paint on a surface with a cover.
+             That is the reader's 11239-pixel diff with an identical contentHash: the
+             element count moved 279 -> 280 while the styling did not. Wait for the
+             bloomed count to stop changing before measuring anything. */
+          await page.evaluate(async () => {
+            const count = () => document.querySelectorAll('.is-bloomed').length;
+            let prev = -1;
+            for (let i = 0; i < 20; i++) {
+              const n = count();
+              if (n === prev) break;
+              prev = n;
+              await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+              await new Promise((r) => setTimeout(r, 60));
+            }
+            /* The class only STARTS the reveal. `.is-bloomed` plays the global
+               `bloom-in` keyframes (blur 12px -> 0, scale 1.03 -> 1, opacity 0 -> 1),
+               so waiting for the class still samples mid-animation and the same build
+               renders differently — measured as a 11239-pixel diff in the reader's
+               cover band with geo, contentHash and sweep all identical. Wait for the
+               animation to actually finish. */
+            const running = document.getAnimations?.() ?? [];
+            await Promise.all(running.map((a) => a.finished.catch(() => {})));
+            // Belt and braces: the keyframe duration outlives a single frame batch.
+            await new Promise((r) => setTimeout(r, 600));
+          });
 
           const applied = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
           const geo = await geometry(page);
