@@ -4,6 +4,7 @@
   }
 
   <div #mapStage class="map-stage" [class.is-fullscreen]="isFullscreen()">
+    @if (isFullscreen()) {
     <div class="map-toolbar" role="group" aria-label="Map navigation">
       <label class="map-search">
         <span class="visually-hidden">Search concepts</span>
@@ -28,6 +29,7 @@
       </ul>
       }
     </div>
+    }
 
     <div class="map-controls" role="group" aria-label="Map controls">
       <button type="button" class="map-zoom" aria-label="Zoom out" title="Zoom out" (click)="zoomOut()">−</button>

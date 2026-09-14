@@ -228,11 +228,15 @@ describe('ConceptMapComponent', () => {
     expect(selected).toHaveBeenCalledWith('alpha');
   });
 
-  it('renders navigation controls for search, fit, centering, focus, and reset', () => {
-    expect(fixture.nativeElement.querySelector('input[type="search"]')).toBeTruthy();
+  it('renders search only in focus mode and keeps graph controls available', () => {
+    expect(fixture.nativeElement.querySelector('input[type="search"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('.map-control-label')).toBeTruthy();
     expect(fixture.nativeElement.textContent).toContain('Focus mode');
     expect(fixture.nativeElement.textContent).toContain('Reset');
+
+    component.isFullscreen.set(true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('input[type="search"]')).toBeTruthy();
   });
 
   it('reflects externally set selectedId', () => {
