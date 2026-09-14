@@ -335,6 +335,17 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
     const graph = new Graph();
     this.graph = graph;
 
+    // Seed initial positions in the STAGE's aspect ratio, not a square.
+    //
+    // ForceAtlas2 keeps the shape it is seeded with, and the internal seeds were
+    // a unit square. Normalizing a square extent into a 990x558 stage can only
+    // fill one axis, so the fitted graph measured 56% wide on a 88% tall stage —
+    // the "large empty margins" that read as poor framing. Seeding along the
+    // stage's aspect lets the settled layout use the width it is given.
+    const stageAspect = (container.clientWidth || 990) / (container.clientHeight || 558);
+    const seedWidth = stageAspect >= 1 ? stageAspect : 1;
+    const seedHeight = stageAspect >= 1 ? 1 : 1 / stageAspect;
+
     const usages = visibleNodes.map((n) => Math.max(0, n.usageCount));
     const minUsage = Math.min(...usages);
     const maxUsage = Math.max(...usages);
@@ -354,8 +365,8 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
         size,
         color: nodeColor,
         labelColor: hexToRgba(this.theme.label, 0.8 + ratio * 0.16),
-        x: hashSeed(`${node.id}:x`) * 2 - 1,
-        y: hashSeed(`${node.id}:y`) * 2 - 1,
+        x: (hashSeed(`${node.id}:x`) * 2 - 1) * seedWidth,
+        y: (hashSeed(`${node.id}:y`) * 2 - 1) * seedHeight,
         usageCount: node.usageCount,
         labelSize,
       });
@@ -394,12 +405,19 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
     );
 
     // Run ForceAtlas2 layout synchronously.
+    //
+    // The repulsion here directly controls whether the map is readable. At
+    // scalingRatio 18 / gravity 0.4 the settled layout placed 18 node pairs
+    // closer than their combined radii on screen (e.g. 'Stoicism' and 'truth'
+    // 0.4px apart while needing 8px), so the centre of the map rendered as an
+    // unreadable clump and labels had nothing to attach to. Raising the
+    // repulsion separates the nodes so each one and its label have room.
     if (graph.order > 1) {
       forceAtlas2.assign(graph, {
-        iterations: 300,
+        iterations: 400,
         settings: {
-          gravity: 0.4,
-          scalingRatio: 18,
+          gravity: 0.12,
+          scalingRatio: 90,
           barnesHutOptimize: graph.order > 100,
           strongGravityMode: false,
           slowDown: 8,
