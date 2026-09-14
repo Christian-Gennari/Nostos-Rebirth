@@ -91,8 +91,15 @@ export interface CaptureMeta {
   state: string;
 }
 
-/** The map component's public radius contract (concept-map.component.ts). */
-export const BRAIN_MAP_NODE_RADIUS = { min: 14, max: 34 } as const;
+/**
+ * Bounds for a rendered node's size, in screen pixels.
+ *
+ * These are SIGMA node sizes (the graph's `size` attribute), not the radii the
+ * pre-rewrite SVG circles carried: the map draws its smallest concept at 4px and
+ * its largest at 16px. The old 14-34 range described the SVG circles and made
+ * every node fail the check once the map moved to Sigma.
+ */
+export const BRAIN_MAP_NODE_RADIUS = { min: 3, max: 20 } as const;
 
 // ---------------------------------------------------------------------------
 // Evidence artifacts
