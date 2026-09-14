@@ -611,8 +611,8 @@ npm run check:freshness           # proves the freshness check fails in both dir
 npm run capture:baseline -- --port 5214 --out /tmp/after
 npm run check:pixels -- /tmp/after    # the real acceptance test
 npm run probe:selection           # rest/hover/focus of a selected row, both themes
-node scripts/probe-iconbutton.mjs --port 5214 --out /tmp/before   # icon-button contract
-node scripts/probe-iconbutton.mjs --diff /tmp/before/iconbutton.json /tmp/after/iconbutton.json
+npm run probe:iconbutton -- --port 5214 --out /tmp/before   # icon-button contract
+npm run probe:iconbutton -- --diff /tmp/before/iconbutton.json /tmp/after/iconbutton.json
 ```
 
 The capture set is **24 PNGs across 6 surfaces**: library, brain, studio, settings,
