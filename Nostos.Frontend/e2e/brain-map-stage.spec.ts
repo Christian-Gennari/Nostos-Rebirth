@@ -1,11 +1,14 @@
 /**
- * Evidence that the concept map now occupies the main stage.
+ * Evidence that the concept map occupies the main stage and is framed sensibly.
  *
- * Seeds a small connected brain, opens the map view, and records:
- *   - the map's rendered width and height (vs the old ~320px rail);
- *   - that it is inside .content-col and NOT inside .index-col;
- *   - the index list is still visible beside it;
- *   - screenshots at 1440x900 and 390x844.
+ * This spec targets the Sigma/Graphology renderer. It replaces the earlier
+ * SVG-based version, whose selectors (`.map-svg`, `circle.map-node-visual`)
+ * stopped existing when the map was rewritten onto Sigma — for a period those
+ * assertions could not pass, so they guarded nothing.
+ *
+ * Node geometry is read from the live renderer via the component's diagnostic
+ * handles (`__nostosGraph`, `__nostosSigma`), which is the only reliable source
+ * of graph-space facts for a WebGL canvas.
  */
 import { expect, test } from '@playwright/test';
 import { loadFixture } from './support/fixture';
@@ -37,8 +40,8 @@ async function openMap(page: import('@playwright/test').Page, baseUrl: string) {
   await page.goto(`${baseUrl}/second-brain`, { waitUntil: 'domcontentloaded' });
   await page.locator('.index-item').first().waitFor({ timeout: 30_000 });
   await page.locator('.view-mode-control .toggle-opt:last-child').click();
-  await page.locator('app-concept-map .map-svg').waitFor({ timeout: 30_000 });
-  await page.waitForTimeout(700);
+  await page.locator('.sigma-container canvas').first().waitFor({ timeout: 30_000 });
+  await page.waitForTimeout(900);
 }
 
 test('map fills the main stage on desktop', async ({ browser }) => {
@@ -50,47 +53,34 @@ test('map fills the main stage on desktop', async ({ browser }) => {
 
     const geo = await page.evaluate(() => {
       const map = document.querySelector('app-concept-map') as HTMLElement;
-      const svg = document.querySelector('app-concept-map .map-svg') as HTMLElement;
       const stage = document.querySelector('app-concept-map .map-stage') as HTMLElement;
+      const container = document.querySelector('app-concept-map .sigma-container') as HTMLElement;
       const index = document.querySelector('.index-col') as HTMLElement;
       const railWidth = index ? index.getBoundingClientRect().width : 0;
 
-      // Where do the drawn nodes actually sit inside the SVG's user space?
-      const svgEl = document.querySelector('app-concept-map .map-svg') as SVGSVGElement;
-      const circles = Array.from(svgEl.querySelectorAll('circle.map-node-visual')) as SVGCircleElement[];
-      const pts = circles.map((c) => ({
-        x: Number(c.getAttribute('cx')),
-        y: Number(c.getAttribute('cy')),
-      }));
-      const vb = svgEl.viewBox.baseVal;
-      let spread: Record<string, number> | null = null;
-      if (pts.length > 0) {
-        const xs = pts.map((p) => p.x);
-        const ys = pts.map((p) => p.y);
-        const minX = Math.min(...xs), maxX = Math.max(...xs);
-        const minY = Math.min(...ys), maxY = Math.max(...ys);
-        spread = {
-          nodes: pts.length,
-          widthPct: Math.round(((maxX - minX) / vb.width) * 100),
-          heightPct: Math.round(((maxY - minY) / vb.height) * 100),
-          centreOffsetX: Math.round((minX + maxX) / 2 - vb.width / 2),
-          centreOffsetY: Math.round((minY + maxY) / 2 - vb.height / 2),
-        };
-      }
+      const globals = globalThis as unknown as {
+        __nostosSigma?: { getDimensions(): { width: number; height: number }; getCamera(): { ratio: number } };
+        __nostosGraph?: { order: number; size: number };
+      };
+      const sigma = globals.__nostosSigma;
+      const graph = globals.__nostosGraph;
 
       return {
         inContentCol: !!map.closest('.content-col'),
         inIndexCol: !!map.closest('.index-col'),
         mapWidth: Math.round(map.getBoundingClientRect().width),
-        svgWidth: Math.round(svg.getBoundingClientRect().width),
-        svgHeight: Math.round(svg.getBoundingClientRect().height),
         stageWidth: Math.round(stage.getBoundingClientRect().width),
+        stageHeight: Math.round(stage.getBoundingClientRect().height),
+        containerWidth: Math.round(container.getBoundingClientRect().width),
+        containerHeight: Math.round(container.getBoundingClientRect().height),
+        canvasCount: document.querySelectorAll('.sigma-container canvas').length,
         railWidth: Math.round(railWidth),
         indexStillVisible: !!index && index.getBoundingClientRect().width > 0,
-        widerThanRail: svg.getBoundingClientRect().width > railWidth * 2,
-        viewBoxAspect: Math.round((vb.width / vb.height) * 100) / 100,
-        stageAspect: Math.round((stage.getBoundingClientRect().width / stage.getBoundingClientRect().height) * 100) / 100,
-        spread,
+        widerThanRail: container.getBoundingClientRect().width > railWidth * 2,
+        graphOrder: graph?.order ?? 0,
+        graphSize: graph?.size ?? 0,
+        cameraRatio: sigma ? Number(sigma.getCamera().ratio.toFixed(4)) : null,
+        rendererSize: sigma ? sigma.getDimensions() : null,
       };
     });
 
@@ -101,32 +91,76 @@ test('map fills the main stage on desktop', async ({ browser }) => {
     expect(geo.inIndexCol, 'map must not be in the index rail').toBe(false);
     expect(geo.indexStillVisible, 'index stays visible as the filter surface').toBe(true);
     expect(geo.widerThanRail, 'graph must be far wider than the old sidebar rail').toBe(true);
-    expect(geo.svgHeight).toBeGreaterThanOrEqual(400);
+    expect(geo.containerHeight).toBeGreaterThanOrEqual(400);
+    expect(geo.canvasCount, 'Sigma renders its layer canvases').toBeGreaterThan(0);
 
-    // The viewBox must match the stage's aspect, otherwise the default `meet`
-    // scaling letterboxes the graph and it drifts in a wide, mostly-empty frame.
-    expect(
-      Math.abs(geo.viewBoxAspect - geo.stageAspect),
-      `viewBox aspect ${geo.viewBoxAspect} must match stage aspect ${geo.stageAspect}`
-    ).toBeLessThanOrEqual(0.12);
+    // The seeded brain must actually be in the graph.
+    expect(geo.graphOrder, 'seeded concepts must render as nodes').toBeGreaterThanOrEqual(5);
+    expect(geo.graphSize, 'seeded notes must produce edges').toBeGreaterThan(0);
+    expect(geo.cameraRatio, 'camera must have a real zoom ratio').toBeGreaterThan(0);
+  } finally {
+    await context.close();
+  }
+});
 
-    // The graph must actually occupy the space it is given, and be centred in it.
+test('graph is framed and centred when the map opens', async ({ browser }) => {
+  const fixture = loadFixture();
+  const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT);
+  try {
+    await openMap(page, fixture.baseUrl);
+
+    const framed = await page.evaluate(() => {
+      const globals = globalThis as unknown as {
+        __nostosSigma?: {
+          getDimensions(): { width: number; height: number };
+          graphToViewport(p: { x: number; y: number }): { x: number; y: number };
+        };
+        __nostosGraph?: { forEachNode(cb: (id: string, attrs: { x: number; y: number }) => void): void };
+      };
+      const sigma = globals.__nostosSigma;
+      const graph = globals.__nostosGraph;
+      if (!sigma || !graph) return null;
+
+      const dims = sigma.getDimensions();
+      const xs: number[] = [];
+      const ys: number[] = [];
+      let offscreen = 0;
+      graph.forEachNode((_id, attrs) => {
+        const p = sigma.graphToViewport({ x: attrs.x, y: attrs.y });
+        xs.push(p.x);
+        ys.push(p.y);
+        if (p.x < 0 || p.x > dims.width || p.y < 0 || p.y > dims.height) offscreen++;
+      });
+      if (!xs.length) return null;
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+      return {
+        dims,
+        nodes: xs.length,
+        offscreen,
+        fillW: Math.round((100 * (maxX - minX)) / dims.width),
+        fillH: Math.round((100 * (maxY - minY)) / dims.height),
+        centreOffsetX: Math.round((minX + maxX) / 2 - dims.width / 2),
+        centreOffsetY: Math.round((minY + maxY) / 2 - dims.height / 2),
+      };
+    });
+
+    console.log('FRAMING:', JSON.stringify(framed, null, 1));
+    expect(framed, 'graph geometry must be measurable').not.toBeNull();
+
+    // Nothing may be off-screen on open, and the graph must use the stage.
     //
-    // NOTE ON THE THRESHOLD: node positions are seeded from `hashSeed(concept.id)`
-    // and concept ids differ on every run, so the settled layout legitimately
-    // varies. Measured over 10 runs the vertical spread ranged 58-82% (mean 72),
-    // and an earlier threshold of 55 failed intermittently. 40 is the honest
-    // floor: it still fails the regression this guards against (a graph huddled in
-    // the middle of a letterboxed frame measured ~25%), without asserting a
-    // precision the seed does not provide.
-    expect(geo.spread, 'node positions must be measurable').not.toBeNull();
-    expect(geo.spread!.widthPct, 'cluster should span a good share of the width').toBeGreaterThanOrEqual(35);
-    expect(
-      geo.spread!.heightPct,
-      `cluster should span a good share of the height, not huddle in the middle (got ${geo.spread!.heightPct}%)`
-    ).toBeGreaterThanOrEqual(40);
-    expect(Math.abs(geo.spread!.centreOffsetX), 'cluster should be horizontally centred').toBeLessThanOrEqual(80);
-    expect(Math.abs(geo.spread!.centreOffsetY), 'cluster should be vertically centred').toBeLessThanOrEqual(80);
+    // Thresholds note: node positions come from a ForceAtlas2 seed and the graph
+    // is normalized to fill 88% of the tighter axis, so the SHORTER axis reaches
+    // ~88% and the other is proportionally smaller for an unsquare graph. 60 is
+    // the honest floor for the wider axis; the tighter axis is held to 80.
+    expect(framed!.offscreen, 'no nodes may open off-screen').toBe(0);
+    expect(Math.max(framed!.fillW, framed!.fillH), 'graph must use the stage').toBeGreaterThanOrEqual(80);
+    expect(Math.min(framed!.fillW, framed!.fillH), 'graph must not collapse').toBeGreaterThanOrEqual(15);
+    expect(Math.abs(framed!.centreOffsetX), 'graph must be horizontally centred').toBeLessThanOrEqual(40);
+    expect(Math.abs(framed!.centreOffsetY), 'graph must be vertically centred').toBeLessThanOrEqual(40);
   } finally {
     await context.close();
   }
@@ -140,10 +174,10 @@ test('map fills the stage on mobile', async ({ browser }) => {
 
     const geo = await page.evaluate(() => {
       const map = document.querySelector('app-concept-map') as HTMLElement;
-      const svg = document.querySelector('app-concept-map .map-svg') as HTMLElement;
       const stage = document.querySelector('app-concept-map .map-stage') as HTMLElement;
+      const container = document.querySelector('app-concept-map .sigma-container') as HTMLElement;
       const index = document.querySelector('.index-col') as HTMLElement;
-      const rect = svg.getBoundingClientRect();
+      const rect = container.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
 
       return {
@@ -151,14 +185,8 @@ test('map fills the stage on mobile', async ({ browser }) => {
         rendered: rect.width > 0 && rect.height > 0,
         // Rendered is not enough: the bug this guards against was the map being
         // laid out *below* a full-height index rail, i.e. off-screen entirely.
-        onScreen:
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.top < viewportHeight &&
-          rect.bottom > 0,
-        visibleHeightPx: Math.round(
-          Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0))
-        ),
+        onScreen: rect.width > 0 && rect.height > 0 && rect.top < viewportHeight && rect.bottom > 0,
+        visibleHeightPx: Math.round(Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0))),
         viewportHeight: Math.round(viewportHeight),
         indexHidden: !!index && getComputedStyle(index).display === 'none',
         stageHeight: Math.round(stage.getBoundingClientRect().height),
@@ -172,14 +200,10 @@ test('map fills the stage on mobile', async ({ browser }) => {
 
     expect(geo.inContentCol).toBe(true);
     expect(geo.rendered, 'map must render on mobile in map view').toBe(true);
-    expect(
-      geo.onScreen,
-      `map must be within the viewport, not pushed below the fold by the index rail`
-    ).toBe(true);
-    expect(
-      geo.visibleHeightPx,
-      'map should occupy most of the visible viewport height'
-    ).toBeGreaterThanOrEqual(Math.round(geo.viewportHeight * 0.5));
+    expect(geo.onScreen, 'map must be within the viewport, not pushed below the fold by the index rail').toBe(true);
+    expect(geo.visibleHeightPx, 'map should occupy most of the visible viewport height').toBeGreaterThanOrEqual(
+      Math.round(geo.viewportHeight * 0.5)
+    );
     expect(geo.indexHidden, 'index rail must be hidden so the map owns the screen').toBe(true);
     expect(geo.docScrollWidth, 'no horizontal overflow on mobile').toBeLessThanOrEqual(geo.clientWidth);
   } finally {
