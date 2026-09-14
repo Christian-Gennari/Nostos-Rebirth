@@ -232,7 +232,7 @@
 .play-btn {
   width: 72px;
   height: 72px;
-  border-radius: 10%;
+  border-radius: 50%;
   background: var(--primary-fill);
   color: var(--on-primary);
   border: none;
@@ -401,7 +401,7 @@
   width: 100%;
   padding: 0.35rem 0.75rem;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-main);
   font-family: 'Hanken Grotesk', sans-serif;

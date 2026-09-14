@@ -1404,7 +1404,7 @@ input[type='file']::file-selector-button:hover {
   color: var(--color-text-muted);
   font-size: 0.7rem;
   padding: 2px 8px;
-  border-radius: 12px;
+  border-radius: var(--radius-pill);
   font-weight: var(--fw-semibold);
   border: 1px solid var(--border-color);
 }
@@ -1418,7 +1418,7 @@ input[type='file']::file-selector-button:hover {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   padding: 0.2rem 0.6rem;
-  border-radius: 100px;
+  border-radius: var(--radius-pill);
 }
 
 .note-text {

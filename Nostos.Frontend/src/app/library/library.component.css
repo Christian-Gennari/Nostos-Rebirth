@@ -481,7 +481,7 @@ app-sidebar-collections.no-transition {
 .list-cover-frame {
   width: 32px;
   height: 46px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   flex-shrink: 0;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
@@ -763,7 +763,7 @@ app-sidebar-collections.no-transition {
   position: relative;
   aspect-ratio: 2/3;
   background: var(--surface-image-ground);
-  border-radius: var(--radius-lg, 8px);
+  border-radius: var(--radius-lg);
   /* Separation from the page. Without it a white cover has no edge at all
      against `--bg-body` (#FDF8F6) — the artwork and the page merge into one
      flat area. This is the same pair `.list-cover-frame` uses for its
