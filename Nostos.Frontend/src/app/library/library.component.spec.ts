@@ -165,6 +165,36 @@ describe('Library', () => {
     expect(JSON.parse(localStorage.getItem(LIBRARY_PREFERENCES_STORAGE_KEY)!).viewMode).toBe('grid');
   });
 
+  it('exposes the view toggle to assistive tech as a labelled, state-carrying group', () => {
+    // The icons carry no text, so without this the two buttons announce as
+    // "button" with a name derived from nothing, and the selected view is a
+    // colour-only difference. Brain's equivalent control already used this
+    // contract (role="group" + aria-pressed); Library's was the outlier.
+    const group = fixture.nativeElement.querySelector('.control-group') as HTMLElement;
+    expect(group.getAttribute('role')).toBe('group');
+    expect(group.getAttribute('aria-label')).toBeTruthy();
+
+    const toggles = Array.from(
+      fixture.nativeElement.querySelectorAll('.toggle-opt'),
+    ) as HTMLButtonElement[];
+
+    // Every option is named...
+    for (const t of toggles) {
+      expect(t.getAttribute('aria-label')).toBeTruthy();
+    }
+
+    // ...and exactly one reports itself pressed, tracking the visible state.
+    component.setViewMode('list');
+    fixture.detectChanges();
+    expect(toggles[0].getAttribute('aria-pressed')).toBe('true');
+    expect(toggles[1].getAttribute('aria-pressed')).toBe('false');
+
+    component.setViewMode('grid');
+    fixture.detectChanges();
+    expect(toggles[0].getAttribute('aria-pressed')).toBe('false');
+    expect(toggles[1].getAttribute('aria-pressed')).toBe('true');
+  });
+
   it('updates the active sort and persists it through the preferences service', () => {
     const preferences = TestBed.inject(LibraryPreferencesService);
 
