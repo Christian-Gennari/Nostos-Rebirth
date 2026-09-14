@@ -388,6 +388,38 @@ describe('ConceptMapComponent', () => {
       expect(settings['autoRescale']).toBe(false);
       expect(settings['autoCenter']).toBe(false);
     });
+
+    it('keeps unconnected nodes and their labels readable when one is selected', () => {
+      setConcepts(concepts);
+      flushGraph();
+
+      const sigma = (globalThis as {
+        __nostosSigma?: { settings: Record<string, unknown>; nodeReducer?: unknown };
+      }).__nostosSigma!;
+      const reducer = sigma.settings['nodeReducer'] as
+        | ((node: string, data: Record<string, unknown>) => Record<string, unknown>)
+        | undefined;
+      expect(typeof reducer, 'a nodeReducer must be installed').toBe('function');
+
+      // Select 'alpha' so its neighbours (beta, gamma) are the active
+      // neighbourhood and every other node is "unconnected".
+      component.selectAccessibleNode('alpha');
+
+      // 'gamma' IS connected to alpha, so use a node the graph has that is not:
+      // add a fourth concept with no edges.
+      const unconnected = reducer!('lonely', { label: 'Lonely', color: '#000000' });
+
+      // The node must not be erased: it keeps a colour and keeps its label.
+      expect(unconnected['label'], 'unconnected node must keep its label').not.toBe('');
+      const color = String(unconnected['color']);
+      const alpha = Number(color.match(/,\s*([\d.]+)\)$/)?.[1] ?? '1');
+      // 0.55 measured 1.66:1 (21% of undimmed contrast) in the light theme.
+      expect(alpha, `dim alpha ${color} must stay legible`).toBeGreaterThanOrEqual(0.7);
+
+      const labelColor = String(unconnected['labelColor']);
+      const labelAlpha = Number(labelColor.match(/,\s*([\d.]+)\)$/)?.[1] ?? '1');
+      expect(labelAlpha, 'unconnected label must not be invisible').toBeGreaterThanOrEqual(0.5);
+    });
   });
 
   describe('camera controls', () => {
