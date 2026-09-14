@@ -20,6 +20,7 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
 
     public DbSet<NoteModel> Notes => Set<NoteModel>();
     public DbSet<CollectionModel> Collections => Set<CollectionModel>();
+    public DbSet<BookCollectionModel> BookCollections => Set<BookCollectionModel>();
     public DbSet<ConceptModel> Concepts => Set<ConceptModel>();
     public DbSet<NoteConceptModel> NoteConcepts => Set<NoteConceptModel>();
     public DbSet<BackupRecord> BackupRecords => Set<BackupRecord>();
@@ -225,6 +226,31 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
             .WithMany()
             .HasForeignKey(b => b.CollectionId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // --- MULTI-COLLECTION MEMBERSHIP ---
+        // Books may belong to many collections; BookCollections is the
+        // authoritative membership. CollectionId above is a transitional mirror
+        // (first member wins) kept so existing read paths keep working until
+        // Phase 3 drops the column.
+        modelBuilder.Entity<BookCollectionModel>()
+            .HasKey(bc => new { bc.BookId, bc.CollectionId });
+
+        modelBuilder.Entity<BookCollectionModel>()
+            .HasOne(bc => bc.Book)
+            .WithMany()
+            .HasForeignKey(bc => bc.BookId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<BookCollectionModel>()
+            .HasOne(bc => bc.Collection)
+            .WithMany()
+            .HasForeignKey(bc => bc.CollectionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // The PK covers BookId-first lookups ("which collections is this book
+        // in"); this index backs the inverse ("which books are in this
+        // collection"), which the sidebar counts and the subtree filter use.
+        modelBuilder.Entity<BookCollectionModel>().HasIndex(bc => bc.CollectionId);
 
         modelBuilder.Entity<WritingModel>().HasIndex(w => w.ParentId);
 
