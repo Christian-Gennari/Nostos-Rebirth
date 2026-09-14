@@ -360,15 +360,6 @@
   margin-top: 2rem;
 }
 
-/* Tree Inputs */
-.title-input-tree {
-  width: 100%;
-  font-size: 0.9rem;
-  padding: 4px;
-  border: 1px solid var(--focus-ring);
-  border-radius: 4px;
-  outline: none;
-}
 
 /* --- EDITOR PANE (frameless seamless desk) --- */
 .editor-pane {
