@@ -239,6 +239,133 @@ public sealed class ConceptEndpointTests : IClassFixture<LibraryEndpointFactory>
         unknown.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task Graph_includes_isolated_nodes()
+    {
+        var isolatedName = $"Graph Isolated {Guid.NewGuid():N}";
+        // Create a concept via a single-concept note (no co-occurrence).
+        await CreateBookWithNotesAsync($"[[{isolatedName}]]");
+
+        var graph = (await Client.GetFromJsonAsync<ConceptGraphDto>("/api/concepts/graph"))!;
+
+        graph.Nodes.Should().Contain(n => n.Name == isolatedName);
+        // An isolated concept must have no edge touching it.
+        var node = graph.Nodes.Single(n => n.Name == isolatedName);
+        graph.Edges.Should().NotContain(e => e.SourceId == node.Id || e.TargetId == node.Id);
+    }
+
+    [Fact]
+    public async Task Graph_creates_one_edge_per_co_occurring_pair_with_correct_shared_notes()
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var alpha = $"Graph Alpha {suffix}";
+        var bravo = $"Graph Bravo {suffix}";
+        var charlie = $"Graph Charlie {suffix}";
+
+        // Alpha and Bravo co-occur in 2 notes, Alpha and Charlie in 1.
+        await CreateBookWithNotesAsync(
+            $"[[{alpha}]] [[{bravo}]] [[{charlie}]]",
+            $"[[{alpha}]] [[{bravo}]]");
+
+        var graph = (await Client.GetFromJsonAsync<ConceptGraphDto>("/api/concepts/graph"))!;
+        var nodes = graph.Nodes;
+        var alphaNode = nodes.Single(n => n.Name == alpha);
+        var bravoNode = nodes.Single(n => n.Name == bravo);
+        var charlieNode = nodes.Single(n => n.Name == charlie);
+
+        // One undirected edge per pair.
+        var abEdge = graph.Edges.SingleOrDefault(e =>
+            (e.SourceId == alphaNode.Id && e.TargetId == bravoNode.Id) ||
+            (e.SourceId == bravoNode.Id && e.TargetId == alphaNode.Id));
+        abEdge.Should().NotBeNull();
+        abEdge!.SharedNotes.Should().Be(2);
+
+        var acEdge = graph.Edges.SingleOrDefault(e =>
+            (e.SourceId == alphaNode.Id && e.TargetId == charlieNode.Id) ||
+            (e.SourceId == charlieNode.Id && e.TargetId == alphaNode.Id));
+        acEdge.Should().NotBeNull();
+        acEdge!.SharedNotes.Should().Be(1);
+
+        var bcEdge = graph.Edges.SingleOrDefault(e =>
+            (e.SourceId == bravoNode.Id && e.TargetId == charlieNode.Id) ||
+            (e.SourceId == charlieNode.Id && e.TargetId == bravoNode.Id));
+        bcEdge.Should().NotBeNull();
+        bcEdge!.SharedNotes.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Graph_has_no_duplicate_or_self_edges()
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var a = $"Graph NoDup A {suffix}";
+        var b = $"Graph NoDup B {suffix}";
+
+        // Same pair in 3 notes should produce exactly one edge.
+        await CreateBookWithNotesAsync(
+            $"[[{a}]] [[{b}]]",
+            $"[[{a}]] [[{b}]]",
+            $"[[{a}]] [[{b}]]");
+
+        var graph = (await Client.GetFromJsonAsync<ConceptGraphDto>("/api/concepts/graph"))!;
+        var aNode = graph.Nodes.Single(n => n.Name == a);
+        var bNode = graph.Nodes.Single(n => n.Name == b);
+
+        // No self-edges.
+        graph.Edges.Should().NotContain(e => e.SourceId == e.TargetId);
+
+        // Exactly one edge for this pair.
+        var pairEdges = graph.Edges.Where(e =>
+            (e.SourceId == aNode.Id && e.TargetId == bNode.Id) ||
+            (e.SourceId == bNode.Id && e.TargetId == aNode.Id)).ToList();
+        pairEdges.Should().HaveCount(1);
+        pairEdges[0].SharedNotes.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task Graph_includes_edges_for_concepts_outside_top_30()
+    {
+        // Regression test: the old map only requested relationships for the
+        // 30 most-used visible concepts, starving concepts #31+ of edges.
+        // The graph endpoint must return edges for ALL concepts, not just a top-N.
+        var suffix = Guid.NewGuid().ToString("N");
+
+        // Create 35 concepts, each with one note. Two of them (ranked ~31 and ~32)
+        // share a note — their edge must still appear.
+        var conceptNames = Enumerable.Range(1, 35)
+            .Select(i => $"Graph R{i:D3} {suffix}")
+            .ToList();
+
+        // Give concepts 1–30 extra notes so they rank higher.
+        var noteContents = new List<string>();
+        for (int i = 0; i < 30; i++)
+        {
+            // 3 separate notes for each of the top-30 concepts.
+            noteContents.Add($"[[{conceptNames[i]}]]");
+            noteContents.Add($"[[{conceptNames[i]}]]");
+            noteContents.Add($"[[{conceptNames[i]}]]");
+        }
+        // Concepts 31 and 32 share a note.
+        noteContents.Add($"[[{conceptNames[30]}]] [[{conceptNames[31]}]]");
+        // Add the remaining concepts.
+        for (int i = 32; i < 35; i++)
+        {
+            noteContents.Add($"[[{conceptNames[i]}]]");
+        }
+
+        await CreateBookWithNotesAsync(noteContents.ToArray());
+
+        var graph = (await Client.GetFromJsonAsync<ConceptGraphDto>("/api/concepts/graph"))!;
+        var node31 = graph.Nodes.Single(n => n.Name == conceptNames[30]);
+        var node32 = graph.Nodes.Single(n => n.Name == conceptNames[31]);
+
+        // The edge between concepts outside the old top-30 must exist.
+        var edge = graph.Edges.SingleOrDefault(e =>
+            (e.SourceId == node31.Id && e.TargetId == node32.Id) ||
+            (e.SourceId == node32.Id && e.TargetId == node31.Id));
+        edge.Should().NotBeNull("concepts ranked 31 and 32 co-occur and the graph must include their edge");
+        edge!.SharedNotes.Should().Be(1);
+    }
+
     private async Task<BookDto> CreateBookWithNotesAsync(params string[] noteContents)
     {
         var bookResponse = await Client.PostAsJsonAsync("/api/books", new

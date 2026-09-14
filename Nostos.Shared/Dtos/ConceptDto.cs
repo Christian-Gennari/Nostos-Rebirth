@@ -27,6 +27,11 @@ public record NoteContextDto(
     DateTime CreatedAt
 );
 
+// For the whole-brain knowledge graph
+public record ConceptGraphNodeDto(Guid Id, string Name, int UsageCount);
+public record ConceptGraphEdgeDto(Guid SourceId, Guid TargetId, int SharedNotes);
+public record ConceptGraphDto(List<ConceptGraphNodeDto> Nodes, List<ConceptGraphEdgeDto> Edges);
+
 public record CreateConceptDto(string Concept);
 public record UpdateConceptDto(string Concept);
 public record MergeConceptDto(Guid TargetId);

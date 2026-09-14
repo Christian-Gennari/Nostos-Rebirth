@@ -3,6 +3,60 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 
+// Sigma requires WebGL2 which is unavailable in the test environment.
+vi.mock('sigma', () => {
+  class MockSigma {
+    constructor() {}
+    on() { return this; }
+    setSetting() {}
+    refresh() {}
+    kill() {}
+    getCamera() {
+      return {
+        animatedReset: vi.fn(),
+        animatedZoom: vi.fn(),
+        animatedUnzoom: vi.fn(),
+      };
+    }
+  }
+  return { default: MockSigma };
+});
+
+vi.mock('graphology', () => {
+  class MockGraph {
+    private nodes = new Map<string, Record<string, unknown>>();
+    private edges: Array<{ key: string; source: string; target: string; attrs: Record<string, unknown> }> = [];
+    addNode(key: string, attrs: Record<string, unknown> = {}) { this.nodes.set(key, attrs); }
+    addEdge(source: string, target: string, attrs: Record<string, unknown> = {}) {
+      const key = `${source}->${target}`;
+      this.edges.push({ key, source, target, attrs });
+      return key;
+    }
+    get order() { return this.nodes.size; }
+    get size() { return this.edges.length; }
+    forEachNode(cb: (n: string, a: Record<string, unknown>) => void) {
+      for (const [n, a] of this.nodes) cb(n, a);
+    }
+    setNodeAttribute(n: string, attribute: string, value: unknown) {
+      this.nodes.get(n)![attribute] = value;
+    }
+    forEachEdge(cb: (e: string, a: Record<string, unknown>, s: string, t: string) => void) {
+      for (const e of this.edges) cb(e.key, e.attrs, e.source, e.target);
+    }
+    forEachNeighbor(node: string, cb: (n: string) => void) {
+      for (const e of this.edges) {
+        if (e.source === node) cb(e.target);
+        else if (e.target === node) cb(e.source);
+      }
+    }
+    source(edge: string) { return this.edges.find(e => e.key === edge)?.source ?? ''; }
+    target(edge: string) { return this.edges.find(e => e.key === edge)?.target ?? ''; }
+  }
+  return { default: MockGraph };
+});
+
+vi.mock('graphology-layout-forceatlas2', () => ({ default: { assign: vi.fn() } }));
+
 import { SecondBrain } from './second-brain.component';
 import { ConceptDetailDto, ConceptDto, ConceptStatsDto } from '../core/services/concepts.service';
 import { ToastService } from '../core/services/toast.service';
@@ -820,7 +874,7 @@ describe('SecondBrain', () => {
     expect(localStorage.getItem('nostos.brain.viewMode')).toBe('map');
     expect(fixture.nativeElement.querySelector('app-concept-map')).toBeTruthy();
     flushChildConceptLists();
-    http.match((request) => request.url.endsWith('/related')).forEach((request) => request.flush([]));
+    http.match('/api/concepts/graph').forEach((request) => request.flush({ nodes: [], edges: [] }));
 
     const list = fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:first-child') as HTMLButtonElement;
     list.click();
@@ -845,7 +899,7 @@ describe('SecondBrain', () => {
     expect(map.closest('.index-list')).toBeNull();
 
     flushChildConceptLists();
-    http.match((request) => request.url.endsWith('/related')).forEach((request) => request.flush([]));
+    http.match('/api/concepts/graph').forEach((request) => request.flush({ nodes: [], edges: [] }));
   });
 
   it('keeps the map visible when a node is selected and offers a way to the notes', () => {
@@ -853,7 +907,7 @@ describe('SecondBrain', () => {
     (fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();
     fixture.detectChanges();
     flushChildConceptLists();
-    http.match((request) => request.url.endsWith('/related')).forEach((request) => request.flush([]));
+    http.match('/api/concepts/graph').forEach((request) => request.flush({ nodes: [], edges: [] }));
 
     // Selecting a concept from the map must NOT navigate away from the graph —
     // that would hide the map the moment it was used.

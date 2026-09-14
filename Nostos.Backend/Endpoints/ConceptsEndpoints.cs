@@ -57,6 +57,12 @@ public static class ConceptsEndpoints
             async (Guid id, IConceptRepository repo) => Results.Ok(await repo.GetRelatedAsync(id))
         );
 
+        // GET whole-brain concept co-occurrence graph
+        group.MapGet(
+            "/graph",
+            async (IConceptRepository repo) => Results.Ok(await repo.GetGraphAsync())
+        );
+
         // UPDATE name, merging into an existing concept with the same name
         group.MapPut(
             "/{id}",

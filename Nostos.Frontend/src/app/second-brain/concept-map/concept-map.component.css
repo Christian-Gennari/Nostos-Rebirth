@@ -13,21 +13,82 @@
   background: var(--bg-surface);
 }
 
-/* Floating overlay inside the canvas rather than a toolbar above it: the control
-   acts on the graph, so it belongs on the graph. Metrics follow the Library's
-   controls — `--radius-md`, hairline border, surface fill. */
+/* Floating overlays inside the canvas rather than a toolbar above it. */
+.map-toolbar,
 .map-controls {
   position: absolute;
   top: 0.75rem;
-  right: 0.75rem;
   z-index: 2;
+}
+
+.map-toolbar {
+  left: 0.75rem;
+  width: min(300px, calc(100% - 1.5rem));
+}
+
+.map-controls {
+  right: 0.75rem;
   display: flex;
   align-items: center;
   gap: 0.35rem;
 }
 
+.map-search input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
+  color: var(--color-text-main);
+  font: 0.78rem 'Hanken Grotesk', sans-serif;
+}
+
+.map-search input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.map-search-results {
+  position: absolute;
+  top: 2.45rem;
+  left: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0.25rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--border-color) 22%, transparent);
+  list-style: none;
+}
+
+.map-search-results button {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.55rem 0.65rem;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-main);
+  cursor: pointer;
+  text-align: left;
+}
+
+.map-search-results button:hover,
+.map-search-results button:focus-visible {
+  background: var(--bg-hover);
+}
+
+.map-search-results small {
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+}
+
 .map-reset,
-.map-zoom {
+.map-zoom,
+.map-control-label {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -38,9 +99,17 @@
   color: var(--color-text-muted);
   cursor: pointer;
   font-family: 'Hanken Grotesk', sans-serif;
-  transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;}
+  transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+}
 
-.map-reset:hover,
+.map-control-label,
+.map-reset {
+  border-color: transparent;
+  background: transparent;
+}
+
+.map-control-label:hover:not(:disabled),
+.map-reset:hover:not(:disabled),
 .map-zoom:hover:not(:disabled) {
   background: var(--bg-hover);
   color: var(--color-text-main);
@@ -58,6 +127,12 @@
   white-space: nowrap;
 }
 
+.map-control-label {
+  padding: 0 0.55rem;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
 .map-zoom {
   width: 32px;
   padding: 0;
@@ -67,6 +142,9 @@
 
 .map-reset:focus-visible,
 .map-zoom:focus-visible,
+.map-control-label:focus-visible,
+.map-search input:focus-visible,
+.map-search-results button:focus-visible,
 .map-accessible-list button:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
@@ -93,148 +171,41 @@
   text-align: center;
 }
 
-/* The graph is the content, so it sits directly on the page surface like a
-   Library grid would — no card frame, no shadow, no second background tone. The
-   previous card-in-panel look also put the stage's border under the floating
-   dock, which read as a box the nav was sitting on. */
+/* The graph is the content, sitting directly on the page surface. */
 .map-stage {
   position: relative;
   min-height: 360px;
   overflow: hidden;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  background: var(--bg-surface);
+  background: var(--bg-body);
+  box-shadow: inset 0 0 0 1px var(--border-color);
 }
 
-/* The map is a whole-brain view on the main stage, so it takes the available
-   height rather than the modest fixed box it needed as a sidebar widget. */
-.map-svg {
-  display: block;
+/* A graph surface should feel like a field, not a flat card. */
+.sigma-container {
   width: 100%;
   height: clamp(420px, 62dvh, 760px);
-  touch-action: none;
-  cursor: grab;
+  background:
+    radial-gradient(circle at 50% 48%, var(--bg-surface) 0%, var(--bg-body) 72%);
 }
 
-.map-svg:active {
-  cursor: grabbing;
+.map-stage:fullscreen,
+.map-stage.is-fullscreen {
+  min-height: 100dvh;
+  border: 0;
+  border-radius: 0;
 }
 
-/* Three passes, so one bright line can cross a dim field. `.dimmed` is applied
-   to every edge that does not touch the active node, which is what turns a
-   hairball into a readable local neighbourhood on hover. `--motion-fast` on
-   opacity only: a transition on `stroke-width` would re-rasterise the line, and
-   the mesh is the largest paint surface in the map. */
-.map-edge {
-  fill: none;
-  stroke: var(--color-accent);
-  vector-effect: non-scaling-stroke;
-  transition: opacity var(--motion-fast) var(--ease-out);
+.map-stage:fullscreen .sigma-container,
+.map-stage.is-fullscreen .sigma-container {
+  height: 100dvh;
 }
 
-.map-edge.active {
-  stroke: var(--color-text-main);
+.map-stage:fullscreen .map-controls,
+.map-stage:fullscreen .map-toolbar {
+  top: 1rem;
 }
-
-.map-node {
-  cursor: pointer;
-  outline: none;
-}
-
-.map-node-hit {
-  fill: var(--bg-surface);
-  opacity: 0;
-  stroke: none;
-}
-
-/* Node discs. Filled rather than hollow: a hollow ring graph reads as a
-   wireframe of empty circles, and the fill is also what gives a label something
-   to sit against. The rim is the stage colour, which separates two touching
-   discs without introducing a third hue. */
-.map-node-visual {
-  fill: var(--graph-node);
-  stroke: var(--bg-surface);
-  stroke-width: 1.5;
-  vector-effect: non-scaling-stroke;
-  transition:
-    fill var(--motion-fast) var(--ease-out),
-    opacity var(--motion-fast) var(--ease-out);
-}
-
-/* The node under the pointer (or the selection): lifted and re-inked. */
-.map-node.active .map-node-visual,
-.map-node.selected .map-node-visual {
-  fill: var(--graph-node-head);
-  stroke: var(--graph-node-head);
-  stroke-width: 2;
-}
-
-/* Neighbours of the active node stay at full strength — they are the answer to
-   "what is this connected to". Everything else recedes rather than disappearing,
-   so the shape of the whole graph stays legible while you read its part.
-   The LABEL's own dimming is not here: it is folded into the single opacity the
-   component computes, because a `[style.opacity]` binding outranks any
-   stylesheet rule and a rule here would need `!important` to be seen at all. */
-.map-node.dimmed .map-node-visual {
-  opacity: 0.22;
-}
-
-/* The label tiers. `transition: opacity` only — the fade between zoom levels is
-   the whole model, and nothing here animates at rest, so a first paint cannot
-   show a label arriving. The halo is the stage colour painted UNDER the glyphs
-   (`paint-order: stroke`), which is what keeps a name legible where it crosses
-   the edge mesh — the old map had labels losing contrast against their own
-   edges. */
-.map-node-label {
-  fill: var(--color-text-muted);
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 13px;
-  pointer-events: none;
-  paint-order: stroke;
-  stroke: var(--bg-surface);
-  stroke-width: 3px;
-  stroke-linejoin: round;
-  transition: opacity var(--motion-base) var(--ease-out);
-}
-
-.map-node:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: -2px;
-}
-
-.map-tooltip {
-  pointer-events: none;
-}
-
-.map-tooltip rect {
-  fill: var(--bg-surface);
-  stroke: var(--color-text-light);
-  stroke-width: 1;
-  rx: var(--radius-lg);
-  vector-effect: non-scaling-stroke;
-}
-
-.map-tooltip-name,
-.map-tooltip-meta {
-  pointer-events: none;
-}
-
-.map-tooltip-name {
-  fill: var(--color-text-main);
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.map-tooltip-meta {
-  fill: var(--color-text-muted);
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 12px;
-}
-
-/* `.visually-hidden` moved to styles.css — it was duplicated here and in
-   second-brain.component.css with byte-identical bodies, so the two surfaces could
-   drift silently. One global definition; `npm run check:design` enforces it. */
 
 .map-accessible-list {
   list-style: none;
@@ -254,8 +225,6 @@
     min-height: 44px;
   }
 
-  /* Controls stay in the canvas corner on mobile, but grow to a comfortable
-     tap target. */
   .map-controls {
     top: 0.5rem;
     right: 0.5rem;
@@ -266,13 +235,34 @@
     min-height: 44px;
   }
 
+  .map-toolbar {
+    top: 0.5rem;
+    left: 0.5rem;
+    width: calc(100% - 1rem);
+  }
+
+  .map-controls {
+    top: auto;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    left: 0.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .map-control-label,
+  .map-reset,
+  .map-zoom {
+    min-height: 44px;
+  }
+
   .map-stage {
     min-height: 360px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .map-svg {
+  .sigma-container {
     scroll-behavior: auto;
   }
 }
