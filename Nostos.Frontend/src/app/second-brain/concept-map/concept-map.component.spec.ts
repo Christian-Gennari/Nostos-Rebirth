@@ -440,6 +440,43 @@ describe('ConceptMapComponent', () => {
       expect(settings['scalingRatio'], 'repulsion must keep nodes apart').toBeGreaterThanOrEqual(60);
       expect(settings['gravity'], 'weak gravity lets the graph spread').toBeLessThanOrEqual(0.25);
     });
+
+    it('draws the focused nodes own edges at full accent contrast', () => {
+      setConcepts(concepts);
+      flushGraph();
+
+      const sigma = (globalThis as {
+        __nostosSigma?: { settings: Record<string, unknown> };
+      }).__nostosSigma!;
+      const reducer = sigma.settings['edgeReducer'] as
+        | ((edge: string, data: Record<string, unknown>) => Record<string, unknown>)
+        | undefined;
+      expect(typeof reducer, 'an edgeReducer must be installed').toBe('function');
+
+      // Select 'alpha'; its edges are alpha-beta and alpha-gamma.
+      component.selectAccessibleNode('alpha');
+
+      const connected = reducer!('alpha->beta', { size: 1, color: 'rgba(138,134,128,0.8)' });
+      const unrelated = reducer!('beta->gamma', { size: 1, color: 'rgba(138,134,128,0.8)' });
+
+      // The connected edge is drawn in the full-strength accent ink with no
+      // alpha reduction. At alpha 0.72 it measured 5.09:1 against the field
+      // versus 3.44:1 for an ordinary edge, and the pixel classification could
+      // not separate the two tiers at all.
+      const connectedColor = String(connected['color']);
+      expect(
+        connectedColor,
+        'focused edges must be opaque accent ink'
+      ).not.toMatch(/rgba\([^)]*,\s*0\./);
+
+      // Unrelated edges stay visibly dimmer.
+      const unrelatedColor = String(unrelated['color']);
+      const unrelatedAlpha = Number(unrelatedColor.match(/,\s*([\d.]+)\)$/)?.[1] ?? '1');
+      expect(unrelatedAlpha, 'unrelated edges must recede').toBeLessThan(0.5);
+
+      // And connected edges are thicker than the base stroke.
+      expect(Number(connected['size'])).toBeGreaterThan(Number(unrelated['size']));
+    });
   });
 
   describe('camera controls', () => {

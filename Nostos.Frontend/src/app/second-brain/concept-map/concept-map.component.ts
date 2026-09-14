@@ -532,8 +532,14 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
         const source = graph.source(edge);
         const target = graph.target(edge);
         if (source === activeId || target === activeId) {
-          res['color'] = hexToRgba(component.theme.edgeActive, 0.72);
-          res['size'] = Math.max((data['size'] as number) ?? 1, 2) * 1.5;
+          // Full-strength accent ink. At alpha 0.72 the pine washed toward the
+          // normal edge grey in the light theme (5.09:1 against the field vs
+          // 3.44:1 for a normal edge — indistinguishable in practice, and the
+          // pixel classification found zero pixels bright enough to separate
+          // them). At full alpha it is 11.90:1 against 3.44:1, so a line that
+          // touches the focused node is unmistakable.
+          res['color'] = component.theme.edgeActive;
+          res['size'] = Math.max((data['size'] as number) ?? 1, 2) * 1.6;
           res['zIndex'] = 1;
         } else {
           res['color'] = hexToRgba(component.theme.edge, EDGE_ALPHA_DIM);
