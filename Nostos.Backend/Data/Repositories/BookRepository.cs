@@ -45,7 +45,10 @@ public class BookRepository : IBookRepository
                 BookFilter.Reading => query.Where(b =>
                     b.Progress.FinishedAt == null && b.Progress.ProgressPercent > 0
                 ),
-                BookFilter.Unsorted => query.Where(b => b.CollectionId == null),
+                // Membership lives in the join table now; a book is unsorted
+                // when it belongs to no collection at all.
+                BookFilter.Unsorted => query.Where(b =>
+                    !_db.BookCollections.Any(bc => bc.BookId == b.Id)),
                 _ => query,
             };
         }
@@ -53,7 +56,9 @@ public class BookRepository : IBookRepository
         // 3. Collection filtering (Explicit)
         if (collectionId.HasValue)
         {
-            query = query.Where(b => b.CollectionId == collectionId.Value);
+            // Any membership in the requested collection matches.
+            query = query.Where(b =>
+                _db.BookCollections.Any(bc => bc.BookId == b.Id && bc.CollectionId == collectionId.Value));
         }
 
         // 4. Sorting

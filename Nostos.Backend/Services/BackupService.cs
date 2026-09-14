@@ -459,7 +459,12 @@ public class BackupService : IBackupService
             {
                 var db = scope.ServiceProvider.GetRequiredService<NostosDbContext>();
 
-                var books = await db.Books.Include(b => b.Collection).ToListAsync(ct);
+                // Membership lives in the join table, so the backup has to carry
+                // it explicitly — the book row alone no longer records which
+                // collections a book belongs to.
+                var books = await db.Books
+                    .Include(b => b.BookCollections)
+                    .ToListAsync(ct);
                 await WriteJsonAsync(Path.Combine(metadataDir, "books.json"), books, ct);
 
                 var notes = await db

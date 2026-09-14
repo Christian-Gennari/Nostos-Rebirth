@@ -72,13 +72,13 @@ export interface Book {
   hasFile: boolean;
   fileName: string | null;
   coverUrl: string | null;
-  collectionId: string | null;
 
   /**
-   * Membership set. Optional so the field can be absent against a backend that
-   * predates the join table; the modal falls back to `collectionId` then.
+   * Every collection this book belongs to. The sole source of truth — the
+   * former singular `collectionId` is gone from responses, because a one-slot
+   * field could not represent a book that sits in more than one collection.
    */
-  collectionIds?: string[];
+  collectionIds: string[];
 
   lastLocation: string | null;
   progressPercent: number;
@@ -122,11 +122,9 @@ export interface CreateBookDto {
   categories: string | null;
   series: string | null;
   volumeNumber: string | null;
-  collectionId: string | null;
 
   /**
-   * Membership set. When non-empty it is authoritative and `collectionId` is
-   * ignored; the backend keeps the singular field coherent as a mirror.
+   * Membership set — the authoritative shape.
    */
   collectionIds?: string[];
 
@@ -161,7 +159,6 @@ export interface UpdateBookDto {
   categories?: string | null;
   series?: string | null;
   volumeNumber?: string | null;
-  collectionId?: string | null;
 
   /**
    * Full replacement membership set. Sending `[]` clears every collection —

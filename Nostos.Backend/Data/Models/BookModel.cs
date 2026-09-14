@@ -34,13 +34,13 @@ public abstract class BookModel
     public Guid WorkId { get; set; }
     public WorkModel? Work { get; set; }
 
-    public Guid? CollectionId { get; set; }
-    public CollectionModel? Collection { get; set; }
-
     /// <summary>
-    /// Authoritative multi-collection membership. Populated only when the query
-    /// includes it; <see cref="CollectionId"/> above remains the transitional
-    /// mirror, so mapping falls back to it when this is not loaded.
+    /// Authoritative multi-collection membership. A book may belong to any
+    /// number of collections; this is the single source of truth.
+    ///
+    /// The former nullable <c>CollectionId</c> column has been dropped: it could
+    /// only ever hold one value, so it was incapable of representing the model
+    /// and had to be kept in sync by hand on every write.
     /// </summary>
     public ICollection<BookCollectionModel> BookCollections { get; set; } = new List<BookCollectionModel>();
 }

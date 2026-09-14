@@ -177,7 +177,7 @@ function makeBook(overrides: Partial<Book> = {}): Book {
     hasFile: true,
     fileName: 'iliad.m4b',
     coverUrl: null,
-    collectionId: null,
+    collectionIds: [],
     lastLocation: null,
     progressPercent: 0,
     lastReadAt: null,

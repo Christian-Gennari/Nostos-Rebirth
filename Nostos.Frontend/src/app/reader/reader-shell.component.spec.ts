@@ -117,7 +117,7 @@ const audiobook = {
   hasFile: true,
   fileName: 'iliad.m4b',
   coverUrl: null,
-  collectionId: null,
+  collectionIds: [],
   lastLocation: '3721.5',
   progressPercent: 10,
   lastReadAt: null,

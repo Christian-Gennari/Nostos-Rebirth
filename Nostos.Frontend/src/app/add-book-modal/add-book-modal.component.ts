@@ -83,7 +83,7 @@ export class AddBookModal {
     categories: '' as string | null,
     series: '' as string | null,
     volumeNumber: '' as string | null,
-    // A set, not a single id: a book may belong to any number of collections.
+    // Membership is a set: a book may belong to any number of collections.
     // The picker owns the checkbox list; this array is the value it edits.
     collectionIds: [] as string[],
 
@@ -145,9 +145,7 @@ export class AddBookModal {
       categories: b.categories || '',
       series: b.series || '',
       volumeNumber: b.volumeNumber || '',
-      // Prefer the membership set; fall back to the singular field so the modal
-      // is still correct against a backend that has not yet run the migration.
-      collectionIds: b.collectionIds ?? (b.collectionId ? [b.collectionId] : []),
+      collectionIds: b.collectionIds ?? [],
 
       personalReview: b.personalReview || '',
     };
@@ -297,15 +295,10 @@ export class AddBookModal {
     // Sanitize ISBN (in case user typed it and hit save directly)
     this.form.isbn = this.sanitizeIsbn(this.form.isbn);
 
-    // Send BOTH representations: `collectionIds` is the authoritative set, and
-    // `collectionId` keeps the legacy mirror coherent for any tooling that still
-    // reads the singular field. The backend derives the mirror from the set, so
-    // the two cannot drift.
-    const payload = {
-      ...this.form,
-      publishedDate: cleanDate || null,
-      collectionId: this.form.collectionIds[0] ?? null,
-    };
+    // Membership is sent as the authoritative set from the picker. No singular
+    // mirror is written any more — the column is gone, so sending one would be
+    // a dead field on the wire.
+    const payload = { ...this.form, publishedDate: cleanDate || null };
 
     if (this.isEditMode()) {
       this.booksService.update(this.book()!.id, payload).subscribe({

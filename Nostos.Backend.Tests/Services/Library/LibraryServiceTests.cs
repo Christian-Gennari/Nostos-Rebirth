@@ -266,7 +266,8 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
 
         var bookId = ((LibraryCreateOrMatchResultDto)result.Data!).BookId!.Value;
         await using var db = await h.Factory.CreateDbContextAsync();
-        (await db.Books.SingleAsync(b => b.Id == bookId)).CollectionId.Should().Be(collectionId);
+        (await db.BookCollections.Where(bc => bc.BookId == bookId).Select(bc => bc.CollectionId).ToListAsync())
+            .Should().BeEquivalentTo([collectionId]);
     }
 
     [Fact]
@@ -371,13 +372,13 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
             CreateRequest("physical", "Fictions", Author: "Borges"), strictConfirmation: true)).Data!).BookId!.Value;
 
         await h.Service.UpdateBookAsync(new(Client, "u1", bookId, CollectionId: coll1.Id));
-        (await GetBookAsync(h, bookId)).CollectionId.Should().Be(coll1.Id);
+        (await GetBookAsync(h, bookId)).CollectionIds.Should().BeEquivalentTo([coll1.Id]);
 
         await h.Service.UpdateBookAsync(new(Client, "u2", bookId, CollectionId: coll2.Id));
-        (await GetBookAsync(h, bookId)).CollectionId.Should().Be(coll2.Id);
+        (await GetBookAsync(h, bookId)).CollectionIds.Should().BeEquivalentTo([coll2.Id]);
 
         await h.Service.UpdateBookAsync(new(Client, "u3", bookId, ClearCollection: true));
-        (await GetBookAsync(h, bookId)).CollectionId.Should().BeNull();
+        (await GetBookAsync(h, bookId)).CollectionIds.Should().BeEmpty();
     }
 
     // ------------------------------------------------------------------
@@ -418,7 +419,6 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
 
         // This is the defect the set contract fixes: previously "remove from
         // collection" was not expressible at all through REST.
-        ((BookDto)cleared.Data!).CollectionId.Should().BeNull();
         ((BookDto)cleared.Data!).CollectionIds.Should().BeEmpty();
 
         await using var db = await h.Factory.CreateDbContextAsync();
@@ -439,7 +439,6 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
 
         var dto = await GetBookAsync(h, bookId);
         dto.CollectionIds.Should().BeEquivalentTo([coll2.Id]);
-        dto.CollectionId.Should().Be(coll2.Id, "the transitional mirror follows a surviving membership");
     }
 
     [Fact]
@@ -479,7 +478,7 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
     }
 
     [Fact]
-    public async Task Unsorted_excludes_books_whose_mirror_column_is_stale()
+    public async Task Unsorted_excludes_books_that_belong_to_a_collection()
     {
         var h = Harness();
         var coll1 = (CollectionDto)(await h.Service.CreateCollectionAsync(new(Client, "c1", "Philosophy"))).Data!;
@@ -488,20 +487,12 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
 
         await h.Service.UpdateBookAsync(new(Client, "m1", bookId, CollectionIds: [coll1.Id]));
 
-        // Simulate the only state in which the two representations can disagree:
-        // a row written before the backfill existed (mirror null, membership
-        // present). Unsorted must trust the authoritative membership, otherwise a
-        // sorted book leaks into Unsorted.
-        await using (var db = await h.Factory.CreateDbContextAsync())
-        {
-            await db.Database.ExecuteSqlRawAsync(
-                """UPDATE "Books" SET "CollectionId" = NULL WHERE "Id" = {0}""", bookId);
-        }
-
+        // Membership is the only record of belonging now, so this is a direct
+        // assertion: a book in a collection is not unsorted.
         var listed = await h.Service.ListBooksAsync(
             BookFilter.Unsorted, BookSort.Title, null, 1, 50, null, null, null);
         ((PaginatedResponse<BookDto>)listed.Data!).Items.Select(b => b.Id)
-            .Should().NotContain(bookId, "membership wins over a stale mirror column");
+            .Should().NotContain(bookId, "the book belongs to a collection");
     }
 
     [Fact]
@@ -532,7 +523,6 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
 
         var dto = await GetBookAsync(h, bookId);
         dto.CollectionIds.Should().BeEquivalentTo([coll2.Id], "only the deleted membership is removed");
-        dto.CollectionId.Should().Be(coll2.Id, "the mirror must not point at the deleted collection");
 
         await using var db = await h.Factory.CreateDbContextAsync();
         (await db.BookCollections.CountAsync(bc => bc.BookId == bookId)).Should().Be(1);
@@ -733,7 +723,7 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
         outcome.BooksUnlinked.Should().Be(1);
         outcome.ChildrenAffected.Should().Be(0);
 
-        (await GetBookAsync(h, bookId)).CollectionId.Should().BeNull();
+        (await GetBookAsync(h, bookId)).CollectionIds.Should().BeEmpty();
         (await CountCollectionsAsync(h)).Should().Be(0);
     }
 

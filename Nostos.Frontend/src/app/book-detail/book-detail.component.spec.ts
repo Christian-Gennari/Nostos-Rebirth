@@ -34,7 +34,7 @@ const book: Book = {
   hasFile: false,
   fileName: null,
   coverUrl: null,
-  collectionId: null,
+  collectionIds: [],
   lastLocation: null,
   progressPercent: 0,
   lastReadAt: null,

@@ -61,7 +61,6 @@ public record BookDto(
     bool HasFile,
     string? FileName,
     string? CoverUrl,
-    Guid? CollectionId,
     string? LastLocation,
     int ProgressPercent,
     int Rating,
@@ -75,7 +74,7 @@ public record BookDto(
     IEnumerable<EditionSummaryDto>? OtherEditions = null,
     // Multi-collection membership. APPENDED deliberately: BookDto is a
     // positional record, so inserting a field would renumber the JSON of every
-    // existing client. Populated alongside the transitional CollectionId.
+    // existing client. This is the sole representation of membership.
     IEnumerable<Guid>? CollectionIds = null
 );
 
@@ -100,13 +99,16 @@ public record CreateBookDto(
     string? Categories,
     string? Series,
     string? VolumeNumber,
-    Guid? CollectionId,
     int Rating = 0,
     bool IsFavorite = false,
     string? PersonalReview = null,
     DateTime? FinishedAt = null,
-    // Multi-collection membership at create time (REST-only, appended so the
-    // positional record stays source-compatible with existing callers).
+    /**
+     * Inbound compatibility only: the singular collection is translated into a
+     * single-element membership set by the endpoint. Not populated on responses
+     * (membership is reported as CollectionIds).
+     */
+    Guid? CollectionId = null,
     IReadOnlyList<Guid>? CollectionIds = null
 );
 
@@ -130,18 +132,15 @@ public record UpdateBookDto(
     string? Categories,
     string? Series,
     string? VolumeNumber,
-    Guid? CollectionId,
     int? Rating,
     bool? IsFavorite,
     string? PersonalReview,
     DateTime? FinishedAt,
     bool? IsFinished,
-    // Multi-collection membership. REST-only addition (the MCP surface keeps its
-    // frozen single-value contract). null = leave membership unchanged; an empty
-    // list clears every membership. Appended, so the positional record stays
-    // source-compatible with existing callers.
-    IReadOnlyList<Guid>? CollectionIds = null,
-    bool ClearCollection = false
+    // Inbound compatibility (see CreateBookDto.CollectionId).
+    Guid? CollectionId = null,
+    bool ClearCollection = false,
+    IReadOnlyList<Guid>? CollectionIds = null
 );
 
 public record UpdateProgressDto(string Location, int Percentage);

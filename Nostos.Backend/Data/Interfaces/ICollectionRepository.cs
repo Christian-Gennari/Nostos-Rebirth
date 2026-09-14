@@ -17,7 +17,8 @@ public interface ICollectionRepository
     Task<Guid?> GetParentIdAsync(Guid id);
 
     /// <summary>
-    /// Sets CollectionId = null on all books in the given collection.
+    /// Removes every membership row for the given collection (books themselves
+    /// are untouched — they belong to the library, not to the collection).
     /// </summary>
     Task UnlinkBooksAsync(Guid collectionId);
 }

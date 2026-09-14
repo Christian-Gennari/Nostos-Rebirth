@@ -94,8 +94,7 @@ public sealed class LibraryService : ILibraryService
             BookFilter.Reading => query.Where(b => b.Progress.FinishedAt == null && b.Progress.ProgressPercent > 0),
             BookFilter.NotStarted => query.Where(b => b.Progress.ProgressPercent == 0),
             BookFilter.Unsorted => query.Where(b =>
-                !db.BookCollections.Any(bc => bc.BookId == b.Id)
-                && b.CollectionId == null),
+                !db.BookCollections.Any(bc => bc.BookId == b.Id)),
             _ => query,
         };
 
@@ -110,13 +109,9 @@ public sealed class LibraryService : ILibraryService
                 .ToListAsync(ct);
             var subtreeIds = GetSubtreeIds(collectionId.Value, collections);
 
-            // Multi-collection: a book matches when ANY of its memberships is in
-            // the subtree. The `|| b.CollectionId …` clause is a transitional
-            // fallback for rows the backfill might have missed; Phase 3 removes
-            // it once membership is proved complete.
+            // A book matches when ANY of its memberships is in the subtree.
             query = query.Where(b =>
-                db.BookCollections.Any(bc => bc.BookId == b.Id && subtreeIds.Contains(bc.CollectionId))
-                || (b.CollectionId.HasValue && subtreeIds.Contains(b.CollectionId.Value)));
+                db.BookCollections.Any(bc => bc.BookId == b.Id && subtreeIds.Contains(bc.CollectionId)));
         }
 
         PaginatedResponse<BookDto> pageResult;
@@ -234,7 +229,7 @@ public sealed class LibraryService : ILibraryService
         var favorites = await db.Books.AsNoTracking().CountAsync(b => b.Progress.IsFavorite, ct);
         var finished = await db.Books.AsNoTracking().CountAsync(b => b.Progress.FinishedAt != null, ct);
         var unsorted = await db.Books.AsNoTracking()
-            .CountAsync(b => !db.BookCollections.Any(bc => bc.BookId == b.Id) && b.CollectionId == null, ct);
+            .CountAsync(b => !db.BookCollections.Any(bc => bc.BookId == b.Id), ct);
         var audiobooks = await db.Books.AsNoTracking().OfType<AudioBookModel>().CountAsync(ct);
         var pdfs = await db.Books.AsNoTracking().CountAsync(
             b => b.FileDetails.FileName != null && EF.Functions.Like(b.FileDetails.FileName, "%.pdf"), ct);
@@ -774,7 +769,6 @@ public sealed class LibraryService : ILibraryService
             request.Categories,
             request.Series,
             request.VolumeNumber,
-            request.CollectionId,
             request.Rating,
             request.IsFavorite,
             request.PersonalReview,
@@ -848,7 +842,6 @@ public sealed class LibraryService : ILibraryService
                     AddedAt = model.CreatedAt,
                 });
 
-            model.CollectionId = membershipIds[0];
             await db.SaveChangesAsync(ct);
             model.BookCollections = membershipIds
                 .Select(id => new BookCollectionModel { BookId = model.Id, CollectionId = id })
@@ -940,10 +933,10 @@ public sealed class LibraryService : ILibraryService
         }
 
         // --- COLLECTION MEMBERSHIP ---
-        // CollectionIds (the full replacement set) is the authoritative write
-        // when supplied. The singular CollectionId / ClearCollection pair is the
-        // legacy contract, kept working by translating it into the same set
-        // operation so the two can never disagree.
+        // CollectionIds (the full replacement set) is the authoritative write.
+        // The singular CollectionId / ClearCollection pair is the legacy
+        // contract, kept working by translating it into the same set operation
+        // so the two can never disagree.
         if (request.CollectionIds is not null)
         {
             var wanted = request.CollectionIds.Distinct().ToList();
@@ -968,11 +961,6 @@ public sealed class LibraryService : ILibraryService
                     BookId = book.Id,
                     CollectionId = id,
                 });
-
-            // Transitional mirror: first member wins, so every legacy read path
-            // (and the not-yet-migrated clients) keeps reporting a collection
-            // that this book really is in.
-            book.CollectionId = wanted.Count > 0 ? wanted[0] : null;
         }
         else if (request.CollectionId.HasValue)
         {
@@ -983,7 +971,8 @@ public sealed class LibraryService : ILibraryService
                     LibraryReplyFormatter.CollectionNotFound, state.StateVersion));
 
             // Legacy singular set: replace whatever membership exists with this
-            // one collection, so the join table and the column stay consistent.
+            // one collection. (The MCP surface is frozen on this shape, so the
+            // translation lives here rather than in the tool signature.)
             var current = await db.BookCollections
                 .Where(bc => bc.BookId == book.Id)
                 .ToListAsync(ct);
@@ -993,7 +982,6 @@ public sealed class LibraryService : ILibraryService
                 BookId = book.Id,
                 CollectionId = request.CollectionId.Value,
             });
-            book.CollectionId = request.CollectionId;
         }
         else if (request.ClearCollection)
         {
@@ -1001,18 +989,6 @@ public sealed class LibraryService : ILibraryService
                 .Where(bc => bc.BookId == book.Id)
                 .ToListAsync(ct);
             db.BookCollections.RemoveRange(current);
-            book.CollectionId = null;
-        }
-        else
-        {
-            // No membership instruction: keep the mirror honest against the
-            // authoritative table for whatever this book currently has.
-            var first = await db.BookCollections.AsNoTracking()
-                .Where(bc => bc.BookId == book.Id)
-                .Select(bc => (Guid?)bc.CollectionId)
-                .FirstOrDefaultAsync(ct);
-            if (first is not null || book.CollectionId is not null)
-                book.CollectionId = first;
         }
 
         switch (book)
@@ -1289,30 +1265,14 @@ public sealed class LibraryService : ILibraryService
             return NoChange(Failure("collection_has_children",
                 LibraryReplyFormatter.CollectionHasChildren, state.StateVersion));
 
-        var bookCount = await db.Books.CountAsync(b => b.CollectionId == collection.Id, ct);
+        var bookCount = await db.BookCollections
+            .CountAsync(bc => bc.CollectionId == collection.Id, ct);
 
-        // Membership rows go first: the join table's collection FK is RESTRICT,
-        // so leaving them would block the delete.
+        // Membership rows go first: their collection FK is RESTRICT, so leaving
+        // them would block the delete. Books themselves survive untouched.
         await db.BookCollections
             .Where(bc => bc.CollectionId == collection.Id)
             .ExecuteDeleteAsync(ct);
-
-        await db.Books
-            .Where(b => b.CollectionId == collection.Id)
-            .ExecuteUpdateAsync(s => s.SetProperty(b => b.CollectionId, (Guid?)null), ct);
-
-        // A book that was ALSO in another collection must keep reporting one of
-        // its surviving memberships, not an empty mirror.
-        await db.Database.ExecuteSqlRawAsync(
-            """
-            UPDATE "Books"
-            SET "CollectionId" = (
-                SELECT bc."CollectionId" FROM "BookCollections" bc
-                WHERE bc."BookId" = "Books"."Id"
-                LIMIT 1)
-            WHERE "CollectionId" IS NULL
-              AND EXISTS (SELECT 1 FROM "BookCollections" bc WHERE bc."BookId" = "Books"."Id");
-            """, ct);
 
         db.Collections.Remove(collection);
         await db.SaveChangesAsync(ct);
