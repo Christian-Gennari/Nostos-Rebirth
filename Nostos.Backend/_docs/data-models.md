@@ -9,7 +9,7 @@ The backend uses Entity Framework Core 10 with SQLite. All models live in `Nosto
 ```
 ┌──────────────┐     ┌──────────────────┐     ┌──────────────┐
 │  Collection   │────<│     BookModel      │────<│   NoteModel   │
-│              │  1:M │  (TPH inheritance) │  1:M │              │
+│              │  M:M │  (TPH inheritance) │  1:M │              │
 └──────────────┘     └──────────────────┘     └──────┬───────┘
       │ self-ref                                       │ M:M
       │ ParentId                                       │
@@ -38,7 +38,7 @@ Table-per-hierarchy (TPH) with discriminator column `BookType`.
 | `Progress`     | `ReadingProgress` | Owned type — reading state             |
 | `FileDetails`  | `FileInfoDetails` | Owned type — file references           |
 | `CreatedAt`    | `DateTime`        | UTC creation timestamp                 |
-| `CollectionId` | `Guid?`           | FK to Collection (nullable = unsorted) |
+| `BookCollections` | `ICollection<BookCollectionModel>` | Membership in any number of collections |
 
 ### Discriminator Values
 
@@ -139,6 +139,24 @@ Many-to-many between Notes and Concepts.
 | `NoteId`    | `Guid` | FK to Note (composite PK)    |
 | `ConceptId` | `Guid` | FK to Concept (composite PK) |
 
+## BookCollectionModel (Join Table)
+
+Many-to-many between Books and Collections — **the only record of membership**.
+`Books.CollectionId` was dropped, so a book being in several collections is
+representable and no mirror column needs keeping in sync.
+
+| Property       | Type       | Description                                     |
+| -------------- | ---------- | ----------------------------------------------- |
+| `BookId`       | `Guid`     | FK to Book (composite PK), **Cascade** on delete |
+| `CollectionId` | `Guid`     | FK to Collection (composite PK), **Restrict**    |
+| `AddedAt`      | `DateTime` | When the membership was created                  |
+
+Delete behaviour is deliberately asymmetric: `Cascade` from Book so deleting a
+book cannot strand membership rows, `Restrict` from Collection so a non-empty
+collection cannot be removed by raw SQL behind the service's back (the service
+deletes membership rows itself, then the collection). Anything that serialises a
+book must `Include(b => b.BookCollections)`.
+
 ## WritingModel
 
 Hierarchical file system for the writing studio.
@@ -164,7 +182,7 @@ Hierarchical file system for the writing studio.
 | ------------- | -------------- | ---------- |
 | `Books`       | `Title`        | Non-unique |
 | `Books`       | `Author`       | Non-unique |
-| `Books`       | `CollectionId` | Non-unique |
+| `BookCollections` | `CollectionId` | Non-unique |
 | `Notes`       | `BookId`       | Non-unique |
 | `Collections` | `ParentId`     | Non-unique |
 | `Writings`    | `ParentId`     | Non-unique |

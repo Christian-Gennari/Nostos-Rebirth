@@ -39,7 +39,7 @@ interface Book {
   hasFile: boolean;
   fileName?: string;
   coverUrl?: string;
-  collectionId?: string;
+  collectionIds: string[];
   lastLocation?: string;
   progressPercent: number;
   lastReadAt?: string;
@@ -76,7 +76,9 @@ interface PaginatedResponse<T> {
 
 ### `CreateBookDto`
 
-All creation fields: `type`, `title`, `author`, `subtitle`, `editor`, `translator`, `narrator`, `description`, `isbn`, `publisher`, `placeOfPublication`, `publishedDate`, `pageCount`, `language`, `categories`, `series`, `volumeNumber`, `collectionId`, `personalReview`, `edition`, `asin`, `duration`.
+All creation fields: `type`, `title`, `author`, `subtitle`, `editor`, `translator`, `narrator`, `description`, `isbn`, `publisher`, `placeOfPublication`, `publishedDate`, `pageCount`, `language`, `categories`, `series`, `volumeNumber`, `collectionIds`, `personalReview`, `edition`, `asin`, `duration`.
+
+`collectionIds` is the membership set. The singular `collectionId` is still accepted *inbound* for compatibility and translated into a single-element set by the backend; responses report `collectionIds` only.
 
 ### `UpdateBookDto`
 

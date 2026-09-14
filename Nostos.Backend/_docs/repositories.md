@@ -38,7 +38,7 @@ Manages `BookModel` entities (all subtypes via TPH).
 | `Favorites` | `Progress.IsFavorite == true`               |
 | `Finished`  | `Progress.FinishedAt != null`               |
 | `Reading`   | `FinishedAt == null && ProgressPercent > 0` |
-| `Unsorted`  | `CollectionId == null`                      |
+| `Unsorted`  | no `BookCollections` row for the book       |
 
 ### Sort Options (`BookSort` enum)
 
@@ -63,7 +63,7 @@ Manages hierarchical `CollectionModel` entities.
 | `UpdateAsync(collection)`        | Update + save                                                                    |
 | `DeleteAsync(collection)`        | Remove + save                                                                    |
 | `GetParentIdAsync(id)`           | Returns parent ID (for cycle detection during move)                              |
-| `UnlinkBooksAsync(collectionId)` | Sets `CollectionId = null` on all books in the collection (called before delete) |
+| `UnlinkBooksAsync(collectionId)` | Removes the collection's membership rows (books are untouched). Called before delete; no callers in the running app — `LibraryService` does this inline. |
 
 ---
 

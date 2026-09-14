@@ -39,7 +39,7 @@ Full book representation returned from API.
 | `HasFile`                                                     | `bool`                         | Whether a file is uploaded             |
 | `FileName`                                                    | `string?`                      | e.g. `"book.epub"`                     |
 | `CoverUrl`                                                    | `string?`                      | e.g. `"/api/books/{id}/cover"`         |
-| `CollectionId`                                                | `Guid?`                        |                                        |
+| `CollectionIds`                                               | `IEnumerable<Guid>?`           | Every collection the book is in (appended field) |
 | `LastLocation`                                                | `string?`                      | Reading position                       |
 | `ProgressPercent`                                             | `int`                          | 0–100                                  |
 | `Rating`                                                      | `int`                          | 0–5                                    |

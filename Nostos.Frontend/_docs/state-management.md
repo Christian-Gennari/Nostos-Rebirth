@@ -12,7 +12,7 @@ Services that are `providedIn: 'root'` expose `signal()` properties directly.
 
 | Service                      | Signals                                 | Purpose                      |
 | ---------------------------- | --------------------------------------- | ---------------------------- |
-| `CollectionsService`         | `activeCollectionId`, `sidebarExpanded` | Shared sidebar filter state  |
+| `CollectionsService`         | `sidebarExpanded`        | Sidebar toggle (`LibraryFilterService.collectionId` owns the active filter) |
 | `ToastService`               | `toasts`                                | Reactive toast notifications |
 | `ConceptAutocompleteService` | `suggestions`, `activeIndex`            | Autocomplete dropdown state  |
 
