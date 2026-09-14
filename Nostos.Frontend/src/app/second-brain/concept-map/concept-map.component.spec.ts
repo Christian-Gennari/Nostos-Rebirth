@@ -109,11 +109,11 @@ vi.mock('graphology', () => {
   return { default: MockGraph };
 });
 
-vi.mock('graphology-layout-forceatlas2', () => ({
-  default: {
-    assign: vi.fn(),
-  },
-}));
+vi.mock('graphology-layout-forceatlas2', () => {
+  const assign = vi.fn();
+  (globalThis as unknown as { __faAssign: unknown }).__faAssign = assign;
+  return { default: { assign }, __assign: assign };
+});
 
 import {
   ConceptMapComponent,
@@ -419,6 +419,26 @@ describe('ConceptMapComponent', () => {
       const labelColor = String(unconnected['labelColor']);
       const labelAlpha = Number(labelColor.match(/,\s*([\d.]+)\)$/)?.[1] ?? '1');
       expect(labelAlpha, 'unconnected label must not be invisible').toBeGreaterThanOrEqual(0.5);
+    });
+
+    it('lays the graph out with enough repulsion to avoid an unreadable clump', () => {
+      setConcepts(concepts);
+      flushGraph();
+
+      const assign = (globalThis as {
+        __faAssign?: { mock: { calls: Array<[unknown, { settings: Record<string, number> }]> } };
+      }).__faAssign!;
+      expect(assign.mock.calls.length, 'ForceAtlas2 must have run').toBeGreaterThan(0);
+
+      const settings = assign.mock.calls.at(-1)![1].settings;
+
+      // Measured on the real 53-node graph: at scalingRatio 18 / gravity 0.4 the
+      // settled layout put 18 node pairs closer than their combined radii on
+      // screen (worst case 0.4px apart while needing 8px), so the middle of the
+      // map rendered as an unreadable clump. At 90 / 0.12 that is 0, with the
+      // 25th-percentile nearest-neighbour distance rising from 0.4px to 37.7px.
+      expect(settings['scalingRatio'], 'repulsion must keep nodes apart').toBeGreaterThanOrEqual(60);
+      expect(settings['gravity'], 'weak gravity lets the graph spread').toBeLessThanOrEqual(0.25);
     });
   });
 

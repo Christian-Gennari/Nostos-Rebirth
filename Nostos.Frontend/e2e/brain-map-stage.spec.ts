@@ -166,6 +166,97 @@ test('graph is framed and centred when the map opens', async ({ browser }) => {
   }
 });
 
+test('graph has no overlapping nodes and uses the stage aspect', async ({ browser }) => {
+  const fixture = loadFixture();
+  // This test needs real concepts to measure, and it must not rely on the
+  // serial ordering of the other tests (the fixture is shared and cleaned up
+  // between spec files), so seed and tear down locally.
+  const seed = await seedBrain(
+    fixture.baseUrl,
+    `Spacing ${Date.now().toString(36)}`,
+    [
+      'On [[Attention]] and [[Memory]].',
+      'On [[Attention]] and [[Practice]].',
+      'On [[Memory]] and [[Practice]].',
+      'On [[Solitude]] and [[Attention]].',
+      'On [[Reading]] and [[Memory]].',
+      'On [[Practice]] and [[Solitude]].',
+      'On [[Reading]] and [[Attention]].',
+    ],
+    ['Attention', 'Memory', 'Practice', 'Solitude', 'Reading']
+  );
+  const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT);
+  try {
+    await openMap(page, fixture.baseUrl);
+
+    const spacing = await page.evaluate(() => {
+      const globals = globalThis as unknown as {
+        __nostosSigma?: {
+          getDimensions(): { width: number; height: number };
+          graphToViewport(p: { x: number; y: number }): { x: number; y: number };
+          scaleSize(s: number): number;
+        };
+        __nostosGraph?: {
+          forEachNode(cb: (id: string, attrs: { x: number; y: number; size: number; label?: string }) => void): void;
+        };
+      };
+      const sigma = globals.__nostosSigma;
+      const graph = globals.__nostosGraph;
+      if (!sigma || !graph) return null;
+
+      const d = sigma.getDimensions();
+      const pts: Array<{ label: string; x: number; y: number; r: number }> = [];
+      graph.forEachNode((_id, attrs) => {
+        const p = sigma.graphToViewport({ x: attrs.x, y: attrs.y });
+        pts.push({ label: attrs.label ?? '', x: p.x, y: p.y, r: sigma.scaleSize(attrs.size) });
+      });
+
+      let overlapping = 0;
+      const overlaps: Array<{ a: string; b: string; dist: number; need: number }> = [];
+      const nn: number[] = [];
+      for (let i = 0; i < pts.length; i++) {
+        let best = Infinity;
+        for (let j = 0; j < pts.length; j++) {
+          if (i === j) continue;
+          const dist = Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y);
+          if (dist < best) best = dist;
+          if (j > i && dist < pts[i].r + pts[j].r) {
+            overlapping++;
+            if (overlaps.length < 5) overlaps.push({ a: pts[i].label, b: pts[j].label, dist: +dist.toFixed(1), need: +(pts[i].r + pts[j].r).toFixed(1) });
+          }
+        }
+        nn.push(best);
+      }
+      nn.sort((a, b) => a - b);
+      return {
+        nodes: pts.length,
+        overlappingPairs: overlapping,
+        overlaps,
+        minNN: +nn[0].toFixed(1),
+        p25NN: +nn[Math.floor(nn.length * 0.25)].toFixed(1),
+        medianNN: +nn[Math.floor(nn.length / 2)].toFixed(1),
+      };
+    });
+
+    console.log('NODE SPACING:', JSON.stringify(spacing, null, 1));
+    expect(spacing, 'node geometry must be measurable').not.toBeNull();
+
+    // Regression guard: at the original ForceAtlas2 repulsion (scalingRatio 18 /
+    // gravity 0.4) 18 node pairs rendered closer than their combined radii, so
+    // the centre of the map was an unreadable clump.
+    expect(
+      spacing!.overlappingPairs,
+      `overlapping node pairs: ${JSON.stringify(spacing!.overlaps)}`
+    ).toBe(0);
+
+    // And nodes must not be so close that their labels collide either.
+    expect(spacing!.p25NN, 'a quarter of nodes should have real breathing room').toBeGreaterThanOrEqual(12);
+  } finally {
+    await context.close();
+    await cleanupBrain(fixture.baseUrl, seed);
+  }
+});
+
 test('map fills the stage on mobile', async ({ browser }) => {
   const fixture = loadFixture();
   const { context, page } = await newCapturePage(browser, MOBILE_VIEWPORT, true);
