@@ -45,6 +45,67 @@ const OUT = resolve(arg('out', join(frontendRoot, 'e2e/visual-evidence/design-ba
 const ONLY_THEME = arg('theme', null);
 const ONLY_SURFACE = arg('surface', null);
 
+/* DATA-DRIVEN SURFACES ARE STUBBED, NOT RE-BASELINED.
+ *
+ * The settings page renders BACKUP HISTORY straight from the API, including the
+ * stored timestamps of real backups. A weekly backup job made the newest entry
+ * move (Sep 7 -> Sep 14), which moved ~3,900 pixels with byte-identical CSS.
+ *
+ * Re-baselining would "fix" that for one week and break again at the next backup,
+ * and it would train whoever reads the failure to ignore a real regression. Worse,
+ * the gate's own message said "this is a REAL styling change" - because
+ * CONTENT_HASH only scans book/index/note cards, so a data change on THIS surface
+ * is invisible to it.
+ *
+ * So the capture pins the data instead. The stub below reproduces the exact rows
+ * the committed baseline was captured with, which means the fixture costs zero
+ * pixel change: the CSS is still compared byte-for-byte, and only the clock is
+ * frozen. Update the values only if a deliberate styling change moves this card.
+ *
+ * `intervalHours` and `maxBackups` are included so the schedule copy is pinned too.
+ * Anything the settings page fetches that carries a timestamp belongs here. */
+const BACKUP_STUB = {
+  /* `/api/backup/settings` matters as much as the two below: it drives the
+     Automatic Backup toggle and its description, which is different copy for
+     enabled/disabled. A fresh worktree DB copy has `isEnabled: false`, so the
+     capture rendered "the first backup will run within 5 minutes..." instead of
+     the baseline's "created automatically every week" — 4,020 px of pure text
+     drift from a database seed, not from CSS. */
+  '/api/backup/settings': {
+    isEnabled: true,
+    provider: 'Local',
+    includeBookFiles: true,
+    intervalHours: 168,
+    maxBackups: 3,
+  },
+  '/api/backup/status': {
+    isEnabled: true,
+    provider: 'Local',
+    lastBackupAt: '2026-09-07T05:18:16.0529953Z',
+    lastBackupStatus: 'Completed',
+    includeBookFiles: true,
+    intervalHours: 168,
+    maxBackups: 3,
+  },
+  '/api/backup/history': [
+    { id: 'stub-backup-3', createdAt: '2026-09-07T05:18:16.0529953Z',
+      sizeBytes: 12682795471, provider: 'Local', status: 'Completed',
+      includeBookFiles: true, errorMessage: null },
+    { id: 'stub-backup-2', createdAt: '2026-08-31T05:14:37.7014082Z',
+      sizeBytes: 12682795687, provider: 'Local', status: 'Completed',
+      includeBookFiles: true, errorMessage: null },
+    /* THREE entries, not two: (maxBackups = 3). The card's height depends on the
+       row count, and the third row sits just below the fold - so its values are
+       not painted, but its PRESENCE is, as a taller card. A two-entry fixture
+       made the card end ~12px short of the viewport bottom and moved 8,146
+       pixels of pure background. The date follows the observed weekly cadence
+       (Aug 24 is the Monday before Aug 31, matching the three dates in the DB). */
+    { id: 'stub-backup-1', createdAt: '2026-08-24T05:14:37.7014082Z',
+      sizeBytes: 12682795687, provider: 'Local', status: 'Completed',
+      includeBookFiles: true, errorMessage: null },
+  ],
+};
+
 /** Surfaces worth pinning. Protected surfaces (pdf/tinymce) are out of scope. */
 /* ORDER IS LOAD-BEARING: the reader is captured FIRST.
  *
@@ -320,6 +381,20 @@ async function main() {
              non-vacuity guard failed the capture. `install` alone fixes the START
              time but still advances, which is handled by surface ORDER instead
              (the reader is captured first, see SURFACES). */
+        }
+
+        /* Pin the data-driven surfaces BEFORE any navigation, so the app never
+           even sees the live values. Scoped here (not to `settings`) because a
+           route interception is global to the context and the other surfaces
+           simply never request these endpoints. See BACKUP_STUB for why this is
+           the fix rather than re-baselining. */
+        for (const [path, body] of Object.entries(BACKUP_STUB)) {
+          await context.route(`**${path}`, (route) =>
+            route.fulfill({
+              status: 200,
+              contentType: 'application/json',
+              body: JSON.stringify(body),
+            }));
         }
 
         // Seed the theme the way the app persists it, then let the app apply it.
