@@ -58,6 +58,14 @@ export class NoteCardComponent {
   // Collapse logic
   isExpanded = false;
   readonly CHAR_THRESHOLD = 250;
+  // A quoted card has no commentary-collapse path (below), so an unusually long
+  // quotation would otherwise expand to its full height — the Combeferre note
+  // imported from the vault is 5,871 characters and filled the whole feed. Above
+  // this length a quote collapses too, behind the same "Show more" affordance.
+  // Set at 1000 characters of total note text: measured against live data it
+  // collapses the four oversized imported cards and exactly one pre-existing
+  // note, and never a quote a reader would call short.
+  readonly QUOTE_COLLAPSE_THRESHOLD = 1000;
 
   Icons = {
     Edit: Edit2,
@@ -74,11 +82,16 @@ export class NoteCardComponent {
     if (this.isEditing) return false;
 
     // A quote is the reason the note exists and is set as the card's hero, so it
-    // is never truncated: collapsing the quotation and hiding it behind "Show
-    // more" buries the very thing the reader came for. Cards carrying a quote
-    // therefore expand to fit it; only a long *commentary* collapses, and only
-    // when there is no quote competing for the space.
-    if (this.note.selectedText) return false;
+    // is not truncated merely for existing: collapsing a normal quotation buries
+    // the very thing the reader came for. A quotation long enough to swamp the
+    // feed is the exception — it collapses, and the hero survives because
+    // expanding it is one click away.
+    const totalLength =
+      (this.note.selectedText?.length || 0) + (this.note.content?.length || 0);
+
+    if (this.note.selectedText) {
+      return totalLength > this.QUOTE_COLLAPSE_THRESHOLD;
+    }
 
     const contentLen = this.note.content?.length || 0;
     return contentLen > this.CHAR_THRESHOLD;
