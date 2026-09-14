@@ -36,7 +36,6 @@ const EDGE_SIZE_MIN = 0.5;
 const EDGE_SIZE_MAX = 3;
 const LABEL_SIZE_MIN = 10;
 const LABEL_SIZE_MAX = 16;
-const LABEL_RENDERED_SIZE_THRESHOLD = 8;
 
 /* Nostos theme tokens read at runtime from CSS custom properties. */
 function getCssVar(name: string, fallback: string): string {
@@ -49,6 +48,14 @@ function hexToRgba(hex: string, alpha: number): string {
   const g = parseInt(c.substring(2, 4), 16);
   const b = parseInt(c.substring(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function mixHex(first: string, second: string, amount: number): string {
+  const a = first.replace('#', '');
+  const b = second.replace('#', '');
+  const channel = (source: string, offset: number) => parseInt(source.slice(offset, offset + 2), 16);
+  const mix = (offset: number) => Math.round(channel(a, offset) + (channel(b, offset) - channel(a, offset)) * amount);
+  return `#${[0, 2, 4].map((offset) => mix(offset).toString(16).padStart(2, '0')).join('')}`;
 }
 
 /** Stable initial coordinates keep captures and sessions reproducible. */
@@ -258,11 +265,13 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
       const ratio = (Math.max(0, node.usageCount) - minUsage) / usageRange;
       const size = NODE_SIZE_MIN + (NODE_SIZE_MAX - NODE_SIZE_MIN) * Math.sqrt(ratio);
       const labelSize = LABEL_SIZE_MIN + (LABEL_SIZE_MAX - LABEL_SIZE_MIN) * Math.sqrt(ratio);
+      const nodeColor = mixHex(this.theme.node, this.theme.nodeHead, 0.18 + ratio * 0.42);
 
       graph.addNode(node.id, {
         label: node.name,
         size,
-        color: this.theme.node,
+        color: nodeColor,
+        labelColor: hexToRgba(this.theme.label, 0.74 + ratio * 0.2),
         x: hashSeed(`${node.id}:x`) * 2 - 1,
         y: hashSeed(`${node.id}:y`) * 2 - 1,
         usageCount: node.usageCount,
@@ -326,10 +335,10 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
     const sigma = new Sigma(graph, container, {
       renderLabels: true,
       renderEdgeLabels: false,
-      labelRenderedSizeThreshold: LABEL_RENDERED_SIZE_THRESHOLD,
+      labelRenderedSizeThreshold: 4.5,
       labelFont: "'Hanken Grotesk', sans-serif",
       labelColor: { color: this.theme.label },
-      labelSize: 13,
+      labelSize: 12,
       defaultEdgeType: 'line',
       enableEdgeEvents: false,
       allowInvalidContainer: true,

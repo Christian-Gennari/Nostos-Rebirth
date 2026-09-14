@@ -99,13 +99,16 @@
   overflow: hidden;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  background: var(--bg-surface);
+  background: var(--bg-body);
+  box-shadow: inset 0 0 0 1px var(--color-accent-faint);
 }
 
-/* Sigma's container occupies the full stage. */
+/* A graph surface should feel like a field, not a flat card. */
 .sigma-container {
   width: 100%;
   height: clamp(420px, 62dvh, 760px);
+  background:
+    radial-gradient(circle at 50% 48%, var(--bg-surface) 0%, var(--bg-body) 72%);
 }
 
 .map-accessible-list {
