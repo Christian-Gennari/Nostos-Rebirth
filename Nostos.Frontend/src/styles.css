@@ -191,6 +191,17 @@
 
   /* ── Borders ── */
   --border-color: #E4E1DB;
+  /* ── Control boundary (checkboxes, and anything else whose edge is the only
+     thing that says "this is a control") ──
+     A plain --border-color edge is a HAIRLINE: it separates two surfaces and is
+     meant to whisper (1.31:1 on paper). On dark it does not whisper, it vanishes
+     — #262A34 on the #1B1E26 surface is 1.16:1, and exactly 1.00:1 against the
+     row-hover fill #252A34, i.e. byte-identical to what is behind it. An
+     unchecked box whose edge is invisible is not a subtle control, it is a
+     control the user cannot find. Light keeps today's value byte-for-byte, so
+     nothing moves on paper; only dark is re-inked to the WCAG 3:1 UI-boundary
+     minimum. */
+  --control-border: var(--border-color);
   --border-light: #EFECE6;
   --border-focus: #28372D;
   --focus-ring: #6E7C90;   /* neutral slate; NOT the brand pine (see the dark block) */
@@ -672,6 +683,9 @@
   --border-color: #262A34;
   --border-light: #1F232B;
   --border-focus: #5C6B80;
+  /* 3.07:1 on the #1B1E26 surface and 2.65:1 on the #252A34 hover fill — clear
+     of the 3:1 UI-boundary floor on both, which the hairline was not. */
+  --control-border: #5C6B80;
   /* Muted slate. A focus ring is a utility affordance, not a brand moment, and
      on an accent-coloured control a mint ring vanishes into it. */
   --focus-ring: #6E7C90;

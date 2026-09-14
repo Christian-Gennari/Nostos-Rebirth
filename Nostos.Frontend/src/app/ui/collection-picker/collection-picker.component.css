@@ -144,9 +144,16 @@
   width: 16px;
   height: 16px;
   flex: 0 0 auto;
-  border: 1px solid var(--border-color);
+  /* --control-border, NOT --border-color. The box is the one control here whose
+     edge IS the affordance, and the hairline is invisible on dark (1.16:1, and
+     1.00:1 on row hover — see the token's note in styles.css). The box was also
+     filled with --bg-surface, which is the same value as the row behind it in
+     both themes, so the edge was carrying the entire affordance on its own with
+     nothing to fall back on. Transparent lets the row show through instead, so
+     the edge is the only thing that has to be legible. */
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-md);
-  background: var(--bg-surface);
+  background: transparent;
   color: var(--on-primary);
 }
 
