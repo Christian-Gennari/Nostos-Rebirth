@@ -61,6 +61,53 @@ function cssOf(path, raw) {
 const stripComments = (s) =>
   s.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' ')).replace(/^\s*\/\/.*$/gm, '');
 
+/**
+ * Is a `design-lang-allow` marker attached to THIS rule (or this line)?
+ *
+ * Every rule that offers the escape hatch must go through here, because getting it
+ * wrong is silent in both directions and both were real bugs:
+ *
+ *  - Testing the marker against comment-STRIPPED text can never match: stripComments
+ *    blanks comments to spaces, so `lineAllow.test(line)` was always false and the
+ *    literal-colour hatch simply never worked.
+ *  - Searching a WIDE window (lineNo - 30) let one marker exempt an unrelated rule 30
+ *    lines below it, so a second hand-copied recipe with no marker of its own passed
+ *    the guard that exists to catch exactly that.
+ *
+ * Both are fixed by the same idea: look at the comment block that actually belongs to
+ * the rule. `raw` is searched (markers live in comments), and the scope is the lines
+ * immediately above the rule, stopping at the first blank line or another rule.
+ */
+function markerNear(rawLines, lineNo) {
+  // Walk UP from the rule and stop at the first line that cannot be part of the rule's
+  // own leading comment. Two traps here, both hit during development:
+  //
+  //  - A BLANK line is NOT a boundary. A multi-paragraph comment block (which these
+  //    markers are, because they carry a reason) contains blank lines inside itself,
+  //    and stopping at the first blank line made the marker unfindable — the rule
+  //    failed while the exemption sat right above it.
+  //  - A line that closes a rule or opens a selector IS a boundary, because it means
+  //    anything above belongs to something else.
+  //
+  // Depth: enough to cover a multi-paragraph comment, bounded so it cannot read back
+  // into an unrelated earlier block.
+  const idx = lineNo - 2; // 0-based index of the line directly above the rule
+  for (let i = idx; i >= 0 && i > idx - 40; i--) {
+    const line = rawLines[i] ?? '';
+    if (/design-lang-allow/.test(line)) return true;
+    const t = line.trim();
+    // Walking UP: hitting a line that OPENS a rule/at-rule means we have left the
+    // comment block behind and reached unrelated code.
+    if (t.endsWith('{')) return false;
+    // NOTE: a line ENDING in `*/` is the close of the comment block we are INSIDE, so
+    // it must NOT stop the walk — stopping there skipped the whole multi-paragraph
+    // comment and reported "no marker" while the exemption sat three lines above.
+    // Only a line that OPENS a comment without the marker in it ends the search.
+    if (t.startsWith('/*') && !/design-lang-allow/.test(line)) return false;
+  }
+  return false;
+}
+
 const files = walk(SRC).map((p) => ({ path: p, raw: readFileSync(p, 'utf8') }))
   .map((f) => ({ ...f, css: stripComments(cssOf(f.path, f.raw)) }))
   .filter((f) => f.css.trim().length > 0);
@@ -118,13 +165,27 @@ for (const f of files) {
      that is not hypothetical: library.component.css carried the whole
      visually-hidden body inside `.library-title` under a mobile media query. The
      name-based rule looked clean the entire time. Compare BODIES, not names. */
-  const HIDDEN_SIG = /width:\s*1px;\s*height:\s*1px;\s*padding:\s*0;\s*margin:\s*-1px/;
+  /**
+   * Match the clip recipe by its SET of declarations, not by a fixed substring order.
+   * The previous signature required `width; height; padding; margin` in that exact
+   * sequence, so a copy with reordered properties — or a `clip-path: inset(50%)`
+   * variant with a declaration inserted between them — was invisible to the guard.
+   * An independent reviewer falsified it with both. Requiring the four characteristic
+   * declarations plus `overflow: hidden` or a clip, in any order, still costs nothing
+   * and catches the copies the guard exists for.
+   */
+  const HIDDEN_SIG = (body) => {
+    const b = body.replace(/\s+/g, ' ');
+    const has = (re) => re.test(b);
+    return has(/width:\s*1px/) && has(/height:\s*1px/) && has(/margin:\s*-1px/)
+      && has(/overflow:\s*hidden/) && (has(/clip:\s*rect\(/) || has(/clip-path:\s*inset\(/));
+  };
   for (const f of files) {
     if (f.path.endsWith('styles.css')) continue;
     for (const m of f.css.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
       const sel = m[1].trim();
       const body = m[2];
-      if (!HIDDEN_SIG.test(body.replace(/\s+/g, ' '))) continue;
+      if (!HIDDEN_SIG(body)) continue;
       // The global utility itself is the definition we WANT; anything else that
       // reproduces its body by hand is a copy, whatever it is called.
       if (/\.visually-hidden\s*$/.test(sel)) continue;
@@ -143,10 +204,11 @@ for (const f of files) {
       // there in the source.
       const lead = m[1].length - m[1].trimStart().length;
       const lineNo = f.css.slice(0, m.index + lead).split('\n').length;
-      const rawLines = f.raw.split('\n');
-      const around = rawLines.slice(Math.max(0, lineNo - 30), lineNo + 4).join('\n');
-      if (/design-lang-allow/.test(around)) continue;
-      report('visually-hidden', f.path, f.raw.slice(0, f.raw.indexOf(m[0])).split('\n').length,
+      // Scope the exemption to THIS rule's own comment block. A wide 30-line window
+      // let one marker exempt an unmarked hand-copied recipe below it, which is
+      // exactly the copy this rule exists to catch.
+      if (markerNear(f.raw.split('\n'), lineNo)) continue;
+      report('visually-hidden', f.path, lineNo,
         `"${sel.split('\n').pop().trim()}" reproduces the .visually-hidden recipe ` +
         `by hand. Use the global utility (\`class="visually-hidden"\`) or extend it, so ` +
         `the clip recipe cannot drift from the one definition.`);
@@ -202,14 +264,16 @@ const LITERAL_COLOUR_BUDGET = 75;
     // design doc; add here only with a reason.
     /^#000$/, /^#fff$/, /^#ffffff$/, /^#000000$/,
   ];
-  const lineAllow = /design-lang-allow/;
   const found = [];
   for (const f of files) {
     if (f.path.endsWith('styles.css')) continue; // the token graph itself
     const lines = f.css.split('\n');
+    const rawLines = f.raw.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const l = lines[i];
-      if (lineAllow.test(l)) continue;
+      // Marker lives in a COMMENT, which `f.css` has blanked out, so it must be read
+      // from `f.raw`. Testing the stripped line made this hatch permanently dead.
+      if (/design-lang-allow/.test(rawLines[i] ?? '') || markerNear(rawLines, i + 1)) continue;
       for (const m of l.matchAll(/#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)/g)) {
         const lit = m[0];
         if (ALLOW.some((re) => re.test(lit))) continue;
@@ -525,7 +589,12 @@ if (process.argv.includes('--self-test')) {
     // The by-RECIPE half of RULE 2. The original rule matched the selector name, so a
     // hand-copied clip recipe under a different class escaped it entirely — that is
     // exactly what `.library-title` did in a mobile media query.
-    ['visually-hidden', '.some-other-name { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; }'],
+    ['visually-hidden', '.some-other-name { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); }'],
+    // REORDERED properties and the modern clip-path variant. Both slipped through the
+    // original signature, which required width/height/padding/margin in that exact
+    // order, so an independent reviewer kept a hand-copied recipe hidden from the guard.
+    ['visually-hidden', '.reordered { margin: -1px; padding: 0; height: 1px; width: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }'],
+    ['visually-hidden', '.modern { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); margin: -1px; overflow: hidden; }'],
   ];
   let ok = 0;
   for (const [rule, snippet] of cases) {
@@ -544,7 +613,14 @@ if (process.argv.includes('--self-test')) {
     }
     if (rule === 'literal-colour') fired = /#ff00ff/.test(snippet);
     if (rule === 'visually-hidden') {
-      fired = /width:\s*1px;\s*height:\s*1px;\s*padding:\s*0;\s*margin:\s*-1px/.test(snippet);
+      // Must mirror the CURRENT signature, which matches the recipe as a SET of
+      // declarations rather than a fixed substring order. Pinning the old ordered
+      // regex here would let the self-test pass while the rule itself had gone back
+      // to being blind to reordered / clip-path copies — which is exactly how it was
+      // falsified. Independent review found both variants slipping through.
+      const b = snippet.replace(/\s+/g, ' ');
+      fired = /width:\s*1px/.test(b) && /height:\s*1px/.test(b) && /margin:\s*-1px/.test(b)
+        && /overflow:\s*hidden/.test(b) && (/clip:\s*rect\(/.test(b) || /clip-path:\s*inset\(/.test(b));
     }
     if (rule === 'bare-attribute-not-class') {
       // Mirror the rule's predicate: a bare hyphenated attribute whose name is a
@@ -649,31 +725,53 @@ if (process.argv.includes('--self-test')) {
     'inputmode', 'dirname', 'lang', 'dir', 'title', 'alt', 'src', 'href', 'id']);
 
   for (const f of TEMPLATES) {
-    // Strip HTML comments and every quoted value BEFORE matching. Without this the
-    // rule fired on `class="btn btn-xs"` itself: the tokens INSIDE a class attribute
-    // are quoted text, not bare attributes, and quoting them produced 17 false
-    // findings in files untouched by this work. A noisy gate gets ignored, which is
-    // worse than no gate.
-    const cleaned = f.raw
-      .replace(/<!--[\s\S]*?-->/g, '')
-      .replace(/"[^"\n]*"/g, '""')
-      .replace(/'[^'\n]*'/g, "''");
-    const lines = cleaned.split('\n');
-    // Keep original line numbers by splitting the ORIGINAL too.
-    const original = f.raw.split('\n');
+    /* Track whether each line sits INSIDE an element tag, by counting unquoted `<` and
+       `>`. This replaces two earlier approaches, both wrong:
+         - a naive quote-strip (`/"[^"\n]*"/g`) that fired on `class="btn btn-xs"`
+           itself, producing 17 false findings in untouched files;
+         - the same strip plus an indentation heuristic, which a MULTILINE attribute
+           value defeats: `title="...\n      desktop-only mode\n..."` is not stripped
+           by a single-line regex, so its body was scanned as if it were markup and the
+           guard reported a bare attribute that does not exist. Independent review
+           falsified it that way.
+       Counting angle brackets handles both: inside a tag, and inside a quoted value,
+       are different states, and a multiline value keeps the tag open across lines. */
+    const lines = f.raw.split('\n');
+    let inTag = false;
+    let quote = null; // the quote character we are inside, if any
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      // Only inside an element tag: the line must open a tag or be an attribute
-      // continuation (a bare attribute is indented under its opening tag).
-      if (!/<[a-zA-Z]/.test(line) && !/^\s{4,}[a-zA-Z]/.test(line)) continue;
-      for (const m of line.matchAll(/(?:^|\s)([a-z][a-z0-9]*(?:-[a-z0-9]+)+)(?=\s|>|$)/g)) {
+      // Build the scannable text for this line: everything outside quotes and comments.
+      let scannable = '';
+      for (let c = 0; c < line.length; c++) {
+        const ch = line[c];
+        if (quote) {
+          if (ch === quote) quote = null;
+          continue; // inside a quoted value: never markup
+        }
+        if (ch === '"' || ch === "'") { quote = ch; continue; }
+        if (!inTag && ch === '<' && line.slice(c, c + 4) === '<!--') {
+          // Skip the rest of this HTML comment (approximate: same line only is enough
+          // here because a bare attribute inside a comment is not our target anyway).
+          const end = line.indexOf('-->', c);
+          c = end === -1 ? line.length : end + 2;
+          continue;
+        }
+        if (ch === '<') { inTag = true; continue; }
+        if (ch === '>') { inTag = false; continue; }
+        scannable += inTag ? ch : ' ';
+      }
+      // A quoted value opened and not closed on this line leaves `quote` set, so the
+      // next line(s) stay non-scannable until the value ends. That is the fix.
+      if (!inTag) continue;
+      for (const m of scannable.matchAll(/(?:^|\s)([a-z][a-z0-9]*(?:-[a-z0-9]+)+)(?=\s|=|$)/g)) {
         const attr = m[1];
         if (ALLOWED.has(attr)) continue;
         if (!classNames.has(attr)) continue;
         report('bare-attribute-not-class', f.path, i + 1,
           `"${attr}" is a bare attribute, but the CSS has a .${attr} CLASS rule that can ` +
           `never match it. Write class="${attr}". A bare attribute is not a class ` +
-          `(near: ${(original[i] || '').trim().slice(0, 60)})`);
+          `(near: ${line.trim().slice(0, 60)})`);
       }
     }
   }
