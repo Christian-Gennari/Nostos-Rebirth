@@ -177,8 +177,6 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
 
         modelBuilder.Entity<BookModel>().HasIndex(b => b.Author);
 
-        modelBuilder.Entity<BookModel>().HasIndex(b => b.CollectionId);
-
         modelBuilder.Entity<WorkModel>(b =>
         {
             b.HasKey(w => w.Id);
@@ -221,17 +219,11 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
             .HasForeignKey(c => c.ParentId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        modelBuilder.Entity<BookModel>()
-            .HasOne(b => b.Collection)
-            .WithMany()
-            .HasForeignKey(b => b.CollectionId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        // --- MULTI-COLLECTION MEMBERSHIP ---
-        // Books may belong to many collections; BookCollections is the
-        // authoritative membership. CollectionId above is a transitional mirror
-        // (first member wins) kept so existing read paths keep working until
-        // Phase 3 drops the column.
+        // --- MULTI-COLLECTION MEMBERSHIP (single source of truth) ---
+        // A book may belong to many collections. This join table is the ONLY
+        // place membership lives — the former Books.CollectionId single-value
+        // column was dropped, because a one-slot column cannot represent the
+        // model and keeping it in sync was a standing source of drift.
         modelBuilder.Entity<BookCollectionModel>()
             .HasKey(bc => new { bc.BookId, bc.CollectionId });
 

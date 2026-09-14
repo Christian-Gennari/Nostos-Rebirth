@@ -111,13 +111,10 @@ public static class MappingExtensions
             PageCount: pageCount,
             // --- ROOT FIELDS ---
             CreatedAt: model.CreatedAt,
-            CollectionId: model.CollectionId,
-            // Membership falls back to the transitional column when the caller
-            // did not Include(BookCollections) — so a single book fetched
-            // without the include still reports its collection honestly.
-            CollectionIds: model.BookCollections.Count > 0
-                ? model.BookCollections.Select(bc => bc.CollectionId).OrderBy(id => id).ToList()
-                : (model.CollectionId.HasValue ? [model.CollectionId.Value] : []),
+            // Membership falls back to an empty set when the caller did not
+            // Include(BookCollections) — membership lives only in the join
+            // table, so there is nothing else to read.
+            CollectionIds: model.BookCollections.Select(bc => bc.CollectionId).OrderBy(id => id).ToList(),
             // --- MAPPED FROM FILE DETAILS ---
             HasFile: model.FileDetails.HasFile,
             FileName: model.FileDetails.FileName,
@@ -227,7 +224,6 @@ public static class MappingExtensions
         model.Title = dto.Title;
         model.Author = dto.Author;
         model.CreatedAt = DateTime.UtcNow;
-        model.CollectionId = dto.CollectionId;
 
         // 2. Map Metadata (Owned Type)
         // We can assign properties directly as the object is initialized in the constructor
@@ -291,8 +287,6 @@ public static class MappingExtensions
             model.Title = dto.Title;
         if (dto.Author != null)
             model.Author = NullIfEmpty(dto.Author);
-        if (dto.CollectionId != null)
-            model.CollectionId = dto.CollectionId;
 
         // 2. Apply Metadata (Owned Type) — empty string clears the field
         if (dto.Subtitle != null)

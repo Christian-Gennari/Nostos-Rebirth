@@ -75,11 +75,11 @@ describe('AddBookModal', () => {
     expect(options).toContain('Other');
   });
 
-  it('preselects the book current collection when editing', () => {
+  it('preselects the book collection when editing', () => {
     fixture.componentRef.setInput('book', {
       id: 'b1',
       title: 'Meditations',
-      collectionId: 'child',
+      collectionIds: ['child'],
     } as unknown as Book);
     fixture.detectChanges();
 
@@ -91,7 +91,6 @@ describe('AddBookModal', () => {
     fixture.componentRef.setInput('book', {
       id: 'b1',
       title: 'Meditations',
-      collectionId: 'child',
       collectionIds: ['child', 'other'],
     } as unknown as Book);
     fixture.detectChanges();
@@ -103,7 +102,7 @@ describe('AddBookModal', () => {
     fixture.componentRef.setInput('book', {
       id: 'b1',
       title: 'Meditations',
-      collectionId: 'child',
+      collectionIds: ['child'],
     } as unknown as Book);
     fixture.detectChanges();
     expect(component.form.collectionIds).toEqual(['child']);
@@ -125,7 +124,7 @@ describe('AddBookModal', () => {
     fixture.componentRef.setInput('book', {
       id: 'b1',
       title: 'Meditations',
-      collectionId: 'gone',
+      collectionIds: ['gone'],
     } as unknown as Book);
     fixture.detectChanges();
 
@@ -133,7 +132,7 @@ describe('AddBookModal', () => {
     expect(fixture.nativeElement.querySelector('app-collection-picker')).toBeTruthy();
   });
 
-  it('submits the membership set alongside the legacy mirror field', async () => {
+  it('submits the membership set as the only collection field', async () => {
     const books = TestBed.inject(BooksService);
     const createSpy = vi
       .spyOn(books, 'create')
@@ -144,8 +143,11 @@ describe('AddBookModal', () => {
     component.form.collectionIds = ['child', 'other'];
     component.submit();
 
+    // No singular mirror is written any more — the column is gone, so sending
+    // one would be a dead field on the wire.
     expect(createSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ collectionIds: ['child', 'other'], collectionId: 'child' }),
+      expect.objectContaining({ collectionIds: ['child', 'other'] }),
     );
+    expect(createSpy.mock.calls[0][0]).not.toHaveProperty('collectionId');
   });
 });

@@ -465,7 +465,10 @@ export class Library implements OnInit, OnDestroy {
       case 'notstarted':
         return book.progressPercent === 0;
       case 'unsorted':
-        return !book.collectionId;
+        // Membership is a set now: a book is sorted if it is in ANY collection.
+        // Reading the singular field here would call a multi-collection book
+        // unsorted, which is the bug this lookup exists to avoid.
+        return !(book.collectionIds?.length ?? 0);
       default:
         return true;
     }

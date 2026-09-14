@@ -71,12 +71,21 @@ public static class BooksEndpoints
                 var request = new LibraryCreateBookRequest(
                     "rest", $"rest-create-{Guid.NewGuid():N}",
                     dto.Type, dto.Title,
-                    dto.Subtitle, dto.Author, dto.Editor, dto.Translator, dto.Narrator,
-                    dto.Description, dto.Isbn, dto.Asin, dto.Duration,
-                    dto.Publisher, dto.PlaceOfPublication, dto.PublishedDate, dto.Edition,
-                    dto.PageCount, dto.Language, dto.Categories, dto.Series, dto.VolumeNumber,
-                    dto.CollectionId, dto.Rating, dto.IsFavorite, dto.PersonalReview, dto.FinishedAt,
-                    CollectionIds: dto.CollectionIds);
+                    Subtitle: dto.Subtitle, Author: dto.Author, Editor: dto.Editor,
+                    Translator: dto.Translator, Narrator: dto.Narrator,
+                    Description: dto.Description, Isbn: dto.Isbn, Asin: dto.Asin, Duration: dto.Duration,
+                    Publisher: dto.Publisher, PlaceOfPublication: dto.PlaceOfPublication,
+                    PublishedDate: dto.PublishedDate, Edition: dto.Edition,
+                    PageCount: dto.PageCount, Language: dto.Language, Categories: dto.Categories,
+                    Series: dto.Series, VolumeNumber: dto.VolumeNumber,
+                    // REST keeps accepting the singular collectionId as a single-
+                    // element membership set: it is the shape the mobile/OPDS
+                    // callers and the endpoint tests already use, and the
+                    // service translates it into membership rows.
+                    CollectionIds: dto.CollectionIds
+                        ?? (dto.CollectionId.HasValue ? [dto.CollectionId.Value] : null),
+                    Rating: dto.Rating, IsFavorite: dto.IsFavorite,
+                    PersonalReview: dto.PersonalReview, FinishedAt: dto.FinishedAt);
 
                 var result = await library.CreateOrMatchBookAsync(request, strictConfirmation: false, ct);
                 if (LibraryHttpMapper.MapError(result) is { } error)
@@ -97,13 +106,21 @@ public static class BooksEndpoints
                 var request = new LibraryUpdateBookRequest(
                     "rest", $"rest-update-{Guid.NewGuid():N}",
                     id,
-                    dto.Title, dto.Subtitle, dto.Author, dto.Editor, dto.Translator, dto.Narrator,
-                    dto.Description, dto.Isbn, dto.Asin, dto.Duration,
-                    dto.Publisher, dto.PlaceOfPublication, dto.PublishedDate, dto.Edition,
-                    dto.PageCount, dto.Language, dto.Categories, dto.Series, dto.VolumeNumber,
-                    dto.CollectionId, dto.ClearCollection,
-                    dto.Rating, dto.IsFavorite, dto.PersonalReview, dto.FinishedAt, dto.IsFinished,
-                    CollectionIds: dto.CollectionIds);
+                    Title: dto.Title, Subtitle: dto.Subtitle, Author: dto.Author,
+                    Editor: dto.Editor, Translator: dto.Translator, Narrator: dto.Narrator,
+                    Description: dto.Description, Isbn: dto.Isbn, Asin: dto.Asin, Duration: dto.Duration,
+                    Publisher: dto.Publisher, PlaceOfPublication: dto.PlaceOfPublication,
+                    PublishedDate: dto.PublishedDate, Edition: dto.Edition,
+                    PageCount: dto.PageCount, Language: dto.Language, Categories: dto.Categories,
+                    Series: dto.Series, VolumeNumber: dto.VolumeNumber,
+                    // Singular collectionId (REST compatibility shape) becomes a
+                    // single-element set; ClearCollection stays honoured.
+                    CollectionIds: dto.CollectionIds
+                        ?? (dto.CollectionId.HasValue ? [dto.CollectionId.Value] : null),
+                    ClearCollection: dto.ClearCollection,
+                    Rating: dto.Rating, IsFavorite: dto.IsFavorite,
+                    PersonalReview: dto.PersonalReview, FinishedAt: dto.FinishedAt,
+                    IsFinished: dto.IsFinished);
 
                 var result = await library.UpdateBookAsync(request, ct);
                 return LibraryHttpMapper.MapError(result) ?? Results.Ok(result.Data);

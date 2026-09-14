@@ -494,7 +494,7 @@ public sealed class LibraryEndpointTests : IClassFixture<LibraryEndpointFactory>
         deleted.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         var bookAfter = (await Client.GetFromJsonAsync<BookDto>($"/api/books/{book.Id}"))!;
-        bookAfter.CollectionId.Should().BeNull("books are unlinked, never deleted");
+        bookAfter.CollectionIds.Should().BeEmpty("books are unlinked, never deleted");
     }
 
     [Fact]

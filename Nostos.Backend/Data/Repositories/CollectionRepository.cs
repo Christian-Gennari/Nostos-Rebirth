@@ -53,11 +53,12 @@ public class CollectionRepository : ICollectionRepository
 
     public async Task UnlinkBooksAsync(Guid collectionId)
     {
-        var books = await _db.Books.Where(b => b.CollectionId == collectionId).ToListAsync();
+        // Membership rows are the only record of belonging, so unlinking is
+        // simply deleting them. Books are not modified.
+        var memberships = await _db
+            .BookCollections.Where(bc => bc.CollectionId == collectionId)
+            .ToListAsync();
 
-        foreach (var book in books)
-        {
-            book.CollectionId = null;
-        }
+        _db.BookCollections.RemoveRange(memberships);
     }
 }
