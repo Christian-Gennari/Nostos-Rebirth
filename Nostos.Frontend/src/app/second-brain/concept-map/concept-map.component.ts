@@ -10,6 +10,7 @@ import {
   OnChanges,
   OnDestroy,
   Output,
+  HostListener,
   signal,
   SimpleChanges,
   ViewChild,
@@ -144,6 +145,7 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   @Output() readonly conceptSelected = new EventEmitter<string>();
 
   @ViewChild('sigmaContainer', { static: false }) sigmaContainer!: ElementRef<HTMLDivElement>;
+  @ViewChild('mapStage', { static: false }) mapStage!: ElementRef<HTMLElement>;
 
   private sigma: Sigma | null = null;
   private graph: Graph | null = null;
@@ -158,9 +160,18 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   readonly loading = signal(true);
   readonly hoveredId = signal<string | null>(null);
   readonly selectedNodeId = signal<string | null>(null);
+  readonly searchTerm = signal('');
+  readonly isFullscreen = signal(false);
   readonly sourceCount = signal(0);
   readonly isCapped = computed(() => this.sourceCount() > MAX_MAP_CONCEPTS);
   readonly noConnections = signal(false);
+  readonly searchResults = computed(() => {
+    const query = this.searchTerm().trim().toLocaleLowerCase();
+    if (!query) return [];
+    return this.accessibleNodes()
+      .filter((node) => node.name.toLocaleLowerCase().includes(query))
+      .slice(0, 8);
+  });
 
   /**
    * Accessible nodes: the full set currently rendered, so the hidden list
@@ -171,6 +182,19 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   >([]);
 
   private readonly conceptsService = inject(ConceptsService);
+
+  /* ── Keyboard and fullscreen ── */
+  private readonly handleFullscreenChange = (): void => {
+    this.isFullscreen.set(document.fullscreenElement === this.mapStage?.nativeElement);
+    window.setTimeout(() => this.sigma?.refresh(), 0);
+  };
+
+  @HostListener('document:keydown', ['$event'])
+  handleKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && this.isFullscreen()) {
+      void this.exitFullscreen();
+    }
+  }
 
   /* ── Lifecycle ── */
 
@@ -187,6 +211,7 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
 
   ngAfterViewInit(): void {
     this.viewInitialized = true;
+    document.addEventListener('fullscreenchange', this.handleFullscreenChange);
     if (this.pendingRebuild) {
       this.pendingRebuild = false;
       this.rebuildSigma();
@@ -195,6 +220,7 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    document.removeEventListener('fullscreenchange', this.handleFullscreenChange);
     this.disposeSigma();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
@@ -465,6 +491,46 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
 
   resetView(): void {
     this.sigma?.getCamera().animatedReset();
+  }
+
+  fitGraph(): void {
+    this.sigma?.getCamera().animatedReset({ duration: 350 });
+  }
+
+  centerSelected(): void {
+    const selectedId = this.selectedNodeId();
+    if (!selectedId || !this.graph || !this.sigma || !this.graph.hasNode(selectedId)) return;
+    const attributes = this.graph.getNodeAttributes(selectedId);
+    this.sigma.getCamera().animate(
+      { x: Number(attributes['x']), y: Number(attributes['y']), ratio: 0.45 },
+      { duration: 350 }
+    );
+  }
+
+  updateSearch(term: string): void {
+    this.searchTerm.set(term);
+  }
+
+  chooseSearchResult(id: string): void {
+    this.searchTerm.set('');
+    this.selectAccessibleNode(id);
+    this.centerSelected();
+  }
+
+  async toggleFullscreen(): Promise<void> {
+    if (this.isFullscreen()) {
+      await this.exitFullscreen();
+      return;
+    }
+    const stage = this.mapStage?.nativeElement;
+    if (!stage || !document.fullscreenEnabled || !stage.requestFullscreen) return;
+    await stage.requestFullscreen();
+  }
+
+  private async exitFullscreen(): Promise<void> {
+    if (document.fullscreenElement && document.exitFullscreen) {
+      await document.exitFullscreen();
+    }
   }
 
   zoomIn(): void {

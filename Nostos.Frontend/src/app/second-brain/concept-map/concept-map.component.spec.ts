@@ -16,6 +16,7 @@ vi.mock('sigma', () => {
         animatedReset: vi.fn(),
         animatedZoom: vi.fn(),
         animatedUnzoom: vi.fn(),
+        animate: vi.fn(),
       };
     }
   }
@@ -37,6 +38,12 @@ vi.mock('graphology', () => {
     }
     get order() { return this.nodes.size; }
     get size() { return this.edges.length; }
+    hasNode(node: string) {
+      return this.nodes.has(node);
+    }
+    getNodeAttributes(node: string) {
+      return this.nodes.get(node) ?? {};
+    }
     forEachNode(callback: (node: string, attrs: Record<string, unknown>) => void) {
       for (const [node, attrs] of this.nodes) callback(node, attrs);
     }
@@ -203,6 +210,29 @@ describe('ConceptMapComponent', () => {
 
     expect(selected).toHaveBeenCalledWith('alpha');
     expect(component.selectedNodeId()).toBe('alpha');
+  });
+
+  it('supports searching and selecting a rendered concept', () => {
+    setConcepts(concepts);
+    flushGraph();
+
+    component.updateSearch('alp');
+    expect(component.searchResults().map((node) => node.id)).toEqual(['alpha']);
+
+    const selected = vi.fn();
+    component.conceptSelected.subscribe(selected);
+    component.chooseSearchResult('alpha');
+
+    expect(component.searchTerm()).toBe('');
+    expect(component.selectedNodeId()).toBe('alpha');
+    expect(selected).toHaveBeenCalledWith('alpha');
+  });
+
+  it('renders navigation controls for search, fit, centering, focus, and reset', () => {
+    expect(fixture.nativeElement.querySelector('input[type="search"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.map-control-label')).toBeTruthy();
+    expect(fixture.nativeElement.textContent).toContain('Focus mode');
+    expect(fixture.nativeElement.textContent).toContain('Reset');
   });
 
   it('reflects externally set selectedId', () => {

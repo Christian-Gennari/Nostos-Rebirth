@@ -3,27 +3,46 @@
   <p class="map-limit-note">Showing the 150 most-referenced concepts.</p>
   }
 
-  <div class="map-stage">
+  <div #mapStage class="map-stage" [class.is-fullscreen]="isFullscreen()">
+    <div class="map-toolbar" role="group" aria-label="Map navigation">
+      <label class="map-search">
+        <span class="visually-hidden">Search concepts</span>
+        <input
+          type="search"
+          placeholder="Search concepts"
+          [value]="searchTerm()"
+          (input)="updateSearch($any($event.target).value)"
+          aria-label="Search concepts"
+        />
+      </label>
+      @if (searchTerm() && searchResults().length > 0) {
+      <ul class="map-search-results" aria-label="Search results">
+        @for (result of searchResults(); track result.id) {
+        <li>
+          <button type="button" (click)="chooseSearchResult(result.id)">
+            <strong>{{ result.name }}</strong>
+            <small>{{ result.connectionCount }} connections · {{ result.usageCount }} references</small>
+          </button>
+        </li>
+        }
+      </ul>
+      }
+    </div>
+
     <div class="map-controls" role="group" aria-label="Map controls">
+      <button type="button" class="map-zoom" aria-label="Zoom out" title="Zoom out" (click)="zoomOut()">−</button>
+      <button type="button" class="map-zoom" aria-label="Zoom in" title="Zoom in" (click)="zoomIn()">+</button>
+      <button type="button" class="map-control-label" (click)="fitGraph()">Fit</button>
       <button
         type="button"
-        class="map-zoom"
-        aria-label="Zoom out"
-        title="Zoom out"
-        (click)="zoomOut()"
-      >
-        −
+        class="map-control-label"
+        [disabled]="!selectedNodeId()"
+        (click)="centerSelected()"
+      >Center</button>
+      <button type="button" class="map-control-label" (click)="toggleFullscreen()">
+        {{ isFullscreen() ? 'Exit focus' : 'Focus mode' }}
       </button>
-      <button
-        type="button"
-        class="map-zoom"
-        aria-label="Zoom in"
-        title="Zoom in"
-        (click)="zoomIn()"
-      >
-        +
-      </button>
-      <button type="button" class="map-reset" (click)="resetView()">Reset view</button>
+      <button type="button" class="map-reset" (click)="resetView()">Reset</button>
     </div>
 
     <div #sigmaContainer class="sigma-container"></div>
