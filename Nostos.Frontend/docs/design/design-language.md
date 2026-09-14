@@ -421,6 +421,30 @@ Note also that an earlier claim in this document — that these components were
 "unthemed" — was WRONG. They use `var()` with fallbacks and the tokens resolve;
 only the fallbacks were dead, and those were removed.
 
+### `.empty-state` is four different messages, not one component
+
+The same class name is declared in four stylesheets, which looks like duplication until
+you read the bodies (all measured):
+
+| Surface | Shape |
+| --- | --- |
+| settings | plain centred text block, 32px padding |
+| flat-tree | inline dashed-border row, 42px min-height |
+| reader | full-height column, muted ink, `p` child |
+| writing-studio | full-height column with an icon-circle and an action button |
+
+Only two of the four share anything beyond the name (reader and writing-studio agree on
+`display: flex` / column / centred / muted ink / centred text — five declarations, and
+they disagree on padding, height and gap). The markup differs too: text-only, a status
+row, and an icon-plus-copy layout.
+
+An `app-empty-state` would therefore be an `<ng-content>` wrapper that changes the
+rendered DOM on four surfaces to save about four declarations, and it would still need
+per-surface padding and height passed in. The shared part is not a component, it is a
+naming collision — the same word used for four different messages. Left as-is; if the
+four should ever LOOK alike, that is a design decision to make deliberately, not a
+side-effect of a dedup.
+
 ### The three search boxes are near-copies, and deliberately left alone
 
 `second-brain` renders three search fields — `.search-box`, `.note-search-box` and
