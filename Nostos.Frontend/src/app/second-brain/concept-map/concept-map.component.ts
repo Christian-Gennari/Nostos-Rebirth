@@ -114,10 +114,10 @@ function readTheme(): ThemeColors {
   return {
     node: getCssVar('--graph-node', '#8b8e99'),
     nodeHead: getCssVar('--graph-node-head', '#4a4d57'),
-    edge: getCssVar('--color-accent', '#8b8e99'),
-    edgeActive: getCssVar('--color-text-main', '#2b2d33'),
-    edgeOpacityMin: dark ? 0.12 : 0.24,
-    edgeOpacityRange: dark ? 0.16 : 0.22,
+    edge: getCssVar('--graph-edge', '#8b8e99'),
+    edgeActive: getCssVar('--graph-edge-active', '#2b2d33'),
+    edgeOpacityMin: dark ? 0.28 : 0.34,
+    edgeOpacityRange: dark ? 0.2 : 0.2,
     label: getCssVar('--color-text-muted', '#6b6e78'),
     labelActive: getCssVar('--color-text-main', '#2b2d33'),
   };
@@ -423,7 +423,7 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
         const source = graph.source(edge);
         const target = graph.target(edge);
         if (source === activeId || target === activeId) {
-          res['color'] = component.theme.edgeActive;
+          res['color'] = hexToRgba(component.theme.edgeActive, 0.56);
           res['size'] = ((data['size'] as number) ?? 1) * 1.6;
           res['zIndex'] = 1;
         } else {

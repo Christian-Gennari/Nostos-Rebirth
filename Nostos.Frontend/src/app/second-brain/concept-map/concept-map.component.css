@@ -102,7 +102,14 @@
   transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
 }
 
-.map-reset:hover,
+.map-control-label,
+.map-reset {
+  border-color: transparent;
+  background: transparent;
+}
+
+.map-control-label:hover:not(:disabled),
+.map-reset:hover:not(:disabled),
 .map-zoom:hover:not(:disabled) {
   background: var(--bg-hover);
   color: var(--color-text-main);
@@ -172,7 +179,7 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--bg-body);
-  box-shadow: inset 0 0 0 1px var(--color-accent-faint);
+  box-shadow: inset 0 0 0 1px var(--border-color);
 }
 
 /* A graph surface should feel like a field, not a flat card. */

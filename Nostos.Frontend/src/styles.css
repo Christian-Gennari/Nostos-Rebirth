@@ -148,6 +148,8 @@
      design manifesto rules out. */
   --graph-node: #57534C;       /* light: warm ink; 7.6:1 on the white stage */
   --graph-node-head: #28372D;  /* the touched node: pine, the brand ink */
+  --graph-edge: #8A8680;       /* neutral warm stone; structure without a colour cast */
+  --graph-edge-active: #28372D; /* selected path follows the pine node hierarchy */
 
   /* ── Accent (Clay) ── */
   --color-accent: #8A6D58;
@@ -495,6 +497,8 @@
      7.2:1; the touched node goes to porcelain, matching --primary-ink on dark. */
   --graph-node: #B0A99E;
   --graph-node-head: #EDEEF2;
+  --graph-edge: #7B857F;       /* cool stone; quiet against the slate ground */
+  --graph-edge-active: #EDEEF2; /* selected path follows the porcelain node hierarchy */
 
   /* ── Accent (smoked warm; the light clay is only 3.74:1 here) ── */
   --color-accent: #D1AC8F;
