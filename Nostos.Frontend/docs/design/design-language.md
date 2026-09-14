@@ -319,6 +319,40 @@ The content hash excludes anything time-based on purpose. It must be stable acro
 two runs of the same code, or it carries no signal — which is also why the frozen
 clock and this hash are complementary rather than redundant.
 
+### Stub the data. Do not re-baseline a clock.
+The content fingerprint is a *diagnostic*: it tells you a data-driven surface
+moved and attributes it to DATA rather than CSS. That is the right call for the
+library, whose rows genuinely belong to the user and cannot be faked without
+losing the surface's meaning.
+
+It is the wrong call for a surface whose data is *incidental* to what it renders.
+`settings` fetches backup history — real stored timestamps from real backups — so
+a weekly backup job moved ~3,900 px with byte-identical CSS, and the gate's
+message ("this is a REAL styling change") was wrong, because `CONTENT_HASH` only
+scans book/index/note cards and never looks at this surface's rows at all.
+
+Re-baselining that would have fixed it for exactly one week and hidden the next
+occurrence. The capture now **intercepts the endpoints and serves a fixed
+fixture**, so only the clock is frozen and the CSS is still compared
+byte-for-byte. Settings passes deterministically in any environment, including a
+fresh worktree whose seeded DB has different values.
+
+Two traps worth remembering if you add a stub:
+
+- **Count matters as much as values.** `maxBackups` is 3, and the history card's
+  *height* depends on the row count. A two-entry fixture left the card 12 px short
+  of the viewport bottom and moved 8,146 px of pure background — with no text
+  differing anywhere.
+- **Every endpoint, not just the obvious one.** `/api/backup/settings` drives the
+  Automatic Backup toggle *and* its description, which is different copy for
+  enabled/disabled. Missing it produced 4,020 px of text drift from a database
+  seed. Enumerate what the surface fetches; anything carrying a value that can
+  differ between machines belongs in the fixture.
+
+Pin the data when the surface's data is incidental; keep the fingerprint when it
+is the subject. Never regenerate a baseline to silence a surface that is merely
+non-deterministic — that trades a visible failure for an invisible one.
+
 ### Surface capture ORDER is load-bearing
 An intermittent `reader-desktop-dark` failure (~11,240 px) resisted the clock fix.
 The decisive measurement: it was **byte-identical across three consecutive
