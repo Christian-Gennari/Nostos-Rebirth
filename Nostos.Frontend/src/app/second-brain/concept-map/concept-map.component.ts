@@ -79,8 +79,47 @@ const EDGE_ALPHA_DIM = 0.34;
  */
 const LABEL_RENDER_MIN_SIZE = 3.2;
 
-/** Fraction of the stage a fitted graph should occupy, leaving breathing room. */
+/**
+ * Mean advance width per character, as a fraction of font size, for the label
+ * font. Used to estimate how far a label extends from its node so the fit can
+ * reserve that room.
+ */
+const LABEL_CHAR_WIDTH_RATIO = 0.62;
+
+/**
+ * Ceiling on the label gutter, as a fraction of the stage dimension it applies
+ * to. Without a ceiling a single long concept name would shrink the whole graph
+ * to make room for one word.
+ */
+const MAX_LABEL_GUTTER_FRACTION = 0.15;
+
+/** Sigma's default horizontal offset from a node to the start of its label. */
+const LABEL_OFFSET_PX = 10;
+
+/** Fraction of the stage a fitted graph should occupy, with no label inset. */
 const FIT_OCCUPANCY = 0.88;
+
+/**
+ * Ceiling on how differently the two axes may be scaled when fitting a PORTRAIT
+ * stage.
+ *
+ * A force-directed graph settles roughly square. Sigma runs with
+ * `autoRescale: false`, so graph units map 1:1 to pixels and there is no
+ * independent stretch available — fitting to a single uniform scale therefore
+ * leaves whichever axis is longer partly empty (measured: a square graph on a
+ * 369x613 phone stage filled the width and only 41% of the height).
+ *
+ * Scaling each axis to its own extent uses that space. The cost is that the
+ * layout is no longer isotropic, so clusters can read as ellipses instead of
+ * circles — at a ratio of 1.6 that distortion was clearly visible. 1.4 is the
+ * largest factor that still reads as a natural layout in the captured frames
+ * while recovering a useful amount of the wasted axis.
+ *
+ * Applied only when the stage is taller than it is wide. On a wide stage the
+ * empty axis is horizontal, where a centred graph already reads correctly, so
+ * the plain uniform fit is kept and desktop framing is unchanged.
+ */
+const MAX_FIT_ANISOTROPY = 1.4;
 
 /**
  * Pointer travel, in CSS pixels, before a press on a node counts as a drag
@@ -122,14 +161,29 @@ function hashSeed(value: string): number {
 }
 
 /**
- * ForceAtlas2 works in arbitrary graph coordinates that are unrelated to the
- * stage. Sigma is run with `autoRescale: false` (so that dragging one node
- * leaves the rest of the layout alone), which means graph units map 1:1 onto
- * screen pixels. Normalize the settled extent into stage-sized pixel units
- * centred on the origin, so the graph arrives roughly framed and individual
- * drags never rescale their neighbours.
+ * Fit the settled layout into the stage, preserving aspect ratio.
+ *
+ * Sigma is run with `autoRescale: false`, so it maps graph units to screen
+ * pixels 1:1 in BOTH axes — there is no independent stretch available. A square
+ * graph therefore cannot fill a tall stage: fit to the width and the height is
+ * left empty, fit to the height and the width overflows.
+ *
+ * Fitting to the TIGHTER axis (what this did) makes that choice by accident and
+ * wastes whichever axis is longer. On a portrait phone the stage measured
+ * 316x523 while the settled graph was ~278x277, so width-fitting left 47% of the
+ * height blank — the graph sat in a band with dead space above and below rather
+ * than filling the screen.
+ *
+ * Each axis is therefore solved independently and the ratio between the two
+ * solutions is clamped to MAX_FIT_ANISOTROPY, which is what keeps the result a
+ * natural-looking layout rather than a stretched drawing.
  */
-function normalizeGraphPositions(graph: Graph, stageWidth: number, stageHeight: number): void {
+function normalizeGraphPositions(
+  graph: Graph,
+  stageWidth: number,
+  stageHeight: number,
+  occupancy: { x: number; y: number } = { x: FIT_OCCUPANCY, y: FIT_OCCUPANCY }
+): void {
   const points: Array<{ node: string; x: number; y: number }> = [];
   graph.forEachNode((node, attrs) => {
     points.push({ node, x: Number(attrs['x']) || 0, y: Number(attrs['y']) || 0 });
@@ -145,14 +199,43 @@ function normalizeGraphPositions(graph: Graph, stageWidth: number, stageHeight: 
   const centreX = (minX + maxX) / 2;
   const centreY = (minY + maxY) / 2;
 
-  // Fit the settled extent into the stage, preserving aspect ratio.
+  // Fit into the label-aware portion of the stage rather than all of it.
   const width = Math.max(stageWidth, 1);
   const height = Math.max(stageHeight, 1);
-  const scale = Math.min((width * FIT_OCCUPANCY) / spanX, (height * FIT_OCCUPANCY) / spanY);
+
+  // Solve each axis independently so neither is left empty, then cap the ratio
+  // between the two scales: unclamped, a tall stage stretches the graph into
+  // obvious ellipses.
+  //
+  // The cap is applied by holding the FITTING axis at its own solution and
+  // pulling the other axis toward it, rather than clamping both into a shared
+  // window. Clamping both is wrong when the stage aspect is further from the
+  // graph's aspect than the cap allows: the window inverts, both scales collapse
+  // to the same number, and the axis that had a larger solution is shrunk — the
+  // graph loses fill on the very axis the cap was meant to protect.
+  const rawScaleX = (width * occupancy.x) / spanX;
+  const rawScaleY = (height * occupancy.y) / spanY;
+  const uniform = Math.min(rawScaleX, rawScaleY);
+  let scaleX = uniform;
+  let scaleY = uniform;
+
+  // The uniform scale is the fit that never overflows and preserves the graph's
+  // aspect exactly; it is what a wide stage keeps.
+  //
+  // Only a stage TALLER than it is wide needs the extra step, and only there is
+  // it taken: on a wide stage the axis left empty is horizontal, where a
+  // centred graph already reads correctly, and reaching into that axis would
+  // change the framing users already have. Confining this to portrait stages
+  // keeps the desktop result byte-identical to the plain uniform fit.
+  if (height > width) {
+    const allowance = uniform * MAX_FIT_ANISOTROPY;
+    if (rawScaleX > uniform) scaleX = Math.min(rawScaleX, allowance);
+    if (rawScaleY > uniform) scaleY = Math.min(rawScaleY, allowance);
+  }
 
   for (const point of points) {
-    graph.setNodeAttribute(point.node, 'x', (point.x - centreX) * scale);
-    graph.setNodeAttribute(point.node, 'y', (point.y - centreY) * scale);
+    graph.setNodeAttribute(point.node, 'x', (point.x - centreX) * scaleX);
+    graph.setNodeAttribute(point.node, 'y', (point.y - centreY) * scaleY);
   }
 }
 
@@ -469,6 +552,9 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
       // units map 1:1 to screen pixels and a drag moves only what was dragged.
       autoRescale: false,
       autoCenter: false,
+      // No stagePadding: Sigma's `getStagePadding()` returns 0 whenever
+      // `autoRescale` is false, which is this configuration — the setting is
+      // inert here. Room for labels comes from `fitOccupancy()` instead.
       stagePadding: 0,
       // Sigma's label grid deconflicts labels for us: measured 0 merged blobs at
       // every density tried, while raising density from 1 to 1.6 lifted the
@@ -694,6 +780,50 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   /* ── Template actions ── */
 
   /**
+   * The fraction of each stage dimension the graph may occupy, leaving room for
+   * labels at the edges.
+   *
+   * `FIT_OCCUPANCY` alone assumes labels fit inside the drawing; they do not, so
+   * the space the outermost labels need is reserved first.
+   *
+   * The gutter is measured from the labels that will actually be drawn rather
+   * than guessed. Sigma draws a node's label beside it, so a node at the graph's
+   * outer edge pushes its text past the canvas and it is truncated mid-word —
+   * measured as ink touching the right edge of the label layer (50px of it on a
+   * 390px phone), which produced names like "pruder" and "Aristot".
+   * `stagePadding` cannot help: Sigma's `getStagePadding()` returns 0 whenever
+   * `autoRescale` is false, which is this configuration.
+   *
+   * Only the horizontal axis reserves label room: labels sit BESIDE a node, so
+   * text overflows sideways and never above or below it. Bounded by
+   * MAX_LABEL_GUTTER_FRACTION so one long name cannot shrink the graph to fit
+   * itself.
+   */
+  private fitOccupancy(): { x: number; y: number } {
+    const container = this.sigmaContainer?.nativeElement as HTMLElement | undefined;
+    const width = Math.max(container?.clientWidth ?? 0, 1);
+    const height = Math.max(container?.clientHeight ?? 0, 1);
+
+    let widestLabel = 0;
+    this.graph?.forEachNode((_node, attrs) => {
+      const label = String(attrs['label'] ?? '');
+      if (!label) return;
+      const labelSize = Number(attrs['labelSize']) || LABEL_SIZE_MIN;
+      // A label is centered on its node, so the overhang past the graph edge is
+      // half the text width.
+      // Offset plus half the text: the label starts beside the node and its
+      // centre therefore sits half a text-width further out.
+      const overhang = LABEL_OFFSET_PX + (label.length * labelSize * LABEL_CHAR_WIDTH_RATIO) / 2;
+      if (overhang > widestLabel) widestLabel = overhang;
+    });
+
+    const gutterX = Math.min(widestLabel, width * MAX_LABEL_GUTTER_FRACTION);
+
+    const usableX = Math.max(width - gutterX * 2, width * 0.5);
+    return { x: (usableX / width) * FIT_OCCUPANCY, y: FIT_OCCUPANCY };
+  }
+
+  /**
    * Compute the graph's extent in graph coordinates.
    */
   private graphExtent(): { minX: number; maxX: number; minY: number; maxY: number } | null {
@@ -734,7 +864,9 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
    * Asking Sigma instead of re-deriving its algebra keeps this correct for any
    * viewport aspect and any future change to its internals.
    */
-  private fitCameraState(occupancy = FIT_OCCUPANCY): { x: number; y: number; ratio: number } | null {
+  private fitCameraState(
+    occupancy: { x: number; y: number } = { x: FIT_OCCUPANCY, y: FIT_OCCUPANCY }
+  ): { x: number; y: number; ratio: number } | null {
     const extent = this.graphExtent();
     const sigma = this.sigma;
     if (!extent || !sigma) return null;
@@ -754,8 +886,8 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
     const effectiveY = spanY > 0 ? spanY : Math.max(extent.maxY - extent.minY, 1e-6);
 
     const ratio = Math.max(
-      effectiveX / (width * occupancy),
-      effectiveY / (height * occupancy),
+      effectiveX / (width * occupancy.x),
+      effectiveY / (height * occupancy.y),
       1e-6
     );
 
@@ -795,7 +927,7 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
 
   /** Frame the whole graph. */
   fitGraph(): void {
-    const state = this.fitCameraState();
+    const state = this.fitCameraState(this.fitOccupancy());
     if (!state || !this.sigma) return;
     this.sigma.getCamera().animate(state, { duration: 350 });
   }
@@ -847,7 +979,7 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
     if (!framed) return;
 
     const camera = sigma.getCamera();
-    const fit = this.fitCameraState();
+    const fit = this.fitCameraState(this.fitOccupancy());
 
     // Stay where the user is if they are already zoomed in past the fit;
     // otherwise move in far enough to read the node's neighbourhood.

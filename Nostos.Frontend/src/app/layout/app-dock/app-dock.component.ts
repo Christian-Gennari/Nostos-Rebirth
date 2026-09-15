@@ -189,12 +189,26 @@ import { LibraryFilterService } from '../../library/library-filter.service';
           border-radius: 0;
           /* The phone dock is a full-bleed rail, so its cast points UP. */
           box-shadow: var(--dock-shadow-rail);
+          /* The rail's TOTAL height is the token the shell reserves for it, and it
+             is set here rather than on the inner bar because this element owns the
+             remaining 1px border: sizing the bar left the dock 1px taller than the
+             reserve, which put it 1px over the last line of content. The inset is
+             part of the height on a notched phone, matching the shell's reserve.
+             "height" not "min-height": a floor lets natural content win. */
+          box-sizing: border-box;
+          height: calc(var(--dock-rail-h) + env(safe-area-inset-bottom, 0px));
         }
 
         .dock-bar {
           width: 100%;
           justify-content: space-around;
           gap: 1px;
+          /* Fill the container, whose height is the reserved --dock-rail-h.
+             Content clearance and dock height are therefore one value rather than
+             two that can drift (they were 96px and 58px, leaving 38px of dead space
+             above the dock on every page). */
+          box-sizing: border-box;
+          height: 100%;
           padding: 3px 10px max(3px, env(safe-area-inset-bottom));
         }
 

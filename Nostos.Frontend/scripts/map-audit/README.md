@@ -47,6 +47,14 @@ introspection; no application behaviour depends on them.
 | `verify-prod.mjs` | End-to-end check on a deployed instance: framing, labels, off-screen nodes, console errors, in both themes. |
 | `shots.mjs` | 1:1 captures of the map in both themes, for visual review. |
 | `dogfood.mjs` | Exploratory pass over every surface — controls, focus mode, search, theme change, rapid clicks, repeated drags, mobile layout — reporting PASS/FAIL per check. |
+| `mobile-layout.mjs` | Phone geometry: stage/card/viewport sizes, dead space below the map, side gutters, horizontal overflow, and touch-target sizes across a device matrix. |
+| `mobile-detail.mjs` | The two phone defects a DOM probe cannot see: dead space under the card, and label ink drawn past the canvas edge (Sigma draws labels into a 2D canvas sized to the stage, so there is no box to measure). |
+| `check-claims.mjs` | Does the bottom dock overlap the graph canvas, and how many nodes render inside the dock's band? Also prints every control's rendered size. |
+| `landscape-rail.mjs` | In landscape, does the Index rail stay visible and squeeze the map? Reports the rail's share of the viewport width and the resulting stage size. |
+| `why-landscape.mjs` | Prints which media queries the browser reports as matching and the resolved computed styles, for when a rule is in the source but clearly not applied. |
+| `trace-heights.mjs` | Walks the ancestor chain from `.sigma-container` upward printing each element's resolved height and flex properties. When a flex chain collapses, the break is always at whichever ancestor first loses its own height. |
+| `mobile-interact.mjs` | Drives the interactions a thumb actually performs — tap to select, the selection bar, Read notes, focus mode, pinch zoom, Fit, rotation both ways — and reports PASS/FAIL plus console errors. |
+| `verify-all.mjs` | One run across desktop, laptop, tablet and phone viewports reporting framing fill, off-screen nodes, nodes/labels under chrome, undersized touch targets, and console errors. |
 
 `fit-oracle.mjs` and `verify-prod.mjs` default to 5214 (production);
 `crowding.mjs` and friends default to 4200 (dev server).
@@ -72,6 +80,20 @@ introspection; no application behaviour depends on them.
 - **Record baselines before your own interactions.** A capture that runs after a
   select/drag step measures a different state and will report a figure your change
   did not produce.
+- **Key phone rules on height as well as width.** An 844x390 landscape phone is
+  *wider* than the 768px breakpoint, so a `max-width: 768px` rule never applies to
+  it: the Index rail stayed at 320px (38% of the screen), the map stage kept its
+  desktop height and overflowed a 390px viewport, and the control strip covered 17
+  nodes. Use `(max-width: 768px), (max-height: 500px)`.
+- **A CSS rule that is present can still be inert.** `stagePadding` on the Sigma
+  settings does nothing when `autoRescale` is false — its accessor returns 0 — and
+  a media query written *inside* another media query is invalid CSS, so the whole
+  block is discarded. Confirm with `getComputedStyle` (or `why-landscape.mjs`),
+  never by grepping the stylesheet.
+- **Fitting the tighter axis leaves the other one empty.** `normalizeGraphPositions`
+  scales both axes by `min(scaleX, scaleY)`, which is correct for a wide stage but
+  left 47% of a portrait phone's height blank, because this graph settles roughly
+  square. Solve each axis and clamp the *ratio* between them instead.
 - **A stale `vite-error-overlay` in the DOM swallows pointer events.** The probes
   install an init script that removes it, so a dev server's HMR error does not
   fail a run for reasons unrelated to the app.

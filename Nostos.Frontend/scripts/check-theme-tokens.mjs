@@ -40,7 +40,7 @@ const rawSource = css;
  * the mark does not re-ink with the theme, so demanding a dark counterpart would
  * push a needless override back into the dark block.
  */
-const INVARIANT = /^--(radius|motion|ease|text-(xs|sm|base|lg|xl|2xl)|space|container-width|fw|transition|glass-blur|modal-scrim-blur|sidebar-width|brand-|control-h|focus-ring-width)/;
+const INVARIANT = /^--(radius|motion|ease|text-(xs|sm|base|lg|xl|2xl)|space|container-width|fw|transition|glass-blur|modal-scrim-blur|sidebar-width|brand-|control-h|focus-ring-width|dock-rail-h)/;
 
 /**
  * Tokens whose value is a `color-mix()` of another token. They re-derive
