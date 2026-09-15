@@ -705,7 +705,7 @@ describe('SecondBrain', () => {
     expect(index.querySelectorAll('.index-row-shell[role="listitem"]')).toHaveLength(3);
     expect(index.querySelectorAll('.index-item[role="button"]')).toHaveLength(0);
     expect(index.querySelector('.index-row-shell .index-item')?.tagName).toBe('BUTTON');
-    expect(fixture.nativeElement.querySelector('.header-row [role="status"]')?.textContent).toContain(
+    expect(fixture.nativeElement.querySelector('.brain-header [role="status"]')?.textContent).toContain(
       'Showing 3 of 3 concepts'
     );
   });
@@ -990,42 +990,52 @@ describe('SecondBrain', () => {
     ).not.toContain('280px');
   });
 
-  it('clears a stale index search when the map opens', () => {
+  /**
+   * The search carries across the mode toggle.
+   *
+   * It used to be cleared on entering map view, because the search lived in the
+   * index rail (which map view closes) and a leftover query would shrink the
+   * graph with nothing on screen to explain or clear it. The search now lives in
+   * the persistent header, visible in both modes, so the query is a normal
+   * persistent filter and the map draws the filtered set like the list does.
+   */
+  it('carries the index search across the mode toggle', () => {
     fixture.detectChanges();
 
-    // The index search filters the set of concepts the map renders, and map view
-    // closes the rail — so a leftover query would shrink the graph with nothing
-    // on screen to explain or clear it.
     component.setSearchQuery('alp');
     expect(component.filteredConcepts().map((concept) => concept.name)).toEqual(['Alpha']);
 
-    (fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('.brain-header .view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();
     fixture.detectChanges();
     flushChildConceptLists();
     http.match('/api/concepts/graph').forEach((request) => request.flush({ nodes: [], edges: [] }));
     fixture.detectChanges();
 
-    expect(component.searchQuery()).toBe('');
-    expect(component.filteredConcepts().length).toBe(concepts.length);
+    expect(component.searchQuery()).toBe('alp');
+    expect(component.filteredConcepts().map((concept) => concept.name)).toEqual(['Alpha']);
 
-    // The map renders the full concept set, not the filtered remainder.
+    // The map draws the filtered set — the same set the list was showing — so
+    // the two modes agree about what "the concepts" means.
     const map = fixture.debugElement.query(By.css('app-concept-map'));
-    expect(map.componentInstance.concepts.length).toBe(concepts.length);
+    expect(map.componentInstance.concepts.map((c: { name: string }) => c.name)).toEqual(['Alpha']);
   });
 
-  it('leaves map view from the map\'s own control, with the rail restored', () => {
+  it('leaves map view from the persistent header, with the rail restored', () => {
     fixture.detectChanges();
-    (fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('.brain-header .view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();
     fixture.detectChanges();
     flushChildConceptLists();
     http.match('/api/concepts/graph').forEach((request) => request.flush({ nodes: [], edges: [] }));
     fixture.detectChanges();
 
-    // The rail is closed in map view, so its view toggle is unreachable — the
-    // map has to carry its own exit or the mode is a one-way door.
-    const map = fixture.debugElement.query(By.css('app-concept-map'));
-    expect(map, 'the map owns the way back to the list').toBeTruthy();
-    map.componentInstance.showList.emit();
+    // The rail closes in map view, but the header does NOT — it is the reason
+    // map view is no longer a one-way door, and why the map no longer needs its
+    // own duplicate exit control. The switch must still be on screen here.
+    const switchInMap = fixture.nativeElement.querySelector(
+      '.brain-header .view-mode-control .toggle-opt:first-child'
+    ) as HTMLButtonElement;
+    expect(switchInMap, 'the mode switch survives map view').toBeTruthy();
+    switchInMap.click();
     fixture.detectChanges();
 
     const index = fixture.nativeElement.querySelector('.index-col') as HTMLElement;

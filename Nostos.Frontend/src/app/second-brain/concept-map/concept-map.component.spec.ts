@@ -360,6 +360,35 @@ describe('ConceptMapComponent', () => {
     expect(component.noConnections()).toBe(true);
   });
 
+  it('blames the filter, not missing connections, when a search empties the graph', () => {
+    // The header's search filters the concept set this map draws, and it is
+    // visible in map view too. An empty graph then means either "no concepts
+    // match your query" or "you have no connections yet" — reporting the second
+    // when the first is true tells the user their data is missing.
+    setConcepts([]);
+    flushGraph({ nodes: [], edges: [] });
+    fixture.componentRef.setInput('searchQuery', '  zzzz-no-such-concept  ');
+    fixture.detectChanges();
+
+    expect(component.noConnections()).toBe(true);
+    const status = (fixture.nativeElement as HTMLElement).querySelector('.map-status');
+    expect(status?.textContent).toContain('No concepts match');
+    // The query is trimmed in the copy, so stray whitespace cannot leak in.
+    expect(status?.textContent).toContain('zzzz-no-such-concept');
+    expect(status?.textContent).not.toContain('No connections yet');
+  });
+
+  it('reports missing connections when there is no search to blame', () => {
+    setConcepts([]);
+    flushGraph({ nodes: [], edges: [] });
+    fixture.componentRef.setInput('searchQuery', '');
+    fixture.detectChanges();
+
+    const status = (fixture.nativeElement as HTMLElement).querySelector('.map-status');
+    expect(status?.textContent).toContain('No connections yet');
+    expect(status?.textContent).not.toContain('No concepts match');
+  });
+
   it('shows the cap note when there are more than 150 concepts', () => {
     const manyConcepts = Array.from({ length: MAX_MAP_CONCEPTS + 1 }, (_, i) => ({
       id: `concept-${i}`,
@@ -400,44 +429,30 @@ describe('ConceptMapComponent', () => {
     expect(component.selectedNodeId()).toBe('alpha');
   });
 
-  it('supports searching and selecting a rendered concept', () => {
-    setConcepts(concepts);
-    flushGraph();
+  it('leaves the mode switch and the concept search to the surface header', () => {
+    // The map used to carry its own copies of both (`.map-view-exit` and a
+    // second search field), because map view closes the index rail that
+    // previously held them. The surface header now renders in both modes, so
+    // those duplicates have to be gone — otherwise the user gets two controls
+    // with the same name, and the mode switch appears to move on every toggle.
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('.map-toolbar'), 'no second toolbar in the map').toBeNull();
+    expect(host.querySelector('input[type="search"]'), 'no second search field').toBeNull();
+    expect(
+      host.querySelector('[aria-label="Concept view"]'),
+      'the mode switch must not be duplicated inside the map'
+    ).toBeNull();
 
-    component.updateSearch('alp');
-    expect(component.searchResults().map((node) => node.id)).toEqual(['alpha']);
-
-    const selected = vi.fn();
-    component.conceptSelected.subscribe(selected);
-    component.chooseSearchResult('alpha');
-
-    expect(component.searchTerm()).toBe('');
-    expect(component.selectedNodeId()).toBe('alpha');
-    expect(selected).toHaveBeenCalledWith('alpha');
-  });
-
-  it('keeps the search and the way back to the list in the map toolbar', () => {
-    // Both are always present, not focus-mode-only: map view closes the index
-    // rail, so the page-level search and view toggle are off screen and the map
-    // has to carry its own.
-    const toolbar = fixture.nativeElement.querySelector('.map-toolbar') as HTMLElement;
-    expect(toolbar, 'the map owns its search and its exit').toBeTruthy();
-    expect(toolbar.getAttribute('aria-label')).toBe('Map view controls');
-    expect(toolbar.querySelector('input[type="search"]')).toBeTruthy();
-
-    const exit = toolbar.querySelector('[aria-label="Concept view"]') as HTMLButtonElement;
-    expect(exit, 'map view must not be a one-way door').toBeTruthy();
-    const emitted = vi.fn();
-    component.showList.subscribe(emitted);
-    exit.click();
-    expect(emitted).toHaveBeenCalled();
-
-    // The camera and mode controls keep their own rail beside it.
-    const rail = fixture.nativeElement.querySelector('[role="toolbar"]');
+    // What IS genuinely map-scoped stays: one action rail, with its camera and
+    // layout controls (and the selection chip, when something is selected).
+    const rail = host.querySelector('[role="toolbar"]');
     expect(rail).toBeTruthy();
-    expect(rail.getAttribute('aria-label')).toBe('Map actions');
-    expect(fixture.nativeElement.querySelector('[aria-label="Focus mode"]')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('[aria-label="Reset layout"]')).toBeTruthy();
+    expect(rail!.getAttribute('aria-label')).toBe('Map actions');
+    expect(host.querySelector('[aria-label="Zoom in"]')).toBeTruthy();
+    expect(host.querySelector('[aria-label="Fit to view"]')).toBeTruthy();
+    expect(host.querySelector('[aria-label="Center on selection"]')).toBeTruthy();
+    expect(host.querySelector('[aria-label="Focus mode"]')).toBeTruthy();
+    expect(host.querySelector('[aria-label="Reset layout"]')).toBeTruthy();
   });
 
   it('opens a node on double-click and suppresses Sigma\'s zoom', () => {

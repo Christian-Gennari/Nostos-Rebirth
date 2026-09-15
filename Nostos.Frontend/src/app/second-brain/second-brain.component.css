@@ -3,9 +3,15 @@
 /* LAYOUT */
 .brain-layout {
   display: grid;
-  /* Uses Grid to define columns: minmax(280px, 320px) 1fr; */
+  /*
+   * Row 1 is the persistent header, which spans both columns; row 2 holds the
+   * rail and the content pane. The header has to be a ROW rather than a child of
+   * the rail, because in Map view the rail is `display: none` — if the header
+   * lived inside it, it would disappear with it (which is exactly the bug this
+   * change fixes).
+   */
   grid-template-columns: minmax(280px, 320px) 1fr;
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
 
   height: 100dvh;
   min-height: 0;
@@ -24,39 +30,71 @@
 }
 
 /* HEADER: Tight alignment and hierarchy */
-.index-header {
-  padding: 1.25rem 1.25rem 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  flex-shrink: 0;
-  background: var(--bg-surface);
-  z-index: 2;
-}
-
-/* ROW 1: Title */
-.header-row {
-  height: auto;
+/*
+ * HEADER: the surface's one persistent control strip.
+ *
+ * It owns the mode switch and the surface search, and it is rendered in both
+ * modes. It previously lived inside the index rail (as `.index-header`), which
+ * meant Map view — a whole-surface mode that closes the rail — deleted the very
+ * toggle the user had just clicked and had to grow a duplicate of it, with a
+ * second search alongside. Both now have exactly one home, outside the rail.
+ *
+ * It spans the full layout width, so the grid needs a row for it: see
+ * `.brain-layout` below.
+ */
+.brain-header {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 1rem;
+  padding: 1.25rem 1.25rem 0.85rem;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  z-index: 2;
+  min-width: 0;
 }
 
-.index-header h1 {
+.brain-header-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.brain-header h1 {
   font-family: 'Newsreader', serif;
   font-size: 1.4rem;
   font-weight: 600;
   color: var(--color-text-main);
   margin: 0;
   letter-spacing: -0.01em;
+  flex-shrink: 0;
 }
 
+/* Corrects the old `margin-top: -0.55rem`, which was compensating for the rail
+   header's `flex-direction: column` gap. In this row the stats simply sit on the
+   baseline beside the title. */
 .index-stats {
-  margin-top: -0.55rem;
   color: var(--color-text-muted);
   font-size: 0.72rem;
   letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Title left, controls right. The search keeps a bounded measure so it never
+   grows into the control cluster, and never collapses below a usable width. */
+.brain-header-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.brain-header-tools .search-box {
+  flex: 0 1 320px;
+  min-width: 140px;
 }
 
 /* ROW 2: Search Box
@@ -144,10 +182,32 @@
 /* ROW 3: Sort. The index reads top-down by usage by default, but that is not
    always the way you look for an idea, so the order is switchable and persists
    across visits (see SecondBrain.setSort). */
+/*
+ * Sort row: the list's own control, so it sits IN the list's column.
+ *
+ * It was flush to the rail's edge (measured x=0) while every concept row below
+ * it starts at x=20, so the row read as belonging to the rail's frame rather
+ * than to the list it sorts.
+ *
+ * The left inset is `.index-list`'s 1.25rem PLUS the row's own 0.75rem internal
+ * padding, which is what actually puts the label above the first letter of the
+ * concept names: matching the row BOX alone left the label 12px short of the
+ * name text (measured label x=20 vs name x=32), which still reads as misaligned.
+ *
+ * The bottom margin is what stops it crowding the first row: the control used to
+ * end at exactly the y where the first concept row began (both at y=113), with
+ * no breathing room at all.
+ */
 .index-tools {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  /* Label and select adjacent on the left, reading as ONE control ("Sort ▾").
+     Spreading them apart across the rail would disconnect the label from the
+     thing it names. */
+  gap: 0.6rem;
+  padding: 0 1.25rem 0.75rem 2rem;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 0.75rem;
 }
 
 .select-shell {
@@ -225,8 +285,24 @@
   background-size: 1em;
 }
 
+/* Select shell: sized to its content, not stretched.
+ *
+ * `.sort-select { width: 100% }` and `.sort-shell { flex: 1 }` were inherited
+ * from a version of this row that also held the view-mode toggle: the select
+ * filled the leftover width, which was correct then because it shared the row.
+ * The toggle moved to the persistent header, so the select became the only child
+ * and stretched to the full rail (measured 280px of a 320px rail) — reading as a
+ * text field rather than a 3-option picker. `min-width: 140px` matches the
+ * Library's `.select-wrapper`, so the two selects still behave alike.
+ *
+ * `align-self: flex-start` stops the cross-axis default from stretching it: this
+ * wrapper is intentionally NOT `.select-shell`, which is `display: flex` and
+ * would make the select's `flex: 1` bloom to fill it. */
 .sort-shell {
-  flex: 1;
+  position: relative;
+  min-width: 140px;
+  max-width: 190px;
+  align-self: flex-start;
 }
 
 .sort-select:hover {
@@ -421,7 +497,7 @@
 /* --- COUNT BADGE ------------------------------------------------------------
    Metric-for-metric copy of the tree's `.count-badge`: a real 20px pill, not
    plain text — it is part of the sidebar's language. */
-.index-header .badge-count,
+.brain-header .badge-count,
 .index-item .count {
   min-width: 20px;
   height: 20px;
@@ -1561,9 +1637,18 @@
 }
 
 @media (max-width: 768px) {
-  /* 2. Break the Grid */
+  /*
+   * 2. Break the Grid.
+   *
+   * A flex COLUMN, not `display: block`. The header is now a sibling above the
+   * rail, so leaving the rail at `height: 100%` would make it as tall as the
+   * whole layout and push its bottom (and the list's last rows) off screen by
+   * exactly the header's height. As a flex column the header takes its natural
+   * height and whichever pane is showing absorbs the remainder.
+   */
   .brain-layout {
-    display: block; /* Switch from grid to block flow */
+    display: flex;
+    flex-direction: column;
     position: relative;
     height: 100%;
     min-height: 0;
@@ -1578,12 +1663,30 @@
   /* 3. Index Column Behavior */
   .index-col {
     width: 100%;
-    height: 100%;
+    /* Flex child, so it fills the space left under the header rather than
+       claiming the full layout height. */
+    flex: 1 1 auto;
+    min-height: 0;
     border-right: none;
   }
 
-  .index-header {
+  .brain-header {
     padding: 1rem 1rem 0.75rem;
+    /* A phone has no width for a title row and a control cluster side by side
+       once the search shares it, so the header stacks: identity on top, tools
+       beneath. Both keep their own row rather than shrinking the tap targets. */
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .brain-header-tools {
+    width: 100%;
+  }
+
+  .brain-header-tools .search-box {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .search-box,
@@ -1604,6 +1707,16 @@
     min-height: 44px;
   }
 
+  /* On a phone the select takes the row's full width.
+     A 140-190px picker on a 390px screen leaves a large dead gap and shrinks the
+     tap target for no benefit; the library select is full-width in its toolbar
+     for the same reason. The shell only becomes a bounded control on desktop. */
+  .sort-shell {
+    flex: 1;
+    max-width: none;
+    align-self: stretch;
+  }
+
   /* Bare class, matching the rules above: scoping under `.view-mode-control`
      is the specificity pattern that broke the dark theme (see the note on
      `.toggle-opt`), and this only sets a touch-target size. */
@@ -1622,6 +1735,13 @@
 
   .index-list {
     padding: 0 1rem 1.5rem;
+  }
+
+  /* The list narrows its inset to 1rem on a phone, so the sort row follows:
+     1rem list inset + the row's own 0.75rem internal padding = 1.75rem, which is
+     where the concept NAME text starts. */
+  .index-tools {
+    padding: 0 1rem 0.75rem 1.75rem;
   }
 
   .index-item {
@@ -1727,7 +1847,14 @@
 
   /* When class.mobile-visible is active, show it full screen */
   .content-col.mobile-visible {
+    /* Block, not flex: the sticky `.mobile-nav-header` computes its width from a
+       plain block parent (`100%` + negative margins). It is still a flex ITEM of
+       the layout column, so `flex: 1` is what makes it absorb the space under the
+       header — without it the column would size to its content and the sheet
+       would stop scrolling at whatever height its first render happened to be. */
     display: block;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
   }
 
@@ -1912,6 +2039,10 @@
 .content-col.mobile-visible:has(app-concept-map) {
   display: flex;
   flex-direction: column;
+  /* Absorb the space under the persistent header, exactly as the reading
+     layout does. */
+  flex: 1 1 auto;
+  min-height: 0;
   /* The map fills the column; it scrolls nowhere, so `auto` on the reading
      layout is wrong here and can leave a scrollbar. */
   overflow: hidden;
@@ -1970,7 +2101,10 @@
    * screen while the map was squeezed into the remainder (measured 503px of 844).
    */
   .brain-layout {
-    display: block;
+    /* Flex column, matching the portrait rule: the header is a sibling above the
+       pane, so the pane has to take the remainder rather than the full height. */
+    display: flex;
+    flex-direction: column;
   }
 
   .index-col.mobile-hidden {
@@ -1978,12 +2112,13 @@
   }
 
   .content-col.mobile-visible:has(app-concept-map) {
-    /* The parent is a block container here, so the column must claim its height
-       explicitly. With `display: flex` alone it sized to its content — measured a
+    /* The column must claim the height left under the header. `flex: 1` (with
+       `min-height: 0`) is what does that; relying on `height: 100%` measured a
        117px column (mostly its own bottom padding) and a 2px stage. */
     display: flex;
     flex-direction: column;
-    height: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
     width: 100%;
     /* Short viewports need their own dock clearance: the shell's reserve is sized
        for the flush full-width portrait rail, while in landscape the dock floats

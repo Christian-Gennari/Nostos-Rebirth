@@ -21,7 +21,6 @@ import {
   BookOpen,
   Crosshair,
   Expand,
-  LayoutList,
   Minus,
   Plus,
   RotateCcw,
@@ -567,13 +566,20 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
    * the control surface, which is the layout being reported as fragmented.
    */
   @Input() selectedName: string | null = null;
+  /**
+   * The surface search query, so the empty state can explain itself.
+   *
+   * The header's search filters the concept set the map draws. Without this, a
+   * query matching nothing left the graph empty and the map claimed "No
+   * connections yet" — which is false: the connections exist and the filter
+   * excluded them. With the query the map can say which of the two it is.
+   */
+  @Input() searchQuery = '';
   @Output() readonly conceptSelected = new EventEmitter<string>();
   /** Emitted by the rail's "Read notes" action. */
   @Output() readonly openNotes = new EventEmitter<void>();
-  /** Emitted by the map's "Concept view" control, and by a node double-click. */
+  /** Emitted by a node double-click, to open that concept's notes. */
   @Output() readonly openConcept = new EventEmitter<string>();
-  /** Emitted by the "Concept view" control: leave the map for the index. */
-  @Output() readonly showList = new EventEmitter<void>();
   /**
    * Emitted when a click on empty space clears the selection.
    *
@@ -635,19 +641,10 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   readonly loading = signal(true);
   readonly hoveredId = signal<string | null>(null);
   readonly selectedNodeId = signal<string | null>(null);
-  readonly searchTerm = signal('');
   readonly isFullscreen = signal(false);
   readonly sourceCount = signal(0);
   readonly isCapped = computed(() => this.sourceCount() > MAX_MAP_CONCEPTS);
   readonly noConnections = signal(false);
-  readonly searchResults = computed(() => {
-    const query = this.searchTerm().trim().toLocaleLowerCase();
-    if (!query) return [];
-    return this.accessibleNodes()
-      .filter((node) => node.name.toLocaleLowerCase().includes(query))
-      .slice(0, 8);
-  });
-
   /**
    * Accessible nodes: the full set currently rendered, so the hidden list
    * stays in sync with the visual canvas.
@@ -673,7 +670,6 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   readonly exitFocusIcon = Shrink;
   readonly resetIcon = RotateCcw;
   readonly notesIcon = BookOpen;
-  readonly listIcon = LayoutList;
 
   private readonly conceptsService = inject(ConceptsService);
 
@@ -1711,16 +1707,6 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
     const targetRatio = fit ? Math.min(camera.ratio, Math.max(fit.ratio * 0.6, 0.3)) : camera.ratio;
 
     camera.animate({ x: framed.x, y: framed.y, ratio: targetRatio }, { duration: 350 });
-  }
-
-  updateSearch(term: string): void {
-    this.searchTerm.set(term);
-  }
-
-  chooseSearchResult(id: string): void {
-    this.searchTerm.set('');
-    this.selectAccessibleNode(id);
-    this.centerSelected();
   }
 
   async toggleFullscreen(): Promise<void> {

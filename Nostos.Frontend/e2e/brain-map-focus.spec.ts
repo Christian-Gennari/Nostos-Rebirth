@@ -138,12 +138,24 @@ test('map view closes the index rail and hands its space to the graph', async ({
     const before = await page.evaluate(() => {
       const index = document.querySelector('.index-col') as HTMLElement | null;
       const layout = document.querySelector('.brain-layout') as HTMLElement | null;
+      const box = (sel: string) => {
+        const el = document.querySelector(sel) as HTMLElement | null;
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
+      };
       return {
         indexWidth: index ? Math.round(index.getBoundingClientRect().width) : 0,
         columns: layout ? getComputedStyle(layout).gridTemplateColumns : '',
+        // Captured in list view so the map view below can be compared against it
+        // control-for-control.
+        headerBox: box('.brain-header'),
+        searchBox: box('.brain-header .search-box'),
+        toggleBox: box('.brain-header .view-mode-control'),
       };
     });
     expect(before.indexWidth, 'list view shows the index rail').toBeGreaterThan(200);
+    expect(before.headerBox, 'the header exists in list view').not.toBeNull();
 
     await openMap(page, fixture.baseUrl);
 
@@ -151,13 +163,22 @@ test('map view closes the index rail and hands its space to the graph', async ({
       const index = document.querySelector('.index-col') as HTMLElement | null;
       const layout = document.querySelector('.brain-layout') as HTMLElement | null;
       const col = document.querySelector('.content-col') as HTMLElement | null;
-      const toolbar = document.querySelector('.map-toolbar') as HTMLElement | null;
+      const header = document.querySelector('.brain-header') as HTMLElement | null;
+      const search = document.querySelector('.brain-header .search-box') as HTMLElement | null;
+      const toggle = document.querySelector('.brain-header .view-mode-control') as HTMLElement | null;
+      const box = (el: HTMLElement | null) =>
+        el ? { x: Math.round(el.getBoundingClientRect().x), y: Math.round(el.getBoundingClientRect().y), w: Math.round(el.getBoundingClientRect().width), h: Math.round(el.getBoundingClientRect().height) } : null;
       return {
         indexDisplay: index ? getComputedStyle(index).display : 'absent',
         columns: layout ? getComputedStyle(layout).gridTemplateColumns : '',
         colWidth: col ? Math.round(col.getBoundingClientRect().width) : 0,
-        toolbarExists: !!toolbar,
-        exitVisible: !!document.querySelector('.map-toolbar [aria-label="Concept view"]'),
+        headerBox: box(header),
+        searchBox: box(search),
+        toggleBox: box(toggle),
+        // The header must be the ONLY home for the switch and the search.
+        modeSwitchCount: document.querySelectorAll('[aria-label="Concept view"]').length,
+        searchInputCount: document.querySelectorAll('input[aria-label="Search concepts"]').length,
+        mapToolbarCount: document.querySelectorAll('.map-toolbar').length,
       };
     });
     console.log('MAP FOCUS GEOMETRY:', JSON.stringify({ before, after }, null, 1));
@@ -176,23 +197,37 @@ test('map view closes the index rail and hands its space to the graph', async ({
       'the graph column must claim the width the rail gave up'
     ).toBeGreaterThan(before.indexWidth + 200);
 
-    // And the mode is escapable from within the map itself.
-    expect(after.toolbarExists, 'the map must carry its own toolbar').toBe(true);
-    expect(after.exitVisible, 'map view must not be a one-way door').toBe(true);
+    // Map view must still be escapable — but via the persistent header, which
+    // does NOT disappear with the rail. This is the whole point of the change:
+    // the control the user clicked to enter the map is still there, in the same
+    // place, so the map no longer needs a second copy of it.
+    expect(after.headerBox, 'the surface header stays in map view').not.toBeNull();
+    expect(after.modeSwitchCount, 'exactly one mode switch, not one per mode').toBe(1);
+    expect(after.searchInputCount, 'exactly one concept search').toBe(1);
+    expect(after.mapToolbarCount, 'the map must not carry a duplicate toolbar').toBe(0);
+    expect(after.headerBox!.y, 'the header stays pinned at the top').toBe(0);
+
+    // The acceptance criterion, measured rather than assumed: the header and its
+    // controls occupy the SAME pixels in both modes. If the switch moved when the
+    // mode changed, these would differ — which is the bug being fixed.
+    expect(after.headerBox, 'header geometry is unchanged by the mode switch').toEqual(before.headerBox);
+    expect(after.searchBox, 'search geometry is unchanged by the mode switch').toEqual(before.searchBox);
+    expect(after.toggleBox, 'mode switch geometry is unchanged by the mode switch').toEqual(before.toggleBox);
   } finally {
     await context.close();
   }
 });
 
-test('the map\'s own control returns to the list view with the rail restored', async ({ browser }) => {
+test('the header\'s mode switch returns to the list view with the rail restored', async ({ browser }) => {
   const fixture = loadFixture();
   await ensureSeed(fixture);
   const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT);
   try {
     await openMap(page, fixture.baseUrl);
-    // Scoped to the map's toolbar: the index rail's own view toggle carries the
-    // same accessible name and only one of the two is on screen at a time.
-    await page.locator('.map-toolbar [aria-label="Concept view"]').click();
+    // The switch lives in the persistent header now, and there is exactly one of
+    // it — the map's duplicate `.map-view-exit` is gone, so no disambiguation is
+    // needed here any more.
+    await page.locator('.brain-header .view-mode-control [aria-label="Concept view"]').click();
 
     await page.locator('.index-item').first().waitFor({ timeout: 30_000 });
     const restored = await page.evaluate(() => {
@@ -219,7 +254,7 @@ test('the map\'s own control returns to the list view with the rail restored', a
   }
 });
 
-test('the map\'s toolbar is reachable and its exit is tappable on a phone', async ({ browser }) => {
+test('the mode switch is reachable and tappable on a phone in both modes', async ({ browser }) => {
   const fixture = loadFixture();
   await ensureSeed(fixture);
   const { context, page } = await newCapturePage(browser, MOBILE_VIEWPORT, true);
@@ -234,29 +269,45 @@ test('the map\'s toolbar is reachable and its exit is tappable on a phone', asyn
         return { w: Math.round(r.width), h: Math.round(r.height) };
       };
       return {
-        exit: box('.map-toolbar [aria-label="Concept view"]'),
-        search: box('.map-toolbar input[type="search"]'),
+        exit: box('.brain-header .view-mode-control [aria-label="Concept view"]'),
+        search: box('.brain-header input[aria-label="Search concepts"]'),
         indexHidden:
           getComputedStyle(document.querySelector('.index-col') as HTMLElement).display === 'none',
         overflowX: document.documentElement.scrollWidth > window.innerWidth,
+        headerBottom: Math.round(
+          (document.querySelector('.brain-header') as HTMLElement).getBoundingClientRect().bottom
+        ),
       };
     });
-    console.log('MAP TOOLBAR (mobile):', JSON.stringify(measured, null, 1));
+    console.log('BRAIN HEADER (mobile):', JSON.stringify(measured, null, 1));
 
-    // The exit is the ONLY way out of map view on a phone, so it takes the same
-    // 44px tap contract as the rest of the app (measured 34px before this was
-    // pinned, on the one control a thumb must not miss).
-    expect(measured.exit, 'the exit must render on a phone').not.toBeNull();
-    expect(measured.exit!.h, 'the exit must meet the 44px touch minimum').toBeGreaterThanOrEqual(44);
-    expect(measured.exit!.w, 'the exit must meet the 44px touch minimum').toBeGreaterThanOrEqual(44);
-    expect(measured.search, 'the map must carry its own search where the rail is closed').not.toBeNull();
+    // The header is the ONLY way out of map view on a phone, so its switch takes
+    // the same 44px tap contract as the rest of the app (the map's own exit
+    // measured 34px before this was pinned, on the control a thumb must not miss).
+    expect(measured.exit, 'the mode switch must render on a phone').not.toBeNull();
+    expect(measured.exit!.h, 'the switch must meet the 44px touch minimum').toBeGreaterThanOrEqual(44);
+    expect(measured.exit!.w, 'the switch must meet the 44px touch minimum').toBeGreaterThanOrEqual(44);
+    expect(measured.search, 'the search must be reachable where the rail is closed').not.toBeNull();
     expect(measured.indexHidden, 'the rail must be closed on a phone too').toBe(true);
-    expect(measured.overflowX, 'the toolbar must not overflow a 390px viewport').toBe(false);
+    expect(measured.overflowX, 'the header must not overflow a 390px viewport').toBe(false);
 
     // And it actually works from this layout.
-    await page.locator('.map-toolbar [aria-label="Concept view"]').click();
+    await page.locator('.brain-header .view-mode-control [aria-label="Concept view"]').click();
     await page.locator('.index-item').first().waitFor({ timeout: 30_000 });
     expect(await page.locator('app-concept-map').count(), 'the map must be gone').toBe(0);
+
+    // Back on the list, the same control is still there — the rail it lives
+    // beside is the rail it must not disappear with.
+    const stillThere = await page.evaluate(() => {
+      const toggle = document.querySelector(
+        '.brain-header .view-mode-control [aria-label="Map view"]'
+      ) as HTMLElement | null;
+      if (!toggle) return null;
+      const r = toggle.getBoundingClientRect();
+      return { w: Math.round(r.width), h: Math.round(r.height) };
+    });
+    expect(stillThere, 'the switch survives the trip back').not.toBeNull();
+    expect(stillThere!.h, 'and keeps its touch target').toBeGreaterThanOrEqual(44);
   } finally {
     await context.close();
   }
