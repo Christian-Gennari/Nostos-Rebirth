@@ -58,6 +58,8 @@ test('map fills the main stage on desktop', async ({ browser }) => {
       const stage = document.querySelector('app-concept-map .map-stage') as HTMLElement;
       const container = document.querySelector('app-concept-map .sigma-container') as HTMLElement;
       const index = document.querySelector('.index-col') as HTMLElement;
+      const col = document.querySelector('.content-col') as HTMLElement;
+      const dock = document.querySelector('app-app-dock') as HTMLElement | null;
       const railWidth = index ? index.getBoundingClientRect().width : 0;
 
       const globals = globalThis as unknown as {
@@ -67,22 +69,43 @@ test('map fills the main stage on desktop', async ({ browser }) => {
       const sigma = globals.__nostosSigma;
       const graph = globals.__nostosGraph;
 
+      // How much of the column the graph actually uses, and whether it still
+      // clears the floating dock. Both were wrong before: the wrapper capped the
+      // width at 1100px (66.8% of a 1600px column at 1920 wide) and the canvas
+      // stopped at `clamp(420px, 62dvh, 760px)`.
+      const colRect = col.getBoundingClientRect();
+      const stageRect = stage.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const dockRect = dock ? dock.getBoundingClientRect() : null;
+
       return {
         inContentCol: !!map.closest('.content-col'),
         inIndexCol: !!map.closest('.index-col'),
         mapWidth: Math.round(map.getBoundingClientRect().width),
         stageWidth: Math.round(stage.getBoundingClientRect().width),
-        stageHeight: Math.round(stage.getBoundingClientRect().height),
-        containerWidth: Math.round(container.getBoundingClientRect().width),
-        containerHeight: Math.round(container.getBoundingClientRect().height),
+        stageHeight: Math.round(stageRect.height),
+        containerWidth: Math.round(containerRect.width),
+        containerHeight: Math.round(containerRect.height),
         canvasCount: document.querySelectorAll('.sigma-container canvas').length,
         railWidth: Math.round(railWidth),
         indexStillVisible: !!index && index.getBoundingClientRect().width > 0,
-        widerThanRail: container.getBoundingClientRect().width > railWidth * 2,
+        widerThanRail: containerRect.width > railWidth * 2,
         graphOrder: graph?.order ?? 0,
         graphSize: graph?.size ?? 0,
         cameraRatio: sigma ? Number(sigma.getCamera().ratio.toFixed(4)) : null,
         rendererSize: sigma ? sigma.getDimensions() : null,
+        stagePctOfColWidth: +((stageRect.width / colRect.width) * 100).toFixed(1),
+        stagePctOfColHeight: +((stageRect.height / colRect.height) * 100).toFixed(1),
+        dockOverlapPx: dockRect
+          ? Math.round(
+              Math.max(
+                0,
+                Math.min(containerRect.bottom, dockRect.bottom) -
+                  Math.max(containerRect.top, dockRect.top)
+              )
+            )
+          : 0,
+        vOverflow: document.documentElement.scrollHeight > document.documentElement.clientHeight,
       };
     });
 
@@ -95,6 +118,22 @@ test('map fills the main stage on desktop', async ({ browser }) => {
     expect(geo.widerThanRail, 'graph must be far wider than the old sidebar rail').toBe(true);
     expect(geo.containerHeight).toBeGreaterThanOrEqual(400);
     expect(geo.canvasCount, 'Sigma renders its layer canvases').toBeGreaterThan(0);
+
+    // The map is the whole point of this view, so it must use the column.
+    // Measured 2026-09-15: 92.0% wide / 84.4% tall at 1920x1080 against 66.8% /
+    // 62.2% before the cap and the fixed height were removed.
+    expect(
+      geo.stagePctOfColWidth,
+      `graph must use the column width, measured ${geo.stagePctOfColWidth}%`
+    ).toBeGreaterThanOrEqual(85);
+    expect(
+      geo.stagePctOfColHeight,
+      `graph must use the column height, measured ${geo.stagePctOfColHeight}%`
+    ).toBeGreaterThanOrEqual(70);
+
+    // Growing the graph must not push it under the dock or overflow the page.
+    expect(geo.dockOverlapPx, 'the dock must not cover the graph canvas').toBe(0);
+    expect(geo.vOverflow, 'a taller map must not create page overflow').toBe(false);
 
     // The seeded brain must actually be in the graph.
     expect(geo.graphOrder, 'seeded concepts must render as nodes').toBeGreaterThanOrEqual(5);

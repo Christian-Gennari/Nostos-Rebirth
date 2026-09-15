@@ -744,6 +744,16 @@
 .content-col.mobile-visible:has(app-concept-map) {
   display: flex;
   flex-direction: column;
+  /* Dock clearance, not the reading layout's 136px.
+   *
+   * The reading column reserves 136px so text never hides behind the floating
+   * dock. On the map that reserve is 152px of empty band BELOW the graph
+   * (measured at 1280x800: stage bottom 648, column content bottom 800), on the
+   * one surface that wants every pixel. The dock is a centred 332x65px pill, so
+   * what the graph actually has to clear is its own top edge.
+   * Padding (not the dock's own box) is what the layout can reclaim, hence a
+   * value tighter than the dock's full height. */
+  padding-bottom: 5.5rem;
 }
 
 .content-col.mobile-visible:has(app-concept-map) .map-wrapper {
