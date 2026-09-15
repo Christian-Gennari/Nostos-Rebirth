@@ -957,6 +957,108 @@ describe('SecondBrain', () => {
     http.match('/api/concepts/graph').forEach((request) => request.flush({ nodes: [], edges: [] }));
   });
 
+  it('closes the index rail so the map owns the whole layout in map view', () => {
+    fixture.detectChanges();
+    const layout = fixture.nativeElement.querySelector('.brain-layout') as HTMLElement;
+    const index = fixture.nativeElement.querySelector('.index-col') as HTMLElement;
+
+    // List view: the rail is present and the layout is two columns.
+    expect(index.classList.contains('map-hidden')).toBe(false);
+    expect(layout.classList.contains('map-view')).toBe(false);
+    expect(getComputedStyle(layout).gridTemplateColumns).toContain('280px');
+
+    (fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    // Flush the child's requests FIRST: an assertion failure here would
+    // otherwise abort the test before afterEach's http.verify() ran, and the
+    // open request would cascade into every later test in the file.
+    flushChildConceptLists();
+    http.match('/api/concepts/graph').forEach((request) => request.flush({ nodes: [], edges: [] }));
+    fixture.detectChanges();
+
+    // Map view: the rail is closed and the LAYOUT itself collapses to one
+    // column. Hiding only the aside would leave an empty 280-320px grid track
+    // and the graph would still fill just the `1fr` beside it — the exact
+    // "both views at once" state the mode is supposed to remove.
+    expect(index.classList.contains('map-hidden')).toBe(true);
+    expect(layout.classList.contains('map-view')).toBe(true);
+    expect(getComputedStyle(index).display).toBe('none');
+    expect(
+      getComputedStyle(layout).gridTemplateColumns,
+      'the rail\'s track must be gone, not just the rail'
+    ).not.toContain('280px');
+  });
+
+  it('clears a stale index search when the map opens', () => {
+    fixture.detectChanges();
+
+    // The index search filters the set of concepts the map renders, and map view
+    // closes the rail — so a leftover query would shrink the graph with nothing
+    // on screen to explain or clear it.
+    component.setSearchQuery('alp');
+    expect(component.filteredConcepts().map((concept) => concept.name)).toEqual(['Alpha']);
+
+    (fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    flushChildConceptLists();
+    http.match('/api/concepts/graph').forEach((request) => request.flush({ nodes: [], edges: [] }));
+    fixture.detectChanges();
+
+    expect(component.searchQuery()).toBe('');
+    expect(component.filteredConcepts().length).toBe(concepts.length);
+
+    // The map renders the full concept set, not the filtered remainder.
+    const map = fixture.debugElement.query(By.css('app-concept-map'));
+    expect(map.componentInstance.concepts.length).toBe(concepts.length);
+  });
+
+  it('leaves map view from the map\'s own control, with the rail restored', () => {
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    flushChildConceptLists();
+    http.match('/api/concepts/graph').forEach((request) => request.flush({ nodes: [], edges: [] }));
+    fixture.detectChanges();
+
+    // The rail is closed in map view, so its view toggle is unreachable — the
+    // map has to carry its own exit or the mode is a one-way door.
+    const map = fixture.debugElement.query(By.css('app-concept-map'));
+    expect(map, 'the map owns the way back to the list').toBeTruthy();
+    map.componentInstance.showList.emit();
+    fixture.detectChanges();
+
+    const index = fixture.nativeElement.querySelector('.index-col') as HTMLElement;
+    expect(component.viewMode()).toBe('list');
+    expect(fixture.nativeElement.querySelector('app-concept-map')).toBeNull();
+    expect(index.classList.contains('map-hidden')).toBe(false);
+    expect(getComputedStyle(index).display).not.toBe('none');
+    expect(getComputedStyle(fixture.nativeElement.querySelector('.brain-layout') as HTMLElement)
+      .gridTemplateColumns).toContain('280px');
+  });
+
+  it('opens a double-clicked node as the concept detail, and leaves the map', () => {
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    flushChildConceptLists();
+    http.match('/api/concepts/graph').forEach((request) => request.flush({ nodes: [], edges: [] }));
+    fixture.detectChanges();
+
+    // Double-clicking a node must land on the concept's notes — the same place
+    // an index row click does — not merely re-select it.
+    const map = fixture.debugElement.query(By.css('app-concept-map'));
+    expect(map.componentInstance.openConcept.observed, 'the parent must bind openConcept').toBe(true);
+    map.componentInstance.openConcept.emit('c-beta');
+    fixture.detectChanges();
+    flushDetail('c-beta', detail('c-beta', 'Beta'));
+    fixture.detectChanges();
+
+    expect(component.selectedId()).toBe('c-beta');
+    expect(component.viewMode()).toBe('list');
+    expect(fixture.nativeElement.querySelector('.concept-title')?.textContent).toContain('Beta');
+  });
+
   it('keeps the map visible when a node is selected and offers a way to the notes', () => {
     fixture.detectChanges();
     (fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();

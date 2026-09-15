@@ -109,9 +109,16 @@ concept with no references is expected to disappear.
 
 The surface has three views: the index lists, searches, sorts and counts
 concepts; the detail pane filters and sorts linked notes and shows related
-concepts; and the map renders co-occurring concepts as an SVG graph. Index
-sort and list/map view persist under `nostos.brain.indexSort` and
+concepts; and the map renders co-occurring concepts as a force-directed graph.
+Index sort and list/map view persist under `nostos.brain.indexSort` and
 `nostos.brain.viewMode` respectively.
+
+**Map view is a whole-surface mode.** Toggling into it closes the index rail and
+the layout collapses to a single column, so the map is never on screen beside a
+list it has already replaced; the map's own toolbar carries the search and the
+control back to the list view. **Double-clicking a node opens that concept's
+notes** — the same destination an index row click reaches — which also returns
+to list view. A single click only selects.
 
 Management actions have narrow, deliberate semantics:
 
@@ -138,7 +145,7 @@ Management actions have narrow, deliberate semantics:
 | `library-six-sidebar-filters` | library captures | sidebar/drawer exposes exactly: All Books, Not Started, In Progress, Favorites, Finished, Unsorted — and no toolbar progress surface |
 | `brain-no-arrival-animation` | selected Brain concept capture | detail pane has no `.wait-field`, no `is-waiting` class, `.concept-header`/`.note-card` computed `animation-name: none`, and no running animation targets in the pane |
 | `brain-layout-overflow` | Brain captures | desktop index/detail tracks stay within the grid and the 390px surface has no horizontal overflow |
-| `brain-map-geometry` | Brain map capture | SVG node count matches the concept badge and every node radius stays within the documented 14–34px bounds |
+| `brain-map-geometry` | Brain map capture | map node count matches the concept badge and every node radius stays within the documented 4–16px bounds |
 | `brain-empty-state` | Brain empty capture | the fixture-served `[[Concept Name]]` empty state is visible and the concept list has no rows |
 | `book-detail-hero` | book detail captures | the hero band spans the scroll container's full width (±2px) and is ≥260px tall; both decorative art layers are real `<img>`s that actually loaded (never a stripped `[style.background-image]`); the hero copy's last line ends above the sharp cover's top edge (a negative-margin overhang must never paint over the author line); `.book-title` owns its own pixel; no horizontal overflow |
 | `book-detail-fade` | book detail captures | the hero's fade into the page is a smooth **ease-in-out from its own gradient stops**: the scrim releases monotonically downward (it must never strengthen in the region the fade has to lighten) and the fade's per-segment slope rises then falls, with both end segments ≤ half the peak slope (a steeper end draws a visible onset/stop line across the band). The stops are a smoothstep in **lightness**, not in alpha — compositing a light fade over dark art is non-linear, so an alpha smoothstep comes out front-loaded. Measure it with `npm run profile:fade -- --url <book-detail-url>`, which reports the ramp in OKLab L plus the deviation from a true smoothstep; the guard above only protects the *shape*, so a front-loading regression has to be caught by that profiler |

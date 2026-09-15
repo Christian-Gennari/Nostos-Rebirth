@@ -699,7 +699,29 @@
   background: transparent;
 }
 
-/* --- MAP view: the map occupies the main stage --------------------------- */
+/* --- MAP view: the map occupies the whole surface ------------------------- */
+
+/*
+ * Map view is a MODE, not a widget beside the index.
+ *
+ * It used to render the graph on the main stage with the index rail still open
+ * beside it — which left a view toggle between two states that were both on
+ * screen at once, and no reason for the toggle to exist. Toggling into the map
+ * now closes the rail and the map takes the entire layout on every viewport;
+ * the map's own toolbar carries the search and the way back to the list.
+ *
+ * `grid-template-columns` has to change with the rail, not just the rail's own
+ * display: the grid is `minmax(280px, 320px) 1fr`, so hiding only the aside left
+ * an empty 280-320px track and the map still filled just the `1fr`. One rule
+ * states both, keyed to the same class the template binds, so they cannot drift.
+ */
+.brain-layout.map-view {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.index-col.map-hidden {
+  display: none;
+}
 
 /* The map's own action rail (selection chip + camera controls + Read notes)
    lives inside `app-concept-map`, so this view no longer owns a floating
@@ -1901,15 +1923,8 @@
   padding-bottom: 0;
 }
 
-/* The back affordance is a compact chip rather than a full reading-width
-   band: on the map it sits above a canvas that wants every pixel. */
-.content-col.mobile-visible:has(app-concept-map) .mobile-nav-header {
-  width: auto;
-  min-height: 44px;
-  margin: 0.5rem 0.75rem 0.25rem;
-  padding: 0.5rem 0.75rem;
-  border-bottom: 0;
-}
+/* The map view is full-bleed: its own toolbar carries the way back to the list,
+   so the reading-width back band is not rendered in this mode at all. */
 
 .content-col.mobile-visible:has(app-concept-map) .map-wrapper {
   flex: 1;

@@ -21,6 +21,7 @@ import {
   BookOpen,
   Crosshair,
   Expand,
+  LayoutList,
   Minus,
   Plus,
   RotateCcw,
@@ -569,6 +570,10 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   @Output() readonly conceptSelected = new EventEmitter<string>();
   /** Emitted by the rail's "Read notes" action. */
   @Output() readonly openNotes = new EventEmitter<void>();
+  /** Emitted by the map's "Concept view" control, and by a node double-click. */
+  @Output() readonly openConcept = new EventEmitter<string>();
+  /** Emitted by the "Concept view" control: leave the map for the index. */
+  @Output() readonly showList = new EventEmitter<void>();
 
   @ViewChild('sigmaContainer', { static: false }) sigmaContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('mapStage', { static: false }) mapStage!: ElementRef<HTMLElement>;
@@ -659,6 +664,7 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   readonly exitFocusIcon = Shrink;
   readonly resetIcon = RotateCcw;
   readonly notesIcon = BookOpen;
+  readonly listIcon = LayoutList;
 
   private readonly conceptsService = inject(ConceptsService);
 
@@ -1106,6 +1112,26 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
       if (component.isDragging) return;
       component.selectedNodeId.set(node);
       component.conceptSelected.emit(node);
+      sigma.refresh();
+    });
+
+    // Double-click opens the concept, the way Obsidian's graph does.
+    //
+    // Sigma's mouse captor counts its own clicks: the FIRST click emits `click`
+    // (so the node is already selected by the time this fires) and the second
+    // dispatches `doubleClick` INSTEAD of a second `click`, which is what makes
+    // the two gestures compose rather than fight. `doubleClickNode` carries the
+    // node under the pointer, so the id is ready to hand straight to the parent
+    // — no round trip through the selection signal.
+    //
+    // `preventSigmaDefault()` is required, not decorative: without it Sigma also
+    // zooms the camera into the node, so the map would lurch between the two
+    // clicks of a gesture that is meant to leave the map entirely.
+    sigma.on('doubleClickNode', ({ node, preventSigmaDefault }) => {
+      if (component.isDragging) return;
+      preventSigmaDefault();
+      component.selectedNodeId.set(node);
+      component.openConcept.emit(node);
       sigma.refresh();
     });
 

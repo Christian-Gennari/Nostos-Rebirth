@@ -416,17 +416,75 @@ describe('ConceptMapComponent', () => {
     expect(selected).toHaveBeenCalledWith('alpha');
   });
 
-  it('renders search only in focus mode and keeps graph controls available', () => {
-    expect(fixture.nativeElement.querySelector('input[type="search"]')).toBeNull();
+  it('keeps the search and the way back to the list in the map toolbar', () => {
+    // Both are always present, not focus-mode-only: map view closes the index
+    // rail, so the page-level search and view toggle are off screen and the map
+    // has to carry its own.
+    const toolbar = fixture.nativeElement.querySelector('.map-toolbar') as HTMLElement;
+    expect(toolbar, 'the map owns its search and its exit').toBeTruthy();
+    expect(toolbar.getAttribute('aria-label')).toBe('Map view controls');
+    expect(toolbar.querySelector('input[type="search"]')).toBeTruthy();
+
+    const exit = toolbar.querySelector('[aria-label="Concept view"]') as HTMLButtonElement;
+    expect(exit, 'map view must not be a one-way door').toBeTruthy();
+    const emitted = vi.fn();
+    component.showList.subscribe(emitted);
+    exit.click();
+    expect(emitted).toHaveBeenCalled();
+
+    // The camera and mode controls keep their own rail beside it.
     const rail = fixture.nativeElement.querySelector('[role="toolbar"]');
     expect(rail).toBeTruthy();
     expect(rail.getAttribute('aria-label')).toBe('Map actions');
     expect(fixture.nativeElement.querySelector('[aria-label="Focus mode"]')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('[aria-label="Reset layout"]')).toBeTruthy();
+  });
 
-    component.isFullscreen.set(true);
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('input[type="search"]')).toBeTruthy();
+  it('opens a node on double-click and suppresses Sigma\'s zoom', () => {
+    setConcepts(concepts);
+    flushGraph();
+
+    const emitted = vi.fn();
+    component.openConcept.subscribe(emitted);
+    const preventSigmaDefault = vi.fn();
+
+    const sigmaHandlers = (globalThis as unknown as {
+      __sigmaHandlers: Record<string, (payload?: unknown) => void>;
+    }).__sigmaHandlers;
+    const doubleClick = sigmaHandlers['doubleClickNode'];
+    expect(doubleClick, 'the component must listen for doubleClickNode').toBeTruthy();
+    doubleClick!({ node: 'alpha', preventSigmaDefault });
+
+    expect(emitted).toHaveBeenCalledWith('alpha');
+    expect(component.selectedNodeId()).toBe('alpha');
+    // Without this Sigma ALSO zooms to the node, so the camera would lurch
+    // between the two clicks of a gesture meant to leave the map entirely.
+    expect(preventSigmaDefault, 'double-click must not also zoom the camera').toHaveBeenCalled();
+  });
+
+  it('ignores a double-click that lands at the end of a drag', () => {
+    setConcepts(concepts);
+    flushGraph();
+
+    const emitted = vi.fn();
+    component.openConcept.subscribe(emitted);
+
+    const sigmaHandlers = (globalThis as unknown as {
+      __sigmaHandlers: Record<string, (payload?: unknown) => void>;
+    }).__sigmaHandlers;
+    const captor = (globalThis as unknown as {
+      __captor: Record<string, (payload?: unknown) => void>;
+    }).__captor;
+
+    // A real drag: press, travel past the threshold, release. Sigma then
+    // dispatches the click that follows the release, so the drag guard has to
+    // hold for the double-click path too.
+    sigmaHandlers['downNode']!({ node: 'alpha', event: { x: 0, y: 0 } });
+    captor['mousemovebody']!({ x: 60, y: 60, preventSigmaDefault: () => {} });
+    captor['mouseup']!(undefined);
+
+    sigmaHandlers['doubleClickNode']!({ node: 'alpha', preventSigmaDefault: () => {} });
+    expect(emitted).not.toHaveBeenCalled();
   });
 
   it('reflects externally set selectedId', () => {
