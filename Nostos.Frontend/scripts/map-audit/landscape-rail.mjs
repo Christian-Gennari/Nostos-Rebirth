@@ -1,10 +1,15 @@
 /**
  * In landscape, does the Index rail stay visible and squeeze the map?
  *
- * Clicking "Map" adds the `mobile-hidden` class to `.index-col`, but the rules
- * that act on that class may be width-keyed — and an 844x390 phone is wider than
- * the 768px breakpoint. If so the class is applied with no CSS honouring it, the
- * rail keeps ~40% of the screen, and the map is squeezed into what is left.
+ * Historical probe. Map view now closes the rail on EVERY viewport (`.index-col`
+ * gets `map-hidden` and the layout collapses to one track), so the answer for
+ * map view is "no" by construction — the squeeze this measured can no longer
+ * happen. Kept because it also samples the list-view layout at the same sizes.
+ *
+ * The class it originally watched was `mobile-hidden`, whose rules WERE
+ * width-keyed — so on an 844x390 phone (wider than the 768px breakpoint) the
+ * class applied with no CSS honouring it and the rail kept ~40% of the screen.
+ * `.index-col.mobile-hidden` is now the concept-DETAIL case only.
  */
 import { chromium } from '@playwright/test';
 

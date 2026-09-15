@@ -60,7 +60,10 @@ test('map fills the main stage on desktop', async ({ browser }) => {
       const index = document.querySelector('.index-col') as HTMLElement;
       const col = document.querySelector('.content-col') as HTMLElement;
       const dock = document.querySelector('app-app-dock') as HTMLElement | null;
-      const railWidth = index ? index.getBoundingClientRect().width : 0;
+      // The rail is display:none in map view, so its measured width is 0 — the
+      // "wider than the rail" guard has to compare against the track the grid
+      // RESERVES for it (minmax(280px, 320px)), not a live measurement.
+      const RAIL_TRACK_MAX_PX = 320;
 
       const globals = globalThis as unknown as {
         __nostosSigma?: { getDimensions(): { width: number; height: number }; getCamera(): { ratio: number } };
@@ -87,9 +90,10 @@ test('map fills the main stage on desktop', async ({ browser }) => {
         containerWidth: Math.round(containerRect.width),
         containerHeight: Math.round(containerRect.height),
         canvasCount: document.querySelectorAll('.sigma-container canvas').length,
-        railWidth: Math.round(railWidth),
-        indexStillVisible: !!index && index.getBoundingClientRect().width > 0,
-        widerThanRail: containerRect.width > railWidth * 2,
+        railWidth: RAIL_TRACK_MAX_PX,
+        indexHidden: !!index && getComputedStyle(index).display === 'none',
+        layoutColumns: getComputedStyle(col.parentElement as HTMLElement).gridTemplateColumns,
+        widerThanRail: containerRect.width > RAIL_TRACK_MAX_PX * 2,
         graphOrder: graph?.order ?? 0,
         graphSize: graph?.size ?? 0,
         cameraRatio: sigma ? Number(sigma.getCamera().ratio.toFixed(4)) : null,
@@ -114,7 +118,13 @@ test('map fills the main stage on desktop', async ({ browser }) => {
 
     expect(geo.inContentCol, 'map must be on the main stage').toBe(true);
     expect(geo.inIndexCol, 'map must not be in the index rail').toBe(false);
-    expect(geo.indexStillVisible, 'index stays visible as the filter surface').toBe(true);
+    // Map view is a whole-surface mode: the index rail closes so the graph is
+    // not competing with a list view it already replaced.
+    expect(geo.indexHidden, 'the index rail must close in map view').toBe(true);
+    expect(
+      geo.layoutColumns,
+      `the rail's grid track must collapse too, not just the rail (got ${geo.layoutColumns})`
+    ).not.toContain('280px');
     expect(geo.widerThanRail, 'graph must be far wider than the old sidebar rail').toBe(true);
     expect(geo.containerHeight).toBeGreaterThanOrEqual(400);
     expect(geo.canvasCount, 'Sigma renders its layer canvases').toBeGreaterThan(0);

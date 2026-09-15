@@ -64,9 +64,38 @@
   z-index: 2;
 }
 
+/*
+ * The map toolbar: the way back to the list, plus the map's own search.
+ *
+ * Both are needed here because map view closes the index rail, which is where
+ * the page-level search and view toggle live. The exit control is first so it
+ * always sits in the same place regardless of the search field's width.
+ */
 .map-toolbar {
   left: 0.75rem;
-  width: min(300px, calc(100% - 1.5rem));
+  width: min(360px, calc(100% - 1.5rem));
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.map-search-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.map-toolbar .map-view-exit {
+  flex: 0 0 auto;
+  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+  color: var(--color-text-muted);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--border-color) 16%, transparent);
+}
+
+.map-toolbar .map-view-exit:hover {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
 }
 
 /*
@@ -330,6 +359,19 @@
     min-width: 44px;
   }
 
+  /* The toolbar's exit control takes the same 44px tap contract — it is the
+     ONLY way out of map view, so a miss is worse here than anywhere else in the
+     rail. The search field beside it is already 34px tall; both grow together so
+     the cluster stays on one line. */
+  .map-toolbar .map-view-exit {
+    width: 44px;
+    height: 44px;
+  }
+
+  .map-search input {
+    min-height: 44px;
+  }
+
   /*
    * The selection chip takes its OWN row when present.
    *
@@ -434,6 +476,17 @@
  * enough for it.
  */
 @media (max-height: 500px) {
+  /* The map's search + exit cluster is a floating overlay on a tall stage, but a
+     390px-tall landscape viewport has no room to float anything over the canvas
+     (the same reason the action rail below goes static there): the toolbar takes
+     its own row above the graph instead. */
+  .map-toolbar {
+    position: static;
+    order: 0;
+    width: auto;
+    margin: 0.4rem 0.5rem 0;
+  }
+
   .map-stage {
     display: flex;
     flex-direction: column;

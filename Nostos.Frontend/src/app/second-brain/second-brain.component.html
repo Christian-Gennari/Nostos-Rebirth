@@ -1,8 +1,9 @@
 <main class="layout-wrapper">
-  <div class="layout-content brain-layout">
+  <div class="layout-content brain-layout" [class.map-view]="viewMode() === 'map'">
     <aside
       class="index-col"
-      [class.mobile-hidden]="selectedId() || viewMode() === 'map'"
+      [class.mobile-hidden]="selectedId()"
+      [class.map-hidden]="viewMode() === 'map'"
     >
       <div class="index-header">
         <div class="header-row">
@@ -187,16 +188,14 @@
 
     <section class="content-col" [class.mobile-visible]="selectedId() || viewMode() === 'map'">
       @if (viewMode() === 'map') {
-      <!-- The map lives on the main stage, not in the index rail: it is a
-           whole-brain view, and a force-directed graph squeezed into a ~320px
-           sidebar cannot be read. In this mode it replaces the concept pane
-           entirely; the index stays alongside as the filter/search surface. -->
-      <!-- On mobile the map takes the whole screen (the index is hidden), so it
-           needs its own way back — the same affordance the concept pane uses. -->
-      <button type="button" class="mobile-nav-header" (click)="leaveMap()">
-        <lucide-icon [img]="ArrowLeftIcon" [size]="18"></lucide-icon>
-        <span>Back to Index</span>
-      </button>
+      <!--
+        The map is a whole-surface mode, not a widget beside the index: in map
+        view the index rail closes and this column spans the layout (see
+        `.map-hidden` / `.map-view` in the stylesheet). It replaces the concept
+        pane entirely, and it carries its own search and its own way back to the
+        list view — the map component owns both, because the page-level search
+        and view toggle are inside the rail that this mode closes.
+      -->
       <div class="map-wrapper">
         <!--
           The map owns the whole action surface, including the notes action:
@@ -209,7 +208,10 @@
           [selectedId]="selectedId()"
           [selectedName]="selectedConceptName()"
           (conceptSelected)="onMapConceptSelected($event)"
+          (selectionCleared)="clearSelection()"
           (openNotes)="openSelectedConcept()"
+          (openConcept)="openConceptFromMap($event)"
+          (showList)="leaveMap()"
         ></app-concept-map>
       </div>
       } @else { @if (selectedId()) {

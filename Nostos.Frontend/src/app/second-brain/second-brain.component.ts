@@ -766,6 +766,13 @@ export class SecondBrain implements AfterViewChecked {
 
   setViewMode(mode: string): void {
     if (!BRAIN_VIEW_MODES.includes(mode as BrainViewMode)) return;
+    // Entering map view clears the index search.
+    //
+    // The index search filters the concept set the map renders, and map view
+    // closes the rail — so a query left over from the list would silently shrink
+    // the graph with no visible cause and no control to clear it. The map has its
+    // own search, which centres a node without hiding anything.
+    if (mode === 'map' && this.viewMode() !== 'map') this.clearSearch();
     this.viewMode.set(mode as BrainViewMode);
     try {
       localStorage.setItem(BRAIN_VIEW_MODE_STORAGE_KEY, mode);
@@ -777,32 +784,39 @@ export class SecondBrain implements AfterViewChecked {
   /**
    * Selecting a node on the map.
    *
-   * The map now lives on the main stage, so clicking a node must NOT navigate
-   * away from it — that would hide the graph the moment you used it, which is
-   * the opposite of a whole-brain view. Selection highlights the node (and its
-   * index row); the detail is still fetched so the cache is warm if the user
-   * then opens it. Reading the notes is an explicit action via
-   * `openSelectedConcept()`.
+   * A single click must NOT navigate away from the graph — that would hide the
+   * map the moment you used it, which is the opposite of a whole-brain view.
+   * Selection highlights the node (and its index row); the detail is still
+   * fetched so the cache is warm. Opening the notes is an explicit action: a
+   * double-click on the node (`openConceptFromMap`), or the rail's "Read notes".
    */
   onMapConceptSelected(id: string): void {
     this.selectConcept(id);
   }
 
-  /** Leave the map to read the selected concept's notes. */
+  /**
+   * Open a concept from the map: double-click, or the rail's "Read notes".
+   *
+   * Always switches to list view, because the concept's notes ARE the detail
+   * pane — there is nowhere to show them while the map owns the screen.
+   */
+  openConceptFromMap(id: string): void {
+    this.selectConcept(id);
+    this.setViewMode('list');
+  }
+
+  /** Leave the map to read the selected concept's notes (the rail action). */
   openSelectedConcept(): void {
-    const id = this.selectedId();
-    if (!id) return;
+    if (!this.selectedId()) return;
     this.setViewMode('list');
   }
 
   /**
    * Leave map view entirely, returning to the index.
    *
-   * On mobile the map occupies the whole screen (the index is hidden), so this is
-   * the user's only way back — the same role `clearSelection()` plays for the
-   * concept pane. On desktop the index is still visible and switching back to
-   * list is a click away, but the control is harmless there and the template
-   * already hides `.mobile-nav-header` outside the mobile breakpoint.
+   * In map view the index rail is closed on EVERY viewport, so this is the only
+   * way back — the map's own "Concept view" control calls it. Without it the
+   * whole-surface mode would be a one-way door.
    */
   leaveMap(): void {
     this.setViewMode('list');

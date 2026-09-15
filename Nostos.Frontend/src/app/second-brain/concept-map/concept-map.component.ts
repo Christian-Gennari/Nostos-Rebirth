@@ -21,6 +21,7 @@ import {
   BookOpen,
   Crosshair,
   Expand,
+  LayoutList,
   Minus,
   Plus,
   RotateCcw,
@@ -569,6 +570,19 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   @Output() readonly conceptSelected = new EventEmitter<string>();
   /** Emitted by the rail's "Read notes" action. */
   @Output() readonly openNotes = new EventEmitter<void>();
+  /** Emitted by the map's "Concept view" control, and by a node double-click. */
+  @Output() readonly openConcept = new EventEmitter<string>();
+  /** Emitted by the "Concept view" control: leave the map for the index. */
+  @Output() readonly showList = new EventEmitter<void>();
+  /**
+   * Emitted when a click on empty space clears the selection.
+   *
+   * Separate from `conceptSelected` rather than widening it to `string | null`:
+   * the two mean different things ("this node is now the subject" versus "there
+   * is no subject"), and a nullable id would let a consumer treat a deselect as
+   * a selection of nothing.
+   */
+  @Output() readonly selectionCleared = new EventEmitter<void>();
 
   @ViewChild('sigmaContainer', { static: false }) sigmaContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('mapStage', { static: false }) mapStage!: ElementRef<HTMLElement>;
@@ -659,6 +673,7 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   readonly exitFocusIcon = Shrink;
   readonly resetIcon = RotateCcw;
   readonly notesIcon = BookOpen;
+  readonly listIcon = LayoutList;
 
   private readonly conceptsService = inject(ConceptsService);
 
@@ -1109,9 +1124,44 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
       sigma.refresh();
     });
 
+    // Double-click opens the concept, the way Obsidian's graph does.
+    //
+    // Sigma's mouse captor counts its own clicks: the FIRST click emits `click`
+    // (so the node is already selected by the time this fires) and the second
+    // dispatches `doubleClick` INSTEAD of a second `click`, which is what makes
+    // the two gestures compose rather than fight. `doubleClickNode` carries the
+    // node under the pointer, so the id is ready to hand straight to the parent
+    // — no round trip through the selection signal.
+    //
+    // `preventSigmaDefault()` is required, not decorative: without it Sigma also
+    // zooms the camera into the node, so the map would lurch between the two
+    // clicks of a gesture that is meant to leave the map entirely.
+    sigma.on('doubleClickNode', ({ node, preventSigmaDefault }) => {
+      if (component.isDragging) return;
+      preventSigmaDefault();
+      component.selectedNodeId.set(node);
+      component.openConcept.emit(node);
+      sigma.refresh();
+    });
+
+    // Clicking empty space clears the selection.
+    //
+    // Selection drives the index rail and the "Read notes" action, so without
+    // this the map was stuck on the last node clicked — there was no gesture
+    // that returned the graph to a neutral state, and the only remaining escape
+    // (reloading, or selecting a different node) made the map feel like it was
+    // holding a choice the user could not take back.
+    //
+    // `clickStage` is exactly the right event, because Sigma only emits it for a
+    // GENUINE click: a camera pan bumps its `draggedEvents` counter past
+    // `draggedEventsTolerance` and is suppressed, a touch drag is suppressed by
+    // `tapMoveTolerance`, and a double-click dispatches `doubleClickStage`
+    // instead of a second `clickStage`. So an empty-space click during a pan
+    // release never lands here and cannot wipe a selection by accident.
     sigma.on('clickStage', () => {
-      // Clicking empty space clears hover highlighting but keeps selection.
       component.hoveredId.set(null);
+      component.selectedNodeId.set(null);
+      component.selectionCleared.emit();
       sigma.refresh();
     });
 
