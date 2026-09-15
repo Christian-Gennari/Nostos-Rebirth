@@ -95,6 +95,12 @@
      UP. Kept separate from --dock-shadow because it is a different geometry, not
      a different theme. */
   --dock-shadow-rail: 0 -6px 20px rgba(42, 38, 32, 0.1);
+  /* Height of the phone dock, which becomes a full-bleed rail pinned to the
+     viewport bottom. The shell reserves exactly this much so page content can
+     never hide under the dock, and the dock itself is built from the same value:
+     they were previously two independent numbers (a 58px rail against a 96px
+     reserve), which left 38px of dead space above the dock on every page. */
+  --dock-rail-h: 60px;
 
   /* The dock's selected item is ink, not the accent. */
   --dock-item-active-ink: var(--color-primary);

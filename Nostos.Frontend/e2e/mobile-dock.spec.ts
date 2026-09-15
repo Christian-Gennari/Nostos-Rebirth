@@ -17,6 +17,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { loadFixture, apiPost } from './support/fixture';
+import { cleanupBrain, seedBrain } from './support/brain-fixture';
 
 const MIN_TAP_TARGET = 44; // CSS px, Apple HIG / Material minimum
 
@@ -197,4 +198,93 @@ test('the mobile header toggle uses the surface foreground, not the accent', asy
   });
 
   expect(measured!.color, 'header toggle must use the surface foreground').toBe(expected);
+});
+
+/**
+ * The shell's bottom reserve and the dock's own height must be the SAME number.
+ *
+ * They were two independent values — a 96px reserve against a 58px rail — and the
+ * 38px surplus rendered as dead space between the page content and the dock on
+ * every page at phone widths. Both sides now derive from the single
+ * `--dock-rail-h` token, and this asserts they cannot drift apart again.
+ *
+ * It also checks the consequence that matters to a reader: at the end of the
+ * scroll, the last content card sits just above the dock rather than behind it.
+ */
+test('the shell reserves exactly the dock height, leaving no dead band', async ({ page }) => {
+  await openLibrary(page);
+
+  const measured = await page.evaluate(() => {
+    const shell = document.querySelector('.workspace-content') as HTMLElement | null;
+    const dock = document.querySelector('app-app-dock') as HTMLElement | null;
+    if (!shell || !dock) return null;
+    const shellRect = shell.getBoundingClientRect();
+    const dockRect = dock.getBoundingClientRect();
+    return {
+      reserve: parseFloat(getComputedStyle(shell).paddingBottom),
+      dockHeight: dockRect.height,
+      // How much viewport sits between the shell's content box and the dock top.
+      bandAboveDock: dockRect.top - (shellRect.bottom - parseFloat(getComputedStyle(shell).paddingBottom)),
+      viewportHeight: window.innerHeight,
+    };
+  });
+
+  expect(measured, 'shell and dock must both be rendered').not.toBeNull();
+
+  // The reserve must cover the dock (nothing hidden) without overshooting it.
+  expect(
+    Math.abs(measured!.reserve - measured!.dockHeight),
+    `shell reserve (${measured!.reserve}px) must equal the dock height (${measured!.dockHeight}px)`
+  ).toBeLessThanOrEqual(1);
+});
+
+test('content can be scrolled clear of the dock on the reading view', async ({ page }) => {
+  // Seed locally: without concepts the index is empty, the click has nothing to
+  // open, and the failure looks like a layout bug rather than missing fixture data.
+  const seed = await seedBrain(
+    fixture.baseUrl,
+    `Dock clearance ${Date.now().toString(36)}`,
+    [
+      'On [[Attention]] and [[Memory]].',
+      'On [[Attention]] and [[Practice]].',
+      'On [[Memory]] and [[Practice]].',
+    ],
+    ['Attention', 'Memory', 'Practice']
+  );
+
+  try {
+  await page.goto(`${fixture.baseUrl}/second-brain`);
+  await expect(page.locator('.index-item').first()).toBeVisible();
+  // Open a concept this test seeded rather than whatever happens to sort first:
+  // the fixture is shared, and an unrelated leftover concept with no notes would
+  // render the empty state instead of cards.
+  await page.locator('.index-item', { hasText: 'Attention' }).first().click();
+
+  // Wait for the detail pane to actually render its cards before measuring:
+  // reading the DOM straight after the click catches the empty state mid-transition.
+  await expect(page.locator('.content-col .cards-grid > *').first()).toBeVisible({ timeout: 15_000 });
+
+  // Scroll the reading column to its end and confirm the last card is above the dock.
+  const result = await page.evaluate(async () => {
+    const col = document.querySelector('.content-col') as HTMLElement | null;
+    const dock = document.querySelector('app-app-dock') as HTMLElement | null;
+    if (!col || !dock) return null;
+    col.scrollTop = col.scrollHeight;
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    const cards = col.querySelectorAll('.cards-grid > *');
+    const last = cards.length ? cards[cards.length - 1] : null;
+    if (!last) return null;
+    return {
+      gap: Math.round(dock.getBoundingClientRect().top - last.getBoundingClientRect().bottom),
+      dockHeight: Math.round(dock.getBoundingClientRect().height),
+    };
+  });
+
+  expect(result, 'the reading view must render cards and the dock').not.toBeNull();
+  expect(result!.gap, 'last card must not hide behind the dock').toBeGreaterThanOrEqual(0);
+  // And the leftover margin must be a normal margin, not another dock's worth of gap.
+  expect(result!.gap, 'no dead band: the trailing gap must be smaller than the dock').toBeLessThan(result!.dockHeight);
+  } finally {
+    await cleanupBrain(fixture.baseUrl, seed);
+  }
 });

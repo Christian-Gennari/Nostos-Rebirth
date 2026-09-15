@@ -1655,10 +1655,10 @@
     width: 100%;
     height: 100%;
     padding: 1.5rem; /* Less padding on mobile */
-    /* Dock clearance. The mobile dock is a full-bleed rail 58px tall, flush to
-       the viewport bottom, so 96px clears it by 38px. The previous 8.5rem was
-       sized against the taller floating pill the dock used to be. */
-    padding-bottom: 96px;
+    /* No dock clearance here: the shell already reserves the dock's exact height
+       (--dock-rail-h) for every page, so padding for it again was a second reserve
+       and the surplus showed as blank space between the content and the dock. */
+    padding-bottom: 1.5rem;
     background-image: none; /* Cleaner look on small screens */
   }
 

@@ -12,7 +12,16 @@
   overflow: hidden;
   position: relative;
   scroll-behavior: smooth;
-  padding-bottom: 96px;
+  /* Reserve the phone dock's real height (--dock-rail-h) exactly. The previous
+     96px was a guess against a 58px rail, and the 38px surplus was visible dead
+     space above the dock on every page at phone widths. The token is the same one
+     the dock is built from, so the two cannot drift apart again.
+     The inset is part of the dock's height on a notched phone (its bottom padding
+     is max(3px, env(safe-area-inset-bottom))), so the reserve adds the same inset;
+     otherwise content would hide behind the dock on exactly the devices that have
+     one. Overridden to 0 at >=769px, where the dock floats instead of sitting
+     flush. */
+  padding-bottom: calc(var(--dock-rail-h) + env(safe-area-inset-bottom, 0px));
 }
 
 /* The dock is global, but the library has a substantial left rail. Keep the
@@ -41,7 +50,7 @@
     height: auto;
     min-height: 100dvh;
     overflow: visible;
-    padding-bottom: 96px;
+    padding-bottom: calc(var(--dock-rail-h) + env(safe-area-inset-bottom, 0px));
   }
 
   .workspace-layout:has(.library-right-side) {
@@ -53,7 +62,7 @@
     height: auto;
     min-height: 100dvh;
     overflow: visible;
-    padding-bottom: 96px;
+    padding-bottom: calc(var(--dock-rail-h) + env(safe-area-inset-bottom, 0px));
   }
 
   /* The drawer owns the mobile viewport while open; hide the bottom dock
