@@ -311,9 +311,11 @@ describe('ConceptMapComponent', () => {
 
   it('renders search only in focus mode and keeps graph controls available', () => {
     expect(fixture.nativeElement.querySelector('input[type="search"]')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.map-control-label')).toBeTruthy();
-    expect(fixture.nativeElement.textContent).toContain('Focus mode');
-    expect(fixture.nativeElement.textContent).toContain('Reset');
+    const rail = fixture.nativeElement.querySelector('[role="toolbar"]');
+    expect(rail).toBeTruthy();
+    expect(rail.getAttribute('aria-label')).toBe('Map actions');
+    expect(fixture.nativeElement.querySelector('[aria-label="Focus mode"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[aria-label="Reset layout"]')).toBeTruthy();
 
     component.isFullscreen.set(true);
     fixture.detectChanges();
@@ -348,10 +350,54 @@ describe('ConceptMapComponent', () => {
     ).toBe(true);
   });
 
-  it('has zoom in, zoom out, and reset controls', () => {
-    expect(fixture.nativeElement.querySelector('[aria-label="Zoom out"]')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('[aria-label="Zoom in"]')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('.map-reset')).toBeTruthy();
+  it('puts every map action on one toolbar with an accessible name', () => {
+    const rail = fixture.nativeElement.querySelector('[role="toolbar"]') as HTMLElement;
+    expect(rail).toBeTruthy();
+
+    const buttons = [...rail.querySelectorAll('button')] as HTMLButtonElement[];
+    // zoom out, zoom in, fit, center, focus, reset
+    expect(buttons.length).toBeGreaterThanOrEqual(6);
+
+    // Icon-only buttons MUST carry a name for AT and a pointer tooltip.
+    for (const button of buttons) {
+      const name =
+        button.getAttribute('aria-label') ?? button.getAttribute('title') ?? button.textContent?.trim();
+      expect(name, 'every rail action needs an accessible name').toBeTruthy();
+    }
+
+    expect(rail.querySelector('[aria-label="Zoom out"]')).toBeTruthy();
+    expect(rail.querySelector('[aria-label="Zoom in"]')).toBeTruthy();
+    expect(rail.querySelector('[aria-label="Fit to view"]')).toBeTruthy();
+    expect(rail.querySelector('[aria-label="Center on selection"]')).toBeTruthy();
+    expect(rail.querySelector('[aria-label="Focus mode"]')).toBeTruthy();
+    expect(rail.querySelector('[aria-label="Reset layout"]')).toBeTruthy();
+
+    // The rail is a single tab stop with roving focus, not six.
+    expect(rail.getAttribute('aria-orientation')).toBe('horizontal');
+  });
+
+  it('keeps the notes action inside the rail, next to the selection name', () => {
+    setConcepts(concepts);
+    flushGraph();
+
+    // Nothing selected: no chip, no notes action — the rail is pure camera.
+    let rail = fixture.nativeElement.querySelector('[role="toolbar"]') as HTMLElement;
+    expect(rail.querySelector('[aria-label="Read notes"]')).toBeNull();
+
+    fixture.componentRef.setInput('selectedName', 'Beta');
+    fixture.detectChanges();
+    rail = fixture.nativeElement.querySelector('[role="toolbar"]') as HTMLElement;
+
+    // Inside the SAME toolbar as the camera controls — that is the whole point
+    // of moving it out of the parent's separate floating bar.
+    const notes = rail.querySelector('[aria-label="Read notes"]') as HTMLButtonElement;
+    expect(notes, 'the notes action belongs to the map action rail').toBeTruthy();
+    expect(rail.querySelector('.map-selection-name')?.textContent).toContain('Beta');
+
+    const emitted = vi.fn();
+    component.openNotes.subscribe(emitted);
+    notes.click();
+    expect(emitted).toHaveBeenCalled();
   });
 
   it('shows loading status while graph data is pending', () => {

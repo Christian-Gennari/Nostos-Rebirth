@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
@@ -938,10 +939,14 @@ describe('SecondBrain', () => {
     expect(fixture.nativeElement.querySelector('app-concept-map')).toBeTruthy();
     expect(component.selectedConceptName()).toBe('Beta');
 
-    // ...and the selection bar is the explicit route to the notes.
-    const open = fixture.nativeElement.querySelector('.map-open-notes') as HTMLButtonElement;
-    expect(open).toBeTruthy();
-    open.click();
+    // ...and the map's own action rail is the explicit route to the notes. The
+    // action lives INSIDE app-concept-map now, so the child is asked to emit it
+    // rather than the parent template owning a separate button.
+    const map = fixture.debugElement.query(By.css('app-concept-map'));
+    expect(map, 'the map owns the notes action').toBeTruthy();
+    expect(map.componentInstance.selectedName).toBe('Beta');
+
+    map.componentInstance.openNotes.emit();
     fixture.detectChanges();
     expect(component.viewMode()).toBe('list');
     expect(fixture.nativeElement.querySelector('app-concept-map')).toBeNull();

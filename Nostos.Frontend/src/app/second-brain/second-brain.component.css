@@ -701,80 +701,58 @@
 
 /* --- MAP view: the map occupies the main stage --------------------------- */
 
-/* A quiet bar above the graph showing what is selected, with the one action the
-   map cannot express — leaving it to read the notes.
-   Floats as an overlay at the bottom-left of the map so it never pushes the
-   graph layout down. */
-.map-selection-bar {
-  position: absolute;
-  bottom: 1rem;
-  left: 1rem;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  max-width: min(420px, calc(100% - 2rem));
-  padding: 0.5rem 0.85rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--border-color) 18%, transparent);
-}
-
-.map-selection-name {
-  font-family: 'Newsreader', serif;
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: var(--color-text-main);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.map-open-notes {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  flex-shrink: 0;
-  min-height: 36px;
-  padding: 0.4rem 0.9rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--bg-surface);
-  color: var(--color-text-main);
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.82rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    background-color var(--motion-fast) var(--ease-out),
-    border-color var(--motion-fast) var(--ease-out);
-}
-
-.map-open-notes:hover {
-  background: var(--bg-hover);
-  border-color: var(--color-text-main);
-}
-
-.map-open-notes:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: -2px;
-}
+/* The map's own action rail (selection chip + camera controls + Read notes)
+   lives inside `app-concept-map`, so this view no longer owns a floating
+   selection bar. See concept-map.component.css. */
 
 /* The map takes the stage it is now on: it is the whole point of this view, so
-   give it the available height rather than the ~360px it needed as a sidebar
-   widget. */
+   give it the available height and width rather than the ~360px it needed as a
+   sidebar widget.
+   `max-width` was 1100px, which on a 1920px viewport left the graph at 66.8% of
+   a 1600px column — a third of the width unusable for the one surface that
+   benefits from it. The reading surfaces keep their own measure; this view does
+   not need one. */
 .map-wrapper {
   position: relative;
-  max-width: 1100px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
 }
 
+/* The host must be a flex COLUMN so the card inside it can take the height.
+   This previously forced `display: block`, which outranks the child's own
+   `:host` rule (`[_nghost]` is specificity 0,1,0 versus this rule's 0,1,1) and
+   silently stopped the height chain — the host measured 896px while the card
+   inside it stayed at 392px. */
 .map-wrapper app-concept-map {
-  display: block;
-} 
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/*
+ * Desktop: hand the map the column's height so it can fill it.
+ *
+ * Only the OUTER chain is here — the map's own internals are styled in
+ * concept-map.component.css, because Angular view encapsulation rewrites that
+ * component's selectors with its host attribute and these rules cannot reach
+ * them.
+ *
+ * The phone rule at the end of this file still overrides the padding for a
+ * full-bleed map on a handset.
+ */
+.content-col.mobile-visible:has(app-concept-map) {
+  display: flex;
+  flex-direction: column;
+}
+
+.content-col.mobile-visible:has(app-concept-map) .map-wrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 
 /* HEADER */
 /* No arrival animation on the detail pane.

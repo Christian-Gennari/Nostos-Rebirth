@@ -43,9 +43,9 @@ for (const dev of DEVICES) {
     const rect = (el) => { const b = el.getBoundingClientRect(); return { top: Math.round(b.top), bottom: Math.round(b.bottom), left: Math.round(b.left), right: Math.round(b.right), w: Math.round(b.width), h: Math.round(b.height) }; };
     const stage = document.querySelector('.sigma-container');
     const dock = document.querySelector('app-app-dock');
-    const strip = document.querySelector('.map-controls');
+    const strip = document.querySelector('[role="toolbar"]');
     const stripH = strip ? Math.round(strip.getBoundingClientRect().height) : -1;
-    const controls = [...document.querySelectorAll('.map-controls button')].map((b) => ({
+    const controls = [...document.querySelectorAll('[role="toolbar"] button')].map((b) => ({
       label: (b.getAttribute('aria-label') || b.textContent || '').trim().slice(0, 20),
       ...rect(b),
     }));

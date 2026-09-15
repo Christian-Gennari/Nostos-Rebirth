@@ -114,7 +114,7 @@ out.otherIdle = await reducedColor(plan.other.id);
 await page.mouse.click(box.x + plan.hub.p.x, box.y + plan.hub.p.y);
 await page.waitForTimeout(1600);
 out.selectedNode = await page.evaluate(() => {
-  const el = document.querySelector('.map-selection-name, .map-selection-bar');
+  const el = document.querySelector('.map-selection-name');
   return el ? el.textContent.trim().slice(0, 60) : null;
 });
 

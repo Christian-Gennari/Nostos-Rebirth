@@ -40,7 +40,7 @@ async function openMap(page, baseUrl, wait = 3000) {
 
   // 1. Repeated Fit is idempotent.
   const fit1 = await page.evaluate(() => globalThis.__nostosSigma.getCamera().getState());
-  await page.locator('.map-controls button', { hasText: 'Fit' }).first().click();
+  await page.locator('[aria-label="Fit to view"]').click();
   await page.waitForTimeout(1400);
   const fit2 = await page.evaluate(() => globalThis.__nostosSigma.getCamera().getState());
   record('controls', 'repeated Fit is idempotent',
@@ -48,10 +48,10 @@ async function openMap(page, baseUrl, wait = 3000) {
     `ratio ${fit1.ratio.toFixed(4)} -> ${fit2.ratio.toFixed(4)}`);
 
   // 2. Zoom in then Fit returns to the same framing.
-  await page.locator('.map-controls button[aria-label="Zoom in"]').click();
+  await page.locator('[role="toolbar"] button[aria-label="Zoom in"]').click();
   await page.waitForTimeout(900);
   const zoomed = await page.evaluate(() => globalThis.__nostosSigma.getCamera().ratio);
-  await page.locator('.map-controls button', { hasText: 'Fit' }).first().click();
+  await page.locator('[aria-label="Fit to view"]').click();
   await page.waitForTimeout(1400);
   const refit = await page.evaluate(() => globalThis.__nostosSigma.getCamera().ratio);
   record('controls', 'Fit recovers framing after zoom',
@@ -59,15 +59,15 @@ async function openMap(page, baseUrl, wait = 3000) {
     `zoomed to ${zoomed.toFixed(3)}, refit ${refit.toFixed(4)} vs original ${fit1.ratio.toFixed(4)}`);
 
   // 3. Center is disabled with no selection, enabled with one.
-  const disabledNoSel = await page.locator('.map-controls button', { hasText: 'Center' }).first().isDisabled();
+  const disabledNoSel = await page.locator('[aria-label="Center on selection"]').isDisabled();
   record('controls', 'Center disabled without a selection', disabledNoSel === true, `disabled=${disabledNoSel}`);
 
   // 4. Fullscreen / focus mode.
-  await page.locator('.map-controls button', { hasText: 'Focus mode' }).first().click();
+  await page.locator('[aria-label="Focus mode"]').click();
   await page.waitForTimeout(1600);
   const fs = await page.evaluate(() => ({
     fullscreen: !!document.fullscreenElement,
-    label: [...document.querySelectorAll('.map-controls button')].map((b) => b.textContent.trim()).join('|'),
+    label: [...document.querySelectorAll('[role="toolbar"] button')].map((b) => b.textContent.trim()).join('|'),
     searchPresent: !!document.querySelector('.map-search input'),
     canvasH: document.querySelector('.sigma-container')?.clientHeight,
     viewportH: window.innerHeight,
@@ -86,7 +86,7 @@ async function openMap(page, baseUrl, wait = 3000) {
     if (results > 0) {
       await page.locator('.map-search-results button').first().click();
       await page.waitForTimeout(1600);
-      const sel = await page.evaluate(() => document.querySelector('.map-selection-bar')?.textContent?.trim() ?? null);
+      const sel = await page.evaluate(() => document.querySelector('.map-selection-name')?.textContent?.trim() ?? null);
       record('focus', 'choosing a search result selects it', !!sel && /virtue/i.test(sel), `selection='${sel}'`);
     }
   }
@@ -145,7 +145,7 @@ async function openMap(page, baseUrl, wait = 3000) {
     await page.mouse.up();
     await page.waitForTimeout(500);
   }
-  await page.locator('.map-controls button', { hasText: 'Reset layout' }).first().click();
+  await page.locator('[aria-label="Reset layout"]').click();
   await page.waitForTimeout(1800);
   const restored = await page.evaluate((id) => {
     const a = globalThis.__nostosGraph.getNodeAttributes(id);
@@ -174,7 +174,7 @@ async function openMap(page, baseUrl, wait = 3000) {
 
   const m = await page.evaluate(() => {
     const cont = document.querySelector('.sigma-container').getBoundingClientRect();
-    const controls = document.querySelector('.map-controls');
+    const controls = document.querySelector('[role="toolbar"]');
     const cr = controls ? controls.getBoundingClientRect() : null;
     const sig = globalThis.__nostosSigma, g = globalThis.__nostosGraph;
     const d = sig.getDimensions();
@@ -186,7 +186,7 @@ async function openMap(page, baseUrl, wait = 3000) {
       viewportH: window.innerHeight,
       controlsWithinViewport: cr ? (cr.top >= 0 && cr.left >= 0 && cr.right <= window.innerWidth && cr.bottom <= window.innerHeight) : null,
       controlsRect: cr ? { t: Math.round(cr.top), l: Math.round(cr.left), r: Math.round(cr.right), b: Math.round(cr.bottom) } : null,
-      touchTargets: [...document.querySelectorAll('.map-controls button')].map((b) => Math.round(b.getBoundingClientRect().height)),
+      touchTargets: [...document.querySelectorAll('[role="toolbar"] button')].map((b) => Math.round(b.getBoundingClientRect().height)),
       offscreenNodes: off.length,
       docScrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,

@@ -16,10 +16,22 @@ import {
   ViewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import {
+  LucideAngularModule,
+  BookOpen,
+  Crosshair,
+  Maximize,
+  Minimize,
+  Minus,
+  Plus,
+  RotateCcw,
+  Scan,
+} from 'lucide-angular';
 import Graph from 'graphology';
 import Sigma from 'sigma';
 import forceAtlas2 from 'graphology-layout-forceatlas2';
 
+import { IconButtonComponent } from '../../ui/icon-button/icon-button.component';
 import {
   ConceptDto,
   ConceptsService,
@@ -383,7 +395,7 @@ function compareConcepts(a: ConceptDto, b: ConceptDto): number {
 @Component({
   selector: 'app-concept-map',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LucideAngularModule, IconButtonComponent],
   templateUrl: './concept-map.component.html',
   styleUrl: './concept-map.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -391,7 +403,17 @@ function compareConcepts(a: ConceptDto, b: ConceptDto): number {
 export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy {
   @Input() concepts: ConceptDto[] = [];
   @Input() selectedId: string | null = null;
+  /**
+   * Name of the selected concept, supplied by the parent.
+   *
+   * The map owns the action rail, so the "what is selected" chip belongs here
+   * too — otherwise the notes action sits in a second floating overlay outside
+   * the control surface, which is the layout being reported as fragmented.
+   */
+  @Input() selectedName: string | null = null;
   @Output() readonly conceptSelected = new EventEmitter<string>();
+  /** Emitted by the rail's "Read notes" action. */
+  @Output() readonly openNotes = new EventEmitter<void>();
 
   @ViewChild('sigmaContainer', { static: false }) sigmaContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('mapStage', { static: false }) mapStage!: ElementRef<HTMLElement>;
@@ -440,6 +462,17 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   readonly accessibleNodes = signal<
     Array<{ id: string; name: string; usageCount: number; connectionCount: number }>
   >([]);
+
+  /* Icons for the action rail. Exposed as fields because the template reads
+     them; `strokeWidth` stays at the app default of 2. */
+  readonly zoomOutIcon = Minus;
+  readonly zoomInIcon = Plus;
+  readonly fitIcon = Scan;
+  readonly centreIcon = Crosshair;
+  readonly focusIcon = Maximize;
+  readonly exitFocusIcon = Minimize;
+  readonly resetIcon = RotateCcw;
+  readonly notesIcon = BookOpen;
 
   private readonly conceptsService = inject(ConceptsService);
 
