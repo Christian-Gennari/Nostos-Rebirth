@@ -38,7 +38,9 @@ async function ensureSeed(fixture: ReturnType<typeof loadFixture>) {
 
 async function openMap(page: import('@playwright/test').Page, baseUrl: string) {
   await page.goto(`${baseUrl}/second-brain`, { waitUntil: 'domcontentloaded' });
-  await page.locator('.index-item').first().waitFor({ timeout: 30_000 });
+  // Wait for the view-mode control rather than an index row: a landscape phone
+  // hides the index list, so `.index-item` never becomes visible there.
+  await page.locator('.view-mode-control .toggle-opt').last().waitFor({ timeout: 30_000 });
   await page.locator('.view-mode-control .toggle-opt:last-child').click();
   await page.locator('.sigma-container canvas').first().waitFor({ timeout: 30_000 });
   await page.waitForTimeout(900);
@@ -355,5 +357,74 @@ test('map fills the stage on mobile', async ({ browser }) => {
     // Last test in this serial spec: restore the shared fixture so the visual
     // matrix's empty-state assertion (which runs later) still sees a clean DB.
     if (seed) await cleanupBrain(fixture.baseUrl, seed);
+  }
+});
+
+test('map does not hide behind the dock in landscape', async ({ browser }) => {
+  const fixture = loadFixture();
+  // Seed locally rather than relying on a previously-run test's data: without
+  // concepts the graph has no nodes, Sigma is never constructed, and the canvas
+  // wait times out in a way that looks like a layout bug.
+  const seed = await seedBrain(
+    fixture.baseUrl,
+    `Landscape ${Date.now().toString(36)}`,
+    [
+      'On [[Attention]] and [[Memory]].',
+      'On [[Attention]] and [[Practice]].',
+      'On [[Memory]] and [[Practice]].',
+      'On [[Solitude]] and [[Attention]].',
+      'On [[Reading]] and [[Memory]].',
+    ],
+    ['Attention', 'Memory', 'Practice', 'Solitude', 'Reading']
+  );
+  // 844x390 is a phone in landscape: wider than the 768px breakpoint, so every
+  // width-keyed rule missed it and the map kept the desktop treatment. The stage
+  // then overflowed the 390px viewport and the floating dock covered graph nodes
+  // (measured 17 of them).
+  const { context, page } = await newCapturePage(browser, { width: 844, height: 390 }, true);
+  try {
+    await openMap(page, fixture.baseUrl);
+
+    const geo = await page.evaluate(() => {
+      const stage = document.querySelector('app-concept-map .sigma-container') as HTMLElement;
+      const dock = document.querySelector('app-app-dock') as HTMLElement | null;
+      const rect = stage.getBoundingClientRect();
+      const dockRect = dock ? dock.getBoundingClientRect() : null;
+      const overlap = dockRect
+        ? Math.max(0, Math.min(rect.bottom, dockRect.bottom) - Math.max(rect.top, dockRect.top))
+        : 0;
+
+      // How many nodes land inside the dock's vertical band?
+      let behindDock = 0;
+      const sig = (window as unknown as { __nostosSigma?: { graphToViewport: (p: { x: number; y: number }) => { x: number; y: number } } }).__nostosSigma;
+      const g = (window as unknown as { __nostosGraph?: { forEachNode: (cb: (id: string, a: { x: number; y: number }) => void) => void } }).__nostosGraph;
+      if (sig && g && dockRect) {
+        g.forEachNode((_id, a) => {
+          const v = sig.graphToViewport({ x: a.x, y: a.y });
+          const screenY = rect.top + v.y;
+          if (screenY > dockRect.top && screenY < dockRect.bottom) behindDock++;
+        });
+      }
+
+      return {
+        viewport: `${window.innerWidth}x${window.innerHeight}`,
+        stageBottom: Math.round(rect.bottom),
+        stageHeight: Math.round(rect.height),
+        overlap: Math.round(overlap),
+        behindDock,
+        overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      };
+    });
+
+    console.log('MAP GEOMETRY (landscape):', JSON.stringify(geo, null, 1));
+
+    expect(geo.stageHeight, 'the stage must fit inside a short viewport').toBeLessThanOrEqual(390);
+    expect(geo.stageBottom, 'the stage must not extend past the viewport').toBeLessThanOrEqual(390);
+    expect(geo.overlap, 'the dock must not overlap the graph canvas').toBe(0);
+    expect(geo.behindDock, 'no node may render underneath the dock').toBe(0);
+    expect(geo.overflow, 'no horizontal overflow in landscape').toBe(false);
+  } finally {
+    await context.close();
+    await cleanupBrain(fixture.baseUrl, seed);
   }
 });

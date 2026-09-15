@@ -9,7 +9,7 @@ import { chromium } from '@playwright/test';
 const BASE = (process.argv[2] ?? 'http://127.0.0.1:5321').replace(/\/+$/, '');
 
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
-const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+const ctx = await browser.newContext({ viewport: { width: Number(process.argv[3] ?? 390), height: Number(process.argv[4] ?? 844) }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
 const page = await ctx.newPage();
 await page.addInitScript(() => {
   const drop = () => document.querySelectorAll('vite-error-overlay').forEach((n) => n.remove());

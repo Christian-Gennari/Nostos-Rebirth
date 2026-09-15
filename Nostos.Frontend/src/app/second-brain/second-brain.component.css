@@ -1721,60 +1721,6 @@
     overflow-y: auto;
   }
 
-  /* --- MAP view on a phone ------------------------------------------------
-     The map is a full-bleed surface, but it was inheriting the reading layout:
-     1.5rem side padding, and a 96px bottom pad reserved for the dock. Measured
-     on a 390x844 phone that produced 37px gutters each side (74px of 390px
-     lost) and a 523px stage ending 163px above the dock — a third of the screen
-     was empty band while the graph was squeezed into the rest.
-
-     `.content-col:has(app-concept-map)` targets only the map view, so the
-     concept-reading layout keeps its padding. */
-  .content-col.mobile-visible:has(app-concept-map) {
-    display: flex;
-    flex-direction: column;
-    /* The map fills the column; it scrolls nowhere, so `auto` on the reading
-       layout is wrong here and can leave a scrollbar. */
-    overflow: hidden;
-    padding: 0;
-    /* Clears the 58px dock plus its safe-area inset, without the slack the
-       reading layout needs for prose. */
-    padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px));
-  }
-
-  /* The back affordance is a compact chip rather than a full reading-width
-     band: on the map it sits above a canvas that wants every pixel. */
-  .content-col.mobile-visible:has(app-concept-map) .mobile-nav-header {
-    width: auto;
-    min-height: 44px;
-    margin: 0.5rem 0.75rem 0.25rem;
-    padding: 0.5rem 0.75rem;
-    border-bottom: 0;
-  }
-
-  .content-col.mobile-visible:has(app-concept-map) .map-wrapper {
-    flex: 1;
-    min-height: 0;
-    /* No max-width centring on a phone: it is the screen or it is wasted. */
-    max-width: none;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* Only the child's HOST element is reachable from here, and the host must be
-     the flex container: with the host as `display: block` the card inside it
-     sized to its own content (measured 21px inside a 634px host) and the graph
-     had nothing to fill. Setting it here rather than via the child's `:host`
-     rule keeps the whole chain in one place and avoids the encapsulation
-     question entirely. */
-  .content-col.mobile-visible:has(app-concept-map) app-concept-map {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-  }
-
   /* 5. Mobile Back Button (Refined) */
   .mobile-nav-header {
     display: flex;
@@ -1929,6 +1875,115 @@
   .concept-actions {
     flex: 1 1 100%;
     justify-content: flex-end;
+  }
+
+
+}
+
+/*
+ * The map view on a phone, in EITHER orientation.
+ *
+ * Width alone is the wrong test: an 844x390 landscape phone matches no
+ * `max-width: 768px` rule, so it kept the desktop treatment — the stage
+ * overflowed the 390px viewport by 64px (measured stage bottom 485) and the
+ * floating dock then covered 17 graph nodes. Keying on height as well covers
+ * every short viewport regardless of width.
+ */
+@media (max-width: 768px), (max-height: 500px) {
+/* --- MAP view on a phone ------------------------------------------------
+   The map is a full-bleed surface, but it was inheriting the reading layout:
+   1.5rem side padding, and a 96px bottom pad reserved for the dock. Measured
+   on a 390x844 phone that produced 37px gutters each side (74px of 390px
+   lost) and a 523px stage ending 163px above the dock — a third of the screen
+   was empty band while the graph was squeezed into the rest.
+
+   `.content-col:has(app-concept-map)` targets only the map view, so the
+   concept-reading layout keeps its padding. */
+.content-col.mobile-visible:has(app-concept-map) {
+  display: flex;
+  flex-direction: column;
+  /* The map fills the column; it scrolls nowhere, so `auto` on the reading
+     layout is wrong here and can leave a scrollbar. */
+  overflow: hidden;
+  padding: 0;
+  /* Clears the 58px dock plus its safe-area inset, without the slack the
+     reading layout needs for prose. */
+  padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+}
+
+/* The back affordance is a compact chip rather than a full reading-width
+   band: on the map it sits above a canvas that wants every pixel. */
+.content-col.mobile-visible:has(app-concept-map) .mobile-nav-header {
+  width: auto;
+  min-height: 44px;
+  margin: 0.5rem 0.75rem 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 0;
+}
+
+.content-col.mobile-visible:has(app-concept-map) .map-wrapper {
+  flex: 1;
+  min-height: 0;
+  /* No max-width centring on a phone: it is the screen or it is wasted. */
+  max-width: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Only the child's HOST element is reachable from here, and the host must be
+   the flex container: with the host as `display: block` the card inside it
+   sized to its own content (measured 21px inside a 634px host) and the graph
+   had nothing to fill. Setting it here rather than via the child's `:host`
+   rule keeps the whole chain in one place and avoids the encapsulation
+   question entirely. */
+.content-col.mobile-visible:has(app-concept-map) app-concept-map {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+}
+
+/*
+ * Short viewports (landscape phones) need more bottom clearance than 58px.
+ *
+ * In landscape the dock does not behave like the flush full-width portrait rail:
+ * it was measured occupying roughly 89px of the viewport (top 301 in a 390px
+ * window). The 58px that clears the portrait rail left the stage ending under the
+ * dock — measured a 20px overlap of the canvas. Reserve the taller clearance.
+ */
+@media (max-height: 500px) {
+  .content-col.mobile-visible:has(app-concept-map) {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /*
+   * Collapse to a single pane, as narrow phones do.
+   *
+   * Both the grid definition and `.index-col.mobile-hidden` are keyed to
+   * `max-width: 768px`, so neither applies to an 844px-wide landscape phone:
+   * `mobile-hidden` was added to the element but computed `display: flex`, the
+   * grid kept `minmax(280px, 320px) 1fr`, and the Index rail held 38% of the
+   * screen while the map was squeezed into the remainder (measured 503px of 844).
+   */
+  .brain-layout {
+    display: block;
+  }
+
+  .index-col.mobile-hidden {
+    display: none;
+  }
+
+  .content-col.mobile-visible:has(app-concept-map) {
+    /* The parent is a block container here, so the column must claim its height
+       explicitly. With `display: flex` alone it sized to its content — measured a
+       117px column (mostly its own 96px bottom padding) and a 2px stage. */
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
   }
 }
 

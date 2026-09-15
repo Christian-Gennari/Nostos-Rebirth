@@ -221,7 +221,15 @@
   min-height: 44px;
 }
 
-@media (max-width: 768px) {
+/*
+ * The map's own phone layout.
+ *
+ * Height as well as width: an 844x390 landscape phone matches no
+ * `max-width: 768px` rule, so the stage kept the desktop `clamp(420px, ...)`
+ * height (measured 420px inside a 390px viewport — it overflowed) and the
+ * floating dock covered graph nodes.
+ */
+@media (max-width: 768px), (max-height: 500px) {
   .concept-map {
     /* The card no longer needs its own inset on a phone: the parent column is
        already full-bleed and the stage border does the framing. */
@@ -254,6 +262,7 @@
     justify-content: center;
     flex-wrap: wrap;
   }
+
 
   .map-control-label,
   .map-reset,
@@ -333,5 +342,36 @@
 @media (prefers-reduced-motion: reduce) {
   .sigma-container {
     scroll-behavior: auto;
+  }
+}
+
+/*
+ * Short viewports (landscape phones): give the map controls their own row.
+ *
+ * A width-keyed rule cannot express this. At 844x390 the floating control strip
+ * wraps to two rows and stands ~88px tall against a 273px stage, so it sat over
+ * the canvas and covered five node labels (measured `covered-by-controls: 5`).
+ * Placing the strip in normal flow removes the overlap structurally rather than
+ * tuning the graph fit around a moving obstacle: the canvas ends where the
+ * controls begin. Portrait keeps the floating strip, where the stage is tall
+ * enough for it.
+ */
+@media (max-height: 500px) {
+  .map-stage {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sigma-container {
+    order: 1;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .map-controls {
+    position: static;
+    order: 2;
+    margin: 0.4rem 0.5rem 0.5rem;
+    justify-content: flex-end;
   }
 }
