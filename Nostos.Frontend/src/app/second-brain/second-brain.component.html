@@ -92,7 +92,7 @@
       [class.map-hidden]="viewMode() === 'map'"
     >
       <div class="index-tools">
-        <label class="sort-label" for="brain-sort">Sort</label>
+        <label class="visually-hidden" for="brain-sort">Sort concepts</label>
         <div class="select-shell sort-shell">
           <select
             id="brain-sort"
@@ -100,9 +100,9 @@
             [ngModel]="indexSort()"
             (ngModelChange)="setSort($event)"
           >
-            <option value="usage">Most used</option>
-            <option value="az">A → Z</option>
-            <option value="za">Z → A</option>
+            <option value="usage">Sort: Most used</option>
+            <option value="az">Sort: A → Z</option>
+            <option value="za">Sort: Z → A</option>
           </select>
         </div>
       </div>
