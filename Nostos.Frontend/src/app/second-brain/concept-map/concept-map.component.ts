@@ -145,8 +145,9 @@ const LABEL_RENDER_MIN_SIZE = 2.4;
  * (occupancy.x 0.75 against occupancy.y 0.88) and spent the difference on empty
  * margin, shrinking every node: the graph measured fillX 0.748 with a mean node
  * radius of 2.0px, where a small constant allowance gives the map back its width
- * and draws the nodes at a readable size. The allowances below are sized to the
- * largest node disc plus the label offset, which is all the framing needs now.
+ * (fillX 0.84) and draws the nodes larger (mean radius 2.4px). The allowance
+ * covers the largest node's disc plus half Sigma's label offset, which is all the
+ * framing needs now that the text cannot overflow in the first place.
  */
 const LABEL_EDGE_ALLOWANCE_FRACTION = 0.04;
 
