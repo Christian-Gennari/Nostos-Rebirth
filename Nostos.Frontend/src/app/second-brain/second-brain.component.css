@@ -1906,9 +1906,11 @@
      layout is wrong here and can leave a scrollbar. */
   overflow: hidden;
   padding: 0;
-  /* Clears the 58px dock plus its safe-area inset, without the slack the
-     reading layout needs for prose. */
-  padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+  /* The shell already reserves the dock band (`main.workspace-content` carries
+     its own bottom padding), so reserving it again here wasted it: measured, the
+     column ended 58px above where the shell had already stopped, leaving blank
+     space the map could use. */
+  padding-bottom: 0;
 }
 
 /* The back affordance is a compact chip rather than a full reading-width
@@ -1955,10 +1957,6 @@
  * dock — measured a 20px overlap of the canvas. Reserve the taller clearance.
  */
 @media (max-height: 500px) {
-  .content-col.mobile-visible:has(app-concept-map) {
-    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
-  }
-
   /*
    * Collapse to a single pane, as narrow phones do.
    *
@@ -1979,11 +1977,17 @@
   .content-col.mobile-visible:has(app-concept-map) {
     /* The parent is a block container here, so the column must claim its height
        explicitly. With `display: flex` alone it sized to its content — measured a
-       117px column (mostly its own 96px bottom padding) and a 2px stage. */
+       117px column (mostly its own bottom padding) and a 2px stage. */
     display: flex;
     flex-direction: column;
     height: 100%;
     width: 100%;
+    /* Short viewports need their own dock clearance: the shell's reserve is sized
+       for the flush full-width portrait rail, while in landscape the dock floats
+       inset from the bottom edge and so occupies more of a short viewport than
+       that reserve covers. With the portrait value the stage ended under the dock
+       — measured a 20px canvas overlap and 1 node in the dock band. */
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
   }
 }
 
