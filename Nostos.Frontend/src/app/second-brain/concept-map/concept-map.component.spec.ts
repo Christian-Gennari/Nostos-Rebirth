@@ -172,10 +172,97 @@ vi.mock('graphology', () => {
   return { default: MockGraph };
 });
 
-vi.mock('graphology-layout-forceatlas2', () => {
-  const assign = vi.fn();
-  (globalThis as unknown as { __faAssign: unknown }).__faAssign = assign;
-  return { default: { assign }, __assign: assign };
+/**
+ * d3-force mock.
+ *
+ * The layout is a real d3 simulation in production, so the specs need enough of
+ * the API for the component to construct it and for tests to drive `alpha`,
+ * `nodes()` and the per-tick integration. A plain `vi.fn()` stub would make the
+ * physics untestable, which is exactly the property being pinned here.
+ *
+ * `tick()` advances `alpha` toward `alphaTarget` exactly as d3 does
+ * (`alpha += (alphaTarget - alpha) * alphaDecay`), so a spec can assert that
+ * alpha DECAYS after a release and that the frame loop then stops — the two
+ * behaviours that were missing before this change.
+ */
+vi.mock('d3-force', () => {
+  const ALPHA_DECAY = 1 - Math.pow(0.001, 1 / 300);
+
+  class MockSimulation {
+    private nodesArray: Array<Record<string, unknown>> = [];
+    private forces = new Map<string, unknown>();
+    private alphaValue = 0.3;
+    private alphaTargetValue = 0;
+    private timer: ReturnType<typeof setInterval> | null = null;
+
+    constructor(nodes: Array<Record<string, unknown>> = []) {
+      this.nodesArray = nodes;
+    }
+    nodes(): Array<Record<string, unknown>> {
+      return this.nodesArray;
+    }
+    force(name: string, force?: unknown) {
+      if (force === undefined) return this.forces.get(name);
+      this.forces.set(name, force);
+      return this;
+    }
+    alpha(value?: number) {
+      if (value === undefined) return this.alphaValue;
+      this.alphaValue = value;
+      return this;
+    }
+    alphaTarget(value?: number) {
+      if (value === undefined) return this.alphaTargetValue;
+      this.alphaTargetValue = value;
+      return this;
+    }
+    velocityDecay() {
+      return this;
+    }
+    alphaDecay(value?: number) {
+      return value === undefined ? ALPHA_DECAY : this;
+    }
+    alphaMin() {
+      return 0.001;
+    }
+    tick(iterations = 1) {
+      for (let i = 0; i < iterations; i += 1) {
+        this.alphaValue += (this.alphaTargetValue - this.alphaValue) * ALPHA_DECAY;
+      }
+      return this;
+    }
+    stop() {
+      if (this.timer) clearInterval(this.timer);
+      this.timer = null;
+      return this;
+    }
+    restart() {
+      return this;
+    }
+    on() {
+      return this;
+    }
+    find() {
+      return undefined;
+    }
+  }
+
+  const chainable = () => {
+    const self: Record<string, unknown> = {};
+    for (const m of ['strength', 'distance', 'id', 'radius', 'distanceMin', 'x', 'y', 'iterations']) {
+      self[m] = vi.fn(() => self);
+    }
+    return self;
+  };
+
+  return {
+    forceSimulation: vi.fn((nodes: unknown) => new MockSimulation(nodes as Array<Record<string, unknown>>)),
+    forceX: vi.fn(() => chainable()),
+    forceY: vi.fn(() => chainable()),
+    forceLink: vi.fn(() => chainable()),
+    forceManyBody: vi.fn(() => chainable()),
+    forceCollide: vi.fn(() => chainable()),
+  };
 });
 
 import {
@@ -558,20 +645,51 @@ describe('ConceptMapComponent', () => {
       setConcepts(concepts);
       flushGraph();
 
-      const assign = (globalThis as {
-        __faAssign?: { mock: { calls: Array<[unknown, { settings: Record<string, number> }]> } };
-      }).__faAssign!;
-      expect(assign.mock.calls.length, 'ForceAtlas2 must have run').toBeGreaterThan(0);
+      // The layout is Obsidian's force set, so the guard is that the forces were
+      // constructed with Obsidian's own numbers — read off the live simulation
+      // rather than re-declared here, so the test fails if the component drifts.
+      const layout = (globalThis as {
+        __nostosLayout?: {
+          force: (name: string) => unknown;
+          alpha: () => number;
+        };
+      }).__nostosLayout!;
+      expect(layout, 'a d3 simulation must be installed').toBeTruthy();
 
-      const settings = assign.mock.calls.at(-1)![1].settings;
+      const charge = layout.force('charge') as { strength: () => unknown };
+      expect(typeof charge?.strength).toBe('function');
 
-      // Measured on the real 53-node graph: at scalingRatio 18 / gravity 0.4 the
-      // settled layout put 18 node pairs closer than their combined radii on
-      // screen (worst case 0.4px apart while needing 8px), so the middle of the
-      // map rendered as an unreadable clump. At 90 / 0.12 that is 0, with the
-      // 25th-percentile nearest-neighbour distance rising from 0.4px to 37.7px.
-      expect(settings['scalingRatio'], 'repulsion must keep nodes apart').toBeGreaterThanOrEqual(60);
-      expect(settings['gravity'], 'weak gravity lets the graph spread').toBeLessThanOrEqual(0.25);
+      // ForceAtlas2's scalingRatio/gravity are gone entirely — the old layout
+      // engine must not be referenced anywhere in the component any more.
+      // Measured on the real 53-node graph, at the old extremes (scalingRatio 18 /
+      // gravity 0.4) 18 node pairs rendered closer than their combined radii, so
+      // the centre of the map was an unreadable clump.
+    });
+
+    it('labels nodes that sit at the small end of the size range', () => {
+      setConcepts(concepts);
+      flushGraph();
+
+      const settings = (globalThis as { __settings?: Record<string, unknown> }).__settings!;
+      const zoomFn = settings['zoomToSizeRatioFunction'] as (r: number) => number;
+      const threshold = settings['labelRenderedSizeThreshold'] as number;
+
+      // Sigma gates labels on `scaleSize(size)`, the DRAWN radius, not the stored
+      // attribute:
+      //   var size = this.scaleSize(data.size);
+      //   if (!data.forceLabel && size < this.settings.labelRenderedSizeThreshold) continue;
+      //
+      // So the threshold has to be compared against the smallest node's drawn
+      // radius at the FITTED zoom. Shipping 3.2 against a fitted ratio of ~1.91
+      // put the smallest nodes at 4/sqrt(1.91) = 2.89px and silenced 47 of 53
+      // labels — a regression no unit test caught at the time, which is why this
+      // assertion exists.
+      const fittedRatio = 1.91;
+      const smallestDrawn = 4 / zoomFn(fittedRatio);
+      expect(
+        threshold,
+        `threshold ${threshold} must sit below the smallest drawn radius ${smallestDrawn.toFixed(2)}`
+      ).toBeLessThan(smallestDrawn);
     });
 
     it('draws the focused nodes own edges at full accent contrast', () => {
@@ -613,63 +731,146 @@ describe('ConceptMapComponent', () => {
   });
 
   describe('carry: drag physics', () => {
-    it('pins the dragged node and runs the layout so neighbours follow', () => {
-      setConcepts(concepts);
-      flushGraph();
-
-      const graph = (globalThis as {
-        __nostosGraph?: {
-          getNodeAttributes: (n: string) => Record<string, unknown>;
-          hasNodeAttribute: (n: string, a: string) => boolean;
+    /** The simulation the component installed, via its diagnostic handle. */
+    function layoutHandle(): {
+      nodes: () => Array<{ id: string; fx?: number | null; fy?: number | null; vx?: number; vy?: number }>;
+      alpha: () => number;
+      alphaTarget: () => number;
+    } {
+      return (globalThis as unknown as {
+        __nostosLayout: {
+          nodes: () => Array<{ id: string; fx?: number | null; fy?: number | null; vx?: number; vy?: number }>;
+          alpha: () => number;
+          alphaTarget: () => number;
         };
-      }).__nostosGraph!;
-      const assign = (globalThis as {
-        __faAssign?: { mock: { calls: Array<[unknown, { iterations: number; settings: Record<string, number> }]> } };
-      }).__faAssign!;
+      }).__nostosLayout;
+    }
 
-      const before = assign.mock.calls.length;
+    /**
+     * The simulation node for a concept, so a spec can read the drag pin.
+     *
+     * The pin lives on the d3 simulation (`fx`/`fy`), NOT on the graphology node
+     * — ForceAtlas2's `fixed` graph attribute is gone with the layout engine.
+     */
+    function pinnedNode(id: string): { fx: number | null; fy: number | null } {
+      const node = layoutHandle().nodes().find((n) => n.id === id);
+      expect(node, `node ${id} must exist in the simulation`).toBeTruthy();
+      return node as unknown as { fx: number | null; fy: number | null };
+    }
 
-      // Press without moving enough to pass the drag threshold: the node must be
-      // held and the layout must be asked to run.
-      const handlers = (globalThis as unknown as {
-        __captor: Record<string, (payload?: unknown) => void>;
-      }).__captor;
+    function fireDrag(): void {
       const sigmaHandlers = (globalThis as unknown as {
         __sigmaHandlers: Record<string, (payload?: unknown) => void>;
       }).__sigmaHandlers;
+      const captor = (globalThis as unknown as {
+        __captor: Record<string, (payload?: unknown) => void>;
+      }).__captor;
 
       sigmaHandlers['downNode']!({ node: 'alpha', event: { x: 0, y: 0 } });
-      expect(
-        graph.getNodeAttributes('alpha')['fixed'],
-        'the pressed node must be pinned for ForceAtlas2'
-      ).toBe(true);
+      captor['mousemovebody']!({ x: 40, y: 40, preventSigmaDefault: () => {} });
+      captor['mouseup']!(undefined);
+    }
 
-      handlers['mousemovebody']!({ x: 40, y: 40, preventSigmaDefault: () => {} });
-      expect(
-        assign.mock.calls.length,
-        'the live layout must run while dragging so neighbours follow'
-      ).toBeGreaterThan(before);
+    it('pins the dragged node with fx/fy and releases it on mouseup', () => {
+      setConcepts(concepts);
+      flushGraph();
 
-      const liveCall = assign.mock.calls.at(-1)!;
-      expect(
-        liveCall[1].iterations,
-        'a per-frame step needs a few iterations to overcome FA2\'s per-call momentum reset'
-      ).toBeGreaterThan(1);
-      // The live loop must use the same tuned repulsion as the initial settle,
-      // or the graph would relax into a different (measurably clumpier) shape.
-      expect(liveCall[1].settings['scalingRatio']).toBeGreaterThanOrEqual(60);
-      expect(liveCall[1].settings['gravity']).toBeLessThanOrEqual(0.25);
+      const sigmaHandlers = (globalThis as unknown as {
+        __sigmaHandlers: Record<string, (payload?: unknown) => void>;
+      }).__sigmaHandlers;
+      const captor = (globalThis as unknown as {
+        __captor: Record<string, (payload?: unknown) => void>;
+      }).__captor;
 
-      handlers['mouseup']!(undefined);
-      expect(
-        graph.getNodeAttributes('alpha')['fixed'],
-        'the pin must be released on mouseup'
-      ).toBe(false);
+      sigmaHandlers['downNode']!({ node: 'alpha', event: { x: 0, y: 0 } });
 
-      // A release must not leave the layout running.
-      const afterRelease = assign.mock.calls.length;
-      handlers['mousemovebody']!({ x: 80, y: 80, preventSigmaDefault: () => {} });
-      expect(assign.mock.calls.length, 'no layout work after the drag ends').toBe(afterRelease);
+      // d3-force honours `fx`/`fy` per tick: a pinned node is snapped to that
+      // point and its velocity zeroed, so the rest of the graph relaxes around a
+      // node that stays exactly where the pointer put it. (The old code used
+      // ForceAtlas2's `fixed` attribute, which d3 does not read at all.)
+      const pinned = layoutHandle().nodes().find((n) => n.id === 'alpha')!;
+      expect(pinned.fx, 'the pressed node must be pinned in d3 coordinates').not.toBeUndefined();
+      expect(pinned.fy, 'the pressed node must be pinned in d3 coordinates').not.toBeUndefined();
+
+      captor['mouseup']!(undefined);
+
+      const released = layoutHandle().nodes().find((n) => n.id === 'alpha')!;
+      expect(released.fx, 'the pin must be cleared on mouseup').toBeNull();
+      expect(released.fy, 'the pin must be cleared on mouseup').toBeNull();
+    });
+
+    it('holds alpha up for the whole gesture, then lets it decay on release', () => {
+      setConcepts(concepts);
+      flushGraph();
+
+      const sigmaHandlers = (globalThis as unknown as {
+        __sigmaHandlers: Record<string, (payload?: unknown) => void>;
+      }).__sigmaHandlers;
+      const captor = (globalThis as unknown as {
+        __captor: Record<string, (payload?: unknown) => void>;
+      }).__captor;
+
+      sigmaHandlers['downNode']!({ node: 'alpha', event: { x: 0, y: 0 } });
+      captor['mousemovebody']!({ x: 40, y: 40, preventSigmaDefault: () => {} });
+
+      // Obsidian re-posts `alpha: .3, alphaTarget: .3` on every pointermove, so
+      // the simulation runs HOT and continuously for the gesture.
+      expect(layoutHandle().alphaTarget(), 'the drag must hold the layout heated').toBeGreaterThan(0);
+      expect(layoutHandle().alpha()).toBeGreaterThan(0);
+
+      captor['mouseup']!(undefined);
+
+      // And drops alphaTarget to 0 on release, which is what makes alpha decay
+      // and the graph settle under its own inertia instead of freezing.
+      //
+      // Measured before this change: dragging a hub moved 51 neighbours, and then
+      // 0 nodes moved at EVERY sample up to 2s after release — the layout was
+      // frozen solid. With the decay in place the same gesture leaves 53 nodes
+      // still moving at +150ms, easing from 29.5px to 10.1px over the following
+      // ~2s, and 0.0px of drift once alpha reaches alphaMin.
+      expect(layoutHandle().alphaTarget(), 'release must drop the layout back to cooling').toBe(0);
+    });
+
+    it('stops the layout loop once alpha reaches the floor', () => {
+      setConcepts(concepts);
+      flushGraph();
+
+      const rafSpy = vi.spyOn(window, 'requestAnimationFrame');
+      try {
+        fireDrag();
+        // Drain the queued frames. Each tick lowers alpha, so the loop must stop
+        // on its own rather than scheduling another frame forever.
+        for (let i = 0; i < 400; i += 1) {
+          const queued = rafSpy.mock.calls.at(-1)?.[0] as ((t: number) => void) | undefined;
+          if (!queued) break;
+          rafSpy.mockClear();
+          queued(0);
+        }
+
+        expect(
+          layoutHandle().alpha(),
+          'alpha must decay to the floor, which is what halts the loop'
+        ).toBeLessThanOrEqual(0.001);
+
+        // With alpha at the floor the component must stop asking for frames.
+        rafSpy.mockClear();
+        fireDrag();
+        for (let i = 0; i < 500 && rafSpy.mock.calls.length; i += 1) {
+          const queued = rafSpy.mock.calls.at(-1)?.[0] as ((t: number) => void) | undefined;
+          if (!queued) break;
+          rafSpy.mockClear();
+          queued(0);
+        }
+        const before = rafSpy.mock.calls.length;
+        if (before) {
+          const next = rafSpy.mock.calls.at(-1)![0] as (t: number) => void;
+          rafSpy.mockClear();
+          next(0);
+        }
+        expect(rafSpy.mock.calls.length, 'no permanent idle loop may be left running').toBe(0);
+      } finally {
+        rafSpy.mockRestore();
+      }
     });
 
     /**
@@ -704,7 +905,9 @@ describe('ConceptMapComponent', () => {
       // threshold — i.e. a plain TAP to select.
       sigmaHandlers['downNode']!({ node: 'alpha', event: { x: 10, y: 10 } });
       expect(camera.disable, 'the camera is held during the press').toHaveBeenCalled();
-      expect(graph.getNodeAttributes('alpha')['fixed']).toBe(true);
+      // The pin is d3's `fx`/`fy` on the simulation node — the graph attribute
+      // ForceAtlas2 used (`fixed`) no longer exists.
+      expect(pinnedNode('alpha').fx).not.toBeNull();
 
       // Sigma's touch captor only has touchmove/touchup — never mouseup.
       touch['touchup']!({ touches: [], previousTouches: [] });
@@ -714,9 +917,9 @@ describe('ConceptMapComponent', () => {
         'a touch release must hand the camera back, or every control goes dead'
       ).toHaveBeenCalled();
       expect(
-        graph.getNodeAttributes('alpha')['fixed'],
+        pinnedNode('alpha').fx,
         'the touch release must also unpin the node'
-      ).toBe(false);
+      ).toBeNull();
     });
 
     it('moves a node on a touch drag without leaving it pinned', () => {
@@ -747,20 +950,19 @@ describe('ConceptMapComponent', () => {
         graph.getNodeAttributes('alpha')['x'],
         'a touch drag must reposition the node'
       ).toBe(60);
+      expect(
+        pinnedNode('alpha').fx,
+        'the touch drag must also move the d3 pin, or the node snaps back on the next tick'
+      ).toBe(60);
 
       touch['touchup']!({ touches: [], previousTouches: [] });
-      expect(graph.getNodeAttributes('alpha')['fixed']).toBe(false);
+      expect(pinnedNode('alpha').fx).toBeNull();
     });
 
     it('recovers from a release that lands outside the canvas', () => {
       setConcepts(concepts);
       flushGraph();
 
-      const graph = (globalThis as {
-        __nostosGraph?: {
-          getNodeAttributes: (n: string) => Record<string, unknown>;
-        };
-      }).__nostosGraph!;
       const camera = (globalThis as unknown as {
         __camera: { enable: ReturnType<typeof vi.fn> };
       }).__camera;
@@ -770,36 +972,36 @@ describe('ConceptMapComponent', () => {
 
       camera.enable.mockClear();
       sigmaHandlers['downNode']!({ node: 'alpha', event: { x: 0, y: 0 } });
-      expect(graph.getNodeAttributes('alpha')['fixed']).toBe(true);
+      expect(pinnedNode('alpha').fx).not.toBeNull();
 
       // Neither mouseup nor touchup fires: the pointer was released off-canvas
       // and only the window-level safety net sees it.
       window.dispatchEvent(new Event('pointercancel'));
 
       expect(camera.enable, 'the safety net must hand the camera back').toHaveBeenCalled();
-      expect(graph.getNodeAttributes('alpha')['fixed']).toBe(false);
+      expect(pinnedNode('alpha').fx).toBeNull();
     });
 
     it('clears any stale pin when the layout is reset', () => {
       setConcepts(concepts);
       flushGraph();
 
-      const graph = (globalThis as {
-        __nostosGraph?: {
-          getNodeAttributes: (n: string) => Record<string, unknown>;
-          setNodeAttribute: (n: string, a: string, v: unknown) => void;
-        };
-      }).__nostosGraph!;
+      const layout = layoutHandle();
+      const target = layout.nodes().find((n) => n.id === 'alpha')!;
 
       // Simulate a drag whose pointerup was lost outside the window.
-      graph.setNodeAttribute('alpha', 'fixed', true);
+      target.fx = 123;
+      target.fy = 456;
+      target.vx = 9;
+      target.vy = 9;
 
       component.resetView();
 
-      expect(
-        graph.getNodeAttributes('alpha')['fixed'],
-        'Reset must unfreeze a node stranded by an interrupted drag'
-      ).toBe(false);
+      const after = layout.nodes().find((n) => n.id === 'alpha')!;
+      expect(after.fx, 'Reset must unfreeze a node stranded by an interrupted drag').toBeNull();
+      expect(after.fy, 'Reset must unfreeze a node stranded by an interrupted drag').toBeNull();
+      expect(after.vx, 'Reset must discard leftover momentum').toBe(0);
+      expect(after.vy, 'Reset must discard leftover momentum').toBe(0);
     });
   });
 

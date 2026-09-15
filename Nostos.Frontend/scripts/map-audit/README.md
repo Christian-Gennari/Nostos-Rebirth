@@ -55,6 +55,14 @@ introspection; no application behaviour depends on them.
 | `trace-heights.mjs` | Walks the ancestor chain from `.sigma-container` upward printing each element's resolved height and flex properties. When a flex chain collapses, the break is always at whichever ancestor first loses its own height. |
 | `mobile-interact.mjs` | Drives the interactions a thumb actually performs — tap to select, the selection bar, Read notes, focus mode, pinch zoom, Fit, rotation both ways — and reports PASS/FAIL plus console errors. |
 | `verify-all.mjs` | One run across desktop, laptop, tablet and phone viewports reporting framing fill, off-screen nodes, nodes/labels under chrome, undersized touch targets, and console errors. |
+| `crowding-at.mjs` | `crowding.mjs` at an explicit viewport, so the SAME metric can be compared across stage SHAPES (`crowding.mjs` is desktop-only). Reports overlaps, nearest-neighbour distances, off-screen nodes and fill per axis. |
+| `drag-physics.mjs` | The three claims that separate live physics from a frozen layout: do neighbours move DURING a drag, does the graph keep settling AFTER release (inertia), and does it then STOP (0 drift at idle). |
+| `physics-calibrate.mjs` | Dose-response sweep of Obsidian's force constants over the real graph — settled extent, overlaps and nearest-neighbour distance per candidate. |
+| `ship-calibration.mjs` | The same, modelled end-to-end through the camera fit and Sigma's own size mapping, across stage shapes. This is what picks the constants. |
+| `scale-invariance.mjs` | Proves (or disproves) that the force set is scale-invariant, i.e. whether the length unit is free or has to be tuned per stage. |
+| `live-loop-behaviour.mjs` | Does re-heating the layout on drag balloon the graph, and does it settle back to rest? Includes the control run that isolates a position rescale. |
+| `layout-equilibrium.mjs` | How far nodes drift when the simulation is run on after settling — the measurement that shows a settled layout is NOT a force balance. |
+| `framing-sweep.mjs` / `anisotropic-centering.mjs` | Whether a portrait stage can be filled by legitimate means (per-axis centering force) rather than by shearing settled coordinates. |
 
 `fit-oracle.mjs` and `verify-prod.mjs` default to 5214 (production);
 `crowding.mjs` and friends default to 4200 (dev server).
@@ -90,10 +98,38 @@ introspection; no application behaviour depends on them.
   a media query written *inside* another media query is invalid CSS, so the whole
   block is discarded. Confirm with `getComputedStyle` (or `why-landscape.mjs`),
   never by grepping the stylesheet.
-- **Fitting the tighter axis leaves the other one empty.** `normalizeGraphPositions`
-  scales both axes by `min(scaleX, scaleY)`, which is correct for a wide stage but
-  left 47% of a portrait phone's height blank, because this graph settles roughly
-  square. Solve each axis and clamp the *ratio* between them instead.
+- **Fitting the tighter axis leaves the other one empty — but do NOT fix that by
+  stretching.** `normalizeGraphPositions` scaled both axes by
+  `min(scaleX, scaleY)`, which leaves the longer axis of a tall stage part empty,
+  because a force-directed graph settles roughly square. Per-axis scaling fixes the
+  fill and breaks the physics: the settle is not a force balance (600 further ticks
+  at the same constants still move nodes by ~120px mean / 341px max), so the moment
+  a drag re-heats the layout it re-expands toward its natural spacing — measured
+  **2.03x** on a portrait stage when positions had been rescaled into stage units,
+  against 1.03x without. Shearing also bought nothing: dropping it left a 369x707
+  stage BETTER framed (fillY 0.426 -> 0.436). Keep the physics in one unit system,
+  let the camera do a uniform fit, and accept that a wide stage has empty sides —
+  that is what Obsidian does.
+- **A settled layout is not an equilibrium, so "extra ticks" is not a correctness
+  check.** Running 600 more ticks after alpha reaches the floor moves every node
+  (mean 121px, max 341px). Alpha is an *energy budget*, not a force balance, and
+  the layout halts on the budget. Any harness that assumes position stability at
+  rest is measuring the wrong thing; measure alpha instead.
+- **Sigma gates labels on the DRAWN radius, not the node's `size` attribute.**
+  `scaleSize(data.size)` is what `labelRenderedSizeThreshold` is compared against,
+  so switching `zoomToSizeRatioFunction` changes which nodes get labels without
+  touching a single node size. Shipping the old threshold of 3.2 against
+  `Math.sqrt` scaling silenced 47 of 53 labels.
+- **Per-node `labelSize` does not exist.** `drawDiscNodeLabel` reads only
+  `settings.labelSize`; the `labelColor.attribute` indirection applies to colour
+  alone. A component can write a per-node label size onto every node and have it
+  silently ignored.
+- **A label drawn to the right of its node cannot be kept on a narrow canvas by
+  reserving a gutter.** A long concept name needs ~140px of a 369px phone stage, so
+  the reservation becomes the fit's binding axis and shrinks every node rather than
+  the one word that overflows. Flip the label to the other side instead — that is
+  what `drawFlipsAtEdgeNodeLabel` does, and it took edge ink on the label canvas
+  from 7 to 0 while giving the map back 9 points of width fill.
 - **A stale `vite-error-overlay` in the DOM swallows pointer events.** The probes
   install an init script that removes it, so a dev server's HMR error does not
   fail a run for reasons unrelated to the app.
