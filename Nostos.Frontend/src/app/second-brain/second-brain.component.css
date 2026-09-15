@@ -182,10 +182,32 @@
 /* ROW 3: Sort. The index reads top-down by usage by default, but that is not
    always the way you look for an idea, so the order is switchable and persists
    across visits (see SecondBrain.setSort). */
+/*
+ * Sort row: the list's own control, so it sits IN the list's column.
+ *
+ * It was flush to the rail's edge (measured x=0) while every concept row below
+ * it starts at x=20, so the row read as belonging to the rail's frame rather
+ * than to the list it sorts.
+ *
+ * The left inset is `.index-list`'s 1.25rem PLUS the row's own 0.75rem internal
+ * padding, which is what actually puts the label above the first letter of the
+ * concept names: matching the row BOX alone left the label 12px short of the
+ * name text (measured label x=20 vs name x=32), which still reads as misaligned.
+ *
+ * The bottom margin is what stops it crowding the first row: the control used to
+ * end at exactly the y where the first concept row began (both at y=113), with
+ * no breathing room at all.
+ */
 .index-tools {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  /* Label and select adjacent on the left, reading as ONE control ("Sort ▾").
+     Spreading them apart across the rail would disconnect the label from the
+     thing it names. */
+  gap: 0.6rem;
+  padding: 0 1.25rem 0.75rem 2rem;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 0.75rem;
 }
 
 .select-shell {
@@ -263,8 +285,24 @@
   background-size: 1em;
 }
 
+/* Select shell: sized to its content, not stretched.
+ *
+ * `.sort-select { width: 100% }` and `.sort-shell { flex: 1 }` were inherited
+ * from a version of this row that also held the view-mode toggle: the select
+ * filled the leftover width, which was correct then because it shared the row.
+ * The toggle moved to the persistent header, so the select became the only child
+ * and stretched to the full rail (measured 280px of a 320px rail) — reading as a
+ * text field rather than a 3-option picker. `min-width: 140px` matches the
+ * Library's `.select-wrapper`, so the two selects still behave alike.
+ *
+ * `align-self: flex-start` stops the cross-axis default from stretching it: this
+ * wrapper is intentionally NOT `.select-shell`, which is `display: flex` and
+ * would make the select's `flex: 1` bloom to fill it. */
 .sort-shell {
-  flex: 1;
+  position: relative;
+  min-width: 140px;
+  max-width: 190px;
+  align-self: flex-start;
 }
 
 .sort-select:hover {
@@ -1669,6 +1707,16 @@
     min-height: 44px;
   }
 
+  /* On a phone the select takes the row's full width.
+     A 140-190px picker on a 390px screen leaves a large dead gap and shrinks the
+     tap target for no benefit; the library select is full-width in its toolbar
+     for the same reason. The shell only becomes a bounded control on desktop. */
+  .sort-shell {
+    flex: 1;
+    max-width: none;
+    align-self: stretch;
+  }
+
   /* Bare class, matching the rules above: scoping under `.view-mode-control`
      is the specificity pattern that broke the dark theme (see the note on
      `.toggle-opt`), and this only sets a touch-target size. */
@@ -1687,6 +1735,13 @@
 
   .index-list {
     padding: 0 1rem 1.5rem;
+  }
+
+  /* The list narrows its inset to 1rem on a phone, so the sort row follows:
+     1rem list inset + the row's own 0.75rem internal padding = 1.75rem, which is
+     where the concept NAME text starts. */
+  .index-tools {
+    padding: 0 1rem 0.75rem 1.75rem;
   }
 
   .index-item {
