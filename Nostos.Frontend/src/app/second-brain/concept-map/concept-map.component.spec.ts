@@ -430,6 +430,30 @@ describe('ConceptMapComponent', () => {
       expect(labelAlpha, 'unconnected label must not be invisible').toBeGreaterThanOrEqual(0.5);
     });
 
+    it('draws the active label on a themed plate, not Sigma\'s hardcoded white box', () => {
+      setConcepts(concepts);
+      flushGraph();
+
+      const settings = (globalThis as { __settings?: Record<string, unknown> }).__settings!;
+
+      // Sigma reads a per-node colour ONLY when `labelColor.attribute` is set;
+      // without it every per-node labelColor the component writes is dead and
+      // the label falls back to one static colour. On dark that colour is
+      // #C5C9D0, which measured 1.66:1 on Sigma's hardcoded #FFF hover box.
+      const labelColor = settings['labelColor'] as { attribute?: string } | undefined;
+      expect(
+        labelColor?.attribute,
+        'Sigma must be told which node attribute carries the label colour'
+      ).toBe('labelColor');
+
+      // And the hover plate must not be Sigma's own drawer, which fills with a
+      // literal "#FFF" in both themes.
+      expect(
+        typeof settings['defaultDrawNodeHover'],
+        'a theme-aware hover drawer must replace Sigma\'s white one'
+      ).toBe('function');
+    });
+
     it('lays the graph out with enough repulsion to avoid an unreadable clump', () => {
       setConcepts(concepts);
       flushGraph();

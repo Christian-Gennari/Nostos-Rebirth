@@ -156,6 +156,10 @@
   --graph-node-head: #28372D;  /* the touched node: pine, the brand ink */
   --graph-edge: #8A8680;       /* neutral warm stone; structure without a colour cast */
   --graph-edge-active: #28372D; /* selected path follows the pine node hierarchy */
+  /* Fill for the plate Sigma draws behind the ACTIVE node's own label. Sigma's
+     built-in hover drawer hardcodes #FFF, which is correct here and a white
+     block on dark; this token lets the fill follow the theme instead. */
+  --graph-label-box: #ffffff;
 
   /* ── Accent (Clay) ── */
   --color-accent: #8A6D58;
@@ -505,6 +509,9 @@
   --graph-node-head: #EDEEF2;
   --graph-edge: #7B857F;       /* cool stone; quiet against the slate ground */
   --graph-edge-active: #EDEEF2; /* selected path follows the porcelain node hierarchy */
+  /* The label plate must be a surface, not white: on dark the active label's
+     ink is porcelain, which measured 1.16:1 on Sigma's hardcoded white box. */
+  --graph-label-box: #1B1E26;
 
   /* ── Accent (smoked warm; the light clay is only 3.74:1 here) ── */
   --color-accent: #D1AC8F;

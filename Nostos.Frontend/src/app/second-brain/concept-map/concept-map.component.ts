@@ -246,6 +246,16 @@ interface ThemeColors {
   edgeActive: string;
   label: string;
   labelActive: string;
+  /**
+   * Fill for the label box Sigma draws behind the active node's own label.
+   *
+   * Sigma's built-in `drawDiscNodeHover` hardcodes `#FFF` here. On dark the
+   * label ink is `--color-text-muted` (#C5C9D0), so the text landed on a white
+   * box at 1.66:1 against a 4.5:1 text minimum — measured in the live app, with
+   * Sigma's strongest available ink (#EDEEF2) no better at 1.16:1. Light mode
+   * measured 17.2:1, which is exactly why this only ever showed up on dark.
+   */
+  labelBox: string;
 }
 
 function readTheme(): ThemeColors {
@@ -256,7 +266,81 @@ function readTheme(): ThemeColors {
     edgeActive: getCssVar('--graph-edge-active', '#2b2d33'),
     label: getCssVar('--color-text-muted', '#6b6e78'),
     labelActive: getCssVar('--color-text-main', '#2b2d33'),
+    labelBox: getCssVar('--graph-label-box', '#ffffff'),
   };
+}
+
+/** Geometry shared with Sigma's own hover drawer, so only the fill changes. */
+interface HoverDrawSettings {
+  labelSize: number;
+  labelFont: string;
+  labelWeight: string;
+  /** Mirrors Sigma's own `labelColor` union, including the attribute form. */
+  labelColor: { attribute: string; color?: string } | { color: string; attribute?: undefined };
+}
+
+/**
+ * Sigma's `drawDiscNodeHover`, with a theme-aware box fill.
+ *
+ * The built-in version is `context.fillStyle = "#FFF"` unconditionally, which
+ * is invisible-in-light but actively wrong on dark: it paints a white plate
+ * under `--color-text-muted` ink. The geometry below is reproduced from
+ * `sigma@3.0.3` (`drawDiscNodeHover`) and only `boxFill` is parameterised, so
+ * light mode stays pixel-identical apart from the token (which is `#ffffff`
+ * there) and dark mode stops drawing a white block.
+ *
+ * If Sigma is upgraded, re-check this against the new implementation.
+ */
+function drawThemeNodeHover(
+  context: CanvasRenderingContext2D,
+  data: { x: number; y: number; size: number; label?: string | null },
+  settings: HoverDrawSettings,
+  boxFill: string
+): void {
+  const { labelSize, labelFont, labelWeight } = settings;
+  context.font = `${labelWeight} ${labelSize}px ${labelFont}`;
+
+  context.fillStyle = boxFill;
+  context.shadowOffsetX = 0;
+  context.shadowOffsetY = 0;
+  context.shadowBlur = 8;
+  context.shadowColor = 'rgba(0, 0, 0, 0.35)';
+
+  const PADDING = 2;
+  if (typeof data.label === 'string') {
+    const textWidth = context.measureText(data.label).width;
+    const boxWidth = Math.round(textWidth + 5);
+    const boxHeight = Math.round(labelSize + 2 * PADDING);
+    const radius = Math.max(data.size, labelSize / 2) + PADDING;
+    const angleRadian = Math.asin(boxHeight / 2 / radius);
+    const xDeltaCoord = Math.sqrt(Math.abs(radius ** 2 - (boxHeight / 2) ** 2));
+
+    context.beginPath();
+    context.moveTo(data.x + xDeltaCoord, data.y + boxHeight / 2);
+    context.lineTo(data.x + radius + boxWidth, data.y + boxHeight / 2);
+    context.lineTo(data.x + radius + boxWidth, data.y - boxHeight / 2);
+    context.lineTo(data.x + xDeltaCoord, data.y - boxHeight / 2);
+    context.arc(data.x, data.y, radius, angleRadian, -angleRadian);
+    context.closePath();
+    context.fill();
+  } else {
+    context.beginPath();
+    context.arc(data.x, data.y, data.size + PADDING, 0, Math.PI * 2);
+    context.closePath();
+    context.fill();
+  }
+
+  context.shadowBlur = 0;
+  context.shadowColor = 'transparent';
+
+  // The label itself, in the same colour Sigma would have used. Sigma's own
+  // fallback order is `data[attribute] || labelColor.color || '#000'`.
+  const perNode = 'attribute' in settings.labelColor && settings.labelColor.attribute
+    ? (data as unknown as Record<string, unknown>)[settings.labelColor.attribute]
+    : undefined;
+  context.fillStyle =
+    (typeof perNode === 'string' && perNode) || settings.labelColor.color || '#000';
+  context.fillText(data.label ?? '', data.x + data.size + 3, data.y + labelSize / 3);
 }
 
 function compareConcepts(a: ConceptDto, b: ConceptDto): number {
@@ -534,7 +618,18 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
       renderEdgeLabels: false,
       labelRenderedSizeThreshold: LABEL_RENDER_MIN_SIZE,
       labelFont: "'Hanken Grotesk', sans-serif",
-      labelColor: { color: this.theme.label },
+      // `attribute` is what makes Sigma honour the per-node `labelColor` this
+      // component sets. `drawDiscNodeLabel` reads `data[settings.labelColor
+      // .attribute]` only when that key is truthy:
+      //
+      //   color = settings.labelColor.attribute
+      //     ? data[settings.labelColor.attribute] || settings.labelColor.color
+      //     : settings.labelColor.color
+      //
+      // Without it, every per-node colour below was silently dead and the map
+      // was painted from the static `--color-text-muted` fallback — which on
+      // dark is #C5C9D0 drawn on Sigma's hardcoded white hover box (1.66:1).
+      labelColor: { attribute: 'labelColor', color: this.theme.label },
       labelSize: 12,
       defaultEdgeType: 'line',
       enableEdgeEvents: false,
@@ -561,6 +656,10 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
       // displayed labels from 20 to 30 of 53. More of the map is legible with no
       // collisions introduced.
       labelDensity: 1.6,
+      // Replace Sigma's `drawDiscNodeHover`, whose label box is a hardcoded
+      // `#FFF`. Geometry is unchanged; only the fill follows the theme.
+      defaultDrawNodeHover: (context, data, settings) =>
+        drawThemeNodeHover(context, data, settings, this.theme.labelBox),
     });
 
     this.sigma = sigma;
