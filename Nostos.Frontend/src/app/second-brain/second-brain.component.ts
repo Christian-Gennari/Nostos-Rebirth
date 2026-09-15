@@ -18,7 +18,6 @@ import {
   Search,
   BrainCircuit,
   ArrowLeft,
-  ArrowRight,
   Pencil,
   Trash2,
   X,
@@ -113,7 +112,6 @@ export class SecondBrain implements AfterViewChecked {
   SearchIcon = Search;
   BrainIcon = BrainCircuit;
   ArrowLeftIcon = ArrowLeft;
-  ArrowRightIcon = ArrowRight;
   RenameIcon = Pencil;
   DeleteIcon = Trash2;
   ClearIcon = X;

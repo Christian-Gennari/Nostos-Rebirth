@@ -31,20 +31,88 @@
     </div>
     }
 
-    <div class="map-controls" role="group" aria-label="Map controls">
-      <button type="button" class="map-zoom" aria-label="Zoom out" title="Zoom out" (click)="zoomOut()">−</button>
-      <button type="button" class="map-zoom" aria-label="Zoom in" title="Zoom in" (click)="zoomIn()">+</button>
-      <button type="button" class="map-control-label" (click)="fitGraph()">Fit</button>
+    <!--
+      One action rail for everything the map can do.
+
+      These used to be six loose buttons with text labels, with the "Read notes"
+      action living in a separate floating bar in the PARENT component — so the
+      note action sat outside the control surface and the group never read as a
+      single section. Icon buttons + one toolbar is the fix.
+    -->
+    <div class="map-actions" role="toolbar" aria-label="Map actions" aria-orientation="horizontal">
+      @if (selectedName) {
+      <span class="map-selection" role="status">
+        <span class="map-selection-name">{{ selectedName }}</span>
+        <button
+          appIconButton
+          type="button"
+          class="map-action map-action--notes"
+          [icon]="notesIcon"
+          [glyphSize]="15"
+          aria-label="Read notes"
+          title="Read notes"
+          (click)="openNotes.emit()"
+        ></button>
+      </span>
+      <span class="map-rail-divider" aria-hidden="true"></span>
+      }
+
       <button
+        appIconButton
         type="button"
-        class="map-control-label"
+        class="map-action"
+        [icon]="zoomOutIcon"
+        aria-label="Zoom out"
+        title="Zoom out"
+        (click)="zoomOut()"
+      ></button>
+      <button
+        appIconButton
+        type="button"
+        class="map-action"
+        [icon]="zoomInIcon"
+        aria-label="Zoom in"
+        title="Zoom in"
+        (click)="zoomIn()"
+      ></button>
+      <button
+        appIconButton
+        type="button"
+        class="map-action"
+        [icon]="fitIcon"
+        aria-label="Fit to view"
+        title="Fit to view"
+        (click)="fitGraph()"
+      ></button>
+      <button
+        appIconButton
+        type="button"
+        class="map-action"
+        [icon]="centreIcon"
         [disabled]="!selectedNodeId()"
+        aria-label="Center on selection"
+        title="Center on selection"
         (click)="centerSelected()"
-      >Center</button>
-      <button type="button" class="map-control-label" (click)="toggleFullscreen()">
-        {{ isFullscreen() ? 'Exit focus' : 'Focus mode' }}
-      </button>
-      <button type="button" class="map-reset" (click)="resetView()">Reset layout</button>
+      ></button>
+      <button
+        appIconButton
+        type="button"
+        class="map-action"
+        [icon]="isFullscreen() ? exitFocusIcon : focusIcon"
+        [pressed]="isFullscreen()"
+        [attr.aria-label]="isFullscreen() ? 'Exit focus mode' : 'Focus mode'"
+        [attr.title]="isFullscreen() ? 'Exit focus mode' : 'Focus mode'"
+        (click)="toggleFullscreen()"
+      ></button>
+      <button
+        appIconButton
+        type="button"
+        class="map-action"
+        [icon]="resetIcon"
+        aria-label="Reset layout"
+        title="Reset layout"
+        (click)="resetView()"
+      ></button>
     </div>
 
     <div #sigmaContainer class="sigma-container"></div>

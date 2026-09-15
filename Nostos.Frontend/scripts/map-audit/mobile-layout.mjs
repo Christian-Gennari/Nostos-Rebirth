@@ -95,7 +95,7 @@ for (const dev of DEVICES) {
                bottom: Math.round(b.bottom), right: Math.round(b.right) };
     };
     const sigma = q('.sigma-container');
-    const controls = [...document.querySelectorAll('.map-controls button')].map((b) => {
+    const controls = [...document.querySelectorAll('[role="toolbar"] button')].map((b) => {
       const bb = b.getBoundingClientRect();
       return { label: (b.getAttribute('aria-label') || b.title || b.textContent || '').trim().slice(0, 24),
                w: Math.round(bb.width), h: Math.round(bb.height), x: Math.round(bb.x), y: Math.round(bb.y) };
@@ -130,7 +130,7 @@ for (const dev of DEVICES) {
       };
     }
     const squished = [];
-    document.querySelectorAll('.sigma-container, .concept-map, .map-wrapper, .map-controls, .map-selection-bar, .map-search, .map-legend').forEach((el) => {
+    document.querySelectorAll('.sigma-container, .concept-map, .map-wrapper, [role="toolbar"], .map-search, .map-legend').forEach((el) => {
       const b = el.getBoundingClientRect();
       if (b.width < 40 || b.height < 20) squished.push({ cls: el.className.toString().slice(0, 50), w: Math.round(b.width), h: Math.round(b.height) });
     });
@@ -146,7 +146,7 @@ for (const dev of DEVICES) {
       controls: controls,
       controlsTiny: controls.filter((c) => c.w < 40 || c.h < 40),
       controlsOffscreen: controls.filter((c) => c.x < 0 || c.y < 0 || c.x + c.w > window.innerWidth || c.y + c.h > window.innerHeight),
-      selectionBar: r(q('.map-selection-bar')),
+      selectionBar: r(q('[role="toolbar"]')),
       search: r(q('.map-search')),
       legend: r(q('.map-legend')),
       squished,

@@ -54,7 +54,7 @@ const snap = () => page.evaluate(() => {
     cam: { x: +c.x.toFixed(3), y: +c.y.toFixed(3), ratio: +c.ratio.toFixed(3) },
     selectionName: document.querySelector('.map-selection-name')?.textContent?.trim() ?? null,
     fullscreen: !!document.querySelector('.map-stage.is-fullscreen'),
-    controlsVisible: document.querySelectorAll('.map-controls button').length,
+    controlsVisible: document.querySelectorAll('[role="toolbar"] button').length,
   };
 });
 
@@ -81,12 +81,12 @@ const snap = () => page.evaluate(() => {
 
 // --- 2. Selection bar action ---
 {
-  const bar = page.locator('.map-selection-bar');
+  const bar = page.locator('.map-selection-name');
   const visible = await bar.isVisible().catch(() => false);
   const box = visible ? await bar.boundingBox() : null;
   rec('selection bar is on screen and reachable', !!box && box.y + box.height <= 844 && box.x >= 0,
       box ? JSON.stringify(box) : 'absent');
-  const openBtn = page.locator('.map-open-notes');
+  const openBtn = page.locator('[aria-label="Read notes"]');
   if (await openBtn.count()) {
     const before = await snap();
     await openBtn.click();
@@ -115,7 +115,7 @@ const snap = () => page.evaluate(() => {
 // --- 3. Focus mode ---
 {
   const before = await snap();
-  const focus = page.locator('.map-controls button', { hasText: /Focus mode|Exit focus/ });
+  const focus = page.locator('[aria-label="Focus mode"], [aria-label="Exit focus mode"]');
   rec('Focus mode control present', (await focus.count()) > 0, `count=${await focus.count()}`);
   if (await focus.count()) {
     await focus.first().click();
@@ -126,7 +126,7 @@ const snap = () => page.evaluate(() => {
     rec('focused stage covers the viewport', !!stage && stage.height >= 800, stage ? `h=${Math.round(stage.height)}` : 'none');
     await page.screenshot({ path: path.join(OUT, '3-focus-mode.png') });
     // Exit and confirm the controls remain reachable.
-    const exit = page.locator('.map-controls button', { hasText: /Exit focus/i });
+    const exit = page.locator('[aria-label="Exit focus mode"]');
     if (await exit.count()) { await exit.first().click(); await page.waitForTimeout(1500); }
     const after = await snap();
     rec('Exiting focus restores the inline map', after.fullscreen === false && after.controlsVisible > 0,
@@ -165,7 +165,7 @@ const snap = () => page.evaluate(() => {
 
 // --- 5. Fit after all that ---
 {
-  const fitBtn = page.locator('.map-controls button', { hasText: /^Fit$/ }).first();
+  const fitBtn = page.locator('[aria-label="Fit to view"]');
   if (!(await fitBtn.count())) {
     rec('Fit control is reachable after focus-mode exit', false, 'Fit button not present');
   } else {
@@ -194,8 +194,8 @@ const snap = () => page.evaluate(() => {
       if (!sig || !g) return null;
       const dims = sig.getDimensions();
       let off = 0; g.forEachNode((id, a) => { const v = sig.graphToViewport({ x: a.x, y: a.y }); if (v.x < 0 || v.y < 0 || v.x > dims.width || v.y > dims.height) off++; });
-      const tiny = [...document.querySelectorAll('.map-controls button')].map((b) => b.getBoundingClientRect()).filter((b) => b.width < 44 || b.height < 44).length;
-      const controlsOff = [...document.querySelectorAll('.map-controls button')].map((b) => b.getBoundingClientRect())
+      const tiny = [...document.querySelectorAll('[role="toolbar"] button')].map((b) => b.getBoundingClientRect()).filter((b) => b.width < 44 || b.height < 44).length;
+      const controlsOff = [...document.querySelectorAll('[role="toolbar"] button')].map((b) => b.getBoundingClientRect())
         .filter((b) => b.left < 0 || b.top < 0 || b.right > innerWidth || b.bottom > innerHeight).length;
       return { stage: `${Math.round(dims.width)}x${Math.round(dims.height)}`, off, tiny, controlsOff, overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth };
     });

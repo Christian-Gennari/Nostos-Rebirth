@@ -61,7 +61,7 @@ for (const vp of VIEWPORTS) {
     });
 
     // Do floating controls sit on top of any node?
-    const controls = [...document.querySelectorAll('.map-controls button')].map((b) => b.getBoundingClientRect());
+    const controls = [...document.querySelectorAll('[role="toolbar"] button')].map((b) => b.getBoundingClientRect());
     const covered = [];
     g.forEachNode((id, a) => {
       const v = sig.graphToViewport({ x: a.x, y: a.y });
@@ -74,7 +74,7 @@ for (const vp of VIEWPORTS) {
     });
 
     // Touch-target sizes.
-    const tiny = [...document.querySelectorAll('.map-controls button, .map-controls .map-control-label')]
+    const tiny = [...document.querySelectorAll('[role="toolbar"] button, [role="toolbar"] .map-action')]
       .map((b) => { const bb = b.getBoundingClientRect(); return { label: (b.getAttribute('aria-label') || b.textContent || '').trim().slice(0, 18), w: Math.round(bb.width), h: Math.round(bb.height) }; })
       .filter((c) => c.w < 44 || c.h < 44);
 

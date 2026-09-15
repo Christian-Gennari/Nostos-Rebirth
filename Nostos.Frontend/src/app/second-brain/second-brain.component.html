@@ -198,20 +198,19 @@
         <span>Back to Index</span>
       </button>
       <div class="map-wrapper">
+        <!--
+          The map owns the whole action surface, including the notes action:
+          selection name and "Read notes" live in its rail, so the map has ONE
+          section of controls instead of a rail plus a floating bar in this
+          template.
+        -->
         <app-concept-map
           [concepts]="filteredConcepts()"
           [selectedId]="selectedId()"
+          [selectedName]="selectedConceptName()"
           (conceptSelected)="onMapConceptSelected($event)"
+          (openNotes)="openSelectedConcept()"
         ></app-concept-map>
-        @if (selectedConceptName(); as name) {
-        <div class="map-selection-bar" role="status">
-          <span class="map-selection-name">{{ name }}</span>
-          <button type="button" class="map-open-notes" (click)="openSelectedConcept()">
-            <span>Read notes</span>
-            <lucide-icon [img]="ArrowRightIcon" [size]="15"></lucide-icon>
-          </button>
-        </div>
-        }
       </div>
       } @else { @if (selectedId()) {
       <button type="button" class="mobile-nav-header" (click)="clearSelection()">

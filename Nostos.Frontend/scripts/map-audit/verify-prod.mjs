@@ -114,7 +114,7 @@ for (const theme of ['light', 'dark']) {
   const dragWorked = Math.hypot(afterDrag.x - t.home.x, afterDrag.y - t.home.y) > 1;
 
   // Fit.
-  await page.locator('.map-controls button', { hasText: 'Fit' }).first().click();
+  await page.locator('[aria-label="Fit to view"]').click();
   await page.waitForTimeout(1700);
   const afterFit = await page.evaluate(() => {
     const sig = globalThis.__nostosSigma, g = globalThis.__nostosGraph;
@@ -124,7 +124,7 @@ for (const theme of ['light', 'dark']) {
   });
 
   // Reset layout.
-  await page.locator('.map-controls button', { hasText: 'Reset layout' }).first().click();
+  await page.locator('[aria-label="Reset layout"]').click();
   await page.waitForTimeout(1700);
   const afterReset = await page.evaluate((id) => {
     const a = globalThis.__nostosGraph.getNodeAttributes(id);
@@ -135,10 +135,10 @@ for (const theme of ['light', 'dark']) {
   // Center: click the node (must select), then Center.
   await page.mouse.click(box.x + t.vp.x, box.y + t.vp.y);
   await page.waitForTimeout(1400);
-  const selected = await page.evaluate(() => document.querySelector('.map-selection-bar') !== null);
+  const selected = await page.evaluate(() => document.querySelector('.map-selection-name') !== null);
   let centered = null;
   if (selected) {
-    await page.locator('.map-controls button', { hasText: 'Center' }).first().click();
+    await page.locator('[aria-label="Center on selection"]').click();
     await page.waitForTimeout(1800);
     centered = await page.evaluate((id) => {
       const sig = globalThis.__nostosSigma, g = globalThis.__nostosGraph;
