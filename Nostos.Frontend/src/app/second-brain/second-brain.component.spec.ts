@@ -1059,6 +1059,37 @@ describe('SecondBrain', () => {
     expect(fixture.nativeElement.querySelector('.concept-title')?.textContent).toContain('Beta');
   });
 
+  it('drops the selection when the map reports empty space was clicked', () => {
+    fixture.detectChanges();
+    component.selectConcept('c-beta');
+    flushDetail('c-beta', detail('c-beta', 'Beta'));
+    fixture.detectChanges();
+    expect(component.selectedId()).toBe('c-beta');
+
+    // The map is only rendered in map view, which is also where empty-space
+    // clicks happen, so enter the mode before wiring the assertion.
+    component.setViewMode('map');
+    fixture.detectChanges();
+    flushChildConceptLists();
+    http.match('/api/concepts/graph').forEach((request) => request.flush({ nodes: [], edges: [] }));
+    fixture.detectChanges();
+
+    // The index rail highlights the selected row, so a deselect has to reach the
+    // parent rather than only the canvas.
+    const map = fixture.debugElement.query(By.css('app-concept-map'));
+    expect(map, 'the map must be rendered in map view').toBeTruthy();
+    expect(
+      map.componentInstance.selectionCleared.observed,
+      'the parent must bind selectionCleared'
+    ).toBe(true);
+
+    map.componentInstance.selectionCleared.emit();
+    fixture.detectChanges();
+
+    expect(component.selectedId()).toBeNull();
+    expect(component.selectedDetail()).toBeNull();
+  });
+
   it('keeps the map visible when a node is selected and offers a way to the notes', () => {
     fixture.detectChanges();
     (fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();

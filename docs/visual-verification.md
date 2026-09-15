@@ -118,7 +118,10 @@ the layout collapses to a single column, so the map is never on screen beside a
 list it has already replaced; the map's own toolbar carries the search and the
 control back to the list view. **Double-clicking a node opens that concept's
 notes** — the same destination an index row click reaches — which also returns
-to list view. A single click only selects.
+to list view. A single click selects, and **clicking empty space clears the
+selection** (the map otherwise stays stuck on the last node clicked). A camera
+pan does not clear it: Sigma suppresses the click that follows a drag, so only a
+genuine click on empty space deselects.
 
 Management actions have narrow, deliberate semantics:
 

@@ -208,6 +208,7 @@
           [selectedId]="selectedId()"
           [selectedName]="selectedConceptName()"
           (conceptSelected)="onMapConceptSelected($event)"
+          (selectionCleared)="clearSelection()"
           (openNotes)="openSelectedConcept()"
           (openConcept)="openConceptFromMap($event)"
           (showList)="leaveMap()"

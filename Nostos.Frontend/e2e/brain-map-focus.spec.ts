@@ -51,6 +51,18 @@ function gridTrackCount(computed: string): number {
   return inTrack ? tracks + 1 : tracks;
 }
 
+/**
+ * Sigma counts its own clicks to detect double-clicks, and that counter is
+ * TIME-based, not position-based: two clicks within `doubleClickTimeout` (the
+ * library default, 300ms) are folded into one double-click even if they land far
+ * apart — and a double-click dispatches `doubleClickStage`, never `clickStage`.
+ *
+ * So any test that performs two separate single clicks has to leave real time
+ * between them, or the second is swallowed as the tail of a double-click.
+ */
+const SIGMA_DOUBLE_CLICK_TIMEOUT_MS = 300;
+const SEPARATE_CLICK_GAP_MS = SIGMA_DOUBLE_CLICK_TIMEOUT_MS + 150;
+
 test.describe.configure({ mode: 'serial' });
 
 let seed: BrainSeed | null = null;
@@ -246,6 +258,131 @@ test('the map\'s toolbar is reachable and its exit is tappable on a phone', asyn
     await page.locator('.index-item').first().waitFor({ timeout: 30_000 });
     expect(await page.locator('app-concept-map').count(), 'the map must be gone').toBe(0);
   } finally {
+    await context.close();
+  }
+});
+
+test('clicking empty space clears the selection', async ({ browser }) => {
+  const fixture = loadFixture();
+  await ensureSeed(fixture);
+  const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT);
+  try {
+    await openMap(page, fixture.baseUrl);
+
+    const target = 'Attention';
+    const point = await nodeScreenPosition(page, target);
+    expect(point, `the seeded concept "${target}" must be rendered`).not.toBeNull();
+
+    // Select the node. A single click selects without leaving the map.
+    await page.mouse.click(point!.x, point!.y);
+    // Leave a real gap: Sigma's click counter is time-based, so a following click
+    // inside `doubleClickTimeout` would be folded into a double-click (on empty
+    // space that means `doubleClickStage`, which is not the event under test).
+    await page.waitForTimeout(SEPARATE_CLICK_GAP_MS);
+
+    const selected = await page.evaluate(() => ({
+      chip: document.querySelector('.map-selection-name')?.textContent?.trim() ?? null,
+      notesDisabled: (document.querySelector('.map-action--notes') as HTMLButtonElement | null)
+        ?.disabled ?? null,
+    }));
+    expect(selected.chip, 'the clicked node must become the selection').toBe(target);
+
+    // Now click empty space. Pick a point that is provably not a node: scan the
+    // drawn node positions and take a spot far from all of them.
+    const empty = await page.evaluate(() => {
+      const globals = globalThis as unknown as {
+        __nostosSigma?: { graphToViewport(p: { x: number; y: number }): { x: number; y: number } };
+        __nostosGraph?: {
+          forEachNode(cb: (id: string, a: { x: number; y: number }) => void): void;
+        };
+      };
+      const sigma = globals.__nostosSigma;
+      const graph = globals.__nostosGraph;
+      const container = document.querySelector('app-concept-map .sigma-container');
+      if (!sigma || !graph || !container) return null;
+      const box = container.getBoundingClientRect();
+      const nodes: Array<{ x: number; y: number }> = [];
+      graph.forEachNode((_id, a) => {
+        const p = sigma.graphToViewport({ x: a.x, y: a.y });
+        nodes.push({ x: box.left + p.x, y: box.top + p.y });
+      });
+      // Candidate points on a grid, scored by distance to the nearest node.
+      let best: { x: number; y: number; dist: number } | null = null;
+      for (let fx = 0.1; fx <= 0.9; fx += 0.05) {
+        for (let fy = 0.12; fy <= 0.9; fy += 0.05) {
+          const x = box.left + box.width * fx;
+          const y = box.top + box.height * fy;
+          // Keep clear of the floating toolbars at the top-left and top-right.
+          if (y < box.top + 120 && (x < box.left + 420 || x > box.right - 320)) continue;
+          const dist = Math.min(...nodes.map((n) => Math.hypot(n.x - x, n.y - y)));
+          if (!best || dist > best.dist) best = { x, y, dist };
+        }
+      }
+      return best;
+    });
+    expect(empty, 'an empty point must be findable').not.toBeNull();
+    expect(empty!.dist, 'the chosen point must be well clear of every node').toBeGreaterThan(40);
+    console.log('EMPTY-SPACE POINT:', JSON.stringify(empty));
+
+    await page.mouse.click(empty!.x, empty!.y);
+    await page.waitForTimeout(250);
+    await capturePng(page, 'brain-map-focus-deselect');
+
+    const after = await page.evaluate(() => ({
+      chip: document.querySelector('.map-selection-name')?.textContent?.trim() ?? null,
+      mapStillThere: !!document.querySelector('app-concept-map'),
+    }));
+    console.log('AFTER EMPTY CLICK:', JSON.stringify(after));
+
+    // The chip is the visible face of the selection; it clearing IS the fix.
+    expect(after.chip, 'an empty-space click must drop the selection').toBeNull();
+    expect(after.mapStillThere, 'deselecting must not leave map view').toBe(true);
+  } finally {
+    await context.close();
+  }
+});
+
+test('a camera pan does not clear the selection', async ({ browser }) => {
+  const fixture = loadFixture();
+  await ensureSeed(fixture);
+  const { context, page } = await newCapturePage(browser, DESKTOP_VIEWPORT);
+  try {
+    await openMap(page, fixture.baseUrl);
+
+    const target = 'Memory';
+    const point = await nodeScreenPosition(page, target);
+    expect(point).not.toBeNull();
+    await page.mouse.click(point!.x, point!.y);
+    await page.waitForTimeout(SEPARATE_CLICK_GAP_MS);
+    expect(
+      await page.evaluate(
+        () => document.querySelector('.map-selection-name')?.textContent?.trim() ?? null
+      ),
+      'the node must be selected before the pan'
+    ).toBe(target);
+
+    // Pan the camera from empty space: press, drag a long way, release. Sigma
+    // suppresses the click that follows a drag (its `draggedEvents` counter runs
+    // past `draggedEventsTolerance`), so the selection must survive. This is the
+    // regression a naive `mousedown`/`mouseup` deselect would introduce.
+    const canvas = page.locator('app-concept-map .sigma-container');
+    const box = (await canvas.boundingBox())!;
+    await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.75);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.55, { steps: 12 });
+    await page.mouse.up();
+    await page.waitForTimeout(250);
+
+    const after = await page.evaluate(() => ({
+      chip: document.querySelector('.map-selection-name')?.textContent?.trim() ?? null,
+    }));
+    console.log('AFTER PAN:', JSON.stringify(after));
+
+    expect(after.chip, 'a camera pan must not drop the selection').toBe(target);
+  } finally {
+    // No cleanup here: this is not the last test in the serial spec, and
+    // `cleanupBrain` would delete the concepts `ensureSeed` caches for the tests
+    // that follow (leaving them with an empty graph and no canvas to wait for).
     await context.close();
   }
 });

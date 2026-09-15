@@ -574,6 +574,15 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   @Output() readonly openConcept = new EventEmitter<string>();
   /** Emitted by the "Concept view" control: leave the map for the index. */
   @Output() readonly showList = new EventEmitter<void>();
+  /**
+   * Emitted when a click on empty space clears the selection.
+   *
+   * Separate from `conceptSelected` rather than widening it to `string | null`:
+   * the two mean different things ("this node is now the subject" versus "there
+   * is no subject"), and a nullable id would let a consumer treat a deselect as
+   * a selection of nothing.
+   */
+  @Output() readonly selectionCleared = new EventEmitter<void>();
 
   @ViewChild('sigmaContainer', { static: false }) sigmaContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('mapStage', { static: false }) mapStage!: ElementRef<HTMLElement>;
@@ -1135,9 +1144,24 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
       sigma.refresh();
     });
 
+    // Clicking empty space clears the selection.
+    //
+    // Selection drives the index rail and the "Read notes" action, so without
+    // this the map was stuck on the last node clicked — there was no gesture
+    // that returned the graph to a neutral state, and the only remaining escape
+    // (reloading, or selecting a different node) made the map feel like it was
+    // holding a choice the user could not take back.
+    //
+    // `clickStage` is exactly the right event, because Sigma only emits it for a
+    // GENUINE click: a camera pan bumps its `draggedEvents` counter past
+    // `draggedEventsTolerance` and is suppressed, a touch drag is suppressed by
+    // `tapMoveTolerance`, and a double-click dispatches `doubleClickStage`
+    // instead of a second `clickStage`. So an empty-space click during a pan
+    // release never lands here and cannot wipe a selection by accident.
     sigma.on('clickStage', () => {
-      // Clicking empty space clears hover highlighting but keeps selection.
       component.hoveredId.set(null);
+      component.selectedNodeId.set(null);
+      component.selectionCleared.emit();
       sigma.refresh();
     });
 

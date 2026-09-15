@@ -487,6 +487,56 @@ describe('ConceptMapComponent', () => {
     expect(emitted).not.toHaveBeenCalled();
   });
 
+  it('clears the selection when empty space is clicked', () => {
+    setConcepts(concepts);
+    flushGraph();
+
+    // Select a node first, the way a user would.
+    const sigmaHandlers = (globalThis as unknown as {
+      __sigmaHandlers: Record<string, (payload?: unknown) => void>;
+    }).__sigmaHandlers;
+    sigmaHandlers['clickNode']!({ node: 'alpha' });
+    expect(component.selectedNodeId()).toBe('alpha');
+
+    const cleared = vi.fn();
+    component.selectionCleared.subscribe(cleared);
+    sigmaHandlers['clickStage']!();
+
+    // Without this the map stayed stuck on the last node clicked: selection
+    // drives the index rail and the "Read notes" action, and nothing returned
+    // the graph to a neutral state.
+    expect(cleared, 'an empty-space click must report the cleared selection').toHaveBeenCalled();
+    expect(component.selectedNodeId()).toBeNull();
+    expect(component.hoveredId()).toBeNull();
+  });
+
+  it('keeps the selection through a camera pan that ends on empty space', () => {
+    setConcepts(concepts);
+    flushGraph();
+
+    const sigmaHandlers = (globalThis as unknown as {
+      __sigmaHandlers: Record<string, (payload?: unknown) => void>;
+    }).__sigmaHandlers;
+    const captor = (globalThis as unknown as {
+      __captor: Record<string, (payload?: unknown) => void>;
+    }).__captor;
+
+    sigmaHandlers['clickNode']!({ node: 'alpha' });
+    const cleared = vi.fn();
+    component.selectionCleared.subscribe(cleared);
+
+    // A pan: press on empty space, move the camera, release. Sigma suppresses
+    // the click that follows because `draggedEvents` exceeded its tolerance —
+    // so the component never sees a `clickStage` and the selection survives.
+    // (The component cannot defend against this itself; the guard lives in
+    // Sigma's captor, which is why the mock asserts its absence rather than a
+    // component-side flag.)
+    captor['mousemovebody']?.({ x: 60, y: 60, preventSigmaDefault: () => {} });
+
+    expect(cleared, 'a pan must not clear the selection').not.toHaveBeenCalled();
+    expect(component.selectedNodeId()).toBe('alpha');
+  });
+
   it('reflects externally set selectedId', () => {
     setConcepts(concepts);
     flushGraph();
