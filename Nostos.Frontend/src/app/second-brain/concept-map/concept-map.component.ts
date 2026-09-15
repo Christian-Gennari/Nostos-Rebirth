@@ -29,7 +29,16 @@ import {
 } from 'lucide-angular';
 import Graph from 'graphology';
 import Sigma from 'sigma';
-import forceAtlas2 from 'graphology-layout-forceatlas2';
+import {
+  forceCollide,
+  forceLink,
+  forceManyBody,
+  forceSimulation,
+  forceX,
+  forceY,
+  type Simulation,
+  type SimulationNodeDatum,
+} from 'd3-force';
 
 import { IconButtonComponent } from '../../ui/icon-button/icon-button.component';
 import {
@@ -47,8 +56,20 @@ const NODE_SIZE_MIN = 4;
 const NODE_SIZE_MAX = 16;
 const EDGE_SIZE_MIN = 0.75;
 const EDGE_SIZE_MAX = 3;
-const LABEL_SIZE_MIN = 10;
-const LABEL_SIZE_MAX = 16;
+
+/**
+ * Label font size, in px, for EVERY label.
+ *
+ * There is deliberately no per-node range here any more. The component used to
+ * compute one (10-16) and store it as a node attribute, but Sigma renders every
+ * label at `settings.labelSize` — `drawDiscNodeLabel` consults
+ * `data[labelColor.attribute]` for the label's COLOUR and nothing for its size
+ * (`sigma/dist/index-fad77a13.esm.js:643-650`). So the per-node value was dead
+ * config, and `fitOccupancy()` was reserving gutter against a number no label
+ * was ever drawn at. One named constant now feeds both the setting and the
+ * gutter calculation, so they cannot disagree.
+ */
+const LABEL_DRAW_SIZE = 12;
 
 /**
  * Edge alpha floor. Measured on the real graph field: at the previous floor
@@ -84,26 +105,50 @@ const NODE_ALPHA_DIM = 0.7;
 const EDGE_ALPHA_DIM = 0.34;
 
 /**
- * Labels render for every node down to the smallest drawn size; decollision is
- * left to Sigma's label grid. At the previous value (4.5) the majority of
- * concepts render at exactly 4.0 and were suppressed, so only 15 of 53 labels
- * appeared.
+ * Minimum DRAWN radius for a node to get a label. Decollision is left to Sigma's
+ * label grid.
+ *
+ * Sigma tests this against `scaleSize(size)`, the radius it actually draws
+ * (`sigma/dist/sigma.esm.js` — `var size = this.scaleSize(data.size); if
+ * (!data.forceLabel && size < this.settings.labelRenderedSizeThreshold) continue`),
+ * NOT against the stored `size` attribute. So the number that matters is
+ * `NODE_SIZE_MIN / sqrt(ratio)` at the fitted zoom, not `NODE_SIZE_MIN`:
+ *
+ *   fitted ratio ~1.91  ->  smallest drawn radius 4 / sqrt(1.91) = 2.89px
+ *
+ * The previous value (3.2) was calibrated when radii did not scale with the
+ * camera, so the floor was exactly `NODE_SIZE_MIN` = 4.0. Leaving it at 3.2 after
+ * switching to `Math.sqrt` silenced 47 of 53 labels, because most concepts share
+ * the minimum usage count and sit exactly at the 4px floor once scaled.
+ *
+ * 2.4 clears that 2.89px floor with margin at the fit, so every node is labelled
+ * on open, while still letting labels recede as the user zooms out (a larger
+ * ratio shrinks drawn radii past the threshold) — which is Obsidian's behaviour,
+ * where labels fade with zoom rather than being pinned on forever.
+ * `concept-map.component.spec.ts` asserts the relationship so it cannot regress:
+ * the threshold must stay below `NODE_SIZE_MIN / sqrt(fitted ratio)`.
  */
-const LABEL_RENDER_MIN_SIZE = 3.2;
+const LABEL_RENDER_MIN_SIZE = 2.4;
 
 /**
- * Mean advance width per character, as a fraction of font size, for the label
- * font. Used to estimate how far a label extends from its node so the fit can
- * reserve that room.
+ * Edge allowance, as a fraction of stage width, so the outermost nodes' discs are
+ * not flush against the canvas.
+ *
+ * This used to be a label gutter deliberately sized to the widest concept name,
+ * because Sigma's label drawer only ever drew to the RIGHT of a node and anything
+ * past the canvas edge was silently truncated. That reservation is no longer
+ * needed: `drawFlipsAtEdgeNodeLabel` moves a label to the other side of its node
+ * when it would overflow, so the text always fits at any stage width.
+ *
+ * Keeping the reservation was actively harmful. On a 369px phone stage the gutter
+ * cap resolved to 55px a side, which made the WIDTH the binding axis of the fit
+ * (occupancy.x 0.75 against occupancy.y 0.88) and spent the difference on empty
+ * margin, shrinking every node: the graph measured fillX 0.748 with a mean node
+ * radius of 2.0px, where a small constant allowance gives the map back its width
+ * and draws the nodes at a readable size. The allowances below are sized to the
+ * largest node disc plus the label offset, which is all the framing needs now.
  */
-const LABEL_CHAR_WIDTH_RATIO = 0.62;
-
-/**
- * Ceiling on the label gutter, as a fraction of the stage dimension it applies
- * to. Without a ceiling a single long concept name would shrink the whole graph
- * to make room for one word.
- */
-const MAX_LABEL_GUTTER_FRACTION = 0.15;
+const LABEL_EDGE_ALLOWANCE_FRACTION = 0.04;
 
 /** Sigma's default horizontal offset from a node to the start of its label. */
 const LABEL_OFFSET_PX = 10;
@@ -111,27 +156,98 @@ const LABEL_OFFSET_PX = 10;
 /** Fraction of the stage a fitted graph should occupy, with no label inset. */
 const FIT_OCCUPANCY = 0.88;
 
-/**
- * Ceiling on how differently the two axes may be scaled when fitting a PORTRAIT
- * stage.
+/* The stage-aspect seed and the per-axis stretch that used to live here are both
+ * gone, and their removal is the point of this change rather than a tidy-up.
  *
- * A force-directed graph settles roughly square. Sigma runs with
- * `autoRescale: false`, so graph units map 1:1 to pixels and there is no
- * independent stretch available — fitting to a single uniform scale therefore
- * leaves whichever axis is longer partly empty (measured: a square graph on a
- * 369x613 phone stage filled the width and only 41% of the height).
+ * `normalizeGraphPositions` rescaled the settled layout into stage pixels, solving
+ * each axis independently and clamping the ratio to 1.4x, so a portrait phone got
+ * an isotropically-correct layout sheared into ellipses after the fact. Two things
+ * were wrong with it, both measured:
  *
- * Scaling each axis to its own extent uses that space. The cost is that the
- * layout is no longer isotropic, so clusters can read as ellipses instead of
- * circles — at a ratio of 1.6 that distortion was clearly visible. 1.4 is the
- * largest factor that still reads as a natural layout in the captured frames
- * while recovering a useful amount of the wasted axis.
+ *  1. It bought nothing. Re-running the fit without any shear on a 369x707 stage
+ *     left the graph BETTER framed: fillY 0.426 -> 0.436. The shear only shifted
+ *     the extent that `uniform = min(scaleX, scaleY)` is derived from, so it was
+ *     filling the long axis by emptying the short one.
+ *  2. It corrupted the live physics. Rescaling settled positions by k and then
+ *     running the force simulation at constants x k is not the same system: the
+ *     collide radius is in sigma units and penetrates, so the graph inflated by
+ *     2.03x on a portrait stage (1.40x on desktop) the moment a user dragged
+ *     (`scripts/map-audit/live-loop-behaviour.mjs`). Without the rescale the same
+ *     loop grows the graph by 1.03x — the order of a normal re-heat settle.
  *
- * Applied only when the stage is taller than it is wide. On a wide stage the
- * empty axis is horizontal, where a centred graph already reads correctly, so
- * the plain uniform fit is kept and desktop framing is unchanged.
+ * Obsidian never rescales either: its worker keeps the physics in one unit system
+ * and the renderer's pan/zoom does the framing. Sigma's camera already does that
+ * here, so positions stay in graph units and the fit stays uniform.
  */
-const MAX_FIT_ANISOTROPY = 1.4;
+
+/** Stable initial coordinates keep captures and sessions reproducible. */
+function hashSeed(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 4294967295;
+}
+
+/**
+ * Obsidian's `setData` seeding, adapted to a whole-graph build.
+ *
+ * Obsidian spawns a new node beside the already-placed neighbours it shares edges
+ * with, and falls back to a ring for one that has none:
+ *
+ *   var L = 60 * I * 60;                       // I = number of new nodes
+ *   var O = Math.sqrt(L / Math.PI + v * v) - v;
+ *   var angle = 2 * Math.PI * Math.random();
+ *   f.x = r * Math.cos(angle); f.y = r * Math.sin(angle)
+ *   //   r = v + Math.sqrt(Math.random()) * O          (v = collide radius, 60)
+ *
+ * Two details are load-bearing and easy to get wrong:
+ *
+ *  * the ring is keyed on the **collide radius** `v`, not on `linkDistance`.
+ *    `v` is 60 while `linkDistance` is 250, and the `-v` term cancels the `v +`
+ *    out of `O`, so the ring sits at roughly `sqrt(60*N*60/π)` ~ 246 for 53 nodes.
+ *    Using `linkDistance` here instead inflates the seed radius by ~270% and the
+ *    settled graph then comes out smaller on screen (measured: desktop fillX
+ *    0.626 against the shipped 0.701).
+ *  * the angle must be drawn per node, not stepped. A golden-angle spiral is a
+ *    tempting deterministic substitute but it is strongly structured, and the
+ *    layout inherits that structure: measured on the live graph it settled to an
+ *    aspect of 1.61 against the ~1.05 this force set produces from Obsidian's
+ *    own uniform-random angles. That elongation alone cost the portrait stage its
+ *    height fill. `hashSeed` gives the same statistical spread while keeping a
+ *    capture and a test run reproducible, which `Math.random` would not.
+ */
+function seedPositions(
+  nodes: Array<{ id: string; x: number; y: number }>,
+  collideRadius: number
+): void {
+  const count = Math.max(nodes.length, 1);
+  // Obsidian's `L`/`O`, with `v` = collide radius.
+  const spread = Math.sqrt((SEED_RING_SCALE * count) / Math.PI + collideRadius * collideRadius) - collideRadius;
+
+  nodes.forEach((node) => {
+    const angle = hashSeed(`${node.id}:angle`) * 2 * Math.PI;
+    const radius = collideRadius + Math.sqrt(hashSeed(`${node.id}:radius`)) * spread;
+    node.x = radius * Math.cos(angle);
+    node.y = radius * Math.sin(angle);
+  });
+}
+
+/**
+ * The d3 simulation's node shape. Graphology owns the attributes Sigma renders
+ * from; the simulation works on these plain objects and the result is written
+ * back, so one source of truth (the graph) is preserved.
+ *
+ * `size` is carried as well as the coordinates because d3's integration step
+ * writes `x`/`y` onto these same objects and the tick handler copies the whole
+ * record back — so a field that is absent here would silently blank the node's
+ * radius on the first frame after a drag.
+ */
+interface LayoutNode extends SimulationNodeDatum {
+  id: string;
+  size: number;
+}
 
 /**
  * Pointer travel, in CSS pixels, before a press on a node counts as a drag
@@ -141,34 +257,89 @@ const MAX_FIT_ANISOTROPY = 1.4;
  */
 const DRAG_THRESHOLD_PX = 3;
 
-/** ForceAtlas2 iterations used to settle the layout when the map is built. */
-const SETTLE_ITERATIONS = 400;
+/* ── Obsidian's graph forces ──
+ *
+ * The map previously ran graphology's ForceAtlas2 once, synchronously, and then
+ * froze the result. It is replaced with the force set Obsidian actually uses,
+ * read out of the shipped 1.13.7 bundle (`app/resources/obsidian.asar` →
+ * `sim.js`, the "Graph Worker") rather than from documentation. The extraction
+ * notes, with the engine internals quoted, are in `docs/obsidian-graph-physics.md`.
+ *
+ * The five forces and every default below are Obsidian's, verbatim. They are
+ * deliberately NOT tuned to Nostos: the point of this change is that the map
+ * behaves like the graph view it is being compared against.
+ *
+ * In Obsidian these same numbers are exposed as the four "Forces" sliders; the
+ * two fixed values (collide radius/strength) are not in the UI at all.
+ */
+const OBSIDIAN_FORCES = {
+  /** `centerStrength` slider, default 0.1. Applied to forceX AND forceY. */
+  centerStrength: 0.1,
+  /**
+   * `repelStrength` slider, default 10. Obsidian cube-maps the slider before
+   * posting it (`setForces({repelStrength: e*e*e})`), so the force receives
+   * 10³ = 1000 and the worker negates it (`x = -repelStrength`).
+   */
+  repelStrength: 1000,
+  /** `linkDistance` slider, default 250. */
+  linkDistance: 250,
+  /** forceCollide radius. Fixed in Obsidian, not exposed as a setting. */
+  collideRadius: 60,
+  /** forceCollide strength. Fixed in Obsidian, not exposed as a setting. */
+  collideStrength: 0.5,
+  /** forceManyBody distanceMin, fixed in Obsidian. */
+  distanceMin: 30,
+  /** Integration damping; Obsidian's worker multiplies velocity by 0.6 per tick. */
+  velocityDecay: 0.6,
+  /** `alphaDecay = 1 - 0.001^(1/300)`, d3's default, at which alphaMin is reached in 300 ticks. */
+  alphaDecay: 1 - Math.pow(0.001, 1 / 300),
+  /** Below this alpha the simulation halts entirely. */
+  alphaMin: 0.001,
+} as const;
 
 /**
- * ForceAtlas2 iterations per animation frame while a node is being dragged.
+ * Obsidian's `linkStrength` slider default, applied as a MULTIPLIER on d3's own
+ * per-link strength rather than as a replacement for it.
  *
- * Chosen by sweeping it against the live 53-node graph and measuring how far a
- * neighbour of the dragged hub actually moved, per drag gesture:
- *
- *   iterations   neighbours moved   furthest neighbour
- *        1              2                  0.6px   <- barely perceptible
- *        3             52                  7.7px
- *        6             52                 18.4px   <- chosen
- *       10             52                 32.3px
- *       40             52                136.5px   <- graph visibly deforms
- *
- * 6 is the smallest value where the pull clearly reads as physics without the
- * layout deforming under the user's hand, and it holds 60fps on this graph
- * (measured mean frame 16.9ms, p95 16.8ms).
- *
- * Why not 1, even though it looks cheapest: `forceAtlas2.assign()` rebuilds its
- * matrices on EVERY call, which discards the velocity state the previous call
- * built up. Measured with the same total iteration count, one call of 10
- * iterations moves a neighbour 2.7px while ten calls of 1 iteration move it
- * 0.4px — 7x less. Per-frame stepping therefore needs a larger value to
- * overcome the per-call momentum reset.
+ * Obsidian's worker keeps the function it captured before the override and
+ * returns `E * captured(link, i, links)`, so the degree weighting survives a
+ * slider move. Passing a plain number to d3 instead replaces that function with
+ * a constant (`d3-force/src/link.js:108`). At the default the two happen to agree,
+ * which is exactly why the distinction has to be written down rather than
+ * discovered later when someone wires the slider up.
  */
-const LIVE_LAYOUT_ITERATIONS = 6;
+const OBSIDIAN_LINK_STRENGTH = 1;
+
+/**
+ * Alpha applied when the graph data or the forces change.
+ *
+ * Obsidian posts `alpha: .3, run: true` on `setData` and on `setForces`. Alpha is
+ * an energy budget, not a force balance: the settle is "run hot, then cool to
+ * alphaMin and stop", which is what makes the layout keep relaxing and then halt.
+ */
+const SETTLE_ALPHA = 0.3;
+
+/**
+ * Alpha target held for the whole of a drag gesture.
+ *
+ * Obsidian re-posts `alpha: .3, alphaTarget: .3` on EVERY pointermove while a node
+ * is dragged, so the simulation runs hot and continuously for the gesture and the
+ * neighbours relax in real time. On release it posts `alphaTarget: 0`, and alpha
+ * then decays naturally — which is the inertia the map was missing: previously
+ * the layout froze the instant the pointer lifted (measured: 0 nodes moved at
+ * every sample up to 2s after release).
+ */
+const DRAG_ALPHA = 0.3;
+
+/**
+ * Obsidian's `forceCollide` radius, as a multiple of `linkDistance`.
+ *
+ * Used only for seeding: new nodes are spawned on a ring around the graph's
+ * centre at roughly one link distance, which is what Obsidian's `setData` does
+ * (`r = v + sqrt(rand) * O` where `O = sqrt(60*N*60/π)`), not the uniform random
+ * square this component used before.
+ */
+const SEED_RING_SCALE = 60 * 60;
 
 /* Nostos theme tokens read at runtime from CSS custom properties. */
 function getCssVar(name: string, fallback: string): string {
@@ -189,95 +360,6 @@ function mixHex(first: string, second: string, amount: number): string {
   const channel = (source: string, offset: number) => parseInt(source.slice(offset, offset + 2), 16);
   const mix = (offset: number) => Math.round(channel(a, offset) + (channel(b, offset) - channel(a, offset)) * amount);
   return `#${[0, 2, 4].map((offset) => mix(offset).toString(16).padStart(2, '0')).join('')}`;
-}
-
-/** Stable initial coordinates keep captures and sessions reproducible. */
-function hashSeed(value: string): number {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0) / 4294967295;
-}
-
-/**
- * Fit the settled layout into the stage, preserving aspect ratio.
- *
- * Sigma is run with `autoRescale: false`, so it maps graph units to screen
- * pixels 1:1 in BOTH axes — there is no independent stretch available. A square
- * graph therefore cannot fill a tall stage: fit to the width and the height is
- * left empty, fit to the height and the width overflows.
- *
- * Fitting to the TIGHTER axis (what this did) makes that choice by accident and
- * wastes whichever axis is longer. On a portrait phone the stage measured
- * 316x523 while the settled graph was ~278x277, so width-fitting left 47% of the
- * height blank — the graph sat in a band with dead space above and below rather
- * than filling the screen.
- *
- * Each axis is therefore solved independently and the ratio between the two
- * solutions is clamped to MAX_FIT_ANISOTROPY, which is what keeps the result a
- * natural-looking layout rather than a stretched drawing.
- */
-function normalizeGraphPositions(
-  graph: Graph,
-  stageWidth: number,
-  stageHeight: number,
-  occupancy: { x: number; y: number } = { x: FIT_OCCUPANCY, y: FIT_OCCUPANCY }
-): void {
-  const points: Array<{ node: string; x: number; y: number }> = [];
-  graph.forEachNode((node, attrs) => {
-    points.push({ node, x: Number(attrs['x']) || 0, y: Number(attrs['y']) || 0 });
-  });
-  if (points.length === 0) return;
-
-  const minX = Math.min(...points.map((point) => point.x));
-  const maxX = Math.max(...points.map((point) => point.x));
-  const minY = Math.min(...points.map((point) => point.y));
-  const maxY = Math.max(...points.map((point) => point.y));
-  const spanX = Math.max(maxX - minX, 1e-6);
-  const spanY = Math.max(maxY - minY, 1e-6);
-  const centreX = (minX + maxX) / 2;
-  const centreY = (minY + maxY) / 2;
-
-  // Fit into the label-aware portion of the stage rather than all of it.
-  const width = Math.max(stageWidth, 1);
-  const height = Math.max(stageHeight, 1);
-
-  // Solve each axis independently so neither is left empty, then cap the ratio
-  // between the two scales: unclamped, a tall stage stretches the graph into
-  // obvious ellipses.
-  //
-  // The cap is applied by holding the FITTING axis at its own solution and
-  // pulling the other axis toward it, rather than clamping both into a shared
-  // window. Clamping both is wrong when the stage aspect is further from the
-  // graph's aspect than the cap allows: the window inverts, both scales collapse
-  // to the same number, and the axis that had a larger solution is shrunk — the
-  // graph loses fill on the very axis the cap was meant to protect.
-  const rawScaleX = (width * occupancy.x) / spanX;
-  const rawScaleY = (height * occupancy.y) / spanY;
-  const uniform = Math.min(rawScaleX, rawScaleY);
-  let scaleX = uniform;
-  let scaleY = uniform;
-
-  // The uniform scale is the fit that never overflows and preserves the graph's
-  // aspect exactly; it is what a wide stage keeps.
-  //
-  // Only a stage TALLER than it is wide needs the extra step, and only there is
-  // it taken: on a wide stage the axis left empty is horizontal, where a
-  // centred graph already reads correctly, and reaching into that axis would
-  // change the framing users already have. Confining this to portrait stages
-  // keeps the desktop result byte-identical to the plain uniform fit.
-  if (height > width) {
-    const allowance = uniform * MAX_FIT_ANISOTROPY;
-    if (rawScaleX > uniform) scaleX = Math.min(rawScaleX, allowance);
-    if (rawScaleY > uniform) scaleY = Math.min(rawScaleY, allowance);
-  }
-
-  for (const point of points) {
-    graph.setNodeAttribute(point.node, 'x', (point.x - centreX) * scaleX);
-    graph.setNodeAttribute(point.node, 'y', (point.y - centreY) * scaleY);
-  }
 }
 
 interface ThemeColors {
@@ -321,7 +403,57 @@ interface HoverDrawSettings {
 }
 
 /**
- * Sigma's `drawDiscNodeHover`, with a theme-aware box fill.
+ * Sigma's `drawDiscNodeLabel`, with a side flip so text never runs off the canvas.
+ *
+ * The built-in drawer always puts the label to the RIGHT of the node
+ * (`data.x + data.size + 3`). On a narrow stage the rightmost nodes therefore
+ * push their text past the canvas edge, and Sigma simply cuts it off — this is
+ * what produced truncated names like "pruder" and "Aristot", and it is what the
+ * mobile framing spec measures as ink on the label canvas border.
+ *
+ * Reserving a gutter cannot solve it on a phone. A long concept name needs ~140px
+ * of room (16 chars x 12px x 0.62), and a 369px stage can only give that by
+ * shrinking the graph to ~55% of the width — trading a clipped word for a
+ * needlessly small map. Flipping the label to the left of its node costs nothing
+ * and is what a reader expects at the edge of a frame.
+ *
+ * `data.x` here is a viewport coordinate on the label canvas, so
+ * `context.canvas.width` is the exact bound to test against. Colours and font
+ * come from the same settings the built-in reads, so nothing else changes.
+ */
+function drawFlipsAtEdgeNodeLabel(
+  context: CanvasRenderingContext2D,
+  data: { x: number; y: number; size: number; label?: string | null },
+  settings: HoverDrawSettings
+): void {
+  if (!data.label) return;
+  const { labelSize, labelFont, labelWeight } = settings;
+  const color = settings.labelColor.attribute
+    ? (data as unknown as Record<string, unknown>)[settings.labelColor.attribute] ??
+      settings.labelColor.color ??
+      '#000'
+    : settings.labelColor.color ?? '#000';
+
+  context.font = `${labelWeight} ${labelSize}px ${labelFont}`;
+  context.fillStyle = String(color);
+
+  const textWidth = context.measureText(data.label).width;
+  const overflowsRight = data.x + data.size + LABEL_OFFSET_PX + textWidth > context.canvas.width;
+  // Only flip when the left side actually has room, so a very wide label on a
+  // narrow stage degrades to the old behaviour rather than clipping the other way.
+  const flips = overflowsRight && data.x - data.size - LABEL_OFFSET_PX - textWidth >= 0;
+
+  if (flips) {
+    context.textAlign = 'right';
+    context.fillText(data.label, data.x - data.size - LABEL_OFFSET_PX, data.y + labelSize / 3);
+    context.textAlign = 'left';
+  } else {
+    context.fillText(data.label, data.x + data.size + LABEL_OFFSET_PX, data.y + labelSize / 3);
+  }
+}
+
+/**
+ * Sigma's `drawDiscNodeHover`, with a theme-aware box fill and the same edge flip.
  *
  * The built-in version is `context.fillStyle = "#FFF"` unconditionally, which
  * is invisible-in-light but actively wrong on dark: it paints a white plate
@@ -329,6 +461,9 @@ interface HoverDrawSettings {
  * `sigma@3.0.3` (`drawDiscNodeHover`) and only `boxFill` is parameterised, so
  * light mode stays pixel-identical apart from the token (which is `#ffffff`
  * there) and dark mode stops drawing a white block.
+ *
+ * The flip matches `drawFlipsAtEdgeNodeLabel`: without it the plate and the text
+ * would part company on a node near the right edge.
  *
  * If Sigma is upgraded, re-check this against the new implementation.
  */
@@ -356,12 +491,20 @@ function drawThemeNodeHover(
     const angleRadian = Math.asin(boxHeight / 2 / radius);
     const xDeltaCoord = Math.sqrt(Math.abs(radius ** 2 - (boxHeight / 2) ** 2));
 
+    const overflowsRight = data.x + radius + boxWidth > context.canvas.width;
+    const flips = overflowsRight && data.x - radius - boxWidth >= 0;
+    const direction = flips ? -1 : 1;
+
     context.beginPath();
-    context.moveTo(data.x + xDeltaCoord, data.y + boxHeight / 2);
-    context.lineTo(data.x + radius + boxWidth, data.y + boxHeight / 2);
-    context.lineTo(data.x + radius + boxWidth, data.y - boxHeight / 2);
-    context.lineTo(data.x + xDeltaCoord, data.y - boxHeight / 2);
-    context.arc(data.x, data.y, radius, angleRadian, -angleRadian);
+    context.moveTo(data.x + direction * xDeltaCoord, data.y + boxHeight / 2);
+    context.lineTo(data.x + direction * (radius + boxWidth), data.y + boxHeight / 2);
+    context.lineTo(data.x + direction * (radius + boxWidth), data.y - boxHeight / 2);
+    context.lineTo(data.x + direction * xDeltaCoord, data.y - boxHeight / 2);
+    if (flips) {
+      context.arc(data.x, data.y, radius, Math.PI - angleRadian, Math.PI + angleRadian);
+    } else {
+      context.arc(data.x, data.y, radius, angleRadian, -angleRadian);
+    }
     context.closePath();
     context.fill();
   } else {
@@ -381,7 +524,18 @@ function drawThemeNodeHover(
     : undefined;
   context.fillStyle =
     (typeof perNode === 'string' && perNode) || settings.labelColor.color || '#000';
-  context.fillText(data.label ?? '', data.x + data.size + 3, data.y + labelSize / 3);
+  if (typeof data.label === 'string') {
+    const textWidth = context.measureText(data.label).width;
+    const overflowsRight = data.x + data.size + LABEL_OFFSET_PX + textWidth > context.canvas.width;
+    const flips = overflowsRight && data.x - data.size - LABEL_OFFSET_PX - textWidth >= 0;
+    if (flips) {
+      context.textAlign = 'right';
+      context.fillText(data.label, data.x - data.size - LABEL_OFFSET_PX, data.y + labelSize / 3);
+      context.textAlign = 'left';
+    } else {
+      context.fillText(data.label, data.x + data.size + LABEL_OFFSET_PX, data.y + labelSize / 3);
+    }
+  }
 }
 
 function compareConcepts(a: ConceptDto, b: ConceptDto): number {
@@ -426,6 +580,19 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   private viewInitialized = false;
   private pendingRebuild = false;
   private resizeObserver: ResizeObserver | null = null;
+
+  /**
+   * Obsidian's five-force layout, run live rather than as a one-shot settle.
+   *
+   * Held as a field because it is stepped from an animation frame (and from the
+   * drag handler) rather than being fire-and-forget: alpha decays to `alphaMin`
+   * and the loop then stops on its own, so this is the single place that knows
+   * whether the graph is still moving.
+   */
+  private layout: Simulation<LayoutNode, undefined> | null = null;
+
+  /** Handle for the animation frame that steps the layout. */
+  private layoutFrame: number | null = null;
 
   /* Drag-to-reposition state */
   private draggedNode: string | null = null;
@@ -590,17 +757,6 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
     const graph = new Graph();
     this.graph = graph;
 
-    // Seed initial positions in the STAGE's aspect ratio, not a square.
-    //
-    // ForceAtlas2 keeps the shape it is seeded with, and the internal seeds were
-    // a unit square. Normalizing a square extent into a 990x558 stage can only
-    // fill one axis, so the fitted graph measured 56% wide on a 88% tall stage —
-    // the "large empty margins" that read as poor framing. Seeding along the
-    // stage's aspect lets the settled layout use the width it is given.
-    const stageAspect = (container.clientWidth || 990) / (container.clientHeight || 558);
-    const seedWidth = stageAspect >= 1 ? stageAspect : 1;
-    const seedHeight = stageAspect >= 1 ? 1 : 1 / stageAspect;
-
     const usages = visibleNodes.map((n) => Math.max(0, n.usageCount));
     const minUsage = Math.min(...usages);
     const maxUsage = Math.max(...usages);
@@ -608,22 +764,31 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
 
     const maxShared = Math.max(1, ...visibleEdges.map((e) => e.sharedNotes));
 
+    // Seed every node on Obsidian's ring, then add it to the graph with the
+    // seeded coordinates. The simulation below owns the positions from here on.
+    const seeds: Array<{ id: string; x: number; y: number }> = visibleNodes.map((n) => ({
+      id: n.id,
+      x: 0,
+      y: 0,
+    }));
+    seedPositions(seeds, OBSIDIAN_FORCES.linkDistance);
+    const seedById = new Map(seeds.map((s) => [s.id, s]));
+
     // Add nodes.
     for (const node of visibleNodes) {
       const ratio = (Math.max(0, node.usageCount) - minUsage) / usageRange;
       const size = NODE_SIZE_MIN + (NODE_SIZE_MAX - NODE_SIZE_MIN) * Math.sqrt(ratio);
-      const labelSize = LABEL_SIZE_MIN + (LABEL_SIZE_MAX - LABEL_SIZE_MIN) * Math.sqrt(ratio);
       const nodeColor = mixHex(this.theme.node, this.theme.nodeHead, 0.18 + ratio * 0.42);
+      const seeded = seedById.get(node.id)!;
 
       graph.addNode(node.id, {
         label: node.name,
         size,
         color: nodeColor,
         labelColor: hexToRgba(this.theme.label, 0.8 + ratio * 0.16),
-        x: (hashSeed(`${node.id}:x`) * 2 - 1) * seedWidth,
-        y: (hashSeed(`${node.id}:y`) * 2 - 1) * seedHeight,
+        x: seeded.x,
+        y: seeded.y,
         usageCount: node.usageCount,
-        labelSize,
       });
     }
 
@@ -659,28 +824,97 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
       }))
     );
 
-    // Run ForceAtlas2 layout synchronously.
+    // ── Build the force simulation ──
     //
-    // The repulsion here directly controls whether the map is readable. At
-    // scalingRatio 18 / gravity 0.4 the settled layout placed 18 node pairs
-    // closer than their combined radii on screen (e.g. 'Stoicism' and 'truth'
-    // 0.4px apart while needing 8px), so the centre of the map rendered as an
-    // unreadable clump and labels had nothing to attach to. Raising the
-    // repulsion separates the nodes so each one and its label have room.
+    // Replaces a one-shot ForceAtlas2 settle. Two properties of d3-force matter
+    // for the behaviour being fixed:
     //
-    // The same settings drive the live drag loop below, so the two cannot
-    // drift apart.
-    if (graph.order > 1) {
-      forceAtlas2.assign(graph, {
-        iterations: SETTLE_ITERATIONS,
-        settings: this.layoutSettings(graph),
-      });
-    }
+    //  * `vx`/`vy` PERSIST between ticks (damped by `velocityDecay`), so stepping
+    //    one tick per frame carries momentum and a re-heated graph glides to rest
+    //    instead of freezing. ForceAtlas2's `assign()` rebuilt its matrices per
+    //    call and discarded the previous call's velocity, which is why the old
+    //    live loop needed six iterations per frame to look like anything.
+    //  * Alpha is an energy budget that DECAYS to `alphaMin`, at which point the
+    //    loop halts by itself. So the settle and the post-drag relaxation are the
+    //    same code path, and neither leaves a permanent timer running.
+    const layoutNodes: LayoutNode[] = visibleNodes.map((n) => {
+      const attrs = graph.getNodeAttributes(n.id);
+      return {
+        id: n.id,
+        x: Number(attrs['x']),
+        y: Number(attrs['y']),
+        size: Number(attrs['size']),
+      };
+    });
+    const layoutLinks = visibleEdges
+      .filter((e) => graph.hasNode(e.sourceId) && graph.hasNode(e.targetId))
+      .map((e) => ({ source: e.sourceId, target: e.targetId }));
 
-    // Stage size is needed to normalize the settled layout into pixel units.
-    const stageWidth = container.clientWidth || 800;
-    const stageHeight = container.clientHeight || 600;
-    normalizeGraphPositions(graph, stageWidth, stageHeight);
+    // d3's own per-link strength, computed explicitly so Obsidian's slider can be
+    // applied as a multiplier.
+    //
+    // d3's default is `1 / min(degree(source), degree(target))` and its `count`
+    // array only exists after the force is initialised. Reading the default by
+    // calling `.strength()` on a fresh force therefore hands back a function whose
+    // closure is still empty, and invoking it throws on `count[...]`. Deriving the
+    // same quantity from the graph's own degrees is both correct and readable.
+    const linkStrength = (link: { source: unknown; target: unknown }): number => {
+      const source = link.source as LayoutNode;
+      const target = link.target as LayoutNode;
+      const degree = Math.min(graph.degree(source.id), graph.degree(target.id));
+      return degree > 0 ? OBSIDIAN_LINK_STRENGTH / degree : OBSIDIAN_LINK_STRENGTH;
+    };
+
+    this.layout = forceSimulation<LayoutNode>(layoutNodes)
+      // Stop before the first tick: the settle is driven explicitly below, and a
+      // d3 simulation otherwise starts its own timer on construction.
+      .stop()
+      .force('x', forceX<LayoutNode>(0).strength(OBSIDIAN_FORCES.centerStrength))
+      .force('y', forceY<LayoutNode>(0).strength(OBSIDIAN_FORCES.centerStrength))
+      .force(
+        'link',
+        forceLink<LayoutNode, { source: string; target: string }>(layoutLinks)
+          .id((node) => node.id)
+          .distance(OBSIDIAN_FORCES.linkDistance)
+          .strength(linkStrength)
+      )
+      .force(
+        'charge',
+        forceManyBody<LayoutNode>()
+          .strength(-OBSIDIAN_FORCES.repelStrength)
+          .distanceMin(OBSIDIAN_FORCES.distanceMin)
+      )
+      .force(
+        'collide',
+        forceCollide<LayoutNode>()
+          // Obsidian's fixed values, verbatim. `radius(60)` collides
+          // centre-to-centre and is deliberately NOT inflated by the node's drawn
+          // size: measured on the live 53-node graph, the settled minimum
+          // node-centre distance is 125-127 with `size` folded in and 122.2
+          // without, against a 60 surplus over the 8px drawn radius — so adding
+          // `size` changes nothing except by making the map's spacing depend on
+          // whichever node size formula happens to be in force. Keeping the force
+          // faithful to Obsidian is the point of this change, and the screen-space
+          // guarantee is asserted separately (0 overlapping pairs) where it can be
+          // measured rather than assumed.
+          .radius(OBSIDIAN_FORCES.collideRadius)
+          .strength(OBSIDIAN_FORCES.collideStrength)
+      );
+
+    // ── Settle ──
+    //
+    // Run the full cool-down synchronously so the first paint shows a finished
+    // layout rather than one visibly uncoiling. 300 ticks is exactly d3's default
+    // budget (alphaDecay is defined as "reach alphaMin in 300 ticks"), and the
+    // loop exits on the alpha test rather than the counter, so this is the real
+    // convergence point. Measured 248 ticks on the live 53-node graph.
+    this.layout.alpha(SETTLE_ALPHA);
+    let settleTicks = 0;
+    while (this.layout.alpha() > OBSIDIAN_FORCES.alphaMin && settleTicks < 300) {
+      this.layout.tick();
+      settleTicks += 1;
+    }
+    this.writeLayoutToGraph();
 
     // Snapshot the computed layout so "Reset" can restore it after drags.
     this.layoutHome.clear();
@@ -706,14 +940,31 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
       // was painted from the static `--color-text-muted` fallback — which on
       // dark is #C5C9D0 drawn on Sigma's hardcoded white hover box (1.66:1).
       labelColor: { attribute: 'labelColor', color: this.theme.label },
-      labelSize: 12,
+      labelSize: LABEL_DRAW_SIZE,
       defaultEdgeType: 'line',
       enableEdgeEvents: false,
       allowInvalidContainer: true,
-      // Node sizes are pixel sizes; graph coordinates are normalized separately
-      // so the visual scale does not change when the graph fills the stage.
+      // Node sizes are pixel sizes; the camera fit handles scale, so radii only
+      // need to follow the camera (see `zoomToSizeRatioFunction` below) and the
+      // visual scale does not collapse when the graph fills the stage.
       itemSizesReference: 'screen',
-      zoomToSizeRatioFunction: (ratio: number) => ratio,
+      // Node radii must scale with the camera, or zooming in makes the graph
+      // collide with itself.
+      //
+      // Sigma maps positions through the camera but, with `itemSizesReference:
+      // 'screen'`, draws radii at a fixed pixel size unless `zoomToSizeRatioFunction`
+      // says otherwise. The two then disagree: positions shrink as `1/ratio` while
+      // radii stay put, so the drawn gap between neighbours closes as you zoom in.
+      // Measured on the live graph: at `ratio 2.09` (a normal zoom-in on desktop)
+      // **30 of 53 nodes overlapped**; at the fitted `ratio 1.247`, none did.
+      //
+      // `Math.sqrt` is Sigma's OWN default for this setting, and it matches what
+      // Obsidian does — its renderer sets `nodeScale = Math.sqrt(1/scale)` and
+      // multiplies the node radius by it on every frame. So radii and distances
+      // now follow the same law, node spacing in graph units is preserved at any
+      // zoom, and the layout's guarantees (no overlaps, no collisions) hold
+      // zoomed-in as well as fitted.
+      zoomToSizeRatioFunction: Math.sqrt,
       // Keep the user's layout authoritative.
       //
       // With autoRescale on, Sigma re-maps the whole graph onto the viewport
@@ -732,6 +983,11 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
       // displayed labels from 20 to 30 of 53. More of the map is legible with no
       // collisions introduced.
       labelDensity: 1.6,
+      // Replace Sigma's `drawDiscNodeLabel`, which always draws to the RIGHT of
+      // the node and lets a label on a right-edge node be cut off by the canvas.
+      // Geometry, font and colour are reproduced exactly; only the side flips.
+      defaultDrawNodeLabel: (context, data, settings) =>
+        drawFlipsAtEdgeNodeLabel(context, data, settings),
       // Replace Sigma's `drawDiscNodeHover`, whose label box is a hardcoded
       // `#FFF`. Geometry is unchanged; only the fill follows the theme.
       defaultDrawNodeHover: (context, data, settings) =>
@@ -740,12 +996,22 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
 
     this.sigma = sigma;
 
-    // Keep the renderer reachable for diagnostics and for the visual-verification
-    // harness, which measures graph geometry through the live instance. Read-only
-    // introspection: no application behaviour depends on these handles.
-    const globals = globalThis as unknown as { __nostosSigma?: unknown; __nostosGraph?: unknown };
+    // Keep the renderer and the simulation reachable for diagnostics and for the
+    // visual-verification harness, which measures graph geometry through the live
+    // instances. Read-only introspection: no application behaviour depends on
+    // these handles.
+    //
+    // `__nostosLayout` is the d3 simulation, which is where the physics questions
+    // are answered from — alpha, whether the loop is still running, and each
+    // node's `vx`/`vy` (the momentum that makes a release glide rather than stop).
+    const globals = globalThis as unknown as {
+      __nostosSigma?: unknown;
+      __nostosGraph?: unknown;
+      __nostosLayout?: unknown;
+    };
     globals.__nostosSigma = sigma;
     globals.__nostosGraph = graph;
+    globals.__nostosLayout = this.layout;
 
     // Set up node reducers for hover/selection highlighting.
     const component = this;
@@ -856,25 +1122,34 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
     // bug: on a phone, every tap or drag on a node called these teardown steps
     // zero times, so `camera.disable()` was never undone.
     //
-    // Measured before this fix, on a 390x844 touch viewport: a simple TAP on a
-    // node left `camera.enabled === false` and the node pinned with `fixed: true`
-    // — the node itself did not even move (displacement 0.0px). Every camera
-    // control then silently stopped working, including Fit: ratio stayed at
-    // 1.4286 before and after clicking it. That is the "buttons get stuck"
-    // report, and one tap was enough to trigger it.
+    // Measured before that fix, on a 390x844 touch viewport: a simple TAP on a
+    // node left `camera.enabled === false` and the node pinned, and the node did
+    // not even move (displacement 0.0px). Every camera control then silently
+    // stopped working, including Fit: ratio stayed at 1.4286 before and after
+    // clicking it. That is the "buttons get stuck" report, and one tap triggered
+    // it.
     //
-    // The teardown now lives in one place (`endDrag`) wired to all three
-    // possible endings: `mouseup`, `touchup`, and a window-level `pointerup` /
+    // The teardown lives in one place (`endDrag`) wired to all three possible
+    // endings: `mouseup`, `touchup`, and a window-level `pointerup` /
     // `pointercancel` safety net for a pointer released outside the canvas.
+    //
+    // The PIN itself moved when the layout engine did: it is now d3's `fx`/`fy`
+    // on the simulation node, not ForceAtlas2's `fixed` graph attribute, and the
+    // graph is energised with `alphaTarget` rather than stepped per event.
 
     const endDrag = (): void => {
       if (!component.draggingActive) return;
-      // Unpin before clearing the reference: `stepLiveLayout` is a no-op once
-      // `draggedNode` is null, but the attribute would otherwise stay set and
-      // that node would be frozen for every future layout pass.
-      if (component.draggedNode) {
-        graph.setNodeAttribute(component.draggedNode, 'fixed', false);
-      }
+      const wasPinned = !!component.draggedNode;
+      // Un-pin in the SIMULATION, which is where the pin lives now. Clearing
+      // every node's `fx`/`fy` rather than only the dragged one is deliberate: a
+      // pointerup lost off-canvas could otherwise strand a pin that no later
+      // gesture owns, and the release is idempotent and cheap.
+      component.releasePinnedNode();
+      // Let the layout cool: `alphaTarget` back to 0, so alpha decays from the
+      // drag energy to `alphaMin` and the graph settles under its own inertia.
+      // This is the half that was missing before the physics rewrite — it is why
+      // a release now glides to rest instead of freezing on the spot.
+      if (wasPinned) component.coolLayout();
       component.draggedNode = null;
       component.dragStart = null;
       component.draggingActive = false;
@@ -895,11 +1170,12 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
       component.dragStart = { x, y };
       component.draggedNode = node;
       component.draggingActive = true;
-      // Pin the node for the duration of the drag. ForceAtlas2 honours a
-      // `fixed` node attribute (`iterate.js`), so the live layout below moves
-      // everything EXCEPT this node — which is what makes the rest of the graph
-      // relax and the neighbours follow the pointer.
-      graph.setNodeAttribute(node, 'fixed', true);
+      // Pin the node for the duration of the drag. d3-force snaps a node with a
+      // defined `fx`/`fy` to exactly that point and zeroes its velocity every
+      // tick, so the rest of the graph relaxes around the pointer — the same
+      // contract Obsidian's worker implements when it receives
+      // `forceNode: { x, y }`.
+      component.pinNodeForDrag(node);
       sigma.getCamera().disable();
       container.classList.add('dragging');
     };
@@ -914,14 +1190,20 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
         component.isDragging = true;
       }
 
-      // Convert viewport coordinates to graph coordinates.
+      // Convert viewport coordinates to graph coordinates and move the pin.
       const pos = sigma.viewportToGraph({ x, y });
       graph.setNodeAttribute(node, 'x', pos.x);
       graph.setNodeAttribute(node, 'y', pos.y);
+      component.pinNodeForDrag(node, pos.x, pos.y);
 
       // Let the rest of the graph respond to the node being pulled, so
       // neighbours follow it instead of the node moving alone.
-      component.stepLiveLayout();
+      //
+      // Obsidian re-posts `alpha: .3, alphaTarget: .3` on EVERY pointermove, so
+      // the simulation runs hot and continuously for the whole gesture. Doing the
+      // same here is what makes the pull read as physics: the neighbours do not
+      // just get nudged, they keep relaxing as the pointer keeps moving.
+      component.heatLayout(DRAG_ALPHA);
     };
 
     sigma.on('downNode', (e) => {
@@ -1001,48 +1283,151 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   }
 
   /**
-   * ForceAtlas2 settings for both the initial settle and the live drag loop.
+   * Copy the simulation's positions back into the graphology graph.
    *
-   * `barnesHutOptimize` is off below 100 nodes and on above it — measured
-   * 0.165ms/iteration at 150 nodes with it off versus 0.891ms with it on, so
-   * for a graph this small the quadtree costs more than it saves.
+   * Sigma renders from the graph, d3 owns the physics, and this is the only
+   * bridge between them — so there is exactly one writer of node coordinates
+   * during a tick.
    */
-  private layoutSettings(graph: Graph): Record<string, number | boolean> {
-    return {
-      gravity: 0.12,
-      scalingRatio: 90,
-      barnesHutOptimize: graph.order > 100,
-      strongGravityMode: false,
-      slowDown: 8,
-      adjustSizes: true,
-    };
+  private writeLayoutToGraph(): void {
+    const graph = this.graph;
+    const layout = this.layout;
+    if (!graph || !layout) return;
+
+    for (const node of layout.nodes()) {
+      if (!graph.hasNode(node.id)) continue;
+      graph.setNodeAttribute(node.id, 'x', Number(node.x) || 0);
+      graph.setNodeAttribute(node.id, 'y', Number(node.y) || 0);
+      // Never write `size` back unconditionally: it is Sigma's pixel radius, not
+      // a layout quantity, and a NaN here renders the node at zero and drops its
+      // label (Sigma gates labels on drawn size). Guard rather than clobber.
+      const size = Number(node.size);
+      if (Number.isFinite(size) && size > 0) {
+        graph.setNodeAttribute(node.id, 'size', size);
+      }
+    }
   }
 
   /**
-   * Step the force layout once, while a node is being dragged.
+   * Run the layout hot: hold `alphaTarget` at the drag energy and pump frames
+   * until it is taken away again.
    *
-   * The dragged node is pinned with ForceAtlas2's own `fixed` node attribute,
-   * so it stays exactly where the pointer put it while the rest of the graph
-   * relaxes around it and its neighbours visibly follow. That is the Obsidian
-   * behaviour being asked for.
-   *
-   * Measured before this existed, dragging a hub 110.7px moved 0 other nodes.
-   * A standalone probe with the pin and one iteration per step moved 9 of the
-   * hub's neighbours, the furthest by 58.6px.
-   *
-   * Runs ONLY during a drag: a permanent loop would fight the settled layout
-   * and burn frames while the map is idle.
+   * Obsidian's worker does this by re-posting `alpha: .3, alphaTarget: .3` on
+   * every pointermove, which keeps `alpha` pinned at 0.3 for the whole gesture.
+   * Setting `alphaTarget` (rather than `alpha`) means alpha will *return* to that
+   * level on its own, so the graph is energised for the entire drag without the
+   * caller having to re-post on every event.
    */
-  private stepLiveLayout(): void {
+  private heatLayout(alphaTarget: number): void {
+    const layout = this.layout;
+    if (!layout) return;
+    layout.alphaTarget(alphaTarget);
+    // Lift alpha immediately so the first frame after the gesture starts is
+    // already energetic, rather than easing up to the target over many ticks.
+    if (layout.alpha() < alphaTarget) layout.alpha(alphaTarget);
+    this.startLayoutLoop();
+  }
+
+  /**
+   * Let the layout cool: `alphaTarget` back to 0, so alpha decays to `alphaMin`
+   * and the graph settles to rest under its own inertia.
+   *
+   * The loop keeps running through the decay — that IS the inertia — and stops
+   * itself at `alphaMin`, so nothing is left ticking once the graph is still.
+   */
+  private coolLayout(): void {
+    this.layout?.alphaTarget(0);
+    this.startLayoutLoop();
+  }
+
+  /**
+   * Pump the simulation one tick per animation frame until it goes quiet.
+   *
+   * d3-force persists `vx`/`vy` between ticks and damps them by `velocityDecay`,
+   * so a single `tick()` per frame carries real momentum. That is the opposite of
+   * the ForceAtlas2 arrangement this replaces, where `assign()` rebuilt its
+   * matrices on every call and discarded the previous call's velocity — which
+   * forced six iterations per frame just to register, and still produced no
+   * inertia after the pointer was released (measured: 0 nodes moved at every
+   * sample up to 2s after release).
+   *
+   * Idempotent: a second call while a frame is already queued does nothing, so
+   * the per-pointermove heat is cheap.
+   */
+  private startLayoutLoop(): void {
+    if (this.layoutFrame !== null || !this.layout) return;
+
+    const step = (): void => {
+      this.layoutFrame = null;
+      const layout = this.layout;
+      if (!layout || this.destroyed) return;
+
+      layout.tick();
+      this.writeLayoutToGraph();
+      this.sigma?.refresh();
+
+      // Stop at the alpha floor. Reporting the loop as finished is what lets the
+      // idle case be asserted as "genuinely stopped" rather than "merely slow".
+      if (layout.alpha() <= OBSIDIAN_FORCES.alphaMin) return;
+      this.layoutFrame = window.requestAnimationFrame(step);
+    };
+
+    this.layoutFrame = window.requestAnimationFrame(step);
+  }
+
+  /** Cancel a queued frame. Used by Reset and teardown. */
+  private stopLayoutLoop(): void {
+    if (this.layoutFrame !== null) {
+      window.cancelAnimationFrame(this.layoutFrame);
+      this.layoutFrame = null;
+    }
+  }
+
+  /**
+   * Pin a node at the pointer by writing d3's own `fx`/`fy`.
+   *
+   * d3's integration step snaps a pinned node to `fx`/`fy` and zeroes its
+   * velocity every tick, which is what keeps the dragged node exactly under the
+   * pointer while everything else relaxes around it. Called for both the press
+   * (id only, current graph position) and each move (explicit position).
+   */
+  private pinNodeForDrag(node: string, x?: number, y?: number): void {
+    const layout = this.layout;
     const graph = this.graph;
-    if (!graph || graph.order < 2 || !this.draggedNode) return;
-    forceAtlas2.assign(graph, {
-      iterations: LIVE_LAYOUT_ITERATIONS,
-      settings: this.layoutSettings(graph),
-    });
+    if (!layout || !graph) return;
+
+    const attrs = graph.getNodeAttributes(node);
+    const targetX = x ?? (Number(attrs['x']) || 0);
+    const targetY = y ?? (Number(attrs['y']) || 0);
+
+    for (const entry of layout.nodes()) {
+      if (entry.id !== node) continue;
+      entry.fx = targetX;
+      entry.fy = targetY;
+    }
+  }
+
+  /**
+   * Clear the drag pin from every node.
+   *
+   * Every node rather than just the dragged one: the pin lives only in the
+   * simulation, so a pin whose owner was lost (a pointerup outside the canvas,
+   * a rebuild mid-gesture) would otherwise freeze that node against all future
+   * layout with nothing left to clear it.
+   */
+  private releasePinnedNode(): void {
+    for (const entry of this.layout?.nodes() ?? []) {
+      entry.fx = null;
+      entry.fy = null;
+    }
   }
 
   private disposeSigma(): void {
+    this.stopLayoutLoop();
+    // d3 keeps its own internal timer; explicit stop guarantees no tick survives
+    // the component (killing Sigma alone would leave the simulation running).
+    this.layout?.stop();
+    this.layout = null;
     if (this.sigma) {
       this.sigma.kill();
       this.sigma = null;
@@ -1052,9 +1437,10 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
     this.isDragging = false;
     this.dragStart = null;
     this.draggingActive = false;
-    // Sigma is gone, so its captor listeners that would end a drag are gone too.
-    // Drop the window-level net with them or a rebuild stacks a second one on
-    // every theme change.
+    // Drop the pins with the simulation, and the window-level net with Sigma's
+    // captors: a rebuild would otherwise stack a second safety net on every
+    // theme change.
+    this.releasePinnedNode();
     this.detachDragSafetyNet?.();
     this.detachDragSafetyNet = null;
     this.layoutHome.clear();
@@ -1069,47 +1455,23 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   /* ── Template actions ── */
 
   /**
-   * The fraction of each stage dimension the graph may occupy, leaving room for
-   * labels at the edges.
+   * The fraction of each stage dimension the graph may occupy.
    *
-   * `FIT_OCCUPANCY` alone assumes labels fit inside the drawing; they do not, so
-   * the space the outermost labels need is reserved first.
+   * `FIT_OCCUPANCY` alone assumes labels fit inside the drawing. They do not, but
+   * they no longer need room reserved for them: `drawFlipsAtEdgeNodeLabel` keeps
+   * every label on-canvas by flipping it to the other side of its node, so the
+   * only thing left to reserve is a small constant edge allowance.
    *
-   * The gutter is measured from the labels that will actually be drawn rather
-   * than guessed. Sigma draws a node's label beside it, so a node at the graph's
-   * outer edge pushes its text past the canvas and it is truncated mid-word —
-   * measured as ink touching the right edge of the label layer (50px of it on a
-   * 390px phone), which produced names like "pruder" and "Aristot".
-   * `stagePadding` cannot help: Sigma's `getStagePadding()` returns 0 whenever
-   * `autoRescale` is false, which is this configuration.
-   *
-   * Only the horizontal axis reserves label room: labels sit BESIDE a node, so
-   * text overflows sideways and never above or below it. Bounded by
-   * MAX_LABEL_GUTTER_FRACTION so one long name cannot shrink the graph to fit
-   * itself.
+   * Reserving a per-label gutter here was measurably harmful on a phone, where a
+   * long concept name needs ~140px of a 369px stage: the reservation made the
+   * width the binding axis of the fit and shrank every node instead of an
+   * occasional word. See `LABEL_EDGE_ALLOWANCE_FRACTION`.
    */
   private fitOccupancy(): { x: number; y: number } {
-    const container = this.sigmaContainer?.nativeElement as HTMLElement | undefined;
-    const width = Math.max(container?.clientWidth ?? 0, 1);
-    const height = Math.max(container?.clientHeight ?? 0, 1);
-
-    let widestLabel = 0;
-    this.graph?.forEachNode((_node, attrs) => {
-      const label = String(attrs['label'] ?? '');
-      if (!label) return;
-      const labelSize = Number(attrs['labelSize']) || LABEL_SIZE_MIN;
-      // A label is centered on its node, so the overhang past the graph edge is
-      // half the text width.
-      // Offset plus half the text: the label starts beside the node and its
-      // centre therefore sits half a text-width further out.
-      const overhang = LABEL_OFFSET_PX + (label.length * labelSize * LABEL_CHAR_WIDTH_RATIO) / 2;
-      if (overhang > widestLabel) widestLabel = overhang;
-    });
-
-    const gutterX = Math.min(widestLabel, width * MAX_LABEL_GUTTER_FRACTION);
-
-    const usableX = Math.max(width - gutterX * 2, width * 0.5);
-    return { x: (usableX / width) * FIT_OCCUPANCY, y: FIT_OCCUPANCY };
+    return {
+      x: FIT_OCCUPANCY - LABEL_EDGE_ALLOWANCE_FRACTION,
+      y: FIT_OCCUPANCY,
+    };
   }
 
   /**
@@ -1226,22 +1588,42 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
    *
    * "Reset" used to call `animatedReset()`, which only touched the camera — so
    * after a user had dragged nodes around, Reset left every moved node exactly
-   * where it was. It now restores the positions ForceAtlas2 computed, then
+   * where it was. It now restores the positions the simulation settled on, then
    * re-frames, which matches what the button's label promises.
    */
   resetView(): void {
     if (this.graph && this.layoutHome.size) {
       const graph = this.graph;
+
+      // Halt any in-flight relaxation first, so the restore is not immediately
+      // overwritten by a frame that was already queued.
+      this.stopLayoutLoop();
+      this.layout?.stop();
+      this.layout?.alphaTarget(0);
+
       graph.forEachNode((node) => {
         const home = this.layoutHome.get(node);
         if (home) {
           graph.setNodeAttribute(node, 'x', home.x);
           graph.setNodeAttribute(node, 'y', home.y);
         }
-        // Clear any pin left behind by an interrupted drag (pointerup lost
-        // outside the window), so no node stays frozen against future layout.
-        graph.setNodeAttribute(node, 'fixed', false);
       });
+
+      // Restore the simulation to match, clearing any pin left behind by an
+      // interrupted drag (a pointerup lost outside the window). The frame loop
+      // stops at `alphaMin`, so without this the pin could survive into a later
+      // drag's re-heat and hold a node the user is not touching.
+      this.layout?.nodes().forEach((node) => {
+        const home = this.layoutHome.get(node.id);
+        if (!home) return;
+        node.x = home.x;
+        node.y = home.y;
+        node.vx = 0;
+        node.vy = 0;
+        node.fx = null;
+        node.fy = null;
+      });
+
       this.refreshRendering();
     }
     this.fitGraph();

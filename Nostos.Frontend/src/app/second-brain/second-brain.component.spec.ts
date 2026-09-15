@@ -74,7 +74,43 @@ vi.mock('graphology', () => {
   return { default: MockGraph };
 });
 
-vi.mock('graphology-layout-forceatlas2', () => ({ default: { assign: vi.fn() } }));
+/**
+ * d3-force is the concept map's layout engine now (it replaced ForceAtlas2).
+ * This spec mounts the map inside the page, so the simulation must exist in
+ * jsdom where there is no WebGL and no rAF-driven physics.
+ */
+vi.mock('d3-force', () => {
+  class MockSimulation {
+    private nodesArray: Array<Record<string, unknown>> = [];
+    constructor(nodes: Array<Record<string, unknown>> = []) { this.nodesArray = nodes; }
+    nodes() { return this.nodesArray; }
+    force() { return this; }
+    alpha() { return 0.001; }
+    alphaTarget() { return this; }
+    velocityDecay() { return this; }
+    alphaDecay() { return this; }
+    alphaMin() { return 0.001; }
+    tick() { return this; }
+    stop() { return this; }
+    restart() { return this; }
+    on() { return this; }
+  }
+  const chainable = () => {
+    const self: Record<string, unknown> = {};
+    for (const m of ['strength', 'distance', 'id', 'radius', 'distanceMin', 'x', 'y']) {
+      self[m] = vi.fn(() => self);
+    }
+    return self;
+  };
+  return {
+    forceSimulation: vi.fn((nodes: unknown) => new MockSimulation(nodes as Array<Record<string, unknown>>)),
+    forceX: vi.fn(() => chainable()),
+    forceY: vi.fn(() => chainable()),
+    forceLink: vi.fn(() => chainable()),
+    forceManyBody: vi.fn(() => chainable()),
+    forceCollide: vi.fn(() => chainable()),
+  };
+});
 
 import { SecondBrain } from './second-brain.component';
 import { ConceptDetailDto, ConceptDto, ConceptStatsDto } from '../core/services/concepts.service';
