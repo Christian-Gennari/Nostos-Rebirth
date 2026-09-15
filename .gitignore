@@ -507,3 +507,6 @@ $RECYCLE.BIN/
 *.swp
 Nostos.Frontend/node_modules
 node_modules
+
+# Concept-map audit probe output (scripts/map-audit)
+Nostos.Frontend/.map-audit-out
