@@ -23,6 +23,25 @@ vi.mock('sigma', () => {
     enable: vi.fn(),
   };
 
+  /**
+   * Captured captor handlers, keyed by event name.
+   *
+   * The drag path is driven by `getMouseCaptor().on('mousemovebody'|'mouseup')`,
+   * so a mock that only returns a `vi.fn()` makes the drag untestable: there is
+   * no way to fire the handler the component registered. Recording them here
+   * lets the specs invoke the real callbacks.
+   */
+  const captorHandlers: Record<string, (payload?: unknown) => void> = {};
+  const captor = {
+    on: vi.fn((event: string, handler: (payload?: unknown) => void) => {
+      captorHandlers[event] = handler;
+      return captor;
+    }),
+  };
+
+  /** Sigma `on(...)` handlers (downNode, enterNode, clickNode, ...). */
+  const sigmaHandlers: Record<string, (payload?: unknown) => void> = {};
+
   // Record the settings Sigma was constructed with, so tests can assert on the
   // configuration the component actually ships rather than re-declaring it.
   const lastSettings: Record<string, unknown> = {};
@@ -33,7 +52,10 @@ vi.mock('sigma', () => {
       Object.assign(lastSettings, settings);
       this.settings = lastSettings;
     }
-    on() { return this; }
+    on(event: string, handler: (payload?: unknown) => void) {
+      sigmaHandlers[event] = handler;
+      return this;
+    }
     setSetting(key: string, value: unknown) {
       lastSettings[key] = value;
       return this;
@@ -44,7 +66,7 @@ vi.mock('sigma', () => {
       return camera;
     }
     getMouseCaptor() {
-      return { on: vi.fn().mockReturnThis() };
+      return captor;
     }
     getDimensions() {
       return { width: 800, height: 600 };
@@ -66,6 +88,8 @@ vi.mock('sigma', () => {
   // settings the component actually shipped, without importing the mock.
   (globalThis as unknown as { __camera: unknown }).__camera = camera;
   (globalThis as unknown as { __settings: unknown }).__settings = lastSettings;
+  (globalThis as unknown as { __captor: unknown }).__captor = captorHandlers;
+  (globalThis as unknown as { __sigmaHandlers: unknown }).__sigmaHandlers = sigmaHandlers;
 
   return { default: MockSigma, __camera: camera, __settings: lastSettings };
 });
@@ -96,6 +120,16 @@ vi.mock('graphology', () => {
     }
     setNodeAttribute(node: string, attribute: string, value: unknown) {
       this.nodes.get(node)![attribute] = value;
+    }
+    /**
+     * Added for the drag-physics path. Sigma's own graph has this; the hand-rolled
+     * mock lagged behind production and would have thrown at drag-end.
+     */
+    removeNodeAttribute(node: string, attribute: string) {
+      delete this.nodes.get(node)?.[attribute];
+    }
+    hasNodeAttribute(node: string, attribute: string) {
+      return attribute in (this.nodes.get(node) ?? {});
     }
     forEachEdge(callback: (edge: string, attrs: Record<string, unknown>, source: string, target: string) => void) {
       for (const e of this.edges) {
@@ -509,6 +543,89 @@ describe('ConceptMapComponent', () => {
 
       // And connected edges are thicker than the base stroke.
       expect(Number(connected['size'])).toBeGreaterThan(Number(unrelated['size']));
+    });
+  });
+
+  describe('carry: drag physics', () => {
+    it('pins the dragged node and runs the layout so neighbours follow', () => {
+      setConcepts(concepts);
+      flushGraph();
+
+      const graph = (globalThis as {
+        __nostosGraph?: {
+          getNodeAttributes: (n: string) => Record<string, unknown>;
+          hasNodeAttribute: (n: string, a: string) => boolean;
+        };
+      }).__nostosGraph!;
+      const assign = (globalThis as {
+        __faAssign?: { mock: { calls: Array<[unknown, { iterations: number; settings: Record<string, number> }]> } };
+      }).__faAssign!;
+
+      const before = assign.mock.calls.length;
+
+      // Press without moving enough to pass the drag threshold: the node must be
+      // held and the layout must be asked to run.
+      const handlers = (globalThis as unknown as {
+        __captor: Record<string, (payload?: unknown) => void>;
+      }).__captor;
+      const sigmaHandlers = (globalThis as unknown as {
+        __sigmaHandlers: Record<string, (payload?: unknown) => void>;
+      }).__sigmaHandlers;
+
+      sigmaHandlers['downNode']!({ node: 'alpha', event: { x: 0, y: 0 } });
+      expect(
+        graph.getNodeAttributes('alpha')['fixed'],
+        'the pressed node must be pinned for ForceAtlas2'
+      ).toBe(true);
+
+      handlers['mousemovebody']!({ x: 40, y: 40, preventSigmaDefault: () => {} });
+      expect(
+        assign.mock.calls.length,
+        'the live layout must run while dragging so neighbours follow'
+      ).toBeGreaterThan(before);
+
+      const liveCall = assign.mock.calls.at(-1)!;
+      expect(
+        liveCall[1].iterations,
+        'a per-frame step needs a few iterations to overcome FA2\'s per-call momentum reset'
+      ).toBeGreaterThan(1);
+      // The live loop must use the same tuned repulsion as the initial settle,
+      // or the graph would relax into a different (measurably clumpier) shape.
+      expect(liveCall[1].settings['scalingRatio']).toBeGreaterThanOrEqual(60);
+      expect(liveCall[1].settings['gravity']).toBeLessThanOrEqual(0.25);
+
+      handlers['mouseup']!(undefined);
+      expect(
+        graph.getNodeAttributes('alpha')['fixed'],
+        'the pin must be released on mouseup'
+      ).toBe(false);
+
+      // A release must not leave the layout running.
+      const afterRelease = assign.mock.calls.length;
+      handlers['mousemovebody']!({ x: 80, y: 80, preventSigmaDefault: () => {} });
+      expect(assign.mock.calls.length, 'no layout work after the drag ends').toBe(afterRelease);
+    });
+
+    it('clears any stale pin when the layout is reset', () => {
+      setConcepts(concepts);
+      flushGraph();
+
+      const graph = (globalThis as {
+        __nostosGraph?: {
+          getNodeAttributes: (n: string) => Record<string, unknown>;
+          setNodeAttribute: (n: string, a: string, v: unknown) => void;
+        };
+      }).__nostosGraph!;
+
+      // Simulate a drag whose pointerup was lost outside the window.
+      graph.setNodeAttribute('alpha', 'fixed', true);
+
+      component.resetView();
+
+      expect(
+        graph.getNodeAttributes('alpha')['fixed'],
+        'Reset must unfreeze a node stranded by an interrupted drag'
+      ).toBe(false);
     });
   });
 
