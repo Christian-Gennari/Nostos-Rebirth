@@ -113,10 +113,22 @@ concepts; and the map renders co-occurring concepts as a force-directed graph.
 Index sort and list/map view persist under `nostos.brain.indexSort` and
 `nostos.brain.viewMode` respectively.
 
+**The Brain has a persistent header**, rendered in both view modes. It owns the
+surface title, the concept stats, the concept search and the list/map mode
+switch, and it does not move or change shape when the mode changes — the switch
+you clicked to enter the map is the same control, in the same place, that
+returns you to the list. Sort stays in the index rail, because it orders the
+list and the list is the only thing it can act on.
+
+**The concept search is a persistent filter, not a per-mode one.** It filters
+the concept set in both modes and its query carries across the toggle, so the
+list and the map always agree about which concepts they are showing; an empty
+graph says `No concepts match "…"` when a query is responsible and
+`No connections yet` only when the connections genuinely do not exist.
+
 **Map view is a whole-surface mode.** Toggling into it closes the index rail and
 the layout collapses to a single column, so the map is never on screen beside a
-list it has already replaced; the map's own toolbar carries the search and the
-control back to the list view. **Double-clicking a node opens that concept's
+list it has already replaced. **Double-clicking a node opens that concept's
 notes** — the same destination an index row click reaches — which also returns
 to list view. A single click selects, and **clicking empty space clears the
 selection** (the map otherwise stays stuck on the last node clicked). A camera

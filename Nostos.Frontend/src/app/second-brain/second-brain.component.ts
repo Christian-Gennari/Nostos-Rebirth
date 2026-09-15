@@ -766,13 +766,14 @@ export class SecondBrain implements AfterViewChecked {
 
   setViewMode(mode: string): void {
     if (!BRAIN_VIEW_MODES.includes(mode as BrainViewMode)) return;
-    // Entering map view clears the index search.
+    // Deliberately does NOT clear the search any more.
     //
-    // The index search filters the concept set the map renders, and map view
-    // closes the rail — so a query left over from the list would silently shrink
-    // the graph with no visible cause and no control to clear it. The map has its
-    // own search, which centres a node without hiding anything.
-    if (mode === 'map' && this.viewMode() !== 'map') this.clearSearch();
+    // It used to, because the search lived in the index rail and map view closes
+    // that rail: a query left over from the list would shrink the graph with the
+    // control that caused it off screen. The search now lives in the persistent
+    // header, which stays visible in BOTH modes — so the filter is always
+    // visible, always explainable, and always clearable, and the query simply
+    // carries across the toggle the way a persistent filter should.
     this.viewMode.set(mode as BrainViewMode);
     try {
       localStorage.setItem(BRAIN_VIEW_MODE_STORAGE_KEY, mode);
@@ -808,17 +809,6 @@ export class SecondBrain implements AfterViewChecked {
   /** Leave the map to read the selected concept's notes (the rail action). */
   openSelectedConcept(): void {
     if (!this.selectedId()) return;
-    this.setViewMode('list');
-  }
-
-  /**
-   * Leave map view entirely, returning to the index.
-   *
-   * In map view the index rail is closed on EVERY viewport, so this is the only
-   * way back — the map's own "Concept view" control calls it. Without it the
-   * whole-surface mode would be a one-way door.
-   */
-  leaveMap(): void {
     this.setViewMode('list');
   }
 
