@@ -307,6 +307,20 @@
     justify-content: center;
     flex-wrap: wrap;
     padding: 0.25rem;
+    /*
+     * Space the targets apart, not just up to size.
+     *
+     * The buttons are 44x44px (correct), but `gap: 0.1rem` left only 1.6px
+     * between adjacent hit areas — measured on a 390x844 viewport. Two thumbs
+     * cannot reliably resolve a 1.6px boundary, so every action was a coin flip
+     * against its neighbour: tap Fit and land on Focus. Apple's guidance is
+     * 44x44pt with space BETWEEN targets, so the gap is the actual defect, not
+     * the button size.
+     *
+     * 0.4rem gives ~6.4px of separation, which also reads in the QHD screenshot
+     * as six distinct buttons rather than one smear of glyphs.
+     */
+    gap: 0.4rem;
   }
 
   /* A tap target on a phone, where a mis-tap costs a camera jump. */
@@ -314,6 +328,31 @@
   .map-selection {
     min-height: 44px;
     min-width: 44px;
+  }
+
+  /*
+   * The selection chip takes its OWN row when present.
+   *
+   * Six 44px controls plus a name and a notes button cannot share one 353px
+   * row: with the tap-gap above it overflows, and `flex-wrap` then broke it
+   * accidentally — measured a rail 104px tall with one button stranded on a
+   * second row and overlapping its neighbour (a -203.8px "gap" between two
+   * targets). Giving the chip a full-width basis makes the two-row shape
+   * deliberate and keeps every control on one clean line beneath it.
+   *
+   * Nothing selected = the rail is still a single 54px row, so the graph only
+   * gives up height while there is actually a selection to show.
+   */
+  .map-selection {
+    flex: 1 1 100%;
+    justify-content: center;
+    padding-left: 0;
+  }
+
+  /* The divider separates chip from controls inline; as stacked rows the row
+     break does that job and a hairline would read as a border. */
+  .map-rail-divider {
+    display: none;
   }
 
   /* Fill the column instead of a fixed 420px: the parent now hands the map a

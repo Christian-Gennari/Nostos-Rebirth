@@ -187,6 +187,28 @@ async function openMap(page, baseUrl, wait = 3000) {
       controlsWithinViewport: cr ? (cr.top >= 0 && cr.left >= 0 && cr.right <= window.innerWidth && cr.bottom <= window.innerHeight) : null,
       controlsRect: cr ? { t: Math.round(cr.top), l: Math.round(cr.left), r: Math.round(cr.right), b: Math.round(cr.bottom) } : null,
       touchTargets: [...document.querySelectorAll('[role="toolbar"] button')].map((b) => Math.round(b.getBoundingClientRect().height)),
+      // Spacing between adjacent hit areas, and any pair that overlaps. Both
+      // were wrong in the shipped rail: 1.6px of separation between 44px
+      // targets, and a wrap that stranded one button over its neighbour.
+      targetGaps: (() => {
+        const bs = [...document.querySelectorAll('[role="toolbar"] button')].map((b) => b.getBoundingClientRect());
+        const gaps = [];
+        for (let i = 1; i < bs.length; i++) {
+          // Only same-row neighbours have a meaningful horizontal gap.
+          if (Math.abs(bs[i].top - bs[i - 1].top) < 2) gaps.push(Math.round(bs[i].left - bs[i - 1].right));
+        }
+        return gaps;
+      })(),
+      overlappingTargetPairs: (() => {
+        const bs = [...document.querySelectorAll('[role="toolbar"] button')].map((b) => b.getBoundingClientRect());
+        let n = 0;
+        for (let i = 0; i < bs.length; i++)
+          for (let j = i + 1; j < bs.length; j++) {
+            const a = bs[i], c = bs[j];
+            if (!(a.right <= c.left || c.right <= a.left || a.bottom <= c.top || c.bottom <= a.top)) n++;
+          }
+        return n;
+      })(),
       offscreenNodes: off.length,
       docScrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
@@ -202,7 +224,60 @@ async function openMap(page, baseUrl, wait = 3000) {
     JSON.stringify(m.controlsRect));
   record('mobile', 'touch targets are at least 40px tall',
     m.touchTargets.every((h) => h >= 40), `heights ${m.touchTargets.join(',')}`);
+  // A target can be 44px and still be untappable if it touches its neighbour.
+  // Shipped: 1.6px between adjacent 44px controls.
+  record('mobile', 'adjacent targets are separated by at least 4px',
+    m.targetGaps.every((g) => g >= 4), `gaps ${m.targetGaps.join(',')}px`);
+  record('mobile', 'no two controls overlap',
+    m.overlappingTargetPairs === 0, `${m.overlappingTargetPairs} overlapping pair(s)`);
   record('mobile', 'no nodes open off screen', m.offscreenNodes === 0, `${m.offscreenNodes} off screen`);
+
+  /*
+   * THE reported bug: a touch gesture on a node left the camera disabled for
+   * good, because Sigma emits `mouseup` for a mouse only and a touch release
+   * arrives as `touchup` on a different captor. Nothing ever re-enabled the
+   * camera, so every control silently died after a single tap.
+   *
+   * Driven through real touch events on a real node, because this cannot be
+   * caught by reading geometry: the failure is that a HANDLER never ran.
+   */
+  const touchProbe = await page.evaluate(() => {
+    const sig = globalThis.__nostosSigma, g = globalThis.__nostosGraph;
+    let hub = null;
+    g.forEachNode((id, a) => { if (!hub || a.size > hub.size) hub = { id, ...a }; });
+    const vp = sig.graphToViewport({ x: hub.x, y: hub.y });
+    const r = document.querySelector('.sigma-container').getBoundingClientRect();
+    return { id: hub.id, label: hub.label, x: Math.round(vp.x + r.left), y: Math.round(vp.y + r.top) };
+  });
+
+  // A plain TAP: press and release on the node without travelling.
+  await page.touchscreen.tap(touchProbe.x, touchProbe.y);
+  await page.waitForTimeout(600);
+
+  const afterTap = await page.evaluate(() => {
+    const sig = globalThis.__nostosSigma, g = globalThis.__nostosGraph;
+    let pinned = 0;
+    g.forEachNode((id, a) => { if (a.fixed === true) pinned++; });
+    return { cameraEnabled: sig.getCamera().enabled, pinned };
+  });
+  record('mobile', 'tapping a node leaves the camera usable',
+    afterTap.cameraEnabled === true, `camera.enabled=${afterTap.cameraEnabled}`);
+  record('mobile', 'tapping a node leaves no node pinned',
+    afterTap.pinned === 0, `${afterTap.pinned} pinned`);
+
+  // And the controls must actually still DO something after that tap. Zoom in
+  // first: Fit is idempotent against an already-fitted graph, so asserting on
+  // the framed ratio directly would pass even with a dead camera.
+  await page.locator('[aria-label="Zoom in"]').click();
+  await page.waitForTimeout(900);
+  const zoomedRatio = await page.evaluate(() => +globalThis.__nostosSigma.getCamera().ratio.toFixed(4));
+  await page.locator('[aria-label="Fit to view"]').click();
+  await page.waitForTimeout(1200);
+  const refitRatio = await page.evaluate(() => +globalThis.__nostosSigma.getCamera().ratio.toFixed(4));
+  record('mobile', 'controls still move the camera after a tap',
+    Math.abs(zoomedRatio - refitRatio) > 0.001,
+    `zoom-in ${zoomedRatio} then Fit -> ${refitRatio} (must differ)`);
+
   record('mobile', 'no console errors', errors.length === 0, errors.slice(0, 2).join(' | ') || 'none');
 
   await page.screenshot({ path: path.join(OUT, 'mobile-end.png') });

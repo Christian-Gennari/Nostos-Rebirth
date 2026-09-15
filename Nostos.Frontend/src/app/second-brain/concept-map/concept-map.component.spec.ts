@@ -39,6 +39,22 @@ vi.mock('sigma', () => {
     }),
   };
 
+  /**
+   * Touch captor handlers, kept separate from the mouse ones.
+   *
+   * Sigma routes mouse and touch through DIFFERENT captors, and only the mouse
+   * one emits `mouseup` — touch ends as `touchup`. A mock that returns the same
+   * object for both would hide exactly the bug this exists to catch (a touch
+   * gesture never reaching the teardown, leaving the camera disabled).
+   */
+  const touchHandlers: Record<string, (payload?: unknown) => void> = {};
+  const touchCaptor = {
+    on: vi.fn((event: string, handler: (payload?: unknown) => void) => {
+      touchHandlers[event] = handler;
+      return touchCaptor;
+    }),
+  };
+
   /** Sigma `on(...)` handlers (downNode, enterNode, clickNode, ...). */
   const sigmaHandlers: Record<string, (payload?: unknown) => void> = {};
 
@@ -68,6 +84,9 @@ vi.mock('sigma', () => {
     getMouseCaptor() {
       return captor;
     }
+    getTouchCaptor() {
+      return touchCaptor;
+    }
     getDimensions() {
       return { width: 800, height: 600 };
     }
@@ -90,6 +109,7 @@ vi.mock('sigma', () => {
   (globalThis as unknown as { __settings: unknown }).__settings = lastSettings;
   (globalThis as unknown as { __captor: unknown }).__captor = captorHandlers;
   (globalThis as unknown as { __sigmaHandlers: unknown }).__sigmaHandlers = sigmaHandlers;
+  (globalThis as unknown as { __touchCaptor: unknown }).__touchCaptor = touchHandlers;
 
   return { default: MockSigma, __camera: camera, __settings: lastSettings };
 });
@@ -650,6 +670,114 @@ describe('ConceptMapComponent', () => {
       const afterRelease = assign.mock.calls.length;
       handlers['mousemovebody']!({ x: 80, y: 80, preventSigmaDefault: () => {} });
       expect(assign.mock.calls.length, 'no layout work after the drag ends').toBe(afterRelease);
+    });
+
+    /**
+     * The reported mobile bug: Sigma emits `mouseup` for a mouse only, so a
+     * touch gesture never reached the teardown, leaving `camera.disable()` in
+     * place for good. One tap on a node was enough to freeze every camera
+     * control.
+     */
+    it('releases the camera and the pin when a TOUCH gesture ends', () => {
+      setConcepts(concepts);
+      flushGraph();
+
+      const graph = (globalThis as {
+        __nostosGraph?: {
+          getNodeAttributes: (n: string) => Record<string, unknown>;
+        };
+      }).__nostosGraph!;
+      const camera = (globalThis as unknown as {
+        __camera: { disable: ReturnType<typeof vi.fn>; enable: ReturnType<typeof vi.fn> };
+      }).__camera;
+      const sigmaHandlers = (globalThis as unknown as {
+        __sigmaHandlers: Record<string, (payload?: unknown) => void>;
+      }).__sigmaHandlers;
+      const touch = (globalThis as unknown as {
+        __touchCaptor: Record<string, (payload?: unknown) => void>;
+      }).__touchCaptor;
+
+      camera.disable.mockClear();
+      camera.enable.mockClear();
+
+      // A finger lands on a node and lifts without travelling past the drag
+      // threshold — i.e. a plain TAP to select.
+      sigmaHandlers['downNode']!({ node: 'alpha', event: { x: 10, y: 10 } });
+      expect(camera.disable, 'the camera is held during the press').toHaveBeenCalled();
+      expect(graph.getNodeAttributes('alpha')['fixed']).toBe(true);
+
+      // Sigma's touch captor only has touchmove/touchup — never mouseup.
+      touch['touchup']!({ touches: [], previousTouches: [] });
+
+      expect(
+        camera.enable,
+        'a touch release must hand the camera back, or every control goes dead'
+      ).toHaveBeenCalled();
+      expect(
+        graph.getNodeAttributes('alpha')['fixed'],
+        'the touch release must also unpin the node'
+      ).toBe(false);
+    });
+
+    it('moves a node on a touch drag without leaving it pinned', () => {
+      setConcepts(concepts);
+      flushGraph();
+
+      const graph = (globalThis as {
+        __nostosGraph?: {
+          getNodeAttributes: (n: string) => Record<string, unknown>;
+        };
+      }).__nostosGraph!;
+      const sigmaHandlers = (globalThis as unknown as {
+        __sigmaHandlers: Record<string, (payload?: unknown) => void>;
+      }).__sigmaHandlers;
+      const touch = (globalThis as unknown as {
+        __touchCaptor: Record<string, (payload?: unknown) => void>;
+      }).__touchCaptor;
+
+      sigmaHandlers['downNode']!({ node: 'alpha', event: { x: 0, y: 0 } });
+      // Travel past the threshold so this counts as a drag, not a tap.
+      touch['touchmove']!({
+        touches: [{ x: 60, y: 60 }],
+        previousTouches: [{ x: 60, y: 60 }],
+        preventSigmaDefault: () => {},
+      });
+
+      expect(
+        graph.getNodeAttributes('alpha')['x'],
+        'a touch drag must reposition the node'
+      ).toBe(60);
+
+      touch['touchup']!({ touches: [], previousTouches: [] });
+      expect(graph.getNodeAttributes('alpha')['fixed']).toBe(false);
+    });
+
+    it('recovers from a release that lands outside the canvas', () => {
+      setConcepts(concepts);
+      flushGraph();
+
+      const graph = (globalThis as {
+        __nostosGraph?: {
+          getNodeAttributes: (n: string) => Record<string, unknown>;
+        };
+      }).__nostosGraph!;
+      const camera = (globalThis as unknown as {
+        __camera: { enable: ReturnType<typeof vi.fn> };
+      }).__camera;
+      const sigmaHandlers = (globalThis as unknown as {
+        __sigmaHandlers: Record<string, (payload?: unknown) => void>;
+      }).__sigmaHandlers;
+
+      camera.enable.mockClear();
+      sigmaHandlers['downNode']!({ node: 'alpha', event: { x: 0, y: 0 } });
+      expect(graph.getNodeAttributes('alpha')['fixed']).toBe(true);
+
+      // Neither mouseup nor touchup fires: the pointer was released off-canvas
+      // and only the window-level safety net sees it.
+      window.dispatchEvent(new Event('pointercancel'));
+
+      expect(camera.enable, 'the safety net must hand the camera back').toHaveBeenCalled();
+      expect(graph.getNodeAttributes('alpha')['fixed']).toBe(false);
     });
 
     it('clears any stale pin when the layout is reset', () => {

@@ -20,12 +20,12 @@ import {
   LucideAngularModule,
   BookOpen,
   Crosshair,
-  Maximize,
-  Minimize,
+  Expand,
   Minus,
   Plus,
   RotateCcw,
   Scan,
+  Shrink,
 } from 'lucide-angular';
 import Graph from 'graphology';
 import Sigma from 'sigma';
@@ -431,6 +431,17 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   private draggedNode: string | null = null;
   private isDragging = false;
   private dragStart: { x: number; y: number } | null = null;
+  /**
+   * True between a node press and its release on ANY input source.
+   *
+   * Guards the teardown so it runs exactly once per gesture. Without it,
+   * `mouseup` and the window-level `pointerup` safety net can both fire for one
+   * drag, and the second call would clear the `fixed` pin of a node the user
+   * has already moved on from.
+   */
+  private draggingActive = false;
+  /** Removes the window-level drag safety net. Set while Sigma is alive. */
+  private detachDragSafetyNet: (() => void) | null = null;
 
   /**
    * The settled ForceAtlas2 layout, kept so "Reset layout" can restore node
@@ -464,13 +475,20 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   >([]);
 
   /* Icons for the action rail. Exposed as fields because the template reads
-     them; `strokeWidth` stays at the app default of 2. */
+     them; `strokeWidth` stays at the app default of 2.
+
+     Icon choice is constrained by mutual distinctness, not just meaning: `Scan`
+     (fit) and `Maximize` were BOTH the same four-corner-bracket glyph (vertical
+     corner-marks at 3/17 vs 3/8), which read as one button repeated — reported as
+     "you use the same icon for two different buttons" and confirmed by comparing
+     the rendered SVG geometry. Focus mode uses the diagonal expand/shrink arrows
+     instead, which also communicates fullscreen better than brackets. */
   readonly zoomOutIcon = Minus;
   readonly zoomInIcon = Plus;
   readonly fitIcon = Scan;
   readonly centreIcon = Crosshair;
-  readonly focusIcon = Maximize;
-  readonly exitFocusIcon = Minimize;
+  readonly focusIcon = Expand;
+  readonly exitFocusIcon = Shrink;
   readonly resetIcon = RotateCcw;
   readonly notesIcon = BookOpen;
 
@@ -831,52 +849,26 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
     });
 
     // ── Drag-to-reposition ──
-    // On mousedown over a node, start tracking; on mousemove, update the
-    // node's position in graph coordinates so the user can untangle clusters.
-    sigma.on('downNode', (e) => {
-      component.isDragging = false;
-      // e.event is the MouseCoords for this interaction.
-      component.dragStart = { x: e.event.x, y: e.event.y };
-      component.draggedNode = e.node;
-      // Pin the node for the duration of the drag. ForceAtlas2 honours a
-      // `fixed` node attribute (`iterate.js`), so the live layout below moves
-      // everything EXCEPT this node — which is what makes the rest of the graph
-      // relax and the neighbours follow the pointer.
-      graph.setNodeAttribute(e.node, 'fixed', true);
-      // Cancel any in-flight camera animation so a Fit still settling does not
-      // fight the drag loop.
-      sigma.getCamera().disable();
-      container.classList.add('dragging');
-    });
+    //
+    // ONE lifecycle, driven by both input sources. Sigma's `downNode` fires for
+    // mouse AND touch, but its `mouseup` captor event fires for MOUSE ONLY —
+    // touch ends arrive as a separate `touchup`. That asymmetry was a shipped
+    // bug: on a phone, every tap or drag on a node called these teardown steps
+    // zero times, so `camera.disable()` was never undone.
+    //
+    // Measured before this fix, on a 390x844 touch viewport: a simple TAP on a
+    // node left `camera.enabled === false` and the node pinned with `fixed: true`
+    // — the node itself did not even move (displacement 0.0px). Every camera
+    // control then silently stopped working, including Fit: ratio stayed at
+    // 1.4286 before and after clicking it. That is the "buttons get stuck"
+    // report, and one tap was enough to trigger it.
+    //
+    // The teardown now lives in one place (`endDrag`) wired to all three
+    // possible endings: `mouseup`, `touchup`, and a window-level `pointerup` /
+    // `pointercancel` safety net for a pointer released outside the canvas.
 
-    // Sigma v3 fires 'mousemovebody' on every pointer-move over the canvas.
-    sigma.getMouseCaptor().on('mousemovebody', (e) => {
-      if (!component.draggedNode) return;
-
-      // Only promote to a real drag once the pointer has travelled past a small
-      // threshold. Without this, the sub-pixel movement of an ordinary click
-      // counts as a drag and the click-to-select that follows is swallowed.
-      if (!component.isDragging && component.dragStart) {
-        const travelled = Math.hypot(e.x - component.dragStart.x, e.y - component.dragStart.y);
-        if (travelled < DRAG_THRESHOLD_PX) return;
-        component.isDragging = true;
-      }
-
-      // Convert viewport coordinates to graph coordinates.
-      const pos = sigma.viewportToGraph({ x: e.x, y: e.y });
-      graph.setNodeAttribute(component.draggedNode, 'x', pos.x);
-      graph.setNodeAttribute(component.draggedNode, 'y', pos.y);
-
-      // Let the rest of the graph respond to the node being pulled, so
-      // neighbours follow it instead of the node moving alone.
-      component.stepLiveLayout();
-
-      // Prevent Sigma's default camera panning while dragging.
-      e.preventSigmaDefault();
-    });
-
-    // On mouseup, finalize the drag.
-    sigma.getMouseCaptor().on('mouseup', () => {
+    const endDrag = (): void => {
+      if (!component.draggingActive) return;
       // Unpin before clearing the reference: `stepLiveLayout` is a no-op once
       // `draggedNode` is null, but the attribute would otherwise stay set and
       // that node would be frozen for every future layout pass.
@@ -885,14 +877,90 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
       }
       component.draggedNode = null;
       component.dragStart = null;
+      component.draggingActive = false;
+      // Always hand the camera back. `enable()` is idempotent, so calling it on
+      // a drag that never disabled it is harmless — but MISSING it once froze
+      // the whole camera permanently.
       sigma.getCamera().enable();
       container.classList.remove('dragging');
       // Reset the drag flag after Sigma has dispatched the click that follows
-      // mouseup, so a genuine drag never also selects the node it moved.
+      // the release, so a genuine drag never also selects the node it moved.
       window.setTimeout(() => {
         component.isDragging = false;
       }, 0);
+    };
+
+    const beginDrag = (node: string, x: number, y: number): void => {
+      component.isDragging = false;
+      component.dragStart = { x, y };
+      component.draggedNode = node;
+      component.draggingActive = true;
+      // Pin the node for the duration of the drag. ForceAtlas2 honours a
+      // `fixed` node attribute (`iterate.js`), so the live layout below moves
+      // everything EXCEPT this node — which is what makes the rest of the graph
+      // relax and the neighbours follow the pointer.
+      graph.setNodeAttribute(node, 'fixed', true);
+      sigma.getCamera().disable();
+      container.classList.add('dragging');
+    };
+
+    const moveDrag = (node: string, x: number, y: number): void => {
+      // Only promote to a real drag once the pointer has travelled past a small
+      // threshold. Without this, the sub-pixel movement of an ordinary click or
+      // tap counts as a drag and the click-to-select that follows is swallowed.
+      if (!component.isDragging && component.dragStart) {
+        const travelled = Math.hypot(x - component.dragStart.x, y - component.dragStart.y);
+        if (travelled < DRAG_THRESHOLD_PX) return;
+        component.isDragging = true;
+      }
+
+      // Convert viewport coordinates to graph coordinates.
+      const pos = sigma.viewportToGraph({ x, y });
+      graph.setNodeAttribute(node, 'x', pos.x);
+      graph.setNodeAttribute(node, 'y', pos.y);
+
+      // Let the rest of the graph respond to the node being pulled, so
+      // neighbours follow it instead of the node moving alone.
+      component.stepLiveLayout();
+    };
+
+    sigma.on('downNode', (e) => {
+      component.draggingActive = false;
+      beginDrag(e.node, e.event.x, e.event.y);
     });
+
+    // Mouse path. Sigma v3 fires 'mousemovebody' on every pointer-move.
+    sigma.getMouseCaptor().on('mousemovebody', (e) => {
+      if (!component.draggedNode) return;
+      moveDrag(component.draggedNode, e.x, e.y);
+      // Prevent Sigma's default camera panning while dragging.
+      e.preventSigmaDefault();
+    });
+
+    sigma.getMouseCaptor().on('mouseup', () => endDrag());
+
+    // Touch path. `touchmove` is the touch equivalent of `mousemovebody`, and
+    // `touchup` is the ONLY signal Sigma emits when a finger leaves the screen.
+    sigma.getTouchCaptor().on('touchmove', (e) => {
+      if (!component.draggedNode) return;
+      const point = e.touches[0] ?? e.previousTouches[0];
+      if (!point) return;
+      moveDrag(component.draggedNode, point.x, point.y);
+      e.preventSigmaDefault();
+    });
+
+    sigma.getTouchCaptor().on('touchup', () => endDrag());
+
+    // Safety net for a pointer released or cancelled outside the canvas: without
+    // this a drag that ends off-target leaves the camera disabled for good.
+    component.detachDragSafetyNet?.();
+    const safetyNet = (): void => endDrag();
+    window.addEventListener('pointerup', safetyNet);
+    window.addEventListener('pointercancel', safetyNet);
+    component.detachDragSafetyNet = () => {
+      window.removeEventListener('pointerup', safetyNet);
+      window.removeEventListener('pointercancel', safetyNet);
+    };
 
     // Sigma measures the container when it is constructed, which can be before
     // the surrounding layout has settled — on a portrait phone the stage is
@@ -983,6 +1051,12 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
     this.draggedNode = null;
     this.isDragging = false;
     this.dragStart = null;
+    this.draggingActive = false;
+    // Sigma is gone, so its captor listeners that would end a drag are gone too.
+    // Drop the window-level net with them or a rebuild stacks a second one on
+    // every theme change.
+    this.detachDragSafetyNet?.();
+    this.detachDragSafetyNet = null;
     this.layoutHome.clear();
   }
 
