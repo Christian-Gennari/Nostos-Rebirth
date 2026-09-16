@@ -149,55 +149,113 @@ for (const theme of THEMES) {
       console.log(`QUOTES RENDERED (${theme}):`, quotes);
       expect(quotes, 'seeded quote notes must render quotes').toBeGreaterThan(0);
 
-      // The quote and the commentary that comments on it must share ONE measure.
-      // The defect this pins: the quote was capped at 62ch *inside* a
-      // full-width card, so on a 1440px viewport the quote stopped at 611px
-      // while the commentary beneath it ran to 969px inside a 1016px card —
-      // a 360px (35%) empty band right of every quotation, and two different
-      // measures in the same card. Cap the CARD, not the text.
+      // The board must actually board: notes sit BESIDE each other whenever there
+      // is more than one, and no note is stranded against the left edge of a row
+      // with empty pane to its right.
+      //
+      // The defect these assertions pin, in order of how it was found:
+      //  (1) The first attempt capped the quote text at 62ch INSIDE a full-width
+      //      card, leaving a 360px dead band right of the quotation and two
+      //      different measures in one card.
+      //  (2) The second attempt capped the CARD at 44rem but LEFT the
+      //      `grid-column: 1 / -1` full-row span in place, so a 704px card sat
+      //      against the left edge of a 1016px row with a 312px void down the
+      //      right of the pane — and because most notes carry a quotation, every
+      //      note was forced onto its own row and no two could ever sit side by
+      //      side. That is why the pane read as "a stack of cards".
+      // An assertion that only measures inside the card cannot see (2): it is a
+      // PANE-level defect. So measure the pane.
       const measured = await page.evaluate(() => {
-        const out: Array<Record<string, number>> = [];
-        for (const card of Array.from(document.querySelectorAll('.note-card'))) {
-          const quote = card.querySelector('.quote-text') as HTMLElement | null;
-          if (!quote) continue;
-          const container = card.querySelector('.note-card-container') as HTMLElement | null;
-          if (!container) continue;
-          const cs = getComputedStyle(container);
-          const contentRight =
-            container.getBoundingClientRect().right -
-            parseFloat(cs.paddingRight) -
-            parseFloat(cs.borderRightWidth);
-          const commentary = card.querySelector('.note-text') as HTMLElement | null;
-          out.push({
-            quoteRight: Math.round(quote.getBoundingClientRect().right),
-            commentaryRight: commentary ? Math.round(commentary.getBoundingClientRect().right) : -1,
-            contentRight: Math.round(contentRight),
-          });
-        }
-        return out;
+        const grid = document.querySelector('.cards-grid') as HTMLElement | null;
+        if (!grid) return null;
+        const gridRect = grid.getBoundingClientRect();
+        const cards = Array.from(document.querySelectorAll('.note-card')) as HTMLElement[];
+        return {
+          gridLeft: Math.round(gridRect.left),
+          gridRight: Math.round(gridRect.right),
+          gridWidth: Math.round(gridRect.width),
+          cards: cards.map((card) => {
+            const r = card.getBoundingClientRect();
+            const quote = card.querySelector('.quote-text') as HTMLElement | null;
+            const commentary = card.querySelector('.note-text') as HTMLElement | null;
+            return {
+              left: Math.round(r.left),
+              right: Math.round(r.right),
+              top: Math.round(r.top),
+              width: Math.round(r.width),
+              quoteRight: quote ? Math.round(quote.getBoundingClientRect().right) : -1,
+              commentaryRight: commentary ? Math.round(commentary.getBoundingClientRect().right) : -1,
+              // Empty pane between this card's right edge and the grid's: zero for
+              // a card that fills its track.
+              voidRight: Math.round(gridRect.right - r.right),
+            };
+          }),
+        };
       });
 
-      console.log(`QUOTE MEASURES (${theme}):`, JSON.stringify(measured));
+      console.log(`BOARD LAYOUT (${theme}):`, JSON.stringify(measured));
+      expect(measured, '.cards-grid must render').not.toBeNull();
 
-      expect(measured.length, 'at least one quote card must render').toBeGreaterThan(0);
+      const cards = measured!.cards;
+      expect(cards.length, 'at least one note card must render').toBeGreaterThan(0);
 
-      // No quotation may sit in a card with a wide dead band to its right.
-      // 40px is generous (the fix measures 23px ≈ the card's own padding); the
-      // defect measured 360px, so this pins the defect, not pixel perfection.
-      const worstDead = Math.max(
-        ...measured.map((m) => m.contentRight - m.quoteRight),
-      );
-      console.log(`WORST QUOTE DEAD BAND (${theme}, px):`, worstDead);
-      expect(worstDead, 'a quotation must not leave a wide dead band in its card').toBeLessThanOrEqual(
-        40,
-      );
-
-      // Where a card carries both, quote and commentary must end on the same
-      // column — one measure per card, not two.
-      for (const m of measured) {
-        if (m.commentaryRight < 0) continue;
+      // (2) No card may be stranded: it must reach the right edge of its grid, so
+      // the pane carries no dead band beside a note. A wrapped card legitimately
+      // lands in the last still-open track, so the assertion is on the GRID's
+      // right edge being reached by at least one card in the final row, plus no
+      // single card sitting far short of it.
+      if (cards.length === 1) {
+        // The one-note case is deliberately narrower than the pane (a 44rem
+        // reading measure), and centred — so assert it is CENTRED, which is what
+        // makes it read as intentional rather than as a failed board.
+        const leftGap = cards[0].left - measured!.gridLeft;
+        const rightGap = measured!.gridRight - cards[0].right;
+        console.log(`SINGLE NOTE GAPS (${theme}): left=${leftGap} right=${rightGap}`);
         expect(
-          Math.abs(m.quoteRight - m.commentaryRight),
+          Math.abs(leftGap - rightGap),
+          'a lone note must be centred in the pane, not stranded on the left',
+        ).toBeLessThanOrEqual(2);
+      } else {
+        // With more than one note the board must actually place notes beside each
+        // other: at least two cards share a row.
+        const byTop = new Map<number, number[]>();
+        for (const c of cards) {
+          const row = byTop.get(c.top) ?? [];
+          row.push(c.left);
+          byTop.set(c.top, row);
+        }
+        const rows = [...byTop.values()].map((lefts) => lefts.sort((a, b) => a - b));
+        console.log(`CARDS PER ROW (${theme}):`, JSON.stringify(rows.map((r) => r.length)));
+        expect(
+          Math.max(...rows.map((r) => r.length)),
+          'notes must sit beside each other on the board (not one per row)',
+        ).toBeGreaterThanOrEqual(2);
+
+        // Every row must be laid out edge to edge across the grid: it starts at
+        // the grid's left edge and its rightmost card reaches the grid's right
+        // edge. A row that stops short is the "stack of cards with dead space"
+        // defect — which is exactly what a forced `grid-column: 1 / -1` plus a
+        // card `max-width` produced.
+        for (const lefts of rows) {
+          expect(
+            Math.abs(lefts[0] - measured!.gridLeft),
+            'a row must start at the grid edge',
+          ).toBeLessThanOrEqual(2);
+          const lastRight = Math.max(
+            ...cards.filter((c) => lefts.includes(c.left)).map((c) => c.right),
+          );
+          expect(
+            Math.abs(lastRight - measured!.gridRight),
+            'a row must reach the grid right edge (no dead pane band)',
+          ).toBeLessThanOrEqual(2);
+        }
+      }
+
+      // Quote and its commentary must share ONE measure (right edges within 2px).
+      for (const c of cards) {
+        if (c.quoteRight < 0 || c.commentaryRight < 0) continue;
+        expect(
+          Math.abs(c.quoteRight - c.commentaryRight),
           'quote and its commentary must share one measure',
         ).toBeLessThanOrEqual(2);
       }

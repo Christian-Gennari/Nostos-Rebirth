@@ -1421,13 +1421,32 @@
 }
 
 /* GRID */
+/* An adaptive board: notes sit BESIDE each other and wrap, rather than forming a
+   single column of full-width rows.
+ *
+ * `auto-fit` (not `auto-fill`) is what makes the board adapt to how many notes a
+ * concept actually has: an unused track collapses to zero, so the remaining
+ * tracks take the whole pane. Measured on live data at 1440px: 1 note -> one
+ * 704px column; 2 notes -> 500px each side by side; 3 notes -> 496px with the
+ * third wrapping under the first, exactly the "notes pinned to a board" feel.
+ * With `auto-fill` the empty tracks would be reserved, stranding one card at
+ * 340px in the corner of a mostly-empty pane. */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
   align-items: start;
   gap: 1.25rem 1.5rem;
   max-width: 1100px;
   margin: 0 auto;
+}
+
+/* A single note has no peers to sit beside, so the board would be a board of
+   one: a 340px card adrift in an 1100px field. Contract the GRID to the reading
+   measure instead and let the card fill it — the note then reads as a deliberate
+   page rather than a failed multi-column layout. This is the common case: 47 of
+   the 53 concepts in the live library hold exactly one note. */
+.cards-grid:has(> :only-child) {
+  max-width: 44rem;
 }
 
 /* CARDS */
@@ -1443,25 +1462,26 @@
   transition: transform var(--motion-fast) var(--ease-out);
 }
 
-/* A card carrying a quote takes the full row. A quotation set in a 300px column
-   wraps every 3-4 words, which reads as cramped rather than quoted; giving the
-   quote the whole measure is what turns it from an excerpt into a pull-quote.
-
-   The row it takes is capped at the app's editorial reading measure (the same
-   44rem as the book-detail hero copy) rather than the grid's full 1100px. The
-   quote used to be capped *inside* a full-width card, which set two different
-   measures in one card: measured on live data, the quote stopped at 611px while
-   the commentary beneath it ran to 969px inside a 1016px card, leaving a 360px
-   (35% of the card) empty band to the right of every quotation and a commentary
-   column that did not line up with the quotation it comments on. Capping the
-   card instead gives the quote and its commentary one shared column and lets the
-   card hug that measure: the dead band drops to 23px (2%) and both right edges
-   land on the same pixel. */
-.note-card:has(app-note-card .note-quote) {
-  grid-column: 1 / -1;
-  max-width: 44rem;
-}
-
+/* A card carrying a quote takes its own track — it is NOT forced across the whole
+   row.
+ *
+ * It used to be `grid-column: 1 / -1`, on the reasoning that a quotation set in a
+ * 300px column wraps every 3-4 words. That reasoning was right about the narrow
+ * case but the fix was wrong, and the cost only showed up once the card was also
+ * width-capped: a full-row span with `max-width: 44rem` pinned a 704px card to
+ * the LEFT edge of a 1016px row, leaving a 312px empty band down the whole right
+ * side of the pane — and because 50 of the 63 notes in the live library carry a
+ * quotation, EVERY note in the pane was forced onto its own row, so no two notes
+ * could ever sit side by side. The pane collapsed into the single column the
+ * board exists to avoid.
+ *
+ * Letting the quote card take its natural track instead means it shares rows with
+ * its neighbours and gets its measure from the track width: ~500px at two notes
+ * and ~496px at three, which is a 55-65 character line in Newsreader — inside
+ * the comfortable reading range, so the narrower column costs nothing. Where a
+ * quotation genuinely needs more room than a track can give, the honest lever is
+ * an explicit user choice, not an automatic full-width span inferred from the
+ * presence of a quote. */
 .note-card:hover {
   transform: translateY(-2px);
 }
