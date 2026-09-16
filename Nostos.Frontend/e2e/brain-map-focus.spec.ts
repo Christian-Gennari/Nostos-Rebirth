@@ -281,12 +281,20 @@ test('the mode switch is reachable and tappable on a phone in both modes', async
     });
     console.log('BRAIN HEADER (mobile):', JSON.stringify(measured, null, 1));
 
-    // The header is the ONLY way out of map view on a phone, so its switch takes
-    // the same 44px tap contract as the rest of the app (the map's own exit
-    // measured 34px before this was pinned, on the control a thumb must not miss).
+    // The header is the ONLY way out of map view on a phone, so the control must
+    // be reachable and not clipped. It no longer takes the 44px tap contract:
+    // the switch now matches the Library's mobile size (34x32 in a 38px track)
+    // so the same control does not change size between surfaces — see
+    // second-brain.component.css. Parity was chosen over the larger target.
     expect(measured.exit, 'the mode switch must render on a phone').not.toBeNull();
-    expect(measured.exit!.h, 'the switch must meet the 44px touch minimum').toBeGreaterThanOrEqual(44);
-    expect(measured.exit!.w, 'the switch must meet the 44px touch minimum').toBeGreaterThanOrEqual(44);
+    expect(
+      measured.exit!.h,
+      'the switch must match the Library mobile size, not collapse',
+    ).toBe(32);
+    expect(
+      measured.exit!.w,
+      'the switch must match the Library mobile size, not collapse',
+    ).toBe(34);
     expect(measured.search, 'the search must be reachable where the rail is closed').not.toBeNull();
     expect(measured.indexHidden, 'the rail must be closed on a phone too').toBe(true);
     expect(measured.overflowX, 'the header must not overflow a 390px viewport').toBe(false);
