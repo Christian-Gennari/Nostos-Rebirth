@@ -241,8 +241,9 @@
    the active segment kept its light tokens while everything else went dark.
    That override is gone — the dark treatment is now a TOKEN
    (--control-active-fill / --control-active-ink) read by the shared rule — so
-   there is no longer anything for a scoped copy to race. The mobile override
-   below stays: Brain uses a 44px touch target where Library uses 32px. */
+   there is no longer anything for a scoped copy to race. The mobile override below now
+ MATCHES Library's (34x32 in a 38px track) rather than using its own 44px
+ target, so the two render the same control at every width. */
 /* `.sort-label` is gone: the affordance now lives inside the control ("Sort: Most
    used"), so there is no separate micro-label beside it to strand. The accessible
    name is a visually-hidden <label>. */
@@ -1712,14 +1713,33 @@
     min-height: 44px;
   }
 
-  /* Bare class, matching the rules above: scoping under `.view-mode-control`
-     is the specificity pattern that broke the dark theme (see the note on
-     `.toggle-opt`), and this only sets a touch-target size. */
+  /* Match the Library's mobile toggle EXACTLY: a 34x32 option in a 38px track.
+     Library is the reference (`@media (max-width: 768px)` in
+     library.component.css), and the two surfaces render the same control, so a
+     44px Brain option beside a 32px Library one read as two different controls.
+
+     The 8px width note: at the shared base's `4px 6px` padding an option is 30px
+     wide, so a tap had to land in a narrow band. Library widens its mobile
+     padding to `4px 8px` (=> 34px, the 18px glyph plus 8px each side), and that
+     is what this copies. Setting `height` rather than `min-height` is what makes
+     the option exactly 32px instead of growing to fill the track.
+
+     Consequence, deliberate: this drops the option below the 44px tap-target
+     minimum that the rest of the Brain's mobile chrome keeps. That is the
+     trade-off chosen here — visible parity with the Library over the larger
+     target — and it is why the 44px assertion in mobile-studio-brain.spec.ts was
+     narrowed to the search field rather than left to fail. */
   .toggle-opt {
-    min-height: 44px;
-    /* 30px box at 44px tall: a tap had to land within an 8px-wide sliver to
-       register. Pad it out to the 44px square the rest of the app uses. */
-    min-width: 44px;
+    height: 32px;
+    padding: 4px 8px;
+  }
+
+  /* Pinned rather than left to derive from the option height, so the track cannot
+     drift from Library's if the option padding ever changes. */
+  .view-mode-control {
+    height: 38px;
+    box-sizing: border-box;
+    align-items: center;
   }
 
   .clear-search {
