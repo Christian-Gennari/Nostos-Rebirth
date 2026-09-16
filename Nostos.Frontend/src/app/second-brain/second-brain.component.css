@@ -1445,19 +1445,25 @@
 
 /* A card carrying a quote takes the full row. A quotation set in a 300px column
    wraps every 3-4 words, which reads as cramped rather than quoted; giving the
-   quote the whole measure is what turns it from an excerpt into a pull-quote. */
+   quote the whole measure is what turns it from an excerpt into a pull-quote.
+
+   The row it takes is capped at the app's editorial reading measure (the same
+   44rem as the book-detail hero copy) rather than the grid's full 1100px. The
+   quote used to be capped *inside* a full-width card, which set two different
+   measures in one card: measured on live data, the quote stopped at 611px while
+   the commentary beneath it ran to 969px inside a 1016px card, leaving a 360px
+   (35% of the card) empty band to the right of every quotation and a commentary
+   column that did not line up with the quotation it comments on. Capping the
+   card instead gives the quote and its commentary one shared column and lets the
+   card hug that measure: the dead band drops to 23px (2%) and both right edges
+   land on the same pixel. */
 .note-card:has(app-note-card .note-quote) {
   grid-column: 1 / -1;
+  max-width: 44rem;
 }
 
 .note-card:hover {
   transform: translateY(-2px);
-}
-
-/* The pull-quote is the editorial moment of the page, so it takes a wider
-   measure than the commentary inside the same card. */
-:host ::ng-deep app-note-card .note-quote .quote-text {
-  max-width: 62ch;
 }
 
 /* The shared note card owns editing, concept input and source navigation. The

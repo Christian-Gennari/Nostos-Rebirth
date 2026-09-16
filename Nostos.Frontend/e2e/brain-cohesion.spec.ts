@@ -149,6 +149,59 @@ for (const theme of THEMES) {
       console.log(`QUOTES RENDERED (${theme}):`, quotes);
       expect(quotes, 'seeded quote notes must render quotes').toBeGreaterThan(0);
 
+      // The quote and the commentary that comments on it must share ONE measure.
+      // The defect this pins: the quote was capped at 62ch *inside* a
+      // full-width card, so on a 1440px viewport the quote stopped at 611px
+      // while the commentary beneath it ran to 969px inside a 1016px card —
+      // a 360px (35%) empty band right of every quotation, and two different
+      // measures in the same card. Cap the CARD, not the text.
+      const measured = await page.evaluate(() => {
+        const out: Array<Record<string, number>> = [];
+        for (const card of Array.from(document.querySelectorAll('.note-card'))) {
+          const quote = card.querySelector('.quote-text') as HTMLElement | null;
+          if (!quote) continue;
+          const container = card.querySelector('.note-card-container') as HTMLElement | null;
+          if (!container) continue;
+          const cs = getComputedStyle(container);
+          const contentRight =
+            container.getBoundingClientRect().right -
+            parseFloat(cs.paddingRight) -
+            parseFloat(cs.borderRightWidth);
+          const commentary = card.querySelector('.note-text') as HTMLElement | null;
+          out.push({
+            quoteRight: Math.round(quote.getBoundingClientRect().right),
+            commentaryRight: commentary ? Math.round(commentary.getBoundingClientRect().right) : -1,
+            contentRight: Math.round(contentRight),
+          });
+        }
+        return out;
+      });
+
+      console.log(`QUOTE MEASURES (${theme}):`, JSON.stringify(measured));
+
+      expect(measured.length, 'at least one quote card must render').toBeGreaterThan(0);
+
+      // No quotation may sit in a card with a wide dead band to its right.
+      // 40px is generous (the fix measures 23px ≈ the card's own padding); the
+      // defect measured 360px, so this pins the defect, not pixel perfection.
+      const worstDead = Math.max(
+        ...measured.map((m) => m.contentRight - m.quoteRight),
+      );
+      console.log(`WORST QUOTE DEAD BAND (${theme}, px):`, worstDead);
+      expect(worstDead, 'a quotation must not leave a wide dead band in its card').toBeLessThanOrEqual(
+        40,
+      );
+
+      // Where a card carries both, quote and commentary must end on the same
+      // column — one measure per card, not two.
+      for (const m of measured) {
+        if (m.commentaryRight < 0) continue;
+        expect(
+          Math.abs(m.quoteRight - m.commentaryRight),
+          'quote and its commentary must share one measure',
+        ).toBeLessThanOrEqual(2);
+      }
+
       await capturePng(page, `brain-cohesion-quotes-${theme}`);
     } finally {
       await context.close();
