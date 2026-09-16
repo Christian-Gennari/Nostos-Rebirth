@@ -284,12 +284,19 @@ test('the Brain back control stays reachable after scrolling the detail sheet', 
   await expect(page.locator('.index-item', { hasText: concept }).first()).toBeVisible();
 });
 
-test('the Brain index exposes 44px view-mode and search targets', async ({ page }) => {
+/**
+ * The view-mode toggle is deliberately NOT part of this check any more. It used
+ * to assert 44px here, but the toggle now matches the Library's mobile metrics
+ * (34x32 in a 38px track) so the same control does not change size between the
+ * two surfaces — see second-brain.component.css. Parity won over the larger
+ * target; the search field below keeps the 44px contract.
+ */
+test('the Brain index exposes a 44px search target', async ({ page }) => {
   await page.goto(`${fixture.baseUrl}/second-brain`, { waitUntil: 'domcontentloaded' });
   await page.locator('.brain-header').waitFor({ timeout: 30_000 });
 
   const undersized = await page
-    .locator('.brain-header .toggle-opt, .brain-header .search-box input')
+    .locator('.brain-header .search-box input')
     .evaluateAll((els) =>
       els
         .filter((el) => el.getBoundingClientRect().width > 0)
@@ -308,6 +315,52 @@ test('the Brain index exposes 44px view-mode and search targets', async ({ page 
     undersized,
     `Brain index controls under ${MIN_TAP_TARGET}px: ${JSON.stringify(undersized)}`,
   ).toEqual([]);
+});
+
+/**
+ * Mobile parity for the view-mode toggle.
+ *
+ * The desktop parity gate (`brain-library-parity.spec.ts`) runs only in the
+ * desktop project, so nothing caught the Brain's toggle diverging on a phone:
+ * Library rendered a 34x32 option in a 38px track while Brain rendered 44x44 in a
+ * 50px one, and the two read as different controls.
+ *
+ * This measures BOTH surfaces at the same phone width inside one test, because
+ * each is only meaningful against the other. Sizes are asserted exactly rather
+ * than within a tolerance — the point is that they are the same control.
+ */
+test('the mobile view-mode toggle matches the library toggle', async ({ page }) => {
+  const box = async (groupSel: string) =>
+    page.evaluate((sel) => {
+      const g = document.querySelector(sel);
+      const opt = g ? g.querySelector('.toggle-opt') : null;
+      if (!g || !opt) return null;
+      const gr = g.getBoundingClientRect();
+      const or = opt.getBoundingClientRect();
+      return {
+        group: { w: Math.round(gr.width), h: Math.round(gr.height) },
+        opt: { w: Math.round(or.width), h: Math.round(or.height) },
+      };
+    }, groupSel);
+
+  await page.goto(`${fixture.baseUrl}/library`, { waitUntil: 'domcontentloaded' });
+  await page.locator('.control-group').waitFor({ timeout: 30_000 });
+  await page.waitForTimeout(300);
+  const lib = await box('.control-group');
+
+  await page.goto(`${fixture.baseUrl}/second-brain`, { waitUntil: 'domcontentloaded' });
+  await page.locator('.view-mode-control').waitFor({ timeout: 30_000 });
+  await page.waitForTimeout(300);
+  const brain = await box('.view-mode-control');
+
+  expect(lib && brain, 'both toggles present').toBeTruthy();
+  expect(brain!.opt, `brain option vs library option (${JSON.stringify({ brain, lib })})`).toEqual(
+    lib!.opt,
+  );
+  expect(
+    brain!.group,
+    `brain track vs library track (${JSON.stringify({ brain, lib })})`,
+  ).toEqual(lib!.group);
 });
 
 /**

@@ -946,8 +946,10 @@
    site's rendered DOM. Extraction also saves ZERO CSS now that this recipe is
    shared, and about 15 lines of markup across two templates.
 
-   Deliberately NOT here: the mobile overrides, which genuinely differ — Library
-   sets a 32px box and Brain a 44px touch target. Those stay in their components. */
+   Deliberately NOT here: the mobile overrides. They now agree (both surfaces use
+   a 32px option in a 38px track) but stay in their components, because they are
+   scoped to each surface's own breakpoint context and the Brain has its own
+   mobile block for the surrounding header. */
 
 .toggle-opt {
   background: 0 0;
