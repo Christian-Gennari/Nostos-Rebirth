@@ -4,53 +4,6 @@
   }
 
   <div #mapStage class="map-stage" [class.is-fullscreen]="isFullscreen()">
-    <!--
-      The map's own search, and its way back to the index.
-
-      Both live here because map view is a WHOLE-SURFACE mode: the index rail is
-      closed while the map is up (see second-brain.component.css), so the
-      page-level search this used to lean on is not on screen. The exit control
-      sits beside the search for the same reason the index header keeps its view
-      toggle beside its own search — one cluster for "find a concept" and "switch
-      view" — and it is deliberately NOT in the action rail, whose seven 44px
-      controls already fill a 390px phone's row to the last few pixels.
-    -->
-    <div class="map-toolbar" role="group" aria-label="Map view controls">
-      <button
-        appIconButton
-        type="button"
-        class="map-view-exit"
-        [icon]="listIcon"
-        [glyphSize]="15"
-        aria-label="Concept view"
-        title="Concept view"
-        (click)="showList.emit()"
-      ></button>
-      <div class="map-search-field">
-        <label class="map-search">
-          <span class="visually-hidden">Search concepts</span>
-          <input
-            type="search"
-            placeholder="Search concepts"
-            [value]="searchTerm()"
-            (input)="updateSearch($any($event.target).value)"
-            aria-label="Search concepts"
-          />
-        </label>
-        @if (searchTerm() && searchResults().length > 0) {
-        <ul class="map-search-results" aria-label="Search results">
-          @for (result of searchResults(); track result.id) {
-          <li>
-            <button type="button" (click)="chooseSearchResult(result.id)">
-              <strong>{{ result.name }}</strong>
-              <small>{{ result.connectionCount }} connections · {{ result.usageCount }} references</small>
-            </button>
-          </li>
-          }
-        </ul>
-        }
-      </div>
-    </div>
 
     <!--
       One action rail for everything the map can do.
@@ -142,7 +95,13 @@
   @if (loading()) {
   <p class="map-status" role="status" aria-live="polite">Loading graph…</p>
   } @else if (noConnections()) {
+  @if (searchQuery.trim()) {
+  <p class="map-status" role="status" aria-live="polite">
+    No concepts match “{{ searchQuery.trim() }}”.
+  </p>
+  } @else {
   <p class="map-status" role="status" aria-live="polite">No connections yet</p>
+  }
   }
 
   <ul class="map-accessible-list visually-hidden" aria-label="Concepts in this map">

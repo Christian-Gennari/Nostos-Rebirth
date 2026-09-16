@@ -286,10 +286,10 @@ test('the Brain back control stays reachable after scrolling the detail sheet', 
 
 test('the Brain index exposes 44px view-mode and search targets', async ({ page }) => {
   await page.goto(`${fixture.baseUrl}/second-brain`, { waitUntil: 'domcontentloaded' });
-  await page.locator('.index-header').waitFor({ timeout: 30_000 });
+  await page.locator('.brain-header').waitFor({ timeout: 30_000 });
 
   const undersized = await page
-    .locator('.index-header .toggle-opt, .index-header .search-box input')
+    .locator('.brain-header .toggle-opt, .brain-header .search-box input')
     .evaluateAll((els) =>
       els
         .filter((el) => el.getBoundingClientRect().width > 0)

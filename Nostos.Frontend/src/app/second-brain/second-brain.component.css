@@ -3,9 +3,15 @@
 /* LAYOUT */
 .brain-layout {
   display: grid;
-  /* Uses Grid to define columns: minmax(280px, 320px) 1fr; */
+  /*
+   * Row 1 is the persistent header, which spans both columns; row 2 holds the
+   * rail and the content pane. The header has to be a ROW rather than a child of
+   * the rail, because in Map view the rail is `display: none` — if the header
+   * lived inside it, it would disappear with it (which is exactly the bug this
+   * change fixes).
+   */
   grid-template-columns: minmax(280px, 320px) 1fr;
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
 
   height: 100dvh;
   min-height: 0;
@@ -24,39 +30,71 @@
 }
 
 /* HEADER: Tight alignment and hierarchy */
-.index-header {
-  padding: 1.25rem 1.25rem 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  flex-shrink: 0;
-  background: var(--bg-surface);
-  z-index: 2;
-}
-
-/* ROW 1: Title */
-.header-row {
-  height: auto;
+/*
+ * HEADER: the surface's one persistent control strip.
+ *
+ * It owns the mode switch and the surface search, and it is rendered in both
+ * modes. It previously lived inside the index rail (as `.index-header`), which
+ * meant Map view — a whole-surface mode that closes the rail — deleted the very
+ * toggle the user had just clicked and had to grow a duplicate of it, with a
+ * second search alongside. Both now have exactly one home, outside the rail.
+ *
+ * It spans the full layout width, so the grid needs a row for it: see
+ * `.brain-layout` below.
+ */
+.brain-header {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 1rem;
+  padding: 1.25rem 1.25rem 0.85rem;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  z-index: 2;
+  min-width: 0;
 }
 
-.index-header h1 {
+.brain-header-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.brain-header h1 {
   font-family: 'Newsreader', serif;
   font-size: 1.4rem;
   font-weight: 600;
   color: var(--color-text-main);
   margin: 0;
   letter-spacing: -0.01em;
+  flex-shrink: 0;
 }
 
+/* Corrects the old `margin-top: -0.55rem`, which was compensating for the rail
+   header's `flex-direction: column` gap. In this row the stats simply sit on the
+   baseline beside the title. */
 .index-stats {
-  margin-top: -0.55rem;
   color: var(--color-text-muted);
   font-size: 0.72rem;
   letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Title left, controls right. The search keeps a bounded measure so it never
+   grows into the control cluster, and never collapses below a usable width. */
+.brain-header-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.brain-header-tools .search-box {
+  flex: 0 1 320px;
+  min-width: 140px;
 }
 
 /* ROW 2: Search Box
@@ -144,10 +182,26 @@
 /* ROW 3: Sort. The index reads top-down by usage by default, but that is not
    always the way you look for an idea, so the order is switchable and persists
    across visits (see SecondBrain.setSort). */
+/*
+ * Sort row: the list's own header, not a boxed control above it.
+ *
+ * Two earlier attempts failed for the same reason, and it is worth recording:
+ * the concept rows are TRANSPARENT and BORDERLESS (`.index-item` carries
+ * `border: none; background: transparent`). Any enclosed input-shaped box placed
+ * above them is therefore the only closed shape in the panel, and its outline
+ * pulls the eye away from the list — so re-placing and re-sizing that box could
+ * never stop it looking like it was floating. The fix is to remove the box.
+ *
+ * The control is now borderless and text-like, sitting on the list's own type
+ * scale, and this row owns the single hairline that forms the list's top edge
+ * (full-width, so it reads as a section boundary rather than an artifact of the
+ * control). That gives the list structure instead of giving the control a frame.
+ */
 .index-tools {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  padding: 0.5rem 1.25rem 0.25rem;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .select-shell {
@@ -189,48 +243,71 @@
    (--control-active-fill / --control-active-ink) read by the shared rule — so
    there is no longer anything for a scoped copy to race. The mobile override
    below stays: Brain uses a 44px touch target where Library uses 32px. */
-.sort-label {
-  font-size: 0.68rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-}
+/* `.sort-label` is gone: the affordance now lives inside the control ("Sort: Most
+   used"), so there is no separate micro-label beside it to strand. The accessible
+   name is a visually-hidden <label>. */
 
-/* Verbatim copy of the Library's `.sort-select` (see docs/brain-library-parity.md).
-   The chevron is a data-URI background-image, NOT a positioned <lucide-icon>
-   sibling: the sibling version put a second painted box inside the wrapper, and
-   its `background-image: none !important` was overriding the theme, which is the
-   "weird border issues" in the filter row. */
+/* The Library's `.sort-select` recipe, minus the box.
+ *
+ * Type, chevron and tokens are the Library's (the parity spec compares radius,
+ * height and computed colour in both themes). What differs is the containment:
+ * `border: none` and a transparent fill, so the control sits in the list as a row
+ * does — the panel's concept rows are borderless too, and an enclosed field here
+ * was the one closed shape in the sidebar.
+ *
+ * `min-height: 39px` is NOT free to lower to the row height: the parity spec
+ * holds this control within 2px of the Library's (measured 39.2px), so matching
+ * the list's 34px rows broke that gate — the same control must not change size
+ * between surfaces. The box is what was dropped, not the metrics.
+ *
+ * A `--radius-md` radius is kept even though there is no border, because it
+ * defines the hover surface.
+ *
+ * Inner padding is a concept row's (12px left, 8px right), so the control's text
+ * starts on the same x=32 line as the concept names and its chevron sits in the
+ * same right gutter as the count badges. */
 .sort-select {
   width: 100%;
   flex: 1;
   min-width: 0;
   min-height: 39px;
-  padding: 0.6rem 2rem 0.6rem 1rem;
-  border: 1px solid var(--border-color);
+  padding: 0 1.75rem 0 0.75rem;
+  border: none;
   border-radius: var(--radius-md);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 500;
   cursor: pointer;
   color: var(--color-text-muted);
-  background-color: var(--bg-input);
+  background-color: transparent;
   outline: none;
   appearance: none;
   font-family: inherit;
-  transition: background-color 0.2s ease, color 0.2s ease; 
+  transition: background-color 0.2s ease, color 0.2s ease;
   background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
   background-repeat: no-repeat;
-  background-position: right 0.75rem center;
+  /* 1rem, not the Library's 0.75rem: the chevron must land in the same right
+     gutter as the count badges. The badge's right edge sits 8px inside the row
+     (the row pads `0 8px`), and this control spans 8px wider than the row, so
+     8 + 8 = 16px, measured to put the chevron on the badges' right edge (it was
+     10px to the right of it at 0.75rem). */
+  background-position: right 1rem center;
   background-size: 1em;
 }
 
+/* Shell fills the list's content track, so the control's text and chevron line up
+ * with the concept rows rather than stopping in mid-air. Kept as a stable hook
+ * (the template and tests reference it) even though the borderless select no
+ * longer needs a box of its own. */
 .sort-shell {
-  flex: 1;
+  position: relative;
+  width: 100%;
 }
 
+/* Hover treats the control like an interactive list row (that is what it is),
+   rather than like a form field losing its fill. */
 .sort-select:hover {
   background-color: var(--bg-hover);
+  color: var(--color-text-main);
 }
 
 .sort-select:focus-visible {
@@ -243,8 +320,12 @@
   flex: 1;
   overflow-y: auto;
   position: relative;
-  /* Padding matches header horizontal padding exactly */
-  padding: 0 1.25rem 1.5rem;
+  /* Padding matches header horizontal padding exactly.
+     The top padding is what keeps the first row off the sort row's hairline: with
+     none, the first concept row's box began 1px under the rule, so the list
+     appeared to start flush against the boundary and a row's hover surface
+     touched it. */
+  padding: 0.5rem 1.25rem 1.5rem;
 }
 
 .index-wait-field {
@@ -421,7 +502,7 @@
 /* --- COUNT BADGE ------------------------------------------------------------
    Metric-for-metric copy of the tree's `.count-badge`: a real 20px pill, not
    plain text — it is part of the sidebar's language. */
-.index-header .badge-count,
+.brain-header .badge-count,
 .index-item .count {
   min-width: 20px;
   height: 20px;
@@ -1561,9 +1642,18 @@
 }
 
 @media (max-width: 768px) {
-  /* 2. Break the Grid */
+  /*
+   * 2. Break the Grid.
+   *
+   * A flex COLUMN, not `display: block`. The header is now a sibling above the
+   * rail, so leaving the rail at `height: 100%` would make it as tall as the
+   * whole layout and push its bottom (and the list's last rows) off screen by
+   * exactly the header's height. As a flex column the header takes its natural
+   * height and whichever pane is showing absorbs the remainder.
+   */
   .brain-layout {
-    display: block; /* Switch from grid to block flow */
+    display: flex;
+    flex-direction: column;
     position: relative;
     height: 100%;
     min-height: 0;
@@ -1578,12 +1668,30 @@
   /* 3. Index Column Behavior */
   .index-col {
     width: 100%;
-    height: 100%;
+    /* Flex child, so it fills the space left under the header rather than
+       claiming the full layout height. */
+    flex: 1 1 auto;
+    min-height: 0;
     border-right: none;
   }
 
-  .index-header {
+  .brain-header {
     padding: 1rem 1rem 0.75rem;
+    /* A phone has no width for a title row and a control cluster side by side
+       once the search shares it, so the header stacks: identity on top, tools
+       beneath. Both keep their own row rather than shrinking the tap targets. */
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .brain-header-tools {
+    width: 100%;
+  }
+
+  .brain-header-tools .search-box {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .search-box,
@@ -1621,7 +1729,12 @@
   }
 
   .index-list {
-    padding: 0 1rem 1.5rem;
+    padding: 0.5rem 1rem 1.5rem;
+  }
+
+  /* The list narrows its inset to 1rem on a phone, so the sort row follows it. */
+  .index-tools {
+    padding: 0.75rem 1rem 0.5rem;
   }
 
   .index-item {
@@ -1727,7 +1840,14 @@
 
   /* When class.mobile-visible is active, show it full screen */
   .content-col.mobile-visible {
+    /* Block, not flex: the sticky `.mobile-nav-header` computes its width from a
+       plain block parent (`100%` + negative margins). It is still a flex ITEM of
+       the layout column, so `flex: 1` is what makes it absorb the space under the
+       header — without it the column would size to its content and the sheet
+       would stop scrolling at whatever height its first render happened to be. */
     display: block;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
   }
 
@@ -1912,6 +2032,10 @@
 .content-col.mobile-visible:has(app-concept-map) {
   display: flex;
   flex-direction: column;
+  /* Absorb the space under the persistent header, exactly as the reading
+     layout does. */
+  flex: 1 1 auto;
+  min-height: 0;
   /* The map fills the column; it scrolls nowhere, so `auto` on the reading
      layout is wrong here and can leave a scrollbar. */
   overflow: hidden;
@@ -1970,7 +2094,10 @@
    * screen while the map was squeezed into the remainder (measured 503px of 844).
    */
   .brain-layout {
-    display: block;
+    /* Flex column, matching the portrait rule: the header is a sibling above the
+       pane, so the pane has to take the remainder rather than the full height. */
+    display: flex;
+    flex-direction: column;
   }
 
   .index-col.mobile-hidden {
@@ -1978,12 +2105,13 @@
   }
 
   .content-col.mobile-visible:has(app-concept-map) {
-    /* The parent is a block container here, so the column must claim its height
-       explicitly. With `display: flex` alone it sized to its content — measured a
+    /* The column must claim the height left under the header. `flex: 1` (with
+       `min-height: 0`) is what does that; relying on `height: 100%` measured a
        117px column (mostly its own bottom padding) and a 2px stage. */
     display: flex;
     flex-direction: column;
-    height: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
     width: 100%;
     /* Short viewports need their own dock clearance: the shell's reserve is sized
        for the flush full-width portrait rail, while in landscape the dock floats

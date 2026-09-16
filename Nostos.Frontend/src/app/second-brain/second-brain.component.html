@@ -1,25 +1,37 @@
 <main class="layout-wrapper">
   <div class="layout-content brain-layout" [class.map-view]="viewMode() === 'map'">
-    <aside
-      class="index-col"
-      [class.mobile-hidden]="selectedId()"
-      [class.map-hidden]="viewMode() === 'map'"
-    >
-      <div class="index-header">
-        <div class="header-row">
-          <h1>Index</h1>
-          <span class="badge-count">{{ filteredConcepts().length }}</span>
-          <span class="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
-            Showing {{ filteredConcepts().length }} of {{ concepts().length }} concepts
-          </span>
-        </div>
+    <!--
+      The surface header.
+
+      It is rendered in BOTH modes and never moves, which is the whole point: it
+      used to live inside `.index-col`, so toggling to Map view (which closes the
+      rail) removed the very control the user had just clicked and the map had to
+      grow a second copy of it. The mode switch and the surface search now have
+      exactly one home each, and neither depends on which mode is up.
+
+      The header spans the full layout width, so it sits above the rail *and* the
+      detail pane in list view, and above the graph in map view.
+
+      Sort deliberately does NOT live here: it orders the index list, and the list
+      is the only thing it can act on, so it stays with the list in the rail.
+    -->
+    <header class="brain-header">
+      <div class="brain-header-title">
+        <h1>Brain</h1>
+        <span class="badge-count">{{ filteredConcepts().length }}</span>
+        <span class="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+          Showing {{ filteredConcepts().length }} of {{ concepts().length }} concepts
+        </span>
         @if (conceptStats(); as stats) {
-        <div class="index-stats">
+        <span class="index-stats">
           {{ stats.totalConcepts }} {{ stats.totalConcepts === 1 ? 'concept' : 'concepts' }} ·
           {{ stats.totalReferences }}
           {{ stats.totalReferences === 1 ? 'reference' : 'references' }}
-        </div>
+        </span>
         }
+      </div>
+
+      <div class="brain-header-tools">
         <div class="search-box">
           <lucide-icon [img]="SearchIcon" [size]="16" class="search-icon"></lucide-icon>
           <input
@@ -42,48 +54,56 @@
           </button>
           }
         </div>
-        <div class="index-tools">
-          <label class="sort-label" for="brain-sort">Sort</label>
-          <div class="select-shell sort-shell">
-            <select
-              id="brain-sort"
-              class="sort-select"
-              [ngModel]="indexSort()"
-              (ngModelChange)="setSort($event)"
-            >
-              <option value="usage">Most used</option>
-              <option value="az">A → Z</option>
-              <option value="za">Z → A</option>
-            </select>
-                      </div>
-          <!-- Icon-only at 18px/1.5, exactly the Library's list/grid control.
-               No text labels: the Library's toggle has none, and at this size
-               two labelled segments read as a button pair rather than one
-               segmented control. -->
-          <div class="control-group view-mode-control" role="group" aria-label="Brain view">
-            <button
-              type="button"
-              class="toggle-opt"
-              [class.active]="viewMode() === 'list'"
-              [attr.aria-pressed]="viewMode() === 'list'"
-              aria-label="Concept view"
-              title="Concept view"
-              (click)="setViewMode('list')"
-            >
-              <lucide-icon [img]="ListIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
-            </button>
-            <button
-              type="button"
-              class="toggle-opt"
-              [class.active]="viewMode() === 'map'"
-              [attr.aria-pressed]="viewMode() === 'map'"
-              aria-label="Map view"
-              title="Map view"
-              (click)="setViewMode('map')"
-            >
-              <lucide-icon [img]="MapIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
-            </button>
-          </div>
+
+        <!-- Icon-only at 18px/1.5, exactly the Library's list/grid control.
+             No text labels: the Library's toggle has none, and at this size
+             two labelled segments read as a button pair rather than one
+             segmented control. -->
+        <div class="control-group view-mode-control" role="group" aria-label="Brain view">
+          <button
+            type="button"
+            class="toggle-opt"
+            [class.active]="viewMode() === 'list'"
+            [attr.aria-pressed]="viewMode() === 'list'"
+            aria-label="Concept view"
+            title="Concept view"
+            (click)="setViewMode('list')"
+          >
+            <lucide-icon [img]="ListIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
+          </button>
+          <button
+            type="button"
+            class="toggle-opt"
+            [class.active]="viewMode() === 'map'"
+            [attr.aria-pressed]="viewMode() === 'map'"
+            aria-label="Map view"
+            title="Map view"
+            (click)="setViewMode('map')"
+          >
+            <lucide-icon [img]="MapIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <aside
+      class="index-col"
+      [class.mobile-hidden]="selectedId()"
+      [class.map-hidden]="viewMode() === 'map'"
+    >
+      <div class="index-tools">
+        <label class="visually-hidden" for="brain-sort">Sort concepts</label>
+        <div class="select-shell sort-shell">
+          <select
+            id="brain-sort"
+            class="sort-select"
+            [ngModel]="indexSort()"
+            (ngModelChange)="setSort($event)"
+          >
+            <option value="usage">Sort: Most used</option>
+            <option value="az">Sort: A → Z</option>
+            <option value="za">Sort: Z → A</option>
+          </select>
         </div>
       </div>
 
@@ -205,13 +225,13 @@
         -->
         <app-concept-map
           [concepts]="filteredConcepts()"
+          [searchQuery]="searchQuery()"
           [selectedId]="selectedId()"
           [selectedName]="selectedConceptName()"
           (conceptSelected)="onMapConceptSelected($event)"
           (selectionCleared)="clearSelection()"
           (openNotes)="openSelectedConcept()"
           (openConcept)="openConceptFromMap($event)"
-          (showList)="leaveMap()"
         ></app-concept-map>
       </div>
       } @else { @if (selectedId()) {
