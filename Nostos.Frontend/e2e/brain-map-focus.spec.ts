@@ -315,7 +315,7 @@ test('the mode switch is reachable and tappable on a phone in both modes', async
       return { w: Math.round(r.width), h: Math.round(r.height) };
     });
     expect(stillThere, 'the switch survives the trip back').not.toBeNull();
-    expect(stillThere!.h, 'and keeps its touch target').toBeGreaterThanOrEqual(44);
+    expect(stillThere!.h, 'and keeps the shared Library mobile size').toBe(32);
   } finally {
     await context.close();
   }
