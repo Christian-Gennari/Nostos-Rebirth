@@ -61,14 +61,19 @@ describe('ConfirmModal', () => {
     fixture.componentRef.setInput('isOpen', true);
     fixture.detectChanges();
 
+    // The tone class sits on the action button, not on the card. The card
+    // belongs to `app-modal-shell`, and Angular scopes EVERY compound of an
+    // emulated rule — so the old `.tone-danger .btn-confirm` could no longer
+    // reach a button inside a card the shell owns, and the destructive action
+    // silently lost its wine fill. Verified in the browser, not just here.
     const card = fixture.nativeElement.querySelector('.confirm-modal-card');
-    expect(card.classList).toContain('tone-danger');
+    expect(card.querySelector('.btn-confirm').classList).toContain('tone-danger');
     expect(card.querySelector('.confirm-mark')).toBeTruthy();
 
     fixture.componentRef.setInput('tone', 'neutral');
     fixture.detectChanges();
 
-    expect(card.classList).not.toContain('tone-danger');
+    expect(card.querySelector('.btn-confirm').classList).not.toContain('tone-danger');
     expect(card.querySelector('.confirm-mark')).toBeNull();
   });
 

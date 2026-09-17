@@ -1,80 +1,19 @@
 /* Nostos editions & works surface — Nordic Editorial.
-   Same paper-card recipe as the confirmation and Edit Book surfaces: hairline
-   border, small radius, no glassmorphism. Authored here rather than reusing
-   `.confirm-modal-card` because this one is a two-column working area (a wider
-   `max-width`, an internally scrolling body) that shares the recipe, not the
-   geometry. */
+   The backdrop, the card, the scrim fade and the entrance animation belong to
+   `app-modal-shell` (see `ui/modal-shell`); this file styles the two-column
+   working area inside it. */
 
 :host {
   display: contents;
 }
 
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 110;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.25rem;
-  background: var(--modal-scrim);
-  backdrop-filter: blur(var(--modal-scrim-blur));
-  -webkit-backdrop-filter: blur(var(--modal-scrim-blur));
-  animation: backdropFade var(--motion-base, 220ms) ease-out both;
-  overscroll-behavior: contain;
-}
-
-@keyframes backdropFade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.editions-modal-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 560px;
-  /* Never taller than the viewport: the body scrolls, the header stays put. */
-  max-height: min(640px, calc(100vh - 2.5rem));
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  /* The dialog role. Was `--radius-lg` (6px), which made this card visibly
-     squarer than the Edit Book modal it is opened from. The compact controls
-     INSIDE stay on the small scale on purpose — including this modal's close
-     button, which matches Edit Book's own 3px icon close. */
-  border-radius: var(--radius-dialog, 14px);
-  /* The app's large elevation token, not a hand-written rgba pair: it carries a
-     light and a dark value, so the card follows the theme. */
-  box-shadow: var(--shadow-glass-lg);
-  /* `both` so the first painted frame already sits at the `from` values —
-     otherwise the card flashes at full opacity before the entrance starts. */
-  animation: cardEnter var(--motion-base, 220ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both;
-}
-
-@keyframes cardEnter {
-  from {
-    opacity: 0;
-    transform: scale(0.98) translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
+/* Layout only: the shell supplies this row's padding and its divider, through
+   `--modal-head-padding` on the shell element. */
 .editions-modal-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 1.15rem 1.25rem 0.9rem;
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
 }
 
 .editions-modal-heading {
@@ -154,10 +93,9 @@
   cursor: not-allowed;
 }
 
+/* Padding only: the shell owns the scrolling. */
 .editions-modal-body {
   padding: 0.95rem 1.25rem 1.25rem;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
 .editions-modal-hint {
@@ -393,20 +331,10 @@
   color: var(--color-text-muted);
 }
 
+/* Below 768px the shell already turns this dialog into a full-screen sheet, so
+   the old bottom-anchored-card rules are gone; only the content padding
+   changes. */
 @media (max-width: 480px) {
-  .modal-backdrop {
-    padding: 0.75rem;
-    align-items: flex-end;
-  }
-
-  .editions-modal-card {
-    max-height: calc(100vh - 1.5rem);
-  }
-
-  .editions-modal-head {
-    padding: 1rem 1rem 0.8rem;
-  }
-
   .editions-modal-body {
     padding: 0.85rem 1rem 1rem;
   }
@@ -417,21 +345,5 @@
     padding: 0 0.55rem;
     font-size: 0;
     gap: 0;
-  }
-}
-
-/* Authored here, beside the transitions it must switch off: a
-   prefers-reduced-motion block in a parent stylesheet cannot reach a component
-   stylesheet. The card's `from` values are opacity/transform, so killing the
-   animation alone would leave it invisible — pin the settled state explicitly. */
-@media (prefers-reduced-motion: reduce) {
-  .modal-backdrop {
-    animation: none;
-  }
-
-  .editions-modal-card {
-    animation: none;
-    opacity: 1;
-    transform: none;
   }
 }

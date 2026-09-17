@@ -444,7 +444,9 @@ describe('BookDetail reset progress', () => {
     fixture.detectChanges();
 
     // Edit Book still opens its own form, and the chooser closed behind it.
-    expect(fixture.nativeElement.querySelector('app-add-book-modal .modal-content')).toBeTruthy();
+    // The dialog element now belongs to `app-modal-shell`, so this asserts the
+    // role rather than the card class that moved into the shell.
+    expect(fixture.nativeElement.querySelector('app-add-book-modal [role="dialog"]')).toBeTruthy();
     expect(editMenuItem('Book details')).toBeNull();
   });
 

@@ -31,9 +31,13 @@ describe('AddBookModal', () => {
   it('exposes the dialog role', () => {
     fixture.detectChanges();
 
-    const dialog = fixture.nativeElement.querySelector('.modal-content');
-    expect(dialog.getAttribute('role')).toBe('dialog');
+    // The role now comes from `app-modal-shell`, so this targets the role rather
+    // than a class the shell happens to use — and checks the label the shell was
+    // handed, which is what makes the migration more than a markup move.
+    const dialog = fixture.nativeElement.querySelector('[role="dialog"]');
+    expect(dialog).toBeTruthy();
     expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(dialog.getAttribute('aria-label')).toBe('Add New Book');
   });
 
   it('emits closeModal on Escape while open', () => {
