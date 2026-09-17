@@ -41,6 +41,17 @@
         >
           <lucide-icon [img]="FileIcon" [size]="16"></lucide-icon> Files & Personal
         </button>
+        <!-- Importing is a way to ADD a book, so it has no place in edit mode. -->
+        @if (!isEditMode()) {
+          <button
+            type="button"
+            class="tab-btn"
+            [class.active]="activeTab() === 'From a Source'"
+            (click)="openSourceTab()"
+          >
+            <lucide-icon [img]="SourceIcon" [size]="16"></lucide-icon> From a Source
+          </button>
+        }
       </div>
 
       <form (ngSubmit)="submit()" #bookForm="ngForm" class="modal-form">
@@ -364,6 +375,244 @@
             </div>
           </div>
 
+          <!-- TAB 4: From a Source -->
+          <div class="tab-content" [hidden]="activeTab() !== 'From a Source'">
+            @if (providersLoading()) {
+              <p class="source-hint">Loading sources…</p>
+            } @else if (providersError()) {
+              <p class="source-error">
+                <lucide-icon [img]="ErrorIcon" [size]="14"></lucide-icon> {{ providersError() }}
+              </p>
+            } @else {
+              @if (providerList().length > 1) {
+                <div class="source-choices" role="radiogroup" aria-label="Source">
+                  @for (provider of providerList(); track provider.id) {
+                    <button
+                      type="button"
+                      class="source-choice"
+                      [class.active]="provider.id === selectedProviderId()"
+                      [disabled]="!!runningAcquisition()"
+                      (click)="chooseProvider(provider.id)"
+                    >
+                      {{ provider.displayName }}
+                    </button>
+                  }
+                </div>
+              }
+
+              <div class="form-group">
+                <label class="form-label" for="source-query">
+                  Search {{ selectedProvider()?.displayName || 'the source' }}
+                </label>
+                <div class="source-search">
+                  <input
+                    id="source-query"
+                    class="input"
+                    type="search"
+                    autocomplete="off"
+                    placeholder="Title or author"
+                    [ngModel]="sourceQuery()"
+                    (ngModelChange)="sourceQuery.set($event)"
+                    [ngModelOptions]="{ standalone: true }"
+                    [disabled]="!!runningAcquisition()"
+                    (keydown.enter)="$event.preventDefault(); searchSource()"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-secondary"
+                    (click)="searchSource()"
+                    [disabled]="
+                      sourceQuery().trim().length < 2 || sourceSearching() || !!runningAcquisition()
+                    "
+                  >
+                    <lucide-icon [img]="SearchIcon" [size]="14"></lucide-icon>
+                    {{ sourceSearching() ? 'Searching…' : 'Search' }}
+                  </button>
+                </div>
+                <!-- Says plainly what this is: a catalogue search, not a
+                     second library. -->
+                <span class="source-hint">
+                  Searches a public catalogue. Nothing is added to your library until you import it.
+                </span>
+              </div>
+
+              @if (sourceNotice()) {
+                <p class="source-hint">{{ sourceNotice() }}</p>
+              }
+
+              @if (sourceSearchError()) {
+                <p class="source-error">
+                  <lucide-icon [img]="ErrorIcon" [size]="14"></lucide-icon> {{ sourceSearchError() }}
+                </p>
+              }
+
+              @if (
+                sourceSearched() &&
+                !sourceSearching() &&
+                sourceResults().length === 0 &&
+                !sourceSearchError()
+              ) {
+                <p class="source-hint">No matching books were found for “{{ sourceQuery() }}”.</p>
+              }
+
+              @if (sourceResults().length > 0) {
+                <ul class="source-results">
+                  @for (item of sourceResults(); track item.externalId) {
+                    <li>
+                      <button
+                        type="button"
+                        class="source-result"
+                        [class.active]="selectedItem()?.externalId === item.externalId"
+                        [disabled]="!!runningAcquisition()"
+                        (click)="selectSourceItem(item)"
+                      >
+                        @if (item.coverUrl) {
+                          <img class="source-cover" [src]="item.coverUrl" alt="" loading="lazy" />
+                        } @else {
+                          <span class="source-cover source-cover-empty" aria-hidden="true"></span>
+                        }
+                        <span class="source-result-text">
+                          <span class="source-result-title">{{ item.title }}</span>
+                          @if (item.author) {
+                            <span class="source-result-author">{{ item.author }}</span>
+                          }
+                          @if (item.language || item.categories) {
+                            <span class="source-result-meta">
+                              {{ item.language || ''
+                              }}{{ item.language && item.categories ? ' · ' : ''
+                              }}{{ item.categories || '' }}
+                            </span>
+                          }
+                        </span>
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+
+              @if (sourceHasMore()) {
+                <p class="source-hint">
+                  Showing the first page of results — refine the search for more specific matches.
+                </p>
+              }
+
+              @if (selectedItem(); as item) {
+                <div class="source-detail">
+                  <h4 class="source-detail-title">{{ item.title }}</h4>
+                  @if (item.author) {
+                    <p class="source-detail-author">{{ item.author }}</p>
+                  }
+                  @if (item.description) {
+                    <p class="source-detail-description">{{ item.description }}</p>
+                  }
+
+                  @if (item.assets.length > 1) {
+                    <div class="form-group">
+                      <span class="form-label">Format to import</span>
+                      @for (asset of item.assets; track asset.id) {
+                        <label class="source-asset">
+                          <input
+                            type="radio"
+                            name="sourceAsset"
+                            [value]="asset.id"
+                            [checked]="selectedAssetId() === asset.id"
+                            [disabled]="!!runningAcquisition()"
+                            (change)="selectedAssetId.set(asset.id)"
+                          />
+                          <span class="source-asset-label">{{ asset.label }}</span>
+                          @if (formatBytes(asset.sizeBytes)) {
+                            <span class="source-asset-size">{{ formatBytes(asset.sizeBytes) }}</span>
+                          }
+                        </label>
+                      }
+                    </div>
+                  } @else if (item.assets.length === 1) {
+                    <p class="source-hint">
+                      Format: {{ item.assets[0].label
+                      }}{{
+                        formatBytes(item.assets[0].sizeBytes)
+                          ? ' · ' + formatBytes(item.assets[0].sizeBytes)
+                          : ''
+                      }}
+                    </p>
+                  }
+
+                  <div class="form-group">
+                    <app-collection-picker
+                      label="Add to collections (optional)"
+                      [collections]="collections()"
+                      [selectedIds]="sourceCollectionIds()"
+                      (selectedIdsChange)="sourceCollectionIds.set($event)"
+                    ></app-collection-picker>
+                  </div>
+
+                  @if (item.rightsStatement) {
+                    <p class="source-rights">
+                      <!-- Quoted from the source, not asserted by Nostos. -->
+                      Source says: {{ item.rightsStatement }}
+                      @if (item.sourceUrl) {
+                        <a [href]="item.sourceUrl" target="_blank" rel="noopener noreferrer"
+                          >View at source</a
+                        >
+                      }
+                    </p>
+                  } @else if (item.sourceUrl) {
+                    <p class="source-rights">
+                      <a [href]="item.sourceUrl" target="_blank" rel="noopener noreferrer"
+                        >View at source</a
+                      >
+                    </p>
+                  }
+
+                  @if (sourceImportError()) {
+                    <p class="source-error">
+                      <lucide-icon [img]="ErrorIcon" [size]="14"></lucide-icon> {{ sourceImportError() }}
+                    </p>
+                  }
+
+                  @if (runningAcquisition(); as job) {
+                    <div class="source-progress" role="status" aria-live="polite">
+                      <div class="source-progress-head">
+                        <span>{{ stageLabel(job) }}</span>
+                        <span>{{ job.percent }}%</span>
+                      </div>
+                      <div class="source-progress-track">
+                        <div class="source-progress-fill" [style.width.%]="job.percent"></div>
+                      </div>
+                      @if (job.detail) {
+                        <span class="source-hint">{{ job.detail }}</span>
+                      }
+                      <button type="button" class="btn btn-secondary" (click)="cancelImport()">
+                        Cancel import
+                      </button>
+                    </div>
+                  } @else {
+                    <button
+                      type="button"
+                      class="btn btn-primary"
+                      (click)="importSelected()"
+                      [disabled]="item.assets.length === 0"
+                    >
+                      <lucide-icon [img]="DownloadIcon" [size]="14"></lucide-icon>
+                      Import into my library
+                    </button>
+                  }
+
+                  @if (acquisition(); as job) {
+                    @if (job.state === 'failed') {
+                      <p class="source-error">
+                        <lucide-icon [img]="ErrorIcon" [size]="14"></lucide-icon>
+                        {{ job.message || 'The import failed.'
+                        }}{{ job.errorCode ? ' (' + job.errorCode + ')' : '' }}
+                      </p>
+                    } @else if (job.state === 'cancelled') {
+                      <p class="source-hint">Import cancelled.</p>
+                    }
+                  }
+                </div>
+              }
+            }
+          </div>
         </div>
         <div class="modal-actions" [class.has-danger]="isEditMode()">
           @if (isEditMode()) {
@@ -380,13 +629,18 @@
             <button type="button" class="btn btn-secondary" (click)="closeModal.emit()">
               Cancel
             </button>
-            <button
-              type="submit"
-              class="btn btn-primary"
-              [disabled]="bookForm.invalid || !form.title.trim()"
-            >
-              {{ isEditMode() ? 'Save Changes' : 'Create Book' }}
-            </button>
+            <!-- The source tab has its own action: importing is not "creating a
+                 book" from the form, and offering both buttons would be a
+                 choice about nothing. -->
+            @if (activeTab() !== 'From a Source') {
+              <button
+                type="submit"
+                class="btn btn-primary"
+                [disabled]="bookForm.invalid || !form.title.trim()"
+              >
+                {{ isEditMode() ? 'Save Changes' : 'Create Book' }}
+              </button>
+            }
           </div>
         </div>
       </form>

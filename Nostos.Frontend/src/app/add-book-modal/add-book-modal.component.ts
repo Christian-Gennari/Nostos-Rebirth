@@ -1,11 +1,19 @@
-import { Component, ElementRef, HostListener, inject, input, output, signal, computed, effect, viewChild } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, inject, input, output, signal, computed, effect, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
-import { LucideAngularModule, X, Info, UploadIcon, Book, Layers, FileText, Trash2 } from 'lucide-angular';
+import { LucideAngularModule, X, Info, UploadIcon, Book, Layers, FileText, Trash2, Globe, Search, Download, AlertCircle, Check } from 'lucide-angular';
 import { BooksService, Book as BookModel } from '../core/services/books.service';
+import { ProvidersService } from '../core/services/providers.service';
 import { ToastService } from '../core/services/toast.service';
+import {
+  ACQUISITION_FINISHED_STATES,
+  ProviderAcquisition,
+  ProviderItem,
+  ProviderSummary,
+} from '../core/dtos/provider.dtos';
 import { Collection } from '../core/dtos/collection.dtos';
 import { BookType } from '../core/dtos/book.dtos';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
@@ -24,8 +32,10 @@ import { CollectionPickerComponent } from '../ui/collection-picker/collection-pi
   templateUrl: './add-book-modal.component.html',
   styleUrl: './add-book-modal.component.css',
 })
-export class AddBookModal {
+export class AddBookModal implements OnDestroy {
   private booksService = inject(BooksService);
+  private providers = inject(ProvidersService);
+  private router = inject(Router);
   private toast = inject(ToastService);
 
   // Inputs & Outputs
@@ -46,9 +56,14 @@ export class AddBookModal {
   GeneralIcon = Book;
   MetadataIcon = Layers;
   FileIcon = FileText;
+  SourceIcon = Globe;
+  SearchIcon = Search;
+  DownloadIcon = Download;
+  ErrorIcon = AlertCircle;
+  CheckIcon = Check;
 
   // Tabs
-  tabs = ['Book Info', 'Publishing', 'Files & Personal'] as const;
+  tabs = ['Book Info', 'Publishing', 'Files & Personal', 'From a Source'] as const;
   activeTab = signal<(typeof this.tabs)[number]>('Book Info');
   private titleInput = viewChild<ElementRef<HTMLInputElement>>('titleInput');
 
@@ -109,7 +124,11 @@ export class AddBookModal {
         } else {
           this.resetForm();
         }
-        setTimeout(() => this.titleInput()?.nativeElement.focus(), 0);
+        setTimeout(() => this.titleInput()?.nativeElement?.focus(), 0);
+      } else {
+        // Closing the dialog must stop the poll: otherwise a background timer
+        // keeps hitting the API for a surface nobody is looking at.
+        this.stopPolling();
       }
     });
   }
@@ -152,6 +171,7 @@ export class AddBookModal {
     this.selectedFile = null;
     this.selectedCover = null;
     this.activeTab.set('Book Info'); // Reset to first tab
+    this.resetSourceTab();
   }
 
   resetForm(): void {
@@ -192,6 +212,9 @@ export class AddBookModal {
     this.fileDragActive.set(false);
     this.coverDragActive.set(false);
     this.activeTab.set('Book Info');
+    // The source tab holds its own search, selection and job state; a stale
+    // poll from a previous visit must not survive into this one.
+    this.resetSourceTab();
   }
 
   /**
@@ -364,6 +387,264 @@ export class AddBookModal {
   @HostListener('document:keydown.escape')
   onEscape(): void {
     if (this.isOpen()) this.closeModal.emit();
+  }
+
+  // ------------------------------------------------------------------
+  // From a source (issue #167)
+  // ------------------------------------------------------------------
+  // An acquisition surface, not a second library. Its whole job is to put a
+  // file into the user's own library and then get out of the way — so there is
+  // no feed, no recommendations and no browsing beyond the search the user
+  // actually asked for.
+
+  providerList = signal<ProviderSummary[]>([]);
+  providersLoading = signal(false);
+  providersError = signal<string | null>(null);
+  selectedProviderId = signal<string | null>(null);
+
+  sourceQuery = signal('');
+  sourceResults = signal<ProviderItem[]>([]);
+  sourceNotice = signal<string | null>(null);
+  sourceHasMore = signal(false);
+  sourceSearching = signal(false);
+  sourceSearched = signal(false);
+  sourceSearchError = signal<string | null>(null);
+
+  selectedItem = signal<ProviderItem | null>(null);
+  selectedAssetId = signal<string | null>(null);
+  sourceCollectionIds = signal<string[]>([]);
+
+  /** The live job, or null when nothing has been started. */
+  acquisition = signal<ProviderAcquisition | null>(null);
+  sourceImportError = signal<string | null>(null);
+
+  private pollHandle: ReturnType<typeof setInterval> | null = null;
+
+  selectedProvider = computed(
+    () => this.providerList().find((p) => p.id === this.selectedProviderId()) ?? null,
+  );
+
+  /** Non-null only while an import is actually in flight. */
+  runningAcquisition = computed(() => {
+    const job = this.acquisition();
+    return job && !ACQUISITION_FINISHED_STATES.has(job.state) ? job : null;
+  });
+
+  /**
+   * Human wording for the pipeline's stage names. The stages are deliberately
+   * coarse and stable so the client never has to know which source is running.
+   */
+  private readonly stageLabels: Record<string, string> = {
+    queued: 'Queued',
+    starting: 'Starting',
+    resolving: 'Contacting the source',
+    checking: 'Checking your library',
+    downloading: 'Downloading',
+    validating: 'Validating the download',
+    assembling: 'Preparing the file',
+    importing: 'Adding to your library',
+    done: 'Finished',
+    failed: 'Failed',
+  };
+
+  stageLabel(job: ProviderAcquisition): string {
+    return this.stageLabels[job.stage] ?? job.stage;
+  }
+
+  formatBytes(bytes: number | null): string {
+    if (!bytes || bytes <= 0) return '';
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  openSourceTab(): void {
+    this.setTab('From a Source');
+    if (this.providerList().length === 0 && !this.providersLoading()) this.loadProviders();
+  }
+
+  private loadProviders(): void {
+    this.providersLoading.set(true);
+    this.providersError.set(null);
+
+    this.providers
+      .list()
+      .pipe(finalize(() => this.providersLoading.set(false)))
+      .subscribe({
+        next: (list) => {
+          this.providerList.set(list);
+          if (!this.selectedProviderId() && list.length > 0) {
+            this.selectedProviderId.set(list[0].id);
+          }
+          if (list.length === 0) {
+            this.providersError.set('No content sources are configured on this server.');
+          }
+        },
+        error: () => this.providersError.set('Could not load the available sources.'),
+      });
+  }
+
+  chooseProvider(id: string): void {
+    if (id === this.selectedProviderId()) return;
+
+    // Results belong to the source that produced them.
+    this.selectedProviderId.set(id);
+    this.clearSourceResults();
+  }
+
+  searchSource(): void {
+    const providerId = this.selectedProviderId();
+    const query = this.sourceQuery().trim();
+    if (!providerId || query.length < 2 || this.sourceSearching()) return;
+
+    this.sourceSearching.set(true);
+    this.sourceSearchError.set(null);
+    this.selectedItem.set(null);
+    this.selectedAssetId.set(null);
+
+    this.providers
+      .search(providerId, query)
+      .pipe(finalize(() => this.sourceSearching.set(false)))
+      .subscribe({
+        next: (result) => {
+          this.sourceResults.set(result.items);
+          this.sourceNotice.set(result.notice);
+          this.sourceHasMore.set(result.hasMore);
+          this.sourceSearched.set(true);
+        },
+        error: (error) => {
+          this.sourceResults.set([]);
+          this.sourceNotice.set(null);
+          this.sourceSearched.set(true);
+          this.sourceSearchError.set(
+            this.describeError(error, 'That source could not be searched right now.'),
+          );
+        },
+      });
+  }
+
+  selectSourceItem(item: ProviderItem): void {
+    this.selectedItem.set(item);
+    this.sourceImportError.set(null);
+
+    // Default to the source's own preferred asset, which is also what the
+    // server would choose if no asset were named.
+    const preferred = item.assets.find((asset) => asset.isPreferred) ?? item.assets[0];
+    this.selectedAssetId.set(preferred?.id ?? null);
+  }
+
+  importSelected(): void {
+    const item = this.selectedItem();
+    const providerId = this.selectedProviderId();
+    if (!item || !providerId || this.runningAcquisition()) return;
+
+    this.sourceImportError.set(null);
+    this.acquisition.set(null);
+
+    this.providers
+      .acquire(providerId, {
+        externalId: item.externalId,
+        assetId: this.selectedAssetId(),
+        collectionIds: this.sourceCollectionIds(),
+      })
+      .subscribe({
+        next: (job) => {
+          this.acquisition.set(job);
+          this.startPolling(job.jobId);
+        },
+        error: (error) =>
+          this.sourceImportError.set(
+            this.describeError(error, 'The import could not be started.'),
+          ),
+      });
+  }
+
+  cancelImport(): void {
+    const job = this.runningAcquisition();
+    if (!job) return;
+
+    this.providers.cancel(job.jobId).subscribe({
+      next: () => {
+        this.stopPolling();
+        this.acquisition.set({ ...job, state: 'cancelled', stage: 'cancelled' });
+      },
+      error: () => this.stopPolling(),
+    });
+  }
+
+  private startPolling(jobId: string): void {
+    this.stopPolling();
+
+    // A second is fine: the stages it reports change on the scale of whole
+    // tracks, and the alternative is a socket for something the user watches
+    // once.
+    this.pollHandle = setInterval(() => {
+      this.providers.job(jobId).subscribe({
+        next: (job) => {
+          this.acquisition.set(job);
+          if (ACQUISITION_FINISHED_STATES.has(job.state)) {
+            this.stopPolling();
+            if (job.state === 'succeeded') this.finishImport(job);
+          }
+        },
+        error: () => {
+          // A job this server no longer knows about is the expected outcome of
+          // a restart, so say so instead of polling a dead id forever.
+          this.stopPolling();
+          this.sourceImportError.set(
+            'This import is no longer being tracked. It may have finished before the server restarted — check your library.',
+          );
+        },
+      });
+    }, 1000);
+  }
+
+  private stopPolling(): void {
+    if (this.pollHandle !== null) {
+      clearInterval(this.pollHandle);
+      this.pollHandle = null;
+    }
+  }
+
+  /**
+   * Only reached once the server reports the final file stored and the library
+   * row attached — never merely because the downloads finished.
+   */
+  private finishImport(job: ProviderAcquisition): void {
+    this.toast.success(job.message || 'Imported into your library.');
+    this.bookAdded.emit();
+    this.closeModal.emit();
+
+    // The local library stays the destination, so the flow ends by opening the
+    // book that was actually created (or the one already there).
+    if (job.bookId) void this.router.navigate(['/library', job.bookId]);
+  }
+
+  private clearSourceResults(): void {
+    this.sourceResults.set([]);
+    this.sourceNotice.set(null);
+    this.sourceHasMore.set(false);
+    this.sourceSearched.set(false);
+    this.sourceSearchError.set(null);
+    this.selectedItem.set(null);
+    this.selectedAssetId.set(null);
+  }
+
+  private resetSourceTab(): void {
+    this.clearSourceResults();
+    this.sourceQuery.set('');
+    this.sourceCollectionIds.set([]);
+    this.acquisition.set(null);
+    this.sourceImportError.set(null);
+    this.stopPolling();
+  }
+
+  private describeError(error: unknown, fallback: string): string {
+    const body = (error as { error?: { detail?: string; title?: string } })?.error;
+    return body?.detail || body?.title || fallback;
+  }
+
+  ngOnDestroy(): void {
+    this.stopPolling();
   }
 
   private getFullLanguageName(input: string | null): string | null {

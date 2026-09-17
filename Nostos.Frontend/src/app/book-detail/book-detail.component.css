@@ -1640,3 +1640,12 @@ button.edition-select-card:focus-visible {
     max-width: 180px;
   }
 }
+
+/* Provenance of an imported book: the source's own rights wording, quoted and
+   set apart from the metadata values it sits beside. */
+.source-rights-note {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.76rem;
+  color: var(--color-text-light);
+}
