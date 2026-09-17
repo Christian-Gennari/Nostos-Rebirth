@@ -29,12 +29,32 @@ public interface IFileStorageService
 
     FileStream? GetBookFile(Guid bookId);
     string? GetBookFileName(Guid bookId);
+    /// <summary>
+    /// Removes only a book's primary file, leaving any cover in place. Used to
+    /// undo a file that was put into storage when the matching database write
+    /// then failed, so the rollback cannot also destroy an unrelated cover.
+    /// </summary>
+    bool DeleteBookFile(Guid bookId);
+
     void DeleteBookFiles(Guid bookId);
 
     Task<string> SaveBookCoverAsync(Guid bookId, IFormFile file);
 
     /// <summary>Stream-based cover twin of <see cref="SaveBookFileAsync(Guid, Stream, string, CancellationToken)"/>.</summary>
     Task<string> SaveBookCoverAsync(Guid bookId, Stream content, string fileName, CancellationToken ct = default);
+
+    /// <summary>
+    /// Moves a file the caller has already materialised into a book's storage
+    /// folder.
+    ///
+    /// Acquisition downloads and normalises large media — a feature-length
+    /// audiobook runs to hundreds of megabytes — into a staging directory, and
+    /// then has to put the result in place without keeping a second full copy of
+    /// it. The destination is derived entirely from <paramref name="bookId"/> and
+    /// a validated extension; only the source is a path, and it is expected to be
+    /// a file the caller itself produced in its own staging area.
+    /// </summary>
+    Task<string> AdoptBookFileAsync(Guid bookId, string sourcePath, string fileName, CancellationToken ct = default);
 
     string? GetBookCoverPath(Guid bookId);
     Task<string?> GetBookCoverThumbnailPathAsync(Guid bookId, int width, CancellationToken ct = default);

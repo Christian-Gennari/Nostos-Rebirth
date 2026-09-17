@@ -31,6 +31,12 @@ public enum ProviderCapabilities
 
     /// <summary>Item detail includes a rights/public-domain statement from the source.</summary>
     RightsInformation = 1 << 5,
+
+    /// <summary>
+    /// Implements <see cref="IAcquisitionAssembler"/>: what the source delivers
+    /// is not yet one playable file and has to be combined first.
+    /// </summary>
+    RequiresAssembly = 1 << 6,
 }
 
 /// <summary>The kind of reading material an item or asset represents.</summary>

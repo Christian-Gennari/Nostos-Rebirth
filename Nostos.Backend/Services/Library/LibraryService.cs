@@ -125,10 +125,12 @@ public sealed class LibraryService : ILibraryService
             var candidates = await query
                 .Include(b => b.Work)
                 .Include(b => b.BookCollections)
+                .Include(b => b.Acquisition)
                 .ToListAsync(ct);
 
             var candidateWorkIds = candidates.Select(c => c.WorkId).Distinct().ToList();
             var siblingBooks = await db.Books.AsNoTracking()
+                .Include(b => b.Acquisition)
                 .Where(b => candidateWorkIds.Contains(b.WorkId))
                 .ToListAsync(ct);
             var siblingsByWork = siblingBooks
@@ -180,6 +182,7 @@ public sealed class LibraryService : ILibraryService
             var items = await query
                 .Include(b => b.Work)
                 .Include(b => b.BookCollections)
+                .Include(b => b.Acquisition)
                 .Skip((safePage - 1) * safePageSize)
                 .Take(safePageSize)
                 .ToListAsync(ct);
@@ -187,6 +190,7 @@ public sealed class LibraryService : ILibraryService
             var pageWorkIds = items.Select(b => b.WorkId).Distinct().ToList();
             var pageSiblings = await db.Books.AsNoTracking()
                 .Include(b => b.BookCollections)
+                .Include(b => b.Acquisition)
                 .Where(b => pageWorkIds.Contains(b.WorkId))
                 .ToListAsync(ct);
             var pageSiblingsByWork = pageSiblings
@@ -250,6 +254,9 @@ public sealed class LibraryService : ILibraryService
 
         var book = await db.Books.AsNoTracking()
             .Include(b => b.BookCollections)
+            // Without this the DTO's Source is always null, so an imported book
+            // would never show where it came from.
+            .Include(b => b.Acquisition)
             .SingleOrDefaultAsync(b => b.Id == bookId, ct);
         if (book is null)
             return Failure("book_not_found", LibraryReplyFormatter.BookNotFound, version);
@@ -303,7 +310,9 @@ public sealed class LibraryService : ILibraryService
         //    request yields candidates, never an automatic match.
         if (!string.IsNullOrEmpty(nTitle))
         {
-            var all = await db.Books.AsNoTracking().ToListAsync(ct);
+            var all = await db.Books.AsNoTracking()
+                .Include(b => b.Acquisition)
+                .ToListAsync(ct);
             var hasAuthor = !string.IsNullOrEmpty(nAuthor);
             var exact = hasAuthor
                 ? all
@@ -622,7 +631,9 @@ public sealed class LibraryService : ILibraryService
         // 1. Explicit confirmation: use the caller-selected existing row.
         if (request.ConfirmedBookId.HasValue)
         {
-            var confirmed = await db.Books.AsNoTracking().SingleOrDefaultAsync(b => b.Id == request.ConfirmedBookId.Value, ct);
+            var confirmed = await db.Books.AsNoTracking()
+                .Include(b => b.Acquisition)
+                .SingleOrDefaultAsync(b => b.Id == request.ConfirmedBookId.Value, ct);
             if (confirmed is null)
                 return NoChange(Failure("book_not_found", LibraryReplyFormatter.BookNotFound, state.StateVersion));
 
@@ -636,9 +647,13 @@ public sealed class LibraryService : ILibraryService
         BookModel? isbnMatch = null;
         BookModel? asinMatch = null;
         if (nIsbn is not null)
-            isbnMatch = await db.Books.AsNoTracking().SingleOrDefaultAsync(b => b.NormalizedIsbn == nIsbn, ct);
+            isbnMatch = await db.Books.AsNoTracking()
+                .Include(b => b.Acquisition)
+                .SingleOrDefaultAsync(b => b.NormalizedIsbn == nIsbn, ct);
         if (nAsin is not null)
-            asinMatch = await db.Books.AsNoTracking().SingleOrDefaultAsync(b => b.NormalizedAsin == nAsin, ct);
+            asinMatch = await db.Books.AsNoTracking()
+                .Include(b => b.Acquisition)
+                .SingleOrDefaultAsync(b => b.NormalizedAsin == nAsin, ct);
 
         if (isbnMatch is not null && asinMatch is not null && isbnMatch.Id != asinMatch.Id)
             return NoChange(Failure("identity_conflict",
@@ -672,7 +687,9 @@ public sealed class LibraryService : ILibraryService
         Guid? targetWorkId = null;
         if (!request.ForceCreate && !string.IsNullOrEmpty(nTitle))
         {
-            var all = await db.Books.AsNoTracking().ToListAsync(ct);
+            var all = await db.Books.AsNoTracking()
+                .Include(b => b.Acquisition)
+                .ToListAsync(ct);
             var hasAuthor = !string.IsNullOrEmpty(nAuthor);
             var exact = hasAuthor
                 ? all
@@ -933,6 +950,11 @@ public sealed class LibraryService : ILibraryService
         book.FileDetails.ChaptersJson = request.Chapters is { Count: > 0 }
             ? JsonSerializer.Serialize(request.Chapters)
             : null;
+
+        // Duration only exists on audiobooks, and only an audiobook can carry
+        // it — an ebook that somehow received one would be a modelling error.
+        if (book is AudioBookModel audioBook && !string.IsNullOrWhiteSpace(request.Duration))
+            audioBook.Duration = request.Duration;
 
         // Written in the same SaveChanges as the file details above: the book
         // must never claim a file it has no provenance for, or provenance

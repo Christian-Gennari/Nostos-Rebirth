@@ -138,6 +138,57 @@ public class FileStorageService : IFileStorageService
         return finalPath;
     }
 
+    public async Task<string> AdoptBookFileAsync(
+        Guid bookId,
+        string sourcePath,
+        string fileName,
+        CancellationToken ct = default
+    )
+    {
+        var ext = Path.GetExtension(fileName);
+        if (!_allowedBookExtensions.Contains(ext))
+            throw new InvalidOperationException($"Unsupported file type: {ext}");
+
+        if (!File.Exists(sourcePath))
+            throw new FileNotFoundException("The staged file to adopt does not exist.", sourcePath);
+
+        var bookFolder = BookFolder(bookId);
+        Directory.CreateDirectory(bookFolder);
+
+        var finalPath = Path.Combine(bookFolder, $"book{ext}");
+        var tempPath = TempSiblingPath(bookFolder, finalPath);
+
+        try
+        {
+            try
+            {
+                // Staging normally sits on the same volume as the library, so
+                // committing is a rename: the bytes are never copied, and the
+                // final name never exists in a partial state.
+                File.Move(sourcePath, tempPath, overwrite: true);
+            }
+            catch (IOException)
+            {
+                // Different volume (staging pointed elsewhere): fall back to a
+                // copy, still via the temporary sibling.
+                await using var source = new FileStream(
+                    sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, CopyBufferSize, useAsync: true);
+                await WriteStreamAsync(source, tempPath, ct);
+                TryDelete(sourcePath);
+            }
+
+            DeleteExistingBookFiles(bookFolder, except: finalPath);
+            File.Move(tempPath, finalPath, overwrite: true);
+        }
+        catch
+        {
+            TryDelete(tempPath);
+            throw;
+        }
+
+        return finalPath;
+    }
+
     public FileStream? GetBookFile(Guid bookId)
     {
         var file = GetBookFileName(bookId);
@@ -153,6 +204,16 @@ public class FileStorageService : IFileStorageService
         return Directory
             .EnumerateFiles(folder)
             .FirstOrDefault(f => _allowedBookExtensions.Contains(Path.GetExtension(f)));
+    }
+
+    public bool DeleteBookFile(Guid bookId)
+    {
+        var file = GetBookFileName(bookId);
+        if (file is null)
+            return false;
+
+        TryDelete(file);
+        return true;
     }
 
     public void DeleteBookFiles(Guid bookId)

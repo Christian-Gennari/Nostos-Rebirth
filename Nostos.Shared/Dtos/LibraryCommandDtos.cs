@@ -210,6 +210,13 @@ public sealed record LibraryAttachAcquiredAssetRequest(
     /// <summary>The source's own rights wording. Never converted into a Nostos claim.</summary>
     string? RightsStatement = null,
     DateTime? AcquiredAt = null,
+    /// <summary>
+    /// Total running time as a display string ("13:06:44"), applied to the
+    /// audiobook the asset is attached to. Providers that know the duration up
+    /// front supply it; without it an imported audiobook would show no length
+    /// until something re-read the file.
+    /// </summary>
+    string? Duration = null,
     /// <summary>Canonical chapters derived from the source, for audiobooks.</summary>
     IReadOnlyList<BookChapterDto>? Chapters = null
 );

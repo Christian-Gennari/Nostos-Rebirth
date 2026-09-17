@@ -12,7 +12,8 @@ public sealed record ProviderRegistration(
     IProviderSearch? Search,
     IProviderCatalog? Catalog,
     IProviderAcquisitionPlanner? Planner,
-    IProviderDownloadPolicy? DownloadPolicy)
+    IProviderDownloadPolicy? DownloadPolicy,
+    IAcquisitionAssembler? Assembler)
 {
     public string Id => Provider.Id;
 }
@@ -53,7 +54,8 @@ public sealed class ProviderRegistry : IProviderRegistry
                 provider as IProviderSearch,
                 provider as IProviderCatalog,
                 provider as IProviderAcquisitionPlanner,
-                provider as IProviderDownloadPolicy);
+                provider as IProviderDownloadPolicy,
+                provider as IAcquisitionAssembler);
 
             if (!_byId.TryAdd(registration.Id, registration))
                 throw new InvalidOperationException(
@@ -97,6 +99,11 @@ public sealed class ProviderRegistry : IProviderRegistry
             "ProviderCapabilities.{Ebook,Audiobook}Acquisition", nameof(IProviderAcquisitionPlanner));
         CheckPair(id, claimsAcquisition, provider is IProviderDownloadPolicy,
             "ProviderCapabilities.{Ebook,Audiobook}Acquisition", nameof(IProviderDownloadPolicy));
+
+        // Declaring assembly without an assembler would mean a multi-part item
+        // silently ships its parts to the library as if they were the artifact.
+        CheckPair(id, caps.HasFlag(ProviderCapabilities.RequiresAssembly), provider is IAcquisitionAssembler,
+            "ProviderCapabilities.RequiresAssembly", nameof(IAcquisitionAssembler));
 
         if (provider is not IProviderDownloadPolicy policy)
             return;

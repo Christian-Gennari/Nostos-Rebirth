@@ -8,6 +8,8 @@ using Nostos.Backend.Data.Repositories;
 using Nostos.Backend.Endpoints;
 using Nostos.Backend.Configuration;
 using Nostos.Backend.Integrations.Mcp;
+using Nostos.Backend.Providers;
+using Nostos.Backend.Providers.Acquisition;
 using Nostos.Backend.Serialization;
 using Nostos.Backend.Services;
 using Nostos.Backend.Services.Library;
@@ -138,6 +140,41 @@ builder.Services.AddScoped<ICollectionRepository, CollectionRepository>();
 builder.Services.AddScoped<INoteRepository, NoteRepository>();
 builder.Services.AddScoped<IConceptRepository, ConceptRepository>();
 builder.Services.AddScoped<IWritingRepository, WritingRepository>();
+
+// --- External content providers and acquisition (issue #166) ---
+// A provider only describes remote content; the acquisition layer turns a
+// described item into an ordinary local book. Adding a source is a normal DI
+// registration here — there is no dynamic assembly loading and no third-party
+// plugin surface.
+builder.Services.Configure<AcquisitionOptions>(
+    builder.Configuration.GetSection(AcquisitionOptions.SectionName));
+
+// Auto-redirect is deliberately OFF: the downloader follows redirects itself,
+// one hop at a time, so that every hop is checked against the provider's host
+// allow-list instead of only the first URL.
+builder.Services.AddHttpClient(ProviderContentDownloader.HttpClientName, client =>
+{
+    // Per-attempt deadlines belong to the downloader, not to the client: one
+    // short HttpClient timeout would kill every multi-hour audiobook download.
+    client.Timeout = Timeout.InfiniteTimeSpan;
+    client.DefaultRequestHeaders.UserAgent.ParseAdd(
+        "Nostos/1.0 (+https://github.com/Christian-Gennari/Nostos-Rebirth)");
+}).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    AllowAutoRedirect = false,
+    ConnectTimeout = TimeSpan.FromSeconds(30),
+});
+
+builder.Services.AddSingleton<IProviderRegistry, ProviderRegistry>();
+builder.Services.AddSingleton<ITranscodeLimiter, TranscodeLimiter>();
+builder.Services.AddSingleton<IProviderContentDownloader, ProviderContentDownloader>();
+builder.Services.AddScoped<IAcquisitionService, AcquisitionService>();
+
+// One instance serves as the job store, the hosted worker that drains it, and
+// the IAcquisitionJobManager the endpoints talk to.
+builder.Services.AddSingleton<AcquisitionJobManager>();
+builder.Services.AddSingleton<IAcquisitionJobManager>(sp => sp.GetRequiredService<AcquisitionJobManager>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<AcquisitionJobManager>());
 builder.Services.AddHostedService<ConceptCleanupWorker>();
 builder.Services.AddHostedService<BackupWorker>();
 builder.Services.AddHostedService<LibraryReceiptRetentionWorker>();
@@ -247,6 +284,7 @@ app.UseStaticFiles();
 
 // Map all endpoints
 app.MapBooksEndpoints();
+app.MapProviderEndpoints();
 app.MapNotesEndpoints();
 app.MapCollectionsEndpoints();
 app.MapConceptsEndpoints();
