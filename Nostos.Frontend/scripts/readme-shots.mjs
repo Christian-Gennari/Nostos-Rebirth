@@ -1,7 +1,7 @@
 /**
  * README screenshot capture — issue #144.
  *
- * Captures the five product surfaces shown in README.md from a running Nostos
+ * Captures the six product surfaces shown in README.md from a running Nostos
  * instance at a single, consistent viewport/theme so the set reads as one tour.
  *
  * Usage: node scripts/readme-shots.mjs <baseUrl> <outDir>
@@ -9,6 +9,10 @@
  * Deliberate choices:
  *  - One viewport (1440x900 @2x) for every shot: the README declares each image
  *    width=2880 height=1800, and a mixed set reads as inconsistent.
+ *  - ONE exception: the concept graph is captured at 1900x910 @2x so the frame
+ *    keeps the page chrome (header + dock) and the graph's own aspect, rather
+ *    than being cropped to the stage. That is a deliberate readability trade —
+ *    see GRAPH_VIEWPORT below.
  *  - Light theme throughout (the marketing default; the repo logo is theme-aware
  *    but the product tour is not).
  *  - Service worker + caches are cleared before the first shot and after every
@@ -27,6 +31,23 @@ const OUT = process.argv[3] ?? '/tmp/nostos-readme-shots';
 mkdirSync(OUT, { recursive: true });
 
 const VIEWPORT = { width: 1440, height: 900 };
+
+/**
+ * The concept graph gets its own viewport.
+ *
+ * The other five shots are 1440x900 so the app's layout matches a real desktop
+ * session. The graph does not need that: at 1440x900 the map stage is ~2:1 while
+ * a fitted force layout is roughly square, so the stage spent ~53% of its width
+ * on dead space and PR #151 worked around it by cropping to the graph's ink.
+ *
+ * This capture keeps the page chrome instead — header ("Brain · 53 concepts ·
+ * 61 references") and the dock — because that is what the README's Brain section
+ * is illustrating. The trade is legibility: the labels are drawn at a constant
+ * 12 CSS px (LABEL_DRAW_SIZE), so a wider image scales down harder at GitHub's
+ * ~846px render column. At 1900 CSS px wide they land at ~5.3px, against ~15px
+ * for the ink crop. Readable at 1:1, small in the README column.
+ */
+const GRAPH_VIEWPORT = { width: 1900, height: 910 };
 const manifest = [];
 
 const browser = await chromium.launch({
@@ -204,7 +225,9 @@ async function shot(page, name, note, opts = {}) {
 
 // ------------------------------------------------- Brain (graph / map)
 {
-  const { ctx, page } = await newPage();
+  // Own viewport: keeps the page chrome and the graph's own aspect (see
+  // GRAPH_VIEWPORT). Shot at @2x so the asset stays crisp at 1:1.
+  const { ctx, page } = await newPage({ viewport: GRAPH_VIEWPORT });
   await page.goto(`${BASE}/second-brain`, { waitUntil: 'networkidle' });
   await clearSw(page);
   await page.goto(`${BASE}/second-brain`, { waitUntil: 'networkidle' });
@@ -233,11 +256,10 @@ async function shot(page, name, note, opts = {}) {
   });
   if (!stats || !stats.nodes) throw new Error(`graph diagnostics empty: ${JSON.stringify(stats)}`);
 
-  // The map stage is ~2:1 while a fitted force layout is roughly square, so a
-  // stage-shaped frame leaves the graph in ~47% of the width and its 12px labels
-  // become unreadable once GitHub scales the image to its ~880px column. Measure
-  // the graph's real ink (nodes, edges AND labels) off the Sigma canvases and
-  // crop to that, so the graph — not dead space — occupies the README.
+  // Measure the graph's real ink (nodes, edges AND labels) off the Sigma
+  // canvases. Nothing is cropped to it any more, but it is the done-state
+  // assertion: a graph whose ink collapses to a corner means the physics or the
+  // fit failed, and the capture would otherwise look fine.
   const inkBox = await page.evaluate(() => {
     const stage = document.querySelector('.map-stage');
     const sRect = stage.getBoundingClientRect();
@@ -272,25 +294,30 @@ async function shot(page, name, note, opts = {}) {
   });
   if (!inkBox) throw new Error('could not measure graph ink');
 
-  const PAD = 28; // breathing room so edge nodes are not flush to the frame
-  const vp = page.viewportSize();
-  const clip = {
-    x: Math.max(0, Math.round(inkBox.stage.x + inkBox.minX - PAD)),
-    y: Math.max(0, Math.round(inkBox.stage.y + inkBox.minY - PAD)),
-    width: Math.round(inkBox.maxX - inkBox.minX + PAD * 2),
-    height: Math.round(inkBox.maxY - inkBox.minY + PAD * 2),
-  };
-  clip.width = Math.min(clip.width, vp.width - clip.x);
-  clip.height = Math.min(clip.height, vp.height - clip.y);
+  const fillX = (inkBox.maxX - inkBox.minX) / inkBox.stage.w;
+  const fillY = (inkBox.maxY - inkBox.minY) / inkBox.stage.h;
+  if (fillX < 0.3 || fillY < 0.3) {
+    throw new Error(`graph collapsed to a corner: stageFill=${fillX.toFixed(2)}x${fillY.toFixed(2)}`);
+  }
 
-  const fillX = ((inkBox.maxX - inkBox.minX) / inkBox.stage.w).toFixed(2);
-  const fillY = ((inkBox.maxY - inkBox.minY) / inkBox.stage.h).toFixed(2);
+  // The dock and header must be in frame — that is the point of this framing.
+  const chrome = await page.evaluate(() => {
+    const h1 = document.querySelector('h1')?.innerText ?? '';
+    const vh = innerHeight;
+    let dockBottom = 0;
+    for (const el of document.querySelectorAll('.app-dock, .dock, nav')) {
+      const r = el.getBoundingClientRect();
+      if (r.height && r.width && r.top < vh && r.bottom > dockBottom) dockBottom = r.bottom;
+    }
+    return { h1, dockVisible: dockBottom > vh - 120 && dockBottom <= vh + 1 };
+  });
+  if (!chrome.h1) throw new Error('graph header missing — wrong framing');
+  if (!chrome.dockVisible) throw new Error('dock not in frame — wrong framing');
 
   await shot(
     page,
     'brain-graph',
-    `nodes=${stats.nodes} edges=${stats.edges} stageFill=${fillX}x${fillY} crop=${clip.width}x${clip.height}`,
-    { clip },
+    `nodes=${stats.nodes} edges=${stats.edges} stageFill=${fillX.toFixed(2)}x${fillY.toFixed(2)} header="${chrome.h1}"`,
   );
   await ctx.close();
 }
