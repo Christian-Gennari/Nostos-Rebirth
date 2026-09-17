@@ -16,7 +16,9 @@
 }
 .modal-content {
   background: var(--bg-surface);
-  border-radius: 14px;
+  /* The reference geometry for this work, now owned by the dialog role rather
+     than a literal here (issue #160). */
+  border-radius: var(--radius-dialog, 14px);
   border: 1px solid var(--border-color);
   overflow: clip;
   width: 100%;
@@ -262,7 +264,7 @@
   background: transparent;
   border: 1px solid transparent;
   padding: 0.55rem 1rem;
-  border-radius: 999px;
+  border-radius: var(--radius-action);
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
@@ -273,14 +275,14 @@
 }
 .modal-actions .btn-secondary {
   padding: 0.55rem 1.25rem;
-  border-radius: 999px;
+  border-radius: var(--radius-action);
   font-weight: 500;
 }
 .modal-actions .btn-primary {
   background: var(--primary-fill);
   color: var(--on-primary);
   padding: 0.55rem 1.4rem;
-  border-radius: 999px;
+  border-radius: var(--radius-action);
   font-weight: 500;
 }
 

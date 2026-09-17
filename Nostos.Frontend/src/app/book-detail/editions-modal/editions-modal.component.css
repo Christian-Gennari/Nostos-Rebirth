@@ -43,7 +43,11 @@
   max-height: min(640px, calc(100vh - 2.5rem));
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg, 6px);
+  /* The dialog role. Was `--radius-lg` (6px), which made this card visibly
+     squarer than the Edit Book modal it is opened from. The compact controls
+     INSIDE stay on the small scale on purpose — including this modal's close
+     button, which matches Edit Book's own 3px icon close. */
+  border-radius: var(--radius-dialog, 14px);
   /* The app's large elevation token, not a hand-written rgba pair: it carries a
      light and a dark value, so the card follows the theme. */
   box-shadow: var(--shadow-glass-lg);

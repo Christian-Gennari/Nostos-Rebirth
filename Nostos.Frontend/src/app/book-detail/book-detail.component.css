@@ -1090,16 +1090,21 @@ button.edition-select-card:focus-visible {
   align-items: center;
   justify-content: center;
   padding: 1.25rem;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  /* The shared scrim, not a local literal. This was the app's ONLY dialog with
+     its own scrim: rgba(0,0,0,.45) at an 8px blur, i.e. four times the blur of
+     every other dialog. It is the same surface role, so it reads the same token. */
+  background: var(--modal-scrim);
+  backdrop-filter: blur(var(--modal-scrim-blur));
+  -webkit-backdrop-filter: blur(var(--modal-scrim-blur));
   animation: fadeIn 0.15s ease-out;
 }
 .reset-confirm-dialog {
   width: 100%;
   max-width: 400px;
   padding: 1.5rem 1.6rem;
-  border-radius: 16px;
+  /* The dialog role, not a 16px literal: this is the same kind of surface as
+     the Edit Book and Confirm cards, so it takes the same corner. */
+  border-radius: var(--radius-dialog, 14px);
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   box-shadow:
@@ -1127,7 +1132,7 @@ button.edition-select-card:focus-visible {
   gap: 0.65rem;
 }
 .reset-confirm-actions .btn {
-  border-radius: 999px;
+  border-radius: var(--radius-action);
   padding: 0.45rem 1.15rem;
   font-size: 0.85rem;
   font-weight: 500;
@@ -1170,7 +1175,7 @@ button.edition-select-card:focus-visible {
 
 /* Pill-shaped CTAs */
 .primary-actions .pill-btn {
-  border-radius: 999px;
+  border-radius: var(--radius-action);
   font-weight: 500;
   font-size: 0.86rem;
   padding: 0.5rem 1rem;

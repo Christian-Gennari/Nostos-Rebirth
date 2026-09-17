@@ -269,6 +269,26 @@
   --radius-pill: 999px;
   --radius-round: 50%;
 
+  /* ── Dialog & action roles (issue #160) ──
+     A modal CARD is not a card and an ACTION in a dialog footer is not a
+     generic control, but both were being expressed with the generic scale —
+     which is why Book Details showed three different corner treatments from
+     the same page (Edit Book at a hardcoded 14px, Confirm and Editions at the
+     6px `-lg`, their buttons at 3px).
+
+     These name the two roles so dialog geometry is coordinated independently
+     of the generic card/control radii. That independence is the requirement:
+     raising an existing step in the scale above would have repainted every
+     card and control in the app to fix dialog chrome.
+
+     Measured source for the dialog role: Edit Book is a `14px` card. Measured
+     source for the action role: Edit Book's footer actions are stadium-ended,
+     and the app's pill CTAs already shared that same value — one role now owns
+     both, so the pill shape on a dialog action and on a hero CTA is a single
+     decision rather than two sets of co-incidentally equal literals. */
+  --radius-dialog: 14px;
+  --radius-action: 999px;
+
   /* ── Control heights ──
      The measured heights of the small interactive controls, taken from the
      running app rather than chosen: 28px (Library row action), 30px (the
