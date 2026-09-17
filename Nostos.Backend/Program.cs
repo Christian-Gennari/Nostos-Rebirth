@@ -10,8 +10,10 @@ using Nostos.Backend.Configuration;
 using Nostos.Backend.Integrations.Mcp;
 using Nostos.Backend.Providers;
 using Nostos.Backend.Providers.Acquisition;
+using Nostos.Backend.Providers.Acquisition.Media;
 using Nostos.Backend.Providers.Contracts;
 using Nostos.Backend.Providers.Gutenberg;
+using Nostos.Backend.Providers.LibriVox;
 using Nostos.Backend.Serialization;
 using Nostos.Backend.Services;
 using Nostos.Backend.Services.Library;
@@ -186,6 +188,30 @@ builder.Services.AddHttpClient(GutenbergProvider.HttpClientName, client =>
 });
 
 builder.Services.AddSingleton<IContentProvider, GutenbergProvider>();
+
+// --- LibriVox (#168) ---
+// The media tooling is an explicit runtime prerequisite, not an assumption:
+// MediaProcessRunner resolves ffmpeg/ffprobe at startup and publishes whether
+// they are present, so a missing dependency is a clear message at the point of
+// use rather than a confusing failure halfway through an import.
+builder.Services.Configure<MediaToolOptions>(
+    builder.Configuration.GetSection(MediaToolOptions.SectionName));
+
+builder.Services.AddSingleton<IMediaProcessRunner, MediaProcessRunner>();
+builder.Services.AddSingleton<LibriVoxM4bAssembler>();
+
+builder.Services.AddHttpClient(LibriVoxProvider.HttpClientName, client =>
+{
+    client.BaseAddress = new Uri(LibriVoxCatalog.BaseUrl);
+    // The catalogue client is only used for the JSON feed, which is small and
+    // fast; the section downloads use the separate provider-content client with
+    // its own long per-attempt budget.
+    client.Timeout = TimeSpan.FromSeconds(20);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd(
+        "Nostos/1.0 (+https://github.com/Christian-Gennari/Nostos-Rebirth)");
+});
+
+builder.Services.AddSingleton<IContentProvider, LibriVoxProvider>();
 
 // One instance serves as the job store, the hosted worker that drains it, and
 // the IAcquisitionJobManager the endpoints talk to.

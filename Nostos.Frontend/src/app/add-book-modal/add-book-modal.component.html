@@ -483,6 +483,9 @@
                               }}{{ item.categories || '' }}
                             </span>
                           }
+                          @if (sourceFacts(item)) {
+                            <span class="source-result-meta">{{ sourceFacts(item) }}</span>
+                          }
                         </span>
                       </button>
                     </li>
@@ -501,6 +504,9 @@
                   <h4 class="source-detail-title">{{ item.title }}</h4>
                   @if (item.author) {
                     <p class="source-detail-author">{{ item.author }}</p>
+                  }
+                  @if (sourceFacts(item)) {
+                    <p class="source-hint">{{ sourceFacts(item) }}</p>
                   }
                   @if (item.description) {
                     <p class="source-detail-description">{{ item.description }}</p>

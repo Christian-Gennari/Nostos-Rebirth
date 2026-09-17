@@ -250,6 +250,88 @@ public sealed class BackupServiceTests
         (await File.ReadAllBytesAsync(bookFile)).Should().Equal(payload);
     }
 
+    [Fact]
+    public async Task ImportedAudiobook_SurvivesBackupAndRestore_WithItsMediaAndProvenance()
+    {
+        // An imported LibriVox recording is an ordinary local audiobook, so it
+        // has to survive a backup like one: the .m4b itself and the row saying
+        // where it came from. A backup that kept the audio but dropped the
+        // provenance would silently lose the source; one that kept the row but
+        // dropped the file would restore a book that cannot be played.
+        using var h = BackupHarness.Create(includeBookFiles: true);
+
+        Guid bookId;
+        await using (var db = h.NewDbContext())
+        {
+            var book = new PhysicalBookModel { Title = "Spirits of the Dead", Author = "Edgar Allan Poe" };
+            db.Books.Add(book);
+
+            db.BookAcquisitions.Add(new BookAcquisitionModel
+            {
+                BookId = book.Id,
+                ProviderId = "librivox",
+                ProviderDisplayName = "LibriVox",
+                ExternalId = "8260",
+                AssetId = "m4b",
+                AssetFormat = "librivox-mp3-sections",
+                ImportedExtension = ".m4b",
+                SourceUrl = "https://librivox.org/spirits-of-the-dead-by-edgar-allan-poe/",
+                RightsStatement = "LibriVox recordings are in the public domain.",
+                AcquiredAt = new DateTime(2026, 9, 17, 21, 28, 0, DateTimeKind.Utc),
+            });
+
+            await db.SaveChangesAsync();
+            bookId = book.Id;
+        }
+
+        var bookDir = Path.Combine(h.ContentRoot, "Storage", "books", bookId.ToString());
+        Directory.CreateDirectory(bookDir);
+        var payload = "M4B-AUDIO-PAYLOAD-overnight-168"u8.ToArray();
+        var bookFile = Path.Combine(bookDir, "book.m4b");
+        await File.WriteAllBytesAsync(bookFile, payload);
+
+        var created = await h.Service.CreateBackupAsync();
+        created.Status.Should().Be(BackupStatus.Completed);
+
+        var archivePath = h.Service.GetLocalArchivePath(created.Id);
+        archivePath.Should().NotBeNull();
+
+        using (var zip = ZipFile.OpenRead(archivePath!))
+        {
+            zip.GetEntry($"books/{bookId}/book.m4b")
+                .Should().NotBeNull("the imported recording itself must be in the archive");
+
+            var booksEntry = zip.GetEntry("metadata/books.json");
+            booksEntry.Should().NotBeNull();
+
+            using var reader = new StreamReader(booksEntry!.Open());
+            var booksJson = await reader.ReadToEndAsync();
+
+            booksJson.Should().Contain("librivox", "provenance is what says where the file came from");
+            booksJson.Should().Contain("8260");
+            booksJson.Should().Contain("librivox-mp3-sections");
+        }
+
+        // Lose the recording, then restore.
+        File.Delete(bookFile);
+
+        var restored = await h.Service.RestoreBackupAsync(created.Id);
+        restored.Success.Should().BeTrue(restored.Message);
+
+        File.Exists(bookFile).Should().BeTrue("restore must put the audiobook file back");
+        (await File.ReadAllBytesAsync(bookFile)).Should().Equal(payload);
+
+        await using (var db = h.NewDbContext())
+        {
+            var provenance = await db.BookAcquisitions.SingleAsync(a => a.BookId == bookId);
+
+            provenance.ProviderId.Should().Be("librivox");
+            provenance.ExternalId.Should().Be("8260");
+            provenance.AssetFormat.Should().Be("librivox-mp3-sections");
+            provenance.ImportedExtension.Should().Be(".m4b");
+        }
+    }
+
     // --- Harness -----------------------------------------------------------
 
     [Fact]
