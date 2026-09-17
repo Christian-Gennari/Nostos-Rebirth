@@ -998,8 +998,8 @@ button.edition-select-card:focus-visible {
  *   the border still shows its two end caps.
  * - a faint top-lit tint instead of a line: it needs no ends, but it ties with
  *   `:hover` on specificity (0,2,0 vs 0,2,0) and so wins on source order, which
- *   killed the hover state; and in dark theme `--bg-hover` (#252A34) is within
- *   1/255 of `--border-color` (#262A34), so a permanent tint is indistinguishable
+ *   killed the hover state; and in dark theme `--bg-hover` (#20222a) sits within
+ *   ~1/255 of `--border-color` (#2a2d37), so a permanent tint is indistinguishable
  *   from a permanent hover anyway. In dark it reads as an always-hovered row.
  *
  * The rows are already separated by their own content — distinct icons, labels

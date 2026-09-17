@@ -135,8 +135,8 @@
 }
 
 .tab-btn.active {
-  /* `--control-active-fill`, not `--bg-surface`. On dark `--bg-surface` (#1B1E26) is
-     DARKER than the `--bg-hover` track (#252A34), so the selected tab SANK instead of
+  /* `--control-active-fill`, not `--bg-surface`. On dark `--bg-surface` (#121318) is
+     DARKER than the `--bg-hover` track (#20222a), so the selected tab SANK instead of
      rising — measured live: track rgb(37,42,52) vs active rgb(27,30,38). Same defect
      that was already fixed in Library and Brain; this was the third copy of it.
      `font-weight: 600` is kept on purpose — these tabs carry text labels, so weight

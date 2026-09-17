@@ -107,8 +107,8 @@ panel edge as two hard vertical caps, and squaring the top corners
 rounded corners — at 1:1 that reads as a cut edge, sharpest at the ends of the
 seam. Keeping the line without squaring the corners leaves the caps; replacing it
 with a permanent tint ties with `:hover` on specificity (0,2,0) and kills the
-hover state, and in dark `--bg-hover` (#252A34) is within 1/255 of
-`--border-color` (#262A34), so a permanent tint is indistinguishable from a
+hover state, and in dark `--bg-hover` (#20222a) sits within ~1/255 of
+`--border-color` (#2a2d37), so a permanent tint is indistinguishable from a
 permanent hover. Measured in the browser: each item now computes
 `border-top: 0px` and a uniform `border-radius: 6px`.
 
