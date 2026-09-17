@@ -1,8 +1,9 @@
-import { Component, HostListener, input, output } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule, X, Search, Layers, Link2 } from 'lucide-angular';
 import { LinkableBookDto } from '../../core/dtos/book.dtos';
+import { ModalShell } from '../../ui/modal-shell/modal-shell.component';
 
 /** One book in the current work, as the membership list needs it. */
 export interface WorkMember {
@@ -32,7 +33,7 @@ export interface WorkMember {
 @Component({
   selector: 'app-editions-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule],
+  imports: [CommonModule, FormsModule, LucideAngularModule, ModalShell],
   templateUrl: './editions-modal.component.html',
   styleUrl: './editions-modal.component.css',
 })
@@ -68,16 +69,10 @@ export class EditionsModal {
   LayersIcon = Layers;
   LinkIcon = Link2;
 
-  onBackdropClick(): void {
-    if (!this.busy()) this.close.emit();
-  }
-
+  // Escape and the backdrop now belong to `app-modal-shell`, which emits
+  // `closed`; both were hand-rolled here before, including the `busy` guard
+  // that stopped a save being dismissed mid-flight.
   onQueryInput(value: string): void {
     this.queryChange.emit(value);
-  }
-
-  @HostListener('document:keydown.escape')
-  onEscape(): void {
-    if (this.isOpen() && !this.busy()) this.close.emit();
   }
 }

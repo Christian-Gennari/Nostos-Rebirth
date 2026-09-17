@@ -1,13 +1,17 @@
 @if (isOpen()) {
-<div class="modal-backdrop" (click)="onBackdropClick()" role="presentation">
-  <div
-    class="editions-modal-card"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="editions-modal-title"
-    (click)="$event.stopPropagation()"
-  >
-    <header class="editions-modal-head">
+<app-modal-shell
+  [isOpen]="true"
+  variant="sheet"
+  cardClass="editions-modal-card"
+  [maxWidth]="'560px'"
+  [maxHeight]="'min(640px, calc(100vh - 2.5rem))'"
+  [layer]="110"
+  [busy]="busy()"
+  ariaLabelledBy="editions-modal-title"
+  [style.--modal-head-padding]="'1.15rem 1.25rem 0.9rem'"
+  (closed)="close.emit()"
+>
+    <header class="editions-modal-head" shellHeader>
       <div class="editions-modal-heading">
         <span class="editions-modal-mark" aria-hidden="true">
           <lucide-icon [img]="LayersIcon" [size]="15" [strokeWidth]="1.75"></lucide-icon>
@@ -135,6 +139,5 @@
         }
       </section>
     </div>
-  </div>
-</div>
+</app-modal-shell>
 }

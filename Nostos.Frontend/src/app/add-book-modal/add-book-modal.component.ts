@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, OnDestroy, inject, input, output, signal, computed, effect, viewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, inject, input, output, signal, computed, effect, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
@@ -18,6 +18,7 @@ import { Collection } from '../core/dtos/collection.dtos';
 import { BookType } from '../core/dtos/book.dtos';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
 import { CollectionPickerComponent } from '../ui/collection-picker/collection-picker.component';
+import { ModalShell } from '../ui/modal-shell/modal-shell.component';
 
 @Component({
   selector: 'app-add-book-modal',
@@ -28,6 +29,7 @@ import { CollectionPickerComponent } from '../ui/collection-picker/collection-pi
     LucideAngularModule,
     IconButtonComponent,
     CollectionPickerComponent,
+    ModalShell,
   ],
   templateUrl: './add-book-modal.component.html',
   styleUrl: './add-book-modal.component.css',
@@ -384,10 +386,8 @@ export class AddBookModal implements OnDestroy {
     this.bookAdded.emit();
   }
 
-  @HostListener('document:keydown.escape')
-  onEscape(): void {
-    if (this.isOpen()) this.closeModal.emit();
-  }
+  // Escape and the backdrop now belong to `app-modal-shell`, which emits
+  // `closed`; both were hand-rolled here before.
 
   // ------------------------------------------------------------------
   // From a source (issue #167)

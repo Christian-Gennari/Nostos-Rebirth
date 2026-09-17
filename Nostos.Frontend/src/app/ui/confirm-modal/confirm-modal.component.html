@@ -1,43 +1,54 @@
 @if (isOpen()) {
-  <div class="modal-backdrop" (click)="onBackdropClick()" role="presentation">
-    <div
-      class="confirm-modal-card"
-      [class.tone-danger]="tone() === 'danger'"
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="confirm-dialog-title"
-      [attr.aria-describedby]="description() ? 'confirm-dialog-description' : null"
-      (click)="$event.stopPropagation()"
-    >
-      <div class="confirm-modal-head">
-        @if (tone() === 'danger') {
-          <span class="confirm-mark" aria-hidden="true">
-            <lucide-icon [img]="Trash2Icon" [size]="15" [strokeWidth]="1.75"></lucide-icon>
-          </span>
-        }
-        <h2 id="confirm-dialog-title" class="confirm-title">{{ heading() }}</h2>
-      </div>
-
-      @if (description()) {
-        <p id="confirm-dialog-description" class="confirm-description">{{ description() }}</p>
+  <app-modal-shell
+    [isOpen]="true"
+    variant="dialog"
+    cardClass="confirm-modal-card"
+    [maxWidth]="'420px'"
+    [layer]="120"
+    [busy]="busy()"
+    dialogRole="alertdialog"
+    ariaLabelledBy="confirm-dialog-title"
+    [ariaDescribedBy]="description() ? 'confirm-dialog-description' : null"
+    [headDivider]="false"
+    [style.--modal-head-padding]="'0'"
+    [style.--modal-card-padding]="'1.5rem 1.5rem 1.25rem'"
+    [style.--modal-card-padding-narrow]="'1.25rem 1.15rem 1.1rem'"
+    (closed)="cancel.emit()"
+  >
+    <div class="confirm-modal-head" shellHeader>
+      @if (tone() === 'danger') {
+        <span class="confirm-mark" aria-hidden="true">
+          <lucide-icon [img]="Trash2Icon" [size]="15" [strokeWidth]="1.75"></lucide-icon>
+        </span>
       }
-
-      <div class="confirm-actions">
-        <button type="button" class="btn-cancel" (click)="cancel.emit()" [disabled]="busy()">
-          {{ cancelLabel() }}
-        </button>
-        <button type="button" class="btn-confirm" (click)="confirm.emit()" [disabled]="busy()">
-          @if (busy()) {
-            <lucide-icon [img]="LoaderIcon" [size]="14" class="spin-icon"></lucide-icon>
-            <span>{{ busyLabel() }}</span>
-          } @else {
-            @if (tone() === 'danger') {
-              <lucide-icon [img]="Trash2Icon" [size]="14"></lucide-icon>
-            }
-            <span>{{ confirmLabel() }}</span>
-          }
-        </button>
-      </div>
+      <h2 id="confirm-dialog-title" class="confirm-title">{{ heading() }}</h2>
     </div>
-  </div>
+
+    @if (description()) {
+      <p id="confirm-dialog-description" class="confirm-description">{{ description() }}</p>
+    }
+
+    <div class="confirm-actions" shellActions>
+      <button type="button" class="btn-cancel" (click)="cancel.emit()" [disabled]="busy()">
+        {{ cancelLabel() }}
+      </button>
+      <button
+        type="button"
+        class="btn-confirm"
+        [class.tone-danger]="tone() === 'danger'"
+        (click)="confirm.emit()"
+        [disabled]="busy()"
+      >
+        @if (busy()) {
+          <lucide-icon [img]="LoaderIcon" [size]="14" class="spin-icon"></lucide-icon>
+          <span>{{ busyLabel() }}</span>
+        } @else {
+          @if (tone() === 'danger') {
+            <lucide-icon [img]="Trash2Icon" [size]="14"></lucide-icon>
+          }
+          <span>{{ confirmLabel() }}</span>
+        }
+      </button>
+    </div>
+  </app-modal-shell>
 }
