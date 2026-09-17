@@ -62,10 +62,9 @@
      does not actually apply — see below) and the library grid card titles
      (`.meta-title`, `library.component.html:365`) both want it.
 
-     LIGHT keeps the pine the rule already used, so nothing moves here: the base
-     rule read `var(--color-primary)`, which is #28372D in light. Value-preserving
-     is the point of this token — see the note on the dark block for what changes
-     and why. */
+     The base rule reads `var(--color-primary)`, so the token inherits whatever
+     that is per theme. It was pine #28372D in light and is obsidian #121316 now;
+     see the note on the dark block for what changes there and why. */
   --ink-lede: var(--color-primary);
 
   /* ── Role tokens for things sitting ON a selection ──
@@ -107,10 +106,11 @@
   /* Cover art in a grid frame. The hairline alone cannot read against a dark
      page, so it also carries a shadow. */
   --cover-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
-  /* The same frame under the pointer: cast + a warm clay halo (the "soft lamp"),
-     which is correct on a bright page and had to be replaced on dark. */
+  /* The same frame under the pointer: cast + a halo (the "soft lamp"). The
+     halo was clay and warm; the cool palette has no warm accent, so it is now
+     the same slate as the accent. Still replaced wholesale on dark. */
   --cover-shadow-hover:
-    0 14px 28px -6px rgba(28, 27, 26, 0.15),
+    0 14px 28px -6px rgba(18, 19, 22, 0.15),
     0 4px 10px -2px rgba(0, 0, 0, 0.05),
     0 0 16px -2px var(--color-accent-faint);
   /* The segmented control's selected option: the raised surface. On dark this is
@@ -148,20 +148,20 @@
      The Second Brain's map was a wireframe of hollow rings: nodes are filled
      discs now, and a fill is the one place a graph earns a token of its own
      because it sits ON neither paper nor chrome — it must read as ink against
-     the stage and still separate from the clay edges. Kept in the existing
-     neutral/clay families rather than a new hue: a category palette was the
+     the stage and still separate from the graph edges. Kept in the existing
+     neutral families rather than a new hue: a category palette was the
      obvious alternative and it is exactly the "colourful AI aesthetic" the
      design manifesto rules out. */
-  --graph-node: #46464B;       /* light: warm ink; 7.6:1 on the white stage */
-  --graph-node-head: #121316;  /* the touched node: pine, the brand ink */
-  --graph-edge: #76777B;       /* neutral warm stone; structure without a colour cast */
-  --graph-edge-active: #121316; /* selected path follows the pine node hierarchy */
+  --graph-node: #46464B;       /* light: cool ink; 9.4:1 on the white stage */
+  --graph-node-head: #121316;  /* the touched node: obsidian, the ink */
+  --graph-edge: #76777B;       /* neutral slate; structure without a colour cast */
+  --graph-edge-active: #121316; /* selected path follows the obsidian node hierarchy */
   /* Fill for the plate Sigma draws behind the ACTIVE node's own label. Sigma's
      built-in hover drawer hardcodes #FFF, which is correct here and a white
      block on dark; this token lets the fill follow the theme instead. */
   --graph-label-box: #ffffff;
 
-  /* ── Accent (Clay) ── */
+  /* ── Accent (slate) ── */
   --color-accent: #5B5E66;
   --color-accent-hover: #2A2D34;
   --color-accent-faint: rgba(91, 94, 102, 0.3);
@@ -223,7 +223,7 @@
   --control-border: var(--border-color);
   --border-light: #EEEEEF;
   --border-focus: #121316;
-  --focus-ring: #6E7C90;   /* neutral slate; NOT the brand pine (see the dark block) */
+  --focus-ring: #6E7C90;   /* neutral slate; NOT the brand ink (see the dark block) */
 
   /* ── Scrollbar ── */
   --scrollbar-thumb: #E2E2E3;
@@ -244,7 +244,7 @@
   --overlay-light: rgba(0, 0, 0, 0.3);
 
   /* ── Modal scrim (shared by every dialog) ──
-     A warm ink dim rather than a frosted-glass wall: the brand avoids
+     A cool ink dim rather than a frosted-glass wall: the brand avoids
      glassmorphism, so the blur stays at the restrained value the library's
      mobile backdrop already uses. One owner, so dialogs cannot drift apart. */
   --modal-scrim: rgba(18, 19, 22, 0.42);
