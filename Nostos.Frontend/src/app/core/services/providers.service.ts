@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import {
   ProviderAcquisition,
   ProviderAcquireRequest,
+  ProviderItem,
   ProviderSearchResult,
   ProviderSummary,
 } from '../dtos/provider.dtos';
@@ -39,6 +40,16 @@ export class ProvidersService {
     return this.http.get<ProviderSearchResult>(
       `/api/providers/${encodeURIComponent(providerId)}/search`,
       { params },
+    );
+  }
+
+  /**
+   * The full item. This is where its downloadable assets live: a search result
+   * deliberately carries none, so nothing can be imported until this is fetched.
+   */
+  item(providerId: string, externalId: string): Observable<ProviderItem> {
+    return this.http.get<ProviderItem>(
+      `/api/providers/${encodeURIComponent(providerId)}/items/${encodeURIComponent(externalId)}`,
     );
   }
 
