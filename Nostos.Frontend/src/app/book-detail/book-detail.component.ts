@@ -1,4 +1,4 @@
-import { Component, effect, inject, OnInit, signal, model, computed, ViewChild, ElementRef, HostListener } from '@angular/core';
+import { afterNextRender, Component, effect, inject, Injector, OnDestroy, OnInit, signal, model, computed, ViewChild, ElementRef, HostListener } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -8,6 +8,28 @@ import { BookDetailStore } from './book-detail.store';
 
 // DTOs
 import { Book, EditionSummaryDto, LinkableBookDto } from '../core/dtos/book.dtos';
+
+/**
+ * How many RENDERED LINES a review may occupy before Book Details opens it as a
+ * collapsed preview with a "Show more" control (issue #159).
+ *
+ * Why lines and not characters: the identical review is 16 lines in the 718px
+ * desktop column and 49 lines on a 320px phone (16px/1.6 at every width), so a
+ * character budget is not a height budget. A line is the same amount of reading
+ * everywhere, and it is what the page actually has to spend vertically.
+ *
+ * Why 50: the calibration anchor in the issue is the current "Devils" review
+ * (1240 chars), which must stay expanded at EVERY width — and at 320px, the
+ * narrowest viewport the app serves, it already renders 49 lines. Anything at or
+ * below that collapses the anchor review on a phone, so the threshold sits just
+ * above it. On the desktop column 50 lines is ~1280px of review, i.e. a review
+ * has to run past a full screen before it takes the page over; a normal review
+ * needs no interaction and sees no control at all.
+ *
+ * `--review-preview-lines` in the component stylesheet sets how much of a
+ * collapsed review stays visible.
+ */
+export const REVIEW_COLLAPSE_LINES = 50;
 
 /** A work-membership action awaiting confirmation. */
 interface PendingWorkAction {
@@ -78,9 +100,10 @@ import {
   templateUrl: './book-detail.component.html',
   styleUrls: ['./book-detail.component.css'],
 })
-export class BookDetail implements OnInit {
+export class BookDetail implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private injector = inject(Injector);
 
   // Inject the Store
   readonly store = inject(BookDetailStore);
@@ -126,6 +149,55 @@ export class BookDetail implements OnInit {
   statusDropdownOpen = signal(false);
   pendingStatus = signal<'notstarted' | 'reading' | 'finished' | null>(null);
   deleting = signal(false);
+
+  /**
+   * A long review (issue #159). Null until the review has been MEASURED — see
+   * `measureReviewOverflow`. Never derived from the review text itself.
+   */
+  reviewOverflows = signal<boolean | null>(null);
+
+  /** True once the reader has opened this long review on this page visit. */
+  isReviewExpanded = signal(false);
+
+  /** The rendered review paragraph, measured to decide whether to collapse it. */
+  @ViewChild('reviewText') reviewText?: ElementRef<HTMLElement>;
+
+  private reviewResizeObserver?: ResizeObserver;
+  /** Reviews are keyed by id so switching book measures the new one, not the old. */
+  private measuredReviewKey?: string;
+
+  /**
+   * Collapse decision for a long review (issue #159).
+   *
+   * This measures the rendered paragraph instead of counting characters, because
+   * the same review is 16 lines at 718px and 49 lines at 320px. A ResizeObserver
+   * re-runs it when the column changes width, so a review that fits on desktop
+   * still collapses when the window narrows — and expands again when it grows.
+   */
+  private measureReview = effect(() => {
+    const book = this.store.book();
+    const review = book?.personalReview ?? null;
+    // The review's own TEXT is the key, not its length: an edit that swaps one
+    // review for another of the same length still changes how many lines it
+    // occupies, and a length-only key would skip that re-measure.
+    const key = book && review ? `${book.id}:${review}` : null;
+
+    if (!key) {
+      this.measuredReviewKey = undefined;
+      this.reviewOverflows.set(null);
+      this.isReviewExpanded.set(false);
+      this.stopObservingReview();
+      return;
+    }
+
+    // Only re-measure when the review itself changes; a resize re-measures via
+    // the observer below, and re-reading the same book must not reset the
+    // reader's "Show more" choice.
+    if (key === this.measuredReviewKey) return;
+    this.measuredReviewKey = key;
+    this.isReviewExpanded.set(false);
+    afterNextRender(() => this.measureReviewOverflow(), { injector: this.injector });
+  });
 
   /** A pending work link/unlink awaiting confirmation (issue #143). */
   pendingWorkAction = signal<PendingWorkAction | null>(null);
@@ -199,6 +271,78 @@ export class BookDetail implements OnInit {
   // Template Refs for hidden file inputs
   @ViewChild('coverInput') coverInput!: ElementRef<HTMLInputElement>;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
+
+  /**
+   * Measures the review paragraph and sets `reviewOverflows`.
+   *
+   * `scrollHeight` is the only honest source here: it KEEPS reporting the full
+   * content height while the clamp is clipping the visible box, so the paragraph
+   * can be measured in the collapsed state and nothing has to be shown expanded
+   * first. Verified on the live Devils review (410px of content, a 307px clamped
+   * box, `scrollHeight` still 410) and against every clamp arrangement — the
+   * clamp on a wrapper, directly on the paragraph, `-webkit-line-clamp` and
+   * `max-height`. Measuring a clone, or releasing and reapplying the clamp, is
+   * therefore unnecessary: there is no flicker to avoid.
+   */
+  private measureReviewOverflow(): void {
+    const el = this.reviewText?.nativeElement;
+    if (!el) {
+      // The paragraph is not in the DOM (no review, or the block is not
+      // rendered yet). Stay undecided rather than guessing from the text.
+      this.reviewOverflows.set(null);
+      return;
+    }
+
+    this.reviewOverflows.set(this.reviewLineCount(el) > REVIEW_COLLAPSE_LINES);
+    this.observeReview(el);
+  }
+
+  /** The review's full rendered height expressed in lines. */
+  private reviewLineCount(el: HTMLElement): number {
+    const cs = getComputedStyle(el);
+    const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.6;
+    return lh > 0 ? el.scrollHeight / lh : 0;
+  }
+
+  /** Re-measures when the review's box changes width (see `observeReview`). */
+  private observedReviewWidth?: number;
+
+  /**
+   * Re-measure when the review's own box changes SIZE. The column changes width
+   * across the responsive breakpoints, and a fixed line threshold is a different
+   * pixel height at each width, so the verdict has to be re-taken on resize.
+   *
+   * Re-entrancy, named because it is the trap here: the observer also fires for
+   * the height change our own clamp causes. Measured `scrollHeight` ignores the
+   * clamp (above), so that delivery recomputes the SAME verdict, the signal does
+   * not change, and it settles on the second pass instead of looping. The width
+   * comparison is a second belt-and-braces guard for the same thing.
+   * Always disconnects first: `@ViewChild` hands back a NEW element when the
+   * review changes, and an observer left on the old one would keep re-measuring
+   * a detached node.
+   */
+  private observeReview(el: HTMLElement): void {
+    if (typeof ResizeObserver === 'undefined') return;
+    this.reviewResizeObserver?.disconnect();
+    this.observedReviewWidth = el.clientWidth;
+    this.reviewResizeObserver = new ResizeObserver(() => {
+      const current = this.reviewText?.nativeElement;
+      if (!current || current.clientWidth === this.observedReviewWidth) return;
+      this.observedReviewWidth = current.clientWidth;
+      this.reviewOverflows.set(this.reviewLineCount(current) > REVIEW_COLLAPSE_LINES);
+    });
+    this.reviewResizeObserver.observe(el);
+  }
+
+  private stopObservingReview(): void {
+    this.reviewResizeObserver?.disconnect();
+    this.reviewResizeObserver = undefined;
+    this.observedReviewWidth = undefined;
+  }
+
+  ngOnDestroy(): void {
+    this.stopObservingReview();
+  }
 
   @HostListener('document:click')
   onDocumentClick(): void {
@@ -558,6 +702,21 @@ export class BookDetail implements OnInit {
       default:
         return (normalizedFormat || type).toUpperCase();
     }
+  }
+
+  /** The review is only collapsible once it has been measured as overflowing. */
+  readonly isReviewCollapsible = computed(() => this.reviewOverflows() === true);
+
+  /** The clamp applies only while a long review is collapsed. */
+  readonly isReviewClamped = computed(() => this.reviewOverflows() === true && !this.isReviewExpanded());
+
+  /**
+   * Expand/collapse a long review. Local presentation state ONLY — the stored
+   * review is never truncated, rewritten or refetched (issue #159).
+   */
+  toggleReview(): void {
+    if (!this.isReviewCollapsible()) return;
+    this.isReviewExpanded.update((expanded) => !expanded);
   }
 
   toggleDescription() {

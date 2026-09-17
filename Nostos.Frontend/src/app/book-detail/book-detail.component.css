@@ -1247,6 +1247,65 @@ button.edition-select-card:focus-visible {
   white-space: pre-wrap;
 }
 
+/* Long-review collapse (issue #159).
+   The clamp lives on this WRAPPER rather than on `.review-text`. The measurement
+   does NOT depend on that (see below) — the wrapper is here so the fade has a
+   positioned box to sit in without touching the paragraph's own box, and so the
+   clamp is one class away from being released without restyling the text node.
+
+   The clamp is released by the absence of `.clamped`, so expanding is a pure
+   presentation flip and the stored review is never touched. */
+.review-body {
+  position: relative;
+  /* How much of a collapsed review stays readable — the "useful amount" the
+     issue asks for, rather than a sentence or two. */
+  --review-preview-lines: 12;
+}
+.review-body.clamped .review-text {
+  display: -webkit-box;
+  line-clamp: var(--review-preview-lines);
+  -webkit-line-clamp: var(--review-preview-lines);
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* A soft release instead of a hard cut, in the current Book Details language.
+   Mixed from `--bg-surface` (which the block itself sits on) so it re-inks with
+   the theme rather than pinning a light-mode white.
+
+   Kept deliberately SHORT and mostly transparent: `-webkit-line-clamp` ends the
+   preview exactly on a line boundary (12 x 25.6px = the 307px box), so no glyph
+   is ever sliced and there is no hard edge to hide — the fade only signals that
+   more text follows. A taller/stronger gradient was measured washing the whole
+   twelfth line out to the background (ink 37% -> 0.9% in one line), which reads
+   as a missing line rather than a soft release. The transparent stop holds the
+   last line readable and the ramp feathers only its bottom edge. */
+.review-body.clamped .review-fade {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 1.5rem;
+  background: linear-gradient(
+    to bottom,
+    transparent 35%,
+    var(--bg-surface) 100%
+  );
+  pointer-events: none;
+}
+/* The shared `.expand-btn` is centred against the synopsis block; the review's
+   control closes its own section, so it breathes a little more and sits above
+   the section divider. */
+.review-toggle {
+  margin-top: 1.25rem;
+}
+/* The issue asks for a keyboard-accessible control, and `styles.css` resets the
+   global `button { outline: 0 }` — so without this the control is reachable and
+   operable by keyboard but invisible while focused. Scoped to this control
+   rather than `.expand-btn` so the pre-existing synopsis button is untouched. */
+.review-toggle:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
 .description-text {
   font-family: Newsreader, serif;
   font-size: 1rem;

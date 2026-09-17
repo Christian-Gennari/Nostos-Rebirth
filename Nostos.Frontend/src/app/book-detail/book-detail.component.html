@@ -290,7 +290,29 @@
               <div class="review-label">
                 <lucide-icon [img]="QuoteIcon" [size]="14"></lucide-icon> My Review
               </div>
-              <p class="review-text">{{ store.book()?.personalReview }}</p>
+              <!-- The clamp lives on this wrapper so the fade has a positioned box
+                   that does not disturb the paragraph's own layout, and so the
+                   clamp can be released by dropping one class. The paragraph keeps
+                   its own height metadata, which is what `measureReviewOverflow`
+                   reads. -->
+              <div class="review-body" [class.clamped]="isReviewClamped()">
+                <p #reviewText id="personal-review-text" class="review-text">{{ store.book()?.personalReview }}</p>
+                @if (isReviewClamped()) {
+                <div class="review-fade" aria-hidden="true"></div>
+                }
+              </div>
+              @if (isReviewCollapsible()) {
+              <button
+                type="button"
+                class="expand-btn review-toggle"
+                [attr.aria-expanded]="isReviewExpanded()"
+                aria-controls="personal-review-text"
+                (click)="toggleReview()"
+              >
+                {{ isReviewExpanded() ? 'Show Less' : 'Show More' }}
+                <span class="icon">{{ isReviewExpanded() ? '↑' : '↓' }}</span>
+              </button>
+              }
             </div>
             }
 
