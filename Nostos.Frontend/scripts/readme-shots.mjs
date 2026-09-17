@@ -1,0 +1,342 @@
+/**
+ * README screenshot capture — issue #144.
+ *
+ * Captures the five product surfaces shown in README.md from a running Nostos
+ * instance at a single, consistent viewport/theme so the set reads as one tour.
+ *
+ * Usage: node scripts/readme-shots.mjs <baseUrl> <outDir>
+ *
+ * Deliberate choices:
+ *  - One viewport (1440x900 @2x) for every shot: the README declares each image
+ *    width=2880 height=1800, and a mixed set reads as inconsistent.
+ *  - Light theme throughout (the marketing default; the repo logo is theme-aware
+ *    but the product tour is not).
+ *  - Service worker + caches are cleared before the first shot and after every
+ *    navigation-ish step, because Nostos ships ngsw and a stale SW serves the
+ *    PREVIOUS build's CSS. Without this a capture can silently show old styles.
+ *  - Every shot asserts something about the DONE state (a node count, a title,
+ *    a word count) before writing, so a blank/empty capture cannot pass quietly.
+ */
+import { chromium } from '@playwright/test';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+
+const BASE = process.argv[2] ?? 'http://127.0.0.1:5330';
+const OUT = process.argv[3] ?? '/tmp/nostos-readme-shots';
+mkdirSync(OUT, { recursive: true });
+
+const VIEWPORT = { width: 1440, height: 900 };
+const manifest = [];
+
+const browser = await chromium.launch({
+  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+});
+
+/** Fresh context per shot group; drops any SW/cache the app registered. */
+async function newPage(opts = {}) {
+  const ctx = await browser.newContext({
+    viewport: VIEWPORT,
+    deviceScaleFactor: 2,
+    colorScheme: 'light',
+    reducedMotion: 'reduce', // stabilise animations before capture
+    ...opts,
+  });
+  const page = await ctx.newPage();
+  // Kill the PWA cache from the very first request so no stale shell can win.
+  await page.addInitScript(() => {
+    // no-op placeholder; caches are cleared explicitly after load below
+  });
+  return { ctx, page };
+}
+
+async function clearSw(page) {
+  await page.evaluate(async () => {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const r of regs) await r.unregister();
+    } catch {}
+    try {
+      for (const k of await caches.keys()) await caches.delete(k);
+    } catch {}
+  });
+}
+
+const settle = (page, ms = 1400) => page.waitForTimeout(ms);
+
+/**
+ * Wait until every <img> is fully decoded and every animation/transition has
+ * finished.
+ *
+ * Without this the grid captures are NOT reproducible: two runs of the same
+ * build differed by up to ~7000 pixels scattered across the cover artwork
+ * (max channel delta 30/765 — invisible, but enough to churn the PNG bytes and
+ * make "did my change alter this shot?" unanswerable). Cover images decode
+ * progressively and the card/bloom animations settle over different numbers of
+ * frames per run, so a fixed sleep samples a slightly different frame each time.
+ */
+async function settleFully(page) {
+  await page
+    .evaluate(async () => {
+      // 1. every image decoded (not merely loaded)
+      const imgs = [...document.querySelectorAll('img')];
+      await Promise.all(
+        imgs.map((i) =>
+          i.complete && i.naturalWidth
+            ? i.decode().catch(() => {})
+            : new Promise((res) => {
+                i.addEventListener('load', res, { once: true });
+                i.addEventListener('error', res, { once: true });
+              }),
+        ),
+      );
+      // 2. every running animation/transition finished
+      await Promise.all(
+        document.getAnimations().map((a) => a.finished.catch(() => {})),
+      );
+    })
+    .catch(() => {});
+  await page.waitForTimeout(600);
+}
+
+async function shot(page, name, note, opts = {}) {
+  // Settle on every shot, clipped or not: the graph shot is clipped but its
+  // canvas animations are the most jitter-prone of the set.
+  await settleFully(page);
+  const path = `${OUT}/${name}.png`;
+  await page.screenshot({ path, ...opts });
+  const buf = readFileSync(path);
+  const hash = createHash('md5').update(buf).digest('hex').slice(0, 12);
+  manifest.push({ name, path, note, hash, bytes: buf.length });
+  console.log(`  -> ${name}.png  ${hash}  ${(buf.length / 1024).toFixed(0)}KB  ${note}`);
+}
+
+// ---------------------------------------------------------------- Library
+{
+  const { ctx, page } = await newPage();
+  await page.goto(`${BASE}/library`, { waitUntil: 'networkidle' });
+  await clearSw(page);
+  await page.goto(`${BASE}/library`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('.book-card, [class*="book-card"]', { timeout: 20000 });
+  await settle(page, 2500);
+  const cards = await page.locator('.book-card, [class*="book-card"]').count();
+  if (cards < 6) throw new Error(`library grid too sparse: ${cards} cards`);
+  const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme') ?? 'light(default)');
+  await shot(page, 'library', `grid, ${cards} cards, theme=${theme}`);
+  await ctx.close();
+}
+
+// ------------------------------------------------------------ Add Book
+{
+  const { ctx, page } = await newPage();
+  await page.goto(`${BASE}/library`, { waitUntil: 'networkidle' });
+  await clearSw(page);
+  await page.goto(`${BASE}/library`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('.book-card, [class*="book-card"]', { timeout: 20000 });
+  await settle(page, 2000);
+  await page.locator('button:has-text("Add Book")').first().click();
+  await settle(page, 1800);
+  // The modal body scrolls; capture it at its top so the header/tabs read.
+  const dialog = page.locator('[role="dialog"], [class*="modal"]').first();
+  await dialog.waitFor({ timeout: 10000 });
+  await page.evaluate(() => {
+    for (const el of document.querySelectorAll('[class*="modal"] *, [role="dialog"] *')) {
+      try {
+        if (el.scrollHeight > el.clientHeight + 8) el.scrollTop = 0;
+      } catch {}
+    }
+  });
+  await settle(page, 900);
+  await shot(page, 'add-book-modal', 'Add New Book dialog, Book Info tab');
+  await ctx.close();
+}
+
+// -------------------------------------------------------- Book Details
+{
+  // Pick a volume that demonstrates the richest detail page WITHOUT exposing
+  // anything personal: real rating, real progress, real synopsis — but zero
+  // personal notes and no personal review. A book with 13 of the owner's
+  // annotations (or one carrying a personal review) must never be the frame.
+  const { ctx, page } = await newPage();
+  await page.goto(`${BASE}/library`, { waitUntil: 'networkidle' });
+  await clearSw(page);
+  const books = await page.evaluate(async () => {
+    const r = await fetch('/api/books?pageSize=300');
+    return await r.json();
+  });
+  const pick = books.items.find(
+    (b) =>
+      b.title === 'More Days at the Morisaki Bookshop' &&
+      b.pageCount &&
+      b.coverUrl &&
+      !b.personalReview,
+  );
+  if (!pick) throw new Error('no suitable book-detail candidate');
+  await page.goto(`${BASE}/library/${pick.id}`, { waitUntil: 'networkidle' });
+  await settle(page, 3000);
+  const h1 = await page.evaluate(() => document.querySelector('h1')?.innerText ?? '');
+  if (!h1) throw new Error('book detail h1 missing');
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await settle(page, 600);
+  await shot(page, 'book-details', `${h1} — hero, cover, rating, actions, synopsis`);
+  await ctx.close();
+}
+
+// ------------------------------------------------------- Brain (list)
+{
+  const { ctx, page } = await newPage();
+  await page.goto(`${BASE}/second-brain`, { waitUntil: 'networkidle' });
+  await clearSw(page);
+  await page.goto(`${BASE}/second-brain`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('.index-item', { timeout: 20000 });
+  await settle(page, 2000);
+  // Select the top concept so the pane shows the actual reading experience
+  // (quotation + commentary + source), not the "select a concept" empty state.
+  await page.locator('.index-item').first().click();
+  await settle(page, 2500);
+  const heading = await page.evaluate(() => document.querySelector('h1')?.innerText ?? '');
+  const items = await page.locator('.index-item').count();
+  const empty = await page.locator('text=Select a concept from the index').count();
+  if (empty) throw new Error('brain list still showing empty state');
+  await shot(page, 'brain-list', `${heading}, ${items} concepts, concept detail open`);
+  await ctx.close();
+}
+
+// ------------------------------------------------- Brain (graph / map)
+{
+  const { ctx, page } = await newPage();
+  await page.goto(`${BASE}/second-brain`, { waitUntil: 'networkidle' });
+  await clearSw(page);
+  await page.goto(`${BASE}/second-brain`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('.view-mode-control .toggle-opt', { timeout: 20000 });
+  await settle(page, 2000);
+  await page.locator('.view-mode-control .toggle-opt').last().click();
+  await page.waitForSelector('.map-stage canvas', { timeout: 20000 });
+  await settle(page, 4500);
+
+  // Fit the content to the stage. The layout keeps advancing while it settles,
+  // so re-fit after the physics calms down.
+  const fit = page.locator('button[aria-label="Fit to view"]');
+  for (let i = 0; i < 3; i++) {
+    if (await fit.count()) {
+      await fit.first().click();
+      await settle(page, 2200);
+    }
+  }
+  await settle(page, 2500);
+
+  // Read the graph through the app's own diagnostics handles. `__nostosGraph` is
+  // a graphology instance, so order/size are direct properties.
+  const stats = await page.evaluate(() => {
+    const g = globalThis.__nostosGraph;
+    return g ? { nodes: g.order ?? null, edges: g.size ?? null } : null;
+  });
+  if (!stats || !stats.nodes) throw new Error(`graph diagnostics empty: ${JSON.stringify(stats)}`);
+
+  // The map stage is ~2:1 while a fitted force layout is roughly square, so a
+  // stage-shaped frame leaves the graph in ~47% of the width and its 12px labels
+  // become unreadable once GitHub scales the image to its ~880px column. Measure
+  // the graph's real ink (nodes, edges AND labels) off the Sigma canvases and
+  // crop to that, so the graph — not dead space — occupies the README.
+  const inkBox = await page.evaluate(() => {
+    const stage = document.querySelector('.map-stage');
+    const sRect = stage.getBoundingClientRect();
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, sampled = 0;
+    for (const c of document.querySelectorAll('.map-stage canvas')) {
+      if (!c.width || !c.height) continue;
+      let data;
+      try {
+        data = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      } catch {
+        continue; // tainted canvas: skip rather than fail the capture
+      }
+      sampled++;
+      const r = c.getBoundingClientRect();
+      const sx = r.width / c.width;
+      const sy = r.height / c.height;
+      for (let y = 0; y < c.height; y++) {
+        for (let x = 0; x < c.width; x++) {
+          if (data[(y * c.width + x) * 4 + 3] > 12) {
+            const px = r.left - sRect.left + x * sx;
+            const py = r.top - sRect.top + y * sy;
+            if (px < minX) minX = px;
+            if (px > maxX) maxX = px;
+            if (py < minY) minY = py;
+            if (py > maxY) maxY = py;
+          }
+        }
+      }
+    }
+    if (!sampled || minX === Infinity) return null;
+    return { minX, maxX, minY, maxY, stage: { x: sRect.left, y: sRect.top, w: sRect.width, h: sRect.height } };
+  });
+  if (!inkBox) throw new Error('could not measure graph ink');
+
+  const PAD = 28; // breathing room so edge nodes are not flush to the frame
+  const vp = page.viewportSize();
+  const clip = {
+    x: Math.max(0, Math.round(inkBox.stage.x + inkBox.minX - PAD)),
+    y: Math.max(0, Math.round(inkBox.stage.y + inkBox.minY - PAD)),
+    width: Math.round(inkBox.maxX - inkBox.minX + PAD * 2),
+    height: Math.round(inkBox.maxY - inkBox.minY + PAD * 2),
+  };
+  clip.width = Math.min(clip.width, vp.width - clip.x);
+  clip.height = Math.min(clip.height, vp.height - clip.y);
+
+  const fillX = ((inkBox.maxX - inkBox.minX) / inkBox.stage.w).toFixed(2);
+  const fillY = ((inkBox.maxY - inkBox.minY) / inkBox.stage.h).toFixed(2);
+
+  await shot(
+    page,
+    'brain-graph',
+    `nodes=${stats.nodes} edges=${stats.edges} stageFill=${fillX}x${fillY} crop=${clip.width}x${clip.height}`,
+    { clip },
+  );
+  await ctx.close();
+}
+
+// ------------------------------------------------------- Writing Studio
+{
+  const { ctx, page } = await newPage();
+  await page.goto(`${BASE}/studio`, { waitUntil: 'networkidle' });
+  await clearSw(page);
+  await page.goto(`${BASE}/studio`, { waitUntil: 'networkidle' });
+  await settle(page, 2500);
+
+  // The file tree starts collapsed, so documents are not in the DOM yet. Expand
+  // ONLY the "War and Peace" folder to reach the target document, then collapse
+  // it again before capturing: the other folder holds private journal titles
+  // ("_My philosophical aims") that must not appear in a public README, and the
+  // open editor survives the collapse.
+  const folders = page.locator('.tree-row:has(.toggle-btn)');
+  const wp = page.locator('.tree-row', { hasText: 'War and Peace' }).first();
+  if (!(await wp.count())) throw new Error('War and Peace folder not in tree');
+  await wp.locator('.toggle-btn').click();
+  await settle(page, 1200);
+
+  const target = page.locator('.tree-row', { hasText: 'General Cheatsheet' }).first();
+  if (!(await target.count())) throw new Error('cheatsheet document not in tree');
+  await target.click();
+  await settle(page, 4500);
+
+  // Collapse the folder again so the private titles are out of frame; the open
+  // document stays in the editor.
+  await wp.locator('.toggle-btn').click();
+  await settle(page, 2000);
+
+  const body = await page.evaluate(() => document.body.innerText);
+  if (body.includes('Select a file to begin writing')) {
+    throw new Error('studio still on empty state');
+  }
+  // Guard the privacy requirement: the journal title must not be on screen.
+  if (body.includes('philosophical aims')) {
+    throw new Error('private journal title visible in frame');
+  }
+  const words = (body.match(/(\d[\d,]*)\s+words/i) ?? [])[1] ?? '?';
+  await shot(page, 'writing-studio', `three-pane workspace, document open (${words} words)`);
+  await ctx.close();
+}
+
+await browser.close();
+writeFileSync(`${OUT}/manifest.json`, JSON.stringify(manifest, null, 2));
+console.log(`\n${manifest.length} shots -> ${OUT}`);
