@@ -64,7 +64,45 @@ async function clearSw(page) {
 
 const settle = (page, ms = 1400) => page.waitForTimeout(ms);
 
+/**
+ * Wait until every <img> is fully decoded and every animation/transition has
+ * finished.
+ *
+ * Without this the grid captures are NOT reproducible: two runs of the same
+ * build differed by up to ~7000 pixels scattered across the cover artwork
+ * (max channel delta 30/765 — invisible, but enough to churn the PNG bytes and
+ * make "did my change alter this shot?" unanswerable). Cover images decode
+ * progressively and the card/bloom animations settle over different numbers of
+ * frames per run, so a fixed sleep samples a slightly different frame each time.
+ */
+async function settleFully(page) {
+  await page
+    .evaluate(async () => {
+      // 1. every image decoded (not merely loaded)
+      const imgs = [...document.querySelectorAll('img')];
+      await Promise.all(
+        imgs.map((i) =>
+          i.complete && i.naturalWidth
+            ? i.decode().catch(() => {})
+            : new Promise((res) => {
+                i.addEventListener('load', res, { once: true });
+                i.addEventListener('error', res, { once: true });
+              }),
+        ),
+      );
+      // 2. every running animation/transition finished
+      await Promise.all(
+        document.getAnimations().map((a) => a.finished.catch(() => {})),
+      );
+    })
+    .catch(() => {});
+  await page.waitForTimeout(600);
+}
+
 async function shot(page, name, note, opts = {}) {
+  // Settle on every shot, clipped or not: the graph shot is clipped but its
+  // canvas animations are the most jitter-prone of the set.
+  await settleFully(page);
   const path = `${OUT}/${name}.png`;
   await page.screenshot({ path, ...opts });
   const buf = readFileSync(path);
