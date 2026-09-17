@@ -3,7 +3,7 @@
   <title id="title">Nostos stacked lockup</title>
   <g>
     <rect x="128" y="0" width="768" height="768" rx="153.75" fill="#293E32"/>
-    <path d="M 282 764 L 282 509 A 229 234 0 0 1 740 509 L 740 764 Z M 358 764 L 358 509 A 110 112 0 0 1 578 509 L 578 764 Z" fill="#FDF8F6" fill-rule="evenodd"
+    <path d="M 282 764 L 282 509 A 229 234 0 0 1 740 509 L 740 764 Z M 358 764 L 358 509 A 110 112 0 0 1 578 509 L 578 764 Z" fill="#FFFFFF" fill-rule="evenodd"
           transform="translate(128 0) scale(0.75)"/>
   </g>
   <text x="512" y="1080" text-anchor="middle" fill="#1C1B1A"

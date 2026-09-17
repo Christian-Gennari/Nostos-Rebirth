@@ -164,7 +164,7 @@ Open **`http://localhost:5099`** in your browser.
 
 ## Brand & Aesthetic Dignity
 
-The Nostos mark represents a doorway into a quiet study: a **Forest Green (`#293E32`)** rounded tile with a **Paper (`#FDF8F6`)** arch knocked out of it, forming a subtle lowercase `n`. 
+The Nostos mark represents a doorway into a quiet study: a **Forest Green (`#293E32`)** rounded tile with a **White (`#FFFFFF`)** arch knocked out of it, forming a subtle lowercase `n`. 
 
 The mark is deliberately theme-invariant across both light and dark study environments. Read our full philosophical foundation in the [Design Manifesto](docs/design-manifesto.md) and explore the brand kit in [`_brand-assets/`](_brand-assets/README.md).
 

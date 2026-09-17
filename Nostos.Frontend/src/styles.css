@@ -134,15 +134,21 @@
      two tokens are: shape = the tile fill, doorway = the arch fill.
 
      DELIBERATELY THEME-INVARIANT — this is the kit's primary variant (forest
-     tile / paper arch) in both themes. The reversed variant is gone: a single
+     tile / white arch) in both themes. The reversed variant is gone: a single
      mark is simpler than swapping artwork per theme, and the tile still reads
-     on the dark rail (1.6:1 for the tile edge, but the paper arch inside it is
-     10.9:1, and the tile itself is a solid 40px block, not a hairline). The
+     on the dark rail (1.68:1 for the tile edge, but the white arch inside it is
+     11.5:1, and the tile itself is a solid 40px block, not a hairline). The
      dark block therefore does NOT override these; `check-theme-tokens.mjs`
      lists the family as INVARIANT so the missing-counterpart guard stays
-     meaningful for every genuinely themed colour. */
+     meaningful for every genuinely themed colour.
+
+     The arch is White, not the kit's Paper (#FDF8F6): Paper was the old warm
+     canvas, so a Paper arch sat at 1.0:1 against a Paper page and 1.02:1
+     against the cool canvas that replaced it — a faintly warm patch, not a
+     knockout. White matches `--bg-surface` exactly (1.0:1) and reads 11.5:1
+     inside the tile. */
   --brand-shape: #293E32;
-  --brand-doorway: #FDF8F6;
+  --brand-doorway: #FFFFFF;
 
   /* ── Concept graph ──
      The Second Brain's map was a wireframe of hollow rings: nodes are filled
@@ -540,13 +546,13 @@
   /* ── Brand mark ──
      Not re-declared here on purpose: the mark is theme-invariant (see the light
      block). Nothing in the dark theme overrides --brand-shape/--brand-doorway,
-     so both themes render the same forest tile + paper arch. The family is
+     so both themes render the same forest tile + white arch. The family is
      listed as INVARIANT in `check-theme-tokens.mjs` to keep this intentional
      rather than looking like an omission.
 
      The new ground IMPROVES this rather than threatening it: #293E32 against
-     #0d0e11 is 1.68:1, against 1.55:1 on the slate it replaces, and the paper
-     arch inside the tile is 10.9:1 either way. ── */
+     #0d0e11 is 1.68:1, against 1.55:1 on the slate it replaces, and the white
+     arch inside the tile is 11.48:1 either way. ── */
 
   /* ── Concept graph ──
      The palette's on-surface-variant, which is near-NEUTRAL (R − B = −3): a
