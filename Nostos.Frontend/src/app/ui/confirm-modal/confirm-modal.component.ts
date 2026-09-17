@@ -1,6 +1,7 @@
-import { Component, HostListener, input, output } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule, Trash2, Loader2 } from 'lucide-angular';
+import { ModalShell } from '../modal-shell/modal-shell.component';
 
 /**
  * Tone of the confirmation. `danger` is the destructive treatment (muted wine
@@ -17,11 +18,16 @@ export type ConfirmTone = 'danger' | 'neutral';
  * visual language and cannot carry theme tokens. It is deliberately generic:
  * the caller owns the wording (`heading`, `description`, `confirmLabel`) and
  * the pending state (`busy`), so nothing here knows what is being confirmed.
+ *
+ * The backdrop, the card and both dismissal paths (Escape, backdrop click)
+ * come from `app-modal-shell`. It stays a `dialog` rather than a `sheet`: a
+ * phone screen filled with one sentence and two buttons reads as an error
+ * state, not a question.
  */
 @Component({
   selector: 'app-confirm-modal',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule],
+  imports: [CommonModule, LucideAngularModule, ModalShell],
   templateUrl: './confirm-modal.component.html',
   styleUrl: './confirm-modal.component.css',
 })
@@ -51,16 +57,9 @@ export class ConfirmModal {
   Trash2Icon = Trash2;
   LoaderIcon = Loader2;
 
-  @HostListener('document:keydown.escape')
-  onEscape(): void {
-    if (this.isOpen() && !this.busy()) {
-      this.cancel.emit();
-    }
-  }
-
-  onBackdropClick(): void {
-    if (!this.busy()) {
-      this.cancel.emit();
-    }
-  }
+  /**
+   * The card belongs to the shell, so its class is handed over rather than
+   * applied here — the component's tests still address the dialog by it.
+   */
+  readonly cardClass = 'confirm-modal-card';
 }

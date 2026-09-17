@@ -1,0 +1,156 @@
+/* The geometry of the dialogs in Nostos.
+   ==============================================================
+   Callers own their content; this file owns where it sits, how it scrolls, and
+   what a dialog becomes on a phone. Two shapes:
+
+   - `sheet`  — a form dialog. Centred on a wide viewport; the whole screen on a
+                phone. The padding a centred dialog spends on its backdrop is
+                pure loss when the form inside it has 21 controls, and a soft
+                keyboard needs a scroll region it can shrink rather than a fixed
+                box it can hide behind.
+   - `dialog` — a compact question. Stays centred at every width: filling a
+                phone screen with one sentence and two buttons reads as an error
+                state, not a question.
+
+   Only the body scrolls, so the header and the action row stay reachable
+   however long the content is.
+
+   Per-caller differences are expressed as inherited custom properties, set on
+   the `<app-modal-shell>` element itself, rather than by duplicating geometry:
+   `--modal-head-padding` and `--modal-card-padding`. */
+
+:host {
+  --modal-head-padding: 1.25rem 1.5rem;
+  --modal-card-padding: 0;
+  /* Bound inline from this component's inputs. Declared here as well so the
+     token graph can see them — otherwise the fallbacks in `var()` would be the
+     only values that ever render, and editing the defaults would do nothing. */
+  --modal-max-width: 700px;
+  --modal-max-height: 90vh;
+  --modal-card-padding-narrow: var(--modal-card-padding);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: var(--modal-scrim);
+  backdrop-filter: blur(var(--modal-scrim-blur));
+  -webkit-backdrop-filter: blur(var(--modal-scrim-blur));
+  overscroll-behavior: contain;
+  animation: backdropFade var(--motion-base) ease-out both;
+}
+
+@keyframes backdropFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: var(--modal-max-width, 700px);
+  max-height: var(--modal-max-height, 90vh);
+  padding: var(--modal-card-padding);
+  background: var(--bg-surface);
+  /* The dialog role, not a literal: issue #160 moved this into the token graph. */
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-dialog, 14px);
+  overflow: clip;
+  /* The app's large elevation token, not a hand-written rgba pair: it carries a
+     light and a dark value, so the card follows the theme. */
+  box-shadow: var(--shadow-glass-lg);
+  transform: scale(0.95);
+  opacity: 0;
+  animation: modalEnter var(--motion-base) var(--ease-out) forwards;
+}
+
+@keyframes modalEnter {
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Authored here, beside the animation it must switch off: a
+   `prefers-reduced-motion` block in a parent stylesheet cannot reach this
+   component's stylesheet. The card's `from` values are opacity/transform, so
+   killing the animation alone would leave it invisible — pin the settled state
+   explicitly. */
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop {
+    animation: none;
+  }
+
+  .modal-card {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Top region. A plain block, not a flex row: the caller's own header markup
+   inside it already lays out its title and its close control. The shell
+   supplies only the padding and the divider, so those live in one place. */
+.modal-head {
+  flex-shrink: 0;
+  padding: var(--modal-head-padding);
+}
+
+.modal-head.is-divided {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* A compact dialog can tighten its own padding on a small screen without
+   needing a media query of its own. */
+@media (max-width: 480px) {
+  .modal-card {
+    padding: var(--modal-card-padding-narrow, var(--modal-card-padding));
+  }
+}
+
+/* On a phone a `sheet` takes the whole screen.
+   `100dvh` rather than `100vh`: `vh` is measured against the viewport the URL
+   bar has already finished animating away from, so a `100vh` sheet puts its
+   action row underneath the browser chrome. `dvh` tracks the bar. The safe-area
+   insets keep the header clear of the notch and the action row clear of the
+   home indicator. */
+@media (max-width: 768px) {
+  .modal-backdrop.is-sheet {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .modal-card.is-sheet {
+    width: 100%;
+    max-width: none;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+    /* A sheet is flush with the screen, so it must not draw a frame. */
+    border: 0;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .modal-card.is-sheet .modal-head {
+    padding: 0.9rem 1rem;
+  }
+}

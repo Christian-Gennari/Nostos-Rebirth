@@ -1,0 +1,35 @@
+@if (isOpen()) {
+  <div
+    class="modal-backdrop"
+    [class.is-sheet]="variant() === 'sheet'"
+    [style.z-index]="layer()"
+    (click)="onBackdropClick()"
+    role="presentation"
+  >
+    <div
+      class="modal-card"
+      [class]="cardClass()"
+      [class.is-sheet]="variant() === 'sheet'"
+      [style.--modal-max-width]="maxWidth()"
+      [style.--modal-max-height]="maxHeight()"
+      [attr.role]="dialogRole()"
+      aria-modal="true"
+      [attr.aria-label]="ariaLabel()"
+      [attr.aria-labelledby]="ariaLabelledBy()"
+      [attr.aria-describedby]="ariaDescribedBy()"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="modal-head" [class.is-divided]="headDivider()">
+        <ng-content select="[shellHeader]"></ng-content>
+      </div>
+
+      <ng-content select="[shellTabs]"></ng-content>
+
+      <div class="modal-scroll">
+        <ng-content></ng-content>
+      </div>
+
+      <ng-content select="[shellActions]"></ng-content>
+    </div>
+  </div>
+}
