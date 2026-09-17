@@ -231,22 +231,6 @@ describe('BookDetail reset progress', () => {
     return Array.from(fixture.nativeElement.querySelectorAll('.edition-select-card'));
   }
 
-  function multiEditionBook(): Book {
-    return readableBook({
-      otherEditions: [
-        {
-          id: 'b2',
-          type: 'audiobook',
-          format: 'AUDIO',
-          progressPercent: 15,
-          hasFile: true,
-          duration: '10h',
-          narrator: 'Narrator Guy',
-        },
-      ],
-    });
-  }
-
   it('renders edition rows when multiple editions exist and switches on click', async () => {
     const router = TestBed.inject(Router);
     const navigateSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
@@ -412,6 +396,29 @@ describe('BookDetail reset progress', () => {
     // The current book is excluded: linking it to itself is not offered.
     expect(candidates.length).toBe(1);
     expect(candidates[0].textContent).toContain('Something Else');
+  });
+
+  it('labels the candidate row with an explicit Link action', async () => {
+    await setup(readableBook());
+    manageToggle().click();
+    fixture.detectChanges();
+    httpMock.expectOne((req) => req.url === '/api/books').flush({
+      items: [{ id: 'b2', title: 'Something Else', author: 'Another Author', workId: 'w2', editionCount: 1 }],
+      totalCount: 1, page: 1, pageSize: 20,
+    });
+    fixture.detectChanges();
+
+    // The row is the click target, but a click target with no label reads as
+    // static text — the only other cue was a hover state, which touch never
+    // shows. The label is the affordance, so it must exist in the DOM.
+    const row = fixture.nativeElement.querySelector('.manage-link-candidate') as HTMLElement;
+    const action = row.querySelector('.manage-link-candidate-action') as HTMLElement;
+    expect(action).toBeTruthy();
+    expect(action.textContent?.trim()).toBe('Link');
+
+    // It is a label inside the button, not a nested button: a button inside a
+    // button is invalid HTML and would swallow the click target.
+    expect(action.tagName.toLowerCase()).toBe('span');
   });
 
   it('offers each candidate WORK once, however many editions it has', async () => {

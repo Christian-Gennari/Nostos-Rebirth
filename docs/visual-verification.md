@@ -86,9 +86,16 @@ metadata. Linking them is the override issue #143 asks for.
 
 | Artifact | Viewport | State |
 | --- | --- | --- |
-| `book-detail-manage-editions.png` | 1440x900 | panel open, candidate found |
-| `book-detail-manage-editions-dark.png` | 1440x900 | panel open, dark |
+| `book-detail-manage-editions.png` | 1440x1500 | panel open, candidate found |
+| `book-detail-manage-editions-rail.png` | 320px rail, 1:1 | panel close-up |
+| `book-detail-manage-editions-dark.png` | 1440x1500 | panel open, dark |
 | `book-detail-manage-editions-mobile.png` | 390x844 | panel open, light |
+
+The candidate row carries an explicit `Link` label rather than relying on the row
+shape: an unlabelled click target reads as static text, and the only other cue
+was `:hover`, which touch never shows. Dark-theme contrast on the panel was
+measured, not eyeballed — hint 10.03:1, candidate `Link` 10.03:1, search field
+14.37:1, all against `--bg-surface`.
 
 ## How to run
 

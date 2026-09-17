@@ -1023,9 +1023,9 @@ button.edition-select-card:focus-visible {
   width: 100%;
   min-height: 34px;
   padding: 0.35rem 0.5rem;
-  border: 1px solid transparent;
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  background: transparent;
+  background: var(--bg-surface);
   color: var(--color-text-muted);
   text-align: left;
   font: inherit;
@@ -1054,6 +1054,25 @@ button.edition-select-card:focus-visible {
 .manage-member-action:disabled {
   opacity: 0.55;
   cursor: default;
+}
+
+/* An explicit action label on the candidate row, mirroring the Unlink button
+   on a member row. Without it the row is a button that reads as static text:
+   the vision review flagged it twice, and the only other cue was a hover
+   state, which does not exist on touch. */
+.manage-link-candidate-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-height: var(--control-h-touch);
+  padding: 0 0.7rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 0.75rem;
 }
 
 /* The row for the book you are on: it is context, not an action, so it stays
