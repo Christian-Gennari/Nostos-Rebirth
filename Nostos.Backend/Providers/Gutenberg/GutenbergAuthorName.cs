@@ -63,13 +63,26 @@ internal static partial class GutenbergAuthorName
     /// <summary>
     /// Normalizes separately-tagged author elements (Gutenberg emits one per
     /// author) into the single author string Nostos stores.
+    ///
+    /// Gutenberg's detail feeds list the same person more than once — the
+    /// <c>dcterms:creator</c> entry and the OPDS entry both carry the author — so
+    /// joining naively would store "Jane Austen, Jane Austen" as the author of
+    /// Pride and Prejudice. Names are de-duplicated *after* normalization, which
+    /// also collapses the same person written two different ways.
     /// </summary>
     public static string? NormalizeAll(IEnumerable<string?> names)
     {
-        var normalized = names
-            .Select(Normalize)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .ToList();
+        var normalized = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var name in names)
+        {
+            var candidate = Normalize(name);
+            if (string.IsNullOrWhiteSpace(candidate) || !seen.Add(candidate))
+                continue;
+
+            normalized.Add(candidate);
+        }
 
         return normalized.Count == 0 ? null : string.Join(", ", normalized);
     }
