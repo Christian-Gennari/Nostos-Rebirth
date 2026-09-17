@@ -125,10 +125,12 @@ public sealed class LibraryService : ILibraryService
             var candidates = await query
                 .Include(b => b.Work)
                 .Include(b => b.BookCollections)
+                .Include(b => b.Acquisition)
                 .ToListAsync(ct);
 
             var candidateWorkIds = candidates.Select(c => c.WorkId).Distinct().ToList();
             var siblingBooks = await db.Books.AsNoTracking()
+                .Include(b => b.Acquisition)
                 .Where(b => candidateWorkIds.Contains(b.WorkId))
                 .ToListAsync(ct);
             var siblingsByWork = siblingBooks
@@ -180,6 +182,7 @@ public sealed class LibraryService : ILibraryService
             var items = await query
                 .Include(b => b.Work)
                 .Include(b => b.BookCollections)
+                .Include(b => b.Acquisition)
                 .Skip((safePage - 1) * safePageSize)
                 .Take(safePageSize)
                 .ToListAsync(ct);
@@ -187,6 +190,7 @@ public sealed class LibraryService : ILibraryService
             var pageWorkIds = items.Select(b => b.WorkId).Distinct().ToList();
             var pageSiblings = await db.Books.AsNoTracking()
                 .Include(b => b.BookCollections)
+                .Include(b => b.Acquisition)
                 .Where(b => pageWorkIds.Contains(b.WorkId))
                 .ToListAsync(ct);
             var pageSiblingsByWork = pageSiblings
@@ -250,6 +254,9 @@ public sealed class LibraryService : ILibraryService
 
         var book = await db.Books.AsNoTracking()
             .Include(b => b.BookCollections)
+            // Without this the DTO's Source is always null, so an imported book
+            // would never show where it came from.
+            .Include(b => b.Acquisition)
             .SingleOrDefaultAsync(b => b.Id == bookId, ct);
         if (book is null)
             return Failure("book_not_found", LibraryReplyFormatter.BookNotFound, version);
@@ -303,7 +310,9 @@ public sealed class LibraryService : ILibraryService
         //    request yields candidates, never an automatic match.
         if (!string.IsNullOrEmpty(nTitle))
         {
-            var all = await db.Books.AsNoTracking().ToListAsync(ct);
+            var all = await db.Books.AsNoTracking()
+                .Include(b => b.Acquisition)
+                .ToListAsync(ct);
             var hasAuthor = !string.IsNullOrEmpty(nAuthor);
             var exact = hasAuthor
                 ? all
@@ -435,6 +444,12 @@ public sealed class LibraryService : ILibraryService
     public Task<LibraryCommandResultDto> UpdateBookAsync(LibraryUpdateBookRequest request, CancellationToken ct = default) =>
         MutateAsync(request.ClientId, request.IdempotencyKey, "UpdateBook",
             (db, token) => UpdateBookCoreAsync(db, request, token), ct);
+
+    public Task<LibraryCommandResultDto> AttachAcquiredAssetAsync(
+        LibraryAttachAcquiredAssetRequest request,
+        CancellationToken ct = default) =>
+        MutateAsync(request.ClientId, request.IdempotencyKey, "AttachAcquiredAsset",
+            (db, token) => AttachAcquiredAssetCoreAsync(db, request, token), ct);
 
     public Task<LibraryCommandResultDto> LinkWorkAsync(LibraryLinkWorkRequest request, CancellationToken ct = default) =>
         MutateAsync(request.ClientId, request.IdempotencyKey, "LinkWork",
@@ -616,7 +631,9 @@ public sealed class LibraryService : ILibraryService
         // 1. Explicit confirmation: use the caller-selected existing row.
         if (request.ConfirmedBookId.HasValue)
         {
-            var confirmed = await db.Books.AsNoTracking().SingleOrDefaultAsync(b => b.Id == request.ConfirmedBookId.Value, ct);
+            var confirmed = await db.Books.AsNoTracking()
+                .Include(b => b.Acquisition)
+                .SingleOrDefaultAsync(b => b.Id == request.ConfirmedBookId.Value, ct);
             if (confirmed is null)
                 return NoChange(Failure("book_not_found", LibraryReplyFormatter.BookNotFound, state.StateVersion));
 
@@ -630,9 +647,13 @@ public sealed class LibraryService : ILibraryService
         BookModel? isbnMatch = null;
         BookModel? asinMatch = null;
         if (nIsbn is not null)
-            isbnMatch = await db.Books.AsNoTracking().SingleOrDefaultAsync(b => b.NormalizedIsbn == nIsbn, ct);
+            isbnMatch = await db.Books.AsNoTracking()
+                .Include(b => b.Acquisition)
+                .SingleOrDefaultAsync(b => b.NormalizedIsbn == nIsbn, ct);
         if (nAsin is not null)
-            asinMatch = await db.Books.AsNoTracking().SingleOrDefaultAsync(b => b.NormalizedAsin == nAsin, ct);
+            asinMatch = await db.Books.AsNoTracking()
+                .Include(b => b.Acquisition)
+                .SingleOrDefaultAsync(b => b.NormalizedAsin == nAsin, ct);
 
         if (isbnMatch is not null && asinMatch is not null && isbnMatch.Id != asinMatch.Id)
             return NoChange(Failure("identity_conflict",
@@ -666,7 +687,9 @@ public sealed class LibraryService : ILibraryService
         Guid? targetWorkId = null;
         if (!request.ForceCreate && !string.IsNullOrEmpty(nTitle))
         {
-            var all = await db.Books.AsNoTracking().ToListAsync(ct);
+            var all = await db.Books.AsNoTracking()
+                .Include(b => b.Acquisition)
+                .ToListAsync(ct);
             var hasAuthor = !string.IsNullOrEmpty(nAuthor);
             var exact = hasAuthor
                 ? all
@@ -859,6 +882,110 @@ public sealed class LibraryService : ILibraryService
         return Change(Result(
             LibraryReplyFormatter.BookCreated(model.Title),
             new LibraryCreateOrMatchResultDto("created", model.Id, model.ToDto()),
+            state.StateVersion));
+    }
+
+    private async Task<(bool DidChange, LibraryCommandResultDto Result)> AttachAcquiredAssetCoreAsync(
+        NostosDbContext db,
+        LibraryAttachAcquiredAssetRequest request,
+        CancellationToken ct)
+    {
+        var state = await EnsureStateAsync(db, ct);
+
+        // A bare file name only. Anything with a directory component would let
+        // the caller choose where a book's file is read from.
+        var fileName = request.FileName?.Trim() ?? string.Empty;
+        if (fileName.Length is 0 or > 64
+            || !string.Equals(Path.GetFileName(fileName), fileName, StringComparison.Ordinal))
+        {
+            return NoChange(Failure("invalid_file_name",
+                "The stored file name must be a bare file name.", state.StateVersion));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.ProviderId)
+            || string.IsNullOrWhiteSpace(request.ExternalId)
+            || string.IsNullOrWhiteSpace(request.AssetId))
+        {
+            return NoChange(Failure("invalid_provenance",
+                "Provider id, external id and asset id are required.", state.StateVersion));
+        }
+
+        var book = await db.Books
+            .Include(b => b.BookCollections)
+            .Include(b => b.Acquisition)
+            .SingleOrDefaultAsync(b => b.Id == request.BookId, ct);
+
+        if (book is null)
+            return NoChange(Failure("book_not_found", LibraryReplyFormatter.BookNotFound, state.StateVersion));
+
+        // Provenance is unique per (provider, item, asset). Re-attaching the
+        // same asset to the same book is a successful no-op; attaching it to a
+        // different book is a typed conflict rather than a second row that
+        // would make "which book did this come from" ambiguous.
+        var alreadyAcquired = await db.BookAcquisitions
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                a => a.ProviderId == request.ProviderId
+                     && a.ExternalId == request.ExternalId
+                     && a.AssetId == request.AssetId,
+                ct);
+
+        if (alreadyAcquired is not null)
+        {
+            if (alreadyAcquired.BookId != book.Id)
+                return NoChange(Failure("acquisition_conflict",
+                    LibraryReplyFormatter.AcquisitionConflict, state.StateVersion));
+
+            return NoChange(Result(
+                LibraryReplyFormatter.AssetAlreadyAttached(book.Title),
+                new LibraryAttachAcquiredAssetResultDto(book.Id, book.ToDto()),
+                state.StateVersion));
+        }
+
+        book.FileDetails.HasFile = true;
+        book.FileDetails.FileName = fileName;
+        // A different file invalidates the cached epub locations, exactly as a
+        // manual re-upload does.
+        book.FileDetails.LocationsJson = null;
+        book.FileDetails.ChaptersJson = request.Chapters is { Count: > 0 }
+            ? JsonSerializer.Serialize(request.Chapters)
+            : null;
+
+        // Duration only exists on audiobooks, and only an audiobook can carry
+        // it — an ebook that somehow received one would be a modelling error.
+        if (book is AudioBookModel audioBook && !string.IsNullOrWhiteSpace(request.Duration))
+            audioBook.Duration = request.Duration;
+
+        // Written in the same SaveChanges as the file details above: the book
+        // must never claim a file it has no provenance for, or provenance
+        // pointing at a file that was never attached.
+        // Explicitly added rather than only assigned to the navigation: EF's
+        // change detection discovers an untracked one-to-one dependent through
+        // navigation fixup, but with a non-default key it concludes the row
+        // already exists and issues an UPDATE — which matches nothing and fails
+        // as a concurrency error.
+        var acquisition = new BookAcquisitionModel
+        {
+            BookId = book.Id,
+            ProviderId = request.ProviderId.Trim(),
+            ProviderDisplayName = NullIfEmpty(request.ProviderDisplayName) ?? request.ProviderId.Trim(),
+            ExternalId = request.ExternalId.Trim(),
+            AssetId = request.AssetId.Trim(),
+            AssetFormat = NullIfEmpty(request.AssetFormat),
+            ImportedExtension = Path.GetExtension(fileName).ToLowerInvariant(),
+            SourceUrl = NullIfEmpty(request.SourceUrl),
+            RightsStatement = NullIfEmpty(request.RightsStatement),
+            AcquiredAt = request.AcquiredAt ?? Now,
+        };
+
+        book.Acquisition = acquisition;
+        db.BookAcquisitions.Add(acquisition);
+
+        await db.SaveChangesAsync(ct);
+
+        return Change(Result(
+            LibraryReplyFormatter.AssetAttached(book.Title),
+            new LibraryAttachAcquiredAssetResultDto(book.Id, book.ToDto()),
             state.StateVersion));
     }
 

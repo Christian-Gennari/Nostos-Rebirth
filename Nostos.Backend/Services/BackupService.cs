@@ -431,7 +431,7 @@ public class BackupService : IBackupService
             if (Settings.IncludeBookFiles)
             {
                 _settingsProvider.UpdateProgress("Collecting files", 25, 2, 5);
-                var storageRoot = Path.Combine(_env.ContentRootPath, "Storage", "books");
+                var storageRoot = _fileStorage.StorageRoot;
                 if (Directory.Exists(storageRoot))
                 {
                     foreach (var bookFolder in Directory.EnumerateDirectories(storageRoot))
@@ -461,9 +461,12 @@ public class BackupService : IBackupService
 
                 // Membership lives in the join table, so the backup has to carry
                 // it explicitly — the book row alone no longer records which
-                // collections a book belongs to.
+                // collections a book belongs to. Acquisition provenance lives in
+                // its own table for the same reason: without this Include a
+                // backup would silently drop where imported books came from.
                 var books = await db.Books
                     .Include(b => b.BookCollections)
+                    .Include(b => b.Acquisition)
                     .ToListAsync(ct);
                 await WriteJsonAsync(Path.Combine(metadataDir, "books.json"), books, ct);
 
@@ -626,7 +629,7 @@ public class BackupService : IBackupService
             if (Directory.Exists(booksSrcDir))
             {
                 _settingsProvider.UpdateProgress("Restoring data", 60, 2, 3);
-                var storageRoot = Path.Combine(_env.ContentRootPath, "Storage", "books");
+                var storageRoot = _fileStorage.StorageRoot;
                 Directory.CreateDirectory(storageRoot);
 
                 foreach (var bookFolder in Directory.EnumerateDirectories(booksSrcDir))

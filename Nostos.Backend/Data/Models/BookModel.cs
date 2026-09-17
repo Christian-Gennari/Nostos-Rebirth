@@ -43,6 +43,14 @@ public abstract class BookModel
     /// and had to be kept in sync by hand on every write.
     /// </summary>
     public ICollection<BookCollectionModel> BookCollections { get; set; } = new List<BookCollectionModel>();
+
+    /// <summary>
+    /// Set when this book's file was acquired from an external provider rather
+    /// than uploaded by hand. One generic navigation, not provider-named
+    /// columns, so the core library stays provider-agnostic; at most one
+    /// acquisition per book, since a book has exactly one primary file.
+    /// </summary>
+    public BookAcquisitionModel? Acquisition { get; set; }
 }
 
 // --- NEW OWNED TYPES ---

@@ -1,0 +1,311 @@
+# Content Providers & Acquisition
+
+Nostos can import books from external public-domain/open-content catalogues
+(Project Gutenberg, LibriVox, and future sources) without any of them leaking
+into the library, storage, reader, notes, work-grouping or backup layers.
+
+This document describes the provider/acquisition architecture introduced by
+[#166](https://github.com/Christian-Gennari/Nostos-Rebirth/issues/166), how to
+add a new built-in provider, and what a provider must not do.
+
+## The two concerns
+
+The feature is split in two, and almost every later decision follows from that
+split:
+
+| Concern | Question it answers | Where it lives |
+| --- | --- | --- |
+| **Provider** | *What content exists outside Nostos?* | `Nostos.Backend/Providers/Contracts/` + `Nostos.Backend/Providers/<Name>/` |
+| **Acquisition** | *How does a chosen external item become an ordinary local book?* | `Nostos.Backend/Providers/Acquisition/` |
+
+A provider **describes** remote content. It returns data and nothing else: no
+database writes, no storage paths, no reader behaviour, no knowledge of
+collections, works or progress. The acquisition layer owns every side effect.
+
+The payoff is that a completed import is *just a local book*. Reading, playback,
+notes, progress, work grouping and `.nostos` archives never consult a provider,
+and nothing about an imported book fails when the source goes offline.
+
+## Contracts
+
+All of these are Nostos-owned. No provider's own JSON/XML types cross this
+boundary — a Gutenberg Atom entry, a LibriVox API record and a future OPDS entry
+all normalize into the same records.
+
+**Identity** — `IContentProvider`: a stable `Id` (lowercase, persisted in
+provenance, never renamed once shipped), a `DisplayName`, declared
+`ProviderCapabilities`, and an optional `RightsNotice`.
+
+**Capabilities are opt-in interfaces**, not one large interface every provider
+has to stub out:
+
+| Interface | Purpose |
+| --- | --- |
+| `IProviderSearch` | Find items by a normal user query. |
+| `IProviderCatalog` | Full detail for one external item id. |
+| `IProviderAcquisitionPlanner` | Resolve item + asset into concrete download parts and an output format. |
+| `IProviderDownloadPolicy` | Which hosts may be downloaded from, and within what bounds. |
+| `IAcquisitionAssembler` | Combine downloaded parts into one file (multi-track audiobooks only). |
+
+`ProviderRegistry` resolves each provider into a `ProviderRegistration` bundle
+(provider + the capability implementations it actually supplies), so no caller
+ever casts. It is **fail-fast**: a provider whose declared `ProviderCapabilities`
+disagree with the interfaces it implements stops the app at startup, because the
+alternative is a confusing runtime failure in the middle of a download.
+
+`ProviderCapabilities` is also what the UI reads, exposed as lower-case strings
+by `GET /api/providers`, so a source that cannot do something is never offered
+for it.
+
+### Normalized models
+
+`ProviderMetadata` (title/author/language/publisher/dates/categories/narrator/
+duration), `ProviderAsset` (one downloadable representation, **with no URL**),
+`ProviderItem` (item identity + metadata + assets + cover + source/rights),
+`ProviderSearchQuery`/`ProviderSearchPage`, `ProviderDownloadPart`,
+`ProviderOutput`, `ProviderAcquisitionPlan`.
+
+`ProviderDownloadPart.FileExtension` is a validated plain extension, never a
+filename: the acquisition layer generates every path it writes, so no remote
+string can influence a filesystem path.
+
+Chapters in a plan are the canonical `BookChapterDto` from
+`Nostos.Shared`, not a provider-specific chapter type — the audio reader gets
+usable navigation without knowing the source was multi-track.
+
+## Acquisition flow
+
+```
+AcquisitionRequest { ProviderId, ExternalId, AssetId?, CollectionIds? }
+  1. resolve provider                                  -> provider_unknown
+  2. cheap duplicate check, only when AssetId was given
+  3. plan the acquisition (the only catalogue call)     -> provider_item_not_found
+  4. authoritative duplicate check on the RESOLVED asset id
+  5. read-only probe: does the library already hold this work with a file?
+                                                        -> already_in_library
+  ---------- staging: no database writes at all ----------
+  6. free-space pre-flight
+  7. download every part (bounded concurrency, caps, retries)
+  8. validate the parts
+  9. assemble (provider assembler, or the single part is the artifact)
+ 10. cover artwork (best effort, image-validated)
+  ---------- commit: library writes ----------
+ 11. create/match the book via ILibraryService
+ 12. adopt the staged file into storage (a rename on the same volume)
+ 13. AttachAcquiredAssetAsync: file details + provenance in ONE transaction
+ 14. cover (best effort)
+ 15. staging directory removed (finally)
+```
+
+### Why two phases
+
+An earlier design created the book *before* downloading, reasoning that storage
+is keyed by a book id. That was wrong on its own terms — the id is a `Guid` we
+can generate without touching the database — and it was wrong in practice: a
+whole audiobook takes tens of minutes, so a file-less book row sat visible in
+the library (Kobo, OPDS, MCP, the UI) for that entire window, and a restart
+mid-download leaked it permanently. Phase 1 therefore has **zero** database
+side effects; if anything fails or the process dies, the staging directory is
+simply removed.
+
+The residual window is the space between step 12 and step 13, which is two
+local operations with no network involved. If it is interrupted, the worst case
+is a file-less book row (a normal state in Nostos) plus a file on disk, and
+retrying the import is safe because step 4 recognises the provenance row.
+
+### Duplicate and retry semantics
+
+`BookAcquisitions` is unique on `(ProviderId, ExternalId, AssetId)`. That is the
+whole mechanism:
+
+- Re-importing the same item+asset is a no-op: it returns the existing book
+  without downloading anything (step 2/4, and the database index as the final
+  backstop).
+- The check happens **after** the plan resolves the asset, because when the
+  caller names no asset the resolved id is not known earlier — checking a `null`
+  asset id would either miss a duplicate or point at the wrong asset.
+- A retry after any failure starts from a clean staging directory and finds no
+  provenance row, so it simply re-runs.
+
+### Failure semantics
+
+| Failure | What survives |
+| --- | --- |
+| Download/validation/assembly | Nothing. No book, no files, no staging directory. |
+| Storage (`AdoptBookFileAsync`) | No book (rolled back), no files, no staging directory. |
+| Provenance write | The adopted file is deleted, and a book this run created is deleted. Staging directory removed. |
+
+A stored file is deleted *only* on the file it belongs to (`DeleteBookFile`), so
+a rollback cannot take a matched book's pre-existing cover with it. Only books
+this acquisition created are ever deleted.
+
+## Provenance
+
+`BookAcquisitions` — a separate table with generic columns:
+
+`ProviderId`, `ProviderDisplayName`, `ExternalId`, `AssetId`, `AssetFormat`,
+`ImportedExtension`, `SourceUrl`, `RightsStatement`, `AcquiredAt`, `BookId`.
+
+There is deliberately **no** `GutenbergId`/`LibriVoxId` column anywhere on
+`Books`: provider identity is not bibliographic identity, and a column per
+provider would put provider knowledge into the core library domain and grow one
+column per source. Provenance is also *not* a second identity system — matching
+and work grouping remain `ILibraryService`'s job.
+
+`BookModel` carries one generic `Acquisition` navigation, `BookDto` appends a
+compact `BookSourceDto? Source`, and anything that serialises a book includes it
+(`BackupService` does, or backups would silently drop where imported books came
+from).
+
+**Rights are a quoted statement, never a verdict.** `RightsStatement` stores the
+source's own wording ("Public domain in the USA."), because Nostos is in no
+position to declare a work unrestricted in every jurisdiction — and a boolean
+claiming "free" would have to be un-invented the first time a real licensing
+question arrived. Providers supply it via `ProviderSourceInfo.RightsStatement`
+and a short `RightsNotice` for the source picker.
+
+## Storage
+
+`IFileStorageService` has one lower-level primitive, and browser uploads go
+through it too:
+
+- `SaveBookFileAsync(bookId, Stream, fileName, ct)` — writes to a
+  `book.<ext>.partial` sibling and **renames** it into place only once the
+  stream is fully consumed, so a failed, aborted or cancelled transfer can never
+  leave a half-written file where a reader would find it.
+- `SaveBookFileAsync(bookId, IFormFile)` — a thin wrapper over the above, so
+  manual uploads and remote acquisitions cannot drift apart.
+- `AdoptBookFileAsync(bookId, sourcePath, fileName, ct)` — moves an
+  already-materialised file into place. Acquisition downloads and assembles
+  hundreds of megabytes into staging, and must not keep a second copy of it.
+  The destination is derived entirely from the book id and a validated
+  extension; only the source is a path.
+- `DeleteBookFile(bookId)` — removes only the primary file, leaving covers
+  alone, so a rollback is precise.
+
+The storage root is configurable via `Storage:BooksRoot` (default
+`Storage/books` under the content root). This exists because a test must never
+be able to write into a real library, and because a deployment may want a
+dedicated media volume. `BackupService` reads
+`IFileStorageService.StorageRoot` rather than rebuilding the path, so the
+archive and the storage service cannot disagree about where the library is.
+
+## HTTP surface
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| GET | `/api/providers` | Registered sources and their capabilities. |
+| GET | `/api/providers/{providerId}/search?query=&limit=&offset=` | Normalized search results. |
+| GET | `/api/providers/{providerId}/items/{externalId}` | Normalized item detail + assets. |
+| GET | `/api/providers/{providerId}/items/{externalId}/cover` | Proxied cover artwork. |
+| POST | `/api/providers/{providerId}/acquire` | Start an import; returns a job. |
+| GET | `/api/providers/acquisitions/{jobId}` | Poll progress. |
+| DELETE | `/api/providers/acquisitions/{jobId}` | Cancel. |
+
+**No route accepts a URL.** A client names a provider, an item and an asset, and
+the provider resolves the actual location server-side. Combined with the
+download policy, that is what stops the acquisition endpoint from becoming an
+arbitrary-URL downloader.
+
+Imports run as **jobs** because a whole audiobook takes far longer than any
+sensible HTTP request: `POST .../acquire` returns as soon as the job is queued
+and the client polls. Completion is only reported once the final file is stored
+and the library row is attached.
+
+## Security and resource limits
+
+- **https only.** A plaintext download could be rewritten in transit, and an
+  imported library file is exactly what an attacker would want to substitute.
+- **Every redirect hop is re-validated** against the provider's host allow-list.
+  `HttpClient`'s auto-redirect is deliberately off; letting it follow them would
+  mean the policy only ever saw the first URL.
+- **Host matching is hierarchical suffix matching.** `archive.org` allows
+  `ia801600.us.archive.org`; a single-label wildcard would not, yet that is where
+  archive.org's own download redirects land.
+- **Streaming with hard caps** — per part, per acquisition, and a part count —
+  enforced *while* reading, because `Content-Length` is the source's claim, not
+  a fact. Nothing is buffered whole; only cover art is held in memory, bounded.
+- **Retries only what is worth retrying** (429, 503, 408, 5xx, transient IO), with
+  exponential backoff. A 404 is answered immediately.
+- **Free-space pre-flight** before downloading, from the parts' declared sizes.
+- **Staging is never `Path.GetTempPath()`.** On Linux `/tmp` is frequently a
+  RAM-backed tmpfs; a few gigabytes of audiobook there would exhaust host memory
+  and get the app OOM-killed. Staging lives beside the books directory, which
+  also makes committing the result a rename rather than a copy.
+- **Concurrency is bounded.** `Acquisition:DownloadConcurrency` (default 3) per
+  job, and `Acquisition:MaxConcurrentTranscodes` (default 1) process-wide —
+  encoding a feature-length audiobook already saturates the machine, and a
+  second concurrent encode makes the whole server unresponsive rather than
+  merely slow.
+- **Cancellation propagates** through planning, download, assembly and cleanup.
+
+## Configuration
+
+```jsonc
+{
+  "Storage": {
+    // Optional. Absolute, or relative to the content root. Default: Storage/books
+    "BooksRoot": "/srv/nostos/books"
+  },
+  "Acquisition": {
+    // Optional. Defaults to a sibling of Storage/books, NOT /tmp.
+    "WorkingRoot": "/srv/nostos/staging",
+    "DownloadConcurrency": 3,        // parts fetched at once, 1..8
+    "DownloadAttempts": 3,           // per part, 1..6
+    "DownloadTimeoutSeconds": 900,   // per part
+    "AcquisitionTimeoutMinutes": 240,// whole job
+    "MaxRedirects": 5,
+    "MaxConcurrentTranscodes": 1,    // process-wide, 1..4
+    "FreeSpaceFactor": 2.5,          // required free space vs expected bytes
+    "MinimumFreeSpaceBytes": 536870912,
+    "JobRetentionMinutes": 180,      // how long a finished job stays pollable
+    "MaxRetainedJobs": 50
+  }
+}
+```
+
+## Adding a built-in provider
+
+1. Create `Nostos.Backend/Providers/<Name>/<Name>Provider.cs`.
+2. Implement `IContentProvider` (`Id` lowercase and hyphenated, e.g.
+   `gutenberg`) plus whichever capability interfaces the source supports.
+3. Normalize the source's own catalogue into the contracts. Keep its DTOs
+   `private`/`internal` to that folder, and do the source's *quirks* here —
+   including normalizing metadata into the shape the rest of Nostos expects
+   (e.g. `"Austen, Jane"` → `"Jane Austen"`, stripping life years), because
+   `BookIdentityNormalizer` deliberately does not rewrite author strings and a
+   differently-formatted author would never group with the same work.
+4. Implement `IProviderDownloadPolicy`: the allowed hosts (suffix-matched), and
+   the caps. Only ever emit `https` URLs.
+5. Register it in `Program.cs` as a singleton `IContentProvider`. That is the
+   whole integration — nothing in the library, storage, reader or UI layers
+   changes. There is no dynamic assembly loading and no third-party plugin
+   marketplace: providers are built-in and compiled in.
+6. Add tests with a stubbed HTTP layer; never depend on the live source for
+   automated tests.
+
+### Provider rules
+
+- Never write to the database, never touch `Storage`, never create a book.
+- Never return a URL to a client, and never accept one from a client.
+- Never implement reader behaviour. If the source's representation does not
+  match how Nostos models a book (a multi-track audiobook, say), implement
+  `IAcquisitionAssembler` and normalize it during acquisition instead.
+- Declare capabilities honestly; the registry enforces the correspondence with
+  the interfaces at startup.
+
+## Documented limitations
+
+- **In-memory job store.** A server restart forgets in-flight jobs; the UI sees
+  an unknown job id and says so. Nothing is lost — staging goes with the process
+  and no library row exists until the very end.
+- **A crash between the file rename and the provenance write** can leave a
+  file-less book plus an orphaned file in `Storage/books/<id>/`. The file-less
+  book is a valid state the user can delete. There is no automatic orphan
+  scanner; the pre-existing manual-upload path has the same property.
+- **No automatic asset re-selection.** If a source stops offering the asset an
+  import was planned for, the import fails with `provider_asset_unavailable`;
+  the user picks another asset.
+- **A source whose search is limited** (LibriVox, for example, matches a whole
+  title or an author surname only) reports a `Notice` alongside a thin result
+  set rather than pretending the catalogue is empty.
