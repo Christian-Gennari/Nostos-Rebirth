@@ -96,8 +96,16 @@ public sealed record ProviderSearchPage(
 /// disk as and must be a plain extension (".epub", ".mp3"): the provider never
 /// supplies a filename, so a hostile or simply wrong source string cannot
 /// influence a path.
+///
+/// <paramref name="Label"/> is the source's own name for this part ("Chapters
+/// 1-3") where it has one. It is display text only — an assembler may use it to
+/// label a chapter, and it is never used to build a path.
 /// </summary>
-public sealed record ProviderDownloadPart(Uri Url, string FileExtension, long? ExpectedBytes = null);
+public sealed record ProviderDownloadPart(
+    Uri Url,
+    string FileExtension,
+    long? ExpectedBytes = null,
+    string? Label = null);
 
 /// <summary>The format of the finished local file.</summary>
 public sealed record ProviderOutput(string FileExtension, string ContentType, string Label);

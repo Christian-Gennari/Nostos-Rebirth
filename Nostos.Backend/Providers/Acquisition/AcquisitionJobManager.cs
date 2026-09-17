@@ -91,7 +91,15 @@ public sealed class AcquisitionJobManager : BackgroundService, IAcquisitionJobMa
             .Select(_ => ConsumeAsync(stoppingToken))
             .ToArray();
 
-        await Task.WhenAll(running);
+        try
+        {
+            await Task.WhenAll(running);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Ordinary shutdown: the queue readers end with the token, and that
+            // is not an error worth logging as one.
+        }
     }
 
     private async Task ConsumeAsync(CancellationToken stoppingToken)

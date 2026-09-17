@@ -1,11 +1,23 @@
+using Nostos.Shared.Dtos;
+
 namespace Nostos.Backend.Providers.Contracts;
 
 /// <summary>
 /// The finished local artifact: one file, in the format the library will store
 /// it as. This is what the acquisition pipeline hands to storage, and it is the
 /// only thing that outlives the staging directory.
+///
+/// <paramref name="Chapters"/> and <paramref name="Duration"/> are reported by
+/// the assembler when it can measure them from the file it actually produced —
+/// which is strictly better evidence than anything the source claimed, and the
+/// reason they are allowed to override the plan's values.
 /// </summary>
-public sealed record AcquisitionArtifact(string FilePath, string FileExtension, string ContentType);
+public sealed record AcquisitionArtifact(
+    string FilePath,
+    string FileExtension,
+    string ContentType,
+    IReadOnlyList<BookChapterDto>? Chapters = null,
+    string? Duration = null);
 
 /// <summary>
 /// A part as it actually landed on disk. <see cref="FilePath"/> is a path the

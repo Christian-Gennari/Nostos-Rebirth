@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Nostos.Backend.Data;
@@ -200,14 +201,44 @@ public sealed class AcquisitionService(
 
         using var throttle = new SemaphoreSlim(_options.ClampDownloadConcurrency());
 
+        // One part failing must not leave the other forty downloading into a
+        // directory that is about to be deleted: the first failure cancels the
+        // siblings so the whole acquisition winds down promptly.
+        using var abandoned = CancellationTokenSource.CreateLinkedTokenSource(ct);
+
+        // ...but cancelling the siblings means several tasks now fail with a
+        // cancellation that is a *consequence* of the first failure. Without
+        // this the error code reported to the user would be whichever task
+        // happened to lose the race.
+        Exception? primaryFailure = null;
+
         var tasks = plan.Parts.Select((part, index) => DownloadOneAsync(index)).ToArray();
-        await Task.WhenAll(tasks);
+
+        try
+        {
+            await Task.WhenAll(tasks);
+        }
+        catch (Exception) when (!ct.IsCancellationRequested && primaryFailure is not null)
+        {
+            ExceptionDispatchInfo.Capture(primaryFailure).Throw();
+            throw;
+        }
 
         return results;
 
         async Task DownloadOneAsync(int index)
         {
-            await throttle.WaitAsync(ct);
+            try
+            {
+                await throttle.WaitAsync(abandoned.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // A sibling failed and the acquisition is unwinding; the
+                // original failure is the one worth reporting.
+                throw new OperationCanceledException(ct);
+            }
+
             try
             {
                 var part = plan.Parts[index];
@@ -226,13 +257,25 @@ public sealed class AcquisitionService(
                 var partProgress = new Progress<long>(written => progress.ReportDownload(index, written, plan.Parts));
 
                 var written = await downloader.DownloadAsync(
-                    part.Url, destination, policy, budget, partProgress, ct);
+                    part.Url, destination, policy, budget, partProgress, abandoned.Token);
 
                 results[index] = new AcquisitionPart(destination, extension, written);
                 Interlocked.Add(ref bytesWritten, written);
                 var completed = Interlocked.Increment(ref done);
 
                 progress.Report(DownloadProgress(completed, totalParts, bytesWritten, declaredTotal));
+            }
+            catch (Exception ex)
+            {
+                var siblingCancellation = ex is OperationCanceledException
+                    && abandoned.IsCancellationRequested
+                    && !ct.IsCancellationRequested;
+
+                if (!siblingCancellation)
+                    Interlocked.CompareExchange(ref primaryFailure, ex, null);
+
+                await abandoned.CancelAsync();
+                throw;
             }
             finally
             {
@@ -422,8 +465,11 @@ public sealed class AcquisitionService(
             SourceUrl: plan.Source?.ItemUrl,
             RightsStatement: plan.Source?.RightsStatement,
             AcquiredAt: DateTime.UtcNow,
-            Duration: plan.Metadata.Duration,
-            Chapters: plan.Chapters), ct);
+            // What the assembler measured on the produced file beats what the
+            // source claimed: for an audiobook that is the difference between
+            // chapter markers that line up and ones that drift.
+            Duration: artifact.Duration ?? plan.Metadata.Duration,
+            Chapters: artifact.Chapters ?? plan.Chapters), ct);
 
         if (ErrorCodeOf(attach) is { } attachError)
         {
