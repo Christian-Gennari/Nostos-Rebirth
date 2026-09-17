@@ -66,7 +66,7 @@ Collect, organize, and consume your entire media collection in one unified repos
 
 ---
 
-### Second Brain & Concept Graph
+### Brain & Concept Graph
 Transform passive reading into active, connected understanding:
 * **In-Context Annotations:** Highlight passages directly inside EPUBs and PDFs and link thoughts to exact paragraphs.
 * **Bi-Directional Wiki-Links:** Type `[[Concept]]` anywhere in your notes to automatically link or discover emerging ideas.
@@ -76,8 +76,17 @@ Transform passive reading into active, connected understanding:
   <img
     width="2880"
     height="1800"
-    alt="Nostos Second Brain"
-    src="docs/screenshots/second-brain.png"
+    alt="Nostos Brain — concept index and linked notes"
+    src="docs/screenshots/brain-list.png"
+  />
+</div>
+
+<div align="center">
+  <img
+    width="1356"
+    height="1284"
+    alt="Nostos Brain — interactive concept graph"
+    src="docs/screenshots/brain-graph.png"
   />
 </div>
 
