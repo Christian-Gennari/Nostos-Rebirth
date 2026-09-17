@@ -430,70 +430,92 @@
             </div>
           </div>
 
+          <!-- Multi-edition grouping. Sits in the rail as the same card as the
+               Details block above it; the rows are a list inside that card, not
+               a grid of cards. Single-edition books never render this. -->
           @if (store.book()?.otherEditions && store.book()!.otherEditions!.length > 0) {
-          <div class="edition-section">
+          <section class="edition-section" aria-labelledby="editions-title">
             <div class="edition-section-header">
-              <lucide-icon [img]="LayersIcon" [size]="14"></lucide-icon>
-              <span class="edition-section-title">Available Formats & Editions</span>
+              <lucide-icon [img]="LayersIcon" [size]="13"></lucide-icon>
+              <h4 class="edition-section-title" id="editions-title">
+                Available Formats &amp; Editions
+              </h4>
               <span class="edition-count-badge">{{ (store.book()?.otherEditions?.length || 0) + 1 }}</span>
             </div>
-            <div class="edition-cards-grid">
-              <button
-                type="button"
-                class="edition-select-card active"
-                [title]="getEditionLabel(store.book()!)"
-              >
-                <div class="card-icon-frame">
-                  <lucide-icon [img]="isAudioBook(store.book()) ? HeadphonesIcon : BookOpenIcon" [size]="16"></lucide-icon>
-                </div>
-                <div class="card-content">
-                  <span class="card-format-title">{{ getEditionFormat(store.book()!) }}</span>
-                  @if (getEditionSubtitle(store.book()!)) {
-                  <span class="card-format-sub">{{ getEditionSubtitle(store.book()!) }}</span>
-                  }
-                  <div class="card-meta-line">
-                    @if (store.book()?.progressPercent) {
-                    <span class="card-progress">{{ store.book()?.progressPercent }}% read</span>
-                    } @else {
-                    <span class="card-progress">Not started</span>
+
+            <ul class="edition-list">
+              <!-- The edition being read. One row shape for both states, but this
+                   one is a plain element rather than a <button>: it is where the
+                   user already is, and a control that cannot do anything is worse
+                   than no control. `aria-current` plus the "Current" pill carry
+                   the state, so it is never read from the fill colour alone. -->
+              <li>
+                <div
+                  class="edition-select-card active"
+                  aria-current="true"
+                  [title]="getEditionLabel(store.book()!)"
+                >
+                  <span class="card-icon-frame">
+                    <lucide-icon
+                      [img]="isAudioBook(store.book()) ? HeadphonesIcon : BookOpenIcon"
+                      [size]="16"
+                    ></lucide-icon>
+                  </span>
+                  <span class="card-content">
+                    <span class="card-format-title">{{ getEditionFormat(store.book()!) }}</span>
+                    @if (getEditionSubtitle(store.book()!)) {
+                    <span class="card-format-sub">{{ getEditionSubtitle(store.book()!) }}</span>
                     }
-                    @if (store.book()?.finishedAt) {
-                    <span class="card-status-pill finished">Finished</span>
-                    }
-                  </div>
+                    <span class="card-meta-line">
+                      @if (store.book()?.progressPercent) {
+                      <span class="card-progress">{{ store.book()?.progressPercent }}% read</span>
+                      } @else {
+                      <span class="card-progress">Not started</span>
+                      }
+                      @if (store.book()?.finishedAt) {
+                      <span class="card-status-pill finished">Finished</span>
+                      }
+                      <span class="card-status-pill current">Current</span>
+                    </span>
+                  </span>
                 </div>
-              </button>
+              </li>
 
               @for (edition of store.book()!.otherEditions!; track edition.id) {
-              <button
-                type="button"
-                class="edition-select-card"
-                (click)="switchEdition(edition.id)"
-                [title]="'Switch to ' + getSummaryEditionLabel(edition)"
-              >
-                <div class="card-icon-frame">
-                  <lucide-icon [img]="edition.type === 'audiobook' ? HeadphonesIcon : BookOpenIcon" [size]="16"></lucide-icon>
-                </div>
-                <div class="card-content">
-                  <span class="card-format-title">{{ getEditionFormat(edition) }}</span>
-                  @if (getEditionSubtitle(edition)) {
-                  <span class="card-format-sub">{{ getEditionSubtitle(edition) }}</span>
-                  }
-                  <div class="card-meta-line">
-                    @if (edition.progressPercent) {
-                    <span class="card-progress">{{ edition.progressPercent }}% read</span>
-                    } @else {
-                    <span class="card-progress">Not started</span>
+              <li>
+                <button
+                  type="button"
+                  class="edition-select-card"
+                  (click)="switchEdition(edition.id)"
+                  [title]="'Switch to ' + getSummaryEditionLabel(edition)"
+                >
+                  <span class="card-icon-frame">
+                    <lucide-icon
+                      [img]="edition.type === 'audiobook' ? HeadphonesIcon : BookOpenIcon"
+                      [size]="16"
+                    ></lucide-icon>
+                  </span>
+                  <span class="card-content">
+                    <span class="card-format-title">{{ getEditionFormat(edition) }}</span>
+                    @if (getEditionSubtitle(edition)) {
+                    <span class="card-format-sub">{{ getEditionSubtitle(edition) }}</span>
                     }
-                    @if (edition.finishedAt) {
-                    <span class="card-status-pill finished">Finished</span>
-                    }
-                  </div>
-                </div>
-              </button>
+                    <span class="card-meta-line">
+                      @if (edition.progressPercent) {
+                      <span class="card-progress">{{ edition.progressPercent }}% read</span>
+                      } @else {
+                      <span class="card-progress">Not started</span>
+                      }
+                      @if (edition.finishedAt) {
+                      <span class="card-status-pill finished">Finished</span>
+                      }
+                    </span>
+                  </span>
+                </button>
+              </li>
               }
-            </div>
-          </div>
+            </ul>
+          </section>
           }
         </aside>
       </div>

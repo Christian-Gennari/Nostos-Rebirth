@@ -223,8 +223,16 @@ describe('BookDetail reset progress', () => {
     expect(toast.toasts().some((t) => t.message === 'Reading progress reset' && t.type === 'success')).toBe(true);
   });
 
-  it('renders edition switcher tabs when multiple editions exist and calls switchEdition', async () => {
-    const multiEditionBook = readableBook({
+  // ── Multi-edition grouping (Available Formats & Editions) ───────────────────
+  // The block sits in the details rail as a second card and lists every linked
+  // edition. It must not appear at all for a single-edition book.
+
+  function editionRows(): HTMLElement[] {
+    return Array.from(fixture.nativeElement.querySelectorAll('.edition-select-card'));
+  }
+
+  function multiEditionBook(): Book {
+    return readableBook({
       otherEditions: [
         {
           id: 'b2',
@@ -237,12 +245,87 @@ describe('BookDetail reset progress', () => {
         },
       ],
     });
-    await setup(multiEditionBook);
+  }
 
-    const tabs = fixture.nativeElement.querySelectorAll('.edition-select-card');
-    expect(tabs.length).toBe(2);
-    expect(tabs[0].textContent).toContain('EPUB');
-    expect(tabs[1].textContent).toContain('Audiobook');
+  it('renders edition rows when multiple editions exist and switches on click', async () => {
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    await setup(multiEditionBook());
+
+    const rows = editionRows();
+    expect(rows.length).toBe(2);
+    expect(rows[0].textContent).toContain('EPUB');
+    expect(rows[1].textContent).toContain('Audiobook');
+
+    // Every alternate edition stays directly switchable from Book Details.
+    rows[1].click();
+    fixture.detectChanges();
+
+    expect(navigateSpy).toHaveBeenCalledWith(['/library', 'b2']);
+  });
+
+  it('renders the editions section as a rail card with the page eyebrow heading', async () => {
+    await setup(multiEditionBook());
+
+    const section = fixture.nativeElement.querySelector('.edition-section') as HTMLElement;
+    expect(section).toBeTruthy();
+    expect(section.parentElement?.classList.contains('detail-side')).toBe(true);
+
+    const heading = section.querySelector('.edition-section-title') as HTMLElement;
+    expect(heading.textContent).toContain('Available Formats & Editions');
+    // The section's accessible name is the heading, not just a floating span.
+    expect(section.getAttribute('aria-labelledby')).toBe(heading.id);
+
+    // The count is every edition in the work, the current one included.
+    expect(section.querySelector('.edition-count-badge')?.textContent).toContain('2');
+  });
+
+  it('marks the current edition with aria-current and a visible Current pill', async () => {
+    await setup(multiEditionBook());
+
+    const current = editionRows()[0];
+    expect(current.classList.contains('active')).toBe(true);
+    expect(current.getAttribute('aria-current')).toBe('true');
+    // State is not carried by the fill alone: the row says it in words too.
+    expect(current.querySelector('.card-status-pill.current')?.textContent).toContain('Current');
+    // Both rows share one shape; only the alternate one is a control.
+    expect(current.tagName).toBe('DIV');
+    expect(editionRows()[1].tagName).toBe('BUTTON');
+  });
+
+  it('keeps each edition progress and finished state on its own row', async () => {
+    const multi = readableBook({
+      progressPercent: 42,
+      finishedAt: '2026-08-09T08:00:00+02:00',
+      otherEditions: [
+        {
+          id: 'b2',
+          type: 'audiobook',
+          format: 'AUDIO',
+          progressPercent: 15,
+          hasFile: true,
+          finishedAt: '2026-08-02T08:00:00+02:00',
+        },
+      ],
+    });
+    await setup(multi);
+
+    const [current, other] = editionRows();
+    expect(current.querySelector('.card-progress')?.textContent).toContain('42% read');
+    expect(other.querySelector('.card-progress')?.textContent).toContain('15% read');
+
+    // A finished state has to survive on BOTH grounds: the current row's fill is
+    // the dark selection surface, where a pill that kept its light-theme success
+    // ink measured 1.35:1 and was effectively invisible.
+    expect(current.querySelector('.card-status-pill.finished')?.textContent).toContain('Finished');
+    expect(other.querySelector('.card-status-pill.finished')?.textContent).toContain('Finished');
+  });
+
+  it('renders no editions section at all for a single-edition book', async () => {
+    await setup(readableBook());
+
+    expect(fixture.nativeElement.querySelector('.edition-section')).toBeNull();
+    expect(editionRows().length).toBe(0);
   });
 
   it('does NOT render a danger zone card on the main page', async () => {
