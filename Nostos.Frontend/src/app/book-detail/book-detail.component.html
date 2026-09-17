@@ -290,7 +290,29 @@
               <div class="review-label">
                 <lucide-icon [img]="QuoteIcon" [size]="14"></lucide-icon> My Review
               </div>
-              <p class="review-text">{{ store.book()?.personalReview }}</p>
+              <!-- The clamp lives on this wrapper, never on the paragraph itself:
+                   `-webkit-line-clamp` on the <p> would also rewrite
+                   `scrollHeight`, which is the only honest way to measure how
+                   tall the review really is. Clipping the parent leaves the
+                   paragraph's own metrics intact (see measureReviewOverflow). -->
+              <div class="review-body" [class.clamped]="isReviewClamped()">
+                <p #reviewText id="personal-review-text" class="review-text">{{ store.book()?.personalReview }}</p>
+                @if (isReviewClamped()) {
+                <div class="review-fade" aria-hidden="true"></div>
+                }
+              </div>
+              @if (isReviewCollapsible()) {
+              <button
+                type="button"
+                class="expand-btn review-toggle"
+                [attr.aria-expanded]="isReviewExpanded()"
+                aria-controls="personal-review-text"
+                (click)="toggleReview()"
+              >
+                {{ isReviewExpanded() ? 'Show Less' : 'Show More' }}
+                <span class="icon">{{ isReviewExpanded() ? '↑' : '↓' }}</span>
+              </button>
+              }
             </div>
             }
 
