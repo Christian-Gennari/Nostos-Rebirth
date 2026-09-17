@@ -1,6 +1,6 @@
 {
   "artifact": "book-detail-review-desktop.png",
-  "capturedAt": "2026-09-17T18:55:53.572Z",
+  "capturedAt": "2026-09-17T19:45:54.812Z",
   "name": "book-detail-review-desktop",
   "surface": "book-detail",
   "viewport": {
@@ -33,7 +33,7 @@
     {
       "id": "review-collapsed-preview",
       "pass": true,
-      "message": "a 178.9-line review collapses to a 12-line preview with a \"Show More ↓\" control (aria-expanded=false, aria-controls=personal-review-text) and a fade",
+      "message": "a 178.9-line review collapses to a 12-line preview with a \"Read full review ↓\" control (aria-expanded=false, aria-controls=personal-review-text) and a fade",
       "metrics": {
         "fullLines": 178.9,
         "visibleLines": 12,
@@ -42,13 +42,13 @@
         "display": "flow-root",
         "overflow": "hidden",
         "hasToggle": true,
-        "toggleLabel": "Show More ↓",
+        "toggleLabel": "Read full review ↓",
         "ariaExpanded": "false",
         "ariaControls": "personal-review-text",
         "hasFade": true,
         "textLength": 10489,
         "id": "personal-review-text",
-        "png": "/home/dev/coding/projects/nostos-rebirth-159-review-collapse/Nostos.Frontend/e2e/visual-evidence/book-detail-review-collapsed-desktop.png"
+        "png": "/home/dev/coding/projects/nostos-rebirth-159-disclosure-style/Nostos.Frontend/e2e/visual-evidence/book-detail-review-collapsed-desktop.png"
       }
     },
     {
@@ -63,13 +63,13 @@
         "display": "block",
         "overflow": "visible",
         "hasToggle": true,
-        "toggleLabel": "Show Less ↑",
+        "toggleLabel": "Show less ↓",
         "ariaExpanded": "true",
         "ariaControls": "personal-review-text",
         "hasFade": false,
         "textLength": 10489,
         "id": "personal-review-text",
-        "png": "/home/dev/coding/projects/nostos-rebirth-159-review-collapse/Nostos.Frontend/e2e/visual-evidence/book-detail-review-expanded-desktop.png"
+        "png": "/home/dev/coding/projects/nostos-rebirth-159-disclosure-style/Nostos.Frontend/e2e/visual-evidence/book-detail-review-expanded-desktop.png"
       }
     },
     {
@@ -84,7 +84,7 @@
         "display": "flow-root",
         "overflow": "hidden",
         "hasToggle": true,
-        "toggleLabel": "Show More ↓",
+        "toggleLabel": "Read full review ↓",
         "ariaExpanded": "false",
         "ariaControls": "personal-review-text",
         "hasFade": true,

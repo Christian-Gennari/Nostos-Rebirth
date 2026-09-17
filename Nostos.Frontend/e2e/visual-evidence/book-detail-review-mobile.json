@@ -1,6 +1,6 @@
 {
   "artifact": "book-detail-review-mobile.png",
-  "capturedAt": "2026-09-17T18:55:55.790Z",
+  "capturedAt": "2026-09-17T19:45:57.082Z",
   "name": "book-detail-review-mobile",
   "surface": "book-detail",
   "viewport": {
@@ -21,13 +21,13 @@
         "display": "flow-root",
         "overflow": "hidden",
         "hasToggle": true,
-        "toggleLabel": "Show More ↓",
+        "toggleLabel": "Read full review ↓",
         "ariaExpanded": "false",
         "ariaControls": "personal-review-text",
         "hasFade": true,
         "textLength": 10489,
         "id": "personal-review-text",
-        "png": "/home/dev/coding/projects/nostos-rebirth-159-review-collapse/Nostos.Frontend/e2e/visual-evidence/book-detail-review-mobile.png",
+        "png": "/home/dev/coding/projects/nostos-rebirth-159-disclosure-style/Nostos.Frontend/e2e/visual-evidence/book-detail-review-mobile.png",
         "noOverflow": true
       }
     }

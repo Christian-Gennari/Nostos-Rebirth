@@ -255,7 +255,12 @@ for (const f of files) {
    EXIST (`--color-success` / `--color-danger`) and are theme-aware, so these two
    pairs are still theme-blind against a token that is not. Left for a human
    because it changes the rendered hue. */
-const LITERAL_COLOUR_BUDGET = 74;
+/* Lowered 74 -> 73 by replacing the book-detail synopsis fade's
+   `rgba(255, 255, 255, 0)` transparent stop with `transparent`. That stop
+   contributes no colour of its own, so naming a WHITE hue on it was a
+   light-theme assumption in a token-driven theme; the opaque end of the same
+   gradient was already `var(--bg-surface)`. */
+const LITERAL_COLOUR_BUDGET = 73;
 
 {
   const ALLOW = [
