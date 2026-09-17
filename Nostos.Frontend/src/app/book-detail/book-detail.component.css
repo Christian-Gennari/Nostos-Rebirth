@@ -344,8 +344,13 @@
 }
 /* Details rail card. The rail always has content, so the two-column body is never
    left with an empty gutter — the editions block below it is conditional and
-   absent for most books. */
-.details-card {
+   absent for most books.
+
+   The editions section is the same card, declared with it rather than given a
+   second copy: two cards stacked in one 320px column are only consistent as long
+   as one rule owns their ground, radius and padding. */
+.details-card,
+.edition-section {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 12px;
@@ -618,66 +623,124 @@
   text-shadow: 0 2px 16px rgba(0, 0, 0, 0.4);
 }
 
-.edition-section {
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--bg-surface-alt) 60%, transparent);
-  border: 1px solid var(--glass-border);
-}
+/* ── Multi-edition grouping ───────────────────────────────────────────────
+   The section IS a rail card (see the shared `.details-card, .edition-section`
+   rule above): the same surface, hairline, 12px radius and padding as the
+   Details block it sits under. It used to be a translucent `--glass-border`
+   panel with a 4px radius, which read as a legacy widget bolted next to an
+   opaque card.
 
+   Inside it the rows are a LIST, not a grid of cards. The old
+   `repeat(auto-fill, minmax(200px, 1fr))` grid only ever resolved to one column
+   in this 320px rail (measured: 3 columns of 258px only once the rail goes
+   full-width under 900px), so it produced a busier nested-card frame — every
+   row its own border AND its own 1px lift on hover — for no layout gain.
+
+   Same eyebrow as `.details-title` / `.synopsis-content h4`: the page's single
+   section-label style. The previous 0.78rem/0.05em/`--color-text-muted` heading
+   was a third variant of the same idea and matched nothing else on the page. */
 .edition-section-header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
-  font-size: 0.78rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.75rem;
   font-weight: var(--fw-semibold);
-  color: var(--color-text-muted);
+  color: var(--color-text-light);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.12em;
 }
 
+/* The heading is an <h4> for the section's accessible name; the eyebrow styling
+   above is what it wears. The global `h4` rule sets Newsreader + `--primary-ink`,
+   neither of which suits a 12px tracked label (measured: the serif is 256px at
+   this size against a 278px content box, so it would also be near the wrap
+   point), so the family is re-declared here. */
+.edition-section-title {
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  margin: 0;
+  line-height: 1.2;
+}
+
+/* Pushed to the card's right edge, so it terminates the header rule instead of
+   leaving the right side ragged against full-width rows below it. */
 .edition-count-badge {
-  padding: 1px 6px;
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
   background: var(--bg-hover);
   color: var(--color-text-light);
   font-size: 0.72rem;
+  font-weight: var(--fw-medium);
+  line-height: 1;
 }
 
-.edition-cards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 0.6rem;
+.edition-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .edition-select-card {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.65rem 0.85rem;
-  border-radius: var(--radius-sm, 6px);
+  gap: 0.7rem;
+  padding: 0.6rem 0.7rem;
   border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
   background: var(--bg-surface);
   color: var(--color-text-main);
   text-align: left;
-  cursor: pointer;
   font: inherit;
-  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  /* The current row is a plain <div>, so the box has to be shared by both
+     elements rather than living on `button` alone. */
+  width: 100%;
 }
 
-.edition-select-card:hover {
-  border-color: var(--border-focus);
+button.edition-select-card {
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+/* `--color-primary-dim`, the hover edge the Brain's merge targets use, not
+   `--border-focus`: that token is an ink colour doing border duty and it made
+   the border read as a second, competing selection state. The old rule also
+   translated the row 1px up and added a shadow, which is exactly the "card"
+   language the section is moving away from. */
+button.edition-select-card:hover {
   background: var(--bg-hover);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  border-color: var(--color-primary-dim);
 }
 
+button.edition-select-card:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* The current edition. Uses the app's SELECTION role (`--selection-surface` /
+   `--selection-ink`), the same pair the Library sidebar and the Brain's index
+   row fill with: forest with porcelain ink in light, raised slate in dark. It
+   is the only treatment on the page that says "this one", and unlike the old
+   accent-tinted card + glow it needs no theme-specific override. */
 .edition-select-card.active {
-  border-color: var(--color-primary);
-  background: var(--color-accent-bg);
-  box-shadow: 0 0 0 1px var(--color-primary), var(--shadow-glow);
+  background: var(--selection-surface);
+  border-color: var(--selection-surface);
+  color: var(--selection-ink);
 }
 
 .card-icon-frame {
@@ -692,9 +755,11 @@
   flex-shrink: 0;
 }
 
+/* On the filled row the icon tile and every text tier must derive from the row's
+   foreground: the fixed greys would otherwise sit on the dark fill unreadably. */
 .edition-select-card.active .card-icon-frame {
-  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
-  color: var(--color-primary);
+  background: color-mix(in srgb, var(--selection-ink) 18%, transparent);
+  color: var(--selection-ink);
 }
 
 .card-content {
@@ -719,13 +784,26 @@
   word-break: break-word;
 }
 
+.edition-select-card.active .card-format-sub {
+  color: color-mix(in srgb, var(--selection-ink) 78%, transparent);
+}
+
 .card-meta-line {
   display: flex;
   align-items: center;
   gap: 0.4rem;
   margin-top: 2px;
   font-size: 0.72rem;
-  color: var(--color-text-light);
+  /* `--color-text-muted`, not `--color-text-light`. Measured on the inactive
+     row, `--light` put the progress line at 3.62:1 against the white card —
+     below AA for 11.5px text, and this is the line that carries whether the
+     other edition has been read. The sub line already used `--muted` (6.89:1),
+     so the two now match and the hierarchy is carried by size and position. */
+  color: var(--color-text-muted);
+}
+
+.edition-select-card.active .card-meta-line {
+  color: color-mix(in srgb, var(--selection-ink) 70%, transparent);
 }
 
 .card-status-pill.finished {
@@ -734,6 +812,29 @@
   border-radius: 3px;
   background: color-mix(in srgb, var(--color-success) 15%, transparent);
   color: var(--color-success-dark);
+  font-weight: var(--fw-medium);
+}
+
+/* The finished pill on the filled row takes the selection BADGE role — the same
+   pair the sidebar and the tree use for a count sitting on a filled (selected)
+   row. Without this it kept `--color-success-dark` ink over a 15% success tint
+   laid on the dark forest fill and measured **1.35:1 in light**: an invisible
+   label, not a subtle one. The old row was accent-tinted and light enough to
+   hide the bug. (The "Current" pill is already selection-role at its base, so it
+   needs no counterpart here.) */
+.edition-select-card.active .card-status-pill.finished {
+  background: var(--selection-badge-bg);
+  color: var(--selection-ink);
+}
+
+/* "You are here". State that is only a fill colour is unreadable to someone who
+   cannot separate the two fills, so the active row also says it in words. */
+.card-status-pill.current {
+  font-size: 0.65rem;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--selection-badge-bg);
+  color: var(--selection-ink);
   font-weight: var(--fw-medium);
 }
 
@@ -1277,6 +1378,19 @@
   }
   .detail-side {
     position: static;
+  }
+  /* Below this width the rail is no longer a 320px column — it is the full body
+     width — so one row per line would leave ~540px of empty space to the right
+     of every row. Two columns is what the content actually needs here; the row
+     itself is unchanged. `auto-fit` keeps a single column again as the width
+     falls (measured at 390px: 310px of content, one column).
+
+     The minimum is `min(300px, 100%)` and not a bare `300px`: a bare minimum is
+     a hard floor, so at the mobile width where the content box is 278px the
+     track stayed 300px and every row overflowed the card by 22px. */
+  .edition-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
   }
   .detail-cover-col {
     width: 100%;
