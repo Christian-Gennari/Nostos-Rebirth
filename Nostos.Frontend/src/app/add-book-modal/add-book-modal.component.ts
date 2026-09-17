@@ -647,6 +647,21 @@ export class AddBookModal implements OnDestroy {
     this.stopPolling();
   }
 
+  /**
+   * The facts that decide between two recordings of the same work: who reads
+   * it, how long it is and how many sections it has. Empty for an ebook, so a
+   * Gutenberg row renders exactly as it did.
+   */
+  sourceFacts(item: ProviderItem): string {
+    return [
+      item.narrator ? `Narrated by ${item.narrator}` : null,
+      item.duration,
+      item.partCount && item.partCount > 1 ? `${item.partCount} sections` : null,
+    ]
+      .filter((part): part is string => !!part)
+      .join(' · ');
+  }
+
   private getFullLanguageName(input: string | null): string | null {
     if (!input) return null;
     const clean = input.trim();
