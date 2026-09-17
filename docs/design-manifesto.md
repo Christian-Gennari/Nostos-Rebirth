@@ -53,7 +53,7 @@ Use a warm neutral palette:
 ### Surfaces & Geometry
 - Subtle, hairline borders (`1px solid var(--border-color)`).
 - Quiet, soft ambient shadows.
-- Relatively small, crisp border radii (avoid bubbly pills or oversized card radii).
+- Relatively small, crisp border radii (avoid oversized card radii).
 - The application should feel almost physical without pretending to be physical.
 
 ---
