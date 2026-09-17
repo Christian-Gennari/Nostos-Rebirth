@@ -57,7 +57,7 @@ FONT_URL = ("https://fonts.gstatic.com/s/hankengrotesk/v12/"
 FONT_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "nostos", "HankenGrotesk-500.ttf")
 
 FOREST = "#293E32"
-PAPER = "#FDF8F6"
+WHITE = "#FFFFFF"   # the light colour: arch knockout + wordmark on logo-dark
 INK = "#1C1B1A"
 WORD = "nostos"
 
@@ -134,7 +134,7 @@ def build(font_file):
        Mark: Forest tile + Paper arch (the theme-invariant primary variant). -->
   <g transform="translate({-x0:.4f} {-y0:.4f}) scale({MARK_SCALE})">
     <rect x="0" y="0" width="1024" height="1024" rx="{TILE_R}" fill="{FOREST}"/>
-    <path d="{ARCH_D}" fill="{PAPER}" fill-rule="evenodd"/>
+    <path d="{ARCH_D}" fill="{WHITE}" fill-rule="evenodd"/>
   </g>
   <g fill="{word_fill}">
     {g}
@@ -144,12 +144,12 @@ def build(font_file):
     mark = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{MARK_SIZE}" height="{MARK_SIZE}" viewBox="0 0 {MARK_SIZE} {MARK_SIZE}" role="img" aria-label="Nostos brand mark">
   <title>Nostos mark</title>
   <rect x="0" y="0" width="{MARK_SIZE}" height="{MARK_SIZE}" rx="{TILE_R}" fill="{FOREST}"/>
-  <path d="{ARCH_D}" fill="{PAPER}" fill-rule="evenodd"/>
+  <path d="{ARCH_D}" fill="{WHITE}" fill-rule="evenodd"/>
 </svg>
 """
     return {
         "logo-light.svg": lockup(INK),
-        "logo-dark.svg": lockup(PAPER),
+        "logo-dark.svg": lockup(WHITE),
         "mark.svg": mark,
     }, (w, h)
 

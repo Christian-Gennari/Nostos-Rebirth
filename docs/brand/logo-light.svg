@@ -9,7 +9,7 @@
        Mark: Forest tile + Paper arch (the theme-invariant primary variant). -->
   <g transform="translate(-0.0000 -0.0000) scale(0.5)">
     <rect x="0" y="0" width="1024" height="1024" rx="205" fill="#293E32"/>
-    <path d="M 282 764 L 282 509 A 229 234 0 0 1 740 509 L 740 764 Z M 358 764 L 358 509 A 110 112 0 0 1 578 509 L 578 764 Z" fill="#FDF8F6" fill-rule="evenodd"/>
+    <path d="M 282 764 L 282 509 A 229 234 0 0 1 740 509 L 740 764 Z M 358 764 L 358 509 A 110 112 0 0 1 578 509 L 578 764 Z" fill="#FFFFFF" fill-rule="evenodd"/>
   </g>
   <g fill="#1C1B1A">
     <path transform="translate(625.0000 345.0000) scale(0.25500000 -0.25500000)" d="M68 0V493H167V386L147 380Q160 421 184.5 447.5Q209 474 242.5 488.0Q276 502 315 502Q397 502 443.5 454.5Q490 407 490 316V0H392V280Q392 351 366.5 384.0Q341 417 288 417Q248 417 221.5 399.0Q195 381 181.0 342.0Q167 303 167 243V0Z"/>

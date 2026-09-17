@@ -134,15 +134,21 @@
      two tokens are: shape = the tile fill, doorway = the arch fill.
 
      DELIBERATELY THEME-INVARIANT — this is the kit's primary variant (forest
-     tile / paper arch) in both themes. The reversed variant is gone: a single
+     tile / white arch) in both themes. The reversed variant is gone: a single
      mark is simpler than swapping artwork per theme, and the tile still reads
-     on the dark rail (1.6:1 for the tile edge, but the paper arch inside it is
-     10.9:1, and the tile itself is a solid 40px block, not a hairline). The
+     on the dark rail (1.6:1 for the tile edge, but the white arch inside it is
+     11.5:1, and the tile itself is a solid 40px block, not a hairline). The
      dark block therefore does NOT override these; `check-theme-tokens.mjs`
      lists the family as INVARIANT so the missing-counterpart guard stays
-     meaningful for every genuinely themed colour. */
+     meaningful for every genuinely themed colour.
+
+     The arch is White, not the kit's Paper (#FDF8F6): Paper was the old warm
+     canvas, so a Paper arch sat at 1.0:1 against a Paper page and 1.02:1
+     against the cool canvas that replaced it — a faintly warm patch, not a
+     knockout. White matches `--bg-surface` exactly (1.0:1) and reads 11.5:1
+     inside the tile. */
   --brand-shape: #293E32;
-  --brand-doorway: #FDF8F6;
+  --brand-doorway: #FFFFFF;
 
   /* ── Concept graph ──
      The Second Brain's map was a wireframe of hollow rings: nodes are filled

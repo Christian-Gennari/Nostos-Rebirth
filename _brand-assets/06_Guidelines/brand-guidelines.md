@@ -32,11 +32,18 @@ The right side of the arch is therefore intentionally heavier than the left. **N
 ## Primary colors
 
 - Forest: `#293E32`
+- White: `#FFFFFF`
 - Paper: `#FDF8F6`
 - Ink: `#1C1B1A`
 - Clay accent: `#A07859`
 
-The primary logo is **Forest container + Paper arch**.
+The primary logo is **Forest container + White arch**.
+
+Paper is a sheet/palette colour, not the arch. It was the arch until the light
+theme moved off the warm palette: a Paper arch sat at 1.0:1 against a Paper page
+and 1.02:1 against the cool `#FBFBFC` canvas that replaced it, so the knockout
+stopped reading as a window. White matches the light theme's surface exactly
+(1.0:1) and reads 11.5:1 inside the tile.
 
 Clay is a supporting brand accent, not a substitute for the primary logo unless a future brand decision explicitly changes that.
 
