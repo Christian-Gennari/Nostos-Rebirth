@@ -1,3 +1,4 @@
+using Nostos.Backend.Providers.Contracts;
 using Nostos.Shared.Dtos;
 
 namespace Nostos.Backend.Providers.Acquisition;
@@ -15,7 +16,13 @@ public sealed record AcquisitionRequest(
     string ExternalId,
     string? AssetId = null,
     IReadOnlyList<Guid>? CollectionIds = null,
-    bool IncludeCover = true);
+    bool IncludeCover = true,
+    /// <summary>
+    /// Optional user edits, when the import was started from a prefilled form.
+    /// They replace the created book's fields; they never take part in identity
+    /// matching, which stays on what the source says.
+    /// </summary>
+    ProviderMetadataOverrides? MetadataOverrides = null);
 
 public enum AcquisitionOutcome
 {

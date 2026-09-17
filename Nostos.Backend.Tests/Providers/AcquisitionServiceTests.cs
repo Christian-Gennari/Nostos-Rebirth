@@ -20,6 +20,8 @@ public sealed class AcquisitionServiceTests
         string assetId = "epub-main",
         string title = "The Republic",
         string author = "Plato",
+        string? description = null,
+        string? language = null,
         string? partUrl = "https://example.com/item-123.epub",
         string partExtension = ".epub",
         long partBytes = 1024,
@@ -37,7 +39,9 @@ public sealed class AcquisitionServiceTests
                 IsPreferred: true),
             Metadata: new ProviderMetadata(
                 Title: title,
-                Author: author),
+                Author: author,
+                Description: description,
+                Language: language),
             Parts: new[]
             {
                 new ProviderDownloadPart(new Uri(partUrl!), partExtension, partBytes)
@@ -466,6 +470,186 @@ public sealed class AcquisitionServiceTests
         var acquired = await h.Library.GetBookAsync(result.BookId!.Value);
         var acquiredDto = (BookDto)acquired.Data!;
         acquiredDto.WorkId.Should().Be(physicalBook.WorkId);
+    }
+
+    // --- User-supplied metadata overrides ---------------------------------
+    //
+    // An import started from a prefilled form carries the user's edits. They
+    // replace the created book's fields; they never take part in identity
+    // matching, which stays on what the source says.
+
+    [Fact]
+    public async Task Overrides_ReplaceTheSourceMetadataOnTheCreatedBook()
+    {
+        using var h = AcquisitionHarness.Create();
+
+        var fakeProvider = new FakeContentProvider("gutenberg", "Project Gutenberg");
+        fakeProvider.PlanResult = CreateEbookPlan(
+            providerId: "gutenberg",
+            externalId: "1497",
+            assetId: "epub3",
+            title: "The Republic",
+            author: "Plato",
+            description: "The source's blurb.",
+            language: "en");
+
+        var service = h.CreateService(new ProviderRegistry(new[] { fakeProvider }));
+
+        var request = new AcquisitionRequest(
+            ProviderId: "gutenberg",
+            ExternalId: "1497",
+            AssetId: "epub3",
+            MetadataOverrides: new ProviderMetadataOverrides(
+                Title: "Politeia",
+                Author: "Plato (trans. Bloom)",
+                Description: "My own note about this edition.",
+                Language: "grc"));
+
+        var result = await service.AcquireAsync(request, null, CancellationToken.None);
+
+        result.Outcome.Should().Be(AcquisitionOutcome.Acquired);
+        result.Book!.Title.Should().Be("Politeia");
+        result.Book.Author.Should().Be("Plato (trans. Bloom)");
+        result.Book.Description.Should().Be("My own note about this edition.");
+        result.Book.Language.Should().Be("grc");
+    }
+
+    [Fact]
+    public async Task Overrides_LeaveUntouchedFieldsFollowingTheSource()
+    {
+        using var h = AcquisitionHarness.Create();
+
+        var fakeProvider = new FakeContentProvider("gutenberg", "Project Gutenberg");
+        fakeProvider.PlanResult = CreateEbookPlan(
+            providerId: "gutenberg",
+            externalId: "1497",
+            assetId: "epub3",
+            title: "The Republic",
+            author: "Plato",
+            description: "The source's blurb.",
+            language: "en");
+
+        var service = h.CreateService(new ProviderRegistry(new[] { fakeProvider }));
+
+        // Only the author was touched. A client that echoed the whole form back
+        // would pin the description to whatever it happened to show, so a later
+        // provider-side correction could never reach the library.
+        var request = new AcquisitionRequest(
+            ProviderId: "gutenberg",
+            ExternalId: "1497",
+            AssetId: "epub3",
+            MetadataOverrides: new ProviderMetadataOverrides(Author: "Plato of Athens"));
+
+        var result = await service.AcquireAsync(request, null, CancellationToken.None);
+
+        result.Book!.Author.Should().Be("Plato of Athens");
+        result.Book.Title.Should().Be("The Republic");
+        result.Book.Description.Should().Be("The source's blurb.");
+        result.Book.Language.Should().Be("en");
+    }
+
+    [Fact]
+    public async Task Overrides_AnEmptyStringClearsTheField()
+    {
+        using var h = AcquisitionHarness.Create();
+
+        var fakeProvider = new FakeContentProvider("gutenberg", "Project Gutenberg");
+        fakeProvider.PlanResult = CreateEbookPlan(
+            providerId: "gutenberg",
+            externalId: "1497",
+            assetId: "epub3",
+            title: "The Republic",
+            author: "Plato",
+            description: "A blurb the user does not want.");
+
+        var service = h.CreateService(new ProviderRegistry(new[] { fakeProvider }));
+
+        // The user emptied the box. Putting the source's text back would be worse
+        // than dropping it, so an empty string means cleared, not "unchanged".
+        var request = new AcquisitionRequest(
+            ProviderId: "gutenberg",
+            ExternalId: "1497",
+            AssetId: "epub3",
+            MetadataOverrides: new ProviderMetadataOverrides(Description: "   "));
+
+        var result = await service.AcquireAsync(request, null, CancellationToken.None);
+
+        result.Book!.Description.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Overrides_A_ClearedTitleFallsBackToTheSource()
+    {
+        using var h = AcquisitionHarness.Create();
+
+        var fakeProvider = new FakeContentProvider("gutenberg", "Project Gutenberg");
+        fakeProvider.PlanResult = CreateEbookPlan(
+            providerId: "gutenberg",
+            externalId: "1497",
+            assetId: "epub3",
+            title: "The Republic",
+            author: "Plato");
+
+        var service = h.CreateService(new ProviderRegistry(new[] { fakeProvider }));
+
+        var request = new AcquisitionRequest(
+            ProviderId: "gutenberg",
+            ExternalId: "1497",
+            AssetId: "epub3",
+            MetadataOverrides: new ProviderMetadataOverrides(Title: "  "));
+
+        var result = await service.AcquireAsync(request, null, CancellationToken.None);
+
+        // A book with no title is not a book: the source's title stands, and the
+        // import still succeeds rather than failing validation.
+        result.Outcome.Should().Be(AcquisitionOutcome.Acquired);
+        result.Book!.Title.Should().Be("The Republic");
+    }
+
+    [Fact]
+    public async Task Overrides_DoNotChangeIdentity_AnExistingLocalCopyIsStillRecognised()
+    {
+        using var h = AcquisitionHarness.Create();
+
+        var fakeProvider = new FakeContentProvider("gutenberg", "Project Gutenberg");
+        fakeProvider.PlanResult = CreateEbookPlan(
+            providerId: "gutenberg",
+            externalId: "1497",
+            assetId: "epub3",
+            title: "The Republic",
+            author: "Plato");
+
+        var service = h.CreateService(new ProviderRegistry(new[] { fakeProvider }));
+        var first = await service.AcquireAsync(
+            new AcquisitionRequest(ProviderId: "gutenberg", ExternalId: "1497", AssetId: "epub3"),
+            null,
+            CancellationToken.None);
+        first.Outcome.Should().Be(AcquisitionOutcome.Acquired);
+
+        // A different item of the same work, and the user renames it on the way
+        // in. Identity has to stay on the SOURCE's title, or the rename would
+        // hide the copy already on disk and import a duplicate.
+        fakeProvider.PlanResult = CreateEbookPlan(
+            providerId: "gutenberg",
+            externalId: "1497-alt",
+            assetId: "epub-alt",
+            title: "The Republic",
+            author: "Plato");
+
+        var second = await service.AcquireAsync(
+            new AcquisitionRequest(
+                ProviderId: "gutenberg",
+                ExternalId: "1497-alt",
+                AssetId: "epub-alt",
+                MetadataOverrides: new ProviderMetadataOverrides(Title: "Republic, The (my copy)")),
+            null,
+            CancellationToken.None);
+
+        second.Outcome.Should().Be(AcquisitionOutcome.AlreadyInLibrary);
+        second.BookId.Should().Be(first.BookId);
+
+        await using var db = await h.ContextFactory.CreateDbContextAsync();
+        (await db.Books.CountAsync()).Should().Be(1);
     }
 
     /// <summary>A provider that can only search: used to prove the acquisition
