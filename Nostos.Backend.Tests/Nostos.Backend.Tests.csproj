@@ -33,4 +33,10 @@
     <ProjectReference Include="..\Nostos.Shared\Nostos.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Fixtures\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

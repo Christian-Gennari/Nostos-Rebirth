@@ -98,6 +98,27 @@ export interface Book {
   otherEditions?: EditionSummaryDto[];
 
   chapters?: BookChapter[]; // <--- Add this
+
+  /**
+   * Where this book's file came from, when it was imported from an external
+   * source rather than uploaded by hand. Absent otherwise.
+   */
+  source?: BookSource | null;
+}
+
+/**
+ * Provenance of an imported book. `rightsStatement` carries the SOURCE's own
+ * wording — it is quoted, not a claim by Nostos that the work is unrestricted
+ * everywhere.
+ */
+export interface BookSource {
+  providerId: string;
+  providerDisplayName: string;
+  externalId: string;
+  sourceUrl: string | null;
+  assetFormat: string | null;
+  rightsStatement: string | null;
+  acquiredAt: string;
 }
 
 // --- MANUAL WORK MEMBERSHIP (issue #143) ---

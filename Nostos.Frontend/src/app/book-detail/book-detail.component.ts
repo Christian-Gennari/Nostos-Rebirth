@@ -76,6 +76,7 @@ import {
   RotateCcw,
   Mic,
   MapPin,
+  Globe,
   MessageSquareQuote,
   FileText,
   CircleDashed,
@@ -138,6 +139,7 @@ export class BookDetail implements OnInit, OnDestroy {
   RotateCcwIcon = RotateCcw;
   MicIcon = Mic;
   MapPinIcon = MapPin;
+  GlobeIcon = Globe;
   QuoteIcon = MessageSquareQuote;
   FileTextIcon = FileText;
   CircleDashedIcon = CircleDashed;

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:relevance="http://a9.com/-/opensearch/extensions/relevance/1.0/">
+<id>http://www.gutenberg.org/ebooks/search.opds/?query=zzzzqqqxyznotathing</id>
+<updated>2026-09-17T20:48:55Z</updated>
+<title>Books: zzzzqqqxyznotathing</title>
+<subtitle>Free eBooks since 1971.</subtitle>
+<author>
+<name>Project Gutenberg</name>
+<uri>https://www.gutenberg.org</uri>
+<email>webmaster@gutenberg.org</email>
+</author>
+<icon>https://www.gutenberg.org/gutenberg/favicon.ico</icon>
+<link rel="search" type="application/opensearchdescription+xml" title="Project Gutenberg Catalog Search" href="https://www.gutenberg.org/catalog/osd-books.xml"/>
+<link rel="self" title="This Page" type="application/atom+xml;profile=opds-catalog" href="/ebooks/search.opds/?query=zzzzqqqxyznotathing"/>
+<link rel="alternate" type="text/html" title="HTML Page" href="/ebooks/search/?query=zzzzqqqxyznotathing"/>
+<link rel="start" title="Start Page" type="application/atom+xml;profile=opds-catalog" href="/ebooks.opds/"/>
+<opensearch:itemsPerPage>25</opensearch:itemsPerPage>
+<opensearch:startIndex>1</opensearch:startIndex>
+<entry>
+<updated>2026-09-17T20:48:55Z</updated>
+<id>https://www.gutenberg.org/ebooks.opds/</id>
+<title>No records found.</title>
+<link type="application/atom+xml;profile=opds-catalog" rel="subsection" href="/ebooks.opds/"/>
+<link type="image/png" rel="http://opds-spec.org/image/thumbnail" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAAABGdBTUEAAK/INwWK6QAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAAUHSURBVHjaYvz//z8DLQBAADEx0AgABBALjMFoMgvC+Af0wZ+/DAwsQDu//UxkYGJO4OTi1OJgZ+P9DxT+8f3Hlx+fvtxm+PVzMQML6wyGfyDIyMDw9x9Y+/8XJWAaIIBYsFr3968hw9//y1V0lNUsLNQYlRTFGNg42Bh+/GRgePf+F/udu6+Fr5+9ZvH46q1yoLokBiaWvehGAAQQIyyM4S7++TuEnZNrcWS0DYebvQoDJysjw9OXvxjePH8BNPgfAyOHIAMjKwfDu+9MDJcvPGI4u2Xnnx/vPxYxMLNORnYxQAChhvHvP8acnFxLs3M9OUK9VBmY/jIyPHn+i4Hxy0uGdDchhhxvIQaOP28YXrx4x/D9/WsGWSVJBqPAYBYOXt5+hl+/XGHBAQIAAYQw+N9/FoY//5eGRduxuVhIMLx//5/h87e/DO8+/WCQEWFlkBDlYZAW52OQF2dn+PD5F8PXb38YPr58wsDFw8Wg4OjJzMjwfxEwbjhgxgEEECKMf/yKVtFSVPNyVGb4+AkYb9//Mnz78YeBmYmZ4ciN3wwcbK+AofSfYffFHwz//7OB5b7/YGD4+v4RA5uwIgOvoobEpxuXC4EmtYOMAwgg5MhLUtRWZ/z5G+h4oKavP/4CNf5l+PL1F8PrL6wMEzZ9AiaSPwwc7KwMrEwgS/9C1fwBuukFA5+8LMOXm9eiYQYDBBDcYB5eLi0GXlGG6bt/MoQa/AMnuxdvvzOw//vIEGXND4xdAQZONkaG3ec/Mew4A0wewEgHW/zjP8ObT48Z+IFBwsLFLQ8zDyCA4Aazs7HzApMNw/HrXxg+vfvH4GPACk4RL9+yMDx9/5chwVkAaDgDw60nvxg+ff3KwMbEyPD1+2+Gl+8/AC34ysDFyQFMLazsMPMAAghu8P9//xj+AjMGC/MfhquPfjI8f/uVwVSBhYGdhZlh5/kvDL7GnAzC/EwMP//8Y/j8/Q/Dv9/AJPjxI8Pv3z+A9gHzCChT/UUUDwABBDf457efXxn+/GRnY/rP8AcYhu++/GbYeeEbA+e/Pwy22mwMzMB4B1rP8B0Yzs+evmX4zwKMDFBW/A9M2wx/wQb//fHzF8w8gACCJ7dvn77c+v7mDYMQD1DoF1QTUMP3Lz8ZvgBdCDKUAeirP8Cw///rB0T+HxD//snAwsLK8PfLDyD+8hRmHkAAwQ3+/+fv4idXbjJIC7MCXQA06C8oeQAxkA12639IhP4HlSUgA/8i1LBz8TP8fPgEaNfv1TDzAAIIkUGYmGc9uXHv0d9XzxgUZHiBYfMDYvDPn8AQArkeGI7//kC99wNi6K9vDBx8ggwMwGD78eDBOwZGlh6YcQABhDAYGLT///6Lu7rr0B8hxu8MMrJCYANUVHgZymPlGQS42YFGMzNEu0gwBIdoAQ39xcDOL8TAxsjD8O3sOWDM/84AJpsPMOMAAghRCMn3Q0S+/8jl5OXrU7S3ZPnKwsUgxMfAYKLIxvDxIyjH/WXg5mBhePGNieHwmdcMTJ+/M3w7d+Hf34/vOxkYWKvA7vvfCDYGIIAwDQYVJN9+egBF5osoK0iwScswfAEVI38hyfHv778MzN+/MzC+esnw88GDt8BwzQMaugzucajBAAGEvTxmZt7B8Puv8pvL13MZr9+LYePiVGBkZWMHRR7j9x+/fn35+hho4Bqg5UDXML/DZgRAADHSqs4DCCCa1XkAAQYAb5MvRix8jwAAAAAASUVORK5CYII="/>
+</entry>
+</feed>

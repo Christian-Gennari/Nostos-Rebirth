@@ -417,7 +417,24 @@
             </div>
 
             <div class="meta-grid">
-              @if (store.book()?.series) {
+              @if (store.book()?.source; as source) {
+              <div class="meta-item full-width">
+                <span class="label"
+                  ><lucide-icon [img]="GlobeIcon" [size]="12"></lucide-icon> Source</span
+                >
+                <span class="value">
+                  @if (source.sourceUrl) {
+                  <a [href]="source.sourceUrl" target="_blank" rel="noopener noreferrer">{{
+                    source.providerDisplayName
+                  }}</a>
+                  } @else { {{ source.providerDisplayName }} }
+                  <!-- The source's own rights wording, quoted rather than asserted. -->
+                  @if (source.rightsStatement) {
+                  <span class="source-rights-note">{{ source.rightsStatement }}</span>
+                  }
+                </span>
+              </div>
+              } @if (store.book()?.series) {
               <div class="meta-item full-width">
                 <span class="label">Series</span>
                 <span class="value">
