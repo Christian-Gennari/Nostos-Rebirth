@@ -260,7 +260,11 @@ for (const f of files) {
    contributes no colour of its own, so naming a WHITE hue on it was a
    light-theme assumption in a token-driven theme; the opaque end of the same
    gradient was already `var(--bg-surface)`. */
-const LITERAL_COLOUR_BUDGET = 73;
+/* Lowered 73 -> 69 by moving the dialog cards into `app-modal-shell`, which
+   uses the themed `--shadow-glass-lg` token. The old add-book and confirm cards
+   each hand-wrote a two-stop rgba shadow; those four literals are gone, and
+   every dialog now follows the theme instead of assuming a light surface. */
+const LITERAL_COLOUR_BUDGET = 69;
 
 {
   const ALLOW = [
