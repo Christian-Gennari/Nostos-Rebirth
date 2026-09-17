@@ -10,6 +10,8 @@ using Nostos.Backend.Configuration;
 using Nostos.Backend.Integrations.Mcp;
 using Nostos.Backend.Providers;
 using Nostos.Backend.Providers.Acquisition;
+using Nostos.Backend.Providers.Contracts;
+using Nostos.Backend.Providers.Gutenberg;
 using Nostos.Backend.Serialization;
 using Nostos.Backend.Services;
 using Nostos.Backend.Services.Library;
@@ -169,6 +171,21 @@ builder.Services.AddSingleton<IProviderRegistry, ProviderRegistry>();
 builder.Services.AddSingleton<ITranscodeLimiter, TranscodeLimiter>();
 builder.Services.AddSingleton<IProviderContentDownloader, ProviderContentDownloader>();
 builder.Services.AddScoped<IAcquisitionService, AcquisitionService>();
+
+// --- Project Gutenberg (#167) ---
+// One identifiable client for the catalogue, with a short per-request timeout:
+// Gutenberg asks to be treated politely, and a search must not hold a request
+// open. The content downloads themselves use the separate provider-content
+// client, which has its own (much longer) per-attempt budget.
+builder.Services.AddHttpClient(GutenbergProvider.HttpClientName, client =>
+{
+    client.BaseAddress = new Uri(GutenbergCatalog.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(20);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd(
+        "Nostos/1.0 (+https://github.com/Christian-Gennari/Nostos-Rebirth)");
+});
+
+builder.Services.AddSingleton<IContentProvider, GutenbergProvider>();
 
 // One instance serves as the job store, the hosted worker that drains it, and
 // the IAcquisitionJobManager the endpoints talk to.
