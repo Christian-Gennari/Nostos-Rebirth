@@ -25,6 +25,10 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
     public DbSet<NoteConceptModel> NoteConcepts => Set<NoteConceptModel>();
     public DbSet<BackupRecord> BackupRecords => Set<BackupRecord>();
 
+    // Provenance for externally acquired books (issue #166). Generic columns
+    // only — see BookAcquisitionModel.
+    public DbSet<BookAcquisitionModel> BookAcquisitions => Set<BookAcquisitionModel>();
+
     // Register Library domain (issue #34)
     public DbSet<LibraryCommandReceipt> LibraryCommandReceipts => Set<LibraryCommandReceipt>();
     public DbSet<LibraryState> LibraryStates => Set<LibraryState>();
@@ -245,6 +249,25 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
         modelBuilder.Entity<BookCollectionModel>().HasIndex(bc => bc.CollectionId);
 
         modelBuilder.Entity<WritingModel>().HasIndex(w => w.ParentId);
+
+        // --- EXTERNALLY ACQUIRED BOOK PROVENANCE (issue #166) ---
+        // One optional row per book, in its own table: provider identity is not
+        // bibliographic identity, so it does not belong on Books, and it is not
+        // a second identity system either — matching still happens in
+        // ILibraryService.
+        modelBuilder.Entity<BookAcquisitionModel>(e =>
+        {
+            e.HasKey(a => a.Id);
+            e.HasOne(a => a.Book)
+                .WithOne(b => b.Acquisition)
+                .HasForeignKey<BookAcquisitionModel>(a => a.BookId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Deterministic repeated/retried acquisition: one row per
+            // (provider, item, asset). This index is what lets acquisition
+            // recognise an item it has already imported and skip it entirely.
+            e.HasIndex(a => new { a.ProviderId, a.ExternalId, a.AssetId }).IsUnique();
+        });
 
         modelBuilder.Entity<ConceptModel>().HasIndex(c => c.Concept).IsUnique();
 

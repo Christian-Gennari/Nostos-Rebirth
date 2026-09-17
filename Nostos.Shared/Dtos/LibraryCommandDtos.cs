@@ -183,6 +183,45 @@ public sealed record LibraryResolveResult(
     string? LookupError = null
 );
 
+// --- EXTERNAL ACQUISITION ATTACHMENT (issue #166) ---
+// Used by the acquisition layer once a downloaded asset has already been
+// written to storage. Kept as a library-domain mutation so ILibraryService
+// stays the single writer for library state: provider/acquisition code must
+// never reach for a repository directly, however convenient it looks.
+//
+// The file and its provenance are recorded in ONE transaction, so a book can
+// never end up claiming a file it has no provenance for, or vice versa.
+public sealed record LibraryAttachAcquiredAssetRequest(
+    string ClientId,
+    string IdempotencyKey,
+    Guid BookId,
+    /// <summary>
+    /// The bare file name storage actually produced (e.g. "book.epub"). A
+    /// name rather than an extension so the storage service owns the naming
+    /// convention alone; a path is rejected.
+    /// </summary>
+    string FileName,
+    string ProviderId,
+    string ProviderDisplayName,
+    string ExternalId,
+    string AssetId,
+    string? AssetFormat = null,
+    string? SourceUrl = null,
+    /// <summary>The source's own rights wording. Never converted into a Nostos claim.</summary>
+    string? RightsStatement = null,
+    DateTime? AcquiredAt = null,
+    /// <summary>Canonical chapters derived from the source, for audiobooks.</summary>
+    IReadOnlyList<BookChapterDto>? Chapters = null
+);
+
+/// <summary>
+/// Data payload of an acquisition attachment. Deliberately not
+/// <see cref="LibraryCreateOrMatchResultDto"/>: this is not an identity
+/// resolution outcome but a statement that the file and its provenance now
+/// belong to this book.
+/// </summary>
+public sealed record LibraryAttachAcquiredAssetResultDto(Guid BookId, BookDto? Book);
+
 // --- CREATE-OR-MATCH OUTCOME (data payload of LibraryCommandResultDto) ---
 public sealed record LibraryCreateOrMatchResultDto(
     string Outcome, // created | matched | confirmation_required

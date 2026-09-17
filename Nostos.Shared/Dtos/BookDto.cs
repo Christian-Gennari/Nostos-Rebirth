@@ -81,7 +81,26 @@ public record BookDto(
     // Multi-collection membership. APPENDED deliberately: BookDto is a
     // positional record, so inserting a field would renumber the JSON of every
     // existing client. This is the sole representation of membership.
-    IEnumerable<Guid>? CollectionIds = null
+    IEnumerable<Guid>? CollectionIds = null,
+    // Provenance for a book whose file came from an external provider.
+    // APPENDED for the same reason as CollectionIds above. Deliberately small:
+    // this is where a file came from, not a licensing surface.
+    BookSourceDto? Source = null
+);
+
+/// <summary>
+/// Compact "where did this file come from" indication for an acquired book.
+/// The rights field carries the SOURCE's own wording and nothing more — Nostos
+/// does not turn it into a claim that the work is unrestricted everywhere.
+/// </summary>
+public sealed record BookSourceDto(
+    string ProviderId,
+    string ProviderDisplayName,
+    string ExternalId,
+    string? SourceUrl,
+    string? AssetFormat,
+    string? RightsStatement,
+    DateTime AcquiredAt
 );
 
 public record CreateBookDto(

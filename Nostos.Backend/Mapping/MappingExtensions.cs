@@ -130,7 +130,19 @@ public static class MappingExtensions
             FinishedAt: model.Progress.FinishedAt,
             WorkId: model.WorkId,
             EditionCount: workBooks?.Count ?? 1,
-            OtherEditions: otherEditions
+            OtherEditions: otherEditions,
+            // Null for a hand-uploaded book and for any caller that did not
+            // Include(Acquisition) — absence is the honest answer there.
+            Source: model.Acquisition is null
+                ? null
+                : new BookSourceDto(
+                    ProviderId: model.Acquisition.ProviderId,
+                    ProviderDisplayName: model.Acquisition.ProviderDisplayName,
+                    ExternalId: model.Acquisition.ExternalId,
+                    SourceUrl: model.Acquisition.SourceUrl,
+                    AssetFormat: model.Acquisition.AssetFormat,
+                    RightsStatement: model.Acquisition.RightsStatement,
+                    AcquiredAt: model.Acquisition.AcquiredAt)
         );
     }
 

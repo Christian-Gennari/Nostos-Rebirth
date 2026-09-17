@@ -55,6 +55,19 @@ public interface ILibraryService
         bool strictConfirmation,
         CancellationToken ct = default);
 
+    /// <summary>
+    /// Records that a book's file has been written to storage by the acquisition
+    /// layer, together with where it came from.
+    ///
+    /// One receipt-guarded, transactional mutation that sets the file details and
+    /// inserts the provenance row: doing it in two calls, or by writing through a
+    /// repository, is exactly how a book ends up with a file nobody can trace or
+    /// provenance pointing at a file that was never stored.
+    /// </summary>
+    Task<LibraryCommandResultDto> AttachAcquiredAssetAsync(
+        LibraryAttachAcquiredAssetRequest request,
+        CancellationToken ct = default);
+
     Task<LibraryCommandResultDto> UpdateBookAsync(LibraryUpdateBookRequest request, CancellationToken ct = default);
 
     /// <summary>

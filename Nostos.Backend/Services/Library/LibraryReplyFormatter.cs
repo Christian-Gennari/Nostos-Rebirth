@@ -24,6 +24,14 @@ public static class LibraryReplyFormatter
     public static string ConfirmationRequired(int count) => $"Confirmation required: {count} candidate(s) match.";
     public static string MoreInformationRequired => "Confirmation required: provide an author or identifier, or force creation.";
 
+    // External acquisition (issue #166). The book is an ordinary local book
+    // afterwards, so the wording deliberately says nothing about where it came
+    // from beyond the fact that it was imported.
+    public static string AssetAttached(string title) => $"Imported into library: {title}.";
+    public static string AssetAlreadyAttached(string title) => $"Already imported: {title}.";
+    public static string AcquisitionConflict =>
+        "This item is already imported into a different book.";
+
     // Work membership (multi-edition grouping)
     public static string WorkLinked(string title, string targetTitle) =>
         $"Linked \"{title}\" with \"{targetTitle}\" as editions of the same work.";

@@ -436,6 +436,12 @@ public sealed class LibraryService : ILibraryService
         MutateAsync(request.ClientId, request.IdempotencyKey, "UpdateBook",
             (db, token) => UpdateBookCoreAsync(db, request, token), ct);
 
+    public Task<LibraryCommandResultDto> AttachAcquiredAssetAsync(
+        LibraryAttachAcquiredAssetRequest request,
+        CancellationToken ct = default) =>
+        MutateAsync(request.ClientId, request.IdempotencyKey, "AttachAcquiredAsset",
+            (db, token) => AttachAcquiredAssetCoreAsync(db, request, token), ct);
+
     public Task<LibraryCommandResultDto> LinkWorkAsync(LibraryLinkWorkRequest request, CancellationToken ct = default) =>
         MutateAsync(request.ClientId, request.IdempotencyKey, "LinkWork",
             (db, token) => LinkWorkCoreAsync(db, request, token), ct);
@@ -859,6 +865,97 @@ public sealed class LibraryService : ILibraryService
         return Change(Result(
             LibraryReplyFormatter.BookCreated(model.Title),
             new LibraryCreateOrMatchResultDto("created", model.Id, model.ToDto()),
+            state.StateVersion));
+    }
+
+    private async Task<(bool DidChange, LibraryCommandResultDto Result)> AttachAcquiredAssetCoreAsync(
+        NostosDbContext db,
+        LibraryAttachAcquiredAssetRequest request,
+        CancellationToken ct)
+    {
+        var state = await EnsureStateAsync(db, ct);
+
+        // A bare file name only. Anything with a directory component would let
+        // the caller choose where a book's file is read from.
+        var fileName = request.FileName?.Trim() ?? string.Empty;
+        if (fileName.Length is 0 or > 64
+            || !string.Equals(Path.GetFileName(fileName), fileName, StringComparison.Ordinal))
+        {
+            return NoChange(Failure("invalid_file_name",
+                "The stored file name must be a bare file name.", state.StateVersion));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.ProviderId)
+            || string.IsNullOrWhiteSpace(request.ExternalId)
+            || string.IsNullOrWhiteSpace(request.AssetId))
+        {
+            return NoChange(Failure("invalid_provenance",
+                "Provider id, external id and asset id are required.", state.StateVersion));
+        }
+
+        var book = await db.Books
+            .Include(b => b.BookCollections)
+            .Include(b => b.Acquisition)
+            .SingleOrDefaultAsync(b => b.Id == request.BookId, ct);
+
+        if (book is null)
+            return NoChange(Failure("book_not_found", LibraryReplyFormatter.BookNotFound, state.StateVersion));
+
+        // Provenance is unique per (provider, item, asset). Re-attaching the
+        // same asset to the same book is a successful no-op; attaching it to a
+        // different book is a typed conflict rather than a second row that
+        // would make "which book did this come from" ambiguous.
+        var alreadyAcquired = await db.BookAcquisitions
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                a => a.ProviderId == request.ProviderId
+                     && a.ExternalId == request.ExternalId
+                     && a.AssetId == request.AssetId,
+                ct);
+
+        if (alreadyAcquired is not null)
+        {
+            if (alreadyAcquired.BookId != book.Id)
+                return NoChange(Failure("acquisition_conflict",
+                    LibraryReplyFormatter.AcquisitionConflict, state.StateVersion));
+
+            return NoChange(Result(
+                LibraryReplyFormatter.AssetAlreadyAttached(book.Title),
+                new LibraryAttachAcquiredAssetResultDto(book.Id, book.ToDto()),
+                state.StateVersion));
+        }
+
+        book.FileDetails.HasFile = true;
+        book.FileDetails.FileName = fileName;
+        // A different file invalidates the cached epub locations, exactly as a
+        // manual re-upload does.
+        book.FileDetails.LocationsJson = null;
+        book.FileDetails.ChaptersJson = request.Chapters is { Count: > 0 }
+            ? JsonSerializer.Serialize(request.Chapters)
+            : null;
+
+        // Written in the same SaveChanges as the file details above: the book
+        // must never claim a file it has no provenance for, or provenance
+        // pointing at a file that was never attached.
+        book.Acquisition = new BookAcquisitionModel
+        {
+            BookId = book.Id,
+            ProviderId = request.ProviderId.Trim(),
+            ProviderDisplayName = NullIfEmpty(request.ProviderDisplayName) ?? request.ProviderId.Trim(),
+            ExternalId = request.ExternalId.Trim(),
+            AssetId = request.AssetId.Trim(),
+            AssetFormat = NullIfEmpty(request.AssetFormat),
+            ImportedExtension = Path.GetExtension(fileName).ToLowerInvariant(),
+            SourceUrl = NullIfEmpty(request.SourceUrl),
+            RightsStatement = NullIfEmpty(request.RightsStatement),
+            AcquiredAt = request.AcquiredAt ?? Now,
+        };
+
+        await db.SaveChangesAsync(ct);
+
+        return Change(Result(
+            LibraryReplyFormatter.AssetAttached(book.Title),
+            new LibraryAttachAcquiredAssetResultDto(book.Id, book.ToDto()),
             state.StateVersion));
     }
 

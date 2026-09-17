@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using Nostos.Backend.Configuration;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Processing;
@@ -6,6 +8,8 @@ namespace Nostos.Backend.Services;
 
 public class FileStorageService : IFileStorageService
 {
+    private const int CopyBufferSize = 81920;
+
     private readonly string _root;
     private readonly ILogger<FileStorageService> _logger;
 
@@ -78,65 +82,65 @@ public class FileStorageService : IFileStorageService
             _ => "application/octet-stream",
         };
 
-    public FileStorageService(IWebHostEnvironment env, ILogger<FileStorageService> logger)
+    public FileStorageService(
+        IWebHostEnvironment env,
+        IOptions<FileStorageOptions> options,
+        ILogger<FileStorageService> logger
+    )
     {
-        _root = Path.Combine(env.ContentRootPath, "Storage", "books");
+        _root = FileStorageOptions.ResolveBooksRoot(env.ContentRootPath, options.Value);
         _logger = logger;
         Directory.CreateDirectory(_root);
     }
 
+    public string StorageRoot => _root;
+
     public async Task<string> SaveBookFileAsync(Guid bookId, IFormFile file)
     {
-        var ext = Path.GetExtension(file.FileName);
+        await using var stream = file.OpenReadStream();
+        return await SaveBookFileAsync(bookId, stream, file.FileName);
+    }
+
+    public async Task<string> SaveBookFileAsync(
+        Guid bookId,
+        Stream content,
+        string fileName,
+        CancellationToken ct = default
+    )
+    {
+        var ext = Path.GetExtension(fileName);
         if (!_allowedBookExtensions.Contains(ext))
             throw new InvalidOperationException($"Unsupported file type: {ext}");
 
-        var bookFolder = Path.Combine(_root, bookId.ToString());
+        var bookFolder = BookFolder(bookId);
         Directory.CreateDirectory(bookFolder);
 
-        // Clean up existing book files to ensure only one "book.*" exists
-        // ignoring the current operation's target if it were to somehow exist already
-        var existingFiles = Directory
-            .EnumerateFiles(bookFolder)
-            .Where(f => _allowedBookExtensions.Contains(Path.GetExtension(f)))
-            .ToList();
+        var finalPath = Path.Combine(bookFolder, $"book{ext}");
+        var tempPath = TempSiblingPath(bookFolder, finalPath);
 
-        foreach (var existingFile in existingFiles)
+        try
         {
-            try
-            {
-                File.Delete(existingFile);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(
-                    ex,
-                    "Failed to delete existing file during cleanup: {FileName}",
-                    existingFile
-                );
-            }
+            await WriteStreamAsync(content, tempPath, ct);
+
+            // Only once the transfer is complete do we disturb what is already
+            // there. The invariant is one "book.*" per folder, and replacing it
+            // is a rename rather than a truncate, so a reader can never observe
+            // a partially written book file.
+            DeleteExistingBookFiles(bookFolder, except: finalPath);
+            File.Move(tempPath, finalPath, overwrite: true);
+        }
+        catch
+        {
+            TryDelete(tempPath);
+            throw;
         }
 
-        // Normalize filename to "book" + extension
-        var fileName = $"book{ext}";
-        var filePath = Path.Combine(bookFolder, fileName);
-
-        using var stream = new FileStream(filePath, FileMode.Create);
-        await file.CopyToAsync(stream);
-
-        return filePath;
+        return finalPath;
     }
 
     public FileStream? GetBookFile(Guid bookId)
     {
-        var folder = Path.Combine(_root, bookId.ToString());
-        if (!Directory.Exists(folder))
-            return null;
-
-        var file = Directory
-            .EnumerateFiles(folder)
-            .FirstOrDefault(f => _allowedBookExtensions.Contains(Path.GetExtension(f)));
-
+        var file = GetBookFileName(bookId);
         return file is null ? null : new FileStream(file, FileMode.Open, FileAccess.Read);
     }
 
@@ -160,32 +164,54 @@ public class FileStorageService : IFileStorageService
 
     public async Task<string> SaveBookCoverAsync(Guid bookId, IFormFile file)
     {
-        var ext = Path.GetExtension(file.FileName).ToLower();
+        await using var stream = file.OpenReadStream();
+        return await SaveBookCoverAsync(bookId, stream, file.FileName);
+    }
+
+    public async Task<string> SaveBookCoverAsync(
+        Guid bookId,
+        Stream content,
+        string fileName,
+        CancellationToken ct = default
+    )
+    {
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
         if (!_allowedCoverExtensions.Contains(ext))
             throw new InvalidOperationException("Only PNG, JPG, or JPEG allowed.");
 
-        var bookFolder = Path.Combine(_root, bookId.ToString());
+        var bookFolder = BookFolder(bookId);
         Directory.CreateDirectory(bookFolder);
 
-        // Delete any existing cover files first
-        foreach (var existing in Directory.EnumerateFiles(bookFolder, "cover.*"))
+        var finalPath = Path.Combine(bookFolder, $"cover{ext}");
+        var tempPath = TempSiblingPath(bookFolder, finalPath);
+
+        try
         {
-            try
+            await WriteStreamAsync(content, tempPath, ct);
+
+            foreach (var existing in Directory.EnumerateFiles(bookFolder, "cover.*"))
             {
-                File.Delete(existing);
+                if (existing.EndsWith(".partial", StringComparison.Ordinal)
+                    || string.Equals(existing, finalPath, StringComparison.Ordinal))
+                    continue;
+
+                TryDelete(existing);
             }
-            catch
-            { /* best effort */
-            }
+
+            // Replacing the cover must also drop its cached thumbnails, or the
+            // library grid keeps rendering the previous artwork.
+            foreach (var thumbnail in Directory.EnumerateFiles(bookFolder, "cover-thumb-*.webp"))
+                TryDelete(thumbnail);
+
+            File.Move(tempPath, finalPath, overwrite: true);
+        }
+        catch
+        {
+            TryDelete(tempPath);
+            throw;
         }
 
-        var coverFileName = $"cover{ext}";
-        var filePath = Path.Combine(bookFolder, coverFileName);
-
-        using var stream = new FileStream(filePath, FileMode.Create);
-        await file.CopyToAsync(stream);
-
-        return filePath;
+        return finalPath;
     }
 
     public string? GetBookCoverPath(Guid bookId)
@@ -199,6 +225,14 @@ public class FileStorageService : IFileStorageService
             .FirstOrDefault(f => _allowedCoverExtensions.Contains(Path.GetExtension(f)));
     }
 
+    /// <summary>
+    /// A cached, resized WebP copy of the cover for list views.
+    ///
+    /// The cache is invalidated by <see cref="SaveBookCoverAsync(Guid, Stream, string, CancellationToken)"/>,
+    /// which discards these thumbnails whenever the cover itself is replaced —
+    /// otherwise a replaced cover would keep showing its old artwork in the
+    /// library grid while the detail view showed the new one.
+    /// </summary>
     public async Task<string?> GetBookCoverThumbnailPathAsync(
         Guid bookId,
         int width,
@@ -242,5 +276,56 @@ public class FileStorageService : IFileStorageService
 
         File.Delete(coverPath);
         return true;
+    }
+
+    private string BookFolder(Guid bookId) => Path.Combine(_root, bookId.ToString());
+
+    /// <summary>
+    /// The in-progress file lives beside its destination, never in a shared
+    /// temp directory: the final move is then a same-volume rename, which is
+    /// atomic, instead of a copy that could be interrupted half way.
+    /// </summary>
+    private static string TempSiblingPath(string folder, string finalPath) =>
+        Path.Combine(folder, Path.GetFileName(finalPath) + ".partial");
+
+    private static async Task WriteStreamAsync(Stream content, string path, CancellationToken ct)
+    {
+        await using var destination = new FileStream(
+            path,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            CopyBufferSize,
+            useAsync: true);
+
+        await content.CopyToAsync(destination, CopyBufferSize, ct);
+        await destination.FlushAsync(ct);
+    }
+
+    private void DeleteExistingBookFiles(string bookFolder, string except)
+    {
+        foreach (var existingFile in Directory.EnumerateFiles(bookFolder))
+        {
+            if (!_allowedBookExtensions.Contains(Path.GetExtension(existingFile)))
+                continue;
+
+            if (string.Equals(existingFile, except, StringComparison.Ordinal))
+                continue;
+
+            TryDelete(existingFile);
+        }
+    }
+
+    private void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete file during cleanup: {FileName}", path);
+        }
     }
 }

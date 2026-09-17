@@ -17,6 +17,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<BackupSettings>(builder.Configuration.GetSection("BackupSettings"));
 
+// Where locally stored book files live. Configurable so a test host (or a
+// deployment with a dedicated media volume) can point it somewhere else —
+// `Storage/books` under the content root stays the default.
+builder.Services.Configure<FileStorageOptions>(
+    builder.Configuration.GetSection(FileStorageOptions.SectionName));
+
 // Library receipt retention (issue #51): the bound section is normalized
 // once (unsafe values clamped) and registered as a singleton so the
 // retention service and its hosted worker always agree on the effective

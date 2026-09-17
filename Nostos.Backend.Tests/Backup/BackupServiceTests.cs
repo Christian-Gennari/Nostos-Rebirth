@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Nostos.Backend.Configuration;
 using Nostos.Backend.Data;
 using Nostos.Backend.Data.Models;
 using Nostos.Backend.Services;
@@ -380,6 +381,7 @@ public sealed class BackupServiceTests
             services.AddSingleton<IFileStorageService>(sp =>
                 new FileStorageService(
                     sp.GetRequiredService<IWebHostEnvironment>(),
+                    Microsoft.Extensions.Options.Options.Create(new FileStorageOptions()),
                     sp.GetRequiredService<ILogger<FileStorageService>>()));
             services.AddSingleton<BackupService>();
             var provider = services.BuildServiceProvider();
