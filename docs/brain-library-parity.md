@@ -230,20 +230,24 @@ both painted.
 Icons are `[size]="18"` with `strokeWidth="1.5"` in the Library toggle.
 The Brain toggle must be markup- and metric-identical.
 
-**Use the BARE class, never scoped under a wrapper.** `styles.css` carries an
-app-wide dark treatment for the active segment:
+**Use the BARE class, never scoped under a wrapper.** The active segment is
+painted from two tokens that are declared per theme:
 
 ```css
-:root[data-theme='dark'] .toggle-opt.active { background: #323A48; color: var(--color-text-main); }
+.toggle-opt.active { background: var(--control-active-fill); color: var(--control-active-ink); }
 ```
 
-That rule is **(0,4,0)**. A component rule written as `.view-mode-control
-.toggle-opt.active` is *also* (0,4,0) — and the component chunk loads after the
-global sheet, so it wins and silently overrides the dark treatment. The active
-segment then keeps its light-mode tokens: `--bg-surface`, which on dark is
-DARKER than the track (elevation inverts, so the *unselected* pair looks raised),
-and `--color-primary`, the dim green **ink** role, so the icon goes sage while
-every other selected state in the app is white-on-raised.
+A component rule written as `.view-mode-control .toggle-opt.active` is (0,4,0)
+and the component chunk loads after the global sheet, so it wins — and if it
+hardcodes the light tokens instead of reading these, the active segment keeps
+`--bg-surface`, which on dark is DARKER than the track (elevation inverts, so the
+*unselected* pair looks raised), and `--color-primary`, an **ink** role, so the
+icon goes green while every other selected state in the app is light-on-raised.
+
+(An earlier version of this note quoted a `:root[data-theme='dark']
+.toggle-opt.active` override in `styles.css`. That override is gone — the value
+became the `--control-active-*` tokens above, which is what removed the
+specificity race entirely rather than winning it.)
 
 The Library's own rule is a bare `.toggle-opt.active` at (0,3,0) and therefore
 defers correctly. Match that specificity. This is why light mode looked right

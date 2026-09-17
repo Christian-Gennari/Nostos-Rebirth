@@ -409,7 +409,7 @@ app-sidebar-collections.no-transition {
 }
 
 /* Destructive hover: --color-danger mixed 55% toward --color-text-main, so it
-   resolves to a light red on dark (#E4796B) and a deep one on light (#8C2A24).
+   resolves to a light red on dark (#ffb4ab) and a deep one on light (#8C2A24).
    --color-danger itself is a red meant to be read on light: on dark it lands
    near 3.2:1 and fails as an icon ink. The fill stays the neutral --bg-hover,
    matching the card's delete disc, which also avoids a danger-tinted surface. */
@@ -562,7 +562,7 @@ app-sidebar-collections.no-transition {
    cramped against the cover. The colour is `currentColor` throughout
    (active states set it), rather than the old `var(--border-color)`: that
    token is the hairline colour, so at rest these buttons resolved to
-   #E5E7EB on paper and #262A34 on dark — a hair above invisible. */
+   #E5E7EB on paper and #2a2d37 on dark — a hair above invisible. */
 .list-row-status {
   margin-left: auto;
   display: flex;

@@ -26,17 +26,19 @@ theme regressions happen.
 
 | Axis | Light | Dark |
 | --- | --- | --- |
-| Page ground | `#FBFBFC` cool canvas | `#15181F` slate |
-| Content surface | `#ffffff` | `#1B1E26` |
-| Hairline border | `#E5E7EB` | `#262A34` |
-| Primary ink | `#121316` obsidian | `#EDEEF2` porcelain |
-| Accent | `#5B5E66` slate | `#D1AC8F` smoked warm |
-| Dominant body ink | `#4A4D54` | `#C5C9D0` |
+| Page ground | `#FBFBFC` cool canvas | `#0d0e11` obsidian book cloth |
+| Content surface | `#ffffff` | `#121318` |
+| Raised surface | `#F3F3F4` | `#181a20` |
+| Overlay surface | `#ffffff` | `#20222a` |
+| Hairline border | `#E5E7EB` | `#2a2d37` |
+| Primary ink | `#121316` obsidian | `#f0f1f4` silver |
+| Accent | `#5B5E66` slate | `#a9cfc2` cold mineral |
+| Dominant body ink | `#4A4D54` | `#c4c7d0` |
 
-The light values above are the cool-neutral palette. Light and dark are now on
-the *same* side of the warm/cool axis, so the two themes differ in luminance
-rather than in temperature — the dark counterparts were originally chosen for
-contrast against a warm ground and were re-checked against this one.
+Both palettes are now cool-neutral and on the *same* side of the warm/cool axis,
+so the two themes differ in luminance rather than in temperature. The dark theme
+is "Archival Book Cloth & Obsidian Rag": four discrete tonal steps rather than a
+continuous ramp, defined by the `#2a2d37` hairline instead of by shadow.
 
 Every colour token has a counterpart in both themes, and
 `scripts/check-theme-tokens.mjs` fails the build if one does not. That guard
@@ -193,7 +195,7 @@ Worked example — the selected-row fill. It has exactly two consumers
 Library sidebar); every other `--primary-fill` use is a button, CTA or badge
 that is bright in both themes. Because both are *selection* states they must
 resolve identically, so the value lives on **`--selection-surface`**
-(`#28372D` forest with white ink in light, `#2B323F` raised slate with porcelain
+(`#121316` obsidian with white ink in light, `#2a2d37` raised slate with silver
 in dark) and the two component rules read it directly. The four-selector global
 override and its `.index-list` specificity padding are gone — the whole race is
 structurally removed rather than won. Verify with `npm run probe:selection`,
@@ -236,7 +238,7 @@ outside `styles.css` is legitimate; an unguarded one is not.**
 ### Treating a token name as a colour
 `--color-primary` is a legacy alias whose dark value differs from
 `--primary-ink`/`--primary-fill` yet is still read as a foreground by many rules.
-`--danger-ink` resolves to porcelain `#F0F2F5` on dark — its one consumer is a
+`--danger-ink` resolves to silver `#f0f1f4` on dark — its one consumer is a
 mark on a *filled* danger surface. **Read a token's value in both themes before
 using it as a foreground.** A name promises a role, not a hue.
 
@@ -448,7 +450,7 @@ is near-black in dark mode. Resolved rather than merely flagged, on evidence:
 - **Nothing else in the app hardcodes these.** Every other surface (book-detail,
   settings, library, note-card, flat-tree, second-brain, add-book-modal) reads
   `--color-success` / `--color-danger`, which are theme-aware
-  (`#22c55e` -> `#8FC7A8`, `#d32f2f` -> `#E4796B`). Toast was the sole outlier.
+  (`#22c55e` -> `#8FC7A8`, `#ba1a1a` -> `#ffb4ab`). Toast was the sole outlier.
 - **The component contradicted itself**: its `info` variant already used
   `--color-primary`. So "error and success are literal, info is a token" was not a
   considered distinction, just an unfinished one.
@@ -551,11 +553,12 @@ border**, and an active option painted `--control-active-fill` /
 `--control-active-ink` with `--shadow-sm` plus a 1px `--border-color` outline.
 
 **The active option must never be `--bg-surface`.** On dark, `--bg-surface`
-(#1B1E26) is DARKER than the `--bg-hover` track (#252A34), so the selected option
-*sinks* and the unselected pair looks raised. This bug was written and fixed three
+(#121318) is DARKER than the `--bg-hover` track (#20222a) — 1.04:1 against the
+ground it sits on versus 1.22:1 for the track — so the selected option *sinks*
+and the unselected pair looks raised. This bug was written and fixed three
 separate times — Library, Brain, then Studio and Settings — because each copy was
 authored from the light theme, where `--bg-surface` is white and correct. Measured
-live on Studio before the fix: track `rgb(37,42,52)` vs active `rgb(27,30,38)`.
+live on Studio before the first fix: track `rgb(37,42,52)` vs active `rgb(27,30,38)`.
 
 Drift found and removed: Studio's track carried a `border` the other three lacked
 (it read as a boxed widget, not a raised track); Library's `.toggle-opt` had **no

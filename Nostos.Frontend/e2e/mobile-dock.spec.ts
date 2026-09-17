@@ -162,8 +162,11 @@ test('collection row actions are revealed by selection on touch, not always on',
 /**
  * The mobile header toggle sits on `--bg-surface`, so its glyph must take that
  * surface's foreground — not the accent. `--color-primary` is the INK role and
- * resolves to sage (#8FA89A) on dark, which rendered the hamburger green against
- * the porcelain header (measured 6.53:1 against 14.37:1 for the correct token).
+ * resolves to green (formerly sage #8FA89A, now #8fbfae) on dark, which rendered
+ * the hamburger green against the header rather than the near-white the other
+ * header controls use. It asserts the TOKEN, not the value, so the palette change
+ * does not touch it: measured 6.53:1 against 14.37:1 at the time of the fix, and
+ * 9.40:1 against 17.09:1 now.
  *
  * This is the third time the same ink/fill role slip has appeared on this
  * project (brand wordmark, active collection row, and this control), so it is

@@ -374,9 +374,9 @@ interface ThemeColors {
    * Fill for the label box Sigma draws behind the active node's own label.
    *
    * Sigma's built-in `drawDiscNodeHover` hardcodes `#FFF` here. On dark the
-   * label ink is `--color-text-muted` (#C5C9D0), so the text landed on a white
+   * label ink is `--color-text-muted` (#c4c7d0), so the text landed on a white
    * box at 1.66:1 against a 4.5:1 text minimum — measured in the live app, with
-   * Sigma's strongest available ink (#EDEEF2) no better at 1.16:1. Light mode
+   * Sigma's strongest available ink at no better than 1.16:1. Light mode
    * measured 17.2:1, which is exactly why this only ever showed up on dark.
    */
   labelBox: string;
@@ -950,7 +950,7 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
       //
       // Without it, every per-node colour below was silently dead and the map
       // was painted from the static `--color-text-muted` fallback — which on
-      // dark is #C5C9D0 drawn on Sigma's hardcoded white hover box (1.66:1).
+      // dark is #c4c7d0 drawn on Sigma's hardcoded white hover box (1.66:1).
       labelColor: { attribute: 'labelColor', color: this.theme.label },
       labelSize: LABEL_DRAW_SIZE,
       defaultEdgeType: 'line',

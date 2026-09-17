@@ -374,10 +374,10 @@
 }
 
 /* `--color-danger` rather than `--danger-ink`: on dark, --danger-ink is
-   deliberately porcelain (#F0F2F5) for the confirm modal's mark, so an icon
+   deliberately silver (#f0f1f4) for the confirm modal's mark, so an icon
    painted with it loses every trace of "destructive". --color-danger is the
    app's own destructive-accent role and is re-inked per theme (#d32f2f light,
-   #E4796B dark). */
+   #ffb4ab dark). */
 .action-mini.danger:hover {
   color: var(--color-danger);
   background: color-mix(in srgb, var(--color-danger) 16%, transparent);

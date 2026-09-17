@@ -220,8 +220,8 @@
      thing that says "this is a control") ──
      A plain --border-color edge is a HAIRLINE: it separates two surfaces and is
      meant to whisper (1.31:1 on paper). On dark it does not whisper, it vanishes
-     — #262A34 on the #1B1E26 surface is 1.16:1, and exactly 1.00:1 against the
-     row-hover fill #252A34, i.e. byte-identical to what is behind it. An
+     — #2a2d37 on the #121318 surface is 1.35:1, and only 1.16:1 against the
+     row-hover fill #20222a, i.e. effectively what is behind it. An
      unchecked box whose edge is invisible is not a subtle control, it is a
      control the user cannot find. Light keeps today's value byte-for-byte, so
      nothing moves on paper; only dark is re-inked to the WCAG 3:1 UI-boundary
@@ -492,93 +492,130 @@
    light patch inside the dark UI. `scripts/check-theme-tokens.mjs` enforces
    this. */
 :root[data-theme='dark'] {
-  /* ── Surfaces — matte slate. One step up from the reference canvas so bright
-     cover art glares less; depth is a tonal ladder, not shadows. ── */
-  --bg-body: #15181F;
-  --bg-surface: #1B1E26;
-  --bg-surface-alt: #21252E;
-  --bg-sidebar: #12141A;
-  --bg-input: #1B1E26;
-  --bg-hover: #252A34;
-  --surface-image-ground: #1F232B;
+  /* ── Surfaces — Tonal Rag Layering. The palette names four DISCRETE steps
+     rather than a continuous ramp: Ground #0d0e11, First Elevation #121318,
+     Second Elevation #181a20, Third Elevation #20222a, each defined by the
+     #2a2d37 hairline rather than by a shadow. `--bg-sidebar` sits ON the
+     ground, not below it — the palette has no below-ground step. ── */
+  --bg-body: #0d0e11;
+  --bg-surface: #121318;
+  --bg-surface-alt: #181a20;
+  --bg-sidebar: #0d0e11;
+  --bg-input: #121318;
+  --bg-hover: #20222a;
+  --surface-image-ground: #181a20;
 
-  /* ── Text ── */
-  --color-text-main: #EDEEF2;
-  --color-text-muted: #C5C9D0;
-  --color-text-light: #949CA9;
-  --color-text-placeholder: #7A8290;
-  --color-text-faint: #4A5260;
+  /* ── Text ──
+     Crisp Primary Silver / Secondary Rag / Muted Graphite. Every role is
+     BRIGHTER than the warm-slate ramp it replaces: 17.09 / 11.42 / 6.05:1 on
+     the new ground, against 15.32 / 10.69 / 6.42:1 before. The palette is
+     cool-neutral rather than warm, so the extra headroom is free. */
+  --color-text-main: #f0f1f4;
+  --color-text-muted: #c4c7d0;
+  --color-text-light: #8b909f;
+  /* Placeholder stays its own dimmer step rather than merging onto the light
+     role: the palette names only three inks, but a placeholder that is
+     byte-identical to metadata ink stops reading as a placeholder.
+     Measured 4.67:1 on the ground — brighter than the 4.59:1 it replaces. */
+  --color-text-placeholder: #767d8c;
+  --color-text-faint: #44495a;
 
   /* ── Primary role split ──
      ink goes LIGHT (it is read on dark), fill goes DARK (it is read by the
      text on top of it). This inversion is the whole point of the split.
-     Porcelain #EDEEF2 is the heading & brand ink on dark, matching the brand guidelines. */
-  --primary-ink: #EDEEF2;
-  --primary-fill: #2D4B44;
-  --on-primary: #F0F2F5;
-  /* Legacy alias. Points at the DIM pine, not the mint ink: ~35 component rules
-     still read this as a foreground, and mint on all of them is what made the
-     theme read as "a lot of mint". Rules that specifically want the accent
-     should use --primary-ink. */
-  --color-primary: #8FA89A;
-  --color-primary-hover: #375A52;
-  --color-primary-dim: #5C7A72;
+     #f0f1f4 is the palette's "Crisp Primary Silver", the display & body ink. */
+  --primary-ink: #f0f1f4;
+  /* The palette's "Nordic Spruce", and the artifact's button fill. Text on it
+     is #f0f1f4 at 6.48:1, so the fill still carries its own foreground. */
+  --primary-fill: #3a5d53;
+  --on-primary: #f0f1f4;
+  /* Legacy alias. Points at a MID spruce-derived green, not the pale mint ink.
+     ~35 component rules still read this as a foreground, and the palette's
+     mint (#a9cfc2, the artifact's `primary`) on all of them is what made the
+     previous theme read as "a lot of mint". Rules that specifically want the
+     accent should use --color-accent. Measured 9.40:1 on the ground, against
+     6.97:1 for the dim pine it replaces — brighter, and still a step below
+     the ink so it reads as a role rather than as body text. */
+  --color-primary: #8fbfae;
+  --color-primary-hover: #476f63;
+  /* The hover EDGE on Brain merge targets, the editions modal, book-detail and
+     the audio reader. Tuned to 4.14:1 against the new surface, matching the
+     3.79:1 the old value held against the old one. */
+  --color-primary-dim: #4f7d70;
 
   /* ── Brand mark ──
      Not re-declared here on purpose: the mark is theme-invariant (see the light
      block). Nothing in the dark theme overrides --brand-shape/--brand-doorway,
      so both themes render the same forest tile + paper arch. The family is
      listed as INVARIANT in `check-theme-tokens.mjs` to keep this intentional
-     rather than looking like an omission. ── */
+     rather than looking like an omission.
+
+     The new ground IMPROVES this rather than threatening it: #293E32 against
+     #0d0e11 is 1.68:1, against 1.55:1 on the slate it replaces, and the paper
+     arch inside the tile is 10.9:1 either way. ── */
 
   /* ── Concept graph ──
-     Warm sand rather than a cool grey: the stage is matte slate and a neutral
-     grey disc on it reads as an unfinished placeholder. Sand keeps the graph in
-     the same warm family as the light theme's ink and lifts off the ground at
-     7.2:1; the touched node goes to porcelain, matching --primary-ink on dark. */
-  --graph-node: #B0A99E;
-  --graph-node-head: #EDEEF2;
-  --graph-edge: #7B857F;       /* cool stone; quiet against the slate ground */
-  --graph-edge-active: #EDEEF2; /* selected path follows the porcelain node hierarchy */
+     The palette's on-surface-variant, which is near-NEUTRAL (R − B = −3): a
+     warm sand disc made sense on a cool slate stage, but the whole point of
+     this palette is "no warm undercurrents", and a warm node would be the last
+     warm pixel in the app. It lifts off the ground at 11.33:1 and separates
+     from the touched node (#f0f1f4) at 1.51:1 — the warm sand managed 2.01:1
+     against the old porcelain, so the hierarchy is slightly flatter here and
+     is carried by the node's own size and the label plate instead. */
+  --graph-node: #c1c8c4;
+  --graph-node-head: #f0f1f4;
+  --graph-edge: #6b7284;       /* cool slate; structure without a colour cast */
+  --graph-edge-active: #f0f1f4; /* selected path follows the silver node hierarchy */
   /* The label plate must be a surface, not white: on dark the active label's
-     ink is porcelain, which measured 1.16:1 on Sigma's hardcoded white box. */
-  --graph-label-box: #1B1E26;
+     ink is silver, which measured 1.16:1 on Sigma's hardcoded white box. */
+  --graph-label-box: #121318;
 
-  /* ── Accent (smoked warm; the light clay is only 3.74:1 here) ── */
-  --color-accent: #D1AC8F;
-  --color-accent-hover: #E5BFA1;
-  --color-accent-faint: rgba(209, 172, 143, 0.32);
-  /* Was #2A2318 — the warm accent at 8% on a dark ground, which is a BROWN
-     (hue 37, val 16%). Low-value warm tints always read as mud on dark, and this
-     is the surface behind hovered drop zones, active tree rows and selected
-     edition cards. A cool tint instead: still a soft highlight, no brown. */
-  --color-accent-bg: #262B36;
+  /* ── Accent — the palette's own primary, used as the accent role ──
+     The artifact's prose accent is spruce #3a5d53, but spruce on this ground
+     is only 2.64:1 and --color-accent is read as INK at 13 sites (the concept
+     tag, note-card's left border, flat-tree concept ink, the dock dot and
+     focus outline, the route-progress gradient). So the accent takes the
+     frontmatter's `primary` #a9cfc2 instead — which is the SAME HUE family as
+     the prose spruce (hue 159.5 against 162.9), i.e. a lightening of the
+     artifact's own accent rather than a different colour. 11.39:1 on the
+     ground. This replaces smoked warm #D1AC8F, the app's last warm note. */
+  --color-accent: #a9cfc2;
+  --color-accent-hover: #c4ebde;
+  --color-accent-faint: rgba(169, 207, 194, 0.30);
+  /* A soft cool tint behind hovered drop zones, active tree rows and selected
+     edition cards. Was #262B36, then previously #2A2318 — a warm accent at 8%
+     on a dark ground, which is a BROWN (hue 37, val 16%). Low-value warm tints
+     always read as mud on dark; the palette's Second Elevation is both cooler
+     and closer to the surfaces it sits among. */
+  --color-accent-bg: #181a20;
 
-  /* ── Restrained secondary (container tint only — 1.92:1 as text) ── */
-  --color-secondary: #3A4556;
+  /* ── Restrained secondary (container tint only — 2.07:1 as text) ── */
+  --color-secondary: #414754;
 
   /* ── Selection surface ──
-     Raised neutral slate, NOT `--primary-fill`. The component rules set
-     `--primary-fill` (`#2D4B44`, dark spruce) and a global override repainted it
-     to `#2B323F`; spruce against the slate sidebar reads as a green-tinted pill,
-     indistinguishable from "green on focus". This token pins the corrected value
-     so the component rules can set a selection with no global override existing
-     at all — see the light-block note for why that matters (the specificity race
-     that #94 had to patch by hand). Value is exactly what the selection already
-     resolved to on dark, so nothing moves. */
-  --selection-surface: #2B323F;
-  /* Porcelain, matching light's white-on-forest structure. */
-  --selection-ink: #F0F2F5;
+     The palette's #2a2d37 (its hairline tone, the brightest neutral it names).
+     Raised neutral, NOT `--primary-fill`: the fill role is spruce, and spruce
+     against a cool-neutral sidebar reads as a green-tinted pill,
+     indistinguishable from "green on focus". Selection is shown by elevation,
+     which is also how the dock works.
 
-  /* Wordmark / secondary heading ink on dark: PORCELAIN, not an accent.
+     One measurement worth keeping: at #2a2d37 the selection now sits 1.16:1
+     above the hover fill #20222a, where the old pair was 1.12:1 — so the
+     selected row separates from the hovered one slightly MORE than before,
+     not less, even though the palette's top step is shallower. */
+  --selection-surface: #2a2d37;
+  /* Silver, matching light's white-on-obsidian structure. */
+  --selection-ink: #f0f1f4;
+
+  /* Wordmark / secondary heading ink on dark: SILVER, not an accent.
      Behaviour-preserving: the deleted `:root[data-theme='dark'] .meta-title`
      override was already resolving to porcelain here and WON, because the
      component rule is a single compound (`.meta-title[_ngcontent]` = (0,2,0))
-     and the override is (0,3,0). The token simply keeps that value now that the
-     override is gone. Why porcelain and not the accent: on dark
-     `--color-primary` is the dim mint ink (#8FA89A), and a mint run of text
-     reads as a *state* — mint means "active" elsewhere. The accent stays for
-     indicators, icons and focus.
+     and the override is (0,3,0). The token simply keeps that value now that
+     the override is gone. Why the ink and not the accent: on dark
+     `--color-primary` is a mid green, and a run of green text reads as a
+     *state* — green means "active" elsewhere. The accent stays for indicators,
+     icons and focus.
 
      Note the asymmetry that made the deleted `.brand, .meta-title` rule so easy
      to mis-read: Angular adds `[_ngcontent]` to EVERY compound selector, so a
@@ -591,15 +628,17 @@
 
   /* ── Role tokens for things sitting ON a selection ──
      See the light block for why these are not just the plain scale. The ring on
-     a focused SELECTED row must be lighter than the slate that works on the page
-     background, because the row underneath it is now a filled surface.
-     `#A9B6C6` is the same neutral family, one step up — never the accent, since
-     a focus ring is an affordance, not state. */
+     a focused SELECTED row must be lighter than the value that works on the page
+     background, because the row underneath it is now a filled surface. Kept at
+     #A9B6C6: measured 6.67:1 on the new selection fill, against 6.25:1 on the
+     old one, so it still reads without becoming a second ink. It is always a
+     neutral from the same family — never the accent, since a focus ring is an
+     affordance, not state. */
   --selection-focus-ring: #A9B6C6;
   /* A dark chip on a raised selection fill. This is a BEHAVIOUR FIX (a tie bug),
-     and the one intended visual change in this change-set.
+     and like the values around it, it is unchanged in role.
 
-     The badge painted a LIGHT chip (`color-mix(#F0F2F5 22%)`) on the dark raised
+     The badge painted a LIGHT chip (`color-mix(#f0f1f4 22%)`) on the dark raised
      row. Cause is the #94 failure class — a specificity TIE, not a lost race:
 
        global     :root[data-theme='dark'] .nav-item.active .count-badge
@@ -627,49 +666,67 @@
      (0,3,0) and the override genuinely won. Same-shaped global rules, opposite
      outcomes. */
   --selection-badge-bg: rgba(0, 0, 0, 0.28);
-  /* Smoked indigo, as the text highlight. */
-  --text-selection-bg: #3A4556;
+  /* Cool slate, as the text highlight. Matches --color-secondary. */
+  --text-selection-bg: #414754;
 
 
   /* ── Elevation role split — dark values ──
      A dark shadow on a dark ground carries no elevation, so floating surfaces are
      raised TONALLY: the surface itself lifts and the cast is deepened to keep the
-     lip defined. See the light block for what each token is for. */
-  /* Measured 1.55 tonal separation from the page, which is what makes the dock
-     read as floating at all on dark. */
-  --dock-surface: #323A48;
-  --dock-border: #454E60;
-  /* VALUE-PRESERVING, and it looks odd on purpose: on dark the container's own
+     lip defined. See the light block for what each token is for.
+
+     #2f333f is the ONE value in this change that the palette does not name. The
+     artifact's Tonal Rag Layering stops at #20222a, which is only 1.217:1 above
+     the new ground — and the number this token has to hold is not decorative:
+     the previous dock measured 1.55 tonal separation from the page, which is
+     what made it read as floating at all. #20222a would have halved that.
+
+     So the ladder is continued one step, using the artifact's own family
+     (G = R+8%, B = R+33% holds across all five of its named steps — R-B is
+     −4/−6/−8/−10/−13). #2f333f is that family at R=47 and lands at 1.53:1
+     against the new ground, 1.47:1 against the new surface, against 1.55:1 and
+     1.46:1 for the #323A48 it replaces. This is a deliberate departure from the
+     artifact, recorded rather than hidden: the alternative was a dock that
+     visibly stops floating. */
+  /* ALSO VALUE-PRESERVING in its oddity: on the OLD theme the container's own
      cast also applied to the mobile rail, because the dark override
      `:root[data-theme='dark'] .app-dock-container` (0,3,0) out-specified the
      mobile rule `.app-dock-container[_ngcontent]` (0,2,0) inside its media query.
-     So dark's phone rail carried a DOWNWARD shadow. That is what shipped, so that
-     is what the token holds — the token's job is to record the current behaviour,
-     not to silently redesign it. If the rail should cast upward on dark, that is a
-     deliberate visual change and belongs in its own commit. */
+     So dark's phone rail carried a DOWNWARD shadow. That is what shipped, so
+     that is what the token holds — the token's job is to record the current
+     behaviour, not to silently redesign it. If the rail should cast upward on
+     dark, that is a deliberate visual change and belongs in its own commit. */
   --dock-shadow-rail:
     0 16px 40px rgba(0, 0, 0, 0.62),
     0 3px 10px rgba(0, 0, 0, 0.45);
   --dock-shadow:
     0 16px 40px rgba(0, 0, 0, 0.62),
     0 3px 10px rgba(0, 0, 0, 0.45);
-  /* Porcelain, matching the heading rule: on dark the dock's selected label is
+  --dock-surface: #2f333f;
+  /* Follows the dock, one step up in the same family (today 1.37:1 against the
+     old dock surface; here 1.43:1). */
+  --dock-border: #454a59;
+  /* Silver, matching the heading rule: on dark the dock's selected label is
      ink, and the marker beside it is the accent — one state colour, not two. */
   --dock-item-active-ink: var(--color-text-main);
   --cover-shadow: 0 2px 12px rgba(0, 0, 0, 0.50);
-  /* Both layers neutral black: the light version's warm halo becomes a LIGHT
-     halo on a dark ground, which glows the surround instead of sinking it.
-     Contact term + cast, so the card keeps a defined lip. */
+  /* Both layers neutral black, and that is now doubly right: the palette is
+     cool-neutral end to end, so a tinted layer would be the only chromatic
+     thing in the effect. Contact term + cast, so the card keeps a defined lip. */
   --cover-shadow-hover:
     0 2px 4px -1px rgba(0, 0, 0, 0.55),
     0 12px 24px -8px rgba(0, 0, 0, 0.55);
   /* The same raised tone the dock uses, so "raised on dark" is one value
-     app-wide. `--bg-surface` would be DARKER than the track and the selected
-     option would sink. */
-  --control-active-fill: #323A48;
+     app-wide. `--bg-surface` (#121318) is DARKER than the `--bg-hover` track
+     (#20222a) — 1.04:1 against the ground it sits on versus 1.22:1 for the
+     track — so using it would invert the elevation and the selected option
+     would SINK. That trap is exactly the one the previous theme hit; the new
+     ladder makes it sharper, because the gap between the two steps is the
+     palette's own. #2f333f sits 1.26:1 above the track. */
+  --control-active-fill: #2f333f;
   --control-active-ink: var(--color-text-main);
   /* The discs are chrome on artwork, so they take the disc ink; the brand ink is
-     the dim green here, which made the middle discs green while the corner discs
+     the mid green here, which made the middle discs green while the corner discs
      read slate — one card showing two icon colours. */
   --action-circle-ink: var(--cover-disc-ink);
   /* Mixing the ground toward WHITE is a light-mode assumption: on dark that is
@@ -677,91 +734,122 @@
      every load. Mix toward the theme's text ink instead. */
   --wait-glow: color-mix(in srgb, var(--surface-image-ground) 82%, var(--color-text-main));
   /* A dark brand fill cannot carry a primary action on a dark ground, and a light
-     accent used as a *surface* goes washed out. The porcelain pill is the one
+     accent used as a *surface* goes washed out. The silver pill is the one
      inverted surface in the app, so the primary action is also the single
-     brightest element. */
+     brightest element. The artifact's own recipe is a solid spruce button; it is
+     NOT adopted here because spruce as a CTA fill on this ground is 2.64:1
+     against the page, i.e. a button that does not separate from its background,
+     while the inverted pill is 17.09:1. Recorded as a deliberate departure. */
   --cta-surface: var(--on-primary);
   --cta-ink: var(--bg-body);
   --cta-border: var(--on-primary);
-  --cta-surface-hover: #C1C8C5;
+  --cta-surface-hover: #c4c7d0;
 
-  /* ── Danger / success / highlight ──
-     Warm brick, not the M3 default pink. #FFB4AB is a *light* red: it works as
-     ink on dark but turns the danger FILL pale, and the fill's text is porcelain
-     — so "Delete Permanently" measured 1.34:1. This is a red light enough to
-     read as ink on slate, but far enough from white to carry porcelain text. */
-  --color-danger: #E4796B;
-  --color-danger-vivid: #F08A76;
-  --color-danger-bg: #3A1A18;
+  /* ── Danger — the artifact's error family ──
+     The palette supplies a proper M3 ramp (error #ffb4ab / error-container
+     #93000a / on-error-container #ffdad6) and it is adopted, including the
+     #ffb4ab ink this block previously REJECTED. That rejection was correct for
+     # a *fill* and is still respected: #f0f1f4 text on #ffb4ab measures 1.50:1,
+     # so #ffb4ab stays an INK (10.93:1 on the surface) and never becomes a
+     # button. The destructive FILL is #93000a instead, carrying #f0f1f4 at
+     # 8.28:1 — far clear of the 4.5:1 floor in both states.
+
+     The old values were a warm brick (#E4796B / #A03A34), which is the second
+     thing this migration removes: a warm red on a cool-neutral ground reads as
+     a different colour family from everything around it. */
+  --color-danger: #ffb4ab;
+  --color-danger-vivid: #ffdad6;
+  --color-danger-bg: #93000a;
   /* The destructive FILL is pinned rather than derived: the 68/80% mix that
-     reads correctly in light lands at 4.46:1 (and 3.61:1 on hover) against
-     porcelain here. Deep oxblood, so porcelain text clears 4.5:1 in both the
-     rest and hover states. */
-  --danger-solid: #A03A34;
-  --danger-solid-hover: #B3453F;
+     reads correctly in light produces a value that does not clear the floor
+     against silver text here. #93000a is the palette's error-container. */
+  --danger-solid: #93000a;
+  --danger-solid-hover: #a81212;
   /* The modal mark. Same landmine as the fill: --danger-ink mixed toward
-     --color-text-main, which FLIPS — in light it deepens to #812626 (correct), in
-     dark porcelain bleached it to #E8AEA8, collapsing saturation 53% -> 28%, which
-     is why the trash glyph read PINK.
-     The fix is NOT to pin a light red. Three attempts (#EE8271, #EF6A4E, #EF6C55)
-     all rendered as CORAL: a glyph light enough to clear 4.5:1 on a dark chip is
-     high-value, and a high-value red IS coral. Light mode escapes this only
-     because its glyph is DEEP (value 51%) on a pale field.
-     So the mark is inverted instead, mirroring light's structure: a deep-red FILL
-     with a porcelain glyph. It also now matches the button beneath it, so one
+     --color-text-main, which FLIPS — in light it deepens (correct), in
+     dark the light ink bleached it and collapsed its saturation, which is why
+     the trash glyph read PINK.
+     The fix is NOT to pin a light red standing alone. Three attempts
+     (#EE8271, #EF6A4E, #EF6C55) all rendered as CORAL: a glyph light enough to
+     clear 4.5:1 on a dark chip is high-value, and a high-value red IS coral.
+     Light mode escapes this only because its glyph is DEEP on a pale field.
+     So the mark is inverted instead, mirroring light's structure: a deep-red
+     FILL with a silver glyph. It also matches the button beneath it, so one
      dialog shows one red family rather than a pink marker and a red action. */
-  --danger-ink: #F0F2F5;
-  --danger-surface: #A03A34;
-  /* Edge mirrors light's subtle rim/field step (light 1.45 -> here 1.79). */
-  --danger-hairline: #B8716E;
-  /* Distinct from the accent on purpose. Reusing one mint for both brand and
-     "success" means the Finished tick reads as a brand mark, and it multiplies
-     the visible mint count. */
+  --danger-ink: #f0f1f4;
+  --danger-surface: #93000a;
+  /* Edge mirrors light's subtle rim/field step, and re-clears the 3:1
+     non-text floor against the #93000a field it actually sits on (measured
+     3.32:1, against 1.79:1 for the value it replaces — a real improvement). */
+  --danger-hairline: #c98a86;
+  /* Success keeps its value, and its DISTINCTION is now carried by saturation
+     rather than by hue family. The old note here argued that reusing one mint
+     for both brand and "success" makes the Finished tick read as a brand mark.
+     That argument still holds and is why the accent took the pale mint
+     (sat 18%) while success stays the more saturated green (sat 28%): they are
+     the same hue family now, so the separation has to come from saturation and
+     it measures 1.14:1 between them. Flagged as the weakest separation this
+     change introduces — if the Finished tick stops reading as a status, this
+     pair is why, and the answer is a distinct success hue rather than a
+     different accent. */
   --color-success: #8FC7A8;
   --color-success-dark: #8FC7A8;
-  --color-highlight: #E0C275;
-  --color-highlight-hover: #F0D264;
+  /* The palette's primary-fixed, used as the fill role for a highlight. The
+     artifact has no highlight, and the previous value was the WARMEST token in
+     the block (R − B = 107, 140 on hover) — unusable in a cool-neutral system.
+     A highlight is a fill, not an ink, so a light mint works at 14.97:1. */
+  --color-highlight: #c4ebde;
+  --color-highlight-hover: #d9f2ea;
 
   /* ── Info (the light blue-on-pale trio is 2.37:1 here) ── */
   --color-info: #A8C4E8;
   --color-info-border: #4A6A94;
   --color-info-bg: #1A2433;
 
-  /* ── Borders / scrollbar ── */
-  --border-color: #262A34;
-  --border-light: #1F232B;
+  /* ── Borders / scrollbar ──
+     The palette's "Architectural Rules" #2a2d37. The hairline is the only
+     structural device this palette allows (no floating cards), and it gets
+     stronger for it: 1.35:1 against the new surface and 1.41:1 against the
+     ground, against 1.16:1 and 1.24:1 for the slate it replaces. */
+  --border-color: #2a2d37;
+  --border-light: #20222a;
   --border-focus: #5C6B80;
-  /* 3.07:1 on the #1B1E26 surface and 2.65:1 on the #252A34 hover fill — clear
-     of the 3:1 UI-boundary floor on both, which the hairline was not. */
+  /* 3.42:1 on the new #121318 surface and 2.92:1 on the #20222a hover fill,
+     both clear of the 3:1 UI-boundary floor the hairline does not meet. Kept
+     from the previous theme rather than re-derived: it is already cool and the
+     palette names nothing in this range. */
   --control-border: #5C6B80;
   /* Muted slate. A focus ring is a utility affordance, not a brand moment, and
-     on an accent-coloured control a mint ring vanishes into it. */
+     on an accent-coloured control a mint ring vanishes into it. UNCHANGED in
+     both themes by decision — this token is deliberately theme-invariant, and
+     the value is declared in the light block too. 4.37:1 on the new surface,
+     up from 3.93:1, so the palette improved it for free. */
   --focus-ring: #6E7C90;
-  --scrollbar-thumb: #2C313B;
-  --scrollbar-thumb-hover: #3B4250;
+  --scrollbar-thumb: #2c313e;
+  --scrollbar-thumb-hover: #3a3f4d;
 
   /* Cover-art action discs: a dark frosted disc with a hairline, so the 1.0-1.6
      separation against the scrim over a mid-tone cover still reads as a disc. */
-  --cover-disc-bg: rgba(33, 37, 46, 0.90);
-  --cover-disc-ink: #A8AFBB;
+  --cover-disc-bg: rgba(24, 26, 32, 0.90);
+  --cover-disc-ink: #9ba3b0;
   --cover-disc-border: rgba(255, 255, 255, 0.10);
 
   /* ── Overlays / glass ── */
   --overlay-heavy: rgba(0, 0, 0, 0.80);
-  --overlay-medium: rgba(16, 18, 22, 0.72);
+  --overlay-medium: rgba(13, 14, 17, 0.72);
   --overlay-light: rgba(0, 0, 0, 0.40);
-  --modal-scrim: rgba(8, 9, 12, 0.66);
+  --modal-scrim: rgba(6, 7, 9, 0.66);
   /* ── Frosted chrome (toolbar / panel headers) ──
      These frost the PAGE ground, exactly as the light pair does: light's
-     rgba(253,248,246) IS --bg-body. Dark previously used --bg-surface's RGB
-     here (27,30,38), which made the frost a no-op against the content plane
-     (also --bg-surface) - so the library toolbar merged into the page where
-     light shows a tint. Using --bg-body's RGB restores the same relationship:
-     a chrome plane slightly darker than the content it floats over. At 0.95
-     only 5% of a cover bleeds through the blur, so the panel stays stable. */
-  --glass-bg: rgba(21, 24, 31, 0.60);
-  --glass-bg-strong: rgba(21, 24, 31, 0.95);
-  --glass-border: rgba(43, 47, 58, 1);
+     rgba(251,251,252) IS --bg-body. Dark previously used --bg-surface's RGB
+     here, which made the frost a no-op against the content plane — so the
+     library toolbar merged into the page where light shows a tint. Using
+     --bg-body's RGB restores the same relationship: a chrome plane slightly
+     darker than the content it floats over. At 0.95 only 5% of a cover bleeds
+     through the blur, so the panel stays stable. */
+  --glass-bg: rgba(13, 14, 17, 0.60);
+  --glass-bg-strong: rgba(13, 14, 17, 0.95);
+  --glass-border: rgba(42, 45, 55, 1);
 
   /* ── Shadows: a dark shadow on a dark ground carries no elevation, so
      floating surfaces are raised TONALLY instead (see .app-dock-container). ── */
@@ -774,22 +862,24 @@
   --shadow-glow: 0 6px 20px -4px rgba(0, 0, 0, 0.35);
 
   /* ── Editorial gradient ──
-     Dark counterpart of the light token. The `--pastel-*` stops,
-     `--gradient-pastel-soft` and `--gradient-accent` are gone from BOTH blocks:
-     they were dead in both, so leaving them here would have kept the token
-     graph reporting them as "dark-only (new)" — an accurate report of a
-     half-done deletion, not of a deliberate dark-only token. */
-  --gradient-pastel: linear-gradient(120deg, #ACCDC4, #5C7A72, #D1AC8F);
+     Dark counterpart of the light token. All three stops were mint/pine/warm-
+     clay; they now run light mint → mid spruce → spruce, the palette's own
+     accent family. The `--pastel-*` stops, `--gradient-pastel-soft` and
+     `--gradient-accent` are gone from BOTH blocks: they were dead in both, so
+     leaving them here would have kept the token graph reporting them as
+     "dark-only (new)" — an accurate report of a half-done deletion, not of a
+     deliberate dark-only token. */
+  --gradient-pastel: linear-gradient(120deg, #c4ebde, #4f7d70, #3a5d53);
 
   /* ── Editor chrome bridge ── */
-  --editor-ui-bg: #1B1E26;
-  --editor-ui-bg-hover: #21252E;
-  --editor-ui-text: #EDEEF2;
-  --editor-ui-muted: #9CA4AF;
-  --editor-ui-border: rgba(237, 238, 242, 0.10);
-  --editor-ui-focus: #9AAEC3;
-  --editor-ui-accent: #B3C2D1;
-  --editor-ui-accent-soft: rgba(179, 194, 209, 0.13);
+  --editor-ui-bg: #121318;
+  --editor-ui-bg-hover: #181a20;
+  --editor-ui-text: #f0f1f4;
+  --editor-ui-muted: #8b909f;
+  --editor-ui-border: rgba(240, 241, 244, 0.10);
+  --editor-ui-focus: #A9B6C6;
+  --editor-ui-accent: #c4c7d0;
+  --editor-ui-accent-soft: rgba(196, 199, 208, 0.13);
   --editor-ui-shadow: 0 16px 44px rgba(0, 0, 0, 0.60);
 
   /* Native scrollbars, form controls and embedded viewers follow this. */
@@ -805,14 +895,15 @@
    NO-OPS (deleted outright — the override restated what the base rule already
    produced, so removing it moved no pixel in either theme):
      h1..h4                      → base is `color: var(--primary-ink)`, and on
-                                   dark `--primary-ink` IS `--color-text-main`
-                                   (#EDEEF2 both). 4 selectors.
+                                   old dark `--primary-ink` WAS
+                                   `--color-text-main` (same value both).
+                                   4 selectors.
      .nav-item:focus-visible     → base already is
                                    `outline: var(--focus-ring-width) solid var(--focus-ring)`, and
                                    `--focus-ring` is #6E7C90 in BOTH themes.
      .dock-item:focus-visible    → base is `--color-accent`; #94 repointed the
-                                   dock's active state and the ring is no longer
-                                   mint, so the override fought nothing.
+                                   dock's active state so the ring stopped being
+                                   the accent, and the override fought nothing.
 
    TOKEN-ISED (value moved to a token the owning rule reads, so no global rule
    has to out-specify a component rule — see the notes in `:root`):
@@ -849,7 +940,7 @@
    `check:design` now flags this shape statically; see the specificity rule there. */
 
 /* ── Selected rows: now a TOKEN, not an override ──
-   This used to be a four-selector global override with `background: #2B323F`,
+   This used to be a four-selector global override with `background: #2a2d37`,
    padded with an extra ancestor class purely to out-specify Angular's rewritten
    component rule. That whole class of defect is gone: the value now lives on
    `--selection-surface`, the two component rules consume it directly, and no
@@ -860,8 +951,9 @@
    `.index-row-shell[_ngcontent]:focus-within .index-item.active[_ngcontent]`
    = (0,6,0), which TIED with `:root[data-theme='dark']` + the two variants, so
    the component won on source order (Angular appends component styles after
-   this sheet). Measured on dark: rest #2B323F, but hover AND focus-within
-   #2D4B44 (the spruce green the user reported). A token cannot lose that race.
+   this sheet). Measured on dark at the time: rest `#2B323F`, but hover AND
+   focus-within the spruce fill (the green the user reported). A token cannot lose
+   that race.
 
    The two component rules that own the state:
      second-brain.component.css  .index-item.active / :hover / :focus-within
@@ -917,7 +1009,8 @@
    1. `0 14px 28px -6px rgba(28,27,26,0.15)` and `0 4px 10px -2px rgba(0,0,0,0.05)`
       are a warm near-black at 15% and a neutral black at 5%. Both are *cast*
       shadows: they assume the page is bright enough that a 5-15% darkening is
-      the visible part. On #15181F they measure 0 to -1 luminance — invisible.
+      the visible part. On the old dark ground they measured 0 to -1 luminance —
+      invisible. (Still true on the new #0d0e11, which is darker still.)
 
    2. `0 0 16px -2px var(--color-accent-faint)` is the warm CLAY halo. The token
       flips with the theme, so a DARK halo on a bright ground becomes a LIGHT halo
@@ -955,8 +1048,9 @@
       is lighter than its hover.
    2. --color-primary is the dim green ink here, so the active icon went green
       while every other selected state in the app is white-on-raised.
-   #323A48 is the same raised tone the dock uses, so "raised on dark" is one value
-   app-wide. The component rule (`.toggle-opt.active`) reads both tokens. */
+   `--control-active-fill` is the same raised tone the dock uses, so "raised on
+   dark" is one value app-wide. The component rule (`.toggle-opt.active`) reads
+   both tokens. */
 
 /* ------------------------------
    THE VIEW TOGGLE (segmented control)
@@ -1049,7 +1143,7 @@
    quote. It is one rule, it targets one component, and it cannot be reached by a
    token without costing more clarity than it buys. Documented, not token-ised. */
 :root[data-theme='dark'] .sort-select {
-  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23949CA9%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
+  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%238b909f%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
 }
 
 :root {
@@ -1357,9 +1451,9 @@ input[type='file']::file-selector-button:hover {
    SELECTION
 ------------------------------ */
 /* The browser's own text highlight, not the app's row selection.
-   `--text-selection-bg` is `--primary-fill` on light and smoked indigo on dark,
+   `--text-selection-bg` is `--primary-fill` on light and a cool slate on dark,
    so one rule covers both themes — the separate dark override that used to
-   hardcode #3A4556 is gone. */
+   hardcode that slate is gone. */
 ::selection {
   background: var(--text-selection-bg);
   color: var(--on-primary);

@@ -749,7 +749,8 @@ describe('ConceptMapComponent', () => {
       // Sigma reads a per-node colour ONLY when `labelColor.attribute` is set;
       // without it every per-node labelColor the component writes is dead and
       // the label falls back to one static colour. On dark that colour is
-      // #C5C9D0, which measured 1.66:1 on Sigma's hardcoded #FFF hover box.
+      // #c4c7d0, which measured 1.66:1 on Sigma's hardcoded #FFF hover box. The
+      // label box now paints --graph-label-box, so the ink has a dark ground.
       const labelColor = settings['labelColor'] as { attribute?: string } | undefined;
       expect(
         labelColor?.attribute,

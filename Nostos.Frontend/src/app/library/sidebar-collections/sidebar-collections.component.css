@@ -80,7 +80,7 @@
 }
 /* The kit's wordmark colour is Ink, so this follows --color-text-main (ink in
    light, porcelain in dark, matching the hero lockup). Deliberately NOT
-   --color-primary: in dark that token is a desaturated pine (#8FA89A), which
+   --color-primary: in dark that token is a desaturated green (#8fbfae), which
    tints the wordmark green against the dark rail instead of reading neutral. */
 .brand-lockup__word {
   fill: var(--color-text-main);
@@ -512,7 +512,7 @@
     background: var(--bg-surface);
     /* The button sits on `--bg-surface`, so its glyph needs the foreground for
        that ground — NOT the accent. `--color-primary` is the ink role and
-       resolves to sage (#8FA89A) on dark, which reads as a green hamburger
+       resolves to green (#8fbfae) on dark, which reads as a green hamburger
        against the porcelain header (6.53:1) instead of the near-white the
        other header controls use (measured 14.37:1 dark / 17.20:1 light).
        Matches `.icon-btn`'s treatment on the same toolbar. */

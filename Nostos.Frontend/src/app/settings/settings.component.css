@@ -116,12 +116,12 @@
   left: 3px;
   bottom: 3px;
   /* The knob stays light in both themes: it sits on the track, not the page.
-     `--on-primary` is exactly right for it (#FFFFFF on light, #F0F2F5 on dark),
+     `--on-primary` is exactly right for it (#FFFFFF on light, #f0f1f4 on dark),
      which is also the on-fill role — the track IS a primary fill when checked.
      NOTE: a previous attempt in this change-set gave the knob its own token on the
      theory that the CTA token-isation had moved `--on-primary`. It had not: the
      settings problem was this component's own `.btn-primary` rule, fixed below.
-     The invented token silently changed the LIGHT knob from #FFFFFF to #F0F2F5 —
+     The invented token silently changed the LIGHT knob from #FFFFFF to #f0f1f4 —
      caught by the pixel diff, reverted. */
   background-color: var(--on-primary);
   border-radius: 50%;
