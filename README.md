@@ -82,12 +82,7 @@ Transform passive reading into active, connected understanding:
 </div>
 
 <div align="center">
-  <img
-    width="1356"
-    height="1284"
-    alt="Nostos Brain — interactive concept graph"
-    src="docs/screenshots/brain-graph.png"
-  />
+<img width="1900" height="910" alt="brain-graph_new" src="https://github.com/user-attachments/assets/14ea2d16-3668-47bf-9532-fce895f2bace" />
 </div>
 
 ---
