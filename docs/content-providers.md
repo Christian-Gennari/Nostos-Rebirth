@@ -294,6 +294,64 @@ and the library row is attached.
 - Declare capabilities honestly; the registry enforces the correspondence with
   the interfaces at startup.
 
+## Project Gutenberg (built-in provider)
+
+Registered as `gutenberg`. The first real provider, and the worked example of
+the contract above.
+
+**Protocol.** Gutenberg's machine-readable OPDS (Atom) feeds, not the
+human-facing website:
+
+- search — `https://www.gutenberg.org/ebooks/search.opds/?query=<escaped>`
+- detail — `https://www.gutenberg.org/ebooks/<id>.opds`
+- cover — `https://www.gutenberg.org/cache/epub/<id>/pg<id>.cover.medium.jpg`
+
+`start_index` is added only for a non-zero offset, and is 1-based where the
+provider's `Offset` is 0-based. Every request carries an identifying
+User-Agent. All OPDS/XML knowledge lives in `GutenbergCatalog` so a change to
+Gutenberg's protocol is a change to one file.
+
+**What the provider maps**
+
+- `ExternalId` — Gutenberg's numeric book id.
+- `Author` — inverted from catalogue order (`Austen, Jane` → `Jane Austen`),
+  with life dates stripped and suffixes kept (`King, Martin Luther, Jr.` →
+  `Martin Luther King, Jr.`). The detail feed lists the same person once per
+  entry, so names are de-duplicated *after* normalization — otherwise Pride and
+  Prejudice imports with an author of "Jane Austen, Jane Austen". The feed's own
+  `<author>Project Gutenberg</author>` is the catalogue, not an author, and is
+  never read.
+- `Language` — the `dcterms:language` code widened to a name (`en` →
+  `English`).
+- `Categories` — LCSH subjects only; the `DCMIType`/`LCC` classification codes
+  are not subjects and are dropped.
+- `Rights` — the feed's public-domain statement, quoted verbatim.
+- `Assets` — the three EPUB variants. `epub3-images` is marked preferred
+  (modern readers, images intact). MOBI/Kindle variants are deliberately *not*
+  exposed: Nostos has no reader for them, and offering an import the app cannot
+  open would be a false promise.
+- `Cover` — derived from the id, so search results carry a cover without a
+  per-item request.
+
+**Search and results.** The search feed carries only title, author and id;
+language, subjects, rights and formats come from the detail request made when a
+result is opened or planned. That keeps a search to a single request.
+
+**Safety.** The external id is validated as digits before any URL is built, so a
+client cannot steer the request path; a non-numeric id is rejected without a
+request being made at all. Cover and file downloads go through the host policy
+(`*.gutenberg.org`) and are proxied by Nostos, so the browser never contacts
+Gutenberg directly.
+
+**Failure behaviour.** A 404 on a detail feed returns "no such item" rather than
+an error. A response that is not a feed (an HTML error page, say) surfaces as
+`provider_response_invalid`. An asset the item does not offer surfaces as
+`provider_asset_unavailable`.
+
+**Etiquette.** OPDS feeds are small and cache-friendly; Nostos makes one request
+per search, one per detail, and downloads each asset once. There is no crawl,
+no bulk harvesting and no scheduled polling of the catalogue.
+
 ## Documented limitations
 
 - **In-memory job store.** A server restart forgets in-flight jobs; the UI sees
