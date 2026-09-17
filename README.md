@@ -179,6 +179,7 @@ The mark is deliberately theme-invariant across both light and dark study enviro
 
 * **[Design Manifesto](docs/design-manifesto.md):** The core principles and aesthetic guidelines of Nostos.
 * **[MCP Library Contracts](docs/library-mcp-contracts.md):** Specification for Model Context Protocol agents and tools.
+* **[Content Providers & Acquisition](docs/content-providers.md):** How external catalogues (Gutenberg, LibriVox) are imported as ordinary local books.
 * **[Backend Endpoints](Nostos.Backend/_docs/endpoints.md):** REST API reference.
 
 ### Active Roadmap
