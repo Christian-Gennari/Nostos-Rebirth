@@ -1,0 +1,83 @@
+import { Component, HostListener, input, output } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { LucideAngularModule, X, Search, Layers, Link2 } from 'lucide-angular';
+import { LinkableBookDto } from '../../core/dtos/book.dtos';
+
+/** One book in the current work, as the membership list needs it. */
+export interface WorkMember {
+  id: string;
+  title: string;
+  author: string | null;
+}
+
+/**
+ * The advanced work-membership surface: which books are editions of the same
+ * conceptual work, and the explicit override for when automatic grouping got it
+ * wrong.
+ *
+ * It is a modal rather than a panel in the details rail because the job needs
+ * room the rail does not have (a search field, a result list, per-candidate
+ * disambiguation) and because link/unlink restructure a relationship across
+ * books rather than editing this book's own fields. Keeping it out of the
+ * Edit Book form matters for a concrete reason: that form is a deferred save
+ * (`Save Changes` fires the one PUT, `Cancel` discards), while these mutations
+ * apply immediately — an unlink confirmed inside that form would survive a
+ * Cancel that the user believed undid everything.
+ *
+ * Presentation only: it owns no data and calls no service. The caller supplies
+ * the membership and candidate lists and handles the two intents, so all state
+ * and every mutation stay with the page that already owns them.
+ */
+@Component({
+  selector: 'app-editions-modal',
+  standalone: true,
+  imports: [CommonModule, FormsModule, LucideAngularModule],
+  templateUrl: './editions-modal.component.html',
+  styleUrl: './editions-modal.component.css',
+})
+export class EditionsModal {
+  isOpen = input.required<boolean>();
+
+  /** Every book in the current work, the current book included. */
+  members = input<WorkMember[]>([]);
+
+  /** Books that could be linked in, already deduplicated by work. */
+  candidates = input<LinkableBookDto[]>([]);
+
+  /** The book being viewed: named in the copy and marked in the list. */
+  currentBookId = input<string | null>(null);
+  bookTitle = input<string>('');
+
+  /** True while a membership mutation is in flight. */
+  busy = input<boolean>(false);
+
+  /** True while the candidate search is in flight. */
+  searching = input<boolean>(false);
+
+  /** The search text, owned by the caller so it survives a re-open. */
+  query = input<string>('');
+
+  close = output<void>();
+  linkRequest = output<LinkableBookDto>();
+  unlinkRequest = output<WorkMember>();
+  queryChange = output<string>();
+
+  XIcon = X;
+  SearchIcon = Search;
+  LayersIcon = Layers;
+  LinkIcon = Link2;
+
+  onBackdropClick(): void {
+    if (!this.busy()) this.close.emit();
+  }
+
+  onQueryInput(value: string): void {
+    this.queryChange.emit(value);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.isOpen() && !this.busy()) this.close.emit();
+  }
+}

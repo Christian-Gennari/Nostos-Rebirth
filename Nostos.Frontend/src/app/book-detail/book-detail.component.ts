@@ -9,23 +9,6 @@ import { BookDetailStore } from './book-detail.store';
 // DTOs
 import { Book, EditionSummaryDto, LinkableBookDto } from '../core/dtos/book.dtos';
 
-/** One book in the current work, as the management list needs it. */
-interface WorkMember {
-  id: string;
-  title: string;
-  author: string | null;
-}
-
-/**
- * A name for an edition that arrived without one. Defensive only: every server
- * response carries `title` now, but a cached/older payload must not render the
- * detach row as a blank line.
- */
-function getEditionTitleOrFallback(edition: EditionSummaryDto): string {
-  const format = edition.format?.trim().toUpperCase();
-  return format ? `Unknown title (${format})` : 'Unknown title';
-}
-
 /** A work-membership action awaiting confirmation. */
 interface PendingWorkAction {
   kind: 'link' | 'unlink';
@@ -37,6 +20,7 @@ interface PendingWorkAction {
 
 // UI Components
 import { AddBookModal } from '../add-book-modal/add-book-modal.component';
+import { EditionsModal, WorkMember } from './editions-modal/editions-modal.component';
 import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
@@ -58,7 +42,6 @@ import {
   CheckIcon,
   ChevronDown,
   ChevronUp,
-  ChevronRight,
   Hash,
   Layers,
   Building,
@@ -85,6 +68,7 @@ import {
     RouterLink,
     LucideAngularModule,
     AddBookModal,
+    EditionsModal,
     ConfirmModal,
     ConceptInputComponent,
     NoteCardComponent,
@@ -119,7 +103,6 @@ export class BookDetail implements OnInit {
   CheckIcon = CheckIcon;
   ChevronDownIcon = ChevronDown;
   ChevronUpIcon = ChevronUp;
-  ChevronRightIcon = ChevronRight;
   HashIcon = Hash;
   LayersIcon = Layers;
   BuildingIcon = Building;
@@ -222,6 +205,15 @@ export class BookDetail implements OnInit {
     if (this.statusDropdownOpen()) {
       this.statusDropdownOpen.set(false);
     }
+    if (this.editMenuOpen()) {
+      this.editMenuOpen.set(false);
+    }
+  }
+
+  /** The Edit chooser: it holds every Book Details action that is not reading. */
+  toggleEditMenu(event: Event): void {
+    event.stopPropagation();
+    this.editMenuOpen.update((open) => !open);
   }
 
   ngOnInit(): void {
@@ -296,11 +288,25 @@ export class BookDetail implements OnInit {
   }
 
   // --- MANUAL WORK MEMBERSHIP (issue #143) ---
-  // Secondary/advanced surface: collapsed by default, and it never replaces the
-  // edition selector's own switch/read behaviour.
+  // The surface itself is a modal (EditionsModal); this component owns the state
+  // and the mutations, keeping work membership out of the Edit Book form, whose
+  // Save/Cancel contract cannot express an immediate relationship change.
 
-  /** Whether the advanced management block is expanded. */
-  readonly manageOpen = signal(false);
+  /** Whether the editions & works modal is up. */
+  readonly showEditionsModal = signal(false);
+
+  /** Whether the hero Edit chooser is open. */
+  readonly editMenuOpen = signal(false);
+
+  /**
+   * A name for an edition that arrived without one. Defensive only: every server
+   * response carries `title` now, but a cached/older payload must not render the
+   * detach row as a blank line.
+   */
+  private getEditionTitleOrFallback(edition: EditionSummaryDto): string {
+    const format = edition.format?.trim().toUpperCase();
+    return format ? `Unknown title (${format})` : 'Unknown title';
+  }
 
   /** Search text for the "link another book" picker. */
   readonly linkQuery = signal('');
@@ -323,7 +329,7 @@ export class BookDetail implements OnInit {
     };
     const others = (book.otherEditions ?? []).map<WorkMember>((edition) => ({
       id: edition.id,
-      title: edition.title?.trim() || getEditionTitleOrFallback(edition),
+      title: edition.title?.trim() || this.getEditionTitleOrFallback(edition),
       author: edition.author ?? null,
     }));
     return [current, ...others];
@@ -331,12 +337,18 @@ export class BookDetail implements OnInit {
 
   readonly linkCandidates = computed(() => this.store.linkCandidates());
 
-  toggleManage(): void {
-    const open = !this.manageOpen();
-    this.manageOpen.set(open);
-    // Candidates are only fetched when the picker is actually opened, so a
-    // book-detail visit never costs a library query it does not need.
-    if (open) this.store.loadLinkCandidates(this.linkQuery());
+  /** Open the membership modal, loading candidates for the picker. */
+  openEditions(): void {
+    this.editMenuOpen.set(false);
+    this.showEditionsModal.set(true);
+    // Candidates are fetched on open, so a book-detail visit never costs a
+    // library query it does not need.
+    this.store.loadLinkCandidates(this.linkQuery());
+  }
+
+  closeEditions(): void {
+    if (this.store.linkingWork()) return;
+    this.showEditionsModal.set(false);
   }
 
   onLinkQueryChange(query: string): void {
@@ -552,6 +564,8 @@ export class BookDetail implements OnInit {
     this.isDescriptionExpanded.update((v) => !v);
   }
   openMetadataModal() {
+    // Opened from the chooser, so the chooser closes behind it.
+    this.editMenuOpen.set(false);
     if (this.store.book()) this.showMetadataModal.set(true);
   }
   closeMetadataModal() {

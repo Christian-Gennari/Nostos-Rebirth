@@ -230,14 +230,43 @@
             </button>
             }
 
-            <button
-              class="btn btn-secondary pill-btn edit-metadata-btn"
-              (click)="openMetadataModal()"
-              title="Edit Metadata"
-            >
-              <lucide-icon [img]="Edit2Icon" [size]="16"></lucide-icon>
-              <span>Edit</span>
-            </button>
+            <div class="edit-menu-container">
+              <button
+                class="btn btn-secondary pill-btn edit-metadata-btn"
+                (click)="toggleEditMenu($event)"
+                title="Edit"
+                aria-haspopup="menu"
+                [attr.aria-expanded]="editMenuOpen()"
+              >
+                <lucide-icon [img]="Edit2Icon" [size]="16"></lucide-icon>
+                <span>Edit</span>
+                <lucide-icon [img]="ChevronDownIcon" [size]="12" class="edit-menu-chevron"></lucide-icon>
+              </button>
+
+              <!-- The single Book Details entry point, which is also the only one
+                   a lone book gets: a book alone in its work has no editions card
+                   to host a management action, and that book is exactly the one
+                   that needs linking. -->
+              @if (editMenuOpen()) {
+              <div class="edit-menu" role="menu" (click)="$event.stopPropagation()">
+                <button type="button" class="edit-menu-item" role="menuitem" (click)="openMetadataModal()">
+                  <lucide-icon [img]="Edit2Icon" [size]="14"></lucide-icon>
+                  <span class="edit-menu-item-text">
+                    <span class="edit-menu-item-label">Book details</span>
+                    <span class="edit-menu-item-hint">Title, author, cover, collections</span>
+                  </span>
+                </button>
+
+                <button type="button" class="edit-menu-item" role="menuitem" (click)="openEditions()">
+                  <lucide-icon [img]="LayersIcon" [size]="14"></lucide-icon>
+                  <span class="edit-menu-item-text">
+                    <span class="edit-menu-item-label">Editions &amp; works</span>
+                    <span class="edit-menu-item-hint">Group or split this book's editions</span>
+                  </span>
+                </button>
+              </div>
+              }
+            </div>
 
             <input
               type="file"
@@ -515,122 +544,26 @@
               </li>
               }
             </ul>
+
+            <!-- The in-context entry to managing this work, as a FOOTER action
+                 below the rows and behind a divider. Placed after the list, not
+                 before it: as the first element in the stack it wore the same
+                 surface, border and radius as an edition row and read as item
+                 #1, which also made the "2" count look wrong against three
+                 bordered boxes (both defects caught in vision review). -->
+            <button type="button" class="edition-section-action" (click)="openEditions()">
+              <lucide-icon [img]="LayersIcon" [size]="13"></lucide-icon>
+              <span>Manage editions</span>
+            </button>
           </section>
           }
 
-          <!-- Advanced work-membership management (issue #143).
-               A SEPARATE rail element, deliberately, and not part of the
-               Available Formats & Editions block above: a book that is alone in
-               its work still needs a way to be LINKED to another one, and that
-               block is (correctly) absent for exactly those books. Collapsed, so
-               the ordinary reading flow is unchanged. -->
-          <div class="edition-manage-card">
-            <button
-              type="button"
-              class="edition-manage-toggle"
-              [attr.aria-expanded]="manageOpen()"
-              aria-controls="edition-manage-body"
-              (click)="toggleManage()"
-            >
-              <lucide-icon
-                [img]="manageOpen() ? ChevronDownIcon : ChevronRightIcon"
-                [size]="13"
-              ></lucide-icon>
-              <span>Manage editions</span>
-            </button>
-
-            @if (manageOpen()) {
-            <div class="edition-manage-body" id="edition-manage-body">
-              <p class="edition-manage-hint">
-                Nostos groups formats and editions of the same book automatically. Correct it
-                here when a grouping is wrong.
-              </p>
-
-              <!-- Current membership: every book in this work. Each of them can
-                   be split out into its own work. -->
-              <ul class="manage-members">
-                @for (member of workMembers(); track member.id) {
-                <li class="manage-member" [class.is-current]="member.id === store.book()?.id">
-                  <span class="manage-member-text">
-                    <span class="manage-member-title">{{ member.title }}</span>
-                    <span class="manage-member-author">{{ member.author || 'Unknown author' }}</span>
-                    <!-- The flag is a THIRD line inside the text column, not a
-                         sibling of the title: beside it, it stole width from the
-                         title and ellipsised it at mobile width (a title is
-                         unreadable truncated, and there is no hover on touch). -->
-                    @if (member.id === store.book()?.id) {
-                    <span class="manage-member-flag">This book</span>
-                    }
-                  </span>
-                  @if (member.id !== store.book()?.id) {
-                  <button
-                    type="button"
-                    class="manage-member-action"
-                    [disabled]="store.linkingWork()"
-                    (click)="askUnlink(member)"
-                  >
-                    Unlink
-                  </button>
-                  }
-                </li>
-                }
-              </ul>
-
-              <!-- Link another library book into this work, including one whose
-                   metadata does not match — that is the whole point. -->
-              <div class="manage-link">
-                <label class="manage-link-label" for="edition-link-search">
-                  Link another book to this work
-                </label>
-                <input
-                  id="edition-link-search"
-                  type="search"
-                  class="manage-link-search"
-                  placeholder="Search your library…"
-                  [ngModel]="linkQuery()"
-                  (ngModelChange)="onLinkQueryChange($event)"
-                />
-
-                @if (store.candidatesLoading()) {
-                <p class="manage-link-empty">Searching…</p>
-                } @else if (linkCandidates().length === 0) {
-                <p class="manage-link-empty">
-                  {{ linkQuery() ? 'No matching books to link.' : 'No other books to link.' }}
-                </p>
-                } @else {
-                <ul class="manage-link-list">
-                  @for (candidate of linkCandidates(); track candidate.id) {
-                  <li>
-                    <button
-                      type="button"
-                      class="manage-link-candidate"
-                      [disabled]="store.linkingWork()"
-                      (click)="askLink(candidate)"
-                    >
-                      <span class="manage-link-candidate-text">
-                        <span class="manage-member-title">{{ candidate.title }}</span>
-                        @if (candidate.author) {
-                        <span class="manage-member-author">{{ candidate.author }}</span>
-                        }
-                      </span>
-                      @if ((candidate.editionCount || 1) > 1) {
-                      <span class="manage-link-group-flag">
-                        {{ candidate.editionCount }} editions
-                      </span>
-                      }
-                      <!-- The row is the click target; this label only makes it
-                           read as one, mirroring the Unlink button on a member
-                           row. -->
-                      <span class="manage-link-candidate-action">Link</span>
-                    </button>
-                  </li>
-                  }
-                </ul>
-                }
-              </div>
-            </div>
-            }
-          </div>
+          <!-- Work membership is managed in a modal, not here: it needs a search
+               field and a result list the rail has no room for, and it
+               restructures a relationship between books rather than editing
+               this one. Entry points below (Multi-edition books get one on the
+               editions card; every book, including a lone one, gets one through
+               Edit Book). -->
         </aside>
       </div>
     </div>
@@ -726,4 +659,22 @@
     (deleteBook)="openDeleteConfirm()"
   >
   </app-add-book-modal>
+
+  <!-- The membership surface sits ABOVE the confirm modal in the DOM but below
+       it in z-index, so a link/unlink question always stacks on top of it while
+       Edit Book and the editions modal can never both be up at once. -->
+  <app-editions-modal
+    [isOpen]="showEditionsModal()"
+    [members]="workMembers()"
+    [candidates]="linkCandidates()"
+    [currentBookId]="store.book()?.id ?? null"
+    [bookTitle]="store.book()?.title ?? ''"
+    [busy]="store.linkingWork()"
+    [searching]="store.candidatesLoading()"
+    [query]="linkQuery()"
+    (close)="closeEditions()"
+    (queryChange)="onLinkQueryChange($event)"
+    (linkRequest)="askLink($event)"
+    (unlinkRequest)="askUnlink($event)"
+  ></app-editions-modal>
 </main>

@@ -901,6 +901,127 @@ button.edition-select-card:focus-visible {
   transform: rotate(180deg);
 }
 
+/* ── Editions card: the entry to managing this work ───────────────────────
+   A footer action BELOW the rows, behind a divider, and centred so it cannot be
+   mistaken for another edition row (as the first item in the stack it shared the
+   rows' surface, border and radius and read as item #1). */
+.edition-section-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
+  min-height: var(--control-h-touch);
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  /* The divider is a border on a transparent control, so it reads as a separator
+     between the rows and the action rather than as another bordered card. */
+  border: none;
+  border-top: 1px solid var(--border-color);
+  background: none;
+  color: var(--color-text-muted);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.78rem;
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  transition: color 0.12s ease;
+}
+
+.edition-section-action:hover {
+  color: var(--color-text-main);
+}
+
+.edition-section-action:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* The Edit chooser. It exists because 'metadata' is no longer the whole story —
+   the Edit Book form already carries collections, files and personal notes — and
+   because a book alone in its work has no editions card to host an entry point. */
+.edit-menu-container {
+  position: relative;
+}
+
+.edit-menu-chevron {
+  margin-left: 0.1rem;
+  opacity: 0.7;
+}
+
+.edit-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  min-width: 232px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 10px);
+  /* Follows the same recipe as the status dropdown in this file: the token with
+     no literal fallback, so no colour outside the token graph is introduced. */
+  box-shadow: var(--shadow-glass-lg);
+  animation: fadeIn 0.15s ease;
+}
+
+.edit-menu-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: var(--control-h-touch);
+  padding: 0.45rem 0.6rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-main);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+/* A hairline between the two choices: they are different kinds of edit (this
+   book's own fields vs the relationship between books), and measured, the
+   entries otherwise sat 2px apart and read as one block. */
+.edit-menu-item + .edit-menu-item {
+  border-top: 1px solid var(--border-color);
+  border-radius: 0 0 6px 6px;
+}
+
+.edit-menu-item:hover {
+  background: var(--bg-hover);
+}
+
+.edit-menu-item:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.edit-menu-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.edit-menu-item-label {
+  font-size: 0.82rem;
+  font-weight: var(--fw-medium);
+}
+
+/* The hint is what makes the chooser self-explanatory: 'Editions & works' alone
+   does not tell you it is where a wrong grouping gets fixed. */
+.edit-menu-item-hint {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--color-text-muted);
+}
+
 /* Status dropdown menu */
 .status-dropdown-menu {
   position: absolute;
@@ -947,248 +1068,6 @@ button.edition-select-card:focus-visible {
   background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   color: var(--color-primary);
   font-weight: 600;
-}
-
-/* ── Advanced work membership (issue #143) ────────────────────────────────
-   Secondary by construction: a plain text disclosure button with no card of
-   its own at rest, so it reads as a footnote to the Details card rather than as
-   another panel competing with the editions selector above it. It has to exist
-   for single-edition books too (that is how a group gets made), which is why it
-   is a separate element rather than living inside `.edition-section`. */
-.edition-manage-card {
-  margin-top: -0.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.edition-manage-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--color-text-light);
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.78rem;
-  cursor: pointer;
-  transition: color 0.15s ease;
-}
-
-.edition-manage-toggle:hover {
-  color: var(--color-text-main);
-}
-
-.edition-manage-toggle:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
-}
-
-/* The body is a small panel of its own: once opened it is a distinct act, so it
-   gets the surface and hairline that make it read as one. */
-.edition-manage-body {
-  margin-top: 0.75rem;
-  padding: 0.9rem;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  background: var(--bg-surface);
-}
-
-.edition-manage-hint {
-  margin: 0 0 0.75rem;
-  font-size: 0.75rem;
-  line-height: 1.45;
-  /* `--color-text-muted`, not `--color-text-light`: measured on the white panel
-     `--light` gives 3.62:1, below AA for 12px text. The same fix applies to the
-     author line, the "This book" flag and the picker label below — the hierarchy
-     is carried by size and weight, not by failing contrast. */
-  color: var(--color-text-muted);
-}
-
-.manage-members,
-.manage-link-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.manage-member,
-.manage-link-candidate {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  min-height: 34px;
-  padding: 0.35rem 0.5rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
-  color: var(--color-text-muted);
-  text-align: left;
-  font: inherit;
-  font-size: 0.8rem;
-}
-
-.manage-link-candidate {
-  cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
-}
-
-.manage-link-candidate:hover:not(:disabled) {
-  background: var(--bg-hover);
-  border-color: var(--color-primary-dim);
-  color: var(--color-text-main);
-}
-
-.manage-link-candidate:focus-visible,
-.manage-member-action:focus-visible,
-.manage-link-search:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: -2px;
-}
-
-.manage-link-candidate:disabled,
-.manage-member-action:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-/* An explicit action label on the candidate row, mirroring the Unlink button
-   on a member row. Without it the row is a button that reads as static text:
-   the vision review flagged it twice, and the only other cue was a hover
-   state, which does not exist on touch. */
-.manage-link-candidate-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  min-height: var(--control-h-touch);
-  padding: 0 0.7rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  color: var(--color-text-muted);
-  font-family: inherit;
-  font-size: 0.75rem;
-}
-
-/* The row for the book you are on: it is context, not an action, so it stays
-   quiet and loses its hover ground entirely. */
-.manage-member.is-current {
-  color: var(--color-text-main);
-}
-
-.manage-member-text,
-.manage-link-candidate-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  flex: 1;
-  gap: 1px;
-}
-
-.manage-member-title {
-  font-size: 0.8rem;
-  font-weight: var(--fw-medium);
-  color: inherit;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.manage-member-author {
-  font-size: 0.72rem;
-  color: var(--color-text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.manage-member-flag {
-  margin-top: 1px;
-  font-size: 0.66rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-text-muted);
-}
-
-/* Sits at the row's inline end and keeps a real touch target: at 24px it was
-   under the ~44px minimum and the only control in the panel, so a mis-tap
-   silently did nothing instead of opening the confirmation. */
-.manage-member-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  min-height: var(--control-h-touch);
-  padding: 0 0.7rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  color: var(--color-text-muted);
-  font-family: inherit;
-  font-size: 0.75rem;
-  cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
-}
-
-.manage-member-action:hover:not(:disabled) {
-  background: var(--bg-hover);
-  border-color: var(--color-primary-dim);
-  color: var(--color-text-main);
-}
-
-.manage-link {
-  margin-top: 0.9rem;
-  padding-top: 0.9rem;
-  border-top: 1px solid var(--border-color);
-}
-
-.manage-link-label {
-  display: block;
-  margin-bottom: 0.4rem;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-text-muted);
-}
-
-.manage-link-search {
-  width: 100%;
-  min-height: 34px;
-  padding: 0 0.6rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-input);
-  color: var(--color-text-main);
-  font-family: inherit;
-  font-size: 0.8rem;
-}
-
-.manage-link-search:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: -2px;
-}
-
-.manage-link-list {
-  margin-top: 0.4rem;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.manage-link-group-flag {
-  flex-shrink: 0;
-  font-size: 0.68rem;
-  color: var(--color-text-muted);
-}
-
-.manage-link-empty {
-  margin: 0.5rem 0 0;
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
 }
 
 .reset-confirm-backdrop {

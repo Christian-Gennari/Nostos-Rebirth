@@ -1,0 +1,433 @@
+/* Nostos editions & works surface — Nordic Editorial.
+   Same paper-card recipe as the confirmation and Edit Book surfaces: hairline
+   border, small radius, no glassmorphism. Authored here rather than reusing
+   `.confirm-modal-card` because this one is a two-column working area (a wider
+   `max-width`, an internally scrolling body) that shares the recipe, not the
+   geometry. */
+
+:host {
+  display: contents;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: var(--modal-scrim);
+  backdrop-filter: blur(var(--modal-scrim-blur));
+  -webkit-backdrop-filter: blur(var(--modal-scrim-blur));
+  animation: backdropFade var(--motion-base, 220ms) ease-out both;
+  overscroll-behavior: contain;
+}
+
+@keyframes backdropFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.editions-modal-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 560px;
+  /* Never taller than the viewport: the body scrolls, the header stays put. */
+  max-height: min(640px, calc(100vh - 2.5rem));
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 6px);
+  /* The app's large elevation token, not a hand-written rgba pair: it carries a
+     light and a dark value, so the card follows the theme. */
+  box-shadow: var(--shadow-glass-lg);
+  /* `both` so the first painted frame already sits at the `from` values —
+     otherwise the card flashes at full opacity before the entrance starts. */
+  animation: cardEnter var(--motion-base, 220ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both;
+}
+
+@keyframes cardEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.editions-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1.15rem 1.25rem 0.9rem;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.editions-modal-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.editions-modal-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm, 3px);
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-color);
+  color: var(--color-text-muted);
+}
+
+.editions-modal-heading-text {
+  min-width: 0;
+}
+
+.editions-modal-title {
+  margin: 0;
+  font-family: 'Newsreader', serif;
+  font-size: 1.15rem;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--color-text-main);
+}
+
+.editions-modal-subtitle {
+  margin: 0.1rem 0 0;
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editions-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-touch);
+  height: var(--control-h-touch);
+  flex-shrink: 0;
+  /* Pulled tight so the 44px target does not push the header taller. */
+  margin: -0.5rem -0.35rem 0 0;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm, 3px);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--motion-fast, 160ms) ease, background-color var(--motion-fast, 160ms) ease;
+}
+
+.editions-modal-close:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.editions-modal-close:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.editions-modal-close:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editions-modal-body {
+  padding: 0.95rem 1.25rem 1.25rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.editions-modal-hint {
+  margin: 0 0 1rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.editions-modal-section + .manage-link {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.editions-modal-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.7rem;
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.editions-modal-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-color);
+  font-size: 0.66rem;
+  letter-spacing: 0;
+  color: var(--color-text-muted);
+}
+
+/* --- Rows -------------------------------------------------------------- */
+
+.manage-members,
+.manage-link-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.manage-member,
+.manage-link-candidate {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  /* A row with the unlink action sizes to that control, so a row without one
+     matches it instead of collapsing shorter (measured 62px vs 57px). */
+  min-height: var(--control-h-touch);
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--color-text-muted);
+  text-align: left;
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.manage-link-candidate {
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.manage-link-candidate:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--color-primary-dim);
+  color: var(--color-text-main);
+}
+
+.manage-link-candidate:focus-visible,
+.manage-member-action:focus-visible,
+.manage-link-search:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.manage-link-candidate:disabled,
+.manage-member-action:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* An explicit action label on the candidate row, mirroring the Unlink button on
+   a member row. Without it the row is a button that reads as static text: the
+   vision review flagged it twice, and the only other cue was a hover state,
+   which does not exist on touch. */
+.manage-link-candidate-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  min-height: var(--control-h-touch);
+  padding: 0 0.7rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 0.75rem;
+}
+
+/* The row for the book you are on: it is context, not an action, so it stays
+   quiet and loses its hover ground entirely. */
+.manage-member.is-current {
+  color: var(--color-text-main);
+}
+
+.manage-member-text,
+.manage-link-candidate-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  gap: 1px;
+}
+
+.manage-member-title {
+  font-size: 0.8rem;
+  font-weight: var(--fw-medium);
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manage-member-author {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manage-member-flag {
+  margin-top: 1px;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+/* A real touch target, not a 24px glyph: this is the control that detaches the
+   wrong edition if it is mis-tapped. */
+.manage-member-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-height: var(--control-h-touch);
+  padding: 0 0.7rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.manage-member-action:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--color-primary-dim);
+  color: var(--color-text-main);
+}
+
+/* --- Link picker ------------------------------------------------------- */
+
+.manage-link-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.manage-link-field-icon {
+  position: absolute;
+  left: 0.6rem;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.manage-link-search {
+  width: 100%;
+  min-height: var(--control-h-touch);
+  padding: 0 0.6rem 0 2rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  color: var(--color-text-main);
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.manage-link-search:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.manage-link-list {
+  margin-top: 0.5rem;
+  /* Deliberately NOT height-capped or independently scrollable. The modal body is
+     the single scroll container: a capped list nested inside a scrolling body
+     gives two scroll areas, and the inner one can end flush against the card edge
+     with no hint that it continues. Measured on a 20-result library: the list was
+     1189px of content in a 240px box inside a body that also scrolled. */
+}
+
+.manage-link-group-flag {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+}
+
+.manage-link-empty {
+  margin: 0.6rem 0 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 480px) {
+  .modal-backdrop {
+    padding: 0.75rem;
+    align-items: flex-end;
+  }
+
+  .editions-modal-card {
+    max-height: calc(100vh - 1.5rem);
+  }
+
+  .editions-modal-head {
+    padding: 1rem 1rem 0.8rem;
+  }
+
+  .editions-modal-body {
+    padding: 0.85rem 1rem 1rem;
+  }
+
+  /* The action label would squeeze the title to nothing on a 390px screen, and
+     the row is a button anyway — the label drops to its icon. */
+  .manage-link-candidate-action {
+    padding: 0 0.55rem;
+    font-size: 0;
+    gap: 0;
+  }
+}
+
+/* Authored here, beside the transitions it must switch off: a
+   prefers-reduced-motion block in a parent stylesheet cannot reach a component
+   stylesheet. The card's `from` values are opacity/transform, so killing the
+   animation alone would leave it invisible — pin the settled state explicitly. */
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop {
+    animation: none;
+  }
+
+  .editions-modal-card {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
