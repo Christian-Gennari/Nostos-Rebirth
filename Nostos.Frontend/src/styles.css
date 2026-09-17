@@ -428,8 +428,26 @@
 .bloom-art {
   opacity: 0;
 }
+/* `backwards`, NOT `both`. The art must be held at the keyframes' `from` state
+   until the animation starts — but it must not be pinned to their `to` state
+   afterwards. With `both`, the animation stays applied for the element's whole
+   life, and a finished animation with an active filter is not free: it keeps
+   `.cover-image` on its own composited layer, whose right edge snaps to a device
+   pixel. On grids whose column width lands on a specific fraction (e.g. the
+   195.2px columns a 1920x1080 desktop gets from `minmax(180px, 1fr)`) that snap
+   lands a whole device pixel short of the frame, and one column of
+   `--surface-image-ground` shows through between the artwork and the frame's
+   hairline border — a bright seam down the right edge of every card on the
+   second row on. `backwards` fills only before the delay (there is none here),
+   so the resting element is a plain image again and paints edge to edge.
+   The resting values that `to` used to keep are declared here instead, which
+   also means the animatable `opacity` no longer ends as style from a finished
+   animation. `.bloom-art.is-bloomed` (0,2,0) outranks `.bloom-art` (0,1,0), so
+   this `opacity: 1` is what a loaded image rests at and the pre-load `opacity: 0`
+   still holds for every image that has not fired `load`/`error` yet. */
 .bloom-art.is-bloomed {
-  animation: bloom-in var(--motion-bloom) var(--ease-out) both;
+  animation: bloom-in var(--motion-bloom) var(--ease-out) backwards;
+  opacity: 1;
 }
 
 /* One hero image can afford a filter animation; twelve grid covers decoding at
