@@ -134,12 +134,12 @@ describe('Book Details — long review collapse (issue #159)', () => {
   let fixture: ComponentFixture<BookDetail>;
   let httpMock: HttpTestingController;
 
-  async function setup(review: string | null): Promise<void> {
+  async function setup(review: string | null, description: string | null = null): Promise<void> {
     fixture = TestBed.createComponent(BookDetail);
     await fixture.whenStable();
     fixture.detectChanges();
 
-    httpMock.expectOne('/api/books/b1').flush({ ...book, personalReview: review });
+    httpMock.expectOne('/api/books/b1').flush({ ...book, personalReview: review, description });
     httpMock.expectOne('/api/books/b1/notes').flush([]);
     httpMock.expectOne('/api/collections').flush([]);
     httpMock.match('/api/concepts').forEach((r) => r.flush([]));
@@ -208,7 +208,7 @@ describe('Book Details — long review collapse (issue #159)', () => {
     await setup(LONG_REVIEW);
 
     expect(bodyEl()?.classList.contains('clamped')).toBe(true);
-    expect(toggleEl()?.textContent).toContain('Show More');
+    expect(toggleEl()?.textContent).toContain('Read full review');
     expect(fadeEl()).toBeTruthy();
   });
 
@@ -232,7 +232,7 @@ describe('Book Details — long review collapse (issue #159)', () => {
     fixture.detectChanges();
     expect(bodyEl()?.classList.contains('clamped')).toBe(false);
     expect(toggleEl()?.getAttribute('aria-expanded')).toBe('true');
-    expect(toggleEl()?.textContent).toContain('Show Less');
+    expect(toggleEl()?.textContent).toContain('Show less');
     expect(fadeEl()).toBeNull();
 
     // Collapse again, in place — no navigation, no reload.
@@ -273,7 +273,7 @@ describe('Book Details — long review collapse (issue #159)', () => {
     fixture.detectChanges();
 
     expect(bodyEl()?.classList.contains('clamped')).toBe(true);
-    expect(toggleEl()?.textContent).toContain('Show More');
+    expect(toggleEl()?.textContent).toContain('Read full review');
   });
 
   it('needs no control at all when the book has no review', async () => {
@@ -282,5 +282,127 @@ describe('Book Details — long review collapse (issue #159)', () => {
 
     expect(reviewEl()).toBeNull();
     expect(toggleEl()).toBeNull();
+  });
+});
+
+describe('Book Details — coordinated disclosure affordance (#159 follow-up)', () => {
+  let fixture: ComponentFixture<BookDetail>;
+  let httpMock: HttpTestingController;
+
+  async function setup(review: string | null, description: string | null): Promise<void> {
+    fixture = TestBed.createComponent(BookDetail);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    httpMock.expectOne('/api/books/b1').flush({ ...book, personalReview: review, description });
+    httpMock.expectOne('/api/books/b1/notes').flush([]);
+    httpMock.expectOne('/api/collections').flush([]);
+    httpMock.match('/api/concepts').forEach((r) => r.flush([]));
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  const allToggles = (): HTMLButtonElement[] =>
+    Array.from(fixture.nativeElement.querySelectorAll('.expand-btn')) as HTMLButtonElement[];
+
+  beforeEach(async () => {
+    renderedLines = 4;
+    columnWidth = 718;
+    installLayoutStubs();
+    await TestBed.configureTestingModule({
+      imports: [BookDetail],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: ActivatedRoute,
+          useValue: { paramMap: of(convertToParamMap({ id: book.id })) },
+        },
+      ],
+    }).compileComponents();
+
+    httpMock = TestBed.inject(HttpTestingController);
+    TestBed.inject(ToastService);
+  });
+
+  afterEach(() => {
+    httpMock.match('/api/concepts').forEach((r) => r.flush([]));
+    httpMock.verify();
+    restoreLayoutStubs();
+  });
+
+  it('gives both collapsible blocks the same control, told apart by their labels', async () => {
+    // Both blocks collapse at once, which is the state the user objected to:
+    // two identical buttons stacked in one card.
+    renderedLines = REVIEW_COLLAPSE_LINES + 20;
+    await setup(LONG_REVIEW, LONG_REVIEW);
+
+    const toggles = allToggles();
+    expect(toggles.length).toBe(2);
+
+    // Same affordance — one shared class, not two components that each
+    // invented their own disclosure control.
+    for (const t of toggles) {
+      expect(t.classList.contains('expand-btn')).toBe(true);
+    }
+
+    // Told apart by what they reveal rather than by two generic labels.
+    const [reviewToggle, synopsisToggle] = toggles;
+    expect(reviewToggle.textContent).toContain('Read full review');
+    expect(synopsisToggle.textContent).toContain('Read full synopsis');
+
+    // Neither falls back to a bare generic verb.
+    for (const t of toggles) {
+      const label = (t.textContent || '').trim();
+      expect(label).not.toBe('Read More');
+      expect(label).not.toBe('Show More');
+    }
+
+    // Both expose their state AND the element they control. The synopsis
+    // control previously had neither attribute, so it announced nothing.
+    for (const t of toggles) {
+      expect(['true', 'false']).toContain(t.getAttribute('aria-expanded'));
+      const controlled = t.getAttribute('aria-controls');
+      expect(controlled).toBeTruthy();
+      expect(fixture.nativeElement.querySelector(`#${controlled}`)).toBeTruthy();
+    }
+  });
+
+  it('rotates one chevron glyph instead of swapping two different glyphs', async () => {
+    renderedLines = REVIEW_COLLAPSE_LINES + 20;
+    await setup(LONG_REVIEW, null);
+
+    const iconBefore = allToggles()[0].querySelector('.icon') as HTMLElement;
+    expect(iconBefore.textContent?.trim()).toBe('↓');
+    expect(iconBefore.classList.contains('rotated')).toBe(false);
+    // Decorative: the label already says what happens.
+    expect(iconBefore.getAttribute('aria-hidden')).toBe('true');
+
+    allToggles()[0].click();
+    fixture.detectChanges();
+
+    const iconAfter = allToggles()[0].querySelector('.icon') as HTMLElement;
+    expect(iconAfter.classList.contains('rotated')).toBe(true);
+    // The glyph itself never changes — only its rotation, so it reads as one
+    // control changing state rather than two different controls.
+    expect(iconAfter.textContent?.trim()).toBe('↓');
+  });
+
+  it('keeps the two blocks independently expandable', async () => {
+    renderedLines = REVIEW_COLLAPSE_LINES + 20;
+    await setup(LONG_REVIEW, LONG_REVIEW);
+
+    const [reviewToggle, synopsisToggle] = allToggles();
+    reviewToggle.click();
+    fixture.detectChanges();
+
+    // Opening the review must not touch the synopsis: a reader cross-references
+    // the premise against their own notes, so neither may close the other.
+    expect(reviewToggle.getAttribute('aria-expanded')).toBe('true');
+    expect(synopsisToggle.getAttribute('aria-expanded')).toBe('false');
   });
 });

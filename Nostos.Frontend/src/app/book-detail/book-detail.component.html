@@ -309,8 +309,8 @@
                 aria-controls="personal-review-text"
                 (click)="toggleReview()"
               >
-                {{ isReviewExpanded() ? 'Show Less' : 'Show More' }}
-                <span class="icon">{{ isReviewExpanded() ? '↑' : '↓' }}</span>
+                {{ isReviewExpanded() ? 'Show less' : 'Read full review' }}
+                <span class="icon" [class.rotated]="isReviewExpanded()" aria-hidden="true">↓</span>
               </button>
               }
             </div>
@@ -319,7 +319,7 @@
             <div class="synopsis-content">
               <h4>Synopsis</h4>
               @if (store.book()?.description) {
-              <p class="description-text">{{ store.book()?.description }}</p>
+              <p id="synopsis-text" class="description-text">{{ store.book()?.description }}</p>
 
               @if (!isDescriptionExpanded()) {
               <div class="fade-overlay"></div>
@@ -329,9 +329,19 @@
             </div>
 
             @if (store.book()?.description) {
-            <button class="expand-btn" (click)="toggleDescription()">
-              {{ isDescriptionExpanded() ? 'Show Less' : 'Read More' }}
-              <span class="icon">{{ isDescriptionExpanded() ? '↑' : '↓' }}</span>
+            <!-- Same control and the same exposed state as the review toggle
+                 above: `aria-expanded` plus the id of the element it controls.
+                 The synopsis button previously carried neither, so it announced
+                 no state at all to assistive tech. -->
+            <button
+              type="button"
+              class="expand-btn"
+              [attr.aria-expanded]="isDescriptionExpanded()"
+              aria-controls="synopsis-text"
+              (click)="toggleDescription()"
+            >
+              {{ isDescriptionExpanded() ? 'Show less' : 'Read full synopsis' }}
+              <span class="icon" [class.rotated]="isDescriptionExpanded()" aria-hidden="true">↓</span>
             </button>
             }
           </div>

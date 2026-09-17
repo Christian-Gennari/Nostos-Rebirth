@@ -1268,42 +1268,31 @@ button.edition-select-card:focus-visible {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-/* A soft release instead of a hard cut, in the current Book Details language.
-   Mixed from `--bg-surface` (which the block itself sits on) so it re-inks with
-   the theme rather than pinning a light-mode white.
+/* A soft release instead of a hard cut, mixed from `--bg-surface` (which the
+   block itself sits on) so it re-inks with the theme rather than pinning a
+   light-mode white.
 
-   Kept deliberately SHORT and mostly transparent: `-webkit-line-clamp` ends the
-   preview exactly on a line boundary (12 x 25.6px = the 307px box), so no glyph
-   is ever sliced and there is no hard edge to hide — the fade only signals that
-   more text follows. A taller/stronger gradient was measured washing the whole
-   twelfth line out to the background (ink 37% -> 0.9% in one line), which reads
-   as a missing line rather than a soft release. The transparent stop holds the
-   last line readable and the ramp feathers only its bottom edge. */
+   Identical recipe to the synopsis fade below, deliberately: the two collapsible
+   blocks sit in the same card, and two different ramp heights (this one used to
+   be 24px against the synopsis's 40px) is exactly the kind of uncoordinated
+   detail that makes a page look assembled rather than designed.
+
+   The transparent stop sits at 25% rather than 0%: `-webkit-line-clamp` ends the
+   preview on a line boundary, so the final line must stay readable and only its
+   bottom edge should feather. A ramp starting at 0% was measured washing the
+   whole last line out to the background (ink 37% -> 0.9% in one line), which
+   reads as a missing line rather than a soft release. */
 .review-body.clamped .review-fade {
   position: absolute;
   inset-inline: 0;
   bottom: 0;
-  height: 1.5rem;
+  height: 2.5rem;
   background: linear-gradient(
     to bottom,
-    transparent 35%,
+    transparent 25%,
     var(--bg-surface) 100%
   );
   pointer-events: none;
-}
-/* The shared `.expand-btn` is centred against the synopsis block; the review's
-   control closes its own section, so it breathes a little more and sits above
-   the section divider. */
-.review-toggle {
-  margin-top: 1.25rem;
-}
-/* The issue asks for a keyboard-accessible control, and `styles.css` resets the
-   global `button { outline: 0 }` — so without this the control is reachable and
-   operable by keyboard but invisible while focused. Scoped to this control
-   rather than `.expand-btn` so the pre-existing synopsis button is untouched. */
-.review-toggle:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: 2px;
 }
 
 .description-text {
@@ -1327,8 +1316,11 @@ button.edition-select-card:focus-visible {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 40px;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), var(--bg-surface));
+  height: 2.5rem;
+  /* Same recipe as the review fade above, and `transparent` rather than a
+     hard-coded `rgba(255, 255, 255, 0)`: a transparent stop carrying a WHITE
+     hue is a light-theme assumption in a token-driven theme. */
+  background: linear-gradient(to bottom, transparent 25%, var(--bg-surface) 100%);
   pointer-events: none;
   opacity: 1;
   transition: opacity 0.2s;
@@ -1402,26 +1394,57 @@ button.edition-select-card:focus-visible {
   color: var(--color-text-main);
   font-weight: var(--fw-medium);
 }
+/* The disclosure control shared by BOTH collapsible blocks in this card (My
+   Review and Synopsis). Deliberately a quiet text link rather than a pill: a
+   bordered 35px capsule reads as a call to action, and two of them stacked
+   inside one reading surface turned the card into an action list. This also
+   matches the idiom the Notes section below already uses (see `note-card`), so
+   the page ships ONE disclosure affordance instead of two competing ones. */
 .expand-btn {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  margin: 1rem auto 0;
-  padding: 0.5rem 1.25rem;
+  gap: 0.4rem;
+  margin: 0.875rem 0 0;
+  padding: 0;
   width: auto;
-  background-color: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 2rem;
+  background: none;
+  border: none;
+  border-radius: 0;
   color: var(--color-text-muted);
   font-size: 0.8rem;
   font-weight: var(--fw-medium);
+  letter-spacing: 0.01em;
   cursor: pointer;
-  gap: 0.5rem;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;}
-.expand-btn:hover {
-  background-color: var(--color-text-main);
-  border-color: var(--color-text-main);
-  color: var(--bg-body);
+  transition: color 0.2s ease;
+}
+/* Scoped to devices that actually hover. On touch a tap latches :hover, which
+   would leave the control stuck in its hover colour. This replaces the old
+   `@media (max-width: 480px)` hover reset, which only existed to undo the
+   pill's fill on touch — there is no fill left to undo. */
+@media (hover: hover) {
+  .expand-btn:hover {
+    color: var(--color-text-main);
+  }
+}
+/* The chevron is a constant glyph that ROTATES, not a ↓/↑ swap: one control
+   turning over reads as a state change, where two different glyphs read as two
+   different controls. */
+.expand-btn .icon {
+  display: inline-block;
+  font-size: 0.72rem;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+.expand-btn .icon.rotated {
+  transform: rotate(180deg);
+}
+/* `styles.css` resets the global `button { outline: 0 }`, so without this the
+   control is focusable and operable but invisible while focused. Applied to the
+   shared class, so BOTH toggles get a ring — the pre-existing synopsis button
+   previously had none. */
+.expand-btn:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
 }
 .synopsis-metadata-block.expanded .description-text {
   line-clamp: unset;
@@ -1615,10 +1638,5 @@ button.edition-select-card:focus-visible {
   }
   .detail-cover-col {
     max-width: 180px;
-  }
-  .expand-btn:hover {
-    background-color: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--color-text-muted);
   }
 }
