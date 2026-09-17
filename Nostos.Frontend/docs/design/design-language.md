@@ -26,12 +26,17 @@ theme regressions happen.
 
 | Axis | Light | Dark |
 | --- | --- | --- |
-| Page ground | `#FDF8F6` paper | `#15181F` slate |
+| Page ground | `#FBFBFC` cool canvas | `#15181F` slate |
 | Content surface | `#ffffff` | `#1B1E26` |
-| Hairline border | `#E4E1DB` | `#262A34` |
-| Primary ink | `#28372D` pine | `#EDEEF2` porcelain |
-| Accent | `#8A6D58` clay | `#D1AC8F` smoked warm |
-| Dominant body ink | `#5C5A55` | `#C5C9D0` |
+| Hairline border | `#E5E7EB` | `#262A34` |
+| Primary ink | `#121316` obsidian | `#EDEEF2` porcelain |
+| Accent | `#5B5E66` slate | `#D1AC8F` smoked warm |
+| Dominant body ink | `#4A4D54` | `#C5C9D0` |
+
+The light values above are the cool-neutral palette. Light and dark are now on
+the *same* side of the warm/cool axis, so the two themes differ in luminance
+rather than in temperature — the dark counterparts were originally chosen for
+contrast against a warm ground and were re-checked against this one.
 
 Every colour token has a counterpart in both themes, and
 `scripts/check-theme-tokens.mjs` fails the build if one does not. That guard

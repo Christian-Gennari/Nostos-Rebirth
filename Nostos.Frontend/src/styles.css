@@ -2,25 +2,25 @@
 
 :root {
   /* ── Surfaces ── */
-  --bg-body: #FDF8F6;
+  --bg-body: #FBFBFC;
   --bg-surface: #ffffff;
-  --bg-surface-alt: #F7F3F0;
-  --bg-sidebar: #F7F3F0;
+  --bg-surface-alt: #F3F3F4;
+  --bg-sidebar: #F3F3F4;
   --bg-input: #ffffff;
-  --bg-hover: #F2EDEB;
-  --surface-image-ground: #F2EDEB; /* the paper art sits on while it decodes */
+  --bg-hover: #EEEEEF;
+  --surface-image-ground: #EEEEEF; /* the paper art sits on while it decodes */
 
   /* ── Text ── */
-  --color-text-main: #1C1B1A;
-  --color-text-muted: #5C5A55;
-  --color-text-light: #8A8680;
-  --color-text-placeholder: #A8A39C;
-  --color-text-faint: #CFCAC2;
+  --color-text-main: #121316;
+  --color-text-muted: #4A4D54;
+  --color-text-light: #76777B;
+  --color-text-placeholder: #94979E;
+  --color-text-faint: #C7C6CB;
 
   /* ── Interactive / Primary ── */
-  --color-primary: #28372D;
-  --color-primary-hover: #1F2B23;
-  --color-primary-dim: #5B6B60;
+  --color-primary: #121316;
+  --color-primary-hover: #2A2D34;
+  --color-primary-dim: #76777B;
 
   /* ── Primary ROLE SPLIT ──
      `--color-primary` historically did three jobs at once: heading/icon ink,
@@ -29,8 +29,8 @@
      dark, ink needs light), which is what made the previous theme system
      unmaintainable. These three tokens separate the roles. In light all three
      are equal to today's values, so this split is behaviour-preserving. */
-  --primary-ink: #28372D;   /* headings, brand, icons — foreground */
-  --primary-fill: #28372D;  /* button/pill surfaces — background */
+  --primary-ink: #121316;   /* headings, brand, icons — foreground */
+  --primary-fill: #121316;  /* button/pill surfaces — background */
   --on-primary: #FFFFFF;    /* text sitting ON a primary fill */
 
   /* ── Selection surface ──
@@ -54,7 +54,7 @@
      exactly the defect fixed by hand in #94 (`.index-list` added purely to climb
      the ladder). As a token re-declared on `:root`, the value is (`0,1,0`) and
      cannot race anything: the override selectors below are gone. */
-  --selection-surface: #28372D;
+  --selection-surface: #121316;
   --selection-ink: #FFFFFF;
 
   /* ── Wordmark / secondary heading ink ──
@@ -90,11 +90,11 @@
      itself has to lift. */
   --dock-surface: var(--bg-surface);
   --dock-border: var(--border-color);
-  --dock-shadow: 0 8px 22px rgba(42, 38, 32, 0.12);
+  --dock-shadow: 0 8px 22px rgba(18, 19, 22, 0.12);
   /* The phone layout turns the dock into a full-bleed rail, so its cast points
      UP. Kept separate from --dock-shadow because it is a different geometry, not
      a different theme. */
-  --dock-shadow-rail: 0 -6px 20px rgba(42, 38, 32, 0.1);
+  --dock-shadow-rail: 0 -6px 20px rgba(18, 19, 22, 0.1);
   /* Height of the phone dock, which becomes a full-bleed rail pinned to the
      viewport bottom. The shell reserves exactly this much so page content can
      never hide under the dock, and the dock itself is built from the same value:
@@ -152,25 +152,32 @@
      neutral/clay families rather than a new hue: a category palette was the
      obvious alternative and it is exactly the "colourful AI aesthetic" the
      design manifesto rules out. */
-  --graph-node: #57534C;       /* light: warm ink; 7.6:1 on the white stage */
-  --graph-node-head: #28372D;  /* the touched node: pine, the brand ink */
-  --graph-edge: #8A8680;       /* neutral warm stone; structure without a colour cast */
-  --graph-edge-active: #28372D; /* selected path follows the pine node hierarchy */
+  --graph-node: #46464B;       /* light: warm ink; 7.6:1 on the white stage */
+  --graph-node-head: #121316;  /* the touched node: pine, the brand ink */
+  --graph-edge: #76777B;       /* neutral warm stone; structure without a colour cast */
+  --graph-edge-active: #121316; /* selected path follows the pine node hierarchy */
   /* Fill for the plate Sigma draws behind the ACTIVE node's own label. Sigma's
      built-in hover drawer hardcodes #FFF, which is correct here and a white
      block on dark; this token lets the fill follow the theme instead. */
   --graph-label-box: #ffffff;
 
   /* ── Accent (Clay) ── */
-  --color-accent: #8A6D58;
-  --color-accent-hover: #A08468;
-  --color-accent-faint: rgba(138, 109, 88, 0.3);
-  --color-accent-bg: #F4EDE7;
+  --color-accent: #5B5E66;
+  --color-accent-hover: #2A2D34;
+  --color-accent-faint: rgba(91, 94, 102, 0.3);
+  --color-accent-bg: #E0E2EB;
+
+  /* Secondary ink role. Until now this token existed ONLY on dark
+     (`check-theme-tokens` reported it as `dark-only (new)`), so light had no
+     value for the role at all. The cool palette gives it one: DESIGN.md's M3
+     `secondary` #5B5E66. Same hex as `--color-accent`, deliberately — in this
+     palette the secondary role and the accent role are the same cool slate. */
+  --color-secondary: #5B5E66;
 
   /* ── Danger ── */
-  --color-danger: #d32f2f;
-  --color-danger-vivid: #ef4444;
-  --color-danger-bg: #fee2e2;
+  --color-danger: #ba1a1a;
+  --color-danger-vivid: #d32f2f;
+  --color-danger-bg: #ffdad6;
 
   /* ── Restrained danger (confirmation surfaces) ──
      The manifesto asks for "very restrained burgundy or slate" rather than an
@@ -184,7 +191,7 @@
      same formula bleached the fill to #F9C7C2 and porcelain text fell to 1.34:1.
      Mix toward a fixed near-black instead: the fill deepens in BOTH themes, which
      is what "restrained danger" asks for. */
-  --danger-deepen-to: #1C1B1A;
+  --danger-deepen-to: #121316;
   --danger-solid: color-mix(in srgb, var(--color-danger) 68%, var(--danger-deepen-to));
   --danger-solid-hover: color-mix(in srgb, var(--color-danger) 80%, var(--danger-deepen-to));
 
@@ -202,7 +209,7 @@
   --color-highlight-hover: #f0cc00;
 
   /* ── Borders ── */
-  --border-color: #E4E1DB;
+  --border-color: #E5E7EB;
   /* ── Control boundary (checkboxes, and anything else whose edge is the only
      thing that says "this is a control") ──
      A plain --border-color edge is a HAIRLINE: it separates two surfaces and is
@@ -214,13 +221,13 @@
      nothing moves on paper; only dark is re-inked to the WCAG 3:1 UI-boundary
      minimum. */
   --control-border: var(--border-color);
-  --border-light: #EFECE6;
-  --border-focus: #28372D;
+  --border-light: #EEEEEF;
+  --border-focus: #121316;
   --focus-ring: #6E7C90;   /* neutral slate; NOT the brand pine (see the dark block) */
 
   /* ── Scrollbar ── */
-  --scrollbar-thumb: #DED9D1;
-  --scrollbar-thumb-hover: #C6BFB4;
+  --scrollbar-thumb: #E2E2E3;
+  --scrollbar-thumb-hover: #C7C6CB;
 
   /* ── Cover-art action discs (grid card corners) ──
      These sit ON the artwork, so they are chrome that must invert with the
@@ -228,7 +235,7 @@
      which is why the corners looked unrelated to the edit/delete discs beside
      them in the middle of the card. */
   --cover-disc-bg: rgba(255, 255, 255, 0.85);
-  --cover-disc-ink: #A8A39C;
+  --cover-disc-ink: #94979E;
   --cover-disc-border: transparent;
 
   /* ── Overlays ── */
@@ -240,7 +247,7 @@
      A warm ink dim rather than a frosted-glass wall: the brand avoids
      glassmorphism, so the blur stays at the restrained value the library's
      mobile backdrop already uses. One owner, so dialogs cannot drift apart. */
-  --modal-scrim: rgba(28, 27, 26, 0.42);
+  --modal-scrim: rgba(18, 19, 22, 0.42);
   --modal-scrim-blur: 2px;
 
   /* ── Radius ──
@@ -1076,9 +1083,9 @@
      blur. The dead-token list never contained it; `grep -rn 'var(--glass-bg-strong)'`
      over src shows library.component.css:90. Verify each token individually
      against `var()` uses, never as part of a family. */
-  --glass-bg: rgba(253, 248, 246, 0.6);
-  --glass-bg-strong: rgba(253, 248, 246, 0.85);
-  --glass-border: rgba(228, 225, 219, 0.85);
+  --glass-bg: rgba(251, 251, 252, 0.6);
+  --glass-bg-strong: rgba(251, 251, 252, 0.85);
+  --glass-border: rgba(229, 231, 235, 0.85);
   --glass-blur: blur(14px);
 
   /* ── Editorial gradient ──
@@ -1087,11 +1094,11 @@
      `--pastel-*` tokens, none of which had a reader. `--gradient-pastel-soft`
      and `--gradient-accent` were removed: nothing referenced them, and the
      stops they carried no longer corresponded to anything in the palette. */
-  --gradient-pastel: linear-gradient(120deg, #28372D, #5B6B60, #8A6D58);
+  --gradient-pastel: linear-gradient(120deg, #121316, #5B5E66, #94979E);
 
-  --shadow-glass: 0 8px 24px -6px rgba(28, 27, 26, 0.10), 0 2px 6px rgba(0, 0, 0, 0.03);
-  --shadow-glass-lg: 0 16px 36px -8px rgba(28, 27, 26, 0.14), 0 4px 10px rgba(0, 0, 0, 0.04);
-  --shadow-glow: 0 6px 20px -4px rgba(138, 109, 88, 0.30);
+  --shadow-glass: 0 8px 24px -6px rgba(18, 19, 22, 0.10), 0 2px 6px rgba(0, 0, 0, 0.03);
+  --shadow-glass-lg: 0 16px 36px -8px rgba(18, 19, 22, 0.14), 0 4px 10px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 6px 20px -4px rgba(91, 94, 102, 0.30);
 
   /* ── Editor chrome tokens (TinyMCE bridge) ──
      The --editor-ui-* tokens are the stable contract between Nostos and the
@@ -1101,14 +1108,14 @@
      only owner, so body-appended TinyMCE portals always inherit the same
      light values. `--editor-ui-bg-active` was removed: no reader. */
   --editor-ui-bg: var(--bg-surface);
-  --editor-ui-bg-hover: #f3f2ef;
+  --editor-ui-bg-hover: #F3F3F4;
   --editor-ui-text: var(--color-text-main);
-  --editor-ui-muted: #746f68;
-  --editor-ui-border: rgba(41, 37, 32, 0.11);
-  --editor-ui-focus: #687b91;
-  --editor-ui-accent: #536a82;
-  --editor-ui-accent-soft: #e8edf2;
-  --editor-ui-shadow: 0 12px 32px rgba(30, 26, 21, 0.14);
+  --editor-ui-muted: #4A4D54;
+  --editor-ui-border: rgba(18, 19, 22, 0.11);
+  --editor-ui-focus: #5B5E66;
+  --editor-ui-accent: #4A4D54;
+  --editor-ui-accent-soft: #EEEEEF;
+  --editor-ui-shadow: 0 12px 32px rgba(18, 19, 22, 0.14);
 }
 
 * {
@@ -1135,7 +1142,7 @@ body {
    Fixed attachment keeps the wash stable while content scrolls. */
 body {
   background:
-    radial-gradient(1200px 700px at 50% -10%, rgba(138, 109, 88, 0.05), transparent 65%) no-repeat fixed,
+    radial-gradient(1200px 700px at 50% -10%, rgba(18, 19, 22, 0.04), transparent 65%) no-repeat fixed,
     var(--bg-body);
 }
 

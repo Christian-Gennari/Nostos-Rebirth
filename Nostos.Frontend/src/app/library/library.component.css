@@ -42,7 +42,7 @@ app-sidebar-collections {
 
   /* Must match `--bg-sidebar`, not `--bg-surface-alt`: the panel inside paints
      `--bg-sidebar`, and in light the two tokens happen to share a value
-     (#F7F3F0) so the mismatch is invisible. In dark they diverge and the
+     (#F3F3F4) so the mismatch is invisible. In dark they diverge and the
      collapsed rail would show a lighter band behind the panel. */
   background-color: var(--bg-sidebar);
   /* clip (not hidden/auto): no scroll container is created, so the rail can
@@ -562,7 +562,7 @@ app-sidebar-collections.no-transition {
    cramped against the cover. The colour is `currentColor` throughout
    (active states set it), rather than the old `var(--border-color)`: that
    token is the hairline colour, so at rest these buttons resolved to
-   #E4E1DB on paper and #262A34 on dark — a hair above invisible. */
+   #E5E7EB on paper and #262A34 on dark — a hair above invisible. */
 .list-row-status {
   margin-left: auto;
   display: flex;
@@ -765,7 +765,7 @@ app-sidebar-collections.no-transition {
   background: var(--surface-image-ground);
   border-radius: var(--radius-lg, 8px);
   /* Separation from the page. Without it a white cover has no edge at all
-     against `--bg-body` (#FDF8F6) — the artwork and the page merge into one
+     against `--bg-body` (#FBFBFC) — the artwork and the page merge into one
      flat area. This is the same pair `.list-cover-frame` uses for its
      thumbnails, so both library views now frame their art identically.
      `f4933ea` dropped the grid's `outline: 1px solid var(--border-color)` while

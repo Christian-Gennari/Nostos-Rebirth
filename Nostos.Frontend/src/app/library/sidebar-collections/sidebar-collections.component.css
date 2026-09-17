@@ -157,8 +157,8 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   /* --color-text-muted, not --color-text-light: at 10.88px bold uppercase the
-     light tone measured 3.28:1 against the light sidebar (#8A8680 on #F7F3F0),
-     below the 4.5:1 small-text floor. The muted tone holds 6.24:1 there and
+     light tone measured 4.03:1 against the light sidebar (#76777B on #F3F3F4),
+     still below the 4.5:1 small-text floor. The muted tone holds 7.63:1 there and
      6.65:1 on the dark rail. */
   color: var(--color-text-muted);
   padding: 0.6rem 0.75rem 0.25rem;
