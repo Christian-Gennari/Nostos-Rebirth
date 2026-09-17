@@ -156,7 +156,11 @@ public static class MappingExtensions
             FileName: model.FileDetails.FileName,
             Narrator: (model as AudioBookModel)?.Narrator,
             Duration: (model as AudioBookModel)?.Duration,
-            Edition: model.Metadata.Edition);
+            Edition: model.Metadata.Edition,
+            // The management UI names the book it will detach; the current
+            // book's own title is NOT a valid substitute for a sibling's.
+            Title: model.Title,
+            Author: model.Author);
     }
 
     public static NoteDto ToDto(this NoteModel model) =>

@@ -58,6 +58,28 @@ public interface ILibraryService
     Task<LibraryCommandResultDto> UpdateBookAsync(LibraryUpdateBookRequest request, CancellationToken ct = default);
 
     /// <summary>
+    /// Manual multi-edition override: merge <c>BookId</c>'s work into
+    /// <c>TargetBookId</c>'s work, so both books (and everything already
+    /// grouped with either of them) become editions of one work. Metadata is
+    /// deliberately NOT consulted — differing title/author is the case this
+    /// exists for.
+    ///
+    /// Rejects a self-link. A request whose two books already share a work —
+    /// or that names the same pair twice in either order — succeeds as a
+    /// no-op with no stateVersion bump. The target's work survives; the
+    /// source work is deleted when the merge empties it.
+    /// </summary>
+    Task<LibraryCommandResultDto> LinkWorkAsync(LibraryLinkWorkRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// Manual multi-edition override: move <c>BookId</c> out of its work into
+    /// a NEW work carrying that book's own current title/author identity. The
+    /// book always ends up with a valid work — never a null or empty WorkId.
+    /// A book already alone in its work is a successful no-op.
+    /// </summary>
+    Task<LibraryCommandResultDto> UnlinkWorkAsync(LibraryUnlinkWorkRequest request, CancellationToken ct = default);
+
+    /// <summary>
     /// High-frequency progress update. Deliberately NOT receipt-guarded
     /// (last-write-wins, idempotent by nature); validates 0..100 and keeps
     /// FinishedAt aligned with the percentage.

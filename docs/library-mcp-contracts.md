@@ -81,7 +81,33 @@ Library command receipts are retained for a bounded window only; retention is pa
 `invalid_idempotency`, `book_not_found`, `collection_not_found`, `invalid_book_identity`,
 `identity_conflict`, `confirmation_required`, `duplicate_identifier`, `invalid_collection_parent`,
 `collection_cycle`, `collection_name_conflict`, `book_in_use`, `lookup_timeout`.
+
+Added by the work-membership override (issue #143, REST-only for now):
+`invalid_work_link` (a book linked to itself), `target_book_not_found`.
+
 HTTP mapping for REST mirrors the reading ToHttp mapping (409 family / 400 invalid_* / 404 *_not_found / default 422).
+
+## 6.1 Work membership override (issue #143, REST-only)
+
+Automatic grouping by normalized title+author stays the default. `POST
+/api/books/{id}/work/link` and `POST /api/books/{id}/work/unlink` are the
+explicit correction, and they are **not** MCP tools: the frozen v1 manifest above
+is unchanged and the MCP tool-count assertions still hold.
+
+- **Link merges groups, not books.** The target's work survives; every member of
+  the source work moves onto it. `WorkId` is never written by a client — the
+  service owns the merge, the orphan cleanup and the state-version bump, exactly
+  as it does for collection membership.
+- **Unlink always leaves a valid work.** The book gets a new work built from its
+  own current title/author; there is no "no work" state.
+- **Book-level state is untouchable** by either operation: files, progress,
+  notes, ratings/reviews, metadata and collection memberships are per book.
+- **Idempotent:** an already-grouped pair, or a book already alone, succeeds as a
+  no-op without a state-version bump. Repeating a link with the arguments
+  swapped is the same no-op, so the pair does not need a canonical order.
+- **A metadata edit is not the workaround.** These operations consult no
+  metadata at all, so a wrong grouping is repairable without editing titles and
+  without deleting and re-importing a book.
 
 ## 7. Collections
 

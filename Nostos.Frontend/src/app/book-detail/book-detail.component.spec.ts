@@ -231,22 +231,6 @@ describe('BookDetail reset progress', () => {
     return Array.from(fixture.nativeElement.querySelectorAll('.edition-select-card'));
   }
 
-  function multiEditionBook(): Book {
-    return readableBook({
-      otherEditions: [
-        {
-          id: 'b2',
-          type: 'audiobook',
-          format: 'AUDIO',
-          progressPercent: 15,
-          hasFile: true,
-          duration: '10h',
-          narrator: 'Narrator Guy',
-        },
-      ],
-    });
-  }
-
   it('renders edition rows when multiple editions exist and switches on click', async () => {
     const router = TestBed.inject(Router);
     const navigateSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
@@ -326,6 +310,264 @@ describe('BookDetail reset progress', () => {
 
     expect(fixture.nativeElement.querySelector('.edition-section')).toBeNull();
     expect(editionRows().length).toBe(0);
+  });
+
+  // ── Advanced work membership (issue #143) ───────────────────────────────────
+  // A collapsed, secondary surface that corrects an automatic grouping. It must
+  // be present even for a book that is alone in its work — that is how a group
+  // is created — and every mutation goes through the service, never a direct
+  // WorkId write.
+
+  function manageToggle(): HTMLButtonElement {
+    return fixture.nativeElement.querySelector('.edition-manage-toggle') as HTMLButtonElement;
+  }
+
+  function multiEditionBook(): Book {
+    return readableBook({
+      otherEditions: [
+        {
+          id: 'b2',
+          type: 'audiobook',
+          format: 'AUDIO',
+          progressPercent: 15,
+          hasFile: true,
+          narrator: 'Narrator Guy',
+          title: 'A Completely Different Book',
+          author: 'Another Author',
+        },
+      ],
+    });
+  }
+
+  function openManage(): void {
+    manageToggle().click();
+    fixture.detectChanges();
+    httpMock
+      .expectOne((req) => req.url === '/api/books' && req.method === 'GET')
+      .flush({ items: [], totalCount: 0, page: 1, pageSize: 20 });
+    fixture.detectChanges();
+  }
+
+  it('keeps the management surface collapsed by default, even when editions exist', async () => {
+    await setup(multiEditionBook());
+
+    expect(manageToggle()).toBeTruthy();
+    expect(manageToggle().getAttribute('aria-expanded')).toBe('false');
+    // Collapsed means collapsed: neither the member list nor the picker is in
+    // the DOM, so the ordinary reading flow is uncluttered by construction.
+    expect(fixture.nativeElement.querySelector('.edition-manage-body')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.manage-link-search')).toBeNull();
+  });
+
+  it('offers the management surface for a single-edition book too', async () => {
+    await setup(readableBook());
+
+    // The editions selector is (correctly) absent for this book, but linking it
+    // to another one is exactly what a lone book needs.
+    expect(fixture.nativeElement.querySelector('.edition-section')).toBeNull();
+    expect(manageToggle()).toBeTruthy();
+  });
+
+  it('loads link candidates when the management surface is opened', async () => {
+    await setup(readableBook());
+
+    manageToggle().click();
+    fixture.detectChanges();
+
+    expect(manageToggle().getAttribute('aria-expanded')).toBe('true');
+    expect(fixture.nativeElement.querySelector('.edition-manage-body')).toBeTruthy();
+
+    // Candidates come from the canonical list endpoint, grouped-by-work off so a
+    // collapsed work still yields its individual books.
+    const request = httpMock.expectOne((req) => req.url === '/api/books' && req.method === 'GET');
+    expect(request.request.params.get('groupByWork')).toBe('false');
+    request.flush({
+      items: [
+        { id: 'b1', title: 'Meditations', author: 'Marcus Aurelius', workId: 'w1', editionCount: 1 },
+        { id: 'b2', title: 'Something Else', author: 'Another Author', workId: 'w2', editionCount: 1 },
+      ],
+      totalCount: 2,
+      page: 1,
+      pageSize: 20,
+    });
+    fixture.detectChanges();
+
+    const candidates = fixture.nativeElement.querySelectorAll('.manage-link-candidate');
+    // The current book is excluded: linking it to itself is not offered.
+    expect(candidates.length).toBe(1);
+    expect(candidates[0].textContent).toContain('Something Else');
+  });
+
+  it('labels the candidate row with an explicit Link action', async () => {
+    await setup(readableBook());
+    manageToggle().click();
+    fixture.detectChanges();
+    httpMock.expectOne((req) => req.url === '/api/books').flush({
+      items: [{ id: 'b2', title: 'Something Else', author: 'Another Author', workId: 'w2', editionCount: 1 }],
+      totalCount: 1, page: 1, pageSize: 20,
+    });
+    fixture.detectChanges();
+
+    // The row is the click target, but a click target with no label reads as
+    // static text — the only other cue was a hover state, which touch never
+    // shows. The label is the affordance, so it must exist in the DOM.
+    const row = fixture.nativeElement.querySelector('.manage-link-candidate') as HTMLElement;
+    const action = row.querySelector('.manage-link-candidate-action') as HTMLElement;
+    expect(action).toBeTruthy();
+    expect(action.textContent?.trim()).toBe('Link');
+
+    // It is a label inside the button, not a nested button: a button inside a
+    // button is invalid HTML and would swallow the click target.
+    expect(action.tagName.toLowerCase()).toBe('span');
+  });
+
+  it('offers each candidate WORK once, however many editions it has', async () => {
+    await setup(readableBook());
+    manageToggle().click();
+    fixture.detectChanges();
+    httpMock.expectOne((req) => req.url === '/api/books').flush({
+      items: [
+        // One work with two editions — a group-level choice, so it is one row.
+        { id: 'j1', title: 'Justice', author: 'Michael J. Sandel', workId: 'wj', editionCount: 2 },
+        { id: 'j2', title: 'Justice', author: 'Michael J. Sandel', workId: 'wj', editionCount: 2 },
+        { id: 'b9', title: 'Another Book', author: 'Someone', workId: 'w9', editionCount: 1 },
+      ],
+      totalCount: 3, page: 1, pageSize: 20,
+    });
+    fixture.detectChanges();
+
+    const candidates = [...fixture.nativeElement.querySelectorAll('.manage-link-candidate')];
+    expect(candidates.length).toBe(2);
+    // The surviving row reports the WORK's size, which is what the merge
+    // warning reads.
+    expect(candidates[0].textContent).toContain('Justice');
+    expect(candidates[0].textContent).toContain('2 editions');
+  });
+
+  it('lists every work member and offers Unlink only for the others', async () => {
+    await setup(multiEditionBook());
+    openManage();
+
+    const members = fixture.nativeElement.querySelectorAll('.manage-member');
+    expect(members.length).toBe(2);
+    // The book you are on is context; the sibling is the thing you can detach.
+    expect(members[0].querySelector('.manage-member-flag')?.textContent).toContain('This book');
+    expect(members[0].querySelector('.manage-member-action')).toBeNull();
+    expect(members[1].querySelector('.manage-member-action')?.textContent).toContain('Unlink');
+
+    // Each row names the book it is about. A sibling must NOT be labelled with
+    // the current book's title — that would misname the book Unlink detaches.
+    expect(members[0].textContent).toContain('Meditations');
+    expect(members[1].textContent).toContain('A Completely Different Book');
+    expect(members[1].textContent).toContain('Another Author');
+    expect(members[1].textContent).not.toContain('Meditations');
+  });
+
+  it('links a selected book through the service and refetches the book', async () => {
+    await setup(readableBook());
+    manageToggle().click();
+    fixture.detectChanges();
+    httpMock.expectOne((req) => req.url === '/api/books').flush({
+      items: [{ id: 'b9', title: 'Other Book', author: 'Someone', workId: 'w9', editionCount: 1 }],
+      totalCount: 1, page: 1, pageSize: 20,
+    });
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.manage-link-candidate') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    // Confirmation first: a link can merge two whole groups, which is not
+    // obvious from "link these two books".
+    const dialog = fixture.nativeElement.querySelector('.confirm-modal-card') as HTMLElement;
+    expect(dialog.textContent).toContain('Other Book');
+    expect(httpMock.match((req) => req.url.includes('/work/link')).length).toBe(0);
+
+    (dialog.querySelector('.btn-confirm') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const post = httpMock.expectOne((req) => req.method === 'POST' && req.url === '/api/books/b1/work/link');
+    expect(post.request.body).toEqual({ targetBookId: 'b9' });
+    post.flush({ bookId: 'b1', workId: 'w9', editionCount: 2 });
+
+    // The server owns the grouping decision, so the page re-reads the book
+    // rather than patching workId locally.
+    httpMock.expectOne('/api/books/b1').flush(readableBook());
+    fixture.detectChanges();
+
+    expect(toast.toasts().some((t) => t.message.includes('Linked'))).toBe(true);
+  });
+
+  it('warns that a link merges both groups when either side is multi-edition', async () => {
+    await setup(multiEditionBook());
+    manageToggle().click();
+    fixture.detectChanges();
+    httpMock.expectOne((req) => req.url === '/api/books').flush({
+      items: [{ id: 'b9', title: 'Grouped Book', author: 'Someone', workId: 'w9', editionCount: 3 }],
+      totalCount: 1, page: 1, pageSize: 20,
+    });
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.manage-link-candidate') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const dialog = fixture.nativeElement.querySelector('.confirm-modal-card') as HTMLElement;
+    expect(dialog.textContent).toContain('everything already grouped with them');
+  });
+
+  it('unlinks a work member through the service after confirmation', async () => {
+    await setup(multiEditionBook());
+    openManage();
+
+    const unlinkButton = fixture.nativeElement.querySelector('.manage-member-action') as HTMLButtonElement;
+    unlinkButton.click();
+    fixture.detectChanges();
+
+    const dialog = fixture.nativeElement.querySelector('.confirm-modal-card') as HTMLElement;
+    expect(dialog.textContent).toContain('Unlink');
+    expect(httpMock.match((req) => req.url.includes('/work/unlink')).length).toBe(0);
+
+    (dialog.querySelector('.btn-confirm') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const post = httpMock.expectOne((req) => req.method === 'POST' && req.url === '/api/books/b2/work/unlink');
+    post.flush({ bookId: 'b2', workId: 'w-new', editionCount: 1 });
+
+    httpMock.expectOne('/api/books/b1').flush(readableBook());
+    fixture.detectChanges();
+
+    expect(toast.toasts().some((t) => t.message.includes('Unlinked'))).toBe(true);
+  });
+
+  it('does nothing when a work-membership confirmation is cancelled', async () => {
+    await setup(multiEditionBook());
+    openManage();
+
+    (fixture.nativeElement.querySelector('.manage-member-action') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.confirm-modal-card .btn-cancel') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.confirm-modal-card')).toBeNull();
+    expect(httpMock.match((req) => req.url.includes('/work/')).length).toBe(0);
+  });
+
+  it('narrows candidates by the management search box', async () => {
+    await setup(readableBook());
+    openManage();
+
+    const input = fixture.nativeElement.querySelector('.manage-link-search') as HTMLInputElement;
+    input.value = 'medit';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    const request = httpMock.expectOne((req) => req.url === '/api/books');
+    expect(request.request.params.get('search')).toBe('medit');
+    request.flush({ items: [], totalCount: 0, page: 1, pageSize: 20 });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.manage-link-empty')?.textContent)
+      .toContain('No matching books');
   });
 
   it('does NOT render a danger zone card on the main page', async () => {

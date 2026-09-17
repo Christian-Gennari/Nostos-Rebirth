@@ -32,7 +32,13 @@ public record EditionSummaryDto(
     string? FileName,
     string? Narrator,
     string? Duration,
-    string? Edition
+    string? Edition,
+    // APPENDED (positional record, so inserting renumbers every existing
+    // client's JSON). The multi-edition management UI has to NAME the book it
+    // will detach, and a summary that carries only format metadata cannot: it
+    // left the unlink row showing the current book's own title for its sibling.
+    string Title = "",
+    string? Author = null
 );
 
 public record BookDto(
@@ -152,3 +158,11 @@ public record UpdateProgressDto(string Location, int Percentage);
 /// "leave unchanged" from "clear").
 /// </summary>
 public sealed record UpdateBookCollectionsDto(IReadOnlyList<Guid> CollectionIds);
+
+/// <summary>
+/// Manual work-membership link: make this book an edition of the same work as
+/// <paramref name="TargetBookId"/>, regardless of whether their title/author
+/// metadata match. The two work groups are merged, with the target's work as
+/// the survivor.
+/// </summary>
+public sealed record LinkWorkDto(Guid TargetBookId);

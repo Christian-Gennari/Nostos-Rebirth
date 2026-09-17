@@ -337,6 +337,97 @@ public sealed class LibraryEndpointTests : IClassFixture<LibraryEndpointFactory>
         second.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
+    // ------------------------------------------------------------------
+    // Work membership (issue #143) — the manual override over automatic
+    // grouping. The shape under test is the HTTP contract; the merge/split
+    // semantics themselves are covered in LibraryWorkMembershipTests.
+    // ------------------------------------------------------------------
+
+    private async Task<BookDto> CreateBookAsync(string type, string title, string? author = null, string? isbn = null)
+    {
+        var response = await Client.PostAsJsonAsync("/api/books", new
+        {
+            type,
+            title,
+            author,
+            isbn,
+            forceCreate = true,
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        return (await response.Content.ReadFromJsonAsync<BookDto>())!;
+    }
+
+    [Fact]
+    public async Task Work_link_groups_two_books_and_both_report_the_other_edition()
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var first = await CreateBookAsync("physical", $"Link A {suffix}", "Author One");
+        var second = await CreateBookAsync("ebook", $"Link B {suffix}", "Author Two");
+
+        var response = await Client.PostAsJsonAsync(
+            $"/api/books/{second.Id}/work/link", new { targetBookId = first.Id });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var data = (await response.Content.ReadFromJsonAsync<LibraryWorkMembershipResultDto>())!;
+        data.BookId.Should().Be(second.Id);
+        data.EditionCount.Should().Be(2);
+        data.WorkId.Should().Be(first.WorkId!.Value, "the target's work survives the merge");
+
+        var reloaded = (await Client.GetFromJsonAsync<BookDto>($"/api/books/{second.Id}"))!;
+        reloaded.WorkId.Should().Be(first.WorkId);
+        reloaded.OtherEditions!.Single().Id.Should().Be(first.Id);
+    }
+
+    [Fact]
+    public async Task Work_unlink_splits_a_book_into_its_own_new_work()
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var first = await CreateBookAsync("physical", $"Unlink A {suffix}", "Author One");
+        var second = await CreateBookAsync("ebook", $"Unlink B {suffix}", "Author Two");
+        await Client.PostAsJsonAsync($"/api/books/{second.Id}/work/link", new { targetBookId = first.Id });
+
+        var response = await Client.PostAsync($"/api/books/{second.Id}/work/unlink", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var data = (await response.Content.ReadFromJsonAsync<LibraryWorkMembershipResultDto>())!;
+        data.WorkId.Should().NotBe(Guid.Empty);
+        data.WorkId.Should().NotBe(first.WorkId!.Value);
+        data.EditionCount.Should().Be(1);
+
+        var reloaded = (await Client.GetFromJsonAsync<BookDto>($"/api/books/{second.Id}"))!;
+        reloaded.WorkId.Should().Be(data.WorkId);
+        reloaded.OtherEditions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Work_link_to_self_returns_400()
+    {
+        var book = await CreateBookAsync("physical", $"SelfLink {Guid.NewGuid():N}"[..20]);
+
+        var response = await Client.PostAsJsonAsync(
+            $"/api/books/{book.Id}/work/link", new { targetBookId = book.Id });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Work_link_with_an_unknown_target_returns_404()
+    {
+        var book = await CreateBookAsync("physical", $"NoTarget {Guid.NewGuid():N}"[..20]);
+
+        var response = await Client.PostAsJsonAsync(
+            $"/api/books/{book.Id}/work/link", new { targetBookId = Guid.NewGuid() });
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Work_unlink_unknown_book_returns_404()
+    {
+        var response = await Client.PostAsync($"/api/books/{Guid.NewGuid()}/work/unlink", null);
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
     [Fact]
     public async Task Progress_update_at_zero_percent_is_not_a_reset()
     {

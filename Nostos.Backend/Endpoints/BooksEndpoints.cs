@@ -155,6 +155,37 @@ public static class BooksEndpoints
             }
         );
 
+        // LINK this book into another book's work (manual multi-edition
+        // override). A dedicated route, like /collections: the client intent is
+        // explicit, and WorkId is never written directly by a client — the
+        // domain service owns the merge, the orphan cleanup and the version.
+        group.MapPost(
+            "/{id}/work/link",
+            async (Guid id, LinkWorkDto dto, ILibraryService library, CancellationToken ct) =>
+            {
+                var request = new LibraryLinkWorkRequest(
+                    "rest", $"rest-work-link-{Guid.NewGuid():N}", id, dto.TargetBookId);
+
+                var result = await library.LinkWorkAsync(request, ct);
+                return LibraryHttpMapper.MapError(result) ?? Results.Ok(result.Data);
+            }
+        );
+
+        // UNLINK this book into its own new work (manual split). The book
+        // always ends up with a valid work; there is no "no work" state to
+        // fall into.
+        group.MapPost(
+            "/{id}/work/unlink",
+            async (Guid id, ILibraryService library, CancellationToken ct) =>
+            {
+                var request = new LibraryUnlinkWorkRequest(
+                    "rest", $"rest-work-unlink-{Guid.NewGuid():N}", id);
+
+                var result = await library.UnlinkWorkAsync(request, ct);
+                return LibraryHttpMapper.MapError(result) ?? Results.Ok(result.Data);
+            }
+        );
+
         // RESET Progress (explicit reset intent: clears location, percent,
         // finished and recency; deliberately NOT a 0% progress update)
         group.MapPost(

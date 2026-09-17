@@ -7,7 +7,33 @@ import { FormsModule } from '@angular/forms';
 import { BookDetailStore } from './book-detail.store';
 
 // DTOs
-import { Book, EditionSummaryDto } from '../core/dtos/book.dtos';
+import { Book, EditionSummaryDto, LinkableBookDto } from '../core/dtos/book.dtos';
+
+/** One book in the current work, as the management list needs it. */
+interface WorkMember {
+  id: string;
+  title: string;
+  author: string | null;
+}
+
+/**
+ * A name for an edition that arrived without one. Defensive only: every server
+ * response carries `title` now, but a cached/older payload must not render the
+ * detach row as a blank line.
+ */
+function getEditionTitleOrFallback(edition: EditionSummaryDto): string {
+  const format = edition.format?.trim().toUpperCase();
+  return format ? `Unknown title (${format})` : 'Unknown title';
+}
+
+/** A work-membership action awaiting confirmation. */
+interface PendingWorkAction {
+  kind: 'link' | 'unlink';
+  bookId: string;
+  label: string;
+  /** True when the action joins two multi-edition groups, not just two books. */
+  merge: boolean;
+}
 
 // UI Components
 import { AddBookModal } from '../add-book-modal/add-book-modal.component';
@@ -32,6 +58,7 @@ import {
   CheckIcon,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Hash,
   Layers,
   Building,
@@ -92,6 +119,7 @@ export class BookDetail implements OnInit {
   CheckIcon = CheckIcon;
   ChevronDownIcon = ChevronDown;
   ChevronUpIcon = ChevronUp;
+  ChevronRightIcon = ChevronRight;
   HashIcon = Hash;
   LayersIcon = Layers;
   BuildingIcon = Building;
@@ -115,6 +143,9 @@ export class BookDetail implements OnInit {
   statusDropdownOpen = signal(false);
   pendingStatus = signal<'notstarted' | 'reading' | 'finished' | null>(null);
   deleting = signal(false);
+
+  /** A pending work link/unlink awaiting confirmation (issue #143). */
+  pendingWorkAction = signal<PendingWorkAction | null>(null);
 
   /** The confirmation question, composed here so the modal stays generic. */
   deleteHeading = computed(() => {
@@ -263,6 +294,109 @@ export class BookDetail implements OnInit {
   onConceptClick(conceptId: string): void {
     this.goToConcept(conceptId);
   }
+
+  // --- MANUAL WORK MEMBERSHIP (issue #143) ---
+  // Secondary/advanced surface: collapsed by default, and it never replaces the
+  // edition selector's own switch/read behaviour.
+
+  /** Whether the advanced management block is expanded. */
+  readonly manageOpen = signal(false);
+
+  /** Search text for the "link another book" picker. */
+  readonly linkQuery = signal('');
+
+  /**
+   * Every book in the current work, current book included.
+   *
+   * Each sibling is named from its OWN summary (`title`/`author`), which is why
+   * those fields were added to `EditionSummaryDto`: an unlink row reading the
+   * current book's title would name the wrong book as the one being detached.
+   */
+  readonly workMembers = computed<WorkMember[]>(() => {
+    const book = this.store.book();
+    if (!book) return [];
+
+    const current: WorkMember = {
+      id: book.id,
+      title: book.title,
+      author: book.author,
+    };
+    const others = (book.otherEditions ?? []).map<WorkMember>((edition) => ({
+      id: edition.id,
+      title: edition.title?.trim() || getEditionTitleOrFallback(edition),
+      author: edition.author ?? null,
+    }));
+    return [current, ...others];
+  });
+
+  readonly linkCandidates = computed(() => this.store.linkCandidates());
+
+  toggleManage(): void {
+    const open = !this.manageOpen();
+    this.manageOpen.set(open);
+    // Candidates are only fetched when the picker is actually opened, so a
+    // book-detail visit never costs a library query it does not need.
+    if (open) this.store.loadLinkCandidates(this.linkQuery());
+  }
+
+  onLinkQueryChange(query: string): void {
+    this.linkQuery.set(query);
+    this.store.loadLinkCandidates(query);
+  }
+
+  /** A link always merges whole groups, so confirm what will actually happen. */
+  askLink(candidate: LinkableBookDto): void {
+    const current = this.store.book();
+    if (!current) return;
+
+    const groupSize = candidate.editionCount ?? 1;
+    const merge = groupSize > 1 || (current.editionCount ?? 1) > 1;
+    this.pendingWorkAction.set({
+      kind: 'link',
+      bookId: candidate.id,
+      label: candidate.title,
+      merge,
+    });
+  }
+
+  /** Splitting a book out of a group is worth confirming too. */
+  askUnlink(member: WorkMember): void {
+    this.pendingWorkAction.set({ kind: 'unlink', bookId: member.id, label: member.title, merge: false });
+  }
+
+  cancelWorkAction(): void {
+    if (this.store.linkingWork()) return;
+    this.pendingWorkAction.set(null);
+  }
+
+  confirmWorkAction(): void {
+    const action = this.pendingWorkAction();
+    if (!action || this.store.linkingWork()) return;
+
+    this.pendingWorkAction.set(null);
+    if (action.kind === 'link') this.store.linkToWork(action.bookId);
+    else this.store.unlinkFromWork(action.bookId);
+  }
+
+  /** Composed here so the shared confirm modal stays generic. */
+  workActionHeading = computed(() => {
+    const action = this.pendingWorkAction();
+    if (!action) return '';
+    return action.kind === 'link'
+      ? `Link “${action.label}” to this work?`
+      : `Unlink “${action.label}”?`;
+  });
+
+  workActionDescription = computed(() => {
+    const action = this.pendingWorkAction();
+    if (!action) return '';
+    if (action.kind === 'unlink') {
+      return 'This book becomes its own work. Its file, reading progress, notes, rating, review and collections are all kept.';
+    }
+    return action.merge
+      ? 'Both works and everything already grouped with them become one work. Only work grouping changes; every book keeps its file, progress, notes, rating, review and collections.'
+      : 'Both books become editions of one work. Only work grouping changes; nothing else about either book is touched.';
+  });
 
   // --- File Actions ---
 

@@ -38,6 +38,9 @@ export interface EditionSummaryDto {
   narrator?: string | null;
   duration?: string | null;
   edition?: string | null;
+  /** The book's own title, so a sibling can be named rather than inferred. */
+  title?: string;
+  author?: string | null;
 }
 
 export interface Book {
@@ -95,6 +98,29 @@ export interface Book {
   otherEditions?: EditionSummaryDto[];
 
   chapters?: BookChapter[]; // <--- Add this
+}
+
+// --- MANUAL WORK MEMBERSHIP (issue #143) ---
+// The override for automatic multi-edition grouping. Only WorkId moves; every
+// book-level value (file, progress, notes, rating, review, collections,
+// metadata) belongs to the book and is untouched.
+
+/** Result of a link/unlink: where the book ended up, and the group's new size. */
+export interface WorkMembershipDto {
+  bookId: string;
+  workId: string;
+  editionCount: number;
+  /** Set when a merge emptied a work and it was removed. */
+  removedWorkId?: string | null;
+}
+
+/** A candidate row in the "link this book to…" picker. */
+export interface LinkableBookDto {
+  id: string;
+  title: string;
+  author: string | null;
+  workId?: string | null;
+  editionCount?: number;
 }
 
 export interface CreateBookDto {

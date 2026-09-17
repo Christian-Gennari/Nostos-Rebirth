@@ -104,6 +104,51 @@ public sealed record LibraryUpdateBookRequest(
     IReadOnlyList<Guid>? CollectionIds = null
 );
 
+// --- WORK MEMBERSHIP (multi-edition grouping) ---
+// Automatic grouping by normalized title+author stays the default; these two
+// mutations are the explicit user override for when the heuristic is wrong.
+// Both are receipt-guarded like every other library mutation.
+
+/// <summary>
+/// Link <paramref name="BookId"/> into the same work as
+/// <paramref name="TargetBookId"/>, deliberately regardless of whether their
+/// title/author metadata match — that is the point of the override.
+///
+/// The two work groups are MERGED, not re-parented: silently pulling one
+/// edition out of an already-valid multi-edition group would be a surprising
+/// side effect of "link these two books". <paramref name="TargetBookId"/>'s
+/// work is the survivor, so the outcome is predictable from the request.
+/// </summary>
+public sealed record LibraryLinkWorkRequest(
+    string ClientId,
+    string IdempotencyKey,
+    Guid BookId,
+    Guid TargetBookId
+);
+
+/// <summary>
+/// Detach <paramref name="BookId"/> from its current work into a NEW
+/// single-book work built from that book's own current title/author identity.
+/// A book that is already alone in its work is a successful no-op.
+/// </summary>
+public sealed record LibraryUnlinkWorkRequest(
+    string ClientId,
+    string IdempotencyKey,
+    Guid BookId
+);
+
+/// <summary>
+/// Data payload of a work-membership mutation: where the book ended up, how
+/// many editions now share that work, and — for a merge — the work that was
+/// removed because the merge left it empty.
+/// </summary>
+public sealed record LibraryWorkMembershipResultDto(
+    Guid BookId,
+    Guid WorkId,
+    int EditionCount,
+    Guid? RemovedWorkId = null
+);
+
 // --- RESOLVE (read-only identity resolution) ---
 public sealed record LibraryResolveBookRequest(
     string? Isbn = null,

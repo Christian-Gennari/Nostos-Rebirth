@@ -24,6 +24,16 @@ public static class LibraryReplyFormatter
     public static string ConfirmationRequired(int count) => $"Confirmation required: {count} candidate(s) match.";
     public static string MoreInformationRequired => "Confirmation required: provide an author or identifier, or force creation.";
 
+    // Work membership (multi-edition grouping)
+    public static string WorkLinked(string title, string targetTitle) =>
+        $"Linked \"{title}\" with \"{targetTitle}\" as editions of the same work.";
+    public static string WorkAlreadyLinked(string title, string targetTitle) =>
+        $"\"{title}\" and \"{targetTitle}\" are already editions of the same work.";
+    public static string WorkUnlinked(string title) =>
+        $"\"{title}\" is now its own work.";
+    public static string WorkAlreadyStandalone(string title) =>
+        $"\"{title}\" is already its own work.";
+
     // Collections
     public static string CollectionCreated(string name) => $"Collection created: {name}.";
     public static string CollectionExists(string name) => $"Collection already exists: {name}.";
