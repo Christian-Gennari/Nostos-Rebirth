@@ -1,0 +1,174 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { EditionsModal, WorkMember } from './editions-modal.component';
+import { LinkableBookDto } from '../../core/dtos/book.dtos';
+
+/**
+ * The membership modal is presentation only: it owns no data and calls no
+ * service. These tests pin the contract the page depends on — what it renders
+ * for a given input, and which intent it emits — plus the two states that are
+ * easy to get wrong: a member row must be silent about an action it cannot
+ * offer, and a lone book must still get a usable surface.
+ */
+describe('EditionsModal', () => {
+  let fixture: ComponentFixture<EditionsModal>;
+  let component: EditionsModal;
+
+  const members: WorkMember[] = [
+    { id: 'current', title: 'Nicomachean Ethics', author: 'Aristotle' },
+    { id: 'sibling', title: 'The Nicomachean Ethics', author: 'Aristotle' },
+  ];
+
+  const candidates: LinkableBookDto[] = [
+    { id: 'c1', title: 'Meditations', author: 'Marcus Aurelius', workId: 'w1', editionCount: 1 },
+    { id: 'c2', title: 'Justice', author: 'Michael J. Sandel', workId: 'w2', editionCount: 2 },
+  ];
+
+  /** The raw input values accepted by `setInput`, not the input signals. */
+  type InputValues = {
+    isOpen: boolean;
+    members: WorkMember[];
+    candidates: LinkableBookDto[];
+    currentBookId: string | null;
+    bookTitle: string;
+    busy: boolean;
+    searching: boolean;
+    query: string;
+  };
+
+  async function setup(overrides: Partial<InputValues> = {}): Promise<void> {
+    await TestBed.configureTestingModule({ imports: [EditionsModal] }).compileComponents();
+    fixture = TestBed.createComponent(EditionsModal);
+    component = fixture.componentInstance;
+
+    fixture.componentRef.setInput('isOpen', true);
+    fixture.componentRef.setInput('members', members);
+    fixture.componentRef.setInput('candidates', candidates);
+    fixture.componentRef.setInput('currentBookId', 'current');
+    fixture.componentRef.setInput('bookTitle', 'Nicomachean Ethics');
+
+    for (const [key, value] of Object.entries(overrides)) {
+      fixture.componentRef.setInput(key, value);
+    }
+    fixture.detectChanges();
+  }
+
+  it('renders nothing while closed', async () => {
+    await setup({ isOpen: false });
+    expect(fixture.nativeElement.querySelector('.editions-modal-card')).toBeNull();
+  });
+
+  it('marks the current book and offers Unlink only for the others', async () => {
+    await setup();
+
+    const rows = fixture.nativeElement.querySelectorAll('.manage-member');
+    expect(rows.length).toBe(2);
+
+    // The book you are on is context: no action, and it says so in words.
+    expect(rows[0].querySelector('.manage-member-flag')?.textContent).toContain('This book');
+    expect(rows[0].querySelector('.manage-member-action')).toBeNull();
+
+    expect(rows[1].querySelector('.manage-member-action')?.textContent?.trim()).toBe('Unlink');
+  });
+
+  it('emits the member to unlink rather than acting itself', async () => {
+    await setup();
+
+    let emitted: WorkMember | undefined;
+    component.unlinkRequest.subscribe((m) => (emitted = m));
+
+    (fixture.nativeElement.querySelector('.manage-member-action') as HTMLButtonElement).click();
+
+    expect(emitted?.id).toBe('sibling');
+    expect(emitted?.title).toBe('The Nicomachean Ethics');
+  });
+
+  it('emits the candidate to link, and reports its group size', async () => {
+    await setup();
+
+    let emitted: LinkableBookDto | undefined;
+    component.linkRequest.subscribe((c) => (emitted = c));
+
+    const rows = fixture.nativeElement.querySelectorAll('.manage-link-candidate');
+    expect(rows.length).toBe(2);
+    // A work with two editions is one choice, and says how big the merge is.
+    expect(rows[1].textContent).toContain('2 editions');
+
+    (rows[0] as HTMLButtonElement).click();
+    expect(emitted?.id).toBe('c1');
+  });
+
+  it('labels the candidate row with an explicit Link action', async () => {
+    await setup();
+
+    // The row is the click target, but a click target with no label reads as
+    // static text — the only other cue would be hover, which touch never shows.
+    const action = fixture.nativeElement.querySelector('.manage-link-candidate-action');
+    expect(action).toBeTruthy();
+    expect(action.textContent).toContain('Link');
+
+    // A label inside the row button, not a nested <button>: that is invalid HTML
+    // and would swallow the click target.
+    expect(action.tagName.toLowerCase()).toBe('span');
+  });
+
+  it('reports an empty list differently once a query is typed', async () => {
+    await setup({ candidates: [] });
+
+    expect(fixture.nativeElement.querySelector('.manage-link-empty')?.textContent)
+      .toContain('No other books');
+
+    fixture.componentRef.setInput('query', 'medit');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.manage-link-empty')?.textContent)
+      .toContain('No matching books');
+  });
+
+  it('still renders a usable surface for a book alone in its work', async () => {
+    // The case the whole surface exists for: one member, nothing to unlink.
+    await setup({
+      members: [{ id: 'current', title: 'Solo Book', author: null }],
+      currentBookId: 'current',
+    });
+
+    expect(fixture.nativeElement.querySelectorAll('.manage-member').length).toBe(1);
+    expect(fixture.nativeElement.querySelector('.manage-member-action')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.manage-link-search')).toBeTruthy();
+    // No author must not render as a blank line.
+    expect(fixture.nativeElement.querySelector('.manage-member-author')?.textContent)
+      .toContain('Unknown author');
+  });
+
+  it('emits query changes instead of holding the search text', async () => {
+    await setup();
+
+    const seen: string[] = [];
+    component.queryChange.subscribe((q) => seen.push(q));
+
+    const input = fixture.nativeElement.querySelector('.manage-link-search') as HTMLInputElement;
+    input.value = 'medit';
+    input.dispatchEvent(new Event('input'));
+
+    expect(seen).toEqual(['medit']);
+  });
+
+  it('will not close while a mutation is in flight', async () => {
+    await setup({ busy: true });
+
+    let closed = false;
+    component.close.subscribe(() => (closed = true));
+
+    (fixture.nativeElement.querySelector('.editions-modal-close') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('.modal-backdrop') as HTMLElement).click();
+
+    expect(closed).toBe(false);
+    expect((fixture.nativeElement.querySelector('.editions-modal-close') as HTMLButtonElement).disabled)
+      .toBe(true);
+  });
+
+  it('names the book in the header so the surface is not ambiguous', async () => {
+    await setup();
+    expect(fixture.nativeElement.querySelector('.editions-modal-subtitle')?.textContent)
+      .toContain('Nicomachean Ethics');
+  });
+});

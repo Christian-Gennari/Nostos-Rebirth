@@ -1,0 +1,140 @@
+@if (isOpen()) {
+<div class="modal-backdrop" (click)="onBackdropClick()" role="presentation">
+  <div
+    class="editions-modal-card"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="editions-modal-title"
+    (click)="$event.stopPropagation()"
+  >
+    <header class="editions-modal-head">
+      <div class="editions-modal-heading">
+        <span class="editions-modal-mark" aria-hidden="true">
+          <lucide-icon [img]="LayersIcon" [size]="15" [strokeWidth]="1.75"></lucide-icon>
+        </span>
+        <div class="editions-modal-heading-text">
+          <h2 id="editions-modal-title" class="editions-modal-title">Editions &amp; works</h2>
+          @if (bookTitle()) {
+          <p class="editions-modal-subtitle">{{ bookTitle() }}</p>
+          }
+        </div>
+      </div>
+      <button
+        type="button"
+        class="editions-modal-close"
+        [disabled]="busy()"
+        title="Close"
+        aria-label="Close"
+        (click)="close.emit()"
+      >
+        <lucide-icon [img]="XIcon" [size]="18" [strokeWidth]="1.75"></lucide-icon>
+      </button>
+    </header>
+
+    <div class="editions-modal-body">
+      <p class="editions-modal-hint">
+        Nostos groups formats and editions of the same book automatically. Correct it here when a
+        grouping is wrong.
+      </p>
+
+      <!-- Current membership: every book in this work. Each of them can be
+           split out into its own work. -->
+      <section class="editions-modal-section" aria-labelledby="editions-members-title">
+        <h3 class="editions-modal-label" id="editions-members-title">
+          In this work
+          <span class="editions-modal-count">{{ members().length }}</span>
+        </h3>
+
+        <ul class="manage-members">
+          @for (member of members(); track member.id) {
+          <li class="manage-member" [class.is-current]="member.id === currentBookId()">
+            <span class="manage-member-text">
+              <span class="manage-member-title">{{ member.title }}</span>
+              <span class="manage-member-author">{{ member.author || 'Unknown author' }}</span>
+              <!-- The flag is a THIRD line inside the text column, not a sibling
+                   of the title: beside it, it stole width from the title and
+                   ellipsised it at mobile width (a title is unreadable
+                   truncated, and there is no hover on touch). -->
+              @if (member.id === currentBookId()) {
+              <span class="manage-member-flag">This book</span>
+              }
+            </span>
+            @if (member.id !== currentBookId()) {
+            <button
+              type="button"
+              class="manage-member-action"
+              [disabled]="busy()"
+              (click)="unlinkRequest.emit(member)"
+            >
+              Unlink
+            </button>
+            }
+          </li>
+          }
+        </ul>
+      </section>
+
+      <!-- Link another library book into this work, including one whose metadata
+           does not match — that is the whole point. -->
+      <section class="manage-link" aria-labelledby="editions-link-title">
+        <h3 class="editions-modal-label" id="editions-link-title">Link another book to this work</h3>
+
+        <div class="manage-link-field">
+          <lucide-icon
+            [img]="SearchIcon"
+            [size]="15"
+            class="manage-link-field-icon"
+            aria-hidden="true"
+          ></lucide-icon>
+          <input
+            id="edition-link-search"
+            type="search"
+            class="manage-link-search"
+            placeholder="Search your library…"
+            autocomplete="off"
+            [ngModel]="query()"
+            (ngModelChange)="onQueryInput($event)"
+          />
+        </div>
+
+        @if (searching()) {
+        <p class="manage-link-empty">Searching…</p>
+        } @else if (candidates().length === 0) {
+        <p class="manage-link-empty">
+          {{ query() ? 'No matching books to link.' : 'No other books to link.' }}
+        </p>
+        } @else {
+        <ul class="manage-link-list">
+          @for (candidate of candidates(); track candidate.id) {
+          <li>
+            <button
+              type="button"
+              class="manage-link-candidate"
+              [disabled]="busy()"
+              (click)="linkRequest.emit(candidate)"
+            >
+              <span class="manage-link-candidate-text">
+                <span class="manage-member-title">{{ candidate.title }}</span>
+                @if (candidate.author) {
+                <span class="manage-member-author">{{ candidate.author }}</span>
+                }
+              </span>
+              @if ((candidate.editionCount || 1) > 1) {
+              <span class="manage-link-group-flag">{{ candidate.editionCount }} editions</span>
+              }
+              <!-- The row is the click target; this label only makes it read as
+                   one, mirroring the Unlink button on a member row. -->
+              <span class="manage-link-candidate-action">
+                <lucide-icon [img]="LinkIcon" [size]="12" [strokeWidth]="2" aria-hidden="true"></lucide-icon>
+                Link
+              </span>
+            </button>
+          </li>
+          }
+        </ul>
+        }
+      </section>
+    </div>
+  </div>
+</div>
+}

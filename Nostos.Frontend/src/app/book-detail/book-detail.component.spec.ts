@@ -318,8 +318,28 @@ describe('BookDetail reset progress', () => {
   // is created — and every mutation goes through the service, never a direct
   // WorkId write.
 
+  /** The in-context entry point on the editions card. */
   function manageToggle(): HTMLButtonElement {
-    return fixture.nativeElement.querySelector('.edition-manage-toggle') as HTMLButtonElement;
+    return fixture.nativeElement.querySelector('.edition-section-action') as HTMLButtonElement;
+  }
+
+  /** The hero Edit chooser button. */
+  function editButton(): HTMLButtonElement {
+    return fixture.nativeElement.querySelector('.edit-metadata-btn') as HTMLButtonElement;
+  }
+
+  function editMenuItem(label: string): HTMLButtonElement | null {
+    return (
+      Array.from(
+        fixture.nativeElement.querySelectorAll('.edit-menu-item') as NodeListOf<HTMLButtonElement>,
+      ).find((item) => item.querySelector('.edit-menu-item-label')?.textContent?.trim() === label) ??
+      null
+    );
+  }
+
+  /** The membership modal root, present only while it is open. */
+  function editionsModal(): HTMLElement | null {
+    return fixture.nativeElement.querySelector('.editions-modal-card');
   }
 
   function multiEditionBook(): Book {
@@ -339,43 +359,99 @@ describe('BookDetail reset progress', () => {
     });
   }
 
+  /**
+   * Open the membership modal through its in-context entry point (the editions
+   * card action). Callers own the candidate-query flush, because several of them
+   * assert on the request itself.
+   */
   function openManage(): void {
     manageToggle().click();
     fixture.detectChanges();
+  }
+
+  /**
+   * Open the membership modal the way a lone book must: through the hero Edit
+   * chooser, since that book has no editions card to host an action.
+   */
+  function openManageViaEdit(): void {
+    editButton().click();
+    fixture.detectChanges();
+    editMenuItem('Editions & works')!.click();
+    fixture.detectChanges();
+  }
+
+  /** The empty-candidate response every open produces. */
+  function flushNoCandidates(): void {
     httpMock
       .expectOne((req) => req.url === '/api/books' && req.method === 'GET')
       .flush({ items: [], totalCount: 0, page: 1, pageSize: 20 });
     fixture.detectChanges();
   }
 
-  it('keeps the management surface collapsed by default, even when editions exist', async () => {
+  it('opens the membership modal from the editions card, and not before', async () => {
     await setup(multiEditionBook());
 
+    // Nothing of the working surface rests on the page: no modal, no picker, so
+    // the ordinary reading flow is uncluttered by construction.
     expect(manageToggle()).toBeTruthy();
-    expect(manageToggle().getAttribute('aria-expanded')).toBe('false');
-    // Collapsed means collapsed: neither the member list nor the picker is in
-    // the DOM, so the ordinary reading flow is uncluttered by construction.
-    expect(fixture.nativeElement.querySelector('.edition-manage-body')).toBeNull();
+    expect(editionsModal()).toBeNull();
     expect(fixture.nativeElement.querySelector('.manage-link-search')).toBeNull();
-  });
-
-  it('offers the management surface for a single-edition book too', async () => {
-    await setup(readableBook());
-
-    // The editions selector is (correctly) absent for this book, but linking it
-    // to another one is exactly what a lone book needs.
-    expect(fixture.nativeElement.querySelector('.edition-section')).toBeNull();
-    expect(manageToggle()).toBeTruthy();
-  });
-
-  it('loads link candidates when the management surface is opened', async () => {
-    await setup(readableBook());
 
     manageToggle().click();
     fixture.detectChanges();
 
-    expect(manageToggle().getAttribute('aria-expanded')).toBe('true');
-    expect(fixture.nativeElement.querySelector('.edition-manage-body')).toBeTruthy();
+    expect(editionsModal()).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.manage-link-search')).toBeTruthy();
+    // No stray candidate query is fired by merely clicking the card action —
+    // openManage/polling tests flush it explicitly.
+    httpMock.expectOne((req) => req.url === '/api/books' && req.method === 'GET')
+      .flush({ items: [], totalCount: 0, page: 1, pageSize: 20 });
+  });
+
+  it('offers a route to managing editions for a single-edition book too', async () => {
+    await setup(readableBook());
+
+    // The editions card is (correctly) absent for this book, so the card action
+    // does not exist — and linking a lone book is exactly what it needs.
+    expect(fixture.nativeElement.querySelector('.edition-section')).toBeNull();
+
+    // The hero Edit chooser is the route, and it is present for every book.
+    expect(editButton()).toBeTruthy();
+    editButton().click();
+    fixture.detectChanges();
+
+    const editionsItem = editMenuItem('Editions & works');
+    expect(editionsItem).toBeTruthy();
+
+    editionsItem!.click();
+    fixture.detectChanges();
+
+    expect(editionsModal()).toBeTruthy();
+    httpMock.expectOne((req) => req.url === '/api/books' && req.method === 'GET')
+      .flush({ items: [], totalCount: 0, page: 1, pageSize: 20 });
+  });
+
+  it('keeps the Edit chooser offering Edit Book alongside editions', async () => {
+    await setup(readableBook());
+
+    editButton().click();
+    fixture.detectChanges();
+
+    const bookDetails = editMenuItem('Book details');
+    expect(bookDetails).toBeTruthy();
+
+    bookDetails!.click();
+    fixture.detectChanges();
+
+    // Edit Book still opens its own form, and the chooser closed behind it.
+    expect(fixture.nativeElement.querySelector('app-add-book-modal .modal-content')).toBeTruthy();
+    expect(editMenuItem('Book details')).toBeNull();
+  });
+
+  it('loads link candidates when the membership modal is opened', async () => {
+    await setup(readableBook());
+
+    openManageViaEdit();
 
     // Candidates come from the canonical list endpoint, grouped-by-work off so a
     // collapsed work still yields its individual books.
@@ -400,8 +476,7 @@ describe('BookDetail reset progress', () => {
 
   it('labels the candidate row with an explicit Link action', async () => {
     await setup(readableBook());
-    manageToggle().click();
-    fixture.detectChanges();
+    openManageViaEdit();
     httpMock.expectOne((req) => req.url === '/api/books').flush({
       items: [{ id: 'b2', title: 'Something Else', author: 'Another Author', workId: 'w2', editionCount: 1 }],
       totalCount: 1, page: 1, pageSize: 20,
@@ -423,8 +498,7 @@ describe('BookDetail reset progress', () => {
 
   it('offers each candidate WORK once, however many editions it has', async () => {
     await setup(readableBook());
-    manageToggle().click();
-    fixture.detectChanges();
+    openManageViaEdit();
     httpMock.expectOne((req) => req.url === '/api/books').flush({
       items: [
         // One work with two editions — a group-level choice, so it is one row.
@@ -447,6 +521,7 @@ describe('BookDetail reset progress', () => {
   it('lists every work member and offers Unlink only for the others', async () => {
     await setup(multiEditionBook());
     openManage();
+    flushNoCandidates();
 
     const members = fixture.nativeElement.querySelectorAll('.manage-member');
     expect(members.length).toBe(2);
@@ -465,7 +540,10 @@ describe('BookDetail reset progress', () => {
 
   it('links a selected book through the service and refetches the book', async () => {
     await setup(readableBook());
-    manageToggle().click();
+    // Opened the lone-book way: the hero Edit chooser.
+    editButton().click();
+    fixture.detectChanges();
+    editMenuItem('Editions & works')!.click();
     fixture.detectChanges();
     httpMock.expectOne((req) => req.url === '/api/books').flush({
       items: [{ id: 'b9', title: 'Other Book', author: 'Someone', workId: 'w9', editionCount: 1 }],
@@ -517,6 +595,7 @@ describe('BookDetail reset progress', () => {
   it('unlinks a work member through the service after confirmation', async () => {
     await setup(multiEditionBook());
     openManage();
+    flushNoCandidates();
 
     const unlinkButton = fixture.nativeElement.querySelector('.manage-member-action') as HTMLButtonElement;
     unlinkButton.click();
@@ -541,6 +620,7 @@ describe('BookDetail reset progress', () => {
   it('does nothing when a work-membership confirmation is cancelled', async () => {
     await setup(multiEditionBook());
     openManage();
+    flushNoCandidates();
 
     (fixture.nativeElement.querySelector('.manage-member-action') as HTMLButtonElement).click();
     fixture.detectChanges();
@@ -554,7 +634,8 @@ describe('BookDetail reset progress', () => {
 
   it('narrows candidates by the management search box', async () => {
     await setup(readableBook());
-    openManage();
+    openManageViaEdit();
+    flushNoCandidates();
 
     const input = fixture.nativeElement.querySelector('.manage-link-search') as HTMLInputElement;
     input.value = 'medit';

@@ -4,11 +4,11 @@
       class="modal-content"
       role="dialog"
       aria-modal="true"
-      aria-label="{{ isEditMode() ? 'Edit Metadata' : 'Add New Book' }}"
+      aria-label="{{ isEditMode() ? 'Edit Book' : 'Add New Book' }}"
       (click)="$event.stopPropagation()"
     >
       <header class="modal-header">
-        <h2>{{ isEditMode() ? 'Edit Metadata' : 'Add New Book' }}</h2>
+        <h2>{{ isEditMode() ? 'Edit Book' : 'Add New Book' }}</h2>
         <button
           id="close-modal"
           appIconButton
