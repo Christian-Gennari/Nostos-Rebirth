@@ -59,6 +59,33 @@ Errors are mapped by `LibraryHttpMapper` to Problem Details: `invalid_*` →
 everything else → 422. `GET /lookup/{isbn}` rejects an invalid ISBN with 400
 and returns 404 when no metadata is found.
 
+### ProviderEndpoints (`/api/providers`)
+
+Read-only browsing of external catalogues, plus acquisition. Providers are
+resolved from the `IProviderRegistry`; the endpoint layer never contacts a source
+directly and performs no library writes of its own (issues #166/#167/#168).
+
+A client can only ever name **a provider, an item and an asset** — never a URL.
+The provider resolves the actual download locations server-side, which is what
+stops this surface from becoming an arbitrary-URL downloader.
+
+| Method   | Route                            | Description                                                   | Dependencies                    |
+| -------- | -------------------------------- | ------------------------------------------------------------- | ------------------------------- |
+| `GET`    | `/`                              | List registered providers with capabilities and rights notice  | `IProviderRegistry`             |
+| `GET`    | `/{providerId}/search`           | Search a source (`query`, `limit`, `offset`)                   | `IProviderSearch`               |
+| `GET`    | `/{providerId}/items/{externalId}` | Normalized item detail                                      | `IProviderCatalog`              |
+| `GET`    | `/{providerId}/items/{externalId}/cover` | Proxy a cover image (the browser never contacts the source) | `IProviderCatalog`, `IProviderContentDownloader` |
+| `POST`   | `/{providerId}/acquire`          | Start an acquisition job; `202` with a job id                 | `IAcquisitionService`, `IAcquisitionJobManager` |
+| `GET`    | `/acquisitions/{jobId}`          | Poll job state/stage/percent, resulting `bookId`, error code  | `IAcquisitionJobManager`        |
+| `DELETE` | `/acquisitions/{jobId}`          | Cancel an in-flight job                                       | `IAcquisitionJobManager`        |
+
+Provider failure codes are stable and carried through to the client, e.g.
+`provider_unknown`, `provider_item_not_found`, `provider_asset_unavailable`,
+`provider_response_invalid`, `provider_unavailable`, `download_failed`,
+`media_tool_missing`, `assembly_failed`, `acquisition_conflict`. A successful
+job that finds the work already present returns the **existing** book id rather
+than creating a duplicate.
+
 ### NotesEndpoints (`/api`)
 
 | Method   | Route                   | Description                           | Dependencies                                                 |
