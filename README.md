@@ -143,6 +143,10 @@ Nostos-Rebirth/
 ### Prerequisites
 * [.NET 10 SDK](https://dotnet.microsoft.com/download)
 * [Node.js (LTS)](https://nodejs.org/)
+* *(Optional)* `ffmpeg` and `ffprobe` — required only to import LibriVox
+  audiobooks, which are assembled into a single chaptered `.m4b`. Everything
+  else, including Project Gutenberg imports, works without them. See
+  [Content Providers & Acquisition](docs/content-providers.md).
 
 ### Quick Start (Development)
 Clone the repository and start both backend and frontend concurrently:

@@ -352,6 +352,142 @@ an error. A response that is not a feed (an HTML error page, say) surfaces as
 per search, one per detail, and downloads each asset once. There is no crawl,
 no bulk harvesting and no scheduled polling of the catalogue.
 
+## LibriVox (built-in provider)
+
+Registered as `librivox`. The worked example of a provider whose material is
+**not** a single file — the case `RequiresAssembly` exists for.
+
+**Protocol.** LibriVox's JSON API, not the website:
+
+- search — `https://librivox.org/api/feed/audiobooks/?title=^<text>&format=json&extended=1&limit=&offset=`
+- detail — `https://librivox.org/api/feed/audiobooks/?id=<n>&format=json&extended=1`
+- cover — `https://archive.org/services/img/<archive-identifier>`
+- sections — archive.org MP3 URLs, as published in the record
+
+`extended=1` is what includes the `sections` array. All JSON knowledge lives in
+`LibriVoxCatalog`.
+
+**Search is genuinely limited, and the provider says so.** The feed has no
+free-text search: a title query matches only titles that *start with* the text
+(the `^` operator), and there is no substring matching. So the provider searches
+titles first and, when that finds nothing, searches authors — and returns a
+`Notice` explaining which happened, so a thin result set reads as a catalogue
+limitation rather than a broken search. A query shorter than two characters is
+not sent at all.
+
+**What the provider maps**
+
+- `ExternalId` — the LibriVox recording id.
+- `Author` — built from the feed's structured `first_name`/`last_name` fields.
+- `Narrator` — the distinct readers across all sections. A solo reading yields
+  one name; a full-cast dramatic reading is summarised ("Denny Sayers (d. 2015)
+  and 8 others") rather than pasted in as a cast list.
+- `Language`, `Categories` (the feed's genres), `PublishedDate`
+  (`copyright_year`), `Duration` (`totaltime`).
+- `Description` — the feed's HTML is stripped and entities decoded, so markup
+  never reaches the reader.
+- `Cover` — archive.org's thumbnail service, derived from the item identifier,
+  so search results carry a cover without a second request each.
+- `PartCount` — the section count, which is what the user needs to judge a
+  recording's size.
+
+**One asset, deliberately.** A LibriVox item offers exactly one asset, `m4b`.
+There is no per-track asset: the multi-track form is an implementation detail of
+the source, not something a user should be able to import. Asking for any other
+asset fails with `provider_asset_unavailable` rather than quietly importing the
+M4B anyway.
+
+### The M4B assembly
+
+```
+ordered MP3 sections -> download -> validate -> ffprobe each -> concat -> AAC -> single .m4b -> chapters
+```
+
+The audio reader plays one stream, so the track set is absorbed here, once. What
+lands in the library is one local `.m4b`; nothing downstream knows LibriVox
+exists.
+
+Four details are load-bearing, and each was verified against ffmpeg before being
+relied on:
+
+1. **`-ar 44100` is required.** Sections are recorded by different volunteers
+   over years. The first section of a real recording measured here was
+   **22.05 kHz**; without an explicit rate the AAC encoder adopts the first
+   input's rate and silently downsamples the entire book.
+2. **Chapters are measured, not read from the API.** The feed's per-section
+   `playtime` is rounded and drifts; across forty sections that accumulates into
+   tens of seconds of misalignment. Each downloaded file is probed with ffprobe
+   and the chapter spans are cumulative real durations. (On the recording used
+   for the smoke test the API and the measurement agreed to the second — which is
+   luck, not a guarantee.)
+3. **The ffmetadata chapter key is `title`, with `TIMEBASE=1/1000`.** The
+   plausible-looking `CHAPTERTITLE` is not a key ffmpeg recognises and fails
+   *silently*, producing chapters with blank names. Values are escaped for
+   `=`, `;`, `#` and `\`, because chapter titles come from volunteers and
+   contain those characters.
+4. **`-map_chapters 1` is required alongside `-map_metadata 1`.** By default
+   ffmpeg copies chapters from the first input that has any, so an ID3 chapter
+   tag on section one would win over the generated table.
+
+The effective command is:
+
+```
+ffmpeg -f concat -safe 0 -i concat.txt -i chapters.txt \
+       -map 0:a -map_metadata 1 -map_chapters 1 \
+       -c:a aac -b:a 64k -ac 1 -ar 44100 -movflags +faststart -f ipod out.m4b
+```
+
+The concat *demuxer* is used rather than the concat filter: these recordings run
+to tens of sections, and a filter graph would need an input and a pad per
+section. `-movflags +faststart` matters because the file is hundreds of
+megabytes and the reader streams it with Range requests — without it the index
+atom sits at the end of the file and seeking stalls. `-ac 1`/`-b:a 64k` matches
+the sources (mono 64 kbps speech); a higher bitrate cannot restore detail that
+was never recorded.
+
+The finished file is then verified before it is accepted: the chapter count
+ffprobe can see must equal the number generated, and the duration must match the
+measured total within a small tolerance. A chapter table that silently failed to
+apply is exactly the failure this step exists to catch, so the pipeline does not
+report success merely because the tracks downloaded.
+
+### Runtime prerequisite: ffmpeg and ffprobe
+
+Importing a LibriVox recording **requires `ffmpeg` and `ffprobe` on the server**.
+This is a real dependency and is treated as one:
+
+- it is **detected at startup** by `MediaProcessRunner`, which resolves each tool
+  on `PATH` (or from `Media:FfmpegPath` / `Media:FfprobePath`) and checks it is a
+  real executable — availability is a fact rather than an assumption;
+- it is **reported at the point of use**: with the tools absent, the import fails
+  with `media_tool_missing` and the message
+  *"Importing a LibriVox recording needs ffmpeg and ffprobe on the server's PATH
+  (or Media:FfmpegPath / Media:FfprobePath set to their full paths)."*
+- it **degrades partially**, not catastrophically: with the tools absent the app
+  starts normally, and LibriVox search and item detail still work — only the
+  acquisition step fails.
+
+Gutenberg imports need no external tooling, and a server without ffmpeg is a
+perfectly valid Nostos deployment.
+
+**Encoding cost.** Speech AAC encodes at roughly 70–100× real time on one core,
+so a 13-hour audiobook takes about 8–10 minutes. Encodes are serialised process-wide
+(`AcquisitionOptions:MaxConcurrentTranscodes`, default 1) because one encode
+already saturates the box.
+
+### Operational notes
+
+- **archive.org is the actual host of the audio, and it is flaky.** The
+  published URLs point at `www.archive.org`, which redirects to a
+  `dn<NNN>.ca.archive.org` node; transfers were observed succeeding, then
+  returning `503`, within minutes. The host allow-list is suffix-matched so those
+  redirect targets are covered, downloads are retried
+  (`AcquisitionOptions:DownloadAttempts`, default 3), and a persistent failure
+  surfaces as `download_failed` naming the URL and status. Expect occasional
+  transient failures on a large import.
+- The cover comes from archive.org's thumbnail service, so a network hiccup there
+  costs a cover, not the import.
+
 ## Documented limitations
 
 - **In-memory job store.** A server restart forgets in-flight jobs; the UI sees
@@ -367,3 +503,20 @@ no bulk harvesting and no scheduled polling of the catalogue.
 - **A source whose search is limited** (LibriVox, for example, matches a whole
   title or an author surname only) reports a `Notice` alongside a thin result
   set rather than pretending the catalogue is empty.
+- **LibriVox search cannot match inside a title.** The feed only matches titles
+  that begin with the query, so "wallpaper" will not find "The Yellow
+  Wallpaper" — the user searches for the opening of the title instead. The
+  provider falls back to an author search and explains itself via `Notice`, but
+  it cannot invent a substring index the source does not have.
+- **A LibriVox recording is imported whole or not at all.** There is no way to
+  import a single section, by design: per-track import would put the multi-track
+  representation into the library, which is the thing this design exists to
+  prevent.
+- **LibriVox covers come from archive.org's thumbnail service.** The LibriVox
+  record itself carries no cover field, so a cover is derived from the archive
+  item identifier; if archive.org is unreachable the import still succeeds and
+  simply has no artwork.
+- **LibriVox downloads depend on archive.org**, which is an external service with
+  no uptime guarantee and was observed returning `503` intermittently during
+  development. Large imports may need a retry. Nothing local is lost when this
+  happens — no book row and no file are created until the whole import succeeds.
