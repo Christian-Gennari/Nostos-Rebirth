@@ -436,6 +436,14 @@ public sealed class LibraryService : ILibraryService
         MutateAsync(request.ClientId, request.IdempotencyKey, "UpdateBook",
             (db, token) => UpdateBookCoreAsync(db, request, token), ct);
 
+    public Task<LibraryCommandResultDto> LinkWorkAsync(LibraryLinkWorkRequest request, CancellationToken ct = default) =>
+        MutateAsync(request.ClientId, request.IdempotencyKey, "LinkWork",
+            (db, token) => LinkWorkCoreAsync(db, request, token), ct);
+
+    public Task<LibraryCommandResultDto> UnlinkWorkAsync(LibraryUnlinkWorkRequest request, CancellationToken ct = default) =>
+        MutateAsync(request.ClientId, request.IdempotencyKey, "UnlinkWork",
+            (db, token) => UnlinkWorkCoreAsync(db, request, token), ct);
+
     public async Task<LibraryCommandResultDto> UpdateProgressAsync(
         Guid bookId,
         string location,
@@ -1064,6 +1072,155 @@ public sealed class LibraryService : ILibraryService
             LibraryReplyFormatter.BookUpdated(book.Title),
             book.ToDto(),
             state.StateVersion));
+    }
+
+    // ------------------------------------------------------------------
+    // Work membership (multi-edition grouping): the manual override
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Merge <c>BookId</c>'s work into <c>TargetBookId</c>'s work.
+    ///
+    /// Group semantics, deliberately: the target's work survives as the merged
+    /// group's identity and EVERY book from the source group is moved onto it,
+    /// rather than only the two named books. Moving just the named book would
+    /// silently strip one edition out of an already-valid group — a side effect
+    /// the user did not ask for.
+    ///
+    /// Two book-level rows are never touched except for <c>WorkId</c>: files,
+    /// progress, notes, ratings/reviews, metadata and collection membership all
+    /// belong to the book and stay exactly as they were.
+    /// </summary>
+    private async Task<(bool DidChange, LibraryCommandResultDto Result)> LinkWorkCoreAsync(
+        NostosDbContext db,
+        LibraryLinkWorkRequest request,
+        CancellationToken ct)
+    {
+        var state = await EnsureStateAsync(db, ct);
+
+        if (request.BookId == request.TargetBookId)
+            return NoChange(Failure("invalid_work_link",
+                "A book cannot be linked to itself.", state.StateVersion));
+
+        var book = await db.Books.SingleOrDefaultAsync(b => b.Id == request.BookId, ct);
+        if (book is null)
+            return NoChange(Failure("book_not_found", LibraryReplyFormatter.BookNotFound, state.StateVersion));
+
+        var target = await db.Books.SingleOrDefaultAsync(b => b.Id == request.TargetBookId, ct);
+        if (target is null)
+            return NoChange(Failure("target_book_not_found",
+                LibraryReplyFormatter.BookNotFound, state.StateVersion));
+
+        // Already grouped (in either direction, and including a replayed
+        // request with the arguments swapped): a successful no-op, so the
+        // operation is idempotent regardless of how the client orders the pair.
+        if (book.WorkId == target.WorkId)
+            return NoChange(Result(
+                LibraryReplyFormatter.WorkAlreadyLinked(book.Title, target.Title),
+                await BuildWorkMembershipResultAsync(db, book, removedWorkId: null, ct),
+                state.StateVersion));
+
+        var sourceWorkId = book.WorkId;
+        var survivorWorkId = target.WorkId;
+
+        // Fix up every member of the source group, not just the named book.
+        var sourceMembers = await db.Books
+            .Where(b => b.WorkId == sourceWorkId)
+            .ToListAsync(ct);
+        foreach (var member in sourceMembers)
+            member.WorkId = survivorWorkId;
+
+        // Remove the source work once nothing references it. Its row carries no
+        // book-level data, so nothing is lost: the group's remaining identity is
+        // the survivor's own title/author. The books are updated first so the
+        // FK is already re-pointed when the delete runs.
+        var sourceWork = await db.Works.SingleOrDefaultAsync(w => w.Id == sourceWorkId, ct);
+        Guid? removedWorkId = null;
+        if (sourceWork is not null)
+        {
+            await db.SaveChangesAsync(ct);
+            var stillReferenced = await db.Books.AnyAsync(b => b.WorkId == sourceWorkId, ct);
+            if (!stillReferenced)
+            {
+                db.Works.Remove(sourceWork);
+                removedWorkId = sourceWorkId;
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        return Change(Result(
+            LibraryReplyFormatter.WorkLinked(book.Title, target.Title),
+            await BuildWorkMembershipResultAsync(db, book, removedWorkId, ct),
+            state.StateVersion));
+    }
+
+    /// <summary>
+    /// Split <c>BookId</c> out of its work into a fresh single-book work built
+    /// from the book's OWN current title/author identity. The book therefore
+    /// always ends up with a valid work id; an unlinked-to-nothing state is not
+    /// representable.
+    /// </summary>
+    private async Task<(bool DidChange, LibraryCommandResultDto Result)> UnlinkWorkCoreAsync(
+        NostosDbContext db,
+        LibraryUnlinkWorkRequest request,
+        CancellationToken ct)
+    {
+        var state = await EnsureStateAsync(db, ct);
+
+        var book = await db.Books.SingleOrDefaultAsync(b => b.Id == request.BookId, ct);
+        if (book is null)
+            return NoChange(Failure("book_not_found", LibraryReplyFormatter.BookNotFound, state.StateVersion));
+
+        var previousWorkId = book.WorkId;
+        var remaining = await db.Books.CountAsync(b => b.WorkId == previousWorkId && b.Id != book.Id, ct);
+
+        // Nothing to split: the book is already the only member of its work.
+        if (remaining == 0)
+            return NoChange(Result(
+                LibraryReplyFormatter.WorkAlreadyStandalone(book.Title),
+                await BuildWorkMembershipResultAsync(db, book, removedWorkId: null, ct),
+                state.StateVersion));
+
+        // The book's own identity, NOT the old work's: that work exists to
+        // describe the group, and copying its title onto a single book would
+        // label the split-off edition with whichever sibling happened to be the
+        // group's representative.
+        var newWork = new WorkModel
+        {
+            Id = Guid.NewGuid(),
+            Title = book.Title,
+            Author = book.Author,
+            NormalizedTitle = BookIdentityNormalizer.NormalizeTitle(book.Title),
+            NormalizedAuthor = BookIdentityNormalizer.NormalizeAuthor(book.Author),
+            CreatedAt = Now,
+        };
+        db.Works.Add(newWork);
+
+        book.WorkId = newWork.Id;
+        book.Work = newWork;
+        await db.SaveChangesAsync(ct);
+
+        return Change(Result(
+            LibraryReplyFormatter.WorkUnlinked(book.Title),
+            await BuildWorkMembershipResultAsync(db, book, removedWorkId: null, ct),
+            state.StateVersion));
+    }
+
+    /// <summary>
+    /// Post-mutation membership snapshot for the command payload. Read after the
+    /// write so the client can render the new group without a follow-up read,
+    /// and so the count is the group's real size rather than a prediction.
+    /// </summary>
+    private static async Task<LibraryWorkMembershipResultDto> BuildWorkMembershipResultAsync(
+        NostosDbContext db,
+        BookModel book,
+        Guid? removedWorkId,
+        CancellationToken ct)
+    {
+        var workId = book.WorkId;
+        var count = await db.Books.CountAsync(b => b.WorkId == workId, ct);
+        return new LibraryWorkMembershipResultDto(book.Id, workId, count, removedWorkId);
     }
 
     private async Task<(bool DidChange, LibraryCommandResultDto Result)> CreateCollectionCoreAsync(

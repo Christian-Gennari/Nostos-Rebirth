@@ -8,6 +8,7 @@ import {
   UpdateProgressDto,
   PaginatedResponse,
   LibraryStatusCountsDto,
+  WorkMembershipDto,
 } from '../dtos/book.dtos';
 import { BookFilter, BookSort } from '../dtos/book.enums';
 
@@ -75,6 +76,20 @@ export class BooksService {
 
   resetProgress(id: string): Observable<any> {
     return this.http.post(`/api/books/${id}/progress/reset`, null);
+  }
+
+  /**
+   * Merge this book into another book's work, so both become editions of one
+   * work. Deliberately metadata-blind — differing title/author is exactly the
+   * case this exists for.
+   */
+  linkWork(id: string, targetBookId: string): Observable<WorkMembershipDto> {
+    return this.http.post<WorkMembershipDto>(`/api/books/${id}/work/link`, { targetBookId });
+  }
+
+  /** Split this book out into its own new work. */
+  unlinkWork(id: string): Observable<WorkMembershipDto> {
+    return this.http.post<WorkMembershipDto>(`/api/books/${id}/work/unlink`, null);
   }
 
   // --- Cached Locations Management (instant epub progress state calculation) ---

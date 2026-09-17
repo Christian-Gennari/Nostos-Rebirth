@@ -4,7 +4,7 @@ import { HttpEventType } from '@angular/common/http';
 import { finalize } from 'rxjs';
 
 // DTOs & Services
-import { Book } from '../core/dtos/book.dtos';
+import { Book, LinkableBookDto } from '../core/dtos/book.dtos';
 import { Note } from '../core/dtos/note.dtos';
 import { Collection } from '../core/dtos/collection.dtos';
 import { ConceptDto } from '../core/services/concepts.service';
@@ -35,6 +35,13 @@ export class BookDetailStore {
 
   /** True while a reset-progress command is in flight (duplicate-click guard). */
   readonly resettingProgress = signal(false);
+
+  /** True while a work link/unlink command is in flight (duplicate-click guard). */
+  readonly linkingWork = signal(false);
+
+  /** Books offered by the advanced "link to…" picker. */
+  readonly linkCandidates = signal<LinkableBookDto[]>([]);
+  readonly candidatesLoading = signal(false);
 
   // --- ACTIONS ---
 
@@ -185,6 +192,102 @@ export class BookDetailStore {
           this.toast.success('Reading progress reset');
         },
         error: () => this.toast.error('Failed to reset progress'),
+      });
+  }
+
+  // --- MANUAL WORK MEMBERSHIP (issue #143) ---
+
+  /**
+   * Merge this book into another book's work.
+   *
+   * The mutation is owned by the domain service, so the client never writes a
+   * WorkId: it asks for the link and then re-reads the book, which is what makes
+   * the displayed editions reflect the server's decision (including the merge of
+   * whole groups, which the client cannot predict from two book ids).
+   */
+  linkToWork(targetBookId: string) {
+    const b = this.book();
+    if (!b || this.linkingWork()) return;
+
+    this.linkingWork.set(true);
+    this.booksService
+      .linkWork(b.id, targetBookId)
+      .pipe(finalize(() => this.linkingWork.set(false)))
+      .subscribe({
+        next: () => {
+          this.loadBook(b.id, { background: true });
+          this.toast.success('Linked as an edition of the same work');
+        },
+        error: () => this.toast.error('Could not link these books'),
+      });
+  }
+
+  /** Split a book out into its own work. Defaults to the book being viewed. */
+  unlinkFromWork(bookId?: string) {
+    const b = this.book();
+    if (!b || this.linkingWork()) return;
+    const id = bookId ?? b.id;
+
+    this.linkingWork.set(true);
+    this.booksService
+      .unlinkWork(id)
+      .pipe(finalize(() => this.linkingWork.set(false)))
+      .subscribe({
+        next: () => {
+          this.loadBook(b.id, { background: true });
+          this.toast.success('Unlinked into its own work');
+        },
+        error: () => this.toast.error('Could not unlink this edition'),
+      });
+  }
+
+  /**
+   * Books that could be linked to the current one, for the advanced picker.
+   *
+   * Candidates are deduplicated BY WORK: linking is a group-level operation, so
+   * a work with three editions would otherwise offer the same choice three times
+   * under the same title (measured on a real library: "Justice" appeared twice).
+   * The work's size travels in `editionCount`, which is what the merge warning
+   * needs anyway.
+   *
+   * The current book and anything already in its work are excluded: linking
+   * those is a no-op the user cannot see the reason for.
+   */
+  loadLinkCandidates(search: string): void {
+    this.candidatesLoading.set(true);
+    this.booksService
+      .list({ search, pageSize: 20, groupByWork: false })
+      .pipe(finalize(() => this.candidatesLoading.set(false)))
+      .subscribe({
+        next: (page) => {
+          const current = this.book();
+          const currentWorkId = current?.workId;
+
+          const byWork = new Map<string, LinkableBookDto>();
+          for (const candidate of page.items) {
+            if (candidate.id === current?.id) continue;
+            if (candidate.workId && candidate.workId === currentWorkId) continue;
+
+            // A book with no work id cannot be deduped by work, so it stands
+            // alone under its own id rather than being dropped.
+            const key = candidate.workId ?? `book:${candidate.id}`;
+            if (byWork.has(key)) continue;
+
+            byWork.set(key, {
+              id: candidate.id,
+              title: candidate.title,
+              author: candidate.author,
+              workId: candidate.workId,
+              editionCount: candidate.editionCount,
+            });
+          }
+
+          this.linkCandidates.set([...byWork.values()]);
+        },
+        error: () => {
+          this.linkCandidates.set([]);
+          this.toast.error('Could not load library books');
+        },
       });
   }
 

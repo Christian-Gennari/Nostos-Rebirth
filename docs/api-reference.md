@@ -101,6 +101,47 @@ Update reading progress.
 `percentage` is validated 0–100 (invalid values → 400). Auto-sets
 `lastReadAt` to now and aligns `finishedAt` with the finished state.
 
+### `POST /api/books/{id}/progress/reset`
+
+Reset reading progress to the canonical "not started" state (`lastLocation`,
+`progressPercent`, `finishedAt` and `lastReadAt` all cleared). Idempotent: an
+already-reset book returns `200` as a no-op.
+
+### `POST /api/books/{id}/work/link`
+
+**Manual multi-edition override.** Merge this book's work with another book's
+work, so both — and everything already grouped with either of them — become
+editions of one work. Metadata is deliberately NOT consulted: differing
+title/author is the case this exists for.
+
+**Body:** `{ "targetBookId": "guid" }`
+
+The target's work survives as the merged group's identity. **Group semantics,
+not book semantics:** every member of the source work moves, because pulling
+only the named book out of an already-valid group would be a side effect the
+user did not ask for. A work left empty by the merge is deleted.
+
+Only `WorkId` changes on the affected books. Files, reading progress, notes,
+ratings/reviews, metadata and collection memberships all belong to the book and
+are untouched.
+
+| Response | Meaning |
+| --- | --- |
+| `200` + `{ bookId, workId, editionCount, removedWorkId }` | merged (`removedWorkId` set when a work was emptied and deleted) |
+| `200`, already in one work | no-op; no state-version bump |
+| `400 invalid_work_link` | `targetBookId` is the book itself |
+| `404 book_not_found` / `404 target_book_not_found` | either id missing |
+
+### `POST /api/books/{id}/work/unlink`
+
+**Manual multi-edition override.** Detach this book from its work into a NEW
+work built from the book's own current title/author identity. The book always
+ends up with a valid work — a null or empty `WorkId` is not representable. A
+book already alone in its work returns `200` as a no-op.
+
+**Response:** `{ bookId, workId, editionCount: 1, removedWorkId: null }`, or
+`404 book_not_found`.
+
 ### `GET /api/books/{id}/locations`
 
 Get cached epub locations JSON (used for fast progress percentage calculation).

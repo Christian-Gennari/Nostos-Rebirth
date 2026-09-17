@@ -517,6 +517,116 @@
             </ul>
           </section>
           }
+
+          <!-- Advanced work-membership management (issue #143).
+               A SEPARATE rail element, deliberately, and not part of the
+               Available Formats & Editions block above: a book that is alone in
+               its work still needs a way to be LINKED to another one, and that
+               block is (correctly) absent for exactly those books. Collapsed, so
+               the ordinary reading flow is unchanged. -->
+          <div class="edition-manage-card">
+            <button
+              type="button"
+              class="edition-manage-toggle"
+              [attr.aria-expanded]="manageOpen()"
+              aria-controls="edition-manage-body"
+              (click)="toggleManage()"
+            >
+              <lucide-icon
+                [img]="manageOpen() ? ChevronDownIcon : ChevronRightIcon"
+                [size]="13"
+              ></lucide-icon>
+              <span>Manage editions</span>
+            </button>
+
+            @if (manageOpen()) {
+            <div class="edition-manage-body" id="edition-manage-body">
+              <p class="edition-manage-hint">
+                Nostos groups formats and editions of the same book automatically. Correct it
+                here when a grouping is wrong.
+              </p>
+
+              <!-- Current membership: every book in this work. Each of them can
+                   be split out into its own work. -->
+              <ul class="manage-members">
+                @for (member of workMembers(); track member.id) {
+                <li class="manage-member" [class.is-current]="member.id === store.book()?.id">
+                  <span class="manage-member-text">
+                    <span class="manage-member-title">{{ member.title }}</span>
+                    <span class="manage-member-author">{{ member.author || 'Unknown author' }}</span>
+                    <!-- The flag is a THIRD line inside the text column, not a
+                         sibling of the title: beside it, it stole width from the
+                         title and ellipsised it at mobile width (a title is
+                         unreadable truncated, and there is no hover on touch). -->
+                    @if (member.id === store.book()?.id) {
+                    <span class="manage-member-flag">This book</span>
+                    }
+                  </span>
+                  @if (member.id !== store.book()?.id) {
+                  <button
+                    type="button"
+                    class="manage-member-action"
+                    [disabled]="store.linkingWork()"
+                    (click)="askUnlink(member)"
+                  >
+                    Unlink
+                  </button>
+                  }
+                </li>
+                }
+              </ul>
+
+              <!-- Link another library book into this work, including one whose
+                   metadata does not match — that is the whole point. -->
+              <div class="manage-link">
+                <label class="manage-link-label" for="edition-link-search">
+                  Link another book to this work
+                </label>
+                <input
+                  id="edition-link-search"
+                  type="search"
+                  class="manage-link-search"
+                  placeholder="Search your library…"
+                  [ngModel]="linkQuery()"
+                  (ngModelChange)="onLinkQueryChange($event)"
+                />
+
+                @if (store.candidatesLoading()) {
+                <p class="manage-link-empty">Searching…</p>
+                } @else if (linkCandidates().length === 0) {
+                <p class="manage-link-empty">
+                  {{ linkQuery() ? 'No matching books to link.' : 'No other books to link.' }}
+                </p>
+                } @else {
+                <ul class="manage-link-list">
+                  @for (candidate of linkCandidates(); track candidate.id) {
+                  <li>
+                    <button
+                      type="button"
+                      class="manage-link-candidate"
+                      [disabled]="store.linkingWork()"
+                      (click)="askLink(candidate)"
+                    >
+                      <span class="manage-link-candidate-text">
+                        <span class="manage-member-title">{{ candidate.title }}</span>
+                        @if (candidate.author) {
+                        <span class="manage-member-author">{{ candidate.author }}</span>
+                        }
+                      </span>
+                      @if ((candidate.editionCount || 1) > 1) {
+                      <span class="manage-link-group-flag">
+                        {{ candidate.editionCount }} editions
+                      </span>
+                      }
+                    </button>
+                  </li>
+                  }
+                </ul>
+                }
+              </div>
+            </div>
+            }
+          </div>
         </aside>
       </div>
     </div>
@@ -585,6 +695,21 @@
     [busy]="deleting()"
     (confirm)="confirmDeleteBook()"
     (cancel)="cancelDeleteConfirm()"
+  >
+  </app-confirm-modal>
+
+  <!-- Work-membership confirmation (issue #143). Reuses the shared modal with
+       its neutral tone: regrouping editions is a correction, not a destruction. -->
+  <app-confirm-modal
+    [isOpen]="!!pendingWorkAction()"
+    [heading]="workActionHeading()"
+    [description]="workActionDescription()"
+    [confirmLabel]="pendingWorkAction()?.kind === 'link' ? 'Link' : 'Unlink'"
+    busyLabel="Working…"
+    [busy]="store.linkingWork()"
+    tone="neutral"
+    (confirm)="confirmWorkAction()"
+    (cancel)="cancelWorkAction()"
   >
   </app-confirm-modal>
 
