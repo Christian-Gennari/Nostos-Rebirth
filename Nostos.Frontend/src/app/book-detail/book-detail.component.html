@@ -290,11 +290,11 @@
               <div class="review-label">
                 <lucide-icon [img]="QuoteIcon" [size]="14"></lucide-icon> My Review
               </div>
-              <!-- The clamp lives on this wrapper, never on the paragraph itself:
-                   `-webkit-line-clamp` on the <p> would also rewrite
-                   `scrollHeight`, which is the only honest way to measure how
-                   tall the review really is. Clipping the parent leaves the
-                   paragraph's own metrics intact (see measureReviewOverflow). -->
+              <!-- The clamp lives on this wrapper so the fade has a positioned box
+                   that does not disturb the paragraph's own layout, and so the
+                   clamp can be released by dropping one class. The paragraph keeps
+                   its own height metadata, which is what `measureReviewOverflow`
+                   reads. -->
               <div class="review-body" [class.clamped]="isReviewClamped()">
                 <p #reviewText id="personal-review-text" class="review-text">{{ store.book()?.personalReview }}</p>
                 @if (isReviewClamped()) {

@@ -1243,14 +1243,10 @@ button.edition-select-card:focus-visible {
 }
 
 /* Long-review collapse (issue #159).
-   The clamp lives on this WRAPPER rather than on `.review-text`, and that is
-   load-bearing rather than stylistic: `-webkit-line-clamp` on the paragraph
-   itself also rewrites its `scrollHeight` (measured: 410px of content reports a
-   307px clamp), and `scrollHeight` is the only honest way to measure how tall
-   the review really is before deciding whether it overflows at all — see
-   `measureReviewOverflow` in the component. Clipping the parent leaves the
-   paragraph's own metrics intact, so the same element can be measured while
-   already clamped and nothing has to be shown un-clamped first.
+   The clamp lives on this WRAPPER rather than on `.review-text`. The measurement
+   does NOT depend on that (see below) — the wrapper is here so the fade has a
+   positioned box to sit in without touching the paragraph's own box, and so the
+   clamp is one class away from being released without restyling the text node.
 
    The clamp is released by the absence of `.clamped`, so expanding is a pure
    presentation flip and the stored review is never touched. */

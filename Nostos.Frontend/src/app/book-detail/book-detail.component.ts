@@ -275,12 +275,14 @@ export class BookDetail implements OnInit, OnDestroy {
   /**
    * Measures the review paragraph and sets `reviewOverflows`.
    *
-   * `scrollHeight` is the only honest source here: it reports the FULL content
-   * height even while `-webkit-line-clamp` is clipping the visible box, so the
-   * same element can be measured without ever releasing the clamp (verified in
-   * Chrome on the Devils review: content 410px, clamped box 307px, and
-   * `scrollHeight` still reported 410). Nothing is shown un-clamped, so there is
-   * no flash of the expanded review on load.
+   * `scrollHeight` is the only honest source here: it KEEPS reporting the full
+   * content height while the clamp is clipping the visible box, so the paragraph
+   * can be measured in the collapsed state and nothing has to be shown expanded
+   * first. Verified on the live Devils review (410px of content, a 307px clamped
+   * box, `scrollHeight` still 410) and against every clamp arrangement — the
+   * clamp on a wrapper, directly on the paragraph, `-webkit-line-clamp` and
+   * `max-height`. Measuring a clone, or releasing and reapplying the clamp, is
+   * therefore unnecessary: there is no flicker to avoid.
    */
   private measureReviewOverflow(): void {
     const el = this.reviewText?.nativeElement;
@@ -315,7 +317,6 @@ export class BookDetail implements OnInit, OnDestroy {
    * clamp (above), so that delivery recomputes the SAME verdict, the signal does
    * not change, and it settles on the second pass instead of looping. The width
    * comparison is a second belt-and-braces guard for the same thing.
-   *
    * Always disconnects first: `@ViewChild` hands back a NEW element when the
    * review changes, and an observer left on the old one would keep re-measuring
    * a detached node.
