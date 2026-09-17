@@ -255,7 +255,7 @@ for (const f of files) {
    EXIST (`--color-success` / `--color-danger`) and are theme-aware, so these two
    pairs are still theme-blind against a token that is not. Left for a human
    because it changes the rendered hue. */
-const LITERAL_COLOUR_BUDGET = 75;
+const LITERAL_COLOUR_BUDGET = 74;
 
 {
   const ALLOW = [

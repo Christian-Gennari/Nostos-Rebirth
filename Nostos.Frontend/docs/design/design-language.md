@@ -633,6 +633,52 @@ a browser), so the truncation is lucide's, not the browser's. Honouring the writ
 would thicken six studio icons — worth doing, but as a deliberate visual change with the
 pixel gate regenerated, not inside a refactor.)*
 
+### What WAS unified: modal & dialog geometry (issue #160)
+
+Dialog chrome had drifted into three shapes for the same role, all visible from
+Book Details:
+
+| Surface | card | its actions |
+| --- | --- | --- |
+| Edit Book | `14px` (hardcoded) | `999px` (stadium) |
+| Confirm (Delete Book) | `var(--radius-lg)` = 6px | `--radius-sm` = 3px |
+| Editions & works | `var(--radius-lg)` = 6px | `--radius-sm` / `--radius-md` |
+| status confirm (book-detail) | `16px` (hardcoded) | `999px` |
+
+So opening Delete from Edit Book switched from a soft card to a visibly squarer
+one, and its buttons from stadium to near-square — the same application reading
+as two design systems.
+
+**Two role tokens now own it**, next to the generic scale in `styles.css`:
+
+- `--radius-dialog: 14px` — the modal/dialog CARD surface. Source: Edit Book, the
+  agreed reference.
+- `--radius-action: 999px` — a dialog footer action. This was the shape already on
+  Edit Book's footer, and the same value the app's pill CTAs carried as a bare
+  literal; one role now owns both.
+
+**Why new roles instead of raising the existing scale.** `--radius-lg` is used
+beyond modals, so re-pointing it would have repainted every card and control in
+the app to fix dialog chrome. That is exactly the change to avoid, and issue #160
+rules it out explicitly.
+
+**Deliberately NOT unified: the compact controls inside a dialog.** Row actions
+in Editions & works, the dialog close buttons (3px, matching Edit Book's own
+`icon-btn` close) and count capsules keep their small radii. Coherence is the
+goal, not making every element of a dialog pill-shaped — a compact control in a
+list is a different role from a footer action.
+
+**Deliberately NOT one component.** `ConfirmModal` (`role="alertdialog"`) and
+`editions-modal` (`role="dialog"`, two-column working area) keep separate
+implementations. Same reasoning as the segmented control above: they share a
+RECIPE (card + footer actions), not a semantics contract, and merging them would
+save no CSS while risking both ARIA contracts.
+
+**Also reclaimed here:** the status confirmation in `book-detail.component.css`
+was the app's only dialog with its own scrim (`rgba(0,0,0,.45)` at an 8px blur —
+four times every other dialog's blur). It now reads `--modal-scrim` /
+`--modal-scrim-blur` like every sibling.
+
 ### What WAS unified: `.visually-hidden`
 It was declared twice, byte-identically (`second-brain` and `concept-map`). A
 utility with no per-surface variation should not be duplicated: the copies give
