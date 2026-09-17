@@ -63,7 +63,7 @@ import { LucideAngularModule, X, CheckCircle, AlertTriangle, Info } from 'lucide
          these — every other surface (book-detail, settings, library, note-card,
          flat-tree, second-brain, add-book-modal) reads --color-success /
          --color-danger, which are theme-aware (#22c55e -> #8FC7A8 and
-         #d32f2f -> #E4796B). The "info" variant below already used
+         #ba1a1a -> #ffb4ab). The "info" variant below already used
          --color-primary, so the component was internally inconsistent as well.
          The brand manifesto calls for "very restrained" accents and explicitly
          avoids "neon gradients & colorful AI aesthetics"; a saturated mint on a
