@@ -4,6 +4,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Nostos.Backend.Configuration;
 using Nostos.Backend.Data;
 using Nostos.Backend.Data.Models;
 using Nostos.Shared.Dtos;
@@ -17,10 +19,11 @@ public class BackupService : IBackupService
     private readonly IWebHostEnvironment _env;
     private readonly BackupSettingsProvider _settingsProvider;
     private readonly ILogger<BackupService> _logger;
+    private readonly string _localBackupDir;
 
     private BackupSettings Settings => _settingsProvider.Current;
 
-    private string LocalBackupDir => Path.Combine(_env.ContentRootPath, "Storage", "backups");
+    private string LocalBackupDir => _localBackupDir;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -33,6 +36,7 @@ public class BackupService : IBackupService
         IServiceScopeFactory scopeFactory,
         IFileStorageService fileStorage,
         IWebHostEnvironment env,
+        IOptions<FileStorageOptions> storageOptions,
         BackupSettingsProvider settingsProvider,
         ILogger<BackupService> logger
     )
@@ -42,6 +46,13 @@ public class BackupService : IBackupService
         _env = env;
         _settingsProvider = settingsProvider;
         _logger = logger;
+
+        // Resolved through the same options as the book storage root, so the
+        // archive location follows a relocated library instead of assuming the
+        // application's own content directory. See
+        // FileStorageOptions.ResolveBackupsRoot for why that matters.
+        _localBackupDir = FileStorageOptions.ResolveBackupsRoot(
+            env.ContentRootPath, fileStorage.StorageRoot, storageOptions.Value);
     }
 
     public async Task<BackupStatusDto> GetStatusAsync()
@@ -309,7 +320,7 @@ public class BackupService : IBackupService
 
         if (!string.IsNullOrEmpty(record.LocalArchivePath) && File.Exists(record.LocalArchivePath))
         {
-            try { File.Delete(record.LocalArchivePath); } catch { /* best effort */ }
+            DeleteArchiveIfOwned(record.LocalArchivePath);
         }
 
         db.BackupRecords.Remove(record);
@@ -665,9 +676,9 @@ public class BackupService : IBackupService
         var toRemove = records.Skip(Settings.MaxBackups).ToList();
         foreach (var record in toRemove)
         {
-            if (!string.IsNullOrEmpty(record.LocalArchivePath) && File.Exists(record.LocalArchivePath))
+            if (!string.IsNullOrEmpty(record.LocalArchivePath))
             {
-                try { File.Delete(record.LocalArchivePath); } catch { /* best effort */ }
+                DeleteArchiveIfOwned(record.LocalArchivePath);
             }
 
             db.BackupRecords.Remove(record);
@@ -675,6 +686,55 @@ public class BackupService : IBackupService
 
         if (toRemove.Count > 0)
             await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Deletes an archive file, but only when it really lives in this
+    /// deployment's backup directory.
+    ///
+    /// <see cref="BackupRecordModel.LocalArchivePath"/> is persisted as an
+    /// absolute path, so a row can name a file anywhere on the machine —
+    /// including another installation's archives. That is not hypothetical: the
+    /// development worktree is seeded with a COPY of the production database, so
+    /// running the application there presents production's archive paths to this
+    /// very method, and an unguarded delete removes the running installation's
+    /// backups from disk. Pruning decides which backups THIS deployment keeps,
+    /// so it may only remove files this deployment owns; anything else is
+    /// reported and left alone.
+    /// </summary>
+    private void DeleteArchiveIfOwned(string archivePath)
+    {
+        if (!File.Exists(archivePath))
+            return;
+
+        if (!IsInsideBackupDir(archivePath))
+        {
+            _logger.LogWarning(
+                "Not deleting backup archive {ArchivePath}: it is outside this deployment's backup directory ({BackupDir}). " +
+                "It belongs to another installation or an earlier location, so it is left on disk.",
+                archivePath, LocalBackupDir);
+            return;
+        }
+
+        try { File.Delete(archivePath); } catch { /* best effort */ }
+    }
+
+    /// <summary>
+    /// Whether a path is inside the resolved backup directory. Compared against
+    /// the directory prefix INCLUDING its trailing separator, so a sibling named
+    /// <c>backups-old</c> cannot pass as being inside <c>backups</c>.
+    /// </summary>
+    private bool IsInsideBackupDir(string path)
+    {
+        var comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+        var root = Path.GetFullPath(LocalBackupDir)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+
+        return Path.GetFullPath(path).StartsWith(root, comparison);
     }
 
     private async Task MarkStaleInProgressAsync(CancellationToken ct)

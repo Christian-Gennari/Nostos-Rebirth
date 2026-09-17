@@ -332,6 +332,294 @@ public sealed class BackupServiceTests
         }
     }
 
+    // --- Where the archives live (#172) ------------------------------------
+    //
+    // The backup directory used to be built from the content root while the book
+    // files were resolved from Storage:BooksRoot, so a relocated library left its
+    // archives behind — and a worktree, whose Storage is a symlink to the shared
+    // tree, wrote them into the real install. These pin the resolved location and
+    // that reads follow writes.
+
+    [Theory]
+    // Unset: beside the library. With the default books root that is exactly the
+    // historical <contentRoot>/Storage/backups, so nothing moves for an install
+    // that never configured a storage root.
+    [InlineData(null, null, "/srv/nostos/Storage/backups")]
+    // A library on another volume takes its archives with it.
+    [InlineData("/mnt/library/books", null, "/mnt/library/backups")]
+    // An explicit root wins, and a relative one resolves against the content root.
+    [InlineData("/mnt/library/books", "/mnt/archives", "/mnt/archives")]
+    [InlineData("/mnt/library/books", "vault", "/srv/nostos/vault")]
+    public void ResolveBackupsRoot_PlacesArchivesPredictably(
+        string? booksRoot, string? backupsRoot, string expected)
+    {
+        const string contentRoot = "/srv/nostos";
+        var options = new FileStorageOptions { BooksRoot = booksRoot, BackupsRoot = backupsRoot };
+
+        var resolvedBooks = FileStorageOptions.ResolveBooksRoot(contentRoot, options);
+        var resolvedBackups = FileStorageOptions.ResolveBackupsRoot(contentRoot, resolvedBooks, options);
+
+        resolvedBackups.Should().Be(Path.GetFullPath(expected));
+    }
+
+    [Fact]
+    public void ResolveBackupsRoot_HandlesABooksRootWithNoParent()
+    {
+        // A books root at a filesystem root has no directory name; the resolution
+        // must still produce a usable path rather than throwing.
+        var resolved = FileStorageOptions.ResolveBackupsRoot(
+            "/srv/nostos", "/library", new FileStorageOptions { BooksRoot = "/library" });
+
+        resolved.Should().Be(Path.GetFullPath("/backups"));
+    }
+
+    [Fact]
+    public async Task CreateBackup_WithDefaultStorage_StillWritesToTheHistoricalLocation()
+    {
+        // The regression guard: an existing deployment must not have its archives
+        // silently move.
+        using var h = BackupHarness.Create();
+
+        var created = await h.Service.CreateBackupAsync();
+        created.Status.Should().Be(BackupStatus.Completed);
+
+        var archivePath = h.Service.GetLocalArchivePath(created.Id);
+        archivePath.Should().Be(Path.Combine(h.ContentRoot, "Storage", "backups", $"{created.Id}.nostos"));
+        File.Exists(archivePath!).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CreateBackup_WithRelocatedLibrary_PutsArchivesBesideTheLibrary()
+    {
+        // The defect: a library on another volume left its backups under the
+        // application, which on a container is the ephemeral layer.
+        var volume = Path.Combine(Path.GetTempPath(), $"nostos-172-volume-{Guid.NewGuid():N}");
+        var booksRoot = Path.Combine(volume, "books");
+        Directory.CreateDirectory(booksRoot);
+
+        try
+        {
+            using var h = BackupHarness.Create(fileStorage: new FileStorageOptions { BooksRoot = booksRoot });
+
+            var created = await h.Service.CreateBackupAsync();
+            created.Status.Should().Be(BackupStatus.Completed);
+
+            var archivePath = h.Service.GetLocalArchivePath(created.Id);
+            archivePath.Should().Be(Path.Combine(volume, "backups", $"{created.Id}.nostos"));
+            File.Exists(archivePath!).Should().BeTrue();
+
+            archivePath!.Should().NotStartWith(Path.Combine(h.ContentRoot, "Storage"));
+        }
+        finally
+        {
+            if (Directory.Exists(volume))
+                Directory.Delete(volume, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task CreateBackup_WithConfiguredBackupsRoot_UsesIt()
+    {
+        var archives = Path.Combine(Path.GetTempPath(), $"nostos-172-archives-{Guid.NewGuid():N}");
+
+        try
+        {
+            using var h = BackupHarness.Create(fileStorage: new FileStorageOptions { BackupsRoot = archives });
+
+            var created = await h.Service.CreateBackupAsync();
+            created.Status.Should().Be(BackupStatus.Completed);
+
+            var archivePath = h.Service.GetLocalArchivePath(created.Id);
+            archivePath.Should().Be(Path.Combine(archives, $"{created.Id}.nostos"));
+            File.Exists(archivePath!).Should().BeTrue();
+        }
+        finally
+        {
+            if (Directory.Exists(archives))
+                Directory.Delete(archives, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task RestoreBackup_WithRelocatedLibrary_FindsTheArchiveItWrote()
+    {
+        // What makes the location a correctness issue rather than cosmetics:
+        // a write that goes somewhere the read does not look is a lost backup.
+        var volume = Path.Combine(Path.GetTempPath(), $"nostos-172-roundtrip-{Guid.NewGuid():N}");
+        var booksRoot = Path.Combine(volume, "books");
+        Directory.CreateDirectory(booksRoot);
+
+        try
+        {
+            using var h = BackupHarness.Create(
+                includeBookFiles: true,
+                fileStorage: new FileStorageOptions { BooksRoot = booksRoot });
+
+            var bookDir = Path.Combine(booksRoot, Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(bookDir);
+            var payload = "RELOCATED-LIBRARY-PAYLOAD-172"u8.ToArray();
+            var bookFile = Path.Combine(bookDir, "book.epub");
+            await File.WriteAllBytesAsync(bookFile, payload);
+
+            var created = await h.Service.CreateBackupAsync();
+            created.Status.Should().Be(BackupStatus.Completed);
+
+            File.Delete(bookFile);
+
+            var restored = await h.Service.RestoreBackupAsync(created.Id);
+            restored.Success.Should().BeTrue(restored.Message);
+
+            File.Exists(bookFile).Should().BeTrue("a backup written beside the library must be found there on restore");
+            (await File.ReadAllBytesAsync(bookFile)).Should().Equal(payload);
+        }
+        finally
+        {
+            if (Directory.Exists(volume))
+                Directory.Delete(volume, recursive: true);
+        }
+    }
+
+    // --- Pruning only removes what this deployment owns ---------------------
+    //
+    // BackupRecords.LocalArchivePath is a persisted ABSOLUTE path, so a row can
+    // name a file anywhere. Retention used to File.Delete it unguarded. Because
+    // a development worktree is seeded with a copy of the production database,
+    // that deleted a real archive off production's disk — the incident these
+    // tests exist to prevent from recurring.
+
+    [Fact]
+    public async Task EnforceMaxBackups_NeverDeletesAnArchiveOutsideItsOwnDirectory()
+    {
+        var foreign = Path.Combine(Path.GetTempPath(), $"nostos-172-foreign-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(foreign);
+        var foreignArchive = Path.Combine(foreign, "someone-elses.nostos");
+        await File.WriteAllTextAsync(foreignArchive, "ANOTHER-INSTALLS-ARCHIVE");
+
+        try
+        {
+            // maxBackups: 1, so retention has to prune and the foreign rows are
+            // the oldest available candidates.
+            using var h = BackupHarness.Create(maxBackups: 1);
+
+            // A path that shares the backup directory's name prefix but is not
+            // inside it: "/…/backups-old" must not pass as "/…/backups".
+            var siblingDir = Path.Combine(h.ContentRoot, "Storage", "backups-old");
+            Directory.CreateDirectory(siblingDir);
+            var siblingArchive = Path.Combine(siblingDir, "old-archive.nostos");
+            await File.WriteAllTextAsync(siblingArchive, "EARLIER-LOCATION-ARCHIVE");
+
+            await using (var db = h.NewDbContext())
+            {
+                db.BackupRecords.Add(new BackupRecord
+                {
+                    Id = Guid.NewGuid(),
+                    CreatedAt = DateTime.UtcNow.AddDays(-40),
+                    SizeBytes = 26,
+                    Provider = "Local",
+                    Status = BackupStatus.Completed,
+                    LocalArchivePath = foreignArchive,
+                });
+                db.BackupRecords.Add(new BackupRecord
+                {
+                    Id = Guid.NewGuid(),
+                    CreatedAt = DateTime.UtcNow.AddDays(-30),
+                    SizeBytes = 23,
+                    Provider = "Local",
+                    Status = BackupStatus.Completed,
+                    LocalArchivePath = siblingArchive,
+                });
+                await db.SaveChangesAsync();
+            }
+
+            var created = await h.Service.CreateBackupAsync();
+            created.Status.Should().Be(BackupStatus.Completed);
+
+            File.Exists(foreignArchive).Should()
+                .BeTrue("an archive in another directory is not this deployment's to delete");
+            (await File.ReadAllTextAsync(foreignArchive)).Should().Be("ANOTHER-INSTALLS-ARCHIVE");
+
+            File.Exists(siblingArchive).Should()
+                .BeTrue("the directory prefix must be compared with its separator, so 'backups-old' is not inside 'backups'");
+            (await File.ReadAllTextAsync(siblingArchive)).Should().Be("EARLIER-LOCATION-ARCHIVE");
+
+            // The rows are forgotten so retention does not report them forever;
+            // only the FILES are sacred.
+            await using (var db = h.NewDbContext())
+            {
+                db.BackupRecords.Should().NotContain(r => r.LocalArchivePath == foreignArchive);
+                db.BackupRecords.Should().NotContain(r => r.LocalArchivePath == siblingArchive);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(foreign))
+                Directory.Delete(foreign, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task EnforceMaxBackups_StillPrunesArchivesItOwns()
+    {
+        // The guard must not quietly disable retention for the normal case.
+        using var h = BackupHarness.Create(maxBackups: 1);
+
+        var first = await h.Service.CreateBackupAsync();
+        first.Status.Should().Be(BackupStatus.Completed);
+        var firstPath = Path.Combine(h.ContentRoot, "Storage", "backups", $"{first.Id}.nostos");
+        File.Exists(firstPath).Should().BeTrue();
+
+        // Ordering is by CreatedAt, so make the second unambiguously newer.
+        await Task.Delay(50);
+        var second = await h.Service.CreateBackupAsync();
+        second.Status.Should().Be(BackupStatus.Completed);
+
+        File.Exists(firstPath).Should().BeFalse("retention must still reclaim archives it owns");
+        File.Exists(Path.Combine(h.ContentRoot, "Storage", "backups", $"{second.Id}.nostos"))
+            .Should().BeTrue("the most recent archive is always kept");
+    }
+
+    [Fact]
+    public async Task DeleteBackupRecord_LeavesAnArchiveOutsideTheDirectoryAlone()
+    {
+        var foreign = Path.Combine(Path.GetTempPath(), $"nostos-172-delete-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(foreign);
+        var foreignArchive = Path.Combine(foreign, "kept.nostos");
+        await File.WriteAllTextAsync(foreignArchive, "KEEP-ME");
+
+        try
+        {
+            using var h = BackupHarness.Create();
+            var recordId = Guid.NewGuid();
+
+            await using (var db = h.NewDbContext())
+            {
+                db.BackupRecords.Add(new BackupRecord
+                {
+                    Id = recordId,
+                    CreatedAt = DateTime.UtcNow,
+                    SizeBytes = 7,
+                    Provider = "Local",
+                    Status = BackupStatus.Completed,
+                    LocalArchivePath = foreignArchive,
+                });
+                await db.SaveChangesAsync();
+            }
+
+            await h.Service.DeleteBackupRecordAsync(recordId);
+
+            File.Exists(foreignArchive).Should()
+                .BeTrue("deleting a record must not reach outside this deployment's backup directory");
+
+            await using (var db = h.NewDbContext())
+                db.BackupRecords.Should().NotContain(r => r.Id == recordId, "the record itself is still removed");
+        }
+        finally
+        {
+            if (Directory.Exists(foreign))
+                Directory.Delete(foreign, recursive: true);
+        }
+    }
+
     // --- Harness -----------------------------------------------------------
 
     [Fact]
@@ -425,7 +713,10 @@ public sealed class BackupServiceTests
 
         public NostosDbContext NewDbContext() => new(Options);
 
-        public static BackupHarness Create(bool includeBookFiles = false)
+        public static BackupHarness Create(
+            bool includeBookFiles = false,
+            FileStorageOptions? fileStorage = null,
+            int maxBackups = 10)
         {
             var contentRoot = Path.Combine(Path.GetTempPath(), $"nostos-backup-test-{Guid.NewGuid():N}");
             Directory.CreateDirectory(contentRoot);
@@ -451,7 +742,7 @@ public sealed class BackupServiceTests
                 IsEnabled = true,
                 Provider = "Local",
                 IntervalHours = 168,
-                MaxBackups = 10,
+                MaxBackups = maxBackups,
                 IncludeBookFiles = includeBookFiles,
             }));
             services.AddSingleton(options);
@@ -460,10 +751,17 @@ public sealed class BackupServiceTests
             services.AddSingleton<IDbContextFactory<NostosDbContext>>(sp =>
                 new TestContextFactory(sp.GetRequiredService<DbContextOptions<NostosDbContext>>()));
             services.AddSingleton<BackupSettingsProvider>();
+
+            // One options instance shared by the storage service and the backup
+            // service, exactly as Program.cs wires it, so a test can prove the
+            // two agree about where things live.
+            var storageOptions = Microsoft.Extensions.Options.Options.Create(
+                fileStorage ?? new FileStorageOptions());
+            services.AddSingleton<IOptions<FileStorageOptions>>(storageOptions);
             services.AddSingleton<IFileStorageService>(sp =>
                 new FileStorageService(
                     sp.GetRequiredService<IWebHostEnvironment>(),
-                    Microsoft.Extensions.Options.Options.Create(new FileStorageOptions()),
+                    sp.GetRequiredService<IOptions<FileStorageOptions>>(),
                     sp.GetRequiredService<ILogger<FileStorageService>>()));
             services.AddSingleton<BackupService>();
             var provider = services.BuildServiceProvider();
