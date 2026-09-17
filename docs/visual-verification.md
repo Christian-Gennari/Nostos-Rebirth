@@ -58,6 +58,54 @@ no covers.
 | `book-detail-hero-desktop.png` | Book detail | 1440x900 | cover echo present |
 | `book-detail-hero-mobile.png` | Book detail | 390x844 | cover echo present |
 
+## The committed pixel baseline (`check:pixels`)
+
+The acceptance gate for a *value-preserving* CSS change is byte-identity against
+`e2e/visual-evidence/design-baseline/` (24 PNGs + the computed-value sweep):
+
+```sh
+cd Nostos.Frontend
+npm run capture:baseline -- --port <port> --out /tmp/after
+node scripts/check-pixels.mjs /tmp/after
+```
+
+**The baseline is a claim about a specific build, so it must be regenerated when a
+change is *meant* to move pixels — in the same PR that moves them.** It is not
+optional cleanup: a stale baseline makes the gate red for every change, which is
+worse than no gate, because the next reader learns to ignore it. Left un-regenerated
+across the palette migration (#153/#155/#156) it drifted 15.5M px from `main`, so
+every surface failed on unmodified code.
+
+Before trusting a red gate, prove which side is wrong with a controlled capture —
+one server, one DB, two builds:
+
+```
+pxdiff(committed_baseline, pristine_main)   # large  -> the BASELINE is stale
+pxdiff(pristine_main,      your_branch)     # in-scope must be 0
+```
+
+If pristine `main` diffs by the same count with and without your change, the
+baseline is at fault; regenerate it deliberately and say so in the commit. Do not
+regenerate to make a real regression green.
+
+### Regenerating safely
+
+1. Serve the build the branch actually produces (a Release backend run rebuilds and
+   serves `wwwroot`), and confirm the served stylesheet hash equals `dist`'s.
+2. `npm run capture:baseline -- --port <port>` (writes the committed baseline).
+3. Capture again into a scratch dir and assert the gate passes with a **zero** noise
+   floor — 24/24 byte-identical. A non-zero floor means the capture is
+   nondeterministic and the baseline would bake in randomness.
+4. **Falsify it**: introduce a real defect (e.g. `--radius-md: 4px` to `8px`), rebuild,
+   capture, and confirm the gate FAILS naming the bbox. Restore the source and confirm
+   `git status` on `src/` is clean. A baseline whose gate cannot fire is decoration.
+
+**`check-pixels.mjs` is single-pass by necessity.** It used to collect one `[x,y,delta]`
+tuple per differing pixel and reduce those arrays with `Math.min(...xs)`, which threw
+`RangeError: Maximum call stack size exceeded` on any diff past a few tens of thousands
+of pixels — i.e. it crashed instead of reporting exactly when the diff was large. Keep
+every statistic folded inside the scan and return scalars plus a bounded sample.
+
 ### Multi-edition selector (real library + both themes)
 
 The editions block only renders for a book that has a linked edition, and its

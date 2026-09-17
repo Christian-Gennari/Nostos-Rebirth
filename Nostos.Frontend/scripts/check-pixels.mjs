@@ -76,10 +76,31 @@ function readPng(p) {
 /** Pixels differing by more than `tol` on any channel, as a set of x,y. */
 function diffPixels(a, b, tol = 8) {
   if (a.width !== b.width || a.height !== b.height) {
-    return { sizeMismatch: true, points: [], count: 0 };
+    return { sizeMismatch: true, count: 0 };
   }
-  const points = [];
+  /*
+   * STREAMED, not accumulated. This walked the whole image pushing one
+   * `[x, y, delta]` tuple per differing pixel, and the caller then reduced those
+   * arrays with `Math.min(...xs)`. Spread passes one ARGUMENT per element, so any
+   * diff past a few tens of thousands of pixels blew the stack:
+   *
+   *   RangeError: Maximum call stack size exceeded
+   *       at check-pixels.mjs:148  const x0 = Math.min(...xs) ...
+   *
+   * A large diff failed as a stack overflow instead of a readable verdict — i.e.
+   * the gate crashed exactly when its message mattered most (a missing or long
+   * stale baseline diffs the entire frame). It also held one small array per
+   * differing pixel, which is tens of MB of garbage on a full-frame diff.
+   *
+   * So fold every statistic in this single pass and RETURN ONLY SCALARS plus a
+   * bounded sample. Nothing downstream reduces an unbounded array.
+   */
   let count = 0;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  let maxDelta = 0;
+  const worst = [];
+  const WORST_KEEP = 5;
+
   for (let y = 0; y < a.height; y++) {
     for (let x = 0; x < a.width; x++) {
       const i = (a.width * y + x) << 2;
@@ -88,10 +109,25 @@ function diffPixels(a, b, tol = 8) {
         Math.abs(a.data[i + 1] - b.data[i + 1]),
         Math.abs(a.data[i + 2] - b.data[i + 2]),
       );
-      if (d > tol) { count++; points.push([x, y, d]); }
+      if (d <= tol) continue;
+      count++;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+      if (d > maxDelta) maxDelta = d;
+      // Keep only the K worst, by simple bounded insertion (K is 5, so O(1)).
+      if (worst.length < WORST_KEEP) {
+        worst.push([x, y, d]);
+        worst.sort((p, q) => q[2] - p[2]);
+      } else if (d > worst[worst.length - 1][2]) {
+        worst[worst.length - 1] = [x, y, d];
+        worst.sort((p, q) => q[2] - p[2]);
+      }
     }
   }
-  return { sizeMismatch: false, points, count };
+
+  return { sizeMismatch: false, count, x0, x1, y0, y1, maxDelta, worst };
 }
 
 const tol = Number(process.env.PIXEL_TOL ?? 8);
@@ -130,29 +166,52 @@ for (const file of baselinePngs) {
   }
   const a = readPng(join(BASELINE, file));
   const b = readPng(candPath);
-  const { sizeMismatch, points, count } = diffPixels(a, b, tol);
-  if (sizeMismatch) {
+  const diff = diffPixels(a, b, tol);
+  if (diff.sizeMismatch) {
     failures.push(`${tag}: image size changed (${a.width}x${a.height} -> ${b.width}x${b.height})`);
     continue;
   }
+  const { count } = diff;
   if (!count) continue;
 
+  /*
+   * FLAKE-REGION ACCOUNTING, on the pixels that actually differ.
+   *
+   * The declared flake regions are subtracted by masking the two images first and
+   * re-running the same single-pass diff over the remainder. That keeps
+   * `diffPixels` returning scalars (the earlier shape built an array with one
+   * entry per differing pixel and crashed on large diffs) while still reporting
+   * "all N differing px are inside declared flake" precisely.
+   */
   const allow = FLAKE[tag] ?? [];
-  const inside = (x, y) => allow.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
-  const outside = points.filter(([x, y]) => !inside(x, y));
-  const within = count - outside.length;
+  let outside = diff;
+  if (allow.length) {
+    const mask = (img) => {
+      const copy = { width: img.width, height: img.height, data: Buffer.from(img.data) };
+      for (const r of allow) {
+        for (let y = r.y; y < Math.min(r.y + r.h, img.height); y++) {
+          for (let x = r.x; x < Math.min(r.x + r.w, img.width); x++) {
+            const i = (img.width * y + x) << 2;
+            copy.data[i] = 0; copy.data[i + 1] = 0; copy.data[i + 2] = 0; copy.data[i + 3] = 255;
+          }
+        }
+      }
+      return copy;
+    };
+    outside = diffPixels(mask(a), mask(b), tol);
+  }
+  const within = count - outside.count;
 
-  if (outside.length) {
-    // Cluster the offenders so the report names a region, not 400 coordinates.
-    const xs = outside.map((p) => p[0]); const ys = outside.map((p) => p[1]);
-    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-    const maxDelta = Math.max(...outside.map((p) => p[2]));
-    const worst = outside.slice().sort((p, q) => q[2] - p[2]).slice(0, 5);
+  if (outside.count) {
+    // The bbox, worst pixels and max delta all come from the single pass — no
+    // unbounded array is reduced anywhere, so a whole-frame diff reports a
+    // verdict instead of a RangeError.
+    const { x0, x1, y0, y1, maxDelta, worst } = outside;
     const bHash = baseContent.get(tag), cHash = candContent.get(tag);
     const dataMoved = bHash && cHash && bHash !== cHash;
     const surface = tag.split('-')[0];
     failures.push(
-      `${tag}: ${outside.length} unexpected pixel(s) differ outside the declared ` +
+      `${tag}: ${outside.count} unexpected pixel(s) differ outside the declared ` +
       `flake regions. bbox=x${x0}..${x1} y${y0}..${y1}, max channel delta ${maxDelta}, ` +
       `worst at ${worst.map(([x, y, d]) => `(${x},${y})=${d}`).join(' ')}` +
       (dataMoved
