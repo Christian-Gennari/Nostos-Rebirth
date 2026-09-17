@@ -436,7 +436,7 @@
    extra class, so it wins on both order and specificity.
 
    The fill is `--selection-surface`, which owns the value in BOTH themes
-   (`#28372D` forest with white ink in light, raised slate `#2B323F` with
+   (`#121316` obsidian with white ink in light, raised slate `#2B323F` with
    porcelain in dark). It used to be `--primary-fill`, which is the dark spruce
    on dark and therefore read as a green pill; a global override repainted it,
    and because Angular rewrites the three variant selectors below to add

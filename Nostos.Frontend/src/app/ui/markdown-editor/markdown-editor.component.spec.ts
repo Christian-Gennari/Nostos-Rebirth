@@ -145,10 +145,10 @@ describe('MarkdownEditorComponent', () => {
     expect(String(cfg.plugins)).not.toContain('directionality');
   });
 
-  it('ships the expert content stylesheet: warm ink on white paper, theme-independent', () => {
+  it('ships the expert content stylesheet: cool ink on white paper, theme-independent', () => {
     const style = String(initCalls[0].content_style);
     expect(style).toContain('--paper: #ffffff');
-    expect(style).toContain('--ink: #292622');
+    expect(style).toContain('--ink: #121316');
     expect(style).toContain("data-theme='dark'");
     expect(style).toContain('font-family: Newsreader, Georgia');
     // The old generic dark-mode-coupled palette must be gone.

@@ -21,22 +21,22 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
     color-scheme: light dark;
 
     --paper: #ffffff;
-    --ink: #292622;
-    --ink-soft: #5f5952;
-    --ink-faint: #817a72;
+    --ink: #121316;
+    --ink-soft: #4A4D54;
+    --ink-faint: #94979E;
 
-    --rule: #e7e2dc;
-    --rule-strong: #d8d1c8;
+    --rule: #E5E7EB;
+    --rule-strong: #C7C6CB;
 
     --link: #526d87;
     --link-hover: #394f65;
     --selection: rgba(104, 126, 148, 0.24);
 
-    --quote-bg: #faf8f4;
-    --quote-rule: #b9aa98;
+    --quote-bg: #F7F7F8;
+    --quote-rule: #94979E;
 
-    --code-bg: #f5f3ef;
-    --code-ink: #3b3834;
+    --code-bg: #F3F3F4;
+    --code-ink: #4A4D54;
   }
 
   :root[data-theme='dark'] {
