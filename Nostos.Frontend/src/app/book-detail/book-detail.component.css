@@ -985,13 +985,25 @@ button.edition-select-card:focus-visible {
   transition: background 0.12s ease, color 0.12s ease;
 }
 
-/* A hairline between the two choices: they are different kinds of edit (this
-   book's own fields vs the relationship between books), and measured, the
-   entries otherwise sat 2px apart and read as one block. */
-.edit-menu-item + .edit-menu-item {
-  border-top: 1px solid var(--border-color);
-  border-radius: 0 0 6px 6px;
-}
+/* No divider between the two choices — deliberately.
+ *
+ * A `border-top` here drew a visible cut edge: the item spans 584–806 while the
+ * panel is 579–811, so the border's ends stopped 5px short of the panel edge as
+ * two hard vertical caps, and squaring the top corners (`0 0 6px 6px`) left the
+ * hover fill as a flat-topped block beside the panel's own rounded corners.
+ * The artifact was sharpest at the seam's left and right ends.
+ *
+ * The alternatives were tried and both fail for a measurable reason:
+ * - keeping the line and NOT squaring the corners: the fill keeps a radius, but
+ *   the border still shows its two end caps.
+ * - a faint top-lit tint instead of a line: it needs no ends, but it ties with
+ *   `:hover` on specificity (0,2,0 vs 0,2,0) and so wins on source order, which
+ *   killed the hover state; and in dark theme `--bg-hover` (#252A34) is within
+ *   1/255 of `--border-color` (#262A34), so a permanent tint is indistinguishable
+ *   from a permanent hover anyway. In dark it reads as an always-hovered row.
+ *
+ * The rows are already separated by their own content — distinct icons, labels
+ * and hint lines — so the honest fix is no divider at all. */
 
 .edit-menu-item:hover {
   background: var(--bg-hover);

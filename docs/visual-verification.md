@@ -97,6 +97,20 @@ most needs linking.
 | `book-detail-editions-modal-dark.png` | 1440x1100 | modal open, dark |
 | `book-detail-edit-chooser-mobile.png` | 390x844 | chooser, dark, lone book |
 | `book-detail-editions-modal-mobile.png` | 390x844 | modal, lone book |
+| `book-detail-edit-menu-seam-before-after.png` | 2x, both states | the chooser seam, before/after |
+
+**The Edit chooser has no divider between its rows, and that is deliberate.** An
+earlier revision drew a `border-top` on the second item. Because the item spans
+584–806 while the panel is 579–811, the border's ends stopped 5px short of the
+panel edge as two hard vertical caps, and squaring the top corners
+(`0 0 6px 6px`) left the hover fill as a flat-topped block beside the panel's
+rounded corners — at 1:1 that reads as a cut edge, sharpest at the ends of the
+seam. Keeping the line without squaring the corners leaves the caps; replacing it
+with a permanent tint ties with `:hover` on specificity (0,2,0) and kills the
+hover state, and in dark `--bg-hover` (#252A34) is within 1/255 of
+`--border-color` (#262A34), so a permanent tint is indistinguishable from a
+permanent hover. Measured in the browser: each item now computes
+`border-top: 0px` and a uniform `border-radius: 6px`.
 
 Measured, not eyeballed:
 
