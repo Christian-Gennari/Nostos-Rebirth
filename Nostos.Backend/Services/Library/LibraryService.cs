@@ -959,7 +959,12 @@ public sealed class LibraryService : ILibraryService
         // Written in the same SaveChanges as the file details above: the book
         // must never claim a file it has no provenance for, or provenance
         // pointing at a file that was never attached.
-        book.Acquisition = new BookAcquisitionModel
+        // Explicitly added rather than only assigned to the navigation: EF's
+        // change detection discovers an untracked one-to-one dependent through
+        // navigation fixup, but with a non-default key it concludes the row
+        // already exists and issues an UPDATE — which matches nothing and fails
+        // as a concurrency error.
+        var acquisition = new BookAcquisitionModel
         {
             BookId = book.Id,
             ProviderId = request.ProviderId.Trim(),
@@ -972,6 +977,9 @@ public sealed class LibraryService : ILibraryService
             RightsStatement = NullIfEmpty(request.RightsStatement),
             AcquiredAt = request.AcquiredAt ?? Now,
         };
+
+        book.Acquisition = acquisition;
+        db.BookAcquisitions.Add(acquisition);
 
         await db.SaveChangesAsync(ct);
 
