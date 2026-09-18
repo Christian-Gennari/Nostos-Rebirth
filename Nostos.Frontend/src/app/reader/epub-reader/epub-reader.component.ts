@@ -30,7 +30,6 @@ import { IReader, ReaderProgress, TocItem } from '../reader.interface';
  */
 const NOSTOS_LIGHT_THEME = 'nostos-light';
 const NOSTOS_DARK_THEME = 'nostos-dark';
-
 /**
  * Color-only rules for the epub.js iframe, mirroring the Nostos light tokens
  * from styles.css (the iframe is a separate document and cannot read the
@@ -63,6 +62,84 @@ const NOSTOS_DARK_RULES: Record<string, Record<string, string>> = {
   '::selection': { background: 'rgba(143, 191, 174, 0.35) !important' },
 };
 
+/** Reading typefaces offered by the typography panel. */
+export type EpubFontFamily = 'default' | 'serif' | 'sans' | 'mono';
+
+export type EpubMargin = 'narrow' | 'normal' | 'wide';
+
+export interface EpubTypography {
+  fontFamily: EpubFontFamily;
+  lineHeight: number;
+  margin: EpubMargin;
+}
+
+export const EPUB_FONT_OPTIONS: { value: EpubFontFamily; label: string }[] = [
+  { value: 'default', label: 'Publisher' },
+  { value: 'serif', label: 'Serif' },
+  { value: 'sans', label: 'Sans' },
+  { value: 'mono', label: 'Mono' },
+];
+
+export const EPUB_LINE_OPTIONS = [1.4, 1.6, 1.8, 2.0];
+
+export const EPUB_MARGIN_OPTIONS: { value: EpubMargin; label: string }[] = [
+  { value: 'narrow', label: 'Narrow' },
+  { value: 'normal', label: 'Normal' },
+  { value: 'wide', label: 'Wide' },
+];
+
+const DEFAULT_TYPOGRAPHY: EpubTypography = {
+  fontFamily: 'default',
+  lineHeight: 1.6,
+  margin: 'normal',
+};
+
+const FONT_STACKS: Record<Exclude<EpubFontFamily, 'default'>, string> = {
+  serif: 'Newsreader, Georgia, serif',
+  sans: '"Hanken Grotesk", system-ui, sans-serif',
+  mono: 'ui-monospace, SFMono-Regular, monospace',
+};
+
+/**
+ * Margin presets, as a fraction of the visible page width. `normal` sits at
+ * roughly the inset epub.js applies itself (measured 42px on a 428px column),
+ * so the middle preset reads as "unchanged" rather than as a jump.
+ */
+const MARGIN_FACTOR: Record<EpubMargin, number> = {
+  narrow: 0.04,
+  normal: 0.1,
+  wide: 0.18,
+};
+
+const TYPOGRAPHY_STYLE_ID = 'nostos-typography';
+
+/**
+ * The injected typography rules for one contents document. Pure for
+ * testability. `default` keeps the publisher's typeface (no font-family
+ * override); line height always applies.
+ *
+ * Margins are deliberately NOT in here. epub.js writes its own inline
+ * `padding-left: 42px !important` on every contents body, and an inline
+ * `!important` declaration outranks any stylesheet rule, so a rule here is
+ * inert. Margins go through {@link marginPaddingPx} and an inline write
+ * instead — see `applyMargins`.
+ */
+export function typographyCss(t: EpubTypography): string {
+  const family =
+    t.fontFamily === 'default' ? '' : `font-family:${FONT_STACKS[t.fontFamily]} !important;`;
+  return `body{${family}line-height:${t.lineHeight} !important;}`;
+}
+
+/**
+ * Horizontal padding for a margin preset, in pixels, against the page width.
+ *
+ * Pixels rather than percent on purpose: inside epub.js's column strip the
+ * body's containing block is the whole chapter (measured 123,904px on a real
+ * book), so `padding-left: 14%` resolves to 17,346px and destroys the layout.
+ */
+export function marginPaddingPx(margin: EpubMargin, basisPx: number): number {
+  return Math.round(basisPx * MARGIN_FACTOR[margin]);
+}
 @Component({
   selector: 'app-epub-reader',
   standalone: true,
@@ -124,6 +201,12 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   // Internal Zoom State (restored per book — see fontSizeStorageKey)
   private currentFontSize = signal(100); // 100%
 
+  /** Reader typography (typeface, line height, margins), persisted per book. */
+  readonly typography = signal<EpubTypography>({ ...DEFAULT_TYPOGRAPHY });
+  readonly fontOptions = EPUB_FONT_OPTIONS;
+  readonly lineOptions = EPUB_LINE_OPTIONS;
+  readonly marginOptions = EPUB_MARGIN_OPTIONS;
+
   // RxJS Subjects
   private progressUpdater$ = new Subject<{ location: string; percentage: number }>();
   private resizeSubject$ = new Subject<void>();
@@ -168,6 +251,9 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
           const { clientWidth, clientHeight } = viewerContainer;
           try {
             this.rendition.resize(clientWidth, clientHeight);
+            // epub.js rewrites the contents' inline padding while relaying out,
+            // so the margin preset has to be re-applied afterwards.
+            this.applyTypographyToOpenContents();
           } catch (e) {
             console.warn('Rendition resize failed (book might not be ready):', e);
           }
@@ -297,6 +383,7 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     this.restoreSavedFontSize();
     this.registerReaderThemes();
     this.applyFontSize();
+    this.restoreSavedTypography();
 
     // 3. Register Hooks
     this.rendition.hooks.content.register((contents: Contents) => {
@@ -323,6 +410,12 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
       this.currentCfi = location.start.cfi;
       this.currentHref.set(location.start.href);
       this.updateProgressState(location.start.cfi);
+      // epub.js writes the contents' inline padding while it lays a section out,
+      // and that write can land after this event, so the preset is re-applied on
+      // the next frames as well as now. Without it a saved margin silently
+      // reverted to epub.js's own 42px on open (measured live).
+      this.applyTypographyToOpenContents();
+      this.scheduleMarginReapply();
     });
 
     // 4. Process Book Metadata (Async)
@@ -461,6 +554,140 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     link.setAttribute('rel', 'stylesheet');
     link.setAttribute('href', fontUrl);
     contents.document.head.appendChild(link);
+    this.upsertTypographyStyle(contents.document);
+  }
+
+  /** Merge a patch into the typography, persist it, and repaint open sections. */
+  setTypography(patch: Partial<EpubTypography>): void {
+    const next = { ...this.typography(), ...patch };
+    this.typography.set(next);
+    try {
+      localStorage.setItem(this.typographyStorageKey(), JSON.stringify(next));
+    } catch {
+      // Private-mode storage can throw — the setting still applies for the session.
+    }
+    this.applyTypographyToOpenContents();
+  }
+
+  resetTypography(): void {
+    this.setTypography({ ...DEFAULT_TYPOGRAPHY });
+  }
+
+  private typographyStorageKey(): string {
+    return `nostos.epub-typography.${this.bookId()}`;
+  }
+
+  private restoreSavedTypography(): void {
+    try {
+      const raw = localStorage.getItem(this.typographyStorageKey());
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Partial<EpubTypography>;
+      const next: EpubTypography = {
+        fontFamily:
+          parsed.fontFamily === 'serif' ||
+          parsed.fontFamily === 'sans' ||
+          parsed.fontFamily === 'mono'
+            ? parsed.fontFamily
+            : 'default',
+        lineHeight:
+          typeof parsed.lineHeight === 'number' && EPUB_LINE_OPTIONS.includes(parsed.lineHeight)
+            ? parsed.lineHeight
+            : DEFAULT_TYPOGRAPHY.lineHeight,
+        margin:
+          parsed.margin === 'narrow' || parsed.margin === 'wide' ? parsed.margin : 'normal',
+      };
+      this.typography.set(next);
+    } catch {
+      // Corrupt or unreadable storage — fall back to defaults.
+    }
+  }
+
+  /** Rewrite the typography style element in every already-rendered section. */
+  private applyTypographyToOpenContents(): void {
+    try {
+      const raw = this.rendition?.getContents?.();
+      const contents = Array.isArray(raw) ? raw : raw ? [raw] : [];
+      for (const c of contents) {
+        if (c?.document) this.upsertTypographyStyle(c.document);
+      }
+    } catch {
+      // Best-effort repaint — the content hook covers newly rendered sections.
+    }
+  }
+
+  /**
+   * epub.js's own padding write happens during its layout pass, which is not
+   * ordered against the events we can listen to — measured: writing from the
+   * content hook or from `relocated` alone still lost to it on open. So the
+   * margin is written again on the next two frames, by which point the layout
+   * has settled. Cheap (two inline property writes) and idempotent.
+   */
+  private scheduleMarginReapply(): void {
+    const apply = () => this.applyTypographyToOpenContents();
+    try {
+      requestAnimationFrame(() => {
+        apply();
+        setTimeout(apply, 60);
+      });
+    } catch {
+      apply();
+    }
+  }
+
+  private upsertTypographyStyle(doc: Document): void {
+    try {
+      let style = doc.getElementById(TYPOGRAPHY_STYLE_ID);
+      if (!style) {
+        style = doc.createElement('style');
+        style.id = TYPOGRAPHY_STYLE_ID;
+        doc.head.appendChild(style);
+      }
+      style.textContent = typographyCss(this.typography());
+      this.applyMargins(doc);
+    } catch {
+      // A section mid-teardown has no head to write to — skip it.
+    }
+  }
+
+  /**
+   * The width of one page, which is what a margin preset has to scale against:
+   * epub.js sets `column-width` inline on the contents body, and that is the
+   * column the reader actually sees. Falls back to the body's own width for a
+   * pre-paginated book, and to 0 when neither is measurable (a doc that is not
+   * laid out yet).
+   */
+  protected typographyBasisPx(doc: Document): number {
+    try {
+      const body = doc.body;
+      if (!body) return 0;
+      const column = parseFloat(getComputedStyle(body).columnWidth || '');
+      if (!isNaN(column) && column > 0) return column;
+      return body.clientWidth || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Apply the margin preset as an INLINE style on the contents body.
+   *
+   * This is the only mechanism that works: epub.js writes its own inline
+   * `padding-left/right: 42px !important` per contents, and an inline
+   * `!important` declaration beats every stylesheet rule (including one
+   * injected by us). A later inline `!important` declaration does win, so the
+   * write is repeated whenever epub.js relayouts (new section, resize).
+   *
+   * When the page width cannot be measured the write is skipped so epub.js's
+   * own inset is left in place rather than replaced with a guess.
+   */
+  private applyMargins(doc: Document): void {
+    const body = doc.body;
+    if (!body?.style) return;
+    const basis = this.typographyBasisPx(doc);
+    if (basis <= 0) return;
+    const px = `${marginPaddingPx(this.typography().margin, basis)}px`;
+    body.style.setProperty('padding-left', px, 'important');
+    body.style.setProperty('padding-right', px, 'important');
   }
 
   private registerReaderThemes() {
