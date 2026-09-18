@@ -6,6 +6,7 @@ import { LucideAngularModule, Settings, Archive, RefreshCw, Download, Trash2, Lo
 import { BackupService } from '../core/services/backup.service';
 import { ToastService } from '../core/services/toast.service';
 import { ThemeService, Theme } from '../core/services/theme.service';
+import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 import {
   BackupStatus,
   BackupSettings,
@@ -27,7 +28,7 @@ const defaultProgress: BackupProgress = {
 @Component({
   standalone: true,
   selector: 'app-settings',
-  imports: [CommonModule, FormsModule, LucideAngularModule],
+  imports: [CommonModule, FormsModule, LucideAngularModule, ConfirmModal],
   template: `
     <div class="settings-page">
       <header class="settings-header">
@@ -278,6 +279,30 @@ const defaultProgress: BackupProgress = {
         </div>
       </section>
     </div>
+
+    <!-- Restore overwrites live data and delete removes the archive: both ask
+         through the shared modal instead of window.confirm(). -->
+    <app-confirm-modal
+      [isOpen]="!!pendingRestore()"
+      heading="Restore from this backup?"
+      description="This overwrites your current database and book files with the backup data. A safety copy of the current database is made first, and you should restart the application after restore."
+      confirmLabel="Restore"
+      busyLabel="Restoring…"
+      [busy]="restoring()"
+      (confirm)="confirmRestore()"
+      (cancel)="cancelRestore()"
+    >
+    </app-confirm-modal>
+
+    <app-confirm-modal
+      [isOpen]="!!pendingBackupDelete()"
+      heading="Delete this backup?"
+      description="The backup and its archive file are permanently removed."
+      confirmLabel="Delete"
+      (confirm)="confirmBackupDelete()"
+      (cancel)="cancelBackupDelete()"
+    >
+    </app-confirm-modal>
   `,
   styleUrls: ['./settings.component.css'],
 })
@@ -326,6 +351,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
   backingUp = signal(false);
   restoring = signal(false);
   importing = signal(false);
+
+  /** Backup id awaiting restore confirmation (asked through ConfirmModal). */
+  pendingRestore = signal<string | null>(null);
+
+  /** Backup id awaiting archive-delete confirmation (asked through ConfirmModal). */
+  pendingBackupDelete = signal<string | null>(null);
   progress = signal<BackupProgress>(defaultProgress);
   showSlowNotice = signal(false);
   private stepChangedAt = 0;
@@ -448,9 +479,18 @@ export class SettingsComponent implements OnInit, OnDestroy {
   }
 
   restoreBackup(id: string): void {
-    if (!confirm('This will overwrite your current database and book files with the backup data. A safety copy of the current database will be made. You should restart the application after restore. Continue?')) {
-      return;
-    }
+    this.pendingRestore.set(id);
+  }
+
+  cancelRestore(): void {
+    if (this.restoring()) return;
+    this.pendingRestore.set(null);
+  }
+
+  confirmRestore(): void {
+    const id = this.pendingRestore();
+    if (!id || this.restoring()) return;
+    this.pendingRestore.set(null);
 
     this.restoring.set(true);
     this.startProgressPolling();
@@ -476,7 +516,17 @@ export class SettingsComponent implements OnInit, OnDestroy {
   }
 
   deleteBackup(id: string): void {
-    if (!confirm('Delete this backup and its archive file?')) return;
+    this.pendingBackupDelete.set(id);
+  }
+
+  cancelBackupDelete(): void {
+    this.pendingBackupDelete.set(null);
+  }
+
+  confirmBackupDelete(): void {
+    const id = this.pendingBackupDelete();
+    if (!id) return;
+    this.pendingBackupDelete.set(null);
 
     this.backupService.deleteBackup(id).subscribe({
       next: () => {

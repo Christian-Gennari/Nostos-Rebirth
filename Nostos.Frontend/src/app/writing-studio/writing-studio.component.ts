@@ -46,6 +46,7 @@ import { Note } from '../core/dtos/note.dtos';
 import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.component';
 import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
+import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 
 /** localStorage flag for typewriter mode in the studio. */
 const TYPEWRITER_KEY = 'nostos.typewriter';
@@ -70,6 +71,7 @@ function readTypewriter(): boolean {
     NoteCardComponent,
     MarkdownEditorComponent,
     IconButtonComponent,
+    ConfirmModal,
   ],
   templateUrl: './writing-studio.component.html',
   styleUrls: ['./writing-studio.component.css'],
@@ -366,8 +368,21 @@ export class WritingStudio implements OnInit {
     this.editingId.set(null);
   }
 
+  /** Writing id awaiting delete confirmation (asked through ConfirmModal). */
+  pendingDelete = signal<string | null>(null);
+
   deleteItem(id: string) {
-    if (!confirm('Are you sure you want to delete this item?')) return;
+    this.pendingDelete.set(id);
+  }
+
+  cancelDeleteItem(): void {
+    this.pendingDelete.set(null);
+  }
+
+  confirmDeleteItem(): void {
+    const id = this.pendingDelete();
+    if (!id) return;
+    this.pendingDelete.set(null);
 
     this.writingsService.delete(id).subscribe(() => {
       this.loadTree();

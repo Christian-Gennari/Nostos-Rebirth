@@ -318,8 +318,8 @@ export class BookDetailStore {
   }
 
   deleteNote(noteId: string) {
-    if (!confirm('Delete this note?')) return;
-
+    // Confirmed by the caller through ConfirmModal (book-detail.component);
+    // the store only performs the delete.
     const b = this.book();
     if (!b) return;
 
@@ -348,8 +348,9 @@ export class BookDetailStore {
   }
 
   deleteCover() {
+    // Confirmed by the caller through ConfirmModal (book-detail.component).
     const b = this.book();
-    if (!b || !confirm('Remove cover image?')) return;
+    if (!b) return;
 
     this.booksService.deleteCover(b.id).subscribe({
       next: () => this.loadBook(b.id, { background: true }),
