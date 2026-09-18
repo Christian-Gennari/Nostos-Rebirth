@@ -68,7 +68,9 @@ export class ReaderShell implements OnInit {
   // Template-ref query (not type query): the epub child is stubbed in specs,
   // and a type query would resolve to null against the stub.
   @ViewChild('epubReader') epubReader?: EpubReader;
-  @ViewChild(PdfReader) pdfReader?: IReader;
+  // Concrete type (still a type query, so a spec stub resolves to null as before):
+  // the shell drives the fixed-layout view panel through the reader's own zoom API.
+  @ViewChild(PdfReader) pdfReader?: PdfReader;
   @ViewChild(AudioReader) audioReader?: IReader;
 
   private route = inject(ActivatedRoute);
@@ -114,6 +116,27 @@ export class ReaderShell implements OnInit {
    */
   openSearch(): void {
     this.pdfReader?.openSearch?.();
+  }
+
+  /**
+   * Fixed-layout view controls, driven by the shell's Aa panel. These delegate to
+   * the PDF reader so the render scale lives with the document that owns it, and
+   * so the panel can show which fit is in effect.
+   */
+  pdfZoomPresets(): { value: string | number; label: string }[] {
+    return this.pdfReader?.zoomPresets ?? [];
+  }
+
+  pdfZoomLabel(): string {
+    return this.pdfReader?.zoomLabel() ?? '';
+  }
+
+  isZoomPreset(value: string | number): boolean {
+    return this.pdfReader?.isZoomPreset(value) ?? false;
+  }
+
+  setZoomPreset(value: string | number): void {
+    this.pdfReader?.setZoom(value);
   }
 
   book = signal<any>(null);
