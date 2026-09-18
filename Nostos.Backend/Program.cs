@@ -329,6 +329,7 @@ app.UseStaticFiles();
 // Map all endpoints
 app.MapBooksEndpoints();
 app.MapProviderEndpoints();
+app.MapImportEndpoints();
 app.MapNotesEndpoints();
 app.MapCollectionsEndpoints();
 app.MapConceptsEndpoints();
