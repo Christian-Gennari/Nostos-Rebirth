@@ -1,0 +1,31 @@
+{
+  "artifact": "audio-light-desktop.png",
+  "capturedAt": "2026-09-18T17:56:00.102Z",
+  "name": "audio-light-desktop",
+  "surface": "audio",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "state": "composition",
+  "checks": [
+    {
+      "id": "audio-composition",
+      "pass": true,
+      "message": "dead band 46px (top 42 / bottom 46, bar 48), player chrome rows 1 (1 expected), overflowX 0px, times \"0:00:00 37:27:33\"",
+      "metrics": {
+        "top": 42,
+        "bottom": 46,
+        "chromeRows": 1,
+        "overflowX": 0,
+        "timeText": "0:00:00 37:27:33"
+      }
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "passed": 1,
+    "skipped": 0,
+    "failed": 0
+  }
+}

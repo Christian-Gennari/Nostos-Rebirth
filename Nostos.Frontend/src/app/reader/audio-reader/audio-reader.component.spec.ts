@@ -340,21 +340,40 @@ describe('AudioReader audio quick wins (speeds, chapters, persisted rate)', () =
     component = fixture.componentInstance;
   });
 
-  it('offers extended speed presets up to 2.5x', () => {
-    expect(component.availableRates).toEqual([0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5]);
+  it('offers a short preset list, with a fine step beside it', () => {
+    // Issue #227 §2: nine entries was too much choice for a once-a-session control.
+    expect(component.availableRates.length).toBeLessThanOrEqual(6);
+    expect(component.availableRates).toEqual([0.8, 1, 1.25, 1.5, 2]);
+
+    component.setRate(1);
+    component.nudgeRate(0.05);
+    expect(component.currentRate()).toBe(1.05);
+    component.nudgeRate(-0.05);
+    expect(component.currentRate()).toBe(1);
   });
 
-  it('persists the chosen speed per audiobook', () => {
+  it('clamps the fine step to the supported range', () => {
+    component.setRate(3);
+    component.nudgeRate(0.05);
+    expect(component.currentRate()).toBe(3);
+
+    component.setRate(0.5);
+    component.nudgeRate(-0.05);
+    expect(component.currentRate()).toBe(0.5);
+  });
+
+  it('remembers the chosen speed reader-wide, not per book', () => {
     fixture.componentRef.setInput('bookId', 'book-42');
     fixture.detectChanges();
 
     component.selectRate(2);
     expect(component.currentRate()).toBe(2);
-    expect(localStorage.getItem('nostos.audio-rate.book-42')).toBe('2');
+    expect(localStorage.getItem('nostos.audio-rate')).toBe('2');
+    expect(localStorage.getItem('nostos.audio-rate.book-42')).toBeNull();
   });
 
   it('restores the remembered speed on init', () => {
-    localStorage.setItem('nostos.audio-rate.book-7', '1.75');
+    localStorage.setItem('nostos.audio-rate', '1.75');
     fixture.componentRef.setInput('bookId', 'book-7');
     fixture.detectChanges();
 
@@ -363,6 +382,43 @@ describe('AudioReader audio quick wins (speeds, chapters, persisted rate)', () =
     // Applied to the player once the audio loads.
     howlerState.instances[0].config.onload();
     expect(howlerState.instances[0].rate).toHaveBeenCalledWith(1.75);
+  });
+
+  it('adopts a speed that was saved per book before this change', () => {
+    localStorage.setItem('nostos.audio-rate.book-9', '1.5');
+    fixture.componentRef.setInput('bookId', 'book-9');
+    fixture.detectChanges();
+
+    expect(component.currentRate()).toBe(1.5);
+    expect(localStorage.getItem('nostos.audio-rate')).toBe('1.5');
+  });
+
+  it('keeps the transport at three controls and leaves chapters to the list', () => {
+    fixture.componentRef.setInput('bookId', 'book-1');
+    fixture.componentRef.setInput('book', makeBook());
+    fixture.detectChanges();
+
+    const transport = fixture.nativeElement.querySelectorAll('.main-controls button');
+    expect(transport.length).toBe(3);
+    // The chapter list (shell panel) and the scrubber are the chapter navigation now.
+    expect(fixture.nativeElement.querySelector('[data-testid="audio-prev-chapter"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="audio-next-chapter"]')).toBeNull();
+    expect(component.hasChapters()).toBe(false);
+  });
+
+  it('uses one time format for both ends of the pair (issue #227 §4)', () => {
+    component.duration.set(15 * 3600 + 59 * 60);
+    component.currentTime.set(0);
+    expect(component.timeLabels()).toEqual({ current: '0:00:00', total: '15:59:00' });
+
+    // A media without hours keeps m:ss on both sides.
+    component.duration.set(1800);
+    component.currentTime.set(90);
+    expect(component.timeLabels()).toEqual({ current: '1:30', total: '30:00' });
+  });
+
+  it('writes the multiplication sign, not the letter x', () => {
+    expect(component.formatRate(1.25)).toBe('1.25×');
   });
 
   it('jumps between chapters with next/prev', () => {
@@ -394,17 +450,6 @@ describe('AudioReader audio quick wins (speeds, chapters, persisted rate)', () =
     expect(seen).toEqual([1200, 600]);
   });
 
-  it('disables chapter buttons when the book has no chapters', () => {
-    fixture.componentRef.setInput('bookId', 'book-1');
-    fixture.componentRef.setInput('book', makeBook());
-    fixture.detectChanges();
-
-    expect(component.hasChapters()).toBe(false);
-    const prev = fixture.nativeElement.querySelector('[data-testid="audio-prev-chapter"]') as HTMLButtonElement;
-    const next = fixture.nativeElement.querySelector('[data-testid="audio-next-chapter"]') as HTMLButtonElement;
-    expect(prev.disabled).toBe(true);
-    expect(next.disabled).toBe(true);
-  });
 });
 
 describe('AudioReader sleep timer (issue #47)', () => {
@@ -559,22 +604,28 @@ describe('AudioReader sleep timer (issue #47)', () => {
     expect(component.sleepStatusMessage()).toBeNull();
   });
 
-  it('offers the Off/15/30/45/60 presets in the sleep timer menu', () => {
-    expect(component.sleepMenuOpen()).toBe(false);
+  it('offers the speed presets and the Off/15/30/45/60 presets in one menu', () => {
+    expect(component.playbackMenuOpen()).toBe(false);
 
     component.toggleSleepMenu();
     fixture.detectChanges();
 
-    const menu = fixture.nativeElement.querySelector('.sleep-dropdown') as Element | null;
+    const menu = fixture.nativeElement.querySelector('.playback-menu') as Element | null;
     expect(menu).not.toBeNull();
     const labels = Array.from(menu!.querySelectorAll('.sleep-option')).map((el: Element) =>
       el.textContent?.trim(),
     );
     expect(labels).toEqual(['Off', '15 min', '30 min', '45 min', '60 min']);
+    // Speed lives in the same menu now (issue #227 §3): the presets and the fine step.
+    const rateOptions = Array.from(menu!.querySelectorAll('.rate-option')).map((el: Element) =>
+      el.textContent?.trim(),
+    );
+    expect(rateOptions).toEqual(['0.8×', '1×', '1.25×', '1.5×', '2×']);
+    expect(menu!.querySelectorAll('.rate-step').length).toBe(2);
 
     // Re-selecting closes the menu and arms the chosen preset.
     component.selectSleepTimer(45);
-    expect(component.sleepMenuOpen()).toBe(false);
+    expect(component.playbackMenuOpen()).toBe(false);
     expect(component.sleepTimerMinutes()).toBe(45);
   });
 });
