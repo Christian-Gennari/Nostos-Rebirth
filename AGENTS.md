@@ -96,6 +96,12 @@ Write the body to explain **why**, and record what you actually verified —
 measured numbers, not adjectives. See `git log` for the house style: commits
 here routinely cite before/after values and the exact command run.
 
+**NO CO-AUTHORS / BOT TRAILERS:**
+Never add `Co-authored-by: ...` trailers to commit messages or PR bodies
+(such as `CommandCodeBot`, `Copilot`, bot handles, or placeholders).
+Commits must only be authored by the repo maintainer.
+
+
 ---
 
 ## 2. Verify before you open the PR
