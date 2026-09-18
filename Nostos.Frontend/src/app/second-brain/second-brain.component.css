@@ -483,6 +483,48 @@
   padding: 0 0.1em;
 }
 
+/* --- WHAT THE SEARCH MATCHED (issue #158) ----------------------------------
+   The wrapper carries the flex space the name used to take, so a content match
+   can sit under the name without moving the trailing slot or changing where the
+   name truncates. */
+.row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+}
+
+.index-item .note-match {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.note-match-count {
+  flex-shrink: 0;
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.65rem;
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* The fragment IS the cue people actually have, so it is set as text rather than
+   as a badge: one line, truncated, never reflowing the row. */
+.note-match-snippet {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'Newsreader', serif;
+  font-style: italic;
+  color: var(--color-text-light);
+}
+
 /* --- TRAILING SLOT ----------------------------------------------------------
    One slot shared by the count and the hover actions, as the tree does it: the
    actions are out of flow and overlaid on the badge's slot, so the name's
