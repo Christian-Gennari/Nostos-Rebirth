@@ -242,3 +242,70 @@
   background: var(--primary-fill);
   border-color: var(--primary-fill);
 }
+
+@media (max-width: 768px) {
+  /* Same gutter as the toolbar below it, so the card's edges line up with the
+     search box rather than floating a few pixels off it. */
+  :host {
+    padding: 16px 14px 0;
+  }
+
+  /* The collections toggle is a FLOATING 38px button pinned to the top-left of
+     this column (`.floating-toggle`, same gutter the toolbar reserves with
+     `padding-left: 46px`). The section sits above the toolbar now, so its heading
+     is what lands underneath that button: measured at 390x844, the heading ran
+     from x=27 and the toggle covers x=14..52, which clipped the first two words.
+     Reserve the same 46px (38px button + 8px gap) rather than moving the card,
+     because the app's own pattern for this button is a horizontal gutter. */
+  .imports-head {
+    padding-left: 46px;
+  }
+
+  .imports-panel {
+    padding: 0.75rem;
+  }
+
+  /* Bounded in viewport units, not just rem: on a phone in landscape the rem cap
+     would still be most of the screen. */
+  .imports-list {
+    max-height: min(46vh, 300px);
+  }
+
+  .import-entry {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 0.6rem;
+  }
+
+  .import-cover {
+    width: 44px;
+    height: 62px;
+  }
+
+  /* Every control is a full 44px target — the difference between "cancel this
+     import" and "nothing happened". */
+  .import-action {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 1rem;
+    font-size: var(--text-sm);
+  }
+
+  /* A title that must be readable is allowed to wrap here rather than being
+     ellipsised into two words and an ellipsis. */
+  .import-name {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .import-stage {
+    font-size: var(--text-sm);
+  }
+
+  .import-author {
+    font-size: var(--text-sm);
+  }
+
+  .import-progress {
+    height: 10px;
+  }
+}
