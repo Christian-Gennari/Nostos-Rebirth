@@ -10,7 +10,7 @@ using Nostos.Backend.Data;
 
 namespace Nostos.Backend.Tests.Support;
 
-public sealed class LibraryEndpointFactory : WebApplicationFactory<Program>
+public class LibraryEndpointFactory : WebApplicationFactory<Program>
 {
     public const string SpaShellMarker = "<!doctype html>";
     private readonly string _dbPath;

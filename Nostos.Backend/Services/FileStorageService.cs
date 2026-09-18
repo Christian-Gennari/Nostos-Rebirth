@@ -67,20 +67,10 @@ public class FileStorageService : IFileStorageService
 
     /// <summary>
     /// Maps a file path to the correct Content-Type for download responses.
+    /// Delegates to <see cref="MediaTypeMap"/> so the download endpoints and the
+    /// OPDS feed can never disagree about a book file's media type.
     /// </summary>
-    public static string GetContentType(string filePath) =>
-        Path.GetExtension(filePath).ToLower() switch
-        {
-            ".epub" => "application/epub+zip",
-            ".pdf" => "application/pdf",
-            ".txt" => "text/plain",
-            ".mobi" => "application/x-mobipocket-ebook",
-            ".azw3" => "application/x-mobipocket-ebook",
-            ".mp3" => "audio/mpeg",
-            ".m4a" => "audio/mp4",
-            ".m4b" => "audio/mp4",
-            _ => "application/octet-stream",
-        };
+    public static string GetContentType(string filePath) => MediaTypeMap.ForBookFile(filePath);
 
     public FileStorageService(
         IWebHostEnvironment env,

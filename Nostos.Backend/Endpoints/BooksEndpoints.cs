@@ -380,13 +380,15 @@ public static class BooksEndpoints
                 if (coverPath is null)
                     return Results.NotFound();
 
-                var ext = Path.GetExtension(coverPath).ToLower();
-                var mimeType = ext switch
-                {
-                    ".jpg" or ".jpeg" => "image/jpeg",
-                    _ => "image/png",
-                };
-                return CachedImageFile(http, coverPath, mimeType, Path.GetFileName(coverPath));
+                // The media type follows the stored file, not an assumption
+                // about it — covers are uploaded as PNG or JPEG and keep
+                // whichever they arrived as (see MediaTypeMap).
+                return CachedImageFile(
+                    http,
+                    coverPath,
+                    MediaTypeMap.ForCover(coverPath),
+                    Path.GetFileName(coverPath)
+                );
             }
         );
 

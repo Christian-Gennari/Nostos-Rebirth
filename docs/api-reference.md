@@ -378,17 +378,51 @@ Delete a writing. Cascading delete removes all children.
 
 ## OPDS Catalog — `/opds`
 
-### `GET /opds`
+### `GET /opds/?page=N`
 
-OPDS 1.2 Atom feed of all books with files. Compatible with OPDS reader apps (Moon Reader, KOReader, etc.).
+OPDS 1.2 **acquisition** catalog of the books that have a stored file. Compatible
+with OPDS reader apps (Moon Reader, KOReader, Calibre, …).
 
 **Response:** `application/atom+xml`
 
 Each entry includes:
 
-- Title, author, description, language
-- Cover image link (`http://opds-spec.org/image`)
-- Acquisition link (`http://opds-spec.org/acquisition`)
+- Title, author, description
+- Language as `dc:language` (Dublin Core), and `dc:identifier` as
+  `urn:isbn:…` / `urn:asin:…` when one is known
+- Cover image link (`http://opds-spec.org/image`) and thumbnail
+  (`http://opds-spec.org/image/thumbnail`), each advertising the media type the
+  stored cover actually has (`image/png` or `image/jpeg`)
+- Acquisition link (`http://opds-spec.org/acquisition`) advertising the real
+  media type: `application/epub+zip`, `application/pdf`, `text/plain`,
+  `application/x-mobipocket-ebook`, `audio/mpeg` (mp3) or `audio/mp4` (m4a/m4b)
+
+**Pagination.** The feed is paged (`Opds:PageSize`, default 50, max 500). Page 1
+is `/opds/`; later pages are `/opds/?page=N`. Feed-level links carry
+`rel="self"`, `"start"`, `"first"`, `"last"`, and `"next"`/`"previous"` where
+they apply, so a reader can follow the collection without knowing the page
+count. A page number past the end clamps to the last page rather than returning
+a dead `next`.
+
+**Absolute URLs.** Cover and acquisition URLs are absolute. Their scheme and
+host come from the request, honouring `X-Forwarded-Proto` / `X-Forwarded-Host`
+from a trusted (loopback) reverse proxy; set `Opds:PublicBaseUrl` to override
+the origin when the deployment cannot reveal it.
+
+### Access model — `/opds/` is unauthenticated
+
+The catalog and the acquisition URLs it advertises are served **without
+authentication**, like the rest of the Nostos API. The supported deployment is
+therefore a private network (LAN or Tailscale), and Nostos must not be published
+to the public internet under this model. `Opds:Enabled=false` removes the route
+entirely (requests then get an ordinary 404 — never the SPA shell). Nostos logs
+the effective access model once at startup.
+
+| Key                  | Default              | Meaning                                              |
+| -------------------- | -------------------- | ---------------------------------------------------- |
+| `Opds:Enabled`       | `true`               | Map `/opds/` at all                                   |
+| `Opds:PageSize`      | `50`                 | Entries per page (clamped to 500)                     |
+| `Opds:PublicBaseUrl` | unset                | Externally visible origin, e.g. `https://host:5215`   |
 
 ---
 
