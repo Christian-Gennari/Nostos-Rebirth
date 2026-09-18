@@ -24,6 +24,17 @@ public sealed class AcquisitionReconciliationWorker(
     IOptions<AcquisitionOptions> options,
     ILogger<AcquisitionReconciliationWorker> logger) : IHostedService
 {
+    /// <summary>
+    /// The exact StatusMessage written onto a book whose import a restart cut
+    /// short.
+    ///
+    /// A shared constant rather than a literal in two places: the import feed
+    /// recognises these rows BY THIS STRING to report them as Failed, and a
+    /// reworded literal on one side would silently make interrupted imports
+    /// disappear from the UI again.
+    /// </summary>
+    public const string InterruptedByRestartMessage = "Import interrupted by server restart.";
+
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("Starting acquisition reconciliation...");
@@ -90,7 +101,7 @@ public sealed class AcquisitionReconciliationWorker(
         foreach (var book in strandedBooks)
         {
             book.Status = BookStatus.Failed;
-            book.StatusMessage = "Import interrupted by server restart.";
+            book.StatusMessage = InterruptedByRestartMessage;
         }
 
         await db.SaveChangesAsync(cancellationToken);
