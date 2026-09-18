@@ -801,6 +801,231 @@ app-sidebar-collections.no-transition {
   color: var(--color-danger-vivid);
 }
 
+/* --- IMPORT PROGRESS, DRAWN BY THE ITEM ITSELF ---
+   Not a separate surface: the card/row the user watches IS the card/row they
+   keep, so nothing has to be reconciled, re-sorted or refetched when the import
+   lands. Everything below is absolutely positioned or inline inside geometry the
+   item already had — measured identical card height (498px) and identical row
+   height (63px desktop / 79px mobile) with and without the progress. */
+
+.cover-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 7px 8px 9px;
+  /* Top-anchored on purpose: `.format-badge` owns the bottom-right corner at
+     `bottom: 8px`, so a bar down there would collide with it on a 139px-wide
+     phone card. */
+  background: linear-gradient(to bottom, var(--overlay-heavy), transparent);
+  pointer-events: none;
+}
+
+.cover-progress-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.cover-progress-percent {
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--on-primary);
+}
+
+.cover-progress-track,
+.list-progress-track {
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--selection-badge-bg);
+  overflow: hidden;
+}
+
+.cover-progress-track i,
+.list-progress-track i {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--on-primary);
+  transition: width var(--transition-fast);
+}
+
+/* The list row carries its progress inline under the title, inside the row's own
+   height — the row that finishes is the same row, with no shift. */
+.list-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  max-width: 260px;
+}
+
+.list-progress-track {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-hover);
+}
+
+.list-progress-track i {
+  background: var(--primary-fill);
+}
+
+.list-progress-caption {
+  flex: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-light);
+}
+
+.list-progress-percent {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-main);
+}
+
+/* A failed import explains itself where it lives. The message is the book's own
+   `statusMessage`, so it survives a reload; only the actions need the feed, which
+   is the one place the provider and item ids still exist. */
+.item-failure {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-danger);
+  overflow-wrap: anywhere;
+}
+
+.item-failure-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.item-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: var(--fw-medium);
+  color: var(--color-text-main);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.item-action:hover {
+  background: var(--bg-hover);
+}
+
+.item-action:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.item-action.is-primary {
+  color: var(--on-primary);
+  background: var(--primary-fill);
+  border-color: var(--primary-fill);
+}
+
+/* The ONLY chrome left: an import the list below cannot show, because its item is
+   not on this page. It is not in the DOM when every import is visible, so it can
+   never reserve a gap — the opposite of what the removed panel did. It points at
+   the item rather than standing in for it. */
+.offscreen-imports {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 3rem 1.25rem;
+}
+
+.offscreen-import {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  padding: 8px 12px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-alt);
+}
+
+.offscreen-name {
+  flex: 1 1 12rem;
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.offscreen-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 12rem;
+}
+
+.offscreen-progress-track {
+  flex: 1;
+  min-width: 4rem;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-hover);
+  overflow: hidden;
+}
+
+.offscreen-progress-track i {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--primary-fill);
+  transition: width var(--transition-fast);
+}
+
+.offscreen-caption {
+  flex: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-light);
+}
+
+.offscreen-percent {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-main);
+}
+
+.offscreen-import .item-failure {
+  flex: 1 1 14rem;
+}
+
+.offscreen-import .item-failure-actions {
+  margin-top: 0;
+}
+
 .cover-wrapper {
   position: relative;
   aspect-ratio: 2/3;
@@ -1380,6 +1605,72 @@ app-sidebar-collections.no-transition {
   /* Touch / Mobile: Remove hover action overlay to prevent accidental edits/deletions on tap */
   .actions-overlay {
     display: none !important;
+  }
+
+  /* --- Import progress at 390px ---
+     The card is 139px wide here, so the strip's type steps down a little while
+     the bar steps UP; every action is a full 44px target, because the failure
+     actions have no hover to fall back on. */
+  .cover-progress {
+    padding: 6px 7px 8px;
+  }
+
+  .cover-progress .import-status-label {
+    font-size: 10px;
+  }
+
+  .cover-progress-percent {
+    font-size: 12px;
+  }
+
+  .cover-progress-track,
+  .list-progress-track {
+    height: 5px;
+  }
+
+  .list-progress {
+    max-width: 100%;
+  }
+
+  .list-progress-caption {
+    font-size: var(--text-xs);
+    gap: 6px;
+  }
+
+  .item-action {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 1rem;
+    font-size: var(--text-sm);
+  }
+
+  .offscreen-imports {
+    margin: 0 14px 1.25rem;
+  }
+
+  .offscreen-import {
+    gap: 8px;
+  }
+
+  /* Full width rows at 390px: a 12rem minimum for the name and the bar would
+     force the "View" action onto a line of its own with an odd gap. */
+  .offscreen-name,
+  .offscreen-import .item-failure {
+    flex: 1 1 100%;
+    white-space: normal;
+  }
+
+  .offscreen-progress {
+    flex: 1 1 60%;
+    min-width: 0;
+  }
+
+  .offscreen-progress-track {
+    height: 5px;
+  }
+
+  .offscreen-caption {
+    font-size: var(--text-xs);
   }
 
   /* Keep cover steady without hover translation on touch devices */
