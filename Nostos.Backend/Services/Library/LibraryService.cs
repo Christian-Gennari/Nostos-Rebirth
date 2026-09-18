@@ -574,6 +574,33 @@ public sealed class LibraryService : ILibraryService
         return Result(LibraryReplyFormatter.BookDeleted(book.Title), new { deleted = true }, version);
     }
 
+    public async Task<LibraryCommandResultDto> SetBookStatusAsync(
+        Guid bookId,
+        BookStatus status,
+        string? statusMessage = null,
+        CancellationToken ct = default)
+    {
+        await using var db = await _contexts.CreateDbContextAsync(ct);
+        var state = await EnsureStateAsync(db, ct);
+
+        var book = await db.Books.SingleOrDefaultAsync(b => b.Id == bookId, ct);
+        if (book is null)
+            return Failure("book_not_found", LibraryReplyFormatter.BookNotFound, state.StateVersion);
+
+        book.Status = status;
+        book.StatusMessage = NullIfEmpty(statusMessage);
+
+        var version = NextVersion(state.StateVersion);
+        state.StateVersion = version;
+        state.UpdatedAt = Now;
+
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+
+        return Result("Book status updated.", new { updated = true }, version);
+    }
+
     public Task<LibraryCommandResultDto> CreateCollectionAsync(LibraryCreateCollectionRequest request, CancellationToken ct = default) =>
         MutateAsync(request.ClientId, request.IdempotencyKey, "CreateCollection",
             (db, token) => CreateCollectionCoreAsync(db, request, token), ct);
@@ -969,6 +996,9 @@ public sealed class LibraryService : ILibraryService
         // navigation fixup, but with a non-default key it concludes the row
         // already exists and issues an UPDATE — which matches nothing and fails
         // as a concurrency error.
+        book.Status = BookStatus.Ready;
+        book.StatusMessage = null;
+
         var acquisition = new BookAcquisitionModel
         {
             BookId = book.Id,

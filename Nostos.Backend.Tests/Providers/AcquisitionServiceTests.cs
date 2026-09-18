@@ -8,6 +8,7 @@ using Nostos.Backend.Services;
 using Nostos.Backend.Services.Library;
 using Nostos.Backend.Tests.Support;
 using Nostos.Shared.Dtos;
+using Nostos.Shared.Enums;
 using Xunit;
 
 namespace Nostos.Backend.Tests.Providers;
@@ -84,6 +85,8 @@ public sealed class AcquisitionServiceTests
         result.Book!.Title.Should().Be("The Republic");
         result.Book.Author.Should().Be("Plato");
         result.Book.HasFile.Should().BeTrue();
+        result.Book.Status.Should().Be(BookStatus.Ready);
+        result.Book.StatusMessage.Should().BeNull();
 
         // Stored file exists in storage
         var storedFileName = h.Storage.GetBookFileName(result.BookId!.Value);
@@ -208,10 +211,12 @@ public sealed class AcquisitionServiceTests
         result.Outcome.Should().Be(AcquisitionOutcome.Failed);
         result.ErrorCode.Should().Be(ProviderDownloadException.NotFound);
 
-        // No book row created
+        // Book row remains marked as Failed
         await using var db = await h.ContextFactory.CreateDbContextAsync();
-        var books = await db.Books.Where(b => b.Title == "Failing Download Book").ToListAsync();
-        books.Should().BeEmpty();
+        var book = await db.Books.SingleOrDefaultAsync(b => b.Title == "Failing Download Book");
+        book.Should().NotBeNull("book row must be kept on download failure");
+        book!.Status.Should().Be(BookStatus.Failed);
+        book.StatusMessage.Should().Be("Remote server returned 404.");
 
         // No files left in storage
         Directory.GetFiles(h.BooksRootDir, "*", SearchOption.AllDirectories).Should().BeEmpty();
@@ -260,10 +265,12 @@ public sealed class AcquisitionServiceTests
         result.Outcome.Should().Be(AcquisitionOutcome.Failed);
         result.ErrorCode.Should().Be("storage_failed");
 
-        // The book created before adoption must have been rolled back
+        // The book created before adoption must remain with Failed status
         await using var db = await h.ContextFactory.CreateDbContextAsync();
         var book = await db.Books.SingleOrDefaultAsync(b => b.Title == "Storage Fail Book");
-        book.Should().BeNull("book row must be deleted on storage rollback");
+        book.Should().NotBeNull("book row must be kept on storage failure");
+        book!.Status.Should().Be(BookStatus.Failed);
+        book.StatusMessage.Should().Be("The file could not be stored, so nothing was imported.");
 
         // Staging directory cleaned up
         Directory.GetDirectories(h.WorkingRootDir).Should().BeEmpty();
@@ -297,10 +304,12 @@ public sealed class AcquisitionServiceTests
         result.Outcome.Should().Be(AcquisitionOutcome.Failed);
         result.ErrorCode.Should().Be("acquisition_failed");
 
-        // No book row created
+        // Book row remains marked as Failed
         await using var db = await h.ContextFactory.CreateDbContextAsync();
-        var books = await db.Books.Where(b => b.Title == "Audiobook To Assemble").ToListAsync();
-        books.Should().BeEmpty();
+        var book = await db.Books.SingleOrDefaultAsync(b => b.Title == "Audiobook To Assemble");
+        book.Should().NotBeNull("book row must be kept on assembly failure");
+        book!.Status.Should().Be(BookStatus.Failed);
+        book.StatusMessage.Should().Be("The import failed unexpectedly.");
 
         // Staging root contains no directories afterwards
         Directory.GetDirectories(h.WorkingRootDir).Should().BeEmpty();
@@ -650,6 +659,73 @@ public sealed class AcquisitionServiceTests
 
         await using var db = await h.ContextFactory.CreateDbContextAsync();
         (await db.Books.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Cancellation_DeletesRowCreatedByAcquisition()
+    {
+        using var h = AcquisitionHarness.Create();
+
+        var fakeProvider = new FakeContentProvider("gutenberg", "Project Gutenberg");
+        fakeProvider.PlanResult = CreateEbookPlan(
+            providerId: "gutenberg",
+            externalId: "cancel-test",
+            assetId: "epub3",
+            title: "Cancel Test Book");
+
+        using var cts = new CancellationTokenSource();
+        // Downloader triggers cancellation
+        h.Downloader.OnDownloadAsync = _ => { cts.Cancel(); return Task.CompletedTask; };
+
+        var service = h.CreateService(new ProviderRegistry(new[] { fakeProvider }));
+        var request = new AcquisitionRequest("gutenberg", "cancel-test");
+
+        var act = () => service.AcquireAsync(request, null, cts.Token);
+        await act.Should().ThrowAsync<OperationCanceledException>();
+
+        await using var db = await h.ContextFactory.CreateDbContextAsync();
+        var book = await db.Books.SingleOrDefaultAsync(b => b.Title == "Cancel Test Book");
+        book.Should().BeNull("cancelled acquisition must delete the row created by us");
+    }
+
+    [Fact]
+    public async Task AcquireAsync_SetsMilestones_DownloadingThenTranscodingThenReady()
+    {
+        using var h = AcquisitionHarness.Create();
+
+        var assemblingProvider = new FakeAssemblingContentProvider("assembler", "Assembling Source");
+        assemblingProvider.PlanResult = new ProviderAcquisitionPlan(
+            ProviderId: "assembler",
+            ExternalId: "milestone-1",
+            Asset: new ProviderAsset("audio-asset", ProviderMediaKind.Audiobook, "Full Audiobook", "mp3-multi"),
+            Metadata: new ProviderMetadata(Title: "Milestone Audiobook"),
+            Parts: new[]
+            {
+                new ProviderDownloadPart(new Uri("https://example.com/part1.mp3"), ".mp3", 500),
+            },
+            Output: new ProviderOutput(".m4b", "audio/mp4", "M4B"));
+
+        var recordedStatuses = new List<BookStatus>();
+
+        h.Downloader.OnDownloadAsync = async _ =>
+        {
+            await using var db = await h.ContextFactory.CreateDbContextAsync();
+            var b = await db.Books.SingleAsync(x => x.Title == "Milestone Audiobook");
+            recordedStatuses.Add(b.Status);
+        };
+
+        var registry = new ProviderRegistry(new[] { assemblingProvider });
+        var service = h.CreateService(registry);
+
+        var result = await service.AcquireAsync(new AcquisitionRequest("assembler", "milestone-1"), null, CancellationToken.None);
+        result.Outcome.Should().Be(AcquisitionOutcome.Acquired);
+
+        await using var finalDb = await h.ContextFactory.CreateDbContextAsync();
+        var finalBook = await finalDb.Books.SingleAsync(x => x.Title == "Milestone Audiobook");
+
+        recordedStatuses.Should().Contain(BookStatus.Downloading);
+        finalBook.Status.Should().Be(BookStatus.Ready);
+        finalBook.StatusMessage.Should().BeNull();
     }
 
     /// <summary>A provider that can only search: used to prove the acquisition
