@@ -9,11 +9,6 @@
   ></app-sidebar-collections>
 
   <div class="library-right-side">
-    <!-- Imports in Progress. Placed above the toolbar — and so above the sort and
-         filter controls — and fed by its own feed rather than by the library
-         query, so it cannot be hidden by a sort, a filter or pagination. -->
-    <app-imports-panel></app-imports-panel>
-
     <header class="toolbar">
       <!-- Static heading: the active-filter chips directly below (and the
            sidebar highlight) already name the current scope, so the heading
@@ -130,6 +125,60 @@
       >
       </app-confirm-modal>
 
+      <!-- An import the list below cannot show: its item is not on this page —
+           because it has no library row yet (the backend plans first, creates the
+           row ~1-3s later), because it failed before one existed, or simply
+           because the current sort/filter/page puts it elsewhere (a brand-new book
+           has no LastReadAt, so under the default sort it is pages away).
+
+           This is the ONLY chrome left, and it is not in the DOM when every
+           import is visible in the list — so it cannot reserve a gap. It never
+           replaces the item: it points at it, and the item itself carries the
+           progress. -->
+      @if (offscreenImports().length) {
+      <div class="offscreen-imports" role="status" aria-label="Imports not shown in this list">
+        @for (entry of offscreenImports(); track entry.id) {
+        <div class="offscreen-import">
+          <span class="offscreen-name">{{ entry.title || 'Preparing import…' }}</span>
+
+          @if (importInFlight(entry)) {
+          <div
+            class="offscreen-progress"
+            role="progressbar"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            [attr.aria-valuenow]="entry.percent"
+            [attr.aria-label]="importStage(entry) + ', ' + entry.percent + ' percent'"
+          >
+            <div class="offscreen-progress-track">
+              <i [style.width.%]="entry.percent"></i>
+            </div>
+            <span class="offscreen-caption">
+              {{ importStage(entry) }}
+              <span class="offscreen-percent">{{ entry.percent }}%</span>
+            </span>
+          </div>
+          <button type="button" class="item-action" (click)="showImport($event)">View</button>
+          } @else {
+          <span class="item-failure">{{ entry.message || 'The import did not finish.' }}</span>
+          <div class="item-failure-actions">
+            @if (entry.canRetry) {
+            <button type="button" class="item-action is-primary" (click)="retryImport(entry, $event)">
+              <lucide-icon [img]="RotateCcwIcon" [size]="13" strokeWidth="2"></lucide-icon>
+              <span>Retry</span>
+            </button>
+            }
+            <button type="button" class="item-action" (click)="dismissImport(entry, $event)">
+              <lucide-icon [img]="XIcon" [size]="13" strokeWidth="2"></lucide-icon>
+              <span>Dismiss</span>
+            </button>
+          </div>
+          }
+        </div>
+        }
+      </div>
+      }
+
       <!-- One stage for both states. While the first page is in flight the region
            is simply left empty — the page's own paper, held open to the height it
            will need — and the results resolve in as they arrive. Nothing is
@@ -153,7 +202,7 @@
         </div>
 
         @for (book of books(); track book.id) {
-        <div class="table-row" [routerLink]="['/library', getBookRouteId(book)]" (mouseenter)="prefetchHeroCover(book.coverUrl)">
+        <div class="table-row" [class.is-importing]="book.status === 1 || book.status === 2" [class.is-failed]="book.status === 3" [routerLink]="['/library', getBookRouteId(book)]" (mouseenter)="prefetchHeroCover(book.coverUrl)">
           <div class="col title">
             <div class="list-cover-frame">
               @if (book.coverUrl) {
@@ -169,6 +218,46 @@
               <span class="list-book-title">{{ book.title }}</span>
               @if (book.subtitle) {
                 <span class="list-book-subtitle">{{ book.subtitle }}</span>
+              }
+
+              <!-- Import state, in the row the book will keep. The bar sits inside
+                   the existing row height (measured: 63px desktop / 79px mobile
+                   with and without it), so the row that finishes is the same row. -->
+              @if (book.status === 1 || book.status === 2) {
+              <div
+                class="list-progress"
+                role="progressbar"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                [attr.aria-valuenow]="bookProgress(book)?.percent ?? 0"
+                [attr.aria-label]="bookProgressLabel(book)"
+              >
+                <div class="list-progress-track">
+                  <i [style.width.%]="bookProgress(book)?.percent ?? 0"></i>
+                </div>
+                <span class="list-progress-caption">
+                  {{ bookStageLabel(book) }}
+                  @if (bookProgress(book); as progress) {
+                  <span class="list-progress-percent">{{ progress.percent }}%</span>
+                  }
+                </span>
+              </div>
+              } @else if (book.status === 3) {
+              <p class="item-failure">{{ book.statusMessage || 'The import did not finish.' }}</p>
+              @if (bookProgress(book); as failure) {
+              <div class="item-failure-actions">
+                @if (failure.canRetry) {
+                <button type="button" class="item-action is-primary" (click)="retryImport(failure, $event)">
+                  <lucide-icon [img]="RotateCcwIcon" [size]="13" strokeWidth="2"></lucide-icon>
+                  <span>Retry</span>
+                </button>
+                }
+                <button type="button" class="item-action" (click)="dismissImport(failure, $event)">
+                  <lucide-icon [img]="XIcon" [size]="13" strokeWidth="2"></lucide-icon>
+                  <span>Dismiss</span>
+                </button>
+              </div>
+              }
               }
             </div>
 
@@ -308,12 +397,29 @@
         <div class="book-card" [class.is-importing]="book.status === 1 || book.status === 2" [class.is-failed]="book.status === 3" [routerLink]="['/library', getBookRouteId(book)]" (mouseenter)="prefetchHeroCover(book.coverUrl)">
           <div class="cover-wrapper">
             @if (book.status === 1 || book.status === 2) {
-              <div class="import-status-overlay">
-                <lucide-icon [img]="LoaderIcon" [size]="24" class="spin-animation"></lucide-icon>
-                <span class="import-status-label">{{ book.status === 2 ? 'Transcoding' : 'Downloading' }}</span>
+              <!-- In flight: the progress lives ON the card, at the top of the cover
+                   so it never collides with the format badge (bottom-right) and so
+                   it costs the card no height — this box is the finished card too. -->
+              <div
+                class="cover-progress"
+                role="progressbar"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                [attr.aria-valuenow]="bookProgress(book)?.percent ?? 0"
+                [attr.aria-label]="bookProgressLabel(book)"
+              >
+                <div class="cover-progress-row">
+                  <span class="import-status-label">{{ bookStageLabel(book) }}</span>
+                  @if (bookProgress(book); as progress) {
+                  <span class="cover-progress-percent">{{ progress.percent }}%</span>
+                  }
+                </div>
+                <div class="cover-progress-track">
+                  <i [style.width.%]="bookProgress(book)?.percent ?? 0"></i>
+                </div>
               </div>
             } @else if (book.status === 3) {
-              <div class="import-status-overlay is-failed-overlay" [attr.title]="book.statusMessage || 'Import failed'">
+              <div class="import-status-overlay is-failed-overlay">
                 <lucide-icon [img]="AlertCircleIcon" [size]="24"></lucide-icon>
                 <span class="import-status-label">Failed</span>
               </div>
@@ -402,6 +508,29 @@
 
           <div class="meta-title">{{ book.title }}</div>
           <div class="meta-author">{{ book.author || 'Unknown' }}</div>
+
+          <!-- A failed import explains itself on the card, not in a `title`
+               tooltip: no phone can show a tooltip, and "Failed" alone says
+               nothing about what broke. The MESSAGE comes from the book row (it
+               survives a reload); the ACTIONS need the feed, which is the only
+               place the provider/item ids still exist. -->
+          @if (book.status === 3) {
+          <p class="item-failure">{{ book.statusMessage || 'The import did not finish.' }}</p>
+          @if (bookProgress(book); as failure) {
+          <div class="item-failure-actions">
+            @if (failure.canRetry) {
+            <button type="button" class="item-action is-primary" (click)="retryImport(failure, $event)">
+              <lucide-icon [img]="RotateCcwIcon" [size]="13" strokeWidth="2"></lucide-icon>
+              <span>Retry</span>
+            </button>
+            }
+            <button type="button" class="item-action" (click)="dismissImport(failure, $event)">
+              <lucide-icon [img]="XIcon" [size]="13" strokeWidth="2"></lucide-icon>
+              <span>Dismiss</span>
+            </button>
+          </div>
+          }
+          }
 
           @if (book.rating > 0) {
           <div class="meta-rating" (click)="$event.stopPropagation()">
