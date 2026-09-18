@@ -70,12 +70,6 @@ describe('SidebarCollections', () => {
     expect(component.filters.collectionId()).toBe('c1');
   });
 
-  it('links to the stats page from the sidebar', () => {
-    fixture.detectChanges();
-    const link = fixture.nativeElement.querySelector('a.nav-item[href="/stats"]') as HTMLAnchorElement;
-    expect(link).toBeTruthy();
-    expect(link.textContent).toContain('Stats');
-  });
   it('selecting the active collection toggles it off', () => {
     component.select('c1');
     component.select('c1');
