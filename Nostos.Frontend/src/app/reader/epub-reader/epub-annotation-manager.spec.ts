@@ -24,6 +24,19 @@ function createRendition() {
   const views: Array<{ index: number; pane: { removeMark: ReturnType<typeof vi.fn> } }> = [
     { index: 0, pane: { removeMark: vi.fn() } },
   ];
+  /**
+   * epub.js's `rendition.views()` is a `Views` COLLECTION, not an array:
+   * `all()` is its array accessor, and the object is not iterable. This double
+   * has to keep that shape. Stubbing it as a plain array is exactly how the
+   * `for…of` regression in `removeAnnotation()` stayed green while every
+   * highlight save threw in the browser (issue #225 §1.1).
+   */
+  const viewsCollection = {
+    length: views.length,
+    all: vi.fn(() => views),
+    forEach: (cb: (view: (typeof views)[number]) => void) => views.forEach(cb),
+    get: (i: number) => views[i],
+  };
   const annotations = {
     highlight: vi.fn((cfiRange: string) => ({
       type: 'highlight',
@@ -40,10 +53,10 @@ function createRendition() {
     off: vi.fn(),
     annotations,
     getContents: vi.fn(() => [...registeredContents]),
-    views: vi.fn(() => views),
+    views: vi.fn(() => viewsCollection),
     getRange: vi.fn(),
   };
-  return { rendition, annotations, views, registeredContents };
+  return { rendition, annotations, views, viewsCollection, registeredContents };
 }
 
 /** Selects the given text in the test document via the real jsdom Selection. */
@@ -76,6 +89,7 @@ describe('EpubAnnotationManager mobile highlight mode (issue #16)', () => {
   let rendition: ReturnType<typeof createRendition>['rendition'];
   let annotations: ReturnType<typeof createRendition>['annotations'];
   let views: ReturnType<typeof createRendition>['views'];
+  let viewsCollection: ReturnType<typeof createRendition>['viewsCollection'];
   let registeredContents: ReturnType<typeof createRendition>['registeredContents'];
   let notesService: { create: Mock<() => unknown> };
   let onNoteCreated: Mock<() => void>;
@@ -92,6 +106,7 @@ describe('EpubAnnotationManager mobile highlight mode (issue #16)', () => {
     rendition = r.rendition;
     annotations = r.annotations;
     views = r.views;
+    viewsCollection = r.viewsCollection;
     registeredContents = r.registeredContents;
 
     notesService = { create: vi.fn(() => of({ id: 'n1' })) };
@@ -187,6 +202,7 @@ describe('EpubAnnotationManager mobile highlight mode (issue #16)', () => {
       { nostosPending: true },
       undefined,
       'epubjs-hl-pending',
+      { fill: expect.any(String) },
     );
     expect(onSelectionCaptured).toHaveBeenCalledWith('Some meaningful text');
   });
@@ -290,7 +306,14 @@ describe('EpubAnnotationManager mobile highlight mode (issue #16)', () => {
     expect(result).toBe(true);
     // Permanent annotation is added first, then the temporary is removed by object.
     expect(annotations.add).toHaveBeenCalledTimes(1);
-    expect(annotations.add).toHaveBeenCalledWith('highlight', CFI);
+    expect(annotations.add).toHaveBeenCalledWith(
+      'highlight',
+      CFI,
+      {},
+      undefined,
+      undefined,
+      { fill: expect.any(String) },
+    );
     expect(annotations.add.mock.invocationCallOrder[0]).toBeLessThan(
       views[0].pane.removeMark.mock.invocationCallOrder[0],
     );
@@ -345,5 +368,106 @@ describe('EpubAnnotationManager mobile highlight mode (issue #16)', () => {
     // contextmenu + selectionchange + touchend listeners are removed.
     expect(removeListenerSpy).toHaveBeenCalledTimes(3);
     expect(rendition.off).toHaveBeenCalledWith('selected', expect.any(Function));
+  });
+
+  /**
+   * Regression, issue #225 §1.1. The double used to be a plain ARRAY, so
+   * `for…of` over `views()` passed here and threw `TypeError: … is not
+   * iterable` in the browser: the note was persisted, but the save bar stayed
+   * open, the notes panel went stale and the pending mark was never removed.
+   */
+  it('removes the pending mark through the Views collection, not by iterating it', async () => {
+    manager.setHighlightMode(true);
+    manager.registerContents(makeContents());
+
+    selectText('Persist me');
+    document.dispatchEvent(new Event('selectionchange'));
+    await flush();
+
+    const result = await manager.commitHighlight();
+
+    expect(result).toBe(true);
+    expect(viewsCollection.all).toHaveBeenCalled();
+    expect(views[0].pane.removeMark).toHaveBeenCalledTimes(1);
+    expect(onNoteCreated).toHaveBeenCalledTimes(1);
+  });
+
+  it('still commits when the rendition exposes no Views.all() accessor', async () => {
+    // A future epub.js may shape the collection differently. The removal is
+    // skipped, but the save must still complete and report success — a throw
+    // here is what left the confirmation bar stuck.
+    (rendition as unknown as { views: () => unknown }).views = () => ({});
+
+    manager.setHighlightMode(true);
+    manager.registerContents(makeContents());
+
+    selectText('No accessor');
+    document.dispatchEvent(new Event('selectionchange'));
+    await flush();
+
+    const result = await manager.commitHighlight();
+
+    expect(result).toBe(true);
+    expect(onNoteCreated).toHaveBeenCalledTimes(1);
+  });
+
+  it('takes the highlight fill from --color-highlight (issue #225 §1.6)', async () => {
+    const computed = vi
+      .spyOn(window, 'getComputedStyle')
+      .mockReturnValue({
+        getPropertyValue: () => ' #123456 ',
+      } as unknown as CSSStyleDeclaration);
+    try {
+      manager.setHighlightMode(true);
+      manager.registerContents(makeContents());
+      selectText('Token colour');
+      document.dispatchEvent(new Event('selectionchange'));
+      await flush();
+      await manager.commitHighlight();
+
+      expect(annotations.highlight).toHaveBeenCalledWith(
+        CFI,
+        { nostosPending: true },
+        undefined,
+        'epubjs-hl-pending',
+        { fill: '#123456' },
+      );
+      expect(annotations.add).toHaveBeenCalledWith(
+        'highlight',
+        CFI,
+        {},
+        undefined,
+        undefined,
+        { fill: '#123456' },
+      );
+    } finally {
+      computed.mockRestore();
+    }
+  });
+
+  it('falls back to the token light value when the token cannot be read', async () => {
+    const computed = vi
+      .spyOn(window, 'getComputedStyle')
+      .mockReturnValue({ getPropertyValue: () => '' } as unknown as CSSStyleDeclaration);
+    try {
+      manager.setHighlightMode(true);
+      manager.registerContents(makeContents());
+      selectText('Fallback colour');
+      document.dispatchEvent(new Event('selectionchange'));
+      await flush();
+      await manager.commitHighlight();
+
+      // Never epub.js's raw `yellow` keyword.
+      expect(annotations.add).toHaveBeenCalledWith(
+        'highlight',
+        CFI,
+        {},
+        undefined,
+        undefined,
+        { fill: '#ffda00' },
+      );
+    } finally {
+      computed.mockRestore();
+    }
   });
 });

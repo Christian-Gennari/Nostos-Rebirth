@@ -24,6 +24,29 @@ interface PendingHighlightAnnotation {
   mark?: { element?: HTMLElement };
 }
 
+/**
+ * `rendition.views()` returns epub.js's `Views` *collection*, not an array: it
+ * exposes `all()`, `forEach()` and `get()`, and it is NOT iterable. Iterating
+ * it with `for…of` throws `TypeError: views is not iterable` at runtime — and
+ * because the spec stubbed it with a plain array, the suite stayed green while
+ * every highlight save failed in the browser (issue #225 §1.1). `all()` is the
+ * collection's own array accessor.
+ */
+interface EpubViews {
+  all?: () => EpubView[];
+}
+
+interface EpubView {
+  index?: number;
+  pane?: { removeMark?: (mark: unknown) => void };
+}
+
+/**
+ * `--color-highlight` from styles.css in its light rendering, used when the
+ * token cannot be resolved (unit tests, or a document that is not yet styled).
+ */
+const DEFAULT_HIGHLIGHT_FILL = '#ffda00';
+
 export class EpubAnnotationManager {
   public highlights = signal<string[]>([]);
 
@@ -137,26 +160,50 @@ export class EpubAnnotationManager {
   }
 
   public injectHighlightStyles(contents: Contents) {
+    // Only the selection-mode rules belong here. The `.epubjs-hl*` fill rules
+    // that used to live in this block were DEAD CODE: epub.js builds the
+    // highlight marks in a pane SVG it appends to the view element in the
+    // PARENT document (`new Pane(this.iframe, this.element)`), never inside
+    // this contents document. The colour is therefore passed to epub.js as an
+    // explicit fill — see highlightFill() — instead of being styled here.
     const style = contents.document.createElement('style');
     style.innerHTML = `
-      .epubjs-hl {
-        fill: yellow;
-        fill-opacity: 0.3;
-        mix-blend-mode: multiply;
-      }
       body.nostos-highlight-mode,
       body.nostos-highlight-mode * {
         -webkit-touch-callout: none !important;
         -webkit-user-select: text !important;
         user-select: text !important;
       }
-      .epubjs-hl-pending {
-        fill: var(--highlight-color, #facc15);
-        fill-opacity: 0.38;
-        mix-blend-mode: multiply;
-      }
     `;
     contents.document.head.appendChild(style);
+  }
+
+  /**
+   * The highlight colour, read from the app's `--color-highlight` token.
+   * epub.js defaults the SVG fill to the raw keyword `yellow`, which could not
+   * follow the theme and disagreed with the PDF reader's
+   * `var(--color-highlight)`. The pane SVG is in the parent document (see
+   * injectHighlightStyles), where the token is readable, so it is resolved here
+   * and handed to epub.js as an explicit fill.
+   */
+  private highlightFill(): string {
+    try {
+      const value = getComputedStyle(document.documentElement)
+        .getPropertyValue('--color-highlight')
+        .trim();
+      if (value) return value;
+    } catch {
+      // No parent document (unit tests) or unreadable styles — use the token's
+      // light value rather than epub.js's keyword.
+    }
+    return DEFAULT_HIGHLIGHT_FILL;
+  }
+
+  /** Adds a persisted highlight with the reader's own colour. */
+  private addPersistedHighlight(cfiRange: string): void {
+    this.rendition.annotations.add('highlight', cfiRange, {}, undefined, undefined, {
+      fill: this.highlightFill(),
+    });
   }
 
   /**
@@ -198,6 +245,7 @@ export class EpubAnnotationManager {
       { nostosPending: true },
       undefined,
       'epubjs-hl-pending',
+      { fill: this.highlightFill() },
     ) as unknown as PendingHighlightAnnotation;
 
     this.pendingHighlight = {
@@ -243,7 +291,7 @@ export class EpubAnnotationManager {
           next: () => {
             // Persisted: swap the temporary annotation for the permanent one,
             // then report success so the shell closes the bar.
-            this.rendition.annotations.add('highlight', snapshot.cfiRange);
+            this.addPersistedHighlight(snapshot.cfiRange);
             this.removeAnnotation(snapshot.temporaryAnnotation);
             this.pendingHighlight = null;
             this.lastCapturedKey = null;
@@ -286,12 +334,12 @@ export class EpubAnnotationManager {
       return;
     }
 
-    const views = this.rendition.views() as unknown as ReadonlyArray<{
-      index?: number;
-      pane?: { removeMark?: (mark: unknown) => void };
-    }>;
+    // `all()` is the collection's array accessor; the collection itself is not
+    // iterable, which is what broke every committed highlight (see EpubViews).
+    const views = this.rendition.views() as unknown as EpubViews;
+    const rendered = typeof views.all === 'function' ? views.all() : [];
 
-    for (const view of views) {
+    for (const view of rendered) {
       if (view.index !== annotation.sectionIndex) {
         continue;
       }
@@ -307,7 +355,7 @@ export class EpubAnnotationManager {
   public restoreHighlights(notes: Note[]) {
     notes.forEach((note) => {
       if (note.cfiRange) {
-        this.rendition.annotations.add('highlight', note.cfiRange);
+        this.addPersistedHighlight(note.cfiRange);
         this.highlights.update((current) => [...current, note.cfiRange!]);
       }
     });
