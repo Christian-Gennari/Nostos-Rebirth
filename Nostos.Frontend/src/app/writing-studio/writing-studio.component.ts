@@ -32,6 +32,7 @@ import {
   Sparkles,
   Maximize2,
   Minimize2,
+  AlignCenterVertical,
 } from 'lucide-angular';
 
 import { WritingsService } from '../core/services/writings.service';
@@ -45,6 +46,17 @@ import { Note } from '../core/dtos/note.dtos';
 import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.component';
 import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
+
+/** localStorage flag for typewriter mode in the studio. */
+const TYPEWRITER_KEY = 'nostos.typewriter';
+
+function readTypewriter(): boolean {
+  try {
+    return localStorage.getItem(TYPEWRITER_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 @Component({
   selector: 'app-writing-studio',
@@ -91,6 +103,7 @@ export class WritingStudio implements OnInit {
     Sparkles,
     Maximize2,
     Minimize2,
+    Typewriter: AlignCenterVertical,
   };
 
   isMobile = signal(window.innerWidth < 768);
@@ -110,6 +123,19 @@ export class WritingStudio implements OnInit {
 
   // Zen (focus) mode — issue #49. Session-only: never persisted.
   isZen = signal(false);
+
+  /** Typewriter mode: keep the caret line centered. Persisted across visits. */
+  typewriter = signal(readTypewriter());
+
+  toggleTypewriter(): void {
+    const next = !this.typewriter();
+    try {
+      localStorage.setItem(TYPEWRITER_KEY, next ? '1' : '0');
+    } catch {
+      // Toggle still applies for the session even if it won't persist.
+    }
+    this.typewriter.set(next);
+  }
 
   /** Element that had focus when zen was entered; restored on exit. */
   private zenFocusReturn: HTMLElement | null = null;

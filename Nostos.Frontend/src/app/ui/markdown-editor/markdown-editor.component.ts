@@ -525,6 +525,12 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   initialContent = input<string>('');
   contentChange = output<string>();
   wordCountChange = output<number>();
+  /**
+   * Typewriter mode: keep the caret line near 45% of the viewport by scrolling
+   * the iframe on caret activity. Owned by the studio (toggle + persistence);
+   * the editor only follows while this is true.
+   */
+  typewriter = input<boolean>(false);
 
   htmlContent = '';
   private editorId = 'markdown-tinymce-editor';
@@ -590,6 +596,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     setup: (editor: any) => {
       this.editor = editor;
       editor.on('Change Undo Redo blur', () => this.onHtmlChange(editor.getContent()));
+      editor.on('NodeChange KeyUp', () => this.followCaret(editor));
 
       const updateWordCount = () => {
         const count = editor.plugins?.wordcount?.body?.getWordCount?.() ?? 0;
@@ -689,4 +696,35 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     const markdown = this.turndownService.turndown(html);
     this.contentChange.emit(markdown);
   }
+
+  /**
+   * Typewriter scroll: nudge the iframe so the caret line sits near 45% of
+   * the viewport. Instant (never smooth — smooth lags behind typing), with a
+   * deadband so small drifts don't jitter the page. Defensive throughout:
+   * headless/test editors without a selection API simply do nothing.
+   */
+  followCaret(editor: any): void {
+    if (!this.typewriter()) return;
+    try {
+      const rect = editor.selection?.getRng?.()?.getBoundingClientRect?.();
+      const win = editor.getWin?.();
+      if (!rect || !win || typeof win.innerHeight !== 'number') return;
+      // A zero rect means the caret isn't laid out (hidden editor, tests).
+      if (rect.top === 0 && rect.height === 0) return;
+      const delta = caretScrollDelta(rect.top, win.innerHeight);
+      if (delta !== null) win.scrollBy(0, delta);
+    } catch {
+      // Caret geometry is best-effort — never break typing over it.
+    }
+  }
+}
+
+/**
+ * Pixels to scroll so a caret at `rectTop` lands at 45% of `viewportHeight`,
+ * or null inside the deadband / for invalid viewports. Pure for testability.
+ */
+export function caretScrollDelta(rectTop: number, viewportHeight: number): number | null {
+  if (!isFinite(rectTop) || !isFinite(viewportHeight) || viewportHeight <= 0) return null;
+  const delta = rectTop - viewportHeight * 0.45;
+  return Math.abs(delta) < 60 ? null : Math.round(delta);
 }
