@@ -270,7 +270,10 @@ for (const f of files) {
    mobile overflow menu (now removed — the surface header holds those controls)
    carried a fourth. The one upward shadow left, on the highlight confirmation
    bar, is directional rather than incidental. */
-const LITERAL_COLOUR_BUDGET = 65;
+/* Lowered 65 -> 64 by removing a dead declaration in the PDF sidebar's content
+   panel: a `rgba(0,0,0,0.5)` shadow was set and then overwritten by a tokenised
+   one two lines later, so the literal never painted. */
+const LITERAL_COLOUR_BUDGET = 64;
 
 {
   const ALLOW = [
