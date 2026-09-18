@@ -297,6 +297,26 @@
           } @else {
           <p>Your library is empty</p>
           <button class="btn btn-primary" (click)="openAddIntent()">Add your first book</button>
+          @if (showFirstRunGuide()) {
+          <div class="first-run-guide" data-testid="first-run-guide">
+            <p class="first-run-title">Three steps to a living library</p>
+            <ol>
+              <li>
+                <lucide-icon [img]="BookOpenIcon" [size]="15" strokeWidth="1.75"></lucide-icon>
+                <span><strong>Add a book</strong> — by hand, from a file, or from a source.</span>
+              </li>
+              <li>
+                <lucide-icon [img]="BookIcon" [size]="15" strokeWidth="1.75"></lucide-icon>
+                <span><strong>Capture notes</strong> — highlight text or jot a thought on the book.</span>
+              </li>
+              <li>
+                <lucide-icon [img]="HashIcon" [size]="15" strokeWidth="1.75"></lucide-icon>
+                <span><strong>Link ideas</strong> — write [[a concept]] in any note to grow your second brain.</span>
+              </li>
+            </ol>
+            <button class="btn btn-ghost btn-sm" (click)="dismissFirstRunGuide()">Dismiss</button>
+          </div>
+          }
           }
         </div>
         }
@@ -428,6 +448,26 @@
           } @else {
           <p>Your library is empty</p>
           <button class="btn btn-primary" (click)="openAddIntent()">Add your first book</button>
+          @if (showFirstRunGuide()) {
+          <div class="first-run-guide" data-testid="first-run-guide">
+            <p class="first-run-title">Three steps to a living library</p>
+            <ol>
+              <li>
+                <lucide-icon [img]="BookOpenIcon" [size]="15" strokeWidth="1.75"></lucide-icon>
+                <span><strong>Add a book</strong> — by hand, from a file, or from a source.</span>
+              </li>
+              <li>
+                <lucide-icon [img]="BookIcon" [size]="15" strokeWidth="1.75"></lucide-icon>
+                <span><strong>Capture notes</strong> — highlight text or jot a thought on the book.</span>
+              </li>
+              <li>
+                <lucide-icon [img]="HashIcon" [size]="15" strokeWidth="1.75"></lucide-icon>
+                <span><strong>Link ideas</strong> — write [[a concept]] in any note to grow your second brain.</span>
+              </li>
+            </ol>
+            <button class="btn btn-ghost btn-sm" (click)="dismissFirstRunGuide()">Dismiss</button>
+          </div>
+          }
           }
         </div>
         }

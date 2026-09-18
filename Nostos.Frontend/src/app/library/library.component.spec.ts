@@ -491,6 +491,36 @@ describe('Library', () => {
     expect(component.showAddModal()).toBe(false);
   });
 
+  it('shows the first-run guide in the empty library until dismissed', () => {
+    fixture.detectChanges();
+
+    const guide = fixture.nativeElement.querySelector('[data-testid="first-run-guide"]') as HTMLElement;
+    expect(guide).toBeTruthy();
+    expect(guide.querySelectorAll('ol li').length).toBe(3);
+    expect(guide.textContent).toContain('Add a book');
+    expect(guide.textContent).toContain('Capture notes');
+    expect(guide.textContent).toContain('Link ideas');
+  });
+
+  it('dismissing the guide hides it and persists the choice', () => {
+    fixture.detectChanges();
+    expect(component.showFirstRunGuide()).toBe(true);
+
+    component.dismissFirstRunGuide();
+    fixture.detectChanges();
+
+    expect(component.showFirstRunGuide()).toBe(false);
+    expect(localStorage.getItem('nostos.first-run-guide')).toBe('dismissed');
+    expect(fixture.nativeElement.querySelector('[data-testid="first-run-guide"]')).toBeNull();
+  });
+
+  it('hides the guide when searching or filtering, even before dismissal', () => {
+    component.searchQuery.set('zzz');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="first-run-guide"]')).toBeNull();
+  });
+
   it('asks how the book is being added before opening the form', () => {
     component.openAddIntent();
     fixture.detectChanges();

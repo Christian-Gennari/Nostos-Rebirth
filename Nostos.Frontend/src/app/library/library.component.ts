@@ -29,7 +29,18 @@ import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { InfiniteScrollDirective } from '../core/directives/infinite-scroll.directive';
 import { BloomArtDirective } from '../ui/bloom-art/bloom-art.directive';
-import { BookSort } from '../core/dtos/book.enums';
+
+/** localStorage flag for the first-run guide in the empty library state. */
+const FIRST_RUN_GUIDE_KEY = 'nostos.first-run-guide';
+
+function readFirstRunGuide(): boolean {
+  try {
+    return localStorage.getItem(FIRST_RUN_GUIDE_KEY) !== 'dismissed';
+  } catch {
+    // Storage unreadable — show the guide; dismissal just won't persist.
+    return true;
+  }
+}import { BookSort } from '../core/dtos/book.enums';
 import { LibraryFilterService } from './library-filter.service';
 import { LibraryPreferencesService } from '../core/services/library-preferences.service';
 import { ImportService } from '../core/services/import.service';
@@ -55,6 +66,7 @@ import {
   Bookmark,
   AlertCircle,
   Clock,
+  Hash,
 } from 'lucide-angular';
 
 /** Legacy key retained for callers that need to verify the migration path. */
@@ -167,7 +179,7 @@ export class Library implements OnInit, OnDestroy {
   LoaderIcon = Loader2;
   HeadphonesIcon = Headphones;
   BookOpenIcon = BookOpen;
-  FileTextIcon = FileText;
+  HashIcon = Hash;  FileTextIcon = FileText;
   BookmarkIcon = Bookmark;
   AlertCircleIcon = AlertCircle;
   ClockIcon = Clock;
@@ -202,6 +214,17 @@ export class Library implements OnInit, OnDestroy {
   showAddIntent = signal(false);
   /** Open the form straight into the source search. */
   addSourceFirst = signal(false);
+  /** First-run guide in the genuinely-empty state; dismissed persistently. */
+  showFirstRunGuide = signal(readFirstRunGuide());
+
+  dismissFirstRunGuide(): void {
+    try {
+      localStorage.setItem(FIRST_RUN_GUIDE_KEY, 'dismissed');
+    } catch {
+      // Dismissal still applies for the session even if it won't persist.
+    }
+    this.showFirstRunGuide.set(false);
+  }
 
   toggleSidebar(): void {
     this.preferences.setSidebarExpanded(!this.sidebarExpanded());

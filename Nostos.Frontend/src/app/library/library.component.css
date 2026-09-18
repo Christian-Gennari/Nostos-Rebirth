@@ -187,6 +187,47 @@ app-sidebar-collections.no-transition {
   color: var(--color-text-main);
 }
 
+/* First-run guide: three calm steps under the empty-state action. A bordered
+   card rather than a modal — the empty library IS the onboarding surface, so
+   the guidance lives where the books will be. */
+.first-run-guide {
+  margin-top: 1rem;
+  max-width: 26rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  background: var(--bg-surface);
+  text-align: left;
+}
+
+.first-run-title {
+  font-size: 0.875rem !important;
+  font-weight: 600;
+}
+
+.first-run-guide ol {
+  margin: 0.75rem 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.first-run-guide li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.first-run-guide li lucide-icon {
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+  color: var(--color-text-light);
+}
+
 /* NEW: Search Bar Styles */
 .search-bar-container {
   /* Truthful centring: the field is pinned to the toolbar's centre and its width
