@@ -958,15 +958,15 @@ app-sidebar-collections.no-transition {
   border-color: var(--primary-fill);
 }
 
-/* The ONLY chrome left: an import the list below cannot show, because its item is
-   not on this page. It is not in the DOM when every import is visible, so it can
-   never reserve a gap — the opposite of what the removed panel did. It points at
-   the item rather than standing in for it. */
+/* The ONE piece of chrome left: an import the list below cannot show. It is not in
+   the DOM when every import is visible, so it can never reserve a gap — the opposite
+   of what the removed panel did. Styled like a list row rather than a dashed banner:
+   it is a book that exists, mid-import, not a section of its own. */
 .offscreen-imports {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin: 0 3rem 1.25rem;
+  gap: 6px;
+  margin: 0 3rem 1rem;
 }
 
 .offscreen-import {
@@ -974,10 +974,10 @@ app-sidebar-collections.no-transition {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px 10px;
-  padding: 8px 12px;
-  border: 1px dashed var(--border-color);
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  background: var(--bg-surface-alt);
+  background: var(--bg-surface);
 }
 
 .offscreen-name {

@@ -139,6 +139,26 @@ describe('ImportService', () => {
     expect(service.activeImports()[0].stage).toBe('importing');
   });
 
+  it('signals a change when an import gets its book row, but not on progress ticks', () => {
+    service.ensureConnected();
+    activeRequest().flush([activity({ bookId: null })]);
+    stream().open();
+
+    const beforeRow = service.inFlightSignature();
+
+    // The same import, but its book row now exists. The library's page is a snapshot
+    // taken before that row, so it has to be re-read for the book to appear in it.
+    stream().emit('progress', [activity({ bookId: 'book-1' })]);
+    const withRow = service.inFlightSignature();
+    expect(withRow).not.toBe(beforeRow);
+    expect(withRow).toContain('book-1');
+
+    // A number moving several times a second is not a change to the set.
+    stream().emit('progress', [activity({ bookId: 'book-1', percent: 84 })]);
+    stream().emit('progress', [activity({ bookId: 'book-1', percent: 91 })]);
+    expect(service.inFlightSignature()).toBe(withRow);
+  });
+
   it('fetches only the finished book on a done event, then closes the stream', () => {
     service.ensureConnected();
     activeRequest().flush([activity()]);

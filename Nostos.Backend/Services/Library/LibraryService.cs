@@ -169,13 +169,24 @@ public sealed class LibraryService : ILibraryService
         }
         else
         {
+            // Imports sort FIRST, whatever the sort key is. The row is an ordinary
+            // book all along (nothing filters it out), so the only reason a running
+            // import could not be seen was the ordering: under Last Read a brand-new
+            // book has no LastReadAt, so it sorted behind every book the user has
+            // ever opened — page 3 of a full library — and the progress bar was
+            // drawn on a card nobody could see.
+            IOrderedQueryable<BookModel> ImportingFirst(IQueryable<BookModel> source) =>
+                source.OrderByDescending(b =>
+                    b.Status == BookStatus.Downloading || b.Status == BookStatus.Transcoding);
+
             query = sort switch
             {
-                BookSort.Title => query.OrderBy(b => b.Title),
-                BookSort.Rating => query.OrderByDescending(b => b.Progress.Rating),
-                BookSort.LastRead => query.OrderByDescending(b => b.Progress.LastReadAt.HasValue)
+                BookSort.Title => ImportingFirst(query).ThenBy(b => b.Title),
+                BookSort.Rating => ImportingFirst(query).ThenByDescending(b => b.Progress.Rating),
+                BookSort.LastRead => ImportingFirst(query)
+                    .ThenByDescending(b => b.Progress.LastReadAt.HasValue)
                     .ThenByDescending(b => b.Progress.LastReadAt),
-                _ => query.OrderByDescending(b => b.CreatedAt),
+                _ => ImportingFirst(query).ThenByDescending(b => b.CreatedAt),
             };
 
             totalCount = await query.CountAsync(ct);
@@ -1745,8 +1756,18 @@ public sealed class LibraryService : ILibraryService
 
     private sealed record GroupedBook(BookModel Primary, BookDto Dto);
 
+    /// <summary>
+    /// The edition that stands for a work in the list.
+    ///
+    /// An edition that is importing comes first: the user asked for that edition and
+    /// is watching it arrive, so the work's card has to be the thing they asked for —
+    /// otherwise an audiobook imported alongside a print copy of the same work would
+    /// be represented by the print copy's card, with nothing on it to watch. Reading
+    /// history decides again the moment the import ends.
+    /// </summary>
     private static BookModel SelectPrimaryEdition(IEnumerable<BookModel> editions) => editions
-        .OrderByDescending(b => b.Progress.LastReadAt.HasValue)
+        .OrderByDescending(b => b.Status == BookStatus.Downloading || b.Status == BookStatus.Transcoding)
+        .ThenByDescending(b => b.Progress.LastReadAt.HasValue)
         .ThenByDescending(b => b.Progress.LastReadAt)
         .ThenByDescending(b => b.Progress.ProgressPercent)
         .ThenBy(b => b.CreatedAt)
@@ -1757,14 +1778,24 @@ public sealed class LibraryService : ILibraryService
         IEnumerable<GroupedBook> books,
         BookSort sort) => sort switch
         {
-            BookSort.Title => books.OrderBy(b => b.Primary.Title).ThenBy(b => b.Primary.Id),
-            BookSort.Rating => books.OrderByDescending(b => b.Primary.Progress.Rating).ThenBy(b => b.Primary.Id),
-            BookSort.LastRead => books
-                .OrderByDescending(b => b.Primary.Progress.LastReadAt.HasValue)
+            BookSort.Title => ImportingFirst(books).ThenBy(b => b.Primary.Title).ThenBy(b => b.Primary.Id),
+            BookSort.Rating => ImportingFirst(books).ThenByDescending(b => b.Primary.Progress.Rating).ThenBy(b => b.Primary.Id),
+            BookSort.LastRead => ImportingFirst(books)
+                .ThenByDescending(b => b.Primary.Progress.LastReadAt.HasValue)
                 .ThenByDescending(b => b.Primary.Progress.LastReadAt)
                 .ThenBy(b => b.Primary.Id),
-            _ => books.OrderByDescending(b => b.Primary.CreatedAt).ThenBy(b => b.Primary.Id),
+            _ => ImportingFirst(books).ThenByDescending(b => b.Primary.CreatedAt).ThenBy(b => b.Primary.Id),
         };
+
+    /// <summary>
+    /// A work counts as importing when the edition representing it is. Same reason as
+    /// the ungrouped path: an edition that exists because the user just asked for it
+    /// has no reading history to sort on, so every user-facing sort would bury it
+    /// behind the books they have actually read.
+    /// </summary>
+    private static IOrderedEnumerable<GroupedBook> ImportingFirst(IEnumerable<GroupedBook> books) =>
+        books.OrderByDescending(b =>
+            b.Primary.Status == BookStatus.Downloading || b.Primary.Status == BookStatus.Transcoding);
 
     private static string? NullIfEmpty(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value;
