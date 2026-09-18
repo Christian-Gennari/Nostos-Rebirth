@@ -158,7 +158,15 @@
               <span class="offscreen-percent">{{ entry.percent }}%</span>
             </span>
           </div>
-          <button type="button" class="item-action" (click)="showImport($event)">View</button>
+          <button
+            type="button"
+            class="item-action"
+            (click)="showImport($event)"
+            title="Order the library by Recently Added"
+            aria-label="Order the library by Recently Added"
+          >
+            Newest first
+          </button>
           } @else {
           <span class="item-failure">{{ entry.message || 'The import did not finish.' }}</span>
           <div class="item-failure-actions">

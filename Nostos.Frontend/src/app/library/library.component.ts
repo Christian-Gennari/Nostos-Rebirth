@@ -578,12 +578,13 @@ export class Library implements OnInit, OnDestroy {
   });
 
   /**
-   * Bring an off-screen import into view.
+   * Order the library so the newest thing in it comes first.
    *
-   * The item is genuinely in the library, so the honest way to show it is to
-   * order the library by what it is — the newest thing in it — rather than to
-   * inject a copy of it into a page the query never put it on. (A prepended
-   * synthetic card would push item 20 off page 1 and duplicate it on page 2.)
+   * Named for what it does rather than "take me to it", because it cannot promise
+   * that: with `groupByWork` (the default) an imported edition that merges into an
+   * existing work is represented by that work's card — which is a different
+   * edition, ordered by the work's own recency — so re-sorting moves it to a page
+   * rather than into view. Under an ungrouped view it lands first.
    */
   showImport(event: Event): void {
     event.stopPropagation();

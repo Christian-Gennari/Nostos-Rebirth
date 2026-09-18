@@ -833,17 +833,29 @@ app-sidebar-collections.no-transition {
 }
 
 .cover-progress-percent {
-  font-size: var(--text-xs);
+  font-size: 13px;
   font-weight: var(--fw-semibold);
   font-variant-numeric: tabular-nums;
   color: var(--on-primary);
 }
 
-.cover-progress-track,
+/* The bar has to read as a bar, not as a rule under the text: a distinct dark
+   track against the white fill, at the weight of a bar rather than a hairline.
+   (Measured against the app's own bars — the add-book modal's source progress and
+   the settings bars are both 4px with a visible track and an accent fill on a
+   light ground; on the cover's dark scrim the roles swap but the contrast does
+   not.) */
+.cover-progress-track {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--overlay-medium);
+  overflow: hidden;
+}
+
 .list-progress-track {
   height: 4px;
   border-radius: var(--radius-pill);
-  background: var(--selection-badge-bg);
+  background: var(--bg-hover);
   overflow: hidden;
 }
 
@@ -898,7 +910,8 @@ app-sidebar-collections.no-transition {
    is the one place the provider and item ids still exist. */
 .item-failure {
   margin: 0;
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
+  line-height: 1.35;
   color: var(--color-danger);
   overflow-wrap: anywhere;
 }
@@ -1616,14 +1629,22 @@ app-sidebar-collections.no-transition {
   }
 
   .cover-progress .import-status-label {
-    font-size: 10px;
+    /* Sentence case at 12px: at 11px the all-caps micro-label reads as a smudge
+       on a 139px-wide card, and "Transcoding" in sentence case is narrower than
+       "TRANSCODING" with tracking, so it fits comfortably beside the percentage. */
+    font-size: 12px;
+    letter-spacing: 0;
+    text-transform: none;
   }
 
   .cover-progress-percent {
-    font-size: 12px;
+    font-size: 14px;
   }
 
-  .cover-progress-track,
+  .cover-progress-track {
+    height: 6px;
+  }
+
   .list-progress-track {
     height: 5px;
   }

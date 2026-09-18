@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Component, signal } from '@angular/core';
+import { Component, computed, Signal, signal, WritableSignal } from '@angular/core';
 import { provideRouter, Router } from '@angular/router';
 import { of, Subject } from 'rxjs';
 
@@ -7,6 +7,7 @@ import { Library } from './library.component';
 import { BooksService } from '../core/services/books.service';
 import { CollectionsService } from '../core/services/collections.service';
 import { ImportService } from '../core/services/import.service';
+import { ImportActivity } from '../core/dtos/import.dtos';
 import { PaginatedResponse } from '../core/dtos/book.dtos';
 import { Book } from '../core/dtos/book.dtos';
 import { BookSort } from '../core/dtos/book.enums';
@@ -23,12 +24,51 @@ describe('Library', () => {
   let fixture: ComponentFixture<Library>;
   let listSpy: ReturnType<typeof vi.fn>;
 
+  /** The feed, driven per test: this is what an in-flight import looks like. */
+  let importEntries: WritableSignal<ImportActivity[]>;
+  let progressByBookId: Signal<Map<string, ImportActivity>>;
+  let importPatched: Subject<Book>;
+
+  function activity(overrides: Partial<ImportActivity> = {}): ImportActivity {
+    return {
+      id: 'job-1',
+      source: 'job',
+      state: 'running',
+      stage: 'downloading',
+      percent: 42,
+      detail: '3/12 files',
+      providerId: 'gutenberg',
+      externalId: '84',
+      assetId: null,
+      bookId: 'book-importing',
+      title: 'An Importing Title',
+      author: 'An Author',
+      coverUrl: null,
+      errorCode: null,
+      message: null,
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:10Z',
+      canRetry: true,
+      ...overrides,
+    };
+  }
+
   /** Wall-clock budget a spec must advance to let a deferred swap commit. */
   const SWAP_BUDGET = 400;
 
   beforeEach(async () => {
     localStorage.clear();
     listSpy = vi.fn(() => of({ items: [], totalCount: 0 } as PaginatedResponse<never>));
+
+    importEntries = signal<ImportActivity[]>([]);
+    importPatched = new Subject<Book>();
+    progressByBookId = computed(() => {
+      const byBook = new Map<string, ImportActivity>();
+      for (const entry of importEntries()) {
+        if (entry.bookId) byBook.set(entry.bookId, entry);
+      }
+      return byBook;
+    });
 
     await TestBed.configureTestingModule({
       imports: [Library],
@@ -57,18 +97,16 @@ describe('Library', () => {
           } as unknown as CollectionsService,
         },
         {
-          // The library only reads these: it starts the feed's connection and
-          // patches the single book a finished import names. The feed's own
-          // behaviour (connection, events, re-sync) is covered by
-          // import.service.spec.ts.
+          // The library reads the feed as signals: it starts the connection,
+          // looks up the import driving a given book, and patches the single book
+          // a finished import names. The feed's own behaviour (connection, events,
+          // re-sync) is covered by import.service.spec.ts.
           provide: ImportService,
           useValue: {
-            bookPatched: new Subject<Book>(),
+            bookPatched: importPatched,
             ensureConnected: vi.fn(),
-            activeImports: signal([]),
-            failedImports: signal([]),
-            connectionState: signal('idle'),
-            hasImports: signal(false),
+            imports: () => importEntries(),
+            progressByBookId: () => progressByBookId(),
             cancel: vi.fn(),
             retry: vi.fn(),
             dismiss: vi.fn(),
@@ -87,24 +125,16 @@ describe('Library', () => {
     expect(listSpy.mock.calls[0][0].collectionId).toBeUndefined();
   });
 
-  it('renders the imports section above the toolbar and outside the results', () => {
+  it('renders no import chrome at all when nothing is importing', () => {
     const host = fixture.nativeElement as HTMLElement;
-    const panel = host.querySelector('app-imports-panel');
-    const toolbar = host.querySelector('.toolbar');
-    const results = host.querySelector('.results-stage');
+    const rightSide = host.querySelector('.library-right-side') as HTMLElement;
 
-    expect(panel).not.toBeNull();
-    expect(toolbar).not.toBeNull();
-    expect(results).not.toBeNull();
-
-    // Above the toolbar, which is where the sort and filter controls live: the
-    // section must not be a row of the library's results.
-    expect(
-      panel!.compareDocumentPosition(toolbar!) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    // And not inside the results stage, so no sort, filter, search or page can
-    // take it off screen.
-    expect(results!.contains(panel)).toBe(false);
+    // The regression this exists for: the removed panel was an always-present
+    // element with its own top padding, so the library carried a dead band above
+    // the toolbar whether or not anything was importing. Nothing may precede the
+    // toolbar.
+    expect(rightSide.firstElementChild!.classList.contains('toolbar')).toBe(true);
+    expect(host.querySelector('.offscreen-imports')).toBeNull();
   });
 
   it('starts the import feed when the library mounts', () => {
@@ -476,6 +506,178 @@ describe('Library', () => {
 
     expect(cards[2].classList.contains('is-failed')).toBe(true);
     expect(cards[2].querySelector('.import-status-label')?.textContent).toBe('Failed');
+  });
+
+  // --- Import progress ON the item (no separate surface) ------------------
+
+  function importingBook(overrides: Record<string, unknown> = {}): Book {
+    return {
+      id: 'book-importing',
+      title: 'An Importing Title',
+      subtitle: null,
+      author: 'An Author',
+      type: 'ebook',
+      coverUrl: null,
+      rating: 0,
+      isFavorite: false,
+      finishedAt: null,
+      progressPercent: 0,
+      createdAt: '2026-01-01T00:00:00Z',
+      otherEditions: [],
+      status: 1,
+      statusMessage: null,
+      ...overrides,
+    } as unknown as Book;
+  }
+
+  it('draws the live percentage on the card that is being imported', () => {
+    component.viewMode.set('grid');
+    component.rawBooks.set([importingBook()]);
+    importEntries.set([activity({ percent: 42, stage: 'downloading' })]);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const card = host.querySelector('.book-card') as HTMLElement;
+    const cover = card.querySelector('.cover-wrapper') as HTMLElement;
+
+    const progress = cover.querySelector('.cover-progress') as HTMLElement;
+    expect(progress).not.toBeNull();
+    // Inside the cover, which is the whole reason it costs the card no height:
+    // the finished card is this same box.
+    expect(progress.parentElement).toBe(cover);
+    expect(progress.getAttribute('role')).toBe('progressbar');
+    expect(progress.getAttribute('aria-valuenow')).toBe('42');
+    expect(progress.querySelector('.import-status-label')!.textContent).toBe('Downloading');
+    expect(progress.querySelector('.cover-progress-percent')!.textContent).toBe('42%');
+    expect((progress.querySelector('.cover-progress-track i') as HTMLElement).style.width).toBe(
+      '42%',
+    );
+  });
+
+  it('names the transcode stage rather than calling everything downloading', () => {
+    component.viewMode.set('grid');
+    component.rawBooks.set([importingBook({ status: 2 })]);
+    importEntries.set([activity({ stage: 'assembling', percent: 72 })]);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('.import-status-label')!.textContent).toBe('Transcoding');
+    expect(host.querySelector('.cover-progress-percent')!.textContent).toBe('72%');
+  });
+
+  it('falls back to the book status while the feed has not caught up', () => {
+    // A page loaded mid-import renders status 1/2 books for a fraction of a
+    // second before the first frame lands; the card must never look wrong.
+    component.viewMode.set('grid');
+    component.rawBooks.set([importingBook({ status: 2 })]);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('.import-status-label')!.textContent).toBe('Transcoding');
+    expect(host.querySelector('.cover-progress-percent')).toBeNull();
+  });
+
+  it('draws the same progress on the list row', () => {
+    component.setViewMode('list');
+    component.rawBooks.set([importingBook()]);
+    importEntries.set([activity({ percent: 61 })]);
+    fixture.detectChanges();
+
+    const row = fixture.nativeElement.querySelector('.table-row') as HTMLElement;
+    expect(row.classList.contains('is-importing')).toBe(true);
+    expect(row.querySelector('.list-progress')!.getAttribute('aria-valuenow')).toBe('61');
+    expect(row.querySelector('.list-progress-caption')!.textContent).toContain('61%');
+    expect((row.querySelector('.list-progress-track i') as HTMLElement).style.width).toBe('61%');
+  });
+
+  it('explains a failure on the card itself, with the actions reachable', () => {
+    component.viewMode.set('grid');
+    component.rawBooks.set([
+      importingBook({ status: 3, statusMessage: 'The source refused the download.' }),
+    ]);
+    importEntries.set([
+      activity({ state: 'failed', stage: 'failed', message: 'The source refused the download.' }),
+    ]);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    // Not a tooltip: the message is text on the card, so a phone can read it.
+    expect(host.querySelector('.item-failure')!.textContent).toContain(
+      'The source refused the download.',
+    );
+
+    const buttons = [...host.querySelectorAll('.item-failure-actions .item-action')];
+    expect(buttons.map((b) => b.textContent!.trim())).toEqual(['Retry', 'Dismiss']);
+
+    buttons[0].dispatchEvent(new Event('click'));
+    const feed = TestBed.inject(ImportService) as unknown as { retry: ReturnType<typeof vi.fn> };
+    expect(feed.retry).toHaveBeenCalledWith(expect.objectContaining({ id: 'job-1' }));
+  });
+
+  it('shows a failed book message even when the feed no longer knows the import', () => {
+    component.viewMode.set('grid');
+    component.rawBooks.set([importingBook({ status: 3, statusMessage: 'Disk full.' })]);
+    importEntries.set([]);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('.item-failure')!.textContent).toContain('Disk full.');
+    // No entry means no provider/item ids, so there is nothing to retry from.
+    expect(host.querySelectorAll('.item-failure-actions .item-action')).toHaveLength(0);
+  });
+
+  it('adds no chrome when the importing item is already in the list', () => {
+    component.viewMode.set('grid');
+    component.rawBooks.set([importingBook()]);
+    importEntries.set([activity()]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.offscreen-imports')).toBeNull();
+  });
+
+  it('points at an import the current page cannot show', () => {
+    // The default sort puts a brand-new book (no LastReadAt) after everything the
+    // user has ever opened, so its card is pages away. The strip is what keeps it
+    // visible without standing in for the item.
+    component.viewMode.set('grid');
+    component.rawBooks.set([importingBook({ id: 'some-other-book' })]);
+    importEntries.set([activity({ bookId: 'book-far-away', percent: 17 })]);
+    fixture.detectChanges();
+
+    const strip = fixture.nativeElement.querySelector('.offscreen-imports') as HTMLElement;
+    expect(strip).not.toBeNull();
+    expect(strip.textContent).toContain('An Importing Title');
+    expect(strip.textContent).toContain('17%');
+    expect(strip.querySelector('.offscreen-progress')!.getAttribute('aria-valuenow')).toBe('17');
+
+    const view = strip.querySelector('.item-action') as HTMLButtonElement;
+    expect(view.textContent!.trim()).toBe('Newest first');
+    view.click();
+    // Named for what it does: it re-orders the library so the newest thing in it
+    // comes first, which is where an ungrouped import's own card lands.
+    expect(component.activeSort()).toBe(BookSort.Recent);
+  });
+
+  it('offers Retry and Dismiss in the strip for a failure the list cannot show', () => {
+    component.viewMode.set('grid');
+    component.rawBooks.set([]);
+    importEntries.set([
+      activity({
+        id: 'job-orphan',
+        bookId: null,
+        state: 'failed',
+        stage: 'failed',
+        message: 'This source is not responding.',
+      }),
+    ]);
+    fixture.detectChanges();
+
+    const strip = fixture.nativeElement.querySelector('.offscreen-imports') as HTMLElement;
+    expect(strip.textContent).toContain('This source is not responding.');
+    expect([...strip.querySelectorAll('.item-action')].map((b) => b.textContent!.trim())).toEqual([
+      'Retry',
+      'Dismiss',
+    ]);
   });
 
   it('shows an empty state with a creation action when the library is empty', () => {
