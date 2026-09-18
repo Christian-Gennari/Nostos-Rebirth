@@ -258,7 +258,12 @@
   border-radius: var(--radius-action);
   font-weight: 500;
 }
-.modal-actions .btn-primary {
+/* One primary-action recipe, shared. The form's submit and the source step's
+   "Use this book" are the same control in two places — the source step simply
+   has no `.modal-actions` row to inherit from (it comes before the form), so it
+   names itself here rather than repeating the recipe. */
+.modal-actions .btn-primary,
+.source-action {
   background: var(--primary-fill);
   color: var(--on-primary);
   padding: 0.55rem 1.4rem;
@@ -488,13 +493,34 @@
   font-size: 0.74rem;
   color: var(--color-text-light);
 }
+/* One sentence in reading order: the status, then who said it. Inline flow, not
+   a flex row — that would put a 0.5rem gap between the status and its
+   parenthetical. It was a flex row when the source name led the sentence. */
 .source-rights {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
   margin: 0;
   font-size: 0.78rem;
+  line-height: 1.45;
   color: var(--color-text-light);
+}
+/* The link keeps the line's own colour: it is a quiet aside, and the arrow is
+   the affordance. Underlined so it does not rely on colour alone. */
+.source-rights-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  /* "(via Project Gutenberg ↗)" is one unit: never split it across lines. */
+  white-space: nowrap;
+}
+.source-rights-link lucide-icon {
+  vertical-align: -0.12em;
+}
+/* Angular drops the whitespace between two inline elements, so the gap between
+   the status and its parenthetical is a margin rather than a stray space in the
+   template. Scoped to the sibling that follows the status, so the no-rights
+   branch — where the link is the whole line — is not indented. */
+.source-rights-status + .source-rights-link,
+.source-rights-status + .source-rights-via {
+  margin-left: 0.25em;
 }
 .source-progress {
   display: flex;

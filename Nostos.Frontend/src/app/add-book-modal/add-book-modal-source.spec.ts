@@ -236,10 +236,24 @@ describe('AddBookModal — From a Source', () => {
     expect(assets.length).toBeGreaterThan(1);
     expect(formats.querySelectorAll('.source-asset').length).toBe(assets.length);
 
-    // The rights line says who is making the claim.
-    const rights = fixture.nativeElement.querySelector('.source-rights')?.textContent ?? '';
-    expect(rights).toContain('Project Gutenberg states: Public domain in the USA.');
-    expect(rights).not.toContain('Source says');
+    // Status first, then who said it — in brackets, and the attribution is the
+    // link. The source's own trailing full stop is dropped, because the line now
+    // ends with the bracket rather than with the statement. The two are separate
+    // nodes and the gap between them is a CSS margin (Angular strips whitespace
+    // between inline elements), so each part is asserted on its own.
+    const status = fixture.nativeElement
+      .querySelector('.source-rights-status')
+      ?.textContent?.trim();
+    expect(status).toBe('Public domain in the USA');
+
+    const link = fixture.nativeElement.querySelector(
+      '.source-rights-link',
+    ) as HTMLAnchorElement | null;
+    expect(link).toBeTruthy();
+    expect(link?.textContent).toContain('(via Project Gutenberg');
+    // One link, and it is the attribution: a separate "view at source" would
+    // have named the same place twice.
+    expect(fixture.nativeElement.textContent).not.toContain('View at source');
   });
 
   it('asks for collections once, in the form, and not again in the source step', async () => {

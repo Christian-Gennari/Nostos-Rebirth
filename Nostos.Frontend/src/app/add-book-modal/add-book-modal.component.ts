@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
-import { LucideAngularModule, X, Info, UploadIcon, Book, Layers, FileText, Trash2, Globe, Search, Download, AlertCircle, Check } from 'lucide-angular';
+import { LucideAngularModule, X, Info, UploadIcon, Book, Layers, FileText, Trash2, Globe, Search, Download, AlertCircle, Check, ExternalLink } from 'lucide-angular';
 import { BooksService, Book as BookModel } from '../core/services/books.service';
 import { ProvidersService } from '../core/services/providers.service';
 import { ToastService } from '../core/services/toast.service';
@@ -64,6 +64,7 @@ export class AddBookModal implements OnDestroy {
   FileIcon = FileText;
   SearchIcon = Search;
   DownloadIcon = Download;
+  ExternalLinkIcon = ExternalLink;
   ErrorIcon = AlertCircle;
   CheckIcon = Check;
 
@@ -456,6 +457,17 @@ export class AddBookModal implements OnDestroy {
     const size = this.formatBytes(asset.sizeBytes);
     return size ? `${asset.label} · ${size}` : asset.label;
   });
+  /**
+   * The catalogue's rights text, minus the full stop it ends with: the line
+   * finishes with the attribution in parentheses, so the source's own terminal
+   * punctuation would sit mid-sentence. Only the final one is dropped — any
+   * full stops inside the statement are the source's and stay.
+   */
+  rightsText = computed(() => {
+    const statement = this.selectedSourceItem()?.rightsStatement ?? '';
+    return statement.trim().replace(/\.+$/, '');
+  });
+
   /** The full item behind the selected result: this is what carries the assets. */
   selectedDetail = signal<ProviderItem | null>(null);
   selectedAssetId = signal<string | null>(null);
