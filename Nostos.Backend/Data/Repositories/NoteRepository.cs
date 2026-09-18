@@ -61,4 +61,44 @@ public class NoteRepository : INoteRepository
     {
         await _db.NoteConcepts.Where(nc => nc.NoteId == noteId).ExecuteDeleteAsync();
     }
+    public async Task<List<NoteModel>> SearchByTextAsync(string query, int limit)
+    {
+        var term = query.Trim();
+        if (term.Length == 0) return [];
+
+        // EF.Functions.Like keeps this a single query against the three text
+        // columns a note really has. SQLite's LIKE is case-insensitive for ASCII,
+        // which is the behaviour a search box should have.
+        var pattern = $"%{Escape(term)}%";
+        return await _db
+            .Notes.Include(n => n.Book)
+            .Include(n => n.NoteConcepts)
+            .ThenInclude(nc => nc.Concept)
+            .Where(n =>
+                EF.Functions.Like(n.Content, pattern, "\\")
+                || (n.SelectedText != null && EF.Functions.Like(n.SelectedText, pattern, "\\"))
+                || (n.Book != null && n.Book.Title != null && EF.Functions.Like(n.Book.Title, pattern, "\\"))
+            )
+            .OrderByDescending(n => n.CreatedAt)
+            .Take(limit)
+            .ToListAsync();
+    }
+
+    public async Task<List<NoteModel>> GetWithoutConceptsAsync(int limit)
+    {
+        return await _db
+            .Notes.Include(n => n.Book)
+            .Where(n => !n.NoteConcepts.Any())
+            .OrderByDescending(n => n.CreatedAt)
+            .Take(limit)
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// `%` and `_` are wildcards inside LIKE, and `\` is the escape character
+    /// passed above, so a user searching for "100%" must not match everything.
+    /// </summary>
+    private static string Escape(string value) =>
+        value.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+
 }
