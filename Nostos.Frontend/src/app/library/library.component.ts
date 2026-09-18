@@ -31,6 +31,7 @@ import { BloomArtDirective } from '../ui/bloom-art/bloom-art.directive';
 import { BookSort } from '../core/dtos/book.enums';
 import { LibraryFilterService } from './library-filter.service';
 import { LibraryPreferencesService } from '../core/services/library-preferences.service';
+import { ImportService } from '../core/services/import.service';
 import { ToastService } from '../core/services/toast.service';
 import {
   LucideAngularModule,
@@ -146,6 +147,8 @@ export class Library implements OnInit, OnDestroy {
   private toast = inject(ToastService);
   private readonly document = inject(DOCUMENT);
   readonly filters = inject(LibraryFilterService);
+  /** The background-import feed. Owned by the service, not by this list. */
+  readonly imports = inject(ImportService);
 
   // Icons
   ListIcon = LayoutList;
@@ -271,6 +274,14 @@ export class Library implements OnInit, OnDestroy {
     // result set cannot make the whole page jump sideways by 8px.
     this.document.body?.classList.add('nostos-library');
 
+    // An import that finishes while the user is looking at the library is patched
+    // into the list in place — the one book the server named, not a refetch. The
+    // rest of the list did not change, and re-requesting it would re-order and
+    // re-render the page under the reader's hands.
+    this.imports.bookPatched.pipe(takeUntilDestroyed()).subscribe((book) =>
+      this.patchBookInPlace(book),
+    );
+
     // Returning from the Studio or the Second Brain rebuilds this component with
     // no results in hand. The user has already seen the library in this session,
     // so cross-fade the results in instead of flashing a placeholder again.
@@ -295,6 +306,9 @@ export class Library implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadCollections();
+    // Only opens a stream if something is actually in flight; the service re-reads
+    // /api/imports/active to decide.
+    this.imports.ensureConnected();
   }
 
   ngOnDestroy(): void {
@@ -516,6 +530,21 @@ export class Library implements OnInit, OnDestroy {
 
   private refreshStatusCounts(): void {
     this.sidebar?.loadStatusCounts();
+  }
+
+  /**
+   * Replace ONE book in the visible page, in place.
+   *
+   * A book that is not in the current page is left alone: it is not in the page
+   * because of the sort, the filter or pagination, and adding it here would put a
+   * row on screen that the current query did not ask for. The "Imports in
+   * Progress" section is what shows it regardless of those, and the next real
+   * query picks it up.
+   */
+  private patchBookInPlace(book: Book): void {
+    this.rawBooks.update((books) =>
+      books.map((existing) => (existing.id === book.id ? book : existing)),
+    );
   }
 
   getFormatLabel(book: Book | EditionSummaryDto): string {
