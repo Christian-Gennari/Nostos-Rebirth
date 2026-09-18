@@ -76,6 +76,15 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   findBarVisible = signal(false);
 
   /**
+   * Open the find bar. Called by the shell's header control, so search is
+   * reachable by touch — a keyboard shortcut alone left it undiscoverable on a
+   * phone (issue #226 §2/§9). The Ctrl/Cmd+F handler calls the same method.
+   */
+  openSearch(): void {
+    this.findBarVisible.set(true);
+  }
+
+  /**
    * Ctrl/Cmd+F opens the library's find bar; Escape closes it first, without
    * letting the event reach the shell (which would close a rail instead).
    * The shell's page-key handler ignores modifier chords, so page turns are
@@ -92,7 +101,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
     if (event.key.toLowerCase() !== 'f') return;
     event.preventDefault();
-    this.findBarVisible.set(true);
+    this.openSearch();
   }
 
   pdfSrc = computed(() => `/api/books/${this.bookId()}/file`);

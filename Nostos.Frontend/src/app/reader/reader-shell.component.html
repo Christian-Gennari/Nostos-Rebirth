@@ -65,6 +65,16 @@
         data-testid="typo-toggle"
       ></button>
       } @if (fileType() === 'pdf') {
+      <!-- Search. A phone has no Ctrl+F, so without a visible control search was
+           unreachable by touch (issue #226 §2). -->
+      <button
+        appIconButton
+        [icon]="Icons.Search"
+        [glyphSize]="20"
+        (click)="openSearch()"
+        title="Search"
+        aria-label="Search in document"
+      ></button>
       <!-- PDF has no reflow, so its "typography" is render scale: zoom lives
            here for both viewports. It used to be `desktop-only`, which left a
            phone with a page fitted to ~9.5px and no way to enlarge it. -->

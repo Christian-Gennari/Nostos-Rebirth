@@ -360,6 +360,41 @@ describe('ReaderShell toolbar contract (theme system removed)', () => {
       expect(el.classList.contains('icon-btn')).toBe(true);
     }
   });
+
+  it('offers a search control for PDF, and only for PDF', async () => {
+    // A phone has no Ctrl+F, so without a visible control search is unreachable
+    // by touch at all (issue #226 §2). Formats that do not implement search must
+    // not be offered the control — the capability is optional on IReader.
+    const pdfBook = { ...audiobook, id: 'book-pdf', fileName: 'being-and-time.pdf' } as Book;
+    booksGetSpy.mockReturnValue(of(pdfBook));
+    fixture = await configureReaderShell();
+    render();
+
+    const searchBtn = fixture.debugElement
+      .queryAll(By.css('.reader-header button.icon-btn'))
+      .map((b) => b.nativeElement as HTMLButtonElement)
+      .find((b) => b.getAttribute('title') === 'Search');
+    expect(searchBtn).toBeTruthy();
+    expect(searchBtn!.getAttribute('aria-label')).toBe('Search in document');
+
+    const spy = vi.spyOn(fixture.componentInstance, 'openSearch');
+    searchBtn!.click();
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers no search control to a format that has no search', async () => {
+    // The capability is optional on IReader; an EPUB implements no search, so the
+    // shell must not hand it a control that would do nothing.
+    const epubBook = { ...audiobook, id: 'book-epub', fileName: 'iliad.epub' } as Book;
+    booksGetSpy.mockReturnValue(of(epubBook));
+    fixture = await configureReaderShell();
+    render();
+
+    const titles = fixture.debugElement
+      .queryAll(By.css('.reader-header button.icon-btn'))
+      .map((b) => b.nativeElement.getAttribute('title'));
+    expect(titles).not.toContain('Search');
+  });
 });
 
 describe('ReaderShell note delete (no window.confirm)', () => {
