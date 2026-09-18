@@ -63,7 +63,9 @@ describe('motion contract', () => {
     // than pass as "nothing found" — and the global stylesheet, where the
     // waiting-field contract actually lives, has to be inside the scan.
     expect(files.length, `no templates/stylesheets found under ${SRC}`).toBeGreaterThan(30);
-    expect(files.some((file) => file.endsWith('src/styles.css'))).toBe(true);
+    // Separator-aware: path.join yields backslashes on Windows, where a
+    // forward-slash suffix never matches and the guard fails spuriously.
+    expect(files.some((file) => file.endsWith(path.join('src', 'styles.css')))).toBe(true);
 
     const offenders = files
       .filter((file) => FORBIDDEN.test(readFileSync(file, 'utf8')))
