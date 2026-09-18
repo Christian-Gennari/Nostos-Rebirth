@@ -17,7 +17,7 @@ import { FormsModule } from '@angular/forms';
 import { Howl } from 'howler';
 import { Subject, Subscription } from 'rxjs';
 import { sampleTime, filter } from 'rxjs/operators';
-import { LucideAngularModule, Play, Pause, AudioLines, RotateCcw, RotateCw, Moon, SkipBack, SkipForward } from 'lucide-angular';
+import { LucideAngularModule, Play, Pause, AudioLines, RotateCcw, RotateCw, Moon, SkipBack, SkipForward, SlidersHorizontal } from 'lucide-angular';
 import { BooksService } from '../../core/services/books.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 import { Book } from '../../core/dtos/book.dtos';
@@ -39,7 +39,7 @@ export class AudioReader implements OnDestroy, IReader {
 
   private booksService = inject(BooksService);
 
-  Icons = { Play, Pause, AudioLines, RotateCcw, RotateCw, Moon, SkipBack, SkipForward };
+  Icons = { Play, Pause, AudioLines, RotateCcw, RotateCw, Moon, SkipBack, SkipForward, SlidersHorizontal };
 
   // IReader Interface
   toc = signal<TocItem[]>([]);
@@ -65,7 +65,8 @@ export class AudioReader implements OnDestroy, IReader {
   currentTime = signal(0);
   duration = signal(0);
   currentRate = signal(1);
-  isOpen = signal(false);
+  // The single playback menu holds speed and sleep (issue #227 §1/§3), so there is
+  // one pill, one chevron, one focus path and one outside-click rule.
   // True while Howl is initializing (between `new Howl` and the onload callback),
   // so the UI can show a visible loading state instead of a dead-looking player.
   loading = signal(true);
@@ -83,7 +84,8 @@ export class AudioReader implements OnDestroy, IReader {
   sleepRemainingSeconds = signal(0);
   // Brief status message shown when the timer expires.
   sleepStatusMessage = signal<string | null>(null);
-  sleepMenuOpen = signal(false);
+  // --- Playback menu: speed and sleep timer share ONE control (issue #227 §1/§3).
+  playbackMenuOpen = signal(false);
   sleepPresets = [15, 30, 45, 60];
   private sleepTimerInterval: any = null;
   private sleepStatusTimeout: any = null;
@@ -109,8 +111,14 @@ export class AudioReader implements OnDestroy, IReader {
     }, { injector: this.injector });
   }
 
-  // Playback Speeds (persisted per audiobook in localStorage — see rateStorageKey)
-  availableRates = [0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5];
+  // Playback speeds (issue #227 §2): a short preset list for the coarse choice,
+  // with ±0.05 stepping in the same menu for the fine one. Remembered
+  // reader-wide — a speed is a habit, not a property of one audiobook.
+  availableRates = [0.8, 1, 1.25, 1.5, 2];
+  private static readonly RATE_KEY = 'nostos.audio-rate';
+  private static readonly RATE_STEP = 0.05;
+  private static readonly RATE_MIN = 0.5;
+  private static readonly RATE_MAX = 3;
 
   private progressSubject = new Subject<{ timestamp: number; percent: number }>();
   private progressSubscription!: Subscription;
@@ -279,26 +287,56 @@ export class AudioReader implements OnDestroy, IReader {
     this.setRate(this.availableRates[nextIndex]);
   }
 
+  /** Fine step: the presets are the coarse choice, this is the nudge next to them. */
+  nudgeRate(delta: number) {
+    const stepped =
+      Math.round((this.currentRate() + delta) / AudioReader.RATE_STEP) * AudioReader.RATE_STEP;
+    this.setRate(this.clampRate(stepped));
+  }
+
+  private clampRate(rate: number): number {
+    const clamped = Math.min(AudioReader.RATE_MAX, Math.max(AudioReader.RATE_MIN, rate));
+    return parseFloat(clamped.toFixed(2));
+  }
+
+  /** Display form: the app's editorial copy uses the multiplication sign. */
+  formatRate(rate: number): string {
+    return `${rate}×`;
+  }
+
   setRate(rate: number) {
     this.player?.rate(rate);
     this.currentRate.set(rate);
     try {
-      localStorage.setItem(this.rateStorageKey(), String(rate));
+      localStorage.setItem(AudioReader.RATE_KEY, String(rate));
     } catch {
       // Private-mode storage can throw — playback speed still applies for the session.
     }
     this.updateMediaSessionPositionState();
   }
 
-  private rateStorageKey(): string {
-    return `nostos.audio-rate.${this.bookId()}`;
-  }
-
+  /**
+   * Reader-wide since issue #227 §2. A per-book value written before this change
+   * is adopted once (same migration shape the EPUB typography key used), so
+   * nobody loses the speed they had chosen on the book they are listening to.
+   */
   private restoreSavedRate(): number {
+    const read = (key: string): number | null => {
+      const raw = localStorage.getItem(key);
+      if (raw == null) return null;
+      const parsed = parseFloat(raw);
+      return isNaN(parsed) ? null : parsed;
+    };
     try {
-      const raw = localStorage.getItem(this.rateStorageKey());
-      const parsed = raw == null ? NaN : parseFloat(raw);
-      if (!isNaN(parsed) && this.availableRates.includes(parsed)) return parsed;
+      const own = read(AudioReader.RATE_KEY);
+      if (own != null) return this.clampRate(own);
+
+      const perBook = read(`nostos.audio-rate.${this.bookId()}`);
+      if (perBook != null) {
+        const adopted = this.clampRate(perBook);
+        localStorage.setItem(AudioReader.RATE_KEY, String(adopted));
+        return adopted;
+      }
     } catch {
       // Storage unreadable — fall back to 1x.
     }
@@ -331,13 +369,13 @@ export class AudioReader implements OnDestroy, IReader {
     this.goToTime(prev ?? starts[0]);
   }
 
-  // Dropdown
+  // Dropdown — one menu now holds speed and sleep (issue #227 §1/§3)
   toggleDropdown() {
-    this.isOpen.update(v => !v);
+    this.playbackMenuOpen.update(v => !v);
   }
 
   closeDropdown() {
-    this.isOpen.set(false);
+    this.playbackMenuOpen.set(false);
   }
 
   selectRate(rate: number) {
@@ -354,15 +392,15 @@ export class AudioReader implements OnDestroy, IReader {
   });
 
   toggleSleepMenu() {
-    this.sleepMenuOpen.update((v) => !v);
+    this.playbackMenuOpen.update((v) => !v);
   }
 
-  closeSleepMenu() {
-    this.sleepMenuOpen.set(false);
+  closePlaybackMenu() {
+    this.playbackMenuOpen.set(false);
   }
 
   selectSleepTimer(minutes: number | null) {
-    this.closeSleepMenu();
+    this.closePlaybackMenu();
     this.sleepStatusMessage.set(null);
     if (minutes == null) {
       this.disarmSleepTimer();
@@ -420,23 +458,17 @@ export class AudioReader implements OnDestroy, IReader {
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
-    if (!this.isOpen() && !this.sleepMenuOpen()) return;
+    if (!this.playbackMenuOpen()) return;
     const target = event.target as HTMLElement;
-    if (!target.closest('.rate-selector')) {
-      this.closeDropdown();
-    }
-    if (!target.closest('.sleep-selector')) {
-      this.closeSleepMenu();
+    if (!target.closest('.playback-selector')) {
+      this.closePlaybackMenu();
     }
   }
 
   @HostListener('document:keydown.escape')
   onKeydownEscape() {
-    if (this.isOpen()) {
-      this.closeDropdown();
-    }
-    if (this.sleepMenuOpen()) {
-      this.closeSleepMenu();
+    if (this.playbackMenuOpen()) {
+      this.closePlaybackMenu();
     }
   }
 
@@ -457,24 +489,39 @@ export class AudioReader implements OnDestroy, IReader {
     const now = this.currentTime();
     const total = this.duration();
     const percent = total > 0 ? Math.floor((now / total) * 100) : 0;
-    const label = `${this.formatTime(now)} / ${this.formatTime(total)}`;
+    const labels = this.timeLabels();
+    const label = `${labels.current} / ${labels.total}`;
     this.progress.set({ label, percentage: percent });
     this.progressSubject.next({ timestamp: now, percent });
   }
 
-  formatTime(seconds: number): string {
-    if (!seconds || isNaN(seconds)) return '0:00';
+  /**
+   * One format per media (issue #227 §4): hours appear only when the media has
+   * them, so the two ends of the pair cannot disagree — this used to print
+   * `0:00 / 15:59:00` for the same audiobook.
+   */
+  timeLabels = computed(() => {
+    const total = this.duration();
+    const withHours = total >= 3600;
+    return {
+      current: this.formatTime(this.currentTime(), withHours),
+      total: this.formatTime(total, withHours),
+    };
+  });
+
+  formatTime(seconds: number, withHours = false): string {
+    if (!seconds || isNaN(seconds)) return withHours ? '0:00:00' : '0:00';
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = Math.floor(seconds % 60);
-    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    if (withHours) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     return `${m}:${s.toString().padStart(2, '0')}`;
   }
 
   // --- Jump-to-timestamp (issue #6) ---
   startEditingTime(): void {
     if (this.duration() <= 0) return;
-    this.timeInputValue.set(this.formatTime(this.currentTime()));
+    this.timeInputValue.set(this.timeLabels().current);
     this.isEditingTime.set(true);
   }
 

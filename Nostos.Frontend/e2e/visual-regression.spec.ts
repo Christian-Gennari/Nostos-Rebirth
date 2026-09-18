@@ -37,6 +37,7 @@ import { apiPost, loadFixture, newRunId } from './support/fixture';
 import {
   artifactPath,
   capturePng,
+  checkAudioComposition,
   checkEpubIframeLight,
   checkLibraryFilterContract,
   checkLibraryToolbarStability,
@@ -519,7 +520,7 @@ test.describe('visual matrix — Second Brain (fixture-served)', () => {
 
 interface ReaderCase {
   name: string;
-  kind: 'epub' | 'pdf';
+  kind: 'epub' | 'pdf' | 'audio';
   viewport: { width: number; height: number };
   mobile: boolean;
   state: string;
@@ -530,6 +531,8 @@ const READER_MATRIX: ReaderCase[] = [
   { name: 'epub-light-mobile', kind: 'epub', viewport: MOBILE_VIEWPORT, mobile: true, state: 'fixed-light' },
   { name: 'pdf-light-desktop', kind: 'pdf', viewport: DESKTOP_VIEWPORT, mobile: false, state: 'final-page-bottom' },
   { name: 'pdf-light-mobile-bottom', kind: 'pdf', viewport: MOBILE_VIEWPORT, mobile: true, state: 'final-page-bottom' },
+  { name: 'audio-light-desktop', kind: 'audio', viewport: DESKTOP_VIEWPORT, mobile: false, state: 'composition' },
+  { name: 'audio-light-mobile', kind: 'audio', viewport: MOBILE_VIEWPORT, mobile: true, state: 'composition' },
 ];
 
 test.describe('visual matrix — Reader surfaces (real library)', () => {
@@ -555,8 +558,10 @@ test.describe('visual matrix — Reader surfaces (real library)', () => {
             .locator('body')
             .first()
             .waitFor({ timeout: 45_000 });
-        } else {
+        } else if (tc.kind === 'pdf') {
           await page.locator('#viewerContainer canvas').first().waitFor({ timeout: 60_000 });
+        } else {
+          await page.locator('.audio-container').waitFor({ timeout: 60_000 });
         }
 
         // No theme interaction: the app ships exactly one light rendering and
@@ -567,8 +572,10 @@ test.describe('visual matrix — Reader surfaces (real library)', () => {
           // Highlight note: the app has no programmatic highlight-placement API —
           // highlights require real user selection inside the book, which the
           // harness cannot synthesize. Documented in docs/visual-verification.md.
-        } else {
+        } else if (tc.kind === 'pdf') {
           checks.push(await checkPdfFinalPageClearance(page));
+        } else {
+          checks.push(await checkAudioComposition(page));
         }
 
         await expectChecks(tc.name, checks, meta(tc.name, tc.kind, tc.viewport, tc.state));

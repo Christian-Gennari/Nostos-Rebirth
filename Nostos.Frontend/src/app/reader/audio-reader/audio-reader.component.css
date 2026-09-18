@@ -5,8 +5,11 @@
   min-height: 0;
   width: 100%;
   align-items: center;
-  justify-content: center;
   background: var(--bg-body);
+  /* The reading area IS the surface (issue #227 §1): the player fills it rather
+     than floating as a 420px column in the middle of it. */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .audio-container {
@@ -14,10 +17,16 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  /* box-sizing is what made the old `max-width: 420px` + `padding: 2rem` pair
+     compute 30px wider than a 390px phone: content-box added the padding on top
+     of the max-width. */
+  box-sizing: border-box;
   width: 100%;
-  max-width: 420px;
-  padding: 2rem;
-  gap: 1rem;
+  max-width: 760px;
+  min-height: 100%;
+  margin-inline: auto;
+  padding: 1.25rem 1.5rem 1.5rem;
+  gap: 1.35rem;
 }
 
 /* --- COVER ART --- */
@@ -31,12 +40,17 @@
 }
 
 .cover-art {
-  width: 120px;
-  height: 180px;
+  /* Sized from the viewport height so the composition fills the reading area at
+     any window size instead of leaving 164px dead bands (§1 of the issue).
+     Measured at 1440x900 with the rest of the composition fixed: a 335px art
+     leaves 42px above and 46px below (the issue's bar is ~48px) with no scroll,
+     where 300px left 69/73 and anything past ~340 started to scroll. */
+  width: clamp(150px, 56vh, 335px);
+  aspect-ratio: 2 / 3;
   border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--bg-surface);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-md, var(--shadow-sm));
   border: 1px solid var(--border-color);
   position: relative;
 }
@@ -211,13 +225,17 @@
   box-shadow: 0 1px 0 0 var(--color-primary);
 }
 
-/* Playback Row */
+/* Playback Row (issue #227 §1): the transport and the one Playback control share
+   this row, so it is the only chrome row besides the shell's surface header. */
 .playback-row {
   display: flex;
   align-items: center;
-  justify-content: center; /* Center everything now */
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  width: 100%;
   padding: 0 0.5rem;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
 }
 
 /* Center Group */
@@ -296,149 +314,115 @@
   fill: currentColor;
 }
 
-/* --- RATE SELECTOR --- */
-.rate-selector {
+/* --- PLAYBACK CONTROL (issue #227 §1/§3) -------------------------------------
+   Speed and the sleep timer were two pills in their own row, each with its own
+   chevron, focus path and outside-click rule. They are one control now: a single
+   pill that reports both values and opens one menu with both settings.
+   Tokens only — the old pills hard-coded a 999px radius, raw rgba shadows and
+   0.15s transitions, which is the drift §4 of the issue lists. */
+.playback-selector {
+  position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  position: relative;
 }
 
-.rate-label {
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.65rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--color-text-light);
-  font-weight: var(--fw-semibold);
-}
-
-.rate-pill {
-  position: relative;
+.playback-pill {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-width: 84px;
-  padding: 0.45rem 1.9rem;
-  border-radius: 999px;
+  gap: 0.5rem;
+  padding: 0.45rem 1.7rem 0.45rem 0.9rem;
   border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
   background: transparent;
-  cursor: pointer;
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.95rem;
-  font-weight: var(--fw-semibold);
   color: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.9rem;
+  font-weight: var(--fw-semibold);
   line-height: 1;
+  cursor: pointer;
   outline: none;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
   user-select: none;
   -webkit-user-select: none;
-  -moz-user-select: none;
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard);
 }
 
-.rate-pill:hover {
+.playback-pill:hover {
   border-color: var(--color-primary-dim);
 }
 
-.rate-pill:focus-visible {
+.playback-pill:focus-visible {
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 2px rgba(102, 102, 102, 0.04);
 }
 
-.rate-value {
-  font-variant-numeric: tabular-nums;
-  position: relative;
-  z-index: 1;
+.playback-pill[aria-expanded='true'] {
+  border-color: var(--border-focus);
+  background: var(--bg-hover);
 }
 
-.rate-arrow {
+.playback-icon {
   color: var(--color-text-light);
+  flex-shrink: 0;
+}
+
+.playback-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.playback-sleep {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding-left: 0.55rem;
+  margin-left: 0.1rem;
+  border-left: 1px solid var(--border-color);
+  color: var(--color-text-light);
+  font-weight: var(--fw-regular);
+  font-variant-numeric: tabular-nums;
+}
+
+.playback-arrow {
   position: absolute;
-  right: 0.9rem;
+  right: 0.75rem;
   top: 50%;
-  transform: translateY(-50%);
+  /* The translate is what centres the chevron; the flip is composed with it so
+     opening the menu cannot displace it (see the note this file used to carry). */
+  transform: translateY(-50%) rotate(0deg);
+  color: var(--color-text-light);
   display: block;
   flex-shrink: 0;
   pointer-events: none;
-  transition: transform 0.15s;
+  transition: transform var(--motion-fast) var(--ease-standard);
 }
 
-/* Both chevrons flip in place: the rotation must not displace the centring.
-   `.rate-arrow` is absolutely positioned, so `translateY(-50%)` is what centres
-   it on the pill — and `transform` holds a single value. Writing
-   `transform: rotate(180deg)` here REPLACES the translate, so the chevron lost
-   its centring for the whole flip and settled 2.5px (half its 5px height) below
-   the pill centre. Measured in the browser, frame by frame: speed drifted
-   -0.01px -> +2.49px open, while the sleep chevron (a flex child, centred by
-   `align-items`, never translated) held -0.01px. Keep the translate and append
-   the rotation, so the flip interpolates as a pure rotation. */
-.rate-pill[aria-expanded="true"] .rate-arrow {
+.playback-pill[aria-expanded='true'] .playback-arrow {
   transform: translateY(-50%) rotate(180deg);
 }
 
-.rate-dropdown {
+.playback-menu {
   position: absolute;
-  bottom: calc(100% + 0.35rem);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 40;
-  min-width: 80px;
+  right: 0;
+  bottom: calc(100% + 0.6rem);
+  z-index: 20;
+  min-width: 264px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1rem;
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  padding: 0.25rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md, var(--shadow-sm));
+}
+
+.playback-section {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-}
-
-.rate-option {
-  display: block;
-  width: 100%;
-  padding: 0.35rem 0.75rem;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--color-text-main);
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.85rem;
-  font-weight: var(--fw-medium);
-  cursor: pointer;
-  text-align: center;
-  line-height: 1;
-  transition: background 0.1s;
-}
-
-.rate-option:hover {
-  background: var(--bg-hover);
-}
-
-.rate-option[aria-selected="true"] {
-  color: var(--color-primary);
-  font-weight: var(--fw-semibold);
-}
-
-/* --- SLEEP TIMER (issue #47) --- */
-.selector-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 1.5rem;
-}
-
-.sleep-selector {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   gap: 0.5rem;
-  position: relative;
 }
 
-.sleep-label {
+.playback-section-label {
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.65rem;
   letter-spacing: 0.05em;
@@ -447,108 +431,77 @@
   font-weight: var(--fw-semibold);
 }
 
-.sleep-pill {
-  position: relative;
+.rate-steps {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rate-step {
+  width: 30px;
+  height: 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  min-width: 84px;
-  padding: 0.45rem 1.1rem;
-  border-radius: 999px;
   border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
   background: transparent;
-  cursor: pointer;
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.95rem;
-  font-weight: var(--fw-semibold);
   color: var(--color-text-main);
+  font-size: 1rem;
   line-height: 1;
-  outline: none;
+  cursor: pointer;
   transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
 }
 
-.sleep-pill:hover {
+.rate-step:hover {
   border-color: var(--color-primary-dim);
-}
-
-.sleep-pill:focus-visible {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 2px rgba(102, 102, 102, 0.04);
-}
-
-.sleep-pill.armed {
-  border-color: var(--color-primary);
   color: var(--color-primary);
 }
 
-.sleep-icon {
-  display: flex;
-  flex-shrink: 0;
-}
-
-.sleep-value {
+.rate-readout {
+  min-width: 4.5rem;
+  text-align: center;
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.95rem;
+  font-weight: var(--fw-semibold);
   font-variant-numeric: tabular-nums;
-  position: relative;
-  z-index: 1;
 }
 
-.sleep-arrow {
-  color: var(--color-text-light);
-  display: block;
-  flex-shrink: 0;
-  pointer-events: none;
-  transition: transform 0.15s;
-}
-
-.sleep-pill[aria-expanded="true"] .sleep-arrow {
-  transform: rotate(180deg);
-}
-
-.sleep-dropdown {
-  position: absolute;
-  bottom: calc(100% + 0.35rem);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 40;
-  min-width: 96px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  padding: 0.25rem;
+.rate-options,
+.sleep-options {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
+.rate-option,
 .sleep-option {
-  display: block;
-  width: 100%;
-  padding: 0.35rem 0.75rem;
-  border: none;
-  border-radius: 6px;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--color-text-main);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.85rem;
-  font-weight: var(--fw-medium);
   cursor: pointer;
-  text-align: center;
-  line-height: 1;
-  transition: background 0.1s;
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
 }
 
+.rate-option:hover,
 .sleep-option:hover {
-  background: var(--bg-hover);
+  border-color: var(--color-primary-dim);
+  color: var(--color-primary);
 }
 
-.sleep-option[aria-selected="true"] {
+.rate-option[aria-selected='true'],
+.sleep-option[aria-selected='true'] {
+  border-color: var(--color-primary);
+  background: var(--bg-hover);
   color: var(--color-primary);
   font-weight: var(--fw-semibold);
 }
@@ -561,9 +514,12 @@
 }
 
 @media (max-width: 768px) {
+  /* The cover is sized from the viewport height above; on a phone the clamp
+     already lands near the old fixed size, so only the tap feedback and a small
+     trim change: at 844px tall the capped 335px art left the composition 6px
+     taller than the area, which is the difference between "fits" and "scrolls". */
   .cover-art {
-    width: 120px;
-    height: 180px;
+    width: clamp(150px, 46vh, 320px);
   }
 
   .skip-btn:hover {
