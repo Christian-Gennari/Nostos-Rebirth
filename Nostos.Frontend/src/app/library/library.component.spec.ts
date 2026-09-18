@@ -7,6 +7,7 @@ import { Library } from './library.component';
 import { BooksService } from '../core/services/books.service';
 import { CollectionsService } from '../core/services/collections.service';
 import { ImportService } from '../core/services/import.service';
+import { ToastService } from '../core/services/toast.service';
 import { ImportActivity } from '../core/dtos/import.dtos';
 import { PaginatedResponse } from '../core/dtos/book.dtos';
 import { Book } from '../core/dtos/book.dtos';
@@ -107,6 +108,14 @@ describe('Library', () => {
             ensureConnected: vi.fn(),
             imports: () => importEntries(),
             progressByBookId: () => progressByBookId(),
+            // Same shape as the real signal: the set of in-flight imports and the
+            // book row each one has. Progress ticks deliberately do not appear here.
+            inFlightSignature: () =>
+              importEntries()
+                .filter((entry) => entry.state === 'queued' || entry.state === 'running')
+                .map((entry) => `${entry.id}:${entry.bookId ?? ''}`)
+                .sort()
+                .join('|'),
             cancel: vi.fn(),
             retry: vi.fn(),
             dismiss: vi.fn(),
@@ -123,6 +132,127 @@ describe('Library', () => {
   it('loads books exactly once on init (no duplicate collection load)', () => {
     expect(listSpy).toHaveBeenCalledTimes(1);
     expect(listSpy.mock.calls[0][0].collectionId).toBeUndefined();
+  });
+
+  it('re-reads the page when an import gets its book row, so the book can appear', () => {
+    const callsBefore = listSpy.mock.calls.length;
+
+    // The row exists now: this is the moment the library should contain the book.
+    importEntries.set([activity({ bookId: 'book-importing' })]);
+    fixture.detectChanges();
+
+    expect(listSpy.mock.calls.length).toBeGreaterThan(callsBefore);
+  });
+
+  it('re-reads the page when an import ends, so the book takes its sorted place', () => {
+    importEntries.set([activity({ bookId: 'book-importing' })]);
+    fixture.detectChanges();
+    const callsWhileImporting = listSpy.mock.calls.length;
+
+    // No longer in flight: the book is an ordinary library book again.
+    importEntries.set([activity({ bookId: 'book-importing', state: 'succeeded', percent: 100 })]);
+    fixture.detectChanges();
+
+    expect(listSpy.mock.calls.length).toBeGreaterThan(callsWhileImporting);
+  });
+
+  it('does not re-read the page for progress ticks', () => {
+    importEntries.set([activity({ bookId: 'book-importing', percent: 42 })]);
+    fixture.detectChanges();
+    const calls = listSpy.mock.calls.length;
+
+    // Same set, same row, only the number moved — several times a second.
+    importEntries.set([activity({ bookId: 'book-importing', percent: 43 })]);
+    fixture.detectChanges();
+    importEntries.set([activity({ bookId: 'book-importing', percent: 44, detail: '5/12 files' })]);
+    fixture.detectChanges();
+
+    expect(listSpy.mock.calls.length).toBe(calls);
+  });
+
+  it('shows no strip while an import is still being planned', () => {
+    // No book row yet (the backend plans first): the modal has just said the import
+    // started, so a strip that appears and vanishes in the same breath is noise.
+    importEntries.set([activity({ bookId: null, title: null, state: 'queued', stage: 'preparing' })]);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.offscreen-imports')).toBeNull();
+  });
+
+  it('still shows a failure that has no library row to live on', () => {
+    importEntries.set([
+      activity({ bookId: null, title: null, state: 'failed', stage: 'failed', message: 'No downloadable assets.' }),
+    ]);
+    fixture.detectChanges();
+
+    const strip = (fixture.nativeElement as HTMLElement).querySelector('.offscreen-imports');
+    expect(strip).not.toBeNull();
+    expect(strip!.textContent).toContain('No downloadable assets.');
+  });
+
+  it('announces a finished import whose book is not on the page', () => {
+    // The page holds other books; the finished import is not among them, which is
+    // what Last Read does to a book nobody has opened yet.
+    component.rawBooks.set([{ id: 'other-book', title: 'Some Other Book', type: 'ebook' } as unknown as Book]);
+    const successSpy = vi.spyOn(TestBed.inject(ToastService), 'success');
+
+    importPatched.next({ id: 'book-importing', title: 'The Jungle Book', type: 'ebook' } as unknown as Book);
+
+    expect(successSpy).toHaveBeenCalledWith(expect.stringContaining('The Jungle Book'));
+  });
+
+  it('stays quiet when the re-read page keeps the finished import in front of the user', () => {
+    vi.useFakeTimers();
+    try {
+      component.rawBooks.set([
+        { id: 'book-importing', title: 'The Jungle Book', type: 'ebook', status: 1 } as unknown as Book,
+      ]);
+      const successSpy = vi.spyOn(TestBed.inject(ToastService), 'success');
+
+      importPatched.next({ id: 'book-importing', title: 'The Jungle Book', type: 'ebook', status: 0 } as unknown as Book);
+
+      // The page is re-read and still holds it (Recently Added: an import is the
+      // newest thing there is, so it stays exactly where its card already was).
+      listSpy.mockReturnValue(
+        of({ items: [{ id: 'book-importing', title: 'The Jungle Book', type: 'ebook' } as unknown as Book], totalCount: 1 }),
+      );
+      component.refreshBooks();
+      vi.advanceTimersByTime(1000);
+      fixture.detectChanges();
+
+      expect(successSpy).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('announces a finished import that the re-read page did not keep', () => {
+    vi.useFakeTimers();
+    try {
+      component.rawBooks.set([
+        { id: 'book-importing', title: 'The Jungle Book', type: 'ebook', status: 1 } as unknown as Book,
+      ]);
+      const successSpy = vi.spyOn(TestBed.inject(ToastService), 'success');
+
+      // It ended while its card was on the page — the server sorts an import first,
+      // so that is the normal case and nothing is announced yet.
+      importPatched.next({ id: 'book-importing', title: 'The Jungle Book', type: 'ebook', status: 0 } as unknown as Book);
+      expect(successSpy).not.toHaveBeenCalled();
+
+      // The re-read page does not keep it: under Last Read a book nobody has opened
+      // sorts behind every book that has been read, so the card leaves the page with
+      // no sign it arrived anywhere.
+      listSpy.mockReturnValue(
+        of({ items: [{ id: 'some-other-book', title: 'Some Other Book', type: 'ebook' } as unknown as Book], totalCount: 1 }),
+      );
+      component.refreshBooks();
+      vi.advanceTimersByTime(1000);
+      fixture.detectChanges();
+
+      expect(successSpy).toHaveBeenCalledWith(expect.stringContaining('The Jungle Book'));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('renders no import chrome at all when nothing is importing', () => {
