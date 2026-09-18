@@ -9,6 +9,11 @@
   ></app-sidebar-collections>
 
   <div class="library-right-side">
+    <!-- Imports in Progress. Placed above the toolbar — and so above the sort and
+         filter controls — and fed by its own feed rather than by the library
+         query, so it cannot be hidden by a sort, a filter or pagination. -->
+    <app-imports-panel></app-imports-panel>
+
     <header class="toolbar">
       <!-- Static heading: the active-filter chips directly below (and the
            sidebar highlight) already name the current scope, so the heading

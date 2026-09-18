@@ -67,6 +67,22 @@ public sealed class AcquisitionJobManager : BackgroundService, IAcquisitionJobMa
             ? null
             : job.Snapshot();
 
+    /// <summary>
+    /// A snapshot of the store, oldest first.
+    ///
+    /// Deliberately does NOT sweep: every mutating entry point already sweeps,
+    /// and a read-only listing that removed entries would make the retention
+    /// policy depend on who happened to be watching the feed.
+    /// </summary>
+    public IReadOnlyList<AcquisitionJobStatus> List() =>
+        _jobs.Values
+            .Select(job => job.Snapshot())
+            .OrderBy(status => status.CreatedAt)
+            .ToList();
+
+    public IReadOnlyList<AcquisitionJobStatus> ListActive() =>
+        List().Where(status => !status.IsFinished).ToList();
+
     public bool Cancel(string jobId)
     {
         if (string.IsNullOrWhiteSpace(jobId) || !_jobs.TryGetValue(jobId, out var job))

@@ -35,6 +35,22 @@ public sealed record AcquisitionJobStatus(
     public bool IsFinished => State is AcquisitionJobState.Succeeded
         or AcquisitionJobState.Failed
         or AcquisitionJobState.Cancelled;
+
+    /// <summary>
+    /// The progress a CLIENT may render, 0-100.
+    ///
+    /// Capped at 99 for every state except Succeeded, on purpose. A running
+    /// acquisition can honestly report 100% of its own work — every byte is on
+    /// disk — while the row is still being committed and the file moved into
+    /// place. A UI that renders "100%" (or worse, treats it as Ready) at that
+    /// moment hands the reader a Play button for a book whose file is not there
+    /// yet, and the request 404s. 100 is a claim about the LIBRARY, so only a
+    /// terminal Succeeded state may make it.
+    /// </summary>
+    public int ReportedPercent =>
+        State != AcquisitionJobState.Succeeded && Percent >= 100
+            ? 99
+            : Math.Clamp(Percent, 0, 100);
 }
 
 /// <summary>
@@ -54,6 +70,22 @@ public interface IAcquisitionJobManager
     AcquisitionJobStatus Start(AcquisitionRequest request);
 
     AcquisitionJobStatus? Get(string jobId);
+
+    /// <summary>
+    /// Every job this process still holds, oldest first — including jobs that
+    /// finished inside the retention window.
+    ///
+    /// Finished jobs are included deliberately: the TRANSITION to a terminal
+    /// state is itself something a watcher has to be told exactly once, and a
+    /// list that dropped a job the moment it finished would make that
+    /// transition unobservable — the job would simply disappear from the feed
+    /// with no outcome. Callers that only want work in flight filter on
+    /// <see cref="AcquisitionJobStatus.IsFinished"/>.
+    /// </summary>
+    IReadOnlyList<AcquisitionJobStatus> List();
+
+    /// <summary>Only the jobs still queued or running.</summary>
+    IReadOnlyList<AcquisitionJobStatus> ListActive();
 
     /// <summary>Cancels a queued or running job. False when there is nothing to cancel.</summary>
     bool Cancel(string jobId);
