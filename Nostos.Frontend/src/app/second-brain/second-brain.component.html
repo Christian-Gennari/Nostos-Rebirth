@@ -107,6 +107,11 @@
         </div>
       </div>
 
+      <div class="brain-section-header">
+        <h2 class="brain-section-title">Concepts</h2>
+        <span class="brain-section-count">{{ filteredConcepts().length }}</span>
+      </div>
+
       <div
         class="index-list"
         [attr.aria-busy]="loadingConcepts()"
@@ -218,6 +223,31 @@
         </div>
         }
         }
+      </div>
+
+      <div class="brain-notes-section">
+        <div class="brain-section-header">
+          <h2 class="brain-section-title">{{ notesSectionHeading() }}</h2>
+          <span class="brain-section-count">{{ notesSectionRows().length }}</span>
+        </div>
+        <div class="brain-notes-list" role="list" aria-label="Notes index">
+          @for (hit of notesSectionRows(); track hit.id) {
+          <div class="note-row-shell" role="listitem">
+            <button
+              type="button"
+              class="note-row-item"
+              (click)="openNotePanel(hit)"
+            >
+              <span class="note-row-main">
+                <span class="note-row-snippet">“{{ hit.snippet ? hit.snippet : hit.content }}”</span>
+                @if (hit.bookTitle) {
+                <span class="note-row-book">{{ hit.bookTitle }}</span>
+                }
+              </span>
+            </button>
+          </div>
+          }
+        </div>
       </div>
     </aside>
 
@@ -518,6 +548,37 @@
       }
       }
     </section>
+
+    @if (panelNote(); as note) {
+    <aside class="brain-note-panel" role="dialog" data-testid="brain-note-panel" aria-label="Note detail">
+      <div class="brain-note-panel-head">
+        <h2 class="brain-note-panel-title">{{ note.bookTitle }}</h2>
+        <button
+          type="button"
+          class="brain-note-panel-close"
+          aria-label="Close note"
+          (click)="closeNotePanel()"
+        >
+          <lucide-icon [img]="ClearIcon" [size]="18"></lucide-icon>
+        </button>
+      </div>
+      <div class="brain-note-panel-body">
+        @if (note.selectedText) {
+        <blockquote class="brain-note-panel-quote">{{ note.selectedText }}</blockquote>
+        }
+        <p class="brain-note-panel-content">{{ note.content }}</p>
+        <div class="brain-note-panel-concepts">
+          @if (note.conceptNames.length > 0) {
+            @for (name of note.conceptNames; track name) {
+            <span class="brain-note-concept-tag">{{ name }}</span>
+            }
+          } @else {
+            <span class="brain-note-panel-empty-concepts">Belongs to no concept</span>
+          }
+        </div>
+      </div>
+    </aside>
+    }
   </div>
 
   <app-confirm-modal

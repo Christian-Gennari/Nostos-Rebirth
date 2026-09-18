@@ -31,7 +31,7 @@ import {
 
 import { ToastService } from '../core/services/toast.service';
 import { NotesService } from '../core/services/notes.service';
-import { Note } from '../core/dtos/note.dtos';
+import { Note, NoteSearchHit } from '../core/dtos/note.dtos';
 import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import {
@@ -159,6 +159,10 @@ export class SecondBrain implements AfterViewChecked {
   // Note-text matches for the current query, from the server (issue #158). Empty
   // until a search runs, and cleared when the query is.
   noteMatches = signal<ConceptDto[]>([]);
+  noteHits = signal<NoteSearchHit[]>([]);
+  unlinkedNotes = signal<NoteSearchHit[]>([]);
+  panelNote = signal<NoteSearchHit | null>(null);
+  private unlinkedLoaded = false;
   private noteSearchTimer: ReturnType<typeof setTimeout> | null = null;
   private noteSearchSeq = 0;
   indexSort = signal<IndexSort>(this.readStoredSort());
@@ -244,6 +248,14 @@ export class SecondBrain implements AfterViewChecked {
 
     return [...withLabels, ...contentOnly];
   });
+
+  notesSectionRows = computed(() =>
+    this.searchQuery().trim() ? this.noteHits() : this.unlinkedNotes()
+  );
+
+  notesSectionHeading = computed(() =>
+    this.searchQuery().trim() ? 'Notes' : 'Notes with no concept'
+  );
 
   mergeCandidates = computed(() =>
     this.filterAndSortConcepts(this.mergeSearchQuery(), this.selectedId())
@@ -352,6 +364,8 @@ export class SecondBrain implements AfterViewChecked {
       // index unavailable or produce a toast for an otherwise usable page.
       error: () => undefined,
     });
+
+    this.loadUnlinkedNotes();
   }
 
   /**
@@ -425,6 +439,8 @@ export class SecondBrain implements AfterViewChecked {
     const term = query.trim();
     if (!term) {
       this.noteMatches.set([]);
+      this.noteHits.set([]);
+      this.loadUnlinkedNotes();
       this.noteSearchTimer = null;
       return;
     }
@@ -446,6 +462,34 @@ export class SecondBrain implements AfterViewChecked {
         if (seq === this.noteSearchSeq) this.noteMatches.set([]);
       },
     });
+    this.notesService.search(term, 50).subscribe({
+      next: (rows) => {
+        if (seq === this.noteSearchSeq) this.noteHits.set(rows ?? []);
+      },
+      error: () => {
+        if (seq === this.noteSearchSeq) this.noteHits.set([]);
+      },
+    });
+  }
+
+  private loadUnlinkedNotes(): void {
+    if (this.unlinkedLoaded) return;
+    this.unlinkedLoaded = true;
+    this.notesService.unlinked(50).subscribe({
+      next: (rows) => this.unlinkedNotes.set(rows ?? []),
+      error: () => {
+        this.unlinkedNotes.set([]);
+        this.unlinkedLoaded = false;
+      },
+    });
+  }
+
+  openNotePanel(hit: NoteSearchHit): void {
+    this.panelNote.set(hit);
+  }
+
+  closeNotePanel(): void {
+    this.panelNote.set(null);
   }
 
   /**

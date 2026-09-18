@@ -25,4 +25,16 @@ public interface INoteRepository
     /// Bulk-deletes all NoteConceptModel links for a given note.
     /// </summary>
     Task DeleteConceptLinksAsync(Guid noteId);
+    /// <summary>
+    /// Notes whose text, quote or book title matches `query` (issue #158). Case is
+    /// ignored; the caller caps the row count.
+    /// </summary>
+    Task<List<NoteModel>> SearchByTextAsync(string query, int limit);
+
+    /// <summary>
+    /// Notes linked to no concept at all. These are unreachable through the index's
+    /// concept rows, which is the gap #158 was filed about.
+    /// </summary>
+    Task<List<NoteModel>> GetWithoutConceptsAsync(int limit);
+
 }

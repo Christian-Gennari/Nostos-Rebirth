@@ -114,6 +114,7 @@ vi.mock('d3-force', () => {
 
 import { SecondBrain } from './second-brain.component';
 import { ConceptDetailDto, ConceptDto, ConceptStatsDto } from '../core/services/concepts.service';
+import { NoteSearchHit } from '../core/dtos/note.dtos';
 import { ToastService } from '../core/services/toast.service';
 
 /**
@@ -210,11 +211,17 @@ describe('SecondBrain', () => {
    * debounce is 250ms in the component; the slack keeps the helper stable without
    * reaching into a private field.
    */
-  const settleNoteSearch = async (rows: ConceptDto[] = []): Promise<void> => {
+  const settleNoteSearch = async (
+    rows: ConceptDto[] = [],
+    noteHits: NoteSearchHit[] = []
+  ): Promise<void> => {
     await new Promise((resolve) => setTimeout(resolve, 320));
     http
       .match((request) => request.url === '/api/concepts' && request.params.has('search'))
       .forEach((request) => request.flush(rows));
+    http
+      .match((request) => request.url === '/api/notes/search')
+      .forEach((request) => request.flush(noteHits));
     fixture.detectChanges();
     await fixture.whenStable();
   };
@@ -250,6 +257,7 @@ describe('SecondBrain', () => {
     fixture.detectChanges();
     http.expectOne('/api/concepts').flush(concepts);
     http.expectOne('/api/concepts/stats').flush(stats);
+    http.expectOne((req) => req.url === '/api/notes/unlinked').flush([]);
     await fixture.whenStable();
   });
 
@@ -570,6 +578,7 @@ describe('SecondBrain', () => {
     second.detectChanges();
     http.expectOne('/api/concepts').flush(concepts);
     http.expectOne('/api/concepts/stats').error(new ProgressEvent('network-error'));
+    http.expectOne((req) => req.url === '/api/notes/unlinked').flush([]);
     await second.whenStable();
     expect(second.nativeElement.querySelector('.index-stats')).toBeNull();
   });
@@ -738,6 +747,7 @@ describe('SecondBrain', () => {
 
     http.expectOne('/api/concepts').flush(concepts);
     http.expectOne('/api/concepts/stats').flush(stats);
+    http.expectOne((req) => req.url === '/api/notes/unlinked').flush([]);
   });
 
   it('shows letter separators for alphabetical order but not usage order', () => {
@@ -995,6 +1005,7 @@ describe('SecondBrain', () => {
     // Flush the second instance's own list request before it is discarded.
     http.expectOne('/api/concepts').flush(concepts);
     http.expectOne('/api/concepts/stats').flush(stats);
+    http.expectOne((req) => req.url === '/api/notes/unlinked').flush([]);
   });
 
   it('toggles between list and map views and persists the choice', () => {
@@ -1207,5 +1218,137 @@ describe('SecondBrain', () => {
     fixture.detectChanges();
     expect(component.viewMode()).toBe('list');
     expect(fixture.nativeElement.querySelector('app-concept-map')).toBeNull();
+  });
+
+  describe('index sections and note panel (issue #158)', () => {
+    const sampleHits: NoteSearchHit[] = [
+      {
+        id: 'hit-1',
+        bookId: 'b-sisyphus',
+        bookTitle: 'The Myth of Sisyphus',
+        content: 'One must imagine Sisyphus happy.',
+        selectedText: 'The struggle itself toward the heights is enough to fill a man’s heart.',
+        snippet: 'One must imagine Sisyphus happy.',
+        conceptNames: ['Absurdism', 'Revolt'],
+        createdAt: '2026-09-01T10:00:00Z',
+      },
+      {
+        id: 'hit-2',
+        bookId: 'b-rebel',
+        bookTitle: 'The Rebel',
+        content: 'I rebel — therefore we exist.',
+        selectedText: null,
+        snippet: null,
+        conceptNames: [],
+        createdAt: '2026-09-02T10:00:00Z',
+      },
+    ];
+
+    it('renders the two labelled sections with their counts', () => {
+      component.unlinkedNotes.set(sampleHits);
+      fixture.detectChanges();
+
+      const sectionTitles = fixture.nativeElement.querySelectorAll('.brain-section-title');
+      const sectionCounts = fixture.nativeElement.querySelectorAll('.brain-section-count');
+      expect(sectionTitles.length).toBe(2);
+      expect(sectionCounts.length).toBe(2);
+
+      expect(sectionTitles[0].textContent?.trim()).toBe('Concepts');
+      expect(sectionCounts[0].textContent?.trim()).toBe(String(component.filteredConcepts().length));
+
+      expect(sectionTitles[1].textContent?.trim()).toBe('Notes with no concept');
+      expect(sectionCounts[1].textContent?.trim()).toBe(String(sampleHits.length));
+    });
+
+    it('shows the snippet in quotes or falls back to content, and shows book title', () => {
+      component.unlinkedNotes.set(sampleHits);
+      fixture.detectChanges();
+
+      const rows = fixture.nativeElement.querySelectorAll('.brain-notes-list .note-row-item');
+      expect(rows.length).toBe(2);
+
+      expect(rows[0].querySelector('.note-row-snippet')?.textContent?.trim()).toBe('“One must imagine Sisyphus happy.”');
+      expect(rows[0].querySelector('.note-row-book')?.textContent?.trim()).toBe('The Myth of Sisyphus');
+
+      // hit-2 has null snippet, so it falls back to content
+      expect(rows[1].querySelector('.note-row-snippet')?.textContent?.trim()).toBe('“I rebel — therefore we exist.”');
+      expect(rows[1].querySelector('.note-row-book')?.textContent?.trim()).toBe('The Rebel');
+    });
+
+    it('opens note panel on note row click and closes it with the close button', () => {
+      component.unlinkedNotes.set(sampleHits);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('[data-testid="brain-note-panel"]')).toBeNull();
+
+      const rows = fixture.nativeElement.querySelectorAll('.brain-notes-list .note-row-item');
+      (rows[0] as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      const panel = fixture.nativeElement.querySelector('[data-testid="brain-note-panel"]');
+      expect(panel).toBeTruthy();
+      expect(panel.getAttribute('role')).toBe('dialog');
+      expect(panel.querySelector('.brain-note-panel-title')?.textContent?.trim()).toBe('The Myth of Sisyphus');
+      expect(panel.querySelector('blockquote')?.textContent?.trim()).toBe('The struggle itself toward the heights is enough to fill a man’s heart.');
+      expect(panel.querySelector('.brain-note-panel-content')?.textContent?.trim()).toBe('One must imagine Sisyphus happy.');
+
+      const conceptTags = panel.querySelectorAll('.brain-note-concept-tag');
+      expect(conceptTags.length).toBe(2);
+      expect(conceptTags[0].textContent?.trim()).toBe('Absurdism');
+      expect(conceptTags[1].textContent?.trim()).toBe('Revolt');
+
+      const closeBtn = panel.querySelector('button[aria-label="Close note"]') as HTMLButtonElement;
+      expect(closeBtn).toBeTruthy();
+      closeBtn.click();
+      fixture.detectChanges();
+
+      expect(component.panelNote()).toBeNull();
+      expect(fixture.nativeElement.querySelector('[data-testid="brain-note-panel"]')).toBeNull();
+    });
+
+    it('shows "Belongs to no concept" in panel when note has no concept links', () => {
+      component.unlinkedNotes.set(sampleHits);
+      fixture.detectChanges();
+
+      const rows = fixture.nativeElement.querySelectorAll('.brain-notes-list .note-row-item');
+      (rows[1] as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      const panel = fixture.nativeElement.querySelector('[data-testid="brain-note-panel"]');
+      expect(panel).toBeTruthy();
+      expect(panel.querySelector('blockquote')).toBeNull();
+      expect(panel.textContent).toContain('Belongs to no concept');
+    });
+
+    it('shows matching notes while searching and unlinked notes while browsing with the right headings', async () => {
+      component.unlinkedNotes.set([sampleHits[1]]);
+      fixture.detectChanges();
+
+      // Browsing state: empty query
+      const browsingHeader = fixture.nativeElement.querySelectorAll('.brain-section-title')[1];
+      expect(browsingHeader.textContent?.trim()).toBe('Notes with no concept');
+      expect(component.notesSectionRows()).toEqual([sampleHits[1]]);
+
+      // Search state: non-empty query
+      component.setSearchQuery('sisyphus');
+      await settleNoteSearch([], [sampleHits[0]]);
+      fixture.detectChanges();
+
+      const searchHeader = fixture.nativeElement.querySelectorAll('.brain-section-title')[1];
+      expect(searchHeader.textContent?.trim()).toBe('Notes');
+      expect(component.notesSectionRows()).toEqual([sampleHits[0]]);
+
+      const rows = fixture.nativeElement.querySelectorAll('.brain-notes-list .note-row-item');
+      expect(rows.length).toBe(1);
+      expect(rows[0].querySelector('.note-row-snippet')?.textContent?.trim()).toBe('“One must imagine Sisyphus happy.”');
+
+      // Clear search: returns to unlinked notes and 'Notes with no concept'
+      component.clearSearch();
+      fixture.detectChanges();
+
+      const restoredHeader = fixture.nativeElement.querySelectorAll('.brain-section-title')[1];
+      expect(restoredHeader.textContent?.trim()).toBe('Notes with no concept');
+      expect(component.notesSectionRows()).toEqual([sampleHits[1]]);
+    });
   });
 });

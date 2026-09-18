@@ -1,4 +1,5 @@
 using Nostos.Backend.Data.Interfaces;
+using Nostos.Backend.Data.Models;
 using Nostos.Backend.Mapping;
 using Nostos.Backend.Services;
 using Nostos.Shared.Dtos;
@@ -18,6 +19,30 @@ public static class NotesEndpoints
             {
                 var notes = await repo.GetByBookIdAsync(bookId);
                 return Results.Ok(notes.Select(n => n.ToDto()));
+            }
+        );
+
+        // SEARCH notes by text (issue #158). The index could only ever match concept
+        // NAMES, so a word living only in a note's body or quote was unreachable —
+        // and 44 of this library's 63 notes belong to no concept at all, which no
+        // concept row can ever lead to.
+        group.MapGet(
+            "/notes/search",
+            async (string? query, INoteRepository repo, int? limit) =>
+            {
+                var hits = await repo.SearchByTextAsync(query ?? string.Empty, Clamp(limit));
+                var term = (query ?? string.Empty).Trim();
+                return Results.Ok(hits.Select(n => ByText(n, term)).ToList());
+            }
+        );
+
+        // Notes linked to no concept, so they can be read at all.
+        group.MapGet(
+            "/notes/unlinked",
+            async (INoteRepository repo, int? limit) =>
+            {
+                var notes = await repo.GetWithoutConceptsAsync(Clamp(limit));
+                return Results.Ok(notes.Select(n => ByText(n, null)).ToList());
             }
         );
 
@@ -101,5 +126,46 @@ public static class NotesEndpoints
         );
 
         return routes;
+    }
+
+    /// <summary>A small page keeps the index responsive; the cap is a guard on the caller.</summary>
+    private static int Clamp(int? limit) => Math.Clamp(limit ?? 50, 1, 200);
+
+    private static NoteSearchHitDto ByText(NoteModel n, string? term) => new(
+        n.Id,
+        n.BookId,
+        n.Book?.Title,
+        n.Content,
+        n.SelectedText,
+        Snippet(n.Content, n.SelectedText, term),
+        n.NoteConcepts
+            .Where(nc => nc.Concept != null)
+            .Select(nc => nc.Concept!.Concept)
+            .OrderBy(name => name)
+            .ToList(),
+        n.CreatedAt);
+
+    /// <summary>
+    /// The fragment around the match, so a row can show WHY it matched. Built here
+    /// rather than in the client so the whole note body never has to travel.
+    /// </summary>
+    private static string? Snippet(string content, string? quote, string? term)
+    {
+        // Prefer the quotation: it is the passage from the book either way.
+        var text = string.IsNullOrWhiteSpace(quote) ? content : quote!;
+        if (string.IsNullOrWhiteSpace(text)) return null;
+
+        var flat = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (flat.Length <= 160) return flat;
+
+        // Centre on the match when there is one, so the row shows WHY it matched
+        // rather than the opening words of every hit.
+        var at = term is null ? -1 : flat.IndexOf(term, StringComparison.OrdinalIgnoreCase);
+        if (at < 0) return flat[..157] + "…";
+
+        var start = Math.Max(0, at - 60);
+        var end = Math.Min(flat.Length, start + 157);
+        start = Math.Max(0, Math.Min(start, end - 40));
+        return (start > 0 ? "…" : string.Empty) + flat[start..end] + (end < flat.Length ? "…" : string.Empty);
     }
 }
