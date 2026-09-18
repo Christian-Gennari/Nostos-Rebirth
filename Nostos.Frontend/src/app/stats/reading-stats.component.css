@@ -1,0 +1,149 @@
+/* Reading stats: quiet cards and two short lists. Tokens only. */
+.stats-page {
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 6rem;
+}
+
+.stats-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--color-text-main);
+}
+
+.stats-subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-light);
+  font-size: 0.875rem;
+}
+
+.stats-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  background: var(--bg-surface);
+  color: var(--color-text-light);
+}
+
+.stat-value {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--color-text-main);
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+}
+
+.stats-columns {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+@media (min-width: 720px) {
+  .stats-columns {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.stats-list-card {
+  padding: 1rem 1rem 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  background: var(--bg-surface);
+}
+
+.stats-list-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-main);
+}
+
+.stats-list-card ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.125rem 0.75rem;
+  align-items: center;
+  padding: 0.625rem 0.5rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+}
+
+.stats-row:hover {
+  background: var(--bg-hover);
+}
+
+.stats-row-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-main);
+  font-size: 0.875rem;
+}
+
+.stats-row-sub {
+  grid-column: 1;
+  font-size: 0.75rem;
+  color: var(--color-text-light);
+}
+
+.stats-progress-track {
+  grid-column: 1 / -1;
+  height: 0.25rem;
+  border-radius: 999px;
+  background: var(--bg-surface-alt);
+  overflow: hidden;
+}
+
+.stats-progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--color-primary);
+}
+
+.stats-row-pct {
+  grid-row: 1;
+  grid-column: 2;
+  font-size: 0.75rem;
+  color: var(--color-text-light);
+}
+
+.stats-stars {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  display: flex;
+  gap: 0.125rem;
+  color: var(--color-text-faint);
+}
+
+.stats-stars .filled {
+  color: var(--color-primary);
+}
+
+.stats-empty {
+  margin: 0;
+  padding: 0.75rem 0.5rem 1rem;
+  font-size: 0.875rem;
+  color: var(--color-text-light);
+}

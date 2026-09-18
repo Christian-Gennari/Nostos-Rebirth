@@ -1,6 +1,13 @@
 /* ------------------------------------------------------------------------
    Collections panel
 
+   Anchor rows: the stats entry is a router link wearing the nav-item row —
+   kill the anchor's native underline, everything else comes from the class. */
+a.nav-item {
+  text-decoration: none;
+}
+
+/* ------------------------------------------------------------------------
    Collapse contract: this panel keeps its full expanded geometry at all
    times. The library column around it is the only thing that changes width,
    and it clips this box. Nothing inside reflows, so no fade has to disguise a
