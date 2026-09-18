@@ -628,4 +628,128 @@ describe('AudioReader sleep timer (issue #47)', () => {
     expect(component.playbackMenuOpen()).toBe(false);
     expect(component.sleepTimerMinutes()).toBe(45);
   });
+
+  it('pauses at the next chapter start instead of a clock deadline (issue #209)', () => {
+    fixture.componentRef.setInput(
+      'book',
+      makeBook({
+        chapters: [
+          { title: 'One', startTime: 0 },
+          { title: 'Two', startTime: 600 },
+          { title: 'Three', startTime: 1200 },
+        ],
+      }),
+    );
+    fixture.detectChanges();
+    const howl = howlerState.instances[0];
+    howl.config.onload();
+
+    component.currentTime.set(610);
+    component.selectSleepAtChapterEnd();
+    expect(component.sleepAtChapterEnd()).toBe(true);
+    expect(component.sleepLabel()).toBe('Chapter end');
+
+    // Inside the chapter nothing happens; the position reaching 1200 does.
+    // The progress watch is restarted here so it runs on the fake clock — the
+    // component started it during init, before this suite replaced the timers.
+    component.startProgressTracking();
+    howl.seek = vi.fn(() => 1200);
+    vi.advanceTimersByTime(1000);
+
+    expect(howl.pause).toHaveBeenCalled();
+    expect(component.sleepAtChapterEnd()).toBe(false);
+    expect(component.sleepStatusMessage()).toBe('Chapter finished. Playback paused.');
+  });
+
+  it('re-arms to the following chapter when the position jumps past the armed one', () => {
+    fixture.componentRef.setInput(
+      'book',
+      makeBook({
+        chapters: [
+          { title: 'One', startTime: 0 },
+          { title: 'Two', startTime: 600 },
+          { title: 'Three', startTime: 1200 },
+          { title: 'Four', startTime: 1800 },
+        ],
+      }),
+    );
+    fixture.detectChanges();
+    const howl = howlerState.instances[0];
+    howl.config.onload();
+
+    component.currentTime.set(610);
+    component.selectSleepAtChapterEnd();
+
+    // A jump to 1300 skips the 1200 boundary. Seeking is user intent, so it must
+    // NOT fire — the armed target moves to the next chapter start instead.
+    component.goToTime(1300);
+    expect(howl.pause).not.toHaveBeenCalled();
+    expect(component.sleepAtChapterEnd()).toBe(true);
+
+    component.startProgressTracking();
+    howl.seek = vi.fn(() => 1800);
+    vi.advanceTimersByTime(1000);
+    expect(howl.pause).toHaveBeenCalled();
+  });
+
+  it('stays armed but inert past the last chapter start', () => {
+    fixture.componentRef.setInput(
+      'book',
+      makeBook({ chapters: [{ title: 'One', startTime: 0 }] }),
+    );
+    fixture.detectChanges();
+    const howl = howlerState.instances[0];
+    howl.config.onload();
+
+    component.currentTime.set(100);
+    component.selectSleepAtChapterEnd();
+
+    // No chapter follows, so the target is the end of the media; nothing fires
+    // mid-chapter and the state stays visible.
+    howl.seek = vi.fn(() => 200);
+    vi.advanceTimersByTime(1000);
+    expect(howl.pause).not.toHaveBeenCalled();
+    expect(component.sleepLabel()).toBe('Chapter end');
+  });
+
+  it('treats the chapter mode and the minute presets as mutually exclusive', () => {
+    fixture.componentRef.setInput(
+      'book',
+      makeBook({ chapters: [{ title: 'One', startTime: 0 }, { title: 'Two', startTime: 600 }] }),
+    );
+    fixture.detectChanges();
+
+    component.currentTime.set(100);
+    component.selectSleepAtChapterEnd();
+    expect(component.sleepArmed()).toBe(true);
+
+    component.selectSleepTimer(30);
+    expect(component.sleepAtChapterEnd()).toBe(false);
+    expect(component.sleepTimerMinutes()).toBe(30);
+    expect(component.sleepLabel()).not.toBe('Chapter end');
+
+    component.selectSleepAtChapterEnd();
+    expect(component.sleepTimerMinutes()).toBeNull();
+
+    component.selectSleepTimer(null);
+    expect(component.sleepArmed()).toBe(false);
+    expect(component.sleepLabel()).toBe('Off');
+  });
+
+  it('offers Chapter end in the menu only when the file has chapters', () => {
+    fixture.componentRef.setInput('book', makeBook());
+    fixture.detectChanges();
+    component.toggleSleepMenu();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="audio-sleep-chapter-end"]')).toBeNull();
+
+    fixture.componentRef.setInput(
+      'book',
+      makeBook({ chapters: [{ title: 'One', startTime: 0 }] }),
+    );
+    fixture.detectChanges();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="audio-sleep-chapter-end"]')
+    ).not.toBeNull();
+  });
 });
