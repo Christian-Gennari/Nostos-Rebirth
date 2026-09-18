@@ -387,6 +387,18 @@ describe('PdfReader search shortcut', () => {
     expect(plain.defaultPrevented).toBe(false);
   });
 
+  it('opens the find bar through openSearch(), the path the header control uses', () => {
+    // The shell's search button calls this method (the interface makes it
+    // optional so a format without search is never handed the control), so a
+    // phone — which has no Ctrl+F — has a way in at all (issue #226 §2).
+    const component = fixture.componentInstance;
+    expect(component.findBarVisible()).toBe(false);
+
+    component.openSearch();
+
+    expect(component.findBarVisible()).toBe(true);
+  });
+
   it('Escape closes the bar without the event reaching the shell', () => {
     const component = fixture.componentInstance;
     component.findBarVisible.set(true);

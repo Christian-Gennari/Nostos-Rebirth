@@ -22,6 +22,7 @@ import {
   Save,
   Plus,
   Info,
+  Search,
   Type as TypeIcon,
 } from 'lucide-angular';
 
@@ -94,6 +95,7 @@ export class ReaderShell implements OnInit {
   Save,
   Plus,
   Info,
+  Search,
   Type: TypeIcon,
   };
 
@@ -102,6 +104,16 @@ export class ReaderShell implements OnInit {
 
   toggleTypo(): void {
     this.typoOpen.update((v) => !v);
+  }
+
+  /**
+   * Opens the reader's own search UI. Only rendered for formats that have one
+   * (PDF today), and the capability is optional on IReader, so this cannot hand
+   * a reader a control it does not implement. Ctrl/Cmd+F reaches the same place;
+   * this exists so search is reachable by touch at all (issue #226 §2).
+   */
+  openSearch(): void {
+    this.pdfReader?.openSearch?.();
   }
 
   book = signal<any>(null);
