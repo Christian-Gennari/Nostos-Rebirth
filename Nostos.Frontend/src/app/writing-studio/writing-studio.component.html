@@ -75,6 +75,19 @@
 
           <button
             appIconButton
+            class="typewriter-toggle"
+            [class.active]="typewriter()"
+            [icon]="Icons.Typewriter"
+            [glyphSize]="18"
+            [strokeWidth]="1"
+            [pressed]="typewriter()"
+            (click)="toggleTypewriter()"
+            [title]="typewriter() ? 'Typewriter mode on: caret stays centered' : 'Typewriter mode: keep the caret centered'"
+            [attr.aria-label]="typewriter() ? 'Disable typewriter mode' : 'Enable typewriter mode'"
+          ></button>
+
+          <button
+            appIconButton
             class="zen-toggle"
             [class.active]="isZen()"
             [icon]="isZen() ? Icons.Minimize2 : Icons.Maximize2"
@@ -90,6 +103,7 @@
       <div class="editor-wrapper">
         <app-markdown-editor
           [initialContent]="editorText()"
+          [typewriter]="typewriter()"
           (contentChange)="editorText.set($event)"
           (wordCountChange)="editorWordCount.set($event)"
         ></app-markdown-editor>
