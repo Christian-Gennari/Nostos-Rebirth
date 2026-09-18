@@ -254,6 +254,10 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   readonly typography = signal<EpubTypography>({ ...DEFAULT_TYPOGRAPHY });
   /** Outer margin for the current preset, as a percentage of the reader width. */
   readonly marginInset = computed(() => marginInsetPercent(this.typography().margin));
+  /** Text size in percent — surfaced so the shell's typography panel can show the
+   *  current step beside the A−/A+ controls (the toolbar used to own them). */
+  readonly fontSizePercent = this.currentFontSize.asReadonly();
+
   readonly fontOptions = EPUB_FONT_OPTIONS;
   readonly lineOptions = EPUB_LINE_OPTIONS;
   readonly marginOptions = EPUB_MARGIN_OPTIONS;

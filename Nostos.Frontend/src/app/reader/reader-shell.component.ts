@@ -15,7 +15,6 @@ import {
   Check,
   Clock,
   List,
-  MoreHorizontal,
   ZoomIn,
   ZoomOut,
   ChevronLeft,
@@ -88,7 +87,6 @@ export class ReaderShell implements OnInit {
     Check,
     Clock,
     List,
-    MoreHorizontal,
   ZoomIn,
   ZoomOut,
   Prev: ChevronLeft,
@@ -114,7 +112,6 @@ export class ReaderShell implements OnInit {
   highlightMode = signal(false);
   pendingSelectionText = signal<string | null>(null);
   highlightSaving = signal(false);
-  overflowOpen = signal(false);
 
   dbNotes = signal<Note[]>([]);
   quickNoteContent = signal('');
@@ -183,11 +180,6 @@ export class ReaderShell implements OnInit {
   ngOnInit() {
     this.loadConcepts();
 
-    const mql = window.matchMedia('(min-width: 769px)');
-    mql.addEventListener('change', (e) => {
-      if (e.matches) this.overflowOpen.set(false);
-    });
-
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.booksService.get(id).subscribe({
@@ -245,10 +237,6 @@ export class ReaderShell implements OnInit {
       this.pendingSelectionText.set(null);
     }
     this.highlightMode.set(newMode);
-  }
-
-  toggleOverflow() {
-    this.overflowOpen.update((v) => !v);
   }
 
   commitHighlight() {
@@ -384,6 +372,27 @@ export class ReaderShell implements OnInit {
   onDocumentKeydown(event: KeyboardEvent): void {
     if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
     if (isTypingTarget(event.target)) return;
+
+    if (event.key === 'Escape') {
+      // Overlays close in the order they stack: the typography panel rides on
+      // top of the drawers, so it goes first. Typing targets are already out.
+      if (this.typoOpen()) {
+        this.typoOpen.set(false);
+        event.preventDefault();
+        return;
+      }
+      if (this.tocOpen()) {
+        this.tocOpen.set(false);
+        event.preventDefault();
+        return;
+      }
+      if (this.notesOpen()) {
+        this.notesOpen.set(false);
+        event.preventDefault();
+        return;
+      }
+      return;
+    }
 
     const action = pageActionForKey(event);
     if (!action) return;
