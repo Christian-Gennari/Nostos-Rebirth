@@ -4,7 +4,7 @@ import ePub from 'epubjs';
 
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
-import { EpubReader, marginInsetPercent, typographyCss } from './epub-reader.component';
+import { DEFAULT_TYPOGRAPHY, EpubReader, marginInsetPercent, typographyCss } from './epub-reader.component';
 import { EpubAnnotationManager } from './epub-annotation-manager';
 
 vi.mock('epubjs', () => ({ default: vi.fn() }));
@@ -522,20 +522,59 @@ describe('EpubReader typography persistence', () => {
     vi.unstubAllGlobals();
   });
 
-  it('persists a change per book and restores it on open', () => {
+  it('persists one reader-wide preference and restores it on open', () => {
     const component = fixture.componentInstance;
     component.setTypography({ fontFamily: 'sans', lineHeight: 1.8 });
-    expect(JSON.parse(localStorage.getItem('nostos.epub-typography.book-9')!)).toEqual({
+    // One key for the whole reader, not per book.
+    expect(JSON.parse(localStorage.getItem('nostos.epub-typography')!)).toEqual({
       fontFamily: 'sans',
       lineHeight: 1.8,
       margin: 'normal',
     });
+    expect(localStorage.getItem('nostos.epub-typography.book-9')).toBeNull();
 
     // Reopen: the remembered typography is restored, not the defaults.
     component.loadBook('book-9');
     expect(component.typography()).toEqual({
       fontFamily: 'sans',
       lineHeight: 1.8,
+      margin: 'normal',
+    });
+  });
+
+  it('adopts a per-book value written by an earlier version, once', () => {
+    const component = fixture.componentInstance;
+    localStorage.clear();
+    localStorage.setItem(
+      'nostos.epub-typography.book-9',
+      JSON.stringify({ fontFamily: 'serif', lineHeight: 2, margin: 'wide' }),
+    );
+
+    component.loadBook('book-9');
+
+    // The book's own choice is honoured…
+    expect(component.typography()).toEqual({ fontFamily: 'serif', lineHeight: 2, margin: 'wide' });
+    // …and becomes the reader-wide preference for every other book.
+    expect(JSON.parse(localStorage.getItem('nostos.epub-typography')!)).toEqual({
+      fontFamily: 'serif',
+      lineHeight: 2,
+      margin: 'wide',
+    });
+  });
+
+  it('ignores an invalid stored preference rather than trusting it', () => {
+    const component = fixture.componentInstance;
+    localStorage.clear();
+    localStorage.setItem(
+      'nostos.epub-typography',
+      JSON.stringify({ fontFamily: 'comic-sans', lineHeight: 7, margin: 'enormous' }),
+    );
+
+    component.loadBook('book-9');
+
+    expect(component.typography()).toEqual({
+      fontFamily: 'default',
+      lineHeight: DEFAULT_TYPOGRAPHY.lineHeight,
       margin: 'normal',
     });
   });
