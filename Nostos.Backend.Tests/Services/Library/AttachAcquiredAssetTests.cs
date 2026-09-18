@@ -272,5 +272,7 @@ public sealed class AttachAcquiredAssetTests
         bookDto.Source.SourceUrl.Should().Be("https://gutenberg.org/ebooks/999");
         bookDto.Source.RightsStatement.Should().Be("Public domain in the USA (Project Gutenberg)");
         bookDto.Source.AcquiredAt.Should().Be(acquiredTime);
+        bookDto.Status.Should().Be(Nostos.Shared.Enums.BookStatus.Ready);
+        bookDto.StatusMessage.Should().BeNull();
     }
 }

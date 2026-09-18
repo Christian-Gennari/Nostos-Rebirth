@@ -142,7 +142,9 @@ public static class MappingExtensions
                     SourceUrl: model.Acquisition.SourceUrl,
                     AssetFormat: model.Acquisition.AssetFormat,
                     RightsStatement: model.Acquisition.RightsStatement,
-                    AcquiredAt: model.Acquisition.AcquiredAt)
+                    AcquiredAt: model.Acquisition.AcquiredAt),
+            Status: model.Status,
+            StatusMessage: model.StatusMessage
         );
     }
 

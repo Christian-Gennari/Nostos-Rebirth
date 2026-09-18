@@ -104,6 +104,12 @@ export interface Book {
    * source rather than uploaded by hand. Absent otherwise.
    */
   source?: BookSource | null;
+
+  /**
+   * Life-cycle status: 0 = Ready, 1 = Downloading, 2 = Transcoding, 3 = Failed.
+   */
+  status?: number;
+  statusMessage?: string | null;
 }
 
 /**
