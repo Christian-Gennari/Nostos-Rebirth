@@ -428,6 +428,61 @@
   font-size: 0.85rem;
   cursor: pointer;
 }
+
+/* The format list, collapsed. Native <details>, so the disclosure is
+   keyboard-reachable and works without script; only the look is ours.
+   Closed by default: the source has already chosen, and this is here for the
+   reader who wants to change that, not as a decision in the way. */
+.source-formats {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+.source-formats-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  /* 44px floor: the summary is a control, like every other one here. */
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  list-style: none;
+}
+/* Safari and Chrome draw a marker of their own; the label replaces it. */
+.source-formats-summary::-webkit-details-marker {
+  display: none;
+}
+.source-formats-current {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.source-formats-change {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-light);
+}
+/* Says what the control does in the state it is in. */
+.source-formats-when-open {
+  display: none;
+}
+.source-formats[open] .source-formats-when-closed {
+  display: none;
+}
+.source-formats[open] .source-formats-when-open {
+  display: inline;
+}
+.source-formats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.25rem 0.75rem 0.6rem;
+  border-top: 1px solid var(--border-color);
+}
 .source-asset-size {
   margin-left: auto;
   font-size: 0.74rem;
