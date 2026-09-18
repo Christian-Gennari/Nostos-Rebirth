@@ -149,11 +149,25 @@
                   class="sleep-option"
                   type="button"
                   role="option"
-                  [attr.aria-selected]="sleepTimerMinutes() === null"
+                  [attr.aria-selected]="!sleepArmed()"
                   (click)="selectSleepTimer(null)"
                 >
                   Off
                 </button>
+                <!-- End of chapter (issue #209). Only offered when the file actually
+                     carries chapter starts; otherwise there is nothing to stop at. -->
+                @if (hasChapters()) {
+                  <button
+                    class="sleep-option"
+                    type="button"
+                    role="option"
+                    [attr.aria-selected]="sleepAtChapterEnd()"
+                    data-testid="audio-sleep-chapter-end"
+                    (click)="selectSleepAtChapterEnd()"
+                  >
+                    Chapter end
+                  </button>
+                }
                 @for (minutes of sleepPresets; track minutes) {
                   <button
                     class="sleep-option"

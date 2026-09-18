@@ -87,6 +87,11 @@ export class AudioReader implements OnDestroy, IReader {
   // --- Playback menu: speed and sleep timer share ONE control (issue #227 §1/§3).
   playbackMenuOpen = signal(false);
   sleepPresets = [15, 30, 45, 60];
+  // Sleep-at-end-of-chapter (issue #209). The chapter starts are already in the
+  // component from the file metadata, so this needs no clock: it watches the
+  // position reach the next chapter start and pauses there.
+  sleepAtChapterEnd = signal(false);
+  private chapterEndTarget = 0;
   private sleepTimerInterval: any = null;
   private sleepStatusTimeout: any = null;
 
@@ -270,6 +275,9 @@ export class AudioReader implements OnDestroy, IReader {
     if (this.player) {
       this.player.seek(seconds);
       this.currentTime.set(seconds);
+      // Re-arm BEFORE the progress update: that update is what checks the boundary,
+      // and a jump is user intent, not "the position reached the chapter".
+      this.rearmChapterSleepTarget();
       this.updateProgressState();
       this.updateMediaSessionPositionState();
     }
@@ -386,10 +394,53 @@ export class AudioReader implements OnDestroy, IReader {
   // --- Sleep Timer (issue #47) ---
   // Label for the timer control: the remaining mm:ss while armed, 'Off' otherwise.
   sleepLabel = computed(() => {
+    if (this.sleepAtChapterEnd()) return 'Chapter end';
     const minutes = this.sleepTimerMinutes();
     if (minutes == null) return 'Off';
     return this.formatTime(this.sleepRemainingSeconds());
   });
+
+  /** True whenever any sleep mode is armed, so the pill reports its state. */
+  sleepArmed = computed(() => this.sleepAtChapterEnd() || this.sleepTimerMinutes() !== null);
+
+  /**
+   * Arm the end-of-chapter sleep (issue #209): pause when the position reaches the
+   * next chapter start. Mutually exclusive with the minute presets, and falls back
+   * to the end of the media on the last chapter, where pausing is harmless.
+   */
+  selectSleepAtChapterEnd(): void {
+    this.closePlaybackMenu();
+    this.sleepStatusMessage.set(null);
+    this.disarmSleepTimer();
+    this.chapterEndTarget = this.nextChapterStart(this.currentTime());
+    this.sleepAtChapterEnd.set(true);
+  }
+
+  private nextChapterStart(afterSeconds: number): number {
+    const starts = this.sortedChapterStarts();
+    return starts.find((start) => start > afterSeconds + 1) ?? this.duration();
+  }
+
+  /**
+   * A seek is not "reaching" a chapter: if the position jumps past the armed
+   * target, the target moves to the next chapter start instead of firing.
+   */
+  private rearmChapterSleepTarget(): void {
+    if (this.sleepAtChapterEnd()) this.chapterEndTarget = this.nextChapterStart(this.currentTime());
+  }
+
+  private checkChapterSleep(now: number): void {
+    if (!this.sleepAtChapterEnd()) return;
+    if (this.chapterEndTarget <= 0 || now < this.chapterEndTarget) return;
+    this.sleepAtChapterEnd.set(false);
+    this.chapterEndTarget = 0;
+    // Same contract as the minute timer: the sleep timer stops the book, not the app.
+    this.player?.pause();
+    this.sleepStatusMessage.set('Chapter finished. Playback paused.');
+    this.sleepStatusTimeout = window.setTimeout(() => {
+      this.sleepStatusMessage.set(null);
+    }, 5000);
+  }
 
   toggleSleepMenu() {
     this.playbackMenuOpen.update((v) => !v);
@@ -402,8 +453,9 @@ export class AudioReader implements OnDestroy, IReader {
   selectSleepTimer(minutes: number | null) {
     this.closePlaybackMenu();
     this.sleepStatusMessage.set(null);
+    // Either preset replaces whatever was armed, including the chapter mode.
+    this.disarmSleepTimer();
     if (minutes == null) {
-      this.disarmSleepTimer();
       return;
     }
     // Arming (or re-arming with another preset) always restarts the countdown
@@ -419,6 +471,8 @@ export class AudioReader implements OnDestroy, IReader {
     this.sleepTimerMinutes.set(null);
     this.sleepDeadline.set(null);
     this.sleepRemainingSeconds.set(0);
+    this.sleepAtChapterEnd.set(false);
+    this.chapterEndTarget = 0;
   }
 
   private startSleepTimerCountdown() {
@@ -493,6 +547,8 @@ export class AudioReader implements OnDestroy, IReader {
     const label = `${labels.current} / ${labels.total}`;
     this.progress.set({ label, percentage: percent });
     this.progressSubject.next({ timestamp: now, percent });
+    // The tick is also the sleep timer's watch (issue #209): no second clock.
+    this.checkChapterSleep(now);
   }
 
   /**
