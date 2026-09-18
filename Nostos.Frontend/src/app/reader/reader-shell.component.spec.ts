@@ -293,8 +293,10 @@ describe('ReaderShell toolbar contract (theme system removed)', () => {
     const header = titlesOf('.reader-header .icon-btn');
     expect(header.filter((t) => t === 'Table of Contents')).toHaveLength(1);
     expect(header.filter((t) => t === 'Notes & Highlights')).toHaveLength(1);
-    expect(header.filter((t) => t === 'Highlight mode')).toHaveLength(1);
     expect(header.filter((t) => t === 'View settings')).toHaveLength(1);
+    // The highlight control merged into the notes panel: at 390px the header held
+    // five controls and left the book title 78px ("Being an…").
+    expect(header.filter((t) => t === 'Highlight mode')).toHaveLength(0);
     // Back lives with the title it returns to, not with the page keys.
     expect(header.filter((t) => t === 'Back to Library')).toHaveLength(1);
     // And nothing about turning pages is up here.
@@ -309,6 +311,40 @@ describe('ReaderShell toolbar contract (theme system removed)', () => {
     const center = fixture.debugElement.query(By.css('.toolbar-center'));
     expect(center).not.toBeNull();
     expect(center.query(By.css('.progress-display'))).not.toBeNull();
+  });
+
+  it('merges the highlight control into the notes panel', async () => {
+    // One "my marks" control in the header instead of two. The tap that turns
+    // highlighting ON also closes the panel, so the reader is ready for a
+    // selection — the same single tap the header button used to take.
+    const epubBook = { ...audiobook, id: 'book-epub', fileName: 'iliad.epub' } as Book;
+    booksGetSpy.mockReturnValue(of(epubBook));
+
+    fixture = await configureReaderShell();
+    render();
+    const component = fixture.componentInstance;
+
+    component.toggleNotes();
+    render();
+    const toggle = fixture.debugElement.query(By.css('[data-testid="reader-highlight-toggle"]'));
+    expect(toggle).not.toBeNull();
+    expect(toggle.nativeElement.textContent).toContain('Highlight text');
+
+    toggle.nativeElement.click();
+    render();
+    expect(component.highlightMode()).toBe(true);
+    expect(component.notesOpen()).toBe(false);
+
+    // Reopening with the mode on: the row reports it, and switching it off leaves
+    // the panel open because the user is looking at their notes.
+    component.toggleNotes();
+    render();
+    const toggleAgain = fixture.debugElement.query(By.css('[data-testid="reader-highlight-toggle"]'));
+    expect(toggleAgain.nativeElement.textContent).toContain('Highlighting is on');
+    toggleAgain.nativeElement.click();
+    render();
+    expect(component.highlightMode()).toBe(false);
+    expect(component.notesOpen()).toBe(true);
   });
 
   it('has no overflow menu left to reach the desktop-only controls', async () => {

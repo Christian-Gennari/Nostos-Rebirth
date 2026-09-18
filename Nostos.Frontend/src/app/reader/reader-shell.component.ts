@@ -288,6 +288,19 @@ export class ReaderShell implements OnInit {
     this.highlightMode.set(newMode);
   }
 
+  /**
+   * The header's highlight control merged into the notes panel, so the header
+   * carries one "my marks" control instead of two. Switching the mode ON closes
+   * the panel — the reader is then immediately ready for a selection, which keeps
+   * the old one-tap flow — while switching it OFF leaves the panel open, because
+   * the user is looking at the notes they just made.
+   */
+  toggleHighlightFromPanel(): void {
+    const turningOn = !this.highlightMode();
+    this.toggleHighlightMode();
+    if (turningOn) this.notesOpen.set(false);
+  }
+
   commitHighlight() {
     if (this.highlightSaving()) return;
     this.highlightSaving.set(true);
