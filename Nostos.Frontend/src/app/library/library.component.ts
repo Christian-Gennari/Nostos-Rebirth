@@ -51,6 +51,8 @@ import {
   BookOpen,
   FileText,
   Bookmark,
+  AlertCircle,
+  Clock,
 } from 'lucide-angular';
 
 /** Legacy key retained for callers that need to verify the migration path. */
@@ -162,6 +164,8 @@ export class Library implements OnInit, OnDestroy {
   BookOpenIcon = BookOpen;
   FileTextIcon = FileText;
   BookmarkIcon = Bookmark;
+  AlertCircleIcon = AlertCircle;
+  ClockIcon = Clock;
 
   // Enums for Template Access
   BookSort = BookSort;

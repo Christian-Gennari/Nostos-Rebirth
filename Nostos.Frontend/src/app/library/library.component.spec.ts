@@ -372,6 +372,54 @@ describe('Library', () => {
     expect(row.querySelectorAll('.list-row-status button')).toHaveLength(2);
   });
 
+  it('renders importing status overlay when book status is Downloading or Transcoding', () => {
+    component.viewMode.set('grid');
+    const baseBook = {
+      title: 'A Title',
+      subtitle: 'A Subtitle',
+      author: 'An Author',
+      type: 'ebook',
+      coverUrl: null,
+      rating: 0,
+      isFavorite: false,
+      finishedAt: null,
+      progressPercent: 0,
+      createdAt: '2026-01-01T00:00:00Z',
+      otherEditions: [],
+    };
+    component.rawBooks.set([
+      {
+        ...baseBook,
+        id: 'book-downloading',
+        status: 1, // Downloading
+      } as unknown as Book,
+      {
+        ...baseBook,
+        id: 'book-transcoding',
+        status: 2, // Transcoding
+      } as unknown as Book,
+      {
+        ...baseBook,
+        id: 'book-failed',
+        status: 3, // Failed
+        statusMessage: 'Disk full',
+      } as unknown as Book,
+    ]);
+    fixture.detectChanges();
+
+    const cards = fixture.nativeElement.querySelectorAll('.book-card');
+    expect(cards.length).toBe(3);
+
+    expect(cards[0].classList.contains('is-importing')).toBe(true);
+    expect(cards[0].querySelector('.import-status-label')?.textContent).toBe('Downloading');
+
+    expect(cards[1].classList.contains('is-importing')).toBe(true);
+    expect(cards[1].querySelector('.import-status-label')?.textContent).toBe('Transcoding');
+
+    expect(cards[2].classList.contains('is-failed')).toBe(true);
+    expect(cards[2].querySelector('.import-status-label')?.textContent).toBe('Failed');
+  });
+
   it('shows an empty state with a creation action when the library is empty', () => {
     fixture.detectChanges();
 

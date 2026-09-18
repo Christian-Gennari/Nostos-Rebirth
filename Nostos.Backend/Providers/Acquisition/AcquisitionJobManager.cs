@@ -245,6 +245,8 @@ public sealed class AcquisitionJobManager : BackgroundService, IAcquisitionJobMa
                 _stage = progress.Stage;
                 _percent = Math.Clamp(progress.Percent, 0, 100);
                 _detail = progress.Detail;
+                if (progress.BookId.HasValue)
+                    _bookId = progress.BookId.Value;
                 Touch();
             }
         }

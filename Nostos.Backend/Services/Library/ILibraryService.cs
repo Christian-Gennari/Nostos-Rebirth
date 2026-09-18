@@ -117,6 +117,16 @@ public interface ILibraryService
     /// </summary>
     Task<LibraryCommandResultDto> DeleteBookAsync(Guid bookId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Update the life-cycle status of an in-flight or completed book import.
+    /// High-frequency / internal milestone update, not receipt-guarded.
+    /// </summary>
+    Task<LibraryCommandResultDto> SetBookStatusAsync(
+        Guid bookId,
+        BookStatus status,
+        string? statusMessage = null,
+        CancellationToken ct = default);
+
     Task<LibraryCommandResultDto> CreateCollectionAsync(LibraryCreateCollectionRequest request, CancellationToken ct = default);
 
     Task<LibraryCommandResultDto> RenameCollectionAsync(LibraryRenameCollectionRequest request, CancellationToken ct = default);

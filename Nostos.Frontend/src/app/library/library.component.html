@@ -300,8 +300,20 @@
       <div class="book-grid">
         @for (book of books(); track book.id) {
 
-        <div class="book-card" [routerLink]="['/library', getBookRouteId(book)]" (mouseenter)="prefetchHeroCover(book.coverUrl)">
+        <div class="book-card" [class.is-importing]="book.status === 1 || book.status === 2" [class.is-failed]="book.status === 3" [routerLink]="['/library', getBookRouteId(book)]" (mouseenter)="prefetchHeroCover(book.coverUrl)">
           <div class="cover-wrapper">
+            @if (book.status === 1 || book.status === 2) {
+              <div class="import-status-overlay">
+                <lucide-icon [img]="LoaderIcon" [size]="24" class="spin-animation"></lucide-icon>
+                <span class="import-status-label">{{ book.status === 2 ? 'Transcoding' : 'Downloading' }}</span>
+              </div>
+            } @else if (book.status === 3) {
+              <div class="import-status-overlay is-failed-overlay" [attr.title]="book.statusMessage || 'Import failed'">
+                <lucide-icon [img]="AlertCircleIcon" [size]="24"></lucide-icon>
+                <span class="import-status-label">Failed</span>
+              </div>
+            }
+
             @if (book.coverUrl) {
             <img
               [src]="getLibraryCoverUrl(book.coverUrl)"

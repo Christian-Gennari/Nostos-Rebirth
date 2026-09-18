@@ -218,6 +218,7 @@ builder.Services.AddSingleton<IContentProvider, LibriVoxProvider>();
 builder.Services.AddSingleton<AcquisitionJobManager>();
 builder.Services.AddSingleton<IAcquisitionJobManager>(sp => sp.GetRequiredService<AcquisitionJobManager>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<AcquisitionJobManager>());
+builder.Services.AddHostedService<AcquisitionReconciliationWorker>();
 builder.Services.AddHostedService<ConceptCleanupWorker>();
 builder.Services.AddHostedService<BackupWorker>();
 builder.Services.AddHostedService<LibraryReceiptRetentionWorker>();

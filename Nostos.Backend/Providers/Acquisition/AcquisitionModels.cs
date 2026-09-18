@@ -64,7 +64,11 @@ public sealed record AcquisitionResult(
 /// Coarse progress for the UI. Stages are deliberately few and stable so the
 /// client can label them without knowing which provider is running.
 /// </summary>
-public sealed record AcquisitionProgress(string Stage, int Percent, string? Detail = null);
+public sealed record AcquisitionProgress(
+    string Stage,
+    int Percent,
+    string? Detail = null,
+    Guid? BookId = null);
 
 /// <summary>
 /// An expected, reportable failure of the acquisition pipeline itself (as

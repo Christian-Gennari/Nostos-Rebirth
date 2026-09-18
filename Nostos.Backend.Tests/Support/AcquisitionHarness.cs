@@ -168,6 +168,7 @@ public sealed class FakeProviderContentDownloader : IProviderContentDownloader
     public List<Uri> RequestedUrls { get; } = new();
     public byte[] DefaultPayload { get; set; } = new byte[] { 10, 20, 30, 40, 50 };
     public byte[]? DefaultCoverPayload { get; set; }
+    public Func<CancellationToken, Task>? OnDownloadAsync { get; set; }
     public Exception? ExceptionToThrowOnDownload { get; set; }
     public Exception? ExceptionToThrowOnDownloadBytes { get; set; }
     public int DownloadCallCount { get; private set; }
@@ -183,6 +184,9 @@ public sealed class FakeProviderContentDownloader : IProviderContentDownloader
     {
         DownloadCallCount++;
         RequestedUrls.Add(url);
+
+        if (OnDownloadAsync is not null)
+            await OnDownloadAsync(ct);
 
         if (ExceptionToThrowOnDownload is not null)
             throw ExceptionToThrowOnDownload;
