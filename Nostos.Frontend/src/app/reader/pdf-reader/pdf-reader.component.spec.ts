@@ -53,9 +53,19 @@ class PdfViewerStub {
   showTextEditor = input<boolean>(true);
   showDrawEditor = input<boolean>(true);
   showStampEditor = input<boolean>(true);
+  // Search (issue #226 §2): the find bar and the options the reader trims.
+  findbarVisible = input<boolean>(false);
+  showFindHighlightAll = input<boolean>(true);
+  showFindMatchCase = input<boolean>(false);
+  showFindResultsCount = input<boolean>(true);
+  showFindMessages = input<boolean>(true);
+  showFindMatchDiacritics = input<boolean>(false);
+  showFindEntireWord = input<boolean>(false);
+  showFindMultiple = input<boolean>(false);
 
   pageChange = output<number>();
   sidebarVisibleChange = output<boolean>();
+  findbarVisibleChange = output<boolean>();
   pagesLoaded = output<any>();
   pageRender = output<any>();
   pageRendered = output<any>();
@@ -307,5 +317,109 @@ describe('PdfReader contents rail from the embedded outline', () => {
     );
     expect(dts).toContain('pagesCount');
     expect(dts).not.toContain('pdfDocument');
+  });
+});
+
+/**
+ * Search was unreachable: the library's find bar was bound to nothing and no
+ * other search path existed, so Ctrl+F did nothing at all in a PDF (issue #226
+ * §2). These pin the shortcut that opens it, and the Escape that closes it
+ * before the shell can treat it as "close a rail".
+ */
+describe('PdfReader search shortcut', () => {
+  let fixture: ComponentFixture<PdfReader>;
+
+  beforeEach(async () => {
+    localStorage.clear();
+    await TestBed.configureTestingModule({
+      imports: [PdfReader],
+      providers: [
+        { provide: NotesService, useValue: { list: vi.fn(() => of([])) } },
+        { provide: BooksService, useValue: { updateProgress: vi.fn(() => of(null)) } },
+        {
+          provide: PdfAnnotationManager,
+          useValue: { paint: vi.fn(), captureHighlight: vi.fn(), captureNoteLocation: vi.fn(() => null) },
+        },
+      ],
+    })
+      .overrideComponent(PdfReader, {
+        remove: { imports: [NgxExtendedPdfViewerModule] },
+        add: { imports: [PdfViewerStub] },
+      })
+      .compileComponents();
+
+    fixture = TestBed.createComponent(PdfReader);
+    fixture.componentRef.setInput('bookId', 'book-1');
+    fixture.detectChanges();
+  });
+
+  const key = (init: KeyboardEventInit) =>
+    new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init });
+
+  it('opens the find bar on Ctrl+F and on Cmd+F, and prevents the browser’s own find', () => {
+    const component = fixture.componentInstance;
+
+    const ctrl = key({ key: 'f', ctrlKey: true });
+    component.onShortcutKeydown(ctrl);
+    expect(component.findBarVisible()).toBe(true);
+    expect(ctrl.defaultPrevented).toBe(true);
+
+    component.findBarVisible.set(false);
+    const meta = key({ key: 'F', metaKey: true });
+    component.onShortcutKeydown(meta);
+    expect(component.findBarVisible()).toBe(true);
+  });
+
+  it('leaves other modifiers and plain keys alone', () => {
+    const component = fixture.componentInstance;
+
+    // Ctrl+Shift+F is not our shortcut, and neither is Ctrl+A.
+    component.onShortcutKeydown(key({ key: 'f', ctrlKey: true, shiftKey: true }));
+    expect(component.findBarVisible()).toBe(false);
+
+    component.onShortcutKeydown(key({ key: 'a', ctrlKey: true }));
+    expect(component.findBarVisible()).toBe(false);
+
+    // A bare "f" must still reach the page (and the shell's page keys).
+    const plain = key({ key: 'f' });
+    component.onShortcutKeydown(plain);
+    expect(component.findBarVisible()).toBe(false);
+    expect(plain.defaultPrevented).toBe(false);
+  });
+
+  it('Escape closes the bar without the event reaching the shell', () => {
+    const component = fixture.componentInstance;
+    component.findBarVisible.set(true);
+
+    const esc = key({ key: 'Escape' });
+    component.onShortcutKeydown(esc);
+
+    expect(component.findBarVisible()).toBe(false);
+    expect(esc.defaultPrevented).toBe(true);
+  });
+
+  it('Escape is left to the shell when the bar is not open', () => {
+    const esc = key({ key: 'Escape' });
+    fixture.componentInstance.onShortcutKeydown(esc);
+
+    expect(esc.defaultPrevented).toBe(false);
+  });
+
+  it('drives the viewer’s find bar from that signal, with the jargon options off', () => {
+    const viewer = fixture.debugElement.query(By.directive(PdfViewerStub))
+      .componentInstance as PdfViewerStub;
+    expect(viewer.findbarVisible()).toBe(false);
+
+    fixture.componentInstance.findBarVisible.set(true);
+    fixture.detectChanges();
+    expect(viewer.findbarVisible()).toBe(true);
+
+    // The two options a reader of a book uses stay; the three pdf.js engine
+    // options do not get a row each in a reading interface.
+    expect(viewer.showFindHighlightAll()).toBe(true);
+    expect(viewer.showFindMatchCase()).toBe(true);
+    expect(viewer.showFindMatchDiacritics()).toBe(false);
+    expect(viewer.showFindEntireWord()).toBe(false);
+    expect(viewer.showFindMultiple()).toBe(false);
   });
 });
