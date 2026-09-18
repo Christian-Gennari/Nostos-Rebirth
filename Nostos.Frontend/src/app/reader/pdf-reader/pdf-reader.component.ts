@@ -37,6 +37,17 @@ import { IReader, ReaderProgress, TocItem } from '../reader.interface';
  */
 const PDF_LIGHT_SURROUND = '#fefeff';
 
+/**
+ * Page fits a fixed-layout document can be read at, offered in the shell's view
+ * panel. A phone default of a fitted whole page renders a 512-page book at about
+ * 9.5px, so 'page-width' leads; 100 is actual size (issue #226 §9).
+ */
+export const PDF_ZOOM_PRESETS: { value: string | number; label: string }[] = [
+  { value: 'page-width', label: 'Fit width' },
+  { value: 'page-fit', label: 'Whole page' },
+  { value: 100, label: 'Actual size' },
+];
+
 interface PendingPdfHighlight {
   tempId: string;
   pageNumber: number;
@@ -169,6 +180,9 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   private progressUpdater$ = new Subject<{ location: string; percentage: number }>();
 
   ngOnInit() {
+    // Zoom is a per-book preference; the viewport default is only a starting point
+    // (issue #226 §9).
+    this.restoreSavedZoom();
     this.loadNotes();
 
     this.progressUpdater$
@@ -228,13 +242,64 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   }
 
   zoomIn() {
-    // CHANGE: If current zoom is a string (like 'page-fit'), default to 110% to start manual zooming
-    this.zoomLevel.update((v) => (typeof v === 'number' ? v + 10 : 110));
+    // From a named fit, the first step lands on a concrete percentage so the
+    // reader is never stuck on a fit it cannot enlarge.
+    const current = this.zoomLevel();
+    this.setZoom(typeof current === 'number' ? Math.min(current + 10, 400) : 110);
   }
 
   zoomOut() {
-    // CHANGE: If current zoom is a string, default to 90%
-    this.zoomLevel.update((v) => (typeof v === 'number' ? Math.max(v - 10, 20) : 90));
+    const current = this.zoomLevel();
+    this.setZoom(typeof current === 'number' ? Math.max(current - 10, 20) : 90);
+  }
+
+  /**
+   * Set the zoom and remember it for THIS book (issue #226 §9: "zoom persists
+   * per book"). A named fit is stored as the name, so it keeps adapting when the
+   * window changes; a chosen percentage is stored as the number picked.
+   */
+  setZoom(zoom: string | number): void {
+    this.zoomLevel.set(zoom);
+    try {
+      localStorage.setItem(this.zoomStorageKey(), JSON.stringify(zoom));
+    } catch {
+      // Private-mode storage can throw — the zoom still applies for the session.
+    }
+  }
+
+  /** Whether a preset is the zoom currently in effect (drives the active chip). */
+  isZoomPreset(preset: string | number): boolean {
+    const current = this.zoomLevel();
+    if (typeof current === 'number' || typeof preset === 'number') return current === preset;
+    return String(current).toLowerCase() === String(preset).toLowerCase();
+  }
+
+  /**
+   * What to show beside the zoom steps. A named fit reads as a percentage of the
+   * page it is fitting, which is the only honest number available before the
+   * rendition has measured anything.
+   */
+  zoomLabel(): string {
+    const current = this.zoomLevel();
+    if (typeof current === 'number') return `${current}%`;
+    return current === 'page-width' ? 'Fit width' : 'Whole page';
+  }
+
+  readonly zoomPresets = PDF_ZOOM_PRESETS;
+
+  private zoomStorageKey(): string {
+    return `nostos.pdf-zoom.${this.bookId()}`;
+  }
+
+  private restoreSavedZoom(): void {
+    try {
+      const raw = localStorage.getItem(this.zoomStorageKey());
+      if (raw === null) return;
+      const parsed = JSON.parse(raw) as string | number;
+      if (typeof parsed === 'number' || typeof parsed === 'string') this.zoomLevel.set(parsed);
+    } catch {
+      // Unreadable storage falls back to the viewport default.
+    }
   }
 
   // --- PDF Events ---

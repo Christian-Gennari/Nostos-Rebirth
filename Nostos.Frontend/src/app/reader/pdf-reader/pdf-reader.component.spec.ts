@@ -514,7 +514,56 @@ describe('PdfReader reading mode', () => {
       fixture.componentInstance.zoomIn();
       // From a named fit the first step lands on a concrete percentage, so the
       // phone reader is never stuck on a fit it cannot enlarge.
-      expect(typeof fixture.componentInstance.zoomLevel()).toBe('number');
+      expect(fixture.componentInstance.zoomLevel()).toBe(110);
     });
+  });
+
+  it('offers the three fits the acceptance criteria ask for', () => {
+    fixture = make();
+
+    expect(fixture.componentInstance.zoomPresets.map((p) => p.value)).toEqual([
+      'page-width',
+      'page-fit',
+      100,
+    ]);
+  });
+
+  it('sets zoom and remembers it for that book only', () => {
+    fixture = make();
+    const component = fixture.componentInstance;
+
+    component.setZoom('page-fit');
+    expect(component.zoomLevel()).toBe('page-fit');
+    // Stored by NAME, so a fit keeps adapting when the window changes.
+    expect(localStorage.getItem('nostos.pdf-zoom.book-1')).toBe('"page-fit"');
+
+    component.setZoom(150);
+    expect(localStorage.getItem('nostos.pdf-zoom.book-1')).toBe('150');
+    expect(JSON.parse(localStorage.getItem('nostos.pdf-zoom.book-1')!)).toBe(150);
+  });
+
+  it('restores the remembered zoom instead of the viewport default', () => {
+    // The phone default is 'page-width'; a remembered choice must win.
+    localStorage.setItem('nostos.pdf-zoom.book-1', JSON.stringify(175));
+    withViewport(390, () => {
+      fixture = make();
+      expect(fixture.componentInstance.zoomLevel()).toBe(175);
+    });
+  });
+
+  it('reports which preset is active and labels the current zoom', () => {
+    fixture = make();
+    const component = fixture.componentInstance;
+
+    component.setZoom('page-width');
+    expect(component.isZoomPreset('page-width')).toBe(true);
+    expect(component.isZoomPreset('page-fit')).toBe(false);
+    expect(component.zoomLabel()).toBe('Fit width');
+
+    component.setZoom(100);
+    expect(component.isZoomPreset(100)).toBe(true);
+    // A number never matches a named fit, so no chip stays lit by accident.
+    expect(component.isZoomPreset('page-width')).toBe(false);
+    expect(component.zoomLabel()).toBe('100%');
   });
 });

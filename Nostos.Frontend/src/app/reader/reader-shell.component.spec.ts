@@ -294,7 +294,7 @@ describe('ReaderShell toolbar contract (theme system removed)', () => {
     expect(header.filter((t) => t === 'Table of Contents')).toHaveLength(1);
     expect(header.filter((t) => t === 'Notes & Highlights')).toHaveLength(1);
     expect(header.filter((t) => t === 'Highlight mode')).toHaveLength(1);
-    expect(header.filter((t) => t === 'Typography')).toHaveLength(1);
+    expect(header.filter((t) => t === 'View settings')).toHaveLength(1);
     // Back lives with the title it returns to, not with the page keys.
     expect(header.filter((t) => t === 'Back to Library')).toHaveLength(1);
     // And nothing about turning pages is up here.
@@ -303,7 +303,7 @@ describe('ReaderShell toolbar contract (theme system removed)', () => {
     const pager = titlesOf('.reader-toolbar .icon-btn');
     expect(pager.filter((t) => t === 'Previous')).toHaveLength(1);
     expect(pager.filter((t) => t === 'Next')).toHaveLength(1);
-    expect(pager.filter((t) => t === 'Highlight mode' || t === 'Typography')).toHaveLength(0);
+    expect(pager.filter((t) => t === 'Highlight mode' || t === 'View settings')).toHaveLength(0);
 
     // The progress cluster sits between prev and next in the center group.
     const center = fixture.debugElement.query(By.css('.toolbar-center'));
@@ -345,8 +345,11 @@ describe('ReaderShell toolbar contract (theme system removed)', () => {
     const headerTitles = fixture.debugElement
       .queryAll(By.css('.reader-header button.icon-btn'))
       .map((b) => b.nativeElement.getAttribute('title'));
-    expect(headerTitles).toContain('Zoom out');
-    expect(headerTitles).toContain('Zoom in');
+    // Zoom moved into the view panel: at 390px the two zoom buttons plus search,
+    // highlight, notes and contents left the title about 60px of a 390px header.
+    expect(headerTitles).not.toContain('Zoom out');
+    expect(headerTitles).not.toContain('Zoom in');
+    expect(headerTitles).toContain('View settings');
 
     expect(fixture.debugElement.queryAll(By.css('button.desktop-only'))).toHaveLength(0);
 
@@ -484,6 +487,30 @@ describe('ReaderShell typography panel (EPUB)', () => {
     toggle.click();
     render();
     expect(fixture.nativeElement.querySelector('[data-testid="typo-panel"]')).toBeTruthy();
+  });
+
+  it('offers the same view control for a PDF, with the zoom rows and no typeface rows', async () => {
+    const pdfBook = { ...audiobook, id: 'book-pdf', fileName: 'being-and-time.pdf' } as Book;
+    booksGetSpy.mockReturnValue(of(pdfBook));
+
+    fixture = await configureReaderShell();
+    render();
+
+    const toggle = fixture.nativeElement.querySelector('[data-testid="typo-toggle"]');
+    expect(toggle).toBeTruthy();
+    toggle.click();
+    render();
+
+    const panel = fixture.nativeElement.querySelector('[data-testid="typo-panel"]');
+    expect(panel).toBeTruthy();
+    const labels = [...panel.querySelectorAll('.typo-label')].map(
+      (e: HTMLElement) => e.textContent?.trim() ?? ''
+    );
+    expect(labels).toContain('Zoom');
+    expect(labels).toContain('Page fit');
+    // A fixed-layout page has no reflow to retype.
+    expect(labels).not.toContain('Typeface');
+    expect(labels).not.toContain('Line height');
   });
 
   it('shows no Aa toggle for audiobooks', async () => {
