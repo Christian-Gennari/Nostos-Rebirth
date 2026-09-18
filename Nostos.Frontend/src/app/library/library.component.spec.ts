@@ -170,24 +170,35 @@ describe('Library', () => {
     expect(listSpy.mock.calls.length).toBe(calls);
   });
 
-  it('shows no strip while an import is still being planned', () => {
-    // No book row yet (the backend plans first): the modal has just said the import
-    // started, so a strip that appears and vanishes in the same breath is noise.
+  it('draws nothing at all for an import the page cannot show', () => {
+    // The reported glitch, as a test: a strip used to appear for the second between
+    // "the row exists" and "the re-read page contains it", then vanish as the card
+    // arrived. The item is now the only surface, so nothing may be drawn for an
+    // import the current page does not hold — whether it is still being planned (no
+    // row yet) or simply not on this page.
+    const host = fixture.nativeElement as HTMLElement;
+
     importEntries.set([activity({ bookId: null, title: null, state: 'queued', stage: 'preparing' })]);
     fixture.detectChanges();
+    expect(host.querySelector('.offscreen-imports')).toBeNull();
 
-    expect((fixture.nativeElement as HTMLElement).querySelector('.offscreen-imports')).toBeNull();
+    importEntries.set([activity({ bookId: 'book-far-away', percent: 17 })]);
+    component.rawBooks.set([importingBook({ id: 'some-other-book' })]);
+    fixture.detectChanges();
+    expect(host.querySelector('.offscreen-imports')).toBeNull();
+
+    // Nothing was inserted above the results either: the toolbar is still first.
+    const rightSide = host.querySelector('.library-right-side') as HTMLElement;
+    expect(rightSide.firstElementChild!.classList.contains('toolbar')).toBe(true);
   });
 
-  it('still shows a failure that has no library row to live on', () => {
+  it('draws nothing for a failure with no library row — the feed toasts it instead', () => {
     importEntries.set([
       activity({ bookId: null, title: null, state: 'failed', stage: 'failed', message: 'No downloadable assets.' }),
     ]);
     fixture.detectChanges();
 
-    const strip = (fixture.nativeElement as HTMLElement).querySelector('.offscreen-imports');
-    expect(strip).not.toBeNull();
-    expect(strip!.textContent).toContain('No downloadable assets.');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.offscreen-imports')).toBeNull();
   });
 
   it('announces a finished import whose book is not on the page', () => {
@@ -763,51 +774,6 @@ describe('Library', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.offscreen-imports')).toBeNull();
-  });
-
-  it('points at an import the current page cannot show', () => {
-    // The default sort puts a brand-new book (no LastReadAt) after everything the
-    // user has ever opened, so its card is pages away. The strip is what keeps it
-    // visible without standing in for the item.
-    component.viewMode.set('grid');
-    component.rawBooks.set([importingBook({ id: 'some-other-book' })]);
-    importEntries.set([activity({ bookId: 'book-far-away', percent: 17 })]);
-    fixture.detectChanges();
-
-    const strip = fixture.nativeElement.querySelector('.offscreen-imports') as HTMLElement;
-    expect(strip).not.toBeNull();
-    expect(strip.textContent).toContain('An Importing Title');
-    expect(strip.textContent).toContain('17%');
-    expect(strip.querySelector('.offscreen-progress')!.getAttribute('aria-valuenow')).toBe('17');
-
-    const view = strip.querySelector('.item-action') as HTMLButtonElement;
-    expect(view.textContent!.trim()).toBe('Newest first');
-    view.click();
-    // Named for what it does: it re-orders the library so the newest thing in it
-    // comes first, which is where an ungrouped import's own card lands.
-    expect(component.activeSort()).toBe(BookSort.Recent);
-  });
-
-  it('offers Retry and Dismiss in the strip for a failure the list cannot show', () => {
-    component.viewMode.set('grid');
-    component.rawBooks.set([]);
-    importEntries.set([
-      activity({
-        id: 'job-orphan',
-        bookId: null,
-        state: 'failed',
-        stage: 'failed',
-        message: 'This source is not responding.',
-      }),
-    ]);
-    fixture.detectChanges();
-
-    const strip = fixture.nativeElement.querySelector('.offscreen-imports') as HTMLElement;
-    expect(strip.textContent).toContain('This source is not responding.');
-    expect([...strip.querySelectorAll('.item-action')].map((b) => b.textContent!.trim())).toEqual([
-      'Retry',
-      'Dismiss',
-    ]);
   });
 
   it('shows an empty state with a creation action when the library is empty', () => {

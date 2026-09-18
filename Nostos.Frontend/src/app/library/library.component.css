@@ -958,86 +958,6 @@ app-sidebar-collections.no-transition {
   border-color: var(--primary-fill);
 }
 
-/* The ONE piece of chrome left: an import the list below cannot show. It is not in
-   the DOM when every import is visible, so it can never reserve a gap — the opposite
-   of what the removed panel did. Styled like a list row rather than a dashed banner:
-   it is a book that exists, mid-import, not a section of its own. */
-.offscreen-imports {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0 3rem 1rem;
-}
-
-.offscreen-import {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 10px;
-  padding: 10px 14px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
-}
-
-.offscreen-name {
-  flex: 1 1 12rem;
-  min-width: 0;
-  font-size: var(--text-sm);
-  color: var(--color-text-main);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.offscreen-progress {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 12rem;
-}
-
-.offscreen-progress-track {
-  flex: 1;
-  min-width: 4rem;
-  height: 4px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-hover);
-  overflow: hidden;
-}
-
-.offscreen-progress-track i {
-  display: block;
-  height: 100%;
-  border-radius: var(--radius-pill);
-  background: var(--primary-fill);
-  transition: width var(--transition-fast);
-}
-
-.offscreen-caption {
-  flex: none;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: var(--fw-semibold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-text-light);
-}
-
-.offscreen-percent {
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-main);
-}
-
-.offscreen-import .item-failure {
-  flex: 1 1 14rem;
-}
-
-.offscreen-import .item-failure-actions {
-  margin-top: 0;
-}
 
 .cover-wrapper {
   position: relative;
@@ -1665,34 +1585,6 @@ app-sidebar-collections.no-transition {
     font-size: var(--text-sm);
   }
 
-  .offscreen-imports {
-    margin: 0 14px 1.25rem;
-  }
-
-  .offscreen-import {
-    gap: 8px;
-  }
-
-  /* Full width rows at 390px: a 12rem minimum for the name and the bar would
-     force the "View" action onto a line of its own with an odd gap. */
-  .offscreen-name,
-  .offscreen-import .item-failure {
-    flex: 1 1 100%;
-    white-space: normal;
-  }
-
-  .offscreen-progress {
-    flex: 1 1 60%;
-    min-width: 0;
-  }
-
-  .offscreen-progress-track {
-    height: 5px;
-  }
-
-  .offscreen-caption {
-    font-size: var(--text-xs);
-  }
 
   /* Keep cover steady without hover translation on touch devices */
   .book-card:hover .cover-wrapper {

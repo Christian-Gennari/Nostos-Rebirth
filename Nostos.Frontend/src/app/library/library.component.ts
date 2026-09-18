@@ -596,59 +596,7 @@ export class Library implements OnInit, OnDestroy {
     return progress ? `${stage}, ${progress.percent} percent` : stage;
   }
 
-  /**
-   * Imports the library cannot show, and that the user would otherwise lose: one
-   * whose book is not on this page (filtered out, searched away, or further down the
-   * list), and a failure with no library row at all.
-   *
-   * The plan phase (no book row yet, ~1-3s) is deliberately NOT included. The modal
-   * has just said the import started; a strip that appears and vanishes in the same
-   * breath reads as a glitch, and once the row exists the server sorts the book first
-   * in every order, so it arrives in the list carrying its own bar.
-   */
-  readonly offscreenImports = computed(() => {
-    // Suppressed during the first paint: with no results rendered yet every
-    // import would look off-screen, which would flash a strip on every load.
-    if (this.loading()) return [];
-
-    const visible = new Set(this.rawBooks().map((book) => book.id));
-
-    return this.imports.imports().filter((entry) => {
-      if (entry.bookId && visible.has(entry.bookId)) return false;
-      if (!entry.bookId && importIsInFlight(entry)) return false;
-      return true;
-    });
-  });
-
-  /**
-   * Order the library so the newest thing in it comes first.
-   *
-   * Named for what it does rather than "take me to it", because it cannot promise
-   * that: with `groupByWork` (the default) an imported edition that merges into an
-   * existing work is represented by that work's card — which is a different
-   * edition, ordered by the work's own recency — so re-sorting moves it to a page
-   * rather than into view. Under an ungrouped view it lands first.
-   */
-  showImport(event: Event): void {
-    event.stopPropagation();
-    this.activeSort.set(BookSort.Recent);
-    this.preferences.setSort(BookSort.Recent);
-    this.refreshBooks();
-  }
-
-  importInFlight(activity: ImportActivity): boolean {
-    return importIsInFlight(activity);
-  }
-
-  importStage(activity: ImportActivity): string {
-    return importStageLabel(activity);
-  }
-
-  cancelImport(activity: ImportActivity, event: Event): void {
-    event.stopPropagation();
-    this.imports.cancel(activity);
-  }
-
+  /** Retry or dismiss a failed import, from the item it belongs to. */
   retryImport(activity: ImportActivity, event: Event): void {
     event.stopPropagation();
     this.imports.retry(activity);
