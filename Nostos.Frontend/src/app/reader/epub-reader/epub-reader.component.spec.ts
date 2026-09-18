@@ -4,7 +4,7 @@ import ePub from 'epubjs';
 
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
-import { EpubReader } from './epub-reader.component';
+import { EpubReader, marginPaddingPx, typographyCss } from './epub-reader.component';
 import { EpubAnnotationManager } from './epub-annotation-manager';
 
 vi.mock('epubjs', () => ({ default: vi.fn() }));
@@ -413,5 +413,218 @@ describe('EpubReader theme-following normalization', () => {
     // Each rendition registered both Nostos themes exactly once.
     expect(firstRendition.themes.registered).toEqual(['nostos-light', 'nostos-dark']);
     expect(secondRendition.themes.registered).toEqual(['nostos-light', 'nostos-dark']);
+  });
+});
+
+describe('typographyCss', () => {
+  it('keeps the publisher typeface on default but applies spacing', () => {
+    const css = typographyCss({ fontFamily: 'default', lineHeight: 1.6, margin: 'normal' });
+    expect(css).not.toContain('font-family');
+    expect(css).toContain('line-height:1.6 !important');
+    // Margins are NOT a stylesheet rule: epub.js writes its own inline
+    // `padding: 42px !important` per contents and inline !important beats any
+    // stylesheet rule. They go through marginPaddingPx + an inline write.
+    expect(css).not.toContain('padding');
+  });
+
+  it('overrides the typeface per choice', () => {
+    const css = typographyCss({ fontFamily: 'serif', lineHeight: 2.0, margin: 'wide' });
+    expect(css).toContain('font-family:Newsreader, Georgia, serif !important');
+    expect(css).toContain('line-height:2 !important');
+    expect(css).not.toContain('padding');
+  });
+});
+
+describe('marginPaddingPx', () => {
+  it('scales each preset against the page width', () => {
+    expect(marginPaddingPx('narrow', 400)).toBe(16);
+    expect(marginPaddingPx('normal', 400)).toBe(40);
+    expect(marginPaddingPx('wide', 400)).toBe(72);
+  });
+
+  it('matches epub.js own inset at normal on a real column width', () => {
+    // epub.js sets padding 42px on a 428px column; normal lands at 43px, so the
+    // middle preset reads as "unchanged" rather than as a jump.
+    expect(marginPaddingPx('normal', 428)).toBe(43);
+  });
+
+  it('returns 0 for an unmeasurable page', () => {
+    expect(marginPaddingPx('wide', 0)).toBe(0);
+  });
+});
+
+describe('EpubReader typography persistence', () => {
+  let fixture: ComponentFixture<EpubReader>;
+
+  const notesService = {
+    list: vi.fn(() => of([])),
+    create: vi.fn(() => of({ id: 'n1' } as never)),
+  };
+  const booksService = {
+    getLocations: vi.fn(() => of({ locations: null })),
+    saveLocations: vi.fn(() => of(null)),
+    updateProgress: vi.fn(() => of(null)),
+    get: vi.fn(() => of({ lastLocation: null })),
+  };
+
+  function makeDocument() {
+    const doc = new DOMParser().parseFromString(
+      '<html><head></head><body></body></html>',
+      'text/html',
+    );
+    return doc;
+  }
+
+  beforeEach(async () => {
+    localStorage.clear();
+    vi.mocked(ePub).mockImplementation(
+      () =>
+        ({
+          renderTo: () => ({
+            hooks: { content: { register: vi.fn() } },
+            themes: { register: vi.fn(), select: vi.fn(), fontSize: vi.fn() },
+            on: vi.fn(),
+            off: vi.fn(),
+            getContents: () => [],
+            display: vi.fn(() => Promise.resolve()),
+          }),
+          ready: Promise.resolve({ navigation: { toc: [] } }),
+          locations: {
+            load: vi.fn(),
+            generate: vi.fn(() => Promise.resolve()),
+            save: vi.fn(),
+            length: () => 0,
+            percentageFromCfi: () => 0,
+            locationFromCfi: () => 0,
+          },
+          navigation: { toc: [] },
+          destroy: vi.fn(),
+        }) as never,
+    );
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+
+    await TestBed.configureTestingModule({
+      imports: [EpubReader],
+      providers: [
+        { provide: NotesService, useValue: notesService },
+        { provide: BooksService, useValue: booksService },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(EpubReader);
+    fixture.componentRef.setInput('bookId', 'book-9');
+    fixture.detectChanges();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('persists a change per book and restores it on open', () => {
+    const component = fixture.componentInstance;
+    component.setTypography({ fontFamily: 'sans', lineHeight: 1.8 });
+    expect(JSON.parse(localStorage.getItem('nostos.epub-typography.book-9')!)).toEqual({
+      fontFamily: 'sans',
+      lineHeight: 1.8,
+      margin: 'normal',
+    });
+
+    // Reopen: the remembered typography is restored, not the defaults.
+    component.loadBook('book-9');
+    expect(component.typography()).toEqual({
+      fontFamily: 'sans',
+      lineHeight: 1.8,
+      margin: 'normal',
+    });
+  });
+
+  it('reset restores publisher defaults', () => {
+    const component = fixture.componentInstance;
+    component.setTypography({ fontFamily: 'mono', margin: 'wide' });
+    component.resetTypography();
+    expect(component.typography()).toEqual({
+      fontFamily: 'default',
+      lineHeight: 1.6,
+      margin: 'normal',
+    });
+  });
+
+  it('writes the rules into newly rendered sections', () => {
+    const component = fixture.componentInstance;
+    component.setTypography({ fontFamily: 'serif', lineHeight: 2.0, margin: 'narrow' });
+
+    const doc = makeDocument();
+    (component as unknown as { upsertTypographyStyle: (d: Document) => void }).upsertTypographyStyle(doc);
+    const style = doc.getElementById('nostos-typography');
+    expect(style?.textContent).toContain('font-family:Newsreader, Georgia, serif !important');
+    expect(style?.textContent).not.toContain('padding');
+  });
+
+  it('applies margins as an inline !important write scaled to the page width', () => {
+    const component = fixture.componentInstance;
+    const reader = component as unknown as {
+      typographyBasisPx: (d: Document) => number;
+      upsertTypographyStyle: (d: Document) => void;
+    };
+    // 400px page: wide = 72px, narrow = 16px. The value has to be written
+    // inline with priority important, because epub.js puts its own padding
+    // inline-important on the same element.
+    reader.typographyBasisPx = () => 400;
+
+    component.setTypography({ margin: 'wide' });
+    const wideDoc = makeDocument();
+    reader.upsertTypographyStyle(wideDoc);
+    expect(wideDoc.body.style.getPropertyValue('padding-left')).toBe('72px');
+    expect(wideDoc.body.style.getPropertyValue('padding-right')).toBe('72px');
+    expect(wideDoc.body.style.getPropertyPriority('padding-left')).toBe('important');
+
+    component.setTypography({ margin: 'narrow' });
+    const narrowDoc = makeDocument();
+    reader.upsertTypographyStyle(narrowDoc);
+    expect(narrowDoc.body.style.getPropertyValue('padding-left')).toBe('16px');
+  });
+
+  it('re-applies the margins on the relocated event, after epub.js has laid out', () => {
+    const component = fixture.componentInstance;
+    // The registration is the contract: epub.js writes the contents' inline
+    // padding while laying a section out — after our content hook — so the
+    // preset has to be re-applied once the layout exists. Without this a saved
+    // margin reverted to epub.js's own 42px on open (measured live).
+    const rendition = (component as unknown as {
+      rendition: { on: ReturnType<typeof vi.fn> } | null;
+    }).rendition;
+    const relocated = rendition?.on.mock.calls.find((c) => c[0] === 'relocated');
+    expect(relocated).toBeTruthy();
+
+    // …and its handler is safe to run (it re-applies to whatever is rendered).
+    expect(() =>
+      (relocated![1] as (l: unknown) => void)({ start: { cfi: 'cfi', href: 'h' } }),
+    ).not.toThrow();
+  });
+
+  it('leaves epub.js own inset alone when the page width is unmeasurable', () => {
+    const component = fixture.componentInstance;
+    const reader = component as unknown as {
+      typographyBasisPx: (d: Document) => number;
+      upsertTypographyStyle: (d: Document) => void;
+    };
+    reader.typographyBasisPx = () => 0;
+
+    const doc = makeDocument();
+    doc.body.setAttribute('style', 'padding-left: 42px !important');
+    reader.upsertTypographyStyle(doc);
+
+    expect(doc.body.style.getPropertyValue('padding-left')).toBe('42px');
   });
 });

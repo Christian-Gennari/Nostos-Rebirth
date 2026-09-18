@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { Component, forwardRef, input, output } from '@angular/core';
+import { Component, forwardRef, input, output, signal } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
@@ -56,6 +56,16 @@ class EpubReaderStub {
   noteCreated = output<void>();
   selectionCaptured = output<unknown>();
   commitFailed = output<unknown>();
+  // Typography surface the shell panel binds (mirrors EpubReader).
+  typography = signal({ fontFamily: 'default', lineHeight: 1.6, margin: 'normal' });
+  fontOptions = [
+    { value: 'default', label: 'Publisher' },
+    { value: 'serif', label: 'Serif' },
+  ];
+  lineOptions = [1.4, 1.6];
+  marginOptions = [{ value: 'normal', label: 'Normal' }];
+  setTypography = vi.fn();
+  resetTypography = vi.fn();
 }
 
 // The shell binds [(ngModel)] to app-concept-input; the stub must be a
@@ -287,8 +297,7 @@ describe('ReaderShell toolbar contract (theme system removed)', () => {
    * A bare `overflow-toggle` ATTRIBUTE instead of `class="overflow-toggle"` is exactly
    * the bug this guards: it is valid HTML, compiles, and matches nothing.
    */
-  it('keeps the CSS hook classes on the migrated toolbar buttons', async () => {
-    // A NON-audio book: the overflow toggle and the desktop-only zoom pair live in the
+  it('keeps the CSS hook classes on the migrated toolbar buttons', async () => {    // A NON-audio book: the overflow toggle and the desktop-only zoom pair live in the
     // `@else` branch, so an audiobook fixture renders none of them and the assertions
     // below would pass vacuously against an empty list.
     const epubBook = { ...audiobook, id: 'book-epub', fileName: 'iliad.epub' } as Book;
@@ -364,5 +373,69 @@ describe('ReaderShell note delete (no window.confirm)', () => {
     component.cancelNoteDelete();
     expect(component.pendingNoteDelete()).toBeNull();
     expect(notes.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe('ReaderShell typography panel (EPUB)', () => {
+  let fixture: ComponentFixture<ReaderShell>;
+
+  beforeEach(() => {
+    booksGetSpy.mockReset();
+    booksGetSpy.mockReturnValue(of(audiobook));
+
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+
+    mockMatchMedia();
+  });
+
+  function render() {
+    fixture.detectChanges();
+    fixture.detectChanges();
+  }
+
+  it('offers the Aa toggle for epubs and opens the panel', async () => {
+    const epubBook = { ...audiobook, id: 'book-epub', fileName: 'iliad.epub' } as Book;
+    booksGetSpy.mockReturnValue(of(epubBook));
+
+    fixture = await configureReaderShell();
+    render();
+
+    const toggle = fixture.nativeElement.querySelector('[data-testid="typo-toggle"]');
+    expect(toggle).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="typo-panel"]')).toBeNull();
+
+    toggle.click();
+    render();
+    expect(fixture.nativeElement.querySelector('[data-testid="typo-panel"]')).toBeTruthy();
+  });
+
+  it('shows no Aa toggle for audiobooks', async () => {
+    fixture = await configureReaderShell();
+    render();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="typo-toggle"]')).toBeNull();
+  });
+
+  it('forwards a typeface choice to the epub reader', async () => {
+    const epubBook = { ...audiobook, id: 'book-epub', fileName: 'iliad.epub' } as Book;
+    booksGetSpy.mockReturnValue(of(epubBook));
+
+    fixture = await configureReaderShell();
+    render();
+
+    fixture.componentInstance.toggleTypo();
+    render();
+
+    const serif = Array.from(
+      fixture.nativeElement.querySelectorAll(
+        '[data-testid="typo-panel"] .typo-opt',
+      ) as NodeListOf<HTMLButtonElement>,
+    ).find((el) => el.textContent?.trim() === 'Serif');
+    expect(serif).toBeTruthy();
+    serif!.click();
+
+    const stub = fixture.debugElement.query(By.directive(EpubReaderStub));
+    expect(stub.componentInstance.setTypography).toHaveBeenCalledWith({ fontFamily: 'serif' });
   });
 });

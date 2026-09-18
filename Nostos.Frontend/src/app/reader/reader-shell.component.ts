@@ -23,6 +23,7 @@ import {
   Save,
   Plus,
   Info,
+  Type as TypeIcon,
 } from 'lucide-angular';
 
 // Services
@@ -63,7 +64,9 @@ import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
   styleUrl: './reader-shell.component.css',
 })
 export class ReaderShell implements OnInit {
-  @ViewChild(EpubReader) epubReader?: IReader;
+  // Template-ref query (not type query): the epub child is stubbed in specs,
+  // and a type query would resolve to null against the stub.
+  @ViewChild('epubReader') epubReader?: EpubReader;
   @ViewChild(PdfReader) pdfReader?: IReader;
   @ViewChild(AudioReader) audioReader?: IReader;
 
@@ -85,14 +88,22 @@ export class ReaderShell implements OnInit {
     Clock,
     List,
     MoreHorizontal,
-    ZoomIn,
-    ZoomOut,
-    Prev: ChevronLeft,
-    Next: ChevronRight,
-    Save,
-    Plus,
-    Info,
+  ZoomIn,
+  ZoomOut,
+  Prev: ChevronLeft,
+  Next: ChevronRight,
+  Save,
+  Plus,
+  Info,
+  Type: TypeIcon,
   };
+
+  /** Typography panel (EPUB only) toggled by the Aa control. */
+  typoOpen = signal(false);
+
+  toggleTypo(): void {
+    this.typoOpen.update((v) => !v);
+  }
 
   book = signal<any>(null);
   loading = signal(true);

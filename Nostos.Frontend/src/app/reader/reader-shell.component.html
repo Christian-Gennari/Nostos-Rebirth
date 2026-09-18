@@ -16,7 +16,7 @@
         (commitFailed)="handleCommitFailed()"
       />
       } @case ('epub') {
-      <app-epub-reader [bookId]="book()!.id" [highlightMode]="highlightMode()" (noteCreated)="handleNoteCreated()" (selectionCaptured)="handleSelectionCaptured($event)" (commitFailed)="handleCommitFailed()" />
+      <app-epub-reader #epubReader [bookId]="book()!.id" [highlightMode]="highlightMode()" (noteCreated)="handleNoteCreated()" (selectionCaptured)="handleSelectionCaptured($event)" (commitFailed)="handleCommitFailed()" />
       } @case ('audio') {
       <app-audio-reader [bookId]="book()!.id" [book]="book()" />
       } @default {
@@ -193,6 +193,13 @@
         <button appIconButton [icon]="Icons.Highlighter" [glyphSize]="20" [class.active]="highlightMode()"
           (click)="toggleHighlightMode()"
           title="Highlight mode"></button>
+        @if (fileType() === 'epub') {
+        <button appIconButton [icon]="Icons.Type" [glyphSize]="20" [class.active]="typoOpen()"
+          (click)="toggleTypo()"
+          title="Typography"
+          aria-label="Typography settings"
+          data-testid="typo-toggle"></button>
+        }
         <button appIconButton class="desktop-only" [icon]="Icons.ZoomOut" [glyphSize]="20" (click)="zoomOut()"></button>
         <button appIconButton class="desktop-only" [icon]="Icons.ZoomIn" [glyphSize]="20" (click)="zoomIn()"></button>
         <button appIconButton [icon]="Icons.NotebookPen" [glyphSize]="20" (click)="toggleNotes()" [class.active]="notesOpen()" title="Notes & Highlights"></button>
@@ -210,4 +217,50 @@
     (cancel)="cancelNoteDelete()"
   >
   </app-confirm-modal>
+  <!-- EPUB typography panel: typeface, line height, margins. State lives on
+       the EpubReader (persisted per book); the shell only toggles the panel. -->
+  @if (typoOpen() && fileType() === 'epub' && epubReader) {
+  <div class="typo-panel" data-testid="typo-panel" role="dialog" aria-label="Typography settings">
+    <div class="typo-row">
+      <span class="typo-label">Typeface</span>
+      <div class="typo-opts" role="group" aria-label="Typeface">
+        @for (f of epubReader.fontOptions; track f.value) {
+        <button
+          type="button"
+          class="typo-opt"
+          [class.active]="epubReader.typography().fontFamily === f.value"
+          (click)="epubReader.setTypography({ fontFamily: f.value })"
+        >{{ f.label }}</button>
+        }
+      </div>
+    </div>
+    <div class="typo-row">
+      <span class="typo-label">Line height</span>
+      <div class="typo-opts" role="group" aria-label="Line height">
+        @for (lh of epubReader.lineOptions; track lh) {
+        <button
+          type="button"
+          class="typo-opt"
+          [class.active]="epubReader.typography().lineHeight === lh"
+          (click)="epubReader.setTypography({ lineHeight: lh })"
+        >{{ lh.toFixed(1) }}</button>
+        }
+      </div>
+    </div>
+    <div class="typo-row">
+      <span class="typo-label">Margins</span>
+      <div class="typo-opts" role="group" aria-label="Margins">
+        @for (m of epubReader.marginOptions; track m.value) {
+        <button
+          type="button"
+          class="typo-opt"
+          [class.active]="epubReader.typography().margin === m.value"
+          (click)="epubReader.setTypography({ margin: m.value })"
+        >{{ m.label }}</button>
+        }
+      </div>
+    </div>
+    <button type="button" class="typo-reset" (click)="epubReader.resetTypography()">Reset</button>
+  </div>
+  }
 </div>
