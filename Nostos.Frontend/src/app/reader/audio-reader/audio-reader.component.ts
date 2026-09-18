@@ -17,7 +17,7 @@ import { FormsModule } from '@angular/forms';
 import { Howl } from 'howler';
 import { Subject, Subscription } from 'rxjs';
 import { sampleTime, filter } from 'rxjs/operators';
-import { LucideAngularModule, Play, Pause, AudioLines, RotateCcw, RotateCw, Moon } from 'lucide-angular';
+import { LucideAngularModule, Play, Pause, AudioLines, RotateCcw, RotateCw, Moon, SkipBack, SkipForward } from 'lucide-angular';
 import { BooksService } from '../../core/services/books.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 import { Book } from '../../core/dtos/book.dtos';
@@ -39,7 +39,7 @@ export class AudioReader implements OnDestroy, IReader {
 
   private booksService = inject(BooksService);
 
-  Icons = { Play, Pause, AudioLines, RotateCcw, RotateCw, Moon };
+  Icons = { Play, Pause, AudioLines, RotateCcw, RotateCw, Moon, SkipBack, SkipForward };
 
   // IReader Interface
   toc = signal<TocItem[]>([]);
@@ -109,8 +109,8 @@ export class AudioReader implements OnDestroy, IReader {
     }, { injector: this.injector });
   }
 
-  // Playback Speeds
-  availableRates = [0.75, 0.9, 1, 1.1, 1.25, 1.5];
+  // Playback Speeds (persisted per audiobook in localStorage — see rateStorageKey)
+  availableRates = [0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5];
 
   private progressSubject = new Subject<{ timestamp: number; percent: number }>();
   private progressSubscription!: Subscription;
@@ -187,6 +187,8 @@ export class AudioReader implements OnDestroy, IReader {
 
     this.loading.set(true);
     this.loadError.set(null);
+    // Show the remembered speed immediately; applied to Howl on load.
+    this.currentRate.set(this.restoreSavedRate());
 
     const src = `/api/books/${id}/file`;
     this.player = new Howl({
@@ -196,6 +198,7 @@ export class AudioReader implements OnDestroy, IReader {
       onload: () => {
         this.loading.set(false);
         this.duration.set(this.player?.duration() || 0);
+        this.player?.rate(this.currentRate());
         this.restoreProgress();
         this.updateMediaSessionMetadata();
       },
@@ -279,7 +282,53 @@ export class AudioReader implements OnDestroy, IReader {
   setRate(rate: number) {
     this.player?.rate(rate);
     this.currentRate.set(rate);
+    try {
+      localStorage.setItem(this.rateStorageKey(), String(rate));
+    } catch {
+      // Private-mode storage can throw — playback speed still applies for the session.
+    }
     this.updateMediaSessionPositionState();
+  }
+
+  private rateStorageKey(): string {
+    return `nostos.audio-rate.${this.bookId()}`;
+  }
+
+  private restoreSavedRate(): number {
+    try {
+      const raw = localStorage.getItem(this.rateStorageKey());
+      const parsed = raw == null ? NaN : parseFloat(raw);
+      if (!isNaN(parsed) && this.availableRates.includes(parsed)) return parsed;
+    } catch {
+      // Storage unreadable — fall back to 1x.
+    }
+    return 1;
+  }
+
+  // --- Chapter skip (TOC-driven, ±15s skip stays on the inner buttons) ---
+  private sortedChapterStarts(): number[] {
+    return this.toc()
+      .map((item) => (typeof item.target === 'number' ? item.target : parseFloat(item.target)))
+      .filter((start) => !isNaN(start))
+      .sort((a, b) => a - b);
+  }
+
+  hasChapters = computed(() => this.sortedChapterStarts().length > 0);
+
+  nextChapter() {
+    const starts = this.sortedChapterStarts();
+    if (starts.length === 0) return;
+    const now = this.currentTime();
+    const next = starts.find((start) => start > now + 2);
+    this.goToTime(next ?? this.duration());
+  }
+
+  prevChapter() {
+    const starts = this.sortedChapterStarts();
+    if (starts.length === 0) return;
+    const now = this.currentTime();
+    const prev = [...starts].reverse().find((start) => start < now - 2);
+    this.goToTime(prev ?? starts[0]);
   }
 
   // Dropdown
