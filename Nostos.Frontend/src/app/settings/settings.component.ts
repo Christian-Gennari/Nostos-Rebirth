@@ -316,10 +316,11 @@ const defaultProgress: BackupProgress = {
           <div class="setting-row">
             <div class="setting-label">
               <span class="label-text">Colour Theme</span>
-              <span class="label-desc">Dark is a companion palette for evening reading — same paper, lower light. Sepia is warm paper, the closest to a printed page.</span>
+              <span class="label-desc">Dark mode is a companion palette for evening reading — same paper, lower light.</span>
             </div>
-            <!-- Explicit options rather than a switch: the control always shows
-                 every state, so the choice is legible before it is made. -->
+            <!-- Two explicit options rather than a light/dark switch: the
+                 control always shows both states, so the choice is legible
+                 before it is made. -->
             <div class="theme-choice" role="radiogroup" aria-label="Colour theme">
               <button
                 type="button"
@@ -331,17 +332,6 @@ const defaultProgress: BackupProgress = {
               >
                 <lucide-icon [img]="SunIcon" [size]="15" strokeWidth="1.75"></lucide-icon>
                 Light
-              </button>
-              <button
-                type="button"
-                class="theme-opt"
-                role="radio"
-                [attr.aria-checked]="theme() === 'sepia'"
-                [class.is-active]="theme() === 'sepia'"
-                (click)="setTheme('sepia')"
-              >
-                <lucide-icon [img]="BookOpenIcon" [size]="15" strokeWidth="1.75"></lucide-icon>
-                Sepia
               </button>
               <button
                 type="button"

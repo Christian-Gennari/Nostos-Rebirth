@@ -87,18 +87,14 @@ describe('SettingsComponent backup-only surface', () => {
    * contract is inverted rather than dropped: the card must exist, and the
    * control must offer both themes.
    */
-  it('renders the Appearance card with a working Light/Sepia/Dark choice', () => {
+  it('renders the Appearance card with a working Light/Dark choice', () => {
     const headers = fixture.debugElement
       .queryAll(By.css('.card-header h2'))
       .map((h) => h.nativeElement.textContent.trim());
     expect(headers).toContain('Appearance');
 
     const options = fixture.debugElement.queryAll(By.css('.theme-opt'));
-    expect(options.map((o) => o.nativeElement.textContent.trim())).toEqual([
-      'Light',
-      'Sepia',
-      'Dark',
-    ]);
+    expect(options.map((o) => o.nativeElement.textContent.trim())).toEqual(['Light', 'Dark']);
 
     // Defaults to light in a test environment (no stored choice, and
     // matchMedia reports no dark preference).
@@ -106,15 +102,6 @@ describe('SettingsComponent backup-only surface', () => {
     expect(document.documentElement.getAttribute('data-theme')).toBeNull();
 
     options[1].nativeElement.click();
-    fixture.detectChanges();
-
-    expect(document.documentElement.getAttribute('data-theme')).toBe('sepia');
-    expect(localStorage.getItem('nostos.theme')).toBe('sepia');
-    // The radio group reports the choice to assistive tech, not just visually.
-    expect(options[1].nativeElement.getAttribute('aria-checked')).toBe('true');
-    expect(options[0].nativeElement.getAttribute('aria-checked')).toBe('false');
-
-    options[2].nativeElement.click();
     fixture.detectChanges();
 
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');

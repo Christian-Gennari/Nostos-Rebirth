@@ -9,8 +9,7 @@
  *
  * Two rules, both the same counterpart comparison:
  *
- *   1. styles.css — the light `:root` set vs every themed block
- *      (`:root[data-theme='dark']`, `:root[data-theme='sepia']`)
+ *   1. styles.css — the light `:root` set vs the `:root[data-theme='dark']`
  *      set. Fails on any colour token with no counterpart.
  *   2. Theme modules outside styles.css — a `.ts` component that injects its own
  *      document (currently the TinyMCE editor content in `markdown-editor`)
@@ -131,65 +130,19 @@ function inlineStyleModules(source) {
 const light = lightTokens(css);
 const dark = darkTokens(css);
 
-/**
- * Every theme other than the default, by `data-theme` value.
- *
- * A new theme is added by declaring its block, not by editing this list's
- * logic: the two rules below then apply to it automatically. Sepia is the
- * first test of that — it is a light-family theme, so it inherits light's
- * hue-carrying roles and warms only the neutral ramp, but it must still
- * DECLARE them, because a token left out of a themed block silently keeps
- * whatever the default has.
- */
-/** `:root[data-theme='<name>'] {` as a regex — concatenated so the escapes show. */
-function themedBlockRe(name) {
-  return new RegExp(":root\\[data-theme=['\"]" + name + "['\"]\\]\\s*\\{");
-}
-
-const THEMED = ['dark', 'sepia'];
-const themed = new Map(
-  THEMED.map((name) => [name, tokenSetInBlock(css, themedBlockRe(name))]),
-);
-
-for (const [name, tokens] of themed) {
-  if (!tokens.size) {
-    console.error(`\n✖ no \`:root[data-theme='${name}']\` block found in ${file}.\n`);
-    process.exit(1);
-  }
-}
-
-// The themed blocks must declare the SAME set, so a colour role added to one
-// cannot quietly reach only that theme (which is exactly how a new theme ends
-// up with a light patch: dark gains a role, sepia never hears about it).
-const [firstTheme, ...restThemes] = THEMED;
-const parityGaps = [];
-for (const [token] of themed.get(firstTheme)) {
-  for (const name of restThemes) {
-    if (!themed.get(name).has(token)) parityGaps.push([name, token]);
-  }
-}
-for (const name of restThemes) {
-  for (const [token] of themed.get(name)) {
-    if (!themed.get(firstTheme).has(token)) parityGaps.push([firstTheme, token]);
-  }
-}
-
 const missing = [];
-const missingByTheme = new Map(THEMED.map((name) => [name, []]));
 for (const [token, value] of light) {
-  if (INVARIANT.test(token) || DERIVED.test(token)) continue;
-  for (const name of THEMED) {
-    if (!themed.get(name).has(token)) missingByTheme.get(name).push([token, value]);
-  }
+  if (dark.has(token)) continue;
+  if (INVARIANT.test(token)) continue;
+  if (DERIVED.test(token)) continue;
+  missing.push([token, value]);
 }
-for (const [, rows] of missingByTheme) missing.push(...rows);
 
 const introduced = [...dark.keys()].filter((t) => !light.has(t));
 
 console.log(`${file}`);
 console.log(`  light tokens        : ${light.size}`);
 console.log(`  dark tokens         : ${dark.size}`);
-console.log(`  sepia tokens        : ${themed.get('sepia').size}`);
 console.log(`  dark-only (new)     : ${introduced.length ? introduced.join(', ') : '—'}`);
 
 // Same rule, applied to every theme module found outside styles.css.
@@ -276,27 +229,13 @@ if (moduleFailures.length) {
   process.exit(1);
 }
 
-if (parityGaps.length) {
-  console.error(`\n✖ ${parityGaps.length} colour role(s) are declared by one theme but not another.`);
-  console.error('  A theme that does not declare a role keeps the LIGHT value for it,\n' +
-    '  which is how a light patch appears inside a dark or sepia surface:\n');
-  for (const [name, token] of parityGaps) console.error(`    ${token.padEnd(30)} missing from ${name}`);
-  console.error('\n  Declare it in every themed block in styles.css.\n');
-  process.exit(1);
-}
-
 if (missing.length) {
-  console.error(`\n✖ ${missing.length} colour token(s) have no counterpart in a theme.`);
-  console.error('  Each will silently keep its LIGHT value inside that theme:\n');
-  for (const name of THEMED) {
-    const rows = missingByTheme.get(name);
-    if (!rows.length) continue;
-    console.error(`  ${name}:`);
-    for (const [token, value] of rows) console.error(`    ${token.padEnd(30)} ${value}`);
-  }
-  console.error("\n  Add these to the theme's block in styles.css,");
+  console.error(`\n✖ ${missing.length} colour token(s) have no dark counterpart.`);
+  console.error('  Each will silently keep its LIGHT value inside the dark theme:\n');
+  for (const [token, value] of missing) console.error(`    ${token.padEnd(30)} ${value}`);
+  console.error('\n  Add these to the `:root[data-theme=\'dark\']` block in styles.css,');
   console.error('  or add the family to INVARIANT if it is genuinely theme-invariant.\n');
   process.exit(1);
 }
 
-console.log('\n✔ Every colour token has a counterpart in every theme, in styles.css and in every theme module.\n');
+console.log('\n✔ Every colour token has a dark counterpart, in styles.css and in every theme module.\n');
