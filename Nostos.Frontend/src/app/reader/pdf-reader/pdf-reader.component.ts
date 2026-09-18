@@ -169,7 +169,52 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
    * `ScrollMode` (uppercase) is a different export. Binding the wrong one is a
    * template type error, not a silent no-op.
    */
-  readonly scrollMode = ScrollModeType.vertical;
+  scrollMode = signal<ScrollModeType>(ScrollModeType.vertical);
+
+  /**
+   * The two reading modes, offered in the shell's view panel. Continuous is the
+   * default (§3); page-by-page stays available because §9 asks for both.
+   */
+  readonly readingModes: { value: ScrollModeType; label: string }[] = [
+    { value: ScrollModeType.vertical, label: 'Scroll' },
+    { value: ScrollModeType.page, label: 'Page' },
+  ];
+
+  /** Set the reading mode and remember it for this book. */
+  setScrollMode(mode: ScrollModeType): void {
+    this.scrollMode.set(mode);
+    try {
+      localStorage.setItem(
+        this.scrollStorageKey(),
+        mode === ScrollModeType.page ? 'page' : 'scroll',
+      );
+    } catch {
+      // Private-mode storage can throw — the mode still applies for the session.
+    }
+  }
+
+  isScrollMode(mode: ScrollModeType): boolean {
+    return this.scrollMode() === mode;
+  }
+
+  /** The viewer can change the mode itself (its own controls or keys). */
+  onScrollModeChange(mode: ScrollModeType): void {
+    this.setScrollMode(mode);
+  }
+
+  private scrollStorageKey(): string {
+    return `nostos.pdf-scroll.${this.bookId()}`;
+  }
+
+  private restoreSavedScrollMode(): void {
+    try {
+      const saved = localStorage.getItem(this.scrollStorageKey());
+      if (saved === 'page') this.scrollMode.set(ScrollModeType.page);
+      else if (saved === 'scroll') this.scrollMode.set(ScrollModeType.vertical);
+    } catch {
+      // Unreadable storage keeps the continuous default.
+    }
+  }
 
   private initialZoom(): string {
     return typeof window !== 'undefined' && window.innerWidth <= 768 ? 'page-width' : 'page-fit';
@@ -180,9 +225,10 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   private progressUpdater$ = new Subject<{ location: string; percentage: number }>();
 
   ngOnInit() {
-    // Zoom is a per-book preference; the viewport default is only a starting point
-    // (issue #226 §9).
+    // Zoom and reading mode are per-book preferences; the viewport default is only
+    // a starting point (issue #226 §3, §9).
     this.restoreSavedZoom();
+    this.restoreSavedScrollMode();
     this.loadNotes();
 
     this.progressUpdater$

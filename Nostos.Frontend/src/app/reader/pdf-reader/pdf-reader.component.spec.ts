@@ -65,6 +65,7 @@ class PdfViewerStub {
 
   pageChange = output<number>();
   sidebarVisibleChange = output<boolean>();
+  scrollModeChange = output<number>();
   findbarVisibleChange = output<boolean>();
   pagesLoaded = output<any>();
   pageRender = output<any>();
@@ -485,7 +486,7 @@ describe('PdfReader reading mode', () => {
     fixture = make();
     const component = fixture.componentInstance;
 
-    expect(component.scrollMode).toBe(ScrollModeType.vertical);
+    expect(component.scrollMode()).toBe(ScrollModeType.vertical);
     // Sanity: `page` is 3, i.e. exactly what the pinning used to mean. If this
     // number ever moves, the note in the component is describing the wrong enum.
     expect(ScrollModeType.page).toBe(3);
@@ -493,8 +494,31 @@ describe('PdfReader reading mode', () => {
     // The stub's own default is also 0, so asserting through it would pass
     // vacuously. Guard the template binding instead.
     const html = readSource('./pdf-reader.component.html');
-    expect(html).toContain('[scrollMode]="scrollMode"');
+    expect(html).toContain('[scrollMode]="scrollMode()"');
     expect(html).not.toContain('[scrollMode]="3"');
+  });
+
+  it('offers page-by-page as well, remembering the choice per book', () => {
+    fixture = make();
+    const component = fixture.componentInstance;
+
+    expect(component.readingModes.map((m) => m.label)).toEqual(['Scroll', 'Page']);
+    expect(component.isScrollMode(ScrollModeType.vertical)).toBe(true);
+
+    component.setScrollMode(ScrollModeType.page);
+    expect(component.scrollMode()).toBe(ScrollModeType.page);
+    expect(component.isScrollMode(ScrollModeType.vertical)).toBe(false);
+    expect(localStorage.getItem('nostos.pdf-scroll.book-1')).toBe('page');
+
+    // The viewer can flip it itself (its own controls or keys), and that persists.
+    component.onScrollModeChange(ScrollModeType.vertical);
+    expect(localStorage.getItem('nostos.pdf-scroll.book-1')).toBe('scroll');
+  });
+
+  it('restores a remembered page-by-page mode', () => {
+    localStorage.setItem('nostos.pdf-scroll.book-1', 'page');
+    fixture = make();
+    expect(fixture.componentInstance.scrollMode()).toBe(ScrollModeType.page);
   });
 
   it('fits the page width on a phone, the whole page on desktop', () => {

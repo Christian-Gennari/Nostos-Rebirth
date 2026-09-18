@@ -264,8 +264,22 @@
   <div class="typo-scrim" (click)="toggleTypo()" aria-hidden="true"></div>
   <div class="typo-panel" data-testid="typo-panel" role="dialog" aria-label="View settings">
     @if (fileType() === 'pdf') {
-    <!-- Fixed layout: the render scale, plus the fits it can snap to. Zoom used
-         to be two header buttons; the presets had nowhere to live at all. -->
+    <!-- Fixed layout: how the pages advance, the render scale, and the fits it
+         can snap to. Zoom used to be two header buttons; the modes and presets
+         had nowhere to live at all. -->
+    <div class="typo-row">
+      <span class="typo-label" id="pdf-mode">Reading mode</span>
+      <div class="typo-opts" role="group" aria-labelledby="pdf-mode">
+        @for (m of pdfReadingModes(); track m.value) {
+        <button
+          type="button"
+          class="typo-opt"
+          [class.active]="isScrollMode(m.value)"
+          (click)="setScrollMode(m.value)"
+        >{{ m.label }}</button>
+        }
+      </div>
+    </div>
     <div class="typo-row">
       <span class="typo-label" id="pdf-zoom">Zoom</span>
       <div class="typo-steps" role="group" aria-labelledby="pdf-zoom">
