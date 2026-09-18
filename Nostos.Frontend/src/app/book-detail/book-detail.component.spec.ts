@@ -799,3 +799,105 @@ describe('BookDetail reset progress', () => {
     expect(block.querySelector('.meta-strip')).toBeNull();
   });
 });
+
+describe('BookDetail confirm-modal deletes (no window.confirm)', () => {
+  let component: BookDetail;
+  let fixture: ComponentFixture<BookDetail>;
+  let httpMock: HttpTestingController;
+
+  const note = {
+    id: 'n1',
+    bookId: 'b1',
+    content: 'A thought',
+    selectedText: null,
+    cfiRange: null,
+    pageNumber: null,
+    createdAt: '2026-08-10T08:00:00+02:00',
+  };
+
+  async function setup(initial: Book = { ...book, hasFile: true, coverUrl: '/api/books/b1/cover' }) {
+    fixture = TestBed.createComponent(BookDetail);
+    component = fixture.componentInstance;
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    httpMock.expectOne('/api/books/b1').flush(initial);
+    httpMock.expectOne('/api/books/b1/notes').flush([note]);
+    httpMock.expectOne('/api/collections').flush([]);
+    httpMock.match('/api/concepts').forEach((request) => request.flush([]));
+    fixture.detectChanges();
+  }
+
+  function openModals(): HTMLElement[] {
+    return Array.from(fixture.nativeElement.querySelectorAll('.confirm-modal-card')) as HTMLElement[];
+  }
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [BookDetail],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: ActivatedRoute,
+          useValue: { paramMap: of(convertToParamMap({ id: book.id })) },
+        },
+      ],
+    }).compileComponents();
+
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+  });
+
+  it('note delete opens the modal and only deletes on confirm', async () => {
+    await setup();
+
+    component.onDeleteNote('n1');
+    fixture.detectChanges();
+    expect(component.pendingNoteDelete()).toBe('n1');
+    expect(openModals().length).toBe(1);
+    httpMock.expectNone('/api/notes/n1');
+
+    component.confirmNoteDelete();
+    httpMock.expectOne('/api/notes/n1').flush(null);
+    // The store reloads notes + concepts after the delete.
+    httpMock.expectOne('/api/books/b1/notes').flush([]);
+    httpMock.match('/api/concepts').forEach((request) => request.flush([]));
+    expect(component.pendingNoteDelete()).toBeNull();
+  });
+
+  it('cancelling note delete performs nothing', async () => {
+    await setup();
+
+    component.onDeleteNote('n1');
+    component.cancelNoteDelete();
+    fixture.detectChanges();
+    expect(component.pendingNoteDelete()).toBeNull();
+    expect(openModals().length).toBe(0);
+    httpMock.expectNone('/api/notes/n1');
+  });
+
+  it('cover remove opens the modal and only deletes on confirm', async () => {
+    await setup();
+
+    component.deleteCover();
+    fixture.detectChanges();
+    expect(component.coverDeletePending()).toBe(true);
+    expect(openModals().length).toBe(1);
+    httpMock.expectNone((req) => req.url === '/api/books/b1/cover' && req.method === 'DELETE');
+
+    component.confirmCoverDelete();
+    httpMock
+      .expectOne((req) => req.url === '/api/books/b1/cover' && req.method === 'DELETE')
+      .flush(null);
+    // The store reloads the book in the background after the delete.
+    httpMock
+      .expectOne((req) => req.url === '/api/books/b1' && req.method === 'GET')
+      .flush({ ...book, hasFile: true, coverUrl: null });
+    expect(component.coverDeletePending()).toBe(false);
+  });
+});

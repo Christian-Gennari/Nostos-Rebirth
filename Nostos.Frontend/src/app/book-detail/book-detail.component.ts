@@ -426,8 +426,25 @@ export class BookDetail implements OnInit, OnDestroy {
   }
 
   onDeleteNote(id: string): void {
+    this.pendingNoteDelete.set(id);
+  }
+
+  cancelNoteDelete(): void {
+    this.pendingNoteDelete.set(null);
+  }
+
+  confirmNoteDelete(): void {
+    const id = this.pendingNoteDelete();
+    if (!id) return;
+    this.pendingNoteDelete.set(null);
     this.store.deleteNote(id);
   }
+
+  /** Note id awaiting delete confirmation (asked through ConfirmModal). */
+  readonly pendingNoteDelete = signal<string | null>(null);
+
+  /** True while the cover-remove question is up (asked through ConfirmModal). */
+  readonly coverDeletePending = signal(false);
 
   onConceptClick(conceptId: string): void {
     this.goToConcept(conceptId);
@@ -565,6 +582,17 @@ export class BookDetail implements OnInit, OnDestroy {
   }
 
   deleteCover() {
+    if (!this.store.book()?.coverUrl) return;
+    this.coverDeletePending.set(true);
+  }
+
+  cancelCoverDelete(): void {
+    this.coverDeletePending.set(false);
+  }
+
+  confirmCoverDelete(): void {
+    if (!this.coverDeletePending()) return;
+    this.coverDeletePending.set(false);
     this.store.deleteCover();
   }
 

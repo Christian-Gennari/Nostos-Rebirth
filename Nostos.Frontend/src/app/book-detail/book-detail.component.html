@@ -699,6 +699,28 @@
   >
   </app-confirm-modal>
 
+  <!-- Note delete + cover remove ask through the shared modal instead of
+       window.confirm(), which cannot carry theme tokens. -->
+  <app-confirm-modal
+    [isOpen]="!!pendingNoteDelete()"
+    heading="Delete this note?"
+    description="The note and its highlight link are removed. This cannot be undone."
+    confirmLabel="Delete"
+    (confirm)="confirmNoteDelete()"
+    (cancel)="cancelNoteDelete()"
+  >
+  </app-confirm-modal>
+
+  <app-confirm-modal
+    [isOpen]="coverDeletePending()"
+    heading="Remove cover image?"
+    description="The book keeps everything else — only the cover image is removed."
+    confirmLabel="Remove"
+    (confirm)="confirmCoverDelete()"
+    (cancel)="cancelCoverDelete()"
+  >
+  </app-confirm-modal>
+
   <app-add-book-modal
     [isOpen]="showMetadataModal()"
     [book]="store.book()!"

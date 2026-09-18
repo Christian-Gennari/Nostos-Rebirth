@@ -199,4 +199,15 @@
       }
     </div>
   </header>
+
+  <!-- Note delete asks through the shared modal instead of window.confirm(). -->
+  <app-confirm-modal
+    [isOpen]="!!pendingNoteDelete()"
+    heading="Delete this note?"
+    description="The note and its highlight link are removed. This cannot be undone."
+    confirmLabel="Delete"
+    (confirm)="confirmNoteDelete()"
+    (cancel)="cancelNoteDelete()"
+  >
+  </app-confirm-modal>
 </div>
