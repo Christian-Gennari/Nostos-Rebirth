@@ -40,6 +40,14 @@
   position: relative;
 }
 
+/* The epub.js render target. It fills the padded page box above; the padding
+   around it is the reader's margin preset (see the template binding). */
+#epub-page {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
 /* Waiting state — mounted for the life of the component and released by a class,
    so the already-rendered page underneath is revealed by a fade + defocus rather
    than a one-frame blink. The label breathes on the same slow rhythm the rest of
