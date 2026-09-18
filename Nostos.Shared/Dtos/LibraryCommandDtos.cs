@@ -218,7 +218,14 @@ public sealed record LibraryAttachAcquiredAssetRequest(
     /// </summary>
     string? Duration = null,
     /// <summary>Canonical chapters derived from the source, for audiobooks.</summary>
-    IReadOnlyList<BookChapterDto>? Chapters = null
+    IReadOnlyList<BookChapterDto>? Chapters = null,
+    /// <summary>
+    /// The bare file name of the cover the importer stored, when it stored one
+    /// (e.g. "cover.jpg"). The book row is what the cover URL is derived from, so
+    /// an import that wrote the image but never set this produced a cover nothing
+    /// could display. Appended, never inserted: this record is positional.
+    /// </summary>
+    string? CoverFileName = null
 );
 
 /// <summary>
