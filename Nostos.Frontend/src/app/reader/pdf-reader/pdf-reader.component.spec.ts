@@ -8,7 +8,7 @@ import { of } from 'rxjs';
 import { readFileSync } from 'node:fs';
 
 import { PdfReader } from './pdf-reader.component';
-import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
+import { NgxExtendedPdfViewerModule, ScrollModeType } from 'ngx-extended-pdf-viewer';
 import { PdfAnnotationManager } from './pdf-annotation-manager';
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
@@ -421,5 +421,88 @@ describe('PdfReader search shortcut', () => {
     expect(viewer.showFindMatchDiacritics()).toBe(false);
     expect(viewer.showFindEntireWord()).toBe(false);
     expect(viewer.showFindMultiple()).toBe(false);
+  });
+});
+
+/**
+ * Reading mode (issue #226 §3 and §4): the viewer was pinned to
+ * `ScrollMode.PAGE`, so a page could only be left by clicking Next, and the page
+ * was fitted whole on a phone at roughly 9.5px with the zoom controls hidden.
+ */
+describe('PdfReader reading mode', () => {
+  let fixture: ComponentFixture<PdfReader>;
+
+  beforeEach(async () => {
+    localStorage.clear();
+    await TestBed.configureTestingModule({
+      imports: [PdfReader],
+      providers: [
+        { provide: NotesService, useValue: { list: vi.fn(() => of([])) } },
+        { provide: BooksService, useValue: { updateProgress: vi.fn(() => of(null)) } },
+        {
+          provide: PdfAnnotationManager,
+          useValue: { paint: vi.fn(), captureHighlight: vi.fn(), captureNoteLocation: vi.fn(() => null) },
+        },
+      ],
+    })
+      .overrideComponent(PdfReader, {
+        remove: { imports: [NgxExtendedPdfViewerModule] },
+        add: { imports: [PdfViewerStub] },
+      })
+      .compileComponents();
+  });
+
+  const withViewport = <T,>(width: number, run: () => T): T => {
+    const original = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { value: width, configurable: true, writable: true });
+    try {
+      return run();
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { value: original, configurable: true, writable: true });
+    }
+  };
+
+  function make() {
+    const f = TestBed.createComponent(PdfReader);
+    f.componentRef.setInput('bookId', 'book-1');
+    f.detectChanges();
+    return f;
+  }
+
+  it('reads continuously instead of one page at a time', () => {
+    fixture = make();
+    const component = fixture.componentInstance;
+
+    expect(component.scrollMode).toBe(ScrollModeType.vertical);
+    // Sanity: `page` is 3, i.e. exactly what the pinning used to mean. If this
+    // number ever moves, the note in the component is describing the wrong enum.
+    expect(ScrollModeType.page).toBe(3);
+
+    // The stub's own default is also 0, so asserting through it would pass
+    // vacuously. Guard the template binding instead.
+    const html = readSource('./pdf-reader.component.html');
+    expect(html).toContain('[scrollMode]="scrollMode"');
+    expect(html).not.toContain('[scrollMode]="3"');
+  });
+
+  it('fits the page width on a phone, the whole page on desktop', () => {
+    withViewport(390, () => {
+      expect(make().componentInstance.zoomLevel()).toBe('page-width');
+    });
+    withViewport(1440, () => {
+      expect(make().componentInstance.zoomLevel()).toBe('page-fit');
+    });
+  });
+
+  it('lets the header zoom controls move the zoom away from the default', () => {
+    withViewport(390, () => {
+      fixture = make();
+      expect(fixture.componentInstance.zoomLevel()).toBe('page-width');
+
+      fixture.componentInstance.zoomIn();
+      // From a named fit the first step lands on a concrete percentage, so the
+      // phone reader is never stuck on a fit it cannot enlarge.
+      expect(typeof fixture.componentInstance.zoomLevel()).toBe('number');
+    });
   });
 });

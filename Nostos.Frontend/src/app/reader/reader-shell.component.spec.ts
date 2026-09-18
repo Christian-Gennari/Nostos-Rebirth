@@ -327,24 +327,28 @@ describe('ReaderShell toolbar contract (theme system removed)', () => {
   });
 
   /**
-   * `.desktop-only` is a CSS HOOK, not decoration: it is hidden at mobile widths.
-   * The buttons were migrated to `appIconButton`, which adds its own
-   * `icon-btn--<rung>` class to the host, so a mistake here would silently change
-   * the responsive behaviour — the kind of thing a desktop-only screenshot cannot
-   * see. A bare `desktop-only` ATTRIBUTE instead of `class="desktop-only"` is
-   * exactly the bug this guards: it is valid HTML, compiles, and matches nothing.
+   * Every reader control must be a real `appIconButton` button, and none of them
+   * may be hidden on a phone any more. The PDF zoom pair used to carry
+   * `.desktop-only`, which left a phone with a page fitted to about 9.5px and no
+   * way to enlarge it (issue #226 §4), so this test now asserts the opposite:
+   * the hook is applied to no reader control at all.
    */
-  it('keeps the CSS hook classes on the migrated controls', async () => {
-    // A PDF book, the one format that still carries the render-scale pair: an
-    // EPUB's text size lives in the Aa panel instead.
+  it('renders every reader control as a real button, none hidden on mobile', async () => {
+    // A PDF book: the one format that carries the render-scale pair (an EPUB's
+    // text size lives in the Aa panel instead).
     const pdfBook = { ...audiobook, id: 'book-pdf', fileName: 'being-and-time.pdf' } as Book;
     booksGetSpy.mockReturnValue(of(pdfBook));
 
     fixture = await configureReaderShell();
     render();
 
-    const desktopOnly = fixture.debugElement.queryAll(By.css('button.desktop-only'));
-    expect(desktopOnly.length).toBe(2); // zoom out + zoom in
+    const headerTitles = fixture.debugElement
+      .queryAll(By.css('.reader-header button.icon-btn'))
+      .map((b) => b.nativeElement.getAttribute('title'));
+    expect(headerTitles).toContain('Zoom out');
+    expect(headerTitles).toContain('Zoom in');
+
+    expect(fixture.debugElement.queryAll(By.css('button.desktop-only'))).toHaveLength(0);
 
     const controls = fixture.debugElement.queryAll(
       By.css('.reader-header button.icon-btn, .reader-toolbar button.icon-btn')
