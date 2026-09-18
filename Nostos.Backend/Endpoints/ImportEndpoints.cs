@@ -53,9 +53,6 @@ public static class ImportEndpoints
     /// </summary>
     private static readonly TimeSpan IdleTimeout = TimeSpan.FromSeconds(60);
 
-    /// <summary>A reconciled entry is recognised by the row still sitting Failed.</summary>
-    private static readonly TimeSpan ReconciledLookback = TimeSpan.FromDays(30);
-
     private const int MaxReconciledEntries = 50;
 
     public static IEndpointRouteBuilder MapImportEndpoints(this IEndpointRouteBuilder routes)
@@ -118,15 +115,16 @@ public static class ImportEndpoints
             .Distinct()
             .ToList();
 
-        // Computed outside the query on purpose: `DateTime.UtcNow.Add(...)` inside a
-        // Where clause is not translatable by the SQLite provider and fails at
-        // request time, not at compile time.
-        var reconciledSince = DateTime.UtcNow - ReconciledLookback;
-
+        // The restart MESSAGE is the marker, and it is not bounded by a time
+        // window: an interrupted import can be an old book. A 30-day lookback on
+        // `CreatedAt` was exactly wrong — the row that prompted it was created 35
+        // days earlier, so the feed silently dropped the very import a restart had
+        // just killed. (There is no `UpdatedAt` on a book to measure "recently
+        // reconciled" by, and inventing one would be a schema change for a display
+        // filter.) The count cap and Dismiss are what keep the list bounded.
         var interrupted = await db.Books
             .Where(book => book.Status == BookStatus.Failed
-                && book.StatusMessage == AcquisitionReconciliationWorker.InterruptedByRestartMessage
-                && book.CreatedAt >= reconciledSince)
+                && book.StatusMessage == AcquisitionReconciliationWorker.InterruptedByRestartMessage)
             .OrderByDescending(book => book.CreatedAt)
             .Take(MaxReconciledEntries)
             .Select(book => book.Id)

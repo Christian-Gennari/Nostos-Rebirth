@@ -35,6 +35,14 @@ public sealed class ImportEndpointTests : IClassFixture<LibraryEndpointFactory>
     /// </summary>
     private static readonly Guid InterruptedBookId = Guid.NewGuid();
 
+    /// <summary>
+    /// A book that has sat in the library for over a year. The reconciliation
+    /// message is the marker — NOT how recently the book was created. A restart can
+    /// interrupt the import of a book added last year, and a time window on
+    /// `CreatedAt` silently hides exactly that import.
+    /// </summary>
+    private static readonly Guid OldInterruptedBookId = Guid.NewGuid();
+
     public ImportEndpointTests(LibraryEndpointFactory factory)
     {
         _factory = factory;
@@ -71,6 +79,23 @@ public sealed class ImportEndpointTests : IClassFixture<LibraryEndpointFactory>
         entry.ProviderId.Should().Be("fake-provider");
         entry.ExternalId.Should().Be("external-1");
         entry.AssetId.Should().Be("asset-1");
+    }
+
+    [Fact]
+    public async Task Active_list_reports_an_interrupted_import_of_a_long_standing_book()
+    {
+        var entries = await Client.GetFromJsonAsync<List<ImportActivityDto>>("/api/imports/active");
+
+        var entry = entries!.SingleOrDefault(e => e.BookId == OldInterruptedBookId);
+
+        // The regression this pins: a 30-day window on `CreatedAt` matched nothing
+        // for a book added 400 days ago, so the feed returned an empty list and the
+        // UI showed no trace of the import a restart had just killed.
+        entry.Should().NotBeNull(
+            "an interrupted import is recognised by the restart message, whenever the book was added");
+        entry!.State.Should().Be("failed");
+        entry.Message.Should().Be(AcquisitionReconciliationWorker.InterruptedByRestartMessage);
+        entry.Title.Should().Be("Interrupted Import, Old Book");
     }
 
     [Fact]
@@ -200,6 +225,24 @@ public sealed class ImportEndpointTests : IClassFixture<LibraryEndpointFactory>
             ProviderDisplayName = "Fake Provider",
             ExternalId = "external-1",
             AssetId = "asset-1",
+        });
+
+        // The same thing happening to a book added long ago.
+        db.PhysicalBooks.Add(new PhysicalBookModel
+        {
+            Id = OldInterruptedBookId,
+            Title = "Interrupted Import, Old Book",
+            Author = "Grace Hopper",
+            Status = BookStatus.Downloading,
+            CreatedAt = DateTime.UtcNow.AddDays(-400),
+        });
+        db.BookAcquisitions.Add(new BookAcquisitionModel
+        {
+            BookId = OldInterruptedBookId,
+            ProviderId = "fake-provider",
+            ProviderDisplayName = "Fake Provider",
+            ExternalId = "external-old",
+            AssetId = "asset-old",
         });
 
         db.SaveChanges();
