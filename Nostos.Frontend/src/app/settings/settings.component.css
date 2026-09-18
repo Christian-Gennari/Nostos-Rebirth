@@ -417,6 +417,71 @@
   padding: 6px 10px;
 }
 
+/* --- E-reader access card (issue #187) ---
+   The address is the point of the card, so it gets its own line inside the row
+   instead of sitting in the right-hand column: a URL in a narrow column wraps
+   mid-token and stops being readable or copyable. */
+.setting-row--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.catalog-url-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.catalog-url {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-xs);
+  color: var(--color-text-main);
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  overflow-wrap: anywhere;
+  /* Manual copy is the fallback when the clipboard API is unavailable, so a
+     click selects the whole address rather than a word of it. */
+  user-select: all;
+}
+
+.inline-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.95em;
+  color: var(--color-text-main);
+  background: var(--bg-surface-alt);
+  border-radius: var(--radius-sm);
+  padding: 1px 4px;
+}
+
+.catalog-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--color-text-light);
+}
+
+.catalog-note--warning {
+  color: var(--color-text-main);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+.catalog-note lucide-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
 /* --- Responsive --- */
 @media (max-width: 600px) {
   .settings-page {
@@ -427,6 +492,16 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
+  }
+
+  /* The address keeps the full width on a phone; the copy button drops below
+     it rather than squeezing the text. */
+  .catalog-url-row {
+    width: 100%;
+  }
+
+  .catalog-url {
+    flex-basis: 100%;
   }
 
   .history-item {

@@ -6,6 +6,7 @@ using Nostos.Backend.Configuration;
 using Nostos.Backend.Data.Interfaces;
 using Nostos.Backend.Data.Models;
 using Nostos.Backend.Services;
+using Nostos.Shared.Dtos;
 
 namespace Nostos.Backend.Endpoints;
 
@@ -45,6 +46,29 @@ public static class OpdsEndpoints
         OpdsOptions options
     )
     {
+        // Mapped whether or not the catalogue is: the Settings surface has to be
+        // able to say "this is switched off", which an unmapped route cannot.
+        routes
+            .MapGroup("/api/opds")
+            .MapGet(
+                "/info",
+                (HttpContext context) =>
+                {
+                    var (origin, source) = ResolveOrigin(context, options);
+                    var localOnly =
+                        Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback;
+
+                    return Results.Ok(
+                        new OpdsInfoDto(
+                            options.Enabled,
+                            options.Enabled ? $"{origin}/opds/" : null,
+                            source,
+                            localOnly
+                        )
+                    );
+                }
+            );
+
         if (!options.Enabled)
             return routes;
 
@@ -231,22 +255,27 @@ public static class OpdsEndpoints
     private static string PagePath(int page) => page <= 1 ? "/opds/" : $"/opds/?page={page}";
 
     /// <summary>
-    /// The externally visible URL for a path inside the catalogue.
-    ///
-    /// Normally scheme and host come from the request, which is only correct
-    /// when the reverse proxy's X-Forwarded-Proto / X-Forwarded-Host headers
-    /// are honoured (Program.cs registers ForwardedHeaders for exactly this).
-    /// <see cref="OpdsOptions.PublicBaseUrl"/> overrides both when the
-    /// deployment cannot tell.
+    /// The externally visible origin for the catalogue: either the configured
+    /// <see cref="OpdsOptions.PublicBaseUrl"/>, or the scheme and host the
+    /// client actually used (which is only correct when the reverse proxy's
+    /// X-Forwarded-Proto / X-Forwarded-Host headers are honoured — Program.cs
+    /// registers ForwardedHeaders for exactly this). The second element names
+    /// which of the two decided, so Settings can describe the URL honestly.
     /// </summary>
-    private static string GetAbsoluteUrl(HttpContext context, OpdsOptions options, string path)
+    private static (string Origin, string Source) ResolveOrigin(
+        HttpContext context,
+        OpdsOptions options
+    )
     {
         if (!string.IsNullOrEmpty(options.PublicBaseUrl))
-            return options.PublicBaseUrl + path;
+            return (options.PublicBaseUrl, "configured");
 
         var request = context.Request;
-        return $"{request.Scheme}://{request.Host.ToUriComponent()}{path}";
+        return ($"{request.Scheme}://{request.Host.ToUriComponent()}", "request");
     }
+
+    private static string GetAbsoluteUrl(HttpContext context, OpdsOptions options, string path) =>
+        ResolveOrigin(context, options).Origin + path;
 
     private static string Serialize(XElement feed)
     {

@@ -1,9 +1,10 @@
 import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideAngularModule, Settings, Archive, RefreshCw, Download, Trash2, Loader2, FolderSearch, Palette, Sun, Moon } from 'lucide-angular';
+import { LucideAngularModule, Settings, Archive, RefreshCw, Download, Trash2, Loader2, FolderSearch, Palette, Sun, Moon, BookOpen, Copy, Check, TriangleAlert } from 'lucide-angular';
 
 import { BackupService } from '../core/services/backup.service';
+import { OpdsService } from '../core/services/opds.service';
 import { ToastService } from '../core/services/toast.service';
 import { ThemeService, Theme } from '../core/services/theme.service';
 import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
@@ -13,8 +14,12 @@ import {
   BackupHistoryItem,
   BackupProgress,
 } from '../core/dtos/backup.dtos';
+import { OpdsInfo } from '../core/dtos/opds.dtos';
 
 const SLOW_STEP_THRESHOLD_MS = 30_000;
+
+/** How long the copy button stays on "Copied" before it offers to copy again. */
+const COPIED_FEEDBACK_MS = 2_500;
 
 const defaultProgress: BackupProgress = {
   isRunning: false,
@@ -236,6 +241,71 @@ const defaultProgress: BackupProgress = {
         }
       </section>
 
+      <!-- E-reader access (issue #187). Sits with the library data rather than
+           with Appearance: it is about reaching the library from elsewhere. -->
+      <section class="settings-card">
+        <div class="card-header">
+          <lucide-icon [img]="BookOpenIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
+          <h2>E-reader access</h2>
+        </div>
+
+        <div class="card-body">
+          @if (opdsFailed()) {
+            <div class="setting-row">
+              <div class="setting-label">
+                <span class="label-text">Could not read this setting</span>
+                <span class="label-desc">The server did not answer the request for e-reader access. Reload the page to try again.</span>
+              </div>
+            </div>
+          } @else if (opds(); as info) {
+            @if (info.enabled && info.catalogUrl) {
+              <div class="setting-row setting-row--stacked">
+                <div class="setting-label">
+                  <span class="label-text">Catalog address</span>
+                  <span class="label-desc">Give this address to a compatible e-reader or reading app &mdash; it browses and downloads straight from your Nostos library, so nothing is copied and there is no second library to keep in sync.</span>
+                </div>
+
+                <div class="catalog-url-row">
+                  <code class="catalog-url">{{ info.catalogUrl }}</code>
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-sm"
+                    (click)="copyCatalogUrl()"
+                    [attr.aria-label]="'Copy catalog address ' + info.catalogUrl"
+                  >
+                    @if (copied()) {
+                      <lucide-icon [img]="CheckIcon" [size]="14" strokeWidth="2"></lucide-icon>
+                      Copied
+                    } @else {
+                      <lucide-icon [img]="CopyIcon" [size]="14" strokeWidth="2"></lucide-icon>
+                      Copy URL
+                    }
+                  </button>
+                </div>
+
+                @if (info.localOnly) {
+                  <p class="catalog-note catalog-note--warning">
+                    <lucide-icon [img]="TriangleAlertIcon" [size]="14" strokeWidth="2"></lucide-icon>
+                    <span>This address only works on this computer. Open Nostos from the address your reader will use &mdash; your machine's address on your home network or Tailscale &mdash; and the catalog address will match it.</span>
+                  </p>
+                } @else {
+                  <p class="catalog-note">
+                    Your reader has to be able to reach this server: the same home network or Tailscale network you are on now. In the reader's settings, look for &ldquo;catalog&rdquo; or &ldquo;OPDS catalog&rdquo; and enter the address above.
+                  </p>
+                }
+              </div>
+            } @else {
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span class="label-text">E-reader access is turned off</span>
+                  <span class="label-desc">This server is not publishing a catalog, so there is no address to connect to. It can be switched on where Nostos is configured, with <code class="inline-code">Opds:Enabled=true</code>.</span>
+                </div>
+              </div>
+            }
+          }
+        </div>
+      </section>
+
       <section class="settings-card">
         <div class="card-header">
           <lucide-icon [img]="PaletteIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
@@ -308,6 +378,7 @@ const defaultProgress: BackupProgress = {
 })
 export class SettingsComponent implements OnInit, OnDestroy {
   private backupService = inject(BackupService);
+  private opdsService = inject(OpdsService);
   private toast = inject(ToastService);
   private themeService = inject(ThemeService);
 
@@ -328,6 +399,19 @@ export class SettingsComponent implements OnInit, OnDestroy {
   PaletteIcon = Palette;
   SunIcon = Sun;
   MoonIcon = Moon;
+  BookOpenIcon = BookOpen;
+  CopyIcon = Copy;
+  CheckIcon = Check;
+  TriangleAlertIcon = TriangleAlert;
+
+  /** E-reader access (issue #187): null until the server has answered. */
+  opds = signal<OpdsInfo | null>(null);
+
+  /** True when the info request failed, so the card never presents a guess as fact. */
+  opdsFailed = signal(false);
+
+  copied = signal(false);
+  private copiedTimeout: ReturnType<typeof setTimeout> | null = null;
 
   status = signal<BackupStatus>({
     isEnabled: false,
@@ -366,10 +450,56 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadData();
+    this.loadOpdsInfo();
   }
 
   ngOnDestroy(): void {
     this.stopProgressPolling();
+    if (this.copiedTimeout !== null) {
+      clearTimeout(this.copiedTimeout);
+      this.copiedTimeout = null;
+    }
+  }
+
+  loadOpdsInfo(): void {
+    this.opdsService.getInfo().subscribe({
+      next: (info) => {
+        this.opds.set(info);
+        this.opdsFailed.set(false);
+      },
+      error: () => {
+        this.opds.set(null);
+        this.opdsFailed.set(true);
+      },
+    });
+  }
+
+  /**
+   * Copies the catalog address. The clipboard API is only available in a
+   * secure context (https, or localhost), so a failure is reported rather than
+   * swallowed — the address on screen stays selectable as the fallback.
+   */
+  copyCatalogUrl(): void {
+    const url = this.opds()?.catalogUrl;
+    if (!url || !navigator.clipboard) {
+      this.toast.error('Copying is not available here — select the address and copy it.');
+      return;
+    }
+
+    navigator.clipboard.writeText(url).then(
+      () => {
+        this.copied.set(true);
+        this.toast.success('Catalog address copied.');
+        if (this.copiedTimeout !== null) clearTimeout(this.copiedTimeout);
+        this.copiedTimeout = setTimeout(() => {
+          this.copied.set(false);
+          this.copiedTimeout = null;
+        }, COPIED_FEEDBACK_MS);
+      },
+      () => {
+        this.toast.error('Could not copy automatically — select the address and copy it.');
+      },
+    );
   }
 
   loadData(): void {

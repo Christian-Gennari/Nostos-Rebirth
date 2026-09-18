@@ -1,10 +1,26 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { SettingsComponent } from './settings.component';
 import { BackupService } from '../core/services/backup.service';
+import { OpdsService } from '../core/services/opds.service';
 import { ToastService } from '../core/services/toast.service';
+import { OpdsInfo } from '../core/dtos/opds.dtos';
+
+const toastMock = { error: vi.fn(), success: vi.fn(), info: vi.fn() };
+
+/** A reachable catalog address, as the server reports it behind its proxy. */
+const remoteInfo: OpdsInfo = {
+  enabled: true,
+  catalogUrl: 'https://omenhub.example.ts.net:5215/opds/',
+  urlSource: 'request',
+  localOnly: false,
+};
+
+const opdsServiceMock = {
+  getInfo: vi.fn(() => of(remoteInfo)),
+};
 
 const backupServiceMock = {
   getStatus: vi.fn(() =>
@@ -42,12 +58,17 @@ describe('SettingsComponent backup-only surface', () => {
 
   beforeEach(async () => {
     localStorage.clear();
+    opdsServiceMock.getInfo.mockClear();
+    opdsServiceMock.getInfo.mockReturnValue(of(remoteInfo));
+    toastMock.error.mockClear();
+    toastMock.success.mockClear();
 
     await TestBed.configureTestingModule({
       imports: [SettingsComponent],
       providers: [
         { provide: BackupService, useValue: backupServiceMock },
-        { provide: ToastService, useValue: { error: vi.fn(), success: vi.fn(), info: vi.fn() } },
+        { provide: OpdsService, useValue: opdsServiceMock },
+        { provide: ToastService, useValue: toastMock },
       ],
     }).compileComponents();
 
@@ -57,6 +78,7 @@ describe('SettingsComponent backup-only surface', () => {
 
   afterEach(() => {
     localStorage.clear();
+    delete (navigator as { clipboard?: unknown }).clipboard;
   });
 
   /**
@@ -157,4 +179,154 @@ describe('SettingsComponent backup-only surface', () => {
     expect(backupServiceMock.deleteBackup).toHaveBeenCalledWith('b9');
     expect(component.pendingBackupDelete()).toBeNull();
   });
+
+  // ------------------------------------------------------------------
+  // E-reader access (issue #187)
+  // ------------------------------------------------------------------
+
+  it('renders the E-reader access card with the catalog address and one copy action', () => {
+    const headers = cardHeaders();
+    expect(headers).toContain('E-reader access');
+    // Grouped with the library data, above Appearance.
+    expect(headers.indexOf('E-reader access')).toBeLessThan(headers.indexOf('Appearance'));
+
+    expect(catalogUrlText()).toBe(remoteInfo.catalogUrl);
+
+    const copy = copyButton();
+    expect(copy).toBeTruthy();
+    expect(copy!.textContent).toContain('Copy URL');
+  });
+
+  it('leads with plain language and keeps OPDS as the secondary protocol name', () => {
+    const heading = cardHeading('E-reader access');
+    expect(heading).toContain('E-reader access');
+    expect(heading).not.toMatch(/OPDS/u);
+
+    const text = cardBodyText();
+    expect(text).toContain('e-reader');
+    expect(text).toMatch(/OPDS catalog/u);
+  });
+
+  it('copies the address in one action and confirms it', async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    installClipboard(writeText);
+
+    copyButton()!.click();
+    await flush();
+
+    expect(writeText).toHaveBeenCalledWith(remoteInfo.catalogUrl);
+    expect(fixture.componentInstance.copied()).toBe(true);
+    fixture.detectChanges();
+    expect(copyButton()!.textContent).toContain('Copied');
+    expect(toastMock.success).toHaveBeenCalled();
+  });
+
+  it('reports a refused clipboard instead of silently doing nothing', async () => {
+    installClipboard(vi.fn(() => Promise.reject(new Error('denied'))));
+
+    copyButton()!.click();
+    await flush();
+
+    expect(fixture.componentInstance.copied()).toBe(false);
+    expect(toastMock.error).toHaveBeenCalled();
+    // The address stays on screen, selectable, as the manual fallback.
+    expect(catalogUrlText()).toBe(remoteInfo.catalogUrl);
+  });
+
+  it('warns when the address is only reachable from this computer', () => {
+    renderWith({
+      enabled: true,
+      catalogUrl: 'http://localhost:5214/opds/',
+      urlSource: 'request',
+      localOnly: true,
+    });
+
+    const warning = fixture.nativeElement.querySelector('.catalog-note--warning');
+    expect(warning).toBeTruthy();
+    expect((warning as HTMLElement).textContent).toContain('only works on this computer');
+
+    // Still shown — a reader running on this machine can use it — but never
+    // without that warning.
+    expect(catalogUrlText()).toContain('localhost');
+    expect(fixture.nativeElement.querySelectorAll('.catalog-note--warning').length).toBe(1);
+  });
+
+  it('offers no connection address when the server has e-reader access turned off', () => {
+    renderWith({ enabled: false, catalogUrl: null, urlSource: 'request', localOnly: false });
+
+    expect(fixture.nativeElement.querySelector('.catalog-url')).toBeNull();
+    expect(copyButton()).toBeNull();
+    expect(cardBodyText()).toContain('turned off');
+  });
+
+  it('says the setting could not be read rather than presenting a guess', () => {
+    opdsServiceMock.getInfo.mockReturnValue(throwError(() => new Error('offline')));
+    render();
+
+    expect(cardBodyText()).toContain('Could not read this setting');
+    expect(fixture.nativeElement.querySelector('.catalog-url')).toBeNull();
+  });
+
+  // ------------------------------------------------------------------
+
+  function cardHeaders(): string[] {
+    return fixture.debugElement
+      .queryAll(By.css('.card-header h2'))
+      .map((h) => h.nativeElement.textContent.trim());
+  }
+
+  function cardHeading(title: string): string {
+    return cardHeaders().find((h) => h === title) ?? '';
+  }
+
+  function erCard(): HTMLElement | null {
+    const cards = Array.from(
+      fixture.nativeElement.querySelectorAll('.settings-card'),
+    ) as HTMLElement[];
+    return (
+      cards.find((c) => c.querySelector('h2')?.textContent?.trim() === 'E-reader access') ?? null
+    );
+  }
+
+  function cardBodyText(): string {
+    const card = erCard();
+    if (!card) return '';
+    const clone = card.cloneNode(true) as HTMLElement;
+    clone.querySelector('h2')?.remove();
+    return (clone.textContent ?? '').replace(/\s+/g, ' ').trim();
+  }
+
+  function catalogUrlText(): string {
+    return (erCard()?.querySelector('.catalog-url')?.textContent ?? '').trim();
+  }
+
+  function copyButton(): HTMLButtonElement | null {
+    const buttons = Array.from(erCard()?.querySelectorAll('button') ?? []) as HTMLButtonElement[];
+    return (
+      buttons.find((b) => /Copy URL|Copied/u.test(b.textContent ?? '')) ?? null
+    );
+  }
+
+  function installClipboard(writeText: (text: string) => Promise<void>): void {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    });
+  }
+
+  function flush(): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  /** Re-renders the card with a different server answer. */
+  function renderWith(info: OpdsInfo): void {
+    opdsServiceMock.getInfo.mockReturnValue(of(info));
+    render();
+  }
+
+  /** Re-renders with whatever the mock currently answers. */
+  function render(): void {
+    fixture = TestBed.createComponent(SettingsComponent);
+    fixture.detectChanges();
+  }
 });
