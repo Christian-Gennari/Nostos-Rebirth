@@ -20,7 +20,8 @@
         ></button>
       </header>
 
-      <div class="modal-tabs" shellTabs [hidden]="sourceMode()">
+      @if (!sourceMode()) {
+        <div class="modal-tabs" shellTabs>
         <button
           class="tab-btn"
           [class.active]="activeTab() === 'Book Info'"
@@ -42,7 +43,8 @@
         >
           <lucide-icon [img]="FileIcon" [size]="16"></lucide-icon> Files & Personal
         </button>
-      </div>
+        </div>
+      }
 
       <form id="add-book-form" (ngSubmit)="submit()" #bookForm="ngForm" class="modal-form">
         <div class="modal-body">
