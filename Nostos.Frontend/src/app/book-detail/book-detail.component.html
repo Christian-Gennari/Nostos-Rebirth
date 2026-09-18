@@ -352,6 +352,18 @@
             <div class="notes-header">
               <h3>Personal Notes</h3>
               <span class="badge-count">{{ store.notes().length }}</span>
+              @if (store.notes().length > 0) {
+              <button
+                class="btn btn-ghost btn-sm notes-export-btn"
+                (click)="exportNotes()"
+                title="Download notes as Markdown"
+                aria-label="Export notes as Markdown"
+                data-testid="export-notes-btn"
+              >
+                <lucide-icon [img]="BookDownIcon" [size]="15"></lucide-icon>
+                Export
+              </button>
+              }
             </div>
 
             <div class="new-note-box">

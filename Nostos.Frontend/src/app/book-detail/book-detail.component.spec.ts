@@ -4,7 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
 
-import { BookDetail } from './book-detail.component';
+import { BookDetail, formatNotesMarkdown } from './book-detail.component';
 import { Book } from '../core/dtos/book.dtos';
 import { ToastService } from '../core/services/toast.service';
 
@@ -908,5 +908,47 @@ describe('BookDetail confirm-modal deletes (no window.confirm)', () => {
       .flush({ ...book, hasFile: true, coverUrl: null });
     expect(component.coverDeletePending()).toBe(false);
     drainConcepts();
+  });
+});
+
+describe('formatNotesMarkdown (notes export)', () => {
+  const book = { title: 'Meditations', author: 'Marcus Aurelius' };
+
+  it('heads the export with title, author and export line', () => {
+    const md = formatNotesMarkdown(book, [], '2026-09-18T00:00:00.000Z');
+    expect(md).toContain('# Notes — Meditations by Marcus Aurelius');
+    expect(md).toContain('Exported 2026-09-18T00:00:00.000Z from Nostos.');
+    expect(md).toContain('_No notes yet._');
+  });
+
+  it('renders quotes as blockquotes and keeps [[concept]] links verbatim', () => {
+    const md = formatNotesMarkdown(
+      book,
+      [
+        {
+          id: 'n1',
+          bookId: 'b1',
+          content: 'On [[Stoicism]] and control.',
+          selectedText: 'You have power over your mind.',
+          createdAt: '2026-09-01T00:00:00Z',
+        },
+      ],
+      '2026-09-18T00:00:00.000Z',
+    );
+    expect(md).toContain('## Note 1');
+    expect(md).toContain('> You have power over your mind.');
+    // Obsidian-compatible: the wiki link must survive the export untouched.
+    expect(md).toContain('On [[Stoicism]] and control.');
+    expect(md).toContain('*2026-09-01T00:00:00Z*');
+  });
+
+  it('omits the quote block when a note has no highlight', () => {
+    const md = formatNotesMarkdown(
+      book,
+      [{ id: 'n2', bookId: 'b1', content: 'A free thought.', createdAt: '' }],
+      '2026-09-18T00:00:00.000Z',
+    );
+    expect(md).toContain('A free thought.');
+    expect(md).not.toContain('>');
   });
 });
