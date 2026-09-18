@@ -317,6 +317,96 @@ describe('AudioReader single-fetch + restore + loading state (issue #7)', () => 
   });
 });
 
+describe('AudioReader audio quick wins (speeds, chapters, persisted rate)', () => {
+  let fixture: ComponentFixture<AudioReader>;
+  let component: AudioReader;
+  const booksServiceMock = {
+    get: vi.fn(),
+    updateProgress: vi.fn(() => of(null)),
+  };
+
+  beforeEach(async () => {
+    howlerState.instances.length = 0;
+    booksServiceMock.get.mockReset();
+    booksServiceMock.updateProgress.mockReset();
+    localStorage.clear();
+
+    await TestBed.configureTestingModule({
+      imports: [AudioReader],
+      providers: [{ provide: BooksService, useValue: booksServiceMock }],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(AudioReader);
+    component = fixture.componentInstance;
+  });
+
+  it('offers extended speed presets up to 2.5x', () => {
+    expect(component.availableRates).toEqual([0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5]);
+  });
+
+  it('persists the chosen speed per audiobook', () => {
+    fixture.componentRef.setInput('bookId', 'book-42');
+    fixture.detectChanges();
+
+    component.selectRate(2);
+    expect(component.currentRate()).toBe(2);
+    expect(localStorage.getItem('nostos.audio-rate.book-42')).toBe('2');
+  });
+
+  it('restores the remembered speed on init', () => {
+    localStorage.setItem('nostos.audio-rate.book-7', '1.75');
+    fixture.componentRef.setInput('bookId', 'book-7');
+    fixture.detectChanges();
+
+    expect(component.currentRate()).toBe(1.75);
+
+    // Applied to the player once the audio loads.
+    howlerState.instances[0].config.onload();
+    expect(howlerState.instances[0].rate).toHaveBeenCalledWith(1.75);
+  });
+
+  it('jumps between chapters with next/prev', () => {
+    fixture.componentRef.setInput('bookId', 'book-1');
+    fixture.componentRef.setInput(
+      'book',
+      makeBook({
+        chapters: [
+          { title: 'One', startTime: 0 },
+          { title: 'Two', startTime: 600 },
+          { title: 'Three', startTime: 1200 },
+        ],
+      }),
+    );
+    fixture.detectChanges();
+
+    const seen: number[] = [];
+    const original = (component as unknown as { goToTime: (n: number) => void }).goToTime;
+    (component as unknown as { goToTime: (n: number) => void }).goToTime = (n: number) => {
+      seen.push(n);
+    };
+    try {
+      component.currentTime.set(610);
+      component.nextChapter();
+      component.prevChapter();
+    } finally {
+      (component as unknown as { goToTime: (n: number) => void }).goToTime = original;
+    }
+    expect(seen).toEqual([1200, 600]);
+  });
+
+  it('disables chapter buttons when the book has no chapters', () => {
+    fixture.componentRef.setInput('bookId', 'book-1');
+    fixture.componentRef.setInput('book', makeBook());
+    fixture.detectChanges();
+
+    expect(component.hasChapters()).toBe(false);
+    const prev = fixture.nativeElement.querySelector('[data-testid="audio-prev-chapter"]') as HTMLButtonElement;
+    const next = fixture.nativeElement.querySelector('[data-testid="audio-next-chapter"]') as HTMLButtonElement;
+    expect(prev.disabled).toBe(true);
+    expect(next.disabled).toBe(true);
+  });
+});
+
 describe('AudioReader sleep timer (issue #47)', () => {
   let fixture: ComponentFixture<AudioReader>;
   let component: AudioReader;
