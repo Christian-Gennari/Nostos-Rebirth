@@ -136,9 +136,12 @@ collections.
 
 ### OpdsEndpoints (`/opds`)
 
-| Method | Route | Description                | Dependencies      |
-| ------ | ----- | -------------------------- | ----------------- |
-| `GET`  | `/`   | OPDS 1.2 Atom catalog feed | `IBookRepository` |
+Unauthenticated by design (see the OPDS section of `docs/api-reference.md`);
+mapped only when `Opds:Enabled` is true, which is the default.
+
+| Method | Route | Description                                        | Dependencies      |
+| ------ | ----- | -------------------------------------------------- | ----------------- |
+| `GET`  | `/`   | OPDS 1.2 acquisition feed, one page (`?page=N`)    | `IBookRepository` |
 
 ### BackupEndpoints (`/api/backup`)
 

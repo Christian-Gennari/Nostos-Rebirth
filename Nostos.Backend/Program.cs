@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using ModelContextProtocol.Protocol;
 using Nostos.Backend.Data;
@@ -87,6 +88,32 @@ if (mcpOptions.Enabled)
 
 builder.Services.AddSingleton(mcpOptions);
 
+// --- OPDS 1.2 export (issue #186) ---
+// The catalogue is unauthenticated by design, so it is only safe on a private
+// network; see OpdsOptions for the full access-model statement. The section is
+// validated and normalized once at startup so the mapping decision, the page
+// size, and the externally visible base URL can never disagree between the
+// endpoint, the startup log, and the configuration file.
+var opdsOptions =
+    builder.Configuration.GetSection(OpdsOptions.SectionName).Get<OpdsOptions>()
+    ?? new OpdsOptions();
+opdsOptions.PageSize = OpdsOptions.NormalizePageSize(opdsOptions.PageSize);
+if (
+    !OpdsOptions.TryNormalizePublicBaseUrl(
+        opdsOptions.PublicBaseUrl,
+        out var opdsPublicBaseUrl,
+        out var opdsBaseUrlError
+    )
+)
+{
+    throw new InvalidOperationException(
+        $"OPDS is enabled but 'Opds:PublicBaseUrl' is invalid ({opdsBaseUrlError}). "
+            + "Fix the URL, or unset it to derive the origin from each request."
+    );
+}
+opdsOptions.PublicBaseUrl = opdsPublicBaseUrl;
+builder.Services.AddSingleton(opdsOptions);
+
 // Single upload cap for Kestrel + multipart forms (audiobooks can be GB-sized).
 // One declaration only: a second ConfigureKestrel/Configure<FormOptions> call
 // would silently overwrite the first, leaving dead config behind.
@@ -98,6 +125,27 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.Configure<FormOptions>(options =>
 {
     options.MultipartBodyLengthLimit = maxUploadSize;
+});
+
+// --- REVERSE PROXY / FORWARDED HEADERS ---
+// Nostos is normally reached through a reverse proxy that terminates TLS
+// (Tailscale `serve`, nginx, ...), so the request Kestrel actually receives is
+// plain HTTP addressed to an internal name. Without honouring these headers
+// every absolute URL the app generates is wrong: the OPDS feed advertised
+// `http://` acquisition links on an `https://` catalogue, and an e-reader that
+// refuses or cannot follow the downgraded link simply never gets the book.
+//
+// The trust list stays at its default (loopback only), which is where a local
+// proxy connects from. Widening it — or clearing both lists, which means
+// "trust every caller" — would let any client forge the host used in generated
+// URLs, so the default is the safe one and the port of the proxy must stay on
+// the loopback interface.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders =
+        ForwardedHeaders.XForwardedFor
+        | ForwardedHeaders.XForwardedProto
+        | ForwardedHeaders.XForwardedHost;
 });
 
 builder.Services.AddDbContextFactory<NostosDbContext>(options =>
@@ -231,6 +279,26 @@ using (var scope = app.Services.CreateScope())
 
 // ------------------------------------
 
+// --- FORWARDED HEADERS (reverse proxy) ---
+// First in the pipeline: everything downstream — static files, the SPA
+// fallback, and above all the absolute URLs the OPDS feed builds — needs to see
+// the scheme and host the client actually used, not the internal ones the proxy
+// forwarded to. The trust list is left at its default (loopback only); see the
+// registration above for why.
+app.UseForwardedHeaders();
+
+// --- OPDS EXPORT (access model) ---
+// Stated in the operator's own logs, once, so that exposing the catalogue is a
+// decision on the record rather than a silent consequence of mapping a route.
+app.Logger.LogInformation(
+    opdsOptions.Enabled
+        ? "OPDS export enabled at /opds/ — page size {PageSize}, external base URL {PublicBaseUrl}. "
+            + "It is UNAUTHENTICATED: keep Nostos on a private network (LAN/Tailscale) or set Opds:Enabled=false."
+        : "OPDS export disabled (Opds:Enabled=false): /opds/ is not mapped.",
+    opdsOptions.PageSize,
+    opdsOptions.PublicBaseUrl ?? "derived from each request"
+);
+
 // --- GLOBAL ERROR HANDLING ---
 app.UseExceptionHandler(exceptionApp =>
 {
@@ -326,7 +394,7 @@ app.MapNotesEndpoints();
 app.MapCollectionsEndpoints();
 app.MapConceptsEndpoints();
 app.MapWritingsEndpoints();
-app.MapOpdsEndpoints();
+app.MapOpdsEndpoints(opdsOptions);
 app.MapBackupEndpoints();
 
 // --- MCP STREAMABLE HTTP ENDPOINT ---
@@ -336,7 +404,7 @@ if (mcpOptions.Enabled)
 }
 
 // --- HANDLE ANGULAR ROUTING ---
-// The SPA shell is served ONLY for client-side routes. The API and MCP
+// The SPA shell is served ONLY for client-side routes. The API, OPDS and MCP
 // namespaces are never answered by index.html: unknown /api paths, wrong
 // methods on API routes, and the MCP route family (the configured path
 // when enabled, plus the conventional /mcp namespace in every
@@ -345,6 +413,11 @@ if (mcpOptions.Enabled)
 // fallback is deliberately method-constrained (GET/HEAD only), mirroring
 // the static-file layer: every other verb on an unmapped path stays a 405
 // instead of being answered with the shell.
+//
+// `/opds` is in that list for the same reason: an OPDS client pointed at a
+// catalogue that is switched off (Opds:Enabled=false) must get a 404 it can
+// report, not a page of HTML it cannot parse. This is what the frontend's
+// ngsw `navigationUrls` already assumed about the backend.
 RequestDelegate serveClientRoute = async context =>
 {
     if (!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
@@ -356,7 +429,8 @@ RequestDelegate serveClientRoute = async context =>
     var path = context.Request.Path;
     var isMcpPath = mcpOptions.Enabled && mcpOptions.Path.Length > 0 &&
                     path.StartsWithSegments(mcpOptions.Path);
-    if (path.StartsWithSegments("/api") || path.StartsWithSegments("/mcp") || isMcpPath)
+    if (path.StartsWithSegments("/api") || path.StartsWithSegments("/opds") ||
+        path.StartsWithSegments("/mcp") || isMcpPath)
     {
         context.Response.StatusCode = StatusCodes.Status404NotFound;
         return;
