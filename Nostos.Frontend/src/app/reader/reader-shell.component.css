@@ -143,6 +143,53 @@
   letter-spacing: -0.01em;
   color: var(--color-text-main);
 }
+/* The merged highlight control (issue #226 follow-up): it lives at the top of the
+   notes panel because it produces the marks listed below it. */
+.highlight-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.85rem 1.25rem 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-body);
+  color: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-align: left;
+  flex-shrink: 0;
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard);
+}
+
+.highlight-toggle:hover {
+  border-color: var(--color-primary-dim);
+}
+
+.highlight-toggle.on {
+  border-color: var(--color-primary);
+  background: var(--bg-hover);
+  color: var(--color-primary);
+}
+
+.highlight-toggle-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.highlight-toggle-state {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-light);
+  font-weight: var(--fw-semibold);
+}
+
+.highlight-toggle.on .highlight-toggle-state {
+  color: var(--color-primary);
+}
+
 .quick-note {
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--border-color);

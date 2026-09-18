@@ -41,19 +41,9 @@
         (click)="toggleNotes()"
         title="Notes & Highlights"
         aria-label="Notes & Highlights"
-        [class.active]="notesOpen()"
+        [class.active]="notesOpen() || highlightMode()"
       ></button>
-      @if (fileType() !== 'audio') {
-      <button
-        appIconButton
-        [icon]="Icons.Highlighter"
-        [glyphSize]="20"
-        (click)="toggleHighlightMode()"
-        title="Highlight mode"
-        aria-label="Highlight mode"
-        [class.active]="highlightMode()"
-      ></button>
-      } @if (fileType() === 'pdf') {
+      @if (fileType() === 'pdf') {
       <!-- Search. A phone has no Ctrl+F, so without a visible control search was
            unreachable by touch (issue #226 §2). -->
       <button
@@ -162,6 +152,27 @@
         <h2>Notes & Highlights</h2>
         <button appIconButton [icon]="Icons.Close" [glyphSize]="20" (click)="toggleNotes()" aria-label="Close notes"></button>
       </div>
+
+      <!-- Highlight mode lives with the marks it produces. Two header controls
+           ("Notes & Highlights" and "Highlight mode") became one: at 390px the
+           PDF header held five controls and left the book title 78px, so it read
+           "Being an…". Turning the mode ON closes the panel, so the reader is
+           immediately ready for a selection — the same one tap as before. -->
+      @if (fileType() !== 'audio') {
+      <button
+        class="highlight-toggle"
+        type="button"
+        [class.on]="highlightMode()"
+        data-testid="reader-highlight-toggle"
+        (click)="toggleHighlightFromPanel()"
+      >
+        <lucide-icon [img]="Icons.Highlighter" [size]="16"></lucide-icon>
+        <span class="highlight-toggle-label">{{
+          highlightMode() ? 'Highlighting is on' : 'Highlight text'
+        }}</span>
+        <span class="highlight-toggle-state">{{ highlightMode() ? 'On' : 'Off' }}</span>
+      </button>
+      }
 
       <div class="quick-note">
         <div class="input-wrapper">
