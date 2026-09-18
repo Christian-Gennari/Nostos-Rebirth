@@ -593,40 +593,52 @@
 
                   @if (item.rightsStatement) {
                     <p class="source-rights">
-                      <!-- Attributed, not asserted: this is what the source
-                           claims about rights, and Nostos does not upgrade it
-                           into a rights claim of its own. -->
-                      <!-- One span: `.source-rights` is a flex row, so loose
-                           text nodes would be laid out as separate items and
-                           pick up gaps between the words. -->
-                      <span>{{ seededSourceName() }} states: {{ item.rightsStatement }}</span>
+                      <!-- Status first, provenance second: the reader's question is
+                           whether they may keep the book. Who says so is the
+                           smaller half of the answer, so it trails in brackets and
+                           carries the link out to the catalogue page, which the
+                           provider name already implies — a separate "view at
+                           source" link named the same place twice.
+                           Attribution, not assertion: Nostos reports the
+                           catalogue's claim rather than making one of its own. -->
+                      <span class="source-rights-status">{{ rightsText() }}</span>
                       @if (item.sourceUrl) {
-                        <a [href]="item.sourceUrl" target="_blank" rel="noopener noreferrer"
-                          >View at source</a
+                        <a
+                          class="source-rights-link"
+                          [href]="item.sourceUrl"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          >(via {{ seededSourceName() }}
+                          <lucide-icon [img]="ExternalLinkIcon" [size]="12"></lucide-icon>)</a
                         >
+                      } @else {
+                        <span class="source-rights-via">(via {{ seededSourceName() }})</span>
                       }
                     </p>
                   } @else if (item.sourceUrl) {
                     <p class="source-rights">
-                      <a [href]="item.sourceUrl" target="_blank" rel="noopener noreferrer"
-                        >View at source</a
+                      <!-- Nothing claimed about rights, so the only thing left to
+                           say is where the book came from. -->
+                      <a
+                        class="source-rights-link"
+                        [href]="item.sourceUrl"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        >{{ seededSourceName() }}
+                        <lucide-icon [img]="ExternalLinkIcon" [size]="12"></lucide-icon></a
                       >
                     </p>
                   }
 
                   <button
                     type="button"
-                    class="btn btn-primary"
+                    class="btn btn-primary source-action"
                     (click)="seedFromSelectedItem()"
                     [disabled]="item.assets.length === 0 || !!runningAcquisition()"
                   >
                     <lucide-icon [img]="DownloadIcon" [size]="14"></lucide-icon>
                     Use this book
                   </button>
-                  <p class="source-hint">
-                    Fills the form with what the source knows, so you can finish the
-                    details before anything is downloaded.
-                  </p>
 
                 </div>
               }
