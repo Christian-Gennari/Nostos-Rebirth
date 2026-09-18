@@ -1,0 +1,92 @@
+/**
+ * The reader's highlighter pens (issue #208).
+ *
+ * A colour is identified by NAME, not by hex, at every layer above CSS: the hex
+ * lives in `styles.css` as `--highlight-<name>` and the theme decides nothing
+ * about it (the reading surface is paper in every theme, so the pens are
+ * theme-invariant). Storing a hex instead would freeze one theme's value into
+ * whatever the user happened to be reading in.
+ */
+export type HighlightColour = 'amber' | 'sage' | 'blue' | 'rose';
+
+export interface HighlightColourOption {
+  id: HighlightColour;
+  /** Shown to screen readers; the swatch itself carries the colour. */
+  label: string;
+}
+
+export const HIGHLIGHT_COLOURS: readonly HighlightColourOption[] = [
+  { id: 'amber', label: 'Amber' },
+  { id: 'sage', label: 'Sage' },
+  { id: 'blue', label: 'Blue' },
+  { id: 'rose', label: 'Rose' },
+];
+
+/** The colour a book starts on, and the fallback for an unknown stored value. */
+export const DEFAULT_HIGHLIGHT_COLOUR: HighlightColour = 'amber';
+
+/** `--highlight-<name>`, the CSS custom property holding that pen's fill. */
+export function highlightFillVar(colour: HighlightColour): string {
+  return `--highlight-${colour}`;
+}
+
+/** The same token name as a `var(...)` reference, for inline styles. */
+export function highlightFillRef(colour: HighlightColour): string {
+  return `var(${highlightFillVar(colour)})`;
+}
+
+/**
+ * Falls back to the default rather than throwing: this reads a value out of
+ * localStorage, which can be anything the user or an older build left there.
+ */
+export function asHighlightColour(value: unknown): HighlightColour {
+  return HIGHLIGHT_COLOURS.some((option) => option.id === value)
+    ? (value as HighlightColour)
+    : DEFAULT_HIGHLIGHT_COLOUR;
+}
+
+/** localStorage key for a book's chosen pen. */
+export function highlightColourKey(bookId: string): string {
+  return `nostos.highlight.${bookId}`;
+}
+
+/** The book's remembered pen, or the default. Never throws on storage errors. */
+export function readHighlightColour(bookId: string): HighlightColour {
+  try {
+    return asHighlightColour(localStorage.getItem(highlightColourKey(bookId)));
+  } catch {
+    return DEFAULT_HIGHLIGHT_COLOUR;
+  }
+}
+
+/** Remember the book's pen. Storage being unavailable is not worth failing over. */
+export function writeHighlightColour(bookId: string, colour: HighlightColour): void {
+  try {
+    localStorage.setItem(highlightColourKey(bookId), colour);
+  } catch {
+    // The choice still applies for this session.
+  }
+}
+
+/**
+ * The fill to draw, resolved from the stylesheet so a highlighter pen is defined
+ * in exactly one place. Returns `fallback` when the document is unavailable or
+ * unstyled (unit tests), rather than handing a raw `var()` to a canvas or SVG.
+ */
+export function resolveHighlightFill(
+  colour: HighlightColour,
+  fallback: string,
+  root: HTMLElement | null = typeof document === 'undefined'
+    ? null
+    : document.documentElement,
+): string {
+  try {
+    const value = root
+      ? getComputedStyle(root).getPropertyValue(highlightFillVar(colour)).trim()
+      : '';
+    if (value) return value;
+  } catch {
+    // Unreadable styles — fall through to the fallback.
+  }
+  return fallback;
+}

@@ -39,8 +39,14 @@ const rawSource = css;
  * themes (forest tile / paper arch). It is a colour, but not a *themed* colour:
  * the mark does not re-ink with the theme, so demanding a dark counterpart would
  * push a needless override back into the dark block.
+ *
+ * `--highlight-*` is here for the same reason: those are the reader's highlighter
+ * pens, drawn on the reading surface, and that surface is paper in every theme
+ * (the EPUB iframe and the PDF page are the book's own light page — which is why
+ * the themed `--color-highlight` is a pale sage on dark). Three per-theme copies
+ * would be three ways to state one value.
  */
-const INVARIANT = /^--(radius|motion|ease|text-(xs|sm|base|lg|xl|2xl)|space|container-width|fw|transition|glass-blur|modal-scrim-blur|sidebar-width|brand-|control-h|focus-ring-width|dock-rail-h)/;
+const INVARIANT = /^--(radius|motion|ease|text-(xs|sm|base|lg|xl|2xl)|space|container-width|fw|transition|glass-blur|modal-scrim-blur|sidebar-width|brand-|highlight-|control-h|focus-ring-width|dock-rail-h)/;
 
 /**
  * Tokens whose value is a `color-mix()` of another token. They re-derive

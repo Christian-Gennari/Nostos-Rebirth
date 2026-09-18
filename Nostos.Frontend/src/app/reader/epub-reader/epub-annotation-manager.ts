@@ -2,6 +2,11 @@
 import { Rendition, Contents } from 'epubjs';
 import { signal, Injector } from '@angular/core';
 import { NotesService } from '../../core/services/notes.service';
+import {
+  DEFAULT_HIGHLIGHT_COLOUR,
+  HighlightColour,
+  resolveHighlightFill,
+} from '../highlight-colours';
 import { Note } from '../../core/dtos/note.dtos';
 
 interface PendingEpubHighlight {
@@ -53,6 +58,8 @@ export class EpubAnnotationManager {
   private notesService: NotesService;
 
   private highlightMode = false;
+  /** The book's chosen pen (issue #208), used for every highlight drawn here. */
+  private highlightColour: HighlightColour = DEFAULT_HIGHLIGHT_COLOUR;
   private pendingHighlight: PendingEpubHighlight | null = null;
   private lastCapturedKey: string | null = null;
   private readonly documentCleanups = new Map<Document, () => void>();
@@ -67,6 +74,15 @@ export class EpubAnnotationManager {
     private onCommitFailed?: () => void,
   ) {
     this.notesService = this.injector.get(NotesService);
+  }
+
+  /**
+   * Set the book's pen. Highlights already on the page keep the colour they were
+   * drawn with until the book is re-rendered, because a fill is baked into the
+   * epub.js SVG at draw time; the choice applies to what is drawn next.
+   */
+  setHighlightColour(colour: HighlightColour): void {
+    this.highlightColour = colour;
   }
 
   setHighlightMode(enabled: boolean): void {
@@ -187,16 +203,10 @@ export class EpubAnnotationManager {
    * and handed to epub.js as an explicit fill.
    */
   private highlightFill(): string {
-    try {
-      const value = getComputedStyle(document.documentElement)
-        .getPropertyValue('--color-highlight')
-        .trim();
-      if (value) return value;
-    } catch {
-      // No parent document (unit tests) or unreadable styles — use the token's
-      // light value rather than epub.js's keyword.
-    }
-    return DEFAULT_HIGHLIGHT_FILL;
+    // The pen's own token, so a colour is defined in exactly one place. The
+    // fallback is the themed default's light value, for unit tests and for a
+    // document that is not yet styled.
+    return resolveHighlightFill(this.highlightColour, DEFAULT_HIGHLIGHT_FILL);
   }
 
   /** Adds a persisted highlight with the reader's own colour. */
