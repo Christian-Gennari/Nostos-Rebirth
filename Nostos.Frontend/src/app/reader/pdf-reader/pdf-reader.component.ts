@@ -185,6 +185,18 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     this.totalPages = event.pagesCount;
     this.loadNotes();
 
+    // The outline needs the PDFDocumentProxy, and `pdfLoaded` cannot provide it:
+    // the library's PdfLoadedEvent is `{ pagesCount }` and nothing else, so the
+    // old `if (pdfDoc)` guard was always false and the contents rail stayed
+    // empty for every PDF — a 512-page book with 129 bookmarks rendered
+    // "No Table of Contents available." (issue #226 §1). `pagesLoaded.source`
+    // IS the viewer application, and it carries the document.
+    const doc = (event as any).source?.pdfDocument ?? null;
+    if (doc && doc !== this.pdfDocRef) {
+      this.pdfDocRef = doc;
+      void this.loadPdfOutline(doc);
+    }
+
     if (!this.initialLoadComplete) {
       const startLoc = this.initialLocation();
 
@@ -198,19 +210,27 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     }
   }
 
+  /** Best-effort second path: some loads fire this with the document attached. */
   async onPdfLoaded(event: PdfLoadedEvent) {
-    const pdfDoc = (event as any).source?.pdfDocument ?? (event as any).pdfDocument;
-    if (pdfDoc) {
-      this.pdfDocRef = pdfDoc;
-      try {
-        const outline = await pdfDoc.getOutline();
-        if (outline) {
-          const tocItems = await this.mapPdfOutline(outline, pdfDoc);
-          this.toc.set(tocItems);
-        }
-      } catch (err) {
-        console.error('Error fetching PDF outline', err);
+    const doc = (event as any).source?.pdfDocument ?? (event as any).pdfDocument ?? null;
+    if (doc && doc !== this.pdfDocRef) {
+      this.pdfDocRef = doc;
+      await this.loadPdfOutline(doc);
+    }
+  }
+
+  /** Map the embedded PDF outline into the contents rail the shell renders. */
+  private async loadPdfOutline(pdfDoc: any): Promise<void> {
+    try {
+      const outline = await pdfDoc.getOutline();
+      if (!outline || outline.length === 0) {
+        this.toc.set([]);
+        return;
       }
+      this.toc.set(await this.mapPdfOutline(outline, pdfDoc));
+    } catch (err) {
+      console.error('Error fetching PDF outline', err);
+      this.toc.set([]);
     }
   }
 

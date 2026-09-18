@@ -183,3 +183,129 @@ describe('PdfReader fixed light surround and toolbar clearance', () => {
     );
   });
 });
+
+/**
+ * The contents rail was empty for EVERY PDF: the library's `PdfLoadedEvent` is
+ * `{ pagesCount }` and nothing else, so the old handler's `if (pdfDoc)` guard
+ * never held and the outline was never fetched. A 512-page book with 129
+ * embedded bookmarks rendered "No Table of Contents available." (issue #226 §1).
+ * These specs pin the document reference to the event that carries it.
+ */
+describe('PdfReader contents rail from the embedded outline', () => {
+  let fixture: ComponentFixture<PdfReader>;
+
+  const pageRef = (num: number) => ({ num, gen: 0 });
+  const dest = (num: number) => [pageRef(num), { name: 'Fit' }];
+
+  const outline = [
+    { title: 'Introduction', dest: dest(10), items: [] },
+    {
+      title: 'Part One',
+      dest: 'part-one',
+      items: [{ title: 'Chapter 1', dest: dest(20), items: [] }],
+    },
+  ];
+
+  const makePdfDoc = (over: Record<string, unknown> = {}) => ({
+    getOutline: vi.fn(async () => outline),
+    getDestination: vi.fn(async () => dest(20)),
+    getPageIndex: vi.fn(async (ref: { num: number }) => ref.num - 1),
+    ...over,
+  });
+
+  beforeEach(async () => {
+    localStorage.clear();
+    await TestBed.configureTestingModule({
+      imports: [PdfReader],
+      providers: [
+        { provide: NotesService, useValue: { list: vi.fn(() => of([])) } },
+        { provide: BooksService, useValue: { updateProgress: vi.fn(() => of(null)) } },
+        {
+          provide: PdfAnnotationManager,
+          useValue: { paint: vi.fn(), captureHighlight: vi.fn(), captureNoteLocation: vi.fn(() => null) },
+        },
+      ],
+    })
+      .overrideComponent(PdfReader, {
+        remove: { imports: [NgxExtendedPdfViewerModule] },
+        add: { imports: [PdfViewerStub] },
+      })
+      .compileComponents();
+  });
+
+  function setupComponent() {
+    fixture = TestBed.createComponent(PdfReader);
+    fixture.componentRef.setInput('bookId', 'book-1');
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  /** The outline load is fired from the event handler, so let its microtasks run. */
+  const flushAsync = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it('maps the outline carried by pagesLoaded into the contents rail', async () => {
+    setupComponent();
+    const pdfDoc = makePdfDoc();
+
+    await fixture.componentInstance.onPagesLoaded({
+      pagesCount: 512,
+      source: { pdfDocument: pdfDoc },
+    } as never);
+    await flushAsync();
+
+    const toc = fixture.componentInstance.toc();
+    expect(toc).toHaveLength(2);
+    expect(toc[0]).toMatchObject({ label: 'Introduction', target: 10 });
+    // A named destination resolves through getDestination -> getPageIndex.
+    expect(toc[1].label).toBe('Part One');
+    expect(toc[1].target).toBe(20);
+    expect(toc[1].children?.[0]).toMatchObject({ label: 'Chapter 1', target: 20 });
+  });
+
+  it('leaves the rail empty for a PDF with no outline, without erroring', async () => {
+    setupComponent();
+    const pdfDoc = makePdfDoc({ getOutline: vi.fn(async () => null) });
+
+    await fixture.componentInstance.onPagesLoaded({
+      pagesCount: 12,
+      source: { pdfDocument: pdfDoc },
+    } as never);
+    await flushAsync();
+
+    expect(fixture.componentInstance.toc()).toEqual([]);
+  });
+
+  it('survives a failing getOutline instead of throwing out of the event handler', async () => {
+    setupComponent();
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const pdfDoc = makePdfDoc({
+      getOutline: vi.fn(async () => {
+        throw new Error('outline unreadable');
+      }),
+    });
+
+    await fixture.componentInstance.onPagesLoaded({
+      pagesCount: 40,
+      source: { pdfDocument: pdfDoc },
+    } as never);
+    await flushAsync();
+
+    expect(fixture.componentInstance.toc()).toEqual([]);
+    expect(error).toHaveBeenCalled();
+  });
+
+  it('pins the root cause: the library event that carries a document is pagesLoaded', () => {
+    // Read the installed library's own interface. If `pdfLoaded` ever grows a
+    // document, this fails and the `pagesLoaded.source` path can be revisited
+    // deliberately rather than by accident.
+    const dts = readFileSync(
+      // Path relative to the frontend root (the test runner's cwd): resolving it
+      // against import.meta.url crosses out of the source tree, where vitest
+      // hands back a non-file URL.
+      'node_modules/ngx-extended-pdf-viewer/lib/events/pdf-loaded-event.d.ts',
+      'utf-8',
+    );
+    expect(dts).toContain('pagesCount');
+    expect(dts).not.toContain('pdfDocument');
+  });
+});
