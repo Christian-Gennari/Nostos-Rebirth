@@ -1,0 +1,311 @@
+/* --- IMPORTS IN PROGRESS ---
+   The top of the library view, ABOVE the toolbar's sort/filter controls and
+   outside the results list. Everything here is driven by ImportService's
+   signals, so nothing in this file knows about the library's sort, filters,
+   search or pagination — which is the point: an import stays visible while the
+   user filters the library down to something that happens to exclude it.
+
+   Colours are tokens only. A literal here would be a colour that cannot follow
+   the theme, and the repo pins a budget for those. */
+
+:host {
+  display: block;
+  padding: 1.5rem 3rem 0;
+}
+
+.imports-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface-alt);
+  box-shadow: var(--shadow-sm);
+}
+
+.imports-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.imports-title {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* A dropped connection is stated, not hidden: silence is what makes a frozen
+   progress bar look like a working import. */
+.imports-connection {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--text-xs);
+  color: var(--color-text-light);
+}
+
+/* A burst of imports must not push the library off the page. The list is bounded
+   and scrolls inside itself; the results below keep most of the viewport. */
+.imports-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 20rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.import-entry {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: start;
+  gap: 0.75rem;
+}
+
+.import-cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-image-ground);
+  color: var(--color-text-faint);
+  overflow: hidden;
+}
+
+.import-cover-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.import-body {
+  /* min-width 0 on a grid child is what stops a long title from widening the
+     grid and forcing the page to scroll sideways. */
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0.35rem;
+}
+
+.import-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 0.5rem;
+}
+
+.import-name {
+  min-width: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
+  color: var(--color-text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-stage {
+  flex: none;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.import-stage.is-error {
+  border-color: var(--danger-hairline);
+  background: var(--danger-surface);
+  color: var(--color-danger);
+}
+
+.import-author {
+  font-size: var(--text-xs);
+  color: var(--color-text-light);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.import-progress {
+  flex: 1;
+  min-width: 0;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-hover);
+  overflow: hidden;
+}
+
+.import-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--primary-fill);
+  transition: width var(--transition-fast);
+}
+
+/* Tabular figures: the number must not jitter as it counts up, and it must be
+   readable at arm's length on a phone. */
+.import-percent {
+  flex: none;
+  min-width: 2.75rem;
+  text-align: right;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-main);
+}
+
+.import-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 0.5rem;
+}
+
+.import-detail {
+  min-width: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-light);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-message {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-danger);
+  overflow-wrap: anywhere;
+}
+
+.import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.import-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 32px;
+  padding: 0 0.75rem;
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-medium);
+  color: var(--color-text-main);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.import-action:hover {
+  background: var(--bg-hover);
+}
+
+.import-action:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.import-action.is-primary {
+  color: var(--on-primary);
+  background: var(--primary-fill);
+  border-color: var(--primary-fill);
+}
+
+@media (max-width: 768px) {
+  /* Same gutter as the toolbar below it, so the card's edges line up with the
+     search box rather than floating a few pixels off it. */
+  :host {
+    padding: 16px 14px 0;
+  }
+
+  /* The collections toggle is a FLOATING 38px button pinned to the top-left of
+     this column (`.floating-toggle`, same gutter the toolbar reserves with
+     `padding-left: 46px`). The section sits above the toolbar now, so its heading
+     is what lands underneath that button: measured at 390x844, the heading ran
+     from x=27 and the toggle covers x=14..52, which clipped the first two words.
+     Reserve the same 46px (38px button + 8px gap) rather than moving the card,
+     because the app's own pattern for this button is a horizontal gutter. */
+  .imports-head {
+    padding-left: 46px;
+  }
+
+  .imports-panel {
+    padding: 0.75rem;
+  }
+
+  /* Bounded in viewport units, not just rem: on a phone in landscape the rem cap
+     would still be most of the screen. */
+  .imports-list {
+    max-height: min(46vh, 300px);
+  }
+
+  .import-entry {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 0.6rem;
+  }
+
+  .import-cover {
+    width: 44px;
+    height: 62px;
+  }
+
+  /* Every control is a full 44px target — the difference between "cancel this
+     import" and "nothing happened". */
+  .import-action {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 1rem;
+    font-size: var(--text-sm);
+  }
+
+  /* A title that must be readable is allowed to wrap here rather than being
+     ellipsised into two words and an ellipsis. */
+  .import-name {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .import-stage {
+    font-size: var(--text-sm);
+  }
+
+  .import-author {
+    font-size: var(--text-sm);
+  }
+
+  .import-progress {
+    height: 10px;
+  }
+}

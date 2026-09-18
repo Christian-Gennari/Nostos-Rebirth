@@ -7,6 +7,7 @@ import { finalize } from 'rxjs';
 import { LucideAngularModule, X, Info, UploadIcon, Book, Layers, FileText, Trash2, Globe, Search, Download, AlertCircle, Check, ExternalLink } from 'lucide-angular';
 import { BooksService, Book as BookModel } from '../core/services/books.service';
 import { ProvidersService } from '../core/services/providers.service';
+import { ImportService } from '../core/services/import.service';
 import { ToastService } from '../core/services/toast.service';
 import {
   ACQUISITION_FINISHED_STATES,
@@ -40,6 +41,8 @@ export class AddBookModal implements OnDestroy {
   private providers = inject(ProvidersService);
   private router = inject(Router);
   private toast = inject(ToastService);
+  /** The import feed: opened on demand once an import has actually been queued. */
+  private imports = inject(ImportService);
 
   // Inputs & Outputs
   isOpen = input.required<boolean>();
@@ -772,6 +775,10 @@ export class AddBookModal implements OnDestroy {
           this.toast.success(
             'Import started — it will appear in your library when it finishes.',
           );
+          // The feed is opened here, on demand: the user just created work to
+          // watch, so the "Imports in Progress" section starts following it before
+          // the modal is even gone. Nothing in the library query is refetched.
+          this.imports.ensureConnected();
           this.bookAdded.emit();
           this.closeModal.emit();
         },
