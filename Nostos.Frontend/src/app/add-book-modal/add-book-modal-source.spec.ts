@@ -124,18 +124,37 @@ describe('AddBookModal — From a Source', () => {
     );
   }
 
-  it('offers the source tab when adding, and hides it when editing', () => {
-    expect(tabLabels().some((label) => label.includes('From a Source'))).toBe(true);
+  it('offers every form tab, and no import tab at all', () => {
+    // Importing is not a tab: it is a step BEFORE the form, entered from the
+    // Add Book chooser, so the form carries only the fields a book has.
+    expect(tabLabels()).toEqual(['Book Info', 'Publishing', 'Files & Personal']);
+  });
 
+  it('refuses to enter the source search when editing a book', () => {
     fixture.componentRef.setInput('book', { id: 'b1', title: 'Meditations' } as unknown as Book);
     fixture.detectChanges();
 
+    component.enterSourceMode();
+
     // Importing is a way to ADD a book, so it has no place in edit mode.
-    expect(tabLabels().some((label) => label.includes('From a Source'))).toBe(false);
+    expect(component.sourceMode()).toBe(false);
+  });
+
+  it('starts in the source search when the caller asks for it', async () => {
+    fixture.componentRef.setInput('sourceFirst', true);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(component.sourceMode()).toBe(true);
+    // The form is not on screen until the search has produced a book.
+    expect(fixture.nativeElement.querySelector('.modal-tabs')?.hidden).toBe(true);
+    // And the sources have to actually be loaded, or the search has nothing to
+    // run against. Found by pressing the button, not by reading the code.
+    expect(component.providerList().length).toBeGreaterThan(0);
   });
 
   it('loads the sources when the tab is opened and selects the first', async () => {
-    component.openSourceTab();
+    component.enterSourceMode();
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -147,7 +166,7 @@ describe('AddBookModal — From a Source', () => {
   it('surfaces a source-failure instead of an empty screen', async () => {
     vi.spyOn(providers, 'list').mockReturnValue(throwError(() => new Error('down')));
 
-    component.openSourceTab();
+    component.enterSourceMode();
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -156,7 +175,7 @@ describe('AddBookModal — From a Source', () => {
   });
 
   it('will not search on a single character, and searches on two', async () => {
-    component.openSourceTab();
+    component.enterSourceMode();
     await fixture.whenStable();
 
     component.sourceQuery.set('p');
@@ -171,7 +190,7 @@ describe('AddBookModal — From a Source', () => {
   });
 
   it('renders results with their metadata and the proxied cover', async () => {
-    component.openSourceTab();
+    component.enterSourceMode();
     await fixture.whenStable();
     component.sourceQuery.set('pride');
     component.searchSource();
@@ -190,7 +209,7 @@ describe('AddBookModal — From a Source', () => {
   });
 
   it('preselects the source\'s preferred asset and explains the rights position', async () => {
-    component.openSourceTab();
+    component.enterSourceMode();
     await fixture.whenStable();
     component.sourceQuery.set('pride');
     component.searchSource();
@@ -209,7 +228,7 @@ describe('AddBookModal — From a Source', () => {
   });
 
   it('hides the form submit button on the source tab', async () => {
-    component.openSourceTab();
+    component.enterSourceMode();
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -223,7 +242,7 @@ describe('AddBookModal — From a Source', () => {
     vi.spyOn(providers, 'acquire').mockReturnValue(of(job()));
     vi.spyOn(providers, 'job').mockReturnValue(of(job({ percent: 70, stage: 'assembling' })));
 
-    component.openSourceTab();
+    component.enterSourceMode();
     await fixture.whenStable();
     component.selectSourceItem(pride);
 
@@ -251,7 +270,7 @@ describe('AddBookModal — From a Source', () => {
     component.bookAdded.subscribe(added);
     component.closeModal.subscribe(closed);
 
-    component.openSourceTab();
+    component.enterSourceMode();
     await fixture.whenStable();
     component.selectSourceItem(pride);
 
@@ -280,7 +299,7 @@ describe('AddBookModal — From a Source', () => {
     const closed = vi.fn();
     component.closeModal.subscribe(closed);
 
-    component.openSourceTab();
+    component.enterSourceMode();
     await fixture.whenStable();
     component.selectSourceItem(pride);
 
@@ -298,7 +317,7 @@ describe('AddBookModal — From a Source', () => {
     vi.spyOn(providers, 'acquire').mockReturnValue(of(job()));
     vi.spyOn(providers, 'job').mockReturnValue(throwError(() => new Error('404')));
 
-    component.openSourceTab();
+    component.enterSourceMode();
     await fixture.whenStable();
     component.selectSourceItem(pride);
 
@@ -312,7 +331,7 @@ describe('AddBookModal — From a Source', () => {
   it('sends only the provider, item and asset — never a URL', async () => {
     const acquire = vi.spyOn(providers, 'acquire').mockReturnValue(of(job()));
 
-    component.openSourceTab();
+    component.enterSourceMode();
     await fixture.whenStable();
     component.selectSourceItem(pride);
     component.seedFromSelectedItem();
@@ -345,7 +364,7 @@ describe('AddBookModal — From a Source', () => {
   it('fills the form from the chosen item so it can be finished before importing', async () => {
     const acquire = vi.spyOn(providers, 'acquire');
 
-    component.openSourceTab();
+    component.enterSourceMode();
     await fixture.whenStable();
     component.selectSourceItem(pride);
 
@@ -371,7 +390,7 @@ describe('AddBookModal — From a Source', () => {
     } as ProviderItem;
     vi.spyOn(providers, 'item').mockReturnValue(of(audiobook));
 
-    component.openSourceTab();
+    component.enterSourceMode();
     await fixture.whenStable();
     component.selectSourceItem(audiobook);
     await fixture.whenStable();
@@ -386,7 +405,7 @@ describe('AddBookModal — From a Source', () => {
     const acquire = vi.spyOn(providers, 'acquire').mockReturnValue(of(job()));
     const create = vi.spyOn(books, 'create');
 
-    component.openSourceTab();
+    component.enterSourceMode();
     await fixture.whenStable();
     component.selectSourceItem(pride);
     component.seedFromSelectedItem();
@@ -400,7 +419,7 @@ describe('AddBookModal — From a Source', () => {
   it('sends only the fields the user actually edited', async () => {
     const acquire = vi.spyOn(providers, 'acquire').mockReturnValue(of(job()));
 
-    component.openSourceTab();
+    component.enterSourceMode();
     await fixture.whenStable();
     component.selectSourceItem(pride);
     component.seedFromSelectedItem();
