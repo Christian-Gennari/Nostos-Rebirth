@@ -1,6 +1,9 @@
 import { Injectable, signal } from '@angular/core';
 
-export type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark' | 'sepia';
+
+/** Every theme the app offers, in the order the settings control shows them. */
+export const THEMES: readonly Theme[] = ['light', 'dark', 'sepia'];
 
 const STORAGE_KEY = 'nostos.theme';
 const DARK = 'dark';
@@ -15,9 +18,9 @@ const LIGHT = 'light';
  *
  * The stylesheet is also the source of truth for what each theme *looks like*;
  * this file only decides which one is on. `styles.css` declares light on
- * `:root` and dark on `:root[data-theme='dark']`, which is what makes the
- * `data-theme="light"` case work without a second light block: removing the
- * attribute falls back to the `:root` defaults.
+ * `:root` and each other theme on `:root[data-theme='<name>']`, which is what
+ * makes the `data-theme="light"` case work without a second light block:
+ * removing the attribute falls back to the `:root` defaults.
  *
  * Anti-flash: `index.html` runs a tiny inline script that applies the stored
  * theme before first paint. That script must stay in sync with
@@ -49,12 +52,13 @@ export class ThemeService {
 
   private apply(theme: Theme): void {
     const root = document.documentElement;
-    if (theme === DARK) {
-      root.setAttribute('data-theme', DARK);
-    } else {
+    if (theme === LIGHT) {
       // Removing the attribute (rather than setting 'light') keeps `:root` as
-      // the single owner of the light values.
+      // the single owner of the light values. Dark and sepia are additive, so
+      // the attribute is simply their name.
       root.removeAttribute('data-theme');
+    } else {
+      root.setAttribute('data-theme', theme);
     }
   }
 }
@@ -67,7 +71,7 @@ export class ThemeService {
 export function readStoredTheme(): Theme {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === DARK || stored === LIGHT) return stored;
+    if (stored && (THEMES as readonly string[]).includes(stored)) return stored as Theme;
   } catch {
     // fall through to the OS preference
   }
