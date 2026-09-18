@@ -1,0 +1,119 @@
+<section class="chapters" aria-labelledby="chapters-title">
+  <header class="chapters-head">
+    <h3 id="chapters-title">Chapters</h3>
+    <p class="hint">
+      Hand-made chapters are kept exactly as you leave them — a later metadata scan will not
+      overwrite them. Clear the list to go back to whatever chapters the file itself carries.
+    </p>
+  </header>
+
+  <div class="bulk-paste">
+    @if (!bulkOpen()) {
+      <button type="button" class="ghost-btn" (click)="bulkOpen.set(true)">
+        <lucide-icon [img]="icons.ClipboardPaste" [size]="15"></lucide-icon>
+        Paste a list
+      </button>
+    } @else {
+      <label class="bulk-label" for="bulk-chapters">One chapter per line — timestamp, then name</label>
+      <textarea
+        id="bulk-chapters"
+        class="bulk-input"
+        rows="5"
+        placeholder="00:00:00 Introduction&#10;00:05:30 Chapter 1"
+        [value]="bulkText()"
+        (input)="bulkText.set($any($event.target).value)"
+      ></textarea>
+      <div class="bulk-actions">
+        <button type="button" class="ghost-btn" (click)="bulkOpen.set(false)">Cancel</button>
+        <button type="button" class="primary-btn" (click)="applyBulkPaste()">Replace list</button>
+      </div>
+      <p class="hint">
+        Accepts <code>HH:MM:SS</code>, <code>MM:SS</code> or seconds. Lines it cannot read are
+        marked so you can fix them before saving — nothing is saved while a row is invalid.
+      </p>
+    }
+  </div>
+
+  @if (rows().length === 0) {
+    <p class="empty">No chapters yet. Add one, or paste a list.</p>
+  } @else {
+    <ol class="rows">
+      @for (row of rows(); track $index) {
+        <li
+          class="row"
+          [class.invalid]="errors()[$index]"
+          draggable="true"
+          (dragstart)="onDragStart($index)"
+          (dragover)="$event.preventDefault()"
+          (drop)="onDrop($index)"
+        >
+          <span class="handle" aria-hidden="true">
+            <lucide-icon [img]="icons.GripVertical" [size]="14"></lucide-icon>
+          </span>
+          <span class="index">{{ $index + 1 }}</span>
+          <input
+            class="time"
+            type="text"
+            inputmode="numeric"
+            aria-label="Start time"
+            [value]="row.timeText"
+            (input)="setTime($index, $any($event.target).value)"
+          />
+          <input
+            class="name"
+            type="text"
+            aria-label="Chapter name"
+            placeholder="Chapter name"
+            [value]="row.title"
+            (input)="setTitle($index, $any($event.target).value)"
+          />
+          <span class="row-actions">
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Move up"
+              [disabled]="$first"
+              (click)="move($index, -1)"
+            >
+              <lucide-icon [img]="icons.ArrowUp" [size]="14"></lucide-icon>
+            </button>
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Move down"
+              [disabled]="$last"
+              (click)="move($index, 1)"
+            >
+              <lucide-icon [img]="icons.ArrowDown" [size]="14"></lucide-icon>
+            </button>
+            <button type="button" class="icon-btn danger" aria-label="Remove chapter" (click)="removeRow($index)">
+              <lucide-icon [img]="icons.Trash2" [size]="14"></lucide-icon>
+            </button>
+          </span>
+          @if (errors()[$index]; as error) {
+            <span class="row-error" role="alert">{{ error }}</span>
+          }
+        </li>
+      }
+    </ol>
+  }
+
+  <div class="chapters-foot">
+    <button type="button" class="ghost-btn" (click)="addRow()">
+      <lucide-icon [img]="icons.Plus" [size]="15"></lucide-icon>
+      Add chapter
+    </button>
+    @if (hasErrors()) {
+      <span class="foot-hint">Fix the highlighted rows before saving.</span>
+    }
+    <span class="spacer"></span>
+    @if (rows().length > 0) {
+      <button type="button" class="ghost-btn danger" [disabled]="saving()" (click)="clear()">
+        Clear chapters
+      </button>
+    }
+    <button type="button" class="primary-btn" [disabled]="!canSave() || saving()" (click)="submit()">
+      {{ saving() ? 'Saving…' : 'Save chapters' }}
+    </button>
+  </div>
+</section>
