@@ -190,3 +190,69 @@
   display: none !important;
   height: 0 !important;
 }
+
+/* --- Search bar (issue #226 §2) --------------------------------------------
+   The library renders its find bar from its own custom elements, so this has to
+   cross the component boundary with ::ng-deep. Scoped to #pdf-viewer-wrapper so
+   nothing can leak into the shell. Tokens only: the bar used to render pdf.js's
+   cool grey (#f9f9fa) and 2px corners next to a warm-paper app. */
+#pdf-viewer-wrapper ::ng-deep .findbar {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
+  padding: 0.4rem 0.85rem;
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.8125rem;
+  color: var(--color-text-main);
+  gap: 0.75rem;
+  align-items: center;
+}
+
+#pdf-viewer-wrapper ::ng-deep .findbar .toolbarField[type='text'] {
+  background: var(--bg-body);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-main);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  padding: 3px 8px;
+  min-height: 28px;
+}
+
+#pdf-viewer-wrapper ::ng-deep .findbar .toolbarField[type='text']:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
+#pdf-viewer-wrapper ::ng-deep .findbar input.toolbarField[type='checkbox'] {
+  accent-color: var(--color-primary);
+  width: 14px;
+  height: 14px;
+  margin-inline-end: 0.35rem;
+}
+
+#pdf-viewer-wrapper ::ng-deep .findbar .toolbarLabel {
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+#pdf-viewer-wrapper ::ng-deep .findbar button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-main);
+  min-width: 28px;
+  min-height: 28px;
+}
+
+#pdf-viewer-wrapper ::ng-deep .findbar button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--color-primary);
+  border-color: var(--border-color);
+}
+
+#pdf-viewer-wrapper ::ng-deep .findbar button:disabled {
+  color: var(--color-text-faint);
+}

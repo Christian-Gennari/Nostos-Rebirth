@@ -9,6 +9,7 @@ import {
   ViewChild,
   OnDestroy,
   signal,
+  HostListener,
 } from '@angular/core';
 import {
   NgxExtendedPdfViewerModule,
@@ -65,6 +66,33 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
 
   sidebarVisible = input<boolean>(false);
   sidebarVisibleChange = output<boolean>();
+
+  /**
+   * Search bar visibility, opened by Ctrl/Cmd+F from anywhere in the reader.
+   * Before this the bar was never opened and no other search path existed, so
+   * Ctrl+F did nothing at all in a PDF (issue #226 §2).
+   */
+  findBarVisible = signal(false);
+
+  /**
+   * Ctrl/Cmd+F opens the library's find bar; Escape closes it first, without
+   * letting the event reach the shell (which would close a rail instead).
+   * The shell's page-key handler ignores modifier chords, so page turns are
+   * unaffected.
+   */
+  @HostListener('document:keydown', ['$event'])
+  onShortcutKeydown(event: KeyboardEvent): void {
+    if (this.findBarVisible() && event.key === 'Escape') {
+      this.findBarVisible.set(false);
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+    if (event.key.toLowerCase() !== 'f') return;
+    event.preventDefault();
+    this.findBarVisible.set(true);
+  }
 
   pdfSrc = computed(() => `/api/books/${this.bookId()}/file`);
   savedHighlights: PageHighlight[] = [];
