@@ -60,6 +60,22 @@ export class ImportService {
   readonly hasImports = computed(() => this.imports().length > 0);
 
   /**
+   * A stable signature of what is currently importing, including which book row it
+   * has. The library's page is a snapshot taken when it was fetched, so a book that
+   * did not exist then cannot be in it: a change here means the page needs to be
+   * re-read once — when the row appears, and again when the import ends and the book
+   * takes its ordinary place in the sort. Only the SET is captured, never the
+   * percentages, so progress ticks do not cause fetches.
+   */
+  readonly inFlightSignature = computed(() =>
+    this.imports()
+      .filter((entry) => isImportInFlight(entry))
+      .map((entry) => `${entry.id}:${entry.bookId ?? ''}`)
+      .sort()
+      .join('|'),
+  );
+
+  /**
    * The in-flight entry driving a given book's card/row, or undefined.
    *
    * This is the whole point of the feed now: the library renders its own items,
