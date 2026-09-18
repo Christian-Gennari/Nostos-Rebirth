@@ -20,6 +20,9 @@ const BASE_URL = 'http://127.0.0.1:5341';
 const EPUB_ID = '89bffc2a-5946-4453-ac6b-f1860e45b264';   // Middlemarch
 const PDF_ID  = '84f841e0-705e-4f7a-94ea-71475fcd512a';   // Oral Tradition 16/1 (2001)
 const AUDIO_ID = '6169c747-9a3b-46fa-8d4b-625ffc544140';  // Flatland (LibriVox)
+// The Studio needs a document to be open, not just a populated tree, or the
+// editor pane photographs its empty state. Seeded by showcase-tools/seed_writings.py.
+const STUDIO_DOC_ID = '81e78659-3c39-4570-aba9-193301ff01f3';  // "Unhistoric Acts" 
 
 const DESKTOP = { w: 1920, h: 1080 };
 const MOBILE = { w: 390, h: 844 };
@@ -47,8 +50,8 @@ for (const theme of ['light', 'dark']) {
   tasks.push({ name: `reader-mobile-${theme}.png`, route: `/read/${AUDIO_ID}`, theme, ...MOBILE, waitReader: 7000 });
 
   // Writing Studio.
-  tasks.push({ name: `studio-desktop-${theme}.png`, route: '/studio', theme, ...DESKTOP, openStudioDoc: true });
-  tasks.push({ name: `studio-mobile-${theme}.png`, route: '/studio', theme, ...MOBILE, openStudioDoc: true });
+  tasks.push({ name: `studio-desktop-${theme}.png`, route: '/studio', theme, ...DESKTOP, openStudioDoc: STUDIO_DOC_ID });
+  tasks.push({ name: `studio-mobile-${theme}.png`, route: '/studio', theme, ...MOBILE, openStudioDoc: STUDIO_DOC_ID });
 
   // Concept Brain.
   tasks.push({ name: `brain-desktop-${theme}.png`, route: '/second-brain', theme, ...DESKTOP, clickMap: true });
@@ -58,21 +61,51 @@ for (const theme of ['light', 'dark']) {
   tasks.push({ name: `add-book-source-${theme}.png`, route: '/library', theme, ...DESKTOP, openSourceModal: true });
 }
 
-async function openStudioDoc(page) {
-  try {
-    const toggle = page.locator('.toggle-btn').first();
-    if (await toggle.isVisible()) {
-      await toggle.click();
-      await page.waitForTimeout(400);
-    }
-    const childDoc = page.locator('.tree-row.nested').first();
-    if (await childDoc.isVisible()) {
-      await childDoc.click();
-      await page.waitForTimeout(1100);
-    }
-  } catch (e) {
-    console.warn('Studio doc warning:', e.message);
+/**
+ * Open a specific Studio document.
+ *
+ * The file tree renders every folder collapsed, and on mobile the whole sidebar
+ * starts closed, so on arrival neither the target row nor its ancestor folder is
+ * in the DOM. This opens the sidebar when the empty state is showing, expands
+ * folders until the row exists, then clicks it by data-node-id.
+ *
+ * The previous version clicked '.tree-row.nested' positionally, which depended
+ * on whichever row happened to be first and, against an empty tree, did nothing
+ * at all without failing - the editor pane photographed its empty state and the
+ * suite reported success.
+ */
+async function openStudioDoc(page, docId) {
+  const row = page.locator(`[data-node-id="${docId}"]`);
+
+  // Mobile opens with the sidebar closed; the empty state holds the only
+  // control that reveals it.
+  const openSidebar = page.locator('.empty-state .btn-outline');
+  if ((await row.count()) === 0 && (await openSidebar.count()) > 0) {
+    await openSidebar.first().click();
+    await page.waitForTimeout(500);
   }
+
+  for (let attempt = 0; attempt < 4 && (await row.count()) === 0; attempt++) {
+    const collapsed = page.locator('.toggle-btn:not(.expanded)').first();
+    if ((await collapsed.count()) === 0) break;
+    await collapsed.click();
+    await page.waitForTimeout(400);
+  }
+
+  if ((await row.count()) === 0) {
+    throw new Error(`Studio: no tree row for document ${docId}`);
+  }
+
+  await row.first().click();
+
+  // TinyMCE boots asynchronously and only then parses the markdown into the
+  // body, so wait for the editor to exist rather than on a fixed delay.
+  await page
+    .locator('.tox-editor-container')
+    .first()
+    .waitFor({ state: 'visible', timeout: 20000 })
+    .catch(() => console.warn('Studio: TinyMCE container did not appear in time'));
+  await page.waitForTimeout(2000);
 }
 
 async function clickMap(page) {
@@ -197,7 +230,7 @@ async function capture() {
     if (t.waitReader) {
       await page.waitForTimeout(t.waitReader);
     } else if (t.openStudioDoc) {
-      await openStudioDoc(page);
+      await openStudioDoc(page, t.openStudioDoc);
     } else if (t.clickMap) {
       await clickMap(page);
     } else if (t.openSourceModal) {
