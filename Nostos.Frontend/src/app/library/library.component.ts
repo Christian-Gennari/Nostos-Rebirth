@@ -23,6 +23,7 @@ import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
 import { SidebarCollections } from './sidebar-collections/sidebar-collections.component';
+import { ImportsPanel } from './imports-panel/imports-panel.component';
 import { Book, EditionSummaryDto, PaginatedResponse } from '../core/dtos/book.dtos';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
@@ -133,6 +134,7 @@ interface WorkFormatGlyph {
     StarRatingComponent,
     IconButtonComponent,
     SidebarCollections,
+    ImportsPanel,
     InfiniteScrollDirective,
     BloomArtDirective,
   ],

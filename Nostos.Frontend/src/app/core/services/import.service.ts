@@ -242,15 +242,22 @@ export class ImportService {
   }
 
   private onFinished(activity: ImportActivity): void {
-    const existing = this.entries().find((entry) => entry.id === activity.id);
-    // A terminal event is the authoritative outcome for that id, and it may
-    // arrive after a snapshot already described it as running.
-    this.entries.update((current) => [
-      ...current.filter((entry) => entry.id !== activity.id),
-      existing ? { ...existing, ...activity } : activity,
-    ]);
-
     this.fetchBook(activity);
+
+    if (activity.state === 'succeeded') {
+      // Done means the book is in the library and its row was just patched in, so
+      // a "Done" notice would only ask the user to dismiss a success.
+      this.entries.update((current) => current.filter((entry) => entry.id !== activity.id));
+    } else {
+      const existing = this.entries().find((entry) => entry.id === activity.id);
+      // A terminal event is the authoritative outcome for that id, and it may
+      // arrive after a snapshot already described the entry as running.
+      this.entries.update((current) => [
+        ...current.filter((entry) => entry.id !== activity.id),
+        existing ? { ...existing, ...activity } : activity,
+      ]);
+    }
+
     this.closeIfSettled();
   }
 

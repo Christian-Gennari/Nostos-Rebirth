@@ -1,0 +1,84 @@
+@if (hasEntries()) {
+<section class="imports-panel" aria-labelledby="imports-panel-title">
+  <div class="imports-head">
+    <h2 id="imports-panel-title" class="imports-title">{{ heading() }}</h2>
+    @if (reconnecting()) {
+    <span class="imports-connection" role="status">
+      <lucide-icon [img]="WifiOffIcon" [size]="14" strokeWidth="2"></lucide-icon>
+      <span>Reconnecting…</span>
+    </span>
+    }
+  </div>
+
+  <ul class="imports-list">
+    @for (entry of entries(); track entry.id) {
+    <li class="import-entry" [class.is-failed]="!isInFlight(entry)">
+      <div class="import-cover">
+        @if (coverUrl(entry)) {
+        <img
+          [src]="coverUrl(entry)"
+          [alt]="entry.title || 'Import in progress'"
+          class="import-cover-img"
+          loading="lazy"
+          decoding="async"
+        />
+        } @else {
+        <lucide-icon [img]="BookIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
+        }
+      </div>
+
+      <div class="import-body">
+        <div class="import-topline">
+          <span class="import-name">{{ entry.title || 'Preparing import…' }}</span>
+          <span class="import-stage" [class.is-error]="!isInFlight(entry)">{{
+            stageLabel(entry)
+          }}</span>
+        </div>
+
+        <span class="import-author">{{ entry.author || 'Unknown author' }}</span>
+
+        @if (isInFlight(entry)) {
+        <div class="import-progress-row">
+          <div
+            class="import-progress"
+            role="progressbar"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            [attr.aria-valuenow]="entry.percent"
+            [attr.aria-label]="progressLabel(entry)"
+          >
+            <div class="import-progress-fill" [style.width.%]="entry.percent"></div>
+          </div>
+          <span class="import-percent">{{ entry.percent }}%</span>
+        </div>
+
+        <div class="import-foot">
+          @if (entry.detail) {
+          <span class="import-detail">{{ entry.detail }}</span>
+          } @else {
+          <span class="import-detail"></span>
+          }
+          <button type="button" class="import-action" (click)="cancel(entry)">Cancel</button>
+        </div>
+        } @else {
+        <p class="import-message">{{ entry.message || 'The import did not finish.' }}</p>
+
+        <div class="import-actions">
+          @if (entry.canRetry) {
+          <button type="button" class="import-action is-primary" (click)="retry(entry)">
+            <lucide-icon [img]="RotateCcwIcon" [size]="14" strokeWidth="2"></lucide-icon>
+            <span>Retry</span>
+          </button>
+          }
+          <button type="button" class="import-action" (click)="dismiss(entry)">
+            <lucide-icon [img]="XIcon" [size]="14" strokeWidth="2"></lucide-icon>
+            <span>Dismiss</span>
+          </button>
+        </div>
+        }
+      </div>
+    </li>
+    }
+  </ul>
+</section>
+}
