@@ -23,7 +23,11 @@
 }
 
 /* One row per intent: a mark, a name, and the sentence that says which one you
-   want. The whole row is the target. */
+   want. The whole row is the target.
+
+   `--radius-sm`, not `--radius-action`: that token is a 999px pill, which
+   rounded these into lozenges. This is a panel you pick, so it belongs on the
+   app's square scale with the other compact controls. */
 .add-intent-choice {
   display: flex;
   align-items: flex-start;
@@ -33,7 +37,7 @@
   text-align: left;
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-action);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background-color var(--motion-fast) var(--ease-out),
     border-color var(--motion-fast) var(--ease-out);

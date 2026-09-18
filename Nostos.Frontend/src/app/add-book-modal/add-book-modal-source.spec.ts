@@ -146,8 +146,10 @@ describe('AddBookModal — From a Source', () => {
     fixture.detectChanges();
 
     expect(component.sourceMode()).toBe(true);
-    // The form is not on screen until the search has produced a book.
-    expect(fixture.nativeElement.querySelector('.modal-tabs')?.hidden).toBe(true);
+    // The strip is not merely hidden — it is not rendered. `[hidden]` loses to
+    // any author `display` rule, and `.modal-tabs` is `display: flex`, which is
+    // exactly how the tabs stayed on screen above the search.
+    expect(fixture.nativeElement.querySelector('.modal-tabs')).toBeNull();
     // And the sources have to actually be loaded, or the search has nothing to
     // run against. Found by pressing the button, not by reading the code.
     expect(component.providerList().length).toBeGreaterThan(0);
