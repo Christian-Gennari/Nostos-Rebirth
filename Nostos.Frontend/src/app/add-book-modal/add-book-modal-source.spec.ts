@@ -271,6 +271,59 @@ describe('AddBookModal — From a Source', () => {
     expect(fixture.nativeElement.querySelectorAll('app-collection-picker').length).toBe(1);
   });
 
+  it('shows the source cover as already handled and offers no upload on the import path', async () => {
+    component.enterSourceMode();
+    await fixture.whenStable();
+    component.sourceQuery.set('pride');
+    component.searchSource();
+    await fixture.whenStable();
+
+    component.selectSourceItem(pride);
+    fixture.detectChanges();
+
+    // The import brings both files itself. A dropped file on this path is
+    // discarded without a word, so neither upload belongs here at all.
+    const inputs = [
+      ...fixture.nativeElement.querySelectorAll('input[type="file"]'),
+    ] as HTMLInputElement[];
+    expect(inputs.some((i) => (i.getAttribute('accept') ?? '').includes('.epub'))).toBe(false);
+    expect(inputs.some((i) => i.getAttribute('accept') === 'image/*')).toBe(false);
+
+    // It says what will happen instead of asking.
+    expect(fixture.nativeElement.textContent).toContain('no file needed');
+
+    // And the cover is shown, credited, and actually rendered — not merely
+    // present in a hidden tab, which is the trap this suite fell into before.
+    component.setTab('Files & Personal');
+    fixture.detectChanges();
+
+    const wrapper = fixture.nativeElement.querySelector('.cover-from-source') as HTMLElement | null;
+    expect(wrapper).toBeTruthy();
+    expect(getComputedStyle(wrapper!).display).not.toBe('none');
+
+    const preview = wrapper!.querySelector('img') as HTMLImageElement;
+    expect(preview.getAttribute('src')).toBe(pride.coverUrl);
+    expect(wrapper!.textContent).toContain('Project Gutenberg');
+  });
+
+  it('still offers both uploads for a hand-entered book, and names a chosen file', async () => {
+    fixture.detectChanges();
+    component.setTab('Files & Personal');
+    fixture.detectChanges();
+
+    const inputs = [
+      ...fixture.nativeElement.querySelectorAll('input[type="file"]'),
+    ] as HTMLInputElement[];
+    expect(inputs.some((i) => (i.getAttribute('accept') ?? '').includes('.epub'))).toBe(true);
+    expect(inputs.some((i) => i.getAttribute('accept') === 'image/*')).toBe(true);
+
+    // A chosen file names itself, so the zone never looks untouched.
+    const file = new File(['x'], 'book.epub', { type: 'application/epub+zip' });
+    component.selectedFile.set(file);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.chosen-file')?.textContent).toContain('book.epub');
+  });
+
   it('hides the form submit button on the source tab', async () => {
     component.enterSourceMode();
     await fixture.whenStable();
