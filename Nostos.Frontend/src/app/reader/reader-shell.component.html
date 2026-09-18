@@ -84,14 +84,14 @@
         [bookId]="book()!.id"
         [initialLocation]="book()?.lastLocation"
         [sidebarVisible]="tocOpen()"
-        [highlightMode]="highlightMode()"
+        [highlightMode]="highlightMode()" [highlightColour]="highlightColour()"
         (sidebarVisibleChange)="tocOpen.set($event)"
         (noteCreated)="handleNoteCreated()"
         (selectionCaptured)="handleSelectionCaptured($event)"
         (commitFailed)="handleCommitFailed()"
       />
       } @case ('epub') {
-      <app-epub-reader #epubReader [bookId]="book()!.id" [book]="book()" [highlightMode]="highlightMode()" (noteCreated)="handleNoteCreated()" (selectionCaptured)="handleSelectionCaptured($event)" (commitFailed)="handleCommitFailed()" />
+      <app-epub-reader #epubReader [bookId]="book()!.id" [book]="book()" [highlightMode]="highlightMode()" [highlightColour]="highlightColour()" (noteCreated)="handleNoteCreated()" (selectionCaptured)="handleSelectionCaptured($event)" (commitFailed)="handleCommitFailed()" />
       } @case ('audio') {
       <app-audio-reader [bookId]="book()!.id" [book]="book()" />
       } @default {
@@ -172,6 +172,24 @@
         }}</span>
         <span class="highlight-toggle-state">{{ highlightMode() ? 'On' : 'Off' }}</span>
       </button>
+
+      <!-- The highlighter pens (issue #208). Four fills, remembered per book;
+           the swatch is the label, so this stays a row of dots rather than a row
+           of words. `aria-pressed` carries the choice to assistive tech. -->
+      <div class="hl-pens" role="group" aria-label="Highlight colour">
+        @for (pen of highlightColours; track pen.id) {
+          <button
+            type="button"
+            class="hl-pen"
+            [style.background]="'var(--highlight-' + pen.id + ')'"
+            [class.is-active]="highlightColour() === pen.id"
+            [attr.aria-pressed]="highlightColour() === pen.id"
+            [attr.aria-label]="pen.label + ' highlighter'"
+            [attr.data-testid]="'reader-highlight-pen-' + pen.id"
+            (click)="setHighlightColour(pen.id)"
+          ></button>
+        }
+      </div>
       }
 
       <div class="quick-note">

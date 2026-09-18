@@ -673,3 +673,25 @@
     max-width: 96px;
   }
 }
+
+/* The highlighter pens (issue #208). A row of fills, not a colour picker: the
+   point is to see the pen, and four dots read faster than four words. */
+.hl-pens {
+  display: flex;
+  gap: 8px;
+  padding: 10px 2px 2px;
+}
+
+.hl-pen {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.hl-pen.is-active {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}

@@ -336,7 +336,7 @@
      every theme (the EPUB iframe and the PDF page are the book's own light page,
      which is why dark's `--color-highlight` token is a pale sage rather than a
      dark colour). A highlight is drawn on that page, so the four fills are the
-     same in light, dark and sepia — declaring per-theme copies would be three
+     same in light and dark — declaring per-theme copies would be two
      ways to say one thing. `--color-highlight` remains the themed default.
   */
   --highlight-amber: #ffda00;
