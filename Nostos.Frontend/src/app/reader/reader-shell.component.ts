@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed, ViewChild, HostListener } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, effect, ViewChild, HostListener } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -36,6 +36,13 @@ import { ConceptAutocompleteService } from '../ui/concept-autocomplete-panel/con
 import { Note } from '../core/dtos/note.dtos';
 import { IReader, TocItem } from './reader.interface';
 import { isTypingTarget, pageActionForKey } from './reader-keyboard';
+import {
+  DEFAULT_HIGHLIGHT_COLOUR,
+  HIGHLIGHT_COLOURS,
+  HighlightColour,
+  readHighlightColour,
+  writeHighlightColour,
+} from './highlight-colours';
 
 // Components
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
@@ -159,6 +166,13 @@ export class ReaderShell implements OnInit {
   tocOpen = signal(false);
   ready = signal(false);
   highlightMode = signal(false);
+  /**
+   * The book's highlighter pen (issue #208). Remembered per BOOK, like the
+   * reader's zoom: the pen you want depends on what you are marking up, and
+   * a book you annotate in sage should come back in sage.
+   */
+  highlightColour = signal<HighlightColour>(DEFAULT_HIGHLIGHT_COLOUR);
+  readonly highlightColours = HIGHLIGHT_COLOURS;
   pendingSelectionText = signal<string | null>(null);
   highlightSaving = signal(false);
 
@@ -277,6 +291,22 @@ export class ReaderShell implements OnInit {
   toggleNotes() {
     this.notesOpen.update((v) => !v);
     if (this.notesOpen()) this.tocOpen.set(false);
+  }
+
+  /**
+   * Adopt the stored pen whenever the open book changes. Written as an effect on
+   * `book()` so it holds no matter which path loaded the book.
+   */
+  private readonly syncHighlightColour = effect(() => {
+    const bookId = this.book()?.id;
+    if (!bookId) return;
+    this.highlightColour.set(readHighlightColour(bookId));
+  });
+
+  setHighlightColour(colour: HighlightColour): void {
+    this.highlightColour.set(colour);
+    const bookId = this.book()?.id;
+    if (bookId) writeHighlightColour(bookId, colour);
   }
 
   toggleHighlightMode() {

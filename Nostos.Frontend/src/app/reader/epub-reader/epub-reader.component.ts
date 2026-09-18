@@ -18,6 +18,7 @@ import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 
 import { EpubAnnotationManager } from './epub-annotation-manager';
+import { DEFAULT_HIGHLIGHT_COLOUR, HighlightColour } from '../highlight-colours';
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
 import { ThemeService, Theme } from '../../core/services/theme.service';
@@ -223,6 +224,8 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   book = input<BookDto | null>(null);
   noteCreated = output<void>();
   highlightMode = input<boolean>(false);
+  /** The book's highlighter pen (issue #208), owned by the shell. */
+  highlightColour = input<HighlightColour>(DEFAULT_HIGHLIGHT_COLOUR);
   selectionCaptured = output<string>();
   commitFailed = output<void>();
 
@@ -300,6 +303,13 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
       const mode = this.highlightMode();
       if (this.annotationManager) {
         this.annotationManager.setHighlightMode(mode);
+      }
+    });
+
+    effect(() => {
+      const colour = this.highlightColour();
+      if (this.annotationManager) {
+        this.annotationManager.setHighlightColour(colour);
       }
     });
 
@@ -518,6 +528,7 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
       () => this.commitFailed.emit(),
     );
     this.annotationManager.setHighlightMode(this.highlightMode());
+    this.annotationManager.setHighlightColour(this.highlightColour());
     this.annotationManager.setOnSelectionCaptured((text) =>
       this.selectionCaptured.emit(text),
     );

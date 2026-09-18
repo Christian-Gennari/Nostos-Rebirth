@@ -1,5 +1,12 @@
 import { Injectable } from '@angular/core';
 
+import {
+  DEFAULT_HIGHLIGHT_COLOUR,
+  HighlightColour,
+  highlightFillRef,
+  highlightFillVar,
+} from '../highlight-colours';
+
 export interface HighlightRect {
   left: number;
   top: number;
@@ -17,7 +24,16 @@ export interface PageHighlight {
   providedIn: 'root',
 })
 export class PdfAnnotationManager {
-  paint(textLayerDiv: HTMLElement, highlights: PageHighlight[]) {
+  /**
+   * Draw a page's highlights. The pen arrives as a COLOUR NAME and becomes
+   * `var(--highlight-<name>)`, so the value stays in the stylesheet and a
+   * highlight follows CSS alone (issue #208).
+   */
+  paint(
+    textLayerDiv: HTMLElement,
+    highlights: PageHighlight[],
+    colour: HighlightColour = DEFAULT_HIGHLIGHT_COLOUR,
+  ) {
     let highlightLayer = textLayerDiv.querySelector('.custom-highlight-layer') as HTMLElement;
 
     if (!highlightLayer) {
@@ -39,6 +55,10 @@ export class PdfAnnotationManager {
       h.rects.forEach((rect) => {
         const div = document.createElement('div');
         div.className = 'highlight-box';
+        // Per BOX, not per layer: this leaves room for marks made with different
+        // pens on one page without a repaint.
+        div.style.setProperty('--hl', highlightFillRef(colour));
+        div.style.setProperty('--hl-hover', `var(${highlightFillVar(colour)}-hover)`);
         div.style.left = `${rect.left * 100}%`;
         div.style.top = `${rect.top * 100}%`;
         div.style.width = `${rect.width * 100}%`;

@@ -23,6 +23,7 @@ import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 
 import { PdfAnnotationManager, PageHighlight } from './pdf-annotation-manager';
+import { DEFAULT_HIGHLIGHT_COLOUR, HighlightColour } from '../highlight-colours';
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
@@ -73,6 +74,8 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   initialLocation = input<string | undefined>();
   noteCreated = output<void>();
   highlightMode = input<boolean>(false);
+  /** The book's highlighter pen (issue #208), owned by the shell. */
+  highlightColour = input<HighlightColour>(DEFAULT_HIGHLIGHT_COLOUR);
   selectionCaptured = output<string>();
   commitFailed = output<void>();
 
@@ -414,7 +417,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
 
     const pageHighlights = this.savedHighlights.filter((h) => h.pageNumber === event.pageNumber);
     const validHighlights = pageHighlights.filter((h) => h.rects && h.rects.length > 0);
-    this.highlightService.paint(textLayerDiv, validHighlights);
+    this.highlightService.paint(textLayerDiv, validHighlights, this.highlightColour());
   }
 
   // --- Selection Logic ---
@@ -536,7 +539,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     if (textLayer) {
       const pageHighlights = this.savedHighlights.filter((h) => h.pageNumber === pageNumber);
       const validHighlights = pageHighlights.filter((h) => h.rects && h.rects.length > 0);
-      this.highlightService.paint(textLayer, validHighlights);
+      this.highlightService.paint(textLayer, validHighlights, this.highlightColour());
     }
   }
 

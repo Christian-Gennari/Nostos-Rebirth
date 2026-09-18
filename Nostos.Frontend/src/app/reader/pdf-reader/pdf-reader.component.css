@@ -88,13 +88,18 @@
 
 ::ng-deep .highlight-box {
   position: absolute;
-  background-color: var(--color-highlight);
+  /* Declared here and overridden inline per box by pdf-annotation-manager from
+     the book's chosen pen (issue #208). The themed token is the default, so a
+     mark made before this feature still renders with a colour. */
+  --hl: var(--color-highlight);
+  --hl-hover: var(--color-highlight-hover);
+  background-color: var(--hl);
   cursor: text;
   opacity: 1; /* Boxes stay solid so siblings merge instead of striping */
 }
 
 ::ng-deep .highlight-box:hover {
-  background-color: var(--color-highlight-hover);
+  background-color: var(--hl-hover);
 }
 
 /* --- UI Tweaks --- */
