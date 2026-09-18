@@ -23,13 +23,13 @@ import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
 import { SidebarCollections } from './sidebar-collections/sidebar-collections.component';
-import { ImportsPanel } from './imports-panel/imports-panel.component';
 import { Book, EditionSummaryDto, PaginatedResponse } from '../core/dtos/book.dtos';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { InfiniteScrollDirective } from '../core/directives/infinite-scroll.directive';
 import { BloomArtDirective } from '../ui/bloom-art/bloom-art.directive';
 import { BookSort } from '../core/dtos/book.enums';
+import { ImportActivity, importStageLabel, isImportInFlight as importIsInFlight } from '../core/dtos/import.dtos';
 import { LibraryFilterService } from './library-filter.service';
 import { LibraryPreferencesService } from '../core/services/library-preferences.service';
 import { ImportService } from '../core/services/import.service';
@@ -55,6 +55,7 @@ import {
   Bookmark,
   AlertCircle,
   Clock,
+  RotateCcw,
 } from 'lucide-angular';
 
 /** Legacy key retained for callers that need to verify the migration path. */
@@ -134,7 +135,6 @@ interface WorkFormatGlyph {
     StarRatingComponent,
     IconButtonComponent,
     SidebarCollections,
-    ImportsPanel,
     InfiniteScrollDirective,
     BloomArtDirective,
   ],
@@ -171,6 +171,7 @@ export class Library implements OnInit, OnDestroy {
   BookmarkIcon = Bookmark;
   AlertCircleIcon = AlertCircle;
   ClockIcon = Clock;
+  RotateCcwIcon = RotateCcw;
 
   // Enums for Template Access
   BookSort = BookSort;
@@ -532,6 +533,87 @@ export class Library implements OnInit, OnDestroy {
 
   private refreshStatusCounts(): void {
     this.sidebar?.loadStatusCounts();
+  }
+
+  // --- Import progress, ON the item -------------------------------------
+  // The library renders its own card and row; an item that is being imported
+  // simply knows its own progress. Nothing below reads the library query — these
+  // are lookups into the feed keyed by book id, so no sort, filter, page or
+  // refetch is involved in showing progress.
+
+  /** The import driving this book, or undefined when it is not importing. */
+  bookProgress(book: Book): ImportActivity | undefined {
+    return this.imports.progressByBookId().get(book.id);
+  }
+
+  /**
+   * The stage word for an in-flight book. Falls back to the book's own status
+   * when the feed has not reported it yet (a page load mid-import, for the
+   * fraction of a second before the first frame lands) — the card then looks
+   * exactly as it did before this change, never wrong.
+   */
+  bookStageLabel(book: Book): string {
+    const progress = this.bookProgress(book);
+    return progress ? importStageLabel(progress) : book.status === 2 ? 'Transcoding' : 'Downloading';
+  }
+
+  /** Screen-reader text for the item's bar. */
+  bookProgressLabel(book: Book): string {
+    const progress = this.bookProgress(book);
+    const stage = this.bookStageLabel(book);
+    return progress ? `${stage}, ${progress.percent} percent` : stage;
+  }
+
+  /** Failures the library cannot currently show because their item is not on this page. */
+  readonly offscreenImports = computed(() => {
+    // Suppressed during the first paint: with no results rendered yet every
+    // import would look off-screen, which would flash a strip on every load.
+    if (this.loading()) return [];
+
+    const visible = new Set(this.rawBooks().map((book) => book.id));
+
+    return this.imports
+      .imports()
+      .filter((entry) => !entry.bookId || !visible.has(entry.bookId));
+  });
+
+  /**
+   * Order the library so the newest thing in it comes first.
+   *
+   * Named for what it does rather than "take me to it", because it cannot promise
+   * that: with `groupByWork` (the default) an imported edition that merges into an
+   * existing work is represented by that work's card — which is a different
+   * edition, ordered by the work's own recency — so re-sorting moves it to a page
+   * rather than into view. Under an ungrouped view it lands first.
+   */
+  showImport(event: Event): void {
+    event.stopPropagation();
+    this.activeSort.set(BookSort.Recent);
+    this.preferences.setSort(BookSort.Recent);
+    this.refreshBooks();
+  }
+
+  importInFlight(activity: ImportActivity): boolean {
+    return importIsInFlight(activity);
+  }
+
+  importStage(activity: ImportActivity): string {
+    return importStageLabel(activity);
+  }
+
+  cancelImport(activity: ImportActivity, event: Event): void {
+    event.stopPropagation();
+    this.imports.cancel(activity);
+  }
+
+  retryImport(activity: ImportActivity, event: Event): void {
+    event.stopPropagation();
+    this.imports.retry(activity);
+  }
+
+  dismissImport(activity: ImportActivity, event: Event): void {
+    event.stopPropagation();
+    this.imports.dismiss(activity);
   }
 
   /**

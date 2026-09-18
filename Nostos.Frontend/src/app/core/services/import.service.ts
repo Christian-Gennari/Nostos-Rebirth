@@ -59,6 +59,23 @@ export class ImportService {
   /** True while anything at all should be on screen, including failures. */
   readonly hasImports = computed(() => this.imports().length > 0);
 
+  /**
+   * The in-flight entry driving a given book's card/row, or undefined.
+   *
+   * This is the whole point of the feed now: the library renders its own items,
+   * and an item that is being imported simply knows its own progress. There is no
+   * second list to reconcile with the first.
+   */
+  readonly progressByBookId = computed(() => {
+    const byBook = new Map<string, ImportActivity>();
+
+    for (const entry of this.imports()) {
+      if (entry.bookId) byBook.set(entry.bookId, entry);
+    }
+
+    return byBook;
+  });
+
   readonly connectionState = this.connection.asReadonly();
 
   /**
