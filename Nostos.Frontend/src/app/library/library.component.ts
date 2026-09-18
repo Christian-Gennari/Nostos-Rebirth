@@ -185,6 +185,12 @@ export class Library implements OnInit, OnDestroy {
   private requestSeq = 0;
   private swapStartedAt = 0;
 
+  /** The last in-flight import signature the page was fetched against. */
+  private lastImportSignature: string | null = null;
+
+  /** A finished import whose visibility the next committed page decides. */
+  private pendingReadyNotice: { id: string; title: string } | null = null;
+
   // Pagination State
   currentPage = signal(1);
   pageSize = this.preferences.pageSize;
@@ -281,9 +287,7 @@ export class Library implements OnInit, OnDestroy {
     // into the list in place — the one book the server named, not a refetch. The
     // rest of the list did not change, and re-requesting it would re-order and
     // re-render the page under the reader's hands.
-    this.imports.bookPatched.pipe(takeUntilDestroyed()).subscribe((book) =>
-      this.patchBookInPlace(book),
-    );
+    this.imports.bookPatched.pipe(takeUntilDestroyed()).subscribe((book) => this.onImportPatched(book));
 
     // Returning from the Studio or the Second Brain rebuilds this component with
     // no results in hand. The user has already seen the library in this session,
@@ -303,6 +307,28 @@ export class Library implements OnInit, OnDestroy {
       this.filters.status();
       this.filters.format();
       this.filters.collectionId();
+      untracked(() => this.refreshBooks());
+    });
+
+    // An import changes what the library should contain, and the page in hand was
+    // fetched before that change: a book that did not exist when the query ran cannot
+    // be in its results, however the server orders them. Re-read once when an import
+    // gets its book row (so the book appears, carrying its own progress bar) and once
+    // when it ends (so it takes its ordinary place in the current sort, instead of
+    // the user having to reload to find it). Comparing the signature explicitly — not
+    // merely reacting to the effect re-running — is what keeps progress percentages,
+    // which tick several times a second, from fetching the list.
+    effect(() => {
+      const signature = this.imports.inFlightSignature();
+
+      const previous = this.lastImportSignature;
+      if (signature === previous) return;
+
+      this.lastImportSignature = signature;
+
+      // First observation is the state as the page loaded, not a change to it.
+      if (previous === null) return;
+
       untracked(() => this.refreshBooks());
     });
   }
@@ -396,6 +422,11 @@ export class Library implements OnInit, OnDestroy {
       this.loading.set(false);
       this.loadingMore.set(false);
       this.swapping.set(false); // releases the in-phase: new books resolve in
+
+      // A finished import can now be judged honestly: it was on the page while it ran
+      // (the server sorts an import first), and the question the user cares about is
+      // whether it is still in front of them once it stopped being an import.
+      this.flushReadyNotice();
     };
 
     if (!reset || prefersReducedMotion()) {
@@ -536,10 +567,11 @@ export class Library implements OnInit, OnDestroy {
   }
 
   // --- Import progress, ON the item -------------------------------------
-  // The library renders its own card and row; an item that is being imported
-  // simply knows its own progress. Nothing below reads the library query — these
-  // are lookups into the feed keyed by book id, so no sort, filter, page or
-  // refetch is involved in showing progress.
+  // The library renders its own card and row; an item that is being imported simply
+  // knows its own progress. Progress itself reads nothing but the feed (a lookup by
+  // book id, so no sort, filter or page is involved in drawing a bar) — but for the
+  // book to be THERE at all, two things must hold: the server puts importing books
+  // first in every sort, and the page is re-read when an import starts or finishes.
 
   /** The import driving this book, or undefined when it is not importing. */
   bookProgress(book: Book): ImportActivity | undefined {
@@ -564,7 +596,16 @@ export class Library implements OnInit, OnDestroy {
     return progress ? `${stage}, ${progress.percent} percent` : stage;
   }
 
-  /** Failures the library cannot currently show because their item is not on this page. */
+  /**
+   * Imports the library cannot show, and that the user would otherwise lose: one
+   * whose book is not on this page (filtered out, searched away, or further down the
+   * list), and a failure with no library row at all.
+   *
+   * The plan phase (no book row yet, ~1-3s) is deliberately NOT included. The modal
+   * has just said the import started; a strip that appears and vanishes in the same
+   * breath reads as a glitch, and once the row exists the server sorts the book first
+   * in every order, so it arrives in the list carrying its own bar.
+   */
   readonly offscreenImports = computed(() => {
     // Suppressed during the first paint: with no results rendered yet every
     // import would look off-screen, which would flash a strip on every load.
@@ -572,9 +613,11 @@ export class Library implements OnInit, OnDestroy {
 
     const visible = new Set(this.rawBooks().map((book) => book.id));
 
-    return this.imports
-      .imports()
-      .filter((entry) => !entry.bookId || !visible.has(entry.bookId));
+    return this.imports.imports().filter((entry) => {
+      if (entry.bookId && visible.has(entry.bookId)) return false;
+      if (!entry.bookId && importIsInFlight(entry)) return false;
+      return true;
+    });
   });
 
   /**
@@ -621,14 +664,52 @@ export class Library implements OnInit, OnDestroy {
    *
    * A book that is not in the current page is left alone: it is not in the page
    * because of the sort, the filter or pagination, and adding it here would put a
-   * row on screen that the current query did not ask for. The "Imports in
-   * Progress" section is what shows it regardless of those, and the next real
-   * query picks it up.
+   * row on screen that the current query did not ask for. The next real query picks
+   * it up — and while it is importing, the server sorts it first, so it is in the
+   * page to begin with.
    */
   private patchBookInPlace(book: Book): void {
     this.rawBooks.update((books) =>
       books.map((existing) => (existing.id === book.id ? book : existing)),
     );
+  }
+
+  /**
+   * A finished import is announced only when the user can no longer see it.
+   *
+   * The two cases cannot be judged at the moment the import ends. While it runs the
+   * server sorts it first, so its card IS on the page; the page is then re-read, and
+   * the book takes its ordinary place in the current sort — which under Last Read is
+   * behind everything the user has ever opened, because a book they have not started
+   * has no reading history to sort on. So the answer is only known after the refetch
+   * commits, and `flushReadyNotice` is where it is given.
+   */
+  private onImportPatched(book: Book): void {
+    const isOnPage = this.rawBooks().some((existing) => existing.id === book.id);
+
+    this.patchBookInPlace(book);
+
+    // Already off the page (a filter, a search, another page): nothing will change
+    // that on this fetch, so say so now.
+    if (!isOnPage) {
+      this.toast.success(`Import finished — ${book.title} is in your library.`);
+      return;
+    }
+
+    this.pendingReadyNotice = { id: book.id, title: book.title };
+  }
+
+  /** Announces a finished import that the re-read page did not keep. */
+  private flushReadyNotice(): void {
+    const pending = this.pendingReadyNotice;
+    if (!pending) return;
+
+    // Consumed by the next page that lands, which is the one the import triggered.
+    this.pendingReadyNotice = null;
+
+    if (!this.rawBooks().some((book) => book.id === pending.id)) {
+      this.toast.success(`Import finished — ${pending.title} is in your library.`);
+    }
   }
 
   getFormatLabel(book: Book | EditionSummaryDto): string {
