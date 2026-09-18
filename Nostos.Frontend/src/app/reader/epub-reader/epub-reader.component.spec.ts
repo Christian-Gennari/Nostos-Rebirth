@@ -4,7 +4,7 @@ import ePub from 'epubjs';
 
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
-import { EpubReader, marginPaddingPx, typographyCss } from './epub-reader.component';
+import { EpubReader, marginInsetPercent, typographyCss } from './epub-reader.component';
 import { EpubAnnotationManager } from './epub-annotation-manager';
 
 vi.mock('epubjs', () => ({ default: vi.fn() }));
@@ -421,9 +421,9 @@ describe('typographyCss', () => {
     const css = typographyCss({ fontFamily: 'default', lineHeight: 1.6, margin: 'normal' });
     expect(css).not.toContain('font-family');
     expect(css).toContain('line-height:1.6 !important');
-    // Margins are NOT a stylesheet rule: epub.js writes its own inline
-    // `padding: 42px !important` per contents and inline !important beats any
-    // stylesheet rule. They go through marginPaddingPx + an inline write.
+    // Margins are NOT a stylesheet rule either: they are padding on our own
+    // viewer (see marginInsetPercent), because epub.js writes its own
+    // inline-important body padding that no stylesheet rule can beat.
     expect(css).not.toContain('padding');
   });
 
@@ -435,21 +435,11 @@ describe('typographyCss', () => {
   });
 });
 
-describe('marginPaddingPx', () => {
-  it('scales each preset against the page width', () => {
-    expect(marginPaddingPx('narrow', 400)).toBe(16);
-    expect(marginPaddingPx('normal', 400)).toBe(40);
-    expect(marginPaddingPx('wide', 400)).toBe(72);
-  });
-
-  it('matches epub.js own inset at normal on a real column width', () => {
-    // epub.js sets padding 42px on a 428px column; normal lands at 43px, so the
-    // middle preset reads as "unchanged" rather than as a jump.
-    expect(marginPaddingPx('normal', 428)).toBe(43);
-  });
-
-  it('returns 0 for an unmeasurable page', () => {
-    expect(marginPaddingPx('wide', 0)).toBe(0);
+describe('marginInsetPercent', () => {
+  it('maps the presets to outer margins, narrow being the book as published', () => {
+    expect(marginInsetPercent('narrow')).toBe(0);
+    expect(marginInsetPercent('normal')).toBe(4);
+    expect(marginInsetPercent('wide')).toBe(8);
   });
 });
 
@@ -487,6 +477,7 @@ describe('EpubReader typography persistence', () => {
             off: vi.fn(),
             getContents: () => [],
             display: vi.fn(() => Promise.resolve()),
+            resize: vi.fn(),
           }),
           ready: Promise.resolve({ navigation: { toc: [] } }),
           locations: {
@@ -571,60 +562,30 @@ describe('EpubReader typography persistence', () => {
     expect(style?.textContent).not.toContain('padding');
   });
 
-  it('applies margins as an inline !important write scaled to the page width', () => {
+  it('resizes the rendition into the padded page box when the margin changes', () => {
     const component = fixture.componentInstance;
-    const reader = component as unknown as {
-      typographyBasisPx: (d: Document) => number;
-      upsertTypographyStyle: (d: Document) => void;
-    };
-    // 400px page: wide = 72px, narrow = 16px. The value has to be written
-    // inline with priority important, because epub.js puts its own padding
-    // inline-important on the same element.
-    reader.typographyBasisPx = () => 400;
-
-    component.setTypography({ margin: 'wide' });
-    const wideDoc = makeDocument();
-    reader.upsertTypographyStyle(wideDoc);
-    expect(wideDoc.body.style.getPropertyValue('padding-left')).toBe('72px');
-    expect(wideDoc.body.style.getPropertyValue('padding-right')).toBe('72px');
-    expect(wideDoc.body.style.getPropertyPriority('padding-left')).toBe('important');
-
-    component.setTypography({ margin: 'narrow' });
-    const narrowDoc = makeDocument();
-    reader.upsertTypographyStyle(narrowDoc);
-    expect(narrowDoc.body.style.getPropertyValue('padding-left')).toBe('16px');
-  });
-
-  it('re-applies the margins on the relocated event, after epub.js has laid out', () => {
-    const component = fixture.componentInstance;
-    // The registration is the contract: epub.js writes the contents' inline
-    // padding while laying a section out — after our content hook — so the
-    // preset has to be re-applied once the layout exists. Without this a saved
-    // margin reverted to epub.js's own 42px on open (measured live).
     const rendition = (component as unknown as {
-      rendition: { on: ReturnType<typeof vi.fn> } | null;
+      rendition: { resize: ReturnType<typeof vi.fn> } | null;
     }).rendition;
-    const relocated = rendition?.on.mock.calls.find((c) => c[0] === 'relocated');
-    expect(relocated).toBeTruthy();
+    expect(rendition).toBeTruthy();
 
-    // …and its handler is safe to run (it re-applies to whatever is rendered).
-    expect(() =>
-      (relocated![1] as (l: unknown) => void)({ start: { cfi: 'cfi', href: 'h' } }),
-    ).not.toThrow();
+    // jsdom reports 0 for layout boxes, so give the page box a size.
+    const page = fixture.nativeElement.querySelector('#epub-page') as HTMLElement;
+    expect(page).toBeTruthy();
+    Object.defineProperty(page, 'clientWidth', { value: 800, configurable: true });
+    Object.defineProperty(page, 'clientHeight', { value: 600, configurable: true });
+
+    vi.useFakeTimers();
+    try {
+      component.setTypography({ margin: 'wide' });
+      vi.runAllTimers();
+    } finally {
+      vi.useRealTimers();
+    }
+
+    // The margin is padding on our viewer, so epub.js has to be told the page
+    // got smaller — nothing is written into the book.
+    expect(rendition!.resize).toHaveBeenCalledWith(800, 600);
   });
 
-  it('leaves epub.js own inset alone when the page width is unmeasurable', () => {
-    const component = fixture.componentInstance;
-    const reader = component as unknown as {
-      typographyBasisPx: (d: Document) => number;
-      upsertTypographyStyle: (d: Document) => void;
-    };
-    reader.typographyBasisPx = () => 0;
-
-    const doc = makeDocument();
-    doc.body.setAttribute('style', 'padding-left: 42px !important');
-    reader.upsertTypographyStyle(doc);
-
-    expect(doc.body.style.getPropertyValue('padding-left')).toBe('42px');
-  });
 });

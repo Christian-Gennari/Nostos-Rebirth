@@ -101,15 +101,26 @@ const FONT_STACKS: Record<Exclude<EpubFontFamily, 'default'>, string> = {
 };
 
 /**
- * Margin presets, as a fraction of the visible page width. `normal` sits at
- * roughly the inset epub.js applies itself (measured 42px on a 428px column),
- * so the middle preset reads as "unchanged" rather than as a jump.
+ * Margin presets, as a percentage of the reader's own width. These are OUTER
+ * margins around the epub.js page: `narrow` leaves epub.js's own gutter as the
+ * only inset, so it reads as "the book as published".
+ *
+ * They are applied to our own container rather than to the contents body on
+ * purpose. epub.js writes its own inline `padding: 42px !important` on every
+ * contents body while it lays a section out; that out-ranks any stylesheet rule
+ * and is not ordered against our events, so a body-padding margin was either
+ * inert or won only by race. Padding our container and resizing the rendition
+ * means epub.js simply paginates into a narrower page — nothing to race.
  */
-const MARGIN_FACTOR: Record<EpubMargin, number> = {
-  narrow: 0.04,
-  normal: 0.1,
-  wide: 0.18,
+const MARGIN_INSET_PERCENT: Record<EpubMargin, number> = {
+  narrow: 0,
+  normal: 4,
+  wide: 8,
 };
+
+export function marginInsetPercent(margin: EpubMargin): number {
+  return MARGIN_INSET_PERCENT[margin];
+}
 
 const TYPOGRAPHY_STYLE_ID = 'nostos-typography';
 
@@ -118,27 +129,14 @@ const TYPOGRAPHY_STYLE_ID = 'nostos-typography';
  * testability. `default` keeps the publisher's typeface (no font-family
  * override); line height always applies.
  *
- * Margins are deliberately NOT in here. epub.js writes its own inline
- * `padding-left: 42px !important` on every contents body, and an inline
- * `!important` declaration outranks any stylesheet rule, so a rule here is
- * inert. Margins go through {@link marginPaddingPx} and an inline write
- * instead — see `applyMargins`.
+ * Margins are deliberately NOT here — see {@link marginInsetPercent}: they are
+ * padding on our own viewer, because epub.js's own inline-important body
+ * padding cannot be beaten from a stylesheet.
  */
 export function typographyCss(t: EpubTypography): string {
   const family =
     t.fontFamily === 'default' ? '' : `font-family:${FONT_STACKS[t.fontFamily]} !important;`;
   return `body{${family}line-height:${t.lineHeight} !important;}`;
-}
-
-/**
- * Horizontal padding for a margin preset, in pixels, against the page width.
- *
- * Pixels rather than percent on purpose: inside epub.js's column strip the
- * body's containing block is the whole chapter (measured 123,904px on a real
- * book), so `padding-left: 14%` resolves to 17,346px and destroys the layout.
- */
-export function marginPaddingPx(margin: EpubMargin, basisPx: number): number {
-  return Math.round(basisPx * MARGIN_FACTOR[margin]);
 }
 @Component({
   selector: 'app-epub-reader',
@@ -203,6 +201,8 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
 
   /** Reader typography (typeface, line height, margins), persisted per book. */
   readonly typography = signal<EpubTypography>({ ...DEFAULT_TYPOGRAPHY });
+  /** Outer margin for the current preset, as a percentage of the reader width. */
+  readonly marginInset = computed(() => marginInsetPercent(this.typography().margin));
   readonly fontOptions = EPUB_FONT_OPTIONS;
   readonly lineOptions = EPUB_LINE_OPTIONS;
   readonly marginOptions = EPUB_MARGIN_OPTIONS;
@@ -246,14 +246,11 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     // Handle Window Resizing
     this.resizeSubject$.pipe(debounceTime(350)).subscribe(() => {
       if (this.rendition) {
-        const viewerContainer = this.elementRef.nativeElement.querySelector('#epub-viewer');
-        if (viewerContainer) {
-          const { clientWidth, clientHeight } = viewerContainer;
+        const page = this.elementRef.nativeElement.querySelector('#epub-page');
+        if (page) {
+          const { clientWidth, clientHeight } = page;
           try {
             this.rendition.resize(clientWidth, clientHeight);
-            // epub.js rewrites the contents' inline padding while relaying out,
-            // so the margin preset has to be re-applied afterwards.
-            this.applyTypographyToOpenContents();
           } catch (e) {
             console.warn('Rendition resize failed (book might not be ready):', e);
           }
@@ -364,11 +361,13 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     this.book = ePub(url, { openAs: 'epub' });
 
     // 2. Setup Rendition Immediately
-    const viewer = this.elementRef.nativeElement.querySelector('#epub-viewer');
-    const width = viewer ? viewer.clientWidth : '100%';
-    const height = viewer ? viewer.clientHeight : '100%';
+    // Render into the padded page box: the margin preset is padding on
+    // #epub-viewer, so epub.js should paginate into what is left of it.
+    const page = this.elementRef.nativeElement.querySelector('#epub-page');
+    const width = page ? page.clientWidth : '100%';
+    const height = page ? page.clientHeight : '100%';
 
-    this.rendition = this.book.renderTo('epub-viewer', {
+    this.rendition = this.book.renderTo('epub-page', {
       width: width,
       height: height,
       flow: 'paginated',
@@ -410,12 +409,6 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
       this.currentCfi = location.start.cfi;
       this.currentHref.set(location.start.href);
       this.updateProgressState(location.start.cfi);
-      // epub.js writes the contents' inline padding while it lays a section out,
-      // and that write can land after this event, so the preset is re-applied on
-      // the next frames as well as now. Without it a saved margin silently
-      // reverted to epub.js's own 42px on open (measured live).
-      this.applyTypographyToOpenContents();
-      this.scheduleMarginReapply();
     });
 
     // 4. Process Book Metadata (Async)
@@ -567,6 +560,9 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
       // Private-mode storage can throw — the setting still applies for the session.
     }
     this.applyTypographyToOpenContents();
+    // The margin is padding on our own container; the binding updates in the
+    // next change-detection pass, so measure the page after that.
+    setTimeout(() => this.applyMarginInset(), 0);
   }
 
   resetTypography(): void {
@@ -616,21 +612,21 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   }
 
   /**
-   * epub.js's own padding write happens during its layout pass, which is not
-   * ordered against the events we can listen to — measured: writing from the
-   * content hook or from `relocated` alone still lost to it on open. So the
-   * margin is written again on the next two frames, by which point the layout
-   * has settled. Cheap (two inline property writes) and idempotent.
+   * The margin preset is padding on our own viewer (see the binding in the
+   * template), so the rendition has to be told the page got smaller — epub.js
+   * paginates to the box it is given. Nothing is written into the book.
    */
-  private scheduleMarginReapply(): void {
-    const apply = () => this.applyTypographyToOpenContents();
+  private applyMarginInset(): void {
+    const page = this.elementRef.nativeElement.querySelector('#epub-page') as HTMLElement | null;
+    if (!page || !this.rendition) return;
+    const { clientWidth, clientHeight } = page;
+    // A page box that has not been laid out yet measures 0 — resizing the
+    // rendition to 0 would collapse it, so wait for the next pass instead.
+    if (clientWidth <= 0 || clientHeight <= 0) return;
     try {
-      requestAnimationFrame(() => {
-        apply();
-        setTimeout(apply, 60);
-      });
+      this.rendition.resize(clientWidth, clientHeight);
     } catch {
-      apply();
+      // Not laid out yet — the ResizeObserver path will catch up.
     }
   }
 
@@ -643,51 +639,9 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
         doc.head.appendChild(style);
       }
       style.textContent = typographyCss(this.typography());
-      this.applyMargins(doc);
     } catch {
       // A section mid-teardown has no head to write to — skip it.
     }
-  }
-
-  /**
-   * The width of one page, which is what a margin preset has to scale against:
-   * epub.js sets `column-width` inline on the contents body, and that is the
-   * column the reader actually sees. Falls back to the body's own width for a
-   * pre-paginated book, and to 0 when neither is measurable (a doc that is not
-   * laid out yet).
-   */
-  protected typographyBasisPx(doc: Document): number {
-    try {
-      const body = doc.body;
-      if (!body) return 0;
-      const column = parseFloat(getComputedStyle(body).columnWidth || '');
-      if (!isNaN(column) && column > 0) return column;
-      return body.clientWidth || 0;
-    } catch {
-      return 0;
-    }
-  }
-
-  /**
-   * Apply the margin preset as an INLINE style on the contents body.
-   *
-   * This is the only mechanism that works: epub.js writes its own inline
-   * `padding-left/right: 42px !important` per contents, and an inline
-   * `!important` declaration beats every stylesheet rule (including one
-   * injected by us). A later inline `!important` declaration does win, so the
-   * write is repeated whenever epub.js relayouts (new section, resize).
-   *
-   * When the page width cannot be measured the write is skipped so epub.js's
-   * own inset is left in place rather than replaced with a guess.
-   */
-  private applyMargins(doc: Document): void {
-    const body = doc.body;
-    if (!body?.style) return;
-    const basis = this.typographyBasisPx(doc);
-    if (basis <= 0) return;
-    const px = `${marginPaddingPx(this.typography().margin, basis)}px`;
-    body.style.setProperty('padding-left', px, 'important');
-    body.style.setProperty('padding-right', px, 'important');
   }
 
   private registerReaderThemes() {
