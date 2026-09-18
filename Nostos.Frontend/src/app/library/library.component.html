@@ -125,68 +125,6 @@
       >
       </app-confirm-modal>
 
-      <!-- An import the list below cannot show: its item is not on this page —
-           because it has no library row yet (the backend plans first, creates the
-           row ~1-3s later), because it failed before one existed, or simply
-           because the current sort/filter/page puts it elsewhere (a brand-new book
-           has no LastReadAt, so under the default sort it is pages away).
-
-           This is the ONLY chrome left, and it is not in the DOM when every
-           import is visible in the list — so it cannot reserve a gap. It never
-           replaces the item: it points at it, and the item itself carries the
-           progress. -->
-      @if (offscreenImports().length) {
-      <div class="offscreen-imports" role="status" aria-label="Imports not shown in this list">
-        @for (entry of offscreenImports(); track entry.id) {
-        <div class="offscreen-import">
-          <span class="offscreen-name">{{ entry.title || 'Preparing import…' }}</span>
-
-          @if (importInFlight(entry)) {
-          <div
-            class="offscreen-progress"
-            role="progressbar"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            [attr.aria-valuenow]="entry.percent"
-            [attr.aria-label]="importStage(entry) + ', ' + entry.percent + ' percent'"
-          >
-            <div class="offscreen-progress-track">
-              <i [style.width.%]="entry.percent"></i>
-            </div>
-            <span class="offscreen-caption">
-              {{ importStage(entry) }}
-              <span class="offscreen-percent">{{ entry.percent }}%</span>
-            </span>
-          </div>
-          <button
-            type="button"
-            class="item-action"
-            (click)="showImport($event)"
-            title="Order the library by Recently Added"
-            aria-label="Order the library by Recently Added"
-          >
-            Newest first
-          </button>
-          } @else {
-          <span class="item-failure">{{ entry.message || 'The import did not finish.' }}</span>
-          <div class="item-failure-actions">
-            @if (entry.canRetry) {
-            <button type="button" class="item-action is-primary" (click)="retryImport(entry, $event)">
-              <lucide-icon [img]="RotateCcwIcon" [size]="13" strokeWidth="2"></lucide-icon>
-              <span>Retry</span>
-            </button>
-            }
-            <button type="button" class="item-action" (click)="dismissImport(entry, $event)">
-              <lucide-icon [img]="XIcon" [size]="13" strokeWidth="2"></lucide-icon>
-              <span>Dismiss</span>
-            </button>
-          </div>
-          }
-        </div>
-        }
-      </div>
-      }
-
       <!-- One stage for both states. While the first page is in flight the region
            is simply left empty — the page's own paper, held open to the height it
            will need — and the results resolve in as they arrive. Nothing is
