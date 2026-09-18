@@ -1,4 +1,95 @@
 <div class="reader-layout" [class.ready]="ready()">
+  <!-- Surface header, in the app's own rhythm (see `.brain-header` in
+       second-brain.component.css): title on the left, tools on the right, one
+       hairline. Everything that CONFIGURES the reader lives here; the reading
+       position lives in the bottom bar, and page turns stay where the thumbs
+       are. Back moves here too — a reader is a room you entered, and leaving it
+       belongs with the title, not with the pager. -->
+  <header class="reader-header">
+    <div class="reader-header-title">
+      <button
+        appIconButton
+        class="reader-back"
+        [icon]="Icons.ArrowLeft"
+        [glyphSize]="20"
+        (click)="goBack()"
+        title="Back to Library"
+        aria-label="Back to Library"
+      ></button>
+      <div class="reader-heading">
+        <h1 class="reader-book-title">{{ book()?.title || 'Reading' }}</h1>
+        @if (book()?.author) {
+        <span class="reader-book-author">{{ book()?.author }}</span>
+        }
+      </div>
+    </div>
+
+    <div class="reader-header-tools">
+      <button
+        appIconButton
+        [icon]="Icons.List"
+        [glyphSize]="20"
+        (click)="toggleToc()"
+        title="Table of Contents"
+        aria-label="Table of Contents"
+        [class.active]="tocOpen()"
+      ></button>
+      <button
+        appIconButton
+        [icon]="Icons.NotebookPen"
+        [glyphSize]="20"
+        (click)="toggleNotes()"
+        title="Notes & Highlights"
+        aria-label="Notes & Highlights"
+        [class.active]="notesOpen()"
+      ></button>
+      @if (fileType() !== 'audio') {
+      <button
+        appIconButton
+        [icon]="Icons.Highlighter"
+        [glyphSize]="20"
+        (click)="toggleHighlightMode()"
+        title="Highlight mode"
+        aria-label="Highlight mode"
+        [class.active]="highlightMode()"
+      ></button>
+      } @if (fileType() === 'epub') {
+      <button
+        appIconButton
+        [icon]="Icons.Type"
+        [glyphSize]="20"
+        (click)="toggleTypo()"
+        title="Typography"
+        aria-label="Typography settings"
+        [class.active]="typoOpen()"
+        data-testid="typo-toggle"
+      ></button>
+      } @if (fileType() === 'pdf') {
+      <!-- PDF has no reflow, so its "typography" is render scale: the two zoom
+           steps stay here. An EPUB's text size lives in the Aa panel instead,
+           which is what stopped the same glyph pair meaning two things. -->
+      <button
+        appIconButton
+        class="desktop-only"
+        [icon]="Icons.ZoomOut"
+        [glyphSize]="20"
+        (click)="zoomOut()"
+        title="Zoom out"
+        aria-label="Zoom out"
+      ></button>
+      <button
+        appIconButton
+        class="desktop-only"
+        [icon]="Icons.ZoomIn"
+        [glyphSize]="20"
+        (click)="zoomIn()"
+        title="Zoom in"
+        aria-label="Zoom in"
+      ></button>
+      }
+    </div>
+  </header>
+
   <div class="reader-body">
     <main class="reader-content">
       <!-- No loading copy here: the shell already sits at opacity 0 until
@@ -41,8 +132,8 @@
 
     <aside class="toc-panel" [class.open]="tocOpen() && fileType() !== 'pdf'">
       <div class="panel-header">
-        <h3>Table of Contents</h3>
-        <button appIconButton [icon]="Icons.Close" [glyphSize]="20" (click)="toggleToc()"></button>
+        <h2>Contents</h2>
+        <button appIconButton [icon]="Icons.Close" [glyphSize]="20" (click)="toggleToc()" aria-label="Close contents"></button>
       </div>
 
       <div class="toc-list">
@@ -74,8 +165,8 @@
 
     <aside class="notes-panel" [class.open]="notesOpen()">
       <div class="notes-header">
-        <h3>Notes & Highlights</h3>
-        <button appIconButton [icon]="Icons.Close" [glyphSize]="20" (click)="toggleNotes()"></button>
+        <h2>Notes & Highlights</h2>
+        <button appIconButton [icon]="Icons.Close" [glyphSize]="20" (click)="toggleNotes()" aria-label="Close notes"></button>
       </div>
 
       <div class="quick-note">
@@ -116,7 +207,7 @@
         ></app-note-card>
         } @empty {
         <div class="empty-state">
-          <lucide-icon [img]="Icons.StickyNote" [size]="48"></lucide-icon>
+          <lucide-icon [img]="Icons.StickyNote" [size]="40"></lucide-icon>
           <p>No notes yet.</p>
           <small>Highlight text or use the box above to add one.</small>
         </div>
@@ -125,41 +216,13 @@
     </aside>
   </div>
 
-  @if (overflowOpen() && fileType() !== 'audio') {
-  <div class="overflow-backdrop" (click)="overflowOpen.set(false)"></div>
-  <div class="overflow-menu">
-    <button class="overflow-item" (click)="goBack(); overflowOpen.set(false)">
-      <lucide-icon [img]="Icons.ArrowLeft" [size]="18"></lucide-icon>
-      <span>Back to Library</span>
-    </button>
-    <button class="overflow-item" (click)="toggleToc(); overflowOpen.set(false)">
-      <lucide-icon [img]="Icons.List" [size]="18"></lucide-icon>
-      <span>Table of Contents</span>
-    </button>
-    <button class="overflow-item" (click)="toggleNotes(); overflowOpen.set(false)">
-      <lucide-icon [img]="Icons.NotebookPen" [size]="18"></lucide-icon>
-      <span>Notes & Highlights</span>
-    </button>
-  </div>
-  }
-
+  <!-- The pager. This is the one piece of chrome that stays at the bottom on
+       purpose: it is what a thumb reaches for while reading, and it is what the
+       PDF reader's bottom clearance is measured against. -->
+  @if (fileType() !== 'audio') {
   <header class="reader-toolbar">
-    <div class="toolbar-left">
-      @if (fileType() === 'audio') {
-        <button appIconButton [icon]="Icons.ArrowLeft" [glyphSize]="20" (click)="goBack()" title="Back to Library"></button>
-        <button appIconButton [icon]="Icons.List" [glyphSize]="20" (click)="toggleToc()" title="Table of Contents" [class.active]="tocOpen()"></button>
-      } @else {
-        <button appIconButton class="overflow-toggle" [icon]="Icons.MoreHorizontal" [glyphSize]="20" (click)="toggleOverflow()" title="More"></button>
-        <div class="toolbar-desktop-nav">
-          <button appIconButton [icon]="Icons.ArrowLeft" [glyphSize]="20" (click)="goBack()"></button>
-          <button appIconButton [icon]="Icons.List" [glyphSize]="20" (click)="toggleToc()" title="Table of Contents" [class.active]="tocOpen()"></button>
-        </div>
-      }
-    </div>
-
     <div class="toolbar-center">
-      @if (fileType() !== 'audio') {
-      <button appIconButton [icon]="Icons.Prev" [glyphSize]="20" (click)="prevPage()" title="Previous"></button>
+      <button appIconButton [icon]="Icons.Prev" [glyphSize]="20" (click)="prevPage()" title="Previous" aria-label="Previous page"></button>
 
       <div class="progress-display">
         @if (progressState()?.pageNumber) {
@@ -169,6 +232,7 @@
             class="page-input"
             [value]="progressState()?.pageNumber"
             (keyup.enter)="onPageInput($event)"
+            aria-label="Page number"
           />
           <span class="total-pages"> / {{ progressState()?.pageCount }}</span>
         </div>
@@ -182,30 +246,10 @@
         }
       </div>
 
-      <button appIconButton [icon]="Icons.Next" [glyphSize]="20" (click)="nextPage()" title="Next"></button>
-      }
-    </div>
-
-    <div class="toolbar-right">
-      @if (fileType() === 'audio') {
-        <button appIconButton [icon]="Icons.NotebookPen" [glyphSize]="20" (click)="toggleNotes()" [class.active]="notesOpen()" title="Notes & Highlights"></button>
-      } @else {
-        <button appIconButton [icon]="Icons.Highlighter" [glyphSize]="20" [class.active]="highlightMode()"
-          (click)="toggleHighlightMode()"
-          title="Highlight mode"></button>
-        @if (fileType() === 'epub') {
-        <button appIconButton [icon]="Icons.Type" [glyphSize]="20" [class.active]="typoOpen()"
-          (click)="toggleTypo()"
-          title="Typography"
-          aria-label="Typography settings"
-          data-testid="typo-toggle"></button>
-        }
-        <button appIconButton class="desktop-only" [icon]="Icons.ZoomOut" [glyphSize]="20" (click)="zoomOut()"></button>
-        <button appIconButton class="desktop-only" [icon]="Icons.ZoomIn" [glyphSize]="20" (click)="zoomIn()"></button>
-        <button appIconButton [icon]="Icons.NotebookPen" [glyphSize]="20" (click)="toggleNotes()" [class.active]="notesOpen()" title="Notes & Highlights"></button>
-      }
+      <button appIconButton [icon]="Icons.Next" [glyphSize]="20" (click)="nextPage()" title="Next" aria-label="Next page"></button>
     </div>
   </header>
+  }
 
   <!-- Note delete asks through the shared modal instead of window.confirm(). -->
   <app-confirm-modal
@@ -217,13 +261,17 @@
     (cancel)="cancelNoteDelete()"
   >
   </app-confirm-modal>
-  <!-- EPUB typography panel: typeface, line height, margins. State lives on
-       the EpubReader (persisted per book); the shell only toggles the panel. -->
+
+  <!-- EPUB typography: typeface, text size, line height, margins. Anchored under
+       the Aa control it belongs to, with a scrim so a click outside closes it and
+       Escape is handled in the shell. State lives on the EpubReader (persisted
+       reader-wide); the shell only owns whether the panel is open. -->
   @if (typoOpen() && fileType() === 'epub' && epubReader) {
+  <div class="typo-scrim" (click)="toggleTypo()" aria-hidden="true"></div>
   <div class="typo-panel" data-testid="typo-panel" role="dialog" aria-label="Typography settings">
     <div class="typo-row">
-      <span class="typo-label">Typeface</span>
-      <div class="typo-opts" role="group" aria-label="Typeface">
+      <span class="typo-label" id="typo-typeface">Typeface</span>
+      <div class="typo-opts" role="group" aria-labelledby="typo-typeface">
         @for (f of epubReader.fontOptions; track f.value) {
         <button
           type="button"
@@ -235,8 +283,28 @@
       </div>
     </div>
     <div class="typo-row">
-      <span class="typo-label">Line height</span>
-      <div class="typo-opts" role="group" aria-label="Line height">
+      <span class="typo-label" id="typo-size">Text size</span>
+      <div class="typo-steps" role="group" aria-labelledby="typo-size">
+        <button
+          type="button"
+          class="typo-step"
+          (click)="epubReader.zoomOut()"
+          aria-label="Smaller text"
+          title="Smaller text"
+        >A−</button>
+        <span class="typo-step-value">{{ epubReader.fontSizePercent() }}%</span>
+        <button
+          type="button"
+          class="typo-step"
+          (click)="epubReader.zoomIn()"
+          aria-label="Larger text"
+          title="Larger text"
+        >A+</button>
+      </div>
+    </div>
+    <div class="typo-row">
+      <span class="typo-label" id="typo-line">Line height</span>
+      <div class="typo-opts" role="group" aria-labelledby="typo-line">
         @for (lh of epubReader.lineOptions; track lh) {
         <button
           type="button"
@@ -248,8 +316,8 @@
       </div>
     </div>
     <div class="typo-row">
-      <span class="typo-label">Margins</span>
-      <div class="typo-opts" role="group" aria-label="Margins">
+      <span class="typo-label" id="typo-margins">Margins</span>
+      <div class="typo-opts" role="group" aria-labelledby="typo-margins">
         @for (m of epubReader.marginOptions; track m.value) {
         <button
           type="button"
