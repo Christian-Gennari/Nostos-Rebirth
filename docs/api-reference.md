@@ -409,6 +409,28 @@ host come from the request, honouring `X-Forwarded-Proto` / `X-Forwarded-Host`
 from a trusted (loopback) reverse proxy; set `Opds:PublicBaseUrl` to override
 the origin when the deployment cannot reveal it.
 
+### `GET /api/opds/info`
+
+What the Settings surface needs to describe e-reader access. Mapped whether or
+not the catalog is, so "turned off" is distinguishable from "broken".
+
+**Response:**
+
+```json
+{
+  "enabled": true,
+  "catalogUrl": "https://your-instance:5215/opds/",
+  "urlSource": "request",
+  "localOnly": false
+}
+```
+
+- `catalogUrl` — the address to give a reader. `null` when `enabled` is false.
+- `urlSource` — `configured` when `Opds:PublicBaseUrl` decided the origin,
+  `request` when it came from how the client reached this endpoint.
+- `localOnly` — true when that origin is a loopback address, so no other device
+  can use it.
+
 ### Access model — `/opds/` is unauthenticated
 
 The catalog and the acquisition URLs it advertises are served **without

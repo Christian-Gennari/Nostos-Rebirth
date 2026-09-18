@@ -260,6 +260,20 @@ public sealed class OpdsEndpointTests : IClassFixture<LibraryEndpointFactory>
         href.Should().Be($"http://localhost/api/books/{id}/file");
     }
 
+    [Fact]
+    public async Task Info_reports_the_catalog_url_a_reader_should_use()
+    {
+        var response = await Client.GetAsync("/api/opds/info");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var info = (await response.Content.ReadFromJsonAsync<OpdsInfoDto>())!;
+
+        info.Enabled.Should().BeTrue();
+        info.CatalogUrl.Should().Be("http://localhost/opds/");
+        info.UrlSource.Should().Be("request");
+        info.LocalOnly.Should().BeTrue("the test host is addressed as localhost");
+    }
+
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
@@ -510,6 +524,19 @@ public sealed class OpdsPaginationTests : IClassFixture<OpdsPaginationFactory>
             href.Should().StartWith(OpdsPaginationFactory.PublicBaseUrl + "/");
     }
 
+    [Fact]
+    public async Task Info_reports_the_configured_origin_as_the_source()
+    {
+        var response = await Client.GetAsync("/api/opds/info");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var info = (await response.Content.ReadFromJsonAsync<OpdsInfoDto>())!;
+
+        info.Enabled.Should().BeTrue();
+        info.UrlSource.Should().Be("configured");
+        info.CatalogUrl.Should().Be($"{OpdsPaginationFactory.PublicBaseUrl}/opds/");
+        info.LocalOnly.Should().BeFalse("a configured origin is taken at its word");
+    }
+
     // ------------------------------------------------------------------
 
     private async Task<XDocument> GetFeedAsync(string path = "/opds/")
@@ -596,5 +623,19 @@ public sealed class OpdsDisabledTests : IClassFixture<OpdsDisabledFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         response.Content.Headers.ContentType?.MediaType.Should().NotBe("text/html");
+    }
+
+    [Fact]
+    public async Task Disabled_export_still_reports_itself_as_disabled_with_no_url()
+    {
+        // Settings has to be able to say "switched off" rather than guess at a
+        // broken server, so this endpoint is mapped either way.
+        var response = await _factory.CreateClient().GetAsync("/api/opds/info");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var info = (await response.Content.ReadFromJsonAsync<OpdsInfoDto>())!;
+
+        info.Enabled.Should().BeFalse();
+        info.CatalogUrl.Should().BeNull();
     }
 }
