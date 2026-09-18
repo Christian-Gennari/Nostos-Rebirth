@@ -1,0 +1,81 @@
+/* The Add Book intent step. The card, backdrop and geometry are
+   `app-modal-shell`'s; this file styles the two choices inside it. */
+
+:host {
+  display: contents;
+}
+
+.add-intent-head {
+  margin-bottom: 1rem;
+}
+
+.add-intent-title {
+  margin: 0;
+  font-family: 'Newsreader', serif;
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.add-intent-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* One row per intent: a mark, a name, and the sentence that says which one you
+   want. The whole row is the target. */
+.add-intent-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  width: 100%;
+  padding: 0.95rem 1rem;
+  text-align: left;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-action);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out);
+}
+
+.add-intent-choice:hover {
+  background: var(--bg-surface-alt);
+  border-color: var(--color-primary);
+}
+
+.add-intent-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-alt);
+  color: var(--color-text-muted);
+}
+
+.add-intent-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.add-intent-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.add-intent-hint {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
+
+.add-intent-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}

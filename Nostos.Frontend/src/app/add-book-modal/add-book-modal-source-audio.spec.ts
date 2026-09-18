@@ -105,7 +105,7 @@ describe('AddBookModal — audiobook source results', () => {
 
   async function render(items: ProviderItem[]): Promise<void> {
     vi.spyOn(providers, 'search').mockReturnValue(of({ items, hasMore: false, notice: null }));
-    component.openSourceTab();
+    component.enterSourceMode();
     await fixture.whenStable();
     component.sourceQuery.set('anything');
     component.searchSource();
