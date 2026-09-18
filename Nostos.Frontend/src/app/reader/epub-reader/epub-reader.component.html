@@ -1,5 +1,15 @@
 <div class="epub-container">
-  <div id="epub-viewer"></div>
+  <!-- The margin preset is padding on this box, so epub.js paginates the page
+       into what remains. Doing it here instead of inside the book's own
+       document avoids a race with the inline-important body padding epub.js
+       writes while it lays a section out. -->
+  <div
+    id="epub-viewer"
+    [style.paddingLeft.%]="marginInset()"
+    [style.paddingRight.%]="marginInset()"
+  >
+    <div id="epub-page"></div>
+  </div>
 </div>
 
 <!-- Held mounted and released by a class rather than an @if: the page is already
