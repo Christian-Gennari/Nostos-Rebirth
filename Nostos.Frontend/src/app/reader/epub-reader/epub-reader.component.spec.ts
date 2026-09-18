@@ -4,7 +4,15 @@ import ePub from 'epubjs';
 
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
-import { DEFAULT_TYPOGRAPHY, EpubReader, marginInsetPercent, typographyCss } from './epub-reader.component';
+import {
+  DEFAULT_TYPOGRAPHY,
+  EpubReader,
+  findTocItemForHref,
+  marginInsetPercent,
+  progressLabel,
+  spinePercentFrom,
+  typographyCss,
+} from './epub-reader.component';
 import { EpubAnnotationManager } from './epub-annotation-manager';
 
 vi.mock('epubjs', () => ({ default: vi.fn() }));
@@ -385,10 +393,16 @@ describe('EpubReader theme-following normalization', () => {
     // contents head.
     expect(contents.document.getElementById('epubjs-inserted-css-nostos-light')).not.toBeNull();
     const annotationStyle = Array.from(contents.document.head.querySelectorAll('style')).find(
-      (s) => s.textContent?.includes('.epubjs-hl'),
+      (s) => s.textContent?.includes('.nostos-highlight-mode'),
     );
     expect(annotationStyle).toBeDefined();
-    expect(annotationStyle!.textContent).toContain('.epubjs-hl-pending');
+    expect(annotationStyle!.textContent).toContain('user-select: text');
+
+    // The `.epubjs-hl*` fill rules that used to live here were DEAD CODE: the
+    // highlight marks are built in a pane SVG in the PARENT document, so a rule
+    // inside the contents document cannot reach them. The colour is passed to
+    // epub.js as an explicit fill instead (issue #225 §1.6).
+    expect(contents.document.head.textContent).not.toContain('.epubjs-hl');
   });
 
   it('reopening the reader keeps no stale rendition or duplicate effects', async () => {
@@ -413,6 +427,69 @@ describe('EpubReader theme-following normalization', () => {
     // Each rendition registered both Nostos themes exactly once.
     expect(firstRendition.themes.registered).toEqual(['nostos-light', 'nostos-dark']);
     expect(secondRendition.themes.registered).toEqual(['nostos-light', 'nostos-dark']);
+  });
+
+  /**
+   * Issue #225 §1.2. The rendition reports its opening section as soon as it
+   * lays out; the saved position arrives from the Book the shell passed down.
+   * Persisting the opening section is what silently reset a reader's position.
+   */
+  it('never persists the opening section — the write follows the restore', async () => {
+    const OPENING_CFI = 'epubcfi(/6/2!/4/1:0)';
+    const LIVE_CFI = 'epubcfi(/6/4)'; // what the fake rendition reports live
+
+    fixture = TestBed.createComponent(EpubReader);
+    fixture.componentRef.setInput('bookId', 'book-1');
+    fixture.componentRef.setInput('book', { id: 'book-1', lastLocation: OPENING_CFI } as never);
+    fixture.detectChanges();
+
+    const writesBefore = booksService.updateProgress.mock.calls.length;
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+
+    // The restore was applied (from the input, with no second GET) …
+    expect(renditions[0].display).toHaveBeenCalledWith(OPENING_CFI);
+    expect(booksService.get).not.toHaveBeenCalled();
+
+    // … and the only position written is where the reader actually sits.
+    const writes = booksService.updateProgress.mock.calls.slice(writesBefore);
+    expect(writes).toHaveLength(1);
+    expect(writes[0]).toEqual(['book-1', LIVE_CFI, expect.any(Number)]);
+  });
+
+  /**
+   * Issue #225 §1.5. The contents document is an iframe: a key pressed while
+   * reading never reaches the shell's document listener.
+   */
+  it('turns pages from keys pressed inside the contents document', async () => {
+    await setupComponent();
+
+    const contents = makeContents();
+    contentHooks.forEach((hook) => hook(contents));
+
+    const rendition = renditions[0];
+    const press = (key: string, init: KeyboardEventInit = {}) =>
+      contents.document.dispatchEvent(
+        new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }),
+      );
+
+    press('ArrowRight');
+    press('PageDown');
+    press(' ');
+    expect(rendition.next).toHaveBeenCalledTimes(3);
+
+    press('ArrowLeft');
+    press('PageUp');
+    press(' ', { shiftKey: true });
+    expect(rendition.prev).toHaveBeenCalledTimes(3);
+
+    // A text field inside the book keeps its own key semantics.
+    const input = contents.document.createElement('input');
+    contents.document.body.appendChild(input);
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    // An unhandled key changes nothing either.
+    press('a');
+
+    expect(rendition.next).toHaveBeenCalledTimes(3);
   });
 });
 
@@ -627,4 +704,51 @@ describe('EpubReader typography persistence', () => {
     expect(rendition!.resize).toHaveBeenCalledWith(800, 600);
   });
 
+});
+
+/**
+ * Issue #225 §1.3 and §1.4. The progress pill used to read "30% • 3h 43m left"
+ * on the strength of one location being treated as one minute, and a book whose
+ * locations were still generating sat on "Calculating…" for ever.
+ */
+describe('reader progress reporting (issue #225 §1.3, §1.4)', () => {
+  it('reports the percentage and the chapter, never a time estimate', () => {
+    expect(progressLabel(30, 'Chapter 3')).toBe('30% • Chapter 3');
+    expect(progressLabel(0, null)).toBe('0%');
+    expect(progressLabel(100, '')).toBe('100%');
+  });
+
+  it('falls back to the spine position as a floor, never a guess', () => {
+    expect(spinePercentFrom(0, 10)).toBe(0);
+    expect(spinePercentFrom(5, 10)).toBe(50);
+    expect(spinePercentFrom(9, 10)).toBe(90);
+    // Without a spine index or a spine length there is nothing honest to show.
+    expect(spinePercentFrom(null, 10)).toBe(0);
+    expect(spinePercentFrom(3, null)).toBe(0);
+    expect(spinePercentFrom(0, 0)).toBe(0);
+    expect(spinePercentFrom(undefined, undefined)).toBe(0);
+  });
+});
+
+describe('findTocItemForHref', () => {
+  const toc = [
+    {
+      label: 'Part One',
+      target: 'part1.xhtml',
+      children: [{ label: 'Chapter 1', target: 'ch1.xhtml#start', children: [] }],
+    },
+    { label: 'Chapter 2', target: 'ch2.xhtml', children: [] },
+  ];
+
+  it('matches on the section and ignores the fragment', () => {
+    expect(findTocItemForHref(toc, 'ch1.xhtml#anything')?.label).toBe('Chapter 1');
+    expect(findTocItemForHref(toc, 'ch2.xhtml')?.label).toBe('Chapter 2');
+    expect(findTocItemForHref(toc, 'part1.xhtml')?.label).toBe('Part One');
+  });
+
+  it('returns null when the TOC cannot place the section', () => {
+    expect(findTocItemForHref(toc, 'nope.xhtml')).toBeNull();
+    expect(findTocItemForHref(toc, null)).toBeNull();
+    expect(findTocItemForHref([], 'ch1.xhtml')).toBeNull();
+  });
 });

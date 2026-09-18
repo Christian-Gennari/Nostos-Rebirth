@@ -15,13 +15,15 @@ import {
 import { CommonModule } from '@angular/common';
 import ePub, { Book, Rendition, Contents } from 'epubjs';
 import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 
 import { EpubAnnotationManager } from './epub-annotation-manager';
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
 import { ThemeService, Theme } from '../../core/services/theme.service';
+import { Book as BookDto } from '../../core/dtos/book.dtos';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
+import { isTypingTarget, pageActionForKey } from '../reader-keyboard';
 
 /**
  * Rendition theme names. Both Nostos normalizations are registered once per
@@ -146,6 +148,46 @@ export function typographyCss(t: EpubTypography): string {
     t.fontFamily === 'default' ? '' : `font-family:${FONT_STACKS[t.fontFamily]} !important;`;
   return `body{${family}line-height:${t.lineHeight} !important;}`;
 }
+/**
+ * The TOC entry the displayed section belongs to, or null when the TOC cannot
+ * place it. Targets are `href#fragment` (EPUB), so only the part before the
+ * fragment is compared; depth-first, first match wins.
+ */
+export function findTocItemForHref(items: TocItem[], href: string | null): TocItem | null {
+  if (!href) return null;
+  const baseHref = href.split('#')[0];
+  for (const item of items) {
+    if (item.target.toString().split('#')[0] === baseHref) return item;
+    const child = findTocItemForHref(item.children ?? [], href);
+    if (child) return child;
+  }
+  return null;
+}
+
+/**
+ * Coarse position used until epub.js's locations exist: how far the current
+ * spine section is through the spine. It under-reports (a section boundary, not
+ * a character offset) and exists so a large book is never left on
+ * "Calculating…" with no position at all (issue #225 §1.4).
+ */
+export function spinePercentFrom(
+  spineIndex: number | null | undefined,
+  spineLength: number | null | undefined,
+): number {
+  if (spineIndex == null || spineLength == null || spineLength <= 0) return 0;
+  return Math.floor((spineIndex / spineLength) * 100);
+}
+
+/**
+ * The progress pill's text: a percentage, plus the chapter it belongs to when
+ * the TOC can place us. It deliberately carries no time estimate — the previous
+ * "3h 43m left" was one 1,000-character location treated as one minute, so it
+ * was fiction presented with minute precision (issue #225 §1.3).
+ */
+export function progressLabel(percent: number, chapter: string | null): string {
+  return chapter ? `${percent}% • ${chapter}` : `${percent}%`;
+}
+
 @Component({
   selector: 'app-epub-reader',
   standalone: true,
@@ -155,6 +197,13 @@ export function typographyCss(t: EpubTypography): string {
 })
 export class EpubReader implements OnInit, OnDestroy, IReader {
   bookId = input.required<string>();
+  /**
+   * The Book the shell has already loaded. Passing it down is what makes the
+   * saved position reliable: the reader no longer issues a second
+   * `GET /api/books/{id}` whose answer arrives after the first page has been
+   * laid out and persisted (issue #225 §1.2). Same contract as AudioReader.
+   */
+  book = input<BookDto | null>(null);
   noteCreated = output<void>();
   highlightMode = input<boolean>(false);
   selectionCaptured = output<string>();
@@ -166,10 +215,24 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   private injector = inject(Injector);
   private elementRef = inject(ElementRef);
 
-  private book: Book | null = null;
+  private epubBook: Book | null = null;
   private rendition: Rendition | null = null;
   private annotationManager: EpubAnnotationManager | null = null;
   private currentCfi: string | null = null;
+
+  /** Keydown listeners registered inside each iframe's contents document. */
+  private readonly keyboardDocuments = new Map<Document, () => void>();
+
+  /**
+   * Progress writes stay closed until the saved position has been applied. The
+   * rendition reports its opening section as soon as it lays out, and writing
+   * that used to overwrite the reader's real position whenever the restore
+   * arrived second (issue #225 §1.2). Unlock happens in unlockProgress().
+   */
+  private progressUnlocked = false;
+
+  /** Spine index of the displayed section — the coarse fallback position. */
+  private spineIndex = signal<number | null>(null);
 
   // Track if locations are fully generated
   private locationsReady = signal(false);
@@ -178,31 +241,11 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   toc = signal<TocItem[]>([]);
   progress = signal<ReaderProgress>({ label: '', percentage: 0 });
   currentHref = signal<string | null>(null);
-  currentLocationTarget = computed(() => {
-    const href = this.currentHref();
-    if (!href) return null;
-    const baseHref = href.split('#')[0];
-    const toc = this.toc();
-    if (toc.length === 0) return null;
-
-    let activeTarget: string | number | null = null;
-
-    const traverse = (items: TocItem[]): boolean => {
-      for (const item of items) {
-        if (item.target.toString().split('#')[0] === baseHref) {
-          activeTarget = item.target;
-          return true;
-        }
-        if (item.children && traverse(item.children)) {
-          return true;
-        }
-      }
-      return false;
-    };
-
-    traverse(toc);
-    return activeTarget;
-  });
+  /** The TOC entry the displayed section belongs to, or null. */
+  private activeTocItem = computed<TocItem | null>(() =>
+    findTocItemForHref(this.toc(), this.currentHref()),
+  );
+  currentLocationTarget = computed(() => this.activeTocItem()?.target ?? null);
 
   // Internal Zoom State (restored per book — see fontSizeStorageKey)
   private currentFontSize = signal(100); // 100%
@@ -271,9 +314,11 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     });
     this.resizeObserver.observe(this.elementRef.nativeElement);
 
-    // Backend Progress Sync (Debounced)
+    // Backend Progress Sync (Debounced). The filter is the write barrier: see
+    // progressUnlocked / unlockProgress().
     this.progressUpdater$
       .pipe(
+        filter(() => this.progressUnlocked),
         debounceTime(1000),
         distinctUntilChanged(
           (prev, curr) => prev.location === curr.location && prev.percentage === curr.percentage,
@@ -349,11 +394,11 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   // --- Book Loading & Setup ---
 
   loadBook(id: string) {
-    if (this.book) {
+    if (this.epubBook) {
       this.annotationManager?.destroy();
       this.annotationManager = null;
-      this.book.destroy();
-      this.book = null;
+      this.epubBook.destroy();
+      this.epubBook = null;
       this.rendition = null;
       this.currentCfi = null;
     }
@@ -366,7 +411,8 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     const url = `/api/books/${id}/file?t=${Date.now()}.epub`;
 
     // FIX 2: Explicitly pass 'openAs: epub'
-    this.book = ePub(url, { openAs: 'epub' });
+    const epubBook = ePub(url, { openAs: 'epub' });
+    this.epubBook = epubBook;
 
     // 2. Setup Rendition Immediately
     // Render into the padded page box: the margin preset is padding on
@@ -375,12 +421,13 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     const width = page ? page.clientWidth : '100%';
     const height = page ? page.clientHeight : '100%';
 
-    this.rendition = this.book.renderTo('epub-page', {
+    const rendition = epubBook.renderTo('epub-page', {
       width: width,
       height: height,
       flow: 'paginated',
       manager: 'default',
     });
+    this.rendition = rendition;
 
     // Register both Nostos normalizations at rendition creation and select
     // the one matching the app theme BEFORE display, so the first section
@@ -393,15 +440,16 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     this.restoreSavedTypography();
 
     // 3. Register Hooks
-    this.rendition.hooks.content.register((contents: Contents) => {
+    rendition.hooks.content.register((contents: Contents) => {
       this.injectCustomStyles(contents);
       this.annotationManager?.registerContents(contents);
+      this.registerContentsKeyboard(contents);
     });
 
     // Initialize the annotation manager BEFORE the first display so the
     // opening section receives the injected styles and fallback listeners.
     this.annotationManager = new EpubAnnotationManager(
-      this.rendition,
+      rendition,
       id,
       this.injector,
       () => this.noteCreated.emit(),
@@ -413,17 +461,18 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     );
     this.annotationManager.init();
 
-    this.rendition.on('relocated', (location: any) => {
+    rendition.on('relocated', (location: any) => {
       this.currentCfi = location.start.cfi;
       this.currentHref.set(location.start.href);
+      this.spineIndex.set(typeof location.start.index === 'number' ? location.start.index : null);
       this.updateProgressState(location.start.cfi);
     });
 
     // 4. Process Book Metadata (Async)
-    this.book.ready
+    epubBook.ready
       .then(() => {
-        if (this.book?.navigation) {
-          const toc = this.mapTocItems(this.book.navigation.toc);
+        if (epubBook.navigation) {
+          const toc = this.mapTocItems(epubBook.navigation.toc);
           this.toc.set(toc);
         }
 
@@ -432,20 +481,23 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
         this.booksService.getLocations(id).subscribe({
           next: (dto) => {
             // Cache HIT: Load saved locations
-            if (this.book && dto.locations) {
-              this.book.locations.load(dto.locations);
+            if (dto.locations) {
+              epubBook.locations.load(dto.locations);
               this.locationsReady.set(true);
               if (this.currentCfi) this.updateProgressState(this.currentCfi);
             }
           },
           error: () => {
-            // Cache MISS: Generate locations (Expensive)
-            this.book?.locations.generate(1000).then(() => {
+            // Cache MISS: Generate locations (Expensive). The progress pill
+            // shows a spine-based percentage while this runs, so a large book
+            // is never left on "Calculating…" with no position at all
+            // (issue #225 §1.4).
+            epubBook.locations.generate(1000).then(() => {
               this.locationsReady.set(true);
               if (this.currentCfi) this.updateProgressState(this.currentCfi);
 
               // Save them for next time
-              const json = this.book?.locations.save();
+              const json = epubBook.locations.save();
               if (json) {
                 this.booksService.saveLocations(id, json).subscribe();
               }
@@ -459,8 +511,12 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
         this.loading.set(false);
       });
 
-    // 5. Display Book (Starts the stream/rendering)
-    this.rendition
+    // 5. Display Book (Starts the stream/rendering). The saved position comes
+    // from the Book the shell already holds — no second GET, whose late answer
+    // used to lose the race against the first progress write.
+    const restoreLocation = this.book()?.lastLocation ?? null;
+
+    rendition
       .display()
       .then(() => {
         this.loading.set(false);
@@ -471,73 +527,92 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
           error: (err) => console.error('Failed to load notes:', err),
         });
 
-        this.booksService.get(id).subscribe((b) => {
-          if (b.lastLocation) {
-            this.rendition?.display(b.lastLocation);
-          }
+        if (!restoreLocation) return undefined;
+
+        return rendition.display(restoreLocation).catch((err: unknown) => {
+          console.warn('Could not restore the saved reading position:', err);
         });
       })
       .catch((err) => {
         console.error('Failed to render book:', err);
         this.loading.set(false);
-      });
+      })
+      .finally(() => this.unlockProgress());
   }
 
   // --- Helpers ---
 
   private updateProgressState(cfi: string) {
-    if (!this.book) return;
+    if (!this.epubBook) return;
 
-    if (!this.locationsReady()) {
-      this.progress.set({ label: 'Calculating...', percentage: 0 });
-      return;
-    }
+    // Locations give the precise percentage. Until they exist — generation can
+    // take a while on a large book — fall back to how far the current spine
+    // section is through the spine: coarse, but real, and never a stuck
+    // "Calculating…" with no position at all (issue #225 §1.3, §1.4).
+    const percent =
+      this.locationsReady() && this.epubBook.locations.length() > 0
+        ? Math.floor(this.epubBook.locations.percentageFromCfi(cfi) * 100)
+        : spinePercentFrom(this.spineIndex(), this.spineLength());
 
-    let percent = 0;
-    let label = '';
-    let tooltip = '';
+    this.progress.set({
+      label: progressLabel(percent, this.activeChapterLabel()),
+      percentage: percent,
+    });
 
-    if ((this.book.locations as any).length() > 0) {
-      // 1. Percentage
-      const val = this.book.locations.percentageFromCfi(cfi);
-      percent = Math.floor(val * 100);
-
-      // 2. Time Estimation
-      const currentLoc = this.book.locations.locationFromCfi(cfi) as any;
-      const totalLocs = this.book.locations.length();
-
-      // Time Remaining
-      const locsRemaining = Math.max(0, totalLocs - currentLoc);
-      const minutesRemaining = locsRemaining;
-
-      // Format "Time Left"
-      let timeLeftStr = '';
-      if (minutesRemaining < 60) {
-        timeLeftStr = `${minutesRemaining} min left`;
-      } else {
-        const h = Math.floor(minutesRemaining / 60);
-        const m = minutesRemaining % 60;
-        timeLeftStr = `${h}h ${m}m left`;
-      }
-
-      // 3. Dynamic Tooltip Calculation (1% ≈ ???)
-      const secondsPerPercent = (totalLocs * 60) / 100;
-      let rateLabel = '';
-
-      if (secondsPerPercent < 60) {
-        rateLabel = `${Math.round(secondsPerPercent)} sec`;
-      } else {
-        rateLabel = `${Math.round(secondsPerPercent / 60)} min`;
-      }
-
-      label = `${percent}% • ${timeLeftStr}`;
-      tooltip = `1% ≈ ${rateLabel}`;
-    } else {
-      label = 'Calculating...';
-    }
-
-    this.progress.set({ label, percentage: percent, tooltip });
     this.progressUpdater$.next({ location: cfi, percentage: percent });
+  }
+
+  /**
+   * Opens the progress stream and reports where the reader actually is. Called
+   * once the opening display (and the restore, when there is one) has settled,
+   * so the opening section can never overwrite the saved position
+   * (issue #225 §1.2).
+   */
+  private unlockProgress(): void {
+    this.progressUnlocked = true;
+    const cfi = this.getCurrentLocation() ?? this.currentCfi;
+    if (cfi) this.updateProgressState(cfi);
+  }
+
+  /** Label of the TOC entry the displayed section belongs to, for the pill. */
+  private activeChapterLabel(): string | null {
+    const label = this.activeTocItem()?.label?.trim();
+    if (!label) return null;
+    return label.length > 32 ? `${label.slice(0, 31)}…` : label;
+  }
+
+  /**
+   * Number of sections in the spine. The bundled 0.3.93 typings for `Spine` do
+   * not declare `spineItems`, which is what the implementation actually holds.
+   */
+  private spineLength(): number | null {
+    const spine = this.epubBook?.spine as unknown as { spineItems?: unknown[] } | undefined;
+    return spine?.spineItems?.length ?? null;
+  }
+
+  /**
+   * Page keys pressed while the book itself has focus. The contents live in an
+   * iframe, so those events never reach the shell's document listener; the same
+   * helpers decide the action on both sides, so the binding cannot drift.
+   */
+  private registerContentsKeyboard(contents: Contents): void {
+    const doc = contents.document;
+    if (this.keyboardDocuments.has(doc)) return;
+
+    const onKeydown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (isTypingTarget(event.target)) return;
+
+      const action = pageActionForKey(event);
+      if (!action) return;
+
+      if (action === 'next') this.next();
+      else this.previous();
+      event.preventDefault();
+    };
+
+    doc.addEventListener('keydown', onKeydown);
+    this.keyboardDocuments.set(doc, () => doc.removeEventListener('keydown', onKeydown));
   }
 
   private mapTocItems(items: any[]): TocItem[] {
@@ -720,10 +795,14 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     this.resizeObserver?.disconnect();
     this.resizeSubject$.complete();
     this.progressUpdater$.complete();
+    for (const cleanup of this.keyboardDocuments.values()) {
+      cleanup();
+    }
+    this.keyboardDocuments.clear();
     this.annotationManager?.destroy();
     this.annotationManager = null;
-    if (this.book) {
-      this.book.destroy();
+    if (this.epubBook) {
+      this.epubBook.destroy();
     }
   }
 }
