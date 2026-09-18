@@ -108,14 +108,15 @@ describe('Library', () => {
             ensureConnected: vi.fn(),
             imports: () => importEntries(),
             progressByBookId: () => progressByBookId(),
-            // Same shape as the real signal: the set of in-flight imports and the
-            // book row each one has. Progress ticks deliberately do not appear here.
-            inFlightSignature: () =>
+            // Same shape as the real signal: the BOOK ROWS being imported, and
+            // nothing else. A job with no row yet, or a percentage moving, is not a
+            // change the list has to catch up with.
+            inFlightBookIds: () =>
               importEntries()
                 .filter((entry) => entry.state === 'queued' || entry.state === 'running')
-                .map((entry) => `${entry.id}:${entry.bookId ?? ''}`)
-                .sort()
-                .join('|'),
+                .map((entry) => entry.bookId)
+                .filter((bookId): bookId is string => !!bookId)
+                .sort(),
             cancel: vi.fn(),
             retry: vi.fn(),
             dismiss: vi.fn(),
@@ -154,6 +155,42 @@ describe('Library', () => {
     fixture.detectChanges();
 
     expect(listSpy.mock.calls.length).toBeGreaterThan(callsWhileImporting);
+  });
+
+  it('does not re-read the page for an import that has no book row yet', () => {
+    // The feed announces a job before its row exists, so the first appearance of an
+    // import is not a change the list can catch up with — re-reading then is a
+    // reload the user sees and nothing they gain.
+    importEntries.set([activity({ bookId: null, title: null, state: 'queued', stage: 'preparing' })]);
+    fixture.detectChanges();
+    const calls = listSpy.mock.calls.length;
+
+    importEntries.set([activity({ bookId: null, title: 'Treasure Island', state: 'running', percent: 0 })]);
+    fixture.detectChanges();
+    expect(listSpy.mock.calls.length).toBe(calls);
+
+    // Now the row exists: this is the change the page is for.
+    importEntries.set([activity({ bookId: 'book-importing', title: 'Treasure Island', percent: 4 })]);
+    fixture.detectChanges();
+    expect(listSpy.mock.calls.length).toBeGreaterThan(calls);
+  });
+
+  it('does not re-read the page when the importing book is already on it', () => {
+    // Arriving on the library while an import runs: the page already holds the book,
+    // because the server sorts an import first. There is nothing to catch up with.
+    component.rawBooks.set([importingBook()]);
+    importEntries.set([activity()]);
+    fixture.detectChanges();
+    const calls = listSpy.mock.calls.length;
+
+    importEntries.set([activity({ percent: 12 })]);
+    fixture.detectChanges();
+    expect(listSpy.mock.calls.length).toBe(calls);
+
+    // When it ends the book stops being sorted first, so now the page must be re-read.
+    importEntries.set([]);
+    fixture.detectChanges();
+    expect(listSpy.mock.calls.length).toBeGreaterThan(calls);
   });
 
   it('does not re-read the page for progress ticks', () => {

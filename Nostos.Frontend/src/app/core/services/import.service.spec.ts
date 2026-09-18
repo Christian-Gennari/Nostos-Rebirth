@@ -145,19 +145,21 @@ describe('ImportService', () => {
     activeRequest().flush([activity({ bookId: null })]);
     stream().open();
 
-    const beforeRow = service.inFlightSignature();
+    const beforeRow = service.inFlightBookIds();
+
+    // A job with no row yet is not something a list could catch up with.
+    expect(beforeRow).toEqual([]);
 
     // The same import, but its book row now exists. The library's page is a snapshot
     // taken before that row, so it has to be re-read for the book to appear in it.
     stream().emit('progress', [activity({ bookId: 'book-1' })]);
-    const withRow = service.inFlightSignature();
-    expect(withRow).not.toBe(beforeRow);
-    expect(withRow).toContain('book-1');
+    const withRow = service.inFlightBookIds();
+    expect(withRow).toEqual(['book-1']);
 
-    // A number moving several times a second is not a change to the set.
+    // A number moving several times a second is not a change to the rows.
     stream().emit('progress', [activity({ bookId: 'book-1', percent: 84 })]);
     stream().emit('progress', [activity({ bookId: 'book-1', percent: 91 })]);
-    expect(service.inFlightSignature()).toBe(withRow);
+    expect(service.inFlightBookIds()).toEqual(withRow);
   });
 
   it('fetches only the finished book on a done event, then closes the stream', () => {

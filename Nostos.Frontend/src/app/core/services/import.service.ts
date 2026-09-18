@@ -65,19 +65,22 @@ export class ImportService {
   readonly hasImports = computed(() => this.imports().length > 0);
 
   /**
-   * A stable signature of what is currently importing, including which book row it
-   * has. The library's page is a snapshot taken when it was fetched, so a book that
-   * did not exist then cannot be in it: a change here means the page needs to be
-   * re-read once — when the row appears, and again when the import ends and the book
-   * takes its ordinary place in the sort. Only the SET is captured, never the
-   * percentages, so progress ticks do not cause fetches.
+   * The library rows the feed is currently importing, as a stable list.
+   *
+   * Only a BOOK ROW can change the list, so only book rows are in here. The feed
+   * announces a job before its row exists (the backend plans the item first, ~1-3s),
+   * and keying on the entry id as well made that first moment look like a change the
+   * list had to catch up with: one wasted request, and one visible reload, for an
+   * import that could not be in the results yet. Percentages are not in here either:
+   * they tick several times a second and change nothing about which books the page
+   * holds.
    */
-  readonly inFlightSignature = computed(() =>
+  readonly inFlightBookIds = computed(() =>
     this.imports()
       .filter((entry) => isImportInFlight(entry))
-      .map((entry) => `${entry.id}:${entry.bookId ?? ''}`)
-      .sort()
-      .join('|'),
+      .map((entry) => entry.bookId)
+      .filter((bookId): bookId is string => !!bookId)
+      .sort(),
   );
 
   /**
