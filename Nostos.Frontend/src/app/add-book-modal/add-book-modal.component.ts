@@ -768,9 +768,12 @@ export class AddBookModal implements OnDestroy {
         metadataOverrides: this.buildOverrides(),
       })
       .subscribe({
-        next: (job) => {
-          this.acquisition.set(job);
-          this.startPolling(job.jobId);
+        next: () => {
+          this.toast.success(
+            'Import started — it will appear in your library when it finishes.',
+          );
+          this.bookAdded.emit();
+          this.closeModal.emit();
         },
         error: (error) =>
           this.sourceImportError.set(

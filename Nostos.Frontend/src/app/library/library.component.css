@@ -759,6 +759,48 @@ app-sidebar-collections.no-transition {
   padding-bottom: 0.5rem;
 }
 
+.book-card.is-importing .cover-image {
+  opacity: 0.45;
+  filter: grayscale(40%);
+}
+
+.book-card.is-failed .cover-image {
+  opacity: 0.35;
+  filter: grayscale(80%);
+}
+
+.import-status-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--overlay-heavy);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: var(--color-text-main);
+  pointer-events: none;
+}
+
+.import-status-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--on-primary);
+}
+
+.is-failed-overlay {
+  color: var(--color-danger-vivid);
+}
+
+.is-failed-overlay .import-status-label {
+  color: var(--color-danger-vivid);
+}
+
 .cover-wrapper {
   position: relative;
   aspect-ratio: 2/3;

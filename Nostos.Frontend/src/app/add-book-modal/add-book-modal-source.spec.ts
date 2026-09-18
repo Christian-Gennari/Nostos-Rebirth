@@ -6,6 +6,7 @@ import { AddBookModal } from './add-book-modal.component';
 import { Book, BooksService } from '../core/services/books.service';
 import { ProvidersService } from '../core/services/providers.service';
 import { ProviderAcquisition, ProviderItem, ProviderSummary } from '../core/dtos/provider.dtos';
+import { ToastService } from '../core/services/toast.service';
 
 /**
  * The "From a Source" tab (issue #167).
@@ -335,35 +336,12 @@ describe('AddBookModal — From a Source', () => {
     expect(submit).toBeUndefined();
   });
 
-  it('reports progress while the import runs, and does not claim to be finished', async () => {
+  it('closes modal, refreshes library, and toasts when import is accepted', async () => {
     vi.spyOn(providers, 'acquire').mockReturnValue(of(job()));
-    vi.spyOn(providers, 'job').mockReturnValue(of(job({ percent: 70, stage: 'assembling' })));
-
-    component.enterSourceMode();
-    await fixture.whenStable();
-    component.selectSourceItem(pride);
-
-    vi.useFakeTimers();
-    component.importSelected();
-    await vi.advanceTimersByTimeAsync(1100);
-    fixture.detectChanges();
-
-    const progress = fixture.nativeElement.querySelector('.source-progress');
-    expect(progress).toBeTruthy();
-    // The stage is a coarsely-labelled pipeline step, not a raw enum.
-    expect(progress.textContent).toContain('Preparing the file');
-    expect(progress.textContent).toContain('70%');
-    expect(component.bookAdded.emit).toBeDefined();
-  });
-
-  it('opens the resulting local book only once the server reports success', async () => {
-    vi.spyOn(providers, 'acquire').mockReturnValue(of(job()));
-    vi.spyOn(providers, 'job').mockReturnValue(
-      of(job({ state: 'succeeded', stage: 'done', percent: 100, bookId: 'book-9' })),
-    );
-    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     const added = vi.fn();
     const closed = vi.fn();
+    const toast = TestBed.inject(ToastService);
+    const toastSpy = vi.spyOn(toast, 'success');
     component.bookAdded.subscribe(added);
     component.closeModal.subscribe(closed);
 
@@ -371,27 +349,18 @@ describe('AddBookModal — From a Source', () => {
     await fixture.whenStable();
     component.selectSourceItem(pride);
 
-    vi.useFakeTimers();
     component.importSelected();
-    await vi.advanceTimersByTimeAsync(1100);
 
+    expect(toastSpy).toHaveBeenCalledWith(
+      'Import started — it will appear in your library when it finishes.',
+    );
     expect(added).toHaveBeenCalled();
     expect(closed).toHaveBeenCalled();
-    // The user's own library stays the destination.
-    expect(navigate).toHaveBeenCalledWith(['/library', 'book-9']);
   });
 
-  it('shows the failure and its code, and leaves the dialog open', async () => {
-    vi.spyOn(providers, 'acquire').mockReturnValue(of(job()));
-    vi.spyOn(providers, 'job').mockReturnValue(
-      of(
-        job({
-          state: 'failed',
-          stage: 'failed',
-          message: 'The source has no file at that address (HTTP 404).',
-          errorCode: 'download_not_found',
-        }),
-      ),
+  it('shows error when import fails to start', async () => {
+    vi.spyOn(providers, 'acquire').mockReturnValue(
+      throwError(() => ({ error: { detail: 'The import could not be started.' } })),
     );
     const closed = vi.fn();
     component.closeModal.subscribe(closed);
@@ -400,29 +369,12 @@ describe('AddBookModal — From a Source', () => {
     await fixture.whenStable();
     component.selectSourceItem(pride);
 
-    vi.useFakeTimers();
     component.importSelected();
-    await vi.advanceTimersByTimeAsync(1100);
     fixture.detectChanges();
 
     const error = fixture.nativeElement.querySelector('.source-error');
-    expect(error.textContent).toContain('download_not_found');
+    expect(error.textContent).toContain('The import could not be started.');
     expect(closed).not.toHaveBeenCalled();
-  });
-
-  it('reports a job the server no longer knows about rather than polling forever', async () => {
-    vi.spyOn(providers, 'acquire').mockReturnValue(of(job()));
-    vi.spyOn(providers, 'job').mockReturnValue(throwError(() => new Error('404')));
-
-    component.enterSourceMode();
-    await fixture.whenStable();
-    component.selectSourceItem(pride);
-
-    vi.useFakeTimers();
-    component.importSelected();
-    await vi.advanceTimersByTimeAsync(1100);
-
-    expect(component.sourceImportError()).toContain('no longer being tracked');
   });
 
   it('sends only the provider, item and asset — never a URL', async () => {
