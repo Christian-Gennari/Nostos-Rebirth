@@ -19,6 +19,7 @@ import { WritingContentDto } from '../core/dtos/writing.dtos';
 @Component({ selector: 'app-markdown-editor', standalone: true, template: '' })
 class MarkdownEditorStub {
   readonly initialContent = input<string>('');
+  readonly typewriter = input<boolean>(false);
   readonly contentChange = output<string>();
   readonly wordCountChange = output<number>();
 }
@@ -447,5 +448,75 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
     expect(mobileBlock).toContain('box-shadow: none');
     // The tinyMCE surface must follow the edge-to-edge frame.
     expect(mobileBlock).toContain('border-radius: 0 !important');
+  });
+});
+
+describe('WritingStudio typewriter mode', () => {
+  let fixture: ComponentFixture<WritingStudio>;
+  let component: WritingStudio;
+
+  beforeEach(async () => {
+    localStorage.clear();
+    TestBed.overrideComponent(WritingStudio, {
+      remove: { imports: [FlatTreeComponent, NoteCardComponent, MarkdownEditorComponent] },
+      add: { imports: [FlatTreeStub, NoteCardStub, MarkdownEditorStub] },
+    });
+
+    await TestBed.configureTestingModule({
+      imports: [WritingStudio],
+      providers: [
+        {
+          provide: WritingsService,
+          useValue: {
+            list: vi.fn(() => of([])),
+            get: vi.fn(),
+            create: vi.fn(() => of({})),
+            update: vi.fn(() => of({})),
+            delete: vi.fn(() => of({})),
+            move: vi.fn(() => of({})),
+          },
+        },
+        { provide: ToastService, useValue: { error: vi.fn(), success: vi.fn() } },
+        { provide: ConceptsService, useValue: { list: vi.fn(() => of([])), get: vi.fn() } },
+        { provide: BooksService, useValue: { list: vi.fn(() => of({ items: [] })) } },
+        { provide: NotesService, useValue: { list: vi.fn(() => of([])) } },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(WritingStudio);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('starts off and toggles with persistence', () => {
+    expect(component.typewriter()).toBe(false);
+
+    component.toggleTypewriter();
+    expect(component.typewriter()).toBe(true);
+    expect(localStorage.getItem('nostos.typewriter')).toBe('1');
+
+    component.toggleTypewriter();
+    expect(component.typewriter()).toBe(false);
+    expect(localStorage.getItem('nostos.typewriter')).toBe('0');
+  });
+
+  it('renders the toggle in the document actions once a document is open', () => {
+    component.activeItem.set({
+      id: 'doc-1',
+      name: 'Sample',
+      content: 'hello',
+      updatedAt: '2026-08-13T00:00:00Z',
+    });
+    component.editorText.set('hello');
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelector('.typewriter-toggle');
+    expect(toggle).toBeTruthy();
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+
+    toggle.click();
+    fixture.detectChanges();
+    expect(component.typewriter()).toBe(true);
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
   });
 });

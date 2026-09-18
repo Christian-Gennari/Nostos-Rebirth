@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { MarkdownEditorComponent } from './markdown-editor.component';
+import { MarkdownEditorComponent, caretScrollDelta } from './markdown-editor.component';
 
 /**
  * TinyMCE is a heavy global; these specs stub it and assert the FINAL chrome
@@ -188,5 +188,83 @@ describe('MarkdownEditorComponent', () => {
     expect(ring).toContain('opacity: 0 !important');
     // The reset must target the pseudo-element, not merely the element.
     expect(css).toContain('.tox .tox-edit-area__iframe');
+  });
+});
+
+describe('caretScrollDelta (typewriter geometry)', () => {
+  it('returns null inside the deadband', () => {
+    expect(caretScrollDelta(450, 1000)).toBeNull(); // exactly centered
+    expect(caretScrollDelta(500, 1000)).toBeNull(); // 50px drift
+    expect(caretScrollDelta(400, 1000)).toBeNull();
+  });
+
+  it('scrolls far carets to 45% of the viewport', () => {
+    expect(caretScrollDelta(900, 1000)).toBe(450);
+    expect(caretScrollDelta(100, 1000)).toBe(-350);
+  });
+
+  it('returns null for invalid viewports', () => {
+    expect(caretScrollDelta(100, 0)).toBeNull();
+    expect(caretScrollDelta(NaN, 1000)).toBeNull();
+  });
+});
+
+describe('MarkdownEditorComponent typewriter follow', () => {
+  let fixture: ComponentFixture<MarkdownEditorComponent>;
+  let editors: any[];
+
+  beforeEach(async () => {
+    localStorage.clear();
+    (globalThis as Record<string, unknown>)['tinymce'] = {
+      init: (config: { setup?: (editor: EditorMock) => void }) => {
+        const editor: EditorMock = {
+          on: () => {},
+          getContent: () => '',
+          setContent: () => {},
+          getBody: () => ({ style: {} }),
+          plugins: { wordcount: { body: { getWordCount: () => 0 } } },
+        };
+        editors.push(editor);
+        config.setup?.(editor);
+        return Promise.resolve(editor);
+      },
+      remove: () => {},
+    };
+    editors = [];
+
+    await TestBed.configureTestingModule({
+      imports: [MarkdownEditorComponent],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(MarkdownEditorComponent);
+    fixture.componentRef.setInput('initialContent', 'hello');
+    fixture.detectChanges();
+    await fixture.whenStable();
+  });
+
+  function withCaret(rectTop: number, viewportHeight: number) {
+    const scrolled: number[] = [];
+    const editor = editors[editors.length - 1] as Record<string, unknown>;
+    editor['selection'] = { getRng: () => ({ getBoundingClientRect: () => ({ top: rectTop, height: 20 }) }) };
+    editor['getWin'] = () => ({ innerHeight: viewportHeight, scrollBy: (_x: number, y: number) => scrolled.push(y) });
+    return { editor, scrolled };
+  }
+
+  it('does nothing while typewriter mode is off', () => {
+    const { editor, scrolled } = withCaret(900, 1000);
+    fixture.componentInstance.followCaret(editor);
+    expect(scrolled).toEqual([]);
+  });
+
+  it('scrolls the caret line toward the viewport center when on', () => {
+    fixture.componentRef.setInput('typewriter', true);
+    const { editor, scrolled } = withCaret(900, 1000);
+    fixture.componentInstance.followCaret(editor);
+    expect(scrolled).toEqual([450]);
+  });
+
+  it('never throws on editors without a selection API', () => {
+    fixture.componentRef.setInput('typewriter', true);
+    expect(() => fixture.componentInstance.followCaret(editors[editors.length - 1])).not.toThrow();
   });
 });
