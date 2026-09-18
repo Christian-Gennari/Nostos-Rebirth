@@ -1,0 +1,89 @@
+<main class="stats-page">
+  <header class="stats-header">
+    <h1>Reading Stats</h1>
+    <p class="stats-subtitle">Where your library stands.</p>
+  </header>
+
+  @if (loading()) {
+  <div class="wait-field" aria-hidden="true"></div>
+  } @else {
+  <section class="stats-cards" aria-label="Library totals">
+    <div class="stat-card">
+      <lucide-icon [img]="LibraryIcon" [size]="18" strokeWidth="1.75"></lucide-icon>
+      <span class="stat-value">{{ counts()?.all ?? 0 }}</span>
+      <span class="stat-label">Books</span>
+    </div>
+    <div class="stat-card">
+      <lucide-icon [img]="BookOpenIcon" [size]="18" strokeWidth="1.75"></lucide-icon>
+      <span class="stat-value">{{ counts()?.reading ?? 0 }}</span>
+      <span class="stat-label">Reading</span>
+    </div>
+    <div class="stat-card">
+      <lucide-icon [img]="CheckIcon" [size]="18" strokeWidth="1.75"></lucide-icon>
+      <span class="stat-value">{{ counts()?.finished ?? 0 }}</span>
+      <span class="stat-label">Finished · {{ finishedShare() }}%</span>
+    </div>
+    <div class="stat-card">
+      <lucide-icon [img]="NotStartedIcon" [size]="18" strokeWidth="1.75"></lucide-icon>
+      <span class="stat-value">{{ counts()?.notStarted ?? 0 }}</span>
+      <span class="stat-label">Not started</span>
+    </div>
+    <div class="stat-card">
+      <lucide-icon [img]="HeartIcon" [size]="18" strokeWidth="1.75"></lucide-icon>
+      <span class="stat-value">{{ counts()?.favorites ?? 0 }}</span>
+      <span class="stat-label">Favorites</span>
+    </div>
+  </section>
+
+  <div class="stats-columns">
+    <section class="stats-list-card" aria-label="Currently reading">
+      <h2>Currently reading</h2>
+      @if (currentlyReading().length === 0) {
+      <p class="stats-empty">Nothing in progress — open any book to begin.</p>
+      } @else {
+      <ul>
+        @for (book of currentlyReading(); track book.id) {
+        <li>
+          <a [routerLink]="['/library', book.id]" class="stats-row">
+            <span class="stats-row-title">{{ book.title }}</span>
+            <span class="stats-row-sub">{{ book.author || 'Unknown author' }}</span>
+            <span class="stats-progress-track" aria-hidden="true">
+              <span class="stats-progress-fill" [style.width.%]="book.progressPercent || 0"></span>
+            </span>
+            <span class="stats-row-pct">{{ book.progressPercent || 0 }}%</span>
+          </a>
+        </li>
+        }
+      </ul>
+      }
+    </section>
+
+    <section class="stats-list-card" aria-label="Top rated">
+      <h2>Top rated</h2>
+      @if (topRated().length === 0) {
+      <p class="stats-empty">No rated books yet — stars live on the book page.</p>
+      } @else {
+      <ul>
+        @for (book of topRated(); track book.id) {
+        <li>
+          <a [routerLink]="['/library', book.id]" class="stats-row">
+            <span class="stats-row-title">{{ book.title }}</span>
+            <span class="stats-row-sub">{{ book.author || 'Unknown author' }}</span>
+            <span class="stats-stars" [attr.aria-label]="'Rated ' + book.rating + ' of 5'">
+              @for (s of [1, 2, 3, 4, 5]; track s) {
+              <lucide-icon
+                [img]="StarIcon"
+                [size]="13"
+                [class.filled]="(book.rating ?? 0) >= s"
+              ></lucide-icon>
+              }
+            </span>
+          </a>
+        </li>
+        }
+      </ul>
+      }
+    </section>
+  </div>
+  }
+</main>

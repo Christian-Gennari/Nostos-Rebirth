@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink, RouterLinkActive } from '@angular/router';
 import {
   LibraryFilterService,
   StatusFilter,
@@ -32,6 +33,7 @@ import {
   Inbox,
   Headphones,
   FileText,
+  ChartColumn,
 } from 'lucide-angular';
 
 import { CollectionsService } from '../../core/services/collections.service';
@@ -46,7 +48,7 @@ import { ToastService } from '../../core/services/toast.service';
 @Component({
   standalone: true,
   selector: 'app-sidebar-collections',
-  imports: [CommonModule, FormsModule, LucideAngularModule, FlatTreeComponent, ConfirmModal],
+  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, LucideAngularModule, FlatTreeComponent, ConfirmModal],
   templateUrl: './sidebar-collections.component.html',
   styleUrls: ['./sidebar-collections.component.css'],
 })
@@ -74,6 +76,7 @@ export class SidebarCollections implements OnInit {
   InboxIcon = Inbox;
   HeadphonesIcon = Headphones;
   FileTextIcon = FileText;
+  StatsIcon = ChartColumn;
 
   // State
   collections = signal<Collection[]>([]);
