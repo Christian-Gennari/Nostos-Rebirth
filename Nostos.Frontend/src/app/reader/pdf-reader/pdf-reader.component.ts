@@ -17,6 +17,7 @@ import {
   TextLayerRenderedEvent,
   PagesLoadedEvent,
   PdfLoadedEvent,
+  ScrollModeType,
 } from 'ngx-extended-pdf-viewer';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
@@ -128,11 +129,31 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   });
 
   // Internal State
-  // CHANGE: Set default to 'page-fit' for the initial load
-  zoomLevel = signal<string | number>('page-fit');
+  // `page-width` on a phone: a fitted full page renders a 512-page book at about
+  // 9.5px, which is not reading, it is squinting. Desktop keeps the full-page fit.
+  zoomLevel = signal<string | number>(this.initialZoom());
   currentPage = 1;
   totalPages = 0;
   private pdfDocRef: any = null;
+
+  /**
+   * Continuous vertical scrolling instead of one page at a time.
+   *
+   * The viewer was pinned to `ScrollModeType.page` (= 3), so a page could only be
+   * left by clicking Next — there was no way to scroll on, which is what a reader
+   * does by reflex in a 512-page book (issue #226 §3). The pager still jumps whole
+   * pages, and progress still follows `pageChange`.
+   *
+   * Note there are two enums in this library: the `scrollMode` INPUT is typed
+   * `ScrollModeType` (lowercase members) from `options/pdf-viewer`, while
+   * `ScrollMode` (uppercase) is a different export. Binding the wrong one is a
+   * template type error, not a silent no-op.
+   */
+  readonly scrollMode = ScrollModeType.vertical;
+
+  private initialZoom(): string {
+    return typeof window !== 'undefined' && window.innerWidth <= 768 ? 'page-width' : 'page-fit';
+  }
 
   private initialLoadComplete = false;
 

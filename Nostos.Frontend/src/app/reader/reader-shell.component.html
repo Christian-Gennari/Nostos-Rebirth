@@ -65,12 +65,11 @@
         data-testid="typo-toggle"
       ></button>
       } @if (fileType() === 'pdf') {
-      <!-- PDF has no reflow, so its "typography" is render scale: the two zoom
-           steps stay here. An EPUB's text size lives in the Aa panel instead,
-           which is what stopped the same glyph pair meaning two things. -->
+      <!-- PDF has no reflow, so its "typography" is render scale: zoom lives
+           here for both viewports. It used to be `desktop-only`, which left a
+           phone with a page fitted to ~9.5px and no way to enlarge it. -->
       <button
         appIconButton
-        class="desktop-only"
         [icon]="Icons.ZoomOut"
         [glyphSize]="20"
         (click)="zoomOut()"
@@ -79,7 +78,6 @@
       ></button>
       <button
         appIconButton
-        class="desktop-only"
         [icon]="Icons.ZoomIn"
         [glyphSize]="20"
         (click)="zoomIn()"
