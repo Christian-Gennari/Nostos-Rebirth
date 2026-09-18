@@ -12,6 +12,7 @@ import {
   ACQUISITION_FINISHED_STATES,
   ProviderAcquisition,
   ProviderItem,
+  ProviderMetadataOverrides,
   ProviderSummary,
 } from '../core/dtos/provider.dtos';
 import { Collection } from '../core/dtos/collection.dtos';
@@ -309,6 +310,14 @@ export class AddBookModal implements OnDestroy {
   submit(): void {
     if (!this.form.title.trim()) return;
 
+    // A chosen source item turns the form into the import's own confirmation:
+    // the download starts from the values on screen rather than from what the
+    // source said. A hand-typed book and an edit both still go to the library.
+    if (this.seededFromSource()) {
+      this.importSelected();
+      return;
+    }
+
     // Sanitize Language
     if (this.form.language) {
       this.form.language = this.getFullLanguageName(this.form.language) || this.form.language;
@@ -411,8 +420,17 @@ export class AddBookModal implements OnDestroy {
   sourceSearchError = signal<string | null>(null);
 
   selectedItem = signal<ProviderItem | null>(null);
+  /** The full item behind the selected result: this is what carries the assets. */
+  selectedDetail = signal<ProviderItem | null>(null);
   selectedAssetId = signal<string | null>(null);
   sourceCollectionIds = signal<string[]>([]);
+
+  /**
+   * The picked result with its assets. A search result carries none of its own,
+   * so the fetched detail wins as soon as it arrives and the thin search result
+   * is only a stand-in until then.
+   */
+  selectedSourceItem = computed(() => this.selectedDetail() ?? this.selectedItem());
 
   /** The live job, or null when nothing has been started. */
   acquisition = signal<ProviderAcquisition | null>(null);
@@ -423,6 +441,15 @@ export class AddBookModal implements OnDestroy {
   selectedProvider = computed(
     () => this.providerList().find((p) => p.id === this.selectedProviderId()) ?? null,
   );
+
+  /**
+   * True when the form was seeded from a source item, which is what turns the
+   * primary action into "Import" instead of "Create".
+   */
+  seededFromSource = computed(() => !this.isEditMode() && this.selectedItem() !== null);
+
+  /** The name of the source the form was seeded from, for the banner. */
+  seededSourceName = computed(() => this.selectedProvider()?.displayName ?? 'the source');
 
   /** Non-null only while an import is actually in flight. */
   runningAcquisition = computed(() => {
@@ -524,12 +551,114 @@ export class AddBookModal implements OnDestroy {
 
   selectSourceItem(item: ProviderItem): void {
     this.selectedItem.set(item);
+    this.selectedDetail.set(null);
     this.sourceImportError.set(null);
 
     // Default to the source's own preferred asset, which is also what the
     // server would choose if no asset were named.
     const preferred = item.assets.find((asset) => asset.isPreferred) ?? item.assets[0];
     this.selectedAssetId.set(preferred?.id ?? null);
+
+    // A search result carries no assets, which is why the import action is
+    // disabled until the full item has been fetched. Without this it stays
+    // disabled for every result a search returns.
+    const providerId = this.selectedProviderId();
+    if (!providerId) return;
+
+    this.providers.item(providerId, item.externalId).subscribe({
+      next: (detail) => {
+        // A late response for a result the user has moved on from must not
+        // overwrite what they are looking at now.
+        if (this.selectedItem()?.externalId !== detail.externalId) return;
+
+        this.selectedDetail.set(detail);
+        const preferredDetail = detail.assets.find((a) => a.isPreferred) ?? detail.assets[0];
+        this.selectedAssetId.set(preferredDetail?.id ?? null);
+      },
+      error: () =>
+        this.sourceImportError.set(
+          "That book's details could not be loaded, so it cannot be imported right now.",
+        ),
+    });
+  }
+
+  /**
+   * Turn the chosen item into a prefilled form, instead of importing it on the
+   * spot.
+   *
+   * Importing and adding were the same job split across two surfaces: the source
+   * tab created a book from the source's metadata and closed, so anything the
+   * user wanted to add — a collection, a corrected author, their own note — meant
+   * finding the book afterwards and editing it. Seeding the form means the
+   * metadata is reviewed and completed BEFORE anything is downloaded, and the
+   * import carries the result, so the book is created once and already right.
+   */
+  seedFromSelectedItem(): void {
+    const item = this.selectedSourceItem();
+    if (!item) return;
+
+    const asset = item.assets.find((a) => a.isPreferred) ?? item.assets[0];
+
+    this.form.title = item.title ?? '';
+    this.form.subtitle = item.subtitle ?? '';
+    this.form.author = item.author ?? '';
+    this.form.narrator = item.narrator ?? '';
+    this.form.description = item.description ?? '';
+    this.form.language = item.language ?? 'en';
+    this.form.publisher = item.publisher ?? '';
+    this.form.publishedDate = item.publishedDate ?? '';
+    this.form.categories = item.categories ?? '';
+    this.form.duration = item.duration ?? '';
+    this.form.pageCount = item.pageCount;
+
+    // The type follows what is actually being fetched. An audiobook asset makes
+    // an audiobook; guessing otherwise would file it where no reader can open it.
+    if (asset?.kind === 'audiobook') this.form.type = 'audiobook';
+    else if (asset?.kind === 'ebook') this.form.type = 'ebook';
+
+    // Collections chosen beside the result are the form's starting point, not a
+    // second setting: the form's own picker is what the import reads.
+    const seededCollections = this.sourceCollectionIds();
+    if (seededCollections.length > 0) this.form.collectionIds = [...seededCollections];
+
+    this.sourceImportError.set(null);
+    this.acquisition.set(null);
+    this.setTab('Book Info');
+  }
+
+  /**
+   * Only what the user actually changed, keyed for the server.
+   *
+   * An untouched field goes as null so the source still owns it: echoing the
+   * whole form back would pin every value to this moment and a later
+   * correction at the source could never reach the library. An emptied field
+   * goes as an empty string, which the server reads as "clear it".
+   */
+  private buildOverrides(): ProviderMetadataOverrides {
+    const item = this.selectedSourceItem();
+    if (!item) return {};
+
+    const againstSource = (
+      fromForm: string | null | undefined,
+      fromSource: string | null | undefined,
+    ): string | null => {
+      const entered = (fromForm ?? '').trim();
+      return entered === (fromSource ?? '').trim() ? null : entered;
+    };
+
+    return {
+      title: againstSource(this.form.title, item.title),
+      subtitle: againstSource(this.form.subtitle, item.subtitle),
+      author: againstSource(this.form.author, item.author),
+      narrator: againstSource(this.form.narrator, item.narrator),
+      description: againstSource(this.form.description, item.description),
+      language: againstSource(this.form.language, item.language),
+      publisher: againstSource(this.form.publisher, item.publisher),
+      publishedDate: againstSource(this.form.publishedDate, item.publishedDate),
+      categories: againstSource(this.form.categories, item.categories),
+      duration: againstSource(this.form.duration, item.duration),
+      pageCount: this.form.pageCount === item.pageCount ? null : this.form.pageCount,
+    };
   }
 
   importSelected(): void {
@@ -544,7 +673,8 @@ export class AddBookModal implements OnDestroy {
       .acquire(providerId, {
         externalId: item.externalId,
         assetId: this.selectedAssetId(),
-        collectionIds: this.sourceCollectionIds(),
+        collectionIds: this.form.collectionIds,
+        metadataOverrides: this.buildOverrides(),
       })
       .subscribe({
         next: (job) => {

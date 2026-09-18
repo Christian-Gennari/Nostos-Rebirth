@@ -58,6 +58,33 @@ public sealed record ProviderSearchResultDto(
     string? Notice);
 
 /// <summary>
+/// The user's own edits to the metadata an import would otherwise take from the
+/// source verbatim, for an import started from a prefilled form.
+///
+/// Every field means the same thing: `null` (or absent) keeps what the source
+/// says, and a value replaces it. An empty string clears the field — the user
+/// emptied that box, and putting the source's text back would be worse than
+/// dropping it. `Title` is the exception: it falls back to the source, because a
+/// book with no title is not a book.
+///
+/// Send only what the user actually changed. A field left null still follows the
+/// source, so a provider-side correction is never overwritten by a stale value
+/// the client echoed back.
+/// </summary>
+public sealed record ProviderMetadataOverridesDto(
+    string? Title = null,
+    string? Subtitle = null,
+    string? Author = null,
+    string? Description = null,
+    string? Language = null,
+    string? Publisher = null,
+    string? PublishedDate = null,
+    string? Categories = null,
+    string? Narrator = null,
+    string? Duration = null,
+    int? PageCount = null);
+
+/// <summary>
 /// Start an import. Note there is no URL field: a client names a provider, an
 /// item and optionally an asset, and the server resolves the rest.
 /// </summary>
@@ -65,7 +92,12 @@ public sealed record ProviderAcquireRequestDto(
     string ExternalId,
     string? AssetId = null,
     IReadOnlyList<Guid>? CollectionIds = null,
-    bool IncludeCover = true);
+    bool IncludeCover = true,
+    /// <summary>
+    /// Optional. Present only when the client showed the user the metadata first
+    /// and they were allowed to change it.
+    /// </summary>
+    ProviderMetadataOverridesDto? MetadataOverrides = null);
 
 public sealed record ProviderAcquisitionDto(
     string JobId,

@@ -24,6 +24,26 @@ public sealed record ProviderMetadata(
     int? PageCount = null);
 
 /// <summary>
+/// A user's corrections to a source's metadata, applied at import time.
+///
+/// Mirrors <see cref="ProviderMetadata"/> with every field optional, so a caller
+/// can send only what the user changed: `null` keeps the source's value, a value
+/// replaces it, and an empty string clears it.
+/// </summary>
+public sealed record ProviderMetadataOverrides(
+    string? Title = null,
+    string? Subtitle = null,
+    string? Author = null,
+    string? Description = null,
+    string? Language = null,
+    string? Publisher = null,
+    string? PublishedDate = null,
+    string? Categories = null,
+    string? Narrator = null,
+    string? Duration = null,
+    int? PageCount = null);
+
+/// <summary>
 /// One downloadable representation of an item. Carries no URL: the client only
 /// ever names this by <see cref="Id"/>, and the provider resolves the actual
 /// location in <see cref="IProviderAcquisitionPlanner"/>.
