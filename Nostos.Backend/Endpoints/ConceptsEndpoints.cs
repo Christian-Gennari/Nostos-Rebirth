@@ -13,10 +13,16 @@ public static class ConceptsEndpoints
         // GET all concepts (The Index)
         group.MapGet(
             "/",
-            async (IConceptRepository repo) =>
+            async (string? search, IConceptRepository repo) =>
             {
-                var dtos = await repo.GetAllWithUsageCountAsync();
-                return Results.Ok(dtos);
+                if (string.IsNullOrWhiteSpace(search))
+                {
+                    var dtos = await repo.GetAllWithUsageCountAsync();
+                    return Results.Ok(dtos);
+                }
+
+                var results = await repo.SearchByNoteTextAsync(search);
+                return Results.Ok(results);
             }
         );
 

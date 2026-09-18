@@ -163,18 +163,33 @@
             [attr.tabindex]="cursorIndex() === null ? (i === 0 ? 0 : -1) : (cursorIndex() === i ? 0 : -1)"
             [attr.aria-label]="c.name"
             [attr.aria-pressed]="selectedId() === c.id"
-            (click)="selectConcept(c.id)"
+            (click)="selectIndexRow(c)"
             (mouseenter)="prefetch(c.id)"
             (focus)="handleIndexFocus(i); prefetch(c.id)"
             (keydown)="handleIndexKeydown($event, i, c.id)"
           >
-            <span class="name">
-              @for (part of highlightName(c.name); track $index) {
-              @if (part.highlight) {
-              <mark>{{ part.text }}</mark>
-              } @else {
-              {{ part.text }}
-              }
+            <span class="row-main">
+              <span class="name">
+                @for (part of highlightName(c.name); track $index) {
+                @if (part.highlight) {
+                <mark>{{ part.text }}</mark>
+                } @else {
+                {{ part.text }}
+                }
+                }
+              </span>
+              <!-- A name match and a note match are different things (issue #158):
+                   the row says which, and how many, so a content match is never read
+                   as a concept that is literally called that. -->
+              @if (c.noteMatchCount) {
+              <span class="note-match" data-testid="index-note-match">
+                <span class="note-match-count">
+                  {{ c.noteMatchCount }} {{ c.noteMatchCount === 1 ? 'note' : 'notes' }}
+                </span>
+                @if (c.noteMatchSnippet) {
+                <span class="note-match-snippet">“{{ c.noteMatchSnippet }}”</span>
+                }
+              </span>
               }
             </span>
             <span class="row-tail">

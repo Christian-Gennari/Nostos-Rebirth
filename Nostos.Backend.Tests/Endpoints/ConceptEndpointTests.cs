@@ -366,6 +366,161 @@ public sealed class ConceptEndpointTests : IClassFixture<LibraryEndpointFactory>
         edge!.SharedNotes.Should().Be(1);
     }
 
+    [Fact]
+    public async Task Search_term_in_note_body_returns_concept_with_match_count_and_snippet()
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var conceptName = $"NoteBodyConcept {suffix}";
+        var searchTerm = $"flabbergasted{suffix}";
+
+        await CreateBookWithNotesAsync(
+            $"[[{conceptName}]] The professor was completely {searchTerm} by the unexpected test results."
+        );
+
+        var results = await Client.GetFromJsonAsync<ConceptDto[]>($"/api/concepts?search={searchTerm}");
+
+        results.Should().NotBeNull();
+        results.Should().ContainSingle(c => c.Name == conceptName);
+        var match = results!.Single(c => c.Name == conceptName);
+        match.NoteMatchCount.Should().Be(1);
+        match.NoteMatchSnippet.Should().NotBeNullOrWhiteSpace();
+        match.NoteMatchSnippet.Should().Contain(searchTerm);
+    }
+
+    [Fact]
+    public async Task Search_same_term_in_several_notes_of_one_concept_returns_right_count()
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var conceptName = $"MultiNoteConcept {suffix}";
+        var searchTerm = $"kaleidoscope{suffix}";
+
+        await CreateBookWithNotesAsync(
+            $"[[{conceptName}]] First note containing {searchTerm} and observations.",
+            $"[[{conceptName}]] Second note with another mention of {searchTerm} here.",
+            $"[[{conceptName}]] Third note without the search term."
+        );
+
+        var results = await Client.GetFromJsonAsync<ConceptDto[]>($"/api/concepts?search={searchTerm}");
+
+        results.Should().NotBeNull();
+        var match = results!.Single(c => c.Name == conceptName);
+        match.UsageCount.Should().Be(3);
+        match.NoteMatchCount.Should().Be(2);
+        match.NoteMatchSnippet.Should().NotBeNullOrWhiteSpace();
+        match.NoteMatchSnippet.Should().Contain(searchTerm);
+    }
+
+    [Fact]
+    public async Task Search_finds_match_in_selected_text()
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var conceptName = $"SelectedTextConcept {suffix}";
+        var searchTerm = $"chrysanthemum{suffix}";
+
+        var bookResponse = await Client.PostAsJsonAsync("/api/books", new
+        {
+            type = "physical",
+            title = $"SelectedText Book {suffix}",
+        });
+        bookResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var book = (await bookResponse.Content.ReadFromJsonAsync<BookDto>())!;
+
+        var noteResponse = await Client.PostAsJsonAsync(
+            $"/api/books/{book.Id}/notes",
+            new
+            {
+                content = $"[[{conceptName}]] Comment about the passage.",
+                selectedText = $"The delicate {searchTerm} petals were preserved in the book."
+            });
+        noteResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var results = await Client.GetFromJsonAsync<ConceptDto[]>($"/api/concepts?search={searchTerm}");
+
+        results.Should().NotBeNull();
+        var match = results!.Single(c => c.Name == conceptName);
+        match.NoteMatchCount.Should().Be(1);
+        match.NoteMatchSnippet.Should().NotBeNullOrWhiteSpace();
+        match.NoteMatchSnippet.Should().Contain(searchTerm);
+    }
+
+    [Fact]
+    public async Task Search_finds_match_in_book_title()
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var conceptName = $"BookTitleConcept {suffix}";
+        var searchTerm = $"supernova{suffix}";
+
+        var bookResponse = await Client.PostAsJsonAsync("/api/books", new
+        {
+            type = "physical",
+            title = $"Chronicles of the {searchTerm} Explosion",
+        });
+        bookResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var book = (await bookResponse.Content.ReadFromJsonAsync<BookDto>())!;
+
+        var noteResponse = await Client.PostAsJsonAsync(
+            $"/api/books/{book.Id}/notes",
+            new { content = $"[[{conceptName}]] Observations on stellar collapse." });
+        noteResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var results = await Client.GetFromJsonAsync<ConceptDto[]>($"/api/concepts?search={searchTerm}");
+
+        results.Should().NotBeNull();
+        var match = results!.Single(c => c.Name == conceptName);
+        match.NoteMatchCount.Should().Be(1);
+        match.NoteMatchSnippet.Should().NotBeNullOrWhiteSpace();
+        match.NoteMatchSnippet.Should().Contain(searchTerm);
+    }
+
+    [Fact]
+    public async Task Search_matches_case_insensitively()
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var conceptName = $"CaseInsensitiveConcept {suffix}";
+        var baseTerm = $"luminescence{suffix}";
+
+        await CreateBookWithNotesAsync(
+            $"[[{conceptName}]] Observed nocturnal {baseTerm.ToLowerInvariant()} in samples."
+        );
+
+        var results = await Client.GetFromJsonAsync<ConceptDto[]>($"/api/concepts?search={baseTerm.ToUpperInvariant()}");
+
+        results.Should().NotBeNull();
+        results.Should().ContainSingle(c => c.Name == conceptName);
+        var match = results!.Single(c => c.Name == conceptName);
+        match.NoteMatchCount.Should().Be(1);
+        match.NoteMatchSnippet.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task Search_with_no_matches_returns_empty_list()
+    {
+        var nonExistentTerm = $"nonexistent_{Guid.NewGuid():N}";
+
+        var results = await Client.GetFromJsonAsync<ConceptDto[]>($"/api/concepts?search={nonExistentTerm}");
+
+        results.Should().NotBeNull();
+        results.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Search_omitted_returns_full_list()
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var conceptName = $"FullListConcept {suffix}";
+
+        await CreateBookWithNotesAsync($"[[{conceptName}]] A note for full list test.");
+
+        var fullListWithoutParam = await Client.GetFromJsonAsync<ConceptDto[]>("/api/concepts");
+        var fullListWithBlankParam = await Client.GetFromJsonAsync<ConceptDto[]>("/api/concepts?search=");
+
+        fullListWithoutParam.Should().NotBeNull();
+        fullListWithoutParam.Should().Contain(c => c.Name == conceptName);
+
+        fullListWithBlankParam.Should().NotBeNull();
+        fullListWithBlankParam.Should().Contain(c => c.Name == conceptName);
+    }
+
     private async Task<BookDto> CreateBookWithNotesAsync(params string[] noteContents)
     {
         var bookResponse = await Client.PostAsJsonAsync("/api/books", new

@@ -1,7 +1,7 @@
 namespace Nostos.Shared.Dtos;
 
 // For the list
-public record ConceptDto(Guid Id, string Name, int UsageCount);
+public record ConceptDto(Guid Id, string Name, int UsageCount, int NoteMatchCount = 0, string? NoteMatchSnippet = null);
 
 // For the detail view
 public record ConceptDetailDto(Guid Id, string Name, List<NoteContextDto> Notes);

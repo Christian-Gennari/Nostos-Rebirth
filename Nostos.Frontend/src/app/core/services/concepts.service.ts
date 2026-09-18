@@ -6,6 +6,11 @@ export interface ConceptDto {
   id: string;
   name: string;
   usageCount: number;
+  // Appended for the index search (issue #158). The plain list has no note text,
+  // so a term that only appears inside a note can only be matched on the server;
+  // these carry what matched, and are absent on the unfiltered list.
+  noteMatchCount?: number;
+  noteMatchSnippet?: string | null;
 }
 
 export interface ConceptStatsDto {
@@ -63,6 +68,16 @@ export class ConceptsService {
 
   list(): Observable<ConceptDto[]> {
     return this.http.get<ConceptDto[]>('/api/concepts');
+  }
+
+  /**
+   * Note-text search for the index (issue #158). `GET /api/concepts` carries no
+   * note text at all, so the term is matched server-side against note content,
+   * quote text and book title — the same three fields the note-level search inside
+   * a concept already matches.
+   */
+  searchNotes(term: string): Observable<ConceptDto[]> {
+    return this.http.get<ConceptDto[]>('/api/concepts', { params: { search: term } });
   }
 
   getStats(): Observable<ConceptStatsDto> {
