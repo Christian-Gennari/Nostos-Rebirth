@@ -87,7 +87,10 @@ if (mcpOptions.Enabled)
 
 builder.Services.AddSingleton(mcpOptions);
 
-const long maxUploadSize = 100L * 1024 * 1024 * 1024; // 100GB
+// Single upload cap for Kestrel + multipart forms (audiobooks can be GB-sized).
+// One declaration only: a second ConfigureKestrel/Configure<FormOptions> call
+// would silently overwrite the first, leaving dead config behind.
+const long maxUploadSize = 4L * 1024 * 1024 * 1024; // 4GB in bytes
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.Limits.MaxRequestBodySize = maxUploadSize;
@@ -103,17 +106,6 @@ builder.Services.AddDbContextFactory<NostosDbContext>(options =>
     options.UseSqlite($"Data Source={dbPath}");
 });
 builder.Services.AddScoped<IDatabaseBootstrapService, DatabaseBootstrapService>();
-
-// 4GB in bytes
-const long maxUploadSizeGB = 4L * 1024 * 1024 * 1024;
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.Limits.MaxRequestBodySize = maxUploadSizeGB;
-});
-builder.Services.Configure<FormOptions>(options =>
-{
-    options.MultipartBodyLengthLimit = maxUploadSizeGB;
-});
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
