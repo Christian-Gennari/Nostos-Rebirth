@@ -85,7 +85,11 @@ public record BookDto(
     // Provenance for a book whose file came from an external provider.
     // APPENDED for the same reason as CollectionIds above. Deliberately small:
     // this is where a file came from, not a licensing surface.
-    BookSourceDto? Source = null
+    BookSourceDto? Source = null,
+    // Life-cycle status for create-on-confirm imports. Ready = 0, Downloading = 1,
+    // Transcoding = 2, Failed = 3. APPENDED to preserve positional record stability.
+    Nostos.Shared.Enums.BookStatus Status = Nostos.Shared.Enums.BookStatus.Ready,
+    string? StatusMessage = null
 );
 
 /// <summary>
