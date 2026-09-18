@@ -8,12 +8,13 @@ import {
   RouterOutlet,
 } from '@angular/router';
 import { ToastContainerComponent } from './ui/toast-container/toast-container.component';
+import { CommandPalette } from './ui/command-palette/command-palette.component';
 import { SwUpdateService } from './core/services/sw-update.service';
 import { ThemeService } from './core/services/theme.service';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, ToastContainerComponent],
+  imports: [RouterOutlet, ToastContainerComponent, CommandPalette],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
 })
