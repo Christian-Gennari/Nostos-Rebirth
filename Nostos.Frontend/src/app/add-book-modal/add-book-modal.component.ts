@@ -437,10 +437,28 @@ export class AddBookModal implements OnDestroy {
   sourceSearchError = signal<string | null>(null);
 
   selectedItem = signal<ProviderItem | null>(null);
+
+  /**
+   * The asset that will actually be imported, named in the collapsed summary so
+   * the answer is visible without opening the list.
+   */
+  selectedAssetLabel = computed(() => {
+    const item = this.selectedSourceItem();
+    if (!item) return '';
+
+    const id = this.selectedAssetId();
+    const asset =
+      item.assets.find((a) => a.id === id) ??
+      item.assets.find((a) => a.isPreferred) ??
+      item.assets[0];
+    if (!asset) return '';
+
+    const size = this.formatBytes(asset.sizeBytes);
+    return size ? `${asset.label} · ${size}` : asset.label;
+  });
   /** The full item behind the selected result: this is what carries the assets. */
   selectedDetail = signal<ProviderItem | null>(null);
   selectedAssetId = signal<string | null>(null);
-  sourceCollectionIds = signal<string[]>([]);
 
   /**
    * The picked result with its assets. A search result carries none of its own,
@@ -623,6 +641,8 @@ export class AddBookModal implements OnDestroy {
     const item = this.selectedSourceItem();
     if (!item) return;
 
+    // Collections are deliberately not offered here: the form that follows has
+    // its own picker, and the same question twice is one too many.
     const asset = item.assets.find((a) => a.isPreferred) ?? item.assets[0];
 
     this.form.title = item.title ?? '';
@@ -641,11 +661,6 @@ export class AddBookModal implements OnDestroy {
     // an audiobook; guessing otherwise would file it where no reader can open it.
     if (asset?.kind === 'audiobook') this.form.type = 'audiobook';
     else if (asset?.kind === 'ebook') this.form.type = 'ebook';
-
-    // Collections chosen beside the result are the form's starting point, not a
-    // second setting: the form's own picker is what the import reads.
-    const seededCollections = this.sourceCollectionIds();
-    if (seededCollections.length > 0) this.form.collectionIds = [...seededCollections];
 
     this.sourceImportError.set(null);
     this.acquisition.set(null);
@@ -790,7 +805,6 @@ export class AddBookModal implements OnDestroy {
   private resetSourceTab(): void {
     this.clearSourceResults();
     this.sourceQuery.set('');
-    this.sourceCollectionIds.set([]);
     this.acquisition.set(null);
     this.sourceImportError.set(null);
     this.stopPolling();

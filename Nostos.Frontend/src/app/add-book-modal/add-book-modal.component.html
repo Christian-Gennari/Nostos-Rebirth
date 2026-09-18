@@ -549,25 +549,37 @@
                   }
 
                   @if (item.assets.length > 1) {
-                    <div class="form-group">
-                      <span class="form-label">Format to import</span>
-                      @for (asset of item.assets; track asset.id) {
-                        <label class="source-asset">
-                          <input
-                            type="radio"
-                            name="sourceAsset"
-                            [value]="asset.id"
-                            [checked]="selectedAssetId() === asset.id"
-                            [disabled]="!!runningAcquisition()"
-                            (change)="selectedAssetId.set(asset.id)"
-                          />
-                          <span class="source-asset-label">{{ asset.label }}</span>
-                          @if (formatBytes(asset.sizeBytes)) {
-                            <span class="source-asset-size">{{ formatBytes(asset.sizeBytes) }}</span>
-                          }
-                        </label>
-                      }
-                    </div>
+                    <!-- Collapsed by default. The source has already picked the
+                         format it recommends and almost every import takes it, so
+                         the list is there for the reader who cares which file
+                         actually arrives — not as a decision in the way. -->
+                    <details class="source-formats">
+                      <summary class="source-formats-summary">
+                        <span class="source-formats-current">{{ selectedAssetLabel() }}</span>
+                        <span class="source-formats-change">
+                          <span class="source-formats-when-closed">Change</span>
+                          <span class="source-formats-when-open">Done</span>
+                        </span>
+                      </summary>
+                      <div class="source-formats-list">
+                        @for (asset of item.assets; track asset.id) {
+                          <label class="source-asset">
+                            <input
+                              type="radio"
+                              name="sourceAsset"
+                              [value]="asset.id"
+                              [checked]="selectedAssetId() === asset.id"
+                              [disabled]="!!runningAcquisition()"
+                              (change)="selectedAssetId.set(asset.id)"
+                            />
+                            <span class="source-asset-label">{{ asset.label }}</span>
+                            @if (formatBytes(asset.sizeBytes)) {
+                              <span class="source-asset-size">{{ formatBytes(asset.sizeBytes) }}</span>
+                            }
+                          </label>
+                        }
+                      </div>
+                    </details>
                   } @else if (item.assets.length === 1) {
                     <p class="source-hint">
                       Format: {{ item.assets[0].label
@@ -579,19 +591,15 @@
                     </p>
                   }
 
-                  <div class="form-group">
-                    <app-collection-picker
-                      label="Add to collections (optional)"
-                      [collections]="collections()"
-                      [selectedIds]="sourceCollectionIds()"
-                      (selectedIdsChange)="sourceCollectionIds.set($event)"
-                    ></app-collection-picker>
-                  </div>
-
                   @if (item.rightsStatement) {
                     <p class="source-rights">
-                      <!-- Quoted from the source, not asserted by Nostos. -->
-                      Source says: {{ item.rightsStatement }}
+                      <!-- Attributed, not asserted: this is what the source
+                           claims about rights, and Nostos does not upgrade it
+                           into a rights claim of its own. -->
+                      <!-- One span: `.source-rights` is a flex row, so loose
+                           text nodes would be laid out as separate items and
+                           pick up gaps between the words. -->
+                      <span>{{ seededSourceName() }} states: {{ item.rightsStatement }}</span>
                       @if (item.sourceUrl) {
                         <a [href]="item.sourceUrl" target="_blank" rel="noopener noreferrer"
                           >View at source</a

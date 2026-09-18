@@ -210,7 +210,7 @@ describe('AddBookModal — From a Source', () => {
     );
   });
 
-  it('preselects the source\'s preferred asset and explains the rights position', async () => {
+  it("preselects the source's preferred format, collapsed, and names who claims the rights", async () => {
     component.enterSourceMode();
     await fixture.whenStable();
     component.sourceQuery.set('pride');
@@ -222,11 +222,39 @@ describe('AddBookModal — From a Source', () => {
 
     expect(component.selectedAssetId()).toBe('epub3-images');
 
-    const text = fixture.nativeElement.textContent;
-    expect(text).toContain('EPUB3 (E-readers incl. Send-to-Kindle)');
-    expect(text).toContain('EPUB (no images, older E-readers)');
-    // Quoted from the source, not asserted by Nostos.
-    expect(text).toContain('Source says: Public domain in the USA.');
+    // The formats sit behind a collapsed disclosure. `textContent` reports them
+    // whether or not it is open — the same way `[hidden]` reported `true` on a
+    // visible element — so this asserts the state, not the presence of a string.
+    const formats = fixture.nativeElement.querySelector('.source-formats') as HTMLDetailsElement;
+    expect(formats).toBeTruthy();
+    expect(formats.open).toBe(false);
+    expect(formats.querySelector('.source-formats-current')?.textContent).toContain(
+      'EPUB3 (E-readers incl. Send-to-Kindle)',
+    );
+    const assets = component.selectedSourceItem()?.assets ?? [];
+    // More than one is the reason it is a disclosure at all.
+    expect(assets.length).toBeGreaterThan(1);
+    expect(formats.querySelectorAll('.source-asset').length).toBe(assets.length);
+
+    // The rights line says who is making the claim.
+    const rights = fixture.nativeElement.querySelector('.source-rights')?.textContent ?? '';
+    expect(rights).toContain('Project Gutenberg states: Public domain in the USA.');
+    expect(rights).not.toContain('Source says');
+  });
+
+  it('asks for collections once, in the form, and not again in the source step', async () => {
+    component.enterSourceMode();
+    await fixture.whenStable();
+    component.sourceQuery.set('pride');
+    component.searchSource();
+    await fixture.whenStable();
+
+    component.selectSourceItem(pride);
+    fixture.detectChanges();
+
+    // The form's own picker is the only one left. It sits behind the source
+    // step, but the form is what the import reads, so it is the one that stays.
+    expect(fixture.nativeElement.querySelectorAll('app-collection-picker').length).toBe(1);
   });
 
   it('hides the form submit button on the source tab', async () => {
