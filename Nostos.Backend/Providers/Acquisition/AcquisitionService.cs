@@ -6,6 +6,7 @@ using Nostos.Backend.Providers.Contracts;
 using Nostos.Backend.Services;
 using Nostos.Backend.Services.Library;
 using Nostos.Shared.Dtos;
+using Nostos.Shared.Enums;
 using SixLabors.ImageSharp;
 
 namespace Nostos.Backend.Providers.Acquisition;
@@ -158,7 +159,23 @@ public sealed class AcquisitionService(
                 "This work is already in your library with a local file; nothing was imported.");
         }
 
-        // --- 6. Acquire into an isolated staging directory (no DB writes) --
+        // --- 6. Create on confirm: establish the book row before download --
+        var (bookId, createdByUs, matchedBook) =
+            await CreateOrMatchAsync(provider, plan, request, expectedType, ct);
+
+        if (!createdByUs && matchedBook?.HasFile == true)
+        {
+            var current = await library.GetBookAsync(bookId, ct);
+            return AcquisitionResult.AlreadyInLibrary(
+                bookId,
+                DataOf(current) as BookDto,
+                "This work is already in your library with a local file; nothing was imported.");
+        }
+
+        await library.SetBookStatusAsync(bookId, BookStatus.Downloading, statusMessage: null, ct);
+        progress.Report(new AcquisitionProgress("downloading", 10, BookId: bookId));
+
+        // --- 7. Acquire into an isolated staging directory -----------------
         var workingRoot = Path.Combine(
             AcquisitionOptions.ResolveWorkingRoot(environment.ContentRootPath, storage.StorageRoot, _options),
             Guid.NewGuid().ToString("N"));
@@ -169,6 +186,8 @@ public sealed class AcquisitionService(
             EnsureFreeSpace(workingRoot, EstimatedBytes(plan));
 
             var parts = await DownloadPartsAsync(provider.Id, plan, policy, workingRoot, progress, ct);
+
+            await library.SetBookStatusAsync(bookId, BookStatus.Transcoding, statusMessage: null, ct);
             var artifact = await AssembleAsync(provider, plan, parts, workingRoot, progress, ct);
             ValidateArtifact(artifact, plan);
 
@@ -176,8 +195,46 @@ public sealed class AcquisitionService(
                 ? await TryDownloadCoverAsync(plan, policy, ct)
                 : null;
 
-            // --- 7. Commit ------------------------------------------------
-            return await CommitAsync(provider, plan, artifact, cover, request, expectedType, progress, ct);
+            // --- 8. Commit ------------------------------------------------
+            return await CommitAsync(provider, plan, artifact, cover, request, bookId, createdByUs, progress, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // A CANCELLED import must still delete the row when we created it.
+            if (createdByUs)
+            {
+                try
+                {
+                    await library.DeleteBookAsync(bookId, CancellationToken.None);
+                }
+                catch (Exception delEx)
+                {
+                    logger.LogWarning(delEx, "Could not delete cancelled book {BookId}.", bookId);
+                }
+            }
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // On any acquisition failure set Failed plus a short StatusMessage and KEEP THE ROW.
+            var failMessage = ex switch
+            {
+                AcquisitionException aex => aex.Message,
+                ProviderException pex => pex.Message,
+                ProviderDownloadException dex => dex.Message,
+                _ => "The import failed unexpectedly."
+            };
+
+            try
+            {
+                await library.SetBookStatusAsync(bookId, BookStatus.Failed, failMessage, CancellationToken.None);
+            }
+            catch (Exception statusEx)
+            {
+                logger.LogWarning(statusEx, "Could not set Failed status on book {BookId}.", bookId);
+            }
+
+            throw;
         }
         finally
         {
@@ -419,29 +476,12 @@ public sealed class AcquisitionService(
         AcquisitionArtifact artifact,
         byte[]? cover,
         AcquisitionRequest request,
-        string expectedType,
+        Guid bookId,
+        bool createdByUs,
         ProgressSink progress,
         CancellationToken ct)
     {
-        progress.Report(new AcquisitionProgress("importing", 94));
-
-        var (bookId, createdByUs, matchedBook) =
-            await CreateOrMatchAsync(provider, plan, request, expectedType, ct);
-
-        if (!createdByUs)
-        {
-            // A matched book that already has a file must not be overwritten:
-            // silently replacing a user's file with a remote one is exactly the
-            // kind of "convenience" that loses data.
-            if (matchedBook?.HasFile == true)
-            {
-                var current = await library.GetBookAsync(bookId, ct);
-                return AcquisitionResult.AlreadyInLibrary(
-                    bookId,
-                    DataOf(current) as BookDto,
-                    "This work is already in your library with a local file; nothing was imported.");
-            }
-        }
+        progress.Report(new AcquisitionProgress("importing", 94, BookId: bookId));
 
         // Put the file in place. Adopting the staged artifact is a rename on the
         // same volume, so the last two steps are both local and quick.
@@ -454,6 +494,7 @@ public sealed class AcquisitionService(
         {
             logger.LogError(ex, "Storing the acquired file for {ExternalId} failed.", plan.ExternalId);
             await RollbackAsync(bookId, createdByUs, storedNothing: true, plan, ct);
+            await library.SetBookStatusAsync(bookId, BookStatus.Failed, "The file could not be stored, so nothing was imported.", CancellationToken.None);
             return AcquisitionResult.Failed(
                 "storage_failed", "The file could not be stored, so nothing was imported.");
         }
@@ -487,10 +528,11 @@ public sealed class AcquisitionService(
         {
             logger.LogError("Recording provenance for {ExternalId} failed: {Code}", plan.ExternalId, attachError);
             await RollbackAsync(bookId, createdByUs, storedNothing: false, plan, ct);
+            await library.SetBookStatusAsync(bookId, BookStatus.Failed, attach.Reply, CancellationToken.None);
             return AcquisitionResult.Failed(attachError, attach.Reply);
         }
 
-        progress.Report(new AcquisitionProgress("done", 100));
+        progress.Report(new AcquisitionProgress("done", 100, BookId: bookId));
 
         var book = DataOf(await library.GetBookAsync(bookId, ct)) as BookDto;
         logger.LogInformation(
@@ -654,23 +696,9 @@ public sealed class AcquisitionService(
             }
         }
 
-        if (!createdByUs)
-            return;
-
-        try
-        {
-            var deletion = await library.DeleteBookAsync(bookId, ct);
-            if (ErrorCodeOf(deletion) is { } code)
-                logger.LogError(
-                    "Could not roll back the book created for {ExternalId} ({Code}); it is present but has no file, and can be deleted by hand.",
-                    plan.ExternalId, code);
-        }
-        catch (Exception ex)
-        {
-            // Deliberately not fatal: the download is already gone, and the
-            // worst case is one file-less book row the user can remove.
-            logger.LogError(ex, "Rolling back book {BookId} failed.", bookId);
-        }
+        // Deliberately DO NOT delete the book row on failure:
+        // A failed import must stay visible as Failed so the user can see and retry it.
+        // Hard-deletion is reserved for explicit cancellation (handled in AcquireAsync).
     }
 
     /// <summary>
