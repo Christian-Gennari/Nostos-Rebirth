@@ -2,11 +2,31 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore; // Required for [Owned]
 
+using Nostos.Shared.Enums;
+
 namespace Nostos.Backend.Data.Models;
 
 public abstract class BookModel
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+
+    /// <summary>
+    /// Where this book is in its life cycle.
+    ///
+    /// <see cref="BookStatus.Ready"/> is 0 so that every row which already exists
+    /// is Ready the instant the column appears — an additive migration with that
+    /// default needs no backfill script.
+    ///
+    /// An import now creates the row before the download starts, so a book can
+    /// legitimately exist with no file yet. Code that must not present a
+    /// half-imported book as complete filters on this.
+    /// </summary>
+    public BookStatus Status { get; set; } = BookStatus.Ready;
+
+    /// <summary>
+    /// Why an import failed, or the milestone it reached. Null while Ready.
+    /// </summary>
+    public string? StatusMessage { get; set; }
 
     [Required]
     public string Title { get; set; } = string.Empty;
