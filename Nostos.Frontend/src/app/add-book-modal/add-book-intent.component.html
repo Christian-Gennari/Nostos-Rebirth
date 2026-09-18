@@ -1,0 +1,47 @@
+@if (isOpen()) {
+  <app-modal-shell
+    [isOpen]="true"
+    variant="dialog"
+    cardClass="add-intent-card"
+    [maxWidth]="'420px'"
+    [layer]="100"
+    [headDivider]="false"
+    ariaLabelledBy="add-intent-title"
+    [style.--modal-head-padding]="'0'"
+    [style.--modal-card-padding]="'1.5rem 1.5rem 1.25rem'"
+    [style.--modal-card-padding-narrow]="'1.25rem 1.15rem 1.1rem'"
+    (closed)="cancel.emit()"
+  >
+    <div class="add-intent-head" shellHeader>
+      <h2 id="add-intent-title" class="add-intent-title">Add a book</h2>
+    </div>
+
+    <div class="add-intent-choices">
+      <button type="button" class="add-intent-choice" (click)="manual.emit()">
+        <span class="add-intent-mark" aria-hidden="true">
+          <lucide-icon [img]="BookIcon" [size]="16" [strokeWidth]="1.75"></lucide-icon>
+        </span>
+        <span class="add-intent-text">
+          <span class="add-intent-label">Add by hand</span>
+          <span class="add-intent-hint">Type the title, author and details yourself</span>
+        </span>
+      </button>
+
+      <button type="button" class="add-intent-choice" (click)="source.emit()">
+        <span class="add-intent-mark" aria-hidden="true">
+          <lucide-icon [img]="DownloadIcon" [size]="16" [strokeWidth]="1.75"></lucide-icon>
+        </span>
+        <span class="add-intent-text">
+          <span class="add-intent-label">Import from a source</span>
+          <span class="add-intent-hint">
+            Project Gutenberg and LibriVox — search, then review the details
+          </span>
+        </span>
+      </button>
+    </div>
+
+    <div class="add-intent-actions" shellActions>
+      <button type="button" class="btn btn-secondary" (click)="cancel.emit()">Cancel</button>
+    </div>
+  </app-modal-shell>
+}

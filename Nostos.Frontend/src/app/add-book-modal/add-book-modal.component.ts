@@ -43,6 +43,9 @@ export class AddBookModal implements OnDestroy {
 
   // Inputs & Outputs
   isOpen = input.required<boolean>();
+
+  /** Open straight into the source search, for "Import from a source". */
+  sourceFirst = input<boolean>(false);
   collections = input.required<Collection[]>();
   book = input<BookModel | null>(null);
   closeModal = output<void>();
@@ -59,15 +62,21 @@ export class AddBookModal implements OnDestroy {
   GeneralIcon = Book;
   MetadataIcon = Layers;
   FileIcon = FileText;
-  SourceIcon = Globe;
   SearchIcon = Search;
   DownloadIcon = Download;
   ErrorIcon = AlertCircle;
   CheckIcon = Check;
 
-  // Tabs
-  tabs = ['Book Info', 'Publishing', 'Files & Personal', 'From a Source'] as const;
+  // Tabs. Importing is no longer one of them: "where does this book come from"
+  // is answered before the form, not inside it (see `sourceMode`).
+  tabs = ['Book Info', 'Publishing', 'Files & Personal'] as const;
   activeTab = signal<(typeof this.tabs)[number]>('Book Info');
+
+  /**
+   * The source search, shown on its own before the form rather than as a fourth
+   * tab — the answer decides what the form is even for.
+   */
+  sourceMode = signal(false);
   private titleInput = viewChild<ElementRef<HTMLInputElement>>('titleInput');
 
   // Computed State
@@ -126,6 +135,14 @@ export class AddBookModal implements OnDestroy {
           this.fillForm(currentBook);
         } else {
           this.resetForm();
+        }
+        // An edit never starts at the source search: importing is a way to ADD a
+        // book, and there is nothing to search for when changing one. Routed
+        // through `enterSourceMode` so the providers are loaded either way.
+        if (this.sourceFirst() && !currentBook) {
+          this.enterSourceMode();
+        } else {
+          this.sourceMode.set(false);
         }
         setTimeout(() => this.titleInput()?.nativeElement?.focus(), 0);
       } else {
@@ -484,8 +501,17 @@ export class AddBookModal implements OnDestroy {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
-  openSourceTab(): void {
-    this.setTab('From a Source');
+  /**
+   * Show the source search on its own, before the form.
+   *
+   * Reached from "Import from a source". The user searches, picks a result, and
+   * the form opens prefilled — so the metadata is reviewed and completed before
+   * anything is downloaded.
+   */
+  enterSourceMode(): void {
+    if (this.isEditMode()) return;
+
+    this.sourceMode.set(true);
     if (this.providerList().length === 0 && !this.providersLoading()) this.loadProviders();
   }
 
@@ -623,6 +649,8 @@ export class AddBookModal implements OnDestroy {
 
     this.sourceImportError.set(null);
     this.acquisition.set(null);
+    // The search has done its job: the form is the rest of the flow.
+    this.sourceMode.set(false);
     this.setTab('Book Info');
   }
 
