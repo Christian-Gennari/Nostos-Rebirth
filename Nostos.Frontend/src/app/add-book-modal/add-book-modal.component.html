@@ -344,43 +344,78 @@
             @if (!isEditMode()) {
               <div class="form-group">
                 <span class="form-label">Book File</span>
-                <label
-                  class="file-drop-zone"
-                  [class.drag-active]="fileDragActive()"
-                  (dragover)="onDragOver($event, 'file')"
-                  (dragleave)="onDragLeave($event, 'file')"
-                  (drop)="onDragLeave($event, 'file')"
-                >
-                  <input
-                    type="file"
-                    class="file-input"
-                    (change)="onFileSelected($event)"
-                    accept=".epub,.pdf,.txt,.mobi,.mp3,.m4a,.m4b"
-                  />
-                  <lucide-icon [img]="UploadIcon" [size]="22" strokeWidth="1.5"></lucide-icon>
-                  <span class="drop-zone-title">Choose a book file or drop it here</span>
-                  <span class="drop-zone-hint">EPUB, PDF, TXT, MOBI, MP3, M4A, M4B</span>
-                </label>
+                @if (seededFromSource()) {
+                  <!-- The import fetches this file itself. Offering an upload here
+                       would be a trap rather than a courtesy: submit() routes this
+                       path to importSelected(), which never reads selectedFile, so
+                       anything dropped here is discarded without a word. -->
+                  <p class="source-hint">
+                    Downloads from {{ seededSourceName() }} when you import — no file needed.
+                  </p>
+                } @else {
+                  <label
+                    class="file-drop-zone"
+                    [class.drag-active]="fileDragActive()"
+                    (dragover)="onDragOver($event, 'file')"
+                    (dragleave)="onDragLeave($event, 'file')"
+                    (drop)="onDragLeave($event, 'file')"
+                  >
+                    <input
+                      type="file"
+                      class="file-input"
+                      (change)="onFileSelected($event)"
+                      accept=".epub,.pdf,.txt,.mobi,.mp3,.m4a,.m4b"
+                    />
+                    <lucide-icon [img]="UploadIcon" [size]="22" strokeWidth="1.5"></lucide-icon>
+                    <span class="drop-zone-title">Choose a book file or drop it here</span>
+                    <span class="drop-zone-hint">EPUB, PDF, TXT, MOBI, MP3, M4A, M4B</span>
+                  </label>
+                  @if (fileSummary(); as summary) {
+                    <p class="chosen-file">{{ summary }}</p>
+                  }
+                }
               </div>
               <div class="form-group">
                 <span class="form-label">Cover Image</span>
-                <label
-                  class="file-drop-zone"
-                  [class.drag-active]="coverDragActive()"
-                  (dragover)="onDragOver($event, 'cover')"
-                  (dragleave)="onDragLeave($event, 'cover')"
-                  (drop)="onDragLeave($event, 'cover')"
-                >
-                  <input
-                    type="file"
-                    class="file-input"
-                    accept="image/*"
-                    (change)="onCoverSelected($event)"
-                  />
-                  <lucide-icon [img]="UploadIcon" [size]="22" strokeWidth="1.5"></lucide-icon>
-                  <span class="drop-zone-title">Choose a cover image or drop it here</span>
-                  <span class="drop-zone-hint">PNG, JPG, WEBP</span>
-                </label>
+                @if (seededFromSource()) {
+                  <!-- The cover already comes with the import: the provider puts
+                       one in the acquisition plan, IncludeCover defaults to true,
+                       and the backend stores it. So this shows what will arrive,
+                       rather than asking for a file that would be ignored. -->
+                  @if (sourceCoverUrl(); as coverUrl) {
+                    <div class="cover-from-source">
+                      <img class="cover-preview" [src]="coverUrl" alt="" />
+                      <span class="drop-zone-hint">Cover from {{ seededSourceName() }}</span>
+                    </div>
+                  } @else {
+                    <p class="source-hint">
+                      {{ seededSourceName() }} has no cover image for this book.
+                    </p>
+                  }
+                } @else {
+                  <label
+                    class="file-drop-zone"
+                    [class.drag-active]="coverDragActive()"
+                    (dragover)="onDragOver($event, 'cover')"
+                    (dragleave)="onDragLeave($event, 'cover')"
+                    (drop)="onDragLeave($event, 'cover')"
+                  >
+                    <input
+                      type="file"
+                      class="file-input"
+                      accept="image/*"
+                      (change)="onCoverSelected($event)"
+                    />
+                    @if (coverPreview(); as preview) {
+                      <img class="cover-preview" [src]="preview" alt="" />
+                      <span class="drop-zone-hint">{{ selectedCover()?.name }}</span>
+                    } @else {
+                      <lucide-icon [img]="UploadIcon" [size]="22" strokeWidth="1.5"></lucide-icon>
+                      <span class="drop-zone-title">Choose a cover image or drop it here</span>
+                      <span class="drop-zone-hint">PNG, JPG, WEBP</span>
+                    }
+                  </label>
+                }
               </div>
             }
             @if (uploadProgress() !== null) {
