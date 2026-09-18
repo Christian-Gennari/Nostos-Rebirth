@@ -193,7 +193,14 @@ export class ImportService {
 
     source.addEventListener('progress', (event) => {
       const entries = this.parse<ImportActivity[]>((event as MessageEvent).data);
-      if (entries) this.absorb(entries);
+      if (!entries) return;
+
+      this.absorb(entries);
+      // A snapshot with nothing in flight means there is nothing left to watch:
+      // the terminal frame for whatever just ended was sent before this one, so
+      // it has already been handled. Without this the connection would sit open
+      // until the server's idle timeout closed it.
+      this.closeIfSettled();
     });
 
     for (const terminal of ['done', 'failed']) {

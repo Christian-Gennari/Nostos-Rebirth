@@ -6,6 +6,7 @@ import { of, Subject } from 'rxjs';
 import { Library } from './library.component';
 import { BooksService } from '../core/services/books.service';
 import { CollectionsService } from '../core/services/collections.service';
+import { ImportService } from '../core/services/import.service';
 import { PaginatedResponse } from '../core/dtos/book.dtos';
 import { Book } from '../core/dtos/book.dtos';
 import { BookSort } from '../core/dtos/book.enums';
@@ -55,6 +56,24 @@ describe('Library', () => {
             delete: vi.fn(() => of(null)),
           } as unknown as CollectionsService,
         },
+        {
+          // The library only reads these: it starts the feed's connection and
+          // patches the single book a finished import names. The feed's own
+          // behaviour (connection, events, re-sync) is covered by
+          // import.service.spec.ts.
+          provide: ImportService,
+          useValue: {
+            bookPatched: new Subject<Book>(),
+            ensureConnected: vi.fn(),
+            activeImports: signal([]),
+            failedImports: signal([]),
+            connectionState: signal('idle'),
+            hasImports: signal(false),
+            cancel: vi.fn(),
+            retry: vi.fn(),
+            dismiss: vi.fn(),
+          } as unknown as ImportService,
+        },
       ],
     }).compileComponents();
 
@@ -66,6 +85,45 @@ describe('Library', () => {
   it('loads books exactly once on init (no duplicate collection load)', () => {
     expect(listSpy).toHaveBeenCalledTimes(1);
     expect(listSpy.mock.calls[0][0].collectionId).toBeUndefined();
+  });
+
+  it('renders the imports section above the toolbar and outside the results', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    const panel = host.querySelector('app-imports-panel');
+    const toolbar = host.querySelector('.toolbar');
+    const results = host.querySelector('.results-stage');
+
+    expect(panel).not.toBeNull();
+    expect(toolbar).not.toBeNull();
+    expect(results).not.toBeNull();
+
+    // Above the toolbar, which is where the sort and filter controls live: the
+    // section must not be a row of the library's results.
+    expect(
+      panel!.compareDocumentPosition(toolbar!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    // And not inside the results stage, so no sort, filter, search or page can
+    // take it off screen.
+    expect(results!.contains(panel)).toBe(false);
+  });
+
+  it('starts the import feed when the library mounts', () => {
+    const feed = TestBed.inject(ImportService) as unknown as { ensureConnected: () => void };
+    expect(feed.ensureConnected).toHaveBeenCalled();
+  });
+
+  it('patches the one book a finished import names instead of refetching', () => {
+    const feed = TestBed.inject(ImportService) as unknown as { bookPatched: Subject<Book> };
+    const existing = { id: 'b1', title: 'Old Title' } as Book;
+    component.rawBooks.set([existing, { id: 'b2', title: 'Untouched' } as Book]);
+    listSpy.mockClear();
+
+    feed.bookPatched.next({ id: 'b1', title: 'New Title' } as Book);
+
+    expect(component.rawBooks()[0].title).toBe('New Title');
+    expect(component.rawBooks()[1].title).toBe('Untouched');
+    // The rest of the library did not change, so it is not re-queried.
+    expect(listSpy).not.toHaveBeenCalled();
   });
 
   it('one collection change triggers exactly one books request with collectionId', () => {
