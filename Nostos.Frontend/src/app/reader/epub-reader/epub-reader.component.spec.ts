@@ -147,15 +147,15 @@ describe('EpubReader highlight-mode lifecycle (issue #16)', () => {
 });
 
 /**
- * Fixed light normalization (theme system removed): the single Nostos light
- * theme is registered once per rendition via `rendition.themes` and selected
- * at rendition creation (before first display), and every newly rendered
- * chapter inherits it. The fake rendition's `themes` object mimics the
- * verified epub.js 0.3.93 Themes behavior: an inject hook registered on
+ * Theme-following normalization: both Nostos themes are registered once per
+ * rendition via `rendition.themes` and the one matching the app theme is
+ * selected at rendition creation (before first display), and every newly
+ * rendered chapter inherits it. The fake rendition's `themes` object mimics
+ * the verified epub.js 0.3.93 Themes behavior: an inject hook registered on
  * `hooks.content` injects the CURRENT theme's rules and body class into
  * every new contents.
  */
-describe('EpubReader fixed light normalization', () => {
+describe('EpubReader theme-following normalization', () => {
   let fixture: ComponentFixture<EpubReader>;
   let log: string[];
   let contentHooks: ((contents: any) => void)[];
@@ -304,13 +304,14 @@ describe('EpubReader fixed light normalization', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
 
-  it('registers the fixed light normalization exactly once and selects it before first display', async () => {
+  it('registers both normalizations exactly once and selects the app theme before first display', async () => {
     await setupComponent();
 
     const themes = renditions[0].themes;
-    expect(themes.registered).toEqual(['nostos-light']);
-    expect(log.filter((l) => l.startsWith('register:')).length).toBe(1);
+    expect(themes.registered).toEqual(['nostos-light', 'nostos-dark']);
+    expect(log.filter((l) => l.startsWith('register:')).length).toBe(2);
     // The eager selection at rendition creation happens BEFORE display().
+    // The test env has no stored choice and no dark OS preference: light.
     expect(log.indexOf('select:nostos-light')).toBeGreaterThanOrEqual(0);
     expect(log.indexOf('select:nostos-light')).toBeLessThan(log.indexOf('display'));
     expect(themes.current).toBe('nostos-light');
@@ -321,9 +322,13 @@ describe('EpubReader fixed light normalization', () => {
     expect(rules.body.color).toBe('#1a1a1a !important');
     expect(rules['body *'].color).toBe('inherit !important');
     expect(rules.a.color).toBe('#60a5fa !important');
+    // The dark rules mirror the dark tokens (slate ground, silver ink).
+    const dark = themes.rules['nostos-dark'];
+    expect(dark.body.background).toBe('#121318 !important');
+    expect(dark.body.color).toBe('#f0f1f4 !important');
   });
 
-  it('a chapter rendered after the fixed selection inherits the light rules', async () => {
+  it('a chapter rendered after the eager selection inherits the app-theme rules', async () => {
     await setupComponent();
 
     // Simulate a new section: epub.js fires every registered content hook
@@ -337,7 +342,40 @@ describe('EpubReader fixed light normalization', () => {
     expect(themeStyle!.textContent).toContain('#ffffff');
   });
 
-  it('annotation styles stay visible alongside the fixed light normalization', async () => {
+  it('a stored dark theme selects the dark normalization before first display', async () => {
+    localStorage.setItem('nostos.theme', 'dark');
+    await setupComponent();
+
+    const themes = renditions[0].themes;
+    expect(themes.current).toBe('nostos-dark');
+    expect(log.indexOf('select:nostos-dark')).toBeGreaterThanOrEqual(0);
+    expect(log.indexOf('select:nostos-dark')).toBeLessThan(log.indexOf('display'));
+
+    const contents = makeContents();
+    contentHooks.forEach((hook) => hook(contents));
+    expect(contents.document.body.classList.contains('nostos-dark')).toBe(true);
+  });
+
+  it('font size persists per book and is reapplied on open', async () => {
+    await setupComponent();
+
+    const component = fixture.componentInstance;
+    component.zoomIn();
+    component.zoomIn();
+    expect(localStorage.getItem('nostos.epub-font-size.book-1')).toBe('120');
+
+    // Reopen: the remembered size is applied to the fresh rendition.
+    fixture.destroy();
+    fixture = TestBed.createComponent(EpubReader);
+    fixture.componentRef.setInput('bookId', 'book-1');
+    fixture.detectChanges();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(renditions[1].themes.fontSize).toHaveBeenCalledWith('120%');
+  });
+
+  it('annotation styles stay visible alongside the eager theme normalization', async () => {
     await setupComponent();
 
     const contents = makeContents();
@@ -372,8 +410,8 @@ describe('EpubReader fixed light normalization', () => {
     // Exactly two content hooks per rendition (themes inject + component).
     expect(hookRegistrations).toBe(4);
 
-    // Each rendition registered the fixed light theme exactly once.
-    expect(firstRendition.themes.registered).toEqual(['nostos-light']);
-    expect(secondRendition.themes.registered).toEqual(['nostos-light']);
+    // Each rendition registered both Nostos themes exactly once.
+    expect(firstRendition.themes.registered).toEqual(['nostos-light', 'nostos-dark']);
+    expect(secondRendition.themes.registered).toEqual(['nostos-light', 'nostos-dark']);
   });
 });
