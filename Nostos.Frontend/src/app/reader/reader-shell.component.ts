@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed, ViewChild } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ViewChild, HostListener } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -35,6 +35,7 @@ import { ConceptAutocompleteService } from '../ui/concept-autocomplete-panel/con
 // DTOs & Interfaces
 import { Note } from '../core/dtos/note.dtos';
 import { IReader, TocItem } from './reader.interface';
+import { isTypingTarget, pageActionForKey } from './reader-keyboard';
 
 // Components
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
@@ -370,5 +371,25 @@ export class ReaderShell implements OnInit {
       this.activeReader()?.goTo(page);
       input.blur(); // Optional: remove focus after jumping
     }
+  }
+
+  /**
+   * Page keys for the whole reader. The iframe keeps focus inside the book, so
+   * the EPUB reader also listens inside its contents document and calls its own
+   * next()/previous() — this handler is the path for everything else (toolbar
+   * focused, PDF canvas focused, click-anywhere-then-key). Modifier chords and
+   * text-entry targets are left alone.
+   */
+  @HostListener('document:keydown', ['$event'])
+  onDocumentKeydown(event: KeyboardEvent): void {
+    if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (isTypingTarget(event.target)) return;
+
+    const action = pageActionForKey(event);
+    if (!action) return;
+
+    if (action === 'next') this.nextPage();
+    else this.prevPage();
+    event.preventDefault();
   }
 }

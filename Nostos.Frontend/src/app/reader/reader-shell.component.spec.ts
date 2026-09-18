@@ -52,6 +52,9 @@ class PdfReaderStub {
 @Component({ selector: 'app-epub-reader', standalone: true, template: '' })
 class EpubReaderStub {
   bookId = input.required<string>();
+  // The shell passes the loaded Book down so the reader can restore the saved
+  // position without a second GET (issue #225 §1.2).
+  book = input<unknown>(null);
   highlightMode = input(false);
   noteCreated = output<void>();
   selectionCaptured = output<unknown>();
@@ -66,6 +69,12 @@ class EpubReaderStub {
   marginOptions = [{ value: 'normal', label: 'Normal' }];
   setTypography = vi.fn();
   resetTypography = vi.fn();
+  next = vi.fn();
+  previous = vi.fn();
+  // IReader surface the shell reads once the reader is active.
+  toc = signal<unknown[]>([]);
+  progress = signal({ label: '', percentage: 0 });
+  currentLocationTarget = signal<unknown>(null);
 }
 
 // The shell binds [(ngModel)] to app-concept-input; the stub must be a
@@ -437,5 +446,45 @@ describe('ReaderShell typography panel (EPUB)', () => {
 
     const stub = fixture.debugElement.query(By.directive(EpubReaderStub));
     expect(stub.componentInstance.setTypography).toHaveBeenCalledWith({ fontFamily: 'serif' });
+  });
+
+  /**
+   * Issue #225 §1.5. The shell owns the document-level half of the binding; the
+   * EPUB reader owns the half inside the book's iframe.
+   */
+  it('turns pages from the keyboard, ignoring chords and text fields', async () => {
+    const epubBook = { ...audiobook, id: 'book-epub', fileName: 'iliad.epub' } as Book;
+    booksGetSpy.mockReturnValue(of(epubBook));
+
+    fixture = await configureReaderShell();
+    render();
+    // The shell unlocks the reader after a short settle, so activeReader() is
+    // only non-null once that has run.
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    render();
+
+    const stub = fixture.debugElement.query(By.directive(EpubReaderStub))
+      .componentInstance as EpubReaderStub;
+
+    const press = (key: string, init: KeyboardEventInit = {}) =>
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }),
+      );
+
+    press('ArrowRight');
+    press(' ');
+    expect(stub.next).toHaveBeenCalledTimes(2);
+
+    press('ArrowLeft');
+    press('PageUp');
+    expect(stub.previous).toHaveBeenCalledTimes(2);
+
+    // A chord belongs to the browser, and a text field keeps its own keys.
+    press('ArrowRight', { ctrlKey: true });
+    const textarea = document.createElement('textarea');
+    document.body.appendChild(textarea);
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(stub.next).toHaveBeenCalledTimes(2);
+    textarea.remove();
   });
 });
