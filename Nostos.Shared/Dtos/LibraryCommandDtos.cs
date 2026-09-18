@@ -101,7 +101,12 @@ public sealed record LibraryUpdateBookRequest(
     // keep compiling. null = leave membership unchanged; an empty list clears
     // every membership. Set semantics rather than add/remove verbs: one contract
     // expresses add, remove and clear-all, and it is naturally idempotent.
-    IReadOnlyList<Guid>? CollectionIds = null
+    IReadOnlyList<Guid>? CollectionIds = null,
+    // Hand-made chapters (issue #8). APPENDED so existing positional callers keep
+    // compiling. null = leave the chapter list unchanged; an empty list clears the
+    // hand-made list and returns the book to its file metadata; a non-empty list
+    // replaces it and is marked hand-made so metadata cannot overwrite it later.
+    IReadOnlyList<BookChapterDto>? Chapters = null
 );
 
 // --- WORK MEMBERSHIP (multi-edition grouping) ---

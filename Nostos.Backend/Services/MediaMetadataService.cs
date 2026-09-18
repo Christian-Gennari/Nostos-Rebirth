@@ -41,8 +41,11 @@ public class MediaMetadataService
                     })
                     .ToList();
 
-                // Serialize to the new Owned Type location
-                book.FileDetails.ChaptersJson = JsonSerializer.Serialize(chapters);
+                // Serialize to the new Owned Type location — unless the chapters were
+                // typed in by hand (issue #8), in which case the file's metadata no
+                // longer has any say over them.
+                if (book.FileDetails.ChaptersEditedAt is null)
+                    book.FileDetails.ChaptersJson = JsonSerializer.Serialize(chapters);
             }
 
             // 2. Extract Duration (Audiobooks only)
