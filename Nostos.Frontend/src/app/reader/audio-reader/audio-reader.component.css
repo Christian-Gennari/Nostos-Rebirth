@@ -16,7 +16,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  /* `center` overflows BOTH ends when the composition is taller than the reading
+     area, and in an `overflow-y: auto` box that top overflow cannot be scrolled
+     to — the cover's top ends up unreachable behind the header. `safe` degrades
+     to `start` in exactly that case, so the top of the player is always
+     reachable; when the content fits, it is identical to `center`. The plain
+     declaration stays above as the fallback for engines without `safe`. */
   justify-content: center;
+  justify-content: safe center;
   /* box-sizing is what made the old `max-width: 420px` + `padding: 2rem` pair
      compute 30px wider than a 390px phone: content-box added the padding on top
      of the max-width. */
@@ -514,16 +521,133 @@
 }
 
 @media (max-width: 768px) {
-  /* The cover is sized from the viewport height above; on a phone the clamp
-     already lands near the old fixed size, so only the tap feedback and a small
-     trim change: at 844px tall the capped 335px art left the composition 6px
-     taller than the area, which is the difference between "fits" and "scrolls". */
+  /* A phone is not a small desktop: the composition must FIT the reading area
+     with room around it, not fill it to the brim. Before this pass the cover was
+     320x480 in a 792px area (61% of it, 57% of the whole 844px screen) and the
+     single control row had wrapped into two, which pushed the playback pill
+     clear out of a 588px area (measured at 360x640: the pill was clipped and the
+     area scrolled by 78px). After it, measured on the worktree at 320x568,
+     360x640, 375x667, 390x730, 390x844 and 412x915: no scroll, one control row,
+     and the cover between 46% and 56% of the area.
+     The cover shrinks with the VIEWPORT HEIGHT, so a phone with the browser's
+     URL bar showing (the real case) gets the same composition as one without. */
+  .audio-container {
+    padding: 0.75rem 1rem 1rem;
+    gap: 1rem;
+  }
+
   .cover-art {
-    width: clamp(150px, 46vh, 320px);
+    width: clamp(140px, 34vh, 280px);
+  }
+
+  .cover-section {
+    gap: 1rem;
+  }
+
+  .controls {
+    gap: 1rem;
+  }
+
+  .scrubber {
+    gap: 0.25rem;
+  }
+
+  /* One row for the transport and the Playback pill. The pill is a single
+     control since #227, so it belongs in the row it reports on — and keeping it
+     there is what leaves the cover room to breathe. `position: relative` on the
+     row is the mobile popover's containing block (see below). */
+  .playback-row {
+    position: relative;
+    gap: 0.75rem;
+    padding: 0;
+    margin-top: 0;
+  }
+
+  .main-controls {
+    gap: 1.5rem;
+  }
+
+  .play-btn {
+    width: 64px;
+    height: 64px;
+  }
+
+  /* 44px is the tap-target floor, not a size to go under. */
+  .skip-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .playback-pill {
+    /* Its own containing block, so the chevron keeps its place once the
+       selector below stops being one. */
+    position: relative;
+    font-size: 0.85rem;
+    padding: 0.4rem 1.6rem 0.4rem 0.75rem;
+    /* The pill was 31px tall, which is a miss on a phone; the row is 64px tall
+       around it, so the tap floor costs nothing here. */
+    min-height: 44px;
+  }
+
+  /* The menu is a panel the width of the control row on a phone. It used to be a
+     264px-wide floating popover anchored to the pill's right edge, which put its
+     left edge 41px outside a 320px viewport (measured). Anchoring it to the row
+     is width-proof. */
+  .playback-selector {
+    position: static;
+  }
+
+  .playback-menu {
+    left: 0;
+    right: 0;
+    min-width: 0;
+  }
+
+  /* The popover's rows are touch targets on a phone too. */
+  .rate-step {
+    width: 44px;
+    height: 44px;
+  }
+
+  .rate-option,
+  .sleep-option {
+    min-height: 44px;
+    padding: 0.45rem 0.75rem;
   }
 
   .skip-btn:hover {
     opacity: 0.8;
     background: transparent;
+  }
+}
+
+/* Narrow phones (360px, and 375px where the transport + pill pair is 344px in a
+   343px row). The row must not wrap here: a pill that drops to its own line is
+   what pushed the player past the bottom of the area on a short screen. */
+@media (max-width: 380px) {
+  .audio-container {
+    padding-inline: 0.75rem;
+  }
+
+  .main-controls {
+    gap: 1.25rem;
+  }
+
+  .playback-row {
+    gap: 0.5rem;
+  }
+
+  .playback-pill {
+    font-size: 0.8rem;
+    padding: 0.4rem 1.5rem 0.4rem 0.65rem;
+  }
+}
+
+/* 320px-wide phones are where the transport + pill pair genuinely cannot share a
+   row without breaking the 44px tap floor, so the row wraps. The cover shrinks
+   again so the taller (wrapped) composition still fits without scrolling. */
+@media (max-width: 340px) {
+  .cover-art {
+    width: clamp(120px, 25vh, 170px);
   }
 }

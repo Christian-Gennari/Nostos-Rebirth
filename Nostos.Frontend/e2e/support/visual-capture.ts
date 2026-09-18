@@ -262,20 +262,35 @@ export async function checkPdfFinalPageClearance(page: Page): Promise<GeometryCh
 }
 
 /**
- * Audio surface composition (issue #227): the player must own exactly one chrome
- * row inside itself, leave no dead band larger than the issue's ~48px bar around
- * the composition, and never exceed the viewport. All three were defects: 12
- * controls in two stacked rows, 164px bands above and below, and a container that
- * computed 30px wider than a 390px phone.
+ * Audio surface composition (issue #227, plus the phone pass).
+ *
+ * Desktop: the player must own exactly one chrome row inside itself, leave no
+ * dead band larger than the issue's ~48px bar around the composition, and never
+ * exceed the viewport. All three were defects: 12 controls in two stacked rows,
+ * 164px bands above and below, and a container that computed 30px wider than a
+ * 390px phone.
+ *
+ * Phone (<=768px): "fill the reading area" is the wrong criterion — it produced a
+ * 320x480 cover in a 792px area that scrolled and clipped its own Playback pill
+ * at every phone size measured (0 scroll at 844, but 52px at 730, 78px at 640,
+ * 89px at 568, with the pill below the fold). What is asserted instead is that
+ * the composition FITS: the reading area does not scroll, nothing is pushed above
+ * its top edge, transport and Playback pill share one row, the cover stays under
+ * 58% of the area, and there is no horizontal overflow. The measured numbers are
+ * reported either way, so both a re-bloat and a shrink-to-nothing are visible in
+ * the report.
  */
 export async function checkAudioComposition(page: Page): Promise<GeometryCheck> {
   await page.locator('.audio-container').waitFor({ timeout: 30_000 });
   await page.locator('.cover-art').waitFor({ timeout: 30_000 });
   await page.waitForTimeout(400); // let the art and time labels settle
 
+  const phone = (page.viewportSize()?.width ?? 0) <= 768;
+
   const m = await page.evaluate(() => {
     const cont = document.querySelector('.audio-container') as HTMLElement | null;
     if (!cont) return null;
+    const host = cont.parentElement as HTMLElement | null;
     const kids = [...cont.children].filter(
       (e) => (e as HTMLElement).getClientRects().length > 0
     ) as HTMLElement[];
@@ -283,21 +298,45 @@ export async function checkAudioComposition(page: Page): Promise<GeometryCheck> 
     const cr = cont.getBoundingClientRect();
     const first = kids[0].getBoundingClientRect();
     const last = kids[kids.length - 1].getBoundingClientRect();
+    // Rows are counted by OVERLAP, not by element count and not by distinct
+    // `top`s: `align-items: center` gives a shorter child its own `top` on the
+    // same row, and counting elements reported "1 row" while the Playback pill
+    // had in fact wrapped onto a second one on every phone width.
+    const spans = [...cont.querySelectorAll('.playback-row > *')]
+      .map((e) => (e as HTMLElement).getBoundingClientRect())
+      .map((r) => [r.top, r.bottom] as [number, number])
+      .sort((a, b) => a[0] - b[0]);
+    let chromeRows = 0;
+    let cursor = -Infinity;
+    for (const [top, bottom] of spans) {
+      if (top >= cursor) chromeRows++;
+      cursor = Math.max(cursor, bottom);
+    }
+    const cover = document.querySelector('.cover-art')?.getBoundingClientRect();
     return {
       top: Math.round(first.top - cr.top),
       bottom: Math.round(cr.bottom - last.bottom),
-      chromeRows: cont.querySelectorAll('.playback-row, .selector-row').length,
+      chromeRows,
       overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      scrollable: host ? host.scrollHeight - host.clientHeight : 0,
+      areaHeight: Math.round(cr.height),
+      coverShare: cover ? +(cover.height / cr.height).toFixed(3) : 0,
       timeText: (document.querySelector('.time-labels')?.textContent ?? '').trim().replace(/\s+/g, ' '),
     };
   });
 
   if (!m) return failCheck('audio-composition', 'could not measure .audio-container', {});
   const worst = Math.max(m.top, m.bottom);
-  const ok = worst <= 48 && m.chromeRows === 1 && m.overflowX === 0;
-  const msg =
-    `dead band ${worst}px (top ${m.top} / bottom ${m.bottom}, bar 48), ` +
-    `player chrome rows ${m.chromeRows} (1 expected), overflowX ${m.overflowX}px, times "${m.timeText}"`;
+  const ok = phone
+    ? m.scrollable <= 1 && m.top >= 0 && m.chromeRows === 1 && m.overflowX === 0 && m.coverShare <= 0.58
+    : worst <= 48 && m.chromeRows === 1 && m.overflowX === 0;
+  const msg = phone
+    ? `phone fit: scroll ${m.scrollable}px (bar 1), dead band top ${m.top}px (must be >= 0), ` +
+      `control rows ${m.chromeRows} (1 expected), cover ${m.coverShare} of the ${m.areaHeight}px area ` +
+      `(bar 0.58), overflowX ${m.overflowX}px, times "${m.timeText}"`
+    : `dead band ${worst}px (top ${m.top} / bottom ${m.bottom}, bar 48), ` +
+      `control rows ${m.chromeRows} (1 expected), cover ${m.coverShare} of the ${m.areaHeight}px area, ` +
+      `overflowX ${m.overflowX}px, times "${m.timeText}"`;
   return ok ? passCheck('audio-composition', msg, m) : failCheck('audio-composition', msg, m);
 }
 

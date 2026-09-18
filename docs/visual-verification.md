@@ -274,6 +274,7 @@ Management actions have narrow, deliberate semantics:
 | --- | --- | --- |
 | `epub-iframe-light` | EPUB captures | iframe `body`/`html` background+foreground equal the fixed light constants; `#epub-viewer` shell surface matches the same light surface (no pale rim) |
 | `pdf-scrollport-clearance` | PDF captures | scrolled to final page bottom, `#viewerContainer` bottom is at/above `header.reader-toolbar` top (toolbar covers no content) |
+| `audio-composition` | audio captures | **desktop:** one control row, no dead band > 48px, no horizontal overflow. **Phone (≤768px):** the composition *fits* — the reading area does not scroll (≤1px), nothing is pushed above its top edge, transport + Playback pill share one row, the cover stays ≤ 58% of the area, no horizontal overflow. The desktop bar is a *fill* contract and is the wrong criterion on a phone: measured before the phone pass, the 320×480 cover left the pill below the fold and scrolled the area by 52px at 390×730, 78px at 360×640 and 89px at 320×568 |
 | `zen-fills-viewport` | zen captures | `.studio-layout` equals the viewport size |
 | `zen-chrome-hidden` | zen captures | sidebars, editor header/status, TinyMCE menubar + formatting toolbar all `display:none` |
 | `zen-gutters-balanced` | zen captures | editor surface horizontally centered: left/right gutters within 3px |
