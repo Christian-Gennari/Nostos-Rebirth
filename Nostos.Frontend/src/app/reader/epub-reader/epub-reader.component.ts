@@ -88,7 +88,7 @@ export const EPUB_MARGIN_OPTIONS: { value: EpubMargin; label: string }[] = [
   { value: 'wide', label: 'Wide' },
 ];
 
-const DEFAULT_TYPOGRAPHY: EpubTypography = {
+export const DEFAULT_TYPOGRAPHY: EpubTypography = {
   fontFamily: 'default',
   lineHeight: 1.6,
   margin: 'normal',
@@ -123,6 +123,14 @@ export function marginInsetPercent(margin: EpubMargin): number {
 }
 
 const TYPOGRAPHY_STYLE_ID = 'nostos-typography';
+
+/**
+ * Reader-wide typography preference: one key for every EPUB, because the reader
+ * should remember the setting rather than the book. Earlier versions wrote
+ * `nostos.epub-typography.<bookId>`; `restoreSavedTypography` adopts that value
+ * once so an existing choice is not lost.
+ */
+const TYPOGRAPHY_STORAGE_KEY = 'nostos.epub-typography';
 
 /**
  * The injected typography rules for one contents document. Pure for
@@ -555,7 +563,9 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     const next = { ...this.typography(), ...patch };
     this.typography.set(next);
     try {
-      localStorage.setItem(this.typographyStorageKey(), JSON.stringify(next));
+      // One preference for the whole reader, not per book — you should not have
+      // to pick your typeface again for every new EPUB you open.
+      localStorage.setItem(TYPOGRAPHY_STORAGE_KEY, JSON.stringify(next));
     } catch {
       // Private-mode storage can throw — the setting still applies for the session.
     }
@@ -569,16 +579,17 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     this.setTypography({ ...DEFAULT_TYPOGRAPHY });
   }
 
-  private typographyStorageKey(): string {
-    return `nostos.epub-typography.${this.bookId()}`;
-  }
-
-  private restoreSavedTypography(): void {
+  /**
+   * A stored typography preference, or null when there is none to read. Values
+   * are validated against the presets, so a stale or hand-edited entry cannot
+   * put the reader into an unsupported state.
+   */
+  private readStoredTypography(key: string): EpubTypography | null {
     try {
-      const raw = localStorage.getItem(this.typographyStorageKey());
-      if (!raw) return;
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
       const parsed = JSON.parse(raw) as Partial<EpubTypography>;
-      const next: EpubTypography = {
+      return {
         fontFamily:
           parsed.fontFamily === 'serif' ||
           parsed.fontFamily === 'sans' ||
@@ -592,10 +603,38 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
         margin:
           parsed.margin === 'narrow' || parsed.margin === 'wide' ? parsed.margin : 'normal',
       };
-      this.typography.set(next);
     } catch {
-      // Corrupt or unreadable storage — fall back to defaults.
+      // Corrupt or unreadable storage — treat it as "nothing stored".
+      return null;
     }
+  }
+
+  /**
+   * Load the reader-wide typography preference.
+   *
+   * Earlier versions stored it per book (`nostos.epub-typography.<bookId>`); that
+   * value is adopted once, for the book it belongs to, so a setting already
+   * chosen is not lost when the preference becomes reader-wide.
+   */
+  private restoreSavedTypography(): void {
+    const stored = this.readStoredTypography(TYPOGRAPHY_STORAGE_KEY);
+    if (stored) {
+      this.typography.set(stored);
+      return;
+    }
+
+    const legacy = this.readStoredTypography(this.legacyTypographyKey());
+    if (!legacy) return;
+    this.typography.set(legacy);
+    try {
+      localStorage.setItem(TYPOGRAPHY_STORAGE_KEY, JSON.stringify(legacy));
+    } catch {
+      // Adopting in memory is enough — the next change persists it.
+    }
+  }
+
+  private legacyTypographyKey(): string {
+    return `nostos.epub-typography.${this.bookId()}`;
   }
 
   /** Rewrite the typography style element in every already-rendered section. */
