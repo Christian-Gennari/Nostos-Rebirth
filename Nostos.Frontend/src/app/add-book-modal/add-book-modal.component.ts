@@ -118,8 +118,30 @@ export class AddBookModal implements OnDestroy {
     personalReview: '' as string | null,
   };
 
-  selectedFile: File | null = null;
-  selectedCover: File | null = null;
+  selectedFile = signal<File | null>(null);
+  selectedCover = signal<File | null>(null);
+
+  /**
+   * What the cover zone shows: an object URL for a locally chosen file — which
+   * is ours to release — or the provider's URL when the cover comes from the
+   * source. A source-seeded form deliberately does NOT set a File: the import
+   * fetches and stores the provider's cover server-side (`IncludeCover` defaults
+   * to true), so there is nothing for the browser to upload. A File set here on
+   * that path would be silently discarded, because the import never calls the
+   * cover upload.
+   */
+  coverPreview = signal<string | null>(null);
+
+  /** The picked book's cover, shown as already handled on the import path. */
+  sourceCoverUrl = computed(() => this.selectedSourceItem()?.coverUrl ?? null);
+
+  /** A chosen book file, so the zone never looks empty after a choice. */
+  fileSummary = computed(() => {
+    const file = this.selectedFile();
+    if (!file) return null;
+    const size = this.formatBytes(file.size);
+    return size ? `${file.name} · ${size}` : file.name;
+  });
   uploadProgress = signal<number | null>(null);
   uploadStartTime: number | null = null;
 
@@ -189,8 +211,7 @@ export class AddBookModal implements OnDestroy {
 
       personalReview: b.personalReview || '',
     };
-    this.selectedFile = null;
-    this.selectedCover = null;
+    this.clearChosenFiles();
     this.activeTab.set('Book Info'); // Reset to first tab
     this.resetSourceTab();
   }
@@ -226,8 +247,7 @@ export class AddBookModal implements OnDestroy {
 
       personalReview: null,
     };
-    this.selectedFile = null;
-    this.selectedCover = null;
+    this.clearChosenFiles();
     this.uploadProgress.set(null);
     this.isFetching.set(false);
     this.fileDragActive.set(false);
@@ -305,12 +325,27 @@ export class AddBookModal implements OnDestroy {
 
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
-    this.selectedFile = input.files?.[0] ?? null;
+    this.selectedFile.set(input.files?.[0] ?? null);
   }
 
   onCoverSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    this.selectedCover = input.files?.[0] ?? null;
+    const file = (event.target as HTMLInputElement).files?.[0] ?? null;
+    this.setCoverPreview(file);
+    this.selectedCover.set(file);
+  }
+
+  /** Object URLs are ours to release, and the modal is opened many times. */
+  private setCoverPreview(file: File | null): void {
+    const previous = this.coverPreview();
+    if (previous?.startsWith('blob:')) URL.revokeObjectURL(previous);
+    this.coverPreview.set(file ? URL.createObjectURL(file) : null);
+  }
+
+  /** Both reset paths clear the chosen file, the cover, and the preview URL. */
+  private clearChosenFiles(): void {
+    this.selectedFile.set(null);
+    this.setCoverPreview(null);
+    this.selectedCover.set(null);
   }
 
   onDragOver(_event: DragEvent, zone: 'file' | 'cover'): void {
@@ -363,7 +398,7 @@ export class AddBookModal implements OnDestroy {
     } else {
       this.booksService.create(payload).subscribe({
         next: (createdBook) => {
-          if (this.selectedFile) this.handleFileUpload(createdBook);
+          if (this.selectedFile()) this.handleFileUpload(createdBook);
           else this.uploadCoverIfNeeded(createdBook.id);
         },
         error: () => this.toast.error('Failed to create book'),
@@ -373,7 +408,7 @@ export class AddBookModal implements OnDestroy {
 
   handleFileUpload(createdBook: BookModel): void {
     this.uploadStartTime = performance.now();
-    this.booksService.uploadFile(createdBook.id, this.selectedFile!).subscribe({
+    this.booksService.uploadFile(createdBook.id, this.selectedFile()!).subscribe({
       next: (event) => {
         if (event.type === HttpEventType.UploadProgress) {
           const percent = Math.round((event.loaded / (event.total ?? 1)) * 100);
@@ -395,11 +430,12 @@ export class AddBookModal implements OnDestroy {
   }
 
   uploadCoverIfNeeded(bookId: string) {
-    if (!this.selectedCover) {
+    const cover = this.selectedCover();
+    if (!cover) {
       this.finishAdd();
       return;
     }
-    this.booksService.uploadCover(bookId, this.selectedCover).subscribe({
+    this.booksService.uploadCover(bookId, cover).subscribe({
       next: (event) => {
         if (event.type === 4) this.finishAdd();
       },

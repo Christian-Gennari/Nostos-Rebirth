@@ -458,6 +458,11 @@ public sealed class AcquisitionService(
                 "storage_failed", "The file could not be stored, so nothing was imported.");
         }
 
+        // Stored BEFORE the provenance write so the file name can travel with it:
+        // one SaveChanges, and the row can never point at a cover that is not on
+        // disk. Cover art stays a nicety — a failure here is not a failed import.
+        var coverFileName = await TryAttachCoverAsync(bookId, cover, plan, ct);
+
         var attach = await library.AttachAcquiredAssetAsync(new LibraryAttachAcquiredAssetRequest(
             ClientId: "acquisition",
             IdempotencyKey: $"acquire-{plan.ProviderId}-{plan.ExternalId}-{plan.Asset.Id}-{Guid.NewGuid():N}",
@@ -475,7 +480,8 @@ public sealed class AcquisitionService(
             // source claimed: for an audiobook that is the difference between
             // chapter markers that line up and ones that drift.
             Duration: artifact.Duration ?? plan.Metadata.Duration,
-            Chapters: artifact.Chapters ?? plan.Chapters), ct);
+            Chapters: artifact.Chapters ?? plan.Chapters,
+            CoverFileName: coverFileName), ct);
 
         if (ErrorCodeOf(attach) is { } attachError)
         {
@@ -483,8 +489,6 @@ public sealed class AcquisitionService(
             await RollbackAsync(bookId, createdByUs, storedNothing: false, plan, ct);
             return AcquisitionResult.Failed(attachError, attach.Reply);
         }
-
-        await TryAttachCoverAsync(bookId, cover, plan, ct);
 
         progress.Report(new AcquisitionProgress("done", 100));
 
@@ -669,14 +673,19 @@ public sealed class AcquisitionService(
         }
     }
 
-    private async Task TryAttachCoverAsync(
+    /// <summary>
+    /// Stores the source's cover and returns the bare file name storage produced,
+    /// so the caller can record it on the book. Null when there is no cover, or
+    /// when storing one failed: cover art must never cost the user the book.
+    /// </summary>
+    private async Task<string?> TryAttachCoverAsync(
         Guid bookId,
         byte[]? cover,
         ProviderAcquisitionPlan plan,
         CancellationToken ct)
     {
         if (cover is null || cover.Length == 0)
-            return;
+            return null;
 
         try
         {
@@ -687,11 +696,14 @@ public sealed class AcquisitionService(
             await using var stream = new MemoryStream(cover);
             var path = await storage.SaveBookCoverAsync(bookId, stream, $"cover{extension}", ct);
 
-            logger.LogDebug("Attached cover {Cover} to book {BookId}.", Path.GetFileName(path), bookId);
+            var fileName = Path.GetFileName(path);
+            logger.LogDebug("Attached cover {Cover} to book {BookId}.", fileName, bookId);
+            return fileName;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "Storing cover art for book {BookId} failed; the book itself is unaffected.", bookId);
+            return null;
         }
     }
 
