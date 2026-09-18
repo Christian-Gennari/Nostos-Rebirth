@@ -12,12 +12,21 @@ const OUT_DIR = '/home/dev/coding/projects/nostos-rebirth-webpage/assets/images/
 const BASE_URL = 'http://127.0.0.1:5341';
 
 // Showcase ids (resolved from the running instance, not hardcoded guesses).
-const EPUB_ID = 'fdab7c94-5fd7-4ddd-8f14-aa334959eed9';   // Crime and Punishment
-const PDF_ID  = '0bba1599-ae8a-4388-83a7-3ea175650912';   // Dostoevsky, Studia Litterarum
+// Subject choice is part of the screenshot: the EPUB opens at a real reading
+// position (Middlemarch, chapter VIII) so the shot shows body prose and a
+// dual-page spread instead of a 0% cover page. The PDF is an English-language
+// humanities article; the other three PDFs in the showcase are Russian-language
+// journals, which read as an accident on an English landing page.
+const EPUB_ID = '89bffc2a-5946-4453-ac6b-f1860e45b264';   // Middlemarch
+const PDF_ID  = '84f841e0-705e-4f7a-94ea-71475fcd512a';   // Oral Tradition 16/1 (2001)
 const AUDIO_ID = '6169c747-9a3b-46fa-8d4b-625ffc544140';  // Flatland (LibriVox)
 
 const DESKTOP = { w: 1920, h: 1080 };
 const MOBILE = { w: 390, h: 844 };
+
+// ONLY=<substring> re-shoots a single screen while iterating, so a fix to one
+// task does not require re-running the whole 22-shot suite.
+const ONLY = process.env.ONLY || '';
 
 const tasks = [];
 for (const theme of ['light', 'dark']) {
@@ -30,8 +39,8 @@ for (const theme of ['light', 'dark']) {
   tasks.push({ name: `epub-mobile-${theme}.png`, route: `/read/${EPUB_ID}`, theme, ...MOBILE, waitReader: 2600 });
 
   // PDF reader.
-  tasks.push({ name: `pdf-desktop-${theme}.png`, route: `/read/${PDF_ID}`, theme, ...DESKTOP, waitReader: 2800 });
-  tasks.push({ name: `pdf-mobile-${theme}.png`, route: `/read/${PDF_ID}`, theme, ...MOBILE, waitReader: 2800 });
+  tasks.push({ name: `pdf-desktop-${theme}.png`, route: `/read/${PDF_ID}`, theme, ...DESKTOP, waitReader: 2800, clickViewSettings: true });
+  tasks.push({ name: `pdf-mobile-${theme}.png`, route: `/read/${PDF_ID}`, theme, ...MOBILE, waitReader: 2800, setFitWidth: true });
 
   // Audiobook player.
   tasks.push({ name: `reader-desktop-${theme}.png`, route: `/read/${AUDIO_ID}`, theme, ...DESKTOP, waitReader: 7000 });
@@ -115,10 +124,51 @@ async function openSourceModal(page) {
   }
 }
 
+/**
+ * The PDF reader's reading mode (page-by-page vs continuous), page fit and zoom
+ * now live behind the View settings panel. The desktop shot opens it so the
+ * screenshot shows the modes rather than just a page.
+ */
+async function openViewSettings(page) {
+  try {
+    const btn = page.locator('button[aria-label="View settings"]').first();
+    await btn.waitFor({ state: 'visible', timeout: 8000 });
+    await btn.click({ timeout: 5000 });
+    await page.waitForTimeout(900);
+  } catch (e) {
+    console.warn('View settings warning:', e.message);
+  }
+}
+
+/**
+ * A PDF opens at "whole page" fit, which is right on a desktop and leaves the
+ * text too small to read on a phone. Switching to Fit width is what a reader
+ * would actually do there, and the choice is remembered per document.
+ */
+async function setFitWidth(page) {
+  try {
+    const btn = page.locator('button[aria-label="View settings"]').first();
+    await btn.waitFor({ state: 'visible', timeout: 8000 });
+    await btn.click({ timeout: 5000 });
+    await page.waitForTimeout(700);
+    const fit = page.getByRole('button', { name: 'Fit width', exact: true }).first();
+    await fit.waitFor({ state: 'visible', timeout: 5000 });
+    await fit.click({ timeout: 5000 });
+    await page.waitForTimeout(1800);
+    // The scrim sits over the header, so the toggle that opened the panel is not
+    // clickable while it is open - the shell closes it on Escape instead.
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(1200);
+  } catch (e) {
+    console.warn('Fit width warning:', e.message);
+  }
+}
+
 async function capture() {
   const browser = await chromium.launch({ headless: true });
 
   for (const t of tasks) {
+    if (ONLY && !t.name.includes(ONLY)) continue;
     console.log(`Capturing ${t.name} (${t.w}x${t.h} @2x)...`);
     const context = await browser.newContext({
       viewport: { width: t.w, height: t.h },
@@ -152,6 +202,14 @@ async function capture() {
       await clickMap(page);
     } else if (t.openSourceModal) {
       await openSourceModal(page);
+    }
+
+    if (t.clickViewSettings) {
+      await openViewSettings(page);
+    }
+
+    if (t.setFitWidth) {
+      await setFitWidth(page);
     }
 
     await page.waitForTimeout(900);
