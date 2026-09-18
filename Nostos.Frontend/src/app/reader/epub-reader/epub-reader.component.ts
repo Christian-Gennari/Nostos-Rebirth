@@ -127,6 +127,23 @@ export function marginInsetPercent(margin: EpubMargin): number {
 const TYPOGRAPHY_STYLE_ID = 'nostos-typography';
 
 /**
+ * Quiet window for coalescing a burst of typography changes into ONE
+ * re-pagination.
+ *
+ * Measured on a real chapter of a real book (33.5k chars rendered as a single
+ * 12.4k-px-wide paginated strip): a lone text-size step settles in 32ms, but five
+ * steps in a row took 226ms to their first change and were still re-laying-out
+ * 1.2s later, with the inner document growing 11.9k -> 29.5k px. Each step
+ * re-paginates the whole section and widens the strip, so every step costs more
+ * than the one before it.
+ *
+ * Readers click A+ several times running to find a comfortable size. The first
+ * change of a burst still applies immediately (so one deliberate step keeps its
+ * 32ms feel) and the rest collapse into a single trailing apply.
+ */
+const TYPOGRAPHY_APPLY_QUIET_MS = 180;
+
+/**
  * Reader-wide typography preference: one key for every EPUB, because the reader
  * should remember the setting rather than the book. Earlier versions wrote
  * `nostos.epub-typography.<bookId>`; `restoreSavedTypography` adopts that value
@@ -362,18 +379,54 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
 
   zoomIn() {
     this.currentFontSize.update((s) => Math.min(s + 10, 200)); // Max 200%
-    this.applyFontSize();
+    this.requestFontSizeApply();
   }
 
   zoomOut() {
     this.currentFontSize.update((s) => Math.max(s - 10, 50)); // Min 50%
-    this.applyFontSize();
+    this.requestFontSizeApply();
   }
 
-  private applyFontSize() {
-    if (this.rendition) {
-      this.rendition.themes.fontSize(`${this.currentFontSize()}%`);
+  /**
+   * Leading-edge + trailing-coalesce size application. The first step of a burst
+   * applies at once; further steps within {@link TYPOGRAPHY_APPLY_QUIET_MS} keep
+   * pushing the trailing apply back, so the whole burst costs two re-paginations
+   * instead of one per click. The pill's `%` reads the signal, so the number
+   * still moves on every click even when the layout is waiting.
+   */
+  private requestFontSizeApply(): void {
+    this.persistFontSize();
+    if (!this.fontApplyTimer) {
+      this.applyFontSize();
+    } else {
+      clearTimeout(this.fontApplyTimer);
     }
+    this.fontApplyTimer = setTimeout(() => {
+      this.fontApplyTimer = null;
+      this.applyFontSize();
+    }, TYPOGRAPHY_APPLY_QUIET_MS);
+  }
+
+  /** Size applied to the current rendition — lets a coalesced no-op be skipped. */
+  private appliedFontSize: number | null = null;
+
+  /** Typography key applied to the open contents — same purpose as above. */
+  private appliedTypographyKey: string | null = null;
+
+  /** Pending trailing applies; see requestFontSizeApply / requestTypographyApply. */
+  private fontApplyTimer: ReturnType<typeof setTimeout> | null = null;
+  private typographyApplyTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private applyFontSize() {
+    const size = this.currentFontSize();
+    if (this.rendition && this.appliedFontSize !== size) {
+      this.appliedFontSize = size;
+      this.rendition.themes.fontSize(`${size}%`);
+    }
+    this.persistFontSize();
+  }
+
+  private persistFontSize(): void {
     try {
       localStorage.setItem(this.fontSizeStorageKey(), String(this.currentFontSize()));
     } catch {
@@ -409,6 +462,11 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
 
     this.loading.set(true);
     this.locationsReady.set(false);
+    // A fresh rendition must be told the current size and typography even when
+    // neither value changed — otherwise the applied-value guards below would
+    // skip the apply and the new book would open at the publisher's defaults.
+    this.appliedFontSize = null;
+    this.appliedTypographyKey = null;
 
     // FIX 1: Append a dummy parameter ending in .epub
     // This tricks epub.js into treating the URL as a file, not a directory.
@@ -648,6 +706,30 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     } catch {
       // Private-mode storage can throw — the setting still applies for the session.
     }
+    this.requestTypographyApply();
+  }
+
+  /**
+   * Same leading-edge + trailing-coalesce shape as the text size: switching
+   * typeface, line height and margins in quick succession repaints the open
+   * sections once at the end instead of once per click.
+   */
+  private requestTypographyApply(): void {
+    if (!this.typographyApplyTimer) {
+      this.applyTypography();
+    } else {
+      clearTimeout(this.typographyApplyTimer);
+    }
+    this.typographyApplyTimer = setTimeout(() => {
+      this.typographyApplyTimer = null;
+      this.applyTypography();
+    }, TYPOGRAPHY_APPLY_QUIET_MS);
+  }
+
+  private applyTypography(): void {
+    const key = JSON.stringify(this.typography());
+    if (key === this.appliedTypographyKey) return;
+    this.appliedTypographyKey = key;
     this.applyTypographyToOpenContents();
     // The margin is padding on our own container; the binding updates in the
     // next change-detection pass, so measure the page after that.
@@ -797,6 +879,8 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
 
   ngOnDestroy(): void {
     this.resizeObserver?.disconnect();
+    if (this.fontApplyTimer) clearTimeout(this.fontApplyTimer);
+    if (this.typographyApplyTimer) clearTimeout(this.typographyApplyTimer);
     this.resizeSubject$.complete();
     this.progressUpdater$.complete();
     for (const cleanup of this.keyboardDocuments.values()) {
