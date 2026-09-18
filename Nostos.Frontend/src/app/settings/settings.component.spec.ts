@@ -118,4 +118,43 @@ describe('SettingsComponent backup-only surface', () => {
     expect(buttons).toContain('Back up now');
     expect(buttons).toContain('Scan for Backups');
   });
+
+  it('asks through ConfirmModal before restoring (no direct restore)', () => {
+    const component = fixture.componentInstance;
+    backupServiceMock.restore.mockClear();
+
+    component.restoreBackup('b1');
+    expect(component.pendingRestore()).toBe('b1');
+    expect(backupServiceMock.restore).not.toHaveBeenCalled();
+
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.confirm-modal-card')).toBeTruthy();
+
+    component.confirmRestore();
+    expect(backupServiceMock.restore).toHaveBeenCalledWith('b1');
+    expect(component.pendingRestore()).toBeNull();
+  });
+
+  it('cancelling restore performs nothing', () => {
+    const component = fixture.componentInstance;
+    backupServiceMock.restore.mockClear();
+
+    component.restoreBackup('b1');
+    component.cancelRestore();
+    expect(component.pendingRestore()).toBeNull();
+    expect(backupServiceMock.restore).not.toHaveBeenCalled();
+  });
+
+  it('asks through ConfirmModal before deleting a backup', () => {
+    const component = fixture.componentInstance;
+    backupServiceMock.deleteBackup.mockClear();
+
+    component.deleteBackup('b9');
+    expect(component.pendingBackupDelete()).toBe('b9');
+    expect(backupServiceMock.deleteBackup).not.toHaveBeenCalled();
+
+    component.confirmBackupDelete();
+    expect(backupServiceMock.deleteBackup).toHaveBeenCalledWith('b9');
+    expect(component.pendingBackupDelete()).toBeNull();
+  });
 });

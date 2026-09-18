@@ -520,3 +520,70 @@ describe('WritingStudio typewriter mode', () => {
     expect(toggle.getAttribute('aria-pressed')).toBe('true');
   });
 });
+
+describe('WritingStudio delete (no window.confirm)', () => {
+  let fixture: ComponentFixture<WritingStudio>;
+  let component: WritingStudio;
+
+  beforeEach(async () => {
+    TestBed.overrideComponent(WritingStudio, {
+      remove: { imports: [FlatTreeComponent, NoteCardComponent, MarkdownEditorComponent] },
+      add: { imports: [FlatTreeStub, NoteCardStub, MarkdownEditorStub] },
+    });
+
+    await TestBed.configureTestingModule({
+      imports: [WritingStudio],
+      providers: [
+        {
+          provide: WritingsService,
+          useValue: {
+            list: vi.fn(() => of([])),
+            get: vi.fn(),
+            create: vi.fn(() => of({})),
+            update: vi.fn(() => of({})),
+            delete: vi.fn(() => of({})),
+            move: vi.fn(() => of({})),
+          },
+        },
+        { provide: ToastService, useValue: { error: vi.fn(), success: vi.fn() } },
+        { provide: ConceptsService, useValue: { list: vi.fn(() => of([])), get: vi.fn() } },
+        { provide: BooksService, useValue: { list: vi.fn(() => of({ items: [] })) } },
+        { provide: NotesService, useValue: { list: vi.fn(() => of([])) } },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(WritingStudio);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('opens ConfirmModal and only deletes on confirm', () => {
+    const writings = TestBed.inject(WritingsService) as unknown as {
+      delete: ReturnType<typeof vi.fn>;
+    };
+    writings.delete.mockClear();
+
+    component.deleteItem('doc-9');
+    expect(component.pendingDelete()).toBe('doc-9');
+    expect(writings.delete).not.toHaveBeenCalled();
+
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.confirm-modal-card')).toBeTruthy();
+
+    component.confirmDeleteItem();
+    expect(writings.delete).toHaveBeenCalledWith('doc-9');
+    expect(component.pendingDelete()).toBeNull();
+  });
+
+  it('cancelling performs nothing', () => {
+    const writings = TestBed.inject(WritingsService) as unknown as {
+      delete: ReturnType<typeof vi.fn>;
+    };
+    writings.delete.mockClear();
+
+    component.deleteItem('doc-9');
+    component.cancelDeleteItem();
+    expect(component.pendingDelete()).toBeNull();
+    expect(writings.delete).not.toHaveBeenCalled();
+  });
+});
