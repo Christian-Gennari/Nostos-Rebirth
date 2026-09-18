@@ -71,6 +71,10 @@
 
     <div class="playback-row">
       <div class="main-controls">
+        <button class="skip-btn" (click)="prevChapter()" [disabled]="!hasChapters()" title="Previous chapter" aria-label="Previous chapter" data-testid="audio-prev-chapter">
+          <lucide-icon [img]="Icons.SkipBack" [size]="24"></lucide-icon>
+        </button>
+
         <button class="skip-btn" (click)="skip(-15)" title="Rewind 15s">
           <lucide-icon [img]="Icons.RotateCcw" [size]="24"></lucide-icon>
           <span class="skip-label">15</span>
@@ -87,6 +91,10 @@
         <button class="skip-btn" (click)="skip(15)" title="Forward 15s">
           <lucide-icon [img]="Icons.RotateCw" [size]="24"></lucide-icon>
           <span class="skip-label">15</span>
+        </button>
+
+        <button class="skip-btn" (click)="nextChapter()" [disabled]="!hasChapters()" title="Next chapter" aria-label="Next chapter" data-testid="audio-next-chapter">
+          <lucide-icon [img]="Icons.SkipForward" [size]="24"></lucide-icon>
         </button>
       </div>
     </div>
