@@ -39,6 +39,7 @@ import { isTypingTarget, pageActionForKey } from './reader-keyboard';
 
 // Components
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
+import { ScrollModeType } from 'ngx-extended-pdf-viewer';
 import { PdfReader } from './pdf-reader/pdf-reader.component';
 import { EpubReader } from './epub-reader/epub-reader.component';
 import { AudioReader } from './audio-reader/audio-reader.component';
@@ -137,6 +138,19 @@ export class ReaderShell implements OnInit {
 
   setZoomPreset(value: string | number): void {
     this.pdfReader?.setZoom(value);
+  }
+
+  /** Reading mode (continuous vs page-by-page), driven by the same view panel. */
+  pdfReadingModes(): { value: ScrollModeType; label: string }[] {
+    return this.pdfReader?.readingModes ?? [];
+  }
+
+  isScrollMode(mode: ScrollModeType): boolean {
+    return this.pdfReader?.isScrollMode(mode) ?? false;
+  }
+
+  setScrollMode(mode: ScrollModeType): void {
+    this.pdfReader?.setScrollMode(mode);
   }
 
   book = signal<any>(null);

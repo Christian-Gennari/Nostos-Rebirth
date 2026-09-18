@@ -506,6 +506,7 @@ describe('ReaderShell typography panel (EPUB)', () => {
     const labels = [...panel.querySelectorAll('.typo-label')].map(
       (e: HTMLElement) => e.textContent?.trim() ?? ''
     );
+    expect(labels).toContain('Reading mode');
     expect(labels).toContain('Zoom');
     expect(labels).toContain('Page fit');
     // A fixed-layout page has no reflow to retype.
