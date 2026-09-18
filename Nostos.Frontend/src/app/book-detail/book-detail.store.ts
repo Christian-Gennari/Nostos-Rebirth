@@ -4,7 +4,7 @@ import { HttpEventType } from '@angular/common/http';
 import { finalize } from 'rxjs';
 
 // DTOs & Services
-import { Book, LinkableBookDto } from '../core/dtos/book.dtos';
+import { Book, BookChapter, LinkableBookDto } from '../core/dtos/book.dtos';
 import { Note } from '../core/dtos/note.dtos';
 import { Collection } from '../core/dtos/collection.dtos';
 import { ConceptDto } from '../core/services/concepts.service';
@@ -157,6 +157,33 @@ export class BookDetailStore {
       error: () => {
         this.loadBook(b.id, { background: true });
         this.toast.error('Failed to update status');
+      },
+    });
+  }
+
+  /**
+   * Replace the book's chapters (issue #8). An empty list clears the hand-made ones
+   * and hands the book back to its file's metadata. A hand-made list is stamped on
+   * the server so a later metadata scan cannot overwrite it.
+   */
+  saveChapters(chapters: BookChapter[]) {
+    const b = this.book();
+    if (!b) return;
+
+    const previous = b.chapters ?? [];
+
+    // 1. Optimistic — the editor already shows exactly this list.
+    this.book.update((curr) => (curr ? { ...curr, chapters } : null));
+
+    // 2. API
+    this.booksService.update(b.id, { chapters }).subscribe({
+      next: (updated) => {
+        this.book.set(updated);
+        this.toast.success(chapters.length > 0 ? 'Chapters saved' : 'Chapters cleared');
+      },
+      error: () => {
+        this.book.update((curr) => (curr ? { ...curr, chapters: previous } : null));
+        this.toast.error('Failed to save chapters');
       },
     });
   }
