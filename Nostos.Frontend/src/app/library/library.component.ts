@@ -185,8 +185,8 @@ export class Library implements OnInit, OnDestroy {
   private requestSeq = 0;
   private swapStartedAt = 0;
 
-  /** The last in-flight import signature the page was fetched against. */
-  private lastImportSignature: string | null = null;
+  /** The importing book rows as of the last time the page was re-read for them. */
+  private lastInFlightBookIds: string[] | null = null;
 
   /** A finished import whose visibility the next committed page decides. */
   private pendingReadyNotice: { id: string; title: string } | null = null;
@@ -312,24 +312,39 @@ export class Library implements OnInit, OnDestroy {
 
     // An import changes what the library should contain, and the page in hand was
     // fetched before that change: a book that did not exist when the query ran cannot
-    // be in its results, however the server orders them. Re-read once when an import
-    // gets its book row (so the book appears, carrying its own progress bar) and once
-    // when it ends (so it takes its ordinary place in the current sort, instead of
-    // the user having to reload to find it). Comparing the signature explicitly — not
-    // merely reacting to the effect re-running — is what keeps progress percentages,
-    // which tick several times a second, from fetching the list.
+    // be in its results, however the server orders them. So the page is re-read when
+    // the set of IMPORTING BOOK ROWS changes — and only when that change is one the
+    // page cannot already satisfy:
+    //
+    //   - a row appears  → re-read only if the book is not already rendered (starting
+    //     an import from the modal needs this; arriving on a page that already shows
+    //     the book does not);
+    //   - an import ends → always re-read, because the book stops being sorted first
+    //     and belongs wherever the current sort puts it.
+    //
+    // Nothing else re-reads: a job that has no row yet cannot be in a list, and
+    // percentages move several times a second.
     effect(() => {
-      const signature = this.imports.inFlightSignature();
+      const current = this.imports.inFlightBookIds();
 
-      const previous = this.lastImportSignature;
-      if (signature === previous) return;
+      const previous = this.lastInFlightBookIds;
+      if (previous === null) {
+        this.lastInFlightBookIds = current;
+        return;
+      }
 
-      this.lastImportSignature = signature;
+      const appeared = current.filter((id) => !previous.includes(id));
+      const ended = previous.filter((id) => !current.includes(id));
+      if (!appeared.length && !ended.length) return;
 
-      // First observation is the state as the page loaded, not a change to it.
-      if (previous === null) return;
+      this.lastInFlightBookIds = current;
 
-      untracked(() => this.refreshBooks());
+      untracked(() => {
+        const onPage = new Set(this.rawBooks().map((book) => book.id));
+        const missing = appeared.some((id) => !onPage.has(id));
+
+        if (ended.length || missing) this.refreshBooks();
+      });
     });
   }
 
