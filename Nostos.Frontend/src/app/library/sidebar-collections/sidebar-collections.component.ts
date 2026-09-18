@@ -33,7 +33,6 @@ import {
   Inbox,
   Headphones,
   FileText,
-  ChartColumn,
 } from 'lucide-angular';
 
 import { CollectionsService } from '../../core/services/collections.service';
@@ -76,7 +75,6 @@ export class SidebarCollections implements OnInit {
   InboxIcon = Inbox;
   HeadphonesIcon = Headphones;
   FileTextIcon = FileText;
-  StatsIcon = ChartColumn;
 
   // State
   collections = signal<Collection[]>([]);
