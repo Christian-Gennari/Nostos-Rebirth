@@ -461,6 +461,106 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
     }
 
     [Fact]
+    public async Task An_importing_book_sorts_first_whatever_the_sort_key_is()
+    {
+        var h = Harness();
+
+        // Two books the user has already read, and one still being imported whose
+        // title, creation date and reading history all rank it LAST — the three keys
+        // every user-facing sort would otherwise order it by.
+        var readId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "A book already read", Author: "Test One"), strictConfirmation: true)).Data!).BookId!.Value;
+        var alsoReadId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "B book also read", Author: "Test Two"), strictConfirmation: true)).Data!).BookId!.Value;
+        var importingId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Zzz importing, newest and unread", Author: "Test Three"), strictConfirmation: true)).Data!).BookId!.Value;
+
+        await using (var db = await h.Factory.CreateDbContextAsync())
+        {
+            foreach (var id in new[] { readId, alsoReadId })
+            {
+                var book = await db.Books.Include(b => b.Progress).SingleAsync(b => b.Id == id);
+                book.Progress.LastReadAt = DateTime.UtcNow.AddDays(-1);
+            }
+
+            var importing = await db.Books.SingleAsync(b => b.Id == importingId);
+            importing.Status = BookStatus.Downloading;
+            importing.CreatedAt = DateTime.UtcNow.AddYears(-1);
+            await db.SaveChangesAsync();
+        }
+
+        foreach (var sort in new[] { BookSort.LastRead, BookSort.Title, BookSort.Rating, BookSort.Recent })
+        {
+            var listed = await h.Service.ListBooksAsync(BookFilter.All, sort, null, 1, 20, null);
+            var page = (PaginatedResponse<BookDto>)listed.Data!;
+
+            page.Items.First().Id.Should().Be(importingId,
+                $"an import is the thing the user just asked for, so {sort} must not bury it " +
+                "(under Last Read a new book has no LastReadAt and lands behind everything read)");
+        }
+    }
+
+    [Fact]
+    public async Task An_importing_work_sorts_first_in_the_grouped_list()
+    {
+        var h = Harness();
+
+        var readId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "A book already read", Author: "Test One"), strictConfirmation: true)).Data!).BookId!.Value;
+        var importingId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Zzz importing", Author: "Test Four"), strictConfirmation: true)).Data!).BookId!.Value;
+
+        await using (var db = await h.Factory.CreateDbContextAsync())
+        {
+            var read = await db.Books.Include(b => b.Progress).SingleAsync(b => b.Id == readId);
+            read.Progress.LastReadAt = DateTime.UtcNow.AddDays(-1);
+
+            var importing = await db.Books.SingleAsync(b => b.Id == importingId);
+            importing.Status = BookStatus.Transcoding;
+            await db.SaveChangesAsync();
+        }
+
+        var listed = await h.Service.ListBooksAsync(
+            BookFilter.All, BookSort.LastRead, null, 1, 20, null, groupByWork: true);
+        var page = (PaginatedResponse<BookDto>)listed.Data!;
+
+        page.Items.First().Id.Should().Be(importingId);
+    }
+
+    [Fact]
+    public async Task An_import_that_joins_an_existing_work_represents_that_work_in_the_list()
+    {
+        var h = Harness();
+
+        // A print copy the user has read, and an audiobook of the same work arriving.
+        var printId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("physical", "Meditations", Author: "Marcus Aurelius"), strictConfirmation: true)).Data!).BookId!.Value;
+        var audioId = ((LibraryCreateOrMatchResultDto)(await h.Service.CreateOrMatchBookAsync(
+            CreateRequest("audiobook", "Meditations (audio)", Author: "Marcus Aurelius"), strictConfirmation: true)).Data!).BookId!.Value;
+
+        await using (var db = await h.Factory.CreateDbContextAsync())
+        {
+            var print = await db.Books.Include(b => b.Progress).SingleAsync(b => b.Id == printId);
+            print.Progress.LastReadAt = DateTime.UtcNow.AddDays(-1);
+
+            // The import joins the print edition's work, which is what makes this case
+            // different: without the rule below, the card shown for that work would be
+            // the print copy, with nothing on it to watch.
+            var audio = await db.Books.SingleAsync(b => b.Id == audioId);
+            audio.WorkId = print.WorkId;
+            audio.Status = BookStatus.Downloading;
+            await db.SaveChangesAsync();
+        }
+
+        var listed = await h.Service.ListBooksAsync(
+            BookFilter.All, BookSort.LastRead, null, 1, 20, null, groupByWork: true);
+        var page = (PaginatedResponse<BookDto>)listed.Data!;
+
+        page.Items.Should().HaveCount(1, "both editions belong to one work");
+        page.Items.First().Id.Should().Be(audioId, "the work is represented by the edition being imported");
+    }
+
+    [Fact]
     public async Task Sidebar_counts_include_books_with_multiple_memberships()
     {
         var h = Harness();
