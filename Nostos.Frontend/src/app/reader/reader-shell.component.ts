@@ -42,6 +42,7 @@ import { EpubReader } from './epub-reader/epub-reader.component';
 import { AudioReader } from './audio-reader/audio-reader.component';
 import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
+import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 
 @Component({
   selector: 'app-reader-shell',
@@ -56,6 +57,7 @@ import { NoteCardComponent } from '../ui/note-card.component/note-card.component
     ConceptInputComponent,
     NoteCardComponent,
     IconButtonComponent,
+    ConfirmModal,
   ],
   templateUrl: './reader-shell.component.html',
   styleUrl: './reader-shell.component.css',
@@ -104,6 +106,9 @@ export class ReaderShell implements OnInit {
 
   dbNotes = signal<Note[]>([]);
   quickNoteContent = signal('');
+
+  /** Note id awaiting delete confirmation (asked through ConfirmModal). */
+  pendingNoteDelete = signal<string | null>(null);
 
   // Concept map for the note cards
   conceptMap = signal<Map<string, ConceptDto>>(new Map());
@@ -308,7 +313,17 @@ export class ReaderShell implements OnInit {
       });
   }
   onDeleteNote(noteId: string) {
-    if (!confirm('Delete this note?')) return;
+    this.pendingNoteDelete.set(noteId);
+  }
+
+  cancelNoteDelete() {
+    this.pendingNoteDelete.set(null);
+  }
+
+  confirmNoteDelete() {
+    const noteId = this.pendingNoteDelete();
+    if (!noteId) return;
+    this.pendingNoteDelete.set(null);
 
     const noteToDelete = this.dbNotes().find((n) => n.id === noteId);
 

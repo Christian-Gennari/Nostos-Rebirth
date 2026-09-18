@@ -311,3 +311,58 @@ describe('ReaderShell toolbar contract (theme system removed)', () => {
     }
   });
 });
+
+describe('ReaderShell note delete (no window.confirm)', () => {
+  let fixture: ComponentFixture<ReaderShell>;
+
+  beforeEach(() => {
+    booksGetSpy.mockReset();
+    booksGetSpy.mockReturnValue(of(audiobook));
+
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+
+    mockMatchMedia();
+  });
+
+  function render() {
+    fixture.detectChanges();
+    fixture.detectChanges();
+  }
+
+  it('opens ConfirmModal and only deletes on confirm', async () => {
+    fixture = await configureReaderShell();
+    render();
+
+    const notes = TestBed.inject(NotesService) as unknown as { delete: ReturnType<typeof vi.fn> };
+    notes.delete.mockReset();
+    notes.delete.mockReturnValue(of(undefined));
+
+    const component = fixture.componentInstance;
+    component.onDeleteNote('n1');
+    expect(component.pendingNoteDelete()).toBe('n1');
+    expect(notes.delete).not.toHaveBeenCalled();
+
+    render();
+    expect(fixture.nativeElement.querySelector('.confirm-modal-card')).toBeTruthy();
+
+    component.confirmNoteDelete();
+    expect(notes.delete).toHaveBeenCalledWith('n1');
+    expect(component.pendingNoteDelete()).toBeNull();
+  });
+
+  it('cancelling performs nothing', async () => {
+    fixture = await configureReaderShell();
+    render();
+
+    const notes = TestBed.inject(NotesService) as unknown as { delete: ReturnType<typeof vi.fn> };
+    notes.delete.mockReset();
+    notes.delete.mockReturnValue(of(undefined));
+
+    const component = fixture.componentInstance;
+    component.onDeleteNote('n1');
+    component.cancelNoteDelete();
+    expect(component.pendingNoteDelete()).toBeNull();
+    expect(notes.delete).not.toHaveBeenCalled();
+  });
+});
