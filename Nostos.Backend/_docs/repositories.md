@@ -26,7 +26,8 @@ Manages `BookModel` entities (all subtypes via TPH).
 | ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | `GetBooksAsync(search, filter, sort, page, pageSize)` | Paginated query with full filtering/sorting. Returns `PaginatedResponse<BookModel>` |
 | `GetByIdAsync(id)`                                    | Find by primary key                                                                 |
-| `GetBooksWithFilesAsync()`                            | All books that have uploaded files (for OPDS feed)                                  |
+| `CountBooksWithFilesAsync()`                          | Count of books with uploaded files (OPDS total)                                     |
+| `GetBooksWithFilesPageAsync(skip, take)`              | One page of books with files, newest first (OPDS feed)                              |
 | `AddAsync(book)`                                      | Insert + save                                                                       |
 | `UpdateAsync(book)`                                   | Update + save                                                                       |
 | `DeleteAsync(book)`                                   | Remove + save                                                                       |
