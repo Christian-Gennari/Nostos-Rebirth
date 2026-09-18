@@ -86,7 +86,7 @@ export interface GeometryCheck {
 
 export interface CaptureMeta {
   name: string;
-  surface: 'epub' | 'pdf' | 'studio' | 'library' | 'book-detail' | 'brain';
+  surface: 'epub' | 'pdf' | 'audio' | 'studio' | 'library' | 'book-detail' | 'brain';
   viewport: Viewport;
   state: string;
 }
@@ -262,6 +262,46 @@ export async function checkPdfFinalPageClearance(page: Page): Promise<GeometryCh
 }
 
 /**
+ * Audio surface composition (issue #227): the player must own exactly one chrome
+ * row inside itself, leave no dead band larger than the issue's ~48px bar around
+ * the composition, and never exceed the viewport. All three were defects: 12
+ * controls in two stacked rows, 164px bands above and below, and a container that
+ * computed 30px wider than a 390px phone.
+ */
+export async function checkAudioComposition(page: Page): Promise<GeometryCheck> {
+  await page.locator('.audio-container').waitFor({ timeout: 30_000 });
+  await page.locator('.cover-art').waitFor({ timeout: 30_000 });
+  await page.waitForTimeout(400); // let the art and time labels settle
+
+  const m = await page.evaluate(() => {
+    const cont = document.querySelector('.audio-container') as HTMLElement | null;
+    if (!cont) return null;
+    const kids = [...cont.children].filter(
+      (e) => (e as HTMLElement).getClientRects().length > 0
+    ) as HTMLElement[];
+    if (kids.length < 2) return null;
+    const cr = cont.getBoundingClientRect();
+    const first = kids[0].getBoundingClientRect();
+    const last = kids[kids.length - 1].getBoundingClientRect();
+    return {
+      top: Math.round(first.top - cr.top),
+      bottom: Math.round(cr.bottom - last.bottom),
+      chromeRows: cont.querySelectorAll('.playback-row, .selector-row').length,
+      overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      timeText: (document.querySelector('.time-labels')?.textContent ?? '').trim().replace(/\s+/g, ' '),
+    };
+  });
+
+  if (!m) return failCheck('audio-composition', 'could not measure .audio-container', {});
+  const worst = Math.max(m.top, m.bottom);
+  const ok = worst <= 48 && m.chromeRows === 1 && m.overflowX === 0;
+  const msg =
+    `dead band ${worst}px (top ${m.top} / bottom ${m.bottom}, bar 48), ` +
+    `player chrome rows ${m.chromeRows} (1 expected), overflowX ${m.overflowX}px, times "${m.timeText}"`;
+  return ok ? passCheck('audio-composition', msg, m) : failCheck('audio-composition', msg, m);
+}
+
+/**
  * Zen: every piece of chrome the protocol says must disappear has
  * display:none (sidebars, document header/action strip, status row, TinyMCE
  * menubar/formatting toolbar).
@@ -420,14 +460,21 @@ export async function checkLibraryFilterContract(labels: string[]): Promise<Geom
 // ---------------------------------------------------------------------------
 
 /** Finds a book with a file of the given kind at the real library origin. */
-export async function findLibraryBook(kind: 'epub' | 'pdf'): Promise<{ id: string; title: string; fileName: string } | null> {
+export async function findLibraryBook(
+  kind: 'epub' | 'pdf' | 'audio'
+): Promise<{ id: string; title: string; fileName: string } | null> {
   const res = await fetch(`${LIBRARY_URL}/api/books?pageSize=200`, {
     headers: { Accept: 'application/json' },
   });
   if (!res.ok) throw new Error(`GET ${LIBRARY_URL}/api/books -> ${res.status}: ${await res.text()}`);
   const data = (await res.json()) as { items?: Array<{ id: string; title: string; fileName?: string | null; hasFile?: boolean }> };
   const books = data.items ?? [];
-  const match = books.find((b) => b.hasFile && b.fileName?.toLowerCase().endsWith(kind === 'epub' ? '.epub' : '.pdf'));
+  const extensions =
+    kind === 'epub' ? ['.epub'] : kind === 'pdf' ? ['.pdf'] : ['.m4b', '.mp3', '.m4a', '.m4b'];
+  const match = books.find((b) => {
+    const name = (b.fileName ?? '').toLowerCase();
+    return b.hasFile && extensions.some((ext) => name.endsWith(ext));
+  });
   return match ? { id: match.id, title: match.title, fileName: match.fileName ?? '' } : null;
 }
 

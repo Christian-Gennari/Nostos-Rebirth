@@ -23,6 +23,162 @@ public class ConceptRepository : IConceptRepository
             .ToListAsync();
     }
 
+    public async Task<List<ConceptDto>> SearchByNoteTextAsync(string term)
+    {
+        if (string.IsNullOrWhiteSpace(term))
+            return [];
+
+        var cleanTerm = term.Trim();
+        var pattern = $"%{cleanTerm}%";
+
+        var matchingRows = await _db.NoteConcepts
+            .AsNoTracking()
+            .Where(nc =>
+                EF.Functions.Like(nc.Note.Content, pattern) ||
+                (nc.Note.SelectedText != null && EF.Functions.Like(nc.Note.SelectedText, pattern)) ||
+                (nc.Note.Book != null && EF.Functions.Like(nc.Note.Book.Title, pattern)))
+            .Select(nc => new
+            {
+                nc.ConceptId,
+                ConceptName = nc.Concept.Concept,
+                TotalUsageCount = nc.Concept.NoteConcepts.Count(),
+                nc.NoteId,
+                nc.Note.Content,
+                nc.Note.SelectedText,
+                BookTitle = nc.Note.Book != null ? nc.Note.Book.Title : null,
+                nc.Note.CreatedAt
+            })
+            .ToListAsync();
+
+        if (matchingRows.Count == 0)
+            return [];
+
+        var results = new List<ConceptDto>();
+        var groupedByConcept = matchingRows.GroupBy(r => r.ConceptId);
+
+        foreach (var group in groupedByConcept)
+        {
+            var firstRow = group.First();
+            var conceptId = group.Key;
+            var conceptName = firstRow.ConceptName;
+            var totalUsageCount = firstRow.TotalUsageCount;
+
+            var noteGroups = group.GroupBy(r => r.NoteId).ToList();
+            int noteMatchCount = noteGroups.Count;
+
+            string? snippet = null;
+            var orderedNotes = noteGroups
+                .Select(g => g.OrderBy(r => r.CreatedAt).First())
+                .OrderBy(r => r.CreatedAt);
+
+            foreach (var note in orderedNotes)
+            {
+                if (!string.IsNullOrEmpty(note.Content) &&
+                    note.Content.Contains(cleanTerm, StringComparison.OrdinalIgnoreCase))
+                {
+                    snippet = CreateSnippet(note.Content, cleanTerm);
+                    break;
+                }
+
+                if (!string.IsNullOrEmpty(note.SelectedText) &&
+                    note.SelectedText.Contains(cleanTerm, StringComparison.OrdinalIgnoreCase))
+                {
+                    snippet = CreateSnippet(note.SelectedText, cleanTerm);
+                    break;
+                }
+
+                if (!string.IsNullOrEmpty(note.BookTitle) &&
+                    note.BookTitle.Contains(cleanTerm, StringComparison.OrdinalIgnoreCase))
+                {
+                    snippet = CreateSnippet(note.BookTitle, cleanTerm);
+                    break;
+                }
+            }
+
+            results.Add(new ConceptDto(
+                conceptId,
+                conceptName,
+                totalUsageCount,
+                noteMatchCount,
+                snippet
+            ));
+        }
+
+        // Order by NoteMatchCount descending, then Name ascending.
+        // Cap the returned list at 50 rows — the point of server-side matching is a flat payload.
+        return results
+            .OrderByDescending(c => c.NoteMatchCount)
+            .ThenBy(c => c.Name)
+            .Take(50)
+            .ToList();
+    }
+
+    private static string CreateSnippet(string text, string term)
+    {
+        if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(term))
+            return string.Empty;
+
+        var cleaned = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
+        int matchIndex = cleaned.IndexOf(term, StringComparison.OrdinalIgnoreCase);
+        if (matchIndex < 0)
+            return string.Empty;
+
+        int matchLength = term.Length;
+        int targetStart = Math.Max(0, matchIndex - 60);
+        int targetEnd = Math.Min(cleaned.Length, matchIndex + matchLength + 60);
+
+        int start = targetStart;
+        bool truncatedStart = false;
+        if (start > 0)
+        {
+            truncatedStart = true;
+            if (char.IsWhiteSpace(cleaned[start]))
+            {
+                while (start < matchIndex && char.IsWhiteSpace(cleaned[start]))
+                    start++;
+            }
+            else if (!char.IsWhiteSpace(cleaned[start - 1]))
+            {
+                int spaceIndex = cleaned.IndexOf(' ', start);
+                if (spaceIndex >= 0 && spaceIndex < matchIndex)
+                {
+                    start = spaceIndex + 1;
+                    while (start < matchIndex && char.IsWhiteSpace(cleaned[start]))
+                        start++;
+                }
+            }
+        }
+
+        int end = targetEnd;
+        bool truncatedEnd = false;
+        if (end < cleaned.Length)
+        {
+            truncatedEnd = true;
+            if (char.IsWhiteSpace(cleaned[end]))
+            {
+                // Word boundary already
+            }
+            else if (char.IsWhiteSpace(cleaned[end - 1]))
+            {
+                while (end > matchIndex + matchLength && char.IsWhiteSpace(cleaned[end - 1]))
+                    end--;
+            }
+            else
+            {
+                int spaceIndex = cleaned.LastIndexOf(' ', end - 1);
+                if (spaceIndex >= matchIndex + matchLength)
+                {
+                    end = spaceIndex;
+                    while (end > matchIndex + matchLength && char.IsWhiteSpace(cleaned[end - 1]))
+                        end--;
+                }
+            }
+        }
+
+        var fragment = cleaned.Substring(start, end - start).Trim();
+        return $"{(truncatedStart ? "…" : "")}{fragment}{(truncatedEnd ? "…" : "")}";
+    }
+
     public async Task<ConceptStatsDto> GetStatsAsync()
     {
         var stats = await _db

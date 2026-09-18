@@ -9,6 +9,7 @@ import {
   ViewChild,
   OnDestroy,
   signal,
+  HostListener,
 } from '@angular/core';
 import {
   NgxExtendedPdfViewerModule,
@@ -16,6 +17,7 @@ import {
   TextLayerRenderedEvent,
   PagesLoadedEvent,
   PdfLoadedEvent,
+  ScrollModeType,
 } from 'ngx-extended-pdf-viewer';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
@@ -34,6 +36,17 @@ import { IReader, ReaderProgress, TocItem } from '../reader.interface';
  * filters).
  */
 const PDF_LIGHT_SURROUND = '#fefeff';
+
+/**
+ * Page fits a fixed-layout document can be read at, offered in the shell's view
+ * panel. A phone default of a fitted whole page renders a 512-page book at about
+ * 9.5px, so 'page-width' leads; 100 is actual size (issue #226 §9).
+ */
+export const PDF_ZOOM_PRESETS: { value: string | number; label: string }[] = [
+  { value: 'page-width', label: 'Fit width' },
+  { value: 'page-fit', label: 'Whole page' },
+  { value: 100, label: 'Actual size' },
+];
 
 interface PendingPdfHighlight {
   tempId: string;
@@ -65,6 +78,42 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
 
   sidebarVisible = input<boolean>(false);
   sidebarVisibleChange = output<boolean>();
+
+  /**
+   * Search bar visibility, opened by Ctrl/Cmd+F from anywhere in the reader.
+   * Before this the bar was never opened and no other search path existed, so
+   * Ctrl+F did nothing at all in a PDF (issue #226 §2).
+   */
+  findBarVisible = signal(false);
+
+  /**
+   * Open the find bar. Called by the shell's header control, so search is
+   * reachable by touch — a keyboard shortcut alone left it undiscoverable on a
+   * phone (issue #226 §2/§9). The Ctrl/Cmd+F handler calls the same method.
+   */
+  openSearch(): void {
+    this.findBarVisible.set(true);
+  }
+
+  /**
+   * Ctrl/Cmd+F opens the library's find bar; Escape closes it first, without
+   * letting the event reach the shell (which would close a rail instead).
+   * The shell's page-key handler ignores modifier chords, so page turns are
+   * unaffected.
+   */
+  @HostListener('document:keydown', ['$event'])
+  onShortcutKeydown(event: KeyboardEvent): void {
+    if (this.findBarVisible() && event.key === 'Escape') {
+      this.findBarVisible.set(false);
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+    if (event.key.toLowerCase() !== 'f') return;
+    event.preventDefault();
+    this.openSearch();
+  }
 
   pdfSrc = computed(() => `/api/books/${this.bookId()}/file`);
   savedHighlights: PageHighlight[] = [];
@@ -100,17 +149,86 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   });
 
   // Internal State
-  // CHANGE: Set default to 'page-fit' for the initial load
-  zoomLevel = signal<string | number>('page-fit');
+  // `page-width` on a phone: a fitted full page renders a 512-page book at about
+  // 9.5px, which is not reading, it is squinting. Desktop keeps the full-page fit.
+  zoomLevel = signal<string | number>(this.initialZoom());
   currentPage = 1;
   totalPages = 0;
   private pdfDocRef: any = null;
+
+  /**
+   * Continuous vertical scrolling instead of one page at a time.
+   *
+   * The viewer was pinned to `ScrollModeType.page` (= 3), so a page could only be
+   * left by clicking Next — there was no way to scroll on, which is what a reader
+   * does by reflex in a 512-page book (issue #226 §3). The pager still jumps whole
+   * pages, and progress still follows `pageChange`.
+   *
+   * Note there are two enums in this library: the `scrollMode` INPUT is typed
+   * `ScrollModeType` (lowercase members) from `options/pdf-viewer`, while
+   * `ScrollMode` (uppercase) is a different export. Binding the wrong one is a
+   * template type error, not a silent no-op.
+   */
+  scrollMode = signal<ScrollModeType>(ScrollModeType.vertical);
+
+  /**
+   * The two reading modes, offered in the shell's view panel. Continuous is the
+   * default (§3); page-by-page stays available because §9 asks for both.
+   */
+  readonly readingModes: { value: ScrollModeType; label: string }[] = [
+    { value: ScrollModeType.vertical, label: 'Scroll' },
+    { value: ScrollModeType.page, label: 'Page' },
+  ];
+
+  /** Set the reading mode and remember it for this book. */
+  setScrollMode(mode: ScrollModeType): void {
+    this.scrollMode.set(mode);
+    try {
+      localStorage.setItem(
+        this.scrollStorageKey(),
+        mode === ScrollModeType.page ? 'page' : 'scroll',
+      );
+    } catch {
+      // Private-mode storage can throw — the mode still applies for the session.
+    }
+  }
+
+  isScrollMode(mode: ScrollModeType): boolean {
+    return this.scrollMode() === mode;
+  }
+
+  /** The viewer can change the mode itself (its own controls or keys). */
+  onScrollModeChange(mode: ScrollModeType): void {
+    this.setScrollMode(mode);
+  }
+
+  private scrollStorageKey(): string {
+    return `nostos.pdf-scroll.${this.bookId()}`;
+  }
+
+  private restoreSavedScrollMode(): void {
+    try {
+      const saved = localStorage.getItem(this.scrollStorageKey());
+      if (saved === 'page') this.scrollMode.set(ScrollModeType.page);
+      else if (saved === 'scroll') this.scrollMode.set(ScrollModeType.vertical);
+    } catch {
+      // Unreadable storage keeps the continuous default.
+    }
+  }
+
+  private initialZoom(): string {
+    return typeof window !== 'undefined' && window.innerWidth <= 768 ? 'page-width' : 'page-fit';
+  }
 
   private initialLoadComplete = false;
 
   private progressUpdater$ = new Subject<{ location: string; percentage: number }>();
 
   ngOnInit() {
+    // Zoom and reading mode are per-book preferences; the viewport default is only
+    // a starting point (issue #226 §3, §9).
+    this.restoreSavedZoom();
+    this.restoreSavedScrollMode();
     this.loadNotes();
 
     this.progressUpdater$
@@ -170,13 +288,64 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   }
 
   zoomIn() {
-    // CHANGE: If current zoom is a string (like 'page-fit'), default to 110% to start manual zooming
-    this.zoomLevel.update((v) => (typeof v === 'number' ? v + 10 : 110));
+    // From a named fit, the first step lands on a concrete percentage so the
+    // reader is never stuck on a fit it cannot enlarge.
+    const current = this.zoomLevel();
+    this.setZoom(typeof current === 'number' ? Math.min(current + 10, 400) : 110);
   }
 
   zoomOut() {
-    // CHANGE: If current zoom is a string, default to 90%
-    this.zoomLevel.update((v) => (typeof v === 'number' ? Math.max(v - 10, 20) : 90));
+    const current = this.zoomLevel();
+    this.setZoom(typeof current === 'number' ? Math.max(current - 10, 20) : 90);
+  }
+
+  /**
+   * Set the zoom and remember it for THIS book (issue #226 §9: "zoom persists
+   * per book"). A named fit is stored as the name, so it keeps adapting when the
+   * window changes; a chosen percentage is stored as the number picked.
+   */
+  setZoom(zoom: string | number): void {
+    this.zoomLevel.set(zoom);
+    try {
+      localStorage.setItem(this.zoomStorageKey(), JSON.stringify(zoom));
+    } catch {
+      // Private-mode storage can throw — the zoom still applies for the session.
+    }
+  }
+
+  /** Whether a preset is the zoom currently in effect (drives the active chip). */
+  isZoomPreset(preset: string | number): boolean {
+    const current = this.zoomLevel();
+    if (typeof current === 'number' || typeof preset === 'number') return current === preset;
+    return String(current).toLowerCase() === String(preset).toLowerCase();
+  }
+
+  /**
+   * What to show beside the zoom steps. A named fit reads as a percentage of the
+   * page it is fitting, which is the only honest number available before the
+   * rendition has measured anything.
+   */
+  zoomLabel(): string {
+    const current = this.zoomLevel();
+    if (typeof current === 'number') return `${current}%`;
+    return current === 'page-width' ? 'Fit width' : 'Whole page';
+  }
+
+  readonly zoomPresets = PDF_ZOOM_PRESETS;
+
+  private zoomStorageKey(): string {
+    return `nostos.pdf-zoom.${this.bookId()}`;
+  }
+
+  private restoreSavedZoom(): void {
+    try {
+      const raw = localStorage.getItem(this.zoomStorageKey());
+      if (raw === null) return;
+      const parsed = JSON.parse(raw) as string | number;
+      if (typeof parsed === 'number' || typeof parsed === 'string') this.zoomLevel.set(parsed);
+    } catch {
+      // Unreadable storage falls back to the viewport default.
+    }
   }
 
   // --- PDF Events ---
@@ -184,6 +353,18 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   onPagesLoaded(event: PagesLoadedEvent) {
     this.totalPages = event.pagesCount;
     this.loadNotes();
+
+    // The outline needs the PDFDocumentProxy, and `pdfLoaded` cannot provide it:
+    // the library's PdfLoadedEvent is `{ pagesCount }` and nothing else, so the
+    // old `if (pdfDoc)` guard was always false and the contents rail stayed
+    // empty for every PDF — a 512-page book with 129 bookmarks rendered
+    // "No Table of Contents available." (issue #226 §1). `pagesLoaded.source`
+    // IS the viewer application, and it carries the document.
+    const doc = (event as any).source?.pdfDocument ?? null;
+    if (doc && doc !== this.pdfDocRef) {
+      this.pdfDocRef = doc;
+      void this.loadPdfOutline(doc);
+    }
 
     if (!this.initialLoadComplete) {
       const startLoc = this.initialLocation();
@@ -198,19 +379,27 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     }
   }
 
+  /** Best-effort second path: some loads fire this with the document attached. */
   async onPdfLoaded(event: PdfLoadedEvent) {
-    const pdfDoc = (event as any).source?.pdfDocument ?? (event as any).pdfDocument;
-    if (pdfDoc) {
-      this.pdfDocRef = pdfDoc;
-      try {
-        const outline = await pdfDoc.getOutline();
-        if (outline) {
-          const tocItems = await this.mapPdfOutline(outline, pdfDoc);
-          this.toc.set(tocItems);
-        }
-      } catch (err) {
-        console.error('Error fetching PDF outline', err);
+    const doc = (event as any).source?.pdfDocument ?? (event as any).pdfDocument ?? null;
+    if (doc && doc !== this.pdfDocRef) {
+      this.pdfDocRef = doc;
+      await this.loadPdfOutline(doc);
+    }
+  }
+
+  /** Map the embedded PDF outline into the contents rail the shell renders. */
+  private async loadPdfOutline(pdfDoc: any): Promise<void> {
+    try {
+      const outline = await pdfDoc.getOutline();
+      if (!outline || outline.length === 0) {
+        this.toc.set([]);
+        return;
       }
+      this.toc.set(await this.mapPdfOutline(outline, pdfDoc));
+    } catch (err) {
+      console.error('Error fetching PDF outline', err);
+      this.toc.set([]);
     }
   }
 

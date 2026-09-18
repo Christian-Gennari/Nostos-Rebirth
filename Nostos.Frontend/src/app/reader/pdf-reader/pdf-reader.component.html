@@ -4,6 +4,13 @@
   (touchend)="onTextSelection()"
 >
   <div id="pdf-viewer-wrapper">
+    <!-- Search: the library's own find bar, opened by Ctrl/Cmd+F from the reader.
+         Before this, Ctrl+F did nothing at all and there was no other search
+         path anywhere in the PDF reader (issue #226 §2). The bar is the library's
+         own component; the styles below pull it into the house tokens.
+         Three pdf.js options are hidden on purpose — "Match Diacritics", "Whole
+         words" and "Multiple words" are engine jargon in a reading interface;
+         highlight-all and match-case stay. -->
     <ngx-extended-pdf-viewer
       [src]="pdfSrc()"
       [height]="'100%'"
@@ -11,7 +18,8 @@
       (sidebarVisibleChange)="sidebarVisibleChange.emit($event)"
       [(page)]="currentPage"
       [backgroundColor]="'#fefeff'"
-      [scrollMode]="3"
+      [scrollMode]="scrollMode()"
+      (scrollModeChange)="onScrollModeChange($event)"
       [showBorders]="false"
       [zoom]="zoomLevel()"
       (pagesLoaded)="onPagesLoaded($event)"
@@ -26,6 +34,15 @@
       [showHandToolButton]="false"
       [showSidebarButton]="false"
       [showFindButton]="false"
+      [findbarVisible]="findBarVisible()"
+      (findbarVisibleChange)="findBarVisible.set($event)"
+      [showFindHighlightAll]="true"
+      [showFindMatchCase]="true"
+      [showFindResultsCount]="true"
+      [showFindMessages]="true"
+      [showFindMatchDiacritics]="false"
+      [showFindEntireWord]="false"
+      [showFindMultiple]="false"
       [showPagingButtons]="false"
       [showZoomButtons]="false"
       [showPresentationModeButton]="false"

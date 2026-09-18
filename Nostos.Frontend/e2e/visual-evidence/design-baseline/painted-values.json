@@ -1,13 +1,13 @@
 {
- "generatedAt": "2026-09-17T18:48:59.101Z",
- "base": "http://127.0.0.1:5330",
+ "generatedAt": "2026-09-18T18:42:34.420Z",
+ "base": "http://127.0.0.1:5214",
  "captures": [
   {
    "tag": "reader-desktop-light",
    "surface": "reader",
    "viewport": "desktop",
    "theme": "light",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/reader-desktop-light.png",
+   "png": "reader-desktop-light.png",
    "applied": null,
    "geo": {
     "innerWidth": 1440,
@@ -16,27 +16,27 @@
     "theme": null,
     "bodyClass": "",
     "scrollHeight": 900,
-    "elementCount": 280,
+    "elementCount": 292,
     "bloomed": 1
    },
    "sweep": {
-    "painted": 70,
+    "painted": 68,
     "buckets": {
      "radius": [
       [
        "0px",
-       56
+       55
+      ],
+      [
+       "3px",
+       4
       ],
       [
        "4px",
-       7
+       4
       ],
       [
        "50%",
-       2
-      ],
-      [
-       "999px",
        2
       ],
       [
@@ -44,62 +44,66 @@
        1
       ],
       [
-       "3px",
+       "10%",
        1
       ],
       [
-       "10%",
+       "999px",
        1
       ]
      ],
      "fontSize": [
       [
        "16px",
-       35
+       34
       ],
       [
        "13.3333px",
        15
       ],
       [
-       "15.2px",
+       "14.4px",
        11
-      ],
-      [
-       "10.4px",
-       4
       ],
       [
        "12.8px",
        3
       ],
       [
-       "20px",
+       "10.4px",
+       2
+      ],
+      [
+       "16.8px",
        1
       ],
       [
-       "14.4px",
+       "12.48px",
+       1
+      ],
+      [
+       "20px",
        1
       ]
      ],
      "fontWeight": [
       [
        "400",
-       54
+       58
       ],
       [
        "600",
-       16
+       10
       ]
      ],
      "fontFamily": [
       [
        "Hanken Grotesk",
-       68
+       65
       ],
       [
        "Newsreader",
-       1
+       2
       ],
       [
        "Arial",
@@ -109,7 +113,7 @@
      "bg": [
       [
        "rgba(0, 0, 0, 0)",
-       59
+       57
       ],
       [
        "rgb(255, 255, 255)",
@@ -131,11 +135,11 @@
      "fg": [
       [
        "rgb(18, 19, 22)",
-       55
+       50
       ],
       [
        "rgb(118, 119, 123)",
-       9
+       12
       ],
       [
        "rgb(255, 255, 255)",
@@ -153,18 +157,18 @@
      "borderW": [
       [
        "1px",
-       4
+       2
       ]
      ],
      "borderC": [
       [
        "rgb(229, 231, 235)",
-       4
+       2
       ]
      ],
      "shadow": [
       [
-       "rgba(0, 0, 0, 0.08) 0px 10px 30px 0px",
+       "rgba(0, 0, 0, 0.08) 0px 4px 12px 0px",
        1
       ],
       [
@@ -180,8 +184,12 @@
        13
       ],
       [
+       "0.16s",
+       3
+      ],
+      [
        "0.15s",
-       8
+       2
       ],
       [
        "0.1s",
@@ -198,40 +206,40 @@
        6
       ],
       [
-       "transform",
-       5
-      ],
-      [
        "background-color",
-       4
+       5
       ],
       [
        "color",
        4
       ],
       [
-       "border-color",
-       2
-      ],
-      [
-       "box-shadow",
-       2
+       "transform",
+       4
       ],
       [
        "background",
+       1
+      ],
+      [
+       "border-color",
        1
       ]
      ],
      "easing": [
       [
        "ease",
-       24
+       18
+      ],
+      [
+       "cubic-bezier(0.4, 0, 0.2, 1)",
+       3
       ]
      ]
     }
    },
    "contentHash": {
-    "hash": "f27e328f",
+    "hash": "d2614080",
     "chars": 105,
     "cards": 0,
     "images": 1
@@ -243,7 +251,7 @@
    "surface": "library",
    "viewport": "desktop",
    "theme": "light",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/library-desktop-light.png",
+   "png": "library-desktop-light.png",
    "applied": null,
    "geo": {
     "innerWidth": 1440,
@@ -629,7 +637,7 @@
    "surface": "brain",
    "viewport": "desktop",
    "theme": "light",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/brain-desktop-light.png",
+   "png": "brain-desktop-light.png",
    "applied": null,
    "geo": {
     "innerWidth": 1440,
@@ -891,7 +899,7 @@
    "surface": "studio",
    "viewport": "desktop",
    "theme": "light",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/studio-desktop-light.png",
+   "png": "studio-desktop-light.png",
    "applied": null,
    "geo": {
     "innerWidth": 1440,
@@ -1181,7 +1189,7 @@
    "surface": "settings",
    "viewport": "desktop",
    "theme": "light",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/settings-desktop-light.png",
+   "png": "settings-desktop-light.png",
    "applied": null,
    "geo": {
     "innerWidth": 1440,
@@ -1483,7 +1491,7 @@
    "surface": "home",
    "viewport": "desktop",
    "theme": "light",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/home-desktop-light.png",
+   "png": "home-desktop-light.png",
    "applied": null,
    "geo": {
     "innerWidth": 1440,
@@ -1635,7 +1643,7 @@
    "surface": "reader",
    "viewport": "desktop",
    "theme": "dark",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/reader-desktop-dark.png",
+   "png": "reader-desktop-dark.png",
    "applied": "dark",
    "geo": {
     "innerWidth": 1440,
@@ -1644,27 +1652,27 @@
     "theme": "dark",
     "bodyClass": "",
     "scrollHeight": 900,
-    "elementCount": 280,
+    "elementCount": 292,
     "bloomed": 1
    },
    "sweep": {
-    "painted": 70,
+    "painted": 68,
     "buckets": {
      "radius": [
       [
        "0px",
-       56
+       55
+      ],
+      [
+       "3px",
+       4
       ],
       [
        "4px",
-       7
+       4
       ],
       [
        "50%",
-       2
-      ],
-      [
-       "999px",
        2
       ],
       [
@@ -1672,62 +1680,66 @@
        1
       ],
       [
-       "3px",
+       "10%",
        1
       ],
       [
-       "10%",
+       "999px",
        1
       ]
      ],
      "fontSize": [
       [
        "16px",
-       35
+       34
       ],
       [
        "13.3333px",
        15
       ],
       [
-       "15.2px",
+       "14.4px",
        11
-      ],
-      [
-       "10.4px",
-       4
       ],
       [
        "12.8px",
        3
       ],
       [
-       "20px",
+       "10.4px",
+       2
+      ],
+      [
+       "16.8px",
        1
       ],
       [
-       "14.4px",
+       "12.48px",
+       1
+      ],
+      [
+       "20px",
        1
       ]
      ],
      "fontWeight": [
       [
        "400",
-       54
+       58
       ],
       [
        "600",
-       16
+       10
       ]
      ],
      "fontFamily": [
       [
        "Hanken Grotesk",
-       68
+       65
       ],
       [
        "Newsreader",
-       1
+       2
       ],
       [
        "Arial",
@@ -1737,7 +1749,7 @@
      "bg": [
       [
        "rgba(0, 0, 0, 0)",
-       59
+       57
       ],
       [
        "rgb(18, 19, 24)",
@@ -1759,11 +1771,11 @@
      "fg": [
       [
        "rgb(240, 241, 244)",
-       59
+       54
       ],
       [
        "rgb(139, 144, 159)",
-       9
+       12
       ],
       [
        "rgb(196, 199, 208)",
@@ -1777,18 +1789,18 @@
      "borderW": [
       [
        "1px",
-       4
+       2
       ]
      ],
      "borderC": [
       [
        "rgb(42, 45, 55)",
-       4
+       2
       ]
      ],
      "shadow": [
       [
-       "rgba(0, 0, 0, 0.08) 0px 10px 30px 0px",
+       "rgba(0, 0, 0, 0.45) 0px 4px 16px 0px",
        1
       ],
       [
@@ -1804,8 +1816,12 @@
        13
       ],
       [
+       "0.16s",
+       3
+      ],
+      [
        "0.15s",
-       8
+       2
       ],
       [
        "0.1s",
@@ -1822,40 +1838,40 @@
        6
       ],
       [
-       "transform",
-       5
-      ],
-      [
        "background-color",
-       4
+       5
       ],
       [
        "color",
        4
       ],
       [
-       "border-color",
-       2
-      ],
-      [
-       "box-shadow",
-       2
+       "transform",
+       4
       ],
       [
        "background",
+       1
+      ],
+      [
+       "border-color",
        1
       ]
      ],
      "easing": [
       [
        "ease",
-       24
+       18
+      ],
+      [
+       "cubic-bezier(0.4, 0, 0.2, 1)",
+       3
       ]
      ]
     }
    },
    "contentHash": {
-    "hash": "f27e328f",
+    "hash": "d2614080",
     "chars": 105,
     "cards": 0,
     "images": 1
@@ -1867,7 +1883,7 @@
    "surface": "library",
    "viewport": "desktop",
    "theme": "dark",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/library-desktop-dark.png",
+   "png": "library-desktop-dark.png",
    "applied": "dark",
    "geo": {
     "innerWidth": 1440,
@@ -2269,7 +2285,7 @@
    "surface": "brain",
    "viewport": "desktop",
    "theme": "dark",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/brain-desktop-dark.png",
+   "png": "brain-desktop-dark.png",
    "applied": "dark",
    "geo": {
     "innerWidth": 1440,
@@ -2539,7 +2555,7 @@
    "surface": "studio",
    "viewport": "desktop",
    "theme": "dark",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/studio-desktop-dark.png",
+   "png": "studio-desktop-dark.png",
    "applied": "dark",
    "geo": {
     "innerWidth": 1440,
@@ -2833,7 +2849,7 @@
    "surface": "settings",
    "viewport": "desktop",
    "theme": "dark",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/settings-desktop-dark.png",
+   "png": "settings-desktop-dark.png",
    "applied": "dark",
    "geo": {
     "innerWidth": 1440,
@@ -3143,7 +3159,7 @@
    "surface": "home",
    "viewport": "desktop",
    "theme": "dark",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/home-desktop-dark.png",
+   "png": "home-desktop-dark.png",
    "applied": "dark",
    "geo": {
     "innerWidth": 1440,
@@ -3291,7 +3307,7 @@
    "surface": "reader",
    "viewport": "mobile",
    "theme": "light",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/reader-mobile-light.png",
+   "png": "reader-mobile-light.png",
    "applied": null,
    "geo": {
     "innerWidth": 390,
@@ -3300,27 +3316,27 @@
     "theme": null,
     "bodyClass": "",
     "scrollHeight": 844,
-    "elementCount": 280,
+    "elementCount": 292,
     "bloomed": 1
    },
    "sweep": {
-    "painted": 70,
+    "painted": 68,
     "buckets": {
      "radius": [
       [
        "0px",
-       56
+       55
+      ],
+      [
+       "3px",
+       4
       ],
       [
        "4px",
-       7
+       4
       ],
       [
        "50%",
-       2
-      ],
-      [
-       "999px",
        2
       ],
       [
@@ -3328,11 +3344,11 @@
        1
       ],
       [
-       "3px",
+       "10%",
        1
       ],
       [
-       "10%",
+       "999px",
        1
       ]
      ],
@@ -3346,44 +3362,44 @@
        15
       ],
       [
-       "15.2px",
+       "14.4px",
        11
-      ],
-      [
-       "10.4px",
-       4
       ],
       [
        "12.8px",
        3
       ],
       [
-       "20px",
+       "10.4px",
+       2
+      ],
+      [
+       "12.48px",
        1
       ],
       [
-       "14.4px",
+       "20px",
        1
       ]
      ],
      "fontWeight": [
       [
        "400",
-       54
+       58
       ],
       [
        "600",
-       16
+       10
       ]
      ],
      "fontFamily": [
       [
        "Hanken Grotesk",
-       68
+       65
       ],
       [
        "Newsreader",
-       1
+       2
       ],
       [
        "Arial",
@@ -3393,7 +3409,7 @@
      "bg": [
       [
        "rgba(0, 0, 0, 0)",
-       59
+       57
       ],
       [
        "rgb(255, 255, 255)",
@@ -3415,11 +3431,11 @@
      "fg": [
       [
        "rgb(18, 19, 22)",
-       55
+       50
       ],
       [
        "rgb(118, 119, 123)",
-       9
+       12
       ],
       [
        "rgb(255, 255, 255)",
@@ -3437,18 +3453,18 @@
      "borderW": [
       [
        "1px",
-       4
+       2
       ]
      ],
      "borderC": [
       [
        "rgb(229, 231, 235)",
-       4
+       2
       ]
      ],
      "shadow": [
       [
-       "rgba(0, 0, 0, 0.08) 0px 10px 30px 0px",
+       "rgba(0, 0, 0, 0.08) 0px 4px 12px 0px",
        1
       ],
       [
@@ -3464,8 +3480,12 @@
        13
       ],
       [
+       "0.16s",
+       3
+      ],
+      [
        "0.15s",
-       8
+       2
       ],
       [
        "0.1s",
@@ -3482,40 +3502,40 @@
        6
       ],
       [
-       "transform",
-       5
-      ],
-      [
        "background-color",
-       4
+       5
       ],
       [
        "color",
        4
       ],
       [
-       "border-color",
-       2
-      ],
-      [
-       "box-shadow",
-       2
+       "transform",
+       4
       ],
       [
        "background",
+       1
+      ],
+      [
+       "border-color",
        1
       ]
      ],
      "easing": [
       [
        "ease",
-       24
+       18
+      ],
+      [
+       "cubic-bezier(0.4, 0, 0.2, 1)",
+       3
       ]
      ]
     }
    },
    "contentHash": {
-    "hash": "f27e328f",
+    "hash": "d2614080",
     "chars": 105,
     "cards": 0,
     "images": 1
@@ -3527,7 +3547,7 @@
    "surface": "library",
    "viewport": "mobile",
    "theme": "light",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/library-mobile-light.png",
+   "png": "library-mobile-light.png",
    "applied": null,
    "geo": {
     "innerWidth": 390,
@@ -3897,7 +3917,7 @@
    "surface": "brain",
    "viewport": "mobile",
    "theme": "light",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/brain-mobile-light.png",
+   "png": "brain-mobile-light.png",
    "applied": null,
    "geo": {
     "innerWidth": 390,
@@ -4151,7 +4171,7 @@
    "surface": "studio",
    "viewport": "mobile",
    "theme": "light",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/studio-mobile-light.png",
+   "png": "studio-mobile-light.png",
    "applied": null,
    "geo": {
     "innerWidth": 390,
@@ -4445,7 +4465,7 @@
    "surface": "settings",
    "viewport": "mobile",
    "theme": "light",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/settings-mobile-light.png",
+   "png": "settings-mobile-light.png",
    "applied": null,
    "geo": {
     "innerWidth": 390,
@@ -4747,7 +4767,7 @@
    "surface": "home",
    "viewport": "mobile",
    "theme": "light",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/home-mobile-light.png",
+   "png": "home-mobile-light.png",
    "applied": null,
    "geo": {
     "innerWidth": 390,
@@ -4895,7 +4915,7 @@
    "surface": "reader",
    "viewport": "mobile",
    "theme": "dark",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/reader-mobile-dark.png",
+   "png": "reader-mobile-dark.png",
    "applied": "dark",
    "geo": {
     "innerWidth": 390,
@@ -4904,27 +4924,27 @@
     "theme": "dark",
     "bodyClass": "",
     "scrollHeight": 844,
-    "elementCount": 280,
+    "elementCount": 292,
     "bloomed": 1
    },
    "sweep": {
-    "painted": 70,
+    "painted": 68,
     "buckets": {
      "radius": [
       [
        "0px",
-       56
+       55
+      ],
+      [
+       "3px",
+       4
       ],
       [
        "4px",
-       7
+       4
       ],
       [
        "50%",
-       2
-      ],
-      [
-       "999px",
        2
       ],
       [
@@ -4932,11 +4952,11 @@
        1
       ],
       [
-       "3px",
+       "10%",
        1
       ],
       [
-       "10%",
+       "999px",
        1
       ]
      ],
@@ -4950,44 +4970,44 @@
        15
       ],
       [
-       "15.2px",
+       "14.4px",
        11
-      ],
-      [
-       "10.4px",
-       4
       ],
       [
        "12.8px",
        3
       ],
       [
-       "20px",
+       "10.4px",
+       2
+      ],
+      [
+       "12.48px",
        1
       ],
       [
-       "14.4px",
+       "20px",
        1
       ]
      ],
      "fontWeight": [
       [
        "400",
-       54
+       58
       ],
       [
        "600",
-       16
+       10
       ]
      ],
      "fontFamily": [
       [
        "Hanken Grotesk",
-       68
+       65
       ],
       [
        "Newsreader",
-       1
+       2
       ],
       [
        "Arial",
@@ -4997,7 +5017,7 @@
      "bg": [
       [
        "rgba(0, 0, 0, 0)",
-       59
+       57
       ],
       [
        "rgb(18, 19, 24)",
@@ -5019,11 +5039,11 @@
      "fg": [
       [
        "rgb(240, 241, 244)",
-       59
+       54
       ],
       [
        "rgb(139, 144, 159)",
-       9
+       12
       ],
       [
        "rgb(196, 199, 208)",
@@ -5037,18 +5057,18 @@
      "borderW": [
       [
        "1px",
-       4
+       2
       ]
      ],
      "borderC": [
       [
        "rgb(42, 45, 55)",
-       4
+       2
       ]
      ],
      "shadow": [
       [
-       "rgba(0, 0, 0, 0.08) 0px 10px 30px 0px",
+       "rgba(0, 0, 0, 0.45) 0px 4px 16px 0px",
        1
       ],
       [
@@ -5064,8 +5084,12 @@
        13
       ],
       [
+       "0.16s",
+       3
+      ],
+      [
        "0.15s",
-       8
+       2
       ],
       [
        "0.1s",
@@ -5082,40 +5106,40 @@
        6
       ],
       [
-       "transform",
-       5
-      ],
-      [
        "background-color",
-       4
+       5
       ],
       [
        "color",
        4
       ],
       [
-       "border-color",
-       2
-      ],
-      [
-       "box-shadow",
-       2
+       "transform",
+       4
       ],
       [
        "background",
+       1
+      ],
+      [
+       "border-color",
        1
       ]
      ],
      "easing": [
       [
        "ease",
-       24
+       18
+      ],
+      [
+       "cubic-bezier(0.4, 0, 0.2, 1)",
+       3
       ]
      ]
     }
    },
    "contentHash": {
-    "hash": "f27e328f",
+    "hash": "d2614080",
     "chars": 105,
     "cards": 0,
     "images": 1
@@ -5127,7 +5151,7 @@
    "surface": "library",
    "viewport": "mobile",
    "theme": "dark",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/library-mobile-dark.png",
+   "png": "library-mobile-dark.png",
    "applied": "dark",
    "geo": {
     "innerWidth": 390,
@@ -5505,7 +5529,7 @@
    "surface": "brain",
    "viewport": "mobile",
    "theme": "dark",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/brain-mobile-dark.png",
+   "png": "brain-mobile-dark.png",
    "applied": "dark",
    "geo": {
     "innerWidth": 390,
@@ -5767,7 +5791,7 @@
    "surface": "studio",
    "viewport": "mobile",
    "theme": "dark",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/studio-mobile-dark.png",
+   "png": "studio-mobile-dark.png",
    "applied": "dark",
    "geo": {
     "innerWidth": 390,
@@ -6065,7 +6089,7 @@
    "surface": "settings",
    "viewport": "mobile",
    "theme": "dark",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/settings-mobile-dark.png",
+   "png": "settings-mobile-dark.png",
    "applied": "dark",
    "geo": {
     "innerWidth": 390,
@@ -6375,7 +6399,7 @@
    "surface": "home",
    "viewport": "mobile",
    "theme": "dark",
-   "png": "/home/dev/coding/projects/nostos-rebirth-162-pixel-baseline/Nostos.Frontend/e2e/visual-evidence/design-baseline/home-mobile-dark.png",
+   "png": "home-mobile-dark.png",
    "applied": "dark",
    "geo": {
     "innerWidth": 390,
@@ -6516,7 +6540,7 @@
   }
  ],
  "fingerprint": {
-  "html": "http://127.0.0.1:5330/",
+  "html": "http://127.0.0.1:5214/",
   "sheets": [
    {
     "href": "styles-NUDYY63V.css",
@@ -6524,7 +6548,7 @@
     "hash": "62e00c57"
    }
   ],
-  "contentHash": "2862e506",
+  "contentHash": "751085a5",
   "contentCounts": {
    "cards": 0,
    "images": 1

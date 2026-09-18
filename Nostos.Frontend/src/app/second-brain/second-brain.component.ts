@@ -2,6 +2,7 @@ import {
   AfterViewChecked,
   Component,
   computed,
+  DestroyRef,
   ElementRef,
   inject,
   output,
@@ -80,6 +81,12 @@ function normalizeSearchText(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
+/**
+ * Live note-text search is debounced: it runs on the server per keystroke otherwise
+ * (issue #158), and an index search is typed, not submitted.
+ */
+const NOTE_SEARCH_DEBOUNCE_MS = 250;
+
 function searchRank(name: string, query: string): number {
   const normalizedName = normalizeSearchText(name);
   if (normalizedName === query) return 0;
@@ -148,6 +155,12 @@ export class SecondBrain implements AfterViewChecked {
   conceptStats = signal<ConceptStatsDto | null>(null);
   loadingConcepts = signal(true);
   searchQuery = signal('');
+
+  // Note-text matches for the current query, from the server (issue #158). Empty
+  // until a search runs, and cleared when the query is.
+  noteMatches = signal<ConceptDto[]>([]);
+  private noteSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  private noteSearchSeq = 0;
   indexSort = signal<IndexSort>(this.readStoredSort());
   viewMode = signal<BrainViewMode>(this.readStoredViewMode());
   cursorIndex = signal<number | null>(null);
@@ -202,8 +215,34 @@ export class SecondBrain implements AfterViewChecked {
   // fully in memory; the preference persists so the column comes back the way it
   // was left. Search ranking is deliberately separate from the active sort: an
   // exact match always leads, while each match group retains the chosen order.
+  //
+  // Name matching stays client-side and untouched — it is the only matcher that
+  // also strips accents. Note-text matches arrive from the server (issue #158),
+  // because the index payload carries no note text at all, and are merged after
+  // the name matches: name matches lead, then content matches by match count. A
+  // concept that matches both keeps its name position and gains the label.
   filteredConcepts = computed(() => {
-    return this.filterAndSortConcepts(this.searchQuery(), null);
+    const named = this.filterAndSortConcepts(this.searchQuery(), null);
+    const noteRows = this.noteMatches();
+    if (!noteRows.length) return named;
+
+    const noteById = new Map(noteRows.map((row) => [row.id, row]));
+    const withLabels = named.map((concept) => {
+      const hit = noteById.get(concept.id);
+      return hit
+        ? { ...concept, noteMatchCount: hit.noteMatchCount, noteMatchSnippet: hit.noteMatchSnippet }
+        : concept;
+    });
+
+    const namedIds = new Set(named.map((concept) => concept.id));
+    const contentOnly = noteRows
+      .filter((row) => !namedIds.has(row.id))
+      .sort(
+        (a, b) =>
+          (b.noteMatchCount ?? 0) - (a.noteMatchCount ?? 0) || a.name.localeCompare(b.name)
+      );
+
+    return [...withLabels, ...contentOnly];
   });
 
   mergeCandidates = computed(() =>
@@ -289,7 +328,13 @@ export class SecondBrain implements AfterViewChecked {
     return target ? `Delete this note from “${target.bookTitle}”?` : 'Delete note?';
   });
 
+  private destroyRef = inject(DestroyRef);
+
   constructor() {
+    // A pending debounce must not outlive the surface.
+    this.destroyRef.onDestroy(() => {
+      if (this.noteSearchTimer !== null) clearTimeout(this.noteSearchTimer);
+    });
     this.conceptsService.list().subscribe({
       next: (data) => {
         this.concepts.set(data);
@@ -368,6 +413,48 @@ export class SecondBrain implements AfterViewChecked {
   setSearchQuery(query: string): void {
     this.searchQuery.set(query);
     this.cursorIndex.set(null);
+    this.scheduleNoteSearch(query);
+  }
+
+  /**
+   * Server-side note-text search (issue #158). Debounced because it runs per
+   * keystroke, and sequenced so a slow response cannot overwrite a newer query.
+   */
+  private scheduleNoteSearch(query: string): void {
+    if (this.noteSearchTimer !== null) clearTimeout(this.noteSearchTimer);
+    const term = query.trim();
+    if (!term) {
+      this.noteMatches.set([]);
+      this.noteSearchTimer = null;
+      return;
+    }
+    this.noteSearchTimer = setTimeout(() => {
+      this.noteSearchTimer = null;
+      this.runNoteSearch(term);
+    }, NOTE_SEARCH_DEBOUNCE_MS);
+  }
+
+  private runNoteSearch(term: string): void {
+    const seq = ++this.noteSearchSeq;
+    this.conceptsService.searchNotes(term).subscribe({
+      next: (rows) => {
+        if (seq === this.noteSearchSeq) this.noteMatches.set(rows ?? []);
+      },
+      error: () => {
+        // A failed content search must not take the index down with it: the name
+        // matches are already on screen and stay there.
+        if (seq === this.noteSearchSeq) this.noteMatches.set([]);
+      },
+    });
+  }
+
+  /**
+   * Selecting from the index. A content match is only useful if the notes that
+   * matched are the ones on screen, so the note filter comes along with it.
+   */
+  selectIndexRow(concept: ConceptDto): void {
+    this.selectConcept(concept.id);
+    if (concept.noteMatchCount) this.setNoteSearchQuery(this.searchQuery());
   }
 
   setNoteSearchQuery(query: string): void {
@@ -423,8 +510,15 @@ export class SecondBrain implements AfterViewChecked {
 
     if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
       event.preventDefault();
-      this.selectConcept(id);
+      this.selectConceptFromIndex(id);
     }
+  }
+
+  /** Keyboard selection shares the row's behaviour, content filter included. */
+  private selectConceptFromIndex(id: string): void {
+    const concept = this.filteredConcepts().find((row) => row.id === id);
+    if (concept) this.selectIndexRow(concept);
+    else this.selectConcept(id);
   }
 
   private focusCursor(index: number): void {

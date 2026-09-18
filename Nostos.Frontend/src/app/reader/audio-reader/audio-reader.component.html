@@ -62,20 +62,16 @@
             aria-label="Current playback time, click to jump to a specific time"
             data-testid="audio-time-button"
           >
-            {{ formatTime(currentTime()) }}
+            {{ timeLabels().current }}
           </button>
         }
-        <span>{{ formatTime(duration()) }}</span>
+        <span>{{ timeLabels().total }}</span>
       </div>
     </div>
 
     <div class="playback-row">
       <div class="main-controls">
-        <button class="skip-btn" (click)="prevChapter()" [disabled]="!hasChapters()" title="Previous chapter" aria-label="Previous chapter" data-testid="audio-prev-chapter">
-          <lucide-icon [img]="Icons.SkipBack" [size]="24"></lucide-icon>
-        </button>
-
-        <button class="skip-btn" (click)="skip(-15)" title="Rewind 15s">
+        <button class="skip-btn" (click)="skip(-15)" title="Rewind 15 seconds" aria-label="Rewind 15 seconds" data-testid="audio-rewind">
           <lucide-icon [img]="Icons.RotateCcw" [size]="24"></lucide-icon>
           <span class="skip-label">15</span>
         </button>
@@ -88,83 +84,103 @@
           }
         </button>
 
-        <button class="skip-btn" (click)="skip(15)" title="Forward 15s">
+        <button class="skip-btn" (click)="skip(15)" title="Forward 15 seconds" aria-label="Forward 15 seconds" data-testid="audio-forward">
           <lucide-icon [img]="Icons.RotateCw" [size]="24"></lucide-icon>
           <span class="skip-label">15</span>
         </button>
-
-        <button class="skip-btn" (click)="nextChapter()" [disabled]="!hasChapters()" title="Next chapter" aria-label="Next chapter" data-testid="audio-next-chapter">
-          <lucide-icon [img]="Icons.SkipForward" [size]="24"></lucide-icon>
-        </button>
       </div>
-    </div>
 
-    <div class="selector-row">
-      <div class="rate-selector">
-        <label class="rate-label">Speed</label>
-        <div class="rate-pill"
-             tabindex="0"
-             role="button"
-             aria-haspopup="listbox"
-             [attr.aria-expanded]="isOpen()"
-             aria-label="Playback speed"
-             (click)="toggleDropdown()"
-             (keydown.escape)="closeDropdown()"
-             (keydown.enter)="toggleDropdown()">
-          <span class="rate-value">{{ currentRate() }}x</span>
-          <svg class="rate-arrow" width="8" height="5" viewBox="0 0 8 5" aria-hidden="true">
+      <!-- One control for speed and sleep (issue #227 §1/§3). The chapter list in the
+           shell panel and the scrubber are the chapter navigation, so the two chapter
+           buttons that used to sit in this row are gone rather than relocated twice. -->
+      <div class="playback-selector">
+        <div
+          class="playback-pill"
+          tabindex="0"
+          role="button"
+          aria-haspopup="true"
+          aria-controls="playback-menu"
+          [attr.aria-expanded]="playbackMenuOpen()"
+          aria-label="Playback settings"
+          data-testid="audio-playback-pill"
+          (click)="toggleDropdown()"
+          (keydown.enter)="toggleDropdown()"
+          (keydown.space)="toggleDropdown(); $event.preventDefault()"
+          (keydown.escape)="closePlaybackMenu()"
+        >
+          <lucide-icon [img]="Icons.SlidersHorizontal" [size]="14" class="playback-icon"></lucide-icon>
+          <span class="playback-value" data-testid="audio-rate-label">{{ formatRate(currentRate()) }}</span>
+          <span class="playback-sleep" data-testid="sleep-timer-label">
+            <lucide-icon [img]="Icons.Moon" [size]="13" class="sleep-icon"></lucide-icon>{{ sleepLabel() }}
+          </span>
+          <svg class="playback-arrow" width="8" height="5" viewBox="0 0 8 5" aria-hidden="true">
             <path d="M1 1l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
-        @if (isOpen()) {
-          <div class="rate-dropdown" role="listbox" aria-label="Playback speed">
-            @for (rate of availableRates; track rate) {
-              <button class="rate-option"
-                      role="option"
-                      [attr.aria-selected]="rate === currentRate()"
-                      (click)="selectRate(rate)">
-                {{ rate }}x
-              </button>
-            }
-          </div>
-        }
-      </div>
 
-      <div class="sleep-selector">
-        <label class="sleep-label">Sleep timer</label>
-        <div class="sleep-pill"
-             [class.armed]="sleepTimerMinutes() !== null"
-             tabindex="0"
-             role="button"
-             aria-haspopup="listbox"
-             [attr.aria-expanded]="sleepMenuOpen()"
-             aria-label="Sleep timer"
-             title="Sleep timer"
-             (click)="toggleSleepMenu()"
-             (keydown.escape)="closeSleepMenu()"
-             (keydown.enter)="toggleSleepMenu()">
-          <lucide-icon [img]="Icons.Moon" [size]="14" class="sleep-icon"></lucide-icon>
-          <span class="sleep-value" data-testid="sleep-timer-label">{{ sleepLabel() }}</span>
-          <svg class="sleep-arrow" width="8" height="5" viewBox="0 0 8 5" aria-hidden="true">
-            <path d="M1 1l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        @if (sleepMenuOpen()) {
-          <div class="sleep-dropdown" role="listbox" aria-label="Sleep timer">
-            <button class="sleep-option"
+        @if (playbackMenuOpen()) {
+          <div class="playback-menu" id="playback-menu" role="dialog" aria-label="Playback settings" data-testid="audio-playback-menu">
+            <div class="playback-section">
+              <span class="playback-section-label" id="playback-speed-label">Speed</span>
+              <div class="rate-steps" role="group" aria-labelledby="playback-speed-label">
+                <button class="rate-step" type="button" (click)="nudgeRate(-0.05)" aria-label="Slower" data-testid="audio-rate-down">−</button>
+                <span class="rate-readout">{{ formatRate(currentRate()) }}</span>
+                <button class="rate-step" type="button" (click)="nudgeRate(0.05)" aria-label="Faster" data-testid="audio-rate-up">+</button>
+              </div>
+              <div class="rate-options" role="listbox" aria-label="Playback speed">
+                @for (rate of availableRates; track rate) {
+                  <button
+                    class="rate-option"
+                    type="button"
                     role="option"
-                    [attr.aria-selected]="sleepTimerMinutes() === null"
-                    (click)="selectSleepTimer(null)">
-              Off
-            </button>
-            @for (minutes of sleepPresets; track minutes) {
-              <button class="sleep-option"
-                      role="option"
-                      [attr.aria-selected]="sleepTimerMinutes() === minutes"
-                      (click)="selectSleepTimer(minutes)">
-                {{ minutes }} min
-              </button>
-            }
+                    [attr.aria-selected]="rate === currentRate()"
+                    (click)="selectRate(rate)"
+                  >
+                    {{ formatRate(rate) }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="playback-section">
+              <span class="playback-section-label" id="playback-sleep-label">Sleep timer</span>
+              <div class="sleep-options" role="listbox" aria-labelledby="playback-sleep-label">
+                <button
+                  class="sleep-option"
+                  type="button"
+                  role="option"
+                  [attr.aria-selected]="!sleepArmed()"
+                  (click)="selectSleepTimer(null)"
+                >
+                  Off
+                </button>
+                <!-- End of chapter (issue #209). Only offered when the file actually
+                     carries chapter starts; otherwise there is nothing to stop at. -->
+                @if (hasChapters()) {
+                  <button
+                    class="sleep-option"
+                    type="button"
+                    role="option"
+                    [attr.aria-selected]="sleepAtChapterEnd()"
+                    data-testid="audio-sleep-chapter-end"
+                    (click)="selectSleepAtChapterEnd()"
+                  >
+                    Chapter end
+                  </button>
+                }
+                @for (minutes of sleepPresets; track minutes) {
+                  <button
+                    class="sleep-option"
+                    type="button"
+                    role="option"
+                    [attr.aria-selected]="sleepTimerMinutes() === minutes"
+                    (click)="selectSleepTimer(minutes)"
+                  >
+                    {{ minutes }} min
+                  </button>
+                }
+              </div>
+            </div>
           </div>
         }
       </div>

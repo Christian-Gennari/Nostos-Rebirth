@@ -1,0 +1,31 @@
+{
+  "artifact": "audio-light-mobile.png",
+  "capturedAt": "2026-09-18T17:56:01.242Z",
+  "name": "audio-light-mobile",
+  "surface": "audio",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "state": "composition",
+  "checks": [
+    {
+      "id": "audio-composition",
+      "pass": true,
+      "message": "dead band 5px (top 1 / bottom 5, bar 48), player chrome rows 1 (1 expected), overflowX 0px, times \"0:00:00 37:27:33\"",
+      "metrics": {
+        "top": 1,
+        "bottom": 5,
+        "chromeRows": 1,
+        "overflowX": 0,
+        "timeText": "0:00:00 37:27:33"
+      }
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "passed": 1,
+    "skipped": 0,
+    "failed": 0
+  }
+}

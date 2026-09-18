@@ -205,6 +205,20 @@ describe('SecondBrain', () => {
     flushChildConceptLists();
   };
 
+  /**
+   * Lets the debounced note-text search fire and answers it (issue #158). The
+   * debounce is 250ms in the component; the slack keeps the helper stable without
+   * reaching into a private field.
+   */
+  const settleNoteSearch = async (rows: ConceptDto[] = []): Promise<void> => {
+    await new Promise((resolve) => setTimeout(resolve, 320));
+    http
+      .match((request) => request.url === '/api/concepts' && request.params.has('search'))
+      .forEach((request) => request.flush(rows));
+    fixture.detectChanges();
+    await fixture.whenStable();
+  };
+
   const flushDetail = (id: string, value: ConceptDetailDto, related: object[] = []): void => {
     http.expectOne(`/api/concepts/${id}`).flush(value);
     flushRelated(id, related);
@@ -634,7 +648,7 @@ describe('SecondBrain', () => {
     http.expectOne('/api/concepts/c-alpha').flush(detail('c-alpha', 'Alpha'));
   });
 
-  it('renders distinct empty states for an empty index and an empty search', () => {
+  it('renders distinct empty states for an empty index and an empty search', async () => {
     component.concepts.set([]);
     component.loadingConcepts.set(false);
     fixture.detectChanges();
@@ -646,10 +660,73 @@ describe('SecondBrain', () => {
     component.concepts.set(concepts);
     component.setSearchQuery('xyz');
     fixture.detectChanges();
+    // The server search must also come back empty, or the state it renders is a
+    // half-answer (issue #158).
+    await settleNoteSearch([]);
     expect(fixture.nativeElement.querySelector('.empty-index-state')?.textContent).toContain(
       'No concepts match “xyz”'
     );
     expect(fixture.nativeElement.querySelector('.empty-clear')).toBeTruthy();
+  });
+
+  it('reaches note text: a content-only match appears, ranked and labelled', async () => {
+    // Issue #158. The index payload carries no note text, so a word that only
+    // appears inside a note can only be matched on the server — and it must be
+    // labelled, because it is not a concept of that name.
+    component.setSearchQuery('sisyphus');
+    await settleNoteSearch([
+      { id: 'c-gamma', name: 'Absurdity', usageCount: 2, noteMatchCount: 3, noteMatchSnippet: '…Sisyphus, whom the gods…' },
+      { id: 'c-alpha', name: 'Alpha', usageCount: 5, noteMatchCount: 1, noteMatchSnippet: '…Sisyphus again…' },
+    ]);
+
+    // No name matches at all here, so both rows are content matches, most matches first.
+    expect(component.filteredConcepts().map((c) => c.name)).toEqual(['Absurdity', 'Alpha']);
+
+    const labels = fixture.nativeElement.querySelectorAll('[data-testid="index-note-match"]');
+    expect(labels.length).toBe(2);
+    expect(labels[0].textContent).toContain('3 notes');
+    expect(labels[0].textContent).toContain('Sisyphus');
+    expect(labels[1].textContent).toContain('1 note');
+    // Singular vs plural is the sort of thing a test should pin.
+    expect(labels[1].textContent).not.toContain('1 notes');
+  });
+
+  it('keeps a name match in place and still labels the notes it also matches', async () => {
+    component.setSearchQuery('alp');
+    await settleNoteSearch([
+      { id: 'c-alpha', name: 'Alpha', usageCount: 5, noteMatchCount: 2, noteMatchSnippet: '…alpha…' },
+    ]);
+
+    // Name matches lead and keep their ranking; the row gains the label rather
+    // than being duplicated as a content match.
+    expect(component.filteredConcepts().map((c) => c.name)).toEqual(['Alpha']);
+    expect(fixture.nativeElement.querySelectorAll('.index-item').length).toBe(1);
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="index-note-match"]')?.textContent
+    ).toContain('2 notes');
+  });
+
+  it('leaves the merge picker on name matches, and carries the query into the notes', async () => {
+    component.setSearchQuery('sisyphus');
+    await settleNoteSearch([
+      { id: 'c-gamma', name: 'Absurdity', usageCount: 2, noteMatchCount: 3, noteMatchSnippet: '…' },
+    ]);
+
+    // The picker answers "which concept did I mean", so it must never offer a row
+    // that only matched by content. It has its own query box, so search that.
+    component.mergeSearchQuery.set('sisyphus');
+    expect(component.mergeCandidates().map((c) => c.name)).toEqual([]);
+    component.mergeSearchQuery.set('');
+
+    (fixture.nativeElement.querySelector('.index-item') as HTMLButtonElement).click();
+    http.expectOne('/api/concepts/c-gamma').flush(detail('c-gamma', 'Absurdity'));
+    flushRelated('c-gamma');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(component.selectedId()).toBe('c-gamma');
+    // The content match is only useful if the notes that matched are the ones shown.
+    expect(component.noteSearchQuery()).toBe('sisyphus');
   });
 
   it('uses a structureless wait field while the first list request is pending', () => {
@@ -999,10 +1076,11 @@ describe('SecondBrain', () => {
    * the persistent header, visible in both modes, so the query is a normal
    * persistent filter and the map draws the filtered set like the list does.
    */
-  it('carries the index search across the mode toggle', () => {
+  it('carries the index search across the mode toggle', async () => {
     fixture.detectChanges();
 
     component.setSearchQuery('alp');
+    await settleNoteSearch([]);
     expect(component.filteredConcepts().map((concept) => concept.name)).toEqual(['Alpha']);
 
     (fixture.nativeElement.querySelector('.brain-header .view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();

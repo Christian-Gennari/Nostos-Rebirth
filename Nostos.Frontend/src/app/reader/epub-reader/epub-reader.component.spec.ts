@@ -383,6 +383,75 @@ describe('EpubReader theme-following normalization', () => {
     expect(renditions[1].themes.fontSize).toHaveBeenCalledWith('120%');
   });
 
+  it('coalesces a burst of text-size steps into two re-paginations', async () => {
+    await setupComponent();
+    vi.useFakeTimers();
+    try {
+      const component = fixture.componentInstance;
+      const themes = renditions[0].themes;
+      themes.fontSize.mockClear();
+
+      // Five steps, the way a reader hunts for a comfortable size. Each apply
+      // re-paginates the whole section and widens its strip, so applying once
+      // per click is what makes this feel slow — measured on a real chapter:
+      // 1.2s still re-laying-out after the last of five clicks, with the strip
+      // growing 11.9k -> 29.5k px.
+      for (let i = 0; i < 5; i++) component.zoomIn();
+
+      // Leading edge: the first step lands immediately (a lone step stays 32ms).
+      expect(themes.fontSize).toHaveBeenCalledTimes(1);
+      expect(themes.fontSize).toHaveBeenLastCalledWith('110%');
+
+      // …and the rest collapse into ONE trailing apply at the final size.
+      vi.advanceTimersByTime(300);
+      expect(themes.fontSize).toHaveBeenCalledTimes(2);
+      expect(themes.fontSize).toHaveBeenLastCalledWith('150%');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('skips the trailing apply when it would repaint the same size', async () => {
+    await setupComponent();
+    vi.useFakeTimers();
+    try {
+      const component = fixture.componentInstance;
+      const themes = renditions[0].themes;
+      themes.fontSize.mockClear();
+
+      component.zoomIn();
+      expect(themes.fontSize).toHaveBeenCalledTimes(1);
+
+      // The quiet-window apply fires with the value it already applied — a
+      // second full re-pagination that would buy nothing.
+      vi.advanceTimersByTime(300);
+      expect(themes.fontSize).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('coalesces rapid typography changes the same way', async () => {
+    await setupComponent();
+    vi.useFakeTimers();
+    try {
+      const component = fixture.componentInstance;
+      const applied = vi.spyOn(component as never, 'applyTypographyToOpenContents' as never);
+
+      component.setTypography({ fontFamily: 'sans' });
+      expect(applied).toHaveBeenCalledTimes(1); // leading edge
+      component.setTypography({ fontFamily: 'mono' });
+      component.setTypography({ fontFamily: 'serif' });
+      expect(applied).toHaveBeenCalledTimes(1); // deferred, not once per click
+
+      vi.advanceTimersByTime(300);
+      expect(applied).toHaveBeenCalledTimes(2); // one apply, at the end
+      expect(component.typography().fontFamily).toBe('serif');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('annotation styles stay visible alongside the eager theme normalization', async () => {
     await setupComponent();
 

@@ -11,6 +11,11 @@ public interface IConceptRepository
     Task<List<ConceptDto>> GetAllWithUsageCountAsync();
 
     /// <summary>
+    /// Returns concepts whose linked notes match the given term in Content, SelectedText, or Book Title.
+    /// </summary>
+    Task<List<ConceptDto>> SearchByNoteTextAsync(string term);
+
+    /// <summary>
     /// Returns aggregate concept and reference counts in a single database query.
     /// </summary>
     Task<ConceptStatsDto> GetStatsAsync();

@@ -264,7 +264,20 @@ for (const f of files) {
    uses the themed `--shadow-glass-lg` token. The old add-book and confirm cards
    each hand-wrote a two-stop rgba shadow; those four literals are gone, and
    every dialog now follows the theme instead of assuming a light surface. */
-const LITERAL_COLOUR_BUDGET = 69;
+/* Lowered 69 -> 65 by giving the reader shell's panels and popovers the shadow
+   tokens the rest of the app already had: the TOC/notes panels, the quick-note
+   field and the progress tooltip each hand-wrote a light-theme rgba, and the
+   mobile overflow menu (now removed — the surface header holds those controls)
+   carried a fourth. The one upward shadow left, on the highlight confirmation
+   bar, is directional rather than incidental. */
+/* Lowered 64 -> 61 by the audio reader's control pass (issue #227): the two pills
+   and their dropdowns carried hand-written focus shadows and a raw cover drop
+   shadow, and the unified Playback control uses the shadow/radius/motion tokens
+   instead. */
+/* Lowered 65 -> 64 by removing a dead declaration in the PDF sidebar's content
+   panel: a `rgba(0,0,0,0.5)` shadow was set and then overwritten by a tokenised
+   one two lines later, so the literal never painted. */
+const LITERAL_COLOUR_BUDGET = 61;
 
 {
   const ALLOW = [

@@ -15,7 +15,6 @@ import {
   Check,
   Clock,
   List,
-  MoreHorizontal,
   ZoomIn,
   ZoomOut,
   ChevronLeft,
@@ -23,6 +22,7 @@ import {
   Save,
   Plus,
   Info,
+  Search,
   Type as TypeIcon,
 } from 'lucide-angular';
 
@@ -39,6 +39,7 @@ import { isTypingTarget, pageActionForKey } from './reader-keyboard';
 
 // Components
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
+import { ScrollModeType } from 'ngx-extended-pdf-viewer';
 import { PdfReader } from './pdf-reader/pdf-reader.component';
 import { EpubReader } from './epub-reader/epub-reader.component';
 import { AudioReader } from './audio-reader/audio-reader.component';
@@ -68,7 +69,9 @@ export class ReaderShell implements OnInit {
   // Template-ref query (not type query): the epub child is stubbed in specs,
   // and a type query would resolve to null against the stub.
   @ViewChild('epubReader') epubReader?: EpubReader;
-  @ViewChild(PdfReader) pdfReader?: IReader;
+  // Concrete type (still a type query, so a spec stub resolves to null as before):
+  // the shell drives the fixed-layout view panel through the reader's own zoom API.
+  @ViewChild(PdfReader) pdfReader?: PdfReader;
   @ViewChild(AudioReader) audioReader?: IReader;
 
   private route = inject(ActivatedRoute);
@@ -88,7 +91,6 @@ export class ReaderShell implements OnInit {
     Check,
     Clock,
     List,
-    MoreHorizontal,
   ZoomIn,
   ZoomOut,
   Prev: ChevronLeft,
@@ -96,6 +98,7 @@ export class ReaderShell implements OnInit {
   Save,
   Plus,
   Info,
+  Search,
   Type: TypeIcon,
   };
 
@@ -106,6 +109,50 @@ export class ReaderShell implements OnInit {
     this.typoOpen.update((v) => !v);
   }
 
+  /**
+   * Opens the reader's own search UI. Only rendered for formats that have one
+   * (PDF today), and the capability is optional on IReader, so this cannot hand
+   * a reader a control it does not implement. Ctrl/Cmd+F reaches the same place;
+   * this exists so search is reachable by touch at all (issue #226 §2).
+   */
+  openSearch(): void {
+    this.pdfReader?.openSearch?.();
+  }
+
+  /**
+   * Fixed-layout view controls, driven by the shell's Aa panel. These delegate to
+   * the PDF reader so the render scale lives with the document that owns it, and
+   * so the panel can show which fit is in effect.
+   */
+  pdfZoomPresets(): { value: string | number; label: string }[] {
+    return this.pdfReader?.zoomPresets ?? [];
+  }
+
+  pdfZoomLabel(): string {
+    return this.pdfReader?.zoomLabel() ?? '';
+  }
+
+  isZoomPreset(value: string | number): boolean {
+    return this.pdfReader?.isZoomPreset(value) ?? false;
+  }
+
+  setZoomPreset(value: string | number): void {
+    this.pdfReader?.setZoom(value);
+  }
+
+  /** Reading mode (continuous vs page-by-page), driven by the same view panel. */
+  pdfReadingModes(): { value: ScrollModeType; label: string }[] {
+    return this.pdfReader?.readingModes ?? [];
+  }
+
+  isScrollMode(mode: ScrollModeType): boolean {
+    return this.pdfReader?.isScrollMode(mode) ?? false;
+  }
+
+  setScrollMode(mode: ScrollModeType): void {
+    this.pdfReader?.setScrollMode(mode);
+  }
+
   book = signal<any>(null);
   loading = signal(true);
   notesOpen = signal(false);
@@ -114,7 +161,6 @@ export class ReaderShell implements OnInit {
   highlightMode = signal(false);
   pendingSelectionText = signal<string | null>(null);
   highlightSaving = signal(false);
-  overflowOpen = signal(false);
 
   dbNotes = signal<Note[]>([]);
   quickNoteContent = signal('');
@@ -183,11 +229,6 @@ export class ReaderShell implements OnInit {
   ngOnInit() {
     this.loadConcepts();
 
-    const mql = window.matchMedia('(min-width: 769px)');
-    mql.addEventListener('change', (e) => {
-      if (e.matches) this.overflowOpen.set(false);
-    });
-
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.booksService.get(id).subscribe({
@@ -247,8 +288,17 @@ export class ReaderShell implements OnInit {
     this.highlightMode.set(newMode);
   }
 
-  toggleOverflow() {
-    this.overflowOpen.update((v) => !v);
+  /**
+   * The header's highlight control merged into the notes panel, so the header
+   * carries one "my marks" control instead of two. Switching the mode ON closes
+   * the panel — the reader is then immediately ready for a selection, which keeps
+   * the old one-tap flow — while switching it OFF leaves the panel open, because
+   * the user is looking at the notes they just made.
+   */
+  toggleHighlightFromPanel(): void {
+    const turningOn = !this.highlightMode();
+    this.toggleHighlightMode();
+    if (turningOn) this.notesOpen.set(false);
   }
 
   commitHighlight() {
@@ -384,6 +434,27 @@ export class ReaderShell implements OnInit {
   onDocumentKeydown(event: KeyboardEvent): void {
     if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
     if (isTypingTarget(event.target)) return;
+
+    if (event.key === 'Escape') {
+      // Overlays close in the order they stack: the typography panel rides on
+      // top of the drawers, so it goes first. Typing targets are already out.
+      if (this.typoOpen()) {
+        this.typoOpen.set(false);
+        event.preventDefault();
+        return;
+      }
+      if (this.tocOpen()) {
+        this.tocOpen.set(false);
+        event.preventDefault();
+        return;
+      }
+      if (this.notesOpen()) {
+        this.notesOpen.set(false);
+        event.preventDefault();
+        return;
+      }
+      return;
+    }
 
     const action = pageActionForKey(event);
     if (!action) return;

@@ -67,6 +67,11 @@ class EpubReaderStub {
   ];
   lineOptions = [1.4, 1.6];
   marginOptions = [{ value: 'normal', label: 'Normal' }];
+  // Text size: the toolbar's two steps moved into the Aa panel, so the shell now
+  // binds the reader's size signal and zoom methods directly.
+  fontSizePercent = signal(100);
+  zoomIn = vi.fn();
+  zoomOut = vi.fn();
   setTypography = vi.fn();
   resetTypography = vi.fn();
   next = vi.fn();
@@ -270,24 +275,37 @@ describe('ReaderShell toolbar contract (theme system removed)', () => {
     expect(layout.nativeElement.hasAttribute('data-theme')).toBe(false);
   });
 
-  it('renders each toolbar control exactly once: More, prev/next, highlight, notes', async () => {
-    // Non-audio book: the full toolbar (More, center nav, highlight, notes).
+  it('splits the chrome: configuration in the header, page turns in the pager', async () => {
+    // Non-audio book. Every control that CONFIGURES the reader belongs to the
+    // surface header now; the bottom bar is the pager and nothing else.
     const epubBook = { ...audiobook, id: 'book-epub', fileName: 'iliad.epub' } as Book;
     booksGetSpy.mockReturnValue(of(epubBook));
 
     fixture = await configureReaderShell();
     render();
 
-    const buttons = fixture.debugElement.queryAll(By.css('.reader-toolbar .icon-btn'));
-    const titles = buttons
-      .map((b) => b.nativeElement.getAttribute('title'))
-      .filter((t): t is string => !!t);
+    const titlesOf = (selector: string) =>
+      fixture.debugElement
+        .queryAll(By.css(selector))
+        .map((b) => b.nativeElement.getAttribute('title'))
+        .filter((t): t is string => !!t);
 
-    expect(titles.filter((t) => t === 'More')).toHaveLength(1);
-    expect(titles.filter((t) => t === 'Previous')).toHaveLength(1);
-    expect(titles.filter((t) => t === 'Next')).toHaveLength(1);
-    expect(titles.filter((t) => t === 'Highlight mode')).toHaveLength(1);
-    expect(titles.filter((t) => t === 'Notes & Highlights')).toHaveLength(1);
+    const header = titlesOf('.reader-header .icon-btn');
+    expect(header.filter((t) => t === 'Table of Contents')).toHaveLength(1);
+    expect(header.filter((t) => t === 'Notes & Highlights')).toHaveLength(1);
+    expect(header.filter((t) => t === 'View settings')).toHaveLength(1);
+    // The highlight control merged into the notes panel: at 390px the header held
+    // five controls and left the book title 78px ("Being an…").
+    expect(header.filter((t) => t === 'Highlight mode')).toHaveLength(0);
+    // Back lives with the title it returns to, not with the page keys.
+    expect(header.filter((t) => t === 'Back to Library')).toHaveLength(1);
+    // And nothing about turning pages is up here.
+    expect(header.filter((t) => t === 'Previous' || t === 'Next')).toHaveLength(0);
+
+    const pager = titlesOf('.reader-toolbar .icon-btn');
+    expect(pager.filter((t) => t === 'Previous')).toHaveLength(1);
+    expect(pager.filter((t) => t === 'Next')).toHaveLength(1);
+    expect(pager.filter((t) => t === 'Highlight mode' || t === 'View settings')).toHaveLength(0);
 
     // The progress cluster sits between prev and next in the center group.
     const center = fixture.debugElement.query(By.css('.toolbar-center'));
@@ -295,38 +313,126 @@ describe('ReaderShell toolbar contract (theme system removed)', () => {
     expect(center.query(By.css('.progress-display'))).not.toBeNull();
   });
 
-  /**
-   * These classes are CSS HOOKS, not decoration: `.overflow-toggle` is `display: none`
-   * on desktop and `display: inline-flex` at mobile widths (it is the only way to reach
-   * the desktop nav on a phone), and `.desktop-only` is hidden at mobile widths. The
-   * buttons were migrated to `appIconButton`, which adds its own `icon-btn--<rung>`
-   * class to the host, so a mistake here would silently break the responsive swap —
-   * the kind of thing a desktop-only screenshot cannot see.
-   *
-   * A bare `overflow-toggle` ATTRIBUTE instead of `class="overflow-toggle"` is exactly
-   * the bug this guards: it is valid HTML, compiles, and matches nothing.
-   */
-  it('keeps the CSS hook classes on the migrated toolbar buttons', async () => {    // A NON-audio book: the overflow toggle and the desktop-only zoom pair live in the
-    // `@else` branch, so an audiobook fixture renders none of them and the assertions
-    // below would pass vacuously against an empty list.
+  it('merges the highlight control into the notes panel', async () => {
+    // One "my marks" control in the header instead of two. The tap that turns
+    // highlighting ON also closes the panel, so the reader is ready for a
+    // selection — the same single tap the header button used to take.
+    const epubBook = { ...audiobook, id: 'book-epub', fileName: 'iliad.epub' } as Book;
+    booksGetSpy.mockReturnValue(of(epubBook));
+
+    fixture = await configureReaderShell();
+    render();
+    const component = fixture.componentInstance;
+
+    component.toggleNotes();
+    render();
+    const toggle = fixture.debugElement.query(By.css('[data-testid="reader-highlight-toggle"]'));
+    expect(toggle).not.toBeNull();
+    expect(toggle.nativeElement.textContent).toContain('Highlight text');
+
+    toggle.nativeElement.click();
+    render();
+    expect(component.highlightMode()).toBe(true);
+    expect(component.notesOpen()).toBe(false);
+
+    // Reopening with the mode on: the row reports it, and switching it off leaves
+    // the panel open because the user is looking at their notes.
+    component.toggleNotes();
+    render();
+    const toggleAgain = fixture.debugElement.query(By.css('[data-testid="reader-highlight-toggle"]'));
+    expect(toggleAgain.nativeElement.textContent).toContain('Highlighting is on');
+    toggleAgain.nativeElement.click();
+    render();
+    expect(component.highlightMode()).toBe(false);
+    expect(component.notesOpen()).toBe(true);
+  });
+
+  it('has no overflow menu left to reach the desktop-only controls', async () => {
+    // The mobile "More" menu existed only because ten controls could not share
+    // one 44px row. The header holds them, so the menu and its CSS hook are gone
+    // — this test is what stops them creeping back in.
     const epubBook = { ...audiobook, id: 'book-epub', fileName: 'iliad.epub' } as Book;
     booksGetSpy.mockReturnValue(of(epubBook));
 
     fixture = await configureReaderShell();
     render();
 
-    const overflow = fixture.debugElement.queryAll(By.css('button.overflow-toggle'));
-    expect(overflow.length).toBe(1);
+    expect(fixture.debugElement.queryAll(By.css('.overflow-toggle'))).toHaveLength(0);
+    expect(fixture.debugElement.queryAll(By.css('.overflow-menu'))).toHaveLength(0);
+    expect(fixture.nativeElement.querySelector('.reader-back')).not.toBeNull();
+  });
 
-    const desktopOnly = fixture.debugElement.queryAll(By.css('button.desktop-only'));
-    expect(desktopOnly.length).toBe(2); // zoom out + zoom in
+  /**
+   * Every reader control must be a real `appIconButton` button, and none of them
+   * may be hidden on a phone any more. The PDF zoom pair used to carry
+   * `.desktop-only`, which left a phone with a page fitted to about 9.5px and no
+   * way to enlarge it (issue #226 §4), so this test now asserts the opposite:
+   * the hook is applied to no reader control at all.
+   */
+  it('renders every reader control as a real button, none hidden on mobile', async () => {
+    // A PDF book: the one format that carries the render-scale pair (an EPUB's
+    // text size lives in the Aa panel instead).
+    const pdfBook = { ...audiobook, id: 'book-pdf', fileName: 'being-and-time.pdf' } as Book;
+    booksGetSpy.mockReturnValue(of(pdfBook));
 
-    // And every one of them is still a real button carrying the shared class.
-    for (const b of [...overflow, ...desktopOnly]) {
+    fixture = await configureReaderShell();
+    render();
+
+    const headerTitles = fixture.debugElement
+      .queryAll(By.css('.reader-header button.icon-btn'))
+      .map((b) => b.nativeElement.getAttribute('title'));
+    // Zoom moved into the view panel: at 390px the two zoom buttons plus search,
+    // highlight, notes and contents left the title about 60px of a 390px header.
+    expect(headerTitles).not.toContain('Zoom out');
+    expect(headerTitles).not.toContain('Zoom in');
+    expect(headerTitles).toContain('View settings');
+
+    expect(fixture.debugElement.queryAll(By.css('button.desktop-only'))).toHaveLength(0);
+
+    const controls = fixture.debugElement.queryAll(
+      By.css('.reader-header button.icon-btn, .reader-toolbar button.icon-btn')
+    );
+    expect(controls.length).toBeGreaterThan(0);
+    for (const b of controls) {
       const el = b.nativeElement as HTMLButtonElement;
       expect(el.tagName).toBe('BUTTON');
       expect(el.classList.contains('icon-btn')).toBe(true);
     }
+  });
+
+  it('offers a search control for PDF, and only for PDF', async () => {
+    // A phone has no Ctrl+F, so without a visible control search is unreachable
+    // by touch at all (issue #226 §2). Formats that do not implement search must
+    // not be offered the control — the capability is optional on IReader.
+    const pdfBook = { ...audiobook, id: 'book-pdf', fileName: 'being-and-time.pdf' } as Book;
+    booksGetSpy.mockReturnValue(of(pdfBook));
+    fixture = await configureReaderShell();
+    render();
+
+    const searchBtn = fixture.debugElement
+      .queryAll(By.css('.reader-header button.icon-btn'))
+      .map((b) => b.nativeElement as HTMLButtonElement)
+      .find((b) => b.getAttribute('title') === 'Search');
+    expect(searchBtn).toBeTruthy();
+    expect(searchBtn!.getAttribute('aria-label')).toBe('Search in document');
+
+    const spy = vi.spyOn(fixture.componentInstance, 'openSearch');
+    searchBtn!.click();
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers no search control to a format that has no search', async () => {
+    // The capability is optional on IReader; an EPUB implements no search, so the
+    // shell must not hand it a control that would do nothing.
+    const epubBook = { ...audiobook, id: 'book-epub', fileName: 'iliad.epub' } as Book;
+    booksGetSpy.mockReturnValue(of(epubBook));
+    fixture = await configureReaderShell();
+    render();
+
+    const titles = fixture.debugElement
+      .queryAll(By.css('.reader-header button.icon-btn'))
+      .map((b) => b.nativeElement.getAttribute('title'));
+    expect(titles).not.toContain('Search');
   });
 });
 
@@ -417,6 +523,31 @@ describe('ReaderShell typography panel (EPUB)', () => {
     toggle.click();
     render();
     expect(fixture.nativeElement.querySelector('[data-testid="typo-panel"]')).toBeTruthy();
+  });
+
+  it('offers the same view control for a PDF, with the zoom rows and no typeface rows', async () => {
+    const pdfBook = { ...audiobook, id: 'book-pdf', fileName: 'being-and-time.pdf' } as Book;
+    booksGetSpy.mockReturnValue(of(pdfBook));
+
+    fixture = await configureReaderShell();
+    render();
+
+    const toggle = fixture.nativeElement.querySelector('[data-testid="typo-toggle"]');
+    expect(toggle).toBeTruthy();
+    toggle.click();
+    render();
+
+    const panel = fixture.nativeElement.querySelector('[data-testid="typo-panel"]');
+    expect(panel).toBeTruthy();
+    const labels = [...panel.querySelectorAll('.typo-label')].map(
+      (e: HTMLElement) => e.textContent?.trim() ?? ''
+    );
+    expect(labels).toContain('Reading mode');
+    expect(labels).toContain('Zoom');
+    expect(labels).toContain('Page fit');
+    // A fixed-layout page has no reflow to retype.
+    expect(labels).not.toContain('Typeface');
+    expect(labels).not.toContain('Line height');
   });
 
   it('shows no Aa toggle for audiobooks', async () => {

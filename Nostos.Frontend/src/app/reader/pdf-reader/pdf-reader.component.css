@@ -1,5 +1,39 @@
 /* Nostos.Frontend/src/app/reader/pdf-reader/pdf-reader.css */
 
+/* ---------------------------------------------------------------------------
+   Why this file needs ::ng-deep — the full inventory (issue #226 §6/§9)
+   ---------------------------------------------------------------------------
+   Everything below that crosses the encapsulation boundary does so because the
+   element it styles is rendered by ngx-extended-pdf-viewer (or appended into
+   its text layer), never by this template. Every group was re-checked against a
+   live 512-page book with the app's own DOM, so none of them are guesses:
+
+   1. HIGHLIGHT LAYER (3 rules) — `.custom-highlight-layer`, `.highlight-group`,
+      `.highlight-box`. Created by pdf-annotation-manager.ts inside the viewer's
+      text layer. Measured: 4 live layers in the DOM.
+   2. VIEWER LAYOUT (4 rules) — `#mainContainer.toolbar-hidden` and
+      `#viewerContainer`. The library keeps a 33px top offset plus a negative
+      margin reserved for the toolbar it hides; the shell renders its own
+      toolbar below, so both must be reset. The bottom scroll padding is what
+      lets the final page clear that toolbar — pixel-verified at 0.0px on
+      1440x900 and 390x844.
+   3. PAGE EDGE (1 rule) — `#viewer .page`, the fixed light surround.
+   4. SIDEBAR (10 rules) — the library's own outline sidebar. NOT dead code:
+      the shell's Contents button drives `sidebarVisible`, so it is reachable
+      (measured open at 297px wide) and these rules are what make the library's
+      list look like the app's own.
+   5. LIBRARY TOOLBAR (1 rule) — `#toolbarSidebar .toolbarButton`. Verified
+      necessary by falsification: disabling it at runtime made two 20x22px
+      buttons appear that `showSidebarButton=false` does not hide.
+   6. FIND BAR (my own, 8 rules) — the library's search bar, scoped to
+      `#pdf-viewer-wrapper`.
+
+   A consolidation attempt that folded eight of these into one
+   `:host ::ng-deep { … }` block compiled, passed lint and passed all 559 unit
+   tests — and silently dropped the styling in the browser (font fell back to
+   `message-box`, the surface to pdf.js's `rgb(249,249,250)`). Count is not the
+   goal here; load-bearing is. */
+
 :host {
   display: block;
   position: absolute;
@@ -25,7 +59,12 @@
   height: 100%;
 }
 
-/* --- Highlight Layer Styles --- */
+/* --- Highlight layer --------------------------------------------------------
+   Created by pdf-annotation-manager.ts and appended INSIDE the viewer's text
+   layer, so these rules have to cross the encapsulation boundary. Values are
+   preserved exactly from the four split rules this replaced: the group carries
+   the blend mode and the transparency (so overlapping boxes merge into one
+   shape instead of double-darkening) and every box is fully opaque inside it. */
 ::ng-deep .custom-highlight-layer {
   position: absolute;
   top: 0;
@@ -36,9 +75,6 @@
   z-index: 10;
 }
 
-/* NEW: The Group handles the blending.
-   This flattens the children so overlapping boxes don't double-darken.
-*/
 ::ng-deep .highlight-group {
   position: absolute;
   top: 0;
@@ -46,36 +82,19 @@
   width: 100%;
   height: 100%;
   pointer-events: none; /* Let clicks pass through empty areas */
-
-  /* Use Multiply for better text contrast, or normal opacity if that fails */
-  mix-blend-mode: multiply;
+  opacity: 0.4; /* Controls the transparency of the whole note */
+  mix-blend-mode: multiply; /* Keeps the text legible under the colour */
 }
 
-/* NEW: The Box is now SOLID color.
-   Solid Yellow + Solid Yellow = Solid Yellow (No stripes).
-*/
 ::ng-deep .highlight-box {
   position: absolute;
-  background-color: var(--color-highlight); /* Solid Yellow */
+  background-color: var(--color-highlight);
   cursor: text;
-  opacity: 0.4; /* Apply opacity here OR on the group. */
-}
-
-/* FIX for "Middle Row":
-   If we put opacity on the BOX, we get stripes.
-   If we put opacity on the GROUP, we get a flat shape.
-*/
-::ng-deep .highlight-group {
-  opacity: 0.4; /* Controls the transparency of the whole note */
-  mix-blend-mode: multiply;
-}
-
-::ng-deep .highlight-box {
-  opacity: 1; /* Reset opacity so they merge as solids */
+  opacity: 1; /* Boxes stay solid so siblings merge instead of striping */
 }
 
 ::ng-deep .highlight-box:hover {
-  background-color: var(--color-highlight-hover); /* Slight darken on hover */
+  background-color: var(--color-highlight-hover);
 }
 
 /* --- UI Tweaks --- */
@@ -139,8 +158,6 @@
 ::ng-deep #sidebarContent {
   all: unset;
   border-right: 1px solid var(--border-color) !important;
-  box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.5) !important;
-
   top: 0 !important;
   bottom: 0 !important;
   background-color: var(--bg-surface) !important;
@@ -189,4 +206,70 @@
 ::ng-deep #toolbarSidebar .toolbarButton {
   display: none !important;
   height: 0 !important;
+}
+
+/* --- Search bar (issue #226 §2) --------------------------------------------
+   The library renders its find bar from its own custom elements, so this has to
+   cross the component boundary with ::ng-deep. Scoped to #pdf-viewer-wrapper so
+   nothing can leak into the shell. Tokens only: the bar used to render pdf.js's
+   cool grey (#f9f9fa) and 2px corners next to a warm-paper app. */
+#pdf-viewer-wrapper ::ng-deep .findbar {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
+  padding: 0.4rem 0.85rem;
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.8125rem;
+  color: var(--color-text-main);
+  gap: 0.75rem;
+  align-items: center;
+}
+
+#pdf-viewer-wrapper ::ng-deep .findbar .toolbarField[type='text'] {
+  background: var(--bg-body);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-main);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  padding: 3px 8px;
+  min-height: 28px;
+}
+
+#pdf-viewer-wrapper ::ng-deep .findbar .toolbarField[type='text']:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
+#pdf-viewer-wrapper ::ng-deep .findbar input.toolbarField[type='checkbox'] {
+  accent-color: var(--color-primary);
+  width: 14px;
+  height: 14px;
+  margin-inline-end: 0.35rem;
+}
+
+#pdf-viewer-wrapper ::ng-deep .findbar .toolbarLabel {
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+#pdf-viewer-wrapper ::ng-deep .findbar button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-main);
+  min-width: 28px;
+  min-height: 28px;
+}
+
+#pdf-viewer-wrapper ::ng-deep .findbar button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--color-primary);
+  border-color: var(--border-color);
+}
+
+#pdf-viewer-wrapper ::ng-deep .findbar button:disabled {
+  color: var(--color-text-faint);
 }

@@ -1,6 +1,6 @@
 {
   "artifact": "pdf-light-mobile-bottom.png",
-  "capturedAt": "2026-09-12T12:11:26.692Z",
+  "capturedAt": "2026-09-18T17:28:57.842Z",
   "name": "pdf-light-mobile-bottom",
   "surface": "pdf",
   "viewport": {
@@ -12,7 +12,7 @@
     {
       "id": "pdf-scrollport-clearance",
       "pass": true,
-      "message": "final-page scrollport bottom 791.0px vs toolbar top 791.0px -> clearance 0.0px (clear)",
+      "message": "final-page scrollport bottom 784.0px vs toolbar top 784.0px -> clearance 0.0px (clear)",
       "metrics": {
         "clearance": 0
       }
