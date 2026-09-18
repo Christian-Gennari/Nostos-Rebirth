@@ -1,15 +1,27 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   LucideAngularModule,
   AlertCircle,
   Book as BookIcon,
+  ChevronDown,
   RotateCcw,
   WifiOff,
   X,
 } from 'lucide-angular';
 import { ImportService } from '../../core/services/import.service';
 import { ImportActivity, isImportInFlight, importStageLabel } from '../../core/dtos/import.dtos';
+
+/** localStorage flag: the panel stays collapsed across visits once tucked away. */
+const IMPORTS_COLLAPSED_KEY = 'nostos.imports-collapsed';
+
+function readCollapsed(): boolean {
+  try {
+    return localStorage.getItem(IMPORTS_COLLAPSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 /**
  * "Imports in Progress" — pinned at the top of the library view, above the sort
@@ -44,6 +56,20 @@ export class ImportsPanel {
   readonly RotateCcwIcon = RotateCcw;
   readonly XIcon = X;
   readonly WifiOffIcon = WifiOff;
+  readonly ChevronIcon = ChevronDown;
+
+  /** Tucked away to a one-line summary; persists across visits. */
+  readonly collapsed = signal(readCollapsed());
+
+  toggleCollapsed(): void {
+    const next = !this.collapsed();
+    try {
+      localStorage.setItem(IMPORTS_COLLAPSED_KEY, next ? '1' : '0');
+    } catch {
+      // Collapse still applies for the session even if it won't persist.
+    }
+    this.collapsed.set(next);
+  }
 
   /** Active imports first, then the failures the user has to act on. */
   readonly entries = computed(() => [
@@ -58,6 +84,19 @@ export class ImportsPanel {
   readonly heading = computed(() => {
     const count = this.entries().length;
     return count === 1 ? 'Imports in Progress (1)' : `Imports in Progress (${count})`;
+  });
+
+  /** One-line status for the collapsed strip: counts plus the furthest progress. */
+  readonly summary = computed(() => {
+    const active = this.feed.activeImports().length;
+    const failed = this.feed.failedImports().length;
+    const parts: string[] = [];
+    if (active > 0) {
+      const furthest = Math.max(...this.feed.activeImports().map((a) => a.percent ?? 0));
+      parts.push(`${active} in progress · ${furthest}%`);
+    }
+    if (failed > 0) parts.push(failed === 1 ? '1 failed' : `${failed} failed`);
+    return parts.join(' · ');
   });
 
   isInFlight(activity: ImportActivity): boolean {

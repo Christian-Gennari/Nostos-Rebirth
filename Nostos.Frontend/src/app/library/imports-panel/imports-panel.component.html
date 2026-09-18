@@ -1,5 +1,5 @@
 @if (hasEntries()) {
-<section class="imports-panel" aria-labelledby="imports-panel-title">
+<section class="imports-panel" [class.is-collapsed]="collapsed()" aria-labelledby="imports-panel-title">
   <div class="imports-head">
     <h2 id="imports-panel-title" class="imports-title">{{ heading() }}</h2>
     @if (reconnecting()) {
@@ -8,8 +8,22 @@
       <span>Reconnecting…</span>
     </span>
     }
+    <button
+      type="button"
+      class="imports-toggle"
+      (click)="toggleCollapsed()"
+      [attr.aria-expanded]="!collapsed()"
+      [attr.title]="collapsed() ? 'Expand imports' : 'Collapse imports'"
+      [attr.aria-label]="collapsed() ? 'Expand imports' : 'Collapse imports'"
+      data-testid="imports-toggle"
+    >
+      <lucide-icon [img]="ChevronIcon" [size]="15" strokeWidth="2"></lucide-icon>
+    </button>
   </div>
 
+  @if (collapsed()) {
+  <p class="imports-summary" data-testid="imports-summary">{{ summary() }}</p>
+  } @else {
   <ul class="imports-list">
     @for (entry of entries(); track entry.id) {
     <li class="import-entry" [class.is-failed]="!isInFlight(entry)">
@@ -80,5 +94,6 @@
     </li>
     }
   </ul>
+  }
 </section>
 }

@@ -48,6 +48,7 @@ describe('ImportsPanel', () => {
   }
 
   beforeEach(async () => {
+    localStorage.clear();
     activeImports.set([]);
     failedImports.set([]);
     connectionState.set('idle');
@@ -208,5 +209,31 @@ describe('ImportsPanel', () => {
       '.import-cover-img',
     );
     expect(img?.getAttribute('src')).toBe('/api/books/abc/cover/thumbnail?width=320');
+  });
+
+  it('starts expanded and tucks away to a one-line summary on toggle', () => {
+    localStorage.clear();
+    activeImports.set([activity(), activity({ id: 'job-2', percent: 80 })]);
+    failedImports.set([activity({ id: 'job-3', state: 'failed', stage: 'failed' })]);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('.imports-list')).toBeTruthy();
+    expect(host.querySelector('[data-testid="imports-summary"]')).toBeNull();
+
+    (host.querySelector('[data-testid="imports-toggle"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(host.querySelector('.imports-list')).toBeNull();
+    const summary = host.querySelector('[data-testid="imports-summary"]');
+    expect(summary?.textContent).toContain('2 in progress · 80%');
+    expect(summary?.textContent).toContain('1 failed');
+    expect(localStorage.getItem('nostos.imports-collapsed')).toBe('1');
+
+    // And back again.
+    (host.querySelector('[data-testid="imports-toggle"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(host.querySelector('.imports-list')).toBeTruthy();
+    expect(localStorage.getItem('nostos.imports-collapsed')).toBe('0');
   });
 });
