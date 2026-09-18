@@ -57,6 +57,49 @@
 
       <form id="add-book-form" (ngSubmit)="submit()" #bookForm="ngForm" class="modal-form">
         <div class="modal-body">
+          <!-- The import's state belongs to the whole dialog, not to the tab the
+               user happened to start it from: the form stays editable while a
+               download runs, and a failure has to be visible from anywhere. -->
+          @if (seededFromSource()) {
+            <p class="source-hint">
+              Prefilled from {{ seededSourceName() }} — review the details, then import.
+            </p>
+          }
+
+          @if (sourceImportError(); as err) {
+            <p class="source-error">
+              <lucide-icon [img]="ErrorIcon" [size]="14"></lucide-icon> {{ err }}
+            </p>
+          }
+
+          @if (runningAcquisition(); as job) {
+            <div class="source-progress" role="status" aria-live="polite">
+              <div class="source-progress-head">
+                <span>{{ stageLabel(job) }}</span>
+                <span>{{ job.percent }}%</span>
+              </div>
+              <div class="source-progress-track">
+                <div class="source-progress-fill" [style.width.%]="job.percent"></div>
+              </div>
+              @if (job.detail) {
+                <span class="source-hint">{{ job.detail }}</span>
+              }
+              <button type="button" class="btn btn-secondary" (click)="cancelImport()">
+                Cancel import
+              </button>
+            </div>
+          } @else if (acquisition(); as job) {
+            @if (job.state === 'failed') {
+              <p class="source-error">
+                <lucide-icon [img]="ErrorIcon" [size]="14"></lucide-icon>
+                {{ job.message || 'The import failed.'
+                }}{{ job.errorCode ? ' (' + job.errorCode + ')' : '' }}
+              </p>
+            } @else if (job.state === 'cancelled') {
+              <p class="source-hint">Import cancelled.</p>
+            }
+          }
+
           <!-- TAB 1: Book Info -->
           <div class="tab-content" [hidden]="activeTab() !== 'Book Info'">
             <div class="form-group">
@@ -500,7 +543,7 @@
                 </p>
               }
 
-              @if (selectedItem(); as item) {
+              @if (selectedSourceItem(); as item) {
                 <div class="source-detail">
                   <h4 class="source-detail-title">{{ item.title }}</h4>
                   @if (item.author) {
@@ -571,51 +614,20 @@
                     </p>
                   }
 
-                  @if (sourceImportError()) {
-                    <p class="source-error">
-                      <lucide-icon [img]="ErrorIcon" [size]="14"></lucide-icon> {{ sourceImportError() }}
-                    </p>
-                  }
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    (click)="seedFromSelectedItem()"
+                    [disabled]="item.assets.length === 0 || !!runningAcquisition()"
+                  >
+                    <lucide-icon [img]="DownloadIcon" [size]="14"></lucide-icon>
+                    Use this book
+                  </button>
+                  <p class="source-hint">
+                    Fills the form with what the source knows, so you can finish the
+                    details before anything is downloaded.
+                  </p>
 
-                  @if (runningAcquisition(); as job) {
-                    <div class="source-progress" role="status" aria-live="polite">
-                      <div class="source-progress-head">
-                        <span>{{ stageLabel(job) }}</span>
-                        <span>{{ job.percent }}%</span>
-                      </div>
-                      <div class="source-progress-track">
-                        <div class="source-progress-fill" [style.width.%]="job.percent"></div>
-                      </div>
-                      @if (job.detail) {
-                        <span class="source-hint">{{ job.detail }}</span>
-                      }
-                      <button type="button" class="btn btn-secondary" (click)="cancelImport()">
-                        Cancel import
-                      </button>
-                    </div>
-                  } @else {
-                    <button
-                      type="button"
-                      class="btn btn-primary"
-                      (click)="importSelected()"
-                      [disabled]="item.assets.length === 0"
-                    >
-                      <lucide-icon [img]="DownloadIcon" [size]="14"></lucide-icon>
-                      Import into my library
-                    </button>
-                  }
-
-                  @if (acquisition(); as job) {
-                    @if (job.state === 'failed') {
-                      <p class="source-error">
-                        <lucide-icon [img]="ErrorIcon" [size]="14"></lucide-icon>
-                        {{ job.message || 'The import failed.'
-                        }}{{ job.errorCode ? ' (' + job.errorCode + ')' : '' }}
-                      </p>
-                    } @else if (job.state === 'cancelled') {
-                      <p class="source-hint">Import cancelled.</p>
-                    }
-                  }
                 </div>
               }
             }
@@ -648,7 +660,7 @@
                 class="btn btn-primary"
                 [disabled]="bookForm.invalid || !form.title.trim()"
               >
-                {{ isEditMode() ? 'Save Changes' : 'Create Book' }}
+                {{ isEditMode() ? 'Save Changes' : seededFromSource() ? 'Import Book' : 'Create Book' }}
               </button>
             }
           </div>

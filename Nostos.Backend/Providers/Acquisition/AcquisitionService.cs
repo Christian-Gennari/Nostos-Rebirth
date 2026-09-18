@@ -117,6 +117,12 @@ public sealed class AcquisitionService(
                 AcquisitionException.ItemNotFound,
                 $"{provider.Provider.DisplayName} has no item '{request.ExternalId}'.");
 
+        // The user's own edits (an import started from a prefilled form) overlay
+        // the source's metadata from here on, so the created book, its cover and
+        // the success message all agree. Identity is deliberately NOT merged —
+        // see MergeMetadata.
+        var metadata = MergeMetadata(plan.Metadata, request.MetadataOverrides);
+
         if (plan.Parts.Count == 0)
             throw new AcquisitionException(
                 AcquisitionException.NoAssets,
@@ -127,7 +133,7 @@ public sealed class AcquisitionService(
                 AcquisitionException.TooManyParts,
                 $"This item has {plan.Parts.Count} parts, above the {policy.MaxParts} part limit.");
 
-        if (string.IsNullOrWhiteSpace(plan.Metadata.Title))
+        if (string.IsNullOrWhiteSpace(metadata.Title))
             throw new AcquisitionException(
                 AcquisitionException.InvalidRequest, "The source returned no title for this item.");
 
@@ -487,7 +493,7 @@ public sealed class AcquisitionService(
             "Acquired {Provider}/{ExternalId} ({AssetId}) into book {BookId} ({Bytes} bytes).",
             plan.ProviderId, plan.ExternalId, plan.Asset.Id, bookId, new FileInfo(staged).Length);
 
-        return AcquisitionResult.Acquired(bookId, book, $"Imported into library: {plan.Metadata.Title}.");
+        return AcquisitionResult.Acquired(bookId, book, $"Imported into library: {book?.Title ?? plan.Metadata.Title}.");
     }
 
     /// <summary>
@@ -502,7 +508,12 @@ public sealed class AcquisitionService(
         string expectedType,
         CancellationToken ct)
     {
-        var command = BuildCreateRequest(provider, plan, request, expectedType, edition: false);
+        // The user's edits, over what the source said. Merged here as well as in
+        // AcquireAsync (which validates the title) because this is where the book
+        // is actually built; the merge is pure, so the two always agree.
+        var metadata = MergeMetadata(plan.Metadata, request.MetadataOverrides);
+
+        var command = BuildCreateRequest(provider, plan, metadata, request, expectedType, edition: false);
         var result = await library.CreateOrMatchBookAsync(command, strictConfirmation: false, ct);
 
         if (ErrorCodeOf(result) is { } code)
@@ -526,7 +537,7 @@ public sealed class AcquisitionService(
                 "Acquisition of {ExternalId} matched a {Matched} book; creating a {Expected} edition of the same work instead.",
                 plan.ExternalId, book.Type, expectedType);
 
-            var edition = BuildCreateRequest(provider, plan, request, expectedType, edition: true);
+            var edition = BuildCreateRequest(provider, plan, metadata, request, expectedType, edition: true);
             var editionResult = await library.CreateOrMatchBookAsync(edition, strictConfirmation: false, ct);
 
             if (ErrorCodeOf(editionResult) is { } editionCode)
@@ -543,15 +554,58 @@ public sealed class AcquisitionService(
         return (bookId, createdByUs, book);
     }
 
+    /// <summary>
+    /// Overlay a user's edits onto what the source supplied.
+    ///
+    /// A null field keeps the source's value, so a client that sends only what
+    /// the user actually touched cannot flatten a later provider-side
+    /// correction. An empty string clears the field — the user emptied that box,
+    /// and restoring the source's text would be worse than dropping it. Title is
+    /// the exception: a book with no title is not a book, so it falls back to
+    /// the source and the caller's validation still applies.
+    ///
+    /// Identity is deliberately NOT merged. Provenance, and the "do I already
+    /// have this work?" probe that runs before any download, both read the
+    /// SOURCE metadata: an item is the same item however the user relabels it,
+    /// and matching on the user's title would let a rename produce a second copy
+    /// of a book they already own.
+    /// </summary>
+    private static ProviderMetadata MergeMetadata(
+        ProviderMetadata source,
+        ProviderMetadataOverrides? overrides)
+    {
+        if (overrides is null)
+            return source;
+
+        return source with
+        {
+            Title = Merge(source.Title, overrides.Title) ?? source.Title,
+            Subtitle = Merge(source.Subtitle, overrides.Subtitle),
+            Author = Merge(source.Author, overrides.Author),
+            Description = Merge(source.Description, overrides.Description),
+            Language = Merge(source.Language, overrides.Language),
+            Publisher = Merge(source.Publisher, overrides.Publisher),
+            PublishedDate = Merge(source.PublishedDate, overrides.PublishedDate),
+            Categories = Merge(source.Categories, overrides.Categories),
+            Narrator = Merge(source.Narrator, overrides.Narrator),
+            Duration = Merge(source.Duration, overrides.Duration),
+            PageCount = overrides.PageCount ?? source.PageCount,
+        };
+
+        static string? Merge(string? fromSource, string? fromUser) =>
+            fromUser is null ? fromSource
+            : string.IsNullOrWhiteSpace(fromUser) ? null
+            : fromUser.Trim();
+    }
+
     private static LibraryCreateBookRequest BuildCreateRequest(
         ProviderRegistration provider,
         ProviderAcquisitionPlan plan,
+        ProviderMetadata metadata,
         AcquisitionRequest request,
         string expectedType,
         bool edition)
     {
-        var metadata = plan.Metadata;
-
         return new LibraryCreateBookRequest(
             ClientId: "acquisition",
             IdempotencyKey: $"acquire-{plan.ProviderId}-{plan.ExternalId}-{plan.Asset.Id}{(edition ? "-edition" : string.Empty)}-{Guid.NewGuid():N}",

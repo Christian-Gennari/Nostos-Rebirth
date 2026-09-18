@@ -59,11 +59,36 @@ export interface ProviderSearchResult {
   notice: string | null;
 }
 
+/**
+ * The user's own edits to what the source says, sent with an import started from
+ * a prefilled form.
+ *
+ * `null` (or absent) keeps the source's value; a string replaces it; an empty
+ * string clears the field. Send only what the user actually changed — echoing
+ * every field back would pin them all to this moment, so a later correction at
+ * the source could never reach the library.
+ */
+export interface ProviderMetadataOverrides {
+  title?: string | null;
+  subtitle?: string | null;
+  author?: string | null;
+  description?: string | null;
+  language?: string | null;
+  publisher?: string | null;
+  publishedDate?: string | null;
+  categories?: string | null;
+  narrator?: string | null;
+  duration?: string | null;
+  pageCount?: number | null;
+}
+
 export interface ProviderAcquireRequest {
   externalId: string;
   assetId?: string | null;
   collectionIds?: string[] | null;
   includeCover?: boolean;
+  /** Present only when the user reviewed and edited the metadata first. */
+  metadataOverrides?: ProviderMetadataOverrides | null;
 }
 
 export type AcquisitionState = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';

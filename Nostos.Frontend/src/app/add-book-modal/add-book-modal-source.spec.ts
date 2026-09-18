@@ -3,7 +3,7 @@ import { provideRouter, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 
 import { AddBookModal } from './add-book-modal.component';
-import { Book } from '../core/services/books.service';
+import { Book, BooksService } from '../core/services/books.service';
 import { ProvidersService } from '../core/services/providers.service';
 import { ProviderAcquisition, ProviderItem, ProviderSummary } from '../core/dtos/provider.dtos';
 
@@ -85,6 +85,7 @@ describe('AddBookModal — From a Source', () => {
   let component: AddBookModal;
   let fixture: ComponentFixture<AddBookModal>;
   let providers: ProvidersService;
+  let books: BooksService;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -93,9 +94,15 @@ describe('AddBookModal — From a Source', () => {
     }).compileComponents();
 
     providers = TestBed.inject(ProvidersService);
+    books = TestBed.inject(BooksService);
     vi.spyOn(providers, 'list').mockReturnValue(of([gutenberg]));
     vi.spyOn(providers, 'search').mockReturnValue(
       of({ items: [pride], hasMore: false, notice: null }),
+    );
+    // Search results carry no assets by design, so selecting one fetches the
+    // full item. Mocked here so the tests never reach for the network.
+    vi.spyOn(providers, 'item').mockImplementation((_providerId, externalId) =>
+      of({ ...pride, externalId }),
     );
 
     fixture = TestBed.createComponent(AddBookModal);
@@ -308,13 +315,107 @@ describe('AddBookModal — From a Source', () => {
     component.openSourceTab();
     await fixture.whenStable();
     component.selectSourceItem(pride);
-    component.sourceCollectionIds.set(['root']);
+    component.seedFromSelectedItem();
+    component.form.collectionIds = ['root'];
     component.importSelected();
 
-    expect(acquire).toHaveBeenCalledWith('gutenberg', {
-      externalId: '1342',
-      assetId: 'epub3-images',
-      collectionIds: ['root'],
-    });
+    const body = acquire.mock.calls[0][1];
+
+    expect(acquire).toHaveBeenCalledWith(
+      'gutenberg',
+      expect.objectContaining({
+        externalId: '1342',
+        assetId: 'epub3-images',
+        collectionIds: ['root'],
+      }),
+    );
+
+    // Nothing on the wire may carry a location: the server resolves those, and a
+    // client-supplied URL would turn this endpoint into a general-purpose fetcher.
+    expect(JSON.stringify(body)).not.toMatch(/https?:\/\//);
+
+    // Nothing was edited, so nothing is pinned. The source still owns every
+    // field, and a later correction at the source can still reach the library.
+    const overrides = Object.values(body.metadataOverrides ?? {});
+    expect(overrides.every((value) => value === null)).toBe(true);
+  });
+
+  // --- Importing from a prefilled form ----------------------------------
+
+  it('fills the form from the chosen item so it can be finished before importing', async () => {
+    const acquire = vi.spyOn(providers, 'acquire');
+
+    component.openSourceTab();
+    await fixture.whenStable();
+    component.selectSourceItem(pride);
+
+    component.seedFromSelectedItem();
+
+    expect(component.form.title).toBe('Pride and Prejudice');
+    expect(component.form.author).toBe('Jane Austen');
+    expect(component.form.language).toBe('English');
+    expect(component.form.categories).toBe('England -- Fiction');
+
+    // Picking a result ends at the form, not at a download: the metadata is
+    // reviewed and completed first, so the book is created once and already right.
+    expect(component.activeTab()).toBe('Book Info');
+    expect(component.seededFromSource()).toBe(true);
+    expect(acquire).not.toHaveBeenCalled();
+  });
+
+  it('takes the format from the asset being fetched', async () => {
+    // The detail endpoint is what says this item is a recording.
+    const audiobook = {
+      ...pride,
+      assets: [{ ...pride.assets[0], id: 'sections', kind: 'audiobook' }],
+    } as ProviderItem;
+    vi.spyOn(providers, 'item').mockReturnValue(of(audiobook));
+
+    component.openSourceTab();
+    await fixture.whenStable();
+    component.selectSourceItem(audiobook);
+    await fixture.whenStable();
+
+    // An audiobook asset must not be filed where the ebook reader will open it.
+    component.seedFromSelectedItem();
+
+    expect(component.form.type).toBe('audiobook');
+  });
+
+  it('imports on save instead of creating from the form', async () => {
+    const acquire = vi.spyOn(providers, 'acquire').mockReturnValue(of(job()));
+    const create = vi.spyOn(books, 'create');
+
+    component.openSourceTab();
+    await fixture.whenStable();
+    component.selectSourceItem(pride);
+    component.seedFromSelectedItem();
+
+    component.submit();
+
+    expect(acquire).toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('sends only the fields the user actually edited', async () => {
+    const acquire = vi.spyOn(providers, 'acquire').mockReturnValue(of(job()));
+
+    component.openSourceTab();
+    await fixture.whenStable();
+    component.selectSourceItem(pride);
+    component.seedFromSelectedItem();
+
+    component.form.author = 'Austen, Jane';
+    component.form.description = 'My own note.';
+    component.importSelected();
+
+    const overrides = acquire.mock.calls[0][1].metadataOverrides;
+
+    expect(overrides?.author).toBe('Austen, Jane');
+    expect(overrides?.description).toBe('My own note.');
+    // Untouched fields stay null so the source keeps owning them.
+    expect(overrides?.title).toBeNull();
+    expect(overrides?.categories).toBeNull();
+    expect(overrides?.publisher).toBeNull();
   });
 });

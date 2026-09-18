@@ -178,7 +178,8 @@ public static class ProviderEndpoints
                         dto.ExternalId.Trim(),
                         string.IsNullOrWhiteSpace(dto.AssetId) ? null : dto.AssetId.Trim(),
                         dto.CollectionIds,
-                        dto.IncludeCover));
+                        dto.IncludeCover,
+                        ToMetadataOverrides(dto.MetadataOverrides)));
 
                     return Results.Accepted($"/api/providers/acquisitions/{job.JobId}", ToJobDto(job));
                 }
@@ -294,6 +295,28 @@ public static class ProviderEndpoints
             RightsStatement: item.Source?.RightsStatement,
             PartCount: item.PartCount);
     }
+
+    /// <summary>
+    /// Maps the wire shape onto the internal one. Null in, null out: a client
+    /// that sent no overrides must not read as having sent empty ones, which
+    /// would clear every field it left out. Named arguments on purpose — the two
+    /// records describe the same thing and must stay field-for-field aligned.
+    /// </summary>
+    private static ProviderMetadataOverrides? ToMetadataOverrides(ProviderMetadataOverridesDto? dto) =>
+        dto is null
+            ? null
+            : new ProviderMetadataOverrides(
+                Title: dto.Title,
+                Subtitle: dto.Subtitle,
+                Author: dto.Author,
+                Description: dto.Description,
+                Language: dto.Language,
+                Publisher: dto.Publisher,
+                PublishedDate: dto.PublishedDate,
+                Categories: dto.Categories,
+                Narrator: dto.Narrator,
+                Duration: dto.Duration,
+                PageCount: dto.PageCount);
 
     private static ProviderAcquisitionDto ToJobDto(AcquisitionJobStatus job) => new(
         JobId: job.JobId,
