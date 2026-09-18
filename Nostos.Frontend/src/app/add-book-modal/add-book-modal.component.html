@@ -20,7 +20,7 @@
         ></button>
       </header>
 
-      <div class="modal-tabs" shellTabs>
+      <div class="modal-tabs" shellTabs [hidden]="sourceMode()">
         <button
           class="tab-btn"
           [class.active]="activeTab() === 'Book Info'"
@@ -42,17 +42,6 @@
         >
           <lucide-icon [img]="FileIcon" [size]="16"></lucide-icon> Files & Personal
         </button>
-        <!-- Importing is a way to ADD a book, so it has no place in edit mode. -->
-        @if (!isEditMode()) {
-          <button
-            type="button"
-            class="tab-btn"
-            [class.active]="activeTab() === 'From a Source'"
-            (click)="openSourceTab()"
-          >
-            <lucide-icon [img]="SourceIcon" [size]="16"></lucide-icon> From a Source
-          </button>
-        }
       </div>
 
       <form id="add-book-form" (ngSubmit)="submit()" #bookForm="ngForm" class="modal-form">
@@ -60,7 +49,7 @@
           <!-- The import's state belongs to the whole dialog, not to the tab the
                user happened to start it from: the form stays editable while a
                download runs, and a failure has to be visible from anywhere. -->
-          @if (seededFromSource()) {
+          @if (seededFromSource() && !sourceMode()) {
             <p class="source-hint">
               Prefilled from {{ seededSourceName() }} — review the details, then import.
             </p>
@@ -101,7 +90,7 @@
           }
 
           <!-- TAB 1: Book Info -->
-          <div class="tab-content" [hidden]="activeTab() !== 'Book Info'">
+          <div class="tab-content" [hidden]="sourceMode() || activeTab() !== 'Book Info'">
             <div class="form-group">
               <label class="form-label">Format</label>
               <select
@@ -258,7 +247,7 @@
             </div>
           </div>
           <!-- TAB 2: Publishing -->
-          <div class="tab-content" [hidden]="activeTab() !== 'Publishing'">
+          <div class="tab-content" [hidden]="sourceMode() || activeTab() !== 'Publishing'">
             <div class="grid grid-2">
               <div class="form-group">
                 <label class="form-label">Publisher</label>
@@ -349,7 +338,7 @@
             </div>
           </div>
           <!-- TAB 3: Files & Personal -->
-          <div class="tab-content" [hidden]="activeTab() !== 'Files & Personal'">
+          <div class="tab-content" [hidden]="sourceMode() || activeTab() !== 'Files & Personal'">
             @if (!isEditMode()) {
               <div class="form-group">
                 <span class="form-label">Book File</span>
@@ -419,8 +408,9 @@
             </div>
           </div>
 
-          <!-- TAB 4: From a Source -->
-          <div class="tab-content" [hidden]="activeTab() !== 'From a Source'">
+          <!-- The source search, shown INSTEAD of the form, not as one of its
+               tabs: picking a result seeds the form and hands over to it. -->
+          <div class="tab-content" [hidden]="!sourceMode()">
             @if (providersLoading()) {
               <p class="source-hint">Loading sources…</p>
             } @else if (providersError()) {
@@ -635,7 +625,8 @@
         </div>
       </form>
 
-      <div class="modal-actions" shellActions [class.has-danger]="isEditMode()">
+      @if (!sourceMode()) {
+        <div class="modal-actions" shellActions [class.has-danger]="isEditMode()">
           @if (isEditMode()) {
             <button
               type="button"
@@ -650,20 +641,16 @@
             <button type="button" class="btn btn-secondary" (click)="closeModal.emit()">
               Cancel
             </button>
-            <!-- The source tab has its own action: importing is not "creating a
-                 book" from the form, and offering both buttons would be a
-                 choice about nothing. -->
-            @if (activeTab() !== 'From a Source') {
-              <button
-                type="submit"
-                form="add-book-form"
-                class="btn btn-primary"
-                [disabled]="bookForm.invalid || !form.title.trim()"
-              >
-                {{ isEditMode() ? 'Save Changes' : seededFromSource() ? 'Import Book' : 'Create Book' }}
-              </button>
-            }
+            <button
+              type="submit"
+              form="add-book-form"
+              class="btn btn-primary"
+              [disabled]="bookForm.invalid || !form.title.trim()"
+            >
+              {{ isEditMode() ? 'Save Changes' : seededFromSource() ? 'Import Book' : 'Create Book' }}
+            </button>
           </div>
-      </div>
+        </div>
+      }
   </app-modal-shell>
 }

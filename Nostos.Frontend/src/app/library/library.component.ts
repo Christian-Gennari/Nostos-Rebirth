@@ -18,6 +18,7 @@ import { Collection } from '../core/dtos/collection.dtos';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AddBookModal } from '../add-book-modal/add-book-modal.component';
+import { AddBookIntent } from '../add-book-modal/add-book-intent.component';
 import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
@@ -124,6 +125,7 @@ interface WorkFormatGlyph {
     FormsModule,
     LucideAngularModule,
     AddBookModal,
+    AddBookIntent,
     ConfirmModal,
     StarRatingComponent,
     IconButtonComponent,
@@ -187,6 +189,10 @@ export class Library implements OnInit, OnDestroy {
   viewMode = this.preferences.viewMode;
   readonly sidebarExpanded = this.preferences.sidebarExpanded;
   showAddModal = signal(false);
+  /** The "how are you adding this?" step that now precedes the form. */
+  showAddIntent = signal(false);
+  /** Open the form straight into the source search. */
+  addSourceFirst = signal(false);
 
   toggleSidebar(): void {
     this.preferences.setSidebarExpanded(!this.sidebarExpanded());
@@ -428,11 +434,31 @@ export class Library implements OnInit, OnDestroy {
   }
 
   // ... (Modals and Actions remain unchanged)
+  /**
+   * Add Book asks which kind of add it is before opening the form. Importing and
+   * typing a book in end at different places — a prefilled form and an empty one
+   * — and the answer decides which surface the user needs.
+   */
+  openAddIntent(): void {
+    this.showAddIntent.set(true);
+  }
+  addByHand(): void {
+    this.addSourceFirst.set(false);
+    this.showAddIntent.set(false);
+    this.showAddModal.set(true);
+  }
+  addFromSource(): void {
+    this.addSourceFirst.set(true);
+    this.showAddIntent.set(false);
+    this.showAddModal.set(true);
+  }
   openAddModal(): void {
     this.showAddModal.set(true);
   }
   closeAddModal(): void {
     this.showAddModal.set(false);
+    // The next open starts from the chooser's answer, not this one.
+    this.addSourceFirst.set(false);
   }
   openEditModal(book: Book): void {
     this.editTarget.set(book);

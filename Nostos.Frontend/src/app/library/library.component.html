@@ -61,7 +61,7 @@
           </button>
         </div>
 
-        <button class="btn btn-primary" (click)="openAddModal()">
+        <button class="btn btn-primary" (click)="openAddIntent()">
           <lucide-icon [img]="PlusIcon" [size]="18"></lucide-icon>
           <span class="btn-text">Add Book</span>
         </button>
@@ -86,9 +86,18 @@
     </div>
 
     <div class="container lg">
+      <app-add-book-intent
+        [isOpen]="showAddIntent()"
+        (manual)="addByHand()"
+        (source)="addFromSource()"
+        (cancel)="showAddIntent.set(false)"
+      >
+      </app-add-book-intent>
+
       <app-add-book-modal
         [isOpen]="showAddModal()"
         [collections]="collections()"
+        [sourceFirst]="addSourceFirst()"
         (closeModal)="closeAddModal()"
         (bookAdded)="onBookAdded()"
       >
@@ -282,7 +291,7 @@
           <button class="btn btn-secondary" (click)="filters.clearAll()">Clear filters</button>
           } @else {
           <p>Your library is empty</p>
-          <button class="btn btn-primary" (click)="openAddModal()">Add your first book</button>
+          <button class="btn btn-primary" (click)="openAddIntent()">Add your first book</button>
           }
         </div>
         }
@@ -401,7 +410,7 @@
           <button class="btn btn-secondary" (click)="filters.clearAll()">Clear filters</button>
           } @else {
           <p>Your library is empty</p>
-          <button class="btn btn-primary" (click)="openAddModal()">Add your first book</button>
+          <button class="btn btn-primary" (click)="openAddIntent()">Add your first book</button>
           }
         </div>
         }

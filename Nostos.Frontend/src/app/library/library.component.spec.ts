@@ -379,7 +379,29 @@ describe('Library', () => {
     expect(empty.textContent).toContain('Your library is empty');
     empty.querySelector('button')!.click();
 
+    // The action leads to "how are you adding this?", which then decides whether
+    // the form opens empty or at the source search.
+    expect(component.showAddIntent()).toBe(true);
+    expect(component.showAddModal()).toBe(false);
+  });
+
+  it('asks how the book is being added before opening the form', () => {
+    component.openAddIntent();
+    fixture.detectChanges();
+    expect(component.showAddIntent()).toBe(true);
+
+    // "Add by hand" opens the form at the fields.
+    component.addByHand();
+    expect(component.showAddIntent()).toBe(false);
     expect(component.showAddModal()).toBe(true);
+    expect(component.addSourceFirst()).toBe(false);
+
+    // Holding the chooser's other answer opens it at the source search instead,
+    // which is what makes the prefilled form possible.
+    component.showAddModal.set(false);
+    component.addFromSource();
+    expect(component.showAddModal()).toBe(true);
+    expect(component.addSourceFirst()).toBe(true);
   });
 
   it('offers to clear the search when nothing matches', () => {
