@@ -118,8 +118,8 @@ export class AddBookModal implements OnDestroy {
     personalReview: '' as string | null,
   };
 
-  selectedFile: File | null = null;
-  selectedCover: File | null = null;
+  selectedFile = signal<File | null>(null);
+  selectedCover = signal<File | null>(null);
   uploadProgress = signal<number | null>(null);
   uploadStartTime: number | null = null;
 
@@ -189,8 +189,8 @@ export class AddBookModal implements OnDestroy {
 
       personalReview: b.personalReview || '',
     };
-    this.selectedFile = null;
-    this.selectedCover = null;
+    this.selectedFile.set(null);
+    this.selectedCover.set(null);
     this.activeTab.set('Book Info'); // Reset to first tab
     this.resetSourceTab();
   }
@@ -226,8 +226,8 @@ export class AddBookModal implements OnDestroy {
 
       personalReview: null,
     };
-    this.selectedFile = null;
-    this.selectedCover = null;
+    this.selectedFile.set(null);
+    this.selectedCover.set(null);
     this.uploadProgress.set(null);
     this.isFetching.set(false);
     this.fileDragActive.set(false);
@@ -305,12 +305,12 @@ export class AddBookModal implements OnDestroy {
 
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
-    this.selectedFile = input.files?.[0] ?? null;
+    this.selectedFile.set(input.files?.[0] ?? null);
   }
 
   onCoverSelected(event: Event) {
     const input = event.target as HTMLInputElement;
-    this.selectedCover = input.files?.[0] ?? null;
+    this.selectedCover.set(input.files?.[0] ?? null);
   }
 
   onDragOver(_event: DragEvent, zone: 'file' | 'cover'): void {
@@ -363,7 +363,7 @@ export class AddBookModal implements OnDestroy {
     } else {
       this.booksService.create(payload).subscribe({
         next: (createdBook) => {
-          if (this.selectedFile) this.handleFileUpload(createdBook);
+          if (this.selectedFile()) this.handleFileUpload(createdBook);
           else this.uploadCoverIfNeeded(createdBook.id);
         },
         error: () => this.toast.error('Failed to create book'),
@@ -373,7 +373,7 @@ export class AddBookModal implements OnDestroy {
 
   handleFileUpload(createdBook: BookModel): void {
     this.uploadStartTime = performance.now();
-    this.booksService.uploadFile(createdBook.id, this.selectedFile!).subscribe({
+    this.booksService.uploadFile(createdBook.id, this.selectedFile()!).subscribe({
       next: (event) => {
         if (event.type === HttpEventType.UploadProgress) {
           const percent = Math.round((event.loaded / (event.total ?? 1)) * 100);
@@ -395,11 +395,12 @@ export class AddBookModal implements OnDestroy {
   }
 
   uploadCoverIfNeeded(bookId: string) {
-    if (!this.selectedCover) {
+    const cover = this.selectedCover();
+    if (!cover) {
       this.finishAdd();
       return;
     }
-    this.booksService.uploadCover(bookId, this.selectedCover).subscribe({
+    this.booksService.uploadCover(bookId, cover).subscribe({
       next: (event) => {
         if (event.type === 4) this.finishAdd();
       },
