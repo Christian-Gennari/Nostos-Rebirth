@@ -20,14 +20,16 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { EpubAnnotationManager } from './epub-annotation-manager';
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
+import { ThemeService, Theme } from '../../core/services/theme.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 
 /**
- * Fixed light rendition name. The single Nostos light normalization is
- * registered once per rendition and always selected — the theme system is
- * gone, so this is a rendering invariant, not a choice.
+ * Rendition theme names. Both Nostos normalizations are registered once per
+ * rendition; the selected one always mirrors the app theme (ThemeService),
+ * so the page never renders white inside a dark UI or vice versa.
  */
 const NOSTOS_LIGHT_THEME = 'nostos-light';
+const NOSTOS_DARK_THEME = 'nostos-dark';
 
 /**
  * Color-only rules for the epub.js iframe, mirroring the Nostos light tokens
@@ -48,6 +50,19 @@ const NOSTOS_LIGHT_RULES: Record<string, Record<string, string>> = {
   '::selection': { background: 'rgba(96, 165, 250, 0.3) !important' },
 };
 
+/**
+ * Color-only rules for the dark UI, mirroring the `:root[data-theme='dark']`
+ * tokens from styles.css (ground #121318, ink #f0f1f4). Same contract as the
+ * light rules: colors only, book typography and images untouched.
+ */
+const NOSTOS_DARK_RULES: Record<string, Record<string, string>> = {
+  html: { background: '#121318 !important', color: '#f0f1f4 !important' },
+  body: { background: '#121318 !important', color: '#f0f1f4 !important' },
+  'body *': { color: 'inherit !important' },
+  a: { color: '#8fbfae !important' },
+  '::selection': { background: 'rgba(143, 191, 174, 0.35) !important' },
+};
+
 @Component({
   selector: 'app-epub-reader',
   standalone: true,
@@ -64,6 +79,7 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
 
   private notesService = inject(NotesService);
   private booksService = inject(BooksService);
+  private themeService = inject(ThemeService);
   private injector = inject(Injector);
   private elementRef = inject(ElementRef);
 
@@ -105,7 +121,7 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     return activeTarget;
   });
 
-  // Internal Zoom State
+  // Internal Zoom State (restored per book — see fontSizeStorageKey)
   private currentFontSize = signal(100); // 100%
 
   // RxJS Subjects
@@ -129,6 +145,16 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
       const mode = this.highlightMode();
       if (this.annotationManager) {
         this.annotationManager.setHighlightMode(mode);
+      }
+    });
+
+    // The rendition is a separate document: re-select the matching Nostos
+    // theme whenever the app theme changes, so the page follows light/dark
+    // without a reload.
+    effect(() => {
+      const theme = this.themeService.theme();
+      if (this.rendition) {
+        this.selectReaderTheme(theme);
       }
     });
   }
@@ -208,6 +234,25 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     if (this.rendition) {
       this.rendition.themes.fontSize(`${this.currentFontSize()}%`);
     }
+    try {
+      localStorage.setItem(this.fontSizeStorageKey(), String(this.currentFontSize()));
+    } catch {
+      // Private-mode storage can throw — the size still applies for the session.
+    }
+  }
+
+  private fontSizeStorageKey(): string {
+    return `nostos.epub-font-size.${this.bookId()}`;
+  }
+
+  private restoreSavedFontSize(): void {
+    try {
+      const raw = localStorage.getItem(this.fontSizeStorageKey());
+      const parsed = raw == null ? NaN : parseInt(raw, 10);
+      if (!isNaN(parsed)) this.currentFontSize.set(Math.min(200, Math.max(50, parsed)));
+    } catch {
+      // Storage unreadable — fall back to 100%.
+    }
   }
 
   // --- Book Loading & Setup ---
@@ -244,12 +289,14 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
       manager: 'default',
     });
 
-    // Apply the fixed light normalization at rendition creation: register
-    // the Nostos light theme once per rendition and select it BEFORE
-    // display, so the first section is painted with the light palette (no
-    // white flash). epub.js injects the selected theme into every contents
-    // it creates afterwards, so later chapters inherit it.
-    this.registerLightTheme();
+    // Register both Nostos normalizations at rendition creation and select
+    // the one matching the app theme BEFORE display, so the first section
+    // is painted with the right palette (no white flash in dark mode, no
+    // dark flash in light mode). epub.js injects the selected theme into
+    // every contents it creates afterwards, so later chapters inherit it.
+    this.restoreSavedFontSize();
+    this.registerReaderThemes();
+    this.applyFontSize();
 
     // 3. Register Hooks
     this.rendition.hooks.content.register((contents: Contents) => {
@@ -416,14 +463,21 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     contents.document.head.appendChild(link);
   }
 
-  private registerLightTheme() {
+  private registerReaderThemes() {
     const themes = this.rendition?.themes;
     if (!themes) return;
 
     themes.register(NOSTOS_LIGHT_THEME, NOSTOS_LIGHT_RULES);
+    themes.register(NOSTOS_DARK_THEME, NOSTOS_DARK_RULES);
 
-    // Select the fixed light theme so the first section is rendered with it.
-    themes.select(NOSTOS_LIGHT_THEME);
+    // Select the matching theme so the first section is rendered with it.
+    this.selectReaderTheme(this.themeService.theme());
+  }
+
+  private selectReaderTheme(theme: Theme) {
+    const themes = this.rendition?.themes;
+    if (!themes) return;
+    themes.select(theme === 'dark' ? NOSTOS_DARK_THEME : NOSTOS_LIGHT_THEME);
   }
 
   public deleteHighlight(cfiRange: string) {
