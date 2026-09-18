@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ImportService } from './import.service';
+import { ToastService } from './toast.service';
 import { ImportActivity } from '../dtos/import.dtos';
 import { Book } from '../dtos/book.dtos';
 
@@ -199,6 +200,57 @@ describe('ImportService', () => {
     expect(service.failedImports()[0].message).toBe('The source refused the download.');
     // Nothing left to watch, so the connection is not kept open for it.
     expect(stream().closed).toBe(true);
+  });
+
+  it('toasts a failure, because a failed import has no guaranteed card to live on', () => {
+    const toast = TestBed.inject(ToastService);
+    const errorSpy = vi.spyOn(toast, 'error');
+
+    service.ensureConnected();
+    activeRequest().flush([activity()]);
+    stream().open();
+
+    stream().emit(
+      'failed',
+      [activity({ state: 'failed', stage: 'failed', title: 'Flatland', message: 'The source refused the download.' })],
+    );
+    http.expectOne(`/api/books/${BOOK_ID}`).flush({ id: BOOK_ID } as Book);
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Flatland — import failed: The source refused the download.'),
+    );
+
+    // A repeated terminal frame must not say it twice (it does re-read the one book,
+    // which is idempotent).
+    stream().emit(
+      'failed',
+      [activity({ state: 'failed', stage: 'failed', title: 'Flatland', message: 'The source refused the download.' })],
+    );
+    http.expectOne(`/api/books/${BOOK_ID}`).flush({ id: BOOK_ID } as Book);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('announces a failure it finds in the feed, not only one it watches happen', () => {
+    const toast = TestBed.inject(ToastService);
+    const errorSpy = vi.spyOn(toast, 'error');
+
+    // The list is where a restart-interrupted import reappears after a page load, and
+    // no event is coming for it. Without this, such a failure would be silent.
+    service.ensureConnected();
+    activeRequest().flush([
+      activity({
+        id: 'job-restart',
+        bookId: null,
+        state: 'failed',
+        stage: 'failed',
+        title: 'Meditations',
+        message: 'Import interrupted by server restart.',
+      }),
+    ]);
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Meditations — import failed: Import interrupted by server restart.'),
+    );
   });
 
   it('reports a dropped connection instead of looking like a stalled import', () => {

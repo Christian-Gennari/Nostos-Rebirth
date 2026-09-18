@@ -9,6 +9,7 @@ import {
 import { Book } from '../dtos/book.dtos';
 import { BooksService } from './books.service';
 import { ProvidersService } from './providers.service';
+import { ToastService } from './toast.service';
 
 /** What the feed's connection is doing, so the UI can say "reconnecting" rather than just stop. */
 export type ImportConnectionState = 'idle' | 'connecting' | 'live' | 'reconnecting';
@@ -36,17 +37,21 @@ export class ImportService {
   private readonly http = inject(HttpClient);
   private readonly books = inject(BooksService);
   private readonly providers = inject(ProvidersService);
+  private readonly toast = inject(ToastService);
 
   private readonly entries = signal<ImportActivity[]>([]);
   private readonly connection = signal<ImportConnectionState>('idle');
   private readonly dismissedIds = signal<ReadonlySet<string>>(new Set());
+
+  /** Failures already announced, so a repeated terminal frame cannot say it twice. */
+  private readonly announcedFailures = new Set<string>();
 
   /** Everything worth showing, minus what the user dismissed. */
   readonly imports = computed(() =>
     this.entries().filter((entry) => !this.dismissedIds().has(entry.id)),
   );
 
-  /** Work that can still change — what the "in progress" section is for. */
+  /** Work that can still change — the work the feed is watching. */
   readonly activeImports = computed(() => this.imports().filter(isImportInFlight));
 
   /** Work that ended badly and is waiting for the user to retry or dismiss it. */
@@ -279,6 +284,13 @@ export class ImportService {
     this.entries.set([...serverEntries, ...kept]);
 
     for (const entry of vanished) this.fetchBook(entry);
+
+    // A failure the user missed while the page was closed still has to be said out
+    // loud — this list is where a restart-interrupted import reappears, and the feed
+    // is not delivering events for it. Announced once per entry per session.
+    for (const entry of serverEntries) {
+      if (!isImportInFlight(entry) && entry.state !== 'succeeded') this.announceFailure(entry);
+    }
   }
 
   private onFinished(activity: ImportActivity): void {
@@ -296,9 +308,31 @@ export class ImportService {
         ...current.filter((entry) => entry.id !== activity.id),
         existing ? { ...existing, ...activity } : activity,
       ]);
+
+      this.announceFailure(existing ? { ...existing, ...activity } : activity);
     }
 
     this.closeIfSettled();
+  }
+
+  /**
+   * A failed import says so, because nothing else can.
+   *
+   * A running import is visible as its own card; a failed one is not guaranteed to
+   * be — the row may not exist yet (the item never got as far as a book), it may be
+   * on another page, or the user's filter may exclude it — so the feed, which is
+   * app-wide and knows the outcome whatever the user is looking at, raises a toast.
+   * The failure also stays on the book's own card where one exists, with Retry and
+   * Dismiss; this is the notice, not the record.
+   */
+  private announceFailure(activity: ImportActivity): void {
+    if (this.announcedFailures.has(activity.id)) return;
+
+    this.announcedFailures.add(activity.id);
+
+    const title = activity.title ?? 'An import';
+    const reason = activity.message?.trim();
+    this.toast.error(reason ? `${title} — import failed: ${reason}` : `${title} — import failed.`);
   }
 
   /**
