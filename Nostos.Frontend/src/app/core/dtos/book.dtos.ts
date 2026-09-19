@@ -227,13 +227,6 @@ export interface UpdateBookDto {
   personalReview?: string | null;
   finishedAt?: string | null;
   isFinished?: boolean;
-
-  /**
-   * Hand-made chapters (issue #8). Omit to leave the list untouched; `[]` clears it
-   * and hands the book back to whatever its file's metadata says; a non-empty list
-   * replaces it and is marked hand-made, so a later metadata pass cannot overwrite it.
-   */
-  chapters?: BookChapter[];
 }
 
 export interface UpdateProgressDto {

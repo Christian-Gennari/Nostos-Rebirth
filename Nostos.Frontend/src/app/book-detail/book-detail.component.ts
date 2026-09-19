@@ -76,7 +76,6 @@ export function formatNotesMarkdown(
 import { AddBookModal } from '../add-book-modal/add-book-modal.component';
 import { EditionsModal, WorkMember } from './editions-modal/editions-modal.component';
 import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
-import { ChaptersEditor } from './chapters-editor/chapters-editor.component';
 import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
@@ -126,7 +125,6 @@ import {
     AddBookModal,
     EditionsModal,
     ConfirmModal,
-    ChaptersEditor,
     ConceptInputComponent,
     NoteCardComponent,
     StarRatingComponent,

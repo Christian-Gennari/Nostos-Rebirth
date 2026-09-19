@@ -169,10 +169,7 @@ public record UpdateBookDto(
     // Inbound compatibility (see CreateBookDto.CollectionId).
     Guid? CollectionId = null,
     bool ClearCollection = false,
-    IReadOnlyList<Guid>? CollectionIds = null,
-    // Hand-made chapters (issue #8). APPENDED. Omit to leave the chapter list
-    // alone; an empty list clears it and returns the book to its file metadata.
-    IReadOnlyList<BookChapterDto>? Chapters = null
+    IReadOnlyList<Guid>? CollectionIds = null
 );
 
 public record UpdateProgressDto(string Location, int Percentage);
