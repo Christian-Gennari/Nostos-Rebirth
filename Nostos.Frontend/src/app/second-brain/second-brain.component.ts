@@ -29,13 +29,29 @@ import {
   RelatedConceptDto,
 } from '../core/services/concepts.service';
 import { ConceptMapComponent } from './concept-map/concept-map.component';
+import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 
 type IndexSort = 'usage' | 'az' | 'za';
 type NoteSort = 'newest' | 'oldest' | 'source';
+/** The mode the header toggle persists. */
 type BrainViewMode = 'list' | 'map';
+/**
+ * What the surface is actually showing. `unlinked` is deliberately NOT part of
+ * `BrainViewMode`: review is a task the user enters and leaves, not a place to be
+ * dropped back into on the next visit, so it is never persisted and never
+ * restored with a stale queue.
+ */
+type BrainPaneMode = BrainViewMode | 'unlinked';
 
 const ALL_SOURCES = 'all';
+
+/**
+ * How many unlinked notes one page of review mode holds. Small on purpose: the
+ * queue is reviewed one note at a time, and the mode must be able to walk past
+ * the page rather than end at it (issue #256).
+ */
+const REVIEW_PAGE_SIZE = 25;
 
 interface SourceOption {
   value: string;
@@ -81,6 +97,32 @@ function searchRank(name: string, query: string): number {
   return 2;
 }
 
+/**
+ * The `[[Concept]]` names a note body declares.
+ *
+ * This mirrors NoteProcessorService's rule on the server — trimmed, non-empty
+ * names, case-insensitively distinct — because review mode has to answer one
+ * question locally: did the save I just made resolve this note? On the server a
+ * note is unlinked exactly when it declares no concept, so the same rule here is
+ * not a second link model, it is the one link model read locally. Asking the
+ * server again instead would make the queue end on a second round trip.
+ */
+function declaredConceptNames(content: string): string[] {
+  const names: string[] = [];
+  for (const match of (content ?? '').matchAll(/\[\[(.*?)\]\]/g)) {
+    const name = match[1].trim();
+    if (!name) continue;
+    if (names.some((existing) => existing.toLowerCase() === name.toLowerCase())) continue;
+    names.push(name);
+  }
+  return names;
+}
+
+/** True when a note body declares at least one concept. */
+function declaresConcept(content: string): boolean {
+  return declaredConceptNames(content).length > 0;
+}
+
 @Component({
   standalone: true,
   selector: 'app-brain',
@@ -92,6 +134,7 @@ function searchRank(name: string, query: string): number {
     NoteCardComponent,
     ConfirmModal,
     ConceptMapComponent,
+    ConceptInputComponent,
   ],
   templateUrl: './second-brain.component.html',
   styleUrls: ['./second-brain.component.css'],
@@ -134,13 +177,31 @@ export class SecondBrain implements AfterViewChecked {
   // until a search runs, and cleared when the query is.
   noteMatches = signal<ConceptDto[]>([]);
   noteHits = signal<NoteSearchHit[]>([]);
-  unlinkedNotes = signal<NoteSearchHit[]>([]);
   panelNote = signal<NoteSearchHit | null>(null);
-  private unlinkedLoaded = false;
+
+  // --- Unlinked-note review (issue #256) -------------------------------------
+  //
+  // Deliberately empty until the user asks for it. Nothing here is loaded on a
+  // normal Brain visit: unlinked notes are a review task, not the rail's second
+  // content type, so opening the Brain must not fetch them at all.
+  /** Notes fetched so far and not yet resolved, in the server's order. */
+  reviewQueue = signal<NoteSearchHit[]>([]);
+  /** How many are still waiting, including rows not fetched yet. */
+  reviewTotal = signal(0);
+  reviewLoading = signal(false);
+  reviewLoaded = signal(false);
+  /** The note under review, chosen explicitly. `null` focuses the first row. */
+  reviewId = signal<string | null>(null);
+  reviewSaving = signal(false);
+  reviewEditing = signal(false);
+  reviewEditContent = signal('');
+  reviewPickerOpen = signal(false);
+  reviewPickerQuery = signal('');
+  reviewPickerConceptId = signal<string | null>(null);
   private noteSearchTimer: ReturnType<typeof setTimeout> | null = null;
   private noteSearchSeq = 0;
   indexSort = signal<IndexSort>(this.readStoredSort());
-  viewMode = signal<BrainViewMode>(this.readStoredViewMode());
+  viewMode = signal<BrainPaneMode>(this.readStoredViewMode());
   cursorIndex = signal<number | null>(null);
 
   selectedId = signal<string | null>(null);
@@ -223,13 +284,43 @@ export class SecondBrain implements AfterViewChecked {
     return [...withLabels, ...contentOnly];
   });
 
-  notesSectionRows = computed(() =>
-    this.searchQuery().trim() ? this.noteHits() : this.unlinkedNotes()
-  );
+  /**
+   * The search-hits section of the rail, and the ONLY thing that fills it.
+   *
+   * It used to be `notesSectionRows()`/`notesSectionHeading()`, which silently
+   * switched between two unrelated collections: the server's matches for the
+   * current query, and — whenever the query happened to be empty — the whole
+   * unlinked-note list. That is what let a maintenance queue read as a permanent
+   * second content type under the concept index (issue #256). A search now shows
+   * its own matches and nothing shows unlinked notes except review mode.
+   */
+  noteSearchHits = computed(() => (this.searchQuery().trim() ? this.noteHits() : []));
 
-  notesSectionHeading = computed(() =>
-    this.searchQuery().trim() ? 'Notes' : 'Notes with no concept'
-  );
+  /** True while the rail is the review queue rather than the concept index. */
+  isReviewing = computed(() => this.viewMode() === 'unlinked');
+
+  /** The note under review: the chosen one, or the head of the queue. */
+  reviewNote = computed<NoteSearchHit | null>(() => {
+    const queue = this.reviewQueue();
+    if (!queue.length) return null;
+    const id = this.reviewId();
+    return (id ? queue.find((row) => row.id === id) : undefined) ?? queue[0];
+  });
+
+  /**
+   * Whether the queue still holds rows this browser has not fetched. The local
+   * queue is exactly the rows fetched so far that are still unresolved, so the
+   * gap to the total IS the unfetched remainder.
+   */
+  reviewHasMore = computed(() => this.reviewQueue().length < this.reviewTotal());
+
+  /** The concept the user picked to link the reviewed note to. */
+  reviewPickerConcept = computed(() => {
+    const id = this.reviewPickerConceptId();
+    return id ? this.concepts().find((concept) => concept.id === id) ?? null : null;
+  });
+
+  reviewPickerCandidates = computed(() => this.filterAndSortConcepts(this.reviewPickerQuery(), null));
 
   mergeCandidates = computed(() =>
     this.filterAndSortConcepts(this.mergeSearchQuery(), this.selectedId())
@@ -339,7 +430,10 @@ export class SecondBrain implements AfterViewChecked {
       error: () => undefined,
     });
 
-    this.loadUnlinkedNotes();
+    // Deliberately nothing else. The rail used to fetch the unlinked notes here,
+    // on every visit, purely so it could render them as a second section under
+    // the concept index (issue #256). They now load only when the user opens
+    // review mode.
   }
 
   /**
@@ -414,7 +508,6 @@ export class SecondBrain implements AfterViewChecked {
     if (!term) {
       this.noteMatches.set([]);
       this.noteHits.set([]);
-      this.loadUnlinkedNotes();
       this.noteSearchTimer = null;
       return;
     }
@@ -446,16 +539,227 @@ export class SecondBrain implements AfterViewChecked {
     });
   }
 
-  private loadUnlinkedNotes(): void {
-    if (this.unlinkedLoaded) return;
-    this.unlinkedLoaded = true;
-    this.notesService.unlinked(50).subscribe({
-      next: (rows) => this.unlinkedNotes.set(rows ?? []),
+  /**
+   * Enter the unlinked-note review task (issue #256).
+   *
+   * The mode is entered, not persisted, and the queue is fetched only here — so
+   * an ordinary Brain visit never pays for it. The search is cleared on the way
+   * in for the reason the mode toggle has always cleared it: the header search
+   * box is hidden while reviewing, and a filter whose control is off screen is a
+   * filter nobody can explain or clear. Search matches and the review queue are
+   * different jobs either way, so a query must never appear to filter the queue.
+   */
+  openReview(): void {
+    this.clearSearch();
+    this.closeNotePanel();
+    this.reviewId.set(null);
+    this.reviewEditing.set(false);
+    this.closeReviewPicker();
+    this.viewMode.set('unlinked');
+    if (!this.reviewLoaded()) this.loadReviewPage();
+  }
+
+  /** Leave the review task, back to the concept index. */
+  closeReview(): void {
+    this.setViewMode('list');
+  }
+
+  /**
+   * Fetch the next page of the queue.
+   *
+   * The offset is the number of rows still held, not the number fetched: a note
+   * that has been resolved is gone from the server's set too, so the rows this
+   * browser holds are exactly the first N of the server's current order.
+   */
+  loadReviewPage(): void {
+    if (this.reviewLoading()) return;
+    this.reviewLoading.set(true);
+    this.notesService.unlinkedPage(REVIEW_PAGE_SIZE, this.reviewQueue().length).subscribe({
+      next: (page) => {
+        const held = new Set(this.reviewQueue().map((row) => row.id));
+        const fresh = (page.items ?? []).filter((row) => !held.has(row.id));
+        this.reviewQueue.set([...this.reviewQueue(), ...fresh]);
+        this.reviewTotal.set(page.totalCount ?? this.reviewQueue().length);
+        this.reviewLoading.set(false);
+        this.reviewLoaded.set(true);
+      },
       error: () => {
-        this.unlinkedNotes.set([]);
-        this.unlinkedLoaded = false;
+        this.reviewLoading.set(false);
+        this.toast.error('Notes with no concept could not be loaded');
       },
     });
+  }
+
+  /** Leave the focused note (mobile's way back to the queue). Focus decides nothing. */
+  clearReviewFocus(): void {
+    this.reviewEditing.set(false);
+    this.closeReviewPicker();
+    this.reviewId.set(null);
+  }
+
+  /** Focus a queued note. Focusing decides nothing — it only moves the review on. */
+  focusReviewNote(id: string): void {
+    this.reviewEditing.set(false);
+    this.closeReviewPicker();
+    this.reviewId.set(id);
+  }
+
+  /**
+   * Move to the next queued note without touching it.
+   *
+   * Skipping is not a decision: the note is neither linked nor edited, so it
+   * stays at the full count and the user can leave the mode and find it still
+   * waiting.
+   */
+  skipReviewNote(): void {
+    const queue = this.reviewQueue();
+    if (queue.length < 2) return;
+    const current = this.reviewNote();
+    const index = current ? queue.findIndex((row) => row.id === current.id) : -1;
+    const next = queue[(index + 1) % queue.length];
+    this.focusReviewNote(next.id);
+  }
+
+  startReviewEdit(): void {
+    const note = this.reviewNote();
+    if (!note) return;
+    this.reviewEditContent.set(note.content);
+    this.closeReviewPicker();
+    this.reviewEditing.set(true);
+  }
+
+  cancelReviewEdit(): void {
+    this.reviewEditing.set(false);
+    this.reviewEditContent.set('');
+  }
+
+  /**
+   * Save the reviewed note's text.
+   *
+   * This is the canonical note edit path, unchanged: the server re-reads the
+   * `[[Concept]]` links from the body on save. What review mode adds is the
+   * consequence — a note that now declares a concept has been resolved, so it
+   * leaves the queue immediately instead of waiting for a reload.
+   */
+  saveReviewEdit(): void {
+    const note = this.reviewNote();
+    if (!note || this.reviewSaving()) return;
+
+    const content = this.reviewEditContent().trim();
+    if (content === note.content) {
+      this.cancelReviewEdit();
+      return;
+    }
+
+    this.reviewSaving.set(true);
+    this.notesService.update(note.id, { content }).subscribe({
+      next: () => {
+        this.reviewSaving.set(false);
+        this.reviewEditing.set(false);
+        this.refreshIndexAndStats();
+
+        if (declaresConcept(content)) {
+          this.removeFromReview(note.id);
+          this.toast.success('Note linked to a concept');
+        } else {
+          // Still belongs to no concept. Keep it queued, showing what was just
+          // written, rather than pretending the edit resolved anything.
+          this.reviewQueue.update((rows) =>
+            rows.map((row) => (row.id === note.id ? { ...row, content } : row))
+          );
+          this.toast.success('Note saved');
+        }
+      },
+      error: () => {
+        this.reviewSaving.set(false);
+        this.toast.error('Failed to update note');
+      },
+    });
+  }
+
+  openReviewPicker(): void {
+    this.reviewEditing.set(false);
+    this.reviewPickerQuery.set('');
+    this.reviewPickerConceptId.set(null);
+    this.reviewPickerOpen.set(true);
+  }
+
+  closeReviewPicker(): void {
+    this.reviewPickerOpen.set(false);
+    this.reviewPickerQuery.set('');
+    this.reviewPickerConceptId.set(null);
+  }
+
+  chooseReviewConcept(id: string): void {
+    this.reviewPickerConceptId.set(id);
+  }
+
+  /**
+   * Link the reviewed note to an existing concept.
+   *
+   * The association written here is the canonical one this codebase has: the note
+   * body gains an explicit `[[Concept]]` reference and the server rebuilds the
+   * note's concept links from it. Nothing is invented — the concept must already
+   * exist, it is chosen by the user, and no prose is rewritten beyond appending
+   * the reference. Membership is never stored as a link the next note save would
+   * silently drop.
+   */
+  confirmLinkToConcept(): void {
+    const note = this.reviewNote();
+    const concept = this.reviewPickerConcept();
+    if (!note || !concept || this.reviewSaving()) return;
+
+    const content = this.withConceptReference(note.content, concept.name);
+    this.reviewSaving.set(true);
+    this.notesService.update(note.id, { content }).subscribe({
+      next: () => {
+        this.reviewSaving.set(false);
+        this.closeReviewPicker();
+        this.refreshIndexAndStats();
+        this.removeFromReview(note.id);
+        this.toast.success(`Linked to “${concept.name}”`);
+      },
+      error: () => {
+        this.reviewSaving.set(false);
+        this.toast.error('Failed to link the note');
+      },
+    });
+  }
+
+  /** `content` with an explicit `[[name]]` reference, appended unless already there. */
+  private withConceptReference(content: string, name: string): string {
+    const trimmedName = name.trim();
+    const declared = declaredConceptNames(content).some(
+      (existing) => existing.toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (declared) return content;
+
+    const body = content.trimEnd();
+    return body.length ? `${body}\n\n[[${trimmedName}]]` : `[[${trimmedName}]]`;
+  }
+
+  /**
+   * Take a resolved note out of the queue and off the count, in place.
+   *
+   * Resolving is a deliberate act that only ever shrinks the waiting set, so the
+   * row can go immediately — a refetch would make the user wait to see the effect
+   * of their own decision. Focus moves to the row that took its place so the
+   * queue keeps flowing.
+   */
+  private removeFromReview(noteId: string): void {
+    const queue = this.reviewQueue();
+    const index = queue.findIndex((row) => row.id === noteId);
+    if (index < 0) return;
+
+    const remaining = queue.filter((row) => row.id !== noteId);
+    this.reviewQueue.set(remaining);
+    this.reviewTotal.update((total) => Math.max(0, total - 1));
+    this.reviewEditing.set(false);
+
+    if (this.reviewId() === noteId) {
+      const following = remaining[index] ?? remaining[index - 1] ?? null;
+      this.reviewId.set(following ? following.id : null);
+    }
   }
 
   openNotePanel(hit: NoteSearchHit): void {

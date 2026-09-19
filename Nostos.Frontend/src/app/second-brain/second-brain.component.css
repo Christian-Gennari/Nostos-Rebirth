@@ -2409,3 +2409,326 @@
   margin: 0;
   font-style: italic;
 }
+
+/* --- UNLINKED-NOTE REVIEW (issue #256) ---
+ *
+ * Review is a task, not a section. The rail becomes the queue and the content
+ * pane becomes one focused note, for as long as the user has chosen to review.
+ *
+ * Everything here is built from the tokens the surface already uses — the row
+ * fill, the hairline, the focus ring, the ink — so the mode follows the theme
+ * instead of carrying a palette of its own, and reads as the same product as the
+ * concept index it temporarily replaces.
+ */
+
+.review-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  position: relative;
+  padding: 0.5rem 1.25rem 1rem;
+}
+
+/* The reviewed row. Same fill the concept index gives its active row, so
+   "where am I" reads identically in both rails. */
+.note-row-item.active {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.review-load-more {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.review-load-more:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.review-load-more:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.review-load-more:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* The rail's foot.
+ *
+ * One restrained line, in the position the queued notes used to occupy: the way
+ * INTO review in the index, and the way OUT of it while reviewing. It is not a
+ * badge and carries no count — the whole point of the issue is that unlinked
+ * notes do not get to advertise themselves from the default rail. */
+.rail-foot {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--border-color);
+  padding: 0.5rem 0.75rem;
+}
+
+.rail-foot-action {
+  width: 100%;
+  padding: 0.5rem;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.rail-foot-action:hover {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.rail-foot-action:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* --- The focused note ---
+ *
+ * `.content-col` already supplies the surface's padding, so this only centres
+ * the task and holds it to a reading measure — the same shape the concept detail
+ * pane uses. */
+
+.review-pane {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.review-head {
+  margin-bottom: 1.5rem;
+}
+
+.review-title {
+  font-family: 'Newsreader', serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-text-main);
+  margin: 0.25rem 0 0;
+  letter-spacing: -0.01em;
+}
+
+.review-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 46rem;
+}
+
+.review-quote {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid var(--border-color);
+  font-size: 1rem;
+  font-style: italic;
+  color: var(--color-text-muted);
+  background: var(--bg-hover);
+  border-radius: var(--radius-md);
+}
+
+.review-content {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--color-text-main);
+  white-space: pre-wrap;
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* The surface's own action recipe: quiet by default (`.concept-action`), with a
+ * hairline for the one action that actually commits something (`.empty-clear`).
+ * No filled CTA — this is housekeeping, and a loud button would say otherwise. */
+.review-action {
+  min-height: 36px;
+  padding: 0 0.85rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-light);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.review-action:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.review-action:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.review-action:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.review-action.primary {
+  border-color: var(--border-color);
+  color: var(--color-text-main);
+}
+
+/* --- The concept picker ---
+ *
+ * The deliberate half of the two write paths: the user names the concept the
+ * note belongs to, and nothing is written until they confirm. */
+
+.review-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-alt);
+}
+
+.review-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.review-picker-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.review-picker-close:hover {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.review-picker-close:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* Says what linking will actually do before it does it: the association this
+ * codebase has is an explicit [[reference]] in the note, and a user should not
+ * discover that by reading the diff. */
+.review-picker-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.review-picker-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--color-text-muted);
+}
+
+.review-picker-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.88rem;
+  outline: none;
+}
+
+.review-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.review-picker-empty,
+.review-picker-count {
+  color: var(--color-text-light);
+  font-size: 0.78rem;
+}
+
+.review-picker-target {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.review-picker-target:hover,
+.review-picker-target.selected {
+  background: var(--bg-hover);
+}
+
+.review-picker-target:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.review-picker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  /* The reviewed note keeps a phone-sized measure: the pane's own padding comes
+     from `.content-col`'s mobile rules, so only the type scales down. */
+  .review-title {
+    font-size: 1.25rem;
+  }
+
+  .review-body {
+    max-width: none;
+  }
+}

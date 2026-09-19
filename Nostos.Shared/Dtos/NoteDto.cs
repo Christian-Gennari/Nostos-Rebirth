@@ -35,3 +35,16 @@ public record NoteSearchHitDto(
     IReadOnlyList<string> ConceptNames,
     DateTime CreatedAt
 );
+
+/// <summary>
+/// One bounded page of the unlinked-note review queue, plus the total still
+/// waiting. The review mode traverses the whole set, so the total is what keeps
+/// `Items` from reading as the whole set — 50 of 63 unlinked notes must never be
+/// presented as "the unlinked notes" (issue #256).
+/// </summary>
+public record NoteSearchPageDto(
+    IReadOnlyList<NoteSearchHitDto> Items,
+    int TotalCount,
+    int Offset,
+    int Limit
+);

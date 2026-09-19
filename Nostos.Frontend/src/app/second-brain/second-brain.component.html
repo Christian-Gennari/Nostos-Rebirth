@@ -32,6 +32,15 @@
       </div>
 
       <div class="brain-header-tools">
+        <!--
+          The search box is hidden while reviewing unlinked notes (issue #256).
+          It searches concepts and note text — neither of which the review queue
+          contains — so leaving it on screen would either look like it filters the
+          queue or silently do nothing. The query is cleared on the way in, for the
+          same reason the mode toggle has always cleared it: a filter whose control
+          is off screen is a filter nobody can explain or clear.
+        -->
+        @if (!isReviewing()) {
         <div class="search-box">
           <nostos-icon name="magnifying-glass" [size]="16" class="search-icon"></nostos-icon>
           <input
@@ -54,6 +63,7 @@
           </button>
           }
         </div>
+        }
 
         <!-- Icon-only at 18px/1.5, exactly the Library's list/grid control.
              No text labels: the Library's toggle has none, and at this size
@@ -88,9 +98,69 @@
 
     <aside
       class="index-col"
-      [class.mobile-hidden]="selectedId()"
+      [class.mobile-hidden]="selectedId() || (isReviewing() && reviewId())"
       [class.map-hidden]="viewMode() === 'map'"
     >
+      @if (isReviewing()) {
+      <!--
+        The review queue (issue #256).
+
+        This is the ONLY place unlinked notes are shown. It is deliberately not a
+        second section under the concept index: it replaces the index for as long
+        as the user has chosen to review, and the rail goes back to concepts the
+        moment they are done. The count is the number still waiting, not the number
+        of rows fetched, so it never reads as "this page is the whole queue".
+      -->
+      <div class="brain-section-header">
+        <h2 class="brain-section-title">Notes with no concept</h2>
+        <span class="brain-section-count" role="status" aria-live="polite" aria-atomic="true">
+          {{ reviewTotal() }} remaining
+        </span>
+      </div>
+
+      <div class="review-list" role="list" aria-label="Notes with no concept">
+        @if (reviewLoading() && reviewQueue().length === 0) {
+        <div class="index-wait-field wait-field" role="status" aria-label="Loading notes"></div>
+        } @else if (reviewQueue().length === 0) {
+        <div class="empty-index-state" role="status">
+          <div class="empty-eyebrow">Nothing waiting</div>
+          <p>Every note is connected to a concept.</p>
+          <button type="button" class="empty-clear" (click)="closeReview()">
+            Back to concepts
+          </button>
+        </div>
+        } @else {
+        @for (row of reviewQueue(); track row.id) {
+        <div class="note-row-shell" role="listitem">
+          <button
+            type="button"
+            class="note-row-item"
+            [class.active]="reviewNote()?.id === row.id"
+            [attr.aria-label]="'Review note from ' + (row.bookTitle || 'an unknown source')"
+            (click)="focusReviewNote(row.id)"
+          >
+            <span class="note-row-main">
+              <span class="note-row-snippet">“{{ row.snippet ? row.snippet : row.content }}”</span>
+              @if (row.bookTitle) {
+              <span class="note-row-book">{{ row.bookTitle }}</span>
+              }
+            </span>
+          </button>
+        </div>
+        }
+        @if (reviewHasMore()) {
+        <button
+          type="button"
+          class="review-load-more"
+          [disabled]="reviewLoading()"
+          (click)="loadReviewPage()"
+        >
+          {{ reviewLoading() ? 'Loading…' : 'Load more (' + (reviewTotal() - reviewQueue().length) + ' not shown)' }}
+        </button>
+        }
+        }
+      </div>
+      } @else {
       <div class="index-tools">
         <label class="visually-hidden" for="brain-sort">Sort concepts</label>
         <div class="select-shell sort-shell">
@@ -225,13 +295,23 @@
         }
       </div>
 
+      <!--
+        Note-text search results (issue #158), and nothing else.
+
+        This section renders ONLY while a query is active. It used to share one
+        implicit heading with the unlinked-note list, falling back to "Notes with
+        no concept" whenever the box was empty — which is how a maintenance queue
+        came to live permanently under the concept index (issue #256). Unlinked
+        notes now have review mode and no other home.
+      -->
+      @if (searchQuery().trim()) {
       <div class="brain-notes-section">
         <div class="brain-section-header">
-          <h2 class="brain-section-title">{{ notesSectionHeading() }}</h2>
-          <span class="brain-section-count">{{ notesSectionRows().length }}</span>
+          <h2 class="brain-section-title">Notes</h2>
+          <span class="brain-section-count">{{ noteSearchHits().length }}</span>
         </div>
-        <div class="brain-notes-list" role="list" aria-label="Notes index">
-          @for (hit of notesSectionRows(); track hit.id) {
+        <div class="brain-notes-list" role="list" aria-label="Notes matching the search">
+          @for (hit of noteSearchHits(); track hit.id) {
           <div class="note-row-shell" role="listitem">
             <button
               type="button"
@@ -249,9 +329,31 @@
           }
         </div>
       </div>
+      }
+      }
+
+      <!--
+        The quiet entry point (issue #256). Not a badge, not a count, not a second
+        section: one restrained line at the foot of the rail, in the place the
+        queued notes used to occupy, which becomes the way out while reviewing.
+      -->
+      <div class="rail-foot">
+        @if (isReviewing()) {
+        <button type="button" class="rail-foot-action" (click)="closeReview()">
+          Done reviewing
+        </button>
+        } @else {
+        <button type="button" class="rail-foot-action" (click)="openReview()">
+          Review notes with no concept
+        </button>
+        }
+      </div>
     </aside>
 
-    <section class="content-col" [class.mobile-visible]="selectedId() || viewMode() === 'map'">
+    <section
+      class="content-col"
+      [class.mobile-visible]="selectedId() || viewMode() === 'map' || (isReviewing() && reviewId())"
+    >
       @if (viewMode() === 'map') {
       <!--
         The map is a whole-surface mode, not a widget beside the index: in map
@@ -279,6 +381,135 @@
           (openConcept)="openConceptFromMap($event)"
         ></app-concept-map>
       </div>
+      } @else if (isReviewing()) {
+      <!--
+        The reviewed note (issue #256). A focused task, not a section of a list:
+        the source context, the note itself, and the smallest set of ways to
+        resolve it. Nothing here mutates the note except the two explicit actions,
+        and both write only what the user confirmed.
+      -->
+      @if (reviewNote(); as note) {
+      <button type="button" class="mobile-nav-header" (click)="clearReviewFocus()">
+        <nostos-icon name="arrow-left" [size]="18"></nostos-icon>
+        <span>Back to notes</span>
+      </button>
+
+      <div class="review-pane">
+        <div class="review-head">
+          <div class="super-title">Note with no concept</div>
+          <h1 class="review-title">{{ note.bookTitle || 'An unknown source' }}</h1>
+        </div>
+
+        <div class="review-body">
+          @if (note.selectedText) {
+          <blockquote class="review-quote">{{ note.selectedText }}</blockquote>
+          }
+
+          @if (reviewEditing()) {
+          <label class="visually-hidden" for="review-note-text">Note text</label>
+          <app-concept-input
+            id="review-note-text"
+            [ngModel]="reviewEditContent()"
+            (ngModelChange)="reviewEditContent.set($event)"
+            [rows]="5"
+            placeholder="Add [[Concept]] to connect this note"
+          ></app-concept-input>
+          <div class="review-actions">
+            <button
+              type="button"
+              class="review-action primary"
+              [disabled]="reviewSaving()"
+              (click)="saveReviewEdit()"
+            >
+              {{ reviewSaving() ? 'Saving…' : 'Save note' }}
+            </button>
+            <button
+              type="button"
+              class="review-action"
+              [disabled]="reviewSaving()"
+              (click)="cancelReviewEdit()"
+            >
+              Cancel
+            </button>
+          </div>
+          } @else {
+          <p class="review-content">{{ note.content }}</p>
+
+          @if (reviewPickerOpen()) {
+          <div class="review-picker" role="dialog" aria-label="Link this note to a concept">
+            <div class="review-picker-head">
+              <span class="detail-tool-label">Link to concept</span>
+              <button
+                type="button"
+                class="review-picker-close"
+                aria-label="Close concept picker"
+                (click)="closeReviewPicker()"
+              >
+                <nostos-icon name="x" [size]="15"></nostos-icon>
+              </button>
+            </div>
+            <p class="review-picker-hint">
+              Linking adds an explicit <code>[[Concept]]</code> reference to the note.
+            </p>
+            <div class="review-picker-search">
+              <nostos-icon name="magnifying-glass" [size]="15"></nostos-icon>
+              <input
+                type="search"
+                placeholder="Search concepts..."
+                aria-label="Search concepts to link"
+                [ngModel]="reviewPickerQuery()"
+                (ngModelChange)="reviewPickerQuery.set($event)"
+                (keydown.escape)="closeReviewPicker()"
+              />
+            </div>
+            <div class="review-picker-list">
+              @if (reviewPickerCandidates().length === 0) {
+              <span class="review-picker-empty">No concepts match.</span>
+              } @else {
+              @for (candidate of reviewPickerCandidates(); track candidate.id) {
+              <button
+                type="button"
+                class="review-picker-target"
+                [class.selected]="reviewPickerConceptId() === candidate.id"
+                (click)="chooseReviewConcept(candidate.id)"
+              >
+                <span>{{ candidate.name }}</span>
+                <span class="review-picker-count">{{ candidate.usageCount }}</span>
+              </button>
+              }
+              }
+            </div>
+            <div class="review-picker-actions">
+              <button type="button" class="review-action" (click)="closeReviewPicker()">
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="review-action primary"
+                [disabled]="!reviewPickerConcept() || reviewSaving()"
+                (click)="confirmLinkToConcept()"
+              >
+                {{ reviewSaving() ? 'Linking…' : 'Link note' }}
+              </button>
+            </div>
+          </div>
+          } @else {
+          <div class="review-actions">
+            <button type="button" class="review-action primary" (click)="openReviewPicker()">
+              Link to concept
+            </button>
+            <button type="button" class="review-action" (click)="startReviewEdit()">
+              Edit note
+            </button>
+            <button type="button" class="review-action" (click)="skipReviewNote()">
+              Skip
+            </button>
+          </div>
+          }
+          }
+        </div>
+      </div>
+      }
       } @else { @if (selectedId()) {
       <button type="button" class="mobile-nav-header" (click)="clearSelection()">
         <nostos-icon name="arrow-left" [size]="18"></nostos-icon>
