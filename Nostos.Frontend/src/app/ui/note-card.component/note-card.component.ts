@@ -3,23 +3,13 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import {
-  LucideAngularModule,
-  Edit2,
-  Trash2,
-  Check,
-  X,
-  ArrowRight,
-  Library,
-  ChevronDown,
-  ChevronUp,
-} from 'lucide-angular';
 
 import { Note, UpdateNoteDto } from '../../core/dtos/note.dtos';
 import { ConceptDto } from '../../core/services/concepts.service';
 import { ConceptInputComponent } from '../concept-input.component/concept-input.component';
 import { IconButtonComponent } from '../icon-button/icon-button.component';
 import { NoteFormatPipe } from '../pipes/note-format.pipe';
+import { NostosIconComponent } from '../icon/nostos-icon.component';
 
 @Component({
   selector: 'app-note-card',
@@ -27,7 +17,7 @@ import { NoteFormatPipe } from '../pipes/note-format.pipe';
   imports: [
     CommonModule,
     FormsModule,
-    LucideAngularModule,
+    NostosIconComponent,
     IconButtonComponent,
     ConceptInputComponent,
     NoteFormatPipe,
@@ -66,18 +56,6 @@ export class NoteCardComponent {
   // collapses the four oversized imported cards and exactly one pre-existing
   // note, and never a quote a reader would call short.
   readonly QUOTE_COLLAPSE_THRESHOLD = 1000;
-
-  Icons = {
-    Edit: Edit2,
-    Delete: Trash2,
-    Check,
-    Close: X,
-    ArrowRight,
-    Library,
-    ChevronDown,
-    ChevronUp,
-  };
-
   get shouldShowExpandBtn(): boolean {
     if (this.isEditing) return false;
 

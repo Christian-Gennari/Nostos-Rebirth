@@ -50,37 +50,7 @@ import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { LibraryPreferencesService } from '../core/services/library-preferences.service';
 import { BooksService } from '../core/services/books.service';
 import { ToastService } from '../core/services/toast.service';
-
-// Icons
-import {
-  LucideAngularModule,
-  ArrowLeft,
-  User,
-  Calendar,
-  Trash2,
-  Edit2,
-  CircleAlert,
-  BookOpen,
-  CheckIcon,
-  ChevronDown,
-  ChevronUp,
-  Hash,
-  Layers,
-  Building,
-  BookDown,
-  Image,
-  Headphones,
-  Clock,
-  Heart,
-  CheckCircle,
-  RotateCcw,
-  Mic,
-  MapPin,
-  Globe,
-  MessageSquareQuote,
-  FileText,
-  CircleDashed,
-} from 'lucide-angular';
+import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 
 @Component({
   standalone: true,
@@ -89,7 +59,7 @@ import {
     CommonModule,
     FormsModule,
     RouterLink,
-    LucideAngularModule,
+    NostosIconComponent,
     AddBookModal,
     EditionsModal,
     ConfirmModal,
@@ -115,34 +85,6 @@ export class BookDetail implements OnInit, OnDestroy {
     const book = this.store.book();
     if (book) this.preferences.setActiveEditionId(book.workId, book.id);
   });
-
-  // Icons
-  ArrowLeftIcon = ArrowLeft;
-  UserIcon = User;
-  CalendarIcon = Calendar;
-  Trash2Icon = Trash2;
-  Edit2Icon = Edit2;
-  AlertCircleIcon = CircleAlert;
-  BookOpenIcon = BookOpen;
-  CheckIcon = CheckIcon;
-  ChevronDownIcon = ChevronDown;
-  ChevronUpIcon = ChevronUp;
-  HashIcon = Hash;
-  LayersIcon = Layers;
-  BuildingIcon = Building;
-  BookDownIcon = BookDown;
-  ImageIcon = Image;
-  HeadphonesIcon = Headphones;
-  ClockIcon = Clock;
-  HeartIcon = Heart;
-  CheckCircleIcon = CheckCircle;
-  RotateCcwIcon = RotateCcw;
-  MicIcon = Mic;
-  MapPinIcon = MapPin;
-  GlobeIcon = Globe;
-  QuoteIcon = MessageSquareQuote;
-  FileTextIcon = FileText;
-  CircleDashedIcon = CircleDashed;
 
   // Local UI State
   isDescriptionExpanded = signal(false);

@@ -9,14 +9,14 @@ import {
 import { RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs/operators';
-import { LucideAngularModule, Library, PenTool, BrainCog, Settings } from 'lucide-angular';
 import { NavigationHistoryService } from '../../core/services/navigation-history.service';
 import { LibraryFilterService } from '../../library/library-filter.service';
+import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
 
 @Component({
   standalone: true,
   selector: 'app-app-dock',
-  imports: [RouterLink, RouterLinkActive, LucideAngularModule],
+  imports: [RouterLink, RouterLinkActive, NostosIconComponent],
   template: `
     <nav class="app-dock-container" aria-label="Main navigation">
       <div class="dock-bar" #dockBar>
@@ -28,7 +28,7 @@ import { LibraryFilterService } from '../../library/library-filter.service';
           class="dock-item"
           title="Library"
         >
-          <lucide-icon [img]="LibraryIcon" [size]="20" strokeWidth="1.6"></lucide-icon>
+          <nostos-icon name="books" [size]="20" weight="light"></nostos-icon>
           <span class="label">Library</span>
         </a>
 
@@ -39,7 +39,7 @@ import { LibraryFilterService } from '../../library/library-filter.service';
           class="dock-item"
           title="The Brain"
         >
-          <lucide-icon [img]="BrainIcon" [size]="20" strokeWidth="1.6"></lucide-icon>
+          <nostos-icon name="brain" [size]="20" weight="light"></nostos-icon>
           <span class="label">Brain</span>
         </a>
 
@@ -50,7 +50,7 @@ import { LibraryFilterService } from '../../library/library-filter.service';
           class="dock-item"
           title="Writing Studio"
         >
-          <lucide-icon [img]="PenToolIcon" [size]="20" strokeWidth="1.6"></lucide-icon>
+          <nostos-icon name="pen-nib" [size]="20" weight="light"></nostos-icon>
           <span class="label">Studio</span>
         </a>
 
@@ -61,7 +61,7 @@ import { LibraryFilterService } from '../../library/library-filter.service';
           class="dock-item"
           title="Settings"
         >
-          <lucide-icon [img]="SettingsIcon" [size]="20" strokeWidth="1.6"></lucide-icon>
+          <nostos-icon name="gear-six" [size]="20" weight="light"></nostos-icon>
           <span class="label">Settings</span>
         </a>
       </div>
@@ -220,7 +220,7 @@ import { LibraryFilterService } from '../../library/library-filter.service';
           padding: 5px 4px 6px;
         }
 
-        .dock-item lucide-icon {
+        .dock-item nostos-icon {
           /* 20px icons: the desktop 0.9 scale (18px) is too small to read or
              hit comfortably on a phone. */
           transform: none;
@@ -249,12 +249,6 @@ export class AppDockComponent {
   private historyService = inject(NavigationHistoryService);
   private router = inject(Router);
   private filters = inject(LibraryFilterService);
-
-  LibraryIcon = Library;
-  BrainIcon = BrainCog;
-  PenToolIcon = PenTool;
-  SettingsIcon = Settings;
-
   private dockBar = viewChild<ElementRef<HTMLElement>>('dockBar');
 
   constructor() {

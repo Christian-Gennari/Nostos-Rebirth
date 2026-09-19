@@ -1,7 +1,7 @@
 import { Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, Book, Download } from 'lucide-angular';
 import { ModalShell } from '../ui/modal-shell/modal-shell.component';
+import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 
 /**
  * The question Add Book should have asked first: is this book coming from
@@ -15,7 +15,7 @@ import { ModalShell } from '../ui/modal-shell/modal-shell.component';
 @Component({
   selector: 'app-add-book-intent',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, ModalShell],
+  imports: [CommonModule, NostosIconComponent, ModalShell],
   templateUrl: './add-book-intent.component.html',
   styleUrl: './add-book-intent.component.css',
 })
@@ -29,7 +29,4 @@ export class AddBookIntent {
   source = output<void>();
 
   cancel = output<void>();
-
-  BookIcon = Book;
-  DownloadIcon = Download;
 }

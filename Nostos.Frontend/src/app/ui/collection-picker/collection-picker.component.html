@@ -19,7 +19,7 @@
             [attr.aria-label]="'Remove from ' + collection.name"
             (click)="remove(collection.id)"
           >
-            <lucide-icon [img]="XIcon" [size]="12"></lucide-icon>
+            <nostos-icon name="x" [size]="12"></nostos-icon>
           </button>
         </li>
       }
@@ -41,7 +41,7 @@
       >
         <span class="option-check" aria-hidden="true">
           @if (isSelected(option.id)) {
-            <lucide-icon [img]="CheckIcon" [size]="12"></lucide-icon>
+            <nostos-icon name="check" [size]="12"></nostos-icon>
           }
         </span>
         <span class="option-name">{{ option.name }}</span>

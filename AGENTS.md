@@ -190,6 +190,17 @@ this section is the detail for when you are in the shared tree.**
   the README's Brand section and `Nostos.Frontend/public/`.
 - **Never commit `Nostos.Backend/wwwroot/` or `Nostos.Frontend/dist/`** —
   both are gitignored build output.
+- **Icons:** the app has ONE icon language, Phosphor, and ONE rendering path.
+  Feature code never imports an icon package. Buttons use the attribute
+  component (`<button appIconButton icon="trash">`); every other glyph uses
+  `<nostos-icon name="book-open" />` or `<nostos-icon concept="audiobook" />`.
+  Names are a closed union, so a typo is a compile error with a suggestion.
+  Adding a glyph = one import in `src/app/ui/icon/nostos-icons.ts`; a stable
+  product concept = one entry in `nostos-concepts.ts`. Do not import from
+  `@phosphor-icons/*` anywhere else, and do not add another icon package
+  without an architectural reason. Weights exist per glyph (`regular` is the
+  default; `fill` for selected states); sizes are px numbers on a small shared
+  scale (`NOSTOS_ICON_SIZE`).
 - **UI/theme changes:** `styles.css` holds the token graph; a colour token
   added to `:root` needs its `:root[data-theme='dark']` counterpart or
   `npm run check:theme` fails. Genuinely theme-invariant tokens belong in that

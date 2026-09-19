@@ -2,7 +2,6 @@ import { Component, ElementRef, HostListener, ViewChild, computed, inject, signa
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { LucideAngularModule, Book as BookIconData, Folder as FolderIconData, ArrowRight, Search } from 'lucide-angular';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
@@ -11,6 +10,7 @@ import { CollectionsService } from '../../core/services/collections.service';
 import { LibraryFilterService } from '../../library/library-filter.service';
 import { Book } from '../../core/dtos/book.dtos';
 import { Collection } from '../../core/dtos/collection.dtos';
+import { NostosIconComponent } from '../icon/nostos-icon.component';
 
 export type PaletteEntry =
   | { kind: 'book'; id: string; label: string; sub: string }
@@ -35,7 +35,7 @@ const ACTIONS: PaletteEntry[] = [
 @Component({
   selector: 'app-command-palette',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule],
+  imports: [CommonModule, FormsModule, NostosIconComponent],
   templateUrl: './command-palette.component.html',
   styleUrl: './command-palette.component.css',
 })
@@ -44,12 +44,6 @@ export class CommandPalette {
   private booksService = inject(BooksService);
   private collectionsService = inject(CollectionsService);
   private filters = inject(LibraryFilterService);
-
-  BookIcon = BookIconData;
-  FolderIcon = FolderIconData;
-  ArrowIcon = ArrowRight;
-  SearchIcon = Search;
-
   isOpen = signal(false);
   query = signal('');
   books = signal<Book[]>([]);

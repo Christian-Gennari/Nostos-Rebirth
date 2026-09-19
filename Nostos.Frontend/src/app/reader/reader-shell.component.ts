@@ -2,29 +2,6 @@ import { Component, inject, OnInit, signal, computed, effect, ViewChild, HostLis
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import {
-  LucideAngularModule,
-  ArrowLeft,
-  NotebookPen,
-  Highlighter,
-  MessageSquareQuote,
-  StickyNote,
-  Edit2,
-  Trash2,
-  X,
-  Check,
-  Clock,
-  List,
-  ZoomIn,
-  ZoomOut,
-  ChevronLeft,
-  ChevronRight,
-  Save,
-  Plus,
-  Info,
-  Search,
-  Type as TypeIcon,
-} from 'lucide-angular';
 
 // Services
 import { BooksService } from '../core/services/books.service';
@@ -53,6 +30,7 @@ import { AudioReader } from './audio-reader/audio-reader.component';
 import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
+import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 
 @Component({
   selector: 'app-reader-shell',
@@ -60,7 +38,7 @@ import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
   imports: [
     CommonModule,
     FormsModule,
-    LucideAngularModule,
+    NostosIconComponent,
     PdfReader,
     EpubReader,
     AudioReader,
@@ -87,27 +65,6 @@ export class ReaderShell implements OnInit {
   private notesService = inject(NotesService);
   private conceptsService = inject(ConceptsService);
   private autocompleteService = inject(ConceptAutocompleteService);
-
-  // Icons
-  Icons = {
-    ArrowLeft,
-    Highlighter,
-    NotebookPen,
-    StickyNote,
-    Close: X,
-    Check,
-    Clock,
-    List,
-  ZoomIn,
-  ZoomOut,
-  Prev: ChevronLeft,
-  Next: ChevronRight,
-  Save,
-  Plus,
-  Info,
-  Search,
-  Type: TypeIcon,
-  };
 
   /** Typography panel (EPUB only) toggled by the Aa control. */
   typoOpen = signal(false);

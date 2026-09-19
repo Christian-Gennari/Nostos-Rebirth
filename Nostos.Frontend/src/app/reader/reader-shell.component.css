@@ -234,7 +234,7 @@
   color: var(--color-text-muted);
   text-align: center;
 }
-.empty-state lucide-icon {
+.empty-state nostos-icon {
   color: var(--color-text-faint);
 }
 .empty-state p {
@@ -384,7 +384,7 @@
   bottom: 160%;
 }
 #add-timestamp-icon,
-.icon-btn lucide-icon {
+.icon-btn nostos-icon {
   position: relative;
   top: 1px;
 }
@@ -394,8 +394,8 @@
    matches. Measured before the migration: reader glyphs computed
    `border-radius: 4px`, every other surface 0px. Without this the reader's icon
    boxes lose their rounding. */
-:host ::ng-deep button[appIconButton] .icon-btn lucide-icon,
-:host ::ng-deep button[appIconButton] lucide-icon {
+:host ::ng-deep button[appIconButton] .icon-btn nostos-icon,
+:host ::ng-deep button[appIconButton] nostos-icon {
   border-radius: var(--radius-md);
 }
 
@@ -633,7 +633,7 @@
      boundary for the same reason as the radius above: the glyph carries the child's
      scope attribute, so a plain descendant selector stops matching. Caught by the
      probe as a real 1px shift on the mobile toolbar before it could ship. */
-  :host ::ng-deep button[appIconButton] lucide-icon {
+  :host ::ng-deep button[appIconButton] nostos-icon {
     top: 0;
   }
   .progress-display {

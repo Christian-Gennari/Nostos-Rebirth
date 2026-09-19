@@ -83,7 +83,7 @@
   font-size: 0.875rem;
 }
 
-.palette-item lucide-icon {
+.palette-item nostos-icon {
   flex-shrink: 0;
   color: var(--color-text-light);
 }

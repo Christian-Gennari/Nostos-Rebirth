@@ -1,9 +1,9 @@
 import { Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideAngularModule, X, Search, Layers, Link2 } from 'lucide-angular';
 import { LinkableBookDto } from '../../core/dtos/book.dtos';
 import { ModalShell } from '../../ui/modal-shell/modal-shell.component';
+import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
 
 /** One book in the current work, as the membership list needs it. */
 export interface WorkMember {
@@ -33,7 +33,7 @@ export interface WorkMember {
 @Component({
   selector: 'app-editions-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, ModalShell],
+  imports: [CommonModule, FormsModule, NostosIconComponent, ModalShell],
   templateUrl: './editions-modal.component.html',
   styleUrl: './editions-modal.component.css',
 })
@@ -63,12 +63,6 @@ export class EditionsModal {
   linkRequest = output<LinkableBookDto>();
   unlinkRequest = output<WorkMember>();
   queryChange = output<string>();
-
-  XIcon = X;
-  SearchIcon = Search;
-  LayersIcon = Layers;
-  LinkIcon = Link2;
-
   // Escape and the backdrop now belong to `app-modal-shell`, which emits
   // `closed`; both were hand-rolled here before, including the `busy` guard
   // that stopped a save being dismissed mid-flight.

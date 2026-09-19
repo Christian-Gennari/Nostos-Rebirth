@@ -14,20 +14,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
-import {
-  LucideAngularModule,
-  Search,
-  BrainCircuit,
-  ArrowLeft,
-  Pencil,
-  Trash2,
-  X,
-  ChevronDown,
-  ChevronUp,
-  GitMerge,
-  LayoutList,
-  Map as MapIcon,
-} from 'lucide-angular';
 
 import { ToastService } from '../core/services/toast.service';
 import { NotesService } from '../core/services/notes.service';
@@ -43,6 +29,7 @@ import {
   RelatedConceptDto,
 } from '../core/services/concepts.service';
 import { ConceptMapComponent } from './concept-map/concept-map.component';
+import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 
 type IndexSort = 'usage' | 'az' | 'za';
 type NoteSort = 'newest' | 'oldest' | 'source';
@@ -101,7 +88,7 @@ function searchRank(name: string, query: string): number {
     CommonModule,
     FormsModule,
     RouterLink,
-    LucideAngularModule,
+    NostosIconComponent,
     NoteCardComponent,
     ConfirmModal,
     ConceptMapComponent,
@@ -114,19 +101,6 @@ export class SecondBrain implements AfterViewChecked {
   private http = inject(HttpClient);
   private notesService = inject(NotesService);
   private toast = inject(ToastService);
-
-  // Icons
-  SearchIcon = Search;
-  BrainIcon = BrainCircuit;
-  ArrowLeftIcon = ArrowLeft;
-  RenameIcon = Pencil;
-  DeleteIcon = Trash2;
-  ClearIcon = X;
-  ExpandIcon = ChevronDown;
-  CollapseIcon = ChevronUp;
-  MergeIcon = GitMerge;
-  ListIcon = LayoutList;
-  MapIcon = MapIcon;
 
   // Phase 5 consumes these outputs to open the rename and confirmation flows.
   readonly renameRequested = output<string>();

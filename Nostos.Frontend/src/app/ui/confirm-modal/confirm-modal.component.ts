@@ -1,7 +1,7 @@
 import { Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, Trash2, Loader2 } from 'lucide-angular';
 import { ModalShell } from '../modal-shell/modal-shell.component';
+import { NostosIconComponent } from '../icon/nostos-icon.component';
 
 /**
  * Tone of the confirmation. `danger` is the destructive treatment (muted wine
@@ -27,7 +27,7 @@ export type ConfirmTone = 'danger' | 'neutral';
 @Component({
   selector: 'app-confirm-modal',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, ModalShell],
+  imports: [CommonModule, NostosIconComponent, ModalShell],
   templateUrl: './confirm-modal.component.html',
   styleUrl: './confirm-modal.component.css',
 })
@@ -53,10 +53,6 @@ export class ConfirmModal {
 
   confirm = output<void>();
   cancel = output<void>();
-
-  Trash2Icon = Trash2;
-  LoaderIcon = Loader2;
-
   /**
    * The card belongs to the shell, so its class is handed over rather than
    * applied here — the component's tests still address the dialog by it.
