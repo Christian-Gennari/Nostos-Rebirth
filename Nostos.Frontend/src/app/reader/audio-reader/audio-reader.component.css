@@ -548,12 +548,12 @@
   .audio-container {
     padding: 0.75rem 1rem 1rem;
     gap: 1rem;
-    /* Cover and title at the top, the controls in the band a thumb reaches
-       without stretching: with the art now thumbnail-sized, centring the short
-       composition left ~190px of dead air above it and ~140px below, and put the
-       transport at 69% of the screen. Distributing the slack instead of adding it
-       to both ends keeps the controls where they are worth having. */
-    justify-content: space-between;
+    /* The unit stays centred: cover, title, scrubber, transport and the Playback
+       pill are one block in the middle of the reading area, horizontally and
+       vertically. An earlier revision of this pass pushed the controls to the
+       bottom (`space-between`) to shorten a thumb's reach; the owner's call is
+       that the block reads as one centred unit, and it does. The base rules above
+       already centre it (`safe center`), so this block only sizes the phone. */
   }
 
   .cover-art {
