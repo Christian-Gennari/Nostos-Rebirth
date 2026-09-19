@@ -14,7 +14,7 @@
     <header class="editions-modal-head" shellHeader>
       <div class="editions-modal-heading">
         <span class="editions-modal-mark" aria-hidden="true">
-          <lucide-icon [img]="LayersIcon" [size]="15" [strokeWidth]="1.75"></lucide-icon>
+          <nostos-icon name="stack" [size]="15"></nostos-icon>
         </span>
         <div class="editions-modal-heading-text">
           <h2 id="editions-modal-title" class="editions-modal-title">Editions &amp; works</h2>
@@ -31,7 +31,7 @@
         aria-label="Close"
         (click)="close.emit()"
       >
-        <lucide-icon [img]="XIcon" [size]="18" [strokeWidth]="1.75"></lucide-icon>
+        <nostos-icon name="x" [size]="18"></nostos-icon>
       </button>
     </header>
 
@@ -84,12 +84,11 @@
         <h3 class="editions-modal-label" id="editions-link-title">Link another book to this work</h3>
 
         <div class="manage-link-field">
-          <lucide-icon
-            [img]="SearchIcon"
+          <nostos-icon
+            name="magnifying-glass"
             [size]="15"
             class="manage-link-field-icon"
-            aria-hidden="true"
-          ></lucide-icon>
+            aria-hidden="true"></nostos-icon>
           <input
             id="edition-link-search"
             type="search"
@@ -129,7 +128,7 @@
               <!-- The row is the click target; this label only makes it read as
                    one, mirroring the Unlink button on a member row. -->
               <span class="manage-link-candidate-action">
-                <lucide-icon [img]="LinkIcon" [size]="12" [strokeWidth]="2" aria-hidden="true"></lucide-icon>
+                <nostos-icon name="link-simple" [size]="12" aria-hidden="true"></nostos-icon>
                 Link
               </span>
             </button>

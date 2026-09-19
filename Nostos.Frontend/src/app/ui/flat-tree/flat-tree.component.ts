@@ -11,19 +11,8 @@
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { DragDropModule, CdkDragMove } from '@angular/cdk/drag-drop';
-import {
-  LucideAngularModule,
-  Folder,
-  FolderClosed,
-  FileText,
-  ChevronRight,
-  ChevronDown,
-  Edit2,
-  Trash2,
-  FolderOpen,
-  CornerUpLeft,
-} from 'lucide-angular';
 import { buildFlatTree, FlatTreeNode, TreeItem } from './flat-tree.helper';
+import { NostosIconComponent } from '../icon/nostos-icon.component';
 
 export interface DropIndicator {
   nodeId: string;
@@ -32,7 +21,7 @@ export interface DropIndicator {
 
 @Component({
   selector: 'app-flat-tree',
-  imports: [DragDropModule, LucideAngularModule],
+  imports: [DragDropModule, NostosIconComponent],
   templateUrl: './flat-tree.component.html',
   styleUrls: ['./flat-tree.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -52,19 +41,6 @@ export class FlatTreeComponent {
   readonly nodeDeleted = output<string>();
   readonly nodeRenameSaved = output<{ id: string; newName: string }>();
   readonly nodeRenameCancelled = output<void>();
-
-  protected readonly Icons = {
-    Folder,
-    FolderOpen,
-    FolderClosed,
-    FileText,
-    ChevronRight,
-    ChevronDown,
-    Edit2,
-    Trash2,
-    CornerUpLeft,
-  };
-
   readonly expandedIds = signal<Set<string>>(new Set());
   readonly dropIndicator = signal<DropIndicator | null>(null);
   readonly isDragging = signal(false);

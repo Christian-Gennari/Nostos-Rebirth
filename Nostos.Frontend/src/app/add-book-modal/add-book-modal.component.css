@@ -534,7 +534,7 @@
   /* "(via Project Gutenberg ↗)" is one unit: never split it across lines. */
   white-space: nowrap;
 }
-.source-rights-link lucide-icon {
+.source-rights-link nostos-icon {
   vertical-align: -0.12em;
 }
 /* Angular drops the whitespace between two inline elements, so the gap between

@@ -667,13 +667,15 @@ app-sidebar-collections.no-transition {
   transition: opacity 160ms cubic-bezier(0.16, 1, 0.3, 1), transform 160ms ease;
 }
 
-.format-badge lucide-icon {
+.format-badge nostos-icon {
   display: inline-flex;
   align-items: center;
 }
 
-.format-badge lucide-icon svg {
-  stroke: #ffffff;
+.format-badge nostos-icon svg {
+  /* The glyph is a single-colour cut-out on top of cover art, so it is white on
+     purpose here. `stroke` is gone: Phosphor draws filled geometry and colour
+     arrives through `color` -> currentColor, which the component's markup uses. */
   color: #ffffff;
 }
 
@@ -737,8 +739,7 @@ app-sidebar-collections.no-transition {
   padding: 0 6px !important;
 }
 
-.table-view .format-badge lucide-icon svg {
-  stroke: currentColor !important;
+.table-view .format-badge nostos-icon svg {
   color: currentColor !important;
 }
 

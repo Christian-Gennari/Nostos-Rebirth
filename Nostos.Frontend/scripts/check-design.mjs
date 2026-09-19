@@ -276,8 +276,11 @@ for (const f of files) {
    instead. */
 /* Lowered 65 -> 64 by removing a dead declaration in the PDF sidebar's content
    panel: a `rgba(0,0,0,0.5)` shadow was set and then overwritten by a tokenised
-   one two lines later, so the literal never painted. */
-const LITERAL_COLOUR_BUDGET = 61;
+   one two lines later, so the literal never painted. Lowered 64 -> 60 by the
+   audio reader's phone pass: the waiting/error overlay is the app's own
+   `--surface-image-ground` ground, and the error ink is `--color-danger` without
+   the `#b91c1c` fallback the old `.audio-load-error` carried. */
+const LITERAL_COLOUR_BUDGET = 60;
 
 {
   const ALLOW = [

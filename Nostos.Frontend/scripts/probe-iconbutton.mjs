@@ -205,7 +205,7 @@ const COLLECT = (fields) => {
     // The inner glyph is where an encapsulation mistake shows up: if the component
     // cannot style it, the icon renders at its default size instead of the
     // intended one, and the button looks right while the glyph grows.
-    const glyph = el.querySelector('lucide-icon, svg');
+    const glyph = el.querySelector('nostos-icon, svg');
     return {
       // Stable across runs: id if present, else the class list + ordinal.
       id: el.id || `${el.tagName.toLowerCase()}:${cls}:${i}`,
@@ -270,7 +270,7 @@ async function probe(page, theme) {
         const sig = await els[i]
           .evaluate((e) => {
             const r = e.getBoundingClientRect();
-            const g = e.querySelector('lucide-icon, svg');
+            const g = e.querySelector('nostos-icon, svg');
             const svg = g ? (g.querySelector('svg') || g) : null;
             const gr = g ? g.getBoundingClientRect() : { width: 0, height: 0 };
             return [
@@ -328,7 +328,7 @@ async function probe(page, theme) {
                 const rect = el.getBoundingClientRect();
                 const values = {};
                 for (const f of fields) values[f] = style[f] ?? '';
-                const glyph = el.querySelector('lucide-icon, svg');
+                const glyph = el.querySelector('nostos-icon, svg');
                 // Optical offset of the glyph against the button box. A component that
                 // changes the host's box model can leave the glyph correctly sized but
                 // off-centre, which is exactly the defect that survives a size check.
@@ -338,7 +338,7 @@ async function probe(page, theme) {
                       dy: +((grect.top + grect.height / 2) - (rect.top + rect.height / 2)).toFixed(2) }
                   : null;
                 // The glyph's own computed style. Surfaces style the icon THROUGH the
-                // button (".icon-btn lucide-icon { top: 1px; border-radius: ... }") and
+                // button (".icon-btn nostos-icon { top: 1px; border-radius: ... }") and
                 // a component boundary breaks descendant selectors like that, so the
                 // glyph must be measured, not assumed.
                 const gstyle = glyph ? getComputedStyle(glyph) : null;

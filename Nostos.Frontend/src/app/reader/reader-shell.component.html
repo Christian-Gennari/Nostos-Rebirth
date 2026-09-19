@@ -10,7 +10,7 @@
       <button
         appIconButton
         class="reader-back"
-        [icon]="Icons.ArrowLeft"
+        icon="arrow-left"
         [glyphSize]="20"
         (click)="goBack()"
         title="Back to Library"
@@ -27,7 +27,7 @@
     <div class="reader-header-tools">
       <button
         appIconButton
-        [icon]="Icons.List"
+        icon="list"
         [glyphSize]="20"
         (click)="toggleToc()"
         title="Table of Contents"
@@ -36,7 +36,7 @@
       ></button>
       <button
         appIconButton
-        [icon]="Icons.NotebookPen"
+        icon="notebook"
         [glyphSize]="20"
         (click)="toggleNotes()"
         title="Notes & Highlights"
@@ -48,7 +48,7 @@
            unreachable by touch (issue #226 §2). -->
       <button
         appIconButton
-        [icon]="Icons.Search"
+        icon="magnifying-glass"
         [glyphSize]="20"
         (click)="openSearch()"
         title="Search"
@@ -62,7 +62,7 @@
            presets it belongs to, and now persists per book. -->
       <button
         appIconButton
-        [icon]="Icons.Type"
+        icon="text-t"
         [glyphSize]="20"
         (click)="toggleTypo()"
         title="View settings"
@@ -84,14 +84,14 @@
         [bookId]="book()!.id"
         [initialLocation]="book()?.lastLocation"
         [sidebarVisible]="tocOpen()"
-        [highlightMode]="highlightMode()"
+        [highlightMode]="highlightMode()" [highlightColour]="highlightColour()"
         (sidebarVisibleChange)="tocOpen.set($event)"
         (noteCreated)="handleNoteCreated()"
         (selectionCaptured)="handleSelectionCaptured($event)"
         (commitFailed)="handleCommitFailed()"
       />
       } @case ('epub') {
-      <app-epub-reader #epubReader [bookId]="book()!.id" [book]="book()" [highlightMode]="highlightMode()" (noteCreated)="handleNoteCreated()" (selectionCaptured)="handleSelectionCaptured($event)" (commitFailed)="handleCommitFailed()" />
+      <app-epub-reader #epubReader [bookId]="book()!.id" [book]="book()" [highlightMode]="highlightMode()" [highlightColour]="highlightColour()" (noteCreated)="handleNoteCreated()" (selectionCaptured)="handleSelectionCaptured($event)" (commitFailed)="handleCommitFailed()" />
       } @case ('audio') {
       <app-audio-reader [bookId]="book()!.id" [book]="book()" />
       } @default {
@@ -105,7 +105,7 @@
           <div class="confirmation-actions">
             <button class="btn btn-secondary" (click)="discardHighlight()">Cancel</button>
             <button class="btn btn-primary" (click)="commitHighlight()" [disabled]="highlightSaving()">
-              <lucide-icon [img]="Icons.Check" [size]="16"></lucide-icon>
+              <nostos-icon name="check" [size]="16"></nostos-icon>
               {{ highlightSaving() ? 'Saving…' : 'Save' }}
             </button>
           </div>
@@ -117,7 +117,7 @@
     <aside class="toc-panel" [class.open]="tocOpen() && fileType() !== 'pdf'">
       <div class="panel-header">
         <h2>Contents</h2>
-        <button appIconButton [icon]="Icons.Close" [glyphSize]="20" (click)="toggleToc()" aria-label="Close contents"></button>
+        <button appIconButton icon="x" [glyphSize]="20" (click)="toggleToc()" aria-label="Close contents"></button>
       </div>
 
       <div class="toc-list">
@@ -150,7 +150,7 @@
     <aside class="notes-panel" [class.open]="notesOpen()">
       <div class="notes-header">
         <h2>Notes & Highlights</h2>
-        <button appIconButton [icon]="Icons.Close" [glyphSize]="20" (click)="toggleNotes()" aria-label="Close notes"></button>
+        <button appIconButton icon="x" [glyphSize]="20" (click)="toggleNotes()" aria-label="Close notes"></button>
       </div>
 
       <!-- Highlight mode lives with the marks it produces. Two header controls
@@ -166,12 +166,30 @@
         data-testid="reader-highlight-toggle"
         (click)="toggleHighlightFromPanel()"
       >
-        <lucide-icon [img]="Icons.Highlighter" [size]="16"></lucide-icon>
+        <nostos-icon name="highlighter" [size]="16"></nostos-icon>
         <span class="highlight-toggle-label">{{
           highlightMode() ? 'Highlighting is on' : 'Highlight text'
         }}</span>
         <span class="highlight-toggle-state">{{ highlightMode() ? 'On' : 'Off' }}</span>
       </button>
+
+      <!-- The highlighter pens (issue #208). Four fills, remembered per book;
+           the swatch is the label, so this stays a row of dots rather than a row
+           of words. `aria-pressed` carries the choice to assistive tech. -->
+      <div class="hl-pens" role="group" aria-label="Highlight colour">
+        @for (pen of highlightColours; track pen.id) {
+          <button
+            type="button"
+            class="hl-pen"
+            [style.background]="'var(--highlight-' + pen.id + ')'"
+            [class.is-active]="highlightColour() === pen.id"
+            [attr.aria-pressed]="highlightColour() === pen.id"
+            [attr.aria-label]="pen.label + ' highlighter'"
+            [attr.data-testid]="'reader-highlight-pen-' + pen.id"
+            (click)="setHighlightColour(pen.id)"
+          ></button>
+        }
+      </div>
       }
 
       <div class="quick-note">
@@ -186,7 +204,7 @@
         <div class="quick-actions">
           @if (fileType() === 'audio') {
           <button class="btn btn-secondary" (click)="addAudioTimestamp()">
-            <lucide-icon id="add-timestamp-icon" [img]="Icons.Clock" [size]="14"></lucide-icon>
+            <nostos-icon id="add-timestamp-icon" name="clock" [size]="14"></nostos-icon>
             Timestamp
           </button>
           }
@@ -212,7 +230,7 @@
         ></app-note-card>
         } @empty {
         <div class="empty-state">
-          <lucide-icon [img]="Icons.StickyNote" [size]="40"></lucide-icon>
+          <nostos-icon name="note" [size]="40"></nostos-icon>
           <p>No notes yet.</p>
           <small>Highlight text or use the box above to add one.</small>
         </div>
@@ -227,7 +245,7 @@
   @if (fileType() !== 'audio') {
   <header class="reader-toolbar">
     <div class="toolbar-center">
-      <button appIconButton [icon]="Icons.Prev" [glyphSize]="20" (click)="prevPage()" title="Previous" aria-label="Previous page"></button>
+      <button appIconButton icon="caret-left" [glyphSize]="20" (click)="prevPage()" title="Previous" aria-label="Previous page"></button>
 
       <div class="progress-display">
         @if (progressState()?.pageNumber) {
@@ -245,13 +263,13 @@
         <span>{{ progressLabel() }}</span>
         } @if (progressTooltip()) {
         <div class="info-tooltip">
-          <lucide-icon [img]="Icons.Info" [size]="14"></lucide-icon>
+          <nostos-icon name="info" [size]="14"></nostos-icon>
           <span class="tooltip-text">{{ progressTooltip() }}</span>
         </div>
         }
       </div>
 
-      <button appIconButton [icon]="Icons.Next" [glyphSize]="20" (click)="nextPage()" title="Next" aria-label="Next page"></button>
+      <button appIconButton icon="caret-right" [glyphSize]="20" (click)="nextPage()" title="Next" aria-label="Next page"></button>
     </div>
   </header>
   }

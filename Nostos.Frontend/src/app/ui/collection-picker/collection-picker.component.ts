@@ -1,8 +1,8 @@
 import { Component, computed, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, Check, X } from 'lucide-angular';
 import { Collection } from '../../core/dtos/collection.dtos';
 import { buildFlatTree } from '../flat-tree/flat-tree.helper';
+import { NostosIconComponent } from '../icon/nostos-icon.component';
 
 /**
  * Multi-select control for a book's collection membership.
@@ -20,7 +20,7 @@ import { buildFlatTree } from '../flat-tree/flat-tree.helper';
 @Component({
   selector: 'app-collection-picker',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule],
+  imports: [CommonModule, NostosIconComponent],
   templateUrl: './collection-picker.component.html',
   styleUrl: './collection-picker.component.css',
 })
@@ -30,10 +30,6 @@ export class CollectionPickerComponent {
   readonly label = input('Collections');
 
   readonly selectedIdsChange = output<string[]>();
-
-  CheckIcon = Check;
-  XIcon = X;
-
   /**
    * Every collection is treated as an expandable folder and all are expanded,
    * matching the add-book modal's previous behaviour (the full hierarchy must be

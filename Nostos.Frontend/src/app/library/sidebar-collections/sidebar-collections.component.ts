@@ -16,24 +16,6 @@ import {
   StatusFilter,
   FormatFilter,
 } from '../library-filter.service';
-import {
-  LucideAngularModule,
-  Folder,
-  Library,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Plus,
-  Trash2,
-  Edit2,
-  Menu,
-  Heart,
-  BookOpen,
-  CircleDashed,
-  CheckCircle,
-  Inbox,
-  Headphones,
-  FileText,
-} from 'lucide-angular';
 
 import { CollectionsService } from '../../core/services/collections.service';
 import { Collection, CollectionCountDto } from '../../core/dtos/collection.dtos';
@@ -43,11 +25,12 @@ import { ConfirmModal } from '../../ui/confirm-modal/confirm-modal.component';
 import { LibraryPreferencesService } from '../../core/services/library-preferences.service';
 import { FlatTreeComponent } from '../../ui/flat-tree/flat-tree.component';
 import { ToastService } from '../../core/services/toast.service';
+import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
 
 @Component({
   standalone: true,
   selector: 'app-sidebar-collections',
-  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, LucideAngularModule, FlatTreeComponent, ConfirmModal],
+  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, NostosIconComponent, FlatTreeComponent, ConfirmModal],
   templateUrl: './sidebar-collections.component.html',
   styleUrls: ['./sidebar-collections.component.css'],
 })
@@ -58,23 +41,6 @@ export class SidebarCollections implements OnInit {
   readonly filters = inject(LibraryFilterService);
   private elementRef = inject(ElementRef);
   private toast = inject(ToastService);
-
-  // Icons
-  FolderIcon = Folder;
-  LibraryIcon = Library;
-  PanelLeftCloseIcon = PanelLeftClose;
-  PanelLeftOpenIcon = PanelLeftOpen;
-  PlusIcon = Plus;
-  Trash2Icon = Trash2;
-  Edit2Icon = Edit2;
-  MenuIcon = Menu;
-  HeartIcon = Heart;
-  BookOpenIcon = BookOpen;
-  CircleDashedIcon = CircleDashed;
-  CheckCircleIcon = CheckCircle;
-  InboxIcon = Inbox;
-  HeadphonesIcon = Headphones;
-  FileTextIcon = FileText;
 
   // State
   collections = signal<Collection[]>([]);

@@ -6,6 +6,10 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { of } from 'rxjs';
 
 import { ReaderShell } from './reader-shell.component';
+import {
+  DEFAULT_HIGHLIGHT_COLOUR,
+  HighlightColour,
+} from './highlight-colours';
 import { AudioReader } from './audio-reader/audio-reader.component';
 import { PdfReader } from './pdf-reader/pdf-reader.component';
 import { EpubReader } from './epub-reader/epub-reader.component';
@@ -43,6 +47,7 @@ class PdfReaderStub {
   initialLocation = input<string | null>(null);
   sidebarVisible = input(false);
   highlightMode = input(false);
+  highlightColour = input<HighlightColour>(DEFAULT_HIGHLIGHT_COLOUR);
   sidebarVisibleChange = output<boolean>();
   noteCreated = output<void>();
   selectionCaptured = output<unknown>();
@@ -56,6 +61,7 @@ class EpubReaderStub {
   // position without a second GET (issue #225 §1.2).
   book = input<unknown>(null);
   highlightMode = input(false);
+  highlightColour = input<HighlightColour>(DEFAULT_HIGHLIGHT_COLOUR);
   noteCreated = output<void>();
   selectionCaptured = output<unknown>();
   commitFailed = output<unknown>();
@@ -577,6 +583,44 @@ describe('ReaderShell typography panel (EPUB)', () => {
 
     const stub = fixture.debugElement.query(By.directive(EpubReaderStub));
     expect(stub.componentInstance.setTypography).toHaveBeenCalledWith({ fontFamily: 'serif' });
+  });
+
+  /**
+   * Issue #208. The pens are per BOOK, like the reader's zoom: the choice is
+   * remembered, handed to the reader, and must not leak to the next book.
+   */
+  it('offers four highlighter pens, remembers the choice per book and hands it to the reader', async () => {
+    const epubBook = { ...audiobook, id: 'book-pens', fileName: 'iliad.epub' } as Book;
+    booksGetSpy.mockReturnValue(of(epubBook));
+    localStorage.clear();
+
+    fixture = await configureReaderShell();
+    render();
+    const component = fixture.componentInstance;
+    component.toggleNotes();
+    render();
+
+    const pens = Array.from(
+      fixture.nativeElement.querySelectorAll('.hl-pen') as NodeListOf<HTMLButtonElement>,
+    );
+    expect(pens.length).toBe(4);
+    // Amber is the default pen, announced as pressed rather than only drawn.
+    expect(pens[0].getAttribute('aria-pressed')).toBe('true');
+    expect(component.highlightColour()).toBe(DEFAULT_HIGHLIGHT_COLOUR);
+
+    pens[1].click();
+    render();
+
+    expect(localStorage.getItem('nostos.highlight.book-pens')).toBe('sage');
+    const stub = fixture.debugElement.query(By.directive(EpubReaderStub))
+      .componentInstance as EpubReaderStub;
+    expect(stub.highlightColour()).toBe('sage');
+    expect(pens[1].getAttribute('aria-pressed')).toBe('true');
+
+    // That a SECOND book does not inherit this pen is pinned in
+    // highlight-colours.spec.ts, which owns the per-book storage contract; the
+    // reader fixture is configured once per test and cannot be re-rendered with
+    // another book.
   });
 
   /**

@@ -13,7 +13,7 @@
         <button
           id="close-modal"
           appIconButton
-          [icon]="XIcon"
+          icon="x"
           [glyphSize]="20"
           (click)="closeModal.emit()"
           title="Close"
@@ -27,21 +27,21 @@
           [class.active]="activeTab() === 'Book Info'"
           (click)="setTab('Book Info')"
         >
-          <lucide-icon [img]="GeneralIcon" [size]="16"></lucide-icon> Book Info
+          <nostos-icon name="book" [size]="16"></nostos-icon> Book Info
         </button>
         <button
           class="tab-btn"
           [class.active]="activeTab() === 'Publishing'"
           (click)="setTab('Publishing')"
         >
-          <lucide-icon [img]="MetadataIcon" [size]="16"></lucide-icon> Publishing
+          <nostos-icon name="stack" [size]="16"></nostos-icon> Publishing
         </button>
         <button
           class="tab-btn"
           [class.active]="activeTab() === 'Files & Personal'"
           (click)="setTab('Files & Personal')"
         >
-          <lucide-icon [img]="FileIcon" [size]="16"></lucide-icon> Files & Personal
+          <nostos-icon name="file-text" [size]="16"></nostos-icon> Files & Personal
         </button>
         </div>
       }
@@ -59,7 +59,7 @@
 
           @if (sourceImportError(); as err) {
             <p class="source-error">
-              <lucide-icon [img]="ErrorIcon" [size]="14"></lucide-icon> {{ err }}
+              <nostos-icon name="warning-circle" [size]="14"></nostos-icon> {{ err }}
             </p>
           }
 
@@ -82,7 +82,7 @@
           } @else if (acquisition(); as job) {
             @if (job.state === 'failed') {
               <p class="source-error">
-                <lucide-icon [img]="ErrorIcon" [size]="14"></lucide-icon>
+                <nostos-icon name="warning-circle" [size]="14"></nostos-icon>
                 {{ job.message || 'The import failed.'
                 }}{{ job.errorCode ? ' (' + job.errorCode + ')' : '' }}
               </p>
@@ -366,7 +366,7 @@
                       (change)="onFileSelected($event)"
                       accept=".epub,.pdf,.txt,.mobi,.mp3,.m4a,.m4b"
                     />
-                    <lucide-icon [img]="UploadIcon" [size]="22" strokeWidth="1.5"></lucide-icon>
+                    <nostos-icon name="upload-simple" [size]="22" weight="light"></nostos-icon>
                     <span class="drop-zone-title">Choose a book file or drop it here</span>
                     <span class="drop-zone-hint">EPUB, PDF, TXT, MOBI, MP3, M4A, M4B</span>
                   </label>
@@ -410,7 +410,7 @@
                       <img class="cover-preview" [src]="preview" alt="" />
                       <span class="drop-zone-hint">{{ selectedCover()?.name }}</span>
                     } @else {
-                      <lucide-icon [img]="UploadIcon" [size]="22" strokeWidth="1.5"></lucide-icon>
+                      <nostos-icon name="upload-simple" [size]="22" weight="light"></nostos-icon>
                       <span class="drop-zone-title">Choose a cover image or drop it here</span>
                       <span class="drop-zone-hint">PNG, JPG, WEBP</span>
                     }
@@ -452,7 +452,7 @@
               <p class="source-hint">Loading sources…</p>
             } @else if (providersError()) {
               <p class="source-error">
-                <lucide-icon [img]="ErrorIcon" [size]="14"></lucide-icon> {{ providersError() }}
+                <nostos-icon name="warning-circle" [size]="14"></nostos-icon> {{ providersError() }}
               </p>
             } @else {
               @if (providerList().length > 1) {
@@ -496,7 +496,7 @@
                       sourceQuery().trim().length < 2 || sourceSearching() || !!runningAcquisition()
                     "
                   >
-                    <lucide-icon [img]="SearchIcon" [size]="14"></lucide-icon>
+                    <nostos-icon name="magnifying-glass" [size]="14"></nostos-icon>
                     {{ sourceSearching() ? 'Searching…' : 'Search' }}
                   </button>
                 </div>
@@ -513,7 +513,7 @@
 
               @if (sourceSearchError()) {
                 <p class="source-error">
-                  <lucide-icon [img]="ErrorIcon" [size]="14"></lucide-icon> {{ sourceSearchError() }}
+                  <nostos-icon name="warning-circle" [size]="14"></nostos-icon> {{ sourceSearchError() }}
                 </p>
               }
 
@@ -644,7 +644,7 @@
                           target="_blank"
                           rel="noopener noreferrer"
                           >(via {{ seededSourceName() }}
-                          <lucide-icon [img]="ExternalLinkIcon" [size]="12"></lucide-icon>)</a
+                          <nostos-icon name="arrow-square-out" [size]="12"></nostos-icon>)</a
                         >
                       } @else {
                         <span class="source-rights-via">(via {{ seededSourceName() }})</span>
@@ -660,7 +660,7 @@
                         target="_blank"
                         rel="noopener noreferrer"
                         >{{ seededSourceName() }}
-                        <lucide-icon [img]="ExternalLinkIcon" [size]="12"></lucide-icon></a
+                        <nostos-icon name="arrow-square-out" [size]="12"></nostos-icon></a
                       >
                     </p>
                   }
@@ -671,7 +671,7 @@
                     (click)="seedFromSelectedItem()"
                     [disabled]="item.assets.length === 0 || !!runningAcquisition()"
                   >
-                    <lucide-icon [img]="DownloadIcon" [size]="14"></lucide-icon>
+                    <nostos-icon name="download-simple" [size]="14"></nostos-icon>
                     Use this book
                   </button>
 
@@ -690,7 +690,7 @@
               class="btn btn-danger-ghost delete-modal-btn"
               (click)="deleteBook.emit()"
             >
-              <lucide-icon [img]="Trash2Icon" [size]="14"></lucide-icon>
+              <nostos-icon name="trash" [size]="14"></nostos-icon>
               <span>Delete Book</span>
             </button>
           }

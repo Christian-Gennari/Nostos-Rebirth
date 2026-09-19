@@ -10,10 +10,10 @@
       <div class="sidebar-title-row">
         <h2>Studio</h2>
         <div class="actions">
-          <button appIconButton [icon]="Icons.FolderPlus" [glyphSize]="16" [strokeWidth]="1" (click)="createItem('Folder')" title="New Folder" aria-label="New folder"></button>
-          <button appIconButton [icon]="Icons.Plus" [glyphSize]="16" [strokeWidth]="1" (click)="createItem('Document')" title="New Document" aria-label="New document"></button>
+          <button appIconButton icon="folder-plus" [glyphSize]="16" weight="thin" (click)="createItem('Folder')" title="New Folder" aria-label="New folder"></button>
+          <button appIconButton icon="plus" [glyphSize]="16" weight="thin" (click)="createItem('Document')" title="New Document" aria-label="New document"></button>
           @if (isMobile()) {
-            <button appIconButton class="mobile-only" [icon]="Icons.Close" [glyphSize]="16" (click)="showFileSidebar.set(false)" aria-label="Close sidebar"></button>
+            <button appIconButton class="mobile-only" icon="x" [glyphSize]="16" (click)="showFileSidebar.set(false)" aria-label="Close sidebar"></button>
           }
         </div>
       </div>
@@ -50,9 +50,8 @@
             <button
               appIconButton
               class="sidebar-header-toggle"
-              [icon]="showFileSidebar() ? Icons.PanelLeftClose : Icons.PanelLeftOpen"
-              [glyphSize]="18"
-              [strokeWidth]="1"
+              [icon]="showFileSidebar() ? 'arrow-line-left' : 'arrow-line-right'"
+              [glyphSize]="18" weight="thin"
               (click)="showFileSidebar.set(!showFileSidebar())"
               title="Toggle Files"
               aria-label="Toggle file sidebar"
@@ -64,9 +63,8 @@
               appIconButton
               class="sidebar-header-brain-toggle"
               [class.active]="showBrainSidebar()"
-              [icon]="Icons.BrainCircuit"
-              [glyphSize]="18"
-              [strokeWidth]="1"
+              icon="brain"
+              [glyphSize]="18" weight="thin"
               (click)="showBrainSidebar.set(!showBrainSidebar())"
               title="Toggle Reference"
               aria-label="Toggle reference sidebar"
@@ -77,9 +75,8 @@
             appIconButton
             class="typewriter-toggle"
             [class.active]="typewriter()"
-            [icon]="Icons.Typewriter"
-            [glyphSize]="18"
-            [strokeWidth]="1"
+            icon="align-center-vertical"
+            [glyphSize]="18" weight="thin"
             [pressed]="typewriter()"
             (click)="toggleTypewriter()"
             [title]="typewriter() ? 'Typewriter mode on: caret stays centered' : 'Typewriter mode: keep the caret centered'"
@@ -90,9 +87,8 @@
             appIconButton
             class="zen-toggle"
             [class.active]="isZen()"
-            [icon]="isZen() ? Icons.Minimize2 : Icons.Maximize2"
-            [glyphSize]="18"
-            [strokeWidth]="1"
+            [icon]="isZen() ? 'corners-in' : 'corners-out'"
+            [glyphSize]="18" weight="thin"
             (click)="isZen() ? exitZen() : enterZen()"
             [title]="isZen() ? 'Exit focus mode (Esc)' : 'Enter focus mode'"
             [attr.aria-label]="isZen() ? 'Exit focus mode' : 'Enter focus mode'"
@@ -115,11 +111,9 @@
     } @else {
       <div class="empty-state">
         <div class="icon-circle">
-          <lucide-icon
-            [img]="Icons.FileText"
-            [size]="28"
-            strokeWidth="1.5"
-          ></lucide-icon>
+          <nostos-icon
+            name="file-text"
+            [size]="28" weight="light"></nostos-icon>
         </div>
         <h2>Select a file to begin writing</h2>
         <p class="empty-subtext">Choose a document from the tree, or create a new one to start.</p>
@@ -135,7 +129,7 @@
       <div class="sidebar-title-row">
         <h2>Reference</h2>
         @if (isMobile()) {
-          <button appIconButton [icon]="Icons.PanelRightClose" [glyphSize]="16" (click)="showBrainSidebar.set(false)" aria-label="Close reference sidebar"></button>
+          <button appIconButton icon="sidebar-simple" [glyphSize]="16" (click)="showBrainSidebar.set(false)" aria-label="Close reference sidebar"></button>
         }
       </div>
 
@@ -147,7 +141,7 @@
           [class.active]="activeSidebarTab() === 'brain'"
           (click)="activeSidebarTab.set('brain')"
         >
-          <lucide-icon [img]="Icons.Sparkles" [size]="14" strokeWidth="1.5"></lucide-icon>
+          <nostos-icon name="sparkle" [size]="14" weight="light"></nostos-icon>
           <span>Concepts</span>
         </button>
         <button
@@ -157,7 +151,7 @@
           [class.active]="activeSidebarTab() === 'notes'"
           (click)="activeSidebarTab.set('notes')"
         >
-          <lucide-icon [img]="Icons.Book" [size]="14" strokeWidth="1.5"></lucide-icon>
+          <nostos-icon name="book" [size]="14" weight="light"></nostos-icon>
           <span>Books</span>
         </button>
       </div>
@@ -165,7 +159,7 @@
 
     @if (activeSidebarTab() === 'brain') {
       <div class="search-box">
-        <lucide-icon [img]="Icons.Search" [size]="16"></lucide-icon>
+        <nostos-icon name="magnifying-glass" [size]="16"></nostos-icon>
         <input
           type="text"
           placeholder="Search concepts..."
@@ -189,7 +183,7 @@
         } @else {
           <div class="brain-detail-header">
             <button class="goto-btn" (click)="selectedConceptId.set(null)">
-              <lucide-icon [img]="Icons.ArrowLeft" [size]="16"></lucide-icon>
+              <nostos-icon name="arrow-left" [size]="16"></nostos-icon>
               Back
             </button>
             <span class="detail-title">Concept Notes</span>
@@ -215,7 +209,7 @@
     }
     @if (activeSidebarTab() === 'notes') {
       <div class="search-box">
-        <lucide-icon [img]="Icons.Search" [size]="16"></lucide-icon>
+        <nostos-icon name="magnifying-glass" [size]="16"></nostos-icon>
         <input
           type="text"
           placeholder="Search books..."
@@ -230,7 +224,7 @@
             @for (book of filteredBooks(); track book.id) {
               <button class="list-item" (click)="selectBook(book.id)">
                 <div class="list-item-icon">
-                  <lucide-icon [img]="Icons.Book" [size]="16"></lucide-icon>
+                  <nostos-icon name="book" [size]="16"></nostos-icon>
                 </div>
                 <div class="list-item-content">
                   <span class="name">{{ book.title }}</span>
@@ -244,7 +238,7 @@
         } @else {
           <div class="brain-detail-header">
             <button class="goto-btn" (click)="selectedBookId.set(null)">
-              <lucide-icon [img]="Icons.ArrowLeft" [size]="16"></lucide-icon>
+              <nostos-icon name="arrow-left" [size]="16"></nostos-icon>
               Back
             </button>
             <span class="detail-title">Book Notes</span>
@@ -275,9 +269,8 @@
     <button
       appIconButton
       class="zen-exit"
-      [icon]="Icons.Minimize2"
-      [glyphSize]="18"
-      [strokeWidth]="1"
+      icon="corners-in"
+      [glyphSize]="18" weight="thin"
       (click)="exitZen()"
       title="Exit focus mode (Esc)"
       aria-label="Exit focus mode"

@@ -1,7 +1,6 @@
 import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideAngularModule, Settings, Archive, RefreshCw, Download, Trash2, Loader2, FolderSearch, Palette, Sun, Moon, BookOpen, Copy, Check, TriangleAlert } from 'lucide-angular';
 
 import { BackupService } from '../core/services/backup.service';
 import { OpdsService } from '../core/services/opds.service';
@@ -15,6 +14,7 @@ import {
   BackupProgress,
 } from '../core/dtos/backup.dtos';
 import { OpdsInfo } from '../core/dtos/opds.dtos';
+import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 
 const SLOW_STEP_THRESHOLD_MS = 30_000;
 
@@ -33,7 +33,7 @@ const defaultProgress: BackupProgress = {
 @Component({
   standalone: true,
   selector: 'app-settings',
-  imports: [CommonModule, FormsModule, LucideAngularModule, ConfirmModal],
+  imports: [CommonModule, FormsModule, NostosIconComponent, ConfirmModal],
   template: `
     <div class="settings-page">
       <header class="settings-header">
@@ -42,7 +42,7 @@ const defaultProgress: BackupProgress = {
 
       <section class="settings-card">
         <div class="card-header">
-          <lucide-icon [img]="SettingsIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
+          <nostos-icon name="gear-six" [size]="20" weight="light"></nostos-icon>
           <h2>Backup</h2>
         </div>
 
@@ -115,10 +115,10 @@ const defaultProgress: BackupProgress = {
               (click)="triggerBackup()"
             >
               @if (backingUp()) {
-                <lucide-icon [img]="LoaderIcon" [size]="16" strokeWidth="2" class="spin"></lucide-icon>
+                <nostos-icon name="circle-notch" [size]="16" class="spin"></nostos-icon>
                 Backing up...
               } @else {
-                <lucide-icon [img]="RefreshCwIcon" [size]="16" strokeWidth="2"></lucide-icon>
+                <nostos-icon name="arrows-clockwise" [size]="16"></nostos-icon>
                 Back up now
               }
             </button>
@@ -152,10 +152,10 @@ const defaultProgress: BackupProgress = {
               (click)="scanForBackups()"
             >
               @if (importing()) {
-                <lucide-icon [img]="LoaderIcon" [size]="16" strokeWidth="2" class="spin"></lucide-icon>
+                <nostos-icon name="circle-notch" [size]="16" class="spin"></nostos-icon>
                 Scanning...
               } @else {
-                <lucide-icon [img]="FolderSearchIcon" [size]="16" strokeWidth="2"></lucide-icon>
+                <nostos-icon name="folder-simple" [size]="16"></nostos-icon>
                 Scan for Backups
               }
             </button>
@@ -176,7 +176,7 @@ const defaultProgress: BackupProgress = {
       <!-- Backup History -->
       <section class="settings-card">
         <div class="card-header">
-          <lucide-icon [img]="ArchiveIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
+          <nostos-icon name="archive" [size]="20" weight="light"></nostos-icon>
           <h2>Backup History</h2>
         </div>
 
@@ -208,15 +208,15 @@ const defaultProgress: BackupProgress = {
                   </span>
                   @if (item.status === 'Completed') {
                     <button class="btn btn-sm btn-secondary" (click)="downloadBackup(item.id)" title="Download archive">
-                      <lucide-icon [img]="DownloadIcon" [size]="14" strokeWidth="2"></lucide-icon>
+                      <nostos-icon name="download-simple" [size]="14"></nostos-icon>
                     </button>
                     <button class="btn btn-sm btn-secondary" (click)="restoreBackup(item.id)" [disabled]="restoring()" title="Restore from this backup">
-                      <lucide-icon [img]="RefreshCwIcon" [size]="14" strokeWidth="2"></lucide-icon>
+                      <nostos-icon name="arrows-clockwise" [size]="14"></nostos-icon>
                       Restore
                     </button>
                   }
                   <button class="btn btn-sm btn-danger" (click)="deleteBackup(item.id)" title="Delete backup">
-                    <lucide-icon [img]="Trash2Icon" [size]="14" strokeWidth="2"></lucide-icon>
+                    <nostos-icon name="trash" [size]="14"></nostos-icon>
                   </button>
                 </div>
               </div>
@@ -245,7 +245,7 @@ const defaultProgress: BackupProgress = {
            with Appearance: it is about reaching the library from elsewhere. -->
       <section class="settings-card">
         <div class="card-header">
-          <lucide-icon [img]="BookOpenIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
+          <nostos-icon name="book-open" [size]="20" weight="light"></nostos-icon>
           <h2>E-reader access</h2>
         </div>
 
@@ -274,10 +274,10 @@ const defaultProgress: BackupProgress = {
                     [attr.aria-label]="'Copy catalog address ' + info.catalogUrl"
                   >
                     @if (copied()) {
-                      <lucide-icon [img]="CheckIcon" [size]="14" strokeWidth="2"></lucide-icon>
+                      <nostos-icon name="check" [size]="14"></nostos-icon>
                       Copied
                     } @else {
-                      <lucide-icon [img]="CopyIcon" [size]="14" strokeWidth="2"></lucide-icon>
+                      <nostos-icon name="copy" [size]="14"></nostos-icon>
                       Copy URL
                     }
                   </button>
@@ -285,7 +285,7 @@ const defaultProgress: BackupProgress = {
 
                 @if (info.localOnly) {
                   <p class="catalog-note catalog-note--warning">
-                    <lucide-icon [img]="TriangleAlertIcon" [size]="14" strokeWidth="2"></lucide-icon>
+                    <nostos-icon name="warning" [size]="14"></nostos-icon>
                     <span>This address only works on this computer. Open Nostos from the address your reader will use &mdash; your machine's address on your home network or Tailscale &mdash; and the catalog address will match it.</span>
                   </p>
                 } @else {
@@ -308,7 +308,7 @@ const defaultProgress: BackupProgress = {
 
       <section class="settings-card">
         <div class="card-header">
-          <lucide-icon [img]="PaletteIcon" [size]="20" strokeWidth="1.5"></lucide-icon>
+          <nostos-icon name="palette" [size]="20" weight="light"></nostos-icon>
           <h2>Appearance</h2>
         </div>
 
@@ -330,7 +330,7 @@ const defaultProgress: BackupProgress = {
                 [class.is-active]="theme() === 'light'"
                 (click)="setTheme('light')"
               >
-                <lucide-icon [img]="SunIcon" [size]="15" strokeWidth="1.75"></lucide-icon>
+                <nostos-icon name="sun" [size]="15"></nostos-icon>
                 Light
               </button>
               <button
@@ -341,7 +341,7 @@ const defaultProgress: BackupProgress = {
                 [class.is-active]="theme() === 'dark'"
                 (click)="setTheme('dark')"
               >
-                <lucide-icon [img]="MoonIcon" [size]="15" strokeWidth="1.75"></lucide-icon>
+                <nostos-icon name="moon" [size]="15"></nostos-icon>
                 Dark
               </button>
             </div>
@@ -388,22 +388,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
   setTheme(theme: Theme): void {
     this.themeService.setTheme(theme);
   }
-
-  SettingsIcon = Settings;
-  ArchiveIcon = Archive;
-  RefreshCwIcon = RefreshCw;
-  DownloadIcon = Download;
-  Trash2Icon = Trash2;
-  LoaderIcon = Loader2;
-  FolderSearchIcon = FolderSearch;
-  PaletteIcon = Palette;
-  SunIcon = Sun;
-  MoonIcon = Moon;
-  BookOpenIcon = BookOpen;
-  CopyIcon = Copy;
-  CheckIcon = Check;
-  TriangleAlertIcon = TriangleAlert;
-
   /** E-reader access (issue #187): null until the server has answered. */
   opds = signal<OpdsInfo | null>(null);
 

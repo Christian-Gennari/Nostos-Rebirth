@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
-import { LucideAngularModule, X, Info, UploadIcon, Book, Layers, FileText, Trash2, Globe, Search, Download, AlertCircle, Check, ExternalLink } from 'lucide-angular';
 import { BooksService, Book as BookModel } from '../core/services/books.service';
 import { ProvidersService } from '../core/services/providers.service';
 import { ImportService } from '../core/services/import.service';
@@ -21,6 +20,7 @@ import { BookType } from '../core/dtos/book.dtos';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
 import { CollectionPickerComponent } from '../ui/collection-picker/collection-picker.component';
 import { ModalShell } from '../ui/modal-shell/modal-shell.component';
+import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 
 @Component({
   selector: 'app-add-book-modal',
@@ -28,7 +28,7 @@ import { ModalShell } from '../ui/modal-shell/modal-shell.component';
   imports: [
     CommonModule,
     FormsModule,
-    LucideAngularModule,
+    NostosIconComponent,
     IconButtonComponent,
     CollectionPickerComponent,
     ModalShell,
@@ -55,21 +55,6 @@ export class AddBookModal implements OnDestroy {
   bookAdded = output<void>();
   bookUpdated = output<BookModel>();
   deleteBook = output<void>();
-
-  // Icons
-  XIcon = X;
-  UploadIcon = UploadIcon;
-  InfoIcon = Info;
-  Trash2Icon = Trash2;
-  // Tab Icons
-  GeneralIcon = Book;
-  MetadataIcon = Layers;
-  FileIcon = FileText;
-  SearchIcon = Search;
-  DownloadIcon = Download;
-  ExternalLinkIcon = ExternalLink;
-  ErrorIcon = AlertCircle;
-  CheckIcon = Check;
 
   // Tabs. Importing is no longer one of them: "where does this book come from"
   // is answered before the form, not inside it (see `sourceMode`).

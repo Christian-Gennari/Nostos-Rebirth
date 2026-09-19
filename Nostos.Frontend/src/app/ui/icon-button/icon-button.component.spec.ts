@@ -1,31 +1,32 @@
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { LucideAngularModule, Pencil, Trash2, X } from 'lucide-angular';
 import { IconButtonComponent } from './icon-button.component';
 
 /**
  * The host template exercises the ATTRIBUTE SELECTOR, which is the whole point of
  * this component: the usage site is a plain `<button>` with extra attributes, and
  * natives like `disabled` must keep working with no forwarding code.
+ *
+ * The glyph is now a Nostos NAME (a string), not an icon data object from the old
+ * library — that is the whole point of the migration: the call site does not know
+ * which icon family is behind it.
  */
 @Component({
   standalone: true,
-  imports: [IconButtonComponent, LucideAngularModule],
+  imports: [IconButtonComponent],
   template: `
-    <button appIconButton [icon]="pencil" aria-label="Edit book" (click)="clicks = clicks + 1"></button>
-    <button appIconButton [icon]="trash" size="xs" tone="danger" aria-label="Delete"></button>
-    <button appIconButton [icon]="x" size="xxs" aria-label="Jump"></button>
-    <button appIconButton [icon]="pencil" [disabled]="disabled()" (click)="clicks = clicks + 1"></button>
-    <button appIconButton [icon]="pencil" [class.active]="true" aria-label="TOC"></button>
-    <button appIconButton [icon]="pencil" [pressed]="pressed()"></button>
-    <button appIconButton [icon]="pencil" class="desktop-only zen-toggle" aria-label="Extra"></button>
-    <button appIconButton [icon]="pencil" [class.overflow-toggle]="toggleClass()" aria-label="Cond"></button>
+    <button appIconButton icon="pencil-simple" aria-label="Edit book" (click)="clicks = clicks + 1"></button>
+    <button appIconButton icon="trash" size="xs" tone="danger" aria-label="Delete"></button>
+    <button appIconButton icon="x" size="xxs" aria-label="Jump"></button>
+    <button appIconButton icon="pencil-simple" [disabled]="disabled()" (click)="clicks = clicks + 1"></button>
+    <button appIconButton icon="pencil-simple" [class.active]="true" aria-label="TOC"></button>
+    <button appIconButton icon="pencil-simple" [pressed]="pressed()"></button>
+    <button appIconButton icon="pencil-simple" class="desktop-only zen-toggle" aria-label="Extra"></button>
+    <button appIconButton icon="pencil-simple" [class.overflow-toggle]="toggleClass()" aria-label="Cond"></button>
+    <button appIconButton icon="brain" weight="light" aria-label="Light glyph"></button>
   `,
 })
 class HostComponent {
-  pencil = Pencil;
-  trash = Trash2;
-  x = X;
   clicks = 0;
   /**
    * Signals, not plain fields: the component uses
@@ -49,7 +50,7 @@ describe('IconButtonComponent', () => {
     const f = TestBed.createComponent(HostComponent);
     await f.whenStable();
     const all = buttons(f);
-    expect(all.length).toBe(8);
+    expect(all.length).toBe(9);
     // Every host is a real button; there is no custom element in between.
     expect(f.nativeElement.querySelector('app-icon-button')).toBeNull();
   });
@@ -60,10 +61,33 @@ describe('IconButtonComponent', () => {
     for (const b of buttons(f)) expect(b.classList.contains('icon-btn')).toBe(true);
   });
 
-  it('renders the glyph inside the button', async () => {
+  it('renders the Phosphor glyph inside the button', async () => {
     const f = TestBed.createComponent(HostComponent);
     await f.whenStable();
-    expect(buttons(f)[0].querySelector('lucide-icon')).toBeTruthy();
+    const glyph = buttons(f)[0].querySelector('nostos-icon');
+    expect(glyph).toBeTruthy();
+    // A real svg with Phosphor's 256-unit grid, not just an empty host.
+    const svg = glyph!.querySelector('svg');
+    expect(svg?.getAttribute('viewBox')).toBe('0 0 256 256');
+    // No trace of the previous icon library anywhere in the DOM.
+    expect(f.nativeElement.querySelector('lucide-icon')).toBeNull();
+  });
+
+  it('sizes the glyph independently of the button box', async () => {
+    const f = TestBed.createComponent(HostComponent);
+    await f.whenStable();
+    // Default glyph is 16px inside a 32px box: the two rungs stay separate.
+    const svg = buttons(f)[0].querySelector('svg');
+    expect(svg?.getAttribute('width')).toBe('16');
+    expect(svg?.getAttribute('height')).toBe('16');
+  });
+
+  it('renders the requested weight rather than always the regular glyph', async () => {
+    const f = TestBed.createComponent(HostComponent);
+    await f.whenStable();
+    const light = buttons(f)[8].querySelector('svg')!.innerHTML;
+    // The light weight is a DIFFERENT drawing, not a stroke tweak.
+    expect(light).not.toBe(buttons(f)[7].querySelector('svg')!.innerHTML);
   });
 
   it('puts aria-label on the host, and omits it when empty', async () => {
@@ -75,6 +99,14 @@ describe('IconButtonComponent', () => {
     // The bounds moved because a conditional-class button was appended; index 3
     // is still the disabled one, which carries no label.
     expect(all[2].getAttribute('aria-label')).toBe('Jump');
+  });
+
+  it('keeps the button glyph decorative so the button label is the only announcement', async () => {
+    const f = TestBed.createComponent(HostComponent);
+    await f.whenStable();
+    const glyph = buttons(f)[0].querySelector('nostos-icon')!;
+    expect(glyph.getAttribute('aria-hidden')).toBe('true');
+    expect(glyph.getAttribute('role')).toBeNull();
   });
 
   it('applies the measured size rungs as host classes', async () => {

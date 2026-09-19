@@ -1,24 +1,23 @@
 import { Component, inject } from '@angular/core';
 import { ToastService } from '../../core/services/toast.service';
-import { LucideAngularModule, X, CheckCircle, AlertTriangle, Info } from 'lucide-angular';
+import { NostosIconComponent } from '../icon/nostos-icon.component';
 
 @Component({
   selector: 'app-toast-container',
   standalone: true,
-  imports: [LucideAngularModule],
+  imports: [NostosIconComponent],
   template: `
     <div class="toast-container">
       @for (toast of toastService.toasts(); track toast.id) {
         <div class="toast" [class]="'toast-' + toast.type" role="alert">
-          <lucide-icon
-            [img]="
-              toast.type === 'success' ? CheckIcon : toast.type === 'error' ? AlertIcon : InfoIcon
+          <nostos-icon
+            [name]="
+              toast.type === 'success' ? 'check-circle' : toast.type === 'error' ? 'warning' : 'info'
             "
-            [size]="16"
-          ></lucide-icon>
+            [size]="16"></nostos-icon>
           <span class="toast-message">{{ toast.message }}</span>
           <button class="toast-dismiss" (click)="toastService.dismiss(toast.id)">
-            <lucide-icon [img]="CloseIcon" [size]="14"></lucide-icon>
+            <nostos-icon name="x" [size]="14"></nostos-icon>
           </button>
         </div>
       }
@@ -71,21 +70,21 @@ import { LucideAngularModule, X, CheckCircle, AlertTriangle, Info } from 'lucide
       .toast-success {
         border-left: 3px solid var(--color-success);
       }
-      .toast-success lucide-icon {
+      .toast-success nostos-icon {
         color: var(--color-success);
       }
 
       .toast-error {
         border-left: 3px solid var(--color-danger);
       }
-      .toast-error lucide-icon {
+      .toast-error nostos-icon {
         color: var(--color-danger);
       }
 
       .toast-info {
         border-left: 3px solid var(--color-primary);
       }
-      .toast-info lucide-icon {
+      .toast-info nostos-icon {
         color: var(--color-primary);
       }
 
@@ -124,9 +123,4 @@ import { LucideAngularModule, X, CheckCircle, AlertTriangle, Info } from 'lucide
 })
 export class ToastContainerComponent {
   toastService = inject(ToastService);
-
-  CheckIcon = CheckCircle;
-  AlertIcon = AlertTriangle;
-  InfoIcon = Info;
-  CloseIcon = X;
 }

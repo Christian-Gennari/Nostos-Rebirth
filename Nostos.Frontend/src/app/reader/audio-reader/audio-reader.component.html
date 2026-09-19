@@ -5,7 +5,22 @@
       <img [src]="book()?.coverUrl" alt="Book Cover" appBloomArt class="cover-img" />
       } @else {
       <div class="placeholder-art">
-        <lucide-icon [img]="Icons.AudioLines" [size]="48" class="placeholder-icon"></lucide-icon>
+        <nostos-icon name="waveform" [size]="48" class="placeholder-icon"></nostos-icon>
+      </div>
+      }
+
+      <!-- Waiting and error states sit ON the cover, absolutely positioned, so the
+           player below never moves when they come and go. They used to be a row
+           above the scrubber: while it was there the whole column re-centred and
+           the transport jumped by that row's height. -->
+      @if (loading()) {
+      <div class="cover-overlay" role="status" data-testid="audio-loading">
+        <nostos-icon name="waveform" [size]="20" class="audio-loading-icon"></nostos-icon>
+        <span>Loading audio…</span>
+      </div>
+      } @if (loadError()) {
+      <div class="cover-overlay cover-overlay-error" role="alert" data-testid="audio-load-error">
+        <span>{{ loadError() }}</span>
       </div>
       }
     </div>
@@ -17,17 +32,6 @@
   </div>
 
   <div class="controls">
-    @if (loading()) {
-    <div class="audio-loading" role="status" data-testid="audio-loading">
-      <lucide-icon [img]="Icons.AudioLines" [size]="20" class="audio-loading-icon"></lucide-icon>
-      <span>Loading audio…</span>
-    </div>
-    }
-    @if (loadError()) {
-    <div class="audio-loading audio-load-error" role="alert" data-testid="audio-load-error">
-      <span>{{ loadError() }}</span>
-    </div>
-    }
     <div class="scrubber">
       <input
         type="range"
@@ -72,20 +76,20 @@
     <div class="playback-row">
       <div class="main-controls">
         <button class="skip-btn" (click)="skip(-15)" title="Rewind 15 seconds" aria-label="Rewind 15 seconds" data-testid="audio-rewind">
-          <lucide-icon [img]="Icons.RotateCcw" [size]="24"></lucide-icon>
+          <nostos-icon name="arrow-counter-clockwise" [size]="24"></nostos-icon>
           <span class="skip-label">15</span>
         </button>
 
         <button class="play-btn" (click)="togglePlay()" [disabled]="loading()">
           @if(isPlaying()) {
-          <lucide-icon [img]="Icons.Pause" [size]="32" class="icon-fill"></lucide-icon>
+          <nostos-icon name="pause" [size]="32" class="icon-fill"></nostos-icon>
           } @else {
-          <lucide-icon [img]="Icons.Play" [size]="32" class="icon-fill ml-1"></lucide-icon>
+          <nostos-icon name="play" [size]="32" class="icon-fill ml-1"></nostos-icon>
           }
         </button>
 
         <button class="skip-btn" (click)="skip(15)" title="Forward 15 seconds" aria-label="Forward 15 seconds" data-testid="audio-forward">
-          <lucide-icon [img]="Icons.RotateCw" [size]="24"></lucide-icon>
+          <nostos-icon name="arrow-clockwise" [size]="24"></nostos-icon>
           <span class="skip-label">15</span>
         </button>
       </div>
@@ -108,10 +112,10 @@
           (keydown.space)="toggleDropdown(); $event.preventDefault()"
           (keydown.escape)="closePlaybackMenu()"
         >
-          <lucide-icon [img]="Icons.SlidersHorizontal" [size]="14" class="playback-icon"></lucide-icon>
+          <nostos-icon name="sliders-horizontal" [size]="14" class="playback-icon"></nostos-icon>
           <span class="playback-value" data-testid="audio-rate-label">{{ formatRate(currentRate()) }}</span>
           <span class="playback-sleep" data-testid="sleep-timer-label">
-            <lucide-icon [img]="Icons.Moon" [size]="13" class="sleep-icon"></lucide-icon>{{ sleepLabel() }}
+            <nostos-icon name="moon" [size]="13" class="sleep-icon"></nostos-icon>{{ sleepLabel() }}
           </span>
           <svg class="playback-arrow" width="8" height="5" viewBox="0 0 8 5" aria-hidden="true">
             <path d="M1 1l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>

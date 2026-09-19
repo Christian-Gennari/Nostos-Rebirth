@@ -491,9 +491,6 @@ namespace Nostos.Backend.Migrations
                             b1.Property<Guid>("BookModelId")
                                 .HasColumnType("TEXT");
 
-                            b1.Property<DateTime?>("ChaptersEditedAt")
-                                .HasColumnType("TEXT");
-
                             b1.Property<string>("ChaptersJson")
                                 .HasColumnType("TEXT");
 

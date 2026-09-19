@@ -39,6 +39,14 @@ export const DESKTOP_VIEWPORT: Viewport = { width: 1440, height: 900 };
 export const MOBILE_VIEWPORT: Viewport = { width: 390, height: 844 };
 
 /**
+ * Phone in landscape. A 334px-tall reading area cannot hold the column
+ * composition at any useful size, so the audio player composes in two columns
+ * here and its own contract differs from both the desktop bar and the portrait
+ * one (see checkAudioComposition).
+ */
+export const LANDSCAPE_VIEWPORT: Viewport = { width: 844, height: 390 };
+
+/**
  * Fixed light rendering invariants for the EPUB rendition. The app ships
  * exactly one (light) theme; these constants mirror the single source of
  * truth — epub-reader.component.ts NOSTOS_LIGHT_RULES and the :root tokens
@@ -262,20 +270,40 @@ export async function checkPdfFinalPageClearance(page: Page): Promise<GeometryCh
 }
 
 /**
- * Audio surface composition (issue #227): the player must own exactly one chrome
- * row inside itself, leave no dead band larger than the issue's ~48px bar around
- * the composition, and never exceed the viewport. All three were defects: 12
- * controls in two stacked rows, 164px bands above and below, and a container that
- * computed 30px wider than a 390px phone.
+ * Audio surface composition (issue #227, plus the phone passes).
+ *
+ * Desktop: the player must own exactly one chrome row inside itself, leave no
+ * dead band larger than the issue's ~48px bar around the composition, and never
+ * exceed the viewport. All three were defects: 12 controls in two stacked rows,
+ * 164px bands above and below, and a container that computed 30px wider than a
+ * 390px phone.
+ *
+ * Phone (<=768px wide, or <=520px tall for landscape): "fill the reading area" is
+ * the wrong criterion — it produced a 320x480 cover in a 792px area that scrolled
+ * and clipped its own Playback pill at every phone size measured (0 scroll at
+ * 844, but 52px at 730, 78px at 640, 89px at 568, with the pill below the fold),
+ * and in landscape it could not fit at all. What is asserted instead is that the
+ * composition FITS: the reading area does not scroll, nothing is pushed above its
+ * top edge, no horizontal overflow, and the transport trio stays on one line.
+ * Then, per composition: PORTRAIT stacks the Playback control under the transport
+ * (the owner's call, asserted as 2 control rows with a non-negative gap), keeps
+ * the cover under 58% of the area; SHORT LANDSCAPE puts transport and pill back
+ * inline in the right-hand column (1 row, cover under 60%, and the cover's right
+ * edge must stay clear of the controls column). Measured numbers are reported
+ * either way, so a re-bloat and a shrink-to-nothing are both visible.
  */
 export async function checkAudioComposition(page: Page): Promise<GeometryCheck> {
   await page.locator('.audio-container').waitFor({ timeout: 30_000 });
   await page.locator('.cover-art').waitFor({ timeout: 30_000 });
   await page.waitForTimeout(400); // let the art and time labels settle
 
+  const vp = page.viewportSize();
+  const phone = (vp?.width ?? 0) <= 768 || (vp?.height ?? 0) <= 520;
+
   const m = await page.evaluate(() => {
     const cont = document.querySelector('.audio-container') as HTMLElement | null;
     if (!cont) return null;
+    const host = cont.parentElement as HTMLElement | null;
     const kids = [...cont.children].filter(
       (e) => (e as HTMLElement).getClientRects().length > 0
     ) as HTMLElement[];
@@ -283,21 +311,77 @@ export async function checkAudioComposition(page: Page): Promise<GeometryCheck> 
     const cr = cont.getBoundingClientRect();
     const first = kids[0].getBoundingClientRect();
     const last = kids[kids.length - 1].getBoundingClientRect();
+    // Rows are counted by OVERLAP, not by element count and not by distinct
+    // `top`s: `align-items: center` gives a shorter child its own `top` on the
+    // same row, and counting elements reported "1 row" while the Playback pill
+    // had in fact wrapped onto a second one on every phone width.
+    const spans = [...cont.querySelectorAll('.playback-row > *')]
+      .map((e) => (e as HTMLElement).getBoundingClientRect())
+      .map((r) => [r.top, r.bottom] as [number, number])
+      .sort((a, b) => a[0] - b[0]);
+    let chromeRows = 0;
+    let cursor = -Infinity;
+    for (const [top, bottom] of spans) {
+      if (top >= cursor) chromeRows++;
+      cursor = Math.max(cursor, bottom);
+    }
+    const cover = document.querySelector('.cover-art')?.getBoundingClientRect();
+    const controls = document.querySelector('.controls')?.getBoundingClientRect();
+    const transport = document.querySelector('.main-controls')?.getBoundingClientRect();
+    const selector = document.querySelector('.playback-selector')?.getBoundingClientRect();
+    // The transport trio must stay on ONE line in every layout — it is the row
+    // that predates this pass and the one the thumb reaches for.
+    let transportRows = 0;
+    let tCursor = -Infinity;
+    for (const r of [...cont.querySelectorAll('.main-controls > *')]
+      .map((e) => (e as HTMLElement).getBoundingClientRect())
+      .sort((a, b) => a.top - b.top)) {
+      if (r.top >= tCursor) transportRows++;
+      tCursor = Math.max(tCursor, r.bottom);
+    }
     return {
       top: Math.round(first.top - cr.top),
       bottom: Math.round(cr.bottom - last.bottom),
-      chromeRows: cont.querySelectorAll('.playback-row, .selector-row').length,
+      chromeRows,
+      transportRows,
       overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      scrollable: host ? host.scrollHeight - host.clientHeight : 0,
+      areaHeight: Math.round(cr.height),
+      coverShare: cover ? +(cover.height / cr.height).toFixed(3) : 0,
+      flexDirection: getComputedStyle(cont).flexDirection,
+      columnGapPx: cover && controls ? Math.round(controls.left - cover.right) : 0,
+      // Portrait stacks the Playback control under the transport (owner's call);
+      // this is the measurement that proves it is stacked and not overlapping.
+      pillGapPx: transport && selector ? Math.round(selector.top - transport.bottom) : 0,
       timeText: (document.querySelector('.time-labels')?.textContent ?? '').trim().replace(/\s+/g, ' '),
     };
   });
 
   if (!m) return failCheck('audio-composition', 'could not measure .audio-container', {});
   const worst = Math.max(m.top, m.bottom);
-  const ok = worst <= 48 && m.chromeRows === 1 && m.overflowX === 0;
-  const msg =
-    `dead band ${worst}px (top ${m.top} / bottom ${m.bottom}, bar 48), ` +
-    `player chrome rows ${m.chromeRows} (1 expected), overflowX ${m.overflowX}px, times "${m.timeText}"`;
+  const row = m.flexDirection === 'row';
+  const ok = phone
+    ? m.scrollable <= 1 &&
+      m.top >= 0 &&
+      m.transportRows === 1 &&
+      m.overflowX === 0 &&
+      (row
+        ? m.chromeRows === 1 && m.coverShare <= 0.6 && m.columnGapPx >= -2
+        : m.chromeRows === 2 && m.pillGapPx >= -2 && m.coverShare <= 0.58)
+    : worst <= 48 && m.chromeRows === 1 && m.overflowX === 0;
+  const axes = row
+    ? `${m.chromeRows} row (transport + pill inline, 1 expected), cover ${m.coverShare} of the ` +
+      `${m.areaHeight}px area (bar 0.6), gap to the controls column ${m.columnGapPx}px (must be >= -2)`
+    : `transport rows ${m.transportRows} (1 expected), ${m.chromeRows} control rows ` +
+      `(2 expected: Playback stacked under the transport, gap ${m.pillGapPx}px, must be >= -2), ` +
+      `cover ${m.coverShare} of the ${m.areaHeight}px area (bar 0.58)`;
+  const msg = phone
+    ? `phone fit — ${row ? 'two columns' : 'one column'}: scroll ${m.scrollable}px (bar 1), ` +
+      `dead band top ${m.top}px (must be >= 0), ${axes}, ` +
+      `overflowX ${m.overflowX}px, times "${m.timeText}"`
+    : `dead band ${worst}px (top ${m.top} / bottom ${m.bottom}, bar 48), ` +
+      `control rows ${m.chromeRows} (1 expected), cover ${m.coverShare} of the ${m.areaHeight}px area, ` +
+      `overflowX ${m.overflowX}px, times "${m.timeText}"`;
   return ok ? passCheck('audio-composition', msg, m) : failCheck('audio-composition', msg, m);
 }
 
@@ -683,11 +767,12 @@ export async function checkLibrarySidebarRail(page: Page): Promise<GeometryCheck
   const settledTrack = Math.round(last.trackH * 10) / 10;
   const distinctTracks = new Set(samples.map((s) => Math.round(s.trackH))).size;
 
-  // Measured in-page rather than with locator.boundingBox(): lucide copies the
-  // `search-icon` class onto BOTH its host element and the inner <svg>, so a
-  // plain `.search-icon` locator is a strict-mode violation (two matches), and
-  // boundingBox() also waits on actionability. Reading the rendered geometry
-  // directly is unambiguous and never waits.
+  // Measured in-page rather than with locator.boundingBox(): the icon component
+  // and the <svg> inside it are two boxes for one glyph, so a tag-agnostic
+  // locator can match twice (strict-mode violation), and boundingBox() also waits
+  // on actionability. Reading the rendered geometry directly is unambiguous and
+  // never waits — and the element it measures is the icon's HOST, which is what
+  // the CSS around it positions.
   const icon = await page.evaluate(() => {
     const el = document.querySelector('.search-icon');
     const input = document.querySelector('.search-input');

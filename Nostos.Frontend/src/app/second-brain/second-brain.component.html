@@ -33,7 +33,7 @@
 
       <div class="brain-header-tools">
         <div class="search-box">
-          <lucide-icon [img]="SearchIcon" [size]="16" class="search-icon"></lucide-icon>
+          <nostos-icon name="magnifying-glass" [size]="16" class="search-icon"></nostos-icon>
           <input
             #searchInput
             type="text"
@@ -50,7 +50,7 @@
             aria-label="Clear search"
             (click)="clearSearch()"
           >
-            <lucide-icon [img]="ClearIcon" [size]="15"></lucide-icon>
+            <nostos-icon name="x" [size]="15"></nostos-icon>
           </button>
           }
         </div>
@@ -69,7 +69,7 @@
             title="Concept view"
             (click)="setViewMode('list')"
           >
-            <lucide-icon [img]="ListIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
+            <nostos-icon name="list-bullets" [size]="18" weight="light"></nostos-icon>
           </button>
           <button
             type="button"
@@ -80,7 +80,7 @@
             title="Map view"
             (click)="setViewMode('map')"
           >
-            <lucide-icon [img]="MapIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
+            <nostos-icon name="map-trifold" [size]="18" weight="light"></nostos-icon>
           </button>
         </div>
       </div>
@@ -105,6 +105,11 @@
             <option value="za">Sort: Z → A</option>
           </select>
         </div>
+      </div>
+
+      <div class="brain-section-header">
+        <h2 class="brain-section-title">Concepts</h2>
+        <span class="brain-section-count">{{ filteredConcepts().length }}</span>
       </div>
 
       <div
@@ -204,7 +209,7 @@
               [attr.aria-label]="'Rename ' + c.name"
               (click)="requestRename(c.id, $event)"
             >
-              <lucide-icon [img]="RenameIcon" [size]="13"></lucide-icon>
+              <nostos-icon name="pencil-simple" [size]="13"></nostos-icon>
             </button>
             <button
               type="button"
@@ -212,12 +217,37 @@
               [attr.aria-label]="'Delete ' + c.name"
               (click)="requestDelete(c.id, $event)"
             >
-              <lucide-icon [img]="DeleteIcon" [size]="13"></lucide-icon>
+              <nostos-icon name="trash" [size]="13"></nostos-icon>
             </button>
           </div>
         </div>
         }
         }
+      </div>
+
+      <div class="brain-notes-section">
+        <div class="brain-section-header">
+          <h2 class="brain-section-title">{{ notesSectionHeading() }}</h2>
+          <span class="brain-section-count">{{ notesSectionRows().length }}</span>
+        </div>
+        <div class="brain-notes-list" role="list" aria-label="Notes index">
+          @for (hit of notesSectionRows(); track hit.id) {
+          <div class="note-row-shell" role="listitem">
+            <button
+              type="button"
+              class="note-row-item"
+              (click)="openNotePanel(hit)"
+            >
+              <span class="note-row-main">
+                <span class="note-row-snippet">“{{ hit.snippet ? hit.snippet : hit.content }}”</span>
+                @if (hit.bookTitle) {
+                <span class="note-row-book">{{ hit.bookTitle }}</span>
+                }
+              </span>
+            </button>
+          </div>
+          }
+        </div>
       </div>
     </aside>
 
@@ -251,7 +281,7 @@
       </div>
       } @else { @if (selectedId()) {
       <button type="button" class="mobile-nav-header" (click)="clearSelection()">
-        <lucide-icon [img]="ArrowLeftIcon" [size]="18"></lucide-icon>
+        <nostos-icon name="arrow-left" [size]="18"></nostos-icon>
         <span>Back to Index</span>
       </button>
       } @if (selectedDetail(); as detail) {
@@ -294,7 +324,7 @@
               [disabled]="renaming() || mergingConcept()"
               (click)="startRename(detail.id, 'header')"
             >
-              <lucide-icon [img]="RenameIcon" [size]="14"></lucide-icon>
+              <nostos-icon name="pencil-simple" [size]="14"></nostos-icon>
               <span>Rename</span>
             </button>
             <button
@@ -303,7 +333,7 @@
               [disabled]="renaming() || mergingConcept()"
               (click)="openMergePicker()"
             >
-              <lucide-icon [img]="MergeIcon" [size]="14"></lucide-icon>
+              <nostos-icon name="git-merge" [size]="14"></nostos-icon>
               <span>Merge into…</span>
             </button>
             <button
@@ -312,7 +342,7 @@
               [disabled]="renaming() || mergingConcept()"
               (click)="openDeleteConcept(detail.id)"
             >
-              <lucide-icon [img]="DeleteIcon" [size]="14"></lucide-icon>
+              <nostos-icon name="trash" [size]="14"></nostos-icon>
               <span>Delete</span>
             </button>
           </div>
@@ -328,11 +358,11 @@
               aria-label="Close merge picker"
               (click)="closeMergePicker()"
             >
-              <lucide-icon [img]="ClearIcon" [size]="15"></lucide-icon>
+              <nostos-icon name="x" [size]="15"></nostos-icon>
             </button>
           </div>
           <div class="merge-search-box">
-            <lucide-icon [img]="SearchIcon" [size]="15"></lucide-icon>
+            <nostos-icon name="magnifying-glass" [size]="15"></nostos-icon>
             <input
               type="search"
               placeholder="Search concepts..."
@@ -398,11 +428,11 @@
             @if (hiddenRelatedCount() > 0) {
             <button type="button" class="related-more" (click)="toggleRelated()">
               @if (relatedExpanded()) {
-              <lucide-icon [img]="CollapseIcon" [size]="13"></lucide-icon>
+              <nostos-icon name="caret-up" [size]="13"></nostos-icon>
               <span>Show fewer</span>
               } @else {
               <span>+{{ hiddenRelatedCount() }} more</span>
-              <lucide-icon [img]="ExpandIcon" [size]="13"></lucide-icon>
+              <nostos-icon name="caret-down" [size]="13"></nostos-icon>
               }
             </button>
             }
@@ -414,7 +444,7 @@
       @if (detail.notes.length > 0) {
       <div class="detail-tools" aria-label="Filter and sort notes">
         <div class="note-search-box">
-          <lucide-icon [img]="SearchIcon" [size]="15" class="search-icon"></lucide-icon>
+          <nostos-icon name="magnifying-glass" [size]="15" class="search-icon"></nostos-icon>
           <label class="visually-hidden" for="note-search">Search notes</label>
           <input
             id="note-search"
@@ -425,7 +455,7 @@
           />
           @if (noteSearchQuery()) {
           <button type="button" class="clear-note-search" aria-label="Clear note search" (click)="clearNoteSearch()">
-            <lucide-icon [img]="ClearIcon" [size]="14"></lucide-icon>
+            <nostos-icon name="x" [size]="14"></nostos-icon>
           </button>
           }
         </div>
@@ -510,7 +540,7 @@
       } @else {
       <div class="landing-state">
         <div class="icon-circle">
-          <lucide-icon [img]="BrainIcon" [size]="48" strokeWidth="1"></lucide-icon>
+          <nostos-icon name="brain" [size]="48" weight="thin"></nostos-icon>
         </div>
         <h2>Explore your Second Brain</h2>
         <p>Select a concept from the index to see how your ideas connect.</p>
@@ -518,6 +548,37 @@
       }
       }
     </section>
+
+    @if (panelNote(); as note) {
+    <aside class="brain-note-panel" role="dialog" data-testid="brain-note-panel" aria-label="Note detail">
+      <div class="brain-note-panel-head">
+        <h2 class="brain-note-panel-title">{{ note.bookTitle }}</h2>
+        <button
+          type="button"
+          class="brain-note-panel-close"
+          aria-label="Close note"
+          (click)="closeNotePanel()"
+        >
+          <nostos-icon name="x" [size]="18"></nostos-icon>
+        </button>
+      </div>
+      <div class="brain-note-panel-body">
+        @if (note.selectedText) {
+        <blockquote class="brain-note-panel-quote">{{ note.selectedText }}</blockquote>
+        }
+        <p class="brain-note-panel-content">{{ note.content }}</p>
+        <div class="brain-note-panel-concepts">
+          @if (note.conceptNames.length > 0) {
+            @for (name of note.conceptNames; track name) {
+            <span class="brain-note-concept-tag">{{ name }}</span>
+            }
+          } @else {
+            <span class="brain-note-panel-empty-concepts">Belongs to no concept</span>
+          }
+        </div>
+      </div>
+    </aside>
+    }
   </div>
 
   <app-confirm-modal

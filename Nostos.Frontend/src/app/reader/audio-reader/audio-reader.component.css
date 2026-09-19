@@ -16,7 +16,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  /* `center` overflows BOTH ends when the composition is taller than the reading
+     area, and in an `overflow-y: auto` box that top overflow cannot be scrolled
+     to — the cover's top ends up unreachable behind the header. `safe` degrades
+     to `start` in exactly that case, so the top of the player is always
+     reachable; when the content fits, it is identical to `center`. The plain
+     declaration stays above as the fallback for engines without `safe`. */
   justify-content: center;
+  justify-content: safe center;
   /* box-sizing is what made the old `max-width: 420px` + `padding: 2rem` pair
      compute 30px wider than a 390px phone: content-box added the padding on top
      of the max-width. */
@@ -100,16 +107,29 @@
   gap: 1.5rem;
 }
 
-/* Loading / error state */
-.audio-loading {
+/* Loading / error state — ON the cover, never in the column's flow.
+   These used to be a row above the scrubber: while it was present the whole
+   column re-centred and the transport row jumped by its height (the layout shift
+   the owner reported). Absolute inside `.cover-art` (which is already
+   `position: relative`, rounded and `overflow: hidden`) means the player cannot
+   move, and the app's own waiting ground says "getting ready" in the place the
+   art will appear. */
+.cover-overlay {
+  position: absolute;
+  inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.5rem;
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.9rem;
+  padding: 0.75rem;
+  text-align: center;
+  overflow-wrap: anywhere;
+  background: var(--surface-image-ground);
   color: var(--color-text-light);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.8rem;
+  line-height: 1.3;
 }
 
 /* Same waiting rhythm as the rest of the app. This used to blink at 1.2s between
@@ -118,8 +138,8 @@
   animation: wait-breathe var(--motion-wait) ease-in-out infinite;
 }
 
-.audio-load-error {
-  color: var(--color-danger, #b91c1c);
+.cover-overlay-error {
+  color: var(--color-danger);
 }
 
 /* Scrubber */
@@ -260,7 +280,7 @@
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
 }
 
-.play-btn lucide-icon {
+.play-btn nostos-icon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -513,17 +533,174 @@
   text-align: center;
 }
 
-@media (max-width: 768px) {
-  /* The cover is sized from the viewport height above; on a phone the clamp
-     already lands near the old fixed size, so only the tap feedback and a small
-     trim change: at 844px tall the capped 335px art left the composition 6px
-     taller than the area, which is the difference between "fits" and "scrolls". */
+@media (max-width: 768px), (orientation: landscape) and (max-height: 520px) {
+  /* A phone is not a small desktop: the composition must FIT the reading area
+     with room around it, not fill it to the brim. Before this pass the cover was
+     320x480 in a 792px area (61% of it, 57% of the whole 844px screen) and the
+     single control row had wrapped into two, which pushed the playback pill
+     clear out of a 588px area (measured at 360x640: the pill was clipped and the
+     area scrolled by 78px). After it, measured on the worktree at 320x568,
+     360x640, 375x667, 390x730, 390x844 and 412x915: no scroll, one control row.
+     The cover shrinks with the VIEWPORT HEIGHT, so a phone with the browser's
+     URL bar showing (the real case) gets the same composition as one without.
+     The short-landscape case matches here too (the same compact controls) and is
+     then re-composed into two columns by the block at the end of this file. */
+  .audio-container {
+    padding: 0.75rem 1rem 1rem;
+    gap: 1rem;
+    /* The unit stays centred: cover, title, scrubber, transport and the Playback
+       pill are one block in the middle of the reading area, horizontally and
+       vertically. An earlier revision of this pass pushed the controls to the
+       bottom (`space-between`) to shorten a thumb's reach; the owner's call is
+       that the block reads as one centred unit, and it does. The base rules above
+       already centre it (`safe center`), so this block only sizes the phone. */
+  }
+
   .cover-art {
-    width: clamp(150px, 46vh, 320px);
+    /* The controls are the point on a phone, not the art: the cover is a
+       thumbnail-scale card now — 42% of the screen's width, capped at 176px and
+       never wider than a short viewport can give it. It used to be 320px (61% of
+       the reading area) before this pass and 260px after the first one. */
+    width: clamp(104px, min(24vh, 42vw), 176px);
+  }
+
+  .cover-section {
+    gap: 1rem;
+  }
+
+  .controls {
+    gap: 1rem;
+  }
+
+  .scrubber {
+    gap: 0.25rem;
+  }
+
+  /* Portrait stacks the Playback pill UNDER the transport: that is the owner's
+     call for standing/portrait use, and it is also what gives the rows their own
+     lines to breathe on (the pill no longer has to share a 344px row with the
+     transport trio). The short-landscape block at the end of this file puts the
+     two back side by side, where there is width and no height to spare.
+     `position: relative` on the row is the mobile popover's containing block. */
+  .playback-row {
+    position: relative;
+    flex-direction: column;
+    align-items: center;
+    /* The pill has its own line now, so the row gap is what separates it from the
+       transport. It was 0.65rem, sized for a row the two controls had to share;
+       at that distance the pill reads as attached to the play button. */
+    gap: 1.5rem;
+    padding: 0;
+    margin-top: 0;
+  }
+
+  .main-controls {
+    gap: 1.5rem;
+  }
+
+  .play-btn {
+    width: 64px;
+    height: 64px;
+  }
+
+  /* 44px is the tap-target floor, not a size to go under. */
+  .skip-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .playback-pill {
+    /* Its own containing block, so the chevron keeps its place once the
+       selector below stops being one. */
+    position: relative;
+    /* No `min-height: 44px` here. It made this the fattest pill in the app (44px
+       against the library chips' 28px and this control's own 33px on desktop),
+       which is the convention it has to sit in. The pill is the app's own pill on
+       a phone too, and the tap floor is kept by the hit area below instead. */
+  }
+
+  .playback-pill::after {
+    /* A 33px pill is under the 44px tap floor, so the hit area is expanded
+       invisibly rather than by making the pill fat: 8px above and below (49px
+       total) and 6px at each end. Verified by clicking 6px above the pill's box
+       and asserting the menu opens. */
+    content: '';
+    position: absolute;
+    inset: -8px -6px;
+  }
+
+  /* The menu is a panel the width of the control row on a phone. It used to be a
+     264px-wide floating popover anchored to the pill's right edge, which put its
+     left edge 41px outside a 320px viewport (measured). Anchoring it to the row
+     is width-proof. */
+  .playback-selector {
+    position: static;
+  }
+
+  .playback-menu {
+    left: 0;
+    right: 0;
+    min-width: 0;
+  }
+
+  /* The popover's rows are touch targets on a phone too. */
+  .rate-step {
+    width: 44px;
+    height: 44px;
+  }
+
+  .rate-option,
+  .sleep-option {
+    min-height: 44px;
+    padding: 0.45rem 0.75rem;
   }
 
   .skip-btn:hover {
     opacity: 0.8;
     background: transparent;
+  }
+}
+
+/* Phone landscape (844x390, 932x430 and 740x360 are all real): a COLUMN cannot
+   fit a 334px-tall area — measured on the pre-pass build, the cover alone was
+   218x328 in a 334px area, the surface scrolled by 121px and the overflow it
+   split above the top edge (125px) could not be scrolled to at all. The player
+   turns side by side instead: cover and title in the left column, scrubber and
+   transport in the right. The compact control sizes come from the block above,
+   which matches short-landscape viewports too. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .audio-container {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .cover-section {
+    width: auto;
+    flex: 0 0 auto;
+    gap: 0.75rem;
+  }
+
+  .cover-art {
+    /* Sized from the height it has to live in, not the width it could take. */
+    width: clamp(104px, 30vh, 190px);
+  }
+
+  /* Side by side again: portrait stacks the pill under the transport (the
+     owner's preference for standing use), but here there is width to spare and
+     none in height, and the pair measures 344px inside a 700px+ column. The gap
+     matches the desktop row rather than inheriting portrait's tighter one. */
+  .playback-row {
+    flex-direction: row;
+    gap: 1.25rem;
+  }
+
+  .controls {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 620px;
   }
 }
