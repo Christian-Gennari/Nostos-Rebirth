@@ -8,7 +8,6 @@ import { BookDetailStore } from './book-detail.store';
 
 // DTOs
 import { Book, EditionSummaryDto, LinkableBookDto } from '../core/dtos/book.dtos';
-import { Note } from '../core/dtos/note.dtos';
 
 /**
  * How many RENDERED LINES a review may occupy before Book Details opens it as a
@@ -39,37 +38,6 @@ interface PendingWorkAction {
   label: string;
   /** True when the action joins two multi-edition groups, not just two books. */
   merge: boolean;
-}
-
-/**
- * Render a book's notes as Markdown. `[[Concept]]` links are kept verbatim so
- * the export stays Obsidian-compatible. Pure (no DOM) for testability.
- */
-export function formatNotesMarkdown(
-  book: { title: string; author?: string | null },
-  notes: Note[],
-  exportedAt = new Date().toISOString(),
-): string {
-  const lines = [
-    `# Notes — ${book.title}${book.author ? ` by ${book.author}` : ''}`,
-    '',
-    `Exported ${exportedAt} from Nostos.`,
-    '',
-  ];
-  if (notes.length === 0) {
-    lines.push('_No notes yet._', '');
-    return lines.join('\n');
-  }
-  notes.forEach((note, i) => {
-    lines.push(`## Note ${i + 1}`, '');
-    if (note.selectedText?.trim()) {
-      lines.push(`> ${note.selectedText.trim()}`, '');
-    }
-    lines.push(note.content, '');
-    if (note.createdAt) lines.push(`*${note.createdAt}*`, '');
-    lines.push('---', '');
-  });
-  return lines.join('\n');
 }
 
 // UI Components
@@ -477,22 +445,6 @@ export class BookDetail implements OnInit, OnDestroy {
 
   /** True while the cover-remove question is up (asked through ConfirmModal). */
   readonly coverDeletePending = signal(false);
-  /** Download the book's notes as Markdown (`[[Concept]]` links preserved). */
-  exportNotes(): void {
-    const book = this.store.book();
-    if (!book) return;
-    const markdown = formatNotesMarkdown(book, this.store.notes());
-    const blob = new Blob([markdown], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    const slug = book.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'book';
-    anchor.href = url;
-    anchor.download = `${slug}-notes.md`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-  }
 
   onConceptClick(conceptId: string): void {
     this.goToConcept(conceptId);
