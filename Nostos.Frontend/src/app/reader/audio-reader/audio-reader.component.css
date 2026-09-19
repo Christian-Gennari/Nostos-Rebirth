@@ -586,7 +586,10 @@
     position: relative;
     flex-direction: column;
     align-items: center;
-    gap: 0.65rem;
+    /* The pill has its own line now, so the row gap is what separates it from the
+       transport. It was 0.65rem, sized for a row the two controls had to share;
+       at that distance the pill reads as attached to the play button. */
+    gap: 1.5rem;
     padding: 0;
     margin-top: 0;
   }
@@ -610,11 +613,20 @@
     /* Its own containing block, so the chevron keeps its place once the
        selector below stops being one. */
     position: relative;
-    font-size: 0.85rem;
-    padding: 0.4rem 1.6rem 0.4rem 0.75rem;
-    /* The pill was 31px tall, which is a miss on a phone; the row is 64px tall
-       around it, so the tap floor costs nothing here. */
-    min-height: 44px;
+    /* No `min-height: 44px` here. It made this the fattest pill in the app (44px
+       against the library chips' 28px and this control's own 33px on desktop),
+       which is the convention it has to sit in. The pill is the app's own pill on
+       a phone too, and the tap floor is kept by the hit area below instead. */
+  }
+
+  .playback-pill::after {
+    /* A 33px pill is under the 44px tap floor, so the hit area is expanded
+       invisibly rather than by making the pill fat: 8px above and below (49px
+       total) and 6px at each end. Verified by clicking 6px above the pill's box
+       and asserting the menu opens. */
+    content: '';
+    position: absolute;
+    inset: -8px -6px;
   }
 
   /* The menu is a panel the width of the control row on a phone. It used to be a

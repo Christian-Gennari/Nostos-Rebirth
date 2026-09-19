@@ -1,6 +1,6 @@
 {
   "artifact": "audio-light-landscape.png",
-  "capturedAt": "2026-09-19T09:13:10.803Z",
+  "capturedAt": "2026-09-19T09:26:59.385Z",
   "name": "audio-light-landscape",
   "surface": "audio",
   "viewport": {
@@ -24,7 +24,7 @@
         "coverShare": 0.525,
         "flexDirection": "row",
         "columnGapPx": 52,
-        "pillGapPx": -54,
+        "pillGapPx": -48,
         "timeText": "0:00:00 37:27:33"
       }
     }
