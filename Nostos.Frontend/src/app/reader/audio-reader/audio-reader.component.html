@@ -8,6 +8,21 @@
         <lucide-icon [img]="Icons.AudioLines" [size]="48" class="placeholder-icon"></lucide-icon>
       </div>
       }
+
+      <!-- Waiting and error states sit ON the cover, absolutely positioned, so the
+           player below never moves when they come and go. They used to be a row
+           above the scrubber: while it was there the whole column re-centred and
+           the transport jumped by that row's height. -->
+      @if (loading()) {
+      <div class="cover-overlay" role="status" data-testid="audio-loading">
+        <lucide-icon [img]="Icons.AudioLines" [size]="20" class="audio-loading-icon"></lucide-icon>
+        <span>Loading audio…</span>
+      </div>
+      } @if (loadError()) {
+      <div class="cover-overlay cover-overlay-error" role="alert" data-testid="audio-load-error">
+        <span>{{ loadError() }}</span>
+      </div>
+      }
     </div>
 
     <div class="track-info">
@@ -17,17 +32,6 @@
   </div>
 
   <div class="controls">
-    @if (loading()) {
-    <div class="audio-loading" role="status" data-testid="audio-loading">
-      <lucide-icon [img]="Icons.AudioLines" [size]="20" class="audio-loading-icon"></lucide-icon>
-      <span>Loading audio…</span>
-    </div>
-    }
-    @if (loadError()) {
-    <div class="audio-loading audio-load-error" role="alert" data-testid="audio-load-error">
-      <span>{{ loadError() }}</span>
-    </div>
-    }
     <div class="scrubber">
       <input
         type="range"
