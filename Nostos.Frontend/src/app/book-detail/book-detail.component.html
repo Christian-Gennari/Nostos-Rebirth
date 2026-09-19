@@ -352,18 +352,6 @@
             <div class="notes-header">
               <h3>Personal Notes</h3>
               <span class="badge-count">{{ store.notes().length }}</span>
-              @if (store.notes().length > 0) {
-              <button
-                class="btn btn-ghost btn-sm notes-export-btn"
-                (click)="exportNotes()"
-                title="Download notes as Markdown"
-                aria-label="Export notes as Markdown"
-                data-testid="export-notes-btn"
-              >
-                <lucide-icon [img]="BookDownIcon" [size]="15"></lucide-icon>
-                Export
-              </button>
-              }
             </div>
 
             <div class="new-note-box">
@@ -519,16 +507,6 @@
               }
             </div>
           </div>
-
-          <!-- Hand-made chapters (issue #8). Only audiobooks have chapters the
-               player can act on, and a plain-MP3 file often carries none — which is
-               exactly the case this exists for. -->
-          @if (isAudioBook(store.book())) {
-            <app-chapters-editor
-              [chapters]="store.book()?.chapters ?? []"
-              (save)="store.saveChapters($event)"
-            ></app-chapters-editor>
-          }
 
           <!-- Multi-edition grouping. Sits in the rail as the same card as the
                Details block above it; the rows are a list inside that card, not

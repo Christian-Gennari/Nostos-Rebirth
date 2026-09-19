@@ -1465,10 +1465,6 @@ button.edition-select-card:focus-visible {
   letter-spacing: 0.05em;
   margin: 0;
 }
-/* Export sits at the row's end, away from the heading + count. */
-.notes-export-btn {
-  margin-left: auto;
-}
 .new-note-box {
   position: relative;
   background: var(--bg-surface);

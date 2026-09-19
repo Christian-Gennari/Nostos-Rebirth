@@ -117,12 +117,6 @@ public class FileInfoDetails
     // Store chapters as a JSON string
     public string? ChaptersJson { get; set; }
 
-    // Set when ChaptersJson was written by hand (issue #8). Metadata extraction and
-    // asset attaching must not overwrite a hand-made list, so both writers check this
-    // stamp first; saving an empty list clears it again and hands the book back to
-    // whatever the file's own metadata says.
-    public DateTime? ChaptersEditedAt { get; set; }
-
     // Store epub.js locations (heavy JSON string) (For instant calculation of progress state, cache basically)
     public string? LocationsJson { get; set; }
 }
