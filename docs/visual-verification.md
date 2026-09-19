@@ -6,7 +6,7 @@ protocol below **before merge**. This is the mechanical, executable form of the
 mandatory protocol from the UI defect-remediation plan (expert section 4).
 
 The app ships exactly **one light rendering** — the theme system was removed.
-The visual matrix is therefore fixed-light: 15 images, no theme
+The visual matrix is therefore fixed-light: 18 images, no theme
 parameterization, no theme-toggle interaction, and the EPUB/PDF reader checks
 are hardcoded **fixed rendering invariants** (see below).
 
@@ -14,15 +14,18 @@ The harness lives in `Nostos.Frontend/e2e/`:
 
 | File | Role |
 | --- | --- |
-| `visual-regression.spec.ts` | The 15-image fixed-light matrix: parameterized `capture(surface, viewport, state)` -> PNG + geometry JSON |
+| `visual-regression.spec.ts` | The 18-image fixed-light matrix: parameterized `capture(surface, viewport, state)` -> PNG + geometry JSON |
 | `support/visual-capture.ts` | Reusable capture/geometry helpers (fixed light invariants, viewport contexts, artifact paths, checks) |
 | `visual-evidence/*.png` | Committed evidence artifacts (exact protocol filenames) |
 | `visual-evidence/*.json` | Per-capture geometry report: checks, metrics, pass/skip/fail |
 
-## The 15-image matrix
+## The 18-image matrix
 
-Viewports are **exactly** `1440x900` (desktop) and `390x844` (mobile);
-PNGs are captured at `deviceScaleFactor: 1` so artifact pixels are exact.
+Viewports are **exactly** `1440x900` (desktop), `390x844` (mobile) and
+`844x390` (phone landscape, audio only — a 334px-tall area cannot hold the
+player's column composition, so it is the one surface with a second mobile
+geometry and its own contract). PNGs are captured at `deviceScaleFactor: 1` so
+artifact pixels are exact.
 
 | # | Artifact | Surface | Viewport | State |
 | --- | --- | --- | --- | --- |
@@ -41,6 +44,9 @@ PNGs are captured at `deviceScaleFactor: 1` so artifact pixels are exact.
 | 13 | `brain-index-mobile.png` | Second Brain | 390x844 | seeded concept index, list view |
 | 14 | `brain-concept-desktop.png` | Second Brain | 1440x900 | selected concept, notes grid |
 | 15 | `brain-map-desktop.png` | Second Brain | 1440x900 | co-occurrence graph |
+| 16 | `audio-light-desktop.png` | Audio reader | 1440x900 | composition |
+| 17 | `audio-light-mobile.png` | Audio reader | 390x844 | composition |
+| 18 | `audio-light-landscape.png` | Audio reader | 844x390 | phone landscape, two columns |
 
 The first ten rows preserve the honest 14 → 10 reduction: the four redundant desktop dark/sepia
 reader captures are gone and the two mobile reader geometries formerly
@@ -274,7 +280,7 @@ Management actions have narrow, deliberate semantics:
 | --- | --- | --- |
 | `epub-iframe-light` | EPUB captures | iframe `body`/`html` background+foreground equal the fixed light constants; `#epub-viewer` shell surface matches the same light surface (no pale rim) |
 | `pdf-scrollport-clearance` | PDF captures | scrolled to final page bottom, `#viewerContainer` bottom is at/above `header.reader-toolbar` top (toolbar covers no content) |
-| `audio-composition` | audio captures | **desktop:** one control row, no dead band > 48px, no horizontal overflow. **Phone (≤768px):** the composition *fits* — the reading area does not scroll (≤1px), nothing is pushed above its top edge, transport + Playback pill share one row, the cover stays ≤ 58% of the area, no horizontal overflow. The desktop bar is a *fill* contract and is the wrong criterion on a phone: measured before the phone pass, the 320×480 cover left the pill below the fold and scrolled the area by 52px at 390×730, 78px at 360×640 and 89px at 320×568 |
+| `audio-composition` | audio captures | **desktop:** one control row, no dead band > 48px, no horizontal overflow. **Phone (≤768px wide or ≤520px tall):** the composition *fits* — the reading area does not scroll (≤1px), nothing is pushed above its top edge, transport + Playback pill share one row, no horizontal overflow; then per composition, in the column layout the cover stays ≤ 58% of the area, and in the short-landscape two-column layout ≤ 60% with the cover's right edge clear of the controls column. The desktop bar is a *fill* contract and is the wrong criterion on a phone: measured before the phone passes, the 320×480 cover left the pill below the fold and scrolled the area by 52px at 390×730, 78px at 360×640 and 89px at 320×568, and in landscape (844×390) the column could not fit a 334px-tall area at all — 121px of scroll, with the overflow it split above the top edge unreachable |
 | `zen-fills-viewport` | zen captures | `.studio-layout` equals the viewport size |
 | `zen-chrome-hidden` | zen captures | sidebars, editor header/status, TinyMCE menubar + formatting toolbar all `display:none` |
 | `zen-gutters-balanced` | zen captures | editor surface horizontally centered: left/right gutters within 3px |

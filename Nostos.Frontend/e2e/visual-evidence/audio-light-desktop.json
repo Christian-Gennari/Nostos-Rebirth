@@ -1,6 +1,6 @@
 {
   "artifact": "audio-light-desktop.png",
-  "capturedAt": "2026-09-18T21:37:10.353Z",
+  "capturedAt": "2026-09-19T07:43:48.643Z",
   "name": "audio-light-desktop",
   "surface": "audio",
   "viewport": {
@@ -12,7 +12,7 @@
     {
       "id": "audio-composition",
       "pass": true,
-      "message": "dead band 46px (top 42 / bottom 46, bar 48), control rows 1 (1 expected), cover 0.595 of the 844px area, overflowX 0px, times \"0:00:00 37:27:33\"",
+      "message": "dead band 46px (top 42 / bottom 46, bar 48), control rows 1 (1 expected), cover 0.595 of the 844px area (bar 0.58), overflowX 0px, times \"0:00:00 37:27:33\"",
       "metrics": {
         "top": 42,
         "bottom": 46,
@@ -21,6 +21,8 @@
         "scrollable": 0,
         "areaHeight": 844,
         "coverShare": 0.595,
+        "flexDirection": "column",
+        "columnGapPx": -523,
         "timeText": "0:00:00 37:27:33"
       }
     }

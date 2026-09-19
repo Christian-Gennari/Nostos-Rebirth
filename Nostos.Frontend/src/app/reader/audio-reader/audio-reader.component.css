@@ -520,24 +520,25 @@
   text-align: center;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (orientation: landscape) and (max-height: 520px) {
   /* A phone is not a small desktop: the composition must FIT the reading area
      with room around it, not fill it to the brim. Before this pass the cover was
      320x480 in a 792px area (61% of it, 57% of the whole 844px screen) and the
      single control row had wrapped into two, which pushed the playback pill
      clear out of a 588px area (measured at 360x640: the pill was clipped and the
      area scrolled by 78px). After it, measured on the worktree at 320x568,
-     360x640, 375x667, 390x730, 390x844 and 412x915: no scroll, one control row,
-     and the cover between 46% and 56% of the area.
+     360x640, 375x667, 390x730, 390x844 and 412x915: no scroll, one control row.
      The cover shrinks with the VIEWPORT HEIGHT, so a phone with the browser's
-     URL bar showing (the real case) gets the same composition as one without. */
+     URL bar showing (the real case) gets the same composition as one without.
+     The short-landscape case matches here too (the same compact controls) and is
+     then re-composed into two columns by the block at the end of this file. */
   .audio-container {
     padding: 0.75rem 1rem 1rem;
     gap: 1rem;
   }
 
   .cover-art {
-    width: clamp(140px, 34vh, 280px);
+    width: clamp(140px, 32vh, 260px);
   }
 
   .cover-section {
@@ -648,6 +649,41 @@
    again so the taller (wrapped) composition still fits without scrolling. */
 @media (max-width: 340px) {
   .cover-art {
-    width: clamp(120px, 25vh, 170px);
+    width: clamp(112px, 23vh, 160px);
+  }
+}
+
+/* Phone landscape (844x390, 932x430 and 740x360 are all real): a COLUMN cannot
+   fit a 334px-tall area — measured on the pre-pass build, the cover alone was
+   218x328 in a 334px area, the surface scrolled by 121px and the overflow it
+   split above the top edge (125px) could not be scrolled to at all. The player
+   turns side by side instead: cover and title in the left column, scrubber and
+   transport in the right. The compact control sizes come from the block above,
+   which matches short-landscape viewports too. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .audio-container {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .cover-section {
+    width: auto;
+    flex: 0 0 auto;
+    gap: 0.75rem;
+  }
+
+  .cover-art {
+    /* Sized from the height it has to live in, not the width it could take. */
+    width: clamp(104px, 30vh, 190px);
+  }
+
+  .controls {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 620px;
   }
 }

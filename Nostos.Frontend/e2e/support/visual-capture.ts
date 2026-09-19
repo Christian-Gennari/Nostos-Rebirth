@@ -39,6 +39,14 @@ export const DESKTOP_VIEWPORT: Viewport = { width: 1440, height: 900 };
 export const MOBILE_VIEWPORT: Viewport = { width: 390, height: 844 };
 
 /**
+ * Phone in landscape. A 334px-tall reading area cannot hold the column
+ * composition at any useful size, so the audio player composes in two columns
+ * here and its own contract differs from both the desktop bar and the portrait
+ * one (see checkAudioComposition).
+ */
+export const LANDSCAPE_VIEWPORT: Viewport = { width: 844, height: 390 };
+
+/**
  * Fixed light rendering invariants for the EPUB rendition. The app ships
  * exactly one (light) theme; these constants mirror the single source of
  * truth — epub-reader.component.ts NOSTOS_LIGHT_RULES and the :root tokens
@@ -262,7 +270,7 @@ export async function checkPdfFinalPageClearance(page: Page): Promise<GeometryCh
 }
 
 /**
- * Audio surface composition (issue #227, plus the phone pass).
+ * Audio surface composition (issue #227, plus the phone passes).
  *
  * Desktop: the player must own exactly one chrome row inside itself, leave no
  * dead band larger than the issue's ~48px bar around the composition, and never
@@ -270,22 +278,25 @@ export async function checkPdfFinalPageClearance(page: Page): Promise<GeometryCh
  * 164px bands above and below, and a container that computed 30px wider than a
  * 390px phone.
  *
- * Phone (<=768px): "fill the reading area" is the wrong criterion — it produced a
- * 320x480 cover in a 792px area that scrolled and clipped its own Playback pill
- * at every phone size measured (0 scroll at 844, but 52px at 730, 78px at 640,
- * 89px at 568, with the pill below the fold). What is asserted instead is that
- * the composition FITS: the reading area does not scroll, nothing is pushed above
- * its top edge, transport and Playback pill share one row, the cover stays under
- * 58% of the area, and there is no horizontal overflow. The measured numbers are
- * reported either way, so both a re-bloat and a shrink-to-nothing are visible in
- * the report.
+ * Phone (<=768px wide, or <=520px tall for landscape): "fill the reading area" is
+ * the wrong criterion — it produced a 320x480 cover in a 792px area that scrolled
+ * and clipped its own Playback pill at every phone size measured (0 scroll at
+ * 844, but 52px at 730, 78px at 640, 89px at 568, with the pill below the fold),
+ * and in landscape it could not fit at all. What is asserted instead is that the
+ * composition FITS: the reading area does not scroll, nothing is pushed above its
+ * top edge, transport and Playback pill share one row, and there is no horizontal
+ * overflow. Then, per composition: in the column layout the cover stays under 58%
+ * of the area; in the short-landscape two-column layout it stays under 60% and
+ * must not cross into the controls column. The measured numbers are reported
+ * either way, so a re-bloat and a shrink-to-nothing are both visible.
  */
 export async function checkAudioComposition(page: Page): Promise<GeometryCheck> {
   await page.locator('.audio-container').waitFor({ timeout: 30_000 });
   await page.locator('.cover-art').waitFor({ timeout: 30_000 });
   await page.waitForTimeout(400); // let the art and time labels settle
 
-  const phone = (page.viewportSize()?.width ?? 0) <= 768;
+  const vp = page.viewportSize();
+  const phone = (vp?.width ?? 0) <= 768 || (vp?.height ?? 0) <= 520;
 
   const m = await page.evaluate(() => {
     const cont = document.querySelector('.audio-container') as HTMLElement | null;
@@ -313,6 +324,7 @@ export async function checkAudioComposition(page: Page): Promise<GeometryCheck> 
       cursor = Math.max(cursor, bottom);
     }
     const cover = document.querySelector('.cover-art')?.getBoundingClientRect();
+    const controls = document.querySelector('.controls')?.getBoundingClientRect();
     return {
       top: Math.round(first.top - cr.top),
       bottom: Math.round(cr.bottom - last.bottom),
@@ -321,21 +333,32 @@ export async function checkAudioComposition(page: Page): Promise<GeometryCheck> 
       scrollable: host ? host.scrollHeight - host.clientHeight : 0,
       areaHeight: Math.round(cr.height),
       coverShare: cover ? +(cover.height / cr.height).toFixed(3) : 0,
+      flexDirection: getComputedStyle(cont).flexDirection,
+      columnGapPx: cover && controls ? Math.round(controls.left - cover.right) : 0,
       timeText: (document.querySelector('.time-labels')?.textContent ?? '').trim().replace(/\s+/g, ' '),
     };
   });
 
   if (!m) return failCheck('audio-composition', 'could not measure .audio-container', {});
   const worst = Math.max(m.top, m.bottom);
+  const row = m.flexDirection === 'row';
   const ok = phone
-    ? m.scrollable <= 1 && m.top >= 0 && m.chromeRows === 1 && m.overflowX === 0 && m.coverShare <= 0.58
+    ? m.scrollable <= 1 &&
+      m.top >= 0 &&
+      m.chromeRows === 1 &&
+      m.overflowX === 0 &&
+      (row ? m.coverShare <= 0.6 && m.columnGapPx >= -2 : m.coverShare <= 0.58)
     : worst <= 48 && m.chromeRows === 1 && m.overflowX === 0;
+  const axes = row
+    ? `cover ${m.coverShare} of the ${m.areaHeight}px area (bar 0.6), gap to the controls column ` +
+      `${m.columnGapPx}px (must be >= -2)`
+    : `cover ${m.coverShare} of the ${m.areaHeight}px area (bar 0.58)`;
   const msg = phone
-    ? `phone fit: scroll ${m.scrollable}px (bar 1), dead band top ${m.top}px (must be >= 0), ` +
-      `control rows ${m.chromeRows} (1 expected), cover ${m.coverShare} of the ${m.areaHeight}px area ` +
-      `(bar 0.58), overflowX ${m.overflowX}px, times "${m.timeText}"`
+    ? `phone fit — ${row ? 'two columns' : 'one column'}: scroll ${m.scrollable}px (bar 1), ` +
+      `dead band top ${m.top}px (must be >= 0), control rows ${m.chromeRows} (1 expected), ` +
+      `${axes}, overflowX ${m.overflowX}px, times "${m.timeText}"`
     : `dead band ${worst}px (top ${m.top} / bottom ${m.bottom}, bar 48), ` +
-      `control rows ${m.chromeRows} (1 expected), cover ${m.coverShare} of the ${m.areaHeight}px area, ` +
+      `control rows ${m.chromeRows} (1 expected), ${axes}, ` +
       `overflowX ${m.overflowX}px, times "${m.timeText}"`;
   return ok ? passCheck('audio-composition', msg, m) : failCheck('audio-composition', msg, m);
 }
