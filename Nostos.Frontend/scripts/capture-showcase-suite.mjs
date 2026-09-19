@@ -17,6 +17,7 @@ const BASE_URL = 'http://127.0.0.1:5341';
 // dual-page spread instead of a 0% cover page. The PDF is an English-language
 // humanities article; the other three PDFs in the showcase are Russian-language
 // journals, which read as an accident on an English landing page.
+const ODYSSEY_ID = '0fb8f4b8-7d68-4ec7-8c16-e33df7097a1d'; // The Odyssey (Hero book details)
 const EPUB_ID = '89bffc2a-5946-4453-ac6b-f1860e45b264';   // Middlemarch
 const PDF_ID  = '84f841e0-705e-4f7a-94ea-71475fcd512a';   // Oral Tradition 16/1 (2001)
 const AUDIO_ID = '6169c747-9a3b-46fa-8d4b-625ffc544140';  // Flatland (LibriVox)
@@ -33,7 +34,11 @@ const ONLY = process.env.ONLY || '';
 
 const tasks = [];
 for (const theme of ['light', 'dark']) {
-  // Reading Room / Library: the hero screenshot.
+  // Hero: Book details view for The Odyssey.
+  tasks.push({ name: `book-details-desktop-${theme}.png`, route: `/library/${ODYSSEY_ID}`, theme, ...DESKTOP, waitReader: 3000 });
+  tasks.push({ name: `book-details-mobile-${theme}.png`, route: `/library/${ODYSSEY_ID}`, theme, ...MOBILE, waitReader: 3000 });
+
+  // Reading Room / Library: Room 01 section.
   tasks.push({ name: `library-desktop-${theme}.png`, route: '/library', theme, ...DESKTOP });
   tasks.push({ name: `library-mobile-${theme}.png`, route: '/library', theme, ...MOBILE });
 

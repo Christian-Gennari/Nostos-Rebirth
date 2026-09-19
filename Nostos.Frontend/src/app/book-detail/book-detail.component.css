@@ -604,7 +604,9 @@
   border-color: color-mix(in srgb, var(--color-danger-vivid) 45%, var(--border-color));
   background: color-mix(in srgb, var(--color-danger-vivid) 8%, var(--bg-surface));
 }
-.favorite-btn .filled {
+.favorite-btn .filled,
+.favorite-btn.active ::ng-deep svg,
+.favorite-btn.active ::ng-deep svg path {
   fill: currentColor;
 }
 .book-subtitle {
