@@ -990,15 +990,9 @@ public sealed class LibraryService : ILibraryService
         // A different file invalidates the cached epub locations, exactly as a
         // manual re-upload does.
         book.FileDetails.LocationsJson = null;
-        // Metadata-derived chapters are only written when the list is not hand-made
-        // (issue #8): attaching a file that carries no chapters, or re-attaching the
-        // same book's asset, must not throw away chapters someone typed in.
-        if (book.FileDetails.ChaptersEditedAt is null)
-        {
-            book.FileDetails.ChaptersJson = request.Chapters is { Count: > 0 }
-                ? JsonSerializer.Serialize(request.Chapters)
-                : null;
-        }
+        book.FileDetails.ChaptersJson = request.Chapters is { Count: > 0 }
+            ? JsonSerializer.Serialize(request.Chapters)
+            : null;
 
         // Duration only exists on audiobooks, and only an audiobook can carry
         // it — an ebook that somehow received one would be a modelling error.
@@ -1039,36 +1033,6 @@ public sealed class LibraryService : ILibraryService
             LibraryReplyFormatter.AssetAttached(book.Title),
             new LibraryAttachAcquiredAssetResultDto(book.Id, book.ToDto()),
             state.StateVersion));
-    }
-
-    /// <summary>Upper bound on a hand-made chapter list — it is a single JSON column.</summary>
-    private const int MaxChapters = 500;
-
-    /// <summary>
-    /// Chapters are the player's index, so a malformed list is rejected rather than
-    /// stored: every entry needs a name, times must be finite and non-negative, and
-    /// the list must be strictly ascending because the player finds the current
-    /// chapter by walking it in order (issue #8).
-    /// </summary>
-    private static string? ValidateChapters(IReadOnlyList<BookChapterDto> chapters)
-    {
-        if (chapters.Count > MaxChapters)
-            return $"A book can hold at most {MaxChapters} chapters.";
-
-        var previous = double.NegativeInfinity;
-        for (var i = 0; i < chapters.Count; i++)
-        {
-            var chapter = chapters[i];
-            if (string.IsNullOrWhiteSpace(chapter.Title))
-                return $"Chapter {i + 1} needs a name.";
-            if (double.IsNaN(chapter.StartTime) || double.IsInfinity(chapter.StartTime) || chapter.StartTime < 0)
-                return $"Chapter {i + 1} has an invalid timestamp.";
-            if (chapter.StartTime <= previous)
-                return $"Chapter {i + 1} must start after chapter {i}.";
-            previous = chapter.StartTime;
-        }
-
-        return null;
     }
 
     private async Task<(bool DidChange, LibraryCommandResultDto Result)> UpdateBookCoreAsync(
@@ -1130,28 +1094,6 @@ public sealed class LibraryService : ILibraryService
             book.Progress.IsFavorite = request.IsFavorite.Value;
         if (request.PersonalReview is not null)
             book.Progress.PersonalReview = NullIfEmpty(request.PersonalReview);
-
-        // Chapters (issue #8). Null leaves them alone; an empty list clears a
-        // hand-made list and hands the book back to its file metadata; a non-empty
-        // list is validated, stored, and stamped as hand-made so neither metadata
-        // extraction nor asset attaching will overwrite it later.
-        if (request.Chapters is not null)
-        {
-            if (request.Chapters.Count == 0)
-            {
-                book.FileDetails.ChaptersJson = null;
-                book.FileDetails.ChaptersEditedAt = null;
-            }
-            else
-            {
-                var chaptersError = ValidateChapters(request.Chapters);
-                if (chaptersError is not null)
-                    return NoChange(Failure("invalid_chapters", chaptersError, state.StateVersion));
-
-                book.FileDetails.ChaptersJson = JsonSerializer.Serialize(request.Chapters);
-                book.FileDetails.ChaptersEditedAt = Now;
-            }
-        }
 
         // Finished semantics mirror UpdateBookDto.Apply.
         if (request.FinishedAt is not null)
