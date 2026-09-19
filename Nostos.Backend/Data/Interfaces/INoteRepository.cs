@@ -35,6 +35,13 @@ public interface INoteRepository
     /// Notes linked to no concept at all. These are unreachable through the index's
     /// concept rows, which is the gap #158 was filed about.
     /// </summary>
-    Task<List<NoteModel>> GetWithoutConceptsAsync(int limit);
+    Task<List<NoteModel>> GetWithoutConceptsAsync(int limit, int offset);
+
+    /// <summary>
+    /// How many notes are linked to no concept right now. The unlinked-note review
+    /// queue traverses the whole set, so a page on its own would silently imply
+    /// that the page IS the set (issue #256).
+    /// </summary>
+    Task<int> CountWithoutConceptsAsync();
 
 }

@@ -37,12 +37,23 @@ public static class NotesEndpoints
         );
 
         // Notes linked to no concept, so they can be read at all.
+        //
+        // Paged on purpose. This used to answer with a bare list capped at 50,
+        // which the Brain's permanent sidebar section then rendered as if it were
+        // every unlinked note in the library (issue #256). The review mode that
+        // replaces that section walks the whole set, so the reply carries the
+        // total alongside a bounded page.
         group.MapGet(
             "/notes/unlinked",
-            async (INoteRepository repo, int? limit) =>
+            async (INoteRepository repo, int? limit, int? offset) =>
             {
-                var notes = await repo.GetWithoutConceptsAsync(Clamp(limit));
-                return Results.Ok(notes.Select(n => ByText(n, null)).ToList());
+                var take = Clamp(limit);
+                var skip = Math.Max(offset ?? 0, 0);
+                var total = await repo.CountWithoutConceptsAsync();
+                var notes = await repo.GetWithoutConceptsAsync(take, skip);
+                return Results.Ok(
+                    new NoteSearchPageDto(notes.Select(n => ByText(n, null)).ToList(), total, skip, take)
+                );
             }
         );
 

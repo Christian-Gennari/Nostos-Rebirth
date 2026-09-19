@@ -84,14 +84,24 @@ public class NoteRepository : INoteRepository
             .ToListAsync();
     }
 
-    public async Task<List<NoteModel>> GetWithoutConceptsAsync(int limit)
+    public async Task<List<NoteModel>> GetWithoutConceptsAsync(int limit, int offset)
     {
         return await _db
             .Notes.Include(n => n.Book)
             .Where(n => !n.NoteConcepts.Any())
+            // `Id` breaks CreatedAt ties. Without it two notes saved in the same
+            // tick can swap places between two page requests, which makes an
+            // offset page skip one row and show another twice.
             .OrderByDescending(n => n.CreatedAt)
+            .ThenBy(n => n.Id)
+            .Skip(offset)
             .Take(limit)
             .ToListAsync();
+    }
+
+    public async Task<int> CountWithoutConceptsAsync()
+    {
+        return await _db.Notes.CountAsync(n => !n.NoteConcepts.Any());
     }
 
     /// <summary>
