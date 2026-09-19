@@ -538,7 +538,7 @@
   }
 
   .cover-art {
-    width: clamp(140px, 32vh, 260px);
+    width: clamp(140px, 30vh, 260px);
   }
 
   .cover-section {
@@ -553,13 +553,17 @@
     gap: 0.25rem;
   }
 
-  /* One row for the transport and the Playback pill. The pill is a single
-     control since #227, so it belongs in the row it reports on — and keeping it
-     there is what leaves the cover room to breathe. `position: relative` on the
-     row is the mobile popover's containing block (see below). */
+  /* Portrait stacks the Playback pill UNDER the transport: that is the owner's
+     call for standing/portrait use, and it is also what gives the rows their own
+     lines to breathe on (the pill no longer has to share a 344px row with the
+     transport trio). The short-landscape block at the end of this file puts the
+     two back side by side, where there is width and no height to spare.
+     `position: relative` on the row is the mobile popover's containing block. */
   .playback-row {
     position: relative;
-    gap: 0.75rem;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.65rem;
     padding: 0;
     margin-top: 0;
   }
@@ -622,31 +626,9 @@
   }
 }
 
-/* Narrow phones (360px, and 375px where the transport + pill pair is 344px in a
-   343px row). The row must not wrap here: a pill that drops to its own line is
-   what pushed the player past the bottom of the area on a short screen. */
-@media (max-width: 380px) {
-  .audio-container {
-    padding-inline: 0.75rem;
-  }
-
-  .main-controls {
-    gap: 1.25rem;
-  }
-
-  .playback-row {
-    gap: 0.5rem;
-  }
-
-  .playback-pill {
-    font-size: 0.8rem;
-    padding: 0.4rem 1.5rem 0.4rem 0.65rem;
-  }
-}
-
-/* 320px-wide phones are where the transport + pill pair genuinely cannot share a
-   row without breaking the 44px tap floor, so the row wraps. The cover shrinks
-   again so the taller (wrapped) composition still fits without scrolling. */
+/* 320px-wide phones are the tightest case, and the cover shrinks once more there
+   so the taller (portrait, stacked-pill) composition still fits without
+   scrolling. */
 @media (max-width: 340px) {
   .cover-art {
     width: clamp(112px, 23vh, 160px);
@@ -678,6 +660,15 @@
   .cover-art {
     /* Sized from the height it has to live in, not the width it could take. */
     width: clamp(104px, 30vh, 190px);
+  }
+
+  /* Side by side again: portrait stacks the pill under the transport (the
+     owner's preference for standing use), but here there is width to spare and
+     none in height, and the pair measures 344px inside a 700px+ column. The gap
+     matches the desktop row rather than inheriting portrait's tighter one. */
+  .playback-row {
+    flex-direction: row;
+    gap: 1.25rem;
   }
 
   .controls {

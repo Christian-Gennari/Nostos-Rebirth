@@ -1,6 +1,6 @@
 {
   "artifact": "audio-light-landscape.png",
-  "capturedAt": "2026-09-19T07:43:51.230Z",
+  "capturedAt": "2026-09-19T07:57:38.897Z",
   "name": "audio-light-landscape",
   "surface": "audio",
   "viewport": {
@@ -12,17 +12,19 @@
     {
       "id": "audio-composition",
       "pass": true,
-      "message": "phone fit — two columns: scroll 0px (bar 1), dead band top 50px (must be >= 0), control rows 1 (1 expected), cover 0.525 of the 334px area (bar 0.6), gap to the controls column 52px (must be >= -2), overflowX 0px, times \"0:00:00 37:27:33\"",
+      "message": "phone fit — two columns: scroll 0px (bar 1), dead band top 50px (must be >= 0), 1 row (transport + pill inline, 1 expected), cover 0.525 of the 334px area (bar 0.6), gap to the controls column 52px (must be >= -2), overflowX 0px, times \"0:00:00 37:27:33\"",
       "metrics": {
         "top": 50,
         "bottom": 101,
         "chromeRows": 1,
+        "transportRows": 1,
         "overflowX": 0,
         "scrollable": 0,
         "areaHeight": 334,
         "coverShare": 0.525,
         "flexDirection": "row",
         "columnGapPx": 52,
+        "pillGapPx": -54,
         "timeText": "0:00:00 37:27:33"
       }
     }

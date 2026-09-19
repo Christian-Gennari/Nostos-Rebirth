@@ -284,10 +284,12 @@ export async function checkPdfFinalPageClearance(page: Page): Promise<GeometryCh
  * 844, but 52px at 730, 78px at 640, 89px at 568, with the pill below the fold),
  * and in landscape it could not fit at all. What is asserted instead is that the
  * composition FITS: the reading area does not scroll, nothing is pushed above its
- * top edge, transport and Playback pill share one row, and there is no horizontal
- * overflow. Then, per composition: in the column layout the cover stays under 58%
- * of the area; in the short-landscape two-column layout it stays under 60% and
- * must not cross into the controls column. The measured numbers are reported
+ * top edge, no horizontal overflow, and the transport trio stays on one line.
+ * Then, per composition: PORTRAIT stacks the Playback control under the transport
+ * (the owner's call, asserted as 2 control rows with a non-negative gap), keeps
+ * the cover under 58% of the area; SHORT LANDSCAPE puts transport and pill back
+ * inline in the right-hand column (1 row, cover under 60%, and the cover's right
+ * edge must stay clear of the controls column). Measured numbers are reported
  * either way, so a re-bloat and a shrink-to-nothing are both visible.
  */
 export async function checkAudioComposition(page: Page): Promise<GeometryCheck> {
@@ -325,16 +327,32 @@ export async function checkAudioComposition(page: Page): Promise<GeometryCheck> 
     }
     const cover = document.querySelector('.cover-art')?.getBoundingClientRect();
     const controls = document.querySelector('.controls')?.getBoundingClientRect();
+    const transport = document.querySelector('.main-controls')?.getBoundingClientRect();
+    const selector = document.querySelector('.playback-selector')?.getBoundingClientRect();
+    // The transport trio must stay on ONE line in every layout — it is the row
+    // that predates this pass and the one the thumb reaches for.
+    let transportRows = 0;
+    let tCursor = -Infinity;
+    for (const r of [...cont.querySelectorAll('.main-controls > *')]
+      .map((e) => (e as HTMLElement).getBoundingClientRect())
+      .sort((a, b) => a.top - b.top)) {
+      if (r.top >= tCursor) transportRows++;
+      tCursor = Math.max(tCursor, r.bottom);
+    }
     return {
       top: Math.round(first.top - cr.top),
       bottom: Math.round(cr.bottom - last.bottom),
       chromeRows,
+      transportRows,
       overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       scrollable: host ? host.scrollHeight - host.clientHeight : 0,
       areaHeight: Math.round(cr.height),
       coverShare: cover ? +(cover.height / cr.height).toFixed(3) : 0,
       flexDirection: getComputedStyle(cont).flexDirection,
       columnGapPx: cover && controls ? Math.round(controls.left - cover.right) : 0,
+      // Portrait stacks the Playback control under the transport (owner's call);
+      // this is the measurement that proves it is stacked and not overlapping.
+      pillGapPx: transport && selector ? Math.round(selector.top - transport.bottom) : 0,
       timeText: (document.querySelector('.time-labels')?.textContent ?? '').trim().replace(/\s+/g, ' '),
     };
   });
@@ -345,20 +363,24 @@ export async function checkAudioComposition(page: Page): Promise<GeometryCheck> 
   const ok = phone
     ? m.scrollable <= 1 &&
       m.top >= 0 &&
-      m.chromeRows === 1 &&
+      m.transportRows === 1 &&
       m.overflowX === 0 &&
-      (row ? m.coverShare <= 0.6 && m.columnGapPx >= -2 : m.coverShare <= 0.58)
+      (row
+        ? m.chromeRows === 1 && m.coverShare <= 0.6 && m.columnGapPx >= -2
+        : m.chromeRows === 2 && m.pillGapPx >= -2 && m.coverShare <= 0.58)
     : worst <= 48 && m.chromeRows === 1 && m.overflowX === 0;
   const axes = row
-    ? `cover ${m.coverShare} of the ${m.areaHeight}px area (bar 0.6), gap to the controls column ` +
-      `${m.columnGapPx}px (must be >= -2)`
-    : `cover ${m.coverShare} of the ${m.areaHeight}px area (bar 0.58)`;
+    ? `${m.chromeRows} row (transport + pill inline, 1 expected), cover ${m.coverShare} of the ` +
+      `${m.areaHeight}px area (bar 0.6), gap to the controls column ${m.columnGapPx}px (must be >= -2)`
+    : `transport rows ${m.transportRows} (1 expected), ${m.chromeRows} control rows ` +
+      `(2 expected: Playback stacked under the transport, gap ${m.pillGapPx}px, must be >= -2), ` +
+      `cover ${m.coverShare} of the ${m.areaHeight}px area (bar 0.58)`;
   const msg = phone
     ? `phone fit — ${row ? 'two columns' : 'one column'}: scroll ${m.scrollable}px (bar 1), ` +
-      `dead band top ${m.top}px (must be >= 0), control rows ${m.chromeRows} (1 expected), ` +
-      `${axes}, overflowX ${m.overflowX}px, times "${m.timeText}"`
+      `dead band top ${m.top}px (must be >= 0), ${axes}, ` +
+      `overflowX ${m.overflowX}px, times "${m.timeText}"`
     : `dead band ${worst}px (top ${m.top} / bottom ${m.bottom}, bar 48), ` +
-      `control rows ${m.chromeRows} (1 expected), ${axes}, ` +
+      `control rows ${m.chromeRows} (1 expected), cover ${m.coverShare} of the ${m.areaHeight}px area, ` +
       `overflowX ${m.overflowX}px, times "${m.timeText}"`;
   return ok ? passCheck('audio-composition', msg, m) : failCheck('audio-composition', msg, m);
 }
