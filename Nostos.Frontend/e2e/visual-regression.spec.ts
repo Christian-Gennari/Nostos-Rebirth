@@ -51,6 +51,7 @@ import {
   findLibraryBook,
   libraryFilterLabels,
   LIBRARY_URL,
+  LANDSCAPE_VIEWPORT,
   MOBILE_VIEWPORT,
   newCapturePage,
   READER_SKIP_REASON,
@@ -533,6 +534,7 @@ const READER_MATRIX: ReaderCase[] = [
   { name: 'pdf-light-mobile-bottom', kind: 'pdf', viewport: MOBILE_VIEWPORT, mobile: true, state: 'final-page-bottom' },
   { name: 'audio-light-desktop', kind: 'audio', viewport: DESKTOP_VIEWPORT, mobile: false, state: 'composition' },
   { name: 'audio-light-mobile', kind: 'audio', viewport: MOBILE_VIEWPORT, mobile: true, state: 'composition' },
+  { name: 'audio-light-landscape', kind: 'audio', viewport: LANDSCAPE_VIEWPORT, mobile: true, state: 'phone-landscape' },
 ];
 
 test.describe('visual matrix — Reader surfaces (real library)', () => {

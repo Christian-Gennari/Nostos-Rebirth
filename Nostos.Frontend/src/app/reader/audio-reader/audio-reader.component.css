@@ -16,7 +16,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  /* `center` overflows BOTH ends when the composition is taller than the reading
+     area, and in an `overflow-y: auto` box that top overflow cannot be scrolled
+     to — the cover's top ends up unreachable behind the header. `safe` degrades
+     to `start` in exactly that case, so the top of the player is always
+     reachable; when the content fits, it is identical to `center`. The plain
+     declaration stays above as the fallback for engines without `safe`. */
   justify-content: center;
+  justify-content: safe center;
   /* box-sizing is what made the old `max-width: 420px` + `padding: 2rem` pair
      compute 30px wider than a 390px phone: content-box added the padding on top
      of the max-width. */
@@ -513,17 +520,161 @@
   text-align: center;
 }
 
-@media (max-width: 768px) {
-  /* The cover is sized from the viewport height above; on a phone the clamp
-     already lands near the old fixed size, so only the tap feedback and a small
-     trim change: at 844px tall the capped 335px art left the composition 6px
-     taller than the area, which is the difference between "fits" and "scrolls". */
+@media (max-width: 768px), (orientation: landscape) and (max-height: 520px) {
+  /* A phone is not a small desktop: the composition must FIT the reading area
+     with room around it, not fill it to the brim. Before this pass the cover was
+     320x480 in a 792px area (61% of it, 57% of the whole 844px screen) and the
+     single control row had wrapped into two, which pushed the playback pill
+     clear out of a 588px area (measured at 360x640: the pill was clipped and the
+     area scrolled by 78px). After it, measured on the worktree at 320x568,
+     360x640, 375x667, 390x730, 390x844 and 412x915: no scroll, one control row.
+     The cover shrinks with the VIEWPORT HEIGHT, so a phone with the browser's
+     URL bar showing (the real case) gets the same composition as one without.
+     The short-landscape case matches here too (the same compact controls) and is
+     then re-composed into two columns by the block at the end of this file. */
+  .audio-container {
+    padding: 0.75rem 1rem 1rem;
+    gap: 1rem;
+  }
+
   .cover-art {
-    width: clamp(150px, 46vh, 320px);
+    width: clamp(140px, 30vh, 260px);
+  }
+
+  .cover-section {
+    gap: 1rem;
+  }
+
+  .controls {
+    gap: 1rem;
+  }
+
+  .scrubber {
+    gap: 0.25rem;
+  }
+
+  /* Portrait stacks the Playback pill UNDER the transport: that is the owner's
+     call for standing/portrait use, and it is also what gives the rows their own
+     lines to breathe on (the pill no longer has to share a 344px row with the
+     transport trio). The short-landscape block at the end of this file puts the
+     two back side by side, where there is width and no height to spare.
+     `position: relative` on the row is the mobile popover's containing block. */
+  .playback-row {
+    position: relative;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0;
+    margin-top: 0;
+  }
+
+  .main-controls {
+    gap: 1.5rem;
+  }
+
+  .play-btn {
+    width: 64px;
+    height: 64px;
+  }
+
+  /* 44px is the tap-target floor, not a size to go under. */
+  .skip-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .playback-pill {
+    /* Its own containing block, so the chevron keeps its place once the
+       selector below stops being one. */
+    position: relative;
+    font-size: 0.85rem;
+    padding: 0.4rem 1.6rem 0.4rem 0.75rem;
+    /* The pill was 31px tall, which is a miss on a phone; the row is 64px tall
+       around it, so the tap floor costs nothing here. */
+    min-height: 44px;
+  }
+
+  /* The menu is a panel the width of the control row on a phone. It used to be a
+     264px-wide floating popover anchored to the pill's right edge, which put its
+     left edge 41px outside a 320px viewport (measured). Anchoring it to the row
+     is width-proof. */
+  .playback-selector {
+    position: static;
+  }
+
+  .playback-menu {
+    left: 0;
+    right: 0;
+    min-width: 0;
+  }
+
+  /* The popover's rows are touch targets on a phone too. */
+  .rate-step {
+    width: 44px;
+    height: 44px;
+  }
+
+  .rate-option,
+  .sleep-option {
+    min-height: 44px;
+    padding: 0.45rem 0.75rem;
   }
 
   .skip-btn:hover {
     opacity: 0.8;
     background: transparent;
+  }
+}
+
+/* 320px-wide phones are the tightest case, and the cover shrinks once more there
+   so the taller (portrait, stacked-pill) composition still fits without
+   scrolling. */
+@media (max-width: 340px) {
+  .cover-art {
+    width: clamp(112px, 23vh, 160px);
+  }
+}
+
+/* Phone landscape (844x390, 932x430 and 740x360 are all real): a COLUMN cannot
+   fit a 334px-tall area — measured on the pre-pass build, the cover alone was
+   218x328 in a 334px area, the surface scrolled by 121px and the overflow it
+   split above the top edge (125px) could not be scrolled to at all. The player
+   turns side by side instead: cover and title in the left column, scrubber and
+   transport in the right. The compact control sizes come from the block above,
+   which matches short-landscape viewports too. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .audio-container {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .cover-section {
+    width: auto;
+    flex: 0 0 auto;
+    gap: 0.75rem;
+  }
+
+  .cover-art {
+    /* Sized from the height it has to live in, not the width it could take. */
+    width: clamp(104px, 30vh, 190px);
+  }
+
+  /* Side by side again: portrait stacks the pill under the transport (the
+     owner's preference for standing use), but here there is width to spare and
+     none in height, and the pair measures 344px inside a 700px+ column. The gap
+     matches the desktop row rather than inheriting portrait's tighter one. */
+  .playback-row {
+    flex-direction: row;
+    gap: 1.25rem;
+  }
+
+  .controls {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 620px;
   }
 }

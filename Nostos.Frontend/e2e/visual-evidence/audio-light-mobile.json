@@ -1,6 +1,6 @@
 {
   "artifact": "audio-light-mobile.png",
-  "capturedAt": "2026-09-18T17:56:01.242Z",
+  "capturedAt": "2026-09-19T07:57:37.682Z",
   "name": "audio-light-mobile",
   "surface": "audio",
   "viewport": {
@@ -12,12 +12,19 @@
     {
       "id": "audio-composition",
       "pass": true,
-      "message": "dead band 5px (top 1 / bottom 5, bar 48), player chrome rows 1 (1 expected), overflowX 0px, times \"0:00:00 37:27:33\"",
+      "message": "phone fit — one column: scroll 0px (bar 1), dead band top 71px (must be >= 0), transport rows 1 (1 expected), 2 control rows (2 expected: Playback stacked under the transport, gap 10px, must be >= -2), cover 0.48 of the 792px area (bar 0.58), overflowX 0px, times \"0:00:00 37:27:33\"",
       "metrics": {
-        "top": 1,
-        "bottom": 5,
-        "chromeRows": 1,
+        "top": 71,
+        "bottom": 75,
+        "chromeRows": 2,
+        "transportRows": 1,
         "overflowX": 0,
+        "scrollable": 0,
+        "areaHeight": 792,
+        "coverShare": 0.48,
+        "flexDirection": "column",
+        "columnGapPx": -306,
+        "pillGapPx": 10,
         "timeText": "0:00:00 37:27:33"
       }
     }
