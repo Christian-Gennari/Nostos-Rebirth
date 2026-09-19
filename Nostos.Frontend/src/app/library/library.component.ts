@@ -34,29 +34,9 @@ import { LibraryFilterService } from './library-filter.service';
 import { LibraryPreferencesService } from '../core/services/library-preferences.service';
 import { ImportService } from '../core/services/import.service';
 import { ToastService } from '../core/services/toast.service';
-import {
-  LucideAngularModule,
-  LucideIconData,
-  LayoutList,
-  LayoutGrid,
-  Plus,
-  Trash2,
-  Edit2,
-  Book as BookIcon,
-  Heart,
-  CheckCircle,
-  Search,
-  ArrowUpDown,
-  Loader2,
-  X,
-  Headphones,
-  BookOpen,
-  FileText,
-  Bookmark,
-  AlertCircle,
-  Clock,
-  RotateCcw,
-} from 'lucide-angular';
+import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
+import { NOSTOS_CONCEPTS } from '../ui/icon/nostos-concepts';
+import type { NostosIconName } from '../ui/icon/nostos-icons';
 
 /** Legacy key retained for callers that need to verify the migration path. */
 export const VIEW_MODE_STORAGE_KEY = 'nostos.viewMode';
@@ -117,7 +97,8 @@ type WorkFormatType = 'audio' | 'epub' | 'pdf' | 'physical';
 
 interface WorkFormatGlyph {
   type: WorkFormatType;
-  icon: LucideIconData;
+  /** A Nostos glyph NAME, not icon data: the badge asks for an icon, it does not own one. */
+  icon: NostosIconName;
   label: string;
 }
 
@@ -128,7 +109,7 @@ interface WorkFormatGlyph {
     CommonModule,
     RouterLink,
     FormsModule,
-    LucideAngularModule,
+    NostosIconComponent,
     AddBookModal,
     AddBookIntent,
     ConfirmModal,
@@ -151,27 +132,6 @@ export class Library implements OnInit, OnDestroy {
   readonly filters = inject(LibraryFilterService);
   /** The background-import feed. Owned by the service, not by this list. */
   readonly imports = inject(ImportService);
-
-  // Icons
-  ListIcon = LayoutList;
-  GridIcon = LayoutGrid;
-  PlusIcon = Plus;
-  Trash2Icon = Trash2;
-  Edit2Icon = Edit2;
-  BookIcon = BookIcon;
-  HeartIcon = Heart;
-  CheckCircleIcon = CheckCircle;
-  SearchIcon = Search;
-  XIcon = X;
-  SortIcon = ArrowUpDown;
-  LoaderIcon = Loader2;
-  HeadphonesIcon = Headphones;
-  BookOpenIcon = BookOpen;
-  FileTextIcon = FileText;
-  BookmarkIcon = Bookmark;
-  AlertCircleIcon = AlertCircle;
-  ClockIcon = Clock;
-  RotateCcwIcon = RotateCcw;
 
   // Enums for Template Access
   BookSort = BookSort;
@@ -752,10 +712,12 @@ export class Library implements OnInit, OnDestroy {
     const editions: (Book | EditionSummaryDto)[] = [book, ...(book.otherEditions || [])];
     const presentFormats = new Set(editions.map((edition) => this.getWorkFormatType(edition)));
     const formats: WorkFormatGlyph[] = [
-      { type: 'audio', icon: this.HeadphonesIcon, label: 'Audiobook' },
-      { type: 'epub', icon: this.BookOpenIcon, label: 'eBook' },
-      { type: 'pdf', icon: this.FileTextIcon, label: 'PDF' },
-      { type: 'physical', icon: this.BookmarkIcon, label: 'Physical Book' },
+      // Format icons come from the semantic registry, so a format means the same
+      // glyph here, in the book row and in the audio reader.
+      { type: 'audio', icon: NOSTOS_CONCEPTS.audiobook, label: 'Audiobook' },
+      { type: 'epub', icon: NOSTOS_CONCEPTS.ebook, label: 'eBook' },
+      { type: 'pdf', icon: NOSTOS_CONCEPTS.pdf, label: 'PDF' },
+      { type: 'physical', icon: NOSTOS_CONCEPTS.physical, label: 'Physical Book' },
     ];
 
     return formats.filter((format) => presentFormats.has(format.type));

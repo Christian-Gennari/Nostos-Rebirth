@@ -18,8 +18,8 @@
     ></app-concept-input>
 
     <div class="edit-actions">
-      <button appIconButton [icon]="Icons.Check" [glyphSize]="16" (click)="saveEdit($event)" title="Save"></button>
-      <button appIconButton [icon]="Icons.Close" [glyphSize]="16" (click)="cancelEdit($event)" title="Cancel"></button>
+      <button appIconButton icon="check" [glyphSize]="16" (click)="saveEdit($event)" title="Save"></button>
+      <button appIconButton icon="x" [glyphSize]="16" (click)="cancelEdit($event)" title="Cancel"></button>
     </div>
   </div>
 
@@ -45,10 +45,9 @@
     @if (shouldShowExpandBtn) {
     <button class="expand-btn" (click)="toggleExpand($event)">
       <span>{{ isExpanded ? 'Show less' : 'Show more' }}</span>
-      <lucide-icon
-        [img]="isExpanded ? Icons.ChevronUp : Icons.ChevronDown"
-        [size]="12"
-      ></lucide-icon>
+      <nostos-icon
+        [name]="isExpanded ? 'caret-up' : 'caret-down'"
+        [size]="12"></nostos-icon>
     </button>
     }
 
@@ -67,7 +66,7 @@
           (click)="$event.stopPropagation()"
           title="Go to: {{ note.bookTitle }}"
         >
-          <lucide-icon [img]="Icons.Library" [size]="12"></lucide-icon>
+          <nostos-icon name="books" [size]="12"></nostos-icon>
           <span>{{ note.bookTitle }}</span>
         </a>
         }
@@ -76,14 +75,14 @@
       @if (showNavigation || showActions) {
       <div class="note-actions">
         @if (showNavigation) {
-        <button appIconButton size="xxs" [icon]="Icons.ArrowRight" [glyphSize]="14" (click)="onCardClick($event)" title="Jump to location"></button>
+        <button appIconButton size="xxs" icon="arrow-right" [glyphSize]="14" (click)="onCardClick($event)" title="Jump to location"></button>
         } @if (showActions) {
-        <button appIconButton size="xxs" [icon]="Icons.Edit" [glyphSize]="14" (click)="startEdit($event)"></button>
+        <button appIconButton size="xxs" icon="pencil-simple" [glyphSize]="14" (click)="startEdit($event)"></button>
         <button
           appIconButton
           class="delete"
           size="xxs"
-          [icon]="Icons.Delete"
+          icon="trash"
           [glyphSize]="14"
           (click)="onDelete($event)"
         ></button>

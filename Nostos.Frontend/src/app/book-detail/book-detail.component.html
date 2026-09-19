@@ -5,11 +5,10 @@
     @if (store.error()) {
     <div class="container md">
       <div class="error-state">
-        <lucide-icon
-          [img]="AlertCircleIcon"
+        <nostos-icon
+          name="warning-circle"
           [size]="32"
-          style="margin-bottom: 1rem; color: var(--color-danger)"
-        ></lucide-icon>
+          style="margin-bottom: 1rem; color: var(--color-danger)"></nostos-icon>
         <p>{{ store.error() }}</p>
         <button class="btn btn-secondary" routerLink="/library">Return to Library</button>
       </div>
@@ -37,7 +36,7 @@
 
       <div class="hero-inner">
         <button class="btn-back" routerLink="/library">
-          <lucide-icon [img]="ArrowLeftIcon" [size]="16"></lucide-icon>
+          <nostos-icon name="arrow-left" [size]="16"></nostos-icon>
           <span>Library</span>
         </button>
 
@@ -83,12 +82,10 @@
             />
             } @else {
             <div class="placeholder-cover">
-              <lucide-icon
-                [img]="BookOpenIcon"
-                [size]="48"
-                strokeWidth="1"
-                color="#ccc"
-              ></lucide-icon>
+              <nostos-icon
+                name="book-open"
+                [size]="48" weight="thin"
+                color="#ccc"></nostos-icon>
             </div>
             }
 
@@ -100,7 +97,7 @@
                 [attr.aria-label]="store.book()?.coverUrl ? 'Change cover' : 'Upload cover'"
                 (click)="triggerCoverPicker()"
               >
-                <lucide-icon [img]="ImageIcon" [size]="15"></lucide-icon>
+                <nostos-icon name="image" [size]="15"></nostos-icon>
                 <span>{{ store.book()?.coverUrl ? 'Change Cover' : 'Upload Cover' }}</span>
               </button>
 
@@ -112,7 +109,7 @@
                 aria-label="Remove cover"
                 (click)="deleteCover()"
               >
-                <lucide-icon [img]="Trash2Icon" [size]="15"></lucide-icon>
+                <nostos-icon name="trash" [size]="15"></nostos-icon>
                 <span>Remove</span>
               </button>
               }
@@ -150,7 +147,7 @@
               >
                 <span class="status-dot"></span>
                 <span>{{ readingStatus().label }}</span>
-                <lucide-icon [img]="ChevronDownIcon" [size]="12" class="status-chevron"></lucide-icon>
+                <nostos-icon name="caret-down" [size]="12" class="status-chevron"></nostos-icon>
               </button>
 
               @if (statusDropdownOpen()) {
@@ -161,7 +158,7 @@
                   [class.selected]="readingStatus().modifier === 'not-started'"
                   (click)="selectStatusOption('notstarted')"
                 >
-                  <lucide-icon [img]="CircleDashedIcon" [size]="14"></lucide-icon>
+                  <nostos-icon name="circle-dashed" [size]="14"></nostos-icon>
                   <span>Not Started</span>
                 </button>
 
@@ -171,7 +168,7 @@
                   [class.selected]="readingStatus().modifier === 'reading'"
                   (click)="selectStatusOption('reading')"
                 >
-                  <lucide-icon [img]="BookOpenIcon" [size]="14"></lucide-icon>
+                  <nostos-icon name="book-open" [size]="14"></nostos-icon>
                   <span>In Progress</span>
                 </button>
 
@@ -181,7 +178,7 @@
                   [class.selected]="readingStatus().modifier === 'finished'"
                   (click)="selectStatusOption('finished')"
                 >
-                  <lucide-icon [img]="CheckCircleIcon" [size]="14"></lucide-icon>
+                  <nostos-icon name="check-circle" [size]="14"></nostos-icon>
                   <span>Finished</span>
                 </button>
               </div>
@@ -198,34 +195,33 @@
               (click)="toggleFavorite()"
               title="Toggle Favorite"
             >
-              <lucide-icon
-                [img]="HeartIcon"
+              <nostos-icon
+                name="heart"
                 [size]="22"
-                [class.filled]="store.book()?.isFavorite"
-              ></lucide-icon>
+                [class.filled]="store.book()?.isFavorite"></nostos-icon>
             </button>
           </div>
 
           <div class="primary-actions">
             @if (store.book()?.hasFile) { @if (isAudioBook(store.book())) {
             <button class="btn btn-primary pill-btn" (click)="openReader()">
-              <lucide-icon [img]="HeadphonesIcon" [size]="18"></lucide-icon>
+              <nostos-icon name="headphones" [size]="18"></nostos-icon>
               <span>Listen</span>
             </button>
             } @else {
             <button class="btn btn-primary pill-btn" (click)="openReader()">
-              <lucide-icon [img]="BookOpenIcon" [size]="18"></lucide-icon>
+              <nostos-icon name="book-open" [size]="18"></nostos-icon>
               <span>Read Book</span>
             </button>
             }
 
             <button class="btn btn-secondary pill-btn" (click)="downloadFile()">
-              <lucide-icon [img]="BookDownIcon" [size]="18"></lucide-icon>
+              <nostos-icon name="download-simple" [size]="18"></nostos-icon>
               <span>Download</span>
             </button>
             } @else {
             <button class="btn btn-primary pill-btn" (click)="triggerFilePicker()">
-              <lucide-icon [img]="BookOpenIcon" [size]="18"></lucide-icon>
+              <nostos-icon name="book-open" [size]="18"></nostos-icon>
               <span>Upload File</span>
             </button>
             }
@@ -238,9 +234,9 @@
                 aria-haspopup="menu"
                 [attr.aria-expanded]="editMenuOpen()"
               >
-                <lucide-icon [img]="Edit2Icon" [size]="16"></lucide-icon>
+                <nostos-icon name="pencil-simple" [size]="16"></nostos-icon>
                 <span>Edit</span>
-                <lucide-icon [img]="ChevronDownIcon" [size]="12" class="edit-menu-chevron"></lucide-icon>
+                <nostos-icon name="caret-down" [size]="12" class="edit-menu-chevron"></nostos-icon>
               </button>
 
               <!-- The single Book Details entry point, which is also the only one
@@ -250,7 +246,7 @@
               @if (editMenuOpen()) {
               <div class="edit-menu" role="menu" (click)="$event.stopPropagation()">
                 <button type="button" class="edit-menu-item" role="menuitem" (click)="openMetadataModal()">
-                  <lucide-icon [img]="Edit2Icon" [size]="14"></lucide-icon>
+                  <nostos-icon name="pencil-simple" [size]="14"></nostos-icon>
                   <span class="edit-menu-item-text">
                     <span class="edit-menu-item-label">Book details</span>
                     <span class="edit-menu-item-hint">Title, author, cover, collections</span>
@@ -258,7 +254,7 @@
                 </button>
 
                 <button type="button" class="edit-menu-item" role="menuitem" (click)="openEditions()">
-                  <lucide-icon [img]="LayersIcon" [size]="14"></lucide-icon>
+                  <nostos-icon name="stack" [size]="14"></nostos-icon>
                   <span class="edit-menu-item-text">
                     <span class="edit-menu-item-label">Editions &amp; works</span>
                     <span class="edit-menu-item-hint">Group or split this book's editions</span>
@@ -288,7 +284,7 @@
             @if (store.book()?.personalReview) {
             <div class="personal-review">
               <div class="review-label">
-                <lucide-icon [img]="QuoteIcon" [size]="14"></lucide-icon> My Review
+                <nostos-icon name="quotes" [size]="14"></nostos-icon> My Review
               </div>
               <!-- The clamp lives on this wrapper so the fade has a positioned box
                    that does not disturb the paragraph's own layout, and so the
@@ -392,10 +388,9 @@
 
             <div class="meta-strip">
               <div class="meta-strip-item">
-                <lucide-icon
-                  [img]="isAudioBook(store.book()) ? ClockIcon : LayersIcon"
-                  [size]="16"
-                ></lucide-icon>
+                <nostos-icon
+                  [name]="isAudioBook(store.book()) ? 'clock' : 'stack'"
+                  [size]="16"></nostos-icon>
                 <div class="meta-strip-text">
                   <span class="meta-strip-label">{{
                     isAudioBook(store.book()) ? 'Duration' : 'Pages'
@@ -408,7 +403,7 @@
               </div>
 
               <div class="meta-strip-item">
-                <lucide-icon [img]="CalendarIcon" [size]="16"></lucide-icon>
+                <nostos-icon name="calendar-blank" [size]="16"></nostos-icon>
                 <div class="meta-strip-text">
                   <span class="meta-strip-label">Published</span>
                   <span class="meta-strip-value">{{ store.book()?.publishedDate || '—' }}</span>
@@ -420,7 +415,7 @@
               @if (store.book()?.source; as source) {
               <div class="meta-item full-width">
                 <span class="label"
-                  ><lucide-icon [img]="GlobeIcon" [size]="12"></lucide-icon> Source</span
+                  ><nostos-icon name="globe" [size]="12"></nostos-icon> Source</span
                 >
                 <span class="value">
                   @if (source.sourceUrl) {
@@ -445,21 +440,21 @@
               } @if (isAudioBook(store.book()) && store.book()?.narrator) {
               <div class="meta-item full-width">
                 <span class="label"
-                  ><lucide-icon [img]="MicIcon" [size]="12"></lucide-icon> Narrator</span
+                  ><nostos-icon name="microphone" [size]="12"></nostos-icon> Narrator</span
                 >
                 <span class="value">{{ store.book()?.narrator }}</span>
               </div>
               }
               <div class="meta-item">
                 <span class="label"
-                  ><lucide-icon [img]="BuildingIcon" [size]="12"></lucide-icon> Publisher</span
+                  ><nostos-icon name="buildings" [size]="12"></nostos-icon> Publisher</span
                 >
                 <span class="value">{{ store.book()?.publisher || '—' }}</span>
               </div>
 
               <div class="meta-item">
                 <span class="label"
-                  ><lucide-icon [img]="MapPinIcon" [size]="12"></lucide-icon> Location</span
+                  ><nostos-icon name="map-pin" [size]="12"></nostos-icon> Location</span
                 >
                 <span class="value">{{ store.book()?.placeOfPublication || '—' }}</span>
               </div>
@@ -471,7 +466,7 @@
 
               <div class="meta-item">
                 <span class="label"
-                  ><lucide-icon [img]="HashIcon" [size]="12"></lucide-icon>
+                  ><nostos-icon name="hash" [size]="12"></nostos-icon>
                   {{ isAudioBook(store.book()) ? 'ASIN' : 'ISBN' }}
                 </span>
                 <span class="value">
@@ -514,7 +509,7 @@
           @if (store.book()?.otherEditions && store.book()!.otherEditions!.length > 0) {
           <section class="edition-section" aria-labelledby="editions-title">
             <div class="edition-section-header">
-              <lucide-icon [img]="LayersIcon" [size]="13"></lucide-icon>
+              <nostos-icon name="stack" [size]="13"></nostos-icon>
               <h4 class="edition-section-title" id="editions-title">
                 Available Formats &amp; Editions
               </h4>
@@ -534,10 +529,9 @@
                   [title]="getEditionLabel(store.book()!)"
                 >
                   <span class="card-icon-frame">
-                    <lucide-icon
-                      [img]="isAudioBook(store.book()) ? HeadphonesIcon : BookOpenIcon"
-                      [size]="16"
-                    ></lucide-icon>
+                    <nostos-icon
+                      [name]="isAudioBook(store.book()) ? 'headphones' : 'book-open'"
+                      [size]="16"></nostos-icon>
                   </span>
                   <span class="card-content">
                     <span class="card-format-title">{{ getEditionFormat(store.book()!) }}</span>
@@ -568,10 +562,9 @@
                   [title]="'Switch to ' + getSummaryEditionLabel(edition)"
                 >
                   <span class="card-icon-frame">
-                    <lucide-icon
-                      [img]="edition.type === 'audiobook' ? HeadphonesIcon : BookOpenIcon"
-                      [size]="16"
-                    ></lucide-icon>
+                    <nostos-icon
+                      [name]="edition.type === 'audiobook' ? 'headphones' : 'book-open'"
+                      [size]="16"></nostos-icon>
                   </span>
                   <span class="card-content">
                     <span class="card-format-title">{{ getEditionFormat(edition) }}</span>
@@ -601,7 +594,7 @@
                  #1, which also made the "2" count look wrong against three
                  bordered boxes (both defects caught in vision review). -->
             <button type="button" class="edition-section-action" (click)="openEditions()">
-              <lucide-icon [img]="LayersIcon" [size]="13"></lucide-icon>
+              <nostos-icon name="stack" [size]="13"></nostos-icon>
               <span>Manage editions</span>
             </button>
           </section>

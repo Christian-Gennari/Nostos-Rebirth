@@ -1960,10 +1960,6 @@
     outline-offset: -2px;
   }
 
-  .mobile-nav-header lucide-icon {
-    stroke-width: 2px;
-  }
-
   .empty-link,
   .empty-clear {
     min-height: 44px;

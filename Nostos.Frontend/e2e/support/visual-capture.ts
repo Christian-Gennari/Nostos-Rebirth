@@ -767,11 +767,12 @@ export async function checkLibrarySidebarRail(page: Page): Promise<GeometryCheck
   const settledTrack = Math.round(last.trackH * 10) / 10;
   const distinctTracks = new Set(samples.map((s) => Math.round(s.trackH))).size;
 
-  // Measured in-page rather than with locator.boundingBox(): lucide copies the
-  // `search-icon` class onto BOTH its host element and the inner <svg>, so a
-  // plain `.search-icon` locator is a strict-mode violation (two matches), and
-  // boundingBox() also waits on actionability. Reading the rendered geometry
-  // directly is unambiguous and never waits.
+  // Measured in-page rather than with locator.boundingBox(): the icon component
+  // and the <svg> inside it are two boxes for one glyph, so a tag-agnostic
+  // locator can match twice (strict-mode violation), and boundingBox() also waits
+  // on actionability. Reading the rendered geometry directly is unambiguous and
+  // never waits — and the element it measures is the icon's HOST, which is what
+  // the CSS around it positions.
   const icon = await page.evaluate(() => {
     const el = document.querySelector('.search-icon');
     const input = document.querySelector('.search-input');

@@ -18,7 +18,7 @@
     <div class="confirm-modal-head" shellHeader>
       @if (tone() === 'danger') {
         <span class="confirm-mark" aria-hidden="true">
-          <lucide-icon [img]="Trash2Icon" [size]="15" [strokeWidth]="1.75"></lucide-icon>
+          <nostos-icon name="trash" [size]="15"></nostos-icon>
         </span>
       }
       <h2 id="confirm-dialog-title" class="confirm-title">{{ heading() }}</h2>
@@ -40,11 +40,11 @@
         [disabled]="busy()"
       >
         @if (busy()) {
-          <lucide-icon [img]="LoaderIcon" [size]="14" class="spin-icon"></lucide-icon>
+          <nostos-icon name="circle-notch" [size]="14" class="spin-icon"></nostos-icon>
           <span>{{ busyLabel() }}</span>
         } @else {
           @if (tone() === 'danger') {
-            <lucide-icon [img]="Trash2Icon" [size]="14"></lucide-icon>
+            <nostos-icon name="trash" [size]="14"></nostos-icon>
           }
           <span>{{ confirmLabel() }}</span>
         }

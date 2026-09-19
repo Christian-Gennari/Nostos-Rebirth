@@ -12,28 +12,6 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DragDropModule } from '@angular/cdk/drag-drop';
-import {
-  LucideAngularModule,
-  Menu,
-  Plus,
-  FileText,
-  FolderPlus,
-  Save,
-  BrainCircuit,
-  Search,
-  X,
-  GripVertical,
-  PanelLeftClose,
-  PanelLeftOpen,
-  PanelRightClose,
-  ArrowLeft,
-  Book,
-  Library,
-  Sparkles,
-  Maximize2,
-  Minimize2,
-  AlignCenterVertical,
-} from 'lucide-angular';
 
 import { WritingsService } from '../core/services/writings.service';
 import { ToastService } from '../core/services/toast.service';
@@ -47,6 +25,7 @@ import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.c
 import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
 import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
+import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 
 /** localStorage flag for typewriter mode in the studio. */
 const TYPEWRITER_KEY = 'nostos.typewriter';
@@ -65,7 +44,7 @@ function readTypewriter(): boolean {
   imports: [
     CommonModule,
     FormsModule,
-    LucideAngularModule,
+    NostosIconComponent,
     DragDropModule,
     FlatTreeComponent,
     NoteCardComponent,
@@ -85,29 +64,6 @@ export class WritingStudio implements OnInit {
 
   private destroyRef = inject(DestroyRef);
   private hostElement = inject(ElementRef<HTMLElement>);
-
-  Icons = {
-    Menu,
-    Plus,
-    FileText,
-    FolderPlus,
-    Save,
-    BrainCircuit,
-    Search,
-    Close: X,
-    GripVertical,
-    PanelLeftClose,
-    PanelLeftOpen,
-    PanelRightClose,
-    ArrowLeft,
-    Book,
-    Library,
-    Sparkles,
-    Maximize2,
-    Minimize2,
-    Typewriter: AlignCenterVertical,
-  };
-
   isMobile = signal(window.innerWidth < 768);
   showFileSidebar = signal(true);
   showBrainSidebar = signal(!this.isMobile());

@@ -19,7 +19,7 @@
     <div class="add-intent-choices">
       <button type="button" class="add-intent-choice" (click)="manual.emit()">
         <span class="add-intent-mark" aria-hidden="true">
-          <lucide-icon [img]="BookIcon" [size]="16" [strokeWidth]="1.75"></lucide-icon>
+          <nostos-icon name="book" [size]="16"></nostos-icon>
         </span>
         <span class="add-intent-text">
           <span class="add-intent-label">Add by hand</span>
@@ -29,7 +29,7 @@
 
       <button type="button" class="add-intent-choice" (click)="source.emit()">
         <span class="add-intent-mark" aria-hidden="true">
-          <lucide-icon [img]="DownloadIcon" [size]="16" [strokeWidth]="1.75"></lucide-icon>
+          <nostos-icon name="download-simple" [size]="16"></nostos-icon>
         </span>
         <span class="add-intent-text">
           <span class="add-intent-label">Import from a source</span>

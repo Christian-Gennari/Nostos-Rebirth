@@ -16,17 +16,6 @@ import {
   ViewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import {
-  LucideAngularModule,
-  BookOpen,
-  Crosshair,
-  Expand,
-  Minus,
-  Plus,
-  RotateCcw,
-  Scan,
-  Shrink,
-} from 'lucide-angular';
 import Graph from 'graphology';
 import Sigma from 'sigma';
 import {
@@ -550,7 +539,7 @@ function compareConcepts(a: ConceptDto, b: ConceptDto): number {
 @Component({
   selector: 'app-concept-map',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, IconButtonComponent],
+  imports: [CommonModule, IconButtonComponent],
   templateUrl: './concept-map.component.html',
   styleUrl: './concept-map.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -662,15 +651,6 @@ export class ConceptMapComponent implements OnChanges, AfterViewInit, OnDestroy 
      "you use the same icon for two different buttons" and confirmed by comparing
      the rendered SVG geometry. Focus mode uses the diagonal expand/shrink arrows
      instead, which also communicates fullscreen better than brackets. */
-  readonly zoomOutIcon = Minus;
-  readonly zoomInIcon = Plus;
-  readonly fitIcon = Scan;
-  readonly centreIcon = Crosshair;
-  readonly focusIcon = Expand;
-  readonly exitFocusIcon = Shrink;
-  readonly resetIcon = RotateCcw;
-  readonly notesIcon = BookOpen;
-
   private readonly conceptsService = inject(ConceptsService);
 
   /* ── Keyboard and fullscreen ── */

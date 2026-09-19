@@ -1122,14 +1122,14 @@
   color: var(--color-text-light);
   display: flex;
   /* These two are load-bearing, not cosmetic. A flex container with no
-     `align-items` defaults to `stretch`: the `lucide-icon` host is a block whose
-     natural height is taller than the glyph, so it filled the box and the glyph
-     was pinned to the TOP. On desktop the content box and the host happened to be
-     the same height, so `stretch` and `center` produced the same result and the
-     bug was invisible. Any consumer that grows the box exposes it — Brain's 44px
-     mobile touch target did, leaving the glyph 5px from the top and 21px from the
-     bottom. Library's own mobile rule declared both properties, which is why the
-     same control was correct on one surface and broken on the other. */
+     `align-items` defaults to `stretch`: the `nostos-icon` host is an inline box
+     whose natural height is taller than the glyph, so it filled the box and the
+     glyph was pinned to the TOP. On desktop the content box and the host happened
+     to be the same height, so `stretch` and `center` produced the same result and
+     the bug was invisible. Any consumer that grows the box exposes it — Brain's
+     44px mobile touch target did, leaving the glyph 5px from the top and 21px from
+     the bottom. Library's own mobile rule declared both properties, which is why
+     the same control was correct on one surface and broken on the other. */
   align-items: center;
   justify-content: center;
 }
@@ -1296,7 +1296,10 @@ p {
   line-height: 1.6;
 }
 
-lucide-icon {
+/* The glyph nudge. `nostos-icon` is the Nostos-owned icon element (the single
+   rendering path for every glyph), so this rule is implementation-neutral: it
+   survives an icon-family swap, which is the point of the wrapper. */
+nostos-icon {
   position: relative;
   top: 1px;
 }

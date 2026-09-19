@@ -1,5 +1,10 @@
+/**
+ * Copyright (C) 2026 Christian Gennari
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { LucideAngularModule, LucideIconData } from 'lucide-angular';
+import { NostosIconComponent } from '../icon/nostos-icon.component';
+import type { NostosIconName, NostosIconWeight } from '../icon/nostos-icons';
 
 /** Button box rungs. Measured from the live app, not invented. */
 export type IconButtonSize = 'xxs' | 'xs' | 'md';
@@ -28,9 +33,52 @@ export type IconButtonTone = 'default' | 'danger';
  *
  * The host therefore keeps the literal `icon-btn` class. That is load-bearing:
  * `styles.css` still carries `.icon-btn:hover`, `.icon-btn.delete:hover` and
- * `.icon-btn lucide-icon { top: 1px }` (the glyph nudge every surface relies on),
- * and the existing specs select on `.icon-btn`. The component adds the SIZING and
- * SHAPE, which is what the five copies each re-declared inconsistently.
+ * `nostos-icon { top: 1px }` (the glyph nudge every surface relies on), and the
+ * existing specs select on `.icon-btn`. The component adds the SIZING and SHAPE,
+ * which is what the five copies each re-declared inconsistently.
+ *
+ * THE GLYPH IS A NAME, NOT AN ICON OBJECT
+ * ---------------------------------------
+ * `[icon]` takes a Nostos glyph name (`icon="trash"`), so this component —
+ * and every one of its call sites — knows nothing about the icon library. The
+ * name resolves through `nostos-icons.ts`, which is the single place a family or
+ * a glyph can be changed. Passing icon data objects (the old `[icon]="Trash2Icon"`)
+ * is what made a library swap a 22-file edit.
+ *
+ * `weight`, NOT `strokeWidth`
+ * ---------------------------
+ * The previous library drew with strokes, so call sites tuned `strokeWidth`
+ * (1, 1.2, 1.4, 1.5, 1.6, 1.75, 1.8, 2, 2.2 all appear). Phosphor draws with
+ * filled geometry, so that knob does not exist; weight is the equivalent axis.
+ * Two measurements decided the mapping.
+ *
+ * 1. WHAT THE OLD APP ACTUALLY PAINTED (live, on main). `lucide-angular`
+ *    truncates via `parseInt`, so 1.2 / 1.5 / 1.6 / 1.75 / 1.8 all painted as
+ *    `stroke-width: 1` and 2.2 painted as 2 — read off 146 rendered glyphs on
+ *    /library: declared 1.5 -> svg `stroke-width="1"`, declared 2.2 -> "2".
+ *    The painted range was therefore only ever {1, 2}.
+ * 2. WHAT EACH WEIGHT IS (bar thickness in device px of a straight stroke at a
+ *    256px render, both families rasterised side by side):
+ *
+ *      lucide    sw 1 -> 10px   sw 1.5 -> 16px   sw 2 -> 22px   sw 2.2 -> 24px
+ *      phosphor  thin -> 8px    light  -> 12px   regular -> 16px   bold -> 24px
+ *
+ * So the DECLARED value is the honest guide — it is what the author asked for,
+ * and the truncation was the old package's bug, not a design decision — and its
+ * ratio against the default lands almost exactly on a Phosphor weight:
+ *
+ *      declared / 2 = 0.5-0.6  ->  thin     (0.50 of regular)
+ *      declared / 2 = 0.7-0.9  ->  light    (0.75 of regular)
+ *      declared / 2 = 1.0-1.1  ->  regular  (1.00)   <- and the default
+ *
+ * Deliberately NOT mapped by painted thickness alone: that lands the painted 2
+ * on `bold` (22px -> 24px) and would make the whole app bold, which is the
+ * opposite of the icon language this migration is standardising on. The visible
+ * consequence of choosing `regular` is that the app's icons are FINER than
+ * before: Phosphor regular is 16px where lucide's default 2 was 22px, so an
+ * unspecified call site now paints ~27% thinner. That is the family's normal UI
+ * weight, not a nudge, and it is the one judgement call in this file that is
+ * worth a second opinion on the before/after screenshots.
  *
  * Deliberately NOT here: `data-tip`, the themed tooltip, and the `.delete`
  * fill-on-hover. Those stay in the surfaces that own them so this remains a
@@ -55,9 +103,9 @@ export type IconButtonTone = 'default' | 'danger';
 @Component({
   selector: 'button[appIconButton]',
   standalone: true,
-  imports: [LucideAngularModule],
+  imports: [NostosIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<lucide-icon [img]="icon()" [size]="glyphSize()" [strokeWidth]="strokeWidth()" />`,
+  template: `<nostos-icon [name]="icon()" [size]="glyphSize()" [weight]="weight()" />`,
   host: {
     class: 'icon-btn',
     '[class.icon-btn--danger]': "tone() === 'danger'",
@@ -97,8 +145,8 @@ export type IconButtonTone = 'default' | 'danger';
   ],
 })
 export class IconButtonComponent {
-  /** The lucide icon to render. Required — a button with no glyph is a bug. */
-  readonly icon = input.required<LucideIconData>();
+  /** The Nostos glyph to render. Required — a button with no glyph is a bug. */
+  readonly icon = input.required<NostosIconName>();
 
   /**
    * Glyph size in px. Kept separate from the button box: several call sites use a
@@ -107,11 +155,11 @@ export class IconButtonComponent {
   readonly glyphSize = input<number>(16);
 
   /**
-   * Glyph stroke weight. The studio draws its tool buttons at 1.5, so a single
-   * fixed weight would visibly thicken or thin those icons. Default matches
-   * lucide's own default.
+   * Glyph weight. Was `strokeWidth` on the previous (stroke-drawn) library; the
+   * migrated call sites use the measured equivalents, and a plain call site gets
+   * `regular`, which is Phosphor's normal UI weight.
    */
-  readonly strokeWidth = input<number>(2);
+  readonly weight = input<NostosIconWeight>('regular');
 
   /** `xxs` = 24px round chip, `xs` = 28px, `md` = 32px (the token default). */
   readonly size = input<IconButtonSize>('md');

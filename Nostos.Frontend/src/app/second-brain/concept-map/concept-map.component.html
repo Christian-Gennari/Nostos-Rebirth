@@ -21,7 +21,7 @@
           appIconButton
           type="button"
           class="map-action map-action--notes"
-          [icon]="notesIcon"
+          icon="book-open"
           [glyphSize]="15"
           aria-label="Read notes"
           title="Read notes"
@@ -35,7 +35,7 @@
         appIconButton
         type="button"
         class="map-action"
-        [icon]="zoomOutIcon"
+        icon="minus"
         aria-label="Zoom out"
         title="Zoom out"
         (click)="zoomOut()"
@@ -44,7 +44,7 @@
         appIconButton
         type="button"
         class="map-action"
-        [icon]="zoomInIcon"
+        icon="plus"
         aria-label="Zoom in"
         title="Zoom in"
         (click)="zoomIn()"
@@ -53,7 +53,7 @@
         appIconButton
         type="button"
         class="map-action"
-        [icon]="fitIcon"
+        icon="scan"
         aria-label="Fit to view"
         title="Fit to view"
         (click)="fitGraph()"
@@ -62,7 +62,7 @@
         appIconButton
         type="button"
         class="map-action"
-        [icon]="centreIcon"
+        icon="crosshair"
         [disabled]="!selectedNodeId()"
         aria-label="Center on selection"
         title="Center on selection"
@@ -72,7 +72,7 @@
         appIconButton
         type="button"
         class="map-action"
-        [icon]="isFullscreen() ? exitFocusIcon : focusIcon"
+        [icon]="isFullscreen() ? 'arrows-in' : 'arrows-out'"
         [pressed]="isFullscreen()"
         [attr.aria-label]="isFullscreen() ? 'Exit focus mode' : 'Focus mode'"
         [attr.title]="isFullscreen() ? 'Exit focus mode' : 'Focus mode'"
@@ -82,7 +82,7 @@
         appIconButton
         type="button"
         class="map-action"
-        [icon]="resetIcon"
+        icon="arrow-counter-clockwise"
         aria-label="Reset layout"
         title="Reset layout"
         (click)="resetView()"

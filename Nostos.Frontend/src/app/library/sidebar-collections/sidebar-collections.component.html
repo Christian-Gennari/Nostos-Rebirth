@@ -1,5 +1,5 @@
 <button class="floating-toggle" (click)="toggle()" [class.hidden]="expanded()">
-  <lucide-icon [img]="MenuIcon" [size]="20"></lucide-icon>
+  <nostos-icon name="list" [size]="20"></nostos-icon>
 </button>
 
 <nav class="sidebar" [class.collapsed]="!expanded()">
@@ -46,7 +46,7 @@
         [class.active]="!hasSelection()"
         title="All Books"
       >
-        <lucide-icon [img]="LibraryIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
+        <nostos-icon name="books" [size]="16" weight="light"></nostos-icon>
         <span class="label">All Books</span>
         <span class="count-badge">{{ statusCounts()?.all }}</span>
       </button>
@@ -57,7 +57,7 @@
         [class.active]="filters.status() === 'notstarted'"
         title="Not Started"
       >
-        <lucide-icon [img]="CircleDashedIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
+        <nostos-icon name="circle-dashed" [size]="16" weight="light"></nostos-icon>
         <span class="label">Not Started</span>
         <span class="count-badge">{{ statusCounts()?.notStarted }}</span>
       </button>
@@ -68,7 +68,7 @@
         [class.active]="filters.status() === 'reading'"
         title="In Progress"
       >
-        <lucide-icon [img]="BookOpenIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
+        <nostos-icon name="book-open" [size]="16" weight="light"></nostos-icon>
         <span class="label">In Progress</span>
         <span class="count-badge">{{ statusCounts()?.reading }}</span>
       </button>
@@ -79,7 +79,7 @@
         [class.active]="filters.status() === 'favorites'"
         title="Favorites"
       >
-        <lucide-icon [img]="HeartIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
+        <nostos-icon name="heart" [size]="16" weight="light"></nostos-icon>
         <span class="label">Favorites</span>
         <span class="count-badge">{{ statusCounts()?.favorites }}</span>
       </button>
@@ -90,7 +90,7 @@
         [class.active]="filters.status() === 'finished'"
         title="Finished"
       >
-        <lucide-icon [img]="CheckCircleIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
+        <nostos-icon name="check-circle" [size]="16" weight="light"></nostos-icon>
         <span class="label">Finished</span>
         <span class="count-badge">{{ statusCounts()?.finished }}</span>
       </button>
@@ -101,7 +101,7 @@
         [class.active]="filters.status() === 'unsorted'"
         title="Unsorted"
       >
-        <lucide-icon [img]="InboxIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
+        <nostos-icon name="tray" [size]="16" weight="light"></nostos-icon>
         <span class="label">Unsorted</span>
         <span class="count-badge">{{ statusCounts()?.unsorted }}</span>
       </button>
@@ -118,7 +118,7 @@
         [class.active]="filters.format() === 'audiobook'"
         title="Audiobooks"
       >
-        <lucide-icon [img]="HeadphonesIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
+        <nostos-icon name="headphones" [size]="16" weight="light"></nostos-icon>
         <span class="label">Audiobooks</span>
         <span class="count-badge">{{ statusCounts()?.audiobooks }}</span>
       </button>
@@ -129,7 +129,7 @@
         [class.active]="filters.format() === 'ebook'"
         title="eBooks"
       >
-        <lucide-icon [img]="BookOpenIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
+        <nostos-icon name="book-open" [size]="16" weight="light"></nostos-icon>
         <span class="label">eBooks</span>
         <span class="count-badge">{{ statusCounts()?.ebooks }}</span>
       </button>
@@ -140,7 +140,7 @@
         [class.active]="filters.format() === 'pdf'"
         title="PDFs"
       >
-        <lucide-icon [img]="FileTextIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
+        <nostos-icon name="file-text" [size]="16" weight="light"></nostos-icon>
         <span class="label">PDFs</span>
         <span class="count-badge">{{ statusCounts()?.pdfs }}</span>
       </button>
@@ -158,7 +158,7 @@
               title="New Collection"
               aria-label="New collection"
             >
-              <lucide-icon [img]="PlusIcon" [size]="14" strokeWidth="1.8"></lucide-icon>
+              <nostos-icon name="plus" [size]="14"></nostos-icon>
             </button>
           }
         </div>
@@ -167,7 +167,7 @@
       <div class="collapsible">
         @if (adding()) {
           <div class="nav-item input-mode">
-            <lucide-icon [img]="PlusIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
+            <nostos-icon name="plus" [size]="16" weight="light"></nostos-icon>
             <input
               type="text"
               class="sidebar-input"
@@ -210,7 +210,7 @@
           [attr.title]="'Viewing ' + (getNameForId(filters.collectionId()!) || 'collection')"
           aria-label="A collection is selected"
         >
-          <lucide-icon [img]="FolderIcon" [size]="14" strokeWidth="1.5"></lucide-icon>
+          <nostos-icon name="folder" [size]="14" weight="light"></nostos-icon>
         </span>
       }
       <button
@@ -219,11 +219,9 @@
         [attr.aria-expanded]="expanded()"
         [attr.title]="expanded() ? 'Collapse sidebar' : 'Expand sidebar'"
       >
-        <lucide-icon
-          [img]="expanded() ? PanelLeftCloseIcon : PanelLeftOpenIcon"
-          [size]="18"
-          strokeWidth="1"
-        ></lucide-icon>
+        <nostos-icon
+          [name]="expanded() ? 'arrow-line-left' : 'arrow-line-right'"
+          [size]="18" weight="thin"></nostos-icon>
       </button>
     </div>
   </div>

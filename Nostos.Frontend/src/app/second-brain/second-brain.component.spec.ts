@@ -804,7 +804,7 @@ describe('SecondBrain', () => {
     fixture.detectChanges();
 
     const iconOnlyButtons = [...fixture.nativeElement.querySelectorAll('button')].filter((button) => {
-      return button.querySelector('lucide-icon') && !button.textContent?.trim();
+      return button.querySelector('nostos-icon') && !button.textContent?.trim();
     }) as HTMLButtonElement[];
 
     expect(iconOnlyButtons.length).toBeGreaterThan(0);

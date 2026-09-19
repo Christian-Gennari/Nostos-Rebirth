@@ -17,17 +17,17 @@ import { FormsModule } from '@angular/forms';
 import { Howl } from 'howler';
 import { Subject, Subscription } from 'rxjs';
 import { sampleTime, filter } from 'rxjs/operators';
-import { LucideAngularModule, Play, Pause, AudioLines, RotateCcw, RotateCw, Moon, SkipBack, SkipForward, SlidersHorizontal } from 'lucide-angular';
 import { BooksService } from '../../core/services/books.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 import { Book } from '../../core/dtos/book.dtos';
 
 import { BloomArtDirective } from '../../ui/bloom-art/bloom-art.directive';
+import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
 
 @Component({
   selector: 'app-audio-reader',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, BloomArtDirective],
+  imports: [CommonModule, FormsModule, NostosIconComponent, BloomArtDirective],
   templateUrl: './audio-reader.component.html',
   styleUrl: './audio-reader.component.css',
 })
@@ -38,9 +38,6 @@ export class AudioReader implements OnDestroy, IReader {
   book = input<Book | null>(null);
 
   private booksService = inject(BooksService);
-
-  Icons = { Play, Pause, AudioLines, RotateCcw, RotateCw, Moon, SkipBack, SkipForward, SlidersHorizontal };
-
   // IReader Interface
   toc = signal<TocItem[]>([]);
   progress = signal<ReaderProgress>({ label: '0:00', percentage: 0 });

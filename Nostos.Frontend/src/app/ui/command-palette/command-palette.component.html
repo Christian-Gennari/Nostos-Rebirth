@@ -7,7 +7,7 @@
   aria-label="Quick search"
 >
   <div class="palette-input-row">
-    <lucide-icon [img]="SearchIcon" [size]="16" class="palette-input-icon"></lucide-icon>
+    <nostos-icon name="magnifying-glass" [size]="16" class="palette-input-icon"></nostos-icon>
     <input
       #paletteInput
       class="palette-input"
@@ -37,11 +37,11 @@
       [attr.data-testid]="'palette-item-' + entry.kind"
     >
       @if (entry.kind === 'book') {
-      <lucide-icon [img]="BookIcon" [size]="15"></lucide-icon>
+      <nostos-icon name="book" [size]="15"></nostos-icon>
       } @else if (entry.kind === 'collection') {
-      <lucide-icon [img]="FolderIcon" [size]="15"></lucide-icon>
+      <nostos-icon name="folder" [size]="15"></nostos-icon>
       } @else {
-      <lucide-icon [img]="ArrowIcon" [size]="15"></lucide-icon>
+      <nostos-icon name="arrow-right" [size]="15"></nostos-icon>
       }
       <span class="palette-item-label">{{ entry.label }}</span>
       <span class="palette-item-sub">{{ entry.sub }}</span>

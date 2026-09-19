@@ -16,7 +16,7 @@
       <h1 id="library-title" class="library-title">Library</h1>
 
       <div class="search-bar-container">
-        <lucide-icon [img]="SearchIcon" [size]="18" class="search-icon"></lucide-icon>
+        <nostos-icon name="magnifying-glass" [size]="18" class="search-icon"></nostos-icon>
         <input
           type="text"
           class="search-input"
@@ -46,7 +46,7 @@
             title="List view"
             (click)="setViewMode('list')"
           >
-            <lucide-icon [img]="ListIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
+            <nostos-icon name="list-bullets" [size]="18" weight="light"></nostos-icon>
           </button>
           <button
             type="button"
@@ -57,12 +57,12 @@
             title="Grid view"
             (click)="setViewMode('grid')"
           >
-            <lucide-icon [img]="GridIcon" [size]="18" strokeWidth="1.5"></lucide-icon>
+            <nostos-icon name="squares-four" [size]="18" weight="light"></nostos-icon>
           </button>
         </div>
 
         <button class="btn btn-primary" (click)="openAddIntent()">
-          <lucide-icon [img]="PlusIcon" [size]="18"></lucide-icon>
+          <nostos-icon name="plus" [size]="18"></nostos-icon>
           <span class="btn-text">Add Book</span>
         </button>
       </div>
@@ -78,7 +78,7 @@
             [title]="'Clear ' + chip.label"
           >
             <span>{{ chip.label }}</span>
-            <lucide-icon [img]="XIcon" [size]="14"></lucide-icon>
+            <nostos-icon name="x" [size]="14"></nostos-icon>
           </button>
           }
         </div>
@@ -155,7 +155,7 @@
                 <img [src]="getLibraryCoverUrl(book.coverUrl)" [alt]="book.title" appBloomArt class="list-cover-img" loading="lazy" decoding="async" />
               } @else {
                 <div class="list-cover-placeholder">
-                  <lucide-icon [img]="BookIcon" [size]="16" strokeWidth="1.5"></lucide-icon>
+                  <nostos-icon name="book" [size]="16" weight="light"></nostos-icon>
                 </div>
               }
             </div>
@@ -194,12 +194,12 @@
               <div class="item-failure-actions">
                 @if (failure.canRetry) {
                 <button type="button" class="item-action is-primary" (click)="retryImport(failure, $event)">
-                  <lucide-icon [img]="RotateCcwIcon" [size]="13" strokeWidth="2"></lucide-icon>
+                  <nostos-icon name="arrow-counter-clockwise" [size]="13"></nostos-icon>
                   <span>Retry</span>
                 </button>
                 }
                 <button type="button" class="item-action" (click)="dismissImport(failure, $event)">
-                  <lucide-icon [img]="XIcon" [size]="13" strokeWidth="2"></lucide-icon>
+                  <nostos-icon name="x" [size]="13"></nostos-icon>
                   <span>Dismiss</span>
                 </button>
               </div>
@@ -220,11 +220,10 @@
                 (click)="toggleFinished(book, $event)"
                 [title]="book.finishedAt ? 'Mark as Unread' : 'Mark as Read'"
               >
-                <lucide-icon
-                  [img]="CheckCircleIcon"
+                <nostos-icon
+                  name="check-circle"
                   [size]="16"
-                  [class.filled-check]="book.finishedAt"
-                ></lucide-icon>
+                  [class.filled-check]="book.finishedAt"></nostos-icon>
               </button>
 
               <button
@@ -233,11 +232,10 @@
                 (click)="toggleFavorite(book, $event)"
                 title="Toggle Favorite"
               >
-                <lucide-icon
-                  [img]="HeartIcon"
+                <nostos-icon
+                  name="heart"
                   [size]="16"
-                  [class.filled-heart]="book.isFavorite"
-                ></lucide-icon>
+                  [class.filled-heart]="book.isFavorite"></nostos-icon>
               </button>
             </div>
           </div>
@@ -264,7 +262,7 @@
             @if (book.otherEditions && book.otherEditions.length > 0) {
             <span class="format-badge micro-glyphs" [attr.title]="getWorkFormatsTooltip(book)">
               @for (glyph of getWorkFormatGlyphs(book); track glyph.type) {
-                <lucide-icon [img]="glyph.icon" [size]="11" strokeWidth="2.2"></lucide-icon>
+                <nostos-icon [name]="glyph.icon" [size]="11"></nostos-icon>
               }
             </span>
             } @else {
@@ -274,13 +272,13 @@
               [attr.data-type]="book.type"
             >
               @if (book.type === 'audiobook') {
-                <lucide-icon [img]="HeadphonesIcon" [size]="11" strokeWidth="2.2"></lucide-icon>
+                <nostos-icon name="headphones" [size]="11"></nostos-icon>
               } @else if (getFormatLabel(book) === 'PDF') {
-                <lucide-icon [img]="FileTextIcon" [size]="11" strokeWidth="2"></lucide-icon>
+                <nostos-icon name="file-text" [size]="11"></nostos-icon>
               } @else if (book.type === 'physical') {
-                <lucide-icon [img]="BookmarkIcon" [size]="11" strokeWidth="2"></lucide-icon>
+                <nostos-icon name="bookmark-simple" [size]="11"></nostos-icon>
               } @else {
-                <lucide-icon [img]="BookOpenIcon" [size]="11" strokeWidth="2"></lucide-icon>
+                <nostos-icon name="book-open" [size]="11"></nostos-icon>
               }
               {{ getFormatLabel(book) }}
             </span>
@@ -301,7 +299,7 @@
               appIconButton
               class="edit"
               size="xs"
-              [icon]="Edit2Icon"
+              icon="pencil-simple"
               [glyphSize]="15"
               (click)="openEditModal(book); $event.stopPropagation()"
               data-tip="Edit"
@@ -312,7 +310,7 @@
               appIconButton
               class="delete"
               size="xs"
-              [icon]="Trash2Icon"
+              icon="trash"
               [glyphSize]="15"
               (click)="openDeleteModal(book, $event)"
               data-tip="Delete"
@@ -322,7 +320,7 @@
         </div>
         } @empty {
         <div class="books-empty-state">
-          <lucide-icon [img]="BookIcon" [size]="40" strokeWidth="1.2"></lucide-icon>
+          <nostos-icon name="book" [size]="40" weight="thin"></nostos-icon>
           @if (searchQuery().trim()) {
           <p>No books match "{{ searchQuery().trim() }}"</p>
           <button class="btn btn-secondary" (click)="clearChip('search')">Clear search</button>
@@ -366,7 +364,7 @@
               </div>
             } @else if (book.status === 3) {
               <div class="import-status-overlay is-failed-overlay">
-                <lucide-icon [img]="AlertCircleIcon" [size]="24"></lucide-icon>
+                <nostos-icon name="warning-circle" [size]="24"></nostos-icon>
                 <span class="import-status-label">Failed</span>
               </div>
             }
@@ -381,13 +379,13 @@
               decoding="async"
             />
             } @else {
-            <lucide-icon [img]="BookIcon" [size]="48" strokeWidth="1"></lucide-icon>
+            <nostos-icon name="book" [size]="48" weight="thin"></nostos-icon>
             }
 
             @if (book.otherEditions && book.otherEditions.length > 0) {
             <span class="format-badge micro-glyphs" [attr.title]="getWorkFormatsTooltip(book)">
               @for (glyph of getWorkFormatGlyphs(book); track glyph.type) {
-                <lucide-icon [img]="glyph.icon" [size]="11" strokeWidth="2.2"></lucide-icon>
+                <nostos-icon [name]="glyph.icon" [size]="11"></nostos-icon>
               }
             </span>
             } @else {
@@ -397,13 +395,13 @@
               [attr.data-type]="book.type"
             >
               @if (book.type === 'audiobook') {
-              <lucide-icon [img]="HeadphonesIcon" [size]="11" strokeWidth="2.2"></lucide-icon>
+              <nostos-icon name="headphones" [size]="11"></nostos-icon>
               } @else if (getFormatLabel(book) === 'PDF') {
-              <lucide-icon [img]="FileTextIcon" [size]="11" strokeWidth="2"></lucide-icon>
+              <nostos-icon name="file-text" [size]="11"></nostos-icon>
               } @else if (book.type === 'physical') {
-              <lucide-icon [img]="BookmarkIcon" [size]="11" strokeWidth="2"></lucide-icon>
+              <nostos-icon name="bookmark-simple" [size]="11"></nostos-icon>
               } @else {
-              <lucide-icon [img]="BookOpenIcon" [size]="11" strokeWidth="2"></lucide-icon>
+              <nostos-icon name="book-open" [size]="11"></nostos-icon>
               }
               {{ getFormatLabel(book) }}
             </span>
@@ -415,12 +413,10 @@
               (click)="toggleFinished(book, $event)"
               [title]="book.finishedAt ? 'Mark as Unread' : 'Mark as Read'"
             >
-              <lucide-icon
-                [img]="CheckCircleIcon"
+              <nostos-icon
+                name="check-circle"
                 [size]="18"
-                [class.filled-check]="book.finishedAt"
-              >
-              </lucide-icon>
+                [class.filled-check]="book.finishedAt"></nostos-icon>
             </button>
 
             <button
@@ -429,8 +425,7 @@
               (click)="toggleFavorite(book, $event)"
               title="Toggle Favorite"
             >
-              <lucide-icon [img]="HeartIcon" [size]="18" [class.filled-heart]="book.isFavorite">
-              </lucide-icon>
+              <nostos-icon name="heart" [size]="18" [class.filled-heart]="book.isFavorite"></nostos-icon>
             </button>
 
             <div class="actions-overlay">
@@ -439,7 +434,7 @@
                 (click)="openEditModal(book); $event.stopPropagation()"
                 title="Edit"
               >
-                <lucide-icon [img]="Edit2Icon" [size]="16"></lucide-icon>
+                <nostos-icon name="pencil-simple" [size]="16"></nostos-icon>
               </button>
 
               <button
@@ -447,7 +442,7 @@
                 (click)="openDeleteModal(book, $event)"
                 title="Delete"
               >
-                <lucide-icon [img]="Trash2Icon" [size]="16"></lucide-icon>
+                <nostos-icon name="trash" [size]="16"></nostos-icon>
               </button>
             </div>
           </div>
@@ -466,12 +461,12 @@
           <div class="item-failure-actions">
             @if (failure.canRetry) {
             <button type="button" class="item-action is-primary" (click)="retryImport(failure, $event)">
-              <lucide-icon [img]="RotateCcwIcon" [size]="13" strokeWidth="2"></lucide-icon>
+              <nostos-icon name="arrow-counter-clockwise" [size]="13"></nostos-icon>
               <span>Retry</span>
             </button>
             }
             <button type="button" class="item-action" (click)="dismissImport(failure, $event)">
-              <lucide-icon [img]="XIcon" [size]="13" strokeWidth="2"></lucide-icon>
+              <nostos-icon name="x" [size]="13"></nostos-icon>
               <span>Dismiss</span>
             </button>
           </div>
@@ -493,7 +488,7 @@
 
         } @empty {
         <div class="books-empty-state">
-          <lucide-icon [img]="BookIcon" [size]="40" strokeWidth="1.2"></lucide-icon>
+          <nostos-icon name="book" [size]="40" weight="thin"></nostos-icon>
           @if (searchQuery().trim()) {
           <p>No books match "{{ searchQuery().trim() }}"</p>
           <button class="btn btn-secondary" (click)="clearChip('search')">Clear search</button>
@@ -523,12 +518,11 @@
         "
       >
         @if (loadingMore()) {
-        <lucide-icon
-          [img]="LoaderIcon"
+        <nostos-icon
+          name="circle-notch"
           [size]="24"
           class="spin-animation"
-          color="var(--color-primary)"
-        ></lucide-icon>
+          color="var(--color-primary)"></nostos-icon>
         }
       </div>
       }

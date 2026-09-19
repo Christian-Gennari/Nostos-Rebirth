@@ -1340,7 +1340,7 @@ button.edition-select-card:focus-visible {
   gap: 0.6rem;
   min-width: 0;
 }
-.meta-strip-item lucide-icon {
+.meta-strip-item nostos-icon {
   color: var(--color-text-light);
   flex-shrink: 0;
 }
