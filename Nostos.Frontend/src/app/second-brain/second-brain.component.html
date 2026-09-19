@@ -118,7 +118,7 @@
         </span>
       </div>
 
-      <div class="review-list" role="list" aria-label="Notes with no concept">
+      <div class="index-list" role="list" aria-label="Notes with no concept">
         @if (reviewLoading() && reviewQueue().length === 0) {
         <div class="index-wait-field wait-field" role="status" aria-label="Loading notes"></div>
         } @else if (reviewQueue().length === 0) {
@@ -417,7 +417,7 @@
           <div class="review-actions">
             <button
               type="button"
-              class="review-action primary"
+              class="concept-action primary"
               [disabled]="reviewSaving()"
               (click)="saveReviewEdit()"
             >
@@ -425,7 +425,7 @@
             </button>
             <button
               type="button"
-              class="review-action"
+              class="concept-action"
               [disabled]="reviewSaving()"
               (click)="cancelReviewEdit()"
             >
@@ -436,22 +436,22 @@
           <p class="review-content">{{ note.content }}</p>
 
           @if (reviewPickerOpen()) {
-          <div class="review-picker" role="dialog" aria-label="Link this note to a concept">
-            <div class="review-picker-head">
+          <div class="merge-picker" role="dialog" aria-label="Link this note to a concept">
+            <div class="merge-picker-head">
               <span class="detail-tool-label">Link to concept</span>
               <button
                 type="button"
-                class="review-picker-close"
+                class="merge-picker-close"
                 aria-label="Close concept picker"
                 (click)="closeReviewPicker()"
               >
                 <nostos-icon name="x" [size]="15"></nostos-icon>
               </button>
             </div>
-            <p class="review-picker-hint">
+            <p class="merge-picker-hint">
               Linking adds an explicit <code>[[Concept]]</code> reference to the note.
             </p>
-            <div class="review-picker-search">
+            <div class="merge-search-box">
               <nostos-icon name="magnifying-glass" [size]="15"></nostos-icon>
               <input
                 type="search"
@@ -462,30 +462,30 @@
                 (keydown.escape)="closeReviewPicker()"
               />
             </div>
-            <div class="review-picker-list">
+            <div class="merge-target-list">
               @if (reviewPickerCandidates().length === 0) {
-              <span class="review-picker-empty">No concepts match.</span>
+              <span class="merge-picker-empty">No concepts match.</span>
               } @else {
               @for (candidate of reviewPickerCandidates(); track candidate.id) {
               <button
                 type="button"
-                class="review-picker-target"
+                class="merge-target"
                 [class.selected]="reviewPickerConceptId() === candidate.id"
                 (click)="chooseReviewConcept(candidate.id)"
               >
                 <span>{{ candidate.name }}</span>
-                <span class="review-picker-count">{{ candidate.usageCount }}</span>
+                <span class="merge-target-count">{{ candidate.usageCount }}</span>
               </button>
               }
               }
             </div>
-            <div class="review-picker-actions">
-              <button type="button" class="review-action" (click)="closeReviewPicker()">
+            <div class="merge-picker-actions">
+              <button type="button" class="merge-picker-cancel" (click)="closeReviewPicker()">
                 Cancel
               </button>
               <button
                 type="button"
-                class="review-action primary"
+                class="merge-picker-confirm"
                 [disabled]="!reviewPickerConcept() || reviewSaving()"
                 (click)="confirmLinkToConcept()"
               >
@@ -495,13 +495,13 @@
           </div>
           } @else {
           <div class="review-actions">
-            <button type="button" class="review-action primary" (click)="openReviewPicker()">
+            <button type="button" class="concept-action primary" (click)="openReviewPicker()">
               Link to concept
             </button>
-            <button type="button" class="review-action" (click)="startReviewEdit()">
+            <button type="button" class="concept-action" (click)="startReviewEdit()">
               Edit note
             </button>
-            <button type="button" class="review-action" (click)="skipReviewNote()">
+            <button type="button" class="concept-action" (click)="skipReviewNote()">
               Skip
             </button>
           </div>

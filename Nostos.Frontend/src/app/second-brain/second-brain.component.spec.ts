@@ -1329,14 +1329,15 @@ describe('SecondBrain', () => {
       enterReview();
 
       expect(component.viewMode()).toBe('unlinked');
-      expect(fixture.nativeElement.querySelector('.index-list')).toBeNull();
+      // The concept index is replaced, not augmented: no concept rows remain.
+      expect(fixture.nativeElement.querySelector('.index-row-shell')).toBeNull();
       expect(fixture.nativeElement.querySelector('.brain-section-title')?.textContent?.trim()).toBe(
         'Notes with no concept'
       );
       expect(fixture.nativeElement.querySelector('.brain-section-count')?.textContent?.trim()).toBe(
         '2 remaining'
       );
-      expect(fixture.nativeElement.querySelectorAll('.review-list .note-row-item').length).toBe(2);
+      expect(fixture.nativeElement.querySelectorAll('.index-list .note-row-item').length).toBe(2);
 
       // Review is a task the user enters, not a place to be restored into.
       expect(localStorage.getItem('nostos.brain.viewMode')).toBeNull();
@@ -1360,11 +1361,11 @@ describe('SecondBrain', () => {
 
     it('focuses a queue row without deciding anything about it', () => {
       enterReview();
-      (fixture.nativeElement.querySelectorAll('.review-list .note-row-item')[1] as HTMLButtonElement).click();
+      (fixture.nativeElement.querySelectorAll('.index-list .note-row-item')[1] as HTMLButtonElement).click();
       fixture.detectChanges();
 
       expect(component.reviewNote()!.id).toBe('hit-2');
-      const rows = fixture.nativeElement.querySelectorAll('.review-list .note-row-item');
+      const rows = fixture.nativeElement.querySelectorAll('.index-list .note-row-item');
       expect(rows[0].classList).not.toContain('active');
       expect(rows[1].classList).toContain('active');
       expect(component.reviewQueue().length).toBe(2);
@@ -1387,7 +1388,7 @@ describe('SecondBrain', () => {
       request.flush({ items: [sampleHits[1], thirdHit], totalCount: 3, offset: 1, limit: 25 });
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.querySelectorAll('.review-list .note-row-item').length).toBe(3);
+      expect(fixture.nativeElement.querySelectorAll('.index-list .note-row-item').length).toBe(3);
       expect(fixture.nativeElement.querySelector('.review-load-more')).toBeNull();
       expect(component.reviewQueue().length).toBe(component.reviewTotal());
     });
@@ -1397,11 +1398,13 @@ describe('SecondBrain', () => {
       component.openReviewPicker();
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.querySelector('.review-picker')).toBeTruthy();
+      expect(fixture.nativeElement.querySelector('.merge-picker')).toBeTruthy();
 
       component.chooseReviewConcept('c-alpha');
       fixture.detectChanges();
-      (fixture.nativeElement.querySelector('.review-picker-actions .primary') as HTMLButtonElement).click();
+      (
+        fixture.nativeElement.querySelector('.merge-picker-actions .merge-picker-confirm') as HTMLButtonElement
+      ).click();
       fixture.detectChanges();
 
       const put = http.expectOne((req) => req.method === 'PUT' && req.url === '/api/notes/hit-1');
@@ -1413,7 +1416,7 @@ describe('SecondBrain', () => {
       put.flush({});
       settleReviewRefresh();
 
-      expect(fixture.nativeElement.querySelector('.review-picker')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.merge-picker')).toBeNull();
       expect(component.reviewQueue().map((row) => row.id)).toEqual(['hit-2']);
       expect(component.reviewTotal()).toBe(1);
       expect(fixture.nativeElement.querySelector('.brain-section-count')?.textContent?.trim()).toBe(
@@ -1500,7 +1503,7 @@ describe('SecondBrain', () => {
 
       expect(fixture.nativeElement.textContent).toContain('Nothing waiting');
       expect(fixture.nativeElement.textContent).toContain('Every note is connected to a concept.');
-      expect(fixture.nativeElement.querySelector('.review-list .note-row-item')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.index-list .note-row-item')).toBeNull();
       expect(fixture.nativeElement.querySelector('.review-pane')).toBeNull();
     });
 
@@ -1510,8 +1513,10 @@ describe('SecondBrain', () => {
       fixture.detectChanges();
 
       expect(component.viewMode()).toBe('list');
-      expect(fixture.nativeElement.querySelector('.index-list')).toBeTruthy();
-      expect(fixture.nativeElement.querySelector('.review-list')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.brain-section-title')?.textContent?.trim()).toBe(
+        'Concepts'
+      );
+      expect(fixture.nativeElement.querySelectorAll('.index-list .note-row-item').length).toBe(0);
       expect(component.reviewQueue().length).toBe(2);
       expect(localStorage.getItem('nostos.brain.viewMode')).toBe('list');
     });
@@ -1535,7 +1540,7 @@ describe('SecondBrain', () => {
     it('shows each queued note with its source, falling back to the note text', () => {
       enterReview();
 
-      const rows = fixture.nativeElement.querySelectorAll('.review-list .note-row-item');
+      const rows = fixture.nativeElement.querySelectorAll('.index-list .note-row-item');
       expect(rows.length).toBe(2);
 
       expect(rows[0].querySelector('.note-row-snippet')?.textContent?.trim()).toBe('“One must imagine Sisyphus happy.”');

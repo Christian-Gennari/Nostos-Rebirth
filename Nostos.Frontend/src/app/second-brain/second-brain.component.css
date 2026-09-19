@@ -910,7 +910,9 @@
 /* The concept header is editorial, not a marketing hero: the title anchors the
    left edge like a chapter opening, its actions sit quietly opposite it, and the
    title's own baseline does the work instead of a stack of centred blocks. */
-.concept-header {
+.concept-header,
+.review-pane,
+.review-head {
   margin-bottom: 1.5rem;
   max-width: 1100px;
   margin-left: auto;
@@ -933,7 +935,8 @@
   margin-bottom: 0.4rem;
 }
 
-.concept-title {
+.concept-title,
+.review-title {
   font-family: 'Newsreader', serif;
   font-size: 2.4rem;
   font-weight: 500;
@@ -941,6 +944,13 @@
   line-height: 1.1;
   letter-spacing: -0.01em;
   margin: 0 0 0.35rem 0;
+}
+
+/* The reviewed note's subject is a book title, not the surface's own title, so
+   it takes the same face one step down rather than competing with "Brain". */
+.review-title {
+  font-size: 1.5rem;
+  font-weight: var(--fw-semibold);
 }
 
 /* Metadata reads as a quiet editorial caption, not a dashboard stat. */
@@ -952,13 +962,21 @@
 /* Actions are quiet until needed: no border at rest, so the header is type and
    air rather than three competing boxes. The hairline and fill arrive on hover,
    which keeps the destructive action from carrying the same weight as the rest. */
-.concept-actions {
+.concept-actions,
+.review-actions {
   display: flex;
   align-items: center;
   gap: 0.15rem;
   flex-shrink: 0;
   /* Optically align with the title's cap height rather than its box top. */
   margin-top: 1.35rem;
+}
+
+/* The review pane's action row is a block in a column, so it takes no title
+   offset and is allowed to wrap on a phone. */
+.review-actions {
+  margin-top: 0;
+  flex-wrap: wrap;
 }
 
 .concept-action {
@@ -1164,7 +1182,11 @@
   text-align: center;
 }
 
-.merge-picker-empty {
+/* Says what linking will actually do before it does it: the association this
+ * codebase has is an explicit [[reference]] in the note, and a user should not
+ * discover that by reading the diff. */
+.merge-picker-empty,
+.merge-picker-hint {
   padding: 0.8rem 0.65rem;
   color: var(--color-text-muted);
   font-size: 0.78rem;
@@ -2363,13 +2385,15 @@
   color: var(--color-text-main);
 }
 
-.brain-note-panel-body {
+.brain-note-panel-body,
+.review-body {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
-.brain-note-panel-quote {
+.brain-note-panel-quote,
+.review-quote {
   margin: 0;
   padding: 0.5rem 0.75rem;
   border-left: 3px solid var(--border-color);
@@ -2380,7 +2404,8 @@
   border-radius: var(--radius-md);
 }
 
-.brain-note-panel-content {
+.brain-note-panel-content,
+.review-content {
   margin: 0;
   font-size: 0.92rem;
   line-height: 1.5;
@@ -2412,22 +2437,12 @@
 
 /* --- UNLINKED-NOTE REVIEW (issue #256) ---
  *
- * Review is a task, not a section. The rail becomes the queue and the content
+ * Review is a task, not a section: the rail becomes the queue and the content
  * pane becomes one focused note, for as long as the user has chosen to review.
  *
- * Everything here is built from the tokens the surface already uses — the row
- * fill, the hairline, the focus ring, the ink — so the mode follows the theme
- * instead of carrying a palette of its own, and reads as the same product as the
- * concept index it temporarily replaces.
- */
-
-.review-list {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  position: relative;
-  padding: 0.5rem 1.25rem 1rem;
-}
+ * Built from tokens and recipes the surface already has — the rail's list, the
+ * concept pane's header and action row, the merge picker — so the mode reads as
+ * the same product as the concept index it temporarily replaces. */
 
 /* The reviewed row. Same fill the concept index gives its active row, so
    "where am I" reads identically in both rails. */
@@ -2436,11 +2451,17 @@
   color: var(--color-text-main);
 }
 
+/* The rail's two buttons, one recipe.
+ *
+ * `Review notes with no concept` / `Done reviewing` sit in the rail's foot, the
+ * queue's `Load more` sits at the end of the list; both are quiet full-width
+ * rows in the rail, and neither is a badge. Keeping one rule is what stops them
+ * drifting into two different affordances. */
+.rail-foot-action,
 .review-load-more {
   display: block;
   width: 100%;
-  margin-top: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem;
   border: none;
   border-radius: var(--radius-md);
   background: transparent;
@@ -2454,14 +2475,20 @@
     color 0.15s ease;
 }
 
+.rail-foot-action:hover,
 .review-load-more:hover:not(:disabled) {
   background: var(--bg-hover);
   color: var(--color-text-main);
 }
 
+.rail-foot-action:focus-visible,
 .review-load-more:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
+}
+
+.review-load-more {
+  margin-top: 0.5rem;
 }
 
 .review-load-more:disabled {
@@ -2481,123 +2508,20 @@
   padding: 0.5rem 0.75rem;
 }
 
-.rail-foot-action {
-  width: 100%;
-  padding: 0.5rem;
-  border: none;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.78rem;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease;
-}
-
-.rail-foot-action:hover {
-  background: var(--bg-hover);
-  color: var(--color-text-main);
-}
-
-.rail-foot-action:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: -2px;
-}
-
-/* --- The focused note ---
+/* The focused note.
  *
- * `.content-col` already supplies the surface's padding, so this only centres
- * the task and holds it to a reading measure — the same shape the concept detail
- * pane uses. */
-
-.review-pane {
-  max-width: 1100px;
-  margin: 0 auto;
-}
-
-.review-head {
-  margin-bottom: 1.5rem;
-}
-
-.review-title {
-  font-family: 'Newsreader', serif;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--color-text-main);
-  margin: 0.25rem 0 0;
-  letter-spacing: -0.01em;
-}
+ * `.content-col` supplies the padding, so the pane only centres the task and
+ * holds it to a reading measure. The quote, the note text and the action row are
+ * recipes the surface already has (`.brain-note-panel-*`, `.concept-action`), so
+ * what is left here is a measure and one hairline. */
 
 .review-body {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
   max-width: 46rem;
 }
 
-.review-quote {
-  margin: 0;
-  padding: 0.75rem 1rem;
-  border-left: 3px solid var(--border-color);
-  font-size: 1rem;
-  font-style: italic;
-  color: var(--color-text-muted);
-  background: var(--bg-hover);
-  border-radius: var(--radius-md);
-}
-
-.review-content {
-  margin: 0;
-  font-size: 1rem;
-  line-height: 1.6;
-  color: var(--color-text-main);
-  white-space: pre-wrap;
-}
-
-.review-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-/* The surface's own action recipe: quiet by default (`.concept-action`), with a
- * hairline for the one action that actually commits something (`.empty-clear`).
- * No filled CTA — this is housekeeping, and a loud button would say otherwise. */
-.review-action {
-  min-height: 36px;
-  padding: 0 0.85rem;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-text-light);
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.78rem;
-  cursor: pointer;
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease;
-}
-
-.review-action:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--color-text-main);
-}
-
-.review-action:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: -2px;
-}
-
-.review-action:disabled {
-  cursor: default;
-  opacity: 0.55;
-}
-
-.review-action.primary {
+/* The committing action carries a hairline, so "Link to concept" is separable
+ * from "Skip" without becoming the only filled CTA on a housekeeping surface. */
+.concept-action.primary {
   border-color: var(--border-color);
   color: var(--color-text-main);
 }
@@ -2605,121 +2529,13 @@
 /* --- The concept picker ---
  *
  * The deliberate half of the two write paths: the user names the concept the
- * note belongs to, and nothing is written until they confirm. */
-
-.review-picker {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface-alt);
-}
-
-.review-picker-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.review-picker-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-}
-
-.review-picker-close:hover {
-  background: var(--bg-hover);
-  color: var(--color-text-main);
-}
-
-.review-picker-close:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: -2px;
-}
-
-/* Says what linking will actually do before it does it: the association this
- * codebase has is an explicit [[reference]] in the note, and a user should not
- * discover that by reading the diff. */
-.review-picker-hint {
-  margin: 0;
-  font-size: 0.78rem;
-  color: var(--color-text-muted);
-}
-
-.review-picker-search {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding-bottom: 0.4rem;
-  border-bottom: 1px solid var(--border-color);
-  color: var(--color-text-muted);
-}
-
-.review-picker-search input {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  background: transparent;
-  color: var(--color-text-main);
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.88rem;
-  outline: none;
-}
-
-.review-picker-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-height: 240px;
-  overflow-y: auto;
-}
-
-.review-picker-empty,
-.review-picker-count {
-  color: var(--color-text-light);
-  font-size: 0.78rem;
-}
-
-.review-picker-target {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.4rem 0.6rem;
-  border: none;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-text-main);
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.88rem;
-  text-align: left;
-  cursor: pointer;
-}
-
-.review-picker-target:hover,
-.review-picker-target.selected {
-  background: var(--bg-hover);
-}
-
-.review-picker-target:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: -2px;
-}
-
-.review-picker-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
+ * note belongs to, and nothing is written until they confirm.
+ *
+ * It deliberately carries NO styles of its own. It is the merge picker's
+ * markup and the merge picker's classes, because it is the same job in the same
+ * surface — pick one existing concept from a searchable list — and a second
+ * near-identical recipe is how the two would drift apart. `.merge-picker-hint`
+ * below is the one new line of copy it needed. */
 
 @media (max-width: 768px) {
   /* The reviewed note keeps a phone-sized measure: the pane's own padding comes
