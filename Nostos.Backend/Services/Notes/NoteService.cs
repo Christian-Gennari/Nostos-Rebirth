@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
 using Nostos.Backend.Data.Interfaces;
@@ -17,6 +18,24 @@ namespace Nostos.Backend.Services.Notes;
 /// </summary>
 public sealed class NoteService : INoteService
 {
+    // The SQLite CHECK on NoteCommandReceipts.ResultJson caps the payload at
+    // this many characters; a serialised result that would exceed it is a bug
+    // we must surface, never silently truncate.
+    private const int MaxReceiptJsonLength = 131072;
+
+    // Stored in NoteCommandReceipt.Command: the captured note's command kind,
+    // distinct from any library command so a note receipt can never be read as
+    // a library one (separate tables enforce that anyway).
+    private const string CaptureCommand = "CaptureNote";
+
+    // Process-local gate serializes keyed captures (mirror of LibraryService):
+    // the assistant tool loop runs in-process and can fire concurrent captures,
+    // so the gate is what makes the second same-key call wait for the first
+    // rather than racing it. Static so the gate is shared across scoped
+    // service instances.
+    private static readonly SemaphoreSlim CommandGate = new(1, 1);
+    private static readonly JsonSerializerOptions ReceiptJson = new(JsonSerializerDefaults.Web);
+
     private readonly INoteRepository _notes;
     private readonly IBookRepository _books;
     private readonly IConceptRepository _concepts;
@@ -67,7 +86,63 @@ public sealed class NoteService : INoteService
     // Mutations
     // ------------------------------------------------------------------
 
-    public async Task<NoteCommandResult<NoteDto>> CreateAsync(Guid bookId, CreateNoteDto dto, CancellationToken ct = default)
+    /// <summary>
+    /// Creates a note. With neither key this is today's non-idempotent create;
+    /// with both it is exactly-once: a repeated pair replays the stored result
+    /// without touching the notes table (issue #260 §3). The keys are
+    /// all-or-nothing — supplying only one is an error rather than a silent
+    /// downgrade to a non-replayable command.
+    /// </summary>
+    public async Task<NoteCommandResult<NoteDto>> CreateAsync(
+        Guid bookId,
+        CreateNoteDto dto,
+        string? clientId = null,
+        string? idempotencyKey = null,
+        CancellationToken ct = default)
+    {
+        var hasClient = !string.IsNullOrWhiteSpace(clientId);
+        var hasKey = !string.IsNullOrWhiteSpace(idempotencyKey);
+
+        if (!hasClient && !hasKey)
+            return await CreateCoreAsync(bookId, dto, ct);
+
+        if (!hasClient || !hasKey)
+            return NoteCommandResult<NoteDto>.Fail(
+                NoteErrorCodes.InvalidIdempotency,
+                "ClientId and IdempotencyKey must be supplied together.");
+
+        if (clientId!.Length > 64 || idempotencyKey!.Length > 128)
+            return NoteCommandResult<NoteDto>.Fail(
+                NoteErrorCodes.InvalidIdempotency,
+                "ClientId is limited to 64 characters and IdempotencyKey to 128.");
+
+        return await CreateIdempotentAsync(bookId, dto, clientId, idempotencyKey, ct);
+    }
+
+    public Task<NoteCommandResult<NoteDto>> CaptureAsync(
+        CaptureNoteRequest request,
+        CancellationToken ct = default)
+    {
+        // One implementation: CaptureAsync is the canonical in-process entry
+        // point and funnels into the same keyed create the REST endpoint uses.
+        var dto = new CreateNoteDto(
+            Content: request.Content,
+            CfiRange: request.CfiRange,
+            SelectedText: request.SelectedText,
+            RawContent: request.RawContent,
+            CaptureSource: request.CaptureSource,
+            ProcessingMode: request.ProcessingMode,
+            SourceAnchorKind: request.SourceAnchorKind,
+            SourceAnchorValue: request.SourceAnchorValue,
+            AnchorVerified: request.AnchorVerified);
+
+        return CreateAsync(request.BookId, dto, request.ClientId, request.IdempotencyKey, ct);
+    }
+
+    private async Task<NoteCommandResult<NoteDto>> CreateCoreAsync(
+        Guid bookId,
+        CreateNoteDto dto,
+        CancellationToken ct)
     {
         var book = await _books.GetByIdAsync(bookId);
         if (book is null)
@@ -91,6 +166,76 @@ public sealed class NoteService : INoteService
         var createdNote = await _notes.GetByIdWithBookAsync(model.Id);
 
         return NoteCommandResult<NoteDto>.Ok(createdNote!.ToDto());
+    }
+
+    /// <summary>
+    /// The exactly-once path: hold the in-process gate, replay a prior receipt
+    /// if the pair was seen, otherwise run the command inside a transaction and
+    /// commit the note together with its receipt. Only a successful capture is
+    /// receipted — a rejected one stays retryable with the same key (deliberate
+    /// divergence from the library, where failures are stored too).
+    /// </summary>
+    private async Task<NoteCommandResult<NoteDto>> CreateIdempotentAsync(
+        Guid bookId,
+        CreateNoteDto dto,
+        string clientId,
+        string idempotencyKey,
+        CancellationToken ct)
+    {
+        await CommandGate.WaitAsync(ct);
+        try
+        {
+            var prior = await _notes.GetReceiptAsync(clientId, idempotencyKey);
+            if (prior is not null)
+                return Deserialize(prior.ResultJson);
+
+            await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+
+            var result = await CreateCoreAsync(bookId, dto, ct);
+            if (!result.Success)
+            {
+                // No receipt for a rejection: the client can correct the reason
+                // (empty note, unknown book) and retry with the SAME key.
+                await transaction.RollbackAsync(ct);
+                return result;
+            }
+
+            var json = Serialize(result);
+            if (json.Length > MaxReceiptJsonLength)
+                throw new InvalidOperationException(
+                    $"Note command receipt would be {json.Length} characters, over the {MaxReceiptJsonLength} cap.");
+
+            await _notes.AddReceiptAsync(new NoteCommandReceipt
+            {
+                ClientId = clientId,
+                IdempotencyKey = idempotencyKey,
+                Command = CaptureCommand,
+                ResultJson = json,
+                CreatedAtUtc = DateTime.UtcNow,
+            });
+
+            try
+            {
+                await _notes.SaveChangesAsync();
+                await transaction.CommitAsync(ct);
+                return result;
+            }
+            catch (DbUpdateException)
+            {
+                // Another process inserted the same pair first. Re-read its
+                // receipt and return that stored result rather than throwing.
+                await transaction.RollbackAsync(ct);
+                _db.ChangeTracker.Clear();
+                var raced = await _notes.GetReceiptAsync(clientId, idempotencyKey);
+                if (raced is not null)
+                    return Deserialize(raced.ResultJson);
+                throw;
+            }
+        }
+        finally
+        {
+            CommandGate.Release();
+        }
     }
 
     public async Task<NoteCommandResult<NoteDto>> UpdateAsync(Guid noteId, UpdateNoteDto dto, CancellationToken ct = default)
@@ -189,6 +334,14 @@ public sealed class NoteService : INoteService
 
     /// <summary>A small page keeps the index responsive; the cap is a guard on the caller.</summary>
     private static int Clamp(int limit) => Math.Clamp(limit, 1, 200);
+
+    /// <summary>Stored note command result. Successes only, so this always represents a created note.</summary>
+    private static string Serialize(NoteCommandResult<NoteDto> result) =>
+        JsonSerializer.Serialize(result, ReceiptJson);
+
+    private static NoteCommandResult<NoteDto> Deserialize(string json) =>
+        JsonSerializer.Deserialize<NoteCommandResult<NoteDto>>(json, ReceiptJson)
+        ?? throw new InvalidOperationException("Stored note command receipt is invalid.");
 
     private static NoteSearchHitDto ByText(NoteModel n, string? term) => new(
         n.Id,

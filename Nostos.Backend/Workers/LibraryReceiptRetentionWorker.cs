@@ -31,15 +31,17 @@ public class LibraryReceiptRetentionWorker(
 
     /// <summary>
     /// Runs one scoped prune cycle: resolve <see cref="LibraryReceiptRetentionService"/>
-    /// from a fresh scope and call <see cref="LibraryReceiptRetentionService.PruneAsync"/>.
-    /// Exposed so tests can drive a single scan deterministically without
-    /// starting the background loop.
+    /// from a fresh scope and prune library receipts, then note receipts
+    /// (issue #260 §3) with the same service and policy. Exposed so tests can
+    /// drive a single scan deterministically without starting the background
+    /// loop.
     /// </summary>
     public async Task ScanOnceAsync(CancellationToken cancellationToken = default)
     {
         using var scope = scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<LibraryReceiptRetentionService>();
         await service.PruneAsync(cancellationToken);
+        await service.PruneNoteReceiptsAsync(cancellationToken);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

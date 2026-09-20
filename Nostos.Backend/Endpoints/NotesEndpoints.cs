@@ -39,12 +39,16 @@ public static class NotesEndpoints
                 Results.Ok(await notes.GetUnlinkedAsync(limit ?? 50, offset ?? 0))
         );
 
-        // CREATE note
+        // CREATE note. Optional `Idempotency-Key` + `X-Client-Id` headers make
+        // the capture exactly-once (issue #260 §3); callers that send neither
+        // keep the original non-idempotent behaviour.
         group.MapPost(
             "/books/{bookId}/notes",
-            async (Guid bookId, CreateNoteDto dto, INoteService notes) =>
+            async (Guid bookId, CreateNoteDto dto, INoteService notes, HttpRequest request) =>
             {
-                var result = await notes.CreateAsync(bookId, dto);
+                var clientId = HeaderValue(request, "X-Client-Id");
+                var idempotencyKey = HeaderValue(request, "Idempotency-Key");
+                var result = await notes.CreateAsync(bookId, dto, clientId, idempotencyKey);
                 if (result.Success)
                     return Results.Created($"/api/notes/{result.Value!.Id}", result.Value);
 
@@ -78,4 +82,9 @@ public static class NotesEndpoints
 
         return routes;
     }
+
+    private static string? HeaderValue(HttpRequest request, string name) =>
+        request.Headers.TryGetValue(name, out var values) && values.Count > 0
+            ? values[0]
+            : null;
 }
