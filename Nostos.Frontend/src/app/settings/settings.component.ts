@@ -31,36 +31,48 @@ const SLOW_STEP_THRESHOLD_MS = 30_000;
 const COPIED_FEEDBACK_MS = 2_500;
 
 /**
- * Every user-visible string in the AI provider card, in one place. The card is
- * the only surface for this feature, so keeping its copy together means a
- * wording change is a single edit.
+ * Every user-visible string for the AI provider feature, in one place: the card's
+ * own copy plus the locked-state sentence the older Reading assistant card shows
+ * when no provider is configured. Keeping them together means a wording change is
+ * a single edit.
  */
 const AI_PROVIDER_COPY = {
   title: 'AI provider',
   intro:
-    'Nostos sends your text and voice to an OpenAI-compatible endpoint. Point it at any compatible gateway and pick the model it should use.',
+    'Notes and voice recordings are sent directly to the OpenAI-compatible endpoints configured below.',
   readingAssistant: 'Reading assistant',
   voiceTranscription: 'Voice transcription',
+  voiceToggle: 'Enable voice transcription',
+  voiceToggleHelp: 'Send voice recordings to the transcription endpoint.',
   endpoint: 'Endpoint',
-  endpointHelp: 'OpenAI-compatible base URL, including /v1.',
+  endpointPlaceholder: 'https://api.openai.com/v1',
+  endpointHelp: 'Base URL, including /v1.',
   model: 'Model',
-  modelHelp: 'The model id sent to this endpoint.',
+  modelPlaceholderLlm: 'e.g. gpt-4o-mini',
+  modelPlaceholderStt: 'e.g. whisper-1',
+  modelHelp: 'Exact model name expected by the endpoint.',
   apiKey: 'API key',
-  configured: 'Configured',
-  configuredFromEnv: 'Configured — using the server environment variable.',
-  voiceToggle: 'Transcribe voice notes',
+  apiKeyPlaceholderUnset: 'Leave empty if unauthenticated',
+  apiKeyPlaceholderSet: 'Configured on server (leave blank to keep)',
+  apiKeyHelp: 'Stored on your server. Never returned to the browser.',
   loadModels: 'Load models',
   testConnection: 'Test connection',
+  clear: 'Clear key',
   save: 'Save',
-  clear: 'Clear',
+  testing: 'Testing connection…',
+  loading: 'Loading models…',
   saved: 'Saved.',
-  testing: 'Testing…',
-  loading: 'Loading…',
-  noModels: 'No models returned.',
-  keyCleared: 'Key cleared — the server environment variable will be used instead.',
+  modelsLoaded: (count: number) => `Loaded ${count} models.`,
+  modelsEmpty: 'No models returned by endpoint.',
+  modelsError: (message: string) => `Could not load models: ${message}`,
+  connectionError: (message: string) => `Connection failed: ${message}`,
+  keyCleared: 'Key removed. Falling back to environment variable if present.',
+  oldCardEmptyState: 'Set up an AI provider in Settings to enable this.',
+  // The reviewed set covers the four card actions but not a failed GET/PUT or
+  // the configured-key signals, so these keep their earlier wording.
+  configured: 'Configured',
+  configuredFromEnv: 'Configured — using the server environment variable.',
   loadFailed: 'Could not load the AI provider settings.',
-  couldNotReach: (message: string) => `Could not reach the endpoint: ${message}`,
-  loadedModels: (count: number) => `Loaded ${count} models.`,
   couldNotSave: (message: string) => `Could not save: ${message}`,
 } as const;
 
@@ -406,7 +418,7 @@ const defaultProgress: BackupProgress = {
               @if (assistantAvailable()) {
                 <span class="label-desc">Show the dock capsule for capturing thoughts while reading.</span>
               } @else {
-                <span class="label-desc">Unavailable. Configure a model provider in the AI provider section below to enable this.</span>
+                <span class="label-desc">{{ copy.oldCardEmptyState }}</span>
               }
             </div>
             @if (assistantAvailable()) {
@@ -472,6 +484,7 @@ const defaultProgress: BackupProgress = {
                   type="text"
                   autocomplete="off"
                   spellcheck="false"
+                  [placeholder]="copy.endpointPlaceholder"
                   [value]="aiLlm().baseUrl"
                   (input)="setAiBaseUrl('llm', $event)"
                 />
@@ -487,6 +500,7 @@ const defaultProgress: BackupProgress = {
                     type="text"
                     autocomplete="off"
                     spellcheck="false"
+                    [placeholder]="copy.modelPlaceholderLlm"
                     list="ai-llm-model-options"
                     [value]="aiLlm().model"
                     (input)="setAiModel('llm', $event)"
@@ -520,6 +534,11 @@ const defaultProgress: BackupProgress = {
                   class="provider-input"
                   type="password"
                   autocomplete="new-password"
+                  [placeholder]="
+                    aiLlm().hasKey || aiLlm().keyFromServerEnv
+                      ? copy.apiKeyPlaceholderSet
+                      : copy.apiKeyPlaceholderUnset
+                  "
                   [value]="aiLlm().key"
                   (input)="setAiKey('llm', $event)"
                 />
@@ -539,6 +558,7 @@ const defaultProgress: BackupProgress = {
                     </button>
                   </div>
                 }
+                <p class="provider-help">{{ copy.apiKeyHelp }}</p>
               </div>
 
               <div class="provider-actions">
@@ -584,6 +604,7 @@ const defaultProgress: BackupProgress = {
                 </label>
                 <span class="provider-toggle-label">{{ copy.voiceToggle }}</span>
               </div>
+              <p class="provider-help provider-toggle-help">{{ copy.voiceToggleHelp }}</p>
 
               <div class="provider-field">
                 <label class="provider-label" for="ai-stt-base-url">{{ copy.endpoint }}</label>
@@ -593,9 +614,11 @@ const defaultProgress: BackupProgress = {
                   type="text"
                   autocomplete="off"
                   spellcheck="false"
+                  [placeholder]="copy.endpointPlaceholder"
                   [value]="aiStt().baseUrl"
                   (input)="setAiBaseUrl('stt', $event)"
                 />
+                <p class="provider-help">{{ copy.endpointHelp }}</p>
               </div>
 
               <div class="provider-field">
@@ -607,6 +630,7 @@ const defaultProgress: BackupProgress = {
                     type="text"
                     autocomplete="off"
                     spellcheck="false"
+                    [placeholder]="copy.modelPlaceholderStt"
                     list="ai-stt-model-options"
                     [value]="aiStt().model"
                     (input)="setAiModel('stt', $event)"
@@ -640,6 +664,11 @@ const defaultProgress: BackupProgress = {
                   class="provider-input"
                   type="password"
                   autocomplete="new-password"
+                  [placeholder]="
+                    aiStt().hasKey || aiStt().keyFromServerEnv
+                      ? copy.apiKeyPlaceholderSet
+                      : copy.apiKeyPlaceholderUnset
+                  "
                   [value]="aiStt().key"
                   (input)="setAiKey('stt', $event)"
                 />
@@ -659,6 +688,7 @@ const defaultProgress: BackupProgress = {
                     </button>
                   </div>
                 }
+                <p class="provider-help">{{ copy.apiKeyHelp }}</p>
               </div>
 
               <div class="provider-actions">
@@ -980,14 +1010,14 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.setAiStatus(
           kind,
           models.length === 0
-            ? { text: AI_PROVIDER_COPY.noModels, tone: 'neutral' }
-            : { text: AI_PROVIDER_COPY.loadedModels(models.length), tone: 'ok' },
+            ? { text: AI_PROVIDER_COPY.modelsEmpty, tone: 'neutral' }
+            : { text: AI_PROVIDER_COPY.modelsLoaded(models.length), tone: 'ok' },
         );
       },
       error: (error) => {
         this.aiLoadingKind.set(null);
         this.setAiStatus(kind, {
-          text: AI_PROVIDER_COPY.couldNotReach(this.errorMessage(error)),
+          text: AI_PROVIDER_COPY.modelsError(this.errorMessage(error)),
           tone: 'error',
         });
       },
@@ -1023,7 +1053,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
       error: (error) => {
         this.aiTestingKind.set(null);
         this.setAiStatus(kind, {
-          text: AI_PROVIDER_COPY.couldNotReach(this.errorMessage(error)),
+          text: AI_PROVIDER_COPY.connectionError(this.errorMessage(error)),
           tone: 'error',
         });
       },

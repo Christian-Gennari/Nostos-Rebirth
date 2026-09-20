@@ -217,7 +217,7 @@ describe('SettingsComponent backup-only surface', () => {
   it('exposes the automatic-backup toggle and manual backup action', () => {
     const toggles = fixture.debugElement.queryAll(By.css('input[type="checkbox"]'));
     // Automatic Backup + Include Book Files + the Reading assistant toggle (W1)
-    // + the AI provider card's "Transcribe voice notes" toggle.
+    // + the AI provider card's voice transcription toggle.
     expect(toggles.length).toBe(4);
     const buttons = fixture.debugElement
       .queryAll(By.css('button'))
@@ -431,7 +431,7 @@ describe('SettingsComponent backup-only surface', () => {
     const card = assistantCard();
     expect(card).not.toBeNull();
     expect(card!.textContent).toContain(
-      'Unavailable. Configure a model provider in the AI provider section below to enable this.',
+      'Set up an AI provider in Settings to enable this.',
     );
     expect(card!.textContent).not.toContain('Show the dock capsule');
 
@@ -489,6 +489,41 @@ describe('SettingsComponent backup-only surface', () => {
     expect(buttonByText('ai-provider-stt', 'Clear')).toBeTruthy();
   });
 
+  it('renders the reviewed intro and field helpers on both sections', () => {
+    const card = aiCard()!;
+    expect(card.textContent).toContain(
+      'Notes and voice recordings are sent directly to the OpenAI-compatible endpoints configured below.',
+    );
+    expect(card.textContent).toContain('Base URL, including /v1.');
+    expect(card.textContent).toContain('Exact model name expected by the endpoint.');
+    expect(card.textContent).toContain('Stored on your server. Never returned to the browser.');
+    expect(card.textContent).toContain('Send voice recordings to the transcription endpoint.');
+    expect(card.textContent).toContain('Enable voice transcription');
+  });
+
+  it('offers the reviewed placeholders, and calls out an already-configured key', () => {
+    expect(input('#ai-llm-base-url').placeholder).toBe('https://api.openai.com/v1');
+    expect(input('#ai-stt-base-url').placeholder).toBe('https://api.openai.com/v1');
+    expect(input('#ai-llm-model').placeholder).toBe('e.g. gpt-4o-mini');
+    expect(input('#ai-stt-model').placeholder).toBe('e.g. whisper-1');
+    // Both sections have a key already (one stored, one from the environment).
+    expect(input('#ai-llm-api-key').placeholder).toBe('Configured on server (leave blank to keep)');
+    expect(input('#ai-stt-api-key').placeholder).toBe('Configured on server (leave blank to keep)');
+  });
+
+  it('offers the unauthenticated key placeholder when no key is configured', () => {
+    aiProviderServiceMock.get.mockReturnValueOnce(
+      of<AiProviderSettings>({
+        llm: { enabled: false, baseUrl: '', model: '', hasKey: false, keyFromServerEnv: false },
+        stt: { enabled: false, baseUrl: '', model: '', hasKey: false, keyFromServerEnv: false },
+      }),
+    );
+    render();
+
+    expect(input('#ai-llm-api-key').placeholder).toBe('Leave empty if unauthenticated');
+    expect(input('#ai-stt-api-key').placeholder).toBe('Leave empty if unauthenticated');
+  });
+
   it('omits apiKey when the key was never touched', () => {
     setInputValue('#ai-llm-model', 'gpt-4o');
     clickSave();
@@ -503,7 +538,7 @@ describe('SettingsComponent backup-only surface', () => {
 
   it('sends apiKey: "" only after Clear, and says what will be used instead', () => {
     clickButton('ai-provider-llm', 'Clear');
-    expect(llmStatusText()).toContain('Key cleared');
+    expect(llmStatusText()).toBe('Key removed. Falling back to environment variable if present.');
 
     clickSave();
     expect(aiProviderServiceMock.update.mock.calls[0][0].llm).toEqual({ apiKey: '' });
@@ -544,7 +579,7 @@ describe('SettingsComponent backup-only surface', () => {
       of<AiProviderModelsResponse>({ models: [] }),
     );
     clickButton('ai-provider-llm', 'Load models');
-    expect(llmStatusText()).toBe('No models returned.');
+    expect(llmStatusText()).toBe('No models returned by endpoint.');
   });
 
   it('renders the success detail inline after Test connection', () => {
@@ -579,7 +614,31 @@ describe('SettingsComponent backup-only surface', () => {
     );
     clickButton('ai-provider-llm', 'Test connection');
 
-    expect(llmStatusText()).toBe('Could not reach the endpoint: Connection refused');
+    expect(llmStatusText()).toBe('Connection failed: Connection refused');
+  });
+
+  it('wraps a failed model lookup with the load-specific message', () => {
+    aiProviderServiceMock.loadModels.mockReturnValueOnce(
+      throwError(() => ({ error: { error: 'Endpoint rejected the request' } })),
+    );
+    clickButton('ai-provider-llm', 'Load models');
+
+    expect(llmStatusText()).toBe('Could not load models: Endpoint rejected the request');
+    expect(statusElement('ai-provider-llm').classList.contains('is-error')).toBe(true);
+  });
+
+  it('uses the reviewed in-flight label while a connection test runs', () => {
+    const pending = new Subject<AiProviderTestResult>();
+    aiProviderServiceMock.test.mockReturnValueOnce(pending);
+
+    clickButton('ai-provider-llm', 'Test connection');
+    expect(buttonByText('ai-provider-llm', 'Testing connection…')!.disabled).toBe(true);
+
+    pending.next({ ok: true, detail: 'Connection verified.' });
+    pending.complete();
+    fixture.detectChanges();
+
+    expect(llmStatusText()).toBe('Connection verified.');
   });
 
   it('sends the voice toggle as the stt section', () => {
@@ -602,7 +661,7 @@ describe('SettingsComponent backup-only surface', () => {
 
     clickButton('ai-provider-llm', 'Load models');
 
-    expect(buttonByText('ai-provider-llm', 'Loading…')!.disabled).toBe(true);
+    expect(buttonByText('ai-provider-llm', 'Loading models…')!.disabled).toBe(true);
     expect(saveButton().disabled).toBe(true);
     expect(buttonByText('ai-provider-stt', 'Test connection')!.disabled).toBe(true);
 
