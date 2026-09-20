@@ -527,9 +527,13 @@ describe('BookDetail reset progress', () => {
 
     const members = fixture.nativeElement.querySelectorAll('.manage-member');
     expect(members.length).toBe(2);
-    // The book you are on is context; the sibling is the thing you can detach.
-    expect(members[0].querySelector('.manage-member-flag')?.textContent).toContain('This book');
+    // The book you are on is context; the sibling is the thing you can detach. The
+    // current row wears the page's own "you are here" state (selection fill + the
+    // Current badge), which is also why the badge sits in the action slot.
+    expect(members[0].classList.contains('is-current')).toBe(true);
+    expect(members[0].querySelector('.manage-member-flag')?.textContent).toContain('Current');
     expect(members[0].querySelector('.manage-member-action')).toBeNull();
+    expect(members[1].classList.contains('is-current')).toBe(false);
     expect(members[1].querySelector('.manage-member-action')?.textContent).toContain('Unlink');
 
     // Each row names the book it is about. A sibling must NOT be labelled with

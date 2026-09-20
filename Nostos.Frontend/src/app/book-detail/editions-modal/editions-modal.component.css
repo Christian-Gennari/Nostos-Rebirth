@@ -1,45 +1,41 @@
-/* Nostos editions & works surface — Nordic Editorial.
+/* Nostos editions surface — Nordic Editorial.
    The backdrop, the card, the scrim fade and the entrance animation belong to
-   `app-modal-shell` (see `ui/modal-shell`); this file styles the two-column
-   working area inside it. */
+   `app-modal-shell` (see `ui/modal-shell`); this file styles the header and the
+   working area inside it.
+
+   Every recipe below is COPIED from the surface this dialog is opened from
+   (`book-detail.component.css`: `.edition-select-card`, `.edition-section-header`,
+   `.edition-count-badge`, `.card-status-pill.current`, `.card-meta-line`), and the
+   origin is named in each block. That is the point of this pass: the modal used to
+   be a near-copy of the page's edition row that had drifted off it — serif
+   micro-labels, a 12.8px/400 row title, square 44px text buttons, "you are here"
+   as an uppercase text line — so the same book read two different ways depending
+   on which surface you were looking at. A copy that names its origin can be
+   re-synced; a copy that does not is how it drifted the first time. */
 
 :host {
   display: contents;
 }
 
+/* --- Header ------------------------------------------------------------- */
+
 /* Layout only: the shell supplies this row's padding and its divider, through
-   `--modal-head-padding` on the shell element. */
+   `--modal-head-padding` on the shell element. The close control is
+   `appIconButton`, which owns the box, the hover and the focus ring, so nothing
+   here re-declares a button. */
 .editions-modal-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-}
-
-.editions-modal-heading {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  min-width: 0;
-}
-
-.editions-modal-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  flex-shrink: 0;
-  border-radius: var(--radius-sm, 3px);
-  background: var(--bg-surface-alt);
-  border: 1px solid var(--border-color);
-  color: var(--color-text-muted);
 }
 
 .editions-modal-heading-text {
   min-width: 0;
 }
 
+/* confirm-modal's title recipe, verbatim: a dialog title is the same object on
+   every dialog. */
 .editions-modal-title {
   margin: 0;
   font-family: 'Newsreader', serif;
@@ -60,38 +56,23 @@
   white-space: nowrap;
 }
 
+/* Optical alignment only: pulls the 32px control level with the title's cap line
+   instead of letting it push the header taller. */
 .editions-modal-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-h-touch);
-  height: var(--control-h-touch);
   flex-shrink: 0;
-  /* Pulled tight so the 44px target does not push the header taller. */
-  margin: -0.5rem -0.35rem 0 0;
-  padding: 0;
-  border: none;
-  background: none;
-  border-radius: var(--radius-sm, 3px);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: color var(--motion-fast, 160ms) ease, background-color var(--motion-fast, 160ms) ease;
+  margin: -0.15rem -0.25rem 0 0;
 }
 
-.editions-modal-close:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--color-text-main);
-}
-
-.editions-modal-close:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: -2px;
-}
-
+/* `icon-btn` has no disabled state anywhere in the app (no surface needed one
+   before this), and the shell's `busy` guard already blocks Escape and the
+   backdrop — so the control must also stop looking live. Scoped to this header on
+   purpose: the shared button deliberately owns no surface styling. */
 .editions-modal-close:disabled {
   opacity: 0.5;
-  cursor: not-allowed;
+  cursor: default;
 }
+
+/* --- Body -------------------------------------------------------------- */
 
 /* Padding only: the shell owns the scrolling. */
 .editions-modal-body {
@@ -99,81 +80,119 @@
 }
 
 .editions-modal-hint {
-  margin: 0 0 1rem;
+  margin: 0 0 1.15rem;
   font-size: 0.78rem;
   line-height: 1.5;
   color: var(--color-text-muted);
 }
 
-.editions-modal-section + .manage-link {
-  margin-top: 1rem;
-  padding-top: 1rem;
+.manage-link {
+  margin-top: 1.15rem;
+  padding-top: 1.15rem;
   border-top: 1px solid var(--border-color);
 }
 
-.editions-modal-label {
+/* --- Section header ---------------------------------------------------- */
+
+/* `.edition-section-header`, verbatim. The page's comment explains why the h3
+   needs its family re-declared: the global `h1..h4` rule paints Newsreader, and a
+   tracked 12px label in a serif was explicitly rejected there (measured: the serif
+   is 256px wide at this size against a 278px content box, so it is also near the
+   wrap point). This modal was the last place still wearing the serif version. */
+.editions-section-header {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  margin: 0 0 0.5rem;
-  font-size: 0.7rem;
-  font-weight: var(--fw-medium);
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.75rem;
+  font-weight: var(--fw-semibold);
+  color: var(--color-text-light);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-text-muted);
+  letter-spacing: 0.12em;
 }
 
-.editions-modal-count {
+.editions-section-title {
+  margin: 0;
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  line-height: 1.2;
+}
+
+/* `.edition-count-badge`, verbatim — including `margin-left: auto`, which is what
+   terminates the header against the row edge below it. The count used to sit
+   immediately after the label as a 17px serif pill, so the same number wore two
+   different objects on two adjacent surfaces. */
+.editions-count-badge {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 17px;
-  height: 17px;
-  padding: 0 0.3rem;
   border-radius: 999px;
-  background: var(--bg-surface-alt);
-  border: 1px solid var(--border-color);
-  font-size: 0.66rem;
-  letter-spacing: 0;
-  color: var(--color-text-muted);
+  background: var(--bg-hover);
+  color: var(--color-text-light);
+  font-size: 0.72rem;
+  font-weight: var(--fw-medium);
+  line-height: 1;
 }
 
 /* --- Rows -------------------------------------------------------------- */
 
+/* `.edition-list`'s 0.4rem rhythm, so the two lists read as one family of rows. */
 .manage-members,
 .manage-link-list {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.4rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* `.edition-select-card`, verbatim: same radius, border, surface, padding and ink
+   as the edition rows on the page. Because both shapes now carry the same padding
+   and the same two text lines, the member row and the candidate row sit on the same
+   height — measured 56 vs 57px, where the old pair was 62 vs 57 and had to be
+   levelled with a `min-height` on one of them. */
 .manage-member,
 .manage-link-candidate {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.7rem;
   width: 100%;
-  /* A row with the unlink action sizes to that control, so a row without one
-     matches it instead of collapsing shorter (measured 62px vs 57px). */
-  min-height: var(--control-h-touch);
-  padding: 0.35rem 0.5rem;
+  padding: 0.6rem 0.7rem;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--bg-surface);
-  color: var(--color-text-muted);
+  color: var(--color-text-main);
   text-align: left;
   font: inherit;
-  font-size: 0.8rem;
+}
+
+/* "You are here", as `.edition-select-card.active`: the selection fill and ink the
+   page already uses. State that is only a fill colour is unreadable to someone who
+   cannot separate the two fills, which is why the row ALSO carries the Current
+   badge — same as the page. */
+.manage-member.is-current {
+  background: var(--selection-surface);
+  border-color: var(--selection-surface);
+  color: var(--selection-ink);
 }
 
 .manage-link-candidate {
   cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
+/* The hover edge the Brain's merge targets use, as on the page's rows. */
 .manage-link-candidate:hover:not(:disabled) {
   background: var(--bg-hover);
   border-color: var(--color-primary-dim);
@@ -189,34 +208,8 @@
 
 .manage-link-candidate:disabled,
 .manage-member-action:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: default;
-}
-
-/* An explicit action label on the candidate row, mirroring the Unlink button on
-   a member row. Without it the row is a button that reads as static text: the
-   vision review flagged it twice, and the only other cue was a hover state,
-   which does not exist on touch. */
-.manage-link-candidate-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3rem;
-  flex-shrink: 0;
-  min-height: var(--control-h-touch);
-  padding: 0 0.7rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  color: var(--color-text-muted);
-  font-family: inherit;
-  font-size: 0.75rem;
-}
-
-/* The row for the book you are on: it is context, not an action, so it stays
-   quiet and loses its hover ground entirely. */
-.manage-member.is-current {
-  color: var(--color-text-main);
 }
 
 .manage-member-text,
@@ -225,57 +218,100 @@
   flex-direction: column;
   min-width: 0;
   flex: 1;
-  gap: 1px;
 }
 
+/* `.card-format-title`: the title line of an edition row. Rows here carried
+   12.8px/500, which is neither the page's row title (0.88rem/600) nor the
+   library's (0.88rem/600) — it was the third value for the same job. */
 .manage-member-title {
-  font-size: 0.8rem;
-  font-weight: var(--fw-medium);
+  font-size: 0.88rem;
+  font-weight: var(--fw-semibold);
+  line-height: 1.25;
   color: inherit;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* `.card-format-sub`. */
 .manage-member-author {
-  font-size: 0.72rem;
+  font-size: 0.74rem;
+  line-height: 1.3;
+  margin-top: 2px;
   color: var(--color-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* `.edition-select-card.active .card-format-sub`. */
+.manage-member.is-current .manage-member-author {
+  color: color-mix(in srgb, var(--selection-ink) 78%, transparent);
+}
+
+/* `.card-status-pill.current`, verbatim — the page's own words for this state, in
+   the page's own pill. It sits in the row's trailing slot, where the Unlink button
+   sits on a member row: the slot has to be one or the other, or the title's
+   truncation point moves from row to row. */
 .manage-member-flag {
-  margin-top: 1px;
-  font-size: 0.66rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  flex-shrink: 0;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--selection-badge-bg);
+  color: var(--selection-ink);
+  font-size: 0.65rem;
+  font-weight: var(--fw-medium);
+  /* The page's pill inherits its meta line's `normal` leading and lands at 13px
+     (measured); this one inherits the row's, so the value is stated. */
+  line-height: 1.25;
+}
+
+/* Per-row metadata, in `.card-meta-line`'s type recipe (0.72rem, muted, plain
+   text — the page renders "45% read" the same way). Not a pill: the page's count
+   pill is a SECTION-header object, and a chip per row would also vanish against the
+   row's own hover fill. */
+.manage-link-group-flag {
+  flex-shrink: 0;
+  font-size: 0.72rem;
   color: var(--color-text-muted);
 }
 
-/* A real touch target, not a 24px glyph: this is the control that detaches the
-   wrong edition if it is mis-tapped. */
-.manage-member-action {
+/* --- Actions ----------------------------------------------------------- */
+
+/* The app's action recipe (`.primary-actions .pill-btn` in book-detail, and
+   confirm-modal's footer): stadium-shaped, 0.86rem/500, `0.5rem 0.9rem` — the
+   padding, not a fixed height, is what lands the box on the 36px rung. These two
+   controls were 3px-radius 44px buttons at weight 400: the only text actions in the
+   app that were neither a pill nor a filled bar. */
+.manage-member-action,
+.manage-link-candidate-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.4rem;
   flex-shrink: 0;
-  min-height: var(--control-h-touch);
-  padding: 0 0.7rem;
+  padding: 0.5rem 0.9rem;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-action);
   background: var(--bg-surface);
-  color: var(--color-text-muted);
-  font-family: inherit;
-  font-size: 0.75rem;
+  color: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.86rem;
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+}
+
+.manage-member-action {
   cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .manage-member-action:hover:not(:disabled) {
   background: var(--bg-hover);
   border-color: var(--color-primary-dim);
-  color: var(--color-text-main);
 }
 
 /* --- Link picker ------------------------------------------------------- */
@@ -305,45 +341,42 @@
   font-size: 0.85rem;
 }
 
-.manage-link-search:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: -2px;
+/* Every other input in the app names its placeholder ink; this one had none, so it
+   fell through to the browser default (Chrome's `darkgrey`, measured at 4.03:1 on
+   the dark field — below AA). `--color-text-light` is what the Library's own search
+   field uses. */
+.manage-link-search::placeholder {
+  color: var(--color-text-light);
 }
 
+/* Deliberately NOT height-capped or independently scrollable. The modal body is
+   the single scroll container: a capped list nested inside a scrolling body
+   gives two scroll areas, and the inner one can end flush against the card edge
+   with no hint that it continues. Measured on a 20-result library: the list was
+   1189px of content in a 240px box inside a body that also scrolled. */
 .manage-link-list {
   margin-top: 0.5rem;
-  /* Deliberately NOT height-capped or independently scrollable. The modal body is
-     the single scroll container: a capped list nested inside a scrolling body
-     gives two scroll areas, and the inner one can end flush against the card edge
-     with no hint that it continues. Measured on a 20-result library: the list was
-     1189px of content in a 240px box inside a body that also scrolled. */
 }
 
-.manage-link-group-flag {
-  flex-shrink: 0;
-  font-size: 0.68rem;
-  color: var(--color-text-muted);
-}
-
-.manage-link-empty {
+.manage-link-empty,
+.manage-link-more {
   margin: 0.6rem 0 0;
   font-size: 0.78rem;
   color: var(--color-text-muted);
 }
 
 /* Below 768px the shell already turns this dialog into a full-screen sheet, so
-   the old bottom-anchored-card rules are gone; only the content padding
-   changes. */
+   there is no bottom-anchored-card rule to keep; only the content padding changes,
+   and a finger gets the touch rung for both actions. The action labels stay: the
+   previous revision hid them with `font-size: 0` behind an icon, but the row is
+   also the button, so the label was the only thing saying it could be tapped. */
 @media (max-width: 480px) {
   .editions-modal-body {
     padding: 0.85rem 1rem 1rem;
   }
 
-  /* The action label would squeeze the title to nothing on a 390px screen, and
-     the row is a button anyway — the label drops to its icon. */
+  .manage-member-action,
   .manage-link-candidate-action {
-    padding: 0 0.55rem;
-    font-size: 0;
-    gap: 0;
+    min-height: var(--control-h-touch);
   }
 }
