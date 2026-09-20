@@ -1,9 +1,10 @@
-import { Component, input, output } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LinkableBookDto } from '../../core/dtos/book.dtos';
 import { ModalShell } from '../../ui/modal-shell/modal-shell.component';
 import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
+import { IconButtonComponent } from '../../ui/icon-button/icon-button.component';
 
 /** One book in the current work, as the membership list needs it. */
 export interface WorkMember {
@@ -33,7 +34,7 @@ export interface WorkMember {
 @Component({
   selector: 'app-editions-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, NostosIconComponent, ModalShell],
+  imports: [CommonModule, FormsModule, NostosIconComponent, IconButtonComponent, ModalShell],
   templateUrl: './editions-modal.component.html',
   styleUrl: './editions-modal.component.css',
 })
@@ -63,6 +64,28 @@ export class EditionsModal {
   linkRequest = output<LinkableBookDto>();
   unlinkRequest = output<WorkMember>();
   queryChange = output<string>();
+
+  /**
+   * How many candidates the resting list shows before it asks for a search.
+   *
+   * The caller's first page is the 20 newest books, which is 1469px of rows
+   * inside a 640px dialog: the opening state was a scroll, so "search to narrow"
+   * was advice the user never saw the need for. Typing is not capped — a query is
+   * already a deliberate act, and its result set is the one the user asked for.
+   */
+  private readonly RESTING_CANDIDATE_LIMIT = 5;
+
+  /** The candidates actually rendered. */
+  readonly shownCandidates = computed(() => {
+    const all = this.candidates();
+    return this.query().trim() ? all : all.slice(0, this.RESTING_CANDIDATE_LIMIT);
+  });
+
+  /** True when the resting list is shorter than what the caller supplied. */
+  readonly candidatesTruncated = computed(
+    () => !this.query().trim() && this.candidates().length > this.shownCandidates().length
+  );
+
   // Escape and the backdrop now belong to `app-modal-shell`, which emits
   // `closed`; both were hand-rolled here before, including the `busy` guard
   // that stopped a save being dismissed mid-flight.

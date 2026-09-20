@@ -4,7 +4,7 @@
   variant="sheet"
   cardClass="editions-modal-card"
   [maxWidth]="'560px'"
-  [maxHeight]="'min(640px, calc(100vh - 2.5rem))'"
+  [maxHeight]="'min(700px, calc(100vh - 2.5rem))'"
   [layer]="110"
   [busy]="busy()"
   ariaLabelledBy="editions-modal-title"
@@ -12,27 +12,26 @@
   (closed)="close.emit()"
 >
     <header class="editions-modal-head" shellHeader>
-      <div class="editions-modal-heading">
-        <span class="editions-modal-mark" aria-hidden="true">
-          <nostos-icon name="stack" [size]="15"></nostos-icon>
-        </span>
-        <div class="editions-modal-heading-text">
-          <h2 id="editions-modal-title" class="editions-modal-title">Editions &amp; works</h2>
-          @if (bookTitle()) {
-          <p class="editions-modal-subtitle">{{ bookTitle() }}</p>
-          }
-        </div>
+      <div class="editions-modal-heading-text">
+        <h2 id="editions-modal-title" class="editions-modal-title">Editions</h2>
+        @if (bookTitle()) {
+        <p class="editions-modal-subtitle">{{ bookTitle() }}</p>
+        }
       </div>
+      <!-- The app's one icon button, not a hand-built copy of it. This surface was
+           the last dialog still rolling its own close control: a 44px box wrapping
+           a bare glyph, with its own hover, focus and disabled rules — three of the
+           five things `appIconButton` exists to own. -->
       <button
-        type="button"
+        appIconButton
+        icon="x"
+        [glyphSize]="20"
         class="editions-modal-close"
-        [disabled]="busy()"
         title="Close"
         aria-label="Close"
+        [disabled]="busy()"
         (click)="close.emit()"
-      >
-        <nostos-icon name="x" [size]="18"></nostos-icon>
-      </button>
+      ></button>
     </header>
 
     <div class="editions-modal-body">
@@ -41,13 +40,14 @@
         grouping is wrong.
       </p>
 
-      <!-- Current membership: every book in this work. Each of them can be
-           split out into its own work. -->
+      <!-- Current membership: every book in this edition set. Each of them can be
+           split out into its own set. -->
       <section class="editions-modal-section" aria-labelledby="editions-members-title">
-        <h3 class="editions-modal-label" id="editions-members-title">
-          In this work
-          <span class="editions-modal-count">{{ members().length }}</span>
-        </h3>
+        <div class="editions-section-header">
+          <nostos-icon name="stack" [size]="13"></nostos-icon>
+          <h3 class="editions-section-title" id="editions-members-title">In this edition set</h3>
+          <span class="editions-count-badge">{{ members().length }}</span>
+        </div>
 
         <ul class="manage-members">
           @for (member of members(); track member.id) {
@@ -55,15 +55,14 @@
             <span class="manage-member-text">
               <span class="manage-member-title">{{ member.title }}</span>
               <span class="manage-member-author">{{ member.author || 'Unknown author' }}</span>
-              <!-- The flag is a THIRD line inside the text column, not a sibling
-                   of the title: beside it, it stole width from the title and
-                   ellipsised it at mobile width (a title is unreadable
-                   truncated, and there is no hover on touch). -->
-              @if (member.id === currentBookId()) {
-              <span class="manage-member-flag">This book</span>
-              }
             </span>
-            @if (member.id !== currentBookId()) {
+            <!-- The book you are viewing takes the row's action slot, as a pill. It
+                 is state, not an action, so it wears the page's own "you are here"
+                 treatment (selection fill + Current badge) rather than a third
+                 recipe of its own. -->
+            @if (member.id === currentBookId()) {
+            <span class="manage-member-flag">Current</span>
+            } @else {
             <button
               type="button"
               class="manage-member-action"
@@ -78,10 +77,13 @@
         </ul>
       </section>
 
-      <!-- Link another library book into this work, including one whose metadata
+      <!-- Link another library book into this set, including one whose metadata
            does not match — that is the whole point. -->
       <section class="manage-link" aria-labelledby="editions-link-title">
-        <h3 class="editions-modal-label" id="editions-link-title">Link another book to this work</h3>
+        <div class="editions-section-header">
+          <nostos-icon name="link-simple" [size]="13"></nostos-icon>
+          <h3 class="editions-section-title" id="editions-link-title">Link another book</h3>
+        </div>
 
         <div class="manage-link-field">
           <nostos-icon
@@ -100,6 +102,16 @@
           />
         </div>
 
+        <!-- The resting list is the newest handful, not the whole library: a
+             20-row page inside this dialog made "search to narrow" advice the user
+             never saw the need for and turned the opening state into a scroll.
+             The note sits ABOVE the list, not under it: below, it fell past the
+             dialog's scroll area at rest, which is exactly where the advice is
+             meant to land. -->
+        @if (candidatesTruncated()) {
+        <p class="manage-link-more">Showing the {{ shownCandidates().length }} most recent — search to narrow.</p>
+        }
+
         @if (searching()) {
         <p class="manage-link-empty">Searching…</p>
         } @else if (candidates().length === 0) {
@@ -108,7 +120,7 @@
         </p>
         } @else {
         <ul class="manage-link-list">
-          @for (candidate of candidates(); track candidate.id) {
+          @for (candidate of shownCandidates(); track candidate.id) {
           <li>
             <button
               type="button"

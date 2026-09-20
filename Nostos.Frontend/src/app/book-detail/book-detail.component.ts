@@ -500,7 +500,7 @@ export class BookDetail implements OnInit, OnDestroy {
     const action = this.pendingWorkAction();
     if (!action) return '';
     return action.kind === 'link'
-      ? `Link “${action.label}” to this work?`
+      ? `Link “${action.label}” to this edition set?`
       : `Unlink “${action.label}”?`;
   });
 
@@ -508,11 +508,11 @@ export class BookDetail implements OnInit, OnDestroy {
     const action = this.pendingWorkAction();
     if (!action) return '';
     if (action.kind === 'unlink') {
-      return 'This book becomes its own work. Its file, reading progress, notes, rating, review and collections are all kept.';
+      return 'This book leaves this edition set. Its file, reading progress, notes, rating, review and collections are all kept.';
     }
     return action.merge
-      ? 'Both works and everything already grouped with them become one work. Only work grouping changes; every book keeps its file, progress, notes, rating, review and collections.'
-      : 'Both books become editions of one work. Only work grouping changes; nothing else about either book is touched.';
+      ? 'Both edition sets and everything already grouped with them become one set. Only the grouping changes; every book keeps its file, progress, notes, rating, review and collections.'
+      : 'Both books become editions of one set. Only the grouping changes; nothing else about either book is touched.';
   });
 
   // --- File Actions ---

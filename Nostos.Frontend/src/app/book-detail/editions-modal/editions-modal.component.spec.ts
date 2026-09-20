@@ -57,16 +57,21 @@ describe('EditionsModal', () => {
     expect(fixture.nativeElement.querySelector('.editions-modal-card')).toBeNull();
   });
 
-  it('marks the current book and offers Unlink only for the others', async () => {
+  it('marks the current book with the page\'s selection state and offers Unlink only for the others', async () => {
     await setup();
 
     const rows = fixture.nativeElement.querySelectorAll('.manage-member');
     expect(rows.length).toBe(2);
 
-    // The book you are on is context: no action, and it says so in words.
-    expect(rows[0].querySelector('.manage-member-flag')?.textContent).toContain('This book');
+    // The book you are on is context: no action, and it says so in words — in the
+    // page's own "you are here" treatment (selection fill + Current badge), not a
+    // recipe of its own.
+    expect(rows[0].classList.contains('is-current')).toBe(true);
+    expect(rows[0].querySelector('.manage-member-flag')?.textContent).toContain('Current');
     expect(rows[0].querySelector('.manage-member-action')).toBeNull();
 
+    expect(rows[1].classList.contains('is-current')).toBe(false);
+    expect(rows[1].querySelector('.manage-member-flag')).toBeNull();
     expect(rows[1].querySelector('.manage-member-action')?.textContent?.trim()).toBe('Unlink');
   });
 
@@ -158,12 +163,41 @@ describe('EditionsModal', () => {
     let closed = false;
     component.close.subscribe(() => (closed = true));
 
-    (fixture.nativeElement.querySelector('.editions-modal-close') as HTMLButtonElement).click();
+    const close = fixture.nativeElement.querySelector('.editions-modal-close') as HTMLButtonElement;
+    // The shared icon button, not a hand-rolled copy of one: that migration is
+    // what this pins.
+    expect(close.classList.contains('icon-btn')).toBe(true);
+    close.click();
     (fixture.nativeElement.querySelector('.modal-backdrop') as HTMLElement).click();
 
     expect(closed).toBe(false);
-    expect((fixture.nativeElement.querySelector('.editions-modal-close') as HTMLButtonElement).disabled)
-      .toBe(true);
+    expect(close.disabled).toBe(true);
+  });
+
+  it('rests on a handful of candidates and says how to see the rest', async () => {
+    // The caller's first page is 20 newest books: showing all of them made the
+    // opening state a scroll inside a 640px dialog.
+    const many: LinkableBookDto[] = Array.from({ length: 7 }, (_, i) => ({
+      id: `c${i}`,
+      title: `Book ${i}`,
+      author: null,
+      workId: `w${i}`,
+      editionCount: 1,
+    }));
+    await setup({ candidates: many });
+
+    expect(fixture.nativeElement.querySelectorAll('.manage-link-candidate').length).toBe(5);
+    expect(fixture.nativeElement.querySelector('.manage-link-more')?.textContent).toContain(
+      'most recent'
+    );
+
+    // A query is a deliberate act, so its result set is not truncated — and the
+    // note is about the resting state, so it goes away.
+    fixture.componentRef.setInput('query', 'book');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.manage-link-candidate').length).toBe(7);
+    expect(fixture.nativeElement.querySelector('.manage-link-more')).toBeNull();
   });
 
   it('names the book in the header so the surface is not ambiguous', async () => {
