@@ -48,6 +48,27 @@ public sealed class AssistantOrchestrator(
     public const int MaxConceptSuggestions = 5;
 
     /// <summary>
+    /// How many past exchanges of client-supplied history are kept. An exchange
+    /// is a user message plus the assistant message(s) that followed it; older
+    /// turns are dropped rather than sent (issue #286).
+    /// </summary>
+    public const int MaxHistoryExchanges = 10;
+
+    /// <summary>
+    /// Per-message ceiling for client-supplied history. A longer message is
+    /// truncated and marked with <see cref="HistoryTruncationMarker"/> so the
+    /// model can see the cut (issue #286).
+    /// </summary>
+    public const int MaxHistoryCharsPerMessage = 2000;
+
+    /// <summary>
+    /// Appended to a history message that exceeded
+    /// <see cref="MaxHistoryCharsPerMessage"/>, so the model can tell that text
+    /// was cut rather than assume the message ended there.
+    /// </summary>
+    public const string HistoryTruncationMarker = " [history truncated]";
+
+    /// <summary>
     /// Appended to a quote typed/transcribed by hand rather than read from the
     /// digital source, so the difference is never inferred later.
     /// </summary>
@@ -230,6 +251,20 @@ public sealed class AssistantOrchestrator(
                 ?? (pendingPlan is not null ? "I've prepared a plan for your approval." : string.Empty);
         }
 
+        // The conversational reply is the only text the guard may rewrite. Note
+        // content, quotes, processing results and plan summaries are the user's
+        // own words and must never be touched, so this runs here and nowhere else.
+        var selfAssertedVendor = AssistantIdentityGuard.MatchVendorSelfAssertion(reply);
+        if (selfAssertedVendor is not null)
+        {
+            // The matched term only: never the reply, the user's message, or the
+            // content that was removed.
+            logger.LogWarning(
+                "Assistant identity guard replaced a self-asserted vendor/model mention: {VendorTerm}.",
+                selfAssertedVendor);
+            reply = AssistantIdentityGuard.Apply(reply);
+        }
+
         logger.LogDebug(
             "Assistant turn handled: {Suggestions} suggestion(s), plan {HasPlan}, anchor prompt {HasPrompt}.",
             suggestions.Count,
@@ -349,9 +384,82 @@ public sealed class AssistantOrchestrator(
                 + "Do not claim it has run. The user approves it through the plan approval action, which carries this id."));
         }
 
+        // Client-supplied recent turns. This is UNTRUSTED text: it travels only
+        // as ordinary user/assistant turns and must never be promoted to a system
+        // message or concatenated into one, whatever a role field claims.
+        messages.AddRange(BuildHistory(request.History));
+
+        // The identity is injected LAST on purpose. The gateway prepends its own
+        // system prompt, so an identity stated at the top of the list loses to
+        // it; a system message the provider sees closest to the user's turn does
+        // not. Position is the whole mechanism — do not move this earlier.
+        messages.Add(LlmMessage.System(AssistantSoul.Prompt));
+
         messages.Add(LlmMessage.User(request.Message));
         return messages;
     }
+
+    /// <summary>
+    /// Maps client-supplied history to conversation turns. The text is UNTRUSTED
+    /// and is used only as ordinary user/assistant content, never as a system
+    /// message. Blank entries and unknown roles are dropped outright; the list is
+    /// clamped to the last <see cref="MaxHistoryExchanges"/> exchanges and each
+    /// message to <see cref="MaxHistoryCharsPerMessage"/> characters. Server-side
+    /// conversation state is deliberately absent: the client re-sends what it
+    /// remembers, so the server stays stateless (issue #286).
+    /// </summary>
+    private static IEnumerable<LlmMessage> BuildHistory(
+        IReadOnlyList<AssistantHistoryMessageDto>? history)
+    {
+        if (history is null || history.Count == 0)
+        {
+            return [];
+        }
+
+        var kept = new List<(bool IsUser, string Text)>();
+        foreach (var entry in history)
+        {
+            if (entry is null || string.IsNullOrWhiteSpace(entry.Text))
+            {
+                continue;
+            }
+
+            var isUser = string.Equals(entry.Role, "user", StringComparison.OrdinalIgnoreCase);
+            var isAssistant = string.Equals(entry.Role, "assistant", StringComparison.OrdinalIgnoreCase);
+            if (!isUser && !isAssistant)
+            {
+                // An unknown role is ignored: it is never treated as a system
+                // message or any other privileged turn.
+                continue;
+            }
+
+            kept.Add((isUser, TruncateHistory(entry.Text)));
+        }
+
+        // An exchange is a user message plus the assistant messages that followed
+        // it. Keep everything from the earliest of the last MaxHistoryExchanges
+        // user-role entries onward.
+        var userIndexes = kept
+            .Select((entry, index) => (entry, index))
+            .Where(pair => pair.entry.IsUser)
+            .Select(pair => pair.index)
+            .ToList();
+
+        var start = userIndexes.Count > MaxHistoryExchanges
+            ? userIndexes[userIndexes.Count - MaxHistoryExchanges]
+            : 0;
+
+        return kept
+            .Skip(start)
+            .Select(entry => entry.IsUser
+                ? LlmMessage.User(entry.Text)
+                : LlmMessage.Assistant(entry.Text));
+    }
+
+    private static string TruncateHistory(string text) =>
+        text.Length <= MaxHistoryCharsPerMessage
+            ? text
+            : text[..MaxHistoryCharsPerMessage] + HistoryTruncationMarker;
 
     private IReadOnlyList<LlmToolDefinition> BuildTools() =>
         registry.All
@@ -362,15 +470,15 @@ public sealed class AssistantOrchestrator(
             .ToList();
 
     /// <summary>
-    /// The behavior contract given to the model. It states the trust classes,
+    /// The behavior contract given to the model: it states the trust classes,
     /// the explicit-targets-beat-ambient rule, and the quote-fidelity rule; the
     /// orchestrator enforces the parts that must not depend on model goodwill
-    /// (approval, anchors, plan capture).
+    /// (approval, anchors, plan capture). Identity and voice live in
+    /// <see cref="AssistantSoul"/>, injected separately as the last system
+    /// message.
     /// </summary>
     private const string SystemPrompt =
         """
-        You are the Nostos assistant, embedded in a personal reading and note-taking app. Answer briefly and concretely.
-
         You have tools. Use them to read the user's library and to capture thoughts.
         - Capture tools run immediately; after a capture, confirm in one short line.
         - Read and suggestion tools never change anything and may be called freely.

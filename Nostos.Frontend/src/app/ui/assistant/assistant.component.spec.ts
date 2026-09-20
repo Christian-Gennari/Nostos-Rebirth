@@ -361,7 +361,7 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     // The question is still in the transcript, and the thought behind it is
     // still held (answering it must not restart the capture).
     expect(
-      fixture.nativeElement.querySelector('.entry-question').textContent,
+      fixture.nativeElement.querySelector('[data-testid="assistant-transcript"]').textContent,
     ).toContain('What page are you on?');
     http.expectNone('/api/assistant/turn');
   });
@@ -397,28 +397,112 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     request.flush(turn());
   });
 
-  it('defaults to verbatim and sends the chosen mode with the turn', () => {
+  it('renders no per-capture processing control in the composer', () => {
     assistant.open();
     fixture.detectChanges();
 
-    const select = fixture.nativeElement.querySelector(
-      '[data-testid="assistant-mode-select"]',
-    ) as HTMLSelectElement;
-    expect(select).toBeTruthy();
-    expect(select.value).toBe('verbatim');
-    expect(assistant.processingMode()).toBe('verbatim');
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="assistant-mode-select"]'),
+    ).toBeNull();
+    expect(fixture.nativeElement.querySelector('.composer-modes')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.assistant-composer').textContent,
+    ).not.toContain('Processing');
+  });
 
-    select.value = 'clarify';
-    select.dispatchEvent(new Event('change'));
-    fixture.detectChanges();
-    expect(assistant.processingMode()).toBe('clarify');
-
-    assistant.updateDraft('A thought worth clarifying');
+  it('renders a speaker label for both sides of the transcript', () => {
+    assistant.open();
+    assistant.updateDraft('Who are you?');
     assistant.submit();
+    http.expectOne('/api/assistant/turn').flush(turn({ reply: 'The Nostos assistant.' }));
+    fixture.detectChanges();
 
-    const request = http.expectOne('/api/assistant/turn');
-    expect(request.request.body.processingMode).toBe('clarify');
-    request.flush(turn());
+    const userLabel = fixture.nativeElement.querySelector(
+      '[data-testid="assistant-entry-user-label"]',
+    );
+    const assistantLabel = fixture.nativeElement.querySelector(
+      '[data-testid="assistant-entry-assistant-label"]',
+    );
+
+    expect(userLabel).toBeTruthy();
+    expect(assistantLabel).toBeTruthy();
+    expect(userLabel.textContent).toContain('You');
+    expect(assistantLabel.textContent).toContain('Nostos');
+  });
+
+  describe('thinking indicator (issue #289)', () => {
+    function transcript(): HTMLElement {
+      return fixture.nativeElement.querySelector('[data-testid="assistant-transcript"]');
+    }
+
+    function pending(): HTMLElement | null {
+      return fixture.nativeElement.querySelector('[data-testid="assistant-pending"]');
+    }
+
+    /** Dispatch a turn and leave it in flight, returning its request handle. */
+    function sendInFlight() {
+      assistant.open();
+      fixture.detectChanges();
+      assistant.updateDraft('Are you there?');
+      assistant.submit();
+      fixture.detectChanges();
+      return http.expectOne('/api/assistant/turn');
+    }
+
+    it('shows the pending entry after the user entry while a turn is in flight', () => {
+      const request = sendInFlight();
+
+      const indicator = pending();
+      expect(indicator).toBeTruthy();
+
+      const entries = Array.from(transcript().querySelectorAll('.entry')) as HTMLElement[];
+      const userEntry = transcript().querySelector('[data-testid="assistant-entry-user-label"]')
+        ?.closest('.entry') as HTMLElement;
+      expect(userEntry).toBeTruthy();
+      expect(entries.indexOf(indicator!)).toBeGreaterThan(entries.indexOf(userEntry));
+
+      request.flush(turn());
+    });
+
+    it('removes the pending entry when the response arrives', () => {
+      const request = sendInFlight();
+      expect(pending()).toBeTruthy();
+
+      request.flush(turn({ reply: 'Here.' }));
+      fixture.detectChanges();
+
+      expect(pending()).toBeNull();
+    });
+
+    it('removes the pending entry when the request fails', () => {
+      const request = sendInFlight();
+      expect(pending()).toBeTruthy();
+
+      request.flush('', { status: 503, statusText: 'Service Unavailable' });
+      fixture.detectChanges();
+
+      expect(pending()).toBeNull();
+      expect(assistant.sending()).toBe(false);
+    });
+
+    it('exposes the state as accessible text and hides the decorative dots', () => {
+      const request = sendInFlight();
+
+      const indicator = pending()!;
+      const hidden = indicator.querySelector('.visually-hidden');
+      expect(hidden).toBeTruthy();
+      expect(hidden!.textContent?.trim()).toContain('Thinking');
+      expect(indicator.getAttribute('role')).toBe('status');
+      expect(indicator.getAttribute('aria-live')).toBe('polite');
+
+      const dots = Array.from(indicator.querySelectorAll('.thinking-dot'));
+      expect(dots.length).toBe(3);
+      for (const dot of dots) {
+        expect(dot.getAttribute('aria-hidden')).toBe('true');
+      }
+
+      request.flush(turn());
+    });
   });
 
   it('shows the raw transcript of a captured note and restores it', () => {

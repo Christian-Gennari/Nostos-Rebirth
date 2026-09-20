@@ -26,10 +26,21 @@ import {
 
 export interface AssistantEntry {
   id: string;
-  kind: 'capture' | 'question' | 'reply' | 'error';
+  /**
+   * Speaker-explicit (issue #286): the user's own words, the assistant's words,
+   * or a delivery failure. A capture's acknowledgement and the deterministic
+   * anchor question are assistant entries, distinguished by their meta/anchor.
+   */
+  kind: 'user' | 'assistant' | 'error';
   text: string;
   anchorLabel: string | null;
   meta: string | null;
+}
+
+/** One remembered turn; the ordered log the model is told on the next request. */
+export interface AssistantHistoryMessage {
+  role: 'user' | 'assistant';
+  text: string;
 }
 
 export interface AssistantAnchorPrompt {
@@ -99,7 +110,12 @@ interface AssistantTurnRequestDto {
   message: string;
   context: AssistantContextDto;
   pendingPlanId: string | null;
-  processingMode: ProcessingMode;
+  /**
+   * The recent turns the client remembers (issue #286). The server is stateless
+   * and appends the current `message` itself, so this is the log from BEFORE
+   * this turn — never the message being sent.
+   */
+  history: AssistantHistoryMessage[];
 }
 
 /**
@@ -123,6 +139,17 @@ export const PROCESSING_MODES: readonly { value: ProcessingMode; label: string }
  * (verbatim) on the server: a rewrite is always an explicit, per-capture choice.
  */
 export const DEFAULT_PROCESSING_MODE: ProcessingMode = 'verbatim';
+
+/**
+ * History caps (issue #286). {@link HISTORY_MAX_EXCHANGES} counts EXCHANGES, not
+ * messages: an exchange is one user turn plus the assistant turn that followed
+ * it, so the cap keeps the last ten user turns and everything from the earliest
+ * of those onward. {@link HISTORY_MAX_CHARS} bounds each message's length.
+ *
+ * Exported so the spec asserts the shipped numbers rather than restating them.
+ */
+export const HISTORY_MAX_EXCHANGES = 10;
+export const HISTORY_MAX_CHARS = 2000;
 
 /**
  * The raw transcript of one note and the mode its current text reflects
@@ -180,7 +207,8 @@ export interface NostosAssistantDiagnostics {
   lastTurn: AssistantTurnResponse | null;
   suggestions: AssistantSuggestionDto[];
   pendingPlan: AssistantPendingPlanDto | null;
-  processingMode: ProcessingMode;
+  /** The capped turn log the next request will carry (issue #286). */
+  history: AssistantHistoryMessage[];
   capturedNoteId: string | null;
 }
 
@@ -238,8 +266,16 @@ export class AssistantService {
   readonly pendingAnchor = signal<AssistantAnchorPrompt | null>(null);
   private readonly pendingText = signal('');
 
-  /** The post-processing mode for the next capture (issue #262 §7). */
-  readonly processingMode = signal<ProcessingMode>(DEFAULT_PROCESSING_MODE);
+  /**
+   * The remembered turns, in order (issue #286). Separate from the display
+   * entries: this is exactly what the model is told on the next request, so an
+   * entry is appended the moment a turn is dispatched and never for a turn that
+   * failed. It lives only in memory and dies on refresh, by design.
+   */
+  private readonly turnLog = signal<AssistantHistoryMessage[]>([]);
+
+  /** The capped, truncated history sent with the next turn (and in diagnostics). */
+  readonly history = computed<AssistantHistoryMessage[]>(() => capHistory(this.turnLog()));
 
   /**
    * The note the last turn captured, if any (issue #262 §8). Its raw transcript
@@ -270,14 +306,15 @@ export class AssistantService {
 
   constructor() {
     // The repo verifies UI by reading handles in a live browser; expose the
-    // resolved context, the last turn, the suggestions and the pending plan.
+    // resolved context, the last turn, the suggestions, the pending plan and the
+    // conversation history the next turn will carry.
     effect(() => {
       globalThis.__nostosAssistant = {
         context: this.context(),
         lastTurn: this.lastTurn(),
         suggestions: this.suggestions(),
         pendingPlan: this.pendingPlan(),
-        processingMode: this.processingMode(),
+        history: this.history(),
         capturedNoteId: this.capturedNoteId(),
       };
     });
@@ -378,7 +415,7 @@ export class AssistantService {
       // a location the format cannot supply.
       this.pendingText.set(text);
       this.pendingAnchor.set(question);
-      this.pushEntry('question', question.question, null, null);
+      this.pushEntry('assistant', question.question, null, null);
       return;
     }
 
@@ -398,15 +435,6 @@ export class AssistantService {
   /** Remove a wrong ambient anchor for this session. */
   dismissAnchor(): void {
     this.anchorDismissed.set(true);
-  }
-
-  /**
-   * Choose what happens to the next captured thought (issue #262 §7). The
-   * choice is per capture and rides on every subsequent turn; the server applies
-   * it exactly, and `verbatim` makes no provider call at all.
-   */
-  setProcessingMode(mode: ProcessingMode): void {
-    this.processingMode.set(mode);
   }
 
   /**
@@ -457,7 +485,7 @@ export class AssistantService {
         this.sending.set(false);
         this.lastError.set(null);
         this.rawTranscript.set(restored);
-        this.pushEntry('reply', 'Original text restored.', null, 'Restored');
+        this.pushEntry('assistant', 'Original text restored.', null, 'Restored');
       },
       error: () => {
         this.sending.set(false);
@@ -523,7 +551,7 @@ export class AssistantService {
 
           if (response.success) {
             this.pendingPlan.set(null);
-            this.pushEntry('reply', plan?.summary ?? 'Plan applied.', null, 'Applied');
+            this.pushEntry('assistant', plan?.summary ?? 'Plan applied.', null, 'Applied');
           } else {
             this.lastError.set(response.errorMessage ?? 'The plan could not be applied.');
             this.pushEntry('error', plan?.summary ?? 'Plan refused.', null, response.errorCode ?? 'Refused');
@@ -540,13 +568,24 @@ export class AssistantService {
 
   private dispatchTurn(text: string, anchor: AssistantAnchor | null): void {
     const context = this.context();
+
+    // Read the history BEFORE this turn's user entry joins the log: the server
+    // receives `message` separately, so repeating it here would say it twice.
+    const history = this.history();
+
+    // The turn is being dispatched, so it is remembered and the user's own words
+    // appear in the transcript at once — a plain question used to leave no trace
+    // of what was asked. Typed and voice both arrive here through `submit()`.
+    this.turnLog.update((log) => [...log, { role: 'user', text }]);
+    this.pushEntry('user', text, null, null);
+
     const request: AssistantTurnRequestDto = {
       clientId: this.clientId,
       idempotencyKey: createId(),
       message: text,
       context: toContextDto(context, anchor),
       pendingPlanId: this.pendingPlan()?.planId ?? null,
-      processingMode: this.processingMode(),
+      history,
     };
 
     this.sending.set(true);
@@ -566,11 +605,19 @@ export class AssistantService {
         this.rawLoading.set(false);
 
         if (response.acknowledgement) {
-          this.pushEntry('capture', text, this.anchorLabel({ ...context, anchor }), 'Saved');
+          // A capture's acknowledgement is an assistant entry: it keeps its
+          // "Saved" status and the anchor label naming where the thought landed.
+          this.pushEntry(
+            'assistant',
+            response.acknowledgement,
+            this.anchorLabel({ ...context, anchor }),
+            'Saved',
+          );
         }
 
         if (response.reply) {
-          this.pushEntry('reply', response.reply, null, null);
+          this.turnLog.update((log) => [...log, { role: 'assistant', text: response.reply }]);
+          this.pushEntry('assistant', response.reply, null, null);
         }
 
         // A backend-requested location arrives as the same deterministic
@@ -581,15 +628,27 @@ export class AssistantService {
             this.pendingText.set(text);
             this.pendingAnchor.set({ kind, question: response.anchorPrompt.question });
           }
-          this.pushEntry('question', response.anchorPrompt.question, null, null);
+          this.pushEntry('assistant', response.anchorPrompt.question, null, null);
         }
       },
       error: () => {
         this.sending.set(false);
         this.lastError.set('The assistant could not be reached. Your message is still in the composer to retry.');
         this.draft.set(text);
+        // The turn never ran: forget it, so the history does not claim a turn
+        // that the user is about to retry.
+        this.forgetLastUserTurn(text);
         this.pushEntry('error', text, null, 'Not sent');
       },
+    });
+  }
+
+  /** Undo a user turn that was logged but never reached the assistant. */
+  private forgetLastUserTurn(text: string): void {
+    this.turnLog.update((log) => {
+      const last = log[log.length - 1];
+      if (last && last.role === 'user' && last.text === text) return log.slice(0, -1);
+      return log;
     });
   }
 
@@ -712,6 +771,29 @@ export function parseTimestamp(value: string): string | null {
     .map((part) => Number(part.trim()))
     .reduce((total, part) => total * 60 + part, 0);
   return String(seconds);
+}
+
+/**
+ * The history cap (issue #286). Keeps the last {@link HISTORY_MAX_EXCHANGES}
+ * user turns and everything from the earliest of those onward, so each kept
+ * user turn brings the assistant turn that answered it. Every message is
+ * truncated to {@link HISTORY_MAX_CHARS} rather than dropped.
+ */
+export function capHistory(
+  log: readonly AssistantHistoryMessage[],
+): AssistantHistoryMessage[] {
+  const userTurns = log
+    .map((message, index) => (message.role === 'user' ? index : -1))
+    .filter((index) => index >= 0);
+  const start =
+    userTurns.length > HISTORY_MAX_EXCHANGES
+      ? userTurns[userTurns.length - HISTORY_MAX_EXCHANGES]
+      : 0;
+
+  return log.slice(start).map((message) => ({
+    role: message.role,
+    text: message.text.slice(0, HISTORY_MAX_CHARS),
+  }));
 }
 
 /** Seconds (as a string) to `m:ss` / `h:mm:ss`. Null-safe and never NaN-y. */

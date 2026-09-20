@@ -104,27 +104,64 @@
   overflow-y: auto;
 }
 
+/* The transcript is a conversation, not a reply log (issue #286): each speaker
+   entry carries a small letterspaced label, the user's words are set in the
+   reading serif, and the assistant answers in the sans behind a hairline rule.
+   Printed-interview typography — no bubbles, avatars or colour beyond the
+   existing tokens, so both themes and both layouts follow the same rules. */
 .entry {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   margin: 0;
-  padding: 2px 0 2px 12px;
-  border-left: 2px solid var(--border-color);
+}
+
+.entry-speaker {
+  /* Measured, not assumed: --color-text-light lands at 4.47:1 on the light
+     panel, just under the 4.5 minimum for text this size. The speaker label is
+     the primary cue for who is talking, so it uses the muted token instead
+     (8.47:1 light / 10.98:1 dark). */
+  color: var(--color-text-muted);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
 }
 
 .entry-text {
   margin: 0;
+}
+
+.entry-user .entry-text {
   color: var(--color-text-main);
   font-family: 'Newsreader', serif;
   font-size: 0.95rem;
   line-height: 1.5;
 }
 
-.entry-question .entry-text {
-  color: var(--color-text-muted);
-  font-style: italic;
+.entry-assistant {
+  padding-left: 12px;
+  border-left: 1px solid var(--border-color);
+}
+
+.entry-assistant .entry-text {
+  color: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.88rem;
+  line-height: 1.55;
 }
 
 .entry-error {
-  border-left-color: var(--color-danger);
+  padding-left: 12px;
+  border-left: 2px solid var(--color-danger);
+}
+
+.entry-error .entry-text {
+  color: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.85rem;
+  line-height: 1.5;
 }
 
 .entry-meta {
@@ -133,6 +170,66 @@
   margin-top: 4px;
   color: var(--color-text-light);
   font-size: 0.7rem;
+}
+
+/* ------------------------------
+   Thinking indicator (issue #289)
+   Set in the position the reply will occupy, so a slow turn reads as work in
+   progress rather than a hang. The dots are decorative; the hidden label is
+   what a screen reader announces, in both motion branches.
+------------------------------ */
+.entry-pending .thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  /* Match the assistant body's own line box, so the entry's height does not
+     change when the reply replaces the indicator. `min-height` is load-bearing:
+     an inline-flex holding four-pixel children collapses to their height, so
+     without it the pending entry is one line SHORTER than the reply that
+     replaces it and the panel jumps. */
+  font-size: 0.88rem;
+  line-height: 1.55;
+  min-height: 1.55em;
+}
+
+.thinking-dot {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--color-text-muted);
+  opacity: 0.28;
+  animation: assistant-thinking 1.4s var(--ease-plain) infinite;
+}
+
+.thinking-dot:nth-child(2) {
+  animation-delay: 0.18s;
+}
+
+.thinking-dot:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+@keyframes assistant-thinking {
+  0%,
+  60%,
+  100% {
+    opacity: 0.28;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-1px);
+  }
+}
+
+/* A user who asked for reduced motion gets a still, legible row rather than a
+   throbber; the hidden "Thinking" label carries the state either way. */
+@media (prefers-reduced-motion: reduce) {
+  .thinking-dot {
+    animation: none;
+    opacity: 0.55;
+  }
 }
 
 .assistant-prompt {
@@ -251,39 +348,6 @@
 }
 
 .transcript-undo-button:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: 2px;
-}
-
-/* ------------------------------
-   Post-processing modes (issue #262 §7)
-   Quiet by design: one small control in the composer. The default is verbatim,
-   a storage operation that makes no provider call.
------------------------------- */
-.composer-modes {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.composer-mode-label {
-  color: var(--color-text-light);
-  font-size: 0.72rem;
-}
-
-.composer-mode-select {
-  padding: 2px 6px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--color-text-muted);
-  font: inherit;
-  font-size: 0.72rem;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.composer-mode-select:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: 2px;
 }

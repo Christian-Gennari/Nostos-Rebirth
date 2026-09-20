@@ -19,9 +19,15 @@
     @for (entry of assistant.entries(); track entry.id) {
     <article
       class="entry"
-      [class.entry-question]="entry.kind === 'question'"
+      [class.entry-user]="entry.kind === 'user'"
+      [class.entry-assistant]="entry.kind === 'assistant'"
       [class.entry-error]="entry.kind === 'error'"
     >
+      @if (entry.kind === 'user') {
+      <span class="entry-speaker" data-testid="assistant-entry-user-label">You</span>
+      } @else if (entry.kind === 'assistant') {
+      <span class="entry-speaker" data-testid="assistant-entry-assistant-label">Nostos</span>
+      }
       <blockquote class="entry-text">{{ entry.text }}</blockquote>
       @if (entry.anchorLabel || entry.meta) {
       <footer class="entry-meta">
@@ -29,6 +35,24 @@
         @if (entry.meta) { <span class="entry-status">{{ entry.meta }}</span> }
       </footer>
       }
+    </article>
+    } @if (assistant.sending()) {
+    <!-- The reply's own position, held while the turn is in flight: a slow
+         model otherwise reads as a hang. Decorative dots only; the hidden
+         label is what assistive tech announces. -->
+    <article
+      class="entry entry-assistant entry-pending"
+      role="status"
+      aria-live="polite"
+      data-testid="assistant-pending"
+    >
+      <span class="entry-speaker">Nostos</span>
+      <span class="visually-hidden">Thinking</span>
+      <span class="thinking-dots">
+        <span class="thinking-dot" aria-hidden="true"></span>
+        <span class="thinking-dot" aria-hidden="true"></span>
+        <span class="thinking-dot" aria-hidden="true"></span>
+      </span>
     </article>
     }
   </div>
@@ -137,20 +161,6 @@
       (input)="onComposerInput($event)"
       (keydown.enter)="onComposerEnter($event)"
     ></textarea>
-    <div class="composer-modes">
-      <label class="composer-mode-label" for="assistant-mode">Processing</label>
-      <select
-        id="assistant-mode"
-        class="composer-mode-select"
-        data-testid="assistant-mode-select"
-        [value]="assistant.processingMode()"
-        (change)="onModeChange($event)"
-      >
-        @for (mode of modes; track mode.value) {
-        <option [value]="mode.value">{{ mode.label }}</option>
-        }
-      </select>
-    </div>
     @if (assistant.anchorChip(); as chip) {
     <div class="anchor-chip" data-testid="assistant-anchor-chip">
       <nostos-icon name="map-pin" [size]="12"></nostos-icon>

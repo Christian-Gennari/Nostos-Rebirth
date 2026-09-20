@@ -22,7 +22,20 @@ public sealed record AssistantTurnRequest(
     // for this capture (issue #262 §7). Null means "use the configured default",
     // which is verbatim. The orchestrator injects this into notes_capture; the
     // capability's own signature stays frozen.
-    string? ProcessingMode = null);
+    string? ProcessingMode = null,
+    // APPENDED (positional record): the recent turns the client remembers, so the
+    // model can follow the exchange instead of rebuilding it from nothing each
+    // turn (issue #286). Untrusted, client-supplied text: it travels only as
+    // ordinary user/assistant turns and is never stored server-side.
+    IReadOnlyList<AssistantHistoryMessageDto>? History = null);
+
+/// <summary>
+/// One remembered turn sent by the client (issue #286). <c>Role</c> is
+/// <c>"user"</c> or <c>"assistant"</c>; any other role is ignored by the
+/// orchestrator and never promoted to a system message. <c>Text</c> is untrusted
+/// user-supplied text.
+/// </summary>
+public sealed record AssistantHistoryMessageDto(string Role, string Text);
 
 /// <summary>
 /// What the user is looking at. Mirrors the frontend

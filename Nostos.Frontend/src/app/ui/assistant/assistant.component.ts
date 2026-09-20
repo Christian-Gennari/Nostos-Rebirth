@@ -9,12 +9,7 @@ import {
 } from '@angular/core';
 
 import { NostosIconComponent } from '../icon/nostos-icon.component';
-import {
-  AssistantService,
-  PROCESSING_MODES,
-  ProcessingMode,
-  formatTimestamp,
-} from './assistant.service';
+import { AssistantService, formatTimestamp } from './assistant.service';
 import { AssistantVoiceService } from './assistant-voice.service';
 import { AssistantStatusService } from './assistant-status.service';
 import { LibraryPreferencesService } from '../../core/services/library-preferences.service';
@@ -73,9 +68,6 @@ export class AssistantComponent {
   readonly sheetBottomPx = computed(() =>
     this.keyboardOffset() > 0 ? this.keyboardOffset() : null,
   );
-
-  /** The post-processing modes the composer offers, in presentation order. */
-  readonly modes = PROCESSING_MODES;
 
   constructor() {
     // Availability is a server fact; ask once for the life of the session.
@@ -189,12 +181,6 @@ export class AssistantComponent {
       element.value = this.assistant.draft();
       this.autoGrow(element);
     }
-  }
-
-  /** The composer's per-capture processing choice (issue #262 §7). */
-  onModeChange(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value as ProcessingMode;
-    this.assistant.setProcessingMode(value);
   }
 
   private autoGrow(element: HTMLTextAreaElement): void {
