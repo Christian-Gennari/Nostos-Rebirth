@@ -14,175 +14,210 @@
   data-testid="assistant-panel"
   [style.bottom.px]="sheetBottomPx()"
 >
-  @if (assistant.entries().length > 0) {
-  <div class="assistant-transcript" data-testid="assistant-transcript">
-    @for (entry of assistant.entries(); track entry.id) {
-    <article
-      class="entry"
-      [class.entry-user]="entry.kind === 'user'"
-      [class.entry-assistant]="entry.kind === 'assistant'"
-      [class.entry-error]="entry.kind === 'error'"
-    >
-      @if (entry.kind === 'user') {
-      <span class="entry-speaker" data-testid="assistant-entry-user-label">You</span>
-      } @else if (entry.kind === 'assistant') {
-      <span class="entry-speaker" data-testid="assistant-entry-assistant-label">Nostos</span>
-      }
-      <blockquote class="entry-text">{{ entry.text }}</blockquote>
-      @if (entry.anchorLabel || entry.meta) {
-      <footer class="entry-meta">
-        @if (entry.anchorLabel) { <span class="entry-anchor">{{ entry.anchorLabel }}</span> }
-        @if (entry.meta) { <span class="entry-status">{{ entry.meta }}</span> }
-      </footer>
-      }
-    </article>
-    } @if (assistant.sending()) {
-    <!-- The reply's own position, held while the turn is in flight: a slow
-         model otherwise reads as a hang. Decorative dots only; the hidden
-         label is what assistive tech announces. -->
-    <article
-      class="entry entry-assistant entry-pending"
-      role="status"
-      aria-live="polite"
-      data-testid="assistant-pending"
-    >
-      <span class="entry-speaker">Nostos</span>
-      <span class="visually-hidden">Thinking</span>
-      <span class="thinking-dots">
-        <span class="thinking-dot" aria-hidden="true"></span>
-        <span class="thinking-dot" aria-hidden="true"></span>
-        <span class="thinking-dot" aria-hidden="true"></span>
+  <header class="assistant-header">
+    <div class="assistant-heading">
+      <span class="assistant-mark" aria-hidden="true">
+        <nostos-icon name="sparkle" [size]="14"></nostos-icon>
       </span>
-    </article>
-    }
-  </div>
-  } @if (assistant.suggestions().length > 0) {
-  <div class="assistant-suggestions" data-testid="assistant-suggestions">
-    <span class="suggestions-title">Existing concepts this note could link to</span>
-    @for (suggestion of assistant.suggestions(); track suggestion.value ?? suggestion.label) {
-    <button
-      type="button"
-      class="suggestion-chip"
-      (click)="assistant.applySuggestion(suggestion)"
-      data-testid="assistant-suggestion"
-    >
-      <span class="suggestion-label">{{ suggestion.label }}</span>
-      <span class="suggestion-reason">{{ suggestion.reason }}</span>
-    </button>
-    }
-    <button
-      type="button"
-      class="suggestion-none"
-      (click)="assistant.dismissSuggestions()"
-      data-testid="assistant-suggestion-none"
-    >
-      None of these / no strong match
-    </button>
-  </div>
-  } @if (assistant.pendingPlan(); as plan) {
-  <div class="assistant-plan" data-testid="assistant-plan">
-    <span class="plan-title">Proposed changes</span>
-    <p class="plan-summary">{{ plan.summary }}</p>
-    <ol class="plan-steps">
-      @for (step of plan.steps; track $index) {
-      <li class="plan-step">{{ step.summary }}</li>
+      <div class="assistant-heading-copy">
+        <span class="assistant-title">Ask Nostos</span>
+        <span class="assistant-subtitle">A quiet margin beside your reading</span>
+      </div>
+    </div>
+
+    <div class="assistant-header-actions">
+      @if (currentBookTitle(); as bookTitle) {
+      <span class="assistant-context" [title]="bookTitle">
+        <nostos-icon name="book-open" [size]="13"></nostos-icon>
+        <span class="assistant-context-label">{{ bookTitle }}</span>
+      </span>
       }
-    </ol>
-    <div class="plan-actions">
       <button
         type="button"
-        class="plan-approve"
-        [disabled]="assistant.sending()"
-        (click)="assistant.approvePlan(plan.planId, plan.approvalToken)"
-        data-testid="assistant-plan-approve"
+        class="assistant-close"
+        (click)="close()"
+        aria-label="Close Ask Nostos"
+        data-testid="assistant-close"
       >
-        {{ assistant.sending() ? 'Applying…' : 'Approve plan' }}
+        <nostos-icon name="x" [size]="14"></nostos-icon>
       </button>
     </div>
-  </div>
-  } @if (assistant.pendingAnchor(); as prompt) {
-  <div class="assistant-prompt" data-testid="assistant-anchor-prompt">
-    <span class="prompt-question">{{ prompt.question }}</span>
-    <!-- A book question has no skip: there is nothing to save without it, and
-         skipping would only ask again. -->
-    @if (prompt.kind !== 'book') {
-    <button type="button" class="prompt-skip" (click)="assistant.skipAnchor()" data-testid="assistant-anchor-skip">
-      Skip
-    </button>
-    }
-  </div>
-  }
+  </header>
 
-  <!-- The raw transcript of the note this turn captured (issue #262 §8): the
-       original words stay readable after any mode processed them, and restoring
-       never erases the transcript it restores from. -->
-  @if (assistant.capturedNoteId()) {
-  <div class="assistant-raw" data-testid="assistant-raw">
-    <button
-      type="button"
-      class="raw-toggle"
-      (click)="assistant.toggleRawTranscript()"
-      [attr.aria-expanded]="assistant.rawOpen()"
-      data-testid="assistant-raw-toggle"
-    >
-      {{ assistant.rawOpen() ? 'Hide original' : 'Show original' }}
-    </button>
-    @if (assistant.rawOpen()) {
-    <div class="raw-body" data-testid="assistant-raw-body">
-      @if (assistant.rawLoading()) {
-      <p class="raw-text">Loading…</p>
-      } @else if (assistant.rawTranscript(); as raw) { @if (raw.rawContent) {
-      <p class="raw-text" data-testid="assistant-raw-text">{{ raw.rawContent }}</p>
-      <div class="raw-actions">
-        <span class="raw-mode" data-testid="assistant-raw-mode">Now: {{ raw.processingMode }}</span>
+  <div class="assistant-body">
+    @if (assistant.entries().length === 0) {
+    <div class="assistant-empty">
+      <p>Ask about what you are reading, or capture a thought without leaving the page.</p>
+    </div>
+    }
+
+    @if (assistant.entries().length > 0) {
+    <div class="assistant-transcript" data-testid="assistant-transcript">
+      @for (entry of assistant.entries(); track entry.id) {
+      <article
+        class="entry"
+        [class.entry-user]="entry.kind === 'user'"
+        [class.entry-assistant]="entry.kind === 'assistant'"
+        [class.entry-error]="entry.kind === 'error'"
+      >
+        @if (entry.kind === 'user') {
+        <span class="entry-speaker" data-testid="assistant-entry-user-label">You</span>
+        } @else if (entry.kind === 'assistant') {
+        <span class="entry-speaker" data-testid="assistant-entry-assistant-label">Nostos</span>
+        }
+        <blockquote class="entry-text">{{ entry.text }}</blockquote>
+        @if (entry.anchorLabel || entry.meta) {
+        <footer class="entry-meta">
+          @if (entry.anchorLabel) { <span class="entry-anchor">{{ entry.anchorLabel }}</span> }
+          @if (entry.meta) { <span class="entry-status">{{ entry.meta }}</span> }
+        </footer>
+        }
+      </article>
+      }
+
+      @if (assistant.sending()) {
+      <!-- The reply's own position, held while the turn is in flight: a slow
+           model otherwise reads as a hang. Decorative dots only; the hidden
+           label is what assistive tech announces. -->
+      <article
+        class="entry entry-assistant entry-pending"
+        role="status"
+        aria-live="polite"
+        data-testid="assistant-pending"
+      >
+        <span class="entry-speaker">Nostos</span>
+        <span class="visually-hidden">Thinking</span>
+        <span class="thinking-dots">
+          <span class="thinking-dot" aria-hidden="true"></span>
+          <span class="thinking-dot" aria-hidden="true"></span>
+          <span class="thinking-dot" aria-hidden="true"></span>
+        </span>
+      </article>
+      }
+    </div>
+    }
+
+    @if (assistant.suggestions().length > 0) {
+    <div class="assistant-suggestions" data-testid="assistant-suggestions">
+      <span class="suggestions-title">Existing concepts this note could link to</span>
+      <div class="suggestions-list">
+        @for (suggestion of assistant.suggestions(); track suggestion.value ?? suggestion.label) {
         <button
           type="button"
-          class="raw-restore"
-          [disabled]="assistant.sending()"
-          (click)="assistant.restoreRawTranscript()"
-          data-testid="assistant-raw-restore"
+          class="suggestion-chip"
+          (click)="assistant.applySuggestion(suggestion)"
+          data-testid="assistant-suggestion"
         >
-          Restore original
+          <span class="suggestion-label">{{ suggestion.label }}</span>
+          <span class="suggestion-reason">{{ suggestion.reason }}</span>
         </button>
+        }
       </div>
-      } @else {
-      <p class="raw-text" data-testid="assistant-raw-empty">This note kept no separate original text.</p>
-      } }
-    </div>
-    }
-  </div>
-  }
-
-  <div class="assistant-composer">
-    <textarea
-      #composer
-      class="composer-field"
-      rows="1"
-      placeholder="Ask Nostos, or capture a thought…"
-      aria-label="Ask Nostos, or capture a thought"
-      data-testid="assistant-composer"
-      [value]="assistant.draft()"
-      (input)="onComposerInput($event)"
-      (keydown.enter)="onComposerEnter($event)"
-    ></textarea>
-    @if (assistant.anchorChip(); as chip) {
-    <div class="anchor-chip" data-testid="assistant-anchor-chip">
-      <nostos-icon name="map-pin" [size]="12"></nostos-icon>
-      <span class="anchor-chip-label">{{ chip.label }}</span>
       <button
         type="button"
-        class="anchor-chip-dismiss"
-        (click)="assistant.dismissAnchor()"
-        aria-label="Remove source location"
+        class="suggestion-none"
+        (click)="assistant.dismissSuggestions()"
+        data-testid="assistant-suggestion-none"
       >
-        <nostos-icon name="x" [size]="12"></nostos-icon>
+        None of these / no strong match
       </button>
     </div>
     }
 
+    @if (assistant.pendingPlan(); as plan) {
+    <div class="assistant-plan" data-testid="assistant-plan">
+      <div class="plan-heading">
+        <span class="plan-title">Proposed changes</span>
+        <span class="plan-count">{{ plan.steps.length }} {{ plan.steps.length === 1 ? 'step' : 'steps' }}</span>
+      </div>
+      <p class="plan-summary">{{ plan.summary }}</p>
+      <ol class="plan-steps">
+        @for (step of plan.steps; track $index) {
+        <li class="plan-step">{{ step.summary }}</li>
+        }
+      </ol>
+      <div class="plan-actions">
+        <button
+          type="button"
+          class="plan-approve"
+          [disabled]="assistant.sending()"
+          (click)="assistant.approvePlan(plan.planId, plan.approvalToken)"
+          data-testid="assistant-plan-approve"
+        >
+          {{ assistant.sending() ? 'Applying…' : 'Approve plan' }}
+        </button>
+      </div>
+    </div>
+    }
+
+    @if (assistant.pendingAnchor(); as prompt) {
+    <div class="assistant-prompt" data-testid="assistant-anchor-prompt">
+      <div class="prompt-copy">
+        <span class="prompt-label">One detail</span>
+        <span class="prompt-question">{{ prompt.question }}</span>
+      </div>
+      <!-- A book question has no skip: there is nothing to save without it, and
+           skipping would only ask again. -->
+      @if (prompt.kind !== 'book') {
+      <button
+        type="button"
+        class="prompt-skip"
+        (click)="assistant.skipAnchor()"
+        data-testid="assistant-anchor-skip"
+      >
+        Skip
+      </button>
+      }
+    </div>
+    }
+
+    <!-- The raw transcript of the note this turn captured (issue #262 §8): the
+         original words stay readable after any mode processed them, and restoring
+         never erases the transcript it restores from. -->
+    @if (assistant.capturedNoteId()) {
+    <div class="assistant-raw" data-testid="assistant-raw">
+      <button
+        type="button"
+        class="raw-toggle"
+        (click)="assistant.toggleRawTranscript()"
+        [attr.aria-expanded]="assistant.rawOpen()"
+        data-testid="assistant-raw-toggle"
+      >
+        {{ assistant.rawOpen() ? 'Hide original' : 'Show original' }}
+      </button>
+      @if (assistant.rawOpen()) {
+      <div class="raw-body" data-testid="assistant-raw-body">
+        @if (assistant.rawLoading()) {
+        <p class="raw-text">Loading…</p>
+        } @else if (assistant.rawTranscript(); as raw) {
+          @if (raw.rawContent) {
+          <p class="raw-text" data-testid="assistant-raw-text">{{ raw.rawContent }}</p>
+          <div class="raw-actions">
+            <span class="raw-mode" data-testid="assistant-raw-mode">Now: {{ raw.processingMode }}</span>
+            <button
+              type="button"
+              class="raw-restore"
+              [disabled]="assistant.sending()"
+              (click)="assistant.restoreRawTranscript()"
+              data-testid="assistant-raw-restore"
+            >
+              Restore original
+            </button>
+          </div>
+          } @else {
+          <p class="raw-text" data-testid="assistant-raw-empty">This note kept no separate original text.</p>
+          }
+        }
+      </div>
+      }
+    </div>
+    }
+  </div>
+
+  <div class="assistant-composer">
+    @if (assistant.autoSendPending()) {
     <!-- Pre-dispatch Undo for an auto-sent transcript. Nothing has been sent
          yet; cancelling here is the only chance to avoid a wrong capture. -->
-    @if (assistant.autoSendPending()) {
     <div
       class="transcript-undo"
       role="status"
@@ -201,53 +236,99 @@
     </div>
     }
 
-    <!-- Push-to-talk. `getUserMedia` is requested only on this tap; the mic is
-         absent while closed, so the collapsed capsule is untouched. -->
-    <div class="voice-row">
-      @if (voice.isRecording()) {
-      <span class="voice-timer" data-testid="assistant-voice-timer" aria-live="polite">
-        {{ elapsedLabel() }}
-      </span>
-      <button
-        type="button"
-        class="voice-control voice-control-stop"
-        (click)="onVoiceStop()"
-        aria-label="Stop recording"
-        data-testid="assistant-voice-stop"
-      >
-        <nostos-icon name="stop" [size]="14"></nostos-icon>
-      </button>
-      <button
-        type="button"
-        class="voice-control"
-        (click)="onVoiceCancel()"
-        aria-label="Discard recording"
-        data-testid="assistant-voice-cancel"
-      >
-        <nostos-icon name="x" [size]="14"></nostos-icon>
-      </button>
-      } @else if (voice.isTranscribing()) {
-      <span class="voice-status" data-testid="assistant-voice-transcribing">Transcribing…</span>
-      <button
-        type="button"
-        class="voice-control"
-        (click)="onVoiceCancel()"
-        aria-label="Cancel transcription"
-        data-testid="assistant-voice-cancel"
-      >
-        <nostos-icon name="x" [size]="14"></nostos-icon>
-      </button>
-      } @else {
-      <button
-        type="button"
-        class="voice-control voice-control-mic"
-        (click)="onMicTap()"
-        aria-label="Record a voice note"
-        data-testid="assistant-voice-start"
-      >
-        <nostos-icon name="microphone" [size]="14"></nostos-icon>
-      </button>
+    <div class="composer-shell">
+      @if (assistant.anchorChip(); as chip) {
+      <div class="composer-context-row">
+        <div class="anchor-chip" data-testid="assistant-anchor-chip">
+          <nostos-icon name="map-pin" [size]="12"></nostos-icon>
+          <span class="anchor-chip-label">{{ chip.label }}</span>
+          <button
+            type="button"
+            class="anchor-chip-dismiss"
+            (click)="assistant.dismissAnchor()"
+            aria-label="Remove source location"
+          >
+            <nostos-icon name="x" [size]="12"></nostos-icon>
+          </button>
+        </div>
+      </div>
       }
+
+      <textarea
+        #composer
+        class="composer-field"
+        rows="1"
+        placeholder="Ask Nostos, or capture a thought…"
+        aria-label="Ask Nostos, or capture a thought"
+        data-testid="assistant-composer"
+        [value]="assistant.draft()"
+        (input)="onComposerInput($event)"
+        (keydown.enter)="onComposerEnter($event)"
+      ></textarea>
+
+      <div class="composer-footer">
+        <span class="composer-hint">Enter to send · Shift+Enter for a new line</span>
+
+        <!-- Push-to-talk. `getUserMedia` is requested only on this tap; the mic
+             is absent while closed, so the collapsed capsule is untouched. -->
+        <div class="voice-row">
+          @if (voice.isRecording()) {
+          <span class="voice-timer" data-testid="assistant-voice-timer" aria-live="polite">
+            {{ elapsedLabel() }}
+          </span>
+          <button
+            type="button"
+            class="voice-control voice-control-stop"
+            (click)="onVoiceStop()"
+            aria-label="Stop recording"
+            data-testid="assistant-voice-stop"
+          >
+            <nostos-icon name="stop" [size]="14"></nostos-icon>
+          </button>
+          <button
+            type="button"
+            class="voice-control"
+            (click)="onVoiceCancel()"
+            aria-label="Discard recording"
+            data-testid="assistant-voice-cancel"
+          >
+            <nostos-icon name="x" [size]="14"></nostos-icon>
+          </button>
+          } @else if (voice.isTranscribing()) {
+          <span class="voice-status" data-testid="assistant-voice-transcribing">Transcribing…</span>
+          <button
+            type="button"
+            class="voice-control"
+            (click)="onVoiceCancel()"
+            aria-label="Cancel transcription"
+            data-testid="assistant-voice-cancel"
+          >
+            <nostos-icon name="x" [size]="14"></nostos-icon>
+          </button>
+          } @else if (hasDraft()) {
+          <button
+            type="button"
+            class="voice-control composer-send"
+            [disabled]="assistant.sending()"
+            (click)="onSendClick()"
+            aria-label="Send to Nostos"
+            data-testid="assistant-send"
+          >
+            <nostos-icon name="arrow-right" [size]="14"></nostos-icon>
+          </button>
+          } @else {
+          <button
+            type="button"
+            class="voice-control voice-control-mic"
+            (click)="onMicTap()"
+            aria-label="Record a voice note"
+            data-testid="assistant-voice-start"
+          >
+            <nostos-icon name="microphone" [size]="14"></nostos-icon>
+          </button>
+          }
+        </div>
+      </div>
     </div>
 
     @if (voice.error(); as voiceError) {
@@ -271,9 +352,6 @@
     <nostos-icon name="sparkle" [size]="14"></nostos-icon>
     <span class="trigger-label">Ask Nostos</span>
     <kbd>⌘J</kbd>
-    <!-- A microphone segment joins here later as a second flex child behind a
-         hairline border-left; the capsule is already a flex row, so adding it
-         needs no re-layout. -->
   </span>
 </button>
 }
