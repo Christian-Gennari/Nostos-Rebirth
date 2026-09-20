@@ -116,7 +116,11 @@
   align-items: center;
   gap: 6px;
   font-size: 0.75rem;
-  color: var(--color-text-light);
+  /* Measured: --color-text-light is 4.47:1 on the light card — under the 4.5
+     minimum at this size. The metadata row and the source badge are the only
+     cues to when and where a note came from, so both use the muted token
+     (8.47:1 light / 10.98:1 dark). */
+  color: var(--color-text-muted);
   /* The date and the source badge are siblings in a `space-between` footer. On
      a narrow card they must be allowed to wrap rather than pile onto the
      action cluster, and each must be able to truncate: a flex item's default
@@ -143,7 +147,7 @@
   background: transparent;
   padding: 2px 6px;
   border-radius: 4px;
-  color: var(--color-text-light);
+  color: var(--color-text-muted);
   font-size: 0.75rem;
   cursor: pointer;
   transition: background-color 0.2s ease, color 0.2s ease;
