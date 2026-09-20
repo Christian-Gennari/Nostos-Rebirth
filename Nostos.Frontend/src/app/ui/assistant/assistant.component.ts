@@ -16,6 +16,8 @@ import {
   formatTimestamp,
 } from './assistant.service';
 import { AssistantVoiceService } from './assistant-voice.service';
+import { AssistantStatusService } from './assistant-status.service';
+import { LibraryPreferencesService } from '../../core/services/library-preferences.service';
 
 /**
  * App-wide assistant shell (issue #261 §1, §2, §4 capture; #262 voice).
@@ -43,11 +45,22 @@ import { AssistantVoiceService } from './assistant-voice.service';
 export class AssistantComponent {
   readonly assistant = inject(AssistantService);
   readonly voice = inject(AssistantVoiceService);
+  private readonly status = inject(AssistantStatusService);
+  private readonly preferences = inject(LibraryPreferencesService);
   private readonly host = inject(ElementRef<HTMLElement>);
   private readonly composer = viewChild<ElementRef<HTMLTextAreaElement>>('composer');
 
   /** The element focused before opening, restored on close. */
   private previouslyFocused: HTMLElement | null = null;
+
+  /**
+   * Whether the shell exists at all: the user wants it (preference on) AND the
+   * server can run it (available). The panel and the capsule share this one
+   * gate, so neither can appear without the other's precondition.
+   */
+  readonly visible = computed(
+    () => this.preferences.assistantEnabled() && this.status.available(),
+  );
 
   /**
    * How far the software keyboard has lifted the viewport. Drives the mobile
@@ -65,6 +78,9 @@ export class AssistantComponent {
   readonly modes = PROCESSING_MODES;
 
   constructor() {
+    // Availability is a server fact; ask once for the life of the session.
+    this.status.ensureLoaded();
+
     // A finished transcript is handed to the conversation, which owns the ONE
     // policy for whether it is reviewed or auto-sent. The composer keeps focus so
     // the user can read and edit before pressing Enter.
@@ -107,12 +123,14 @@ export class AssistantComponent {
     // palette and is deliberately not touched here.
     const mod = event.metaKey || event.ctrlKey;
     if (mod && !event.altKey && event.key.toLowerCase() === 'j') {
+      // Never hijack the shortcut when the assistant is not on screen.
+      if (!this.visible()) return;
       event.preventDefault();
       if (this.assistant.isOpen()) this.close();
       else this.open();
       return;
     }
-    if (event.key === 'Escape' && this.assistant.isOpen()) {
+    if (event.key === 'Escape' && this.visible() && this.assistant.isOpen()) {
       event.preventDefault();
       this.close();
     }
@@ -132,6 +150,7 @@ export class AssistantComponent {
   }
 
   open(): void {
+    if (!this.visible()) return;
     this.previouslyFocused =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     this.assistant.open();

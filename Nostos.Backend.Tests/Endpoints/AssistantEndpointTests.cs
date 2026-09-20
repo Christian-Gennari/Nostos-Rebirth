@@ -23,10 +23,24 @@ namespace Nostos.Backend.Tests.Endpoints;
 /// free pool is never called here. The only tests that exercise the real
 /// provider are the "unconfigured" ones, and those never reach the network.
 /// </summary>
-public sealed class AssistantEndpointTests
+public sealed class AssistantEndpointTests : IDisposable
 {
-    private const string TokenVariable = "NOSTOS_ASSISTANT_TEST_TOKEN";
+    // A variable owned solely by this class: the provider tests set a variable
+    // with the same name, and the process-wide environment is shared, so a
+    // distinct name keeps the two classes from racing.
+    private const string TokenVariable = "NOSTOS_ASSISTANT_ENDPOINT_TEST_TOKEN";
     private const string TokenValue = "sentinel-assistant-key-value";
+
+    /// <summary>
+    /// A configured key for the duration of every test, so the availability gate
+    /// is satisfied by default; tests about the unconfigured state clear it
+    /// explicitly. Cleared on dispose.
+    /// </summary>
+    public AssistantEndpointTests() =>
+        Environment.SetEnvironmentVariable(TokenVariable, TokenValue);
+
+    public void Dispose() =>
+        Environment.SetEnvironmentVariable(TokenVariable, null);
 
     // ------------------------------------------------------------------
     // Turn
@@ -109,6 +123,94 @@ public sealed class AssistantEndpointTests
 
         response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
         (await ProblemTitleAsync(response)).Should().Be(LlmErrorCodes.NotConfigured);
+    }
+
+    // ------------------------------------------------------------------
+    // Status — the single source of availability
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task Status_is_unavailable_when_no_key_is_configured()
+    {
+        Environment.SetEnvironmentVariable(TokenVariable, null);
+
+        var provider = new FakeLlmProvider();
+
+        using var factory = new LibraryEndpointFactory();
+        using var host = CreateHost(factory, provider);
+        using var client = host.CreateClient();
+
+        var response = await client.GetAsync(AssistantEndpoints.StatusRoute);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadAsStringAsync();
+        var status = await response.Content.ReadFromJsonAsync<JsonElement>();
+        status.GetProperty("available").GetBoolean().Should().BeFalse();
+
+        // Presence, never a hint: neither the variable's name nor its value may
+        // appear in the body.
+        body.Should().NotContain(TokenVariable);
+        body.Should().NotContain(TokenValue);
+    }
+
+    [Fact]
+    public async Task Status_is_available_when_a_key_is_configured_and_never_contains_it()
+    {
+        var provider = new FakeLlmProvider();
+
+        using var factory = new LibraryEndpointFactory();
+        using var host = CreateHost(factory, provider);
+        using var client = host.CreateClient();
+
+        var response = await client.GetAsync(AssistantEndpoints.StatusRoute);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadAsStringAsync();
+        var status = await response.Content.ReadFromJsonAsync<JsonElement>();
+        status.GetProperty("available").GetBoolean().Should().BeTrue();
+        body.Should().NotContain(TokenValue);
+        body.Should().NotContain(TokenVariable);
+    }
+
+    [Fact]
+    public async Task Status_answers_without_requiring_the_kill_switch_to_be_on()
+    {
+        var provider = new FakeLlmProvider();
+
+        using var factory = new LibraryEndpointFactory();
+        using var host = CreateHost(factory, provider, enabled: false);
+        using var client = host.CreateClient();
+
+        var response = await client.GetAsync(AssistantEndpoints.StatusRoute);
+
+        // Not a 503: the status route reports availability, it does not require
+        // it. The kill switch simply renders the answer false.
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var status = await response.Content.ReadFromJsonAsync<JsonElement>();
+        status.GetProperty("available").GetBoolean().Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Turn_is_a_typed_503_when_the_status_reports_unavailable()
+    {
+        Environment.SetEnvironmentVariable(TokenVariable, null);
+
+        var provider = new FakeLlmProvider();
+
+        using var factory = new LibraryEndpointFactory();
+        using var host = CreateHost(factory, provider);
+        using var client = host.CreateClient();
+
+        var status = await client.GetFromJsonAsync<JsonElement>(AssistantEndpoints.StatusRoute);
+        status.GetProperty("available").GetBoolean().Should().BeFalse();
+
+        var response = await client.PostAsJsonAsync(
+            AssistantEndpoints.TurnRoute,
+            new AssistantTurnRequest("client-1", "key-1", "Hello?", Context()));
+
+        response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+        (await ProblemTitleAsync(response)).Should().Be(LlmErrorCodes.NotConfigured);
+        provider.CallCount.Should().Be(0);
     }
 
     [Fact]

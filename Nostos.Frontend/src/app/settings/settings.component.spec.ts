@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
+import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
 
 import { SettingsComponent } from './settings.component';
@@ -7,6 +8,11 @@ import { BackupService } from '../core/services/backup.service';
 import { OpdsService } from '../core/services/opds.service';
 import { ToastService } from '../core/services/toast.service';
 import { OpdsInfo } from '../core/dtos/opds.dtos';
+import {
+  LIBRARY_PREFERENCES_STORAGE_KEY,
+  LibraryPreferencesService,
+} from '../core/services/library-preferences.service';
+import { AssistantStatusService } from '../ui/assistant/assistant-status.service';
 
 const toastMock = { error: vi.fn(), success: vi.fn(), info: vi.fn() };
 
@@ -53,8 +59,34 @@ const backupServiceMock = {
   getProgress: vi.fn(() => of({})),
 };
 
+/**
+ * The assistant's server availability, driven by the test. Real requests are
+ * covered by `AssistantStatusService`'s own spec; here the card only needs the
+ * answer to change.
+ */
+const assistantStatusMock = {
+  available: signal(true),
+  ensureLoaded: vi.fn(),
+  refresh: vi.fn(),
+};
+
 describe('SettingsComponent backup-only surface', () => {
   let fixture: ComponentFixture<SettingsComponent>;
+
+  async function configure(): Promise<void> {
+    await TestBed.configureTestingModule({
+      imports: [SettingsComponent],
+      providers: [
+        { provide: BackupService, useValue: backupServiceMock },
+        { provide: OpdsService, useValue: opdsServiceMock },
+        { provide: ToastService, useValue: toastMock },
+        { provide: AssistantStatusService, useValue: assistantStatusMock },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(SettingsComponent);
+    fixture.detectChanges();
+  }
 
   beforeEach(async () => {
     localStorage.clear();
@@ -62,18 +94,10 @@ describe('SettingsComponent backup-only surface', () => {
     opdsServiceMock.getInfo.mockReturnValue(of(remoteInfo));
     toastMock.error.mockClear();
     toastMock.success.mockClear();
+    assistantStatusMock.available.set(true);
+    assistantStatusMock.refresh.mockClear();
 
-    await TestBed.configureTestingModule({
-      imports: [SettingsComponent],
-      providers: [
-        { provide: BackupService, useValue: backupServiceMock },
-        { provide: OpdsService, useValue: opdsServiceMock },
-        { provide: ToastService, useValue: toastMock },
-      ],
-    }).compileComponents();
-
-    fixture = TestBed.createComponent(SettingsComponent);
-    fixture.detectChanges();
+    await configure();
   });
 
   afterEach(() => {
@@ -133,7 +157,8 @@ describe('SettingsComponent backup-only surface', () => {
 
   it('exposes the automatic-backup toggle and manual backup action', () => {
     const toggles = fixture.debugElement.queryAll(By.css('input[type="checkbox"]'));
-    expect(toggles.length).toBe(2); // Automatic Backup + Include Book Files
+    // Automatic Backup + Include Book Files + the Reading assistant toggle (W1).
+    expect(toggles.length).toBe(3);
     const buttons = fixture.debugElement
       .queryAll(By.css('button'))
       .map((b) => b.nativeElement.textContent.trim());
@@ -268,6 +293,112 @@ describe('SettingsComponent backup-only surface', () => {
   });
 
   // ------------------------------------------------------------------
+  // Reading assistant (W1)
+  // ------------------------------------------------------------------
+
+  it('renders the Reading assistant card with the available copy and an on toggle', () => {
+    expect(cardHeaders()).toContain('Reading assistant');
+
+    const card = assistantCard();
+    expect(card).not.toBeNull();
+    expect(card!.textContent).toContain(
+      'Show the dock capsule for capturing thoughts while reading.',
+    );
+
+    const toggle = assistantToggle();
+    expect(toggle.disabled).toBe(false);
+    expect(toggle.getAttribute('aria-disabled')).toBeNull();
+    expect(toggle.checked).toBe(true);
+  });
+
+  it('records the assistant choice through the existing preferences service', () => {
+    const preferences = TestBed.inject(LibraryPreferencesService);
+    expect(preferences.assistantEnabled()).toBe(true);
+
+    assistantToggle().checked = false;
+    assistantToggle().dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    expect(preferences.assistantEnabled()).toBe(false);
+  });
+
+  it('persists the assistant toggle across a reload', async () => {
+    assistantToggle().checked = false;
+    assistantToggle().dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(JSON.parse(localStorage.getItem(LIBRARY_PREFERENCES_STORAGE_KEY)!).assistantEnabled).toBe(
+      false,
+    );
+
+    // A reload is a fresh injector reading the same localStorage.
+    TestBed.resetTestingModule();
+    await configure();
+
+    expect(TestBed.inject(LibraryPreferencesService).assistantEnabled()).toBe(false);
+    expect(assistantToggle().checked).toBe(false);
+  });
+
+  it('defaults the assistant toggle on for preferences stored before it existed', async () => {
+    localStorage.setItem(
+      LIBRARY_PREFERENCES_STORAGE_KEY,
+      JSON.stringify({
+        viewMode: 'list',
+        sort: 'lastread',
+        pageSize: 50,
+        sidebarExpanded: false,
+        groupByWork: false,
+      }),
+    );
+
+    TestBed.resetTestingModule();
+    await configure();
+
+    const preferences = TestBed.inject(LibraryPreferencesService);
+    expect(preferences.assistantEnabled()).toBe(true);
+    // The older choices survive: the missing field is not corruption.
+    expect(preferences.viewMode()).toBe('list');
+    expect(preferences.pageSize()).toBe(50);
+    expect(assistantToggle().checked).toBe(true);
+  });
+
+  it('renders the toggle off and non-interactive when the server is unavailable', () => {
+    assistantStatusMock.available.set(false);
+    render();
+
+    // The card stays visible; the supporting sentence is substituted in place.
+    const card = assistantCard();
+    expect(card).not.toBeNull();
+    expect(card!.textContent).toContain(
+      'Unavailable. Configure a model provider in your server environment to enable this.',
+    );
+    expect(card!.textContent).not.toContain('Show the dock capsule');
+
+    const toggle = assistantToggle();
+    expect(toggle.disabled).toBe(true);
+    expect(toggle.getAttribute('aria-disabled')).toBe('true');
+    expect(toggle.checked).toBe(false);
+    // Muted, never an alarm: the existing toggle itself is dimmed and inert.
+    expect(toggle.closest('.toggle')!.classList.contains('toggle--disabled')).toBe(true);
+  });
+
+  it('never records a preference while the assistant is unavailable', () => {
+    assistantStatusMock.available.set(false);
+    render();
+
+    const preferences = TestBed.inject(LibraryPreferencesService);
+    preferences.setAssistantEnabled(false);
+
+    // The guard is belt-and-braces behind the disabled control.
+    fixture.componentInstance.setAssistantEnabled({
+      target: { checked: true },
+    } as unknown as Event);
+
+    expect(preferences.assistantEnabled()).toBe(false);
+  });
+
+  // ------------------------------------------------------------------
 
   function cardHeaders(): string[] {
     return fixture.debugElement
@@ -277,6 +408,18 @@ describe('SettingsComponent backup-only surface', () => {
 
   function cardHeading(title: string): string {
     return cardHeaders().find((h) => h === title) ?? '';
+  }
+
+  function assistantCard(): HTMLElement | null {
+    return fixture.nativeElement.querySelector(
+      '[data-testid="assistant-settings-card"]',
+    ) as HTMLElement | null;
+  }
+
+  function assistantToggle(): HTMLInputElement {
+    return fixture.nativeElement.querySelector(
+      '[data-testid="assistant-enabled-toggle"]',
+    ) as HTMLInputElement;
   }
 
   function erCard(): HTMLElement | null {

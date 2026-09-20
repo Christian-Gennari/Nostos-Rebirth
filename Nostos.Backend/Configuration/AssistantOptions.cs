@@ -3,12 +3,14 @@ namespace Nostos.Backend.Configuration;
 /// <summary>
 /// Assistant LLM bridge configuration (issue #261 §3, decision D2/D8).
 ///
-/// Optional and disabled by default, exactly like <see cref="McpOptions"/> and
-/// <see cref="SpeechOptions"/>: with <see cref="Enabled"/> false the endpoint is
-/// still mapped, but answers with a typed "disabled" error rather than calling a
-/// provider or 500-ing. The credential is never read from configuration — only
-/// the NAME of the environment variable that holds it — so the key cannot be
-/// committed and cannot be shipped to the Angular client.
+/// Availability is DERIVED, not a manual server boolean: see
+/// <see cref="IsAvailable"/>. <see cref="Enabled"/> is only a hard kill switch
+/// and defaults ON, so a configured gateway is usable without anyone editing
+/// configuration. When the assistant is unavailable the endpoints are still
+/// mapped, but answer with a typed "not configured"/"disabled" error rather than
+/// calling a provider or 500-ing. The credential is never read from
+/// configuration — only the NAME of the environment variable that holds it — so
+/// the key cannot be committed and cannot be shipped to the Angular client.
 ///
 /// The default <see cref="Model"/> is the 9Router free pool, verbatim. The
 /// reference (`.hermes/plans/assistant-milestone/reference/9router-free-pool.md`)
@@ -18,8 +20,13 @@ public sealed class AssistantOptions
 {
     public const string SectionName = "Assistant";
 
-    /// <summary>Master switch. When false the endpoints are typed no-ops.</summary>
-    public bool Enabled { get; set; } = false;
+    /// <summary>
+    /// Hard kill switch. Defaults ON: readiness (a configured key and base URL)
+    /// is what actually decides whether the assistant runs, so the feature is
+    /// not dead just because nobody flipped a server boolean. Set false only to
+    /// take the assistant down entirely.
+    /// </summary>
+    public bool Enabled { get; set; } = true;
 
     /// <summary>
     /// Base URL of the OpenAI-compatible gateway, INCLUDING the <c>/v1</c>
@@ -58,4 +65,18 @@ public sealed class AssistantOptions
     /// answers, so this is generous on purpose.
     /// </summary>
     public int RequestTimeoutSeconds { get; set; } = 90;
+
+    /// <summary>
+    /// The single definition of "available": the hard kill switch is on, a base
+    /// URL is configured, and the named environment variable holds a non-empty
+    /// key. Every gate — the status endpoint, <c>/turn</c>, and
+    /// <c>/plan/approve</c> — asks this, so there is exactly one answer to "can
+    /// the assistant run". The credential is read only to test for emptiness and
+    /// is never returned, logged, or hinted at.
+    /// </summary>
+    public bool IsAvailable() =>
+        Enabled
+        && !string.IsNullOrWhiteSpace(BaseUrl)
+        && !string.IsNullOrWhiteSpace(
+            Environment.GetEnvironmentVariable(ApiKeyEnvironmentVariable));
 }

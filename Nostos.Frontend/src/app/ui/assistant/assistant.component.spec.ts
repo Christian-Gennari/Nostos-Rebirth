@@ -5,6 +5,8 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 
 import { AssistantComponent } from './assistant.component';
 import { AssistantService, AssistantTurnResponse } from './assistant.service';
+import { AssistantStatusService } from './assistant-status.service';
+import { LibraryPreferencesService } from '../../core/services/library-preferences.service';
 import {
   AssistantContext,
   AssistantContextService,
@@ -69,6 +71,17 @@ function fakeVoiceService() {
   };
 }
 
+/** A status service the component can drive, with no HTTP behind it. */
+function fakeStatusService(initial: boolean) {
+  const available = signal(initial);
+  return {
+    available: available.asReadonly(),
+    ensureLoaded: vi.fn(),
+    refresh: vi.fn(),
+    setAvailable: (value: boolean) => available.set(value),
+  };
+}
+
 /** A minimal successful turn: a short reply and nothing else. */
 function turn(overrides: Partial<AssistantTurnResponse> = {}): AssistantTurnResponse {
   return {
@@ -88,16 +101,20 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
   let http: HttpTestingController;
   let fake: ReturnType<typeof fakeContextService>;
   let voice: ReturnType<typeof fakeVoiceService>;
+  let status: ReturnType<typeof fakeStatusService>;
 
   beforeEach(async () => {
+    localStorage.clear();
     fake = fakeContextService({ surface: 'reader', route: '/read/b1', bookId: 'b1' });
     voice = fakeVoiceService();
+    status = fakeStatusService(true);
 
     await TestBed.configureTestingModule({
       imports: [AssistantComponent],
       providers: [
         { provide: AssistantContextService, useValue: fake },
         { provide: AssistantVoiceService, useValue: voice },
+        { provide: AssistantStatusService, useValue: status },
         provideHttpClient(),
         provideHttpClientTesting(),
       ],
@@ -142,6 +159,38 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     expect(event.defaultPrevented).toBe(false);
     expect(assistant.isOpen()).toBe(false);
     expect(fixture.nativeElement.querySelector('[data-testid="assistant-panel"]')).toBeNull();
+  });
+
+  it('hides the capsule and panel when the user preference is off', () => {
+    TestBed.inject(LibraryPreferencesService).setAssistantEnabled(false);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="assistant-trigger"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="assistant-panel"]')).toBeNull();
+
+    // The keyboard shortcut is not hijacked for a feature that is off.
+    const event = new KeyboardEvent('keydown', { key: 'j', metaKey: true, cancelable: true });
+    document.dispatchEvent(event);
+    fixture.detectChanges();
+    expect(event.defaultPrevented).toBe(false);
+    expect(assistant.isOpen()).toBe(false);
+    expect(fixture.nativeElement.querySelector('[data-testid="assistant-panel"]')).toBeNull();
+  });
+
+  it('hides the capsule when the server reports the assistant unavailable', () => {
+    status.setAvailable(false);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="assistant-trigger"]')).toBeNull();
+
+    fixture.componentInstance.open();
+    fixture.detectChanges();
+    expect(assistant.isOpen()).toBe(false);
+  });
+
+  it('shows the capsule when the preference is on and the server is available', () => {
+    expect(fixture.nativeElement.querySelector('[data-testid="assistant-trigger"]')).toBeTruthy();
+    expect(status.ensureLoaded).toHaveBeenCalled();
   });
 
   it('closes on Escape and restores the previously focused element', () => {
