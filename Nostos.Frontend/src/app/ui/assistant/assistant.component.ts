@@ -1,7 +1,9 @@
 import {
   Component,
+  DestroyRef,
   ElementRef,
   HostListener,
+  afterRenderEffect,
   computed,
   inject,
   signal,
@@ -15,12 +17,23 @@ import { AssistantStatusService } from './assistant-status.service';
 import { LibraryPreferencesService } from '../../core/services/library-preferences.service';
 
 /**
+ * How close to the end of the transcript still counts as "reading the newest
+ * turn". Comfortably above sub-pixel rounding (a scroll position is an integer,
+ * line heights are not) and below one line of text, so a deliberate scroll back
+ * to an older turn always registers as one.
+ */
+const FOLLOW_THRESHOLD_PX = 32;
+
+/**
  * App-wide assistant shell (issue #261 §1, §2, §4 capture; #262 voice).
  *
  * One root-level component: a quiet collapsed capsule that opens a compact
  * capture/conversation surface. It is surface-aware — the collapsed trigger
  * moves out of the reader's text column on phones — and it never steals focus
  * while closed. No LLM: capture and push-to-talk voice only.
+ *
+ * The transcript follows the newest turn while the reader is on it (issue #300)
+ * and leaves a view they have scrolled back on alone; see `following`.
  *
  * The microphone lives in the composer of the OPEN surface (one tap on the
  * trigger, then the mic). That placement works in every layout, including the
@@ -44,6 +57,25 @@ export class AssistantComponent {
   private readonly preferences = inject(LibraryPreferencesService);
   private readonly host = inject(ElementRef<HTMLElement>);
   private readonly composer = viewChild<ElementRef<HTMLTextAreaElement>>('composer');
+  /** The transcript's scroll container. */
+  private readonly body = viewChild<ElementRef<HTMLElement>>('body');
+  private readonly destroyRef = inject(DestroyRef);
+
+  /**
+   * Whether new content carries the view with it (issue #300).
+   *
+   * True means the reader is on the newest turn, so a reply is kept visible
+   * without a manual scroll. It turns false the moment they scroll back to read
+   * an older turn: an arriving reply then changes nothing until they return to
+   * the end themselves, which re-arms it. Their OWN message is the deliberate
+   * exception — sending returns to the end, because the reply to it is the
+   * thing they are waiting to read.
+   */
+  private readonly following = signal(true);
+
+  /** Keeps the end in view when the container itself resizes (see below). */
+  private bodyObserver: ResizeObserver | null = null;
+  private observedBody: HTMLElement | null = null;
 
   /** The element focused before opening, restored on close. */
   private previouslyFocused: HTMLElement | null = null;
@@ -89,6 +121,38 @@ export class AssistantComponent {
       this.assistant.insertTranscript(text);
       setTimeout(() => this.composer()?.nativeElement.focus(), 0);
     };
+
+    // Following the newest turn is a DOM measurement, so it belongs after
+    // render, and it must run for every block that can add height under the
+    // transcript: the reply, a capture acknowledgement, the concept
+    // suggestions, a proposed plan, a follow-up question, or the original-text
+    // panel opening. The scroll container is read and written in one go, which
+    // is what the mixed phase is for.
+    afterRenderEffect({
+      mixedReadWrite: () => {
+        this.assistant.entries();
+        this.assistant.sending();
+        this.assistant.suggestions();
+        this.assistant.pendingPlan();
+        this.assistant.pendingAnchor();
+        this.assistant.rawOpen();
+        this.observeBody(this.body()?.nativeElement ?? null);
+        this.followEnd();
+      },
+    });
+
+    this.destroyRef.onDestroy(() => this.bodyObserver?.disconnect());
+  }
+
+  /**
+   * The reader scrolled. Being at the end means they are following the
+   * conversation; anywhere else means they are reading an older turn and the
+   * view is theirs to move.
+   */
+  onBodyScroll(): void {
+    const element = this.body()?.nativeElement;
+    if (!element) return;
+    this.following.set(this.distanceToEnd(element) <= FOLLOW_THRESHOLD_PX);
   }
 
   /** The visible recorder clock, e.g. "0:07". */
@@ -154,6 +218,9 @@ export class AssistantComponent {
     if (!this.visible()) return;
     this.previouslyFocused =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // Opening lands on the newest turn rather than the top of an old
+    // conversation, however the reader left the view last time.
+    this.following.set(true);
     this.assistant.open();
     this.startKeyboardTracking();
     setTimeout(() => this.composer()?.nativeElement.focus(), 0);
@@ -194,6 +261,10 @@ export class AssistantComponent {
   }
 
   private submitDraft(): void {
+    // Sending is the one action that always returns to the end: the reply to
+    // this message is what the reader is waiting for, wherever they had
+    // scrolled to.
+    this.following.set(true);
     this.assistant.submit();
     const element = this.composer()?.nativeElement;
     if (element) {
@@ -205,6 +276,36 @@ export class AssistantComponent {
   private autoGrow(element: HTMLTextAreaElement): void {
     element.style.height = 'auto';
     element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
+  }
+
+  /** Pixels between the current scroll position and the end of the content. */
+  private distanceToEnd(element: HTMLElement): number {
+    return element.scrollHeight - element.scrollTop - element.clientHeight;
+  }
+
+  /** Brings the newest turn into view, when the reader is following it. */
+  private followEnd(): void {
+    if (!this.following()) return;
+    const element = this.body()?.nativeElement;
+    if (!element) return;
+    element.scrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
+  }
+
+  /**
+   * Watches the scroll container itself. Content growth is handled by the
+   * render effect above, but the container also changes height on its own — the
+   * composer growing under a long draft, a phone's sheet shifting for the
+   * software keyboard, a window resize — and each of those slides the newest
+   * turn out of view unless the end is re-taken.
+   */
+  private observeBody(element: HTMLElement | null): void {
+    if (element === this.observedBody) return;
+    this.bodyObserver?.disconnect();
+    this.bodyObserver = null;
+    this.observedBody = element;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    this.bodyObserver = new ResizeObserver(() => this.followEnd());
+    this.bodyObserver.observe(element);
   }
 
   private startKeyboardTracking(): void {

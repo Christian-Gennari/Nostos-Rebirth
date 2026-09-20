@@ -708,6 +708,158 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     http.expectNone('/api/assistant/turn');
   });
 
+  describe('following the newest turn (issue #300)', () => {
+    const PANE_HEIGHT = 400;
+    const CONTENT_HEIGHT = 1200; // three panes of transcript: there is room to scroll
+    const END = CONTENT_HEIGHT - PANE_HEIGHT;
+
+    /** Where the reader has put a pane. jsdom keeps no scroll position of its own. */
+    const positions = new WeakMap<Element, number>();
+
+    function isPane(element: Element): boolean {
+      return element.getAttribute('data-testid') === 'assistant-body';
+    }
+
+    /**
+     * jsdom lays nothing out: every element reports scrollHeight/clientHeight 0
+     * and `scrollTop` never moves. The behaviour under test is arithmetic on
+     * those numbers, so they are stated on the prototype — a pane that the
+     * surface renders mid-test (a reopen) is measured the same way as the first
+     * one — and restored afterwards.
+     */
+    beforeEach(() => {
+      Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+        get(this: HTMLElement) {
+          return isPane(this) ? CONTENT_HEIGHT : 0;
+        },
+        configurable: true,
+      });
+      Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+        get(this: HTMLElement) {
+          return isPane(this) ? PANE_HEIGHT : 0;
+        },
+        configurable: true,
+      });
+      Object.defineProperty(HTMLElement.prototype, 'scrollTop', {
+        get(this: HTMLElement) {
+          return positions.get(this) ?? 0;
+        },
+        set(this: HTMLElement, value: number) {
+          if (isPane(this)) positions.set(this, value);
+        },
+        configurable: true,
+      });
+    });
+
+    afterEach(() => {
+      for (const property of ['scrollHeight', 'clientHeight', 'scrollTop']) {
+        delete (HTMLElement.prototype as unknown as Record<string, unknown>)[property];
+      }
+    });
+
+    function body(): HTMLElement {
+      return fixture.nativeElement.querySelector('[data-testid="assistant-body"]');
+    }
+
+    /** The reader's own scroll, through the binding the template wires up. */
+    function readerScrollsTo(position: number): void {
+      const element = body();
+      element.scrollTop = position;
+      element.dispatchEvent(new Event('scroll'));
+    }
+
+    /** Render, and let the after-render work that follows it run. */
+    async function render(): Promise<void> {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+
+    /** Open the surface: its pane is the size of a scrolled pane from the start. */
+    async function open(): Promise<void> {
+      assistant.open();
+      await render();
+    }
+
+    it('keeps an arriving reply in view when the reader is at the end', async () => {
+      await open();
+
+      assistant.updateDraft('What are you reading?');
+      assistant.submit();
+      fixture.detectChanges();
+      http.expectOne('/api/assistant/turn').flush(turn({ reply: 'Your own library.' }));
+      await render();
+
+      // The reply is at the end of the transcript, and so is the view: it is
+      // seen without a manual scroll, which is the whole point of the issue.
+      expect(body().scrollTop).toBe(END);
+    });
+
+    it('leaves the view alone when a reply arrives while an older turn is being read', async () => {
+      await open();
+      expect(body().scrollTop).toBe(END);
+
+      assistant.updateDraft('One more thing.');
+      fixture.detectChanges();
+      fixture.componentInstance.onSendClick();
+      await render();
+
+      // The reader answers the wait by scrolling back into the conversation.
+      readerScrollsTo(200);
+      await render();
+
+      http.expectOne('/api/assistant/turn').flush(turn({ reply: 'Noted.' }));
+      await render();
+
+      // A big arrival under a view the reader owns, and it stays where they put it.
+      expect(body().scrollTop).toBe(200);
+    });
+
+    it('follows again once the reader scrolls back to the end themselves', async () => {
+      await open();
+      readerScrollsTo(200);
+      await render();
+
+      readerScrollsTo(END);
+      await render();
+
+      assistant.updateDraft('And now?');
+      assistant.submit();
+      http.expectOne('/api/assistant/turn').flush(turn({ reply: 'Now this.' }));
+      await render();
+
+      expect(body().scrollTop).toBe(END);
+    });
+
+    it('returns to the end for the reader own message, wherever they had scrolled', async () => {
+      await open();
+      readerScrollsTo(0);
+      await render();
+
+      assistant.updateDraft('Answer this one.');
+      await render();
+      fixture.componentInstance.onSendClick();
+      await render();
+
+      // Their own turn is the thing being answered: it always comes back.
+      expect(body().scrollTop).toBe(END);
+      http.expectOne('/api/assistant/turn').flush(turn());
+    });
+
+    it('lands on the newest turn when the surface is opened', async () => {
+      await open();
+      readerScrollsTo(0);
+      await render();
+
+      fixture.componentInstance.close();
+      fixture.detectChanges();
+      fixture.componentInstance.open();
+      await render();
+
+      expect(body().scrollTop).toBe(END);
+    });
+  });
+
   describe('voice capture in the composer', () => {
     function open(): void {
       assistant.open();
