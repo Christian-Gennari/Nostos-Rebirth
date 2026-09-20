@@ -1,45 +1,144 @@
 .settings-page {
-  max-width: 720px;
+  --settings-nav-width: 184px;
+  --settings-shell-gap: 48px;
+  max-width: 1120px;
   margin: 0 auto;
   /* Bottom clearance keeps the floating app dock from overlapping setting rows. */
-  padding: 32px 24px 9.5rem;
+  padding: 44px 32px 9.5rem;
 }
 
 .settings-header {
-  margin-bottom: 32px;
+  max-width: 680px;
+  margin: 0 0 36px calc(var(--settings-nav-width) + var(--settings-shell-gap));
 }
 
 .settings-header h1 {
   font-family: 'Newsreader', serif;
-  font-size: 2.2rem;
+  font-size: 2.35rem;
   font-weight: 600;
   color: var(--color-text-main);
-  line-height: 1.2;
+  line-height: 1.12;
   margin: 0;
+}
+
+.settings-intro {
+  margin: 8px 0 0;
+  max-width: 620px;
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--color-text-light);
+}
+
+.settings-shell {
+  display: grid;
+  grid-template-columns: var(--settings-nav-width) minmax(0, 1fr);
+  gap: var(--settings-shell-gap);
+  align-items: start;
+}
+
+.settings-nav {
+  position: sticky;
+  top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 0;
+}
+
+.settings-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-light);
+  font-size: 0.82rem;
+  font-weight: var(--fw-medium);
+  line-height: 1.2;
+  text-decoration: none;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.settings-nav-link:hover {
+  background: var(--bg-hover);
+  color: var(--color-text-main);
+}
+
+.settings-nav-link:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.settings-nav-link nostos-icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.settings-content {
+  min-width: 0;
+}
+
+.settings-section {
+  margin: 0 0 46px;
+  scroll-margin-top: 28px;
+}
+
+.settings-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-heading {
+  margin: 0 2px 14px;
+}
+
+.section-heading h2 {
+  margin: 0;
+  font-family: 'Newsreader', serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--color-text-main);
+}
+
+.section-heading p {
+  margin: 5px 0 0;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--color-text-light);
 }
 
 /* --- Settings Card --- */
 .settings-card {
   background: var(--bg-surface);
-  border: 1px solid var(--glass-border);
-  border-radius: 12px;
-  box-shadow: var(--shadow-glass);
-  margin-bottom: 24px;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 12px;
   overflow: hidden;
+}
+
+.settings-section > .settings-card:last-child {
+  margin-bottom: 0;
 }
 
 .card-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--glass-border);
-  background: var(--glass-bg);
+  gap: 9px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--bg-surface-alt);
+}
+
+.card-header nostos-icon {
+  color: var(--color-text-muted);
 }
 
 .card-header h2 {
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: 0.9rem;
+  font-weight: var(--fw-semibold);
   letter-spacing: -0.01em;
   color: var(--color-text-main);
   margin: 0;
@@ -643,6 +742,47 @@
 }
 
 /* --- Responsive --- */
+@media (max-width: 900px) {
+  .settings-page {
+    padding-top: 32px;
+  }
+
+  .settings-header {
+    max-width: 720px;
+    margin-left: 0;
+    margin-bottom: 24px;
+  }
+
+  .settings-shell {
+    display: block;
+  }
+
+  .settings-nav {
+    position: static;
+    flex-direction: row;
+    gap: 4px;
+    overflow-x: auto;
+    margin: 0 0 30px;
+    padding: 0 0 14px;
+    border-bottom: 1px solid var(--border-light);
+    scrollbar-width: none;
+  }
+
+  .settings-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .settings-nav-link {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .settings-section {
+    margin-bottom: 40px;
+    scroll-margin-top: 16px;
+  }
+}
+
 @media (max-width: 600px) {
   .settings-page {
     padding: 16px 12px 9.5rem;

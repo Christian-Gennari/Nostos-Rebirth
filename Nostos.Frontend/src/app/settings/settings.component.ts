@@ -156,9 +156,33 @@ const defaultProgress: BackupProgress = {
     <div class="settings-page">
       <header class="settings-header">
         <h1>Settings</h1>
+        <p class="settings-intro">Tune the parts that sit behind your reading: storage, connections, assistant, and appearance.</p>
       </header>
 
-      <section class="settings-card">
+      <div class="settings-shell">
+        <nav class="settings-nav" aria-label="Settings sections">
+          <a class="settings-nav-link" href="#library-data">
+            <nostos-icon name="book-open" [size]="16"></nostos-icon>
+            <span>Library &amp; data</span>
+          </a>
+          <a class="settings-nav-link" href="#assistant">
+            <nostos-icon name="sparkle" [size]="16"></nostos-icon>
+            <span>Assistant</span>
+          </a>
+          <a class="settings-nav-link" href="#appearance">
+            <nostos-icon name="palette" [size]="16"></nostos-icon>
+            <span>Appearance</span>
+          </a>
+        </nav>
+
+        <main class="settings-content">
+          <section class="settings-section" id="library-data" aria-labelledby="library-data-heading">
+            <div class="section-heading">
+              <h2 id="library-data-heading">Library &amp; data</h2>
+              <p>Backups, recovery, and e-reader access.</p>
+            </div>
+
+            <section class="settings-card">
         <div class="card-header">
           <nostos-icon name="gear-six" [size]="20" weight="light"></nostos-icon>
           <h2>Backup</h2>
@@ -423,6 +447,14 @@ const defaultProgress: BackupProgress = {
           }
         </div>
       </section>
+
+          </section>
+
+          <section class="settings-section" id="assistant" aria-labelledby="assistant-heading">
+            <div class="section-heading">
+              <h2 id="assistant-heading">Assistant</h2>
+              <p>Choose how the reading assistant behaves and where its intelligence comes from.</p>
+            </div>
 
       <!-- Reading assistant (W1). Availability is the server's to decide; this
            toggle is user intent only. When unavailable it renders off and
@@ -800,6 +832,14 @@ const defaultProgress: BackupProgress = {
         }
       </section>
 
+          </section>
+
+          <section class="settings-section" id="appearance" aria-labelledby="appearance-heading">
+            <div class="section-heading">
+              <h2 id="appearance-heading">Appearance</h2>
+              <p>Adjust the atmosphere without changing the shape of your reading space.</p>
+            </div>
+
       <section class="settings-card">
         <div class="card-header">
           <nostos-icon name="palette" [size]="20" weight="light"></nostos-icon>
@@ -842,6 +882,9 @@ const defaultProgress: BackupProgress = {
           </div>
         </div>
       </section>
+          </section>
+        </main>
+      </div>
     </div>
 
     <!-- Restore overwrites live data and delete removes the archive: both ask
