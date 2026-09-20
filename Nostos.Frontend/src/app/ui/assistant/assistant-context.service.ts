@@ -188,7 +188,13 @@ export class AssistantContextService {
     const url = this.url();
     const info = this.routeInfo(url);
     const meta = this.bookMeta();
-    const metaMatches = meta !== null && info.bookId !== null && meta.id === info.bookId;
+    // GUIDs are case-insensitive, and the API returns a lowercased id while a
+    // deep link may carry any casing, so compare without case or the title and
+    // format silently vanish for a deep-linked reader.
+    const metaMatches =
+      meta !== null &&
+      info.bookId !== null &&
+      meta.id.toLowerCase() === info.bookId.toLowerCase();
 
     const context = this.emptyContext(info.surface, url);
     context.bookId = info.bookId;

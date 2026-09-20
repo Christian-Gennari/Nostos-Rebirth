@@ -115,6 +115,23 @@ describe('AssistantContextService', () => {
     expect(service.context().bookTitle).toBe('Route Book');
     expect(service.context().bookFormat).toBe('ebook');
   });
+
+  it('matches a route book id case-insensitively (deep links carry any casing)', () => {
+    // The API returns a lowercased GUID while the URL may not be; the two must
+    // still be treated as the same book or the title/format vanish.
+    const service = configure('/read/4776D8AE-E9D5-4CBF-ABFD-56C53B00C592', {
+      get: () =>
+        of({
+          id: '4776d8ae-e9d5-4cbf-abfd-56c53b00c592',
+          title: 'Pride and Prejudice',
+          type: 'ebook',
+        } as unknown as Book),
+    });
+    TestBed.flushEffects();
+
+    expect(service.context().bookTitle).toBe('Pride and Prejudice');
+    expect(service.context().bookFormat).toBe('ebook');
+  });
 });
 
 describe('resolveAnchor', () => {
