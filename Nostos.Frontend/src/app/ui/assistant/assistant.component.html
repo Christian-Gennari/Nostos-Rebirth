@@ -81,6 +81,46 @@
   </div>
   }
 
+  <!-- The raw transcript of the note this turn captured (issue #262 §8): the
+       original words stay readable after any mode processed them, and restoring
+       never erases the transcript it restores from. -->
+  @if (assistant.capturedNoteId()) {
+  <div class="assistant-raw" data-testid="assistant-raw">
+    <button
+      type="button"
+      class="raw-toggle"
+      (click)="assistant.toggleRawTranscript()"
+      [attr.aria-expanded]="assistant.rawOpen()"
+      data-testid="assistant-raw-toggle"
+    >
+      {{ assistant.rawOpen() ? 'Hide original' : 'Show original' }}
+    </button>
+    @if (assistant.rawOpen()) {
+    <div class="raw-body" data-testid="assistant-raw-body">
+      @if (assistant.rawLoading()) {
+      <p class="raw-text">Loading…</p>
+      } @else if (assistant.rawTranscript(); as raw) { @if (raw.rawContent) {
+      <p class="raw-text" data-testid="assistant-raw-text">{{ raw.rawContent }}</p>
+      <div class="raw-actions">
+        <span class="raw-mode" data-testid="assistant-raw-mode">Now: {{ raw.processingMode }}</span>
+        <button
+          type="button"
+          class="raw-restore"
+          [disabled]="assistant.sending()"
+          (click)="assistant.restoreRawTranscript()"
+          data-testid="assistant-raw-restore"
+        >
+          Restore original
+        </button>
+      </div>
+      } @else {
+      <p class="raw-text" data-testid="assistant-raw-empty">This note kept no separate original text.</p>
+      } }
+    </div>
+    }
+  </div>
+  }
+
   <div class="assistant-composer">
     <textarea
       #composer
@@ -93,6 +133,20 @@
       (input)="onComposerInput($event)"
       (keydown.enter)="onComposerEnter($event)"
     ></textarea>
+    <div class="composer-modes">
+      <label class="composer-mode-label" for="assistant-mode">Processing</label>
+      <select
+        id="assistant-mode"
+        class="composer-mode-select"
+        data-testid="assistant-mode-select"
+        [value]="assistant.processingMode()"
+        (change)="onModeChange($event)"
+      >
+        @for (mode of modes; track mode.value) {
+        <option [value]="mode.value">{{ mode.label }}</option>
+        }
+      </select>
+    </div>
     @if (assistant.anchorChip(); as chip) {
     <div class="anchor-chip" data-testid="assistant-anchor-chip">
       <nostos-icon name="map-pin" [size]="12"></nostos-icon>
