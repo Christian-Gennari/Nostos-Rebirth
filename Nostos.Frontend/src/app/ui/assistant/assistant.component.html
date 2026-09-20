@@ -103,9 +103,13 @@
   } @if (assistant.pendingAnchor(); as prompt) {
   <div class="assistant-prompt" data-testid="assistant-anchor-prompt">
     <span class="prompt-question">{{ prompt.question }}</span>
+    <!-- A book question has no skip: there is nothing to save without it, and
+         skipping would only ask again. -->
+    @if (prompt.kind !== 'book') {
     <button type="button" class="prompt-skip" (click)="assistant.skipAnchor()" data-testid="assistant-anchor-skip">
       Skip
     </button>
+    }
   </div>
   }
 

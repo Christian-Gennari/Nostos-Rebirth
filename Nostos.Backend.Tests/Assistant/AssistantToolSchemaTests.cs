@@ -86,7 +86,6 @@ public sealed class AssistantToolSchemaTests : IClassFixture<SqliteTestFixture>
         ["notes_capture"] = new(
             Properties: new()
             {
-                ["bookId"] = "string",
                 ["content"] = "string",
                 ["selectedText"] = "string",
                 ["captureSource"] = "string",
@@ -180,13 +179,14 @@ public sealed class AssistantToolSchemaTests : IClassFixture<SqliteTestFixture>
         Required(byName["notes_search"]).Should().Contain("query");
         Required(byName["concepts_search"]).Should().Contain("term");
 
-        // The capture declares its arguments but requires none of them, and that
-        // is deliberate. Requiring bookId told the model it had to produce one
+        // The capture declares only the user's own words; the book is not an
+        // argument at all. Requiring bookId told the model it had to produce one
         // even when the app already knew the open book, so it went and found a
         // book of its own — measured live: a thought filed against another book
-        // while a book was open. Declared, not required, leaves the app's open
-        // book in charge and lets the capability refuse when there is none.
-        PropertyNames(byName["notes_capture"]).Should().Contain(["bookId", "content", "selectedText"]);
+        // while a book was open. The app owns the book now: it knows it, or it
+        // asks the user. No argument means no guess.
+        PropertyNames(byName["notes_capture"]).Should().Contain(["content", "selectedText"]);
+        PropertyNames(byName["notes_capture"]).Should().NotContain("bookId");
         Required(byName["notes_capture"]).Should().BeEmpty();
     }
 
@@ -286,6 +286,7 @@ public sealed class AssistantToolSchemaTests : IClassFixture<SqliteTestFixture>
             llm,
             new AssistantPlanStore(),
             new AssistantSettingsService(factory),
+            libraryService,
             new AssistantOptions { Enabled = true },
             NullLogger<AssistantOrchestrator>.Instance);
 
