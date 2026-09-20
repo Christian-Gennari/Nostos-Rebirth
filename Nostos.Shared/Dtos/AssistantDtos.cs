@@ -17,7 +17,12 @@ public sealed record AssistantTurnRequest(
     string IdempotencyKey,
     string Message,
     AssistantContextDto Context,
-    string? PendingPlanId = null);
+    string? PendingPlanId = null,
+    // APPENDED (positional record): the post-processing mode the composer chose
+    // for this capture (issue #262 §7). Null means "use the configured default",
+    // which is verbatim. The orchestrator injects this into notes_capture; the
+    // capability's own signature stays frozen.
+    string? ProcessingMode = null);
 
 /// <summary>
 /// What the user is looking at. Mirrors the frontend
@@ -60,7 +65,11 @@ public sealed record AssistantTurnResponse(
     string? Acknowledgement,
     AssistantAnchorPromptDto? AnchorPrompt,
     IReadOnlyList<AssistantSuggestionDto> Suggestions,
-    AssistantPendingPlanDto? PendingPlan);
+    AssistantPendingPlanDto? PendingPlan,
+    // APPENDED (positional record): the id of the note a capture created this
+    // turn, so the surface can show its raw transcript and offer restore
+    // (issue #262 §8). Null when the turn captured nothing.
+    string? CapturedNoteId = null);
 
 /// <summary>
 /// The deterministic source-location follow-up. Present only when the capture's

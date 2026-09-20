@@ -28,6 +28,12 @@ public static class NoteErrorCodes
     public const string EmptyNote = "empty_note";
     public const string ConceptNotFound = "concept_not_found";
 
+    // Post-processing (issue #262 §7, §8): an unknown mode is a typed refusal
+    // rather than a silent downgrade to verbatim, and a restore of a note that
+    // never kept a raw transcript is a conflict, not a success.
+    public const string InvalidProcessingMode = "invalid_processing_mode";
+    public const string NoRawTranscript = "no_raw_transcript";
+
     // The idempotency key pair is all-or-nothing: a request carrying neither
     // keeps the non-idempotent behaviour, while a request carrying only one
     // half (or an out-of-bounds value) can never be replayed exactly once and

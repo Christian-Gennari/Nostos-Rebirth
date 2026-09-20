@@ -77,6 +77,7 @@ function turn(overrides: Partial<AssistantTurnResponse> = {}): AssistantTurnResp
     anchorPrompt: null,
     suggestions: [],
     pendingPlan: null,
+    capturedNoteId: null,
     ...overrides,
   };
 }
@@ -274,6 +275,126 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     const request = http.expectOne('/api/assistant/turn');
     expect(request.request.body.context.anchor).toBeNull();
     request.flush(turn());
+  });
+
+  it('defaults to verbatim and sends the chosen mode with the turn', () => {
+    assistant.open();
+    fixture.detectChanges();
+
+    const select = fixture.nativeElement.querySelector(
+      '[data-testid="assistant-mode-select"]',
+    ) as HTMLSelectElement;
+    expect(select).toBeTruthy();
+    expect(select.value).toBe('verbatim');
+    expect(assistant.processingMode()).toBe('verbatim');
+
+    select.value = 'clarify';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(assistant.processingMode()).toBe('clarify');
+
+    assistant.updateDraft('A thought worth clarifying');
+    assistant.submit();
+
+    const request = http.expectOne('/api/assistant/turn');
+    expect(request.request.body.processingMode).toBe('clarify');
+    request.flush(turn());
+  });
+
+  it('shows the raw transcript of a captured note and restores it', () => {
+    assistant.open();
+    assistant.updateDraft('so anyway i was thinking');
+    assistant.submit();
+
+    http
+      .expectOne('/api/assistant/turn')
+      .flush(turn({ acknowledgement: 'Saved.', capturedNoteId: 'note-9' }));
+    fixture.detectChanges();
+
+    // The affordance exists only because the turn named a captured note.
+    const toggle = fixture.nativeElement.querySelector(
+      '[data-testid="assistant-raw-toggle"]',
+    ) as HTMLButtonElement;
+    expect(toggle).toBeTruthy();
+    toggle.click();
+    fixture.detectChanges();
+
+    const raw = http.expectOne('/api/notes/note-9/raw');
+    expect(raw.request.method).toBe('GET');
+    raw.flush({
+      id: 'note-9',
+      rawContent: 'so anyway i was thinking',
+      content: 'I was thinking.',
+      processingMode: 'light_polish',
+    });
+    fixture.detectChanges();
+
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="assistant-raw-text"]').textContent,
+    ).toContain('so anyway i was thinking');
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="assistant-raw-mode"]').textContent,
+    ).toContain('light_polish');
+
+    (
+      fixture.nativeElement.querySelector(
+        '[data-testid="assistant-raw-restore"]',
+      ) as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+
+    const restore = http.expectOne('/api/notes/note-9/raw/restore');
+    expect(restore.request.method).toBe('POST');
+    restore.flush({
+      id: 'note-9',
+      rawContent: 'so anyway i was thinking',
+      content: 'so anyway i was thinking',
+      processingMode: 'verbatim',
+    });
+    fixture.detectChanges();
+
+    expect(assistant.rawTranscript()?.processingMode).toBe('verbatim');
+  });
+
+  it('says plainly when a captured note kept no separate original text', () => {
+    assistant.open();
+    assistant.updateDraft('The snow was general all over Ireland.');
+    assistant.submit();
+
+    http
+      .expectOne('/api/assistant/turn')
+      .flush(turn({ acknowledgement: 'Saved.', capturedNoteId: 'note-quote' }));
+    fixture.detectChanges();
+
+    (
+      fixture.nativeElement.querySelector(
+        '[data-testid="assistant-raw-toggle"]',
+      ) as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+
+    http.expectOne('/api/notes/note-quote/raw').flush({
+      id: 'note-quote',
+      rawContent: null,
+      content: '',
+      processingMode: 'verbatim',
+    });
+    fixture.detectChanges();
+
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="assistant-raw-empty"]').textContent,
+    ).toContain('no separate original');
+  });
+
+  it('offers no raw transcript when the turn captured nothing', () => {
+    assistant.open();
+    assistant.updateDraft('Where does this go?');
+    assistant.submit();
+
+    http.expectOne('/api/assistant/turn').flush(turn());
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="assistant-raw"]')).toBeNull();
   });
 
   it('renders non-mutating suggestion chips and links through an approved plan', () => {

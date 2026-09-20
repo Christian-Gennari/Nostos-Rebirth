@@ -128,6 +128,10 @@ builder.Services.AddHttpClient(NineRouterLlmProvider.HttpClientName, client =>
     client.Timeout = TimeSpan.FromSeconds(Math.Max(1, assistantOptions.RequestTimeoutSeconds));
 });
 builder.Services.AddSingleton<ILlmProvider, NineRouterLlmProvider>();
+// Post-processing modes (issue #262 §7, §8): one processor over the same bridge.
+// It is stateless and its verbatim short-circuit never reaches the provider, so
+// a singleton matches the provider's lifetime.
+builder.Services.AddSingleton<IThoughtProcessor, ThoughtProcessor>();
 builder.Services.AddSingleton<AssistantPlanStore>();
 builder.Services.AddScoped<AssistantOrchestrator>();
 
@@ -444,6 +448,7 @@ app.MapBooksEndpoints();
 app.MapProviderEndpoints();
 app.MapImportEndpoints();
 app.MapNotesEndpoints();
+app.MapNoteProcessingEndpoints();
 app.MapCollectionsEndpoints();
 app.MapConceptsEndpoints();
 app.MapWritingsEndpoints();

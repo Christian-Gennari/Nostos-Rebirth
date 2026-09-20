@@ -6,6 +6,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import {
   AssistantService,
   AssistantTurnResponse,
+  DEFAULT_PROCESSING_MODE,
   TRANSCRIPT_AUTO_SEND_DELAY_MS,
   TRANSCRIPT_SEND_POLICY,
 } from './assistant.service';
@@ -55,6 +56,7 @@ function turn(overrides: Partial<AssistantTurnResponse> = {}): AssistantTurnResp
     anchorPrompt: null,
     suggestions: [],
     pendingPlan: null,
+    capturedNoteId: null,
     ...overrides,
   };
 }
@@ -203,6 +205,61 @@ describe('AssistantService voice transcript alignment', () => {
     expect(service.suggestions().map((suggestion) => suggestion.label)).toEqual(['Mountains']);
     expect(service.pendingPlan()?.planId).toBe('plan-1');
     expect(service.lastTurn()?.reply).toBe('Mountains looks right.');
+  });
+
+  it('starts in verbatim and sends the chosen mode with each turn', () => {
+    service.open();
+    expect(service.processingMode()).toBe('verbatim');
+    expect(DEFAULT_PROCESSING_MODE).toBe('verbatim');
+
+    service.setProcessingMode('light_polish');
+    service.updateDraft('A thought');
+    service.submit();
+
+    const request = http.expectOne('/api/assistant/turn');
+    expect(request.request.body.processingMode).toBe('light_polish');
+    request.flush(turn({ capturedNoteId: 'note-1' }));
+
+    expect(service.capturedNoteId()).toBe('note-1');
+  });
+
+  it('clears the captured note and its raw view on a later turn', () => {
+    service.open();
+    service.updateDraft('First');
+    service.submit();
+    http.expectOne('/api/assistant/turn').flush(turn({ capturedNoteId: 'note-1' }));
+    expect(service.capturedNoteId()).toBe('note-1');
+
+    service.updateDraft('Second');
+    service.submit();
+    http.expectOne('/api/assistant/turn').flush(turn());
+    expect(service.capturedNoteId()).toBeNull();
+    expect(service.rawOpen()).toBe(false);
+  });
+
+  it('loads the raw transcript and restores it without erasing it', () => {
+    service.open();
+    service.capturedNoteId.set('note-1');
+
+    service.toggleRawTranscript();
+    expect(service.rawOpen()).toBe(true);
+    http.expectOne('/api/notes/note-1/raw').flush({
+      id: 'note-1',
+      rawContent: 'raw words',
+      content: 'Polished.',
+      processingMode: 'light_polish',
+    });
+    expect(service.rawTranscript()?.rawContent).toBe('raw words');
+
+    service.restoreRawTranscript();
+    http.expectOne('/api/notes/note-1/raw/restore').flush({
+      id: 'note-1',
+      rawContent: 'raw words',
+      content: 'raw words',
+      processingMode: 'verbatim',
+    });
+    expect(service.rawTranscript()?.content).toBe('raw words');
+    expect(service.rawTranscript()?.processingMode).toBe('verbatim');
   });
 
   it('ignores a suggestion that is not a concept and does nothing on the wire', () => {

@@ -88,6 +88,8 @@ export interface AssistantTurnResponse {
   anchorPrompt: AssistantAnchorPromptDto | null;
   suggestions: AssistantSuggestionDto[];
   pendingPlan: AssistantPendingPlanDto | null;
+  /** The note a capture created this turn; null when nothing was captured. */
+  capturedNoteId?: string | null;
 }
 
 /** The turn request the bridge accepts. */
@@ -97,6 +99,40 @@ interface AssistantTurnRequestDto {
   message: string;
   context: AssistantContextDto;
   pendingPlanId: string | null;
+  processingMode: ProcessingMode;
+}
+
+/**
+ * What happens to a captured thought between the raw transcript and the stored
+ * note (issue #262 §7). The ids are the backend's exact wire values.
+ *
+ * `verbatim` is the default and a storage operation: it makes no LLM call. The
+ * other two rewrite the user's own words and never the quoted passage.
+ */
+export type ProcessingMode = 'verbatim' | 'light_polish' | 'clarify';
+
+/** The three modes, in presentation order, with the labels the composer shows. */
+export const PROCESSING_MODES: readonly { value: ProcessingMode; label: string }[] = [
+  { value: 'verbatim', label: 'Verbatim' },
+  { value: 'light_polish', label: 'Light polish' },
+  { value: 'clarify', label: 'Clarify' },
+];
+
+/**
+ * The composer's starting mode. It mirrors `Assistant:DefaultProcessingMode`
+ * (verbatim) on the server: a rewrite is always an explicit, per-capture choice.
+ */
+export const DEFAULT_PROCESSING_MODE: ProcessingMode = 'verbatim';
+
+/**
+ * The raw transcript of one note and the mode its current text reflects
+ * (mirrors the backend `NoteRawTranscriptDto`).
+ */
+export interface NoteRawTranscriptDto {
+  id: string;
+  rawContent: string | null;
+  content: string;
+  processingMode: string;
 }
 
 /** Mirrors the backend `AssistantContextDto` field-for-field. */
@@ -144,6 +180,8 @@ export interface NostosAssistantDiagnostics {
   lastTurn: AssistantTurnResponse | null;
   suggestions: AssistantSuggestionDto[];
   pendingPlan: AssistantPendingPlanDto | null;
+  processingMode: ProcessingMode;
+  capturedNoteId: string | null;
 }
 
 declare global {
@@ -200,6 +238,20 @@ export class AssistantService {
   readonly pendingAnchor = signal<AssistantAnchorPrompt | null>(null);
   private readonly pendingText = signal('');
 
+  /** The post-processing mode for the next capture (issue #262 §7). */
+  readonly processingMode = signal<ProcessingMode>(DEFAULT_PROCESSING_MODE);
+
+  /**
+   * The note the last turn captured, if any (issue #262 §8). Its raw transcript
+   * is what the surface can show and restore; nothing is shown when it is null.
+   */
+  readonly capturedNoteId = signal<string | null>(null);
+  /** True while the captured note's raw-transcript view is open. */
+  readonly rawOpen = signal(false);
+  /** The fetched raw transcript, once loaded. */
+  readonly rawTranscript = signal<NoteRawTranscriptDto | null>(null);
+  readonly rawLoading = signal(false);
+
   /** The user removed the ambient anchor for this session (saves as unknown). */
   private readonly anchorDismissed = signal(false);
 
@@ -225,6 +277,8 @@ export class AssistantService {
         lastTurn: this.lastTurn(),
         suggestions: this.suggestions(),
         pendingPlan: this.pendingPlan(),
+        processingMode: this.processingMode(),
+        capturedNoteId: this.capturedNoteId(),
       };
     });
   }
@@ -346,6 +400,72 @@ export class AssistantService {
   }
 
   /**
+   * Choose what happens to the next captured thought (issue #262 §7). The
+   * choice is per capture and rides on every subsequent turn; the server applies
+   * it exactly, and `verbatim` makes no provider call at all.
+   */
+  setProcessingMode(mode: ProcessingMode): void {
+    this.processingMode.set(mode);
+  }
+
+  /**
+   * Open (and load) or close the raw-transcript view for the note the last turn
+   * captured (issue #262 §8). The raw words are kept server-side, so the original
+   * stays readable after any mode processed it.
+   */
+  toggleRawTranscript(): void {
+    const noteId = this.capturedNoteId();
+    if (!noteId) return;
+
+    if (this.rawOpen()) {
+      this.rawOpen.set(false);
+      return;
+    }
+
+    this.rawOpen.set(true);
+    this.loadRawTranscript(noteId);
+  }
+
+  /** Fetch one note's raw transcript and the mode its text currently reflects. */
+  loadRawTranscript(noteId: string): void {
+    this.rawLoading.set(true);
+    this.http.get<NoteRawTranscriptDto>(`/api/notes/${noteId}/raw`).subscribe({
+      next: (raw) => {
+        this.rawLoading.set(false);
+        this.rawTranscript.set(raw);
+      },
+      error: () => {
+        this.rawLoading.set(false);
+        this.rawOpen.set(false);
+        this.lastError.set('The original text could not be loaded.');
+      },
+    });
+  }
+
+  /**
+   * Restore the captured note's text from its raw transcript. The transcript
+   * itself is never erased: restoring is not a way to lose the capture.
+   */
+  restoreRawTranscript(): void {
+    const noteId = this.capturedNoteId();
+    if (!noteId || this.sending()) return;
+
+    this.sending.set(true);
+    this.http.post<NoteRawTranscriptDto>(`/api/notes/${noteId}/raw/restore`, {}).subscribe({
+      next: (restored) => {
+        this.sending.set(false);
+        this.lastError.set(null);
+        this.rawTranscript.set(restored);
+        this.pushEntry('reply', 'Original text restored.', null, 'Restored');
+      },
+      error: () => {
+        this.sending.set(false);
+        this.lastError.set('The original text could not be restored.');
+      },
+    });
+  }
+
+  /**
    * The Brain review affordance: open the assistant and ask it where the
    * reviewed note belongs. The review-note context is supplied by the Second
    * Brain's provider, so the turn knows which note is under review.
@@ -425,6 +545,7 @@ export class AssistantService {
       message: text,
       context: toContextDto(context, anchor),
       pendingPlanId: this.pendingPlan()?.planId ?? null,
+      processingMode: this.processingMode(),
     };
 
     this.sending.set(true);
@@ -435,6 +556,13 @@ export class AssistantService {
         this.lastTurn.set(response);
         this.suggestions.set(response.suggestions ?? []);
         this.pendingPlan.set(response.pendingPlan ?? null);
+
+        // The raw-transcript view belongs to one captured note; a new turn
+        // replaces it, so stale raw words are never shown against a new note.
+        this.capturedNoteId.set(response.capturedNoteId ?? null);
+        this.rawOpen.set(false);
+        this.rawTranscript.set(null);
+        this.rawLoading.set(false);
 
         if (response.acknowledgement) {
           this.pushEntry('capture', text, this.anchorLabel({ ...context, anchor }), 'Saved');

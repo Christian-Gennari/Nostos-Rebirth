@@ -252,6 +252,120 @@
 }
 
 /* ------------------------------
+   Post-processing modes (issue #262 §7)
+   Quiet by design: one small control in the composer. The default is verbatim,
+   a storage operation that makes no provider call.
+------------------------------ */
+.composer-modes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.composer-mode-label {
+  color: var(--color-text-light);
+  font-size: 0.72rem;
+}
+
+.composer-mode-select {
+  padding: 2px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.composer-mode-select:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ------------------------------
+   Raw transcript (issue #262 §8)
+   The original words stay readable after any mode processed them; restoring
+   puts them back without erasing the transcript it restores from.
+------------------------------ */
+.assistant-raw {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.raw-toggle {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-light);
+  font: inherit;
+  font-size: 0.72rem;
+  text-decoration: underline;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.raw-toggle:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.raw-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-alt);
+}
+
+.raw-text {
+  margin: 0;
+  color: var(--color-text-main);
+  font-family: 'Newsreader', serif;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.raw-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.raw-mode {
+  color: var(--color-text-light);
+  font-size: 0.7rem;
+}
+
+.raw-restore {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-light);
+  font: inherit;
+  font-size: 0.72rem;
+  text-decoration: underline;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.raw-restore:disabled {
+  color: var(--color-text-placeholder);
+  cursor: default;
+}
+
+.raw-restore:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ------------------------------
    Push-to-talk (issue #262)
    The mic lives in the OPEN composer only; the collapsed capsule is untouched.
 ------------------------------ */

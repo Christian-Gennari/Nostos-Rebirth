@@ -1,10 +1,13 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Nostos.Backend.Data;
 using Nostos.Backend.Data.Models;
 using Nostos.Backend.Data.Repositories;
 using Nostos.Backend.Services;
+using Nostos.Backend.Services.Ai;
 using Nostos.Backend.Services.Notes;
+using Nostos.Backend.Tests.Services.Ai;
 using Nostos.Backend.Tests.Support;
 using Nostos.Shared.Dtos;
 using Xunit;
@@ -79,6 +82,11 @@ public sealed class NoteServiceTests : IClassFixture<SqliteTestFixture>
         using var _ = h;
         var book = await SeedBookAsync(h);
 
+        // The provider returns the polished text; the assertions below then pin
+        // that Content is the processed result while RawContent keeps the words.
+        h.Thoughts.Responder = (_, mode) =>
+            new ThoughtProcessingResult("Virtue is a settled disposition.", mode, ProviderCalled: true);
+
         var result = await h.Service.CreateAsync(
             book.Id,
             new CreateNoteDto(
@@ -91,6 +99,11 @@ public sealed class NoteServiceTests : IClassFixture<SqliteTestFixture>
                 AnchorVerified: true));
 
         result.Success.Should().BeTrue();
+
+        // The processor was handed the RAW transcript, never the incoming
+        // (already-processed-looking) Content.
+        h.Thoughts.LastText.Should().Be("so virtue is like a hexis, a settled disposition...");
+        h.Thoughts.Calls[^1].Mode.Should().Be("light_polish");
 
         var dto = result.Value!;
         dto.Content.Should().Be("Virtue is a settled disposition.");
@@ -254,14 +267,17 @@ public sealed class NoteServiceTests : IClassFixture<SqliteTestFixture>
         // The same scoped context backs every repository and the processor, so
         // create/update stay one unit of work exactly as in the web host.
         var concepts = new ConceptRepository(db);
+        var thoughts = new FakeThoughtProcessor();
         var service = new NoteService(
             new NoteRepository(db),
             new BookRepository(db),
             concepts,
             new NoteProcessorService(concepts),
-            db);
+            thoughts,
+            db,
+            NullLogger<NoteService>.Instance);
 
-        return new Harness(db, service);
+        return new Harness(db, service, thoughts);
     }
 
     private static async Task<PhysicalBookModel> SeedBookAsync(Harness h, string title = "A Book")
@@ -296,10 +312,14 @@ public sealed class NoteServiceTests : IClassFixture<SqliteTestFixture>
         return concept;
     }
 
-    private sealed class Harness(NostosDbContext db, NoteService service) : IDisposable
+    private sealed class Harness(
+        NostosDbContext db,
+        NoteService service,
+        FakeThoughtProcessor thoughts) : IDisposable
     {
         public NostosDbContext Db { get; } = db;
         public NoteService Service { get; } = service;
+        public FakeThoughtProcessor Thoughts { get; } = thoughts;
         public void Dispose() => Db.Dispose();
     }
 }
