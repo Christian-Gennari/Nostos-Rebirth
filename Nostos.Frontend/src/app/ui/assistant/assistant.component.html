@@ -63,6 +63,82 @@
       </button>
     </div>
     }
+
+    <!-- Pre-dispatch Undo for an auto-sent transcript. Nothing has been sent
+         yet; cancelling here is the only chance to avoid a wrong capture. -->
+    @if (assistant.autoSendPending()) {
+    <div
+      class="transcript-undo"
+      role="status"
+      aria-live="polite"
+      data-testid="assistant-voice-undo"
+    >
+      <span class="transcript-undo-text">Sending your note…</span>
+      <button
+        type="button"
+        class="transcript-undo-button"
+        (click)="onUndoTranscript()"
+        data-testid="assistant-voice-undo-button"
+      >
+        Undo
+      </button>
+    </div>
+    }
+
+    <!-- Push-to-talk. `getUserMedia` is requested only on this tap; the mic is
+         absent while closed, so the collapsed capsule is untouched. -->
+    <div class="voice-row">
+      @if (voice.isRecording()) {
+      <span class="voice-timer" data-testid="assistant-voice-timer" aria-live="polite">
+        {{ elapsedLabel() }}
+      </span>
+      <button
+        type="button"
+        class="voice-control voice-control-stop"
+        (click)="onVoiceStop()"
+        aria-label="Stop recording"
+        data-testid="assistant-voice-stop"
+      >
+        <nostos-icon name="stop" [size]="14"></nostos-icon>
+      </button>
+      <button
+        type="button"
+        class="voice-control"
+        (click)="onVoiceCancel()"
+        aria-label="Discard recording"
+        data-testid="assistant-voice-cancel"
+      >
+        <nostos-icon name="x" [size]="14"></nostos-icon>
+      </button>
+      } @else if (voice.isTranscribing()) {
+      <span class="voice-status" data-testid="assistant-voice-transcribing">Transcribing…</span>
+      <button
+        type="button"
+        class="voice-control"
+        (click)="onVoiceCancel()"
+        aria-label="Cancel transcription"
+        data-testid="assistant-voice-cancel"
+      >
+        <nostos-icon name="x" [size]="14"></nostos-icon>
+      </button>
+      } @else {
+      <button
+        type="button"
+        class="voice-control voice-control-mic"
+        (click)="onMicTap()"
+        aria-label="Record a voice note"
+        data-testid="assistant-voice-start"
+      >
+        <nostos-icon name="microphone" [size]="14"></nostos-icon>
+      </button>
+      }
+    </div>
+
+    @if (voice.error(); as voiceError) {
+    <p class="voice-error" role="status" aria-live="polite" data-testid="assistant-voice-error">
+      {{ voiceError.message }}
+    </p>
+    }
   </div>
 </section>
 }

@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { signal } from '@angular/core';
+import { computed, signal } from '@angular/core';
 import { of } from 'rxjs';
 
 import { AssistantComponent } from './assistant.component';
@@ -12,6 +12,11 @@ import {
   AssistantCaptureResult,
   AssistantCaptureService,
 } from './assistant-capture.service';
+import {
+  AssistantVoiceError,
+  AssistantVoiceService,
+  AssistantVoiceStatus,
+} from './assistant-voice.service';
 
 /** A full context with everything unset, so each test states only what it means. */
 function context(overrides: Partial<AssistantContext> = {}): AssistantContext {
@@ -45,6 +50,28 @@ function fakeContextService(initial: Partial<AssistantContext>) {
   };
 }
 
+/** A voice service the component can drive, with no microphone behind it. */
+function fakeVoiceService() {
+  const status = signal<AssistantVoiceStatus>('idle');
+  const error = signal<AssistantVoiceError | null>(null);
+  const elapsedSeconds = signal(0);
+  return {
+    status: status.asReadonly(),
+    error: error.asReadonly(),
+    elapsedSeconds: elapsedSeconds.asReadonly(),
+    isRecording: computed(() => status() === 'recording'),
+    isTranscribing: computed(() => status() === 'transcribing'),
+    isBusy: computed(() => status() !== 'idle'),
+    onTranscript: null as ((text: string) => void) | null,
+    start: vi.fn(),
+    stop: vi.fn(),
+    cancel: vi.fn(),
+    setStatus: (value: AssistantVoiceStatus) => status.set(value),
+    setError: (value: AssistantVoiceError | null) => error.set(value),
+    setElapsed: (value: number) => elapsedSeconds.set(value),
+  };
+}
+
 const captureResult: AssistantCaptureResult = {
   note: {
     id: 'n1',
@@ -62,16 +89,19 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
   let assistant: AssistantService;
   let capture: ReturnType<typeof vi.fn>;
   let fake: ReturnType<typeof fakeContextService>;
+  let voice: ReturnType<typeof fakeVoiceService>;
 
   beforeEach(async () => {
     capture = vi.fn(() => of(captureResult));
     fake = fakeContextService({ surface: 'reader', route: '/read/b1', bookId: 'b1' });
+    voice = fakeVoiceService();
 
     await TestBed.configureTestingModule({
       imports: [AssistantComponent],
       providers: [
         { provide: AssistantContextService, useValue: fake },
         { provide: AssistantCaptureService, useValue: { capture } },
+        { provide: AssistantVoiceService, useValue: voice },
       ],
     }).compileComponents();
 
@@ -235,5 +265,141 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     expect(assistant.pendingAnchor()).toBeNull();
     expect(capture).toHaveBeenCalledTimes(1);
     expect(capture.mock.calls[0][0].anchor).toBeNull();
+  });
+
+  describe('voice capture in the composer', () => {
+    function open(): void {
+      assistant.open();
+      fixture.detectChanges();
+    }
+
+    function query(selector: string): any {
+      return fixture.nativeElement.querySelector(selector);
+    }
+
+    it('shows the mic in the OPEN composer and starts recording on tap', () => {
+      open();
+      const mic = query('[data-testid="assistant-voice-start"]');
+      expect(mic).toBeTruthy();
+      // Reachability: it lives in the composer, never on the collapsed capsule.
+      expect(query('.assistant-composer').contains(mic)).toBe(true);
+      expect(query('.assistant-trigger').contains(mic)).toBe(false);
+
+      mic.click();
+      expect(voice.start).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows a quiet elapsed timer and a stop control while recording', () => {
+      open();
+      voice.setElapsed(7);
+      voice.setStatus('recording');
+      fixture.detectChanges();
+
+      expect(query('[data-testid="assistant-voice-timer"]').textContent).toContain('0:07');
+      const stop = query('[data-testid="assistant-voice-stop"]');
+      expect(stop).toBeTruthy();
+      expect(query('[data-testid="assistant-voice-start"]')).toBeNull();
+
+      stop.click();
+      expect(voice.stop).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows a transcribing state with a cancel affordance', () => {
+      open();
+      voice.setStatus('transcribing');
+      fixture.detectChanges();
+
+      expect(query('[data-testid="assistant-voice-transcribing"]')).toBeTruthy();
+      const cancel = query('[data-testid="assistant-voice-cancel"]');
+      expect(cancel).toBeTruthy();
+
+      cancel.click();
+      expect(voice.cancel).toHaveBeenCalledTimes(1);
+    });
+
+    it('cancels a live recording from the composer', () => {
+      open();
+      voice.setStatus('recording');
+      fixture.detectChanges();
+
+      query('[data-testid="assistant-voice-cancel"]').click();
+      expect(voice.cancel).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not stick in an error state: message clears, mic returns', () => {
+      open();
+      voice.setError({
+        kind: 'failed',
+        message: "Couldn't transcribe that recording. Try again.",
+      });
+      fixture.detectChanges();
+
+      const error = query('[data-testid="assistant-voice-error"]');
+      expect(error).toBeTruthy();
+      expect(error.getAttribute('aria-live')).toBe('polite');
+      expect(error.textContent).toContain("Couldn't transcribe");
+
+      voice.setError(null);
+      fixture.detectChanges();
+      expect(query('[data-testid="assistant-voice-error"]')).toBeNull();
+      expect(query('[data-testid="assistant-voice-start"]')).toBeTruthy();
+    });
+
+    it('surfaces a denied-permission message in the surface', () => {
+      open();
+      voice.setError({
+        kind: 'denied',
+        message: 'Microphone access is blocked. Allow it in your browser, then try again.',
+      });
+      fixture.detectChanges();
+
+      expect(query('[data-testid="assistant-voice-error"]').textContent).toContain(
+        'Microphone access is blocked',
+      );
+    });
+
+    it('hands a finished transcript to the conversation, not a second pipeline', () => {
+      open();
+      expect(voice.onTranscript).toBeTypeOf('function');
+
+      voice.onTranscript?.('The Magic Mountain');
+
+      expect(assistant.draft()).toBe('The Magic Mountain');
+      // Auto-send is queued, not dispatched: nothing is sent while Undo is live.
+      expect(assistant.autoSendPending()).toBe(true);
+      expect(capture).not.toHaveBeenCalled();
+
+      assistant.undoTranscript(); // do not leave a real 2s timer behind
+    });
+
+    it('shows the Undo affordance only while the auto-send window is open', () => {
+      open();
+      expect(query('[data-testid="assistant-voice-undo"]')).toBeNull();
+
+      assistant.insertTranscript('The Magic Mountain');
+      fixture.detectChanges();
+
+      const undo = query('[data-testid="assistant-voice-undo"]');
+      expect(undo).toBeTruthy();
+      expect(undo.textContent).toContain('Undo');
+
+      query('[data-testid="assistant-voice-undo-button"]').click();
+      fixture.detectChanges();
+
+      expect(assistant.autoSendPending()).toBe(false);
+      expect(query('[data-testid="assistant-voice-undo"]')).toBeNull();
+      expect(assistant.draft()).toBe('The Magic Mountain');
+      expect(capture).not.toHaveBeenCalled();
+    });
+
+    it('closing the surface abandons a live recording', () => {
+      open();
+      voice.setStatus('recording');
+      fixture.detectChanges();
+
+      fixture.componentInstance.close();
+
+      expect(voice.cancel).toHaveBeenCalled();
+    });
   });
 });
