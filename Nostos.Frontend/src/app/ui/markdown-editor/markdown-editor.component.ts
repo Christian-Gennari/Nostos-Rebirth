@@ -22,6 +22,7 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
 
     --paper: #ffffff;
     --ink: #121316;
+    --ink-strong: #211f1c;
     --ink-soft: #4A4D54;
     --ink-faint: #94979E;
 
@@ -44,6 +45,7 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
 
     --paper: #121318;
     --ink: #f0f1f4;
+    --ink-strong: #f0f1f4;
     --ink-soft: #c4c7d0;
     --ink-faint: #8b909f;
 
@@ -167,8 +169,12 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
     margin-top: 0;
   }
 
+  /* Emphasis ink is a ROLE, not a literal. It was the literal light ink, so on
+     the dark sheet bold text painted near-black on near-black — measured 1.13:1
+     against the paper when the studio editor was in dark mode. The light sheet
+     keeps its warm emphasis ink; on dark it follows the app's primary ink. */
   strong {
-    color: #211f1c;
+    color: var(--ink-strong);
     font-weight: 600;
   }
 
