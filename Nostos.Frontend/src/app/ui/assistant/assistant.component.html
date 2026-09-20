@@ -44,7 +44,12 @@
     </div>
   </header>
 
-  <div class="assistant-body">
+  <div
+    class="assistant-body"
+    #body
+    (scroll)="onBodyScroll()"
+    data-testid="assistant-body"
+  >
     @if (assistant.entries().length === 0) {
     <div class="assistant-empty">
       <p>Ask about what you are reading, or capture a thought without leaving the page.</p>
