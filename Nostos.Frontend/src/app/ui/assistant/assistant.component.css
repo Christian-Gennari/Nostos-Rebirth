@@ -104,27 +104,60 @@
   overflow-y: auto;
 }
 
+/* The transcript is a conversation, not a reply log (issue #286): each speaker
+   entry carries a small letterspaced label, the user's words are set in the
+   reading serif, and the assistant answers in the sans behind a hairline rule.
+   Printed-interview typography — no bubbles, avatars or colour beyond the
+   existing tokens, so both themes and both layouts follow the same rules. */
 .entry {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   margin: 0;
-  padding: 2px 0 2px 12px;
-  border-left: 2px solid var(--border-color);
+}
+
+.entry-speaker {
+  color: var(--color-text-light);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
 }
 
 .entry-text {
   margin: 0;
+}
+
+.entry-user .entry-text {
   color: var(--color-text-main);
   font-family: 'Newsreader', serif;
   font-size: 0.95rem;
   line-height: 1.5;
 }
 
-.entry-question .entry-text {
-  color: var(--color-text-muted);
-  font-style: italic;
+.entry-assistant {
+  padding-left: 12px;
+  border-left: 1px solid var(--border-color);
+}
+
+.entry-assistant .entry-text {
+  color: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.88rem;
+  line-height: 1.55;
 }
 
 .entry-error {
-  border-left-color: var(--color-danger);
+  padding-left: 12px;
+  border-left: 2px solid var(--color-danger);
+}
+
+.entry-error .entry-text {
+  color: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.85rem;
+  line-height: 1.5;
 }
 
 .entry-meta {
@@ -251,39 +284,6 @@
 }
 
 .transcript-undo-button:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: 2px;
-}
-
-/* ------------------------------
-   Post-processing modes (issue #262 §7)
-   Quiet by design: one small control in the composer. The default is verbatim,
-   a storage operation that makes no provider call.
------------------------------- */
-.composer-modes {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.composer-mode-label {
-  color: var(--color-text-light);
-  font-size: 0.72rem;
-}
-
-.composer-mode-select {
-  padding: 2px 6px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--color-text-muted);
-  font: inherit;
-  font-size: 0.72rem;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.composer-mode-select:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: 2px;
 }

@@ -4,9 +4,11 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
 import {
+  AssistantHistoryMessage,
   AssistantService,
   AssistantTurnResponse,
-  DEFAULT_PROCESSING_MODE,
+  HISTORY_MAX_CHARS,
+  HISTORY_MAX_EXCHANGES,
   TRANSCRIPT_AUTO_SEND_DELAY_MS,
   TRANSCRIPT_SEND_POLICY,
 } from './assistant.service';
@@ -199,7 +201,7 @@ describe('AssistantService voice transcript alignment', () => {
       turn({ acknowledgement: 'Saved to The Magic Mountain.', capturedNoteId: 'note-1' }),
     );
 
-    const capture = service.entries().find((entry) => entry.kind === 'capture');
+    const capture = service.entries().find((entry) => entry.meta === 'Saved');
     expect(capture?.anchorLabel).toBe('The Magic Mountain · p. 247');
   });
 
@@ -223,7 +225,7 @@ describe('AssistantService voice transcript alignment', () => {
     });
     request.flush(turn({ acknowledgement: 'Saved to The Magic Mountain.', capturedNoteId: 'n1' }));
 
-    const capture = service.entries().find((entry) => entry.kind === 'capture');
+    const capture = service.entries().find((entry) => entry.meta === 'Saved');
     expect(capture?.anchorLabel).toBe('The Magic Mountain · 1:23');
   });
 
@@ -239,7 +241,9 @@ describe('AssistantService voice transcript alignment', () => {
 
     // The question is the conversation, not the panel: it is still waiting.
     expect(service.pendingAnchor()?.question).toBe('What page are you on?');
-    expect(service.entries().filter((entry) => entry.kind === 'question')).toHaveLength(1);
+    expect(
+      service.entries().filter((entry) => entry.text === 'What page are you on?'),
+    ).toHaveLength(1);
     expect(service.draft()).toBe('');
 
     service.updateDraft('247');
@@ -308,20 +312,142 @@ describe('AssistantService voice transcript alignment', () => {
     expect(service.lastTurn()?.reply).toBe('Mountains looks right.');
   });
 
-  it('starts in verbatim and sends the chosen mode with each turn', () => {
+  it('sends no per-turn processing mode', () => {
     service.open();
-    expect(service.processingMode()).toBe('verbatim');
-    expect(DEFAULT_PROCESSING_MODE).toBe('verbatim');
-
-    service.setProcessingMode('light_polish');
     service.updateDraft('A thought');
     service.submit();
 
     const request = http.expectOne('/api/assistant/turn');
-    expect(request.request.body.processingMode).toBe('light_polish');
+    expect('processingMode' in request.request.body).toBe(false);
     request.flush(turn({ capturedNoteId: 'note-1' }));
 
     expect(service.capturedNoteId()).toBe('note-1');
+  });
+
+  describe('conversation memory (issue #286)', () => {
+    it('remembers the user turn on dispatch and the assistant turn on success', () => {
+      service.open();
+      service.updateDraft('What did I just read?');
+      service.submit();
+
+      // Dispatch is synchronous, so the turn is remembered before the reply.
+      expect(service.history()).toEqual([{ role: 'user', text: 'What did I just read?' }]);
+
+      http.expectOne('/api/assistant/turn').flush(turn({ reply: 'The snow chapter.' }));
+
+      expect(service.history()).toEqual([
+        { role: 'user', text: 'What did I just read?' },
+        { role: 'assistant', text: 'The snow chapter.' },
+      ]);
+    });
+
+    it('forgets a turn the assistant never received', () => {
+      service.open();
+      service.updateDraft('A question that fails');
+      service.submit();
+
+      http.expectOne('/api/assistant/turn').error(new ProgressEvent('error'));
+
+      expect(service.history()).toEqual([]);
+      expect(service.draft()).toBe('A question that fails');
+    });
+
+    it('sends the remembered turns, in order, on the next turn', () => {
+      service.open();
+      service.updateDraft('First');
+      service.submit();
+      http.expectOne('/api/assistant/turn').flush(turn({ reply: 'First reply' }));
+
+      service.updateDraft('Second');
+      service.submit();
+      const request = http.expectOne('/api/assistant/turn');
+
+      expect(request.request.body.history).toEqual([
+        { role: 'user', text: 'First' },
+        { role: 'assistant', text: 'First reply' },
+      ]);
+      request.flush(turn({ reply: 'Second reply' }));
+    });
+
+    it('caps the history at the last 10 exchanges', () => {
+      expect(HISTORY_MAX_EXCHANGES).toBe(10);
+
+      service.open();
+      for (let i = 1; i <= 11; i += 1) {
+        service.updateDraft(`Thought ${i}`);
+        service.submit();
+        http.expectOne('/api/assistant/turn').flush(turn({ reply: `Reply ${i}` }));
+      }
+
+      service.updateDraft('Twelfth');
+      service.submit();
+      const request = http.expectOne('/api/assistant/turn');
+      const history = request.request.body.history as AssistantHistoryMessage[];
+
+      // Eleven exchanges became ten: the first exchange fell off the front, and
+      // every kept user turn still carries the answer that followed it.
+      expect(history).toHaveLength(20);
+      expect(history[0]).toEqual({ role: 'user', text: 'Thought 2' });
+      expect(history[19]).toEqual({ role: 'assistant', text: 'Reply 11' });
+      expect(history.some((entry) => entry.text === 'Thought 1')).toBe(false);
+      request.flush(turn());
+    });
+
+    it('truncates a remembered message to HISTORY_MAX_CHARS, never drops it', () => {
+      expect(HISTORY_MAX_CHARS).toBe(2000);
+
+      service.open();
+      service.updateDraft('x'.repeat(3000));
+      service.submit();
+      http.expectOne('/api/assistant/turn').flush(turn({ reply: 'Noted.' }));
+
+      service.updateDraft('Next');
+      service.submit();
+      const request = http.expectOne('/api/assistant/turn');
+      const history = request.request.body.history as AssistantHistoryMessage[];
+
+      expect(history[0].role).toBe('user');
+      expect(history[0].text).toHaveLength(HISTORY_MAX_CHARS);
+      request.flush(turn());
+    });
+  });
+
+  describe('a two-sided transcript (issue #286)', () => {
+    it('shows a typed question as a user entry followed by the assistant reply', () => {
+      service.open();
+      service.updateDraft('What did I just read?');
+      service.submit();
+      http.expectOne('/api/assistant/turn').flush(turn({ reply: 'The snow chapter.' }));
+
+      expect(service.entries().map((entry) => entry.kind)).toEqual(['user', 'assistant']);
+      expect(service.entries()[0]).toMatchObject({
+        text: 'What did I just read?',
+        anchorLabel: null,
+        meta: null,
+      });
+      expect(service.entries()[1].text).toBe('The snow chapter.');
+    });
+
+    it('records a voice transcript as the same user entry as typing', () => {
+      vi.useFakeTimers();
+      service.open();
+
+      service.updateDraft('The Magic Mountain');
+      service.submit();
+      http.expectOne('/api/assistant/turn').flush(turn({ reply: 'Noted.' }));
+      const typed = service.entries().find((entry) => entry.kind === 'user');
+
+      service.insertTranscript('The Magic Mountain');
+      vi.advanceTimersByTime(TRANSCRIPT_AUTO_SEND_DELAY_MS);
+      http.expectOne('/api/assistant/turn').flush(turn({ reply: 'Noted.' }));
+      const voiced = service.entries().filter((entry) => entry.kind === 'user')[1];
+
+      expect(typed).toBeTruthy();
+      expect(voiced.kind).toBe(typed?.kind);
+      expect(voiced.text).toBe(typed?.text);
+      expect(voiced.anchorLabel).toBe(typed?.anchorLabel);
+      expect(voiced.meta).toBe(typed?.meta);
+    });
   });
 
   it('clears the captured note and its raw view on a later turn', () => {
