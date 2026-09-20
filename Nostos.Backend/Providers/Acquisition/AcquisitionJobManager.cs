@@ -161,7 +161,7 @@ public sealed class AcquisitionJobManager : BackgroundService, IAcquisitionJobMa
             using var scope = _scopeFactory.CreateScope();
             var acquisitions = scope.ServiceProvider.GetRequiredService<IAcquisitionService>();
 
-            var progress = new Progress<AcquisitionProgress>(p => job.MarkProgress(p));
+            var progress = new InlineProgress<AcquisitionProgress>(job.MarkProgress);
 
             var result = await acquisitions.AcquireAsync(job.Request, progress, linked.Token);
 
@@ -208,6 +208,22 @@ public sealed class AcquisitionJobManager : BackgroundService, IAcquisitionJobMa
             if (_jobs.TryRemove(id, out var removed))
                 removed.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Delivers progress on the reporter's own thread, unlike
+    /// <see cref="Progress{T}"/>, which posts the callback.
+    ///
+    /// A posted callback can run after the acquisition has already moved on —
+    /// including after the job reached a terminal state — so the stored percent
+    /// would lag the work and a terminal 100 could be observed while the job is
+    /// still running. Running the handler inline makes the ordering
+    /// deterministic at the source instead of leaving the store's cap to hide
+    /// the window.
+    /// </summary>
+    private sealed class InlineProgress<T>(Action<T> handler) : IProgress<T>
+    {
+        public void Report(T value) => handler(value);
     }
 
     /// <summary>Mutable state for one job; all reads go through <see cref="Snapshot"/>.</summary>
