@@ -151,13 +151,13 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
-    public async Task A_capture_with_no_book_anywhere_creates_nothing()
+    public async Task A_capture_with_no_book_anywhere_asks_which_book()
     {
         var h = CreateHarness();
 
-        // No book is open and the model supplied none, so the capability refuses:
-        // a note can never be filed against a book nobody chose. The assistant is
-        // left to ask which book it belongs to.
+        // No book is open: the app asks, and asks before anything is saved,
+        // whatever the model proposed. A note can never be filed against a book
+        // nobody chose.
         h.Llm
             .CallsTool("notes_capture", """{"content":"A captured thought"}""")
             .Returns("Saved.");
@@ -166,10 +166,60 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
             "Remember this thought.",
             Context(surface: "library", route: "/library")));
 
-        await using var db = await h.Factory.CreateDbContextAsync();
-        (await db.Notes.AsNoTracking().CountAsync()).Should().Be(0);
+        response.AnchorPrompt.Should().NotBeNull();
+        response.AnchorPrompt!.Kind.Should().Be(AssistantOrchestrator.BookPromptKind);
+        response.AnchorPrompt.Question.Should().Be(AssistantOrchestrator.WhichBookQuestion);
         response.CapturedNoteId.Should().BeNull();
         response.Acknowledgement.Should().BeNull();
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.Notes.AsNoTracking().CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task A_capture_uses_the_book_the_user_named_when_none_is_open()
+    {
+        var h = CreateHarness();
+        var named = await SeedBookAsync(h, "The Magic Mountain");
+        await SeedBookAsync(h, "Pride and Prejudice");
+
+        h.Llm
+            .CallsTool("notes_capture", """{"content":"A captured thought"}""")
+            .Returns("Saved.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Remember this thought.",
+            Context(surface: "library", route: "/library", captureBookTitle: "The Magic Mountain")));
+
+        response.AnchorPrompt.Should().BeNull();
+        response.CapturedNoteId.Should().NotBeNull();
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var note = await db.Notes.AsNoTracking().SingleAsync();
+        note.BookId.Should().Be(named.Id);
+        response.Acknowledgement.Should().Contain("The Magic Mountain");
+    }
+
+    [Fact]
+    public async Task An_answer_naming_no_book_in_the_library_asks_again()
+    {
+        var h = CreateHarness();
+        await SeedBookAsync(h, "The Magic Mountain");
+
+        h.Llm
+            .CallsTool("notes_capture", """{"content":"A captured thought"}""")
+            .Returns("Saved.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Remember this thought.",
+            Context(surface: "library", route: "/library", captureBookTitle: "A Book That Is Not Here")));
+
+        response.AnchorPrompt.Should().NotBeNull();
+        response.AnchorPrompt!.Kind.Should().Be(AssistantOrchestrator.BookPromptKind);
+        response.AnchorPrompt.Question.Should().Be(AssistantOrchestrator.BookNotFoundQuestion);
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.Notes.AsNoTracking().CountAsync()).Should().Be(0);
     }
 
     [Fact]
@@ -1071,6 +1121,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
             llm,
             plans,
             settings,
+            libraryService,
             assistantOptions,
             NullLogger<AssistantOrchestrator>.Instance);
 
@@ -1112,7 +1163,8 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         double? audioTimestamp = null,
         string? selectedText = null,
         string? brainReviewNoteId = null,
-        AssistantAnchorDto? anchor = null) =>
+        AssistantAnchorDto? anchor = null,
+        string? captureBookTitle = null) =>
         new(
             surface,
             route,
@@ -1128,7 +1180,8 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
             BrainReviewNoteId: brainReviewNoteId,
             Concept: null,
             CollectionId: null,
-            anchor);
+            anchor,
+            CaptureBookTitle: captureBookTitle);
 
     private static async Task<PhysicalBookModel> SeedBookAsync(
         Harness h, string title = "Seeded Book")

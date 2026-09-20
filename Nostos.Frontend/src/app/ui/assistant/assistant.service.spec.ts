@@ -242,6 +242,55 @@ describe('AssistantService voice transcript alignment', () => {
     expect(capture?.anchorLabel).toBe('The Magic Mountain · 1:23');
   });
 
+  it('answers a book question with the title, re-dispatching the original thought', () => {
+    // No book is open, so the app asks which one and refuses to guess: the note
+    // is filed silently-wrong otherwise, and a wrong note is invisible.
+    fake.set({ surface: 'library', route: '/library', bookId: null, bookTitle: null, readingTarget: null });
+    service.open();
+    service.updateDraft('A thought with no book behind it');
+    service.submit();
+
+    http
+      .expectOne('/api/assistant/turn')
+      .flush(turn({ anchorPrompt: { kind: 'book', question: 'Which book is this for?' } }));
+
+    expect(service.pendingAnchor()?.question).toBe('Which book is this for?');
+
+    service.updateDraft('Vita Contemplativa');
+    service.submit();
+
+    const request = http.expectOne('/api/assistant/turn');
+    expect(request.request.body.message).toBe('A thought with no book behind it');
+    expect(request.request.body.context.captureBookTitle).toBe('Vita Contemplativa');
+    expect(request.request.body.context.anchor).toBeNull();
+    request.flush(
+      turn({ acknowledgement: 'Saved to Vita Contemplativa.', capturedNoteId: 'note-2' }),
+    );
+
+    expect(service.pendingAnchor()).toBeNull();
+    const capture = service.entries().find(
+      (entry) => entry.text === 'Saved to Vita Contemplativa.',
+    );
+    expect(capture?.meta).toBe('Saved');
+  });
+
+  it('refuses to skip a book question, because there is nothing to save without it', () => {
+    fake.set({ surface: 'library', route: '/library', bookId: null, bookTitle: null, readingTarget: null });
+    service.open();
+    service.updateDraft('A thought with no book behind it');
+    service.submit();
+
+    http
+      .expectOne('/api/assistant/turn')
+      .flush(turn({ anchorPrompt: { kind: 'book', question: 'Which book is this for?' } }));
+
+    service.skipAnchor();
+
+    // Still waiting: no second turn was dispatched, and the question stands.
+    http.expectNone('/api/assistant/turn');
+    expect(service.pendingAnchor()?.question).toBe('Which book is this for?');
+  });
+
   it('keeps a pending follow-up across a close and reopen', () => {
     vi.useFakeTimers();
     fake.set({ bookFormat: 'physical' });

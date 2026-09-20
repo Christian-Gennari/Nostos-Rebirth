@@ -59,7 +59,12 @@ public sealed record AssistantContextDto(
     string? BrainReviewNoteId = null,
     string? Concept = null,
     string? CollectionId = null,
-    AssistantAnchorDto? Anchor = null);
+    AssistantAnchorDto? Anchor = null,
+    // APPENDED (positional record): the book title the user gave when a capture
+    // asked which book it belongs to. Set ONLY by that answer, and resolved by
+    // the orchestrator; the model never supplies a book and never sees this
+    // (issue #262 §7 follow-up).
+    string? CaptureBookTitle = null);
 
 /// <summary>
 /// A resolved source anchor. <c>Verified</c> is true ONLY for an anchor the app
@@ -87,9 +92,12 @@ public sealed record AssistantTurnResponse(
     string? CapturedNoteId = null);
 
 /// <summary>
-/// The deterministic source-location follow-up. Present only when the capture's
-/// format cannot supply an anchor and none was given; answering (or explicitly
-/// skipping with <c>kind = "unknown"</c>) completes the capture.
+/// The deterministic follow-up a capture needs before it can be saved. Its
+/// <c>Kind</c> says what is being asked for: <c>"book"</c> when no book is open
+/// and the app cannot know which one the thought belongs to, otherwise a source
+/// location the format cannot supply (<c>"physical_page"</c>,
+/// <c>"external_audio_timestamp"</c>). Nothing is saved until it is answered; an
+/// explicitly skipped location saves as <c>unknown</c>.
 /// </summary>
 public sealed record AssistantAnchorPromptDto(string Kind, string Question);
 

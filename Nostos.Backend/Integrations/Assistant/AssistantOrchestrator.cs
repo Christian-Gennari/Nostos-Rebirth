@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Nostos.Backend.Configuration;
 using Nostos.Backend.Services.Ai;
+using Nostos.Backend.Services.Library;
 using Nostos.Shared.Dtos;
 
 namespace Nostos.Backend.Integrations.Assistant;
@@ -32,6 +33,7 @@ public sealed class AssistantOrchestrator(
     ILlmProvider llm,
     AssistantPlanStore plans,
     IAssistantSettingsService settings,
+    ILibraryService library,
     AssistantOptions options,
     ILogger<AssistantOrchestrator> logger)
 {
@@ -84,6 +86,23 @@ public sealed class AssistantOrchestrator(
     /// where the user asked nothing and simply gave the assistant something.
     /// </summary>
     public const string IncompleteTurnReply = "I could not finish that.";
+
+    /// <summary>
+    /// The one question a capture asks when the app cannot know the book: no book
+    /// is open and the user has not named one. Nothing is saved until it is
+    /// answered, because a guess files the thought in the wrong place.
+    /// </summary>
+    public const string WhichBookQuestion = "Which book is this for?";
+
+    /// <summary>
+    /// The same question again, after an answer that named no book in the
+    /// library. Asked rather than guessed: the second answer is as likely to be
+    /// right as the first.
+    /// </summary>
+    public const string BookNotFoundQuestion = "I could not find that book. Which book is this for?";
+
+    /// <summary>The prompt kind the client answers with the book's title.</summary>
+    public const string BookPromptKind = "book";
 
     private const string CaptureCapability = "notes_capture";
 
@@ -188,10 +207,32 @@ public sealed class AssistantOrchestrator(
 
                 JsonElement args;
                 var quoteFidelity = false;
+                BookDecision? book = null;
 
                 if (capability.Trust == AssistantTrustClass.Capture
                     && string.Equals(capability.Name, CaptureCapability, StringComparison.Ordinal))
                 {
+                    // The book is decided BEFORE the anchor, because it is the
+                    // fact the rest of the capture depends on: the app knows it
+                    // (the book that is open) or asks for it. It is never the
+                    // model's to choose — measured: left to pick, the model filed
+                    // thoughts against books it went and found.
+                    var decided = await DecideBookAsync(request.Context, ct);
+                    if (decided.Prompt is { } bookPrompt)
+                    {
+                        anchorPrompt = bookPrompt;
+                        messages.Add(LlmMessage.Tool(call.Id, ToolJson(new
+                        {
+                            status = "awaiting_book",
+                            kind = bookPrompt.Kind,
+                            question = bookPrompt.Question,
+                            message = "Ask the user for this; do not save the capture yet.",
+                        })));
+                        continue;
+                    }
+
+                    book = decided;
+
                     var decision = DecideAnchor(request.Context);
 
                     // The deterministic anchor follow-up: no anchor and a format
@@ -213,6 +254,7 @@ public sealed class AssistantOrchestrator(
                         call.ArgumentsJson,
                         request.Context,
                         decision,
+                        book.BookId!.Value,
                         captureProcessingMode,
                         out quoteFidelity);
                 }
@@ -233,7 +275,7 @@ public sealed class AssistantOrchestrator(
                     && capability.Trust == AssistantTrustClass.Capture
                     && string.Equals(capability.Name, CaptureCapability, StringComparison.Ordinal))
                 {
-                    acknowledgement = BuildAcknowledgement(request.Context, quoteFidelity);
+                    acknowledgement = BuildAcknowledgement(book.Title, quoteFidelity);
                     capturedNoteId = ReadNoteId(result.Data);
                 }
             }
@@ -530,7 +572,7 @@ public sealed class AssistantOrchestrator(
 
         A passage the reader has selected is already in the context. When the user says to save, keep, note or record a passage, a quote, a highlight, "this" or "this passage", that selection is what they mean: capture it as selectedText in that same turn. Do not ask them to supply the text, and do not ask which passage they mean — asking is the failure here, because the app already has it.
 
-        The book that is open is the book: the capture goes there, and you never choose a book yourself or override the open one. If no book is open and the user did not name one, ask which book it belongs to — one short question — and do not save until the answer is known. Use the library read tools only to resolve a book the user actually named, never to pick a likely one. Never invent a page, position or timestamp: the capture tool asks for those itself when they cannot be known.
+        The book is the app's, not yours: a capture goes to the book that is open, and when no book is open the app asks the user which one it belongs to before saving anything. You never choose a book, and you never name one you found in the library. Never invent a page, position or timestamp either: the capture tool asks for those itself when they cannot be known.
 
         A capture is saved only when the notes_capture result says it succeeded. If it fails, say in one line what failed. The words "saved" may only follow a successful notes_capture result, and the app confirms a capture itself — including where it went — so keep your own reply to one short line and never restate the book, page or note, or name one that a tool result did not give you.
 
@@ -546,6 +588,50 @@ public sealed class AssistantOrchestrator(
         """;
 
     // ------------------------------------------------------------------
+    // Book policy (deterministic)
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Decides which book a capture belongs to, or asks. The model never chooses
+    /// a book: the app either knows it (the book that is open) or asks the user
+    /// and resolves the answer. The answer is resolved through the canonical
+    /// library service with external metadata off, so an answer either names a
+    /// book in the library or is questioned again.
+    /// </summary>
+    private async Task<BookDecision> DecideBookAsync(AssistantContextDto? context, CancellationToken ct)
+    {
+        // The open book needs no resolution and cannot be overridden: whatever
+        // the user says, this is where the words were written.
+        if (Guid.TryParse(context?.BookId, out var open))
+        {
+            return BookDecision.At(open, context?.BookTitle);
+        }
+
+        var title = context?.CaptureBookTitle;
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return BookDecision.Ask(new AssistantAnchorPromptDto(BookPromptKind, WhichBookQuestion));
+        }
+
+        var resolved = await library.ResolveBookAsync(
+            new LibraryResolveBookRequest(Title: title.Trim(), IncludeExternalMetadata: false),
+            ct);
+
+        return resolved.Resolution switch
+        {
+            LibraryResolution.ExactMatch when resolved.MatchedBook is { } match =>
+                BookDecision.At(match.Id, match.Title),
+
+            // Exactly one candidate is an answer, not an ambiguity. More than
+            // one is the user's to settle, so it becomes the same question again.
+            LibraryResolution.Candidates when resolved.Candidates is { Count: 1 } only =>
+                BookDecision.At(only[0].BookId, only[0].Title),
+
+            _ => BookDecision.Ask(new AssistantAnchorPromptDto(BookPromptKind, BookNotFoundQuestion)),
+        };
+    }
+
+    // ------------------------------------------------------------------
     // Anchor policy (deterministic)
     // ------------------------------------------------------------------
 
@@ -557,6 +643,7 @@ public sealed class AssistantOrchestrator(
         string argumentsJson,
         AssistantContextDto? context,
         AnchorDecision decision,
+        Guid bookId,
         string mode,
         out bool quoteFidelity)
     {
@@ -564,18 +651,15 @@ public sealed class AssistantOrchestrator(
 
         var obj = ParseObject(argumentsJson);
 
-        // The book is the APP's, exactly like the anchor: when a book is open,
-        // that is where the capture goes, whatever the model proposed. Measured
-        // against the live gateway with Pride and Prejudice open: the model
-        // searched notes, found one about the same subject in another book, and
-        // filed the thought there — and because the acknowledgement is built
-        // from the ambient context, the confirmation then named a book the note
-        // was not filed against. Both were wrong, and neither was visible.
+        // The book is the APP's, exactly like the anchor, and it is now the ONLY
+        // source: the open book, or the book the user named when the capture
+        // asked. Measured against the live gateway with Pride and Prejudice open:
+        // the model searched notes, found one about the same subject in another
+        // book, and filed the thought there — and because the acknowledgement is
+        // built from the ambient context, the confirmation then named a book the
+        // note was not filed against. Both were wrong, and neither was visible.
         // An open book is a fact; a book the model went and found is a guess.
-        if (!string.IsNullOrWhiteSpace(context?.BookId))
-        {
-            obj["bookId"] = context!.BookId;
-        }
+        obj["bookId"] = bookId.ToString();
 
         var selectedText = ReadString(obj, "selectedText") ?? context?.SelectedText;
         if (!string.IsNullOrWhiteSpace(selectedText))
@@ -687,11 +771,11 @@ public sealed class AssistantOrchestrator(
         return null;
     }
 
-    private static string BuildAcknowledgement(AssistantContextDto? context, bool quoteFidelity)
+    private static string BuildAcknowledgement(string? bookTitle, bool quoteFidelity)
     {
-        var text = string.IsNullOrWhiteSpace(context?.BookTitle)
+        var text = string.IsNullOrWhiteSpace(bookTitle)
             ? "Saved."
-            : $"Saved to {context!.BookTitle}.";
+            : $"Saved to {bookTitle}.";
 
         // The response contract carries no undo field; the note id and the note
         // itself are the affordance, so point at them.
@@ -892,5 +976,18 @@ public sealed class AssistantOrchestrator(
 
         public static AnchorDecision Ask(AssistantAnchorPromptDto prompt) =>
             new("unknown", null, false, prompt);
+    }
+
+    /// <summary>
+    /// Which book a capture belongs to, or the question that must be asked
+    /// before it can be saved. Exactly one of the two is set. The title travels
+    /// with the id so the confirmation can name the book even when the ambient
+    /// context never knew it — the answer's title, not the open book's.
+    /// </summary>
+    private sealed record BookDecision(Guid? BookId, string? Title, AssistantAnchorPromptDto? Prompt)
+    {
+        public static BookDecision At(Guid bookId, string? title) => new(bookId, title, null);
+
+        public static BookDecision Ask(AssistantAnchorPromptDto prompt) => new(null, null, prompt);
     }
 }

@@ -303,12 +303,11 @@ public static class AssistantCapabilities
         new AssistantCapability(
             "notes_capture",
             AssistantTrustClass.Capture,
-            "Saves one of the user's own thoughts, observations or quotes as a note against the open book. Use it whenever the user gives you something of their own to keep — they do not have to say 'save' or 'note', and a thought of theirs must be saved rather than answered.",
+            "Saves one of the user's own thoughts, observations or quotes as a note against the book that is open. Use it whenever the user gives you something of their own to keep — they do not have to say 'save' or 'note', and a thought of theirs must be saved rather than answered. The book is supplied by the app; never pass one.",
             """
             {
               "type": "object",
               "properties": {
-                "bookId": { "type": "string", "format": "uuid", "description": "Only when no book is open and the user has named the book this note belongs to: its id, from a library read. When a book is open, leave this out — the capture goes to the open book, and you never choose or override one." },
                 "content": { "type": "string", "description": "The user's own words for the note, exactly as they said or wrote them, with only any instruction removed. Never paraphrase, shorten, translate, correct or add to them. A separate setting decides how the words are rendered." },
                 "selectedText": { "type": "string", "description": "A passage quoted from the book itself. When the reader has a passage selected it is already in the current context — capture it here rather than asking for it. It is stored as the quotation and is never rewritten by any processing setting." },
                 "captureSource": { "type": "string", "description": "Where the words came from. Defaults to 'text'." }

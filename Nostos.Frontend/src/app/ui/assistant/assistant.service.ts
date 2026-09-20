@@ -44,7 +44,12 @@ export interface AssistantHistoryMessage {
 }
 
 export interface AssistantAnchorPrompt {
-  kind: 'physical_page' | 'external_audio_timestamp';
+  /**
+   * What the capture needs before it can be saved. `book` is the app asking
+   * which book a thought belongs to, because none is open and the app will not
+   * guess; the other two are a source location the format cannot supply.
+   */
+  kind: 'physical_page' | 'external_audio_timestamp' | 'book';
   question: string;
 }
 
@@ -179,6 +184,12 @@ interface AssistantContextDto {
   concept: string | null;
   collectionId: string | null;
   anchor: { kind: string; value: string | null; verified: boolean } | null;
+  /**
+   * The book title the user gave when a capture asked which book it belongs to,
+   * for a turn that is the answer to that question. Null on every other turn;
+   * the server resolves it and never lets the model choose a book.
+   */
+  captureBookTitle: string | null;
 }
 
 /**
@@ -387,7 +398,12 @@ export class AssistantService {
     this.autoSendPending.set(false);
   }
 
-  /** Enter submits; if a follow-up is pending, this is the anchor answer. */
+  /**
+   * Enter submits. If a follow-up is pending, this is its answer: a page or
+   * timestamp for a location question, or the book's title when the capture
+   * asked which book it belongs to (there is no book open, so the app cannot
+   * know it and will not guess).
+   */
   submit(): void {
     // A manual send consumes the pending window; the same call the timer makes
     // is a no-op here because it already cleared its own timer.
@@ -401,6 +417,12 @@ export class AssistantService {
       this.pendingAnchor.set(null);
       this.pendingText.set('');
       this.draft.set('');
+
+      if (pending.kind === 'book') {
+        this.dispatchTurn(original, this.effectiveAnchor(this.context()), text);
+        return;
+      }
+
       this.dispatchTurn(original, this.anchorFromAnswer(pending.kind, text));
       return;
     }
@@ -415,9 +437,14 @@ export class AssistantService {
     this.dispatchTurn(text, anchor);
   }
 
-  /** "I don't know" — never lose the capture to a missing anchor. */
+  /**
+   * "I don't know" — never lose the capture to a missing anchor. A book
+   * question is deliberately not skippable: skipping it would save nothing and
+   * ask again, so the surface does not offer it (and this refuses it).
+   */
   skipAnchor(): void {
-    if (!this.pendingAnchor()) return;
+    const pending = this.pendingAnchor();
+    if (!pending || pending.kind === 'book') return;
     const text = this.pendingText();
     this.pendingAnchor.set(null);
     this.pendingText.set('');
@@ -559,7 +586,7 @@ export class AssistantService {
       });
   }
 
-  private dispatchTurn(text: string, anchor: AssistantAnchor | null): void {
+  private dispatchTurn(text: string, anchor: AssistantAnchor | null, captureBookTitle: string | null = null): void {
     const context = this.context();
 
     // Read the history BEFORE this turn's user entry joins the log: the server
@@ -576,7 +603,7 @@ export class AssistantService {
       clientId: this.clientId,
       idempotencyKey: createId(),
       message: text,
-      context: toContextDto(context, anchor),
+      context: toContextDto(context, anchor, captureBookTitle),
       pendingPlanId: this.pendingPlan()?.planId ?? null,
       history,
     };
@@ -613,11 +640,12 @@ export class AssistantService {
           this.pushEntry('assistant', response.reply, null, null);
         }
 
-        // A backend-requested location arrives as the same deterministic
-        // follow-up the surface already knows how to ask.
+        // A backend-requested follow-up arrives as the same deterministic prompt
+        // the surface already knows how to ask: a page or timestamp, or the book
+        // when no book is open and the app cannot know which one it is.
         if (response.anchorPrompt) {
           const kind = response.anchorPrompt.kind;
-          if (kind === 'physical_page' || kind === 'external_audio_timestamp') {
+          if (kind === 'physical_page' || kind === 'external_audio_timestamp' || kind === 'book') {
             this.pendingText.set(text);
             this.pendingAnchor.set({ kind, question: response.anchorPrompt.question });
           }
@@ -694,7 +722,11 @@ export class AssistantService {
  * Builds the wire context, applying the turn's anchor (the composer may have
  * answered a follow-up) over the ambient one.
  */
-function toContextDto(context: AssistantContext, anchor: AssistantAnchor | null): AssistantContextDto {
+function toContextDto(
+  context: AssistantContext,
+  anchor: AssistantAnchor | null,
+  captureBookTitle: string | null = null,
+): AssistantContextDto {
   return {
     surface: context.surface,
     route: context.route,
@@ -711,6 +743,7 @@ function toContextDto(context: AssistantContext, anchor: AssistantAnchor | null)
     concept: context.concept,
     collectionId: context.collectionId,
     anchor: anchor ? { kind: anchor.kind, value: anchor.value, verified: anchor.verified } : null,
+    captureBookTitle,
   };
 }
 
