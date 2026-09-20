@@ -35,8 +35,8 @@ public sealed class AssistantOrchestrator(
     ILogger<AssistantOrchestrator> logger)
 {
     /// <summary>
-    /// Generous on purpose: the free pool spends reasoning tokens even on a
-    /// two-word answer, and a tighter budget truncates real replies.
+    /// Generous on purpose: a tool-calling turn can spend reasoning tokens even
+    /// on a two-word reply, and a tighter budget truncates real answers.
     /// </summary>
     public const int MaxResponseTokens = 4096;
 
