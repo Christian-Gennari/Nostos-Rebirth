@@ -241,6 +241,23 @@
     bottom: calc(env(safe-area-inset-bottom, 0px) + 11px);
   }
 
+  /* In the reader the toolbar's RIGHTMOST gap is only 94px at 390px wide, while
+     the full capsule is 154px — so it fits no toolbar gap at all and at full
+     width it landed on the "Next page" control (measured: 1782px2 of the 44x44
+     page-turn button, i.e. it stole the primary reading gesture). Collapse to
+     the icon alone, which fits the right flank clear of BOTH pager controls and
+     of every line of text. The button keeps its accessible name via aria-label. */
+  .assistant-trigger.reader-surface .trigger-label,
+  .assistant-trigger.reader-surface .trigger-capsule kbd {
+    display: none;
+  }
+
+  .assistant-trigger.reader-surface .trigger-capsule {
+    justify-content: center;
+    width: var(--control-h-touch);
+    padding: 0;
+  }
+
   /* Workspace routes: sit above the dock rail, which the page already reserves
      clearance for. */
   .assistant-trigger:not(.reader-surface) {
