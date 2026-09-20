@@ -84,6 +84,26 @@ export class ReaderShell implements OnInit {
   }
 
   /**
+   * Whether the reader's search UI is open, so the header control can show its
+   * state and act as a close (a #226 follow-up). Read as a method rather than a
+   * `computed()`: `pdfReader` is a ViewChild, i.e. a plain field that is set
+   * after the first change-detection pass, so a computed would cache the
+   * pre-view-init value and never update.
+   */
+  searchOpen(): boolean {
+    return this.pdfReader?.findBarVisible?.() ?? false;
+  }
+
+  /**
+   * The header's search control is a toggle: pressing the button that opened the
+   * bar closes it again. Before this it only ever opened, and since the library's
+   * find bar carries no close control of its own there was no visible way out.
+   */
+  toggleSearch(): void {
+    this.pdfReader?.toggleSearch?.();
+  }
+
+  /**
    * Fixed-layout view controls, driven by the shell's Aa panel. These delegate to
    * the PDF reader so the render scale lives with the document that owns it, and
    * so the panel can show which fit is in effect.
@@ -408,6 +428,37 @@ export class ReaderShell implements OnInit {
       this.activeReader()?.goTo(page);
       input.blur(); // Optional: remove focus after jumping
     }
+  }
+
+  /**
+   * Select the number when the page field takes focus. A jump REPLACES the
+   * current page, so without this, typing "5" after "12" reads as "125" (issue
+   * the reader chrome polish this change carries).
+   */
+  onPageFocus(event: Event): void {
+    (event.target as HTMLInputElement).select();
+  }
+
+  /**
+   * Leaving the field without pressing Enter reverts it to the page actually
+   * being read. Committing on blur would turn an accidental click or an
+   * abandoned edit into a jump; Enter stays the explicit commit, and the box must
+   * not keep a number the reader never went to.
+   */
+  onPageBlur(event: Event): void {
+    this.restorePageInput(event);
+  }
+
+  /** Escape abandons the edit and leaves the field. */
+  revertPageInput(event: Event): void {
+    this.restorePageInput(event);
+    (event.target as HTMLInputElement).blur();
+  }
+
+  private restorePageInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const current = this.progressState()?.pageNumber;
+    if (current) input.value = String(current);
   }
 
   /**

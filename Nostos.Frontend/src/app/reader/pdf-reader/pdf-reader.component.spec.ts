@@ -64,6 +64,9 @@ class PdfViewerStub {
   showFindMatchDiacritics = input<boolean>(false);
   showFindEntireWord = input<boolean>(false);
   showFindMultiple = input<boolean>(false);
+  // The find bar's input area is re-declared by the reader (a #226 follow-up); the
+  // stub must accept the binding or the template fails to compile.
+  customFindbarInputArea = input<unknown>();
 
   pageChange = output<number>();
   sidebarVisibleChange = output<boolean>();
@@ -76,6 +79,30 @@ class PdfViewerStub {
   textLayerRendered = output<any>();
   textSelection = output<any>();
 }
+
+/**
+ * The find bar's own pieces are declared INSIDE `NgxExtendedPdfViewerModule` and
+ * are not standalone, so a standalone component cannot list them in `imports`.
+ * The specs below remove that module to keep the suite light, so the three
+ * selectors our template re-declares (a #226 follow-up) need stand-ins: the stub viewer
+ * never instantiates that ng-template, but Angular still compiles its content.
+ */
+@Component({ selector: 'pdf-search-input-field', standalone: true, template: '' })
+class PdfSearchInputFieldStub {}
+
+@Component({ selector: 'pdf-find-previous', standalone: true, template: '' })
+class PdfFindPreviousStub {}
+
+@Component({ selector: 'pdf-find-next', standalone: true, template: '' })
+class PdfFindNextStub {}
+
+/** Everything the overridden PdfReader needs to compile in these specs. */
+const PDF_READER_TEST_IMPORTS = [
+  PdfViewerStub,
+  PdfSearchInputFieldStub,
+  PdfFindPreviousStub,
+  PdfFindNextStub,
+];
 
 const readSource = (file: string) =>
   readFileSync(new URL(file, import.meta.url), 'utf-8');
@@ -107,7 +134,7 @@ describe('PdfReader theme-following surround and page inversion (#259)', () => {
     })
       .overrideComponent(PdfReader, {
         remove: { imports: [NgxExtendedPdfViewerModule] },
-        add: { imports: [PdfViewerStub] },
+        add: { imports: PDF_READER_TEST_IMPORTS },
       })
       .compileComponents();
 
@@ -288,7 +315,7 @@ describe('PdfReader contents rail from the embedded outline', () => {
     })
       .overrideComponent(PdfReader, {
         remove: { imports: [NgxExtendedPdfViewerModule] },
-        add: { imports: [PdfViewerStub] },
+        add: { imports: PDF_READER_TEST_IMPORTS },
       })
       .compileComponents();
   });
@@ -394,7 +421,7 @@ describe('PdfReader search shortcut', () => {
     })
       .overrideComponent(PdfReader, {
         remove: { imports: [NgxExtendedPdfViewerModule] },
-        add: { imports: [PdfViewerStub] },
+        add: { imports: PDF_READER_TEST_IMPORTS },
       })
       .compileComponents();
 
@@ -447,6 +474,83 @@ describe('PdfReader search shortcut', () => {
     component.openSearch();
 
     expect(component.findBarVisible()).toBe(true);
+  });
+
+  /**
+   * A #226 follow-up. The library's find bar renders NO close control — read its own
+   * template: its only buttons are prev/next — so a header control that could
+   * only OPEN left Escape as the way out, and Escape is neither discoverable nor
+   * available on a phone.
+   */
+  it('toggles the bar shut again from the header control', () => {
+    const component = fixture.componentInstance;
+
+    component.toggleSearch();
+    expect(component.findBarVisible()).toBe(true);
+
+    component.toggleSearch();
+    expect(component.findBarVisible()).toBe(false);
+  });
+
+  it('closes the bar from the control inside it', () => {
+    const component = fixture.componentInstance;
+    component.openSearch();
+
+    component.closeSearch();
+
+    expect(component.findBarVisible()).toBe(false);
+  });
+
+  it('re-declares the find bar’s input area so the bar can carry a close control', () => {
+    // `customFindbarInputArea` is a public input and every component below is
+    // exported from the library's public_api, so the close control is supported
+    // surface, not markup injected into DOM we do not own. The default template
+    // renders exactly these components inside this exact id, so the prev/next
+    // buttons keep the wiring pdf.js looks up by id.
+    const html = readSource('./pdf-reader.component.html');
+
+    expect(html).toContain('#findInputArea');
+    expect(html).toContain('[customFindbarInputArea]="findInputArea"');
+    expect(html).toContain('<div id="findbarInputContainer">');
+    expect(html).toContain('<pdf-search-input-field>');
+    expect(html).toContain('<pdf-find-previous>');
+    expect(html).toContain('<pdf-find-next>');
+    expect(html).toContain('aria-label="Close search"');
+    expect(html).toContain('(click)="closeSearch()"');
+  });
+
+  it('styles the find field by the id it renders, not an attribute it never has', () => {
+    // The field's rule was keyed on `.toolbarField[type='text']`, and the
+    // library's input template declares NO `type` attribute at all — so the
+    // selector matched nothing and the field kept pdf.js's `message-box` stack,
+    // #fff fill, rgba(0,0,0,.4) border and 2px corners while everything around it
+    // wore the house tokens (measured live; this is the "plain HTML" report).
+    // This guard is what stops the attribute creeping back.
+    const css = readSource('./pdf-reader.component.css');
+    // Comments stripped first: the fix's own comment names the broken selector on
+    // purpose, and a guard that cannot tell prose from a rule would forbid
+    // explaining the bug it pins.
+    const rules = css.replace(/\/\*[\s\S]*?\*\//g, '');
+
+    expect(rules).not.toContain("[type='text']");
+    expect(rules).toContain('.findbar #findInput.toolbarField');
+    expect(rules).toContain('.findbar #findInput.toolbarField::placeholder');
+    // Not a hover-only affordance either: hover does not exist on touch.
+    expect(rules).toContain('.findbar #findInput.toolbarField:focus');
+  });
+
+  it('lays the bar out as a card on desktop and a flush strip on a phone', () => {
+    const css = readSource('./pdf-reader.component.css');
+
+    // The library writes left/right and a scale transform as INLINE styles from
+    // its own measurements, so a rule without !important loses silently.
+    expect(css).toContain('width: min(24rem, calc(100vw - 1.5rem)) !important');
+    expect(css).toContain('transform: none !important');
+    expect(css).toContain('right: 0.75rem !important');
+    // <=768px is the reader's own breakpoint (the shell uses the same one), and
+    // there the same element becomes the strip under the header.
+    expect(css).toContain('@media (max-width: 768px)');
+    expect(css).toContain('border-bottom: 1px solid var(--border-color)');
   });
 
   it('Escape closes the bar without the event reaching the shell', () => {
@@ -509,7 +613,7 @@ describe('PdfReader reading mode', () => {
     })
       .overrideComponent(PdfReader, {
         remove: { imports: [NgxExtendedPdfViewerModule] },
-        add: { imports: [PdfViewerStub] },
+        add: { imports: PDF_READER_TEST_IMPORTS },
       })
       .compileComponents();
   });

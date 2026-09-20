@@ -45,14 +45,19 @@
       ></button>
       @if (fileType() === 'pdf') {
       <!-- Search. A phone has no Ctrl+F, so without a visible control search was
-           unreachable by touch (issue #226 §2). -->
+           unreachable by touch (issue #226 §2). It is a TOGGLE (a #226 follow-up): the
+           library's find bar renders no close control of its own, so if this
+           button could only open, the bar could not be dismissed from the UI at
+           all — pressing it again used to do nothing. -->
       <button
         appIconButton
         icon="magnifying-glass"
         [glyphSize]="20"
-        (click)="openSearch()"
+        (click)="toggleSearch()"
         title="Search"
         aria-label="Search in document"
+        [attr.aria-expanded]="searchOpen()"
+        [class.active]="searchOpen()"
       ></button>
       } @if (fileType() === 'epub' || fileType() === 'pdf') {
       <!-- One view control for both formats: typography for a reflowable EPUB,
@@ -175,7 +180,8 @@
 
       <!-- The highlighter pens (issue #208). Four fills, remembered per book;
            the swatch is the label, so this stays a row of dots rather than a row
-           of words. `aria-pressed` carries the choice to assistive tech. -->
+           of words. `aria-pressed` carries the choice to assistive tech, and the
+           title is the one discoverable name for a dot (a #226 follow-up). -->
       <div class="hl-pens" role="group" aria-label="Highlight colour">
         @for (pen of highlightColours; track pen.id) {
           <button
@@ -185,6 +191,7 @@
             [class.is-active]="highlightColour() === pen.id"
             [attr.aria-pressed]="highlightColour() === pen.id"
             [attr.aria-label]="pen.label + ' highlighter'"
+            [attr.title]="pen.label"
             [attr.data-testid]="'reader-highlight-pen-' + pen.id"
             (click)="setHighlightColour(pen.id)"
           ></button>
@@ -247,18 +254,26 @@
     <div class="toolbar-center">
       <button appIconButton icon="caret-left" [glyphSize]="20" (click)="prevPage()" title="Previous" aria-label="Previous page"></button>
 
-      <div class="progress-display">
+      <div class="progress-display" [class.pager]="!!progressState()?.pageNumber">
         @if (progressState()?.pageNumber) {
-        <div class="page-navigation">
+        <!-- The page indicator (a #226 follow-up). One box, not two: the editable field
+             carries the hairline and the grey pill around it is gone, so the only
+             bordered shape in the bar is the thing you can type into. It keeps a
+             PERSISTENT hairline rather than appearing on hover — hover does not
+             exist on a phone, and an affordance you cannot see is not one. -->
+        <nav class="page-navigation" aria-label="Pagination">
           <input
             type="number"
             class="page-input"
             [value]="progressState()?.pageNumber"
             (keyup.enter)="onPageInput($event)"
+            (focus)="onPageFocus($event)"
+            (blur)="onPageBlur($event)"
+            (keydown.escape)="revertPageInput($event)"
             aria-label="Page number"
           />
           <span class="total-pages"> / {{ progressState()?.pageCount }}</span>
-        </div>
+        </nav>
         } @else {
         <span>{{ progressLabel() }}</span>
         } @if (progressTooltip()) {
