@@ -156,6 +156,21 @@ describe('MarkdownEditorComponent', () => {
     expect(style).not.toContain('#1a1a1a');
   });
 
+  it('tokenises emphasis ink, so bold text follows the sheet theme', () => {
+    // Regression: `strong` painted the literal light ink, so bold text in the
+    // Writing Studio came out near-black on the dark sheet (1.13:1 against
+    // --paper). Emphasis ink is a role: both theme blocks must carry it.
+    const style = String(initCalls[0].content_style);
+
+    expect(style).toMatch(/strong\s*\{[^}]*color:\s*var\(--ink-strong\)/);
+
+    const darkStart = style.indexOf(":root[data-theme='dark']");
+    const lightBlock = style.slice(style.indexOf(':root {'), darkStart);
+    const darkBlock = style.slice(darkStart);
+    expect(lightBlock).toContain('--ink-strong:');
+    expect(darkBlock).toContain('--ink-strong:');
+  });
+
   it('emits the wordcount-plugin count on init and on content events', async () => {
     // Init (+ any SetContent from document switching) must have emitted.
     expect(wordCountEmissions.length).toBeGreaterThanOrEqual(1);
