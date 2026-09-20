@@ -18,6 +18,7 @@ import { Howl } from 'howler';
 import { Subject, Subscription } from 'rxjs';
 import { sampleTime, filter } from 'rxjs/operators';
 import { BooksService } from '../../core/services/books.service';
+import { AssistantContextService } from '../../ui/assistant/assistant-context.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 import { Book } from '../../core/dtos/book.dtos';
 
@@ -38,6 +39,14 @@ export class AudioReader implements OnDestroy, IReader {
   book = input<Book | null>(null);
 
   private booksService = inject(BooksService);
+  private assistantContext = inject(AssistantContextService);
+
+  /**
+   * Published to the assistant context registry (issue #261): the in-app audio
+   * timestamp and its chapter. Additive only.
+   */
+  private unregisterAssistantContext: (() => void) | null = null;
+
   // IReader Interface
   toc = signal<TocItem[]>([]);
   progress = signal<ReaderProgress>({ label: '0:00', percentage: 0 });
@@ -55,6 +64,23 @@ export class AudioReader implements OnDestroy, IReader {
     }
     return activeTarget;
   });
+
+  /** The chapter label the current position falls in, for the assistant context. */
+  private assistantChapterLabel(): string | null {
+    const target = this.currentLocationTarget();
+    if (target === null) return null;
+    const find = (items: TocItem[]): string | null => {
+      for (const item of items) {
+        if (item.target === target) return item.label;
+        if (item.children) {
+          const nested = find(item.children);
+          if (nested) return nested;
+        }
+      }
+      return null;
+    };
+    return find(this.toc());
+  }
 
   // Player State
   player: Howl | null = null;
@@ -131,6 +157,15 @@ export class AudioReader implements OnDestroy, IReader {
   private onPageHide = this.saveProgressImmediately.bind(this);
 
   constructor() {
+    this.unregisterAssistantContext = this.assistantContext.register(
+      () => ({
+        readerType: 'audio',
+        audioTimestamp: this.currentTime(),
+        audioChapter: this.assistantChapterLabel(),
+      }),
+      { explicit: true },
+    );
+
     this.progressSubscription = this.progressSubject.pipe(
       sampleTime(2000),
       filter(() => this.isInitialized),
@@ -701,6 +736,8 @@ export class AudioReader implements OnDestroy, IReader {
   }
 
   ngOnDestroy() {
+    this.unregisterAssistantContext?.();
+    this.unregisterAssistantContext = null;
     this.saveProgressImmediately();
     this.stopProgressTracking();
     this.progressSubscription?.unsubscribe();
