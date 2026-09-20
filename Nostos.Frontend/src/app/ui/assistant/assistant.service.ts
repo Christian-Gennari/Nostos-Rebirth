@@ -291,11 +291,12 @@ export class AssistantService {
 
   close(): void {
     // Closing abandons a pending auto-send as well as a live recording: nothing
-    // is dispatched behind a surface the user can no longer Undo from.
+    // is dispatched behind a surface the user can no longer Undo from. The
+    // transcript and a pending follow-up are the conversation, not the panel, so
+    // they survive: the user can step away to find the page and answer without
+    // losing the thought that is waiting on it.
     this.cancelAutoSend();
     this.isOpen.set(false);
-    this.pendingAnchor.set(null);
-    this.pendingText.set('');
   }
 
   toggle(): void {
@@ -620,7 +621,7 @@ export class AssistantService {
     kind: 'physical_page' | 'external_audio_timestamp',
     answer: string,
   ): AssistantAnchor {
-    return { kind, value: answer, verified: false };
+    return { kind, value: normalizeAnchorAnswer(kind, answer), verified: false };
   }
 
   private pushEntry(
@@ -636,17 +637,19 @@ export class AssistantService {
     ]);
   }
 
-  /** "The Magic Mountain · p. 183", from the resolved context. */
+  /** "The Magic Mountain · p. 183", from the resolved context or the answer. */
   private anchorLabel(context: AssistantContext): string | null {
     const anchor = context.anchor;
     if (!anchor || anchor.kind === 'unknown') return null;
     const title = context.bookTitle ?? 'This book';
     switch (anchor.kind) {
       case 'pdf_page':
+      case 'physical_page':
         return `${title} · p. ${anchor.value}`;
       case 'epub_cfi':
         return `${title} · reading position`;
       case 'audio_timestamp':
+      case 'external_audio_timestamp':
         return `${title} · ${formatTimestamp(anchor.value)}`;
       default:
         return title;
@@ -676,6 +679,39 @@ function toContextDto(context: AssistantContext, anchor: AssistantAnchor | null)
     collectionId: context.collectionId,
     anchor: anchor ? { kind: anchor.kind, value: anchor.value, verified: anchor.verified } : null,
   };
+}
+
+/**
+ * Turn a follow-up answer into the anchor value a note stores. The answer
+ * arrives on the one send path — often as a voice transcript, so as prose
+ * ("Page 247.") rather than a bare number — and the note's `SourceAnchorValue`
+ * is a page/timestamp, not a sentence. Cleaning it here keeps a second "answer
+ * mode" from being needed anywhere else (issue #262 §6).
+ */
+export function normalizeAnchorAnswer(
+  kind: 'physical_page' | 'external_audio_timestamp',
+  answer: string,
+): string {
+  const trimmed = answer.trim();
+  if (kind === 'physical_page') {
+    // "Page 247." / "p. 247" / "247" -> "247". Anything else is left as the
+    // user said it rather than guessing which number they meant.
+    const cleaned = trimmed.replace(/[.\s]+$/, '');
+    const match = /^(?:page|p\.?)\s*(\d+)$/i.exec(cleaned);
+    return match ? match[1] : cleaned;
+  }
+  return parseTimestamp(trimmed) ?? trimmed;
+}
+
+/** `1:23:45` / `1:23` / `83` (seconds) to whole seconds; null when unparseable. */
+export function parseTimestamp(value: string): string | null {
+  const parts = value.trim().split(':');
+  if (parts.length === 0 || parts.length > 3) return null;
+  if (parts.some((part) => !/^\d+$/.test(part.trim()))) return null;
+  const seconds = parts
+    .map((part) => Number(part.trim()))
+    .reduce((total, part) => total * 60 + part, 0);
+  return String(seconds);
 }
 
 /** Seconds (as a string) to `m:ss` / `h:mm:ss`. Null-safe and never NaN-y. */
