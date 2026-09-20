@@ -18,6 +18,7 @@ using Nostos.Backend.Providers.LibriVox;
 using Nostos.Backend.Serialization;
 using Nostos.Backend.Services;
 using Nostos.Backend.Services.Library;
+using Nostos.Backend.Services.Notes;
 using Nostos.Backend.Workers;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -178,6 +179,7 @@ builder.Services.AddScoped<ILibraryService, LibraryService>();
 builder.Services.AddScoped<LibraryReceiptRetentionService>();
 builder.Services.AddScoped<MediaMetadataService>();
 builder.Services.AddScoped<NoteProcessorService>();
+builder.Services.AddScoped<INoteService, NoteService>();
 builder.Services.AddScoped<IBackupService, BackupService>();
 builder.Services.AddScoped<IBookRepository, BookRepository>();
 builder.Services.AddScoped<ICollectionRepository, CollectionRepository>();

@@ -185,7 +185,15 @@ public static class MappingExtensions
             CfiRange: model.CfiRange,
             SelectedText: model.SelectedText,
             CreatedAt: model.CreatedAt,
-            BookTitle: model.Book?.Title
+            BookTitle: model.Book?.Title,
+            // Capture provenance (issue #260 §2, §4). These are distinct from
+            // Content: a polished Content never replaces the raw capture.
+            RawContent: model.RawContent,
+            CaptureSource: model.CaptureSource,
+            ProcessingMode: model.ProcessingMode,
+            SourceAnchorKind: model.SourceAnchorKind,
+            SourceAnchorValue: model.SourceAnchorValue,
+            AnchorVerified: model.AnchorVerified
         );
 
     public static CollectionDto ToDto(this CollectionModel model) =>
@@ -278,6 +286,14 @@ public static class MappingExtensions
             Content = dto.Content,
             CfiRange = dto.CfiRange,
             SelectedText = dto.SelectedText,
+            // A captured note keeps the raw capture alongside the Content; an
+            // ordinary typed note falls back to the model's text/verbatim/unknown.
+            RawContent = dto.RawContent,
+            CaptureSource = dto.CaptureSource,
+            ProcessingMode = dto.ProcessingMode,
+            SourceAnchorKind = dto.SourceAnchorKind,
+            SourceAnchorValue = dto.SourceAnchorValue,
+            AnchorVerified = dto.AnchorVerified,
         };
 
     public static CollectionModel ToModel(this CreateCollectionDto dto) =>
