@@ -17,6 +17,7 @@ using Nostos.Backend.Providers.Gutenberg;
 using Nostos.Backend.Providers.LibriVox;
 using Nostos.Backend.Serialization;
 using Nostos.Backend.Services;
+using Nostos.Backend.Services.Ai;
 using Nostos.Backend.Services.Library;
 using Nostos.Backend.Services.Notes;
 using Nostos.Backend.Workers;
@@ -88,6 +89,25 @@ if (mcpOptions.Enabled)
 }
 
 builder.Services.AddSingleton(mcpOptions);
+
+// --- SPEECH-TO-TEXT (issue #262 §2/§3) ---
+// Optional and disabled by default, like MCP. Bound as a singleton so the
+// endpoint and the provider always read the same effective configuration. The
+// credential is resolved from the environment variable NAMED here at call time
+// (never from configuration), so the key is never committed and never leaves
+// the server. The provider is registered even when disabled: the endpoint then
+// answers with a typed "disabled" error instead of failing to construct.
+var speechOptions =
+    builder.Configuration.GetSection(SpeechOptions.SectionName).Get<SpeechOptions>()
+    ?? new SpeechOptions();
+builder.Services.AddSingleton(speechOptions);
+builder.Services.AddHttpClient(NineRouterSttProvider.HttpClientName, client =>
+{
+    // A ceiling for a slow transcription of a multi-minute upload, not an
+    // expectation. Per-call cancellation still comes from the request.
+    client.Timeout = TimeSpan.FromMinutes(5);
+});
+builder.Services.AddSingleton<ISTtProvider, NineRouterSttProvider>();
 
 // --- OPDS 1.2 export (issue #186) ---
 // The catalogue is unauthenticated by design, so it is only safe on a private
@@ -396,6 +416,7 @@ app.MapNotesEndpoints();
 app.MapCollectionsEndpoints();
 app.MapConceptsEndpoints();
 app.MapWritingsEndpoints();
+app.MapTranscriptionEndpoints();
 app.MapOpdsEndpoints(opdsOptions);
 app.MapBackupEndpoints();
 

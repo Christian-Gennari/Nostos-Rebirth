@@ -1,0 +1,225 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Nostos.Backend.Configuration;
+
+namespace Nostos.Backend.Services.Ai;
+
+/// <summary>
+/// Speech-to-text against the 9Router gateway's OpenAI-compatible transcription
+/// route (<c>POST {BaseUrl}/v1/audio/transcriptions</c>).
+///
+/// One provider, one call. The credential is read at call time from the
+/// environment variable named in <see cref="SpeechOptions.ApiKeyEnvironmentVariable"/>
+/// and is attached only to the outbound request — it is never logged, returned,
+/// or handed to the client. The model id is sent exactly as configured: the
+/// <c>groq/</c> prefix is load-bearing, and a bare <c>whisper-1</c> would route
+/// to an uncredentialed provider instead.
+///
+/// Failures are translated into <see cref="SttException"/> with a stable code.
+/// There is no retry loop anywhere here; a failed call is a failed call.
+/// </summary>
+public sealed class NineRouterSttProvider(
+    IHttpClientFactory httpClientFactory,
+    SpeechOptions options,
+    ILogger<NineRouterSttProvider> logger) : ISTtProvider
+{
+    /// <summary>Name of the registered <see cref="IHttpClientFactory"/> client.</summary>
+    public const string HttpClientName = "stt-ninerouter";
+
+    private const string TranscriptionsPath = "v1/audio/transcriptions";
+
+    // verbose_json is what carries language + duration; plain json carries only
+    // text. The gateway's text field arrives with a leading space, so it is
+    // trimmed before it leaves this class.
+    private const string ResponseFormat = "verbose_json";
+
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    public async Task<SttResult> TranscribeAsync(
+        Stream audio,
+        string fileName,
+        string? contentType,
+        string? languageHint,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(audio);
+
+        var apiKey = Environment.GetEnvironmentVariable(options.ApiKeyEnvironmentVariable);
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw SttException.NotConfigured(options.ApiKeyEnvironmentVariable);
+        }
+
+        if (string.IsNullOrWhiteSpace(options.BaseUrl) || string.IsNullOrWhiteSpace(options.Model))
+        {
+            throw SttException.NotConfigured(
+                $"Speech:BaseUrl and Speech:Model must both be set (missing "
+                + $"{(string.IsNullOrWhiteSpace(options.BaseUrl) ? nameof(SpeechOptions.BaseUrl) : nameof(SpeechOptions.Model))}).");
+        }
+
+        using var form = new MultipartFormDataContent();
+        var fileContent = new StreamContent(audio);
+        if (!string.IsNullOrWhiteSpace(contentType))
+        {
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        }
+
+        form.Add(fileContent, "file", string.IsNullOrWhiteSpace(fileName) ? "audio" : fileName);
+        // Sent verbatim. Do not "simplify" the groq/ prefix away.
+        form.Add(new StringContent(options.Model), "model");
+        form.Add(new StringContent(ResponseFormat), "response_format");
+        if (!string.IsNullOrWhiteSpace(languageHint))
+        {
+            form.Add(new StringContent(languageHint), "language");
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri())
+        {
+            Content = form,
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Trim());
+
+        var client = httpClientFactory.CreateClient(HttpClientName);
+
+        HttpResponseMessage response;
+        try
+        {
+            // Read the body yourself, after the headers, so a large error body is
+            // never an implicit download. A single send: no retry handler, no
+            // loop.
+            response = await client.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Cancellation is not a provider failure. Let it stay a cancellation.
+            throw;
+        }
+        catch (HttpRequestException ex)
+        {
+            throw SttException.ProviderFailure(
+                $"the gateway could not be reached ({ex.Message})");
+        }
+
+        using (response)
+        {
+            if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+            {
+                throw SttException.PermissionDenied();
+            }
+
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                throw SttException.PermissionDenied();
+            }
+
+            if (response.StatusCode == HttpStatusCode.RequestEntityTooLarge)
+            {
+                throw SttException.TooLarge(options.MaxUploadBytes);
+            }
+
+            if (response.StatusCode == HttpStatusCode.UnsupportedMediaType)
+            {
+                throw SttException.UnsupportedFormat(contentType);
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var detail = await ReadErrorDetailAsync(response, ct);
+                throw SttException.ProviderFailure(
+                    $"HTTP {(int)response.StatusCode}{(detail is null ? string.Empty : $": {detail}")}");
+            }
+
+            var body = await response.Content.ReadAsStringAsync(ct);
+            var result = ParseResponse(body);
+
+            // Deliberately no audio content and no credential in this line.
+            logger.LogDebug(
+                "Transcribed audio with model {Model}: language {Language}, duration {Duration}s.",
+                options.Model,
+                result.Language,
+                result.DurationSeconds);
+
+            return result;
+        }
+    }
+
+    private Uri BuildUri()
+    {
+        var baseUrl = options.BaseUrl.TrimEnd('/');
+        return new Uri($"{baseUrl}/{TranscriptionsPath}");
+    }
+
+    private static SttResult ParseResponse(string body)
+    {
+        VerboseTranscript? transcript;
+        try
+        {
+            transcript = JsonSerializer.Deserialize<VerboseTranscript>(body, JsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            throw SttException.InvalidResponse($"the body was not JSON ({ex.Message})");
+        }
+
+        if (transcript is null)
+        {
+            throw SttException.InvalidResponse("the body was empty");
+        }
+
+        // The gateway returns a leading space on the text. Trim it here so no
+        // caller has to know that quirk.
+        return new SttResult(
+            (transcript.Text ?? string.Empty).Trim(),
+            transcript.Language,
+            transcript.Duration);
+    }
+
+    /// <summary>
+    /// Best-effort extraction of the gateway's <c>{"error":{"message":…}}</c>
+    /// body. A body we cannot read is not itself an error; the status code is
+    /// the signal, and the detail is only there to make a log line useful.
+    /// </summary>
+    private static async Task<string?> ReadErrorDetailAsync(
+        HttpResponseMessage response,
+        CancellationToken ct)
+    {
+        try
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return null;
+            }
+
+            using var document = JsonDocument.Parse(body);
+            if (document.RootElement.TryGetProperty("error", out var error)
+                && error.ValueKind == JsonValueKind.Object
+                && error.TryGetProperty("message", out var message)
+                && message.ValueKind == JsonValueKind.String)
+            {
+                return message.GetString();
+            }
+
+            return body.Length <= 300 ? body : body[..300];
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The subset of the verbose_json response this provider reads.</summary>
+    private sealed record VerboseTranscript(
+        [property: JsonPropertyName("text")] string? Text,
+        [property: JsonPropertyName("language")] string? Language,
+        [property: JsonPropertyName("duration")] double? Duration);
+}
