@@ -556,8 +556,12 @@ describe('ReaderShell toolbar contract (theme system removed)', () => {
     const css = readSource('./reader-shell.component.css');
     const pensRule = css.slice(css.indexOf('.hl-pens {'), css.indexOf('.hl-pen {'));
 
-    expect(pensRule).toContain('margin: 12px 20px 0');
+    // 12px above, 16px below: it was `margin: 12px 20px 0`, so the row's bottom
+    // edge landed exactly on `.quick-note`'s top edge and the dots read as glued
+    // to the composer. The bottom value is the panel's own 16px rhythm.
+    expect(pensRule).toContain('margin: 12px 20px 16px');
     expect(pensRule).not.toContain('padding: 10px 2px 2px');
+    expect(pensRule).not.toContain('margin: 12px 20px 0;');
     // The paint stays 22px; the touch target is an invisible ::before, and it is
     // narrower than it is tall so two neighbours' hit boxes cannot overlap on a
     // 34px pitch and send the tap to the wrong pen.

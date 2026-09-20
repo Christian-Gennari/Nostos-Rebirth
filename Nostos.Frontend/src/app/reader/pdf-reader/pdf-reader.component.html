@@ -5,39 +5,33 @@
   (touchend)="onTextSelection()"
 >
   <div id="pdf-viewer-wrapper">
-    <!-- Search: the library's own find bar, opened by Ctrl/Cmd+F from the reader.
-         Before this, Ctrl+F did nothing at all and there was no other search
-         path anywhere in the PDF reader (issue #226 §2). The bar is the library's
-         own component; the styles below pull it into the house tokens.
+    <!-- Search: the library's own find bar, opened by Ctrl/Cmd+F from the reader,
+         or by the header's Search control. Before this, Ctrl+F did nothing at all
+         and there was no other search path anywhere in the PDF reader (issue
+         #226 §2). The bar is the library's own component; the styles below pull it
+         into the house tokens.
 
-         The input area is RE-DECLARED here (a #226 follow-up) for one reason: the
-         library's find bar renders no close control — its only buttons are
-         prev/next — so with the bar open there was no visible way to dismiss it.
-         `customFindbarInputArea` is a public input and every component below is
-         exported from the library's public_api, so this is supported surface, not
-         markup injected into someone else's DOM. The default template renders
-         exactly these three components inside this exact `#findbarInputContainer`
-         id, so prev/next keep the wiring pdf.js looks up by id.
+         DISMISSAL IS THE HEADER TOGGLE, OR Escape. A close control used to live
+         inside the bar and is gone: the header control is already a toggle
+         (`aria-expanded`), so a second exit was one control too many — and it
+         could not be styled. pdf.js ships
+         `ngx-extended-pdf-viewer button:focus { outline: none; border: 1px solid
+         blue }`, specificity (0,1,1), which BEATS global `.icon-btn { all: unset }`
+         at (0,1,0): focusing our control painted a literal blue border on it.
+         Measured: of 535 focusables in the reader it was the only one that
+         inherited it, because every other control is either not inside the
+         viewer or pins its own border.
+
+         The input area is NOT re-declared any more. `customFindbarInputArea`
+         existed only to append that close control; the library's default template
+         renders `<div id="findbarInputContainer">` with exactly
+         `pdf-search-input-field`, `pdf-find-previous`, `pdf-find-next` — byte
+         identical to what was re-declared here — so the shim was pure surface and
+         the id-based rules below still match.
 
          Three pdf.js options stay hidden on purpose — "Match Diacritics", "Whole
          words" and "Multiple words" are engine jargon in a reading interface;
          highlight-all and match-case stay. -->
-    <ng-template #findInputArea>
-      <div id="findbarInputContainer">
-        <pdf-search-input-field></pdf-search-input-field>
-        <pdf-find-previous></pdf-find-previous>
-        <pdf-find-next></pdf-find-next>
-        <button
-          appIconButton
-          type="button"
-          icon="x"
-          [glyphSize]="18"
-          (click)="closeSearch()"
-          title="Close (Esc)"
-          aria-label="Close search"
-        ></button>
-      </div>
-    </ng-template>
 
     <ngx-extended-pdf-viewer
       [src]="pdfSrc()"
@@ -64,7 +58,6 @@
       [showSidebarButton]="false"
       [showFindButton]="false"
       [findbarVisible]="findBarVisible()"
-      [customFindbarInputArea]="findInputArea"
       (findbarVisibleChange)="findBarVisible.set($event)"
       [showFindHighlightAll]="true"
       [showFindMatchCase]="true"

@@ -492,31 +492,34 @@ describe('PdfReader search shortcut', () => {
     expect(component.findBarVisible()).toBe(false);
   });
 
-  it('closes the bar from the control inside it', () => {
-    const component = fixture.componentInstance;
-    component.openSearch();
-
-    component.closeSearch();
-
-    expect(component.findBarVisible()).toBe(false);
-  });
-
-  it('re-declares the find bar’s input area so the bar can carry a close control', () => {
-    // `customFindbarInputArea` is a public input and every component below is
-    // exported from the library's public_api, so the close control is supported
-    // surface, not markup injected into DOM we do not own. The default template
-    // renders exactly these components inside this exact id, so the prev/next
-    // buttons keep the wiring pdf.js looks up by id.
+  it('carries no close control of its own, and does not re-declare the input area', () => {
+    // A close control used to live inside the bar (a #226 follow-up) because the
+    // header control could only OPEN. The header control became a TOGGLE, so the
+    // second exit was redundant — and it could not be styled: pdf.js ships
+    // `ngx-extended-pdf-viewer button:focus { outline: none; border: 1px solid
+    // blue }` at specificity (0,1,1), which out-specifies global
+    // `.icon-btn { all: unset }` at (0,1,0), so focusing it painted a literal
+    // blue border. Dismissal is the header toggle (`aria-expanded`) and Escape,
+    // both pinned by the tests above.
+    //
+    // The re-declared input area went with it: `customFindbarInputArea` existed
+    // only to append that control, and the library's default template renders
+    // `<div id="findbarInputContainer">` with exactly `pdf-search-input-field`,
+    // `pdf-find-previous`, `pdf-find-next` — the same three components in the same
+    // order — so keeping the shim would be surface with no behaviour.
     const html = readSource('./pdf-reader.component.html');
+    // Comments stripped first: the comment above the find bar names
+    // `customFindbarInputArea` and `findInputArea` on purpose, to record why the
+    // shim went. A guard that cannot tell prose from markup would forbid
+    // explaining the change it pins.
+    const markup = html.replace(/<!--[\s\S]*?-->/g, '');
 
-    expect(html).toContain('#findInputArea');
-    expect(html).toContain('[customFindbarInputArea]="findInputArea"');
-    expect(html).toContain('<div id="findbarInputContainer">');
-    expect(html).toContain('<pdf-search-input-field>');
-    expect(html).toContain('<pdf-find-previous>');
-    expect(html).toContain('<pdf-find-next>');
-    expect(html).toContain('aria-label="Close search"');
-    expect(html).toContain('(click)="closeSearch()"');
+    expect(markup).not.toContain('customFindbarInputArea');
+    expect(markup).not.toContain('findInputArea');
+    expect(markup).not.toContain('Close search');
+    expect(markup).not.toContain('(click)="closeSearch()"');
+    // The id-based CSS still has a target: it is the DEFAULT template's id.
+    expect(markup).toContain('[findbarVisible]="findBarVisible()"');
   });
 
   it('styles the find field by the id it renders, not an attribute it never has', () => {
