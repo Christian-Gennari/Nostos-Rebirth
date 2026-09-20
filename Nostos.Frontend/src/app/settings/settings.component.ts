@@ -1,4 +1,4 @@
-import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -17,11 +17,105 @@ import { OpdsInfo } from '../core/dtos/opds.dtos';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 import { LibraryPreferencesService } from '../core/services/library-preferences.service';
 import { AssistantStatusService } from '../ui/assistant/assistant-status.service';
+import { AiProviderService } from '../core/services/ai-provider.service';
+import {
+  AiProviderKind,
+  AiProviderSection,
+  AiProviderSectionUpdate,
+  AiProviderUpdate,
+} from '../core/dtos/ai-provider.dtos';
 
 const SLOW_STEP_THRESHOLD_MS = 30_000;
 
 /** How long the copy button stays on "Copied" before it offers to copy again. */
 const COPIED_FEEDBACK_MS = 2_500;
+
+/**
+ * Every user-visible string for the AI provider feature, in one place: the card's
+ * own copy plus the locked-state sentence the older Reading assistant card shows
+ * when no provider is configured. Keeping them together means a wording change is
+ * a single edit.
+ */
+const AI_PROVIDER_COPY = {
+  title: 'AI provider',
+  intro:
+    'Notes and voice recordings are sent directly to the OpenAI-compatible endpoints configured below.',
+  readingAssistant: 'Reading assistant',
+  voiceTranscription: 'Voice transcription',
+  voiceToggle: 'Enable voice transcription',
+  voiceToggleHelp: 'Send voice recordings to the transcription endpoint.',
+  endpoint: 'Endpoint',
+  endpointPlaceholder: 'https://api.openai.com/v1',
+  endpointHelp: 'Base URL, including /v1.',
+  model: 'Model',
+  modelPlaceholderLlm: 'e.g. gpt-4o-mini',
+  modelPlaceholderStt: 'e.g. whisper-1',
+  modelHelp: 'Exact model name expected by the endpoint.',
+  apiKey: 'API key',
+  apiKeyPlaceholderUnset: 'Leave empty if unauthenticated',
+  apiKeyPlaceholderSet: 'Configured on server (leave blank to keep)',
+  apiKeyHelp: 'Stored on your server. Never returned to the browser.',
+  loadModels: 'Load models',
+  testConnection: 'Test connection',
+  clear: 'Clear key',
+  save: 'Save',
+  testing: 'Testing connection…',
+  loading: 'Loading models…',
+  saved: 'Saved.',
+  modelsLoaded: (count: number) => `Loaded ${count} models.`,
+  modelsEmpty: 'No models returned by endpoint.',
+  modelsError: (message: string) => `Could not load models: ${message}`,
+  connectionError: (message: string) => `Connection failed: ${message}`,
+  keyCleared: 'Key removed. Falling back to environment variable if present.',
+  oldCardEmptyState: 'Set up an AI provider in Settings to enable this.',
+  // The reviewed set covers the four card actions but not a failed GET/PUT or
+  // the configured-key signals, so these keep their earlier wording.
+  configured: 'Configured',
+  configuredFromEnv: 'Configured — using the server environment variable.',
+  loadFailed: 'Could not load the AI provider settings.',
+  couldNotSave: (message: string) => `Could not save: ${message}`,
+} as const;
+
+/** How a section's inline status line is coloured. */
+type AiProviderStatusTone = 'neutral' | 'ok' | 'error';
+
+interface AiProviderStatus {
+  text: string;
+  tone: AiProviderStatusTone;
+}
+
+/**
+ * One provider's editable state. The `saved*` fields are the effective values
+ * the server last reported, so Save can send only what actually changed; the
+ * typed `key` is never seeded from a response (the API does not return one).
+ */
+interface AiProviderForm {
+  enabled: boolean;
+  baseUrl: string;
+  model: string;
+  key: string;
+  keyCleared: boolean;
+  hasKey: boolean;
+  keyFromServerEnv: boolean;
+  savedBaseUrl: string;
+  savedModel: string;
+  savedEnabled: boolean;
+}
+
+function emptyAiProviderForm(): AiProviderForm {
+  return {
+    enabled: false,
+    baseUrl: '',
+    model: '',
+    key: '',
+    keyCleared: false,
+    hasKey: false,
+    keyFromServerEnv: false,
+    savedBaseUrl: '',
+    savedModel: '',
+    savedEnabled: false,
+  };
+}
 
 const defaultProgress: BackupProgress = {
   isRunning: false,
@@ -324,7 +418,7 @@ const defaultProgress: BackupProgress = {
               @if (assistantAvailable()) {
                 <span class="label-desc">Show the dock capsule for capturing thoughts while reading.</span>
               } @else {
-                <span class="label-desc">Unavailable. Configure a model provider in your server environment to enable this.</span>
+                <span class="label-desc">{{ copy.oldCardEmptyState }}</span>
               }
             </div>
             @if (assistantAvailable()) {
@@ -353,6 +447,300 @@ const defaultProgress: BackupProgress = {
             }
           </div>
         </div>
+      </section>
+
+      <!-- AI provider: the LLM and voice-STT endpoints, moved out of
+           appsettings.json. Both sub-sections share one Save; the API key is
+           write-only, so the password field is never seeded from the server and
+           Save omits apiKey unless the user typed one or pressed Clear. -->
+      <section class="settings-card" data-testid="ai-provider-settings-card">
+        <div class="card-header">
+          <nostos-icon name="brain" [size]="20" weight="light"></nostos-icon>
+          <h2>{{ copy.title }}</h2>
+        </div>
+
+        @if (aiLoadFailed()) {
+          <div class="card-body">
+            <div class="setting-row">
+              <div class="setting-label">
+                <span class="label-text">{{ copy.loadFailed }}</span>
+                <span class="label-desc">The server did not answer the request for the current settings. Reload the page to try again.</span>
+              </div>
+            </div>
+          </div>
+        } @else {
+          <div class="card-body">
+            <p class="provider-intro">{{ copy.intro }}</p>
+
+            <!-- Reading assistant (text/LLM) -->
+            <div class="provider-section" data-testid="ai-provider-llm">
+              <h3 class="provider-heading">{{ copy.readingAssistant }}</h3>
+
+              <div class="provider-field">
+                <label class="provider-label" for="ai-llm-base-url">{{ copy.endpoint }}</label>
+                <input
+                  id="ai-llm-base-url"
+                  class="provider-input"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  [placeholder]="copy.endpointPlaceholder"
+                  [value]="aiLlm().baseUrl"
+                  (input)="setAiBaseUrl('llm', $event)"
+                />
+                <p class="provider-help">{{ copy.endpointHelp }}</p>
+              </div>
+
+              <div class="provider-field">
+                <label class="provider-label" for="ai-llm-model">{{ copy.model }}</label>
+                <div class="provider-input-row">
+                  <input
+                    id="ai-llm-model"
+                    class="provider-input"
+                    type="text"
+                    autocomplete="off"
+                    spellcheck="false"
+                    [placeholder]="copy.modelPlaceholderLlm"
+                    list="ai-llm-model-options"
+                    [value]="aiLlm().model"
+                    (input)="setAiModel('llm', $event)"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-secondary"
+                    (click)="loadAiModels('llm')"
+                    [disabled]="aiBusy()"
+                  >
+                    @if (aiLoadingKind() === 'llm') {
+                      <nostos-icon name="circle-notch" [size]="15" class="spin"></nostos-icon>
+                      {{ copy.loading }}
+                    } @else {
+                      {{ copy.loadModels }}
+                    }
+                  </button>
+                </div>
+                <datalist id="ai-llm-model-options">
+                  @for (model of aiLlmModels(); track model) {
+                    <option [value]="model"></option>
+                  }
+                </datalist>
+                <p class="provider-help">{{ copy.modelHelp }}</p>
+              </div>
+
+              <div class="provider-field">
+                <label class="provider-label" for="ai-llm-api-key">{{ copy.apiKey }}</label>
+                <input
+                  id="ai-llm-api-key"
+                  class="provider-input"
+                  type="password"
+                  autocomplete="new-password"
+                  [placeholder]="
+                    aiLlm().hasKey || aiLlm().keyFromServerEnv
+                      ? copy.apiKeyPlaceholderSet
+                      : copy.apiKeyPlaceholderUnset
+                  "
+                  [value]="aiLlm().key"
+                  (input)="setAiKey('llm', $event)"
+                />
+                @if (aiLlm().hasKey || aiLlm().key.length > 0) {
+                  <div class="provider-key-row">
+                    <span class="provider-key-state">
+                      <nostos-icon name="check" [size]="14"></nostos-icon>
+                      {{ aiLlm().keyFromServerEnv ? copy.configuredFromEnv : copy.configured }}
+                    </span>
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-sm"
+                      (click)="clearAiKey('llm')"
+                      [disabled]="aiBusy()"
+                    >
+                      {{ copy.clear }}
+                    </button>
+                  </div>
+                }
+                <p class="provider-help">{{ copy.apiKeyHelp }}</p>
+              </div>
+
+              <div class="provider-actions">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  (click)="testAiConnection('llm')"
+                  [disabled]="aiBusy()"
+                >
+                  @if (aiTestingKind() === 'llm') {
+                    <nostos-icon name="circle-notch" [size]="15" class="spin"></nostos-icon>
+                    {{ copy.testing }}
+                  } @else {
+                    {{ copy.testConnection }}
+                  }
+                </button>
+              </div>
+
+              @if (aiLlmStatus(); as status) {
+                <p
+                  class="provider-status"
+                  [class.is-ok]="status.tone === 'ok'"
+                  [class.is-error]="status.tone === 'error'"
+                  role="status"
+                >{{ status.text }}</p>
+              }
+            </div>
+
+            <!-- Voice transcription (speech-to-text) -->
+            <div class="provider-section" data-testid="ai-provider-stt">
+              <h3 class="provider-heading">{{ copy.voiceTranscription }}</h3>
+
+              <div class="provider-toggle-row">
+                <label class="toggle">
+                  <input
+                    type="checkbox"
+                    [checked]="aiStt().enabled"
+                    (change)="setAiVoiceEnabled($event)"
+                    [attr.aria-label]="copy.voiceToggle"
+                    data-testid="voice-transcription-toggle"
+                  >
+                  <span class="toggle-slider"></span>
+                </label>
+                <span class="provider-toggle-label">{{ copy.voiceToggle }}</span>
+              </div>
+              <p class="provider-help provider-toggle-help">{{ copy.voiceToggleHelp }}</p>
+
+              <div class="provider-field">
+                <label class="provider-label" for="ai-stt-base-url">{{ copy.endpoint }}</label>
+                <input
+                  id="ai-stt-base-url"
+                  class="provider-input"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  [placeholder]="copy.endpointPlaceholder"
+                  [value]="aiStt().baseUrl"
+                  (input)="setAiBaseUrl('stt', $event)"
+                />
+                <p class="provider-help">{{ copy.endpointHelp }}</p>
+              </div>
+
+              <div class="provider-field">
+                <label class="provider-label" for="ai-stt-model">{{ copy.model }}</label>
+                <div class="provider-input-row">
+                  <input
+                    id="ai-stt-model"
+                    class="provider-input"
+                    type="text"
+                    autocomplete="off"
+                    spellcheck="false"
+                    [placeholder]="copy.modelPlaceholderStt"
+                    list="ai-stt-model-options"
+                    [value]="aiStt().model"
+                    (input)="setAiModel('stt', $event)"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-secondary"
+                    (click)="loadAiModels('stt')"
+                    [disabled]="aiBusy()"
+                  >
+                    @if (aiLoadingKind() === 'stt') {
+                      <nostos-icon name="circle-notch" [size]="15" class="spin"></nostos-icon>
+                      {{ copy.loading }}
+                    } @else {
+                      {{ copy.loadModels }}
+                    }
+                  </button>
+                </div>
+                <datalist id="ai-stt-model-options">
+                  @for (model of aiSttModels(); track model) {
+                    <option [value]="model"></option>
+                  }
+                </datalist>
+                <p class="provider-help">{{ copy.modelHelp }}</p>
+              </div>
+
+              <div class="provider-field">
+                <label class="provider-label" for="ai-stt-api-key">{{ copy.apiKey }}</label>
+                <input
+                  id="ai-stt-api-key"
+                  class="provider-input"
+                  type="password"
+                  autocomplete="new-password"
+                  [placeholder]="
+                    aiStt().hasKey || aiStt().keyFromServerEnv
+                      ? copy.apiKeyPlaceholderSet
+                      : copy.apiKeyPlaceholderUnset
+                  "
+                  [value]="aiStt().key"
+                  (input)="setAiKey('stt', $event)"
+                />
+                @if (aiStt().hasKey || aiStt().key.length > 0) {
+                  <div class="provider-key-row">
+                    <span class="provider-key-state">
+                      <nostos-icon name="check" [size]="14"></nostos-icon>
+                      {{ aiStt().keyFromServerEnv ? copy.configuredFromEnv : copy.configured }}
+                    </span>
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-sm"
+                      (click)="clearAiKey('stt')"
+                      [disabled]="aiBusy()"
+                    >
+                      {{ copy.clear }}
+                    </button>
+                  </div>
+                }
+                <p class="provider-help">{{ copy.apiKeyHelp }}</p>
+              </div>
+
+              <div class="provider-actions">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  (click)="testAiConnection('stt')"
+                  [disabled]="aiBusy()"
+                >
+                  @if (aiTestingKind() === 'stt') {
+                    <nostos-icon name="circle-notch" [size]="15" class="spin"></nostos-icon>
+                    {{ copy.testing }}
+                  } @else {
+                    {{ copy.testConnection }}
+                  }
+                </button>
+              </div>
+
+              @if (aiSttStatus(); as status) {
+                <p
+                  class="provider-status"
+                  [class.is-ok]="status.tone === 'ok'"
+                  [class.is-error]="status.tone === 'error'"
+                  role="status"
+                >{{ status.text }}</p>
+              }
+            </div>
+
+            <div class="provider-footer">
+              <button
+                type="button"
+                class="btn btn-primary"
+                (click)="saveAiProvider()"
+                [disabled]="aiBusy()"
+                data-testid="ai-provider-save"
+              >
+                @if (aiSaving()) {
+                  <nostos-icon name="circle-notch" [size]="15" class="spin"></nostos-icon>
+                }
+                {{ copy.save }}
+              </button>
+              @if (aiSaveStatus(); as status) {
+                <span
+                  class="provider-save-status"
+                  [class.is-ok]="status.tone === 'ok'"
+                  [class.is-error]="status.tone === 'error'"
+                  role="status"
+                >{{ status.text }}</span>
+              }
+            </div>
+          </div>
+        }
       </section>
 
       <section class="settings-card">
@@ -432,6 +820,10 @@ export class SettingsComponent implements OnInit, OnDestroy {
   private themeService = inject(ThemeService);
   private assistantStatus = inject(AssistantStatusService);
   private preferences = inject(LibraryPreferencesService);
+  private aiProvider = inject(AiProviderService);
+
+  /** The AI provider card's copy, exposed so the template reads one source. */
+  readonly copy = AI_PROVIDER_COPY;
 
   /** The active theme, exposed for the Appearance card. */
   readonly theme = this.themeService.theme;
@@ -461,6 +853,34 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
   copied = signal(false);
   private copiedTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  // --- AI provider card state ------------------------------------------
+  // The card loads its own effective settings; a failure is shown in place
+  // rather than guessed at, so the fields are never presented as fact.
+  aiLoadFailed = signal(false);
+  aiLlm = signal<AiProviderForm>(emptyAiProviderForm());
+  aiStt = signal<AiProviderForm>(emptyAiProviderForm());
+
+  /** Model ids offered as suggestions for each sub-section (free text stays editable). */
+  aiLlmModels = signal<string[]>([]);
+  aiSttModels = signal<string[]>([]);
+
+  /** Inline outcome lines: `Testing…` / test result / load result / clear notice. */
+  aiLlmStatus = signal<AiProviderStatus | null>(null);
+  aiSttStatus = signal<AiProviderStatus | null>(null);
+  aiSaveStatus = signal<AiProviderStatus | null>(null);
+
+  aiSaving = signal(false);
+
+  /** Which section, if any, is running a Load models request. One at a time. */
+  aiLoadingKind = signal<AiProviderKind | null>(null);
+
+  /** Which section, if any, is running a Test connection request. One at a time. */
+  aiTestingKind = signal<AiProviderKind | null>(null);
+
+  aiBusy = computed(
+    () => this.aiSaving() || this.aiLoadingKind() !== null || this.aiTestingKind() !== null,
+  );
 
   status = signal<BackupStatus>({
     isEnabled: false,
@@ -500,6 +920,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadData();
     this.loadOpdsInfo();
+    this.loadAiProvider();
     this.assistantStatus.refresh();
   }
 
@@ -522,6 +943,228 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.opdsFailed.set(true);
       },
     });
+  }
+
+  // --- AI provider card -------------------------------------------------
+  // Four calls, one dedicated service. The key is write-only: `toForm` never
+  // seeds `key`, and Save includes `apiKey` only when the user typed one or
+  // pressed Clear.
+
+  loadAiProvider(): void {
+    this.aiProvider.get().subscribe({
+      next: (settings) => {
+        this.aiLlm.set(this.toAiForm(settings.llm));
+        this.aiStt.set(this.toAiForm(settings.stt));
+        this.aiLoadFailed.set(false);
+      },
+      error: () => {
+        this.aiLoadFailed.set(true);
+      },
+    });
+  }
+
+  setAiBaseUrl(kind: AiProviderKind, event: Event): void {
+    this.patchAiForm(kind, { baseUrl: (event.target as HTMLInputElement).value });
+  }
+
+  setAiModel(kind: AiProviderKind, event: Event): void {
+    this.patchAiForm(kind, { model: (event.target as HTMLInputElement).value });
+  }
+
+  setAiKey(kind: AiProviderKind, event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    // Typing revokes a pending Clear; emptying the field again does NOT clear the
+    // stored key — the brief makes Clear the only explicit clear signal.
+    this.patchAiForm(kind, {
+      key: value,
+      keyCleared: value.length > 0 ? false : this.aiFormFor(kind).keyCleared,
+    });
+  }
+
+  setAiVoiceEnabled(event: Event): void {
+    this.patchAiForm('stt', { enabled: (event.target as HTMLInputElement).checked });
+  }
+
+  clearAiKey(kind: AiProviderKind): void {
+    this.patchAiForm(kind, { key: '', keyCleared: true });
+    this.setAiStatus(kind, { text: AI_PROVIDER_COPY.keyCleared, tone: 'neutral' });
+  }
+
+  /**
+   * Asks the endpoint what models it advertises. The unsaved endpoint/key are
+   * sent along so the lookup matches what the user is about to save; the stored
+   * key is used when the field is empty.
+   */
+  loadAiModels(kind: AiProviderKind): void {
+    if (this.aiBusy()) return;
+    const form = this.aiFormFor(kind);
+    const request = { kind, baseUrl: form.baseUrl, apiKey: form.key || undefined };
+
+    this.aiLoadingKind.set(kind);
+    this.setAiStatus(kind, { text: AI_PROVIDER_COPY.loading, tone: 'neutral' });
+    this.aiProvider.loadModels(request).subscribe({
+      next: (response) => {
+        this.aiLoadingKind.set(null);
+        const models = response.models ?? [];
+        this.setAiModels(kind, models);
+        this.setAiStatus(
+          kind,
+          models.length === 0
+            ? { text: AI_PROVIDER_COPY.modelsEmpty, tone: 'neutral' }
+            : { text: AI_PROVIDER_COPY.modelsLoaded(models.length), tone: 'ok' },
+        );
+      },
+      error: (error) => {
+        this.aiLoadingKind.set(null);
+        this.setAiStatus(kind, {
+          text: AI_PROVIDER_COPY.modelsError(this.errorMessage(error)),
+          tone: 'error',
+        });
+      },
+    });
+  }
+
+  /**
+   * One real round-trip against the provider. The route always answers HTTP 200
+   * so a failure can carry a message, so this branches on `ok`, never the status.
+   */
+  testAiConnection(kind: AiProviderKind): void {
+    if (this.aiBusy()) return;
+    const form = this.aiFormFor(kind);
+    const request = {
+      kind,
+      baseUrl: form.baseUrl,
+      model: form.model,
+      apiKey: form.key || undefined,
+    };
+
+    this.aiTestingKind.set(kind);
+    this.setAiStatus(kind, { text: AI_PROVIDER_COPY.testing, tone: 'neutral' });
+    this.aiProvider.test(request).subscribe({
+      next: (result) => {
+        this.aiTestingKind.set(null);
+        this.setAiStatus(
+          kind,
+          result.ok
+            ? { text: result.detail, tone: 'ok' }
+            : { text: result.error, tone: 'error' },
+        );
+      },
+      error: (error) => {
+        this.aiTestingKind.set(null);
+        this.setAiStatus(kind, {
+          text: AI_PROVIDER_COPY.connectionError(this.errorMessage(error)),
+          tone: 'error',
+        });
+      },
+    });
+  }
+
+  /** Sends only the sections that changed; re-seeds from the response on success. */
+  saveAiProvider(): void {
+    if (this.aiBusy()) return;
+
+    const update: AiProviderUpdate = {};
+    const llm = this.buildAiSectionUpdate(this.aiLlm());
+    if (llm) update.llm = llm;
+    const stt = this.buildAiSectionUpdate(this.aiStt());
+    if (stt) update.stt = stt;
+
+    this.aiSaving.set(true);
+    this.aiSaveStatus.set(null);
+    this.aiProvider.update(update).subscribe({
+      next: (settings) => {
+        this.aiSaving.set(false);
+        this.aiLlm.set(this.toAiForm(settings.llm));
+        this.aiStt.set(this.toAiForm(settings.stt));
+        this.aiSaveStatus.set({ text: AI_PROVIDER_COPY.saved, tone: 'ok' });
+      },
+      error: (error) => {
+        this.aiSaving.set(false);
+        this.aiSaveStatus.set({
+          text: AI_PROVIDER_COPY.couldNotSave(this.errorMessage(error)),
+          tone: 'error',
+        });
+      },
+    });
+  }
+
+  /**
+   * A section's PUT body, or null when nothing in it changed. `apiKey` is present
+   * only for a typed value or a Clear — otherwise the key is left untouched.
+   */
+  private buildAiSectionUpdate(form: AiProviderForm): AiProviderSectionUpdate | null {
+    const update: AiProviderSectionUpdate = {};
+    let changed = false;
+
+    if (form.baseUrl !== form.savedBaseUrl) {
+      update.baseUrl = form.baseUrl;
+      changed = true;
+    }
+    if (form.model !== form.savedModel) {
+      update.model = form.model;
+      changed = true;
+    }
+    if (form.enabled !== form.savedEnabled) {
+      update.enabled = form.enabled;
+      changed = true;
+    }
+    if (form.key.length > 0) {
+      update.apiKey = form.key;
+      changed = true;
+    } else if (form.keyCleared) {
+      update.apiKey = '';
+      changed = true;
+    }
+
+    return changed ? update : null;
+  }
+
+  private toAiForm(section: AiProviderSection): AiProviderForm {
+    return {
+      enabled: section.enabled,
+      baseUrl: section.baseUrl,
+      model: section.model,
+      // Always empty: the API never returns the key, so there is nothing to seed.
+      key: '',
+      keyCleared: false,
+      hasKey: section.hasKey,
+      keyFromServerEnv: section.keyFromServerEnv,
+      savedBaseUrl: section.baseUrl,
+      savedModel: section.model,
+      savedEnabled: section.enabled,
+    };
+  }
+
+  private aiFormFor(kind: AiProviderKind): AiProviderForm {
+    return kind === 'llm' ? this.aiLlm() : this.aiStt();
+  }
+
+  private patchAiForm(kind: AiProviderKind, patch: Partial<AiProviderForm>): void {
+    const target = kind === 'llm' ? this.aiLlm : this.aiStt;
+    target.update((form) => ({ ...form, ...patch }));
+  }
+
+  private setAiModels(kind: AiProviderKind, models: string[]): void {
+    const target = kind === 'llm' ? this.aiLlmModels : this.aiSttModels;
+    target.set(models);
+  }
+
+  private setAiStatus(kind: AiProviderKind, status: AiProviderStatus | null): void {
+    const target = kind === 'llm' ? this.aiLlmStatus : this.aiSttStatus;
+    target.set(status);
+  }
+
+  /** The most useful message from an HttpErrorResponse, or a plain fallback. */
+  private errorMessage(error: unknown): string {
+    const body = (error as { error?: unknown } | null)?.error;
+    if (body && typeof body === 'object') {
+      const message = (body as { error?: unknown }).error;
+      if (typeof message === 'string' && message) return message;
+    }
+    const message = (error as { message?: unknown } | null)?.message;
+    if (typeof message === 'string' && message) return message;
+    return 'Unknown error';
   }
 
   /**
