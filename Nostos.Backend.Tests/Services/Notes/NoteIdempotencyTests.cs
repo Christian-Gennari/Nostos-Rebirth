@@ -273,6 +273,32 @@ public sealed class NoteIdempotencyTests : IClassFixture<SqliteTestFixture>
         (await verify.Notes.CountAsync()).Should().Be(0);
     }
 
+    [Fact]
+    public async Task Oversized_keys_return_http_400()
+    {
+        using var factory = new LibraryEndpointFactory();
+        var client = factory.CreateClient();
+        var book = await CreateBookAsync(client);
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post, $"/api/books/{book.Id}/notes")
+        {
+            Content = JsonContent.Create(new { content = "oversized keys" }),
+        };
+        request.Headers.Add("X-Client-Id", new string('c', 65));
+        request.Headers.Add("Idempotency-Key", new string('k', 129));
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await response.Content.ReadAsStringAsync();
+        body.Should().Contain("ClientId is limited to 64 characters and IdempotencyKey to 128.");
+
+        await using var verify = CreateContext(factory.DatabasePath);
+        (await verify.Notes.CountAsync()).Should().Be(0);
+        (await verify.NoteCommandReceipts.CountAsync()).Should().Be(0);
+    }
+
     // ------------------------------------------------------------------
     // Retention (note receipts pruned by the existing service + worker)
     // ------------------------------------------------------------------
