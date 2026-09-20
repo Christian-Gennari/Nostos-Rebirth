@@ -447,9 +447,13 @@ public sealed class NoteService : INoteService
 
         // A quote-only capture has no user thought to process. The quote lives in
         // SelectedText and is never handed to the processor, so it cannot be
-        // rewritten by any mode.
+        // rewritten by any mode. Nothing was processed, so the honest mode is
+        // verbatim rather than the requested one.
         if (string.IsNullOrWhiteSpace(model.Content))
+        {
+            model.ProcessingMode = ThoughtProcessingModes.Verbatim;
             return;
+        }
 
         // The raw transcript is the source of truth. A request that asks for a
         // processed mode but supplies no raw transcript means the incoming

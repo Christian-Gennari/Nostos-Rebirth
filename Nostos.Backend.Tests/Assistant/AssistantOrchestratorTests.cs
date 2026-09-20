@@ -66,6 +66,79 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
+    public async Task The_composers_mode_reaches_the_capture_and_the_note_id_comes_back()
+    {
+        var h = CreateHarness();
+        var book = await SeedBookAsync(h);
+
+        h.Llm
+            .CallsTool(
+                "notes_capture",
+                $$"""{"bookId":"{{book.Id}}","content":"so anyway i was thinking"}""")
+            .Returns("Saved.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Remember this.",
+            Context(bookId: book.Id.ToString(), bookFormat: "ebook"),
+            processingMode: "light_polish"));
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var note = await db.Notes.AsNoTracking().SingleAsync();
+
+        // The composer's choice is the mode the note reflects, and the raw
+        // transcript is kept beside the processed text (issue #262 §7, §8).
+        note.ProcessingMode.Should().Be("light_polish");
+        note.RawContent.Should().Be("so anyway i was thinking");
+
+        // The turn names the note it created, so the surface can read its raw
+        // transcript and offer restore.
+        response.CapturedNoteId.Should().Be(note.Id.ToString());
+    }
+
+    [Fact]
+    public async Task An_explicit_verbatim_overrides_a_non_verbatim_configured_default()
+    {
+        // The configured default is a rewrite; the request still says verbatim,
+        // and verbatim is a storage operation that must be honoured exactly.
+        var h = CreateHarness(defaultProcessingMode: "clarify");
+        var book = await SeedBookAsync(h);
+
+        h.Llm
+            .CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"raw words"}""")
+            .Returns("Saved.");
+
+        await h.Orchestrator.HandleTurnAsync(Turn(
+            "Remember this.",
+            Context(bookId: book.Id.ToString(), bookFormat: "ebook"),
+            processingMode: "verbatim"));
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var note = await db.Notes.AsNoTracking().SingleAsync();
+        note.ProcessingMode.Should().Be("verbatim");
+        note.RawContent.Should().BeNull("verbatim never processes, so there is nothing to keep beside it");
+    }
+
+    [Fact]
+    public async Task An_absent_mode_uses_the_configured_default()
+    {
+        var h = CreateHarness(defaultProcessingMode: "light_polish");
+        var book = await SeedBookAsync(h);
+
+        h.Llm
+            .CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"raw words"}""")
+            .Returns("Saved.");
+
+        await h.Orchestrator.HandleTurnAsync(Turn(
+            "Remember this.",
+            Context(bookId: book.Id.ToString(), bookFormat: "ebook")));
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var note = await db.Notes.AsNoTracking().SingleAsync();
+        note.ProcessingMode.Should().Be("light_polish");
+        note.RawContent.Should().Be("raw words");
+    }
+
+    [Fact]
     public async Task Capture_retries_with_the_same_client_and_key_stay_exactly_once()
     {
         var h = CreateHarness();
@@ -528,7 +601,9 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     // Harness
     // ------------------------------------------------------------------
 
-    private Harness CreateHarness(int maxToolIterations = 6)
+    private Harness CreateHarness(
+        int maxToolIterations = 6,
+        string defaultProcessingMode = "verbatim")
     {
         var path = _fixture.CreateDatabasePath();
         var options = new DbContextOptionsBuilder<NostosDbContext>()
@@ -565,6 +640,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         {
             Enabled = true,
             MaxToolIterations = maxToolIterations,
+            DefaultProcessingMode = defaultProcessingMode,
         };
         var plans = new AssistantPlanStore();
 
@@ -596,8 +672,9 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         AssistantContextDto context,
         string clientId = "client-1",
         string idem = "key-1",
-        string? pendingPlanId = null) =>
-        new(clientId, idem, message, context, pendingPlanId);
+        string? pendingPlanId = null,
+        string? processingMode = null) =>
+        new(clientId, idem, message, context, pendingPlanId, processingMode);
 
     private static AssistantContextDto Context(
         string surface = "second-brain",
