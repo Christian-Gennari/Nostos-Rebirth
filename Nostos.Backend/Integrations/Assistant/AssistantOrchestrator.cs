@@ -41,6 +41,13 @@ public sealed class AssistantOrchestrator(
     public const int MaxResponseTokens = 4096;
 
     /// <summary>
+    /// The review flow's "small set": at most five candidate concepts are shown
+    /// for one unlinked note. A longer list is a search result, not a suggestion
+    /// (issue #261 §5).
+    /// </summary>
+    public const int MaxConceptSuggestions = 5;
+
+    /// <summary>
     /// Appended to a quote typed/transcribed by hand rather than read from the
     /// digital source, so the difference is never inferred later.
     /// </summary>
@@ -177,7 +184,7 @@ public sealed class AssistantOrchestrator(
 
                 if (result.Success && capability.Trust == AssistantTrustClass.Suggest)
                 {
-                    suggestions.AddRange(ExtractSuggestions(capability.Name, result.Data));
+                    MergeSuggestions(suggestions, ExtractSuggestions(capability.Name, result.Data));
                 }
 
                 if (result.Success
@@ -256,15 +263,23 @@ public sealed class AssistantOrchestrator(
         }
 
         var plan = outcome.Plan;
-        var context = new AssistantToolContext(
-            ClientId: plan.ConversationKey,
-            IdempotencyKey: plan.IdempotencyKey,
-            PlanId: plan.PlanId,
-            Approval: new AssistantPlanApproval(plan.PlanId, plan.ApprovalToken));
 
         var results = new List<AssistantPlanStepOutcomeDto>(plan.Steps.Count);
-        foreach (var step in plan.Steps)
+        for (var index = 0; index < plan.Steps.Count; index++)
         {
+            var step = plan.Steps[index];
+
+            // Each step needs its OWN idempotency key. Canonical library commands
+            // dedupe on (client, key), so reusing the plan's single key would make
+            // every step after the first a no-op replay of the first — a
+            // multi-step reorganisation would silently apply only step one.
+            // Deriving from the consumed plan id keeps the key stable and short.
+            var context = new AssistantToolContext(
+                ClientId: plan.ConversationKey,
+                IdempotencyKey: $"{plan.PlanId}:{index}",
+                PlanId: plan.PlanId,
+                Approval: new AssistantPlanApproval(plan.PlanId, plan.ApprovalToken));
+
             var args = ParseArguments(step.ArgumentsJson);
             var result = await registry.InvokeAsync(step.Capability, args, context, ct);
 
@@ -304,6 +319,20 @@ public sealed class AssistantOrchestrator(
         messages.Add(LlmMessage.System(
             "Current application context (JSON). Nulls mean the app does not know that value; never invent it. "
             + contextJson));
+
+        // The Brain review flow is named explicitly, not left to be inferred from
+        // the context blob: the note id is what notes_read_for_review needs, and
+        // the "small set of existing concepts, never create or auto-link" rule is
+        // the whole point of the review (issue #261 §5).
+        if (!string.IsNullOrWhiteSpace(request.Context?.BrainReviewNoteId))
+        {
+            messages.Add(LlmMessage.System(
+                $"The user is reviewing the unlinked note '{request.Context!.BrainReviewNoteId}' in the Second Brain. "
+                + "To suggest where it belongs, read it with notes_read_for_review (that noteId), then look for matching "
+                + "existing concepts with concepts_list or concepts_search. "
+                + $"Offer at most {MaxConceptSuggestions} existing concepts, each with a brief reason. "
+                + "Never create a concept to satisfy a suggestion, and never link a note without the user choosing."));
+        }
 
         if (!string.IsNullOrWhiteSpace(request.PendingPlanId))
         {
@@ -502,7 +531,9 @@ public sealed class AssistantOrchestrator(
     /// Shapes a model-requested concept listing into response suggestions. This
     /// is deliberately not scoring: it does not rank, filter, or invent — it only
     /// conveys the candidates the model asked to see, with the one reason the
-    /// data carries. Ranking is 261-S3's Brain flow.
+    /// data carries. The Brain flow's cap and de-duplication (issue #261 §5) are
+    /// applied by <see cref="MergeSuggestions"/>, so both the listing and the
+    /// search path pass through the same "small set" rule.
     /// </summary>
     private static IEnumerable<AssistantSuggestionDto> ExtractSuggestions(
         string capabilityName,
@@ -538,6 +569,38 @@ public sealed class AssistantOrchestrator(
                 name,
                 reason,
                 ReadString(item, "id"));
+        }
+    }
+
+    /// <summary>
+    /// Adds incoming suggestions to the response, de-duplicated by identity and
+    /// capped for concepts. The cap is what makes the review a small set rather
+    /// than a dump of the library; the de-duplication matters because
+    /// <c>concepts_list</c> and <c>concepts_search</c> can both name the same
+    /// concept in one turn. Nothing here creates or mutates anything.
+    /// </summary>
+    private static void MergeSuggestions(
+        List<AssistantSuggestionDto> target,
+        IEnumerable<AssistantSuggestionDto> incoming)
+    {
+        foreach (var suggestion in incoming)
+        {
+            var key = suggestion.Value ?? suggestion.Label;
+            if (target.Any(existing =>
+                    string.Equals(existing.Kind, suggestion.Kind, StringComparison.Ordinal)
+                    && string.Equals(existing.Value ?? existing.Label, key, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            if (string.Equals(suggestion.Kind, "concept", StringComparison.Ordinal)
+                && target.Count(existing => string.Equals(existing.Kind, "concept", StringComparison.Ordinal))
+                    >= MaxConceptSuggestions)
+            {
+                continue;
+            }
+
+            target.Add(suggestion);
         }
     }
 

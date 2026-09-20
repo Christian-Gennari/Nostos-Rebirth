@@ -1,17 +1,14 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { computed, signal } from '@angular/core';
-import { of } from 'rxjs';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
 import { AssistantComponent } from './assistant.component';
-import { AssistantService } from './assistant.service';
+import { AssistantService, AssistantTurnResponse } from './assistant.service';
 import {
   AssistantContext,
   AssistantContextService,
 } from './assistant-context.service';
-import {
-  AssistantCaptureResult,
-  AssistantCaptureService,
-} from './assistant-capture.service';
 import {
   AssistantVoiceError,
   AssistantVoiceService,
@@ -72,27 +69,26 @@ function fakeVoiceService() {
   };
 }
 
-const captureResult: AssistantCaptureResult = {
-  note: {
-    id: 'n1',
-    bookId: 'b1',
-    content: 'A thought',
-    createdAt: '2026-01-01T00:00:00Z',
-  },
-  anchorKind: 'pdf_page',
-  anchorValue: '183',
-  verified: true,
-};
+/** A minimal successful turn: a short reply and nothing else. */
+function turn(overrides: Partial<AssistantTurnResponse> = {}): AssistantTurnResponse {
+  return {
+    reply: 'Noted.',
+    acknowledgement: null,
+    anchorPrompt: null,
+    suggestions: [],
+    pendingPlan: null,
+    ...overrides,
+  };
+}
 
 describe('AssistantComponent (Cmd/Ctrl+J)', () => {
   let fixture: ComponentFixture<AssistantComponent>;
   let assistant: AssistantService;
-  let capture: ReturnType<typeof vi.fn>;
+  let http: HttpTestingController;
   let fake: ReturnType<typeof fakeContextService>;
   let voice: ReturnType<typeof fakeVoiceService>;
 
   beforeEach(async () => {
-    capture = vi.fn(() => of(captureResult));
     fake = fakeContextService({ surface: 'reader', route: '/read/b1', bookId: 'b1' });
     voice = fakeVoiceService();
 
@@ -100,14 +96,20 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
       imports: [AssistantComponent],
       providers: [
         { provide: AssistantContextService, useValue: fake },
-        { provide: AssistantCaptureService, useValue: { capture } },
         { provide: AssistantVoiceService, useValue: voice },
+        provideHttpClient(),
+        provideHttpClientTesting(),
       ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(AssistantComponent);
     assistant = TestBed.inject(AssistantService);
+    http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    http.verify();
   });
 
   it('renders the collapsed capsule trigger and toggles on click', () => {
@@ -161,7 +163,7 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     outside.remove();
   });
 
-  it('captures with the known anchor and shows the chip label', () => {
+  it('sends the known anchor with the turn and shows the chip label', () => {
     fake.set({
       surface: 'reader',
       route: '/read/b1',
@@ -176,16 +178,19 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     assistant.updateDraft('A thought about the snow');
     assistant.submit();
 
-    expect(capture).toHaveBeenCalledTimes(1);
-    expect(capture.mock.calls[0][0]).toMatchObject({
-      bookId: 'b1',
-      text: 'A thought about the snow',
-      anchor: { kind: 'pdf_page', value: '183', verified: true },
+    const request = http.expectOne('/api/assistant/turn');
+    expect(request.request.body.message).toBe('A thought about the snow');
+    expect(request.request.body.context.anchor).toEqual({
+      kind: 'pdf_page',
+      value: '183',
+      verified: true,
     });
+    request.flush(turn());
+
     expect(assistant.anchorChip()?.label).toBe('The Magic Mountain · p. 183');
   });
 
-  it('asks a physical-book follow-up and still saves when the answer is skipped', () => {
+  it('asks a physical-book follow-up and still sends when the answer is skipped', () => {
     fake.set({
       surface: 'reader',
       route: '/read/b1',
@@ -200,20 +205,21 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     assistant.submit();
 
     expect(assistant.pendingAnchor()?.question).toBe('What page are you on?');
-    expect(capture).not.toHaveBeenCalled();
+    http.expectNone('/api/assistant/turn');
 
     assistant.skipAnchor();
 
-    expect(capture).toHaveBeenCalledTimes(1);
-    expect(capture.mock.calls[0][0].anchor).toEqual({
+    const request = http.expectOne('/api/assistant/turn');
+    expect(request.request.body.message).toBe('A thought without a page');
+    expect(request.request.body.context.anchor).toEqual({
       kind: 'unknown',
       value: null,
       verified: false,
     });
-    expect(assistant.lastCapture()).toEqual(captureResult);
+    request.flush(turn());
   });
 
-  it('saves a typed physical page as an unverified anchor', () => {
+  it('sends a typed physical page as an unverified anchor', () => {
     fake.set({
       surface: 'reader',
       route: '/read/b1',
@@ -229,12 +235,14 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     assistant.updateDraft('42');
     assistant.submit();
 
-    expect(capture).toHaveBeenCalledTimes(1);
-    expect(capture.mock.calls[0][0].anchor).toEqual({
+    const request = http.expectOne('/api/assistant/turn');
+    expect(request.request.body.message).toBe('A thought without a page');
+    expect(request.request.body.context.anchor).toEqual({
       kind: 'physical_page',
       value: '42',
       verified: false,
     });
+    request.flush(turn());
   });
 
   it('asks for a timestamp when an audiobook is not open in the in-app reader', () => {
@@ -246,10 +254,10 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     assistant.submit();
 
     expect(assistant.pendingAnchor()?.question).toBe("What's the current timestamp?");
-    expect(capture).not.toHaveBeenCalled();
+    http.expectNone('/api/assistant/turn');
   });
 
-  it('saves immediately with no anchor when the format cannot provide one', () => {
+  it('sends immediately with no anchor when the format cannot provide one', () => {
     fake.set({
       surface: 'reader',
       route: '/read/b1',
@@ -263,8 +271,92 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     assistant.submit();
 
     expect(assistant.pendingAnchor()).toBeNull();
-    expect(capture).toHaveBeenCalledTimes(1);
-    expect(capture.mock.calls[0][0].anchor).toBeNull();
+    const request = http.expectOne('/api/assistant/turn');
+    expect(request.request.body.context.anchor).toBeNull();
+    request.flush(turn());
+  });
+
+  it('renders non-mutating suggestion chips and links through an approved plan', () => {
+    // Linking has a target only when a note is under review.
+    fake.set({
+      surface: 'reader',
+      route: '/read/b1',
+      bookId: 'b1',
+      brainReviewNoteId: 'note-1',
+    });
+    fixture.detectChanges();
+
+    assistant.open();
+    assistant.suggestions.set([
+      { kind: 'concept', label: 'Mountains', reason: 'Existing concept.', value: 'c-alpha' },
+    ]);
+    fixture.detectChanges();
+
+    const chip = fixture.nativeElement.querySelector(
+      '[data-testid="assistant-suggestion"]',
+    ) as HTMLButtonElement;
+    expect(chip).toBeTruthy();
+    expect(chip.textContent).toContain('Mountains');
+
+    chip.click();
+    fixture.detectChanges();
+
+    // Choosing a concept only asks for a plan; nothing has been linked yet.
+    const request = http.expectOne('/api/assistant/turn');
+    expect(request.request.body.message).toContain('Mountains');
+    request.flush(
+      turn({
+        pendingPlan: {
+          planId: 'plan-1',
+          summary: 'Link the note to Mountains',
+          steps: [
+            {
+              capability: 'notes_link_existing_concept',
+              summary: 'Link the note to Mountains',
+              argumentsJson: '{}',
+            },
+          ],
+          approvalToken: 'token-1',
+        },
+      }),
+    );
+    fixture.detectChanges();
+
+    const plan = fixture.nativeElement.querySelector('[data-testid="assistant-plan"]');
+    expect(plan).toBeTruthy();
+    expect(plan.textContent).toContain('Link the note to Mountains');
+
+    (plan.querySelector('[data-testid="assistant-plan-approve"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const approval = http.expectOne('/api/assistant/plan/approve');
+    expect(approval.request.body).toEqual({ planId: 'plan-1', approvalToken: 'token-1' });
+    approval.flush({ success: true, errorCode: null, errorMessage: null, steps: [] });
+    fixture.detectChanges();
+
+    expect(assistant.pendingPlan()).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="assistant-plan"]'),
+    ).toBeNull();
+  });
+
+  it('leaves the note unlinked when the user dismisses the suggestions', () => {
+    assistant.open();
+    assistant.suggestions.set([
+      { kind: 'concept', label: 'Mountains', reason: 'Existing concept.', value: 'c-alpha' },
+    ]);
+    fixture.detectChanges();
+
+    const none = fixture.nativeElement.querySelector(
+      '[data-testid="assistant-suggestion-none"]',
+    ) as HTMLButtonElement;
+    expect(none).toBeTruthy();
+
+    none.click();
+    fixture.detectChanges();
+
+    expect(assistant.suggestions()).toEqual([]);
+    http.expectNone('/api/assistant/turn');
   });
 
   describe('voice capture in the composer', () => {
@@ -367,7 +459,7 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
       expect(assistant.draft()).toBe('The Magic Mountain');
       // Auto-send is queued, not dispatched: nothing is sent while Undo is live.
       expect(assistant.autoSendPending()).toBe(true);
-      expect(capture).not.toHaveBeenCalled();
+      http.expectNone('/api/assistant/turn');
 
       assistant.undoTranscript(); // do not leave a real 2s timer behind
     });
@@ -389,7 +481,7 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
       expect(assistant.autoSendPending()).toBe(false);
       expect(query('[data-testid="assistant-voice-undo"]')).toBeNull();
       expect(assistant.draft()).toBe('The Magic Mountain');
-      expect(capture).not.toHaveBeenCalled();
+      http.expectNone('/api/assistant/turn');
     });
 
     it('closing the surface abandons a live recording', () => {

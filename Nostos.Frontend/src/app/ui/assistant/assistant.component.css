@@ -316,6 +316,134 @@
 }
 
 /* ------------------------------
+   Suggestions (issue #261 §5)
+   Non-mutating: a chip only proposes a link, through plan approval.
+------------------------------ */
+.assistant-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.suggestions-title {
+  color: var(--color-text-light);
+  font-size: 0.72rem;
+}
+
+.suggestion-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-alt);
+  color: var(--color-text-main);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: border-color var(--motion-fast) var(--ease-plain);
+}
+
+.suggestion-chip:hover {
+  border-color: var(--color-accent);
+}
+
+.suggestion-chip:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.suggestion-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.suggestion-reason {
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+}
+
+.suggestion-none {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-light);
+  font: inherit;
+  font-size: 0.72rem;
+  text-decoration: underline;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* ------------------------------
+   Pending plan (issue #261 §6)
+   Nothing executes until "Approve plan" is pressed with the plan's token.
+------------------------------ */
+.assistant-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-alt);
+}
+
+.plan-title {
+  color: var(--color-text-light);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.plan-summary {
+  margin: 0;
+  color: var(--color-text-main);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.plan-steps {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.plan-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.plan-approve {
+  padding: 4px 12px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-main);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.plan-approve:disabled {
+  color: var(--color-text-light);
+  border-color: var(--border-color);
+  cursor: default;
+}
+
+.plan-approve:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ------------------------------
    Mobile
 ------------------------------ */
 @media (max-width: 768px) {

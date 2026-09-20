@@ -116,6 +116,8 @@ import { SecondBrain } from './second-brain.component';
 import { ConceptDetailDto, ConceptDto, ConceptStatsDto } from '../core/services/concepts.service';
 import { NoteSearchHit } from '../core/dtos/note.dtos';
 import { ToastService } from '../core/services/toast.service';
+import { AssistantContextService } from '../ui/assistant/assistant-context.service';
+import { AssistantService } from '../ui/assistant/assistant.service';
 
 /**
  * Second Brain behaviour that the "flashing" complaint was about.
@@ -1620,6 +1622,96 @@ describe('SecondBrain', () => {
 
       expect(fixture.nativeElement.querySelector('.brain-notes-section')).toBeNull();
       expect(component.noteSearchHits()).toEqual([]);
+    });
+
+    it('exposes the reviewed note to the assistant context and clears it on leave', () => {
+      const assistantContext = TestBed.inject(AssistantContextService);
+
+      enterReview();
+      expect(assistantContext.context().brainReviewNoteId).toBe('hit-1');
+      expect(assistantContext.context().bookId).toBe('b-sisyphus');
+
+      // Focusing the next note moves the context with it.
+      component.focusReviewNote('hit-2');
+      fixture.detectChanges();
+      expect(assistantContext.context().brainReviewNoteId).toBe('hit-2');
+
+      component.closeReview();
+      fixture.detectChanges();
+      expect(assistantContext.context().brainReviewNoteId).toBeNull();
+    });
+
+    it('sends the reviewed note to the assistant when the Suggest concepts affordance is used', () => {
+      enterReview();
+
+      const button = fixture.nativeElement.querySelector(
+        '[data-testid="review-suggest-concepts"]',
+      ) as HTMLButtonElement;
+      expect(button).toBeTruthy();
+
+      button.click();
+      fixture.detectChanges();
+
+      const assistant = TestBed.inject(AssistantService);
+      expect(assistant.isOpen()).toBe(true);
+
+      const request = http.expectOne('/api/assistant/turn');
+      expect(request.request.body.message).toBe('Where do you think this belongs?');
+      expect(request.request.body.context.brainReviewNoteId).toBe('hit-1');
+      request.flush({
+        reply: 'Mountains looks right.',
+        acknowledgement: null,
+        anchorPrompt: null,
+        suggestions: [
+          { kind: 'concept', label: 'Mountains', reason: 'Existing concept in your library.', value: 'c-alpha' },
+        ],
+        pendingPlan: null,
+      });
+      fixture.detectChanges();
+
+      expect(assistant.suggestions().map((s) => s.label)).toEqual(['Mountains']);
+    });
+
+    it('moves the reviewed note out of the queue after a link plan is approved', () => {
+      enterReview();
+
+      const assistant = TestBed.inject(AssistantService);
+      assistant.pendingPlan.set({
+        planId: 'plan-1',
+        summary: 'Link the note to Alpha',
+        steps: [
+          {
+            capability: 'notes_link_existing_concept',
+            summary: 'Link the note to Alpha',
+            argumentsJson: '{}',
+          },
+        ],
+        approvalToken: 'token-1',
+      });
+
+      assistant.approvePlan('plan-1', 'token-1');
+      const approval = http.expectOne('/api/assistant/plan/approve');
+      expect(approval.request.body).toEqual({ planId: 'plan-1', approvalToken: 'token-1' });
+      approval.flush({
+        success: true,
+        errorCode: null,
+        errorMessage: null,
+        steps: [
+          {
+            capability: 'notes_link_existing_concept',
+            success: true,
+            errorCode: null,
+            errorMessage: null,
+            data: null,
+          },
+        ],
+      });
+
+      // The link is a real write: the index and stats refresh.
+      settleReviewRefresh();
+
+      expect(component.reviewQueue().map((row) => row.id)).toEqual(['hit-2']);
+      expect(component.reviewTotal()).toBe(1);
     });
   });
 });
