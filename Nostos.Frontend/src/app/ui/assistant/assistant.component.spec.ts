@@ -254,8 +254,11 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     assistant.updateDraft('A thought without a page');
     assistant.submit();
 
+    // The capture dispatches at once; the backend decides it needs a page.
+    http.expectOne('/api/assistant/turn').flush(
+      turn({ anchorPrompt: { kind: 'physical_page', question: 'What page are you on?' } }),
+    );
     expect(assistant.pendingAnchor()?.question).toBe('What page are you on?');
-    http.expectNone('/api/assistant/turn');
 
     assistant.skipAnchor();
 
@@ -282,6 +285,10 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     assistant.open();
     assistant.updateDraft('A thought without a page');
     assistant.submit();
+    http.expectOne('/api/assistant/turn').flush(
+      turn({ anchorPrompt: { kind: 'physical_page', question: 'What page are you on?' } }),
+    );
+
     assistant.updateDraft('42');
     assistant.submit();
 
@@ -311,10 +318,14 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     assistant.submit();
     fixture.detectChanges();
 
+    http.expectOne('/api/assistant/turn').flush(
+      turn({ anchorPrompt: { kind: 'physical_page', question: 'What page are you on?' } }),
+    );
+    fixture.detectChanges();
+
     expect(
       fixture.nativeElement.querySelector('[data-testid="assistant-anchor-prompt"]').textContent,
     ).toContain('What page are you on?');
-    http.expectNone('/api/assistant/turn');
 
     assistant.updateDraft('Page 247.');
     assistant.submit();
@@ -345,6 +356,11 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     assistant.updateDraft('A thought for The Magic Mountain');
     assistant.submit();
     fixture.detectChanges();
+
+    http.expectOne('/api/assistant/turn').flush(
+      turn({ anchorPrompt: { kind: 'physical_page', question: 'What page are you on?' } }),
+    );
+    fixture.detectChanges();
     expect(
       fixture.nativeElement.querySelector('[data-testid="assistant-anchor-prompt"]'),
     ).toBeTruthy();
@@ -374,8 +390,16 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     assistant.updateDraft('A thought');
     assistant.submit();
 
+    http.expectOne('/api/assistant/turn').flush(
+      turn({
+        anchorPrompt: {
+          kind: 'external_audio_timestamp',
+          question: "What's the current timestamp?",
+        },
+      }),
+    );
+
     expect(assistant.pendingAnchor()?.question).toBe("What's the current timestamp?");
-    http.expectNone('/api/assistant/turn');
   });
 
   it('sends immediately with no anchor when the format cannot provide one', () => {

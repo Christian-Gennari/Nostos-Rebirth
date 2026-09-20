@@ -407,18 +407,11 @@ export class AssistantService {
 
     const context = this.context();
     const anchor = this.effectiveAnchor(context);
-    const question = anchor ? null : this.anchorQuestion(context);
     this.draft.set('');
 
-    if (question) {
-      // The deterministic local follow-up: no LLM round trip is spent asking for
-      // a location the format cannot supply.
-      this.pendingText.set(text);
-      this.pendingAnchor.set(question);
-      this.pushEntry('assistant', question.question, null, null);
-      return;
-    }
-
+    // Every message dispatches immediately. Only the backend may ask for a
+    // location, and only for a capture that genuinely cannot know one; a plain
+    // question ("Who are you?") is never held behind a page prompt.
     this.dispatchTurn(text, anchor);
   }
 
@@ -655,25 +648,6 @@ export class AssistantService {
   private effectiveAnchor(context: AssistantContext): AssistantAnchor | null {
     if (this.anchorDismissed()) return null;
     return context.anchor;
-  }
-
-  /**
-   * The only questions this stream asks. No LLM: a known format selects a fixed
-   * follow-up, and anything else saves with `unknown` rather than guessing.
-   */
-  private anchorQuestion(context: AssistantContext): AssistantAnchorPrompt | null {
-    if (context.bookFormat === 'physical') {
-      return { kind: 'physical_page', question: 'What page are you on?' };
-    }
-    // An in-app audio reader publishes its own timestamp; only an external
-    // audiobook (no in-app reader open) needs to be asked.
-    if (context.bookFormat === 'audiobook' && context.readerType !== 'audio') {
-      return {
-        kind: 'external_audio_timestamp',
-        question: "What's the current timestamp?",
-      };
-    }
-    return null;
   }
 
   private anchorFromAnswer(

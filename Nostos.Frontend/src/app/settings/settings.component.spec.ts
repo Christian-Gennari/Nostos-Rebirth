@@ -13,6 +13,8 @@ import {
   LibraryPreferencesService,
 } from '../core/services/library-preferences.service';
 import { AssistantStatusService } from '../ui/assistant/assistant-status.service';
+import { AssistantSettingsService } from '../ui/assistant/assistant-settings.service';
+import { ProcessingMode } from '../ui/assistant/assistant.service';
 import { AiProviderService } from '../core/services/ai-provider.service';
 import {
   AiProviderModelsRequest,
@@ -116,6 +118,22 @@ const assistantStatusMock = {
   refresh: vi.fn(),
 };
 
+/**
+ * The stored capture-processing choice, driven by the test. The real GET/PUT
+ * round-tripped by `AssistantSettingsService`'s own spec; here the card only
+ * needs the stored value and its failure flags to change.
+ */
+const assistantSettingsMock = {
+  captureProcessingMode: signal<ProcessingMode>('verbatim'),
+  loadFailed: signal(false),
+  saveFailed: signal(false),
+  ensureLoaded: vi.fn(),
+  refresh: vi.fn(),
+  setCaptureProcessingMode: vi.fn((mode: ProcessingMode) => {
+    assistantSettingsMock.captureProcessingMode.set(mode);
+  }),
+};
+
 describe('SettingsComponent backup-only surface', () => {
   let fixture: ComponentFixture<SettingsComponent>;
 
@@ -127,6 +145,7 @@ describe('SettingsComponent backup-only surface', () => {
         { provide: OpdsService, useValue: opdsServiceMock },
         { provide: ToastService, useValue: toastMock },
         { provide: AssistantStatusService, useValue: assistantStatusMock },
+        { provide: AssistantSettingsService, useValue: assistantSettingsMock },
         { provide: AiProviderService, useValue: aiProviderServiceMock },
       ],
     }).compileComponents();
@@ -143,6 +162,11 @@ describe('SettingsComponent backup-only surface', () => {
     toastMock.success.mockClear();
     assistantStatusMock.available.set(true);
     assistantStatusMock.refresh.mockClear();
+    assistantSettingsMock.captureProcessingMode.set('verbatim');
+    assistantSettingsMock.loadFailed.set(false);
+    assistantSettingsMock.saveFailed.set(false);
+    assistantSettingsMock.refresh.mockClear();
+    assistantSettingsMock.setCaptureProcessingMode.mockClear();
     aiProviderServiceMock.get.mockClear();
     aiProviderServiceMock.get.mockReturnValue(of(aiProviderSettings));
     aiProviderServiceMock.update.mockClear();
@@ -458,6 +482,42 @@ describe('SettingsComponent backup-only surface', () => {
     expect(preferences.assistantEnabled()).toBe(false);
   });
 
+  it('renders the stored capture-processing value with its description', () => {
+    assistantSettingsMock.captureProcessingMode.set('light_polish');
+    render();
+
+    const select = captureModeSelect();
+    expect(select.value).toBe('light_polish');
+    expect(select.getAttribute('aria-label')).toBe('Captured thoughts');
+
+    const card = assistantCard();
+    expect(card!.textContent).toContain('Your words with grammar and filler tidied');
+    expect(card!.textContent).toContain(
+      'Applies only to new notes. Existing notes are never rewritten.',
+    );
+  });
+
+  it('stores a changed capture-processing value through the settings service', () => {
+    render();
+
+    const select = captureModeSelect();
+    select.value = 'clarify';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    expect(assistantSettingsMock.setCaptureProcessingMode).toHaveBeenCalledWith('clarify');
+    expect(captureModeSelect().value).toBe('clarify');
+  });
+
+  it('says plainly when the capture-processing setting could not be read', () => {
+    assistantSettingsMock.loadFailed.set(true);
+    render();
+
+    const card = assistantCard();
+    expect(card!.textContent).toContain('Could not read this setting');
+    expect(captureModeSelect()).toBeNull();
+  });
+
   // ------------------------------------------------------------------
   // AI provider
   // ------------------------------------------------------------------
@@ -769,6 +829,12 @@ describe('SettingsComponent backup-only surface', () => {
     return fixture.nativeElement.querySelector(
       '[data-testid="assistant-enabled-toggle"]',
     ) as HTMLInputElement;
+  }
+
+  function captureModeSelect(): HTMLSelectElement {
+    return fixture.nativeElement.querySelector(
+      '[data-testid="capture-processing-mode"]',
+    ) as HTMLSelectElement;
   }
 
   function erCard(): HTMLElement | null {
