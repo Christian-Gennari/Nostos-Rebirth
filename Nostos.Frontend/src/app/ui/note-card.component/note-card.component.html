@@ -55,7 +55,11 @@
       <div class="note-metadata">
         @if (showDate && note.createdAt) {
         <span class="note-date">{{ note.createdAt | date : 'short' }}</span>
-        } @if (showSource && note.bookTitle) { @if (showDate && note.createdAt) {
+        } @if (isRefined) { @if (showDate && note.createdAt) {
+        <span class="meta-separator">•</span>
+        }
+        <span class="note-mode-marker" data-testid="note-mode-marker">{{ modeLabel(note.processingMode) }}</span>
+        } @if (showSource && note.bookTitle) { @if ((showDate && note.createdAt) || isRefined) {
         <span class="meta-separator">•</span>
         }
 
@@ -71,6 +75,41 @@
         </a>
         }
       </div>
+
+      @if (showRefine) {
+      <div class="note-refine" [class.refining]="refining">
+        <button
+          type="button"
+          class="refine-trigger"
+          data-testid="note-refine-trigger"
+          [attr.aria-expanded]="refineOpen()"
+          [disabled]="refining"
+          title="Make a version of this note"
+          (click)="toggleRefine($event)"
+        >
+          {{ refining ? 'Refining…' : modeLabel(note.processingMode) }}
+        </button>
+
+        @if (refineOpen() && !refining) {
+        <div class="refine-options" role="group" aria-label="Refine note">
+          @for (option of refineOptions; track option.mode) {
+          <button
+            type="button"
+            class="refine-option"
+            [class.active]="isModeActive(option.mode)"
+            [attr.data-testid]="'note-refine-option-' + option.mode"
+            [disabled]="isModeDisabled(option.mode)"
+            [attr.aria-pressed]="isModeActive(option.mode)"
+            [title]="modeTitle(option.mode)"
+            (click)="chooseMode(option.mode, $event)"
+          >
+            {{ option.label }}
+          </button>
+          }
+        </div>
+        }
+      </div>
+      }
 
       @if (showNavigation || showActions) {
       <div class="note-actions">

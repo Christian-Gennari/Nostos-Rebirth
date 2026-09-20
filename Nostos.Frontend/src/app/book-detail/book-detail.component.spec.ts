@@ -7,6 +7,7 @@ import { of } from 'rxjs';
 import { BookDetail } from './book-detail.component';
 import { Book } from '../core/dtos/book.dtos';
 import { ToastService } from '../core/services/toast.service';
+import { AssistantStatusService } from '../ui/assistant/assistant-status.service';
 
 const book: Book = {
   id: 'b1',
@@ -907,6 +908,55 @@ describe('BookDetail confirm-modal deletes (no window.confirm)', () => {
       .expectOne((req) => req.url === '/api/books/b1' && req.method === 'GET')
       .flush({ ...book, hasFile: true, coverUrl: null });
     expect(component.coverDeletePending()).toBe(false);
+    drainConcepts();
+  });
+
+  it('refines a note from the card and replaces it from the response (issue #287)', async () => {
+    TestBed.inject(AssistantStatusService).available.set(true);
+    await setup();
+
+    (fixture.nativeElement.querySelector('[data-testid="note-refine-trigger"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('[data-testid="note-refine-option-light_polish"]') as HTMLButtonElement).click();
+
+    const request = httpMock.expectOne('/api/notes/n1/reprocess');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ processingMode: 'light_polish' });
+    request.flush({
+      id: 'n1',
+      bookId: 'b1',
+      content: 'A polished thought',
+      selectedText: null,
+      cfiRange: null,
+      createdAt: '2026-08-10T08:00:00+02:00',
+      bookTitle: 'Meditations',
+      processingMode: 'light_polish',
+      rawContent: 'A thought',
+    });
+    fixture.detectChanges();
+
+    expect(component.store.notes()[0].content).toBe('A polished thought');
+    expect(component.store.notes()[0].processingMode).toBe('light_polish');
+    expect(fixture.nativeElement.querySelector('[data-testid="note-mode-marker"]')?.textContent).toContain(
+      'Light polish'
+    );
+    drainConcepts();
+  });
+
+  it('leaves a note unchanged when its refine fails, and names the failure (issue #287)', async () => {
+    await setup();
+
+    component.onRefineNote({ id: 'n1', mode: 'light_polish' });
+    expect(component.refiningNoteIds().has('n1')).toBe(true);
+
+    httpMock
+      .expectOne('/api/notes/n1/reprocess')
+      .flush(null, { status: 502, statusText: 'Bad Gateway' });
+    fixture.detectChanges();
+
+    expect(component.store.notes()[0].content).toBe('A thought');
+    expect(component.refiningNoteIds().has('n1')).toBe(false);
+    expect(TestBed.inject(ToastService).toasts().at(-1)?.message).toContain('original is unchanged');
     drainConcepts();
   });
 });

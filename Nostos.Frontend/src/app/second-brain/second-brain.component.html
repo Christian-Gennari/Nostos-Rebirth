@@ -767,9 +767,12 @@
             [showActions]="true"
             [showSource]="true"
             [showDate]="true"
+            [showRefine]="true"
+            [refining]="refiningNoteIds().has(note.noteId)"
             (update)="onUpdateNote($event)"
             (delete)="onDeleteNote($event)"
             (conceptClick)="selectConcept($event)"
+            (refine)="onRefineNote($event)"
             (click)="handleContentClick($event)"
           ></app-note-card>
         </div>

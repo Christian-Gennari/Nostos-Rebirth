@@ -18,7 +18,7 @@ import { RouterLink } from '@angular/router';
 
 import { ToastService } from '../core/services/toast.service';
 import { NotesService } from '../core/services/notes.service';
-import { Note, NoteSearchHit } from '../core/dtos/note.dtos';
+import { Note, NoteProcessingMode, NoteSearchHit } from '../core/dtos/note.dtos';
 import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import {
@@ -130,6 +130,19 @@ function declaresConcept(content: string): boolean {
   return declaredConceptNames(content).length > 0;
 }
 
+/**
+ * A refine can fail for two very different reasons, and saying "something went
+ * wrong" for both would hide which one (issue #287). 409 means this note kept no
+ * original to restore; 502 means the model provider failed and the note is
+ * untouched. Anything else is reported without inventing a cause.
+ */
+function refineFailureMessage(error: unknown): string {
+  const status = (error as { status?: number } | null)?.status;
+  if (status === 409) return 'This note has no original to restore.';
+  if (status === 502) return 'The assistant could not refine this note — the original is unchanged.';
+  return 'The note could not be refined — it is unchanged.';
+}
+
 @Component({
   standalone: true,
   selector: 'app-brain',
@@ -190,6 +203,12 @@ export class SecondBrain implements AfterViewChecked {
   noteMatches = signal<ConceptDto[]>([]);
   noteHits = signal<NoteSearchHit[]>([]);
   panelNote = signal<NoteSearchHit | null>(null);
+
+  // Refine (issue #287). The host owns the in-flight state per note, and the
+  // mode each refined note now reflects: `ConceptDetailDto` does not carry
+  // `processingMode`, so it is kept here alongside the list the card reads.
+  readonly refiningNoteIds = signal<ReadonlySet<string>>(new Set());
+  private readonly noteProcessingModes = signal<ReadonlyMap<string, string>>(new Map());
 
   // --- Unlinked-note review (issue #256) -------------------------------------
   //
@@ -1436,6 +1455,7 @@ export class SecondBrain implements AfterViewChecked {
       selectedText: note.selectedText,
       createdAt: note.createdAt ?? '',
       bookTitle: note.bookTitle,
+      processingMode: this.noteProcessingModes().get(note.noteId),
     };
   }
 
@@ -1569,6 +1589,51 @@ export class SecondBrain implements AfterViewChecked {
           this.toast.error('Failed to update note — changes reverted');
         },
       });
+  }
+
+  /**
+   * Make a version of a note (issue #287). The card only emits; the host performs
+   * the call and replaces the note in the list with the server's response, so the
+   * card shows the new text and mode immediately. A failure leaves the note
+   * exactly as it was — the server guarantees the original is untouched — and the
+   * message says which failure happened.
+   */
+  onRefineNote(event: { id: string; mode: NoteProcessingMode }): void {
+    const conceptId = this.selectedId();
+    const detail = this.selectedDetail();
+    if (!conceptId || !detail || this.refiningNoteIds().has(event.id)) return;
+
+    this.setNoteRefining(event.id, true);
+    this.notesService.reprocess(event.id, event.mode).subscribe({
+      next: (updated) => {
+        this.setNoteRefining(event.id, false);
+        const current = this.detailCache.get(conceptId);
+        if (current) {
+          this.commitDetail(conceptId, {
+            ...current,
+            notes: current.notes.map((note) =>
+              note.noteId === event.id ? this.contextFromNote(updated, note) : note
+            ),
+          });
+        }
+        this.noteProcessingModes.update((modes) =>
+          new Map(modes).set(event.id, updated.processingMode ?? 'verbatim')
+        );
+      },
+      error: (error) => {
+        this.setNoteRefining(event.id, false);
+        this.toast.error(refineFailureMessage(error));
+      },
+    });
+  }
+
+  private setNoteRefining(id: string, refining: boolean): void {
+    this.refiningNoteIds.update((ids) => {
+      const next = new Set(ids);
+      if (refining) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   }
 
   onDeleteNote(noteId: string): void {

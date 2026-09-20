@@ -7,6 +7,33 @@ export interface Note {
   selectedText?: string;
   createdAt: string;
   bookTitle?: string;
+  // The capture provenance the server already returns (issue #260 §2, §4) but
+  // this interface omitted. Every field is optional so a note serialised before
+  // the feature — or a route that does not carry provenance — still type-checks.
+  rawContent?: string | null;
+  processingMode?: string;
+  captureSource?: string;
+  sourceAnchorKind?: string;
+  sourceAnchorValue?: string | null;
+  anchorVerified?: boolean;
+}
+
+/**
+ * What a refine does to a note's stored text (issue #262 §7). The values are the
+ * backend's exact wire strings; `verbatim` is a storage operation and calls no
+ * model, the other two rewrite the preserved original.
+ */
+export type NoteProcessingMode = 'verbatim' | 'light_polish' | 'clarify';
+
+/**
+ * The raw transcript of one note and the mode its current text reflects
+ * (mirrors the backend `NoteRawTranscriptDto`).
+ */
+export interface NoteRawTranscript {
+  id: string;
+  rawContent: string | null;
+  content: string;
+  processingMode: string;
 }
 
 export interface CreateNoteDto {

@@ -1,7 +1,15 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Note, CreateNoteDto, NoteSearchHit, NoteSearchPage, UpdateNoteDto } from '../dtos/note.dtos';
+import {
+  Note,
+  CreateNoteDto,
+  NoteProcessingMode,
+  NoteRawTranscript,
+  NoteSearchHit,
+  NoteSearchPage,
+  UpdateNoteDto,
+} from '../dtos/note.dtos';
 
 /**
  * The assistant's capture payload (issue #261 §4). Appended: it extends the
@@ -73,5 +81,33 @@ export class NotesService {
    */
   capture(bookId: string, dto: CaptureNoteDto): Observable<Note> {
     return this.http.post<Note>(`/api/books/${bookId}/notes`, dto);
+  }
+
+  /**
+   * Re-derive a note's stored text from its preserved original in `mode`
+   * (issue #262 §7). The original is always the source, never the current
+   * (possibly processed) text, so polish → clarify cannot compound; a note with
+   * no original adopts its current text at this moment. `verbatim` is a storage
+   * operation and makes no model call.
+   */
+  reprocess(id: string, mode: NoteProcessingMode): Observable<Note> {
+    return this.http.post<Note>(`/api/notes/${id}/reprocess`, { processingMode: mode });
+  }
+
+  /**
+   * The raw transcript of one note and the mode its current text reflects
+   * (issue #262 §8). Reading it never changes the note.
+   */
+  raw(id: string): Observable<NoteRawTranscript> {
+    return this.http.get<NoteRawTranscript>(`/api/notes/${id}/raw`);
+  }
+
+  /**
+   * Restore a note's text from its raw transcript (issue #262 §8). The
+   * transcript itself is never erased — restoring is not a way to lose the
+   * capture — and the stored mode returns to `verbatim`.
+   */
+  restoreRaw(id: string): Observable<Note> {
+    return this.http.post<Note>(`/api/notes/${id}/raw/restore`, {});
   }
 }

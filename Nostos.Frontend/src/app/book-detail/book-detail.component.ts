@@ -8,6 +8,7 @@ import { BookDetailStore } from './book-detail.store';
 
 // DTOs
 import { Book, EditionSummaryDto, LinkableBookDto } from '../core/dtos/book.dtos';
+import { NoteProcessingMode } from '../core/dtos/note.dtos';
 
 /**
  * How many RENDERED LINES a review may occupy before Book Details opens it as a
@@ -40,6 +41,19 @@ interface PendingWorkAction {
   merge: boolean;
 }
 
+/**
+ * A refine can fail for two very different reasons, and saying "something went
+ * wrong" for both would hide which one (issue #287). 409 means this note kept no
+ * original to restore; 502 means the model provider failed and the note is
+ * untouched. Anything else is reported without inventing a cause.
+ */
+function refineFailureMessage(error: unknown): string {
+  const status = (error as { status?: number } | null)?.status;
+  if (status === 409) return 'This note has no original to restore.';
+  if (status === 502) return 'The assistant could not refine this note — the original is unchanged.';
+  return 'The note could not be refined — it is unchanged.';
+}
+
 // UI Components
 import { AddBookModal } from '../add-book-modal/add-book-modal.component';
 import { EditionsModal, WorkMember } from './editions-modal/editions-modal.component';
@@ -49,6 +63,7 @@ import { NoteCardComponent } from '../ui/note-card.component/note-card.component
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { LibraryPreferencesService } from '../core/services/library-preferences.service';
 import { BooksService } from '../core/services/books.service';
+import { NotesService } from '../core/services/notes.service';
 import { ToastService } from '../core/services/toast.service';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 
@@ -80,6 +95,7 @@ export class BookDetail implements OnInit, OnDestroy {
   readonly store = inject(BookDetailStore);
   private preferences = inject(LibraryPreferencesService);
   private booksService = inject(BooksService);
+  private notesService = inject(NotesService);
   private toast = inject(ToastService);
   private rememberActiveEdition = effect(() => {
     const book = this.store.book();
@@ -365,6 +381,43 @@ export class BookDetail implements OnInit, OnDestroy {
 
   onUpdateNote(event: { id: string; content: string; selectedText?: string }): void {
     this.store.updateNote(event.id, event.content, event.selectedText);
+  }
+
+  /**
+   * Make a version of a note (issue #287). The card only emits; the host performs
+   * the call and replaces the note in the store with the server's response, so
+   * the card shows the new text and mode immediately. A failure leaves the note
+   * exactly as it was — the server guarantees the original is untouched — and the
+   * message says which failure happened.
+   */
+  onRefineNote(event: { id: string; mode: NoteProcessingMode }): void {
+    if (this.refiningNoteIds().has(event.id)) return;
+
+    this.setNoteRefining(event.id, true);
+    this.notesService.reprocess(event.id, event.mode).subscribe({
+      next: (updated) => {
+        this.setNoteRefining(event.id, false);
+        this.store.notes.update((notes) =>
+          notes.map((note) => (note.id === event.id ? updated : note))
+        );
+      },
+      error: (error) => {
+        this.setNoteRefining(event.id, false);
+        this.toast.error(refineFailureMessage(error));
+      },
+    });
+  }
+
+  /** Note ids with a refine in flight; the card only reflects this. */
+  readonly refiningNoteIds = signal<ReadonlySet<string>>(new Set());
+
+  private setNoteRefining(id: string, refining: boolean): void {
+    this.refiningNoteIds.update((ids) => {
+      const next = new Set(ids);
+      if (refining) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   }
 
   onDeleteNote(id: string): void {

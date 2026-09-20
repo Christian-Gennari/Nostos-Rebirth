@@ -118,6 +118,7 @@ import { NoteSearchHit } from '../core/dtos/note.dtos';
 import { ToastService } from '../core/services/toast.service';
 import { AssistantContextService } from '../ui/assistant/assistant-context.service';
 import { AssistantService } from '../ui/assistant/assistant.service';
+import { AssistantStatusService } from '../ui/assistant/assistant-status.service';
 
 /**
  * Second Brain behaviour that the "flashing" complaint was about.
@@ -454,6 +455,62 @@ describe('SecondBrain', () => {
 
     expect(component.selectedDetail()!.notes[0].content).toBe('A note about [[Alpha]]');
     expect(TestBed.inject(ToastService).toasts().at(-1)?.message).toContain('changes reverted');
+  });
+
+  it('refines a note from the card and replaces it from the response (issue #287)', async () => {
+    TestBed.inject(AssistantStatusService).available.set(true);
+    component.selectConcept('c-alpha');
+    flushDetail('c-alpha', detail('c-alpha', 'Alpha'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('[data-testid="note-refine-trigger"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('[data-testid="note-refine-option-light_polish"]') as HTMLButtonElement).click();
+
+    const request = http.expectOne('/api/notes/c-alpha-n1/reprocess');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ processingMode: 'light_polish' });
+    request.flush({
+      id: 'c-alpha-n1',
+      bookId: 'b1',
+      content: 'A polished note about [[Alpha]]',
+      selectedText: null,
+      cfiRange: null,
+      createdAt: '2026-09-01T12:00:00Z',
+      bookTitle: 'Meditations',
+      processingMode: 'light_polish',
+      rawContent: 'A note about [[Alpha]]',
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(component.selectedDetail()!.notes[0].content).toBe('A polished note about [[Alpha]]');
+    expect(fixture.nativeElement.querySelector('[data-testid="note-mode-marker"]')?.textContent).toContain(
+      'Light polish'
+    );
+  });
+
+  it('leaves a note unchanged when its refine fails, and names the failure (issue #287)', async () => {
+    TestBed.inject(AssistantStatusService).available.set(true);
+    component.selectConcept('c-alpha');
+    flushDetail('c-alpha', detail('c-alpha', 'Alpha'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('[data-testid="note-refine-trigger"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('[data-testid="note-refine-option-light_polish"]') as HTMLButtonElement).click();
+    expect(component.refiningNoteIds().has('c-alpha-n1')).toBe(true);
+
+    http
+      .expectOne('/api/notes/c-alpha-n1/reprocess')
+      .flush(null, { status: 502, statusText: 'Bad Gateway' });
+    await fixture.whenStable();
+
+    expect(component.selectedDetail()!.notes[0].content).toBe('A note about [[Alpha]]');
+    expect(component.refiningNoteIds().has('c-alpha-n1')).toBe(false);
+    expect(TestBed.inject(ToastService).toasts().at(-1)?.message).toContain('original is unchanged');
   });
 
   it('confirms deletion before removing the note card', async () => {
