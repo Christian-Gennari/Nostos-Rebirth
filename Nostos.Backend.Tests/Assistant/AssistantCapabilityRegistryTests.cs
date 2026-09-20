@@ -32,6 +32,7 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
     [
         "library_resolve_book",
         "library_list_books",
+        "library_overview",
         "notes_list_for_book",
         "notes_search",
         "notes_list_unlinked",
@@ -233,6 +234,7 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
         {
             ("library_resolve_book", """{"title":"Seeded Book","author":"Author","includeExternalMetadata":false}"""),
             ("library_list_books", "{}"),
+            ("library_overview", "{}"),
             ("notes_list_for_book", $$"""{"bookId":"{{book.Id}}"}"""),
             ("notes_search", """{"query":"seeded"}"""),
             ("notes_list_unlinked", "{}"),
@@ -250,6 +252,28 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
         }
 
         (await StoreSnapshotAsync(h)).Should().BeEquivalentTo(before);
+    }
+
+    [Fact]
+    public async Task Library_overview_reads_the_complete_library_not_only_the_first_page()
+    {
+        var h = CreateHarness();
+        for (var i = 1; i <= 105; i++)
+        {
+            await SeedBookAsync(h, $"Book {i:000}", $"Author {i:000}");
+        }
+        await SeedCollectionAsync(h, "Philosophy");
+
+        var result = await h.Registry.InvokeAsync(
+            "library_overview",
+            Args("{}"),
+            new AssistantToolContext());
+
+        result.Success.Should().BeTrue();
+        var data = result.Data!.Value;
+        data.GetProperty("totalBooks").GetInt32().Should().Be(105);
+        data.GetProperty("books").GetArrayLength().Should().Be(105);
+        data.GetProperty("collections").GetArrayLength().Should().Be(1);
     }
 
     // ------------------------------------------------------------------

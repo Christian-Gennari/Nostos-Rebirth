@@ -955,6 +955,37 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
+    public async Task The_system_prompt_knows_Nostos_and_advertises_only_real_capabilities()
+    {
+        var h = CreateHarness();
+        h.Llm.Returns("Ok.");
+
+        await h.Orchestrator.HandleTurnAsync(Turn(
+            "What can you do, and how should I organize my library?",
+            Context(surface: "library", route: "/library")));
+
+        var prompt = h.Llm.LastRequest.Messages[0].Content!;
+
+        prompt.Should().Contain("built-in format filters for Audiobooks, eBooks and PDFs");
+        prompt.Should().Contain("Do not recommend collections merely to recreate a Library filter");
+        prompt.Should().Contain("prefer library_overview");
+        prompt.Should().Contain("library_overview [read-only]");
+        prompt.Should().Contain("library_create_collection [requires approval]");
+        prompt.Should().Contain("notes_capture [immediate capture]");
+        prompt.Should().Contain("Never say you can move or reassign books between collections");
+        prompt.Should().NotContain("library_update_book");
+    }
+
+    [Fact]
+    public void The_soul_allows_brief_natural_small_talk_without_reintroducing_provider_identity()
+    {
+        AssistantSoul.Prompt.Should().Contain("casual greeting or small talk");
+        AssistantSoul.Prompt.Should().Contain("do not restate your identity unless the user asks who you are");
+        AssistantSoul.Prompt.Should().NotMatchRegex(
+            "(?i)(Gemini|Google|OpenAI|ChatGPT|Claude|Anthropic|DeepSeek|GPT)");
+    }
+
+    [Fact]
     public async Task The_identity_is_the_last_system_message_and_sits_after_the_context()
     {
         var h = CreateHarness();

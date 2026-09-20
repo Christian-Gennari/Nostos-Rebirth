@@ -419,9 +419,9 @@ public sealed class AssistantOrchestrator(
     // Conversation / tool construction
     // ------------------------------------------------------------------
 
-    private static List<LlmMessage> BuildConversation(AssistantTurnRequest request)
+    private List<LlmMessage> BuildConversation(AssistantTurnRequest request)
     {
-        var messages = new List<LlmMessage> { LlmMessage.System(SystemPrompt) };
+        var messages = new List<LlmMessage> { LlmMessage.System(BuildSystemPrompt()) };
 
         var contextJson = JsonSerializer.Serialize(request.Context ?? new AssistantContextDto("other", "/"), JsonOptions);
         messages.Add(LlmMessage.System(
@@ -476,6 +476,26 @@ public sealed class AssistantOrchestrator(
 
         messages.Add(LlmMessage.User(request.Message));
         return messages;
+    }
+
+    private string BuildSystemPrompt()
+    {
+        var abilities = registry.All.Select(capability =>
+        {
+            var mode = capability.Trust switch
+            {
+                AssistantTrustClass.Suggest => "read-only",
+                AssistantTrustClass.Capture => "immediate capture",
+                AssistantTrustClass.PlanAndAct => "requires approval",
+                _ => "unknown",
+            };
+
+            return $"- {capability.Name} [{mode}]: {capability.Summary}";
+        });
+
+        return SystemPrompt
+            + "\n\nAvailable abilities in this Nostos installation:\n"
+            + string.Join("\n", abilities);
     }
 
     /// <summary>
@@ -579,6 +599,19 @@ public sealed class AssistantOrchestrator(
         Do not answer a thought with what you found. A thought that resembles notes you already have is still a new capture: save it, and do not reply with a list of those notes.
 
         An explicitly named note or concept in the user's message beats the ambient context. If a target is ambiguous or matches only weakly, ask one short clarifying question instead of guessing.
+
+        Nostos product knowledge:
+        - The Library already has search, sorting, status filters (Not Started, In Progress, Favorites, Finished, Unsorted), and built-in format filters for Audiobooks, eBooks and PDFs.
+        - Collections are hierarchical, user-defined structures for durable themes, projects, curricula, reading paths or other meaningful groupings. A book may belong to more than one collection.
+        - Do not recommend collections merely to recreate a Library filter or sort that already exists. In particular, an Audiobooks/eBooks/PDFs collection is normally redundant because format filtering is built in.
+        - Creating or restructuring collections is not the same capability as assigning books to them. Never say you can move or reassign books between collections unless an available state-changing capability explicitly says it can change book collection membership.
+        - Notes and quotes belong to books and may be linked to existing concepts. The Second Brain is for relationships between notes and concepts; its review flow surfaces notes that are not yet linked.
+        - The current application context tells you what surface, book, passage and reading position Nostos already knows. Use it rather than asking the user to repeat known context.
+
+        Ground answers in the user's actual Nostos data:
+        - When the user asks about their books, collections, notes or concepts, or asks for advice based on what they currently have, use the relevant read capability before answering. Do not substitute generic library advice for data you can inspect.
+        - For a whole-library organization or recommendation question, prefer library_overview: it is complete and compact, and avoids reasoning from only the first page of books.
+        - When the user asks what you can do, answer only from the Available abilities supplied below. Distinguish read-only inspection, immediate capture, and changes that require approval. Do not generalize beyond the registered capabilities.
 
         Never invent a source location. When a capture has no location, the tool layer asks the user for a page or timestamp; do not guess one.
 

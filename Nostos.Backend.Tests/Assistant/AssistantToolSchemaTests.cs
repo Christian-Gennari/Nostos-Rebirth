@@ -61,8 +61,10 @@ public sealed class AssistantToolSchemaTests : IClassFixture<SqliteTestFixture>
                 ["page"] = "integer",
                 ["pageSize"] = "integer",
                 ["collectionId"] = "string",
+                ["format"] = "string",
             },
             Required: []),
+        ["library_overview"] = new(Properties: new(), Required: []),
         ["notes_list_for_book"] = new(
             Properties: new() { ["bookId"] = "string" },
             Required: ["bookId"]),
@@ -169,6 +171,10 @@ public sealed class AssistantToolSchemaTests : IClassFixture<SqliteTestFixture>
         properties.GetProperty("sort").GetProperty("enum").EnumerateArray()
             .Select(e => e.GetString())
             .Should().Equal(Enum.GetNames<BookSort>());
+
+        properties.GetProperty("format").GetProperty("enum").EnumerateArray()
+            .Select(e => e.GetString())
+            .Should().Equal("audiobook", "ebook", "pdf");
     }
 
     [Fact]

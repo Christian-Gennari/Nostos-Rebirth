@@ -81,8 +81,9 @@ public static class AssistantCapabilities
                 "filter": { "type": "string", "enum": ["All", "Favorites", "Finished", "Reading", "Unsorted", "NotStarted"], "description": "Restrict the list to one shelf. Defaults to All." },
                 "sort": { "type": "string", "enum": ["Recent", "Title", "Rating", "LastRead"], "description": "How to order the results. Defaults to Recent." },
                 "page": { "type": "integer", "description": "The 1-based page of results to return. Defaults to 1." },
-                "pageSize": { "type": "integer", "description": "How many books to return per page. Defaults to 20." },
-                "collectionId": { "type": "string", "format": "uuid", "description": "Limit the list to one collection by its id. Omit it for the whole library." }
+                "pageSize": { "type": "integer", "description": "How many books to return per page. Defaults to 20; the service clamps it to 100." },
+                "collectionId": { "type": "string", "format": "uuid", "description": "Limit the list to one collection by its id. Omit it for the whole library." },
+                "format": { "type": "string", "enum": ["audiobook", "ebook", "pdf"], "description": "Use the Library's built-in format filter. Omit it for all formats." }
               },
               "required": [],
               "additionalProperties": true
@@ -97,9 +98,78 @@ public static class AssistantCapabilities
                     page: Num(args, "page") ?? 1,
                     pageSize: Num(args, "pageSize") ?? 20,
                     collectionId: Id(args, "collectionId"),
+                    format: Str(args, "format"),
                     ct: ct);
 
                 return LibraryResult(result);
+            }),
+
+        new AssistantCapability(
+            "library_overview",
+            AssistantTrustClass.Suggest,
+            "Returns a compact, complete overview of the user's books and collections for whole-library organization, recommendation, or structure questions. Prefer this over generic advice when the user asks about their library as a whole.",
+            """
+            {
+              "type": "object",
+              "properties": {},
+              "required": [],
+              "additionalProperties": true
+            }
+            """,
+            async (context, args, ct) =>
+            {
+                const int pageSize = 100;
+                var page = 1;
+                var totalCount = 0;
+                var books = new List<object>();
+
+                while (true)
+                {
+                    var result = await library.ListBooksAsync(
+                        filter: BookFilter.All,
+                        sort: BookSort.Title,
+                        search: null,
+                        page: page,
+                        pageSize: pageSize,
+                        collectionId: null,
+                        ct: ct);
+
+                    if (result.Data is not PaginatedResponse<BookDto> batch)
+                    {
+                        return AssistantToolResult.Fail(
+                            AssistantErrorCodes.NotFound,
+                            "The library overview could not read the book list.");
+                    }
+
+                    var items = batch.Items.ToList();
+                    totalCount = batch.TotalCount;
+                    books.AddRange(items.Select(book => (object)new
+                    {
+                        book.Id,
+                        book.Title,
+                        book.Author,
+                        book.Type,
+                        book.CollectionIds,
+                    }));
+
+                    if (books.Count >= totalCount || items.Count == 0)
+                    {
+                        break;
+                    }
+
+                    page++;
+                }
+
+                var collections = await library.ListCollectionsAsync(ct);
+                var counts = await library.GetStatusCountsAsync(ct);
+
+                return AssistantToolResult.Ok(Element(new
+                {
+                    totalBooks = totalCount,
+                    books,
+                    collections = collections.Data,
+                    statusAndFormatCounts = counts.Data,
+                }));
             }),
 
         new AssistantCapability(
