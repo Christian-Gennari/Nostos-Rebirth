@@ -67,3 +67,22 @@ public record NoteSearchPageDto(
     int Offset,
     int Limit
 );
+
+/// <summary>
+/// Body of <c>POST /api/notes/{id}/reprocess</c> (issue #262 §7, §8): re-derive
+/// the stored text from the note's raw transcript in this mode. The raw
+/// transcript is always the source, never the current (possibly processed) text.
+/// </summary>
+public record ReprocessNoteDto(string ProcessingMode);
+
+/// <summary>
+/// The raw transcript of one note alongside the text and mode it currently
+/// reflects (issue #262 §8). This is what makes the original capture retrievable
+/// after any mode processed it, and what the restore route reads from.
+/// </summary>
+public record NoteRawTranscriptDto(
+    Guid Id,
+    string? RawContent,
+    string Content,
+    string ProcessingMode
+);

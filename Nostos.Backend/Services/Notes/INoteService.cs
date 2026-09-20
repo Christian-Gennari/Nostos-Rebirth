@@ -31,4 +31,28 @@ public interface INoteService
 
     Task<NoteCommandResult<NoteDto>> LinkToExistingConceptAsync(Guid noteId, Guid conceptId, CancellationToken ct = default);
     Task<NoteReviewDto?> GetForReviewAsync(Guid noteId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Re-derives the note's text in <paramref name="processingMode"/> from the
+    /// ORIGINAL raw transcript — never from already-processed prose — and returns
+    /// the updated note (issue #262 §7, §8). The raw transcript is preserved.
+    /// </summary>
+    Task<NoteCommandResult<NoteDto>> ReprocessAsync(
+        Guid noteId, string processingMode, CancellationToken ct = default);
+
+    /// <summary>
+    /// The raw transcript of one note and the mode its text currently reflects
+    /// (issue #262 §8), so the original capture stays readable after any mode
+    /// processed it.
+    /// </summary>
+    Task<NoteCommandResult<NoteRawTranscriptDto>> GetRawAsync(
+        Guid noteId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Restores the note's text from its raw transcript and records the mode as
+    /// <c>verbatim</c> (issue #262 §8). Never invents a transcript: a note that
+    /// kept none is a typed refusal.
+    /// </summary>
+    Task<NoteCommandResult<NoteDto>> RestoreRawAsync(
+        Guid noteId, CancellationToken ct = default);
 }

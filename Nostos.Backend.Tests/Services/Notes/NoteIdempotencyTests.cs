@@ -3,13 +3,16 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Nostos.Backend.Configuration;
 using Nostos.Backend.Data;
 using Nostos.Backend.Data.Models;
 using Nostos.Backend.Data.Repositories;
 using Nostos.Backend.Services;
+using Nostos.Backend.Services.Ai;
 using Nostos.Backend.Services.Library;
 using Nostos.Backend.Services.Notes;
+using Nostos.Backend.Tests.Services.Ai;
 using Nostos.Backend.Tests.Support;
 using Nostos.Shared.Dtos;
 using Xunit;
@@ -355,7 +358,9 @@ public sealed class NoteIdempotencyTests : IClassFixture<SqliteTestFixture>
             new BookRepository(db),
             concepts,
             new NoteProcessorService(concepts),
-            db);
+            new FakeThoughtProcessor(),
+            db,
+            NullLogger<NoteService>.Instance);
         return new Harness(db, service);
     }
 

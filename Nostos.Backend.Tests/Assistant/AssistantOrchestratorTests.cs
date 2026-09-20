@@ -549,7 +549,9 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
             new BookRepository(db),
             concepts,
             new NoteProcessorService(concepts),
-            db);
+            new FakeThoughtProcessor(),
+            db,
+            NullLogger<NoteService>.Instance);
 
         var libraryService = new LibraryService(
             factory,

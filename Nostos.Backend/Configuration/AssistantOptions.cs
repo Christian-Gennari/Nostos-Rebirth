@@ -40,6 +40,14 @@ public sealed class AssistantOptions
     public string ApiKeyEnvironmentVariable { get; set; } = "NOSTOS_ASSISTANT_TOKEN";
 
     /// <summary>
+    /// The post-processing mode applied to a capture that does not name one
+    /// (issue #262 §7). It MUST stay <c>verbatim</c>: the whole point of the
+    /// modes is that the raw words are the default, and any rewrite is an
+    /// explicit choice the user makes per capture.
+    /// </summary>
+    public string DefaultProcessingMode { get; set; } = "verbatim";
+
+    /// <summary>
     /// Hard ceiling on LLM round trips in one turn. A model that keeps asking for
     /// tools is cut off rather than looping forever.
     /// </summary>

@@ -100,6 +100,7 @@ public sealed class AssistantOrchestrator(
         AssistantAnchorPromptDto? anchorPrompt = null;
         string? acknowledgement = null;
         string? finalContent = null;
+        string? capturedNoteId = null;
 
         var iterations = Math.Max(1, options.MaxToolIterations);
         for (var iteration = 0; iteration < iterations; iteration++)
@@ -172,7 +173,12 @@ public sealed class AssistantOrchestrator(
                         continue;
                     }
 
-                    args = BuildCaptureArgs(call.ArgumentsJson, request.Context, decision, out quoteFidelity);
+                    args = BuildCaptureArgs(
+                        call.ArgumentsJson,
+                        request.Context,
+                        decision,
+                        request.ProcessingMode,
+                        out quoteFidelity);
                 }
                 else
                 {
@@ -192,6 +198,7 @@ public sealed class AssistantOrchestrator(
                     && string.Equals(capability.Name, CaptureCapability, StringComparison.Ordinal))
                 {
                     acknowledgement = BuildAcknowledgement(request.Context, quoteFidelity);
+                    capturedNoteId = ReadNoteId(result.Data);
                 }
             }
 
@@ -234,7 +241,8 @@ public sealed class AssistantOrchestrator(
             acknowledgement,
             anchorPrompt,
             suggestions,
-            pendingPlan);
+            pendingPlan,
+            capturedNoteId);
     }
 
     // ------------------------------------------------------------------
@@ -386,10 +394,11 @@ public sealed class AssistantOrchestrator(
     /// Decides where a capture is anchored, or asks. The model never supplies
     /// the anchor: it is derived from what the app actually knows.
     /// </summary>
-    private static JsonElement BuildCaptureArgs(
+    private JsonElement BuildCaptureArgs(
         string argumentsJson,
         AssistantContextDto? context,
         AnchorDecision decision,
+        string? requestedMode,
         out bool quoteFidelity)
     {
         quoteFidelity = false;
@@ -414,6 +423,15 @@ public sealed class AssistantOrchestrator(
         obj["sourceAnchorKind"] = decision.Kind;
         obj["sourceAnchorValue"] = decision.Value;
         obj["anchorVerified"] = decision.Verified;
+
+        // The composer's explicit choice wins; otherwise the model may name one;
+        // otherwise the configured default. The mode rides on the canonical
+        // `processingMode` argument the capability's reader already accepts, so
+        // the frozen capability signature does not change (issue #262 §7).
+        var modelMode = ReadString(obj, "processingMode");
+        obj["processingMode"] = !string.IsNullOrWhiteSpace(requestedMode)
+            ? requestedMode
+            : (!string.IsNullOrWhiteSpace(modelMode) ? modelMode : options.DefaultProcessingMode);
 
         if (string.Equals(decision.Kind, "epub_cfi", StringComparison.Ordinal)
             && !string.IsNullOrWhiteSpace(decision.Value))
@@ -664,6 +682,26 @@ public sealed class AssistantOrchestrator(
         obj.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : null;
+
+    /// <summary>
+    /// The id of the note a successful <c>notes_capture</c> produced, read from
+    /// the canonical result envelope. Null when the shape is not what we expect:
+    /// the surface then simply does not offer its raw-transcript affordance.
+    /// </summary>
+    private static string? ReadNoteId(JsonElement? data)
+    {
+        if (data is not { ValueKind: JsonValueKind.Object } element)
+        {
+            return null;
+        }
+
+        return element.TryGetProperty("value", out var value)
+            && value.ValueKind == JsonValueKind.Object
+            && value.TryGetProperty("id", out var id)
+            && id.ValueKind == JsonValueKind.String
+                ? id.GetString()
+                : null;
+    }
 
     private static int? ReadInt(JsonElement obj, string name) =>
         obj.TryGetProperty(name, out var value)
