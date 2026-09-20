@@ -1,6 +1,7 @@
 // src/app/reader/pdf-reader/pdf-reader.ts
 import {
   Component,
+  ElementRef,
   input,
   computed,
   inject,
@@ -27,6 +28,7 @@ import { DEFAULT_HIGHLIGHT_COLOUR, HighlightColour } from '../highlight-colours'
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
 import { ThemeService } from '../../core/services/theme.service';
+import { IconButtonComponent } from '../../ui/icon-button/icon-button.component';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 
 /**
@@ -59,7 +61,12 @@ interface PendingPdfHighlight {
 @Component({
   selector: 'app-pdf-reader',
   standalone: true,
-  imports: [NgxExtendedPdfViewerModule],
+  // The find bar's own pieces (`pdf-search-input-field`, `pdf-find-previous`,
+  // `pdf-find-next`) come in with the module: the library declares them inside
+  // `NgxExtendedPdfViewerModule` and they are NOT standalone, so they cannot be
+  // listed here directly. The module exports all three, which is what makes them
+  // usable in this template.
+  imports: [NgxExtendedPdfViewerModule, IconButtonComponent],
   templateUrl: './pdf-reader.component.html',
   styleUrl: './pdf-reader.component.css',
 })
@@ -68,6 +75,12 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   private notesService = inject(NotesService);
   private booksService = inject(BooksService);
   private themeService = inject(ThemeService);
+  /**
+   * This component's own host element. The library renders the find bar inside
+   * it, so a query scoped here reaches the fields we need to focus without
+   * touching the rest of the document.
+   */
+  private host = inject(ElementRef<HTMLElement>);
 
   // --- Theme-following surround (issue #259) ---
 
@@ -140,12 +153,48 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   findBarVisible = signal(false);
 
   /**
-   * Open the find bar. Called by the shell's header control, so search is
-   * reachable by touch — a keyboard shortcut alone left it undiscoverable on a
-   * phone (issue #226 §2/§9). The Ctrl/Cmd+F handler calls the same method.
+   * Open the find bar and put the caret in the field. Called by the shell's
+   * header control, so search is reachable by touch — a keyboard shortcut alone
+   * left it undiscoverable on a phone (issue #226 §2/§9). The Ctrl/Cmd+F handler
+   * calls the same method.
    */
   openSearch(): void {
     this.findBarVisible.set(true);
+    this.focusFindInput();
+  }
+
+  /**
+   * Close the bar. The library's own find bar renders no close control at all —
+   * its only buttons are prev/next — so dismissal has to come from us: our own
+   * control inside the bar and the header toggle below.
+   */
+  closeSearch(): void {
+    this.findBarVisible.set(false);
+  }
+
+  /**
+   * Toggle, so the header control that OPENED the bar also closes it. Pressing it
+   * again used to be a no-op, which left Escape as the only way out of a bar with
+   * no visible close (a #226 follow-up).
+   */
+  toggleSearch(): void {
+    if (this.findBarVisible()) this.closeSearch();
+    else this.openSearch();
+  }
+
+  /**
+   * Focus the find field. The bar is rendered by the library, so it reaches the
+   * DOM one change-detection pass after `findBarVisible` flips — a single
+   * synchronous query can run before the element exists, so retry briefly
+   * instead of assuming one frame is enough.
+   */
+  private focusFindInput(attempt = 0): void {
+    const input: HTMLInputElement | null = this.host.nativeElement.querySelector('#findInput');
+    if (input) {
+      input.focus();
+      return;
+    }
+    if (attempt < 6) setTimeout(() => this.focusFindInput(attempt + 1), 30);
   }
 
   /**

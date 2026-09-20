@@ -451,23 +451,72 @@
   min-height: 44px;
 }
 
+/* --- Page indicator (a #226 follow-up) -------------------------------------------
+   The pager shows "12 / 162" with the number editable. It was TWO nested boxes:
+   a filled grey pill wrapping the field, and the field carrying its own border.
+   Measured on the scanline through the control's middle — pill #EEEEEF
+   x650..789, inner field border #C7C6CB x681..720.5. Now there is ONE box: the
+   field owns the hairline and the pill is gone (#E5E7EB x679..760), so the only
+   bordered shape in the bar is the thing you can type into.
+
+   The hairline stays visible at rest. It IS the affordance: revealing it on
+   hover would hide it on every phone, and touch has no hover to reveal it with.
+
+   `.pager` scopes all of this to the page indicator. The same
+   `.progress-display` is also the EPUB/audio progress capsule, and those keep
+   their pill — one class, three formats. */
+.progress-display.pager {
+  background: transparent;
+  border: 0;
+  padding: 0 2px;
+  gap: 10px;
+}
+
 .page-navigation {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 0.9rem;
+  gap: 2px;
+  height: 32px;
+  padding: 0 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
 }
 
 .page-input {
-  width: 3ch; /* Auto-width based on characters */
-  min-width: 40px;
+  /* `font: inherit` is load-bearing: an <input> does not inherit the page's
+     type, so this field rendered at the browser's 13.33px in the system font
+     while the "/ 162" beside it was Hanken Grotesk — the two halves of one
+     control in two different typefaces. */
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  width: 4ch;
+  min-width: 0;
+  height: 26px;
+  padding: 0 2px;
   text-align: center;
-  border: 1px solid var(--color-text-faint);
-  border-radius: var(--radius-sm);
-  padding: 2px 4px;
+  color: var(--color-text-main);
   background: transparent;
-  color: inherit;
-  font-weight: var(--fw-medium);
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+
+.page-input:hover {
+  background: var(--bg-hover);
+}
+
+.page-input:focus {
+  outline: none;
+  background: var(--bg-body);
+  box-shadow: inset 0 0 0 1px var(--border-focus);
+}
+
+.total-pages {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Remove spinner arrows from number input */
@@ -674,21 +723,46 @@
   }
 }
 
-/* The highlighter pens (issue #208). A row of fills, not a colour picker: the
-   point is to see the pen, and four dots read faster than four words. */
+/* The highlighter pens (issue #208), aligned as a #226 follow-up. A row of fills, not a
+   colour picker: the point is to see the pen, and four dots read faster than
+   four words.
+
+   The row carried `padding: 10px 2px 2px` and no horizontal margin, so the dots
+   sat 4px from the panel's edge — measured x=1064..1154 in a drawer spanning
+   1060..1440 — while the toggle directly above them was inset 20px (x=1081), as
+   was the heading. The whole row hung 16px to the left of everything else in the
+   panel, which is the "layout looks really odd" report. 20px matches the rhythm.
+
+   No visible label: the row sits directly under a control that says "Highlight
+   text", so a caption would be the fourth word about the same thing.
+
+   TOUCH: the dot stays 22px and gets an invisible hit area from ::before. The
+   inset is -11px vertically (44px target) but only -6px horizontally (34px),
+   because the dots are on a 34px pitch: a 44px-wide box would OVERLAP its
+   neighbour's and send the tap to the wrong pen. 34x44 clears the 24px WCAG 2.2
+   minimum with room to spare; a full 44x44 needs a 22px gap, which changes the
+   row's visual weight. */
 .hl-pens {
   display: flex;
-  gap: 8px;
-  padding: 10px 2px 2px;
+  gap: 12px;
+  padding: 0;
+  margin: 12px 20px 0;
 }
 
 .hl-pen {
+  position: relative;
   width: 22px;
   height: 22px;
   padding: 0;
   border: 1px solid var(--border-color);
   border-radius: 50%;
   cursor: pointer;
+}
+
+.hl-pen::before {
+  content: '';
+  position: absolute;
+  inset: -11px -6px;
 }
 
 .hl-pen.is-active {

@@ -9,9 +9,36 @@
          Before this, Ctrl+F did nothing at all and there was no other search
          path anywhere in the PDF reader (issue #226 §2). The bar is the library's
          own component; the styles below pull it into the house tokens.
-         Three pdf.js options are hidden on purpose — "Match Diacritics", "Whole
+
+         The input area is RE-DECLARED here (a #226 follow-up) for one reason: the
+         library's find bar renders no close control — its only buttons are
+         prev/next — so with the bar open there was no visible way to dismiss it.
+         `customFindbarInputArea` is a public input and every component below is
+         exported from the library's public_api, so this is supported surface, not
+         markup injected into someone else's DOM. The default template renders
+         exactly these three components inside this exact `#findbarInputContainer`
+         id, so prev/next keep the wiring pdf.js looks up by id.
+
+         Three pdf.js options stay hidden on purpose — "Match Diacritics", "Whole
          words" and "Multiple words" are engine jargon in a reading interface;
          highlight-all and match-case stay. -->
+    <ng-template #findInputArea>
+      <div id="findbarInputContainer">
+        <pdf-search-input-field></pdf-search-input-field>
+        <pdf-find-previous></pdf-find-previous>
+        <pdf-find-next></pdf-find-next>
+        <button
+          appIconButton
+          type="button"
+          icon="x"
+          [glyphSize]="18"
+          (click)="closeSearch()"
+          title="Close (Esc)"
+          aria-label="Close search"
+        ></button>
+      </div>
+    </ng-template>
+
     <ngx-extended-pdf-viewer
       [src]="pdfSrc()"
       [height]="'100%'"
@@ -37,6 +64,7 @@
       [showSidebarButton]="false"
       [showFindButton]="false"
       [findbarVisible]="findBarVisible()"
+      [customFindbarInputArea]="findInputArea"
       (findbarVisibleChange)="findBarVisible.set($event)"
       [showFindHighlightAll]="true"
       [showFindMatchCase]="true"

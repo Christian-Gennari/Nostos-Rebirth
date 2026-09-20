@@ -5,6 +5,13 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
+// @ts-expect-error — no @types/node in this repo; vitest resolves node:fs at
+// runtime. Used only for static source guards (the shell stylesheet).
+import { readFileSync } from 'node:fs';
+
+/** Read one of this component's own source files for a static guard. */
+const readSource = (file: string) => readFileSync(new URL(file, import.meta.url), 'utf-8');
+
 import { ReaderShell } from './reader-shell.component';
 import {
   DEFAULT_HIGHLIGHT_COLOUR,
@@ -52,6 +59,29 @@ class PdfReaderStub {
   noteCreated = output<void>();
   selectionCaptured = output<unknown>();
   commitFailed = output<unknown>();
+  /**
+   * Search visibility (a #226 follow-up). The header control reads it to show its state
+   * and to act as a close, because the library's find bar renders no close control
+   * of its own.
+   */
+  findBarVisible = signal(false);
+  toggleSearch = () => this.findBarVisible.update((v) => !v);
+  /**
+   * The IReader surface the shell needs to render the pager for a PDF. Without
+   * these the shell's `activeReader()?.progress()` path could not be exercised by
+   * a spec at all.
+   */
+  toc = signal<unknown[]>([]);
+  progress = signal<{
+    label?: string;
+    pageNumber?: number;
+    pageCount?: number;
+    percentage: number;
+  }>({ label: '', percentage: 0 });
+  currentLocationTarget = signal<unknown>(null);
+  goTo = vi.fn();
+  next = vi.fn();
+  previous = vi.fn();
 }
 
 @Component({ selector: 'app-epub-reader', standalone: true, template: '' })
@@ -422,9 +452,117 @@ describe('ReaderShell toolbar contract (theme system removed)', () => {
     expect(searchBtn).toBeTruthy();
     expect(searchBtn!.getAttribute('aria-label')).toBe('Search in document');
 
-    const spy = vi.spyOn(fixture.componentInstance, 'openSearch');
+    const spy = vi.spyOn(fixture.componentInstance, 'toggleSearch');
     searchBtn!.click();
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * A #226 follow-up. The library's find bar renders no close control — its only
+   * buttons are prev/next — so the header control has to be the way out as well
+   * as the way in: pressing it again used to do nothing at all.
+   */
+  it('shows the search control’s state and closes the bar when pressed again', async () => {
+    const pdfBook = { ...audiobook, id: 'book-pdf', fileName: 'being-and-time.pdf' } as Book;
+    booksGetSpy.mockReturnValue(of(pdfBook));
+    fixture = await configureReaderShell();
+    render();
+
+    // `@ViewChild(PdfReader)` is a TYPE query, so the stub does not resolve into
+    // it — deliberate, and why these specs stay light. Attach it by hand: the
+    // binding under test is the shell's, and it reads the reader's signal.
+    const stub = fixture.debugElement.query(By.directive(PdfReaderStub))
+      .componentInstance as PdfReaderStub;
+    (fixture.componentInstance as unknown as { pdfReader: PdfReaderStub }).pdfReader = stub;
+    const searchBtn = fixture.debugElement
+      .queryAll(By.css('.reader-header button.icon-btn'))
+      .map((b) => b.nativeElement as HTMLButtonElement)
+      .find((b) => b.getAttribute('title') === 'Search')!;
+
+    expect(searchBtn.getAttribute('aria-expanded')).toBe('false');
+    expect(searchBtn.classList.contains('active')).toBe(false);
+
+    searchBtn.click();
+    render();
+    expect(stub.findBarVisible()).toBe(true);
+    expect(searchBtn.getAttribute('aria-expanded')).toBe('true');
+    expect(searchBtn.classList.contains('active')).toBe(true);
+
+    searchBtn.click();
+    render();
+    expect(stub.findBarVisible()).toBe(false);
+    expect(searchBtn.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  /**
+   * A #226 follow-up. The page indicator is one box, not two, and the field behaves
+   * like a jump box: Enter commits, leaving without Enter reverts.
+   */
+  it('commits a page jump on Enter and reverts the field on blur', async () => {
+    const pdfBook = { ...audiobook, id: 'book-pdf-pager', fileName: 'being-and-time.pdf' } as Book;
+    booksGetSpy.mockReturnValue(of(pdfBook));
+    fixture = await configureReaderShell();
+    render();
+
+    const stub = fixture.debugElement.query(By.directive(PdfReaderStub))
+      .componentInstance as PdfReaderStub;
+    (fixture.componentInstance as unknown as { pdfReader: PdfReaderStub }).pdfReader = stub;
+    // `ready` gates `activeReader()`, and it is set by a 100ms timer after the
+    // book loads — the binding under test is the pager's, not the load timing.
+    fixture.componentInstance.ready.set(true);
+    stub.progress.set({ label: '', pageNumber: 12, pageCount: 162, percentage: 7 });
+    render();
+
+    const input = fixture.nativeElement.querySelector('.page-input') as HTMLInputElement;
+    expect(input).not.toBeNull();
+    expect(input.value).toBe('12');
+    expect(fixture.nativeElement.querySelector('.total-pages').textContent).toContain('162');
+
+    // Abandoned edit: focus leaves without Enter, so the box must not keep a page
+    // the reader never went to (and must not navigate).
+    input.value = '999';
+    input.dispatchEvent(new Event('blur'));
+    expect(input.value).toBe('12');
+    expect(stub.goTo).not.toHaveBeenCalled();
+
+    // Enter is the commit.
+    input.value = '40';
+    input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter' }));
+    expect(stub.goTo).toHaveBeenCalledWith(40);
+  });
+
+  it('keeps the page indicator to a single bordered field', () => {
+    // The control used to nest two boxes: a filled grey pill around a field that
+    // carried its own border (measured live — pill #EEEEEF x650..789 with a
+    // #C7C6CB border at x681..720.5 inside it). `.pager` drops the pill, and the
+    // field keeps a VISIBLE hairline because hover does not exist on a phone.
+    const css = readSource('./reader-shell.component.css');
+
+    expect(css).toContain('.progress-display.pager');
+    expect(css).toContain('background: transparent');
+    expect(css).toContain('border: 1px solid var(--border-color)');
+    // One typeface for the whole control: an <input> does not inherit the page's
+    // type, so without `font: inherit` the number rendered in the system font
+    // beside a Hanken Grotesk "/ 162".
+    const inputRule = css.slice(css.indexOf('.page-input {'), css.indexOf('.page-input:hover'));
+    expect(inputRule).toContain('font: inherit');
+    expect(inputRule).not.toContain('border: 1px solid');
+  });
+
+  it('aligns the highlighter pens with the panel they live in', () => {
+    // The dots sat 4px from the drawer's edge (measured x=1064..1154 in a panel
+    // spanning 1060..1440) while the control directly above them was inset 20px:
+    // the whole row hung 16px to the left of everything else (a #226 follow-up).
+    const css = readSource('./reader-shell.component.css');
+    const pensRule = css.slice(css.indexOf('.hl-pens {'), css.indexOf('.hl-pen {'));
+
+    expect(pensRule).toContain('margin: 12px 20px 0');
+    expect(pensRule).not.toContain('padding: 10px 2px 2px');
+    // The paint stays 22px; the touch target is an invisible ::before, and it is
+    // narrower than it is tall so two neighbours' hit boxes cannot overlap on a
+    // 34px pitch and send the tap to the wrong pen.
+    expect(css).toContain('.hl-pen::before');
+    expect(css).toContain('inset: -11px -6px');
   });
 
   it('offers no search control to a format that has no search', async () => {
