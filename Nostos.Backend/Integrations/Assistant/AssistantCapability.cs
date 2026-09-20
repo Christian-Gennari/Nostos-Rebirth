@@ -53,6 +53,7 @@ public static class AssistantErrorCodes
     public const string ApprovalPlanMismatch = "assistant_approval_plan_mismatch";
     public const string InvalidArguments = "assistant_invalid_arguments";
     public const string NotFound = "assistant_not_found";
+    public const string InvalidProcessingMode = "invalid_processing_mode";
 }
 
 /// <summary>
@@ -60,8 +61,20 @@ public static class AssistantErrorCodes
 /// it can do is exactly the set returned by
 /// <see cref="AssistantCapabilities.Build"/>; there is no dynamic discovery.
 /// </summary>
+/// <param name="Name">The wire name the model calls.</param>
+/// <param name="Trust">The enforcement class; the registry refuses a PlanAndAct call without a matching approval.</param>
+/// <param name="Summary">The tool description the model reads.</param>
+/// <param name="ParametersJsonSchema">
+/// The JSON Schema advertised for this capability's arguments. It is
+/// documentation, not enforcement: <c>additionalProperties</c> stays true and the
+/// canonical readers accept the camelCase request field names they always have.
+/// The declared property names must match the names this capability's reader
+/// actually consumes, or the model is told about an argument nothing reads.
+/// </param>
+/// <param name="Execute">The canonical-service delegate.</param>
 public sealed record AssistantCapability(
     string Name,
     AssistantTrustClass Trust,
     string Summary,
+    string ParametersJsonSchema,
     Func<AssistantToolContext, JsonElement, CancellationToken, Task<AssistantToolResult>> Execute);

@@ -31,6 +31,7 @@ public sealed class AssistantOrchestrator(
     AssistantCapabilityRegistry registry,
     ILlmProvider llm,
     AssistantPlanStore plans,
+    IAssistantSettingsService settings,
     AssistantOptions options,
     ILogger<AssistantOrchestrator> logger)
 {
@@ -75,13 +76,16 @@ public sealed class AssistantOrchestrator(
     public const string QuoteFidelityNote =
         "Quoted by hand; punctuation and wording may differ from the source.";
 
-    private const string CaptureCapability = "notes_capture";
+    /// <summary>
+    /// The one-line reply when a turn ends with no assistant content at all —
+    /// the measured "exhausted the tool loop and returned nothing" case. It is
+    /// deliberately not an apology and never claims the request succeeded. It is
+    /// "that", not "what you asked": roughly half of these turns are captures,
+    /// where the user asked nothing and simply gave the assistant something.
+    /// </summary>
+    public const string IncompleteTurnReply = "I could not finish that.";
 
-    // The registry already accepts canonical camelCase request field names, so
-    // the schema is intentionally open rather than a second, drift-prone
-    // argument vocabulary.
-    private const string OpenParametersSchema =
-        """{"type":"object","properties":{},"additionalProperties":true}""";
+    private const string CaptureCapability = "notes_capture";
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -111,6 +115,12 @@ public sealed class AssistantOrchestrator(
         var messages = BuildConversation(request);
         var tools = BuildTools();
 
+        // The capture post-processing mode is the owner's stored setting, resolved
+        // once per turn (issue #262 §7). It is deliberately not read from the
+        // request or from the tool call: the owner chose it once, and a
+        // per-capture mode would make that choice meaningless.
+        var captureProcessingMode = await settings.GetCaptureProcessingModeAsync(ct);
+
         var toolContext = new AssistantToolContext(
             ClientId: request.ClientId,
             IdempotencyKey: request.IdempotencyKey,
@@ -121,6 +131,7 @@ public sealed class AssistantOrchestrator(
         AssistantAnchorPromptDto? anchorPrompt = null;
         string? acknowledgement = null;
         string? finalContent = null;
+        string? lastAssistantContent = null;
         string? capturedNoteId = null;
 
         var iterations = Math.Max(1, options.MaxToolIterations);
@@ -131,6 +142,10 @@ public sealed class AssistantOrchestrator(
                 ct);
 
             finalContent = completion.Content;
+            if (!string.IsNullOrWhiteSpace(completion.Content))
+            {
+                lastAssistantContent = completion.Content;
+            }
 
             if (completion.ToolCalls.Count == 0)
             {
@@ -198,7 +213,7 @@ public sealed class AssistantOrchestrator(
                         call.ArgumentsJson,
                         request.Context,
                         decision,
-                        request.ProcessingMode,
+                        captureProcessingMode,
                         out quoteFidelity);
                 }
                 else
@@ -244,11 +259,19 @@ public sealed class AssistantOrchestrator(
             pendingPlan = ToPendingPlanDto(stored);
         }
 
-        var reply = finalContent?.Trim();
-        if (string.IsNullOrWhiteSpace(reply))
+        // Prefer the last non-empty assistant content from anywhere in the loop:
+        // a model that narrated a tool call and then ran out of iterations still
+        // said something. Only when it said nothing at all does the turn report
+        // that it could not finish, rather than returning an empty reply — and
+        // NOT when a capture succeeded, because that turn already has its own
+        // confirmation, built from what the app actually did. Without this
+        // exception the transcript would read "Saved to X." followed by "I could
+        // not finish that."
+        var reply = lastAssistantContent?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(reply) && acknowledgement is null)
         {
             reply = anchorPrompt?.Question
-                ?? (pendingPlan is not null ? "I've prepared a plan for your approval." : string.Empty);
+                ?? (pendingPlan is not null ? "I've prepared a plan for your approval." : IncompleteTurnReply);
         }
 
         // The conversational reply is the only text the guard may rewrite. Note
@@ -377,6 +400,20 @@ public sealed class AssistantOrchestrator(
                 + "Never create a concept to satisfy a suggestion, and never link a note without the user choosing."));
         }
 
+        // A selection is named for the same reason, and only when there is one:
+        // measured twice, the model answered "Save this passage." and asked the
+        // user to supply a passage that was already in the context, and asking
+        // for the text the app already holds is exactly the friction this
+        // feature exists to remove.
+        if (!string.IsNullOrWhiteSpace(request.Context?.SelectedText))
+        {
+            messages.Add(LlmMessage.System(
+                "A passage is selected in the reader right now: it is the 'selectedText' value in the context above. "
+                + "When the user says to save, keep, note or record a passage, a quote or a highlight, that selection "
+                + "is the passage — capture it as selectedText in that same turn, and do not ask them for text the app "
+                + "already has."));
+        }
+
         if (!string.IsNullOrWhiteSpace(request.PendingPlanId))
         {
             messages.Add(LlmMessage.System(
@@ -466,7 +503,7 @@ public sealed class AssistantOrchestrator(
             .Select(capability => new LlmToolDefinition(
                 capability.Name,
                 capability.Summary,
-                OpenParametersSchema))
+                capability.ParametersJsonSchema))
             .ToList();
 
     /// <summary>
@@ -485,7 +522,21 @@ public sealed class AssistantOrchestrator(
         - State-changing tools never run during a turn. Calling one records a plan step. Tell the user what the plan will do and wait for explicit approval; never claim the change has happened.
         - Never claim an action succeeded unless a tool result says it did.
 
-        An explicitly named book, note, or concept in the user's message beats the ambient context. If a target is ambiguous or matches only weakly, ask one short clarifying question instead of guessing.
+        A capture is the user giving you something of their own to keep: a thought, an observation, a reaction, a question they are sitting with, or a passage they want recorded. Ask yourself whether the user is TELLING you something of theirs or ASKING you something. Telling you is a capture: save it with notes_capture in that same turn, whether they say "save this", "note that", "capturing a thought" or "I just had a thought I wanted to write down", or simply tell you the thought. Asking — about the library, or for something to be found, read, explained, summarised or compared — is not a capture: answer it and capture nothing. Answering a capture instead of saving it loses the user's words, so when a message does both, save the part that is theirs and answer the rest.
+
+        The thought you were given is not a topic to discuss. Do not comment on it, evaluate it, agree with it, develop it or improve it.
+
+        Capture the user's own words exactly as they arrived: `content` is the user's message itself, with only the instruction removed. "I keep coming back to the idea that attention is the real scarce resource, not time" is captured exactly like that — not shortened to "attention is the real scarce resource, not time". Never paraphrase, shorten, translate, correct, tidy or add to them, and never keep only the part you judge to be the essential one: the preamble is theirs too. How the words are rendered is decided by a setting, not by you.
+
+        A passage the reader has selected is already in the context. When the user says to save, keep, note or record a passage, a quote, a highlight, "this" or "this passage", that selection is what they mean: capture it as selectedText in that same turn. Do not ask them to supply the text, and do not ask which passage they mean — asking is the failure here, because the app already has it.
+
+        The book that is open is the book: the capture goes there, and you never choose a book yourself or override the open one. If no book is open and the user did not name one, ask which book it belongs to — one short question — and do not save until the answer is known. Use the library read tools only to resolve a book the user actually named, never to pick a likely one. Never invent a page, position or timestamp: the capture tool asks for those itself when they cannot be known.
+
+        A capture is saved only when the notes_capture result says it succeeded. If it fails, say in one line what failed. The words "saved" may only follow a successful notes_capture result, and the app confirms a capture itself — including where it went — so keep your own reply to one short line and never restate the book, page or note, or name one that a tool result did not give you.
+
+        Do not answer a thought with what you found. A thought that resembles notes you already have is still a new capture: save it, and do not reply with a list of those notes.
+
+        An explicitly named note or concept in the user's message beats the ambient context. If a target is ambiguous or matches only weakly, ask one short clarifying question instead of guessing.
 
         Never invent a source location. When a capture has no location, the tool layer asks the user for a page or timestamp; do not guess one.
 
@@ -506,16 +557,22 @@ public sealed class AssistantOrchestrator(
         string argumentsJson,
         AssistantContextDto? context,
         AnchorDecision decision,
-        string? requestedMode,
+        string mode,
         out bool quoteFidelity)
     {
         quoteFidelity = false;
 
         var obj = ParseObject(argumentsJson);
 
-        // The ambient book is the default; an explicit target in the tool call
-        // already overrides it.
-        if (!HasValue(obj, "bookId") && !string.IsNullOrWhiteSpace(context?.BookId))
+        // The book is the APP's, exactly like the anchor: when a book is open,
+        // that is where the capture goes, whatever the model proposed. Measured
+        // against the live gateway with Pride and Prejudice open: the model
+        // searched notes, found one about the same subject in another book, and
+        // filed the thought there — and because the acknowledgement is built
+        // from the ambient context, the confirmation then named a book the note
+        // was not filed against. Both were wrong, and neither was visible.
+        // An open book is a fact; a book the model went and found is a guess.
+        if (!string.IsNullOrWhiteSpace(context?.BookId))
         {
             obj["bookId"] = context!.BookId;
         }
@@ -532,14 +589,13 @@ public sealed class AssistantOrchestrator(
         obj["sourceAnchorValue"] = decision.Value;
         obj["anchorVerified"] = decision.Verified;
 
-        // The composer's explicit choice wins; otherwise the model may name one;
-        // otherwise the configured default. The mode rides on the canonical
-        // `processingMode` argument the capability's reader already accepts, so
-        // the frozen capability signature does not change (issue #262 §7).
-        var modelMode = ReadString(obj, "processingMode");
-        obj["processingMode"] = !string.IsNullOrWhiteSpace(requestedMode)
-            ? requestedMode
-            : (!string.IsNullOrWhiteSpace(modelMode) ? modelMode : options.DefaultProcessingMode);
+        // The stored setting is the ONLY source of the mode. Whatever
+        // `processingMode` the tool call carried is overwritten on purpose: the
+        // owner chose the mode once, so neither a per-capture request nor the
+        // model may change it. It rides on the canonical `processingMode`
+        // argument the capability's reader already accepts, so the frozen
+        // capability signature does not change (issue #262 §7).
+        obj["processingMode"] = mode;
 
         if (string.Equals(decision.Kind, "epub_cfi", StringComparison.Ordinal)
             && !string.IsNullOrWhiteSpace(decision.Value))

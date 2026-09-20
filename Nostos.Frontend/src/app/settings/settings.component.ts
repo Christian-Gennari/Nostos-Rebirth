@@ -17,6 +17,8 @@ import { OpdsInfo } from '../core/dtos/opds.dtos';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 import { LibraryPreferencesService } from '../core/services/library-preferences.service';
 import { AssistantStatusService } from '../ui/assistant/assistant-status.service';
+import { AssistantSettingsService } from '../ui/assistant/assistant-settings.service';
+import { PROCESSING_MODES, ProcessingMode } from '../ui/assistant/assistant.service';
 import { AiProviderService } from '../core/services/ai-provider.service';
 import {
   AiProviderKind,
@@ -68,6 +70,26 @@ const AI_PROVIDER_COPY = {
   connectionError: (message: string) => `Connection failed: ${message}`,
   keyCleared: 'Key removed. Falling back to environment variable if present.',
   oldCardEmptyState: 'Set up an AI provider in Settings to enable this.',
+  // Capture processing (issue #262): the stored, global choice that used to be a
+  // per-capture select in the widget. The description shown is the one belonging
+  // to the currently selected option, followed by `captureScope`.
+  //
+  // The three descriptions are not parallel by accident: only the third claims
+  // anything about the user's words, because only that one stops being them.
+  // `clarify` rewrites vocabulary and syntax, so calling its output "your words"
+  // would be a lie, and "one clear thought" would promise a quality the setting
+  // cannot guarantee.
+  captureLabel: 'Captured thoughts',
+  captureScope: 'Applies only to new notes. Existing notes are never rewritten.',
+  captureDescriptions: {
+    verbatim: 'Your words, exactly as you wrote or spoke them.',
+    light_polish: 'Your words with grammar and filler tidied, nothing added or dropped.',
+    clarify: 'Your thoughts consolidated into a single note, rephrased for coherence.',
+  } as Record<ProcessingMode, string>,
+  captureLoadFailed: 'Could not read this setting',
+  captureLoadFailedHelp:
+    'The server did not answer the request for how your captures are saved. Reload the page to try again.',
+  captureSaveFailed: 'Could not save this setting. Your previous choice is still in effect.',
   // The reviewed set covers the four card actions but not a failed GET/PUT or
   // the configured-key signals, so these keep their earlier wording.
   configured: 'Configured',
@@ -446,6 +468,41 @@ const defaultProgress: BackupProgress = {
               </label>
             }
           </div>
+
+          <!-- The stored capture-processing choice (issue #262). It applies to
+               the user's own words as they become a note; it is not gated on
+               availability and has no disabled state — that is the toggle's
+               business, this is a preference the server applies at capture. -->
+          @if (assistantSettingsFailed()) {
+            <div class="setting-row">
+              <div class="setting-label">
+                <span class="label-text">{{ copy.captureLoadFailed }}</span>
+                <span class="label-desc">{{ copy.captureLoadFailedHelp }}</span>
+              </div>
+            </div>
+          } @else {
+            <div class="setting-row">
+              <div class="setting-label">
+                <span class="label-text">{{ copy.captureLabel }}</span>
+                <span class="label-desc">{{ captureModeDescription() }} {{ copy.captureScope }}</span>
+                @if (assistantSettingsSaveFailed()) {
+                  <span class="label-desc">{{ copy.captureSaveFailed }}</span>
+                }
+              </div>
+              <select
+                class="select-sm"
+                data-testid="capture-processing-mode"
+                [attr.aria-label]="copy.captureLabel"
+                (change)="changeCaptureProcessingMode($event)"
+              >
+                @for (mode of processingModes; track mode.value) {
+                  <option [value]="mode.value" [selected]="mode.value === captureProcessingMode()">
+                    {{ mode.label }}
+                  </option>
+                }
+              </select>
+            </div>
+          }
         </div>
       </section>
 
@@ -819,6 +876,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
   private toast = inject(ToastService);
   private themeService = inject(ThemeService);
   private assistantStatus = inject(AssistantStatusService);
+  private assistantSettings = inject(AssistantSettingsService);
   private preferences = inject(LibraryPreferencesService);
   private aiProvider = inject(AiProviderService);
 
@@ -834,12 +892,35 @@ export class SettingsComponent implements OnInit, OnDestroy {
   /** The persisted user intent for the Reading assistant toggle. */
   readonly assistantEnabled = this.preferences.assistantEnabled;
 
+  /** The stored capture-processing choice, exposed to the Reading assistant card. */
+  readonly captureProcessingMode = this.assistantSettings.captureProcessingMode;
+
+  /** The three modes in presentation order, with the labels the select shows. */
+  readonly processingModes = PROCESSING_MODES;
+
+  /** True when the server did not answer the capture setting GET. */
+  readonly assistantSettingsFailed = this.assistantSettings.loadFailed;
+
+  /** True when the capture setting PUT failed; the previous choice stays in force. */
+  readonly assistantSettingsSaveFailed = this.assistantSettings.saveFailed;
+
+  /** The description of the selected option; the card appends the fixed scope note. */
+  readonly captureModeDescription = computed(
+    () => this.copy.captureDescriptions[this.captureProcessingMode()],
+  );
+
   setAssistantEnabled(event: Event): void {
     // The control is disabled while unavailable, so this is belt-and-braces:
     // never record intent the server cannot yet honour.
     if (!this.assistantAvailable()) return;
     const checked = (event.target as HTMLInputElement).checked;
     this.preferences.setAssistantEnabled(checked);
+  }
+
+  changeCaptureProcessingMode(event: Event): void {
+    this.assistantSettings.setCaptureProcessingMode(
+      (event.target as HTMLSelectElement).value as ProcessingMode,
+    );
   }
 
   setTheme(theme: Theme): void {
@@ -922,6 +1003,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.loadOpdsInfo();
     this.loadAiProvider();
     this.assistantStatus.refresh();
+    this.assistantSettings.refresh();
   }
 
   ngOnDestroy(): void {

@@ -42,6 +42,20 @@ public static class AssistantCapabilities
             "library_resolve_book",
             AssistantTrustClass.Suggest,
             "Finds a book by ISBN, ASIN, title, or author without changing the library.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "isbn": { "type": "string", "description": "The book's ISBN, when the user gave one. Leave it out when you do not know it." },
+                "asin": { "type": "string", "description": "The book's ASIN, when the user gave one. Leave it out when you do not know it." },
+                "title": { "type": "string", "description": "The book's title as the user said it. Use it to resolve the book by title." },
+                "author": { "type": "string", "description": "The book's author as the user said it. Combine it with a title to narrow the match." },
+                "includeExternalMetadata": { "type": "boolean", "description": "Set false to resolve only against the local library and skip external metadata lookups." }
+              },
+              "required": [],
+              "additionalProperties": true
+            }
+            """,
             async (context, args, ct) =>
             {
                 var request = new LibraryResolveBookRequest(
@@ -59,6 +73,21 @@ public static class AssistantCapabilities
             "library_list_books",
             AssistantTrustClass.Suggest,
             "Lists books with optional filter, sort, search, and collection restriction.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "search": { "type": "string", "description": "Words to match against book titles and authors. Omit it to list everything." },
+                "filter": { "type": "string", "enum": ["All", "Favorites", "Finished", "Reading", "Unsorted", "NotStarted"], "description": "Restrict the list to one shelf. Defaults to All." },
+                "sort": { "type": "string", "enum": ["Recent", "Title", "Rating", "LastRead"], "description": "How to order the results. Defaults to Recent." },
+                "page": { "type": "integer", "description": "The 1-based page of results to return. Defaults to 1." },
+                "pageSize": { "type": "integer", "description": "How many books to return per page. Defaults to 20." },
+                "collectionId": { "type": "string", "format": "uuid", "description": "Limit the list to one collection by its id. Omit it for the whole library." }
+              },
+              "required": [],
+              "additionalProperties": true
+            }
+            """,
             async (context, args, ct) =>
             {
                 var result = await library.ListBooksAsync(
@@ -77,6 +106,16 @@ public static class AssistantCapabilities
             "notes_list_for_book",
             AssistantTrustClass.Suggest,
             "Lists the notes captured against one book.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "bookId": { "type": "string", "format": "uuid", "description": "The id of the book whose notes you want. Required." }
+              },
+              "required": ["bookId"],
+              "additionalProperties": true
+            }
+            """,
             async (context, args, ct) =>
             {
                 if (Id(args, "bookId") is not { } bookId)
@@ -92,6 +131,17 @@ public static class AssistantCapabilities
             "notes_search",
             AssistantTrustClass.Suggest,
             "Searches note text and book titles.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "query": { "type": "string", "description": "The search words to match against note text and book titles. This is a search phrase, not a question for you to answer. Required." },
+                "limit": { "type": "integer", "description": "The maximum number of matching notes to return. Defaults to 20." }
+              },
+              "required": ["query"],
+              "additionalProperties": true
+            }
+            """,
             async (context, args, ct) =>
             {
                 var query = Str(args, "query");
@@ -108,6 +158,17 @@ public static class AssistantCapabilities
             "notes_list_unlinked",
             AssistantTrustClass.Suggest,
             "Lists notes that belong to no concept, for the review queue.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "limit": { "type": "integer", "description": "The maximum number of unlinked notes to return. Defaults to 20." },
+                "offset": { "type": "integer", "description": "How many unlinked notes to skip before returning results. Defaults to 0." }
+              },
+              "required": [],
+              "additionalProperties": true
+            }
+            """,
             async (context, args, ct) =>
             {
                 var result = await notes.GetUnlinkedAsync(
@@ -122,6 +183,16 @@ public static class AssistantCapabilities
             "notes_read_for_review",
             AssistantTrustClass.Suggest,
             "Reads one note (text, book, linked concepts) for the review flow.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "noteId": { "type": "string", "format": "uuid", "description": "The id of the single note to read for review. Required." }
+              },
+              "required": ["noteId"],
+              "additionalProperties": true
+            }
+            """,
             async (context, args, ct) =>
             {
                 if (Id(args, "noteId") is not { } noteId)
@@ -141,6 +212,14 @@ public static class AssistantCapabilities
             "concepts_list",
             AssistantTrustClass.Suggest,
             "Lists concepts ordered by usage.",
+            """
+            {
+              "type": "object",
+              "properties": {},
+              "required": [],
+              "additionalProperties": true
+            }
+            """,
             async (context, args, ct) =>
             {
                 var result = await concepts.GetAllWithUsageCountAsync();
@@ -151,6 +230,16 @@ public static class AssistantCapabilities
             "concepts_search",
             AssistantTrustClass.Suggest,
             "Searches concepts by the text of their linked notes.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "term": { "type": "string", "description": "The search term to match against the text of notes linked to concepts. This is a search term, not a question for you to answer. Required." }
+              },
+              "required": ["term"],
+              "additionalProperties": true
+            }
+            """,
             async (context, args, ct) =>
             {
                 var term = Str(args, "term");
@@ -167,6 +256,14 @@ public static class AssistantCapabilities
             "library_list_collections",
             AssistantTrustClass.Suggest,
             "Lists all collections as a flat (id, name, parentId) list.",
+            """
+            {
+              "type": "object",
+              "properties": {},
+              "required": [],
+              "additionalProperties": true
+            }
+            """,
             async (context, args, ct) =>
             {
                 var result = await library.ListCollectionsAsync(ct);
@@ -177,6 +274,16 @@ public static class AssistantCapabilities
             "library_get_collection",
             AssistantTrustClass.Suggest,
             "Gets one collection and its membership.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "collectionId": { "type": "string", "format": "uuid", "description": "The id of the collection to read. Required." }
+              },
+              "required": ["collectionId"],
+              "additionalProperties": true
+            }
+            """,
             async (context, args, ct) =>
             {
                 if (Id(args, "collectionId") is not { } collectionId)
@@ -196,7 +303,20 @@ public static class AssistantCapabilities
         new AssistantCapability(
             "notes_capture",
             AssistantTrustClass.Capture,
-            "Captures a note, thought, or quote against a book. Retries are exactly-once when the context carries a ClientId and IdempotencyKey.",
+            "Saves one of the user's own thoughts, observations or quotes as a note against the open book. Use it whenever the user gives you something of their own to keep — they do not have to say 'save' or 'note', and a thought of theirs must be saved rather than answered.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "bookId": { "type": "string", "format": "uuid", "description": "Only when no book is open and the user has named the book this note belongs to: its id, from a library read. When a book is open, leave this out — the capture goes to the open book, and you never choose or override one." },
+                "content": { "type": "string", "description": "The user's own words for the note, exactly as they said or wrote them, with only any instruction removed. Never paraphrase, shorten, translate, correct or add to them. A separate setting decides how the words are rendered." },
+                "selectedText": { "type": "string", "description": "A passage quoted from the book itself. When the reader has a passage selected it is already in the current context — capture it here rather than asking for it. It is stored as the quotation and is never rewritten by any processing setting." },
+                "captureSource": { "type": "string", "description": "Where the words came from. Defaults to 'text'." }
+              },
+              "required": [],
+              "additionalProperties": true
+            }
+            """,
             async (context, args, ct) =>
             {
                 if (Id(args, "bookId") is not { } bookId)
@@ -238,6 +358,17 @@ public static class AssistantCapabilities
             "notes_link_existing_concept",
             AssistantTrustClass.PlanAndAct,
             "Links a note to an existing concept. Never creates a concept.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "noteId": { "type": "string", "format": "uuid", "description": "The id of the note to link. Required." },
+                "conceptId": { "type": "string", "format": "uuid", "description": "The id of an existing concept to link the note to. Never invent one; find it with concepts_list or concepts_search. Required." }
+              },
+              "required": ["noteId", "conceptId"],
+              "additionalProperties": true
+            }
+            """,
             async (context, args, ct) =>
             {
                 if (Id(args, "noteId") is not { } noteId || Id(args, "conceptId") is not { } conceptId)
@@ -253,6 +384,17 @@ public static class AssistantCapabilities
             "library_create_collection",
             AssistantTrustClass.PlanAndAct,
             "Creates a collection (or returns the existing sibling with the same name).",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string", "description": "The new collection's name. Required." },
+                "parentId": { "type": "string", "format": "uuid", "description": "The id of the parent collection. Omit it to create the collection at the top level." }
+              },
+              "required": ["name"],
+              "additionalProperties": true
+            }
+            """,
             async (context, args, ct) =>
             {
                 var name = Str(args, "name");
@@ -276,6 +418,17 @@ public static class AssistantCapabilities
             "library_rename_collection",
             AssistantTrustClass.PlanAndAct,
             "Renames an existing collection.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "collectionId": { "type": "string", "format": "uuid", "description": "The id of the collection to rename. Required." },
+                "name": { "type": "string", "description": "The collection's new name. Required." }
+              },
+              "required": ["collectionId", "name"],
+              "additionalProperties": true
+            }
+            """,
             async (context, args, ct) =>
             {
                 if (Id(args, "collectionId") is not { } collectionId || string.IsNullOrWhiteSpace(Str(args, "name")))
@@ -298,6 +451,17 @@ public static class AssistantCapabilities
             "library_move_collection",
             AssistantTrustClass.PlanAndAct,
             "Moves a collection under a new parent (null moves it to the top level).",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "collectionId": { "type": "string", "format": "uuid", "description": "The id of the collection to move. Required." },
+                "newParentId": { "type": "string", "format": "uuid", "description": "The id of the new parent collection. Omit it to move the collection to the top level." }
+              },
+              "required": ["collectionId"],
+              "additionalProperties": true
+            }
+            """,
             async (context, args, ct) =>
             {
                 if (Id(args, "collectionId") is not { } collectionId)

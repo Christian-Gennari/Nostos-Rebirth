@@ -66,26 +66,139 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
-    public async Task The_composers_mode_reaches_the_capture_and_the_note_id_comes_back()
+    public async Task A_selected_passage_is_named_to_the_model_only_when_one_is_selected()
+    {
+        var h = CreateHarness();
+
+        // Measured twice: with a passage selected, "Save this passage." was
+        // answered by asking the user for the passage. Naming the selection
+        // explicitly is the same treatment the Brain review flow already gets,
+        // rather than leaving it to be noticed inside the context blob.
+        h.Llm.Returns("Nothing to do.");
+        await h.Orchestrator.HandleTurnAsync(Turn(
+            "Save this passage.",
+            Context(selectedText: "It is a truth universally acknowledged.")));
+
+        h.Llm.LastRequest.Messages
+            .Should().Contain(m => m.Role == "system" && m.Content!.Contains("A passage is selected"));
+
+        h.Llm.Returns("Nothing to do.");
+        await h.Orchestrator.HandleTurnAsync(Turn("Save this passage.", Context()));
+
+        h.Llm.LastRequest.Messages
+            .Should().NotContain(m => m.Role == "system" && m.Content!.Contains("A passage is selected"));
+    }
+
+    [Fact]
+    public async Task The_open_book_wins_over_a_book_the_model_chose()
+    {
+        var h = CreateHarness();
+        var open = await SeedBookAsync(h, "Pride and Prejudice");
+        var other = await SeedBookAsync(h, "Meaning In Life And Why It Matters");
+
+        // Measured against the live gateway: with a book open, the model went and
+        // found a book it liked better in a search result and filed the thought
+        // there, while the acknowledgement — built from the ambient context —
+        // named the book that was open. Note and confirmation disagreed, and
+        // neither was visible as wrong. The open book is a fact, not a proposal.
+        h.Llm
+            .CallsTool("notes_capture", $$"""{"bookId":"{{other.Id}}","content":"A captured thought"}""")
+            .Returns("Saved.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Remember this thought.",
+            Context(
+                bookId: open.Id.ToString(),
+                bookTitle: "Pride and Prejudice",
+                bookFormat: "ebook",
+                readerType: "epub",
+                epubCfi: "epubcfi(/6/4[chap01]!/4/2/2)")));
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var note = await db.Notes.AsNoTracking().SingleAsync();
+
+        note.BookId.Should().Be(open.Id);
+        note.BookId.Should().NotBe(other.Id);
+        response.Acknowledgement.Should().Contain("Pride and Prejudice");
+    }
+
+    [Fact]
+    public async Task A_successful_capture_may_reply_with_nothing()
+    {
+        var h = CreateHarness();
+        var book = await SeedBookAsync(h, "The Magic Mountain");
+
+        // The model saves the thought and says nothing else — the shape the tool
+        // description now asks for, since the app confirms a capture itself. The
+        // turn must not follow the acknowledgement with "I could not finish that."
+        h.Llm.CallsTool("notes_capture", """{"content":"A captured thought"}""");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Remember this thought.",
+            Context(
+                bookId: book.Id.ToString(),
+                bookTitle: "The Magic Mountain",
+                bookFormat: "ebook",
+                readerType: "epub",
+                epubCfi: "epubcfi(/6/4[chap01]!/4/2/2)")));
+
+        response.Acknowledgement.Should().NotBeNullOrWhiteSpace();
+        response.Reply.Should().BeEmpty();
+        response.Reply.Should().NotBe(AssistantOrchestrator.IncompleteTurnReply);
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.Notes.AsNoTracking().CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task A_capture_with_no_book_anywhere_creates_nothing()
+    {
+        var h = CreateHarness();
+
+        // No book is open and the model supplied none, so the capability refuses:
+        // a note can never be filed against a book nobody chose. The assistant is
+        // left to ask which book it belongs to.
+        h.Llm
+            .CallsTool("notes_capture", """{"content":"A captured thought"}""")
+            .Returns("Saved.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Remember this thought.",
+            Context(surface: "library", route: "/library")));
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.Notes.AsNoTracking().CountAsync()).Should().Be(0);
+        response.CapturedNoteId.Should().BeNull();
+        response.Acknowledgement.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task The_stored_setting_is_the_only_source_of_the_capture_mode()
     {
         var h = CreateHarness();
         var book = await SeedBookAsync(h);
 
+        // The owner chose light_polish once, in Settings.
+        (await h.Settings.UpdateAsync(new AssistantSettingsUpdateRequest("light_polish")))
+            .Success.Should().BeTrue();
+
+        // The request carries verbatim and the tool call itself carries clarify.
+        // Neither may change the stored setting (issue #262 §7).
         h.Llm
             .CallsTool(
                 "notes_capture",
-                $$"""{"bookId":"{{book.Id}}","content":"so anyway i was thinking"}""")
+                $$"""{"bookId":"{{book.Id}}","content":"so anyway i was thinking","processingMode":"clarify"}""")
             .Returns("Saved.");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
             "Remember this.",
             Context(bookId: book.Id.ToString(), bookFormat: "ebook"),
-            processingMode: "light_polish"));
+            processingMode: "verbatim"));
 
         await using var db = await h.Factory.CreateDbContextAsync();
         var note = await db.Notes.AsNoTracking().SingleAsync();
 
-        // The composer's choice is the mode the note reflects, and the raw
+        // The stored setting is the mode the note reflects, and the raw
         // transcript is kept beside the processed text (issue #262 §7, §8).
         note.ProcessingMode.Should().Be("light_polish");
         note.RawContent.Should().Be("so anyway i was thinking");
@@ -96,21 +209,24 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
-    public async Task An_explicit_verbatim_overrides_a_non_verbatim_configured_default()
+    public async Task A_request_mode_and_the_configured_default_are_both_ignored()
     {
-        // The configured default is a rewrite; the request still says verbatim,
-        // and verbatim is a storage operation that must be honoured exactly.
+        // Nothing is stored, so the effective mode is verbatim; the request's
+        // light_polish, the tool call's clarify and the configured default
+        // clarify are all ignored.
         var h = CreateHarness(defaultProcessingMode: "clarify");
         var book = await SeedBookAsync(h);
 
         h.Llm
-            .CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"raw words"}""")
+            .CallsTool(
+                "notes_capture",
+                $$"""{"bookId":"{{book.Id}}","content":"raw words","processingMode":"clarify"}""")
             .Returns("Saved.");
 
         await h.Orchestrator.HandleTurnAsync(Turn(
             "Remember this.",
             Context(bookId: book.Id.ToString(), bookFormat: "ebook"),
-            processingMode: "verbatim"));
+            processingMode: "light_polish"));
 
         await using var db = await h.Factory.CreateDbContextAsync();
         var note = await db.Notes.AsNoTracking().SingleAsync();
@@ -119,10 +235,15 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
-    public async Task An_absent_mode_uses_the_configured_default()
+    public async Task A_stored_verbatim_is_honoured_over_a_request_mode()
     {
+        // A stored verbatim is a real choice, not "never chosen": it must be
+        // distinguished from the NULL default and must not be overridden.
         var h = CreateHarness(defaultProcessingMode: "light_polish");
         var book = await SeedBookAsync(h);
+
+        (await h.Settings.UpdateAsync(new AssistantSettingsUpdateRequest("verbatim")))
+            .Success.Should().BeTrue();
 
         h.Llm
             .CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"raw words"}""")
@@ -130,12 +251,13 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
 
         await h.Orchestrator.HandleTurnAsync(Turn(
             "Remember this.",
-            Context(bookId: book.Id.ToString(), bookFormat: "ebook")));
+            Context(bookId: book.Id.ToString(), bookFormat: "ebook"),
+            processingMode: "light_polish"));
 
         await using var db = await h.Factory.CreateDbContextAsync();
         var note = await db.Notes.AsNoTracking().SingleAsync();
-        note.ProcessingMode.Should().Be("light_polish");
-        note.RawContent.Should().Be("raw words");
+        note.ProcessingMode.Should().Be("verbatim");
+        note.RawContent.Should().BeNull();
     }
 
     [Fact]
@@ -597,6 +719,51 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         h.Llm.CallCount.Should().Be(3);
     }
 
+    [Fact]
+    public async Task An_exhausted_tool_loop_reports_that_it_could_not_finish()
+    {
+        var h = CreateHarness(maxToolIterations: 3);
+
+        // Every completion is a tool call with no prose: nothing was ever said.
+        h.Llm.Responder = _ => new LlmCompletion(
+            null,
+            "tool_calls",
+            [new LlmToolCall(Guid.NewGuid().ToString("N"), "concepts_list", "{}")]);
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Loop, please.",
+            Context(surface: "second-brain", route: "/second-brain")));
+
+        response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
+    }
+
+    [Fact]
+    public async Task An_exhausted_tool_loop_prefers_the_last_non_empty_assistant_content()
+    {
+        var h = CreateHarness(maxToolIterations: 2);
+
+        var call = 0;
+        h.Llm.Responder = _ =>
+        {
+            call++;
+            return call == 1
+                ? new LlmCompletion(
+                    "Let me look that up.",
+                    "tool_calls",
+                    [new LlmToolCall(Guid.NewGuid().ToString("N"), "concepts_list", "{}")])
+                : new LlmCompletion(
+                    null,
+                    "tool_calls",
+                    [new LlmToolCall(Guid.NewGuid().ToString("N"), "concepts_list", "{}")]);
+        };
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Loop, please.",
+            Context(surface: "second-brain", route: "/second-brain")));
+
+        response.Reply.Should().Be("Let me look that up.");
+    }
+
     // ------------------------------------------------------------------
     // Conversation history and identity (issue #286)
     // ------------------------------------------------------------------
@@ -897,15 +1064,17 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
             DefaultProcessingMode = defaultProcessingMode,
         };
         var plans = new AssistantPlanStore();
+        var settings = new AssistantSettingsService(factory);
 
         var orchestrator = new AssistantOrchestrator(
             registry,
             llm,
             plans,
+            settings,
             assistantOptions,
             NullLogger<AssistantOrchestrator>.Instance);
 
-        return new Harness(db, factory, registry, llm, plans, orchestrator);
+        return new Harness(db, factory, registry, llm, plans, settings, orchestrator);
     }
 
     private static async Task<AssistantPendingPlanDto> CreatePlanAsync(Harness h)
@@ -1046,6 +1215,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         AssistantCapabilityRegistry registry,
         FakeLlmProvider llm,
         AssistantPlanStore plans,
+        AssistantSettingsService settings,
         AssistantOrchestrator orchestrator) : IDisposable
     {
         public NostosDbContext Db { get; } = db;
@@ -1053,6 +1223,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         public AssistantCapabilityRegistry Registry { get; } = registry;
         public FakeLlmProvider Llm { get; } = llm;
         public AssistantPlanStore Plans { get; } = plans;
+        public AssistantSettingsService Settings { get; } = settings;
         public AssistantOrchestrator Orchestrator { get; } = orchestrator;
 
         public void Dispose() => Db.Dispose();

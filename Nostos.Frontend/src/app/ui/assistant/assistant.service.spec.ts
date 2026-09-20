@@ -157,8 +157,12 @@ describe('AssistantService voice transcript alignment', () => {
     service.updateDraft('A thought I cannot place');
     service.submit();
 
+    // A capture that cannot know a page is dispatched first; the backend is what
+    // decides to ask for one, and the prompt arrives on the turn response.
+    http.expectOne('/api/assistant/turn').flush(
+      turn({ anchorPrompt: { kind: 'physical_page', question: 'What page are you on?' } }),
+    );
     expect(service.pendingAnchor()?.question).toBe('What page are you on?');
-    http.expectNone('/api/assistant/turn');
 
     service.insertTranscript('247');
     expect(service.draft()).toBe('247');
@@ -184,8 +188,9 @@ describe('AssistantService voice transcript alignment', () => {
     service.updateDraft('A thought I cannot place');
     service.submit();
 
-    expect(service.pendingAnchor()?.question).toBe('What page are you on?');
-    http.expectNone('/api/assistant/turn');
+    http.expectOne('/api/assistant/turn').flush(
+      turn({ anchorPrompt: { kind: 'physical_page', question: 'What page are you on?' } }),
+    );
 
     service.insertTranscript('Page 247.');
     vi.advanceTimersByTime(TRANSCRIPT_AUTO_SEND_DELAY_MS);
@@ -212,6 +217,14 @@ describe('AssistantService voice transcript alignment', () => {
     service.updateDraft('A thought');
     service.submit();
 
+    http.expectOne('/api/assistant/turn').flush(
+      turn({
+        anchorPrompt: {
+          kind: 'external_audio_timestamp',
+          question: "What's the current timestamp?",
+        },
+      }),
+    );
     expect(service.pendingAnchor()?.question).toBe("What's the current timestamp?");
 
     service.insertTranscript('1:23');
@@ -235,6 +248,10 @@ describe('AssistantService voice transcript alignment', () => {
     service.open();
     service.updateDraft('A thought I cannot place');
     service.submit();
+
+    http.expectOne('/api/assistant/turn').flush(
+      turn({ anchorPrompt: { kind: 'physical_page', question: 'What page are you on?' } }),
+    );
 
     service.close();
     service.open();
@@ -265,6 +282,9 @@ describe('AssistantService voice transcript alignment', () => {
     service.updateDraft('A thought with no page');
     service.submit();
 
+    http.expectOne('/api/assistant/turn').flush(
+      turn({ anchorPrompt: { kind: 'physical_page', question: 'What page are you on?' } }),
+    );
     expect(service.pendingAnchor()).not.toBeNull();
 
     service.skipAnchor();

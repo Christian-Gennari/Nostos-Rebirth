@@ -18,10 +18,12 @@ public sealed record AssistantTurnRequest(
     string Message,
     AssistantContextDto Context,
     string? PendingPlanId = null,
-    // APPENDED (positional record): the post-processing mode the composer chose
-    // for this capture (issue #262 §7). Null means "use the configured default",
-    // which is verbatim. The orchestrator injects this into notes_capture; the
-    // capability's own signature stays frozen.
+    // APPENDED (positional record): the post-processing mode the composer used
+    // to send per capture (issue #262 §7). It is now IGNORED: the capture mode
+    // comes from the stored assistant setting, which the owner chooses once in
+    // Settings. It is kept for wire compatibility — the record is append-only
+    // and other callers may still send it — so removing it is a separate
+    // decision, not this change.
     string? ProcessingMode = null,
     // APPENDED (positional record): the recent turns the client remembers, so the
     // model can follow the exchange instead of rebuilding it from nothing each
@@ -141,3 +143,21 @@ public sealed record AssistantPlanStepOutcomeDto(
     string? ErrorCode,
     string? ErrorMessage,
     object? Data);
+
+// --- ASSISTANT SETTINGS (issue #262 §7) ---
+// The settings the owner picks once, stored on the server. The wire contract is
+// frozen: GET/PUT /api/settings/assistant carry exactly the one field below.
+
+/// <summary>
+/// The stored assistant settings as returned to the client. The single field is
+/// the effective capture post-processing mode; it is <c>"verbatim"</c> when the
+/// owner has never chosen.
+/// </summary>
+public sealed record AssistantSettingsResponse(string CaptureProcessingMode);
+
+/// <summary>
+/// A settings update. <c>CaptureProcessingMode</c> must be one of the supported
+/// modes; anything else (including absent) is refused with
+/// <c>invalid_processing_mode</c> and stores nothing.
+/// </summary>
+public sealed record AssistantSettingsUpdateRequest(string? CaptureProcessingMode);
