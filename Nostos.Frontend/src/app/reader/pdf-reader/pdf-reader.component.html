@@ -1,5 +1,6 @@
 <div
   class="pdf-container"
+  [class.inverted]="pageInverted()"
   (mouseup)="onTextSelection()"
   (touchend)="onTextSelection()"
 >
@@ -17,7 +18,8 @@
       [sidebarVisible]="sidebarVisible()"
       (sidebarVisibleChange)="sidebarVisibleChange.emit($event)"
       [(page)]="currentPage"
-      [backgroundColor]="'#fefeff'"
+      [backgroundColor]="pdfBgColor()"
+      [theme]="pdfTheme()"
       [scrollMode]="scrollMode()"
       (scrollModeChange)="onScrollModeChange($event)"
       [showBorders]="false"

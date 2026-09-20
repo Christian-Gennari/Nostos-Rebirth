@@ -26,17 +26,17 @@ import { PdfAnnotationManager, PageHighlight } from './pdf-annotation-manager';
 import { DEFAULT_HIGHLIGHT_COLOUR, HighlightColour } from '../highlight-colours';
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
+import { ThemeService } from '../../core/services/theme.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 
 /**
- * Fixed light surround color for the pdf.js viewer canvas, mirroring the
- * Nostos light token from styles.css (--bg-surface). This is a rendering
- * invariant: unbinding it would let the viewer library's gray default
- * through and change the established light appearance. `pdfBackgroundColor`
- * stays unset so page pixels remain exactly as authored (no inversion, no
- * filters).
+ * Surround colours for the pdf.js viewer canvas, mirroring the Nostos tokens
+ * from styles.css. Light keeps the established near-white; dark follows
+ * `--bg-body` (#0d0e11). The library's `[theme]` input adds a CSS-variable
+ * sheet that themes its own toolbar/sidebar/find bar chrome.
  */
 const PDF_LIGHT_SURROUND = '#fefeff';
+const PDF_DARK_SURROUND = '#0d0e11';
 
 /**
  * Page fits a fixed-layout document can be read at, offered in the shell's view
@@ -67,6 +67,56 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   private highlightService = inject(PdfAnnotationManager);
   private notesService = inject(NotesService);
   private booksService = inject(BooksService);
+  private themeService = inject(ThemeService);
+
+  // --- Theme-following surround (issue #259) ---
+
+  /** Whether the app is currently in dark mode. */
+  isDark = computed(() => this.themeService.theme() === 'dark');
+
+  /** The library's own theme — 'dark' activates `<pdf-dark-theme>`. */
+  pdfTheme = computed(() => (this.isDark() ? 'dark' : 'light'));
+
+  /** Surround colour for the viewer canvas. */
+  pdfBgColor = computed(() => (this.isDark() ? PDF_DARK_SURROUND : PDF_LIGHT_SURROUND));
+
+  // --- Page-colour inversion (issue #259) ---
+
+  /**
+   * Whether the rendered page pixels are inverted. In dark mode the default is
+   * `true` so the page looks like a native dark surface (matching how the EPUB
+   * reader injects dark rules); the user can flip it in the View-settings panel.
+   * Persisted per book.
+   */
+  pageInverted = signal(false);
+
+  /** Toggle the inversion and persist the choice. */
+  setPageInverted(value: boolean): void {
+    this.pageInverted.set(value);
+    try {
+      localStorage.setItem(this.invertStorageKey(), JSON.stringify(value));
+    } catch {
+      // Private-mode storage — the mode still applies for the session.
+    }
+  }
+
+  private invertStorageKey(): string {
+    return `nostos.pdf-invert.${this.bookId()}`;
+  }
+
+  private restoreSavedInversion(): void {
+    try {
+      const raw = localStorage.getItem(this.invertStorageKey());
+      if (raw !== null) {
+        this.pageInverted.set(JSON.parse(raw) === true);
+        return;
+      }
+    } catch {
+      // fall through
+    }
+    // Default: inverted in dark, as-printed in light.
+    this.pageInverted.set(this.isDark());
+  }
 
   @ViewChild(NgxExtendedPdfViewerComponent) pdfViewer!: NgxExtendedPdfViewerComponent;
 
@@ -232,6 +282,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     // a starting point (issue #226 §3, §9).
     this.restoreSavedZoom();
     this.restoreSavedScrollMode();
+    this.restoreSavedInversion();
     this.loadNotes();
 
     this.progressUpdater$
