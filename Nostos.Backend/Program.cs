@@ -8,6 +8,7 @@ using Nostos.Backend.Data.Interfaces;
 using Nostos.Backend.Data.Repositories;
 using Nostos.Backend.Endpoints;
 using Nostos.Backend.Configuration;
+using Nostos.Backend.Integrations.Assistant;
 using Nostos.Backend.Integrations.Mcp;
 using Nostos.Backend.Providers;
 using Nostos.Backend.Providers.Acquisition;
@@ -186,6 +187,15 @@ builder.Services.AddScoped<ICollectionRepository, CollectionRepository>();
 builder.Services.AddScoped<INoteRepository, NoteRepository>();
 builder.Services.AddScoped<IConceptRepository, ConceptRepository>();
 builder.Services.AddScoped<IWritingRepository, WritingRepository>();
+
+// --- Safe assistant action surface (issue #260 §5, §6) ---
+// One scoped registry over the canonical note/library/concept services. It has
+// no HTTP surface and no LLM; 261-S2 executes it in process. The capabilities
+// are built here so the registry itself stays a plain, testable collection.
+builder.Services.AddScoped(sp => new AssistantCapabilityRegistry(AssistantCapabilities.Build(
+    sp.GetRequiredService<INoteService>(),
+    sp.GetRequiredService<ILibraryService>(),
+    sp.GetRequiredService<IConceptRepository>())));
 
 // --- External content providers and acquisition (issue #166) ---
 // A provider only describes remote content; the acquisition layer turns a

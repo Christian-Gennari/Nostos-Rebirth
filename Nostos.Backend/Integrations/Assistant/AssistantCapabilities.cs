@@ -1,0 +1,420 @@
+using System.Text.Json;
+using Nostos.Backend.Data.Interfaces;
+using Nostos.Backend.Services.Library;
+using Nostos.Backend.Services.Notes;
+using Nostos.Shared.Dtos;
+using Nostos.Shared.Enums;
+
+namespace Nostos.Backend.Integrations.Assistant;
+
+/// <summary>
+/// The complete assistant action surface (issue #260 §5, §6). It is
+/// deliberately small: every capability delegates to a canonical service
+/// (<see cref="INoteService"/>, <see cref="ILibraryService"/>, or the existing
+/// concept read repository) and nothing here reimplements library or note
+/// logic.
+///
+/// Trust classes: read-only capabilities are <see cref="AssistantTrustClass.Suggest"/>
+/// and never call a write method; capture is <see cref="AssistantTrustClass.Capture"/>
+/// and runs immediately; concept linking and collection writes are
+/// <see cref="AssistantTrustClass.PlanAndAct"/> and cannot run without a
+/// matching approval. There is deliberately no delete, remove, purge, reset,
+/// import, or bulk capability.
+/// </summary>
+public static class AssistantCapabilities
+{
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+
+    /// <summary>
+    /// Builds the ordered capability list against the canonical services. The
+    /// registry owns enforcement; this method only declares what can be done.
+    /// </summary>
+    public static IReadOnlyList<AssistantCapability> Build(
+        INoteService notes,
+        ILibraryService library,
+        IConceptRepository concepts) =>
+    [
+        // ------------------------------------------------------------------
+        // Read (Suggest): proposals/reads only, structurally unable to mutate.
+        // ------------------------------------------------------------------
+
+        new AssistantCapability(
+            "library_resolve_book",
+            AssistantTrustClass.Suggest,
+            "Finds a book by ISBN, ASIN, title, or author without changing the library.",
+            async (context, args, ct) =>
+            {
+                var request = new LibraryResolveBookRequest(
+                    Isbn: Str(args, "isbn"),
+                    Asin: Str(args, "asin"),
+                    Title: Str(args, "title"),
+                    Author: Str(args, "author"),
+                    IncludeExternalMetadata: Bool(args, "includeExternalMetadata") ?? true);
+
+                var result = await library.ResolveBookAsync(request, ct);
+                return AssistantToolResult.Ok(Element(result));
+            }),
+
+        new AssistantCapability(
+            "library_list_books",
+            AssistantTrustClass.Suggest,
+            "Lists books with optional filter, sort, search, and collection restriction.",
+            async (context, args, ct) =>
+            {
+                var result = await library.ListBooksAsync(
+                    filter: ValueEnum(args, "filter", BookFilter.All),
+                    sort: ValueEnum(args, "sort", BookSort.Recent),
+                    search: Str(args, "search"),
+                    page: Num(args, "page") ?? 1,
+                    pageSize: Num(args, "pageSize") ?? 20,
+                    collectionId: Id(args, "collectionId"),
+                    ct: ct);
+
+                return LibraryResult(result);
+            }),
+
+        new AssistantCapability(
+            "notes_list_for_book",
+            AssistantTrustClass.Suggest,
+            "Lists the notes captured against one book.",
+            async (context, args, ct) =>
+            {
+                if (Id(args, "bookId") is not { } bookId)
+                {
+                    return Invalid("'bookId' is required.");
+                }
+
+                var result = await notes.GetByBookAsync(bookId, ct);
+                return AssistantToolResult.Ok(Element(result));
+            }),
+
+        new AssistantCapability(
+            "notes_search",
+            AssistantTrustClass.Suggest,
+            "Searches note text and book titles.",
+            async (context, args, ct) =>
+            {
+                var query = Str(args, "query");
+                if (string.IsNullOrWhiteSpace(query))
+                {
+                    return Invalid("'query' is required.");
+                }
+
+                var result = await notes.SearchAsync(query, Num(args, "limit") ?? 20, ct);
+                return AssistantToolResult.Ok(Element(result));
+            }),
+
+        new AssistantCapability(
+            "notes_list_unlinked",
+            AssistantTrustClass.Suggest,
+            "Lists notes that belong to no concept, for the review queue.",
+            async (context, args, ct) =>
+            {
+                var result = await notes.GetUnlinkedAsync(
+                    Num(args, "limit") ?? 20,
+                    Num(args, "offset") ?? 0,
+                    ct);
+
+                return AssistantToolResult.Ok(Element(result));
+            }),
+
+        new AssistantCapability(
+            "notes_read_for_review",
+            AssistantTrustClass.Suggest,
+            "Reads one note (text, book, linked concepts) for the review flow.",
+            async (context, args, ct) =>
+            {
+                if (Id(args, "noteId") is not { } noteId)
+                {
+                    return Invalid("'noteId' is required.");
+                }
+
+                var review = await notes.GetForReviewAsync(noteId, ct);
+                return review is null
+                    ? AssistantToolResult.Fail(
+                        AssistantErrorCodes.NotFound,
+                        $"Note {noteId} not found.")
+                    : AssistantToolResult.Ok(Element(review));
+            }),
+
+        new AssistantCapability(
+            "concepts_list",
+            AssistantTrustClass.Suggest,
+            "Lists concepts ordered by usage.",
+            async (context, args, ct) =>
+            {
+                var result = await concepts.GetAllWithUsageCountAsync();
+                return AssistantToolResult.Ok(Element(result));
+            }),
+
+        new AssistantCapability(
+            "concepts_search",
+            AssistantTrustClass.Suggest,
+            "Searches concepts by the text of their linked notes.",
+            async (context, args, ct) =>
+            {
+                var term = Str(args, "term");
+                if (string.IsNullOrWhiteSpace(term))
+                {
+                    return Invalid("'term' is required.");
+                }
+
+                var result = await concepts.SearchByNoteTextAsync(term);
+                return AssistantToolResult.Ok(Element(result));
+            }),
+
+        new AssistantCapability(
+            "library_list_collections",
+            AssistantTrustClass.Suggest,
+            "Lists all collections as a flat (id, name, parentId) list.",
+            async (context, args, ct) =>
+            {
+                var result = await library.ListCollectionsAsync(ct);
+                return LibraryResult(result);
+            }),
+
+        new AssistantCapability(
+            "library_get_collection",
+            AssistantTrustClass.Suggest,
+            "Gets one collection and its membership.",
+            async (context, args, ct) =>
+            {
+                if (Id(args, "collectionId") is not { } collectionId)
+                {
+                    return Invalid("'collectionId' is required.");
+                }
+
+                var result = await library.GetCollectionAsync(collectionId, ct);
+                return LibraryResult(result);
+            }),
+
+        // ------------------------------------------------------------------
+        // Capture: low risk, runs immediately. The context's client/key pair
+        // flows straight into CanonicalCapture, so a retry is exactly-once.
+        // ------------------------------------------------------------------
+
+        new AssistantCapability(
+            "notes_capture",
+            AssistantTrustClass.Capture,
+            "Captures a note, thought, or quote against a book. Retries are exactly-once when the context carries a ClientId and IdempotencyKey.",
+            async (context, args, ct) =>
+            {
+                if (Id(args, "bookId") is not { } bookId)
+                {
+                    return Invalid("'bookId' is required.");
+                }
+
+                var content = Str(args, "content");
+                var selectedText = Str(args, "selectedText");
+                if (string.IsNullOrWhiteSpace(content) && string.IsNullOrWhiteSpace(selectedText))
+                {
+                    return Invalid("'content' or 'selectedText' is required.");
+                }
+
+                var request = new CaptureNoteRequest(
+                    BookId: bookId,
+                    Content: content ?? string.Empty,
+                    CfiRange: Str(args, "cfiRange"),
+                    SelectedText: selectedText,
+                    RawContent: Str(args, "rawContent"),
+                    CaptureSource: Str(args, "captureSource") ?? "text",
+                    ProcessingMode: Str(args, "processingMode") ?? "verbatim",
+                    SourceAnchorKind: Str(args, "sourceAnchorKind") ?? "unknown",
+                    SourceAnchorValue: Str(args, "sourceAnchorValue"),
+                    AnchorVerified: Bool(args, "anchorVerified") ?? false,
+                    ClientId: context.ClientId,
+                    IdempotencyKey: context.IdempotencyKey);
+
+                var result = await notes.CaptureAsync(request, ct);
+                return NoteResult(result);
+            }),
+
+        // ------------------------------------------------------------------
+        // PlanAndAct: state-changing; the registry refuses without a matching
+        // approval. All three delegate to the canonical service.
+        // ------------------------------------------------------------------
+
+        new AssistantCapability(
+            "notes_link_existing_concept",
+            AssistantTrustClass.PlanAndAct,
+            "Links a note to an existing concept. Never creates a concept.",
+            async (context, args, ct) =>
+            {
+                if (Id(args, "noteId") is not { } noteId || Id(args, "conceptId") is not { } conceptId)
+                {
+                    return Invalid("'noteId' and 'conceptId' are required.");
+                }
+
+                var result = await notes.LinkToExistingConceptAsync(noteId, conceptId, ct);
+                return NoteResult(result);
+            }),
+
+        new AssistantCapability(
+            "library_create_collection",
+            AssistantTrustClass.PlanAndAct,
+            "Creates a collection (or returns the existing sibling with the same name).",
+            async (context, args, ct) =>
+            {
+                var name = Str(args, "name");
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    return Invalid("'name' is required.");
+                }
+
+                var result = await library.CreateCollectionAsync(
+                    new LibraryCreateCollectionRequest(
+                        context.ClientId ?? string.Empty,
+                        context.IdempotencyKey ?? string.Empty,
+                        name,
+                        Id(args, "parentId")),
+                    ct);
+
+                return LibraryResult(result);
+            }),
+
+        new AssistantCapability(
+            "library_rename_collection",
+            AssistantTrustClass.PlanAndAct,
+            "Renames an existing collection.",
+            async (context, args, ct) =>
+            {
+                if (Id(args, "collectionId") is not { } collectionId || string.IsNullOrWhiteSpace(Str(args, "name")))
+                {
+                    return Invalid("'collectionId' and 'name' are required.");
+                }
+
+                var result = await library.RenameCollectionAsync(
+                    new LibraryRenameCollectionRequest(
+                        context.ClientId ?? string.Empty,
+                        context.IdempotencyKey ?? string.Empty,
+                        collectionId,
+                        Str(args, "name")!),
+                    ct);
+
+                return LibraryResult(result);
+            }),
+
+        new AssistantCapability(
+            "library_move_collection",
+            AssistantTrustClass.PlanAndAct,
+            "Moves a collection under a new parent (null moves it to the top level).",
+            async (context, args, ct) =>
+            {
+                if (Id(args, "collectionId") is not { } collectionId)
+                {
+                    return Invalid("'collectionId' is required.");
+                }
+
+                var result = await library.MoveCollectionAsync(
+                    new LibraryMoveCollectionRequest(
+                        context.ClientId ?? string.Empty,
+                        context.IdempotencyKey ?? string.Empty,
+                        collectionId,
+                        Id(args, "newParentId")),
+                    ct);
+
+                return LibraryResult(result);
+            }),
+    ];
+
+    // ------------------------------------------------------------------
+    // Argument readers. The tool args are JSON objects keyed by the canonical
+    // camelCase request field names; a missing or mistyped field reads null and
+    // the capability turns that into a typed invalid-arguments failure.
+    // ------------------------------------------------------------------
+
+    private static JsonElement Property(JsonElement args, string name)
+    {
+        if (args.ValueKind != JsonValueKind.Object)
+        {
+            return default;
+        }
+
+        if (args.TryGetProperty(name, out var value))
+        {
+            return value;
+        }
+
+        // Accept PascalCase too: the orchestrator is not the only possible
+        // caller, and a wrong-cased key should not silently read as absent.
+        var pascal = char.ToUpperInvariant(name[0]) + name[1..];
+        return args.TryGetProperty(pascal, out value) ? value : default;
+    }
+
+    private static string? Str(JsonElement args, string name)
+    {
+        var value = Property(args, name);
+        return value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+    }
+
+    private static Guid? Id(JsonElement args, string name)
+    {
+        var value = Property(args, name);
+        return value.ValueKind == JsonValueKind.String
+            && Guid.TryParse(value.GetString(), out var id)
+                ? id
+                : null;
+    }
+
+    private static int? Num(JsonElement args, string name)
+    {
+        var value = Property(args, name);
+        return value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number)
+            ? number
+            : null;
+    }
+
+    private static bool? Bool(JsonElement args, string name) =>
+        Property(args, name).ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => null,
+        };
+
+    private static TEnum ValueEnum<TEnum>(JsonElement args, string name, TEnum fallback)
+        where TEnum : struct, Enum
+    {
+        var value = Str(args, name);
+        return !string.IsNullOrWhiteSpace(value)
+            && Enum.TryParse<TEnum>(value, ignoreCase: true, out var parsed)
+                ? parsed
+                : fallback;
+    }
+
+    // ------------------------------------------------------------------
+    // Result shaping.
+    // ------------------------------------------------------------------
+
+    private static AssistantToolResult Invalid(string message) =>
+        AssistantToolResult.Fail(AssistantErrorCodes.InvalidArguments, message);
+
+    /// <summary>
+    /// Serializes a value using its own runtime type: several canonical results
+    /// carry their payload as <c>object</c>, and the declared type would drop
+    /// it.
+    /// </summary>
+    private static JsonElement Element(object value) =>
+        JsonSerializer.SerializeToElement(value, value.GetType(), Json);
+
+    private static AssistantToolResult NoteResult<T>(NoteCommandResult<T> result) =>
+        result.Success
+            ? AssistantToolResult.Ok(Element(result))
+            : AssistantToolResult.Fail(
+                result.ErrorCode ?? AssistantErrorCodes.NotFound,
+                result.ErrorMessage ?? "Note command failed.");
+
+    /// <summary>
+    /// Library mutations return an envelope whose failures are data, exactly as
+    /// the REST/MCP callers receive them; the assistant does not re-map those
+    /// codes.
+    /// </summary>
+    private static AssistantToolResult LibraryResult(LibraryCommandResultDto result) =>
+        AssistantToolResult.Ok(Element(new
+        {
+            result.Reply,
+            result.Data,
+            result.StateVersion,
+            result.Duplicate,
+        }));
+}
