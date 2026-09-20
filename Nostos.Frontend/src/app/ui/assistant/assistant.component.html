@@ -28,6 +28,50 @@
     </article>
     }
   </div>
+  } @if (assistant.suggestions().length > 0) {
+  <div class="assistant-suggestions" data-testid="assistant-suggestions">
+    <span class="suggestions-title">Existing concepts this note could link to</span>
+    @for (suggestion of assistant.suggestions(); track suggestion.value ?? suggestion.label) {
+    <button
+      type="button"
+      class="suggestion-chip"
+      (click)="assistant.applySuggestion(suggestion)"
+      data-testid="assistant-suggestion"
+    >
+      <span class="suggestion-label">{{ suggestion.label }}</span>
+      <span class="suggestion-reason">{{ suggestion.reason }}</span>
+    </button>
+    }
+    <button
+      type="button"
+      class="suggestion-none"
+      (click)="assistant.dismissSuggestions()"
+      data-testid="assistant-suggestion-none"
+    >
+      None of these / no strong match
+    </button>
+  </div>
+  } @if (assistant.pendingPlan(); as plan) {
+  <div class="assistant-plan" data-testid="assistant-plan">
+    <span class="plan-title">Proposed changes</span>
+    <p class="plan-summary">{{ plan.summary }}</p>
+    <ol class="plan-steps">
+      @for (step of plan.steps; track $index) {
+      <li class="plan-step">{{ step.summary }}</li>
+      }
+    </ol>
+    <div class="plan-actions">
+      <button
+        type="button"
+        class="plan-approve"
+        [disabled]="assistant.sending()"
+        (click)="assistant.approvePlan(plan.planId, plan.approvalToken)"
+        data-testid="assistant-plan-approve"
+      >
+        {{ assistant.sending() ? 'Applying…' : 'Approve plan' }}
+      </button>
+    </div>
+  </div>
   } @if (assistant.pendingAnchor(); as prompt) {
   <div class="assistant-prompt" data-testid="assistant-anchor-prompt">
     <span class="prompt-question">{{ prompt.question }}</span>

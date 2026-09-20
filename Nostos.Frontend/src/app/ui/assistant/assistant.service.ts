@@ -1,23 +1,32 @@
 /**
- * Assistant conversation/session state. No LLM — this stream records typed
- * captures and drives the one deterministic follow-up ("What page are you on?").
+ * Assistant conversation/session state (issue #261 §3, §5, §6, §7).
  *
- * The surface opens empty; every capture appends an editorial entry (rendered as
- * a blockquote/marginalia, never a chat bubble). The service owns the capture
- * flow so the component stays presentational and the flow is unit-testable.
+ * The backend bridge (`POST /api/assistant/turn`) owns the LLM and the tool
+ * loop; this service owns the surface's state: the editorial transcript, the
+ * deterministic source-location follow-up, the non-mutating suggestions, and the
+ * pending plan that must be approved before anything changes.
+ *
+ * Two rules are structural, not cosmetic:
+ *   - A suggestion never mutates. It is displayed and, when chosen, handed to the
+ *     canonical link path as a PlanAndAct proposal that the user approves.
+ *   - A pending plan is executed only by an explicit `approvePlan` carrying the
+ *     exact plan id and its approval token.
+ *
+ * `TRANSCRIPT_SEND_POLICY` is unchanged: a voice transcript enters the composer
+ * and is dispatched after the grace window, with a pre-dispatch Undo.
  */
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 
 import {
   AssistantAnchor,
   AssistantContext,
   AssistantContextService,
 } from './assistant-context.service';
-import { AssistantCaptureResult, AssistantCaptureService } from './assistant-capture.service';
 
 export interface AssistantEntry {
   id: string;
-  kind: 'capture' | 'question' | 'error';
+  kind: 'capture' | 'question' | 'reply' | 'error';
   text: string;
   anchorLabel: string | null;
   meta: string | null;
@@ -26,6 +35,87 @@ export interface AssistantEntry {
 export interface AssistantAnchorPrompt {
   kind: 'physical_page' | 'external_audio_timestamp';
   question: string;
+}
+
+/** A non-mutating proposal returned by the bridge. */
+export interface AssistantSuggestionDto {
+  kind: string;
+  label: string;
+  reason: string;
+  value: string | null;
+}
+
+/** One ordered step of a plan awaiting approval. */
+export interface AssistantPlanStepDto {
+  capability: string;
+  summary: string;
+  argumentsJson: string;
+}
+
+/** A plan the assistant will not run without an explicit approval. */
+export interface AssistantPendingPlanDto {
+  planId: string;
+  summary: string;
+  steps: AssistantPlanStepDto[];
+  approvalToken: string;
+}
+
+export interface AssistantPlanStepOutcomeDto {
+  capability: string;
+  success: boolean;
+  errorCode: string | null;
+  errorMessage: string | null;
+  data: unknown;
+}
+
+/** The result of executing an approved plan. Failures are data. */
+export interface AssistantPlanApproveResponse {
+  success: boolean;
+  errorCode: string | null;
+  errorMessage: string | null;
+  steps: AssistantPlanStepOutcomeDto[];
+}
+
+export interface AssistantAnchorPromptDto {
+  kind: string;
+  question: string;
+}
+
+/** One normal turn result, mirroring `AssistantTurnResponse`. */
+export interface AssistantTurnResponse {
+  reply: string;
+  acknowledgement: string | null;
+  anchorPrompt: AssistantAnchorPromptDto | null;
+  suggestions: AssistantSuggestionDto[];
+  pendingPlan: AssistantPendingPlanDto | null;
+}
+
+/** The turn request the bridge accepts. */
+interface AssistantTurnRequestDto {
+  clientId: string;
+  idempotencyKey: string;
+  message: string;
+  context: AssistantContextDto;
+  pendingPlanId: string | null;
+}
+
+/** Mirrors the backend `AssistantContextDto` field-for-field. */
+interface AssistantContextDto {
+  surface: string;
+  route: string;
+  bookId: string | null;
+  bookTitle: string | null;
+  bookFormat: string | null;
+  readerType: string | null;
+  epubCfi: string | null;
+  pdfPage: number | null;
+  audioTimestamp: number | null;
+  audioChapter: string | null;
+  selectedText: string | null;
+  brainReviewNoteId: string | null;
+  concept: string | null;
+  collectionId: string | null;
+  anchor: { kind: string; value: string | null; verified: boolean } | null;
 }
 
 /**
@@ -51,7 +141,9 @@ export const TRANSCRIPT_AUTO_SEND_DELAY_MS = 2000;
 /** Shape exposed on `globalThis.__nostosAssistant` for live verification. */
 export interface NostosAssistantDiagnostics {
   context: AssistantContext;
-  lastCapture: AssistantCaptureResult | null;
+  lastTurn: AssistantTurnResponse | null;
+  suggestions: AssistantSuggestionDto[];
+  pendingPlan: AssistantPendingPlanDto | null;
 }
 
 declare global {
@@ -61,17 +153,44 @@ declare global {
 
 let entrySeq = 0;
 
+/** A stable per-session id, with a fallback for environments without `crypto.randomUUID`. */
+function createId(): string {
+  const cryptoObj = globalThis.crypto as Crypto | undefined;
+  if (cryptoObj && typeof cryptoObj.randomUUID === 'function') {
+    return cryptoObj.randomUUID();
+  }
+  return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AssistantService {
   private readonly contextService = inject(AssistantContextService);
-  private readonly captureService = inject(AssistantCaptureService);
+  private readonly http = inject(HttpClient);
+
+  /** Stable for the life of the surface; keys the server-held pending plan. */
+  private readonly clientId = createId();
 
   readonly isOpen = signal(false);
   readonly draft = signal('');
   readonly entries = signal<AssistantEntry[]>([]);
   readonly sending = signal(false);
-  readonly lastCapture = signal<AssistantCaptureResult | null>(null);
   readonly lastError = signal<string | null>(null);
+
+  /** The most recent turn, for the transcript and live verification. */
+  readonly lastTurn = signal<AssistantTurnResponse | null>(null);
+  /** Non-mutating concept suggestions for the current turn. */
+  readonly suggestions = signal<AssistantSuggestionDto[]>([]);
+  /** The plan (if any) waiting for an explicit approval. */
+  readonly pendingPlan = signal<AssistantPendingPlanDto | null>(null);
+  /** The last approval outcome, kept so the owning surface can react. */
+  readonly lastApproval = signal<AssistantPlanApproveResponse | null>(null);
+
+  /**
+   * Set by the Second Brain while reviewing a note. Called after an approved
+   * plan that links the reviewed note, so the review queue can move on.
+   */
+  onPlanExecuted: ((plan: AssistantPendingPlanDto, response: AssistantPlanApproveResponse) => void) | null =
+    null;
 
   /** True while an auto transcript is waiting out its Undo window. */
   readonly autoSendPending = signal(false);
@@ -99,11 +218,13 @@ export class AssistantService {
 
   constructor() {
     // The repo verifies UI by reading handles in a live browser; expose the
-    // resolved context and the last capture result the same way.
+    // resolved context, the last turn, the suggestions and the pending plan.
     effect(() => {
       globalThis.__nostosAssistant = {
         context: this.context(),
-        lastCapture: this.lastCapture(),
+        lastTurn: this.lastTurn(),
+        suggestions: this.suggestions(),
+        pendingPlan: this.pendingPlan(),
       };
     });
   }
@@ -135,9 +256,7 @@ export class AssistantService {
   /**
    * A finished voice transcript enters here and nowhere else. It lands in the
    * composer exactly as if it had been typed; under `auto` it is then dispatched
-   * after the grace window, through the one shared `submit()`. A transcript after
-   * a follow-up question therefore answers that question through the same path a
-   * typed answer takes, with the same grace window.
+   * after the grace window, through the one shared `submit()`.
    */
   insertTranscript(text: string): void {
     const transcript = text.trim();
@@ -190,7 +309,7 @@ export class AssistantService {
       this.pendingAnchor.set(null);
       this.pendingText.set('');
       this.draft.set('');
-      this.performCapture(original, this.anchorFromAnswer(pending.kind, text));
+      this.dispatchTurn(original, this.anchorFromAnswer(pending.kind, text));
       return;
     }
 
@@ -200,13 +319,15 @@ export class AssistantService {
     this.draft.set('');
 
     if (question) {
+      // The deterministic local follow-up: no LLM round trip is spent asking for
+      // a location the format cannot supply.
       this.pendingText.set(text);
       this.pendingAnchor.set(question);
       this.pushEntry('question', question.question, null, null);
       return;
     }
 
-    this.performCapture(text, anchor);
+    this.dispatchTurn(text, anchor);
   }
 
   /** "I don't know" — never lose the capture to a missing anchor. */
@@ -216,12 +337,131 @@ export class AssistantService {
     this.pendingAnchor.set(null);
     this.pendingText.set('');
     this.draft.set('');
-    this.performCapture(text, { kind: 'unknown', value: null, verified: false });
+    this.dispatchTurn(text, { kind: 'unknown', value: null, verified: false });
   }
 
   /** Remove a wrong ambient anchor for this session. */
   dismissAnchor(): void {
     this.anchorDismissed.set(true);
+  }
+
+  /**
+   * The Brain review affordance: open the assistant and ask it where the
+   * reviewed note belongs. The review-note context is supplied by the Second
+   * Brain's provider, so the turn knows which note is under review.
+   */
+  requestSuggestions(prompt = 'Where do you think this belongs?'): void {
+    this.open();
+    this.updateDraft(prompt);
+    this.submit();
+  }
+
+  /**
+   * Choose a non-mutating suggestion. Linking is state-changing, so this hands
+   * the choice to the canonical PlanAndAct path: the assistant proposes
+   * `notes_link_existing_concept` and nothing runs until the user approves the
+   * plan. The assistant never links a note on its own.
+   */
+  applySuggestion(suggestion: AssistantSuggestionDto): void {
+    if (suggestion.kind !== 'concept' || !suggestion.value) return;
+
+    if (!this.context().brainReviewNoteId) {
+      this.lastError.set('Open the note in the Second Brain so the link has a target.');
+      return;
+    }
+
+    const context = this.context();
+    this.dispatchTurn(
+      `Link the note I am reviewing to the existing concept “${suggestion.label}”.`,
+      this.effectiveAnchor(context),
+    );
+  }
+
+  /** "None of these": leave the note unlinked, with no error. */
+  dismissSuggestions(): void {
+    this.suggestions.set([]);
+  }
+
+  /**
+   * Execute exactly one pending plan through
+   * `POST /api/assistant/plan/approve`. The plan id and its approval token are
+   * both required; the server refuses a mismatch and mutates nothing.
+   */
+  approvePlan(planId: string, approvalToken: string): void {
+    if (!planId || !approvalToken || this.sending()) return;
+
+    const plan = this.pendingPlan();
+    this.sending.set(true);
+    this.http
+      .post<AssistantPlanApproveResponse>('/api/assistant/plan/approve', { planId, approvalToken })
+      .subscribe({
+        next: (response) => {
+          this.sending.set(false);
+          this.lastError.set(null);
+          this.lastApproval.set(response);
+
+          if (response.success) {
+            this.pendingPlan.set(null);
+            this.pushEntry('reply', plan?.summary ?? 'Plan applied.', null, 'Applied');
+          } else {
+            this.lastError.set(response.errorMessage ?? 'The plan could not be applied.');
+            this.pushEntry('error', plan?.summary ?? 'Plan refused.', null, response.errorCode ?? 'Refused');
+          }
+
+          if (plan && this.onPlanExecuted) this.onPlanExecuted(plan, response);
+        },
+        error: () => {
+          this.sending.set(false);
+          this.lastError.set('The plan could not be applied. It is still waiting for approval.');
+        },
+      });
+  }
+
+  private dispatchTurn(text: string, anchor: AssistantAnchor | null): void {
+    const context = this.context();
+    const request: AssistantTurnRequestDto = {
+      clientId: this.clientId,
+      idempotencyKey: createId(),
+      message: text,
+      context: toContextDto(context, anchor),
+      pendingPlanId: this.pendingPlan()?.planId ?? null,
+    };
+
+    this.sending.set(true);
+    this.http.post<AssistantTurnResponse>('/api/assistant/turn', request).subscribe({
+      next: (response) => {
+        this.sending.set(false);
+        this.lastError.set(null);
+        this.lastTurn.set(response);
+        this.suggestions.set(response.suggestions ?? []);
+        this.pendingPlan.set(response.pendingPlan ?? null);
+
+        if (response.acknowledgement) {
+          this.pushEntry('capture', text, this.anchorLabel({ ...context, anchor }), 'Saved');
+        }
+
+        if (response.reply) {
+          this.pushEntry('reply', response.reply, null, null);
+        }
+
+        // A backend-requested location arrives as the same deterministic
+        // follow-up the surface already knows how to ask.
+        if (response.anchorPrompt) {
+          const kind = response.anchorPrompt.kind;
+          if (kind === 'physical_page' || kind === 'external_audio_timestamp') {
+            this.pendingText.set(text);
+            this.pendingAnchor.set({ kind, question: response.anchorPrompt.question });
+          }
+          this.pushEntry('question', response.anchorPrompt.question, null, null);
+        }
+      },
+      error: () => {
+        this.sending.set(false);
+        this.lastError.set('The assistant could not be reached. Your message is still in the composer to retry.');
+        this.draft.set(text);
+        this.pushEntry('error', text, null, 'Not sent');
+      },
+    });
   }
 
   private effectiveAnchor(context: AssistantContext): AssistantAnchor | null {
@@ -255,37 +495,6 @@ export class AssistantService {
     return { kind, value: answer, verified: false };
   }
 
-  private performCapture(text: string, anchor: AssistantAnchor | null): void {
-    const context = this.context();
-    if (!context.bookId) {
-      this.pushEntry('error', text, null, 'Open a book first so the note has somewhere to live.');
-      return;
-    }
-
-    this.sending.set(true);
-    this.captureService
-      .capture({
-        bookId: context.bookId,
-        text,
-        selectedText: context.selectedText,
-        anchor,
-      })
-      .subscribe({
-        next: (result) => {
-          this.sending.set(false);
-          this.lastError.set(null);
-          this.lastCapture.set(result);
-          this.pushEntry('capture', text, this.anchorLabel({ ...context, anchor }), 'Saved');
-        },
-        error: () => {
-          this.sending.set(false);
-          this.lastError.set('Could not save that capture. It is still in the composer to retry.');
-          this.draft.set(text);
-          this.pushEntry('error', text, null, 'Not saved');
-        },
-      });
-  }
-
   private pushEntry(
     kind: AssistantEntry['kind'],
     text: string,
@@ -315,6 +524,30 @@ export class AssistantService {
         return title;
     }
   }
+}
+
+/**
+ * Builds the wire context, applying the turn's anchor (the composer may have
+ * answered a follow-up) over the ambient one.
+ */
+function toContextDto(context: AssistantContext, anchor: AssistantAnchor | null): AssistantContextDto {
+  return {
+    surface: context.surface,
+    route: context.route,
+    bookId: context.bookId,
+    bookTitle: context.bookTitle,
+    bookFormat: context.bookFormat,
+    readerType: context.readerType,
+    epubCfi: context.epubCfi,
+    pdfPage: context.pdfPage,
+    audioTimestamp: context.audioTimestamp,
+    audioChapter: context.audioChapter,
+    selectedText: context.selectedText,
+    brainReviewNoteId: context.brainReviewNoteId,
+    concept: context.concept,
+    collectionId: context.collectionId,
+    anchor: anchor ? { kind: anchor.kind, value: anchor.value, verified: anchor.verified } : null,
+  };
 }
 
 /** Seconds (as a string) to `m:ss` / `h:mm:ss`. Null-safe and never NaN-y. */

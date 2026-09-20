@@ -167,6 +167,143 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     // ------------------------------------------------------------------
+    // Brain review — existing-concept suggestions only (#261 §5)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task Brain_review_note_context_drives_concept_suggestions_without_mutating()
+    {
+        var h = CreateHarness();
+        var book = await SeedBookAsync(h, "The Magic Mountain");
+        var note = await SeedNoteAsync(h, book.Id, "Hans Castorp on the mountain");
+        await SeedConceptAsync(h, "Mountains");
+        await SeedConceptAsync(h, "The Alps");
+
+        var before = await StoreSnapshotAsync(h);
+
+        // The model reads the reviewed note and lists concepts: the flow the
+        // review-note context instructs it to follow.
+        h.Llm
+            .CallsTool("notes_read_for_review", $$"""{"noteId":"{{note.Id}}"}""")
+            .CallsTool("concepts_list")
+            .Returns("A couple of concepts look right.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Where do you think this belongs?",
+            Context(
+                surface: "second-brain",
+                route: "/second-brain",
+                brainReviewNoteId: note.Id.ToString())));
+
+        response.Suggestions.Should().NotBeEmpty();
+        response.Suggestions.Should().OnlyContain(s => s.Kind == "concept");
+        response.Suggestions.Should().HaveCountLessThanOrEqualTo(AssistantOrchestrator.MaxConceptSuggestions);
+        response.Suggestions.Select(s => s.Label).Should().BeSubsetOf(["Mountains", "The Alps"]);
+
+        // Suggesting is not linking: neither the note nor any concept changed.
+        (await StoreSnapshotAsync(h)).Should().BeEquivalentTo(before);
+
+        // The reviewed note id reaches the model so notes_read_for_review can use it.
+        h.Llm.Requests[0].Messages
+            .Should().Contain(m => m.Content != null && m.Content.Contains(note.Id.ToString()));
+    }
+
+    [Fact]
+    public async Task Concept_suggestions_are_capped_and_never_create_a_concept()
+    {
+        var h = CreateHarness();
+        var book = await SeedBookAsync(h);
+        var note = await SeedNoteAsync(h, book.Id, "A note with no concept");
+        var seeded = new List<string>();
+        for (var i = 1; i <= 8; i++)
+        {
+            seeded.Add((await SeedConceptAsync(h, $"Concept {i}")).Concept);
+        }
+
+        var before = await StoreSnapshotAsync(h);
+
+        h.Llm
+            .CallsTool("notes_read_for_review", $$"""{"noteId":"{{note.Id}}"}""")
+            .CallsTool("concepts_list")
+            .Returns("Ideas.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Where does this belong?",
+            Context(
+                surface: "second-brain",
+                route: "/second-brain",
+                brainReviewNoteId: note.Id.ToString())));
+
+        response.Suggestions.Should().HaveCount(AssistantOrchestrator.MaxConceptSuggestions);
+        response.Suggestions.Select(s => s.Label).Should().BeSubsetOf(seeded);
+
+        // Zero concepts created to satisfy the suggestions.
+        (await StoreSnapshotAsync(h)).Should().BeEquivalentTo(before);
+    }
+
+    // ------------------------------------------------------------------
+    // Collections — inspect, propose, approve (#261 §6)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task Collections_inspection_produces_a_pending_plan_without_executing()
+    {
+        var h = CreateHarness();
+        var existing = await SeedCollectionAsync(h, "Old Name");
+
+        h.Llm
+            .CallsTool("library_list_collections")
+            .CallsTool("library_create_collection", """{"name":"Fiction"}""")
+            .CallsTool("library_rename_collection", $$"""{"collectionId":"{{existing.Id}}","name":"Classics"}""")
+            .Returns("Here is a cleaner structure. Approve it to apply the changes.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "My collections are getting messy. Can you propose something cleaner?",
+            Context(surface: "library", route: "/library")));
+
+        response.PendingPlan.Should().NotBeNull();
+        response.PendingPlan!.Steps.Select(step => step.Capability).Should().Equal(
+            "library_create_collection",
+            "library_rename_collection");
+
+        // Inspection and proposal only: nothing was executed before approval.
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var names = await db.Collections.AsNoTracking().Select(c => c.Name).ToListAsync();
+        names.Should().Equal("Old Name");
+    }
+
+    [Fact]
+    public async Task Approving_a_collections_plan_executes_each_mutation_through_the_library_service()
+    {
+        var h = CreateHarness();
+        var existing = await SeedCollectionAsync(h, "Old Name");
+
+        h.Llm
+            .CallsTool("library_list_collections")
+            .CallsTool("library_create_collection", """{"name":"Fiction"}""")
+            .CallsTool("library_rename_collection", $$"""{"collectionId":"{{existing.Id}}","name":"Classics"}""")
+            .Returns("Proposed.");
+
+        var turn = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Tidy my collections.",
+            Context(surface: "library", route: "/library")));
+
+        var plan = turn.PendingPlan!;
+        var approved = await h.Orchestrator.ApproveAsync(plan.PlanId, plan.ApprovalToken);
+
+        approved.Success.Should().BeTrue();
+        approved.Steps.Should().HaveCount(2);
+        approved.Steps.Should().OnlyContain(step => step.Success);
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var names = await db.Collections.AsNoTracking()
+            .Select(c => c.Name)
+            .OrderBy(name => name)
+            .ToListAsync();
+        names.Should().Equal("Classics", "Fiction");
+    }
+
+    // ------------------------------------------------------------------
     // PlanAndAct — no mutation until approval
     // ------------------------------------------------------------------
 
@@ -471,6 +608,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         int? pdfPage = null,
         double? audioTimestamp = null,
         string? selectedText = null,
+        string? brainReviewNoteId = null,
         AssistantAnchorDto? anchor = null) =>
         new(
             surface,
@@ -484,7 +622,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
             audioTimestamp,
             AudioChapter: null,
             selectedText,
-            BrainReviewNoteId: null,
+            BrainReviewNoteId: brainReviewNoteId,
             Concept: null,
             CollectionId: null,
             anchor);
@@ -518,6 +656,14 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         h.Db.Concepts.Add(concept);
         await h.Db.SaveChangesAsync();
         return concept;
+    }
+
+    private static async Task<CollectionModel> SeedCollectionAsync(Harness h, string name)
+    {
+        var collection = new CollectionModel { Id = Guid.NewGuid(), Name = name };
+        h.Db.Collections.Add(collection);
+        await h.Db.SaveChangesAsync();
+        return collection;
     }
 
     private static async Task<int> NoteCountAsync(Harness h)
