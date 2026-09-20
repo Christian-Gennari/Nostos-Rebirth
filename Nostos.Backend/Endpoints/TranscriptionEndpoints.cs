@@ -36,9 +36,10 @@ public static class TranscriptionEndpoints
         IAiProviderConfigResolver config,
         CancellationToken ct)
     {
-        // The kill switch is the EFFECTIVE one (stored override else
-        // appsettings). A surface that is enabled but has no key still maps and
-        // answers typed: the provider raises NotConfigured below.
+        // Availability is derived (enabled && baseUrl && key), exactly like the
+        // assistant's gate: an enabled-but-unconfigured surface is a typed 503,
+        // never a startup failure or a 500. The credential itself is only tested
+        // for presence here.
         var effective = await config.GetEffectiveSttAsync(ct);
         if (!effective.Enabled)
         {
@@ -46,6 +47,14 @@ public static class TranscriptionEndpoints
                 SttErrorCodes.Disabled,
                 StatusCodes.Status503ServiceUnavailable,
                 "Speech-to-text is disabled on this server.");
+        }
+
+        if (!effective.IsAvailable)
+        {
+            return Failure(
+                SttErrorCodes.NotConfigured,
+                StatusCodes.Status503ServiceUnavailable,
+                SttException.NotConfigured(effective.ApiKeyEnvironmentVariable).Message);
         }
 
         if (!request.HasFormContentType)

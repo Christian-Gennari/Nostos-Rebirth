@@ -24,8 +24,23 @@ namespace Nostos.Backend.Tests.Endpoints;
 /// is never called here, because each real transcription is paid and the quota
 /// is rationed.
 /// </summary>
-public sealed class TranscriptionEndpointTests
+public sealed class TranscriptionEndpointTests : IDisposable
 {
+    /// <summary>
+    /// A configured key for the duration of every test, so the derived
+    /// availability gate is satisfied by default; the unconfigured test clears
+    /// it explicitly. Cleared on dispose.
+    /// </summary>
+    private const string TokenVariable = "NOSTOS_STT_TEST_TOKEN";
+
+    private const string TokenValue = "sentinel-stt-key-value";
+
+    public TranscriptionEndpointTests() =>
+        Environment.SetEnvironmentVariable(TokenVariable, TokenValue);
+
+    public void Dispose() =>
+        Environment.SetEnvironmentVariable(TokenVariable, null);
+
     // ------------------------------------------------------------------
     // Happy path
     // ------------------------------------------------------------------
@@ -122,6 +137,29 @@ public sealed class TranscriptionEndpointTests
         response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
         (await ProblemTitleAsync(response)).Should().Be(SttErrorCodes.Disabled);
         provider.CallCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task An_enabled_but_unconfigured_surface_is_a_typed_503_not_a_500()
+    {
+        var provider = new FakeSttProvider();
+        using var factory = new LibraryEndpointFactory();
+        using var host = CreateHost(factory, provider);
+        using var client = host.CreateClient();
+
+        Environment.SetEnvironmentVariable(TokenVariable, null);
+        try
+        {
+            var response = await PostAsync(client, Audio(128));
+
+            response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+            (await ProblemTitleAsync(response)).Should().Be(SttErrorCodes.NotConfigured);
+            provider.CallCount.Should().Be(0);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(TokenVariable, TokenValue);
+        }
     }
 
     [Fact]
