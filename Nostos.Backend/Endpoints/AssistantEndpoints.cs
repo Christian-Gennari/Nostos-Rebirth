@@ -1,4 +1,3 @@
-using Nostos.Backend.Configuration;
 using Nostos.Backend.Integrations.Assistant;
 using Nostos.Backend.Services.Ai;
 using Nostos.Shared.Dtos;
@@ -19,7 +18,8 @@ namespace Nostos.Backend.Endpoints;
 /// environment at call time and is never part of a request or response body.
 /// Every failure is returned as data with a stable code, so a client gets a typed
 /// error instead of a 404/500 — and nothing silently falls back to another
-/// provider. Availability is derived once in <see cref="AssistantOptions.IsAvailable"/>.
+/// provider. Availability is derived once from the EFFECTIVE configuration
+/// (the stored AI-provider override when set, otherwise appsettings/env).
 /// </summary>
 public static class AssistantEndpoints
 {
@@ -30,7 +30,7 @@ public static class AssistantEndpoints
     public static IEndpointRouteBuilder MapAssistantEndpoints(this IEndpointRouteBuilder routes)
     {
         var group = routes.MapGroup("/api/assistant");
-        group.MapGet("/status", Status);
+        group.MapGet("/status", StatusAsync);
         group.MapPost("/turn", TurnAsync);
         group.MapPost("/plan/approve", ApproveAsync);
         return routes;
@@ -42,16 +42,21 @@ public static class AssistantEndpoints
     /// false), and carries no hint of the credential — the key is tested for
     /// presence and never read into the response.
     /// </summary>
-    private static IResult Status(AssistantOptions options) =>
-        Results.Ok(new AssistantStatusResponse(options.IsAvailable()));
+    private static async Task<IResult> StatusAsync(
+        IAiProviderConfigResolver config,
+        CancellationToken ct)
+    {
+        var effective = await config.GetEffectiveLlmAsync(ct);
+        return Results.Ok(new AssistantStatusResponse(effective.IsAvailable));
+    }
 
     private static async Task<IResult> TurnAsync(
         AssistantTurnRequest request,
         AssistantOrchestrator orchestrator,
-        AssistantOptions options,
+        IAiProviderConfigResolver config,
         CancellationToken ct)
     {
-        var unavailable = Unavailable(options);
+        var unavailable = await UnavailableAsync(config, ct);
         if (unavailable is not null) return unavailable;
 
         try
@@ -67,10 +72,10 @@ public static class AssistantEndpoints
     private static async Task<IResult> ApproveAsync(
         AssistantPlanApproveRequest request,
         AssistantOrchestrator orchestrator,
-        AssistantOptions options,
+        IAiProviderConfigResolver config,
         CancellationToken ct)
     {
-        var unavailable = Unavailable(options);
+        var unavailable = await UnavailableAsync(config, ct);
         if (unavailable is not null) return unavailable;
 
         var response = await orchestrator.ApproveAsync(request.PlanId, request.ApprovalToken, ct);
@@ -89,15 +94,18 @@ public static class AssistantEndpoints
     /// <see cref="LlmErrorCodes.NotConfigured"/> distinction is preserved so the
     /// client can still tell a kill switch from a missing key.
     /// </summary>
-    private static IResult? Unavailable(AssistantOptions options)
+    private static async Task<IResult?> UnavailableAsync(
+        IAiProviderConfigResolver config,
+        CancellationToken ct)
     {
-        if (options.IsAvailable()) return null;
+        var effective = await config.GetEffectiveLlmAsync(ct);
+        if (effective.IsAvailable) return null;
 
-        return options.Enabled
+        return effective.Enabled
             ? Failure(
                 LlmErrorCodes.NotConfigured,
                 StatusCodes.Status503ServiceUnavailable,
-                LlmException.NotConfigured(options.ApiKeyEnvironmentVariable).Message)
+                LlmException.NotConfigured(effective.ApiKeyEnvironmentVariable).Message)
             : Failure(
                 LlmErrorCodes.Disabled,
                 StatusCodes.Status503ServiceUnavailable,

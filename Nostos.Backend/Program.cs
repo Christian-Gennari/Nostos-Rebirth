@@ -135,6 +135,25 @@ builder.Services.AddSingleton<IThoughtProcessor, ThoughtProcessor>();
 builder.Services.AddSingleton<AssistantPlanStore>();
 builder.Services.AddScoped<AssistantOrchestrator>();
 
+// --- AI PROVIDER SETTINGS (assistant-milestone plan) ---
+// Server-wide LLM/STT overrides stored in the database, with the appsettings
+// values above remaining the fallback. The effective resolver is what the
+// providers read at call time. Data Protection is framework-provided and is
+// used to store an owner-supplied key encrypted at rest; its default key ring
+// persists per-user, so nothing extra has to be configured here.
+builder.Services.AddDataProtection();
+builder.Services.AddHttpClient(AiProviderSettingsService.HttpClientName, client =>
+{
+    // The settings probes are small, but the free pool can be slow to answer
+    // one completion; this is a ceiling, not an expectation.
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+builder.Services.AddSingleton<AiProviderSettingsService>();
+builder.Services.AddSingleton<IAiProviderConfigResolver>(
+    sp => sp.GetRequiredService<AiProviderSettingsService>());
+builder.Services.AddSingleton<IAiProviderSettingsService>(
+    sp => sp.GetRequiredService<AiProviderSettingsService>());
+
 // --- OPDS 1.2 export (issue #186) ---
 // The catalogue is unauthenticated by design, so it is only safe on a private
 // network; see OpdsOptions for the full access-model statement. The section is
@@ -454,6 +473,7 @@ app.MapConceptsEndpoints();
 app.MapWritingsEndpoints();
 app.MapTranscriptionEndpoints();
 app.MapAssistantEndpoints();
+app.MapAiProviderSettingsEndpoints();
 app.MapOpdsEndpoints(opdsOptions);
 app.MapBackupEndpoints();
 

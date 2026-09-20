@@ -246,7 +246,7 @@ public sealed class NineRouterLlmProviderTests
     public async Task Fails_fast_with_a_typed_error_when_the_key_is_absent()
     {
         var handler = new StubHttpMessageHandler();
-        var provider = CreateProvider(handler);
+        var provider = CreateProvider(handler, apiKey: null);
 
         Environment.SetEnvironmentVariable(TokenVariable, null);
         var act = () => provider.CompleteAsync(MinimalRequest());
@@ -325,17 +325,19 @@ public sealed class NineRouterLlmProviderTests
         Content = new StringContent(json, Encoding.UTF8, "application/json"),
     };
 
-    private static AssistantOptions TestOptions() => new()
-    {
-        Enabled = true,
-        BaseUrl = "http://omenhub:20128/v1",
-        Model = Model,
-        ApiKeyEnvironmentVariable = TokenVariable,
-    };
+    private static EffectiveAiProviderConfig TestConfig(string? apiKey) => new(
+        Enabled: true,
+        BaseUrl: "http://omenhub:20128/v1",
+        Model: Model,
+        ApiKeyEnvironmentVariable: TokenVariable,
+        ApiKey: apiKey,
+        KeyFromServerEnv: apiKey is not null);
 
-    private static NineRouterLlmProvider CreateProvider(StubHttpMessageHandler handler) =>
+    private static NineRouterLlmProvider CreateProvider(
+        StubHttpMessageHandler handler,
+        string? apiKey = TokenValue) =>
         new(
             new StubHttpClientFactory(handler, new Uri("http://omenhub:20128")),
-            TestOptions(),
+            new StubAiProviderConfigResolver { Llm = TestConfig(apiKey) },
             NullLogger<NineRouterLlmProvider>.Instance);
 }

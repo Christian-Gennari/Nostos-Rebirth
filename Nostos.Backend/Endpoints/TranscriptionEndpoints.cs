@@ -33,9 +33,14 @@ public static class TranscriptionEndpoints
         HttpRequest request,
         ISTtProvider provider,
         SpeechOptions options,
+        IAiProviderConfigResolver config,
         CancellationToken ct)
     {
-        if (!options.Enabled)
+        // The kill switch is the EFFECTIVE one (stored override else
+        // appsettings). A surface that is enabled but has no key still maps and
+        // answers typed: the provider raises NotConfigured below.
+        var effective = await config.GetEffectiveSttAsync(ct);
+        if (!effective.Enabled)
         {
             return Failure(
                 SttErrorCodes.Disabled,
