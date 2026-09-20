@@ -99,6 +99,8 @@ const AI_PROVIDER_COPY = {
 } as const;
 
 /** How a section's inline status line is coloured. */
+type SettingsSection = 'library' | 'assistant' | 'appearance';
+
 type AiProviderStatusTone = 'neutral' | 'ok' | 'error';
 
 interface AiProviderStatus {
@@ -155,37 +157,127 @@ const defaultProgress: BackupProgress = {
   template: `
     <div class="settings-page">
       <header class="settings-header">
+        <span class="settings-kicker">Nostos</span>
         <h1>Settings</h1>
-        <p class="settings-intro">Tune the parts that sit behind your reading: storage, connections, assistant, and appearance.</p>
+        <p class="settings-intro">Shape the quiet systems behind your reading space.</p>
       </header>
 
       <div class="settings-shell">
-        <nav class="settings-nav" aria-label="Settings sections">
-          <a class="settings-nav-link" href="#library-data">
-            <nostos-icon name="book-open" [size]="16"></nostos-icon>
-            <span>Library &amp; data</span>
-          </a>
-          <a class="settings-nav-link" href="#assistant">
-            <nostos-icon name="sparkle" [size]="16"></nostos-icon>
-            <span>Assistant</span>
-          </a>
-          <a class="settings-nav-link" href="#appearance">
-            <nostos-icon name="palette" [size]="16"></nostos-icon>
-            <span>Appearance</span>
-          </a>
+        <nav class="settings-nav" role="tablist" aria-label="Settings sections">
+          <button
+            type="button"
+            class="settings-nav-item"
+            role="tab"
+            [class.is-active]="activeSettingsSection() === 'library'"
+            [attr.aria-selected]="activeSettingsSection() === 'library'"
+            aria-controls="library-data"
+            (click)="setSettingsSection('library')"
+          >
+            <span class="settings-nav-icon">
+              <nostos-icon name="book-open" [size]="17"></nostos-icon>
+            </span>
+            <span class="settings-nav-copy">
+              <strong>Library &amp; data</strong>
+              <small>Backups &amp; e-readers</small>
+            </span>
+          </button>
+          <button
+            type="button"
+            class="settings-nav-item"
+            role="tab"
+            [class.is-active]="activeSettingsSection() === 'assistant'"
+            [attr.aria-selected]="activeSettingsSection() === 'assistant'"
+            aria-controls="assistant"
+            (click)="setSettingsSection('assistant')"
+          >
+            <span class="settings-nav-icon">
+              <nostos-icon name="sparkle" [size]="17"></nostos-icon>
+            </span>
+            <span class="settings-nav-copy">
+              <strong>Assistant</strong>
+              <small>Capture &amp; AI</small>
+            </span>
+          </button>
+          <button
+            type="button"
+            class="settings-nav-item"
+            role="tab"
+            [class.is-active]="activeSettingsSection() === 'appearance'"
+            [attr.aria-selected]="activeSettingsSection() === 'appearance'"
+            aria-controls="appearance"
+            (click)="setSettingsSection('appearance')"
+          >
+            <span class="settings-nav-icon">
+              <nostos-icon name="palette" [size]="17"></nostos-icon>
+            </span>
+            <span class="settings-nav-copy">
+              <strong>Appearance</strong>
+              <small>Theme &amp; atmosphere</small>
+            </span>
+          </button>
         </nav>
 
         <main class="settings-content">
-          <section class="settings-section" id="library-data" aria-labelledby="library-data-heading">
+          <section
+            class="settings-section"
+            id="library-data"
+            role="tabpanel"
+            aria-labelledby="library-data-heading"
+            [hidden]="activeSettingsSection() !== 'library'"
+          >
             <div class="section-heading">
-              <h2 id="library-data-heading">Library &amp; data</h2>
-              <p>Backups, recovery, and e-reader access.</p>
+              <span class="section-label">Library &amp; data</span>
+              <h2 id="library-data-heading">Keep your library safe and reachable.</h2>
+              <p>Control what Nostos protects, how often it does it, and how other reading devices reach your books.</p>
+            </div>
+
+            <div class="settings-overview" aria-label="Backup overview">
+              <div class="overview-item">
+                <span class="overview-label">Automatic backups</span>
+                <strong>{{ settings().isEnabled ? 'On' : 'Off' }}</strong>
+                <small>{{ settings().isEnabled ? formatInterval(settings().intervalHours) : 'Manual only' }}</small>
+              </div>
+              <div class="overview-item">
+                <span class="overview-label">Last backup</span>
+                @if (status().lastBackupAt) {
+                  <strong>{{ status().lastBackupAt | date:'MMM d' }}</strong>
+                  <small>{{ status().lastBackupStatus || 'Completed' }}</small>
+                } @else {
+                  <strong>Not yet</strong>
+                  <small>No backup created</small>
+                }
+              </div>
+              <div class="overview-item">
+                <span class="overview-label">Backup contents</span>
+                <strong>{{ settings().includeBookFiles ? 'Full library' : 'Metadata' }}</strong>
+                <small>{{ settings().includeBookFiles ? 'Books + files' : 'Database only' }}</small>
+              </div>
             </div>
 
             <section class="settings-card">
         <div class="card-header">
-          <nostos-icon name="gear-six" [size]="20" weight="light"></nostos-icon>
-          <h2>Backup</h2>
+          <div class="card-header-copy">
+            <span class="card-header-icon">
+              <nostos-icon name="gear-six" [size]="18" weight="light"></nostos-icon>
+            </span>
+            <div>
+              <h2>Backup</h2>
+              <p>Choose the cadence and depth of your safety copies.</p>
+            </div>
+          </div>
+          <button
+            class="btn btn-primary"
+            [disabled]="backingUp()"
+            (click)="triggerBackup()"
+          >
+            @if (backingUp()) {
+              <nostos-icon name="circle-notch" [size]="16" class="spin"></nostos-icon>
+              Backing up...
+            } @else {
+              <nostos-icon name="arrows-clockwise" [size]="16"></nostos-icon>
+              Back up now
+            }
+          </button>
         </div>
 
         <div class="card-body">
@@ -245,27 +337,6 @@ const defaultProgress: BackupProgress = {
             </select>
           </div>
 
-          <!-- Manual Backup -->
-          <div class="setting-row">
-            <div class="setting-label">
-              <span class="label-text">Manual Backup</span>
-              <span class="label-desc">Create a backup now regardless of the schedule.</span>
-            </div>
-            <button
-              class="btn btn-primary"
-              [disabled]="backingUp()"
-              (click)="triggerBackup()"
-            >
-              @if (backingUp()) {
-                <nostos-icon name="circle-notch" [size]="16" class="spin"></nostos-icon>
-                Backing up...
-              } @else {
-                <nostos-icon name="arrows-clockwise" [size]="16"></nostos-icon>
-                Back up now
-              }
-            </button>
-          </div>
-
           @if (backingUp() && progress().isRunning) {
             <div class="progress-bar-container">
               <div class="progress-step-label">
@@ -318,8 +389,16 @@ const defaultProgress: BackupProgress = {
       <!-- Backup History -->
       <section class="settings-card">
         <div class="card-header">
-          <nostos-icon name="archive" [size]="20" weight="light"></nostos-icon>
-          <h2>Backup History</h2>
+          <div class="card-header-copy">
+            <span class="card-header-icon">
+              <nostos-icon name="archive" [size]="18" weight="light"></nostos-icon>
+            </span>
+            <div>
+              <h2>Backup History</h2>
+              <p>Restore, download, or remove previous safety copies.</p>
+            </div>
+          </div>
+          <span class="card-count">{{ history().length }}</span>
         </div>
 
         @if (history().length === 0) {
@@ -387,8 +466,15 @@ const defaultProgress: BackupProgress = {
            with Appearance: it is about reaching the library from elsewhere. -->
       <section class="settings-card">
         <div class="card-header">
-          <nostos-icon name="book-open" [size]="20" weight="light"></nostos-icon>
-          <h2>E-reader access</h2>
+          <div class="card-header-copy">
+            <span class="card-header-icon">
+              <nostos-icon name="book-open" [size]="18" weight="light"></nostos-icon>
+            </span>
+            <div>
+              <h2>E-reader access</h2>
+              <p>Let compatible readers browse this library directly.</p>
+            </div>
+          </div>
         </div>
 
         <div class="card-body">
@@ -450,10 +536,17 @@ const defaultProgress: BackupProgress = {
 
           </section>
 
-          <section class="settings-section" id="assistant" aria-labelledby="assistant-heading">
+          <section
+            class="settings-section"
+            id="assistant"
+            role="tabpanel"
+            aria-labelledby="assistant-heading"
+            [hidden]="activeSettingsSection() !== 'assistant'"
+          >
             <div class="section-heading">
-              <h2 id="assistant-heading">Assistant</h2>
-              <p>Choose how the reading assistant behaves and where its intelligence comes from.</p>
+              <span class="section-label">Assistant</span>
+              <h2 id="assistant-heading">Intelligence, only where you invite it.</h2>
+              <p>Control capture behavior first, then choose the services Nostos uses when you ask for help.</p>
             </div>
 
       <!-- Reading assistant (W1). Availability is the server's to decide; this
@@ -462,13 +555,24 @@ const defaultProgress: BackupProgress = {
            the card hiding or adding a warning. -->
       <section class="settings-card" data-testid="assistant-settings-card">
         <div class="card-header">
-          <nostos-icon name="sparkle" [size]="20" weight="light"></nostos-icon>
-          <h2>Reading assistant</h2>
+          <div class="card-header-copy">
+            <span class="card-header-icon">
+              <nostos-icon name="sparkle" [size]="18" weight="light"></nostos-icon>
+            </span>
+            <div>
+              <h2>Reading assistant</h2>
+              <p>Decide whether it appears, and how faithfully captures preserve your words.</p>
+            </div>
+          </div>
+          <span class="status-dot-label" [class.is-on]="assistantAvailable() && assistantEnabled()">
+            {{ assistantAvailable() ? (assistantEnabled() ? 'On' : 'Off') : 'Unavailable' }}
+          </span>
         </div>
 
         <div class="card-body">
           <div class="setting-row">
             <div class="setting-label">
+              <span class="label-text">Show reading assistant</span>
               @if (assistantAvailable()) {
                 <span class="label-desc">Show the dock capsule for capturing thoughts while reading.</span>
               } @else {
@@ -544,8 +648,15 @@ const defaultProgress: BackupProgress = {
            Save omits apiKey unless the user typed one or pressed Clear. -->
       <section class="settings-card" data-testid="ai-provider-settings-card">
         <div class="card-header">
-          <nostos-icon name="brain" [size]="20" weight="light"></nostos-icon>
-          <h2>{{ copy.title }}</h2>
+          <div class="card-header-copy">
+            <span class="card-header-icon">
+              <nostos-icon name="brain" [size]="18" weight="light"></nostos-icon>
+            </span>
+            <div>
+              <h2>{{ copy.title }}</h2>
+              <p>Bring your own compatible endpoints. Keys stay on your server.</p>
+            </div>
+          </div>
         </div>
 
         @if (aiLoadFailed()) {
@@ -561,6 +672,7 @@ const defaultProgress: BackupProgress = {
           <div class="card-body">
             <p class="provider-intro">{{ copy.intro }}</p>
 
+            <div class="provider-grid">
             <!-- Reading assistant (text/LLM) -->
             <div class="provider-section" data-testid="ai-provider-llm">
               <h3 class="provider-heading">{{ copy.readingAssistant }}</h3>
@@ -805,6 +917,7 @@ const defaultProgress: BackupProgress = {
                 >{{ status.text }}</p>
               }
             </div>
+            </div>
 
             <div class="provider-footer">
               <button
@@ -834,52 +947,67 @@ const defaultProgress: BackupProgress = {
 
           </section>
 
-          <section class="settings-section" id="appearance" aria-labelledby="appearance-heading">
+          <section
+            class="settings-section"
+            id="appearance"
+            role="tabpanel"
+            aria-labelledby="appearance-heading"
+            [hidden]="activeSettingsSection() !== 'appearance'"
+          >
             <div class="section-heading">
-              <h2 id="appearance-heading">Appearance</h2>
-              <p>Adjust the atmosphere without changing the shape of your reading space.</p>
+              <span class="section-label">Appearance</span>
+              <h2 id="appearance-heading">The same room, in a different light.</h2>
+              <p>Nostos keeps one visual language across both themes; only the atmosphere changes.</p>
             </div>
 
       <section class="settings-card">
         <div class="card-header">
-          <nostos-icon name="palette" [size]="20" weight="light"></nostos-icon>
-          <h2>Appearance</h2>
-        </div>
-
-        <div class="card-body">
-          <div class="setting-row">
-            <div class="setting-label">
-              <span class="label-text">Colour Theme</span>
-              <span class="label-desc">Dark mode is a companion palette for evening reading — same paper, lower light.</span>
-            </div>
-            <!-- Two explicit options rather than a light/dark switch: the
-                 control always shows both states, so the choice is legible
-                 before it is made. -->
-            <div class="theme-choice" role="radiogroup" aria-label="Colour theme">
-              <button
-                type="button"
-                class="theme-opt"
-                role="radio"
-                [attr.aria-checked]="theme() === 'light'"
-                [class.is-active]="theme() === 'light'"
-                (click)="setTheme('light')"
-              >
-                <nostos-icon name="sun" [size]="15"></nostos-icon>
-                Light
-              </button>
-              <button
-                type="button"
-                class="theme-opt"
-                role="radio"
-                [attr.aria-checked]="theme() === 'dark'"
-                [class.is-active]="theme() === 'dark'"
-                (click)="setTheme('dark')"
-              >
-                <nostos-icon name="moon" [size]="15"></nostos-icon>
-                Dark
-              </button>
+          <div class="card-header-copy">
+            <span class="card-header-icon">
+              <nostos-icon name="palette" [size]="18" weight="light"></nostos-icon>
+            </span>
+            <div>
+              <h2>Colour theme</h2>
+              <p>Choose the palette that feels right for the way you are reading now.</p>
             </div>
           </div>
+        </div>
+
+        <div class="theme-grid" role="radiogroup" aria-label="Colour theme">
+          <button
+            type="button"
+            class="theme-card"
+            role="radio"
+            [attr.aria-checked]="theme() === 'light'"
+            [class.is-active]="theme() === 'light'"
+            (click)="setTheme('light')"
+          >
+            <span class="theme-card-icon"><nostos-icon name="sun" [size]="21"></nostos-icon></span>
+            <span class="theme-card-copy">
+              <strong>Light</strong>
+              <small>Paper-bright and quiet for daytime reading.</small>
+            </span>
+            @if (theme() === 'light') {
+              <span class="theme-card-check"><nostos-icon name="check" [size]="15"></nostos-icon></span>
+            }
+          </button>
+          <button
+            type="button"
+            class="theme-card"
+            role="radio"
+            [attr.aria-checked]="theme() === 'dark'"
+            [class.is-active]="theme() === 'dark'"
+            (click)="setTheme('dark')"
+          >
+            <span class="theme-card-icon"><nostos-icon name="moon" [size]="21"></nostos-icon></span>
+            <span class="theme-card-copy">
+              <strong>Dark</strong>
+              <small>A lower-light companion palette for evening reading.</small>
+            </span>
+            @if (theme() === 'dark') {
+              <span class="theme-card-check"><nostos-icon name="check" [size]="15"></nostos-icon></span>
+            }
+          </button>
         </div>
       </section>
           </section>
@@ -923,6 +1051,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
   private preferences = inject(LibraryPreferencesService);
   private aiProvider = inject(AiProviderService);
 
+  /** Which settings surface is visible. This is local UI state, not a route. */
+  readonly activeSettingsSection = signal<SettingsSection>('library');
+
   /** The AI provider card's copy, exposed so the template reads one source. */
   readonly copy = AI_PROVIDER_COPY;
 
@@ -951,6 +1082,10 @@ export class SettingsComponent implements OnInit, OnDestroy {
   readonly captureModeDescription = computed(
     () => this.copy.captureDescriptions[this.captureProcessingMode()],
   );
+
+  setSettingsSection(section: SettingsSection): void {
+    this.activeSettingsSection.set(section);
+  }
 
   setAssistantEnabled(event: Event): void {
     // The control is disabled while unavailable, so this is belt-and-braces:
