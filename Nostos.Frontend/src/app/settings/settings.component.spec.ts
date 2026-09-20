@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { signal } from '@angular/core';
-import { of, throwError } from 'rxjs';
+import { Observable, Subject, of, throwError } from 'rxjs';
 
 import { SettingsComponent } from './settings.component';
 import { BackupService } from '../core/services/backup.service';
@@ -13,6 +13,15 @@ import {
   LibraryPreferencesService,
 } from '../core/services/library-preferences.service';
 import { AssistantStatusService } from '../ui/assistant/assistant-status.service';
+import { AiProviderService } from '../core/services/ai-provider.service';
+import {
+  AiProviderModelsRequest,
+  AiProviderModelsResponse,
+  AiProviderSettings,
+  AiProviderTestRequest,
+  AiProviderTestResult,
+  AiProviderUpdate,
+} from '../core/dtos/ai-provider.dtos';
 
 const toastMock = { error: vi.fn(), success: vi.fn(), info: vi.fn() };
 
@@ -26,6 +35,43 @@ const remoteInfo: OpdsInfo = {
 
 const opdsServiceMock = {
   getInfo: vi.fn(() => of(remoteInfo)),
+};
+
+/**
+ * Effective AI provider settings. The LLM's key is stored server-side; the
+ * voice key comes from the server environment. Both password fields must still
+ * render empty — the API never returns a key.
+ */
+const aiProviderSettings: AiProviderSettings = {
+  llm: {
+    enabled: true,
+    baseUrl: 'http://omenhub:20128/v1',
+    model: 'qwen3-32b',
+    hasKey: true,
+    keyFromServerEnv: false,
+  },
+  stt: {
+    enabled: false,
+    baseUrl: 'http://omenhub:20128',
+    model: 'groq/whisper-large-v3-turbo',
+    hasKey: true,
+    keyFromServerEnv: true,
+  },
+};
+
+const aiProviderServiceMock = {
+  get: vi.fn((): Observable<AiProviderSettings> => of(aiProviderSettings)),
+  update: vi.fn(
+    (_update: AiProviderUpdate): Observable<AiProviderSettings> => of(aiProviderSettings),
+  ),
+  loadModels: vi.fn(
+    (_request: AiProviderModelsRequest): Observable<AiProviderModelsResponse> =>
+      of({ models: ['qwen3-32b', 'gpt-4o'] }),
+  ),
+  test: vi.fn(
+    (_request: AiProviderTestRequest): Observable<AiProviderTestResult> =>
+      of({ ok: true, detail: 'Reached the endpoint.' }),
+  ),
 };
 
 const backupServiceMock = {
@@ -81,6 +127,7 @@ describe('SettingsComponent backup-only surface', () => {
         { provide: OpdsService, useValue: opdsServiceMock },
         { provide: ToastService, useValue: toastMock },
         { provide: AssistantStatusService, useValue: assistantStatusMock },
+        { provide: AiProviderService, useValue: aiProviderServiceMock },
       ],
     }).compileComponents();
 
@@ -96,6 +143,18 @@ describe('SettingsComponent backup-only surface', () => {
     toastMock.success.mockClear();
     assistantStatusMock.available.set(true);
     assistantStatusMock.refresh.mockClear();
+    aiProviderServiceMock.get.mockClear();
+    aiProviderServiceMock.get.mockReturnValue(of(aiProviderSettings));
+    aiProviderServiceMock.update.mockClear();
+    aiProviderServiceMock.update.mockReturnValue(of(aiProviderSettings));
+    aiProviderServiceMock.loadModels.mockClear();
+    aiProviderServiceMock.loadModels.mockReturnValue(
+      of<AiProviderModelsResponse>({ models: ['qwen3-32b', 'gpt-4o'] }),
+    );
+    aiProviderServiceMock.test.mockClear();
+    aiProviderServiceMock.test.mockReturnValue(
+      of<AiProviderTestResult>({ ok: true, detail: 'Reached the endpoint.' }),
+    );
 
     await configure();
   });
@@ -157,8 +216,9 @@ describe('SettingsComponent backup-only surface', () => {
 
   it('exposes the automatic-backup toggle and manual backup action', () => {
     const toggles = fixture.debugElement.queryAll(By.css('input[type="checkbox"]'));
-    // Automatic Backup + Include Book Files + the Reading assistant toggle (W1).
-    expect(toggles.length).toBe(3);
+    // Automatic Backup + Include Book Files + the Reading assistant toggle (W1)
+    // + the AI provider card's "Transcribe voice notes" toggle.
+    expect(toggles.length).toBe(4);
     const buttons = fixture.debugElement
       .queryAll(By.css('button'))
       .map((b) => b.nativeElement.textContent.trim());
@@ -371,7 +431,7 @@ describe('SettingsComponent backup-only surface', () => {
     const card = assistantCard();
     expect(card).not.toBeNull();
     expect(card!.textContent).toContain(
-      'Unavailable. Configure a model provider in your server environment to enable this.',
+      'Unavailable. Configure a model provider in the AI provider section below to enable this.',
     );
     expect(card!.textContent).not.toContain('Show the dock capsule');
 
@@ -399,6 +459,236 @@ describe('SettingsComponent backup-only surface', () => {
   });
 
   // ------------------------------------------------------------------
+  // AI provider
+  // ------------------------------------------------------------------
+
+  it('renders the AI provider card with the effective values and both keys empty', () => {
+    const card = aiCard();
+    expect(card).not.toBeNull();
+
+    expect(inputValue('#ai-llm-base-url')).toBe(aiProviderSettings.llm.baseUrl);
+    expect(inputValue('#ai-llm-model')).toBe(aiProviderSettings.llm.model);
+    expect(inputValue('#ai-stt-base-url')).toBe(aiProviderSettings.stt.baseUrl);
+    expect(inputValue('#ai-stt-model')).toBe(aiProviderSettings.stt.model);
+
+    // The API never returns a key, so neither password field may carry one.
+    expect(inputValue('#ai-llm-api-key')).toBe('');
+    expect(inputValue('#ai-stt-api-key')).toBe('');
+    expect(input('#ai-llm-api-key').type).toBe('password');
+    expect(input('#ai-stt-api-key').type).toBe('password');
+  });
+
+  it('says a key is configured, and where it comes from, without rendering it', () => {
+    const llm = cardSection('ai-provider-llm');
+    expect(llm.textContent).toContain('Configured');
+    expect(llm.textContent).not.toContain('server environment variable');
+    expect(buttonByText('ai-provider-llm', 'Clear')).toBeTruthy();
+
+    const stt = cardSection('ai-provider-stt');
+    expect(stt.textContent).toContain('using the server environment variable');
+    expect(buttonByText('ai-provider-stt', 'Clear')).toBeTruthy();
+  });
+
+  it('omits apiKey when the key was never touched', () => {
+    setInputValue('#ai-llm-model', 'gpt-4o');
+    clickSave();
+
+    expect(aiProviderServiceMock.update).toHaveBeenCalledTimes(1);
+    const body = aiProviderServiceMock.update.mock.calls[0][0];
+    expect(body.llm).toEqual({ model: 'gpt-4o' });
+    expect(body.stt).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(body.llm, 'apiKey')).toBe(false);
+    expect(saveStatusText()).toBe('Saved.');
+  });
+
+  it('sends apiKey: "" only after Clear, and says what will be used instead', () => {
+    clickButton('ai-provider-llm', 'Clear');
+    expect(llmStatusText()).toContain('Key cleared');
+
+    clickSave();
+    expect(aiProviderServiceMock.update.mock.calls[0][0].llm).toEqual({ apiKey: '' });
+    expect(saveStatusText()).toBe('Saved.');
+  });
+
+  it('sends a typed key, then never leaves it in the DOM after the save', () => {
+    setInputValue('#ai-llm-api-key', 'sk-typed');
+    clickSave();
+
+    expect(aiProviderServiceMock.update.mock.calls[0][0].llm).toEqual({ apiKey: 'sk-typed' });
+    // The typed value is spent: a successful save re-seeds from the response,
+    // which never carries a key.
+    expect(inputValue('#ai-llm-api-key')).toBe('');
+  });
+
+  it('loads models into the datalist while keeping the field free-text', () => {
+    aiProviderServiceMock.loadModels.mockReturnValueOnce(
+      of<AiProviderModelsResponse>({ models: ['alpha', 'beta', 'gamma'] }),
+    );
+
+    clickButton('ai-provider-llm', 'Load models');
+
+    const options = Array.from(
+      fixture.nativeElement.querySelectorAll('#ai-llm-model-options option'),
+    ).map((option) => (option as HTMLOptionElement).value);
+    expect(options).toEqual(['alpha', 'beta', 'gamma']);
+    expect(llmStatusText()).toBe('Loaded 3 models.');
+
+    const model = input('#ai-llm-model');
+    expect(model.getAttribute('list')).toBe('ai-llm-model-options');
+    expect(model.readOnly).toBe(false);
+    expect(model.disabled).toBe(false);
+  });
+
+  it('says so when the endpoint returns no models', () => {
+    aiProviderServiceMock.loadModels.mockReturnValueOnce(
+      of<AiProviderModelsResponse>({ models: [] }),
+    );
+    clickButton('ai-provider-llm', 'Load models');
+    expect(llmStatusText()).toBe('No models returned.');
+  });
+
+  it('renders the success detail inline after Test connection', () => {
+    aiProviderServiceMock.test.mockReturnValueOnce(
+      of<AiProviderTestResult>({ ok: true, detail: 'Connected. 42 models.' }),
+    );
+    clickButton('ai-provider-llm', 'Test connection');
+
+    expect(aiProviderServiceMock.test.mock.calls[0][0]).toEqual({
+      kind: 'llm',
+      baseUrl: aiProviderSettings.llm.baseUrl,
+      model: aiProviderSettings.llm.model,
+      apiKey: undefined,
+    });
+    expect(llmStatusText()).toBe('Connected. 42 models.');
+    expect(statusElement('ai-provider-llm').classList.contains('is-ok')).toBe(true);
+  });
+
+  it('renders the error inline when the test reports failure', () => {
+    aiProviderServiceMock.test.mockReturnValueOnce(
+      of<AiProviderTestResult>({ ok: false, error: '401 Unauthorized' }),
+    );
+    clickButton('ai-provider-llm', 'Test connection');
+
+    expect(llmStatusText()).toBe('401 Unauthorized');
+    expect(statusElement('ai-provider-llm').classList.contains('is-error')).toBe(true);
+  });
+
+  it('wraps a transport failure rather than showing a bare HTTP message', () => {
+    aiProviderServiceMock.test.mockReturnValueOnce(
+      throwError(() => ({ error: { error: 'Connection refused' } })),
+    );
+    clickButton('ai-provider-llm', 'Test connection');
+
+    expect(llmStatusText()).toBe('Could not reach the endpoint: Connection refused');
+  });
+
+  it('sends the voice toggle as the stt section', () => {
+    const toggle = fixture.nativeElement.querySelector(
+      '[data-testid="voice-transcription-toggle"]',
+    ) as HTMLInputElement;
+    expect(toggle.checked).toBe(false);
+
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    clickSave();
+    expect(aiProviderServiceMock.update.mock.calls[0][0]).toEqual({ stt: { enabled: true } });
+  });
+
+  it('disables Save, Load and Test while a request is in flight', () => {
+    const pending = new Subject<AiProviderModelsResponse>();
+    aiProviderServiceMock.loadModels.mockReturnValueOnce(pending);
+
+    clickButton('ai-provider-llm', 'Load models');
+
+    expect(buttonByText('ai-provider-llm', 'Loading…')!.disabled).toBe(true);
+    expect(saveButton().disabled).toBe(true);
+    expect(buttonByText('ai-provider-stt', 'Test connection')!.disabled).toBe(true);
+
+    pending.next({ models: ['one'] });
+    pending.complete();
+    fixture.detectChanges();
+
+    expect(saveButton().disabled).toBe(false);
+    expect(llmStatusText()).toBe('Loaded 1 models.');
+  });
+
+  it('reports an unreadable provider setting in place instead of guessing', () => {
+    aiProviderServiceMock.get.mockReturnValueOnce(throwError(() => new Error('offline')));
+    render();
+
+    const card = aiCard();
+    expect(card!.textContent).toContain('Could not load the AI provider settings.');
+    expect(card!.querySelector('#ai-llm-base-url')).toBeNull();
+  });
+
+  // ------------------------------------------------------------------
+
+  function aiCard(): HTMLElement | null {
+    return fixture.nativeElement.querySelector(
+      '[data-testid="ai-provider-settings-card"]',
+    ) as HTMLElement | null;
+  }
+
+  function cardSection(testid: string): HTMLElement {
+    return fixture.nativeElement.querySelector(`[data-testid="${testid}"]`) as HTMLElement;
+  }
+
+  function input(id: string): HTMLInputElement {
+    return fixture.nativeElement.querySelector(id) as HTMLInputElement;
+  }
+
+  function inputValue(id: string): string {
+    return input(id).value;
+  }
+
+  function setInputValue(id: string, value: string): void {
+    const element = input(id);
+    element.value = value;
+    element.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+  }
+
+  function buttonByText(testid: string, text: string): HTMLButtonElement | null {
+    const buttons = Array.from(
+      cardSection(testid).querySelectorAll('button'),
+    ) as HTMLButtonElement[];
+    return buttons.find((button) => (button.textContent ?? '').trim().includes(text)) ?? null;
+  }
+
+  function clickButton(testid: string, text: string): void {
+    const button = buttonByText(testid, text);
+    expect(button).not.toBeNull();
+    button!.click();
+    fixture.detectChanges();
+  }
+
+  function saveButton(): HTMLButtonElement {
+    return fixture.nativeElement.querySelector(
+      '[data-testid="ai-provider-save"]',
+    ) as HTMLButtonElement;
+  }
+
+  function clickSave(): void {
+    saveButton().click();
+    fixture.detectChanges();
+  }
+
+  function statusElement(testid: string): HTMLElement {
+    return cardSection(testid).querySelector('.provider-status') as HTMLElement;
+  }
+
+  function llmStatusText(): string {
+    return (statusElement('ai-provider-llm').textContent ?? '').replace(/\s+/g, ' ').trim();
+  }
+
+  function saveStatusText(): string {
+    const element = fixture.nativeElement.querySelector(
+      '.provider-save-status',
+    ) as HTMLElement | null;
+    return (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
+  }
 
   function cardHeaders(): string[] {
     return fixture.debugElement
