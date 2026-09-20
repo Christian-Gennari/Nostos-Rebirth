@@ -137,8 +137,112 @@ public sealed class NoteSearchTests
         using var _h = harness;
 
         await using var db = await harness.ContextFactory.CreateDbContextAsync();
-        var unlinked = await new NoteRepository(db).GetWithoutConceptsAsync(50);
+        var unlinked = await new NoteRepository(db).GetWithoutConceptsAsync(50, 0);
 
         unlinked.Should().ContainSingle().Which.Id.Should().Be(unlinkedId);
+    }
+
+    /// <summary>
+    /// The review queue (issue #256) walks the whole unlinked set in pages, so the
+    /// page and the total have to agree with each other.
+    /// </summary>
+    private static async Task<AcquisitionHarness> SeedUnlinkedAsync(int count)
+    {
+        var harness = AcquisitionHarness.Create();
+
+        await using var db = await harness.ContextFactory.CreateDbContextAsync();
+        var book = new PhysicalBookModel { Id = Guid.NewGuid(), Title = "A Book With Marginalia" };
+        db.Books.Add(book);
+
+        // Distinct CreatedAt values in a stable order: page boundaries are only
+        // meaningful against a deterministic sort.
+        for (var i = 0; i < count; i++)
+        {
+            db.Notes.Add(
+                new NoteModel
+                {
+                    Id = Guid.NewGuid(),
+                    BookId = book.Id,
+                    Content = $"unlinked note {i}",
+                    CreatedAt = DateTime.UtcNow.AddMinutes(-i),
+                }
+            );
+        }
+
+        await db.SaveChangesAsync();
+        return harness;
+    }
+
+    [Fact]
+    public async Task Counts_every_note_that_belongs_to_no_concept()
+    {
+        var harness = await SeedUnlinkedAsync(5);
+        using var _h = harness;
+
+        await using var db = await harness.ContextFactory.CreateDbContextAsync();
+        var repo = new NoteRepository(db);
+
+        (await repo.CountWithoutConceptsAsync()).Should().Be(5);
+    }
+
+    [Fact]
+    public async Task Pages_the_unlinked_set_without_repeating_or_skipping_a_note()
+    {
+        var harness = await SeedUnlinkedAsync(5);
+        using var _h = harness;
+
+        await using var db = await harness.ContextFactory.CreateDbContextAsync();
+        var repo = new NoteRepository(db);
+
+        var first = await repo.GetWithoutConceptsAsync(2, 0);
+        var second = await repo.GetWithoutConceptsAsync(2, 2);
+        var third = await repo.GetWithoutConceptsAsync(2, 4);
+
+        first.Should().HaveCount(2);
+        second.Should().HaveCount(2);
+        third.Should().HaveCount(1);
+
+        var ids = first.Concat(second).Concat(third).Select(n => n.Id).ToList();
+        ids.Should().OnlyHaveUniqueItems();
+        ids.Should().HaveCount(5);
+    }
+
+    [Fact]
+    public async Task An_offset_past_the_end_returns_an_empty_page_rather_than_the_first_page()
+    {
+        // The review queue asks for the row after its last one. Clamping the
+        // offset back to zero here would silently re-serve the whole queue.
+        var harness = await SeedUnlinkedAsync(3);
+        using var _h = harness;
+
+        await using var db = await harness.ContextFactory.CreateDbContextAsync();
+        var repo = new NoteRepository(db);
+
+        var page = await repo.GetWithoutConceptsAsync(25, 3);
+
+        page.Should().BeEmpty();
+        (await repo.CountWithoutConceptsAsync()).Should().Be(3);
+    }
+
+    [Fact]
+    public async Task A_note_that_gains_a_concept_leaves_the_queue_and_the_count()
+    {
+        // Resolving a note in review mode is an ordinary note save that adds the
+        // association; the queue and its total both have to follow.
+        var harness = await SeedUnlinkedAsync(3);
+        using var _h = harness;
+
+        await using var db = await harness.ContextFactory.CreateDbContextAsync();
+        var repo = new NoteRepository(db);
+        var concept = new ConceptModel { Id = Guid.NewGuid(), Concept = "Freedom" };
+        db.Concepts.Add(concept);
+        await db.SaveChangesAsync();
+
+        var target = (await repo.GetWithoutConceptsAsync(1, 0)).Single();
+        db.NoteConcepts.Add(new NoteConceptModel { NoteId = target.Id, ConceptId = concept.Id });
+        await db.SaveChangesAsync();
+
+        (await repo.CountWithoutConceptsAsync()).Should().Be(2);
+        (await repo.GetWithoutConceptsAsync(25, 0)).Select(n => n.Id).Should().NotContain(target.Id);
     }
 }

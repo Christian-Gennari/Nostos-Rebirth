@@ -257,7 +257,7 @@ describe('SecondBrain', () => {
     fixture.detectChanges();
     http.expectOne('/api/concepts').flush(concepts);
     http.expectOne('/api/concepts/stats').flush(stats);
-    http.expectOne((req) => req.url === '/api/notes/unlinked').flush([]);
+
     await fixture.whenStable();
   });
 
@@ -578,7 +578,7 @@ describe('SecondBrain', () => {
     second.detectChanges();
     http.expectOne('/api/concepts').flush(concepts);
     http.expectOne('/api/concepts/stats').error(new ProgressEvent('network-error'));
-    http.expectOne((req) => req.url === '/api/notes/unlinked').flush([]);
+
     await second.whenStable();
     expect(second.nativeElement.querySelector('.index-stats')).toBeNull();
   });
@@ -747,7 +747,7 @@ describe('SecondBrain', () => {
 
     http.expectOne('/api/concepts').flush(concepts);
     http.expectOne('/api/concepts/stats').flush(stats);
-    http.expectOne((req) => req.url === '/api/notes/unlinked').flush([]);
+
   });
 
   it('shows letter separators for alphabetical order but not usage order', () => {
@@ -1005,7 +1005,7 @@ describe('SecondBrain', () => {
     // Flush the second instance's own list request before it is discarded.
     http.expectOne('/api/concepts').flush(concepts);
     http.expectOne('/api/concepts/stats').flush(stats);
-    http.expectOne((req) => req.url === '/api/notes/unlinked').flush([]);
+
   });
 
   it('toggles between list and map views and persists the choice', () => {
@@ -1220,7 +1220,7 @@ describe('SecondBrain', () => {
     expect(fixture.nativeElement.querySelector('app-concept-map')).toBeNull();
   });
 
-  describe('index sections and note panel (issue #158)', () => {
+  describe('unlinked-notes review (issue #256)', () => {
     const sampleHits: NoteSearchHit[] = [
       {
         id: 'hit-1',
@@ -1244,27 +1244,303 @@ describe('SecondBrain', () => {
       },
     ];
 
-    it('renders the two labelled sections with their counts', () => {
-      component.unlinkedNotes.set(sampleHits);
+    const thirdHit: NoteSearchHit = {
+      id: 'hit-3',
+      bookId: 'b-ideas',
+      bookTitle: 'Ideas in Motion',
+      content: 'A third unconnected remark.',
+      selectedText: null,
+      snippet: null,
+      conceptNames: [],
+      createdAt: '2026-09-03T10:00:00Z',
+    };
+
+    const page = (items: NoteSearchHit[], totalCount = items.length) => ({
+      items,
+      totalCount,
+      offset: 0,
+      limit: 25,
+    });
+
+    /** Opens review through the rail's own affordance and answers the first page. */
+    const enterReview = (items: NoteSearchHit[] = sampleHits, totalCount = items.length): void => {
+      (fixture.nativeElement.querySelector('.rail-foot-action') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      http.expectOne((req) => req.url === '/api/notes/unlinked').flush(page(items, totalCount));
+      fixture.detectChanges();
+    };
+
+    /** A concept link write re-reads the index and the stats line. */
+    const settleReviewRefresh = (): void => {
+      fixture.detectChanges();
+      http.match('/api/concepts').forEach((request) => {
+        if (!request.cancelled) request.flush(concepts);
+      });
+      http.match('/api/concepts/stats').forEach((request) => {
+        if (!request.cancelled) request.flush(stats);
+      });
+      fixture.detectChanges();
+    };
+
+    it('shows the concept index alone in the rail, with no notes section beneath it', () => {
+      const sectionTitles = fixture.nativeElement.querySelectorAll('.brain-section-title');
+
+      expect(sectionTitles.length).toBe(1);
+      expect(sectionTitles[0].textContent?.trim()).toBe('Concepts');
+      expect(fixture.nativeElement.querySelector('.brain-notes-section')).toBeNull();
+      expect(component.noteSearchHits()).toEqual([]);
+    });
+
+    it('does not load unlinked notes merely because the Brain was opened', () => {
+      const second = TestBed.createComponent(SecondBrain);
+      second.detectChanges();
+      http.expectOne('/api/concepts').flush(concepts);
+      http.expectOne('/api/concepts/stats').flush(stats);
+
+      // The whole point of the issue: nothing here fetched them, so the mode has
+      // to fetch them itself when it is opened.
+      http.expectNone((req) => req.url === '/api/notes/unlinked');
+      expect(second.componentInstance.reviewQueue()).toEqual([]);
+      expect(second.componentInstance.reviewLoaded()).toBe(false);
+    });
+
+    it('shows note-text matches only while a search is active', async () => {
+      component.setSearchQuery('sisyphus');
+      await settleNoteSearch([], [sampleHits[0]]);
       fixture.detectChanges();
 
       const sectionTitles = fixture.nativeElement.querySelectorAll('.brain-section-title');
-      const sectionCounts = fixture.nativeElement.querySelectorAll('.brain-section-count');
       expect(sectionTitles.length).toBe(2);
-      expect(sectionCounts.length).toBe(2);
+      expect(sectionTitles[1].textContent?.trim()).toBe('Notes');
+      expect(component.noteSearchHits()).toEqual([sampleHits[0]]);
 
-      expect(sectionTitles[0].textContent?.trim()).toBe('Concepts');
-      expect(sectionCounts[0].textContent?.trim()).toBe(String(component.filteredConcepts().length));
-
-      expect(sectionTitles[1].textContent?.trim()).toBe('Notes with no concept');
-      expect(sectionCounts[1].textContent?.trim()).toBe(String(sampleHits.length));
-    });
-
-    it('shows the snippet in quotes or falls back to content, and shows book title', () => {
-      component.unlinkedNotes.set(sampleHits);
+      component.clearSearch();
       fixture.detectChanges();
 
-      const rows = fixture.nativeElement.querySelectorAll('.brain-notes-list .note-row-item');
+      expect(fixture.nativeElement.querySelector('.brain-notes-section')).toBeNull();
+      expect(component.noteSearchHits()).toEqual([]);
+    });
+
+    it('enters review from the rail foot and shows the queue with what is left', () => {
+      expect(fixture.nativeElement.querySelector('.rail-foot-action')?.textContent?.trim()).toBe(
+        'Review notes with no concept'
+      );
+
+      enterReview();
+
+      expect(component.viewMode()).toBe('unlinked');
+      // The concept index is replaced, not augmented: no concept rows remain.
+      expect(fixture.nativeElement.querySelector('.index-row-shell')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.brain-section-title')?.textContent?.trim()).toBe(
+        'Notes with no concept'
+      );
+      expect(fixture.nativeElement.querySelector('.brain-section-count')?.textContent?.trim()).toBe(
+        '2 remaining'
+      );
+      expect(fixture.nativeElement.querySelectorAll('.index-list .note-row-item').length).toBe(2);
+
+      // Review is a task the user enters, not a place to be restored into.
+      expect(localStorage.getItem('nostos.brain.viewMode')).toBeNull();
+    });
+
+    it('shows the source, the quotation and the note in the focused pane', () => {
+      enterReview();
+
+      expect(fixture.nativeElement.querySelector('.review-title')?.textContent?.trim()).toBe(
+        'The Myth of Sisyphus'
+      );
+      expect(fixture.nativeElement.querySelector('.review-quote')?.textContent?.trim()).toBe(
+        'The struggle itself toward the heights is enough to fill a man’s heart.'
+      );
+      expect(fixture.nativeElement.querySelector('.review-content')?.textContent?.trim()).toBe(
+        'One must imagine Sisyphus happy.'
+      );
+      expect(fixture.nativeElement.querySelector('.review-pane')?.textContent).toContain('Link to concept');
+      expect(fixture.nativeElement.querySelector('.review-pane')?.textContent).toContain('Edit note');
+    });
+
+    it('focuses a queue row without deciding anything about it', () => {
+      enterReview();
+      (fixture.nativeElement.querySelectorAll('.index-list .note-row-item')[1] as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(component.reviewNote()!.id).toBe('hit-2');
+      const rows = fixture.nativeElement.querySelectorAll('.index-list .note-row-item');
+      expect(rows[0].classList).not.toContain('active');
+      expect(rows[1].classList).toContain('active');
+      expect(component.reviewQueue().length).toBe(2);
+    });
+
+    it('traverses past the first page instead of silently ending at it', () => {
+      enterReview([sampleHits[0]], 3);
+
+      const loadMore = fixture.nativeElement.querySelector('.review-load-more') as HTMLButtonElement;
+      expect(loadMore).toBeTruthy();
+      expect(loadMore.textContent).toContain('2 not shown');
+
+      loadMore.click();
+      fixture.detectChanges();
+
+      const request = http.expectOne((req) => req.url === '/api/notes/unlinked');
+      // The offset is the rows still held, so a queue that shrank is still walked
+      // from the right place.
+      expect(request.request.params.get('offset')).toBe('1');
+      request.flush({ items: [sampleHits[1], thirdHit], totalCount: 3, offset: 1, limit: 25 });
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelectorAll('.index-list .note-row-item').length).toBe(3);
+      expect(fixture.nativeElement.querySelector('.review-load-more')).toBeNull();
+      expect(component.reviewQueue().length).toBe(component.reviewTotal());
+    });
+
+    it('links the reviewed note to an existing concept with an explicit reference, and drops it', () => {
+      enterReview();
+      component.openReviewPicker();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.merge-picker')).toBeTruthy();
+
+      component.chooseReviewConcept('c-alpha');
+      fixture.detectChanges();
+      (
+        fixture.nativeElement.querySelector('.merge-picker-actions .merge-picker-confirm') as HTMLButtonElement
+      ).click();
+      fixture.detectChanges();
+
+      const put = http.expectOne((req) => req.method === 'PUT' && req.url === '/api/notes/hit-1');
+      // The association written is the canonical one: an explicit [[reference]] in
+      // the note body, which the server rebuilds the note's concepts from.
+      expect((put.request.body as { content: string }).content).toBe(
+        'One must imagine Sisyphus happy.\n\n[[Alpha]]'
+      );
+      put.flush({});
+      settleReviewRefresh();
+
+      expect(fixture.nativeElement.querySelector('.merge-picker')).toBeNull();
+      expect(component.reviewQueue().map((row) => row.id)).toEqual(['hit-2']);
+      expect(component.reviewTotal()).toBe(1);
+      expect(fixture.nativeElement.querySelector('.brain-section-count')?.textContent?.trim()).toBe(
+        '1 remaining'
+      );
+      // Resolving moves the review on rather than emptying the pane.
+      expect(component.viewMode()).toBe('unlinked');
+      expect(component.reviewNote()!.id).toBe('hit-2');
+    });
+
+    it('does not write anything when a link fails', () => {
+      enterReview();
+      component.openReviewPicker();
+      component.chooseReviewConcept('c-alpha');
+      fixture.detectChanges();
+
+      component.confirmLinkToConcept();
+      fixture.detectChanges();
+      http
+        .expectOne((req) => req.method === 'PUT' && req.url === '/api/notes/hit-1')
+        .error(new ProgressEvent('network-error'));
+      fixture.detectChanges();
+
+      expect(component.reviewQueue().map((row) => row.id)).toEqual(['hit-1', 'hit-2']);
+      expect(component.reviewTotal()).toBe(2);
+      expect(TestBed.inject(ToastService).toasts().at(-1)?.message).toContain('Failed to link');
+    });
+
+    it('resolves a note whose edit declares a concept', () => {
+      enterReview();
+      component.startReviewEdit();
+      fixture.detectChanges();
+
+      component.reviewEditContent.set('One must imagine Sisyphus happy, about [[Alpha]].');
+      component.saveReviewEdit();
+      fixture.detectChanges();
+
+      http
+        .expectOne((req) => req.method === 'PUT' && req.url === '/api/notes/hit-1')
+        .flush({});
+      settleReviewRefresh();
+
+      expect(component.reviewQueue().map((row) => row.id)).toEqual(['hit-2']);
+      expect(component.reviewTotal()).toBe(1);
+      expect(component.reviewEditing()).toBe(false);
+    });
+
+    it('keeps a note queued when an edit still leaves it with no concept', () => {
+      enterReview();
+      component.startReviewEdit();
+      fixture.detectChanges();
+
+      component.reviewEditContent.set('Rewritten, and still connected to nothing.');
+      component.saveReviewEdit();
+      fixture.detectChanges();
+
+      http.expectOne((req) => req.method === 'PUT' && req.url === '/api/notes/hit-1').flush({});
+      settleReviewRefresh();
+
+      // The edit is real but the note is still unlinked, so the queue must not
+      // pretend anything was resolved.
+      expect(component.reviewQueue().map((row) => row.id)).toEqual(['hit-1', 'hit-2']);
+      expect(component.reviewTotal()).toBe(2);
+      expect(component.reviewQueue()[0].content).toBe('Rewritten, and still connected to nothing.');
+      expect(component.reviewEditing()).toBe(false);
+      expect(TestBed.inject(ToastService).toasts().at(-1)?.message).toBe('Note saved');
+    });
+
+    it('skips without mutating the note', () => {
+      enterReview();
+      const first = component.reviewNote()!.id;
+
+      component.skipReviewNote();
+      fixture.detectChanges();
+
+      expect(component.reviewNote()!.id).not.toBe(first);
+      expect(component.reviewQueue().length).toBe(2);
+      expect(component.reviewTotal()).toBe(2);
+      http.expectNone((req) => req.method === 'PUT' || req.method === 'POST' || req.method === 'DELETE');
+    });
+
+    it('shows a calm completion state when nothing is waiting', () => {
+      enterReview([], 0);
+
+      expect(fixture.nativeElement.textContent).toContain('Nothing waiting');
+      expect(fixture.nativeElement.textContent).toContain('Every note is connected to a concept.');
+      expect(fixture.nativeElement.querySelector('.index-list .note-row-item')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.review-pane')).toBeNull();
+    });
+
+    it('keeps the queue when the user leaves, and never persists the mode', () => {
+      enterReview();
+      component.closeReview();
+      fixture.detectChanges();
+
+      expect(component.viewMode()).toBe('list');
+      expect(fixture.nativeElement.querySelector('.brain-section-title')?.textContent?.trim()).toBe(
+        'Concepts'
+      );
+      expect(fixture.nativeElement.querySelectorAll('.index-list .note-row-item').length).toBe(0);
+      expect(component.reviewQueue().length).toBe(2);
+      expect(localStorage.getItem('nostos.brain.viewMode')).toBe('list');
+    });
+
+    it('clears a search on entering review, because the box is hidden there', async () => {
+      component.setSearchQuery('sisyphus');
+      await settleNoteSearch([], [sampleHits[0]]);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.search-box')).toBeTruthy();
+
+      component.openReview();
+      fixture.detectChanges();
+      http.expectOne((req) => req.url === '/api/notes/unlinked').flush(page(sampleHits));
+      fixture.detectChanges();
+
+      expect(component.searchQuery()).toBe('');
+      expect(fixture.nativeElement.querySelector('.search-box')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.brain-notes-section')).toBeNull();
+    });
+
+    it('shows each queued note with its source, falling back to the note text', () => {
+      enterReview();
+
+      const rows = fixture.nativeElement.querySelectorAll('.index-list .note-row-item');
       expect(rows.length).toBe(2);
 
       expect(rows[0].querySelector('.note-row-snippet')?.textContent?.trim()).toBe('“One must imagine Sisyphus happy.”');
@@ -1275,13 +1551,15 @@ describe('SecondBrain', () => {
       expect(rows[1].querySelector('.note-row-book')?.textContent?.trim()).toBe('The Rebel');
     });
 
-    it('opens note panel on note row click and closes it with the close button', () => {
-      component.unlinkedNotes.set(sampleHits);
+    it('still opens the note panel from a search hit', async () => {
+      component.setSearchQuery('sisyphus');
+      await settleNoteSearch([], sampleHits);
       fixture.detectChanges();
 
       expect(fixture.nativeElement.querySelector('[data-testid="brain-note-panel"]')).toBeNull();
 
       const rows = fixture.nativeElement.querySelectorAll('.brain-notes-list .note-row-item');
+      expect(rows.length).toBe(2);
       (rows[0] as HTMLButtonElement).click();
       fixture.detectChanges();
 
@@ -1306,8 +1584,9 @@ describe('SecondBrain', () => {
       expect(fixture.nativeElement.querySelector('[data-testid="brain-note-panel"]')).toBeNull();
     });
 
-    it('shows "Belongs to no concept" in panel when note has no concept links', () => {
-      component.unlinkedNotes.set(sampleHits);
+    it('shows "Belongs to no concept" in panel when note has no concept links', async () => {
+      component.setSearchQuery('rebel');
+      await settleNoteSearch([], sampleHits);
       fixture.detectChanges();
 
       const rows = fixture.nativeElement.querySelectorAll('.brain-notes-list .note-row-item');
@@ -1320,35 +1599,27 @@ describe('SecondBrain', () => {
       expect(panel.textContent).toContain('Belongs to no concept');
     });
 
-    it('shows matching notes while searching and unlinked notes while browsing with the right headings', async () => {
-      component.unlinkedNotes.set([sampleHits[1]]);
-      fixture.detectChanges();
-
-      // Browsing state: empty query
-      const browsingHeader = fixture.nativeElement.querySelectorAll('.brain-section-title')[1];
-      expect(browsingHeader.textContent?.trim()).toBe('Notes with no concept');
-      expect(component.notesSectionRows()).toEqual([sampleHits[1]]);
-
-      // Search state: non-empty query
+    it('never falls back to unlinked notes when the search box is empty', async () => {
       component.setSearchQuery('sisyphus');
       await settleNoteSearch([], [sampleHits[0]]);
       fixture.detectChanges();
 
       const searchHeader = fixture.nativeElement.querySelectorAll('.brain-section-title')[1];
       expect(searchHeader.textContent?.trim()).toBe('Notes');
-      expect(component.notesSectionRows()).toEqual([sampleHits[0]]);
+      expect(component.noteSearchHits()).toEqual([sampleHits[0]]);
 
       const rows = fixture.nativeElement.querySelectorAll('.brain-notes-list .note-row-item');
       expect(rows.length).toBe(1);
       expect(rows[0].querySelector('.note-row-snippet')?.textContent?.trim()).toBe('“One must imagine Sisyphus happy.”');
 
-      // Clear search: returns to unlinked notes and 'Notes with no concept'
+      // Clearing the query returns the rail to concepts only. This is the
+      // regression the issue is about: the old section fell back to the whole
+      // unlinked list whenever the box was empty.
       component.clearSearch();
       fixture.detectChanges();
 
-      const restoredHeader = fixture.nativeElement.querySelectorAll('.brain-section-title')[1];
-      expect(restoredHeader.textContent?.trim()).toBe('Notes with no concept');
-      expect(component.notesSectionRows()).toEqual([sampleHits[1]]);
+      expect(fixture.nativeElement.querySelector('.brain-notes-section')).toBeNull();
+      expect(component.noteSearchHits()).toEqual([]);
     });
   });
 });
