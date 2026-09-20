@@ -211,7 +211,11 @@
   border: none;
   background: none;
   padding: 2px 4px;
-  color: var(--color-text-light);
+  /* Measured, not assumed: --color-text-light resolves to 4.47:1 on the light
+     card, just under the 4.5 minimum at this size (12px). This is an
+     interactive control, so it uses the muted token (8.47:1 light / 10.98:1
+     dark), matching the options it reveals. */
+  color: var(--color-text-muted);
   font-family: inherit;
   font-size: 0.75rem;
   cursor: pointer;
@@ -220,7 +224,7 @@
 }
 
 .refine-trigger:hover:not(:disabled) {
-  color: var(--color-text-muted);
+  color: var(--color-text-main);
   text-decoration: underline;
 }
 
