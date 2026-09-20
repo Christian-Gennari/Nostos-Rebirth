@@ -25,7 +25,16 @@ public record NoteDto(
 public record CreateNoteDto(
     string Content,
     string? CfiRange = null,
-    string? SelectedText = null
+    string? SelectedText = null,
+    // APPENDED (positional record — a new client field must never renumber the
+    // existing ones). Optional assistant capture provenance (issue #260 §2, §4):
+    // callers that send only Content keep the typed-note defaults on the model.
+    string? RawContent = null,
+    string CaptureSource = "text",
+    string ProcessingMode = "verbatim",
+    string SourceAnchorKind = "unknown",
+    string? SourceAnchorValue = null,
+    bool AnchorVerified = false
 );
 
 public record UpdateNoteDto(string Content, string? SelectedText = null);
