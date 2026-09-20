@@ -110,6 +110,27 @@ builder.Services.AddHttpClient(NineRouterSttProvider.HttpClientName, client =>
 });
 builder.Services.AddSingleton<ISTtProvider, NineRouterSttProvider>();
 
+// --- ASSISTANT LLM BRIDGE (issue #261 §3, §7) ---
+// Optional and disabled by default, like MCP and Speech. The credential is
+// resolved from the environment variable NAMED here at call time (never from
+// configuration), so the key is never committed and never leaves the server.
+// The provider is registered even when disabled: the endpoints then answer with
+// a typed "disabled" error instead of failing to construct. The pending-plan
+// store is in-memory by design — a plan lives for one conversational exchange,
+// and a restart simply means the user asks again.
+var assistantOptions =
+    builder.Configuration.GetSection(AssistantOptions.SectionName).Get<AssistantOptions>()
+    ?? new AssistantOptions();
+builder.Services.AddSingleton(assistantOptions);
+builder.Services.AddHttpClient(NineRouterLlmProvider.HttpClientName, client =>
+{
+    // A ceiling for one reasoning-heavy completion, not an expectation.
+    client.Timeout = TimeSpan.FromSeconds(Math.Max(1, assistantOptions.RequestTimeoutSeconds));
+});
+builder.Services.AddSingleton<ILlmProvider, NineRouterLlmProvider>();
+builder.Services.AddSingleton<AssistantPlanStore>();
+builder.Services.AddScoped<AssistantOrchestrator>();
+
 // --- OPDS 1.2 export (issue #186) ---
 // The catalogue is unauthenticated by design, so it is only safe on a private
 // network; see OpdsOptions for the full access-model statement. The section is
@@ -427,6 +448,7 @@ app.MapCollectionsEndpoints();
 app.MapConceptsEndpoints();
 app.MapWritingsEndpoints();
 app.MapTranscriptionEndpoints();
+app.MapAssistantEndpoints();
 app.MapOpdsEndpoints(opdsOptions);
 app.MapBackupEndpoints();
 
