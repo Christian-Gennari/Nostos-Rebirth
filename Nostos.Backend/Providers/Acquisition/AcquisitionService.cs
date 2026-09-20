@@ -156,7 +156,7 @@ public sealed class AcquisitionService(
             return AcquisitionResult.AlreadyInLibrary(
                 heldId,
                 DataOf(held) as BookDto,
-                "This work is already in your library with a local file; nothing was imported.");
+                "This book is already in your library with a local file; nothing was imported.");
         }
 
         // --- 6. Create on confirm: establish the book row before download --
@@ -169,7 +169,7 @@ public sealed class AcquisitionService(
             return AcquisitionResult.AlreadyInLibrary(
                 bookId,
                 DataOf(current) as BookDto,
-                "This work is already in your library with a local file; nothing was imported.");
+                "This book is already in your library with a local file; nothing was imported.");
         }
 
         await library.SetBookStatusAsync(bookId, BookStatus.Downloading, statusMessage: null, ct);
