@@ -1,0 +1,86 @@
+@if (isOpen()) {
+<!-- Desktop: a flyout above the trigger, no scrim — the book stays readable
+     behind it. Mobile: a bottom sheet with the restrained scrim. One markup,
+     the media query decides. -->
+<div class="assistant-scrim" (click)="onBackdrop()" aria-hidden="true"></div>
+<section
+  class="assistant-panel"
+  role="dialog"
+  aria-label="Nostos assistant"
+  data-testid="assistant-panel"
+  [style.bottom.px]="sheetBottomPx()"
+>
+  @if (assistant.entries().length > 0) {
+  <div class="assistant-transcript" data-testid="assistant-transcript">
+    @for (entry of assistant.entries(); track entry.id) {
+    <article
+      class="entry"
+      [class.entry-question]="entry.kind === 'question'"
+      [class.entry-error]="entry.kind === 'error'"
+    >
+      <blockquote class="entry-text">{{ entry.text }}</blockquote>
+      @if (entry.anchorLabel || entry.meta) {
+      <footer class="entry-meta">
+        @if (entry.anchorLabel) { <span class="entry-anchor">{{ entry.anchorLabel }}</span> }
+        @if (entry.meta) { <span class="entry-status">{{ entry.meta }}</span> }
+      </footer>
+      }
+    </article>
+    }
+  </div>
+  } @if (assistant.pendingAnchor(); as prompt) {
+  <div class="assistant-prompt" data-testid="assistant-anchor-prompt">
+    <span class="prompt-question">{{ prompt.question }}</span>
+    <button type="button" class="prompt-skip" (click)="assistant.skipAnchor()" data-testid="assistant-anchor-skip">
+      Skip
+    </button>
+  </div>
+  }
+
+  <div class="assistant-composer">
+    <textarea
+      #composer
+      class="composer-field"
+      rows="1"
+      placeholder="Ask Nostos, or capture a thought…"
+      aria-label="Ask Nostos, or capture a thought"
+      data-testid="assistant-composer"
+      [value]="assistant.draft()"
+      (input)="onComposerInput($event)"
+      (keydown.enter)="onComposerEnter($event)"
+    ></textarea>
+    @if (assistant.anchorChip(); as chip) {
+    <div class="anchor-chip" data-testid="assistant-anchor-chip">
+      <nostos-icon name="map-pin" [size]="12"></nostos-icon>
+      <span class="anchor-chip-label">{{ chip.label }}</span>
+      <button
+        type="button"
+        class="anchor-chip-dismiss"
+        (click)="assistant.dismissAnchor()"
+        aria-label="Remove source location"
+      >
+        <nostos-icon name="x" [size]="12"></nostos-icon>
+      </button>
+    </div>
+    }
+  </div>
+</section>
+}
+
+<button
+  type="button"
+  class="assistant-trigger"
+  [class.reader-surface]="isReader()"
+  (click)="toggle()"
+  aria-label="Ask Nostos"
+  data-testid="assistant-trigger"
+>
+  <span class="trigger-capsule">
+    <nostos-icon name="sparkle" [size]="14"></nostos-icon>
+    <span class="trigger-label">Ask Nostos</span>
+    <kbd>⌘J</kbd>
+    <!-- A microphone segment joins here later as a second flex child behind a
+         hairline border-left; the capsule is already a flex row, so adding it
+         needs no re-layout. -->
+  </span>
+</button>

@@ -1632,6 +1632,13 @@ body.nostos-zen app-app-dock {
   display: none;
 }
 
+/* The assistant trigger is a fixed floating control too, so Writing Studio's
+   zen mode must hide it for the same reason: nothing should float over the
+   page while the writer is in focus mode. */
+body.nostos-zen app-assistant {
+  display: none;
+}
+
 /* ------------------------------
    LIBRARY: toolbar search/control collision
 ------------------------------ */

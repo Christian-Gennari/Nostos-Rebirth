@@ -3,6 +3,25 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Note, CreateNoteDto, NoteSearchHit, NoteSearchPage, UpdateNoteDto } from '../dtos/note.dtos';
 
+/**
+ * The assistant's capture payload (issue #261 §4). Appended: it extends the
+ * canonical `CreateNoteDto` with the provenance/anchor fields the model already
+ * carries (issue #260), without changing any existing signature or the shared
+ * TypeScript `CreateNoteDto`. A backend that does not know a field ignores it,
+ * so a capture still saves against the pre-#260-S2 route.
+ */
+export interface CaptureNoteDto {
+  content: string;
+  cfiRange?: string;
+  selectedText?: string;
+  rawContent?: string;
+  captureSource?: string;
+  processingMode?: string;
+  sourceAnchorKind?: string;
+  sourceAnchorValue?: string | null;
+  anchorVerified?: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class NotesService {
   constructor(private http: HttpClient) {}
@@ -44,5 +63,15 @@ export class NotesService {
    */
   unlinkedPage(limit = 25, offset = 0): Observable<NoteSearchPage> {
     return this.http.get<NoteSearchPage>('/api/notes/unlinked', { params: { limit, offset } });
+  }
+
+  /**
+   * Assistant capture (issue #261 §4): the single call site that persists a
+   * typed capture with its source anchor. It is deliberately separate from
+   * `create` so 261-S2 can swap the implementation for the canonical
+   * `CaptureAsync` route without touching every caller.
+   */
+  capture(bookId: string, dto: CaptureNoteDto): Observable<Note> {
+    return this.http.post<Note>(`/api/books/${bookId}/notes`, dto);
   }
 }

@@ -25,6 +25,7 @@ import { ThemeService, Theme } from '../../core/services/theme.service';
 import { Book as BookDto } from '../../core/dtos/book.dtos';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 import { isTypingTarget, pageActionForKey } from '../reader-keyboard';
+import { AssistantContextService } from '../../ui/assistant/assistant-context.service';
 
 /**
  * Rendition theme names. Both Nostos normalizations are registered once per
@@ -234,6 +235,16 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   private themeService = inject(ThemeService);
   private injector = inject(Injector);
   private elementRef = inject(ElementRef);
+  private assistantContext = inject(AssistantContextService);
+
+  /**
+   * Reader signals published to the assistant context registry (issue #261):
+   * the app-known location and the current selection. Additive only — the
+   * reader's own behaviour and markup are untouched.
+   */
+  private assistantLocation = signal<string | null>(null);
+  private assistantSelection = signal<string | null>(null);
+  private unregisterAssistantContext: (() => void) | null = null;
 
   private epubBook: Book | null = null;
   private rendition: Rendition | null = null;
@@ -290,6 +301,15 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   loading = signal(true);
 
   constructor() {
+    this.unregisterAssistantContext = this.assistantContext.register(
+      () => ({
+        readerType: 'epub',
+        epubCfi: this.assistantLocation(),
+        selectedText: this.assistantSelection(),
+      }),
+      { explicit: true },
+    );
+
     effect(() => {
       if (this.bookId()) {
         // loadBook reads highlightMode() to sync the manager before display;
@@ -469,6 +489,8 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
       this.rendition = null;
       this.currentCfi = null;
     }
+    this.assistantLocation.set(null);
+    this.assistantSelection.set(null);
 
     this.loading.set(true);
     this.locationsReady.set(false);
@@ -529,13 +551,15 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     );
     this.annotationManager.setHighlightMode(this.highlightMode());
     this.annotationManager.setHighlightColour(this.highlightColour());
-    this.annotationManager.setOnSelectionCaptured((text) =>
-      this.selectionCaptured.emit(text),
-    );
+    this.annotationManager.setOnSelectionCaptured((text) => {
+      this.assistantSelection.set(text);
+      this.selectionCaptured.emit(text);
+    });
     this.annotationManager.init();
 
     rendition.on('relocated', (location: any) => {
       this.currentCfi = location.start.cfi;
+      this.assistantLocation.set(location.start.cfi);
       this.currentHref.set(location.start.href);
       this.spineIndex.set(typeof location.start.index === 'number' ? location.start.index : null);
       this.updateProgressState(location.start.cfi);
@@ -889,6 +913,8 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   }
 
   ngOnDestroy(): void {
+    this.unregisterAssistantContext?.();
+    this.unregisterAssistantContext = null;
     this.resizeObserver?.disconnect();
     if (this.fontApplyTimer) clearTimeout(this.fontApplyTimer);
     if (this.typographyApplyTimer) clearTimeout(this.typographyApplyTimer);

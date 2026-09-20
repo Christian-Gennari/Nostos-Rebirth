@@ -29,6 +29,7 @@ import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
+import { AssistantContextService } from '../../ui/assistant/assistant-context.service';
 
 /**
  * Surround colours for the pdf.js viewer canvas, mirroring the Nostos tokens
@@ -72,6 +73,15 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   private notesService = inject(NotesService);
   private booksService = inject(BooksService);
   private themeService = inject(ThemeService);
+  private assistantContext = inject(AssistantContextService);
+
+  /**
+   * Reader signals published to the assistant context registry (issue #261):
+   * the current page and selection. Additive only.
+   */
+  private assistantPage = signal<number | null>(null);
+  private assistantSelection = signal<string | null>(null);
+  private unregisterAssistantContext: (() => void) | null = null;
   /**
    * This component's own host element. The library renders the find bar inside
    * it, so a query scoped here reaches the fields we need to focus without
@@ -327,6 +337,15 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   private progressUpdater$ = new Subject<{ location: string; percentage: number }>();
 
   ngOnInit() {
+    this.unregisterAssistantContext = this.assistantContext.register(
+      () => ({
+        readerType: 'pdf',
+        pdfPage: this.assistantPage(),
+        selectedText: this.assistantSelection(),
+      }),
+      { explicit: true },
+    );
+
     // Zoom and reading mode are per-book preferences; the viewport default is only
     // a starting point (issue #226 §3, §9).
     this.restoreSavedZoom();
@@ -544,6 +563,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     };
 
     this.selectionCaptured.emit(highlight.selectedText);
+    this.assistantSelection.set(highlight.selectedText);
   }
 
   // --- Helpers ---
@@ -646,6 +666,8 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   private updateProgressState(page: number) {
     const percentage = this.totalPages > 0 ? Math.floor((page / this.totalPages) * 100) : 0;
 
+    this.assistantPage.set(page);
+
     // Update the signal with the specific page numbers
     this.progress.set({
       label: `Page ${page} of ${this.totalPages}`,
@@ -686,6 +708,8 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   }
 
   ngOnDestroy() {
+    this.unregisterAssistantContext?.();
+    this.unregisterAssistantContext = null;
     this.progressUpdater$.complete();
   }
 }
