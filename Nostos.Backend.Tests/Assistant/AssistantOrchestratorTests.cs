@@ -66,6 +66,89 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
+    public async Task The_open_book_wins_over_a_book_the_model_chose()
+    {
+        var h = CreateHarness();
+        var open = await SeedBookAsync(h, "Pride and Prejudice");
+        var other = await SeedBookAsync(h, "Meaning In Life And Why It Matters");
+
+        // Measured against the live gateway: with a book open, the model went and
+        // found a book it liked better in a search result and filed the thought
+        // there, while the acknowledgement — built from the ambient context —
+        // named the book that was open. Note and confirmation disagreed, and
+        // neither was visible as wrong. The open book is a fact, not a proposal.
+        h.Llm
+            .CallsTool("notes_capture", $$"""{"bookId":"{{other.Id}}","content":"A captured thought"}""")
+            .Returns("Saved.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Remember this thought.",
+            Context(
+                bookId: open.Id.ToString(),
+                bookTitle: "Pride and Prejudice",
+                bookFormat: "ebook",
+                readerType: "epub",
+                epubCfi: "epubcfi(/6/4[chap01]!/4/2/2)")));
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var note = await db.Notes.AsNoTracking().SingleAsync();
+
+        note.BookId.Should().Be(open.Id);
+        note.BookId.Should().NotBe(other.Id);
+        response.Acknowledgement.Should().Contain("Pride and Prejudice");
+    }
+
+    [Fact]
+    public async Task A_successful_capture_may_reply_with_nothing()
+    {
+        var h = CreateHarness();
+        var book = await SeedBookAsync(h, "The Magic Mountain");
+
+        // The model saves the thought and says nothing else — the shape the tool
+        // description now asks for, since the app confirms a capture itself. The
+        // turn must not follow the acknowledgement with "I could not finish that."
+        h.Llm.CallsTool("notes_capture", """{"content":"A captured thought"}""");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Remember this thought.",
+            Context(
+                bookId: book.Id.ToString(),
+                bookTitle: "The Magic Mountain",
+                bookFormat: "ebook",
+                readerType: "epub",
+                epubCfi: "epubcfi(/6/4[chap01]!/4/2/2)")));
+
+        response.Acknowledgement.Should().NotBeNullOrWhiteSpace();
+        response.Reply.Should().BeEmpty();
+        response.Reply.Should().NotBe(AssistantOrchestrator.IncompleteTurnReply);
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.Notes.AsNoTracking().CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task A_capture_with_no_book_anywhere_creates_nothing()
+    {
+        var h = CreateHarness();
+
+        // No book is open and the model supplied none, so the capability refuses:
+        // a note can never be filed against a book nobody chose. The assistant is
+        // left to ask which book it belongs to.
+        h.Llm
+            .CallsTool("notes_capture", """{"content":"A captured thought"}""")
+            .Returns("Saved.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Remember this thought.",
+            Context(surface: "library", route: "/library")));
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.Notes.AsNoTracking().CountAsync()).Should().Be(0);
+        response.CapturedNoteId.Should().BeNull();
+        response.Acknowledgement.Should().BeNull();
+    }
+
+    [Fact]
     public async Task The_stored_setting_is_the_only_source_of_the_capture_mode()
     {
         var h = CreateHarness();

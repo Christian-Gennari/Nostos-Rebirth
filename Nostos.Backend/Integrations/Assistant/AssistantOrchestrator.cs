@@ -262,9 +262,13 @@ public sealed class AssistantOrchestrator(
         // Prefer the last non-empty assistant content from anywhere in the loop:
         // a model that narrated a tool call and then ran out of iterations still
         // said something. Only when it said nothing at all does the turn report
-        // that it could not finish, rather than returning an empty reply.
-        var reply = lastAssistantContent?.Trim();
-        if (string.IsNullOrWhiteSpace(reply))
+        // that it could not finish, rather than returning an empty reply — and
+        // NOT when a capture succeeded, because that turn already has its own
+        // confirmation, built from what the app actually did. Without this
+        // exception the transcript would read "Saved to X." followed by "I could
+        // not finish that."
+        var reply = lastAssistantContent?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(reply) && acknowledgement is null)
         {
             reply = anchorPrompt?.Question
                 ?? (pendingPlan is not null ? "I've prepared a plan for your approval." : IncompleteTurnReply);
@@ -504,17 +508,19 @@ public sealed class AssistantOrchestrator(
         - State-changing tools never run during a turn. Calling one records a plan step. Tell the user what the plan will do and wait for explicit approval; never claim the change has happened.
         - Never claim an action succeeded unless a tool result says it did.
 
-        A capture is the user giving you something of their own to keep: a thought, an observation, a reaction, a question they are sitting with, or a passage they want recorded. Save it with notes_capture in the same turn, whether they say "save this", "note that", "capturing a thought" or "I just had a thought I wanted to write down", or simply tell you the thought. Do not answer it, discuss it, comment on it or improve it.
+        A capture is the user giving you something of their own to keep: a thought, an observation, a reaction, a question they are sitting with, or a passage they want recorded. Ask yourself whether the user is TELLING you something of theirs or ASKING you something. Telling you is a capture: save it with notes_capture in that same turn, whether they say "save this", "note that", "capturing a thought" or "I just had a thought I wanted to write down", or simply tell you the thought. Asking — about the library, or for something to be found, read, explained, summarised or compared — is not a capture: answer it and capture nothing. Answering a capture instead of saving it loses the user's words, so when a message does both, save the part that is theirs and answer the rest.
 
-        A question about the library, or a request to find, read, explain, summarise or compare something, is not a capture. Answer it and capture nothing.
+        The thought you were given is not a topic to discuss. Do not comment on it, evaluate it, agree with it, develop it or improve it.
 
-        Capture the user's own words exactly as they arrived. Never paraphrase, shorten, translate, correct, tidy or add to them; how they are rendered is decided by a setting, not by you. A passage quoted from the book itself goes in selectedText.
+        Capture the user's own words exactly as they arrived. Never paraphrase, shorten, translate, correct, tidy or add to them; how they are rendered is decided by a setting, not by you.
 
-        The book comes from the current context first. If the context has no book and the user did not name one, ask which book it belongs to — one short question — and do not save until the answer is known; then resolve the book with the read tools. Never invent a page, position or timestamp: the capture tool asks for those itself when they cannot be known.
+        A passage the reader has selected is already in the context, and the user may refer to it as "this passage", "the passage" or "this quote": capture it as selectedText. Never ask the user to paste or retype something the app already knows.
 
-        A capture is saved only when the notes_capture result says it succeeded. If it fails, say in one line what failed. The words "saved" may only follow a successful notes_capture result.
+        The book that is open is the book: the capture goes there, and you never choose a book yourself or override the open one. If no book is open and the user did not name one, ask which book it belongs to — one short question — and do not save until the answer is known. Use the library read tools only to resolve a book the user actually named, never to pick a likely one. Never invent a page, position or timestamp: the capture tool asks for those itself when they cannot be known.
 
-        An explicitly named book, note, or concept in the user's message beats the ambient context. If a target is ambiguous or matches only weakly, ask one short clarifying question instead of guessing.
+        A capture is saved only when the notes_capture result says it succeeded. If it fails, say in one line what failed. The words "saved" may only follow a successful notes_capture result, and the app confirms a capture itself — including where it went — so keep your own reply to one short line and never restate the book, page or note, or name one that a tool result did not give you.
+
+        An explicitly named note or concept in the user's message beats the ambient context. If a target is ambiguous or matches only weakly, ask one short clarifying question instead of guessing.
 
         Never invent a source location. When a capture has no location, the tool layer asks the user for a page or timestamp; do not guess one.
 
@@ -542,9 +548,15 @@ public sealed class AssistantOrchestrator(
 
         var obj = ParseObject(argumentsJson);
 
-        // The ambient book is the default; an explicit target in the tool call
-        // already overrides it.
-        if (!HasValue(obj, "bookId") && !string.IsNullOrWhiteSpace(context?.BookId))
+        // The book is the APP's, exactly like the anchor: when a book is open,
+        // that is where the capture goes, whatever the model proposed. Measured
+        // against the live gateway with Pride and Prejudice open: the model
+        // searched notes, found one about the same subject in another book, and
+        // filed the thought there — and because the acknowledgement is built
+        // from the ambient context, the confirmation then named a book the note
+        // was not filed against. Both were wrong, and neither was visible.
+        // An open book is a fact; a book the model went and found is a guess.
+        if (!string.IsNullOrWhiteSpace(context?.BookId))
         {
             obj["bookId"] = context!.BookId;
         }
