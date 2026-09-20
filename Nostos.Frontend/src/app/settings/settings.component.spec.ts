@@ -188,20 +188,41 @@ describe('SettingsComponent backup-only surface', () => {
     delete (navigator as { clipboard?: unknown }).clipboard;
   });
 
-  /**
-   * Was `renders no Appearance card and no theme controls` — an assertion from
-   * the theme-system removal. Dark mode is back as a deliberate feature, so the
-   * contract is inverted rather than dropped: the card must exist, and the
-   * control must offer both themes.
-   */
-  it('renders the Appearance card with a working Light/Dark choice', () => {
+  it('switches settings surfaces locally without hash navigation', () => {
+    const nav = fixture.debugElement.queryAll(By.css('.settings-nav-item'));
+    expect(nav.map((item) => item.nativeElement.textContent.replace(/\s+/g, ' ').trim())).toEqual([
+      'Library & data Backups & e-readers',
+      'Assistant Capture & AI',
+      'Appearance Theme & atmosphere',
+    ]);
+    expect(fixture.componentInstance.activeSettingsSection()).toBe('library');
+    expect(fixture.nativeElement.querySelector('#library-data').hidden).toBe(false);
+    expect(fixture.nativeElement.querySelector('#assistant').hidden).toBe(true);
+    expect(fixture.nativeElement.querySelectorAll('.settings-nav a').length).toBe(0);
+
+    const hashBefore = window.location.hash;
+    nav[1].nativeElement.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.activeSettingsSection()).toBe('assistant');
+    expect(fixture.nativeElement.querySelector('#library-data').hidden).toBe(true);
+    expect(fixture.nativeElement.querySelector('#assistant').hidden).toBe(false);
+    expect(window.location.hash).toBe(hashBefore);
+  });
+
+  it('renders the Appearance surface with a working Light/Dark choice', () => {
+    fixture.componentInstance.setSettingsSection('appearance');
+    fixture.detectChanges();
+
     const headers = fixture.debugElement
       .queryAll(By.css('.card-header h2'))
       .map((h) => h.nativeElement.textContent.trim());
-    expect(headers).toContain('Appearance');
+    expect(headers).toContain('Colour theme');
 
-    const options = fixture.debugElement.queryAll(By.css('.theme-opt'));
-    expect(options.map((o) => o.nativeElement.textContent.trim())).toEqual(['Light', 'Dark']);
+    const options = fixture.debugElement.queryAll(By.css('.theme-card'));
+    expect(
+      options.map((o) => o.nativeElement.querySelector('strong')?.textContent.trim()),
+    ).toEqual(['Light', 'Dark']);
 
     // Defaults to light in a test environment (no stored choice, and
     // matchMedia reports no dark preference).
@@ -296,8 +317,9 @@ describe('SettingsComponent backup-only surface', () => {
   it('renders the E-reader access card with the catalog address and one copy action', () => {
     const headers = cardHeaders();
     expect(headers).toContain('E-reader access');
-    // Grouped with the library data, above Appearance.
-    expect(headers.indexOf('E-reader access')).toBeLessThan(headers.indexOf('Appearance'));
+    expect(
+      fixture.nativeElement.querySelector('#library-data')?.contains(erCard()),
+    ).toBe(true);
 
     expect(catalogUrlText()).toBe(remoteInfo.catalogUrl);
 
