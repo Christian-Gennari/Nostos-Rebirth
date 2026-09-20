@@ -33,14 +33,28 @@ public static class TranscriptionEndpoints
         HttpRequest request,
         ISTtProvider provider,
         SpeechOptions options,
+        IAiProviderConfigResolver config,
         CancellationToken ct)
     {
-        if (!options.Enabled)
+        // Availability is derived (enabled && baseUrl && key), exactly like the
+        // assistant's gate: an enabled-but-unconfigured surface is a typed 503,
+        // never a startup failure or a 500. The credential itself is only tested
+        // for presence here.
+        var effective = await config.GetEffectiveSttAsync(ct);
+        if (!effective.Enabled)
         {
             return Failure(
                 SttErrorCodes.Disabled,
                 StatusCodes.Status503ServiceUnavailable,
                 "Speech-to-text is disabled on this server.");
+        }
+
+        if (!effective.IsAvailable)
+        {
+            return Failure(
+                SttErrorCodes.NotConfigured,
+                StatusCodes.Status503ServiceUnavailable,
+                SttException.NotConfigured(effective.ApiKeyEnvironmentVariable).Message);
         }
 
         if (!request.HasFormContentType)

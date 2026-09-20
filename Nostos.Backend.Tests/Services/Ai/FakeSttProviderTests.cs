@@ -203,7 +203,7 @@ public sealed class NineRouterSttProviderTests
     public async Task Fails_fast_with_a_typed_error_when_the_key_is_absent()
     {
         var handler = new StubHttpMessageHandler();
-        var provider = CreateProvider(handler);
+        var provider = CreateProvider(handler, apiKey: null);
 
         Environment.SetEnvironmentVariable(TokenVariable, null);
         var act = () => provider.TranscribeAsync(
@@ -286,6 +286,7 @@ public sealed class NineRouterSttProviderTests
         var provider = new NineRouterSttProvider(
             new SingleHandlerHttpClientFactory(handler),
             TestOptions(),
+            new StubAiProviderConfigResolver { Stt = TestConfig(TokenValue) },
             NullLogger<NineRouterSttProvider>.Instance);
 
         Environment.SetEnvironmentVariable(TokenVariable, TokenValue);
@@ -319,10 +320,21 @@ public sealed class NineRouterSttProviderTests
         ApiKeyEnvironmentVariable = TokenVariable,
     };
 
-    private static NineRouterSttProvider CreateProvider(StubHttpMessageHandler handler) =>
+    private static EffectiveAiProviderConfig TestConfig(string? apiKey) => new(
+        Enabled: true,
+        BaseUrl: "http://omenhub:20128",
+        Model: Model,
+        ApiKeyEnvironmentVariable: TokenVariable,
+        ApiKey: apiKey,
+        KeyFromServerEnv: apiKey is not null);
+
+    private static NineRouterSttProvider CreateProvider(
+        StubHttpMessageHandler handler,
+        string? apiKey = TokenValue) =>
         new(
             new StubHttpClientFactory(handler, new Uri("http://omenhub:20128")),
             TestOptions(),
+            new StubAiProviderConfigResolver { Stt = TestConfig(apiKey) },
             NullLogger<NineRouterSttProvider>.Instance);
 
     /// <summary>A handler that parks until the caller's token is cancelled.</summary>

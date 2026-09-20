@@ -36,6 +36,10 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
     // Exact-once command record for assistant note mutations (issue #260 §2, §4).
     public DbSet<NoteCommandReceipt> NoteCommandReceipts => Set<NoteCommandReceipt>();
 
+    // Server-wide AI provider overrides (assistant-milestone plan, "AI provider
+    // settings"). One row; NULL columns fall back to appsettings/env.
+    public DbSet<AiProviderSettingsModel> AiProviderSettings => Set<AiProviderSettingsModel>();
+
     // A few legacy import/repository paths still add a BookModel directly.
     // Keep those writes valid now that WorkId is a required foreign key. The
     // library service always assigns the work explicitly; this is only a
@@ -331,6 +335,18 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
                 "CK_NoteCommandReceipts_Bounds",
                 "length(\"ClientId\") <= 64 AND length(\"IdempotencyKey\") <= 128 AND " +
                 "length(\"Command\") <= 32 AND length(\"ResultJson\") <= 131072"));
+        });
+
+        // --- AI PROVIDER SETTINGS (assistant-milestone plan) ---
+        // A single server-wide settings row. The primary key is fixed and a
+        // CHECK constraint pins it, so no second row can ever be written. Every
+        // value column is nullable: NULL means "no override", which is what lets
+        // an explicit `enabled: false` be told apart from "never set".
+        modelBuilder.Entity<AiProviderSettingsModel>(e =>
+        {
+            e.ToTable(t => t.HasCheckConstraint(
+                "CK_AiProviderSettings_SingletonId",
+                $"Id = {AiProviderSettingsModel.SingletonId}"));
         });
     }
 }

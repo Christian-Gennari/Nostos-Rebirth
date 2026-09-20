@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
-using Nostos.Backend.Configuration;
 
 namespace Nostos.Backend.Services.Ai;
 
@@ -9,12 +8,13 @@ namespace Nostos.Backend.Services.Ai;
 /// Chat-with-tools against the 9Router gateway's OpenAI-compatible
 /// <c>POST {BaseUrl}/chat/completions</c> route (issue #261 §3, decision D8).
 ///
-/// One provider, one call, no retry loop. The credential is read at call time
-/// from the environment variable named in
-/// <see cref="AssistantOptions.ApiKeyEnvironmentVariable"/> and is attached only
-/// to the outbound request — it is never logged, returned, or handed to the
-/// client. The model id is sent exactly as configured: it is the free pool, and
-/// no paid fallback exists here.
+/// One provider, one call, no retry loop. The credential and endpoint are read
+/// at call time from the EFFECTIVE configuration — the stored override when set,
+/// otherwise the appsettings/environment fallback (see
+/// <see cref="IAiProviderConfigResolver"/>) — and the key is attached only to
+/// the outbound request: it is never logged, returned, or handed to the client.
+/// The model id is sent exactly as configured: it is the free pool, and no paid
+/// fallback exists here.
 ///
 /// Gateway quirks that are load-bearing and therefore encoded here:
 /// <list type="bullet">
@@ -26,7 +26,7 @@ namespace Nostos.Backend.Services.Ai;
 /// </summary>
 public sealed class NineRouterLlmProvider(
     IHttpClientFactory httpClientFactory,
-    AssistantOptions options,
+    IAiProviderConfigResolver config,
     ILogger<NineRouterLlmProvider> logger) : ILlmProvider
 {
     /// <summary>Name of the registered <see cref="IHttpClientFactory"/> client.</summary>
@@ -47,30 +47,31 @@ public sealed class NineRouterLlmProvider(
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var apiKey = Environment.GetEnvironmentVariable(options.ApiKeyEnvironmentVariable);
-        if (string.IsNullOrWhiteSpace(apiKey))
+        var effective = await config.GetEffectiveLlmAsync(ct);
+
+        if (string.IsNullOrWhiteSpace(effective.ApiKey))
         {
-            throw LlmException.NotConfigured(options.ApiKeyEnvironmentVariable);
+            throw LlmException.NotConfigured(effective.ApiKeyEnvironmentVariable);
         }
 
-        if (string.IsNullOrWhiteSpace(options.BaseUrl))
+        if (string.IsNullOrWhiteSpace(effective.BaseUrl))
         {
             throw LlmException.NotConfiguredSetting("Assistant:BaseUrl");
         }
 
-        if (string.IsNullOrWhiteSpace(options.Model))
+        if (string.IsNullOrWhiteSpace(effective.Model))
         {
             throw LlmException.NotConfiguredSetting("Assistant:Model");
         }
 
-        var payload = BuildPayload(request);
+        var payload = BuildPayload(request, effective.Model);
         var body = JsonSerializer.Serialize(payload, JsonOptions);
 
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, BuildUri())
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, BuildUri(effective.BaseUrl))
         {
             Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json"),
         };
-        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Trim());
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", effective.ApiKey.Trim());
 
         var client = httpClientFactory.CreateClient(HttpClientName);
 
@@ -121,7 +122,7 @@ public sealed class NineRouterLlmProvider(
             // Deliberately no prompt content and no credential in this line.
             logger.LogDebug(
                 "Assistant completion with model {Model}: finish {FinishReason}, {ToolCalls} tool call(s).",
-                options.Model,
+                effective.Model,
                 completion.FinishReason ?? "(none)",
                 completion.ToolCalls.Count);
 
@@ -129,10 +130,10 @@ public sealed class NineRouterLlmProvider(
         }
     }
 
-    private Uri BuildUri()
+    private static Uri BuildUri(string baseUrl)
     {
-        var baseUrl = options.BaseUrl.TrimEnd('/');
-        return new Uri($"{baseUrl}/{ChatCompletionsPath}");
+        var trimmed = baseUrl.TrimEnd('/');
+        return new Uri($"{trimmed}/{ChatCompletionsPath}");
     }
 
     /// <summary>
@@ -140,11 +141,13 @@ public sealed class NineRouterLlmProvider(
     /// request DTO so the exact shape is visible and the load-bearing
     /// <c>stream:false</c> cannot be dropped by a serializer convention.
     /// </summary>
-    private Dictionary<string, object?> BuildPayload(LlmCompletionRequest request)
+    private static Dictionary<string, object?> BuildPayload(
+        LlmCompletionRequest request,
+        string model)
     {
         var payload = new Dictionary<string, object?>
         {
-            ["model"] = options.Model,
+            ["model"] = model,
             // EXPLICIT. Omitting this makes the gateway stream SSE.
             ["stream"] = false,
             ["max_tokens"] = Math.Clamp(request.MaxTokens, 1, MaxTokensCeiling),

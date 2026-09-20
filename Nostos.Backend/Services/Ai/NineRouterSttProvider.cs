@@ -10,12 +10,13 @@ namespace Nostos.Backend.Services.Ai;
 /// Speech-to-text against the 9Router gateway's OpenAI-compatible transcription
 /// route (<c>POST {BaseUrl}/v1/audio/transcriptions</c>).
 ///
-/// One provider, one call. The credential is read at call time from the
-/// environment variable named in <see cref="SpeechOptions.ApiKeyEnvironmentVariable"/>
-/// and is attached only to the outbound request — it is never logged, returned,
-/// or handed to the client. The model id is sent exactly as configured: the
-/// <c>groq/</c> prefix is load-bearing, and a bare <c>whisper-1</c> would route
-/// to an uncredentialed provider instead.
+/// One provider, one call. The credential and endpoint are read at call time
+/// from the EFFECTIVE configuration — the stored override when set, otherwise
+/// the appsettings/environment fallback (see <see cref="IAiProviderConfigResolver"/>)
+/// — and the key is attached only to the outbound request: it is never logged,
+/// returned, or handed to the client. The model id is sent exactly as
+/// configured: the <c>groq/</c> prefix is load-bearing, and a bare
+/// <c>whisper-1</c> would route to an uncredentialed provider instead.
 ///
 /// Failures are translated into <see cref="SttException"/> with a stable code.
 /// There is no retry loop anywhere here; a failed call is a failed call.
@@ -23,6 +24,7 @@ namespace Nostos.Backend.Services.Ai;
 public sealed class NineRouterSttProvider(
     IHttpClientFactory httpClientFactory,
     SpeechOptions options,
+    IAiProviderConfigResolver config,
     ILogger<NineRouterSttProvider> logger) : ISTtProvider
 {
     /// <summary>Name of the registered <see cref="IHttpClientFactory"/> client.</summary>
@@ -46,17 +48,18 @@ public sealed class NineRouterSttProvider(
     {
         ArgumentNullException.ThrowIfNull(audio);
 
-        var apiKey = Environment.GetEnvironmentVariable(options.ApiKeyEnvironmentVariable);
-        if (string.IsNullOrWhiteSpace(apiKey))
+        var effective = await config.GetEffectiveSttAsync(ct);
+
+        if (string.IsNullOrWhiteSpace(effective.ApiKey))
         {
-            throw SttException.NotConfigured(options.ApiKeyEnvironmentVariable);
+            throw SttException.NotConfigured(effective.ApiKeyEnvironmentVariable);
         }
 
-        if (string.IsNullOrWhiteSpace(options.BaseUrl) || string.IsNullOrWhiteSpace(options.Model))
+        if (string.IsNullOrWhiteSpace(effective.BaseUrl) || string.IsNullOrWhiteSpace(effective.Model))
         {
             throw SttException.NotConfigured(
                 $"Speech:BaseUrl and Speech:Model must both be set (missing "
-                + $"{(string.IsNullOrWhiteSpace(options.BaseUrl) ? nameof(SpeechOptions.BaseUrl) : nameof(SpeechOptions.Model))}).");
+                + $"{(string.IsNullOrWhiteSpace(effective.BaseUrl) ? nameof(SpeechOptions.BaseUrl) : nameof(SpeechOptions.Model))}).");
         }
 
         using var form = new MultipartFormDataContent();
@@ -68,18 +71,18 @@ public sealed class NineRouterSttProvider(
 
         form.Add(fileContent, "file", string.IsNullOrWhiteSpace(fileName) ? "audio" : fileName);
         // Sent verbatim. Do not "simplify" the groq/ prefix away.
-        form.Add(new StringContent(options.Model), "model");
+        form.Add(new StringContent(effective.Model), "model");
         form.Add(new StringContent(ResponseFormat), "response_format");
         if (!string.IsNullOrWhiteSpace(languageHint))
         {
             form.Add(new StringContent(languageHint), "language");
         }
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri())
+        using var request = new HttpRequestMessage(HttpMethod.Post, BuildUri(effective.BaseUrl))
         {
             Content = form,
         };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Trim());
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", effective.ApiKey.Trim());
 
         var client = httpClientFactory.CreateClient(HttpClientName);
 
@@ -140,7 +143,7 @@ public sealed class NineRouterSttProvider(
             // Deliberately no audio content and no credential in this line.
             logger.LogDebug(
                 "Transcribed audio with model {Model}: language {Language}, duration {Duration}s.",
-                options.Model,
+                effective.Model,
                 result.Language,
                 result.DurationSeconds);
 
@@ -148,10 +151,10 @@ public sealed class NineRouterSttProvider(
         }
     }
 
-    private Uri BuildUri()
+    private static Uri BuildUri(string baseUrl)
     {
-        var baseUrl = options.BaseUrl.TrimEnd('/');
-        return new Uri($"{baseUrl}/{TranscriptionsPath}");
+        var trimmed = baseUrl.TrimEnd('/');
+        return new Uri($"{trimmed}/{TranscriptionsPath}");
     }
 
     private static SttResult ParseResponse(string body)
