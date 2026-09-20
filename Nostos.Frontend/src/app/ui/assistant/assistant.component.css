@@ -117,7 +117,11 @@
 }
 
 .entry-speaker {
-  color: var(--color-text-light);
+  /* Measured, not assumed: --color-text-light lands at 4.47:1 on the light
+     panel, just under the 4.5 minimum for text this size. The speaker label is
+     the primary cue for who is talking, so it uses the muted token instead
+     (8.47:1 light / 10.98:1 dark). */
+  color: var(--color-text-muted);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.62rem;
   font-weight: 600;
