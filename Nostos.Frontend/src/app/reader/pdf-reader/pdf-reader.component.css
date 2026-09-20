@@ -134,14 +134,14 @@
 /* --- Theme-following PDF page edge (issue #259) ---
    Light keeps the established near-white outline + soft shadow; dark switches to
    a clear outline on a dark surround so the page rectangle is visible without
-   glaring. The palette follows the app tokens. */
+   glaring. Both come from the token graph, so no literal colours are added. */
 :host {
   --pdf-page-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   --pdf-page-outline: 1px solid #e4e4e7;
 }
 :host-context([data-theme='dark']) {
-  --pdf-page-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
-  --pdf-page-outline: 1px solid #2a2d37;
+  --pdf-page-shadow: var(--shadow-md);
+  --pdf-page-outline: 1px solid var(--border-color);
 }
 ::ng-deep #viewer .page {
   border: none !important;
