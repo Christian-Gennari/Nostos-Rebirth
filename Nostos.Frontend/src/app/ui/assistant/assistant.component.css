@@ -1,13 +1,13 @@
-/* The assistant shell. Reuses the dock surface/edge/cast tokens on purpose:
-   they already have a light/dark counterpart, so this stream adds ZERO new
-   colour tokens and `npm run check:theme` stays green. */
+/* Ask Nostos should read like a quiet editorial margin, not a generic chatbot.
+   This component deliberately reuses the existing surface, type, elevation and
+   interaction tokens so light/dark behavior stays inside the shared theme graph. */
 
 :host {
   display: contents;
 }
 
 /* ------------------------------
-   Collapsed trigger: a hairline capsule, never a circle
+   Collapsed trigger
 ------------------------------ */
 .assistant-trigger {
   position: fixed;
@@ -37,32 +37,38 @@
   display: inline-flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   height: var(--control-h-md);
-  padding: 0 12px;
+  padding: 0 11px;
   border: 1px solid var(--dock-border);
   border-radius: var(--radius-pill);
   background: var(--dock-surface);
-  box-shadow: var(--dock-shadow);
-  color: var(--color-text-light);
+  box-shadow: none;
+  color: var(--color-text-muted);
   font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 500;
   letter-spacing: 0.01em;
   white-space: nowrap;
-  transition: color var(--motion-fast) var(--ease-plain), border-color var(--motion-fast) var(--ease-plain);
+  transition:
+    color var(--motion-fast) var(--ease-plain),
+    border-color var(--motion-fast) var(--ease-plain),
+    box-shadow var(--motion-fast) var(--ease-plain),
+    transform var(--motion-fast) var(--ease-plain);
 }
 
 .assistant-trigger:hover .trigger-capsule {
   color: var(--color-text-main);
   border-color: var(--color-accent);
+  box-shadow: var(--dock-shadow);
+  transform: translateY(-1px);
 }
 
 .trigger-capsule kbd {
   padding: 1px 5px;
   border: 1px solid var(--dock-border);
   border-radius: var(--radius-sm);
-  color: var(--color-text-light);
+  color: var(--color-text-muted);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.66rem;
   font-weight: 600;
@@ -83,44 +89,191 @@
   z-index: 41;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  width: 380px;
-  max-height: min(540px, calc(100vh - 88px));
+  width: min(408px, calc(100vw - 32px));
+  max-height: min(620px, calc(100vh - 88px));
   box-sizing: border-box;
-  padding: 14px;
+  overflow: hidden;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-dialog);
   background: var(--bg-surface);
   box-shadow: var(--dock-shadow);
   color: var(--color-text-main);
   font-family: 'Hanken Grotesk', sans-serif;
+  transform-origin: bottom right;
+  animation: assistant-reveal var(--motion-base) var(--ease-out) both;
+}
+
+@keyframes assistant-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ------------------------------
+   Header
+------------------------------ */
+.assistant-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+  padding: 12px 12px 12px 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.assistant-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.assistant-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-alt);
+  color: var(--primary-ink);
+}
+
+.assistant-heading-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.assistant-title {
+  color: var(--color-text-main);
+  font-family: 'Newsreader', serif;
+  font-size: 0.98rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.assistant-subtitle {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assistant-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.assistant-context {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 154px;
+  padding: 5px 7px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface-alt);
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.assistant-context-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assistant-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--control-h-md);
+  height: var(--control-h-md);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    color var(--motion-fast) var(--ease-plain),
+    background var(--motion-fast) var(--ease-plain),
+    border-color var(--motion-fast) var(--ease-plain);
+}
+
+.assistant-close:hover {
+  color: var(--color-text-main);
+  background: var(--bg-hover);
+  border-color: var(--border-color);
+}
+
+.assistant-close:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ------------------------------
+   Scrollable conversation body
+------------------------------ */
+.assistant-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  padding: 14px 16px 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.assistant-empty {
+  padding: 4px 2px 6px;
+}
+
+.assistant-empty p {
+  max-width: 31ch;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-family: 'Newsreader', serif;
+  font-size: 0.94rem;
+  line-height: 1.5;
 }
 
 .assistant-transcript {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-height: 0;
-  overflow-y: auto;
+  gap: 16px;
 }
 
-/* The transcript is a conversation, not a reply log (issue #286): each speaker
-   entry carries a small letterspaced label, the user's words are set in the
-   reading serif, and the assistant answers in the sans behind a hairline rule.
-   Printed-interview typography — no bubbles, avatars or colour beyond the
-   existing tokens, so both themes and both layouts follow the same rules. */
+/* Printed-interview typography: user in the reading serif, Nostos in the
+   utility sans behind a hairline. No bubbles, avatars or AI-specific color. */
 .entry {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   margin: 0;
 }
 
 .entry-speaker {
-  /* Measured, not assumed: --color-text-light lands at 4.47:1 on the light
-     panel, just under the 4.5 minimum for text this size. The speaker label is
-     the primary cue for who is talking, so it uses the muted token instead
-     (8.47:1 light / 10.98:1 dark). */
   color: var(--color-text-muted);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.62rem;
@@ -133,15 +286,19 @@
   margin: 0;
 }
 
+.entry-user {
+  padding-right: 12px;
+}
+
 .entry-user .entry-text {
   color: var(--color-text-main);
   font-family: 'Newsreader', serif;
-  font-size: 0.95rem;
-  line-height: 1.5;
+  font-size: 0.98rem;
+  line-height: 1.52;
 }
 
 .entry-assistant {
-  padding-left: 12px;
+  padding-left: 13px;
   border-left: 1px solid var(--border-color);
 }
 
@@ -149,12 +306,12 @@
   color: var(--color-text-main);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.88rem;
-  line-height: 1.55;
+  line-height: 1.58;
 }
 
 .entry-error {
-  padding-left: 12px;
-  border-left: 2px solid var(--color-danger);
+  padding-left: 13px;
+  border-left: 2px solid var(--danger-hairline);
 }
 
 .entry-error .entry-text {
@@ -166,30 +323,24 @@
 
 .entry-meta {
   display: flex;
-  gap: 8px;
-  margin-top: 4px;
-  color: var(--color-text-light);
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 3px;
+  color: var(--color-text-muted);
   font-size: 0.7rem;
+  line-height: 1.35;
 }
 
 /* ------------------------------
-   Thinking indicator (issue #289)
-   Set in the position the reply will occupy, so a slow turn reads as work in
-   progress rather than a hang. The dots are decorative; the hidden label is
-   what a screen reader announces, in both motion branches.
+   Thinking indicator
 ------------------------------ */
 .entry-pending .thinking-dots {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  /* Match the assistant body's own line box, so the entry's height does not
-     change when the reply replaces the indicator. `min-height` is load-bearing:
-     an inline-flex holding four-pixel children collapses to their height, so
-     without it the pending entry is one line SHORTER than the reply that
-     replaces it and the panel jumps. */
+  min-height: 1.55em;
   font-size: 0.88rem;
   line-height: 1.55;
-  min-height: 1.55em;
 }
 
 .thinking-dot {
@@ -223,144 +374,245 @@
   }
 }
 
-/* A user who asked for reduced motion gets a still, legible row rather than a
-   throbber; the hidden "Thinking" label carries the state either way. */
-@media (prefers-reduced-motion: reduce) {
-  .thinking-dot {
-    animation: none;
-    opacity: 0.55;
-  }
-}
-
+/* ------------------------------
+   Anchor question
+------------------------------ */
 .assistant-prompt {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: var(--radius-md);
+  gap: 12px;
+  padding: 9px 10px;
+  border-left: 2px solid var(--color-accent);
   background: var(--bg-surface-alt);
+}
+
+.prompt-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.prompt-label {
   color: var(--color-text-muted);
-  font-size: 0.8rem;
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.prompt-question {
+  color: var(--color-text-main);
+  font-family: 'Newsreader', serif;
+  font-size: 0.88rem;
+  line-height: 1.35;
 }
 
 .prompt-skip {
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--color-text-light);
-  font: inherit;
-  font-size: 0.75rem;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.assistant-composer {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  /* On the mobile sheet the panel has a fixed height, so the composer is pinned
-     to the bottom the way a conversation input reads; on the desktop flyout the
-     panel is content-sized and this has no effect. */
-  margin-top: auto;
-}
-
-.composer-field {
-  width: 100%;
-  max-height: 160px;
-  box-sizing: border-box;
-  padding: 2px 0;
-  border: 0;
-  background: transparent;
-  color: var(--color-text-main);
-  font-family: 'Newsreader', serif;
-  font-size: 0.95rem;
-  line-height: 1.5;
-  resize: none;
-  overflow-y: auto;
-}
-
-.composer-field::placeholder {
-  color: var(--color-text-placeholder);
-}
-
-.composer-field:focus {
-  outline: none;
-}
-
-.anchor-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  align-self: flex-start;
-  max-width: 100%;
-  padding: 3px 6px 3px 8px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-pill);
-  color: var(--color-text-light);
-  font-size: 0.72rem;
-}
-
-.anchor-chip-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.anchor-chip-dismiss {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--color-text-light);
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-/* ------------------------------
-   Pre-dispatch Undo (issue #262 auto-send)
-   Quiet by design: a hairline-adjacent status row, not a dialog.
------------------------------- */
-.transcript-undo {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 6px 10px;
-  border-radius: var(--radius-md);
-  background: var(--bg-surface-alt);
   color: var(--color-text-muted);
-  font-size: 0.78rem;
-}
-
-.transcript-undo-button {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--color-text-light);
   font: inherit;
   font-size: 0.75rem;
   text-decoration: underline;
+  text-underline-offset: 2px;
   cursor: pointer;
-  touch-action: manipulation;
 }
 
-.transcript-undo-button:focus-visible {
+.prompt-skip:hover {
+  color: var(--color-text-main);
+}
+
+.prompt-skip:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: 2px;
 }
 
 /* ------------------------------
-   Raw transcript (issue #262 §8)
-   The original words stay readable after any mode processed them; restoring
-   puts them back without erasing the transcript it restores from.
+   Suggestions
+------------------------------ */
+.assistant-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.suggestions-title {
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.suggestions-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.suggestion-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 4px;
+  border: 0;
+  border-top: 1px solid var(--border-color);
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text-main);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background var(--motion-fast) var(--ease-plain),
+    padding var(--motion-fast) var(--ease-plain);
+}
+
+.suggestion-chip:first-child {
+  border-top: 0;
+}
+
+.suggestion-chip:hover {
+  padding-right: 8px;
+  padding-left: 8px;
+  background: var(--bg-surface-alt);
+}
+
+.suggestion-chip:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.suggestion-label {
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.suggestion-reason {
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.suggestion-none {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.suggestion-none:hover {
+  color: var(--color-text-main);
+}
+
+.suggestion-none:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ------------------------------
+   Pending plan
+------------------------------ */
+.assistant-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0 2px;
+  border-top: 1px solid var(--border-color);
+}
+
+.plan-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.plan-title {
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.plan-count {
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+}
+
+.plan-summary {
+  margin: 0;
+  color: var(--color-text-main);
+  font-family: 'Newsreader', serif;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.plan-steps {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.plan-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+.plan-approve {
+  padding: 5px 11px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-main);
+  font: inherit;
+  font-size: 0.76rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background var(--motion-fast) var(--ease-plain),
+    border-color var(--motion-fast) var(--ease-plain);
+}
+
+.plan-approve:hover:not(:disabled) {
+  background: var(--bg-surface-alt);
+}
+
+.plan-approve:disabled {
+  color: var(--color-text-muted);
+  border-color: var(--border-color);
+  cursor: default;
+}
+
+.plan-approve:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ------------------------------
+   Raw transcript
 ------------------------------ */
 .assistant-raw {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
+  padding-top: 11px;
+  border-top: 1px solid var(--border-color);
 }
 
 .raw-toggle {
@@ -368,12 +620,17 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--color-text-light);
+  color: var(--color-text-muted);
   font: inherit;
   font-size: 0.72rem;
   text-decoration: underline;
+  text-underline-offset: 2px;
   cursor: pointer;
   touch-action: manipulation;
+}
+
+.raw-toggle:hover {
+  color: var(--color-text-main);
 }
 
 .raw-toggle:focus-visible {
@@ -384,9 +641,9 @@
 .raw-body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 10px;
-  border-radius: var(--radius-md);
+  gap: 7px;
+  padding: 9px 10px;
+  border-left: 1px solid var(--border-color);
   background: var(--bg-surface-alt);
 }
 
@@ -407,7 +664,7 @@
 }
 
 .raw-mode {
-  color: var(--color-text-light);
+  color: var(--color-text-muted);
   font-size: 0.7rem;
 }
 
@@ -415,12 +672,17 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--color-text-light);
+  color: var(--color-text-muted);
   font: inherit;
   font-size: 0.72rem;
   text-decoration: underline;
+  text-underline-offset: 2px;
   cursor: pointer;
   touch-action: manipulation;
+}
+
+.raw-restore:hover:not(:disabled) {
+  color: var(--color-text-main);
 }
 
 .raw-restore:disabled {
@@ -434,15 +696,132 @@
 }
 
 /* ------------------------------
-   Push-to-talk (issue #262)
-   The mic lives in the OPEN composer only; the collapsed capsule is untouched.
+   Composer
 ------------------------------ */
+.assistant-composer {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-surface);
+}
+
+.composer-shell {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  transition:
+    border-color var(--motion-fast) var(--ease-plain),
+    box-shadow var(--motion-fast) var(--ease-plain);
+}
+
+.composer-shell:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent-faint);
+}
+
+.composer-context-row {
+  display: flex;
+  padding: 8px 9px 0;
+}
+
+.anchor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 6px 4px 7px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface-alt);
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.anchor-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.anchor-chip-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.anchor-chip-dismiss:hover {
+  color: var(--color-text-main);
+}
+
+.anchor-chip-dismiss:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.composer-field {
+  width: 100%;
+  min-height: 34px;
+  max-height: 160px;
+  box-sizing: border-box;
+  padding: 10px 11px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-main);
+  font-family: 'Newsreader', serif;
+  font-size: 0.96rem;
+  line-height: 1.5;
+  resize: none;
+  overflow-y: auto;
+}
+
+.composer-context-row + .composer-field {
+  padding-top: 8px;
+}
+
+.composer-field::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+.composer-field:focus {
+  outline: none;
+}
+
+.composer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: var(--control-h-md);
+  padding: 1px 5px 5px 10px;
+}
+
+.composer-hint {
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
 .voice-row {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
-  min-height: var(--control-h-md);
+  gap: 5px;
+  min-width: var(--control-h-md);
 }
 
 .voice-control {
@@ -455,17 +834,20 @@
   border: 1px solid var(--dock-border);
   border-radius: var(--radius-pill);
   background: var(--dock-surface);
-  color: var(--color-text-light);
+  color: var(--color-text-muted);
   cursor: pointer;
   touch-action: manipulation;
   transition:
     color var(--motion-fast) var(--ease-plain),
-    border-color var(--motion-fast) var(--ease-plain);
+    border-color var(--motion-fast) var(--ease-plain),
+    background var(--motion-fast) var(--ease-plain),
+    transform var(--motion-fast) var(--ease-plain);
 }
 
-.voice-control:hover {
+.voice-control:hover:not(:disabled) {
   color: var(--color-text-main);
   border-color: var(--color-accent);
+  transform: translateY(-1px);
 }
 
 .voice-control:focus-visible {
@@ -473,154 +855,77 @@
   outline-offset: 2px;
 }
 
-/* Stop is the one affirmative action while recording; it is quiet, not loud. */
+.voice-control:disabled {
+  color: var(--color-text-placeholder);
+  border-color: var(--border-color);
+  cursor: default;
+}
+
+.composer-send {
+  border-color: var(--primary-fill);
+  background: var(--primary-fill);
+  color: var(--on-primary);
+}
+
+.composer-send:hover:not(:disabled) {
+  border-color: var(--color-primary-hover);
+  background: var(--color-primary-hover);
+  color: var(--on-primary);
+}
+
 .voice-control-stop {
   color: var(--danger-ink);
   border-color: var(--danger-hairline);
 }
 
-.voice-timer {
-  color: var(--color-text-light);
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
-}
-
+.voice-timer,
 .voice-status {
   color: var(--color-text-muted);
-  font-size: 0.75rem;
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .voice-error {
   margin: 0;
+  padding: 0 2px;
   color: var(--danger-ink);
   font-size: 0.75rem;
   line-height: 1.4;
 }
 
-/* ------------------------------
-   Suggestions (issue #261 §5)
-   Non-mutating: a chip only proposes a link, through plan approval.
------------------------------- */
-.assistant-suggestions {
+/* Pre-dispatch Undo for an auto-sent transcript. Quiet by design: it reads as a
+   status line above the composer rather than another card inside the panel. */
+.transcript-undo {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.suggestions-title {
-  color: var(--color-text-light);
-  font-size: 0.72rem;
-}
-
-.suggestion-chip {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px 10px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
   background: var(--bg-surface-alt);
-  color: var(--color-text-main);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  touch-action: manipulation;
-  transition: border-color var(--motion-fast) var(--ease-plain);
-}
-
-.suggestion-chip:hover {
-  border-color: var(--color-accent);
-}
-
-.suggestion-chip:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: 2px;
-}
-
-.suggestion-label {
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.suggestion-reason {
   color: var(--color-text-muted);
-  font-size: 0.72rem;
+  font-size: 0.76rem;
 }
 
-.suggestion-none {
-  align-self: flex-start;
+.transcript-undo-button {
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--color-text-light);
-  font: inherit;
-  font-size: 0.72rem;
-  text-decoration: underline;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-/* ------------------------------
-   Pending plan (issue #261 §6)
-   Nothing executes until "Approve plan" is pressed with the plan's token.
------------------------------- */
-.assistant-plan {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface-alt);
-}
-
-.plan-title {
-  color: var(--color-text-light);
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.plan-summary {
-  margin: 0;
-  color: var(--color-text-main);
-  font-size: 0.85rem;
-  line-height: 1.4;
-}
-
-.plan-steps {
-  margin: 0;
-  padding-left: 18px;
   color: var(--color-text-muted);
-  font-size: 0.78rem;
-  line-height: 1.5;
-}
-
-.plan-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.plan-approve {
-  padding: 4px 12px;
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--color-text-main);
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
   cursor: pointer;
   touch-action: manipulation;
 }
 
-.plan-approve:disabled {
-  color: var(--color-text-light);
-  border-color: var(--border-color);
-  cursor: default;
+.transcript-undo-button:hover {
+  color: var(--color-text-main);
 }
 
-.plan-approve:focus-visible {
+.transcript-undo-button:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: 2px;
 }
@@ -629,31 +934,20 @@
    Mobile
 ------------------------------ */
 @media (max-width: 768px) {
-  /* The sheet covers the bottom of the screen; the trigger would compete with
-     the composer, so it steps aside while open. */
   :host(.is-open) .assistant-trigger {
     display: none;
   }
 
-  /* A compact capsule is 32px, but the tappable box must be >= 44px. */
   .assistant-trigger {
     min-width: var(--control-h-touch);
     min-height: var(--control-h-touch);
   }
 
-  /* Reader: nestle into the empty right flank of .reader-toolbar, below the
-     text column and clear of the centred pager. */
   .assistant-trigger.reader-surface {
     right: 12px;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 11px);
   }
 
-  /* In the reader the toolbar's RIGHTMOST gap is only 94px at 390px wide, while
-     the full capsule is 154px — so it fits no toolbar gap at all and at full
-     width it landed on the "Next page" control (measured: 1782px2 of the 44x44
-     page-turn button, i.e. it stole the primary reading gesture). Collapse to
-     the icon alone, which fits the right flank clear of BOTH pager controls and
-     of every line of text. The button keeps its accessible name via aria-label. */
   .assistant-trigger.reader-surface .trigger-label,
   .assistant-trigger.reader-surface .trigger-capsule kbd {
     display: none;
@@ -663,10 +957,9 @@
     justify-content: center;
     width: var(--control-h-touch);
     padding: 0;
+    box-shadow: var(--dock-shadow);
   }
 
-  /* Workspace routes: sit above the dock rail, which the page already reserves
-     clearance for. */
   .assistant-trigger:not(.reader-surface) {
     right: 14px;
     bottom: calc(var(--dock-rail-h) + env(safe-area-inset-bottom, 0px) + 10px);
@@ -687,27 +980,85 @@
     left: 0;
     bottom: 0;
     width: 100%;
-    height: 50dvh;
+    height: 56dvh;
     max-height: none;
-    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
     border-radius: var(--radius-dialog) var(--radius-dialog) 0 0;
     box-shadow: var(--dock-shadow-rail);
+    transform-origin: bottom center;
     transition: height var(--motion-base) var(--ease-out);
   }
 
-  /* Focusing the composer grows the sheet, so the transcript has room while
-     the user types. */
   .assistant-panel:focus-within {
-    height: 85dvh;
+    height: 84dvh;
+  }
+
+  .assistant-header {
+    padding-right: 10px;
+    padding-left: 14px;
+  }
+
+  .assistant-subtitle {
+    display: none;
+  }
+
+  .assistant-context {
+    max-width: min(40vw, 154px);
+  }
+
+  .assistant-body {
+    padding: 14px 16px 10px;
+  }
+
+  .assistant-composer {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .composer-hint {
+    display: none;
+  }
+
+  .composer-footer {
+    justify-content: flex-end;
+    padding-left: 5px;
+  }
+}
+
+@media (max-width: 430px) {
+  .assistant-context {
+    display: none;
+  }
+
+  .assistant-title {
+    font-size: 1rem;
+  }
+
+  .assistant-empty p {
+    max-width: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .trigger-capsule,
-  .assistant-panel {
+  .assistant-panel,
+  .voice-control,
+  .suggestion-chip {
     transition: none;
+  }
+
+  .assistant-panel {
+    animation: none;
+  }
+
+  .thinking-dot {
+    animation: none;
+    opacity: 0.55;
+  }
+
+  .assistant-trigger:hover .trigger-capsule,
+  .voice-control:hover:not(:disabled) {
+    transform: none;
   }
 }
