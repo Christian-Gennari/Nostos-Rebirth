@@ -34,13 +34,13 @@ public static class LibraryReplyFormatter
 
     // Work membership (multi-edition grouping)
     public static string WorkLinked(string title, string targetTitle) =>
-        $"Linked \"{title}\" with \"{targetTitle}\" as editions of the same work.";
+        $"Linked \"{title}\" with \"{targetTitle}\" as editions.";
     public static string WorkAlreadyLinked(string title, string targetTitle) =>
-        $"\"{title}\" and \"{targetTitle}\" are already editions of the same work.";
+        $"\"{title}\" and \"{targetTitle}\" are already editions.";
     public static string WorkUnlinked(string title) =>
-        $"\"{title}\" is now its own work.";
+        $"\"{title}\" is now its own edition set.";
     public static string WorkAlreadyStandalone(string title) =>
-        $"\"{title}\" is already its own work.";
+        $"\"{title}\" is already its own edition set.";
 
     // Collections
     public static string CollectionCreated(string name) => $"Collection created: {name}.";

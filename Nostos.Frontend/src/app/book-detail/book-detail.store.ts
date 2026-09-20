@@ -216,7 +216,7 @@ export class BookDetailStore {
       .subscribe({
         next: () => {
           this.loadBook(b.id, { background: true });
-          this.toast.success('Linked as an edition of the same work');
+          this.toast.success('Linked as editions');
         },
         error: () => this.toast.error('Could not link these books'),
       });
