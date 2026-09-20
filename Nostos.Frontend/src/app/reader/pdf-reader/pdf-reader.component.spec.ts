@@ -12,6 +12,7 @@ import { NgxExtendedPdfViewerModule, ScrollModeType } from 'ngx-extended-pdf-vie
 import { PdfAnnotationManager } from './pdf-annotation-manager';
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
+import { ThemeService } from '../../core/services/theme.service';
 
 /**
  * Minimal stand-in for the heavy ngx-extended-pdf-viewer component (same
@@ -31,6 +32,7 @@ class PdfViewerStub {
   backgroundColor = input<string>();
   pdfBackgroundColor = input<string>();
   scrollMode = input<number>(0);
+  theme = input<string>('light');
   showBorders = input<boolean>(true);
   zoom = input<string | number>('page-fit');
   showToolbar = input<boolean>(true);
@@ -78,8 +80,9 @@ class PdfViewerStub {
 const readSource = (file: string) =>
   readFileSync(new URL(file, import.meta.url), 'utf-8');
 
-describe('PdfReader fixed light surround and toolbar clearance', () => {
+describe('PdfReader theme-following surround and page inversion (#259)', () => {
   let fixture: ComponentFixture<PdfReader>;
+  let themeService: ThemeService;
 
   const notesService = { list: vi.fn(() => of([])) };
   const booksService = { updateProgress: vi.fn(() => of(null)) };
@@ -107,11 +110,15 @@ describe('PdfReader fixed light surround and toolbar clearance', () => {
         add: { imports: [PdfViewerStub] },
       })
       .compileComponents();
+
+    themeService = TestBed.inject(ThemeService);
   });
 
   afterEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
+    // Reset to light so other suites are not affected.
+    themeService.setTheme('light');
   });
 
   function setupComponent() {
@@ -127,38 +134,80 @@ describe('PdfReader fixed light surround and toolbar clearance', () => {
     return debugEl!.componentInstance as PdfViewerStub;
   }
 
-  it('binds the fixed #fefeff light surround and keeps the pdfjs background unset', () => {
-    const html = readSource('./pdf-reader.component.html');
-    // The surround is a fixed rendering invariant; the pdfjs
-    // `pdfBackgroundColor` option stays unset so page pixels are untouched.
-    expect(html).toContain("[backgroundColor]=\"'#fefeff'\"");
-    expect(html).not.toContain('[pdfBackgroundColor]');
-  });
-
-  it('renders the viewer with the fixed light surround without reloading the document', () => {
+  it('follows the light theme with the established surround and light library theme', () => {
+    themeService.setTheme('light');
     setupComponent();
 
     expect(viewerStub().backgroundColor()).toBe('#fefeff');
-    expect(viewerStub().src()).toBe('/api/books/book-1/file');
-
-    // A second change-detection pass leaves the document untouched.
-    fixture.detectChanges();
-    expect(viewerStub().src()).toBe('/api/books/book-1/file');
+    expect(viewerStub().theme()).toBe('light');
   });
 
-  it('declares the base light page edge and no theme-variant classes', () => {
-    const html = readSource('./pdf-reader.component.html');
-    const css = readSource('./pdf-reader.component.css');
+  it('follows the dark theme with a dark surround and dark library theme', () => {
+    themeService.setTheme('dark');
+    setupComponent();
 
-    // The theme input and its class bindings are gone.
-    expect(html).not.toContain('theme-dark');
-    expect(html).not.toContain('theme-sepia');
-    // The retained base light page edge stays token-driven.
+    expect(viewerStub().backgroundColor()).toBe('#0d0e11');
+    expect(viewerStub().theme()).toBe('dark');
+  });
+
+  it('binds theme and backgroundColor reactively, not as hardcoded strings', () => {
+    const html = readSource('./pdf-reader.component.html');
+    expect(html).toContain('[backgroundColor]="pdfBgColor()"');
+    expect(html).toContain('[theme]="pdfTheme()"');
+    // No leftover hardcoded surround.
+    expect(html).not.toContain("[backgroundColor]=\"'#fefeff'\"");
+  });
+
+  it('defaults to inverted in dark mode and as-printed in light mode', () => {
+    themeService.setTheme('dark');
+    setupComponent();
+    expect(fixture.componentInstance.pageInverted()).toBe(true);
+
+    themeService.setTheme('light');
+    fixture = TestBed.createComponent(PdfReader);
+    fixture.componentRef.setInput('bookId', 'book-2');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.pageInverted()).toBe(false);
+  });
+
+  it('persists the inversion choice per book and restores it', () => {
+    themeService.setTheme('dark');
+    setupComponent();
+    // Override the default.
+    fixture.componentInstance.setPageInverted(false);
+    expect(localStorage.getItem('nostos.pdf-invert.book-1')).toBe('false');
+
+    // Re-create: should restore the persisted choice.
+    fixture = TestBed.createComponent(PdfReader);
+    fixture.componentRef.setInput('bookId', 'book-1');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.pageInverted()).toBe(false);
+  });
+
+  it('applies the inverted class when pageInverted is true', () => {
+    themeService.setTheme('dark');
+    setupComponent();
+    const container = fixture.debugElement.query(By.css('.pdf-container'));
+    expect(container.nativeElement.classList.contains('inverted')).toBe(true);
+
+    fixture.componentInstance.setPageInverted(false);
+    fixture.detectChanges();
+    expect(container.nativeElement.classList.contains('inverted')).toBe(false);
+  });
+
+  it('declares a dark page-edge variant in CSS', () => {
+    const css = readSource('./pdf-reader.component.css');
+    // Dark page edge.
+    expect(css).toContain("host-context([data-theme='dark'])");
     expect(css).toContain('--pdf-page-outline');
     expect(css).toContain('outline: var(--pdf-page-outline)');
     expect(css).toContain('box-shadow: var(--pdf-page-shadow)');
-    expect(css).not.toContain('theme-dark');
-    expect(css).not.toContain('theme-sepia');
+  });
+
+  it('declares the inversion filter in CSS behind the .inverted class', () => {
+    const css = readSource('./pdf-reader.component.css');
+    expect(css).toContain('.pdf-container.inverted');
+    expect(css).toContain('filter: invert(1) hue-rotate(180deg)');
   });
 
   it('hidden-toolbar state uses no negative margin (offset reset at #viewerContainer)', () => {

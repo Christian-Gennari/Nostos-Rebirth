@@ -342,6 +342,25 @@
         }
       </div>
     </div>
+    @if (pdfReader?.isDark()) {
+    <div class="typo-row">
+      <span class="typo-label" id="pdf-colours">Page colours</span>
+      <div class="typo-opts" role="group" aria-labelledby="pdf-colours">
+        <button
+          type="button"
+          class="typo-opt"
+          [class.active]="pdfReader?.pageInverted()"
+          (click)="pdfReader?.setPageInverted(true)"
+        >Inverted</button>
+        <button
+          type="button"
+          class="typo-opt"
+          [class.active]="!pdfReader?.pageInverted()"
+          (click)="pdfReader?.setPageInverted(false)"
+        >As printed</button>
+      </div>
+    </div>
+    }
     } @if (epubReader) {
     <div class="typo-row">
       <span class="typo-label" id="typo-typeface">Typeface</span>

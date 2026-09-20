@@ -131,11 +131,17 @@
   display: none !important;
 }
 
-/* --- Light PDF page edge (pages keep authored pixels) ---
-   The single fixed light surround: no theme variants remain. */
+/* --- Theme-following PDF page edge (issue #259) ---
+   Light keeps the established near-white outline + soft shadow; dark switches to
+   a clear outline on a dark surround so the page rectangle is visible without
+   glaring. The palette follows the app tokens. */
 :host {
   --pdf-page-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   --pdf-page-outline: 1px solid #e4e4e7;
+}
+:host-context([data-theme='dark']) {
+  --pdf-page-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
+  --pdf-page-outline: 1px solid #2a2d37;
 }
 ::ng-deep #viewer .page {
   border: none !important;
@@ -277,4 +283,19 @@
 
 #pdf-viewer-wrapper ::ng-deep .findbar button:disabled {
   color: var(--color-text-faint);
+}
+
+/* --- Page-colour inversion (issue #259) ---
+   When the `.inverted` class is on `.pdf-container`, invert the rendered page
+   canvases and text layer so white paper becomes dark and dark ink becomes
+   light. `hue-rotate(180deg)` corrects the colour shift from pure inversion.
+   Images inside the PDF will also be inverted — this is the same trade-off
+   every dark-mode PDF reader makes (and the best one: CSS filter is GPU-
+   composited and does not touch the rasteriser, so text selection, highlights,
+   find-bar matches and the annotation layer all keep working). */
+.pdf-container.inverted ::ng-deep .canvasWrapper {
+  filter: invert(1) hue-rotate(180deg);
+}
+.pdf-container.inverted ::ng-deep .textLayer {
+  filter: invert(1) hue-rotate(180deg);
 }
