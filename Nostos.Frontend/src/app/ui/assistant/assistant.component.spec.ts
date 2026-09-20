@@ -430,6 +430,81 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     expect(assistantLabel.textContent).toContain('Nostos');
   });
 
+  describe('thinking indicator (issue #289)', () => {
+    function transcript(): HTMLElement {
+      return fixture.nativeElement.querySelector('[data-testid="assistant-transcript"]');
+    }
+
+    function pending(): HTMLElement | null {
+      return fixture.nativeElement.querySelector('[data-testid="assistant-pending"]');
+    }
+
+    /** Dispatch a turn and leave it in flight, returning its request handle. */
+    function sendInFlight() {
+      assistant.open();
+      fixture.detectChanges();
+      assistant.updateDraft('Are you there?');
+      assistant.submit();
+      fixture.detectChanges();
+      return http.expectOne('/api/assistant/turn');
+    }
+
+    it('shows the pending entry after the user entry while a turn is in flight', () => {
+      const request = sendInFlight();
+
+      const indicator = pending();
+      expect(indicator).toBeTruthy();
+
+      const entries = Array.from(transcript().querySelectorAll('.entry')) as HTMLElement[];
+      const userEntry = transcript().querySelector('[data-testid="assistant-entry-user-label"]')
+        ?.closest('.entry') as HTMLElement;
+      expect(userEntry).toBeTruthy();
+      expect(entries.indexOf(indicator!)).toBeGreaterThan(entries.indexOf(userEntry));
+
+      request.flush(turn());
+    });
+
+    it('removes the pending entry when the response arrives', () => {
+      const request = sendInFlight();
+      expect(pending()).toBeTruthy();
+
+      request.flush(turn({ reply: 'Here.' }));
+      fixture.detectChanges();
+
+      expect(pending()).toBeNull();
+    });
+
+    it('removes the pending entry when the request fails', () => {
+      const request = sendInFlight();
+      expect(pending()).toBeTruthy();
+
+      request.flush('', { status: 503, statusText: 'Service Unavailable' });
+      fixture.detectChanges();
+
+      expect(pending()).toBeNull();
+      expect(assistant.sending()).toBe(false);
+    });
+
+    it('exposes the state as accessible text and hides the decorative dots', () => {
+      const request = sendInFlight();
+
+      const indicator = pending()!;
+      const hidden = indicator.querySelector('.visually-hidden');
+      expect(hidden).toBeTruthy();
+      expect(hidden!.textContent?.trim()).toContain('Thinking');
+      expect(indicator.getAttribute('role')).toBe('status');
+      expect(indicator.getAttribute('aria-live')).toBe('polite');
+
+      const dots = Array.from(indicator.querySelectorAll('.thinking-dot'));
+      expect(dots.length).toBe(3);
+      for (const dot of dots) {
+        expect(dot.getAttribute('aria-hidden')).toBe('true');
+      }
+
+      request.flush(turn());
+    });
+  });
+
   it('shows the raw transcript of a captured note and restores it', () => {
     assistant.open();
     assistant.updateDraft('so anyway i was thinking');

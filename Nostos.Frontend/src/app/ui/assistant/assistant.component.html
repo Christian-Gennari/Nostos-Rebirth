@@ -36,6 +36,24 @@
       </footer>
       }
     </article>
+    } @if (assistant.sending()) {
+    <!-- The reply's own position, held while the turn is in flight: a slow
+         model otherwise reads as a hang. Decorative dots only; the hidden
+         label is what assistive tech announces. -->
+    <article
+      class="entry entry-assistant entry-pending"
+      role="status"
+      aria-live="polite"
+      data-testid="assistant-pending"
+    >
+      <span class="entry-speaker">Nostos</span>
+      <span class="visually-hidden">Thinking</span>
+      <span class="thinking-dots">
+        <span class="thinking-dot" aria-hidden="true"></span>
+        <span class="thinking-dot" aria-hidden="true"></span>
+        <span class="thinking-dot" aria-hidden="true"></span>
+      </span>
+    </article>
     }
   </div>
   } @if (assistant.suggestions().length > 0) {
