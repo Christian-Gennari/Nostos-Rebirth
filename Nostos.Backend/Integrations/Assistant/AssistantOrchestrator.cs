@@ -75,13 +75,16 @@ public sealed class AssistantOrchestrator(
     public const string QuoteFidelityNote =
         "Quoted by hand; punctuation and wording may differ from the source.";
 
-    private const string CaptureCapability = "notes_capture";
+    /// <summary>
+    /// The one-line reply when a turn ends with no assistant content at all —
+    /// the measured "exhausted the tool loop and returned nothing" case. It is
+    /// deliberately not an apology and never claims the request succeeded. It is
+    /// "that", not "what you asked": roughly half of these turns are captures,
+    /// where the user asked nothing and simply gave the assistant something.
+    /// </summary>
+    public const string IncompleteTurnReply = "I could not finish that.";
 
-    // The registry already accepts canonical camelCase request field names, so
-    // the schema is intentionally open rather than a second, drift-prone
-    // argument vocabulary.
-    private const string OpenParametersSchema =
-        """{"type":"object","properties":{},"additionalProperties":true}""";
+    private const string CaptureCapability = "notes_capture";
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -121,6 +124,7 @@ public sealed class AssistantOrchestrator(
         AssistantAnchorPromptDto? anchorPrompt = null;
         string? acknowledgement = null;
         string? finalContent = null;
+        string? lastAssistantContent = null;
         string? capturedNoteId = null;
 
         var iterations = Math.Max(1, options.MaxToolIterations);
@@ -131,6 +135,10 @@ public sealed class AssistantOrchestrator(
                 ct);
 
             finalContent = completion.Content;
+            if (!string.IsNullOrWhiteSpace(completion.Content))
+            {
+                lastAssistantContent = completion.Content;
+            }
 
             if (completion.ToolCalls.Count == 0)
             {
@@ -244,11 +252,15 @@ public sealed class AssistantOrchestrator(
             pendingPlan = ToPendingPlanDto(stored);
         }
 
-        var reply = finalContent?.Trim();
+        // Prefer the last non-empty assistant content from anywhere in the loop:
+        // a model that narrated a tool call and then ran out of iterations still
+        // said something. Only when it said nothing at all does the turn report
+        // that it could not finish, rather than returning an empty reply.
+        var reply = lastAssistantContent?.Trim();
         if (string.IsNullOrWhiteSpace(reply))
         {
             reply = anchorPrompt?.Question
-                ?? (pendingPlan is not null ? "I've prepared a plan for your approval." : string.Empty);
+                ?? (pendingPlan is not null ? "I've prepared a plan for your approval." : IncompleteTurnReply);
         }
 
         // The conversational reply is the only text the guard may rewrite. Note
@@ -466,7 +478,7 @@ public sealed class AssistantOrchestrator(
             .Select(capability => new LlmToolDefinition(
                 capability.Name,
                 capability.Summary,
-                OpenParametersSchema))
+                capability.ParametersJsonSchema))
             .ToList();
 
     /// <summary>
@@ -484,6 +496,16 @@ public sealed class AssistantOrchestrator(
         - Read and suggestion tools never change anything and may be called freely.
         - State-changing tools never run during a turn. Calling one records a plan step. Tell the user what the plan will do and wait for explicit approval; never claim the change has happened.
         - Never claim an action succeeded unless a tool result says it did.
+
+        A capture is the user giving you something of their own to keep: a thought, an observation, a reaction, a question they are sitting with, or a passage they want recorded. Save it with notes_capture in the same turn, whether they say "save this", "note that", "capturing a thought" or "I just had a thought I wanted to write down", or simply tell you the thought. Do not answer it, discuss it, comment on it or improve it.
+
+        A question about the library, or a request to find, read, explain, summarise or compare something, is not a capture. Answer it and capture nothing.
+
+        Capture the user's own words exactly as they arrived. Never paraphrase, shorten, translate, correct, tidy or add to them; how they are rendered is decided by a setting, not by you. A passage quoted from the book itself goes in selectedText.
+
+        The book comes from the current context first. If the context has no book and the user did not name one, ask which book it belongs to — one short question — and do not save until the answer is known; then resolve the book with the read tools. Never invent a page, position or timestamp: the capture tool asks for those itself when they cannot be known.
+
+        A capture is saved only when the notes_capture result says it succeeded. If it fails, say in one line what failed. The words "saved" may only follow a successful notes_capture result.
 
         An explicitly named book, note, or concept in the user's message beats the ambient context. If a target is ambiguous or matches only weakly, ask one short clarifying question instead of guessing.
 

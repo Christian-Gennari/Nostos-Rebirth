@@ -597,6 +597,51 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         h.Llm.CallCount.Should().Be(3);
     }
 
+    [Fact]
+    public async Task An_exhausted_tool_loop_reports_that_it_could_not_finish()
+    {
+        var h = CreateHarness(maxToolIterations: 3);
+
+        // Every completion is a tool call with no prose: nothing was ever said.
+        h.Llm.Responder = _ => new LlmCompletion(
+            null,
+            "tool_calls",
+            [new LlmToolCall(Guid.NewGuid().ToString("N"), "concepts_list", "{}")]);
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Loop, please.",
+            Context(surface: "second-brain", route: "/second-brain")));
+
+        response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
+    }
+
+    [Fact]
+    public async Task An_exhausted_tool_loop_prefers_the_last_non_empty_assistant_content()
+    {
+        var h = CreateHarness(maxToolIterations: 2);
+
+        var call = 0;
+        h.Llm.Responder = _ =>
+        {
+            call++;
+            return call == 1
+                ? new LlmCompletion(
+                    "Let me look that up.",
+                    "tool_calls",
+                    [new LlmToolCall(Guid.NewGuid().ToString("N"), "concepts_list", "{}")])
+                : new LlmCompletion(
+                    null,
+                    "tool_calls",
+                    [new LlmToolCall(Guid.NewGuid().ToString("N"), "concepts_list", "{}")]);
+        };
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Loop, please.",
+            Context(surface: "second-brain", route: "/second-brain")));
+
+        response.Reply.Should().Be("Let me look that up.");
+    }
+
     // ------------------------------------------------------------------
     // Conversation history and identity (issue #286)
     // ------------------------------------------------------------------

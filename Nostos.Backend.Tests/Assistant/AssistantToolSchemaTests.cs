@@ -1,0 +1,322 @@
+using System.Text.Json;
+using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Nostos.Backend.Configuration;
+using Nostos.Backend.Data;
+using Nostos.Backend.Data.Repositories;
+using Nostos.Backend.Integrations.Assistant;
+using Nostos.Backend.Services;
+using Nostos.Backend.Services.Ai;
+using Nostos.Backend.Services.Library;
+using Nostos.Backend.Services.Notes;
+using Nostos.Backend.Tests.Services.Ai;
+using Nostos.Backend.Tests.Support;
+using Nostos.Shared.Dtos;
+using Nostos.Shared.Enums;
+using Xunit;
+
+namespace Nostos.Backend.Tests.Assistant;
+
+/// <summary>
+/// The assistant's advertised tool contract. Every capability used to ship the
+/// same empty parameter schema, so the model was never told that <c>content</c>,
+/// <c>bookId</c>, <c>query</c> or <c>term</c> existed and the live gateway made
+/// argument-less calls that failed as <c>assistant_invalid_arguments</c>. These
+/// tests pin a real, per-capability schema: the expected property set below is
+/// the drift guard the old single open schema was trying to avoid, derived by
+/// reading each capability's own arguments in <see cref="AssistantCapabilities"/>.
+/// </summary>
+public sealed class AssistantToolSchemaTests : IClassFixture<SqliteTestFixture>
+{
+    private readonly SqliteTestFixture _fixture;
+
+    public AssistantToolSchemaTests(SqliteTestFixture fixture) => _fixture = fixture;
+
+    /// <summary>
+    /// The expected shape of every capability's advertised arguments. The
+    /// property names and types are exactly what that capability's own
+    /// <c>Str</c>/<c>Id</c>/<c>Num</c>/<c>Bool</c>/<c>ValueEnum</c> readers
+    /// consume; declaring a name nothing reads, or dropping one it does, fails.
+    /// </summary>
+    private static readonly Dictionary<string, CapabilitySchema> ExpectedSchemas = new(StringComparer.Ordinal)
+    {
+        ["library_resolve_book"] = new(
+            Properties: new()
+            {
+                ["isbn"] = "string",
+                ["asin"] = "string",
+                ["title"] = "string",
+                ["author"] = "string",
+                ["includeExternalMetadata"] = "boolean",
+            },
+            Required: []),
+        ["library_list_books"] = new(
+            Properties: new()
+            {
+                ["search"] = "string",
+                ["filter"] = "string",
+                ["sort"] = "string",
+                ["page"] = "integer",
+                ["pageSize"] = "integer",
+                ["collectionId"] = "string",
+            },
+            Required: []),
+        ["notes_list_for_book"] = new(
+            Properties: new() { ["bookId"] = "string" },
+            Required: ["bookId"]),
+        ["notes_search"] = new(
+            Properties: new() { ["query"] = "string", ["limit"] = "integer" },
+            Required: ["query"]),
+        ["notes_list_unlinked"] = new(
+            Properties: new() { ["limit"] = "integer", ["offset"] = "integer" },
+            Required: []),
+        ["notes_read_for_review"] = new(
+            Properties: new() { ["noteId"] = "string" },
+            Required: ["noteId"]),
+        ["concepts_list"] = new(Properties: new(), Required: []),
+        ["concepts_search"] = new(
+            Properties: new() { ["term"] = "string" },
+            Required: ["term"]),
+        ["library_list_collections"] = new(Properties: new(), Required: []),
+        ["library_get_collection"] = new(
+            Properties: new() { ["collectionId"] = "string" },
+            Required: ["collectionId"]),
+        ["notes_capture"] = new(
+            Properties: new()
+            {
+                ["bookId"] = "string",
+                ["content"] = "string",
+                ["selectedText"] = "string",
+                ["captureSource"] = "string",
+            },
+            Required: ["bookId"]),
+        ["notes_link_existing_concept"] = new(
+            Properties: new() { ["noteId"] = "string", ["conceptId"] = "string" },
+            Required: ["noteId", "conceptId"]),
+        ["library_create_collection"] = new(
+            Properties: new() { ["name"] = "string", ["parentId"] = "string" },
+            Required: ["name"]),
+        ["library_rename_collection"] = new(
+            Properties: new() { ["collectionId"] = "string", ["name"] = "string" },
+            Required: ["collectionId", "name"]),
+        ["library_move_collection"] = new(
+            Properties: new() { ["collectionId"] = "string", ["newParentId"] = "string" },
+            Required: ["collectionId"]),
+    };
+
+    [Fact]
+    public void Every_capability_advertises_a_valid_object_schema_that_stays_open()
+    {
+        foreach (var capability in CreateHarness().Registry.All)
+        {
+            var parse = () => ParseSchema(capability);
+            parse.Should().NotThrow($"{capability.Name} must advertise valid JSON");
+
+            var schema = ParseSchema(capability);
+            schema.GetProperty("type").GetString().Should().Be("object", capability.Name);
+            schema.GetProperty("properties").ValueKind.Should().Be(JsonValueKind.Object, capability.Name);
+            schema.GetProperty("required").ValueKind.Should().Be(JsonValueKind.Array, capability.Name);
+
+            // additionalProperties stays true by design: the canonical readers
+            // still accept anything, the properties are documented, not enforced.
+            schema.GetProperty("additionalProperties").GetBoolean().Should().BeTrue(capability.Name);
+        }
+    }
+
+    [Fact]
+    public void Declared_property_names_types_and_required_fields_match_the_readers_exactly()
+    {
+        var registry = CreateHarness().Registry;
+
+        registry.All.Select(c => c.Name).Should().BeEquivalentTo(ExpectedSchemas.Keys);
+
+        foreach (var capability in registry.All)
+        {
+            var expected = ExpectedSchemas[capability.Name];
+            var schema = ParseSchema(capability);
+            var properties = schema.GetProperty("properties");
+
+            properties.EnumerateObject().Select(p => p.Name)
+                .Should().BeEquivalentTo(expected.Properties.Keys, capability.Name);
+
+            foreach (var (name, type) in expected.Properties)
+            {
+                var declared = properties.GetProperty(name);
+                declared.GetProperty("type").GetString().Should().Be(type, $"{capability.Name}.{name}");
+
+                // Every advertised property carries an instruction for the model,
+                // not just its type.
+                declared.GetProperty("description").GetString()
+                    .Should().NotBeNullOrWhiteSpace($"{capability.Name}.{name} needs a description");
+            }
+
+            schema.GetProperty("required").EnumerateArray().Select(e => e.GetString())
+                .Should().BeEquivalentTo(expected.Required, capability.Name);
+        }
+    }
+
+    [Fact]
+    public void Enum_arguments_advertise_the_exact_csharp_member_names()
+    {
+        var byName = CreateHarness().Registry.All.ToDictionary(c => c.Name, StringComparer.Ordinal);
+        var properties = ParseSchema(byName["library_list_books"]).GetProperty("properties");
+
+        properties.GetProperty("filter").GetProperty("enum").EnumerateArray()
+            .Select(e => e.GetString())
+            .Should().Equal(Enum.GetNames<BookFilter>());
+
+        properties.GetProperty("sort").GetProperty("enum").EnumerateArray()
+            .Select(e => e.GetString())
+            .Should().Equal(Enum.GetNames<BookSort>());
+    }
+
+    [Fact]
+    public void The_load_bearing_search_and_capture_arguments_are_required()
+    {
+        var byName = CreateHarness().Registry.All.ToDictionary(c => c.Name, StringComparer.Ordinal);
+
+        Required(byName["notes_search"]).Should().Contain("query");
+        Required(byName["concepts_search"]).Should().Contain("term");
+
+        Required(byName["notes_capture"]).Should().Contain("bookId");
+        PropertyNames(byName["notes_capture"]).Should().Contain(["content", "selectedText"]);
+    }
+
+    [Fact]
+    public void Capture_never_advertises_an_anchor_or_location_the_orchestrator_owns()
+    {
+        var capture = CreateHarness().Registry.All.Single(c => c.Name == "notes_capture");
+
+        PropertyNames(capture).Should().NotContain(
+        [
+            "sourceAnchorKind",
+            "sourceAnchorValue",
+            "anchorVerified",
+            "cfiRange",
+            "rawContent",
+        ]);
+    }
+
+    [Fact]
+    public async Task The_orchestrator_sends_every_capability_with_a_non_empty_description()
+    {
+        var harness = CreateHarness();
+        harness.Llm.Returns("Ok.");
+
+        await harness.Orchestrator.HandleTurnAsync(new AssistantTurnRequest(
+            "client-1",
+            "key-1",
+            "Hello.",
+            new AssistantContextDto("second-brain", "/second-brain")));
+
+        var tools = harness.Llm.LastRequest.Tools;
+
+        tools.Should().HaveCount(ExpectedSchemas.Count);
+        tools.Select(t => t.Name).Should().BeEquivalentTo(ExpectedSchemas.Keys);
+        tools.Should().OnlyContain(t => !string.IsNullOrWhiteSpace(t.Description));
+        tools.Should().OnlyContain(t => !string.IsNullOrWhiteSpace(t.ParametersJsonSchema));
+    }
+
+    // ------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------
+
+    private static JsonElement ParseSchema(AssistantCapability capability) =>
+        JsonDocument.Parse(capability.ParametersJsonSchema).RootElement.Clone();
+
+    private static IReadOnlyList<string> PropertyNames(AssistantCapability capability) =>
+        ParseSchema(capability).GetProperty("properties")
+            .EnumerateObject().Select(p => p.Name).ToList();
+
+    private static IReadOnlyList<string> Required(AssistantCapability capability) =>
+        ParseSchema(capability).GetProperty("required")
+            .EnumerateArray().Select(e => e.GetString()!).ToList();
+
+    private sealed record CapabilitySchema(
+        Dictionary<string, string> Properties,
+        string[] Required);
+
+    // ------------------------------------------------------------------
+    // Harness — the real services, registry and orchestrator, LLM faked.
+    // ------------------------------------------------------------------
+
+    private Harness CreateHarness()
+    {
+        var path = _fixture.CreateDatabasePath();
+        var options = new DbContextOptionsBuilder<NostosDbContext>()
+            .UseSqlite($"Data Source={path}")
+            .Options;
+
+        using (var bootstrap = new NostosDbContext(options))
+        {
+            bootstrap.Database.EnsureCreated();
+        }
+
+        var factory = new TestContextFactory(options);
+        var db = new NostosDbContext(options);
+
+        var concepts = new ConceptRepository(db);
+        var noteService = new NoteService(
+            new NoteRepository(db),
+            new BookRepository(db),
+            concepts,
+            new NoteProcessorService(concepts),
+            new FakeThoughtProcessor(),
+            db,
+            NullLogger<NoteService>.Instance);
+
+        var libraryService = new LibraryService(
+            factory,
+            new BookLookupService(new NoopHttpClientFactory(), new SilentLogger<BookLookupService>()));
+
+        var registry = new AssistantCapabilityRegistry(
+            AssistantCapabilities.Build(noteService, libraryService, concepts));
+
+        var llm = new FakeLlmProvider();
+        var orchestrator = new AssistantOrchestrator(
+            registry,
+            llm,
+            new AssistantPlanStore(),
+            new AssistantOptions { Enabled = true },
+            NullLogger<AssistantOrchestrator>.Instance);
+
+        return new Harness(registry, llm, orchestrator);
+    }
+
+    private sealed record Harness(
+        AssistantCapabilityRegistry Registry,
+        FakeLlmProvider Llm,
+        AssistantOrchestrator Orchestrator);
+
+    private sealed class TestContextFactory(DbContextOptions<NostosDbContext> options)
+        : IDbContextFactory<NostosDbContext>
+    {
+        public NostosDbContext CreateDbContext() => new(options);
+
+        public Task<NostosDbContext> CreateDbContextAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(CreateDbContext());
+    }
+
+    private sealed class NoopHttpClientFactory : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new();
+    }
+
+    private sealed class SilentLogger<T> : ILogger<T>
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => false;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+        }
+    }
+}
