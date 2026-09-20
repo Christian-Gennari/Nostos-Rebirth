@@ -33,6 +33,9 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
     public DbSet<LibraryCommandReceipt> LibraryCommandReceipts => Set<LibraryCommandReceipt>();
     public DbSet<LibraryState> LibraryStates => Set<LibraryState>();
 
+    // Exact-once command record for assistant note mutations (issue #260 §2, §4).
+    public DbSet<NoteCommandReceipt> NoteCommandReceipts => Set<NoteCommandReceipt>();
+
     // A few legacy import/repository paths still add a BookModel directly.
     // Keep those writes valid now that WorkId is a required foreign key. The
     // library service always assigns the work explicitly; this is only a
@@ -209,7 +212,18 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
             .IsUnique()
             .HasFilter("\"NormalizedAsin\" IS NOT NULL");
 
-        modelBuilder.Entity<NoteModel>().HasIndex(n => n.BookId);
+        modelBuilder.Entity<NoteModel>(e =>
+        {
+            e.HasIndex(n => n.BookId);
+
+            // Capture-provenance defaults (issue #260 §2, §4). Declared in the
+            // EF model, not only as CLR property initialisers, because EF
+            // ignores those when emitting the AddColumn default. Existing note
+            // rows must land as text/verbatim/unknown, not an empty string.
+            e.Property(n => n.CaptureSource).HasDefaultValue("text");
+            e.Property(n => n.ProcessingMode).HasDefaultValue("verbatim");
+            e.Property(n => n.SourceAnchorKind).HasDefaultValue("unknown");
+        });
 
         modelBuilder.Entity<CollectionModel>().HasIndex(c => c.ParentId);
 
@@ -301,6 +315,22 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
         modelBuilder.Entity<LibraryCommandReceipt>(e =>
         {
             e.HasIndex(c => new { c.ClientId, c.IdempotencyKey }).IsUnique();
+        });
+
+        // Exact-once command idempotency for assistant note mutations
+        // (issue #260 §2, §4), with bounded inputs enforced by SQLite rather
+        // than the metadata-only MaxLength annotations. A separate table from
+        // LibraryCommandReceipts so a note command can never replay a library
+        // response (and vice versa). The CreatedAtUtc index backs retention
+        // pruning, mirroring the library receipt's CreatedAt index.
+        modelBuilder.Entity<NoteCommandReceipt>(e =>
+        {
+            e.HasIndex(x => new { x.ClientId, x.IdempotencyKey }).IsUnique();
+            e.HasIndex(x => x.CreatedAtUtc);
+            e.ToTable(t => t.HasCheckConstraint(
+                "CK_NoteCommandReceipts_Bounds",
+                "length(\"ClientId\") <= 64 AND length(\"IdempotencyKey\") <= 128 AND " +
+                "length(\"Command\") <= 32 AND length(\"ResultJson\") <= 131072"));
         });
     }
 }

@@ -9,7 +9,17 @@ public record NoteDto(
     string? CfiRange,
     string? SelectedText,
     DateTime CreatedAt,
-    string? BookTitle
+    string? BookTitle,
+    // APPENDED (positional record, so inserting renumbers every existing
+    // client's JSON). Assistant capture provenance (issue #260 §2, §4): the
+    // raw capture kept alongside the polished Content, and the anchor that
+    // records where the note came from and whether it was verified.
+    string? RawContent = null,
+    string CaptureSource = "text",
+    string ProcessingMode = "verbatim",
+    string SourceAnchorKind = "unknown",
+    string? SourceAnchorValue = null,
+    bool AnchorVerified = false
 );
 
 public record CreateNoteDto(
