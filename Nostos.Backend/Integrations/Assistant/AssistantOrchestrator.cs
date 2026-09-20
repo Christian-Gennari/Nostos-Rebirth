@@ -251,6 +251,20 @@ public sealed class AssistantOrchestrator(
                 ?? (pendingPlan is not null ? "I've prepared a plan for your approval." : string.Empty);
         }
 
+        // The conversational reply is the only text the guard may rewrite. Note
+        // content, quotes, processing results and plan summaries are the user's
+        // own words and must never be touched, so this runs here and nowhere else.
+        var selfAssertedVendor = AssistantIdentityGuard.MatchVendorSelfAssertion(reply);
+        if (selfAssertedVendor is not null)
+        {
+            // The matched term only: never the reply, the user's message, or the
+            // content that was removed.
+            logger.LogWarning(
+                "Assistant identity guard replaced a self-asserted vendor/model mention: {VendorTerm}.",
+                selfAssertedVendor);
+            reply = AssistantIdentityGuard.Apply(reply);
+        }
+
         logger.LogDebug(
             "Assistant turn handled: {Suggestions} suggestion(s), plan {HasPlan}, anchor prompt {HasPrompt}.",
             suggestions.Count,

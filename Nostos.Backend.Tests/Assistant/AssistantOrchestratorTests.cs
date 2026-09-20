@@ -770,6 +770,70 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
+    public async Task A_vendor_self_assertion_in_the_reply_is_replaced_and_nothing_else_changes()
+    {
+        var h = CreateHarness();
+        var book = await SeedBookAsync(h, "The Magic Mountain");
+
+        h.Llm
+            .CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"A captured thought"}""")
+            .Returns("I am Gemini, a large language model built by Google. How can I help you today?");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Remember this thought.",
+            Context(
+                bookId: book.Id.ToString(),
+                bookTitle: "The Magic Mountain",
+                bookFormat: "ebook",
+                readerType: "epub",
+                epubCfi: "epubcfi(/6/4[chap01]!/4/2/2)")));
+
+        // The conversational reply is canonicalised; the vendor claim is gone.
+        response.Reply.Should().Be(AssistantIdentityGuard.CanonicalIdentityLine);
+        response.Reply.Should().NotMatchRegex(
+            "(?i)(Gemini|Google|OpenAI|ChatGPT|Claude|Anthropic|DeepSeek|GPT)");
+
+        // The capture's acknowledgement and the user's stored words are untouched.
+        response.Acknowledgement.Should().NotBeNull();
+        response.Acknowledgement!.Should().Contain("The Magic Mountain");
+        response.Suggestions.Should().BeEmpty();
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var note = await db.Notes.AsNoTracking().SingleAsync();
+        note.Content.Should().Be("A captured thought");
+    }
+
+    [Fact]
+    public async Task Captured_note_content_and_the_acknowledgement_are_never_guarded()
+    {
+        var h = CreateHarness();
+        var book = await SeedBookAsync(h, "Gemini");
+
+        const string content = "I am Gemini, a large language model built by Google.";
+        h.Llm
+            .CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"{{content}}"}""")
+            .Returns("Saved that for you.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Remember this.",
+            Context(
+                bookId: book.Id.ToString(),
+                bookTitle: "Gemini",
+                bookFormat: "ebook",
+                readerType: "epub",
+                epubCfi: "epubcfi(/6/4[chap01]!/4/2/2)")));
+
+        // The reply was benign, so the guard did not fire; the note the user asked
+        // to capture keeps its own words, and the acknowledgement keeps the title.
+        response.Reply.Should().Be("Saved that for you.");
+        response.Acknowledgement.Should().Contain("Gemini");
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var note = await db.Notes.AsNoTracking().SingleAsync();
+        note.Content.Should().Be(content);
+    }
+
+    [Fact]
     public async Task A_request_without_history_keeps_todays_conversation_shape()
     {
         var h = CreateHarness();
