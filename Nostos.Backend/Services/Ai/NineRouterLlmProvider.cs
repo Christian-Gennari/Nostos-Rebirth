@@ -13,8 +13,9 @@ namespace Nostos.Backend.Services.Ai;
 /// otherwise the appsettings/environment fallback (see
 /// <see cref="IAiProviderConfigResolver"/>) — and the key is attached only to
 /// the outbound request: it is never logged, returned, or handed to the client.
-/// The model id is sent exactly as configured: it is the free pool, and no paid
-/// fallback exists here.
+/// The model id is sent exactly as configured. There is no second provider and
+/// no paid fallback: see <see cref="Nostos.Backend.Configuration.AssistantOptions.Model"/>
+/// for the tool-calling requirement the configured id must satisfy.
 ///
 /// Gateway quirks that are load-bearing and therefore encoded here:
 /// <list type="bullet">

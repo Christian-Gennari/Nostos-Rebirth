@@ -15,9 +15,12 @@ namespace Nostos.Backend.Configuration;
 /// the environment variable that holds it — so a committed key is impossible and
 /// nothing can be shipped to the Angular client.
 ///
-/// The default <see cref="Model"/> is the 9Router free pool, verbatim. The
-/// reference (`.hermes/plans/assistant-milestone/reference/9router-free-pool.md`)
-/// forbids any paid/premium model anywhere in this path; do not "tidy" the id.
+/// The default <see cref="Model"/> must be a model that ACTUALLY CALLS TOOLS.
+/// The 9Router free pool that used to sit here silently ignored the tool
+/// definitions: measured against the gateway, the identical request returned
+/// <c>finish_reason: "stop"</c> with zero tool calls, so every capture, search
+/// and suggestion the assistant described had in fact not run. Do not put a
+/// pooled/multi-vendor id back here without proving tool calling works.
 /// </summary>
 public sealed class AssistantOptions
 {
@@ -38,13 +41,14 @@ public sealed class AssistantOptions
     public string BaseUrl { get; set; } = "http://omenhub:20128/v1";
 
     /// <summary>
-    /// Model id sent verbatim — the 9Router free pool. Measured quirks this
-    /// forces on the provider (explicit <c>stream:false</c>, generous
-    /// <c>max_tokens</c>, empty-content/<c>length</c> as data) are documented in
-    /// the reference; never normalize or rewrite this value.
+    /// Model id sent verbatim. It must call tools: capture, reading the
+    /// library and proposing concepts all run through tool calls, and a model
+    /// that ignores them answers as though it had done the work.
+    /// <c>gemini/gemini-3.5-flash-lite</c> is verified calling tools through the
+    /// gateway (finish_reason <c>tool_calls</c>, 15 tools offered, ~2.1k prompt
+    /// tokens against the pool's ~6.8k of injected preamble).
     /// </summary>
-    public string Model { get; set; } =
-        "free_frontier_pooled_gemini_gemini_3.8_flash__kr_claude_sonnet_4.5__openrouter_nex_agi_nex_n2.5_pro_free__kgw_nex_agi_nex_n2.5_pro_free__openrouter_inclusionai_ling_3.0_flash_vl_free";
+    public string Model { get; set; } = "gemini/gemini-3.5-flash-lite";
 
     /// <summary>Name of the environment variable holding the bearer token.</summary>
     public string ApiKeyEnvironmentVariable { get; set; } = "NOSTOS_ASSISTANT_TOKEN";
