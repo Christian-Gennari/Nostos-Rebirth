@@ -83,6 +83,36 @@ public sealed class AssistantEndpointTests : IDisposable
     }
 
     [Fact]
+    public async Task A_turn_accepts_client_supplied_history_over_json()
+    {
+        var provider = new FakeLlmProvider().Returns("Noted.");
+
+        using var factory = new LibraryEndpointFactory();
+        using var host = CreateHost(factory, provider);
+        using var client = host.CreateClient();
+
+        // History is an appended positional member: this proves the JSON field
+        // binds to AssistantTurnRequest.History (issue #286).
+        var request = new AssistantTurnRequest(
+            "client-1",
+            "key-1",
+            "And now?",
+            Context(),
+            History: [
+                new AssistantHistoryMessageDto("user", "Remember the mountain."),
+                new AssistantHistoryMessageDto("assistant", "Saved to The Magic Mountain."),
+            ]);
+
+        var response = await client.PostAsJsonAsync(AssistantEndpoints.TurnRoute, request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var messages = provider.LastRequest.Messages;
+        messages.Should().Contain(m => m.Role == "user" && m.Content == "Remember the mountain.");
+        messages.Should().Contain(m => m.Role == "assistant" && m.Content == "Saved to The Magic Mountain.");
+    }
+
+    [Fact]
     public async Task A_disabled_config_is_a_typed_error_not_a_500()
     {
         var provider = new FakeLlmProvider();
