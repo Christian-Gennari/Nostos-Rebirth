@@ -1,3 +1,7 @@
+<!-- The shell exists only when the user wants it (preference on) and the server
+     can run it (available). One gate for both the capsule and the panel, so
+     availability can never be inferred from a failed send. -->
+@if (visible()) {
 @if (isOpen()) {
 <!-- Desktop: a flyout above the trigger, no scrim — the book stays readable
      behind it. Mobile: a bottom sheet with the restrained scrim. One markup,
@@ -258,3 +262,4 @@
          needs no re-layout. -->
   </span>
 </button>
+}

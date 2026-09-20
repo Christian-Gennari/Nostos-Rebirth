@@ -142,6 +142,19 @@
   transform: translateX(18px);
 }
 
+/* Unavailable assistant: the same toggle, switched off and inert. Muted with
+   the existing control's own opacity only — no warning colour, no badge, no
+   hover — so the card reads as "not now", not as an error. */
+.toggle--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.toggle--disabled .toggle-slider,
+.toggle--disabled .toggle-slider::before {
+  cursor: not-allowed;
+}
+
 /* --- Appearance: theme choice -------------------------------------------
    Two explicit options, so both states are visible before choosing. Matches
    the toolbar's view toggle (`--bg-hover` track, raised active segment). */

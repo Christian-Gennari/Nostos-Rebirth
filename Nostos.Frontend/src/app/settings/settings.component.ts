@@ -15,6 +15,8 @@ import {
 } from '../core/dtos/backup.dtos';
 import { OpdsInfo } from '../core/dtos/opds.dtos';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
+import { LibraryPreferencesService } from '../core/services/library-preferences.service';
+import { AssistantStatusService } from '../ui/assistant/assistant-status.service';
 
 const SLOW_STEP_THRESHOLD_MS = 30_000;
 
@@ -306,6 +308,53 @@ const defaultProgress: BackupProgress = {
         </div>
       </section>
 
+      <!-- Reading assistant (W1). Availability is the server's to decide; this
+           toggle is user intent only. When unavailable it renders off and
+           non-interactive, and the supporting sentence explains why rather than
+           the card hiding or adding a warning. -->
+      <section class="settings-card" data-testid="assistant-settings-card">
+        <div class="card-header">
+          <nostos-icon name="sparkle" [size]="20" weight="light"></nostos-icon>
+          <h2>Reading assistant</h2>
+        </div>
+
+        <div class="card-body">
+          <div class="setting-row">
+            <div class="setting-label">
+              @if (assistantAvailable()) {
+                <span class="label-desc">Show the dock capsule for capturing thoughts while reading.</span>
+              } @else {
+                <span class="label-desc">Unavailable. Configure a model provider in your server environment to enable this.</span>
+              }
+            </div>
+            @if (assistantAvailable()) {
+              <label class="toggle">
+                <input
+                  type="checkbox"
+                  [checked]="assistantEnabled()"
+                  (change)="setAssistantEnabled($event)"
+                  aria-label="Reading assistant"
+                  data-testid="assistant-enabled-toggle"
+                >
+                <span class="toggle-slider"></span>
+              </label>
+            } @else {
+              <label class="toggle toggle--disabled">
+                <input
+                  type="checkbox"
+                  [checked]="false"
+                  disabled
+                  aria-disabled="true"
+                  aria-label="Reading assistant"
+                  data-testid="assistant-enabled-toggle"
+                >
+                <span class="toggle-slider"></span>
+              </label>
+            }
+          </div>
+        </div>
+      </section>
+
       <section class="settings-card">
         <div class="card-header">
           <nostos-icon name="palette" [size]="20" weight="light"></nostos-icon>
@@ -381,9 +430,25 @@ export class SettingsComponent implements OnInit, OnDestroy {
   private opdsService = inject(OpdsService);
   private toast = inject(ToastService);
   private themeService = inject(ThemeService);
+  private assistantStatus = inject(AssistantStatusService);
+  private preferences = inject(LibraryPreferencesService);
 
   /** The active theme, exposed for the Appearance card. */
   readonly theme = this.themeService.theme;
+
+  /** Whether the server can run the assistant, for the Reading assistant card. */
+  readonly assistantAvailable = this.assistantStatus.available;
+
+  /** The persisted user intent for the Reading assistant toggle. */
+  readonly assistantEnabled = this.preferences.assistantEnabled;
+
+  setAssistantEnabled(event: Event): void {
+    // The control is disabled while unavailable, so this is belt-and-braces:
+    // never record intent the server cannot yet honour.
+    if (!this.assistantAvailable()) return;
+    const checked = (event.target as HTMLInputElement).checked;
+    this.preferences.setAssistantEnabled(checked);
+  }
 
   setTheme(theme: Theme): void {
     this.themeService.setTheme(theme);
@@ -435,6 +500,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadData();
     this.loadOpdsInfo();
+    this.assistantStatus.refresh();
   }
 
   ngOnDestroy(): void {
