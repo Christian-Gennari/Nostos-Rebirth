@@ -17,6 +17,7 @@
     "capture:baseline": "node scripts/capture-baseline.mjs",
     "check:freshness": "node scripts/check-freshness.mjs",
     "probe:selection": "node scripts/probe-selection.mjs",
+    "probe:editions-parity": "node scripts/probe-editions-parity.mjs",
     "check:pixels": "node scripts/check-pixels.mjs",
     "probe:iconbutton": "node scripts/probe-iconbutton.mjs"
   },
