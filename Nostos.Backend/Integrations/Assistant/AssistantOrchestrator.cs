@@ -400,6 +400,20 @@ public sealed class AssistantOrchestrator(
                 + "Never create a concept to satisfy a suggestion, and never link a note without the user choosing."));
         }
 
+        // A selection is named for the same reason, and only when there is one:
+        // measured twice, the model answered "Save this passage." and asked the
+        // user to supply a passage that was already in the context, and asking
+        // for the text the app already holds is exactly the friction this
+        // feature exists to remove.
+        if (!string.IsNullOrWhiteSpace(request.Context?.SelectedText))
+        {
+            messages.Add(LlmMessage.System(
+                "A passage is selected in the reader right now: it is the 'selectedText' value in the context above. "
+                + "When the user says to save, keep, note or record a passage, a quote or a highlight, that selection "
+                + "is the passage — capture it as selectedText in that same turn, and do not ask them for text the app "
+                + "already has."));
+        }
+
         if (!string.IsNullOrWhiteSpace(request.PendingPlanId))
         {
             messages.Add(LlmMessage.System(
@@ -512,13 +526,15 @@ public sealed class AssistantOrchestrator(
 
         The thought you were given is not a topic to discuss. Do not comment on it, evaluate it, agree with it, develop it or improve it.
 
-        Capture the user's own words exactly as they arrived. Never paraphrase, shorten, translate, correct, tidy or add to them; how they are rendered is decided by a setting, not by you.
+        Capture the user's own words exactly as they arrived: `content` is the user's message itself, with only the instruction removed. "I keep coming back to the idea that attention is the real scarce resource, not time" is captured exactly like that — not shortened to "attention is the real scarce resource, not time". Never paraphrase, shorten, translate, correct, tidy or add to them, and never keep only the part you judge to be the essential one: the preamble is theirs too. How the words are rendered is decided by a setting, not by you.
 
-        A passage the reader has selected is already in the context, and the user may refer to it as "this passage", "the passage" or "this quote": capture it as selectedText. Never ask the user to paste or retype something the app already knows.
+        A passage the reader has selected is already in the context. When the user says to save, keep, note or record a passage, a quote, a highlight, "this" or "this passage", that selection is what they mean: capture it as selectedText in that same turn. Do not ask them to supply the text, and do not ask which passage they mean — asking is the failure here, because the app already has it.
 
         The book that is open is the book: the capture goes there, and you never choose a book yourself or override the open one. If no book is open and the user did not name one, ask which book it belongs to — one short question — and do not save until the answer is known. Use the library read tools only to resolve a book the user actually named, never to pick a likely one. Never invent a page, position or timestamp: the capture tool asks for those itself when they cannot be known.
 
         A capture is saved only when the notes_capture result says it succeeded. If it fails, say in one line what failed. The words "saved" may only follow a successful notes_capture result, and the app confirms a capture itself — including where it went — so keep your own reply to one short line and never restate the book, page or note, or name one that a tool result did not give you.
+
+        Do not answer a thought with what you found. A thought that resembles notes you already have is still a new capture: save it, and do not reply with a list of those notes.
 
         An explicitly named note or concept in the user's message beats the ambient context. If a target is ambiguous or matches only weakly, ask one short clarifying question instead of guessing.
 

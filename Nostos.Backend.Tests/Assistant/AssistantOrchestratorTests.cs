@@ -66,6 +66,30 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
+    public async Task A_selected_passage_is_named_to_the_model_only_when_one_is_selected()
+    {
+        var h = CreateHarness();
+
+        // Measured twice: with a passage selected, "Save this passage." was
+        // answered by asking the user for the passage. Naming the selection
+        // explicitly is the same treatment the Brain review flow already gets,
+        // rather than leaving it to be noticed inside the context blob.
+        h.Llm.Returns("Nothing to do.");
+        await h.Orchestrator.HandleTurnAsync(Turn(
+            "Save this passage.",
+            Context(selectedText: "It is a truth universally acknowledged.")));
+
+        h.Llm.LastRequest.Messages
+            .Should().Contain(m => m.Role == "system" && m.Content!.Contains("A passage is selected"));
+
+        h.Llm.Returns("Nothing to do.");
+        await h.Orchestrator.HandleTurnAsync(Turn("Save this passage.", Context()));
+
+        h.Llm.LastRequest.Messages
+            .Should().NotContain(m => m.Role == "system" && m.Content!.Contains("A passage is selected"));
+    }
+
+    [Fact]
     public async Task The_open_book_wins_over_a_book_the_model_chose()
     {
         var h = CreateHarness();

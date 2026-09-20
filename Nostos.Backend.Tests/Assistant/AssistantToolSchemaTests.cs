@@ -91,7 +91,7 @@ public sealed class AssistantToolSchemaTests : IClassFixture<SqliteTestFixture>
                 ["selectedText"] = "string",
                 ["captureSource"] = "string",
             },
-            Required: ["bookId"]),
+            Required: []),
         ["notes_link_existing_concept"] = new(
             Properties: new() { ["noteId"] = "string", ["conceptId"] = "string" },
             Required: ["noteId", "conceptId"]),
@@ -180,8 +180,14 @@ public sealed class AssistantToolSchemaTests : IClassFixture<SqliteTestFixture>
         Required(byName["notes_search"]).Should().Contain("query");
         Required(byName["concepts_search"]).Should().Contain("term");
 
-        Required(byName["notes_capture"]).Should().Contain("bookId");
-        PropertyNames(byName["notes_capture"]).Should().Contain(["content", "selectedText"]);
+        // The capture declares its arguments but requires none of them, and that
+        // is deliberate. Requiring bookId told the model it had to produce one
+        // even when the app already knew the open book, so it went and found a
+        // book of its own — measured live: a thought filed against another book
+        // while a book was open. Declared, not required, leaves the app's open
+        // book in charge and lets the capability refuse when there is none.
+        PropertyNames(byName["notes_capture"]).Should().Contain(["bookId", "content", "selectedText"]);
+        Required(byName["notes_capture"]).Should().BeEmpty();
     }
 
     [Fact]
