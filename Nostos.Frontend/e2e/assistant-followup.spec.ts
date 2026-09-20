@@ -16,12 +16,13 @@
  *    (`AssistantService.insertTranscript` -> `submit`); the recording mechanics
  *    are covered by the unit suite with a fake MediaRecorder, and the one real
  *    transcription is a manual, rationed call reported in the stream handoff.
- *  - The LLM is rationed to a single manual call (the free pool, reported in the
- *    handoff). The one `/api/assistant/turn` this flow needs is therefore
- *    fulfilled in the browser with the real `AssistantTurnResponse` shape, so
- *    the app path under test — not the model — is what is asserted. Everything
- *    else (the built app, the book record, the context resolution) is the
- *    worktree's own backend and temp DB.
+ *  - No provider call is made here. Both `/api/assistant/turn` responses are
+ *    fulfilled in the browser with the real `AssistantTurnResponse` shape:
+ *    the first asks the deterministic physical-page follow-up, and the second
+ *    confirms the capture after that answer is attached. The app path under
+ *    test — not the model — is what is asserted. Everything else (the built
+ *    app, the book record, the context resolution) is the worktree's own
+ *    backend and temp DB.
  *  - The service worker is blocked: it would answer `/api/**` itself and swallow
  *    `page.route` (the production build registers it). The API namespace policy
  *    is covered separately by `service-worker-navigation.spec.ts`.
@@ -55,17 +56,30 @@ test('a typed follow-up continues the conversation and names book and page', asy
   const turns: any[] = [];
   await page.route('**/api/assistant/turn', async (route: Route) => {
     turns.push(route.request().postDataJSON());
+    const firstTurn = turns.length === 1;
+
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({
-        reply: 'Saved.',
-        acknowledgement: `Saved to ${BOOK_TITLE}.`,
-        anchorPrompt: null,
-        suggestions: [],
-        pendingPlan: null,
-        capturedNoteId: 'note-e2e',
-      }),
+      body: JSON.stringify(
+        firstTurn
+          ? {
+              reply: 'What page are you on?',
+              acknowledgement: null,
+              anchorPrompt: { kind: 'physical_page', question: 'What page are you on?' },
+              suggestions: [],
+              pendingPlan: null,
+              capturedNoteId: null,
+            }
+          : {
+              reply: 'Saved.',
+              acknowledgement: `Saved to ${BOOK_TITLE}.`,
+              anchorPrompt: null,
+              suggestions: [],
+              pendingPlan: null,
+              capturedNoteId: 'note-e2e',
+            },
+      ),
     });
   });
 
@@ -84,24 +98,29 @@ test('a typed follow-up continues the conversation and names book and page', asy
   await page.locator('[data-testid="assistant-trigger"]').click();
   const composer = page.locator('[data-testid="assistant-composer"]');
 
-  // 1. The thought. It is captured with no page yet, so step 2 asks.
+  // 1. The thought dispatches normally. The backend decides that this capture
+  // needs a page and returns the deterministic follow-up.
   await composer.fill(THOUGHT);
-  await composer.press('Enter');
-
-  const prompt = page.locator('[data-testid="assistant-anchor-prompt"]');
-  await expect(prompt).toBeVisible();
-  await expect(prompt).toContainText('What page are you on?');
-  // The question is local and deterministic: asking costs no LLM turn.
-  expect(turns).toHaveLength(0);
-
-  // 3. The answer continues the same conversation (as a voice transcript would).
-  await composer.fill('Page 247.');
   await composer.press('Enter');
 
   await expect.poll(() => turns.length).toBe(1);
   expect(turns[0].message).toBe(THOUGHT);
   expect(turns[0].context.bookTitle).toBe(BOOK_TITLE);
-  expect(turns[0].context.anchor).toEqual({
+  expect(turns[0].context.anchor).toBeNull();
+
+  const prompt = page.locator('[data-testid="assistant-anchor-prompt"]');
+  await expect(prompt).toBeVisible();
+  await expect(prompt).toContainText('What page are you on?');
+
+  // 2. The answer continues the same capture (as a voice transcript would).
+  // The service resends the original thought with the newly answered anchor.
+  await composer.fill('Page 247.');
+  await composer.press('Enter');
+
+  await expect.poll(() => turns.length).toBe(2);
+  expect(turns[1].message).toBe(THOUGHT);
+  expect(turns[1].context.bookTitle).toBe(BOOK_TITLE);
+  expect(turns[1].context.anchor).toEqual({
     kind: 'physical_page',
     value: '247',
     verified: false,
