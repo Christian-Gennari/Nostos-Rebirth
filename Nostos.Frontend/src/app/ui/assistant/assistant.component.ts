@@ -87,6 +87,12 @@ export class AssistantComponent {
     this.voice.cancel();
   }
 
+  /** Pre-dispatch Undo: keeps the transcript in the composer, sends nothing. */
+  onUndoTranscript(): void {
+    this.assistant.undoTranscript();
+    setTimeout(() => this.composer()?.nativeElement.focus(), 0);
+  }
+
   @HostListener('document:keydown', ['$event'])
   onKeydown(event: KeyboardEvent): void {
     // Cmd/Ctrl+J opens the assistant. Cmd/Ctrl+K belongs to the command

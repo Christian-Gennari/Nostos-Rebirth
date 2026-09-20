@@ -29,16 +29,24 @@ export interface AssistantAnchorPrompt {
 }
 
 /**
- * What happens to a voice transcript (issue #262 §6): park it in the composer
- * for the user to review, or send it immediately.
+ * What happens to a voice transcript (issue #262 §6).
  *
- * ONE SWITCH, deliberately. The transcription provider returns "the magic
- * mountain" where the user said "The Magic Mountain" (measured), and this is a
- * library app where a title or an author decides which book a note links to, so
- * the default is `review`. Flipping the policy later is this one edit; the send
- * itself is the same `submit()` a typed message uses either way.
+ * `auto` (the decision): the transcript enters the composer and is dispatched
+ * after {@link TRANSCRIPT_AUTO_SEND_DELAY_MS}. While that grace window is open
+ * an Undo cancels the dispatch BEFORE anything is sent. Pre-dispatch on purpose:
+ * the app has no delete capability, so a capture must never be created wrongly
+ * in the first place.
+ *
+ * `review`: the transcript waits in the composer until the user sends it.
+ *
+ * ONE SWITCH, deliberately. Both branches converge on `submit()` — the exact
+ * entry point a typed message uses — so there is no second send path and no
+ * mode asymmetry between an ordinary capture and a follow-up answer.
  */
-export const TRANSCRIPT_SEND_POLICY: 'review' | 'auto' = 'review';
+export const TRANSCRIPT_SEND_POLICY: 'review' | 'auto' = 'auto';
+
+/** The grace window before an auto-sent transcript is dispatched. */
+export const TRANSCRIPT_AUTO_SEND_DELAY_MS = 2000;
 
 /** Shape exposed on `globalThis.__nostosAssistant` for live verification. */
 export interface NostosAssistantDiagnostics {
@@ -64,6 +72,10 @@ export class AssistantService {
   readonly sending = signal(false);
   readonly lastCapture = signal<AssistantCaptureResult | null>(null);
   readonly lastError = signal<string | null>(null);
+
+  /** True while an auto transcript is waiting out its Undo window. */
+  readonly autoSendPending = signal(false);
+  private autoSendTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** A deterministic follow-up awaiting an anchor answer. */
   readonly pendingAnchor = signal<AssistantAnchorPrompt | null>(null);
@@ -103,6 +115,9 @@ export class AssistantService {
   }
 
   close(): void {
+    // Closing abandons a pending auto-send as well as a live recording: nothing
+    // is dispatched behind a surface the user can no longer Undo from.
+    this.cancelAutoSend();
     this.isOpen.set(false);
     this.pendingAnchor.set(null);
     this.pendingText.set('');
@@ -118,28 +133,54 @@ export class AssistantService {
   }
 
   /**
-   * A finished voice transcript enters here and nowhere else. Under the default
-   * `review` policy it lands in the composer exactly as if it had been typed, so
-   * the user blesses the wording before the one shared `submit()` sends it. A
-   * transcript after a follow-up question therefore answers that question through
-   * the same path a typed answer takes.
+   * A finished voice transcript enters here and nowhere else. It lands in the
+   * composer exactly as if it had been typed; under `auto` it is then dispatched
+   * after the grace window, through the one shared `submit()`. A transcript after
+   * a follow-up question therefore answers that question through the same path a
+   * typed answer takes, with the same grace window.
    */
   insertTranscript(text: string): void {
     const transcript = text.trim();
     if (!transcript) return;
 
-    if (TRANSCRIPT_SEND_POLICY === 'auto') {
-      this.draft.set(transcript);
-      this.submit();
-      return;
-    }
-
     const current = this.draft().trim();
     this.draft.set(current ? `${current} ${transcript}` : transcript);
+
+    if (TRANSCRIPT_SEND_POLICY === 'auto') this.scheduleAutoSend();
+  }
+
+  /**
+   * Pre-dispatch Undo: stop the pending auto-send before anything is sent. The
+   * transcript stays in the composer, editable, exactly where the user can fix
+   * it — which is the point, because a created capture cannot be deleted.
+   */
+  undoTranscript(): void {
+    this.cancelAutoSend();
+  }
+
+  private scheduleAutoSend(): void {
+    this.cancelAutoSend();
+    this.autoSendPending.set(true);
+    this.autoSendTimer = setTimeout(() => {
+      this.autoSendTimer = null;
+      this.autoSendPending.set(false);
+      this.submit();
+    }, TRANSCRIPT_AUTO_SEND_DELAY_MS);
+  }
+
+  private cancelAutoSend(): void {
+    if (this.autoSendTimer !== null) {
+      clearTimeout(this.autoSendTimer);
+      this.autoSendTimer = null;
+    }
+    this.autoSendPending.set(false);
   }
 
   /** Enter submits; if a follow-up is pending, this is the anchor answer. */
   submit(): void {
+    // A manual send consumes the pending window; the same call the timer makes
+    // is a no-op here because it already cleared its own timer.
+    this.cancelAutoSend();
     const text = this.draft().trim();
     if (!text || this.sending()) return;
 

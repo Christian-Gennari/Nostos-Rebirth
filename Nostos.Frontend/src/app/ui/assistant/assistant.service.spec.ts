@@ -3,7 +3,11 @@ import { signal } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { AssistantService, TRANSCRIPT_SEND_POLICY } from './assistant.service';
+import {
+  AssistantService,
+  TRANSCRIPT_AUTO_SEND_DELAY_MS,
+  TRANSCRIPT_SEND_POLICY,
+} from './assistant.service';
 import { AssistantContext, AssistantContextService } from './assistant-context.service';
 import { Note } from '../../core/dtos/note.dtos';
 
@@ -68,10 +72,52 @@ describe('AssistantService voice transcript alignment', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    vi.useRealTimers();
+    http.verify();
+  });
+
+  it('defaults to auto-send', () => {
+    expect(TRANSCRIPT_SEND_POLICY).toBe('auto');
+  });
+
+  it('auto-sends a transcript after the grace window with no user action', () => {
+    vi.useFakeTimers();
+    service.open();
+
+    service.insertTranscript('The Magic Mountain');
+
+    // While the window is open the text is in the composer and nothing is sent.
+    expect(service.draft()).toBe('The Magic Mountain');
+    expect(service.autoSendPending()).toBe(true);
+    http.expectNone('/api/books/b1/notes');
+
+    vi.advanceTimersByTime(TRANSCRIPT_AUTO_SEND_DELAY_MS);
+
+    expect(service.autoSendPending()).toBe(false);
+    const request = http.expectOne('/api/books/b1/notes');
+    expect(request.request.body.rawContent).toBe('The Magic Mountain');
+    request.flush(savedNote);
+  });
+
+  it('Undo inside the window results in NO send at all, text still editable', () => {
+    vi.useFakeTimers();
+    service.open();
+    service.insertTranscript('The Magic Mountain');
+    expect(service.autoSendPending()).toBe(true);
+
+    service.undoTranscript();
+
+    expect(service.autoSendPending()).toBe(false);
+    // Well past the window: the cancelled dispatch must never fire.
+    vi.advanceTimersByTime(TRANSCRIPT_AUTO_SEND_DELAY_MS * 4);
+    http.expectNone('/api/books/b1/notes');
+    expect(service.draft()).toBe('The Magic Mountain');
+  });
 
   it('sends a transcribed message through the IDENTICAL request as a typed one', () => {
     const text = 'The Magic Mountain';
+    vi.useFakeTimers();
 
     service.open();
     service.updateDraft(text);
@@ -81,8 +127,7 @@ describe('AssistantService voice transcript alignment', () => {
     typed.flush(savedNote);
 
     service.insertTranscript(text);
-    expect(service.draft()).toBe(text);
-    service.submit();
+    vi.advanceTimersByTime(TRANSCRIPT_AUTO_SEND_DELAY_MS);
     const transcribed = http.expectOne('/api/books/b1/notes');
 
     expect(transcribed.request.method).toBe(typedRequest.method);
@@ -91,16 +136,8 @@ describe('AssistantService voice transcript alignment', () => {
     transcribed.flush(savedNote);
   });
 
-  it('parks a transcript in the composer for review and sends nothing by itself', () => {
-    expect(TRANSCRIPT_SEND_POLICY).toBe('review');
-
-    service.insertTranscript('the magic mountain');
-
-    expect(service.draft()).toBe('the magic mountain');
-    http.expectNone('/api/books/b1/notes');
-  });
-
-  it('lets a second voice turn answer a pending follow-up in the same conversation', () => {
+  it('auto-sends a voice answer to a pending follow-up in the same conversation', () => {
+    vi.useFakeTimers();
     fake.set({ bookFormat: 'physical' });
     service.open();
     service.updateDraft('A thought I cannot place');
@@ -109,13 +146,16 @@ describe('AssistantService voice transcript alignment', () => {
     expect(service.pendingAnchor()?.question).toBe('What page are you on?');
     http.expectNone('/api/books/b1/notes');
 
-    service.insertTranscript('42');
-    expect(service.draft()).toBe('42');
-    service.submit();
+    service.insertTranscript('247');
+    expect(service.draft()).toBe('247');
+    expect(service.autoSendPending()).toBe(true);
+    http.expectNone('/api/books/b1/notes');
+
+    vi.advanceTimersByTime(TRANSCRIPT_AUTO_SEND_DELAY_MS);
 
     const request = http.expectOne('/api/books/b1/notes');
     expect(request.request.body.sourceAnchorKind).toBe('physical_page');
-    expect(request.request.body.sourceAnchorValue).toBe('42');
+    expect(request.request.body.sourceAnchorValue).toBe('247');
     expect(request.request.body.content).toBe('A thought I cannot place');
     request.flush(savedNote);
   });

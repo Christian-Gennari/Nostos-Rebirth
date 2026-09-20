@@ -365,6 +365,30 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
       voice.onTranscript?.('The Magic Mountain');
 
       expect(assistant.draft()).toBe('The Magic Mountain');
+      // Auto-send is queued, not dispatched: nothing is sent while Undo is live.
+      expect(assistant.autoSendPending()).toBe(true);
+      expect(capture).not.toHaveBeenCalled();
+
+      assistant.undoTranscript(); // do not leave a real 2s timer behind
+    });
+
+    it('shows the Undo affordance only while the auto-send window is open', () => {
+      open();
+      expect(query('[data-testid="assistant-voice-undo"]')).toBeNull();
+
+      assistant.insertTranscript('The Magic Mountain');
+      fixture.detectChanges();
+
+      const undo = query('[data-testid="assistant-voice-undo"]');
+      expect(undo).toBeTruthy();
+      expect(undo.textContent).toContain('Undo');
+
+      query('[data-testid="assistant-voice-undo-button"]').click();
+      fixture.detectChanges();
+
+      expect(assistant.autoSendPending()).toBe(false);
+      expect(query('[data-testid="assistant-voice-undo"]')).toBeNull();
+      expect(assistant.draft()).toBe('The Magic Mountain');
       expect(capture).not.toHaveBeenCalled();
     });
 
