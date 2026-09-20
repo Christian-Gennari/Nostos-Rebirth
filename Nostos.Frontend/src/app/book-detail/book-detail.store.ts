@@ -235,7 +235,7 @@ export class BookDetailStore {
       .subscribe({
         next: () => {
           this.loadBook(b.id, { background: true });
-          this.toast.success('Unlinked into its own work');
+          this.toast.success('Unlinked into its own edition set');
         },
         error: () => this.toast.error('Could not unlink this edition'),
       });

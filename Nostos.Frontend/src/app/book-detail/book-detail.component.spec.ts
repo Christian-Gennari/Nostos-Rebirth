@@ -376,7 +376,7 @@ describe('BookDetail reset progress', () => {
   function openManageViaEdit(): void {
     editButton().click();
     fixture.detectChanges();
-    editMenuItem('Editions & works')!.click();
+    editMenuItem('Editions')!.click();
     fixture.detectChanges();
   }
 
@@ -420,7 +420,7 @@ describe('BookDetail reset progress', () => {
     editButton().click();
     fixture.detectChanges();
 
-    const editionsItem = editMenuItem('Editions & works');
+    const editionsItem = editMenuItem('Editions');
     expect(editionsItem).toBeTruthy();
 
     editionsItem!.click();
@@ -549,7 +549,7 @@ describe('BookDetail reset progress', () => {
     // Opened the lone-book way: the hero Edit chooser.
     editButton().click();
     fixture.detectChanges();
-    editMenuItem('Editions & works')!.click();
+    editMenuItem('Editions')!.click();
     fixture.detectChanges();
     httpMock.expectOne((req) => req.url === '/api/books').flush({
       items: [{ id: 'b9', title: 'Other Book', author: 'Someone', workId: 'w9', editionCount: 1 }],
