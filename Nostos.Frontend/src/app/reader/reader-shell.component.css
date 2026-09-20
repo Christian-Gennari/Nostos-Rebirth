@@ -736,6 +736,12 @@
    No visible label: the row sits directly under a control that says "Highlight
    text", so a caption would be the fourth word about the same thing.
 
+   SPACE BELOW (measured): the row had 12px above it and a 0px margin below, so
+   its bottom edge sat exactly on `.quick-note`'s top edge — the dots read as
+   glued to the note composer underneath. The toggle→dots gap was 12px and the
+   dots→composer box gap 0px; 16px below puts the row in the panel's own 16px
+   vertical rhythm (the composer's own padding) instead of tight against it.
+
    TOUCH: the dot stays 22px and gets an invisible hit area from ::before. The
    inset is -11px vertically (44px target) but only -6px horizontally (34px),
    because the dots are on a 34px pitch: a 44px-wide box would OVERLAP its
@@ -746,7 +752,7 @@
   display: flex;
   gap: 12px;
   padding: 0;
-  margin: 12px 20px 0;
+  margin: 12px 20px 16px;
 }
 
 .hl-pen {

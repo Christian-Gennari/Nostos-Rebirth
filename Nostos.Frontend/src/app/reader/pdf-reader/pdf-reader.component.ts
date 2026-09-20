@@ -28,7 +28,6 @@ import { DEFAULT_HIGHLIGHT_COLOUR, HighlightColour } from '../highlight-colours'
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
 import { ThemeService } from '../../core/services/theme.service';
-import { IconButtonComponent } from '../../ui/icon-button/icon-button.component';
 import { IReader, ReaderProgress, TocItem } from '../reader.interface';
 
 /**
@@ -61,12 +60,10 @@ interface PendingPdfHighlight {
 @Component({
   selector: 'app-pdf-reader',
   standalone: true,
-  // The find bar's own pieces (`pdf-search-input-field`, `pdf-find-previous`,
-  // `pdf-find-next`) come in with the module: the library declares them inside
-  // `NgxExtendedPdfViewerModule` and they are NOT standalone, so they cannot be
-  // listed here directly. The module exports all three, which is what makes them
-  // usable in this template.
-  imports: [NgxExtendedPdfViewerModule, IconButtonComponent],
+  // `NgxExtendedPdfViewerModule` supplies the viewer itself. It used to be
+  // imported alongside `IconButtonComponent`, which was only ever there for the
+  // find bar's close control; with that gone the module is the whole list.
+  imports: [NgxExtendedPdfViewerModule],
   templateUrl: './pdf-reader.component.html',
   styleUrl: './pdf-reader.component.css',
 })
@@ -164,9 +161,12 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   }
 
   /**
-   * Close the bar. The library's own find bar renders no close control at all —
-   * its only buttons are prev/next — so dismissal has to come from us: our own
-   * control inside the bar and the header toggle below.
+   * Close the bar. The library's find bar renders no close control of its own —
+   * its only buttons are prev/next — so dismissal comes from the header's Search
+   * toggle (which is a toggle, `aria-expanded`) and from Escape. A close control
+   * inside the bar was removed: it duplicated the toggle, and pdf.js's
+   * `button:focus { border: 1px solid blue }` painted a blue border on it that no
+   * `.icon-btn` rule could out-specify.
    */
   closeSearch(): void {
     this.findBarVisible.set(false);
