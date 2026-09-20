@@ -175,6 +175,107 @@ describe('AssistantService voice transcript alignment', () => {
     request.flush(turn());
   });
 
+  it('cleans a spoken page answer and names book and page in the acknowledgement', () => {
+    vi.useFakeTimers();
+    fake.set({ bookFormat: 'physical' });
+    service.open();
+    service.updateDraft('A thought I cannot place');
+    service.submit();
+
+    expect(service.pendingAnchor()?.question).toBe('What page are you on?');
+    http.expectNone('/api/assistant/turn');
+
+    service.insertTranscript('Page 247.');
+    vi.advanceTimersByTime(TRANSCRIPT_AUTO_SEND_DELAY_MS);
+
+    const request = http.expectOne('/api/assistant/turn');
+    expect(request.request.body.message).toBe('A thought I cannot place');
+    expect(request.request.body.context.anchor).toEqual({
+      kind: 'physical_page',
+      value: '247',
+      verified: false,
+    });
+    request.flush(
+      turn({ acknowledgement: 'Saved to The Magic Mountain.', capturedNoteId: 'note-1' }),
+    );
+
+    const capture = service.entries().find((entry) => entry.kind === 'capture');
+    expect(capture?.anchorLabel).toBe('The Magic Mountain · p. 247');
+  });
+
+  it('parses a spoken timestamp into seconds for an external audiobook follow-up', () => {
+    vi.useFakeTimers();
+    fake.set({ surface: 'book-detail', route: '/library/b1', bookFormat: 'audiobook' });
+    service.open();
+    service.updateDraft('A thought');
+    service.submit();
+
+    expect(service.pendingAnchor()?.question).toBe("What's the current timestamp?");
+
+    service.insertTranscript('1:23');
+    vi.advanceTimersByTime(TRANSCRIPT_AUTO_SEND_DELAY_MS);
+
+    const request = http.expectOne('/api/assistant/turn');
+    expect(request.request.body.context.anchor).toEqual({
+      kind: 'external_audio_timestamp',
+      value: '83',
+      verified: false,
+    });
+    request.flush(turn({ acknowledgement: 'Saved to The Magic Mountain.', capturedNoteId: 'n1' }));
+
+    const capture = service.entries().find((entry) => entry.kind === 'capture');
+    expect(capture?.anchorLabel).toBe('The Magic Mountain · 1:23');
+  });
+
+  it('keeps a pending follow-up across a close and reopen', () => {
+    vi.useFakeTimers();
+    fake.set({ bookFormat: 'physical' });
+    service.open();
+    service.updateDraft('A thought I cannot place');
+    service.submit();
+
+    service.close();
+    service.open();
+
+    // The question is the conversation, not the panel: it is still waiting.
+    expect(service.pendingAnchor()?.question).toBe('What page are you on?');
+    expect(service.entries().filter((entry) => entry.kind === 'question')).toHaveLength(1);
+    expect(service.draft()).toBe('');
+
+    service.updateDraft('247');
+    service.submit();
+
+    const request = http.expectOne('/api/assistant/turn');
+    expect(request.request.body.message).toBe('A thought I cannot place');
+    expect(request.request.body.context.anchor).toEqual({
+      kind: 'physical_page',
+      value: '247',
+      verified: false,
+    });
+    request.flush(turn());
+  });
+
+  it('still saves with an unknown anchor when a follow-up is skipped', () => {
+    fake.set({ bookFormat: 'physical' });
+    service.open();
+    service.updateDraft('A thought with no page');
+    service.submit();
+
+    expect(service.pendingAnchor()).not.toBeNull();
+
+    service.skipAnchor();
+
+    const request = http.expectOne('/api/assistant/turn');
+    expect(request.request.body.message).toBe('A thought with no page');
+    expect(request.request.body.context.anchor).toEqual({
+      kind: 'unknown',
+      value: null,
+      verified: false,
+    });
+    request.flush(turn());
+    expect(service.pendingAnchor()).toBeNull();
+  });
+
   it('keeps suggestions and a pending plan from the turn', () => {
     service.open();
     service.updateDraft('Where does this go?');

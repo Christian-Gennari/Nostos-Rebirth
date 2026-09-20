@@ -246,6 +246,77 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     request.flush(turn());
   });
 
+  it('names the book and page in the transcript once a follow-up is answered', () => {
+    fake.set({
+      surface: 'reader',
+      route: '/read/b1',
+      bookId: 'b1',
+      bookTitle: 'The Magic Mountain',
+      bookFormat: 'physical',
+    });
+    fixture.detectChanges();
+
+    assistant.open();
+    fixture.detectChanges();
+    assistant.updateDraft('A thought for The Magic Mountain');
+    assistant.submit();
+    fixture.detectChanges();
+
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="assistant-anchor-prompt"]').textContent,
+    ).toContain('What page are you on?');
+    http.expectNone('/api/assistant/turn');
+
+    assistant.updateDraft('Page 247.');
+    assistant.submit();
+
+    const request = http.expectOne('/api/assistant/turn');
+    expect(request.request.body.message).toBe('A thought for The Magic Mountain');
+    expect(request.request.body.context.anchor).toEqual({
+      kind: 'physical_page',
+      value: '247',
+      verified: false,
+    });
+    request.flush(
+      turn({ acknowledgement: 'Saved to The Magic Mountain.', capturedNoteId: 'note-1' }),
+    );
+    fixture.detectChanges();
+
+    expect(
+      fixture.nativeElement.querySelector('.entry .entry-anchor').textContent,
+    ).toContain('The Magic Mountain · p. 247');
+  });
+
+  it('keeps the pending question and transcript across a close and reopen', () => {
+    fake.set({ bookFormat: 'physical', bookTitle: 'The Magic Mountain' });
+    fixture.detectChanges();
+
+    assistant.open();
+    fixture.detectChanges();
+    assistant.updateDraft('A thought for The Magic Mountain');
+    assistant.submit();
+    fixture.detectChanges();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="assistant-anchor-prompt"]'),
+    ).toBeTruthy();
+
+    fixture.componentInstance.close();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="assistant-panel"]')).toBeNull();
+
+    fixture.componentInstance.open();
+    fixture.detectChanges();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="assistant-anchor-prompt"]').textContent,
+    ).toContain('What page are you on?');
+    // The question is still in the transcript, and the thought behind it is
+    // still held (answering it must not restart the capture).
+    expect(
+      fixture.nativeElement.querySelector('.entry-question').textContent,
+    ).toContain('What page are you on?');
+    http.expectNone('/api/assistant/turn');
+  });
+
   it('asks for a timestamp when an audiobook is not open in the in-app reader', () => {
     fake.set({ surface: 'book-detail', route: '/library/b1', bookId: 'b1', bookFormat: 'audiobook' });
     fixture.detectChanges();
