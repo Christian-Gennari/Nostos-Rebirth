@@ -147,6 +147,7 @@ import sparkle from '@phosphor-icons/core/regular/sparkle.svg';
 import squaresFour from '@phosphor-icons/core/regular/squares-four.svg';
 import stack from '@phosphor-icons/core/regular/stack.svg';
 import star from '@phosphor-icons/core/regular/star.svg';
+import stop from '@phosphor-icons/core/regular/stop.svg';
 import sun from '@phosphor-icons/core/regular/sun.svg';
 import textT from '@phosphor-icons/core/regular/text-t.svg';
 import trash from '@phosphor-icons/core/regular/trash.svg';
@@ -259,6 +260,7 @@ export const NOSTOS_ICONS = {
   'squares-four': { regular: squaresFour, light: squaresFourLight, },
   'stack': { regular: stack, },
   'star': { regular: star, fill: starFill, },
+  'stop': { regular: stop, },
   'sun': { regular: sun, },
   'text-t': { regular: textT, },
   'trash': { regular: trash, },

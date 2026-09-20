@@ -28,6 +28,18 @@ export interface AssistantAnchorPrompt {
   question: string;
 }
 
+/**
+ * What happens to a voice transcript (issue #262 §6): park it in the composer
+ * for the user to review, or send it immediately.
+ *
+ * ONE SWITCH, deliberately. The transcription provider returns "the magic
+ * mountain" where the user said "The Magic Mountain" (measured), and this is a
+ * library app where a title or an author decides which book a note links to, so
+ * the default is `review`. Flipping the policy later is this one edit; the send
+ * itself is the same `submit()` a typed message uses either way.
+ */
+export const TRANSCRIPT_SEND_POLICY: 'review' | 'auto' = 'review';
+
 /** Shape exposed on `globalThis.__nostosAssistant` for live verification. */
 export interface NostosAssistantDiagnostics {
   context: AssistantContext;
@@ -103,6 +115,27 @@ export class AssistantService {
 
   updateDraft(value: string): void {
     this.draft.set(value);
+  }
+
+  /**
+   * A finished voice transcript enters here and nowhere else. Under the default
+   * `review` policy it lands in the composer exactly as if it had been typed, so
+   * the user blesses the wording before the one shared `submit()` sends it. A
+   * transcript after a follow-up question therefore answers that question through
+   * the same path a typed answer takes.
+   */
+  insertTranscript(text: string): void {
+    const transcript = text.trim();
+    if (!transcript) return;
+
+    if (TRANSCRIPT_SEND_POLICY === 'auto') {
+      this.draft.set(transcript);
+      this.submit();
+      return;
+    }
+
+    const current = this.draft().trim();
+    this.draft.set(current ? `${current} ${transcript}` : transcript);
   }
 
   /** Enter submits; if a follow-up is pending, this is the anchor answer. */
