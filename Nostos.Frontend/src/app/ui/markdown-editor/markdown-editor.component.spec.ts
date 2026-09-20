@@ -156,19 +156,28 @@ describe('MarkdownEditorComponent', () => {
     expect(style).not.toContain('#1a1a1a');
   });
 
-  it('tokenises emphasis ink, so bold text follows the sheet theme', () => {
-    // Regression: `strong` painted the literal light ink, so bold text in the
-    // Writing Studio came out near-black on the dark sheet (1.13:1 against
-    // --paper). Emphasis ink is a role: both theme blocks must carry it.
+  it('rides the prose roles on tokens, so the sheet cannot drift from the theme', () => {
+    // Regression: `strong`, `th` and the link underline each carried a LITERAL
+    // light value, so the dark sheet painted bold text near-black (1.13:1
+    // against the paper), a near-white table-header band with muted ink on it
+    // (1.61:1), and a cool-slate underline. Roles belong in both theme blocks.
     const style = String(initCalls[0].content_style);
-
-    expect(style).toMatch(/strong\s*\{[^}]*color:\s*var\(--ink-strong\)/);
 
     const darkStart = style.indexOf(":root[data-theme='dark']");
     const lightBlock = style.slice(style.indexOf(':root {'), darkStart);
     const darkBlock = style.slice(darkStart);
-    expect(lightBlock).toContain('--ink-strong:');
-    expect(darkBlock).toContain('--ink-strong:');
+
+    const roles: Array<[RegExp, string]> = [
+      [/strong\s*\{[^}]*color:\s*var\(--ink-strong\)/, '--ink-strong'],
+      [/th\s*\{[^}]*background:\s*var\(--table-head-bg\)/, '--table-head-bg'],
+      [/a\s*\{[^}]*text-decoration-color:\s*var\(--link-rule\)/, '--link-rule'],
+    ];
+
+    for (const [usage, token] of roles) {
+      expect(style).toMatch(usage);
+      expect(lightBlock).toContain(`${token}:`);
+      expect(darkBlock).toContain(`${token}:`);
+    }
   });
 
   it('emits the wordcount-plugin count on init and on content events', async () => {

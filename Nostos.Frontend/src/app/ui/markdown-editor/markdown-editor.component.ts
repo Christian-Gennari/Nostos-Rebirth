@@ -31,6 +31,7 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
 
     --link: #526d87;
     --link-hover: #394f65;
+    --link-rule: rgba(82, 109, 135, 0.42);
     --selection: rgba(104, 126, 148, 0.24);
 
     --quote-bg: #F7F7F8;
@@ -38,6 +39,8 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
 
     --code-bg: #F3F3F4;
     --code-ink: #4A4D54;
+
+    --table-head-bg: #faf9f7;
   }
 
   :root[data-theme='dark'] {
@@ -54,6 +57,7 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
 
     --link: #a9cfc2;
     --link-hover: #c4ebde;
+    --link-rule: rgba(169, 207, 194, 0.42);
     --selection: rgba(169, 207, 194, 0.25);
 
     --quote-bg: #181a20;
@@ -61,6 +65,8 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
 
     --code-bg: #0d0e11;
     --code-ink: #f0f1f4;
+
+    --table-head-bg: #181a20;
   }
 
   html {
@@ -185,7 +191,7 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
   a {
     color: var(--link);
     text-decoration-line: underline;
-    text-decoration-color: rgba(82, 109, 135, 0.42);
+    text-decoration-color: var(--link-rule);
     text-decoration-thickness: 1px;
     text-underline-offset: 0.18em;
   }
@@ -299,9 +305,12 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
     border-bottom: 1px solid var(--rule);
   }
 
+  /* The header band is a ROLE too: it was the literal light band, so a prose
+     table header came out near-white on the dark sheet with muted ink on it —
+     measured 1.61:1, i.e. an unreadable header row in dark mode. */
   th {
     color: var(--ink-soft);
-    background: #faf9f7;
+    background: var(--table-head-bg);
     border-top: 1px solid var(--rule-strong);
     border-bottom-color: var(--rule-strong);
     font-weight: 600;
