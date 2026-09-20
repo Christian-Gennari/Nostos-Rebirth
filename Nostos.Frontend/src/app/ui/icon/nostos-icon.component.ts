@@ -59,21 +59,20 @@ import { NOSTOS_ICONS, type NostosIconName, type NostosIconWeight } from './nost
   },
   styles: [
     `
-      /* Display inline is the browser default for an unknown element and is
-         declared here so a future global reset cannot silently turn every icon
-         into a block. The wrapper span is display:contents: it exists only to be
-         the [innerHTML] target, so the svg is laid out as if it were a direct
-         child of the host — which is the box model the old icon element had,
-         keeping every surface's existing alignment intact. */
+      /* Display inline-flex collapses the host's line box so the host box
+         hugs the glyph dimensions, eliminating font descender slack that
+         previously caused glyphs to render above centre in centred containers.
+         The wrapper span is display:contents: it exists only to be the
+         [innerHTML] target, so the svg is laid out as if it were a direct
+         child of the host. */
       :host {
-        display: inline;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
       }
       .nostos-icon__glyph {
         display: contents;
       }
-      /* The glyph sits on the text baseline like any inline replaced element.
-         Call sites that need an optical nudge keep doing it on the host: the
-         global nostos-icon nudge in styles.css is still the one place for it. */
       .nostos-icon__glyph > svg {
         vertical-align: baseline;
       }

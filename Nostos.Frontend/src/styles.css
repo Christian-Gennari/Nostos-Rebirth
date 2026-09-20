@@ -1296,13 +1296,6 @@ p {
   line-height: 1.6;
 }
 
-/* The glyph nudge. `nostos-icon` is the Nostos-owned icon element (the single
-   rendering path for every glyph), so this rule is implementation-neutral: it
-   survives an icon-family swap, which is the point of the wrapper. */
-nostos-icon {
-  position: relative;
-  top: 1px;
-}
 
 /* ------------------------------
    GLOBAL LAYOUT UTILITIES
