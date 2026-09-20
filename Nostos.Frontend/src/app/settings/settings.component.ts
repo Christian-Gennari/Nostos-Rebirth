@@ -827,7 +827,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
   // --- AI provider card state ------------------------------------------
   // The card loads its own effective settings; a failure is shown in place
   // rather than guessed at, so the fields are never presented as fact.
-  aiLoading = signal(true);
   aiLoadFailed = signal(false);
   aiLlm = signal<AiProviderForm>(emptyAiProviderForm());
   aiStt = signal<AiProviderForm>(emptyAiProviderForm());
@@ -926,11 +925,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
       next: (settings) => {
         this.aiLlm.set(this.toAiForm(settings.llm));
         this.aiStt.set(this.toAiForm(settings.stt));
-        this.aiLoading.set(false);
         this.aiLoadFailed.set(false);
       },
       error: () => {
-        this.aiLoading.set(false);
         this.aiLoadFailed.set(true);
       },
     });
