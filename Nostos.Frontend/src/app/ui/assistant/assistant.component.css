@@ -162,6 +162,10 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* On the mobile sheet the panel has a fixed height, so the composer is pinned
+     to the bottom the way a conversation input reads; on the desktop flyout the
+     panel is content-sized and this has no effect. */
+  margin-top: auto;
 }
 
 .composer-field {
