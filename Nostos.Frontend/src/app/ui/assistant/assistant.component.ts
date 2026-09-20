@@ -57,6 +57,15 @@ export class AssistantComponent {
     () => this.preferences.assistantEnabled() && this.status.available(),
   );
 
+  /** The compact header names the current book when the surface has one. */
+  readonly currentBookTitle = computed(() => {
+    const title = this.assistant.context().bookTitle?.trim();
+    return title ? title : null;
+  });
+
+  /** Drives the quiet send affordance without making the template inspect text. */
+  readonly hasDraft = computed(() => this.assistant.draft().trim().length > 0);
+
   /**
    * How far the software keyboard has lifted the viewport. Drives the mobile
    * sheet's bottom offset so the composer is never buried. 0 on desktop.
@@ -175,6 +184,16 @@ export class AssistantComponent {
     const keyboard = event as KeyboardEvent;
     if (keyboard.shiftKey) return; // Shift+Enter is a newline.
     event.preventDefault();
+    this.submitDraft();
+  }
+
+  onSendClick(): void {
+    if (!this.hasDraft() || this.assistant.sending()) return;
+    this.submitDraft();
+    setTimeout(() => this.composer()?.nativeElement.focus(), 0);
+  }
+
+  private submitDraft(): void {
     this.assistant.submit();
     const element = this.composer()?.nativeElement;
     if (element) {
