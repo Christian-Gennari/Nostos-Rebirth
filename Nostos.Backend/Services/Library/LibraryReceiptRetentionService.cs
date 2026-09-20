@@ -92,4 +92,62 @@ public sealed class LibraryReceiptRetentionService(
 
         return new LibraryReceiptPruneResult(expiredDeleted, overCapDeleted, remaining);
     }
+
+    /// <summary>
+    /// Prunes assistant note command receipts with the SAME age + count policy
+    /// as the library receipts (issue #260 §3): expired rows first, then the
+    /// oldest rows above the cap, both inside one cleanup transaction. Reuses
+    /// <see cref="LibraryReceiptPruneResult"/> rather than a parallel shape,
+    /// and the library prune's behaviour is untouched.
+    /// </summary>
+    public async Task<LibraryReceiptPruneResult> PruneNoteReceiptsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = await contexts.CreateDbContextAsync(cancellationToken);
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        // Phase 1 — expired first. Purely age-based, so a receipt inserted
+        // concurrently can never be targeted.
+        var cutoff = DateTime.UtcNow.AddDays(-_retentionDays);
+        var expiredDeleted = await db.NoteCommandReceipts
+            .Where(r => r.CreatedAtUtc < cutoff)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        // Phase 2 — oldest rows above the cap, in the same cleanup transaction.
+        // CreatedAtUtc then Id keeps the selection deterministic for receipts
+        // created in the same instant.
+        var total = await db.NoteCommandReceipts.CountAsync(cancellationToken);
+        var overCap = total - _maximumReceipts;
+        var overCapDeleted = 0;
+        if (overCap > 0)
+        {
+            var oldestIds = await db.NoteCommandReceipts
+                .OrderBy(r => r.CreatedAtUtc)
+                .ThenBy(r => r.Id)
+                .Take(overCap)
+                .Select(r => r.Id)
+                .ToListAsync(cancellationToken);
+
+            if (oldestIds.Count > 0)
+            {
+                overCapDeleted = await db.NoteCommandReceipts
+                    .Where(r => oldestIds.Contains(r.Id))
+                    .ExecuteDeleteAsync(cancellationToken);
+            }
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+
+        var remaining = await db.NoteCommandReceipts.CountAsync(cancellationToken);
+        if (expiredDeleted > 0 || overCapDeleted > 0)
+        {
+            logger.LogInformation(
+                "Note receipt retention pruned {Expired} expired and {OverCap} over-cap receipt(s); {Remaining} remain.",
+                expiredDeleted,
+                overCapDeleted,
+                remaining);
+        }
+
+        return new LibraryReceiptPruneResult(expiredDeleted, overCapDeleted, remaining);
+    }
 }

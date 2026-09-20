@@ -32,6 +32,20 @@ public interface INoteRepository
     Task<List<NoteModel>> SearchByTextAsync(string query, int limit);
 
     /// <summary>
+    /// The stored exactly-once receipt for a capture key pair, or null when the
+    /// pair has not been seen. Read before a capture so a replay can return the
+    /// stored result without touching the notes table (issue #260 §3).
+    /// </summary>
+    Task<NoteCommandReceipt?> GetReceiptAsync(string clientId, string idempotencyKey);
+
+    /// <summary>
+    /// Stages a receipt for the next <see cref="SaveChangesAsync"/>. Never saved
+    /// on its own: the caller writes it inside the capture transaction so the
+    /// note and its receipt commit together, or not at all.
+    /// </summary>
+    Task AddReceiptAsync(NoteCommandReceipt receipt);
+
+    /// <summary>
     /// Notes linked to no concept at all. These are unreachable through the index's
     /// concept rows, which is the gap #158 was filed about.
     /// </summary>

@@ -51,6 +51,23 @@ public class NoteRepository : INoteRepository
         await _db.SaveChangesAsync();
     }
 
+    public async Task<NoteCommandReceipt?> GetReceiptAsync(string clientId, string idempotencyKey)
+    {
+        // AsNoTracking keeps the replay read out of the change tracker; the
+        // stored result is returned as-is and never mutated.
+        return await _db
+            .NoteCommandReceipts.AsNoTracking()
+            .FirstOrDefaultAsync(r => r.ClientId == clientId && r.IdempotencyKey == idempotencyKey);
+    }
+
+    public Task AddReceiptAsync(NoteCommandReceipt receipt)
+    {
+        // Don't save here — the service writes the note and its receipt inside
+        // one transaction, then commits.
+        _db.NoteCommandReceipts.Add(receipt);
+        return Task.CompletedTask;
+    }
+
     public async Task DeleteAsync(NoteModel note)
     {
         _db.Notes.Remove(note);

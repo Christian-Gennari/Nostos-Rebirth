@@ -27,7 +27,37 @@ public static class NoteErrorCodes
     public const string NoteNotFound = "note_not_found";
     public const string EmptyNote = "empty_note";
     public const string ConceptNotFound = "concept_not_found";
+
+    // The idempotency key pair is all-or-nothing: a request carrying neither
+    // keeps the non-idempotent behaviour, while a request carrying only one
+    // half (or an out-of-bounds value) can never be replayed exactly once and
+    // is therefore rejected rather than silently treated as a new command.
+    public const string InvalidIdempotency = "invalid_idempotency";
 }
+
+/// <summary>
+/// Canonical in-process capture request (issue #260 §3). Later streams (the
+/// assistant tool bridge, 261-S2) call <see cref="INoteService.CaptureAsync"/>
+/// with this shape instead of hand-building a <c>CreateNoteDto</c>; the HTTP
+/// surface only ever varies the optional key pair.
+/// </summary>
+public sealed record CaptureNoteRequest(
+    Guid BookId,
+    string Content,
+    string? CfiRange = null,
+    string? SelectedText = null,
+    // Capture provenance (issue #260 §2, §4): the raw capture kept alongside
+    // the polished Content, plus the anchor recording where it came from.
+    string? RawContent = null,
+    string CaptureSource = "text",
+    string ProcessingMode = "verbatim",
+    string SourceAnchorKind = "unknown",
+    string? SourceAnchorValue = null,
+    bool AnchorVerified = false,
+    // Both optional: absent => today's (non-idempotent) behaviour; present =>
+    // exactly-once keyed on the (ClientId, IdempotencyKey) pair.
+    string? ClientId = null,
+    string? IdempotencyKey = null);
 
 /// <summary>
 /// Read model for the note-review flow (issue #261): what the note says, which
