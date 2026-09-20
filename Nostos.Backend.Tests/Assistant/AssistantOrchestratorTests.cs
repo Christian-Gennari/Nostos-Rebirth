@@ -66,26 +66,32 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
-    public async Task The_composers_mode_reaches_the_capture_and_the_note_id_comes_back()
+    public async Task The_stored_setting_is_the_only_source_of_the_capture_mode()
     {
         var h = CreateHarness();
         var book = await SeedBookAsync(h);
 
+        // The owner chose light_polish once, in Settings.
+        (await h.Settings.UpdateAsync(new AssistantSettingsUpdateRequest("light_polish")))
+            .Success.Should().BeTrue();
+
+        // The request carries verbatim and the tool call itself carries clarify.
+        // Neither may change the stored setting (issue #262 §7).
         h.Llm
             .CallsTool(
                 "notes_capture",
-                $$"""{"bookId":"{{book.Id}}","content":"so anyway i was thinking"}""")
+                $$"""{"bookId":"{{book.Id}}","content":"so anyway i was thinking","processingMode":"clarify"}""")
             .Returns("Saved.");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
             "Remember this.",
             Context(bookId: book.Id.ToString(), bookFormat: "ebook"),
-            processingMode: "light_polish"));
+            processingMode: "verbatim"));
 
         await using var db = await h.Factory.CreateDbContextAsync();
         var note = await db.Notes.AsNoTracking().SingleAsync();
 
-        // The composer's choice is the mode the note reflects, and the raw
+        // The stored setting is the mode the note reflects, and the raw
         // transcript is kept beside the processed text (issue #262 §7, §8).
         note.ProcessingMode.Should().Be("light_polish");
         note.RawContent.Should().Be("so anyway i was thinking");
@@ -96,21 +102,24 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
-    public async Task An_explicit_verbatim_overrides_a_non_verbatim_configured_default()
+    public async Task A_request_mode_and_the_configured_default_are_both_ignored()
     {
-        // The configured default is a rewrite; the request still says verbatim,
-        // and verbatim is a storage operation that must be honoured exactly.
+        // Nothing is stored, so the effective mode is verbatim; the request's
+        // light_polish, the tool call's clarify and the configured default
+        // clarify are all ignored.
         var h = CreateHarness(defaultProcessingMode: "clarify");
         var book = await SeedBookAsync(h);
 
         h.Llm
-            .CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"raw words"}""")
+            .CallsTool(
+                "notes_capture",
+                $$"""{"bookId":"{{book.Id}}","content":"raw words","processingMode":"clarify"}""")
             .Returns("Saved.");
 
         await h.Orchestrator.HandleTurnAsync(Turn(
             "Remember this.",
             Context(bookId: book.Id.ToString(), bookFormat: "ebook"),
-            processingMode: "verbatim"));
+            processingMode: "light_polish"));
 
         await using var db = await h.Factory.CreateDbContextAsync();
         var note = await db.Notes.AsNoTracking().SingleAsync();
@@ -119,10 +128,15 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
-    public async Task An_absent_mode_uses_the_configured_default()
+    public async Task A_stored_verbatim_is_honoured_over_a_request_mode()
     {
+        // A stored verbatim is a real choice, not "never chosen": it must be
+        // distinguished from the NULL default and must not be overridden.
         var h = CreateHarness(defaultProcessingMode: "light_polish");
         var book = await SeedBookAsync(h);
+
+        (await h.Settings.UpdateAsync(new AssistantSettingsUpdateRequest("verbatim")))
+            .Success.Should().BeTrue();
 
         h.Llm
             .CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"raw words"}""")
@@ -130,12 +144,13 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
 
         await h.Orchestrator.HandleTurnAsync(Turn(
             "Remember this.",
-            Context(bookId: book.Id.ToString(), bookFormat: "ebook")));
+            Context(bookId: book.Id.ToString(), bookFormat: "ebook"),
+            processingMode: "light_polish"));
 
         await using var db = await h.Factory.CreateDbContextAsync();
         var note = await db.Notes.AsNoTracking().SingleAsync();
-        note.ProcessingMode.Should().Be("light_polish");
-        note.RawContent.Should().Be("raw words");
+        note.ProcessingMode.Should().Be("verbatim");
+        note.RawContent.Should().BeNull();
     }
 
     [Fact]
@@ -942,15 +957,17 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
             DefaultProcessingMode = defaultProcessingMode,
         };
         var plans = new AssistantPlanStore();
+        var settings = new AssistantSettingsService(factory);
 
         var orchestrator = new AssistantOrchestrator(
             registry,
             llm,
             plans,
+            settings,
             assistantOptions,
             NullLogger<AssistantOrchestrator>.Instance);
 
-        return new Harness(db, factory, registry, llm, plans, orchestrator);
+        return new Harness(db, factory, registry, llm, plans, settings, orchestrator);
     }
 
     private static async Task<AssistantPendingPlanDto> CreatePlanAsync(Harness h)
@@ -1091,6 +1108,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         AssistantCapabilityRegistry registry,
         FakeLlmProvider llm,
         AssistantPlanStore plans,
+        AssistantSettingsService settings,
         AssistantOrchestrator orchestrator) : IDisposable
     {
         public NostosDbContext Db { get; } = db;
@@ -1098,6 +1116,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         public AssistantCapabilityRegistry Registry { get; } = registry;
         public FakeLlmProvider Llm { get; } = llm;
         public AssistantPlanStore Plans { get; } = plans;
+        public AssistantSettingsService Settings { get; } = settings;
         public AssistantOrchestrator Orchestrator { get; } = orchestrator;
 
         public void Dispose() => Db.Dispose();

@@ -40,6 +40,11 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
     // settings"). One row; NULL columns fall back to appsettings/env.
     public DbSet<AiProviderSettingsModel> AiProviderSettings => Set<AiProviderSettingsModel>();
 
+    // The assistant choices the owner makes once (issue #262 §7), kept in their
+    // own row: the provider table above holds provider configuration and
+    // encrypted keys, so reusing it would make its name a lie.
+    public DbSet<AssistantSettingsModel> AssistantSettings => Set<AssistantSettingsModel>();
+
     // A few legacy import/repository paths still add a BookModel directly.
     // Keep those writes valid now that WorkId is a required foreign key. The
     // library service always assigns the work explicitly; this is only a
@@ -347,6 +352,18 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
             e.ToTable(t => t.HasCheckConstraint(
                 "CK_AiProviderSettings_SingletonId",
                 $"Id = {AiProviderSettingsModel.SingletonId}"));
+        });
+
+        // --- ASSISTANT SETTINGS (issue #262 §7) ---
+        // The same one-row shape as the provider settings above: a fixed primary
+        // key pinned by a CHECK constraint, so a second row can never be written.
+        // The value column is nullable: NULL means "never chosen", which is what
+        // keeps a stored `verbatim` distinguishable from the default.
+        modelBuilder.Entity<AssistantSettingsModel>(e =>
+        {
+            e.ToTable(t => t.HasCheckConstraint(
+                "CK_AssistantSettings_SingletonId",
+                $"Id = {AssistantSettingsModel.SingletonId}"));
         });
     }
 }

@@ -31,6 +31,7 @@ public sealed class AssistantOrchestrator(
     AssistantCapabilityRegistry registry,
     ILlmProvider llm,
     AssistantPlanStore plans,
+    IAssistantSettingsService settings,
     AssistantOptions options,
     ILogger<AssistantOrchestrator> logger)
 {
@@ -113,6 +114,12 @@ public sealed class AssistantOrchestrator(
         var capabilityByName = registry.All.ToDictionary(c => c.Name, StringComparer.Ordinal);
         var messages = BuildConversation(request);
         var tools = BuildTools();
+
+        // The capture post-processing mode is the owner's stored setting, resolved
+        // once per turn (issue #262 §7). It is deliberately not read from the
+        // request or from the tool call: the owner chose it once, and a
+        // per-capture mode would make that choice meaningless.
+        var captureProcessingMode = await settings.GetCaptureProcessingModeAsync(ct);
 
         var toolContext = new AssistantToolContext(
             ClientId: request.ClientId,
@@ -206,7 +213,7 @@ public sealed class AssistantOrchestrator(
                         call.ArgumentsJson,
                         request.Context,
                         decision,
-                        request.ProcessingMode,
+                        captureProcessingMode,
                         out quoteFidelity);
                 }
                 else
@@ -528,7 +535,7 @@ public sealed class AssistantOrchestrator(
         string argumentsJson,
         AssistantContextDto? context,
         AnchorDecision decision,
-        string? requestedMode,
+        string mode,
         out bool quoteFidelity)
     {
         quoteFidelity = false;
@@ -554,14 +561,13 @@ public sealed class AssistantOrchestrator(
         obj["sourceAnchorValue"] = decision.Value;
         obj["anchorVerified"] = decision.Verified;
 
-        // The composer's explicit choice wins; otherwise the model may name one;
-        // otherwise the configured default. The mode rides on the canonical
-        // `processingMode` argument the capability's reader already accepts, so
-        // the frozen capability signature does not change (issue #262 §7).
-        var modelMode = ReadString(obj, "processingMode");
-        obj["processingMode"] = !string.IsNullOrWhiteSpace(requestedMode)
-            ? requestedMode
-            : (!string.IsNullOrWhiteSpace(modelMode) ? modelMode : options.DefaultProcessingMode);
+        // The stored setting is the ONLY source of the mode. Whatever
+        // `processingMode` the tool call carried is overwritten on purpose: the
+        // owner chose the mode once, so neither a per-capture request nor the
+        // model may change it. It rides on the canonical `processingMode`
+        // argument the capability's reader already accepts, so the frozen
+        // capability signature does not change (issue #262 §7).
+        obj["processingMode"] = mode;
 
         if (string.Equals(decision.Kind, "epub_cfi", StringComparison.Ordinal)
             && !string.IsNullOrWhiteSpace(decision.Value))

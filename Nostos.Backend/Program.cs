@@ -133,6 +133,10 @@ builder.Services.AddSingleton<ILlmProvider, NineRouterLlmProvider>();
 // a singleton matches the provider's lifetime.
 builder.Services.AddSingleton<IThoughtProcessor, ThoughtProcessor>();
 builder.Services.AddSingleton<AssistantPlanStore>();
+// The owner's one-time assistant choices, stored in the database (issue #262
+// §7). It depends only on the context factory, so it has the same singleton
+// lifetime as the provider settings beside it.
+builder.Services.AddSingleton<IAssistantSettingsService, AssistantSettingsService>();
 builder.Services.AddScoped<AssistantOrchestrator>();
 
 // --- AI PROVIDER SETTINGS (assistant-milestone plan) ---
@@ -474,6 +478,7 @@ app.MapWritingsEndpoints();
 app.MapTranscriptionEndpoints();
 app.MapAssistantEndpoints();
 app.MapAiProviderSettingsEndpoints();
+app.MapAssistantSettingsEndpoints();
 app.MapOpdsEndpoints(opdsOptions);
 app.MapBackupEndpoints();
 
