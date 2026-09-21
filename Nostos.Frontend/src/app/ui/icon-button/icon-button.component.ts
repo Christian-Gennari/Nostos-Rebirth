@@ -147,7 +147,7 @@ export type IconButtonTone = 'default' | 'danger';
          and it mostly arrives through descendant rules that keep matching because
          the host is still the button. Encoding a radius rung here would move
          pixels on four surfaces to no benefit.
-         Hover, active and the .delete tone likewise stay with the surfaces. */
+         Hover, selected-state and the .delete tone likewise stay with the surfaces. */
     `,
   ],
 })
