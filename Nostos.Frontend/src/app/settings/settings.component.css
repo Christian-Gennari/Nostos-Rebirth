@@ -164,19 +164,6 @@
 }
 
 
-.card-count {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-hover);
-  font-size: 0.69rem;
-  font-weight: var(--fw-medium);
-  color: var(--color-text-muted);
-}
-
 .card-body {
   padding: 0;
 }
@@ -777,7 +764,6 @@
   }
 
   .card-header > .nostos-button,
-  .card-header > .card-count,
   .card-header > .nostos-badge {
     align-self: flex-start;
   }
