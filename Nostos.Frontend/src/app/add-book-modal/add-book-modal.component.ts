@@ -2,13 +2,13 @@ import { Component, ElementRef, inject, input, output, signal, computed, effect,
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
-import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
 import { BooksService, Book as BookModel } from '../core/services/books.service';
 import { ProvidersService } from '../core/services/providers.service';
 import { ImportService } from '../core/services/import.service';
 import { ToastService } from '../core/services/toast.service';
 import {
+  ACQUISITION_FINISHED_STATES,
   ProviderAcquisition,
   ProviderItem,
   ProviderMetadataOverrides,
@@ -38,7 +38,6 @@ import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 export class AddBookModal {
   private booksService = inject(BooksService);
   private providers = inject(ProvidersService);
-  private router = inject(Router);
   private toast = inject(ToastService);
   /** The import feed: opened on demand once an import has actually been queued. */
   private imports = inject(ImportService);
