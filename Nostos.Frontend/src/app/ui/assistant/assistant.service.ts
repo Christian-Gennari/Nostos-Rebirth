@@ -571,7 +571,19 @@ export class AssistantService {
 
           if (response.success) {
             this.pendingPlan.set(null);
-            this.pushEntry('assistant', plan?.summary ?? 'Plan applied.', null, 'Applied');
+            const replies = response.steps
+              .map((step) => {
+                if (!step.data || typeof step.data !== 'object') return null;
+                const reply = (step.data as { reply?: unknown }).reply;
+                return typeof reply === 'string' && reply.trim() ? reply.trim() : null;
+              })
+              .filter((reply): reply is string => reply !== null);
+            this.pushEntry(
+              'assistant',
+              replies.length > 0 ? replies.join(' ') : (plan?.summary ?? 'Plan applied.'),
+              null,
+              'Applied',
+            );
           } else {
             this.lastError.set(response.errorMessage ?? 'The plan could not be applied.');
             this.pushEntry('error', plan?.summary ?? 'Plan refused.', null, response.errorCode ?? 'Refused');
