@@ -55,6 +55,26 @@ test('desktop assistant expands into a focus workspace without losing the draft'
   expect(viewport).not.toBeNull();
   expect(Math.abs(expanded!.x - (viewport!.width - expanded!.width) / 2)).toBeLessThanOrEqual(2);
 
+  // The floating desktop dock overlaps the lower part of the expanded workspace.
+  // At the overlap point, Ask Nostos must remain the topmost interactive surface.
+  const dock = await page.locator('app-app-dock .app-dock-container').boundingBox();
+  expect(dock).not.toBeNull();
+  const overlapLeft = Math.max(expanded!.x, dock!.x);
+  const overlapRight = Math.min(expanded!.x + expanded!.width, dock!.x + dock!.width);
+  const overlapTop = Math.max(expanded!.y, dock!.y);
+  const overlapBottom = Math.min(expanded!.y + expanded!.height, dock!.y + dock!.height);
+  expect(overlapRight - overlapLeft).toBeGreaterThan(0);
+  expect(overlapBottom - overlapTop).toBeGreaterThan(0);
+
+  const assistantOwnsOverlap = await page.evaluate(
+    ({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest('[data-testid="assistant-panel"]')),
+    {
+      x: overlapLeft + (overlapRight - overlapLeft) / 2,
+      y: overlapTop + (overlapBottom - overlapTop) / 2,
+    },
+  );
+  expect(assistantOwnsOverlap).toBe(true);
+
   await expand.click();
 
   await expect(panel).not.toHaveClass(/is-expanded/);
