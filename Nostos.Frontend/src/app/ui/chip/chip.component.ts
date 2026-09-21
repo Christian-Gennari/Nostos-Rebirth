@@ -41,11 +41,16 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
         transition:
           background-color 0.15s ease,
           border-color 0.15s ease,
-          color 0.15s ease;
+          color 0.15s ease,
+          transform 0.15s ease;
       }
 
       :host(:hover:not(:disabled)) {
         background: color-mix(in srgb, var(--color-brand-accent) 22%, transparent);
+      }
+
+      :host(:active:not(:disabled)) {
+        transform: scale(0.97);
       }
 
       :host(:focus-visible) {
