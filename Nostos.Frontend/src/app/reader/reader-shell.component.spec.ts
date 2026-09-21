@@ -438,6 +438,7 @@ describe('ReaderShell toolbar contract (theme system removed)', () => {
     const toggle = fixture.debugElement.query(By.css('[data-testid="reader-highlight-toggle"]'));
     expect(toggle).not.toBeNull();
     expect(toggle.nativeElement.textContent).toContain('Highlight text');
+    expect(toggle.nativeElement.getAttribute('aria-pressed')).toBe('false');
 
     toggle.nativeElement.click();
     render();
@@ -450,10 +451,20 @@ describe('ReaderShell toolbar contract (theme system removed)', () => {
     render();
     const toggleAgain = fixture.debugElement.query(By.css('[data-testid="reader-highlight-toggle"]'));
     expect(toggleAgain.nativeElement.textContent).toContain('Highlighting is on');
+    expect(toggleAgain.nativeElement.getAttribute('aria-pressed')).toBe('true');
     toggleAgain.nativeElement.click();
     render();
     expect(component.highlightMode()).toBe(false);
     expect(component.notesOpen()).toBe(true);
+  });
+
+  it('exposes selected state on every Reader view-setting option', () => {
+    const source = readSource('./reader-shell.component.html');
+    const optionTags = [...source.matchAll(/<button\b(?=[^>]*class="typo-opt")[^>]*>/g)]
+      .map((m) => m[0]);
+
+    expect(optionTags.length).toBeGreaterThan(0);
+    expect(optionTags.every((tag) => tag.includes('[attr.aria-pressed]'))).toBe(true);
   });
 
   it('has no overflow menu left to reach the desktop-only controls', async () => {

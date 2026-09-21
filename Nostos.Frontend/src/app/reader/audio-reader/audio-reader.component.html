@@ -80,7 +80,13 @@
           <span class="skip-label">15</span>
         </button>
 
-        <button class="play-btn" (click)="togglePlay()" [disabled]="loading()">
+        <button
+          class="play-btn"
+          type="button"
+          (click)="togglePlay()"
+          [disabled]="loading()"
+          [attr.aria-label]="isPlaying() ? 'Pause' : 'Play'"
+        >
           @if(isPlaying()) {
           <nostos-icon name="pause" [size]="32" class="icon-fill"></nostos-icon>
           } @else {

@@ -416,6 +416,19 @@ describe('AudioReader audio quick wins (speeds, chapters, persisted rate)', () =
     expect(component.hasChapters()).toBe(false);
   });
 
+  it('gives the play/pause transport a state-aware accessible name', () => {
+    fixture.componentRef.setInput('bookId', 'book-1');
+    fixture.componentRef.setInput('book', makeBook());
+    fixture.detectChanges();
+
+    const play = fixture.nativeElement.querySelector('.play-btn') as HTMLButtonElement;
+    expect(play.getAttribute('aria-label')).toBe('Play');
+
+    component.isPlaying.set(true);
+    fixture.detectChanges();
+    expect(play.getAttribute('aria-label')).toBe('Pause');
+  });
+
   it('uses one time format for both ends of the pair (issue #227 §4)', () => {
     component.duration.set(15 * 3600 + 59 * 60);
     component.currentTime.set(0);
