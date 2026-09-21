@@ -599,6 +599,43 @@ function stylesBacktickCount(raw) {
 }
 
 /**
+ * RULE 9 — Settings must not grow a second generic button family.
+ *
+ * Settings was the first surface migrated to the canonical native-button
+ * primitive (`button[appButton]`). Before that migration it owned a private
+ * `.btn` / `.btn-primary` / `.btn-secondary` / `.btn-danger` / `.btn-sm`
+ * family whose geometry and motion had drifted from the rest of the app.
+ *
+ * Keep product-specific controls such as `.settings-nav-item` and `.theme-card`
+ * local — they have different interaction contracts. What is forbidden here is a
+ * NEW generic `.btn*` recipe in Settings, because ordinary labelled actions now
+ * have one owner.
+ */
+function legacySettingsButtonSelectors(css) {
+  const out = [];
+  for (const m of css.matchAll(/([^{}]+)\{/g)) {
+    const selector = m[1].trim();
+    const hasLegacy = selector
+      .split(',')
+      .some((part) => /(?:^|[\s>+~])\.btn(?:\b|-[a-zA-Z0-9_-]+\b)/.test(part.trim()));
+    if (hasLegacy) out.push({ selector, index: m.index });
+  }
+  return out;
+}
+
+{
+  const settings = files.find((f) => rel(f.path) === 'src/app/settings/settings.component.css');
+  if (settings) {
+    for (const hit of legacySettingsButtonSelectors(settings.css)) {
+      const line = settings.css.slice(0, hit.index).split('\n').length;
+      report('settings-local-button-family', settings.path, line,
+        `Settings re-declares a generic .btn* selector ("${hit.selector.replace(/\s+/g, ' ').slice(0, 90)}"). ` +
+        `Use button[appButton] for ordinary labelled actions; keep only product-specific controls local.`);
+    }
+  }
+}
+
+/**
  * Prove the scanner can fail. A rule that cannot be made to fire is not a check.
  * `--self-test` injects a known-bad snippet per rule and asserts each fires.
  */
@@ -608,6 +645,7 @@ if (process.argv.includes('--self-test')) {
       '.x {\n  transition: background-color, color 0.2s ease\n  color: red;\n}'],
     ['literal-colour', '.x { color: #ff00ff; }'],
     ['undeclared-token', '.x { color: var(--definitely-not-declared); }'],
+    ['settings-local-button-family', '.btn-primary { background: red; }'],
     // RULE 8 needs a TEMPLATE and a matching .css class, so its case is checked by
     // the same predicate the rule uses (a bare hyphenated attr that IS a known class).
     ['bare-attribute-not-class', '<button appIconButton desktop-only></button>'],
@@ -658,6 +696,7 @@ if (process.argv.includes('--self-test')) {
           .some((m) => known.has(m[1]));
     }
     if (rule === 'undeclared-token') fired = /var\(\s*--definitely-not-declared/.test(snippet);
+    if (rule === 'settings-local-button-family') fired = legacySettingsButtonSelectors(snippet).length > 0;
     if (fired) { ok++; console.log(`  ✔ ${rule} fires on its known-bad snippet`); }
     else console.log(`  ✖ ${rule} DID NOT FIRE — the rule is vacuous`);
     void fake; void before;
@@ -707,7 +746,7 @@ if (process.argv.includes('--self-test')) {
   const RULES = ['unterminated-transition', 'visually-hidden', 'literal-colour',
     'undeclared-token', 'possible-unwinnable-dark-override (ADVISORY)',
     'backtick-in-inline-styles', 'transition-missing-duration',
-    'bare-attribute-not-class',
+    'bare-attribute-not-class', 'settings-local-button-family',
     'visually-hidden (by-name + by-recipe)'];
   console.log(`\nself-test: ${ok}/${cases.length + 3} injected cases detected`);
   console.log(`rules implemented: ${RULES.length} (${RULES.join(', ')})`);
