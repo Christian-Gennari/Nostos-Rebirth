@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -97,6 +98,54 @@ public sealed class LibraryEndpointTests : IClassFixture<LibraryEndpointFactory>
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Upload_file_rejects_physical_books_as_metadata_only()
+    {
+        var created = await Client.PostAsJsonAsync("/api/books", new
+        {
+            type = "physical",
+            title = $"Physical Only {Guid.NewGuid():N}",
+        });
+        var book = (await created.Content.ReadFromJsonAsync<BookDto>())!;
+
+        using var form = new MultipartFormDataContent();
+        var file = new StringContent("This file must stay separate from the physical edition.");
+        file.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        form.Add(file, "file", "copy.txt");
+
+        var response = await Client.PostAsync($"/api/books/{book.Id}/file", form);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync()).Should().Contain("metadata-only");
+
+        var unchanged = await Client.GetFromJsonAsync<BookDto>($"/api/books/{book.Id}");
+        unchanged!.HasFile.Should().BeFalse();
+        unchanged.FileName.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Upload_file_still_accepts_digital_books()
+    {
+        var created = await Client.PostAsJsonAsync("/api/books", new
+        {
+            type = "ebook",
+            title = $"Digital Upload {Guid.NewGuid():N}",
+        });
+        var book = (await created.Content.ReadFromJsonAsync<BookDto>())!;
+
+        using var form = new MultipartFormDataContent();
+        var file = new StringContent("A small text edition for the upload contract.");
+        file.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        form.Add(file, "file", "copy.txt");
+
+        var response = await Client.PostAsync($"/api/books/{book.Id}/file", form);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var updated = await Client.GetFromJsonAsync<BookDto>($"/api/books/{book.Id}");
+        updated!.HasFile.Should().BeTrue();
+        updated.FileName.Should().Be("book.txt");
     }
 
     [Fact]

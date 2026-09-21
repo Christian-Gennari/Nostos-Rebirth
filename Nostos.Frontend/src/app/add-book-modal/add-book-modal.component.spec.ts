@@ -68,6 +68,42 @@ describe('AddBookModal', () => {
     expect(document.activeElement).toBe(title);
   });
 
+  it('keeps physical books metadata-only in the create form', () => {
+    component.setTab('Files & Personal');
+    fixture.detectChanges();
+
+    const digitalFileInput = fixture.nativeElement.querySelector(
+      'input[type="file"][accept*=".epub"]',
+    );
+    expect(digitalFileInput).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Physical books are metadata-only');
+    expect(fixture.nativeElement.textContent).toContain('separate book');
+  });
+
+  it('clears a chosen digital file when format changes to physical', () => {
+    component.onTypeChange('ebook');
+    component.selectedFile.set(
+      new File(['ebook'], 'meditations.epub', { type: 'application/epub+zip' }),
+    );
+
+    component.onTypeChange('physical');
+
+    expect(component.selectedFile()).toBeNull();
+  });
+
+  it('never uploads a stale file when creating a physical book', () => {
+    const books = TestBed.inject(BooksService);
+    vi.spyOn(books, 'create').mockReturnValue(of({ id: 'physical-new' } as unknown as Book));
+    const uploadSpy = vi.spyOn(books, 'uploadFile');
+
+    component.form.title = 'Physical Meditations';
+    component.form.type = 'physical';
+    component.selectedFile.set(new File(['stale'], 'stale.epub', { type: 'application/epub+zip' }));
+    component.submit();
+
+    expect(uploadSpy).not.toHaveBeenCalled();
+  });
+
   it('renders the multi-select picker with the hierarchy intact', () => {
     fixture.detectChanges();
     const options = Array.from<Element>(

@@ -261,6 +261,13 @@ public static class BooksEndpoints
                 if (book is null)
                     return Results.NotFound();
 
+                if (book is PhysicalBookModel)
+                {
+                    return Results.BadRequest(
+                        "Physical books are metadata-only. Add the digital file as a separate edition."
+                    );
+                }
+
                 var form = await request.ReadFormAsync(ct);
                 var file = form.Files.FirstOrDefault();
                 if (file is null)

@@ -97,6 +97,7 @@
               <label class="form-label">Format</label>
               <select
                 [(ngModel)]="form.type"
+                (ngModelChange)="onTypeChange($event)"
                 name="type"
                 class="select-input input"
                 [disabled]="isEditMode()"
@@ -351,6 +352,11 @@
                        anything dropped here is discarded without a word. -->
                   <p class="source-hint">
                     Downloads from {{ seededSourceName() }} when you import — no file needed.
+                  </p>
+                } @else if (form.type === 'physical') {
+                  <p class="source-hint">
+                    Physical books are metadata-only. Add an EPUB or PDF as a separate book, then
+                    link the editions from Book Details.
                   </p>
                 } @else {
                   <label
