@@ -70,7 +70,15 @@
         } @else if (entry.kind === 'assistant') {
         <span class="entry-speaker" data-testid="assistant-entry-assistant-label">Nostos</span>
         }
+        @if (entry.kind === 'assistant') {
+        <div
+          class="entry-text entry-markdown"
+          data-testid="assistant-entry-markdown"
+          [innerHTML]="entry.text | assistantMarkdown"
+        ></div>
+        } @else {
         <blockquote class="entry-text">{{ entry.text }}</blockquote>
+        }
         @if (entry.anchorLabel || entry.meta) {
         <footer class="entry-meta">
           @if (entry.anchorLabel) { <span class="entry-anchor">{{ entry.anchorLabel }}</span> }

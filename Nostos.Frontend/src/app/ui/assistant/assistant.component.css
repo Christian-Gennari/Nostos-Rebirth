@@ -309,6 +309,182 @@
   line-height: 1.58;
 }
 
+
+/* Generated assistant Markdown lives under innerHTML, so its descendants do not
+   receive Angular's emulated-encapsulation attribute. Keep the escape hatch
+   narrow: only descendants of this one transcript surface use ::ng-deep. */
+.entry-markdown {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+:host ::ng-deep .entry-markdown > :first-child {
+  margin-top: 0;
+}
+
+:host ::ng-deep .entry-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+:host ::ng-deep .entry-markdown p {
+  margin: 0 0 0.72em;
+}
+
+:host ::ng-deep .entry-markdown h1,
+:host ::ng-deep .entry-markdown h2,
+:host ::ng-deep .entry-markdown h3,
+:host ::ng-deep .entry-markdown h4,
+:host ::ng-deep .entry-markdown h5,
+:host ::ng-deep .entry-markdown h6 {
+  margin: 1.05em 0 0.38em;
+  color: var(--color-text-main);
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-weight: 650;
+  letter-spacing: -0.012em;
+  line-height: 1.3;
+}
+
+:host ::ng-deep .entry-markdown h1 {
+  font-size: 1.08rem;
+}
+
+:host ::ng-deep .entry-markdown h2 {
+  font-size: 1.02rem;
+}
+
+:host ::ng-deep .entry-markdown h3 {
+  font-size: 0.96rem;
+}
+
+:host ::ng-deep .entry-markdown h4,
+:host ::ng-deep .entry-markdown h5,
+:host ::ng-deep .entry-markdown h6 {
+  font-size: 0.9rem;
+}
+
+:host ::ng-deep .entry-markdown strong {
+  font-weight: 650;
+}
+
+:host ::ng-deep .entry-markdown a {
+  color: var(--color-accent);
+  overflow-wrap: anywhere;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.16em;
+}
+
+:host ::ng-deep .entry-markdown ul,
+:host ::ng-deep .entry-markdown ol {
+  margin: 0.48em 0 0.78em;
+  padding-left: 1.35rem;
+}
+
+:host ::ng-deep .entry-markdown li {
+  margin: 0.2em 0;
+  padding-left: 0.08rem;
+}
+
+:host ::ng-deep .entry-markdown li > ul,
+:host ::ng-deep .entry-markdown li > ol {
+  margin-top: 0.22em;
+  margin-bottom: 0.22em;
+}
+
+:host ::ng-deep .entry-markdown li::marker {
+  color: var(--color-text-muted);
+}
+
+:host ::ng-deep .entry-markdown blockquote {
+  margin: 0.7em 0;
+  padding: 0.08em 0 0.08em 0.72rem;
+  border-left: 2px solid var(--border-color);
+  color: var(--color-text-muted);
+}
+
+:host ::ng-deep .entry-markdown blockquote blockquote {
+  margin-left: 0.25rem;
+}
+
+:host ::ng-deep .entry-markdown code {
+  padding: 0.08em 0.28em;
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  background: var(--bg-hover);
+  font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.82em;
+  overflow-wrap: normal;
+}
+
+:host ::ng-deep .entry-markdown pre {
+  max-width: 100%;
+  margin: 0.72em 0;
+  padding: 0.68rem 0.76rem;
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  line-height: 1.48;
+  scrollbar-width: thin;
+}
+
+:host ::ng-deep .entry-markdown pre code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 0.78rem;
+  white-space: pre;
+}
+
+:host ::ng-deep .entry-markdown hr {
+  width: 38%;
+  margin: 0.9em auto;
+  border: 0;
+  border-top: 1px solid var(--border-color);
+}
+
+:host ::ng-deep .entry-markdown table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0.72em 0;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  line-height: 1.42;
+  scrollbar-width: thin;
+}
+
+:host ::ng-deep .entry-markdown th,
+:host ::ng-deep .entry-markdown td {
+  min-width: 7rem;
+  padding: 0.38rem 0.48rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border-color);
+}
+
+:host ::ng-deep .entry-markdown th {
+  color: var(--color-text-muted);
+  font-weight: 650;
+}
+
+:host ::ng-deep .entry-markdown del {
+  color: var(--color-text-muted);
+}
+
+:host ::ng-deep .entry-markdown .assistant-markdown-task-marker {
+  display: inline-block;
+  width: 1.05em;
+  color: var(--color-text-muted);
+  font-family: 'Hanken Grotesk', sans-serif;
+  text-align: center;
+}
+
+:host ::ng-deep .entry-markdown .assistant-markdown-image-omitted {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
 .entry-error {
   padding-left: 13px;
   border-left: 2px solid var(--danger-hairline);
