@@ -777,6 +777,177 @@ function legacyAddBookFieldMarkup(html) {
 }
 
 /**
+ * RULE 12 — Settings ordinary fields must stay on the canonical form primitives.
+ *
+ * The final UI-v1 audit found two private generic field families still living in
+ * Settings: .select-sm and .provider-input. Their layout hooks are still useful,
+ * but border/radius/background/focus/typography now belong to appSelect/appInput.
+ *
+ * This is intentionally selector-scoped and recipe-based. It does NOT reject the
+ * class names themselves, so Settings can keep responsive alignment/flex rules,
+ * and it does not scan product controls elsewhere.
+ */
+function legacySettingsFormRecipes(css) {
+  const out = [];
+  for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selector = m[1].trim();
+    if (!/(?:^|[\s>+~])\.(?:select-sm|provider-input)(?:\b|[-_])/.test(selector)) continue;
+    const body = m[2].replace(/\s+/g, ' ');
+    const appearance = [
+      /(?:^|;)\s*padding(?:-[a-z-]+)?\s*:/,
+      /(?:^|;)\s*border(?:-[a-z-]+)?\s*:/,
+      /(?:^|;)\s*background(?:-[a-z-]+)?\s*:/,
+      /(?:^|;)\s*border-radius\s*:/,
+      /(?:^|;)\s*font-size\s*:/,
+      /(?:^|;)\s*outline(?:-[a-z-]+)?\s*:/,
+      /(?:^|;)\s*appearance\s*:/,
+    ].filter((re) => re.test(body)).length;
+    if (appearance >= 2) out.push({ selector, index: m.index });
+  }
+  return out;
+}
+
+{
+  const settings = files.find((f) => rel(f.path) === 'src/app/settings/settings.component.css');
+  if (settings) {
+    for (const hit of legacySettingsFormRecipes(settings.css)) {
+      const line = settings.css.slice(0, hit.index).split('\n').length;
+      report(
+        'settings-local-form-family',
+        settings.path,
+        line,
+        `Settings re-declares ordinary field appearance in "${hit.selector.replace(/\s+/g, ' ').slice(0, 90)}". ` +
+          `Use appInput/appSelect for the control; keep only product/layout hooks local.`,
+      );
+    }
+  }
+}
+
+/**
+ * RULE 13 — migrated UI-v1 surfaces must not fall back to the old generic class
+ * families for ordinary controls.
+ *
+ * This is a narrow ratchet over the surfaces explicitly migrated in #356-#362,
+ * not a global ban. Exact legacy class tokens are checked; product class names
+ * such as .btn-back, .item-action and .tab-btn are deliberately untouched.
+ *
+ * Add Book's source-query field and source-action CTA are explicit product-owned
+ * acquisition controls from #357, so those two documented exceptions remain.
+ */
+const MIGRATED_UI_V1_TEMPLATES = [
+  'src/app/settings/settings.component.html',
+  'src/app/add-book-modal/add-book-modal.component.html',
+  'src/app/ui/assistant/assistant.component.html',
+  'src/app/library/library.component.html',
+  'src/app/second-brain/second-brain.component.html',
+  'src/app/book-detail/book-detail.component.html',
+  'src/app/book-detail/editions-modal/editions-modal.component.html',
+  'src/app/reader/reader-shell.component.html',
+  'src/app/writing-studio/writing-studio.component.html',
+  'src/app/ui/confirm-modal/confirm-modal.component.html',
+];
+const LEGACY_GENERIC_CONTROL_CLASSES = new Set([
+  'btn',
+  'btn-primary',
+  'btn-secondary',
+  'btn-danger',
+  'btn-sm',
+  'input',
+  'textarea',
+  'select-input',
+]);
+
+function legacyMigratedControlMarkup(html) {
+  const out = [];
+  for (const tag of html.matchAll(/<[^>]+>/gs)) {
+    const raw = tag[0];
+    const classMatch = raw.match(/\bclass\s*=\s*(["'])(.*?)\1/s);
+    if (!classMatch) continue;
+    const classes = classMatch[2].split(/\s+/).filter(Boolean);
+    const legacy = classes.filter((name) => LEGACY_GENERIC_CONTROL_CLASSES.has(name));
+    if (!legacy.length) continue;
+
+    // Deliberate #357 product controls: acquisition search/results are not an
+    // ordinary metadata form, and their geometry/state remains product-owned.
+    if (/\bid\s*=\s*(["'])source-query\1/.test(raw)) continue;
+    if (classes.includes('source-action')) continue;
+
+    out.push({ tag: raw, index: tag.index, legacy });
+  }
+  return out;
+}
+
+for (const relativePath of MIGRATED_UI_V1_TEMPLATES) {
+  const htmlPath = join(ROOT, relativePath);
+  const html = readFileSync(htmlPath, 'utf8');
+  for (const hit of legacyMigratedControlMarkup(html)) {
+    const line = html.slice(0, hit.index).split('\n').length;
+    report(
+      'migrated-surface-legacy-generic-control',
+      htmlPath,
+      line,
+      `Migrated UI-v1 surface uses legacy generic class(es) [${hit.legacy.join(', ')}]. ` +
+        `Use the canonical primitive for an ordinary control, or keep a clearly product-owned class/interaction.`,
+    );
+  }
+}
+
+/**
+ * RULE 14 — migrated surfaces must not copy the canonical switch geometry.
+ *
+ * Unlike the Settings name-based rule, this scans only the migrated surface CSS
+ * and matches the measured 42x24 track / 18x18 knob geometry. It therefore does
+ * not mistake unrelated "toggle" names (view modes, tabs) for switch copies.
+ */
+const MIGRATED_UI_V1_STYLES = [
+  'src/app/settings/settings.component.css',
+  'src/app/add-book-modal/add-book-modal.component.css',
+  'src/app/ui/assistant/assistant.component.css',
+  'src/app/library/library.component.css',
+  'src/app/second-brain/second-brain.component.css',
+  'src/app/book-detail/book-detail.component.css',
+  'src/app/book-detail/editions-modal/editions-modal.component.css',
+  'src/app/reader/reader-shell.component.css',
+  'src/app/writing-studio/writing-studio.component.css',
+  'src/app/ui/confirm-modal/confirm-modal.component.css',
+];
+
+function copiedSwitchGeometry(css) {
+  const out = [];
+  for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selector = m[1].trim();
+    const body = m[2].replace(/\s+/g, ' ');
+    const track =
+      /width:\s*42px\b/.test(body) &&
+      /height:\s*24px\b/.test(body) &&
+      /(?:border-radius|cursor|position)\s*:/.test(body);
+    const knob =
+      /width:\s*18px\b/.test(body) &&
+      /height:\s*18px\b/.test(body) &&
+      /(?:left|inset-inline-start):\s*3px\b/.test(body);
+    if (track || knob) out.push({ selector, index: m.index });
+  }
+  return out;
+}
+
+for (const relativePath of MIGRATED_UI_V1_STYLES) {
+  const stylePath = join(ROOT, relativePath);
+  if (!files.some((f) => f.path === stylePath)) continue;
+  const raw = readFileSync(stylePath, 'utf8');
+  const css = stripComments(raw);
+  for (const hit of copiedSwitchGeometry(css)) {
+    const line = css.slice(0, hit.index).split('\n').length;
+    report(
+      'migrated-surface-switch-copy',
+      stylePath,
+      line,
+      `Migrated surface copies canonical switch geometry in "${hit.selector.replace(/\s+/g, ' ').slice(0, 90)}". ` +
+        `Use label[appSwitch] for an ordinary switch.`,
+    );
+  }
+}
+
+/**
  * Prove the scanner can fail. A rule that cannot be made to fire is not a check.
  * `--self-test` injects a known-bad snippet per rule and asserts each fires.
  */
@@ -791,6 +962,11 @@ if (process.argv.includes('--self-test')) {
       '.renamed-control { position: relative; width: 42px; height: 24px; cursor: pointer; }'],
     ['add-book-local-field-system', '.input, .select-input { padding: 1rem; }'],
     ['add-book-legacy-field-markup', '<input class="input" type="text">'],
+    ['settings-local-form-family',
+      '.provider-input { padding: 9px; border: 1px solid var(--border-color); background: var(--bg-input); }'],
+    ['migrated-surface-legacy-generic-control', '<button class="btn btn-secondary">Save</button>'],
+    ['migrated-surface-switch-copy',
+      '.copied-switch { position: relative; width: 42px; height: 24px; border-radius: 999px; }'],
     // RULE 8 needs a TEMPLATE and a matching .css class, so its case is checked by
     // the same predicate the rule uses (a bare hyphenated attr that IS a known class).
     ['bare-attribute-not-class', '<button appIconButton desktop-only></button>'],
@@ -845,6 +1021,9 @@ if (process.argv.includes('--self-test')) {
     if (rule === 'settings-local-switch-family') fired = legacySettingsSwitchRecipes(snippet).length > 0;
     if (rule === 'add-book-local-field-system') fired = legacyAddBookFieldSelectors(snippet).length > 0;
     if (rule === 'add-book-legacy-field-markup') fired = legacyAddBookFieldMarkup(snippet).length > 0;
+    if (rule === 'settings-local-form-family') fired = legacySettingsFormRecipes(snippet).length > 0;
+    if (rule === 'migrated-surface-legacy-generic-control') fired = legacyMigratedControlMarkup(snippet).length > 0;
+    if (rule === 'migrated-surface-switch-copy') fired = copiedSwitchGeometry(snippet).length > 0;
     if (fired) { ok++; console.log(`  ✔ ${rule} fires on its known-bad snippet`); }
     else console.log(`  ✖ ${rule} DID NOT FIRE — the rule is vacuous`);
     void fake; void before;
@@ -896,7 +1075,9 @@ if (process.argv.includes('--self-test')) {
     'backtick-in-inline-styles', 'transition-missing-duration',
     'bare-attribute-not-class', 'settings-local-button-family',
     'add-book-local-field-system', 'add-book-legacy-field-markup',
-    'settings-local-switch-family', 'visually-hidden (by-name + by-recipe)'];
+    'settings-local-switch-family', 'settings-local-form-family',
+    'migrated-surface-legacy-generic-control', 'migrated-surface-switch-copy',
+    'visually-hidden (by-name + by-recipe)'];
   console.log(`\nself-test: ${ok}/${cases.length + 3} injected cases detected`);
   console.log(`rules implemented: ${RULES.length} (${RULES.join(', ')})`);
   process.exit(ok === cases.length + 3 ? 0 : 1);
