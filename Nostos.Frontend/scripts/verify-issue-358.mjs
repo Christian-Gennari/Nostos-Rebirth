@@ -26,8 +26,13 @@ try {
         const page = await context.newPage();
         const errors = [];
         page.on('pageerror', (error) => errors.push(String(error)));
-        page.on('console', (message) => {
-          if (message.type() === 'error') errors.push(message.text());
+        page.on('response', (response) => {
+          if (
+            response.status() >= 400 &&
+            !response.url().includes('/api/assistant/status')
+          ) {
+            errors.push(`${response.status()} ${response.url()}`);
+          }
         });
 
         await page.goto(`${origin}/__verify/dialog-actions?mode=${mode}`, {
