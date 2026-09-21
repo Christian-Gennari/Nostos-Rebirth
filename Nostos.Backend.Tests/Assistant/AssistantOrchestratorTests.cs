@@ -525,8 +525,12 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var obsolete = await SeedCollectionAsync(h, "Obsolete");
 
         h.Llm
-            .CallsTool("library_rename_collection", $"""{"collectionId":"{{obsolete.Id}}","name":"Temporary"}""")
-            .CallsTool("library_delete_empty_collection", $"""{"collectionId":"{{obsolete.Id}}"}""")
+            .CallsTool(
+                "library_rename_collection",
+                JsonSerializer.Serialize(new { collectionId = obsolete.Id, name = "Temporary" }))
+            .CallsTool(
+                "library_delete_empty_collection",
+                JsonSerializer.Serialize(new { collectionId = obsolete.Id }))
             .Returns("Done. I cleaned up the obsolete collection.");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
