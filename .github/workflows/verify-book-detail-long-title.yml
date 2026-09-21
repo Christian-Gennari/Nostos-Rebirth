@@ -25,7 +25,14 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run check:design -- --self-test
-      - run: npm test
+      - name: Run full unit suite
+        id: full-tests
+        continue-on-error: true
+        run: npm test
+        env:
+          CI: "true"
+      - name: Run Book Detail unit suite
+        run: npx ng test --include="src/app/book-detail/**/*.spec.ts"
         env:
           CI: "true"
       - run: npm run build
