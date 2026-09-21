@@ -7,7 +7,7 @@ import { InputDirective, SelectDirective, TextareaDirective } from './form-contr
   standalone: true,
   imports: [InputDirective, SelectDirective, TextareaDirective],
   template:
-    '<input appInput size="compact" type="email" name="email" aria-label="Email" [invalid]="true" />' +
+    '<input appInput controlSize="compact" type="email" name="email" aria-label="Email" [invalid]="true" />' +
     '<textarea appTextarea name="notes" rows="3" aria-label="Notes"></textarea>' +
     '<select appSelect name="format" aria-label="Format" disabled><option value="physical">Physical</option></select>',
 })
@@ -31,6 +31,7 @@ describe('canonical form-control directives', () => {
     expect(input.tagName).toBe('INPUT');
     expect(input.type).toBe('email');
     expect(input.name).toBe('email');
+    expect(input.getAttribute('size')).toBeNull();
     expect(input.getAttribute('aria-label')).toBe('Email');
     expect(input.getAttribute('aria-invalid')).toBe('true');
     expect(input.classList.contains('nostos-form-control')).toBe(true);
