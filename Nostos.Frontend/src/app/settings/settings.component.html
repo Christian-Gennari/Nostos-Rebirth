@@ -88,7 +88,12 @@
               }
             </div>
             <label appSwitch>
-              <input type="checkbox" [checked]="settings().isEnabled" (change)="toggleEnabled($event)">
+              <input
+                type="checkbox"
+                [checked]="settings().isEnabled"
+                (change)="toggleEnabled($event)"
+                aria-label="Automatic backup"
+              >
             </label>
           </div>
 
@@ -99,7 +104,12 @@
               <span class="label-desc">Include EPUB, PDF, and audio files in backups. Makes archives much larger but ensures full recovery.</span>
             </div>
             <label appSwitch>
-              <input type="checkbox" [checked]="settings().includeBookFiles" (change)="toggleBookFiles($event)">
+              <input
+                type="checkbox"
+                [checked]="settings().includeBookFiles"
+                (change)="toggleBookFiles($event)"
+                aria-label="Include book files"
+              >
             </label>
           </div>
 
