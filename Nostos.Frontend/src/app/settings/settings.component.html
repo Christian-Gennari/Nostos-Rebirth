@@ -87,9 +87,8 @@
                 <span class="label-desc">When turned on, the first backup will run within 5 minutes, then every {{ formatInterval(settings().intervalHours) }} thereafter.</span>
               }
             </div>
-            <label class="toggle">
+            <label appSwitch>
               <input type="checkbox" [checked]="settings().isEnabled" (change)="toggleEnabled($event)">
-              <span class="toggle-slider"></span>
             </label>
           </div>
 
@@ -99,9 +98,8 @@
               <span class="label-text">Include Book Files</span>
               <span class="label-desc">Include EPUB, PDF, and audio files in backups. Makes archives much larger but ensures full recovery.</span>
             </div>
-            <label class="toggle">
+            <label appSwitch>
               <input type="checkbox" [checked]="settings().includeBookFiles" (change)="toggleBookFiles($event)">
-              <span class="toggle-slider"></span>
             </label>
           </div>
 
@@ -175,7 +173,10 @@
           @if (status().lastBackupAt) {
             <div class="last-backup-info">
               Last backup: {{ status().lastBackupAt | date:'medium' }}
-              <span class="status-{{ status().lastBackupStatus === 'Completed' ? 'success' : 'error' }}">
+              <span
+                appBadge
+                [tone]="status().lastBackupStatus === 'Completed' ? 'success' : 'danger'"
+              >
                 {{ status().lastBackupStatus }}
               </span>
             </div>
@@ -210,12 +211,15 @@
                       &middot; metadata only
                     }
                     @if (item.errorMessage) {
-                      &middot; <span class="status-error">{{ item.errorMessage }}</span>
+                      &middot; <span class="history-error">{{ item.errorMessage }}</span>
                     }
                   </span>
                 </div>
                 <div class="history-actions">
-                  <span class="status-{{ item.status === 'Completed' ? 'success' : item.status === 'Failed' ? 'error' : 'pending' }}">
+                  <span
+                    appBadge
+                    [tone]="item.status === 'Completed' ? 'success' : item.status === 'Failed' ? 'danger' : 'neutral'"
+                  >
                     {{ item.status }}
                   </span>
                   @if (item.status === 'Completed') {
@@ -352,7 +356,11 @@
           <div class="card-header-copy">
             <h2>Reading assistant</h2>
           </div>
-          <span class="status-dot-label" [class.is-on]="assistantAvailable() && assistantEnabled()">
+          <span
+            appBadge
+            [dot]="true"
+            [tone]="assistantAvailable() && assistantEnabled() ? 'success' : 'neutral'"
+          >
             {{ assistantAvailable() ? (assistantEnabled() ? 'On' : 'Off') : 'Unavailable' }}
           </span>
         </div>
@@ -368,7 +376,7 @@
               }
             </div>
             @if (assistantAvailable()) {
-              <label class="toggle">
+              <label appSwitch>
                 <input
                   type="checkbox"
                   [checked]="assistantEnabled()"
@@ -376,10 +384,9 @@
                   aria-label="Reading assistant"
                   data-testid="assistant-enabled-toggle"
                 >
-                <span class="toggle-slider"></span>
               </label>
             } @else {
-              <label class="toggle toggle--disabled">
+              <label appSwitch>
                 <input
                   type="checkbox"
                   [checked]="false"
@@ -388,7 +395,6 @@
                   aria-label="Reading assistant"
                   data-testid="assistant-enabled-toggle"
                 >
-                <span class="toggle-slider"></span>
               </label>
             }
           </div>
@@ -577,7 +583,7 @@
               <h3 class="provider-heading">{{ copy.voiceTranscription }}</h3>
 
               <div class="provider-toggle-row">
-                <label class="toggle">
+                <label appSwitch>
                   <input
                     type="checkbox"
                     [checked]="aiStt().enabled"
@@ -585,7 +591,6 @@
                     [attr.aria-label]="copy.voiceToggle"
                     data-testid="voice-transcription-toggle"
                   >
-                  <span class="toggle-slider"></span>
                 </label>
                 <span class="provider-toggle-label">{{ copy.voiceToggle }}</span>
               </div>
