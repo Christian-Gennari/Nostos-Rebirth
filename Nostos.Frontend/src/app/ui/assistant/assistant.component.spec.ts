@@ -454,6 +454,90 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     expect(assistantLabel.textContent).toContain('Nostos');
   });
 
+  it('renders the complete assistant Markdown surface safely and keeps user text literal', () => {
+    assistant.open();
+    assistant.updateDraft('**Keep this user text literal**');
+    assistant.submit();
+
+    const reply = [
+      '# Reading plan',
+      '',
+      'Paragraph with **bold**, *italics*, ~~removed~~, `inline code`, and [a link](https://example.com).',
+      '',
+      '1. First',
+      '   - Nested item',
+      '2. Second',
+      '',
+      '- [x] Finished',
+      '- [ ] Still reading',
+      '',
+      '> Outer quote',
+      '>> Nested quote',
+      '',
+      '| Shelf | Books |',
+      '| --- | ---: |',
+      '| Classics | 18 |',
+      '',
+      '```ts',
+      'const answer = 42;',
+      '```',
+      '',
+      '---',
+      '',
+      '![cover](https://tracker.invalid/cover.png)',
+      '[unsafe](javascript:alert(1))',
+      '<script>globalThis.__nostosXss = true</script>',
+      '<img src="https://tracker.invalid/pixel" onerror="globalThis.__nostosXss = true">',
+      '',
+      '**unfinished',
+    ].join('\n');
+
+    http.expectOne('/api/assistant/turn').flush(turn({ reply }));
+    fixture.detectChanges();
+
+    const userEntry = fixture.nativeElement.querySelector('.entry-user .entry-text') as HTMLElement;
+    expect(userEntry.textContent).toContain('**Keep this user text literal**');
+    expect(userEntry.querySelector('strong')).toBeNull();
+
+    const rendered = fixture.nativeElement.querySelector(
+      '[data-testid="assistant-entry-markdown"]',
+    ) as HTMLElement;
+    expect(rendered).toBeTruthy();
+    expect(rendered.querySelector('h1')?.textContent).toContain('Reading plan');
+    expect(rendered.querySelector('strong')?.textContent).toBe('bold');
+    expect(rendered.querySelector('em')?.textContent).toBe('italics');
+    expect(rendered.querySelector('del')?.textContent).toBe('removed');
+    expect(rendered.querySelector('ol')).toBeTruthy();
+    expect(rendered.querySelector('ul ul')).toBeTruthy();
+    expect(rendered.querySelector('blockquote blockquote')).toBeTruthy();
+    expect(rendered.querySelector('table')).toBeTruthy();
+    expect(rendered.querySelector('pre code')?.textContent).toContain('const answer = 42;');
+    expect(rendered.querySelector('hr')).toBeTruthy();
+
+    // Task lists are display-only: no form control is allowed into the transcript.
+    expect(rendered.querySelector('input')).toBeNull();
+    expect(rendered.textContent).toContain('☑');
+    expect(rendered.textContent).toContain('☐');
+
+    // Remote Markdown images never create a network-loading element.
+    expect(rendered.querySelector('img')).toBeNull();
+    expect(rendered.textContent).toContain('[Image omitted: cover]');
+
+    // Raw HTML is shown literally, while Angular remains the final sanitizer for
+    // generated attributes such as link hrefs.
+    expect(rendered.querySelector('script')).toBeNull();
+    expect(rendered.textContent).toContain('<script>globalThis.__nostosXss = true</script>');
+    expect(rendered.textContent).toContain('<img src="https://tracker.invalid/pixel"');
+    const unsafeLink = Array.from(rendered.querySelectorAll('a')).find(
+      (link) => link.textContent === 'unsafe',
+    ) as HTMLAnchorElement | undefined;
+    expect(unsafeLink).toBeTruthy();
+    expect(unsafeLink?.getAttribute('href')?.startsWith('javascript:')).toBe(false);
+
+    // Malformed Markdown degrades to readable text instead of losing the tail.
+    expect(rendered.textContent).toContain('**unfinished');
+  });
+
   describe('thinking indicator (issue #289)', () => {
     function transcript(): HTMLElement {
       return fixture.nativeElement.querySelector('[data-testid="assistant-transcript"]');
