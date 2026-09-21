@@ -14,7 +14,7 @@ import {
 } from '../core/services/library-preferences.service';
 import { AssistantStatusService } from '../ui/assistant/assistant-status.service';
 import { AssistantSettingsService } from '../ui/assistant/assistant-settings.service';
-import { ProcessingMode } from '../ui/assistant/assistant.service';
+import { ProcessingMode } from '../ui/assistant/assistant-settings.service';
 import { AiProviderService } from '../core/services/ai-provider.service';
 import {
   AiProviderModelsRequest,
