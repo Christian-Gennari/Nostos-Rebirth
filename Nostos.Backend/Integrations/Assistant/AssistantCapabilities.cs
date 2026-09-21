@@ -845,12 +845,23 @@ public static class AssistantCapabilities
     /// the REST/MCP callers receive them; the assistant does not re-map those
     /// codes.
     /// </summary>
-    private static AssistantToolResult LibraryResult(LibraryCommandResultDto result) =>
-        AssistantToolResult.Ok(Element(new
+    private static AssistantToolResult LibraryResult(LibraryCommandResultDto result)
+    {
+        var payload = Element(new
         {
             result.Reply,
             result.Data,
             result.StateVersion,
             result.Duplicate,
-        }));
+        });
+
+        return result.Data switch
+        {
+            LibraryConfirmationErrorDto error =>
+                AssistantToolResult.Fail(error.Code, result.Reply, payload),
+            LibraryErrorDto error =>
+                AssistantToolResult.Fail(error.Code, result.Reply, payload),
+            _ => AssistantToolResult.Ok(payload),
+        };
+    }
 }
