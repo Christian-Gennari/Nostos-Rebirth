@@ -14,6 +14,7 @@ import { NostosIconComponent } from '../icon/nostos-icon.component';
 import { AssistantService, formatTimestamp } from './assistant.service';
 import { AssistantVoiceService } from './assistant-voice.service';
 import { AssistantStatusService } from './assistant-status.service';
+import { AssistantMarkdownPipe } from './assistant-markdown.pipe';
 import { LibraryPreferencesService } from '../../core/services/library-preferences.service';
 
 /**
@@ -43,7 +44,7 @@ const FOLLOW_THRESHOLD_PX = 32;
 @Component({
   selector: 'app-assistant',
   standalone: true,
-  imports: [NostosIconComponent],
+  imports: [NostosIconComponent, AssistantMarkdownPipe],
   templateUrl: './assistant.component.html',
   styleUrl: './assistant.component.css',
   host: {
