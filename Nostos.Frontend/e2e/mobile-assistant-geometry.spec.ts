@@ -144,3 +144,81 @@ test('the collapsed trigger stays 44px+ and clear of the toolbar and epub text',
   console.log(`[geometry] epub text rects: ${texts.length}; worst overlap ${Math.round(worstText)}px2`);
   expect(worstText, 'trigger overlaps epub text').toBe(0);
 });
+
+test('the open assistant fills the visible viewport and stays stable when the composer focuses', async ({ page }) => {
+  await page.route('**/api/assistant/status', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ available: true }),
+    });
+  });
+
+  await page.goto(`${fixture.baseUrl}/library/${bookId}`, { waitUntil: 'domcontentloaded' });
+  const trigger = page.locator('[data-testid="assistant-trigger"]');
+  await expect(trigger).toBeVisible();
+  await trigger.click();
+
+  const panel = page.locator('[data-testid="assistant-panel"]');
+  const composer = page.locator('[data-testid="assistant-composer"]');
+  await expect(panel).toBeVisible();
+
+  // Entering the dedicated phone surface must not summon the keyboard on its
+  // own; the user can read the conversation or start voice capture first.
+  await expect(composer).not.toBeFocused();
+
+  async function visibleGeometry() {
+    return page.evaluate(() => {
+      const panel = document.querySelector('[data-testid="assistant-panel"]');
+      if (!(panel instanceof HTMLElement)) return null;
+      const rect = panel.getBoundingClientRect();
+      const viewport = window.visualViewport;
+      return {
+        panelTop: rect.top,
+        panelHeight: rect.height,
+        panelWidth: rect.width,
+        viewportTop: viewport?.offsetTop ?? 0,
+        viewportHeight: viewport?.height ?? window.innerHeight,
+        viewportWidth: viewport?.width ?? window.innerWidth,
+      };
+    });
+  }
+
+  const opened = await visibleGeometry();
+  expect(opened).not.toBeNull();
+  expect(Math.abs(opened!.panelTop - opened!.viewportTop)).toBeLessThanOrEqual(2);
+  expect(Math.abs(opened!.panelHeight - opened!.viewportHeight)).toBeLessThanOrEqual(2);
+  expect(Math.abs(opened!.panelWidth - opened!.viewportWidth)).toBeLessThanOrEqual(2);
+
+  // Regression for the old 56dvh -> 84dvh :focus-within jump.
+  const beforeFocus = await panel.boundingBox();
+  await composer.focus();
+  const afterFocus = await panel.boundingBox();
+  expect(beforeFocus).not.toBeNull();
+  expect(afterFocus).not.toBeNull();
+  expect(Math.abs(afterFocus!.height - beforeFocus!.height)).toBeLessThanOrEqual(2);
+
+  // Headless Chromium has no software keyboard, so shrink the visible browser
+  // viewport to the kind of height a keyboard leaves behind. The panel should
+  // follow that visible area rather than translate itself by a guessed offset.
+  await page.setViewportSize({ width: 390, height: 520 });
+
+  await expect
+    .poll(async () => {
+      const geometry = await visibleGeometry();
+      if (!geometry) return Number.POSITIVE_INFINITY;
+      return Math.abs(geometry.panelHeight - geometry.viewportHeight);
+    })
+    .toBeLessThanOrEqual(2);
+
+  const shrunken = await visibleGeometry();
+  expect(shrunken).not.toBeNull();
+  expect(Math.abs(shrunken!.panelTop - shrunken!.viewportTop)).toBeLessThanOrEqual(2);
+
+  const composerBox = await composer.boundingBox();
+  expect(composerBox).not.toBeNull();
+  expect(composerBox!.y + composerBox!.height).toBeLessThanOrEqual(
+    shrunken!.viewportTop + shrunken!.viewportHeight + 1,
+  );
+});
+
