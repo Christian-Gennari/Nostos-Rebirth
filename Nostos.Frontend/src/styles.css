@@ -155,7 +155,7 @@
      small identity/current-state moments (filter chips, reading state), NOT for
      generic selection, navigation, hover or primary actions. Keeping that role
      separate prevents "make the accent green" from turning the whole UI green. */
-  --brand-accent-ui: #293E32;
+  --color-brand-accent: #293E32;
 
   /* ── Concept graph ──
      The Second Brain's map was a wireframe of hollow rings: nodes are filled
@@ -600,7 +600,7 @@
 
   /* Same semantic role as light's Forest accent, mapped to the existing dark
      green so this change does not repaint the established Nordic Nocturne UI. */
-  --brand-accent-ui: var(--color-primary);
+  --color-brand-accent: var(--color-primary);
 
   /* ── Concept graph ──
      The palette's on-surface-variant, which is near-NEUTRAL (R − B = −3): a

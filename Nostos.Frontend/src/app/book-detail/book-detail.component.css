@@ -877,11 +877,11 @@ button.edition-select-card:focus-visible {
 }
 
 .status-chip-btn.reading {
-  background: color-mix(in srgb, var(--brand-accent-ui) 12%, transparent);
-  color: var(--brand-accent-ui);
+  background: color-mix(in srgb, var(--color-brand-accent) 12%, transparent);
+  color: var(--color-brand-accent);
 }
 .status-chip-btn.reading:hover {
-  background: color-mix(in srgb, var(--brand-accent-ui) 20%, transparent);
+  background: color-mix(in srgb, var(--color-brand-accent) 20%, transparent);
 }
 
 .status-dot {
@@ -1077,8 +1077,8 @@ button.edition-select-card:focus-visible {
 }
 
 .status-dropdown-item.selected {
-  background: color-mix(in srgb, var(--brand-accent-ui) 10%, transparent);
-  color: var(--brand-accent-ui);
+  background: color-mix(in srgb, var(--color-brand-accent) 10%, transparent);
+  color: var(--color-brand-accent);
   font-weight: 600;
 }
 
