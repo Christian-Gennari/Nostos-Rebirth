@@ -46,7 +46,7 @@ public sealed class LibraryEndpointTests : IClassFixture<LibraryEndpointFactory>
         book.Isbn.Should().Be("9780199535576");
 
         await using var db = await OpenDbAsync();
-        var stored = await db.PhysicalBooks.SingleAsync(b => b.Id == book.Id);
+        var stored = await db.Books.OfType<PhysicalBookModel>().SingleAsync(b => b.Id == book.Id);
         stored.NormalizedIsbn.Should().Be("9780199535576");
     }
 
