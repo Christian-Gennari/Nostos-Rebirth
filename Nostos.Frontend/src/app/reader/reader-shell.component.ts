@@ -23,6 +23,7 @@ import {
 
 // Components
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
+import { ButtonComponent } from '../ui/button/button.component';
 import { ScrollModeType } from 'ngx-extended-pdf-viewer';
 import { PdfReader } from './pdf-reader/pdf-reader.component';
 import { EpubReader } from './epub-reader/epub-reader.component';
@@ -45,6 +46,7 @@ import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
     ConceptInputComponent,
     NoteCardComponent,
     IconButtonComponent,
+    ButtonComponent,
     ConfirmModal,
   ],
   templateUrl: './reader-shell.component.html',

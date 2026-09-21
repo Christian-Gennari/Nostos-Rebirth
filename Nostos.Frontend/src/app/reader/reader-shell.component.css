@@ -443,12 +443,8 @@
   flex-shrink: 0;
 }
 
-.confirmation-actions .btn {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  white-space: nowrap;
-  min-height: 44px;
+.reader-confirm-action {
+  min-height: var(--control-h-touch);
 }
 
 /* --- Page indicator (a #226 follow-up) -------------------------------------------
@@ -622,16 +618,6 @@
 
 .typo-reset {
   align-self: flex-start;
-  padding: 0.25rem 0;
-  border: 0;
-  background: transparent;
-  color: var(--color-text-light);
-  font-size: 0.8125rem;
-  cursor: pointer;
-}
-
-.typo-reset:hover {
-  color: var(--color-text-main);
 }
 
 @media (max-width: 768px) {
@@ -678,6 +664,19 @@
     color: var(--on-primary);
     border-color: var(--color-primary);
   }
+
+  /* Reader-specific controls keep their contracts, but their phone hit areas
+     still follow the same touch floor as the shared kit. This deliberately does
+     NOT turn typography choices, zoom steps, page navigation or highlight mode
+     into generic buttons. */
+  .highlight-toggle,
+  .typo-opt,
+  .typo-step,
+  .typo-reset,
+  .quick-actions button[appButton] {
+    min-height: var(--control-h-touch);
+  }
+
   /* Mobile cancels the global 1px glyph nudge. This must cross the appIconButton
      boundary for the same reason as the radius above: the glyph carries the child's
      scope attribute, so a plain descendant selector stops matching. Caught by the
