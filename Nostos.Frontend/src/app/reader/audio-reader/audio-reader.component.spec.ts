@@ -27,6 +27,16 @@ vi.mock('howler', () => ({
   }),
 }));
 
+function mockPlayer(component: AudioReader): any {
+  // Read what the component actually received from `new Howl(...)` rather than
+  // relying on this file's private instances[] side channel. Another reader
+  // spec also mocks the same module, and Angular may bundle the specs together.
+  // The player reference is the production seam and remains correct whichever
+  // compatible mock factory the bundle resolves.
+  expect(component.player).toBeDefined();
+  return component.player as any;
+}
+
 describe('parseTimeString (issue #6)', () => {
   it('parses M:SS', () => {
     expect(parseTimeString('1:30')).toBe(90);
@@ -288,7 +298,7 @@ describe('AudioReader single-fetch + restore + loading state (issue #7)', () => 
   it('shows the loading state while Howl initializes and clears it on load', () => {
     render(makeBook());
 
-    const howl = howlerState.instances[0];
+    const howl = mockPlayer(component);
     expect(howl).toBeDefined();
     expect(component.loading()).toBe(true);
     expect(fixture.nativeElement.textContent).toContain('Loading audio');
@@ -304,7 +314,7 @@ describe('AudioReader single-fetch + restore + loading state (issue #7)', () => 
   it('clears the loading state and surfaces an error on load failure', () => {
     render(makeBook());
 
-    const howl = howlerState.instances[0];
+    const howl = mockPlayer(component);
     expect(howl).toBeDefined();
     expect(component.loading()).toBe(true);
 
@@ -380,8 +390,8 @@ describe('AudioReader audio quick wins (speeds, chapters, persisted rate)', () =
     expect(component.currentRate()).toBe(1.75);
 
     // Applied to the player once the audio loads.
-    howlerState.instances[0].config.onload();
-    expect(howlerState.instances[0].rate).toHaveBeenCalledWith(1.75);
+    mockPlayer(component).config.onload();
+    expect(mockPlayer(component).rate).toHaveBeenCalledWith(1.75);
   });
 
   it('adopts a speed that was saved per book before this change', () => {
@@ -487,7 +497,7 @@ describe('AudioReader sleep timer (issue #47)', () => {
   });
 
   it('arms a preset: sets the timer state and shows the remaining time', () => {
-    expect(howlerState.instances[0]).toBeDefined();
+    expect(mockPlayer(component)).toBeDefined();
 
     component.selectSleepTimer(30);
 
@@ -507,7 +517,7 @@ describe('AudioReader sleep timer (issue #47)', () => {
   });
 
   it('pauses playback and clears the armed state when the timer expires', () => {
-    const howl = howlerState.instances[0];
+    const howl = mockPlayer(component);
     expect(howl).toBeDefined();
 
     component.selectSleepTimer(15);
@@ -542,7 +552,7 @@ describe('AudioReader sleep timer (issue #47)', () => {
   });
 
   it("disarms immediately when 'Off' is selected", () => {
-    const howl = howlerState.instances[0];
+    const howl = mockPlayer(component);
     expect(howl).toBeDefined();
 
     component.selectSleepTimer(30);
@@ -578,7 +588,7 @@ describe('AudioReader sleep timer (issue #47)', () => {
   });
 
   it('keeps counting down wall-clock time while playback is paused (wall-clock decision)', () => {
-    const howl = howlerState.instances[0];
+    const howl = mockPlayer(component);
     expect(howl).toBeDefined();
 
     component.selectSleepTimer(30);
@@ -641,7 +651,7 @@ describe('AudioReader sleep timer (issue #47)', () => {
       }),
     );
     fixture.detectChanges();
-    const howl = howlerState.instances[0];
+    const howl = mockPlayer(component);
     howl.config.onload();
 
     component.currentTime.set(610);
@@ -674,7 +684,7 @@ describe('AudioReader sleep timer (issue #47)', () => {
       }),
     );
     fixture.detectChanges();
-    const howl = howlerState.instances[0];
+    const howl = mockPlayer(component);
     howl.config.onload();
 
     component.currentTime.set(610);
@@ -698,7 +708,7 @@ describe('AudioReader sleep timer (issue #47)', () => {
       makeBook({ chapters: [{ title: 'One', startTime: 0 }] }),
     );
     fixture.detectChanges();
-    const howl = howlerState.instances[0];
+    const howl = mockPlayer(component);
     howl.config.onload();
 
     component.currentTime.set(100);
