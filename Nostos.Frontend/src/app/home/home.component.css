@@ -62,7 +62,7 @@
 }
 
 /* Call to Action */
-.btn.btn-primary.lg {
+.hero-cta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -77,7 +77,7 @@
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.btn.btn-primary.lg:hover {
+.hero-cta:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-glass-lg), 0 0 24px -4px var(--color-accent-faint);
 }
