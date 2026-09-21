@@ -307,7 +307,8 @@ describe('AddBookModal — From a Source', () => {
     expect(wrapper!.textContent).toContain('Project Gutenberg');
   });
 
-  it('still offers both uploads for a hand-entered book, and names a chosen file', async () => {
+  it('still offers both uploads for a hand-entered digital book, and names a chosen file', async () => {
+    component.onTypeChange('ebook');
     fixture.detectChanges();
     component.setTab('Files & Personal');
     fixture.detectChanges();
