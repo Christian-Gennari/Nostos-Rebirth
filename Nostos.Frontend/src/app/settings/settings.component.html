@@ -200,7 +200,7 @@
           <div class="card-header-copy">
             <h2>Backup History</h2>
           </div>
-          <span class="card-count">{{ history().length }}</span>
+          <span appBadge>{{ history().length }}</span>
         </div>
 
         @if (history().length === 0) {
