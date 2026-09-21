@@ -43,7 +43,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var book = await SeedBookAsync(h, "The Magic Mountain");
 
         h.Llm
-            .CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"A captured thought"}""")
+            .CallsTool("notes_capture", $$$"""{"bookId":"{{book.Id}}","content":"A captured thought"}""")
             .Returns("Saved that for you.");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
@@ -102,7 +102,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         // named the book that was open. Note and confirmation disagreed, and
         // neither was visible as wrong. The open book is a fact, not a proposal.
         h.Llm
-            .CallsTool("notes_capture", $$"""{"bookId":"{{other.Id}}","content":"A captured thought"}""")
+            .CallsTool("notes_capture", $$$"""{"bookId":"{{other.Id}}","content":"A captured thought"}""")
             .Returns("Saved.");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
@@ -237,7 +237,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         h.Llm
             .CallsTool(
                 "notes_capture",
-                $$"""{"bookId":"{{book.Id}}","content":"so anyway i was thinking","processingMode":"clarify"}""")
+                $$$"""{"bookId":"{{book.Id}}","content":"so anyway i was thinking","processingMode":"clarify"}""")
             .Returns("Saved.");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
@@ -270,7 +270,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         h.Llm
             .CallsTool(
                 "notes_capture",
-                $$"""{"bookId":"{{book.Id}}","content":"raw words","processingMode":"clarify"}""")
+                $$$"""{"bookId":"{{book.Id}}","content":"raw words","processingMode":"clarify"}""")
             .Returns("Saved.");
 
         await h.Orchestrator.HandleTurnAsync(Turn(
@@ -296,7 +296,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
             .Success.Should().BeTrue();
 
         h.Llm
-            .CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"raw words"}""")
+            .CallsTool("notes_capture", $$$"""{"bookId":"{{book.Id}}","content":"raw words"}""")
             .Returns("Saved.");
 
         await h.Orchestrator.HandleTurnAsync(Turn(
@@ -317,9 +317,9 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var book = await SeedBookAsync(h);
 
         h.Llm
-            .CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"Captured once"}""")
+            .CallsTool("notes_capture", $$$"""{"bookId":"{{book.Id}}","content":"Captured once"}""")
             .Returns("Saved.")
-            .CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"Captured once"}""")
+            .CallsTool("notes_capture", $$$"""{"bookId":"{{book.Id}}","content":"Captured once"}""")
             .Returns("Saved.");
 
         var context = Context(bookId: book.Id.ToString(), bookFormat: "ebook");
@@ -341,7 +341,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         h.Llm
             .CallsTool(
                 "notes_capture",
-                $$"""
+                $$$"""
                 {"bookId":"{{book.Id}}","content":"A thought",
                  "sourceAnchorKind":"pdf_page","sourceAnchorValue":"999","anchorVerified":true}
                 """)
@@ -365,7 +365,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var book = await SeedBookAsync(h);
 
         h.Llm
-            .CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"My thought about it"}""")
+            .CallsTool("notes_capture", $$$"""{"bookId":"{{book.Id}}","content":"My thought about it"}""")
             .Returns("Saved.");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
@@ -429,7 +429,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         // The model reads the reviewed note and lists concepts: the flow the
         // review-note context instructs it to follow.
         h.Llm
-            .CallsTool("notes_read_for_review", $$"""{"noteId":"{{note.Id}}"}""")
+            .CallsTool("notes_read_for_review", $$$"""{"noteId":"{{note.Id}}"}""")
             .CallsTool("concepts_list")
             .Returns("A couple of concepts look right.");
 
@@ -468,7 +468,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var before = await StoreSnapshotAsync(h);
 
         h.Llm
-            .CallsTool("notes_read_for_review", $$"""{"noteId":"{{note.Id}}"}""")
+            .CallsTool("notes_read_for_review", $$$"""{"noteId":"{{note.Id}}"}""")
             .CallsTool("concepts_list")
             .Returns("Ideas.");
 
@@ -499,7 +499,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         h.Llm
             .CallsTool("library_list_collections")
             .CallsTool("library_create_collection", """{"name":"Fiction"}""")
-            .CallsTool("library_rename_collection", $$"""{"collectionId":"{{existing.Id}}","name":"Classics"}""")
+            .CallsTool("library_rename_collection", $$$"""{"collectionId":"{{existing.Id}}","name":"Classics"}""")
             .Returns("Done. I created Fiction and renamed Old Name to Classics.");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
@@ -548,7 +548,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var collection = await SeedCollectionAsync(h, "Old Collection");
 
         h.Llm
-            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{collection.Id}}"}""")
+            .CallsTool("library_delete_collection", $$$"""{"collectionId":"{{collection.Id}}"}""")
             .Returns("I can remove Old Collection after you approve the deletion.");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
@@ -611,9 +611,9 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var secondTarget = await SeedCollectionAsync(h, "Second target");
 
         h.Llm
-            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{firstTarget.Id}}"}""")
+            .CallsTool("library_delete_collection", $$$"""{"collectionId":"{{firstTarget.Id}}"}""")
             .Returns("First deletion is ready for approval.")
-            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{secondTarget.Id}}"}""")
+            .CallsTool("library_delete_collection", $$$"""{"collectionId":"{{secondTarget.Id}}"}""")
             .Returns("Second deletion is ready for approval.");
 
         var first = await h.Orchestrator.HandleTurnAsync(Turn(
@@ -651,8 +651,8 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var book = await SeedBookAsync(h);
 
         h.Llm
-            .CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"A thought"}""")
-            .CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"A thought"}""")
+            .CallsTool("notes_capture", $$$"""{"bookId":"{{book.Id}}","content":"A thought"}""")
+            .CallsTool("notes_capture", $$$"""{"bookId":"{{book.Id}}","content":"A thought"}""")
             .Returns("Saved.");
 
         var unanswered = await h.Orchestrator.HandleTurnAsync(Turn(
@@ -690,7 +690,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var book = await SeedBookAsync(h);
 
         h.Llm
-            .CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"A thought"}""")
+            .CallsTool("notes_capture", $$$"""{"bookId":"{{book.Id}}","content":"A thought"}""")
             .Returns("Saved.");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
@@ -715,7 +715,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var h = CreateHarness();
         var book = await SeedBookAsync(h);
 
-        h.Llm.CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"A thought"}""");
+        h.Llm.CallsTool("notes_capture", $$$"""{"bookId":"{{book.Id}}","content":"A thought"}""");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
             "Remember this.",
@@ -1011,7 +1011,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var book = await SeedBookAsync(h, "The Magic Mountain");
 
         h.Llm
-            .CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"A captured thought"}""")
+            .CallsTool("notes_capture", $$$"""{"bookId":"{{book.Id}}","content":"A captured thought"}""")
             .Returns("I am Gemini, a large language model built by Google. How can I help you today?");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
@@ -1046,7 +1046,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
 
         const string content = "I am Gemini, a large language model built by Google.";
         h.Llm
-            .CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"{{content}}"}""")
+            .CallsTool("notes_capture", $$$"""{"bookId":"{{book.Id}}","content":"{{content}}"}""")
             .Returns("Saved that for you.");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
@@ -1151,7 +1151,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var collection = await SeedCollectionAsync(h, "Approved deletion");
 
         h.Llm
-            .CallsTool("library_delete_collection", $"""{"collectionId":"{{collection.Id}}"}""")
+            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{collection.Id}}"}""")
             .Returns("Ready for your approval.");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
