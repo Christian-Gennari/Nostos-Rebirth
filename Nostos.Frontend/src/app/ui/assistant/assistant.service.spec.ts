@@ -12,6 +12,7 @@ import {
   TRANSCRIPT_AUTO_SEND_DELAY_MS,
   TRANSCRIPT_SEND_POLICY,
   isExplicitPlanApproval,
+  isExplicitPlanRejection,
 } from './assistant.service';
 import { AssistantContext, AssistantContextService } from './assistant-context.service';
 
@@ -658,13 +659,19 @@ describe('AssistantService voice transcript alignment', () => {
     expect(service.entries().at(-1)?.meta).toBe('Applied');
   });
 
-  it('treats an exact conversational yes as approval of the one pending destructive plan', () => {
-    service.pendingPlan.set({
+  it('treats an immediate conversational yes as approval of the pending destructive plan', () => {
+    const plan = {
       planId: 'plan-1',
       summary: 'Delete the obsolete collection',
       steps: [],
       approvalToken: 'token-1',
-    });
+    };
+
+    // The destructive plan arrived from the immediately preceding assistant
+    // turn, which is what arms natural-language confirmation.
+    service.updateDraft('Remove the obsolete collection.');
+    service.submit();
+    http.expectOne('/api/assistant/turn').flush(turn({ pendingPlan: plan }));
 
     service.updateDraft('Go ahead.');
     service.submit();
@@ -692,29 +699,64 @@ describe('AssistantService voice transcript alignment', () => {
 
     expect(service.pendingPlan()).toBeNull();
     expect(service.entries().at(-1)?.text).toBe('Deleted the obsolete collection.');
-    expect(service.history().map((entry) => entry.text)).toEqual([
+    expect(service.history().slice(-2).map((entry) => entry.text)).toEqual([
       'Go ahead.',
       'Deleted the obsolete collection.',
     ]);
   });
 
-  it('does not mistake a qualified yes for destructive approval', () => {
-    service.pendingPlan.set({
+  it('does not mistake a qualified yes for destructive approval and disarms later generic yes', () => {
+    const plan = {
       planId: 'plan-1',
       summary: 'Delete the obsolete collection',
       steps: [],
       approvalToken: 'token-1',
-    });
+    };
+
+    service.updateDraft('Remove the obsolete collection.');
+    service.submit();
+    http.expectOne('/api/assistant/turn').flush(turn({ pendingPlan: plan }));
 
     service.updateDraft('Yes, but explain what will happen first.');
     service.submit();
 
     http.expectNone('/api/assistant/plan/approve');
-    const request = http.expectOne('/api/assistant/turn');
-    expect(request.request.body.pendingPlanId).toBe('plan-1');
-    request.flush(turn());
+    const discussion = http.expectOne('/api/assistant/turn');
+    expect(discussion.request.body.pendingPlanId).toBe('plan-1');
+    discussion.flush(turn({ reply: 'The collection will be deleted; its books remain.' }));
 
     expect(service.pendingPlan()?.planId).toBe('plan-1');
+
+    // The plan remains visible, but a generic yes after an intervening turn is
+    // no longer enough to execute stale destructive work.
+    service.updateDraft('yes');
+    service.submit();
+    http.expectNone('/api/assistant/plan/approve');
+    const later = http.expectOne('/api/assistant/turn');
+    expect(later.request.body.pendingPlanId).toBe('plan-1');
+    later.flush(turn());
+  });
+
+  it('cancels a fresh destructive confirmation on an explicit no', () => {
+    const plan = {
+      planId: 'plan-cancel',
+      summary: 'Delete the obsolete collection',
+      steps: [],
+      approvalToken: 'token-cancel',
+    };
+
+    service.updateDraft('Remove the obsolete collection.');
+    service.submit();
+    http.expectOne('/api/assistant/turn').flush(turn({ pendingPlan: plan }));
+
+    service.updateDraft('No thanks.');
+    service.submit();
+
+    http.expectNone('/api/assistant/turn');
+    http.expectNone('/api/assistant/plan/approve');
+    expect(service.pendingPlan()).toBeNull();
+    expect(service.entries().at(-1)?.text).toBe("Okay. I won't make that change.");
+    expect(service.entries().at(-1)?.meta).toBe('Cancelled');
   });
 
   it('keeps the natural approval vocabulary deliberately narrow', () => {
@@ -724,6 +766,10 @@ describe('AssistantService voice transcript alignment', () => {
     expect(isExplicitPlanApproval('yes, but explain first')).toBe(false);
     expect(isExplicitPlanApproval('I guess so')).toBe(false);
     expect(isExplicitPlanApproval('do it after you check something else')).toBe(false);
+    expect(isExplicitPlanRejection('no')).toBe(true);
+    expect(isExplicitPlanRejection('No thanks.')).toBe(true);
+    expect(isExplicitPlanRejection('cancel it')).toBe(true);
+    expect(isExplicitPlanRejection('not yet')).toBe(false);
   });
 
   it('dismisses suggestions without touching the note', () => {
