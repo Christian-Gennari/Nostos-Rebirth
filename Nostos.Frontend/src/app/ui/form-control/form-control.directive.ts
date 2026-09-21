@@ -17,12 +17,12 @@ export type FormControlSize = 'normal' | 'compact';
   standalone: true,
   host: {
     class: 'nostos-form-control nostos-form-control--input',
-    '[class.nostos-form-control--compact]': "size() === 'compact'",
+    '[class.nostos-form-control--compact]': "controlSize() === 'compact'",
     '[attr.aria-invalid]': "invalid() ? 'true' : null",
   },
 })
 export class InputDirective {
-  readonly size = input<FormControlSize>('normal');
+  readonly controlSize = input<FormControlSize>('normal');
   readonly invalid = input(false);
 }
 
@@ -34,12 +34,12 @@ export class InputDirective {
   standalone: true,
   host: {
     class: 'nostos-form-control nostos-form-control--textarea',
-    '[class.nostos-form-control--compact]': "size() === 'compact'",
+    '[class.nostos-form-control--compact]': "controlSize() === 'compact'",
     '[attr.aria-invalid]': "invalid() ? 'true' : null",
   },
 })
 export class TextareaDirective {
-  readonly size = input<FormControlSize>('normal');
+  readonly controlSize = input<FormControlSize>('normal');
   readonly invalid = input(false);
 }
 
@@ -51,11 +51,11 @@ export class TextareaDirective {
   standalone: true,
   host: {
     class: 'nostos-form-control nostos-form-control--select',
-    '[class.nostos-form-control--compact]': "size() === 'compact'",
+    '[class.nostos-form-control--compact]': "controlSize() === 'compact'",
     '[attr.aria-invalid]': "invalid() ? 'true' : null",
   },
 })
 export class SelectDirective {
-  readonly size = input<FormControlSize>('normal');
+  readonly controlSize = input<FormControlSize>('normal');
   readonly invalid = input(false);
 }
