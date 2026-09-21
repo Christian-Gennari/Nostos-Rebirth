@@ -176,6 +176,47 @@ public sealed class NineRouterSttProviderTests
     }
 
     [Fact]
+    public async Task Accepts_browser_content_type_with_codec_parameter()
+    {
+        var handler = new StubHttpMessageHandler();
+        string? body = null;
+        handler.Register("/v1/audio/transcriptions", request =>
+        {
+            body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return Json("{\"text\":\" browser audio\"}");
+        });
+
+        var provider = CreateProvider(handler);
+
+        var result = await provider.TranscribeAsync(
+            new MemoryStream([1, 2, 3]),
+            "voice-note.webm",
+            "audio/webm;codecs=opus",
+            null);
+
+        result.Text.Should().Be("browser audio");
+        body.Should().Contain("Content-Type: audio/webm; codecs=opus");
+        handler.RecordedRequests.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task Invalid_browser_content_type_is_a_typed_format_error()
+    {
+        var handler = new StubHttpMessageHandler();
+        var provider = CreateProvider(handler);
+
+        var act = () => provider.TranscribeAsync(
+            new MemoryStream([1, 2, 3]),
+            "voice-note.webm",
+            "not a media type",
+            null);
+
+        var exception = (await act.Should().ThrowAsync<SttException>()).Which;
+        exception.Code.Should().Be(SttErrorCodes.UnsupportedFormat);
+        handler.RecordedRequests.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task Trims_the_leading_space_the_provider_returns()
     {
         var handler = new StubHttpMessageHandler();

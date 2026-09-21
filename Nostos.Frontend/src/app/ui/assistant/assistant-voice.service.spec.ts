@@ -155,6 +155,42 @@ describe('AssistantVoiceService', () => {
     expect(service.error()).toBeNull();
   });
 
+  it('uploads the browser MIME type including codec parameters', async () => {
+    getUserMedia.mockResolvedValue(new FakeStream() as unknown as MediaStream);
+
+    service.start();
+    await tick();
+    FakeMediaRecorder.instances[0].mimeType = 'audio/webm;codecs=opus';
+    service.stop();
+
+    const request = http.expectOne(TRANSCRIPTION_ENDPOINT);
+    const body = request.request.body as FormData;
+    const file = body.get('file') as File;
+
+    expect(file.type).toBe('audio/webm;codecs=opus');
+    expect(file.name).toBe('voice-note.webm');
+
+    request.flush({ text: 'browser audio', language: 'en', durationSeconds: 1 });
+  });
+
+  it('uses a filename that matches an mp4 recording container', async () => {
+    getUserMedia.mockResolvedValue(new FakeStream() as unknown as MediaStream);
+
+    service.start();
+    await tick();
+    FakeMediaRecorder.instances[0].mimeType = 'audio/mp4;codecs=opus';
+    service.stop();
+
+    const request = http.expectOne(TRANSCRIPTION_ENDPOINT);
+    const body = request.request.body as FormData;
+    const file = body.get('file') as File;
+
+    expect(file.type).toBe('audio/mp4;codecs=opus');
+    expect(file.name).toBe('voice-note.m4a');
+
+    request.flush({ text: 'mobile audio', language: 'en', durationSeconds: 1 });
+  });
+
   it('cancel during recording uploads nothing and stops every track', async () => {
     const stream = new FakeStream(2);
     getUserMedia.mockResolvedValue(stream as unknown as MediaStream);
@@ -241,6 +277,47 @@ describe('AssistantVoiceService', () => {
     await tick();
     expect(service.error()).toBeNull();
     expect(service.status()).toBe('recording');
+  });
+
+  it('surfaces an unconfigured STT provider instead of a generic failure', async () => {
+    getUserMedia.mockResolvedValue(new FakeStream() as unknown as MediaStream);
+
+    service.start();
+    await tick();
+    service.stop();
+
+    const request = http.expectOne(TRANSCRIPTION_ENDPOINT);
+    request.flush(
+      {
+        title: 'stt_not_configured',
+        detail: 'Speech-to-text has no usable credential.',
+      },
+      { status: 503, statusText: 'Service Unavailable' },
+    );
+
+    expect(service.status()).toBe('idle');
+    expect(service.error()?.kind).toBe('failed');
+    expect(service.error()?.message).toBe(
+      'Voice transcription is not configured yet. Check the STT provider in Settings.',
+    );
+  });
+
+  it('surfaces an unsupported recording format distinctly', async () => {
+    getUserMedia.mockResolvedValue(new FakeStream() as unknown as MediaStream);
+
+    service.start();
+    await tick();
+    service.stop();
+
+    const request = http.expectOne(TRANSCRIPTION_ENDPOINT);
+    request.flush(
+      { title: 'stt_unsupported_format', detail: 'unsupported' },
+      { status: 415, statusText: 'Unsupported Media Type' },
+    );
+
+    expect(service.error()?.message).toBe(
+      "This browser's recording format is not supported by the transcription provider.",
+    );
   });
 
   it('leaves no track live after stop', async () => {

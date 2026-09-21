@@ -23,7 +23,7 @@
  * backend talks to the provider (issue #262 §3).
  */
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Subscription } from 'rxjs';
 
 /** The existing server-side transcription seam. Do not change the backend. */
@@ -215,7 +215,7 @@ export class AssistantVoiceService {
     this.audioUrl = this.createAudioUrl(blob);
 
     const form = new FormData();
-    form.append('file', blob, 'voice-note.webm');
+    form.append('file', blob, recordingFileName(blob.type));
 
     this.upload = this.http.post<TranscriptionResponse>(TRANSCRIPTION_ENDPOINT, form).subscribe({
       next: (response) => {
@@ -230,11 +230,11 @@ export class AssistantVoiceService {
         this.settle();
         this.onTranscript?.(text);
       },
-      error: () => {
+      error: (error: unknown) => {
         if (session !== this.session) return;
         this.upload = null;
         this.revokeAudioUrl();
-        this.fail({ kind: 'failed', message: "Couldn't transcribe that recording. Try again." });
+        this.fail(errorFromTranscription(error));
       },
     });
   }
@@ -284,6 +284,84 @@ export class AssistantVoiceService {
       URL.revokeObjectURL(this.audioUrl);
     }
     this.audioUrl = null;
+  }
+}
+
+/**
+ * Keep the multipart filename consistent with the browser's actual recording
+ * container. Some STT providers inspect both the Content-Type and extension.
+ */
+export function recordingFileName(mimeType: string): string {
+  const mediaType = mimeType.split(';', 1)[0].trim().toLowerCase();
+  switch (mediaType) {
+    case 'audio/mp4':
+      return 'voice-note.m4a';
+    case 'audio/ogg':
+      return 'voice-note.ogg';
+    case 'audio/mpeg':
+      return 'voice-note.mp3';
+    case 'audio/wav':
+    case 'audio/x-wav':
+      return 'voice-note.wav';
+    default:
+      return 'voice-note.webm';
+  }
+}
+
+/** Turn a backend ProblemDetails response into an actionable voice error. */
+export function errorFromTranscription(error: unknown): AssistantVoiceError {
+  if (!(error instanceof HttpErrorResponse)) {
+    return { kind: 'failed', message: "Couldn't transcribe that recording. Try again." };
+  }
+
+  if (error.status === 0) {
+    return {
+      kind: 'failed',
+      message: "Couldn't reach Nostos to transcribe that recording. Check the connection and try again.",
+    };
+  }
+
+  const body =
+    error.error && typeof error.error === 'object'
+      ? (error.error as { title?: unknown; detail?: unknown })
+      : null;
+  const code = typeof body?.title === 'string' ? body.title : '';
+
+  switch (code) {
+    case 'stt_disabled':
+      return {
+        kind: 'failed',
+        message: 'Voice transcription is disabled. Enable it in Settings, then try again.',
+      };
+    case 'stt_not_configured':
+      return {
+        kind: 'failed',
+        message: 'Voice transcription is not configured yet. Check the STT provider in Settings.',
+      };
+    case 'stt_unsupported_format':
+      return {
+        kind: 'failed',
+        message: "This browser's recording format is not supported by the transcription provider.",
+      };
+    case 'stt_permission_denied':
+      return {
+        kind: 'failed',
+        message: 'The transcription provider rejected the request or is rate limited. Check its settings and try again.',
+      };
+    case 'stt_audio_too_large':
+    case 'stt_audio_too_long':
+      return {
+        kind: 'failed',
+        message: 'That recording is too long to transcribe. Try a shorter recording.',
+      };
+    case 'stt_provider_error':
+    case 'stt_response_invalid':
+      return {
+        kind: 'failed',
+        message: 'The transcription provider failed to process that recording. Try again or check its settings.',
+      };
+    default:
+      return { kind: 'failed', message: "Couldn't transcribe that recording. Try again." };
   }
 }
 
