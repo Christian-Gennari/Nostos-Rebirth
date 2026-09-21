@@ -22,9 +22,17 @@ public enum AssistantTrustClass
     Suggest,
 
     /// <summary>
-    /// Changes state and must carry an approval whose plan id matches the plan
-    /// the call was built against. Without that match the registry refuses
-    /// before the capability's delegate is ever reached.
+    /// Normal, low-risk application work that the user explicitly asked the
+    /// assistant to perform. Executes immediately inside the ordinary tool
+    /// loop so later tool calls can consume the real result. Domain services
+    /// still own validation, idempotency and invariants.
+    /// </summary>
+    Act,
+
+    /// <summary>
+    /// Destructive or high-impact state changes that must carry an approval
+    /// whose plan id matches the plan the call was built against. Without that
+    /// match the registry refuses before the capability's delegate is reached.
     /// </summary>
     PlanAndAct,
 }
