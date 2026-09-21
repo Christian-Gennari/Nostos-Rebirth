@@ -1073,13 +1073,23 @@ button.edition-select-card:focus-visible {
 
 .status-dropdown-item:hover {
   background: var(--bg-hover);
-  color: var(--color-primary);
+  color: var(--color-text-main);
 }
 
 .status-dropdown-item.selected {
+  background: var(--control-active-fill);
+  color: var(--control-active-ink);
+  font-weight: 600;
+}
+
+.status-dropdown-item.status-reading.selected {
   background: color-mix(in srgb, var(--color-brand-accent) 10%, transparent);
   color: var(--color-brand-accent);
-  font-weight: 600;
+}
+
+.status-dropdown-item.status-finished.selected {
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: var(--color-success-dark);
 }
 
 .reset-confirm-backdrop {

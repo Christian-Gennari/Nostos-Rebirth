@@ -406,7 +406,7 @@
      (light track = unchecked is the universal convention). */
   /* No glow on the track. A 10px bloom around the largest surface in the
      control reads as a halo, not as state — the fill change is the signal. */
-  background-color: var(--primary-fill);
+  background-color: var(--color-brand-accent-fill);
 }
 
 .toggle input:checked + .toggle-slider::before {

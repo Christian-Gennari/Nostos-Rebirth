@@ -108,7 +108,7 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
         left: 0;
         height: 2px;
         width: 0;
-        background: var(--color-accent);
+        background: var(--color-brand-accent);
         opacity: 0;
         pointer-events: none;
         transition:
