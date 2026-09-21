@@ -142,6 +142,55 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="assistant-panel"]')).toBeTruthy();
   });
 
+  it('expands and collapses the desktop shell without replacing conversation state', () => {
+    fixture.componentInstance.open();
+    assistant.updateDraft('Keep this draft while the shell changes');
+    fixture.detectChanges();
+
+    const panel = fixture.nativeElement.querySelector('[data-testid="assistant-panel"]') as HTMLElement;
+    const scrim = fixture.nativeElement.querySelector('.assistant-scrim') as HTMLElement;
+    const expand = fixture.nativeElement.querySelector('[data-testid="assistant-expand"]') as HTMLButtonElement;
+
+    expect(fixture.componentInstance.expanded()).toBe(false);
+    expect(panel.classList.contains('is-expanded')).toBe(false);
+    expect(expand.getAttribute('aria-label')).toBe('Expand Ask Nostos');
+
+    expand.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.expanded()).toBe(true);
+    expect(panel.classList.contains('is-expanded')).toBe(true);
+    expect(scrim.classList.contains('is-expanded')).toBe(true);
+    expect(expand.getAttribute('aria-label')).toBe('Collapse Ask Nostos');
+    expect(assistant.draft()).toBe('Keep this draft while the shell changes');
+    expect(
+      (fixture.nativeElement.querySelector('[data-testid="assistant-composer"]') as HTMLTextAreaElement)
+        .value,
+    ).toBe('Keep this draft while the shell changes');
+
+    expand.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.expanded()).toBe(false);
+    expect(panel.classList.contains('is-expanded')).toBe(false);
+    expect(assistant.draft()).toBe('Keep this draft while the shell changes');
+  });
+
+  it('returns to compact mode after the expanded assistant is closed', () => {
+    fixture.componentInstance.open();
+    fixture.componentInstance.toggleExpanded();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.expanded()).toBe(true);
+
+    fixture.componentInstance.close();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.expanded()).toBe(false);
+
+    fixture.componentInstance.open();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.expanded()).toBe(false);
+  });
+
   it('opens on Cmd/Ctrl+J and prevents the browser default', () => {
     const event = new KeyboardEvent('keydown', { key: 'j', metaKey: true, cancelable: true });
     document.dispatchEvent(event);
