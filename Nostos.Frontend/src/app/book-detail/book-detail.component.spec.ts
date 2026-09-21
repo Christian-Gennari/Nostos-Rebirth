@@ -138,6 +138,33 @@ describe('BookDetail reset progress', () => {
     expect(empty?.textContent).toContain('first thought');
   });
 
+  it('does not offer file upload for a physical metadata-only book', async () => {
+    await setup(readableBook({ type: 'physical', hasFile: false, fileName: null }));
+
+    const actions = fixture.nativeElement.querySelector('.primary-actions') as HTMLElement;
+    expect(actions.textContent).not.toContain('Upload File');
+    expect(actions.querySelector('input[type="file"][accept*=".epub"]')).toBeNull();
+
+    (actions.querySelector('.edit-metadata-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const editions = Array.from(
+      fixture.nativeElement.querySelectorAll('.edit-menu-item') as NodeListOf<HTMLElement>,
+    ).find((item) => item.querySelector('.edit-menu-item-label')?.textContent?.trim() === 'Editions');
+
+    expect(editions?.querySelector('.edit-menu-item-hint')?.textContent).toContain(
+      'separately added digital editions',
+    );
+  });
+
+  it('still offers file upload for a digital book without a file', async () => {
+    await setup(readableBook({ type: 'ebook', hasFile: false, fileName: null }));
+
+    const actions = fixture.nativeElement.querySelector('.primary-actions') as HTMLElement;
+    expect(actions.textContent).toContain('Upload File');
+    expect(actions.querySelector('input[type="file"][accept*=".epub"]')).toBeTruthy();
+  });
+
   it('toggles the status dropdown menu open and closed on chip click', async () => {
     await setup(readableBook());
 
