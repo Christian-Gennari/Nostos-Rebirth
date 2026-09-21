@@ -684,8 +684,62 @@ public static class AssistantCapabilities
                 return LibraryResult(result);
             }),
 
+        new AssistantCapability(
+            "library_delete_empty_collection",
+            AssistantTrustClass.Act,
+            "Deletes an empty collection immediately. Refuses when the collection still contains books, so cleanup after a reorganization does not need a second approval while membership-destructive deletion remains guarded.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "collectionId": { "type": "string", "format": "uuid", "description": "The empty collection to delete. Required." }
+              },
+              "required": ["collectionId"],
+              "additionalProperties": true
+            }
+            """,
+            async (context, args, ct) =>
+            {
+                if (Id(args, "collectionId") is not { } collectionId)
+                {
+                    return Invalid("'collectionId' is required.");
+                }
+
+                var members = await library.ListBooksAsync(
+                    filter: BookFilter.All,
+                    sort: BookSort.Title,
+                    search: null,
+                    page: 1,
+                    pageSize: 1,
+                    collectionId: collectionId,
+                    ct: ct);
+
+                if (members.Data is LibraryErrorDto readError)
+                {
+                    return AssistantToolResult.Fail(readError.Code, members.Reply, Element(members));
+                }
+
+                if (members.Data is PaginatedResponse<BookDto> page && page.TotalCount > 0)
+                {
+                    return AssistantToolResult.Fail(
+                        "collection_not_empty_requires_approval",
+                        "This collection still contains books. Use library_delete_collection only after the user explicitly approves unlinking those memberships.",
+                        Element(new { collectionId, bookCount = page.TotalCount }));
+                }
+
+                var result = await library.DeleteCollectionAsync(
+                    new LibraryDeleteCollectionRequest(
+                        context.ClientId ?? string.Empty,
+                        context.IdempotencyKey ?? string.Empty,
+                        collectionId,
+                        Confirm: true),
+                    ct);
+
+                return LibraryResult(result);
+            }),
+
         // ------------------------------------------------------------------
-        // PlanAndAct: destructive/high-impact operations keep explicit approval.
+        // PlanAndAct: deletion that can unlink books remains approval-gated.
         // ------------------------------------------------------------------
 
         new AssistantCapability(
