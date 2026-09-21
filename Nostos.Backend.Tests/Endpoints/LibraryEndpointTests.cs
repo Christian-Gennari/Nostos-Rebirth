@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data;
+using Nostos.Backend.Data.Models;
 using Nostos.Backend.Tests.Support;
 using Nostos.Shared.Dtos;
 using Xunit;
