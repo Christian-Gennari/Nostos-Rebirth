@@ -529,7 +529,8 @@
                   />
                   <button
                     type="button"
-                    class="btn btn-secondary"
+                    appButton
+                    variant="secondary"
                     (click)="searchSource()"
                     [disabled]="
                       sourceQuery().trim().length < 2 || sourceSearching() || !!runningAcquisition()
