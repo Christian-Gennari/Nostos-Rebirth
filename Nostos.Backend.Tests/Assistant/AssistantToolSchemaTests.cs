@@ -37,7 +37,7 @@ public sealed class AssistantToolSchemaTests : IClassFixture<SqliteTestFixture>
     /// <summary>
     /// The expected shape of every capability's advertised arguments. The
     /// property names and types are exactly what that capability's own
-    /// <c>Str</c>/<c>Id</c>/<c>Num</c>/<c>Bool</c>/<c>ValueEnum</c> readers
+    /// <c>Str</c>/<c>Id</c>/<c>Num</c>/<c>Bool</c>/<c>TryIds</c>/<c>ValueEnum</c> readers
     /// consume; declaring a name nothing reads, or dropping one it does, fails.
     /// </summary>
     private static readonly Dictionary<string, CapabilitySchema> ExpectedSchemas = new(StringComparer.Ordinal)
@@ -64,7 +64,38 @@ public sealed class AssistantToolSchemaTests : IClassFixture<SqliteTestFixture>
                 ["format"] = "string",
             },
             Required: []),
+        ["library_get_book"] = new(
+            Properties: new() { ["bookId"] = "string" },
+            Required: ["bookId"]),
         ["library_overview"] = new(Properties: new(), Required: []),
+        ["library_create_or_match_book"] = new(
+            Properties: new()
+            {
+                ["type"] = "string",
+                ["title"] = "string",
+                ["author"] = "string",
+                ["isbn"] = "string",
+                ["asin"] = "string",
+                ["collectionIds"] = "array",
+                ["rating"] = "integer",
+                ["isFavorite"] = "boolean",
+                ["confirmedBookId"] = "string",
+                ["forceCreate"] = "boolean",
+            },
+            Required: ["type", "title"]),
+        ["library_update_book"] = new(
+            Properties: new()
+            {
+                ["bookId"] = "string",
+                ["title"] = "string",
+                ["author"] = "string",
+                ["collectionIds"] = "array",
+                ["rating"] = "integer",
+                ["isFavorite"] = "boolean",
+                ["personalReview"] = "string",
+                ["isFinished"] = "boolean",
+            },
+            Required: ["bookId"]),
         ["notes_list_for_book"] = new(
             Properties: new() { ["bookId"] = "string" },
             Required: ["bookId"]),
@@ -104,6 +135,9 @@ public sealed class AssistantToolSchemaTests : IClassFixture<SqliteTestFixture>
             Required: ["collectionId", "name"]),
         ["library_move_collection"] = new(
             Properties: new() { ["collectionId"] = "string", ["newParentId"] = "string" },
+            Required: ["collectionId"]),
+        ["library_delete_collection"] = new(
+            Properties: new() { ["collectionId"] = "string" },
             Required: ["collectionId"]),
     };
 
