@@ -17,6 +17,8 @@ import { OpdsInfo } from '../core/dtos/opds.dtos';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 import { ButtonComponent } from '../ui/button/button.component';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
+import { SwitchComponent } from '../ui/switch/switch.component';
+import { BadgeComponent } from '../ui/badge/badge.component';
 import { LibraryPreferencesService } from '../core/services/library-preferences.service';
 import { AssistantStatusService } from '../ui/assistant/assistant-status.service';
 import {
@@ -164,6 +166,8 @@ const defaultProgress: BackupProgress = {
     NostosIconComponent,
     ButtonComponent,
     IconButtonComponent,
+    SwitchComponent,
+    BadgeComponent,
     ConfirmModal,
   ],
   templateUrl: './settings.component.html',

@@ -1111,20 +1111,15 @@
    and not the other, so the same control behaved differently for keyboard users
    depending on which page they were on.
 
-   The MARKUP stays duplicated on purpose — do not "finish" this by extracting a
-   component. The four surfaces that share this visual recipe have four DIFFERENT
-   interaction contracts: Studio is role="tablist"/role="tab"/aria-selected,
-   Settings is role="radiogroup"/role="radio"/aria-checked with `.is-active`,
-   Brain is role="group" with aria-pressed, and Library is a bare 2-button group
-   with no ARIA state at all. A shared component would have to either keep those
-   differences behind inputs (a leaky abstraction) or silently change one call
-   site's rendered DOM. Extraction also saves ZERO CSS now that this recipe is
-   shared, and about 15 lines of markup across two templates.
+   UI KIT V1 CONTRACT: this is a VISUAL recipe, not a semantic component.
+   Library and Brain consume the compact option directly. Tabs, radios and
+   aria-pressed groups may share this treatment while retaining their own ARIA
+   contracts; Settings' large theme radio cards are intentionally a different
+   product control. Do not extract a mega-component that chooses semantics by
+   input.
 
-   Deliberately NOT here: the mobile overrides. They now agree (both surfaces use
-   a 32px option in a 38px track) but stay in their components, because they are
-   scoped to each surface's own breakpoint context and the Brain has its own
-   mobile block for the surrounding header. */
+   Deliberately NOT here: mobile sizing. Touch targets remain surface-owned
+   because the surrounding layout and breakpoint context differ. */
 
 .toggle-opt {
   background: 0 0;
