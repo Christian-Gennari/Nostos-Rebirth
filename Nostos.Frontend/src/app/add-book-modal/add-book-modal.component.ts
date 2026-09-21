@@ -172,6 +172,35 @@ export class AddBookModal {
     this.activeTab.set(tab);
   }
 
+  onTabKeydown(event: KeyboardEvent, tab: (typeof this.tabs)[number]): void {
+    const currentIndex = this.tabs.indexOf(tab);
+    let nextIndex: number | null = null;
+
+    switch (event.key) {
+      case 'ArrowRight':
+        nextIndex = (currentIndex + 1) % this.tabs.length;
+        break;
+      case 'ArrowLeft':
+        nextIndex = (currentIndex - 1 + this.tabs.length) % this.tabs.length;
+        break;
+      case 'Home':
+        nextIndex = 0;
+        break;
+      case 'End':
+        nextIndex = this.tabs.length - 1;
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    this.activeTab.set(this.tabs[nextIndex]);
+
+    const tablist = (event.currentTarget as HTMLElement | null)?.closest('[role="tablist"]');
+    const tabs = tablist?.querySelectorAll<HTMLElement>('[role="tab"]');
+    tabs?.item(nextIndex).focus();
+  }
+
   onTypeChange(type: BookType): void {
     this.form.type = type;
 
