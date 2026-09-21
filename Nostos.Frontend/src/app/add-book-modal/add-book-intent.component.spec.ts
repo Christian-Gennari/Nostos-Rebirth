@@ -62,6 +62,12 @@ describe('AddBookIntent', () => {
     expect(source).toBe(1);
   });
 
+  it('uses the canonical button primitive for the ordinary Cancel action', () => {
+    const cancel = fixture.nativeElement.querySelector('.add-intent-actions button') as HTMLButtonElement;
+    expect(cancel.classList.contains('nostos-button')).toBe(true);
+    expect(cancel.classList.contains('nostos-button--secondary')).toBe(true);
+  });
+
   it('emits cancel on the Cancel button and on a backdrop click', () => {
     let cancelled = 0;
     component.cancel.subscribe(() => cancelled++);
