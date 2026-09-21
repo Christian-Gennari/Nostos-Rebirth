@@ -51,5 +51,5 @@ export class DialogActionsVerificationHarness {
     author: 'Nostos',
     type: 'physical',
     collectionIds: [],
-  } as Book;
+  } as unknown as Book;
 }
