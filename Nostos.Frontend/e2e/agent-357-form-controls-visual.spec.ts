@@ -38,6 +38,17 @@ test.describe('issue 357 — Add Book canonical form controls', () => {
         const form = page.locator('#add-book-form');
         await expect(form).toBeVisible();
 
+        // The modal enters from scale(0.95). Measuring while that animation is
+        // still running shrinks an otherwise 44px mobile control below the
+        // touch-target floor, so verify the settled surface rather than a
+        // transient animation frame.
+        await page.waitForFunction(() => {
+          const card = document.querySelector('app-modal-shell .modal-card');
+          if (!card) return false;
+          const transform = getComputedStyle(card).transform;
+          return transform === 'none' || transform === 'matrix(1, 0, 0, 1, 0, 0)';
+        });
+
         if (tc.theme === 'dark') {
           await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
         } else {
