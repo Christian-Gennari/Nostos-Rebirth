@@ -35,7 +35,6 @@ jobs:
       - name: Production build
         run: npm run build
       - name: Full unit suite
-        continue-on-error: true
         run: npm test
       - name: Assistant v2 regression
         run: npx ng test --filter="keeps a destructive pending plan across an ordinary follow-up turn"
