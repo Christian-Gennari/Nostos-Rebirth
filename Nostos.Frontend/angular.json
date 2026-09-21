@@ -46,6 +46,18 @@
               "node:fs",
               "node:path",
               "node:process"
+            ],
+            "allowedCommonJsDependencies": [
+              "@xmldom/xmldom",
+              "event-emitter",
+              "events",
+              "graphology-utils",
+              "howler",
+              "jszip",
+              "localforage",
+              "lodash",
+              "marks-pane",
+              "path-webpack"
             ]
           },
           "configurations": {
