@@ -4,6 +4,10 @@
 
 :host {
   display: contents;
+  /* Runtime-overridden on the open panel from visualViewport. Declared here so
+     the design token scanner knows these are intentional component variables. */
+  --assistant-viewport-height: 100dvh;
+  --assistant-viewport-top: 0px;
 }
 
 /* ------------------------------
@@ -82,6 +86,16 @@
   display: none;
 }
 
+.assistant-scrim.is-expanded {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: var(--modal-scrim);
+  -webkit-backdrop-filter: blur(var(--modal-scrim-blur));
+  backdrop-filter: blur(var(--modal-scrim-blur));
+}
+
 .assistant-panel {
   position: fixed;
   right: 28px;
@@ -101,6 +115,35 @@
   font-family: 'Hanken Grotesk', sans-serif;
   transform-origin: bottom right;
   animation: assistant-reveal var(--motion-base) var(--ease-out) both;
+}
+
+/* A deliberate desktop workspace, not browser-edge fullscreen. The equal
+   left/right insets cap the surface at 1000px while still leaving a quiet
+   margin on narrower laptop screens. The conversation component itself is not
+   recreated, so compact <-> expanded is purely a geometry change. */
+.assistant-panel.is-expanded {
+  top: 6dvh;
+  right: max(32px, calc((100vw - 1000px) / 2));
+  bottom: 6dvh;
+  left: max(32px, calc((100vw - 1000px) / 2));
+  width: auto;
+  max-height: none;
+  box-shadow: var(--shadow-glass-lg);
+  transform-origin: center;
+}
+
+.assistant-panel.is-expanded .assistant-body {
+  gap: 18px;
+  padding: 22px clamp(24px, 7vw, 88px) 18px;
+}
+
+.assistant-panel.is-expanded .assistant-composer {
+  padding: 12px clamp(24px, 7vw, 88px) 18px;
+}
+
+.assistant-panel.is-expanded .assistant-empty p {
+  max-width: 46ch;
+  font-size: 1.02rem;
 }
 
 @keyframes assistant-reveal {
@@ -199,7 +242,7 @@
   white-space: nowrap;
 }
 
-.assistant-close {
+.assistant-window-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -219,13 +262,13 @@
     border-color var(--motion-fast) var(--ease-plain);
 }
 
-.assistant-close:hover {
+.assistant-window-action:hover {
   color: var(--color-text-main);
   background: var(--bg-hover);
   border-color: var(--border-color);
 }
 
-.assistant-close:focus-visible {
+.assistant-window-action:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: 2px;
 }
@@ -1149,37 +1192,44 @@
     bottom: calc(var(--dock-rail-h) + env(safe-area-inset-bottom, 0px) + 10px);
   }
 
-  .assistant-scrim {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 40;
-    background: var(--modal-scrim);
-    -webkit-backdrop-filter: blur(var(--modal-scrim-blur));
-    backdrop-filter: blur(var(--modal-scrim-blur));
+  /* The phone assistant is its own surface, not a bottom sheet. There is
+     therefore nothing behind it to dismiss by tapping a scrim. */
+  .assistant-scrim,
+  .assistant-scrim.is-expanded {
+    display: none;
   }
 
-  .assistant-panel {
+  .assistant-panel,
+  .assistant-panel.is-expanded {
+    top: var(--assistant-viewport-top, 0px);
     right: 0;
+    bottom: auto;
     left: 0;
-    bottom: 0;
     width: 100%;
-    height: 56dvh;
+    height: var(--assistant-viewport-height, 100dvh);
     max-height: none;
-    border-right: 0;
-    border-bottom: 0;
-    border-left: 0;
-    border-radius: var(--radius-dialog) var(--radius-dialog) 0 0;
-    box-shadow: var(--dock-shadow-rail);
-    transform-origin: bottom center;
-    transition: height var(--motion-base) var(--ease-out);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    transform-origin: center;
+    animation: none;
   }
 
-  .assistant-panel:focus-within {
-    height: 84dvh;
+  .assistant-panel.is-expanded .assistant-body {
+    gap: 14px;
+    padding: 14px 16px 10px;
+  }
+
+  .assistant-panel.is-expanded .assistant-composer {
+    padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .assistant-expand {
+    display: none;
   }
 
   .assistant-header {
+    padding-top: calc(12px + env(safe-area-inset-top, 0px));
     padding-right: 10px;
     padding-left: 14px;
   }

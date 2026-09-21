@@ -3,16 +3,23 @@
      availability can never be inferred from a failed send. -->
 @if (visible()) {
 @if (isOpen()) {
-<!-- Desktop: a flyout above the trigger, no scrim — the book stays readable
-     behind it. Mobile: a bottom sheet with the restrained scrim. One markup,
-     the media query decides. -->
-<div class="assistant-scrim" (click)="onBackdrop()" aria-hidden="true"></div>
+<!-- One conversation, three shells:
+     desktop compact flyout; desktop expanded workspace; mobile full-screen.
+     The service state never changes when only the shell geometry changes. -->
+<div
+  class="assistant-scrim"
+  [class.is-expanded]="expanded()"
+  (click)="onBackdrop()"
+  aria-hidden="true"
+></div>
 <section
   class="assistant-panel"
+  [class.is-expanded]="expanded()"
   role="dialog"
   aria-label="Nostos assistant"
   data-testid="assistant-panel"
-  [style.bottom.px]="sheetBottomPx()"
+  [style.--assistant-viewport-height]="viewportHeightCss()"
+  [style.--assistant-viewport-top]="viewportTopCss()"
 >
   <header class="assistant-header">
     <div class="assistant-heading">
@@ -34,7 +41,17 @@
       }
       <button
         type="button"
-        class="assistant-close"
+        class="assistant-window-action assistant-expand"
+        (click)="toggleExpanded()"
+        [attr.aria-label]="expanded() ? 'Collapse Ask Nostos' : 'Expand Ask Nostos'"
+        [attr.aria-pressed]="expanded()"
+        data-testid="assistant-expand"
+      >
+        <nostos-icon [name]="expanded() ? 'corners-in' : 'corners-out'" [size]="14"></nostos-icon>
+      </button>
+      <button
+        type="button"
+        class="assistant-window-action assistant-close"
         (click)="close()"
         aria-label="Close Ask Nostos"
         data-testid="assistant-close"
