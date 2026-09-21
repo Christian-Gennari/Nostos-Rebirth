@@ -2,6 +2,37 @@
 
 Reusable components and utilities shared across pages.
 
+## Start here: Nostos UI v1
+
+This is the **implementation reference** for shared UI. The measured visual language
+and the reasons behind it live in [`docs/design/design-language.md`](../docs/design/design-language.md);
+the CSS/token graph remains the visual source of truth. The live fixture is available
+at **`/ui-catalogue`** and is covered by `e2e/ui-catalogue.spec.ts` at desktop/mobile
+widths in both light and dark themes.
+
+Nostos UI v1 has four layers:
+
+| Layer | Owner | Examples |
+| --- | --- | --- |
+| **Foundations** | `src/styles.css` token graph | colour, type, radius, elevation, motion, focus, control heights |
+| **Primitives** | `src/app/ui/` | Button, IconButton, Input/Textarea/Select, Switch, Chip, Badge |
+| **Patterns** | shared composition/recipes | FormField, ModalShell + DialogActions, segmented visual recipe |
+| **Product components** | feature surfaces | BookCard, NoteCard, Reader transport, Studio editor/tree, assistant recording, acquisition workflows |
+
+The boundary is semantic, not visual similarity. Use a primitive when the control is
+an ordinary instance of that role. Keep a control product-owned when its interaction,
+ARIA contract, geometry, or state model is part of the product surface.
+
+- Use **`appButton`** for ordinary labelled actions such as Save, Cancel, Restore,
+  Clear and conventional modal actions.
+- Use **`appIconButton`** for icon-only actions while keeping the native button's
+  `aria-label`, `title`, `disabled`, click and keyboard semantics at the call site.
+- Do **not** force tabs, radio cards, Reader transport/zoom, Studio editor/tree
+  controls, assistant recording, drag/drop, acquisition rows or similar product
+  interactions through a generic primitive just to remove CSS.
+- A shared appearance does not imply shared semantics: segmented controls deliberately
+  share a recipe rather than one ARIA-switching component.
+
 ---
 
 ## ButtonComponent
@@ -29,6 +60,39 @@ being forced through the generic Button primitive.
 ```html
 <button appButton variant="primary" type="button">Save</button>
 <button appButton variant="secondary" size="sm" type="button">Restore</button>
+```
+
+
+## IconButtonComponent
+
+**Selector:** `button[appIconButton]`  
+**Files:** `src/app/ui/icon-button/`
+
+Canonical icon-only action. The host remains the native `<button>`; callers write
+`aria-label`, `title`, `disabled`, `type`, click handlers and any real
+toggle state directly on that host.
+
+| Input | Type | Default | Description |
+| --- | --- | --- | --- |
+| `icon` | `NostosIconName` | required | Closed-union Nostos/Phosphor glyph name |
+| `size` | `'xxs' \| 'xs' \| 'md'` | `'md'` | 24px / 28px / 32px measured box rung |
+| `glyphSize` | `number` | `16` | Glyph size in px, independent of box size |
+| `weight` | `NostosIconWeight` | `'regular'` | Phosphor glyph weight |
+| `tone` | `'default' \| 'danger'` | `'default'` | Hover-ink tone |
+| `pressed` | `boolean \| null` | `null` | Emits `aria-pressed` only for a real toggle |
+
+Radius and surface-specific active treatment are intentionally **not** inputs. Reader,
+Library, NoteCard and Studio use different measured radii and selected-state contracts;
+the primitive owns the stable icon-button box and glyph path, not those product semantics.
+
+```html
+<button appIconButton icon="trash" tone="danger" aria-label="Delete note"></button>
+<button
+  appIconButton
+  icon="sidebar-simple"
+  [pressed]="sidebarOpen()"
+  aria-label="Toggle sidebar"
+></button>
 ```
 
 
@@ -168,9 +232,11 @@ semantics.
 </select>
 ```
 
-Legacy global `.input`, `.textarea` and `.select-input` classes remain while
-other surfaces are migrated. New ordinary fields should use the native-host
-directives instead of creating another local field recipe.
+Major migrated surfaces use these directives for **ordinary** fields. Some
+product-specific controls still own local interaction/layout (for example acquisition
+search, Reader note tools and editor internals); that is not permission to create a
+second generic field family. New ordinary inputs, textareas and selects use the
+native-host directives.
 
 ## FormFieldComponent
 
@@ -217,6 +283,67 @@ Add Book/Edit Book uses `controlSize="compact"` for its ordinary metadata
 fields because that modal already had a measured compact field density. File
 drop zones, cover acquisition, provider/source search and other special controls
 remain product-owned rather than being flattened into FormField.
+
+---
+
+## ModalShell + DialogActions
+
+**Selectors:** `app-modal-shell`, `app-dialog-actions`  
+**Files:** `src/app/ui/modal-shell/`, `src/app/ui/dialog-actions/`
+
+Dialog composition has three owners:
+
+1. **ModalShell** owns backdrop/card geometry, scroll regions, sheet-vs-dialog
+   responsive behaviour and ARIA-role forwarding.
+2. **DialogActions** owns the ordinary footer/inset action-row composition.
+3. **Button** owns ordinary action styling.
+
+The caller still owns dialog content, labels, `dialog` vs `alertdialog`, working-area
+interactions and any special row controls. ConfirmModal and Editions therefore remain
+separate product components even though they can share shell/action primitives.
+
+`DialogActions` supports `variant="footer"` for a pinned/divided form footer and
+`variant="inset"` inside an already padded compact dialog. `dialogActionsStart`
+projects the uncommon leading action; `stackOnNarrow` stacks the trailing pair when
+a compact question needs it.
+
+```html
+<app-modal-shell
+  [isOpen]="open()"
+  variant="dialog"
+  dialogRole="alertdialog"
+  ariaLabelledBy="confirm-title"
+>
+  <div shellHeader><h2 id="confirm-title">Delete book?</h2></div>
+
+  <p>This cannot be undone.</p>
+
+  <app-dialog-actions shellActions variant="inset" [stackOnNarrow]="true">
+    <button appButton variant="secondary" type="button">Cancel</button>
+    <button appButton variant="danger" type="button">Delete</button>
+  </app-dialog-actions>
+</app-modal-shell>
+```
+
+Do not turn ModalShell into a universal working-area component, and do not route
+inline row actions through DialogActions merely because they happen to live inside a
+dialog.
+
+## UI catalogue / visual fixture
+
+**Route:** `/ui-catalogue`  
+**Component:** `src/app/ui/ui-catalogue/`  
+**Playwright:** `e2e/ui-catalogue.spec.ts`
+
+The catalogue renders the canonical Button/IconButton variants and sizes, native form
+controls, FormField help/error states, Switch, Chip, Badge/Status, segmented semantics,
+and ModalShell/DialogActions composition. It intentionally uses the production theme
+service and token graph. Playwright verifies light/dark, desktop/mobile, disabled,
+busy, destructive, validation, checked/selected, hover and focus states.
+
+Use the catalogue when adding or changing a generic primitive. If a proposed control
+does not fit the catalogue without hiding a product-specific semantic contract, it
+probably belongs to the product layer instead.
 
 ---
 
