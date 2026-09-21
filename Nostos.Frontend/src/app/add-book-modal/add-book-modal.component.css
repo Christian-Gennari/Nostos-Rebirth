@@ -188,16 +188,8 @@
   flex-direction: column;
 }
 
-/* The provider-result import action is product-specific acquisition UI rather
-   than an ordinary dialog-footer action, so it keeps its local recipe. The
-   Add/Edit Book footer itself is owned by app-dialog-actions + appButton. */
-.source-action {
-  background: var(--primary-fill);
-  color: var(--on-primary);
-  padding: 0.55rem 1.4rem;
-  border-radius: var(--radius-action);
-  font-weight: 500;
-}
+/* Acquisition keeps its own workflow and result-row interaction model, while
+   ordinary source fields/actions consume the canonical UI primitives. */
 
 @media (max-width: 768px) {
   .grid-2 {
