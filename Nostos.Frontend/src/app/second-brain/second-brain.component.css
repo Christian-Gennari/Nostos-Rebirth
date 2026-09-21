@@ -221,38 +221,14 @@
    used"), so there is no separate micro-label beside it to strand. The accessible
    name is a visually-hidden <label>. */
 
-/* The Library's `.sort-select` recipe, minus the box.
- *
- * Type, chevron and tokens are the Library's (the parity spec compares radius,
- * height and computed colour in both themes). What differs is the containment:
- * `border: none` and a transparent fill, so the control sits in the list as a row
- * does — the panel's concept rows are borderless too, and an enclosed field here
- * was the one closed shape in the sidebar.
- *
- * `min-height: 39px` is NOT free to lower to the row height: the parity spec
- * holds this control within 2px of the Library's (measured 39.2px), so matching
- * the list's 34px rows broke that gate — the same control must not change size
- * between surfaces. The box is what was dropped, not the metrics.
- *
- * A `--radius-md` radius is kept even though there is no border, because it
- * defines the hover surface.
- *
- * Inner padding is a concept row's (12px left, 8px right), so the control's text
- * starts on the same x=32 line as the concept names and its chevron sits in the
- * same right gutter as the count badges. */
+/* The rail sort is an ordinary native select, so appSelect owns its geometry,
+   border, chevron, focus state and theme treatment. The rail owns only layout
+   and the muted toolbar ink, matching Library's canonical sort control. */
 .sort-select {
-  width: 100%;
   flex: 1;
   min-width: 0;
-  min-height: 39px;
-  padding: 0 1.75rem 0 0.75rem;
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: 0.88rem;
-  font-weight: 500;
   cursor: pointer;
   color: var(--color-text-muted);
-  background-color: transparent;
 }
 
 /* Shell fills the list's content track, so the control's text and chevron line up
