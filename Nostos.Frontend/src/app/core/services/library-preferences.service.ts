@@ -10,8 +10,8 @@ export interface LibraryPreferences {
   /**
    * Whether the reading assistant's dock capsule and panel are shown. This is
    * user INTENT only; whether the server can actually run the assistant is a
-   * separate signal (`AssistantStatusService`). Defaults on so a configured
-   * assistant behaves exactly as it did before the toggle existed.
+   * separate signal (`AssistantStatusService`). Defaults off so the AI
+   * assistant is explicitly opt-in rather than appearing automatically.
    */
   assistantEnabled: boolean;
 }
@@ -26,7 +26,7 @@ const DEFAULT_PREFERENCES: LibraryPreferences = {
   pageSize: 20,
   sidebarExpanded: true,
   groupByWork: true,
-  assistantEnabled: true,
+  assistantEnabled: false,
 };
 
 const VALID_VIEW_MODES: readonly LibraryPreferences['viewMode'][] = ['grid', 'list'];
@@ -133,7 +133,7 @@ export class LibraryPreferencesService {
 
       // `assistantEnabled` was added after this object shipped. A stored object
       // without it is a valid older preference set, not a corrupt one: default
-      // it on rather than discarding the user's other choices.
+      // it off rather than silently opting an existing browser into AI.
       if (assistantEnabled !== undefined && typeof assistantEnabled !== 'boolean') {
         return null;
       }
