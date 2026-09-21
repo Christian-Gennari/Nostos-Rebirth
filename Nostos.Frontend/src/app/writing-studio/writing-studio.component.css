@@ -415,7 +415,7 @@
 }
 
 .header-save-status.is-saving {
-  color: var(--color-accent);
+  color: var(--color-brand-accent);
 }
 
 /* Document-action cluster: sits at the editor pane's upper-right. */

@@ -147,9 +147,9 @@ app-sidebar-collections.no-transition {
   padding: 0.3rem 0.4rem 0.3rem 0.75rem;
   font-size: 0.8rem;
   font-weight: var(--fw-medium);
-  color: var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+  color: var(--color-brand-accent);
+  background: color-mix(in srgb, var(--color-brand-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-brand-accent) 35%, transparent);
   border-radius: var(--radius-pill);
   cursor: pointer;
   transition: background 0.15s ease;
@@ -167,7 +167,7 @@ app-sidebar-collections.no-transition {
 }
 
 .filter-chip:hover {
-  background: color-mix(in srgb, var(--color-primary) 22%, transparent);
+  background: color-mix(in srgb, var(--color-brand-accent) 22%, transparent);
 }
 
 .books-empty-state {
