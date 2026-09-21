@@ -1446,6 +1446,83 @@ button {
 /* ------------------------------
    FORMS & INPUTS
 ------------------------------ */
+/* Canonical native form controls. The app still contains legacy .input /
+   .textarea / .select-input consumers while surfaces migrate, but new ordinary
+   fields use the native-host appInput/appTextarea/appSelect directives below. */
+.nostos-form-control {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--control-h-touch);
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-input);
+  color: var(--color-text-main);
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  outline: var(--focus-ring-width) solid transparent;
+  outline-offset: 1px;
+  transition:
+    border-color var(--motion-fast) var(--ease-plain),
+    outline-color var(--motion-fast) var(--ease-plain),
+    background-color var(--motion-fast) var(--ease-plain);
+}
+
+.nostos-form-control::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+.nostos-form-control--compact {
+  min-height: 40px;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.9rem;
+}
+
+.nostos-form-control:focus-visible {
+  border-color: var(--border-focus);
+  outline-color: var(--focus-ring);
+}
+
+.nostos-form-control:disabled,
+.nostos-form-control[readonly] {
+  background-color: var(--bg-surface-alt);
+  color: var(--color-text-light);
+  cursor: not-allowed;
+}
+
+.nostos-form-control[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.nostos-form-control[aria-invalid='true']:focus-visible {
+  outline-color: var(--color-danger);
+}
+
+.nostos-form-control--textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.nostos-form-control--select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%),
+    linear-gradient(135deg, var(--color-text-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) calc(50% - 1px),
+    calc(100% - 12px) calc(50% - 1px);
+  background-repeat: no-repeat;
+  background-size: 4px 4px, 4px 4px;
+  padding-right: 2.5rem;
+}
+
+@media (max-width: 768px) {
+  .nostos-form-control--compact {
+    min-height: var(--control-h-touch);
+  }
+}
+
 .textarea {
   resize: vertical;
   min-height: 100px;

@@ -690,6 +690,93 @@ function legacySettingsSwitchRecipes(css) {
 }
 
 /**
+ * RULE 11 — Add Book must not regrow a private generic field system.
+ *
+ * Add Book/Edit Book is the first surface migrated to the canonical native-host
+ * form controls and FormField. Before that migration the component owned its own
+ * .input/.select-input geometry, focus ring, label and field wrapper recipes.
+ *
+ * Product-specific controls remain intentionally local. In particular the source
+ * provider search is not an ordinary metadata field in this PR, so its existing
+ * global .input class is explicitly exempted by id. Everything else in Add Book
+ * must use appInput/appTextarea/appSelect + FormField rather than recreating the
+ * old generic field vocabulary.
+ */
+const ADD_BOOK_LEGACY_FIELD_CLASSES = new Set([
+  'input',
+  'textarea',
+  'select-input',
+  'form-group',
+  'form-label',
+  'info-text',
+]);
+
+function legacyAddBookFieldSelectors(css) {
+  const out = [];
+  for (const m of css.matchAll(/([^{}]+)\{/g)) {
+    const selector = m[1].trim();
+    const classes = [...selector.matchAll(/\.([a-zA-Z][a-zA-Z0-9_-]*)/g)].map((x) => x[1]);
+    if (classes.some((name) => ADD_BOOK_LEGACY_FIELD_CLASSES.has(name))) {
+      out.push({ selector, index: m.index });
+    }
+  }
+  return out;
+}
+
+function legacyAddBookFieldMarkup(html) {
+  const out = [];
+  for (const tag of html.matchAll(/<[^>]+>/g)) {
+    const raw = tag[0];
+    const classMatch = raw.match(/\bclass\s*=\s*(["'])(.*?)\1/s);
+    if (!classMatch) continue;
+    const classes = classMatch[2].split(/\s+/).filter(Boolean);
+    const legacy = classes.filter((name) => ADD_BOOK_LEGACY_FIELD_CLASSES.has(name));
+    if (!legacy.length) continue;
+
+    // Source/provider search remains product-owned in #357. It deliberately keeps
+    // the pre-existing global .input appearance while its search/result/acquisition
+    // interaction stays outside the ordinary FormField migration.
+    if (/\bid\s*=\s*(["'])source-query\1/.test(raw) && legacy.every((name) => name === 'input')) {
+      continue;
+    }
+
+    out.push({ tag: raw, index: tag.index, legacy });
+  }
+  return out;
+}
+
+{
+  const addBookCss = files.find(
+    (f) => rel(f.path) === 'src/app/add-book-modal/add-book-modal.component.css',
+  );
+  if (addBookCss) {
+    for (const hit of legacyAddBookFieldSelectors(addBookCss.css)) {
+      const line = addBookCss.css.slice(0, hit.index).split('\n').length;
+      report(
+        'add-book-local-field-system',
+        addBookCss.path,
+        line,
+        `Add Book re-declares legacy generic field selector "${hit.selector.replace(/\s+/g, ' ').slice(0, 90)}". ` +
+          `Use appInput/appTextarea/appSelect + FormField for ordinary fields; keep only product-specific controls local.`,
+      );
+    }
+  }
+
+  const addBookHtmlPath = join(SRC, 'app', 'add-book-modal', 'add-book-modal.component.html');
+  const addBookHtml = readFileSync(addBookHtmlPath, 'utf8');
+  for (const hit of legacyAddBookFieldMarkup(addBookHtml)) {
+    const line = addBookHtml.slice(0, hit.index).split('\n').length;
+    report(
+      'add-book-legacy-field-markup',
+      addBookHtmlPath,
+      line,
+      `Add Book uses legacy generic field class(es) [${hit.legacy.join(', ')}]. ` +
+        `Use the canonical native-host form primitives/FormField instead.`,
+    );
+  }
+}
+
+/**
  * Prove the scanner can fail. A rule that cannot be made to fire is not a check.
  * `--self-test` injects a known-bad snippet per rule and asserts each fires.
  */
@@ -702,6 +789,8 @@ if (process.argv.includes('--self-test')) {
     ['settings-local-button-family', '.btn-primary { background: red; }'],
     ['settings-local-switch-family',
       '.renamed-control { position: relative; width: 42px; height: 24px; cursor: pointer; }'],
+    ['add-book-local-field-system', '.input, .select-input { padding: 1rem; }'],
+    ['add-book-legacy-field-markup', '<input class="input" type="text">'],
     // RULE 8 needs a TEMPLATE and a matching .css class, so its case is checked by
     // the same predicate the rule uses (a bare hyphenated attr that IS a known class).
     ['bare-attribute-not-class', '<button appIconButton desktop-only></button>'],
@@ -754,6 +843,8 @@ if (process.argv.includes('--self-test')) {
     if (rule === 'undeclared-token') fired = /var\(\s*--definitely-not-declared/.test(snippet);
     if (rule === 'settings-local-button-family') fired = legacySettingsButtonSelectors(snippet).length > 0;
     if (rule === 'settings-local-switch-family') fired = legacySettingsSwitchRecipes(snippet).length > 0;
+    if (rule === 'add-book-local-field-system') fired = legacyAddBookFieldSelectors(snippet).length > 0;
+    if (rule === 'add-book-legacy-field-markup') fired = legacyAddBookFieldMarkup(snippet).length > 0;
     if (fired) { ok++; console.log(`  ✔ ${rule} fires on its known-bad snippet`); }
     else console.log(`  ✖ ${rule} DID NOT FIRE — the rule is vacuous`);
     void fake; void before;
@@ -804,6 +895,7 @@ if (process.argv.includes('--self-test')) {
     'undeclared-token', 'possible-unwinnable-dark-override (ADVISORY)',
     'backtick-in-inline-styles', 'transition-missing-duration',
     'bare-attribute-not-class', 'settings-local-button-family',
+    'add-book-local-field-system', 'add-book-legacy-field-markup',
     'settings-local-switch-family', 'visually-hidden (by-name + by-recipe)'];
   console.log(`\nself-test: ${ok}/${cases.length + 3} injected cases detected`);
   console.log(`rules implemented: ${RULES.length} (${RULES.join(', ')})`);

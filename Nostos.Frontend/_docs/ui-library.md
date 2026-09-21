@@ -137,6 +137,89 @@ switch tracks, deliberate CTA/action pills and progress tracks. Ordinary compact
 buttons, fields, cards and row controls keep the app's square/soft-radius
 recipes. This prevents the UI kit from turning every small action into a pill.
 
+## Native form controls
+
+**Selectors:** `input[appInput]`, `textarea[appTextarea]`, `select[appSelect]`  
+**Files:** `src/app/ui/form-control/` and the canonical control rules in `src/styles.css`
+
+Canonical Nostos styling for ordinary native form controls. The directives do not
+wrap or replace the host element, so native `type`, `name`, `required`,
+`disabled`, `autocomplete`, `ngModel`, option semantics and keyboard behaviour
+remain intact.
+
+All three controls share the same boundary, radius, typography, placeholder,
+disabled and focus contract. Selects keep native semantics and only replace the
+browser arrow visually with a token-driven chevron.
+
+| Input | Type | Default | Description |
+| --- | --- | --- | --- |
+| `controlSize` | `'normal' \| 'compact'` | `'normal'` | Measured normal/global or compact/modal geometry. Compact still reaches the mobile touch floor at the app breakpoint. |
+| `invalid` | `boolean` | `false` | Applies the danger boundary and native `aria-invalid="true"` state. |
+
+`controlSize` is deliberately not named `size`: `input` and `select` already
+have native `size` attributes, and the UI primitive must not change their
+semantics.
+
+```html
+<input appInput type="text" name="title" />
+<textarea appTextarea controlSize="compact" rows="5" name="description"></textarea>
+<select appSelect name="format">
+  <option value="physical">Physical Book</option>
+</select>
+```
+
+Legacy global `.input`, `.textarea` and `.select-input` classes remain while
+other surfaces are migrated. New ordinary fields should use the native-host
+directives instead of creating another local field recipe.
+
+## FormFieldComponent
+
+**Selector:** `app-form-field`  
+**Files:** `src/app/ui/form-field/`
+
+Reusable presentation frame for an ordinary field's label, required marker,
+label note, help text and validation message. The actual input/select/textarea is
+projected and remains native.
+
+| Input | Type | Default | Description |
+| --- | --- | --- | --- |
+| `label` | `string` | required | Visible field label |
+| `forId` | `string` | required | Native control id used by the label's `for` attribute |
+| `required` | `boolean` | `false` | Shows the required marker; the projected native control still owns its real `required` attribute |
+| `labelNote` | `string \| null` | `null` | Quiet inline label annotation such as `(Harvard)` |
+| `hint` | `string \| null` | `null` | Help text below the control |
+| `error` | `string \| null` | `null` | Validation text below the control, rendered as an alert |
+
+`describedBy()` returns the active hint/error ids so callers can connect a
+native control with `aria-describedby` when those messages are used.
+
+```html
+<app-form-field
+  #titleField
+  label="Title"
+  forId="book-title"
+  [required]="true"
+  hint="Use the title printed on this edition."
+  [error]="titleError"
+>
+  <input
+    id="book-title"
+    appInput
+    name="title"
+    required
+    [invalid]="!!titleError"
+    [attr.aria-describedby]="titleField.describedBy()"
+  />
+</app-form-field>
+```
+
+Add Book/Edit Book uses `controlSize="compact"` for its ordinary metadata
+fields because that modal already had a measured compact field density. File
+drop zones, cover acquisition, provider/source search and other special controls
+remain product-owned rather than being flattened into FormField.
+
+---
+
 ## FlatTreeComponent
 
 **Selector:** `app-flat-tree`  

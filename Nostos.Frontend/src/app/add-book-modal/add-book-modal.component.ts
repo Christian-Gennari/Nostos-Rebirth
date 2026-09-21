@@ -20,6 +20,8 @@ import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
 import { CollectionPickerComponent } from '../ui/collection-picker/collection-picker.component';
 import { ModalShell } from '../ui/modal-shell/modal-shell.component';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
+import { FormFieldComponent } from '../ui/form-field/form-field.component';
+import { InputDirective, SelectDirective, TextareaDirective } from '../ui/form-control/form-control.directive';
 
 @Component({
   selector: 'app-add-book-modal',
@@ -30,6 +32,10 @@ import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
     NostosIconComponent,
     IconButtonComponent,
     CollectionPickerComponent,
+    FormFieldComponent,
+    InputDirective,
+    SelectDirective,
+    TextareaDirective,
     ModalShell,
   ],
   templateUrl: './add-book-modal.component.html',
