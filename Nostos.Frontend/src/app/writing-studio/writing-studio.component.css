@@ -110,50 +110,23 @@
   margin-bottom: 0.85rem;
 }
 
+/* Studio keeps native tab semantics; .toggle-opt owns the shared segmented chrome. */
 .tab-btn {
   flex: 1;
-  background: none;
-  border: none;
   padding: 0.4rem 0.6rem;
   font-size: 0.82rem;
   font-family: 'Hanken Grotesk', sans-serif;
   color: var(--color-text-muted);
   font-weight: 500;
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   gap: 6px;
   transition:
     color var(--motion-fast),
     background-color var(--motion-fast);
 }
 
-.tab-btn:hover {
-  color: var(--color-text-main);
-}
-
 .tab-btn.active {
-  /* `--control-active-fill`, not `--bg-surface`. On dark `--bg-surface` (#121318) is
-     DARKER than the `--bg-hover` track (#20222a), so the selected tab SANK instead of
-     rising — measured live: track rgb(37,42,52) vs active rgb(27,30,38). Same defect
-     that was already fixed in Library and Brain; this was the third copy of it.
-     `font-weight: 600` is kept on purpose — these tabs carry text labels, so weight
-     is the only secondary cue that the icon-only toggles do not need. */
-  background: var(--control-active-fill);
-  color: var(--control-active-ink);
+  /* Text labels keep weight as a secondary active cue on top of the shared recipe. */
   font-weight: 600;
-  box-shadow: var(--shadow-sm);
-  outline: 1px solid var(--border-color);
-  outline-offset: -1px;
-}
-
-/* Focus ring: this control had NONE, while all three sibling segmented controls
-   have one. Keyboard users could not see which tab was focused. */
-.tab-btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: -2px;
 }
 
 .actions {

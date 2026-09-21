@@ -157,6 +157,7 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
     expect(tabs).toHaveLength(2);
     expect(tabs[0].getAttribute('role')).toBe('tab');
     expect(tabs[0].getAttribute('aria-selected')).toBe('true');
+    expect(tabs.every((tab) => tab.classList.contains('toggle-opt'))).toBe(true);
     expect(tabs.every((tab) => !tab.classList.contains('nostos-button'))).toBe(true);
     expect(tabs.every((tab) => !tab.classList.contains('nostos-chip'))).toBe(true);
 
