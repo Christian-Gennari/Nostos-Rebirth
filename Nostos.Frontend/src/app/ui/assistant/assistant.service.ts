@@ -6,11 +6,12 @@
  * deterministic source-location follow-up, the non-mutating suggestions, and the
  * pending plan that must be approved before anything changes.
  *
- * Two rules are structural, not cosmetic:
- *   - A suggestion never mutates. It is displayed and, when chosen, handed to the
- *     canonical link path as a PlanAndAct proposal that the user approves.
- *   - A pending plan is executed only by an explicit `approvePlan` carrying the
- *     exact plan id and its approval token.
+ * Trust is structural, not cosmetic:
+ *   - Suggestions never mutate merely by being shown.
+ *   - Choosing a normal reversible action (for example an existing concept link)
+ *     is sufficient authorization for the backend's immediate Act path.
+ *   - Only destructive/high-impact pending plans use `approvePlan` with the
+ *     exact plan id and approval token.
  *
  * `TRANSCRIPT_SEND_POLICY` is unchanged: a voice transcript enters the composer
  * and is dispatched after the grace window, with a pre-dispatch Undo.
@@ -526,10 +527,9 @@ export class AssistantService {
   }
 
   /**
-   * Choose a non-mutating suggestion. Linking is state-changing, so this hands
-   * the choice to the canonical PlanAndAct path: the assistant proposes
-   * `notes_link_existing_concept` and nothing runs until the user approves the
-   * plan. The assistant never links a note on its own.
+   * Choose a non-mutating suggestion. The click is the user's explicit choice,
+   * so the resulting existing-concept link may execute through the normal Act
+   * path without asking for a second approval.
    */
   applySuggestion(suggestion: AssistantSuggestionDto): void {
     if (suggestion.kind !== 'concept' || !suggestion.value) return;
@@ -615,7 +615,10 @@ export class AssistantService {
         this.lastError.set(null);
         this.lastTurn.set(response);
         this.suggestions.set(response.suggestions ?? []);
-        this.pendingPlan.set(response.pendingPlan ?? null);
+        // A no-plan response does not cancel a destructive plan that is still
+        // pending server-side. Only a newly proposed plan replaces it, and a
+        // successful approval clears it below.
+        if (response.pendingPlan) this.pendingPlan.set(response.pendingPlan);
 
         // The raw-transcript view belongs to one captured note; a new turn
         // replaces it, so stale raw words are never shown against a new note.
