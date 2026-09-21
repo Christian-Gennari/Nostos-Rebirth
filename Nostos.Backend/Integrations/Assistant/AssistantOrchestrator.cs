@@ -470,13 +470,6 @@ public sealed class AssistantOrchestrator(
                 + "already has."));
         }
 
-        if (!string.IsNullOrWhiteSpace(request.PendingPlanId))
-        {
-            messages.Add(LlmMessage.System(
-                $"There is one pending plan awaiting explicit approval, with id '{request.PendingPlanId}'. "
-                + "Do not claim it has run. The user approves it through the plan approval action, which carries this id."));
-        }
-
         // Client-supplied recent turns. This is UNTRUSTED text: it travels only
         // as ordinary user/assistant turns and must never be promoted to a system
         // message or concatenated into one, whatever a role field claims.
