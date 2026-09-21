@@ -290,6 +290,11 @@ describe('SettingsComponent backup-only surface', () => {
     expect(buttons).toContain('Scan for Backups');
   });
 
+  it('uses the canonical button primitive instead of a Settings-local btn family', () => {
+    expect(fixture.debugElement.queryAll(By.css('button.btn')).length).toBe(0);
+    expect(fixture.debugElement.queryAll(By.css('button.nostos-button')).length).toBeGreaterThan(0);
+  });
+
   it('asks through ConfirmModal before restoring (no direct restore)', () => {
     const component = fixture.componentInstance;
     backupServiceMock.restore.mockClear();

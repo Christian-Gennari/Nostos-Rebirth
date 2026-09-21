@@ -4,6 +4,33 @@ Reusable components and utilities shared across pages.
 
 ---
 
+## ButtonComponent
+
+**Selector:** `button[appButton]`  
+**Files:** `src/app/ui/button/`
+
+Canonical Nostos text/action button. The host is the native `<button>`, so callers
+keep native `type`, `disabled`, keyboard activation, click handlers and `aria-*`
+attributes while the component owns the shared visual action contract.
+
+### Inputs
+
+| Input | Type | Default | Description |
+| --- | --- | --- | --- |
+| `variant` | `'primary' \| 'secondary' \| 'ghost' \| 'danger'` | `'secondary'` | Visual/semantic action role |
+| `size` | `'sm' \| 'md'` | `'md'` | Measured compact/default size |
+| `busy` | `boolean` | `false` | Emits `aria-busy`; does not override native `disabled` |
+
+Use `appButton` for ordinary labelled actions. Icon-only actions use
+`appIconButton`. Tabs, radio-style theme cards and other controls with a
+different interaction contract keep their native/product semantics rather than
+being forced through the generic Button primitive.
+
+```html
+<button appButton variant="primary" type="button">Save</button>
+<button appButton variant="secondary" size="sm" type="button">Restore</button>
+```
+
 ## FlatTreeComponent
 
 **Selector:** `app-flat-tree`  

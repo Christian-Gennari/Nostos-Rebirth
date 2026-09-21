@@ -405,79 +405,6 @@
   outline-offset: 1px;
 }
 
-/* --- Buttons --- */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-size: 0.82rem;
-  font-weight: var(--fw-medium);
-  padding: 8px 14px;
-  border-radius: var(--radius-action);
-  border: none;
-  cursor: pointer;
-  transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease,
-    opacity 0.15s ease,
-    transform 0.15s ease;
-}
-
-.btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: 2px;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  /* The CTA tokens, not `--primary-fill`/`--on-primary` directly. The global dark
-     override used to reach into this component and repaint it porcelain; now the
-     component asks for the CTA role and gets the same answer, with no global rule
-     needing to out-specify this one. Border stays `none` here (this component's
-     own choice) but the fill/ink come from the role. */
-  background: var(--cta-surface);
-  color: var(--cta-ink);
-  border: none;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: var(--cta-surface-hover);
-  transform: translateY(-1px);
-}
-
-.btn-secondary {
-  background: var(--bg-surface-alt);
-  color: var(--color-text-main);
-  border: 1px solid var(--border-color);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: var(--bg-hover);
-}
-
-.btn-danger {
-  background: transparent;
-  color: var(--color-danger);
-  border: 1px solid var(--color-danger);
-}
-
-.btn-danger:hover:not(:disabled) {
-  background: var(--color-danger-bg);
-}
-
-.btn-sm {
-  font-size: var(--text-xs);
-  padding: 5px 10px;
-}
-
-
-
 /* Status capsules: rounded pills shared by last-backup + history statuses. */
 .status-success,
 .status-error,
@@ -574,6 +501,26 @@
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+
+.history-actions .icon-btn {
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-action);
+}
+
+.history-actions .icon-btn:hover {
+  background: var(--bg-hover);
+}
+
+.history-actions .icon-btn--danger {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.history-actions .icon-btn--danger:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
 }
 
 /* --- Spin animation --- */
@@ -947,7 +894,7 @@
     gap: 10px;
   }
 
-  .card-header > .btn,
+  .card-header > .nostos-button,
   .card-header > .card-count,
   .card-header > .status-dot-label {
     align-self: flex-start;
