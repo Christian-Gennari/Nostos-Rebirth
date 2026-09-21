@@ -381,6 +381,38 @@ describe('AssistantService voice transcript alignment', () => {
     expect(service.lastTurn()?.reply).toBe('Mountains looks right.');
   });
 
+  it('keeps a destructive pending plan across an ordinary follow-up turn', () => {
+    service.open();
+    service.updateDraft('Delete the obsolete collection');
+    service.submit();
+
+    http.expectOne('/api/assistant/turn').flush(
+      turn({
+        pendingPlan: {
+          planId: 'plan-delete',
+          summary: 'Delete Obsolete',
+          steps: [
+            {
+              capability: 'library_delete_collection',
+              summary: 'Delete Obsolete',
+              argumentsJson: '{}',
+            },
+          ],
+          approvalToken: 'token-delete',
+        },
+      }),
+    );
+    expect(service.pendingPlan()?.planId).toBe('plan-delete');
+
+    service.updateDraft('What books are in it?');
+    service.submit();
+    http.expectOne('/api/assistant/turn').flush(turn({ reply: 'Three books.' }));
+
+    // The backend still holds the destructive plan; a normal answer must not
+    // make the confirmation disappear only on the client.
+    expect(service.pendingPlan()?.planId).toBe('plan-delete');
+  });
+
   it('sends no per-turn processing mode', () => {
     service.open();
     service.updateDraft('A thought');
@@ -565,7 +597,7 @@ describe('AssistantService voice transcript alignment', () => {
     http.expectNone('/api/assistant/turn');
   });
 
-  it('needs a review target before it will propose a link plan for a concept', () => {
+  it('needs a review target before it will request a concept link', () => {
     service.applySuggestion({
       kind: 'concept',
       label: 'Mountains',
@@ -576,7 +608,7 @@ describe('AssistantService voice transcript alignment', () => {
     http.expectNone('/api/assistant/turn');
   });
 
-  it('proposes a link plan for a concept when a note is under review', () => {
+  it('requests an immediate concept link when a note is under review', () => {
     fake.set({ brainReviewNoteId: 'note-1' });
     service.applySuggestion({
       kind: 'concept',
