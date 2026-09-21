@@ -1,0 +1,63 @@
+name: Agent 361 verification
+
+on:
+  push:
+    branches:
+      - refactor/ui-library-brain-kit
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Nostos.Frontend/package-lock.json
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install frontend dependencies
+        working-directory: Nostos.Frontend
+        run: npm ci
+
+      - name: Check
+        working-directory: Nostos.Frontend
+        run: npm run check
+
+      - name: Unit tests
+        working-directory: Nostos.Frontend
+        run: npm test
+
+      - name: Production build
+        working-directory: Nostos.Frontend
+        run: npm run build
+
+      - name: Install Chromium
+        working-directory: Nostos.Frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser verification
+        working-directory: Nostos.Frontend
+        run: >
+          npx playwright test
+          e2e/brain-library-parity.spec.ts
+          e2e/visual-regression.spec.ts
+          e2e/mobile-studio-brain.spec.ts
+          --project=desktop-chromium
+          --project=mobile-chromium
+
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-361-browser-evidence
+          path: |
+            Nostos.Frontend/e2e/visual-evidence
+            Nostos.Frontend/e2e/test-results
+          if-no-files-found: ignore
