@@ -35,10 +35,7 @@ jobs:
       - name: Production build
         run: npm run build
       - name: Full unit suite
-        # Angular/Vitest isolation prevents cross-spec ESM mock state from
-        # leaking into reader mocks; disabling splitting also avoids the
-        # documented live-binding/mock initialization failure mode.
-        run: npx ng test --isolate=true --splitting=false
+        run: npm test
       - name: Assistant v2 regression
         run: npx ng test --filter="keeps a destructive pending plan across an ordinary follow-up turn"
 
