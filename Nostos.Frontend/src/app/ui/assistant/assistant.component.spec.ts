@@ -123,6 +123,10 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     fixture = TestBed.createComponent(AssistantComponent);
     assistant = TestBed.inject(AssistantService);
     http = TestBed.inject(HttpTestingController);
+
+    // Most component tests exercise the enabled surface explicitly. The product
+    // default is off; opt in here so those tests remain about assistant behavior.
+    TestBed.inject(LibraryPreferencesService).setAssistantEnabled(true);
     fixture.detectChanges();
   });
 
