@@ -216,6 +216,25 @@ describe('SettingsComponent backup-only surface', () => {
     expect(window.location.hash).toBe(hashBefore);
   });
 
+  it('keeps Settings as a quiet utility surface without redundant page or section marketing', () => {
+    expect(fixture.nativeElement.querySelector('.settings-header')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.settings-overview')).toBeNull();
+
+    const pageText = (fixture.nativeElement.textContent ?? '').replace(/\s+/g, ' ');
+    expect(pageText).not.toContain('Shape the quiet systems behind your reading space.');
+    expect(pageText).not.toContain('Keep your library safe and reachable.');
+
+    expect(
+      fixture.nativeElement.querySelector('#library-data-heading')?.textContent.trim(),
+    ).toBe('Library & data');
+
+    const activeNav = fixture.nativeElement.querySelector(
+      '.settings-nav-item.is-active',
+    ) as HTMLElement;
+    expect(activeNav.textContent?.replace(/\s+/g, ' ').trim()).toBe('Library & data');
+    expect(activeNav.querySelector('small')).toBeNull();
+  });
+
   it('renders the Appearance surface with a working Light/Dark choice', () => {
     fixture.componentInstance.setSettingsSection('appearance');
     fixture.detectChanges();
