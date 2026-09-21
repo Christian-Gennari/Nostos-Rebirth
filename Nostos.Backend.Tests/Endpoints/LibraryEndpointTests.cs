@@ -726,12 +726,13 @@ public sealed class LibraryEndpointTests : IClassFixture<LibraryEndpointFactory>
         var counts = await Client.GetFromJsonAsync<CollectionCountDto[]>("/api/collections/counts");
 
         counts.Should().NotBeNull();
-        counts!.Single(c => c.CollectionId == root.Id).BookCount.Should().Be(1,
+        var collectionCounts = counts!;
+        collectionCounts.Single(c => c.CollectionId == root.Id).BookCount.Should().Be(1,
             "a parent's count includes its child's books");
-        counts.Single(c => c.CollectionId == child.Id).BookCount.Should().Be(1);
+        collectionCounts.Single(c => c.CollectionId == child.Id).BookCount.Should().Be(1);
         // The child's book counts once for the child and once for the parent;
         // the uncollected book contributes to NO collection count.
-        counts.Sum(c => c.BookCount).Should().Be(2);
+        collectionCounts.Sum(c => c.BookCount).Should().Be(2);
     }
 
     [Fact]
