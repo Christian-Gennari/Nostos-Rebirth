@@ -1,0 +1,34 @@
+name: Temp 348 verify
+
+on:
+  push:
+    branches:
+      - cleanup/348-review-residue
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet restore Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
+      - run: dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj --configuration Debug --no-restore
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Nostos.Frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Nostos.Frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm test -- --watch=false
+      - run: npm run check
