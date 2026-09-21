@@ -1,0 +1,46 @@
+name: Temporary assistant dock stacking verification
+
+on:
+  push:
+    branches:
+      - fix/assistant-expanded-dock-stacking
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Nostos.Frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: Nostos.Frontend
+        run: npm ci
+
+      - name: Frontend integrity checks
+        working-directory: Nostos.Frontend
+        run: npm run check
+
+      - name: Frontend production build
+        working-directory: Nostos.Frontend
+        run: npm run build
+
+      - name: Backend build
+        run: dotnet build Nostos.sln
+
+      - name: Install Playwright Chromium
+        working-directory: Nostos.Frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Expanded assistant dock stacking regression
+        working-directory: Nostos.Frontend
+        run: npx playwright test e2e/assistant-expanded-shell.spec.ts --project=desktop-chromium
