@@ -63,7 +63,44 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var note = await db.Notes.AsNoTracking().SingleAsync();
         note.Content.Should().Be("A captured thought");
         note.SourceAnchorKind.Should().Be("epub_cfi");
+        note.SourceAnchorValue.Should().Be("epubcfi(/6/4[chap01]!/4/2/2)");
+        note.CfiRange.Should().Be("epubcfi(/6/4[chap01]!/4/2/2)");
         note.AnchorVerified.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Pdf_capture_persists_a_reader_navigation_location()
+    {
+        var h = CreateHarness();
+        var book = await SeedBookAsync(h, "A PDF Book");
+
+        h.Llm
+            .CallsTool("notes_capture", """{"selectedText":"A quoted passage"}""")
+            .Returns("Saved.");
+
+        await h.Orchestrator.HandleTurnAsync(Turn(
+            "Save this quote.",
+            Context(
+                bookId: book.Id.ToString(),
+                bookTitle: "A PDF Book",
+                bookFormat: "ebook",
+                readerType: "pdf",
+                pdfPage: 37,
+                selectedText: "A quoted passage")));
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var note = await db.Notes.AsNoTracking().SingleAsync();
+
+        note.SelectedText.Should().Be("A quoted passage");
+        note.SourceAnchorKind.Should().Be("pdf_page");
+        note.SourceAnchorValue.Should().Be("37");
+        note.AnchorVerified.Should().BeTrue();
+        note.CfiRange.Should().NotBeNullOrWhiteSpace();
+
+        using var location = JsonDocument.Parse(note.CfiRange!);
+        location.RootElement.GetProperty("pageNumber").GetInt32().Should().Be(37);
+        location.RootElement.GetProperty("yPercent").GetInt32().Should().Be(0);
+        location.RootElement.GetProperty("rects").GetArrayLength().Should().Be(0);
     }
 
     [Fact]
