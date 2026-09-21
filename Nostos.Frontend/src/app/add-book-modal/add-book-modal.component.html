@@ -75,7 +75,7 @@
               @if (job.detail) {
                 <span class="source-hint">{{ job.detail }}</span>
               }
-              <button type="button" class="btn btn-secondary" (click)="cancelImport()">
+              <button type="button" appButton variant="secondary" (click)="cancelImport()">
                 Cancel import
               </button>
             </div>
@@ -138,7 +138,7 @@
                   />
                   <button
                     type="button"
-                    class="btn btn-secondary btn-fetch"
+                    appButton variant="secondary" class="btn-fetch"
                     [disabled]="!form.isbn || isFetching()"
                     (click)="fetchMetadata()"
                   >
