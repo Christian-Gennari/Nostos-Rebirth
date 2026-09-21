@@ -40,7 +40,7 @@ vi.mock('howler', () => ({
       unload: vi.fn(),
       seek: vi.fn(() => 0),
       playing: vi.fn(() => false),
-      duration: vi.fn(() => 0),
+      duration: vi.fn(() => 7200),
       play: vi.fn(),
       pause: vi.fn(),
       rate: vi.fn(),
