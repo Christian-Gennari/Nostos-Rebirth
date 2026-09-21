@@ -83,7 +83,7 @@ jobs:
             const assertPrimitives = async () => {
               const switches = await page.locator('label.nostos-switch').count();
               const badges = await page.locator('span.nostos-badge').count();
-              if (switches !== 4) throw new Error(`Expected 4 Settings switches, found ${switches}`);
+              if (switches < 3) throw new Error(`Expected the three server-independent Settings switches, found ${switches}`);
               if (badges < 2) throw new Error(`Expected Settings badges, found ${badges}`);
               for (const input of await page.locator('label.nostos-switch input[type="checkbox"]').all()) {
                 const label = await input.getAttribute('aria-label');
