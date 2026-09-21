@@ -1,0 +1,65 @@
+name: Agent 357 verification
+
+on:
+  push:
+    branches:
+      - feature/ui-form-controls
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Nostos.Frontend/package-lock.json
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install frontend dependencies
+        working-directory: Nostos.Frontend
+        run: npm ci
+
+      - name: npm run check
+        working-directory: Nostos.Frontend
+        run: npm run check
+
+      - name: npm run check:design -- --self-test
+        working-directory: Nostos.Frontend
+        run: npm run check:design -- --self-test
+
+      - name: npm test
+        working-directory: Nostos.Frontend
+        run: npm test
+
+      - name: npm run build
+        working-directory: Nostos.Frontend
+        run: npm run build
+
+      - name: Install Chromium
+        working-directory: Nostos.Frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser verify Add Book at 1:1
+        working-directory: Nostos.Frontend
+        run: npx playwright test e2e/agent-357-form-controls-visual.spec.ts --project=desktop-chromium
+
+      - name: Upload visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-357-visual
+          path: |
+            Nostos.Frontend/e2e/test-results/issue-357-visual
+            Nostos.Frontend/e2e/test-results/artifacts
+            Nostos.Frontend/e2e/test-results/playwright-report
+          if-no-files-found: ignore
