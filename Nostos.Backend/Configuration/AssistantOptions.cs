@@ -54,15 +54,6 @@ public sealed class AssistantOptions
     public string ApiKeyEnvironmentVariable { get; set; } = "NOSTOS_ASSISTANT_TOKEN";
 
     /// <summary>
-    /// RETIRED as an effective value (issue #262 §7): the capture
-    /// post-processing mode now comes from the stored assistant setting, which
-    /// the owner chooses once in Settings. This property is kept only so an
-    /// existing <c>appsettings.json</c> keeps binding — nothing reads it. With
-    /// no stored row, the effective mode is <c>verbatim</c>.
-    /// </summary>
-    public string DefaultProcessingMode { get; set; } = "verbatim";
-
-    /// <summary>
     /// Hard ceiling on LLM round trips in one turn. A model that keeps asking for
     /// tools is cut off rather than looping forever.
     /// </summary>
