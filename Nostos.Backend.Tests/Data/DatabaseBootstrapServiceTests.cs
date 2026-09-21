@@ -149,7 +149,7 @@ public sealed class DatabaseBootstrapServiceTests : IDisposable
                 Author = "Author",
                 CreatedAt = DateTime.UtcNow,
             };
-            db.PhysicalBooks.Add(book);
+            db.Books.Add(book);
             await db.SaveChangesAsync();
 
             migrations = AllKnownMigrationIds(db);
@@ -179,7 +179,7 @@ public sealed class DatabaseBootstrapServiceTests : IDisposable
             await new DatabaseBootstrapService(db).EnsureReadyAsync();
 
             // Data survived the normal migration path.
-            db.PhysicalBooks.SingleOrDefault(b => b.Title == "Preserved Book")
+            db.Books.OfType<PhysicalBookModel>().SingleOrDefault(b => b.Title == "Preserved Book")
                 .Should().NotBeNull();
 
             // The missing migration was applied through the ordinary path and the
