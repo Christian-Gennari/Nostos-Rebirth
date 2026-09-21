@@ -53,5 +53,4 @@ public class BookRepository : IBookRepository
         _db.Books.Update(book);
         await _db.SaveChangesAsync();
     }
-
 }
