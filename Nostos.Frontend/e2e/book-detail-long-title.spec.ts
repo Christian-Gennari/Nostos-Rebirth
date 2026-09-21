@@ -17,8 +17,15 @@ const CASES = [
 test.describe('Book Detail long-title hero', () => {
   const fixture = loadFixture();
   let book: SeedBook | null = null;
+  let normalBook: SeedBook | null = null;
 
   test.beforeAll(async () => {
+    normalBook = await apiPost<SeedBook>(fixture.baseUrl, '/api/books', {
+      type: 'physical',
+      title: 'Meditations',
+      author: 'Marcus Aurelius',
+    });
+
     const title = Array.from(
       { length: 14 },
       (_, i) => `A deliberately long volume title part ${i + 1} about memory, reading, interpretation and the return home`,
@@ -39,13 +46,18 @@ test.describe('Book Detail long-title hero', () => {
   });
 
   test.afterAll(async () => {
-    if (!book) return;
-    await fetch(`${fixture.baseUrl}/api/books/${book.id}`, { method: 'DELETE' });
+    if (book) {
+      await fetch(`${fixture.baseUrl}/api/books/${book.id}`, { method: 'DELETE' });
+    }
+    if (normalBook) {
+      await fetch(`${fixture.baseUrl}/api/books/${normalBook.id}`, { method: 'DELETE' });
+    }
   });
 
   for (const tc of CASES) {
     test(tc.name, async ({ browser }) => {
       expect(book).not.toBeNull();
+      expect(normalBook).not.toBeNull();
 
       const context = await browser.newContext({
         viewport: { width: tc.width, height: tc.height },
@@ -59,6 +71,17 @@ test.describe('Book Detail long-title hero', () => {
 
       const page = await context.newPage();
       try {
+        // The fix must not move an ordinary book: the old fixed height becomes
+        // the minimum, so the normal composition stays at the exact same rung.
+        await page.goto(`${fixture.baseUrl}/library/${normalBook!.id}`, {
+          waitUntil: 'domcontentloaded',
+        });
+        await page.locator('.book-title').waitFor();
+        const normalHeroHeight = await page
+          .locator('.book-hero')
+          .evaluate((el) => el.getBoundingClientRect().height);
+        expect(normalHeroHeight).toBeCloseTo(tc.minHero, 0);
+
         await page.goto(`${fixture.baseUrl}/library/${book!.id}`, {
           waitUntil: 'domcontentloaded',
         });
