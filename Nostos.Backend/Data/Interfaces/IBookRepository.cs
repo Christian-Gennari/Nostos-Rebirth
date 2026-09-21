@@ -1,4 +1,5 @@
 using Nostos.Backend.Data.Models;
+
 namespace Nostos.Backend.Data.Interfaces;
 
 public interface IBookRepository
@@ -21,5 +22,4 @@ public interface IBookRepository
     Task<List<BookModel>> GetBooksWithFilesPageAsync(int skip, int take);
 
     Task UpdateAsync(BookModel book);
-
 }
