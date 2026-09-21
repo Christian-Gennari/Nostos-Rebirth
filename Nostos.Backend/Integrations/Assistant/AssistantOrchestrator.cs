@@ -730,6 +730,20 @@ public sealed class AssistantOrchestrator(
         {
             obj["cfiRange"] = decision.Value;
         }
+        else if (decision.Verified
+            && string.Equals(decision.Kind, "pdf_page", StringComparison.Ordinal)
+            && int.TryParse(decision.Value, CultureInfo.InvariantCulture, out var pdfPage)
+            && pdfPage > 0)
+        {
+            // Reader note navigation still consumes the legacy CfiRange field.
+            // Keep the typed assistant anchor as canonical provenance, but bridge
+            // a verified PDF page into the same JSON location shape PdfReader
+            // already emits from getCurrentLocation(). This makes new assistant
+            // captures navigable without inventing a second PDF location format.
+            obj["cfiRange"] = JsonSerializer.Serialize(
+                new { pageNumber = pdfPage, yPercent = 0, rects = Array.Empty<object>() },
+                JsonOptions);
+        }
 
         var content = ReadString(obj, "content");
         if (!string.IsNullOrWhiteSpace(selectedText) && !decision.Verified)
