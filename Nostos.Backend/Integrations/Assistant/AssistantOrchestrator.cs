@@ -142,6 +142,7 @@ public sealed class AssistantOrchestrator(
         var captureProcessingMode = await settings.GetCaptureProcessingModeAsync(ct);
 
         var suggestions = new List<AssistantSuggestionDto>();
+        var executedCapabilities = new List<string>();
         var planSteps = new List<AssistantPlanStep>();
         AssistantAnchorPromptDto? anchorPrompt = null;
         string? acknowledgement = null;
@@ -181,8 +182,7 @@ public sealed class AssistantOrchestrator(
                 // remaining distinct inside this bounded tool loop.
                 var toolContext = new AssistantToolContext(
                     ClientId: request.ClientId,
-                    IdempotencyKey: $"{request.IdempotencyKey}:{iteration}:{callOrdinal}",
-                    PlanId: request.PendingPlanId);
+                    IdempotencyKey: $"{request.IdempotencyKey}:{iteration}:{callOrdinal}");
                 callOrdinal++;
 
                 if (!capabilityByName.TryGetValue(call.Name, out var capability))
@@ -274,6 +274,11 @@ public sealed class AssistantOrchestrator(
                 var result = await registry.InvokeAsync(capability.Name, args, toolContext, ct);
                 messages.Add(LlmMessage.Tool(call.Id, ToolJson(result)));
 
+                if (result.Success && capability.Trust == AssistantTrustClass.Act)
+                {
+                    executedCapabilities.Add(capability.Name);
+                }
+
                 if (result.Success && capability.Trust == AssistantTrustClass.Suggest)
                 {
                     MergeSuggestions(suggestions, ExtractSuggestions(capability.Name, result.Data));
@@ -350,7 +355,8 @@ public sealed class AssistantOrchestrator(
             anchorPrompt,
             suggestions,
             pendingPlan,
-            capturedNoteId);
+            capturedNoteId,
+            executedCapabilities);
     }
 
     // ------------------------------------------------------------------
