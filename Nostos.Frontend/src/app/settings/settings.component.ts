@@ -15,6 +15,8 @@ import {
 } from '../core/dtos/backup.dtos';
 import { OpdsInfo } from '../core/dtos/opds.dtos';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
+import { ButtonComponent } from '../ui/button/button.component';
+import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
 import { LibraryPreferencesService } from '../core/services/library-preferences.service';
 import { AssistantStatusService } from '../ui/assistant/assistant-status.service';
 import {
@@ -156,7 +158,14 @@ const defaultProgress: BackupProgress = {
 @Component({
   standalone: true,
   selector: 'app-settings',
-  imports: [CommonModule, FormsModule, NostosIconComponent, ConfirmModal],
+  imports: [
+    CommonModule,
+    FormsModule,
+    NostosIconComponent,
+    ButtonComponent,
+    IconButtonComponent,
+    ConfirmModal,
+  ],
   templateUrl: './settings.component.html',
   styleUrls: ['./settings.component.css'],
 })

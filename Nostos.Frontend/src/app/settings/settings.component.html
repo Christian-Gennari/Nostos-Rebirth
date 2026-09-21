@@ -61,8 +61,9 @@
             <h2>Backup</h2>
           </div>
           <button
-            class="btn btn-primary"
+            appButton variant="primary"
             [disabled]="backingUp()"
+            [busy]="backingUp()"
             (click)="triggerBackup()"
           >
             @if (backingUp()) {
@@ -155,7 +156,7 @@
               <span class="label-desc">Copy .nostos files to the Storage/backups/ folder on the server, then scan to add them to your history.</span>
             </div>
             <button
-              class="btn btn-secondary"
+              appButton variant="secondary"
               [disabled]="importing()"
               (click)="scanForBackups()"
             >
@@ -217,17 +218,30 @@
                     {{ item.status }}
                   </span>
                   @if (item.status === 'Completed') {
-                    <button class="btn btn-sm btn-secondary" (click)="downloadBackup(item.id)" title="Download archive">
-                      <nostos-icon name="download-simple" [size]="14"></nostos-icon>
-                    </button>
-                    <button class="btn btn-sm btn-secondary" (click)="restoreBackup(item.id)" [disabled]="restoring()" title="Restore from this backup">
+                    <button
+                      appIconButton
+                      icon="download-simple"
+                      size="xs"
+                      [glyphSize]="14"
+                      (click)="downloadBackup(item.id)"
+                      aria-label="Download archive"
+                      title="Download archive"
+                    ></button>
+                    <button appButton variant="secondary" size="sm" (click)="restoreBackup(item.id)" [disabled]="restoring()" title="Restore from this backup">
                       <nostos-icon name="arrows-clockwise" [size]="14"></nostos-icon>
                       Restore
                     </button>
                   }
-                  <button class="btn btn-sm btn-danger" (click)="deleteBackup(item.id)" title="Delete backup">
-                    <nostos-icon name="trash" [size]="14"></nostos-icon>
-                  </button>
+                  <button
+                    appIconButton
+                    icon="trash"
+                    size="xs"
+                    tone="danger"
+                    [glyphSize]="14"
+                    (click)="deleteBackup(item.id)"
+                    aria-label="Delete backup"
+                    title="Delete backup"
+                  ></button>
                 </div>
               </div>
             }
@@ -280,7 +294,7 @@
                   <code class="catalog-url">{{ info.catalogUrl }}</code>
                   <button
                     type="button"
-                    class="btn btn-secondary btn-sm"
+                    appButton variant="secondary" size="sm"
                     (click)="copyCatalogUrl()"
                     [attr.aria-label]="'Copy catalog address ' + info.catalogUrl"
                   >
@@ -475,9 +489,10 @@
                   />
                   <button
                     type="button"
-                    class="btn btn-secondary"
+                    appButton variant="secondary"
                     (click)="loadAiModels('llm')"
                     [disabled]="aiBusy()"
+                    [busy]="aiLoadingKind() === 'llm'"
                   >
                     @if (aiLoadingKind() === 'llm') {
                       <nostos-icon name="circle-notch" [size]="15" class="spin"></nostos-icon>
@@ -518,7 +533,7 @@
                     </span>
                     <button
                       type="button"
-                      class="btn btn-secondary btn-sm"
+                      appButton variant="secondary" size="sm"
                       (click)="clearAiKey('llm')"
                       [disabled]="aiBusy()"
                     >
@@ -532,9 +547,10 @@
               <div class="provider-actions">
                 <button
                   type="button"
-                  class="btn btn-secondary"
+                  appButton variant="secondary"
                   (click)="testAiConnection('llm')"
                   [disabled]="aiBusy()"
+                  [busy]="aiTestingKind() === 'llm'"
                 >
                   @if (aiTestingKind() === 'llm') {
                     <nostos-icon name="circle-notch" [size]="15" class="spin"></nostos-icon>
@@ -605,9 +621,10 @@
                   />
                   <button
                     type="button"
-                    class="btn btn-secondary"
+                    appButton variant="secondary"
                     (click)="loadAiModels('stt')"
                     [disabled]="aiBusy()"
+                    [busy]="aiLoadingKind() === 'stt'"
                   >
                     @if (aiLoadingKind() === 'stt') {
                       <nostos-icon name="circle-notch" [size]="15" class="spin"></nostos-icon>
@@ -648,7 +665,7 @@
                     </span>
                     <button
                       type="button"
-                      class="btn btn-secondary btn-sm"
+                      appButton variant="secondary" size="sm"
                       (click)="clearAiKey('stt')"
                       [disabled]="aiBusy()"
                     >
@@ -662,9 +679,10 @@
               <div class="provider-actions">
                 <button
                   type="button"
-                  class="btn btn-secondary"
+                  appButton variant="secondary"
                   (click)="testAiConnection('stt')"
                   [disabled]="aiBusy()"
+                  [busy]="aiTestingKind() === 'stt'"
                 >
                   @if (aiTestingKind() === 'stt') {
                     <nostos-icon name="circle-notch" [size]="15" class="spin"></nostos-icon>
@@ -689,9 +707,10 @@
             <div class="provider-footer">
               <button
                 type="button"
-                class="btn btn-primary"
+                appButton variant="primary"
                 (click)="saveAiProvider()"
                 [disabled]="aiBusy()"
+                [busy]="aiSaving()"
                 data-testid="ai-provider-save"
               >
                 @if (aiSaving()) {
