@@ -1,10 +1,8 @@
 /* Nostos confirmation surface — Nordic Editorial.
-   The backdrop, the card and the entrance animation belong to
-   `app-modal-shell` (see `ui/modal-shell`), including the `prefers-reduced-
-   motion` guard the card's `from: opacity 0` makes necessary. This file styles
-   the question itself. Deliberately NOT glassmorphic (the brand avoids it) and
-   NOT an alarm: the danger treatment is muted wine, and the action never lifts
-   on hover. */
+   The backdrop, card and entrance animation belong to app-modal-shell; ordinary
+   action composition belongs to app-dialog-actions; action visuals belong to
+   appButton. This file owns only the question-specific mark, copy and busy
+   spinner. */
 
 :host {
   display: contents;

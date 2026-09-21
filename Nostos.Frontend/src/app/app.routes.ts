@@ -1,14 +1,8 @@
 import { Routes } from '@angular/router';
 import { Home } from './home/home.component';
 import { WorkspaceLayout } from './layout/workspace-layout/workspace-layout.component';
-import { DialogActionsVerificationHarness } from './ui/dialog-actions/dialog-actions.verification';
 
 export const routes: Routes = [
-  {
-    path: '__verify/dialog-actions',
-    component: DialogActionsVerificationHarness,
-  },
-
   {
     path: '',
     component: Home,
