@@ -10,7 +10,7 @@
           [size]="32"
           style="margin-bottom: 1rem; color: var(--color-danger)"></nostos-icon>
         <p>{{ store.error() }}</p>
-        <button class="btn btn-secondary" routerLink="/library">Return to Library</button>
+        <button appButton variant="secondary" routerLink="/library">Return to Library</button>
       </div>
     </div>
     } @if (!store.loading() && !store.error() && store.book()) {
@@ -190,37 +190,38 @@
             }
 
             <button
-              class="btn-icon favorite-btn"
+              appIconButton
+              icon="heart"
+              [glyphSize]="22"
+              [weight]="store.book()?.isFavorite ? 'fill' : 'regular'"
+              [pressed]="store.book()?.isFavorite ?? false"
+              class="favorite-btn"
               [class.active]="store.book()?.isFavorite"
               (click)="toggleFavorite()"
               title="Toggle Favorite"
-            >
-              <nostos-icon
-                name="heart"
-                [size]="22"
-                [class.filled]="store.book()?.isFavorite"></nostos-icon>
-            </button>
+              aria-label="Toggle favorite"
+            ></button>
           </div>
 
           <div class="primary-actions">
             @if (store.book()?.hasFile) { @if (isAudioBook(store.book())) {
-            <button class="btn btn-primary pill-btn" (click)="openReader()">
+            <button appButton variant="primary" (click)="openReader()">
               <nostos-icon name="headphones" [size]="18"></nostos-icon>
               <span>Listen</span>
             </button>
             } @else {
-            <button class="btn btn-primary pill-btn" (click)="openReader()">
+            <button appButton variant="primary" (click)="openReader()">
               <nostos-icon name="book-open" [size]="18"></nostos-icon>
               <span>Read Book</span>
             </button>
             }
 
-            <button class="btn btn-secondary pill-btn" (click)="downloadFile()">
+            <button appButton variant="secondary" (click)="downloadFile()">
               <nostos-icon name="download-simple" [size]="18"></nostos-icon>
               <span>Download</span>
             </button>
             } @else if (store.book()?.type !== 'physical') {
-            <button class="btn btn-primary pill-btn" (click)="triggerFilePicker()">
+            <button appButton variant="primary" (click)="triggerFilePicker()">
               <nostos-icon name="book-open" [size]="18"></nostos-icon>
               <span>Upload File</span>
             </button>
@@ -228,7 +229,9 @@
 
             <div class="edit-menu-container">
               <button
-                class="btn btn-secondary pill-btn edit-metadata-btn"
+                appButton
+                variant="secondary"
+                class="edit-metadata-btn"
                 (click)="toggleEditMenu($event)"
                 title="Edit"
                 aria-haspopup="menu"
@@ -353,7 +356,7 @@
           <div class="notes-container">
             <div class="notes-header">
               <h3>Personal Notes</h3>
-              <span class="badge-count">{{ store.notes().length }}</span>
+              <span appBadge>{{ store.notes().length }}</span>
             </div>
 
             <div class="new-note-box">
@@ -365,7 +368,7 @@
               ></app-concept-input>
 
               @if (newNote().length > 0) {
-              <button class="btn btn-primary btn-sm" (click)="addNote()">Save</button>
+              <button appButton variant="primary" size="sm" (click)="addNote()">Save</button>
               }
             </div>
 
@@ -632,40 +635,48 @@
         <p id="status-confirm-body">
           This will override your current progress and clear your saved page position. The next time you open this book, it will start from the beginning.
         </p>
-        <div class="reset-confirm-actions">
-          <button class="btn btn-xs btn-ghost" (click)="cancelStatusChange()" [disabled]="store.resettingProgress()">
+        <app-dialog-actions variant="inset">
+          <button appButton variant="ghost" size="sm" type="button" (click)="cancelStatusChange()" [disabled]="store.resettingProgress()">
             Cancel
           </button>
-          <button class="btn btn-xs btn-danger" (click)="confirmStatusChange()" [disabled]="store.resettingProgress()">
+          <button
+            appButton
+            variant="danger"
+            size="sm"
+            type="button"
+            (click)="confirmStatusChange()"
+            [busy]="store.resettingProgress()"
+            [disabled]="store.resettingProgress()"
+          >
             {{ store.resettingProgress() ? 'Resetting…' : 'Reset Progress' }}
           </button>
-        </div>
+        </app-dialog-actions>
       } @else if (pendingStatus() === 'finished') {
         <h3 id="status-confirm-title">Mark as Finished?</h3>
         <p id="status-confirm-body">
           This will override your current reading progress and mark the book as 100% completed.
         </p>
-        <div class="reset-confirm-actions">
-          <button class="btn btn-xs btn-ghost" (click)="cancelStatusChange()">
+        <app-dialog-actions variant="inset">
+          <button appButton variant="ghost" size="sm" type="button" (click)="cancelStatusChange()">
             Cancel
           </button>
-          <button class="btn btn-xs btn-primary" (click)="confirmStatusChange()">
+          <button appButton variant="primary" size="sm" type="button" (click)="confirmStatusChange()">
             Mark as Finished
           </button>
-        </div>
+        </app-dialog-actions>
       } @else if (pendingStatus() === 'reading') {
         <h3 id="status-confirm-title">Mark as In Progress?</h3>
         <p id="status-confirm-body">
           This will update the book's status back to in-progress.
         </p>
-        <div class="reset-confirm-actions">
-          <button class="btn btn-xs btn-ghost" (click)="cancelStatusChange()">
+        <app-dialog-actions variant="inset">
+          <button appButton variant="ghost" size="sm" type="button" (click)="cancelStatusChange()">
             Cancel
           </button>
-          <button class="btn btn-xs btn-primary" (click)="confirmStatusChange()">
+          <button appButton variant="primary" size="sm" type="button" (click)="confirmStatusChange()">
             Set In Progress
           </button>
-        </div>
+        </app-dialog-actions>
       }
     </div>
   </div>
