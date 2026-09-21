@@ -110,50 +110,23 @@
   margin-bottom: 0.85rem;
 }
 
+/* Studio keeps native tab semantics; .toggle-opt owns the shared segmented chrome. */
 .tab-btn {
   flex: 1;
-  background: none;
-  border: none;
   padding: 0.4rem 0.6rem;
   font-size: 0.82rem;
   font-family: 'Hanken Grotesk', sans-serif;
   color: var(--color-text-muted);
   font-weight: 500;
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   gap: 6px;
   transition:
     color var(--motion-fast),
     background-color var(--motion-fast);
 }
 
-.tab-btn:hover {
-  color: var(--color-text-main);
-}
-
 .tab-btn.active {
-  /* `--control-active-fill`, not `--bg-surface`. On dark `--bg-surface` (#121318) is
-     DARKER than the `--bg-hover` track (#20222a), so the selected tab SANK instead of
-     rising — measured live: track rgb(37,42,52) vs active rgb(27,30,38). Same defect
-     that was already fixed in Library and Brain; this was the third copy of it.
-     `font-weight: 600` is kept on purpose — these tabs carry text labels, so weight
-     is the only secondary cue that the icon-only toggles do not need. */
-  background: var(--control-active-fill);
-  color: var(--control-active-ink);
+  /* Text labels keep weight as a secondary active cue on top of the shared recipe. */
   font-weight: 600;
-  box-shadow: var(--shadow-sm);
-  outline: 1px solid var(--border-color);
-  outline-offset: -1px;
-}
-
-/* Focus ring: this control had NONE, while all three sibling segmented controls
-   have one. Keyboard users could not see which tab was focused. */
-.tab-btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: -2px;
 }
 
 .actions {
@@ -162,16 +135,8 @@
 }
 
 .actions .icon-btn {
-  width: 28px;
-  height: 28px;
   border-radius: 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   color: var(--color-text-muted);
-  transition:
-    background 0.12s,
-    color 0.12s;
 }
 
 .actions .icon-btn:hover {
@@ -179,69 +144,36 @@
   color: var(--color-text-main);
 }
 
-/* Icon buttons - defer to global .icon-btn in styles.css, override only what's needed */
+/* Icon-button geometry comes from appIconButton; Studio only owns active ink. */
 .icon-btn {
   color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;}
+}
 .icon-btn.active,
 .icon-btn:hover {
   background: var(--bg-hover);
   color: var(--color-text-main);
 }
 
-.btn-outline {
-  background: 0 0;
-  border: 1px solid var(--border-color);
-  color: var(--color-text-main);
-  padding: 8px 16px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background 0.2s;
-}
-.btn-outline:hover {
-  background: var(--bg-hover);
-}
-
-/* Search Box */
+/* Search layout owns only the prefix icon; appInput owns field chrome/focus. */
 .search-box {
+  position: relative;
   margin: 0 1.15rem 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  padding: 0.45rem 0.75rem;
-  border-radius: var(--radius-md);
   color: var(--color-text-muted);
   box-sizing: border-box;
   width: calc(100% - 2.3rem);
-  transition:
-    border-color var(--motion-fast),
-    box-shadow var(--motion-fast);
 }
-.search-box:focus-within {
-  border-color: var(--focus-ring);
-  box-shadow: 0 0 0 2px var(--border-focus);
-  color: var(--color-text-main);
+
+.search-box nostos-icon {
+  position: absolute;
+  top: 50%;
+  left: 0.85rem;
+  z-index: 1;
+  transform: translateY(-50%);
+  pointer-events: none;
 }
-.search-box input {
-  border: none;
-  background: transparent;
-  outline: none;
-  width: 100%;
-  font-size: 0.85rem;
-  font-family: 'Hanken Grotesk', sans-serif;
-  color: var(--color-text-main);
-}
-.search-box input::placeholder {
-  color: var(--color-text-placeholder);
+
+.search-box .nostos-form-control {
+  padding-left: 2.35rem;
 }
 
 /* Lists & Items */
@@ -302,15 +234,7 @@
 }
 
 .badge-count {
-  font-size: 0.72rem;
-  font-family: 'Hanken Grotesk', sans-serif;
-  background: var(--bg-hover);
-  color: var(--color-text-muted);
-  padding: 1px 7px;
-  border-radius: 999px;
   margin-left: 0.5rem;
-  font-weight: 500;
-  border: 1px solid var(--border-color);
 }
 
 /* Detail Headers */
@@ -321,22 +245,6 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.goto-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  background: 0 0;
-  border: none;
-  color: var(--color-text-muted);
-  font-size: 0.85rem;
-  font-weight: var(--fw-medium);
-  cursor: pointer;
-  padding: 0;
-}
-.goto-btn:hover {
-  color: var(--color-text-main);
 }
 
 .detail-title {
