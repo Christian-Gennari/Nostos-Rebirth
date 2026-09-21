@@ -110,8 +110,8 @@ export class EpubAnnotationManager {
 
   /**
    * Wires one epub.js Contents document: injects styles, registers the
-   * mode-scoped callout suppression and early selection capture listeners,
-   * and applies the current highlight mode. Registered through
+   * mode-scoped callout suppression and selection-completion fallbacks, and
+   * applies the current highlight mode. Registered through
    * `rendition.hooks.content` so every newly rendered document is covered.
    */
   public registerContents(contents: Contents): void {
@@ -150,8 +150,13 @@ export class EpubAnnotationManager {
       this.capturePendingHighlight(cfiRange, selectedText, contents);
     };
 
-    const onSelectionChange = () => {
-      queueMicrotask(captureSelection);
+    // selectionchange fires repeatedly while a desktop drag is still growing.
+    // Treating its first non-collapsed range as complete clears the browser
+    // selection and cuts the drag short (issue #304). Mouseup is the first
+    // reliable desktop completion signal; touch keeps its existing touchend
+    // fallback for browsers where epub.js never emits `selected`.
+    const onMouseUp = () => {
+      requestAnimationFrame(captureSelection);
     };
 
     const onTouchEnd = () => {
@@ -161,14 +166,14 @@ export class EpubAnnotationManager {
     document.addEventListener('contextmenu', onContextMenu, {
       capture: true,
     });
-    document.addEventListener('selectionchange', onSelectionChange);
+    document.addEventListener('mouseup', onMouseUp);
     document.addEventListener('touchend', onTouchEnd, {
       passive: true,
     });
 
     this.documentCleanups.set(document, () => {
       document.removeEventListener('contextmenu', onContextMenu, true);
-      document.removeEventListener('selectionchange', onSelectionChange);
+      document.removeEventListener('mouseup', onMouseUp);
       document.removeEventListener('touchend', onTouchEnd);
     });
 
