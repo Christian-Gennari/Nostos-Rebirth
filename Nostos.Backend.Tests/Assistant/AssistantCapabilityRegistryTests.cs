@@ -171,7 +171,7 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
 
         var result = await h.Registry.InvokeAsync(
             "library_delete_collection",
-            Args($"""{"collectionId":"{{collection.Id}}"}"""),
+            Args($$"""{"collectionId":"{{collection.Id}}"}"""),
             new AssistantToolContext(
                 "client",
                 "approved-key",
@@ -209,7 +209,7 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
 
         var result = await h.Registry.InvokeAsync(
             "notes_capture",
-            Args($$"""{"bookId":"{{book.Id}}","content":"A captured thought","captureSource":"voice"}"""),
+            Args($$$"""{"bookId":"{{book.Id}}","content":"A captured thought","captureSource":"voice"}"""),
             new AssistantToolContext("client", "capture-1"));
 
         result.Success.Should().BeTrue();
@@ -227,7 +227,7 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
         var h = CreateHarness();
         var book = await SeedBookAsync(h);
         var context = new AssistantToolContext("client-1", "idempotent-1");
-        var args = Args($$"""{"bookId":"{{book.Id}}","content":"Captured once"}""");
+        var args = Args($$$"""{"bookId":"{{book.Id}}","content":"Captured once"}""");
 
         var first = await h.Registry.InvokeAsync("notes_capture", args, context);
         var second = await h.Registry.InvokeAsync("notes_capture", args, context);
@@ -258,16 +258,16 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
         {
             ("library_resolve_book", """{"title":"Seeded Book","author":"Author","includeExternalMetadata":false}"""),
             ("library_list_books", "{}"),
-            ("library_get_book", $"""{"bookId":"{{book.Id}}"}"""),
+            ("library_get_book", $$"""{"bookId":"{{book.Id}}"}"""),
             ("library_overview", "{}"),
-            ("notes_list_for_book", $$"""{"bookId":"{{book.Id}}"}"""),
+            ("notes_list_for_book", $$$"""{"bookId":"{{book.Id}}"}"""),
             ("notes_search", """{"query":"seeded"}"""),
             ("notes_list_unlinked", "{}"),
-            ("notes_read_for_review", $$"""{"noteId":"{{note.Id}}"}"""),
+            ("notes_read_for_review", $$$"""{"noteId":"{{note.Id}}"}"""),
             ("concepts_list", "{}"),
             ("concepts_search", """{"term":"seeded"}"""),
             ("library_list_collections", "{}"),
-            ("library_get_collection", $$"""{"collectionId":"{{collection.Id}}"}"""),
+            ("library_get_collection", $$$"""{"collectionId":"{{collection.Id}}"}"""),
         };
 
         foreach (var (name, args) in calls)
@@ -287,7 +287,7 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
 
         var created = await h.Registry.InvokeAsync(
             "library_create_or_match_book",
-            Args($"""
+            Args($$"""
             {
               "type":"physical",
               "title":"The Magic Mountain",
@@ -309,7 +309,7 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
 
         var updated = await h.Registry.InvokeAsync(
             "library_update_book",
-            Args($"""{"bookId":"{{book.Id}}","collectionIds":[]}"""),
+            Args($$"""{"bookId":"{{book.Id}}","collectionIds":[]}"""),
             new AssistantToolContext("client", "book-update"));
 
         updated.Success.Should().BeTrue();
@@ -355,7 +355,7 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
 
         var result = await h.Registry.InvokeAsync(
             "notes_link_existing_concept",
-            Args($$"""{"noteId":"{{note.Id}}","conceptId":"{{Guid.NewGuid()}}"}"""),
+            Args($$$"""{"noteId":"{{note.Id}}","conceptId":"{{Guid.NewGuid()}}"}"""),
             new AssistantToolContext(
                 "client",
                 "link-key",
