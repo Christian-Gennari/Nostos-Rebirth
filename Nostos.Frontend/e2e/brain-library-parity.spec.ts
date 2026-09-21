@@ -80,7 +80,9 @@ test('brain controls match the library controls', async ({ browser }) => {
     await page.locator('.search-box input').waitFor({ timeout: 30_000 });
     await page.waitForTimeout(400);
 
-    const brainSearch = await measure(page, '.search-box');
+    // appInput now owns the Brain field itself; the wrapper only positions the
+    // leading glyph and clear action, so parity must measure the native control.
+    const brainSearch = await measure(page, '.search-box input');
     const brainSelect = await measure(page, '.sort-select');
     const brainToggleGroup = await measure(page, '.view-mode-control');
     const brainToggleOpt = await measure(page, '.view-mode-control .toggle-opt.active');

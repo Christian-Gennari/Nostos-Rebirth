@@ -18,7 +18,7 @@
     <header class="brain-header">
       <div class="brain-header-title">
         <h1>Brain</h1>
-        <span class="badge-count">{{ filteredConcepts().length }}</span>
+        <span appBadge class="badge-count">{{ filteredConcepts().length }}</span>
         <span class="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
           Showing {{ filteredConcepts().length }} of {{ concepts().length }} concepts
         </span>
@@ -44,6 +44,8 @@
         <div class="search-box">
           <nostos-icon name="magnifying-glass" [size]="16" class="search-icon"></nostos-icon>
           <input
+            appInput
+            controlSize="compact"
             #searchInput
             type="text"
             placeholder="Search ideas..."
@@ -54,13 +56,15 @@
           />
           @if (searchQuery()) {
           <button
+            appIconButton
             type="button"
             class="clear-search"
+            icon="x"
+            size="xs"
+            [glyphSize]="15"
             aria-label="Clear search"
             (click)="clearSearch()"
-          >
-            <nostos-icon name="x" [size]="15"></nostos-icon>
-          </button>
+          ></button>
           }
         </div>
         }
@@ -125,7 +129,7 @@
         <div class="empty-index-state" role="status">
           <div class="empty-eyebrow">Nothing waiting</div>
           <p>Every note is connected to a concept.</p>
-          <button type="button" class="empty-clear" (click)="closeReview()">
+          <button appButton variant="secondary" size="sm" type="button" class="empty-clear" (click)="closeReview()">
             Back to concepts
           </button>
         </div>
@@ -165,6 +169,8 @@
         <label class="visually-hidden" for="brain-sort">Sort concepts</label>
         <div class="select-shell sort-shell">
           <select
+            appSelect
+            controlSize="compact"
             id="brain-sort"
             class="sort-select"
             [ngModel]="indexSort()"
@@ -201,7 +207,7 @@
         <div class="empty-index-state" role="status">
           <div class="empty-eyebrow">No match</div>
           <p>No concepts match “{{ searchQuery().trim() }}”.</p>
-          <button type="button" class="empty-clear" (click)="clearSearch()">Clear search</button>
+          <button appButton variant="secondary" size="sm" type="button" class="empty-clear" (click)="clearSearch()">Clear search</button>
         </div>
         } @else {
         @for (c of filteredConcepts(); track c.id; let i = $index) {
@@ -686,6 +692,8 @@
           <nostos-icon name="magnifying-glass" [size]="15" class="search-icon"></nostos-icon>
           <label class="visually-hidden" for="note-search">Search notes</label>
           <input
+            appInput
+            controlSize="compact"
             id="note-search"
             type="search"
             placeholder="Search notes..."
@@ -693,9 +701,16 @@
             (ngModelChange)="setNoteSearchQuery($event)"
           />
           @if (noteSearchQuery()) {
-          <button type="button" class="clear-note-search" aria-label="Clear note search" (click)="clearNoteSearch()">
-            <nostos-icon name="x" [size]="14"></nostos-icon>
-          </button>
+          <button
+            appIconButton
+            type="button"
+            class="clear-note-search"
+            icon="x"
+            size="xs"
+            [glyphSize]="14"
+            aria-label="Clear note search"
+            (click)="clearNoteSearch()"
+          ></button>
           }
         </div>
 
@@ -703,6 +718,8 @@
           <label class="detail-tool-label" for="source-filter">Source</label>
           <div class="select-shell detail-select-shell">
             <select
+              appSelect
+              controlSize="compact"
               id="source-filter"
               class="detail-select"
               [ngModel]="sourceFilter()"
@@ -720,6 +737,8 @@
           <label class="detail-tool-label" for="note-sort">Sort</label>
           <div class="select-shell detail-select-shell">
             <select
+              appSelect
+              controlSize="compact"
               id="note-sort"
               class="detail-select"
               [ngModel]="noteSort()"
@@ -751,7 +770,7 @@
       <div class="empty-notes-state" role="status">
         <div class="empty-eyebrow">No notes found</div>
         <p>Nothing matches the current note filters.</p>
-        <button type="button" class="empty-clear" (click)="clearNoteSearch(); setSourceFilter('all')">
+        <button appButton variant="secondary" size="sm" type="button" class="empty-clear" (click)="clearNoteSearch(); setSourceFilter('all')">
           Clear filters
         </button>
       </div>
@@ -793,13 +812,14 @@
       <div class="brain-note-panel-head">
         <h2 class="brain-note-panel-title">{{ note.bookTitle }}</h2>
         <button
+          appIconButton
           type="button"
           class="brain-note-panel-close"
+          icon="x"
+          [glyphSize]="18"
           aria-label="Close note"
           (click)="closeNotePanel()"
-        >
-          <nostos-icon name="x" [size]="18"></nostos-icon>
-        </button>
+        ></button>
       </div>
       <div class="brain-note-panel-body">
         @if (note.selectedText) {
