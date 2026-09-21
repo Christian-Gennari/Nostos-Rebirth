@@ -283,7 +283,7 @@ public sealed class AssistantOrchestrator(
                     && capability.Trust == AssistantTrustClass.Capture
                     && string.Equals(capability.Name, CaptureCapability, StringComparison.Ordinal))
                 {
-                    acknowledgement = BuildAcknowledgement(book.Title, quoteFidelity);
+                    acknowledgement = BuildAcknowledgement(book!.Title, quoteFidelity);
                     capturedNoteId = ReadNoteId(result.Data);
                 }
             }
