@@ -623,10 +623,10 @@ describe('AssistantService voice transcript alignment', () => {
     request.flush(turn());
   });
 
-  it('approves exactly one plan through the approve endpoint and records the outcome', () => {
+  it('approves exactly one destructive plan and reports the canonical execution result', () => {
     service.pendingPlan.set({
       planId: 'plan-1',
-      summary: 'Link the note to Mountains',
+      summary: 'Delete the obsolete collection',
       steps: [],
       approvalToken: 'token-1',
     });
@@ -636,10 +636,25 @@ describe('AssistantService voice transcript alignment', () => {
     const request = http.expectOne('/api/assistant/plan/approve');
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ planId: 'plan-1', approvalToken: 'token-1' });
-    request.flush({ success: true, errorCode: null, errorMessage: null, steps: [] });
+    request.flush({
+      success: true,
+      errorCode: null,
+      errorMessage: null,
+      steps: [
+        {
+          capability: 'library_delete_collection',
+          success: true,
+          errorCode: null,
+          errorMessage: null,
+          data: { reply: 'Deleted the obsolete collection.' },
+        },
+      ],
+    });
 
     expect(service.pendingPlan()).toBeNull();
     expect(service.lastApproval()?.success).toBe(true);
+    expect(service.entries().at(-1)?.text).toBe('Deleted the obsolete collection.');
+    expect(service.entries().at(-1)?.meta).toBe('Applied');
   });
 
   it('dismisses suggestions without touching the note', () => {
