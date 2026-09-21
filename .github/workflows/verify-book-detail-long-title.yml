@@ -1,0 +1,33 @@
+name: Verify Book Detail long title
+
+on:
+  push:
+    branches:
+      - fix/book-detail-long-title-layout
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: Nostos.Frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Nostos.Frontend/package-lock.json
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: npm ci
+      - run: npm run check
+      - run: npm run check:design -- --self-test
+      - run: npm test
+        env:
+          CI: "true"
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test e2e/book-detail-long-title.spec.ts --project=desktop-chromium
