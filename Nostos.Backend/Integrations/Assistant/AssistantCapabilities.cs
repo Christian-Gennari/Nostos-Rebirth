@@ -308,6 +308,95 @@ public static class AssistantCapabilities
             }),
 
         new AssistantCapability(
+            "library_set_book_collections_bulk",
+            AssistantTrustClass.Act,
+            "Replaces collection memberships for multiple books in one bounded action. Use this after inspecting library_overview when reorganizing several books; every item still goes through the canonical library service.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "updates": {
+                  "type": "array",
+                  "description": "One to 100 membership replacements. Each item must contain bookId and the complete collectionIds set that book should have after the change.",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "bookId": { "type": "string", "format": "uuid" },
+                      "collectionIds": { "type": "array", "items": { "type": "string", "format": "uuid" } }
+                    },
+                    "required": ["bookId", "collectionIds"]
+                  }
+                }
+              },
+              "required": ["updates"],
+              "additionalProperties": true
+            }
+            """,
+            async (context, args, ct) =>
+            {
+                var updates = Property(args, "updates");
+                if (updates.ValueKind != JsonValueKind.Array)
+                {
+                    return Invalid("'updates' must be an array.");
+                }
+
+                var items = updates.EnumerateArray().ToList();
+                if (items.Count is < 1 or > 100)
+                {
+                    return Invalid("'updates' must contain between 1 and 100 books.");
+                }
+
+                var outcomes = new List<object>(items.Count);
+                for (var index = 0; index < items.Count; index++)
+                {
+                    var item = items[index];
+                    if (Id(item, "bookId") is not { } bookId
+                        || !TryIds(item, "collectionIds", out var collectionIds)
+                        || collectionIds is null)
+                    {
+                        return Invalid($"updates[{index}] must contain a valid 'bookId' and 'collectionIds' array.");
+                    }
+
+                    var result = await library.UpdateBookAsync(
+                        new LibraryUpdateBookRequest(
+                            ClientId: context.ClientId ?? string.Empty,
+                            IdempotencyKey: $"{context.IdempotencyKey}:{index}",
+                            BookId: bookId,
+                            CollectionIds: collectionIds),
+                        ct);
+
+                    var mapped = LibraryResult(result);
+                    outcomes.Add(new
+                    {
+                        bookId,
+                        result.Reply,
+                        result.Data,
+                        result.StateVersion,
+                        result.Duplicate,
+                    });
+
+                    if (!mapped.Success)
+                    {
+                        return AssistantToolResult.Fail(
+                            mapped.ErrorCode ?? "bulk_update_failed",
+                            mapped.ErrorMessage ?? result.Reply,
+                            Element(new
+                            {
+                                applied = index,
+                                failedBookId = bookId,
+                                outcomes,
+                            }));
+                    }
+                }
+
+                return AssistantToolResult.Ok(Element(new
+                {
+                    updated = outcomes.Count,
+                    outcomes,
+                }));
+            }),
+
+        new AssistantCapability(
             "notes_list_for_book",
             AssistantTrustClass.Suggest,
             "Lists the notes captured against one book.",
