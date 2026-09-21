@@ -1369,57 +1369,6 @@ button {
   font-family: inherit;
 }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
-  font-weight: var(--fw-medium);
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease; 
-  text-decoration: none;
-}
-
-.btn-primary {
-  background: var(--cta-surface);
-  color: var(--cta-ink);
-  border: 1px solid var(--cta-border);
-}
-.btn-primary:hover {
-  background: var(--cta-surface-hover);
-  border-color: var(--cta-surface-hover);
-}
-
-/* Inverted porcelain CTA — token-ised as `--cta-surface` / `--cta-ink` /
-   `--cta-border` / `--cta-surface-hover`. A dark brand fill cannot carry a
-   primary action on a dark ground, and a light accent used as a *surface* goes
-   washed out (the mirror of the original role collision). The porcelain pill is
-   the one inverted surface in the app, so the primary action is also the single
-   brightest element.
-   The border is a token of its own rather than reusing the fill: `.btn-primary`
-   declares `fill` and `border` from the same value on light, so on dark the
-   border has to move with the inverted fill or the button is ringed in the mint
-   ink. The rules above now read the tokens, so these two global overrides — which
-   had to out-specify `.btn[_ngcontent]` — are gone. */
-
-.btn-secondary {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  color: var(--color-text-main);
-}
-.btn-secondary:hover {
-  background: var(--bg-hover);
-}
-
-.btn:disabled,
-.btn-primary:disabled,
-.btn-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .icon-btn {
   all: unset;
 
@@ -1446,9 +1395,9 @@ button {
 /* ------------------------------
    FORMS & INPUTS
 ------------------------------ */
-/* Canonical native form controls. The app still contains legacy .input /
-   .textarea / .select-input consumers while surfaces migrate, but new ordinary
-   fields use the native-host appInput/appTextarea/appSelect directives below. */
+/* Canonical native form controls. Ordinary fields use the native-host
+   appInput/appTextarea/appSelect directives below; product-owned fields keep
+   their interaction/layout locally without borrowing a second generic family. */
 .nostos-form-control {
   box-sizing: border-box;
   width: 100%;
@@ -1523,11 +1472,6 @@ button {
   }
 }
 
-.textarea {
-  resize: vertical;
-  min-height: 100px;
-}
-
 /* Custom File Input Styling */
 input[type='file'] {
   font-size: 0.9rem;
@@ -1591,65 +1535,6 @@ input[type='file']::file-selector-button:hover {
 .concept-tag:hover {
   color: var(--color-accent-hover);
   border-bottom-color: var(--color-accent-hover);
-}
-
-/* ------------------------------
-   BUTTON SIZES
------------------------------- */
-/* `.btn-lg` was removed: measured with `var(--space-*)` and the dead tokens
-   below, it has no consumer in any template — including the inline templates
-   inside `.ts` files, which is where a `.html`-only search goes wrong. */
-
-.btn-sm {
-  padding: 0.3rem 0.8rem;
-  font-size: 0.85rem;
-}
-
-.btn-xs {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  border-radius: var(--radius-sm);
-  line-height: 1;
-}
-
-/* --- BUTTON VARIANTS --- */
-/* Replaces .link-btn and .link-btn-subtle */
-.btn-ghost {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--color-text-muted);
-}
-.btn-ghost:hover {
-  background: var(--bg-hover);
-  color: var(--color-primary);
-}
-.btn-ghost.danger:hover {
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
-}
-
-/* Standardize on the larger, more touch-friendly size */
-.input,
-.textarea,
-.select-input {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: 0.95rem;
-  font-family: 'Hanken Grotesk', sans-serif;
-  background: var(--bg-surface);
-  outline: none;
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
-}
-
-.input:focus,
-.textarea:focus,
-.select-input:focus {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
 }
 
 .badge {
