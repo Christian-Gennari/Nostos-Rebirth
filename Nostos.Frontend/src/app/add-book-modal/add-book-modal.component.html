@@ -343,15 +343,6 @@
           <!-- TAB 3: Files & Personal -->
           <div class="tab-content" [hidden]="sourceMode() || activeTab() !== 'Files & Personal'">
             @if (!isEditMode()) {
-              @if (form.type === 'physical') {
-              <div class="form-group">
-                <span class="form-label">Book File</span>
-                <p class="source-hint">
-                  Physical books are metadata-only. Add an EPUB or PDF as a separate book, then
-                  link the editions from Book Details.
-                </p>
-              </div>
-              } @else {
               <div class="form-group">
                 <span class="form-label">Book File</span>
                 @if (seededFromSource()) {
@@ -361,6 +352,11 @@
                        anything dropped here is discarded without a word. -->
                   <p class="source-hint">
                     Downloads from {{ seededSourceName() }} when you import — no file needed.
+                  </p>
+                } @else if (form.type === 'physical') {
+                  <p class="source-hint">
+                    Physical books are metadata-only. Add an EPUB or PDF as a separate book, then
+                    link the editions from Book Details.
                   </p>
                 } @else {
                   <label
@@ -385,7 +381,6 @@
                   }
                 }
               </div>
-              }
               <div class="form-group">
                 <span class="form-label">Cover Image</span>
                 @if (seededFromSource()) {
