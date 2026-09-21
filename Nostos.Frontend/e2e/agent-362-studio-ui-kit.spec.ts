@@ -21,7 +21,10 @@ test.beforeAll(async () => {
 });
 
 test('desktop Studio preserves workspace semantics while using canonical controls', async ({ page }) => {
+  await page.goto(fixture.baseUrl, { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => localStorage.setItem('nostos.theme', 'light'));
   await page.goto(`${fixture.baseUrl}/studio`, { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('html')).not.toHaveAttribute('data-theme', 'dark');
 
   await expect(page.locator('.sidebar-left')).toBeVisible();
   await expect(page.locator('.editor-pane')).toBeVisible();
@@ -72,9 +75,20 @@ test('desktop Studio preserves workspace semantics while using canonical control
   await page.locator('.zen-exit').click();
   await expect(page.locator('.editor-header')).toBeVisible();
 
-  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
-  const darkInputBg = await conceptSearch.evaluate((el) => getComputedStyle(el).backgroundColor);
+  await page.evaluate(() => localStorage.setItem('nostos.theme', 'dark'));
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+
+  const darkConceptSearch = page.getByPlaceholder('Search concepts...');
+  await expect(darkConceptSearch).toBeVisible();
+  const darkInputBg = await darkConceptSearch.evaluate((el) => getComputedStyle(el).backgroundColor);
   expect(darkInputBg).not.toBe(lightInputBg);
+
+  const darkRow = page.locator('.file-list .tree-row', { hasText: documentTitle }).first();
+  await expect(darkRow).toBeVisible({ timeout: 30_000 });
+  await darkRow.click();
+  await expect(page.locator('.tox-tinymce')).toBeVisible({ timeout: 45_000 });
+
   await page.screenshot({
     path: 'e2e/visual-evidence/agent-362-studio-desktop-dark.png',
     fullPage: true,

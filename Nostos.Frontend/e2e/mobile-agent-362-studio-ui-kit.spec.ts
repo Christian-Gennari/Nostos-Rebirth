@@ -21,7 +21,10 @@ test.beforeAll(async () => {
 });
 
 test('mobile Studio drawers, reference modes and zen remain intact', async ({ page }) => {
+  await page.goto(fixture.baseUrl, { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => localStorage.setItem('nostos.theme', 'light'));
   await page.goto(`${fixture.baseUrl}/studio`, { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('html')).not.toHaveAttribute('data-theme', 'dark');
 
   const openSidebar = page.getByRole('button', { name: 'Open Sidebar' });
   await expect(openSidebar).toBeVisible();
@@ -71,8 +74,22 @@ test('mobile Studio drawers, reference modes and zen remain intact', async ({ pa
   await page.getByRole('button', { name: 'Toggle reference sidebar' }).click();
   await expect(right).toHaveClass(/\bopen\b/);
   const lightInputBg = await conceptSearch.evaluate((el) => getComputedStyle(el).backgroundColor);
-  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
-  const darkInputBg = await conceptSearch.evaluate((el) => getComputedStyle(el).backgroundColor);
+  await page.evaluate(() => localStorage.setItem('nostos.theme', 'dark'));
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+
+  const darkOpenSidebar = page.getByRole('button', { name: 'Open Sidebar' });
+  await expect(darkOpenSidebar).toBeVisible();
+  await darkOpenSidebar.click();
+  const darkRow = page.locator('.file-list .tree-row', { hasText: documentTitle }).first();
+  await expect(darkRow).toBeVisible({ timeout: 30_000 });
+  await darkRow.click();
+  await expect(page.locator('.tox-tinymce')).toBeVisible({ timeout: 45_000 });
+  await page.getByRole('button', { name: 'Toggle reference sidebar' }).click();
+
+  const darkConceptSearch = page.getByPlaceholder('Search concepts...');
+  await expect(darkConceptSearch).toBeVisible();
+  const darkInputBg = await darkConceptSearch.evaluate((el) => getComputedStyle(el).backgroundColor);
   expect(darkInputBg).not.toBe(lightInputBg);
 
   await page.screenshot({
