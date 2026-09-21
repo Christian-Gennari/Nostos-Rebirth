@@ -288,7 +288,7 @@ internal static partial class LibriVoxCatalog
         return names.Count == 0 ? null : string.Join(", ", names.Distinct(StringComparer.OrdinalIgnoreCase));
     }
 
-    private static string? ItemUrl(JsonElement book, string id)
+    private static string ItemUrl(JsonElement book, string id)
     {
         var url = Text(book, "url_librivox");
         return string.IsNullOrWhiteSpace(url) ? $"{BaseUrl}/?id={id}" : url.Trim();

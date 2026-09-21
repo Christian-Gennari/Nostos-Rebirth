@@ -145,16 +145,18 @@ public sealed class LibriVoxM4bAssemblerTests
             artifact.FileExtension.Should().Be(".m4b");
             artifact.ContentType.Should().Be("audio/mp4");
             artifact.Duration.Should().Be("00:00:22"); // 22.5 seconds formatted as 00:00:22 (duration.Seconds is 22)
-            artifact.Chapters.Should().HaveCount(3);
+            artifact.Chapters.Should().NotBeNull();
+            var chapters = artifact.Chapters!;
+            chapters.Should().HaveCount(3);
 
-            artifact.Chapters[0].Title.Should().Be("Chapter One");
-            artifact.Chapters[0].StartTime.Should().Be(0.0);
+            chapters[0].Title.Should().Be("Chapter One");
+            chapters[0].StartTime.Should().Be(0.0);
 
-            artifact.Chapters[1].Title.Should().Be("Chapter Two");
-            artifact.Chapters[1].StartTime.Should().Be(10.0);
+            chapters[1].Title.Should().Be("Chapter Two");
+            chapters[1].StartTime.Should().Be(10.0);
 
-            artifact.Chapters[2].Title.Should().Be("Chapter Three");
-            artifact.Chapters[2].StartTime.Should().Be(15.0);
+            chapters[2].Title.Should().Be("Chapter Three");
+            chapters[2].StartTime.Should().Be(15.0);
 
             // Verify chapters file on disk
             var chaptersFile = Path.Combine(tempDir, LibriVoxM4bAssembler.ChaptersFileName);
@@ -508,10 +510,12 @@ public sealed class LibriVoxM4bAssemblerTests
             var chapterCount = await realRunner.ProbeChapterCountAsync(artifact.FilePath, CancellationToken.None);
             chapterCount.Should().Be(3);
 
-            artifact.Chapters.Should().HaveCount(3);
-            artifact.Chapters[0].Title.Should().Be("Chapter 1: Intro");
-            artifact.Chapters[1].Title.Should().Be("Chapter 2: Middle");
-            artifact.Chapters[2].Title.Should().Be("Chapter 3: End");
+            artifact.Chapters.Should().NotBeNull();
+            var chapters = artifact.Chapters!;
+            chapters.Should().HaveCount(3);
+            chapters[0].Title.Should().Be("Chapter 1: Intro");
+            chapters[1].Title.Should().Be("Chapter 2: Middle");
+            chapters[2].Title.Should().Be("Chapter 3: End");
 
             // Total duration is within a second of sum of inputs (1 + 2 + 1 = 4 seconds)
             var producedDuration = await realRunner.ProbeDurationAsync(artifact.FilePath, CancellationToken.None);
