@@ -11,7 +11,7 @@ export class NoteFormatPipe implements PipeTransform {
     if (!conceptMap || conceptMap.size === 0) return content;
 
     // Replace [[Concept Name]] with span
-    return content.replace(/\[\[(.*?)\]\]/g, (match, conceptName) => {
+    return content.replace(/\[\[(.*?)\]\]/g, (_match, conceptName) => {
       const trimmedName = conceptName.trim();
       const concept = conceptMap.get(trimmedName.toLowerCase());
 
