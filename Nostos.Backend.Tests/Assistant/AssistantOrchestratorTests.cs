@@ -509,6 +509,9 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
 
         response.PendingPlan.Should().BeNull();
         response.Reply.Should().Contain("Done");
+        response.ExecutedCapabilities.Should().Equal(
+            "library_create_collection",
+            "library_rename_collection");
 
         await using var db = await h.Factory.CreateDbContextAsync();
         var names = await db.Collections.AsNoTracking()
@@ -645,7 +648,6 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         response.PendingPlan.ApprovalToken.Should().NotBeNullOrWhiteSpace();
 
         (await CollectionCountAsync(h)).Should().Be(1);
-        h.Plans.GetCurrent("client-1").Should().NotBeNull();
     }
 
     [Fact]
@@ -1252,10 +1254,9 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         AssistantContextDto context,
         string clientId = "client-1",
         string idem = "key-1",
-        string? pendingPlanId = null,
         string? processingMode = null,
         IReadOnlyList<AssistantHistoryMessageDto>? history = null) =>
-        new(clientId, idem, message, context, pendingPlanId, processingMode, history);
+        new(clientId, idem, message, context, processingMode, history);
 
     private static AssistantContextDto Context(
         string surface = "second-brain",
