@@ -49,6 +49,7 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
         "library_create_collection",
         "library_rename_collection",
         "library_move_collection",
+        "library_delete_empty_collection",
         "library_delete_collection",
     ];
 
@@ -76,18 +77,14 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
     }
 
     [Fact]
-    public void Destructive_surface_is_narrow_and_approval_required()
+    public void Destructive_surface_distinguishes_empty_cleanup_from_membership_destructive_delete()
     {
         var h = CreateHarness();
 
-        var destructive = new Regex("delete|remove|purge|reset|destroy|drop", RegexOptions.IgnoreCase);
-        var destructiveCapabilities = h.Registry.All
-            .Where(capability => destructive.IsMatch(capability.Name))
-            .ToList();
-
-        destructiveCapabilities.Should().ContainSingle();
-        destructiveCapabilities[0].Name.Should().Be("library_delete_collection");
-        destructiveCapabilities[0].Trust.Should().Be(AssistantTrustClass.PlanAndAct);
+        h.Registry.All.Single(c => c.Name == "library_delete_empty_collection")
+            .Trust.Should().Be(AssistantTrustClass.Act);
+        h.Registry.All.Single(c => c.Name == "library_delete_collection")
+            .Trust.Should().Be(AssistantTrustClass.PlanAndAct);
         h.Registry.All.Select(c => c.Name).Should().NotContain("library_delete_book");
     }
 
@@ -195,6 +192,44 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
 
         result.Success.Should().BeTrue();
         (await CollectionCountAsync(h)).Should().Be(before + 1);
+    }
+
+    [Fact]
+    public async Task Empty_collection_cleanup_executes_immediately()
+    {
+        var h = CreateHarness();
+        var collection = await SeedCollectionAsync(h, "Obsolete");
+
+        var result = await h.Registry.InvokeAsync(
+            "library_delete_empty_collection",
+            Args($"""{"collectionId":"{{collection.Id}}"}"""),
+            new AssistantToolContext("client", "empty-delete"));
+
+        result.Success.Should().BeTrue();
+        (await CollectionCountAsync(h)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Empty_collection_cleanup_refuses_when_books_would_be_unlinked()
+    {
+        var h = CreateHarness();
+        var collection = await SeedCollectionAsync(h, "Still used");
+        var book = await SeedBookAsync(h, "Still here");
+
+        var assign = await h.Registry.InvokeAsync(
+            "library_update_book",
+            Args($"""{"bookId":"{{book.Id}}","collectionIds":["{{collection.Id}}"]}"""),
+            new AssistantToolContext("client", "assign-book"));
+        assign.Success.Should().BeTrue();
+
+        var result = await h.Registry.InvokeAsync(
+            "library_delete_empty_collection",
+            Args($"""{"collectionId":"{{collection.Id}}"}"""),
+            new AssistantToolContext("client", "empty-delete-refused"));
+
+        result.Success.Should().BeFalse();
+        result.ErrorCode.Should().Be("collection_not_empty_requires_approval");
+        (await CollectionCountAsync(h)).Should().Be(1);
     }
 
     // ------------------------------------------------------------------
