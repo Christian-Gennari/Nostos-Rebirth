@@ -39,9 +39,6 @@
               "src/styles.css",
               "src/tinymce-nostos.css"
             ],
-            "scripts": [
-              "node_modules/tinymce/tinymce.min.js"
-            ],
             "loader": {
               ".svg": "text"
             },
