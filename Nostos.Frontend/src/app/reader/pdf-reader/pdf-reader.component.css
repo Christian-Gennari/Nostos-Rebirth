@@ -211,7 +211,7 @@
 /* Selected State */
 ::ng-deep .treeItem.selected > a {
   background-color: var(--bg-hover) !important;
-  color: var(--color-primary) !important;
+  color: var(--color-brand-accent) !important;
 }
 
 /* 5. Toolbar Icons (Outline/Thumbnail switchers) */
