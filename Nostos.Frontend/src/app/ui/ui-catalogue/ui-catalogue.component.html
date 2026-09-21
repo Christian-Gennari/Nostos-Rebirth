@@ -1,0 +1,405 @@
+<main class="catalogue-page" data-testid="ui-catalogue">
+  <header class="catalogue-hero">
+    <div>
+      <p class="catalogue-kicker">Nostos UI v1</p>
+      <h1>Canonical controls</h1>
+      <p class="catalogue-intro">
+        A live reference for the primitives and composition patterns shared by Nostos.
+        Product-specific readers, editors, cards, rows and workflows stay outside this kit.
+      </p>
+    </div>
+
+    <div class="catalogue-theme" aria-label="Catalogue theme">
+      <span>Theme</span>
+      <div class="catalogue-theme-actions">
+        <button
+          appButton
+          size="sm"
+          type="button"
+          [variant]="theme() === 'light' ? 'primary' : 'secondary'"
+          [attr.aria-pressed]="theme() === 'light'"
+          (click)="setTheme('light')"
+        >
+          Light
+        </button>
+        <button
+          appButton
+          size="sm"
+          type="button"
+          [variant]="theme() === 'dark' ? 'primary' : 'secondary'"
+          [attr.aria-pressed]="theme() === 'dark'"
+          (click)="setTheme('dark')"
+        >
+          Dark
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <section class="catalogue-section" aria-labelledby="catalogue-buttons">
+    <div class="catalogue-section-heading">
+      <div>
+        <p class="catalogue-kicker">Primitive</p>
+        <h2 id="catalogue-buttons">Button</h2>
+      </div>
+      <p>Ordinary labelled actions. Native button semantics stay at the call site.</p>
+    </div>
+
+    <div class="catalogue-grid">
+      <div class="catalogue-example">
+        <span class="catalogue-label">Variants · md</span>
+        <div class="catalogue-row">
+          <button appButton variant="primary" type="button">Primary</button>
+          <button appButton variant="secondary" type="button" data-testid="secondary-button">
+            Secondary
+          </button>
+          <button appButton variant="ghost" type="button">Ghost</button>
+          <button appButton variant="danger" type="button">Destructive</button>
+        </div>
+      </div>
+
+      <div class="catalogue-example">
+        <span class="catalogue-label">Variants · sm</span>
+        <div class="catalogue-row">
+          <button appButton variant="primary" size="sm" type="button">Primary</button>
+          <button appButton variant="secondary" size="sm" type="button">Secondary</button>
+          <button appButton variant="ghost" size="sm" type="button">Ghost</button>
+          <button appButton variant="danger" size="sm" type="button">Danger</button>
+        </div>
+      </div>
+
+      <div class="catalogue-example">
+        <span class="catalogue-label">State</span>
+        <div class="catalogue-row">
+          <button appButton variant="secondary" type="button" disabled>Disabled</button>
+          <button appButton variant="primary" type="button" [busy]="true" disabled>
+            Saving…
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="catalogue-section" aria-labelledby="catalogue-icon-buttons">
+    <div class="catalogue-section-heading">
+      <div>
+        <p class="catalogue-kicker">Primitive</p>
+        <h2 id="catalogue-icon-buttons">IconButton</h2>
+      </div>
+      <p>Icon-only actions. Size owns the box; the surrounding product surface still owns radius.</p>
+    </div>
+
+    <div class="catalogue-grid">
+      <div class="catalogue-example">
+        <span class="catalogue-label">Sizes</span>
+        <div class="catalogue-row">
+          <button
+            appIconButton
+            class="catalogue-icon-button"
+            icon="plus"
+            size="xxs"
+            aria-label="Add, extra extra small"
+          ></button>
+          <button
+            appIconButton
+            class="catalogue-icon-button"
+            icon="plus"
+            size="xs"
+            aria-label="Add, extra small"
+          ></button>
+          <button
+            appIconButton
+            class="catalogue-icon-button"
+            icon="plus"
+            size="md"
+            aria-label="Add, medium"
+          ></button>
+        </div>
+      </div>
+
+      <div class="catalogue-example">
+        <span class="catalogue-label">Tone and pressed state</span>
+        <div class="catalogue-row">
+          <button
+            appIconButton
+            class="catalogue-icon-button"
+            icon="trash"
+            tone="danger"
+            aria-label="Delete example"
+          ></button>
+          <button
+            appIconButton
+            class="catalogue-icon-button"
+            icon="check"
+            [pressed]="true"
+            aria-label="Selected example"
+          ></button>
+          <button
+            appIconButton
+            class="catalogue-icon-button"
+            icon="x"
+            aria-label="Disabled example"
+            disabled
+          ></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="catalogue-section" aria-labelledby="catalogue-fields">
+    <div class="catalogue-section-heading">
+      <div>
+        <p class="catalogue-kicker">Primitives + pattern</p>
+        <h2 id="catalogue-fields">Form controls</h2>
+      </div>
+      <p>Native input, textarea and select hosts; FormField composes labels, help and validation.</p>
+    </div>
+
+    <div class="catalogue-grid catalogue-grid--forms">
+      <div class="catalogue-example">
+        <span class="catalogue-label">Input · normal / compact / disabled</span>
+        <div class="catalogue-stack">
+          <input appInput type="text" aria-label="Normal input example" placeholder="Normal input" />
+          <input
+            appInput
+            controlSize="compact"
+            type="text"
+            aria-label="Compact input example"
+            placeholder="Compact input"
+          />
+          <input appInput type="text" aria-label="Disabled input example" value="Disabled" disabled />
+        </div>
+      </div>
+
+      <div class="catalogue-example">
+        <span class="catalogue-label">Textarea + select</span>
+        <div class="catalogue-stack">
+          <textarea
+            appTextarea
+            controlSize="compact"
+            aria-label="Textarea example"
+            rows="3"
+            placeholder="A short note"
+          ></textarea>
+          <select appSelect controlSize="compact" aria-label="Select example">
+            <option>EPUB</option>
+            <option>PDF</option>
+            <option>Physical</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="catalogue-example">
+        <span class="catalogue-label">FormField · help</span>
+        <app-form-field
+          #titleField
+          label="Title"
+          forId="catalogue-title"
+          [required]="true"
+          labelNote="edition title"
+          hint="Use the title printed on this edition."
+        >
+          <input
+            id="catalogue-title"
+            appInput
+            controlSize="compact"
+            type="text"
+            placeholder="The Magic Mountain"
+            [attr.aria-describedby]="titleField.describedBy()"
+          />
+        </app-form-field>
+      </div>
+
+      <div class="catalogue-example">
+        <span class="catalogue-label">FormField · validation</span>
+        <app-form-field
+          #errorField
+          label="Author"
+          forId="catalogue-author"
+          error="Author is required."
+        >
+          <input
+            id="catalogue-author"
+            appInput
+            controlSize="compact"
+            type="text"
+            [invalid]="true"
+            [attr.aria-describedby]="errorField.describedBy()"
+            value=""
+          />
+        </app-form-field>
+      </div>
+    </div>
+  </section>
+
+  <section class="catalogue-section" aria-labelledby="catalogue-switch">
+    <div class="catalogue-section-heading">
+      <div>
+        <p class="catalogue-kicker">Primitives</p>
+        <h2 id="catalogue-switch">Switch, Chip and Badge</h2>
+      </div>
+      <p>Interactive capsules and passive status remain separate semantic roles.</p>
+    </div>
+
+    <div class="catalogue-grid">
+      <div class="catalogue-example">
+        <span class="catalogue-label">Switch</span>
+        <div class="catalogue-row">
+          <label appSwitch>
+            <input type="checkbox" aria-label="Unchecked switch example" />
+          </label>
+          <label appSwitch>
+            <input type="checkbox" aria-label="Checked switch example" checked />
+          </label>
+          <label appSwitch>
+            <input type="checkbox" aria-label="Disabled switch example" disabled />
+          </label>
+        </div>
+      </div>
+
+      <div class="catalogue-example">
+        <span class="catalogue-label">Chip</span>
+        <div class="catalogue-row">
+          <button appChip type="button">Filter</button>
+          <button appChip type="button" aria-pressed="true">Selected</button>
+          <button appChip type="button" aria-pressed="false">Not selected</button>
+          <button appChip type="button" disabled>Disabled</button>
+        </div>
+      </div>
+
+      <div class="catalogue-example">
+        <span class="catalogue-label">Badge / status</span>
+        <div class="catalogue-row">
+          <span appBadge>Neutral</span>
+          <span appBadge tone="success">Ready</span>
+          <span appBadge tone="danger">Failed</span>
+          <span appBadge tone="success" [dot]="true">Connected</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="catalogue-section" aria-labelledby="catalogue-segmented">
+    <div class="catalogue-section-heading">
+      <div>
+        <p class="catalogue-kicker">Pattern</p>
+        <h2 id="catalogue-segmented">Segmented visual recipe</h2>
+      </div>
+      <p>The visual recipe is shared; tab and pressed-button semantics remain distinct.</p>
+    </div>
+
+    <div class="catalogue-grid">
+      <div class="catalogue-example">
+        <span class="catalogue-label">Tabs</span>
+        <div class="catalogue-segmented" role="tablist" aria-label="Catalogue tab example">
+          <button
+            type="button"
+            class="toggle-opt"
+            role="tab"
+            [class.active]="selectedTab() === 'primitives'"
+            [attr.aria-selected]="selectedTab() === 'primitives'"
+            (click)="selectedTab.set('primitives')"
+          >
+            Primitives
+          </button>
+          <button
+            type="button"
+            class="toggle-opt"
+            role="tab"
+            [class.active]="selectedTab() === 'patterns'"
+            [attr.aria-selected]="selectedTab() === 'patterns'"
+            (click)="selectedTab.set('patterns')"
+          >
+            Patterns
+          </button>
+        </div>
+      </div>
+
+      <div class="catalogue-example">
+        <span class="catalogue-label">Pressed-button group</span>
+        <div class="catalogue-segmented" role="group" aria-label="Catalogue view example">
+          <button
+            type="button"
+            class="toggle-opt"
+            [class.active]="selectedView() === 'list'"
+            [attr.aria-pressed]="selectedView() === 'list'"
+            (click)="selectedView.set('list')"
+          >
+            List
+          </button>
+          <button
+            type="button"
+            class="toggle-opt"
+            [class.active]="selectedView() === 'grid'"
+            [attr.aria-pressed]="selectedView() === 'grid'"
+            (click)="selectedView.set('grid')"
+          >
+            Grid
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="catalogue-section" aria-labelledby="catalogue-dialog">
+    <div class="catalogue-section-heading">
+      <div>
+        <p class="catalogue-kicker">Pattern</p>
+        <h2 id="catalogue-dialog">Dialog composition</h2>
+      </div>
+      <p>ModalShell owns geometry, DialogActions owns ordinary footer layout, Button owns actions.</p>
+    </div>
+
+    <div class="catalogue-grid">
+      <div class="catalogue-example catalogue-dialog-preview">
+        <div class="catalogue-dialog-preview__head">
+          <strong>Ordinary footer</strong>
+          <span>Static composition preview</span>
+        </div>
+        <p>Product content and dialog semantics stay with the caller.</p>
+        <app-dialog-actions variant="footer">
+          <button appButton variant="secondary" type="button">Cancel</button>
+          <button appButton variant="primary" type="button">Save</button>
+        </app-dialog-actions>
+      </div>
+
+      <div class="catalogue-example">
+        <span class="catalogue-label">ModalShell + DialogActions</span>
+        <p class="catalogue-example-copy">
+          Open the live compact-dialog composition to inspect focus, shell geometry and narrow stacking.
+        </p>
+        <button appButton variant="secondary" type="button" (click)="modalOpen.set(true)">
+          Open modal example
+        </button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<app-modal-shell
+  class="catalogue-modal"
+  [isOpen]="modalOpen()"
+  variant="dialog"
+  maxWidth="440px"
+  maxHeight="80vh"
+  [dismissOnBackdrop]="true"
+  ariaLabelledBy="catalogue-modal-title"
+  (closed)="modalOpen.set(false)"
+>
+  <div shellHeader class="catalogue-modal-head">
+    <h2 id="catalogue-modal-title">Archive note?</h2>
+  </div>
+
+  <div class="catalogue-modal-body">
+    <p>This fixture shows the shared shell and ordinary dialog-action composition without inventing product semantics.</p>
+  </div>
+
+  <app-dialog-actions shellActions variant="footer" [stackOnNarrow]="true">
+    <button appButton variant="secondary" type="button" (click)="modalOpen.set(false)">
+      Cancel
+    </button>
+    <button appButton variant="danger" type="button" (click)="modalOpen.set(false)">
+      Archive
+    </button>
+  </app-dialog-actions>
+</app-modal-shell>

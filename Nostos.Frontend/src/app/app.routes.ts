@@ -8,6 +8,14 @@ export const routes: Routes = [
     component: Home,
   },
 
+  // Lightweight in-app reference fixture for Nostos UI v1. Intentionally not
+  // linked from product navigation; it exists for implementation and visual QA.
+  {
+    path: 'ui-catalogue',
+    loadComponent: () =>
+      import('./ui/ui-catalogue/ui-catalogue.component').then((m) => m.UiCatalogueComponent),
+  },
+
   // Dedicated Reader Route (full-screen immersive mode)
   {
     path: 'read/:id',

@@ -422,6 +422,27 @@ tolerance of 8/channel and fails the build.
 
 ## 4. What is deliberately NOT unified
 
+### Nostos UI v1: ownership boundary
+
+The token graph is the visual source of truth; [`_docs/ui-library.md`](../../_docs/ui-library.md)
+is the implementation/API reference, and `/ui-catalogue` is the live fixture. Nostos UI v1
+uses four layers so that cohesion does not become accidental homogenisation:
+
+1. **Foundations** — colour, typography, radius, elevation, motion, focus and control-height
+   tokens in `styles.css`.
+2. **Primitives** — Button, IconButton, native Input/Textarea/Select, Switch, Chip and Badge.
+3. **Patterns** — FormField, ModalShell + DialogActions and the segmented visual recipe.
+4. **Product components** — BookCard/NoteCard, Reader transport and page tools, Studio
+   editor/tree, assistant recording/context, acquisition/result interactions and other
+   controls whose semantics or geometry belong to a feature.
+
+The test for extraction is semantic ownership, not repeated CSS. Ordinary labelled
+actions use `appButton`; icon-only ordinary actions use `appIconButton`; ordinary native
+fields use `appInput` / `appTextarea` / `appSelect`. A product control stays local when
+forcing it through a primitive would hide or distort its ARIA contract, state model,
+navigation behaviour, transport/editor interaction or measured geometry.
+
+Documented so the next reader does not "fix" it:
 Documented so the next reader does not "fix" it:
 
 - **`display: flex` (208x), `align-items: center` (176x), `cursor: pointer`
@@ -486,21 +507,20 @@ naming collision — the same word used for four different messages. Left as-is;
 four should ever LOOK alike, that is a design decision to make deliberately, not a
 side-effect of a dedup.
 
-### The three search boxes are near-copies, and deliberately left alone
+### Search fields: canonical control, product-owned shell
 
-`second-brain` renders three search fields — `.search-box`, `.note-search-box` and
-`.merge-search-box` — and the first two are close relatives of Library's
-`.search-bar-container`. Measured, they are NOT byte-identical: they differ in flex
-sizing (`flex: 1 1 220px` vs none), input padding (`0.6rem 1rem` vs `0.6rem 0.75rem`),
-and transition shorthand (`background` vs `background-color, border-color, box-shadow`).
-Those are per-context choices, not drift.
+The Library, Brain and Studio migrations changed the ownership boundary here. Ordinary
+native search inputs now consume `appInput`; the field's border, radius, focus, disabled
+and theme contract therefore has one owner.
 
-Unlike the `.toggle-opt` recipe — which WAS byte-identical and had already drifted — a
-merge here would require deciding which padding and which flex behaviour wins, for about
-six rules. That is a reconciliation dressed up as a dedup, so it is not done. If it is
-ever wanted, extract the shared parts (the absolute 18px icon in a 2.5rem gutter, the
-`--border-focus` + `--color-accent-faint` focus ring) as tokens rather than forcing the
-boxes to become one another.
+The **search shell is still product-owned**. Library and Brain differ in icon placement,
+clear actions, flex sizing, rail/tool-bar geometry and mobile behaviour. Those wrappers
+are not a generic Search component merely because they contain the same field primitive.
+Merge/review pickers and other workflow-specific inputs can also remain local when their
+interaction model is not an ordinary field.
+
+This is the intended Nostos UI v1 shape: share the stable primitive, preserve the product
+composition around it.
 
 ### Capsules have two semantic families: Chip vs Badge/Status
 
@@ -560,146 +580,74 @@ behaviour change rides in its own PR with its own spec, never folded into a
 behaviour-preserving refactor. See the `aria-pressed` note below for why the
 attribute is emitted on these two and deliberately NOT on the icon buttons.
 
-### The segmented control, and why it had to be fixed three separate times
-Four components render the same control under different names:
+### Why the segmented recipe stays visual-only
 
-| Component | Track | Option | Active option |
-| --- | --- | --- | --- |
-| Library | `.control-group` | `.toggle-opt` | `.toggle-opt.active` |
-| Brain | `.view-mode-control` | `.toggle-opt` | `.toggle-opt.active` |
-| Studio | `.sidebar-tabs` | `.tab-btn` | `.tab-btn.active` |
-| Settings | `.theme-choice` | `.theme-opt` | `.theme-opt.is-active` |
+Library, Brain and Studio now consume the shared `.toggle-opt` option recipe where their
+compact segmented treatment matches. Their surrounding tracks and mobile layout remain
+surface-owned. Studio keeps `role="tablist"` / `role="tab"` / `aria-selected`; Library
+and Brain use their labelled pressed-button group contracts.
 
-Canonical recipe: `--bg-hover` track, 3px padding, `--radius-md`, 2px gap, **no
-border**, and an active option painted `--control-active-fill` /
-`--control-active-ink` with `--shadow-sm` plus a 1px `--border-color` outline.
+Settings' colour-theme choices are deliberately **not** consumers of this compact recipe:
+they are larger radio cards with `role="radiogroup"` / `role="radio"` /
+`aria-checked`. That distinction is exactly why there is no semantic
+`SegmentedControl` mega-component.
 
-**The active option must never be `--bg-surface`.** On dark, `--bg-surface`
-(#121318) is DARKER than the `--bg-hover` track (#20222a) — 1.04:1 against the
-ground it sits on versus 1.22:1 for the track — so the selected option *sinks*
-and the unselected pair looks raised. This bug was written and fixed three
-separate times — Library, Brain, then Studio and Settings — because each copy was
-authored from the light theme, where `--bg-surface` is white and correct. Measured
-live on Studio before the first fix: track `rgb(37,42,52)` vs active `rgb(27,30,38)`.
+The active option must use `--control-active-fill` / `--control-active-ink`, not
+`--bg-surface`: on dark, `--bg-surface` is below the track in the tonal ladder and
+would make selection look sunken. The shared recipe also owns the keyboard focus treatment,
+so consumers cannot silently drift on focus while matching at rest.
 
-Drift found and removed: Studio's track carried a `border` the other three lacked
-(it read as a boxed widget, not a raised track); Library's `.toggle-opt` had **no
-focus ring** while Brain's byte-identical copy did, so one control behaved
-differently for keyboard users depending on which page they were on.
+### What WAS unified: the icon button
 
-### What WAS unified: the icon button (30 call sites -> one component)
+`button[appIconButton]` is the canonical icon-only action primitive. The host remains the
+native `<button>`, so `type`, `disabled`, keyboard activation, click handlers,
+`aria-label` and `title` stay at the call site. Glyphs resolve through the single Nostos
+Phosphor registry; feature code never imports an icon library directly.
 
-`appIconButton` (`src/app/ui/icon-button/`) replaced 30 hand-built
-`<button class="icon-btn"><lucide-icon ...></lucide-icon></button>` copies across
-five templates. The five copies disagreed about SIZE, which is the thing the
-component now owns.
+The primitive owns the measured box rungs and glyph path:
 
-`selector: 'button[appIconButton]'` means **the host is the native `<button>`**.
-Not a wrapper element: a custom host defaults to `display: inline`, breaks flex/grid
-alignment, and breaks descendant selectors this codebase relies on
-(`.reader-toolbar .icon-btn`, `.note-actions .icon-btn`, `button:focus-visible`).
-Not a plain directive either: a directive cannot own an encapsulated stylesheet.
-
-**Measured size rungs** (the only thing the component owns):
-
-| Rung | Box | Used by |
+| Rung | Box | Typical consumers |
 | --- | --- | --- |
-| `md` (default) | 32px | reader toolbar, modal close, note-card edit-mode |
-| `xs` | 28px | Library list rows |
-| `xxs` | 24px | note-card's round row chips |
+| `md` (default) | 32px | Reader toolbar, modal close, ordinary icon actions |
+| `xs` | 28px | Library rows, Studio compact actions |
+| `xxs` | 24px | NoteCard's smallest round actions |
 
-Radius is deliberately NOT owned: it varies per surface on purpose (3px global
-`--radius-sm`, 4px Library rows and the reader toolbar, 6px studio zen toggle, 50%
-note-card chips) and mostly arrives through DESCENDANT rules that keep matching
-because the host is still a button. Encoding a radius rung here would have moved
-pixels on four surfaces to no benefit.
+Radius is deliberately **not** a size input. Reader, Library, Studio and NoteCard use
+different measured radii and selected-state treatments, and those differences belong to
+their surfaces. Likewise `pressed` is tri-state: `null` emits no `aria-pressed`, because
+most icon buttons are actions rather than toggles. A real toggle opts in explicitly.
 
-Also deliberately NOT inputs, each for a measured reason:
+There is no `ariaLabel` input: a host binding could override the native
+`aria-label` written by the caller. There is no generic `active` visual input either;
+surface state remains surface-owned. The component centralises the stable control, not
+every meaning an icon button can have.
 
-- **`ariaLabel`** — a `[attr.aria-label]` host binding OVERRIDES a static
-  `aria-label` on the call site, silently replacing Library's "Edit book" with
-  nothing. Since the host is the button, native `aria-label` already passes through;
-  the input only added a way to lose the label.
-- **`active`** — every surface styles selection with its own `.icon-btn.active`, and
-  a plain `[class.active]="tocOpen()"` works untouched. A second way to express one
-  state is guaranteed to drift.
-- **`aria-pressed`** — tri-state with a default of `null` (attribute absent). Most
-  icon buttons are actions, not toggles; emitting `aria-pressed="false"` would
-  misreport them.
+### What WAS unified: modal geometry and ordinary dialog actions
 
-Kept in the surfaces: `data-tip` + the themed tooltip, the `.delete` danger hover,
-and every ancestor-scoped rule.
+Dialog chrome originally drifted between Edit Book, Confirm, Editions and Book Detail.
+Two role tokens now carry the stable visual decision: `--radius-dialog` for the card and
+`--radius-action` for ordinary dialog actions.
 
-**THE ENCAPSULATION BOUNDARY, MEASURED.** Angular puts one `_ngcontent` attribute per
-compound. The component host keeps the PARENT's scope attribute (so `.icon-btn` and
-`.reader-toolbar .icon-btn` still apply), but the glyph inside carries the CHILD's.
-Verified live: host `_ngcontent-ng-c1225754224`, glyph `_ngcontent-ng-c599134121`.
-So `.icon-btn lucide-icon { border-radius: ... }` silently STOPS MATCHING at a
-component boundary. Reader's glyph radius and its mobile `top: 0` override now cross
-explicitly with `:host ::ng-deep`, the convention this repo already uses for
-`second-brain -> note-card`.
+Nostos UI v1 then separates composition into three owners:
 
-**And a bare attribute is not a class.** `<button appIconButton zen-toggle>` is valid
-HTML and reads fine, but `.zen-toggle` never matches it — this silently broke studio's
-zen toggle and the reader's `desktop-only` buttons during the migration. Now guarded
-by RULE 8.
+- **`app-modal-shell`** owns the backdrop/card geometry, scrolling regions, sheet-vs-dialog
+  responsive behaviour and ARIA-role forwarding.
+- **`app-dialog-actions`** owns conventional footer/inset action-row spacing and narrow
+  stacking.
+- **`appButton`** owns ordinary Cancel/Save/Delete/etc. action styling.
 
-*(A latent bug found on the way and NOT fixed, because fixing it is a visual change:*
-studio passes `strokeWidth="1.5"`, but the app actually paints `stroke-width: 1`. The
-migration preserves the painted value with `[strokeWidth]="1"`.
+That does **not** make every modal one component. ConfirmModal keeps
+`role="alertdialog"`; Editions remains a two-column working-area dialog; Reader/editor
+overlays and inline row actions keep their own interaction models. They may consume the
+shared shell or actions when the composition matches without surrendering their semantics.
 
-Confirmed at the source rather than inferred: `lucide-angular`'s `parseNumber` does
-`parseInt(value, 10)`, so a static `strokeWidth="1.5"` is truncated to `1` before it is
-written to the SVG. A plain `<svg stroke-width="1.5">` honours 1.5 verbatim (verified in
-a browser), so the truncation is lucide's, not the browser's. Honouring the written 1.5
-would thicken six studio icons — worth doing, but as a deliberate visual change with the
-pixel gate regenerated, not inside a refactor.)*
+Compact controls inside a dialog are also not automatically footer actions. Editions row
+actions, close buttons and count/status capsules retain the role appropriate to the row.
+Coherence comes from the shared layers, not from making every control in a modal the same
+shape.
 
-### What WAS unified: modal & dialog geometry (issue #160)
-
-Dialog chrome had drifted into three shapes for the same role, all visible from
-Book Details:
-
-| Surface | card | its actions |
-| --- | --- | --- |
-| Edit Book | `14px` (hardcoded) | `999px` (stadium) |
-| Confirm (Delete Book) | `var(--radius-lg)` = 6px | `--radius-sm` = 3px |
-| Editions & works | `var(--radius-lg)` = 6px | `--radius-sm` / `--radius-md` |
-| status confirm (book-detail) | `16px` (hardcoded) | `999px` |
-
-So opening Delete from Edit Book switched from a soft card to a visibly squarer
-one, and its buttons from stadium to near-square — the same application reading
-as two design systems.
-
-**Two role tokens now own it**, next to the generic scale in `styles.css`:
-
-- `--radius-dialog: 14px` — the modal/dialog CARD surface. Source: Edit Book, the
-  agreed reference.
-- `--radius-action: 999px` — a dialog footer action. This was the shape already on
-  Edit Book's footer, and the same value the app's pill CTAs carried as a bare
-  literal; one role now owns both.
-
-**Why new roles instead of raising the existing scale.** `--radius-lg` is used
-beyond modals, so re-pointing it would have repainted every card and control in
-the app to fix dialog chrome. That is exactly the change to avoid, and issue #160
-rules it out explicitly.
-
-**Deliberately NOT unified: the compact controls inside a dialog.** Row actions
-in Editions & works, the dialog close buttons (3px, matching Edit Book's own
-`icon-btn` close) and count capsules keep their small radii. Coherence is the
-goal, not making every element of a dialog pill-shaped — a compact control in a
-list is a different role from a footer action.
-
-**Deliberately NOT one component.** `ConfirmModal` (`role="alertdialog"`) and
-`editions-modal` (`role="dialog"`, two-column working area) keep separate
-implementations. Same reasoning as the segmented control above: they share a
-RECIPE (card + footer actions), not a semantics contract, and merging them would
-save no CSS while risking both ARIA contracts.
-
-**Also reclaimed here:** the status confirmation in `book-detail.component.css`
-was the app's only dialog with its own scrim (`rgba(0,0,0,.45)` at an 8px blur —
-four times every other dialog's blur). It now reads `--modal-scrim` /
-`--modal-scrim-blur` like every sibling.
+Book Detail's status confirmation also uses the shared scrim/action vocabulary rather than
+its former one-off backdrop, so modal appearance follows the same light/dark token graph.
 
 ### What WAS unified: `.visually-hidden`
 It was declared twice, byte-identically (`second-brain` and `concept-map`). A
