@@ -33,7 +33,7 @@ import { ConfirmModal } from '../confirm-modal/confirm-modal.component';
       :host {
         display: block;
         min-height: 100vh;
-        background: var(--bg-page);
+        background: var(--bg-surface);
       }
     `,
   ],
