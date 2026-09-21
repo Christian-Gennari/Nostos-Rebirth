@@ -21,25 +21,52 @@
       </header>
 
       @if (!sourceMode()) {
-        <div class="modal-tabs" shellTabs>
+        <div
+          class="modal-tabs"
+          shellTabs
+          role="tablist"
+          aria-label="Book details sections"
+          aria-orientation="horizontal"
+        >
         <button
+          id="book-info-tab"
+          type="button"
           class="tab-btn"
+          role="tab"
+          aria-controls="book-info-panel"
+          [attr.aria-selected]="activeTab() === 'Book Info'"
+          [attr.tabindex]="activeTab() === 'Book Info' ? 0 : -1"
           [class.active]="activeTab() === 'Book Info'"
           (click)="setTab('Book Info')"
+          (keydown)="onTabKeydown($event, 'Book Info')"
         >
           <nostos-icon name="book" [size]="16"></nostos-icon> Book Info
         </button>
         <button
+          id="publishing-tab"
+          type="button"
           class="tab-btn"
+          role="tab"
+          aria-controls="publishing-panel"
+          [attr.aria-selected]="activeTab() === 'Publishing'"
+          [attr.tabindex]="activeTab() === 'Publishing' ? 0 : -1"
           [class.active]="activeTab() === 'Publishing'"
           (click)="setTab('Publishing')"
+          (keydown)="onTabKeydown($event, 'Publishing')"
         >
           <nostos-icon name="stack" [size]="16"></nostos-icon> Publishing
         </button>
         <button
+          id="files-personal-tab"
+          type="button"
           class="tab-btn"
+          role="tab"
+          aria-controls="files-personal-panel"
+          [attr.aria-selected]="activeTab() === 'Files & Personal'"
+          [attr.tabindex]="activeTab() === 'Files & Personal' ? 0 : -1"
           [class.active]="activeTab() === 'Files & Personal'"
           (click)="setTab('Files & Personal')"
+          (keydown)="onTabKeydown($event, 'Files & Personal')"
         >
           <nostos-icon name="file-text" [size]="16"></nostos-icon> Files & Personal
         </button>
@@ -92,7 +119,13 @@
           }
 
           <!-- TAB 1: Book Info -->
-          <div class="tab-content" [hidden]="sourceMode() || activeTab() !== 'Book Info'">
+          <div
+            id="book-info-panel"
+            class="tab-content"
+            role="tabpanel"
+            aria-labelledby="book-info-tab"
+            [hidden]="sourceMode() || activeTab() !== 'Book Info'"
+          >
             <app-form-field label="Format" forId="book-type">
               <select
                 id="book-type"
@@ -265,7 +298,13 @@
           </div>
 
           <!-- TAB 2: Publishing -->
-          <div class="tab-content" [hidden]="sourceMode() || activeTab() !== 'Publishing'">
+          <div
+            id="publishing-panel"
+            class="tab-content"
+            role="tabpanel"
+            aria-labelledby="publishing-tab"
+            [hidden]="sourceMode() || activeTab() !== 'Publishing'"
+          >
             <div class="grid grid-2">
               <app-form-field label="Publisher" forId="book-publisher">
                 <input
@@ -373,7 +412,13 @@
             </app-form-field>
           </div>
           <!-- TAB 3: Files & Personal -->
-          <div class="tab-content" [hidden]="sourceMode() || activeTab() !== 'Files & Personal'">
+          <div
+            id="files-personal-panel"
+            class="tab-content"
+            role="tabpanel"
+            aria-labelledby="files-personal-tab"
+            [hidden]="sourceMode() || activeTab() !== 'Files & Personal'"
+          >
             @if (!isEditMode()) {
               <div class="asset-field">
                 <span class="asset-field__label">Book File</span>
