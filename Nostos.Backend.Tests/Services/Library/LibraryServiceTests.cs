@@ -42,7 +42,7 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
         data.BookId.Should().NotBeNull();
 
         await using var db = await h.Factory.CreateDbContextAsync();
-        var book = await db.PhysicalBooks.SingleAsync(b => b.Id == data.BookId);
+        var book = await db.Books.OfType<PhysicalBookModel>().SingleAsync(b => b.Id == data.BookId);
         book.NormalizedIsbn.Should().Be(IsbnBorges);
         book.NormalizedAsin.Should().BeNull();
         (await db.LibraryCommandReceipts.CountAsync()).Should().Be(1);
@@ -78,7 +78,7 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
 
         var data = (LibraryCreateOrMatchResultDto)result.Data!;
         await using var db = await h.Factory.CreateDbContextAsync();
-        var book = await db.AudioBooks.SingleAsync(b => b.Id == data.BookId);
+        var book = await db.Books.OfType<AudioBookModel>().SingleAsync(b => b.Id == data.BookId);
         book.NormalizedAsin.Should().Be(AsinExample);
         book.NormalizedIsbn.Should().BeNull("an audiobook does not carry ISBN identity");
     }
@@ -120,7 +120,7 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
         // otherwise match it instead of creating a duplicate).
         await using (var db = await h.Factory.CreateDbContextAsync())
         {
-            db.PhysicalBooks.Add(new PhysicalBookModel
+            db.Books.Add(new PhysicalBookModel
             {
                 Title = "Meditations",
                 Author = "Marcus Aurelius",
@@ -673,7 +673,7 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
         await h.Service.UpdateBookAsync(new(Client, "u1", bookId, Isbn: IsbnBorges));
 
         await using var db = await h.Factory.CreateDbContextAsync();
-        var book = await db.PhysicalBooks.SingleAsync(b => b.Id == bookId);
+        var book = await db.Books.OfType<PhysicalBookModel>().SingleAsync(b => b.Id == bookId);
         book.NormalizedIsbn.Should().Be(IsbnBorges);
     }
 
@@ -896,19 +896,19 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
         var h = Harness();
         await using (var db = await h.Factory.CreateDbContextAsync())
         {
-            db.PhysicalBooks.Add(new PhysicalBookModel
+            db.Books.Add(new PhysicalBookModel
             {
                 Title = "Legacy Physical",
                 Author = "A",
                 Isbn = "978-0-141-18384-8",
             });
-            db.AudioBooks.Add(new AudioBookModel
+            db.Books.Add(new AudioBookModel
             {
                 Title = "Legacy Audio",
                 Author = "B",
                 Asin = "b095tnrpxd",
             });
-            db.PhysicalBooks.Add(new PhysicalBookModel
+            db.Books.Add(new PhysicalBookModel
             {
                 Title = "Legacy Invalid",
                 Author = "C",
@@ -924,14 +924,14 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
 
         await using (var verify = await h.Factory.CreateDbContextAsync())
         {
-            var physical = await verify.PhysicalBooks.SingleAsync(b => b.Title == "Legacy Physical");
+            var physical = await verify.Books.OfType<PhysicalBookModel>().SingleAsync(b => b.Title == "Legacy Physical");
             physical.NormalizedIsbn.Should().Be("9780141183848");
 
-            var audio = await verify.AudioBooks.SingleAsync(b => b.Title == "Legacy Audio");
+            var audio = await verify.Books.OfType<AudioBookModel>().SingleAsync(b => b.Title == "Legacy Audio");
             audio.NormalizedAsin.Should().Be("B095TNRPXD");
             audio.NormalizedIsbn.Should().BeNull();
 
-            var invalid = await verify.PhysicalBooks.SingleAsync(b => b.Title == "Legacy Invalid");
+            var invalid = await verify.Books.OfType<PhysicalBookModel>().SingleAsync(b => b.Title == "Legacy Invalid");
             invalid.NormalizedIsbn.Should().BeNull();
         }
 
@@ -1024,7 +1024,7 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
 
         await using (var db = await h.Factory.CreateDbContextAsync())
         {
-            var pdfModel = await db.EBooks.SingleAsync(b => b.Id == pdf.BookId);
+            var pdfModel = await db.Books.OfType<EBookModel>().SingleAsync(b => b.Id == pdf.BookId);
             pdfModel.FileDetails.FileName = "document.pdf";
             await db.SaveChangesAsync();
         }
@@ -1062,7 +1062,7 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
 
         await using (var db = await h.Factory.CreateDbContextAsync())
         {
-            var pdfModel = await db.EBooks.SingleAsync(b => b.Id == pdf.BookId);
+            var pdfModel = await db.Books.OfType<EBookModel>().SingleAsync(b => b.Id == pdf.BookId);
             pdfModel.FileDetails.FileName = "document.pdf";
             await db.SaveChangesAsync();
         }
@@ -1746,7 +1746,7 @@ public sealed class LibraryServiceTests : IClassFixture<SqliteTestFixture>
         var h = Harness();
         await using (var db = await h.Factory.CreateDbContextAsync())
         {
-            db.PhysicalBooks.AddRange(
+            db.Books.AddRange(
                 new PhysicalBookModel { Id = Guid.NewGuid(), Title = "Dupe One", Isbn = "9780141183848" },
                 new PhysicalBookModel { Id = Guid.NewGuid(), Title = "Dupe Two", Isbn = "9780141183848" });
             await db.SaveChangesAsync();
