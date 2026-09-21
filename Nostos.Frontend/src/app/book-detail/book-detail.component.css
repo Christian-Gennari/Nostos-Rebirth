@@ -58,9 +58,11 @@
    Contrast must never depend on how dark a given cover is, which is why the
    scrim is always present rather than tuned per book.                     */
 .book-hero {
+  --book-hero-min-height: 470px;
   position: relative;
   flex-shrink: 0;
-  height: 470px;
+  min-height: var(--book-hero-min-height);
+  height: auto;
   overflow: hidden;
   isolation: isolate;
   /* Bound repaints to this subtree. The art layers are large (124%–144% of a
@@ -213,7 +215,8 @@
   z-index: 3;
   max-width: var(--container-width-lg);
   margin: 0 auto;
-  height: 100%;
+  min-height: var(--book-hero-min-height);
+  height: auto;
   padding: 1.5rem 2rem 0;
   display: flex;
   flex-direction: column;
@@ -574,6 +577,7 @@
   letter-spacing: -0.02em;
   color: #fff;
   text-shadow: 0 2px 26px rgba(0, 0, 0, 0.42);
+  overflow-wrap: anywhere;
 }
 .favorite-btn {
   width: 40px;
@@ -605,6 +609,7 @@
   margin: 0 0 0.5rem;
   font-weight: var(--fw-regular);
   font-family: 'Hanken Grotesk', sans-serif;
+  overflow-wrap: anywhere;
 }
 .book-author {
   font-family: 'Hanken Grotesk', sans-serif;
@@ -613,6 +618,7 @@
   color: rgba(255, 255, 255, 0.9);
   margin: 0;
   text-shadow: 0 2px 16px rgba(0, 0, 0, 0.4);
+  overflow-wrap: anywhere;
 }
 
 /* ── Multi-edition grouping ───────────────────────────────────────────────
@@ -1490,7 +1496,7 @@ button.edition-select-card:focus-visible {
   /* Mobile keeps the same hero shape but shorter, with reduced blur radii so the
      defocus stays soft without the art dissolving into a flat field. */
   .book-hero {
-    height: 340px;
+    --book-hero-min-height: 340px;
   }
   .hero-inner {
     padding: 1.1rem 1.25rem 0;
@@ -1575,7 +1581,7 @@ button.edition-select-card:focus-visible {
 }
 @media (max-width: 480px) {
   .book-hero {
-    height: 300px;
+    --book-hero-min-height: 300px;
   }
   .book-title {
     font-size: 2.1rem;
