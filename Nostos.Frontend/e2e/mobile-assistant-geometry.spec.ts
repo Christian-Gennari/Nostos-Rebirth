@@ -16,7 +16,7 @@
  * File name starts with `mobile` so `playwright.config.ts` runs it in the
  * 390px mobile-chromium project.
  */
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -68,6 +68,17 @@ async function triggerRect(page: Page): Promise<Rect> {
 }
 
 test('the collapsed trigger stays 44px+ and clear of the toolbar and epub text', async ({ page }) => {
+  // Geometry is independent of a real model provider. The production fixture
+  // intentionally has none configured, so make the assistant available without
+  // introducing a live LLM dependency into this layout test.
+  await page.route('**/api/assistant/status', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ available: true }),
+    });
+  });
+
   await page.goto(`${fixture.baseUrl}/read/${bookId}`, { waitUntil: 'domcontentloaded' });
   await page.locator('#epub-viewer iframe').waitFor({ state: 'attached', timeout: 45_000 });
   // Let the reader place its page and settle before measuring.
