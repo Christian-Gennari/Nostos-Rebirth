@@ -168,6 +168,18 @@ export class AddBookModal implements OnDestroy {
     this.activeTab.set(tab);
   }
 
+  onTypeChange(type: BookType): void {
+    this.form.type = type;
+
+    // A file belongs to a digital edition, never to a physical metadata record.
+    // Clear a previously chosen file when switching back to Physical so it
+    // cannot be carried invisibly into a later submit.
+    if (type === 'physical') {
+      this.selectedFile.set(null);
+      this.fileDragActive.set(false);
+    }
+  }
+
   fillForm(b: BookModel) {
     this.form = {
       type: b.type || 'physical',
@@ -386,8 +398,11 @@ export class AddBookModal implements OnDestroy {
     } else {
       this.booksService.create(payload).subscribe({
         next: (createdBook) => {
-          if (this.selectedFile()) this.handleFileUpload(createdBook);
-          else this.uploadCoverIfNeeded(createdBook.id);
+          if (this.form.type !== 'physical' && this.selectedFile()) {
+            this.handleFileUpload(createdBook);
+          } else {
+            this.uploadCoverIfNeeded(createdBook.id);
+          }
         },
         error: () => this.toast.error('Failed to create book'),
       });
