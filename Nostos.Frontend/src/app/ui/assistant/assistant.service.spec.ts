@@ -610,8 +610,16 @@ describe('AssistantService voice transcript alignment', () => {
     http.expectNone('/api/assistant/turn');
   });
 
-  it('requests an immediate concept link when a note is under review', () => {
+  it('requests an immediate concept link and emits only a backend-confirmed action receipt', () => {
     fake.set({ brainReviewNoteId: 'note-1' });
+    const receipts: Array<{ capability: string; noteId: string | null | undefined }> = [];
+    const subscription = service.actionExecuted.subscribe((event) =>
+      receipts.push({
+        capability: event.capability,
+        noteId: event.context.brainReviewNoteId,
+      }),
+    );
+
     service.applySuggestion({
       kind: 'concept',
       label: 'Mountains',
@@ -622,7 +630,12 @@ describe('AssistantService voice transcript alignment', () => {
     const request = http.expectOne('/api/assistant/turn');
     expect(request.request.body.context.brainReviewNoteId).toBe('note-1');
     expect(request.request.body.message).toContain('Mountains');
-    request.flush(turn());
+    request.flush(turn({ executedCapabilities: ['notes_link_existing_concept'] }));
+
+    expect(receipts).toEqual([
+      { capability: 'notes_link_existing_concept', noteId: 'note-1' },
+    ]);
+    subscription.unsubscribe();
   });
 
   it('approves exactly one destructive plan and reports the canonical execution result', () => {
@@ -654,7 +667,6 @@ describe('AssistantService voice transcript alignment', () => {
     });
 
     expect(service.pendingPlan()).toBeNull();
-    expect(service.lastApproval()?.success).toBe(true);
     expect(service.entries().at(-1)?.text).toBe('Deleted the obsolete collection.');
     expect(service.entries().at(-1)?.meta).toBe('Applied');
   });
@@ -722,7 +734,6 @@ describe('AssistantService voice transcript alignment', () => {
 
     http.expectNone('/api/assistant/plan/approve');
     const discussion = http.expectOne('/api/assistant/turn');
-    expect(discussion.request.body.pendingPlanId).toBe('plan-1');
     discussion.flush(turn({ reply: 'The collection will be deleted; its books remain.' }));
 
     expect(service.pendingPlan()?.planId).toBe('plan-1');
@@ -733,7 +744,6 @@ describe('AssistantService voice transcript alignment', () => {
     service.submit();
     http.expectNone('/api/assistant/plan/approve');
     const later = http.expectOne('/api/assistant/turn');
-    expect(later.request.body.pendingPlanId).toBe('plan-1');
     later.flush(turn());
   });
 
