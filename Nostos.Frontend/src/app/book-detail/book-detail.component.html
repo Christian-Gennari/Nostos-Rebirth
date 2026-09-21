@@ -219,7 +219,7 @@
               <nostos-icon name="download-simple" [size]="18"></nostos-icon>
               <span>Download</span>
             </button>
-            } @else {
+            } @else if (store.book()?.type !== 'physical') {
             <button class="btn btn-primary pill-btn" (click)="triggerFilePicker()">
               <nostos-icon name="book-open" [size]="18"></nostos-icon>
               <span>Upload File</span>
@@ -257,13 +257,18 @@
                   <nostos-icon name="stack" [size]="14"></nostos-icon>
                   <span class="edit-menu-item-text">
                     <span class="edit-menu-item-label">Editions</span>
-                    <span class="edit-menu-item-hint">Group or split this book's editions</span>
+                    <span class="edit-menu-item-hint">{{
+                      store.book()?.type === 'physical'
+                        ? 'Link separately added digital editions'
+                        : "Group or split this book's editions"
+                    }}</span>
                   </span>
                 </button>
               </div>
               }
             </div>
 
+            @if (store.book()?.type !== 'physical') {
             <input
               type="file"
               accept=".epub,.pdf,.txt,.mobi,.mp3,.m4a,.m4b"
@@ -271,6 +276,7 @@
               #fileInput
               (change)="onFileUploadSelected($event)"
             />
+            }
           </div>
         </div>
       </div>
