@@ -7,6 +7,38 @@ export interface Note {
   selectedText?: string;
   createdAt: string;
   bookTitle?: string;
+  sourceAnchorKind?: string;
+  sourceAnchorValue?: string | null;
+  anchorVerified?: boolean;
+}
+
+/**
+ * Resolve the location the active reader can consume for a saved note.
+ *
+ * cfiRange remains first because it is the established reader-navigation
+ * contract used by manual notes/highlights. Assistant captures also persist a
+ * typed source anchor; using it as a fallback makes older PDF captures (which
+ * stored pdf_page but no cfiRange) navigable without migrating note rows.
+ */
+export function noteNavigationTarget(note: Note): string | number | null {
+  const legacy = note.cfiRange?.trim();
+  if (legacy) return legacy;
+
+  if (!note.anchorVerified || !note.sourceAnchorValue) return null;
+
+  const value = note.sourceAnchorValue.trim();
+  if (!value) return null;
+
+  switch (note.sourceAnchorKind?.toLowerCase()) {
+    case 'epub_cfi':
+      return value;
+    case 'pdf_page': {
+      const page = Number(value);
+      return Number.isInteger(page) && page > 0 ? page : null;
+    }
+    default:
+      return null;
+  }
 }
 
 export interface CreateNoteDto {
