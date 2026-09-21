@@ -43,4 +43,27 @@ describe('TinyMceLoader', () => {
     await expect(first).resolves.toBe(api);
     await expect(second).resolves.toBe(api);
   });
+
+  it('removes a failed script so a later load can retry cleanly', async () => {
+    const failed = loader.load();
+    const firstScript = document.querySelector<HTMLScriptElement>(
+      'script[data-nostos-tinymce="true"]',
+    )!;
+    firstScript.dispatchEvent(new Event('error'));
+
+    await expect(failed).rejects.toThrow('Failed to load TinyMCE.');
+    expect(firstScript.isConnected).toBe(false);
+
+    const retry = loader.load();
+    const secondScript = document.querySelector<HTMLScriptElement>(
+      'script[data-nostos-tinymce="true"]',
+    )!;
+    expect(secondScript).not.toBe(firstScript);
+
+    const api = { init: () => undefined, remove: () => undefined };
+    (globalThis as Record<string, unknown>)['tinymce'] = api;
+    secondScript.dispatchEvent(new Event('load'));
+
+    await expect(retry).resolves.toBe(api);
+  });
 });
