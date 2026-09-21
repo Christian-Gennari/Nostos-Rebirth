@@ -100,16 +100,27 @@ export class AssistantComponent {
   readonly hasDraft = computed(() => this.assistant.draft().trim().length > 0);
 
   /**
-   * How far the software keyboard has lifted the viewport. Drives the mobile
-   * sheet's bottom offset so the composer is never buried. 0 on desktop.
+   * Geometry of the actually visible browser viewport.
+   *
+   * Mobile browsers may keep the layout viewport tall while the software
+   * keyboard shrinks and offsets the visual viewport. The phone shell consumes
+   * these values directly instead of guessing a keyboard height and translating
+   * a bottom sheet on top of an independently changing `dvh`.
+   *
+   * Desktop CSS ignores these custom-property values.
    */
-  private readonly keyboardOffset = signal(0);
+  readonly viewportHeightCss = signal('100dvh');
+  readonly viewportTopCss = signal('0px');
 
   readonly isOpen = computed(() => this.assistant.isOpen());
   readonly isReader = computed(() => this.assistant.context().surface === 'reader');
-  readonly sheetBottomPx = computed(() =>
-    this.keyboardOffset() > 0 ? this.keyboardOffset() : null,
-  );
+
+  /**
+   * Desktop-only focus workspace. This changes only the shell geometry; the
+   * AssistantService remains the single owner of conversation, draft and plan
+   * state, so compact <-> expanded never creates a second chat session.
+   */
+  readonly expanded = signal(false);
 
   constructor() {
     // Availability is a server fact; ask once for the life of the session.
@@ -142,7 +153,10 @@ export class AssistantComponent {
       },
     });
 
-    this.destroyRef.onDestroy(() => this.bodyObserver?.disconnect());
+    this.destroyRef.onDestroy(() => {
+      this.bodyObserver?.disconnect();
+      this.stopViewportTracking();
+    });
   }
 
   /**
@@ -222,9 +236,16 @@ export class AssistantComponent {
     // Opening lands on the newest turn rather than the top of an old
     // conversation, however the reader left the view last time.
     this.following.set(true);
+    this.expanded.set(false);
     this.assistant.open();
-    this.startKeyboardTracking();
-    setTimeout(() => this.composer()?.nativeElement.focus(), 0);
+    this.startViewportTracking();
+
+    // Opening a dedicated phone surface should not summon the software keyboard
+    // before the reader asks for it. Desktop keeps the fast type-immediately
+    // behavior of the compact assistant.
+    if (!this.isPhoneViewport()) {
+      setTimeout(() => this.composer()?.nativeElement.focus(), 0);
+    }
   }
 
   close(): void {
@@ -232,7 +253,8 @@ export class AssistantComponent {
     // stopped and the audio discarded, never left running behind a closed panel.
     this.voice.cancel();
     this.assistant.close();
-    this.stopKeyboardTracking();
+    this.expanded.set(false);
+    this.stopViewportTracking();
     const previous = this.previouslyFocused;
     this.previouslyFocused = null;
     if (previous && previous.isConnected) previous.focus();
@@ -240,6 +262,13 @@ export class AssistantComponent {
 
   onBackdrop(): void {
     this.close();
+  }
+
+  toggleExpanded(): void {
+    this.expanded.update((value) => !value);
+    // The body may gain hundreds of pixels in one render. Preserve the existing
+    // transcript-follow contract when the reader is already at the newest turn.
+    setTimeout(() => this.followEnd(), 0);
   }
 
   onComposerInput(event: Event): void {
@@ -309,31 +338,43 @@ export class AssistantComponent {
     this.bodyObserver.observe(element);
   }
 
-  private startKeyboardTracking(): void {
+  private startViewportTracking(): void {
     const viewport = typeof window !== 'undefined' ? window.visualViewport : null;
+    this.updateViewportGeometry();
     if (!viewport) return;
-    this.updateKeyboardOffset();
     viewport.addEventListener('resize', this.onViewportChange);
     viewport.addEventListener('scroll', this.onViewportChange);
   }
 
-  private stopKeyboardTracking(): void {
+  private stopViewportTracking(): void {
     const viewport = typeof window !== 'undefined' ? window.visualViewport : null;
-    if (!viewport) return;
-    viewport.removeEventListener('resize', this.onViewportChange);
-    viewport.removeEventListener('scroll', this.onViewportChange);
-    this.keyboardOffset.set(0);
+    if (viewport) {
+      viewport.removeEventListener('resize', this.onViewportChange);
+      viewport.removeEventListener('scroll', this.onViewportChange);
+    }
+    this.viewportHeightCss.set('100dvh');
+    this.viewportTopCss.set('0px');
   }
 
-  private readonly onViewportChange = (): void => this.updateKeyboardOffset();
+  private readonly onViewportChange = (): void => this.updateViewportGeometry();
 
-  private updateKeyboardOffset(): void {
+  private updateViewportGeometry(): void {
     const viewport = typeof window !== 'undefined' ? window.visualViewport : null;
     if (!viewport) {
-      this.keyboardOffset.set(0);
+      this.viewportHeightCss.set('100dvh');
+      this.viewportTopCss.set('0px');
       return;
     }
-    const offset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
-    this.keyboardOffset.set(Math.round(offset));
+
+    this.viewportHeightCss.set(`${Math.max(1, Math.round(viewport.height))}px`);
+    this.viewportTopCss.set(`${Math.max(0, Math.round(viewport.offsetTop))}px`);
+  }
+
+  private isPhoneViewport(): boolean {
+    if (typeof window === 'undefined') return false;
+    if (typeof window.matchMedia === 'function') {
+      return window.matchMedia('(max-width: 768px)').matches;
+    }
+    return window.innerWidth <= 768;
   }
 }
