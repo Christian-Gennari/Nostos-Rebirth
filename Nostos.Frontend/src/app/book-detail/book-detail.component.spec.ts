@@ -94,11 +94,11 @@ describe('BookDetail reset progress', () => {
   }
 
   function resetConfirmButton(): HTMLButtonElement | null {
-    return fixture.nativeElement.querySelector('.status-confirm-dialog .btn-danger');
+    return fixture.nativeElement.querySelector('.status-confirm-dialog .nostos-button--danger');
   }
 
   function resetCancelButton(): HTMLButtonElement | null {
-    return fixture.nativeElement.querySelector('.status-confirm-dialog .btn-ghost');
+    return fixture.nativeElement.querySelector('.status-confirm-dialog .nostos-button--ghost');
   }
 
   beforeEach(async () => {
@@ -136,6 +136,28 @@ describe('BookDetail reset progress', () => {
 
     const empty = fixture.nativeElement.querySelector('.notes-empty') as HTMLElement;
     expect(empty?.textContent).toContain('first thought');
+  });
+
+  it('uses shared primitives for ordinary Book Detail controls without flattening product interactions', async () => {
+    await setup(readableBook({ isFavorite: true }));
+
+    const actions = fixture.nativeElement.querySelector('.primary-actions') as HTMLElement;
+    const ordinaryActions = Array.from(actions.querySelectorAll('button')) as HTMLButtonElement[];
+    expect(ordinaryActions.length).toBeGreaterThan(0);
+    expect(ordinaryActions.every((button) => button.classList.contains('nostos-button'))).toBe(true);
+
+    const favorite = fixture.nativeElement.querySelector('.favorite-btn') as HTMLButtonElement;
+    expect(favorite.classList.contains('icon-btn')).toBe(true);
+    expect(favorite.getAttribute('aria-pressed')).toBe('true');
+
+    const notesBadge = fixture.nativeElement.querySelector('.notes-header .nostos-badge') as HTMLElement;
+    expect(notesBadge).toBeTruthy();
+
+    // These controls carry Book Detail-specific interaction contracts and must
+    // remain product-owned rather than being flattened into generic primitives.
+    expect(statusChipButton()!.classList.contains('nostos-chip')).toBe(false);
+    expect(fixture.nativeElement.querySelector('.btn-back')?.classList.contains('nostos-button')).toBe(false);
+    expect(fixture.nativeElement.querySelector('.cover-overlay-btn')?.classList.contains('nostos-button')).toBe(false);
   });
 
   it('does not offer file upload for a physical metadata-only book', async () => {
@@ -193,6 +215,7 @@ describe('BookDetail reset progress', () => {
     expect(dialog).toBeTruthy();
     expect(dialog!.textContent).toContain('Reset to Not Started?');
     expect(dialog!.textContent).toContain('start from the beginning');
+    expect(dialog!.querySelector('.nostos-dialog-actions--inset')).toBeTruthy();
     expect(resetConfirmButton()).toBeTruthy();
     expect(resetCancelButton()).toBeTruthy();
     expect(httpMock.match((req) => req.method === 'POST' && req.url === '/api/books/b1/progress/reset').length).toBe(0);

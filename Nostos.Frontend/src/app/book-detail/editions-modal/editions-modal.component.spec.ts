@@ -157,6 +157,19 @@ describe('EditionsModal', () => {
     expect(seen).toEqual(['medit']);
   });
 
+  it('uses the canonical input for ordinary search while edition actions stay product-owned', async () => {
+    await setup();
+
+    const search = fixture.nativeElement.querySelector('.manage-link-search') as HTMLInputElement;
+    expect(search.classList.contains('nostos-form-control--input')).toBe(true);
+    expect(search.classList.contains('nostos-form-control--compact')).toBe(true);
+
+    const unlink = fixture.nativeElement.querySelector('.manage-member-action') as HTMLButtonElement;
+    const candidate = fixture.nativeElement.querySelector('.manage-link-candidate') as HTMLButtonElement;
+    expect(unlink.classList.contains('nostos-button')).toBe(false);
+    expect(candidate.classList.contains('nostos-button')).toBe(false);
+  });
+
   it('will not close while a mutation is in flight', async () => {
     await setup({ busy: true });
 

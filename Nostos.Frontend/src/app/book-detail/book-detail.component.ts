@@ -51,6 +51,10 @@ import { LibraryPreferencesService } from '../core/services/library-preferences.
 import { BooksService } from '../core/services/books.service';
 import { ToastService } from '../core/services/toast.service';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
+import { ButtonComponent } from '../ui/button/button.component';
+import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
+import { BadgeComponent } from '../ui/badge/badge.component';
+import { DialogActionsComponent } from '../ui/dialog-actions/dialog-actions.component';
 
 @Component({
   standalone: true,
@@ -66,6 +70,10 @@ import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
     ConceptInputComponent,
     NoteCardComponent,
     StarRatingComponent,
+    ButtonComponent,
+    IconButtonComponent,
+    BadgeComponent,
+    DialogActionsComponent,
   ],
   providers: [BookDetailStore],
   templateUrl: './book-detail.component.html',
