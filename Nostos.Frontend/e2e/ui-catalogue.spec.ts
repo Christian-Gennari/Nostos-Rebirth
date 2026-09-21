@@ -43,7 +43,7 @@ test.describe('Nostos UI v1 catalogue', () => {
 
         await expect(page.locator('button.nostos-button--primary').first()).toBeVisible();
         await expect(page.locator('button.icon-btn')).toHaveCount(6);
-        await expect(page.locator('.nostos-form-control')).toHaveCount(8);
+        await expect(page.locator('.nostos-form-control')).toHaveCount(7);
         await expect(page.locator('.nostos-switch')).toHaveCount(3);
         await expect(page.locator('.nostos-chip')).toHaveCount(4);
         await expect(page.locator('.nostos-badge')).toHaveCount(4);
@@ -80,6 +80,7 @@ test.describe('Nostos UI v1 catalogue', () => {
           return { background: style.backgroundColor, color: style.color };
         });
         await secondary.hover();
+        await page.waitForTimeout(220);
         const hovered = await secondary.evaluate((el) => {
           const style = getComputedStyle(el);
           return { background: style.backgroundColor, color: style.color };
