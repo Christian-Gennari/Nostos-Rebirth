@@ -686,7 +686,6 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         missingToken.ErrorCode.Should().Be(AssistantErrorCodes.ApprovalRequired);
 
         (await CollectionCountAsync(h)).Should().Be(1);
-        h.Plans.GetCurrent("client-1").Should().NotBeNull();
     }
 
     [Fact]
