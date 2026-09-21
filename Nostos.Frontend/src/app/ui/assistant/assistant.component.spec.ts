@@ -180,6 +180,21 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     expect(assistant.draft()).toBe('Keep this draft while the shell changes');
   });
 
+  it('uses the canonical icon button only for the ordinary close action', () => {
+    fixture.componentInstance.open();
+    fixture.detectChanges();
+
+    const close = fixture.nativeElement.querySelector(
+      '[data-testid="assistant-close"]',
+    ) as HTMLButtonElement;
+    const expand = fixture.nativeElement.querySelector(
+      '[data-testid="assistant-expand"]',
+    ) as HTMLButtonElement;
+
+    expect(close.classList.contains('icon-btn')).toBe(true);
+    expect(expand.classList.contains('icon-btn')).toBe(false);
+  });
+
   it('returns to compact mode after the expanded assistant is closed', () => {
     fixture.componentInstance.open();
     fixture.componentInstance.toggleExpanded();
@@ -320,8 +335,14 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
       turn({ anchorPrompt: { kind: 'physical_page', question: 'What page are you on?' } }),
     );
     expect(assistant.pendingAnchor()?.question).toBe('What page are you on?');
+    fixture.detectChanges();
 
-    assistant.skipAnchor();
+    const skip = fixture.nativeElement.querySelector(
+      '[data-testid="assistant-anchor-skip"]',
+    ) as HTMLButtonElement;
+    expect(skip.classList.contains('nostos-button')).toBe(true);
+    skip.click();
+    fixture.detectChanges();
 
     const request = http.expectOne('/api/assistant/turn');
     expect(request.request.body.message).toBe('A thought without a page');
@@ -689,6 +710,7 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
       '[data-testid="assistant-raw-toggle"]',
     ) as HTMLButtonElement;
     expect(toggle).toBeTruthy();
+    expect(toggle.classList.contains('nostos-button')).toBe(true);
     toggle.click();
     fixture.detectChanges();
 
@@ -709,11 +731,11 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
       fixture.nativeElement.querySelector('[data-testid="assistant-raw-mode"]').textContent,
     ).toContain('light_polish');
 
-    (
-      fixture.nativeElement.querySelector(
-        '[data-testid="assistant-raw-restore"]',
-      ) as HTMLButtonElement
-    ).click();
+    const restoreButton = fixture.nativeElement.querySelector(
+      '[data-testid="assistant-raw-restore"]',
+    ) as HTMLButtonElement;
+    expect(restoreButton.classList.contains('nostos-button')).toBe(true);
+    restoreButton.click();
     fixture.detectChanges();
 
     const restore = http.expectOne('/api/notes/note-9/raw/restore');
@@ -825,7 +847,12 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     expect(plan.textContent).toContain('Confirm change');
     expect(plan.textContent).toContain('reply “yes” or “go ahead”');
 
-    (plan.querySelector('[data-testid="assistant-plan-approve"]') as HTMLButtonElement).click();
+    const approve = plan.querySelector(
+      '[data-testid="assistant-plan-approve"]',
+    ) as HTMLButtonElement;
+    expect(approve.classList.contains('nostos-button')).toBe(true);
+    expect(approve.classList.contains('nostos-button--primary')).toBe(true);
+    approve.click();
     fixture.detectChanges();
 
     const approval = http.expectOne('/api/assistant/plan/approve');
@@ -864,6 +891,7 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
       '[data-testid="assistant-suggestion-none"]',
     ) as HTMLButtonElement;
     expect(none).toBeTruthy();
+    expect(none.classList.contains('nostos-button')).toBe(true);
 
     none.click();
     fixture.detectChanges();
@@ -1139,8 +1167,10 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
       const undo = query('[data-testid="assistant-voice-undo"]');
       expect(undo).toBeTruthy();
       expect(undo.textContent).toContain('Undo');
+      const undoButton = query('[data-testid="assistant-voice-undo-button"]') as HTMLButtonElement;
+      expect(undoButton.classList.contains('nostos-button')).toBe(true);
 
-      query('[data-testid="assistant-voice-undo-button"]').click();
+      undoButton.click();
       fixture.detectChanges();
 
       expect(assistant.autoSendPending()).toBe(false);

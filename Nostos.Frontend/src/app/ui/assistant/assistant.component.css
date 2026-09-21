@@ -247,7 +247,7 @@
   white-space: nowrap;
 }
 
-.assistant-window-action {
+.assistant-expand {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -267,13 +267,18 @@
     border-color var(--motion-fast) var(--ease-plain);
 }
 
-.assistant-window-action:hover {
+.assistant-expand:hover {
   color: var(--color-text-main);
   background: var(--bg-hover);
   border-color: var(--border-color);
 }
 
-.assistant-window-action:focus-visible {
+.assistant-expand:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.assistant-close:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: 2px;
 }
@@ -634,24 +639,7 @@
 }
 
 .prompt-skip {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--color-text-muted);
-  font: inherit;
-  font-size: 0.75rem;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
-
-.prompt-skip:hover {
-  color: var(--color-text-main);
-}
-
-.prompt-skip:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: 2px;
+  flex: 0 0 auto;
 }
 
 /* ------------------------------
@@ -724,25 +712,6 @@
 
 .suggestion-none {
   align-self: flex-start;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--color-text-muted);
-  font: inherit;
-  font-size: 0.72rem;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.suggestion-none:hover {
-  color: var(--color-text-main);
-}
-
-.suggestion-none:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: 2px;
 }
 
 /* ------------------------------
@@ -806,35 +775,6 @@
   text-align: right;
 }
 
-.plan-approve {
-  padding: 5px 11px;
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--color-text-main);
-  font: inherit;
-  font-size: 0.76rem;
-  cursor: pointer;
-  touch-action: manipulation;
-  transition:
-    background var(--motion-fast) var(--ease-plain),
-    border-color var(--motion-fast) var(--ease-plain);
-}
-
-.plan-approve:hover:not(:disabled) {
-  background: var(--bg-surface-alt);
-}
-
-.plan-approve:disabled {
-  color: var(--color-text-muted);
-  border-color: var(--border-color);
-  cursor: default;
-}
-
-.plan-approve:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: 2px;
-}
 
 /* ------------------------------
    Raw transcript
@@ -849,25 +789,6 @@
 
 .raw-toggle {
   align-self: flex-start;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--color-text-muted);
-  font: inherit;
-  font-size: 0.72rem;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.raw-toggle:hover {
-  color: var(--color-text-main);
-}
-
-.raw-toggle:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: 2px;
 }
 
 .raw-body {
@@ -900,32 +821,6 @@
   font-size: 0.7rem;
 }
 
-.raw-restore {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--color-text-muted);
-  font: inherit;
-  font-size: 0.72rem;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.raw-restore:hover:not(:disabled) {
-  color: var(--color-text-main);
-}
-
-.raw-restore:disabled {
-  color: var(--color-text-placeholder);
-  cursor: default;
-}
-
-.raw-restore:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: 2px;
-}
 
 /* ------------------------------
    Composer
@@ -1139,28 +1034,6 @@
   font-size: 0.76rem;
 }
 
-.transcript-undo-button {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--color-text-muted);
-  font: inherit;
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.transcript-undo-button:hover {
-  color: var(--color-text-main);
-}
-
-.transcript-undo-button:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: 2px;
-}
 
 /* ------------------------------
    Mobile

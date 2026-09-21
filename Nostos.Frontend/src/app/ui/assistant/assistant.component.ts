@@ -10,6 +10,8 @@ import {
   viewChild,
 } from '@angular/core';
 
+import { ButtonComponent } from '../button/button.component';
+import { IconButtonComponent } from '../icon-button/icon-button.component';
 import { NostosIconComponent } from '../icon/nostos-icon.component';
 import { AssistantService, formatTimestamp } from './assistant.service';
 import { AssistantVoiceService } from './assistant-voice.service';
@@ -44,7 +46,7 @@ const FOLLOW_THRESHOLD_PX = 32;
 @Component({
   selector: 'app-assistant',
   standalone: true,
-  imports: [NostosIconComponent, AssistantMarkdownPipe],
+  imports: [NostosIconComponent, AssistantMarkdownPipe, ButtonComponent, IconButtonComponent],
   templateUrl: './assistant.component.html',
   styleUrl: './assistant.component.css',
   host: {
