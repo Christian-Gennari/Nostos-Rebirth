@@ -3,8 +3,8 @@
  *
  * The backend bridge (`POST /api/assistant/turn`) owns the LLM and the tool
  * loop; this service owns the surface's state: the editorial transcript, the
- * deterministic source-location follow-up, the non-mutating suggestions, and the
- * pending plan that must be approved before anything changes.
+ * deterministic source-location follow-up, the non-mutating suggestions, and
+ * destructive confirmations. Ordinary safe actions execute inline.
  *
  * Trust is structural, not cosmetic:
  *   - Suggestions never mutate merely by being shown.
@@ -18,6 +18,7 @@
  */
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Subject } from 'rxjs';
 
 import {
   AssistantAnchor,
@@ -107,6 +108,8 @@ export interface AssistantTurnResponse {
   pendingPlan: AssistantPendingPlanDto | null;
   /** The note a capture created this turn; null when nothing was captured. */
   capturedNoteId?: string | null;
+  /** Immediate Act capabilities that actually completed successfully. */
+  executedCapabilities?: string[];
 }
 
 /** The turn request the bridge accepts. */
@@ -115,7 +118,6 @@ interface AssistantTurnRequestDto {
   idempotencyKey: string;
   message: string;
   context: AssistantContextDto;
-  pendingPlanId: string | null;
   /**
    * The recent turns the client remembers (issue #286). The server is stateless
    * and appends the current `message` itself, so this is the log from BEFORE
@@ -123,28 +125,6 @@ interface AssistantTurnRequestDto {
    */
   history: AssistantHistoryMessage[];
 }
-
-/**
- * What happens to a captured thought between the raw transcript and the stored
- * note (issue #262 §7). The ids are the backend's exact wire values.
- *
- * `verbatim` is the default and a storage operation: it makes no LLM call. The
- * other two rewrite the user's own words and never the quoted passage.
- */
-export type ProcessingMode = 'verbatim' | 'light_polish' | 'clarify';
-
-/** The three modes, in presentation order, with the labels the composer shows. */
-export const PROCESSING_MODES: readonly { value: ProcessingMode; label: string }[] = [
-  { value: 'verbatim', label: 'Verbatim' },
-  { value: 'light_polish', label: 'Light polish' },
-  { value: 'clarify', label: 'Clarify' },
-];
-
-/**
- * The composer's starting mode. It mirrors `Assistant:DefaultProcessingMode`
- * (verbatim) on the server: a rewrite is always an explicit, per-capture choice.
- */
-export const DEFAULT_PROCESSING_MODE: ProcessingMode = 'verbatim';
 
 /**
  * History caps (issue #286). {@link HISTORY_MAX_EXCHANGES} counts EXCHANGES, not
@@ -267,15 +247,12 @@ export class AssistantService {
    * confirmation button remains available while the plan itself is pending.
    */
   private readonly directPlanApprovalArmed = signal(false);
-  /** The last approval outcome, kept so the owning surface can react. */
-  readonly lastApproval = signal<AssistantPlanApproveResponse | null>(null);
-
   /**
-   * Set by the Second Brain while reviewing a note. Called after an approved
-   * plan that links the reviewed note, so the review queue can move on.
+   * Emits only from backend-reported successful immediate Act calls. Consumers
+   * can update their local surface state from execution truth without parsing
+   * the assistant's prose.
    */
-  onPlanExecuted: ((plan: AssistantPendingPlanDto, response: AssistantPlanApproveResponse) => void) | null =
-    null;
+  readonly actionExecuted = new Subject<{ capability: string; context: AssistantContext }>();
 
   /** True while an auto transcript is waiting out its Undo window. */
   readonly autoSendPending = signal(false);
@@ -608,8 +585,6 @@ export class AssistantService {
         next: (response) => {
           this.sending.set(false);
           this.lastError.set(null);
-          this.lastApproval.set(response);
-
           if (response.success) {
             this.pendingPlan.set(null);
             const replies = response.steps
@@ -631,7 +606,6 @@ export class AssistantService {
             this.pushEntry('error', failureReply, null, response.errorCode ?? 'Refused');
           }
 
-          if (plan && this.onPlanExecuted) this.onPlanExecuted(plan, response);
         },
         error: () => {
           this.sending.set(false);
@@ -658,7 +632,6 @@ export class AssistantService {
       idempotencyKey: createId(),
       message: text,
       context: toContextDto(context, anchor, captureBookTitle),
-      pendingPlanId: this.pendingPlan()?.planId ?? null,
       history,
     };
 
@@ -675,6 +648,10 @@ export class AssistantService {
         if (response.pendingPlan) {
           this.pendingPlan.set(response.pendingPlan);
           this.directPlanApprovalArmed.set(true);
+        }
+
+        for (const capability of response.executedCapabilities ?? []) {
+          this.actionExecuted.next({ capability, context });
         }
 
         // The raw-transcript view belongs to one captured note; a new turn
