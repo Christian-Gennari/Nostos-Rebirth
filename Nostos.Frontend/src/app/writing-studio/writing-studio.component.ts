@@ -24,6 +24,9 @@ import { Note } from '../core/dtos/note.dtos';
 import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.component';
 import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
+import { ButtonComponent } from '../ui/button/button.component';
+import { InputDirective } from '../ui/form-control/form-control.directive';
+import { BadgeComponent } from '../ui/badge/badge.component';
 import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 
@@ -50,6 +53,9 @@ function readTypewriter(): boolean {
     NoteCardComponent,
     MarkdownEditorComponent,
     IconButtonComponent,
+    ButtonComponent,
+    InputDirective,
+    BadgeComponent,
     ConfirmModal,
   ],
   templateUrl: './writing-studio.component.html',

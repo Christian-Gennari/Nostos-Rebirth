@@ -122,6 +122,71 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
     fixture.detectChanges();
   };
 
+  // --- Nostos UI v1 migration boundaries ---
+  it('uses canonical UI primitives for ordinary Studio controls', () => {
+    component.isMobile.set(true);
+    component.concepts.set([{ id: 'concept-1', name: 'Memory', usageCount: 3 } as any]);
+    fixture.detectChanges();
+
+    const openSidebar = fixture.nativeElement.querySelector('.btn-outline') as HTMLButtonElement;
+    expect(openSidebar.classList.contains('nostos-button')).toBe(true);
+    expect(openSidebar.classList.contains('nostos-button--secondary')).toBe(true);
+
+    const search = fixture.nativeElement.querySelector(
+      'input[placeholder="Search concepts..."]',
+    ) as HTMLInputElement;
+    expect(search.classList.contains('nostos-form-control')).toBe(true);
+    expect(search.classList.contains('nostos-form-control--compact')).toBe(true);
+
+    const count = fixture.nativeElement.querySelector('.badge-count') as HTMLSpanElement;
+    expect(count.tagName).toBe('SPAN');
+    expect(count.classList.contains('nostos-badge')).toBe(true);
+
+    const createButtons = Array.from(
+      fixture.nativeElement.querySelectorAll('.sidebar-left .actions .icon-btn'),
+    ) as HTMLButtonElement[];
+    expect(createButtons.length).toBeGreaterThanOrEqual(2);
+    expect(createButtons.every((button) => button.classList.contains('icon-btn--xs'))).toBe(true);
+  });
+
+  it('keeps reference tabs and navigation rows product-owned while preserving their semantics', () => {
+    component.concepts.set([{ id: 'concept-1', name: 'Memory', usageCount: 3 } as any]);
+    fixture.detectChanges();
+
+    const tabs = Array.from(fixture.nativeElement.querySelectorAll('.tab-btn')) as HTMLButtonElement[];
+    expect(tabs).toHaveLength(2);
+    expect(tabs[0].getAttribute('role')).toBe('tab');
+    expect(tabs[0].getAttribute('aria-selected')).toBe('true');
+    expect(tabs.every((tab) => !tab.classList.contains('nostos-button'))).toBe(true);
+    expect(tabs.every((tab) => !tab.classList.contains('nostos-chip'))).toBe(true);
+
+    const conceptRow = fixture.nativeElement.querySelector('.list-item') as HTMLButtonElement;
+    expect(conceptRow.tagName).toBe('BUTTON');
+    expect(conceptRow.classList.contains('nostos-button')).toBe(false);
+
+    tabs[1].click();
+    fixture.detectChanges();
+    expect(component.activeSidebarTab()).toBe('notes');
+    expect(tabs[1].getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('uses the canonical search field and ghost action in both reference modes', () => {
+    component.activeSidebarTab.set('notes');
+    component.selectedBookId.set('book-1');
+    fixture.detectChanges();
+
+    const bookSearch = fixture.nativeElement.querySelector(
+      'input[placeholder="Search books..."]',
+    ) as HTMLInputElement;
+    expect(bookSearch.classList.contains('nostos-form-control')).toBe(true);
+    expect(bookSearch.classList.contains('nostos-form-control--compact')).toBe(true);
+
+    const back = fixture.nativeElement.querySelector('.goto-btn') as HTMLButtonElement;
+    expect(back.tagName).toBe('BUTTON');
+    expect(back.classList.contains('nostos-button--ghost')).toBe(true);
+    expect(back.classList.contains('nostos-button--sm')).toBe(true);
+  });
+
   // --- Placement: no telemetry or zen control without an active document ---
   it('shows no zen control and no telemetry without an active document', () => {
     expect(zenToggle()).toBeNull();

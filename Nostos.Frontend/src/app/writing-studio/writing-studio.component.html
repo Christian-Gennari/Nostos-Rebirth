@@ -10,10 +10,10 @@
       <div class="sidebar-title-row">
         <h2>Studio</h2>
         <div class="actions">
-          <button appIconButton icon="folder-plus" [glyphSize]="16" weight="thin" (click)="createItem('Folder')" title="New Folder" aria-label="New folder"></button>
-          <button appIconButton icon="plus" [glyphSize]="16" weight="thin" (click)="createItem('Document')" title="New Document" aria-label="New document"></button>
+          <button appIconButton size="xs" icon="folder-plus" [glyphSize]="16" weight="thin" (click)="createItem('Folder')" title="New Folder" aria-label="New folder"></button>
+          <button appIconButton size="xs" icon="plus" [glyphSize]="16" weight="thin" (click)="createItem('Document')" title="New Document" aria-label="New document"></button>
           @if (isMobile()) {
-            <button appIconButton class="mobile-only" icon="x" [glyphSize]="16" (click)="showFileSidebar.set(false)" aria-label="Close sidebar"></button>
+            <button appIconButton size="xs" class="mobile-only" icon="x" [glyphSize]="16" (click)="showFileSidebar.set(false)" aria-label="Close sidebar"></button>
           }
         </div>
       </div>
@@ -118,7 +118,7 @@
         <h2>Select a file to begin writing</h2>
         <p class="empty-subtext">Choose a document from the tree, or create a new one to start.</p>
         @if (isMobile()) {
-          <button class="btn-outline" (click)="showFileSidebar.set(true)">Open Sidebar</button>
+          <button appButton variant="secondary" class="btn-outline" (click)="showFileSidebar.set(true)">Open Sidebar</button>
         }
       </div>
     }
@@ -161,6 +161,8 @@
       <div class="search-box">
         <nostos-icon name="magnifying-glass" [size]="16"></nostos-icon>
         <input
+          appInput
+          controlSize="compact"
           type="text"
           placeholder="Search concepts..."
           [ngModel]="brainQuery()"
@@ -176,13 +178,13 @@
                 <div class="list-item-content">
                   <span class="name">{{ c.name }}</span>
                 </div>
-                <span class="badge-count">{{ c.usageCount }}</span>
+                <span appBadge class="badge-count">{{ c.usageCount }}</span>
               </button>
             }
           </div>
         } @else {
           <div class="brain-detail-header">
-            <button class="goto-btn" (click)="selectedConceptId.set(null)">
+            <button appButton variant="ghost" size="sm" class="goto-btn" (click)="selectedConceptId.set(null)">
               <nostos-icon name="arrow-left" [size]="16"></nostos-icon>
               Back
             </button>
@@ -211,6 +213,8 @@
       <div class="search-box">
         <nostos-icon name="magnifying-glass" [size]="16"></nostos-icon>
         <input
+          appInput
+          controlSize="compact"
           type="text"
           placeholder="Search books..."
           [ngModel]="bookQuery()"
@@ -237,7 +241,7 @@
           </div>
         } @else {
           <div class="brain-detail-header">
-            <button class="goto-btn" (click)="selectedBookId.set(null)">
+            <button appButton variant="ghost" size="sm" class="goto-btn" (click)="selectedBookId.set(null)">
               <nostos-icon name="arrow-left" [size]="16"></nostos-icon>
               Back
             </button>
