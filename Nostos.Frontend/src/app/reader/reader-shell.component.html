@@ -184,6 +184,7 @@
         class="highlight-toggle"
         type="button"
         [class.on]="highlightMode()"
+        [attr.aria-pressed]="highlightMode()"
         data-testid="reader-highlight-toggle"
         (click)="toggleHighlightFromPanel()"
       >
@@ -337,6 +338,7 @@
           type="button"
           class="typo-opt"
           [class.active]="isScrollMode(m.value)"
+          [attr.aria-pressed]="isScrollMode(m.value)"
           (click)="setScrollMode(m.value)"
         >{{ m.label }}</button>
         }
@@ -370,6 +372,7 @@
           type="button"
           class="typo-opt"
           [class.active]="isZoomPreset(p.value)"
+          [attr.aria-pressed]="isZoomPreset(p.value)"
           (click)="setZoomPreset(p.value)"
         >{{ p.label }}</button>
         }
@@ -383,12 +386,14 @@
           type="button"
           class="typo-opt"
           [class.active]="pdfReader?.pageInverted()"
+          [attr.aria-pressed]="pdfReader?.pageInverted() ?? false"
           (click)="pdfReader?.setPageInverted(true)"
         >Inverted</button>
         <button
           type="button"
           class="typo-opt"
           [class.active]="!pdfReader?.pageInverted()"
+          [attr.aria-pressed]="!(pdfReader?.pageInverted() ?? false)"
           (click)="pdfReader?.setPageInverted(false)"
         >As printed</button>
       </div>
@@ -403,6 +408,7 @@
           type="button"
           class="typo-opt"
           [class.active]="epubReader.typography().fontFamily === f.value"
+          [attr.aria-pressed]="epubReader.typography().fontFamily === f.value"
           (click)="epubReader.setTypography({ fontFamily: f.value })"
         >{{ f.label }}</button>
         }
@@ -436,6 +442,7 @@
           type="button"
           class="typo-opt"
           [class.active]="epubReader.typography().lineHeight === lh"
+          [attr.aria-pressed]="epubReader.typography().lineHeight === lh"
           (click)="epubReader.setTypography({ lineHeight: lh })"
         >{{ lh.toFixed(1) }}</button>
         }
@@ -449,6 +456,7 @@
           type="button"
           class="typo-opt"
           [class.active]="epubReader.typography().margin === m.value"
+          [attr.aria-pressed]="epubReader.typography().margin === m.value"
           (click)="epubReader.setTypography({ margin: m.value })"
         >{{ m.label }}</button>
         }
