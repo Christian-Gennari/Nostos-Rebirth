@@ -380,7 +380,7 @@ public class BackupService : IBackupService
                 // archive's own record), fall back to the file's write time.
                 // Defaulting to UtcNow here made every import look brand-new,
                 // which broke pruner ordering and could delete recent backups.
-                var createdAt = manifest?.Timestamp != default
+                var createdAt = manifest is not null && manifest.Timestamp != default
                     ? manifest.Timestamp.ToUniversalTime()
                     : fileInfo.LastWriteTimeUtc;
 
