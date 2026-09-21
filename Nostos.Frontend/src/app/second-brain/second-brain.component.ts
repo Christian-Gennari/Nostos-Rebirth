@@ -32,6 +32,10 @@ import {
 import { ConceptMapComponent } from './concept-map/concept-map.component';
 import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
+import { ButtonComponent } from '../ui/button/button.component';
+import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
+import { BadgeComponent } from '../ui/badge/badge.component';
+import { InputDirective, SelectDirective } from '../ui/form-control/form-control.directive';
 import { AssistantContextService } from '../ui/assistant/assistant-context.service';
 import { AssistantService } from '../ui/assistant/assistant.service';
 
@@ -65,6 +69,11 @@ import {
     FormsModule,
     RouterLink,
     NostosIconComponent,
+    ButtonComponent,
+    IconButtonComponent,
+    BadgeComponent,
+    InputDirective,
+    SelectDirective,
     NoteCardComponent,
     ConfirmModal,
     ConceptMapComponent,

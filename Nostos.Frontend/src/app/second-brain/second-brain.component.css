@@ -107,17 +107,12 @@
   position: relative;
   display: flex;
   align-items: center;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
-  background: var(--bg-surface);
   padding: 0;
   color: var(--color-text-light);
   margin: 0;
-  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;}
-
-.search-box:hover {
-  background: var(--bg-surface-alt);
 }
+
+
 
 .search-box .search-icon {
   position: absolute;
@@ -129,51 +124,28 @@
   transition: color 0.2s ease;
 }
 
-.search-box:focus-within {
-  background: var(--bg-surface);
-  border-color: var(--border-focus);
-  outline: none;
-  box-shadow: 0 0 0 3px var(--color-accent-faint);
-  color: var(--color-text-main);
-}
 
-.search-box:has(input:focus) .search-icon {
+
+.search-box:has(input:focus-visible) .search-icon {
   color: var(--color-text-main);
 }
 
 .search-box input {
-  border: none;
-  background: transparent;
-  outline: none;
-  width: 100%;
-  padding: 0.6rem 1rem 0.6rem 2.5rem;
-  font-size: 0.9rem;
-  font-family: 'Hanken Grotesk', sans-serif;
-  color: var(--color-text-main);
+  min-width: 0;
+  flex: 1 1 auto;
+  padding-left: 2.5rem;
+  padding-right: 2.5rem;
 }
 
-.search-box input::placeholder {
-  color: var(--color-text-light);
-}
+
 
 .clear-search {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   flex: 0 0 28px;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-muted);
 }
 
-.clear-search:hover {
-  background: var(--bg-hover);
-  color: var(--color-text-main);
-}
+
 
 .clear-search:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
@@ -281,19 +253,6 @@
   cursor: pointer;
   color: var(--color-text-muted);
   background-color: transparent;
-  outline: none;
-  appearance: none;
-  font-family: inherit;
-  transition: background-color 0.2s ease, color 0.2s ease;
-  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
-  background-repeat: no-repeat;
-  /* 1rem, not the Library's 0.75rem: the chevron must land in the same right
-     gutter as the count badges. The badge's right edge sits 8px inside the row
-     (the row pads `0 8px`), and this control spans 8px wider than the row, so
-     8 + 8 = 16px, measured to put the chevron on the badges' right edge (it was
-     10px to the right of it at 0.75rem). */
-  background-position: right 1rem center;
-  background-size: 1em;
 }
 
 /* Shell fills the list's content track, so the control's text and chevron line up
@@ -307,10 +266,7 @@
 
 /* Hover treats the control like an interactive list row (that is what it is),
    rather than like a form field losing its fill. */
-.sort-select:hover {
-  background-color: var(--bg-hover);
-  color: var(--color-text-main);
-}
+
 
 .sort-select:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
@@ -549,7 +505,6 @@
 /* --- COUNT BADGE ------------------------------------------------------------
    Metric-for-metric copy of the tree's `.count-badge`: a real 20px pill, not
    plain text — it is part of the sidebar's language. */
-.brain-header .badge-count,
 .index-item .count {
   min-width: 20px;
   height: 20px;
@@ -569,6 +524,13 @@
     opacity 0.15s,
     background 0.15s,
     color 0.15s;
+}
+
+.brain-header .badge-count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  justify-content: center;
 }
 
 /* Tracks the active row's fill, like the tree's badge on a selected
@@ -774,20 +736,10 @@
 .empty-link,
 .empty-clear {
   min-height: 36px;
-  padding: 0.45rem 0.7rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-text-main);
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.78rem;
-  text-decoration: none;
 }
 
 .empty-link:hover,
-.empty-clear:hover {
-  background: var(--bg-hover);
-}
+
 
 .empty-link:focus-visible,
 .empty-clear:focus-visible {
@@ -1347,15 +1299,9 @@
   align-items: center;
   flex: 1 1 220px;
   min-width: 0;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  transition: background 0.2s ease;
 }
 
-.note-search-box:hover {
-  background: var(--bg-surface-alt);
-}
+
 
 .note-search-box .search-icon {
   position: absolute;
@@ -1368,32 +1314,20 @@
   transition: color 0.2s ease;
 }
 
-.note-search-box:focus-within {
-  background: var(--bg-surface);
-  border-color: var(--border-focus);
-  outline: none;
-  box-shadow: 0 0 0 3px var(--color-accent-faint);
-}
 
-.note-search-box:has(input:focus) .search-icon {
+
+.note-search-box:has(input:focus-visible) .search-icon {
   color: var(--color-text-main);
 }
 
 .note-search-box input {
-  width: 100%;
   min-width: 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--color-text-main);
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.9rem;
-  padding: 0.6rem 0.75rem 0.6rem 2.5rem;
+  flex: 1 1 auto;
+  padding-left: 2.5rem;
+  padding-right: 2.5rem;
 }
 
-.note-search-box input::placeholder {
-  color: var(--color-text-light);
-}
+
 
 /* Selects: the wrapper carries NO border; the control itself is the Library's
    `.sort-select`. A bordered wrapper around a bordered select is exactly the
@@ -1408,49 +1342,21 @@
 }
 
 .detail-select {
-  width: 100%;
   min-width: 0;
-  min-height: 39px;
-  padding: 0.6rem 2rem 0.6rem 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: 0.9rem;
+  flex: 1 1 auto;
   cursor: pointer;
   color: var(--color-text-muted);
-  background-color: var(--bg-input);
-  outline: none;
-  appearance: none;
-  font-family: inherit;
-  transition: background-color 0.2s ease, color 0.2s ease; 
-  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  background-size: 1em;
 }
 
-.detail-select:hover {
-  background-color: var(--bg-hover);
-}
+
 
 .clear-note-search {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   flex: 0 0 28px;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-muted);
-  cursor: pointer;
 }
 
-.clear-note-search:hover {
-  background: var(--bg-hover);
-  color: var(--color-text-main);
-}
+
 
 .clear-note-search:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
@@ -1822,8 +1728,8 @@
 
   .clear-search {
     flex-basis: 44px;
-    width: 44px;
-    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .index-list {
@@ -1899,7 +1805,6 @@
   }
 
   .detail-select {
-    height: 42px;
     min-width: 0;
     flex: 1;
   }
@@ -2019,8 +1924,8 @@
 
   .clear-note-search {
     flex-basis: 44px;
-    width: 44px;
-    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .cards-grid {
@@ -2290,10 +2195,9 @@
 
 .note-row-item,
 .brain-note-panel-close {
-  border: none;
   background: transparent;
-  cursor: pointer;
-  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
 }
 
 .note-row-item {
@@ -2307,9 +2211,7 @@
 }
 
 .note-row-item:hover,
-.brain-note-panel-close:hover {
-  background: var(--bg-hover);
-}
+
 
 .note-row-item:focus-visible,
 .brain-note-panel-close:focus-visible {
@@ -2370,16 +2272,7 @@
   margin: 0;
 }
 
-.brain-note-panel-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-}
+
 
 .brain-note-panel-close:hover {
   color: var(--color-text-main);
