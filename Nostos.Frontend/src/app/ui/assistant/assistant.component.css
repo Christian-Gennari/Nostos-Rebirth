@@ -4,6 +4,10 @@
 
 :host {
   display: contents;
+  /* Runtime-overridden on the open panel from visualViewport. Declared here so
+     the design token scanner knows these are intentional component variables. */
+  --assistant-viewport-height: 100dvh;
+  --assistant-viewport-top: 0px;
 }
 
 /* ------------------------------
