@@ -1,0 +1,37 @@
+name: Temporary assistant shortcut polish verification
+
+on:
+  push:
+    branches:
+      - polish/assistant-shortcut-pill
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Nostos.Frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: Nostos.Frontend
+        run: npm ci
+
+      - name: Frontend integrity checks
+        working-directory: Nostos.Frontend
+        run: npm run check
+
+      - name: Frontend unit tests
+        working-directory: Nostos.Frontend
+        env:
+          CI: "true"
+        run: npm test
+
+      - name: Frontend production build
+        working-directory: Nostos.Frontend
+        run: npm run build
