@@ -68,15 +68,19 @@
   transform: translateY(-1px);
 }
 
-.trigger-capsule kbd {
-  padding: 1px 5px;
-  border: 1px solid var(--dock-border);
-  border-radius: var(--radius-sm);
+.trigger-shortcut {
+  margin-left: 2px;
   color: var(--color-text-muted);
-  font-family: 'Hanken Grotesk', sans-serif;
   font-size: 0.66rem;
   font-weight: 600;
-  line-height: 1.4;
+  letter-spacing: 0.025em;
+  line-height: 1;
+  opacity: 0.68;
+  transition: opacity var(--motion-fast) var(--ease-plain);
+}
+
+.assistant-trigger:hover .trigger-shortcut {
+  opacity: 1;
 }
 
 /* ------------------------------
@@ -1177,7 +1181,7 @@
   }
 
   .assistant-trigger.reader-surface .trigger-label,
-  .assistant-trigger.reader-surface .trigger-capsule kbd {
+  .assistant-trigger.reader-surface .trigger-shortcut {
     display: none;
   }
 
