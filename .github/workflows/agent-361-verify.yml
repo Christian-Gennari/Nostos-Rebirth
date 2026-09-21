@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - refactor/ui-library-brain-kit
+  pull_request:
+    branches:
+      - main
 
 jobs:
   verify:
