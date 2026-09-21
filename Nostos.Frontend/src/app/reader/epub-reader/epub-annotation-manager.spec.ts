@@ -5,7 +5,7 @@ import type { Mock } from 'vitest';
 import { EpubAnnotationManager } from './epub-annotation-manager';
 
 /**
- * Mobile native-callout suppression + early selection capture (issue #16).
+ * Mobile native-callout suppression + completed selection capture (issues #16, #304).
  * Mirrors the "Minimal Section A specs" from the expert design: 13 specs.
  */
 
@@ -188,12 +188,52 @@ describe('EpubAnnotationManager mobile highlight mode (issue #16)', () => {
     expect(fire().defaultPrevented).toBe(false);
   });
 
+  it('waits for mouseup before capturing the final drag range (issue #304)', async () => {
+    manager.setHighlightMode(true);
+    manager.registerContents(makeContents());
+
+    const text = 'Some meaningful text across multiple words';
+    document.body.textContent = text;
+    const textNode = document.body.firstChild!;
+    const selection = window.getSelection()!;
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, 4);
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    // A real drag produces selectionchange repeatedly while the range grows.
+    // Neither the first partial range nor a later extension may be captured.
+    document.dispatchEvent(new Event('selectionchange'));
+    await flush();
+    expect(annotations.highlight).not.toHaveBeenCalled();
+    expect(onSelectionCaptured).not.toHaveBeenCalled();
+
+    range.setEnd(textNode, text.length);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.dispatchEvent(new Event('selectionchange'));
+    await flush();
+
+    expect(annotations.highlight).not.toHaveBeenCalled();
+    expect(selection.toString()).toBe(text);
+
+    // The completed desktop gesture is the point at which Nostos may turn the
+    // native range into a pending highlight and clear the browser selection.
+    document.dispatchEvent(new MouseEvent('mouseup'));
+    await flush();
+
+    expect(annotations.highlight).toHaveBeenCalledTimes(1);
+    expect(onSelectionCaptured).toHaveBeenCalledWith(text);
+    expect(window.getSelection()?.rangeCount).toBe(0);
+  });
+
   it('captures a non-collapsed iframe selection as one pending highlight', async () => {
     manager.setHighlightMode(true);
     manager.registerContents(makeContents());
 
     selectText('Some meaningful text');
-    document.dispatchEvent(new Event('selectionchange'));
+    document.dispatchEvent(new MouseEvent('mouseup'));
     await flush();
 
     expect(annotations.highlight).toHaveBeenCalledTimes(1);
@@ -225,7 +265,7 @@ describe('EpubAnnotationManager mobile highlight mode (issue #16)', () => {
     manager.init();
 
     selectText('Dedup text');
-    document.dispatchEvent(new Event('selectionchange'));
+    document.dispatchEvent(new MouseEvent('mouseup'));
     await flush();
     expect(annotations.highlight).toHaveBeenCalledTimes(1);
 
@@ -247,11 +287,11 @@ describe('EpubAnnotationManager mobile highlight mode (issue #16)', () => {
 
     selectText('Word');
     collapseSelection();
-    document.dispatchEvent(new Event('selectionchange'));
+    document.dispatchEvent(new MouseEvent('mouseup'));
     await flush();
 
     selectWhitespaceOnly();
-    document.dispatchEvent(new Event('selectionchange'));
+    document.dispatchEvent(new MouseEvent('mouseup'));
     await flush();
 
     expect(annotations.highlight).not.toHaveBeenCalled();
@@ -263,7 +303,7 @@ describe('EpubAnnotationManager mobile highlight mode (issue #16)', () => {
     manager.registerContents(makeContents());
 
     selectText('Temp annotation text');
-    document.dispatchEvent(new Event('selectionchange'));
+    document.dispatchEvent(new MouseEvent('mouseup'));
     await flush();
 
     expect(annotations.highlight).toHaveBeenCalledTimes(1);
@@ -275,7 +315,7 @@ describe('EpubAnnotationManager mobile highlight mode (issue #16)', () => {
     manager.registerContents(makeContents());
 
     selectText('Cancel me');
-    document.dispatchEvent(new Event('selectionchange'));
+    document.dispatchEvent(new MouseEvent('mouseup'));
     await flush();
     expect(annotations.highlight).toHaveBeenCalledTimes(1);
 
@@ -287,7 +327,7 @@ describe('EpubAnnotationManager mobile highlight mode (issue #16)', () => {
 
     // Pending state was cleared: a new selection can be captured again.
     selectText('New selection');
-    document.dispatchEvent(new Event('selectionchange'));
+    document.dispatchEvent(new MouseEvent('mouseup'));
     await flush();
     expect(annotations.highlight).toHaveBeenCalledTimes(2);
   });
@@ -297,7 +337,7 @@ describe('EpubAnnotationManager mobile highlight mode (issue #16)', () => {
     manager.registerContents(makeContents());
 
     selectText('Save me');
-    document.dispatchEvent(new Event('selectionchange'));
+    document.dispatchEvent(new MouseEvent('mouseup'));
     await flush();
     expect(annotations.highlight).toHaveBeenCalledTimes(1);
 
@@ -333,7 +373,7 @@ describe('EpubAnnotationManager mobile highlight mode (issue #16)', () => {
     manager.registerContents(makeContents());
 
     selectText('Keep me');
-    document.dispatchEvent(new Event('selectionchange'));
+    document.dispatchEvent(new MouseEvent('mouseup'));
     await flush();
     expect(annotations.highlight).toHaveBeenCalledTimes(1);
 
@@ -358,14 +398,14 @@ describe('EpubAnnotationManager mobile highlight mode (issue #16)', () => {
     manager.init();
 
     selectText('Destroy me');
-    document.dispatchEvent(new Event('selectionchange'));
+    document.dispatchEvent(new MouseEvent('mouseup'));
     await flush();
     expect(views[0].pane.removeMark).not.toHaveBeenCalled();
 
     manager.destroy();
 
     expect(views[0].pane.removeMark).toHaveBeenCalledTimes(1);
-    // contextmenu + selectionchange + touchend listeners are removed.
+    // contextmenu + mouseup + touchend listeners are removed.
     expect(removeListenerSpy).toHaveBeenCalledTimes(3);
     expect(rendition.off).toHaveBeenCalledWith('selected', expect.any(Function));
   });
@@ -381,7 +421,7 @@ describe('EpubAnnotationManager mobile highlight mode (issue #16)', () => {
     manager.registerContents(makeContents());
 
     selectText('Persist me');
-    document.dispatchEvent(new Event('selectionchange'));
+    document.dispatchEvent(new MouseEvent('mouseup'));
     await flush();
 
     const result = await manager.commitHighlight();
@@ -402,7 +442,7 @@ describe('EpubAnnotationManager mobile highlight mode (issue #16)', () => {
     manager.registerContents(makeContents());
 
     selectText('No accessor');
-    document.dispatchEvent(new Event('selectionchange'));
+    document.dispatchEvent(new MouseEvent('mouseup'));
     await flush();
 
     const result = await manager.commitHighlight();
@@ -421,7 +461,7 @@ describe('EpubAnnotationManager mobile highlight mode (issue #16)', () => {
       manager.setHighlightMode(true);
       manager.registerContents(makeContents());
       selectText('Token colour');
-      document.dispatchEvent(new Event('selectionchange'));
+      document.dispatchEvent(new MouseEvent('mouseup'));
       await flush();
       await manager.commitHighlight();
 
@@ -453,7 +493,7 @@ describe('EpubAnnotationManager mobile highlight mode (issue #16)', () => {
       manager.setHighlightMode(true);
       manager.registerContents(makeContents());
       selectText('Fallback colour');
-      document.dispatchEvent(new Event('selectionchange'));
+      document.dispatchEvent(new MouseEvent('mouseup'));
       await flush();
       await manager.commitHighlight();
 
