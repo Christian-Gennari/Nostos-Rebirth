@@ -31,6 +31,112 @@ being forced through the generic Button primitive.
 <button appButton variant="secondary" size="sm" type="button">Restore</button>
 ```
 
+
+## SwitchComponent
+
+**Selector:** `label[appSwitch]`  
+**Files:** `src/app/ui/switch/`
+
+Canonical 42×24 Nostos switch, extracted from Settings. The component owns the
+track, knob, focus treatment and disabled presentation; the projected
+`<input type="checkbox">` remains the real control and keeps native checked,
+disabled, form, keyboard and `aria-*` semantics.
+
+The checkbox must be the label's first projected child so it sits immediately
+before the component-owned track.
+
+```html
+<label appSwitch>
+  <input
+    type="checkbox"
+    [checked]="enabled()"
+    (change)="setEnabled($event)"
+    aria-label="Automatic backup"
+  />
+</label>
+```
+
+Do not add `role="switch"` to replace the checkbox semantics. A product may
+choose that role deliberately later, but the primitive itself does not rewrite
+native semantics.
+
+## ChipComponent
+
+**Selector:** `button[appChip]`  
+**Files:** `src/app/ui/chip/`
+
+Interactive capsule derived from Library's active-filter chip. Use it only when
+the capsule itself is a control: filtering, removing a filter/tag, or choosing a
+compact option. The host remains a native button; callers own `type`,
+`disabled`, accessible naming and, for selectable chips, `aria-pressed`.
+
+```html
+<button appChip type="button" aria-label="Remove Philosophy filter">
+  Philosophy
+  <nostos-icon name="x" [size]="14"></nostos-icon>
+</button>
+
+<button appChip type="button" [attr.aria-pressed]="isUnreadSelected()">
+  Unread
+</button>
+```
+
+A normal Save, Cancel, Clear or navigation action is **not** a chip merely
+because it is compact. Use `appButton` for ordinary labelled actions.
+
+## BadgeComponent / status
+
+**Selector:** `span[appBadge]`  
+**Files:** `src/app/ui/badge/`
+
+Passive metadata/state capsule. Badge adds no role, tab stop, click behaviour or
+selection semantics.
+
+| Input | Type | Default | Description |
+| --- | --- | --- | --- |
+| `tone` | `'neutral' \| 'success' \| 'danger'` | `'neutral'` | Passive state tone |
+| `dot` | `boolean` | `false` | Settings-style leading status dot |
+
+```html
+<span appBadge tone="success">Completed</span>
+<span appBadge [dot]="true" [tone]="assistantEnabled() ? 'success' : 'neutral'">
+  {{ assistantEnabled() ? 'On' : 'Off' }}
+</span>
+```
+
+If changing status needs to be announced, put the appropriate live-region
+semantics on the status container/call site. Do not make the badge interactive;
+use `appChip` when the capsule can be activated.
+
+## Segmented-control visual recipe
+
+Segmented controls are a **pattern, not a semantic component**. The compact
+option recipe lives once in `src/styles.css` as `.toggle-opt` and its
+`.active`, hover and focus states. The enclosing track follows the existing
+Nostos treatment: `--bg-hover`, 3px padding, `--radius-md`, 2px gap and no
+border; the selected option uses `--control-active-fill` /
+`--control-active-ink`, `--shadow-sm` and a one-pixel
+`--border-color` outline.
+
+Keep the surface's real interaction contract:
+
+- tabs keep `role="tablist"` / `role="tab"` / `aria-selected`;
+- radio choices keep `role="radiogroup"` / `role="radio"` /
+  `aria-checked`;
+- pressed-button groups keep native buttons with `aria-pressed`.
+
+Do not create a SegmentedControl mega-component that switches ARIA modes through
+inputs. Shared appearance does not imply shared semantics. Large radio cards
+such as Settings' current theme choices are also not compact segmented controls
+just because they represent a choice.
+
+### Capsule rule
+
+Pill geometry is reserved for roles that read as capsules: chips, badges/status,
+switch tracks, deliberate CTA/action pills and progress tracks. Ordinary compact
+buttons, fields, cards and row controls keep the app's square/soft-radius
+recipes. This prevents the UI kit from turning every small action into a pill.
+
 ## Native form controls
 
 **Selectors:** `input[appInput]`, `textarea[appTextarea]`, `select[appSelect]`  

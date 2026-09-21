@@ -283,6 +283,7 @@ describe('SettingsComponent backup-only surface', () => {
     // Automatic Backup + Include Book Files + the Reading assistant toggle (W1)
     // + the AI provider card's voice transcription toggle.
     expect(toggles.length).toBe(4);
+    expect(fixture.debugElement.queryAll(By.css('label.nostos-switch')).length).toBe(4);
     const buttons = fixture.debugElement
       .queryAll(By.css('button'))
       .map((b) => b.nativeElement.textContent.trim());
@@ -509,8 +510,8 @@ describe('SettingsComponent backup-only surface', () => {
     expect(toggle.disabled).toBe(true);
     expect(toggle.getAttribute('aria-disabled')).toBe('true');
     expect(toggle.checked).toBe(false);
-    // Muted, never an alarm: the existing toggle itself is dimmed and inert.
-    expect(toggle.closest('.toggle')!.classList.contains('toggle--disabled')).toBe(true);
+    // Muted, never an alarm: the canonical switch keeps the native checkbox disabled.
+    expect(toggle.closest('label.nostos-switch')).not.toBeNull();
   });
 
   it('never records a preference while the assistant is unavailable', () => {

@@ -636,7 +636,61 @@ function legacySettingsButtonSelectors(css) {
 }
 
 /**
- * RULE 10 — Add Book must not regrow a private generic field system.
+ * RULE 10 — Settings must not grow another local switch implementation.
+ *
+ * Settings is the proving surface for label[appSwitch]. A renamed copy is just
+ * as much drift as bringing back .toggle/.toggle-slider, so this checks both the
+ * old selector names and the measured 42x24 / 18x18 switch recipes.
+ *
+ * Product-specific checkboxes may keep native checkbox presentation; this rule
+ * only rejects a second switch-shaped recipe inside Settings.
+ */
+function legacySettingsSwitchRecipes(css) {
+  const out = [];
+  for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selector = m[1].trim();
+    const body = m[2].replace(/\s+/g, ' ');
+    const hasLegacyName = selector
+      .split(',')
+      .some((part) =>
+        /(?:^|[\s>+~])\.(?:toggle|toggle-slider|switch|switch-track)(?:\b|[-_])/i.test(
+          part.trim(),
+        ),
+      );
+    const hasTrackRecipe =
+      /width:\s*42px\b/.test(body) &&
+      /height:\s*24px\b/.test(body) &&
+      /(?:border-radius|cursor|position)\s*:/.test(body);
+    const hasKnobRecipe =
+      /width:\s*18px\b/.test(body) &&
+      /height:\s*18px\b/.test(body) &&
+      /(?:left|inset-inline-start):\s*3px\b/.test(body);
+
+    if (hasLegacyName || hasTrackRecipe || hasKnobRecipe) {
+      out.push({ selector, index: m.index });
+    }
+  }
+  return out;
+}
+
+{
+  const settings = files.find((f) => rel(f.path) === 'src/app/settings/settings.component.css');
+  if (settings) {
+    for (const hit of legacySettingsSwitchRecipes(settings.css)) {
+      const line = settings.css.slice(0, hit.index).split('\n').length;
+      report(
+        'settings-local-switch-family',
+        settings.path,
+        line,
+        `Settings re-declares switch styling ("${hit.selector.replace(/\s+/g, ' ').slice(0, 90)}"). ` +
+          `Use label[appSwitch]; keep checked/disabled/ARIA semantics on its native checkbox.`,
+      );
+    }
+  }
+}
+
+/**
+ * RULE 11 — Add Book must not regrow a private generic field system.
  *
  * Add Book/Edit Book is the first surface migrated to the canonical native-host
  * form controls and FormField. Before that migration the component owned its own
@@ -733,6 +787,8 @@ if (process.argv.includes('--self-test')) {
     ['literal-colour', '.x { color: #ff00ff; }'],
     ['undeclared-token', '.x { color: var(--definitely-not-declared); }'],
     ['settings-local-button-family', '.btn-primary { background: red; }'],
+    ['settings-local-switch-family',
+      '.renamed-control { position: relative; width: 42px; height: 24px; cursor: pointer; }'],
     ['add-book-local-field-system', '.input, .select-input { padding: 1rem; }'],
     ['add-book-legacy-field-markup', '<input class="input" type="text">'],
     // RULE 8 needs a TEMPLATE and a matching .css class, so its case is checked by
@@ -786,6 +842,7 @@ if (process.argv.includes('--self-test')) {
     }
     if (rule === 'undeclared-token') fired = /var\(\s*--definitely-not-declared/.test(snippet);
     if (rule === 'settings-local-button-family') fired = legacySettingsButtonSelectors(snippet).length > 0;
+    if (rule === 'settings-local-switch-family') fired = legacySettingsSwitchRecipes(snippet).length > 0;
     if (rule === 'add-book-local-field-system') fired = legacyAddBookFieldSelectors(snippet).length > 0;
     if (rule === 'add-book-legacy-field-markup') fired = legacyAddBookFieldMarkup(snippet).length > 0;
     if (fired) { ok++; console.log(`  ✔ ${rule} fires on its known-bad snippet`); }
@@ -839,7 +896,7 @@ if (process.argv.includes('--self-test')) {
     'backtick-in-inline-styles', 'transition-missing-duration',
     'bare-attribute-not-class', 'settings-local-button-family',
     'add-book-local-field-system', 'add-book-legacy-field-markup',
-    'visually-hidden (by-name + by-recipe)'];
+    'settings-local-switch-family', 'visually-hidden (by-name + by-recipe)'];
   console.log(`\nself-test: ${ok}/${cases.length + 3} injected cases detected`);
   console.log(`rules implemented: ${RULES.length} (${RULES.join(', ')})`);
   process.exit(ok === cases.length + 3 ? 0 : 1);

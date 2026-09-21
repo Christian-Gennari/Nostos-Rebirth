@@ -164,39 +164,6 @@
 }
 
 
-.card-count,
-.status-dot-label {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 24px;
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-hover);
-  font-size: 0.69rem;
-  font-weight: var(--fw-medium);
-  color: var(--color-text-muted);
-}
-
-.status-dot-label::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-text-muted);
-  opacity: 0.55;
-}
-
-.status-dot-label.is-on {
-  color: var(--color-success-dark);
-}
-
-.status-dot-label.is-on::before {
-  background: var(--color-success);
-  opacity: 1;
-}
-
 .card-body {
   padding: 0;
 }
@@ -234,77 +201,6 @@
   font-size: 0.78rem;
   line-height: 1.48;
   color: var(--color-text-light);
-}
-
-/* --- Toggle Switch --- */
-.toggle {
-  position: relative;
-  display: inline-block;
-  width: 42px;
-  height: 24px;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.toggle input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.toggle-slider {
-  position: absolute;
-  inset: 0;
-  background-color: var(--border-color);
-  border-radius: 24px;
-  transition: background-color 0.2s;
-}
-
-.toggle-slider::before {
-  content: '';
-  position: absolute;
-  height: 18px;
-  width: 18px;
-  left: 3px;
-  bottom: 3px;
-  /* The knob stays light in both themes: it sits on the track, not the page.
-     `--on-primary` is exactly right for it (#FFFFFF on light, #f0f1f4 on dark),
-     which is also the on-fill role — the track IS a primary fill when checked.
-     NOTE: a previous attempt in this change-set gave the knob its own token on the
-     theory that the CTA token-isation had moved `--on-primary`. It had not: the
-     settings problem was this component's own `.btn-primary` rule, fixed below.
-     The invented token silently changed the LIGHT knob from #FFFFFF to #f0f1f4 —
-     caught by the pixel diff, reverted. */
-  background-color: var(--on-primary);
-  border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-  transition: transform 0.2s;
-}
-
-.toggle input:checked + .toggle-slider {
-  /* --primary-fill, not --color-primary: the track is a SURFACE. The ink role
-     is a light mint on dark, which would make an ON switch look like an OFF one
-     (light track = unchecked is the universal convention). */
-  /* No glow on the track. A 10px bloom around the largest surface in the
-     control reads as a halo, not as state — the fill change is the signal. */
-  background-color: var(--color-brand-accent-fill);
-}
-
-.toggle input:checked + .toggle-slider::before {
-  transform: translateX(18px);
-}
-
-/* Unavailable assistant: the same toggle, switched off and inert. Muted with
-   the existing control's own opacity only — no warning colour, no badge, no
-   hover — so the card reads as "not now", not as an error. */
-.toggle--disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.toggle--disabled .toggle-slider,
-.toggle--disabled .toggle-slider::before {
-  cursor: not-allowed;
 }
 
 /* --- Appearance: theme choice ----------------------------------------- */
@@ -405,36 +301,9 @@
   outline-offset: 1px;
 }
 
-/* Status capsules: rounded pills shared by last-backup + history statuses. */
-.status-success,
-.status-error,
-.status-pending {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.status-success {
-  background: color-mix(in srgb, var(--color-success) 15%, transparent);
-  color: var(--color-success-dark);
-}
-
-.status-error {
-  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+.history-error {
   color: var(--color-danger);
 }
-
-.status-pending {
-  background: var(--bg-hover);
-  color: var(--color-text-light);
-}
-
-
-
 
 /* --- Last Backup Info --- */
 .last-backup-info {
@@ -895,8 +764,7 @@
   }
 
   .card-header > .nostos-button,
-  .card-header > .card-count,
-  .card-header > .status-dot-label {
+  .card-header > .nostos-badge {
     align-self: flex-start;
   }
 
@@ -906,7 +774,7 @@
     gap: 10px;
   }
 
-  .setting-row > .toggle,
+  .setting-row > .nostos-switch,
   .setting-row > .select-sm {
     align-self: flex-start;
   }
