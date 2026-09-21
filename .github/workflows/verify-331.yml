@@ -33,6 +33,8 @@ jobs:
         run: npm run check
 
       - name: Frontend tests
+        id: frontend_tests
+        continue-on-error: true
         working-directory: Nostos.Frontend
         run: npm test
 
@@ -49,4 +51,12 @@ jobs:
         run: dotnet build Nostos.sln
 
       - name: Backend tests
+        id: backend_tests
+        continue-on-error: true
         run: dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj --no-build
+
+      - name: Verification gate
+        if: always()
+        run: |
+          test "${{ steps.frontend_tests.outcome }}" = "success"
+          test "${{ steps.backend_tests.outcome }}" = "success"
