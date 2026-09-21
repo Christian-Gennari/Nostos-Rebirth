@@ -33,11 +33,7 @@ import { ConceptMapComponent } from './concept-map/concept-map.component';
 import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 import { AssistantContextService } from '../ui/assistant/assistant-context.service';
-import {
-  AssistantPendingPlanDto,
-  AssistantPlanApproveResponse,
-  AssistantService,
-} from '../ui/assistant/assistant.service';
+import { AssistantService } from '../ui/assistant/assistant.service';
 
 type IndexSort = 'usage' | 'az' | 'za';
 type NoteSort = 'newest' | 'oldest' | 'source';
@@ -420,13 +416,21 @@ export class SecondBrain implements AfterViewChecked {
   private destroyRef = inject(DestroyRef);
 
   constructor() {
-    // A pending debounce must not outlive the surface.
+    const assistantActionSubscription = this.assistant.actionExecuted.subscribe((event) => {
+      if (event.capability !== 'notes_link_existing_concept') return;
+      const noteId = event.context.brainReviewNoteId;
+      if (!noteId || !this.reviewQueue().some((note) => note.id === noteId)) return;
+
+      this.refreshIndexAndStats();
+      this.removeFromReview(noteId);
+      this.toast.success('Note linked to a concept');
+    });
+
+    // A pending debounce and assistant receipt subscription must not outlive the surface.
     this.destroyRef.onDestroy(() => {
       if (this.noteSearchTimer !== null) clearTimeout(this.noteSearchTimer);
       this.unregisterAssistantContext();
-      if (this.assistant.onPlanExecuted === this.onAssistantPlanExecuted) {
-        this.assistant.onPlanExecuted = null;
-      }
+      assistantActionSubscription.unsubscribe();
     });
 
     // The assistant needs to know which unlinked note is under review. The
@@ -450,10 +454,6 @@ export class SecondBrain implements AfterViewChecked {
         { explicit: true },
       );
     });
-
-    // An approved link plan resolves the note: move the review queue on, exactly
-    // as the picker's own link action does.
-    this.assistant.onPlanExecuted = this.onAssistantPlanExecuted;
 
     this.conceptsService.list().subscribe({
       next: (data) => {
@@ -486,29 +486,9 @@ export class SecondBrain implements AfterViewChecked {
   }
 
   /**
-   * When an approved plan linked the reviewed note, take it out of the queue.
-   * Only a successful `notes_link_existing_concept` step changes review state;
-   * a collection plan runs through the same approval path and is ignored here.
-   */
-  private readonly onAssistantPlanExecuted = (
-    plan: AssistantPendingPlanDto,
-    response: AssistantPlanApproveResponse,
-  ): void => {
-    if (!response.success) return;
-    if (!plan.steps.some((step) => step.capability === 'notes_link_existing_concept')) return;
-
-    const note = this.reviewNote();
-    if (!note) return;
-
-    this.refreshIndexAndStats();
-    this.removeFromReview(note.id);
-    this.toast.success('Note linked to a concept');
-  };
-
-  /**
    * Ask Nostos where the reviewed note belongs (issue #261 §5). The assistant
-   * only suggests existing concepts; linking still needs the user's choice and
-   * an explicit plan approval.
+   * only suggests existing concepts; choosing one is the user's authorization,
+   * and a successful link executes immediately through the normal Act path.
    */
   askNostos(): void {
     this.assistant.requestSuggestions();
