@@ -4,7 +4,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
-import { Note, UpdateNoteDto } from '../../core/dtos/note.dtos';
+import { Note } from '../../core/dtos/note.dtos';
 import { ConceptDto } from '../../core/services/concepts.service';
 import { ConceptInputComponent } from '../concept-input.component/concept-input.component';
 import { IconButtonComponent } from '../icon-button/icon-button.component';

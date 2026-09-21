@@ -51,6 +51,14 @@ import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
   styleUrl: './reader-shell.component.css',
 })
 export class ReaderShell implements OnInit {
+  constructor() {
+    effect(() => {
+    const bookId = this.book()?.id;
+    if (!bookId) return;
+    this.highlightColour.set(readHighlightColour(bookId));
+    });
+  }
+
   // Template-ref query (not type query): the epub child is stubbed in specs,
   // and a type query would resolve to null against the stub.
   @ViewChild('epubReader') epubReader?: EpubReader;
@@ -274,12 +282,6 @@ export class ReaderShell implements OnInit {
    * Adopt the stored pen whenever the open book changes. Written as an effect on
    * `book()` so it holds no matter which path loaded the book.
    */
-  private readonly syncHighlightColour = effect(() => {
-    const bookId = this.book()?.id;
-    if (!bookId) return;
-    this.highlightColour.set(readHighlightColour(bookId));
-  });
-
   setHighlightColour(colour: HighlightColour): void {
     this.highlightColour.set(colour);
     const bookId = this.book()?.id;

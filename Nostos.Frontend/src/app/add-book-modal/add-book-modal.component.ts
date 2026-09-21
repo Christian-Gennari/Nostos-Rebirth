@@ -1,8 +1,7 @@
-import { Component, ElementRef, OnDestroy, inject, input, output, signal, computed, effect, viewChild } from '@angular/core';
+import { Component, ElementRef, inject, input, output, signal, computed, effect, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
-import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
 import { BooksService, Book as BookModel } from '../core/services/books.service';
 import { ProvidersService } from '../core/services/providers.service';
@@ -36,10 +35,9 @@ import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
   templateUrl: './add-book-modal.component.html',
   styleUrl: './add-book-modal.component.css',
 })
-export class AddBookModal implements OnDestroy {
+export class AddBookModal {
   private booksService = inject(BooksService);
   private providers = inject(ProvidersService);
-  private router = inject(Router);
   private toast = inject(ToastService);
   /** The import feed: opened on demand once an import has actually been queued. */
   private imports = inject(ImportService);
@@ -156,10 +154,6 @@ export class AddBookModal implements OnDestroy {
           this.sourceMode.set(false);
         }
         setTimeout(() => this.titleInput()?.nativeElement?.focus(), 0);
-      } else {
-        // Closing the dialog must stop the poll: otherwise a background timer
-        // keeps hitting the API for a surface nobody is looking at.
-        this.stopPolling();
       }
     });
   }
@@ -522,7 +516,6 @@ export class AddBookModal implements OnDestroy {
   acquisition = signal<ProviderAcquisition | null>(null);
   sourceImportError = signal<string | null>(null);
 
-  private pollHandle: ReturnType<typeof setInterval> | null = null;
 
   selectedProvider = computed(
     () => this.providerList().find((p) => p.id === this.selectedProviderId()) ?? null,
@@ -795,59 +788,10 @@ export class AddBookModal implements OnDestroy {
 
     this.providers.cancel(job.jobId).subscribe({
       next: () => {
-        this.stopPolling();
         this.acquisition.set({ ...job, state: 'cancelled', stage: 'cancelled' });
       },
-      error: () => this.stopPolling(),
+      error: () => undefined,
     });
-  }
-
-  private startPolling(jobId: string): void {
-    this.stopPolling();
-
-    // A second is fine: the stages it reports change on the scale of whole
-    // tracks, and the alternative is a socket for something the user watches
-    // once.
-    this.pollHandle = setInterval(() => {
-      this.providers.job(jobId).subscribe({
-        next: (job) => {
-          this.acquisition.set(job);
-          if (ACQUISITION_FINISHED_STATES.has(job.state)) {
-            this.stopPolling();
-            if (job.state === 'succeeded') this.finishImport(job);
-          }
-        },
-        error: () => {
-          // A job this server no longer knows about is the expected outcome of
-          // a restart, so say so instead of polling a dead id forever.
-          this.stopPolling();
-          this.sourceImportError.set(
-            'This import is no longer being tracked. It may have finished before the server restarted — check your library.',
-          );
-        },
-      });
-    }, 1000);
-  }
-
-  private stopPolling(): void {
-    if (this.pollHandle !== null) {
-      clearInterval(this.pollHandle);
-      this.pollHandle = null;
-    }
-  }
-
-  /**
-   * Only reached once the server reports the final file stored and the library
-   * row attached — never merely because the downloads finished.
-   */
-  private finishImport(job: ProviderAcquisition): void {
-    this.toast.success(job.message || 'Imported into your library.');
-    this.bookAdded.emit();
-    this.closeModal.emit();
-
-    // The local library stays the destination, so the flow ends by opening the
-    // book that was actually created (or the one already there).
-    if (job.bookId) void this.router.navigate(['/library', job.bookId]);
   }
 
   private clearSourceResults(): void {
@@ -865,16 +809,11 @@ export class AddBookModal implements OnDestroy {
     this.sourceQuery.set('');
     this.acquisition.set(null);
     this.sourceImportError.set(null);
-    this.stopPolling();
   }
 
   private describeError(error: unknown, fallback: string): string {
     const body = (error as { error?: { detail?: string; title?: string } })?.error;
     return body?.detail || body?.title || fallback;
-  }
-
-  ngOnDestroy(): void {
-    this.stopPolling();
   }
 
   /**

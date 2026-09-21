@@ -1007,11 +1007,6 @@ describe('ConceptMapComponent', () => {
       setConcepts(concepts);
       flushGraph();
 
-      const graph = (globalThis as {
-        __nostosGraph?: {
-          getNodeAttributes: (n: string) => Record<string, unknown>;
-        };
-      }).__nostosGraph!;
       const camera = (globalThis as unknown as {
         __camera: { disable: ReturnType<typeof vi.fn>; enable: ReturnType<typeof vi.fn> };
       }).__camera;

@@ -35,96 +35,27 @@ import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 import { AssistantContextService } from '../ui/assistant/assistant-context.service';
 import { AssistantService } from '../ui/assistant/assistant.service';
 
-type IndexSort = 'usage' | 'az' | 'za';
-type NoteSort = 'newest' | 'oldest' | 'source';
-/** The mode the header toggle persists. */
-type BrainViewMode = 'list' | 'map';
-/**
- * What the surface is actually showing. `unlinked` is deliberately NOT part of
- * `BrainViewMode`: review is a task the user enters and leaves, not a place to be
- * dropped back into on the next visit, so it is never persisted and never
- * restored with a stale queue.
- */
-type BrainPaneMode = BrainViewMode | 'unlinked';
-
-const ALL_SOURCES = 'all';
-
-/**
- * How many unlinked notes one page of review mode holds. Small on purpose: the
- * queue is reviewed one note at a time, and the mode must be able to walk past
- * the page rather than end at it (issue #256).
- */
-const REVIEW_PAGE_SIZE = 25;
-
-interface SourceOption {
-  value: string;
-  label: string;
-  count: number;
-}
-
-type RenameSurface = 'index' | 'header';
-
-interface MergeRequest {
-  sourceId: string;
-  targetId: string;
-  sourceName: string;
-  targetName: string;
-  noteCount: number;
-}
-
-const INDEX_SORT_STORAGE_KEY = 'nostos.brain.indexSort';
-const BRAIN_VIEW_MODE_STORAGE_KEY = 'nostos.brain.viewMode';
-
-const INDEX_SORTS: readonly IndexSort[] = ['usage', 'az', 'za'];
-const BRAIN_VIEW_MODES: readonly BrainViewMode[] = ['list', 'map'];
-
-interface NamePart {
-  text: string;
-  highlight: boolean;
-}
-
-function normalizeSearchText(value: string): string {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-}
-
-/**
- * Live note-text search is debounced: it runs on the server per keystroke otherwise
- * (issue #158), and an index search is typed, not submitted.
- */
-const NOTE_SEARCH_DEBOUNCE_MS = 250;
-
-function searchRank(name: string, query: string): number {
-  const normalizedName = normalizeSearchText(name);
-  if (normalizedName === query) return 0;
-  if (normalizedName.startsWith(query)) return 1;
-  return 2;
-}
-
-/**
- * The `[[Concept]]` names a note body declares.
- *
- * This mirrors NoteProcessorService's rule on the server — trimmed, non-empty
- * names, case-insensitively distinct — because review mode has to answer one
- * question locally: did the save I just made resolve this note? On the server a
- * note is unlinked exactly when it declares no concept, so the same rule here is
- * not a second link model, it is the one link model read locally. Asking the
- * server again instead would make the queue end on a second round trip.
- */
-function declaredConceptNames(content: string): string[] {
-  const names: string[] = [];
-  for (const match of (content ?? '').matchAll(/\[\[(.*?)\]\]/g)) {
-    const name = match[1].trim();
-    if (!name) continue;
-    if (names.some((existing) => existing.toLowerCase() === name.toLowerCase())) continue;
-    names.push(name);
-  }
-  return names;
-}
-
-/** True when a note body declares at least one concept. */
-function declaresConcept(content: string): boolean {
-  return declaredConceptNames(content).length > 0;
-}
+import {
+  ALL_SOURCES,
+  BRAIN_VIEW_MODES,
+  BRAIN_VIEW_MODE_STORAGE_KEY,
+  INDEX_SORTS,
+  INDEX_SORT_STORAGE_KEY,
+  NOTE_SEARCH_DEBOUNCE_MS,
+  REVIEW_PAGE_SIZE,
+  declaresConcept,
+  declaredConceptNames,
+  normalizeSearchText,
+  searchRank,
+  type BrainPaneMode,
+  type BrainViewMode,
+  type IndexSort,
+  type MergeRequest,
+  type NamePart,
+  type NoteSort,
+  type RenameSurface,
+  type SourceOption,
+} from './second-brain.helpers';
 
 @Component({
   standalone: true,

@@ -10,7 +10,6 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink, RouterLinkActive } from '@angular/router';
 import {
   LibraryFilterService,
   StatusFilter,
@@ -30,7 +29,7 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
 @Component({
   standalone: true,
   selector: 'app-sidebar-collections',
-  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, NostosIconComponent, FlatTreeComponent, ConfirmModal],
+  imports: [CommonModule, FormsModule, NostosIconComponent, FlatTreeComponent, ConfirmModal],
   templateUrl: './sidebar-collections.component.html',
   styleUrls: ['./sidebar-collections.component.css'],
 })

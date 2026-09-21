@@ -1,4 +1,4 @@
-import { Directive, HostListener, Input, Output, EventEmitter, ElementRef } from '@angular/core';
+import { Directive, HostListener, Output, EventEmitter, ElementRef } from '@angular/core';
 import { ConceptAutocompleteService } from '../../ui/concept-autocomplete-panel/concept-autocomplete.service';
 import { ConceptDto } from '../services/concepts.service';
 

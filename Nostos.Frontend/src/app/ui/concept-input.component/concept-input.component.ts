@@ -60,7 +60,7 @@ export class ConceptInputComponent implements ControlValueAccessor, OnInit, OnDe
   isDisabled = false;
 
   // Callbacks for ControlValueAccessor
-  onChange = (value: string) => {};
+  onChange = (_value: string) => {};
   onTouched = () => {};
 
   ngOnInit() {
