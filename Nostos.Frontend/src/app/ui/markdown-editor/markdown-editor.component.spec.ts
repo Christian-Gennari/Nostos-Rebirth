@@ -81,13 +81,6 @@ describe('MarkdownEditorComponent', () => {
     };
   }
 
-  function fireEditorEvent(event: string) {
-    // The mock's on() keys listeners per individual event name; reaching the
-    // editor instance through the mock closure is enough for our assertions.
-    const editor = editors[editors.length - 1];
-    (editor as unknown as { _fire: (e: string) => void })._fire?.(event);
-  }
-
   /** All component CSS injected by Angular (emulated encapsulation). */
   const componentCss = (): string =>
     Array.from(document.querySelectorAll('style'))
