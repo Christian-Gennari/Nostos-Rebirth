@@ -31,6 +31,7 @@ export class TinyMceLoader {
 
       const fail = () => {
         this.loadPromise = null;
+        script.remove();
         reject(new Error('Failed to load TinyMCE.'));
       };
 
