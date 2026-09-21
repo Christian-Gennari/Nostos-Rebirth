@@ -23,8 +23,9 @@ namespace Nostos.Backend.Tests.Assistant;
 /// The assistant bridge (issue #261 §3, §4, §7). These tests drive the real
 /// orchestrator over the real capability registry and a real SQLite database,
 /// with the LLM replaced by <see cref="FakeLlmProvider"/>. They prove the trust
-/// classes end to end: capture mutates, suggest does not, and PlanAndAct mutates
-/// only through an approval bound to one plan id.
+/// classes end to end: capture and normal Act work execute in the bounded tool
+/// loop, Suggest does not mutate, and destructive PlanAndAct work mutates only
+/// through an approval bound to one plan id.
 /// </summary>
 public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture>
 {
@@ -534,6 +535,66 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
 
         response.PendingPlan.Should().BeNull();
         (await CollectionCountAsync(h)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Later_action_can_use_the_real_id_returned_by_an_earlier_action()
+    {
+        var h = CreateHarness();
+        var book = await SeedBookAsync(h, "The Magic Mountain");
+
+        h.Llm.Responder = call =>
+        {
+            if (call == 1)
+            {
+                return new LlmCompletion(
+                    null,
+                    "tool_calls",
+                    [new LlmToolCall("create-collection", "library_create_collection", """{"name":"German Literature"}""")]);
+            }
+
+            if (call == 2)
+            {
+                var toolMessage = h.Llm.LastRequest.Messages.Last(message => message.Role == "tool");
+                using var result = JsonDocument.Parse(toolMessage.Content!);
+                var collectionId = result.RootElement
+                    .GetProperty("data")
+                    .GetProperty("data")
+                    .GetProperty("id")
+                    .GetGuid();
+
+                return new LlmCompletion(
+                    null,
+                    "tool_calls",
+                    [new LlmToolCall(
+                        "assign-book",
+                        "library_update_book",
+                        JsonSerializer.Serialize(new
+                        {
+                            bookId = book.Id,
+                            collectionIds = new[] { collectionId },
+                        }))]);
+            }
+
+            return new LlmCompletion(
+                "Done. I created German Literature and added The Magic Mountain to it.",
+                "stop",
+                []);
+        };
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Create a German Literature collection and put The Magic Mountain in it.",
+            Context(surface: "library", route: "/library")));
+
+        response.PendingPlan.Should().BeNull();
+        h.Llm.CallCount.Should().Be(3);
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var collection = await db.Collections.AsNoTracking()
+            .SingleAsync(item => item.Name == "German Literature");
+        var membership = await db.BookCollections.AsNoTracking()
+            .SingleAsync(link => link.BookId == book.Id);
+        membership.CollectionId.Should().Be(collection.Id);
     }
 
     [Fact]
