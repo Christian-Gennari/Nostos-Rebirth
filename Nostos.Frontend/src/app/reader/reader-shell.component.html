@@ -108,8 +108,24 @@
         <div class="confirmation-content">
           <p class="selected-text">"{{ pendingSelectionText()!.length > 60 ? pendingSelectionText()!.slice(0, 60) + '...' : pendingSelectionText()! }}"</p>
           <div class="confirmation-actions">
-            <button class="btn btn-secondary" (click)="discardHighlight()">Cancel</button>
-            <button class="btn btn-primary" (click)="commitHighlight()" [disabled]="highlightSaving()">
+            <button
+              appButton
+              type="button"
+              variant="secondary"
+              class="reader-confirm-action"
+              (click)="discardHighlight()"
+            >
+              Cancel
+            </button>
+            <button
+              appButton
+              type="button"
+              variant="primary"
+              class="reader-confirm-action"
+              (click)="commitHighlight()"
+              [disabled]="highlightSaving()"
+              [busy]="highlightSaving()"
+            >
               <nostos-icon name="check" [size]="16"></nostos-icon>
               {{ highlightSaving() ? 'Saving…' : 'Save' }}
             </button>
@@ -210,13 +226,15 @@
         </div>
         <div class="quick-actions">
           @if (fileType() === 'audio') {
-          <button class="btn btn-secondary" (click)="addAudioTimestamp()">
+          <button appButton type="button" variant="secondary" (click)="addAudioTimestamp()">
             <nostos-icon id="add-timestamp-icon" name="clock" [size]="14"></nostos-icon>
             Timestamp
           </button>
           }
           <button
-            class="btn btn-primary"
+            appButton
+            type="button"
+            variant="primary"
             (click)="saveQuickNote()"
             [disabled]="!quickNoteContent()"
           >
@@ -436,7 +454,14 @@
         }
       </div>
     </div>
-    <button type="button" class="typo-reset" (click)="epubReader.resetTypography()">Reset</button>
+    <button
+      appButton
+      type="button"
+      variant="ghost"
+      size="sm"
+      class="typo-reset"
+      (click)="epubReader.resetTypography()"
+    >Reset</button>
     }
   </div>
   }

@@ -878,3 +878,76 @@ describe('ReaderShell typography panel (EPUB)', () => {
     textarea.remove();
   });
 });
+
+
+describe('ReaderShell UI kit migration (#362)', () => {
+  let fixture: ComponentFixture<ReaderShell>;
+
+  beforeEach(() => {
+    booksGetSpy.mockReset();
+    booksGetSpy.mockReturnValue(of(audiobook));
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+    mockMatchMedia();
+  });
+
+  function render() {
+    fixture.detectChanges();
+    fixture.detectChanges();
+  }
+
+  it('uses appButton for ordinary shell actions without genericising Reader interactions', async () => {
+    const epubBook = { ...audiobook, id: 'book-epub-kit', fileName: 'iliad.epub' } as Book;
+    booksGetSpy.mockReturnValue(of(epubBook));
+
+    fixture = await configureReaderShell();
+    render();
+
+    const component = fixture.componentInstance;
+    component.notesOpen.set(true);
+    component.typoOpen.set(true);
+    component.pendingSelectionText.set('Sing, goddess, the anger of Peleus son Achilles.');
+    render();
+
+    const canonicalLabels = Array.from(
+      fixture.nativeElement.querySelectorAll('button.nostos-button') as NodeListOf<HTMLButtonElement>,
+    ).map((button) => button.textContent?.replace(/\s+/g, ' ').trim() ?? '');
+
+    expect(canonicalLabels).toContain('Cancel');
+    expect(canonicalLabels.filter((label) => label === 'Save')).toHaveLength(2);
+    expect(canonicalLabels).toContain('Reset');
+
+    // These are intentionally Reader-owned interaction contracts, not ordinary
+    // actions wearing local styling.
+    expect(fixture.nativeElement.querySelector('.highlight-toggle.nostos-button')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.typo-opt.nostos-button')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.typo-step.nostos-button')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.page-input.nostos-form-control')).toBeNull();
+
+    const template = readSource('./reader-shell.component.html');
+    expect(template).not.toContain('class="btn btn-primary"');
+    expect(template).not.toContain('class="btn btn-secondary"');
+
+    // Audio transport, time navigation, speed and sleep controls have a distinct
+    // playback contract and stay product-owned.
+    const audioTemplate = readSource('./audio-reader/audio-reader.component.html');
+    expect(audioTemplate).not.toContain('appButton');
+    expect(audioTemplate).not.toContain('appIconButton');
+    expect(audioTemplate).toContain('class="play-btn"');
+    expect(audioTemplate).toContain('class="skip-btn"');
+    expect(audioTemplate).toContain('class="playback-pill"');
+  });
+
+  it('keeps mobile touch floors on custom Reader controls after the migration', () => {
+    const css = readSource('./reader-shell.component.css');
+    const mobileStart = css.indexOf('@media (max-width: 768px)');
+    const mobileEnd = css.indexOf('@media (max-width: 360px)');
+    const mobile = css.slice(mobileStart, mobileEnd);
+
+    expect(mobile).toContain('.highlight-toggle,');
+    expect(mobile).toContain('.typo-opt,');
+    expect(mobile).toContain('.typo-step,');
+    expect(mobile).toContain('.quick-actions button[appButton]');
+    expect(mobile).toContain('min-height: var(--control-h-touch)');
+  });
+});
