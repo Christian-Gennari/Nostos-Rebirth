@@ -33,15 +33,7 @@ public sealed class LibraryService : ILibraryService
     // Read-only surface
     // ------------------------------------------------------------------
 
-    public async Task<LibraryCommandResultDto> ListBooksAsync(
-        BookFilter filter,
-        BookSort sort,
-        string? search,
-        int page,
-        int pageSize,
-        Guid? collectionId,
-        bool? groupByWork = false,
-        st    public Task<LibraryCommandResultDto> ListBooksAsync(
+    public Task<LibraryCommandResultDto> ListBooksAsync(
         BookFilter filter,
         BookSort sort,
         string? search,
@@ -75,7 +67,12 @@ public sealed class LibraryService : ILibraryService
         CancellationToken ct = default) =>
         _reads.GetCollectionAsync(collectionId, ct);
 
-  LibraryCreateBookRequest request,
+    // ------------------------------------------------------------------
+    // Mutations (exact-once)
+    // ------------------------------------------------------------------
+
+    public Task<LibraryCommandResultDto> CreateOrMatchBookAsync(
+        LibraryCreateBookRequest request,
         bool strictConfirmation,
         CancellationToken ct = default) =>
         _mutations.ExecuteAsync(request.ClientId, request.IdempotencyKey, "CreateOrMatchBook",
