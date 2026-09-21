@@ -54,22 +54,22 @@ test.describe('Nostos UI v1 catalogue', () => {
         );
         await expect(page.locator('#catalogue-author')).toHaveAttribute('aria-invalid', 'true');
         await expect(page.getByLabel('Checked switch example', { exact: true })).toBeChecked();
-        await expect(page.getByRole('button', { name: 'Selected' })).toHaveAttribute(
+        await expect(page.getByRole('button', { name: 'Selected', exact: true })).toHaveAttribute(
           'aria-pressed',
           'true',
         );
 
         const tablist = page.getByRole('tablist', { name: 'Catalogue tab example' });
         await expect(tablist).toBeVisible();
-        await tablist.getByRole('tab', { name: 'Patterns' }).click();
-        await expect(tablist.getByRole('tab', { name: 'Patterns' })).toHaveAttribute(
+        await tablist.getByRole('tab', { name: 'Patterns', exact: true }).click();
+        await expect(tablist.getByRole('tab', { name: 'Patterns', exact: true })).toHaveAttribute(
           'aria-selected',
           'true',
         );
 
         const viewGroup = page.getByRole('group', { name: 'Catalogue view example' });
-        await viewGroup.getByRole('button', { name: 'Grid' }).click();
-        await expect(viewGroup.getByRole('button', { name: 'Grid' })).toHaveAttribute(
+        await viewGroup.getByRole('button', { name: 'Grid', exact: true }).click();
+        await expect(viewGroup.getByRole('button', { name: 'Grid', exact: true })).toHaveAttribute(
           'aria-pressed',
           'true',
         );
@@ -113,11 +113,11 @@ test.describe('Nostos UI v1 catalogue', () => {
           animations: 'disabled',
         });
 
-        await page.getByRole('button', { name: 'Open modal example' }).click();
+        await page.getByRole('button', { name: 'Open modal example', exact: true }).click();
         const dialog = page.getByRole('dialog', { name: 'Archive note?' });
         await expect(dialog).toBeVisible();
-        await expect(dialog.getByRole('button', { name: 'Archive' })).toBeVisible();
-        await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeVisible();
+        await expect(dialog.getByRole('button', { name: 'Archive', exact: true })).toBeVisible();
+        await expect(dialog.getByRole('button', { name: 'Cancel', exact: true })).toBeVisible();
 
         await page.screenshot({
           path: path.join(OUT, `${tc.name}-modal.png`),
@@ -125,7 +125,7 @@ test.describe('Nostos UI v1 catalogue', () => {
           animations: 'disabled',
         });
 
-        await dialog.getByRole('button', { name: 'Cancel' }).click();
+        await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
         await expect(dialog).toBeHidden();
       } finally {
         await context.close();
