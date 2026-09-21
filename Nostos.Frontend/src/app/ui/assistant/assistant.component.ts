@@ -115,6 +115,9 @@ export class AssistantComponent {
   readonly isOpen = computed(() => this.assistant.isOpen());
   readonly isReader = computed(() => this.assistant.context().surface === 'reader');
 
+  /** A quiet, platform-appropriate hint shown in the collapsed desktop pill. */
+  readonly shortcutLabel = this.resolveShortcutLabel();
+
   /**
    * Desktop-only focus workspace. This changes only the shell geometry; the
    * AssistantService remains the single owner of conversation, draft and plan
@@ -368,6 +371,13 @@ export class AssistantComponent {
 
     this.viewportHeightCss.set(`${Math.max(1, Math.round(viewport.height))}px`);
     this.viewportTopCss.set(`${Math.max(0, Math.round(viewport.offsetTop))}px`);
+  }
+
+  private resolveShortcutLabel(): string {
+    if (typeof navigator === 'undefined') return 'Ctrl J';
+    return /Macintosh|Mac OS X|iPhone|iPad|iPod/i.test(navigator.userAgent)
+      ? '⌘ J'
+      : 'Ctrl J';
   }
 
   private isPhoneViewport(): boolean {
