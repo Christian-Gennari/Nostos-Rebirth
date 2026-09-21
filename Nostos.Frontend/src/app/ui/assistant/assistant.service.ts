@@ -428,13 +428,26 @@ export class AssistantService {
       return;
     }
 
+    const plan = this.pendingPlan();
+    if (plan && isExplicitPlanApproval(text)) {
+      // A short, unambiguous confirmation is itself the approval gesture. Keep
+      // the user's words in the visible/history transcript, but do not send a
+      // second LLM turn that could reinterpret or regenerate the destructive
+      // operation: execute the exact server-held plan id + token instead.
+      this.draft.set('');
+      this.turnLog.update((log) => [...log, { role: 'user', text }]);
+      this.pushEntry('user', text, null, null);
+      this.approvePlan(plan.planId, plan.approvalToken);
+      return;
+    }
+
     const context = this.context();
     const anchor = this.effectiveAnchor(context);
     this.draft.set('');
 
-    // Every message dispatches immediately. Only the backend may ask for a
-    // location, and only for a capture that genuinely cannot know one; a plain
-    // question ("Who are you?") is never held behind a page prompt.
+    // Every other message dispatches normally. A question or qualification
+    // while a destructive plan is pending is discussion, not approval, so the
+    // plan survives and the assistant can answer without accidentally acting.
     this.dispatchTurn(text, anchor);
   }
 
@@ -578,15 +591,16 @@ export class AssistantService {
                 return typeof reply === 'string' && reply.trim() ? reply.trim() : null;
               })
               .filter((reply): reply is string => reply !== null);
-            this.pushEntry(
-              'assistant',
-              replies.length > 0 ? replies.join(' ') : (plan?.summary ?? 'Plan applied.'),
-              null,
-              'Applied',
-            );
+            const executionReply =
+              replies.length > 0 ? replies.join(' ') : (plan?.summary ?? 'Plan applied.');
+            this.turnLog.update((log) => [...log, { role: 'assistant', text: executionReply }]);
+            this.pushEntry('assistant', executionReply, null, 'Applied');
           } else {
-            this.lastError.set(response.errorMessage ?? 'The plan could not be applied.');
-            this.pushEntry('error', plan?.summary ?? 'Plan refused.', null, response.errorCode ?? 'Refused');
+            const failureReply =
+              response.errorMessage ?? plan?.summary ?? 'The plan could not be applied.';
+            this.lastError.set(failureReply);
+            this.turnLog.update((log) => [...log, { role: 'assistant', text: failureReply }]);
+            this.pushEntry('error', failureReply, null, response.errorCode ?? 'Refused');
           }
 
           if (plan && this.onPlanExecuted) this.onPlanExecuted(plan, response);
@@ -731,6 +745,35 @@ export class AssistantService {
         return title;
     }
   }
+}
+
+/**
+ * True only for a complete, short approval utterance while one destructive
+ * plan is visibly pending. Deliberately exact rather than fuzzy: "yes, but
+ * explain first" is discussion, not permission to delete anything.
+ *
+ * Voice transcripts use the same submit path, so "go ahead" spoken aloud has
+ * the same semantics as typing it.
+ */
+export function isExplicitPlanApproval(value: string): boolean {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[.!]+$/g, '')
+    .replace(/\s+/g, ' ');
+
+  return new Set([
+    'yes',
+    'yes please',
+    'yes, please',
+    'yes do it',
+    'yes, do it',
+    'yes go ahead',
+    'yes, go ahead',
+    'go ahead',
+    'do it',
+    'confirm',
+  ]).has(normalized);
 }
 
 /**
