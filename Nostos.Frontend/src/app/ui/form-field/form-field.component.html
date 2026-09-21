@@ -1,0 +1,19 @@
+<label class="nostos-form-field__label" [attr.for]="forId()">
+  <span>{{ label() }}</span>
+  @if (required()) {
+    <span class="nostos-form-field__required" aria-hidden="true">*</span>
+  }
+  @if (labelNote(); as note) {
+    <span class="nostos-form-field__label-note">{{ note }}</span>
+  }
+</label>
+
+<ng-content />
+
+@if (hint(); as help) {
+  <p class="nostos-form-field__hint" [id]="hintId()">{{ help }}</p>
+}
+
+@if (error(); as message) {
+  <p class="nostos-form-field__error" [id]="errorId()" role="alert">{{ message }}</p>
+}
