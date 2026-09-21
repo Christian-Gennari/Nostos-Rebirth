@@ -66,7 +66,17 @@ public sealed class NineRouterSttProvider(
         var fileContent = new StreamContent(audio);
         if (!string.IsNullOrWhiteSpace(contentType))
         {
-            fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+            // MediaRecorder commonly returns a parameterized browser MIME type,
+            // e.g. "audio/webm;codecs=opus". The MediaTypeHeaderValue(string)
+            // constructor accepts only a bare media type and throws FormatException
+            // for that real browser value. Parse the full header instead so codec
+            // parameters survive the proxy hop to the STT provider.
+            if (!MediaTypeHeaderValue.TryParse(contentType, out var parsedContentType))
+            {
+                throw SttException.UnsupportedFormat(contentType);
+            }
+
+            fileContent.Headers.ContentType = parsedContentType;
         }
 
         form.Add(fileContent, "file", string.IsNullOrWhiteSpace(fileName) ? "audio" : fileName);
