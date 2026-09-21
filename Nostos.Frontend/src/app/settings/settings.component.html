@@ -119,7 +119,7 @@
               <span class="label-text">Backup Frequency</span>
               <span class="label-desc">How often to create automatic backups.</span>
             </div>
-            <select class="select-sm" [value]="settings().intervalHours.toString()" (change)="changeInterval($event)">
+            <select appSelect controlSize="compact" class="select-sm" [value]="settings().intervalHours.toString()" (change)="changeInterval($event)">
               <option value="6">Every 6 hours</option>
               <option value="12">Every 12 hours</option>
               <option value="24">Daily</option>
@@ -133,7 +133,7 @@
               <span class="label-text">Max Backups</span>
               <span class="label-desc">Oldest backups will be automatically deleted when this limit is reached.</span>
             </div>
-            <select class="select-sm" [value]="settings().maxBackups.toString()" (change)="changeMaxBackups($event)">
+            <select appSelect controlSize="compact" class="select-sm" [value]="settings().maxBackups.toString()" (change)="changeMaxBackups($event)">
               <option value="3">3</option>
               <option value="5">5</option>
               <option value="10">10</option>
@@ -430,6 +430,8 @@
                 }
               </div>
               <select
+                appSelect
+                controlSize="compact"
                 class="select-sm"
                 data-testid="capture-processing-mode"
                 [attr.aria-label]="copy.captureLabel"
@@ -479,6 +481,8 @@
                 <label class="provider-label" for="ai-llm-base-url">{{ copy.endpoint }}</label>
                 <input
                   id="ai-llm-base-url"
+                  appInput
+                  controlSize="compact"
                   class="provider-input"
                   type="text"
                   autocomplete="off"
@@ -495,6 +499,8 @@
                 <div class="provider-input-row">
                   <input
                     id="ai-llm-model"
+                    appInput
+                    controlSize="compact"
                     class="provider-input"
                     type="text"
                     autocomplete="off"
@@ -531,6 +537,8 @@
                 <label class="provider-label" for="ai-llm-api-key">{{ copy.apiKey }}</label>
                 <input
                   id="ai-llm-api-key"
+                  appInput
+                  controlSize="compact"
                   class="provider-input"
                   type="password"
                   autocomplete="new-password"
@@ -610,6 +618,8 @@
                 <label class="provider-label" for="ai-stt-base-url">{{ copy.endpoint }}</label>
                 <input
                   id="ai-stt-base-url"
+                  appInput
+                  controlSize="compact"
                   class="provider-input"
                   type="text"
                   autocomplete="off"
@@ -626,6 +636,8 @@
                 <div class="provider-input-row">
                   <input
                     id="ai-stt-model"
+                    appInput
+                    controlSize="compact"
                     class="provider-input"
                     type="text"
                     autocomplete="off"
@@ -662,6 +674,8 @@
                 <label class="provider-label" for="ai-stt-api-key">{{ copy.apiKey }}</label>
                 <input
                   id="ai-stt-api-key"
+                  appInput
+                  controlSize="compact"
                   class="provider-input"
                   type="password"
                   autocomplete="new-password"
