@@ -1,0 +1,63 @@
+name: Assistant v2 branch verification
+
+on:
+  push:
+    branches:
+      - feature/assistant-v2-agentic-actions
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Test solution
+        run: dotnet test Nostos.sln --configuration Release
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Nostos.Frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Nostos.Frontend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Check
+        run: npm run check
+      - name: Production build
+        run: npm run build
+      - name: Full unit suite
+        run: npm test
+      - name: Assistant v2 regression
+        run: npx ng test --filter="keeps a destructive pending plan across an ordinary follow-up turn"
+
+
+  e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Nostos.Frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Nostos.Frontend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Full Playwright suite
+        run: npm run e2e
