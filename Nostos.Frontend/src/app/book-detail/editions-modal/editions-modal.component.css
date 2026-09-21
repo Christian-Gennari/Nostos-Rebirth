@@ -200,8 +200,7 @@
 }
 
 .manage-link-candidate:focus-visible,
-.manage-member-action:focus-visible,
-.manage-link-search:focus-visible {
+.manage-member-action:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
@@ -330,23 +329,10 @@
 }
 
 .manage-link-search {
-  width: 100%;
-  min-height: var(--control-h-touch);
-  padding: 0 0.6rem 0 2rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-input);
-  color: var(--color-text-main);
-  font-family: inherit;
-  font-size: 0.85rem;
-}
-
-/* Every other input in the app names its placeholder ink; this one had none, so it
-   fell through to the browser default (Chrome's `darkgrey`, measured at 4.03:1 on
-   the dark field — below AA). `--color-text-light` is what the Library's own search
-   field uses. */
-.manage-link-search::placeholder {
-  color: var(--color-text-light);
+  /* appInput owns the ordinary search-field geometry, theme, placeholder and
+     focus contract. The editions surface only reserves space for its leading
+     search glyph. */
+  padding-left: 2rem;
 }
 
 /* Deliberately NOT height-capped or independently scrollable. The modal body is
