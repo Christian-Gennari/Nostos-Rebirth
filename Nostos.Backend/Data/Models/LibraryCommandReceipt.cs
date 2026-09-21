@@ -4,9 +4,9 @@ namespace Nostos.Backend.Data.Models;
 
 // Exact-once command record for library mutations. The unique
 // (ClientId, IdempotencyKey) index makes retried UI/MCP/connector commands
-// return the stored response without re-running the command. Deliberately a
-// separate table from ReadingCommandReceipt so a library command can never
-// replay a reading response (and vice versa). Inputs are bounded: the
+// return the stored response without re-running the command. It is deliberately
+// separate from NoteCommandReceipt so a note mutation can never replay a
+// library response (and vice versa). Inputs are bounded: the
 // MaxLength annotations document the limits, and the
 // CK_LibraryCommandReceipts_Bounds CHECK constraint enforces them in SQLite.
 public class LibraryCommandReceipt
