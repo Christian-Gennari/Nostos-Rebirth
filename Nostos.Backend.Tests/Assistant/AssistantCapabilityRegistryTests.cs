@@ -202,7 +202,7 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
 
         var result = await h.Registry.InvokeAsync(
             "library_delete_empty_collection",
-            Args($"""{"collectionId":"{{collection.Id}}"}"""),
+            Args(JsonSerializer.Serialize(new { collectionId = collection.Id })),
             new AssistantToolContext("client", "empty-delete"));
 
         result.Success.Should().BeTrue();
@@ -218,13 +218,17 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
 
         var assign = await h.Registry.InvokeAsync(
             "library_update_book",
-            Args($"""{"bookId":"{{book.Id}}","collectionIds":["{{collection.Id}}"]}"""),
+            Args(JsonSerializer.Serialize(new
+            {
+                bookId = book.Id,
+                collectionIds = new[] { collection.Id },
+            })),
             new AssistantToolContext("client", "assign-book"));
         assign.Success.Should().BeTrue();
 
         var result = await h.Registry.InvokeAsync(
             "library_delete_empty_collection",
-            Args($"""{"collectionId":"{{collection.Id}}"}"""),
+            Args(JsonSerializer.Serialize(new { collectionId = collection.Id })),
             new AssistantToolContext("client", "empty-delete-refused"));
 
         result.Success.Should().BeFalse();
@@ -365,14 +369,14 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
 
         var result = await h.Registry.InvokeAsync(
             "library_set_book_collections_bulk",
-            Args($"""
+            Args(JsonSerializer.Serialize(new
             {
-              "updates": [
-                {"bookId":"{{first.Id}}","collectionIds":["{{collection.Id}}"]},
-                {"bookId":"{{second.Id}}","collectionIds":["{{collection.Id}}"]}
-              ]
-            }
-            """),
+                updates = new[]
+                {
+                    new { bookId = first.Id, collectionIds = new[] { collection.Id } },
+                    new { bookId = second.Id, collectionIds = new[] { collection.Id } },
+                },
+            })),
             new AssistantToolContext("client", "bulk-membership"));
 
         result.Success.Should().BeTrue();
