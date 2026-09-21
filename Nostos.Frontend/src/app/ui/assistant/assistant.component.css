@@ -90,7 +90,7 @@
   display: block;
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 60;
   background: var(--modal-scrim);
   -webkit-backdrop-filter: blur(var(--modal-scrim-blur));
   backdrop-filter: blur(var(--modal-scrim-blur));
@@ -122,6 +122,7 @@
    margin on narrower laptop screens. The conversation component itself is not
    recreated, so compact <-> expanded is purely a geometry change. */
 .assistant-panel.is-expanded {
+  z-index: 61;
   top: 6dvh;
   right: max(32px, calc((100vw - 1000px) / 2));
   bottom: 6dvh;
