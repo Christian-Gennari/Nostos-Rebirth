@@ -18,10 +18,11 @@ namespace Nostos.Backend.Integrations.Assistant;
 /// <c>Summary</c>. There is no MCP round trip: the assistant reaches its own
 /// Nostos instance through the same canonical services the REST surface uses.</item>
 /// <item>Trust classes are enforced here as well as in the registry.
-/// <see cref="AssistantTrustClass.Capture"/> executes immediately,
-/// <see cref="AssistantTrustClass.Suggest"/> never mutates, and
-/// <see cref="AssistantTrustClass.PlanAndAct"/> is NEVER executed inline — it is
-/// collected into a server-held plan and returned for explicit approval.</item>
+/// <see cref="AssistantTrustClass.Capture"/> and normal
+/// <see cref="AssistantTrustClass.Act"/> work execute inside the tool loop,
+/// <see cref="AssistantTrustClass.Suggest"/> never mutates, and only destructive
+/// <see cref="AssistantTrustClass.PlanAndAct"/> work is collected into a
+/// server-held plan for explicit approval.</item>
 /// <item>The source-location follow-up is deterministic: when a capture has no
 /// nearby anchor and the format cannot supply one, the bridge asks (physical
 /// book → a page; externally played audiobook → a timestamp) instead of
@@ -140,11 +141,6 @@ public sealed class AssistantOrchestrator(
         // per-capture mode would make that choice meaningless.
         var captureProcessingMode = await settings.GetCaptureProcessingModeAsync(ct);
 
-        var toolContext = new AssistantToolContext(
-            ClientId: request.ClientId,
-            IdempotencyKey: request.IdempotencyKey,
-            PlanId: request.PendingPlanId);
-
         var suggestions = new List<AssistantSuggestionDto>();
         var planSteps = new List<AssistantPlanStep>();
         AssistantAnchorPromptDto? anchorPrompt = null;
@@ -175,8 +171,20 @@ public sealed class AssistantOrchestrator(
 
             messages.Add(LlmMessage.Assistant(completion.Content, completion.ToolCalls));
 
+            var callOrdinal = 0;
             foreach (var call in completion.ToolCalls)
             {
+                // Every tool call in one assistant turn needs its own receipt key.
+                // Reusing the turn key would make the canonical library service
+                // replay call #1 for call #2, silently breaking multi-step agent
+                // work. Iteration + ordinal stay stable for a retried turn while
+                // remaining distinct inside this bounded tool loop.
+                var toolContext = new AssistantToolContext(
+                    ClientId: request.ClientId,
+                    IdempotencyKey: $"{request.IdempotencyKey}:{iteration}:{callOrdinal}",
+                    PlanId: request.PendingPlanId);
+                callOrdinal++;
+
                 if (!capabilityByName.TryGetValue(call.Name, out var capability))
                 {
                     messages.Add(LlmMessage.Tool(call.Id, ToolJson(new
@@ -486,6 +494,7 @@ public sealed class AssistantOrchestrator(
             {
                 AssistantTrustClass.Suggest => "read-only",
                 AssistantTrustClass.Capture => "immediate capture",
+                AssistantTrustClass.Act => "immediate action",
                 AssistantTrustClass.PlanAndAct => "requires approval",
                 _ => "unknown",
             };
@@ -581,8 +590,9 @@ public sealed class AssistantOrchestrator(
         You have tools. Use them to read the user's library and to capture thoughts.
         - Capture tools run immediately; after a capture, confirm in one short line.
         - Read and suggestion tools never change anything and may be called freely.
-        - State-changing tools never run during a turn. Calling one records a plan step. Tell the user what the plan will do and wait for explicit approval; never claim the change has happened.
-        - Never claim an action succeeded unless a tool result says it did.
+        - Immediate action tools perform ordinary user-requested Nostos work in the current turn. Use their real result before deciding the next step.
+        - Approval-required tools are destructive/high-impact. Calling one records a plan step; do not claim it ran until the user explicitly approves that plan.
+        - Never claim an action succeeded unless a tool result says it did. If a tool fails, use the failure result to recover, clarify, or report what stopped.
 
         A capture is the user giving you something of their own to keep: a thought, an observation, a reaction, a question they are sitting with, or a passage they want recorded. Ask yourself whether the user is TELLING you something of theirs or ASKING you something. Telling you is a capture: save it with notes_capture in that same turn, whether they say "save this", "note that", "capturing a thought" or "I just had a thought I wanted to write down", or simply tell you the thought. Asking — about the library, or for something to be found, read, explained, summarised or compared — is not a capture: answer it and capture nothing. Answering a capture instead of saving it loses the user's words, so when a message does both, save the part that is theirs and answer the rest.
 
@@ -604,14 +614,16 @@ public sealed class AssistantOrchestrator(
         - The Library already has search, sorting, status filters (Not Started, In Progress, Favorites, Finished, Unsorted), and built-in format filters for Audiobooks, eBooks and PDFs.
         - Collections are hierarchical, user-defined structures for durable themes, projects, curricula, reading paths or other meaningful groupings. A book may belong to more than one collection.
         - Do not recommend collections merely to recreate a Library filter or sort that already exists. In particular, an Audiobooks/eBooks/PDFs collection is normally redundant because format filtering is built in.
-        - Creating or restructuring collections is not the same capability as assigning books to them. Never say you can move or reassign books between collections unless an available state-changing capability explicitly says it can change book collection membership.
+        - Creating/restructuring collections and assigning books are separate operations. To change a book's collection membership, use library_update_book with collectionIds. That field is a FULL replacement set: read the current book first and preserve memberships the user did not ask to remove.
         - Notes and quotes belong to books and may be linked to existing concepts. The Second Brain is for relationships between notes and concepts; its review flow surfaces notes that are not yet linked.
         - The current application context tells you what surface, book, passage and reading position Nostos already knows. Use it rather than asking the user to repeat known context.
 
         Ground answers in the user's actual Nostos data:
         - When the user asks about their books, collections, notes or concepts, or asks for advice based on what they currently have, use the relevant read capability before answering. Do not substitute generic library advice for data you can inspect.
         - For a whole-library organization or recommendation question, prefer library_overview: it is complete and compact, and avoids reasoning from only the first page of books.
-        - When the user asks what you can do, answer only from the Available abilities supplied below. Distinguish read-only inspection, immediate capture, and changes that require approval. Do not generalize beyond the registered capabilities.
+        - When the user asks what you can do, answer only from the Available abilities supplied below. Distinguish read-only inspection, immediate capture, immediate actions, and changes that require approval. Do not generalize beyond the registered capabilities.
+        - When the user explicitly asks you to add, update, organize, rename, move, or link something and an immediate action capability exists, do the work rather than merely describing how they could do it.
+        - Multi-step work is allowed: inspect first when needed, execute one action, read its actual result, then use that result in the next tool call. Do not pre-invent ids or pretend later steps happened.
 
         Never invent a source location. When a capture has no location, the tool layer asks the user for a page or timestamp; do not guess one.
 
