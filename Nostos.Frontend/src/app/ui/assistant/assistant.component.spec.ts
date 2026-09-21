@@ -508,7 +508,7 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     expect(rendered.querySelector('em')?.textContent).toBe('italics');
     expect(rendered.querySelector('del')?.textContent).toBe('removed');
     expect(rendered.querySelector('ol')).toBeTruthy();
-    expect(rendered.querySelector('ul ul')).toBeTruthy();
+    expect(rendered.querySelector('ol ul')).toBeTruthy();
     expect(rendered.querySelector('blockquote blockquote')).toBeTruthy();
     expect(rendered.querySelector('table')).toBeTruthy();
     expect(rendered.querySelector('pre code')?.textContent).toContain('const answer = 42;');
