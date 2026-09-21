@@ -1037,6 +1037,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         prompt.Should().Contain("library_create_collection [immediate action]");
         prompt.Should().Contain("library_create_or_match_book [immediate action]");
         prompt.Should().Contain("library_update_book [immediate action]");
+        prompt.Should().Contain("library_set_book_collections_bulk [immediate action]");
         prompt.Should().Contain("library_delete_empty_collection [immediate action]");
         prompt.Should().Contain("library_delete_collection [requires approval]");
         prompt.Should().Contain("notes_capture [immediate capture]");
