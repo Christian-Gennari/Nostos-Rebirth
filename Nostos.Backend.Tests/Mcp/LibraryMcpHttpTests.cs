@@ -147,7 +147,7 @@ public sealed class LibraryMcpHttpTests
         await using (var db = new NostosDbContext(dbOptions))
         {
             await db.Database.OpenConnectionAsync();
-            db.PhysicalBooks.Add(new PhysicalBookModel
+            db.Books.Add(new PhysicalBookModel
             {
                 Id = Guid.NewGuid(),
                 Title = "Meditations",
