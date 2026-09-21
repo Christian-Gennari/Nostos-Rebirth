@@ -93,29 +93,32 @@
 
           <!-- TAB 1: Book Info -->
           <div class="tab-content" [hidden]="sourceMode() || activeTab() !== 'Book Info'">
-            <div class="form-group">
-              <label class="form-label">Format</label>
+            <app-form-field label="Format" forId="book-type">
               <select
+                id="book-type"
+                appSelect
+                size="compact"
                 [(ngModel)]="form.type"
                 (ngModelChange)="onTypeChange($event)"
                 name="type"
-                class="select-input input"
                 [disabled]="isEditMode()"
               >
                 <option value="physical">Physical Book</option>
                 <option value="ebook">E-Book</option>
                 <option value="audiobook">Audiobook</option>
               </select>
-            </div>
+            </app-form-field>
 
-            <div class="form-group">
-              <label class="form-label"
-                >{{ form.type === 'audiobook' ? 'ASIN' : 'ISBN' }} (Fetchable)</label
-              >
+            <app-form-field
+              [label]="(form.type === 'audiobook' ? 'ASIN' : 'ISBN') + ' (Fetchable)'"
+              [forId]="form.type === 'audiobook' ? 'book-asin' : 'book-isbn'"
+            >
               <div class="input-group-fetch">
                 @if (form.type === 'audiobook') {
                   <input
-                    class="input"
+                    id="book-asin"
+                    appInput
+                    size="compact"
                     type="text"
                     [(ngModel)]="form.asin"
                     name="asin"
@@ -123,7 +126,9 @@
                   />
                 } @else {
                   <input
-                    class="input"
+                    id="book-isbn"
+                    appInput
+                    size="compact"
                     type="text"
                     [(ngModel)]="form.isbn"
                     name="isbn"
@@ -141,189 +146,214 @@
                   </button>
                 }
               </div>
-            </div>
+            </app-form-field>
 
             <hr class="divider" />
 
-            <div class="form-group">
-              <label class="form-label">Title <span class="required">*</span></label>
+            <app-form-field label="Title" forId="book-title" [required]="true">
               <input
                 #titleInput
-                class="input"
+                id="book-title"
+                appInput
+                size="compact"
                 type="text"
                 [(ngModel)]="form.title"
                 name="title"
                 required
                 placeholder="Book Title"
               />
-            </div>
+            </app-form-field>
 
-            <div class="form-group">
-              <label class="form-label">Subtitle</label>
+            <app-form-field label="Subtitle" forId="book-subtitle">
               <input
-                class="input"
+                id="book-subtitle"
+                appInput
+                size="compact"
                 type="text"
                 [(ngModel)]="form.subtitle"
                 name="subtitle"
                 placeholder="Subtitle"
               />
-            </div>
+            </app-form-field>
 
-            <div class="form-group">
-              <label class="form-label">Author</label>
+            <app-form-field label="Author" forId="book-author">
               <input
-                class="input"
+                id="book-author"
+                appInput
+                size="compact"
                 type="text"
                 [(ngModel)]="form.author"
                 name="author"
                 placeholder="Primary Author"
               />
-            </div>
+            </app-form-field>
 
             <div class="grid grid-2">
-              <div class="form-group">
-                <label class="form-label">Editor <span class="info-text">(Harvard)</span></label>
+              <app-form-field label="Editor" forId="book-editor" labelNote="(Harvard)">
                 <input
-                  class="input"
+                  id="book-editor"
+                  appInput
+                  size="compact"
                   type="text"
                   [(ngModel)]="form.editor"
                   name="editor"
                   placeholder="Editor (ed.)"
                 />
-              </div>
-              <div class="form-group">
-                <label class="form-label">Translator</label>
+              </app-form-field>
+              <app-form-field label="Translator" forId="book-translator">
                 <input
-                  class="input"
+                  id="book-translator"
+                  appInput
+                  size="compact"
                   type="text"
                   [(ngModel)]="form.translator"
                   name="translator"
                   placeholder="Translator"
                 />
-              </div>
+              </app-form-field>
             </div>
 
             @if (form.type === 'audiobook') {
-              <div class="form-group fade-in">
-                <label class="form-label">Narrator</label>
+              <app-form-field class="fade-in" label="Narrator" forId="book-narrator">
                 <input
-                  class="input"
+                  id="book-narrator"
+                  appInput
+                  size="compact"
                   type="text"
                   [(ngModel)]="form.narrator"
                   name="narrator"
                   placeholder="Narrator Name"
                 />
-              </div>
+              </app-form-field>
             }
 
             <div class="grid grid-2">
-              <div class="form-group">
-                <label class="form-label">Series</label>
+              <app-form-field label="Series" forId="book-series">
                 <input
-                  class="input"
+                  id="book-series"
+                  appInput
+                  size="compact"
                   type="text"
                   [(ngModel)]="form.series"
                   name="series"
                   placeholder="Series Name"
                 />
-              </div>
-              <div class="form-group">
-                <label class="form-label">Volume #</label>
+              </app-form-field>
+              <app-form-field label="Volume #" forId="book-volume-number">
                 <input
-                  class="input"
+                  id="book-volume-number"
+                  appInput
+                  size="compact"
                   type="text"
                   [(ngModel)]="form.volumeNumber"
                   name="volumeNumber"
                   placeholder="e.g. 1"
                 />
-              </div>
+              </app-form-field>
             </div>
 
-            <div class="form-group">
-              <label class="form-label">Description</label>
+            <app-form-field label="Description" forId="book-description">
               <textarea
-                class="input textarea"
+                id="book-description"
+                appTextarea
+                size="compact"
                 rows="5"
                 [(ngModel)]="form.description"
                 name="description"
               ></textarea>
-            </div>
+            </app-form-field>
           </div>
+
           <!-- TAB 2: Publishing -->
           <div class="tab-content" [hidden]="sourceMode() || activeTab() !== 'Publishing'">
             <div class="grid grid-2">
-              <div class="form-group">
-                <label class="form-label">Publisher</label>
-                <input class="input" type="text" [(ngModel)]="form.publisher" name="publisher" />
-              </div>
-              <div class="form-group">
-                <label class="form-label"
-                  >Place of Pub. <span class="info-text">(Harvard)</span></label
-                >
+              <app-form-field label="Publisher" forId="book-publisher">
                 <input
-                  class="input"
+                  id="book-publisher"
+                  appInput
+                  size="compact"
+                  type="text"
+                  [(ngModel)]="form.publisher"
+                  name="publisher"
+                />
+              </app-form-field>
+              <app-form-field
+                label="Place of Pub."
+                forId="book-place-of-publication"
+                labelNote="(Harvard)"
+              >
+                <input
+                  id="book-place-of-publication"
+                  appInput
+                  size="compact"
                   type="text"
                   [(ngModel)]="form.placeOfPublication"
                   name="placeOfPublication"
                   placeholder="e.g. London"
                 />
-              </div>
+              </app-form-field>
             </div>
 
             <div class="grid grid-2">
-              <div class="form-group">
-                <label class="form-label">Published Date</label>
+              <app-form-field label="Published Date" forId="book-published-date">
                 <input
-                  class="input"
+                  id="book-published-date"
+                  appInput
+                  size="compact"
                   type="text"
                   [(ngModel)]="form.publishedDate"
                   name="publishedDate"
                   placeholder="YYYY or YYYY-MM-DD"
                   (blur)="form.publishedDate = sanitizeDate(form.publishedDate)"
                 />
-              </div>
-              <div class="form-group">
-                <label class="form-label">Edition</label>
+              </app-form-field>
+              <app-form-field label="Edition" forId="book-edition">
                 <input
-                  class="input"
+                  id="book-edition"
+                  appInput
+                  size="compact"
                   type="text"
                   [(ngModel)]="form.edition"
                   name="edition"
                   placeholder="e.g. 2nd edn"
                 />
-              </div>
+              </app-form-field>
             </div>
 
             <div class="grid grid-2">
-              <div class="form-group">
-                <label class="form-label">Language</label>
+              <app-form-field label="Language" forId="book-language">
                 <input
-                  class="input"
+                  id="book-language"
+                  appInput
+                  size="compact"
                   type="text"
                   [(ngModel)]="form.language"
                   name="language"
                   placeholder="en"
                 />
-              </div>
-              <div class="form-group">
-                <label class="form-label">Genres</label>
+              </app-form-field>
+              <app-form-field label="Genres" forId="book-genres">
                 <input
-                  class="input"
+                  id="book-genres"
+                  appInput
+                  size="compact"
                   type="text"
                   [(ngModel)]="form.categories"
                   name="categories"
                   placeholder="Fiction, Sci-Fi..."
                 />
-              </div>
+              </app-form-field>
             </div>
 
-            <div class="form-group">
-              <label class="form-label">{{
-                form.type === 'audiobook' ? 'Duration' : 'Page Count'
-              }}</label>
+            <app-form-field
+              [label]="form.type === 'audiobook' ? 'Duration' : 'Page Count'"
+              [forId]="form.type === 'audiobook' ? 'book-duration' : 'book-page-count'"
+            >
               @if (form.type === 'audiobook') {
                 <input
-                  class="input"
+                  id="book-duration"
+                  appInput
+                  size="compact"
                   type="text"
                   [(ngModel)]="form.duration"
                   name="duration"
@@ -331,20 +361,22 @@
                 />
               } @else {
                 <input
-                  class="input"
+                  id="book-page-count"
+                  appInput
+                  size="compact"
                   type="number"
                   [(ngModel)]="form.pageCount"
                   name="pageCount"
                   placeholder="e.g. 450"
                 />
               }
-            </div>
+            </app-form-field>
           </div>
           <!-- TAB 3: Files & Personal -->
           <div class="tab-content" [hidden]="sourceMode() || activeTab() !== 'Files & Personal'">
             @if (!isEditMode()) {
-              <div class="form-group">
-                <span class="form-label">Book File</span>
+              <div class="asset-field">
+                <span class="asset-field__label">Book File</span>
                 @if (seededFromSource()) {
                   <!-- The import fetches this file itself. Offering an upload here
                        would be a trap rather than a courtesy: submit() routes this
@@ -381,8 +413,8 @@
                   }
                 }
               </div>
-              <div class="form-group">
-                <span class="form-label">Cover Image</span>
+              <div class="asset-field">
+                <span class="asset-field__label">Cover Image</span>
                 @if (seededFromSource()) {
                   <!-- The cover already comes with the import: the provider puts
                        one in the acquisition plan, IncludeCover defaults to true,
@@ -430,7 +462,7 @@
 
             <hr class="divider" />
 
-            <div class="form-group">
+            <div class="collection-field">
               <app-collection-picker
                 label="Collections"
                 [collections]="collections()"
@@ -439,16 +471,17 @@
               ></app-collection-picker>
             </div>
 
-            <div class="form-group">
-              <label class="form-label">Personal Review / Notes</label>
+            <app-form-field label="Personal Review / Notes" forId="book-personal-review">
               <textarea
-                class="input textarea"
+                id="book-personal-review"
+                appTextarea
+                size="compact"
                 rows="3"
                 [(ngModel)]="form.personalReview"
                 name="personalReview"
                 placeholder="Your thoughts on this book..."
               ></textarea>
-            </div>
+            </app-form-field>
           </div>
 
           <!-- The source search, shown INSTEAD of the form, not as one of its
@@ -477,8 +510,8 @@
                 </div>
               }
 
-              <div class="form-group">
-                <label class="form-label" for="source-query">
+              <div class="source-search-field">
+                <label class="source-search-label" for="source-query">
                   Search {{ selectedProvider()?.displayName || 'the source' }}
                 </label>
                 <div class="source-search">
