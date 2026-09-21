@@ -131,6 +131,29 @@ describe('AddBookModal — From a Source', () => {
     expect(tabLabels()).toEqual(['Book Info', 'Publishing', 'Files & Personal']);
   });
 
+  it('exposes the form sections as keyboard-navigable ARIA tabs', () => {
+    const tablist = fixture.nativeElement.querySelector('[role="tablist"]') as HTMLElement;
+    const tabs = Array.from<HTMLButtonElement>(tablist.querySelectorAll('[role="tab"]'));
+
+    expect(tablist.getAttribute('aria-label')).toBe('Book details sections');
+    expect(tabs).toHaveLength(3);
+    expect(tabs[0].getAttribute('aria-selected')).toBe('true');
+    expect(tabs[0].getAttribute('aria-controls')).toBe('book-info-panel');
+    expect(tabs[1].getAttribute('tabindex')).toBe('-1');
+
+    const bookInfoPanel = fixture.nativeElement.querySelector('#book-info-panel') as HTMLElement;
+    expect(bookInfoPanel.getAttribute('role')).toBe('tabpanel');
+    expect(bookInfoPanel.getAttribute('aria-labelledby')).toBe('book-info-tab');
+
+    tabs[0].focus();
+    tabs[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    fixture.detectChanges();
+
+    expect(component.activeTab()).toBe('Publishing');
+    expect(tabs[1].getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(tabs[1]);
+  });
+
   it('refuses to enter the source search when editing a book', () => {
     fixture.componentRef.setInput('book', { id: 'b1', title: 'Meditations' } as unknown as Book);
     fixture.detectChanges();
