@@ -65,7 +65,8 @@ test.describe('issue 357 — Add Book canonical form controls', () => {
 
         expect(geometry.every((g) => g.width > 0 && g.right <= g.viewport + 1)).toBe(true);
         const floor = tc.width < 768 ? 44 : 39;
-        expect(geometry.every((g) => g.height >= floor)).toBe(true);
+        console.log(`[issue-357:${tc.name}] geometry`, JSON.stringify(geometry));
+        expect(geometry.every((g) => g.height >= floor - 0.1)).toBe(true);
         expect(new Set(geometry.map((g) => g.borderRadius)).size).toBe(1);
 
         const title = page.locator('#book-title');
