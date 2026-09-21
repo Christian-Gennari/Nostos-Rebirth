@@ -53,7 +53,7 @@ test.describe('Nostos UI v1 catalogue', () => {
           'true',
         );
         await expect(page.locator('#catalogue-author')).toHaveAttribute('aria-invalid', 'true');
-        await expect(page.getByLabel('Checked switch example')).toBeChecked();
+        await expect(page.getByLabel('Checked switch example', { exact: true })).toBeChecked();
         await expect(page.getByRole('button', { name: 'Selected' })).toHaveAttribute(
           'aria-pressed',
           'true',
