@@ -136,6 +136,9 @@ public sealed class AssistantToolSchemaTests : IClassFixture<SqliteTestFixture>
         ["library_move_collection"] = new(
             Properties: new() { ["collectionId"] = "string", ["newParentId"] = "string" },
             Required: ["collectionId"]),
+        ["library_delete_empty_collection"] = new(
+            Properties: new() { ["collectionId"] = "string" },
+            Required: ["collectionId"]),
         ["library_delete_collection"] = new(
             Properties: new() { ["collectionId"] = "string" },
             Required: ["collectionId"]),
