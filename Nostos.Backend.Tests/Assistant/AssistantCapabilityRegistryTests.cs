@@ -32,7 +32,10 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
     [
         "library_resolve_book",
         "library_list_books",
+        "library_get_book",
         "library_overview",
+        "library_create_or_match_book",
+        "library_update_book",
         "notes_list_for_book",
         "notes_search",
         "notes_list_unlinked",
@@ -46,6 +49,7 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
         "library_create_collection",
         "library_rename_collection",
         "library_move_collection",
+        "library_delete_collection",
     ];
 
     private readonly SqliteTestFixture _fixture;
@@ -66,21 +70,25 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
         h.Registry.All.Select(c => c.Trust).Should().Contain([
             AssistantTrustClass.Capture,
             AssistantTrustClass.Suggest,
+            AssistantTrustClass.Act,
             AssistantTrustClass.PlanAndAct,
         ]);
     }
 
     [Fact]
-    public void No_registered_capability_has_destructive_semantics()
+    public void Destructive_surface_is_narrow_and_approval_required()
     {
         var h = CreateHarness();
 
         var destructive = new Regex("delete|remove|purge|reset|destroy|drop", RegexOptions.IgnoreCase);
-        h.Registry.All.Should().NotContain(c => destructive.IsMatch(c.Name));
-        h.Registry.All.Select(c => c.Name).Should().NotContain([
-            "library_delete_book",
-            "library_delete_collection",
-        ]);
+        var destructiveCapabilities = h.Registry.All
+            .Where(capability => destructive.IsMatch(capability.Name))
+            .ToList();
+
+        destructiveCapabilities.Should().ContainSingle();
+        destructiveCapabilities[0].Name.Should().Be("library_delete_collection");
+        destructiveCapabilities[0].Trust.Should().Be(AssistantTrustClass.PlanAndAct);
+        h.Registry.All.Select(c => c.Name).Should().NotContain("library_delete_book");
     }
 
     [Fact]
@@ -158,16 +166,32 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
     public async Task PlanAndAct_executes_when_the_approval_matches_the_plan()
     {
         var h = CreateHarness();
+        var collection = await SeedCollectionAsync(h, "Delete me");
         var before = await CollectionCountAsync(h);
 
         var result = await h.Registry.InvokeAsync(
-            "library_create_collection",
-            Args("""{"name":"Approved Collection"}"""),
+            "library_delete_collection",
+            Args($"""{"collectionId":"{{collection.Id}}"}"""),
             new AssistantToolContext(
                 "client",
                 "approved-key",
                 PlanId: "plan-1",
                 Approval: new AssistantPlanApproval("plan-1", "token")));
+
+        result.Success.Should().BeTrue();
+        (await CollectionCountAsync(h)).Should().Be(before - 1);
+    }
+
+    [Fact]
+    public async Task Act_executes_immediately_without_a_plan_approval()
+    {
+        var h = CreateHarness();
+        var before = await CollectionCountAsync(h);
+
+        var result = await h.Registry.InvokeAsync(
+            "library_create_collection",
+            Args("""{"name":"Immediate Collection"}"""),
+            new AssistantToolContext("client", "act-key"));
 
         result.Success.Should().BeTrue();
         (await CollectionCountAsync(h)).Should().Be(before + 1);
@@ -234,6 +258,7 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
         {
             ("library_resolve_book", """{"title":"Seeded Book","author":"Author","includeExternalMetadata":false}"""),
             ("library_list_books", "{}"),
+            ("library_get_book", $"""{"bookId":"{{book.Id}}"}"""),
             ("library_overview", "{}"),
             ("notes_list_for_book", $$"""{"bookId":"{{book.Id}}"}"""),
             ("notes_search", """{"query":"seeded"}"""),
@@ -252,6 +277,47 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
         }
 
         (await StoreSnapshotAsync(h)).Should().BeEquivalentTo(before);
+    }
+
+    [Fact]
+    public async Task Book_actions_can_create_then_replace_collection_membership()
+    {
+        var h = CreateHarness();
+        var collection = await SeedCollectionAsync(h, "German Literature");
+
+        var created = await h.Registry.InvokeAsync(
+            "library_create_or_match_book",
+            Args($"""
+            {
+              "type":"physical",
+              "title":"The Magic Mountain",
+              "author":"Thomas Mann",
+              "collectionIds":["{{collection.Id}}"]
+            }
+            """),
+            new AssistantToolContext("client", "book-create"));
+
+        created.Success.Should().BeTrue();
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var book = await db.Books.AsNoTracking().SingleAsync(b => b.Title == "The Magic Mountain");
+        var membership = await db.BookCollections.AsNoTracking()
+            .Where(link => link.BookId == book.Id)
+            .Select(link => link.CollectionId)
+            .ToListAsync();
+        membership.Should().Equal(collection.Id);
+
+        var updated = await h.Registry.InvokeAsync(
+            "library_update_book",
+            Args($"""{"bookId":"{{book.Id}}","collectionIds":[]}"""),
+            new AssistantToolContext("client", "book-update"));
+
+        updated.Success.Should().BeTrue();
+
+        var after = await db.BookCollections.AsNoTracking()
+            .Where(link => link.BookId == book.Id)
+            .CountAsync();
+        after.Should().Be(0);
     }
 
     [Fact]
