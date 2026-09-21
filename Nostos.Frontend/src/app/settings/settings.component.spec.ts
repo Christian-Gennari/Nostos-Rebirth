@@ -408,7 +408,7 @@ describe('SettingsComponent backup-only surface', () => {
   // Reading assistant (W1)
   // ------------------------------------------------------------------
 
-  it('renders the Reading assistant card with the available copy and an on toggle', () => {
+  it('renders the Reading assistant card with the available copy and an off toggle by default', () => {
     expect(cardHeaders()).toContain('Reading assistant');
 
     const card = assistantCard();
@@ -420,39 +420,39 @@ describe('SettingsComponent backup-only surface', () => {
     const toggle = assistantToggle();
     expect(toggle.disabled).toBe(false);
     expect(toggle.getAttribute('aria-disabled')).toBeNull();
-    expect(toggle.checked).toBe(true);
+    expect(toggle.checked).toBe(false);
   });
 
   it('records the assistant choice through the existing preferences service', () => {
     const preferences = TestBed.inject(LibraryPreferencesService);
-    expect(preferences.assistantEnabled()).toBe(true);
+    expect(preferences.assistantEnabled()).toBe(false);
 
-    assistantToggle().checked = false;
+    assistantToggle().checked = true;
     assistantToggle().dispatchEvent(new Event('change'));
     fixture.detectChanges();
 
-    expect(preferences.assistantEnabled()).toBe(false);
+    expect(preferences.assistantEnabled()).toBe(true);
   });
 
-  it('persists the assistant toggle across a reload', async () => {
-    assistantToggle().checked = false;
+  it('persists enabling the assistant across a reload', async () => {
+    assistantToggle().checked = true;
     assistantToggle().dispatchEvent(new Event('change'));
     fixture.detectChanges();
     await fixture.whenStable();
 
     expect(JSON.parse(localStorage.getItem(LIBRARY_PREFERENCES_STORAGE_KEY)!).assistantEnabled).toBe(
-      false,
+      true,
     );
 
     // A reload is a fresh injector reading the same localStorage.
     TestBed.resetTestingModule();
     await configure();
 
-    expect(TestBed.inject(LibraryPreferencesService).assistantEnabled()).toBe(false);
-    expect(assistantToggle().checked).toBe(false);
+    expect(TestBed.inject(LibraryPreferencesService).assistantEnabled()).toBe(true);
+    expect(assistantToggle().checked).toBe(true);
   });
 
-  it('defaults the assistant toggle on for preferences stored before it existed', async () => {
+  it('defaults the assistant toggle off for preferences stored before it existed', async () => {
     localStorage.setItem(
       LIBRARY_PREFERENCES_STORAGE_KEY,
       JSON.stringify({
@@ -468,11 +468,11 @@ describe('SettingsComponent backup-only surface', () => {
     await configure();
 
     const preferences = TestBed.inject(LibraryPreferencesService);
-    expect(preferences.assistantEnabled()).toBe(true);
+    expect(preferences.assistantEnabled()).toBe(false);
     // The older choices survive: the missing field is not corruption.
     expect(preferences.viewMode()).toBe('list');
     expect(preferences.pageSize()).toBe(50);
-    expect(assistantToggle().checked).toBe(true);
+    expect(assistantToggle().checked).toBe(false);
   });
 
   it('renders the toggle off and non-interactive when the server is unavailable', () => {
