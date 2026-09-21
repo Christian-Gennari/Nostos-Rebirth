@@ -16,21 +16,15 @@ namespace Nostos.Backend.Services.Library;
 /// </summary>
 public sealed class LibraryService : ILibraryService
 {
-    // Process-local gate serializes library mutations (mirror of the reading
-    // service). Static so the gate is shared across scoped service instances.
-    private static readonly SemaphoreSlim CommandGate = new(1, 1);
-    private static readonly JsonSerializerOptions ReceiptJson = new(JsonSerializerDefaults.Web)
-    {
-        Converters = { new LibraryCommandResultJsonConverter() },
-    };
-
     private readonly IDbContextFactory<NostosDbContext> _contexts;
-    private readonly BookLookupService _lookup;
+    private readonly LibraryReadService _reads;
+    private readonly LibraryMutationExecutor _mutations;
 
     public LibraryService(IDbContextFactory<NostosDbContext> contexts, BookLookupService lookup)
     {
         _contexts = contexts;
-        _lookup = lookup;
+        _reads = new LibraryReadService(contexts, lookup);
+        _mutations = new LibraryMutationExecutor(contexts);
     }
 
     private DateTime Now => DateTime.UtcNow;
@@ -39,7 +33,7 @@ public sealed class LibraryService : ILibraryService
     // Read-only surface
     // ------------------------------------------------------------------
 
-    public async Task<LibraryCommandResultDto> ListBooksAsync(
+    public Task<LibraryCommandResultDto> ListBooksAsync(
         BookFilter filter,
         BookSort sort,
         string? search,
@@ -48,398 +42,30 @@ public sealed class LibraryService : ILibraryService
         Guid? collectionId,
         bool? groupByWork = false,
         string? format = null,
-        CancellationToken ct = default)
-    {
-        await using var db = await _contexts.CreateDbContextAsync(ct);
-        var state = await TryGetStateAsync(db, ct);
-        var version = state?.StateVersion ?? "0";
+        CancellationToken ct = default) =>
+        _reads.ListBooksAsync(filter, sort, search, page, pageSize, collectionId, groupByWork, format, ct);
 
-        var safePage = Math.Max(1, page);
-        var safePageSize = Math.Clamp(pageSize, 1, 100);
+    public Task<LibraryCommandResultDto> GetStatusCountsAsync(CancellationToken ct = default) =>
+        _reads.GetStatusCountsAsync(ct);
 
-        var query = db.Books.AsNoTracking().AsQueryable();
+    public Task<LibraryCommandResultDto> GetBookAsync(Guid bookId, CancellationToken ct = default) =>
+        _reads.GetBookAsync(bookId, ct);
 
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var term = $"%{search}%";
-            query = query.Where(b =>
-                EF.Functions.Like(b.Title, term) || EF.Functions.Like(b.Author, term));
-        }
+    public Task<LibraryResolveResult> ResolveBookAsync(
+        LibraryResolveBookRequest request,
+        CancellationToken ct = default) =>
+        _reads.ResolveBookAsync(request, ct);
 
-        if (!string.IsNullOrWhiteSpace(format))
-        {
-            switch (format.Trim().ToLowerInvariant())
-            {
-                case "audiobook":
-                case "audio":
-                    query = query.Where(b => b is AudioBookModel);
-                    break;
-                case "pdf":
-                    query = query.Where(b => b.FileDetails.FileName != null && EF.Functions.Like(b.FileDetails.FileName, "%.pdf"));
-                    break;
-                case "ebook":
-                case "epub":
-                    query = query.Where(b => b is EBookModel && (b.FileDetails.FileName == null || !EF.Functions.Like(b.FileDetails.FileName, "%.pdf")));
-                    break;
-                case "physical":
-                    query = query.Where(b => b is PhysicalBookModel);
-                    break;
-            }
-        }
+    public Task<LibraryCommandResultDto> ListCollectionsAsync(CancellationToken ct = default) =>
+        _reads.ListCollectionsAsync(ct);
 
-        query = filter switch
-        {
-            BookFilter.Favorites => query.Where(b => b.Progress.IsFavorite),
-            BookFilter.Finished => query.Where(b => b.Progress.FinishedAt != null),
-            BookFilter.Reading => query.Where(b => b.Progress.FinishedAt == null && b.Progress.ProgressPercent > 0),
-            BookFilter.NotStarted => query.Where(b => b.Progress.ProgressPercent == 0),
-            BookFilter.Unsorted => query.Where(b =>
-                !db.BookCollections.Any(bc => bc.BookId == b.Id)),
-            _ => query,
-        };
+    public Task<LibraryCommandResultDto> ListCollectionCountsAsync(CancellationToken ct = default) =>
+        _reads.ListCollectionCountsAsync(ct);
 
-        if (collectionId.HasValue)
-        {
-            // Recursive filter (collections Phase 1): selecting a parent
-            // collection includes books assigned to ANY descendant. The
-            // subtree is expanded in memory from the flat id/parent list
-            // (no SQL CTE); the small HashSet translates to IN (...).
-            var collections = await db.Collections.AsNoTracking()
-                .Select(c => new CollectionModel { Id = c.Id, ParentId = c.ParentId })
-                .ToListAsync(ct);
-            var subtreeIds = GetSubtreeIds(collectionId.Value, collections);
-
-            // A book matches when ANY of its memberships is in the subtree.
-            query = query.Where(b =>
-                db.BookCollections.Any(bc => bc.BookId == b.Id && subtreeIds.Contains(bc.CollectionId)));
-        }
-
-        PaginatedResponse<BookDto> pageResult;
-        int totalCount;
-        if (groupByWork == true)
-        {
-            // Group after all book-level filters have been applied, but before
-            // pagination. A work therefore occupies one page slot while the
-            // primary still reflects the filtered result (for example, a
-            // favorites query can select a favorite edition).
-            var candidates = await query
-                .Include(b => b.Work)
-                .Include(b => b.BookCollections)
-                .Include(b => b.Acquisition)
-                .ToListAsync(ct);
-
-            var candidateWorkIds = candidates.Select(c => c.WorkId).Distinct().ToList();
-            var siblingBooks = await db.Books.AsNoTracking()
-                .Include(b => b.Acquisition)
-                .Where(b => candidateWorkIds.Contains(b.WorkId))
-                .ToListAsync(ct);
-            var siblingsByWork = siblingBooks
-                .GroupBy(b => b.WorkId)
-                .ToDictionary(g => g.Key, g => g.ToList());
-
-            var grouped = candidates
-                .GroupBy(b => b.WorkId)
-                .Select(g =>
-                {
-                    var primary = SelectPrimaryEdition(g);
-                    var allEditions = siblingsByWork.GetValueOrDefault(primary.WorkId) ?? g.ToList();
-                    var dto = primary.ToDto() with
-                    {
-                        WorkId = primary.WorkId,
-                        EditionCount = allEditions.Count,
-                        OtherEditions = allEditions
-                            .Where(b => b.Id != primary.Id)
-                            .Select(MappingExtensions.ToEditionSummary)
-                            .ToList(),
-                    };
-                    return new GroupedBook(primary, dto);
-                })
-                .ToList();
-
-            grouped = SortGroupedBooks(grouped, sort).ToList();
-            totalCount = grouped.Count;
-            pageResult = new PaginatedResponse<BookDto>(
-                grouped
-                    .Skip((safePage - 1) * safePageSize)
-                    .Take(safePageSize)
-                    .Select(g => g.Dto),
-                totalCount,
-                safePage,
-                safePageSize);
-        }
-        else
-        {
-            // Imports sort FIRST, whatever the sort key is. The row is an ordinary
-            // book all along (nothing filters it out), so the only reason a running
-            // import could not be seen was the ordering: under Last Read a brand-new
-            // book has no LastReadAt, so it sorted behind every book the user has
-            // ever opened — page 3 of a full library — and the progress bar was
-            // drawn on a card nobody could see.
-            IOrderedQueryable<BookModel> ImportingFirst(IQueryable<BookModel> source) =>
-                source.OrderByDescending(b =>
-                    b.Status == BookStatus.Downloading || b.Status == BookStatus.Transcoding);
-
-            query = sort switch
-            {
-                BookSort.Title => ImportingFirst(query).ThenBy(b => b.Title),
-                BookSort.Rating => ImportingFirst(query).ThenByDescending(b => b.Progress.Rating),
-                BookSort.LastRead => ImportingFirst(query)
-                    .ThenByDescending(b => b.Progress.LastReadAt.HasValue)
-                    .ThenByDescending(b => b.Progress.LastReadAt),
-                _ => ImportingFirst(query).ThenByDescending(b => b.CreatedAt),
-            };
-
-            totalCount = await query.CountAsync(ct);
-            var items = await query
-                .Include(b => b.Work)
-                .Include(b => b.BookCollections)
-                .Include(b => b.Acquisition)
-                .Skip((safePage - 1) * safePageSize)
-                .Take(safePageSize)
-                .ToListAsync(ct);
-
-            var pageWorkIds = items.Select(b => b.WorkId).Distinct().ToList();
-            var pageSiblings = await db.Books.AsNoTracking()
-                .Include(b => b.BookCollections)
-                .Include(b => b.Acquisition)
-                .Where(b => pageWorkIds.Contains(b.WorkId))
-                .ToListAsync(ct);
-            var pageSiblingsByWork = pageSiblings
-                .GroupBy(b => b.WorkId)
-                .ToDictionary(g => g.Key, g => g.ToList());
-
-            var dtoList = items.Select(b =>
-            {
-                var siblings = pageSiblingsByWork.GetValueOrDefault(b.WorkId) ?? [b];
-                return b.ToDto() with
-                {
-                    WorkId = b.WorkId,
-                    EditionCount = siblings.Count,
-                    OtherEditions = siblings
-                        .Where(s => s.Id != b.Id)
-                        .Select(MappingExtensions.ToEditionSummary)
-                        .ToList()
-                };
-            }).ToList();
-
-            pageResult = new PaginatedResponse<BookDto>(
-                dtoList,
-                totalCount,
-                safePage,
-                safePageSize);
-        }
-
-        return Result(LibraryReplyFormatter.BookList(totalCount), pageResult, version);
-    }
-
-    public async Task<LibraryCommandResultDto> GetStatusCountsAsync(CancellationToken ct = default)
-    {
-        await using var db = await _contexts.CreateDbContextAsync(ct);
-        var state = await TryGetStateAsync(db, ct);
-        var version = state?.StateVersion ?? "0";
-
-        var all = await db.Books.AsNoTracking().CountAsync(ct);
-        var notStarted = await db.Books.AsNoTracking().CountAsync(b => b.Progress.ProgressPercent == 0, ct);
-        var reading = await db.Books.AsNoTracking().CountAsync(b => b.Progress.FinishedAt == null && b.Progress.ProgressPercent > 0, ct);
-        var favorites = await db.Books.AsNoTracking().CountAsync(b => b.Progress.IsFavorite, ct);
-        var finished = await db.Books.AsNoTracking().CountAsync(b => b.Progress.FinishedAt != null, ct);
-        var unsorted = await db.Books.AsNoTracking()
-            .CountAsync(b => !db.BookCollections.Any(bc => bc.BookId == b.Id), ct);
-        var audiobooks = await db.Books.AsNoTracking().OfType<AudioBookModel>().CountAsync(ct);
-        var pdfs = await db.Books.AsNoTracking().CountAsync(
-            b => b.FileDetails.FileName != null && EF.Functions.Like(b.FileDetails.FileName, "%.pdf"), ct);
-        var ebooks = await db.Books.AsNoTracking().OfType<EBookModel>().CountAsync(
-            b => b.FileDetails.FileName == null || !EF.Functions.Like(b.FileDetails.FileName, "%.pdf"), ct);
-
-        var counts = new LibraryStatusCountsDto(
-            all, notStarted, reading, favorites, finished, unsorted, audiobooks, ebooks, pdfs);
-
-        return Result(LibraryReplyFormatter.Success("Status counts retrieved."), counts, version);
-    }
-
-    public async Task<LibraryCommandResultDto> GetBookAsync(Guid bookId, CancellationToken ct = default)
-    {
-        await using var db = await _contexts.CreateDbContextAsync(ct);
-        var state = await TryGetStateAsync(db, ct);
-        var version = state?.StateVersion ?? "0";
-
-        var book = await db.Books.AsNoTracking()
-            .Include(b => b.BookCollections)
-            // Without this the DTO's Source is always null, so an imported book
-            // would never show where it came from.
-            .Include(b => b.Acquisition)
-            .SingleOrDefaultAsync(b => b.Id == bookId, ct);
-        if (book is null)
-            return Failure("book_not_found", LibraryReplyFormatter.BookNotFound, version);
-
-        var siblings = await db.Books.AsNoTracking()
-            .Include(b => b.BookCollections)
-            .Where(b => b.WorkId == book.WorkId)
-            .ToListAsync(ct);
-
-        var dto = book.ToDto() with
-        {
-            WorkId = book.WorkId,
-            EditionCount = siblings.Count,
-            OtherEditions = siblings
-                .Where(s => s.Id != book.Id)
-                .Select(MappingExtensions.ToEditionSummary)
-                .ToList()
-        };
-
-        return Result(LibraryReplyFormatter.Book(book.Title), dto, version);
-    }
-
-    public async Task<LibraryResolveResult> ResolveBookAsync(LibraryResolveBookRequest request, CancellationToken ct = default)
-    {
-        var nIsbn = BookIdentityNormalizer.NormalizeIsbn(request.Isbn);
-        var nAsin = BookIdentityNormalizer.NormalizeAsin(request.Asin);
-        var nTitle = BookIdentityNormalizer.NormalizeTitle(request.Title);
-        var nAuthor = BookIdentityNormalizer.NormalizeAuthor(request.Author);
-
-        await using var db = await _contexts.CreateDbContextAsync(ct);
-        // Read-only: never creates the state row (strict read-only contract).
-
-        // 1. Identifier resolution first (authoritative, indexed).
-        BookModel? isbnMatch = null;
-        BookModel? asinMatch = null;
-        if (nIsbn is not null)
-            isbnMatch = await db.Books.AsNoTracking().SingleOrDefaultAsync(b => b.NormalizedIsbn == nIsbn, ct);
-        if (nAsin is not null)
-            asinMatch = await db.Books.AsNoTracking().SingleOrDefaultAsync(b => b.NormalizedAsin == nAsin, ct);
-
-        if (isbnMatch is not null && asinMatch is not null && isbnMatch.Id != asinMatch.Id)
-            return new LibraryResolveResult(LibraryResolution.IdentityConflict);
-
-        if (isbnMatch is not null)
-            return new LibraryResolveResult(LibraryResolution.ExactMatch, isbnMatch.ToDto());
-        if (asinMatch is not null)
-            return new LibraryResolveResult(LibraryResolution.ExactMatch, asinMatch.ToDto());
-
-        // 2. Title/author resolution (in-memory; personal library scale).
-        //    Exact matching requires BOTH title and author: a title-only
-        //    request yields candidates, never an automatic match.
-        if (!string.IsNullOrEmpty(nTitle))
-        {
-            var all = await db.Books.AsNoTracking()
-                .Include(b => b.Acquisition)
-                .ToListAsync(ct);
-            var hasAuthor = !string.IsNullOrEmpty(nAuthor);
-            var exact = hasAuthor
-                ? all
-                    .Where(b =>
-                        string.Equals(BookIdentityNormalizer.NormalizeTitle(b.Title), nTitle, StringComparison.Ordinal) &&
-                        string.Equals(BookIdentityNormalizer.NormalizeAuthor(b.Author), nAuthor, StringComparison.Ordinal))
-                    .ToList()
-                : [];
-
-            if (exact.Count == 1)
-                return new LibraryResolveResult(LibraryResolution.ExactMatch, exact[0].ToDto());
-
-            if (exact.Count > 1)
-            {
-                var candidates = exact
-                    .Select(b => ToCandidate(b, "exact title" + (string.IsNullOrEmpty(nAuthor) ? "" : "+author match")))
-                    .ToList();
-                return new LibraryResolveResult(LibraryResolution.Candidates, Candidates: candidates);
-            }
-
-            // Fuzzy: normalized containment on title or author.
-            var fuzzy = all
-                .Where(b =>
-                {
-                    var bt = BookIdentityNormalizer.NormalizeTitle(b.Title);
-                    var ba = BookIdentityNormalizer.NormalizeAuthor(b.Author);
-                    return (!string.IsNullOrEmpty(bt) && bt.Contains(nTitle, StringComparison.Ordinal)) ||
-                           (!string.IsNullOrEmpty(nAuthor) && !string.IsNullOrEmpty(ba) &&
-                            ba.Contains(nAuthor, StringComparison.Ordinal));
-                })
-                .Select(b => ToCandidate(b, "fuzzy title/author match"))
-                .ToList();
-
-            if (fuzzy.Count > 0)
-                return new LibraryResolveResult(LibraryResolution.Candidates, Candidates: fuzzy);
-        }
-
-        // 3. Not found locally; prefill from external metadata when an ISBN is
-        //    available. External metadata is NEVER treated as membership.
-        CreateBookDto? prefill = null;
-        string? lookupError = null;
-        if (request.IncludeExternalMetadata && nIsbn is not null)
-        {
-            var outcome = await _lookup.LookupCombinedDetailedAsync(nIsbn, ct);
-            prefill = outcome.Metadata;
-            if (outcome.Failed)
-                lookupError = "lookup_timeout";
-        }
-
-        return new LibraryResolveResult(LibraryResolution.NotFound, Prefill: prefill, LookupError: lookupError);
-    }
-
-    public async Task<LibraryCommandResultDto> ListCollectionsAsync(CancellationToken ct = default)
-    {
-        await using var db = await _contexts.CreateDbContextAsync(ct);
-        var state = await TryGetStateAsync(db, ct);
-        var version = state?.StateVersion ?? "0";
-
-        var items = await db.Collections.AsNoTracking()
-            .OrderBy(c => c.Name)
-            .ThenBy(c => c.Id)
-            .ToListAsync(ct);
-
-        return Result(
-            LibraryReplyFormatter.CollectionList(items.Count),
-            items.Select(c => new CollectionDto(c.Id, c.Name, c.ParentId)).ToList(),
-            version);
-    }
-
-    public async Task<LibraryCommandResultDto> ListCollectionCountsAsync(CancellationToken ct = default)
-    {
-        await using var db = await _contexts.CreateDbContextAsync(ct);
-        var state = await TryGetStateAsync(db, ct);
-        var version = state?.StateVersion ?? "0";
-
-        // One grouped query for DIRECT counts, then a single in-memory
-        // post-order rollup. Never one count query per collection, and the
-        // frontend never sums counts itself (canonical recursion lives here).
-        var collections = await db.Collections.AsNoTracking()
-            .OrderBy(c => c.Name)
-            .ThenBy(c => c.Id)
-            .Select(c => new CollectionModel { Id = c.Id, ParentId = c.ParentId })
-            .ToListAsync(ct);
-
-        var directCounts = await db.BookCollections.AsNoTracking()
-            .GroupBy(bc => bc.CollectionId)
-            .Select(g => new { CollectionId = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.CollectionId, x => x.Count, ct);
-
-        var counts = RollUpDescendantCounts(collections, directCounts);
-        var items = collections
-            .Select(c => new CollectionCountDto(c.Id, counts[c.Id]))
-            .ToList();
-
-        return Result(
-            LibraryReplyFormatter.CollectionCountList(items.Count),
-            items,
-            version);
-    }
-
-    public async Task<LibraryCommandResultDto> GetCollectionAsync(Guid collectionId, CancellationToken ct = default)
-    {
-        await using var db = await _contexts.CreateDbContextAsync(ct);
-        var state = await TryGetStateAsync(db, ct);
-        var version = state?.StateVersion ?? "0";
-
-        var collection = await db.Collections.AsNoTracking()
-            .SingleOrDefaultAsync(c => c.Id == collectionId, ct);
-        if (collection is null)
-            return Failure("collection_not_found", LibraryReplyFormatter.CollectionNotFound, version);
-
-        return Result(
-            LibraryReplyFormatter.Collection(collection.Name),
-            new CollectionDto(collection.Id, collection.Name, collection.ParentId),
-            version);
-    }
+    public Task<LibraryCommandResultDto> GetCollectionAsync(
+        Guid collectionId,
+        CancellationToken ct = default) =>
+        _reads.GetCollectionAsync(collectionId, ct);
 
     // ------------------------------------------------------------------
     // Mutations (exact-once)
@@ -449,25 +75,25 @@ public sealed class LibraryService : ILibraryService
         LibraryCreateBookRequest request,
         bool strictConfirmation,
         CancellationToken ct = default) =>
-        MutateAsync(request.ClientId, request.IdempotencyKey, "CreateOrMatchBook",
+        _mutations.ExecuteAsync(request.ClientId, request.IdempotencyKey, "CreateOrMatchBook",
             (db, token) => CreateOrMatchCoreAsync(db, request, strictConfirmation, token), ct);
 
     public Task<LibraryCommandResultDto> UpdateBookAsync(LibraryUpdateBookRequest request, CancellationToken ct = default) =>
-        MutateAsync(request.ClientId, request.IdempotencyKey, "UpdateBook",
+        _mutations.ExecuteAsync(request.ClientId, request.IdempotencyKey, "UpdateBook",
             (db, token) => UpdateBookCoreAsync(db, request, token), ct);
 
     public Task<LibraryCommandResultDto> AttachAcquiredAssetAsync(
         LibraryAttachAcquiredAssetRequest request,
         CancellationToken ct = default) =>
-        MutateAsync(request.ClientId, request.IdempotencyKey, "AttachAcquiredAsset",
+        _mutations.ExecuteAsync(request.ClientId, request.IdempotencyKey, "AttachAcquiredAsset",
             (db, token) => AttachAcquiredAssetCoreAsync(db, request, token), ct);
 
     public Task<LibraryCommandResultDto> LinkWorkAsync(LibraryLinkWorkRequest request, CancellationToken ct = default) =>
-        MutateAsync(request.ClientId, request.IdempotencyKey, "LinkWork",
+        _mutations.ExecuteAsync(request.ClientId, request.IdempotencyKey, "LinkWork",
             (db, token) => LinkWorkCoreAsync(db, request, token), ct);
 
     public Task<LibraryCommandResultDto> UnlinkWorkAsync(LibraryUnlinkWorkRequest request, CancellationToken ct = default) =>
-        MutateAsync(request.ClientId, request.IdempotencyKey, "UnlinkWork",
+        _mutations.ExecuteAsync(request.ClientId, request.IdempotencyKey, "UnlinkWork",
             (db, token) => UnlinkWorkCoreAsync(db, request, token), ct);
 
     public async Task<LibraryCommandResultDto> UpdateProgressAsync(
@@ -613,15 +239,15 @@ public sealed class LibraryService : ILibraryService
     }
 
     public Task<LibraryCommandResultDto> CreateCollectionAsync(LibraryCreateCollectionRequest request, CancellationToken ct = default) =>
-        MutateAsync(request.ClientId, request.IdempotencyKey, "CreateCollection",
+        _mutations.ExecuteAsync(request.ClientId, request.IdempotencyKey, "CreateCollection",
             (db, token) => CreateCollectionCoreAsync(db, request, token), ct);
 
     public Task<LibraryCommandResultDto> RenameCollectionAsync(LibraryRenameCollectionRequest request, CancellationToken ct = default) =>
-        MutateAsync(request.ClientId, request.IdempotencyKey, "RenameCollection",
+        _mutations.ExecuteAsync(request.ClientId, request.IdempotencyKey, "RenameCollection",
             (db, token) => RenameCollectionCoreAsync(db, request, token), ct);
 
     public Task<LibraryCommandResultDto> MoveCollectionAsync(LibraryMoveCollectionRequest request, CancellationToken ct = default) =>
-        MutateAsync(request.ClientId, request.IdempotencyKey, "MoveCollection",
+        _mutations.ExecuteAsync(request.ClientId, request.IdempotencyKey, "MoveCollection",
             (db, token) => MoveCollectionCoreAsync(db, request, token), ct);
 
     public Task<LibraryCommandResultDto> UpdateCollectionAsync(
@@ -631,12 +257,12 @@ public sealed class LibraryService : ILibraryService
         string name,
         Guid? parentId,
         CancellationToken ct = default) =>
-        MutateAsync(clientId, idempotencyKey, "UpdateCollection",
+        _mutations.ExecuteAsync(clientId, idempotencyKey, "UpdateCollection",
             (db, token) => UpdateCollectionCoreAsync(db, collectionId, name, parentId,
                 treatUnchangedAsNoOp: true, token), ct);
 
     public Task<LibraryCommandResultDto> DeleteCollectionAsync(LibraryDeleteCollectionRequest request, CancellationToken ct = default) =>
-        MutateAsync(request.ClientId, request.IdempotencyKey, "DeleteCollection",
+        _mutations.ExecuteAsync(request.ClientId, request.IdempotencyKey, "DeleteCollection",
             (db, token) => DeleteCollectionCoreAsync(db, request, token), ct);
 
     private async Task<(bool DidChange, LibraryCommandResultDto Result)> CreateOrMatchCoreAsync(
@@ -1617,81 +1243,6 @@ public sealed class LibraryService : ILibraryService
     // Exact-once receipt plumbing (mirror of the reading service)
     // ------------------------------------------------------------------
 
-    private async Task<LibraryCommandResultDto> MutateAsync(
-        string clientId,
-        string idempotencyKey,
-        string commandKind,
-        Func<NostosDbContext, CancellationToken, Task<(bool DidChange, LibraryCommandResultDto Result)>> command,
-        CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(idempotencyKey))
-            return Failure("invalid_idempotency", "ClientId and IdempotencyKey are required.");
-        if (clientId.Length > 64 || idempotencyKey.Length > 128)
-            return Failure("invalid_idempotency", "ClientId is limited to 64 characters and IdempotencyKey to 128.");
-
-        await CommandGate.WaitAsync(ct);
-        try
-        {
-            await using var db = await _contexts.CreateDbContextAsync(ct);
-            var prior = await db.LibraryCommandReceipts.AsNoTracking()
-                .SingleOrDefaultAsync(x => x.ClientId == clientId && x.IdempotencyKey == idempotencyKey, ct);
-            if (prior is not null)
-                return Deserialize(prior.ResponseJson) with { Duplicate = true };
-
-            await using var transaction = await db.Database.BeginTransactionAsync(ct);
-            var outcome = await command(db, ct);
-            // Commands commit their own successful saves; when a command
-            // reports no change it may still have left tracked mutations
-            // behind (e.g. a rejected update). Discard them so the receipt
-            // save below can never flush half-applied changes.
-            if (!outcome.DidChange)
-                db.ChangeTracker.Clear();
-            var state = db.ChangeTracker.Entries<LibraryState>().Select(x => x.Entity).SingleOrDefault()
-                ?? await db.LibraryStates.AsNoTracking().SingleOrDefaultAsync(ct);
-            var version = state?.StateVersion ?? outcome.Result.StateVersion;
-            if (outcome.DidChange && state is not null)
-            {
-                version = NextVersion(state.StateVersion);
-                state.StateVersion = version;
-                state.UpdatedAt = Now;
-            }
-
-            var result = outcome.Result with { StateVersion = version, Duplicate = false };
-            db.LibraryCommandReceipts.Add(new LibraryCommandReceipt
-            {
-                ClientId = clientId,
-                IdempotencyKey = idempotencyKey,
-                CommandKind = commandKind,
-                ResponseJson = Serialize(result),
-                CreatedAt = Now,
-            });
-
-            try
-            {
-                await db.SaveChangesAsync(ct);
-                await transaction.CommitAsync(ct);
-                return result;
-            }
-            catch (DbUpdateException)
-            {
-                await transaction.RollbackAsync(ct);
-                await using var retryDb = await _contexts.CreateDbContextAsync(ct);
-                var raced = await retryDb.LibraryCommandReceipts.AsNoTracking()
-                    .SingleOrDefaultAsync(x => x.ClientId == clientId && x.IdempotencyKey == idempotencyKey, ct);
-                if (raced is not null)
-                    return Deserialize(raced.ResponseJson) with { Duplicate = true };
-                throw;
-            }
-        }
-        finally
-        {
-            CommandGate.Release();
-        }
-    }
-
-    private static async Task<LibraryState?> TryGetStateAsync(NostosDbContext db, CancellationToken ct) =>
-        await db.LibraryStates.AsNoTracking().SingleOrDefaultAsync(ct);
-
     private static async Task<LibraryState> EnsureStateAsync(NostosDbContext db, CancellationToken ct)
     {
         var state = await db.LibraryStates.SingleOrDefaultAsync(ct);
@@ -1754,49 +1305,6 @@ public sealed class LibraryService : ILibraryService
             book is AudioBookModel a ? a.Asin : null,
             reason);
 
-    private sealed record GroupedBook(BookModel Primary, BookDto Dto);
-
-    /// <summary>
-    /// The edition that stands for a work in the list.
-    ///
-    /// An edition that is importing comes first: the user asked for that edition and
-    /// is watching it arrive, so the work's card has to be the thing they asked for —
-    /// otherwise an audiobook imported alongside a print copy of the same work would
-    /// be represented by the print copy's card, with nothing on it to watch. Reading
-    /// history decides again the moment the import ends.
-    /// </summary>
-    private static BookModel SelectPrimaryEdition(IEnumerable<BookModel> editions) => editions
-        .OrderByDescending(b => b.Status == BookStatus.Downloading || b.Status == BookStatus.Transcoding)
-        .ThenByDescending(b => b.Progress.LastReadAt.HasValue)
-        .ThenByDescending(b => b.Progress.LastReadAt)
-        .ThenByDescending(b => b.Progress.ProgressPercent)
-        .ThenBy(b => b.CreatedAt)
-        .ThenBy(b => b.Id)
-        .First();
-
-    private static IEnumerable<GroupedBook> SortGroupedBooks(
-        IEnumerable<GroupedBook> books,
-        BookSort sort) => sort switch
-        {
-            BookSort.Title => ImportingFirst(books).ThenBy(b => b.Primary.Title).ThenBy(b => b.Primary.Id),
-            BookSort.Rating => ImportingFirst(books).ThenByDescending(b => b.Primary.Progress.Rating).ThenBy(b => b.Primary.Id),
-            BookSort.LastRead => ImportingFirst(books)
-                .ThenByDescending(b => b.Primary.Progress.LastReadAt.HasValue)
-                .ThenByDescending(b => b.Primary.Progress.LastReadAt)
-                .ThenBy(b => b.Primary.Id),
-            _ => ImportingFirst(books).ThenByDescending(b => b.Primary.CreatedAt).ThenBy(b => b.Primary.Id),
-        };
-
-    /// <summary>
-    /// A work counts as importing when the edition representing it is. Same reason as
-    /// the ungrouped path: an edition that exists because the user just asked for it
-    /// has no reading history to sort on, so every user-facing sort would bury it
-    /// behind the books they have actually read.
-    /// </summary>
-    private static IOrderedEnumerable<GroupedBook> ImportingFirst(IEnumerable<GroupedBook> books) =>
-        books.OrderByDescending(b =>
-            b.Primary.Status == BookStatus.Downloading || b.Primary.Status == BookStatus.Transcoding);
-
     private static string? NullIfEmpty(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value;
 
@@ -1821,13 +1329,6 @@ public sealed class LibraryService : ILibraryService
     private static (bool DidChange, LibraryCommandResultDto Result) NoChange(LibraryCommandResultDto result) =>
         (false, result);
 
-    private static string Serialize(LibraryCommandResultDto result) =>
-        JsonSerializer.Serialize(result, ReceiptJson);
-
-    private static LibraryCommandResultDto Deserialize(string json) =>
-        JsonSerializer.Deserialize<LibraryCommandResultDto>(json, ReceiptJson)
-        ?? throw new InvalidOperationException("Stored library command receipt is invalid.");
-
     // ------------------------------------------------------------------
     // Collections Phase 1 helpers
     // ------------------------------------------------------------------
@@ -1841,101 +1342,4 @@ public sealed class LibraryService : ILibraryService
         public static Optional<T> None => default;
     }
 
-    /// <summary>
-    /// Expands a collection subtree to the collection id plus every
-    /// descendant id, iteratively, from the flat id/parent list (personal
-    /// library scale; no recursive SQL needed).
-    /// </summary>
-    private static HashSet<Guid> GetSubtreeIds(
-        Guid rootId,
-        IReadOnlyCollection<CollectionModel> collections)
-    {
-        var childrenByParent = collections
-            .Where(c => c.ParentId.HasValue)
-            .GroupBy(c => c.ParentId!.Value)
-            .ToDictionary(g => g.Key, g => g.Select(c => c.Id).ToArray());
-
-        var result = new HashSet<Guid>();
-        var pending = new Stack<Guid>();
-        pending.Push(rootId);
-
-        while (pending.TryPop(out var id))
-        {
-            if (!result.Add(id))
-                continue;
-
-            if (childrenByParent.TryGetValue(id, out var children))
-            {
-                foreach (var child in children)
-                    pending.Push(child);
-            }
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Rolls direct per-collection book counts upward in a post-order
-    /// traversal so every collection's count is descendant-inclusive.
-    /// Iterative and cycle-safe (the service forbids cycles; the visiting
-    /// guard makes an accidental one terminate instead of hanging).
-    /// </summary>
-    private static Dictionary<Guid, int> RollUpDescendantCounts(
-        IReadOnlyCollection<CollectionModel> collections,
-        IReadOnlyDictionary<Guid, int> directCounts)
-    {
-        var counts = collections.ToDictionary(c => c.Id, c => directCounts.GetValueOrDefault(c.Id));
-        var childrenByParent = collections
-            .Where(c => c.ParentId.HasValue)
-            .GroupBy(c => c.ParentId!.Value)
-            .ToDictionary(g => g.Key, g => g.Select(c => c.Id).ToArray());
-
-        var order = new List<Guid>(collections.Count);
-        var expanded = new HashSet<Guid>();
-        var visiting = new HashSet<Guid>();
-        var stack = new Stack<(Guid Id, bool Expanded)>();
-
-        foreach (var collection in collections)
-        {
-            if (expanded.Contains(collection.Id))
-                continue;
-            stack.Push((collection.Id, false));
-            while (stack.TryPop(out var item))
-            {
-                if (item.Expanded)
-                {
-                    order.Add(item.Id);
-                    expanded.Add(item.Id);
-                    visiting.Remove(item.Id);
-                    continue;
-                }
-                if (expanded.Contains(item.Id) || visiting.Contains(item.Id))
-                    continue;
-
-                visiting.Add(item.Id);
-                stack.Push((item.Id, true));
-                if (childrenByParent.TryGetValue(item.Id, out var children))
-                {
-                    foreach (var child in children)
-                    {
-                        if (!expanded.Contains(child) && !visiting.Contains(child))
-                            stack.Push((child, false));
-                    }
-                }
-            }
-        }
-
-        // Post-order guarantees children precede parents: a parent's total
-        // is its own direct count plus each child's already-rolled-up total.
-        foreach (var id in order)
-        {
-            if (childrenByParent.TryGetValue(id, out var children))
-            {
-                foreach (var child in children)
-                    counts[id] += counts[child];
-            }
-        }
-
-        return counts;
-    }
 }
