@@ -1672,42 +1672,30 @@ describe('SecondBrain', () => {
       expect(assistant.suggestions().map((s) => s.label)).toEqual(['Mountains']);
     });
 
-    it('moves the reviewed note out of the queue after a link plan is approved', () => {
+    it('moves the reviewed note out of the queue after an immediate assistant link succeeds', () => {
       enterReview();
 
       const assistant = TestBed.inject(AssistantService);
-      assistant.pendingPlan.set({
-        planId: 'plan-1',
-        summary: 'Link the note to Alpha',
-        steps: [
-          {
-            capability: 'notes_link_existing_concept',
-            summary: 'Link the note to Alpha',
-            argumentsJson: '{}',
-          },
-        ],
-        approvalToken: 'token-1',
+      assistant.applySuggestion({
+        kind: 'concept',
+        label: 'Alpha',
+        reason: 'Existing concept in your library.',
+        value: 'c-alpha',
       });
 
-      assistant.approvePlan('plan-1', 'token-1');
-      const approval = http.expectOne('/api/assistant/plan/approve');
-      expect(approval.request.body).toEqual({ planId: 'plan-1', approvalToken: 'token-1' });
-      approval.flush({
-        success: true,
-        errorCode: null,
-        errorMessage: null,
-        steps: [
-          {
-            capability: 'notes_link_existing_concept',
-            success: true,
-            errorCode: null,
-            errorMessage: null,
-            data: null,
-          },
-        ],
+      const turn = http.expectOne('/api/assistant/turn');
+      expect(turn.request.body.context.brainReviewNoteId).toBe('hit-1');
+      turn.flush({
+        reply: 'Linked the note to Alpha.',
+        acknowledgement: null,
+        anchorPrompt: null,
+        suggestions: [],
+        pendingPlan: null,
+        executedCapabilities: ['notes_link_existing_concept'],
       });
 
-      // The link is a real write: the index and stats refresh.
+      // The receipt describes a real write, so the index/stats refresh and the
+      // exact note from that turn leaves the queue.
       settleReviewRefresh();
 
       expect(component.reviewQueue().map((row) => row.id)).toEqual(['hit-2']);
