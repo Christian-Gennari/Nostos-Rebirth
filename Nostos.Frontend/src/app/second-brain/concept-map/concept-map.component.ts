@@ -33,8 +33,6 @@ import {
   ConceptDto,
   ConceptsService,
   ConceptGraphDto,
-  ConceptGraphNodeDto,
-  ConceptGraphEdgeDto,
 } from '../../core/services/concepts.service';
 
 import {
