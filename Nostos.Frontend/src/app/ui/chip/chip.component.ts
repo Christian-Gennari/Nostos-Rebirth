@@ -73,6 +73,12 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
         background: var(--bg-surface-alt);
         color: var(--color-text-main);
       }
+
+      @media (prefers-reduced-motion: reduce) {
+        :host {
+          transition: none;
+        }
+      }
     `,
   ],
 })
