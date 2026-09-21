@@ -27,6 +27,7 @@ import { NotesService } from '../core/services/notes.service';
 import { ConceptsService } from '../core/services/concepts.service';
 import { ConceptAutocompleteService } from '../ui/concept-autocomplete-panel/concept-autocomplete.service';
 import { Book } from '../core/dtos/book.dtos';
+import { Note } from '../core/dtos/note.dtos';
 
 // The AudioReader is kept real so this spec guards the reader page's total
 // GET /api/books/{id} count; Howl is mocked to avoid real media loading.
@@ -247,6 +248,75 @@ async function configureReaderShell(): Promise<ComponentFixture<ReaderShell>> {
 
   return TestBed.createComponent(ReaderShell);
 }
+
+describe('ReaderShell assistant note navigation (issue #324)', () => {
+  let fixture: ComponentFixture<ReaderShell>;
+
+  beforeEach(async () => {
+    booksGetSpy.mockReset();
+    booksGetSpy.mockReturnValue(of(audiobook));
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+    mockMatchMedia();
+    fixture = await configureReaderShell();
+  });
+
+  const note = (overrides: Partial<Note>): Note => ({
+    id: 'note-1',
+    bookId: 'book-1',
+    content: '',
+    createdAt: '2026-09-21T10:00:00Z',
+    ...overrides,
+  });
+
+  it('jumps to the verified PDF page stored by an older assistant capture', () => {
+    const goTo = vi.fn();
+    (fixture.componentInstance as any).activeReader = () => ({ goTo });
+
+    fixture.componentInstance.onJumpToNote(
+      note({
+        sourceAnchorKind: 'pdf_page',
+        sourceAnchorValue: '37',
+        anchorVerified: true,
+      }),
+    );
+
+    expect(goTo).toHaveBeenCalledOnce();
+    expect(goTo).toHaveBeenCalledWith(37);
+  });
+
+  it('jumps to the verified EPUB CFI when an assistant note has no legacy cfiRange', () => {
+    const goTo = vi.fn();
+    (fixture.componentInstance as any).activeReader = () => ({ goTo });
+    const cfi = 'epubcfi(/6/4[chapter]!/4/2/2)';
+
+    fixture.componentInstance.onJumpToNote(
+      note({
+        sourceAnchorKind: 'epub_cfi',
+        sourceAnchorValue: cfi,
+        anchorVerified: true,
+      }),
+    );
+
+    expect(goTo).toHaveBeenCalledOnce();
+    expect(goTo).toHaveBeenCalledWith(cfi);
+  });
+
+  it('does not navigate from an unverified typed source anchor', () => {
+    const goTo = vi.fn();
+    (fixture.componentInstance as any).activeReader = () => ({ goTo });
+
+    fixture.componentInstance.onJumpToNote(
+      note({
+        sourceAnchorKind: 'pdf_page',
+        sourceAnchorValue: '37',
+        anchorVerified: false,
+      }),
+    );
+
+    expect(goTo).not.toHaveBeenCalled();
+  });
+});
 
 describe('ReaderShell audiobook load (issue #7)', () => {
   let fixture: ComponentFixture<ReaderShell>;
