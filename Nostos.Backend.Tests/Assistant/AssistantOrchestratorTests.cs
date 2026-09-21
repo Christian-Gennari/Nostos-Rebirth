@@ -518,6 +518,25 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
+    public async Task Empty_collection_cleanup_finishes_reorganization_without_a_plan()
+    {
+        var h = CreateHarness();
+        var obsolete = await SeedCollectionAsync(h, "Obsolete");
+
+        h.Llm
+            .CallsTool("library_rename_collection", $"""{"collectionId":"{{obsolete.Id}}","name":"Temporary"}""")
+            .CallsTool("library_delete_empty_collection", $"""{"collectionId":"{{obsolete.Id}}"}""")
+            .Returns("Done. I cleaned up the obsolete collection.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Clean up that obsolete empty collection.",
+            Context(surface: "library", route: "/library")));
+
+        response.PendingPlan.Should().BeNull();
+        (await CollectionCountAsync(h)).Should().Be(0);
+    }
+
+    [Fact]
     public async Task Multiple_actions_in_one_turn_receive_distinct_receipt_keys()
     {
         var h = CreateHarness();
@@ -957,6 +976,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         prompt.Should().Contain("library_create_collection [immediate action]");
         prompt.Should().Contain("library_create_or_match_book [immediate action]");
         prompt.Should().Contain("library_update_book [immediate action]");
+        prompt.Should().Contain("library_delete_empty_collection [immediate action]");
         prompt.Should().Contain("library_delete_collection [requires approval]");
         prompt.Should().Contain("notes_capture [immediate capture]");
         prompt.Should().Contain("collectionIds");
