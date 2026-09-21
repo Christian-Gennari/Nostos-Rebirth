@@ -251,7 +251,6 @@ builder.Services.AddScoped<NoteProcessorService>();
 builder.Services.AddScoped<INoteService, NoteService>();
 builder.Services.AddScoped<IBackupService, BackupService>();
 builder.Services.AddScoped<IBookRepository, BookRepository>();
-builder.Services.AddScoped<ICollectionRepository, CollectionRepository>();
 builder.Services.AddScoped<INoteRepository, NoteRepository>();
 builder.Services.AddScoped<IConceptRepository, ConceptRepository>();
 builder.Services.AddScoped<IWritingRepository, WritingRepository>();
