@@ -695,10 +695,17 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     if (this.destroyed || this.editor) return;
 
     this.tinyMce = tinyMce;
-    tinyMce.init({
-      selector: `#${this.editorId}`,
-      ...this.editorConfig,
-    });
+    await Promise.resolve(
+      tinyMce.init({
+        selector: `#${this.editorId}`,
+        ...this.editorConfig,
+      }),
+    );
+
+    if (this.destroyed && this.editor) {
+      tinyMce.remove(this.editor);
+      this.editor = null;
+    }
   }
 
   private destroyEditor() {
