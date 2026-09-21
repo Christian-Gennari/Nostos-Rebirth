@@ -4,9 +4,7 @@ namespace Nostos.Backend.Data.Models;
 /// Join row for the Book ↔ Collection many-to-many.
 ///
 /// A book may belong to any number of collections. This table is the
-/// authoritative membership; <see cref="BookModel.CollectionId"/> is retained
-/// only as a transitional mirror (first member wins) until the legacy column is
-/// dropped.
+/// authoritative source of collection membership.
 ///
 /// Delete behaviour is deliberately asymmetric:
 ///   Book       -> Cascade  (deleting a book must not strand membership rows)
