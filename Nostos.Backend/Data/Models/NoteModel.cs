@@ -1,4 +1,3 @@
-// Nostos.Backend/Data/Models/NoteModel.cs
 using System.ComponentModel.DataAnnotations;
 
 namespace Nostos.Backend.Data.Models;
@@ -10,8 +9,8 @@ public class NoteModel
     [Required]
     public string Content { get; set; } = string.Empty; // User's written note (if any)
 
-    public string? CfiRange { get; set; }     // <--- NEW: e.g. "epubcfi(/6/4...)"
-    public string? SelectedText { get; set; } // <--- NEW: The actual text from the book
+    public string? CfiRange { get; set; } // e.g. "epubcfi(/6/4...)"
+    public string? SelectedText { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -20,12 +19,9 @@ public class NoteModel
 
     public ICollection<NoteConceptModel> NoteConcepts { get; set; } = new List<NoteConceptModel>();
 
-    // --- ASSISTANT CAPTURE PROVENANCE (issue #260 §2, §4) ---
-    // Appended only: existing columns above are the note itself and must not
-    // change. These columns record where a captured note came from and how it
-    // was processed, so the verbatim capture can be kept alongside a polished
-    // `Content`. Defaults describe a plain typed note, which is what every
-    // pre-existing row is.
+    // Assistant capture provenance. These fields record where a captured note
+    // came from and how it was processed, while allowing RawContent to preserve
+    // the user's original words alongside processed Content.
 
     // Null = no separate raw capture was kept.
     public string? RawContent { get; set; }

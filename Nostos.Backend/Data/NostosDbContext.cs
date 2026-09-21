@@ -6,16 +6,8 @@ namespace Nostos.Backend.Data;
 
 public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbContext(options)
 {
-    // Register the Base class (books)
     public DbSet<BookModel> Books => Set<BookModel>();
-
-    // Register the Derived Classes (books)
-    public DbSet<PhysicalBookModel> PhysicalBooks => Set<PhysicalBookModel>();
-    public DbSet<EBookModel> EBooks => Set<EBookModel>();
-    public DbSet<AudioBookModel> AudioBooks => Set<AudioBookModel>();
     public DbSet<WorkModel> Works => Set<WorkModel>();
-
-    // Register the Base class (writings)
     public DbSet<WritingModel> Writings => Set<WritingModel>();
 
     public DbSet<NoteModel> Notes => Set<NoteModel>();
@@ -194,7 +186,7 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
         modelBuilder
             .Entity<NoteConceptModel>()
             .HasOne(nc => nc.Concept)
-            .WithMany(c => c.NoteConcepts) // <--- UPDATED: Connects the navigation property
+            .WithMany(c => c.NoteConcepts)
             .HasForeignKey(nc => nc.ConceptId);
 
         // --- INDEXES ---
@@ -327,12 +319,6 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
             e.ToTable(t => t.HasCheckConstraint(
                 "CK_LibraryStates_SingletonSlot",
                 $"SingletonSlot = {LibraryState.SingletonSentinel}"));
-        });
-
-        // Exact-once command idempotency for library mutations.
-        modelBuilder.Entity<LibraryCommandReceipt>(e =>
-        {
-            e.HasIndex(c => new { c.ClientId, c.IdempotencyKey }).IsUnique();
         });
 
         // Exact-once command idempotency for assistant note mutations

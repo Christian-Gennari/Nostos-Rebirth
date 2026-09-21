@@ -227,7 +227,7 @@ public sealed class AttachAcquiredAssetTests
         attachResult.Data.Should().BeOfType<LibraryAttachAcquiredAssetResultDto>();
 
         await using var db = await h.ContextFactory.CreateDbContextAsync();
-        var audioBook = await db.AudioBooks.SingleAsync(b => b.Id == bookId);
+        var audioBook = await db.Books.OfType<AudioBookModel>().SingleAsync(b => b.Id == bookId);
         audioBook.Duration.Should().Be("05:00:00");
         audioBook.FileDetails.HasFile.Should().BeTrue();
         audioBook.FileDetails.FileName.Should().Be("book.m4b");

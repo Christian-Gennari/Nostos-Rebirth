@@ -25,7 +25,7 @@ public sealed class NostosDbContextWorkAssignmentTests : IDisposable
             Title = "Meditations",
             Author = "Marcus Aurelius",
         };
-        db.PhysicalBooks.Add(book);
+        db.Books.Add(book);
 
         db.SaveChanges();
 
@@ -47,7 +47,7 @@ public sealed class NostosDbContextWorkAssignmentTests : IDisposable
             Title = "Meditations",
             Author = "Marcus Aurelius",
         };
-        db.PhysicalBooks.Add(book);
+        db.Books.Add(book);
 
         await db.SaveChangesAsync();
 
@@ -68,7 +68,7 @@ public sealed class NostosDbContextWorkAssignmentTests : IDisposable
         };
 
         db.Works.Add(work);
-        db.PhysicalBooks.Add(book);
+        db.Books.Add(book);
 
         db.SaveChanges();
 

@@ -9,18 +9,15 @@ namespace Nostos.Backend.Services.Library;
 /// </summary>
 public sealed record LibraryReceiptPruneResult(int ExpiredDeleted, int OverCapDeleted, int Remaining);
 
-// Bounded retention for library command receipts (issue #51). Library-only
-// by design: LibraryCommandReceipt rows are pruned here because some
-// effect-idempotent after their receipt disappears. Library commands
-// converge safely through normalized identities and not-found/no-op
-// behavior, so one uniform age+count policy is defensible.
+// Bounded retention for library and note command receipts. Both receipt types
+// use the same normalized age + count policy, but are pruned independently so
+// their idempotency domains never overlap.
 //
-// The service owns exactly one operation and never runs inside another
-// command's transaction. Age pruning uses a pure CreatedAt predicate and
-// therefore can never target a receipt inserted concurrently; cap pruning
-// selects/deletes the oldest IDs inside the SAME cleanup transaction. A
-// concurrent command may temporarily leave the table one row above the cap
-// until the next scan, which is acceptable.
+// Each prune runs outside command transactions. Age pruning uses only the
+// receipt timestamp and cannot target a newly inserted row; cap pruning selects
+// and deletes the oldest IDs inside the same cleanup transaction. A concurrent
+// command may temporarily leave a table one row above the cap until the next
+// scan, which is acceptable.
 public sealed class LibraryReceiptRetentionService(
     IDbContextFactory<NostosDbContext> contexts,
     LibraryReceiptRetentionOptions options,
