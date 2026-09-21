@@ -35,6 +35,7 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
         "library_overview",
         "library_create_or_match_book",
         "library_update_book",
+        "library_set_book_collections_bulk",
         "notes_list_for_book",
         "notes_search",
         "notes_list_unlinked",
@@ -352,6 +353,38 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
             .Where(link => link.BookId == book.Id)
             .CountAsync();
         after.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Bulk_collection_membership_routes_each_book_through_the_canonical_service()
+    {
+        var h = CreateHarness();
+        var collection = await SeedCollectionAsync(h, "Russian Literature");
+        var first = await SeedBookAsync(h, "The Devils");
+        var second = await SeedBookAsync(h, "The Brothers Karamazov");
+
+        var result = await h.Registry.InvokeAsync(
+            "library_set_book_collections_bulk",
+            Args($"""
+            {
+              "updates": [
+                {"bookId":"{{first.Id}}","collectionIds":["{{collection.Id}}"]},
+                {"bookId":"{{second.Id}}","collectionIds":["{{collection.Id}}"]}
+              ]
+            }
+            """),
+            new AssistantToolContext("client", "bulk-membership"));
+
+        result.Success.Should().BeTrue();
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var memberships = await db.BookCollections.AsNoTracking()
+            .Where(link => link.CollectionId == collection.Id)
+            .Select(link => link.BookId)
+            .OrderBy(id => id)
+            .ToListAsync();
+
+        memberships.Should().BeEquivalentTo([first.Id, second.Id]);
     }
 
     [Fact]
