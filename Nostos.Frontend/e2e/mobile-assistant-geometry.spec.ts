@@ -184,11 +184,23 @@ test('the open assistant fills the visible viewport and stays stable when the co
     });
   }
 
+  // Visibility is reported before the short reveal animation has necessarily
+  // reached its final transform. Measure the settled shell, not an animation
+  // frame whose scale temporarily moves every edge inward.
+  await expect
+    .poll(async () => {
+      const geometry = await visibleGeometry();
+      if (!geometry) return Number.POSITIVE_INFINITY;
+      return Math.max(
+        Math.abs(geometry.panelTop - geometry.viewportTop),
+        Math.abs(geometry.panelHeight - geometry.viewportHeight),
+        Math.abs(geometry.panelWidth - geometry.viewportWidth),
+      );
+    })
+    .toBeLessThanOrEqual(2);
+
   const opened = await visibleGeometry();
   expect(opened).not.toBeNull();
-  expect(Math.abs(opened!.panelTop - opened!.viewportTop)).toBeLessThanOrEqual(2);
-  expect(Math.abs(opened!.panelHeight - opened!.viewportHeight)).toBeLessThanOrEqual(2);
-  expect(Math.abs(opened!.panelWidth - opened!.viewportWidth)).toBeLessThanOrEqual(2);
 
   // Regression for the old 56dvh -> 84dvh :focus-within jump.
   const beforeFocus = await panel.boundingBox();
