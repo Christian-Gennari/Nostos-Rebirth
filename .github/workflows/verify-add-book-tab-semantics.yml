@@ -15,11 +15,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
           cache: npm
           cache-dependency-path: Nostos.Frontend/package-lock.json
       - run: npm ci
       - run: npm run check
       - run: npm run check:design -- --self-test
       - run: npm test
+        env:
+          CI: "true"
       - run: npm run build
