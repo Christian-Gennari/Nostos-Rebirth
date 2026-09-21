@@ -31,9 +31,12 @@ import { Book } from '../core/dtos/book.dtos';
 // The AudioReader is kept real so this spec guards the reader page's total
 // GET /api/books/{id} count; Howl is mocked to avoid real media loading.
 vi.mock('howler', () => ({
-  // Regular function (not an arrow) so `new Howl(...)` works.
-  Howl: vi.fn(function () {
+  // Keep the same observable mock shape as audio-reader.component.spec.ts.
+  // Angular's unit-test builder can bundle these specs together, so either
+  // module mock must be safe for the real AudioReader lifecycle tests.
+  Howl: vi.fn(function (config: any) {
     return {
+      config,
       unload: vi.fn(),
       seek: vi.fn(() => 0),
       playing: vi.fn(() => false),
