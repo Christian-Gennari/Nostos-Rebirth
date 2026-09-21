@@ -37,8 +37,11 @@ public sealed record AssistantToolResult(
     public static AssistantToolResult Ok(JsonElement? data = null) =>
         new(true, null, null, data);
 
-    public static AssistantToolResult Fail(string errorCode, string errorMessage) =>
-        new(false, errorCode, errorMessage, null);
+    public static AssistantToolResult Fail(
+        string errorCode,
+        string errorMessage,
+        JsonElement? data = null) =>
+        new(false, errorCode, errorMessage, data);
 }
 
 /// <summary>
