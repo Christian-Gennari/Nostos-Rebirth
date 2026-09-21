@@ -108,9 +108,26 @@ export type ButtonSize = 'sm' | 'md';
         background: var(--color-danger-bg);
       }
 
+      :host(:active:not(:disabled)) {
+        transform: scale(0.98);
+      }
+
+      /* Primary hover lifts by one pixel, so match its selector specificity here:
+         pressing must win over hover and feel like the control settles under the
+         finger rather than staying raised until click release. */
+      :host(.nostos-button--primary:active:not(:disabled)) {
+        transform: scale(0.98);
+      }
+
       :host(.nostos-button--sm) {
         padding: 5px 10px;
         font-size: var(--text-xs);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        :host {
+          transition: none;
+        }
       }
     `,
   ],
