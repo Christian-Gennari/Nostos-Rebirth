@@ -81,7 +81,20 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
         if (pending.Count == 0)
             return;
 
-        var works = Works.Local.ToList();
+        AssignMissingWorks(pending, KnownWorks());
+    }
+
+    private async Task AssignMissingWorksAsync(CancellationToken cancellationToken)
+    {
+        var pending = MissingWorkBooks();
+        if (pending.Count == 0)
+            return;
+
+        AssignMissingWorks(pending, await KnownWorksAsync(cancellationToken));
+    }
+
+    private void AssignMissingWorks(List<BookModel> pending, List<WorkModel> works)
+    {
         foreach (var book in pending)
         {
             var normalizedTitle = BookIdentityNormalizer.NormalizeTitle(book.Title);
@@ -109,37 +122,33 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
         }
     }
 
-    private async Task AssignMissingWorksAsync(CancellationToken cancellationToken)
+    private List<WorkModel> KnownWorks()
     {
-        var pending = MissingWorkBooks();
-        if (pending.Count == 0)
-            return;
+        var works = TrackedWorks();
+        AddMissingWorks(works, Works.ToList());
+        return works;
+    }
 
-        var works = await Works.ToListAsync(cancellationToken);
-        foreach (var book in pending)
+    private async Task<List<WorkModel>> KnownWorksAsync(CancellationToken cancellationToken)
+    {
+        var works = TrackedWorks();
+        AddMissingWorks(works, await Works.ToListAsync(cancellationToken));
+        return works;
+    }
+
+    private List<WorkModel> TrackedWorks() =>
+        ChangeTracker.Entries<WorkModel>()
+            .Where(entry => entry.State != EntityState.Deleted)
+            .Select(entry => entry.Entity)
+            .ToList();
+
+    private static void AddMissingWorks(List<WorkModel> target, IEnumerable<WorkModel> source)
+    {
+        var knownIds = target.Select(work => work.Id).ToHashSet();
+        foreach (var work in source)
         {
-            var normalizedTitle = BookIdentityNormalizer.NormalizeTitle(book.Title);
-            var normalizedAuthor = BookIdentityNormalizer.NormalizeAuthor(book.Author);
-            var work = works.FirstOrDefault(w =>
-                w.NormalizedTitle == normalizedTitle &&
-                w.NormalizedAuthor == normalizedAuthor);
-
-            if (work is null)
-            {
-                work = new WorkModel
-                {
-                    Title = book.Title,
-                    Author = book.Author,
-                    NormalizedTitle = normalizedTitle,
-                    NormalizedAuthor = normalizedAuthor,
-                    CreatedAt = book.CreatedAt,
-                };
-                Works.Add(work);
-                works.Add(work);
-            }
-
-            book.Work = work;
-            book.WorkId = work.Id;
+            if (knownIds.Add(work.Id))
+                target.Add(work);
         }
     }
 
