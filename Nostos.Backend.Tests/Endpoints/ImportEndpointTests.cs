@@ -113,7 +113,7 @@ public sealed class ImportEndpointTests : IClassFixture<LibraryEndpointFactory>
                 Status = BookStatus.Failed,
                 StatusMessage = "The source refused the download.",
             };
-            db.PhysicalBooks.Add(unrelated);
+            db.Books.Add(unrelated);
             await db.SaveChangesAsync();
 
             var entries =
@@ -204,7 +204,7 @@ public sealed class ImportEndpointTests : IClassFixture<LibraryEndpointFactory>
 
         using var db = new NostosDbContext(options);
 
-        if (db.PhysicalBooks.Any(b => b.Id == InterruptedBookId))
+        if (db.Books.OfType<PhysicalBookModel>().Any(b => b.Id == InterruptedBookId))
             return;
 
         var book = new PhysicalBookModel
@@ -217,7 +217,7 @@ public sealed class ImportEndpointTests : IClassFixture<LibraryEndpointFactory>
             Status = BookStatus.Downloading,
         };
 
-        db.PhysicalBooks.Add(book);
+        db.Books.Add(book);
         db.BookAcquisitions.Add(new BookAcquisitionModel
         {
             BookId = InterruptedBookId,
@@ -228,7 +228,7 @@ public sealed class ImportEndpointTests : IClassFixture<LibraryEndpointFactory>
         });
 
         // The same thing happening to a book added long ago.
-        db.PhysicalBooks.Add(new PhysicalBookModel
+        db.Books.Add(new PhysicalBookModel
         {
             Id = OldInterruptedBookId,
             Title = "Interrupted Import, Old Book",
