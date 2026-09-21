@@ -141,33 +141,10 @@ app-sidebar-collections.no-transition {
 }
 
 .filter-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.3rem 0.4rem 0.3rem 0.75rem;
-  font-size: 0.8rem;
-  font-weight: var(--fw-medium);
-  color: var(--color-brand-accent);
-  background: color-mix(in srgb, var(--color-brand-accent) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-brand-accent) 35%, transparent);
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  transition: background 0.15s ease;
-  /* Every chip — the first one included — fades up in place once. */
+  /* appChip owns the capsule; Library keeps the asymmetric remove-icon gutter
+     and the existing entrance motion. */
+  padding-right: 0.4rem;
   animation: chip-in 180ms var(--ease-out) both;
-}
-
-@keyframes chip-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.filter-chip:hover {
-  background: color-mix(in srgb, var(--color-brand-accent) 22%, transparent);
 }
 
 .books-empty-state {
@@ -226,37 +203,15 @@ app-sidebar-collections.no-transition {
 }
 
 .search-input {
-  width: 100%;
-  padding: 0.6rem 1rem 0.6rem 2.5rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: 0.9rem;
-  background: var(--bg-surface);
-  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease; 
-  color: var(--color-text-main);
-  font-family: inherit;
-}
-
-.search-input::placeholder {
-  color: var(--color-text-light);
-}
-
-.search-input:hover {
-  border-color: var(--border-color);
-  background: var(--bg-surface-alt);
-}
-
-.search-input:focus {
-  background: var(--bg-surface);
-  border-color: var(--border-focus);
-  outline: none;
-  box-shadow: 0 0 0 3px var(--color-accent-faint);
+  /* appInput owns the generic field contract. Library only reserves the
+     leading-glyph gutter. */
+  padding-left: 2.5rem;
 }
 
 /* Focus turns the icon dark. Only the `:has()` form is used: the icon is the
    input's PREVIOUS sibling in the template, so an `.search-input:focus +
    .search-icon` half could never match anything. */
-.search-bar-container:has(.search-input:focus) .search-icon {
+.search-bar-container:has(.search-input:focus-visible) .search-icon {
   color: var(--color-text-main);
 }
 
@@ -267,22 +222,10 @@ app-sidebar-collections.no-transition {
 }
 
 .sort-select {
-  width: 100%;
-  padding: 0.6rem 2rem 0.6rem 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: 0.9rem;
+  /* appSelect owns the native field geometry and chevron. Library keeps the
+     toolbar-specific cursor and muted ink. */
   cursor: pointer;
   color: var(--color-text-muted);
-  background-color: var(--bg-input);
-  outline: none;
-  appearance: none;
-  font-family: inherit;
-  transition: background-color 0.2s ease, color 0.2s ease; 
-  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E');
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  background-size: 1em;
 }
 
 .sort-select:hover {
@@ -1432,12 +1375,7 @@ app-sidebar-collections.no-transition {
   }
 
   .toolbar-right .sort-select {
-    width: 100%;
-    height: 38px;
     font-size: 0.82rem;
-    border-radius: var(--radius-md, 4px);
-    background-color: var(--bg-surface);
-    border: 1px solid var(--border-color);
   }
 
   .control-group {
@@ -1460,7 +1398,7 @@ app-sidebar-collections.no-transition {
     border-radius: var(--radius-sm, 3px);
   }
 
-  .toolbar-right .btn-primary {
+  .toolbar-right .library-add-button {
     height: 38px;
     width: 38px;
     min-width: 38px;

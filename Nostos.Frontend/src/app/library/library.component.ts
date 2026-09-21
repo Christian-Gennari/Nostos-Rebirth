@@ -22,6 +22,9 @@ import { AddBookIntent } from '../add-book-modal/add-book-intent.component';
 import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
+import { ButtonComponent } from '../ui/button/button.component';
+import { ChipComponent } from '../ui/chip/chip.component';
+import { InputDirective, SelectDirective } from '../ui/form-control/form-control.directive';
 import { SidebarCollections } from './sidebar-collections/sidebar-collections.component';
 import { Book, EditionSummaryDto, PaginatedResponse } from '../core/dtos/book.dtos';
 import { Subject } from 'rxjs';
@@ -112,6 +115,10 @@ interface WorkFormatGlyph {
     ConfirmModal,
     StarRatingComponent,
     IconButtonComponent,
+    ButtonComponent,
+    ChipComponent,
+    InputDirective,
+    SelectDirective,
     SidebarCollections,
     InfiniteScrollDirective,
     BloomArtDirective,

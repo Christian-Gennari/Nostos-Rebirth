@@ -18,6 +18,8 @@
       <div class="search-bar-container">
         <nostos-icon name="magnifying-glass" [size]="18" class="search-icon"></nostos-icon>
         <input
+          appInput
+          controlSize="compact"
           type="text"
           class="search-input"
           placeholder="Search books..."
@@ -28,7 +30,7 @@
 
       <div class="toolbar-right">
         <div class="select-wrapper">
-          <select [ngModel]="activeSort()" (ngModelChange)="setSort($event)" class="sort-select">
+          <select appSelect controlSize="compact" [ngModel]="activeSort()" (ngModelChange)="setSort($event)" class="sort-select">
             <option value="lastread">Last Read</option>
             <option value="recent">Recently Added</option>
             <option value="title">Title (A-Z)</option>
@@ -61,7 +63,7 @@
           </button>
         </div>
 
-        <button class="btn btn-primary" (click)="openAddIntent()">
+        <button appButton variant="primary" class="library-add-button" (click)="openAddIntent()">
           <nostos-icon name="plus" [size]="18"></nostos-icon>
           <span class="btn-text">Add Book</span>
         </button>
@@ -73,6 +75,7 @@
         <div class="active-filters" role="status" aria-label="Active filters">
           @for (chip of activeFilterChips(); track chip.key) {
           <button
+            appChip
             class="filter-chip"
             (click)="clearChip(chip.key)"
             [title]="'Clear ' + chip.label"
@@ -323,13 +326,13 @@
           <nostos-icon name="book" [size]="40" weight="thin"></nostos-icon>
           @if (searchQuery().trim()) {
           <p>No books match "{{ searchQuery().trim() }}"</p>
-          <button class="btn btn-secondary" (click)="clearChip('search')">Clear search</button>
+          <button appButton variant="secondary" size="sm" (click)="clearChip('search')">Clear search</button>
           } @else if (activeFilterChips().length > 0) {
           <p>Nothing matches these filters</p>
-          <button class="btn btn-secondary" (click)="filters.clearAll()">Clear filters</button>
+          <button appButton variant="secondary" size="sm" (click)="filters.clearAll()">Clear filters</button>
           } @else {
           <p>Your library is empty</p>
-          <button class="btn btn-primary" (click)="openAddIntent()">Add your first book</button>
+          <button appButton variant="primary" (click)="openAddIntent()">Add your first book</button>
           }
         </div>
         }
@@ -491,13 +494,13 @@
           <nostos-icon name="book" [size]="40" weight="thin"></nostos-icon>
           @if (searchQuery().trim()) {
           <p>No books match "{{ searchQuery().trim() }}"</p>
-          <button class="btn btn-secondary" (click)="clearChip('search')">Clear search</button>
+          <button appButton variant="secondary" size="sm" (click)="clearChip('search')">Clear search</button>
           } @else if (activeFilterChips().length > 0) {
           <p>Nothing matches these filters</p>
-          <button class="btn btn-secondary" (click)="filters.clearAll()">Clear filters</button>
+          <button appButton variant="secondary" size="sm" (click)="filters.clearAll()">Clear filters</button>
           } @else {
           <p>Your library is empty</p>
-          <button class="btn btn-primary" (click)="openAddIntent()">Add your first book</button>
+          <button appButton variant="primary" (click)="openAddIntent()">Add your first book</button>
           }
         </div>
         }
