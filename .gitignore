@@ -510,3 +510,9 @@ node_modules
 
 # Concept-map audit probe output (scripts/map-audit)
 Nostos.Frontend/.map-audit-out
+
+# Generated one-off visual/debug evidence (keep maintained baselines committed)
+.hermes/plans/evidence/
+Nostos.Frontend/tools/evidence/
+Nostos.Frontend/tools/probe-out/
+Nostos.Frontend/e2e/visual-evidence/brain-cohesion/
