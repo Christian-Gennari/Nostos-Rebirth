@@ -260,12 +260,11 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
-    public async Task A_request_mode_and_the_configured_default_are_both_ignored()
+    public async Task A_request_mode_and_tool_argument_are_both_ignored_without_a_stored_setting()
     {
         // Nothing is stored, so the effective mode is verbatim; the request's
-        // light_polish, the tool call's clarify and the configured default
-        // clarify are all ignored.
-        var h = CreateHarness(defaultProcessingMode: "clarify");
+        // light_polish and the tool call's clarify are both ignored.
+        var h = CreateHarness();
         var book = await SeedBookAsync(h);
 
         h.Llm
@@ -290,7 +289,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     {
         // A stored verbatim is a real choice, not "never chosen": it must be
         // distinguished from the NULL default and must not be overridden.
-        var h = CreateHarness(defaultProcessingMode: "light_polish");
+        var h = CreateHarness();
         var book = await SeedBookAsync(h);
 
         (await h.Settings.UpdateAsync(new AssistantSettingsUpdateRequest("verbatim")))
@@ -1177,9 +1176,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     // Harness
     // ------------------------------------------------------------------
 
-    private Harness CreateHarness(
-        int maxToolIterations = 6,
-        string defaultProcessingMode = "verbatim")
+    private Harness CreateHarness(int maxToolIterations = 6)
     {
         var path = _fixture.CreateDatabasePath();
         var options = new DbContextOptionsBuilder<NostosDbContext>()
@@ -1216,7 +1213,6 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         {
             Enabled = true,
             MaxToolIterations = maxToolIterations,
-            DefaultProcessingMode = defaultProcessingMode,
         };
         var plans = new AssistantPlanStore();
         var settings = new AssistantSettingsService(factory);
