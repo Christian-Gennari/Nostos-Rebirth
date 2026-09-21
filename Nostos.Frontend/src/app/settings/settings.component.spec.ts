@@ -190,7 +190,13 @@ describe('SettingsComponent backup-only surface', () => {
 
   it('switches settings surfaces locally without hash navigation', () => {
     const nav = fixture.debugElement.queryAll(By.css('.settings-nav-item'));
-    expect(nav.map((item) => item.nativeElement.textContent.replace(/\s+/g, ' ').trim())).toEqual([
+    expect(
+      nav.map((item) => {
+        const title = item.query(By.css('strong')).nativeElement.textContent.trim();
+        const detail = item.query(By.css('small')).nativeElement.textContent.trim();
+        return `${title} ${detail}`;
+      }),
+    ).toEqual([
       'Library & data Backups & e-readers',
       'Assistant Capture & AI',
       'Appearance Theme & atmosphere',
