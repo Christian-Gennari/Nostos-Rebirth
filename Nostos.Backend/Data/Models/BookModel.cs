@@ -73,8 +73,6 @@ public abstract class BookModel
     public BookAcquisitionModel? Acquisition { get; set; }
 }
 
-// --- NEW OWNED TYPES ---
-
 [Owned]
 public class BookMetadata
 {
@@ -120,8 +118,6 @@ public class FileInfoDetails
     // Store epub.js locations (heavy JSON string) (For instant calculation of progress state, cache basically)
     public string? LocationsJson { get; set; }
 }
-
-// --- SUBCLASSES (Remain mostly the same) ---
 
 public class PhysicalBookModel : BookModel
 {

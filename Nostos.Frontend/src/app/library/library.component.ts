@@ -38,9 +38,6 @@ import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 import { NOSTOS_CONCEPTS } from '../ui/icon/nostos-concepts';
 import type { NostosIconName } from '../ui/icon/nostos-icons';
 
-/** Legacy key retained for callers that need to verify the migration path. */
-export const VIEW_MODE_STORAGE_KEY = 'nostos.viewMode';
-
 function statusFilterLabel(value: string | null | undefined): string | null {
   switch ((value ?? '').toLowerCase()) {
     case 'notstarted':

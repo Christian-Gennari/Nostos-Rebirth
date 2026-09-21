@@ -150,11 +150,6 @@ const candContent = new Map((candValuesForContent?.captures ?? []).map((c) => [c
 const DATA_DRIVEN = new Set(['library', 'brain', 'studio']);
 
 
-/* Surfaces whose pixels come from a database that other agents write concurrently.
-   For these, a content change is a legitimate explanation for a pixel difference,
-   and saying so is more honest than either failing or silently tolerating it. */
-
-
 const baselinePngs = readdirSync(BASELINE).filter((f) => f.endsWith('.png')).sort();
 for (const file of baselinePngs) {
   const tag = basename(file, '.png');

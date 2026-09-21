@@ -358,7 +358,6 @@ export class WritingStudio implements OnInit {
   }
 
   loadBooks() {
-    // FIX: Using named parameters for clarity
     this.booksService
       .list({
         page: 1,
