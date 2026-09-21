@@ -10,7 +10,7 @@ import { ConceptsService, ConceptDto } from '../core/services/concepts.service';
 import { ConceptAutocompleteService } from '../ui/concept-autocomplete-panel/concept-autocomplete.service';
 
 // DTOs & Interfaces
-import { Note } from '../core/dtos/note.dtos';
+import { Note, noteNavigationTarget } from '../core/dtos/note.dtos';
 import { IReader, TocItem } from './reader.interface';
 import { isTypingTarget, pageActionForKey } from './reader-keyboard';
 import {
@@ -408,8 +408,10 @@ export class ReaderShell implements OnInit {
   }
 
   onJumpToNote(note: Note) {
-    if (note.cfiRange && this.activeReader()) {
-      this.activeReader()?.goTo(note.cfiRange);
+    const reader = this.activeReader();
+    const target = noteNavigationTarget(note);
+    if (reader && target !== null) {
+      reader.goTo(target);
     }
   }
 
