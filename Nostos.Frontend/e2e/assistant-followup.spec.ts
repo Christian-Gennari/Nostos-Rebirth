@@ -53,6 +53,17 @@ test.beforeAll(async () => {
 });
 
 test('a typed follow-up continues the conversation and names book and page', async ({ page }) => {
+  // This spec owns the assistant boundary: the fixture intentionally has no
+  // real LLM credential, so advertise availability just as we already fulfill
+  // the turn endpoint below. No provider call is made.
+  await page.route('**/api/assistant/status', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ available: true }),
+    });
+  });
+
   const turns: any[] = [];
   await page.route('**/api/assistant/turn', async (route: Route) => {
     turns.push(route.request().postDataJSON());
