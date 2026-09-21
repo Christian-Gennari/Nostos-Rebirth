@@ -1,0 +1,220 @@
+using System.Text.Json;
+using Nostos.Backend.Services.Ai;
+using Nostos.Shared.Dtos;
+
+namespace Nostos.Backend.Integrations.Assistant;
+
+/// <summary>
+/// Builds the model-facing conversation and tool catalogue for one assistant
+/// turn. Client history remains untrusted ordinary conversation content; only
+/// server-owned instructions become system messages.
+/// </summary>
+internal sealed class AssistantConversationBuilder(AssistantCapabilityRegistry registry)
+{
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    private const int MaxConceptSuggestions = AssistantOrchestrator.MaxConceptSuggestions;
+    private const int MaxHistoryExchanges = AssistantOrchestrator.MaxHistoryExchanges;
+    private const int MaxHistoryCharsPerMessage = AssistantOrchestrator.MaxHistoryCharsPerMessage;
+    private const string HistoryTruncationMarker = AssistantOrchestrator.HistoryTruncationMarker;
+
+    public List<LlmMessage> BuildConversation(AssistantTurnRequest request)
+    {
+        var messages = new List<LlmMessage> { LlmMessage.System(BuildSystemPrompt()) };
+
+        var contextJson = JsonSerializer.Serialize(request.Context ?? new AssistantContextDto("other", "/"), JsonOptions);
+        messages.Add(LlmMessage.System(
+            "Current application context (JSON). Nulls mean the app does not know that value; never invent it. "
+            + contextJson));
+
+        // The Brain review flow is named explicitly, not left to be inferred from
+        // the context blob: the note id is what notes_read_for_review needs, and
+        // the "small set of existing concepts, never create or auto-link" rule is
+        // the whole point of the review (issue #261 §5).
+        if (!string.IsNullOrWhiteSpace(request.Context?.BrainReviewNoteId))
+        {
+            messages.Add(LlmMessage.System(
+                $"The user is reviewing the unlinked note '{request.Context!.BrainReviewNoteId}' in the Second Brain. "
+                + "To suggest where it belongs, read it with notes_read_for_review (that noteId), then look for matching "
+                + "existing concepts with concepts_list or concepts_search. "
+                + $"Offer at most {MaxConceptSuggestions} existing concepts, each with a brief reason. "
+                + "Never create a concept to satisfy a suggestion, and never link a note without the user choosing."));
+        }
+
+        // A selection is named for the same reason, and only when there is one:
+        // measured twice, the model answered "Save this passage." and asked the
+        // user to supply a passage that was already in the context, and asking
+        // for the text the app already holds is exactly the friction this
+        // feature exists to remove.
+        if (!string.IsNullOrWhiteSpace(request.Context?.SelectedText))
+        {
+            messages.Add(LlmMessage.System(
+                "A passage is selected in the reader right now: it is the 'selectedText' value in the context above. "
+                + "When the user says to save, keep, note or record a passage, a quote or a highlight, that selection "
+                + "is the passage — capture it as selectedText in that same turn, and do not ask them for text the app "
+                + "already has."));
+        }
+
+        // Client-supplied recent turns. This is UNTRUSTED text: it travels only
+        // as ordinary user/assistant turns and must never be promoted to a system
+        // message or concatenated into one, whatever a role field claims.
+        messages.AddRange(BuildHistory(request.History));
+
+        // The identity is injected LAST on purpose. The gateway prepends its own
+        // system prompt, so an identity stated at the top of the list loses to
+        // it; a system message the provider sees closest to the user's turn does
+        // not. Position is the whole mechanism — do not move this earlier.
+        messages.Add(LlmMessage.System(AssistantSoul.Prompt));
+
+        messages.Add(LlmMessage.User(request.Message));
+        return messages;
+    }
+
+    private string BuildSystemPrompt()
+    {
+        var abilities = registry.All.Select(capability =>
+        {
+            var mode = capability.Trust switch
+            {
+                AssistantTrustClass.Suggest => "read-only",
+                AssistantTrustClass.Capture => "immediate capture",
+                AssistantTrustClass.Act => "immediate action",
+                AssistantTrustClass.PlanAndAct => "requires approval",
+                _ => "unknown",
+            };
+
+            return $"- {capability.Name} [{mode}]: {capability.Summary}";
+        });
+
+        return SystemPrompt
+            + "\n\nAvailable abilities in this Nostos installation:\n"
+            + string.Join("\n", abilities);
+    }
+
+    /// <summary>
+    /// Maps client-supplied history to conversation turns. The text is UNTRUSTED
+    /// and is used only as ordinary user/assistant content, never as a system
+    /// message. Blank entries and unknown roles are dropped outright; the list is
+    /// clamped to the last <see cref="MaxHistoryExchanges"/> exchanges and each
+    /// message to <see cref="MaxHistoryCharsPerMessage"/> characters. Server-side
+    /// conversation state is deliberately absent: the client re-sends what it
+    /// remembers, so the server stays stateless (issue #286).
+    /// </summary>
+    private static IEnumerable<LlmMessage> BuildHistory(
+        IReadOnlyList<AssistantHistoryMessageDto>? history)
+    {
+        if (history is null || history.Count == 0)
+        {
+            return [];
+        }
+
+        var kept = new List<(bool IsUser, string Text)>();
+        foreach (var entry in history)
+        {
+            if (entry is null || string.IsNullOrWhiteSpace(entry.Text))
+            {
+                continue;
+            }
+
+            var isUser = string.Equals(entry.Role, "user", StringComparison.OrdinalIgnoreCase);
+            var isAssistant = string.Equals(entry.Role, "assistant", StringComparison.OrdinalIgnoreCase);
+            if (!isUser && !isAssistant)
+            {
+                // An unknown role is ignored: it is never treated as a system
+                // message or any other privileged turn.
+                continue;
+            }
+
+            kept.Add((isUser, TruncateHistory(entry.Text)));
+        }
+
+        // An exchange is a user message plus the assistant messages that followed
+        // it. Keep everything from the earliest of the last MaxHistoryExchanges
+        // user-role entries onward.
+        var userIndexes = kept
+            .Select((entry, index) => (entry, index))
+            .Where(pair => pair.entry.IsUser)
+            .Select(pair => pair.index)
+            .ToList();
+
+        var start = userIndexes.Count > MaxHistoryExchanges
+            ? userIndexes[userIndexes.Count - MaxHistoryExchanges]
+            : 0;
+
+        return kept
+            .Skip(start)
+            .Select(entry => entry.IsUser
+                ? LlmMessage.User(entry.Text)
+                : LlmMessage.Assistant(entry.Text));
+    }
+
+    private static string TruncateHistory(string text) =>
+        text.Length <= MaxHistoryCharsPerMessage
+            ? text
+            : text[..MaxHistoryCharsPerMessage] + HistoryTruncationMarker;
+
+    public IReadOnlyList<LlmToolDefinition> BuildTools() =>
+        registry.All
+            .Select(capability => new LlmToolDefinition(
+                capability.Name,
+                capability.Summary,
+                capability.ParametersJsonSchema))
+            .ToList();
+
+    /// <summary>
+    /// The behavior contract given to the model: it states the trust classes,
+    /// the explicit-targets-beat-ambient rule, and the quote-fidelity rule; the
+    /// orchestrator enforces the parts that must not depend on model goodwill
+    /// (approval, anchors, plan capture). Identity and voice live in
+    /// <see cref="AssistantSoul"/>, injected separately as the last system
+    /// message.
+    /// </summary>
+    private const string SystemPrompt =
+        """
+        You have tools. Use them to read the user's library and to capture thoughts.
+        - Capture tools run immediately; after a capture, confirm in one short line.
+        - Read and suggestion tools never change anything and may be called freely.
+        - Immediate action tools perform ordinary user-requested Nostos work in the current turn. Use their real result before deciding the next step.
+        - Approval-required tools are destructive/high-impact. Calling one records a plan step; do not claim it ran until the user explicitly approves that plan.
+        - Never claim an action succeeded unless a tool result says it did. If a tool fails, use the failure result to recover, clarify, or report what stopped.
+
+        A capture is the user giving you something of their own to keep: a thought, an observation, a reaction, a question they are sitting with, or a passage they want recorded. Ask yourself whether the user is TELLING you something of theirs or ASKING you something. Telling you is a capture: save it with notes_capture in that same turn, whether they say "save this", "note that", "capturing a thought" or "I just had a thought I wanted to write down", or simply tell you the thought. Asking — about the library, or for something to be found, read, explained, summarised or compared — is not a capture: answer it and capture nothing. Answering a capture instead of saving it loses the user's words, so when a message does both, save the part that is theirs and answer the rest.
+
+        The thought you were given is not a topic to discuss. Do not comment on it, evaluate it, agree with it, develop it or improve it.
+
+        Capture the user's own words exactly as they arrived: `content` is the user's message itself, with only the instruction removed. "I keep coming back to the idea that attention is the real scarce resource, not time" is captured exactly like that — not shortened to "attention is the real scarce resource, not time". Never paraphrase, shorten, translate, correct, tidy or add to them, and never keep only the part you judge to be the essential one: the preamble is theirs too. How the words are rendered is decided by a setting, not by you.
+
+        A passage the reader has selected is already in the context. When the user says to save, keep, note or record a passage, a quote, a highlight, "this" or "this passage", that selection is what they mean: capture it as selectedText in that same turn. Do not ask them to supply the text, and do not ask which passage they mean — asking is the failure here, because the app already has it.
+
+        The book is the app's, not yours: a capture goes to the book that is open, and when no book is open the app asks the user which one it belongs to before saving anything. You never choose a book, and you never name one you found in the library. Never invent a page, position or timestamp either: the capture tool asks for those itself when they cannot be known.
+
+        A capture is saved only when the notes_capture result says it succeeded. If it fails, say in one line what failed. The words "saved" may only follow a successful notes_capture result, and the app confirms a capture itself — including where it went — so keep your own reply to one short line and never restate the book, page or note, or name one that a tool result did not give you.
+
+        Do not answer a thought with what you found. A thought that resembles notes you already have is still a new capture: save it, and do not reply with a list of those notes.
+
+        An explicitly named note or concept in the user's message beats the ambient context. If a target is ambiguous or matches only weakly, ask one short clarifying question instead of guessing.
+
+        Nostos product knowledge:
+        - The Library already has search, sorting, status filters (Not Started, In Progress, Favorites, Finished, Unsorted), and built-in format filters for Audiobooks, eBooks and PDFs.
+        - Collections are hierarchical, user-defined structures for durable themes, projects, curricula, reading paths or other meaningful groupings. A book may belong to more than one collection.
+        - Do not recommend collections merely to recreate a Library filter or sort that already exists. In particular, an Audiobooks/eBooks/PDFs collection is normally redundant because format filtering is built in.
+        - Creating/restructuring collections and assigning books are separate operations. To change a book's collection membership, use library_update_book with collectionIds. That field is a FULL replacement set: read the current book first and preserve memberships the user did not ask to remove.
+        - Notes and quotes belong to books and may be linked to existing concepts. The Second Brain is for relationships between notes and concepts; its review flow surfaces notes that are not yet linked.
+        - The current application context tells you what surface, book, passage and reading position Nostos already knows. Use it rather than asking the user to repeat known context.
+
+        Ground answers in the user's actual Nostos data:
+        - When the user asks about their books, collections, notes or concepts, or asks for advice based on what they currently have, use the relevant read capability before answering. Do not substitute generic library advice for data you can inspect.
+        - For a whole-library organization or recommendation question, prefer library_overview: it is complete and compact, and avoids reasoning from only the first page of books.
+        - When the user asks what you can do, answer only from the Available abilities supplied below. Distinguish read-only inspection, immediate capture, immediate actions, and changes that require approval. Do not generalize beyond the registered capabilities.
+        - When the user explicitly asks you to add, update, organize, rename, move, or link something and an immediate action capability exists, do the work rather than merely describing how they could do it.
+        - Multi-step work is allowed: inspect first when needed, execute one action, read its actual result, then use that result in the next tool call. Do not pre-invent ids or pretend later steps happened.
+
+        Never invent a source location. When a capture has no location, the tool layer asks the user for a page or timestamp; do not guess one.
+
+        Quotes: only present a passage as an exact quotation when it came from the digital source. Otherwise the capture records that it was typed by hand and may differ.
+
+        Keep replies to a sentence or two unless the user asks for more. Do not use markdown headings.
+        """;
+
+
+}
