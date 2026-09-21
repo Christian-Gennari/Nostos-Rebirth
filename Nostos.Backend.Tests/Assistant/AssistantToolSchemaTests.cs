@@ -96,6 +96,9 @@ public sealed class AssistantToolSchemaTests : IClassFixture<SqliteTestFixture>
                 ["isFinished"] = "boolean",
             },
             Required: ["bookId"]),
+        ["library_set_book_collections_bulk"] = new(
+            Properties: new() { ["updates"] = "array" },
+            Required: ["updates"]),
         ["notes_list_for_book"] = new(
             Properties: new() { ["bookId"] = "string" },
             Required: ["bookId"]),
