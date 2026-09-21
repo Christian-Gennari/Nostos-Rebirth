@@ -81,11 +81,6 @@ export class BookDetail implements OnInit, OnDestroy {
   private preferences = inject(LibraryPreferencesService);
   private booksService = inject(BooksService);
   private toast = inject(ToastService);
-  private rememberActiveEdition = effect(() => {
-    const book = this.store.book();
-    if (book) this.preferences.setActiveEditionId(book.workId, book.id);
-  });
-
   // Local UI State
   isDescriptionExpanded = signal(false);
   showMetadataModal = signal(false);
@@ -118,7 +113,13 @@ export class BookDetail implements OnInit, OnDestroy {
    * re-runs it when the column changes width, so a review that fits on desktop
    * still collapses when the window narrows — and expands again when it grows.
    */
-  private measureReview = effect(() => {
+  constructor() {
+    effect(() => {
+    const book = this.store.book();
+    if (book) this.preferences.setActiveEditionId(book.workId, book.id);
+    });
+
+    effect(() => {
     const book = this.store.book();
     const review = book?.personalReview ?? null;
     // The review's own TEXT is the key, not its length: an edit that swaps one
@@ -141,7 +142,8 @@ export class BookDetail implements OnInit, OnDestroy {
     this.measuredReviewKey = key;
     this.isReviewExpanded.set(false);
     afterNextRender(() => this.measureReviewOverflow(), { injector: this.injector });
-  });
+    });
+  }
 
   /** A pending work link/unlink awaiting confirmation (issue #143). */
   pendingWorkAction = signal<PendingWorkAction | null>(null);
