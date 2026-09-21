@@ -360,6 +360,36 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
     }
 
     [Fact]
+    public async Task Add_book_matches_on_a_second_request_instead_of_duplicating()
+    {
+        var h = CreateHarness();
+        var args = Args(JsonSerializer.Serialize(new
+        {
+            type = "physical",
+            title = "The Magic Mountain",
+            author = "Thomas Mann",
+        }));
+
+        var first = await h.Registry.InvokeAsync(
+            "library_create_or_match_book",
+            args,
+            new AssistantToolContext("client", "book-add-1"));
+        var second = await h.Registry.InvokeAsync(
+            "library_create_or_match_book",
+            args,
+            new AssistantToolContext("client", "book-add-2"));
+
+        first.Success.Should().BeTrue();
+        second.Success.Should().BeTrue();
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.Books.CountAsync(b => b.Title == "The Magic Mountain")).Should().Be(1);
+
+        var payload = second.Data!.Value.GetProperty("data");
+        payload.GetProperty("outcome").GetString().Should().Be("matched");
+    }
+
+    [Fact]
     public async Task Bulk_collection_membership_routes_each_book_through_the_canonical_service()
     {
         var h = CreateHarness();
@@ -418,6 +448,30 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
     // ------------------------------------------------------------------
 
     [Fact]
+    public async Task Linking_a_chosen_existing_concept_is_an_immediate_action()
+    {
+        var h = CreateHarness();
+        var book = await SeedBookAsync(h);
+        var note = await SeedNoteAsync(h, book.Id, "a note");
+        var concept = await SeedConceptAsync(h, "Alienation");
+
+        var result = await h.Registry.InvokeAsync(
+            "notes_link_existing_concept",
+            Args(JsonSerializer.Serialize(new
+            {
+                noteId = note.Id,
+                conceptId = concept.Id,
+            })),
+            new AssistantToolContext("client", "link-existing"));
+
+        result.Success.Should().BeTrue();
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.NoteConcepts.CountAsync(link =>
+            link.NoteId == note.Id && link.ConceptId == concept.Id)).Should().Be(1);
+    }
+
+    [Fact]
     public async Task Linking_an_unknown_concept_is_a_typed_failure_and_creates_no_concept()
     {
         var h = CreateHarness();
@@ -427,11 +481,7 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
         var result = await h.Registry.InvokeAsync(
             "notes_link_existing_concept",
             Args($$"""{"noteId":"{{note.Id}}","conceptId":"{{Guid.NewGuid()}}"}"""),
-            new AssistantToolContext(
-                "client",
-                "link-key",
-                PlanId: "plan-1",
-                Approval: new AssistantPlanApproval("plan-1", "token")));
+            new AssistantToolContext("client", "link-key"));
 
         result.Success.Should().BeFalse();
         result.ErrorCode.Should().Be("concept_not_found");
