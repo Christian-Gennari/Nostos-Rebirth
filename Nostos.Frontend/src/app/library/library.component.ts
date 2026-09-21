@@ -29,7 +29,7 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { InfiniteScrollDirective } from '../core/directives/infinite-scroll.directive';
 import { BloomArtDirective } from '../ui/bloom-art/bloom-art.directive';
 import { BookSort } from '../core/dtos/book.enums';
-import { ImportActivity, importStageLabel, isImportInFlight as importIsInFlight } from '../core/dtos/import.dtos';
+import { ImportActivity, importStageLabel } from '../core/dtos/import.dtos';
 import { LibraryFilterService } from './library-filter.service';
 import { LibraryPreferencesService } from '../core/services/library-preferences.service';
 import { ImportService } from '../core/services/import.service';
@@ -496,7 +496,7 @@ export class Library implements OnInit, OnDestroy {
     this.editTarget.set(null);
   }
 
-  onBookUpdated(updated: Book): void {
+  onBookUpdated(_updated: Book): void {
     this.refreshBooks(true, false);
     this.refreshStatusCounts();
     this.closeEditModal();
