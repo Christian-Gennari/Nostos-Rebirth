@@ -502,33 +502,55 @@ ever wanted, extract the shared parts (the absolute 18px icon in a 2.5rem gutter
 `--border-focus` + `--color-accent-faint` focus ring) as tokens rather than forcing the
 boxes to become one another.
 
+### Capsules have two semantic families: Chip vs Badge/Status
+
+Nostos UI v1 treats capsule shape as a consequence of role, not as a shortcut
+for "small control":
+
+- **Chip** is interactive. It filters, removes, or selects. The canonical
+  `button[appChip]` is derived from Library's active-filter chip and stays a
+  native button. Selectable chips keep their `aria-pressed` contract at the
+  call site.
+- **Badge/Status** is passive. The canonical `span[appBadge]` carries metadata
+  or state and deliberately adds no role, tab stop or click behaviour. Settings'
+  backup state and assistant On/Off/Unavailable capsule are the reference
+  migration.
+- **Ordinary action buttons are neither.** Save, Cancel, Restore, Clear and
+  similar actions use `button[appButton]` even when compact. Pill shape must
+  not become a generic synonym for "button".
+
+This distinction also explains why inline explanatory/error copy should remain
+copy rather than inherit a status-capsule class. A state token may be shared;
+the capsule geometry is reserved for the state label itself.
+
+Pills remain appropriate for real capsule roles already present in Nostos:
+chips, badges/status, switch tracks, progress tracks and deliberate CTA/action
+pills. Fields, cards, row actions and other compact controls keep their existing
+soft/square radius roles.
+
 ### The segmented control is a shared RECIPE, not a shared component
 
-The `.toggle-opt` base recipe is declared ONCE, in `styles.css`. Library and Brain
-each used to carry a byte-identical copy of those four rules (only the comments
-differed), which had already caused real drift: the focus ring was added to one copy
-and not the other, so the same control behaved differently for keyboard users
-depending on which page they were on. The mobile overrides stay in their components
-because they genuinely differ (Library 32px box, Brain 44px touch target).
+The compact `.toggle-opt` option recipe is declared ONCE, in
+`styles.css`. Library and Brain used to carry byte-identical copies of those
+rules, and they had already drifted: only one copy received the keyboard focus
+ring. Their mobile sizing remains surface-owned because the surrounding layouts
+and touch targets differ.
 
-The MARKUP stays duplicated on purpose, and this is a decision, not an oversight. The
-four surfaces sharing this visual recipe have four different interaction contracts:
+Nostos UI v1 now names this explicitly as a **visual recipe**. A segmented track
+uses `--bg-hover`, 3px padding, `--radius-md`, a 2px gap and no border. The
+selected option uses `--control-active-fill` / `--control-active-ink`,
+`--shadow-sm` and a one-pixel `--border-color` outline. The existing
+`.toggle-opt` block is the shared compact-option implementation.
 
-| Surface | ARIA | Active class |
-| --- | --- | --- |
-| Studio sidebar | `role="tablist"` / `role="tab"` / `aria-selected` | `.active` |
-| Settings theme | `role="radiogroup"` / `role="radio"` / `aria-checked` | `.is-active` |
-| Brain view | `role="group"` / `aria-pressed` | `.active` |
-| Library view | `role="group"` / `aria-pressed` | `.active` |
+The MARKUP and ARIA stay surface-owned on purpose. Tabs use
+`aria-selected`, radio choices use `aria-checked`, and pressed-button groups
+use `aria-pressed`; those contracts are not interchangeable. Settings' current
+theme choices are large radio cards, not compact segmented options, so they keep
+their product-specific `.theme-card` treatment.
 
-So the real candidate pool was two call sites (Library and Brain), not four. A shared
-component would have to either keep those differences behind inputs — a leaky
-abstraction for two callers — or silently change one call site's rendered DOM.
-Extraction saves ZERO CSS now that the recipe is shared, and roughly 15 lines of
-markup across two templates.
-
-**Do not "finish" this by extracting the component.** Two earlier attempts were
-reverted for exactly this reason.
+**Do not "finish" this by extracting a semantic SegmentedControl component.**
+A component that switches between tab/radio/pressed-button modes through inputs
+would hide different accessibility contracts behind one visual abstraction.
 
 Library's ARIA was upgraded in its own follow-up task (NOT in the dedup pass), which
 is why it now matches Brain. Both icon-only controls previously announced as an
