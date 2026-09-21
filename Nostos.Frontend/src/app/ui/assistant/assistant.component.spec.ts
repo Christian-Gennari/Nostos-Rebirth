@@ -625,8 +625,7 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="assistant-raw"]')).toBeNull();
   });
 
-  it('renders non-mutating suggestion chips and links through an approved plan', () => {
-    // Linking has a target only when a note is under review.
+  it('renders suggestion chips and links the chosen existing concept without a second approval', () => {
     fake.set({
       surface: 'reader',
       route: '/read/b1',
@@ -650,43 +649,63 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     chip.click();
     fixture.detectChanges();
 
-    // Choosing a concept only asks for a plan; nothing has been linked yet.
     const request = http.expectOne('/api/assistant/turn');
     expect(request.request.body.message).toContain('Mountains');
-    request.flush(
-      turn({
-        pendingPlan: {
-          planId: 'plan-1',
-          summary: 'Link the note to Mountains',
-          steps: [
-            {
-              capability: 'notes_link_existing_concept',
-              summary: 'Link the note to Mountains',
-              argumentsJson: '{}',
-            },
-          ],
-          approvalToken: 'token-1',
+    request.flush(turn({ reply: 'Linked the note to Mountains.', pendingPlan: null }));
+    fixture.detectChanges();
+
+    expect(assistant.pendingPlan()).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="assistant-plan"]')).toBeNull();
+  });
+
+  it('uses the plan surface only as a lightweight destructive confirmation fallback', () => {
+    assistant.open();
+    assistant.pendingPlan.set({
+      planId: 'plan-delete',
+      summary: 'Delete the obsolete collection. Its books will stay in the library.',
+      steps: [
+        {
+          capability: 'library_delete_collection',
+          summary: 'Delete the obsolete collection',
+          argumentsJson: '{}',
         },
-      }),
-    );
+      ],
+      approvalToken: 'token-delete',
+    });
     fixture.detectChanges();
 
     const plan = fixture.nativeElement.querySelector('[data-testid="assistant-plan"]');
     expect(plan).toBeTruthy();
-    expect(plan.textContent).toContain('Link the note to Mountains');
+    expect(plan.textContent).toContain('Confirmation required');
+    expect(plan.textContent).toContain('Confirm change');
+    expect(plan.textContent).toContain('reply “yes” or “go ahead”');
 
     (plan.querySelector('[data-testid="assistant-plan-approve"]') as HTMLButtonElement).click();
     fixture.detectChanges();
 
     const approval = http.expectOne('/api/assistant/plan/approve');
-    expect(approval.request.body).toEqual({ planId: 'plan-1', approvalToken: 'token-1' });
-    approval.flush({ success: true, errorCode: null, errorMessage: null, steps: [] });
+    expect(approval.request.body).toEqual({
+      planId: 'plan-delete',
+      approvalToken: 'token-delete',
+    });
+    approval.flush({
+      success: true,
+      errorCode: null,
+      errorMessage: null,
+      steps: [
+        {
+          capability: 'library_delete_collection',
+          success: true,
+          errorCode: null,
+          errorMessage: null,
+          data: { reply: 'Deleted the obsolete collection.' },
+        },
+      ],
+    });
     fixture.detectChanges();
 
     expect(assistant.pendingPlan()).toBeNull();
-    expect(
-      fixture.nativeElement.querySelector('[data-testid="assistant-plan"]'),
-    ).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="assistant-plan"]')).toBeNull();
   });
 
   it('leaves the note unlinked when the user dismisses the suggestions', () => {
