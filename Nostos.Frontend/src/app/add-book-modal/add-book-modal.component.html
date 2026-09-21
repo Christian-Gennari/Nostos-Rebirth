@@ -722,31 +722,32 @@
       </form>
 
       @if (!sourceMode()) {
-        <div class="modal-actions" shellActions [class.has-danger]="isEditMode()">
+        <app-dialog-actions shellActions>
           @if (isEditMode()) {
             <button
+              appButton
+              dialogActionsStart
               type="button"
-              class="btn btn-danger-ghost delete-modal-btn"
+              variant="danger"
               (click)="deleteBook.emit()"
             >
               <nostos-icon name="trash" [size]="14"></nostos-icon>
               <span>Delete Book</span>
             </button>
           }
-          <div class="right-actions">
-            <button type="button" class="btn btn-secondary" (click)="closeModal.emit()">
-              Cancel
-            </button>
-            <button
-              type="submit"
-              form="add-book-form"
-              class="btn btn-primary"
-              [disabled]="bookForm.invalid || !form.title.trim()"
-            >
-              {{ isEditMode() ? 'Save Changes' : seededFromSource() ? 'Import Book' : 'Create Book' }}
-            </button>
-          </div>
-        </div>
+          <button appButton type="button" variant="secondary" (click)="closeModal.emit()">
+            Cancel
+          </button>
+          <button
+            appButton
+            type="submit"
+            form="add-book-form"
+            variant="primary"
+            [disabled]="bookForm.invalid || !form.title.trim()"
+          >
+            {{ isEditMode() ? 'Save Changes' : seededFromSource() ? 'Import Book' : 'Create Book' }}
+          </button>
+        </app-dialog-actions>
       }
   </app-modal-shell>
 }

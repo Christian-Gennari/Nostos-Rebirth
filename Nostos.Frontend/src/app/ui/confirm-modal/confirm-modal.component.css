@@ -1,10 +1,8 @@
 /* Nostos confirmation surface — Nordic Editorial.
-   The backdrop, the card and the entrance animation belong to
-   `app-modal-shell` (see `ui/modal-shell`), including the `prefers-reduced-
-   motion` guard the card's `from: opacity 0` makes necessary. This file styles
-   the question itself. Deliberately NOT glassmorphic (the brand avoids it) and
-   NOT an alarm: the danger treatment is muted wine, and the action never lifts
-   on hover. */
+   The backdrop, card and entrance animation belong to app-modal-shell; ordinary
+   action composition belongs to app-dialog-actions; action visuals belong to
+   appButton. This file owns only the question-specific mark, copy and busy
+   spinner. */
 
 :host {
   display: contents;
@@ -53,77 +51,9 @@
   color: var(--color-text-muted);
 }
 
-.confirm-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.6rem;
-}
-
-.btn-cancel,
-.btn-confirm {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  height: 36px;
-  padding: 0 1rem;
-  /* The action role: a dialog footer action, deliberately stadium-ended so the
-     Confirm surface no longer switches shape from the Edit Book footer it is
-     opened from. */
-  border-radius: var(--radius-action, 999px);
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 0.86rem;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  /* Explicit property list, not `transition: background-color, color, opacity ` — the latter animates every
-     animatable property and reads as a flicker on hover. */
-  transition:
-    background-color var(--motion-fast, 160ms) ease,
-    border-color var(--motion-fast, 160ms) ease,
-    color var(--motion-fast, 160ms) ease
-}
-
-.btn-cancel {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--color-text-muted);
-}
-
-.btn-cancel:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--color-text-main);
-}
-
-.btn-confirm {
-  background: var(--primary-fill);
-  border: 1px solid transparent;
-  color: var(--on-primary);
-}
-
-.btn-confirm:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-}
-
-/* Destructive tone: a deep wine rather than an alarm red — the fill is pulled
-   toward ink (measured #ad312f -> #982928, white-text contrast 6.45 -> 7.83:1)
-   and the accent glow is gone. No hover lift either: a confirmation should feel
-   decided, not excitable. Note the saturation is essentially unchanged — the
-   restraint comes from depth and the dropped glow, not from desaturating. */
-.btn-confirm.tone-danger {
-  background: var(--danger-solid);
-}
-
-.btn-confirm.tone-danger:hover:not(:disabled) {
-  background: var(--danger-solid-hover);
-}
-
-.btn-cancel:disabled,
-.btn-confirm:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+/* The footer composition belongs to app-dialog-actions and the native action
+   styling belongs to appButton. ConfirmModal keeps only the question-specific
+   typography/mark and its busy spinner. */
 
 .spin-icon {
   animation: spin 0.8s linear infinite;
@@ -132,19 +62,6 @@
 @keyframes spin {
   to {
     transform: rotate(360deg);
-  }
-}
-
-@media (max-width: 480px) {
-  .confirm-actions {
-    flex-direction: column-reverse;
-    gap: 0.5rem;
-  }
-
-  .btn-cancel,
-  .btn-confirm {
-    width: 100%;
-    height: 44px;
   }
 }
 
