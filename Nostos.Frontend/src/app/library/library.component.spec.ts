@@ -461,6 +461,32 @@ describe('Library', () => {
     expect(toggles[1].getAttribute('aria-pressed')).toBe('true');
   });
 
+  it('uses kit primitives for generic Library chrome without changing the segmented view contract', () => {
+    fixture.detectChanges();
+
+    const search = fixture.nativeElement.querySelector('.search-input') as HTMLInputElement;
+    const sort = fixture.nativeElement.querySelector('.sort-select') as HTMLSelectElement;
+    const add = fixture.nativeElement.querySelector('.library-add-button') as HTMLButtonElement;
+
+    expect(search.classList.contains('nostos-form-control--input')).toBe(true);
+    expect(search.classList.contains('nostos-form-control--compact')).toBe(true);
+    expect(sort.classList.contains('nostos-form-control--select')).toBe(true);
+    expect(sort.classList.contains('nostos-form-control--compact')).toBe(true);
+    expect(add.classList.contains('nostos-button')).toBe(true);
+    expect(add.classList.contains('nostos-button--primary')).toBe(true);
+
+    component.filters.toggleStatus('reading');
+    fixture.detectChanges();
+    const chip = fixture.nativeElement.querySelector('.filter-chip') as HTMLButtonElement;
+    expect(chip.classList.contains('nostos-chip')).toBe(true);
+
+    const toggles = Array.from(
+      fixture.nativeElement.querySelectorAll('.toggle-opt'),
+    ) as HTMLButtonElement[];
+    expect(toggles.every((toggle) => toggle.hasAttribute('aria-pressed'))).toBe(true);
+    expect(toggles.every((toggle) => !toggle.classList.contains('nostos-button'))).toBe(true);
+  });
+
   it('updates the active sort and persists it through the preferences service', () => {
     const preferences = TestBed.inject(LibraryPreferencesService);
 

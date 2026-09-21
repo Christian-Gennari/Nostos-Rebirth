@@ -626,6 +626,35 @@ describe('SecondBrain', () => {
     expect(component.searchQuery()).toBe('');
   });
 
+  it('uses kit primitives for generic Brain chrome while preserving pressed view semantics', () => {
+    fixture.detectChanges();
+
+    const count = fixture.nativeElement.querySelector('.brain-header .badge-count') as HTMLElement;
+    const search = fixture.nativeElement.querySelector(
+      'input[aria-label="Search concepts"]',
+    ) as HTMLInputElement;
+    const sort = fixture.nativeElement.querySelector('#brain-sort') as HTMLSelectElement;
+
+    expect(count.classList.contains('nostos-badge')).toBe(true);
+    expect(search.classList.contains('nostos-form-control--input')).toBe(true);
+    expect(search.classList.contains('nostos-form-control--compact')).toBe(true);
+    expect(sort.classList.contains('nostos-form-control--select')).toBe(true);
+    expect(sort.classList.contains('nostos-form-control--compact')).toBe(true);
+
+    component.setSearchQuery('alp');
+    fixture.detectChanges();
+    const clear = fixture.nativeElement.querySelector('.clear-search') as HTMLButtonElement;
+    expect(clear.classList.contains('icon-btn')).toBe(true);
+    expect(clear.getAttribute('aria-label')).toBe('Clear search');
+    expect(clear.hasAttribute('aria-pressed')).toBe(false);
+
+    const views = Array.from(
+      fixture.nativeElement.querySelectorAll('.view-mode-control .toggle-opt'),
+    ) as HTMLButtonElement[];
+    expect(views.every((view) => view.hasAttribute('aria-pressed'))).toBe(true);
+    expect(views.every((view) => !view.classList.contains('nostos-button'))).toBe(true);
+  });
+
   it('moves the roving cursor with arrows and selects on Enter', async () => {
     fixture.detectChanges();
     const rows = fixture.nativeElement.querySelectorAll('.index-item') as NodeListOf<HTMLElement>;
