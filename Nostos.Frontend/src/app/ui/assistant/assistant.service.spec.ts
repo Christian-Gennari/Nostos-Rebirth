@@ -11,6 +11,7 @@ import {
   HISTORY_MAX_EXCHANGES,
   TRANSCRIPT_AUTO_SEND_DELAY_MS,
   TRANSCRIPT_SEND_POLICY,
+  isExplicitPlanApproval,
 } from './assistant.service';
 import { AssistantContext, AssistantContextService } from './assistant-context.service';
 
@@ -655,6 +656,74 @@ describe('AssistantService voice transcript alignment', () => {
     expect(service.lastApproval()?.success).toBe(true);
     expect(service.entries().at(-1)?.text).toBe('Deleted the obsolete collection.');
     expect(service.entries().at(-1)?.meta).toBe('Applied');
+  });
+
+  it('treats an exact conversational yes as approval of the one pending destructive plan', () => {
+    service.pendingPlan.set({
+      planId: 'plan-1',
+      summary: 'Delete the obsolete collection',
+      steps: [],
+      approvalToken: 'token-1',
+    });
+
+    service.updateDraft('Go ahead.');
+    service.submit();
+
+    http.expectNone('/api/assistant/turn');
+    const request = http.expectOne('/api/assistant/plan/approve');
+    expect(request.request.body).toEqual({ planId: 'plan-1', approvalToken: 'token-1' });
+    expect(service.entries().at(-1)?.kind).toBe('user');
+    expect(service.entries().at(-1)?.text).toBe('Go ahead.');
+
+    request.flush({
+      success: true,
+      errorCode: null,
+      errorMessage: null,
+      steps: [
+        {
+          capability: 'library_delete_collection',
+          success: true,
+          errorCode: null,
+          errorMessage: null,
+          data: { reply: 'Deleted the obsolete collection.' },
+        },
+      ],
+    });
+
+    expect(service.pendingPlan()).toBeNull();
+    expect(service.entries().at(-1)?.text).toBe('Deleted the obsolete collection.');
+    expect(service.history().map((entry) => entry.text)).toEqual([
+      'Go ahead.',
+      'Deleted the obsolete collection.',
+    ]);
+  });
+
+  it('does not mistake a qualified yes for destructive approval', () => {
+    service.pendingPlan.set({
+      planId: 'plan-1',
+      summary: 'Delete the obsolete collection',
+      steps: [],
+      approvalToken: 'token-1',
+    });
+
+    service.updateDraft('Yes, but explain what will happen first.');
+    service.submit();
+
+    http.expectNone('/api/assistant/plan/approve');
+    const request = http.expectOne('/api/assistant/turn');
+    expect(request.request.body.pendingPlanId).toBe('plan-1');
+    request.flush(turn());
+
+    expect(service.pendingPlan()?.planId).toBe('plan-1');
+  });
+
+  it('keeps the natural approval vocabulary deliberately narrow', () => {
+    expect(isExplicitPlanApproval('yes')).toBe(true);
+    expect(isExplicitPlanApproval('Yes, do it.')).toBe(true);
+    expect(isExplicitPlanApproval('go ahead')).toBe(true);
+    expect(isExplicitPlanApproval('yes, but explain first')).toBe(false);
+    expect(isExplicitPlanApproval('I guess so')).toBe(false);
+    expect(isExplicitPlanApproval('do it after you check something else')).toBe(false);
   });
 
   it('dismisses suggestions without touching the note', () => {
