@@ -2,6 +2,7 @@ import { Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModalShell } from '../ui/modal-shell/modal-shell.component';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
+import { ButtonComponent } from '../ui/button/button.component';
 
 /**
  * The question Add Book should have asked first: is this book coming from
@@ -15,7 +16,7 @@ import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 @Component({
   selector: 'app-add-book-intent',
   standalone: true,
-  imports: [CommonModule, NostosIconComponent, ModalShell],
+  imports: [CommonModule, NostosIconComponent, ModalShell, ButtonComponent],
   templateUrl: './add-book-intent.component.html',
   styleUrl: './add-book-intent.component.css',
 })

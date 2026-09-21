@@ -156,6 +156,25 @@ describe('AddBookModal — From a Source', () => {
     expect(component.providerList().length).toBeGreaterThan(0);
   });
 
+  it('uses canonical controls for the ordinary source search field and import action', async () => {
+    component.enterSourceMode();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const query = fixture.nativeElement.querySelector('#source-query') as HTMLInputElement;
+    expect(query.classList.contains('nostos-form-control')).toBe(true);
+
+    component.sourceQuery.set('pride');
+    component.searchSource();
+    await fixture.whenStable();
+    component.selectSourceItem(pride);
+    fixture.detectChanges();
+
+    const action = fixture.nativeElement.querySelector('.source-action') as HTMLButtonElement;
+    expect(action.classList.contains('nostos-button')).toBe(true);
+    expect(action.classList.contains('nostos-button--primary')).toBe(true);
+  });
+
   it('loads the sources when the tab is opened and selects the first', async () => {
     component.enterSourceMode();
     await fixture.whenStable();

@@ -831,12 +831,15 @@ function legacySettingsFormRecipes(css) {
  * not a global ban. Exact legacy class tokens are checked; product class names
  * such as .btn-back, .item-action and .tab-btn are deliberately untouched.
  *
- * Add Book's source-query field and source-action CTA are explicit product-owned
- * acquisition controls from #357, so those two documented exceptions remain.
+ * Exact legacy generic classes are now retired from live app templates entirely.
+ * Product-owned controls keep local class names instead of borrowing the old global
+ * generic family.
  */
 const MIGRATED_UI_V1_TEMPLATES = [
   'src/app/settings/settings.component.html',
   'src/app/add-book-modal/add-book-modal.component.html',
+  'src/app/add-book-modal/add-book-intent.component.html',
+  'src/app/home/home.component.html',
   'src/app/ui/assistant/assistant.component.html',
   'src/app/library/library.component.html',
   'src/app/second-brain/second-brain.component.html',
@@ -866,11 +869,6 @@ function legacyMigratedControlMarkup(html) {
     const classes = classMatch[2].split(/\s+/).filter(Boolean);
     const legacy = classes.filter((name) => LEGACY_GENERIC_CONTROL_CLASSES.has(name));
     if (!legacy.length) continue;
-
-    // Deliberate #357 product controls: acquisition search/results are not an
-    // ordinary metadata form, and their geometry/state remains product-owned.
-    if (/\bid\s*=\s*(["'])source-query\1/.test(raw)) continue;
-    if (classes.includes('source-action')) continue;
 
     out.push({ tag: raw, index: tag.index, legacy });
   }
@@ -948,6 +946,124 @@ for (const relativePath of MIGRATED_UI_V1_STYLES) {
 }
 
 /**
+ * RULE 15 — raw native controls on migrated surfaces require an explicit owner.
+ *
+ * A name-based legacy check is necessary but insufficient: a new
+ * `<button class="save-action">` can recreate an ordinary Button recipe without
+ * ever spelling `.btn`. The durable boundary is ownership:
+ *
+ *   - canonical ordinary controls carry appButton/appIconButton/appChip or the
+ *     native-host form directives;
+ *   - raw controls are allowed only when their product interaction is listed here.
+ *
+ * This is intentionally an allow-list rather than a CSS-shape heuristic. Reader
+ * transport, Brain rows, Assistant recording, tabs and acquisition rows share
+ * ordinary CSS properties with buttons but have different semantics. Adding a new
+ * raw control therefore requires an explicit decision in this ledger instead of
+ * silently becoming a second generic primitive.
+ */
+const PRODUCT_RAW_BUTTON_CLASSES = new Map([
+  ['src/app/settings/settings.component.html', new Set(['settings-nav-item', 'theme-card'])],
+  ['src/app/add-book-modal/add-book-modal.component.html', new Set(['tab-btn', 'source-choice', 'source-result'])],
+  ['src/app/add-book-modal/add-book-intent.component.html', new Set(['add-intent-choice'])],
+  ['src/app/ui/assistant/assistant.component.html',
+    new Set(['assistant-expand', 'suggestion-chip', 'anchor-chip-dismiss', 'voice-control', 'assistant-trigger'])],
+  ['src/app/library/library.component.html',
+    new Set(['toggle-opt', 'item-action', 'finished-btn-list', 'fav-btn-list',
+      'finished-btn-grid', 'fav-btn-grid', 'action-circle'])],
+  ['src/app/second-brain/second-brain.component.html',
+    new Set(['toggle-opt', 'note-row-item', 'review-load-more', 'index-item', 'row-action',
+      'rail-foot-action', 'mobile-nav-header', 'concept-action', 'merge-picker-close',
+      'merge-target', 'merge-picker-cancel', 'merge-picker-confirm', 'related-chip', 'related-more'])],
+  ['src/app/book-detail/book-detail.component.html',
+    new Set(['btn-back', 'cover-overlay-btn', 'status-chip', 'status-dropdown-item',
+      'edit-menu-item', 'expand-btn', 'edition-select-card', 'edition-section-action'])],
+  ['src/app/book-detail/editions-modal/editions-modal.component.html',
+    new Set(['manage-member-action', 'manage-link-candidate'])],
+  ['src/app/reader/reader-shell.component.html',
+    new Set(['highlight-toggle', 'hl-pen', 'typo-opt', 'typo-step'])],
+  ['src/app/writing-studio/writing-studio.component.html', new Set(['tab-btn', 'toggle-opt', 'list-item'])],
+  ['src/app/ui/confirm-modal/confirm-modal.component.html', new Set()],
+  ['src/app/home/home.component.html', new Set()],
+]);
+
+const stripHtmlComments = (html) => html.replace(/<!--[\s\S]*?-->/g, '');
+
+function rawButtonWithoutPrimitive(html, relativePath) {
+  const out = [];
+  const clean = stripHtmlComments(html);
+  const allowed = PRODUCT_RAW_BUTTON_CLASSES.get(relativePath) ?? new Set();
+  for (const tag of clean.matchAll(/<button\b[^>]*>/gs)) {
+    const raw = tag[0];
+    if (/\bapp(?:Button|IconButton|Chip)\b/.test(raw)) continue;
+    const classMatch = raw.match(/\bclass\s*=\s*(["'])(.*?)\1/s);
+    const classes = classMatch ? classMatch[2].split(/\s+/).filter(Boolean) : [];
+    if (classes.some((name) => allowed.has(name))) continue;
+    out.push({ tag: raw, index: tag.index });
+  }
+  return out;
+}
+
+function rawOrdinaryFieldWithoutPrimitive(html, relativePath) {
+  const out = [];
+  const clean = stripHtmlComments(html);
+  for (const tag of clean.matchAll(/<(input|select|textarea)\b[^>]*>/gs)) {
+    const raw = tag[0];
+    if (/\bapp(?:Input|Select|Textarea)\b/.test(raw)) continue;
+
+    const kind = tag[1];
+    if (kind === 'input') {
+      const type = raw.match(/\btype\s*=\s*(["'])(.*?)\1/s)?.[2]?.toLowerCase() ?? 'text';
+      if (['checkbox', 'file', 'radio', 'number', 'range', 'hidden'].includes(type)) continue;
+    }
+
+    const classMatch = raw.match(/\bclass\s*=\s*(["'])(.*?)\1/s);
+    const classes = classMatch ? classMatch[2].split(/\s+/).filter(Boolean) : [];
+
+    // These fields are tightly coupled to their product interaction rather than
+    // being ordinary forms: the Assistant composer owns Enter/Shift+Enter/voice
+    // composition, and Brain rename/picker fields own inline commit/Escape flows.
+    if (relativePath === 'src/app/ui/assistant/assistant.component.html' &&
+        classes.includes('composer-field')) continue;
+    if (relativePath === 'src/app/second-brain/second-brain.component.html' &&
+        (classes.includes('inline-rename-input') ||
+         /aria-label\s*=\s*["']Search (?:concepts to link|merge targets)["']/.test(raw))) continue;
+
+    out.push({ tag: raw, index: tag.index });
+  }
+  return out;
+}
+
+for (const relativePath of MIGRATED_UI_V1_TEMPLATES) {
+  const htmlPath = join(ROOT, relativePath);
+  const html = readFileSync(htmlPath, 'utf8');
+
+  for (const hit of rawButtonWithoutPrimitive(html, relativePath)) {
+    const line = stripHtmlComments(html).slice(0, hit.index).split('\n').length;
+    report(
+      'migrated-surface-unowned-raw-button',
+      htmlPath,
+      line,
+      'Raw button has no canonical primitive and is not listed as product-owned. ' +
+        'Use appButton/appIconButton/appChip for an ordinary control, or add an explicit ' +
+        'product ownership entry when the interaction semantics genuinely differ.',
+    );
+  }
+
+  for (const hit of rawOrdinaryFieldWithoutPrimitive(html, relativePath)) {
+    const line = stripHtmlComments(html).slice(0, hit.index).split('\n').length;
+    report(
+      'migrated-surface-unowned-raw-field',
+      htmlPath,
+      line,
+      'Raw text/search/select/textarea has no canonical form directive and is not an ' +
+        'explicit product-owned field. Use appInput/appSelect/appTextarea or document ' +
+        'the product interaction exception in the ownership ledger.',
+    );
+  }
+}
+
+/**
  * Prove the scanner can fail. A rule that cannot be made to fire is not a check.
  * `--self-test` injects a known-bad snippet per rule and asserts each fires.
  */
@@ -965,6 +1081,8 @@ if (process.argv.includes('--self-test')) {
     ['settings-local-form-family',
       '.provider-input { padding: 9px; border: 1px solid var(--border-color); background: var(--bg-input); }'],
     ['migrated-surface-legacy-generic-control', '<button class="btn btn-secondary">Save</button>'],
+    ['migrated-surface-unowned-raw-button', '<button class="save-action">Save</button>'],
+    ['migrated-surface-unowned-raw-field', '<input class="save-name" type="text">'],
     ['migrated-surface-switch-copy',
       '.copied-switch { position: relative; width: 42px; height: 24px; border-radius: 999px; }'],
     // RULE 8 needs a TEMPLATE and a matching .css class, so its case is checked by
@@ -1023,6 +1141,12 @@ if (process.argv.includes('--self-test')) {
     if (rule === 'add-book-legacy-field-markup') fired = legacyAddBookFieldMarkup(snippet).length > 0;
     if (rule === 'settings-local-form-family') fired = legacySettingsFormRecipes(snippet).length > 0;
     if (rule === 'migrated-surface-legacy-generic-control') fired = legacyMigratedControlMarkup(snippet).length > 0;
+    if (rule === 'migrated-surface-unowned-raw-button') {
+      fired = rawButtonWithoutPrimitive(snippet, 'src/app/settings/settings.component.html').length > 0;
+    }
+    if (rule === 'migrated-surface-unowned-raw-field') {
+      fired = rawOrdinaryFieldWithoutPrimitive(snippet, 'src/app/settings/settings.component.html').length > 0;
+    }
     if (rule === 'migrated-surface-switch-copy') fired = copiedSwitchGeometry(snippet).length > 0;
     if (fired) { ok++; console.log(`  ✔ ${rule} fires on its known-bad snippet`); }
     else console.log(`  ✖ ${rule} DID NOT FIRE — the rule is vacuous`);
@@ -1076,7 +1200,8 @@ if (process.argv.includes('--self-test')) {
     'bare-attribute-not-class', 'settings-local-button-family',
     'add-book-local-field-system', 'add-book-legacy-field-markup',
     'settings-local-switch-family', 'settings-local-form-family',
-    'migrated-surface-legacy-generic-control', 'migrated-surface-switch-copy',
+    'migrated-surface-legacy-generic-control', 'migrated-surface-unowned-raw-button',
+    'migrated-surface-unowned-raw-field', 'migrated-surface-switch-copy',
     'visually-hidden (by-name + by-recipe)'];
   console.log(`\nself-test: ${ok}/${cases.length + 3} injected cases detected`);
   console.log(`rules implemented: ${RULES.length} (${RULES.join(', ')})`);
