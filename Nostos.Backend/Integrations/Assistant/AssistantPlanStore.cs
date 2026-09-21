@@ -77,15 +77,6 @@ public sealed class AssistantPlanStore
         }
     }
 
-    /// <summary>The conversation's single pending plan, if one exists.</summary>
-    public StoredAssistantPlan? GetCurrent(string conversationKey)
-    {
-        lock (_gate)
-        {
-            return _byConversation.TryGetValue(conversationKey, out var plan) ? plan : null;
-        }
-    }
-
     /// <summary>
     /// Validates and consumes an approval. On success the plan is removed, so it
     /// can be executed exactly once. On refusal nothing is removed.

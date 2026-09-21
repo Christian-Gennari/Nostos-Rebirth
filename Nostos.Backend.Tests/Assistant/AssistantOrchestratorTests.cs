@@ -23,8 +23,9 @@ namespace Nostos.Backend.Tests.Assistant;
 /// The assistant bridge (issue #261 §3, §4, §7). These tests drive the real
 /// orchestrator over the real capability registry and a real SQLite database,
 /// with the LLM replaced by <see cref="FakeLlmProvider"/>. They prove the trust
-/// classes end to end: capture mutates, suggest does not, and PlanAndAct mutates
-/// only through an approval bound to one plan id.
+/// classes end to end: capture and normal Act work execute in the bounded tool
+/// loop, Suggest does not mutate, and destructive PlanAndAct work mutates only
+/// through an approval bound to one plan id.
 /// </summary>
 public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture>
 {
@@ -259,12 +260,11 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
-    public async Task A_request_mode_and_the_configured_default_are_both_ignored()
+    public async Task A_request_mode_and_tool_argument_are_both_ignored_without_a_stored_setting()
     {
         // Nothing is stored, so the effective mode is verbatim; the request's
-        // light_polish, the tool call's clarify and the configured default
-        // clarify are all ignored.
-        var h = CreateHarness(defaultProcessingMode: "clarify");
+        // light_polish and the tool call's clarify are both ignored.
+        var h = CreateHarness();
         var book = await SeedBookAsync(h);
 
         h.Llm
@@ -289,7 +289,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     {
         // A stored verbatim is a real choice, not "never chosen": it must be
         // distinguished from the NULL default and must not be overridden.
-        var h = CreateHarness(defaultProcessingMode: "light_polish");
+        var h = CreateHarness();
         var book = await SeedBookAsync(h);
 
         (await h.Settings.UpdateAsync(new AssistantSettingsUpdateRequest("verbatim")))
@@ -487,11 +487,11 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     // ------------------------------------------------------------------
-    // Collections — inspect, propose, approve (#261 §6)
+    // Agent actions — ordinary work executes, destructive work asks
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task Collections_inspection_produces_a_pending_plan_without_executing()
+    public async Task Collections_reorganization_executes_inside_the_turn_without_a_plan_card()
     {
         var h = CreateHarness();
         var existing = await SeedCollectionAsync(h, "Old Name");
@@ -500,105 +500,176 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
             .CallsTool("library_list_collections")
             .CallsTool("library_create_collection", """{"name":"Fiction"}""")
             .CallsTool("library_rename_collection", $$"""{"collectionId":"{{existing.Id}}","name":"Classics"}""")
-            .Returns("Here is a cleaner structure. Approve it to apply the changes.");
+            .Returns("Done. I created Fiction and renamed Old Name to Classics.");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
-            "My collections are getting messy. Can you propose something cleaner?",
-            Context(surface: "library", route: "/library")));
-
-        response.PendingPlan.Should().NotBeNull();
-        response.PendingPlan!.Steps.Select(step => step.Capability).Should().Equal(
-            "library_create_collection",
-            "library_rename_collection");
-
-        // Inspection and proposal only: nothing was executed before approval.
-        await using var db = await h.Factory.CreateDbContextAsync();
-        var names = await db.Collections.AsNoTracking().Select(c => c.Name).ToListAsync();
-        names.Should().Equal("Old Name");
-    }
-
-    [Fact]
-    public async Task Approving_a_collections_plan_executes_each_mutation_through_the_library_service()
-    {
-        var h = CreateHarness();
-        var existing = await SeedCollectionAsync(h, "Old Name");
-
-        h.Llm
-            .CallsTool("library_list_collections")
-            .CallsTool("library_create_collection", """{"name":"Fiction"}""")
-            .CallsTool("library_rename_collection", $$"""{"collectionId":"{{existing.Id}}","name":"Classics"}""")
-            .Returns("Proposed.");
-
-        var turn = await h.Orchestrator.HandleTurnAsync(Turn(
             "Tidy my collections.",
             Context(surface: "library", route: "/library")));
 
-        var plan = turn.PendingPlan!;
-        var approved = await h.Orchestrator.ApproveAsync(plan.PlanId, plan.ApprovalToken);
-
-        approved.Success.Should().BeTrue();
-        approved.Steps.Should().HaveCount(2);
-        approved.Steps.Should().OnlyContain(step => step.Success);
+        response.PendingPlan.Should().BeNull();
+        response.Reply.Should().Contain("Done");
+        response.ExecutedCapabilities.Should().Equal(
+            "library_create_collection",
+            "library_rename_collection");
 
         await using var db = await h.Factory.CreateDbContextAsync();
         var names = await db.Collections.AsNoTracking()
-            .Select(c => c.Name)
+            .Select(collection => collection.Name)
             .OrderBy(name => name)
             .ToListAsync();
         names.Should().Equal("Classics", "Fiction");
     }
 
-    // ------------------------------------------------------------------
-    // PlanAndAct — no mutation until approval
-    // ------------------------------------------------------------------
-
     [Fact]
-    public async Task PlanAndAct_intent_produces_a_pending_plan_and_mutates_nothing()
+    public async Task Empty_collection_cleanup_finishes_reorganization_without_a_plan()
     {
         var h = CreateHarness();
-        await SeedBookAsync(h);
+        var obsolete = await SeedCollectionAsync(h, "Obsolete");
 
         h.Llm
-            .CallsTool("library_create_collection", """{"name":"Planned Collection"}""")
-            .Returns("I can create that collection if you approve.");
+            .CallsTool(
+                "library_rename_collection",
+                JsonSerializer.Serialize(new { collectionId = obsolete.Id, name = "Temporary" }))
+            .CallsTool(
+                "library_delete_empty_collection",
+                JsonSerializer.Serialize(new { collectionId = obsolete.Id }))
+            .Returns("Done. I cleaned up the obsolete collection.");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
-            "Please tidy up my collections.",
+            "Clean up that obsolete empty collection.",
+            Context(surface: "library", route: "/library")));
+
+        response.PendingPlan.Should().BeNull();
+        (await CollectionCountAsync(h)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Later_action_can_use_the_real_id_returned_by_an_earlier_action()
+    {
+        var h = CreateHarness();
+        var book = await SeedBookAsync(h, "The Magic Mountain");
+
+        h.Llm.Responder = call =>
+        {
+            if (call == 1)
+            {
+                return new LlmCompletion(
+                    null,
+                    "tool_calls",
+                    [new LlmToolCall("create-collection", "library_create_collection", """{"name":"German Literature"}""")]);
+            }
+
+            if (call == 2)
+            {
+                var toolMessage = h.Llm.LastRequest.Messages.Last(message => message.Role == "tool");
+                using var result = JsonDocument.Parse(toolMessage.Content!);
+                var collectionId = result.RootElement
+                    .GetProperty("data")
+                    .GetProperty("data")
+                    .GetProperty("id")
+                    .GetGuid();
+
+                return new LlmCompletion(
+                    null,
+                    "tool_calls",
+                    [new LlmToolCall(
+                        "assign-book",
+                        "library_update_book",
+                        JsonSerializer.Serialize(new
+                        {
+                            bookId = book.Id,
+                            collectionIds = new[] { collectionId },
+                        }))]);
+            }
+
+            return new LlmCompletion(
+                "Done. I created German Literature and added The Magic Mountain to it.",
+                "stop",
+                []);
+        };
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Create a German Literature collection and put The Magic Mountain in it.",
+            Context(surface: "library", route: "/library")));
+
+        response.PendingPlan.Should().BeNull();
+        h.Llm.CallCount.Should().Be(3);
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var collection = await db.Collections.AsNoTracking()
+            .SingleAsync(item => item.Name == "German Literature");
+        var membership = await db.BookCollections.AsNoTracking()
+            .SingleAsync(link => link.BookId == book.Id);
+        membership.CollectionId.Should().Be(collection.Id);
+    }
+
+    [Fact]
+    public async Task Multiple_actions_in_one_turn_receive_distinct_receipt_keys()
+    {
+        var h = CreateHarness();
+
+        h.Llm
+            .CallsTool("library_create_collection", """{"name":"Fiction"}""")
+            .CallsTool("library_create_collection", """{"name":"Philosophy"}""")
+            .Returns("Both collections are ready.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Create Fiction and Philosophy.",
+            Context(surface: "library", route: "/library")));
+
+        response.PendingPlan.Should().BeNull();
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var names = await db.Collections.AsNoTracking()
+            .Select(collection => collection.Name)
+            .OrderBy(name => name)
+            .ToListAsync();
+        names.Should().Equal("Fiction", "Philosophy");
+    }
+
+    [Fact]
+    public async Task PlanAndAct_delete_produces_a_pending_plan_and_mutates_nothing()
+    {
+        var h = CreateHarness();
+        var collection = await SeedCollectionAsync(h, "Old Collection");
+
+        h.Llm
+            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{collection.Id}}"}""")
+            .Returns("I can remove Old Collection after you approve the deletion.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Remove my old collection.",
             Context(surface: "library", route: "/library")));
 
         response.PendingPlan.Should().NotBeNull();
         response.PendingPlan!.Steps.Should().ContainSingle()
-            .Which.Capability.Should().Be("library_create_collection");
+            .Which.Capability.Should().Be("library_delete_collection");
         response.PendingPlan.ApprovalToken.Should().NotBeNullOrWhiteSpace();
 
-        (await CollectionCountAsync(h)).Should().Be(0);
-        h.Plans.GetCurrent("client-1").Should().NotBeNull();
+        (await CollectionCountAsync(h)).Should().Be(1);
     }
 
     [Fact]
-    public async Task Approving_the_matching_plan_executes_exactly_once()
+    public async Task Approving_the_matching_destructive_plan_executes_exactly_once()
     {
         var h = CreateHarness();
-        await SeedBookAsync(h);
         var plan = await CreatePlanAsync(h);
 
         var approved = await h.Orchestrator.ApproveAsync(plan.PlanId, plan.ApprovalToken);
 
         approved.Success.Should().BeTrue();
-        (await CollectionCountAsync(h)).Should().Be(1);
+        (await CollectionCountAsync(h)).Should().Be(0);
 
-        // The same plan id + token is consumed: a replay is refused and adds nothing.
         var replay = await h.Orchestrator.ApproveAsync(plan.PlanId, plan.ApprovalToken);
         replay.Success.Should().BeFalse();
         replay.ErrorCode.Should().Be(AssistantErrorCodes.NotFound);
-        (await CollectionCountAsync(h)).Should().Be(1);
+        (await CollectionCountAsync(h)).Should().Be(0);
     }
 
     [Fact]
-    public async Task Approving_with_a_mismatched_id_or_a_missing_or_garbage_token_is_refused()
+    public async Task Destructive_plan_with_a_mismatched_id_or_token_is_refused()
     {
         var h = CreateHarness();
-        await SeedBookAsync(h);
         var plan = await CreatePlanAsync(h);
 
         var wrongId = await h.Orchestrator.ApproveAsync("not-this-plan", plan.ApprovalToken);
@@ -613,47 +684,44 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         missingToken.Success.Should().BeFalse();
         missingToken.ErrorCode.Should().Be(AssistantErrorCodes.ApprovalRequired);
 
-        (await CollectionCountAsync(h)).Should().Be(0);
-        h.Plans.GetCurrent("client-1").Should().NotBeNull();
+        (await CollectionCountAsync(h)).Should().Be(1);
     }
 
     [Fact]
-    public async Task A_second_pending_plan_supersedes_the_first_and_a_stale_approval_is_refused()
+    public async Task A_second_destructive_plan_supersedes_the_first()
     {
         var h = CreateHarness();
-        await SeedBookAsync(h);
+        var firstTarget = await SeedCollectionAsync(h, "First target");
+        var secondTarget = await SeedCollectionAsync(h, "Second target");
 
         h.Llm
-            .CallsTool("library_create_collection", """{"name":"Plan A"}""")
-            .Returns("Plan A is ready.")
-            .CallsTool("library_create_collection", """{"name":"Plan B"}""")
-            .Returns("Plan B is ready.");
+            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{firstTarget.Id}}"}""")
+            .Returns("First deletion is ready for approval.")
+            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{secondTarget.Id}}"}""")
+            .Returns("Second deletion is ready for approval.");
 
         var first = await h.Orchestrator.HandleTurnAsync(Turn(
-            "Tidy up.", Context(surface: "library", route: "/library")));
+            "Delete First target.", Context(surface: "library", route: "/library")));
         var second = await h.Orchestrator.HandleTurnAsync(Turn(
-            "Actually, propose something else.", Context(surface: "library", route: "/library")));
+            "Actually delete Second target instead.", Context(surface: "library", route: "/library")));
 
         var planA = first.PendingPlan!;
         var planB = second.PendingPlan!;
         planA.PlanId.Should().NotBe(planB.PlanId);
 
-        // The first plan is no longer the conversation's single pending plan.
-        // Its id may still be remembered as "superseded" or already gone; either
-        // way it is refused and mutates nothing.
         var stale = await h.Orchestrator.ApproveAsync(planA.PlanId, planA.ApprovalToken);
         stale.Success.Should().BeFalse();
         stale.ErrorCode.Should().BeOneOf(
             AssistantErrorCodes.ApprovalPlanMismatch,
             AssistantErrorCodes.NotFound);
-        (await CollectionCountAsync(h)).Should().Be(0);
+        (await CollectionCountAsync(h)).Should().Be(2);
 
         var current = await h.Orchestrator.ApproveAsync(planB.PlanId, planB.ApprovalToken);
         current.Success.Should().BeTrue();
 
         await using var db = await h.Factory.CreateDbContextAsync();
-        var names = await db.Collections.AsNoTracking().Select(c => c.Name).ToListAsync();
-        names.Should().Equal("Plan B");
+        var names = await db.Collections.AsNoTracking().Select(collection => collection.Name).ToListAsync();
+        names.Should().Equal("First target");
     }
 
     // ------------------------------------------------------------------
@@ -970,10 +1038,15 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         prompt.Should().Contain("Do not recommend collections merely to recreate a Library filter");
         prompt.Should().Contain("prefer library_overview");
         prompt.Should().Contain("library_overview [read-only]");
-        prompt.Should().Contain("library_create_collection [requires approval]");
+        prompt.Should().Contain("library_create_collection [immediate action]");
+        prompt.Should().Contain("library_create_or_match_book [immediate action]");
+        prompt.Should().Contain("library_update_book [immediate action]");
+        prompt.Should().Contain("library_set_book_collections_bulk [immediate action]");
+        prompt.Should().Contain("library_delete_empty_collection [immediate action]");
+        prompt.Should().Contain("library_delete_collection [requires approval]");
         prompt.Should().Contain("notes_capture [immediate capture]");
-        prompt.Should().Contain("Never say you can move or reassign books between collections");
-        prompt.Should().NotContain("library_update_book");
+        prompt.Should().Contain("collectionIds");
+        prompt.Should().Contain("Multi-step work is allowed");
     }
 
     [Fact]
@@ -1103,9 +1176,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     // Harness
     // ------------------------------------------------------------------
 
-    private Harness CreateHarness(
-        int maxToolIterations = 6,
-        string defaultProcessingMode = "verbatim")
+    private Harness CreateHarness(int maxToolIterations = 6)
     {
         var path = _fixture.CreateDatabasePath();
         var options = new DbContextOptionsBuilder<NostosDbContext>()
@@ -1142,7 +1213,6 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         {
             Enabled = true,
             MaxToolIterations = maxToolIterations,
-            DefaultProcessingMode = defaultProcessingMode,
         };
         var plans = new AssistantPlanStore();
         var settings = new AssistantSettingsService(factory);
@@ -1161,12 +1231,14 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
 
     private static async Task<AssistantPendingPlanDto> CreatePlanAsync(Harness h)
     {
+        var collection = await SeedCollectionAsync(h, "Approved deletion");
+
         h.Llm
-            .CallsTool("library_create_collection", """{"name":"Approved Collection"}""")
+            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{collection.Id}}"}""")
             .Returns("Ready for your approval.");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
-            "Please tidy up.",
+            "Delete the old collection.",
             Context(surface: "library", route: "/library")));
 
         return response.PendingPlan!;
@@ -1177,10 +1249,9 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         AssistantContextDto context,
         string clientId = "client-1",
         string idem = "key-1",
-        string? pendingPlanId = null,
         string? processingMode = null,
         IReadOnlyList<AssistantHistoryMessageDto>? history = null) =>
-        new(clientId, idem, message, context, pendingPlanId, processingMode, history);
+        new(clientId, idem, message, context, processingMode, history);
 
     private static AssistantContextDto Context(
         string surface = "second-brain",

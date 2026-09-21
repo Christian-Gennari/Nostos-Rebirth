@@ -15,11 +15,11 @@ namespace Nostos.Backend.Integrations.Assistant;
 /// logic.
 ///
 /// Trust classes: read-only capabilities are <see cref="AssistantTrustClass.Suggest"/>
-/// and never call a write method; capture is <see cref="AssistantTrustClass.Capture"/>
-/// and runs immediately; concept linking and collection writes are
-/// <see cref="AssistantTrustClass.PlanAndAct"/> and cannot run without a
-/// matching approval. There is deliberately no delete, remove, purge, reset,
-/// import, or bulk capability.
+/// and never call a write method; capture is <see cref="AssistantTrustClass.Capture"/>;
+/// ordinary user-requested mutations are <see cref="AssistantTrustClass.Act"/> and
+/// run immediately inside the tool loop; destructive/high-impact operations stay
+/// <see cref="AssistantTrustClass.PlanAndAct"/> behind explicit approval. Every
+/// mutation still delegates to the canonical domain service.
 /// </summary>
 public static class AssistantCapabilities
 {
@@ -105,6 +105,31 @@ public static class AssistantCapabilities
             }),
 
         new AssistantCapability(
+            "library_get_book",
+            AssistantTrustClass.Suggest,
+            "Gets one book and its current metadata and collection memberships by id.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "bookId": { "type": "string", "format": "uuid", "description": "The id of the book to fetch. Required." }
+              },
+              "required": ["bookId"],
+              "additionalProperties": true
+            }
+            """,
+            async (context, args, ct) =>
+            {
+                if (Id(args, "bookId") is not { } bookId)
+                {
+                    return Invalid("'bookId' is required.");
+                }
+
+                var result = await library.GetBookAsync(bookId, ct);
+                return LibraryResult(result);
+            }),
+
+        new AssistantCapability(
             "library_overview",
             AssistantTrustClass.Suggest,
             "Returns a compact, complete overview of the user's books and collections for whole-library organization, recommendation, or structure questions. Prefer this over generic advice when the user asks about their library as a whole.",
@@ -169,6 +194,205 @@ public static class AssistantCapabilities
                     books,
                     collections = collections.Data,
                     statusAndFormatCounts = counts.Data,
+                }));
+            }),
+
+        // ------------------------------------------------------------------
+        // Act: ordinary, explicitly requested application work. These calls
+        // execute immediately so the next model step can consume their result.
+        // Canonical services still own validation and exact-once semantics.
+        // ------------------------------------------------------------------
+
+        new AssistantCapability(
+            "library_create_or_match_book",
+            AssistantTrustClass.Act,
+            "Adds a book to the library or matches an existing one by canonical identity. Ambiguity is returned as confirmation_required; never guess between candidates.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "type": { "type": "string", "enum": ["physical", "ebook", "audiobook"], "description": "Book type. Required." },
+                "title": { "type": "string", "description": "Book title. Required." },
+                "author": { "type": "string", "description": "Author when known." },
+                "isbn": { "type": "string", "description": "ISBN when known; formatting is normalized by the library service." },
+                "asin": { "type": "string", "description": "ASIN when known, especially for audiobooks." },
+                "collectionIds": { "type": "array", "items": { "type": "string", "format": "uuid" }, "description": "Initial collection memberships. Omit to leave the book uncollected." },
+                "rating": { "type": "integer", "description": "Optional rating from 0 to 5." },
+                "isFavorite": { "type": "boolean", "description": "Optional favorite flag." },
+                "confirmedBookId": { "type": "string", "format": "uuid", "description": "After confirmation_required, choose an existing candidate by id on a later user turn." },
+                "forceCreate": { "type": "boolean", "description": "After confirmation_required, create anyway only when the user explicitly chose that outcome." }
+              },
+              "required": ["type", "title"],
+              "additionalProperties": true
+            }
+            """,
+            async (context, args, ct) =>
+            {
+                var type = Str(args, "type");
+                var title = Str(args, "title");
+                if (string.IsNullOrWhiteSpace(type) || string.IsNullOrWhiteSpace(title))
+                {
+                    return Invalid("'type' and 'title' are required.");
+                }
+
+                if (!TryIds(args, "collectionIds", out var collectionIds))
+                {
+                    return Invalid("'collectionIds' must be an array of UUID strings.");
+                }
+
+                var request = new LibraryCreateBookRequest(
+                    ClientId: context.ClientId ?? string.Empty,
+                    IdempotencyKey: context.IdempotencyKey ?? string.Empty,
+                    Type: type,
+                    Title: title,
+                    Author: Str(args, "author"),
+                    Isbn: Str(args, "isbn"),
+                    Asin: Str(args, "asin"),
+                    Rating: Num(args, "rating") ?? 0,
+                    IsFavorite: Bool(args, "isFavorite") ?? false,
+                    ConfirmedBookId: Id(args, "confirmedBookId"),
+                    ForceCreate: Bool(args, "forceCreate") ?? false,
+                    CollectionIds: collectionIds);
+
+                var result = await library.CreateOrMatchBookAsync(request, strictConfirmation: true, ct);
+                return LibraryResult(result);
+            }),
+
+        new AssistantCapability(
+            "library_update_book",
+            AssistantTrustClass.Act,
+            "Updates an existing book through the canonical library service. collectionIds is a full replacement set: read the book first and preserve memberships the user did not ask to remove.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "bookId": { "type": "string", "format": "uuid", "description": "Book id. Required." },
+                "title": { "type": "string", "description": "New title; omit to leave unchanged." },
+                "author": { "type": "string", "description": "New author; omit to leave unchanged." },
+                "collectionIds": { "type": "array", "items": { "type": "string", "format": "uuid" }, "description": "Full replacement membership set. Empty clears all memberships; omit to leave memberships unchanged." },
+                "rating": { "type": "integer", "description": "New rating from 0 to 5; omit to leave unchanged." },
+                "isFavorite": { "type": "boolean", "description": "New favorite flag; omit to leave unchanged." },
+                "personalReview": { "type": "string", "description": "New personal review; empty string clears it." },
+                "isFinished": { "type": "boolean", "description": "True marks finished; false clears the finished state." }
+              },
+              "required": ["bookId"],
+              "additionalProperties": true
+            }
+            """,
+            async (context, args, ct) =>
+            {
+                if (Id(args, "bookId") is not { } bookId)
+                {
+                    return Invalid("'bookId' is required.");
+                }
+
+                if (!TryIds(args, "collectionIds", out var collectionIds))
+                {
+                    return Invalid("'collectionIds' must be an array of UUID strings.");
+                }
+
+                var request = new LibraryUpdateBookRequest(
+                    ClientId: context.ClientId ?? string.Empty,
+                    IdempotencyKey: context.IdempotencyKey ?? string.Empty,
+                    BookId: bookId,
+                    Title: Str(args, "title"),
+                    Author: Str(args, "author"),
+                    Rating: Num(args, "rating"),
+                    IsFavorite: Bool(args, "isFavorite"),
+                    PersonalReview: Str(args, "personalReview"),
+                    IsFinished: Bool(args, "isFinished"),
+                    CollectionIds: collectionIds);
+
+                var result = await library.UpdateBookAsync(request, ct);
+                return LibraryResult(result);
+            }),
+
+        new AssistantCapability(
+            "library_set_book_collections_bulk",
+            AssistantTrustClass.Act,
+            "Replaces collection memberships for multiple books in one bounded action. Use this after inspecting library_overview when reorganizing several books; every item still goes through the canonical library service.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "updates": {
+                  "type": "array",
+                  "description": "One to 100 membership replacements. Each item must contain bookId and the complete collectionIds set that book should have after the change.",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "bookId": { "type": "string", "format": "uuid" },
+                      "collectionIds": { "type": "array", "items": { "type": "string", "format": "uuid" } }
+                    },
+                    "required": ["bookId", "collectionIds"]
+                  }
+                }
+              },
+              "required": ["updates"],
+              "additionalProperties": true
+            }
+            """,
+            async (context, args, ct) =>
+            {
+                var updates = Property(args, "updates");
+                if (updates.ValueKind != JsonValueKind.Array)
+                {
+                    return Invalid("'updates' must be an array.");
+                }
+
+                var items = updates.EnumerateArray().ToList();
+                if (items.Count is < 1 or > 100)
+                {
+                    return Invalid("'updates' must contain between 1 and 100 books.");
+                }
+
+                var outcomes = new List<object>(items.Count);
+                for (var index = 0; index < items.Count; index++)
+                {
+                    var item = items[index];
+                    if (Id(item, "bookId") is not { } bookId
+                        || !TryIds(item, "collectionIds", out var collectionIds)
+                        || collectionIds is null)
+                    {
+                        return Invalid($"updates[{index}] must contain a valid 'bookId' and 'collectionIds' array.");
+                    }
+
+                    var result = await library.UpdateBookAsync(
+                        new LibraryUpdateBookRequest(
+                            ClientId: context.ClientId ?? string.Empty,
+                            IdempotencyKey: $"{context.IdempotencyKey}:{index}",
+                            BookId: bookId,
+                            CollectionIds: collectionIds),
+                        ct);
+
+                    var mapped = LibraryResult(result);
+                    outcomes.Add(new
+                    {
+                        bookId,
+                        result.Reply,
+                        result.Data,
+                        result.StateVersion,
+                        result.Duplicate,
+                    });
+
+                    if (!mapped.Success)
+                    {
+                        return AssistantToolResult.Fail(
+                            mapped.ErrorCode ?? "bulk_update_failed",
+                            mapped.ErrorMessage ?? result.Reply,
+                            Element(new
+                            {
+                                applied = index,
+                                failedBookId = bookId,
+                                outcomes,
+                            }));
+                    }
+                }
+
+                return AssistantToolResult.Ok(Element(new
+                {
+                    updated = outcomes.Count,
+                    outcomes,
                 }));
             }),
 
@@ -419,13 +643,13 @@ public static class AssistantCapabilities
             }),
 
         // ------------------------------------------------------------------
-        // PlanAndAct: state-changing; the registry refuses without a matching
-        // approval. All three delegate to the canonical service.
+        // Act: normal user-requested writes. They run inside the tool loop so
+        // subsequent calls can depend on their real results.
         // ------------------------------------------------------------------
 
         new AssistantCapability(
             "notes_link_existing_concept",
-            AssistantTrustClass.PlanAndAct,
+            AssistantTrustClass.Act,
             "Links a note to an existing concept. Never creates a concept.",
             """
             {
@@ -451,7 +675,7 @@ public static class AssistantCapabilities
 
         new AssistantCapability(
             "library_create_collection",
-            AssistantTrustClass.PlanAndAct,
+            AssistantTrustClass.Act,
             "Creates a collection (or returns the existing sibling with the same name).",
             """
             {
@@ -485,7 +709,7 @@ public static class AssistantCapabilities
 
         new AssistantCapability(
             "library_rename_collection",
-            AssistantTrustClass.PlanAndAct,
+            AssistantTrustClass.Act,
             "Renames an existing collection.",
             """
             {
@@ -518,7 +742,7 @@ public static class AssistantCapabilities
 
         new AssistantCapability(
             "library_move_collection",
-            AssistantTrustClass.PlanAndAct,
+            AssistantTrustClass.Act,
             "Moves a collection under a new parent (null moves it to the top level).",
             """
             {
@@ -544,6 +768,96 @@ public static class AssistantCapabilities
                         context.IdempotencyKey ?? string.Empty,
                         collectionId,
                         Id(args, "newParentId")),
+                    ct);
+
+                return LibraryResult(result);
+            }),
+
+        new AssistantCapability(
+            "library_delete_empty_collection",
+            AssistantTrustClass.Act,
+            "Deletes an empty collection immediately. Refuses when the collection still contains books, so cleanup after a reorganization does not need a second approval while membership-destructive deletion remains guarded.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "collectionId": { "type": "string", "format": "uuid", "description": "The empty collection to delete. Required." }
+              },
+              "required": ["collectionId"],
+              "additionalProperties": true
+            }
+            """,
+            async (context, args, ct) =>
+            {
+                if (Id(args, "collectionId") is not { } collectionId)
+                {
+                    return Invalid("'collectionId' is required.");
+                }
+
+                var members = await library.ListBooksAsync(
+                    filter: BookFilter.All,
+                    sort: BookSort.Title,
+                    search: null,
+                    page: 1,
+                    pageSize: 1,
+                    collectionId: collectionId,
+                    ct: ct);
+
+                if (members.Data is LibraryErrorDto readError)
+                {
+                    return AssistantToolResult.Fail(readError.Code, members.Reply, Element(members));
+                }
+
+                if (members.Data is PaginatedResponse<BookDto> page && page.TotalCount > 0)
+                {
+                    return AssistantToolResult.Fail(
+                        "collection_not_empty_requires_approval",
+                        "This collection still contains books. Use library_delete_collection only after the user explicitly approves unlinking those memberships.",
+                        Element(new { collectionId, bookCount = page.TotalCount }));
+                }
+
+                var result = await library.DeleteCollectionAsync(
+                    new LibraryDeleteCollectionRequest(
+                        context.ClientId ?? string.Empty,
+                        context.IdempotencyKey ?? string.Empty,
+                        collectionId,
+                        Confirm: true),
+                    ct);
+
+                return LibraryResult(result);
+            }),
+
+        // ------------------------------------------------------------------
+        // PlanAndAct: deletion that can unlink books remains approval-gated.
+        // ------------------------------------------------------------------
+
+        new AssistantCapability(
+            "library_delete_collection",
+            AssistantTrustClass.PlanAndAct,
+            "Deletes a collection after explicit approval. Books are unlinked, never deleted; child collections must be handled first.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "collectionId": { "type": "string", "format": "uuid", "description": "The collection to delete. Required." }
+              },
+              "required": ["collectionId"],
+              "additionalProperties": true
+            }
+            """,
+            async (context, args, ct) =>
+            {
+                if (Id(args, "collectionId") is not { } collectionId)
+                {
+                    return Invalid("'collectionId' is required.");
+                }
+
+                var result = await library.DeleteCollectionAsync(
+                    new LibraryDeleteCollectionRequest(
+                        context.ClientId ?? string.Empty,
+                        context.IdempotencyKey ?? string.Empty,
+                        collectionId,
+                        Confirm: true),
                     ct);
 
                 return LibraryResult(result);
@@ -605,6 +919,38 @@ public static class AssistantCapabilities
             _ => null,
         };
 
+    private static bool TryIds(JsonElement args, string name, out IReadOnlyList<Guid>? ids)
+    {
+        var value = Property(args, name);
+        if (value.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
+        {
+            ids = null;
+            return true;
+        }
+
+        if (value.ValueKind != JsonValueKind.Array)
+        {
+            ids = null;
+            return false;
+        }
+
+        var parsed = new List<Guid>();
+        foreach (var item in value.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String
+                || !Guid.TryParse(item.GetString(), out var id))
+            {
+                ids = null;
+                return false;
+            }
+
+            parsed.Add(id);
+        }
+
+        ids = parsed;
+        return true;
+    }
+
     private static TEnum ValueEnum<TEnum>(JsonElement args, string name, TEnum fallback)
         where TEnum : struct, Enum
     {
@@ -642,12 +988,23 @@ public static class AssistantCapabilities
     /// the REST/MCP callers receive them; the assistant does not re-map those
     /// codes.
     /// </summary>
-    private static AssistantToolResult LibraryResult(LibraryCommandResultDto result) =>
-        AssistantToolResult.Ok(Element(new
+    private static AssistantToolResult LibraryResult(LibraryCommandResultDto result)
+    {
+        var payload = Element(new
         {
             result.Reply,
             result.Data,
             result.StateVersion,
             result.Duplicate,
-        }));
+        });
+
+        return result.Data switch
+        {
+            LibraryConfirmationErrorDto error =>
+                AssistantToolResult.Fail(error.Code, result.Reply, payload),
+            LibraryErrorDto error =>
+                AssistantToolResult.Fail(error.Code, result.Reply, payload),
+            _ => AssistantToolResult.Ok(payload),
+        };
+    }
 }

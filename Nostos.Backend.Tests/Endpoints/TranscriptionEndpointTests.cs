@@ -24,23 +24,8 @@ namespace Nostos.Backend.Tests.Endpoints;
 /// is never called here, because each real transcription is paid and the quota
 /// is rationed.
 /// </summary>
-public sealed class TranscriptionEndpointTests : IDisposable
+public sealed class TranscriptionEndpointTests
 {
-    /// <summary>
-    /// A configured key for the duration of every test, so the derived
-    /// availability gate is satisfied by default; the unconfigured test clears
-    /// it explicitly. Cleared on dispose.
-    /// </summary>
-    private const string TokenVariable = "NOSTOS_STT_TEST_TOKEN";
-
-    private const string TokenValue = "sentinel-stt-key-value";
-
-    public TranscriptionEndpointTests() =>
-        Environment.SetEnvironmentVariable(TokenVariable, TokenValue);
-
-    public void Dispose() =>
-        Environment.SetEnvironmentVariable(TokenVariable, null);
-
     // ------------------------------------------------------------------
     // Happy path
     // ------------------------------------------------------------------
@@ -144,22 +129,14 @@ public sealed class TranscriptionEndpointTests : IDisposable
     {
         var provider = new FakeSttProvider();
         using var factory = new LibraryEndpointFactory();
-        using var host = CreateHost(factory, provider);
+        using var host = CreateHost(factory, provider, configured: false);
         using var client = host.CreateClient();
 
-        Environment.SetEnvironmentVariable(TokenVariable, null);
-        try
-        {
-            var response = await PostAsync(client, Audio(128));
+        var response = await PostAsync(client, Audio(128));
 
-            response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
-            (await ProblemTitleAsync(response)).Should().Be(SttErrorCodes.NotConfigured);
-            provider.CallCount.Should().Be(0);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(TokenVariable, TokenValue);
-        }
+        response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+        (await ProblemTitleAsync(response)).Should().Be(SttErrorCodes.NotConfigured);
+        provider.CallCount.Should().Be(0);
     }
 
     [Fact]
@@ -278,6 +255,7 @@ public sealed class TranscriptionEndpointTests : IDisposable
         LibraryEndpointFactory factory,
         FakeSttProvider provider,
         bool enabled = true,
+        bool configured = true,
         long maxUploadBytes = 26_214_400,
         double maxDurationSeconds = 300)
     {
@@ -289,7 +267,7 @@ public sealed class TranscriptionEndpointTests : IDisposable
             builder.UseSetting("Speech:Enabled", enabled ? "true" : "false");
             builder.UseSetting("Speech:BaseUrl", "http://stt.invalid");
             builder.UseSetting("Speech:Model", "groq/whisper-large-v3-turbo");
-            builder.UseSetting("Speech:ApiKeyEnvironmentVariable", "NOSTOS_STT_TEST_TOKEN");
+            builder.UseSetting("Speech:ApiKeyEnvironmentVariable", "NOSTOS_STT_ENDPOINT_TEST_TOKEN");
             builder.UseSetting(
                 "Speech:MaxUploadBytes",
                 maxUploadBytes.ToString(CultureInfo.InvariantCulture));
@@ -301,6 +279,23 @@ public sealed class TranscriptionEndpointTests : IDisposable
             {
                 services.RemoveAll<ISTtProvider>();
                 services.AddSingleton<ISTtProvider>(provider);
+
+                // This suite tests the HTTP/STT endpoint contract, not the
+                // database/environment settings resolver. Keep availability
+                // deterministic per test so parallel provider-settings tests
+                // cannot turn an expected 422 into a spurious 503.
+                var resolver = new StubAiProviderConfigResolver
+                {
+                    Stt = new EffectiveAiProviderConfig(
+                        Enabled: enabled,
+                        BaseUrl: "http://stt.invalid",
+                        Model: "groq/whisper-large-v3-turbo",
+                        ApiKeyEnvironmentVariable: "NOSTOS_STT_ENDPOINT_TEST_TOKEN",
+                        ApiKey: configured ? "sentinel-stt-key-value" : null,
+                        KeyFromServerEnv: configured),
+                };
+                services.RemoveAll<IAiProviderConfigResolver>();
+                services.AddSingleton<IAiProviderConfigResolver>(resolver);
             });
         });
     }

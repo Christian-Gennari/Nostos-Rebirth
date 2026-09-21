@@ -3,20 +3,22 @@
  *
  * The backend bridge (`POST /api/assistant/turn`) owns the LLM and the tool
  * loop; this service owns the surface's state: the editorial transcript, the
- * deterministic source-location follow-up, the non-mutating suggestions, and the
- * pending plan that must be approved before anything changes.
+ * deterministic source-location follow-up, the non-mutating suggestions, and
+ * destructive confirmations. Ordinary safe actions execute inline.
  *
- * Two rules are structural, not cosmetic:
- *   - A suggestion never mutates. It is displayed and, when chosen, handed to the
- *     canonical link path as a PlanAndAct proposal that the user approves.
- *   - A pending plan is executed only by an explicit `approvePlan` carrying the
- *     exact plan id and its approval token.
+ * Trust is structural, not cosmetic:
+ *   - Suggestions never mutate merely by being shown.
+ *   - Choosing a normal reversible action (for example an existing concept link)
+ *     is sufficient authorization for the backend's immediate Act path.
+ *   - Only destructive/high-impact pending plans use `approvePlan` with the
+ *     exact plan id and approval token.
  *
  * `TRANSCRIPT_SEND_POLICY` is unchanged: a voice transcript enters the composer
  * and is dispatched after the grace window, with a pre-dispatch Undo.
  */
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Subject } from 'rxjs';
 
 import {
   AssistantAnchor,
@@ -106,6 +108,8 @@ export interface AssistantTurnResponse {
   pendingPlan: AssistantPendingPlanDto | null;
   /** The note a capture created this turn; null when nothing was captured. */
   capturedNoteId?: string | null;
+  /** Immediate Act capabilities that actually completed successfully. */
+  executedCapabilities?: string[];
 }
 
 /** The turn request the bridge accepts. */
@@ -114,7 +118,6 @@ interface AssistantTurnRequestDto {
   idempotencyKey: string;
   message: string;
   context: AssistantContextDto;
-  pendingPlanId: string | null;
   /**
    * The recent turns the client remembers (issue #286). The server is stateless
    * and appends the current `message` itself, so this is the log from BEFORE
@@ -122,28 +125,6 @@ interface AssistantTurnRequestDto {
    */
   history: AssistantHistoryMessage[];
 }
-
-/**
- * What happens to a captured thought between the raw transcript and the stored
- * note (issue #262 §7). The ids are the backend's exact wire values.
- *
- * `verbatim` is the default and a storage operation: it makes no LLM call. The
- * other two rewrite the user's own words and never the quoted passage.
- */
-export type ProcessingMode = 'verbatim' | 'light_polish' | 'clarify';
-
-/** The three modes, in presentation order, with the labels the composer shows. */
-export const PROCESSING_MODES: readonly { value: ProcessingMode; label: string }[] = [
-  { value: 'verbatim', label: 'Verbatim' },
-  { value: 'light_polish', label: 'Light polish' },
-  { value: 'clarify', label: 'Clarify' },
-];
-
-/**
- * The composer's starting mode. It mirrors `Assistant:DefaultProcessingMode`
- * (verbatim) on the server: a rewrite is always an explicit, per-capture choice.
- */
-export const DEFAULT_PROCESSING_MODE: ProcessingMode = 'verbatim';
 
 /**
  * History caps (issue #286). {@link HISTORY_MAX_EXCHANGES} counts EXCHANGES, not
@@ -257,17 +238,21 @@ export class AssistantService {
   readonly lastTurn = signal<AssistantTurnResponse | null>(null);
   /** Non-mutating concept suggestions for the current turn. */
   readonly suggestions = signal<AssistantSuggestionDto[]>([]);
-  /** The plan (if any) waiting for an explicit approval. */
+  /** The destructive plan (if any) waiting for explicit approval. */
   readonly pendingPlan = signal<AssistantPendingPlanDto | null>(null);
-  /** The last approval outcome, kept so the owning surface can react. */
-  readonly lastApproval = signal<AssistantPlanApproveResponse | null>(null);
-
   /**
-   * Set by the Second Brain while reviewing a note. Called after an approved
-   * plan that links the reviewed note, so the review queue can move on.
+   * Natural "yes / go ahead" is accepted only on the immediate confirmation
+   * turn. Any intervening ordinary message disarms this shortcut so a later,
+   * unrelated "yes" cannot approve stale destructive work. The explicit
+   * confirmation button remains available while the plan itself is pending.
    */
-  onPlanExecuted: ((plan: AssistantPendingPlanDto, response: AssistantPlanApproveResponse) => void) | null =
-    null;
+  private readonly directPlanApprovalArmed = signal(false);
+  /**
+   * Emits only from backend-reported successful immediate Act calls. Consumers
+   * can update their local surface state from execution truth without parsing
+   * the assistant's prose.
+   */
+  readonly actionExecuted = new Subject<{ capability: string; context: AssistantContext }>();
 
   /** True while an auto transcript is waiting out its Undo window. */
   readonly autoSendPending = signal(false);
@@ -427,13 +412,46 @@ export class AssistantService {
       return;
     }
 
+    const plan = this.pendingPlan();
+    if (plan && isExplicitPlanRejection(text)) {
+      // A clear rejection is terminal in the client: discard the token and plan
+      // so nothing in a later conversation can accidentally approve it. No
+      // mutation has occurred.
+      this.draft.set('');
+      this.turnLog.update((log) => [...log, { role: 'user', text }]);
+      this.pushEntry('user', text, null, null);
+      this.pendingPlan.set(null);
+      this.directPlanApprovalArmed.set(false);
+      const reply = 'Okay. I won\'t make that change.';
+      this.turnLog.update((log) => [...log, { role: 'assistant', text: reply }]);
+      this.pushEntry('assistant', reply, null, 'Cancelled');
+      return;
+    }
+
+    if (plan && this.directPlanApprovalArmed() && isExplicitPlanApproval(text)) {
+      // A short, unambiguous confirmation on the immediate confirmation turn
+      // is itself the approval gesture. Execute the exact server-held plan id +
+      // token rather than asking the model to reinterpret destructive work.
+      this.draft.set('');
+      this.turnLog.update((log) => [...log, { role: 'user', text }]);
+      this.pushEntry('user', text, null, null);
+      this.directPlanApprovalArmed.set(false);
+      this.approvePlan(plan.planId, plan.approvalToken);
+      return;
+    }
+
+    // Discussion or an unrelated turn may keep the destructive plan visible,
+    // but it disarms generic natural-language approval. This prevents a later
+    // unrelated "yes" from authorizing an old delete.
+    if (plan) this.directPlanApprovalArmed.set(false);
+
     const context = this.context();
     const anchor = this.effectiveAnchor(context);
     this.draft.set('');
 
-    // Every message dispatches immediately. Only the backend may ask for a
-    // location, and only for a capture that genuinely cannot know one; a plain
-    // question ("Who are you?") is never held behind a page prompt.
+    // Every other message dispatches normally. A question or qualification
+    // while a destructive plan is pending is discussion, not approval, so the
+    // plan survives and the assistant can answer without accidentally acting.
     this.dispatchTurn(text, anchor);
   }
 
@@ -526,10 +544,9 @@ export class AssistantService {
   }
 
   /**
-   * Choose a non-mutating suggestion. Linking is state-changing, so this hands
-   * the choice to the canonical PlanAndAct path: the assistant proposes
-   * `notes_link_existing_concept` and nothing runs until the user approves the
-   * plan. The assistant never links a note on its own.
+   * Choose a non-mutating suggestion. The click is the user's explicit choice,
+   * so the resulting existing-concept link may execute through the normal Act
+   * path without asking for a second approval.
    */
   applySuggestion(suggestion: AssistantSuggestionDto): void {
     if (suggestion.kind !== 'concept' || !suggestion.value) return;
@@ -560,6 +577,7 @@ export class AssistantService {
     if (!planId || !approvalToken || this.sending()) return;
 
     const plan = this.pendingPlan();
+    this.directPlanApprovalArmed.set(false);
     this.sending.set(true);
     this.http
       .post<AssistantPlanApproveResponse>('/api/assistant/plan/approve', { planId, approvalToken })
@@ -567,17 +585,27 @@ export class AssistantService {
         next: (response) => {
           this.sending.set(false);
           this.lastError.set(null);
-          this.lastApproval.set(response);
-
           if (response.success) {
             this.pendingPlan.set(null);
-            this.pushEntry('assistant', plan?.summary ?? 'Plan applied.', null, 'Applied');
+            const replies = response.steps
+              .map((step) => {
+                if (!step.data || typeof step.data !== 'object') return null;
+                const reply = (step.data as { reply?: unknown }).reply;
+                return typeof reply === 'string' && reply.trim() ? reply.trim() : null;
+              })
+              .filter((reply): reply is string => reply !== null);
+            const executionReply =
+              replies.length > 0 ? replies.join(' ') : (plan?.summary ?? 'Plan applied.');
+            this.turnLog.update((log) => [...log, { role: 'assistant', text: executionReply }]);
+            this.pushEntry('assistant', executionReply, null, 'Applied');
           } else {
-            this.lastError.set(response.errorMessage ?? 'The plan could not be applied.');
-            this.pushEntry('error', plan?.summary ?? 'Plan refused.', null, response.errorCode ?? 'Refused');
+            const failureReply =
+              response.errorMessage ?? plan?.summary ?? 'The plan could not be applied.';
+            this.lastError.set(failureReply);
+            this.turnLog.update((log) => [...log, { role: 'assistant', text: failureReply }]);
+            this.pushEntry('error', failureReply, null, response.errorCode ?? 'Refused');
           }
 
-          if (plan && this.onPlanExecuted) this.onPlanExecuted(plan, response);
         },
         error: () => {
           this.sending.set(false);
@@ -604,7 +632,6 @@ export class AssistantService {
       idempotencyKey: createId(),
       message: text,
       context: toContextDto(context, anchor, captureBookTitle),
-      pendingPlanId: this.pendingPlan()?.planId ?? null,
       history,
     };
 
@@ -615,7 +642,17 @@ export class AssistantService {
         this.lastError.set(null);
         this.lastTurn.set(response);
         this.suggestions.set(response.suggestions ?? []);
-        this.pendingPlan.set(response.pendingPlan ?? null);
+        // A no-plan response does not cancel a destructive plan that is still
+        // pending server-side. Only a newly proposed plan replaces it, and a
+        // successful approval clears it below.
+        if (response.pendingPlan) {
+          this.pendingPlan.set(response.pendingPlan);
+          this.directPlanApprovalArmed.set(true);
+        }
+
+        for (const capability of response.executedCapabilities ?? []) {
+          this.actionExecuted.next({ capability, context });
+        }
 
         // The raw-transcript view belongs to one captured note; a new turn
         // replaces it, so stale raw words are never shown against a new note.
@@ -716,6 +753,56 @@ export class AssistantService {
         return title;
     }
   }
+}
+
+/**
+ * True only for a complete, short approval utterance while one destructive
+ * plan is visibly pending. Deliberately exact rather than fuzzy: "yes, but
+ * explain first" is discussion, not permission to delete anything.
+ *
+ * Voice transcripts use the same submit path, so "go ahead" spoken aloud has
+ * the same semantics as typing it.
+ */
+export function isExplicitPlanApproval(value: string): boolean {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[.!]+$/g, '')
+    .replace(/\s+/g, ' ');
+
+  return new Set([
+    'yes',
+    'yes please',
+    'yes, please',
+    'yes do it',
+    'yes, do it',
+    'yes go ahead',
+    'yes, go ahead',
+    'go ahead',
+    'do it',
+    'confirm',
+  ]).has(normalized);
+}
+
+/** Exact rejection vocabulary for the visible pending destructive change. */
+export function isExplicitPlanRejection(value: string): boolean {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[.!]+$/g, '')
+    .replace(/\s+/g, ' ');
+
+  return new Set([
+    'no',
+    'no thanks',
+    'no, thanks',
+    'cancel',
+    'cancel it',
+    'don\'t',
+    'do not',
+    'never mind',
+    'nevermind',
+  ]).has(normalized);
 }
 
 /**

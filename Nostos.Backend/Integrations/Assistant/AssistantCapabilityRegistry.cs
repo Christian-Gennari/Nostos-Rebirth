@@ -3,15 +3,13 @@ using System.Text.Json;
 namespace Nostos.Backend.Integrations.Assistant;
 
 /// <summary>
-/// The only way an assistant capability runs. It is deliberately tiny: it looks
-/// the capability up by name and enforces the D7 trust classes before the
-/// capability's delegate is reached.
+/// The only way an assistant capability runs. Reads, capture and ordinary
+/// <see cref="AssistantTrustClass.Act"/> work reach their canonical service
+/// immediately; only <see cref="AssistantTrustClass.PlanAndAct"/> is gated by
+/// an approval bound to the plan that proposed it.
 ///
-/// The guard is the point of this class. A <see cref="AssistantTrustClass.PlanAndAct"/>
-/// capability is refused when the context carries no approval, and when the
-/// approval's plan id does not match the plan the call was built against. Both
-/// refusals are typed failure results returned before <c>Execute</c> runs, so a
-/// refused call cannot have touched a store.
+/// The destructive guard runs before <c>Execute</c>, so a refused approval
+/// cannot have touched a store.
 /// </summary>
 public sealed class AssistantCapabilityRegistry
 {

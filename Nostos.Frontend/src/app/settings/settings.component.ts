@@ -17,8 +17,11 @@ import { OpdsInfo } from '../core/dtos/opds.dtos';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 import { LibraryPreferencesService } from '../core/services/library-preferences.service';
 import { AssistantStatusService } from '../ui/assistant/assistant-status.service';
-import { AssistantSettingsService } from '../ui/assistant/assistant-settings.service';
-import { PROCESSING_MODES, ProcessingMode } from '../ui/assistant/assistant.service';
+import {
+  AssistantSettingsService,
+  PROCESSING_MODES,
+  ProcessingMode,
+} from '../ui/assistant/assistant-settings.service';
 import { AiProviderService } from '../core/services/ai-provider.service';
 import {
   AiProviderKind,

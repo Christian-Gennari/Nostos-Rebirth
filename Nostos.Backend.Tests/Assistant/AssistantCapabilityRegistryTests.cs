@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -32,7 +31,11 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
     [
         "library_resolve_book",
         "library_list_books",
+        "library_get_book",
         "library_overview",
+        "library_create_or_match_book",
+        "library_update_book",
+        "library_set_book_collections_bulk",
         "notes_list_for_book",
         "notes_search",
         "notes_list_unlinked",
@@ -46,6 +49,8 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
         "library_create_collection",
         "library_rename_collection",
         "library_move_collection",
+        "library_delete_empty_collection",
+        "library_delete_collection",
     ];
 
     private readonly SqliteTestFixture _fixture;
@@ -66,21 +71,21 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
         h.Registry.All.Select(c => c.Trust).Should().Contain([
             AssistantTrustClass.Capture,
             AssistantTrustClass.Suggest,
+            AssistantTrustClass.Act,
             AssistantTrustClass.PlanAndAct,
         ]);
     }
 
     [Fact]
-    public void No_registered_capability_has_destructive_semantics()
+    public void Destructive_surface_distinguishes_empty_cleanup_from_membership_destructive_delete()
     {
         var h = CreateHarness();
 
-        var destructive = new Regex("delete|remove|purge|reset|destroy|drop", RegexOptions.IgnoreCase);
-        h.Registry.All.Should().NotContain(c => destructive.IsMatch(c.Name));
-        h.Registry.All.Select(c => c.Name).Should().NotContain([
-            "library_delete_book",
-            "library_delete_collection",
-        ]);
+        h.Registry.All.Single(c => c.Name == "library_delete_empty_collection")
+            .Trust.Should().Be(AssistantTrustClass.Act);
+        h.Registry.All.Single(c => c.Name == "library_delete_collection")
+            .Trust.Should().Be(AssistantTrustClass.PlanAndAct);
+        h.Registry.All.Select(c => c.Name).Should().NotContain("library_delete_book");
     }
 
     [Fact]
@@ -158,11 +163,12 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
     public async Task PlanAndAct_executes_when_the_approval_matches_the_plan()
     {
         var h = CreateHarness();
+        var collection = await SeedCollectionAsync(h, "Delete me");
         var before = await CollectionCountAsync(h);
 
         var result = await h.Registry.InvokeAsync(
-            "library_create_collection",
-            Args("""{"name":"Approved Collection"}"""),
+            "library_delete_collection",
+            Args($$"""{"collectionId":"{{collection.Id}}"}"""),
             new AssistantToolContext(
                 "client",
                 "approved-key",
@@ -170,7 +176,64 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
                 Approval: new AssistantPlanApproval("plan-1", "token")));
 
         result.Success.Should().BeTrue();
+        (await CollectionCountAsync(h)).Should().Be(before - 1);
+    }
+
+    [Fact]
+    public async Task Act_executes_immediately_without_a_plan_approval()
+    {
+        var h = CreateHarness();
+        var before = await CollectionCountAsync(h);
+
+        var result = await h.Registry.InvokeAsync(
+            "library_create_collection",
+            Args("""{"name":"Immediate Collection"}"""),
+            new AssistantToolContext("client", "act-key"));
+
+        result.Success.Should().BeTrue();
         (await CollectionCountAsync(h)).Should().Be(before + 1);
+    }
+
+    [Fact]
+    public async Task Empty_collection_cleanup_executes_immediately()
+    {
+        var h = CreateHarness();
+        var collection = await SeedCollectionAsync(h, "Obsolete");
+
+        var result = await h.Registry.InvokeAsync(
+            "library_delete_empty_collection",
+            Args(JsonSerializer.Serialize(new { collectionId = collection.Id })),
+            new AssistantToolContext("client", "empty-delete"));
+
+        result.Success.Should().BeTrue();
+        (await CollectionCountAsync(h)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Empty_collection_cleanup_refuses_when_books_would_be_unlinked()
+    {
+        var h = CreateHarness();
+        var collection = await SeedCollectionAsync(h, "Still used");
+        var book = await SeedBookAsync(h, "Still here");
+
+        var assign = await h.Registry.InvokeAsync(
+            "library_update_book",
+            Args(JsonSerializer.Serialize(new
+            {
+                bookId = book.Id,
+                collectionIds = new[] { collection.Id },
+            })),
+            new AssistantToolContext("client", "assign-book"));
+        assign.Success.Should().BeTrue();
+
+        var result = await h.Registry.InvokeAsync(
+            "library_delete_empty_collection",
+            Args(JsonSerializer.Serialize(new { collectionId = collection.Id })),
+            new AssistantToolContext("client", "empty-delete-refused"));
+
+        result.Success.Should().BeFalse();
+        result.ErrorCode.Should().Be("collection_not_empty_requires_approval");
+        (await CollectionCountAsync(h)).Should().Be(1);
     }
 
     // ------------------------------------------------------------------
@@ -234,6 +297,7 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
         {
             ("library_resolve_book", """{"title":"Seeded Book","author":"Author","includeExternalMetadata":false}"""),
             ("library_list_books", "{}"),
+            ("library_get_book", $$"""{"bookId":"{{book.Id}}"}"""),
             ("library_overview", "{}"),
             ("notes_list_for_book", $$"""{"bookId":"{{book.Id}}"}"""),
             ("notes_search", """{"query":"seeded"}"""),
@@ -252,6 +316,109 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
         }
 
         (await StoreSnapshotAsync(h)).Should().BeEquivalentTo(before);
+    }
+
+    [Fact]
+    public async Task Book_actions_can_create_then_replace_collection_membership()
+    {
+        var h = CreateHarness();
+        var collection = await SeedCollectionAsync(h, "German Literature");
+
+        var created = await h.Registry.InvokeAsync(
+            "library_create_or_match_book",
+            Args($$"""
+            {
+              "type":"physical",
+              "title":"The Magic Mountain",
+              "author":"Thomas Mann",
+              "collectionIds":["{{collection.Id}}"]
+            }
+            """),
+            new AssistantToolContext("client", "book-create"));
+
+        created.Success.Should().BeTrue();
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var book = await db.Books.AsNoTracking().SingleAsync(b => b.Title == "The Magic Mountain");
+        var membership = await db.BookCollections.AsNoTracking()
+            .Where(link => link.BookId == book.Id)
+            .Select(link => link.CollectionId)
+            .ToListAsync();
+        membership.Should().Equal(collection.Id);
+
+        var updated = await h.Registry.InvokeAsync(
+            "library_update_book",
+            Args($$"""{"bookId":"{{book.Id}}","collectionIds":[]}"""),
+            new AssistantToolContext("client", "book-update"));
+
+        updated.Success.Should().BeTrue();
+
+        var after = await db.BookCollections.AsNoTracking()
+            .Where(link => link.BookId == book.Id)
+            .CountAsync();
+        after.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Add_book_matches_on_a_second_request_instead_of_duplicating()
+    {
+        var h = CreateHarness();
+        var args = Args(JsonSerializer.Serialize(new
+        {
+            type = "physical",
+            title = "The Magic Mountain",
+            author = "Thomas Mann",
+        }));
+
+        var first = await h.Registry.InvokeAsync(
+            "library_create_or_match_book",
+            args,
+            new AssistantToolContext("client", "book-add-1"));
+        var second = await h.Registry.InvokeAsync(
+            "library_create_or_match_book",
+            args,
+            new AssistantToolContext("client", "book-add-2"));
+
+        first.Success.Should().BeTrue();
+        second.Success.Should().BeTrue();
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.Books.CountAsync(b => b.Title == "The Magic Mountain")).Should().Be(1);
+
+        var payload = second.Data!.Value.GetProperty("data");
+        payload.GetProperty("outcome").GetString().Should().Be("matched");
+    }
+
+    [Fact]
+    public async Task Bulk_collection_membership_routes_each_book_through_the_canonical_service()
+    {
+        var h = CreateHarness();
+        var collection = await SeedCollectionAsync(h, "Russian Literature");
+        var first = await SeedBookAsync(h, "The Devils");
+        var second = await SeedBookAsync(h, "The Brothers Karamazov");
+
+        var result = await h.Registry.InvokeAsync(
+            "library_set_book_collections_bulk",
+            Args(JsonSerializer.Serialize(new
+            {
+                updates = new[]
+                {
+                    new { bookId = first.Id, collectionIds = new[] { collection.Id } },
+                    new { bookId = second.Id, collectionIds = new[] { collection.Id } },
+                },
+            })),
+            new AssistantToolContext("client", "bulk-membership"));
+
+        result.Success.Should().BeTrue();
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        var memberships = await db.BookCollections.AsNoTracking()
+            .Where(link => link.CollectionId == collection.Id)
+            .Select(link => link.BookId)
+            .OrderBy(id => id)
+            .ToListAsync();
+
+        memberships.Should().BeEquivalentTo([first.Id, second.Id]);
     }
 
     [Fact]
@@ -281,6 +448,30 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
     // ------------------------------------------------------------------
 
     [Fact]
+    public async Task Linking_a_chosen_existing_concept_is_an_immediate_action()
+    {
+        var h = CreateHarness();
+        var book = await SeedBookAsync(h);
+        var note = await SeedNoteAsync(h, book.Id, "a note");
+        var concept = await SeedConceptAsync(h, "Alienation");
+
+        var result = await h.Registry.InvokeAsync(
+            "notes_link_existing_concept",
+            Args(JsonSerializer.Serialize(new
+            {
+                noteId = note.Id,
+                conceptId = concept.Id,
+            })),
+            new AssistantToolContext("client", "link-existing"));
+
+        result.Success.Should().BeTrue();
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.NoteConcepts.CountAsync(link =>
+            link.NoteId == note.Id && link.ConceptId == concept.Id)).Should().Be(1);
+    }
+
+    [Fact]
     public async Task Linking_an_unknown_concept_is_a_typed_failure_and_creates_no_concept()
     {
         var h = CreateHarness();
@@ -290,11 +481,7 @@ public sealed class AssistantCapabilityRegistryTests : IClassFixture<SqliteTestF
         var result = await h.Registry.InvokeAsync(
             "notes_link_existing_concept",
             Args($$"""{"noteId":"{{note.Id}}","conceptId":"{{Guid.NewGuid()}}"}"""),
-            new AssistantToolContext(
-                "client",
-                "link-key",
-                PlanId: "plan-1",
-                Approval: new AssistantPlanApproval("plan-1", "token")));
+            new AssistantToolContext("client", "link-key"));
 
         result.Success.Should().BeFalse();
         result.ErrorCode.Should().Be("concept_not_found");

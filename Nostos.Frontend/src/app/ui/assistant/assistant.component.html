@@ -132,8 +132,8 @@
     @if (assistant.pendingPlan(); as plan) {
     <div class="assistant-plan" data-testid="assistant-plan">
       <div class="plan-heading">
-        <span class="plan-title">Proposed changes</span>
-        <span class="plan-count">{{ plan.steps.length }} {{ plan.steps.length === 1 ? 'step' : 'steps' }}</span>
+        <span class="plan-title">Confirmation required</span>
+        <span class="plan-count">{{ plan.steps.length }} {{ plan.steps.length === 1 ? 'change' : 'changes' }}</span>
       </div>
       <p class="plan-summary">{{ plan.summary }}</p>
       <ol class="plan-steps">
@@ -149,9 +149,10 @@
           (click)="assistant.approvePlan(plan.planId, plan.approvalToken)"
           data-testid="assistant-plan-approve"
         >
-          {{ assistant.sending() ? 'Applying…' : 'Approve plan' }}
+          {{ assistant.sending() ? 'Applying…' : 'Confirm change' }}
         </button>
       </div>
+      <p class="plan-hint">Or reply “yes” or “go ahead”.</p>
     </div>
     }
 

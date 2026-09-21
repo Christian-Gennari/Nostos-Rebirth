@@ -1,7 +1,16 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
-import { ProcessingMode } from './assistant.service';
+
+/** What happens to a captured thought between raw input and stored note text. */
+export type ProcessingMode = 'verbatim' | 'light_polish' | 'clarify';
+
+/** The three capture-processing modes, in presentation order. */
+export const PROCESSING_MODES: readonly { value: ProcessingMode; label: string }[] = [
+  { value: 'verbatim', label: 'Verbatim' },
+  { value: 'light_polish', label: 'Light polish' },
+  { value: 'clarify', label: 'Clarify' },
+];
 
 /** The wire shape of `GET /api/settings/assistant` — one stored preference. */
 export interface AssistantSettingsDto {
