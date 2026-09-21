@@ -4,9 +4,7 @@ import { FormsModule } from '@angular/forms';
 import TurndownService from 'turndown';
 import { marked } from 'marked';
 import { ThemeService } from '../../core/services/theme.service';
-
-// Import TinyMCE as a global type reference
-declare var tinymce: any;
+import { TinyMceApi, TinyMceLoader } from './tinymce-loader.service';
 
 /**
  * Editor content page — warm ink on a white paper sheet, theme-independent.
@@ -556,7 +554,11 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   });
 
   private editor: any;
+  private tinyMce: TinyMceApi | null = null;
+  private editorInit: Promise<void> | null = null;
+  private destroyed = false;
   private themeService = inject(ThemeService);
+  private tinyMceLoader = inject(TinyMceLoader);
 
   /**
    * Final chrome (expert design §1): one constant 'oxide' skin, no menubar,
@@ -662,10 +664,11 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.initEditor();
+    this.editorInit ??= this.initEditor();
   }
 
   ngOnDestroy() {
+    this.destroyed = true;
     this.destroyEditor();
   }
 
@@ -685,11 +688,14 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     }
   }
 
-  private initEditor() {
-    // Prevent double-init
-    if (this.editor) return;
+  private async initEditor(): Promise<void> {
+    if (this.editor || this.destroyed) return;
 
-    tinymce.init({
+    const tinyMce = await this.tinyMceLoader.load();
+    if (this.destroyed || this.editor) return;
+
+    this.tinyMce = tinyMce;
+    tinyMce.init({
       selector: `#${this.editorId}`,
       ...this.editorConfig,
     });
@@ -702,7 +708,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       this.onHtmlChange(finalHtml);
 
       // Teardown
-      tinymce.remove(this.editor);
+      this.tinyMce?.remove(this.editor);
       this.editor = null;
     }
   }
