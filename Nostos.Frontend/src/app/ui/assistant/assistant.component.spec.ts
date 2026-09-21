@@ -191,6 +191,14 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
     expect(fixture.componentInstance.expanded()).toBe(false);
   });
 
+  it('renders a quiet platform shortcut without a nested keycap', () => {
+    const shortcut = fixture.nativeElement.querySelector('.trigger-shortcut') as HTMLElement | null;
+
+    expect(shortcut).toBeTruthy();
+    expect(shortcut?.textContent?.trim()).toMatch(/^(⌘ J|Ctrl J)$/);
+    expect(fixture.nativeElement.querySelector('.trigger-capsule kbd')).toBeNull();
+  });
+
   it('opens on Cmd/Ctrl+J and prevents the browser default', () => {
     const event = new KeyboardEvent('keydown', { key: 'j', metaKey: true, cancelable: true });
     document.dispatchEvent(event);
