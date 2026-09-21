@@ -517,7 +517,9 @@
                 <div class="source-search">
                   <input
                     id="source-query"
-                    class="input source-search-input"
+                    appInput
+                    controlSize="compact"
+                    class="source-search-input"
                     type="search"
                     autocomplete="off"
                     placeholder="Title or author"
@@ -707,7 +709,9 @@
 
                   <button
                     type="button"
-                    class="btn btn-primary source-action"
+                    appButton
+                    variant="primary"
+                    class="source-action"
                     (click)="seedFromSelectedItem()"
                     [disabled]="item.assets.length === 0 || !!runningAcquisition()"
                   >
