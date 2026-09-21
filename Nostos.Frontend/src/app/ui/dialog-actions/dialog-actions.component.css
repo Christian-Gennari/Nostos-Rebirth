@@ -1,0 +1,72 @@
+/* Ordinary dialog action composition.
+   ModalShell owns shell geometry; appButton owns action styling. This file only
+   owns the footer row/group layout between those two primitives. */
+
+.nostos-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.nostos-dialog-actions__start,
+.nostos-dialog-actions__end {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.nostos-dialog-actions__start {
+  margin-right: auto;
+}
+
+.nostos-dialog-actions__start:empty {
+  display: none;
+}
+
+.nostos-dialog-actions__end {
+  justify-content: flex-end;
+}
+
+.nostos-dialog-actions--footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-surface);
+}
+
+.nostos-dialog-actions--inset {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+@media (max-width: 480px) {
+  .nostos-dialog-actions--footer {
+    flex-wrap: wrap;
+    padding-inline: 1rem;
+  }
+
+  .nostos-dialog-actions--footer .nostos-dialog-actions__start:not(:empty) {
+    order: 2;
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .nostos-dialog-actions--footer .nostos-dialog-actions__end {
+    order: 1;
+    width: 100%;
+  }
+
+  .nostos-dialog-actions--stack-narrow .nostos-dialog-actions__end {
+    width: 100%;
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+  }
+
+  .nostos-dialog-actions--stack-narrow .nostos-dialog-actions__end > .nostos-button {
+    width: 100%;
+    min-height: var(--control-h-touch);
+  }
+}

@@ -2,6 +2,8 @@ import { Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModalShell } from '../modal-shell/modal-shell.component';
 import { NostosIconComponent } from '../icon/nostos-icon.component';
+import { ButtonComponent } from '../button/button.component';
+import { DialogActionsComponent } from '../dialog-actions/dialog-actions.component';
 
 /**
  * Tone of the confirmation. `danger` is the destructive treatment (muted wine
@@ -27,7 +29,7 @@ export type ConfirmTone = 'danger' | 'neutral';
 @Component({
   selector: 'app-confirm-modal',
   standalone: true,
-  imports: [CommonModule, NostosIconComponent, ModalShell],
+  imports: [CommonModule, NostosIconComponent, ModalShell, ButtonComponent, DialogActionsComponent],
   templateUrl: './confirm-modal.component.html',
   styleUrl: './confirm-modal.component.css',
 })

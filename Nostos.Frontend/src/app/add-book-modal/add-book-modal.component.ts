@@ -19,6 +19,8 @@ import { BookType } from '../core/dtos/book.dtos';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
 import { CollectionPickerComponent } from '../ui/collection-picker/collection-picker.component';
 import { ModalShell } from '../ui/modal-shell/modal-shell.component';
+import { DialogActionsComponent } from '../ui/dialog-actions/dialog-actions.component';
+import { ButtonComponent } from '../ui/button/button.component';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 import { FormFieldComponent } from '../ui/form-field/form-field.component';
 import { InputDirective, SelectDirective, TextareaDirective } from '../ui/form-control/form-control.directive';
@@ -37,6 +39,8 @@ import { InputDirective, SelectDirective, TextareaDirective } from '../ui/form-c
     SelectDirective,
     TextareaDirective,
     ModalShell,
+    DialogActionsComponent,
+    ButtonComponent,
   ],
   templateUrl: './add-book-modal.component.html',
   styleUrl: './add-book-modal.component.css',

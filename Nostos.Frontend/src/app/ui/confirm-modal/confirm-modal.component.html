@@ -28,14 +28,28 @@
       <p id="confirm-dialog-description" class="confirm-description">{{ description() }}</p>
     }
 
-    <div class="confirm-actions" shellActions>
-      <button type="button" class="btn-cancel" (click)="cancel.emit()" [disabled]="busy()">
+    <app-dialog-actions
+      shellActions
+      variant="inset"
+      [stackOnNarrow]="true"
+      class="confirm-actions"
+    >
+      <button
+        appButton
+        type="button"
+        variant="secondary"
+        class="btn-cancel"
+        (click)="cancel.emit()"
+        [disabled]="busy()"
+      >
         {{ cancelLabel() }}
       </button>
       <button
+        appButton
         type="button"
+        [variant]="tone() === 'danger' ? 'danger' : 'primary'"
         class="btn-confirm"
-        [class.tone-danger]="tone() === 'danger'"
+        [busy]="busy()"
         (click)="confirm.emit()"
         [disabled]="busy()"
       >
@@ -49,6 +63,6 @@
           <span>{{ confirmLabel() }}</span>
         }
       </button>
-    </div>
+    </app-dialog-actions>
   </app-modal-shell>
 }

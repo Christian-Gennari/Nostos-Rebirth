@@ -33,8 +33,16 @@ describe('ConfirmModal', () => {
     expect(card.querySelector('.confirm-description').textContent).toContain(
       'This action cannot be undone.',
     );
-    expect(card.querySelector('.btn-confirm')).toBeTruthy();
-    expect(card.querySelector('.btn-cancel')).toBeTruthy();
+    const actions = card.querySelector('app-dialog-actions');
+    const confirmButton = card.querySelector('.btn-confirm') as HTMLButtonElement;
+    const cancelButton = card.querySelector('.btn-cancel') as HTMLButtonElement;
+
+    expect(actions).toBeTruthy();
+    expect(actions.classList).toContain('nostos-dialog-actions--inset');
+    expect(actions.classList).toContain('nostos-dialog-actions--stack-narrow');
+    expect(confirmButton.type).toBe('button');
+    expect(cancelButton.type).toBe('button');
+    expect(cancelButton.classList).toContain('nostos-button--secondary');
   });
 
   it('omits the description paragraph and its aria reference when none is given', () => {
@@ -61,19 +69,18 @@ describe('ConfirmModal', () => {
     fixture.componentRef.setInput('isOpen', true);
     fixture.detectChanges();
 
-    // The tone class sits on the action button, not on the card. The card
-    // belongs to `app-modal-shell`, and Angular scopes EVERY compound of an
-    // emulated rule — so the old `.tone-danger .btn-confirm` could no longer
-    // reach a button inside a card the shell owns, and the destructive action
-    // silently lost its wine fill. Verified in the browser, not just here.
     const card = fixture.nativeElement.querySelector('.confirm-modal-card');
-    expect(card.querySelector('.btn-confirm').classList).toContain('tone-danger');
+    const confirmButton = () => card.querySelector('.btn-confirm') as HTMLButtonElement;
+
+    expect(confirmButton().classList).toContain('nostos-button--danger');
+    expect(confirmButton().classList).not.toContain('nostos-button--primary');
     expect(card.querySelector('.confirm-mark')).toBeTruthy();
 
     fixture.componentRef.setInput('tone', 'neutral');
     fixture.detectChanges();
 
-    expect(card.querySelector('.btn-confirm').classList).not.toContain('tone-danger');
+    expect(confirmButton().classList).toContain('nostos-button--primary');
+    expect(confirmButton().classList).not.toContain('nostos-button--danger');
     expect(card.querySelector('.confirm-mark')).toBeNull();
   });
 
@@ -134,6 +141,7 @@ describe('ConfirmModal', () => {
 
     expect(confirmBtn.disabled).toBe(true);
     expect(cancelBtn.disabled).toBe(true);
+    expect(confirmBtn.getAttribute('aria-busy')).toBe('true');
     expect(confirmBtn.textContent).toContain('Deleting…');
   });
 

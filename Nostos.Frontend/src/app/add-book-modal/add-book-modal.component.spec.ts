@@ -40,6 +40,57 @@ describe('AddBookModal', () => {
     expect(dialog.getAttribute('aria-label')).toBe('Add New Book');
   });
 
+  it('uses DialogActions and canonical native buttons for the ordinary create footer', () => {
+    fixture.detectChanges();
+
+    const actions = fixture.nativeElement.querySelector('app-dialog-actions') as HTMLElement;
+    const buttons = Array.from(actions.querySelectorAll('button')) as HTMLButtonElement[];
+    const cancelButton = buttons.find((button) => button.textContent?.trim() === 'Cancel')!;
+    const submitButton = buttons.find((button) => button.textContent?.trim() === 'Create Book')!;
+
+    expect(actions.classList).toContain('nostos-dialog-actions--footer');
+    expect(cancelButton.type).toBe('button');
+    expect(cancelButton.classList).toContain('nostos-button--secondary');
+    expect(submitButton.type).toBe('submit');
+    expect(submitButton.getAttribute('form')).toBe('add-book-form');
+    expect(submitButton.classList).toContain('nostos-button--primary');
+    expect(submitButton.disabled).toBe(true);
+    expect(buttons.some((button) => button.textContent?.includes('Delete Book'))).toBe(false);
+  });
+
+  it('projects the edit-only destructive action into the leading slot and preserves callbacks', () => {
+    const deleteSpy = vi.fn();
+    const closeSpy = vi.fn();
+    component.deleteBook.subscribe(deleteSpy);
+    component.closeModal.subscribe(closeSpy);
+    fixture.componentRef.setInput('book', {
+      id: 'b1',
+      title: 'Meditations',
+      type: 'physical',
+      collectionIds: [],
+    } as unknown as Book);
+    fixture.detectChanges();
+
+    const actions = fixture.nativeElement.querySelector('app-dialog-actions') as HTMLElement;
+    const start = actions.querySelector('.nostos-dialog-actions__start') as HTMLElement;
+    const deleteButton = Array.from(start.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Delete Book'),
+    ) as HTMLButtonElement;
+    const cancelButton = Array.from(actions.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Cancel'),
+    ) as HTMLButtonElement;
+
+    expect(deleteButton).toBeTruthy();
+    expect(deleteButton.type).toBe('button');
+    expect(deleteButton.classList).toContain('nostos-button--danger');
+
+    deleteButton.click();
+    cancelButton.click();
+
+    expect(deleteSpy).toHaveBeenCalledTimes(1);
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('emits closeModal on Escape while open', () => {
     const closeSpy = vi.fn();
     component.closeModal.subscribe(closeSpy);
