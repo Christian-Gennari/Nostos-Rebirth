@@ -17,7 +17,6 @@ public sealed record AssistantTurnRequest(
     string IdempotencyKey,
     string Message,
     AssistantContextDto Context,
-    string? PendingPlanId = null,
     // APPENDED (positional record): the post-processing mode the composer used
     // to send per capture (issue #262 §7). It is now IGNORED: the capture mode
     // comes from the stored assistant setting, which the owner chooses once in
@@ -89,7 +88,12 @@ public sealed record AssistantTurnResponse(
     // APPENDED (positional record): the id of the note a capture created this
     // turn, so the surface can show its raw transcript and offer restore
     // (issue #262 §8). Null when the turn captured nothing.
-    string? CapturedNoteId = null);
+    string? CapturedNoteId = null,
+    // APPENDED (positional record): capabilities that actually completed as
+    // immediate Act calls during this turn. This is execution truth from the
+    // registry, not model narration, so clients can react to a successful
+    // mutation without parsing prose.
+    IReadOnlyList<string>? ExecutedCapabilities = null);
 
 /// <summary>
 /// The deterministic follow-up a capture needs before it can be saved. Its
