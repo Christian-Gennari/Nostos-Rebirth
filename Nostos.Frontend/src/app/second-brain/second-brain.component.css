@@ -1310,7 +1310,6 @@
 .detail-select {
   min-width: 0;
   flex: 1 1 auto;
-  cursor: pointer;
   color: var(--color-text-muted);
 }
 
