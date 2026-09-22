@@ -226,9 +226,6 @@ app-sidebar-collections.no-transition {
   color: var(--color-text-muted);
 }
 
-.sort-select:hover {
-  background-color: var(--bg-hover);
-}
 
 /* Toolbar Right Section */
 .toolbar-right {
