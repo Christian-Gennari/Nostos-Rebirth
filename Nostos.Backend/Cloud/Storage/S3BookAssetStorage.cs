@@ -173,48 +173,69 @@ public sealed class S3BookAssetStorage(
             : await OpenAsync(key, MediaTypeMap.ForCover(key), range: null, ct);
     }
 
+    public async Task<StoredAssetInfo?> GetBookCoverThumbnailInfoAsync(
+        Guid bookId,
+        int width,
+        CancellationToken ct = default)
+    {
+        var key = await EnsureThumbnailAsync(bookId, width, ct);
+        return key is null
+            ? null
+            : await GetInfoAsync(key, "image/webp", ct);
+    }
+
     public async Task<StoredAssetRead?> OpenBookCoverThumbnailAsync(
         Guid bookId,
         int width,
         CancellationToken ct = default)
     {
+        var key = await EnsureThumbnailAsync(bookId, width, ct);
+        return key is null
+            ? null
+            : await OpenAsync(key, "image/webp", range: null, ct);
+    }
+
+    private async Task<string?> EnsureThumbnailAsync(
+        Guid bookId,
+        int width,
+        CancellationToken ct)
+    {
         var safeWidth = Math.Clamp(width, 120, 640);
         var prefix = await BookPrefixAsync(bookId, ct);
         var thumbnailKey = $"{prefix}cover-thumb-{safeWidth}.webp";
 
-        if (await GetInfoAsync(thumbnailKey, "image/webp", ct) is null)
+        if (await GetInfoAsync(thumbnailKey, "image/webp", ct) is not null)
+            return thumbnailKey;
+
+        var coverKey = await FindCoverKeyAsync(bookId, ct);
+        if (coverKey is null)
+            return null;
+
+        await using var cover = await OpenAsync(
+            coverKey,
+            MediaTypeMap.ForCover(coverKey),
+            range: null,
+            ct);
+
+        if (cover is null)
+            return null;
+
+        using var image = await Image.LoadAsync(cover.Content, ct);
+        image.Mutate(context => context.Resize(new ResizeOptions
         {
-            var coverKey = await FindCoverKeyAsync(bookId, ct);
-            if (coverKey is null)
-                return null;
+            Size = new Size(safeWidth, 0),
+            Mode = ResizeMode.Max,
+        }));
 
-            await using var cover = await OpenAsync(
-                coverKey,
-                MediaTypeMap.ForCover(coverKey),
-                range: null,
-                ct);
+        await using var encoded = new MemoryStream();
+        await image.SaveAsWebpAsync(
+            encoded,
+            new WebpEncoder { Quality = 82 },
+            ct);
+        encoded.Position = 0;
 
-            if (cover is null)
-                return null;
-
-            using var image = await Image.LoadAsync(cover.Content, ct);
-            image.Mutate(context => context.Resize(new ResizeOptions
-            {
-                Size = new Size(safeWidth, 0),
-                Mode = ResizeMode.Max,
-            }));
-
-            await using var encoded = new MemoryStream();
-            await image.SaveAsWebpAsync(
-                encoded,
-                new WebpEncoder { Quality = 82 },
-                ct);
-            encoded.Position = 0;
-
-            await PutAsync(thumbnailKey, encoded, "image/webp", ct);
-        }
-
-        return await OpenAsync(thumbnailKey, "image/webp", range: null, ct);
+        await PutAsync(thumbnailKey, encoded, "image/webp", ct);
+        return thumbnailKey;
     }
 
     public async Task<bool> DeleteCoverAsync(
