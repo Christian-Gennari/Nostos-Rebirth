@@ -342,7 +342,7 @@
         <p class="catalogue-kicker">Pattern</p>
         <h2 id="catalogue-segmented">Segmented visual recipe</h2>
       </div>
-      <p>The visual recipe is shared; tab and pressed-button semantics remain distinct.</p>
+      <p>The visual recipe is shared; tabs keep it, and the view toggle is a component.</p>
     </div>
 
     <div class="catalogue-grid">
@@ -373,27 +373,13 @@
       </div>
 
       <div class="catalogue-example">
-        <span class="catalogue-label">Pressed-button group</span>
-        <div class="catalogue-segmented" role="group" aria-label="Catalogue view example">
-          <button
-            type="button"
-            class="toggle-opt"
-            [class.active]="selectedView() === 'list'"
-            [attr.aria-pressed]="selectedView() === 'list'"
-            (click)="selectedView.set('list')"
-          >
-            List
-          </button>
-          <button
-            type="button"
-            class="toggle-opt"
-            [class.active]="selectedView() === 'grid'"
-            [attr.aria-pressed]="selectedView() === 'grid'"
-            (click)="selectedView.set('grid')"
-          >
-            Grid
-          </button>
-        </div>
+        <span class="catalogue-label">View toggle (component)</span>
+        <nostos-view-toggle
+          aria-label="Catalogue view example"
+          [options]="viewToggleOptions"
+          [value]="selectedView()"
+          (valueChange)="selectedView.set($event)"
+        />
       </div>
     </div>
   </section>

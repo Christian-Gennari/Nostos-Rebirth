@@ -185,38 +185,29 @@
 }
 
 
-/* The group/track the shared `.toggle-opt` recipe sits in. It pairs with
-   Library's `.control-group`, which declares the same track
-   (--bg-hover, 3px padding, --radius-md, 2px gap) under a different name; the two
-   are kept separate because this one is also a flex child with its own sizing.
-   Icon-only at 18px with strokeWidth 1.5, the same as Library's list/grid
-   toggle, so the two read as one control from one app. The previous version
-   added text labels, a 32px min-height and a `--color-text-light` outline on
-   the active option, none of which exist in the Library. */
+/* LAYOUT ONLY. The track itself — its fill, radius, padding, gap, the selected
+   option's raised thumb, the glyph weight step and the mobile rung — is
+   `nostos-view-toggle` (src/app/ui/view-toggle/), together with the Library's
+   formerly hand-copied twin of this rule. What is genuinely this surface's is
+   that the control is a flex child of the header and must not be squeezed by it,
+   so the class stays here as the hook the component host carries. */
 .view-mode-control {
-  display: flex;
   flex: 0 0 auto;
-  background: var(--bg-hover);
-  padding: 3px;
-  border-radius: var(--radius-md);
-  gap: 2px;
 }
 
-/* The `.toggle-opt` base recipe lives in styles.css — ONE copy, shared with
-   Library, which previously carried a byte-identical duplicate of these four
-   rules. A copy here would also be pointless now: a `.toggle-opt` rule in a
-   component stylesheet is scoped by Angular to this component, so it could never
-   apply to the other surface anyway.
+/* Nothing below styles the view control any more: the Brain renders
+   `nostos-view-toggle`, and that component owns its own chrome and its own
+   geometry (including the 34x32-in-38px mobile rung, which both surfaces now get
+   from one place). This file keeps only the flex hook above.
 
-   Historical note, kept because it is the reason the class is NOT scoped under
-   `.view-mode-control` in the markup: `.view-mode-control .toggle-opt.active`
-   is (0,4,0), which tied the app-wide dark override and won on load order, so
-   the active segment kept its light tokens while everything else went dark.
-   That override is gone — the dark treatment is now a TOKEN
-   (--control-active-fill / --control-active-ink) read by the shared rule — so
-   there is no longer anything for a scoped copy to race. The mobile override below now
- MATCHES Library's (34x32 in a 38px track) rather than using its own 44px
- target, so the two render the same control at every width. */
+   `.toggle-opt` in styles.css is NOT dead, and is deliberately not what the Brain
+   uses: it is the recipe for the segmented surfaces this component does not
+   cover — Writing Studio's tabs (`class="tab-btn toggle-opt"`, role="tablist"),
+   which need tab semantics and visible labels, and the catalogue's tab example.
+   The old specificity trap that used to live here (`.view-mode-control
+   .toggle-opt.active` won a tie on dark and kept its light tokens) is recorded in
+   the shared recipe and in the component doc; scoping is no longer any part of
+   this surface's problem. */
 /* `.sort-label` is gone: the affordance now lives inside the control ("Sort: Most
    used"), so there is no separate micro-label beside it to strand. The accessible
    name is a visually-hidden <label>. */
@@ -1661,34 +1652,13 @@
     min-height: 44px;
   }
 
-  /* Match the Library's mobile toggle EXACTLY: a 34x32 option in a 38px track.
-     Library is the reference (`@media (max-width: 768px)` in
-     library.component.css), and the two surfaces render the same control, so a
-     44px Brain option beside a 32px Library one read as two different controls.
-
-     The 8px width note: at the shared base's `4px 6px` padding an option is 30px
-     wide, so a tap had to land in a narrow band. Library widens its mobile
-     padding to `4px 8px` (=> 34px, the 18px glyph plus 8px each side), and that
-     is what this copies. Setting `height` rather than `min-height` is what makes
-     the option exactly 32px instead of growing to fill the track.
-
-     Consequence, deliberate: this drops the option below the 44px tap-target
-     minimum that the rest of the Brain's mobile chrome keeps. That is the
-     trade-off chosen here — visible parity with the Library over the larger
-     target — and it is why the 44px assertion in mobile-studio-brain.spec.ts was
-     narrowed to the search field rather than left to fail. */
-  .toggle-opt {
-    height: 32px;
-    padding: 4px 8px;
-  }
-
-  /* Pinned rather than left to derive from the option height, so the track cannot
-     drift from Library's if the option padding ever changes. */
-  .view-mode-control {
-    height: 38px;
-    box-sizing: border-box;
-    align-items: center;
-  }
+  /* The mobile rung (34x32 option in a 38px track) is the component's, so this
+     surface no longer states it — and the two surfaces cannot disagree about it
+     again. The deliberate trade-off it carries is recorded there: the option sits
+     below the 44px tap-target minimum the rest of this header keeps, because
+     visible parity between the two view toggles was chosen over the larger
+     target, which is why the 44px assertion in mobile-studio-brain.spec.ts was
+     narrowed to the search field. */
 
   .clear-search {
     flex-basis: 44px;

@@ -67,11 +67,15 @@ test.describe('Nostos UI v1 catalogue', () => {
           'true',
         );
 
+        // The pressed-button example is now the real component, so its options are
+        // named the way the app names them (icon-only: the label is the name).
         const viewGroup = page.getByRole('group', { name: 'Catalogue view example' });
-        await viewGroup.getByRole('button', { name: 'Grid', exact: true }).click();
-        await expect(viewGroup.getByRole('button', { name: 'Grid', exact: true })).toHaveAttribute(
+        const gridOption = viewGroup.getByRole('button', { name: 'Grid view', exact: true });
+        await gridOption.click();
+        await expect(gridOption).toHaveAttribute('aria-pressed', 'true');
+        await expect(viewGroup.getByRole('button', { name: 'List view', exact: true })).toHaveAttribute(
           'aria-pressed',
-          'true',
+          'false',
         );
 
         const secondary = page.getByTestId('secondary-button');

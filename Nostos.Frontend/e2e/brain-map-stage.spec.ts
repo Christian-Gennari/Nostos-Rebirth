@@ -40,8 +40,8 @@ async function openMap(page: import('@playwright/test').Page, baseUrl: string) {
   await page.goto(`${baseUrl}/second-brain`, { waitUntil: 'domcontentloaded' });
   // Wait for the view-mode control rather than an index row: a landscape phone
   // hides the index list, so `.index-item` never becomes visible there.
-  await page.locator('.view-mode-control .toggle-opt').last().waitFor({ timeout: 30_000 });
-  await page.locator('.view-mode-control .toggle-opt:last-child').click();
+  await page.locator('.view-mode-control .vt-opt').last().waitFor({ timeout: 30_000 });
+  await page.locator('.view-mode-control .vt-opt:last-child').click();
   await page.locator('.sigma-container canvas').first().waitFor({ timeout: 30_000 });
   await page.waitForTimeout(900);
 }

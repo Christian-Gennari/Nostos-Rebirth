@@ -244,19 +244,12 @@ app-sidebar-collections.no-transition {
   justify-self: end;
 }
 
-.control-group {
-  display: flex;
-  background: var(--bg-hover);
-  padding: 3px;
-  border-radius: var(--radius-md);
-  gap: 2px;
-}
-
-/* The view toggle's base recipe is in styles.css — ONE copy shared with Brain.
-   Removed from here: a `.toggle-opt` rule in a component stylesheet is scoped by
-   Angular to this component, so it could only ever be a second copy to keep in
-   sync. The mobile override below stays: Library sets a 32px box where Brain uses
-   a 44px touch target, a real difference. */
+/* The view toggle itself is `nostos-view-toggle` (src/app/ui/view-toggle/): track,
+   geometry, mobile rung and interaction all live with the control, so the Library
+   and the Brain cannot render two different versions of it. Removed from here: the
+   track recipe this file used to declare, and the mobile `38px track / 32px option`
+   override — both are the component's now, and `.control-group` survives purely as
+   the class hook the component host carries. */
 
 /* --- LIST VIEW --- */
 .table-view {
@@ -1402,25 +1395,9 @@ app-sidebar-collections.no-transition {
     min-width: 0;
   }
 
-  .control-group {
-    height: 38px;
-    padding: 3px;
-    border-radius: var(--radius-md, 4px);
-    box-sizing: border-box;
-    align-items: center;
-    background: var(--bg-hover);
-    border: none;
-    gap: 2px;
-  }
-
-  .toggle-opt {
-    height: 32px;
-    padding: 4px 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-sm, 3px);
-  }
+  /* The view toggle's 38px track / 32px option now comes from
+     `nostos-view-toggle`'s own mobile rung, which is the same pair the Brain
+     renders. Nothing to override here. */
 
   .toolbar-right .library-add-button {
     height: 38px;

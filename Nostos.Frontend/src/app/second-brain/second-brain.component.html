@@ -69,34 +69,17 @@
         </div>
         }
 
-        <!-- Icon-only at 18px/1.5, exactly the Library's list/grid control.
-             No text labels: the Library's toggle has none, and at this size
-             two labelled segments read as a button pair rather than one
-             segmented control. -->
-        <div class="control-group view-mode-control" role="group" aria-label="Brain view">
-          <button
-            type="button"
-            class="toggle-opt"
-            [class.active]="viewMode() === 'list'"
-            [attr.aria-pressed]="viewMode() === 'list'"
-            aria-label="Concept view"
-            title="Concept view"
-            (click)="setViewMode('list')"
-          >
-            <nostos-icon name="list-bullets" [size]="18" weight="light"></nostos-icon>
-          </button>
-          <button
-            type="button"
-            class="toggle-opt"
-            [class.active]="viewMode() === 'map'"
-            [attr.aria-pressed]="viewMode() === 'map'"
-            aria-label="Map view"
-            title="Map view"
-            (click)="setViewMode('map')"
-          >
-            <nostos-icon name="map-trifold" [size]="18" weight="light"></nostos-icon>
-          </button>
-        </div>
+        <!-- The same control the Library renders, from the same component — this
+             header used to carry a hand-copy of its markup and CSS. Icon-only
+             with no text labels: at this size two labelled segments read as a
+             button pair rather than one segmented control. -->
+        <nostos-view-toggle
+          class="control-group view-mode-control"
+          aria-label="Brain view"
+          [options]="viewToggleOptions"
+          [value]="viewMode()"
+          (valueChange)="setViewMode($event)"
+        />
       </div>
     </header>
 

@@ -1003,10 +1003,13 @@ const PRODUCT_RAW_BUTTON_CLASSES = new Map([
   ['src/app/ui/assistant/assistant.component.html',
     new Set(['assistant-expand', 'suggestion-chip', 'anchor-chip-dismiss', 'voice-control', 'assistant-trigger'])],
   ['src/app/library/library.component.html',
-    new Set(['toggle-opt', 'item-action', 'finished-btn-list', 'fav-btn-list',
+    // 'toggle-opt' is gone from this ledger: the view toggle is
+    // `nostos-view-toggle` now, so this template renders no raw toggle buttons.
+    new Set(['item-action', 'finished-btn-list', 'fav-btn-list',
       'finished-btn-grid', 'fav-btn-grid', 'action-circle'])],
   ['src/app/second-brain/second-brain.component.html',
-    new Set(['toggle-opt', 'note-row-item', 'review-load-more', 'index-item', 'row-action',
+    // 'toggle-opt' is gone from this ledger for the same reason as the Library's.
+    new Set(['note-row-item', 'review-load-more', 'index-item', 'row-action',
       'rail-foot-action', 'mobile-nav-header', 'concept-action', 'merge-picker-close',
       'merge-target', 'merge-picker-cancel', 'merge-picker-confirm', 'related-chip', 'related-more'])],
   ['src/app/book-detail/book-detail.component.html',

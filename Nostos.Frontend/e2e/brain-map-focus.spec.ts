@@ -85,8 +85,8 @@ async function ensureSeed(fixture: ReturnType<typeof loadFixture>) {
 
 async function openMap(page: import('@playwright/test').Page, baseUrl: string) {
   await page.goto(`${baseUrl}/second-brain`, { waitUntil: 'domcontentloaded' });
-  await page.locator('.view-mode-control .toggle-opt').last().waitFor({ timeout: 30_000 });
-  await page.locator('.view-mode-control .toggle-opt:last-child').click();
+  await page.locator('.view-mode-control .vt-opt').last().waitFor({ timeout: 30_000 });
+  await page.locator('.view-mode-control .vt-opt:last-child').click();
   await page.locator('.sigma-container canvas').first().waitFor({ timeout: 30_000 });
   await page.waitForFunction(
     () => document.querySelector('.concept-map')?.getAttribute('aria-busy') === 'false',

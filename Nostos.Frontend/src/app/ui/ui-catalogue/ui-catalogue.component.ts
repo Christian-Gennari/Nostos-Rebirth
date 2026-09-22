@@ -14,6 +14,7 @@ import { FormFieldComponent } from '../form-field/form-field.component';
 import { IconButtonComponent } from '../icon-button/icon-button.component';
 import { ModalShell } from '../modal-shell/modal-shell.component';
 import { SwitchComponent } from '../switch/switch.component';
+import { ViewToggleComponent, type ViewToggleOption } from '../view-toggle/view-toggle.component';
 
 /**
  * Inspectable reference fixture for Nostos UI v1.
@@ -37,6 +38,7 @@ import { SwitchComponent } from '../switch/switch.component';
     ModalShell,
     DropdownComponent,
     SwitchComponent,
+    ViewToggleComponent,
     TextareaDirective,
   ],
   templateUrl: './ui-catalogue.component.html',
@@ -48,7 +50,13 @@ export class UiCatalogueComponent {
 
   readonly theme = this.themeService.theme;
   readonly selectedTab = signal<'primitives' | 'patterns'>('primitives');
-  readonly selectedView = signal<'list' | 'grid'>('list');
+  /** Deliberately a plain string: the component is not generic, so the demo does not
+      pretend to narrow the value it receives. */
+  readonly selectedView = signal('list');
+  readonly viewToggleOptions = [
+    { value: 'list', icon: 'list-bullets', label: 'List view' },
+    { value: 'grid', icon: 'squares-four', label: 'Grid view' },
+  ] satisfies readonly ViewToggleOption[];
   readonly modalOpen = signal(false);
   readonly catalogueDropdownValue = signal('epub');
   readonly dropdownOptions = [

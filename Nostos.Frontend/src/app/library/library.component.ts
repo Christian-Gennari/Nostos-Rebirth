@@ -38,6 +38,7 @@ import { LibraryPreferencesService } from '../core/services/library-preferences.
 import { ImportService } from '../core/services/import.service';
 import { ToastService } from '../core/services/toast.service';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
+import { ViewToggleComponent, type ViewToggleOption } from '../ui/view-toggle/view-toggle.component';
 import { NOSTOS_CONCEPTS } from '../ui/icon/nostos-concepts';
 import type { NostosIconName } from '../ui/icon/nostos-icons';
 
@@ -109,6 +110,7 @@ interface WorkFormatGlyph {
     CommonModule,
     RouterLink,
     NostosIconComponent,
+    ViewToggleComponent,
     AddBookModal,
     AddBookIntent,
     ConfirmModal,
@@ -172,6 +174,12 @@ export class Library implements OnInit, OnDestroy {
   @ViewChild(SidebarCollections) private sidebar?: SidebarCollections;
 
   viewMode = this.preferences.viewMode;
+  /** The view toggle's options. Icons are Nostos glyph names; the labels are the
+      ONLY names the icon-only control has, so they are asserted in the spec. */
+  readonly viewToggleOptions = [
+    { value: 'list', icon: 'list-bullets', label: 'List view' },
+    { value: 'grid', icon: 'squares-four', label: 'Grid view' },
+  ] satisfies readonly ViewToggleOption[];
   readonly sidebarExpanded = this.preferences.sidebarExpanded;
   showAddModal = signal(false);
   /** The "how are you adding this?" step that now precedes the form. */
@@ -183,8 +191,13 @@ export class Library implements OnInit, OnDestroy {
     this.preferences.setSidebarExpanded(!this.sidebarExpanded());
   }
 
-  setViewMode(mode: 'list' | 'grid'): void {
-    this.preferences.setViewMode(mode);
+  /**
+   * Takes a plain string because `nostos-view-toggle` renders whatever options a
+   * surface hands it and is deliberately not generic; the union is enforced by the
+   * preferences service, which is the single validator for a persisted value.
+   */
+  setViewMode(mode: string): void {
+    this.preferences.setViewMode(mode as 'list' | 'grid');
   }
 
   // Search & Sort State

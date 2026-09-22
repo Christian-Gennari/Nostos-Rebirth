@@ -40,30 +40,13 @@
           />
         </div>
 
-        <div class="control-group" role="group" aria-label="Book view">
-          <button
-            type="button"
-            class="toggle-opt"
-            [class.active]="viewMode() === 'list'"
-            [attr.aria-pressed]="viewMode() === 'list'"
-            aria-label="List view"
-            title="List view"
-            (click)="setViewMode('list')"
-          >
-            <nostos-icon name="list-bullets" [size]="18" weight="light"></nostos-icon>
-          </button>
-          <button
-            type="button"
-            class="toggle-opt"
-            [class.active]="viewMode() === 'grid'"
-            [attr.aria-pressed]="viewMode() === 'grid'"
-            aria-label="Grid view"
-            title="Grid view"
-            (click)="setViewMode('grid')"
-          >
-            <nostos-icon name="squares-four" [size]="18" weight="light"></nostos-icon>
-          </button>
-        </div>
+        <nostos-view-toggle
+          class="control-group"
+          aria-label="Book view"
+          [options]="viewToggleOptions"
+          [value]="viewMode()"
+          (valueChange)="setViewMode($event)"
+        />
 
         <button appButton variant="primary" class="library-add-button" (click)="openAddIntent()">
           <nostos-icon name="plus" [size]="18"></nostos-icon>
