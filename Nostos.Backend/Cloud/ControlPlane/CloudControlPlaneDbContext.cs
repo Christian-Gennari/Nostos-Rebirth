@@ -8,6 +8,10 @@ public sealed class CloudControlPlaneDbContext(DbContextOptions<CloudControlPlan
     public DbSet<CloudAccountResource> AccountResources => Set<CloudAccountResource>();
     public DbSet<CloudSubscription> Subscriptions => Set<CloudSubscription>();
     public DbSet<CloudSubscriptionAuditEvent> SubscriptionAudit => Set<CloudSubscriptionAuditEvent>();
+    public DbSet<Nostos.Backend.Cloud.Billing.CloudBillingBinding> BillingBindings =>
+        Set<Nostos.Backend.Cloud.Billing.CloudBillingBinding>();
+    public DbSet<Nostos.Backend.Cloud.Billing.CloudBillingEventReceipt> BillingEvents =>
+        Set<Nostos.Backend.Cloud.Billing.CloudBillingEventReceipt>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -130,6 +134,44 @@ public sealed class CloudControlPlaneDbContext(DbContextOptions<CloudControlPlan
             .WithMany()
             .HasForeignKey(x => x.AccountId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        var billingBinding =
+            modelBuilder.Entity<Nostos.Backend.Cloud.Billing.CloudBillingBinding>();
+
+        billingBinding.ToTable("CloudBillingBindings");
+        billingBinding.HasKey(x => x.AccountId);
+        billingBinding.Property(x => x.Provider).HasMaxLength(32).IsRequired();
+        billingBinding.Property(x => x.ExternalTransactionId).HasMaxLength(64);
+        billingBinding.Property(x => x.ExternalCustomerId).HasMaxLength(64);
+        billingBinding.Property(x => x.ExternalSubscriptionId).HasMaxLength(64);
+        billingBinding.Property(x => x.LastEventOccurredAtUtc);
+        billingBinding.Property(x => x.UpdatedAtUtc);
+        billingBinding
+            .HasIndex(x => new { x.Provider, x.ExternalSubscriptionId })
+            .IsUnique();
+        billingBinding
+            .HasOne<CloudAccountResource>()
+            .WithOne()
+            .HasForeignKey<Nostos.Backend.Cloud.Billing.CloudBillingBinding>(x => x.AccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        var billingEvent =
+            modelBuilder.Entity<Nostos.Backend.Cloud.Billing.CloudBillingEventReceipt>();
+
+        billingEvent.ToTable("CloudBillingEvents");
+        billingEvent.HasKey(x => new { x.Provider, x.EventId });
+        billingEvent.Property(x => x.Provider).HasMaxLength(32).IsRequired();
+        billingEvent.Property(x => x.EventId).HasMaxLength(96).IsRequired();
+        billingEvent.Property(x => x.ExternalSubscriptionId).HasMaxLength(64);
+        billingEvent.Property(x => x.OccurredAtUtc);
+        billingEvent.Property(x => x.Outcome).HasMaxLength(24).IsRequired();
+        billingEvent.Property(x => x.ProcessedAtUtc);
+        billingEvent.HasIndex(x => new { x.AccountId, x.ProcessedAtUtc });
+        billingEvent
+            .HasOne<CloudAccountResource>()
+            .WithMany()
+            .HasForeignKey(x => x.AccountId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -167,6 +209,16 @@ public sealed class CloudControlPlaneBootstrapper(
             .ToListAsync(cancellationToken);
 
         _ = await db.SubscriptionAudit
+            .AsNoTracking()
+            .Take(1)
+            .ToListAsync(cancellationToken);
+
+        _ = await db.BillingBindings
+            .AsNoTracking()
+            .Take(1)
+            .ToListAsync(cancellationToken);
+
+        _ = await db.BillingEvents
             .AsNoTracking()
             .Take(1)
             .ToListAsync(cancellationToken);
@@ -211,6 +263,40 @@ public sealed class CloudControlPlaneBootstrapper(
 
             CREATE INDEX IF NOT EXISTS "IX_CloudSubscriptionAudit_AccountId_ChangedAtUtc"
                 ON "CloudSubscriptionAudit" ("AccountId", "ChangedAtUtc");
+
+            CREATE TABLE IF NOT EXISTS "CloudBillingBindings" (
+                "AccountId" uuid NOT NULL,
+                "Provider" character varying(32) NOT NULL,
+                "ExternalTransactionId" character varying(64) NULL,
+                "ExternalCustomerId" character varying(64) NULL,
+                "ExternalSubscriptionId" character varying(64) NULL,
+                "LastEventOccurredAtUtc" timestamp with time zone NULL,
+                "UpdatedAtUtc" timestamp with time zone NOT NULL,
+                CONSTRAINT "PK_CloudBillingBindings" PRIMARY KEY ("AccountId"),
+                CONSTRAINT "FK_CloudBillingBindings_AccountResources_AccountId"
+                    FOREIGN KEY ("AccountId") REFERENCES "AccountResources" ("AccountId")
+                    ON DELETE RESTRICT
+            );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_CloudBillingBindings_Provider_ExternalSubscriptionId"
+                ON "CloudBillingBindings" ("Provider", "ExternalSubscriptionId");
+
+            CREATE TABLE IF NOT EXISTS "CloudBillingEvents" (
+                "Provider" character varying(32) NOT NULL,
+                "EventId" character varying(96) NOT NULL,
+                "AccountId" uuid NOT NULL,
+                "ExternalSubscriptionId" character varying(64) NULL,
+                "OccurredAtUtc" timestamp with time zone NOT NULL,
+                "Outcome" character varying(24) NOT NULL,
+                "ProcessedAtUtc" timestamp with time zone NOT NULL,
+                CONSTRAINT "PK_CloudBillingEvents" PRIMARY KEY ("Provider", "EventId"),
+                CONSTRAINT "FK_CloudBillingEvents_AccountResources_AccountId"
+                    FOREIGN KEY ("AccountId") REFERENCES "AccountResources" ("AccountId")
+                    ON DELETE RESTRICT
+            );
+
+            CREATE INDEX IF NOT EXISTS "IX_CloudBillingEvents_AccountId_ProcessedAtUtc"
+                ON "CloudBillingEvents" ("AccountId", "ProcessedAtUtc");
             """,
             cancellationToken);
     }
