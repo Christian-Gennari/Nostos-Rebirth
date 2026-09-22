@@ -80,7 +80,8 @@ public sealed record LlmCompletion(
     string? FinishReason,
     IReadOnlyList<LlmToolCall> ToolCalls,
     int? PromptTokens = null,
-    int? CompletionTokens = null)
+    int? CompletionTokens = null,
+    int? ThinkingTokens = null)
 {
     /// <summary>True when the pool spent the whole budget and returned no text.</summary>
     public bool IsLengthTruncated =>

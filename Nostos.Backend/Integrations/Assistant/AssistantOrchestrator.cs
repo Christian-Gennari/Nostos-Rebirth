@@ -133,6 +133,9 @@ public sealed class AssistantOrchestrator(
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var executionMeter = new AssistantExecutionMeter();
+        var stopReason = AssistantTurnStopReason.SafetyCeiling;
+
         var conversationKey = ConversationKey(request.ClientId);
         var capabilityByName = registry.All.ToDictionary(c => c.Name, StringComparer.Ordinal);
         var messages = _conversation.BuildConversation(request);
@@ -156,9 +159,27 @@ public sealed class AssistantOrchestrator(
         var iterations = Math.Max(1, options.MaxToolIterations);
         for (var iteration = 0; iteration < iterations; iteration++)
         {
-            var completion = await llm.CompleteAsync(
-                new LlmCompletionRequest(messages, tools, MaxResponseTokens),
-                ct);
+            executionMeter.RecordUpstreamRequest();
+
+            LlmCompletion completion;
+            try
+            {
+                completion = await llm.CompleteAsync(
+                    new LlmCompletionRequest(messages, tools, MaxResponseTokens),
+                    ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                LogExecutionMetrics(executionMeter.Finish(AssistantTurnStopReason.Cancelled));
+                throw;
+            }
+            catch (LlmException)
+            {
+                LogExecutionMetrics(executionMeter.Finish(AssistantTurnStopReason.ProviderError));
+                throw;
+            }
+
+            executionMeter.RecordCompletion(completion);
 
             finalContent = completion.Content;
             if (!string.IsNullOrWhiteSpace(completion.Content))
@@ -170,6 +191,7 @@ public sealed class AssistantOrchestrator(
             {
                 // A plain answer (including the pool's empty-content/"length"
                 // outcome, which is data: it is returned as-is, never a 500).
+                stopReason = AssistantTurnStopReason.Completed;
                 break;
             }
 
@@ -274,6 +296,17 @@ public sealed class AssistantOrchestrator(
             // user's answer arrives as the next turn's context anchor.
             if (anchorPrompt is not null)
             {
+                stopReason = AssistantTurnStopReason.UserInputRequired;
+                break;
+            }
+
+            // A destructive proposal is a hard turn boundary. Once the current
+            // model response has been interpreted into plan steps, do not spend
+            // another upstream call asking the model to narrate a plan that the
+            // server already knows requires explicit user approval.
+            if (planSteps.Count > 0)
+            {
+                stopReason = AssistantTurnStopReason.ApprovalRequired;
                 break;
             }
         }
@@ -320,6 +353,8 @@ public sealed class AssistantOrchestrator(
             reply = AssistantIdentityGuard.Apply(reply);
         }
 
+        LogExecutionMetrics(executionMeter.Finish(stopReason));
+
         logger.LogDebug(
             "Assistant turn handled: {Suggestions} suggestion(s), plan {HasPlan}, anchor prompt {HasPrompt}.",
             suggestions.Count,
@@ -334,6 +369,29 @@ public sealed class AssistantOrchestrator(
             pendingPlan,
             capturedNoteId,
             executedCapabilities);
+    }
+
+    private void LogExecutionMetrics(AssistantExecutionMetrics metrics)
+    {
+        // Content-free by design: this is safe to promote into Cloud usage
+        // accounting later without storing prompts, replies, tool arguments or
+        // private library results.
+        logger.LogDebug(
+            "Assistant turn execution: {UpstreamCalls} upstream call(s), {ToolCalls} tool call(s), " +
+            "{ToolLoopIterations} tool-loop iteration(s), prompt tokens {PromptTokens}, " +
+            "output tokens {OutputTokens}, thinking tokens {ThinkingTokens}, " +
+            "reported total tokens {ReportedTotalTokens}, elapsed {ElapsedMilliseconds} ms, " +
+            "stop {StopReason}, provider finish {ProviderFinishReason}.",
+            metrics.UpstreamCallCount,
+            metrics.ToolCallCount,
+            metrics.ToolLoopIterations,
+            metrics.PromptTokens,
+            metrics.OutputTokens,
+            metrics.ThinkingTokens,
+            metrics.ReportedTotalTokens,
+            metrics.ElapsedMilliseconds,
+            metrics.StopReason,
+            metrics.ProviderFinishReason ?? "(none)");
     }
 
     // ------------------------------------------------------------------

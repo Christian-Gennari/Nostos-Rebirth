@@ -58,6 +58,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
 
         response.Acknowledgement.Should().NotBeNullOrWhiteSpace();
         response.Acknowledgement.Should().Contain("The Magic Mountain");
+        h.Llm.CallCount.Should().Be(2);
 
         await using var db = await h.Factory.CreateDbContextAsync();
         var note = await db.Notes.AsNoTracking().SingleAsync();
@@ -444,6 +445,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
             Context(surface: "second-brain", route: "/second-brain")));
 
         response.Suggestions.Should().Contain(s => s.Kind == "concept" && s.Label == "Seeded Concept");
+        h.Llm.CallCount.Should().Be(2);
 
         (await StoreSnapshotAsync(h)).Should().BeEquivalentTo(before);
     }
@@ -481,6 +483,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         response.Suggestions.Should().OnlyContain(s => s.Kind == "concept");
         response.Suggestions.Should().HaveCountLessThanOrEqualTo(AssistantOrchestrator.MaxConceptSuggestions);
         response.Suggestions.Select(s => s.Label).Should().BeSubsetOf(["Mountains", "The Alps"]);
+        h.Llm.CallCount.Should().Be(3);
 
         // Suggesting is not linking: neither the note nor any concept changed.
         (await StoreSnapshotAsync(h)).Should().BeEquivalentTo(before);
@@ -548,6 +551,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         response.ExecutedCapabilities.Should().Equal(
             "library_create_collection",
             "library_rename_collection");
+        h.Llm.CallCount.Should().Be(4);
 
         await using var db = await h.Factory.CreateDbContextAsync();
         var names = await db.Collections.AsNoTracking()
@@ -671,8 +675,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var collection = await SeedCollectionAsync(h, "Old Collection");
 
         h.Llm
-            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{collection.Id}}"}""")
-            .Returns("I can remove Old Collection after you approve the deletion.");
+            .CallsTool("library_delete_collection", $"""{"collectionId":"{{collection.Id}}"}""");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
             "Remove my old collection.",
@@ -682,6 +685,8 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         response.PendingPlan!.Steps.Should().ContainSingle()
             .Which.Capability.Should().Be("library_delete_collection");
         response.PendingPlan.ApprovalToken.Should().NotBeNullOrWhiteSpace();
+        response.Reply.Should().Be("I've prepared a plan for your approval.");
+        h.Llm.CallCount.Should().Be(1);
 
         (await CollectionCountAsync(h)).Should().Be(1);
     }
@@ -732,10 +737,8 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var secondTarget = await SeedCollectionAsync(h, "Second target");
 
         h.Llm
-            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{firstTarget.Id}}"}""")
-            .Returns("First deletion is ready for approval.")
-            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{secondTarget.Id}}"}""")
-            .Returns("Second deletion is ready for approval.");
+            .CallsTool("library_delete_collection", $"""{"collectionId":"{{firstTarget.Id}}"}""")
+            .CallsTool("library_delete_collection", $"""{"collectionId":"{{secondTarget.Id}}"}""");
 
         var first = await h.Orchestrator.HandleTurnAsync(Turn(
             "Delete First target.", Context(surface: "library", route: "/library")));
@@ -848,6 +851,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         response.AnchorPrompt.Should().NotBeNull();
         response.AnchorPrompt!.Kind.Should().Be("external_audio_timestamp");
         response.AnchorPrompt.Question.Should().Be("What's the current timestamp?");
+        h.Llm.CallCount.Should().Be(1);
         (await NoteCountAsync(h)).Should().Be(0);
     }
 
@@ -872,6 +876,24 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
 
         response.Should().NotBeNull();
         h.Llm.CallCount.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task The_default_safety_ceiling_allows_six_repeated_tool_rounds()
+    {
+        var h = CreateHarness();
+
+        h.Llm.Responder = _ => new LlmCompletion(
+            null,
+            "tool_calls",
+            [new LlmToolCall(Guid.NewGuid().ToString("N"), "concepts_list", "{}")]);
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Loop, please.",
+            Context(surface: "second-brain", route: "/second-brain")));
+
+        response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
+        h.Llm.CallCount.Should().Be(6);
     }
 
     [Fact]
@@ -1199,6 +1221,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
 
         await h.Orchestrator.HandleTurnAsync(Turn("Hello.", Context()));
 
+        h.Llm.CallCount.Should().Be(1);
         var messages = h.Llm.LastRequest.Messages;
 
         // The behaviour contract, the context JSON, the identity, the turn: no
@@ -1271,8 +1294,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var collection = await SeedCollectionAsync(h, "Approved deletion");
 
         h.Llm
-            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{collection.Id}}"}""")
-            .Returns("Ready for your approval.");
+            .CallsTool("library_delete_collection", $"""{"collectionId":"{{collection.Id}}"}""");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
             "Delete the old collection.",

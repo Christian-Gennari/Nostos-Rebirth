@@ -220,7 +220,8 @@ public sealed class NineRouterLlmProviderTests
                 """
                 {"choices":[{"message":{"content":null,"tool_calls":[
                   {"id":"call_1","type":"function","function":{"name":"notes_search","arguments":"{\"query\":\"x\"}"}}
-                ]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":2010,"completion_tokens":62}}
+                ]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":2010,"completion_tokens":62,
+                  "completion_tokens_details":{"reasoning_tokens":41}}}
                 """));
 
         var provider = CreateProvider(handler);
@@ -235,6 +236,7 @@ public sealed class NineRouterLlmProviderTests
             completion.ToolCalls[0].ArgumentsJson.Should().Be("""{"query":"x"}""");
             completion.PromptTokens.Should().Be(2010);
             completion.CompletionTokens.Should().Be(62);
+            completion.ThinkingTokens.Should().Be(41);
         }
         finally
         {
