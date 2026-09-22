@@ -1090,8 +1090,8 @@ for (const relativePath of MIGRATED_UI_V1_TEMPLATES) {
       'migrated-surface-unowned-raw-field',
       htmlPath,
       line,
-      'Raw text/search/select/textarea has no canonical form directive and is not an ' +
-        'explicit product-owned field. Use appInput/appSelect/appTextarea or document ' +
+      'Raw text/search/select/textarea has no canonical primitive and is not an ' +
+        'explicit product-owned field. Use appInput/appTextarea/app-dropdown or document ' +
         'the product interaction exception in the ownership ledger.',
     );
   }
