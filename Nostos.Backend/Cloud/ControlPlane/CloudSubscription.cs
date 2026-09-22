@@ -124,7 +124,7 @@ public sealed record CloudSubscriptionChange(
 
     private static void EnsureUtc(DateTime? value, string parameterName)
     {
-        if (value is { Kind: not DateTimeKind.Utc })
+        if (value is { } timestamp && timestamp.Kind != DateTimeKind.Utc)
             throw new ArgumentException("Lifecycle timestamps must be UTC.", parameterName);
     }
 }
