@@ -207,13 +207,16 @@ export class AddBookModal {
     tabs?.item(nextIndex).focus();
   }
 
-  onTypeChange(type: BookType): void {
-    this.form.type = type;
+  onTypeChange(type: string): void {
+    if (type !== 'physical' && type !== 'ebook' && type !== 'audiobook') return;
+
+    const bookType: BookType = type;
+    this.form.type = bookType;
 
     // A file belongs to a digital edition, never to a physical metadata record.
     // Clear a previously chosen file when switching back to Physical so it
     // cannot be carried invisibly into a later submit.
-    if (type === 'physical') {
+    if (bookType === 'physical') {
       this.selectedFile.set(null);
       this.fileDragActive.set(false);
     }
