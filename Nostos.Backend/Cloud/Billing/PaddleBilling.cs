@@ -701,7 +701,13 @@ public sealed class PaddleApiException(
 }
 
 public sealed class PaddleWebhookSignatureException
-    : Exception("Paddle webhook signature verification failed.");
+    : Exception
+{
+    public PaddleWebhookSignatureException()
+        : base("Paddle webhook signature verification failed.")
+    {
+    }
+}
 
 public sealed record PaddleSubscriptionUpdateItem(
     string PriceId,
