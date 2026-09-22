@@ -84,7 +84,7 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
         position: fixed;
         bottom: 24px;
         left: 50%;
-        z-index: 50;
+        z-index: var(--layer-navigation);
         width: auto;
         padding: 0;
         transform: translateX(-50%);
