@@ -84,3 +84,12 @@ jobs:
           --no-restore
           --filter "Category=CloudMigrations"
           --logger "console;verbosity=normal"
+
+      - name: Run Cloud entitlement control-plane tests
+        run: >-
+          dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
+          --configuration Debug
+          --no-build
+          --no-restore
+          --filter "Category=CloudEntitlements"
+          --logger "console;verbosity=normal"

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Nostos.Backend.Cloud;
 using Nostos.Backend.Cloud.ControlPlane;
+using Nostos.Backend.Cloud.Entitlements;
 using Nostos.Backend.Cloud.Migrations;
 using Nostos.Backend.Cloud.Persistence;
 using Nostos.Backend.Cloud.Provisioning;
@@ -29,6 +30,9 @@ public static class CloudPersistenceRegistration
         services.AddSingleton<CloudControlPlaneStore>();
         services.AddSingleton<ICloudControlPlaneStore>(
             sp => sp.GetRequiredService<CloudControlPlaneStore>());
+
+        services.AddSingleton<ICloudSubscriptionStore, CloudSubscriptionStore>();
+        services.AddScoped<ICloudEntitlementService, CloudEntitlementService>();
 
         // #395 registered a fail-closed placeholder. Once the real control
         // plane exists, authorization reads account state from this store.
