@@ -332,7 +332,9 @@ public sealed class S3BookAssetStorage(
                 Length: response.ContentLength,
                 EntityTag: NormalizeEntityTag(response.ETag),
                 LastModified: new DateTimeOffset(
-                    DateTime.SpecifyKind(response.LastModified, DateTimeKind.Utc)));
+                    DateTime.SpecifyKind(
+                        response.LastModified ?? DateTime.UnixEpoch,
+                        DateTimeKind.Utc)));
         }
         catch (AmazonS3Exception exception) when (exception.StatusCode == HttpStatusCode.NotFound)
         {
@@ -402,7 +404,7 @@ public sealed class S3BookAssetStorage(
             if (match is not null)
                 return match;
 
-            continuation = response.IsTruncated
+            continuation = response.IsTruncated == true
                 ? response.NextContinuationToken
                 : null;
         }
@@ -434,7 +436,7 @@ public sealed class S3BookAssetStorage(
                 .Select(item => item.Key)
                 .Where(predicate));
 
-            continuation = response.IsTruncated
+            continuation = response.IsTruncated == true
                 ? response.NextContinuationToken
                 : null;
         }
