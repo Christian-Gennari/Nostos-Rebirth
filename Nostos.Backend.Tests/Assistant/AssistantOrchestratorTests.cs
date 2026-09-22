@@ -694,7 +694,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var collection = await SeedCollectionAsync(h, "Old Collection");
 
         h.Llm
-            .CallsTool("library_delete_collection", $"""{"collectionId":"{{collection.Id}}"}""");
+            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{collection.Id}}"}""");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
             "Remove my old collection.",
@@ -791,8 +791,8 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var secondTarget = await SeedCollectionAsync(h, "Second target");
 
         h.Llm
-            .CallsTool("library_delete_collection", $"""{"collectionId":"{{firstTarget.Id}}"}""")
-            .CallsTool("library_delete_collection", $"""{"collectionId":"{{secondTarget.Id}}"}""");
+            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{firstTarget.Id}}"}""")
+            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{secondTarget.Id}}"}""");
 
         var first = await h.Orchestrator.HandleTurnAsync(Turn(
             "Delete First target.", Context(surface: "library", route: "/library")));
@@ -1382,7 +1382,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var collection = await SeedCollectionAsync(h, "Approved deletion");
 
         h.Llm
-            .CallsTool("library_delete_collection", $"""{"collectionId":"{{collection.Id}}"}""");
+            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{collection.Id}}"}""");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
             "Delete the old collection.",
