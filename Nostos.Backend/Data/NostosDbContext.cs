@@ -4,8 +4,21 @@ using Nostos.Backend.Services.Library;
 
 namespace Nostos.Backend.Data;
 
-public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbContext(options)
+public class NostosDbContext : DbContext
 {
+    public NostosDbContext(DbContextOptions<NostosDbContext> options)
+        : base(options)
+    {
+    }
+
+    /// <summary>
+    /// Provider-specific migration contexts reuse the exact Nostos model while
+    /// carrying their own DbContext type and migration history.
+    /// </summary>
+    protected NostosDbContext(DbContextOptions options)
+        : base(options)
+    {
+    }
     public DbSet<BookModel> Books => Set<BookModel>();
     public DbSet<WorkModel> Works => Set<WorkModel>();
     public DbSet<WritingModel> Writings => Set<WritingModel>();

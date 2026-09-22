@@ -2,9 +2,9 @@ using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Nostos.Backend.Cloud.ControlPlane;
+using Nostos.Backend.Cloud.Migrations;
 using Nostos.Backend.Configuration;
 using Nostos.Backend.Data;
-using Nostos.Backend.Data.Models;
 using Nostos.Backend.Security;
 
 namespace Nostos.Backend.Cloud.Provisioning;
@@ -36,6 +36,7 @@ public sealed class CloudCustomerDatabaseProvisioner(
     ICloudControlPlaneStore controlPlane,
     CloudDatabaseConnections connections,
     ICloudCustomerConnectionFactory customerConnections,
+    ICloudTenantSchemaMigrator schemaMigrator,
     ILogger<CloudCustomerDatabaseProvisioner> logger)
     : ICloudCustomerDatabaseProvisioner
 {
@@ -59,7 +60,36 @@ public sealed class CloudCustomerDatabaseProvisioner(
             }
 
             if (mapping.IsReady)
-                return Result(mapping);
+            {
+                if (string.Equals(
+                    mapping.SchemaVersion,
+                    CloudCustomerSchema.CurrentVersion,
+                    StringComparison.Ordinal))
+                {
+                    return Result(mapping);
+                }
+
+                // A compatible previous schema stays available while it is
+                // upgraded. If this fails, the schema migrator records the
+                // failure without deactivating the tenant.
+                try
+                {
+                    await schemaMigrator.MigrateAsync(accountId, cancellationToken);
+                }
+                catch (CloudSchemaMigrationException exception)
+                {
+                    throw new CloudProvisioningException(
+                        exception.FailureCode,
+                        "The existing Cloud account remains on its prior compatible schema and can be retried.",
+                        exception);
+                }
+
+                var upgraded = await controlPlane.FindAsync(accountId, cancellationToken)
+                    ?? throw new InvalidOperationException(
+                        "Cloud account resource mapping disappeared after schema migration.");
+
+                return Result(upgraded);
+            }
 
             await controlPlane.MarkProvisioningAsync(accountId, cancellationToken);
             mapping = await controlPlane.FindAsync(accountId, cancellationToken)
@@ -71,8 +101,8 @@ public sealed class CloudCustomerDatabaseProvisioner(
             {
                 await EnsureCustomerDatabaseAsync(mapping.DatabaseName, cancellationToken);
 
-                stage = "schema_initialize_failed";
-                await EnsureCustomerSchemaAsync(mapping.DatabaseName, cancellationToken);
+                stage = "schema_migration_failed";
+                await schemaMigrator.MigrateAsync(accountId, cancellationToken);
 
                 stage = "database_verify_failed";
                 await VerifyCustomerDatabaseAsync(mapping.DatabaseName, cancellationToken);
@@ -97,6 +127,21 @@ public sealed class CloudCustomerDatabaseProvisioner(
             {
                 await MarkFailedBestEffortAsync(accountId, "provisioning_cancelled");
                 throw;
+            }
+            catch (CloudSchemaMigrationException exception)
+            {
+                await MarkFailedBestEffortAsync(accountId, exception.FailureCode);
+
+                logger.LogError(
+                    exception,
+                    "Nostos Cloud schema provisioning failed for account {AccountId} with code {FailureCode}.",
+                    accountId,
+                    exception.FailureCode);
+
+                throw new CloudProvisioningException(
+                    exception.FailureCode,
+                    "Nostos Cloud could not migrate the customer schema. The same resource mapping can be retried safely.",
+                    exception);
             }
             catch (Exception exception)
             {
@@ -171,32 +216,6 @@ public sealed class CloudCustomerDatabaseProvisioner(
             $"GRANT CONNECT ON DATABASE {quotedDatabase} TO {quotedRole};",
             adminConnection);
         await command.ExecuteNonQueryAsync(cancellationToken);
-    }
-
-    private async Task EnsureCustomerSchemaAsync(
-        string databaseName,
-        CancellationToken cancellationToken)
-    {
-        var options = new DbContextOptionsBuilder<NostosDbContext>()
-            .UseNpgsql(customerConnections.ForDatabase(databaseName))
-            .Options;
-
-        await using var db = new NostosDbContext(options);
-
-        // #398 replaces this temporary current-model bootstrap with the
-        // permanent PostgreSQL baseline/migration lifecycle. For #396, this
-        // creates the exact model already proven by the PostgreSQL spike.
-        await db.Database.EnsureCreatedAsync(cancellationToken);
-
-        if (!await db.LibraryStates.AnyAsync(cancellationToken))
-        {
-            db.LibraryStates.Add(new LibraryState
-            {
-                Id = LibraryState.WellKnownId,
-                SingletonSlot = LibraryState.SingletonSentinel,
-            });
-            await db.SaveChangesAsync(cancellationToken);
-        }
     }
 
     private async Task VerifyCustomerDatabaseAsync(
