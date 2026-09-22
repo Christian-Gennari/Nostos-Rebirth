@@ -471,6 +471,7 @@ public sealed class PortableArchiveService(
             audio?.Asin,
             audio?.Duration,
             audio?.Narrator,
+            book.FileDetails.ChaptersJson,
             book.FileDetails.HasFile,
             !string.IsNullOrWhiteSpace(book.FileDetails.CoverFileName));
     }
@@ -1331,8 +1332,10 @@ public sealed class PortableArchiveService(
                 HasFile = bookMedia is not null,
                 FileName = bookMedia?.Descriptor.FileName,
                 CoverFileName = coverMedia?.Descriptor.FileName,
-                // These are generated reader caches, deliberately rebuilt.
-                ChaptersJson = null,
+                // Chapter metadata is portable and retained because there is
+                // no lazy server-side re-extraction path today. epub.js
+                // locations are a client-generated cache and are rebuilt.
+                ChaptersJson = source.ChaptersJson,
                 LocationsJson = null,
             };
             book.CreatedAt = source.CreatedAt;
