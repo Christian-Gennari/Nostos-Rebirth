@@ -1,7 +1,6 @@
 using System.Data;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 using Nostos.Backend.Cloud.ControlPlane;
 using Nostos.Backend.Security;
 
@@ -308,30 +307,13 @@ public sealed class CloudBillingStateStore(
         string eventId,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            await db.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-        }
-        catch (DbUpdateException exception)
-            when (exception.InnerException is PostgresException postgres
-                && postgres.SqlState == PostgresErrorCodes.UniqueViolation)
-        {
-            await transaction.RollbackAsync(cancellationToken);
-
-            await using var duplicateCheck = await db.Database.BeginTransactionAsync(cancellationToken);
-            var duplicate = await db.BillingEvents
-                .AsNoTracking()
-                .AnyAsync(
-                    x => x.Provider == provider && x.EventId == eventId,
-                    cancellationToken);
-            await duplicateCheck.RollbackAsync(cancellationToken);
-
-            if (duplicate)
-                return;
-
-            throw;
-        }
+        // The (Provider, EventId) primary key is the final concurrency guard.
+        // If two identical deliveries race, one transaction may receive a
+        // unique-constraint failure and return 5xx; Paddle safely retries it,
+        // and the next attempt observes the committed receipt as Duplicate.
+        // We deliberately do not turn a failed transaction into success.
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     private static CloudBillingEventReceipt Receipt(
