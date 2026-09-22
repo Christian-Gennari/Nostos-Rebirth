@@ -99,7 +99,7 @@ public sealed class MeasurementHarness : IDisposable
         var plans = new AssistantPlanStore();
         var settings = new AssistantSettingsService(factory);
 
-        ILlmProvider llm = MeasurementEnvironment.HasLiveCredential && !MeasurementEnvironment.IsFake
+        ILlmProvider llm = MeasurementEnvironment.IsLiveRun
             ? new GeminiMeasurementLlmProvider(
                 MeasurementEnvironment.ApiKeys,
                 MeasurementEnvironment.Model,

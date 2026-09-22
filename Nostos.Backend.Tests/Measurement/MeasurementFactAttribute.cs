@@ -12,13 +12,15 @@ public sealed class MeasurementFactAttribute : FactAttribute
     {
         get
         {
-            if (MeasurementEnvironment.HasLiveCredential || MeasurementEnvironment.IsFake)
+            if (MeasurementEnvironment.IsFake || MeasurementEnvironment.IsLiveRun)
             {
                 return null;
             }
 
-            return "Skipped: NOSTOS_MEASUREMENT_GEMINI_API_KEY is not set and NOSTOS_MEASUREMENT_FAKE is not 1. " +
-                   "See docs/cloud/ask-nostos-execution-budget-spike.md.";
+            return "Skipped: set NOSTOS_MEASUREMENT_FAKE=1 for offline mode, or "
+                 + "NOSTOS_MEASUREMENT_GEMINI_API_KEY plus NOSTOS_MEASUREMENT_ENABLED=1 for a live run "
+                 + "(the explicit flag keeps an accidental run from spending provider money). "
+                 + "See docs/cloud/ask-nostos-execution-budget-spike.md.";
         }
         set => base.Skip = value;
     }

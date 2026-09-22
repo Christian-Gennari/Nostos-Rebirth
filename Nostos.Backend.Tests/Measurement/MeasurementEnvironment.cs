@@ -10,6 +10,17 @@ public static class MeasurementEnvironment
     private static readonly Lazy<string> CachedRepoRoot = new(ResolveRepoRoot);
     private static readonly string DefaultRunId = DateTime.UtcNow.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture);
 
+    /// <summary>
+    /// True when a live run was explicitly requested. A credential alone is
+    /// deliberately NOT enough: without this flag an ordinary test run on a machine
+    /// that happens to have a Google key in its environment would spend real money.
+    /// </summary>
+    public static bool IsLiveRunEnabled =>
+        Environment.GetEnvironmentVariable("NOSTOS_MEASUREMENT_ENABLED") == "1";
+
+    /// <summary>True when the harness may call the live provider.</summary>
+    public static bool IsLiveRun => !IsFake && HasLiveCredential && IsLiveRunEnabled;
+
     /// <summary>Configured Gemini API key(s). Never logged or written to disk.</summary>
     public static IReadOnlyList<string> ApiKeys
     {
