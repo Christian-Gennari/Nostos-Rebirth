@@ -192,7 +192,7 @@ public sealed class PortableArchiveService(
             try
             {
                 await EnsureDestinationIsEmptyAsync(cancellationToken);
-                ApplyRelationalData(staged.Data, staged.Media);
+                await ApplyRelationalDataAsync(staged.Data, staged.Media, cancellationToken);
                 await _db.SaveChangesAsync(cancellationToken);
 
                 foreach (var media in staged.Media)
@@ -1196,9 +1196,10 @@ public sealed class PortableArchiveService(
         }
     }
 
-    private void ApplyRelationalData(
+    private async Task ApplyRelationalDataAsync(
         PortableLibraryData data,
-        IReadOnlyList<StagedPortableMedia> stagedMedia)
+        IReadOnlyList<StagedPortableMedia> stagedMedia,
+        CancellationToken ct)
     {
         var mediaByKey = stagedMedia.ToDictionary(
             x => (x.Descriptor.BookId, x.Descriptor.Kind));
