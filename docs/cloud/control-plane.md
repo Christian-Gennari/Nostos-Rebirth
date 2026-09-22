@@ -184,5 +184,11 @@ Actual object storage and media isolation are implemented by #397.
 
 ## Billing and entitlements
 
-The account-resource row establishes the account boundary but does not contain
-payment-vendor state. #403/#410 own entitlements and billing lifecycle.
+The account-resource row remains focused on hosted resource/provisioning state.
+
+#403 adds separate control-plane subscription/current-entitlement persistence
+plus an immutable audit trail. Product code consumes the provider-neutral
+`ICloudEntitlementService` rather than plan names or payment-provider ids.
+
+See `docs/cloud/entitlements.md` for lifecycle semantics, SelfHosted behavior,
+and the handoff to #405/#410.
