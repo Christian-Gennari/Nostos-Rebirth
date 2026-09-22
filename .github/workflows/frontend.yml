@@ -1,0 +1,48 @@
+# Frontend gate: design checks, unit tests and the production build.
+#
+# `main` had no frontend CI, so a crashing design check and failing specs could
+# sit on the branch unnoticed. This job runs the same three commands AGENTS.md §2
+# asks a human to run before opening a PR.
+name: Frontend
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: Nostos.Frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Nostos.Frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Design checks (CSS integrity, theme tokens, design language)
+        run: npm run check
+
+      - name: Unit tests
+        run: npm test -- --watch=false
+
+      - name: Production build
+        run: npm run build
