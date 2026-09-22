@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Nostos.Backend.Cloud;
 using Nostos.Backend.Cloud.ControlPlane;
+using Nostos.Backend.Cloud.Migrations;
 using Nostos.Backend.Cloud.Persistence;
 using Nostos.Backend.Cloud.Provisioning;
 using Nostos.Backend.Data;
@@ -37,6 +38,7 @@ public static class CloudPersistenceRegistration
         services.AddSingleton<ICloudControlPlaneBootstrapper, CloudControlPlaneBootstrapper>();
 
         services.AddSingleton<ICloudCustomerConnectionFactory, CloudCustomerConnectionFactory>();
+        services.AddSingleton<ICloudTenantSchemaMigrator, CloudTenantSchemaMigrator>();
         services.AddSingleton<ICloudCustomerDatabaseProvisioner, CloudCustomerDatabaseProvisioner>();
 
         services.AddSingleton<CloudTenantDbContextFactory>();

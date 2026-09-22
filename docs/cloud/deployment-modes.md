@@ -69,7 +69,7 @@ Issue #396 wires Cloud mode to a separate PostgreSQL control plane and a trusted
 
 Cloud startup now requires server-side PostgreSQL connection settings and fails closed when they are missing. It never falls back to the SelfHosted SQLite database.
 
-New customer databases are temporarily initialized from the current EF model and tagged `current-model-v1`. Issue #398 replaces that bridge with the permanent PostgreSQL baseline/migration lifecycle without changing the deployment-mode or tenant-routing contract.
+New customer databases are initialized through the provider-specific PostgreSQL migration set. The short-lived #396 `current-model-v1` state is adopted through the explicit baseline path in #398; it is no longer used for fresh tenants.
 
 ## Composition rule
 

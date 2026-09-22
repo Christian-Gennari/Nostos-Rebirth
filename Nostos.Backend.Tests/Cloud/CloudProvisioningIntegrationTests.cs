@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using Nostos.Backend.Cloud;
 using Nostos.Backend.Cloud.ControlPlane;
+using Nostos.Backend.Cloud.Migrations;
 using Nostos.Backend.Cloud.Persistence;
 using Nostos.Backend.Cloud.Provisioning;
 using Nostos.Backend.Configuration;
@@ -72,10 +73,15 @@ public sealed class CloudProvisioningIntegrationTests
 
             var store = new CloudControlPlaneStore(controlPlaneFactory, options);
             var customerConnections = new CloudCustomerConnectionFactory(connections);
+            var schemaMigrator = new CloudTenantSchemaMigrator(
+                store,
+                customerConnections,
+                NullLogger<CloudTenantSchemaMigrator>.Instance);
             var provisioner = new CloudCustomerDatabaseProvisioner(
                 store,
                 connections,
                 customerConnections,
+                schemaMigrator,
                 NullLogger<CloudCustomerDatabaseProvisioner>.Instance);
 
             var accountA = NostosAccountId.FromExternalIdentity(
@@ -90,7 +96,8 @@ public sealed class CloudProvisioningIntegrationTests
 
             var mappingA = await store.FindAsync(accountA);
             mappingA.Should().NotBeNull();
-            createdDatabases.Add(mappingA!.DatabaseName);
+            mappingA!.SchemaVersion.Should().Be(CloudCustomerSchema.CurrentVersion);
+            createdDatabases.Add(mappingA.DatabaseName);
 
             var secondA = await provisioner.ProvisionAsync(accountA);
             secondA.Ready.Should().BeTrue();
@@ -105,7 +112,8 @@ public sealed class CloudProvisioningIntegrationTests
 
             var mappingB = await store.FindAsync(accountB);
             mappingB.Should().NotBeNull();
-            createdDatabases.Add(mappingB!.DatabaseName);
+            mappingB!.SchemaVersion.Should().Be(CloudCustomerSchema.CurrentVersion);
+            createdDatabases.Add(mappingB.DatabaseName);
 
             mappingB.ResourceId.Should().NotBe(mappingA.ResourceId);
             mappingB.DatabaseName.Should().NotBe(mappingA.DatabaseName);
