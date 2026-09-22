@@ -6,7 +6,7 @@ using SixLabors.ImageSharp.Processing;
 
 namespace Nostos.Backend.Services;
 
-public class FileStorageService : IFileStorageService
+public class FileStorageService : IFileStorageService, IBookAssetStorage
 {
     private const int CopyBufferSize = 81920;
 
@@ -185,6 +185,29 @@ public class FileStorageService : IFileStorageService
         return file is null ? null : new FileStream(file, FileMode.Open, FileAccess.Read);
     }
 
+    public Task<StoredAssetInfo?> GetBookFileInfoAsync(
+        Guid bookId,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var path = GetBookFileName(bookId);
+        return Task.FromResult(path is null ? null : InfoFromPath(path, MediaTypeMap.ForBookFile(path)));
+    }
+
+    public Task<StoredAssetRead?> OpenBookFileAsync(
+        Guid bookId,
+        StorageByteRange? range = null,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var path = GetBookFileName(bookId);
+        if (path is null)
+            return Task.FromResult<StoredAssetRead?>(null);
+
+        return Task.FromResult<StoredAssetRead?>(
+            OpenPath(path, MediaTypeMap.ForBookFile(path), range));
+    }
+
     public string? GetBookFileName(Guid bookId)
     {
         var folder = Path.Combine(_root, bookId.ToString());
@@ -211,6 +234,19 @@ public class FileStorageService : IFileStorageService
         var bookFolder = Path.Combine(_root, bookId.ToString());
         if (Directory.Exists(bookFolder))
             Directory.Delete(bookFolder, true);
+    }
+
+    public Task<bool> DeleteBookFileAsync(Guid bookId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(DeleteBookFile(bookId));
+    }
+
+    public Task DeleteBookFilesAsync(Guid bookId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        DeleteBookFiles(bookId);
+        return Task.CompletedTask;
     }
 
     public async Task<string> SaveBookCoverAsync(Guid bookId, IFormFile file)
@@ -276,6 +312,25 @@ public class FileStorageService : IFileStorageService
             .FirstOrDefault(f => _allowedCoverExtensions.Contains(Path.GetExtension(f)));
     }
 
+    public Task<StoredAssetInfo?> GetBookCoverInfoAsync(
+        Guid bookId,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var path = GetBookCoverPath(bookId);
+        return Task.FromResult(path is null ? null : InfoFromPath(path, MediaTypeMap.ForCover(path)));
+    }
+
+    public Task<StoredAssetRead?> OpenBookCoverAsync(
+        Guid bookId,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var path = GetBookCoverPath(bookId);
+        return Task.FromResult<StoredAssetRead?>(
+            path is null ? null : OpenPath(path, MediaTypeMap.ForCover(path), range: null));
+    }
+
     /// <summary>
     /// A cached, resized WebP copy of the cover for list views.
     ///
@@ -319,6 +374,17 @@ public class FileStorageService : IFileStorageService
         return thumbnailPath;
     }
 
+    public async Task<StoredAssetRead?> OpenBookCoverThumbnailAsync(
+        Guid bookId,
+        int width,
+        CancellationToken ct = default)
+    {
+        var path = await GetBookCoverThumbnailPathAsync(bookId, width, ct);
+        return path is null
+            ? null
+            : OpenPath(path, "image/webp", range: null);
+    }
+
     public bool DeleteCover(Guid bookId)
     {
         var coverPath = GetBookCoverPath(bookId);
@@ -327,6 +393,46 @@ public class FileStorageService : IFileStorageService
 
         File.Delete(coverPath);
         return true;
+    }
+
+    public Task<bool> DeleteCoverAsync(Guid bookId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(DeleteCover(bookId));
+    }
+
+    private static StoredAssetInfo InfoFromPath(string path, string contentType)
+    {
+        var file = new FileInfo(path);
+        return new StoredAssetInfo(
+            FileName: file.Name,
+            ContentType: contentType,
+            Length: file.Length,
+            EntityTag: $\"\\\"{file.Length:x}-{file.LastWriteTimeUtc.Ticks:x}\\\"\",
+            LastModified: new DateTimeOffset(file.LastWriteTimeUtc, TimeSpan.Zero));
+    }
+
+    private static StoredAssetRead OpenPath(
+        string path,
+        string contentType,
+        StorageByteRange? range)
+    {
+        var info = InfoFromPath(path, contentType);
+        if (range is { } requested && requested.EndInclusive >= info.Length)
+            throw new ArgumentOutOfRangeException(nameof(range));
+
+        var stream = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            CopyBufferSize,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+        if (range is { } actual)
+            stream.Seek(actual.Start, SeekOrigin.Begin);
+
+        return new StoredAssetRead(info, stream, range);
     }
 
     private string BookFolder(Guid bookId) => Path.Combine(_root, bookId.ToString());
