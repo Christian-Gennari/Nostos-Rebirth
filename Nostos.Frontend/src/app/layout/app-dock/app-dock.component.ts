@@ -128,15 +128,15 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
       .dock-item {
         position: relative;
         display: inline-flex;
-        min-width: 92px;
-        min-height: 40px;
-        flex-direction: row;
+        min-width: 84px;
+        min-height: 58px;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 8px;
-        padding: 9px 14px 10px;
+        gap: 3px;
+        padding: 7px 12px 9px;
         border: 0;
-        border-radius: 8px;
+        border-radius: var(--radius-lg);
         color: var(--color-text-muted);
         cursor: pointer;
         font-family: 'Hanken Grotesk', sans-serif;
@@ -151,13 +151,27 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
       .dock-item + .dock-item::before {
         content: '';
         position: absolute;
-        top: 9px;
-        bottom: 9px;
+        top: 11px;
+        bottom: 11px;
         left: -1px;
         width: 1px;
         background: var(--dock-border);
         opacity: 0.62;
         pointer-events: none;
+      }
+
+      .dock-item nostos-icon {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        flex: 0 0 28px;
+        place-items: center;
+        border-radius: var(--radius-round);
+        opacity: 0.88;
+        transition:
+          background-color var(--motion-fast) ease,
+          box-shadow var(--motion-fast) ease,
+          opacity var(--motion-fast) ease;
       }
 
       .dock-item:hover {
@@ -175,30 +189,36 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
       }
 
       .dock-item.active {
-        background: color-mix(in srgb, var(--color-accent) 8%, var(--dock-surface));
         color: var(--dock-item-active-ink);
+      }
+
+      .dock-item.active nostos-icon {
+        background: color-mix(in srgb, var(--color-accent) 10%, var(--dock-surface));
+        box-shadow: inset 0 0 0 1px var(--dock-border);
+        opacity: 1;
       }
 
       .dock-item.pending {
-        background: color-mix(in srgb, var(--color-accent) 11%, var(--dock-surface));
+        background: color-mix(in srgb, var(--color-accent) 6%, var(--dock-surface));
         color: var(--dock-item-active-ink);
       }
 
-      .dock-item nostos-icon {
-        flex: 0 0 auto;
-        opacity: 0.9;
-      }
-
-      .dock-item.active nostos-icon,
       .dock-item.pending nostos-icon {
+        background: color-mix(in srgb, var(--color-accent) 14%, var(--dock-surface));
+        box-shadow: inset 0 0 0 1px var(--dock-border);
         opacity: 1;
       }
 
       .label {
-        font-size: 0.74rem;
+        font-size: 0.7rem;
         font-weight: 500;
-        letter-spacing: 0.012em;
+        letter-spacing: 0.015em;
         line-height: 1;
+      }
+
+      .dock-item.active .label,
+      .dock-item.pending .label {
+        font-weight: 600;
       }
 
       @media (max-width: 768px) {
@@ -229,31 +249,33 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
           align-items: center;
           justify-content: space-around;
           gap: 2px;
-          padding: 4px 8px max(4px, env(safe-area-inset-bottom));
+          padding: 3px 8px max(3px, env(safe-area-inset-bottom));
         }
 
         .dock-pill {
-          bottom: max(4px, env(safe-area-inset-bottom));
+          bottom: max(3px, env(safe-area-inset-bottom));
         }
 
         .dock-item {
           min-width: 0;
           min-height: 44px;
           flex: 1;
-          flex-direction: column;
-          gap: 3px;
-          padding: 5px 4px 7px;
-          border-radius: var(--radius-lg);
+          gap: 2px;
+          padding: 4px 4px 6px;
         }
 
         .dock-item + .dock-item::before {
           display: none;
         }
 
+        .dock-item nostos-icon {
+          width: 26px;
+          height: 26px;
+          flex-basis: 26px;
+        }
+
         .label {
-          font-size: 0.7rem;
-          font-weight: 600;
-          letter-spacing: 0.01em;
+          font-size: 0.69rem;
         }
 
         .dock-item:hover {
@@ -269,6 +291,10 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
         :host,
         .dock-item,
         .dock-pill {
+          transition: none;
+        }
+
+        .dock-item nostos-icon {
           transition: none;
         }
       }
