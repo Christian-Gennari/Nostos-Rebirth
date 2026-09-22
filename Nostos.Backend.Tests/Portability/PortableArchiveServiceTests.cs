@@ -56,7 +56,7 @@ public sealed class PortableArchiveServiceTests
         epub.Progress.PersonalReview.Should().Be("Important review");
         epub.FileDetails.FileName.Should().Be("book.epub");
         epub.FileDetails.CoverFileName.Should().Be("cover.jpg");
-        epub.FileDetails.ChaptersJson.Should().Be("[{\\"generated\\":true}]",
+        epub.FileDetails.ChaptersJson.Should().Be("[{\"generated\":true}]",
             "reader chapter metadata must remain available after import");
         epub.FileDetails.LocationsJson.Should().BeNull(
             "epub.js locations are a reconstructable cache");
