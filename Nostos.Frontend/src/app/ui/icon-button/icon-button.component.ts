@@ -134,13 +134,20 @@ export type IconButtonTone = 'default' | 'danger';
         width: var(--control-h-xs);
         height: var(--control-h-xs);
       }
+
+      /* The host is the native button, so :active arrives on pointer-down with no
+         JS state or delayed click handler. Keep the response geometry-only:
+         surface-owned hover/selected colours remain untouched. */
+      :host(:active:not(:disabled)) {
+        transform: scale(0.94);
+      }
       /* Size only. Radius deliberately NOT owned: it varies per surface on
          purpose — 3px global (--radius-sm), 4px on Library rows and the reader
          toolbar, 6px on the studio zen toggle, 50% on note-card's round chips —
          and it mostly arrives through descendant rules that keep matching because
          the host is still the button. Encoding a radius rung here would move
          pixels on four surfaces to no benefit.
-         Hover, active and the .delete tone likewise stay with the surfaces. */
+         Hover, selected-state and the .delete tone likewise stay with the surfaces. */
     `,
   ],
 })

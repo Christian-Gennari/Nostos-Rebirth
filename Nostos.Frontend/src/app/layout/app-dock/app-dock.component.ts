@@ -4,11 +4,18 @@ import {
   HostListener,
   afterNextRender,
   inject,
+  signal,
   viewChild,
 } from '@angular/core';
-import { RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
+import {
+  NavigationCancel,
+  NavigationEnd,
+  NavigationError,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+} from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { filter } from 'rxjs/operators';
 import { NavigationHistoryService } from '../../core/services/navigation-history.service';
 import { LibraryFilterService } from '../../library/library-filter.service';
 import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
@@ -25,6 +32,7 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
           [routerLink]="getLink('/library')"
           (click)="handleDockClick('/library', $event)"
           routerLinkActive="active"
+          [class.pending]="pendingDestination() === '/library'"
           class="dock-item"
           title="Library"
         >
@@ -36,6 +44,7 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
           [routerLink]="getLink('/second-brain')"
           (click)="handleDockClick('/second-brain', $event)"
           routerLinkActive="active"
+          [class.pending]="pendingDestination() === '/second-brain'"
           class="dock-item"
           title="The Brain"
         >
@@ -47,6 +56,7 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
           [routerLink]="getLink('/studio')"
           (click)="handleDockClick('/studio', $event)"
           routerLinkActive="active"
+          [class.pending]="pendingDestination() === '/studio'"
           class="dock-item"
           title="Writing Studio"
         >
@@ -58,6 +68,7 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
           routerLink="/settings"
           (click)="handleDockClick('/settings', $event)"
           routerLinkActive="active"
+          [class.pending]="pendingDestination() === '/settings'"
           class="dock-item"
           title="Settings"
         >
@@ -135,12 +146,18 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
         text-decoration: none;
         transition:
           background-color var(--motion-fast) ease,
-          color var(--motion-fast) ease;
+          color var(--motion-fast) ease,
+          transform var(--motion-fast) var(--ease-out);
+        touch-action: manipulation;
       }
 
       .dock-item:hover {
         background: var(--bg-hover);
         color: var(--color-text-main);
+      }
+
+      .dock-item:active {
+        transform: scale(0.96);
       }
 
       .dock-item:focus-visible {
@@ -157,6 +174,14 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
         border-bottom-color: transparent;
         background: transparent;
         /* Ink on light; porcelain on dark, matching the heading rule. */
+        color: var(--dock-item-active-ink);
+      }
+
+      /* RouterLinkActive cannot update until navigation commits. A pending item
+         carries the user's intent during that gap, so touch never returns to an
+         inert-looking dock between release and NavigationEnd. */
+      .dock-item.pending {
+        background: var(--bg-hover);
         color: var(--dock-item-active-ink);
       }
 
@@ -233,6 +258,10 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
         .dock-item:hover {
           transform: none;
         }
+
+        .dock-item:active {
+          transform: scale(0.96);
+        }
       }
 
       @media (prefers-reduced-motion: reduce) {
@@ -251,10 +280,20 @@ export class AppDockComponent {
   private filters = inject(LibraryFilterService);
   private dockBar = viewChild<ElementRef<HTMLElement>>('dockBar');
 
+  /** Destination chosen by the pointer but not yet committed by the router. */
+  readonly pendingDestination = signal<string | null>(null);
+
   constructor() {
-    this.router.events
-      .pipe(filter((event) => event instanceof NavigationEnd), takeUntilDestroyed())
-      .subscribe(() => this.movePill());
+    this.router.events.pipe(takeUntilDestroyed()).subscribe((event) => {
+      if (
+        event instanceof NavigationEnd ||
+        event instanceof NavigationCancel ||
+        event instanceof NavigationError
+      ) {
+        this.pendingDestination.set(null);
+        this.movePill();
+      }
+    });
     afterNextRender(() => this.movePill());
   }
 
@@ -270,7 +309,9 @@ export class AppDockComponent {
       const bar = this.dockBar()?.nativeElement;
       const pill = bar?.querySelector<HTMLElement>('.dock-pill');
       if (!bar || !pill) return;
-      const active = bar.querySelector<HTMLElement>('.dock-item.active');
+      const active =
+        bar.querySelector<HTMLElement>('.dock-item.pending') ??
+        bar.querySelector<HTMLElement>('.dock-item.active');
       if (!active) {
         pill.style.opacity = '0';
         return;
@@ -290,8 +331,15 @@ export class AppDockComponent {
   handleDockClick(prefix: string, event: Event) {
     if (this.router.url.startsWith(prefix)) {
       event.preventDefault();
+      this.pendingDestination.set(null);
       // Re-clicking the Library dock item clears the active filters.
       if (prefix === '/library') this.filters.clearAll();
+      return;
     }
+
+    // A click event runs before RouterLink starts navigation. Paint the intended
+    // destination now; RouterLinkActive becomes authoritative on completion.
+    this.pendingDestination.set(prefix);
+    this.movePill();
   }
 }

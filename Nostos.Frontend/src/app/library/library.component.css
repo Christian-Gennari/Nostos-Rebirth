@@ -283,6 +283,8 @@ app-sidebar-collections.no-transition {
   padding: 0.5rem 1rem;
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition: background 0.12s ease;
   font-size: 0.95rem;
   color: var(--color-text-main);
@@ -290,6 +292,10 @@ app-sidebar-collections.no-transition {
 
 .table-row:hover {
   background: var(--glass-bg);
+}
+
+.table-row:active {
+  background: var(--bg-hover);
 }
 
 /* The hover cluster, revealed by the row's hover. It hangs off the row's right
@@ -700,6 +706,7 @@ app-sidebar-collections.no-transition {
   outline: 0;
   position: relative;
   cursor: pointer;
+  touch-action: manipulation;
   padding-bottom: 0.5rem;
 }
 
@@ -984,6 +991,11 @@ app-sidebar-collections.no-transition {
      instead of sinking it, so the dark value is two neutral-black layers with a
      contact term. See the token notes in styles.css. */
   box-shadow: var(--cover-shadow-hover);
+}
+
+.book-card:active .cover-wrapper {
+  transform: scale(0.98);
+  box-shadow: var(--cover-shadow);
 }
 
 /* Buttons (Grid) */
@@ -1553,6 +1565,14 @@ app-sidebar-collections.no-transition {
     box-shadow: none !important;
   }
 
+  /* Hover is intentionally suppressed on touch, but pointer-down still needs a
+     physical response. This rule comes after the hover reset so active wins if
+     Chromium also synthesizes hover for the same touch. */
+  .book-card:active .cover-wrapper {
+    transform: scale(0.98) !important;
+    box-shadow: var(--cover-shadow) !important;
+  }
+
   /* Hide format badge on mobile cards to keep artwork completely clean and uncluttered */
   .book-card .format-badge {
     display: none !important;
@@ -1613,5 +1633,13 @@ app-sidebar-collections.no-transition {
   .fav-btn-list,
   .finished-btn-list {
     transition: none;
+  }
+
+  /* Press feedback is an acknowledgement, not an animation: under this
+     preference the cover scale and the row surface must land in the same frame
+     as the pointer-down instead of easing in behind the hover transition. */
+  .book-card .cover-wrapper,
+  .table-row {
+    transition-duration: 1ms;
   }
 }
