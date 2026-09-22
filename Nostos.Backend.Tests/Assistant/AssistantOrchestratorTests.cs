@@ -693,8 +693,16 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var h = CreateHarness();
         var collection = await SeedCollectionAsync(h, "Old Collection");
 
-        h.Llm
-            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{collection.Id}}"}""");
+        // Model narration is not execution truth: even if it claims completion
+        // beside a destructive tool call, the server must expose only a pending
+        // plan until the user approves it.
+        h.Llm.Enqueue(new LlmCompletion(
+            "Done, I deleted it.",
+            "tool_calls",
+            [new LlmToolCall(
+                "delete",
+                "library_delete_collection",
+                JsonSerializer.Serialize(new { collectionId = collection.Id }))]));
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
             "Remove my old collection.",
@@ -704,7 +712,8 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         response.PendingPlan!.Steps.Should().ContainSingle()
             .Which.Capability.Should().Be("library_delete_collection");
         response.PendingPlan.ApprovalToken.Should().NotBeNullOrWhiteSpace();
-        response.Reply.Should().Be("I've prepared a plan for your approval.");
+        response.PendingPlan.Summary.Should().NotContain("Done");
+        response.Reply.Should().Be(AssistantOrchestrator.ApprovalRequiredReply);
         h.Llm.CallCount.Should().Be(1);
 
         (await CollectionCountAsync(h)).Should().Be(1);
@@ -893,7 +902,10 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var h = CreateHarness();
         var book = await SeedBookAsync(h);
 
-        h.Llm.CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"A thought"}""");
+        h.Llm.CallsTool(
+            "notes_capture",
+            $$"""{"bookId":"{{book.Id}}","content":"A thought"}""",
+            content: "Saved.");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
             "Remember this.",
@@ -905,13 +917,10 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         response.AnchorPrompt.Should().NotBeNull();
         response.AnchorPrompt!.Kind.Should().Be("external_audio_timestamp");
         response.AnchorPrompt.Question.Should().Be("What's the current timestamp?");
+        response.Reply.Should().Be("What's the current timestamp?");
         h.Llm.CallCount.Should().Be(1);
         (await NoteCountAsync(h)).Should().Be(0);
     }
-
-    // ------------------------------------------------------------------
-    // Safety rails
-    // ------------------------------------------------------------------
 
     [Fact]
     public async Task The_tool_iteration_ceiling_is_enforced_and_never_loops_forever()
@@ -1003,35 +1012,25 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
-    public async Task An_exhausted_tool_loop_prefers_the_last_non_empty_assistant_content()
+    public async Task An_exhausted_tool_loop_never_promotes_prior_model_prose_to_success()
     {
         var h = CreateHarness(maxToolIterations: 2);
 
-        var call = 0;
-        h.Llm.Responder = _ =>
-        {
-            call++;
-            return call == 1
-                ? new LlmCompletion(
-                    "Let me look that up.",
-                    "tool_calls",
-                    [new LlmToolCall(Guid.NewGuid().ToString("N"), "concepts_list", "{}")])
-                : new LlmCompletion(
-                    null,
-                    "tool_calls",
-                    [new LlmToolCall(Guid.NewGuid().ToString("N"), "concepts_list", "{}")]);
-        };
+        h.Llm.Responder = call => new LlmCompletion(
+            call == 1 ? "Done." : null,
+            "tool_calls",
+            [new LlmToolCall(
+                Guid.NewGuid().ToString("N"),
+                "concepts_search",
+                JsonSerializer.Serialize(new { query = $"loop-{call}" }))]);
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
             "Loop, please.",
             Context(surface: "second-brain", route: "/second-brain")));
 
-        response.Reply.Should().Be("Let me look that up.");
+        response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
+        response.Reply.Should().NotContain("Done");
     }
-
-    // ------------------------------------------------------------------
-    // Conversation history and identity (issue #286)
-    // ------------------------------------------------------------------
 
     [Fact]
     public async Task Client_supplied_history_reaches_the_provider_in_order_before_the_new_message()
