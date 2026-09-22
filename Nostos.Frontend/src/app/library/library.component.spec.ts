@@ -461,6 +461,25 @@ describe('Library', () => {
     expect(toggles[1].getAttribute('aria-pressed')).toBe('true');
   });
 
+  it('keeps both glyph boxes on whole pixels, so neither renders off-centre in its tile', () => {
+    // The option box is 30x26, so an odd or fractional glyph size leaves half-pixel
+    // margins; the browser then snaps the svg's layout origin to the device grid and
+    // the glyph renders off-centre in the raised tile. The grid glyph shipped at
+    // 20.5px and did exactly that — measured off the pixels in the running app, its
+    // margins inside the tile were 8.00/7.50 and 6.00/5.50 against the list glyph's
+    // symmetric 8.25/8.25 and 7.75/7.75, and at DPR 1 the split grew to a whole
+    // pixel. Even sizes keep the box on whole pixels (both rungs of the control are
+    // even: 30x26, and 34x32 under 768px).
+    fixture.detectChanges();
+
+    const widths = Array.from(fixture.nativeElement.querySelectorAll('.vt-opt svg')).map((svg) =>
+      Number((svg as SVGElement).getAttribute('width')),
+    );
+
+    expect(widths).toEqual([18, 20]);
+    for (const width of widths) expect(width % 2).toBe(0);
+  });
+
   it('uses kit primitives for generic Library chrome without changing the segmented view contract', () => {
     fixture.detectChanges();
 

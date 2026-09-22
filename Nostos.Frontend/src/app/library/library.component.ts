@@ -180,14 +180,24 @@ export class Library implements OnInit, OnDestroy {
    *
    * The grid glyph carries an optical size because `squares-four` draws smaller
    * inside its box than the Brain's `map-trifold` does: measured ink 12.4px vs
-   * 14.3px at a shared 18px (69% vs 80% of the box). 18 x 14.3/12.4 = 20.8, so
-   * 20.5 puts this glyph's ink at 14.1px — within 0.2px of the Brain's map
-   * glyph, which is what makes the two toggles read as the same size. The list
+   * 14.3px at a shared 18px (69% vs 80% of the box). The ratio resolves to 20.8,
+   * and 20px puts this glyph's ink at 13.8px against the map glyph's 14.3px —
+   * a 0.6px (4%) difference where the shared 18px left 1.9px (13%). The list
    * glyph already matches (13.2 vs 13.5px) and keeps the 18px default.
+   *
+   * WHY 20 AND NOT THE DERIVED 20.5 — the glyph rendered visibly off-centre in
+   * the raised tile. The option box is 30x26, so 20.5px leaves 4.75px side
+   * margins: half-pixel boundaries, and Chromium snaps an svg's layout origin to
+   * the device grid rather than centring it. Measured off the pixels at DPR 4 in
+   * the running app, the grid glyph's margins inside its tile were 8.00/7.50 and
+   * 6.00/5.50 — 0.5px out on both axes — while every other glyph in both toggles
+   * rendered 0.0px out (the list glyph 8.25/8.25 and 7.75/7.75). At 20px the
+   * margins are whole pixels (5/3 on this rung, 7/6 under 768px), the render is
+   * symmetric, and the ink still reads the same size as the Brain's map glyph.
    */
   readonly viewToggleOptions = [
     { value: 'list', icon: 'list-bullets', label: 'List view' },
-    { value: 'grid', icon: 'squares-four', label: 'Grid view', size: 20.5 },
+    { value: 'grid', icon: 'squares-four', label: 'Grid view', size: 20 },
   ] satisfies readonly ViewToggleOption[];
   readonly sidebarExpanded = this.preferences.sidebarExpanded;
   showAddModal = signal(false);

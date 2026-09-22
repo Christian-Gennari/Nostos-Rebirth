@@ -35,8 +35,9 @@ class HostComponent {
   readonly libraryOptions = [
     { value: 'list', icon: 'list-bullets', label: 'List view' },
     // `squares-four` draws smaller than the Brain's `map-trifold` at the same
-    // 18px box; the Library corrects it with a measured optical size.
-    { value: 'grid', icon: 'squares-four', label: 'Grid view', size: 20.5 },
+    // 18px box; the Library corrects it with a measured optical size, rounded to
+    // an even number so the box lands on whole pixels inside the option.
+    { value: 'grid', icon: 'squares-four', label: 'Grid view', size: 20 },
   ] satisfies readonly ViewToggleOption[];
 
   readonly brainOptions = [
@@ -203,7 +204,7 @@ describe('ViewToggleComponent', () => {
 
     // Real Phosphor assets, and the light→regular step between states.
     expect(selected.getAttribute('viewBox')).toBe('0 0 256 256');
-    expect(selected.getAttribute('width')).toBe('20.5');
+    expect(selected.getAttribute('width')).toBe('20');
     expect(unselected.getAttribute('width')).toBe('18');
     expect(selected.innerHTML).not.toBe(unselected.innerHTML);
 
@@ -223,7 +224,7 @@ describe('ViewToggleComponent', () => {
     // `map-trifold` 80%, so the grid glyph steps up to match the map's ink.
     const library = toggles(f);
     expect(library[0].querySelector('svg')!.getAttribute('width')).toBe('18');
-    expect(library[1].querySelector('svg')!.getAttribute('width')).toBe('20.5');
+    expect(library[1].querySelector('svg')!.getAttribute('width')).toBe('20');
 
     // A surface that declares nothing keeps the default, so this stays opt-in.
     const brain = toggles(f, 1);
