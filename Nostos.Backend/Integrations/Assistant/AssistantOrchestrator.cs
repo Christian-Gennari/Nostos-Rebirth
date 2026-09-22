@@ -208,6 +208,34 @@ public sealed class AssistantOrchestrator(
                 break;
             }
 
+            // Approval is a boundary for the whole model response, not just one
+            // entry in its tool-call list. Calls in the same completion cannot
+            // depend on each other's results, so once any PlanAndAct proposal is
+            // present there is no legitimate reason to execute ordinary actions
+            // beside it before the user has approved the destructive plan.
+            var approvalCalls = completion.ToolCalls
+                .Select(call => new
+                {
+                    Call = call,
+                    Capability = capabilityByName.GetValueOrDefault(call.Name),
+                })
+                .Where(item => item.Capability?.Trust == AssistantTrustClass.PlanAndAct)
+                .ToList();
+
+            if (approvalCalls.Count > 0)
+            {
+                foreach (var item in approvalCalls)
+                {
+                    planSteps.Add(new AssistantPlanStep(
+                        item.Capability!.Name,
+                        item.Capability.Summary,
+                        item.Call.ArgumentsJson));
+                }
+
+                stopReason = AssistantTurnStopReason.ApprovalRequired;
+                break;
+            }
+
             messages.Add(LlmMessage.Assistant(completion.Content, completion.ToolCalls));
 
             var callOrdinal = 0;
@@ -229,24 +257,6 @@ public sealed class AssistantOrchestrator(
                     {
                         status = "unknown_capability",
                         message = $"No assistant capability named '{call.Name}' exists.",
-                    })));
-                    continue;
-                }
-
-                // PlanAndAct is never executed inline. The call becomes an
-                // ordered plan step; nothing is touched until approval.
-                if (capability.Trust == AssistantTrustClass.PlanAndAct)
-                {
-                    planSteps.Add(new AssistantPlanStep(
-                        capability.Name,
-                        capability.Summary,
-                        call.ArgumentsJson));
-
-                    messages.Add(LlmMessage.Tool(call.Id, ToolJson(new
-                    {
-                        status = "pending_approval",
-                        capability = capability.Name,
-                        message = "Recorded as a plan step. It runs only after the user explicitly approves the plan.",
                     })));
                     continue;
                 }
@@ -313,15 +323,6 @@ public sealed class AssistantOrchestrator(
                 break;
             }
 
-            // A destructive proposal is a hard turn boundary. Once the current
-            // model response has been interpreted into plan steps, do not spend
-            // another upstream call asking the model to narrate a plan that the
-            // server already knows requires explicit user approval.
-            if (planSteps.Count > 0)
-            {
-                stopReason = AssistantTurnStopReason.ApprovalRequired;
-                break;
-            }
         }
 
         // A PlanAndAct call is only a proposal until the user approves it. A

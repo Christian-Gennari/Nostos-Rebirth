@@ -711,6 +711,41 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
+    public async Task Approval_required_in_a_batch_prevents_sibling_actions_from_executing()
+    {
+        var h = CreateHarness();
+        var collection = await SeedCollectionAsync(h, "Delete me");
+
+        h.Llm.Enqueue(new LlmCompletion(
+            null,
+            "tool_calls",
+            [
+                new LlmToolCall(
+                    "delete",
+                    "library_delete_collection",
+                    JsonSerializer.Serialize(new { collectionId = collection.Id })),
+                new LlmToolCall(
+                    "create",
+                    "library_create_collection",
+                    """{"name":"Must not exist yet"}"""),
+            ]));
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Delete the old collection and create a replacement.",
+            Context(surface: "library", route: "/library")));
+
+        response.PendingPlan.Should().NotBeNull();
+        response.PendingPlan!.Steps.Should().ContainSingle()
+            .Which.Capability.Should().Be("library_delete_collection");
+        response.ExecutedCapabilities.Should().BeEmpty();
+        h.Llm.CallCount.Should().Be(1);
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.Collections.AsNoTracking().Select(item => item.Name).ToListAsync())
+            .Should().Equal("Delete me");
+    }
+
+    [Fact]
     public async Task Approving_the_matching_destructive_plan_executes_exactly_once()
     {
         var h = CreateHarness();
