@@ -55,7 +55,7 @@ public sealed class CloudRecoveryIntegrationTests
         var suffix = Guid.NewGuid().ToString("N")[..10];
         var controlDatabase = $"nostos_rec_cp_{suffix}";
         var customerDatabase = $"nostos_rec_a_{suffix}";
-        var bucket = $"nostos-recovery-{Guid.NewGuid():N}"[..50];
+        var bucket = $"nostos-recovery-{Guid.NewGuid():N}";
 
         var accountA = NostosAccountId.FromExternalIdentity(
             "https://identity.example.test",
