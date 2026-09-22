@@ -904,10 +904,20 @@ public sealed class PortableArchiveService(
                     $"Portable media '{media.Path}' filename is not canonical.");
             }
 
-            if (media.Kind == PortableArchiveFormat.BookMediaKind)
-                BookAssetFormats.RequireBookExtension(media.FileName);
-            else
-                BookAssetFormats.RequireCoverExtension(media.FileName);
+            try
+            {
+                if (media.Kind == PortableArchiveFormat.BookMediaKind)
+                    BookAssetFormats.RequireBookExtension(media.FileName);
+                else
+                    BookAssetFormats.RequireCoverExtension(media.FileName);
+            }
+            catch (InvalidOperationException exception)
+            {
+                throw new PortableArchiveException(
+                    "invalid_media_filename",
+                    $"Portable media '{media.Path}' uses an unsupported extension.",
+                    exception);
+            }
 
             var expectedPath = MediaPath(media.BookId, media.Kind, extension);
             if (!string.Equals(
