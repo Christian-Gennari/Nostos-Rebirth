@@ -18,6 +18,15 @@ public static class CloudAuthSchemes
     public const string Bearer = "NostosCloudBearer";
 }
 
+public static class CloudAuthPolicies
+{
+    /// <summary>
+    /// Valid Cloud identity without requiring the account to be provisioned
+    /// and Active yet. Used only for provisioning/onboarding surfaces.
+    /// </summary>
+    public const string AuthenticatedAccount = "NostosCloudAuthenticatedAccount";
+}
+
 public sealed class ActiveCloudAccountRequirement : IAuthorizationRequirement;
 
 public sealed class ActiveCloudAccountHandler(
@@ -156,6 +165,11 @@ public static class CloudAuthenticationRegistration
 
         services
             .AddAuthorizationBuilder()
+            .AddPolicy(
+                CloudAuthPolicies.AuthenticatedAccount,
+                new AuthorizationPolicyBuilder(CloudAuthSchemes.Router)
+                    .RequireAuthenticatedUser()
+                    .Build())
             .SetFallbackPolicy(
                 new AuthorizationPolicyBuilder(CloudAuthSchemes.Router)
                     .RequireAuthenticatedUser()

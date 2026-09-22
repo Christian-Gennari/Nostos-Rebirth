@@ -18,6 +18,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
     <!-- Security overrides for vulnerable transitives:
          Microsoft.OpenApi 2.0.0 -> 2.7.5 (GHSA-v5pm-xwqc-g5wc)
          SQLitePCLRaw.lib.e_sqlite3 2.1.11 -> 3.53.3 (GHSA-2m69-gcr7-jv3q). -->

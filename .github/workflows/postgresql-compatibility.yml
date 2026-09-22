@@ -1,5 +1,5 @@
-# Issue #393: real PostgreSQL execution for the current Nostos EF model.
-name: PostgreSQL compatibility spike
+# PostgreSQL integration coverage for the shared Nostos model and Cloud tenant fleet.
+name: PostgreSQL integration
 
 on:
   push:
@@ -65,4 +65,13 @@ jobs:
           --no-build
           --no-restore
           --filter "Category=PostgresSpike"
+          --logger "console;verbosity=normal"
+
+      - name: Run Cloud provisioning isolation tests
+        run: >-
+          dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
+          --configuration Debug
+          --no-build
+          --no-restore
+          --filter "Category=CloudProvisioning"
           --logger "console;verbosity=normal"

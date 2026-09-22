@@ -106,8 +106,10 @@ public static class DeploymentServiceRegistration
 
     public static IServiceCollection AddNostosPersistence(
         this IServiceCollection services,
+        IConfiguration configuration,
         DeploymentDescriptor deployment,
-        string contentRootPath)
+        string contentRootPath,
+        Func<string, string?>? environmentReader = null)
     {
         switch (deployment.Mode)
         {
@@ -120,11 +122,8 @@ public static class DeploymentServiceRegistration
                 return services;
 
             case DeploymentMode.Cloud:
-                throw new InvalidOperationException(
-                    "Nostos is configured for Cloud deployment, but Cloud persistence is not wired yet. " +
-                    "Cloud must fail closed rather than fall back to the SelfHosted SQLite database. " +
-                    "Implement the PostgreSQL schema/provisioning path tracked by issues #396 and #398 " +
-                    "before running with 'Nostos:DeploymentMode=Cloud'.");
+                services.AddNostosCloudPersistence(configuration, environmentReader);
+                return services;
 
             default:
                 throw new ArgumentOutOfRangeException(

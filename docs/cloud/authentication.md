@@ -96,7 +96,7 @@ Account status values are:
 
 The authorization handler checks status on every request. Therefore disabling or deleting an account does not depend on waiting for the browser cookie to expire.
 
-The current `UnconfiguredCloudAccountStatusStore` intentionally returns `Unknown` for every account. This is a fail-closed seam: #396 must replace it with the Cloud control-plane account store before Cloud customer requests can become active.
+#396 replaces the original fail-closed placeholder with the Cloud control-plane account store. Protected requests therefore succeed only when the trusted account mapping is fully provisioned, on the current Cloud schema version, and marked `Active`.
 
 ## Public/auth routes
 
@@ -149,7 +149,7 @@ Logout clears the local cookie and invokes OIDC provider sign-out.
 
 ### #396 — control plane / provisioning
 
-Must replace `UnconfiguredCloudAccountStatusStore` with the real account directory/status implementation and map `NostosAccountId` to customer resources.
+Provides the account directory/status implementation, stable customer resource mapping, and trusted `NostosAccountId` -> customer database routing described above.
 
 ### #403 — entitlements
 

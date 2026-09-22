@@ -63,13 +63,13 @@ Cloud's intended product contract is:
 
 The capability names describe Nostos behavior. They intentionally do not expose infrastructure vendor choices such as PostgreSQL hosts, object-storage providers, or AI provider credentials.
 
-## Current Cloud fail-closed state
+## Current Cloud persistence state
 
-Issue #394 establishes the deployment boundary before the Cloud infrastructure itself exists.
+Issue #396 wires Cloud mode to a separate PostgreSQL control plane and a trusted, tenant-aware customer database factory.
 
-At this stage, setting `Nostos:DeploymentMode=Cloud` fails startup with an explicit error instead of silently using the SelfHosted SQLite database.
+Cloud startup now requires server-side PostgreSQL connection settings and fails closed when they are missing. It never falls back to the SelfHosted SQLite database.
 
-That fail-closed behavior is intentional. It will be replaced by real Cloud persistence composition after the PostgreSQL provisioning/schema work in #396 and #398 is available.
+New customer databases are temporarily initialized from the current EF model and tagged `current-model-v1`. Issue #398 replaces that bridge with the permanent PostgreSQL baseline/migration lifecycle without changing the deployment-mode or tenant-routing contract.
 
 ## Composition rule
 

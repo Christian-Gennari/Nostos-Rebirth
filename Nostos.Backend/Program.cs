@@ -222,8 +222,15 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
         | ForwardedHeaders.XForwardedHost;
 });
 
-builder.Services.AddNostosPersistence(deployment, builder.Environment.ContentRootPath);
-builder.Services.AddScoped<IDatabaseBootstrapService, DatabaseBootstrapService>();
+builder.Services.AddNostosPersistence(
+    builder.Configuration,
+    deployment,
+    builder.Environment.ContentRootPath);
+
+if (deployment.Mode == DeploymentMode.SelfHosted)
+{
+    builder.Services.AddScoped<IDatabaseBootstrapService, DatabaseBootstrapService>();
+}
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -350,9 +357,15 @@ var app = builder.Build();
 // baseline, in one transaction (see DatabaseBootstrapService). Any existing
 // database goes through the ordinary EF migration path and is never
 // rebaselined; a partial or unknown schema fails closed here.
-using (var scope = app.Services.CreateScope())
+if (deployment.Mode == DeploymentMode.SelfHosted)
 {
+    using var scope = app.Services.CreateScope();
     var bootstrap = scope.ServiceProvider.GetRequiredService<IDatabaseBootstrapService>();
+    await bootstrap.EnsureReadyAsync();
+}
+else
+{
+    var bootstrap = app.Services.GetRequiredService<Nostos.Backend.Cloud.ControlPlane.ICloudControlPlaneBootstrapper>();
     await bootstrap.EnsureReadyAsync();
 }
 
@@ -491,6 +504,7 @@ app.MapDeploymentCapabilitiesEndpoints();
 if (deployment.Mode == DeploymentMode.Cloud)
 {
     app.MapCloudAuthEndpoints();
+    app.MapCloudProvisioningEndpoints();
 }
 app.MapOpdsEndpoints(opdsOptions);
 app.MapBackupEndpoints();
