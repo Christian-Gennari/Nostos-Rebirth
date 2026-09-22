@@ -1634,4 +1634,12 @@ app-sidebar-collections.no-transition {
   .finished-btn-list {
     transition: none;
   }
+
+  /* Press feedback is an acknowledgement, not an animation: under this
+     preference the cover scale and the row surface must land in the same frame
+     as the pointer-down instead of easing in behind the hover transition. */
+  .book-card .cover-wrapper,
+  .table-row {
+    transition-duration: 1ms;
+  }
 }
