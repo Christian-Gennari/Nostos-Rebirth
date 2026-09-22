@@ -333,7 +333,7 @@ test('the mobile view-mode toggle matches the library toggle', async ({ page }) 
   const box = async (groupSel: string) =>
     page.evaluate((sel) => {
       const g = document.querySelector(sel);
-      const opt = g ? g.querySelector('.toggle-opt') : null;
+      const opt = g ? g.querySelector('.vt-opt') : null;
       if (!g || !opt) return null;
       const gr = g.getBoundingClientRect();
       const or = opt.getBoundingClientRect();

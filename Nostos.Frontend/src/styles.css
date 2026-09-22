@@ -117,6 +117,14 @@
      NOT `--bg-surface`, which is darker than the track it sits in. */
   --control-active-fill: var(--bg-surface);
   --control-active-ink: var(--color-primary);
+  /* The second half of the raise, for the view toggle's thumb. `--shadow-sm` is a
+     BLACK shadow: it lifts the thumb off a light track and does nothing at all on
+     a near-black one, where the selected option then separated by tone alone. On
+     dark this is a 1px lit top edge; on light it is deliberately a no-op, because
+     the drop shadow already carries the raise and a dark top line would read as a
+     groove. Not `color-mix`ed from the text ink, because the two themes want
+     OPPOSITE directions from one declaration. */
+  --control-thumb-highlight: 0 0 0 rgba(0, 0, 0, 0);
   /* Discs that sit ON cover artwork take the cover-disc ink, not the brand ink:
      this is chrome floating over an image, not an action on the page. */
   --action-circle-ink: var(--color-primary);
@@ -786,6 +794,11 @@
      palette's own. #2f333f sits 1.26:1 above the track. */
   --control-active-fill: #2f333f;
   --control-active-ink: var(--color-text-main);
+  /* The lit top edge of the selected option. `--shadow-sm` above is black on a
+     near-black track, so on dark the raise has to come from the tile's own top
+     edge. Same value the dock's raised item reads, expressed as light. */
+  --control-thumb-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+
   /* The discs are chrome on artwork, so they take the disc ink; the brand ink is
      the mid green here, which made the middle discs green while the corner discs
      read slate — one card showing two icon colours. */
@@ -1110,27 +1123,34 @@
    2. --color-primary is the dim green ink here, so the active icon went green
       while every other selected state in the app is white-on-raised.
    `--control-active-fill` is the same raised tone the dock uses, so "raised on
-   dark" is one value app-wide. The component rule (`.toggle-opt.active`) reads
-   both tokens. */
+   dark" is one value app-wide. The rule that reads them is now
+   `src/app/ui/view-toggle/view-toggle.component.ts` (it was `.toggle-opt.active`). */
 
 /* ------------------------------
-   THE VIEW TOGGLE (segmented control)
+   THE SEGMENTED RECIPE (tab chrome) — and why the view toggle is no longer here
 ------------------------------
-   ONE recipe, declared once. Library and Brain each carried a byte-identical copy
-   of these four rules (only the comments differed), which is exactly the kind of
-   drift a design language exists to prevent: the focus ring was added to one copy
-   and not the other, so the same control behaved differently for keyboard users
-   depending on which page they were on.
+   HISTORY, because it is the reason for the split. Library and Brain used to
+   consume this recipe directly and each carried a byte-identical copy of these
+   rules (only the comments differed) — the drift a design language exists to
+   prevent: the focus ring was added to one copy and not the other, so the same
+   control behaved differently for keyboard users depending on which page they
+   were on. The recipe was then hoisted here, one copy for four surfaces.
 
-   UI KIT V1 CONTRACT: this is a VISUAL recipe, not a semantic component.
-   Library and Brain consume the compact option directly. Tabs, radios and
-   aria-pressed groups may share this treatment while retaining their own ARIA
-   contracts; Settings' large theme radio cards are intentionally a different
-   product control. Do not extract a mega-component that chooses semantics by
-   input.
+   THAT SPLIT HAS MOVED ON. The two controls that are genuinely ONE control — the
+   Library's list/grid and the Brain's list/map view toggles, both `role="group"`
+   with `aria-pressed`, both rendering at the same two rungs — are now a
+   component: `src/app/ui/view-toggle/`. It owns the track, the geometry, the
+   mobile rung and the interaction (sliding thumb, glyph weight step, arrow keys),
+   so those two surfaces cannot drift apart again.
 
-   Deliberately NOT here: mobile sizing. Touch targets remain surface-owned
-   because the surrounding layout and breakpoint context differ. */
+   What stays here is the chrome for surfaces that want the SAME LOOK with
+   DIFFERENT semantics: the Writing Studio's tabs are `role="tablist"` /
+   `role="tab"` / `aria-selected`, and the UI catalogue mirrors that. They keep
+   the recipe. A component that picked its semantics from an input is the
+   mega-component this file has always refused to become.
+
+   Deliberately NOT here: mobile sizing — that is a property of the control each
+   surface renders, and for the toggle it now travels with the control. */
 
 .toggle-opt {
   background: 0 0;

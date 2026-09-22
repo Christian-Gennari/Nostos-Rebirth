@@ -43,7 +43,11 @@ test.describe('Nostos UI v1 catalogue', () => {
 
         await expect(page.locator('button.nostos-button--primary').first()).toBeVisible();
         await expect(page.locator('button.icon-btn')).toHaveCount(6);
-        await expect(page.locator('.nostos-form-control')).toHaveCount(7);
+        // 6, not 7: `feat(ui): add canonical dropdown primitive` replaced a native
+        // `<select class="nostos-form-control">` with `<app-dropdown>`, so the
+        // catalogue renders one fewer form control. The count was stale on main
+        // before this branch (verified against the running production build).
+        await expect(page.locator('.nostos-form-control')).toHaveCount(6);
         await expect(page.locator('.nostos-switch')).toHaveCount(3);
         await expect(page.locator('.nostos-chip')).toHaveCount(4);
         await expect(page.locator('.nostos-badge')).toHaveCount(4);
@@ -67,11 +71,15 @@ test.describe('Nostos UI v1 catalogue', () => {
           'true',
         );
 
+        // The pressed-button example is now the real component, so its options are
+        // named the way the app names them (icon-only: the label is the name).
         const viewGroup = page.getByRole('group', { name: 'Catalogue view example' });
-        await viewGroup.getByRole('button', { name: 'Grid', exact: true }).click();
-        await expect(viewGroup.getByRole('button', { name: 'Grid', exact: true })).toHaveAttribute(
+        const gridOption = viewGroup.getByRole('button', { name: 'Grid view', exact: true });
+        await gridOption.click();
+        await expect(gridOption).toHaveAttribute('aria-pressed', 'true');
+        await expect(viewGroup.getByRole('button', { name: 'List view', exact: true })).toHaveAttribute(
           'aria-pressed',
-          'true',
+          'false',
         );
 
         const secondary = page.getByTestId('secondary-button');

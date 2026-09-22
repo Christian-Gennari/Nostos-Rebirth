@@ -68,7 +68,7 @@ test('brain controls match the library controls', async ({ browser }) => {
     const libToggleGroup = await measure(page, '.control-group');
     // ACTIVE on both sides: the active option carries the outline/shadow that the
     // inactive one does not, so comparing active-to-inactive is a false failure.
-    const libToggleOpt = await measure(page, '.toggle-opt.active');
+    const libToggleOpt = await measure(page, '.vt-opt[aria-pressed="true"]');
 
     expect(
       libSearch && libSelect && libToggleGroup && libToggleOpt,
@@ -85,7 +85,7 @@ test('brain controls match the library controls', async ({ browser }) => {
     const brainSearch = await measure(page, '.search-box input');
     const brainSelect = await measure(page, '.sort-select');
     const brainToggleGroup = await measure(page, '.view-mode-control');
-    const brainToggleOpt = await measure(page, '.view-mode-control .toggle-opt.active');
+    const brainToggleOpt = await measure(page, '.view-mode-control .vt-opt[aria-pressed="true"]');
 
     expect(
       brainSearch && brainSelect && brainToggleGroup && brainToggleOpt,
@@ -112,13 +112,13 @@ test('brain controls match the library controls', async ({ browser }) => {
     expect(brainToggleOpt!.borderRadius, 'toggle option radius').toBe(libToggleOpt!.borderRadius);
 
     // ── The view toggle must agree in BOTH themes ──────────────────────────
-    // Light happened to match while dark did not: the Brain's `.toggle-opt`
-    // rules were scoped under `.view-mode-control`, which raised them to (0,4,0)
-    // — the same specificity as the app-wide `:root[data-theme='dark']
-    // .toggle-opt.active`, and this chunk loads later, so it overrode the dark
-    // treatment. The Library's rule is a bare `.toggle-opt.active` (0,3,0) and
-    // defers correctly. Comparing computed COLOUR per theme is what catches it;
-    // comparing geometry alone does not.
+    // Both surfaces now render the SAME component (`nostos-view-toggle`), so this
+    // parity is structural rather than a coincidence of two hand-kept stylesheets.
+    // The assertion is kept because the failure it was written for was invisible
+    // to geometry: back when the two were separate CSS copies, only one of them
+    // lost a specificity tie on dark and kept its light tokens, so the two toggles
+    // measured identical and looked different. Comparing computed COLOUR per theme
+    // is what catches that class of defect; comparing geometry does not.
     // ThemeService is the only writer of `data-theme` and re-applies it from
     // localStorage on every boot, so the theme must be set AFTER each navigation
     // (setting it before would be wiped by the next page load). The stored value
@@ -136,7 +136,7 @@ test('brain controls match the library controls', async ({ browser }) => {
       const readToggle = async (groupSel: string) =>
         page.evaluate((sel) => {
           const g = document.querySelector(sel);
-          const opts = g ? Array.from(g.querySelectorAll('.toggle-opt')) : [];
+          const opts = g ? Array.from(g.querySelectorAll('.vt-opt')) : [];
           const rd = (el: Element | undefined) => {
             if (!el) return null;
             const c = getComputedStyle(el);
@@ -149,9 +149,20 @@ test('brain controls match the library controls', async ({ browser }) => {
               icon: svg ? getComputedStyle(svg).stroke : null,
             };
           };
+          // Selection is `aria-pressed` (the component's contract); `.active` was the
+          // old recipe's styling hook and no longer exists.
+          const thumb = getComputedStyle(g!, '::before');
           return {
-            active: rd(opts.find((o) => o.classList.contains('active'))),
-            inactive: rd(opts.find((o) => !o.classList.contains('active'))),
+            active: rd(opts.find((o) => o.getAttribute('aria-pressed') === 'true')),
+            inactive: rd(opts.find((o) => o.getAttribute('aria-pressed') === 'false')),
+            // The selected tile's own paint lives on the track's ::before, not on the
+            // option: without measuring it this spec would compare two transparent
+            // options and keep passing while the tiles diverged.
+            thumb: {
+              bg: thumb.backgroundColor,
+              shadow: thumb.boxShadow,
+              outline: thumb.outline,
+            },
           };
         }, groupSel);
 
@@ -187,6 +198,12 @@ test('brain controls match the library controls', async ({ browser }) => {
       expect(brain.active!.icon, `${theme}: active icon stroke`).toBe(lib.active!.icon);
       expect(brain.inactive!.color, `${theme}: inactive segment text`).toBe(lib.inactive!.color);
       expect(brain.inactive!.icon, `${theme}: inactive icon stroke`).toBe(lib.inactive!.icon);
+      // The tile itself (position is deliberately NOT compared: the two surfaces
+      // default to different options, so the thumb sits at index 0 on one and 1 on
+      // the other).
+      expect(brain.thumb.bg, `${theme}: selected tile background`).toBe(lib.thumb.bg);
+      expect(brain.thumb.shadow, `${theme}: selected tile shadow`).toBe(lib.thumb.shadow);
+      expect(brain.thumb.outline, `${theme}: selected tile hairline`).toBe(lib.thumb.outline);
     }
     // Reset the stored theme: the specs share one browser context, and leaving
     // 'dark' in localStorage would re-theme every later spec.

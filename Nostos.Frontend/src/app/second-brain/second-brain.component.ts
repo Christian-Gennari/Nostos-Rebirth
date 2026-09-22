@@ -32,6 +32,7 @@ import {
 import { ConceptMapComponent } from './concept-map/concept-map.component';
 import { ConceptInputComponent } from '../ui/concept-input.component/concept-input.component';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
+import { ViewToggleComponent, type ViewToggleOption } from '../ui/view-toggle/view-toggle.component';
 import { ButtonComponent } from '../ui/button/button.component';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
 import { BadgeComponent } from '../ui/badge/badge.component';
@@ -70,6 +71,7 @@ import {
     FormsModule,
     RouterLink,
     NostosIconComponent,
+    ViewToggleComponent,
     ButtonComponent,
     IconButtonComponent,
     BadgeComponent,
@@ -162,6 +164,11 @@ export class SecondBrain implements AfterViewChecked {
   private noteSearchSeq = 0;
   indexSort = signal<IndexSort>(this.readStoredSort());
   viewMode = signal<BrainPaneMode>(this.readStoredViewMode());
+  /** The Brain's two panes. Same control as the Library's, different second option. */
+  readonly viewToggleOptions = [
+    { value: 'list', icon: 'list-bullets', label: 'Concept view' },
+    { value: 'map', icon: 'map-trifold', label: 'Map view' },
+  ] satisfies readonly ViewToggleOption[];
   cursorIndex = signal<number | null>(null);
 
   selectedId = signal<string | null>(null);

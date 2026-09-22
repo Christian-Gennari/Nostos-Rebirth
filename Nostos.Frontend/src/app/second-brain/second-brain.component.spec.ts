@@ -652,7 +652,7 @@ describe('SecondBrain', () => {
     expect(clear.hasAttribute('aria-pressed')).toBe(false);
 
     const views = Array.from(
-      fixture.nativeElement.querySelectorAll('.view-mode-control .toggle-opt'),
+      fixture.nativeElement.querySelectorAll('.view-mode-control .vt-opt'),
     ) as HTMLButtonElement[];
     expect(views.every((view) => view.hasAttribute('aria-pressed'))).toBe(true);
     expect(views.every((view) => !view.classList.contains('nostos-button'))).toBe(true);
@@ -1043,7 +1043,7 @@ describe('SecondBrain', () => {
   });
 
   it('toggles between list and map views and persists the choice', () => {
-    const map = fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:last-child') as HTMLButtonElement;
+    const map = fixture.nativeElement.querySelector('.view-mode-control .vt-opt:last-child') as HTMLButtonElement;
     map.click();
     fixture.detectChanges();
 
@@ -1053,7 +1053,7 @@ describe('SecondBrain', () => {
     flushChildConceptLists();
     http.match('/api/concepts/graph').forEach((request) => request.flush({ nodes: [], edges: [] }));
 
-    const list = fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:first-child') as HTMLButtonElement;
+    const list = fixture.nativeElement.querySelector('.view-mode-control .vt-opt:first-child') as HTMLButtonElement;
     list.click();
     fixture.detectChanges();
     expect(component.viewMode()).toBe('list');
@@ -1063,7 +1063,7 @@ describe('SecondBrain', () => {
 
   it('renders the map on the main stage, not in the index rail', () => {
     fixture.detectChanges();
-    (fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('.view-mode-control .vt-opt:last-child') as HTMLButtonElement).click();
     fixture.detectChanges();
 
     const map = fixture.nativeElement.querySelector('app-concept-map') as HTMLElement;
@@ -1089,7 +1089,7 @@ describe('SecondBrain', () => {
     expect(layout.classList.contains('map-view')).toBe(false);
     expect(getComputedStyle(layout).gridTemplateColumns).toContain('280px');
 
-    (fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('.view-mode-control .vt-opt:last-child') as HTMLButtonElement).click();
     fixture.detectChanges();
 
     // Flush the child's requests FIRST: an assertion failure here would
@@ -1128,7 +1128,7 @@ describe('SecondBrain', () => {
     await settleNoteSearch([]);
     expect(component.filteredConcepts().map((concept) => concept.name)).toEqual(['Alpha']);
 
-    (fixture.nativeElement.querySelector('.brain-header .view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('.brain-header .view-mode-control .vt-opt:last-child') as HTMLButtonElement).click();
     fixture.detectChanges();
     flushChildConceptLists();
     http.match('/api/concepts/graph').forEach((request) => request.flush({ nodes: [], edges: [] }));
@@ -1145,7 +1145,7 @@ describe('SecondBrain', () => {
 
   it('leaves map view from the persistent header, with the rail restored', () => {
     fixture.detectChanges();
-    (fixture.nativeElement.querySelector('.brain-header .view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('.brain-header .view-mode-control .vt-opt:last-child') as HTMLButtonElement).click();
     fixture.detectChanges();
     flushChildConceptLists();
     http.match('/api/concepts/graph').forEach((request) => request.flush({ nodes: [], edges: [] }));
@@ -1155,7 +1155,7 @@ describe('SecondBrain', () => {
     // map view is no longer a one-way door, and why the map no longer needs its
     // own duplicate exit control. The switch must still be on screen here.
     const switchInMap = fixture.nativeElement.querySelector(
-      '.brain-header .view-mode-control .toggle-opt:first-child'
+      '.brain-header .view-mode-control .vt-opt:first-child'
     ) as HTMLButtonElement;
     expect(switchInMap, 'the mode switch survives map view').toBeTruthy();
     switchInMap.click();
@@ -1172,7 +1172,7 @@ describe('SecondBrain', () => {
 
   it('opens a double-clicked node as the concept detail, and leaves the map', () => {
     fixture.detectChanges();
-    (fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('.view-mode-control .vt-opt:last-child') as HTMLButtonElement).click();
     fixture.detectChanges();
     flushChildConceptLists();
     http.match('/api/concepts/graph').forEach((request) => request.flush({ nodes: [], edges: [] }));
@@ -1225,7 +1225,7 @@ describe('SecondBrain', () => {
 
   it('keeps the map visible when a node is selected and offers a way to the notes', () => {
     fixture.detectChanges();
-    (fixture.nativeElement.querySelector('.view-mode-control .toggle-opt:last-child') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('.view-mode-control .vt-opt:last-child') as HTMLButtonElement).click();
     fixture.detectChanges();
     flushChildConceptLists();
     http.match('/api/concepts/graph').forEach((request) => request.flush({ nodes: [], edges: [] }));

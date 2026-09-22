@@ -417,7 +417,7 @@ describe('Library', () => {
 
   it('persists the viewMode preference to localStorage when toggled', () => {
     const toggles = Array.from(
-      fixture.nativeElement.querySelectorAll('.toggle-opt'),
+      fixture.nativeElement.querySelectorAll('.vt-opt'),
     ) as HTMLButtonElement[];
 
     toggles[0].click();
@@ -441,7 +441,7 @@ describe('Library', () => {
     expect(group.getAttribute('aria-label')).toBeTruthy();
 
     const toggles = Array.from(
-      fixture.nativeElement.querySelectorAll('.toggle-opt'),
+      fixture.nativeElement.querySelectorAll('.vt-opt'),
     ) as HTMLButtonElement[];
 
     // Every option is named...
@@ -481,7 +481,7 @@ describe('Library', () => {
     expect(chip.classList.contains('nostos-chip')).toBe(true);
 
     const toggles = Array.from(
-      fixture.nativeElement.querySelectorAll('.toggle-opt'),
+      fixture.nativeElement.querySelectorAll('.vt-opt'),
     ) as HTMLButtonElement[];
     expect(toggles.every((toggle) => toggle.hasAttribute('aria-pressed'))).toBe(true);
     expect(toggles.every((toggle) => !toggle.classList.contains('nostos-button'))).toBe(true);
