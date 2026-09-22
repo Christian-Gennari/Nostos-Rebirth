@@ -358,8 +358,12 @@ public static class BooksEndpoints
                 if (!new[] { "image/png", "image/jpeg" }.Contains(file.ContentType))
                     return Results.BadRequest("Only PNG or JPEG images allowed.");
 
-                await storage.SaveBookCoverAsync(id, file);
-                var ext = Path.GetExtension(file.FileName).ToLower();
+                await using (var coverStream = file.OpenReadStream())
+                {
+                    await storage.SaveBookCoverAsync(id, coverStream, file.FileName, ct);
+                }
+
+                var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
                 book.FileDetails.CoverFileName = $"cover{ext}";
 
                 await repo.UpdateAsync(book);
