@@ -56,6 +56,11 @@ public interface IBookAssetStorage
         Guid bookId,
         CancellationToken ct = default);
 
+    Task<StoredAssetInfo?> GetBookCoverThumbnailInfoAsync(
+        Guid bookId,
+        int width,
+        CancellationToken ct = default);
+
     Task<StoredAssetRead?> OpenBookCoverThumbnailAsync(
         Guid bookId,
         int width,
