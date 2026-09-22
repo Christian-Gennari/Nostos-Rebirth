@@ -110,7 +110,8 @@ public sealed class CloudBillingTests
             DateTime.UtcNow,
             DateTime.UtcNow);
 
-        var act = () => service.ProcessAsync(body, "ts=1;h1=invalid");
+        Func<Task> act = async () =>
+            await service.ProcessAsync(body, "ts=1;h1=invalid");
 
         await act.Should().ThrowAsync<PaddleWebhookSignatureException>();
         state.AppliedCount.Should().Be(0);
@@ -128,9 +129,10 @@ public sealed class CloudBillingTests
 
         await Process(serviceA, Event("evt_a", accountA, "sub_shared", "active", "pri_basic", now, now));
 
-        var act = () => Process(
-            serviceB,
-            Event("evt_b", accountB, "sub_shared", "active", "pri_pro", now.AddSeconds(1), now.AddSeconds(1)));
+        Func<Task> act = async () =>
+            await Process(
+                serviceB,
+                Event("evt_b", accountB, "sub_shared", "active", "pri_pro", now.AddSeconds(1), now.AddSeconds(1)));
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*more than one Nostos account*");
@@ -157,7 +159,7 @@ public sealed class CloudBillingTests
         state.Bindings[account].ExternalTransactionId.Should().Be("txn_checkout");
         state.LastChange.Should().BeNull();
 
-        var request = handler.Requests.Should().ContainSingle().Subject;
+        var request = handler.Requests.Should().ContainSingle().Which;
         request.Method.Should().Be(HttpMethod.Post);
         request.Path.Should().Be("/transactions");
         request.Body.Should().Contain("\"price_id\":\"pri_basic\"");
