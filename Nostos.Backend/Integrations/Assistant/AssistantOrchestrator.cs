@@ -163,11 +163,13 @@ public sealed class AssistantOrchestrator(
         var iterations = Math.Max(1, options.MaxToolIterations);
         for (var iteration = 0; iteration < iterations; iteration++)
         {
-            // Per-turn execution ceilings (#406). Evaluated before spending another
-            // upstream call: a turn that already crossed a token / wall-clock /
-            // estimated-cost ceiling stops here and is reported incomplete, never as
-            // success, and the blocked call is not counted as an upstream call.
-            var exceededCeiling = AssistantExecutionBudget.ExceededCeiling(executionMeter.Snapshot(), options);
+            // Per-turn execution ceilings (#406). Token/cost are evaluated before
+            // spending another upstream call. Wall clock also supplies the provider
+            // call with the remaining turn deadline, so one slow in-flight call
+            // cannot run past the turn budget and fall through to the 90 s transport
+            // timeout.
+            var usageBeforeCall = executionMeter.Snapshot();
+            var exceededCeiling = AssistantExecutionBudget.ExceededCeiling(usageBeforeCall, options);
             if (exceededCeiling is not null)
             {
                 logger.LogDebug(
@@ -177,6 +179,24 @@ public sealed class AssistantOrchestrator(
                 break;
             }
 
+            CancellationTokenSource? turnDeadline = null;
+            var upstreamCancellation = ct;
+            if (options.MaxTurnElapsedMilliseconds > 0)
+            {
+                var remainingMilliseconds =
+                    options.MaxTurnElapsedMilliseconds - usageBeforeCall.ElapsedMilliseconds;
+
+                if (remainingMilliseconds <= 0)
+                {
+                    stopReason = AssistantTurnStopReason.SafetyCeiling;
+                    break;
+                }
+
+                turnDeadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                turnDeadline.CancelAfter(TimeSpan.FromMilliseconds(remainingMilliseconds));
+                upstreamCancellation = turnDeadline.Token;
+            }
+
             executionMeter.RecordUpstreamRequest();
 
             LlmCompletion completion;
@@ -184,17 +204,28 @@ public sealed class AssistantOrchestrator(
             {
                 completion = await llm.CompleteAsync(
                     new LlmCompletionRequest(messages, tools, MaxResponseTokens),
-                    ct);
+                    upstreamCancellation);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 LogExecutionMetrics(executionMeter.Finish(AssistantTurnStopReason.Cancelled));
                 throw;
             }
+            catch (OperationCanceledException) when (turnDeadline?.IsCancellationRequested == true)
+            {
+                logger.LogDebug(
+                    "Assistant turn stopped at the wall-clock execution ceiling during an upstream call.");
+                stopReason = AssistantTurnStopReason.SafetyCeiling;
+                break;
+            }
             catch (LlmException)
             {
                 LogExecutionMetrics(executionMeter.Finish(AssistantTurnStopReason.ProviderError));
                 throw;
+            }
+            finally
+            {
+                turnDeadline?.Dispose();
             }
 
             executionMeter.RecordCompletion(completion);

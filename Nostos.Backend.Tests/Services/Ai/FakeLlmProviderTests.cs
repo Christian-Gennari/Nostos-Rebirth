@@ -31,6 +31,13 @@ public sealed class FakeLlmProvider : ILlmProvider
     /// <summary>Optional dynamic responder, keyed on the 1-based call number.</summary>
     public Func<int, LlmCompletion>? Responder { get; set; }
 
+    /// <summary>
+    /// Optional asynchronous responder that observes the caller cancellation token.
+    /// Used by budget tests to prove an in-flight provider call is cancelled by the
+    /// turn deadline rather than merely checked after it returns.
+    /// </summary>
+    public Func<int, CancellationToken, Task<LlmCompletion>>? AsyncResponder { get; set; }
+
     public int CallCount => Requests.Count;
 
     public LlmCompletionRequest LastRequest => Requests[^1];
@@ -56,7 +63,7 @@ public sealed class FakeLlmProvider : ILlmProvider
             "tool_calls",
             [new LlmToolCall(Guid.NewGuid().ToString("N"), name, argumentsJson)]));
 
-    public Task<LlmCompletion> CompleteAsync(
+    public async Task<LlmCompletion> CompleteAsync(
         LlmCompletionRequest request,
         CancellationToken ct = default)
     {
@@ -67,16 +74,21 @@ public sealed class FakeLlmProvider : ILlmProvider
             throw Failure;
         }
 
+        if (AsyncResponder is not null)
+        {
+            return await AsyncResponder(Requests.Count, ct);
+        }
+
         if (Responder is not null)
         {
-            return Task.FromResult(Responder(Requests.Count));
+            return Responder(Requests.Count);
         }
 
         // An unscripted call is a plain "nothing more to do" answer rather than
         // an exception, so a test that overshoots still fails on its assertions.
-        return Task.FromResult(_scripted.Count > 0
+        return _scripted.Count > 0
             ? _scripted.Dequeue()
-            : new LlmCompletion(string.Empty, "stop", []));
+            : new LlmCompletion(string.Empty, "stop", []);
     }
 }
 

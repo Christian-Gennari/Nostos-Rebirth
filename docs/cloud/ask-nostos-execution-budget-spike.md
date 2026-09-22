@@ -24,9 +24,11 @@ The measurement decided the four per-turn ceilings, and the code now ships them:
 | Estimated-cost ceiling | **$0.05** | Largest measured turn cost $0.0247; the token ceiling prices at ≈$0.039 today and ≈$0.078 in the 2027 epoch, which is why cost stays its own dimension. |
 
 None of the four would have stopped a single legitimate turn in the sample, and
-the wall-clock ceiling stops exactly the stalled ones. The distributions, the
-transport correction and the honest limits of the measurement are in
-"External measurement results" below.
+the wall-clock ceiling stops exactly the stalled ones. Runtime enforcement passes
+the remaining turn deadline into each upstream provider call, so a single slow
+call is cancelled at the 60 s turn boundary instead of waiting for the 90 s
+per-request transport timeout. The distributions, the transport correction and
+the honest limits of the measurement are in "External measurement results" below.
 
 Therefore:
 
