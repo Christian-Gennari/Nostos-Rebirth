@@ -76,7 +76,10 @@ public sealed class AcquisitionOptions
     /// books directory also means the finished artifact is committed by a
     /// rename on the same volume instead of being copied again.
     /// </summary>
-    public static string ResolveWorkingRoot(string contentRootPath, string booksRoot, AcquisitionOptions? options)
+    public static string ResolveWorkingRoot(
+        string contentRootPath,
+        string? localBooksRoot,
+        AcquisitionOptions? options)
     {
         if (!string.IsNullOrWhiteSpace(options?.WorkingRoot))
         {
@@ -85,6 +88,16 @@ public sealed class AcquisitionOptions
                 Path.IsPathRooted(configured) ? configured : Path.Combine(contentRootPath, configured));
         }
 
-        return Path.GetFullPath(Path.Combine(booksRoot, "..", "tmp", "acquisitions"));
+        if (!string.IsNullOrWhiteSpace(localBooksRoot))
+        {
+            return Path.GetFullPath(
+                Path.Combine(localBooksRoot, "..", "tmp", "acquisitions"));
+        }
+
+        // Cloud media is durable in object storage, but acquisition/transcoding
+        // still needs bounded scratch disk. Keep that scratch explicitly
+        // ephemeral and separate from the durable storage abstraction.
+        return Path.GetFullPath(
+            Path.Combine(contentRootPath, "Storage", "tmp", "acquisitions"));
     }
 }

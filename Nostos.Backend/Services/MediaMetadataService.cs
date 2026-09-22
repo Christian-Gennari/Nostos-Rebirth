@@ -27,37 +27,7 @@ public class MediaMetadataService
 
         try
         {
-            var track = new Track(filePath);
-
-            // 1. Extract Chapters
-            if (track.Chapters != null && track.Chapters.Count > 0)
-            {
-                var chapters = track
-                    .Chapters.Select(c => new
-                    {
-                        Title = c.Title,
-                        // ATL uses milliseconds, convert to seconds for frontend compatibility
-                        StartTime = c.StartTime / 1000.0,
-                    })
-                    .ToList();
-
-                // Serialize to the new Owned Type location
-                book.FileDetails.ChaptersJson = JsonSerializer.Serialize(chapters);
-            }
-
-            // 2. Extract Duration (Audiobooks only)
-            if (
-                book is AudioBookModel audioBook
-                && string.IsNullOrEmpty(audioBook.Duration)
-                && track.Duration > 0
-            )
-            {
-                var t = TimeSpan.FromSeconds(track.Duration);
-                // Format: 12:30:45
-                audioBook.Duration = t.ToString(@"hh\:mm\:ss");
-            }
-
-            return true;
+            return ApplyMetadata(book, new Track(filePath));
         }
         catch (Exception ex)
         {
@@ -65,5 +35,54 @@ public class MediaMetadataService
             // We return false but don't throw, so the upload itself doesn't fail
             return false;
         }
+    }
+
+    /// <summary>
+    /// Stream-based metadata extraction for provider-neutral storage. ATL can
+    /// inspect audio directly from a stream, so Cloud uploads do not need a
+    /// durable local file merely to discover chapters/duration.
+    /// </summary>
+    public bool EnrichBookMetadata(BookModel book, Stream content)
+    {
+        try
+        {
+            if (content.CanSeek)
+                content.Position = 0;
+
+            return ApplyMetadata(book, new Track(content));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to extract metadata for book {BookId}", book.Id);
+            return false;
+        }
+    }
+
+    private static bool ApplyMetadata(BookModel book, Track track)
+    {
+        if (track.Chapters != null && track.Chapters.Count > 0)
+        {
+            var chapters = track
+                .Chapters.Select(c => new
+                {
+                    Title = c.Title,
+                    StartTime = c.StartTime / 1000.0,
+                })
+                .ToList();
+
+            book.FileDetails.ChaptersJson = JsonSerializer.Serialize(chapters);
+        }
+
+        if (
+            book is AudioBookModel audioBook
+            && string.IsNullOrEmpty(audioBook.Duration)
+            && track.Duration > 0
+        )
+        {
+            var duration = TimeSpan.FromSeconds(track.Duration);
+            audioBook.Duration = duration.ToString(@"hh\:mm\:ss");
+        }
+
+        return true;
     }
 }

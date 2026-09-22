@@ -1,4 +1,3 @@
-using Microsoft.Net.Http.Headers;
 using Nostos.Backend.Data.Interfaces;
 using Nostos.Backend.Data.Models;
 using Nostos.Backend.Mapping;
@@ -234,13 +233,13 @@ public static class BooksEndpoints
         // files)
         group.MapDelete(
             "/{id}",
-            async (Guid id, ILibraryService library, IFileStorageService storage, CancellationToken ct) =>
+            async (Guid id, ILibraryService library, IBookAssetStorage storage, CancellationToken ct) =>
             {
                 var result = await library.DeleteBookAsync(id, ct);
                 if (LibraryHttpMapper.MapError(result) is { } error)
                     return error;
 
-                storage.DeleteBookFiles(id);
+                await storage.DeleteBookFilesAsync(id, ct);
                 return Results.NoContent();
             }
         );
@@ -252,7 +251,7 @@ public static class BooksEndpoints
                 Guid id,
                 HttpRequest request,
                 IBookRepository repo,
-                IFileStorageService storage,
+                IBookAssetStorage storage,
                 MediaMetadataService metadataService,
                 CancellationToken ct
             ) =>
@@ -273,16 +272,18 @@ public static class BooksEndpoints
                 if (file is null)
                     return Results.BadRequest("Missing file.");
 
-                var allowed = FileStorageService.IsAllowedUpload(file.ContentType, file.FileName);
+                var allowed = BookAssetFormats.IsAllowedUpload(file.ContentType, file.FileName);
                 if (!allowed)
                     return Results.BadRequest($"Unsupported file type: {file.ContentType}");
 
-                await storage.SaveBookFileAsync(id, file);
-
-                var filePath = storage.GetBookFileName(id);
-                if (filePath is not null)
+                await using (var metadataStream = file.OpenReadStream())
                 {
-                    metadataService.EnrichBookMetadata(book, filePath);
+                    metadataService.EnrichBookMetadata(book, metadataStream);
+                }
+
+                await using (var uploadStream = file.OpenReadStream())
+                {
+                    await storage.SaveBookFileAsync(id, uploadStream, file.FileName, ct);
                 }
 
                 book.FileDetails.HasFile = true;
@@ -299,34 +300,39 @@ public static class BooksEndpoints
         // Stream file (inline) for media playback; supports HTTP Range requests
         group.MapGet(
             "/{id}/file",
-            (Guid id, IFileStorageService storage) =>
-            {
-                var filePath = storage.GetBookFileName(id);
-                if (filePath is null)
-                    return Results.NotFound();
-
-                var contentType = FileStorageService.GetContentType(filePath);
-
-                // No fileName => no Content-Disposition: attachment, so browsers
-                // render the file inline (required for <audio>/Howler playback).
-                return Results.File(filePath, contentType, enableRangeProcessing: true);
-            }
+            async (
+                Guid id,
+                IBookAssetStorage storage,
+                HttpContext http,
+                CancellationToken ct
+            ) =>
+                await StoredAssetHttpResult.CreateAsync(
+                    http,
+                    token => storage.GetBookFileInfoAsync(id, token),
+                    (range, token) => storage.OpenBookFileAsync(id, range, token),
+                    attachment: false,
+                    enableRanges: true,
+                    cacheControl: null,
+                    ct)
         );
 
         // Download file (attachment) — used by the book detail "Download File" button
         group.MapGet(
             "/{id}/file/download",
-            (Guid id, IFileStorageService storage) =>
-            {
-                var filePath = storage.GetBookFileName(id);
-                if (filePath is null)
-                    return Results.NotFound();
-
-                var contentType = FileStorageService.GetContentType(filePath);
-                var fileName = Path.GetFileName(filePath);
-
-                return Results.File(filePath, contentType, fileName, enableRangeProcessing: true);
-            }
+            async (
+                Guid id,
+                IBookAssetStorage storage,
+                HttpContext http,
+                CancellationToken ct
+            ) =>
+                await StoredAssetHttpResult.CreateAsync(
+                    http,
+                    token => storage.GetBookFileInfoAsync(id, token),
+                    (range, token) => storage.OpenBookFileAsync(id, range, token),
+                    attachment: true,
+                    enableRanges: true,
+                    cacheControl: null,
+                    ct)
         );
 
         // Upload cover
@@ -336,7 +342,7 @@ public static class BooksEndpoints
                 Guid id,
                 HttpRequest request,
                 IBookRepository repo,
-                IFileStorageService storage,
+                IBookAssetStorage storage,
                 CancellationToken ct
             ) =>
             {
@@ -352,8 +358,12 @@ public static class BooksEndpoints
                 if (!new[] { "image/png", "image/jpeg" }.Contains(file.ContentType))
                     return Results.BadRequest("Only PNG or JPEG images allowed.");
 
-                await storage.SaveBookCoverAsync(id, file);
-                var ext = Path.GetExtension(file.FileName).ToLower();
+                await using (var coverStream = file.OpenReadStream())
+                {
+                    await storage.SaveBookCoverAsync(id, coverStream, file.FileName, ct);
+                }
+
+                var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
                 book.FileDetails.CoverFileName = $"cover{ext}";
 
                 await repo.UpdateAsync(book);
@@ -365,50 +375,55 @@ public static class BooksEndpoints
         // Download a cached, resized WebP cover for card/list views
         group.MapGet(
             "/{id}/cover/thumbnail",
-            async (Guid id, int? width, IFileStorageService storage, HttpContext http, CancellationToken ct) =>
+            async (
+                Guid id,
+                int? width,
+                IBookAssetStorage storage,
+                HttpContext http,
+                CancellationToken ct
+            ) =>
             {
-                var thumbnailPath = await storage.GetBookCoverThumbnailPathAsync(
-                    id,
-                    width ?? 320,
-                    ct
-                );
-                return thumbnailPath is null
-                    ? Results.NotFound()
-                    : CachedImageFile(http, thumbnailPath, "image/webp");
+                var safeWidth = width ?? 320;
+                return await StoredAssetHttpResult.CreateAsync(
+                    http,
+                    token => storage.GetBookCoverThumbnailInfoAsync(id, safeWidth, token),
+                    (_, token) => storage.OpenBookCoverThumbnailAsync(id, safeWidth, token),
+                    attachment: false,
+                    enableRanges: false,
+                    cacheControl: "public, max-age=86400, stale-while-revalidate=2592000",
+                    ct);
             }
         );
 
         // Download cover
         group.MapGet(
             "/{id}/cover",
-            (Guid id, IFileStorageService storage, HttpContext http) =>
-            {
-                var coverPath = storage.GetBookCoverPath(id);
-                if (coverPath is null)
-                    return Results.NotFound();
-
-                // The media type follows the stored file, not an assumption
-                // about it — covers are uploaded as PNG or JPEG and keep
-                // whichever they arrived as (see MediaTypeMap).
-                return CachedImageFile(
+            async (
+                Guid id,
+                IBookAssetStorage storage,
+                HttpContext http,
+                CancellationToken ct
+            ) =>
+                await StoredAssetHttpResult.CreateAsync(
                     http,
-                    coverPath,
-                    MediaTypeMap.ForCover(coverPath),
-                    Path.GetFileName(coverPath)
-                );
-            }
+                    token => storage.GetBookCoverInfoAsync(id, token),
+                    (_, token) => storage.OpenBookCoverAsync(id, token),
+                    attachment: false,
+                    enableRanges: false,
+                    cacheControl: "public, max-age=86400, stale-while-revalidate=2592000",
+                    ct)
         );
 
         // DELETE cover
         group.MapDelete(
             "/{id}/cover",
-            async (Guid id, IBookRepository repo, IFileStorageService storage, CancellationToken ct) =>
+            async (Guid id, IBookRepository repo, IBookAssetStorage storage, CancellationToken ct) =>
             {
                 var book = await repo.GetByIdAsync(id);
                 if (book is null)
                     return Results.NotFound();
 
-                if (!storage.DeleteCover(id))
+                if (!await storage.DeleteCoverAsync(id, ct))
                     return Results.NotFound();
 
                 book.FileDetails.CoverFileName = null;
@@ -434,43 +449,4 @@ public static class BooksEndpoints
         return routes;
     }
 
-    /// <summary>
-    /// Serves a cover file with an ETag and a long, revalidating cache lifetime.
-    ///
-    /// Without this the browser re-downloaded EVERY thumbnail on EVERY
-    /// navigation — measured on a single library -> book-detail navigation: 21
-    /// requests, all 200, zero 304s. That re-fetch is what made the book-detail
-    /// hero flash an empty dark band before its blurred cover art arrived.
-    ///
-    /// Cover files are immutable except when replaced, so they are safe to cache
-    /// hard. The ETag is derived from the file itself (length + last write), so a
-    /// replaced cover produces a new validator and can never be served stale past
-    /// the next revalidation. `stale-while-revalidate` lets the browser paint the
-    /// cached copy immediately and refresh in the background, so the hero never
-    /// waits on a round trip.
-    /// </summary>
-    private static IResult CachedImageFile(
-        HttpContext http,
-        string path,
-        string contentType,
-        string? downloadName = null
-    )
-    {
-        var file = new FileInfo(path);
-        var etag = new EntityTagHeaderValue(
-            $"\"{file.Length:x}-{file.LastWriteTimeUtc.Ticks:x}\""
-        );
-
-        http.Response.Headers["Cache-Control"] =
-            "public, max-age=86400, stale-while-revalidate=2592000";
-
-        return Results.File(
-            path,
-            contentType,
-            downloadName,
-            enableRangeProcessing: false,
-            lastModified: new DateTimeOffset(file.LastWriteTimeUtc, TimeSpan.Zero),
-            entityTag: etag
-        );
-    }
 }

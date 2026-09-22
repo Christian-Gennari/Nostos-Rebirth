@@ -328,7 +328,7 @@ public sealed class AcquisitionHarness : IDisposable
 
     public AcquisitionService CreateService(
         IProviderRegistry registry,
-        IFileStorageService? storageOverride = null,
+        IBookAssetStorage? storageOverride = null,
         IProviderContentDownloader? downloaderOverride = null,
         ILibraryService? libraryOverride = null)
     {

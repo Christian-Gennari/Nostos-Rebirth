@@ -6,64 +6,21 @@ using SixLabors.ImageSharp.Processing;
 
 namespace Nostos.Backend.Services;
 
-public class FileStorageService : IFileStorageService
+public class FileStorageService : IFileStorageService, IBookAssetStorage
 {
     private const int CopyBufferSize = 81920;
 
     private readonly string _root;
     private readonly ILogger<FileStorageService> _logger;
 
-    // Centralized allowed extensions
-    private readonly HashSet<string> _allowedBookExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".epub",
-        ".pdf",
-        ".txt",
-        ".mobi",
-        ".azw3",
-        // Audio formats
-        ".m4b",
-        ".m4a",
-        ".mp3",
-    };
-
-    private readonly HashSet<string> _allowedCoverExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".png",
-        ".jpg",
-        ".jpeg",
-    };
-
-    // Centralized MIME-to-extension mapping for upload validation
-    private static readonly Dictionary<string, string> MimeToExtension = new(
-        StringComparer.OrdinalIgnoreCase
-    )
-    {
-        ["application/epub+zip"] = ".epub",
-        ["application/pdf"] = ".pdf",
-        ["text/plain"] = ".txt",
-        ["audio/mpeg"] = ".mp3",
-        ["audio/mp4"] = ".m4a",
-        ["audio/x-m4a"] = ".m4a",
-        ["audio/x-m4b"] = ".m4b",
-        ["application/x-mobipocket-ebook"] = ".mobi",
-        ["application/octet-stream"] = "", // handled by extension fallback
-    };
+    private static readonly IReadOnlySet<string> AllowedBookExtensions = BookAssetFormats.BookExtensions;
+    private static readonly IReadOnlySet<string> AllowedCoverExtensions = BookAssetFormats.CoverExtensions;
 
     /// <summary>
-    /// Returns true if the file is an accepted book upload based on MIME type or file extension.
+    /// Compatibility wrapper. New callers should use <see cref="BookAssetFormats"/>.
     /// </summary>
-    public static bool IsAllowedUpload(string contentType, string fileName)
-    {
-        if (MimeToExtension.ContainsKey(contentType))
-            return true;
-
-        // Fallback: check extension for types like .m4b that may arrive as application/octet-stream
-        var ext = Path.GetExtension(fileName);
-        return ext.Equals(".m4b", StringComparison.OrdinalIgnoreCase)
-            || ext.Equals(".mobi", StringComparison.OrdinalIgnoreCase)
-            || ext.Equals(".azw3", StringComparison.OrdinalIgnoreCase);
-    }
+    public static bool IsAllowedUpload(string contentType, string fileName) =>
+        BookAssetFormats.IsAllowedUpload(contentType, fileName);
 
     /// <summary>
     /// Maps a file path to the correct Content-Type for download responses.
@@ -98,9 +55,7 @@ public class FileStorageService : IFileStorageService
         CancellationToken ct = default
     )
     {
-        var ext = Path.GetExtension(fileName);
-        if (!_allowedBookExtensions.Contains(ext))
-            throw new InvalidOperationException($"Unsupported file type: {ext}");
+        var ext = BookAssetFormats.RequireBookExtension(fileName);
 
         var bookFolder = BookFolder(bookId);
         Directory.CreateDirectory(bookFolder);
@@ -136,7 +91,7 @@ public class FileStorageService : IFileStorageService
     )
     {
         var ext = Path.GetExtension(fileName);
-        if (!_allowedBookExtensions.Contains(ext))
+        if (!AllowedBookExtensions.Contains(ext))
             throw new InvalidOperationException($"Unsupported file type: {ext}");
 
         if (!File.Exists(sourcePath))
@@ -185,6 +140,29 @@ public class FileStorageService : IFileStorageService
         return file is null ? null : new FileStream(file, FileMode.Open, FileAccess.Read);
     }
 
+    public Task<StoredAssetInfo?> GetBookFileInfoAsync(
+        Guid bookId,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var path = GetBookFileName(bookId);
+        return Task.FromResult(path is null ? null : InfoFromPath(path, MediaTypeMap.ForBookFile(path)));
+    }
+
+    public Task<StoredAssetRead?> OpenBookFileAsync(
+        Guid bookId,
+        StorageByteRange? range = null,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var path = GetBookFileName(bookId);
+        if (path is null)
+            return Task.FromResult<StoredAssetRead?>(null);
+
+        return Task.FromResult<StoredAssetRead?>(
+            OpenPath(path, MediaTypeMap.ForBookFile(path), range));
+    }
+
     public string? GetBookFileName(Guid bookId)
     {
         var folder = Path.Combine(_root, bookId.ToString());
@@ -193,7 +171,7 @@ public class FileStorageService : IFileStorageService
 
         return Directory
             .EnumerateFiles(folder)
-            .FirstOrDefault(f => _allowedBookExtensions.Contains(Path.GetExtension(f)));
+            .FirstOrDefault(f => AllowedBookExtensions.Contains(Path.GetExtension(f)));
     }
 
     public bool DeleteBookFile(Guid bookId)
@@ -213,6 +191,19 @@ public class FileStorageService : IFileStorageService
             Directory.Delete(bookFolder, true);
     }
 
+    public Task<bool> DeleteBookFileAsync(Guid bookId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(DeleteBookFile(bookId));
+    }
+
+    public Task DeleteBookFilesAsync(Guid bookId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        DeleteBookFiles(bookId);
+        return Task.CompletedTask;
+    }
+
     public async Task<string> SaveBookCoverAsync(Guid bookId, IFormFile file)
     {
         await using var stream = file.OpenReadStream();
@@ -226,9 +217,7 @@ public class FileStorageService : IFileStorageService
         CancellationToken ct = default
     )
     {
-        var ext = Path.GetExtension(fileName).ToLowerInvariant();
-        if (!_allowedCoverExtensions.Contains(ext))
-            throw new InvalidOperationException("Only PNG, JPG, or JPEG allowed.");
+        var ext = BookAssetFormats.RequireCoverExtension(fileName);
 
         var bookFolder = BookFolder(bookId);
         Directory.CreateDirectory(bookFolder);
@@ -273,7 +262,26 @@ public class FileStorageService : IFileStorageService
 
         return Directory
             .EnumerateFiles(folder, "cover.*")
-            .FirstOrDefault(f => _allowedCoverExtensions.Contains(Path.GetExtension(f)));
+            .FirstOrDefault(f => AllowedCoverExtensions.Contains(Path.GetExtension(f)));
+    }
+
+    public Task<StoredAssetInfo?> GetBookCoverInfoAsync(
+        Guid bookId,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var path = GetBookCoverPath(bookId);
+        return Task.FromResult(path is null ? null : InfoFromPath(path, MediaTypeMap.ForCover(path)));
+    }
+
+    public Task<StoredAssetRead?> OpenBookCoverAsync(
+        Guid bookId,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var path = GetBookCoverPath(bookId);
+        return Task.FromResult<StoredAssetRead?>(
+            path is null ? null : OpenPath(path, MediaTypeMap.ForCover(path), range: null));
     }
 
     /// <summary>
@@ -319,6 +327,28 @@ public class FileStorageService : IFileStorageService
         return thumbnailPath;
     }
 
+    public async Task<StoredAssetInfo?> GetBookCoverThumbnailInfoAsync(
+        Guid bookId,
+        int width,
+        CancellationToken ct = default)
+    {
+        var path = await GetBookCoverThumbnailPathAsync(bookId, width, ct);
+        return path is null
+            ? null
+            : InfoFromPath(path, "image/webp");
+    }
+
+    public async Task<StoredAssetRead?> OpenBookCoverThumbnailAsync(
+        Guid bookId,
+        int width,
+        CancellationToken ct = default)
+    {
+        var path = await GetBookCoverThumbnailPathAsync(bookId, width, ct);
+        return path is null
+            ? null
+            : OpenPath(path, "image/webp", range: null);
+    }
+
     public bool DeleteCover(Guid bookId)
     {
         var coverPath = GetBookCoverPath(bookId);
@@ -327,6 +357,46 @@ public class FileStorageService : IFileStorageService
 
         File.Delete(coverPath);
         return true;
+    }
+
+    public Task<bool> DeleteCoverAsync(Guid bookId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(DeleteCover(bookId));
+    }
+
+    private static StoredAssetInfo InfoFromPath(string path, string contentType)
+    {
+        var file = new FileInfo(path);
+        return new StoredAssetInfo(
+            FileName: file.Name,
+            ContentType: contentType,
+            Length: file.Length,
+            EntityTag: $"\"{file.Length:x}-{file.LastWriteTimeUtc.Ticks:x}\"",
+            LastModified: new DateTimeOffset(file.LastWriteTimeUtc, TimeSpan.Zero));
+    }
+
+    private static StoredAssetRead OpenPath(
+        string path,
+        string contentType,
+        StorageByteRange? range)
+    {
+        var info = InfoFromPath(path, contentType);
+        if (range is { } requested && requested.EndInclusive >= info.Length)
+            throw new ArgumentOutOfRangeException(nameof(range));
+
+        var stream = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            CopyBufferSize,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+        if (range is { } actual)
+            stream.Seek(actual.Start, SeekOrigin.Begin);
+
+        return new StoredAssetRead(info, stream, range);
     }
 
     private string BookFolder(Guid bookId) => Path.Combine(_root, bookId.ToString());
@@ -357,7 +427,7 @@ public class FileStorageService : IFileStorageService
     {
         foreach (var existingFile in Directory.EnumerateFiles(bookFolder))
         {
-            if (!_allowedBookExtensions.Contains(Path.GetExtension(existingFile)))
+            if (!AllowedBookExtensions.Contains(Path.GetExtension(existingFile)))
                 continue;
 
             if (string.Equals(existingFile, except, StringComparison.Ordinal))

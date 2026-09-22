@@ -225,23 +225,76 @@ public sealed class AcquisitionServiceTests
         Directory.GetDirectories(h.WorkingRootDir).Should().BeEmpty();
     }
 
-    private sealed class FailingStorageDecorator(IFileStorageService inner) : IFileStorageService
+    private sealed class FailingStorageDecorator(IBookAssetStorage inner) : IBookAssetStorage
     {
-        public string StorageRoot => inner.StorageRoot;
-        public Task<string> SaveBookFileAsync(Guid bookId, Microsoft.AspNetCore.Http.IFormFile file) => inner.SaveBookFileAsync(bookId, file);
-        public Task<string> SaveBookFileAsync(Guid bookId, Stream content, string fileName, CancellationToken ct = default) => inner.SaveBookFileAsync(bookId, content, fileName, ct);
-        public FileStream? GetBookFile(Guid bookId) => inner.GetBookFile(bookId);
-        public string? GetBookFileName(Guid bookId) => inner.GetBookFileName(bookId);
-        public bool DeleteBookFile(Guid bookId) => inner.DeleteBookFile(bookId);
-        public void DeleteBookFiles(Guid bookId) => inner.DeleteBookFiles(bookId);
-        public Task<string> SaveBookCoverAsync(Guid bookId, Microsoft.AspNetCore.Http.IFormFile file) => inner.SaveBookCoverAsync(bookId, file);
-        public Task<string> SaveBookCoverAsync(Guid bookId, Stream content, string fileName, CancellationToken ct = default) => inner.SaveBookCoverAsync(bookId, content, fileName, ct);
-        public string? GetBookCoverPath(Guid bookId) => inner.GetBookCoverPath(bookId);
-        public Task<string?> GetBookCoverThumbnailPathAsync(Guid bookId, int width, CancellationToken ct = default) => inner.GetBookCoverThumbnailPathAsync(bookId, width, ct);
-        public bool DeleteCover(Guid bookId) => inner.DeleteCover(bookId);
+        public Task<string> SaveBookFileAsync(
+            Guid bookId,
+            Stream content,
+            string fileName,
+            CancellationToken ct = default) =>
+            inner.SaveBookFileAsync(bookId, content, fileName, ct);
 
-        public Task<string> AdoptBookFileAsync(Guid bookId, string sourcePath, string fileName, CancellationToken ct = default) =>
+        public Task<string> AdoptBookFileAsync(
+            Guid bookId,
+            string sourcePath,
+            string fileName,
+            CancellationToken ct = default) =>
             throw new IOException("Simulated storage disk failure during adopt.");
+
+        public Task<StoredAssetInfo?> GetBookFileInfoAsync(
+            Guid bookId,
+            CancellationToken ct = default) =>
+            inner.GetBookFileInfoAsync(bookId, ct);
+
+        public Task<StoredAssetRead?> OpenBookFileAsync(
+            Guid bookId,
+            StorageByteRange? range = null,
+            CancellationToken ct = default) =>
+            inner.OpenBookFileAsync(bookId, range, ct);
+
+        public Task<bool> DeleteBookFileAsync(
+            Guid bookId,
+            CancellationToken ct = default) =>
+            inner.DeleteBookFileAsync(bookId, ct);
+
+        public Task DeleteBookFilesAsync(
+            Guid bookId,
+            CancellationToken ct = default) =>
+            inner.DeleteBookFilesAsync(bookId, ct);
+
+        public Task<string> SaveBookCoverAsync(
+            Guid bookId,
+            Stream content,
+            string fileName,
+            CancellationToken ct = default) =>
+            inner.SaveBookCoverAsync(bookId, content, fileName, ct);
+
+        public Task<StoredAssetInfo?> GetBookCoverInfoAsync(
+            Guid bookId,
+            CancellationToken ct = default) =>
+            inner.GetBookCoverInfoAsync(bookId, ct);
+
+        public Task<StoredAssetRead?> OpenBookCoverAsync(
+            Guid bookId,
+            CancellationToken ct = default) =>
+            inner.OpenBookCoverAsync(bookId, ct);
+
+        public Task<StoredAssetInfo?> GetBookCoverThumbnailInfoAsync(
+            Guid bookId,
+            int width,
+            CancellationToken ct = default) =>
+            inner.GetBookCoverThumbnailInfoAsync(bookId, width, ct);
+
+        public Task<StoredAssetRead?> OpenBookCoverThumbnailAsync(
+            Guid bookId,
+            int width,
+            CancellationToken ct = default) =>
+            inner.OpenBookCoverThumbnailAsync(bookId, width, ct);
+
+        public Task<bool> DeleteCoverAsync(
+            Guid bookId,
+            CancellationToken ct = default) =>
+            inner.DeleteCoverAsync(bookId, ct);
     }
 
     [Fact]
