@@ -5,7 +5,11 @@
     (click)="closeSidebars()"
   ></div>
 
-  <aside class="sidebar-left" [class.open]="showFileSidebar()">
+  <aside
+    class="sidebar-left"
+    [class.open]="showFileSidebar()"
+    [style.width.px]="!isMobile() && showFileSidebar() ? leftSidebarWidth() : null"
+  >
     <div class="sidebar-header">
       <div class="sidebar-title-row">
         <h2>Studio</h2>
@@ -33,6 +37,19 @@
         (nodeRenameCancelled)="cancelRename()"
       ></app-flat-tree>
     </div>
+
+    <div
+      class="sidebar-resizer"
+      role="separator"
+      aria-orientation="vertical"
+      tabindex="0"
+      [attr.aria-label]="'Resize document sidebar'"
+      [attr.aria-valuemin]="220"
+      [attr.aria-valuemax]="leftSidebarMaxWidth()"
+      [attr.aria-valuenow]="leftSidebarWidth()"
+      (pointerdown)="startLeftSidebarResize($event)"
+      (keydown)="resizeLeftSidebarWithKeyboard($event)"
+    ></div>
   </aside>
 
   <main class="editor-pane">
