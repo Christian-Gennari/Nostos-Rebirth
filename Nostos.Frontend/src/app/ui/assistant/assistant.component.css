@@ -1048,13 +1048,19 @@
     min-height: var(--control-h-touch);
   }
 
+  /* Keyboard shortcuts are desktop affordances. The composer hint is hidden
+     below as well; keep the collapsed trigger consistent on every phone
+     surface instead of only hiding its shortcut in Reader mode. */
+  .trigger-shortcut {
+    display: none;
+  }
+
   .assistant-trigger.reader-surface {
     right: 12px;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 11px);
   }
 
-  .assistant-trigger.reader-surface .trigger-label,
-  .assistant-trigger.reader-surface .trigger-shortcut {
+  .assistant-trigger.reader-surface .trigger-label {
     display: none;
   }
 
