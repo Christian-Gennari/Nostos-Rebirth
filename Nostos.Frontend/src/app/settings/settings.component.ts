@@ -205,8 +205,22 @@ export class SettingsComponent implements OnInit, OnDestroy {
   /** The stored capture-processing choice, exposed to the Reading assistant card. */
   readonly captureProcessingMode = this.assistantSettings.captureProcessingMode;
 
-  /** The three modes in presentation order, with the labels the select shows. */
+  /** The three modes in presentation order, with the labels the dropdown shows. */
   readonly processingModes = PROCESSING_MODES;
+
+  readonly backupIntervalOptions = [
+    { value: '6', label: 'Every 6 hours' },
+    { value: '12', label: 'Every 12 hours' },
+    { value: '24', label: 'Daily' },
+    { value: '168', label: 'Weekly' },
+  ] satisfies readonly DropdownOption[];
+
+  readonly maxBackupOptions = [
+    { value: '3', label: '3' },
+    { value: '5', label: '5' },
+    { value: '10', label: '10' },
+    { value: '20', label: '20' },
+  ] satisfies readonly DropdownOption[];
 
   /** True when the server did not answer the capture setting GET. */
   readonly assistantSettingsFailed = this.assistantSettings.loadFailed;
