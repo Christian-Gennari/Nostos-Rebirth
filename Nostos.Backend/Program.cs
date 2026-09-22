@@ -241,7 +241,19 @@ builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 
 // Services Dependency Injection
-builder.Services.AddSingleton<IFileStorageService, FileStorageService>();
+if (deployment.Mode == DeploymentMode.SelfHosted)
+{
+    builder.Services.AddSingleton<FileStorageService>();
+    builder.Services.AddSingleton<IFileStorageService>(
+        sp => sp.GetRequiredService<FileStorageService>());
+    builder.Services.AddSingleton<IBookAssetStorage>(
+        sp => sp.GetRequiredService<FileStorageService>());
+}
+else
+{
+    builder.Services.AddNostosCloudObjectStorage(builder.Configuration);
+}
+
 builder.Services.AddSingleton<BackupSettingsProvider>();
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient(BookLookupService.HttpClientName, client =>
@@ -256,7 +268,11 @@ builder.Services.AddScoped<LibraryReceiptRetentionService>();
 builder.Services.AddScoped<MediaMetadataService>();
 builder.Services.AddScoped<NoteProcessorService>();
 builder.Services.AddScoped<INoteService, NoteService>();
-builder.Services.AddScoped<IBackupService, BackupService>();
+if (deployment.Mode == DeploymentMode.SelfHosted)
+{
+    builder.Services.AddScoped<IBackupService, BackupService>();
+}
+
 builder.Services.AddScoped<IBookRepository, BookRepository>();
 builder.Services.AddScoped<INoteRepository, NoteRepository>();
 builder.Services.AddScoped<IConceptRepository, ConceptRepository>();
@@ -346,7 +362,10 @@ builder.Services.AddSingleton<IAcquisitionJobManager>(sp => sp.GetRequiredServic
 builder.Services.AddHostedService(sp => sp.GetRequiredService<AcquisitionJobManager>());
 builder.Services.AddHostedService<AcquisitionReconciliationWorker>();
 builder.Services.AddHostedService<ConceptCleanupWorker>();
-builder.Services.AddHostedService<BackupWorker>();
+if (deployment.Mode == DeploymentMode.SelfHosted)
+{
+    builder.Services.AddHostedService<BackupWorker>();
+}
 builder.Services.AddHostedService<LibraryReceiptRetentionWorker>();
 
 var app = builder.Build();
@@ -507,7 +526,10 @@ if (deployment.Mode == DeploymentMode.Cloud)
     app.MapCloudProvisioningEndpoints();
 }
 app.MapOpdsEndpoints(opdsOptions);
-app.MapBackupEndpoints();
+if (deployment.Mode == DeploymentMode.SelfHosted)
+{
+    app.MapBackupEndpoints();
+}
 
 // --- MCP STREAMABLE HTTP ENDPOINT ---
 if (mcpOptions.Enabled)
