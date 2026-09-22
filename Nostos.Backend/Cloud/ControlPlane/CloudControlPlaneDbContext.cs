@@ -172,10 +172,11 @@ public sealed class CloudControlPlaneBootstrapper(
             .ToListAsync(cancellationToken);
     }
 
-    private static Task EnsureCommercialSchemaAsync(
+    private static async Task EnsureCommercialSchemaAsync(
         CloudControlPlaneDbContext db,
-        CancellationToken cancellationToken) =>
-        db.Database.ExecuteSqlRawAsync(
+        CancellationToken cancellationToken)
+    {
+        await db.Database.ExecuteSqlRawAsync(
             """
             CREATE TABLE IF NOT EXISTS "CloudSubscriptions" (
                 "AccountId" uuid NOT NULL,
@@ -212,4 +213,5 @@ public sealed class CloudControlPlaneBootstrapper(
                 ON "CloudSubscriptionAudit" ("AccountId", "ChangedAtUtc");
             """,
             cancellationToken);
+    }
 }
