@@ -92,6 +92,8 @@ public sealed class AssistantOrchestrator(
     public const string IncompleteTurnReply =
         "I reached this turn's execution limit before I could finish. Send another message to continue.";
 
+    public const string ApprovalRequiredReply = "I've prepared a plan for your approval.";
+
     /// <summary>
     /// The one question a capture asks when the app cannot know the book: no book
     /// is open and the user has not named one. Nothing is saved until it is
@@ -330,27 +332,41 @@ public sealed class AssistantOrchestrator(
         AssistantPendingPlanDto? pendingPlan = null;
         if (planSteps.Count > 0)
         {
-            var summary = string.IsNullOrWhiteSpace(finalContent)
-                ? string.Join("; ", planSteps.Select(step => step.Summary))
-                : finalContent.Trim();
+            // Describe the server-held proposal, not model narration that might
+            // incorrectly imply the PlanAndAct work has already run.
+            var summary = string.Join("; ", planSteps.Select(step => step.Summary));
 
             var stored = plans.Create(conversationKey, request.IdempotencyKey, summary, planSteps);
             pendingPlan = ToPendingPlanDto(stored);
         }
 
-        // Prefer the last non-empty assistant content from anywhere in the loop:
-        // a model that narrated a tool call and then ran out of iterations still
-        // said something. Only when it said nothing at all does the turn report
-        // that it could not finish, rather than returning an empty reply — and
-        // NOT when a capture succeeded, because that turn already has its own
-        // confirmation, built from what the app actually did. Without this
-        // exception the transcript would read "Saved to X." followed by "I could
-        // not finish that."
-        var reply = lastAssistantContent?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(reply) && acknowledgement is null)
+        // Server-known boundaries outrank model narration. A provider can attach
+        // prose such as "Saved" or "Done" to a tool call even when Nostos knows
+        // it still needs input/approval or stopped at an execution guard.
+        var stoppedByExecutionGuard = stopReason is
+            AssistantTurnStopReason.SafetyCeiling or
+            AssistantTurnStopReason.RepeatedToolLoop;
+
+        string reply;
+        if (anchorPrompt is not null)
         {
-            reply = anchorPrompt?.Question
-                ?? (pendingPlan is not null ? "I've prepared a plan for your approval." : IncompleteTurnReply);
+            reply = anchorPrompt.Question;
+        }
+        else if (pendingPlan is not null)
+        {
+            reply = ApprovalRequiredReply;
+        }
+        else if (stoppedByExecutionGuard && acknowledgement is null)
+        {
+            reply = IncompleteTurnReply;
+        }
+        else
+        {
+            reply = lastAssistantContent?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(reply) && acknowledgement is null)
+            {
+                reply = IncompleteTurnReply;
+            }
         }
 
         // The conversational reply is the only text the guard may rewrite. Note
