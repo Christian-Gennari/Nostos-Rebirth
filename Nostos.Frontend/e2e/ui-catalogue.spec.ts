@@ -43,7 +43,11 @@ test.describe('Nostos UI v1 catalogue', () => {
 
         await expect(page.locator('button.nostos-button--primary').first()).toBeVisible();
         await expect(page.locator('button.icon-btn')).toHaveCount(6);
-        await expect(page.locator('.nostos-form-control')).toHaveCount(7);
+        // 6, not 7: `feat(ui): add canonical dropdown primitive` replaced a native
+        // `<select class="nostos-form-control">` with `<app-dropdown>`, so the
+        // catalogue renders one fewer form control. The count was stale on main
+        // before this branch (verified against the running production build).
+        await expect(page.locator('.nostos-form-control')).toHaveCount(6);
         await expect(page.locator('.nostos-switch')).toHaveCount(3);
         await expect(page.locator('.nostos-chip')).toHaveCount(4);
         await expect(page.locator('.nostos-badge')).toHaveCount(4);
