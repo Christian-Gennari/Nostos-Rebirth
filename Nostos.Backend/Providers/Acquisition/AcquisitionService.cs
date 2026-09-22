@@ -30,7 +30,7 @@ public interface IAcquisitionService
 public sealed class AcquisitionService(
     IProviderRegistry registry,
     IProviderContentDownloader downloader,
-    IFileStorageService storage,
+    IBookAssetStorage storage,
     ILibraryService library,
     IDbContextFactory<NostosDbContext> contexts,
     IWebHostEnvironment environment,
@@ -176,8 +176,14 @@ public sealed class AcquisitionService(
         progress.Report(new AcquisitionProgress("downloading", 10, BookId: bookId));
 
         // --- 7. Acquire into an isolated staging directory -----------------
+        var localBooksRoot = storage is IFileStorageService localStorage
+            ? localStorage.StorageRoot
+            : null;
         var workingRoot = Path.Combine(
-            AcquisitionOptions.ResolveWorkingRoot(environment.ContentRootPath, storage.StorageRoot, _options),
+            AcquisitionOptions.ResolveWorkingRoot(
+                environment.ContentRootPath,
+                localBooksRoot,
+                _options),
             Guid.NewGuid().ToString("N"));
 
         Directory.CreateDirectory(workingRoot);
@@ -483,8 +489,10 @@ public sealed class AcquisitionService(
     {
         progress.Report(new AcquisitionProgress("importing", 94, BookId: bookId));
 
-        // Put the file in place. Adopting the staged artifact is a rename on the
-        // same volume, so the last two steps are both local and quick.
+        // Commit the caller-owned staging artifact into durable storage. The
+        // local provider can turn this into a rename; Cloud streams it directly
+        // to object storage and deletes the scratch file only after success.
+        var storedBytes = new FileInfo(artifact.FilePath).Length;
         string? staged;
         try
         {
@@ -537,7 +545,7 @@ public sealed class AcquisitionService(
         var book = DataOf(await library.GetBookAsync(bookId, ct)) as BookDto;
         logger.LogInformation(
             "Acquired {Provider}/{ExternalId} ({AssetId}) into book {BookId} ({Bytes} bytes).",
-            plan.ProviderId, plan.ExternalId, plan.Asset.Id, bookId, new FileInfo(staged).Length);
+            plan.ProviderId, plan.ExternalId, plan.Asset.Id, bookId, storedBytes);
 
         return AcquisitionResult.Acquired(bookId, book, $"Imported into library: {book?.Title ?? plan.Metadata.Title}.");
     }
@@ -688,7 +696,7 @@ public sealed class AcquisitionService(
             {
                 // Only the primary file: a matched book may have had a cover
                 // before this acquisition, and rollback must not take it with it.
-                storage.DeleteBookFile(bookId);
+                await storage.DeleteBookFileAsync(bookId, CancellationToken.None);
             }
             catch (Exception ex)
             {
