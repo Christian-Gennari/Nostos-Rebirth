@@ -516,3 +516,7 @@ Nostos.Frontend/.map-audit-out
 Nostos.Frontend/tools/evidence/
 Nostos.Frontend/tools/probe-out/
 Nostos.Frontend/e2e/visual-evidence/brain-cohesion/
+
+# Turn budget spike measurement output
+/measurement-out/
+

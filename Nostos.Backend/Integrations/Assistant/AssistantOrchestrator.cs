@@ -89,7 +89,10 @@ public sealed class AssistantOrchestrator(
     /// "that", not "what you asked": roughly half of these turns are captures,
     /// where the user asked nothing and simply gave the assistant something.
     /// </summary>
-    public const string IncompleteTurnReply = "I could not finish that.";
+    public const string IncompleteTurnReply =
+        "I reached this turn's execution limit before I could finish. Send another message to continue.";
+
+    public const string ApprovalRequiredReply = "I've prepared a plan for your approval.";
 
     /// <summary>
     /// The one question a capture asks when the app cannot know the book: no book
@@ -133,6 +136,10 @@ public sealed class AssistantOrchestrator(
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var executionMeter = new AssistantExecutionMeter();
+        var toolLoopDetector = new AssistantToolLoopDetector();
+        var stopReason = AssistantTurnStopReason.SafetyCeiling;
+
         var conversationKey = ConversationKey(request.ClientId);
         var capabilityByName = registry.All.ToDictionary(c => c.Name, StringComparer.Ordinal);
         var messages = _conversation.BuildConversation(request);
@@ -156,9 +163,72 @@ public sealed class AssistantOrchestrator(
         var iterations = Math.Max(1, options.MaxToolIterations);
         for (var iteration = 0; iteration < iterations; iteration++)
         {
-            var completion = await llm.CompleteAsync(
-                new LlmCompletionRequest(messages, tools, MaxResponseTokens),
-                ct);
+            // Per-turn execution ceilings (#406). Token/cost are evaluated before
+            // spending another upstream call. Wall clock also supplies the provider
+            // call with the remaining turn deadline, so one slow in-flight call
+            // cannot run past the turn budget and fall through to the 90 s transport
+            // timeout.
+            var usageBeforeCall = executionMeter.Snapshot();
+            var exceededCeiling = AssistantExecutionBudget.ExceededCeiling(usageBeforeCall, options);
+            if (exceededCeiling is not null)
+            {
+                logger.LogDebug(
+                    "Assistant turn stopped at the {Ceiling} execution ceiling.",
+                    exceededCeiling);
+                stopReason = AssistantTurnStopReason.SafetyCeiling;
+                break;
+            }
+
+            CancellationTokenSource? turnDeadline = null;
+            var upstreamCancellation = ct;
+            if (options.MaxTurnElapsedMilliseconds > 0)
+            {
+                var remainingMilliseconds =
+                    options.MaxTurnElapsedMilliseconds - usageBeforeCall.ElapsedMilliseconds;
+
+                if (remainingMilliseconds <= 0)
+                {
+                    stopReason = AssistantTurnStopReason.SafetyCeiling;
+                    break;
+                }
+
+                turnDeadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                turnDeadline.CancelAfter(TimeSpan.FromMilliseconds(remainingMilliseconds));
+                upstreamCancellation = turnDeadline.Token;
+            }
+
+            executionMeter.RecordUpstreamRequest();
+
+            LlmCompletion completion;
+            try
+            {
+                completion = await llm.CompleteAsync(
+                    new LlmCompletionRequest(messages, tools, MaxResponseTokens),
+                    upstreamCancellation);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                LogExecutionMetrics(executionMeter.Finish(AssistantTurnStopReason.Cancelled));
+                throw;
+            }
+            catch (OperationCanceledException) when (turnDeadline?.IsCancellationRequested == true)
+            {
+                logger.LogDebug(
+                    "Assistant turn stopped at the wall-clock execution ceiling during an upstream call.");
+                stopReason = AssistantTurnStopReason.SafetyCeiling;
+                break;
+            }
+            catch (LlmException)
+            {
+                LogExecutionMetrics(executionMeter.Finish(AssistantTurnStopReason.ProviderError));
+                throw;
+            }
+            finally
+            {
+                turnDeadline?.Dispose();
+            }
+
+            executionMeter.RecordCompletion(completion);
 
             finalContent = completion.Content;
             if (!string.IsNullOrWhiteSpace(completion.Content))
@@ -170,6 +240,46 @@ public sealed class AssistantOrchestrator(
             {
                 // A plain answer (including the pool's empty-content/"length"
                 // outcome, which is data: it is returned as-is, never a 500).
+                stopReason = AssistantTurnStopReason.Completed;
+                break;
+            }
+
+            // The in-process Nostos tools are deterministic for an unchanged
+            // request. If the model asks for the same tool batch with equivalent
+            // arguments on the immediately following round, executing it again
+            // adds no information and can duplicate writes because each round
+            // intentionally has a distinct receipt key.
+            if (toolLoopDetector.IsImmediateRepeat(completion.ToolCalls))
+            {
+                stopReason = AssistantTurnStopReason.RepeatedToolLoop;
+                break;
+            }
+
+            // Approval is a boundary for the whole model response, not just one
+            // entry in its tool-call list. Calls in the same completion cannot
+            // depend on each other's results, so once any PlanAndAct proposal is
+            // present there is no legitimate reason to execute ordinary actions
+            // beside it before the user has approved the destructive plan.
+            var approvalCalls = completion.ToolCalls
+                .Select(call => new
+                {
+                    Call = call,
+                    Capability = capabilityByName.GetValueOrDefault(call.Name),
+                })
+                .Where(item => item.Capability?.Trust == AssistantTrustClass.PlanAndAct)
+                .ToList();
+
+            if (approvalCalls.Count > 0)
+            {
+                foreach (var item in approvalCalls)
+                {
+                    planSteps.Add(new AssistantPlanStep(
+                        item.Capability!.Name,
+                        item.Capability.Summary,
+                        item.Call.ArgumentsJson));
+                }
+
+                stopReason = AssistantTurnStopReason.ApprovalRequired;
                 break;
             }
 
@@ -194,24 +304,6 @@ public sealed class AssistantOrchestrator(
                     {
                         status = "unknown_capability",
                         message = $"No assistant capability named '{call.Name}' exists.",
-                    })));
-                    continue;
-                }
-
-                // PlanAndAct is never executed inline. The call becomes an
-                // ordered plan step; nothing is touched until approval.
-                if (capability.Trust == AssistantTrustClass.PlanAndAct)
-                {
-                    planSteps.Add(new AssistantPlanStep(
-                        capability.Name,
-                        capability.Summary,
-                        call.ArgumentsJson));
-
-                    messages.Add(LlmMessage.Tool(call.Id, ToolJson(new
-                    {
-                        status = "pending_approval",
-                        capability = capability.Name,
-                        message = "Recorded as a plan step. It runs only after the user explicitly approves the plan.",
                     })));
                     continue;
                 }
@@ -274,8 +366,10 @@ public sealed class AssistantOrchestrator(
             // user's answer arrives as the next turn's context anchor.
             if (anchorPrompt is not null)
             {
+                stopReason = AssistantTurnStopReason.UserInputRequired;
                 break;
             }
+
         }
 
         // A PlanAndAct call is only a proposal until the user approves it. A
@@ -283,27 +377,41 @@ public sealed class AssistantOrchestrator(
         AssistantPendingPlanDto? pendingPlan = null;
         if (planSteps.Count > 0)
         {
-            var summary = string.IsNullOrWhiteSpace(finalContent)
-                ? string.Join("; ", planSteps.Select(step => step.Summary))
-                : finalContent.Trim();
+            // Describe the server-held proposal, not model narration that might
+            // incorrectly imply the PlanAndAct work has already run.
+            var summary = string.Join("; ", planSteps.Select(step => step.Summary));
 
             var stored = plans.Create(conversationKey, request.IdempotencyKey, summary, planSteps);
             pendingPlan = ToPendingPlanDto(stored);
         }
 
-        // Prefer the last non-empty assistant content from anywhere in the loop:
-        // a model that narrated a tool call and then ran out of iterations still
-        // said something. Only when it said nothing at all does the turn report
-        // that it could not finish, rather than returning an empty reply — and
-        // NOT when a capture succeeded, because that turn already has its own
-        // confirmation, built from what the app actually did. Without this
-        // exception the transcript would read "Saved to X." followed by "I could
-        // not finish that."
-        var reply = lastAssistantContent?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(reply) && acknowledgement is null)
+        // Server-known boundaries outrank model narration. A provider can attach
+        // prose such as "Saved" or "Done" to a tool call even when Nostos knows
+        // it still needs input/approval or stopped at an execution guard.
+        var stoppedByExecutionGuard = stopReason is
+            AssistantTurnStopReason.SafetyCeiling or
+            AssistantTurnStopReason.RepeatedToolLoop;
+
+        string reply;
+        if (anchorPrompt is not null)
         {
-            reply = anchorPrompt?.Question
-                ?? (pendingPlan is not null ? "I've prepared a plan for your approval." : IncompleteTurnReply);
+            reply = anchorPrompt.Question;
+        }
+        else if (pendingPlan is not null)
+        {
+            reply = ApprovalRequiredReply;
+        }
+        else if (stoppedByExecutionGuard && acknowledgement is null)
+        {
+            reply = IncompleteTurnReply;
+        }
+        else
+        {
+            reply = lastAssistantContent?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(reply) && acknowledgement is null)
+            {
+                reply = IncompleteTurnReply;
+            }
         }
 
         // The conversational reply is the only text the guard may rewrite. Note
@@ -320,6 +428,8 @@ public sealed class AssistantOrchestrator(
             reply = AssistantIdentityGuard.Apply(reply);
         }
 
+        LogExecutionMetrics(executionMeter.Finish(stopReason));
+
         logger.LogDebug(
             "Assistant turn handled: {Suggestions} suggestion(s), plan {HasPlan}, anchor prompt {HasPrompt}.",
             suggestions.Count,
@@ -334,6 +444,29 @@ public sealed class AssistantOrchestrator(
             pendingPlan,
             capturedNoteId,
             executedCapabilities);
+    }
+
+    private void LogExecutionMetrics(AssistantExecutionMetrics metrics)
+    {
+        // Content-free by design: this is safe to promote into Cloud usage
+        // accounting later without storing prompts, replies, tool arguments or
+        // private library results.
+        logger.LogDebug(
+            "Assistant turn execution: {UpstreamCalls} upstream call(s), {ToolCalls} tool call(s), " +
+            "{ToolLoopIterations} tool-loop iteration(s), prompt tokens {PromptTokens}, " +
+            "output tokens {OutputTokens}, thinking tokens {ThinkingTokens}, " +
+            "reported total tokens {ReportedTotalTokens}, elapsed {ElapsedMilliseconds} ms, " +
+            "stop {StopReason}, provider finish {ProviderFinishReason}.",
+            metrics.UpstreamCallCount,
+            metrics.ToolCallCount,
+            metrics.ToolLoopIterations,
+            metrics.PromptTokens,
+            metrics.OutputTokens,
+            metrics.ThinkingTokens,
+            metrics.ReportedTotalTokens,
+            metrics.ElapsedMilliseconds,
+            metrics.StopReason,
+            metrics.ProviderFinishReason ?? "(none)");
     }
 
     // ------------------------------------------------------------------

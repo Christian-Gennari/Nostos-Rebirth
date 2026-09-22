@@ -58,6 +58,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
 
         response.Acknowledgement.Should().NotBeNullOrWhiteSpace();
         response.Acknowledgement.Should().Contain("The Magic Mountain");
+        h.Llm.CallCount.Should().Be(2);
 
         await using var db = await h.Factory.CreateDbContextAsync();
         var note = await db.Notes.AsNoTracking().SingleAsync();
@@ -444,8 +445,28 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
             Context(surface: "second-brain", route: "/second-brain")));
 
         response.Suggestions.Should().Contain(s => s.Kind == "concept" && s.Label == "Seeded Concept");
+        h.Llm.CallCount.Should().Be(2);
 
         (await StoreSnapshotAsync(h)).Should().BeEquivalentTo(before);
+    }
+
+    [Fact]
+    public async Task Library_lookup_uses_one_tool_round_and_a_final_response()
+    {
+        var h = CreateHarness();
+        await SeedCollectionAsync(h, "Philosophy");
+
+        h.Llm
+            .CallsTool("library_list_collections")
+            .Returns("You have a Philosophy collection.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "What collections do I have?",
+            Context(surface: "library", route: "/library")));
+
+        response.Reply.Should().Contain("Philosophy");
+        response.ExecutedCapabilities.Should().BeEmpty();
+        h.Llm.CallCount.Should().Be(2);
     }
 
     // ------------------------------------------------------------------
@@ -481,6 +502,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         response.Suggestions.Should().OnlyContain(s => s.Kind == "concept");
         response.Suggestions.Should().HaveCountLessThanOrEqualTo(AssistantOrchestrator.MaxConceptSuggestions);
         response.Suggestions.Select(s => s.Label).Should().BeSubsetOf(["Mountains", "The Alps"]);
+        h.Llm.CallCount.Should().Be(3);
 
         // Suggesting is not linking: neither the note nor any concept changed.
         (await StoreSnapshotAsync(h)).Should().BeEquivalentTo(before);
@@ -548,6 +570,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         response.ExecutedCapabilities.Should().Equal(
             "library_create_collection",
             "library_rename_collection");
+        h.Llm.CallCount.Should().Be(4);
 
         await using var db = await h.Factory.CreateDbContextAsync();
         var names = await db.Collections.AsNoTracking()
@@ -670,9 +693,16 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var h = CreateHarness();
         var collection = await SeedCollectionAsync(h, "Old Collection");
 
-        h.Llm
-            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{collection.Id}}"}""")
-            .Returns("I can remove Old Collection after you approve the deletion.");
+        // Model narration is not execution truth: even if it claims completion
+        // beside a destructive tool call, the server must expose only a pending
+        // plan until the user approves it.
+        h.Llm.Enqueue(new LlmCompletion(
+            "Done, I deleted it.",
+            "tool_calls",
+            [new LlmToolCall(
+                "delete",
+                "library_delete_collection",
+                JsonSerializer.Serialize(new { collectionId = collection.Id }))]));
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
             "Remove my old collection.",
@@ -682,8 +712,46 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         response.PendingPlan!.Steps.Should().ContainSingle()
             .Which.Capability.Should().Be("library_delete_collection");
         response.PendingPlan.ApprovalToken.Should().NotBeNullOrWhiteSpace();
+        response.PendingPlan.Summary.Should().NotContain("Done");
+        response.Reply.Should().Be(AssistantOrchestrator.ApprovalRequiredReply);
+        h.Llm.CallCount.Should().Be(1);
 
         (await CollectionCountAsync(h)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Approval_required_in_a_batch_prevents_sibling_actions_from_executing()
+    {
+        var h = CreateHarness();
+        var collection = await SeedCollectionAsync(h, "Delete me");
+
+        h.Llm.Enqueue(new LlmCompletion(
+            null,
+            "tool_calls",
+            [
+                new LlmToolCall(
+                    "delete",
+                    "library_delete_collection",
+                    JsonSerializer.Serialize(new { collectionId = collection.Id })),
+                new LlmToolCall(
+                    "create",
+                    "library_create_collection",
+                    """{"name":"Must not exist yet"}"""),
+            ]));
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Delete the old collection and create a replacement.",
+            Context(surface: "library", route: "/library")));
+
+        response.PendingPlan.Should().NotBeNull();
+        response.PendingPlan!.Steps.Should().ContainSingle()
+            .Which.Capability.Should().Be("library_delete_collection");
+        response.ExecutedCapabilities.Should().BeEmpty();
+        h.Llm.CallCount.Should().Be(1);
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.Collections.AsNoTracking().Select(item => item.Name).ToListAsync())
+            .Should().Equal("Delete me");
     }
 
     [Fact]
@@ -733,9 +801,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
 
         h.Llm
             .CallsTool("library_delete_collection", $$"""{"collectionId":"{{firstTarget.Id}}"}""")
-            .Returns("First deletion is ready for approval.")
-            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{secondTarget.Id}}"}""")
-            .Returns("Second deletion is ready for approval.");
+            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{secondTarget.Id}}"}""");
 
         var first = await h.Orchestrator.HandleTurnAsync(Turn(
             "Delete First target.", Context(surface: "library", route: "/library")));
@@ -836,7 +902,10 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var h = CreateHarness();
         var book = await SeedBookAsync(h);
 
-        h.Llm.CallsTool("notes_capture", $$"""{"bookId":"{{book.Id}}","content":"A thought"}""");
+        h.Llm.CallsTool(
+            "notes_capture",
+            $$"""{"bookId":"{{book.Id}}","content":"A thought"}""",
+            content: "Saved.");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
             "Remember this.",
@@ -848,12 +917,10 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         response.AnchorPrompt.Should().NotBeNull();
         response.AnchorPrompt!.Kind.Should().Be("external_audio_timestamp");
         response.AnchorPrompt.Question.Should().Be("What's the current timestamp?");
+        response.Reply.Should().Be("What's the current timestamp?");
+        h.Llm.CallCount.Should().Be(1);
         (await NoteCountAsync(h)).Should().Be(0);
     }
-
-    // ------------------------------------------------------------------
-    // Safety rails
-    // ------------------------------------------------------------------
 
     [Fact]
     public async Task The_tool_iteration_ceiling_is_enforced_and_never_loops_forever()
@@ -861,10 +928,13 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var h = CreateHarness(maxToolIterations: 3);
 
         // A model that never stops asking for tools.
-        h.Llm.Responder = _ => new LlmCompletion(
+        h.Llm.Responder = call => new LlmCompletion(
             null,
             "tool_calls",
-            [new LlmToolCall(Guid.NewGuid().ToString("N"), "concepts_list", "{}")]);
+            [new LlmToolCall(
+                Guid.NewGuid().ToString("N"),
+                "concepts_search",
+                JsonSerializer.Serialize(new { query = $"loop-{call}" }))]);
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
             "Loop, please.",
@@ -872,6 +942,52 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
 
         response.Should().NotBeNull();
         h.Llm.CallCount.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task The_default_safety_ceiling_allows_six_repeated_tool_rounds()
+    {
+        var h = CreateHarness();
+
+        h.Llm.Responder = call => new LlmCompletion(
+            null,
+            "tool_calls",
+            [new LlmToolCall(
+                Guid.NewGuid().ToString("N"),
+                "concepts_search",
+                JsonSerializer.Serialize(new { query = $"loop-{call}" }))]);
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Loop, please.",
+            Context(surface: "second-brain", route: "/second-brain")));
+
+        response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
+        h.Llm.CallCount.Should().Be(6);
+    }
+
+    [Fact]
+    public async Task An_identical_tool_batch_stops_before_the_second_execution()
+    {
+        var h = CreateHarness();
+
+        h.Llm.Responder = _ => new LlmCompletion(
+            null,
+            "tool_calls",
+            [new LlmToolCall(
+                Guid.NewGuid().ToString("N"),
+                "library_create_collection",
+                """{"name":"One copy"}""")]);
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Keep creating the same collection.",
+            Context(surface: "library", route: "/library")));
+
+        h.Llm.CallCount.Should().Be(2);
+        response.ExecutedCapabilities.Should().Equal("library_create_collection");
+        response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.Collections.AsNoTracking().CountAsync()).Should().Be(1);
     }
 
     [Fact]
@@ -890,38 +1006,31 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
             Context(surface: "second-brain", route: "/second-brain")));
 
         response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
+        response.Reply.Should().Contain("before I could finish");
+        response.Reply.Should().Contain("continue");
+        response.Reply.Should().NotContain("completed");
     }
 
     [Fact]
-    public async Task An_exhausted_tool_loop_prefers_the_last_non_empty_assistant_content()
+    public async Task An_exhausted_tool_loop_never_promotes_prior_model_prose_to_success()
     {
         var h = CreateHarness(maxToolIterations: 2);
 
-        var call = 0;
-        h.Llm.Responder = _ =>
-        {
-            call++;
-            return call == 1
-                ? new LlmCompletion(
-                    "Let me look that up.",
-                    "tool_calls",
-                    [new LlmToolCall(Guid.NewGuid().ToString("N"), "concepts_list", "{}")])
-                : new LlmCompletion(
-                    null,
-                    "tool_calls",
-                    [new LlmToolCall(Guid.NewGuid().ToString("N"), "concepts_list", "{}")]);
-        };
+        h.Llm.Responder = call => new LlmCompletion(
+            call == 1 ? "Done." : null,
+            "tool_calls",
+            [new LlmToolCall(
+                Guid.NewGuid().ToString("N"),
+                "concepts_search",
+                JsonSerializer.Serialize(new { query = $"loop-{call}" }))]);
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
             "Loop, please.",
             Context(surface: "second-brain", route: "/second-brain")));
 
-        response.Reply.Should().Be("Let me look that up.");
+        response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
+        response.Reply.Should().NotContain("Done");
     }
-
-    // ------------------------------------------------------------------
-    // Conversation history and identity (issue #286)
-    // ------------------------------------------------------------------
 
     [Fact]
     public async Task Client_supplied_history_reaches_the_provider_in_order_before_the_new_message()
@@ -1199,6 +1308,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
 
         await h.Orchestrator.HandleTurnAsync(Turn("Hello.", Context()));
 
+        h.Llm.CallCount.Should().Be(1);
         var messages = h.Llm.LastRequest.Messages;
 
         // The behaviour contract, the context JSON, the identity, the turn: no
@@ -1210,10 +1320,137 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     // ------------------------------------------------------------------
+    // Per-turn execution ceilings (#406)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task A_turn_that_crossed_the_token_ceiling_stops_before_the_next_upstream_call()
+    {
+        var h = CreateHarness(configure: options => options.MaxTurnTokens = 100);
+        h.Llm.Enqueue(new LlmCompletion(
+            null,
+            "tool_calls",
+            [new LlmToolCall("call-1", "library_list_collections", "{}")],
+            PromptTokens: 5_000,
+            CompletionTokens: 40));
+
+        var response = await h.Orchestrator.HandleTurnAsync(
+            Turn("Which collections do I have?", Context(surface: "library", route: "/library")));
+
+        h.Llm.CallCount.Should().Be(1, "the ceiling is evaluated before spending another upstream call");
+        response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
+        response.PendingPlan.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task A_turn_that_crossed_the_estimated_cost_ceiling_stops_before_the_next_upstream_call()
+    {
+        var h = CreateHarness(configure: options => options.MaxTurnEstimatedCostUsd = 0.0001m);
+        h.Llm.Enqueue(new LlmCompletion(
+            null,
+            "tool_calls",
+            [new LlmToolCall("call-1", "library_list_collections", "{}")],
+            PromptTokens: 5_000,
+            CompletionTokens: 40));
+
+        var response = await h.Orchestrator.HandleTurnAsync(
+            Turn("Which collections do I have?", Context(surface: "library", route: "/library")));
+
+        h.Llm.CallCount.Should().Be(1, "the ceiling is evaluated before spending another upstream call");
+        response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
+    }
+
+    [Fact]
+    public async Task Wall_clock_ceiling_cancels_an_in_flight_upstream_call()
+    {
+        var h = CreateHarness(configure: options => options.MaxTurnElapsedMilliseconds = 100);
+        h.Llm.AsyncResponder = async (_, cancellationToken) =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+            return new LlmCompletion("Too late.", "stop", []);
+        };
+
+        var turn = h.Orchestrator.HandleTurnAsync(
+            Turn("Hello.", Context(surface: "library", route: "/library")));
+
+        var finished = await Task.WhenAny(turn, Task.Delay(TimeSpan.FromSeconds(2)));
+        finished.Should().BeSameAs(turn, "the turn deadline must cancel the in-flight provider call");
+
+        var response = await turn;
+        h.Llm.CallCount.Should().Be(1);
+        response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
+    }
+
+    [Fact]
+    public async Task Missing_provider_usage_never_trips_the_token_or_cost_ceiling()
+    {
+        var h = CreateHarness(configure: options =>
+        {
+            options.MaxTurnTokens = 1;
+            options.MaxTurnEstimatedCostUsd = 0.0000001m;
+        });
+
+        h.Llm.Enqueue(new LlmCompletion(
+            null,
+            "tool_calls",
+            [new LlmToolCall("call-1", "library_list_collections", "{}")]));
+        h.Llm.Returns("Two collections.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(
+            Turn("Which collections do I have?", Context(surface: "library", route: "/library")));
+
+        h.Llm.CallCount.Should().Be(2, "a provider that omitted usage must not be treated as over budget");
+        response.Reply.Should().Be("Two collections.");
+    }
+
+    [Fact]
+    public async Task Ceilings_configured_as_zero_leave_the_turn_unbounded()
+    {
+        var h = CreateHarness(configure: options =>
+        {
+            options.MaxTurnTokens = 0;
+            options.MaxTurnElapsedMilliseconds = 0;
+            options.MaxTurnEstimatedCostUsd = 0m;
+        });
+        h.Llm.Enqueue(new LlmCompletion(
+            null,
+            "tool_calls",
+            [new LlmToolCall("call-1", "library_list_collections", "{}")],
+            PromptTokens: 1_000_000,
+            CompletionTokens: 1_000_000));
+        h.Llm.Returns("Done.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(
+            Turn("Which collections do I have?", Context(surface: "library", route: "/library")));
+
+        h.Llm.CallCount.Should().Be(2, "zero disables a ceiling; the shipped defaults do not");
+        response.Reply.Should().Be("Done.");
+    }
+
+    [Fact]
+    public async Task The_shipped_ceilings_stop_a_runaway_turn_before_its_last_call()
+    {
+        var h = CreateHarness();
+        h.Llm.Enqueue(new LlmCompletion(
+            null,
+            "tool_calls",
+            [new LlmToolCall("call-1", "library_list_collections", "{}")],
+            PromptTokens: 48_000,
+            CompletionTokens: 2_000));
+
+        var response = await h.Orchestrator.HandleTurnAsync(
+            Turn("Which collections do I have?", Context(surface: "library", route: "/library")));
+
+        h.Llm.CallCount.Should().Be(1, "the shipped token ceiling stops the turn before spending another call");
+        response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
+        response.PendingPlan.Should().BeNull();
+    }
+
+    // ------------------------------------------------------------------
     // Harness
     // ------------------------------------------------------------------
 
-    private Harness CreateHarness(int maxToolIterations = 6)
+    private Harness CreateHarness(int maxToolIterations = 6, Action<AssistantOptions>? configure = null)
     {
         var path = _fixture.CreateDatabasePath();
         var options = new DbContextOptionsBuilder<NostosDbContext>()
@@ -1251,6 +1488,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
             Enabled = true,
             MaxToolIterations = maxToolIterations,
         };
+        configure?.Invoke(assistantOptions);
         var plans = new AssistantPlanStore();
         var settings = new AssistantSettingsService(factory);
 
@@ -1271,8 +1509,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var collection = await SeedCollectionAsync(h, "Approved deletion");
 
         h.Llm
-            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{collection.Id}}"}""")
-            .Returns("Ready for your approval.");
+            .CallsTool("library_delete_collection", $$"""{"collectionId":"{{collection.Id}}"}""");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
             "Delete the old collection.",
