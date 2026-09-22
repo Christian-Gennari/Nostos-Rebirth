@@ -174,11 +174,20 @@ export class Library implements OnInit, OnDestroy {
   @ViewChild(SidebarCollections) private sidebar?: SidebarCollections;
 
   viewMode = this.preferences.viewMode;
-  /** The view toggle's options. Icons are Nostos glyph names; the labels are the
-      ONLY names the icon-only control has, so they are asserted in the spec. */
+  /**
+   * The view toggle's options. Icons are Nostos glyph names; the labels are the
+   * ONLY names the icon-only control has, so they are asserted in the spec.
+   *
+   * The grid glyph carries an optical size because `squares-four` draws smaller
+   * inside its box than the Brain's `map-trifold` does: measured ink 12.4px vs
+   * 14.3px at a shared 18px (69% vs 80% of the box). 18 x 14.3/12.4 = 20.8, so
+   * 20.5 puts this glyph's ink at 14.1px — within 0.2px of the Brain's map
+   * glyph, which is what makes the two toggles read as the same size. The list
+   * glyph already matches (13.2 vs 13.5px) and keeps the 18px default.
+   */
   readonly viewToggleOptions = [
     { value: 'list', icon: 'list-bullets', label: 'List view' },
-    { value: 'grid', icon: 'squares-four', label: 'Grid view' },
+    { value: 'grid', icon: 'squares-four', label: 'Grid view', size: 20.5 },
   ] satisfies readonly ViewToggleOption[];
   readonly sidebarExpanded = this.preferences.sidebarExpanded;
   showAddModal = signal(false);

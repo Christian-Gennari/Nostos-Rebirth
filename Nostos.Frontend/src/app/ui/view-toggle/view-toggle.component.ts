@@ -24,6 +24,20 @@ export interface ViewToggleOption {
   readonly icon: NostosIconName;
   /** Accessible name AND tooltip. The control has no visible text. */
   readonly label: string;
+  /**
+   * OPTICAL size in px, when this glyph's drawing is smaller than its box.
+   *
+   * Icon boxes are all 18px here, but the drawings are not all the same size
+   * inside them: measured off the live app, `squares-four` fills 69% of its box
+   * while `map-trifold` fills 80%, so at a shared 18px the Library's grid glyph
+   * read ~15% smaller than the Brain's map glyph (30% by area) even though the
+   * controls themselves are byte-identical. This field is how a caller closes
+   * that gap — it is a per-GLYPH constant, not a scale rung.
+   *
+   * Defaults to 18. Set it only with a measured reason, and prefer the value
+   * derived from the ink ratio over a round number.
+   */
+  readonly size?: number;
 }
 
 /** Glyph size in px. The whole control is built around an 18px glyph at every width. */
@@ -106,7 +120,7 @@ const GLYPH_SIZE = 18;
       >
         <nostos-icon
           [name]="option.icon"
-          [size]="glyphSize"
+          [size]="glyphSize(option)"
           [weight]="isSelected(option) ? 'regular' : 'light'"
         />
       </button>
@@ -251,7 +265,10 @@ export class ViewToggleComponent {
   /** Emits the newly selected value. Narrowed by the call site, which owns the union. */
   readonly valueChange = output<string>();
 
-  protected readonly glyphSize = GLYPH_SIZE;
+  /** The glyph's box: the option's optical size when it declares one, else the default. */
+  protected glyphSize(option: ViewToggleOption): number {
+    return option.size ?? GLYPH_SIZE;
+  }
 
   private readonly buttons = viewChildren<ElementRef<HTMLButtonElement>>('opt');
 
