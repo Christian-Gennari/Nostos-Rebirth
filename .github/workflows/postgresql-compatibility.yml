@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - feature/cloud-postgres-spike
-      - feature/cloud-paddle-billing
   pull_request:
     paths:
       - "Nostos.Backend/**"
