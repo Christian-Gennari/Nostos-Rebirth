@@ -159,9 +159,14 @@ part of Cloud persistence composition. A normal SelfHosted process:
 The SelfHosted AI/provider behavior remains independent of Nostos Cloud
 commercial state.
 
-## Future billing integration (#410)
+## Billing integration (#410)
 
-A future provider adapter should perform this sequence:
+Nostos Cloud v1 uses Paddle Billing behind the provider-neutral boundary
+established here. See [billing.md](billing.md) for the provider decision,
+checkout/webhook/reconciliation lifecycle, configuration, and replacement
+boundary.
+
+The adapter performs this sequence:
 
 ```text
 verified billing webhook/event
@@ -183,11 +188,13 @@ ICloudSubscriptionStore.ApplyChangeAsync(...)
 ICloudEntitlementService reflects the new state
 ```
 
-Provider webhook verification, checkout, prices, invoices, payment methods, and
-provider SDKs remain outside #403.
+Provider webhook verification, checkout, price mapping, customer portal,
+idempotency receipts, and missed-event reconciliation remain outside #403 in
+the Cloud billing infrastructure.
 
 Clerk remains the authentication provider. Clerk identity is not the
-subscription domain model.
+subscription domain model. Paddle external ids are likewise not product-facing
+subscription identity.
 
 ## Future managed AI integration (#405)
 
