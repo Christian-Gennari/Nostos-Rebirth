@@ -46,8 +46,12 @@
     opacity: 0;
     border-left: none;
   }
-  /* Prevent content squashing during transition */
-  .sidebar-left > *,
+  /* Keep each panel's contents usable at its own minimum. The left pane is
+     intentionally allowed below the reference pane's old 260px floor. */
+  .sidebar-left > * {
+    min-width: 220px;
+  }
+
   .sidebar-right > * {
     min-width: 260px;
   }
