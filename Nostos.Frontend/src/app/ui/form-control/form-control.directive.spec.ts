@@ -48,4 +48,4 @@ describe('canonical form-control directives', () => {
     expect(textarea.classList.contains('nostos-form-control--textarea')).toBe(true);
     expect(textarea.classList.contains('nostos-form-control--compact')).toBe(false);
   });
-\n});
+});
