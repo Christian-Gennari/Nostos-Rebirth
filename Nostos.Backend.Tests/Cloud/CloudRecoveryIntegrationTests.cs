@@ -595,8 +595,8 @@ public sealed class CloudRecoveryIntegrationTests
         public CloudControlPlaneDbContext CreateDbContext() =>
             new(options);
 
-        public Task<CloudControlPlaneDbContext> CreateDbContextAsync(
+        public ValueTask<CloudControlPlaneDbContext> CreateDbContextAsync(
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(new CloudControlPlaneDbContext(options));
+            ValueTask.FromResult(new CloudControlPlaneDbContext(options));
     }
 }
