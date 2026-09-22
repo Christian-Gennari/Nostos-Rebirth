@@ -25,11 +25,16 @@ public sealed class CloudObjectStorageIntegrationTests
             return;
 
         var accessKey =
-            Environment.GetEnvironmentVariable("NOSTOS_S3_TEST_ACCESS_KEY")
-            ?? "minioadmin";
+            Environment.GetEnvironmentVariable("NOSTOS_S3_TEST_ACCESS_KEY");
         var secretKey =
-            Environment.GetEnvironmentVariable("NOSTOS_S3_TEST_SECRET_KEY")
-            ?? "minioadmin";
+            Environment.GetEnvironmentVariable("NOSTOS_S3_TEST_SECRET_KEY");
+
+        if (string.IsNullOrWhiteSpace(accessKey)
+            || string.IsNullOrWhiteSpace(secretKey))
+        {
+            throw new InvalidOperationException(
+                "S3 integration endpoint was configured without its test credentials.");
+        }
 
         var bucket = $"nostos-test-{Guid.NewGuid():N}"[..36];
 
