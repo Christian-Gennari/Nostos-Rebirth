@@ -108,7 +108,6 @@ interface WorkFormatGlyph {
   imports: [
     CommonModule,
     RouterLink,
-
     NostosIconComponent,
     AddBookModal,
     AddBookIntent,
