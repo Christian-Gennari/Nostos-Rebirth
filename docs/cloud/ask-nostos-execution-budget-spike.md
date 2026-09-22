@@ -7,31 +7,37 @@ Date: 2026-09-22
 
 ## Decision status
 
-This spike can make one policy decision from repository evidence now: **six
-upstream calls remains the absolute runaway safety ceiling, not the normal
-per-turn execution budget**. Legitimate deterministic scenarios in the current
-Ask Nostos orchestrator need at most four upstream calls, while approval,
-required user input, and an immediately repeated equivalent tool batch should
-stop earlier.
+**Measured and set (2026-09-22).** The external protocol was executed: 1,080 live
+turns of `gemini-3.8-flash` at `thinking_level=low` on synthetic fixtures only —
+900 turns at 100 repetitions per scenario, plus a 180-turn sanity pass. The
+transport was the one the app uses today, the local 9Router gateway through the
+production `NineRouterLlmProvider`; #404's managed Cloud provider is still
+unmerged and the direct Google AI Studio keys on this machine are free tier.
 
-The spike **cannot yet set evidence-backed cumulative-token, wall-clock, or
-estimated-cost ceilings for Nostos Cloud**. The planned Cloud provider in #404
-(`gemini-3.8-flash`, `thinking_level=low`) is not implemented in the current
-repository and no real Cloud provider credentials were available to this run.
-Using the current SelfHosted/9Router default
-(`gemini/gemini-3.5-flash-lite`) as a substitute would measure a different
-model, gateway and thinking configuration.
+The measurement decided the four per-turn ceilings, and the code now ships them:
+
+| Ceiling | Shipped value | Evidence from the 900-turn run |
+| --- | --- | --- |
+| Upstream-call safety ceiling | **6 calls** | Largest measured turn used 5 calls; 0/900 reached 6; the changing-tool pathological case still stops here. |
+| Cumulative-token ceiling | **50,000 tokens** | Largest measured turn used 31,875; the worst a legitimate six-call turn reaches on this transport is ≈38,000. |
+| Wall-clock ceiling | **60,000 ms** | 99% of turns finished inside 14.6 s; 8/900 stalled for 141–145 s on one slow upstream call while doing only 2–3 calls of work. |
+| Estimated-cost ceiling | **$0.05** | Largest measured turn cost $0.0247; the token ceiling prices at ≈$0.039 today and ≈$0.078 in the 2027 epoch, which is why cost stays its own dimension. |
+
+None of the four would have stopped a single legitimate turn in the sample, and
+the wall-clock ceiling stops exactly the stalled ones. The distributions, the
+transport correction and the honest limits of the measurement are in
+"External measurement results" below.
 
 Therefore:
 
-- the call-loop, approval/input and duplicate-tool rules below are ready to
-  keep;
-- the instrumentation needed for provider measurement is reusable production
-  code;
-- token/time/cost limits remain deliberately **unset**, rather than filled with
-  invented precision;
-- #406 should remain open until the external Gemini 3.8 Flash Low measurement
-  protocol at the end of this document has been run.
+- the call-loop, approval/input and duplicate-tool rules below are kept, and the
+  call ceiling is revalidated rather than reduced;
+- the instrumentation that produced these numbers is the reusable production
+  code path, not a mock;
+- the token/time/cost ceilings are set from measurement, not invented precision;
+- the token and cost figures are stated twice — as measured through the gateway
+  and as the direct-API equivalent — because the gateway adds a constant
+  2,000-token preamble to every upstream call.
 
 ## Scope and layer boundaries
 
@@ -255,24 +261,104 @@ Safe conclusions now:
 If pruning is later added, the orchestrator—not the model—should decide the
 allowed next capabilities from workflow state.
 
+## External measurement results (2026-09-22)
+
+Two live runs were executed against `gemini-3.8-flash` at `thinking_level=low`, on
+synthetic fixture data only, through the transport the app actually uses today: the local
+9Router gateway, model id `ag/gemini-3.8-flash-low`, driven by the production
+`NineRouterLlmProvider` (the OpenAI-compatible route).
+
+| Run | Repetitions per scenario | Turns | Provider errors |
+| --- | --- | --- | --- |
+| `full-100-9r` (headline) | 100 | 900 | 0 |
+| `sanity-20-9r` (sanity pass) | 20 | 180 | 0 |
+
+**Transport correction.** The gateway adds a constant 2,000 tokens to every upstream
+call: a minimal call reports 2,002 prompt tokens where the same text against the direct
+API reports 2, and the delta stayed exactly additive as prompt size grew. Every table
+below therefore reports the token and cost figures twice — as measured, and as the
+direct-API equivalent (measured − 2,000 × upstream calls). The direct Google AI Studio
+keys available for this run are free tier (20 requests/day/project/model), which is why
+the gateway carries the dataset; a direct-path cross-check slice runs after the quota
+reset and is reported separately.
+
+### Per-scenario results (100 repetitions each)
+
+| Scenario | Calls p50/p90/p99 | Input tokens p50/p90/p99 (measured) | Input tokens p50/p90/p99 (direct-API equivalent) | Output tokens p50/p90/p99 | Total tokens p99 (equivalent) | Elapsed ms p50/p90/p99 | Cost p50/p99 (measured) | Cost p50/p99 (equivalent) | >2 / >4 / ≥6 calls | Stops | Flow matched |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `simple_read_only` | 1 / 1 / 1 | 5,173 / 5,173 / 5,173 | 3,173 / 3,173 / 3,173 | 30 / 33 / 35 | 3,208 | 1,250 / 1,740 / 4,672 | $0.0040 / $0.0040 | $0.0025 / $0.0025 | 0 / 0 / 0 | Completed 100 | 100/100 |
+| `library_lookup` | 2 / 2 / 2 | 11,782 / 11,785 / 11,787 | 7,782 / 7,785 / 7,787 | 60 / 65 / 69 | 7,856 | 2,487 / 3,360 / 4,018 | $0.0091 / $0.0091 | $0.0061 / $0.0061 | 0 / 0 / 0 | Completed 100 | 100/100 |
+| `notes_concepts_lookup` | 2 / 2 / 2 | 11,772 / 12,343 / 12,345 | 7,772 / 8,343 / 8,345 | 350 / 376 / 393 | 8,735 | 3,108 / 4,085 / 5,835 | $0.0102 / $0.0107 | $0.0072 / $0.0077 | 0 / 0 / 0 | Completed 100 | 100/100 |
+| `capture_write` | 2 / 2 / 2 | 10,862 / 10,964 / 11,015 | 6,862 / 6,964 / 7,015 | 43 / 50 / 56 | 7,059 | 3,788 / 4,657 / 5,592 | $0.0083 / $0.0084 | $0.0053 / $0.0054 | 0 / 0 / 0 | Completed 100 | 100/100 |
+| `dependent_read_only` | 2 / 2 / 3 | 11,936 / 11,989 / 18,877 | 7,936 / 7,989 / 12,877 | 251 / 306 / 347 | 13,130 | 4,074 / 5,303 / 139,414 | $0.0099 / $0.0152 | $0.0069 / $0.0107 | 9 / 0 / 0 | Completed 100 | 100/100 |
+| `dependent_multi_step_organization` | 3 / 3 / 3 | 19,880 / 19,923 / 19,950 | 13,880 / 13,923 / 13,950 | 201 / 205 / 210 | 14,150 | 5,313 / 6,203 / 142,158 | $0.0157 / $0.0157 | $0.0112 / $0.0112 | 100 / 0 / 0 | Completed 100 | 100/100 |
+| `approval_required` | 5 / 5 / 5 | 31,542 / 31,558 / 31,601 | 21,542 / 21,558 / 21,601 | 263 / 271 / 277 | 21,866 | 6,425 / 8,290 / 14,003 | $0.0247 / $0.0247 | $0.0172 / $0.0172 | 100 / 71 / 0 | ApprovalRequired 1, Completed 99 | 1/100 |
+| `required_user_input` | 1 / 1 / 1 | 5,390 / 5,435 / 5,480 | 3,390 / 3,435 / 3,480 | 25 / 25 / 25 | 3,818 | 2,727 / 3,213 / 3,880 | $0.0041 / $0.0042 | $0.0026 / $0.0027 | 0 / 0 / 0 | UserInputRequired 100 | 100/100 |
+| `harmless_adversarial_repeat_read` | 3 / 3 / 3 | 16,708 / 16,793 / 16,816 | 10,708 / 10,793 / 10,816 | 81 / 91 / 108 | 10,899 | 4,638 / 6,286 / 141,233 | $0.0129 / $0.0130 | $0.0084 / $0.0085 | 89 / 0 / 0 | Completed 100 | 100/100 |
+
+### Pooled engineering sample
+
+The nine scenarios are weighted equally on purpose — this is an engineering sample, not a
+production traffic distribution, and it must not be read as one.
+
+- Final turns: **900** (provider-error turns: 0, retry attempts: 0)
+- Flow matched: 801/900 (89.0%)
+- Upstream call histogram: 1→200, 2→402, 3→202, 4→25, 5→71
+- Calls above 2 / above 4 / at least 6: 298 (33.1%) / 71 (7.9%) / 0 (0.0%)
+- Stop reasons: ApprovalRequired 1, Completed 799, UserInputRequired 100
+
+| Metric | Median (p50) | p90 | p99 |
+| --- | --- | --- | --- |
+| Upstream calls | 2 | 4 | 5 |
+| Input tokens (measured) | 11,784 | 22,301 | 31,562 |
+| Input tokens (direct-API equivalent) | 7,784 | 14,301 | 21,562 |
+| Output tokens | 81 | 315 | 381 |
+| Thinking tokens | 224 | 272 | 318 |
+| Total tokens (measured) | 12,093 | 22,491 | 31,829 |
+| Total tokens (direct-API equivalent) | 8,093 | 14,491 | 21,829 |
+| Elapsed time (ms) | 3,511 | 6,218 | 14,649 |
+| Estimated cost, measured | $0.0098 | $0.0174 | $0.0247 |
+| Estimated cost, direct-API equivalent | $0.0068 | $0.0114 | $0.0172 |
+
+### What the ceilings would have done to these 900 turns
+
+| Ceiling as shipped | Turns it would have stopped | Comment |
+| --- | --- | --- |
+| 6 upstream calls | 0 of 900 | Largest observed turn used **5** calls. |
+| 50,000 cumulative tokens | 0 of 900 | Largest observed turn used **31,875** tokens (measured); the worst a legitimate six-call turn can reach on this transport is ≈38,000. |
+| 60,000 ms wall clock | 8 of 900 | 99% of turns finished inside 14,649 ms; the 8 stopped turns stalled 141–145 s on a single slow upstream call with only two or three calls and ~10–15 k tokens, i.e. provider stalls rather than heavy work. |
+| $0.05 estimated cost | 0 of 900 | Largest observed turn cost **$0.0247** (measured, gateway transport). |
+
+So the shipped ceilings do not clip a single legitimate turn in the sample, and the one
+dimension that fires does so exactly on the pathology it exists for.
+
+### Loop, stop and missing-field observations
+
+- No turn ended `ProviderError`; there were no transport retries in either run.
+- Stop reasons across 900 turns: ApprovalRequired 1, Completed 799, UserInputRequired 100. No turn ended on the repeated-tool or ceiling guards.
+- Thinking tokens were reported in 91 of 900 turns (all in the required-user-input scenario, p50 224); every other turn left the field unknown. The instrumentation records unknown, never zero, so a provider that omits the field cannot be mistaken for a free one.
+- Provider finish reasons were present on every turn.
+- Scenario `approval_required` is the one flow the transport did not reproduce: only 1 of 100 turns reached `ApprovalRequired`. In the others the model asked for a capability name that does not exist (`library_delete_empty_collection`, the real one is `library_delete_collection`), so the orchestrator refused the unknown name, executed nothing, and the turn ended `Completed` after three to five calls. The guard behaved correctly; the approval flow itself was exercised on the direct API instead (4 calls, `ApprovalRequired`).
+- A single turn also reached the intended approval flow through the gateway (rep 42, 4 calls), so the flow is reachable on this transport, just not reliably prompted by this scenario wording.
+
+
 ## Recommended Cloud per-turn policy
 
-### Values supported now
+### Measured per-turn policy (2026-09-22)
 
-| Dimension | Recommendation now | Evidence |
+| Dimension | Shipped value | Evidence |
 | --- | --- | --- |
-| Immediate repeated equivalent tool batch | stop on the **second consecutive equivalent request, before second execution** | Deterministic no-new-information condition; protects repeated writes. |
-| Approval required | **stop immediately after the proposing model response** | No further model information is required; baseline extra call was pure overhead. |
-| Required user input | **stop immediately** | Existing deterministic capture behavior; continuing would require guessing. |
-| Upstream-call safety ceiling | **6 calls** | Legitimate structural max is 4; no legitimate sample needs >4. Six is retained only as a final runaway guard while provider tails are measured. |
-| Cumulative token budget | **not yet numerically set** | No Gemini 3.8 Flash Low distribution has been measured. |
-| Wall-clock turn budget | **not yet numerically set** | Fake-provider elapsed time is not representative; current 90 s is a per-request transport timeout, not evidence for a turn UX ceiling. |
-| Estimated provider-cost budget | **not yet numerically set** | Requires the real token distribution; pricing alone is not usage evidence. |
+| Immediate repeated equivalent tool batch | stop on the **second consecutive equivalent request, before second execution** | Deterministic no-new-information condition; protects repeated writes. The 100 measured adversarial repeat turns all ended normally inside 3 calls. |
+| Approval required | **stop immediately after the proposing model response** | No further model information is required; the direct-API turn reached the decision in 4 calls, and the gateway turn that proposed a real destructive call stopped in 4. |
+| Required user input | **stop immediately** | 100/100 measured turns stopped here after a single call. |
+| Upstream-call safety ceiling | **6 calls** | Revalidated, not reduced: the largest of 900 measured turns used 5 upstream calls and none reached 6, so the ceiling still has headroom over real work while remaining the final runaway guard. |
+| Cumulative token budget | **50,000 tokens** | 1.6× the worst measured turn (31,875) and above the ≈38,000 a legitimate six-call turn reaches on this transport; it bounds a runaway, not a context window. |
+| Wall-clock turn budget | **60,000 ms** | 4× the worst non-stalled p99 (14.6 s) and deliberately below the 90 s per-request transport timeout, so a stalled turn ends as a stopped turn rather than a transport error. |
+| Estimated provider-cost budget | **$0.05** | 2× the worst measured turn ($0.0247); equals the token ceiling priced at the recorded epoch (≈$0.039) with a small margin, and binds first if the 2027 epoch doubles prices. |
 
-This intentionally refuses to turn “6” into a different arbitrary magic
-number. The call ceiling is now explicitly the final runaway ceiling; normal
-turns should end through task completion or a deterministic boundary well
-before it.
+The call ceiling stays the final runaway ceiling rather than the normal turn
+budget: measured legitimate work ended through task completion or a deterministic
+boundary after one to three calls, and the approval flow after four.
 
 ### Planned provider and cost formula
 
@@ -362,10 +448,17 @@ The four control layers must remain independently observable:
 | Monthly entitlement (#403 + #405) | Enforce plan allowance | managed-AI units remaining |
 | Operator emergency ceiling (#405) | Bound platform-wide incident spend | disable/limit managed AI globally |
 
-## External Gemini 3.8 Flash Low measurement required to finish #406
+## External Gemini 3.8 Flash Low measurement protocol
 
-Run this only after #404 exposes the managed Cloud provider (or in a throwaway
-measurement harness using the same adapter). Do not commit credentials.
+**Executed 2026-09-22.** The numbers are in "External measurement results" above; the
+harness that produced them lives in `Nostos.Backend.Tests/Measurement/` and is test-only.
+It ran through the local 9Router gateway because #404's managed Cloud provider was still
+unmerged and the direct AI Studio keys are free tier; the gateway's constant 2,000-token
+preamble is measured (not assumed) and subtracted in every reported direct-API equivalent.
+The protocol below is kept as the recipe for the re-run against the direct API once the
+migration lands.
+
+Do not commit credentials.
 
 ### Synthetic fixture
 

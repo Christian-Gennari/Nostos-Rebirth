@@ -111,14 +111,39 @@ public sealed class AssistantExecutionBudgetTests
     }
 
     [Fact]
-    public void Default_ceiling_values_are_inert_until_the_external_measurement_sets_them()
+    public void Measured_policy_ships_as_the_configured_defaults()
     {
         var options = new AssistantOptions();
 
+        // External measurement of 2026-09-22 (900 real turns); the distributions and the
+        // justification for each value live in docs/cloud/ask-nostos-execution-budget-spike.md.
         options.MaxToolIterations.Should().Be(6);
-        options.MaxTurnTokens.Should().Be(0, "the measured value replaces this, and this test, deliberately");
-        options.MaxTurnElapsedMilliseconds.Should().Be(0);
-        options.MaxTurnEstimatedCostUsd.Should().Be(0m);
+        options.MaxTurnTokens.Should().Be(50_000);
+        options.MaxTurnElapsedMilliseconds.Should().Be(60_000);
+        options.MaxTurnEstimatedCostUsd.Should().Be(0.05m);
+    }
+
+    [Fact]
+    public void The_measured_defaults_stop_a_turn_that_is_already_over_budget()
+    {
+        var options = new AssistantOptions();
+
+        // 51,000 reported tokens: no measured legitimate turn came close (worst of 900
+        // was 31,875), so this is the runaway class the ceiling exists for.
+        AssistantExecutionBudget.ExceededCeiling(
+            Usage(promptTokens: 45_000, outputTokens: 6_000), options).Should().Be("cumulative-token");
+
+        // Two minutes of wall clock with or without a cheap token bill: the measured
+        // stalls (141-145 s) ran on low call counts, which is why latency needs its own
+        // dimension.
+        AssistantExecutionBudget.ExceededCeiling(
+            Usage(elapsedMs: 120_000), options).Should().Be("wall-clock");
+
+        // $0.05 at the recorded price epoch, reached without touching the token ceiling:
+        // an output-heavy turn (20,000 output tokens) is the shape a future price epoch
+        // punishes first, which is why cost is its own dimension.
+        AssistantExecutionBudget.ExceededCeiling(
+            Usage(promptTokens: 10_000, outputTokens: 20_000), options).Should().Be("estimated-cost");
     }
 
     [Fact]

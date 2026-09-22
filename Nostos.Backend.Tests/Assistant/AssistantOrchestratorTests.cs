@@ -1383,9 +1383,14 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
-    public async Task Execution_ceilings_default_to_disabled_so_the_turn_shape_is_unchanged()
+    public async Task Ceilings_configured_as_zero_leave_the_turn_unbounded()
     {
-        var h = CreateHarness();
+        var h = CreateHarness(configure: options =>
+        {
+            options.MaxTurnTokens = 0;
+            options.MaxTurnElapsedMilliseconds = 0;
+            options.MaxTurnEstimatedCostUsd = 0m;
+        });
         h.Llm.Enqueue(new LlmCompletion(
             null,
             "tool_calls",
@@ -1397,8 +1402,27 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var response = await h.Orchestrator.HandleTurnAsync(
             Turn("Which collections do I have?", Context(surface: "library", route: "/library")));
 
-        h.Llm.CallCount.Should().Be(2, "an unset ceiling must not change today's turn shape");
+        h.Llm.CallCount.Should().Be(2, "zero disables a ceiling; the shipped defaults do not");
         response.Reply.Should().Be("Done.");
+    }
+
+    [Fact]
+    public async Task The_shipped_ceilings_stop_a_runaway_turn_before_its_last_call()
+    {
+        var h = CreateHarness();
+        h.Llm.Enqueue(new LlmCompletion(
+            null,
+            "tool_calls",
+            [new LlmToolCall("call-1", "library_list_collections", "{}")],
+            PromptTokens: 48_000,
+            CompletionTokens: 2_000));
+
+        var response = await h.Orchestrator.HandleTurnAsync(
+            Turn("Which collections do I have?", Context(surface: "library", route: "/library")));
+
+        h.Llm.CallCount.Should().Be(1, "the shipped token ceiling stops the turn before spending another call");
+        response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
+        response.PendingPlan.Should().BeNull();
     }
 
     // ------------------------------------------------------------------
