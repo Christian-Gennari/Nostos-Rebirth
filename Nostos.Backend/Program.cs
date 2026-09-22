@@ -384,8 +384,13 @@ if (deployment.Mode == DeploymentMode.SelfHosted)
 }
 else
 {
-    var bootstrap = app.Services.GetRequiredService<Nostos.Backend.Cloud.ControlPlane.ICloudControlPlaneBootstrapper>();
-    await bootstrap.EnsureReadyAsync();
+    var controlPlaneBootstrap =
+        app.Services.GetRequiredService<Nostos.Backend.Cloud.ControlPlane.ICloudControlPlaneBootstrapper>();
+    await controlPlaneBootstrap.EnsureReadyAsync();
+
+    var objectStorageBootstrap =
+        app.Services.GetRequiredService<Nostos.Backend.Cloud.Storage.ICloudObjectStorageBootstrapper>();
+    await objectStorageBootstrap.EnsureReadyAsync();
 }
 
 // ------------------------------------
