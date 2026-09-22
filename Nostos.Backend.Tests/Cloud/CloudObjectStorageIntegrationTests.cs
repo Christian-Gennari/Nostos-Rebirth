@@ -178,7 +178,8 @@ public sealed class CloudObjectStorageIntegrationTests
 
     private static async Task<byte[]> ReadAllAsync(StoredAssetRead? read)
     {
-        var opened = read.Should().NotBeNull().Subject!;
+        read.Should().NotBeNull();
+        var opened = read!;
         await using (opened)
         {
             using var output = new MemoryStream();
