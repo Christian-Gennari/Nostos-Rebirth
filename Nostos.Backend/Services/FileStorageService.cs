@@ -327,6 +327,17 @@ public class FileStorageService : IFileStorageService, IBookAssetStorage
         return thumbnailPath;
     }
 
+    public async Task<StoredAssetInfo?> GetBookCoverThumbnailInfoAsync(
+        Guid bookId,
+        int width,
+        CancellationToken ct = default)
+    {
+        var path = await GetBookCoverThumbnailPathAsync(bookId, width, ct);
+        return path is null
+            ? null
+            : InfoFromPath(path, "image/webp");
+    }
+
     public async Task<StoredAssetRead?> OpenBookCoverThumbnailAsync(
         Guid bookId,
         int width,
