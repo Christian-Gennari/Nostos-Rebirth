@@ -1,0 +1,30 @@
+name: Temporary Cloud object storage validation
+
+on:
+  push:
+    branches:
+      - feature/cloud-object-storage
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore Nostos.sln
+
+      - name: Build
+        run: dotnet build Nostos.sln --configuration Debug --no-restore
+
+      - name: Backend regression tests
+        run: >-
+          dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
+          --configuration Debug
+          --no-build
+          --no-restore
+          --logger "console;verbosity=minimal"
