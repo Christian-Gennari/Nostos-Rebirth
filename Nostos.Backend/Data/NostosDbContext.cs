@@ -318,7 +318,7 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
             e.HasIndex(s => s.SingletonSlot).IsUnique();
             e.ToTable(t => t.HasCheckConstraint(
                 "CK_LibraryStates_SingletonSlot",
-                $"SingletonSlot = {LibraryState.SingletonSentinel}"));
+                $"\"SingletonSlot\" = {LibraryState.SingletonSentinel}"));
         });
 
         // Exact-once command idempotency for assistant note mutations
@@ -346,7 +346,7 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
         {
             e.ToTable(t => t.HasCheckConstraint(
                 "CK_AiProviderSettings_SingletonId",
-                $"Id = {AiProviderSettingsModel.SingletonId}"));
+                $"\"Id\" = {AiProviderSettingsModel.SingletonId}"));
         });
 
         // --- ASSISTANT SETTINGS (issue #262 §7) ---
@@ -358,7 +358,7 @@ public class NostosDbContext(DbContextOptions<NostosDbContext> options) : DbCont
         {
             e.ToTable(t => t.HasCheckConstraint(
                 "CK_AssistantSettings_SingletonId",
-                $"Id = {AssistantSettingsModel.SingletonId}"));
+                $"\"Id\" = {AssistantSettingsModel.SingletonId}"));
         });
     }
 }

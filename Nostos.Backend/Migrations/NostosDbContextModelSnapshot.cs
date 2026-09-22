@@ -54,7 +54,7 @@ namespace Nostos.Backend.Migrations
 
                     b.ToTable("AiProviderSettings", t =>
                         {
-                            t.HasCheckConstraint("CK_AiProviderSettings_SingletonId", "Id = 1");
+                            t.HasCheckConstraint("CK_AiProviderSettings_SingletonId", "\"Id\" = 1");
                         });
                 });
 
@@ -74,7 +74,7 @@ namespace Nostos.Backend.Migrations
 
                     b.ToTable("AssistantSettings", t =>
                         {
-                            t.HasCheckConstraint("CK_AssistantSettings_SingletonId", "Id = 1");
+                            t.HasCheckConstraint("CK_AssistantSettings_SingletonId", "\"Id\" = 1");
                         });
                 });
 
@@ -346,7 +346,7 @@ namespace Nostos.Backend.Migrations
 
                     b.ToTable("LibraryStates", t =>
                         {
-                            t.HasCheckConstraint("CK_LibraryStates_SingletonSlot", "SingletonSlot = 1");
+                            t.HasCheckConstraint("CK_LibraryStates_SingletonSlot", "\"SingletonSlot\" = 1");
                         });
                 });
 
