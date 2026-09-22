@@ -121,10 +121,13 @@ test('brain controls match the library controls', async ({ browser }) => {
     // is what catches that class of defect; comparing geometry does not.
     //
     // One deliberate asymmetry that must NOT be "normalised" here: the Library's
-    // grid glyph is 20.5px against the shared 18px default (`ViewToggleOption.size`),
+    // grid glyph is 20px against the shared 18px default (`ViewToggleOption.size`),
     // because `squares-four` paints 69% of its box and `map-trifold` 80%. Equal boxes
     // with equal glyph boxes left the Library's icon reading 13.7% smaller than the
-    // Brain's; at 20.5px the ink is 14.09px against the map's 14.34px (1.7%).
+    // Brain's; at 20px the ink is 13.75px against the map's 14.34px (4%). It is 20
+    // and not the derived 20.5 because an even size keeps whole-pixel margins in the
+    // 30x26 option box: at 20.5px the browser snapped the svg's origin and the glyph
+    // rendered 0.5px off-centre on both axes.
     // ThemeService is the only writer of `data-theme` and re-applies it from
     // localStorage on every boot, so the theme must be set AFTER each navigation
     // (setting it before would be wiped by the next page load). The stored value
