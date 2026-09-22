@@ -149,6 +149,17 @@ describe('MarkdownEditorComponent', () => {
     expect(style).not.toContain('#1a1a1a');
   });
 
+  it('keeps blockquotes flat and editorial instead of fading into the page', () => {
+    const style = String(initCalls[0].content_style);
+    const start = style.indexOf('blockquote {');
+    expect(start).toBeGreaterThanOrEqual(0);
+    const quoteBlock = style.slice(start, style.indexOf('}', start));
+
+    expect(quoteBlock).toContain('background: transparent');
+    expect(quoteBlock).toContain('border-left: 2px solid var(--quote-rule)');
+    expect(quoteBlock).not.toContain('linear-gradient');
+  });
+
   it('rides the prose roles on tokens, so the sheet cannot drift from the theme', () => {
     // Regression: `strong`, `th` and the link underline each carried a LITERAL
     // light value, so the dark sheet painted bold text near-black (1.13:1
