@@ -1,0 +1,81 @@
+name: Cloud portability integration
+
+on:
+  pull_request:
+    paths:
+      - "Nostos.Backend/**"
+      - "Nostos.Backend.Tests/**"
+      - ".github/workflows/portability-integration.yml"
+  workflow_dispatch:
+
+jobs:
+  cloud-portability:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18.6
+        env:
+          POSTGRES_DB: nostos_spike
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nostos_spike"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      NOSTOS_POSTGRES_SPIKE_CONNECTION: "Host=127.0.0.1;Port=5432;Database=nostos_spike;Username=postgres;Include Error Detail=true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore Nostos.sln
+
+      - name: Build backend solution
+        run: dotnet build Nostos.sln --configuration Debug --no-restore
+
+      - name: Start S3-compatible MinIO
+        run: |
+          access_key="nostosci"
+          secret_key="nostos-portability-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "NOSTOS_S3_TEST_ACCESS_KEY=$access_key" >> "$GITHUB_ENV"
+          echo "NOSTOS_S3_TEST_SECRET_KEY=$secret_key" >> "$GITHUB_ENV"
+
+          docker run -d --name nostos-minio \
+            -p 9000:9000 \
+            -e MINIO_ROOT_USER="$access_key" \
+            -e MINIO_ROOT_PASSWORD="$secret_key" \
+            quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e \
+            server /data
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs nostos-minio
+          exit 1
+
+      - name: Run SelfHosted Cloud portability round trip
+        env:
+          NOSTOS_S3_TEST_ENDPOINT: "http://127.0.0.1:9000"
+        run: >-
+          dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
+          --configuration Debug
+          --no-build
+          --no-restore
+          --filter "Category=CloudPortability"
+          --logger "console;verbosity=normal"
