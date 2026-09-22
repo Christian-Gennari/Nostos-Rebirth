@@ -1274,7 +1274,7 @@ app-sidebar-collections.no-transition {
     left: 0;
     width: 0; /* Effectively hide the container's footprint */
     height: 100%;
-    z-index: 50;
+    z-index: var(--layer-drawer);
     /* The drawer slides as a fixed panel: no clipping, no border, no width
        motion here — the internal .sidebar owns all of it on mobile. */
     overflow: visible;
@@ -1301,7 +1301,7 @@ app-sidebar-collections.no-transition {
     width: 100%;
     height: 100%;
     background: var(--overlay-medium);
-    z-index: 40; /* Behind sidebar (z-50), above content */
+    z-index: var(--layer-backdrop); /* Behind drawer, above normal app chrome/content */
     backdrop-filter: blur(2px);
   }
 

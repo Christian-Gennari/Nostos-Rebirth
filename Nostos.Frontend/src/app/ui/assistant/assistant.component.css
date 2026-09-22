@@ -17,7 +17,7 @@
   position: fixed;
   right: 28px;
   bottom: 24px;
-  z-index: 40;
+  z-index: var(--layer-floating-control);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -94,7 +94,7 @@
   display: block;
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: var(--layer-backdrop);
   background: var(--modal-scrim);
   -webkit-backdrop-filter: blur(var(--modal-scrim-blur));
   backdrop-filter: blur(var(--modal-scrim-blur));
@@ -104,7 +104,7 @@
   position: fixed;
   right: 28px;
   bottom: 68px;
-  z-index: 41;
+  z-index: var(--layer-assistant);
   display: flex;
   flex-direction: column;
   width: min(408px, calc(100vw - 32px));
@@ -126,7 +126,7 @@
    margin on narrower laptop screens. The conversation component itself is not
    recreated, so compact <-> expanded is purely a geometry change. */
 .assistant-panel.is-expanded {
-  z-index: 61;
+  z-index: var(--layer-assistant);
   top: 6dvh;
   right: max(32px, calc((100vw - 1000px) / 2));
   bottom: 6dvh;
@@ -1077,6 +1077,9 @@
     display: none;
   }
 
+  /* The mobile panel fills the visual viewport and intentionally owns the
+     highest app-chrome layer while open. The dock and Library drawer therefore
+     remain underneath the opaque assistant surface and cannot steal taps. */
   .assistant-panel,
   .assistant-panel.is-expanded {
     top: var(--assistant-viewport-top, 0px);
