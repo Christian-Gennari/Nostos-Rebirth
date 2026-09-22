@@ -94,11 +94,15 @@ Not exported:
 
 - normalized ISBN/ASIN/title/author identity fields; rebuilt from portable data
 - EPUB `LocationsJson`
-- generated/extracted `ChaptersJson`
 - generated cover thumbnails
 - library mutation/version bookkeeping
 
 These values are caches or deterministic derivatives, not user-owned content.
+
+`ChaptersJson` is also generated metadata, but v1 deliberately carries it:
+the current backend has no lazy chapter re-extraction path after portability
+import, so retaining it preserves reader/audiobook functionality without
+introducing a machine- or provider-specific dependency.
 
 ### C. Deployment-specific/operational state
 
