@@ -54,8 +54,11 @@ public sealed class AssistantOptions
     public string ApiKeyEnvironmentVariable { get; set; } = "NOSTOS_ASSISTANT_TOKEN";
 
     /// <summary>
-    /// Hard ceiling on LLM round trips in one turn. A model that keeps asking for
-    /// tools is cut off rather than looping forever.
+    /// Absolute runaway ceiling on upstream LLM calls in one turn, not the normal
+    /// UX budget. Issue #406's deterministic scenario sample reaches four calls
+    /// for legitimate work; approval/input boundaries and repeated-tool detection
+    /// stop earlier. Keep six as defense in depth until the managed Gemini 3.8
+    /// Flash low-thinking run supplies provider token/latency/cost distributions.
     /// </summary>
     public int MaxToolIterations { get; set; } = 6;
 
