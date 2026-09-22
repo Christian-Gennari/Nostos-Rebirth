@@ -178,11 +178,11 @@ public sealed class CloudObjectStorageIntegrationTests
 
     private static async Task<byte[]> ReadAllAsync(StoredAssetRead? read)
     {
-        read.Should().NotBeNull();
-        await using (read!)
+        var opened = read.Should().NotBeNull().Subject!;
+        await using (opened)
         {
             using var output = new MemoryStream();
-            await read.Content.CopyToAsync(output);
+            await opened.Content.CopyToAsync(output);
             return output.ToArray();
         }
     }
@@ -229,7 +229,7 @@ public sealed class CloudObjectStorageIntegrationTests
                 ContinuationToken = continuation,
             });
 
-            foreach (var item in response.S3Objects)
+            foreach (var item in response.S3Objects ?? [])
             {
                 await s3.DeleteObjectAsync(new DeleteObjectRequest
                 {
