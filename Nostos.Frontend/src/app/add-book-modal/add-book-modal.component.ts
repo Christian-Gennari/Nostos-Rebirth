@@ -23,7 +23,8 @@ import { DialogActionsComponent } from '../ui/dialog-actions/dialog-actions.comp
 import { ButtonComponent } from '../ui/button/button.component';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 import { FormFieldComponent } from '../ui/form-field/form-field.component';
-import { InputDirective, SelectDirective, TextareaDirective } from '../ui/form-control/form-control.directive';
+import { InputDirective, TextareaDirective } from '../ui/form-control/form-control.directive';
+import { DropdownComponent, type DropdownOption } from '../ui/dropdown/dropdown.component';
 
 @Component({
   selector: 'app-add-book-modal',
@@ -36,7 +37,7 @@ import { InputDirective, SelectDirective, TextareaDirective } from '../ui/form-c
     CollectionPickerComponent,
     FormFieldComponent,
     InputDirective,
-    SelectDirective,
+    DropdownComponent,
     TextareaDirective,
     ModalShell,
     DialogActionsComponent,
@@ -46,6 +47,11 @@ import { InputDirective, SelectDirective, TextareaDirective } from '../ui/form-c
   styleUrl: './add-book-modal.component.css',
 })
 export class AddBookModal {
+  readonly bookTypeOptions = [
+    { value: 'physical', label: 'Physical Book' },
+    { value: 'ebook', label: 'E-Book' },
+    { value: 'audiobook', label: 'Audiobook' },
+  ] satisfies readonly DropdownOption[];
   private booksService = inject(BooksService);
   private providers = inject(ProvidersService);
   private toast = inject(ToastService);
@@ -201,13 +207,16 @@ export class AddBookModal {
     tabs?.item(nextIndex).focus();
   }
 
-  onTypeChange(type: BookType): void {
-    this.form.type = type;
+  onTypeChange(type: string): void {
+    if (type !== 'physical' && type !== 'ebook' && type !== 'audiobook') return;
+
+    const bookType: BookType = type;
+    this.form.type = bookType;
 
     // A file belongs to a digital edition, never to a physical metadata record.
     // Clear a previously chosen file when switching back to Physical so it
     // cannot be carried invisibly into a later submit.
-    if (type === 'physical') {
+    if (bookType === 'physical') {
       this.selectedFile.set(null);
       this.fileDragActive.set(false);
     }

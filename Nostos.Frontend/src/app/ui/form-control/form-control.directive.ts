@@ -42,20 +42,3 @@ export class TextareaDirective {
   readonly controlSize = input<FormControlSize>('normal');
   readonly invalid = input(false);
 }
-
-/**
- * Canonical Nostos native select.
- */
-@Directive({
-  selector: 'select[appSelect]',
-  standalone: true,
-  host: {
-    class: 'nostos-form-control nostos-form-control--select',
-    '[class.nostos-form-control--compact]': "controlSize() === 'compact'",
-    '[attr.aria-invalid]': "invalid() ? 'true' : null",
-  },
-})
-export class SelectDirective {
-  readonly controlSize = input<FormControlSize>('normal');
-  readonly invalid = input(false);
-}
