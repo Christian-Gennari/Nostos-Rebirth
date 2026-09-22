@@ -90,7 +90,8 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
       ],
     }).compileComponents();
 
-    // Clean slate in case a previous test left the body class behind.
+    // Clean slate in case a previous test left state behind.
+    localStorage.clear();
     document.body.classList.remove('nostos-zen');
     document.documentElement.removeAttribute('data-theme');
 
@@ -186,6 +187,37 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
     expect(back.tagName).toBe('BUTTON');
     expect(back.classList.contains('nostos-button--ghost')).toBe(true);
     expect(back.classList.contains('nostos-button--sm')).toBe(true);
+  });
+
+  it('exposes a keyboard-accessible desktop resize separator for the file sidebar', () => {
+    component.isMobile.set(false);
+    component.showFileSidebar.set(true);
+    component.leftSidebarWidth.set(280);
+    fixture.detectChanges();
+
+    const separator = fixture.nativeElement.querySelector('.sidebar-resizer') as HTMLElement;
+    expect(separator).toBeTruthy();
+    expect(separator.getAttribute('role')).toBe('separator');
+    expect(separator.getAttribute('aria-orientation')).toBe('vertical');
+    expect(separator.getAttribute('aria-valuenow')).toBe('280');
+
+    separator.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    fixture.detectChanges();
+
+    expect(component.leftSidebarWidth()).toBe(296);
+    expect(localStorage.getItem('nostos.studio.leftSidebarWidth')).toBe('296');
+    expect(separator.getAttribute('aria-valuenow')).toBe('296');
+  });
+
+  it('does not run the shared transform entry animation on Studio sidebars', () => {
+    const css = componentCss();
+
+    expect(css).not.toContain('animation: sidebar-enter');
+    expect(css).not.toContain('animation: sidebar-enter-right');
+
+    const mobile = css.slice(css.indexOf('@media (max-width: 768px)'));
+    expect(mobile).toContain('transform: translateX(-100%)');
+    expect(mobile).toContain('transform: translateX(100%)');
   });
 
   // --- Placement: no telemetry or zen control without an active document ---
