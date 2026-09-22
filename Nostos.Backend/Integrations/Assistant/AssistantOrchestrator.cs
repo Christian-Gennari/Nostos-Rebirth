@@ -89,7 +89,8 @@ public sealed class AssistantOrchestrator(
     /// "that", not "what you asked": roughly half of these turns are captures,
     /// where the user asked nothing and simply gave the assistant something.
     /// </summary>
-    public const string IncompleteTurnReply = "I could not finish that.";
+    public const string IncompleteTurnReply =
+        "I reached this turn's execution limit before I could finish. Send another message to continue.";
 
     /// <summary>
     /// The one question a capture asks when the app cannot know the book: no book

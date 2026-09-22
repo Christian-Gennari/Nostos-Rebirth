@@ -962,6 +962,9 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
             Context(surface: "second-brain", route: "/second-brain")));
 
         response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
+        response.Reply.Should().Contain("before I could finish");
+        response.Reply.Should().Contain("continue");
+        response.Reply.Should().NotContain("completed");
     }
 
     [Fact]
