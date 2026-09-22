@@ -134,6 +134,7 @@ public sealed class AssistantOrchestrator(
         ArgumentNullException.ThrowIfNull(request);
 
         var executionMeter = new AssistantExecutionMeter();
+        var toolLoopDetector = new AssistantToolLoopDetector();
         var stopReason = AssistantTurnStopReason.SafetyCeiling;
 
         var conversationKey = ConversationKey(request.ClientId);
@@ -192,6 +193,17 @@ public sealed class AssistantOrchestrator(
                 // A plain answer (including the pool's empty-content/"length"
                 // outcome, which is data: it is returned as-is, never a 500).
                 stopReason = AssistantTurnStopReason.Completed;
+                break;
+            }
+
+            // The in-process Nostos tools are deterministic for an unchanged
+            // request. If the model asks for the same tool batch with equivalent
+            // arguments on the immediately following round, executing it again
+            // adds no information and can duplicate writes because each round
+            // intentionally has a distinct receipt key.
+            if (toolLoopDetector.IsImmediateRepeat(completion.ToolCalls))
+            {
+                stopReason = AssistantTurnStopReason.RepeatedToolLoop;
                 break;
             }
 

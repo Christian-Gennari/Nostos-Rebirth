@@ -25,6 +25,7 @@ public enum AssistantTurnStopReason
     Completed,
     UserInputRequired,
     ApprovalRequired,
+    RepeatedToolLoop,
     SafetyCeiling,
     ProviderError,
     Cancelled,

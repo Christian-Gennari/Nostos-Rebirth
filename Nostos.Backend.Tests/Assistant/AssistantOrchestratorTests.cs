@@ -865,10 +865,13 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         var h = CreateHarness(maxToolIterations: 3);
 
         // A model that never stops asking for tools.
-        h.Llm.Responder = _ => new LlmCompletion(
+        h.Llm.Responder = call => new LlmCompletion(
             null,
             "tool_calls",
-            [new LlmToolCall(Guid.NewGuid().ToString("N"), "concepts_list", "{}")]);
+            [new LlmToolCall(
+                Guid.NewGuid().ToString("N"),
+                "concepts_search",
+                JsonSerializer.Serialize(new { query = $"loop-{call}" }))]);
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
             "Loop, please.",
@@ -883,10 +886,13 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     {
         var h = CreateHarness();
 
-        h.Llm.Responder = _ => new LlmCompletion(
+        h.Llm.Responder = call => new LlmCompletion(
             null,
             "tool_calls",
-            [new LlmToolCall(Guid.NewGuid().ToString("N"), "concepts_list", "{}")]);
+            [new LlmToolCall(
+                Guid.NewGuid().ToString("N"),
+                "concepts_search",
+                JsonSerializer.Serialize(new { query = $"loop-{call}" }))]);
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
             "Loop, please.",
@@ -894,6 +900,31 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
 
         response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
         h.Llm.CallCount.Should().Be(6);
+    }
+
+    [Fact]
+    public async Task An_identical_tool_batch_stops_before_the_second_execution()
+    {
+        var h = CreateHarness();
+
+        h.Llm.Responder = _ => new LlmCompletion(
+            null,
+            "tool_calls",
+            [new LlmToolCall(
+                Guid.NewGuid().ToString("N"),
+                "library_create_collection",
+                """{"name":"One copy"}""")]);
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "Keep creating the same collection.",
+            Context(surface: "library", route: "/library")));
+
+        h.Llm.CallCount.Should().Be(2);
+        response.ExecutedCapabilities.Should().Equal("library_create_collection");
+        response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
+
+        await using var db = await h.Factory.CreateDbContextAsync();
+        (await db.Collections.AsNoTracking().CountAsync()).Should().Be(1);
     }
 
     [Fact]
