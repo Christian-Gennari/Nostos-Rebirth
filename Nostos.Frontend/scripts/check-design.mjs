@@ -1116,7 +1116,8 @@ if (process.argv.includes('--self-test')) {
       '.provider-input { padding: 9px; border: 1px solid var(--border-color); background: var(--bg-input); }'],
     ['migrated-surface-legacy-generic-control', '<button class="btn btn-secondary">Save</button>'],
     ['migrated-surface-unowned-raw-button', '<button class="save-action">Save</button>'],
-    ['migrated-surface-unowned-raw-field', '<input class="save-name" type="text">'],\n    ['raw-native-select', '<select><option>Old dropdown</option></select>'],
+    ['migrated-surface-unowned-raw-field', '<input class="save-name" type="text">'],
+    ['raw-native-select', '<select><option>Old dropdown</option></select>'],
     ['migrated-surface-switch-copy',
       '.copied-switch { position: relative; width: 42px; height: 24px; border-radius: 999px; }'],
     // RULE 8 needs a TEMPLATE and a matching .css class, so its case is checked by
@@ -1180,7 +1181,8 @@ if (process.argv.includes('--self-test')) {
     }
     if (rule === 'migrated-surface-unowned-raw-field') {
       fired = rawOrdinaryFieldWithoutPrimitive(snippet, 'src/app/settings/settings.component.html').length > 0;
-    }\n    if (rule === 'raw-native-select') fired = rawNativeSelects(snippet).length > 0;
+    }
+    if (rule === 'raw-native-select') fired = rawNativeSelects(snippet).length > 0;
     if (rule === 'migrated-surface-switch-copy') fired = copiedSwitchGeometry(snippet).length > 0;
     if (fired) { ok++; console.log(`  ✔ ${rule} fires on its known-bad snippet`); }
     else console.log(`  ✖ ${rule} DID NOT FIRE — the rule is vacuous`);
