@@ -63,6 +63,37 @@ public static class MeasurementSummary
     public static List<TurnMetricsRow> StatRows(IEnumerable<TurnMetricsRow> rows) =>
         FinalAttemptRows(rows).Where(r => r.StopReason != "ProviderError").ToList();
 
+    /// <summary>
+    /// The measured constant number of tokens the live transport adds to every upstream
+    /// call (zero on the direct API). See <see cref="MeasurementEnvironment.PreambleOffsetTokens"/>.
+    /// </summary>
+    public static int PreambleOffset => MeasurementEnvironment.PreambleOffsetTokens;
+
+    /// <summary>
+    /// A turn's token and cost figures with the transport preamble removed. Output and
+    /// thinking tokens are unaffected; the cost is re-derived from the corrected input so
+    /// the figure matches what the direct API would have charged.
+    /// </summary>
+    public static (int? InputTokens, int? OutputTokens, int? ThinkingTokens, int? TotalTokens, decimal? CostUsd)
+        CorrectedForPreamble(TurnMetricsRow row)
+    {
+        if (PreambleOffset <= 0 || row.InputTokens is null)
+        {
+            return (row.InputTokens, row.OutputTokens, row.ThinkingTokens, row.ReportedTotalTokens, row.EstimatedCostUsd);
+        }
+
+        var input = Math.Max(0, row.InputTokens.Value - (PreambleOffset * row.UpstreamCalls));
+        var output = row.OutputTokens;
+        var thinking = row.ThinkingTokens;
+
+        return (
+            input,
+            output,
+            thinking,
+            input + (output ?? 0) + (thinking ?? 0),
+            MeasurementPricing.EstimateCostUsd(input, output));
+    }
+
     public static string BuildMarkdown(IEnumerable<TurnMetricsRow> rows, string runId, bool fake)
     {
         var allRows = rows.ToList();
@@ -84,6 +115,11 @@ public static class MeasurementSummary
         sb.AppendLine($"- Recorded attempts: {allRows.Count}");
         sb.AppendLine($"- Final turns measured: {finalRows.Count} (provider-error turns: {failedTurns})");
         sb.AppendLine($"- Retry attempts beyond the first per turn: {retryAttempts}");
+        if (PreambleOffset > 0)
+        {
+            sb.AppendLine($"- Transport: `{MeasurementEnvironment.LiveTransport}` with a measured constant preamble of {PreambleOffset} token(s) per upstream call. Raw token and cost figures include it; the direct-API equivalent is shown under every table.");
+        }
+
         sb.AppendLine();
 
         var scenarioGroups = statRows
@@ -193,6 +229,23 @@ public static class MeasurementSummary
         var costUsd = rows.Select(r => r.EstimatedCostUsd).ToList();
         sb.AppendLine($"| Estimated Cost (USD) | {FormatDecimal(CalculatePercentile(costUsd, 50))} | {FormatDecimal(CalculatePercentile(costUsd, 90))} | {FormatDecimal(CalculatePercentile(costUsd, 99))} |");
 
+        if (PreambleOffset > 0)
+        {
+            var corrected = rows.Select(CorrectedForPreamble).ToList();
+            var correctedInput = corrected.Select(c => (double?)c.InputTokens).ToList();
+            var correctedTotal = corrected.Select(c => (double?)c.TotalTokens).ToList();
+            var correctedCost = corrected.Select(c => c.CostUsd).ToList();
+
+            sb.AppendLine();
+            sb.AppendLine($"**Direct-API equivalent — the transport's constant {PreambleOffset} token(s) per upstream call removed:**");
+            sb.AppendLine();
+            sb.AppendLine("| Metric | Median (p50) | p90 | p99 |");
+            sb.AppendLine("| --- | --- | --- | --- |");
+            sb.AppendLine($"| Input Tokens | {FormatDouble(CalculatePercentile(correctedInput, 50))} | {FormatDouble(CalculatePercentile(correctedInput, 90))} | {FormatDouble(CalculatePercentile(correctedInput, 99))} |");
+            sb.AppendLine($"| Total Tokens | {FormatDouble(CalculatePercentile(correctedTotal, 50))} | {FormatDouble(CalculatePercentile(correctedTotal, 90))} | {FormatDouble(CalculatePercentile(correctedTotal, 99))} |");
+            sb.AppendLine($"| Estimated Cost (USD) | {FormatDecimal(CalculatePercentile(correctedCost, 50))} | {FormatDecimal(CalculatePercentile(correctedCost, 90))} | {FormatDecimal(CalculatePercentile(correctedCost, 99))} |");
+        }
+
         sb.AppendLine();
         var over2 = rows.Count(r => r.UpstreamCalls > 2);
         var over4 = rows.Count(r => r.UpstreamCalls > 4);
@@ -272,6 +325,11 @@ public static class MeasurementSummary
         var elapsedMs = rows.Select(r => (double?)r.ElapsedMs).ToList();
         var costUsd = rows.Select(r => r.EstimatedCostUsd).ToList();
 
+        var corrected = rows.Select(CorrectedForPreamble).ToList();
+        var correctedInput = corrected.Select(c => (double?)c.InputTokens).ToList();
+        var correctedTotal = corrected.Select(c => (double?)c.TotalTokens).ToList();
+        var correctedCost = corrected.Select(c => c.CostUsd).ToList();
+
         return new
         {
             N = n,
@@ -289,6 +347,15 @@ public static class MeasurementSummary
             UpstreamCallsGt2 = rows.Count(r => r.UpstreamCalls > 2),
             UpstreamCallsGt4 = rows.Count(r => r.UpstreamCalls > 4),
             UpstreamCallsGte6 = rows.Count(r => r.UpstreamCalls >= 6),
+            CorrectedForPreamble = PreambleOffset > 0
+                ? new
+                {
+                    PreambleOffsetTokensPerUpstreamCall = PreambleOffset,
+                    InputTokens = new { P50 = CalculatePercentile(correctedInput, 50), P90 = CalculatePercentile(correctedInput, 90), P99 = CalculatePercentile(correctedInput, 99) },
+                    TotalTokens = new { P50 = CalculatePercentile(correctedTotal, 50), P90 = CalculatePercentile(correctedTotal, 90), P99 = CalculatePercentile(correctedTotal, 99) },
+                    EstimatedCostUsd = new { P50 = CalculatePercentile(correctedCost, 50), P90 = CalculatePercentile(correctedCost, 90), P99 = CalculatePercentile(correctedCost, 99) }
+                }
+                : null,
             UpstreamCallHistogram = rows.GroupBy(r => r.UpstreamCalls).OrderBy(g => g.Key).ToDictionary(g => g.Key.ToString(CultureInfo.InvariantCulture), g => g.Count()),
             StopReasons = rows.GroupBy(r => r.StopReason).ToDictionary(g => g.Key, g => g.Count())
         };

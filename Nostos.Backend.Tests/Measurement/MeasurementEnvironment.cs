@@ -39,7 +39,49 @@ public static class MeasurementEnvironment
     }
 
     /// <summary>True when at least one Gemini API key is configured.</summary>
-    public static bool HasLiveCredential => ApiKeys.Count > 0;
+    public static bool HasLiveCredential =>
+        IsNineRouterTransport ? !string.IsNullOrWhiteSpace(NineRouterApiKey) : ApiKeys.Count > 0;
+
+    /// <summary>
+    /// Live transport for the measurement: <c>gemini</c> calls the Google AI Studio API
+    /// directly, <c>9router</c> goes through the OpenAI-compatible gateway the app itself
+    /// talks to today (the production <c>NineRouterLlmProvider</c>). Both serve
+    /// gemini-3.8-flash at thinking level low; the gateway adds a constant preamble to
+    /// every call, which <see cref="PreambleOffsetTokens"/> records.
+    /// </summary>
+    public static string LiveTransport =>
+        Environment.GetEnvironmentVariable("NOSTOS_MEASUREMENT_PROVIDER") is { Length: > 0 } transport
+            ? transport.Trim().ToLowerInvariant()
+            : "gemini";
+
+    /// <summary>True when the live transport is the 9Router gateway.</summary>
+    public static bool IsNineRouterTransport => LiveTransport is "9router" or "ninerouter";
+
+    /// <summary>9Router base URL for a gateway run (the app's own default is the same route).</summary>
+    public static string NineRouterBaseUrl =>
+        Environment.GetEnvironmentVariable("NOSTOS_MEASUREMENT_NINE_ROUTER_BASE_URL") is { Length: > 0 } url
+            ? url
+            : "http://localhost:20128/v1";
+
+    /// <summary>9Router model id: the Antigravity Gemini 3.8 Flash route pinned to thinking level low.</summary>
+    public static string NineRouterModel =>
+        Environment.GetEnvironmentVariable("NOSTOS_MEASUREMENT_NINE_ROUTER_MODEL") is { Length: > 0 } model
+            ? model
+            : "ag/gemini-3.8-flash-low";
+
+    /// <summary>9Router API key. Never logged or written to disk.</summary>
+    public static string NineRouterApiKey =>
+        Environment.GetEnvironmentVariable("NOSTOS_MEASUREMENT_NINE_ROUTER_KEY") ?? string.Empty;
+
+    /// <summary>
+    /// Measured constant token overhead the gateway adds to every upstream call
+    /// (0 when measuring the direct API). Recorded rows stay raw; summaries and the
+    /// spike document subtract it to state the direct-API equivalent.
+    /// </summary>
+    public static int PreambleOffsetTokens =>
+        int.TryParse(Environment.GetEnvironmentVariable("NOSTOS_MEASUREMENT_PREAMBLE_OFFSET"), out var offset) && offset > 0
+            ? offset
+            : 0;
 
     /// <summary>True when running in offline fake/scripted mode.</summary>
     public static bool IsFake => Environment.GetEnvironmentVariable("NOSTOS_MEASUREMENT_FAKE") == "1";
@@ -52,6 +94,9 @@ public static class MeasurementEnvironment
         Environment.GetEnvironmentVariable("NOSTOS_MEASUREMENT_MODEL") is { Length: > 0 } model
             ? model
             : "gemini-3.8-flash";
+
+    /// <summary>The model id this run's transport actually serves (the gateway route, or the direct API id).</summary>
+    public static string EffectiveModel => IsNineRouterTransport ? NineRouterModel : Model;
 
     /// <summary>Configured thinking level.</summary>
     public static string ThinkingLevel =>

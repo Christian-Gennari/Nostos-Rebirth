@@ -113,11 +113,11 @@ public sealed class AssistantTurnMeasurementTests
                     {
                         row = new TurnMetricsRow(
                             RunId: runId,
-                            Provider: isFake ? "fake" : "gemini",
+                            Provider: isFake ? "fake" : MeasurementEnvironment.LiveTransport,
                             Scenario: scenario.Slug,
                             Repetition: rep,
                             Attempt: attempt,
-                            Model: MeasurementEnvironment.Model,
+                            Model: MeasurementEnvironment.EffectiveModel,
                             ThinkingLevel: MeasurementEnvironment.ThinkingLevel,
                             UpstreamCalls: harness.UpstreamHttpAttempts,
                             ToolCalls: 0,
@@ -141,11 +141,11 @@ public sealed class AssistantTurnMeasurementTests
 
                         row = new TurnMetricsRow(
                             RunId: runId,
-                            Provider: isFake ? "fake" : "gemini",
+                            Provider: isFake ? "fake" : MeasurementEnvironment.LiveTransport,
                             Scenario: scenario.Slug,
                             Repetition: rep,
                             Attempt: attempt,
-                            Model: MeasurementEnvironment.Model,
+                            Model: MeasurementEnvironment.EffectiveModel,
                             ThinkingLevel: MeasurementEnvironment.ThinkingLevel,
                             UpstreamCalls: metrics?.UpstreamCallCount ?? 0,
                             ToolCalls: metrics?.ToolCallCount ?? 0,

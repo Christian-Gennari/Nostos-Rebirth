@@ -22,19 +22,22 @@ public sealed class MeasurementHarness : IDisposable
 {
     private readonly string _databasePath;
     private readonly ILlmProvider _llm;
+    private readonly CountingLlmProvider? _counter;
 
     private MeasurementHarness(
         string databasePath,
         NostosDbContext dbContext,
         AssistantOrchestrator orchestrator,
         MeasurementCaptureLogger llmMetrics,
-        ILlmProvider llm)
+        ILlmProvider llm,
+        CountingLlmProvider? counter)
     {
         _databasePath = databasePath;
         DbContext = dbContext;
         Orchestrator = orchestrator;
         LlmMetrics = llmMetrics;
         _llm = llm;
+        _counter = counter;
     }
 
     /// <summary>Real SQLite database context for the harness.</summary>
@@ -49,12 +52,16 @@ public sealed class MeasurementHarness : IDisposable
     /// <summary>
     /// Provider-reported HTTP attempts for the current harness instance. Used only when a turn threw
     /// before the orchestrator emitted its structured metrics row, so no fabricated count is recorded.
+    /// The gateway adapter retries nothing, so its count is the number of calls it made.
     /// </summary>
-    public int UpstreamHttpAttempts => (_llm as GeminiMeasurementLlmProvider)?.UpstreamRequestCount ?? 0;
+    public int UpstreamHttpAttempts =>
+        (_llm as GeminiMeasurementLlmProvider)?.UpstreamRequestCount
+        ?? _counter?.Attempts
+        ?? 0;
 
     /// <summary>
-    /// Creates a fresh measurement harness. Uses live Gemini if credentials exist and fake mode is unset;
-    /// otherwise configures a scripted fake provider for the specified scenario.
+    /// Creates a fresh measurement harness. Uses the configured live transport when a credential is
+    /// present and live runs are enabled; otherwise configures a scripted fake provider.
     /// </summary>
     public static MeasurementHarness Create(int scenarioNumber = 1)
     {
@@ -99,12 +106,35 @@ public sealed class MeasurementHarness : IDisposable
         var plans = new AssistantPlanStore();
         var settings = new AssistantSettingsService(factory);
 
-        ILlmProvider llm = MeasurementEnvironment.IsLiveRun
-            ? new GeminiMeasurementLlmProvider(
-                MeasurementEnvironment.ApiKeys,
-                MeasurementEnvironment.Model,
-                MeasurementEnvironment.ThinkingLevel)
-            : new ScriptedMeasurementFakeLlmProvider(scenarioNumber);
+        ILlmProvider llm;
+        CountingLlmProvider? counter = null;
+
+        if (MeasurementEnvironment.IsLiveRun)
+        {
+            if (MeasurementEnvironment.IsNineRouterTransport)
+            {
+                // The production gateway adapter: what the app itself calls today.
+                counter = new CountingLlmProvider(new NineRouterLlmProvider(
+                    new HarnessHttpClientFactory(TimeSpan.FromSeconds(180)),
+                    new HarnessProviderConfigResolver(
+                        MeasurementEnvironment.NineRouterBaseUrl,
+                        MeasurementEnvironment.NineRouterModel,
+                        MeasurementEnvironment.NineRouterApiKey),
+                    NullLogger<NineRouterLlmProvider>.Instance));
+                llm = counter;
+            }
+            else
+            {
+                llm = new GeminiMeasurementLlmProvider(
+                    MeasurementEnvironment.ApiKeys,
+                    MeasurementEnvironment.Model,
+                    MeasurementEnvironment.ThinkingLevel);
+            }
+        }
+        else
+        {
+            llm = new ScriptedMeasurementFakeLlmProvider(scenarioNumber);
+        }
 
         var orchestrator = new AssistantOrchestrator(
             registry,
@@ -115,7 +145,7 @@ public sealed class MeasurementHarness : IDisposable
             assistantOptions,
             captureLogger);
 
-        return new MeasurementHarness(databasePath, db, orchestrator, captureLogger, llm);
+        return new MeasurementHarness(databasePath, db, orchestrator, captureLogger, llm, counter);
     }
 
     public void Dispose()
@@ -150,6 +180,51 @@ public sealed class MeasurementHarness : IDisposable
     private sealed class HarnessNoopHttpClientFactory : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => new();
+    }
+
+    /// <summary>Counts the calls that reached a provider, so a failed turn records a real number.</summary>
+    private sealed class CountingLlmProvider(ILlmProvider inner) : ILlmProvider
+    {
+        private int _attempts;
+
+        public int Attempts => Volatile.Read(ref _attempts);
+
+        public Task<LlmCompletion> CompleteAsync(LlmCompletionRequest request, CancellationToken ct = default)
+        {
+            Interlocked.Increment(ref _attempts);
+            return inner.CompleteAsync(request, ct);
+        }
+    }
+
+    private sealed class HarnessHttpClientFactory(TimeSpan timeout) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new() { Timeout = timeout };
+    }
+
+    /// <summary>
+    /// Fixed provider configuration for the gateway transport: the harness supplies the
+    /// endpoint, model and credential directly instead of reading the app's settings.
+    /// </summary>
+    private sealed class HarnessProviderConfigResolver(string baseUrl, string model, string apiKey)
+        : IAiProviderConfigResolver
+    {
+        public Task<EffectiveAiProviderConfig> GetEffectiveLlmAsync(CancellationToken ct = default) =>
+            Task.FromResult(new EffectiveAiProviderConfig(
+                Enabled: true,
+                BaseUrl: baseUrl,
+                Model: model,
+                ApiKeyEnvironmentVariable: "NOSTOS_MEASUREMENT_NINE_ROUTER_KEY",
+                ApiKey: apiKey,
+                KeyFromServerEnv: true));
+
+        public Task<EffectiveAiProviderConfig> GetEffectiveSttAsync(CancellationToken ct = default) =>
+            Task.FromResult(new EffectiveAiProviderConfig(
+                Enabled: false,
+                BaseUrl: string.Empty,
+                Model: string.Empty,
+                ApiKeyEnvironmentVariable: string.Empty,
+                ApiKey: null,
+                KeyFromServerEnv: false));
     }
 
     private sealed class HarnessSilentLogger<T> : ILogger<T>
