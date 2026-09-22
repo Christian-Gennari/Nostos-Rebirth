@@ -163,6 +163,7 @@ public sealed class CloudBillingTests
         request.Method.Should().Be(HttpMethod.Post);
         request.Path.Should().Be("/transactions");
         request.Body.Should().Contain("\"price_id\":\"pri_basic\"");
+        request.Body.Should().Contain("\"enable_checkout\":true");
         request.Body.Should().Contain(account.ToString());
     }
 
