@@ -273,6 +273,13 @@ if (deployment.Mode == DeploymentMode.SelfHosted)
     builder.Services.AddScoped<IBackupService, BackupService>();
 }
 
+// Provider-independent library portability is available in both deployment
+// modes. In Cloud the scoped DbContext and IBookAssetStorage already resolve
+// from the authenticated tenant context; callers never supply tenant resources.
+builder.Services.AddScoped<
+    Nostos.Backend.Services.Portability.IPortableArchiveService,
+    Nostos.Backend.Services.Portability.PortableArchiveService>();
+
 builder.Services.AddScoped<IBookRepository, BookRepository>();
 builder.Services.AddScoped<INoteRepository, NoteRepository>();
 builder.Services.AddScoped<IConceptRepository, ConceptRepository>();
@@ -525,6 +532,7 @@ app.MapAssistantEndpoints();
 app.MapAiProviderSettingsEndpoints();
 app.MapAssistantSettingsEndpoints();
 app.MapDeploymentCapabilitiesEndpoints();
+app.MapPortabilityEndpoints();
 if (deployment.Mode == DeploymentMode.Cloud)
 {
     app.MapCloudAuthEndpoints();
