@@ -39,7 +39,7 @@ public static class CloudObjectStorageRegistration
                 config);
         });
 
-        services.AddSingleton<IBookAssetStorage, S3BookAssetStorage>();
+        services.AddScoped<IBookAssetStorage, S3BookAssetStorage>();
         return services;
     }
 }
