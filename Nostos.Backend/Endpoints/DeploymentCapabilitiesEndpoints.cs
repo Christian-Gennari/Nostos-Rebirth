@@ -18,7 +18,8 @@ public static class DeploymentCapabilitiesEndpoints
         this IEndpointRouteBuilder routes)
     {
         routes.MapGet(Route, (DeploymentDescriptor deployment) =>
-            Results.Ok(ToResponse(deployment)));
+            Results.Ok(ToResponse(deployment)))
+            .AllowAnonymous();
         return routes;
     }
 
