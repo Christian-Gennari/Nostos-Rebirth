@@ -450,6 +450,25 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         (await StoreSnapshotAsync(h)).Should().BeEquivalentTo(before);
     }
 
+    [Fact]
+    public async Task Library_lookup_uses_one_tool_round_and_a_final_response()
+    {
+        var h = CreateHarness();
+        await SeedCollectionAsync(h, "Philosophy");
+
+        h.Llm
+            .CallsTool("library_list_collections")
+            .Returns("You have a Philosophy collection.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "What collections do I have?",
+            Context(surface: "library", route: "/library")));
+
+        response.Reply.Should().Contain("Philosophy");
+        response.ExecutedCapabilities.Should().BeEmpty();
+        h.Llm.CallCount.Should().Be(2);
+    }
+
     // ------------------------------------------------------------------
     // Brain review — existing-concept suggestions only (#261 §5)
     // ------------------------------------------------------------------
