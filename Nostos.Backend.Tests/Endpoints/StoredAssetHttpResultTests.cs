@@ -2,6 +2,7 @@ using System.Text;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Net.Http.Headers;
+using Microsoft.Extensions.DependencyInjection;
 using Nostos.Backend.Endpoints;
 using Nostos.Backend.Services;
 using Xunit;
@@ -145,7 +146,12 @@ public sealed class StoredAssetHttpResultTests
 
     private static DefaultHttpContext Context()
     {
-        var context = new DefaultHttpContext();
+        var context = new DefaultHttpContext
+        {
+            RequestServices = new ServiceCollection()
+                .AddLogging()
+                .BuildServiceProvider(),
+        };
         context.Response.Body = new MemoryStream();
         return context;
     }
