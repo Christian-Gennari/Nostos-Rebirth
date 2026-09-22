@@ -357,7 +357,9 @@ describe('AddBookModal — From a Source', () => {
     fixture.detectChanges();
 
     const ebookOption = Array.from(
-      fixture.nativeElement.querySelectorAll('app-dropdown [role="option"]'),
+      fixture.nativeElement.querySelectorAll(
+        'app-dropdown [role="option"]',
+      ) as NodeListOf<HTMLElement>,
     ).find((option) => option.textContent?.includes('E-Book')) as HTMLElement;
     ebookOption.click();
     fixture.detectChanges();
