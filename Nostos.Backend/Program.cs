@@ -227,6 +227,11 @@ builder.Services.AddNostosPersistence(
     deployment,
     builder.Environment.ContentRootPath);
 
+if (deployment.Mode == DeploymentMode.Cloud)
+{
+    builder.Services.AddNostosCloudBilling(builder.Configuration);
+}
+
 if (deployment.Mode == DeploymentMode.SelfHosted)
 {
     builder.Services.AddScoped<IDatabaseBootstrapService, DatabaseBootstrapService>();
@@ -537,6 +542,7 @@ if (deployment.Mode == DeploymentMode.Cloud)
 {
     app.MapCloudAuthEndpoints();
     app.MapCloudProvisioningEndpoints();
+    app.MapCloudBillingEndpoints();
 }
 app.MapOpdsEndpoints(opdsOptions);
 if (deployment.Mode == DeploymentMode.SelfHosted)
