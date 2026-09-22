@@ -203,6 +203,51 @@ public sealed class PortableArchiveServiceTests
     }
 
     [Fact]
+    public async Task Import_rejects_corrupt_manifest_before_mutating_destination()
+    {
+        using var archive = await ExportFixtureAsync();
+        var entries = await ReadEntriesAsync(archive);
+        var manifestIndex = entries.FindIndex(x => x.Name == "manifest.json");
+        entries[manifestIndex] = new TestArchiveEntry(
+            "manifest.json",
+            Encoding.UTF8.GetBytes("{ definitely-not-valid-json"));
+
+        using var corrupt = await BuildArchiveAsync(entries);
+        await using var destination = await LocalPortableTestLibrary.CreateAsync();
+        corrupt.Position = 0;
+
+        var action = () => destination.Portability().ImportAsync(corrupt);
+        var exception = await action.Should().ThrowAsync<PortableArchiveException>();
+
+        exception.Which.Code.Should().Be("malformed_manifest");
+        (await destination.Db.Books.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Import_rejects_duplicate_entity_ids_before_mutating_destination()
+    {
+        using var archive = await ExportFixtureAsync();
+        var entries = await ReadEntriesAsync(archive);
+        MutateJsonEntry(entries, "data/library.json", root =>
+        {
+            var books = root["books"]!.AsArray();
+            var duplicateId = books[0]!["id"]!.GetValue<string>();
+            books[1]!["id"] = duplicateId;
+        });
+        RehashDataDescriptor(entries);
+
+        using var duplicateIds = await BuildArchiveAsync(entries);
+        await using var destination = await LocalPortableTestLibrary.CreateAsync();
+        duplicateIds.Position = 0;
+
+        var action = () => destination.Portability().ImportAsync(duplicateIds);
+        var exception = await action.Should().ThrowAsync<PortableArchiveException>();
+
+        exception.Which.Code.Should().Be("duplicate_id");
+        (await destination.Db.Books.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
     public async Task Import_rejects_malformed_relationship_duplicate_path_and_traversal()
     {
         using var archive = await ExportFixtureAsync();
