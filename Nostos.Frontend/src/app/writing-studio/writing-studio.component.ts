@@ -32,6 +32,32 @@ import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 
 /** localStorage flag for typewriter mode in the studio. */
 const TYPEWRITER_KEY = 'nostos.typewriter';
+const STUDIO_SIDEBAR_WIDTH_KEY = 'nostos.studio.leftSidebarWidth';
+const STUDIO_SIDEBAR_MIN = 220;
+const STUDIO_SIDEBAR_MAX = 420;
+const STUDIO_SIDEBAR_DEFAULT = 280;
+
+function studioSidebarMaxWidth(): number {
+  return Math.max(
+    STUDIO_SIDEBAR_MIN,
+    Math.min(STUDIO_SIDEBAR_MAX, Math.floor(window.innerWidth * 0.42)),
+  );
+}
+
+function clampStudioSidebarWidth(width: number): number {
+  return Math.min(studioSidebarMaxWidth(), Math.max(STUDIO_SIDEBAR_MIN, Math.round(width)));
+}
+
+function readStudioSidebarWidth(): number {
+  try {
+    const stored = Number(localStorage.getItem(STUDIO_SIDEBAR_WIDTH_KEY));
+    return Number.isFinite(stored) && stored > 0
+      ? clampStudioSidebarWidth(stored)
+      : STUDIO_SIDEBAR_DEFAULT;
+  } catch {
+    return STUDIO_SIDEBAR_DEFAULT;
+  }
+}
 
 function readTypewriter(): boolean {
   try {
@@ -74,6 +100,9 @@ export class WritingStudio implements OnInit {
   showFileSidebar = signal(true);
   showBrainSidebar = signal(!this.isMobile());
 
+  /** Desktop file tree width. The divider is user-resizable; mobile owns its drawer width. */
+  leftSidebarWidth = signal(readStudioSidebarWidth());
+
   activeSidebarTab = signal<'brain' | 'notes'>('brain');
 
   rootItems = signal<WritingDto[]>([]);
@@ -99,6 +128,62 @@ export class WritingStudio implements OnInit {
       // Toggle still applies for the session even if it won't persist.
     }
     this.typewriter.set(next);
+  }
+
+  leftSidebarMaxWidth(): number {
+    return studioSidebarMaxWidth();
+  }
+
+  startLeftSidebarResize(event: PointerEvent): void {
+    if (this.isMobile() || event.button !== 0) return;
+
+    const handle = event.currentTarget as HTMLElement | null;
+    if (!handle) return;
+
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = this.leftSidebarWidth();
+
+    handle.setPointerCapture?.(event.pointerId);
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      this.leftSidebarWidth.set(
+        clampStudioSidebarWidth(startWidth + moveEvent.clientX - startX),
+      );
+    };
+
+    const finish = (finishEvent: PointerEvent) => {
+      handle.removeEventListener('pointermove', onPointerMove);
+      handle.removeEventListener('pointerup', finish);
+      handle.removeEventListener('pointercancel', finish);
+      if (handle.hasPointerCapture?.(finishEvent.pointerId)) {
+        handle.releasePointerCapture(finishEvent.pointerId);
+      }
+      this.persistLeftSidebarWidth();
+    };
+
+    handle.addEventListener('pointermove', onPointerMove);
+    handle.addEventListener('pointerup', finish);
+    handle.addEventListener('pointercancel', finish);
+  }
+
+  resizeLeftSidebarWithKeyboard(event: KeyboardEvent): void {
+    if (this.isMobile()) return;
+
+    const delta = event.key === 'ArrowLeft' ? -16 : event.key === 'ArrowRight' ? 16 : 0;
+    if (delta === 0) return;
+
+    event.preventDefault();
+    this.leftSidebarWidth.set(clampStudioSidebarWidth(this.leftSidebarWidth() + delta));
+    this.persistLeftSidebarWidth();
+  }
+
+  private persistLeftSidebarWidth(): void {
+    try {
+      localStorage.setItem(STUDIO_SIDEBAR_WIDTH_KEY, String(this.leftSidebarWidth()));
+    } catch {
+      // Resizing still works for the session if storage is unavailable.
+    }
   }
 
   /** Element that had focus when zen was entered; restored on exit. */
@@ -158,6 +243,7 @@ export class WritingStudio implements OnInit {
     const onResize = () => {
       const mobile = window.innerWidth < 768;
       this.isMobile.set(mobile);
+      this.leftSidebarWidth.set(clampStudioSidebarWidth(this.leftSidebarWidth()));
 
       if (!mobile) {
         this.showFileSidebar.set(true);
