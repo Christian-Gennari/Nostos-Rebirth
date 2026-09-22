@@ -1,15 +1,14 @@
 import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { InputDirective, SelectDirective, TextareaDirective } from './form-control.directive';
+import { InputDirective, TextareaDirective } from './form-control.directive';
 
 @Component({
   standalone: true,
-  imports: [InputDirective, SelectDirective, TextareaDirective],
+  imports: [InputDirective, TextareaDirective],
   template:
     '<input appInput controlSize="compact" type="email" name="email" aria-label="Email" [invalid]="true" />' +
-    '<textarea appTextarea name="notes" rows="3" aria-label="Notes"></textarea>' +
-    '<select appSelect name="format" aria-label="Format" disabled><option value="physical">Physical</option></select>',
+    '<textarea appTextarea name="notes" rows="3" aria-label="Notes"></textarea>',
 })
 class FormControlHarnessComponent {}
 
@@ -49,14 +48,4 @@ describe('canonical form-control directives', () => {
     expect(textarea.classList.contains('nostos-form-control--textarea')).toBe(true);
     expect(textarea.classList.contains('nostos-form-control--compact')).toBe(false);
   });
-
-  it('keeps native select options and disabled behaviour', () => {
-    const select = fixture.nativeElement.querySelector('select') as HTMLSelectElement;
-
-    expect(select.tagName).toBe('SELECT');
-    expect(select.disabled).toBe(true);
-    expect(select.options.length).toBe(1);
-    expect(select.options[0].value).toBe('physical');
-    expect(select.classList.contains('nostos-form-control--select')).toBe(true);
-  });
-});
+\n});

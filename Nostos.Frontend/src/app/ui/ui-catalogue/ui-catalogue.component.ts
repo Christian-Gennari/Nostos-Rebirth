@@ -8,11 +8,8 @@ import { BadgeComponent } from '../badge/badge.component';
 import { ButtonComponent } from '../button/button.component';
 import { ChipComponent } from '../chip/chip.component';
 import { DialogActionsComponent } from '../dialog-actions/dialog-actions.component';
-import {
-  InputDirective,
-  SelectDirective,
-  TextareaDirective,
-} from '../form-control/form-control.directive';
+import { InputDirective, TextareaDirective } from '../form-control/form-control.directive';
+import { DropdownComponent, type DropdownOption } from '../dropdown/dropdown.component';
 import { FormFieldComponent } from '../form-field/form-field.component';
 import { IconButtonComponent } from '../icon-button/icon-button.component';
 import { ModalShell } from '../modal-shell/modal-shell.component';
@@ -38,7 +35,7 @@ import { SwitchComponent } from '../switch/switch.component';
     IconButtonComponent,
     InputDirective,
     ModalShell,
-    SelectDirective,
+    DropdownComponent,
     SwitchComponent,
     TextareaDirective,
   ],
@@ -53,6 +50,17 @@ export class UiCatalogueComponent {
   readonly selectedTab = signal<'primitives' | 'patterns'>('primitives');
   readonly selectedView = signal<'list' | 'grid'>('list');
   readonly modalOpen = signal(false);
+  readonly catalogueDropdownValue = signal('epub');
+  readonly dropdownOptions = [
+    { value: 'epub', label: 'EPUB' },
+    { value: 'pdf', label: 'PDF' },
+    { value: 'physical', label: 'Physical' },
+    { value: 'unavailable', label: 'Unavailable format', disabled: true },
+  ] satisfies readonly DropdownOption[];
+  readonly longDropdownOptions = Array.from({ length: 18 }, (_, index) => ({
+    value: `chapter-${index + 1}`,
+    label: `Chapter ${index + 1}`,
+  })) satisfies readonly DropdownOption[];
 
   setTheme(theme: Theme): void {
     this.themeService.setTheme(theme);

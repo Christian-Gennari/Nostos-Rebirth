@@ -204,3 +204,8 @@
     gap: 0.25rem;
   }
 }
+
+
+.catalogue-dropdown-narrow {
+  width: 9rem;
+}

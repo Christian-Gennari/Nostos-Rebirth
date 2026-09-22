@@ -352,7 +352,8 @@ describe('SecondBrain', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const source = fixture.nativeElement.querySelector('#source-filter') as HTMLSelectElement;
+    const sourceTrigger = fixture.nativeElement.querySelector('#source-filter') as HTMLButtonElement;
+    const source = sourceTrigger.closest('app-dropdown') as HTMLElement;
     expect(source.textContent).toContain('Ideas in Motion (2)');
     expect(source.textContent).toContain('Meditations (1)');
     expect(component.filteredNotes()).toHaveLength(3);

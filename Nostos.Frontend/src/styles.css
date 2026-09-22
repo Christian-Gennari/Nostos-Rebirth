@@ -1395,9 +1395,9 @@ button {
 /* ------------------------------
    FORMS & INPUTS
 ------------------------------ */
-/* Canonical native form controls. Ordinary fields use the native-host
-   appInput/appTextarea/appSelect directives below; product-owned fields keep
-   their interaction/layout locally without borrowing a second generic family. */
+/* Canonical native text controls. Ordinary text fields use the native-host
+   appInput/appTextarea directives below; single-choice dropdowns use
+   app-dropdown. Product-owned fields keep their interaction/layout locally. */
 .nostos-form-control {
   box-sizing: border-box;
   width: 100%;
@@ -1452,21 +1452,7 @@ button {
   min-height: 100px;
   resize: vertical;
 }
-
-.nostos-form-control--select {
-  appearance: none;
-  background-image:
-    linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%),
-    linear-gradient(135deg, var(--color-text-muted) 50%, transparent 50%);
-  background-position:
-    calc(100% - 16px) calc(50% - 1px),
-    calc(100% - 12px) calc(50% - 1px);
-  background-repeat: no-repeat;
-  background-size: 4px 4px, 4px 4px;
-  padding-right: 2.5rem;
-}
-
-@media (max-width: 768px) {
+\n\n@media (max-width: 768px) {
   .nostos-form-control--compact {
     min-height: var(--control-h-touch);
   }

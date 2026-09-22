@@ -221,13 +221,11 @@
    used"), so there is no separate micro-label beside it to strand. The accessible
    name is a visually-hidden <label>. */
 
-/* The rail sort is an ordinary native select, so appSelect owns its geometry,
-   border, chevron, focus state and theme treatment. The rail owns only layout
-   and the muted toolbar ink, matching Library's canonical sort control. */
+/* The canonical Dropdown owns geometry, popup, focus and option states.
+   The rail owns only layout and muted toolbar ink. */
 .sort-select {
   flex: 1;
   min-width: 0;
-  cursor: pointer;
   color: var(--color-text-muted);
 }
 
@@ -240,14 +238,7 @@
   width: 100%;
 }
 
-/* Hover treats the control like an interactive list row (that is what it is),
-   rather than like a form field losing its fill. */
-
-
-.sort-select:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: -2px;
-}
+/* Hover/focus treatment now belongs to the canonical Dropdown trigger. */
 
 /* LIST */
 .index-list,
@@ -1305,9 +1296,8 @@
 
 
 
-/* Selects: the wrapper carries NO border; the control itself is the Library's
-   `.sort-select`. A bordered wrapper around a bordered select is exactly the
-   double-outline defect called out on review. */
+/* Dropdown wrappers carry NO border; the canonical control owns the one visible
+   border. A bordered wrapper around the control would recreate the old double outline. */
 .detail-select-wrap {
   display: flex;
   align-items: center;
@@ -1339,8 +1329,7 @@
   outline-offset: -2px;
 }
 
-/* The inner shell only needs to hold the select; the wrapper above supplies
-   layout, and the select itself owns the border (see `.detail-select`). */
+/* The inner shell only supplies layout; the canonical Dropdown owns the border. */
 .detail-select-shell {
   flex: 1 1 auto;
   position: relative;

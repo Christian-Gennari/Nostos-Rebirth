@@ -146,6 +146,61 @@
     </div>
   </section>
 
+  <section class="catalogue-section" aria-labelledby="catalogue-dropdown">
+    <div class="catalogue-section-heading">
+      <div>
+        <p class="catalogue-kicker">Primitive</p>
+        <h2 id="catalogue-dropdown">Dropdown</h2>
+      </div>
+      <p>Canonical single-choice popup. Open the controls to inspect active, selected and scrolling states.</p>
+    </div>
+
+    <div class="catalogue-grid">
+      <div class="catalogue-example">
+        <span class="catalogue-label">Compact · selected + disabled option</span>
+        <app-dropdown
+          controlSize="compact"
+          ariaLabel="Catalogue format"
+          [options]="dropdownOptions"
+          [value]="catalogueDropdownValue()"
+          (valueChange)="catalogueDropdownValue.set($event)"
+        />
+      </div>
+
+      <div class="catalogue-example">
+        <span class="catalogue-label">Narrow trigger</span>
+        <app-dropdown
+          class="catalogue-dropdown-narrow"
+          controlSize="compact"
+          ariaLabel="Narrow dropdown"
+          [options]="dropdownOptions"
+          value="physical"
+        />
+      </div>
+
+      <div class="catalogue-example">
+        <span class="catalogue-label">Long list · internal scroll</span>
+        <app-dropdown
+          controlSize="compact"
+          ariaLabel="Long dropdown"
+          [options]="longDropdownOptions"
+          value="chapter-1"
+        />
+      </div>
+
+      <div class="catalogue-example">
+        <span class="catalogue-label">Disabled trigger</span>
+        <app-dropdown
+          controlSize="compact"
+          ariaLabel="Disabled dropdown"
+          [options]="dropdownOptions"
+          value="epub"
+          [disabled]="true"
+        />
+      </div>
+    </div>
+  </section>
+
   <section class="catalogue-section" aria-labelledby="catalogue-fields">
     <div class="catalogue-section-heading">
       <div>
@@ -172,7 +227,7 @@
       </div>
 
       <div class="catalogue-example">
-        <span class="catalogue-label">Textarea + select</span>
+        <span class="catalogue-label">Textarea + dropdown</span>
         <div class="catalogue-stack">
           <textarea
             appTextarea
@@ -181,11 +236,13 @@
             rows="3"
             placeholder="A short note"
           ></textarea>
-          <select appSelect controlSize="compact" aria-label="Select example">
-            <option>EPUB</option>
-            <option>PDF</option>
-            <option>Physical</option>
-          </select>
+          <app-dropdown
+            controlSize="compact"
+            ariaLabel="Format example"
+            [options]="dropdownOptions"
+            [value]="catalogueDropdownValue()"
+            (valueChange)="catalogueDropdownValue.set($event)"
+          />
         </div>
       </div>
 

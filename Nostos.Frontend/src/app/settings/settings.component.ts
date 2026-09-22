@@ -19,7 +19,8 @@ import { ButtonComponent } from '../ui/button/button.component';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
 import { SwitchComponent } from '../ui/switch/switch.component';
 import { BadgeComponent } from '../ui/badge/badge.component';
-import { InputDirective, SelectDirective } from '../ui/form-control/form-control.directive';
+import { InputDirective } from '../ui/form-control/form-control.directive';
+import { DropdownComponent, type DropdownOption } from '../ui/dropdown/dropdown.component';
 import { LibraryPreferencesService } from '../core/services/library-preferences.service';
 import { AssistantStatusService } from '../ui/assistant/assistant-status.service';
 import {
@@ -170,7 +171,7 @@ const defaultProgress: BackupProgress = {
     SwitchComponent,
     BadgeComponent,
     InputDirective,
-    SelectDirective,
+    DropdownComponent,
     ConfirmModal,
   ],
   templateUrl: './settings.component.html',
@@ -230,10 +231,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.preferences.setAssistantEnabled(checked);
   }
 
-  changeCaptureProcessingMode(event: Event): void {
-    this.assistantSettings.setCaptureProcessingMode(
-      (event.target as HTMLSelectElement).value as ProcessingMode,
-    );
+  changeCaptureProcessingMode(mode: string): void {
+    this.assistantSettings.setCaptureProcessingMode(mode as ProcessingMode);
   }
 
   setTheme(theme: Theme): void {
@@ -633,16 +632,16 @@ export class SettingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  changeInterval(event: Event): void {
-    const value = parseInt((event.target as HTMLSelectElement).value, 10);
+  changeInterval(selected: string): void {
+    const value = parseInt(selected, 10);
     this.backupService.updateSettings({ intervalHours: value }).subscribe({
       next: (s) => this.settings.set(s),
       error: () => this.toast.error('Failed to update settings.'),
     });
   }
 
-  changeMaxBackups(event: Event): void {
-    const value = parseInt((event.target as HTMLSelectElement).value, 10);
+  changeMaxBackups(selected: string): void {
+    const value = parseInt(selected, 10);
     this.backupService.updateSettings({ maxBackups: value }).subscribe({
       next: (s) => this.settings.set(s),
       error: () => this.toast.error('Failed to update settings.'),

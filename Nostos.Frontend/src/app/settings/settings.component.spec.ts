@@ -533,9 +533,10 @@ describe('SettingsComponent backup-only surface', () => {
     assistantSettingsMock.captureProcessingMode.set('light_polish');
     render();
 
-    const select = captureModeSelect();
-    expect(select.value).toBe('light_polish');
-    expect(select.getAttribute('aria-label')).toBe('Captured thoughts');
+    const dropdown = captureModeDropdown();
+    const trigger = dropdown!.querySelector('.nostos-dropdown__trigger') as HTMLButtonElement;
+    expect(trigger.textContent).toContain('Light polish');
+    expect(trigger.getAttribute('aria-label')).toBe('Captured thoughts');
 
     const card = assistantCard();
     expect(card!.textContent).toContain('Your words with grammar and filler tidied');
@@ -547,13 +548,16 @@ describe('SettingsComponent backup-only surface', () => {
   it('stores a changed capture-processing value through the settings service', () => {
     render();
 
-    const select = captureModeSelect();
-    select.value = 'clarify';
-    select.dispatchEvent(new Event('change'));
+    const dropdown = captureModeDropdown()!;
+    (dropdown.querySelector('.nostos-dropdown__trigger') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const clarify = Array.from(dropdown.querySelectorAll('[role="option"]')).find((option) =>
+      option.textContent?.includes('Clarify'),
+    ) as HTMLElement;
+    clarify.click();
     fixture.detectChanges();
 
     expect(assistantSettingsMock.setCaptureProcessingMode).toHaveBeenCalledWith('clarify');
-    expect(captureModeSelect().value).toBe('clarify');
   });
 
   it('says plainly when the capture-processing setting could not be read', () => {
@@ -562,7 +566,7 @@ describe('SettingsComponent backup-only surface', () => {
 
     const card = assistantCard();
     expect(card!.textContent).toContain('Could not read this setting');
-    expect(captureModeSelect()).toBeNull();
+    expect(captureModeDropdown()).toBeNull();
   });
 
   // ------------------------------------------------------------------
@@ -878,10 +882,10 @@ describe('SettingsComponent backup-only surface', () => {
     ) as HTMLInputElement;
   }
 
-  function captureModeSelect(): HTMLSelectElement {
+  function captureModeDropdown(): HTMLElement | null {
     return fixture.nativeElement.querySelector(
       '[data-testid="capture-processing-mode"]',
-    ) as HTMLSelectElement;
+    ) as HTMLElement | null;
   }
 
   function erCard(): HTMLElement | null {

@@ -30,12 +30,14 @@
 
       <div class="toolbar-right">
         <div class="select-wrapper">
-          <select appSelect controlSize="compact" [ngModel]="activeSort()" (ngModelChange)="setSort($event)" class="sort-select">
-            <option value="lastread">Last Read</option>
-            <option value="recent">Recently Added</option>
-            <option value="title">Title (A-Z)</option>
-            <option value="rating">Highest Rated</option>
-          </select>
+          <app-dropdown
+            class="sort-select"
+            controlSize="compact"
+            ariaLabel="Sort books"
+            [options]="sortOptions"
+            [value]="activeSort()"
+            (valueChange)="setSort($event)"
+          />
         </div>
 
         <div class="control-group" role="group" aria-label="Book view">

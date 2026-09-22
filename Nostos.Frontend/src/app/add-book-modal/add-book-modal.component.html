@@ -127,19 +127,16 @@
             [hidden]="sourceMode() || activeTab() !== 'Book Info'"
           >
             <app-form-field label="Format" forId="book-type">
-              <select
-                id="book-type"
-                appSelect
+              <app-dropdown
+                controlId="book-type"
                 controlSize="compact"
-                [(ngModel)]="form.type"
-                (ngModelChange)="onTypeChange($event)"
-                name="type"
+                ariaLabel="Format"
+                [fullWidth]="true"
+                [options]="bookTypeOptions"
+                [value]="form.type"
+                (valueChange)="onTypeChange($event)"
                 [disabled]="isEditMode()"
-              >
-                <option value="physical">Physical Book</option>
-                <option value="ebook">E-Book</option>
-                <option value="audiobook">Audiobook</option>
-              </select>
+              />
             </app-form-field>
 
             <app-form-field

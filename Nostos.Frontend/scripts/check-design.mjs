@@ -875,6 +875,40 @@ function legacyMigratedControlMarkup(html) {
   return out;
 }
 
+/**
+ * Dropdown ownership is global rather than surface-by-surface: ordinary
+ * single-choice dropdowns use app-dropdown. Keeping this separate from the
+ * migrated-surface field ledger prevents a new feature template from silently
+ * reintroducing a raw native <select>.
+ */
+function rawNativeSelects(html) {
+  return [...stripHtmlComments(html).matchAll(/<select\b[^>]*>/gs)];
+}
+
+{
+  const TEMPLATES = [];
+  (function walkDropdownTemplates(dir) {
+    for (const entry of readdirSync(dir)) {
+      const p = join(dir, entry);
+      if (statSync(p).isDirectory()) { walkDropdownTemplates(p); continue; }
+      if (extname(p) === '.html') TEMPLATES.push({ path: p, raw: readFileSync(p, 'utf8') });
+    }
+  })(SRC);
+
+  for (const template of TEMPLATES) {
+    for (const hit of rawNativeSelects(template.raw)) {
+      const line = stripHtmlComments(template.raw).slice(0, hit.index).split('\n').length;
+      report(
+        'raw-native-select',
+        template.path,
+        line,
+        'Raw <select> is not part of Nostos UI v1. Use the canonical app-dropdown; ' +
+          'product-owned listboxes/action menus should keep their explicit non-select semantics.',
+      );
+    }
+  }
+}
+
 for (const relativePath of MIGRATED_UI_V1_TEMPLATES) {
   const htmlPath = join(ROOT, relativePath);
   const html = readFileSync(htmlPath, 'utf8');
@@ -1009,7 +1043,7 @@ function rawOrdinaryFieldWithoutPrimitive(html, relativePath) {
   const clean = stripHtmlComments(html);
   for (const tag of clean.matchAll(/<(input|select|textarea)\b[^>]*>/gs)) {
     const raw = tag[0];
-    if (/\bapp(?:Input|Select|Textarea)\b/.test(raw)) continue;
+    if (/\bapp(?:Input|Textarea)\b/.test(raw)) continue;
 
     const kind = tag[1];
     if (kind === 'input') {
@@ -1082,7 +1116,7 @@ if (process.argv.includes('--self-test')) {
       '.provider-input { padding: 9px; border: 1px solid var(--border-color); background: var(--bg-input); }'],
     ['migrated-surface-legacy-generic-control', '<button class="btn btn-secondary">Save</button>'],
     ['migrated-surface-unowned-raw-button', '<button class="save-action">Save</button>'],
-    ['migrated-surface-unowned-raw-field', '<input class="save-name" type="text">'],
+    ['migrated-surface-unowned-raw-field', '<input class="save-name" type="text">'],\n    ['raw-native-select', '<select><option>Old dropdown</option></select>'],
     ['migrated-surface-switch-copy',
       '.copied-switch { position: relative; width: 42px; height: 24px; border-radius: 999px; }'],
     // RULE 8 needs a TEMPLATE and a matching .css class, so its case is checked by
@@ -1146,7 +1180,7 @@ if (process.argv.includes('--self-test')) {
     }
     if (rule === 'migrated-surface-unowned-raw-field') {
       fired = rawOrdinaryFieldWithoutPrimitive(snippet, 'src/app/settings/settings.component.html').length > 0;
-    }
+    }\n    if (rule === 'raw-native-select') fired = rawNativeSelects(snippet).length > 0;
     if (rule === 'migrated-surface-switch-copy') fired = copiedSwitchGeometry(snippet).length > 0;
     if (fired) { ok++; console.log(`  ✔ ${rule} fires on its known-bad snippet`); }
     else console.log(`  ✖ ${rule} DID NOT FIRE — the rule is vacuous`);
@@ -1201,7 +1235,7 @@ if (process.argv.includes('--self-test')) {
     'add-book-local-field-system', 'add-book-legacy-field-markup',
     'settings-local-switch-family', 'settings-local-form-family',
     'migrated-surface-legacy-generic-control', 'migrated-surface-unowned-raw-button',
-    'migrated-surface-unowned-raw-field', 'migrated-surface-switch-copy',
+    'migrated-surface-unowned-raw-field', 'raw-native-select', 'migrated-surface-switch-copy',
     'visually-hidden (by-name + by-recipe)'];
   console.log(`\nself-test: ${ok}/${cases.length + 3} injected cases detected`);
   console.log(`rules implemented: ${RULES.length} (${RULES.join(', ')})`);

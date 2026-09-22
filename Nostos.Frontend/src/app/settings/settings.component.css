@@ -203,10 +203,9 @@
   color: var(--color-text-light);
 }
 
-/* Compact settings selects should remain controls, not become full-row fields.
-   The shared form primitive is full-width by default for ordinary forms; in a
-   label/value settings row the select should instead take only the space its
-   options need, while still respecting the available width on small screens. */
+/* Compact settings dropdowns should remain controls, not become full-row fields.
+   The canonical Dropdown sizes to its content by default; settings caps that
+   intrinsic width so long labels still respect the available row width. */
 .select-sm {
   width: auto;
   max-width: min(100%, 20rem);
