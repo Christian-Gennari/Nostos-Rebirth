@@ -13,11 +13,33 @@ public enum CloudProvisioningState
 public static class CloudCustomerSchema
 {
     /// <summary>
-    /// Temporary baseline identifier for the current-model schema created by
-    /// #396. Issue #398 replaces this bootstrap with the permanent
-    /// PostgreSQL migration/baseline lifecycle.
+    /// Version written by #396 when PostgreSQL customer databases were created
+    /// with EnsureCreated and had no EF migration history.
     /// </summary>
-    public const string CurrentVersion = "current-model-v1";
+    public const string LegacyCurrentModelV1 = "current-model-v1";
+
+    /// <summary>The EF-generated PostgreSQL baseline for the #396 model.</summary>
+    public const string BaselineMigrationId = "20260922170154_InitialCloudBaseline";
+
+    /// <summary>
+    /// Current PostgreSQL schema version. Control-plane schema state uses the
+    /// exact latest EF migration id so operational tooling can correlate a
+    /// tenant directly with the database migration history.
+    /// </summary>
+    public const string CurrentVersion = "20260922170207_EstablishCloudMigrationLifecycle";
+
+    /// <summary>
+    /// During the first migration rollout the application can safely serve the
+    /// #396 schema, the EF baseline, or the current lifecycle marker because
+    /// they have the same product-facing relational shape.
+    ///
+    /// Future schema changes must deliberately keep or narrow this bounded
+    /// compatibility window.
+    /// </summary>
+    public static bool IsApplicationCompatible(string? version) =>
+        version is LegacyCurrentModelV1
+            or BaselineMigrationId
+            or CurrentVersion;
 }
 
 /// <summary>
@@ -60,5 +82,5 @@ public sealed record CloudAccountResourceSnapshot(
     public bool IsReady =>
         ProvisioningState == CloudProvisioningState.Ready
         && AccountStatus == CloudAccountStatus.Active
-        && string.Equals(SchemaVersion, CloudCustomerSchema.CurrentVersion, StringComparison.Ordinal);
+        && CloudCustomerSchema.IsApplicationCompatible(SchemaVersion);
 }

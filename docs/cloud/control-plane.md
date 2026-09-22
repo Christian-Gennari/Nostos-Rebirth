@@ -109,22 +109,19 @@ is logged by the server, not stored as customer metadata.
 
 Disabled/deleted accounts can never be made Active by calling provisioning.
 
-## Temporary schema bootstrap
+## Customer schema lifecycle
 
-Issue #393 proved the shared `NostosDbContext` model works on PostgreSQL.
+Issue #398 replaces #396's temporary `EnsureCreated` bridge with a dedicated
+PostgreSQL migration history.
 
-For #396, a brand-new customer database is initialized with the current EF
-model via `EnsureCreatedAsync`. The control plane records:
+New customer databases are initialized through
+`CloudTenantSchemaMigrator`, and the control plane records the exact latest
+PostgreSQL EF migration id only after migration succeeds.
 
-```text
-current-model-v1
-```
-
-This is intentionally a bridge, **not the permanent Cloud migration model**.
-
-Issue #398 replaces this bootstrap with the explicit PostgreSQL
-baseline/migration lifecycle. Customer database routing and resource identity
-do not change when that happens.
+The short-lived #396 marker `current-model-v1` remains a recognized,
+bounded compatibility state so already-created Cloud databases can be adopted
+without recreating customer data. See `docs/cloud/schema-migrations.md` for
+the baseline-adoption and fleet-rollout rules.
 
 ## Request-time tenant routing
 

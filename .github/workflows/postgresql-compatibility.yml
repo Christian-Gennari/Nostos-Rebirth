@@ -75,3 +75,12 @@ jobs:
           --no-restore
           --filter "Category=CloudProvisioning"
           --logger "console;verbosity=normal"
+
+      - name: Run Cloud PostgreSQL migration lifecycle tests
+        run: >-
+          dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
+          --configuration Debug
+          --no-build
+          --no-restore
+          --filter "Category=CloudMigrations"
+          --logger "console;verbosity=normal"

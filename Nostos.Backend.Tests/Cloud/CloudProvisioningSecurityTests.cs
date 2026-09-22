@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Nostos.Backend.Cloud;
 using Nostos.Backend.Cloud.ControlPlane;
+using Nostos.Backend.Cloud.Migrations;
 using Nostos.Backend.Cloud.Provisioning;
 using Nostos.Backend.Configuration;
 using Nostos.Backend.Security;
@@ -46,6 +47,7 @@ public sealed class CloudProvisioningSecurityTests
             store,
             connections,
             customerConnections,
+            new ThrowIfCalledSchemaMigrator(),
             NullLogger<CloudCustomerDatabaseProvisioner>.Instance);
 
         var act = () => provisioner.ProvisionAsync(accountId);
@@ -95,8 +97,28 @@ public sealed class CloudProvisioningSecurityTests
             CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
 
+        public Task MarkSchemaVersionAsync(
+            NostosAccountId accountId,
+            string schemaVersion,
+            CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task MarkSchemaFailureAsync(
+            NostosAccountId accountId,
+            string failureCode,
+            CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
         public Task<IReadOnlyList<CloudAccountResourceSnapshot>> ListAsync(
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<CloudAccountResourceSnapshot>>([snapshot]);
+    }
+
+    private sealed class ThrowIfCalledSchemaMigrator : ICloudTenantSchemaMigrator
+    {
+        public Task<CloudSchemaMigrationResult> MigrateAsync(
+            NostosAccountId accountId,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Schema migration must not run for a blocked account.");
     }
 }

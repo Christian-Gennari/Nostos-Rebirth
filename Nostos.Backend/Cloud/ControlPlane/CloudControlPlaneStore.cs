@@ -29,6 +29,16 @@ public interface ICloudControlPlaneStore
         string failureCode,
         CancellationToken cancellationToken = default);
 
+    Task MarkSchemaVersionAsync(
+        NostosAccountId accountId,
+        string schemaVersion,
+        CancellationToken cancellationToken = default);
+
+    Task MarkSchemaFailureAsync(
+        NostosAccountId accountId,
+        string failureCode,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<CloudAccountResourceSnapshot>> ListAsync(
         CancellationToken cancellationToken = default);
 }
@@ -133,6 +143,33 @@ public sealed class CloudControlPlaneStore(
             {
                 row.ProvisioningState = CloudProvisioningState.Failed;
                 row.AccountStatus = CloudAccountStatus.Unknown;
+                row.FailureCode = failureCode.Length <= 100
+                    ? failureCode
+                    : failureCode[..100];
+            },
+            cancellationToken);
+
+    public Task MarkSchemaVersionAsync(
+        NostosAccountId accountId,
+        string schemaVersion,
+        CancellationToken cancellationToken = default) =>
+        UpdateAsync(
+            accountId,
+            row =>
+            {
+                row.SchemaVersion = schemaVersion;
+                row.FailureCode = null;
+            },
+            cancellationToken);
+
+    public Task MarkSchemaFailureAsync(
+        NostosAccountId accountId,
+        string failureCode,
+        CancellationToken cancellationToken = default) =>
+        UpdateAsync(
+            accountId,
+            row =>
+            {
                 row.FailureCode = failureCode.Length <= 100
                     ? failureCode
                     : failureCode[..100];
