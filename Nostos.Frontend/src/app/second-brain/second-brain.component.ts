@@ -35,7 +35,8 @@ import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 import { ButtonComponent } from '../ui/button/button.component';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
 import { BadgeComponent } from '../ui/badge/badge.component';
-import { InputDirective, SelectDirective } from '../ui/form-control/form-control.directive';
+import { InputDirective } from '../ui/form-control/form-control.directive';
+import { DropdownComponent, type DropdownOption } from '../ui/dropdown/dropdown.component';
 import { AssistantContextService } from '../ui/assistant/assistant-context.service';
 import { AssistantService } from '../ui/assistant/assistant.service';
 
@@ -73,7 +74,7 @@ import {
     IconButtonComponent,
     BadgeComponent,
     InputDirective,
-    SelectDirective,
+    DropdownComponent,
     NoteCardComponent,
     ConfirmModal,
     ConceptMapComponent,
@@ -83,6 +84,17 @@ import {
   styleUrls: ['./second-brain.component.css'],
 })
 export class SecondBrain implements AfterViewChecked {
+  readonly indexSortOptions = [
+    { value: 'usage', label: 'Sort: Most used' },
+    { value: 'az', label: 'Sort: A → Z' },
+    { value: 'za', label: 'Sort: Z → A' },
+  ] satisfies readonly DropdownOption[];
+
+  readonly noteSortOptions = [
+    { value: 'newest', label: 'Newest first' },
+    { value: 'oldest', label: 'Oldest first' },
+    { value: 'source', label: 'Source' },
+  ] satisfies readonly DropdownOption[];
   private conceptsService = inject(ConceptsService);
   private http = inject(HttpClient);
   private notesService = inject(NotesService);
@@ -318,6 +330,17 @@ export class SecondBrain implements AfterViewChecked {
       .map(([value, count]) => ({ value, label: value, count }))
       .sort((a, b) => a.label.localeCompare(b.label));
   });
+
+  readonly sourceDropdownOptions = computed<readonly DropdownOption[]>(() => [
+    {
+      value: ALL_SOURCES,
+      label: `All sources (${this.selectedDetail()?.notes.length ?? 0})`,
+    },
+    ...this.sourceOptions().map((source) => ({
+      value: source.value,
+      label: `${source.label} (${source.count})`,
+    })),
+  ]);
 
   filteredNotes = computed(() => {
     const detail = this.selectedDetail();

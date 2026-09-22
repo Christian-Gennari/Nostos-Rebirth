@@ -15,7 +15,7 @@ Nostos UI v1 has four layers:
 | Layer | Owner | Examples |
 | --- | --- | --- |
 | **Foundations** | `src/styles.css` token graph | colour, type, radius, elevation, motion, focus, control heights |
-| **Primitives** | `src/app/ui/` | Button, IconButton, Input/Textarea/Select, Switch, Chip, Badge |
+| **Primitives** | `src/app/ui/` | Button, IconButton, Input/Textarea, Dropdown, Switch, Chip, Badge |
 | **Patterns** | shared composition/recipes | FormField, ModalShell + DialogActions, segmented visual recipe |
 | **Product components** | feature surfaces | BookCard, NoteCard, Reader transport, Studio editor/tree, assistant recording, acquisition workflows |
 
@@ -201,42 +201,68 @@ switch tracks, deliberate CTA/action pills and progress tracks. Ordinary compact
 buttons, fields, cards and row controls keep the app's square/soft-radius
 recipes. This prevents the UI kit from turning every small action into a pill.
 
-## Native form controls
+## Native text form controls
 
-**Selectors:** `input[appInput]`, `textarea[appTextarea]`, `select[appSelect]`  
+**Selectors:** `input[appInput]`, `textarea[appTextarea]`  
 **Files:** `src/app/ui/form-control/` and the canonical control rules in `src/styles.css`
 
-Canonical Nostos styling for ordinary native form controls. The directives do not
+Canonical Nostos styling for ordinary native text controls. The directives do not
 wrap or replace the host element, so native `type`, `name`, `required`,
-`disabled`, `autocomplete`, `ngModel`, option semantics and keyboard behaviour
-remain intact.
+`disabled`, `autocomplete`, `ngModel` and keyboard behaviour remain intact.
 
-All three controls share the same boundary, radius, typography, placeholder,
-disabled and focus contract. Selects keep native semantics and only replace the
-browser arrow visually with a token-driven chevron.
-
-| Input | Type | Default | Description |
-| --- | --- | --- | --- |
-| `controlSize` | `'normal' \| 'compact'` | `'normal'` | Measured normal/global or compact/modal geometry. Compact still reaches the mobile touch floor at the app breakpoint. |
-| `invalid` | `boolean` | `false` | Applies the danger boundary and native `aria-invalid="true"` state. |
-
-`controlSize` is deliberately not named `size`: `input` and `select` already
-have native `size` attributes, and the UI primitive must not change their
-semantics.
+Both controls share the same boundary, radius, typography, placeholder, disabled
+and focus contract.
 
 ```html
 <input appInput type="text" name="title" />
 <textarea appTextarea controlSize="compact" rows="5" name="description"></textarea>
-<select appSelect name="format">
-  <option value="physical">Physical Book</option>
-</select>
 ```
 
-Major migrated surfaces use these directives for **ordinary** fields. Some
-product-specific controls still own local interaction/layout (for example acquisition
-search, Reader note tools and editor internals); that is not permission to create a
-second generic field family. New ordinary inputs, textareas and selects use the
-native-host directives.
+## DropdownComponent
+
+**Selector:** `app-dropdown`  
+**Files:** `src/app/ui/dropdown/`
+
+Canonical Nostos single-choice dropdown. It replaces ordinary raw `<select>`
+controls so trigger geometry, popup sizing/positioning, option states, keyboard
+navigation and light/dark behaviour have one owner.
+
+The trigger uses the select-only combobox/listbox contract and keeps focus while
+the popup is open. Arrow keys move the active option; Home/End jump; Enter/Space
+select; Escape closes. The panel uses the browser top layer when available so it
+is not clipped by dialogs or constrained surfaces, and falls back to fixed
+positioning when Popover is unavailable.
+
+| Input | Type | Default | Description |
+| --- | --- | --- | --- |
+| `options` | `readonly DropdownOption[]` | `[]` | Value/label/options, with optional disabled/icon state |
+| `value` | `string \| null` | `null` | Current selected value |
+| `placeholder` | `string` | `Select…` | Trigger copy when no option matches |
+| `ariaLabel` | `string \| null` | `null` | Accessible name for trigger/listbox |
+| `controlId` | `string \| null` | `null` | ID placed on the trigger for FormField labels |
+| `controlSize` | `'normal' \| 'compact'` | `'normal'` | Shared control size |
+| `align` | `'start' \| 'end'` | `'start'` | Popup alignment relative to trigger |
+| `fullWidth` | `boolean` | `false` | Fill the available form-field width |
+| `disabled` | `boolean` | `false` | Disables trigger/selection |
+| `invalid` | `boolean` | `false` | Applies the canonical invalid boundary/focus state |
+
+**Output:** `valueChange: string`
+
+```html
+<app-dropdown
+  controlId="book-type"
+  ariaLabel="Format"
+  [options]="bookTypeOptions"
+  [value]="form.type"
+  (valueChange)="onTypeChange($event)"
+/>
+```
+
+Ordinary single-choice controls use `app-dropdown`; new feature templates should
+not add raw `<select>` markup. Product-owned controls with genuinely different
+semantics remain local rather than being forced through this primitive. In
+particular, Book Detail's reading-status listbox and its Edit action menu remain
+product-owned, as do Reader playback settings.
 
 ## FormFieldComponent
 

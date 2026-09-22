@@ -430,7 +430,7 @@ uses four layers so that cohesion does not become accidental homogenisation:
 
 1. **Foundations** — colour, typography, radius, elevation, motion, focus and control-height
    tokens in `styles.css`.
-2. **Primitives** — Button, IconButton, native Input/Textarea/Select, Switch, Chip and Badge.
+2. **Primitives** — Button, IconButton, native Input/Textarea, Dropdown, Switch, Chip and Badge.
 3. **Patterns** — FormField, ModalShell + DialogActions and the segmented visual recipe.
 4. **Product components** — BookCard/NoteCard, Reader transport and page tools, Studio
    editor/tree, assistant recording/context, acquisition/result interactions and other
@@ -438,9 +438,22 @@ uses four layers so that cohesion does not become accidental homogenisation:
 
 The test for extraction is semantic ownership, not repeated CSS. Ordinary labelled
 actions use `appButton`; icon-only ordinary actions use `appIconButton`; ordinary native
-fields use `appInput` / `appTextarea` / `appSelect`. A product control stays local when
+text fields use `appInput` / `appTextarea`, and ordinary single-choice controls use
+`app-dropdown`. A product control stays local when
 forcing it through a primitive would hide or distort its ARIA contract, state model,
 navigation behaviour, transport/editor interaction or measured geometry.
+
+### Dropdown ownership
+
+Ordinary single-choice controls now use the canonical `app-dropdown`; raw native
+`<select>` markup is guarded by `check:design` so a parallel select system cannot
+quietly return. The primitive owns the trigger/listbox relationship, popup geometry,
+viewport clamping, selected/disabled/active states and keyboard contract.
+
+That does **not** make every popup a Dropdown. Book Detail's reading-status listbox is
+an explicit product-owned exception and remains unchanged; its status semantics and
+visual treatment belong to the book stage. Book Detail's Edit action menu and Reader
+playback panel are also different interaction roles and remain product-owned.
 
 Documented so the next reader does not "fix" it:
 Documented so the next reader does not "fix" it:

@@ -168,18 +168,15 @@
       <div class="index-tools">
         <label class="visually-hidden" for="brain-sort">Sort concepts</label>
         <div class="select-shell sort-shell">
-          <select
-            appSelect
-            controlSize="compact"
-            id="brain-sort"
+          <app-dropdown
             class="sort-select"
-            [ngModel]="indexSort()"
-            (ngModelChange)="setSort($event)"
-          >
-            <option value="usage">Sort: Most used</option>
-            <option value="az">Sort: A → Z</option>
-            <option value="za">Sort: Z → A</option>
-          </select>
+            controlId="brain-sort"
+            controlSize="compact"
+            ariaLabel="Sort concepts"
+            [options]="indexSortOptions"
+            [value]="indexSort()"
+            (valueChange)="setSort($event)"
+          />
         </div>
       </div>
 
@@ -717,37 +714,30 @@
         <div class="detail-select-wrap">
           <label class="detail-tool-label" for="source-filter">Source</label>
           <div class="select-shell detail-select-shell">
-            <select
-              appSelect
-              controlSize="compact"
-              id="source-filter"
+            <app-dropdown
               class="detail-select"
-              [ngModel]="sourceFilter()"
-              (ngModelChange)="setSourceFilter($event)"
-            >
-              <option [value]="'all'">All sources ({{ detail.notes.length }})</option>
-              @for (source of sourceOptions(); track source.value) {
-              <option [value]="source.value">{{ source.label }} ({{ source.count }})</option>
-              }
-            </select>
+              controlId="source-filter"
+              controlSize="compact"
+              ariaLabel="Source"
+              [options]="sourceDropdownOptions()"
+              [value]="sourceFilter()"
+              (valueChange)="setSourceFilter($event)"
+            />
                       </div>
         </div>
 
         <div class="detail-select-wrap">
           <label class="detail-tool-label" for="note-sort">Sort</label>
           <div class="select-shell detail-select-shell">
-            <select
-              appSelect
-              controlSize="compact"
-              id="note-sort"
+            <app-dropdown
               class="detail-select"
-              [ngModel]="noteSort()"
-              (ngModelChange)="setNoteSort($event)"
-            >
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-              <option value="source">Source</option>
-            </select>
+              controlId="note-sort"
+              controlSize="compact"
+              ariaLabel="Sort notes"
+              [options]="noteSortOptions"
+              [value]="noteSort()"
+              (valueChange)="setNoteSort($event)"
+            />
                       </div>
         </div>
 

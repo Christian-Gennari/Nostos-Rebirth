@@ -119,12 +119,14 @@
               <span class="label-text">Backup Frequency</span>
               <span class="label-desc">How often to create automatic backups.</span>
             </div>
-            <select appSelect controlSize="compact" class="select-sm" [value]="settings().intervalHours.toString()" (change)="changeInterval($event)">
-              <option value="6">Every 6 hours</option>
-              <option value="12">Every 12 hours</option>
-              <option value="24">Daily</option>
-              <option value="168">Weekly</option>
-            </select>
+            <app-dropdown
+              class="select-sm"
+              controlSize="compact"
+              ariaLabel="Backup frequency"
+              [options]="backupIntervalOptions"
+              [value]="settings().intervalHours.toString()"
+              (valueChange)="changeInterval($event)"
+            />
           </div>
 
           <!-- Max Backups -->
@@ -133,12 +135,14 @@
               <span class="label-text">Max Backups</span>
               <span class="label-desc">Oldest backups will be automatically deleted when this limit is reached.</span>
             </div>
-            <select appSelect controlSize="compact" class="select-sm" [value]="settings().maxBackups.toString()" (change)="changeMaxBackups($event)">
-              <option value="3">3</option>
-              <option value="5">5</option>
-              <option value="10">10</option>
-              <option value="20">20</option>
-            </select>
+            <app-dropdown
+              class="select-sm"
+              controlSize="compact"
+              ariaLabel="Max backups"
+              [options]="maxBackupOptions"
+              [value]="settings().maxBackups.toString()"
+              (valueChange)="changeMaxBackups($event)"
+            />
           </div>
 
           @if (backingUp() && progress().isRunning) {
@@ -429,20 +433,15 @@
                   <span class="label-desc">{{ copy.captureSaveFailed }}</span>
                 }
               </div>
-              <select
-                appSelect
-                controlSize="compact"
+              <app-dropdown
                 class="select-sm"
                 data-testid="capture-processing-mode"
-                [attr.aria-label]="copy.captureLabel"
-                (change)="changeCaptureProcessingMode($event)"
-              >
-                @for (mode of processingModes; track mode.value) {
-                  <option [value]="mode.value" [selected]="mode.value === captureProcessingMode()">
-                    {{ mode.label }}
-                  </option>
-                }
-              </select>
+                controlSize="compact"
+                [ariaLabel]="copy.captureLabel"
+                [options]="processingModes"
+                [value]="captureProcessingMode()"
+                (valueChange)="changeCaptureProcessingMode($event)"
+              />
             </div>
           }
         </div>

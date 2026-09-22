@@ -465,13 +465,13 @@ describe('Library', () => {
     fixture.detectChanges();
 
     const search = fixture.nativeElement.querySelector('.search-input') as HTMLInputElement;
-    const sort = fixture.nativeElement.querySelector('.sort-select') as HTMLSelectElement;
+    const sort = fixture.nativeElement.querySelector('.sort-select') as HTMLElement;
     const add = fixture.nativeElement.querySelector('.library-add-button') as HTMLButtonElement;
 
     expect(search.classList.contains('nostos-form-control--input')).toBe(true);
     expect(search.classList.contains('nostos-form-control--compact')).toBe(true);
-    expect(sort.classList.contains('nostos-form-control--select')).toBe(true);
-    expect(sort.classList.contains('nostos-form-control--compact')).toBe(true);
+    expect(sort.tagName).toBe('APP-DROPDOWN');
+    expect(sort.classList.contains('nostos-dropdown--compact')).toBe(true);
     expect(add.classList.contains('nostos-button')).toBe(true);
     expect(add.classList.contains('nostos-button--primary')).toBe(true);
 

@@ -16,7 +16,6 @@ import { BooksService } from '../core/services/books.service';
 import { CollectionsService } from '../core/services/collections.service';
 import { Collection } from '../core/dtos/collection.dtos';
 import { CommonModule, DOCUMENT } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { AddBookModal } from '../add-book-modal/add-book-modal.component';
 import { AddBookIntent } from '../add-book-modal/add-book-intent.component';
 import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
@@ -24,7 +23,8 @@ import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
 import { ButtonComponent } from '../ui/button/button.component';
 import { ChipComponent } from '../ui/chip/chip.component';
-import { InputDirective, SelectDirective } from '../ui/form-control/form-control.directive';
+import { InputDirective } from '../ui/form-control/form-control.directive';
+import { DropdownComponent, type DropdownOption } from '../ui/dropdown/dropdown.component';
 import { SidebarCollections } from './sidebar-collections/sidebar-collections.component';
 import { Book, EditionSummaryDto, PaginatedResponse } from '../core/dtos/book.dtos';
 import { Subject } from 'rxjs';
@@ -108,7 +108,6 @@ interface WorkFormatGlyph {
   imports: [
     CommonModule,
     RouterLink,
-    FormsModule,
     NostosIconComponent,
     AddBookModal,
     AddBookIntent,
@@ -118,7 +117,7 @@ interface WorkFormatGlyph {
     ButtonComponent,
     ChipComponent,
     InputDirective,
-    SelectDirective,
+    DropdownComponent,
     SidebarCollections,
     InfiniteScrollDirective,
     BloomArtDirective,
@@ -128,6 +127,12 @@ interface WorkFormatGlyph {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Library implements OnInit, OnDestroy {
+  readonly sortOptions = [
+    { value: BookSort.LastRead, label: 'Last Read' },
+    { value: BookSort.Recent, label: 'Recently Added' },
+    { value: BookSort.Title, label: 'Title (A-Z)' },
+    { value: BookSort.Rating, label: 'Highest Rated' },
+  ] satisfies readonly DropdownOption[];
   private booksService = inject(BooksService);
   private collectionsService = inject(CollectionsService);
   private preferences = inject(LibraryPreferencesService);
