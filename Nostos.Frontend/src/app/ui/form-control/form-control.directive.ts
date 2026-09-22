@@ -42,4 +42,3 @@ export class TextareaDirective {
   readonly controlSize = input<FormControlSize>('normal');
   readonly invalid = input(false);
 }
-\n
