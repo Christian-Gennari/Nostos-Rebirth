@@ -513,6 +513,7 @@ public sealed class PaddleApiClient(
         var request = new
         {
             items = new[] { new { price_id = priceId, quantity = 1 } },
+            enable_checkout = true,
             custom_data = new
             {
                 nostos_account_id = accountId.ToString(),
