@@ -1452,7 +1452,9 @@ button {
   min-height: 100px;
   resize: vertical;
 }
-\n\n@media (max-width: 768px) {
+
+
+@media (max-width: 768px) {
   .nostos-form-control--compact {
     min-height: var(--control-h-touch);
   }
