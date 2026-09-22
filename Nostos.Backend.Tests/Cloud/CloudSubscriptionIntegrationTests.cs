@@ -161,7 +161,7 @@ public sealed class CloudSubscriptionIntegrationTests
     }
 
     private static string QuoteIdentifier(string identifier) =>
-        "\\"" + identifier.Replace("\\"", "\\"\\\"", StringComparison.Ordinal) + "\\"";
+        "\"" + identifier.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
 
     private sealed class TestControlPlaneDbContextFactory(
         DbContextOptions<CloudControlPlaneDbContext> options)
