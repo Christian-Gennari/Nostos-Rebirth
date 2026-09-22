@@ -566,7 +566,7 @@ public sealed class CloudRecoveryIntegrationTests
     }
 
     private static string QuoteIdentifier(string identifier) =>
-        """ + identifier.Replace(""", """", StringComparison.Ordinal) + """;
+        "\"" + identifier.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
 
     private static void TryDelete(string path)
     {
