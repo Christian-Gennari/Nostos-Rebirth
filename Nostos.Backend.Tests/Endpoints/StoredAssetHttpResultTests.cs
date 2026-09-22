@@ -95,13 +95,13 @@ public sealed class StoredAssetHttpResultTests
     public async Task Matching_if_none_match_returns_304_without_opening_asset()
     {
         var context = Context();
-        context.Request.Headers.IfNoneMatch = ""etag-1"";
+        context.Request.Headers.IfNoneMatch = "\"etag-1\"";
         var opened = false;
 
         var result = await StoredAssetHttpResult.CreateAsync(
             context,
             _ => Task.FromResult<StoredAssetInfo?>(
-                Info(10) with { EntityTag = ""etag-1"" }),
+                Info(10) with { EntityTag = "\"etag-1\"" }),
             (_, _) =>
             {
                 opened = true;
@@ -116,7 +116,7 @@ public sealed class StoredAssetHttpResultTests
 
         opened.Should().BeFalse();
         context.Response.StatusCode.Should().Be(StatusCodes.Status304NotModified);
-        context.Response.Headers.ETag.ToString().Should().Be(""etag-1"");
+        context.Response.Headers.ETag.ToString().Should().Be("\"etag-1\"");
         context.Response.Headers.CacheControl.ToString().Should().Be("public, max-age=60");
     }
 
@@ -155,7 +155,7 @@ public sealed class StoredAssetHttpResultTests
             FileName: "book.epub",
             ContentType: "application/epub+zip",
             Length: length,
-            EntityTag: ""etag-0"",
+            EntityTag: "\"etag-0\"",
             LastModified: DateTimeOffset.UtcNow);
 
     private static StoredAssetRead Open(
