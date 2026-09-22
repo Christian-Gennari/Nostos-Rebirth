@@ -25,6 +25,8 @@ using Nostos.Backend.Workers;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var deployment = builder.Services.AddNostosDeployment(builder.Configuration);
+
 builder.Services.Configure<BackupSettings>(builder.Configuration.GetSection("BackupSettings"));
 
 // Where locally stored book files live. Configurable so a test host (or a
@@ -218,11 +220,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
         | ForwardedHeaders.XForwardedHost;
 });
 
-builder.Services.AddDbContextFactory<NostosDbContext>(options =>
-{
-    var dbPath = Path.Combine(builder.Environment.ContentRootPath, "nostos.db");
-    options.UseSqlite($"Data Source={dbPath}");
-});
+builder.Services.AddNostosPersistence(deployment, builder.Environment.ContentRootPath);
 builder.Services.AddScoped<IDatabaseBootstrapService, DatabaseBootstrapService>();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -478,6 +476,7 @@ app.MapTranscriptionEndpoints();
 app.MapAssistantEndpoints();
 app.MapAiProviderSettingsEndpoints();
 app.MapAssistantSettingsEndpoints();
+app.MapDeploymentCapabilitiesEndpoints();
 app.MapOpdsEndpoints(opdsOptions);
 app.MapBackupEndpoints();
 
