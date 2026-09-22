@@ -148,7 +148,7 @@ public sealed class PaddleBillingService(
         await ReconcileSubscriptionAsync(
             account.AccountId,
             updated,
-            eventId: ReconciliationEventId(updated),
+            eventId: null,
             occurredAtUtc: updated.UpdatedAtUtc,
             transactionId: null,
             cancellationToken);
@@ -171,7 +171,7 @@ public sealed class PaddleBillingService(
         await ReconcileSubscriptionAsync(
             account.AccountId,
             updated,
-            eventId: ReconciliationEventId(updated),
+            eventId: null,
             occurredAtUtc: updated.UpdatedAtUtc,
             transactionId: null,
             cancellationToken);
@@ -292,11 +292,16 @@ public sealed class PaddleBillingService(
             return;
 
         var subscription = await api.GetSubscriptionAsync(subscriptionId, cancellationToken);
+        var sourceOccurredAtUtc = binding.LastEventOccurredAtUtc is { } last
+            && last > subscription.UpdatedAtUtc
+                ? last
+                : subscription.UpdatedAtUtc;
+
         await ReconcileSubscriptionAsync(
             accountId,
             subscription,
-            ReconciliationEventId(subscription),
-            subscription.UpdatedAtUtc,
+            eventId: null,
+            sourceOccurredAtUtc,
             binding.ExternalTransactionId,
             cancellationToken);
     }
@@ -315,13 +320,14 @@ public sealed class PaddleBillingService(
     private async Task<CloudBillingReconciliationOutcome> ReconcileSubscriptionAsync(
         NostosAccountId accountId,
         PaddleSubscription subscription,
-        string eventId,
+        string? eventId,
         DateTime occurredAtUtc,
         string? transactionId,
         CancellationToken cancellationToken)
     {
         var plan = ResolvePlan(subscription);
         var lifecycle = MapLifecycle(subscription);
+        eventId ??= ReconciliationEventId(subscription, lifecycle.Status);
 
         var change = new CloudSubscriptionChange(
             plan.PlanId,
@@ -432,8 +438,10 @@ public sealed class PaddleBillingService(
         return new NostosAccountId(id);
     }
 
-    private static string ReconciliationEventId(PaddleSubscription subscription) =>
-        $"reconcile-{subscription.Id}-{new DateTimeOffset(subscription.UpdatedAtUtc).ToUnixTimeMilliseconds()}";
+    private static string ReconciliationEventId(
+        PaddleSubscription subscription,
+        CloudSubscriptionStatus status) =>
+        $"reconcile-{subscription.Id}-{new DateTimeOffset(DateTime.SpecifyKind(subscription.UpdatedAtUtc, DateTimeKind.Utc)).ToUnixTimeMilliseconds()}-{status}";
 
     private sealed record PaddleLifecycleMapping(
         CloudSubscriptionStatus Status,
