@@ -18,20 +18,16 @@
   overflow: hidden;
   box-sizing: border-box;
 }
-.sidebar-left {
-  animation: sidebar-enter var(--motion-base) var(--ease-out);
-}
-.sidebar-right {
-  animation: sidebar-enter-right var(--motion-base) var(--ease-out);
-}
-
 @media (min-width: 769px) {
   .sidebar-left {
+    position: relative;
     width: 280px;
+    min-width: 220px;
+    max-width: 420px;
     border-right: 1px solid var(--border-color);
-    transition:
-      width var(--motion-slow) var(--ease-standard),
-      opacity var(--motion-base) ease;
+    /* Width follows the pointer directly. Animating it adds lag and makes the
+       divider feel detached from the hand. */
+    transition: opacity var(--motion-base) ease;
   }
   .sidebar-right {
     width: 360px; /* Expansive reference companion */
@@ -50,11 +46,56 @@
     opacity: 0;
     border-left: none;
   }
-  /* Prevent content squashing during transition */
-  .sidebar-left > *,
+  /* Keep each panel's contents usable at its own minimum. The left pane is
+     intentionally allowed below the reference pane's old 260px floor. */
+  .sidebar-left > * {
+    min-width: 220px;
+  }
+
   .sidebar-right > * {
     min-width: 260px;
   }
+
+  .sidebar-left > .sidebar-resizer {
+    min-width: 0;
+  }
+}
+
+/* The Studio enters already settled. The old shared sidebar-enter animation
+   animated transform on the same element the mobile drawer uses for its closed
+   state, so a closed drawer briefly slid onscreen and then disappeared when the
+   entry animation released transform. Opening/closing drawers still animates. */
+.sidebar-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  width: 9px;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.sidebar-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: transparent;
+  transform: translateX(-0.5px);
+  transition: background-color var(--motion-fast);
+}
+
+.sidebar-resizer:hover::after,
+.sidebar-resizer:focus-visible::after {
+  background: var(--color-text-light);
+}
+
+.sidebar-resizer:focus-visible {
+  box-shadow: inset -2px 0 0 var(--focus-ring);
 }
 
 /* --- SIDEBAR COMPONENTS --- */
@@ -530,6 +571,10 @@
   .sidebar-left.open,
   .sidebar-right.open {
     transform: translateX(0);
+  }
+
+  .sidebar-resizer {
+    display: none;
   }
 
   .editor-pane {

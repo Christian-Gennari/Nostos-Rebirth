@@ -15,7 +15,8 @@
 .tox-tinymce-aux .tox-menu,
 .tox-tinymce-aux .tox-collection,
 .tox-tinymce-aux .tox-dialog,
-.tox-tinymce-aux .tox-pop {
+.tox-tinymce-aux .tox-pop,
+.tox-tinymce-aux .tox-pop__dialog {
   color: var(--editor-ui-text) !important;
   background: var(--editor-ui-bg) !important;
   border: 1px solid var(--editor-ui-border) !important;
@@ -27,7 +28,27 @@
   min-height: 36px;
   color: var(--editor-ui-text) !important;
   background: transparent !important;
+  border: 0 !important;
   border-radius: 5px !important;
+  box-shadow: none !important;
+}
+
+/* Oxide paints dropdown internals separately. That produced the visible
+   "box inside the row" around Paragraph / Heading items and left some labels
+   on light skin colors in dark mode. The row owns selection/hover paint;
+   every child stays transparent and inherits its ink. */
+.tox-tinymce-aux .tox-collection__item-label,
+.tox-tinymce-aux .tox-collection__item-icon,
+.tox-tinymce-aux .tox-collection__item-checkmark,
+.tox-tinymce-aux .tox-collection__item-accessory {
+  color: inherit !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.tox-tinymce-aux .tox-collection__item svg {
+  fill: currentColor !important;
 }
 
 .tox-tinymce-aux .tox-collection__item:hover,
@@ -46,13 +67,20 @@
 }
 
 /* Quickbars: restrained floating annotation strip */
-.tox-tinymce-aux .tox-pop {
+.tox-tinymce-aux .tox-pop,
+.tox-tinymce-aux .tox-pop__dialog {
   padding: 4px !important;
 }
 
-.tox-tinymce-aux .tox-pop .tox-toolbar {
+.tox-tinymce-aux .tox-pop .tox-toolbar,
+.tox-tinymce-aux .tox-pop .tox-toolbar__primary,
+.tox-tinymce-aux .tox-pop__dialog .tox-toolbar,
+.tox-tinymce-aux .tox-pop__dialog .tox-toolbar__primary {
   padding: 0 !important;
+  color: var(--editor-ui-text) !important;
   background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
 .tox-tinymce-aux .tox-pop .tox-toolbar__group {
@@ -61,17 +89,43 @@
   border: 0 !important;
 }
 
-.tox-tinymce-aux .tox-pop .tox-tbtn {
-  width: 32px;
+.tox-tinymce-aux .tox-pop .tox-tbtn,
+.tox-tinymce-aux .tox-pop .tox-mbtn,
+.tox-tinymce-aux .tox-pop__dialog .tox-tbtn,
+.tox-tinymce-aux .tox-pop__dialog .tox-mbtn {
+  min-width: 32px;
   height: 32px;
   color: var(--editor-ui-muted) !important;
   background: transparent !important;
+  border: 0 !important;
   border-radius: 5px !important;
+  box-shadow: none !important;
 }
 
-.tox-tinymce-aux .tox-pop .tox-tbtn:hover {
+.tox-tinymce-aux .tox-pop .tox-tbtn:hover,
+.tox-tinymce-aux .tox-pop .tox-mbtn:hover,
+.tox-tinymce-aux .tox-pop__dialog .tox-tbtn:hover,
+.tox-tinymce-aux .tox-pop__dialog .tox-mbtn:hover {
   color: var(--editor-ui-text) !important;
   background: var(--editor-ui-bg-hover) !important;
+}
+
+.tox-tinymce-aux .tox-pop .tox-tbtn__select-label,
+.tox-tinymce-aux .tox-pop .tox-mbtn__select-label,
+.tox-tinymce-aux .tox-pop .tox-tbtn__text,
+.tox-tinymce-aux .tox-pop__dialog .tox-tbtn__select-label,
+.tox-tinymce-aux .tox-pop__dialog .tox-mbtn__select-label,
+.tox-tinymce-aux .tox-pop__dialog .tox-tbtn__text {
+  color: inherit !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tox-tinymce-aux .tox-pop .tox-tbtn svg,
+.tox-tinymce-aux .tox-pop .tox-mbtn svg,
+.tox-tinymce-aux .tox-pop__dialog .tox-tbtn svg,
+.tox-tinymce-aux .tox-pop__dialog .tox-mbtn svg {
+  fill: currentColor !important;
 }
 
 /* Dialogs */
