@@ -11,12 +11,14 @@ import { DropdownComponent, type DropdownOption } from './dropdown.component';
       ariaLabel="Format"
       [options]="options"
       [value]="value"
+      [disabled]="disabled"
       (valueChange)="value = $event"
     />
   `,
 })
 class DropdownHarnessComponent {
   value = 'epub';
+  disabled = false;
   readonly options: readonly DropdownOption[] = [
     { value: 'epub', label: 'EPUB' },
     { value: 'disabled', label: 'Unavailable', disabled: true },
@@ -96,6 +98,20 @@ describe('DropdownComponent', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
   });
 
+  it('keeps a disabled trigger closed', () => {
+    fixture.componentInstance.disabled = true;
+    fixture.detectChanges();
+
+    const trigger = fixture.nativeElement.querySelector(
+      '.nostos-dropdown__trigger',
+    ) as HTMLButtonElement;
+
+    expect(trigger.disabled).toBe(true);
+    trigger.click();
+    fixture.detectChanges();
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+  });
+
   it('closes when pointer interaction moves outside the component', () => {
     const trigger = fixture.nativeElement.querySelector(
       '.nostos-dropdown__trigger',
@@ -103,7 +119,7 @@ describe('DropdownComponent', () => {
 
     trigger.click();
     fixture.detectChanges();
-    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
     fixture.detectChanges();
 
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
