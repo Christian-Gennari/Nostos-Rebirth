@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - feature/cloud-postgres-spike
-      - feature/cloud-entitlements-403
   pull_request:
     paths:
       - "Nostos.Backend/**"
@@ -47,7 +46,7 @@ jobs:
         run: dotnet restore Nostos.sln
 
       - name: Build backend solution
-        run: dotnet build Nostos.sln
+        run: dotnet build Nostos.sln --configuration Debug --no-restore
 
       - name: Run backend regression tests
         env:
