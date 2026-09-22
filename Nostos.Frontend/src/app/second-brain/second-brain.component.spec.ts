@@ -634,13 +634,15 @@ describe('SecondBrain', () => {
     const search = fixture.nativeElement.querySelector(
       'input[aria-label="Search concepts"]',
     ) as HTMLInputElement;
-    const sort = fixture.nativeElement.querySelector('#brain-sort') as HTMLSelectElement;
+    const sortTrigger = fixture.nativeElement.querySelector('#brain-sort') as HTMLButtonElement;
+    const sort = sortTrigger.closest('app-dropdown') as HTMLElement;
 
     expect(count.classList.contains('nostos-badge')).toBe(true);
     expect(search.classList.contains('nostos-form-control--input')).toBe(true);
     expect(search.classList.contains('nostos-form-control--compact')).toBe(true);
-    expect(sort.classList.contains('nostos-form-control--select')).toBe(true);
-    expect(sort.classList.contains('nostos-form-control--compact')).toBe(true);
+    expect(sort.tagName).toBe('APP-DROPDOWN');
+    expect(sort.classList.contains('nostos-dropdown--compact')).toBe(true);
+    expect(sortTrigger.getAttribute('role')).toBe('combobox');
 
     component.setSearchQuery('alp');
     fixture.detectChanges();
