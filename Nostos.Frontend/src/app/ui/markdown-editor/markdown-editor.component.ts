@@ -200,18 +200,16 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
   }
 
   blockquote {
-    margin: 2rem 0;
-    padding: 0.2rem 0 0.2rem 1.35rem;
+    margin: 2.1rem 0;
+    padding: 0.15rem 0 0.15rem 1.25rem;
 
     color: var(--ink-soft);
-    background: linear-gradient(
-      90deg,
-      var(--quote-bg) 0,
-      rgba(250, 248, 244, 0) 82%
-    );
+    background: transparent;
     border-left: 2px solid var(--quote-rule);
 
+    font-size: 1.03em;
     font-style: italic;
+    line-height: 1.75;
   }
 
   blockquote p:last-child {
@@ -452,8 +450,20 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
           background-color 120ms ease;
       }
 
-      :host ::ng-deep .tox .tox-tbtn svg {
+      :host ::ng-deep .tox .tox-tbtn svg,
+      :host ::ng-deep .tox .tox-mbtn svg {
         fill: currentColor !important;
+      }
+
+      /* Oxide gives labels/chevrons their own paint. Keep the control as one
+         Nostos surface so dropdown labels never look like a second boxed
+         control inside the button. */
+      :host ::ng-deep .tox .tox-tbtn__select-label,
+      :host ::ng-deep .tox .tox-mbtn__select-label,
+      :host ::ng-deep .tox .tox-tbtn__text {
+        color: inherit !important;
+        background: transparent !important;
+        box-shadow: none !important;
       }
 
       /* Hover */
