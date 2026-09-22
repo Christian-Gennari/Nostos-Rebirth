@@ -163,6 +163,20 @@ public sealed class AssistantOrchestrator(
         var iterations = Math.Max(1, options.MaxToolIterations);
         for (var iteration = 0; iteration < iterations; iteration++)
         {
+            // Per-turn execution ceilings (#406). Evaluated before spending another
+            // upstream call: a turn that already crossed a token / wall-clock /
+            // estimated-cost ceiling stops here and is reported incomplete, never as
+            // success, and the blocked call is not counted as an upstream call.
+            var exceededCeiling = AssistantExecutionBudget.ExceededCeiling(executionMeter.Snapshot(), options);
+            if (exceededCeiling is not null)
+            {
+                logger.LogDebug(
+                    "Assistant turn stopped at the {Ceiling} execution ceiling.",
+                    exceededCeiling);
+                stopReason = AssistantTurnStopReason.SafetyCeiling;
+                break;
+            }
+
             executionMeter.RecordUpstreamRequest();
 
             LlmCompletion completion;

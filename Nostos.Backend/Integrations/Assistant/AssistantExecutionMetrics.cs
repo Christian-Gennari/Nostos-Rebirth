@@ -32,6 +32,20 @@ public enum AssistantTurnStopReason
 }
 
 /// <summary>
+/// Mid-turn snapshot of <see cref="AssistantExecutionMeter"/>. The per-turn
+/// execution ceilings are evaluated against this before another upstream call is
+/// spent, so the same accounting that is logged at the end of the turn also
+/// guards it while it runs.
+/// </summary>
+public readonly record struct AssistantExecutionUsage(
+    int UpstreamCallCount,
+    int? PromptTokens,
+    int? OutputTokens,
+    int? ThinkingTokens,
+    int? ReportedTotalTokens,
+    long ElapsedMilliseconds);
+
+/// <summary>
 /// Accumulates one turn's provider-reported usage without inventing missing
 /// values. If any completion omits a token dimension, that aggregate remains
 /// unknown rather than silently under-counting it.
@@ -71,26 +85,42 @@ public sealed class AssistantExecutionMeter
         Accumulate(completion.ThinkingTokens, ref _thinkingTokens, ref _thinkingTokensComplete);
     }
 
-    public AssistantExecutionMetrics Finish(AssistantTurnStopReason stopReason)
+    /// <summary>
+    /// Current cumulative usage. Token dimensions stay unknown while any completion
+    /// omitted them, mirroring <see cref="Finish"/>; the clock keeps running.
+    /// </summary>
+    public AssistantExecutionUsage Snapshot()
     {
-        _clock.Stop();
-
         var allRequestsCompleted = _completedCalls == _upstreamCalls;
         int? promptTokens = allRequestsCompleted && _promptTokensComplete ? _promptTokens : null;
         int? outputTokens = allRequestsCompleted && _outputTokensComplete ? _outputTokens : null;
         int? thinkingTokens = allRequestsCompleted && _thinkingTokensComplete ? _thinkingTokens : null;
 
-        return new AssistantExecutionMetrics(
+        return new AssistantExecutionUsage(
             _upstreamCalls,
-            _toolCalls,
-            _toolLoopIterations,
             promptTokens,
             outputTokens,
             thinkingTokens,
             promptTokens is not null && outputTokens is not null
                 ? checked(promptTokens.Value + outputTokens.Value)
                 : null,
-            (long)_clock.Elapsed.TotalMilliseconds,
+            (long)_clock.Elapsed.TotalMilliseconds);
+    }
+
+    public AssistantExecutionMetrics Finish(AssistantTurnStopReason stopReason)
+    {
+        _clock.Stop();
+        var usage = Snapshot();
+
+        return new AssistantExecutionMetrics(
+            usage.UpstreamCallCount,
+            _toolCalls,
+            _toolLoopIterations,
+            usage.PromptTokens,
+            usage.OutputTokens,
+            usage.ThinkingTokens,
+            usage.ReportedTotalTokens,
+            usage.ElapsedMilliseconds,
             stopReason,
             _providerFinishReason);
     }

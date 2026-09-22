@@ -63,6 +63,34 @@ public sealed class AssistantOptions
     public int MaxToolIterations { get; set; } = 6;
 
     /// <summary>
+    /// Cumulative provider-reported token ceiling for one turn (prompt + output;
+    /// thinking is already inside output). Zero or below disables the ceiling.
+    ///
+    /// The value is selected from the external Gemini 3.8 Flash low-thinking
+    /// measurement in <c>docs/cloud/ask-nostos-execution-budget-spike.md</c> — it
+    /// bounds one turn's worst case, not a context window. #405's abuse/rate
+    /// limits, #403's monthly entitlement and operator/global emergency ceilings
+    /// stay separate.
+    /// </summary>
+    public int MaxTurnTokens { get; set; }
+
+    /// <summary>
+    /// Wall-clock ceiling for one turn in milliseconds. Zero or below disables the
+    /// ceiling. Selected from the same external measurement; measured elapsed time
+    /// includes provider retry/backoff, which a user experiences as turn latency.
+    /// </summary>
+    public int MaxTurnElapsedMilliseconds { get; set; }
+
+    /// <summary>
+    /// Estimated provider-cost ceiling for one turn in USD, priced with
+    /// <see cref="Integrations.Assistant.AssistantPricing"/> at its recorded price
+    /// epoch. Zero or below disables the ceiling. Cannot trip while a provider
+    /// usage field is missing — an unknown cost is never read as over-budget or as
+    /// free.
+    /// </summary>
+    public decimal MaxTurnEstimatedCostUsd { get; set; }
+
+    /// <summary>
     /// Per-LLM-call ceiling. The pool spends reasoning tokens even on trivial
     /// answers, so this is generous on purpose.
     /// </summary>

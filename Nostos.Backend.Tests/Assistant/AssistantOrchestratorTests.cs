@@ -1320,10 +1320,92 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     // ------------------------------------------------------------------
+    // Per-turn execution ceilings (#406)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task A_turn_that_crossed_the_token_ceiling_stops_before_the_next_upstream_call()
+    {
+        var h = CreateHarness(configure: options => options.MaxTurnTokens = 100);
+        h.Llm.Enqueue(new LlmCompletion(
+            null,
+            "tool_calls",
+            [new LlmToolCall("call-1", "library_list_collections", "{}")],
+            PromptTokens: 5_000,
+            CompletionTokens: 40));
+
+        var response = await h.Orchestrator.HandleTurnAsync(
+            Turn("Which collections do I have?", Context(surface: "library", route: "/library")));
+
+        h.Llm.CallCount.Should().Be(1, "the ceiling is evaluated before spending another upstream call");
+        response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
+        response.PendingPlan.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task A_turn_that_crossed_the_estimated_cost_ceiling_stops_before_the_next_upstream_call()
+    {
+        var h = CreateHarness(configure: options => options.MaxTurnEstimatedCostUsd = 0.0001m);
+        h.Llm.Enqueue(new LlmCompletion(
+            null,
+            "tool_calls",
+            [new LlmToolCall("call-1", "library_list_collections", "{}")],
+            PromptTokens: 5_000,
+            CompletionTokens: 40));
+
+        var response = await h.Orchestrator.HandleTurnAsync(
+            Turn("Which collections do I have?", Context(surface: "library", route: "/library")));
+
+        h.Llm.CallCount.Should().Be(1, "the ceiling is evaluated before spending another upstream call");
+        response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
+    }
+
+    [Fact]
+    public async Task Missing_provider_usage_never_trips_the_token_or_cost_ceiling()
+    {
+        var h = CreateHarness(configure: options =>
+        {
+            options.MaxTurnTokens = 1;
+            options.MaxTurnEstimatedCostUsd = 0.0000001m;
+        });
+
+        h.Llm.Enqueue(new LlmCompletion(
+            null,
+            "tool_calls",
+            [new LlmToolCall("call-1", "library_list_collections", "{}")]));
+        h.Llm.Returns("Two collections.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(
+            Turn("Which collections do I have?", Context(surface: "library", route: "/library")));
+
+        h.Llm.CallCount.Should().Be(2, "a provider that omitted usage must not be treated as over budget");
+        response.Reply.Should().Be("Two collections.");
+    }
+
+    [Fact]
+    public async Task Execution_ceilings_default_to_disabled_so_the_turn_shape_is_unchanged()
+    {
+        var h = CreateHarness();
+        h.Llm.Enqueue(new LlmCompletion(
+            null,
+            "tool_calls",
+            [new LlmToolCall("call-1", "library_list_collections", "{}")],
+            PromptTokens: 1_000_000,
+            CompletionTokens: 1_000_000));
+        h.Llm.Returns("Done.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(
+            Turn("Which collections do I have?", Context(surface: "library", route: "/library")));
+
+        h.Llm.CallCount.Should().Be(2, "an unset ceiling must not change today's turn shape");
+        response.Reply.Should().Be("Done.");
+    }
+
+    // ------------------------------------------------------------------
     // Harness
     // ------------------------------------------------------------------
 
-    private Harness CreateHarness(int maxToolIterations = 6)
+    private Harness CreateHarness(int maxToolIterations = 6, Action<AssistantOptions>? configure = null)
     {
         var path = _fixture.CreateDatabasePath();
         var options = new DbContextOptionsBuilder<NostosDbContext>()
@@ -1361,6 +1443,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
             Enabled = true,
             MaxToolIterations = maxToolIterations,
         };
+        configure?.Invoke(assistantOptions);
         var plans = new AssistantPlanStore();
         var settings = new AssistantSettingsService(factory);
 
