@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
+using Nostos.Backend.Cloud.Billing;
 using Nostos.Backend.Cloud.Entitlements;
 using Nostos.Backend.Data;
 using Nostos.Backend.Configuration;
@@ -76,6 +77,10 @@ public sealed class DeploymentConfigurationTests
             service.ServiceType.Name.Contains("DbContextFactory", StringComparison.Ordinal));
         services.Should().NotContain(service =>
             service.ServiceType == typeof(ICloudEntitlementService));
+        services.Should().NotContain(service =>
+            service.ServiceType == typeof(ICloudBillingService));
+        services.Should().NotContain(service =>
+            service.ServiceType == typeof(ICloudBillingStateStore));
     }
 
     [Fact]
