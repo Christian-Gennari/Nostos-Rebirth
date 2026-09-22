@@ -342,7 +342,7 @@ public sealed class CloudRecoveryResourceManager(
     }
 
     private static string QuoteIdentifier(string identifier) =>
-        """ + identifier.Replace(""", """", StringComparison.Ordinal) + """;
+        "\"" + identifier.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
 
     private sealed class FixedTenantContext(NostosAccountId accountId)
         : ICloudTenantContextAccessor
