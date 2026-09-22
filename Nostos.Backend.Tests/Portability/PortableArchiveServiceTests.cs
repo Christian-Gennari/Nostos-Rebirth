@@ -327,7 +327,7 @@ public sealed class PortableArchiveServiceTests
     {
         using var archive = await ExportFixtureAsync();
         await using var destination = await LocalPortableTestLibrary.CreateAsync();
-        var failingStorage = new FailOnSecondMediaWriteStorage(destination.Storage);
+        var failingStorage = new FailAfterMediaWriteStorage(destination.Storage);
         var service = new PortableArchiveService(
             destination.Db,
             failingStorage,
@@ -440,17 +440,15 @@ public sealed class PortableArchiveServiceTests
 
     private sealed record TestArchiveEntry(string Name, byte[] Bytes);
 
-    private sealed class FailOnSecondMediaWriteStorage(IBookAssetStorage inner)
+    private sealed class FailAfterMediaWriteStorage(IBookAssetStorage inner)
         : IBookAssetStorage
     {
-        private int _writes;
-
         public Task<string> SaveBookFileAsync(
             Guid bookId,
             Stream content,
             string fileName,
             CancellationToken ct = default) =>
-            BeforeWrite(() => inner.SaveBookFileAsync(
+            WriteThenFail(() => inner.SaveBookFileAsync(
                 bookId,
                 content,
                 fileName,
@@ -489,7 +487,7 @@ public sealed class PortableArchiveServiceTests
             Stream content,
             string fileName,
             CancellationToken ct = default) =>
-            BeforeWrite(() => inner.SaveBookCoverAsync(
+            WriteThenFail(() => inner.SaveBookCoverAsync(
                 bookId,
                 content,
                 fileName,
@@ -522,12 +520,10 @@ public sealed class PortableArchiveServiceTests
             CancellationToken ct = default) =>
             inner.DeleteCoverAsync(bookId, ct);
 
-        private Task<string> BeforeWrite(Func<Task<string>> write)
+        private static async Task<string> WriteThenFail(Func<Task<string>> write)
         {
-            _writes++;
-            if (_writes == 2)
-                throw new IOException("Injected media write failure.");
-            return write();
+            await write();
+            throw new IOException("Injected failure after durable media write.");
         }
     }
 }
