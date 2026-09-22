@@ -297,6 +297,17 @@
   --radius-dialog: 14px;
   --radius-action: 999px;
 
+  /* ── Dock role ──
+     The floating dock is neither a card nor a control: it is a bar that floats
+     over page content, so it gets its own corner rather than a step in the
+     scale above (which would have repainted every card to round the dock). 18px
+     is just under a third of the bar's measured 60px height — soft enough to
+     read as a floating bar, short enough that it does not turn into a capsule.
+     Items inside derive from it (`--radius-dock` minus the bar's 3px padding) so
+     the box and its contents cannot drift apart. The phone rail is full-bleed
+     and square; this value does not reach it. */
+  --radius-dock: 18px;
+
   /* ── Control heights ──
      The measured heights of the small interactive controls, taken from the
      running app rather than chosen: 28px (Library row action), 30px (the

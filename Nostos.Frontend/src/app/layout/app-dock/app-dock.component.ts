@@ -98,7 +98,7 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
            NOTE: no backticks in this file - these styles live in a template
            literal, and a backtick terminates it. */
         border: 1px solid var(--dock-border);
-        border-radius: var(--radius-sm);
+        border-radius: var(--radius-dock);
         overflow: clip;
         background: var(--dock-surface);
         box-shadow: var(--dock-shadow);
@@ -140,7 +140,11 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
         padding: 8px 12px 7px;
         border: 0;
         border-bottom: 2px solid transparent;
-        border-radius: var(--radius-sm);
+        /* Concentric with the container: the bar's 3px padding is the gap
+           between the item box and the box edge, so the inner corner is the
+           outer one minus that gap. Without this the hover wash reads as a
+           square tile nested in a round box. */
+        border-radius: calc(var(--radius-dock) - 3px);
         color: var(--color-text-muted);
         cursor: pointer;
         font-family: 'Hanken Grotesk', sans-serif;
@@ -244,6 +248,10 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
           flex: 1;
           gap: 2px;
           padding: 5px 4px 6px;
+          /* The phone rail is a full-bleed rectangle with square corners, so
+             there is no outer curve for these to be concentric with; keep the
+             app's default small radius (this is the mobile dock as it shipped). */
+          border-radius: var(--radius-sm);
         }
 
         .dock-item nostos-icon {
