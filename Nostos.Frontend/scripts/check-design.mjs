@@ -1021,7 +1021,9 @@ const PRODUCT_RAW_BUTTON_CLASSES = new Map([
   ['src/app/home/home.component.html', new Set()],
 ]);
 
-const stripHtmlComments = (html) => html.replace(/<!--[\s\S]*?-->/g, '');
+function stripHtmlComments(html) {
+  return html.replace(/<!--[\s\S]*?-->/g, '');
+}
 
 function rawButtonWithoutPrimitive(html, relativePath) {
   const out = [];
