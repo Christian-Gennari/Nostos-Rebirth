@@ -34,7 +34,9 @@ import { ViewToggleComponent, type ViewToggleOption } from './view-toggle.compon
 class HostComponent {
   readonly libraryOptions = [
     { value: 'list', icon: 'list-bullets', label: 'List view' },
-    { value: 'grid', icon: 'squares-four', label: 'Grid view' },
+    // `squares-four` draws smaller than the Brain's `map-trifold` at the same
+    // 18px box; the Library corrects it with a measured optical size.
+    { value: 'grid', icon: 'squares-four', label: 'Grid view', size: 20.5 },
   ] satisfies readonly ViewToggleOption[];
 
   readonly brainOptions = [
@@ -199,15 +201,33 @@ describe('ViewToggleComponent', () => {
     const selected = opts[1].querySelector('svg')!;
     const unselected = opts[0].querySelector('svg')!;
 
-    // Real Phosphor assets, 18px, and the light→regular step between states.
+    // Real Phosphor assets, and the light→regular step between states.
     expect(selected.getAttribute('viewBox')).toBe('0 0 256 256');
-    expect(selected.getAttribute('width')).toBe('18');
+    expect(selected.getAttribute('width')).toBe('20.5');
+    expect(unselected.getAttribute('width')).toBe('18');
     expect(selected.innerHTML).not.toBe(unselected.innerHTML);
 
     // The Brain's second option is the map glyph, not the Library's grid glyph.
     const brain = toggles(f, 1);
     expect(brain[1].getAttribute('aria-label')).toBe('Map view');
     expect(brain[1].querySelector('svg')!.innerHTML).not.toBe(selected.innerHTML);
+  });
+
+  it('takes a declared optical size per option, leaving other callers on the default', async () => {
+    const f = host();
+    await f.whenStable();
+
+    // The BOXES are identical everywhere (the stylesheet owns those); this field
+    // only corrects how much ink the drawing puts inside its box. Measured: the
+    // Library's `squares-four` fills 69% of an 18px box, the Brain's
+    // `map-trifold` 80%, so the grid glyph steps up to match the map's ink.
+    const library = toggles(f);
+    expect(library[0].querySelector('svg')!.getAttribute('width')).toBe('18');
+    expect(library[1].querySelector('svg')!.getAttribute('width')).toBe('20.5');
+
+    // A surface that declares nothing keeps the default, so this stays opt-in.
+    const brain = toggles(f, 1);
+    expect(brain.every((o) => o.querySelector('svg')!.getAttribute('width') === '18')).toBe(true);
   });
 
   it('does not carry the ordinary button recipe', async () => {

@@ -119,6 +119,12 @@ test('brain controls match the library controls', async ({ browser }) => {
     // lost a specificity tie on dark and kept its light tokens, so the two toggles
     // measured identical and looked different. Comparing computed COLOUR per theme
     // is what catches that class of defect; comparing geometry does not.
+    //
+    // One deliberate asymmetry that must NOT be "normalised" here: the Library's
+    // grid glyph is 20.5px against the shared 18px default (`ViewToggleOption.size`),
+    // because `squares-four` paints 69% of its box and `map-trifold` 80%. Equal boxes
+    // with equal glyph boxes left the Library's icon reading 13.7% smaller than the
+    // Brain's; at 20.5px the ink is 14.09px against the map's 14.34px (1.7%).
     // ThemeService is the only writer of `data-theme` and re-applies it from
     // localStorage on every boot, so the theme must be set AFTER each navigation
     // (setting it before would be wiped by the next page load). The stored value
