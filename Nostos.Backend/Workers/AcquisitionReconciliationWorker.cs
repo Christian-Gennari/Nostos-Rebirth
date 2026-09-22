@@ -20,7 +20,7 @@ namespace Nostos.Backend.Workers;
 public sealed class AcquisitionReconciliationWorker(
     IDbContextFactory<NostosDbContext> contextFactory,
     IWebHostEnvironment environment,
-    IFileStorageService storage,
+    IBookAssetStorage storage,
     IOptions<AcquisitionOptions> options,
     ILogger<AcquisitionReconciliationWorker> logger) : IHostedService
 {
@@ -55,9 +55,12 @@ public sealed class AcquisitionReconciliationWorker(
     public async Task ReconcileAsync(CancellationToken cancellationToken = default)
     {
         // 1. Clean up the acquisition working/staging root directory if it exists.
+        var localBooksRoot = storage is IFileStorageService localStorage
+            ? localStorage.StorageRoot
+            : null;
         var workingRoot = AcquisitionOptions.ResolveWorkingRoot(
             environment.ContentRootPath,
-            storage.StorageRoot,
+            localBooksRoot,
             options.Value);
 
         if (Directory.Exists(workingRoot))
