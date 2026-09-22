@@ -21,7 +21,7 @@
  *     and that CSS cannot reach into.
  *   - `core@2.1.1` is the SVG asset catalog (505 B per regular glyph, 453 B per
  *     variant). This registry imports exactly the files the app renders, so the
- *     bundle carries exactly those: **96 files / 68 glyphs**, no runtime dependency
+ *     bundle carries exactly those: **98 files / 68 glyphs**, no runtime dependency
  *     and no shadow DOM. The cost of that choice is one line of build wiring —
  *     `"loader": { ".svg": "text" }` in `angular.json` — and the module declaration
  *     in `phosphor-svg.d.ts`.
@@ -51,6 +51,8 @@
  * vocabulary lives in `nostos-concepts.ts`.
  */
 
+import pauseFill from '@phosphor-icons/core/fill/pause-fill.svg';
+import playFill from '@phosphor-icons/core/fill/play-fill.svg';
 import starFill from '@phosphor-icons/core/fill/star-fill.svg';
 import archiveLight from '@phosphor-icons/core/light/archive-light.svg';
 import bookLight from '@phosphor-icons/core/light/book-light.svg';
@@ -247,10 +249,10 @@ export const NOSTOS_ICONS = {
   'note': { regular: note, },
   'notebook': { regular: notebook, },
   'palette': { regular: palette, light: paletteLight, },
-  'pause': { regular: pause, },
+  'pause': { regular: pause, fill: pauseFill, },
   'pen-nib': { regular: penNib, light: penNibLight, },
   'pencil-simple': { regular: pencilSimple, },
-  'play': { regular: play, },
+  'play': { regular: play, fill: playFill, },
   'plus': { regular: plus, thin: plusThin, light: plusLight, },
   'quotes': { regular: quotes, },
   'scan': { regular: scan, },
