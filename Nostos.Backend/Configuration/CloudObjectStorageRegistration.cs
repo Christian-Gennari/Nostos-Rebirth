@@ -40,6 +40,7 @@ public static class CloudObjectStorageRegistration
         });
 
         services.AddScoped<IBookAssetStorage, S3BookAssetStorage>();
+        services.AddSingleton<ICloudObjectStorageBootstrapper, CloudObjectStorageBootstrapper>();
         return services;
     }
 }
