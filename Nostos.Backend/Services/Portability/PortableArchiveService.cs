@@ -197,6 +197,12 @@ public sealed class PortableArchiveService(
 
                 foreach (var media in staged.Media)
                 {
+                    // Register the book for compensating cleanup before touching
+                    // durable storage. A storage implementation can fail after
+                    // partially writing an object/file, so only registering after
+                    // a successful Save* call can strand media on a failed import.
+                    uploadedBookIds.Add(media.Descriptor.BookId);
+
                     await using var content = new FileStream(
                         media.StagedPath,
                         FileMode.Open,
@@ -221,8 +227,6 @@ public sealed class PortableArchiveService(
                             media.Descriptor.FileName,
                             cancellationToken);
                     }
-
-                    uploadedBookIds.Add(media.Descriptor.BookId);
                 }
 
                 await VerifyRelationalIntegrityAsync(
