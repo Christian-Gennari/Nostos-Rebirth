@@ -46,6 +46,7 @@ internal sealed record PortableBook(
     string? Asin,
     string? Duration,
     string? Narrator,
+    string? ChaptersJson,
     bool HasBookFile,
     bool HasCover);
 
