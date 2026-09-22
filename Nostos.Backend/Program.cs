@@ -17,6 +17,7 @@ using Nostos.Backend.Providers.Contracts;
 using Nostos.Backend.Providers.Gutenberg;
 using Nostos.Backend.Providers.LibriVox;
 using Nostos.Backend.Serialization;
+using Nostos.Backend.Security;
 using Nostos.Backend.Services;
 using Nostos.Backend.Services.Ai;
 using Nostos.Backend.Services.Library;
@@ -26,6 +27,7 @@ using Nostos.Backend.Workers;
 var builder = WebApplication.CreateBuilder(args);
 
 var deployment = builder.Services.AddNostosDeployment(builder.Configuration);
+builder.Services.AddNostosAuthentication(builder.Configuration, deployment);
 
 builder.Services.Configure<BackupSettings>(builder.Configuration.GetSection("BackupSettings"));
 
@@ -369,8 +371,11 @@ app.UseForwardedHeaders();
 // decision on the record rather than a silent consequence of mapping a route.
 app.Logger.LogInformation(
     opdsOptions.Enabled
-        ? "OPDS export enabled at /opds/ — page size {PageSize}, external base URL {PublicBaseUrl}. "
-            + "It is UNAUTHENTICATED: keep Nostos on a private network (LAN/Tailscale) or set Opds:Enabled=false."
+        ? deployment.Mode == DeploymentMode.Cloud
+            ? "OPDS export enabled at /opds/ — page size {PageSize}, external base URL {PublicBaseUrl}. "
+                + "Cloud authorization protects the catalogue; e-reader-specific Cloud access remains tracked separately."
+            : "OPDS export enabled at /opds/ — page size {PageSize}, external base URL {PublicBaseUrl}. "
+                + "It is UNAUTHENTICATED: keep Nostos on a private network (LAN/Tailscale) or set Opds:Enabled=false."
         : "OPDS export disabled (Opds:Enabled=false): /opds/ is not mapped.",
     opdsOptions.PageSize,
     opdsOptions.PublicBaseUrl ?? "derived from each request"
@@ -461,6 +466,12 @@ app.MapOpenApi();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+if (deployment.Mode == DeploymentMode.Cloud)
+{
+    app.UseAuthentication();
+    app.UseAuthorization();
+}
+
 // ------------------------------
 
 // Map all endpoints
@@ -477,6 +488,10 @@ app.MapAssistantEndpoints();
 app.MapAiProviderSettingsEndpoints();
 app.MapAssistantSettingsEndpoints();
 app.MapDeploymentCapabilitiesEndpoints();
+if (deployment.Mode == DeploymentMode.Cloud)
+{
+    app.MapCloudAuthEndpoints();
+}
 app.MapOpdsEndpoints(opdsOptions);
 app.MapBackupEndpoints();
 
@@ -535,7 +550,8 @@ RequestDelegate serveClientRoute = async context =>
 // verb on unmapped paths with 405 before this delegate ever runs, so mapped
 // POST routes are never shadowed.
 app.MapFallback(serveClientRoute)
-    .WithMetadata(new HttpMethodMetadata(new[] { "GET", "HEAD" }));
+    .WithMetadata(new HttpMethodMetadata(new[] { "GET", "HEAD" }))
+    .AllowAnonymous();
 
 app.Run();
 return 0;
