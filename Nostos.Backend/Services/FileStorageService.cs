@@ -408,7 +408,7 @@ public class FileStorageService : IFileStorageService, IBookAssetStorage
             FileName: file.Name,
             ContentType: contentType,
             Length: file.Length,
-            EntityTag: $\"\\\"{file.Length:x}-{file.LastWriteTimeUtc.Ticks:x}\\\"\",
+            EntityTag: $"\\\"{file.Length:x}-{file.LastWriteTimeUtc.Ticks:x}\\\"",
             LastModified: new DateTimeOffset(file.LastWriteTimeUtc, TimeSpan.Zero));
     }
 
