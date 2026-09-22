@@ -192,7 +192,7 @@ public sealed class PaddleBillingOptions
 
     public PaddleBillingSecrets ResolveSecrets(Func<string, string?>? environmentReader = null)
     {
-        environmentReader ??= Environment.GetEnvironmentVariable;
+        environmentReader ??= System.Environment.GetEnvironmentVariable;
 
         var apiKey = environmentReader(ApiKeyEnvironmentVariable);
         if (string.IsNullOrWhiteSpace(apiKey))
