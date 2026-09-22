@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { DropdownComponent, type DropdownOption } from './dropdown.component';
@@ -11,14 +11,14 @@ import { DropdownComponent, type DropdownOption } from './dropdown.component';
       ariaLabel="Format"
       [options]="options"
       [value]="value"
-      [disabled]="disabled"
+      [disabled]="disabled()"
       (valueChange)="value = $event"
     />
   `,
 })
 class DropdownHarnessComponent {
   value = 'epub';
-  disabled = false;
+  readonly disabled = signal(false);
   readonly options: readonly DropdownOption[] = [
     { value: 'epub', label: 'EPUB' },
     { value: 'disabled', label: 'Unavailable', disabled: true },
@@ -99,7 +99,7 @@ describe('DropdownComponent', () => {
   });
 
   it('keeps a disabled trigger closed', () => {
-    fixture.componentInstance.disabled = true;
+    fixture.componentInstance.disabled.set(true);
     fixture.detectChanges();
 
     const trigger = fixture.nativeElement.querySelector(
