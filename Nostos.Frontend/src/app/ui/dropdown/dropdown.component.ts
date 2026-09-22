@@ -56,7 +56,7 @@ let nextDropdownId = 0;
       class="nostos-dropdown__trigger"
       role="combobox"
       aria-haspopup="listbox"
-      [id]="controlId()"
+      [attr.id]="controlId()"
       [attr.aria-label]="ariaLabel()"
       [attr.aria-expanded]="open()"
       [attr.aria-controls]="listboxId"
@@ -361,7 +361,7 @@ export class DropdownComponent {
 
     if ((event.key === 'Home' || event.key === 'End') && this.open()) {
       event.preventDefault();
-      this.activeIndex.set(this.firstEnabledIndex(event.key === 'End'));
+      this.setKeyboardActive(this.firstEnabledIndex(event.key === 'End'));
       return;
     }
 
@@ -413,7 +413,9 @@ export class DropdownComponent {
     const selectedIndex = this.options().findIndex(
       (option) => option.value === this.value() && !option.disabled,
     );
-    this.activeIndex.set(selectedIndex >= 0 ? selectedIndex : this.firstEnabledIndex(false));
+    this.setKeyboardActive(
+      selectedIndex >= 0 ? selectedIndex : this.firstEnabledIndex(false),
+    );
     this.open.set(true);
 
     const panel = this.panel().nativeElement;
@@ -467,10 +469,24 @@ export class DropdownComponent {
     for (let attempt = 0; attempt < options.length; attempt++) {
       index = (index + direction + options.length) % options.length;
       if (!options[index].disabled) {
-        this.activeIndex.set(index);
+        this.setKeyboardActive(index);
         return;
       }
     }
+  }
+
+  private setKeyboardActive(index: number): void {
+    this.activeIndex.set(index);
+    if (index < 0) return;
+
+    // Focus deliberately stays on the combobox trigger. Keep the active
+    // descendant visible when keyboard navigation moves through a long list.
+    queueMicrotask(() => {
+      const option = this.panel().nativeElement.querySelector<HTMLElement>(
+        `#${this.optionId(index)}`,
+      );
+      option?.scrollIntoView?.({ block: 'nearest' });
+    });
   }
 
   private firstEnabledIndex(fromEnd: boolean): number {
