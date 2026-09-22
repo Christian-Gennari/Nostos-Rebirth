@@ -352,7 +352,14 @@ describe('AddBookModal — From a Source', () => {
   it('still offers both uploads for a hand-entered digital book, and names a chosen file', async () => {
     fixture.detectChanges();
 
-    component.onTypeChange('ebook');
+    const formatTrigger = fixture.nativeElement.querySelector('#book-type') as HTMLButtonElement;
+    formatTrigger.click();
+    fixture.detectChanges();
+
+    const ebookOption = Array.from(
+      fixture.nativeElement.querySelectorAll('app-dropdown [role="option"]'),
+    ).find((option) => option.textContent?.includes('E-Book')) as HTMLElement;
+    ebookOption.click();
     fixture.detectChanges();
 
     component.setTab('Files & Personal');
