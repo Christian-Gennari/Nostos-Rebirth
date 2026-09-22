@@ -502,7 +502,7 @@ public sealed class PortableArchiveService(
         var path = MediaPath(bookId, kind, extension);
 
         await using var opened = kind == PortableArchiveFormat.BookMediaKind
-            ? await _assets.OpenBookFileAsync(bookId, cancellationToken: ct)
+            ? await _assets.OpenBookFileAsync(bookId, null, ct)
             : await _assets.OpenBookCoverAsync(bookId, ct);
 
         if (opened is null)
@@ -1409,8 +1409,8 @@ public sealed class PortableArchiveService(
 
         if (data.AssistantSettings is { } assistant)
         {
-            var existing = _db.AssistantSettings.Local
-                .FirstOrDefault(x => x.Id == AssistantSettingsModel.SingletonId);
+            var existing = await _db.AssistantSettings
+                .SingleOrDefaultAsync(x => x.Id == AssistantSettingsModel.SingletonId, ct);
             if (existing is null)
             {
                 existing = new AssistantSettingsModel
@@ -1570,7 +1570,7 @@ public sealed class PortableArchiveService(
             }
 
             await using var opened = descriptor.Kind == PortableArchiveFormat.BookMediaKind
-                ? await _assets.OpenBookFileAsync(descriptor.BookId, cancellationToken: ct)
+                ? await _assets.OpenBookFileAsync(descriptor.BookId, null, ct)
                 : await _assets.OpenBookCoverAsync(descriptor.BookId, ct);
 
             if (opened is null)
@@ -1630,7 +1630,7 @@ public sealed class PortableArchiveService(
     private static string ValidateArchivePath(string path)
     {
         if (string.IsNullOrWhiteSpace(path)
-            || path.StartsWith('/', StringComparison.Ordinal)
+            || path.StartsWith("/", StringComparison.Ordinal)
             || path.StartsWith('\\')
             || path.Contains('\\')
             || path.Contains('\0')
