@@ -83,6 +83,15 @@ jobs:
           --no-restore
           --logger "console;verbosity=minimal"
 
+      - name: Run PostgreSQL compatibility spike
+        run: >-
+          dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
+          --configuration Debug
+          --no-build
+          --no-restore
+          --filter "Category=PostgresSpike"
+          --logger "console;verbosity=normal"
+
       - name: Run PostgreSQL migration integration tests
         run: >-
           dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
