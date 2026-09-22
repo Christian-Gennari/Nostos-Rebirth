@@ -36,7 +36,7 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
           class="dock-item"
           title="Library"
         >
-          <nostos-icon name="books" [size]="20" weight="light"></nostos-icon>
+          <nostos-icon name="books" [size]="20" weight="regular"></nostos-icon>
           <span class="label">Library</span>
         </a>
 
@@ -48,7 +48,7 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
           class="dock-item"
           title="The Brain"
         >
-          <nostos-icon name="brain" [size]="20" weight="light"></nostos-icon>
+          <nostos-icon name="brain" [size]="20" weight="regular"></nostos-icon>
           <span class="label">Brain</span>
         </a>
 
@@ -60,7 +60,7 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
           class="dock-item"
           title="Writing Studio"
         >
-          <nostos-icon name="pen-nib" [size]="20" weight="light"></nostos-icon>
+          <nostos-icon name="pen-nib" [size]="20" weight="regular"></nostos-icon>
           <span class="label">Studio</span>
         </a>
 
@@ -72,7 +72,7 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
           class="dock-item"
           title="Settings"
         >
-          <nostos-icon name="gear-six" [size]="20" weight="light"></nostos-icon>
+          <nostos-icon name="gear-six" [size]="20" weight="regular"></nostos-icon>
           <span class="label">Settings</span>
         </a>
       </div>
@@ -92,13 +92,8 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
 
       .app-dock-container {
         width: max-content;
-        /* The --dock-* tokens: on light the dock floats on a warm cast; on dark a
-           dark shadow carries no elevation, so the surface itself lifts (measured
-           1.55 tonal separation from the page). One rule, both themes.
-           NOTE: no backticks in this file - these styles live in a template
-           literal, and a backtick terminates it. */
         border: 1px solid var(--dock-border);
-        border-radius: var(--radius-sm);
+        border-radius: 12px;
         overflow: clip;
         background: var(--dock-surface);
         box-shadow: var(--dock-shadow);
@@ -107,20 +102,21 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
       .dock-bar {
         position: relative;
         display: flex;
-        align-items: center;
+        align-items: stretch;
         justify-content: center;
-        gap: 2px;
-        padding: 3px 6px;
+        gap: 0;
+        padding: 6px;
       }
 
       .dock-pill {
         position: absolute;
-        bottom: 3px;
+        bottom: 4px;
         left: 0;
-        z-index: 1;
+        z-index: 2;
         height: 2px;
         width: 0;
-        background: var(--color-brand-accent);
+        border-radius: var(--radius-pill);
+        background: var(--color-accent);
         opacity: 0;
         pointer-events: none;
         transition:
@@ -132,15 +128,15 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
       .dock-item {
         position: relative;
         display: inline-flex;
-        min-width: 78px;
-        flex-direction: column;
+        min-width: 92px;
+        min-height: 40px;
+        flex-direction: row;
         align-items: center;
         justify-content: center;
-        gap: 4px;
-        padding: 8px 12px 7px;
+        gap: 8px;
+        padding: 9px 14px 10px;
         border: 0;
-        border-bottom: 2px solid transparent;
-        border-radius: var(--radius-sm);
+        border-radius: 8px;
         color: var(--color-text-muted);
         cursor: pointer;
         font-family: 'Hanken Grotesk', sans-serif;
@@ -152,44 +148,56 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
         touch-action: manipulation;
       }
 
+      .dock-item + .dock-item::before {
+        content: '';
+        position: absolute;
+        top: 9px;
+        bottom: 9px;
+        left: -1px;
+        width: 1px;
+        background: var(--dock-border);
+        opacity: 0.62;
+        pointer-events: none;
+      }
+
       .dock-item:hover {
         background: var(--bg-hover);
         color: var(--color-text-main);
       }
 
       .dock-item:active {
-        transform: scale(0.96);
+        transform: scale(0.97);
       }
 
       .dock-item:focus-visible {
-        /* Width comes from the shared token like every other ring in the app. The
-           COLOUR stays local and deliberately so: this dock's items include
-           destructive actions, and an accent-coloured ring distinguishes "this dock
-           item" from the neutral slate used everywhere else. That is a role
-           difference, not drift — the drift was the hardcoded width. */
         outline: var(--focus-ring-width) solid var(--color-accent);
         outline-offset: -2px;
       }
 
       .dock-item.active {
-        border-bottom-color: transparent;
-        background: transparent;
-        /* Ink on light; porcelain on dark, matching the heading rule. */
+        background: color-mix(in srgb, var(--color-accent) 8%, var(--dock-surface));
         color: var(--dock-item-active-ink);
       }
 
-      /* RouterLinkActive cannot update until navigation commits. A pending item
-         carries the user's intent during that gap, so touch never returns to an
-         inert-looking dock between release and NavigationEnd. */
       .dock-item.pending {
-        background: var(--bg-hover);
+        background: color-mix(in srgb, var(--color-accent) 11%, var(--dock-surface));
         color: var(--dock-item-active-ink);
+      }
+
+      .dock-item nostos-icon {
+        flex: 0 0 auto;
+        opacity: 0.9;
+      }
+
+      .dock-item.active nostos-icon,
+      .dock-item.pending nostos-icon {
+        opacity: 1;
       }
 
       .label {
-        font-size: 0.68rem;
-        font-weight: 600;
-        letter-spacing: 0.015em;
+        font-size: 0.74rem;
+        font-weight: 500;
+        letter-spacing: 0.012em;
         line-height: 1;
       }
 
@@ -203,57 +211,49 @@ import { NostosIconComponent } from '../../ui/icon/nostos-icon.component';
         }
 
         .app-dock-container {
-          /* The desktop dock is a floating pill sized to its content
-             (width: max-content). On phones the dock is a full-bleed rail, so
-             the container must stretch, otherwise it collapses to a narrow
-             left-aligned pill with sub-44px tap targets. */
           width: 100%;
           max-width: none;
           border-right: 0;
           border-bottom: 0;
           border-left: 0;
           border-radius: 0;
-          /* The phone dock is a full-bleed rail, so its cast points UP. */
           box-shadow: var(--dock-shadow-rail);
-          /* The rail's TOTAL height is the token the shell reserves for it, and it
-             is set here rather than on the inner bar because this element owns the
-             remaining 1px border: sizing the bar left the dock 1px taller than the
-             reserve, which put it 1px over the last line of content. The inset is
-             part of the height on a notched phone, matching the shell's reserve.
-             "height" not "min-height": a floor lets natural content win. */
           box-sizing: border-box;
           height: calc(var(--dock-rail-h) + env(safe-area-inset-bottom, 0px));
         }
 
         .dock-bar {
           width: 100%;
-          justify-content: space-around;
-          gap: 1px;
-          /* Fill the container, whose height is the reserved --dock-rail-h.
-             Content clearance and dock height are therefore one value rather than
-             two that can drift (they were 96px and 58px, leaving 38px of dead space
-             above the dock on every page). */
           box-sizing: border-box;
           height: 100%;
-          padding: 3px 10px max(3px, env(safe-area-inset-bottom));
+          align-items: center;
+          justify-content: space-around;
+          gap: 2px;
+          padding: 4px 8px max(4px, env(safe-area-inset-bottom));
+        }
+
+        .dock-pill {
+          bottom: max(4px, env(safe-area-inset-bottom));
         }
 
         .dock-item {
           min-width: 0;
           min-height: 44px;
           flex: 1;
-          gap: 2px;
-          padding: 5px 4px 6px;
+          flex-direction: column;
+          gap: 3px;
+          padding: 5px 4px 7px;
+          border-radius: var(--radius-lg);
         }
 
-        .dock-item nostos-icon {
-          /* 20px icons: the desktop 0.9 scale (18px) is too small to read or
-             hit comfortably on a phone. */
-          transform: none;
+        .dock-item + .dock-item::before {
+          display: none;
         }
 
         .label {
           font-size: 0.7rem;
+          font-weight: 600;
+          letter-spacing: 0.01em;
         }
 
         .dock-item:hover {
@@ -319,9 +319,11 @@ export class AppDockComponent {
       }
       const barRect = bar.getBoundingClientRect();
       const itemRect = active.getBoundingClientRect();
+      const pillWidth = Math.min(28, Math.max(0, itemRect.width - 24));
+      const pillOffset = itemRect.left - barRect.left + (itemRect.width - pillWidth) / 2;
       pill.style.opacity = '1';
-      pill.style.width = `${Math.max(0, itemRect.width - 24)}px`;
-      pill.style.transform = `translateX(${itemRect.left - barRect.left + 12}px)`;
+      pill.style.width = `${pillWidth}px`;
+      pill.style.transform = `translateX(${pillOffset}px)`;
     });
   }
 
