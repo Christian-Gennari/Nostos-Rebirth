@@ -397,7 +397,7 @@ public sealed class S3BookAssetStorage(
                 },
                 ct);
 
-            var match = response.S3Objects
+            var match = (response.S3Objects ?? [])
                 .Select(item => item.Key)
                 .FirstOrDefault(predicate);
 
@@ -432,7 +432,7 @@ public sealed class S3BookAssetStorage(
                 },
                 ct);
 
-            keys.AddRange(response.S3Objects
+            keys.AddRange((response.S3Objects ?? [])
                 .Select(item => item.Key)
                 .Where(predicate));
 
