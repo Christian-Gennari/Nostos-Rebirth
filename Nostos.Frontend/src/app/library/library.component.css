@@ -222,7 +222,14 @@ app-sidebar-collections.no-transition {
   min-width: 140px;
 }
 
+/* The field fills the slot Library reserves for it. Without this the
+   dropdown host is an inline-block sized to its content, so it sits at the
+   primitive's 120px floor inside a 140px slot (a hole to its right, and the
+   popup — sized to its widest option — hangs past the field's right edge).
+   The native select it replaced inherited `width: 100%` from the shared
+   form-control recipe; this is that rule's equivalent for the primitive. */
 .sort-select {
+  width: 100%;
   color: var(--color-text-muted);
 }
 
@@ -1393,10 +1400,6 @@ app-sidebar-collections.no-transition {
   .toolbar-right .select-wrapper {
     flex: 1;
     min-width: 0;
-  }
-
-  .toolbar-right .sort-select {
-    width: 100%;
   }
 
   .control-group {
