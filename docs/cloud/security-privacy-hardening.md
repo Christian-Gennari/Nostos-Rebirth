@@ -131,7 +131,7 @@ partitioned by the authenticated canonical Nostos account where applicable:
 | book/cover upload mutations | 20/minute |
 | portable import/export | 4/10 minutes |
 | Cloud backup create/restore | 4/10 minutes |
-| provider/acquisition surface | 120/minute |
+| provider/acquisition + ISBN metadata lookup | 120/minute |
 | billing/onboarding mutations | 12/minute |
 | Paddle webhook ingress | 120/minute (service-wide) |
 
