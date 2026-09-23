@@ -66,7 +66,7 @@ This document serves as the operator-facing reference for provider account owner
 - **Account:** Owned directly by `ops@nostos.page`.
 - **Organization:** `Nostos` (`org_01m36z8gp8e94a0jgw3ggj4jf2`).
 - **Project:** `Nostos Cloud` (`project_01m36zjz52ezyrsp40s1phwxnk`).
-- **Key Name:** `nostos-cloud-stt`.
+- **Key Name:** `nostos-cloud-stt` (scoped strictly to `whisper-large-v3-turbo`).
 - **Runtime Secret:** `NOSTOS_CLOUD_GROQ_API_KEY`.
 - **Rate Limits & Tier:** Free tier active (20 RPM, 2,000 RPD, 7,200 audio seconds/hr, 28,800 audio seconds/day). Upgrades to Developer pay-per-token tier currently paused upstream by Groq.
 - **Rotation Procedure:**
