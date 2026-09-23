@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - feature/cloud-postgres-spike
+      - feature/cloud-managed-ai
   pull_request:
     paths:
       - "Nostos.Backend/**"
