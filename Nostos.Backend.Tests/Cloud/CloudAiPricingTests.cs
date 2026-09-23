@@ -25,8 +25,17 @@ public sealed class CloudAiPricingTests
             inputTokens: 1_000_000,
             outputTokens: 1_000_000);
 
+        var gatewayQualified = CloudAiPricing.EstimateLlm(
+            "google",
+            "google/gemini-3.8-flash",
+            new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
+            inputTokens: 1_000_000,
+            outputTokens: 1_000_000);
+
         intro.Should().Be(new CloudAiCostEstimate(4_500_000, CloudAiPricing.GeminiIntroEpoch));
         standard.Should().Be(new CloudAiCostEstimate(9_000_000, CloudAiPricing.Gemini2027Epoch));
+        gatewayQualified.Should().Be(intro,
+            "Vercel AI Gateway qualifies the same upstream model with the google/ prefix");
     }
 
     [Fact]

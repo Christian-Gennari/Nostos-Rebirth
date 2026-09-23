@@ -10,10 +10,10 @@ public sealed class CloudManagedAiOptions
     public const string SectionName = "CloudManagedAi";
 
     public bool LlmEnabled { get; set; } = true;
-    public string LlmBaseUrl { get; set; } = "https://generativelanguage.googleapis.com/v1beta";
-    public string LlmModel { get; set; } = "gemini-3.8-flash";
+    public string LlmBaseUrl { get; set; } = "https://ai-gateway.vercel.sh/v1";
+    public string LlmModel { get; set; } = "google/gemini-3.8-flash";
     public string LlmThinkingLevel { get; set; } = "low";
-    public string LlmApiKeyEnvironmentVariable { get; set; } = "NOSTOS_CLOUD_GEMINI_API_KEY";
+    public string LlmApiKeyEnvironmentVariable { get; set; } = "NOSTOS_CLOUD_AI_GATEWAY_API_KEY";
     public int LlmRequestTimeoutSeconds { get; set; } = 90;
 
     public bool SttEnabled { get; set; } = true;
