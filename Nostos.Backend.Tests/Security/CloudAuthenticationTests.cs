@@ -117,6 +117,7 @@ public sealed class CloudAuthenticationTests
 
     [Theory]
     [InlineData(CloudAccountStatus.Active, true)]
+    [InlineData(CloudAccountStatus.DeletionRequested, false)]
     [InlineData(CloudAccountStatus.Unknown, false)]
     [InlineData(CloudAccountStatus.Disabled, false)]
     [InlineData(CloudAccountStatus.Deleted, false)]
@@ -132,6 +133,31 @@ public sealed class CloudAuthenticationTests
             resource: null);
 
         var handler = new ActiveCloudAccountHandler(
+            new CloudAccountContextResolver(),
+            new FixedAccountStatusStore(status));
+
+        await handler.HandleAsync(authorizationContext);
+
+        authorizationContext.HasSucceeded.Should().Be(expectedSuccess);
+    }
+
+    [Theory]
+    [InlineData(CloudAccountStatus.Active, true)]
+    [InlineData(CloudAccountStatus.DeletionRequested, true)]
+    [InlineData(CloudAccountStatus.Unknown, false)]
+    [InlineData(CloudAccountStatus.Disabled, false)]
+    [InlineData(CloudAccountStatus.Deleted, false)]
+    public async Task Recoverable_account_policy_allows_only_active_or_deletion_grace(
+        CloudAccountStatus status,
+        bool expectedSuccess)
+    {
+        var requirement = new RecoverableCloudAccountRequirement();
+        var authorizationContext = new AuthorizationHandlerContext(
+            new[] { requirement },
+            Principal("https://identity.example.test", "account-a", "a@example.test"),
+            resource: null);
+
+        var handler = new RecoverableCloudAccountHandler(
             new CloudAccountContextResolver(),
             new FixedAccountStatusStore(status));
 
