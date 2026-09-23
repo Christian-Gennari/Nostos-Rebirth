@@ -198,7 +198,7 @@ public sealed class CloudAccountDeletionResourceDestroyer(
     }
 
     private static string QuoteIdentifier(string identifier) =>
-        """ + identifier.Replace(""", """", StringComparison.Ordinal) + """;
+        "\"" + identifier.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
 }
 
 public sealed class CloudAccountDeletionPortableExporter(
