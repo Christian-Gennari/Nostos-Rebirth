@@ -39,12 +39,21 @@ public sealed class ActiveCloudAccountRequirement : IAuthorizationRequirement;
 public sealed class CloudAccessRequirement : IAuthorizationRequirement;
 
 public sealed class CloudAccessHandler(
+    ICloudAccountContextResolver accountResolver,
     ICloudEntitlementService entitlements) : AuthorizationHandler<CloudAccessRequirement>
 {
     protected override async Task HandleRequirementAsync(
         AuthorizationHandlerContext context,
         CloudAccessRequirement requirement)
     {
+        // Authorization handlers can run even when another requirement (such
+        // as RequireAuthenticatedUser) will ultimately fail. Never ask the
+        // tenant-bound entitlement service to resolve an anonymous request:
+        // simply leave the requirement unsatisfied so ASP.NET returns the
+        // ordinary authentication challenge instead of surfacing a 500.
+        if (!accountResolver.TryResolve(context.User, out var account) || account is null)
+            return;
+
         var snapshot = await entitlements.GetEntitlementsAsync(CancellationToken.None);
         if (snapshot.CloudAccess)
             context.Succeed(requirement);
@@ -167,6 +176,16 @@ public static class CloudAuthenticationRegistration
                     oidc.Events.OnTokenValidated = context =>
                     {
                         StampValidatedIssuer(context.Principal, context.SecurityToken?.Issuer);
+                        return Task.CompletedTask;
+                    };
+                    oidc.Events.OnRedirectToIdentityProviderForSignOut = context =>
+                    {
+                        // Tokens are intentionally not saved in the browser
+                        // session, so an id_token_hint is normally unavailable.
+                        // Clerk accepts RP-initiated logout when client_id is
+                        // supplied instead. Make that explicit so the provider
+                        // session is terminated as well as the Nostos cookie.
+                        context.ProtocolMessage.ClientId = options.ClientId;
                         return Task.CompletedTask;
                     };
                 })
