@@ -121,6 +121,6 @@ public sealed class CloudAiPricingTests
         typeof(CloudManagedAiUsageEndpoints.CloudManagedAiUsageResponse)
             .GetProperties()
             .Select(x => x.Name)
-            .Should().BeEquivalentTo(["State", "RenewsAtUtc"]);
+            .Should().BeEquivalentTo(new[] { "State", "RenewsAtUtc" });
     }
 }
