@@ -131,13 +131,14 @@ public static class CloudBillingEndpoints
             return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
 
         var signature = request.Headers["Paddle-Signature"].ToString();
-        using var reader = new StreamReader(request.Body);
-        var rawBody = await reader.ReadToEndAsync(cancellationToken);
-        if (System.Text.Encoding.UTF8.GetByteCount(rawBody)
-            > CloudRequestHardeningRegistration.MaxProviderWebhookBytes)
-        {
+        var body = await ReadBoundedBodyAsync(
+            request.Body,
+            CloudRequestHardeningRegistration.MaxProviderWebhookBytes,
+            cancellationToken);
+        if (body.TooLarge)
             return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
-        }
+
+        var rawBody = body.Content;
 
         try
         {
@@ -168,6 +169,31 @@ public static class CloudBillingEndpoints
                     exception.GetType().Name);
             return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
         }
+    }
+
+    private static async Task<(bool TooLarge, string Content)> ReadBoundedBodyAsync(
+        Stream source,
+        long maxBytes,
+        CancellationToken cancellationToken)
+    {
+        using var buffer = new MemoryStream(capacity: checked((int)Math.Min(maxBytes, 1024 * 1024)));
+        var chunk = new byte[64 * 1024];
+        long total = 0;
+
+        while (true)
+        {
+            var read = await source.ReadAsync(chunk.AsMemory(), cancellationToken);
+            if (read == 0)
+                break;
+
+            total = checked(total + read);
+            if (total > maxBytes)
+                return (true, string.Empty);
+
+            await buffer.WriteAsync(chunk.AsMemory(0, read), cancellationToken);
+        }
+
+        return (false, System.Text.Encoding.UTF8.GetString(buffer.GetBuffer(), 0, checked((int)buffer.Length)));
     }
 
     private static bool TryPlanId(
