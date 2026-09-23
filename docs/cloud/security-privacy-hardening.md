@@ -43,6 +43,13 @@ The existing programme tests this boundary across the major subsystems:
   accepted range 1-20) so database-per-customer cannot multiply Npgsql's
   default pool size across the fleet.
 
+## HTTPS/HSTS
+
+Cloud emits HSTS after forwarded-header processing with an explicit 30-day
+max-age, no preload, and no includeSubDomains flag. This makes the public alpha
+HTTPS policy deliberate while avoiding an irreversible preload commitment or
+accidentally extending policy beyond the app hostname.
+
 ## Authentication/session boundary
 
 Cloud continues to use the #395/#409 provider-neutral auth path:
