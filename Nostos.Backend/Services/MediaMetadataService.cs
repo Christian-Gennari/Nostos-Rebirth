@@ -31,7 +31,10 @@ public class MediaMetadataService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to extract metadata for book {BookId}", book.Id);
+            _logger.LogWarning(
+                "Metadata extraction failed for book {BookId}; exception type {ExceptionType}. Details suppressed.",
+                book.Id,
+                ex.GetType().Name);
             // We return false but don't throw, so the upload itself doesn't fail
             return false;
         }
@@ -53,7 +56,10 @@ public class MediaMetadataService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to extract metadata for book {BookId}", book.Id);
+            _logger.LogWarning(
+                "Metadata extraction failed for book {BookId}; exception type {ExceptionType}. Details suppressed.",
+                book.Id,
+                ex.GetType().Name);
             return false;
         }
     }
