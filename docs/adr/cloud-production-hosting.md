@@ -33,6 +33,17 @@ Use a deliberately hybrid production stack:
 
 Keep the current **control-plane database + one PostgreSQL database per customer** topology on the Azure PostgreSQL server.
 
+### Region default
+
+For a Europe-first paid launch, prefer:
+
+- **Azure Sweden Central** for App Service/PostgreSQL, subject to final SKU availability/pricing at migration time;
+- **Backblaze B2 EU Central (Amsterdam)** for customer media.
+
+Azure PostgreSQL currently supports Sweden Central. Backblaze's B2 region is selected when an account is created and cannot later be changed, so #435 must verify the existing alpha B2 account region before assuming that media can stay in place without a regional migration.
+
+Source: <https://learn.microsoft.com/azure/postgresql/overview> and <https://www.backblaze.com/docs/cloud-storage-data-regions>
+
 Do **not** move media to Azure Blob merely to make the stack single-cloud.
 
 Re-evaluate capacity independently:
