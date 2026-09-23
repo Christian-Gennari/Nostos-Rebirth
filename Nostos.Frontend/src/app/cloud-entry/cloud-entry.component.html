@@ -38,16 +38,29 @@
         <p class="cloud-entry__eyebrow">Access</p>
         <h1>Confirming your subscription.</h1>
         <p>Nostos will only continue after your subscription is confirmed by the server.</p>
-        <button
-          appButton
-          variant="primary"
-          type="button"
-          [disabled]="entry.actionPending()"
-          [busy]="entry.actionPending()"
-          (click)="checkSubscription()"
-        >
-          Check subscription
-        </button>
+        <div class="cloud-entry__actions">
+          @if (entry.view().onboarding?.canCheckout) {
+            <button
+              appButton
+              variant="primary"
+              type="button"
+              [disabled]="entry.actionPending()"
+              [busy]="entry.actionPending()"
+              (click)="checkout()"
+            >
+              Continue checkout
+            </button>
+          }
+          <button
+            appButton
+            variant="secondary"
+            type="button"
+            [disabled]="entry.actionPending()"
+            (click)="checkSubscription()"
+          >
+            Check subscription
+          </button>
+        </div>
       }
 
       @case ('subscription_inactive') {

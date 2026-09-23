@@ -1,5 +1,4 @@
-import { TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { vi } from 'vitest';
 
@@ -61,7 +60,6 @@ describe('CloudEntryService', () => {
 
     TestBed.configureTestingModule({
       providers: [
-        provideRouter([]),
         CloudEntryService,
         { provide: DeploymentCapabilitiesService, useValue: capabilities },
         { provide: CloudAuthService, useValue: auth },
@@ -155,44 +153,48 @@ describe('CloudEntryService', () => {
     expect(service.productReady()).toBe(true);
   });
 
-  it('resumes polling from server state after refresh during provisioning', fakeAsync(() => {
-    capabilities.get.mockReturnValue(of(cloudCapabilities));
-    auth.getSession.mockReturnValue(of(session));
-    onboarding.getState
-      .mockReturnValueOnce(
-        of({
-          state: 'provisioning',
-          subscriptionStatus: 'Active',
-          ready: false,
-          canCheckout: false,
-          canCheckSubscription: false,
-          canManageSubscription: false,
-          canRetry: false,
-        }),
-      )
-      .mockReturnValueOnce(
-        of({
-          state: 'ready',
-          subscriptionStatus: 'Active',
-          ready: true,
-          canCheckout: false,
-          canCheckSubscription: false,
-          canManageSubscription: false,
-          canRetry: false,
-        }),
-      );
+  it('resumes polling from server state after refresh during provisioning', async () => {
+    vi.useFakeTimers();
 
-    void service.initialize();
-    tick();
+    try {
+      capabilities.get.mockReturnValue(of(cloudCapabilities));
+      auth.getSession.mockReturnValue(of(session));
+      onboarding.getState
+        .mockReturnValueOnce(
+          of({
+            state: 'provisioning',
+            subscriptionStatus: 'Active',
+            ready: false,
+            canCheckout: false,
+            canCheckSubscription: false,
+            canManageSubscription: false,
+            canRetry: false,
+          }),
+        )
+        .mockReturnValueOnce(
+          of({
+            state: 'ready',
+            subscriptionStatus: 'Active',
+            ready: true,
+            canCheckout: false,
+            canCheckSubscription: false,
+            canManageSubscription: false,
+            canRetry: false,
+          }),
+        );
 
-    expect(service.view().kind).toBe('provisioning');
-    expect(onboarding.provision).not.toHaveBeenCalled();
+      await service.initialize();
 
-    tick(1500);
-    tick();
+      expect(service.view().kind).toBe('provisioning');
+      expect(onboarding.provision).not.toHaveBeenCalled();
 
-    expect(service.productReady()).toBe(true);
-  }));
+      await vi.advanceTimersByTimeAsync(1500);
+
+      expect(service.productReady()).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 
   it('ready returning accounts enter the normal app directly', async () => {
     capabilities.get.mockReturnValue(of(cloudCapabilities));

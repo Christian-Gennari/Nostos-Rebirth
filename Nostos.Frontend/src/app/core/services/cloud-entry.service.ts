@@ -1,6 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { computed, Injectable, signal } from '@angular/core';
-import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
 import { CloudOnboardingSnapshot } from '../dtos/cloud-onboarding.dtos';
@@ -51,7 +50,6 @@ export class CloudEntryService {
     private readonly auth: CloudAuthService,
     private readonly onboarding: CloudOnboardingService,
     private readonly portableLibrary: PortableLibraryService,
-    private readonly router: Router,
   ) {}
 
   async initialize(force = false): Promise<void> {
@@ -87,7 +85,9 @@ export class CloudEntryService {
   }
 
   loginUrl(): string {
-    return this.auth.loginUrl(this.router.url || '/');
+    const location = globalThis.location;
+    const returnUrl = `${location.pathname}${location.search}${location.hash}` || '/';
+    return this.auth.loginUrl(returnUrl);
   }
 
   async retry(): Promise<void> {
