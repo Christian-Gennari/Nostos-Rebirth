@@ -1,20 +1,12 @@
-# Frontend gate: design checks, unit tests and the production build.
-#
-# `main` had no frontend CI, so a crashing design check and failing specs could
-# sit on the branch unnoticed. This job runs the same three commands AGENTS.md §2
-# asks a human to run before opening a PR.
+# Shared frontend gate used by the dual-mode CI orchestrator.
 name: Frontend
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
+  workflow_call:
   workflow_dispatch:
 
-concurrency:
-  group: frontend-${{ github.ref }}
-  cancel-in-progress: true
+permissions:
+  contents: read
 
 jobs:
   frontend:

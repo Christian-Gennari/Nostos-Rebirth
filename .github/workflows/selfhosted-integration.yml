@@ -1,0 +1,52 @@
+name: SelfHosted integration
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  selfhosted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      Nostos__DeploymentMode: SelfHosted
+      NOSTOS_POSTGRES_SPIKE_CONNECTION: ""
+      NOSTOS_S3_TEST_ENDPOINT: ""
+      NOSTOS_CLOUD_CONTROL_PLANE_CONNECTION: ""
+      NOSTOS_CLOUD_POSTGRES_ADMIN_CONNECTION: ""
+      NOSTOS_CLOUD_POSTGRES_CUSTOMER_CONNECTION: ""
+      NOSTOS_CLOUD_OBJECT_STORAGE_ACCESS_KEY: ""
+      NOSTOS_CLOUD_OBJECT_STORAGE_SECRET_KEY: ""
+      NOSTOS_CLOUD_AUTH_CLIENT_SECRET: ""
+      NOSTOS_CLOUD_BILLING_PADDLE_API_KEY: ""
+      NOSTOS_CLOUD_BILLING_PADDLE_WEBHOOK_SECRET: ""
+      NOSTOS_CLOUD_DATA_PROTECTION_KEY: ""
+      NOSTOS_CLOUD_GEMINI_API_KEY: ""
+      NOSTOS_CLOUD_GROQ_API_KEY: ""
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore Nostos.sln
+
+      - name: Build backend solution
+        run: dotnet build Nostos.sln --configuration Debug --no-restore
+
+      - name: Verify SQLite, local storage, Library CRUD and local backup/restore
+        run: >-
+          dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
+          --configuration Debug
+          --no-build
+          --no-restore
+          --filter "FullyQualifiedName~DatabaseBootstrapServiceTests|FullyQualifiedName~FileStorageServiceTests|FullyQualifiedName~BackupServiceTests|FullyQualifiedName~LibraryServiceTests|FullyQualifiedName~LibraryEndpointTests"
+          --logger "console;verbosity=normal"

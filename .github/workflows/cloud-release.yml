@@ -1,0 +1,214 @@
+name: Cloud release artifact
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/cloud-release.yml"
+      - "scripts/cloud/staging-smoke.sh"
+  workflow_run:
+    workflows:
+      - Dual-mode CI
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Optional commit SHA to publish. Defaults to the current ref.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloud-release
+  cancel-in-progress: false
+
+jobs:
+  validate-definition:
+    name: Validate release definition
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate staging smoke shell
+        run: bash -n scripts/cloud/staging-smoke.sh
+
+      - name: Confirm PR cannot publish
+        run: |
+          echo "Release workflow parsed successfully."
+          echo "PR validation has read-only repository permissions and does not publish artifacts."
+
+  publish:
+    permissions:
+      contents: read
+      packages: write
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    outputs:
+      source_sha: ${{ steps.source.outputs.source_sha }}
+      image_ref: ${{ steps.manifest.outputs.image_ref }}
+      image: ${{ steps.image.outputs.image }}
+      digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+      - name: Resolve release source
+        id: source
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            source_sha="${{ github.event.workflow_run.head_sha }}"
+          else
+            source_sha="${{ inputs.source_sha }}"
+            if [ -z "$source_sha" ]; then
+              source_sha="${{ github.sha }}"
+            fi
+          fi
+
+          if ! [[ "$source_sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "source_sha must be a full 40-character commit SHA" >&2
+            exit 1
+          fi
+
+          echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
+          echo "tag=sha-${source_sha,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact source commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.source.outputs.source_sha }}
+
+      - name: Resolve registry image name
+        id: image
+        shell: bash
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          image="ghcr.io/$owner/nostos"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Sign in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish one immutable image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          pull: true
+          push: true
+          tags: ${{ steps.image.outputs.image }}:${{ steps.source.outputs.tag }}
+          labels: |
+            org.opencontainers.image.revision=${{ steps.source.outputs.source_sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Write immutable release manifest
+        id: manifest
+        shell: bash
+        env:
+          IMAGE: ${{ steps.image.outputs.image }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+          TAG: ${{ steps.source.outputs.tag }}
+        run: |
+          image_ref="$IMAGE@$DIGEST"
+          jq -n             --arg sourceSha "$SOURCE_SHA"             --arg image "$IMAGE"             --arg tag "$TAG"             --arg digest "$DIGEST"             --arg imageRef "$image_ref"             '{
+              schemaVersion: 1,
+              sourceSha: $sourceSha,
+              image: $image,
+              tag: $tag,
+              digest: $digest,
+              imageRef: $imageRef
+            }' > nostos-cloud-release.json
+
+          echo "image_ref=$image_ref" >> "$GITHUB_OUTPUT"
+          cat nostos-cloud-release.json
+
+      - name: Verify the published artifact by digest
+        shell: bash
+        env:
+          IMAGE_REF: ${{ steps.manifest.outputs.image_ref }}
+        run: |
+          docker pull "$IMAGE_REF"
+          docker run -d --name nostos-release-verify -p 18080:8080 "$IMAGE_REF"
+
+          cleanup() {
+            docker logs nostos-release-verify || true
+            docker rm -f nostos-release-verify >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:18080/health/live >/dev/null               && curl -fsS http://127.0.0.1:18080/health/ready >/dev/null; then
+              break
+            fi
+            if [ "$i" -eq 45 ]; then
+              exit 1
+            fi
+            sleep 2
+          done
+
+          curl -fsS http://127.0.0.1:18080/ >/dev/null
+
+      - name: Upload release manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: nostos-cloud-release-${{ steps.source.outputs.source_sha }}
+          path: nostos-cloud-release.json
+          if-no-files-found: error
+          retention-days: 30
+
+  staging-smoke:
+    name: Staging smoke
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: staging
+
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.publish.outputs.source_sha }}
+
+      - name: Record immutable staging candidate
+        env:
+          IMAGE_REF: ${{ needs.publish.outputs.image_ref }}
+        run: |
+          test -n "$IMAGE_REF"
+          case "$IMAGE_REF" in
+            *@sha256:*) ;;
+            *)
+              echo "Staging candidates must be addressed by digest: $IMAGE_REF" >&2
+              exit 1
+              ;;
+          esac
+          echo "Staging candidate: $IMAGE_REF"
+
+      - name: Smoke external staging when configured
+        if: ${{ vars.NOSTOS_STAGING_BASE_URL != '' }}
+        env:
+          NOSTOS_STAGING_BASE_URL: ${{ vars.NOSTOS_STAGING_BASE_URL }}
+          NOSTOS_STAGING_BEARER_TOKEN: ${{ secrets.NOSTOS_STAGING_BEARER_TOKEN }}
+          NOSTOS_STAGING_MANAGED_AI_SMOKE: ${{ vars.NOSTOS_STAGING_MANAGED_AI_SMOKE }}
+        run: bash scripts/cloud/staging-smoke.sh
+
+      - name: Explain inactive external staging boundary
+        if: ${{ vars.NOSTOS_STAGING_BASE_URL == '' }}
+        run: |
+          echo "::notice title=Staging target not configured::The immutable image was published and verified, but no external staging URL is configured in the staging GitHub environment. Configure the isolated staging resources documented in docs/cloud/ci-cd.md; do not point this environment at production data."
