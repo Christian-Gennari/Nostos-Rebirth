@@ -1,6 +1,7 @@
 using Amazon;
 using Amazon.Runtime;
 using Amazon.S3;
+using Nostos.Backend.Cloud.Recovery;
 using Nostos.Backend.Cloud.Storage;
 using Nostos.Backend.Services;
 
@@ -41,6 +42,10 @@ public static class CloudObjectStorageRegistration
 
         services.AddScoped<IBookAssetStorage, S3BookAssetStorage>();
         services.AddSingleton<ICloudObjectStorageBootstrapper, CloudObjectStorageBootstrapper>();
+        services.AddSingleton<ICloudRecoveryStore, S3CloudRecoveryStore>();
+        services.AddSingleton<ICloudRecoveryControlPlane, CloudRecoveryControlPlane>();
+        services.AddSingleton<CloudRecoveryResourceManager>();
+        services.AddScoped<ICloudRecoveryService, CloudRecoveryService>();
         return services;
     }
 }

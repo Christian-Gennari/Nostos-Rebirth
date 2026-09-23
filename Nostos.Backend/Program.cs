@@ -542,6 +542,7 @@ if (deployment.Mode == DeploymentMode.Cloud)
 {
     app.MapCloudAuthEndpoints();
     app.MapCloudProvisioningEndpoints();
+    app.MapCloudRecoveryEndpoints();
     app.MapCloudBillingEndpoints();
 }
 app.MapOpdsEndpoints(opdsOptions);
