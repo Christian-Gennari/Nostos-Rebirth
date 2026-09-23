@@ -1,0 +1,100 @@
+namespace Nostos.Product.Services.Ai;
+
+/// <summary>Provider-neutral usage categories exposed to host implementations.</summary>
+public enum AiUsageKind
+{
+    Llm,
+    Stt,
+}
+
+/// <summary>Generic host policy outcomes for AI usage.</summary>
+public enum AiUsageBlockReason
+{
+    AccessDenied,
+    RateLimited,
+    LimitReached,
+    Disabled,
+    TemporarilyUnavailable,
+}
+
+public sealed class AiUsageException(AiUsageBlockReason reason, string message) : Exception(message)
+{
+    public AiUsageBlockReason Reason { get; } = reason;
+}
+
+public sealed record AiUsageLease(Guid ReservationId, AiUsageKind Kind);
+
+public sealed record LlmProviderUsage(
+    int UpstreamRequestCount,
+    int? InputTokens,
+    int? OutputTokens,
+    int? ThinkingTokens,
+    int? ReportedTotalTokens,
+    int ToolLoopIterations,
+    string ResultCategory,
+    string? ProviderFinishReason);
+
+public sealed record TranscriptionUsage(
+    int UpstreamRequestCount,
+    double? DurationSeconds,
+    string ResultCategory);
+
+/// <summary>
+/// Optional host policy for assistant and transcription access. The product
+/// never derives identity or subscription state; a host supplies this decision.
+/// </summary>
+public interface IAiAccessPolicy
+{
+    Task<bool> IsAllowedAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Optional host accounting boundary. Implementations may reserve and report
+/// provider usage without exposing provider credentials or host billing details
+/// to product code.
+/// </summary>
+public interface IAiUsageAccountingService
+{
+    Task<AiUsageLease?> BeginLlmTurnAsync(CancellationToken cancellationToken = default);
+    Task CompleteLlmTurnAsync(
+        AiUsageLease? lease,
+        LlmProviderUsage usage,
+        CancellationToken cancellationToken = default);
+
+    Task<AiUsageLease?> BeginSttAsync(CancellationToken cancellationToken = default);
+    Task CompleteSttAsync(
+        AiUsageLease? lease,
+        TranscriptionUsage usage,
+        CancellationToken cancellationToken = default);
+
+}
+
+/// <summary>Permissive access policy used by a local SelfHosted installation.</summary>
+public sealed class AllowAllAiAccessPolicy : IAiAccessPolicy
+{
+    public Task<bool> IsAllowedAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(true);
+}
+
+/// <summary>No-op usage accounting used by a local BYOK installation.</summary>
+public sealed class NoOpAiUsageAccountingService : IAiUsageAccountingService
+{
+    public static NoOpAiUsageAccountingService Instance { get; } = new();
+
+    public Task<AiUsageLease?> BeginLlmTurnAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<AiUsageLease?>(null);
+
+    public Task CompleteLlmTurnAsync(
+        AiUsageLease? lease,
+        LlmProviderUsage usage,
+        CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task<AiUsageLease?> BeginSttAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<AiUsageLease?>(null);
+
+    public Task CompleteSttAsync(
+        AiUsageLease? lease,
+        TranscriptionUsage usage,
+        CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+}

@@ -68,3 +68,9 @@ public sealed record AiProviderTestResult(
 /// configuration changes. The product maps this to the stable 403 contract.
 /// </summary>
 public sealed class AiProviderConfigurationManagedException(string message) : Exception(message);
+
+/// <summary>
+/// A host owns provider identity/configuration and therefore refuses customer
+/// configuration changes. The product maps this to the stable 403 contract.
+/// </summary>
+public sealed class AiProviderConfigurationOwnedByHostException(string message) : Exception(message);
