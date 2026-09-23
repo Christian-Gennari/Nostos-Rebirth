@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Nostos.Backend.Configuration;
 using Nostos.Backend.Data;
 using Nostos.Backend.Providers.Acquisition;
 using Nostos.Backend.Services;
