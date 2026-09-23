@@ -196,8 +196,12 @@ public sealed class CloudControlPlaneStore(
         if (row is null)
             return CloudAccountStatus.Unknown;
 
-        if (row.AccountStatus is CloudAccountStatus.Disabled or CloudAccountStatus.Deleted)
+        if (row.AccountStatus is CloudAccountStatus.DeletionRequested
+            or CloudAccountStatus.Disabled
+            or CloudAccountStatus.Deleted)
+        {
             return row.AccountStatus;
+        }
 
         return row.IsReady
             ? CloudAccountStatus.Active
