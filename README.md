@@ -185,6 +185,7 @@ The mark is deliberately theme-invariant across both light and dark study enviro
 * **[MCP Library Contracts](docs/library-mcp-contracts.md):** Specification for Model Context Protocol agents and tools.
 * **[Content Providers & Acquisition](docs/content-providers.md):** How external catalogues (Gutenberg, LibriVox) are imported as ordinary local books.
 * **[Backend Endpoints](Nostos.Backend/_docs/endpoints.md):** REST API reference.
+* **[Cloud Production Hosting ADR](docs/adr/cloud-production-hosting.md):** Canonical alpha → paid-production hosting, cost, staging, and recovery decision.
 
 ### Active Roadmap
 * [ ] Enhanced mobile navigation and touch interaction
