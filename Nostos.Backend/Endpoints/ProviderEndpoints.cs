@@ -1,8 +1,8 @@
-using Nostos.Backend.Configuration;
 using Nostos.Backend.Providers;
 using Nostos.Backend.Providers.Acquisition;
 using Nostos.Backend.Providers.Contracts;
 using Nostos.Shared.Dtos;
+using Nostos.Product.Composition;
 
 namespace Nostos.Backend.Endpoints;
 
@@ -18,11 +18,13 @@ public static class ProviderEndpoints
 {
     public static IEndpointRouteBuilder MapProviderEndpoints(
         this IEndpointRouteBuilder routes,
-        bool cloudMode = false)
+        NostosProductEndpointPolicies? policies = null)
     {
+        policies ??= NostosProductEndpointPolicies.None;
+
         var group = routes.MapGroup("/api/providers");
-        if (cloudMode)
-            group.RequireRateLimiting(CloudRateLimitPolicies.ProviderFetch);
+        if (!string.IsNullOrWhiteSpace(policies.ProviderFetchRateLimitPolicy))
+            group.RequireRateLimiting(policies.ProviderFetchRateLimitPolicy);
 
         // Sources available to import from.
         group.MapGet(
