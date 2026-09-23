@@ -158,26 +158,27 @@ describe('CloudEntryService', () => {
   it('resumes polling from server state after refresh during provisioning', fakeAsync(() => {
     capabilities.get.mockReturnValue(of(cloudCapabilities));
     auth.getSession.mockReturnValue(of(session));
-    onboarding.getState.and.returnValues(
-      of({
-        state: 'provisioning',
-        subscriptionStatus: 'Active',
-        ready: false,
-        canCheckout: false,
-        canCheckSubscription: false,
-        canManageSubscription: false,
-        canRetry: false,
+    onboarding.getState
+      .mockReturnValueOnce(
+        of({
+          state: 'provisioning',
+          subscriptionStatus: 'Active',
+          ready: false,
+          canCheckout: false,
+          canCheckSubscription: false,
+          canManageSubscription: false,
+          canRetry: false,
         }),
       )
       .mockReturnValueOnce(
         of({
-        state: 'ready',
-        subscriptionStatus: 'Active',
-        ready: true,
-        canCheckout: false,
-        canCheckSubscription: false,
-        canManageSubscription: false,
-        canRetry: false,
+          state: 'ready',
+          subscriptionStatus: 'Active',
+          ready: true,
+          canCheckout: false,
+          canCheckSubscription: false,
+          canManageSubscription: false,
+          canRetry: false,
         }),
       );
 
