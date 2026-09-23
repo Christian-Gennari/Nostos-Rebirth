@@ -10,6 +10,7 @@ public static class CloudWorkerLeaseNames
 {
     public const string ScheduledBackup = "nostos:scheduled-backup:v1";
     public const string PaddleReconciliation = "nostos:paddle-reconciliation:v1";
+    public const string AccountDeletionSweep = "nostos:account-deletion-sweep:v1";
 }
 
 public interface ICloudWorkerLeaseManager
