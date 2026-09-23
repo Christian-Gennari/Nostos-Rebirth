@@ -265,6 +265,7 @@ builder.Services.AddNostosPersistence(
     builder.Configuration,
     deployment,
     builder.Environment.ContentRootPath);
+builder.Services.AddNostosCloudAccountDeletion(deployment);
 
 if (deployment.Mode == DeploymentMode.Cloud)
 {
@@ -624,6 +625,7 @@ if (deployment.Mode == DeploymentMode.Cloud)
     app.MapCloudRecoveryEndpoints();
     app.MapCloudBillingEndpoints();
     app.MapCloudManagedAiUsageEndpoints();
+    app.MapCloudAccountDeletionEndpoints();
 }
 app.MapOpdsEndpoints(opdsOptions);
 if (deployment.Mode == DeploymentMode.SelfHosted)
