@@ -45,8 +45,10 @@ length and SHA-256 digest. The manifest is written only after the uploaded
 archive has been read back and verified.
 
 The application exposes account-scoped Cloud endpoints to create and list
-these backups. Scheduling and retention automation are deliberately not hidden
-inside web-server startup.
+these backups. Per-customer operational backups are created automatically every
+night at 00:30 UTC (configurable via `CloudRecoverySchedule:HourUtc` and
+`CloudRecoverySchedule:MinuteUtc`). The schedule can be disabled by setting
+`CloudRecoverySchedule:Enabled` to `false`.
 
 ### B. Customer-owned portable export
 
@@ -163,7 +165,12 @@ recovery points, but they are not the only copy customers can rely on.
 
 The **control-plane PostgreSQL database also requires provider-native backup**.
 The control plane contains the trusted resource mapping needed to reconnect an
-account to its customer database and storage namespace.
+account to its customer database and storage namespace. Neon's 6-hour point-in-time
+recovery history remains the short-window provider recovery layer for both
+customer databases and the control plane. An independent operator-side
+`pg_dump` (outside the application) archives the control-plane database nightly;
+per-customer databases are not backed up via `pg_dump` because the application's
+own operational backup mechanism already covers them.
 
 ## Object-storage strategy
 
@@ -231,13 +238,14 @@ closed on a mismatch.
 
 ## Retention, RPO and RTO
 
-The repository does **not** currently promise a fixed operational-backup
-schedule or automatically delete Cloud recovery archives. Provider lifecycle
-configuration and the eventual Cloud operations schedule determine retention.
+The nightly scheduled backup sweep processes all eligible Cloud customer accounts
+sequentially with per-tenant failure isolation. A failure in one customer backup
+does not affect other customers or prevent their backups from completing. The
+operator-side B2 lifecycle job retains the newest 3 operational backups per
+resource and prunes older archives automatically.
 
-Therefore no numeric RPO/RTO is claimed here.
-
-What can be stated honestly today:
+The repository does not promise a fixed RPO/RTO or SLA for the alpha/free-tier
+deployment. What can be stated honestly today:
 
 - the logical-backup recovery point is the timestamp of the latest successfully
   completed operational backup or customer-owned export;

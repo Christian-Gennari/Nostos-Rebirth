@@ -69,12 +69,44 @@ public interface ICloudTenantContextAccessor
     NostosAccountContext GetRequired();
 }
 
+/// <summary>
+/// Scoped holder for trusted server-side background work that needs to set
+/// tenant context outside an HTTP request.
+///
+/// This is for scheduled operations and internal automation only. Never
+/// settable from HTTP input or client-supplied data.
+/// </summary>
+public sealed class CloudTenantContextScope
+{
+    private NostosAccountContext? _current;
+
+    /// <summary>
+    /// Sets the trusted tenant context for this scope. This must only be called
+    /// from server-side background work with identities resolved from the
+    /// control plane, never from HTTP requests or client input.
+    /// </summary>
+    public void Set(NostosAccountContext context)
+    {
+        _current = context;
+    }
+
+    /// <summary>
+    /// The tenant context for this scope, if set by trusted server-side code.
+    /// </summary>
+    public NostosAccountContext? Current => _current;
+}
+
 public sealed class HttpCloudTenantContextAccessor(
     IHttpContextAccessor httpContextAccessor,
-    ICloudAccountContextResolver accountResolver) : ICloudTenantContextAccessor
+    ICloudAccountContextResolver accountResolver,
+    CloudTenantContextScope? scope = null) : ICloudTenantContextAccessor
 {
     public NostosAccountContext GetRequired()
     {
+        // Trusted server-side background work can set the scope directly.
+        if (scope?.Current is not null)
+            return scope.Current;
+
         var httpContext = httpContextAccessor.HttpContext
             ?? throw new InvalidOperationException("No active HTTP request exists.");
 

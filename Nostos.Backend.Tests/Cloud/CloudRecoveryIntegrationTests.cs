@@ -5,6 +5,8 @@ using Amazon.S3;
 using Amazon.S3.Model;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using Nostos.Backend.Cloud;
@@ -14,6 +16,7 @@ using Nostos.Backend.Cloud.Recovery;
 using Nostos.Backend.Cloud.Storage;
 using Nostos.Backend.Configuration;
 using Nostos.Backend.Security;
+using Nostos.Backend.Services;
 using Nostos.Backend.Services.Portability;
 using Nostos.Backend.Tests.Portability;
 using Xunit;
@@ -586,6 +589,321 @@ public sealed class CloudRecoveryIntegrationTests
     {
         public NostosAccountContext GetRequired() =>
             new(accountId, "Recovery integration test", Email: null);
+    }
+
+    [Fact]
+    [Trait("Category", "CloudRecoveryIntegrationTests")]
+    public async Task Multi_tenant_sweep_creates_operational_backups_for_all_eligible_accounts()
+    {
+        var postgresRoot =
+            Environment.GetEnvironmentVariable(PostgresEnvironmentVariable);
+        var endpoint =
+            Environment.GetEnvironmentVariable("NOSTOS_S3_TEST_ENDPOINT");
+
+        if (string.IsNullOrWhiteSpace(postgresRoot)
+            || string.IsNullOrWhiteSpace(endpoint))
+        {
+            return;
+        }
+
+        var accessKey =
+            Environment.GetEnvironmentVariable("NOSTOS_S3_TEST_ACCESS_KEY");
+        var secretKey =
+            Environment.GetEnvironmentVariable("NOSTOS_S3_TEST_SECRET_KEY");
+
+        if (string.IsNullOrWhiteSpace(accessKey)
+            || string.IsNullOrWhiteSpace(secretKey))
+        {
+            throw new InvalidOperationException(
+                "Cloud recovery integration infrastructure is only partially configured.");
+        }
+
+        var suffix = Guid.NewGuid().ToString("N")[..10];
+        var controlDatabase = $"nostos_sweep_{suffix}";
+        var customerDatabaseA = $"nostos_sweep_a_{suffix}";
+        var customerDatabaseB = $"nostos_sweep_b_{suffix}";
+        var bucket = $"nostos-sweep-{Guid.NewGuid():N}";
+
+        var accountA = NostosAccountId.FromExternalIdentity(
+            "https://identity.example.test",
+            $"sweep-a-{suffix}");
+        var accountB = NostosAccountId.FromExternalIdentity(
+            "https://identity.example.test",
+            $"sweep-b-{suffix}");
+        var resourceA = Guid.NewGuid();
+        var resourceB = Guid.NewGuid();
+
+        var controlOptions = new CloudControlPlaneOptions
+        {
+            CustomerDatabasePrefix = "nostos_sweep",
+            StorageNamespacePrefix = "accounts",
+        };
+
+        var controlConnection = ForDatabase(postgresRoot, controlDatabase);
+        var connections = new CloudDatabaseConnections(
+            ControlPlane: controlConnection,
+            Admin: postgresRoot,
+            CustomerBase: postgresRoot);
+        var customerConnections = new CloudCustomerConnectionFactory(connections);
+
+        var controlDbOptions =
+            new DbContextOptionsBuilder<CloudControlPlaneDbContext>()
+                .UseNpgsql(controlConnection)
+                .Options;
+        var controlFactory = new TestControlPlaneFactory(controlDbOptions);
+
+        var objectOptions = new CloudObjectStorageOptions
+        {
+            Bucket = bucket,
+            Region = "us-east-1",
+            ServiceUrl = endpoint,
+            ForcePathStyle = true,
+        };
+
+        using var s3 = new AmazonS3Client(
+            new BasicAWSCredentials(accessKey, secretKey),
+            new AmazonS3Config
+            {
+                ServiceURL = endpoint,
+                ForcePathStyle = true,
+                AuthenticationRegion = "us-east-1",
+            });
+
+        await CreateDatabaseAsync(postgresRoot, controlDatabase);
+        await CreateDatabaseAsync(postgresRoot, customerDatabaseA);
+        await CreateDatabaseAsync(postgresRoot, customerDatabaseB);
+        await s3.PutBucketAsync(new PutBucketRequest { BucketName = bucket });
+
+        try
+        {
+            await SeedControlPlaneAsync(
+                controlFactory,
+                accountA,
+                resourceA,
+                customerDatabaseA,
+                $"accounts/{resourceA:N}",
+                accountB,
+                resourceB,
+                customerDatabaseB,
+                $"accounts/{resourceB:N}");
+
+            var controlPlane =
+                new CloudControlPlaneStore(controlFactory, controlOptions);
+
+            await using var sourceLibrary =
+                await LocalPortableTestLibrary.CreateAsync();
+            var sourceIds = await PortableArchiveTestSupport.PopulateRepresentativeAsync(
+                sourceLibrary.Db,
+                sourceLibrary.Storage);
+
+            var tenantAOptions =
+                new DbContextOptionsBuilder<PostgresNostosDbContext>()
+                    .UseNpgsql(customerConnections.ForDatabase(customerDatabaseA))
+                    .Options;
+            await using var tenantADb = new PostgresNostosDbContext(tenantAOptions);
+            await tenantADb.Database.MigrateAsync();
+
+            var tenantBOptions =
+                new DbContextOptionsBuilder<PostgresNostosDbContext>()
+                    .UseNpgsql(customerConnections.ForDatabase(customerDatabaseB))
+                    .Options;
+            await using var tenantBDb = new PostgresNostosDbContext(tenantBOptions);
+            await tenantBDb.Database.MigrateAsync();
+
+            var tenantAContext = new FixedTenantContext(accountA);
+            var tenantAStorage = new S3BookAssetStorage(
+                s3,
+                objectOptions,
+                tenantAContext,
+                controlPlane);
+
+            var tenantBContext = new FixedTenantContext(accountB);
+            var tenantBStorage = new S3BookAssetStorage(
+                s3,
+                objectOptions,
+                tenantBContext,
+                controlPlane);
+
+            using (var archive = new MemoryStream())
+            {
+                await sourceLibrary.Portability().ExportAsync(archive);
+                archive.Position = 0;
+
+                await new PortableArchiveService(
+                    tenantADb,
+                    tenantAStorage,
+                    NullLogger<PortableArchiveService>.Instance)
+                    .ImportAsync(archive);
+            }
+
+            using (var archive = new MemoryStream())
+            {
+                await sourceLibrary.Portability().ExportAsync(archive);
+                archive.Position = 0;
+
+                await new PortableArchiveService(
+                    tenantBDb,
+                    tenantBStorage,
+                    NullLogger<PortableArchiveService>.Instance)
+                    .ImportAsync(archive);
+            }
+
+            var recoveryStore = new S3CloudRecoveryStore(
+                s3,
+                objectOptions,
+                NullLogger<S3CloudRecoveryStore>.Instance);
+            var recoveryControlPlane =
+                new CloudRecoveryControlPlane(controlFactory);
+            var resourceManager = new CloudRecoveryResourceManager(
+                connections,
+                controlOptions,
+                customerConnections,
+                s3,
+                objectOptions,
+                NullLogger<CloudRecoveryResourceManager>.Instance);
+
+            var services = new ServiceCollection();
+            services.AddSingleton(controlPlane);
+            services.AddSingleton<ICloudControlPlaneStore>(controlPlane);
+            services.AddSingleton(recoveryStore);
+            services.AddSingleton<ICloudRecoveryStore>(recoveryStore);
+            services.AddSingleton(recoveryControlPlane);
+            services.AddSingleton<ICloudRecoveryControlPlane>(recoveryControlPlane);
+            services.AddSingleton(resourceManager);
+            services.AddSingleton(objectOptions);
+            services.AddLogging();
+            services.AddScoped<CloudTenantContextScope>();
+            services.AddScoped<ICloudRecoveryService, CloudRecoveryService>(sp =>
+            {
+                var scope = sp.GetRequiredService<CloudTenantContextScope>();
+                var tenantAccessor = new DirectCloudTenantContextAccessor(scope);
+                var portability = new PortableArchiveService(
+                    sp.GetRequiredService<PostgresNostosDbContext>(),
+                    sp.GetRequiredService<IBookAssetStorage>(),
+                    sp.GetRequiredService<ILogger<PortableArchiveService>>());
+
+                return new CloudRecoveryService(
+                    tenantAccessor,
+                    sp.GetRequiredService<ICloudControlPlaneStore>(),
+                    portability,
+                    sp.GetRequiredService<ICloudRecoveryStore>(),
+                    sp.GetRequiredService<ICloudRecoveryControlPlane>(),
+                    sp.GetRequiredService<CloudRecoveryResourceManager>(),
+                    sp.GetRequiredService<ILoggerFactory>(),
+                    sp.GetRequiredService<ILogger<CloudRecoveryService>>());
+            });
+
+            services.AddScoped(sp =>
+            {
+                var scope = sp.GetRequiredService<CloudTenantContextScope>();
+                var context = scope.Current;
+                if (context == null)
+                    throw new InvalidOperationException("No tenant context set");
+
+                var mapping = controlPlane.FindAsync(context.AccountId).GetAwaiter().GetResult();
+                if (mapping == null)
+                    throw new InvalidOperationException("No mapping found");
+
+                return new PostgresNostosDbContext(
+                    new DbContextOptionsBuilder<PostgresNostosDbContext>()
+                        .UseNpgsql(customerConnections.ForDatabase(mapping.DatabaseName))
+                        .Options);
+            });
+
+            services.AddScoped<IBookAssetStorage>(sp =>
+            {
+                var scope = sp.GetRequiredService<CloudTenantContextScope>();
+                var context = scope.Current;
+                if (context == null)
+                    throw new InvalidOperationException("No tenant context set");
+
+                return new S3BookAssetStorage(
+                    s3,
+                    objectOptions,
+                    new DirectCloudTenantContextAccessor(scope),
+                    controlPlane);
+            });
+
+            services.AddScoped<CloudBackupSweepRunner>();
+
+            var provider = services.BuildServiceProvider();
+
+            var runner = provider.GetRequiredService<CloudBackupSweepRunner>();
+            var sweepResult = await runner.RunAsync();
+
+            sweepResult.Attempted.Should().Be(2);
+            sweepResult.Succeeded.Should().Be(2);
+            sweepResult.Failed.Should().Be(0);
+            sweepResult.ControlPlaneError.Should().BeNull();
+
+            var tenantABackup = sweepResult.Tenants
+                .Single(t => t.AccountId == accountA.Value);
+            tenantABackup.BackupId.Should().NotBeNull();
+
+            var tenantBBackup = sweepResult.Tenants
+                .Single(t => t.AccountId == accountB.Value);
+            tenantBBackup.BackupId.Should().NotBeNull();
+
+            var tenantAArchiveKey = await FindArchiveKeyAsync(
+                s3, bucket, resourceA, tenantABackup.BackupId!.Value);
+            tenantAArchiveKey.Should().Contain($"{resourceA:N}/backups/{tenantABackup.BackupId:N}");
+
+            var tenantBArchiveKey = await FindArchiveKeyAsync(
+                s3, bucket, resourceB, tenantBBackup.BackupId!.Value);
+            tenantBArchiveKey.Should().Contain($"{resourceB:N}/backups/{tenantBBackup.BackupId:N}");
+
+            using var tenantARecoveryService = provider.CreateScope();
+            var tenantAScope = tenantARecoveryService.ServiceProvider
+                .GetRequiredService<CloudTenantContextScope>();
+            tenantAScope.Set(new NostosAccountContext(
+                accountA, "Sweep test A", null));
+            var tenantARecovery = tenantARecoveryService.ServiceProvider
+                .GetRequiredService<ICloudRecoveryService>();
+
+            var tenantARestoreResult = await tenantARecovery.RestoreAsync(
+                tenantABackup.BackupId!.Value,
+                confirmed: true);
+
+            tenantARestoreResult.IntegrityVerified.Should().BeTrue();
+            tenantARestoreResult.Counts.Books.Should().Be(4);
+
+            using var tenantBRecoveryService = provider.CreateScope();
+            var tenantBScope = tenantBRecoveryService.ServiceProvider
+                .GetRequiredService<CloudTenantContextScope>();
+            tenantBScope.Set(new NostosAccountContext(
+                accountB, "Sweep test B", null));
+            var tenantBRecovery = tenantBRecoveryService.ServiceProvider
+                .GetRequiredService<ICloudRecoveryService>();
+
+            var tenantBRestoreResult = await tenantBRecovery.RestoreAsync(
+                tenantBBackup.BackupId!.Value,
+                confirmed: true);
+
+            tenantBRestoreResult.IntegrityVerified.Should().BeTrue();
+            tenantBRestoreResult.Counts.Books.Should().Be(4);
+        }
+        finally
+        {
+            await DeleteAllObjectsAsync(s3, bucket);
+            await s3.DeleteBucketAsync(
+                new DeleteBucketRequest { BucketName = bucket });
+
+            await DropDatabaseIfExistsAsync(postgresRoot, customerDatabaseA);
+            await DropDatabaseIfExistsAsync(postgresRoot, customerDatabaseB);
+            await DropDatabaseIfExistsAsync(postgresRoot, controlDatabase);
+
+            await DropRecoveryDatabasesAsync(
+                postgresRoot,
+                $"nostos_sweep_r_");
+        }
+    }
+
+    private sealed class DirectCloudTenantContextAccessor(
+        CloudTenantContextScope scope) : ICloudTenantContextAccessor
+    {
+        public NostosAccountContext GetRequired() =>
+            scope.Current
+            ?? throw new InvalidOperationException("No tenant context set");
     }
 
     private sealed class TestControlPlaneFactory(
