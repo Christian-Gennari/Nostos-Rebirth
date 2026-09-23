@@ -34,10 +34,7 @@ import { ViewToggleComponent, type ViewToggleOption } from './view-toggle.compon
 class HostComponent {
   readonly libraryOptions = [
     { value: 'list', icon: 'list-bullets', label: 'List view' },
-    // `squares-four` draws smaller than the Brain's `map-trifold` at the same
-    // 18px box; the Library corrects it with a measured optical size, rounded to
-    // an even number so the box lands on whole pixels inside the option.
-    { value: 'grid', icon: 'squares-four', label: 'Grid view', size: 20 },
+    { value: 'grid', icon: 'squares-four', label: 'Grid view' },
   ] satisfies readonly ViewToggleOption[];
 
   readonly brainOptions = [
@@ -204,7 +201,7 @@ describe('ViewToggleComponent', () => {
 
     // Real Phosphor assets, and the light→regular step between states.
     expect(selected.getAttribute('viewBox')).toBe('0 0 256 256');
-    expect(selected.getAttribute('width')).toBe('20');
+    expect(selected.getAttribute('width')).toBe('18');
     expect(unselected.getAttribute('width')).toBe('18');
     expect(selected.innerHTML).not.toBe(unselected.innerHTML);
 
@@ -214,21 +211,21 @@ describe('ViewToggleComponent', () => {
     expect(brain[1].querySelector('svg')!.innerHTML).not.toBe(selected.innerHTML);
   });
 
-  it('takes a declared optical size per option, leaving other callers on the default', async () => {
+  it('renders every glyph in both surfaces at one shared box', async () => {
     const f = host();
     await f.whenStable();
 
-    // The BOXES are identical everywhere (the stylesheet owns those); this field
-    // only corrects how much ink the drawing puts inside its box. Measured: the
-    // Library's `squares-four` fills 69% of an 18px box, the Brain's
-    // `map-trifold` 80%, so the grid glyph steps up to match the map's ink.
-    const library = toggles(f);
-    expect(library[0].querySelector('svg')!.getAttribute('width')).toBe('18');
-    expect(library[1].querySelector('svg')!.getAttribute('width')).toBe('20');
-
-    // A surface that declares nothing keeps the default, so this stays opt-in.
-    const brain = toggles(f, 1);
-    expect(brain.every((o) => o.querySelector('svg')!.getAttribute('width') === '18')).toBe(true);
+    // One box, everywhere: the control has no per-option size any more, so no
+    // glyph can be enlarged to chase another glyph's ink. The Library's grid glyph
+    // shipped at 20px for exactly that reason and it was reverted on review — at
+    // the shared 18px its ink already matches the Brain's `map-trifold`.
+    const boxes = [0, 1].flatMap((group) =>
+      toggles(f, group).map((o) => {
+        const svg = o.querySelector('svg')!;
+        return `${svg.getAttribute('width')}x${svg.getAttribute('height')}`;
+      })
+    );
+    expect(boxes).toEqual(['18x18', '18x18', '18x18', '18x18']);
   });
 
   it('does not carry the ordinary button recipe', async () => {

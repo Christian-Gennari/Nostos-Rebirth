@@ -120,14 +120,12 @@ test('brain controls match the library controls', async ({ browser }) => {
     // measured identical and looked different. Comparing computed COLOUR per theme
     // is what catches that class of defect; comparing geometry does not.
     //
-    // One deliberate asymmetry that must NOT be "normalised" here: the Library's
-    // grid glyph is 20px against the shared 18px default (`ViewToggleOption.size`),
-    // because `squares-four` paints 69% of its box and `map-trifold` 80%. Equal boxes
-    // with equal glyph boxes left the Library's icon reading 13.7% smaller than the
-    // Brain's; at 20px the ink is 13.75px against the map's 14.34px (4%). It is 20
-    // and not the derived 20.5 because an even size keeps whole-pixel margins in the
-    // 30x26 option box: at 20.5px the browser snapped the svg's origin and the glyph
-    // rendered 0.5px off-centre on both axes.
+    // One glyph box for every option on both surfaces, and it is asserted, not
+    // assumed: the Library's grid glyph used to run at 20px (a per-option optical
+    // size, `ViewToggleOption.size`) to chase the Brain's `map-trifold` ink extent,
+    // which made it the heaviest glyph in either control. The per-option size is
+    // gone; at the shared 18px the grid glyph's ink already matches the map's, so
+    // `glyph` below compares the boxes directly.
     // ThemeService is the only writer of `data-theme` and re-applies it from
     // localStorage on every boot, so the theme must be set AFTER each navigation
     // (setting it before would be wiped by the next page load). The stored value
@@ -156,6 +154,9 @@ test('brain controls match the library controls', async ({ browser }) => {
               shadow: c.boxShadow,
               outline: c.outline,
               icon: svg ? getComputedStyle(svg).stroke : null,
+              // The glyph BOX (`width`/`height` attributes the icon component
+              // writes), so a per-option size cannot creep back in on one surface.
+              glyph: svg ? `${svg.getAttribute('width')}x${svg.getAttribute('height')}` : null,
             };
           };
           // Selection is `aria-pressed` (the component's contract); `.active` was the
@@ -207,6 +208,10 @@ test('brain controls match the library controls', async ({ browser }) => {
       expect(brain.active!.icon, `${theme}: active icon stroke`).toBe(lib.active!.icon);
       expect(brain.inactive!.color, `${theme}: inactive segment text`).toBe(lib.inactive!.color);
       expect(brain.inactive!.icon, `${theme}: inactive icon stroke`).toBe(lib.inactive!.icon);
+      // Same glyph box on both surfaces, in both states — the assertion the old
+      // 20px grid-glyph asymmetry used to be documented as an exception to.
+      expect(brain.active!.glyph, `${theme}: active glyph box`).toBe(lib.active!.glyph);
+      expect(brain.inactive!.glyph, `${theme}: inactive glyph box`).toBe(lib.inactive!.glyph);
       // The tile itself (position is deliberately NOT compared: the two surfaces
       // default to different options, so the thumb sits at index 0 on one and 1 on
       // the other).
