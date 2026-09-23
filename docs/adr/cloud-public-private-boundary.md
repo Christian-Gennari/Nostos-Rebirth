@@ -485,13 +485,14 @@ Current repository evidence:
 
 - `LICENSE` is GNU GPL v3 text with a 2026 Christian Gennari copyright notice;
 - Backend and Shared projects declare `GPL-3.0-or-later`;
-- Git history contains meaningful commits from at least one additional GitHub author (`discovicke`) plus two commits with unresolved author identity `t`;
+- Git history contains 26 commits from `discovicke`; maintainer clarification identifies him as Christian's friend who helped with styling/product UI work;
+- the two commits authored as `t` are, per maintainer clarification, from an AI coding agent used under Christian's direction rather than an unidentified human contributor;
 - no CLA, DCO, contributor assignment file or `.mailmap` was found in the repository.
 
 Consequences for planning:
 
 - do not change `LICENSE` in this phase;
-- do not assume all current code can be unilaterally relicensed based solely on repository ownership;
+- do not infer relicensing rights for surviving third-party styling contributions solely from repository ownership or commit metadata;
 - do not assume a private host that project-references/builds GPL public code has no licensing obligations;
 - do not assume previously published GPL source can be made retroactively private;
 - AGPL is a possible future decision, not an outcome of this ADR.
