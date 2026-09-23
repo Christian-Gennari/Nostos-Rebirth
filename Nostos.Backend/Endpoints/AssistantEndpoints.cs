@@ -70,6 +70,10 @@ public static class AssistantEndpoints
         {
             return Results.Ok(await orchestrator.HandleTurnAsync(request, ct));
         }
+        catch (ManagedAiUsageException ex)
+        {
+            return UsageFailure(ex);
+        }
         catch (LlmException ex)
         {
             return Failure(ex.Code, StatusFor(ex.Code), ex.Message);
@@ -138,6 +142,19 @@ public static class AssistantEndpoints
                 StatusCodes.Status503ServiceUnavailable,
                 LlmException.Disabled().Message);
     }
+
+    private static IResult UsageFailure(ManagedAiUsageException exception) =>
+        exception.Reason switch
+        {
+            ManagedAiUsageBlockReason.NotEntitled =>
+                Failure("managed_ai_not_included", StatusCodes.Status403Forbidden, exception.Message),
+            ManagedAiUsageBlockReason.RateLimited =>
+                Failure("managed_ai_rate_limited", StatusCodes.Status429TooManyRequests, exception.Message),
+            ManagedAiUsageBlockReason.MonthlyAllowanceExhausted =>
+                Failure("managed_ai_monthly_limit_reached", StatusCodes.Status429TooManyRequests, exception.Message),
+            _ =>
+                Failure("managed_ai_temporarily_unavailable", StatusCodes.Status503ServiceUnavailable, exception.Message),
+        };
 
     /// <summary>
     /// Code → HTTP status for LLM/provider failures. A permission problem is a

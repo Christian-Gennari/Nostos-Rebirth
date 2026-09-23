@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Nostos.Backend.Cloud;
+using Nostos.Backend.Cloud.Ai;
 using Nostos.Backend.Cloud.ControlPlane;
 using Nostos.Backend.Cloud.Entitlements;
 using Nostos.Backend.Cloud.Migrations;
@@ -8,6 +9,7 @@ using Nostos.Backend.Cloud.Persistence;
 using Nostos.Backend.Cloud.Provisioning;
 using Nostos.Backend.Data;
 using Nostos.Backend.Security;
+using Nostos.Backend.Services.Ai;
 
 namespace Nostos.Backend.Configuration;
 
@@ -20,8 +22,11 @@ public static class CloudPersistenceRegistration
     {
         var options = CloudControlPlaneOptions.FromConfiguration(configuration);
         var connections = options.ResolveConnections(environmentReader);
+        var usageOptions = CloudManagedAiUsageOptions.FromConfiguration(configuration);
 
         services.AddSingleton(options);
+        services.AddSingleton(usageOptions);
+        services.TryAddSingleton<TimeProvider>(TimeProvider.System);
         services.AddSingleton(connections);
         services.AddSingleton<Nostos.Backend.Cloud.Runtime.ICloudWorkerLeaseManager,
             Nostos.Backend.Cloud.Runtime.PostgresCloudWorkerLeaseManager>();
@@ -35,6 +40,7 @@ public static class CloudPersistenceRegistration
 
         services.AddSingleton<ICloudSubscriptionStore, CloudSubscriptionStore>();
         services.AddScoped<ICloudEntitlementService, CloudEntitlementService>();
+        services.AddScoped<IManagedAiUsageService, CloudManagedAiUsageService>();
 
         // #395 registered a fail-closed placeholder. Once the real control
         // plane exists, authorization reads account state from this store.

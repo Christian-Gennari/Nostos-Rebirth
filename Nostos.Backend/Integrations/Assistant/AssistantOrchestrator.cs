@@ -35,8 +35,11 @@ public sealed class AssistantOrchestrator(
     IAssistantSettingsService settings,
     ILibraryService library,
     AssistantOptions options,
-    ILogger<AssistantOrchestrator> logger)
+    ILogger<AssistantOrchestrator> logger,
+    IManagedAiUsageService? managedAiUsage = null)
 {
+    private readonly IManagedAiUsageService _managedAiUsage =
+        managedAiUsage ?? SelfHostedManagedAiUsageService.Instance;
     private readonly AssistantConversationBuilder _conversation = new(registry);
     private readonly AssistantPlanExecutor _planExecutor = new(registry, plans);
     private readonly AssistantCapturePolicy _capturePolicy = new(library);
@@ -137,6 +140,7 @@ public sealed class AssistantOrchestrator(
         ArgumentNullException.ThrowIfNull(request);
 
         var executionMeter = new AssistantExecutionMeter();
+        ManagedAiUsageLease? usageLease = null;
         var toolLoopDetector = new AssistantToolLoopDetector();
         var stopReason = AssistantTurnStopReason.SafetyCeiling;
 
@@ -197,6 +201,9 @@ public sealed class AssistantOrchestrator(
                 upstreamCancellation = turnDeadline.Token;
             }
 
+            // Cloud #405 reserves monthly/global budget immediately before the
+            // first provider spend. SelfHosted resolves to a no-op lease.
+            usageLease ??= await _managedAiUsage.BeginLlmTurnAsync(ct);
             executionMeter.RecordUpstreamRequest();
 
             LlmCompletion completion;
@@ -208,7 +215,9 @@ public sealed class AssistantOrchestrator(
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
-                LogExecutionMetrics(executionMeter.Finish(AssistantTurnStopReason.Cancelled));
+                var metrics = executionMeter.Finish(AssistantTurnStopReason.Cancelled);
+                LogExecutionMetrics(metrics);
+                await CompleteManagedUsageAsync(usageLease, metrics);
                 throw;
             }
             catch (OperationCanceledException) when (turnDeadline?.IsCancellationRequested == true)
@@ -220,7 +229,9 @@ public sealed class AssistantOrchestrator(
             }
             catch (LlmException)
             {
-                LogExecutionMetrics(executionMeter.Finish(AssistantTurnStopReason.ProviderError));
+                var metrics = executionMeter.Finish(AssistantTurnStopReason.ProviderError);
+                LogExecutionMetrics(metrics);
+                await CompleteManagedUsageAsync(usageLease, metrics);
                 throw;
             }
             finally
@@ -431,7 +442,9 @@ public sealed class AssistantOrchestrator(
             reply = AssistantIdentityGuard.Apply(reply);
         }
 
-        LogExecutionMetrics(executionMeter.Finish(stopReason));
+        var finalMetrics = executionMeter.Finish(stopReason);
+        LogExecutionMetrics(finalMetrics);
+        await CompleteManagedUsageAsync(usageLease, finalMetrics);
 
         logger.LogDebug(
             "Assistant turn handled: {Suggestions} suggestion(s), plan {HasPlan}, anchor prompt {HasPrompt}.",
@@ -448,6 +461,22 @@ public sealed class AssistantOrchestrator(
             capturedNoteId,
             executedCapabilities);
     }
+
+    private Task CompleteManagedUsageAsync(
+        ManagedAiUsageLease? lease,
+        AssistantExecutionMetrics metrics) =>
+        _managedAiUsage.CompleteLlmTurnAsync(
+            lease,
+            new ManagedAiLlmUsage(
+                metrics.UpstreamCallCount,
+                metrics.PromptTokens,
+                metrics.OutputTokens,
+                metrics.ThinkingTokens,
+                metrics.ReportedTotalTokens,
+                metrics.ToolLoopIterations,
+                metrics.StopReason.ToString(),
+                metrics.ProviderFinishReason),
+            CancellationToken.None);
 
     private void LogExecutionMetrics(AssistantExecutionMetrics metrics)
     {
