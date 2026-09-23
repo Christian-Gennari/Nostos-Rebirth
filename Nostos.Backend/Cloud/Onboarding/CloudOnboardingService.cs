@@ -150,7 +150,10 @@ public sealed class CloudOnboardingService(
         CancellationToken cancellationToken = default)
     {
         var state = await GetStateAsync(cancellationToken);
-        if (state.State != CloudOnboardingStates.SubscriptionRequired || !state.CanCheckout)
+        if (state.State is not (
+                CloudOnboardingStates.SubscriptionRequired
+                or CloudOnboardingStates.SubscriptionPending)
+            || !state.CanCheckout)
         {
             throw new CloudOnboardingActionException(
                 "checkout_not_available",
@@ -274,7 +277,7 @@ public sealed class CloudOnboardingService(
                     : CloudOnboardingStates.SubscriptionRequired,
                 SubscriptionStatus: entitlement.SubscriptionStatus.ToString(),
                 Ready: false,
-                CanCheckout: !hasCheckout,
+                CanCheckout: true,
                 CanCheckSubscription: hasCheckout,
                 CanManageSubscription: hasSubscription,
                 CanRetry: false);

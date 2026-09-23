@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Nostos.Backend.Configuration;
+using Nostos.Backend.Cloud.Entitlements;
 
 namespace Nostos.Backend.Security;
 
@@ -25,9 +26,30 @@ public static class CloudAuthPolicies
     /// and Active yet. Used only for provisioning/onboarding surfaces.
     /// </summary>
     public const string AuthenticatedAccount = "NostosCloudAuthenticatedAccount";
+
+    /// <summary>
+    /// Valid Cloud identity with effective Cloud access, without requiring
+    /// provisioning to have reached Active yet.
+    /// </summary>
+    public const string EntitledAccount = "NostosCloudEntitledAccount";
 }
 
 public sealed class ActiveCloudAccountRequirement : IAuthorizationRequirement;
+
+public sealed class CloudAccessRequirement : IAuthorizationRequirement;
+
+public sealed class CloudAccessHandler(
+    ICloudEntitlementService entitlements) : AuthorizationHandler<CloudAccessRequirement>
+{
+    protected override async Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        CloudAccessRequirement requirement)
+    {
+        var snapshot = await entitlements.GetEntitlementsAsync(CancellationToken.None);
+        if (snapshot.CloudAccess)
+            context.Succeed(requirement);
+    }
+}
 
 public sealed class ActiveCloudAccountHandler(
     ICloudAccountContextResolver accountResolver,
@@ -76,6 +98,7 @@ public static class CloudAuthenticationRegistration
 
         services.TryAddSingleton<ICloudAccountStatusStore, UnconfiguredCloudAccountStatusStore>();
         services.AddSingleton<IAuthorizationHandler, ActiveCloudAccountHandler>();
+        services.AddScoped<IAuthorizationHandler, CloudAccessHandler>();
 
         services
             .AddAuthentication(authentication =>
@@ -172,10 +195,18 @@ public static class CloudAuthenticationRegistration
                 new AuthorizationPolicyBuilder(CloudAuthSchemes.Router)
                     .RequireAuthenticatedUser()
                     .Build())
+            .AddPolicy(
+                CloudAuthPolicies.EntitledAccount,
+                new AuthorizationPolicyBuilder(CloudAuthSchemes.Router)
+                    .RequireAuthenticatedUser()
+                    .AddRequirements(new CloudAccessRequirement())
+                    .Build())
             .SetFallbackPolicy(
                 new AuthorizationPolicyBuilder(CloudAuthSchemes.Router)
                     .RequireAuthenticatedUser()
-                    .AddRequirements(new ActiveCloudAccountRequirement())
+                    .AddRequirements(
+                        new ActiveCloudAccountRequirement(),
+                        new CloudAccessRequirement())
                     .Build());
 
         return options;

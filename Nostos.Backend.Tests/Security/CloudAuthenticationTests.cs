@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Nostos.Backend.Configuration;
+using Nostos.Backend.Cloud.Entitlements;
 using Nostos.Backend.Endpoints;
 using Nostos.Backend.Security;
 using Xunit;
@@ -26,6 +27,9 @@ public sealed class CloudAuthenticationTests
 
         result.Should().BeNull();
         services.Should().NotContain(service => service.ServiceType == typeof(ICloudAccountContextResolver));
+        services.Should().NotContain(service =>
+            service.ServiceType == typeof(IAuthorizationHandler)
+            && service.ImplementationType == typeof(CloudAccessHandler));
     }
 
     [Fact]
@@ -133,6 +137,26 @@ public sealed class CloudAuthenticationTests
         authorizationContext.HasSucceeded.Should().Be(expectedSuccess);
     }
 
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public async Task Cloud_access_authorization_uses_server_authoritative_entitlements(
+        bool cloudAccess,
+        bool expectedSuccess)
+    {
+        var requirement = new CloudAccessRequirement();
+        var authorizationContext = new AuthorizationHandlerContext(
+            new[] { requirement },
+            Principal("https://identity.example.test", "account-a", "a@example.test"),
+            resource: null);
+
+        var handler = new CloudAccessHandler(new FixedEntitlementService(cloudAccess));
+
+        await handler.HandleAsync(authorizationContext);
+
+        authorizationContext.HasSucceeded.Should().Be(expectedSuccess);
+    }
+
     [Fact]
     public async Task Session_response_exposes_safe_account_state_without_external_identity_keys()
     {
@@ -193,6 +217,18 @@ public sealed class CloudAuthenticationTests
             authenticationType: "test");
 
         return new ClaimsPrincipal(identity);
+    }
+
+    private sealed class FixedEntitlementService(bool cloudAccess) : ICloudEntitlementService
+    {
+        public Task<CloudEntitlementSnapshot> GetEntitlementsAsync(
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CloudEntitlementSnapshot(
+                CloudSubscriptionStatus.Active,
+                CloudAccess: cloudAccess,
+                ManagedAiEnabled: false,
+                ManagedAiMonthlyAllowance: 0,
+                StorageBytesLimit: 0));
     }
 
     private sealed class FixedAccountStatusStore(CloudAccountStatus status) : ICloudAccountStatusStore

@@ -168,6 +168,81 @@ public sealed class CloudBillingTests
     }
 
     [Fact]
+    public async Task Existing_uncompleted_checkout_is_resumed_without_creating_a_duplicate_transaction()
+    {
+        var account = Account("checkout-resume");
+        var state = new RecordingBillingStateStore();
+        state.SeedBinding(account, transactionId: "txn_existing", customerId: null, subscriptionId: null);
+
+        var handler = new QueueHandler();
+        handler.Enqueue(
+            HttpStatusCode.OK,
+            JsonSerializer.Serialize(new
+            {
+                data = new
+                {
+                    id = "txn_existing",
+                    subscription_id = (string?)null,
+                    custom_data = new
+                    {
+                        nostos_account_id = account.ToString(),
+                        nostos_plan_id = "basic",
+                    },
+                    checkout = new { url = "https://nostos.example.test/pay?_ptxn=txn_existing" },
+                },
+            }));
+
+        var service = Service(account, state, handler);
+        var result = await service.CreateCheckoutAsync(new NostosPlanId("basic"));
+
+        result.PlanId.Should().Be("basic");
+        result.CheckoutUrl.Should().Contain("txn_existing");
+        state.Bindings[account].ExternalTransactionId.Should().Be("txn_existing");
+        state.LastChange.Should().BeNull();
+
+        var request = handler.Requests.Should().ContainSingle().Which;
+        request.Method.Should().Be(HttpMethod.Get);
+        request.Path.Should().Be("/transactions/txn_existing");
+        handler.Requests.Should().NotContain(x => x.Method == HttpMethod.Post);
+    }
+
+    [Fact]
+    public async Task Existing_checkout_with_mismatched_canonical_account_fails_closed()
+    {
+        var account = Account("checkout-owner");
+        var state = new RecordingBillingStateStore();
+        state.SeedBinding(account, transactionId: "txn_mismatch", customerId: null, subscriptionId: null);
+
+        var handler = new QueueHandler();
+        handler.Enqueue(
+            HttpStatusCode.OK,
+            JsonSerializer.Serialize(new
+            {
+                data = new
+                {
+                    id = "txn_mismatch",
+                    subscription_id = (string?)null,
+                    custom_data = new
+                    {
+                        nostos_account_id = Account("someone-else").ToString(),
+                        nostos_plan_id = "basic",
+                    },
+                    checkout = new { url = "https://nostos.example.test/pay?_ptxn=txn_mismatch" },
+                },
+            }));
+
+        var service = Service(account, state, handler);
+
+        Func<Task> act = async () =>
+            await service.CreateCheckoutAsync(new NostosPlanId("basic"));
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*cannot be resumed safely*");
+        handler.Requests.Should().ContainSingle();
+        handler.Requests.Should().NotContain(x => x.Method == HttpMethod.Post);
+    }
+
+    [Fact]
     public async Task Upgrade_and_downgrade_replace_only_the_mapped_base_price()
     {
         var account = Account("plan-change");

@@ -52,9 +52,34 @@ public sealed class CloudOnboardingTests
         var state = await harness.Service.GetStateAsync();
 
         state.State.Should().Be(CloudOnboardingStates.SubscriptionPending);
-        state.CanCheckout.Should().BeFalse();
+        state.CanCheckout.Should().BeTrue();
         state.CanCheckSubscription.Should().BeTrue();
         state.Ready.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Pending_checkout_can_be_resumed_without_trusting_browser_redirect_state()
+    {
+        var harness = new Harness(
+            entitlement: CloudEntitlementSnapshot.Denied(CloudSubscriptionStatus.None),
+            resource: null,
+            billingBinding: new CloudBillingBindingSnapshot(
+                Account.AccountId,
+                PaddleBillingService.ProviderName,
+                ExternalTransactionId: "txn_test",
+                ExternalCustomerId: null,
+                ExternalSubscriptionId: null,
+                LastEventOccurredAtUtc: null,
+                UpdatedAtUtc: DateTime.UtcNow));
+
+        harness.Billing.Checkout = new CloudBillingCheckoutResponse(
+            "cloud-standard",
+            "https://checkout.example.test/resume");
+
+        var redirect = await harness.Service.CreateCheckoutAsync();
+
+        redirect.Url.Should().Be("https://checkout.example.test/resume");
+        harness.Billing.LastCheckoutPlan.Should().Be(new NostosPlanId("cloud-standard"));
     }
 
     [Theory]
