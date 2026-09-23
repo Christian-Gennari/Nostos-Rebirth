@@ -27,14 +27,18 @@ public sealed record LlmMessage(
     string Role,
     string? Content = null,
     IReadOnlyList<LlmToolCall>? ToolCalls = null,
-    string? ToolCallId = null)
+    string? ToolCallId = null,
+    string? ProviderState = null)
 {
     public static LlmMessage System(string content) => new("system", content);
 
     public static LlmMessage User(string content) => new("user", content);
 
-    public static LlmMessage Assistant(string? content, IReadOnlyList<LlmToolCall>? toolCalls = null) =>
-        new("assistant", content, toolCalls);
+    public static LlmMessage Assistant(
+        string? content,
+        IReadOnlyList<LlmToolCall>? toolCalls = null,
+        string? providerState = null) =>
+        new("assistant", content, toolCalls, null, providerState);
 
     public static LlmMessage Tool(string toolCallId, string content) =>
         new("tool", content, null, toolCallId);
@@ -81,7 +85,8 @@ public sealed record LlmCompletion(
     IReadOnlyList<LlmToolCall> ToolCalls,
     int? PromptTokens = null,
     int? CompletionTokens = null,
-    int? ThinkingTokens = null)
+    int? ThinkingTokens = null,
+    string? ProviderState = null)
 {
     /// <summary>True when the pool spent the whole budget and returned no text.</summary>
     public bool IsLengthTruncated =>
@@ -102,8 +107,17 @@ public static class LlmErrorCodes
     /// <summary>Enabled, but the configured environment variable holds no key, or the gateway URL/model is missing.</summary>
     public const string NotConfigured = "assistant_not_configured";
 
-    /// <summary>The provider rejected the configured credential, or is rate limiting.</summary>
+    /// <summary>The authenticated Cloud account is not entitled to managed AI.</summary>
+    public const string NotEntitled = "assistant_not_entitled";
+
+    /// <summary>The provider rejected the configured credential.</summary>
     public const string Permission = "assistant_permission_denied";
+
+    /// <summary>The managed provider is temporarily rate limiting requests.</summary>
+    public const string RateLimited = "assistant_rate_limited";
+
+    /// <summary>The managed provider did not answer within its request timeout.</summary>
+    public const string Timeout = "assistant_provider_timeout";
 
     /// <summary>The provider is unreachable or returned an unexpected status.</summary>
     public const string Provider = "assistant_provider_error";
@@ -135,7 +149,15 @@ public sealed class LlmException(string code, string message) : Exception(messag
 
     public static LlmException PermissionDenied() => new(
         LlmErrorCodes.Permission,
-        "The assistant provider rejected the configured credential or is rate limiting.");
+        "The assistant provider rejected the configured credential.");
+
+    public static LlmException RateLimited() => new(
+        LlmErrorCodes.RateLimited,
+        "Ask Nostos is temporarily busy. Try again shortly.");
+
+    public static LlmException TimedOut() => new(
+        LlmErrorCodes.Timeout,
+        "Ask Nostos timed out while contacting the AI service.");
 
     public static LlmException ProviderFailure(string detail) => new(
         LlmErrorCodes.Provider,
