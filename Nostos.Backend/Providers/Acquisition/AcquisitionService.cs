@@ -72,7 +72,11 @@ public sealed class AcquisitionService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Acquisition of {Provider}/{ExternalId} failed unexpectedly.", request.ProviderId, request.ExternalId);
+            logger.LogError(
+                "Acquisition of {Provider}/{ExternalId} failed unexpectedly with {ExceptionType}; details suppressed.",
+                request.ProviderId,
+                request.ExternalId,
+                ex.GetType().Name);
             return AcquisitionResult.Failed("acquisition_failed", "The import failed unexpectedly. See the server log for details.");
         }
     }
@@ -215,7 +219,10 @@ public sealed class AcquisitionService(
                 }
                 catch (Exception delEx)
                 {
-                    logger.LogWarning(delEx, "Could not delete cancelled book {BookId}.", bookId);
+                    logger.LogWarning(
+                        "Could not delete cancelled book {BookId}; exception type {ExceptionType}. Details suppressed.",
+                        bookId,
+                        delEx.GetType().Name);
                 }
             }
             throw;
@@ -237,7 +244,10 @@ public sealed class AcquisitionService(
             }
             catch (Exception statusEx)
             {
-                logger.LogWarning(statusEx, "Could not set Failed status on book {BookId}.", bookId);
+                logger.LogWarning(
+                    "Could not set Failed status on book {BookId}; exception type {ExceptionType}. Details suppressed.",
+                    bookId,
+                    statusEx.GetType().Name);
             }
 
             throw;
@@ -467,7 +477,10 @@ public sealed class AcquisitionService(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Cover art is a nicety. It must never cost the user the book.
-            logger.LogWarning(ex, "Could not fetch cover art for {ExternalId}; importing without it.", plan.ExternalId);
+            logger.LogWarning(
+                "Could not fetch cover art for {ExternalId}; importing without it. Exception type {ExceptionType}; details suppressed.",
+                plan.ExternalId,
+                ex.GetType().Name);
             return null;
         }
     }
@@ -500,7 +513,10 @@ public sealed class AcquisitionService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Storing the acquired file for {ExternalId} failed.", plan.ExternalId);
+            logger.LogError(
+                "Storing the acquired file for {ExternalId} failed with {ExceptionType}; details suppressed.",
+                plan.ExternalId,
+                ex.GetType().Name);
             await RollbackAsync(bookId, createdByUs, storedNothing: true, plan, ct);
             await library.SetBookStatusAsync(bookId, BookStatus.Failed, "The file could not be stored, so nothing was imported.", CancellationToken.None);
             return AcquisitionResult.Failed(
@@ -700,7 +716,10 @@ public sealed class AcquisitionService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Could not remove the stored file for book {BookId} during rollback.", bookId);
+                logger.LogWarning(
+                    "Could not remove the stored file for book {BookId} during rollback; exception type {ExceptionType}. Details suppressed.",
+                    bookId,
+                    ex.GetType().Name);
             }
         }
 
@@ -738,7 +757,10 @@ public sealed class AcquisitionService(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex, "Storing cover art for book {BookId} failed; the book itself is unaffected.", bookId);
+            logger.LogWarning(
+                "Storing cover art for book {BookId} failed; the book itself is unaffected. Exception type {ExceptionType}; details suppressed.",
+                bookId,
+                ex.GetType().Name);
             return null;
         }
     }
@@ -830,7 +852,9 @@ public sealed class AcquisitionService(
         {
             // Cannot tell: better to try and fail on write than to refuse an
             // import for a reason we could not actually establish.
-            logger.LogDebug(ex, "Could not read free space for {Root}.", root);
+            logger.LogDebug(
+                "Could not read free space for acquisition staging; exception type {ExceptionType}. Details suppressed.",
+                ex.GetType().Name);
             return;
         }
 
