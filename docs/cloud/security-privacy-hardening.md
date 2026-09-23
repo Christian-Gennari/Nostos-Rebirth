@@ -87,6 +87,9 @@ Additional protections:
   per-entry/aggregate expanded-size limits, compression-ratio protection,
   checksum verification, empty-destination rule, cancellation-safe temp
   cleanup and compensating media cleanup.
+- Before media extraction, portable import checks the temporary volume and
+  refuses extraction that would consume more than 80% of its remaining free
+  space; this is capacity-relative rather than a small audiobook-hostile cap.
 - Portable import/export uses the same #399 format; #408 creates no second
   archive format.
 
