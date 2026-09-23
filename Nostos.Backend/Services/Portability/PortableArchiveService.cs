@@ -258,8 +258,8 @@ public sealed class PortableArchiveService(
                     catch (Exception rollbackException)
                     {
                         _logger.LogError(
-                            rollbackException,
-                            "Portable import relational rollback failed.");
+                            "Portable import relational rollback failed with {ExceptionType}; details suppressed.",
+                            rollbackException.GetType().Name);
                     }
 
                     await CleanupImportedMediaAsync(uploadedBookIds);
@@ -1623,9 +1623,9 @@ public sealed class PortableArchiveService(
             catch (Exception exception)
             {
                 _logger.LogError(
-                    exception,
-                    "Failed to clean portable-import media for book {BookId}.",
-                    bookId);
+                    "Failed to clean portable-import media for book {BookId}; exception type {ExceptionType}. Details suppressed.",
+                    bookId,
+                    exception.GetType().Name);
             }
         }
     }
