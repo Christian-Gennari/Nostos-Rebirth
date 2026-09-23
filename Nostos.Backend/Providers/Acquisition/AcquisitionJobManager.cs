@@ -171,12 +171,11 @@ public sealed class AcquisitionJobManager : BackgroundService, IAcquisitionJobMa
             // DbContext factory), so each job gets its own scope.
             using var scope = _scopeFactory.CreateScope();
 
-            if (job.TenantContext is not null)
-            {
-                scope.ServiceProvider
+            using var tenantContextLease = job.TenantContext is null
+                ? null
+                : scope.ServiceProvider
                     .GetRequiredService<CloudTenantContextScope>()
-                    .Set(job.TenantContext);
-            }
+                    .Push(job.TenantContext);
 
             var acquisitions = scope.ServiceProvider.GetRequiredService<IAcquisitionService>();
 
