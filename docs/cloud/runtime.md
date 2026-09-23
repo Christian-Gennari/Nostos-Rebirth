@@ -136,7 +136,7 @@ Current Cloud secret variables include:
 | `NOSTOS_CLOUD_OBJECT_STORAGE_SECRET_KEY` | B2/S3 secret key |
 | `NOSTOS_CLOUD_AUTH_CLIENT_SECRET` | Clerk/OIDC client secret |
 | `NOSTOS_CLOUD_BILLING_PADDLE_API_KEY` | Paddle server API key |
-| `NOSTOS_CLOUD_BILLING_PADDLE_WEBHOOK_SECRET` | Paddle webhook verification secret |
+| `NOSTOS_CLOUD_BILLING_PADDLE_WEBHOOK_SECRET` | Paddle webhook verification secret |\n| `NOSTOS_CLOUD_AI_GATEWAY_API_KEY` | Vercel AI Gateway managed LLM credential |\n| `NOSTOS_CLOUD_GROQ_API_KEY` | Groq managed STT credential |
 | `NOSTOS_CLOUD_DATA_PROTECTION_KEY` | Data Protection key-ring wrapping key |
 
 #404 owns managed AI/voice credentials and provider behavior; #401 does not
