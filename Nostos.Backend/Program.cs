@@ -602,8 +602,8 @@ if (deployment.Mode == DeploymentMode.Cloud)
 // ------------------------------
 
 // Map all endpoints
-app.MapBooksEndpoints();
-app.MapProviderEndpoints();
+app.MapBooksEndpoints(deployment.Mode == DeploymentMode.Cloud);
+app.MapProviderEndpoints(deployment.Mode == DeploymentMode.Cloud);
 app.MapImportEndpoints();
 app.MapNotesEndpoints();
 app.MapNoteProcessingEndpoints();
@@ -615,7 +615,7 @@ app.MapAssistantEndpoints();
 app.MapAiProviderSettingsEndpoints();
 app.MapAssistantSettingsEndpoints();
 app.MapDeploymentCapabilitiesEndpoints();
-app.MapPortabilityEndpoints();
+app.MapPortabilityEndpoints(deployment.Mode == DeploymentMode.Cloud);
 if (deployment.Mode == DeploymentMode.Cloud)
 {
     app.MapCloudAuthEndpoints();
