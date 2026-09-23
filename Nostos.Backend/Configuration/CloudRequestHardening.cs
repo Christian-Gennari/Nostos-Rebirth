@@ -41,7 +41,7 @@ public static class CloudRequestHardeningRegistration
                 context => FixedWindow(context, permitLimit: 4, TimeSpan.FromMinutes(10)));
             options.AddPolicy(
                 CloudRateLimitPolicies.ProviderFetch,
-                context => FixedWindow(context, permitLimit: 60, TimeSpan.FromMinutes(1)));
+                context => FixedWindow(context, permitLimit: 120, TimeSpan.FromMinutes(1)));
             options.AddPolicy(
                 CloudRateLimitPolicies.Billing,
                 context => FixedWindow(context, permitLimit: 12, TimeSpan.FromMinutes(1)));
