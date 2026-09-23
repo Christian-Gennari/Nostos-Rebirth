@@ -40,7 +40,7 @@ This document serves as the operator-facing reference for provider account owner
 | **Groq** | Managed Cloud STT | `ops@nostos.page` | Org `Nostos` (`org_01m36z8gp8e94a0jgw3ggj4jf2`), Project `Nostos Cloud` (`project_01m36zjz52ezyrsp40s1phwxnk`) | `NOSTOS_CLOUD_GROQ_API_KEY` | Passwordless Stytch email verification to `ops@` | Active & smoke-tested |
 | **Clerk** | Managed Auth & Accounts | `contact@cgennari.com` (pending co-admin `ops@`) | App `Nostos` (`app_3Jh5c9J9bK3MAPXJYLFJhNQHLS8`), Instance `ins_3Jh5c2V8AjyTkk8RYcFcbIAjNpq` | `NOSTOS_CLOUD_AUTH_CLIENT_SECRET` | Email / OTP / OAuth | Active (Alpha) |
 | **Paddle** | Billing & Subscriptions | `christiangennari61@gmail.com` (Sandbox; contact `billing@nostos.page`) | Product `pro_01m35farcv0czvbq6fn6jb1rvz`, Price `pri_01m35fashc62w526jw2rjnshrh` | `NOSTOS_CLOUD_BILLING_PADDLE_API_KEY`, `NOSTOS_CLOUD_BILLING_PADDLE_WEBHOOK_SECRET` | Two-factor SMS / App | Sandbox Active |
-| **Neon** | Serverless PostgreSQL | Org `Nostos` (`org-aged-wave-24212539`), Admin: `contact@cgennari.com`, Invited Admin: `ops@nostos.page` | Projects: `nostos-customers` (`wandering-wind-99439546`), `nostos-control-plane` (`little-bread-40821565`) | `NOSTOS_CLOUD_CONTROL_PLANE_CONNECTION`, `NOSTOS_CLOUD_POSTGRES_ADMIN_CONNECTION`, `NOSTOS_CLOUD_POSTGRES_CUSTOMER_CONNECTION` | Neon account / GitHub SSO / MFA | Alpha Active |
+| **Neon** | Serverless PostgreSQL | Org `Nostos` (`org-aged-wave-24212539`), Admins: `contact@cgennari.com`, `ops@nostos.page` | Projects: `nostos-customers` (`wandering-wind-99439546`), `nostos-control-plane` (`little-bread-40821565`) | `NOSTOS_CLOUD_CONTROL_PLANE_CONNECTION`, `NOSTOS_CLOUD_POSTGRES_ADMIN_CONNECTION`, `NOSTOS_CLOUD_POSTGRES_CUSTOMER_CONNECTION` | Neon account / GitHub SSO / MFA | Active & Co-Admin verified |
 | **Backblaze B2** | Object Storage (Media/Backups) | Christian personal account | Account ID `a4c0ecd810e7`, Buckets: `nostos-cloud`, `nostos-cloud-dr` | `NOSTOS_CLOUD_OBJECT_STORAGE_ACCESS_KEY`, `NOSTOS_CLOUD_OBJECT_STORAGE_SECRET_KEY` | 2FA (SMS / TOTP) | Alpha Active |
 | **Vercel / Domains** | Web hosting & DNS | `christian-gennaris-projects` | Domains: `nostos.page`, `cgennari.com` | `VERCEL_TOKEN` (CLI / deployment) | GitHub SSO / TOTP | Active |
 
@@ -103,7 +103,7 @@ This document serves as the operator-facing reference for provider account owner
 - **Role:** Serverless PostgreSQL cluster providing tenant isolation and control plane for alpha (#393, #396).
 - **Organization:** `Nostos` (`org-aged-wave-24212539`), Plan: Free.
 - **Primary Admin:** `contact@cgennari.com`.
-- **Co-Admin:** `ops@nostos.page` (Invitation pending acceptance).
+- **Co-Admin:** `ops@nostos.page` (Joined and verified).
 - **Projects:**
   - `nostos-control-plane` (`little-bread-40821565`)
   - `nostos-customers` (`wandering-wind-99439546`)
