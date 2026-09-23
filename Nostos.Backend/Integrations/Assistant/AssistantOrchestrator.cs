@@ -283,7 +283,10 @@ public sealed class AssistantOrchestrator(
                 break;
             }
 
-            messages.Add(LlmMessage.Assistant(completion.Content, completion.ToolCalls));
+            messages.Add(LlmMessage.Assistant(
+                completion.Content,
+                completion.ToolCalls,
+                completion.ProviderState));
 
             var callOrdinal = 0;
             foreach (var call in completion.ToolCalls)

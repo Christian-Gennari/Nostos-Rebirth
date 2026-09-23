@@ -34,8 +34,18 @@ public static class TranscriptionEndpoints
         ISTtProvider provider,
         SpeechOptions options,
         IAiProviderConfigResolver config,
+        IManagedAiAccessPolicy access,
+        DeploymentDescriptor deployment,
         CancellationToken ct)
     {
+        if (!await access.IsAllowedAsync(ct))
+        {
+            return Failure(
+                SttErrorCodes.NotEntitled,
+                StatusCodes.Status403Forbidden,
+                "Voice transcription is not included for this Cloud account.");
+        }
+
         // Availability is derived (enabled && baseUrl && key), exactly like the
         // assistant's gate: an enabled-but-unconfigured surface is a typed 503,
         // never a startup failure or a 500. The credential itself is only tested
@@ -46,7 +56,9 @@ public static class TranscriptionEndpoints
             return Failure(
                 SttErrorCodes.Disabled,
                 StatusCodes.Status503ServiceUnavailable,
-                "Speech-to-text is disabled on this server.");
+                deployment.Mode == DeploymentMode.Cloud
+                    ? "Voice transcription is temporarily unavailable."
+                    : "Speech-to-text is disabled on this server.");
         }
 
         if (!effective.IsAvailable)
@@ -54,7 +66,9 @@ public static class TranscriptionEndpoints
             return Failure(
                 SttErrorCodes.NotConfigured,
                 StatusCodes.Status503ServiceUnavailable,
-                SttException.NotConfigured(effective.ApiKeyEnvironmentVariable).Message);
+                deployment.Mode == DeploymentMode.Cloud
+                    ? "Voice transcription is temporarily unavailable."
+                    : SttException.NotConfigured(effective.ApiKeyEnvironmentVariable).Message);
         }
 
         if (!request.HasFormContentType)
@@ -143,7 +157,10 @@ public static class TranscriptionEndpoints
     /// </summary>
     private static int StatusFor(string code) => code switch
     {
+        SttErrorCodes.NotEntitled => StatusCodes.Status403Forbidden,
         SttErrorCodes.Disabled or SttErrorCodes.NotConfigured => StatusCodes.Status503ServiceUnavailable,
+        SttErrorCodes.RateLimited => StatusCodes.Status429TooManyRequests,
+        SttErrorCodes.Timeout => StatusCodes.Status504GatewayTimeout,
         SttErrorCodes.TooLarge => StatusCodes.Status413PayloadTooLarge,
         SttErrorCodes.TooLong => StatusCodes.Status422UnprocessableEntity,
         SttErrorCodes.UnsupportedFormat => StatusCodes.Status415UnsupportedMediaType,

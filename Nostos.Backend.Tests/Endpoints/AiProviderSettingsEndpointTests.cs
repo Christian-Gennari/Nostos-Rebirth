@@ -5,6 +5,8 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Nostos.Backend.Configuration;
 using Nostos.Backend.Data;
 using Nostos.Backend.Endpoints;
 using Nostos.Backend.Services.Ai;
@@ -276,6 +278,49 @@ public sealed class AiProviderSettingsEndpointTests
                 Stt: null));
 
         put.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Managed_cloud_provider_surface_rejects_direct_customer_overrides()
+    {
+        const string suppliedKey = "must-never-be-accepted-or-returned";
+
+        using var factory = new LibraryEndpointFactory();
+        using var host = CreateHost(factory).WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                var options = new CloudManagedAiOptions();
+                services.AddSingleton(options);
+                services.RemoveAll<IAiProviderSettingsService>();
+                services.AddSingleton<IAiProviderSettingsService>(
+                    new CloudManagedAiProviderSettingsService(options));
+            });
+        });
+        using var client = host.CreateClient();
+
+        var put = await client.PutAsJsonAsync(
+            AiProviderSettingsEndpoints.Route,
+            new AiProviderSettingsUpdateRequest(
+                new AiProviderSectionUpdate(
+                    Enabled: true,
+                    BaseUrl: "https://customer.invalid/v1",
+                    Model: "customer-model",
+                    ApiKey: suppliedKey),
+                new AiProviderSectionUpdate(
+                    Enabled: true,
+                    BaseUrl: "https://customer-stt.invalid",
+                    Model: "customer-stt",
+                    ApiKey: suppliedKey)));
+
+        put.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var raw = await put.Content.ReadAsStringAsync();
+        raw.Should().Contain("ai_provider_managed");
+        raw.Should().NotContain(suppliedKey);
+
+        var get = await client.GetAsync(AiProviderSettingsEndpoints.Route);
+        get.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await get.Content.ReadAsStringAsync()).Should().NotContain("gemini-3.8-flash");
     }
 
     // ------------------------------------------------------------------

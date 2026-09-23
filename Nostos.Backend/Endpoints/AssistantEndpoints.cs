@@ -1,3 +1,4 @@
+using Nostos.Backend.Configuration;
 using Nostos.Backend.Integrations.Assistant;
 using Nostos.Backend.Services.Ai;
 using Nostos.Shared.Dtos;
@@ -44,8 +45,12 @@ public static class AssistantEndpoints
     /// </summary>
     private static async Task<IResult> StatusAsync(
         IAiProviderConfigResolver config,
+        IManagedAiAccessPolicy access,
         CancellationToken ct)
     {
+        if (!await access.IsAllowedAsync(ct))
+            return Results.Ok(new AssistantStatusResponse(false));
+
         var effective = await config.GetEffectiveLlmAsync(ct);
         return Results.Ok(new AssistantStatusResponse(effective.IsAvailable));
     }
@@ -54,9 +59,11 @@ public static class AssistantEndpoints
         AssistantTurnRequest request,
         AssistantOrchestrator orchestrator,
         IAiProviderConfigResolver config,
+        IManagedAiAccessPolicy access,
+        DeploymentDescriptor deployment,
         CancellationToken ct)
     {
-        var unavailable = await UnavailableAsync(config, ct);
+        var unavailable = await UnavailableAsync(config, access, deployment, ct);
         if (unavailable is not null) return unavailable;
 
         try
@@ -73,9 +80,11 @@ public static class AssistantEndpoints
         AssistantPlanApproveRequest request,
         AssistantOrchestrator orchestrator,
         IAiProviderConfigResolver config,
+        IManagedAiAccessPolicy access,
+        DeploymentDescriptor deployment,
         CancellationToken ct)
     {
-        var unavailable = await UnavailableAsync(config, ct);
+        var unavailable = await UnavailableAsync(config, access, deployment, ct);
         if (unavailable is not null) return unavailable;
 
         var response = await orchestrator.ApproveAsync(request.PlanId, request.ApprovalToken, ct);
@@ -96,10 +105,28 @@ public static class AssistantEndpoints
     /// </summary>
     private static async Task<IResult?> UnavailableAsync(
         IAiProviderConfigResolver config,
+        IManagedAiAccessPolicy access,
+        DeploymentDescriptor deployment,
         CancellationToken ct)
     {
+        if (!await access.IsAllowedAsync(ct))
+        {
+            return Failure(
+                LlmErrorCodes.NotEntitled,
+                StatusCodes.Status403Forbidden,
+                "Ask Nostos is not included for this Cloud account.");
+        }
+
         var effective = await config.GetEffectiveLlmAsync(ct);
         if (effective.IsAvailable) return null;
+
+        if (deployment.Mode == DeploymentMode.Cloud)
+        {
+            return Failure(
+                effective.Enabled ? LlmErrorCodes.NotConfigured : LlmErrorCodes.Disabled,
+                StatusCodes.Status503ServiceUnavailable,
+                "Ask Nostos is temporarily unavailable.");
+        }
 
         return effective.Enabled
             ? Failure(
@@ -119,7 +146,10 @@ public static class AssistantEndpoints
     /// </summary>
     private static int StatusFor(string code) => code switch
     {
+        LlmErrorCodes.NotEntitled => StatusCodes.Status403Forbidden,
         LlmErrorCodes.Disabled or LlmErrorCodes.NotConfigured => StatusCodes.Status503ServiceUnavailable,
+        LlmErrorCodes.RateLimited => StatusCodes.Status429TooManyRequests,
+        LlmErrorCodes.Timeout => StatusCodes.Status504GatewayTimeout,
         LlmErrorCodes.Permission => StatusCodes.Status502BadGateway,
         _ => StatusCodes.Status502BadGateway,
     };
