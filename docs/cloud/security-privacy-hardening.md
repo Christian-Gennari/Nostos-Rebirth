@@ -219,29 +219,93 @@ account lifecycle, managed Cloud telemetry/quota infrastructure or Cloud
 provider credentials. Its ordinary SQLite/local-storage/OPDS/private-network
 operation remains first-class.
 
-## Account deletion policy boundary
+## Account deletion and privacy lifecycle
 
-Billing cancellation/payment state is not account deletion and never destroys
-customer data.
+Nostos Cloud uses a **14-day recoverable deletion grace period**.
 
-The deletion lifecycle required by #408 remains intentionally unimplemented
-until the product chooses a concrete grace/retention duration. Repository/docs/
-issue search found no previously decided duration. Per #408, the implementation
-must not invent one.
+Billing cancellation/payment state is separate from privacy deletion and never
+destroys customer data. Account deletion begins only through the explicit
+Nostos deletion endpoint and requires an explicit confirmation flag.
 
-The eventual lifecycle will be deliberate and idempotent:
+The server-owned lifecycle is:
 
 ```text
 Active
-  -> deletion requested
-  -> recoverable grace
-  -> final destruction
-  -> Deleted
+  -> DeletionRequested / GracePeriod
+       -> Cancelled -> Active
+       -> Destroying
+            -> Failed -> retry Destroying
+            -> Deleted
 ```
 
-Before final destruction, the existing `GET /api/portability/export` is the
-customer-owned portable archive path. Final destruction must delete the current
-customer database and B2 objects, safely reconcile retained recovery/superseded
-resources, preserve only the minimum content-free audit needed to prove the
-lifecycle, and remain retryable after partial failure without touching another
-tenant.
+### Request and grace period
+
+`POST /api/cloud/account/deletion` with `{"confirm":true}`:
+
+- resolves the account exclusively from the validated Cloud identity;
+- records a content-free deletion row in the control plane;
+- changes the account to `DeletionRequested` immediately;
+- fixes `EligibleAtUtc = RequestedAtUtc + 14 days`;
+- is idempotent when repeated;
+- immediately makes ordinary product APIs, managed AI, provisioning, scheduled
+  backups and recovery fail closed because they require an Active account.
+
+During those 14 days the user may:
+
+- inspect deletion state;
+- cancel the request, returning the same resource mapping to Active;
+- download the existing #399 portable Nostos archive.
+
+The portable archive remains the only customer export format. The Cloud export
+route has a narrow `RecoverableAccount` authorization policy that accepts only
+Active or DeletionRequested accounts. It does not reopen normal product APIs and
+does not trust a browser-supplied account/database/storage selector.
+
+### Final destruction
+
+A fleet-leased background worker checks due/retryable deletions every 15
+minutes. Per-account PostgreSQL advisory leases serialize grace export and
+destruction across app replicas.
+
+Final destruction is provider-idempotent and resource-derived:
+
+1. validate the current database/storage mapping against the trusted opaque
+   `ResourceId`;
+2. delete **all object versions** beneath the tenant's original B2 namespace;
+3. delete all recovery-stage object versions for that resource;
+4. delete all operational backup/restore-audit object versions under
+   `__nostos_recovery/<resource-id>/`;
+5. drop the tenant's original PostgreSQL database and every recovery database
+   derived from that same resource id;
+6. only after physical destruction succeeds, purge Nostos commercial binding,
+   subscription/audit and managed-AI usage/reservation rows;
+7. record the content-free deletion lifecycle as `Deleted` and the account
+   resource as `CloudAccountStatus.Deleted`.
+
+A partial provider failure never records success. The lifecycle becomes
+`Failed`, keeps its bounded failure code, and is retried by the worker. A crash
+after claiming work leaves `Destroying`, which is also retryable. Destructive
+operations are safe to repeat.
+
+The final control-plane tombstone retains only opaque account/resource identity,
+lifecycle timestamps/state and other minimum operational metadata needed to
+prove deletion. It does not retain books, notes, writings, prompts,
+transcriptions, imported content, customer media or provider credentials.
+
+Deletion of one account is tested against another tenant with overlapping
+domain/object identifiers; resource validation and namespace/database
+derivation prevent cross-tenant destructive selection.
+
+### Provider/session boundary
+
+The Nostos session fails closed for ordinary APIs as soon as the account enters
+`DeletionRequested`, and remains failed closed after `Deleted`. The narrow
+deletion-status/cancel and portable-export surfaces intentionally remain
+reachable with a validated identity during the recoverable window.
+
+Clerk identity is not used as deletion authority and Clerk metadata is never
+used to select customer resources. Nostos's database/B2 destruction therefore
+does not depend on a Clerk-side account mutation. Any later provider-side
+identity-retention operation must remain separate from the Nostos destructive
+resource transaction so a Clerk/API outage cannot prevent a privacy deletion.
+
