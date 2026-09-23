@@ -1,19 +1,17 @@
-# PostgreSQL integration coverage for the shared Nostos model and Cloud tenant fleet.
-name: PostgreSQL integration
+# Cloud/PostgreSQL integration coverage for the shared Nostos model and tenant fleet.
+name: Cloud PostgreSQL integration
 
 on:
-  push:
-    branches:
-      - feature/cloud-postgres-spike
-  pull_request:
-    paths:
-      - "Nostos.Backend/**"
-      - "Nostos.Backend.Tests/**"
-      - ".github/workflows/postgresql-compatibility.yml"
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   postgres-compatibility:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     services:
       postgres:
@@ -48,17 +46,7 @@ jobs:
       - name: Build backend solution
         run: dotnet build Nostos.sln --configuration Debug --no-restore
 
-      - name: Run backend regression tests
-        env:
-          NOSTOS_POSTGRES_SPIKE_CONNECTION: ""
-        run: >-
-          dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
-          --configuration Debug
-          --no-build
-          --no-restore
-          --logger "console;verbosity=minimal"
-
-      - name: Run PostgreSQL compatibility spike
+      - name: Run shared PostgreSQL model compatibility
         run: >-
           dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
           --configuration Debug
@@ -67,7 +55,7 @@ jobs:
           --filter "Category=PostgresSpike"
           --logger "console;verbosity=normal"
 
-      - name: Run Cloud provisioning isolation tests
+      - name: Run Cloud provisioning and tenant-isolation coverage
         run: >-
           dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
           --configuration Debug
@@ -76,7 +64,7 @@ jobs:
           --filter "Category=CloudProvisioning"
           --logger "console;verbosity=normal"
 
-      - name: Run Cloud PostgreSQL migration lifecycle tests
+      - name: Run explicit PostgreSQL migration lifecycle coverage
         run: >-
           dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
           --configuration Debug
@@ -85,20 +73,29 @@ jobs:
           --filter "Category=CloudMigrations"
           --logger "console;verbosity=normal"
 
-      - name: Run Cloud entitlement control-plane tests
+      - name: Run stateless Cloud runtime PostgreSQL coverage
         run: >-
           dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
           --configuration Debug
           --no-build
           --no-restore
-          --filter "Category=CloudEntitlements"
+          --filter "Category=CloudRuntime"
           --logger "console;verbosity=normal"
 
-      - name: Run Cloud billing reconciliation tests
+      - name: Run Cloud entitlement and billing control-plane coverage
         run: >-
           dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
           --configuration Debug
           --no-build
           --no-restore
-          --filter "Category=CloudBilling"
+          --filter "Category=CloudEntitlements|Category=CloudBilling"
+          --logger "console;verbosity=normal"
+
+      - name: Run deterministic Cloud auth and managed-AI composition coverage
+        run: >-
+          dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
+          --configuration Debug
+          --no-build
+          --no-restore
+          --filter "FullyQualifiedName~CloudAuthenticationTests|FullyQualifiedName~ManagedCloudAi|FullyQualifiedName~GeminiManagedLlmProviderTests|FullyQualifiedName~GroqManagedSttProviderTests|FullyQualifiedName~AiProviderSettingsEndpointTests|FullyQualifiedName~TranscriptionEndpointTests"
           --logger "console;verbosity=normal"
