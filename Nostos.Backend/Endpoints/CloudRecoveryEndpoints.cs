@@ -1,4 +1,5 @@
 using Nostos.Backend.Cloud.Recovery;
+using Nostos.Backend.Configuration;
 
 namespace Nostos.Backend.Endpoints;
 
@@ -8,6 +9,8 @@ public static class CloudRecoveryEndpoints
         this IEndpointRouteBuilder routes)
     {
         var group = routes.MapGroup("/api/cloud/recovery");
+        var mutations = routes.MapGroup("/api/cloud/recovery")
+            .RequireRateLimiting(CloudRateLimitPolicies.LargeTransfer);
 
         group.MapGet("/backups", async (
             ICloudRecoveryService recovery,
@@ -17,7 +20,7 @@ public static class CloudRecoveryEndpoints
             return Results.Ok(backups);
         });
 
-        group.MapPost("/backups", async (
+        mutations.MapPost("/backups", async (
             ICloudRecoveryService recovery,
             CancellationToken cancellationToken) =>
         {
@@ -25,7 +28,7 @@ public static class CloudRecoveryEndpoints
             return Results.Ok(backup);
         });
 
-        group.MapPost("/backups/{backupId:guid}/restore", async (
+        mutations.MapPost("/backups/{backupId:guid}/restore", async (
             Guid backupId,
             CloudRestoreRequest request,
             ICloudRecoveryService recovery,
