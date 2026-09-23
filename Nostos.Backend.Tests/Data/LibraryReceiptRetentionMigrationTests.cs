@@ -27,7 +27,9 @@ public sealed class LibraryReceiptRetentionMigrationTests : IDisposable
     {
         var path = NewDatabasePath();
         var options = new DbContextOptionsBuilder<NostosDbContext>()
-            .UseSqlite($"Data Source={path}")
+            .UseSqlite(
+                $"Data Source={path}",
+                sqlite => sqlite.MigrationsAssembly(typeof(Program).Assembly.FullName))
             .Options;
 
         // The migration ids EF Core itself knows about (the same source
