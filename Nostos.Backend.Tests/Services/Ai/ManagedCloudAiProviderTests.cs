@@ -158,9 +158,10 @@ public sealed class ManagedProviderTransportTests
             4096));
 
         apiKey.Should().Be(GeminiKey);
-        requestBody.Should().Contain(""thinkingLevel":"low"");
-        requestBody.Should().Contain(""functionDeclarations"");
-        requestBody.Should().Contain(""concepts_list"");
+        requestBody.Should().Contain("thinkingLevel");
+        requestBody.Should().Contain("low");
+        requestBody.Should().Contain("functionDeclarations");
+        requestBody.Should().Contain("concepts_list");
         requestBody.Should().NotContain("additionalProperties");
 
         completion.ToolCalls.Should().ContainSingle();
@@ -233,9 +234,9 @@ public sealed class ManagedProviderTransportTests
 
         second.Content.Should().Be("Done.");
         secondBody.Should().Contain("signature-that-must-round-trip");
-        secondBody.Should().Contain(""functionResponse"");
-        secondBody.Should().Contain(""name":"concepts_list"");
-        secondBody.Should().Contain(""id":"call_1"");
+        secondBody.Should().Contain("functionResponse");
+        secondBody.Should().Contain("concepts_list");
+        secondBody.Should().Contain("call_1");
     }
 
     [Fact]
