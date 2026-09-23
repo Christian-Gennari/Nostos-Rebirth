@@ -47,7 +47,9 @@ public class LibraryEndpointFactory : WebApplicationFactory<Program>
 
             services.AddDbContextFactory<NostosDbContext>(options =>
             {
-                options.UseSqlite($"Data Source={_dbPath}");
+                options.UseSqlite(
+                    $"Data Source={_dbPath}",
+                    sqlite => sqlite.MigrationsAssembly(typeof(Program).Assembly.FullName));
             });
         });
     }
@@ -82,7 +84,9 @@ internal static class LibraryEndpointBootstrap
         lock (Lock)
         {
             var options = new DbContextOptionsBuilder<NostosDbContext>()
-                .UseSqlite($"Data Source={dbPath}")
+                .UseSqlite(
+                    $"Data Source={dbPath}",
+                    sqlite => sqlite.MigrationsAssembly(typeof(Program).Assembly.FullName))
                 .Options;
             using var db = new NostosDbContext(options);
             db.Database.EnsureCreated();
