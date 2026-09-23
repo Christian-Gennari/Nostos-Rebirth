@@ -1,0 +1,203 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Nostos.Backend.Configuration;
+using Nostos.Backend.Data.Interfaces;
+using Nostos.Backend.Data.Repositories;
+using Nostos.Backend.Endpoints;
+using Nostos.Backend.Integrations.Assistant;
+using Nostos.Backend.Providers;
+using Nostos.Backend.Providers.Acquisition;
+using Nostos.Backend.Providers.Acquisition.Media;
+using Nostos.Backend.Providers.Contracts;
+using Nostos.Backend.Providers.Gutenberg;
+using Nostos.Backend.Providers.LibriVox;
+using Nostos.Backend.Serialization;
+using Nostos.Backend.Services;
+using Nostos.Backend.Services.Ai;
+using Nostos.Backend.Services.Library;
+using Nostos.Backend.Services.Notes;
+using Nostos.Backend.Services.Portability;
+
+namespace Nostos.Product.Composition;
+
+/// <summary>
+/// Values normalized while the reusable Nostos product is registered.
+/// A host can use these same instances when it wires transport/provider details.
+/// </summary>
+public sealed record NostosProductDescriptor(
+    AssistantOptions Assistant,
+    SpeechOptions Speech,
+    OpdsOptions Opds);
+
+/// <summary>
+/// Optional host policy names applied to product endpoints.
+///
+/// The product understands only the purpose of a policy. It does not know
+/// whether a host implements that policy with Clerk, ASP.NET rate limiting,
+/// another provider, or no hosted policy at all.
+/// </summary>
+public sealed record NostosProductEndpointPolicies(
+    string? ExpensiveMutationRateLimitPolicy = null,
+    string? ProviderFetchRateLimitPolicy = null,
+    string? LargeTransferRateLimitPolicy = null,
+    string? PortableExportAuthorizationPolicy = null)
+{
+    public static NostosProductEndpointPolicies None { get; } = new();
+}
+
+public static class NostosProductComposition
+{
+    /// <summary>
+    /// Registers provider-neutral Nostos product behavior.
+    ///
+    /// Persistence, durable asset storage, LLM/STT transports, managed-AI
+    /// entitlement/accounting, AI-provider settings persistence and acquisition
+    /// job execution are host responsibilities. This is intentional: the
+    /// SelfHosted executable and a future private Cloud executable supply those
+    /// adapters around the same product services.
+    /// </summary>
+    public static NostosProductDescriptor AddNostosProduct(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        var assistant =
+            configuration.GetSection(AssistantOptions.SectionName).Get<AssistantOptions>()
+            ?? new AssistantOptions();
+        services.AddSingleton(assistant);
+
+        var speech =
+            configuration.GetSection(SpeechOptions.SectionName).Get<SpeechOptions>()
+            ?? new SpeechOptions();
+        services.AddSingleton(speech);
+
+        var opds =
+            configuration.GetSection(OpdsOptions.SectionName).Get<OpdsOptions>()
+            ?? new OpdsOptions();
+        opds.PageSize = OpdsOptions.NormalizePageSize(opds.PageSize);
+        if (!OpdsOptions.TryNormalizePublicBaseUrl(
+                opds.PublicBaseUrl,
+                out var publicBaseUrl,
+                out var publicBaseUrlError))
+        {
+            throw new InvalidOperationException(
+                $"OPDS is enabled but 'Opds:PublicBaseUrl' is invalid ({publicBaseUrlError}). " +
+                "Fix the URL, or unset it to derive the origin from each request.");
+        }
+
+        opds.PublicBaseUrl = publicBaseUrl;
+        services.AddSingleton(opds);
+
+        services.AddSingleton(LibraryReceiptRetentionOptions.Normalize(
+            configuration.GetSection("LibraryReceiptRetention").Get<LibraryReceiptRetentionOptions>()
+            ?? new LibraryReceiptRetentionOptions()));
+
+        services.ConfigureHttpJsonOptions(options =>
+        {
+            options.SerializerOptions.Converters.Add(new UtcDateTimeJsonConverter());
+        });
+
+        services.AddHttpClient();
+        services.AddHttpClient(BookLookupService.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+
+        services.AddScoped<BookLookupService>();
+        services.AddScoped<ILibraryService, LibraryService>();
+        services.AddScoped<LibraryReceiptRetentionService>();
+        services.AddScoped<MediaMetadataService>();
+        services.AddScoped<NoteProcessorService>();
+        services.AddScoped<INoteService, NoteService>();
+
+        services.AddScoped<IPortableArchiveService, PortableArchiveService>();
+        services.TryAddScoped<IPortableArchiveExporter, DefaultPortableArchiveExporter>();
+
+        services.AddScoped<IBookRepository, BookRepository>();
+        services.AddScoped<INoteRepository, NoteRepository>();
+        services.AddScoped<IConceptRepository, ConceptRepository>();
+        services.AddScoped<IWritingRepository, WritingRepository>();
+
+        services.AddSingleton<IThoughtProcessor, ThoughtProcessor>();
+        services.AddSingleton<AssistantPlanStore>();
+        services.AddSingleton<IAssistantSettingsService, AssistantSettingsService>();
+        services.AddScoped<AssistantOrchestrator>();
+
+        services.AddScoped(sp => new AssistantCapabilityRegistry(AssistantCapabilities.Build(
+            sp.GetRequiredService<INoteService>(),
+            sp.GetRequiredService<ILibraryService>(),
+            sp.GetRequiredService<IConceptRepository>())));
+
+        services.Configure<AcquisitionOptions>(
+            configuration.GetSection(AcquisitionOptions.SectionName));
+
+        services.AddHttpClient(ProviderContentDownloader.HttpClientName, client =>
+        {
+            client.Timeout = Timeout.InfiniteTimeSpan;
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(
+                "Nostos/1.0 (+https://github.com/Christian-Gennari/Nostos-Rebirth)");
+        }).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+        {
+            AllowAutoRedirect = false,
+            ConnectTimeout = TimeSpan.FromSeconds(30),
+        });
+
+        services.AddSingleton<IProviderRegistry, ProviderRegistry>();
+        services.AddSingleton<ITranscodeLimiter, TranscodeLimiter>();
+        services.AddSingleton<IProviderContentDownloader, ProviderContentDownloader>();
+        services.AddScoped<IAcquisitionService, AcquisitionService>();
+
+        services.AddHttpClient(GutenbergProvider.HttpClientName, client =>
+        {
+            client.BaseAddress = new Uri(GutenbergCatalog.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(20);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(
+                "Nostos/1.0 (+https://github.com/Christian-Gennari/Nostos-Rebirth)");
+        });
+        services.AddSingleton<IContentProvider, GutenbergProvider>();
+
+        services.Configure<MediaToolOptions>(
+            configuration.GetSection(MediaToolOptions.SectionName));
+        services.AddSingleton<IMediaProcessRunner, MediaProcessRunner>();
+        services.AddSingleton<LibriVoxM4bAssembler>();
+
+        services.AddHttpClient(LibriVoxProvider.HttpClientName, client =>
+        {
+            client.BaseAddress = new Uri(LibriVoxCatalog.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(20);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(
+                "Nostos/1.0 (+https://github.com/Christian-Gennari/Nostos-Rebirth)");
+        });
+        services.AddSingleton<IContentProvider, LibriVoxProvider>();
+
+        return new NostosProductDescriptor(assistant, speech, opds);
+    }
+
+    /// <summary>
+    /// Maps the shared customer-facing Nostos API. Hosted-only auth, billing,
+    /// provisioning, recovery and operator endpoints are deliberately absent.
+    /// </summary>
+    public static IEndpointRouteBuilder MapNostosProductEndpoints(
+        this IEndpointRouteBuilder routes,
+        OpdsOptions opds,
+        NostosProductEndpointPolicies? policies = null)
+    {
+        policies ??= NostosProductEndpointPolicies.None;
+
+        routes.MapBooksEndpoints(policies);
+        routes.MapProviderEndpoints(policies);
+        routes.MapImportEndpoints();
+        routes.MapNotesEndpoints();
+        routes.MapNoteProcessingEndpoints();
+        routes.MapCollectionsEndpoints();
+        routes.MapConceptsEndpoints();
+        routes.MapWritingsEndpoints();
+        routes.MapTranscriptionEndpoints();
+        routes.MapAssistantEndpoints();
+        routes.MapAiProviderSettingsEndpoints();
+        routes.MapAssistantSettingsEndpoints();
+        routes.MapDeploymentCapabilitiesEndpoints();
+        routes.MapPortabilityEndpoints(policies);
+        routes.MapOpdsEndpoints(opds);
+
+        return routes;
+    }
+}
