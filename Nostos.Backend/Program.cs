@@ -52,6 +52,14 @@ if (deployment.Mode == DeploymentMode.Cloud)
     // product's TryAdd fallback does not replace it.
     builder.Services.AddScoped<IPortableArchiveExporter, CloudPortableArchiveExporter>();
 }
+else
+{
+    // Preserve SelfHosted's same-volume staging behavior without exposing the
+    // local filesystem contract to Nostos.Product.
+    builder.Services.AddSingleton<
+        IAcquisitionWorkingRootProvider,
+        SelfHostedAcquisitionWorkingRootProvider>();
+}
 
 var product = builder.Services.AddNostosProduct(builder.Configuration);
 var assistantOptions = product.Assistant;
