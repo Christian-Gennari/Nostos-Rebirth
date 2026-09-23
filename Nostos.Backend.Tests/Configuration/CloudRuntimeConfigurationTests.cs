@@ -18,9 +18,8 @@ public sealed class CloudRuntimeConfigurationTests
     {
         var services = new ServiceCollection();
 
-        var act = () => services.AddNostosDataProtection(
+        var act = () => services.AddNostosCloudDataProtection(
             new ConfigurationBuilder().Build(),
-            DeploymentDescriptor.For(DeploymentMode.Cloud),
             _ => null);
 
         act.Should()
@@ -33,9 +32,8 @@ public sealed class CloudRuntimeConfigurationTests
     {
         var services = new ServiceCollection();
 
-        var act = () => services.AddNostosDataProtection(
+        var act = () => services.AddNostosCloudDataProtection(
             new ConfigurationBuilder().Build(),
-            DeploymentDescriptor.For(DeploymentMode.Cloud),
             _ => Convert.ToBase64String(new byte[16]));
 
         act.Should()
@@ -48,10 +46,7 @@ public sealed class CloudRuntimeConfigurationTests
     {
         var services = new ServiceCollection();
 
-        var act = () => services.AddNostosDataProtection(
-            new ConfigurationBuilder().Build(),
-            DeploymentDescriptor.For(DeploymentMode.SelfHosted),
-            _ => null);
+        var act = () => services.AddNostosSelfHostedDataProtection();
 
         act.Should().NotThrow();
         services.Should().NotContain(x =>
@@ -63,9 +58,8 @@ public sealed class CloudRuntimeConfigurationTests
     {
         var services = new ServiceCollection();
 
-        services.AddNostosDataProtection(
+        services.AddNostosCloudDataProtection(
             new ConfigurationBuilder().Build(),
-            DeploymentDescriptor.For(DeploymentMode.Cloud),
             _ => Convert.ToBase64String(new byte[32]));
 
         services.Should().Contain(x =>
@@ -83,7 +77,10 @@ public sealed class CloudRuntimeConfigurationTests
         string expectedName)
     {
         var services = new ServiceCollection();
-        services.AddNostosHealthChecks(DeploymentDescriptor.For(mode));
+        if (mode == DeploymentMode.Cloud)
+            services.AddNostosCloudHealthChecks();
+        else
+            services.AddNostosSelfHostedHealthChecks();
 
         using var provider = services.BuildServiceProvider();
         var options = provider
