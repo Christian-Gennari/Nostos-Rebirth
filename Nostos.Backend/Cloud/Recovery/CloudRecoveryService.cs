@@ -313,17 +313,16 @@ public sealed class CloudRecoveryService(
                 // as failed and tempt an operator to repeat it simply because
                 // the non-authoritative audit write failed.
                 logger.LogError(
-                    exception,
-                    "Cloud restore {RestoreId} activated successfully but its completion audit could not be persisted.",
-                    stage.RestoreId);
+                    "Cloud restore {RestoreId} activated successfully but its completion audit could not be persisted; exception type {ExceptionType}. Details suppressed.",
+                    stage.RestoreId,
+                    exception.GetType().Name);
             }
 
             logger.LogInformation(
-                "Restored Cloud account {AccountId} from backup {BackupId}. Resource {ResourceId} now points to staged database {DatabaseName}; previous resources are retained for rollback.",
+                "Restored Cloud account {AccountId} from backup {BackupId}. Resource {ResourceId} was rebound to a verified staged resource; previous resources are retained for rollback.",
                 account.AccountId,
                 backupId,
-                original.ResourceId,
-                stage.DatabaseName);
+                original.ResourceId);
 
             return new CloudRestoreResult(
                 stage.RestoreId,
@@ -356,9 +355,9 @@ public sealed class CloudRecoveryService(
                 catch (Exception auditException)
                 {
                     logger.LogWarning(
-                        auditException,
-                        "Could not persist failed Cloud restore audit for account {AccountId}.",
-                        account.AccountId);
+                        "Could not persist failed Cloud restore audit for account {AccountId}; exception type {ExceptionType}. Details suppressed.",
+                        account.AccountId,
+                        auditException.GetType().Name);
                 }
             }
 
