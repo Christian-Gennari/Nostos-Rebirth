@@ -29,6 +29,8 @@ import {
   ProcessingMode,
 } from '../ui/assistant/assistant-settings.service';
 import { AiProviderService } from '../core/services/ai-provider.service';
+import { DeploymentCapabilitiesService } from '../core/services/deployment-capabilities.service';
+import { DeploymentCapabilities } from '../core/dtos/deployment-capabilities.dtos';
 import {
   AiProviderKind,
   AiProviderSection,
@@ -186,9 +188,35 @@ export class SettingsComponent implements OnInit, OnDestroy {
   private assistantSettings = inject(AssistantSettingsService);
   private preferences = inject(LibraryPreferencesService);
   private aiProvider = inject(AiProviderService);
+  private deploymentCapabilitiesService = inject(DeploymentCapabilitiesService);
 
   /** Which settings surface is visible. This is local UI state, not a route. */
   readonly activeSettingsSection = signal<SettingsSection>('library');
+
+  /** Server-authoritative deployment capabilities. Null means not loaded yet. */
+  readonly deploymentCapabilities = signal<DeploymentCapabilities | null>(null);
+  readonly capabilitiesFailed = signal(false);
+  readonly capabilitiesLoading = computed(
+    () => this.deploymentCapabilities() === null && !this.capabilitiesFailed(),
+  );
+  readonly supportsLocalBackupConfiguration = computed(
+    () => this.deploymentCapabilities()?.supportsLocalBackupConfiguration === true,
+  );
+  readonly supportsPrivateNetworkAccess = computed(
+    () => this.deploymentCapabilities()?.supportsPrivateNetworkAccess === true,
+  );
+  readonly canConfigureAiProvider = computed(
+    () => this.deploymentCapabilities()?.canConfigureAiProvider === true,
+  );
+  readonly managedAi = computed(
+    () => this.deploymentCapabilities()?.managedAi === true,
+  );
+  readonly managedVoiceTranscription = computed(
+    () => this.deploymentCapabilities()?.managedVoiceTranscription === true,
+  );
+  readonly hasLibrarySettings = computed(
+    () => this.supportsLocalBackupConfiguration() || this.supportsPrivateNetworkAccess(),
+  );
 
   /** The AI provider card's copy, exposed so the template reads one source. */
   readonly copy = AI_PROVIDER_COPY;
@@ -201,6 +229,16 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
   /** The persisted user intent for the Reading assistant toggle. */
   readonly assistantEnabled = this.preferences.assistantEnabled;
+
+  /** Product-level voice intent, separate from provider configuration. */
+  readonly assistantVoiceEnabled = this.preferences.assistantVoiceEnabled;
+
+  /** Cloud failures should never direct a customer to provider plumbing. */
+  readonly assistantUnavailableCopy = computed(() =>
+    this.managedAi()
+      ? 'Ask Nostos is temporarily unavailable.'
+      : this.copy.oldCardEmptyState,
+  );
 
   /** The stored capture-processing choice, exposed to the Reading assistant card. */
   readonly captureProcessingMode = this.assistantSettings.captureProcessingMode;
@@ -243,6 +281,11 @@ export class SettingsComponent implements OnInit, OnDestroy {
     if (!this.assistantAvailable()) return;
     const checked = (event.target as HTMLInputElement).checked;
     this.preferences.setAssistantEnabled(checked);
+  }
+
+  setAssistantVoiceEnabled(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.preferences.setAssistantVoiceEnabled(checked);
   }
 
   changeCaptureProcessingMode(mode: string): void {
@@ -325,11 +368,39 @@ export class SettingsComponent implements OnInit, OnDestroy {
   private progressInterval: ReturnType<typeof setInterval> | null = null;
 
   ngOnInit(): void {
-    this.loadData();
-    this.loadOpdsInfo();
-    this.loadAiProvider();
-    this.assistantStatus.refresh();
-    this.assistantSettings.refresh();
+    this.loadCapabilities();
+  }
+
+  private loadCapabilities(): void {
+    this.deploymentCapabilitiesService.get().subscribe({
+      next: (capabilities) => {
+        this.deploymentCapabilities.set(capabilities);
+        this.capabilitiesFailed.set(false);
+
+        // Cloud has no local/private-network Library settings today, so land on
+        // the first meaningful product section instead of an empty tab.
+        if (
+          !capabilities.supportsLocalBackupConfiguration &&
+          !capabilities.supportsPrivateNetworkAccess
+        ) {
+          this.activeSettingsSection.set('assistant');
+        }
+
+        // Do not touch owner/infrastructure APIs before the server says this
+        // deployment exposes them. This also prevents forbidden controls from
+        // flashing while the capability request is in flight.
+        if (capabilities.supportsLocalBackupConfiguration) this.loadData();
+        if (capabilities.supportsPrivateNetworkAccess) this.loadOpdsInfo();
+        if (capabilities.canConfigureAiProvider) this.loadAiProvider();
+
+        this.assistantStatus.refresh();
+        this.assistantSettings.refresh();
+      },
+      error: () => {
+        this.deploymentCapabilities.set(null);
+        this.capabilitiesFailed.set(true);
+      },
+    });
   }
 
   ngOnDestroy(): void {

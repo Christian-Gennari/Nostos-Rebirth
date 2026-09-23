@@ -1074,6 +1074,16 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
       expect(voice.start).toHaveBeenCalledTimes(1);
     });
 
+    it('hides and guards the mic when the voice product preference is off', () => {
+      TestBed.inject(LibraryPreferencesService).setAssistantVoiceEnabled(false);
+      open();
+
+      expect(query('[data-testid="assistant-voice-start"]')).toBeNull();
+
+      fixture.componentInstance.onMicTap();
+      expect(voice.start).not.toHaveBeenCalled();
+    });
+
     it('shows a quiet elapsed timer and a stop control while recording', () => {
       open();
       voice.setElapsed(7);

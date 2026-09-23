@@ -8,5 +8,6 @@ export interface DeploymentCapabilities {
   managedVoiceTranscription: boolean;
   usesCloudStorage: boolean;
   supportsLocalBackupConfiguration: boolean;
+  supportsPrivateNetworkAccess: boolean;
   usageMeteringAvailable: boolean;
 }
