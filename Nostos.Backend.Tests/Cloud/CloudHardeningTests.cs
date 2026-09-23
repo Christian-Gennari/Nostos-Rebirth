@@ -1,6 +1,8 @@
 using System.Text.Json;
 using FluentAssertions;
+using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using Nostos.Backend.Cloud;
 using Nostos.Backend.Configuration;
@@ -31,6 +33,21 @@ public sealed class CloudHardeningTests
             DeploymentDescriptor.For(DeploymentMode.Cloud));
 
         services.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public void Cloud_hsts_policy_is_explicit_and_alpha_safe()
+    {
+        var services = new ServiceCollection();
+        services.AddNostosCloudRequestHardening(
+            DeploymentDescriptor.For(DeploymentMode.Cloud));
+
+        using var provider = services.BuildServiceProvider();
+        var hsts = provider.GetRequiredService<IOptions<HstsOptions>>().Value;
+
+        hsts.MaxAge.Should().Be(TimeSpan.FromDays(30));
+        hsts.IncludeSubDomains.Should().BeFalse();
+        hsts.Preload.Should().BeFalse();
     }
 
     [Fact]
