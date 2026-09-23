@@ -83,7 +83,9 @@ public sealed class CloudOnboardingService(
         var account = tenantContext.GetRequired();
         var resource = await controlPlane.FindAsync(account.AccountId, cancellationToken);
 
-        if (resource?.AccountStatus is CloudAccountStatus.Disabled or CloudAccountStatus.Deleted)
+        if (resource?.AccountStatus is CloudAccountStatus.DeletionRequested
+            or CloudAccountStatus.Disabled
+            or CloudAccountStatus.Deleted)
             return AccountUnavailable();
 
         var entitlement = await entitlements.GetEntitlementsAsync(cancellationToken);
@@ -95,7 +97,9 @@ public sealed class CloudOnboardingService(
         if (resource is null)
             return ReadyToProvision(entitlement);
 
-        if (resource.AccountStatus is CloudAccountStatus.Disabled or CloudAccountStatus.Deleted)
+        if (resource.AccountStatus is CloudAccountStatus.DeletionRequested
+            or CloudAccountStatus.Disabled
+            or CloudAccountStatus.Deleted)
             return AccountUnavailable(entitlement.SubscriptionStatus);
 
         if (resource.IsReady)
