@@ -1,37 +1,19 @@
-# Nostos deployment modes
+# Nostos deployment capabilities
 
-Nostos ships as one application and one release line with two runtime deployment modes.
-
-## Configuration
-
-The server reads:
-
-```text
-Nostos:DeploymentMode
-```
-
-Supported values:
-
-- `SelfHosted` — default when the setting is absent.
-- `Cloud` — hosted Nostos infrastructure.
-
-The setting can use normal ASP.NET Core configuration sources. For example:
-
-```bash
-Nostos__DeploymentMode=Cloud
-```
-
-Do not infer deployment mode from host names, build configuration, the browser, or separate frontend bundles.
+Nostos has one product, one domain model, and one Angular customer application.
+The public `Nostos.Backend` executable runs SelfHosted. The official hosted service
+uses a separate private executable that composes the same public `Nostos.Product`
+and frontend source.
 
 ## Product contract
 
-The running backend publishes:
+The backend publishes the server-authoritative capability manifest:
 
 ```http
 GET /api/runtime/capabilities
 ```
 
-SelfHosted currently reports the product contract:
+SelfHosted reports:
 
 ```json
 {
@@ -46,7 +28,8 @@ SelfHosted currently reports the product contract:
 }
 ```
 
-Cloud's intended product contract is:
+The same public contract defines the capabilities used by the private hosted
+executable:
 
 ```json
 {
@@ -61,35 +44,25 @@ Cloud's intended product contract is:
 }
 ```
 
-The capability names describe Nostos behavior. They intentionally do not expose infrastructure vendor choices such as PostgreSQL hosts, object-storage providers, or AI provider credentials.
+Capability names describe product behavior. They do not expose infrastructure
+vendors, tenant identifiers, or provider credentials. Hosted API implementations
+and their configuration live in the private Nostos-Cloud repository.
 
-## Current Cloud persistence state
+## Public SelfHosted composition
 
-Issue #396 wires Cloud mode to a separate PostgreSQL control plane and a trusted, tenant-aware customer database factory.
-
-Cloud startup now requires server-side PostgreSQL connection settings and fails closed when they are missing. It never falls back to the SelfHosted SQLite database.
-
-New customer databases are initialized through the provider-specific PostgreSQL migration set. The short-lived #396 `current-model-v1` state is adopted through the explicit baseline path in #398; it is no longer used for fresh tenants.
-
-## Composition rule
-
-Feature/domain code should not read `Nostos:DeploymentMode` directly.
-
-Deployment-specific infrastructure belongs at composition boundaries:
+The public executable always registers:
 
 ```text
-SelfHosted -> SQLite / local files / owner-managed provider configuration
-Cloud      -> PostgreSQL / object storage / managed services
+SQLite + local filesystem media + local backup/restore + customer-configured BYOK
 ```
 
-Normal Nostos features continue to share the same domain model, repositories, API behavior and Angular application.
+It does not load hosted auth, billing, tenant provisioning, managed-provider,
+object-storage, or operator-recovery implementations. Starting a public clone
+does not require private repository access or hosted credentials.
 
 ## Frontend rule
 
-The Angular application is one build for both modes.
-
-Frontend surfaces that genuinely differ should consume the server capability manifest through `DeploymentCapabilitiesService`. Do not add hostname checks or environment-specific frontend forks.
-
-Cloud managed Ask Nostos and voice composition is documented in [managed-ai.md](managed-ai.md).
-
-Issue #407 owns the later Settings/UI adaptation based on these capabilities.
+The Angular application is built once from public source and is shared with the
+private hosted executable at the pinned public commit. Frontend components use
+`DeploymentCapabilitiesService`; they do not infer deployment from a hostname or
+use a private frontend fork.

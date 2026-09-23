@@ -65,13 +65,9 @@ public sealed class AssistantOptions
     /// <summary>
     /// Cumulative provider-reported token ceiling for one turn (prompt + output;
     /// thinking is already inside output). Zero or below disables the ceiling.
-    ///
-    /// Selected from the external Gemini 3.8 Flash low-thinking measurement in
-    /// <c>docs/cloud/ask-nostos-execution-budget-spike.md</c>: the worst of 900
-    /// measured turns used 31,875 tokens and the worst case a legitimate six-call
-    /// turn can reach on the interim gateway transport is ~38,000, so this bounds a
-    /// runaway turn rather than a context window. It is not #405's abuse/rate limit,
-    /// #403's monthly entitlement, or an operator/global emergency ceiling.
+    /// The 50,000-token value leaves headroom above measured Ask Nostos work while
+    /// bounding a runaway turn rather than a provider context window. Provider
+    /// pricing varies by BYOK configuration and is handled by the provider account.
     /// </summary>
     public int MaxTurnTokens { get; set; } = 50_000;
 
@@ -83,20 +79,6 @@ public sealed class AssistantOptions
     /// stalled turn is stopped by this budget rather than by a transport error.
     /// </summary>
     public int MaxTurnElapsedMilliseconds { get; set; } = 60_000;
-
-    /// <summary>
-    /// Estimated provider-cost ceiling for one turn in USD, priced with
-    /// <see cref="Integrations.Assistant.AssistantPricing"/> at its recorded price
-    /// epoch. Zero or below disables the ceiling. Cannot trip while a provider
-    /// usage field is missing — an unknown cost is never read as over-budget or as
-    /// free.
-    ///
-    /// Selected from the same measurement: the worst of 900 turns cost $0.0247, and
-    /// the token ceiling above prices at ≈$0.039 in the current epoch. Kept as a
-    /// separate dimension because the 2027 epoch doubles token prices, at which point
-    /// the same 50,000-token turn costs ≈$0.078 and this ceiling binds first.
-    /// </summary>
-    public decimal MaxTurnEstimatedCostUsd { get; set; } = 0.05m;
 
     /// <summary>
     /// Per-LLM-call ceiling. The pool spends reasoning tokens even on trivial

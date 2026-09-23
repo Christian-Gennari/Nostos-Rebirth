@@ -23,8 +23,7 @@ public sealed class AcquisitionReconciliationWorker(
     IWebHostEnvironment environment,
     IOptions<FileStorageOptions> storageOptions,
     IOptions<AcquisitionOptions> options,
-    ILogger<AcquisitionReconciliationWorker> logger,
-    DeploymentDescriptor? deployment = null) : IHostedService
+    ILogger<AcquisitionReconciliationWorker> logger) : IHostedService
 {
     /// <summary>
     /// The exact StatusMessage written onto a book whose import a restart cut
@@ -57,10 +56,9 @@ public sealed class AcquisitionReconciliationWorker(
     public async Task ReconcileAsync(CancellationToken cancellationToken = default)
     {
         // 1. Clean up the acquisition working/staging root directory if it exists.
-        var mode = (deployment ?? DeploymentDescriptor.For(DeploymentMode.SelfHosted)).Mode;
-        var localBooksRoot = mode == DeploymentMode.SelfHosted
-            ? FileStorageOptions.ResolveBooksRoot(environment.ContentRootPath, storageOptions.Value)
-            : null;
+        var localBooksRoot = FileStorageOptions.ResolveBooksRoot(
+            environment.ContentRootPath,
+            storageOptions.Value);
         var workingRoot = AcquisitionOptions.ResolveWorkingRoot(
             environment.ContentRootPath,
             localBooksRoot,
@@ -89,17 +87,7 @@ public sealed class AcquisitionReconciliationWorker(
             }
         }
 
-        // Cloud scratch is instance-local and safe to clean on every replica.
-        // Customer rows, however, require an explicit trusted tenant context;
-        // never pretend there is one during process startup.
-        if (mode == DeploymentMode.Cloud)
-        {
-            logger.LogInformation(
-                "Cloud acquisition scratch cleanup completed; tenant database reconciliation is intentionally deferred to tenant-aware work.");
-            return;
-        }
-
-        // 2. SelfHosted has one local database, so stranded rows can be reconciled directly.
+        // SelfHosted has one local database, so stranded rows can be reconciled directly.
         await using var db = await contextFactory.CreateDbContextAsync(cancellationToken);
 
         var strandedBooks = await db.Books

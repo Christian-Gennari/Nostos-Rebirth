@@ -2,6 +2,7 @@ using Nostos.Backend.Configuration;
 using Nostos.Backend.Integrations.Assistant;
 using Nostos.Backend.Services.Ai;
 using Nostos.Shared.Dtos;
+using Nostos.Product.Services.Ai;
 
 namespace Nostos.Backend.Endpoints;
 
@@ -45,7 +46,7 @@ public static class AssistantEndpoints
     /// </summary>
     private static async Task<IResult> StatusAsync(
         IAiProviderConfigResolver config,
-        IManagedAiAccessPolicy access,
+        IAiAccessPolicy access,
         CancellationToken ct)
     {
         if (!await access.IsAllowedAsync(ct))
@@ -59,18 +60,17 @@ public static class AssistantEndpoints
         AssistantTurnRequest request,
         AssistantOrchestrator orchestrator,
         IAiProviderConfigResolver config,
-        IManagedAiAccessPolicy access,
-        DeploymentDescriptor deployment,
+        IAiAccessPolicy access,
         CancellationToken ct)
     {
-        var unavailable = await UnavailableAsync(config, access, deployment, ct);
+        var unavailable = await UnavailableAsync(config, access, ct);
         if (unavailable is not null) return unavailable;
 
         try
         {
             return Results.Ok(await orchestrator.HandleTurnAsync(request, ct));
         }
-        catch (ManagedAiUsageException ex)
+        catch (AiUsageException ex)
         {
             return UsageFailure(ex);
         }
@@ -84,11 +84,10 @@ public static class AssistantEndpoints
         AssistantPlanApproveRequest request,
         AssistantOrchestrator orchestrator,
         IAiProviderConfigResolver config,
-        IManagedAiAccessPolicy access,
-        DeploymentDescriptor deployment,
+        IAiAccessPolicy access,
         CancellationToken ct)
     {
-        var unavailable = await UnavailableAsync(config, access, deployment, ct);
+        var unavailable = await UnavailableAsync(config, access, ct);
         if (unavailable is not null) return unavailable;
 
         var response = await orchestrator.ApproveAsync(request.PlanId, request.ApprovalToken, ct);
@@ -109,28 +108,19 @@ public static class AssistantEndpoints
     /// </summary>
     private static async Task<IResult?> UnavailableAsync(
         IAiProviderConfigResolver config,
-        IManagedAiAccessPolicy access,
-        DeploymentDescriptor deployment,
+        IAiAccessPolicy access,
         CancellationToken ct)
     {
         if (!await access.IsAllowedAsync(ct))
         {
             return Failure(
-                LlmErrorCodes.NotEntitled,
+                LlmErrorCodes.AccessDenied,
                 StatusCodes.Status403Forbidden,
-                "Ask Nostos is not included for this Cloud account.");
+                "The host policy does not allow Ask Nostos for this request.");
         }
 
         var effective = await config.GetEffectiveLlmAsync(ct);
         if (effective.IsAvailable) return null;
-
-        if (deployment.Mode == DeploymentMode.Cloud)
-        {
-            return Failure(
-                effective.Enabled ? LlmErrorCodes.NotConfigured : LlmErrorCodes.Disabled,
-                StatusCodes.Status503ServiceUnavailable,
-                "Ask Nostos is temporarily unavailable.");
-        }
 
         return effective.Enabled
             ? Failure(
@@ -143,17 +133,19 @@ public static class AssistantEndpoints
                 LlmException.Disabled().Message);
     }
 
-    private static IResult UsageFailure(ManagedAiUsageException exception) =>
+    private static IResult UsageFailure(AiUsageException exception) =>
         exception.Reason switch
         {
-            ManagedAiUsageBlockReason.NotEntitled =>
-                Failure("managed_ai_not_included", StatusCodes.Status403Forbidden, exception.Message),
-            ManagedAiUsageBlockReason.RateLimited =>
-                Failure("managed_ai_rate_limited", StatusCodes.Status429TooManyRequests, exception.Message),
-            ManagedAiUsageBlockReason.MonthlyAllowanceExhausted =>
-                Failure("managed_ai_monthly_limit_reached", StatusCodes.Status429TooManyRequests, exception.Message),
+            AiUsageBlockReason.AccessDenied =>
+                Failure("ai_access_denied", StatusCodes.Status403Forbidden, exception.Message),
+            AiUsageBlockReason.RateLimited =>
+                Failure("ai_rate_limited", StatusCodes.Status429TooManyRequests, exception.Message),
+            AiUsageBlockReason.LimitReached =>
+                Failure("ai_usage_limit_reached", StatusCodes.Status429TooManyRequests, exception.Message),
+            AiUsageBlockReason.Disabled =>
+                Failure("ai_disabled", StatusCodes.Status503ServiceUnavailable, exception.Message),
             _ =>
-                Failure("managed_ai_temporarily_unavailable", StatusCodes.Status503ServiceUnavailable, exception.Message),
+                Failure("ai_temporarily_unavailable", StatusCodes.Status503ServiceUnavailable, exception.Message),
         };
 
     /// <summary>
@@ -163,7 +155,7 @@ public static class AssistantEndpoints
     /// </summary>
     private static int StatusFor(string code) => code switch
     {
-        LlmErrorCodes.NotEntitled => StatusCodes.Status403Forbidden,
+        LlmErrorCodes.AccessDenied => StatusCodes.Status403Forbidden,
         LlmErrorCodes.Disabled or LlmErrorCodes.NotConfigured => StatusCodes.Status503ServiceUnavailable,
         LlmErrorCodes.RateLimited => StatusCodes.Status429TooManyRequests,
         LlmErrorCodes.Timeout => StatusCodes.Status504GatewayTimeout,

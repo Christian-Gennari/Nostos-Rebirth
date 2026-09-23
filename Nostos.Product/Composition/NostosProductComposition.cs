@@ -49,11 +49,10 @@ public static class NostosProductComposition
     /// <summary>
     /// Registers provider-neutral Nostos product behavior.
     ///
-    /// Persistence, durable asset storage, LLM/STT transports, managed-AI
-    /// entitlement/accounting, AI-provider settings persistence and acquisition
-    /// job execution are host responsibilities. This is intentional: the
-    /// SelfHosted executable and a future private Cloud executable supply those
-    /// adapters around the same product services.
+    /// Persistence, durable asset storage, LLM/STT transports, optional access
+    /// and usage policies, AI-provider settings persistence and acquisition job
+    /// execution are host responsibilities. Product services consume only the
+    /// provider-neutral contracts supplied by their host.
     /// </summary>
     public static NostosProductDescriptor AddNostosProduct(
         this IServiceCollection services,
@@ -175,8 +174,8 @@ public static class NostosProductComposition
     }
 
     /// <summary>
-    /// Maps the shared customer-facing Nostos API. Hosted-only auth, billing,
-    /// provisioning, recovery and operator endpoints are deliberately absent.
+    /// Maps the shared Nostos product API. Host-specific routes and access
+    /// policies are composed by the executable around this product surface.
     /// </summary>
     public static IEndpointRouteBuilder MapNostosProductEndpoints(
         this IEndpointRouteBuilder routes,

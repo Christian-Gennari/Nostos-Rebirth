@@ -127,13 +127,21 @@ Nostos is engineered as an efficient, low-overhead system capable of running com
 * **Editor:** TinyMCE with bidirectional markdown round-tripping
 * **Icons & Typography:** Lucide, Newsreader Serif, and Hanken Grotesk
 
+`Nostos-Rebirth` is the canonical, fully self-hostable product repository. Its
+public executable runs SelfHosted with SQLite, local media and local backup/restore.
+The official hosted Nostos Cloud service is composed in the private
+[`Nostos-Cloud`](https://github.com/Christian-Gennari/Nostos-Cloud) repository,
+which consumes this repository's `Nostos.Product` and the same Angular frontend at
+one pinned public commit. Reusable product, domain and frontend changes land here
+first; hosted operations and provider implementations stay private.
+
 ```text
 Nostos-Rebirth/
-├── Nostos.Backend/       # ASP.NET Core Minimal API & background workers
-├── Nostos.Frontend/      # Angular SPA (Library, Readers, Notes, Studio)
-├── Nostos.Shared/        # Shared DTOs and business contracts
-├── docs/                 # Architectural specifications and design manifesto
-└── _brand-assets/        # Logos, typography, and visual guidelines
+├── Nostos.Product/       # canonical product/domain/application/API composition
+├── Nostos.Backend/       # public SelfHosted host: SQLite, files, local backup, BYOK
+├── Nostos.Shared/        # shared DTOs and business contracts
+├── Nostos.Frontend/      # one Angular SPA for SelfHosted and official Cloud
+└── docs/                 # product and boundary architecture
 ```
 
 ---
@@ -185,7 +193,10 @@ The mark is deliberately theme-invariant across both light and dark study enviro
 * **[MCP Library Contracts](docs/library-mcp-contracts.md):** Specification for Model Context Protocol agents and tools.
 * **[Content Providers & Acquisition](docs/content-providers.md):** How external catalogues (Gutenberg, LibriVox) are imported as ordinary local books.
 * **[Backend Endpoints](Nostos.Backend/_docs/endpoints.md):** REST API reference.
-* **[Cloud Production Hosting ADR](docs/adr/cloud-production-hosting.md):** Canonical alpha → paid-production hosting, cost, staging, and recovery decision.
+* **[Public/private boundary ADR](docs/adr/cloud-public-private-boundary.md):** one public Nostos product and the private official hosted composition.
+* **[Deployment capabilities](docs/cloud/deployment-modes.md):** product-level SelfHosted and hosted capability contract.
+* **[Portable archives](docs/cloud/portability.md):** provider-neutral `.nostos` export/import contract.
+* **[PostgreSQL product-model compatibility](docs/cloud/postgresql-compatibility-spike.md):** evidence for the shared relational model.
 
 ### Active Roadmap
 * [ ] Enhanced mobile navigation and touch interaction

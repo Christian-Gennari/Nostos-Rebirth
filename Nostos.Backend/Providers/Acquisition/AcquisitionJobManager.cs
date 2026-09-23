@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Microsoft.Extensions.Options;
 using Nostos.Backend.Configuration;
-using Nostos.Backend.Security;
 
 namespace Nostos.Backend.Providers.Acquisition;
 
@@ -25,22 +24,15 @@ public sealed class AcquisitionJobManager : BackgroundService, IAcquisitionJobMa
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly AcquisitionOptions _options;
     private readonly ILogger<AcquisitionJobManager> _logger;
-    private readonly DeploymentDescriptor _deployment;
-    private readonly IServiceProvider? _rootServices;
 
     public AcquisitionJobManager(
         IServiceScopeFactory scopeFactory,
         IOptions<AcquisitionOptions> options,
-        ILogger<AcquisitionJobManager> logger,
-        DeploymentDescriptor? deployment = null,
-        IServiceProvider? rootServices = null)
+        ILogger<AcquisitionJobManager> logger)
     {
         _scopeFactory = scopeFactory;
         _options = options.Value;
         _logger = logger;
-        _deployment = deployment ?? DeploymentDescriptor.For(DeploymentMode.SelfHosted);
-        _rootServices = rootServices;
-
         _queue = Channel.CreateBounded<Job>(new BoundedChannelOptions(Math.Max(4, _options.MaxRetainedJobs))
         {
             FullMode = BoundedChannelFullMode.DropWrite,
@@ -53,10 +45,7 @@ public sealed class AcquisitionJobManager : BackgroundService, IAcquisitionJobMa
     {
         Sweep();
 
-        var job = new Job(
-            Guid.NewGuid().ToString("N"),
-            request,
-            CaptureTrustedTenantContext());
+        var job = new Job(Guid.NewGuid().ToString("N"), request);
         _jobs[job.Id] = job;
 
         if (!_queue.Writer.TryWrite(job))
@@ -171,12 +160,6 @@ public sealed class AcquisitionJobManager : BackgroundService, IAcquisitionJobMa
             // DbContext factory), so each job gets its own scope.
             using var scope = _scopeFactory.CreateScope();
 
-            using var tenantContextLease = job.TenantContext is null
-                ? null
-                : scope.ServiceProvider
-                    .GetRequiredService<CloudTenantContextScope>()
-                    .Push(job.TenantContext);
-
             var acquisitions = scope.ServiceProvider.GetRequiredService<IAcquisitionService>();
 
             var progress = new InlineProgress<AcquisitionProgress>(job.MarkProgress);
@@ -197,29 +180,6 @@ public sealed class AcquisitionJobManager : BackgroundService, IAcquisitionJobMa
             job.Cancel();
             _logger.LogInformation("Acquisition job {JobId} was cancelled.", job.Id);
         }
-    }
-
-    private NostosAccountContext? CaptureTrustedTenantContext()
-    {
-        if (_deployment.Mode != DeploymentMode.Cloud)
-            return null;
-
-        var root = _rootServices
-            ?? throw new InvalidOperationException(
-                "Cloud acquisition requires the application service provider.");
-
-        var httpContext = root.GetRequiredService<IHttpContextAccessor>().HttpContext
-            ?? throw new InvalidOperationException(
-                "Cloud acquisition can only be queued from an authenticated request.");
-
-        var resolver = root.GetRequiredService<ICloudAccountContextResolver>();
-        if (!resolver.TryResolve(httpContext.User, out var account) || account is null)
-        {
-            throw new InvalidOperationException(
-                "Cloud acquisition requires a trusted Nostos account identity.");
-        }
-
-        return account;
     }
 
     private void Sweep()
@@ -281,21 +241,16 @@ public sealed class AcquisitionJobManager : BackgroundService, IAcquisitionJobMa
         private string? _errorCode;
         private string? _message;
 
-        public Job(
-            string id,
-            AcquisitionRequest request,
-            NostosAccountContext? tenantContext)
+        public Job(string id, AcquisitionRequest request)
         {
             Id = id;
             Request = request;
-            TenantContext = tenantContext;
             CreatedAt = DateTime.UtcNow;
             UpdatedAt = CreatedAt;
         }
 
         public string Id { get; }
         public AcquisitionRequest Request { get; }
-        public NostosAccountContext? TenantContext { get; }
         public DateTime CreatedAt { get; private set; }
         public DateTime UpdatedAt { get; private set; }
 

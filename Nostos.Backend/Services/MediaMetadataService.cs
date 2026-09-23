@@ -42,7 +42,7 @@ public class MediaMetadataService
 
     /// <summary>
     /// Stream-based metadata extraction for provider-neutral storage. ATL can
-    /// inspect audio directly from a stream, so Cloud uploads do not need a
+    /// inspect audio directly from a stream, so remote uploads do not need a
     /// durable local file merely to discover chapters/duration.
     /// </summary>
     public bool EnrichBookMetadata(BookModel book, Stream content)

@@ -17,8 +17,8 @@ public static class SttErrorCodes
     /// <summary>Enabled, but the configured environment variable holds no key.</summary>
     public const string NotConfigured = "stt_not_configured";
 
-    /// <summary>The authenticated Cloud account is not entitled to managed AI.</summary>
-    public const string NotEntitled = "stt_not_entitled";
+    /// <summary>The host policy does not allow transcription access.</summary>
+    public const string AccessDenied = "stt_access_denied";
 
     /// <summary>The request itself is malformed (not multipart, or no file part).</summary>
     public const string InvalidRequest = "stt_invalid_request";
@@ -35,10 +35,10 @@ public static class SttErrorCodes
     /// <summary>The provider rejected the configured credential, or is rate limiting.</summary>
     public const string Permission = "stt_permission_denied";
 
-    /// <summary>The managed transcription provider is temporarily rate limiting.</summary>
+    /// <summary>The transcription provider is temporarily rate limiting.</summary>
     public const string RateLimited = "stt_rate_limited";
 
-    /// <summary>The managed transcription provider timed out.</summary>
+    /// <summary>The transcription provider timed out.</summary>
     public const string Timeout = "stt_provider_timeout";
 
     /// <summary>The provider is unreachable or returned an unexpected status.</summary>

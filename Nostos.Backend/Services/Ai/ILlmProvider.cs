@@ -107,16 +107,16 @@ public static class LlmErrorCodes
     /// <summary>Enabled, but the configured environment variable holds no key, or the gateway URL/model is missing.</summary>
     public const string NotConfigured = "assistant_not_configured";
 
-    /// <summary>The authenticated Cloud account is not entitled to managed AI.</summary>
-    public const string NotEntitled = "assistant_not_entitled";
+    /// <summary>The host policy does not allow assistant access.</summary>
+    public const string AccessDenied = "assistant_access_denied";
 
     /// <summary>The provider rejected the configured credential.</summary>
     public const string Permission = "assistant_permission_denied";
 
-    /// <summary>The managed provider is temporarily rate limiting requests.</summary>
+    /// <summary>The provider is temporarily rate limiting requests.</summary>
     public const string RateLimited = "assistant_rate_limited";
 
-    /// <summary>The managed provider did not answer within its request timeout.</summary>
+    /// <summary>The provider did not answer within its request timeout.</summary>
     public const string Timeout = "assistant_provider_timeout";
 
     /// <summary>The provider is unreachable or returned an unexpected status.</summary>

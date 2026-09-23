@@ -3,9 +3,9 @@ using System.Text.Json.Serialization;
 namespace Nostos.Backend.Services.Ai;
 
 /// <summary>
-/// Host-supplied AI provider settings surface. SelfHosted stores BYOK settings;
-/// official Cloud supplies a managed implementation. Product endpoints depend
-/// only on this contract.
+/// Host-supplied AI provider settings surface. A local host can store BYOK
+/// settings; another host can supply its own provider configuration. Product
+/// endpoints depend only on this contract.
 /// </summary>
 public interface IAiProviderSettingsService : IAiProviderConfigResolver
 {
@@ -67,4 +67,4 @@ public sealed record AiProviderTestResult(
 /// A host owns provider identity/configuration and therefore refuses customer
 /// configuration changes. The product maps this to the stable 403 contract.
 /// </summary>
-public sealed class AiProviderConfigurationManagedException(string message) : Exception(message);
+public sealed class AiProviderConfigurationOwnedByHostException(string message) : Exception(message);

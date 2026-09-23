@@ -1,5 +1,4 @@
-# Cloud/PostgreSQL integration coverage for the shared Nostos model and tenant fleet.
-name: Cloud PostgreSQL integration
+name: PostgreSQL product-schema compatibility
 
 on:
   workflow_call:
@@ -9,30 +8,29 @@ permissions:
   contents: read
 
 jobs:
-  postgres-compatibility:
+  product-schema-compatibility:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:18.6
         env:
-          POSTGRES_DB: nostos_spike
+          POSTGRES_DB: nostos_product
           POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d nostos_spike"
+          --health-cmd "pg_isready -U postgres -d nostos_product"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 12
-
     env:
-      NOSTOS_POSTGRES_SPIKE_CONNECTION: "Host=127.0.0.1;Port=5432;Database=nostos_spike;Username=postgres;Include Error Detail=true"
-
+      NOSTOS_POSTGRES_SPIKE_CONNECTION: "Host=127.0.0.1;Port=5432;Database=nostos_product;Username=postgres;Include Error Detail=true"
+      GH_TOKEN: ""
+      NOSTOS_CLOUD_GH_TOKEN: ""
     steps:
-      - name: Checkout
+      - name: Checkout public Nostos
         uses: actions/checkout@v4
 
       - name: Setup .NET 10
@@ -43,59 +41,14 @@ jobs:
       - name: Restore
         run: dotnet restore Nostos.sln
 
-      - name: Build backend solution
+      - name: Build
         run: dotnet build Nostos.sln --configuration Debug --no-restore
 
-      - name: Run shared PostgreSQL model compatibility
+      - name: Exercise the canonical product model on PostgreSQL
         run: >-
           dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
           --configuration Debug
           --no-build
           --no-restore
           --filter "Category=PostgresSpike"
-          --logger "console;verbosity=normal"
-
-      - name: Run Cloud provisioning and tenant-isolation coverage
-        run: >-
-          dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
-          --configuration Debug
-          --no-build
-          --no-restore
-          --filter "Category=CloudProvisioning"
-          --logger "console;verbosity=normal"
-
-      - name: Run explicit PostgreSQL migration lifecycle coverage
-        run: >-
-          dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
-          --configuration Debug
-          --no-build
-          --no-restore
-          --filter "Category=CloudMigrations"
-          --logger "console;verbosity=normal"
-
-      - name: Run stateless Cloud runtime PostgreSQL coverage
-        run: >-
-          dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
-          --configuration Debug
-          --no-build
-          --no-restore
-          --filter "Category=CloudRuntime"
-          --logger "console;verbosity=normal"
-
-      - name: Run Cloud entitlement and billing control-plane coverage
-        run: >-
-          dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
-          --configuration Debug
-          --no-build
-          --no-restore
-          --filter "Category=CloudEntitlements|Category=CloudBilling"
-          --logger "console;verbosity=normal"
-
-      - name: Run deterministic Cloud auth and managed-AI composition coverage
-        run: >-
-          dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
-          --configuration Debug
-          --no-build
-          --no-restore
-          --filter "FullyQualifiedName~CloudAuthenticationTests|FullyQualifiedName~ManagedCloudAi|FullyQualifiedName~GeminiManagedLlmProviderTests|FullyQualifiedName~GroqManagedSttProviderTests|FullyQualifiedName~AiProviderSettingsEndpointTests|FullyQualifiedName~TranscriptionEndpointTests"
           --logger "console;verbosity=normal"

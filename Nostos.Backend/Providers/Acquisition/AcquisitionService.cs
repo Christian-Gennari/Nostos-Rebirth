@@ -502,8 +502,8 @@ public sealed class AcquisitionService(
         progress.Report(new AcquisitionProgress("importing", 94, BookId: bookId));
 
         // Commit the caller-owned staging artifact into durable storage. The
-        // local provider can turn this into a rename; Cloud streams it directly
-        // to object storage and deletes the scratch file only after success.
+        // local provider can turn this into a rename; remote storage streams the
+        // file and removes scratch only after success.
         var storedBytes = new FileInfo(artifact.FilePath).Length;
         string? staged;
         try

@@ -94,8 +94,8 @@ public sealed class AcquisitionOptions
                 Path.Combine(localBooksRoot, "..", "tmp", "acquisitions"));
         }
 
-        // Cloud media is durable in object storage, but acquisition/transcoding
-        // still needs bounded scratch disk. Keep that scratch explicitly
+        // Remote asset storage may be durable elsewhere, but acquisition and
+        // transcoding still need bounded scratch disk. Keep that scratch
         // ephemeral and separate from the durable storage abstraction.
         return Path.GetFullPath(
             Path.Combine(contentRootPath, "Storage", "tmp", "acquisitions"));

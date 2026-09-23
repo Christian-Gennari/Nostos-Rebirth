@@ -6,7 +6,7 @@ namespace Nostos.Backend.Integrations.Assistant;
 /// <summary>
 /// Content-free measurements for one assistant turn. These values describe
 /// execution shape only; prompts, replies, tool arguments and tool results are
-/// deliberately absent so the same type can later feed Cloud accounting.
+/// deliberately absent.
 /// </summary>
 public sealed record AssistantExecutionMetrics(
     int UpstreamCallCount,

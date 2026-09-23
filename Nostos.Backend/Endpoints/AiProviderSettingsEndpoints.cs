@@ -42,9 +42,9 @@ public static class AiProviderSettingsEndpoints
         {
             return Results.Ok(await settings.GetAsync(ct));
         }
-        catch (AiProviderConfigurationManagedException ex)
+        catch (AiProviderConfigurationOwnedByHostException ex)
         {
-            return ManagedConfigurationFailure(ex.Message);
+            return HostOwnedConfigurationFailure(ex.Message);
         }
     }
 
@@ -57,9 +57,9 @@ public static class AiProviderSettingsEndpoints
         {
             return Results.Ok(await settings.UpdateAsync(request, ct));
         }
-        catch (AiProviderConfigurationManagedException ex)
+        catch (AiProviderConfigurationOwnedByHostException ex)
         {
-            return ManagedConfigurationFailure(ex.Message);
+            return HostOwnedConfigurationFailure(ex.Message);
         }
         catch (AiProviderValidationException ex)
         {
@@ -76,9 +76,9 @@ public static class AiProviderSettingsEndpoints
         {
             return Results.Ok(await settings.ListModelsAsync(request, ct));
         }
-        catch (AiProviderConfigurationManagedException ex)
+        catch (AiProviderConfigurationOwnedByHostException ex)
         {
-            return ManagedConfigurationFailure(ex.Message);
+            return HostOwnedConfigurationFailure(ex.Message);
         }
         catch (AiProviderValidationException ex)
         {
@@ -103,16 +103,16 @@ public static class AiProviderSettingsEndpoints
             // SelfHosted keeps the established always-200 provider test contract.
             return Results.Ok(await settings.TestAsync(request, ct));
         }
-        catch (AiProviderConfigurationManagedException ex)
+        catch (AiProviderConfigurationOwnedByHostException ex)
         {
-            return ManagedConfigurationFailure(ex.Message);
+            return HostOwnedConfigurationFailure(ex.Message);
         }
     }
 
-    private static IResult ManagedConfigurationFailure(string message) =>
+    private static IResult HostOwnedConfigurationFailure(string message) =>
         Results.Problem(
             statusCode: StatusCodes.Status403Forbidden,
-            title: "ai_provider_managed",
+            title: "ai_provider_settings_owned_by_host",
             detail: message);
 
     private static IResult ValidationFailure(string message) =>

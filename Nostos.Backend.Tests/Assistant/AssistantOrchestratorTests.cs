@@ -1343,24 +1343,6 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
-    public async Task A_turn_that_crossed_the_estimated_cost_ceiling_stops_before_the_next_upstream_call()
-    {
-        var h = CreateHarness(configure: options => options.MaxTurnEstimatedCostUsd = 0.0001m);
-        h.Llm.Enqueue(new LlmCompletion(
-            null,
-            "tool_calls",
-            [new LlmToolCall("call-1", "library_list_collections", "{}")],
-            PromptTokens: 5_000,
-            CompletionTokens: 40));
-
-        var response = await h.Orchestrator.HandleTurnAsync(
-            Turn("Which collections do I have?", Context(surface: "library", route: "/library")));
-
-        h.Llm.CallCount.Should().Be(1, "the ceiling is evaluated before spending another upstream call");
-        response.Reply.Should().Be(AssistantOrchestrator.IncompleteTurnReply);
-    }
-
-    [Fact]
     public async Task Wall_clock_ceiling_cancels_an_in_flight_upstream_call()
     {
         var h = CreateHarness(configure: options => options.MaxTurnElapsedMilliseconds = 100);
@@ -1382,12 +1364,11 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
-    public async Task Missing_provider_usage_never_trips_the_token_or_cost_ceiling()
+    public async Task Missing_provider_usage_never_trips_the_token_ceiling()
     {
         var h = CreateHarness(configure: options =>
         {
             options.MaxTurnTokens = 1;
-            options.MaxTurnEstimatedCostUsd = 0.0000001m;
         });
 
         h.Llm.Enqueue(new LlmCompletion(
@@ -1410,7 +1391,6 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         {
             options.MaxTurnTokens = 0;
             options.MaxTurnElapsedMilliseconds = 0;
-            options.MaxTurnEstimatedCostUsd = 0m;
         });
         h.Llm.Enqueue(new LlmCompletion(
             null,

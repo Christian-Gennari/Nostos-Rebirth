@@ -1,4 +1,4 @@
-name: Production container
+name: SelfHosted container
 
 on:
   workflow_call:
