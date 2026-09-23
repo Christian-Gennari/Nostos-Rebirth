@@ -95,6 +95,8 @@ exists:
 | Variable | Purpose |
 | --- | --- |
 | `NOSTOS_STAGING_BASE_URL` | HTTPS origin used by the release smoke script |
+| `NOSTOS_STAGING_CLERK_USER_ID` | Optional Clerk staging user ID to mint JIT tokens for (defaults to dedicated staging identity) |
+| `NOSTOS_STAGING_CLERK_JWT_TEMPLATE` | Optional Clerk JWT template name (defaults to `nostos-api`) |
 | `NOSTOS_STAGING_MANAGED_AI_SMOKE` | `true` only when a bounded live Ask Nostos smoke should run |
 
 The staging runtime itself needs environment-specific Nostos configuration such
@@ -130,19 +132,32 @@ NOSTOS_CLOUD_GEMINI_API_KEY
 NOSTOS_CLOUD_GROQ_API_KEY
 ```
 
-For authenticated release smoke, the GitHub `staging` environment may also
-receive a **fresh staging-only** `NOSTOS_STAGING_BEARER_TOKEN`. Do not use a
-production customer token and do not treat this value as a durable secret.
+### Authenticated staging smoke & JIT token minting
 
-Clerk's ordinary session tokens are short-lived and their default claim set is
-not a substitute for the audience contract configured by
-`CloudAuth:Audience`. The staging automation must mint a token immediately
-before the smoke run from the dedicated staging identity and prove that its
-issuer/subject/audience are accepted by Nostos. If Clerk uses a staging-only JWT
-template for this, its `aud` must match `CloudAuth:Audience`. Until that
-external Clerk setup exists, leave the bearer unset; the release workflow still
-checks the anonymous/session boundary and reports that authenticated smoke is
-inactive rather than accepting a stale token.
+Clerk JWT tokens minted from the `nostos-api` template are short-lived (~60 seconds).
+Storing a static bearer token in CI is not durable. Instead, staging CI mints
+a fresh, short-lived Clerk session bearer JWT just-in-time immediately before
+authenticated smoke execution via `scripts/cloud/mint-staging-bearer.sh`.
+
+The JIT flow:
+1. Staging workflow receives the environment secret `NOSTOS_STAGING_CLERK_SECRET_KEY` (Clerk instance secret key).
+2. `scripts/cloud/mint-staging-bearer.sh` calls the Clerk Backend API to create an ephemeral active session for the dedicated staging test user (`staging@nostos.page`).
+3. Immediately mints a fresh token using the `nostos-api` JWT template (with audience `nostos-api`).
+4. Revokes the ephemeral session immediately.
+5. Registers GitHub masking via `::add-mask::` so the token never appears in logs.
+6. Passes the token in-memory to `scripts/cloud/staging-smoke.sh` as `NOSTOS_STAGING_BEARER_TOKEN`.
+7. Performs authenticated smoke against `https://app.nostos.page` and verifies account provisioning and Library read/write cycles.
+8. The short-lived bearer is discarded upon process exit.
+
+Required GitHub Environment Secret for JIT minting:
+- `NOSTOS_STAGING_CLERK_SECRET_KEY`: Machine/operator credential for the Clerk development/staging instance.
+
+Failure behavior:
+- If `NOSTOS_STAGING_CLERK_SECRET_KEY` is invalid or minting fails, the smoke step fails immediately with a non-zero exit code. It does not silently fall back to anonymous success.
+- If neither `NOSTOS_STAGING_CLERK_SECRET_KEY` nor a pre-minted `NOSTOS_STAGING_BEARER_TOKEN` is supplied, authenticated smoke is skipped with an explicit notice while anonymous smoke runs.
+
+Local reproduction:
+Run `scripts/cloud/staging-smoke.sh` with `NOSTOS_STAGING_BASE_URL` and `NOSTOS_STAGING_CLERK_SECRET_KEY` set in the environment.
 
 Until `NOSTOS_STAGING_BASE_URL` is configured, the release workflow stops at
 an immutable, registry-verified staging candidate and emits a notice. This is
