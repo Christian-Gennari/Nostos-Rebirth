@@ -64,6 +64,32 @@ public sealed class CloudAccountDeletionIntegrationTests
     }
 
     [Fact]
+    public async Task Portable_export_remains_available_only_during_recoverable_grace()
+    {
+        await WithHarnessAsync(async h =>
+        {
+            var account = await h.AddAccountAsync("export-grace");
+            await h.Service.RequestAsync(account);
+
+            await using var output = new MemoryStream();
+            await h.Service.ExportPortableArchiveAsync(account, output);
+
+            h.Exporter.Resources.Should().ContainSingle();
+            h.Exporter.Resources.Single().AccountId.Should().Be(account);
+
+            h.Time.Advance(TimeSpan.FromDays(14));
+
+            var action = () => h.Service.ExportPortableArchiveAsync(
+                account,
+                new MemoryStream());
+
+            var failure = await action.Should()
+                .ThrowAsync<CloudAccountDeletionException>();
+            failure.Which.Code.Should().Be("portable_export_unavailable");
+        });
+    }
+
+    [Fact]
     public async Task Failed_final_destruction_retries_safely_and_never_mutates_another_tenant()
     {
         await WithHarnessAsync(async h =>
@@ -193,6 +219,7 @@ public sealed class CloudAccountDeletionIntegrationTests
                 factory,
                 controlOptions);
             var destroyer = new FakeDestroyer();
+            var exporter = new FakeExporter();
             var time = new MutableTimeProvider(
                 new DateTimeOffset(
                     2026, 9, 23, 12, 0, 0,
@@ -201,7 +228,7 @@ public sealed class CloudAccountDeletionIntegrationTests
                 factory,
                 controlPlane,
                 destroyer,
-                new FakeExporter(),
+                exporter,
                 new FakeLeaseManager(),
                 time,
                 NullLogger<CloudAccountDeletionService>.Instance);
@@ -211,6 +238,7 @@ public sealed class CloudAccountDeletionIntegrationTests
                 controlPlane,
                 controlOptions,
                 destroyer,
+                exporter,
                 time,
                 service));
         }
@@ -225,12 +253,14 @@ public sealed class CloudAccountDeletionIntegrationTests
         CloudControlPlaneStore controlPlane,
         CloudControlPlaneOptions options,
         FakeDestroyer destroyer,
+        FakeExporter exporter,
         MutableTimeProvider time,
         ICloudAccountDeletionService service)
     {
         public IDbContextFactory<CloudControlPlaneDbContext> Factory { get; } = factory;
         public CloudControlPlaneStore ControlPlane { get; } = controlPlane;
         public FakeDestroyer Destroyer { get; } = destroyer;
+        public FakeExporter Exporter { get; } = exporter;
         public MutableTimeProvider Time { get; } = time;
         public ICloudAccountDeletionService Service { get; } = service;
 
@@ -335,11 +365,16 @@ public sealed class CloudAccountDeletionIntegrationTests
 
     private sealed class FakeExporter : ICloudAccountDeletionPortableExporter
     {
+        public List<CloudAccountResourceSnapshot> Resources { get; } = [];
+
         public Task ExportAsync(
             CloudAccountResourceSnapshot resource,
             Stream destination,
-            CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
+            CancellationToken cancellationToken = default)
+        {
+            Resources.Add(resource);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakeLeaseManager : ICloudWorkerLeaseManager
