@@ -36,6 +36,14 @@ export interface ViewToggleOption {
    *
    * Defaults to 18. Set it only with a measured reason, and prefer the value
    * derived from the ink ratio over a round number.
+   *
+   * KEEP THE BOX ON WHOLE PIXELS. The option is 30x26 (34x32 under 768px), so an
+   * EVEN size leaves whole-pixel margins; an odd or fractional one leaves half
+   * pixels, and the browser snaps the svg's layout origin to the device grid
+   * instead of centring it. 20.5px did exactly that: the Library's grid glyph
+   * rendered 0.5px off-centre on both axes (margins 8.00/7.50 and 6.00/5.50)
+   * while every other glyph in both toggles was symmetric. Derive the size from
+   * the ink ratio first, then round it to an even number — 20, not 20.5.
    */
   readonly size?: number;
 }

@@ -255,6 +255,7 @@ public sealed class NineRouterLlmProvider(
 
             int? promptTokens = null;
             int? completionTokens = null;
+            int? thinkingTokens = null;
             if (document.RootElement.TryGetProperty("usage", out var usage)
                 && usage.ValueKind == JsonValueKind.Object)
             {
@@ -269,6 +270,14 @@ public sealed class NineRouterLlmProvider(
                 {
                     completionTokens = completionValue;
                 }
+
+                if (usage.TryGetProperty("completion_tokens_details", out var completionDetails)
+                    && completionDetails.ValueKind == JsonValueKind.Object
+                    && completionDetails.TryGetProperty("reasoning_tokens", out var reasoning)
+                    && reasoning.TryGetInt32(out var reasoningValue))
+                {
+                    thinkingTokens = reasoningValue;
+                }
             }
 
             return new LlmCompletion(
@@ -276,7 +285,8 @@ public sealed class NineRouterLlmProvider(
                 finish.ValueKind == JsonValueKind.String ? finish.GetString() : null,
                 toolCalls,
                 promptTokens,
-                completionTokens);
+                completionTokens,
+                thinkingTokens);
         }
     }
 

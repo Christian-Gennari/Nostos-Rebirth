@@ -93,3 +93,12 @@ jobs:
           --no-restore
           --filter "Category=CloudEntitlements"
           --logger "console;verbosity=normal"
+
+      - name: Run Cloud billing reconciliation tests
+        run: >-
+          dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
+          --configuration Debug
+          --no-build
+          --no-restore
+          --filter "Category=CloudBilling"
+          --logger "console;verbosity=normal"

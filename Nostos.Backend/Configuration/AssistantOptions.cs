@@ -54,10 +54,49 @@ public sealed class AssistantOptions
     public string ApiKeyEnvironmentVariable { get; set; } = "NOSTOS_ASSISTANT_TOKEN";
 
     /// <summary>
-    /// Hard ceiling on LLM round trips in one turn. A model that keeps asking for
-    /// tools is cut off rather than looping forever.
+    /// Absolute runaway ceiling on upstream LLM calls in one turn, not the normal
+    /// UX budget. Revalidated by the external measurement of 2026-09-22 (900 real
+    /// turns): the largest turn used five upstream calls, 0.0% reached six, and the
+    /// changing-tool pathological case still stops here. Approval/input boundaries
+    /// and repeated-tool detection stop legitimate work earlier.
     /// </summary>
     public int MaxToolIterations { get; set; } = 6;
+
+    /// <summary>
+    /// Cumulative provider-reported token ceiling for one turn (prompt + output;
+    /// thinking is already inside output). Zero or below disables the ceiling.
+    ///
+    /// Selected from the external Gemini 3.8 Flash low-thinking measurement in
+    /// <c>docs/cloud/ask-nostos-execution-budget-spike.md</c>: the worst of 900
+    /// measured turns used 31,875 tokens and the worst case a legitimate six-call
+    /// turn can reach on the interim gateway transport is ~38,000, so this bounds a
+    /// runaway turn rather than a context window. It is not #405's abuse/rate limit,
+    /// #403's monthly entitlement, or an operator/global emergency ceiling.
+    /// </summary>
+    public int MaxTurnTokens { get; set; } = 50_000;
+
+    /// <summary>
+    /// Wall-clock ceiling for one turn in milliseconds. Zero or below disables the
+    /// ceiling. Selected from the same measurement: 99% of turns finished inside
+    /// 14.6 s, while 8 of 900 stalled for 141-145 s waiting on a single slow upstream
+    /// call. The value sits below the per-request transport timeout on purpose, so a
+    /// stalled turn is stopped by this budget rather than by a transport error.
+    /// </summary>
+    public int MaxTurnElapsedMilliseconds { get; set; } = 60_000;
+
+    /// <summary>
+    /// Estimated provider-cost ceiling for one turn in USD, priced with
+    /// <see cref="Integrations.Assistant.AssistantPricing"/> at its recorded price
+    /// epoch. Zero or below disables the ceiling. Cannot trip while a provider
+    /// usage field is missing — an unknown cost is never read as over-budget or as
+    /// free.
+    ///
+    /// Selected from the same measurement: the worst of 900 turns cost $0.0247, and
+    /// the token ceiling above prices at ≈$0.039 in the current epoch. Kept as a
+    /// separate dimension because the 2027 epoch doubles token prices, at which point
+    /// the same 50,000-token turn costs ≈$0.078 and this ceiling binds first.
+    /// </summary>
+    public decimal MaxTurnEstimatedCostUsd { get; set; } = 0.05m;
 
     /// <summary>
     /// Per-LLM-call ceiling. The pool spends reasoning tokens even on trivial

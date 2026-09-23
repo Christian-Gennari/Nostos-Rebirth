@@ -31,6 +31,13 @@ public sealed class FakeLlmProvider : ILlmProvider
     /// <summary>Optional dynamic responder, keyed on the 1-based call number.</summary>
     public Func<int, LlmCompletion>? Responder { get; set; }
 
+    /// <summary>
+    /// Optional asynchronous responder that observes the caller cancellation token.
+    /// Used by budget tests to prove an in-flight provider call is cancelled by the
+    /// turn deadline rather than merely checked after it returns.
+    /// </summary>
+    public Func<int, CancellationToken, Task<LlmCompletion>>? AsyncResponder { get; set; }
+
     public int CallCount => Requests.Count;
 
     public LlmCompletionRequest LastRequest => Requests[^1];
@@ -56,7 +63,7 @@ public sealed class FakeLlmProvider : ILlmProvider
             "tool_calls",
             [new LlmToolCall(Guid.NewGuid().ToString("N"), name, argumentsJson)]));
 
-    public Task<LlmCompletion> CompleteAsync(
+    public async Task<LlmCompletion> CompleteAsync(
         LlmCompletionRequest request,
         CancellationToken ct = default)
     {
@@ -67,16 +74,21 @@ public sealed class FakeLlmProvider : ILlmProvider
             throw Failure;
         }
 
+        if (AsyncResponder is not null)
+        {
+            return await AsyncResponder(Requests.Count, ct);
+        }
+
         if (Responder is not null)
         {
-            return Task.FromResult(Responder(Requests.Count));
+            return Responder(Requests.Count);
         }
 
         // An unscripted call is a plain "nothing more to do" answer rather than
         // an exception, so a test that overshoots still fails on its assertions.
-        return Task.FromResult(_scripted.Count > 0
+        return _scripted.Count > 0
             ? _scripted.Dequeue()
-            : new LlmCompletion(string.Empty, "stop", []));
+            : new LlmCompletion(string.Empty, "stop", []);
     }
 }
 
@@ -220,7 +232,8 @@ public sealed class NineRouterLlmProviderTests
                 """
                 {"choices":[{"message":{"content":null,"tool_calls":[
                   {"id":"call_1","type":"function","function":{"name":"notes_search","arguments":"{\"query\":\"x\"}"}}
-                ]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":2010,"completion_tokens":62}}
+                ]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":2010,"completion_tokens":62,
+                  "completion_tokens_details":{"reasoning_tokens":41}}}
                 """));
 
         var provider = CreateProvider(handler);
@@ -235,6 +248,7 @@ public sealed class NineRouterLlmProviderTests
             completion.ToolCalls[0].ArgumentsJson.Should().Be("""{"query":"x"}""");
             completion.PromptTokens.Should().Be(2010);
             completion.CompletionTokens.Should().Be(62);
+            completion.ThinkingTokens.Should().Be(41);
         }
         finally
         {
