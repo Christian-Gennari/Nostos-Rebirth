@@ -1,3 +1,4 @@
+using Nostos.Backend.Cloud.Runtime;
 using Nostos.Backend.Configuration;
 
 namespace Nostos.Backend.Cloud.Recovery;
@@ -13,6 +14,7 @@ namespace Nostos.Backend.Cloud.Recovery;
 public sealed class CloudScheduledBackupWorker(
     CloudRecoveryScheduleOptions options,
     CloudBackupSweepRunner runner,
+    ICloudWorkerLeaseManager leases,
     ILogger<CloudScheduledBackupWorker> logger)
     : BackgroundService
 {
@@ -53,6 +55,17 @@ public sealed class CloudScheduledBackupWorker(
                     delay);
 
                 await Task.Delay(delay, stoppingToken);
+
+                await using var lease = await leases.TryAcquireAsync(
+                    CloudWorkerLeaseNames.ScheduledBackup,
+                    stoppingToken);
+
+                if (lease is null)
+                {
+                    logger.LogInformation(
+                        "Skipping Cloud backup sweep because another instance owns the fleet lease.");
+                    continue;
+                }
 
                 await runner.RunAsync(stoppingToken);
             }
