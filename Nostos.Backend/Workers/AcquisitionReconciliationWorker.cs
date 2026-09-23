@@ -22,7 +22,8 @@ public sealed class AcquisitionReconciliationWorker(
     IWebHostEnvironment environment,
     IBookAssetStorage storage,
     IOptions<AcquisitionOptions> options,
-    ILogger<AcquisitionReconciliationWorker> logger) : IHostedService
+    ILogger<AcquisitionReconciliationWorker> logger,
+    DeploymentDescriptor? deployment = null) : IHostedService
 {
     /// <summary>
     /// The exact StatusMessage written onto a book whose import a restart cut
@@ -86,7 +87,17 @@ public sealed class AcquisitionReconciliationWorker(
             }
         }
 
-        // 2. Query for stranded Downloading or Transcoding book records and mark them Failed.
+        // Cloud scratch is instance-local and safe to clean on every replica.
+        // Customer rows, however, require an explicit trusted tenant context;
+        // never pretend there is one during process startup.
+        if ((deployment ?? DeploymentDescriptor.For(DeploymentMode.SelfHosted)).Mode == DeploymentMode.Cloud)
+        {
+            logger.LogInformation(
+                "Cloud acquisition scratch cleanup completed; tenant database reconciliation is intentionally deferred to tenant-aware work.");
+            return;
+        }
+
+        // 2. SelfHosted has one local database, so stranded rows can be reconciled directly.
         await using var db = await contextFactory.CreateDbContextAsync(cancellationToken);
 
         var strandedBooks = await db.Books
