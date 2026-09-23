@@ -77,9 +77,8 @@ public sealed class CloudScheduledBackupWorker(
             catch (Exception exception)
             {
                 logger.LogError(
-                    exception,
-                    "Unexpected error in Cloud scheduled backup worker: {ErrorMessage}",
-                    exception.Message);
+                    "Unexpected error in Cloud scheduled backup worker; exception type {ExceptionType}. Details suppressed.",
+                    exception.GetType().Name);
 
                 // Continue the loop; do not let one failure kill the worker.
             }
