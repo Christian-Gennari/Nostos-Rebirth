@@ -91,7 +91,7 @@ export class CloudEntryService {
   }
 
   async retry(): Promise<void> {
-    if (this.view().kind === 'provisioning_failed') {
+    if (this.view().kind === 'provisioning_failed' || this.view().kind === 'provisioning') {
       await this.startProvisioning();
       return;
     }

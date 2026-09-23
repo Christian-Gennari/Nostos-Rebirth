@@ -117,7 +117,6 @@ public sealed class CloudOnboardingService(
         var current = await GetStateAsync(cancellationToken);
 
         if (current.State is CloudOnboardingStates.Ready
-            or CloudOnboardingStates.Provisioning
             or CloudOnboardingStates.SubscriptionRequired
             or CloudOnboardingStates.SubscriptionPending
             or CloudOnboardingStates.SubscriptionInactive

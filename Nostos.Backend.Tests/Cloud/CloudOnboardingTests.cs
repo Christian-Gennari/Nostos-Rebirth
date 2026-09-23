@@ -130,7 +130,7 @@ public sealed class CloudOnboardingTests
 
         var harness = new Harness(ActiveEntitlement(), provisioning);
 
-        var inProgress = await harness.Service.ProvisionAsync();
+        var inProgress = await harness.Service.GetStateAsync();
         harness.Provisioner.Calls.Should().Be(0);
         inProgress.State.Should().Be(CloudOnboardingStates.Provisioning);
 
@@ -139,6 +139,26 @@ public sealed class CloudOnboardingTests
 
         ready.State.Should().Be(CloudOnboardingStates.Ready);
         ready.Ready.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Retry_can_reenter_an_interrupted_provisioning_run_safely()
+    {
+        var harness = new Harness(
+            ActiveEntitlement(),
+            Resource(CloudProvisioningState.Provisioning, CloudAccountStatus.Unknown));
+
+        harness.Provisioner.OnProvision = () =>
+        {
+            harness.Store.Resource = ReadyResource();
+            return ReadyResult();
+        };
+
+        var state = await harness.Service.ProvisionAsync();
+
+        state.State.Should().Be(CloudOnboardingStates.Ready);
+        harness.Provisioner.Calls.Should().Be(1);
+        harness.Provisioner.LastAccountId.Should().Be(Account.AccountId);
     }
 
     [Theory]

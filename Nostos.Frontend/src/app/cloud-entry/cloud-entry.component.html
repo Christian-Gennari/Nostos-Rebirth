@@ -86,6 +86,15 @@
         <p class="cloud-entry__eyebrow">Almost there</p>
         <h1>Preparing your Nostos library…</h1>
         <p>You can refresh or come back later. Nostos reads progress from the server.</p>
+        <button
+          appButton
+          variant="ghost"
+          type="button"
+          [disabled]="entry.actionPending()"
+          (click)="entry.retry()"
+        >
+          Retry setup
+        </button>
       }
 
       @case ('provisioning_failed') {
