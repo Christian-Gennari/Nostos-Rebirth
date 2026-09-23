@@ -25,6 +25,17 @@ public sealed class CloudHardeningTests
     }
 
     [Fact]
+    public void SelfHosted_registers_no_cloud_account_deletion_infrastructure()
+    {
+        var services = new ServiceCollection();
+
+        services.AddNostosCloudAccountDeletion(
+            DeploymentDescriptor.For(DeploymentMode.SelfHosted));
+
+        services.Should().BeEmpty();
+    }
+
+    [Fact]
     public void Cloud_registers_request_hardening_infrastructure()
     {
         var services = new ServiceCollection();
