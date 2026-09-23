@@ -437,8 +437,7 @@ public sealed class AssistantOrchestrator(
             // The matched term only: never the reply, the user's message, or the
             // content that was removed.
             logger.LogWarning(
-                "Assistant identity guard replaced a self-asserted vendor/model mention: {VendorTerm}.",
-                selfAssertedVendor);
+                "Assistant identity guard replaced a self-asserted vendor/model mention; reply content is not logged.");
             reply = AssistantIdentityGuard.Apply(reply);
         }
 
