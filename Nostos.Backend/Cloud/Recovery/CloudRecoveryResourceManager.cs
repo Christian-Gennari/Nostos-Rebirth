@@ -303,9 +303,8 @@ public sealed class CloudRecoveryResourceManager(
         catch (Exception exception)
         {
             logger.LogWarning(
-                exception,
-                "Could not completely remove failed recovery storage stage {StorageNamespace}.",
-                storageNamespace);
+                "Could not completely remove a failed recovery storage stage; exception type {ExceptionType}. Details suppressed.",
+                exception.GetType().Name);
         }
     }
 
@@ -335,9 +334,8 @@ public sealed class CloudRecoveryResourceManager(
         catch (Exception exception)
         {
             logger.LogWarning(
-                exception,
-                "Could not remove failed recovery database stage {DatabaseName}.",
-                databaseName);
+                "Could not remove a failed recovery database stage; exception type {ExceptionType}. Details suppressed.",
+                exception.GetType().Name);
         }
     }
 

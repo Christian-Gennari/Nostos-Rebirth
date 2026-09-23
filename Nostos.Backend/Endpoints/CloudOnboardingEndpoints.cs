@@ -1,4 +1,5 @@
 using Nostos.Backend.Cloud.Onboarding;
+using Nostos.Backend.Configuration;
 using Nostos.Backend.Security;
 
 namespace Nostos.Backend.Endpoints;
@@ -10,28 +11,31 @@ public static class CloudOnboardingEndpoints
     {
         var group = routes.MapGroup("/api/cloud/onboarding")
             .RequireAuthorization(CloudAuthPolicies.AuthenticatedAccount);
+        var mutations = routes.MapGroup("/api/cloud/onboarding")
+            .RequireAuthorization(CloudAuthPolicies.AuthenticatedAccount)
+            .RequireRateLimiting(CloudRateLimitPolicies.Billing);
 
         group.MapGet("/", async (
             ICloudOnboardingService onboarding,
             CancellationToken cancellationToken) =>
             Results.Ok(await onboarding.GetStateAsync(cancellationToken)));
 
-        group.MapPost("/provision", async (
+        mutations.MapPost("/provision", async (
             ICloudOnboardingService onboarding,
             CancellationToken cancellationToken) =>
             await RunAsync(() => onboarding.ProvisionAsync(cancellationToken)));
 
-        group.MapPost("/checkout", async (
+        mutations.MapPost("/checkout", async (
             ICloudOnboardingService onboarding,
             CancellationToken cancellationToken) =>
             await RunAsync(() => onboarding.CreateCheckoutAsync(cancellationToken)));
 
-        group.MapPost("/reconcile", async (
+        mutations.MapPost("/reconcile", async (
             ICloudOnboardingService onboarding,
             CancellationToken cancellationToken) =>
             await RunAsync(() => onboarding.ReconcileSubscriptionAsync(cancellationToken)));
 
-        group.MapPost("/billing-portal", async (
+        mutations.MapPost("/billing-portal", async (
             ICloudOnboardingService onboarding,
             CancellationToken cancellationToken) =>
             await RunAsync(() => onboarding.CreateBillingPortalAsync(cancellationToken)));

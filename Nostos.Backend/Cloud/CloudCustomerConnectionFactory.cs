@@ -9,11 +9,16 @@ public interface ICloudCustomerConnectionFactory
     string ApplicationRole { get; }
 }
 
-public sealed class CloudCustomerConnectionFactory(CloudDatabaseConnections connections)
+public sealed class CloudCustomerConnectionFactory(
+    CloudDatabaseConnections connections,
+    CloudControlPlaneOptions? options = null)
     : ICloudCustomerConnectionFactory
 {
     private readonly NpgsqlConnectionStringBuilder _base =
         new(connections.CustomerBase);
+
+    private readonly int _customerMaxPoolSize =
+        options?.CustomerMaxPoolSize ?? 5;
 
     public string ApplicationRole =>
         _base.Username
@@ -27,6 +32,8 @@ public sealed class CloudCustomerConnectionFactory(CloudDatabaseConnections conn
         var builder = new NpgsqlConnectionStringBuilder(_base.ConnectionString)
         {
             Database = databaseName,
+            MinPoolSize = 0,
+            MaxPoolSize = _customerMaxPoolSize,
         };
 
         if (string.IsNullOrWhiteSpace(builder.ApplicationName))

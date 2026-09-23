@@ -2,18 +2,15 @@ namespace Nostos.Backend.Configuration;
 
 // OPDS 1.2 export configuration (issue #186).
 //
-// Access model, stated deliberately so that exposing /opds/ is a decision and
-// not an accident: the catalogue and the acquisition URLs it advertises are
-// served WITHOUT authentication, exactly like the rest of the Nostos API. The
-// supported deployment is therefore a private network — LAN or Tailscale —
-// where every client that can reach the server is already trusted. Nostos must
-// not be published to the public internet under this model.
+// Access model, stated deliberately so exposing /opds/ is never accidental:
+// SelfHosted has no Cloud authentication pipeline, so OPDS remains suitable for a
+// trusted LAN/Tailscale deployment exactly as before. Cloud uses the global
+// authenticated Active-account + CloudAccess fallback policy; these routes do
+// not opt out with AllowAnonymous, and the acquisition URLs they advertise are
+// protected by the same policy. E-reader-specific Cloud credentials are a
+// separate product concern; operators can set Enabled=false until a client can
+// authenticate safely.
 //
-// If a deployment ever needs the catalogue reachable by untrusted clients, the
-// fix is an authentication mechanism in front of /opds/ (the bearer-token
-// middleware used for MCP is the in-repo precedent) or `Enabled = false`; a
-// catalogue-only token would not protect the acquisition URLs, which are the
-// same /api/books/{id}/file routes the UI downloads through.
 public sealed class OpdsOptions
 {
     // Section name in appsettings/environment configuration.

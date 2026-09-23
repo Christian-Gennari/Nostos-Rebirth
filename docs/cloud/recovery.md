@@ -276,3 +276,21 @@ production infrastructure still needs explicit policy for:
 
 These requirements should be configured in infrastructure, not by teaching the
 Nostos application to manipulate vendor-specific snapshot identifiers.
+
+
+## Account deletion interaction
+
+Account deletion (#408) is deliberately separate from restore.
+
+Once an account enters `DeletionRequested`, its mapping is no longer `IsReady`
+because that predicate requires `AccountStatus=Active`. Scheduled backups,
+manual backup creation and restore therefore stop immediately while the
+14-day deletion grace is active.
+
+Existing recovery artifacts remain intact through that grace window so a
+cancelled deletion returns to the same recoverable account. At final
+destruction, #408 removes every object version beneath
+`__nostos_recovery/<resource-id>/`, all recovery-stage object namespaces, and
+all recovery PostgreSQL databases derived from the resource id. Failed cleanup
+is retryable and is never reported as `Deleted` until physical cleanup
+succeeds.

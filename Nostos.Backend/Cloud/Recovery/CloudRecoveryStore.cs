@@ -330,9 +330,8 @@ public sealed class S3CloudRecoveryStore(
         catch (Exception exception)
         {
             logger.LogWarning(
-                exception,
-                "Could not remove incomplete Cloud recovery object {Key}.",
-                key);
+                "Could not remove an incomplete Cloud recovery object; exception type {ExceptionType}. Object key and details suppressed.",
+                exception.GetType().Name);
         }
     }
 

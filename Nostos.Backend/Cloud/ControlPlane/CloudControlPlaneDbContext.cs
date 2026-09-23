@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Cloud.Ai;
+using Nostos.Backend.Cloud.Privacy;
 
 namespace Nostos.Backend.Cloud.ControlPlane;
 
@@ -7,6 +8,7 @@ public sealed class CloudControlPlaneDbContext(DbContextOptions<CloudControlPlan
     : DbContext(options)
 {
     public DbSet<CloudAccountResource> AccountResources => Set<CloudAccountResource>();
+    public DbSet<CloudAccountDeletion> AccountDeletions => Set<CloudAccountDeletion>();
     public DbSet<CloudSubscription> Subscriptions => Set<CloudSubscription>();
     public DbSet<CloudSubscriptionAuditEvent> SubscriptionAudit => Set<CloudSubscriptionAuditEvent>();
     public DbSet<Nostos.Backend.Cloud.Billing.CloudBillingBinding> BillingBindings =>
@@ -66,6 +68,27 @@ public sealed class CloudControlPlaneDbContext(DbContextOptions<CloudControlPlan
         account.Property(x => x.UpdatedAtUtc);
         account.Property(x => x.LastProvisionAttemptAtUtc);
         account.Property(x => x.ReadyAtUtc);
+
+        var deletion = modelBuilder.Entity<CloudAccountDeletion>();
+        deletion.ToTable("CloudAccountDeletions");
+        deletion.HasKey(x => x.AccountId);
+        deletion.Property(x => x.AccountId).ValueGeneratedNever();
+        deletion.Property(x => x.State)
+            .HasConversion<string>()
+            .HasMaxLength(24)
+            .IsRequired();
+        deletion.Property(x => x.RequestedAtUtc);
+        deletion.Property(x => x.EligibleAtUtc);
+        deletion.Property(x => x.CancelledAtUtc);
+        deletion.Property(x => x.LastAttemptAtUtc);
+        deletion.Property(x => x.CompletedAtUtc);
+        deletion.Property(x => x.FailureCode).HasMaxLength(100);
+        deletion.HasIndex(x => new { x.State, x.EligibleAtUtc });
+        deletion
+            .HasOne<CloudAccountResource>()
+            .WithOne()
+            .HasForeignKey<CloudAccountDeletion>(x => x.AccountId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         var subscription = modelBuilder.Entity<CloudSubscription>();
 
@@ -243,6 +266,11 @@ public sealed class CloudControlPlaneBootstrapper(
             .Take(1)
             .ToListAsync(cancellationToken);
 
+        _ = await db.AccountDeletions
+            .AsNoTracking()
+            .Take(1)
+            .ToListAsync(cancellationToken);
+
         _ = await db.Subscriptions
             .AsNoTracking()
             .Take(1)
@@ -280,6 +308,24 @@ public sealed class CloudControlPlaneBootstrapper(
     {
         await db.Database.ExecuteSqlRawAsync(
             """
+            CREATE TABLE IF NOT EXISTS "CloudAccountDeletions" (
+                "AccountId" uuid NOT NULL,
+                "State" character varying(24) NOT NULL,
+                "RequestedAtUtc" timestamp with time zone NOT NULL,
+                "EligibleAtUtc" timestamp with time zone NOT NULL,
+                "CancelledAtUtc" timestamp with time zone NULL,
+                "LastAttemptAtUtc" timestamp with time zone NULL,
+                "CompletedAtUtc" timestamp with time zone NULL,
+                "FailureCode" character varying(100) NULL,
+                CONSTRAINT "PK_CloudAccountDeletions" PRIMARY KEY ("AccountId"),
+                CONSTRAINT "FK_CloudAccountDeletions_AccountResources_AccountId"
+                    FOREIGN KEY ("AccountId") REFERENCES "AccountResources" ("AccountId")
+                    ON DELETE RESTRICT
+            );
+
+            CREATE INDEX IF NOT EXISTS "IX_CloudAccountDeletions_State_EligibleAtUtc"
+                ON "CloudAccountDeletions" ("State", "EligibleAtUtc");
+
             CREATE TABLE IF NOT EXISTS "CloudSubscriptions" (
                 "AccountId" uuid NOT NULL,
                 "PlanId" character varying(64) NOT NULL,

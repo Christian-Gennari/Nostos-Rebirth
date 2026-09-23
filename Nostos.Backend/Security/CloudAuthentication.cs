@@ -32,11 +32,45 @@ public static class CloudAuthPolicies
     /// provisioning to have reached Active yet.
     /// </summary>
     public const string EntitledAccount = "NostosCloudEntitledAccount";
+
+    /// <summary>
+    /// Valid Cloud identity whose customer data is still recoverable. This is
+    /// intentionally narrower than a normal product API but broader than the
+    /// Active-account fallback so a deleting account can export its portable
+    /// archive during the grace period even if billing access is inactive.
+    /// </summary>
+    public const string RecoverableAccount = "NostosCloudRecoverableAccount";
 }
 
 public sealed class ActiveCloudAccountRequirement : IAuthorizationRequirement;
 
+public sealed class RecoverableCloudAccountRequirement : IAuthorizationRequirement;
+
 public sealed class CloudAccessRequirement : IAuthorizationRequirement;
+
+public sealed class RecoverableCloudAccountHandler(
+    ICloudAccountContextResolver accountResolver,
+    ICloudAccountStatusStore statusStore)
+    : AuthorizationHandler<RecoverableCloudAccountRequirement>
+{
+    protected override async Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        RecoverableCloudAccountRequirement requirement)
+    {
+        if (!accountResolver.TryResolve(context.User, out var account) || account is null)
+            return;
+
+        var status = await statusStore.GetStatusAsync(
+            account.AccountId,
+            CancellationToken.None);
+
+        if (status is CloudAccountStatus.Active
+            or CloudAccountStatus.DeletionRequested)
+        {
+            context.Succeed(requirement);
+        }
+    }
+}
 
 public sealed class CloudAccessHandler(
     ICloudAccountContextResolver accountResolver,
@@ -107,6 +141,7 @@ public static class CloudAuthenticationRegistration
 
         services.TryAddSingleton<ICloudAccountStatusStore, UnconfiguredCloudAccountStatusStore>();
         services.AddSingleton<IAuthorizationHandler, ActiveCloudAccountHandler>();
+        services.AddSingleton<IAuthorizationHandler, RecoverableCloudAccountHandler>();
         services.AddScoped<IAuthorizationHandler, CloudAccessHandler>();
 
         services
@@ -173,6 +208,9 @@ public static class CloudAuthenticationRegistration
                     oidc.Scope.Add("email");
 
                     oidc.TokenValidationParameters.NameClaimType = "name";
+                    oidc.TokenValidationParameters.ValidateIssuer = true;
+                    oidc.TokenValidationParameters.ValidateAudience = true;
+                    oidc.TokenValidationParameters.ValidAudience = options.ClientId;
                     oidc.Events.OnTokenValidated = context =>
                     {
                         StampValidatedIssuer(context.Principal, context.SecurityToken?.Issuer);
@@ -197,6 +235,9 @@ public static class CloudAuthenticationRegistration
                     bearer.Audience = options.Audience;
                     bearer.RequireHttpsMetadata = true;
                     bearer.MapInboundClaims = false;
+                    bearer.TokenValidationParameters.ValidateIssuer = true;
+                    bearer.TokenValidationParameters.ValidateAudience = true;
+                    bearer.TokenValidationParameters.ValidAudience = options.Audience;
                     bearer.Events = new JwtBearerEvents
                     {
                         OnTokenValidated = context =>
@@ -219,6 +260,12 @@ public static class CloudAuthenticationRegistration
                 new AuthorizationPolicyBuilder(CloudAuthSchemes.Router)
                     .RequireAuthenticatedUser()
                     .AddRequirements(new CloudAccessRequirement())
+                    .Build())
+            .AddPolicy(
+                CloudAuthPolicies.RecoverableAccount,
+                new AuthorizationPolicyBuilder(CloudAuthSchemes.Router)
+                    .RequireAuthenticatedUser()
+                    .AddRequirements(new RecoverableCloudAccountRequirement())
                     .Build())
             .SetFallbackPolicy(
                 new AuthorizationPolicyBuilder(CloudAuthSchemes.Router)

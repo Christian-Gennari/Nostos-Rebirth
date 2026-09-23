@@ -18,9 +18,10 @@ namespace Nostos.Backend.Endpoints;
 /// <c>kind=acquisition</c>. It used to declare <c>kind=navigation</c>, which
 /// describes a feed of links to other feeds and is not what this is.
 ///
-/// Access model (see <see cref="OpdsOptions"/> for the full statement): the
-/// catalogue and the acquisitions it links to are served without
-/// authentication, so Nostos is only safe to expose on a private network.
+/// Access model (see <see cref="OpdsOptions"/> for the full statement):
+/// SelfHosted preserves the private-network/anonymous behaviour, while Cloud
+/// inherits the authenticated Active-account + CloudAccess fallback policy.
+
 /// </summary>
 public static class OpdsEndpoints
 {

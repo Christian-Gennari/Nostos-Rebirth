@@ -37,7 +37,7 @@ The focused workflows remain reusable and manually dispatchable, but no longer
 each start their own overlapping PR run.
 
 Ordinary PR validation uses disposable PostgreSQL and MinIO and deterministic
-HTTP/provider fakes. It does not require Neon, B2, Clerk, Paddle, Gemini, Groq
+HTTP/provider fakes. It does not require Neon, B2, Clerk, Paddle, Vercel AI Gateway, Groq
 or DigitalOcean credentials.
 
 ## One immutable release artifact
@@ -73,7 +73,7 @@ External staging resources are intentionally isolated from production:
 - staging B2 bucket/key (or a dedicated staging bucket);
 - Clerk development/staging instance/application;
 - Paddle sandbox configuration only;
-- staging managed Gemini/Groq credentials;
+- staging managed Vercel AI Gateway/Groq credentials;
 - staging Data Protection key;
 - dedicated staging/test identity;
 - staging-only application URL and secrets.
@@ -128,7 +128,7 @@ NOSTOS_CLOUD_AUTH_CLIENT_SECRET
 NOSTOS_CLOUD_BILLING_PADDLE_API_KEY
 NOSTOS_CLOUD_BILLING_PADDLE_WEBHOOK_SECRET
 NOSTOS_CLOUD_DATA_PROTECTION_KEY
-NOSTOS_CLOUD_GEMINI_API_KEY
+NOSTOS_CLOUD_AI_GATEWAY_API_KEY
 NOSTOS_CLOUD_GROQ_API_KEY
 ```
 

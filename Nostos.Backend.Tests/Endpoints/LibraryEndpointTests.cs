@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Nostos.Backend.Configuration;
 using Nostos.Backend.Data;
 using Nostos.Backend.Data.Models;
 using Nostos.Backend.Tests.Support;
@@ -124,6 +125,46 @@ public sealed class LibraryEndpointTests : IClassFixture<LibraryEndpointFactory>
         var unchanged = await Client.GetFromJsonAsync<BookDto>($"/api/books/{book.Id}");
         unchanged!.HasFile.Should().BeFalse();
         unchanged.FileName.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Upload_file_rejects_mismatched_media_type_and_extension()
+    {
+        var created = await Client.PostAsJsonAsync("/api/books", new
+        {
+            type = "ebook",
+            title = $"Mismatched Upload {Guid.NewGuid():N}",
+        });
+        var book = (await created.Content.ReadFromJsonAsync<BookDto>())!;
+
+        using var form = new MultipartFormDataContent();
+        var file = new StringContent("Not a PDF.");
+        file.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        form.Add(file, "file", "copy.epub");
+
+        var response = await Client.PostAsync($"/api/books/{book.Id}/file", form);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var unchanged = await Client.GetFromJsonAsync<BookDto>($"/api/books/{book.Id}");
+        unchanged!.HasFile.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Upload_cover_rejects_declared_request_over_the_cover_limit_before_form_parsing()
+    {
+        var created = await Client.PostAsJsonAsync("/api/books", new
+        {
+            type = "ebook",
+            title = $"Oversized Cover {Guid.NewGuid():N}",
+        });
+        var book = (await created.Content.ReadFromJsonAsync<BookDto>())!;
+
+        using var oversized = new DeclaredLengthContent(
+            CloudRequestHardeningRegistration.MaxCoverRequestBytes + 1);
+
+        var response = await Client.PostAsync($"/api/books/{book.Id}/cover", oversized);
+
+        response.StatusCode.Should().Be(HttpStatusCode.RequestEntityTooLarge);
     }
 
     [Fact]
@@ -810,6 +851,20 @@ public sealed class LibraryEndpointTests : IClassFixture<LibraryEndpointFactory>
     }
 
     // ------------------------------------------------------------------
+
+    private sealed class DeclaredLengthContent(long declaredLength) : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(
+            Stream stream,
+            TransportContext? context) =>
+            Task.CompletedTask;
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = declaredLength;
+            return true;
+        }
+    }
 
     private async Task<NostosDbContext> OpenDbAsync()
     {

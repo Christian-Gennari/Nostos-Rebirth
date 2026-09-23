@@ -52,11 +52,13 @@ public sealed class CloudCustomerDatabaseProvisioner(
         try
         {
             var mapping = await controlPlane.GetOrCreateAsync(accountId, cancellationToken);
-            if (mapping.AccountStatus is CloudAccountStatus.Disabled or CloudAccountStatus.Deleted)
+            if (mapping.AccountStatus is CloudAccountStatus.DeletionRequested
+                or CloudAccountStatus.Disabled
+                or CloudAccountStatus.Deleted)
             {
                 throw new CloudProvisioningException(
                     "account_unavailable",
-                    "The Nostos Cloud account is disabled or deleted and cannot be provisioned.");
+                    "The Nostos Cloud account is unavailable and cannot be provisioned.");
             }
 
             if (mapping.IsReady)
@@ -133,10 +135,10 @@ public sealed class CloudCustomerDatabaseProvisioner(
                 await MarkFailedBestEffortAsync(accountId, exception.FailureCode);
 
                 logger.LogError(
-                    exception,
-                    "Nostos Cloud schema provisioning failed for account {AccountId} with code {FailureCode}.",
+                    "Nostos Cloud schema provisioning failed for account {AccountId} with code {FailureCode} and exception type {ExceptionType}. Details suppressed.",
                     accountId,
-                    exception.FailureCode);
+                    exception.FailureCode,
+                    exception.GetType().Name);
 
                 throw new CloudProvisioningException(
                     exception.FailureCode,
@@ -148,10 +150,10 @@ public sealed class CloudCustomerDatabaseProvisioner(
                 await MarkFailedBestEffortAsync(accountId, stage);
 
                 logger.LogError(
-                    exception,
-                    "Nostos Cloud provisioning failed for account {AccountId} at stage {Stage}.",
+                    "Nostos Cloud provisioning failed for account {AccountId} at stage {Stage} with exception type {ExceptionType}. Details suppressed.",
                     accountId,
-                    stage);
+                    stage,
+                    exception.GetType().Name);
 
                 throw new CloudProvisioningException(
                     stage,
@@ -254,9 +256,9 @@ public sealed class CloudCustomerDatabaseProvisioner(
         catch (Exception statusException)
         {
             logger.LogError(
-                statusException,
-                "Could not persist provisioning failure state for account {AccountId}.",
-                accountId);
+                "Could not persist provisioning failure state for account {AccountId}; exception type {ExceptionType}. Details suppressed.",
+                accountId,
+                statusException.GetType().Name);
         }
     }
 

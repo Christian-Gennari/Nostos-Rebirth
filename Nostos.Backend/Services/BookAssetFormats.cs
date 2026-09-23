@@ -42,14 +42,47 @@ public static class BookAssetFormats
 
     public static bool IsAllowedUpload(string contentType, string fileName)
     {
-        if (MimeToExtension.TryGetValue(contentType, out var mapped)
-            && (mapped.Length == 0 || BookExtensions.Contains(mapped)))
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        if (!BookExtensions.Contains(extension))
+            return false;
+
+        var mediaType = NormalizeContentType(contentType);
+        if (mediaType.Length == 0
+            || string.Equals(mediaType, "application/octet-stream", StringComparison.OrdinalIgnoreCase))
         {
-            if (mapped.Length > 0)
-                return true;
+            return true;
         }
 
-        return BookExtensions.Contains(Path.GetExtension(fileName));
+        if (!MimeToExtension.TryGetValue(mediaType, out var mapped) || mapped.Length == 0)
+            return false;
+
+        if (string.Equals(mediaType, "audio/mp4", StringComparison.OrdinalIgnoreCase))
+            return extension is ".m4a" or ".m4b";
+
+        if (string.Equals(mediaType, "application/x-mobipocket-ebook", StringComparison.OrdinalIgnoreCase))
+            return extension is ".mobi" or ".azw3";
+
+        return string.Equals(mapped, extension, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool IsAllowedCoverUpload(string contentType, string fileName)
+    {
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        var mediaType = NormalizeContentType(contentType);
+
+        return (extension == ".png"
+                && string.Equals(mediaType, "image/png", StringComparison.OrdinalIgnoreCase))
+            || (extension is ".jpg" or ".jpeg"
+                && string.Equals(mediaType, "image/jpeg", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string NormalizeContentType(string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(contentType))
+            return string.Empty;
+
+        var semicolon = contentType.IndexOf(';');
+        return (semicolon >= 0 ? contentType[..semicolon] : contentType).Trim();
     }
 
     public static string RequireBookExtension(string fileName)

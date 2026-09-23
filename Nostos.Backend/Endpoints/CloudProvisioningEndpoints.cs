@@ -1,5 +1,6 @@
 using Nostos.Backend.Cloud.ControlPlane;
 using Nostos.Backend.Cloud.Provisioning;
+using Nostos.Backend.Configuration;
 using Nostos.Backend.Security;
 
 namespace Nostos.Backend.Endpoints;
@@ -10,7 +11,8 @@ public static class CloudProvisioningEndpoints
         this IEndpointRouteBuilder routes)
     {
         var group = routes.MapGroup("/api/cloud/provisioning")
-            .RequireAuthorization(CloudAuthPolicies.EntitledAccount);
+            .RequireAuthorization(CloudAuthPolicies.EntitledAccount)
+            .RequireRateLimiting(CloudRateLimitPolicies.Provisioning);
 
         group.MapGet("/", GetAsync);
         group.MapPost("/", ProvisionAsync);
@@ -44,19 +46,17 @@ public static class CloudProvisioningEndpoints
             return Results.Ok(new CloudProvisioningResponse(
                 State: result.State.ToString(),
                 AccountState: result.AccountStatus.ToString(),
-                SchemaVersion: result.SchemaVersion,
                 Ready: result.Ready,
-                Retryable: result.Retryable,
-                FailureCode: null));
+                Retryable: result.Retryable));
         }
-        catch (CloudProvisioningException exception)
+        catch (CloudProvisioningException)
         {
             return Results.Problem(
                 statusCode: StatusCodes.Status503ServiceUnavailable,
                 title: "Cloud account provisioning failed.",
                 extensions: new Dictionary<string, object?>
                 {
-                    ["failureCode"] = exception.FailureCode,
+                    ["error"] = "provisioning_failed",
                     ["retryable"] = true,
                 });
         }
@@ -66,25 +66,19 @@ public static class CloudProvisioningEndpoints
         new(
             State: resource.ProvisioningState.ToString(),
             AccountState: resource.AccountStatus.ToString(),
-            SchemaVersion: resource.SchemaVersion,
             Ready: resource.IsReady,
-            Retryable: resource.ProvisioningState != CloudProvisioningState.Ready,
-            FailureCode: resource.FailureCode);
+            Retryable: resource.ProvisioningState != CloudProvisioningState.Ready);
 }
 
 public sealed record CloudProvisioningResponse(
     string State,
     string AccountState,
-    string? SchemaVersion,
     bool Ready,
-    bool Retryable,
-    string? FailureCode)
+    bool Retryable)
 {
     public static CloudProvisioningResponse NotStarted { get; } = new(
         State: "NotStarted",
         AccountState: CloudAccountStatus.Unknown.ToString(),
-        SchemaVersion: null,
         Ready: false,
-        Retryable: true,
-        FailureCode: null);
+        Retryable: true);
 }

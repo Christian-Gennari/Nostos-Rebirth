@@ -351,6 +351,34 @@ public sealed class PortableArchiveServiceTests
             .Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task Import_rejects_suspicious_compression_before_mutating_destination()
+    {
+        using var bomb = new MemoryStream();
+        using (var archive = new ZipArchive(
+            bomb,
+            ZipArchiveMode.Create,
+            leaveOpen: true))
+        {
+            var entry = archive.CreateEntry(
+                "payload.bin",
+                CompressionLevel.Optimal);
+            await using var output = entry.Open();
+            var zeros = new byte[2 * 1024 * 1024];
+            await output.WriteAsync(zeros);
+        }
+
+        bomb.Position = 0;
+        await using var destination = await LocalPortableTestLibrary.CreateAsync();
+
+        var action = () => destination.Portability().ImportAsync(bomb);
+        var exception = await action.Should().ThrowAsync<PortableArchiveException>();
+
+        exception.Which.Code.Should().Be("suspicious_compression");
+        (await destination.Db.Books.CountAsync()).Should().Be(0);
+        (await destination.Db.Notes.CountAsync()).Should().Be(0);
+    }
+
     private static async Task<MemoryStream> ExportFixtureAsync()
     {
         await using var source = await LocalPortableTestLibrary.CreateAsync();

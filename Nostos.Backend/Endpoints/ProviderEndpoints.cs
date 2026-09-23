@@ -1,3 +1,4 @@
+using Nostos.Backend.Configuration;
 using Nostos.Backend.Providers;
 using Nostos.Backend.Providers.Acquisition;
 using Nostos.Backend.Providers.Contracts;
@@ -15,9 +16,13 @@ namespace Nostos.Backend.Endpoints;
 /// </summary>
 public static class ProviderEndpoints
 {
-    public static IEndpointRouteBuilder MapProviderEndpoints(this IEndpointRouteBuilder routes)
+    public static IEndpointRouteBuilder MapProviderEndpoints(
+        this IEndpointRouteBuilder routes,
+        bool cloudMode = false)
     {
         var group = routes.MapGroup("/api/providers");
+        if (cloudMode)
+            group.RequireRateLimiting(CloudRateLimitPolicies.ProviderFetch);
 
         // Sources available to import from.
         group.MapGet(
@@ -183,12 +188,12 @@ public static class ProviderEndpoints
 
                     return Results.Accepted($"/api/providers/acquisitions/{job.JobId}", ToJobDto(job));
                 }
-                catch (InvalidOperationException ex)
+                catch (InvalidOperationException)
                 {
                     return Results.Problem(
                         statusCode: StatusCodes.Status429TooManyRequests,
                         title: "acquisition_queue_full",
-                        detail: ex.Message);
+                        detail: "The acquisition queue is currently full.");
                 }
             });
 
@@ -234,7 +239,13 @@ public static class ProviderEndpoints
             _ => StatusCodes.Status502BadGateway,
         },
         title: ex.Code,
-        detail: ex.Message);
+        detail: ex.Code switch
+        {
+            ProviderException.ItemNotFound => "The provider item was not found.",
+            ProviderException.AssetUnavailable => "The requested provider asset is unavailable.",
+            ProviderException.Unavailable => "The content provider is temporarily unavailable.",
+            _ => "The content provider request failed.",
+        });
 
     private static ProviderSummaryDto ToSummaryDto(ProviderRegistration registration) => new(
         registration.Provider.Id,

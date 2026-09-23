@@ -1,5 +1,8 @@
 using System.Security.Claims;
 using FluentAssertions;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -114,6 +117,7 @@ public sealed class CloudAuthenticationTests
 
     [Theory]
     [InlineData(CloudAccountStatus.Active, true)]
+    [InlineData(CloudAccountStatus.DeletionRequested, false)]
     [InlineData(CloudAccountStatus.Unknown, false)]
     [InlineData(CloudAccountStatus.Disabled, false)]
     [InlineData(CloudAccountStatus.Deleted, false)]
@@ -129,6 +133,31 @@ public sealed class CloudAuthenticationTests
             resource: null);
 
         var handler = new ActiveCloudAccountHandler(
+            new CloudAccountContextResolver(),
+            new FixedAccountStatusStore(status));
+
+        await handler.HandleAsync(authorizationContext);
+
+        authorizationContext.HasSucceeded.Should().Be(expectedSuccess);
+    }
+
+    [Theory]
+    [InlineData(CloudAccountStatus.Active, true)]
+    [InlineData(CloudAccountStatus.DeletionRequested, true)]
+    [InlineData(CloudAccountStatus.Unknown, false)]
+    [InlineData(CloudAccountStatus.Disabled, false)]
+    [InlineData(CloudAccountStatus.Deleted, false)]
+    public async Task Recoverable_account_policy_allows_only_active_or_deletion_grace(
+        CloudAccountStatus status,
+        bool expectedSuccess)
+    {
+        var requirement = new RecoverableCloudAccountRequirement();
+        var authorizationContext = new AuthorizationHandlerContext(
+            new[] { requirement },
+            Principal("https://identity.example.test", "account-a", "a@example.test"),
+            resource: null);
+
+        var handler = new RecoverableCloudAccountHandler(
             new CloudAccountContextResolver(),
             new FixedAccountStatusStore(status));
 
@@ -179,6 +208,55 @@ public sealed class CloudAuthenticationTests
     }
 
     [Fact]
+    public void Cloud_authentication_options_pin_https_pkce_cookie_and_bearer_audience()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var configuration = BuildCloudConfiguration();
+
+        services.AddNostosAuthentication(
+            configuration,
+            DeploymentDescriptor.For(DeploymentMode.Cloud),
+            variable => variable == "NOSTOS_TEST_OIDC_SECRET" ? "test-secret" : null);
+
+        using var provider = services.BuildServiceProvider();
+
+        var oidc = provider
+            .GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<OpenIdConnectOptions>>()
+            .Get(CloudAuthSchemes.Oidc);
+        oidc.Authority.Should().Be("https://identity.example.test");
+        oidc.ClientId.Should().Be("nostos-web");
+        oidc.ResponseType.Should().Be("code");
+        oidc.UsePkce.Should().BeTrue();
+        oidc.RequireHttpsMetadata.Should().BeTrue();
+        oidc.SaveTokens.Should().BeFalse();
+        oidc.MapInboundClaims.Should().BeFalse();
+        oidc.TokenValidationParameters.ValidateIssuer.Should().BeTrue();
+        oidc.TokenValidationParameters.ValidateAudience.Should().BeTrue();
+        oidc.TokenValidationParameters.ValidAudience.Should().Be("nostos-web");
+
+        var bearer = provider
+            .GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<JwtBearerOptions>>()
+            .Get(CloudAuthSchemes.Bearer);
+        bearer.Authority.Should().Be("https://identity.example.test");
+        bearer.Audience.Should().Be("nostos-api");
+        bearer.RequireHttpsMetadata.Should().BeTrue();
+        bearer.MapInboundClaims.Should().BeFalse();
+        bearer.TokenValidationParameters.ValidateIssuer.Should().BeTrue();
+        bearer.TokenValidationParameters.ValidateAudience.Should().BeTrue();
+        bearer.TokenValidationParameters.ValidAudience.Should().Be("nostos-api");
+
+        var cookie = provider
+            .GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<CookieAuthenticationOptions>>()
+            .Get(CloudAuthSchemes.Cookie);
+        cookie.Cookie.Name.Should().Be("__Host-nostos-cloud");
+        cookie.Cookie.HttpOnly.Should().BeTrue();
+        cookie.Cookie.SecurePolicy.Should().Be(CookieSecurePolicy.Always);
+        cookie.Cookie.SameSite.Should().Be(SameSiteMode.Lax);
+        cookie.Cookie.Path.Should().Be("/");
+    }
+
+    [Fact]
     public void Cloud_oidc_logout_sends_client_id_when_tokens_are_not_saved()
     {
         var services = new ServiceCollection();
@@ -225,6 +303,7 @@ public sealed class CloudAuthenticationTests
     [InlineData("", "/")]
     [InlineData("https://evil.example/", "/")]
     [InlineData("//evil.example/", "/")]
+    [InlineData("/\\\\evil.example/", "/")]
     [InlineData("/library", "/library")]
     [InlineData("/book/123?tab=notes#quote", "/book/123?tab=notes#quote")]
     public void Login_return_url_is_local_only(string? candidate, string expected)

@@ -1,3 +1,4 @@
+using Nostos.Backend.Configuration;
 using Nostos.Backend.Data.Interfaces;
 using Nostos.Backend.Data.Models;
 using Nostos.Backend.Mapping;
@@ -10,9 +11,19 @@ namespace Nostos.Backend.Endpoints;
 
 public static class BooksEndpoints
 {
-    public static IEndpointRouteBuilder MapBooksEndpoints(this IEndpointRouteBuilder routes)
+    public static IEndpointRouteBuilder MapBooksEndpoints(
+        this IEndpointRouteBuilder routes,
+        bool cloudMode = false)
     {
         var group = routes.MapGroup("/api/books");
+        var uploadGroup = cloudMode
+            ? routes.MapGroup("/api/books")
+                .RequireRateLimiting(CloudRateLimitPolicies.ExpensiveMutation)
+            : group;
+        var metadataGroup = cloudMode
+            ? routes.MapGroup("/api/books")
+                .RequireRateLimiting(CloudRateLimitPolicies.ProviderFetch)
+            : group;
 
         // GET all books
         group.MapGet(
@@ -245,7 +256,7 @@ public static class BooksEndpoints
         );
 
         // Upload file
-        group.MapPost(
+        uploadGroup.MapPost(
             "/{id}/file",
             async (
                 Guid id,
@@ -336,7 +347,7 @@ public static class BooksEndpoints
         );
 
         // Upload cover
-        group.MapPost(
+        uploadGroup.MapPost(
             "/{id}/cover",
             async (
                 Guid id,
@@ -350,13 +361,27 @@ public static class BooksEndpoints
                 if (book is null)
                     return Results.NotFound();
 
+                if (request.ContentLength is > CloudRequestHardeningRegistration.MaxCoverRequestBytes)
+                    return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+
+                var bodySizeFeature = request.HttpContext.Features
+                    .Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
+                if (bodySizeFeature is { IsReadOnly: false })
+                {
+                    bodySizeFeature.MaxRequestBodySize =
+                        CloudRequestHardeningRegistration.MaxCoverRequestBytes;
+                }
+
                 var form = await request.ReadFormAsync(ct);
                 var file = form.Files.FirstOrDefault();
                 if (file is null)
                     return Results.BadRequest("Missing cover file.");
 
-                if (!new[] { "image/png", "image/jpeg" }.Contains(file.ContentType))
-                    return Results.BadRequest("Only PNG or JPEG images allowed.");
+                if (file.Length > CloudRequestHardeningRegistration.MaxCoverUploadBytes)
+                    return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+
+                if (!BookAssetFormats.IsAllowedCoverUpload(file.ContentType, file.FileName))
+                    return Results.BadRequest("Cover file type does not match a supported PNG or JPEG filename.");
 
                 await using (var coverStream = file.OpenReadStream())
                 {
@@ -434,7 +459,7 @@ public static class BooksEndpoints
         );
 
         // ISBN metadata lookup (validated before any external call)
-        group.MapGet(
+        metadataGroup.MapGet(
             "/lookup/{isbn}",
             async (string isbn, BookLookupService service, CancellationToken ct) =>
             {

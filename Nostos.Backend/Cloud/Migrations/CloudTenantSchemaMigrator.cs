@@ -191,9 +191,9 @@ public sealed class CloudTenantSchemaMigrator(
             await MarkSchemaFailureBestEffortAsync(accountId, "schema_migration_failed");
 
             logger.LogError(
-                exception,
-                "Cloud schema migration failed for account {AccountId}.",
-                accountId);
+                "Cloud schema migration failed for account {AccountId}; exception type {ExceptionType}. Details suppressed.",
+                accountId,
+                exception.GetType().Name);
 
             throw new CloudSchemaMigrationException(
                 "schema_migration_failed",
@@ -365,9 +365,9 @@ public sealed class CloudTenantSchemaMigrator(
         catch (Exception statusException)
         {
             logger.LogError(
-                statusException,
-                "Could not persist Cloud schema failure state for account {AccountId}.",
-                accountId);
+                "Could not persist Cloud schema failure state for account {AccountId}; exception type {ExceptionType}. Details suppressed.",
+                accountId,
+                statusException.GetType().Name);
         }
     }
 

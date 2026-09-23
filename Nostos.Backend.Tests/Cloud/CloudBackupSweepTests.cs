@@ -113,6 +113,40 @@ public sealed class CloudBackupSweepTests
 
     [Fact]
     [Trait("Category", "CloudBackupSweep")]
+    public async Task Failure_diagnostics_do_not_emit_provider_or_connection_details()
+    {
+        var account = NostosAccountId.FromExternalIdentity("issuer", "redaction");
+        var snapshots = new List<CloudAccountResourceSnapshot>
+        {
+            CreateSnapshot(
+                account,
+                CloudProvisioningState.Ready,
+                CloudAccountStatus.Active,
+                CloudCustomerSchema.CurrentVersion),
+        };
+
+        const string secret = "sensitive-connection-fragment-do-not-log";
+        var recorder = new BackupRecorder
+        {
+            FailAccountId = account.Value,
+            FailureMessage = secret,
+        };
+        var logger = new FakeLogger<CloudBackupSweepRunner>();
+        var runner = new CloudBackupSweepRunner(
+            new FakeControlPlaneStore(snapshots),
+            new FakeScopeFactory(recorder),
+            logger);
+
+        var result = await runner.RunAsync();
+
+        result.Failed.Should().Be(1);
+        result.Tenants.Single().ErrorMessage.Should().Be("backup_failed");
+        logger.Messages.Should().NotContain(message => message.Contains(secret, StringComparison.Ordinal));
+        logger.Exceptions.Should().OnlyContain(exception => exception == null);
+    }
+
+    [Fact]
+    [Trait("Category", "CloudBackupSweep")]
     public async Task Processing_is_strictly_sequential()
     {
         var accountA = NostosAccountId.FromExternalIdentity("issuer", "a");
@@ -260,6 +294,7 @@ public sealed class CloudBackupSweepTests
         public List<(Guid AccountId, Guid ResourceId)> BackupRequests { get; } = [];
         public int MaxConcurrency => _maxConcurrency;
         public Guid? FailAccountId { get; set; }
+        public string FailureMessage { get; set; } = "Simulated backup failure";
         public int DelayMs { get; set; }
 
         public async Task<CloudOperationalBackupSummary> CreateBackupAsync(
@@ -283,7 +318,7 @@ public sealed class CloudBackupSweepTests
                 BackupRequests.Add((context.AccountId.Value, Guid.NewGuid()));
 
                 if (FailAccountId.HasValue && context.AccountId.Value == FailAccountId.Value)
-                    throw new InvalidOperationException("Simulated backup failure");
+                    throw new InvalidOperationException(FailureMessage);
 
                 return new CloudOperationalBackupSummary(
                     Guid.NewGuid(),
@@ -353,6 +388,9 @@ public sealed class CloudBackupSweepTests
 
     private sealed class FakeLogger<T> : ILogger<T>
     {
+        public List<string> Messages { get; } = [];
+        public List<Exception?> Exceptions { get; } = [];
+
         public IDisposable? BeginScope<TState>(TState state)
             where TState : notnull => null;
 
@@ -365,6 +403,8 @@ public sealed class CloudBackupSweepTests
             Exception? exception,
             Func<TState, Exception?, string> formatter)
         {
+            Messages.Add(formatter(state, exception));
+            Exceptions.Add(exception);
         }
     }
 }

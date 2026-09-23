@@ -83,8 +83,8 @@ public sealed class CloudBackupSweepRunner(
         catch (Exception exception)
         {
             logger.LogError(
-                exception,
-                "Cloud backup sweep failed to read control-plane tenant list.");
+                "Cloud backup sweep failed to read the control-plane tenant list; exception type {ExceptionType}. Details suppressed.",
+                exception.GetType().Name);
 
             return new CloudBackupSweepResult(
                 Attempted: 0,
@@ -93,7 +93,7 @@ public sealed class CloudBackupSweepRunner(
                 StartedAtUtc: startedAt,
                 Duration: DateTime.UtcNow - startedAt,
                 Tenants: [],
-                ControlPlaneError: exception.Message);
+                ControlPlaneError: "control_plane_unavailable");
         }
 
         var eligible = snapshots
@@ -181,17 +181,16 @@ public sealed class CloudBackupSweepRunner(
         catch (Exception exception)
         {
             logger.LogWarning(
-                exception,
-                "Cloud operational backup failed for account {AccountId}, resource {ResourceId}: {ErrorMessage}",
+                "Cloud operational backup failed for account {AccountId}, resource {ResourceId}; exception type {ExceptionType}. Details suppressed.",
                 snapshot.AccountId,
                 snapshot.ResourceId,
-                exception.Message);
+                exception.GetType().Name);
 
             return new CloudBackupSweepTenantResult(
                 snapshot.AccountId.Value,
                 snapshot.ResourceId,
                 BackupId: null,
-                ErrorMessage: exception.Message);
+                ErrorMessage: "backup_failed");
         }
     }
 }

@@ -31,6 +31,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 var deployment = builder.Services.AddNostosDeployment(builder.Configuration);
 builder.Services.AddNostosAuthentication(builder.Configuration, deployment);
+builder.Services.AddNostosCloudRequestHardening(deployment);
 
 CloudManagedAiOptions? cloudManagedAiOptions = null;
 if (deployment.Mode == DeploymentMode.Cloud)
@@ -264,6 +265,7 @@ builder.Services.AddNostosPersistence(
     builder.Configuration,
     deployment,
     builder.Environment.ContentRootPath);
+builder.Services.AddNostosCloudAccountDeletion(deployment);
 
 if (deployment.Mode == DeploymentMode.Cloud)
 {
@@ -468,6 +470,13 @@ else
 // registration above for why.
 app.UseForwardedHeaders();
 
+if (deployment.Mode == DeploymentMode.Cloud)
+{
+    // Cloud is public HTTPS. Forwarded headers run first so App Platform's
+    // externally secure request is recognized before HSTS is evaluated.
+    app.UseHsts();
+}
+
 // --- OPDS EXPORT (access model) ---
 // Stated in the operator's own logs, once, so that exposing the catalogue is a
 // decision on the record rather than a silent consequence of mapping a route.
@@ -502,8 +511,8 @@ app.UseExceptionHandler(exceptionApp =>
         if (error is not null && statusCode >= StatusCodes.Status500InternalServerError)
         {
             logger.LogError(
-                error,
-                "Unhandled exception on {Method} {Path}",
+                "Unhandled {ExceptionType} on {Method} {Path}. Exception messages and payloads are suppressed by default.",
+                error.GetType().Name,
                 context.Request.Method,
                 context.Request.Path
             );
@@ -588,13 +597,14 @@ if (deployment.Mode == DeploymentMode.Cloud)
 {
     app.UseAuthentication();
     app.UseAuthorization();
+    app.UseRateLimiter();
 }
 
 // ------------------------------
 
 // Map all endpoints
-app.MapBooksEndpoints();
-app.MapProviderEndpoints();
+app.MapBooksEndpoints(deployment.Mode == DeploymentMode.Cloud);
+app.MapProviderEndpoints(deployment.Mode == DeploymentMode.Cloud);
 app.MapImportEndpoints();
 app.MapNotesEndpoints();
 app.MapNoteProcessingEndpoints();
@@ -606,7 +616,7 @@ app.MapAssistantEndpoints();
 app.MapAiProviderSettingsEndpoints();
 app.MapAssistantSettingsEndpoints();
 app.MapDeploymentCapabilitiesEndpoints();
-app.MapPortabilityEndpoints();
+app.MapPortabilityEndpoints(deployment.Mode == DeploymentMode.Cloud);
 if (deployment.Mode == DeploymentMode.Cloud)
 {
     app.MapCloudAuthEndpoints();
@@ -615,6 +625,7 @@ if (deployment.Mode == DeploymentMode.Cloud)
     app.MapCloudRecoveryEndpoints();
     app.MapCloudBillingEndpoints();
     app.MapCloudManagedAiUsageEndpoints();
+    app.MapCloudAccountDeletionEndpoints();
 }
 app.MapOpdsEndpoints(opdsOptions);
 if (deployment.Mode == DeploymentMode.SelfHosted)

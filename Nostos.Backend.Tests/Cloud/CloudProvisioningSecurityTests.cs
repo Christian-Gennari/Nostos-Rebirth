@@ -13,6 +13,7 @@ namespace Nostos.Backend.Tests.Cloud;
 public sealed class CloudProvisioningSecurityTests
 {
     [Theory]
+    [InlineData(CloudAccountStatus.DeletionRequested)]
     [InlineData(CloudAccountStatus.Disabled)]
     [InlineData(CloudAccountStatus.Deleted)]
     public async Task Blocked_accounts_cannot_reactivate_themselves_through_provisioning(

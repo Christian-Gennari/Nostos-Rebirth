@@ -10,6 +10,7 @@ public static class CloudWorkerLeaseNames
 {
     public const string ScheduledBackup = "nostos:scheduled-backup:v1";
     public const string PaddleReconciliation = "nostos:paddle-reconciliation:v1";
+    public const string AccountDeletionSweep = "nostos:account-deletion-sweep:v1";
 }
 
 public interface ICloudWorkerLeaseManager
@@ -86,8 +87,8 @@ public sealed class PostgresCloudWorkerLeaseManager(
             catch (Exception exception)
             {
                 logger.LogWarning(
-                    exception,
-                    "Could not explicitly release a Cloud worker lease; closing the PostgreSQL session will release it.");
+                    "Could not explicitly release a Cloud worker lease; exception type {ExceptionType}. Closing the PostgreSQL session will release it.",
+                    exception.GetType().Name);
             }
             finally
             {
