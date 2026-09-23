@@ -165,9 +165,15 @@ builder.Services.AddSingleton<IAssistantSettingsService, AssistantSettingsServic
 builder.Services.AddScoped<AssistantOrchestrator>();
 
 if (deployment.Mode == DeploymentMode.SelfHosted)
+{
     builder.Services.AddSingleton<IManagedAiAccessPolicy, SelfHostedManagedAiAccessPolicy>();
+    builder.Services.AddSingleton<IManagedAiUsageService>(
+        SelfHostedManagedAiUsageService.Instance);
+}
 else
+{
     builder.Services.AddScoped<IManagedAiAccessPolicy, CloudManagedAiAccessPolicy>();
+}
 
 // --- AI PROVIDER SETTINGS (assistant milestone + Cloud #404) ---
 builder.Services.AddNostosDataProtection(builder.Configuration, deployment);
@@ -605,6 +611,7 @@ if (deployment.Mode == DeploymentMode.Cloud)
     app.MapCloudProvisioningEndpoints();
     app.MapCloudRecoveryEndpoints();
     app.MapCloudBillingEndpoints();
+    app.MapCloudManagedAiUsageEndpoints();
 }
 app.MapOpdsEndpoints(opdsOptions);
 if (deployment.Mode == DeploymentMode.SelfHosted)

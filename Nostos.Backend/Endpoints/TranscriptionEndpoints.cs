@@ -35,6 +35,7 @@ public static class TranscriptionEndpoints
         SpeechOptions options,
         IAiProviderConfigResolver config,
         IManagedAiAccessPolicy access,
+        IManagedAiUsageService usage,
         DeploymentDescriptor deployment,
         CancellationToken ct)
     {
@@ -112,6 +113,16 @@ public static class TranscriptionEndpoints
         var language = form["language"].ToString();
         var languageHint = string.IsNullOrWhiteSpace(language) ? null : language.Trim();
 
+        ManagedAiUsageLease? usageLease;
+        try
+        {
+            usageLease = await usage.BeginSttAsync(ct);
+        }
+        catch (ManagedAiUsageException ex)
+        {
+            return UsageFailure(ex);
+        }
+
         SttResult result;
         try
         {
@@ -126,9 +137,29 @@ public static class TranscriptionEndpoints
                 languageHint,
                 ct);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            await usage.CompleteSttAsync(
+                usageLease,
+                new ManagedAiSttUsage(1, null, "Cancelled"),
+                CancellationToken.None);
+            throw;
+        }
         catch (SttException ex)
         {
+            await usage.CompleteSttAsync(
+                usageLease,
+                new ManagedAiSttUsage(1, null, "ProviderError"),
+                CancellationToken.None);
             return Failure(ex.Code, StatusFor(ex.Code), ex.Message);
+        }
+        catch
+        {
+            await usage.CompleteSttAsync(
+                usageLease,
+                new ManagedAiSttUsage(1, null, "ProviderError"),
+                CancellationToken.None);
+            throw;
         }
 
         // The duration cap is a policy on what was returned, not a pre-flight
@@ -138,17 +169,39 @@ public static class TranscriptionEndpoints
             && result.DurationSeconds is > 0
             && result.DurationSeconds > options.MaxDurationSeconds)
         {
+            await usage.CompleteSttAsync(
+                usageLease,
+                new ManagedAiSttUsage(1, result.DurationSeconds, "TooLong"),
+                CancellationToken.None);
             return Failure(
                 SttErrorCodes.TooLong,
                 StatusCodes.Status422UnprocessableEntity,
                 $"The audio is {result.DurationSeconds:0.#}s, above the {options.MaxDurationSeconds:0.#}s limit.");
         }
 
+        await usage.CompleteSttAsync(
+            usageLease,
+            new ManagedAiSttUsage(1, result.DurationSeconds, "Completed"),
+            CancellationToken.None);
+
         return Results.Ok(new TranscriptionResponse(
             result.Text,
             result.Language,
             result.DurationSeconds));
     }
+
+    private static IResult UsageFailure(ManagedAiUsageException exception) =>
+        exception.Reason switch
+        {
+            ManagedAiUsageBlockReason.NotEntitled =>
+                Failure("managed_ai_not_included", StatusCodes.Status403Forbidden, exception.Message),
+            ManagedAiUsageBlockReason.RateLimited =>
+                Failure("managed_ai_rate_limited", StatusCodes.Status429TooManyRequests, exception.Message),
+            ManagedAiUsageBlockReason.MonthlyAllowanceExhausted =>
+                Failure("managed_ai_monthly_limit_reached", StatusCodes.Status429TooManyRequests, exception.Message),
+            _ =>
+                Failure("managed_ai_temporarily_unavailable", StatusCodes.Status503ServiceUnavailable, exception.Message),
+        };
 
     /// <summary>
     /// Code → HTTP status. Kept as data: a permission problem is a bad gateway
