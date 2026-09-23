@@ -1,5 +1,9 @@
 <div class="route-progress" [class.active]="navigationPending()" aria-hidden="true"></div>
-<router-outlet />
-<app-toast-container />
-<app-command-palette />
-<app-assistant />
+@if (cloudEntry.productReady()) {
+  <router-outlet />
+  <app-toast-container />
+  <app-command-palette />
+  <app-assistant />
+} @else {
+  <app-cloud-entry />
+}
