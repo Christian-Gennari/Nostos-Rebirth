@@ -41,7 +41,7 @@
 
 
 
-  <Target Name="BuildFrontend" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Release' ">
+  <Target Name="BuildFrontend" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Release' And '$(SkipFrontendBuild)' != 'true' ">
     <Message Text="Building Angular Frontend (Release Mode)..." Importance="high" />
 
     <Exec Command="npm install" WorkingDirectory="$(SpaRoot)" Condition="!Exists('$(SpaRoot)node_modules') And '$(OS)' != 'Windows_NT'" />
