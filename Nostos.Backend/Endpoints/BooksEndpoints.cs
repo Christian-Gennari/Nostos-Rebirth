@@ -357,8 +357,16 @@ public static class BooksEndpoints
                 if (book is null)
                     return Results.NotFound();
 
-                if (request.ContentLength is > CloudRequestHardeningRegistration.MaxCoverUploadBytes)
+                if (request.ContentLength is > CloudRequestHardeningRegistration.MaxCoverRequestBytes)
                     return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+
+                var bodySizeFeature = request.HttpContext.Features
+                    .Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
+                if (bodySizeFeature is { IsReadOnly: false })
+                {
+                    bodySizeFeature.MaxRequestBodySize =
+                        CloudRequestHardeningRegistration.MaxCoverRequestBytes;
+                }
 
                 var form = await request.ReadFormAsync(ct);
                 var file = form.Files.FirstOrDefault();
