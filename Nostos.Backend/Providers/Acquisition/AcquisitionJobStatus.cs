@@ -90,3 +90,12 @@ public interface IAcquisitionJobManager
     /// <summary>Cancels a queued or running job. False when there is nothing to cancel.</summary>
     bool Cancel(string jobId);
 }
+
+/// <summary>
+/// Stable product-level messages shared by the acquisition status feed and
+/// host-specific reconciliation workers.
+/// </summary>
+public static class AcquisitionJobMessages
+{
+    public const string InterruptedByRestart = "Import interrupted by server restart.";
+}

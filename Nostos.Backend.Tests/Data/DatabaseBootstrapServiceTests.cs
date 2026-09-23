@@ -58,7 +58,9 @@ public sealed class DatabaseBootstrapServiceTests : IDisposable
     private static NostosDbContext CreateContext(string databasePath)
     {
         var options = new DbContextOptionsBuilder<NostosDbContext>()
-            .UseSqlite($"Data Source={databasePath}")
+            .UseSqlite(
+                $"Data Source={databasePath}",
+                sqlite => sqlite.MigrationsAssembly(typeof(Program).Assembly.FullName))
             .Options;
         return new NostosDbContext(options);
     }

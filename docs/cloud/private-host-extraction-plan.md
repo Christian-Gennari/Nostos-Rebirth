@@ -1,8 +1,9 @@
 # Nostos Cloud private-host extraction plan
 
 - **Tracking:** #438
-- **Phase:** implementation plan only
-- **Prerequisite:** #408 must merge before any production extraction begins
+- **Phase:** Wave 0 complete; Wave 1 implemented by #459 pending final CI
+- **Hardened extraction baseline:** `e20df0daf352cb94bec9867dbe3b78c64678f83b` (PR #458 / #408)
+- **Prerequisite:** #408 is merged; cross-repository extraction still waits for #459 to merge green
 - **Non-goal:** #435 infrastructure migration
 - **Architecture:** `docs/adr/cloud-public-private-boundary.md`
 - **Inventory:** `docs/cloud/public-private-boundary-inventory.md`
@@ -24,9 +25,11 @@ This plan deliberately separates **public seam preparation** from **cross-reposi
 
 ## Wave 0 — finish #408, reconcile and freeze the extraction baseline
 
+**Status:** complete in #459.
+
 **Repository:** public `Nostos-Rebirth`
 
-**Start only after:** #408 is merged.
+**Extraction baseline:** `e20df0daf352cb94bec9867dbe3b78c64678f83b` (PR #458).
 
 ### Work
 
@@ -48,15 +51,18 @@ This plan deliberately separates **public seam preparation** from **cross-reposi
 
 ### Validation
 
-- all #408-required tests/checks green;
-- inventory path-existence check;
-- public SelfHosted and current Cloud remain unchanged from the hardened baseline.
+- PR #458's Dual-mode CI was green at the hardened source before extraction work began;
+- the inventory was reconciled against the #408 changed-file set and new privacy-lifecycle paths;
+- #459 preserves the hardened auth/tenant, deletion, HSTS/rate-limit, upload, recovery, redaction and staging/release semantics behind the new composition seam;
+- public SelfHosted and current Cloud remain behaviorally unchanged by design.
 
 ### Rollback
 
 No cross-repository change exists yet. Revert only documentation if the architecture inventory needs correction.
 
 ## Wave 1 — introduce a reusable public product project
+
+**Status:** implemented by #459 / PR #464; completion requires the full transitional CI matrix to remain green.
 
 **Repository:** public `Nostos-Rebirth`
 

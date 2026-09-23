@@ -35,7 +35,7 @@ public sealed class AcquisitionReconciliationWorker(
     /// reworded literal on one side would silently make interrupted imports
     /// disappear from the UI again.
     /// </summary>
-    public const string InterruptedByRestartMessage = "Import interrupted by server restart.";
+    public const string InterruptedByRestartMessage = AcquisitionJobMessages.InterruptedByRestart;
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {

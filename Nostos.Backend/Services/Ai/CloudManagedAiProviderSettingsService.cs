@@ -59,5 +59,3 @@ public sealed class CloudManagedAiProviderSettingsService(CloudManagedAiOptions 
     private static AiProviderConfigurationManagedException Managed() =>
         new("AI provider configuration is managed by Nostos Cloud.");
 }
-
-public sealed class AiProviderConfigurationManagedException(string message) : Exception(message);

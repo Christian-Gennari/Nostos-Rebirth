@@ -1,6 +1,3 @@
-using Microsoft.EntityFrameworkCore;
-using Nostos.Backend.Data;
-
 namespace Nostos.Backend.Configuration;
 
 /// <summary>
@@ -89,13 +86,6 @@ public sealed record DeploymentDescriptor(
         };
 }
 
-/// <summary>
-/// Composition-root helpers for deployment-specific infrastructure.
-///
-/// Normal feature/domain services should not branch on raw deployment
-/// configuration. Provider-specific registrations belong here (or in focused
-/// extensions called from here) as Cloud infrastructure is implemented.
-/// </summary>
 public static class DeploymentServiceRegistration
 {
     public static DeploymentDescriptor AddNostosDeployment(
@@ -105,34 +95,5 @@ public static class DeploymentServiceRegistration
         var deployment = DeploymentDescriptor.FromConfiguration(configuration);
         services.AddSingleton(deployment);
         return deployment;
-    }
-
-    public static IServiceCollection AddNostosPersistence(
-        this IServiceCollection services,
-        IConfiguration configuration,
-        DeploymentDescriptor deployment,
-        string contentRootPath,
-        Func<string, string?>? environmentReader = null)
-    {
-        switch (deployment.Mode)
-        {
-            case DeploymentMode.SelfHosted:
-                services.AddDbContextFactory<NostosDbContext>(options =>
-                {
-                    var dbPath = Path.Combine(contentRootPath, "nostos.db");
-                    options.UseSqlite($"Data Source={dbPath}");
-                });
-                return services;
-
-            case DeploymentMode.Cloud:
-                services.AddNostosCloudPersistence(configuration, environmentReader);
-                return services;
-
-            default:
-                throw new ArgumentOutOfRangeException(
-                    nameof(deployment),
-                    deployment.Mode,
-                    "Unsupported Nostos deployment mode.");
-        }
     }
 }

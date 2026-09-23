@@ -9,7 +9,7 @@ namespace Nostos.Backend.Services.Ai;
 /// Unknown assistant-message fields are carried through <see cref="LlmMessage.ProviderState"/>
 /// so gateway metadata needed by a later tool round can be replayed unchanged.
 /// </summary>
-internal static class OpenAiCompatibleChatCompletions
+public static class OpenAiCompatibleChatCompletions
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 

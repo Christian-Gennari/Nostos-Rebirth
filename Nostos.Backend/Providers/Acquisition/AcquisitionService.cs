@@ -36,7 +36,8 @@ public sealed class AcquisitionService(
     IWebHostEnvironment environment,
     ITranscodeLimiter transcodeLimiter,
     IOptions<AcquisitionOptions> options,
-    ILogger<AcquisitionService> logger) : IAcquisitionService
+    ILogger<AcquisitionService> logger,
+    IAcquisitionWorkingRootProvider? workingRootProvider = null) : IAcquisitionService
 {
     private readonly AcquisitionOptions _options = options.Value;
 
@@ -180,13 +181,11 @@ public sealed class AcquisitionService(
         progress.Report(new AcquisitionProgress("downloading", 10, BookId: bookId));
 
         // --- 7. Acquire into an isolated staging directory -----------------
-        var localBooksRoot = storage is IFileStorageService localStorage
-            ? localStorage.StorageRoot
-            : null;
+        var rootProvider =
+            workingRootProvider ?? new DefaultAcquisitionWorkingRootProvider();
         var workingRoot = Path.Combine(
-            AcquisitionOptions.ResolveWorkingRoot(
+            rootProvider.ResolveWorkingRoot(
                 environment.ContentRootPath,
-                localBooksRoot,
                 _options),
             Guid.NewGuid().ToString("N"));
 

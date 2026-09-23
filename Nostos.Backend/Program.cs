@@ -10,6 +10,7 @@ using Nostos.Backend.Data.Repositories;
 using Nostos.Backend.Endpoints;
 using Nostos.Backend.Configuration;
 using Nostos.Backend.Cloud.Onboarding;
+using Nostos.Backend.Cloud.Privacy;
 using Nostos.Backend.Integrations.Assistant;
 using Nostos.Backend.Integrations.Mcp;
 using Nostos.Backend.Health;
@@ -25,7 +26,9 @@ using Nostos.Backend.Services;
 using Nostos.Backend.Services.Ai;
 using Nostos.Backend.Services.Library;
 using Nostos.Backend.Services.Notes;
+using Nostos.Backend.Services.Portability;
 using Nostos.Backend.Workers;
+using Nostos.Product.Composition;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,6 +46,26 @@ if (deployment.Mode == DeploymentMode.Cloud)
     builder.Services.AddSingleton(cloudManagedAiOptions);
 }
 
+if (deployment.Mode == DeploymentMode.Cloud)
+{
+    // Register the hosted lifecycle decorator before AddNostosProduct so the
+    // product's TryAdd fallback does not replace it.
+    builder.Services.AddScoped<IPortableArchiveExporter, CloudPortableArchiveExporter>();
+}
+else
+{
+    // Preserve SelfHosted's same-volume staging behavior without exposing the
+    // local filesystem contract to Nostos.Product.
+    builder.Services.AddSingleton<
+        IAcquisitionWorkingRootProvider,
+        SelfHostedAcquisitionWorkingRootProvider>();
+}
+
+var product = builder.Services.AddNostosProduct(builder.Configuration);
+var assistantOptions = product.Assistant;
+var speechOptions = product.Speech;
+var opdsOptions = product.Opds;
+
 builder.Services.Configure<BackupSettings>(builder.Configuration.GetSection("BackupSettings"));
 
 // Where locally stored book files live. Configurable so a test host (or a
@@ -50,14 +73,6 @@ builder.Services.Configure<BackupSettings>(builder.Configuration.GetSection("Bac
 // `Storage/books` under the content root stays the default.
 builder.Services.Configure<FileStorageOptions>(
     builder.Configuration.GetSection(FileStorageOptions.SectionName));
-
-// Library receipt retention (issue #51): the bound section is normalized
-// once (unsafe values clamped) and registered as a singleton so the
-// retention service and its hosted worker always agree on the effective
-// bounds.
-builder.Services.AddSingleton(LibraryReceiptRetentionOptions.Normalize(
-    builder.Configuration.GetSection("LibraryReceiptRetention").Get<LibraryReceiptRetentionOptions>()
-    ?? new LibraryReceiptRetentionOptions()));
 
 // --- MCP (Model Context Protocol) Streamable HTTP foundation (Task 9A) ---
 // Opt-in and disabled by default. When enabled, the bearer token is resolved
@@ -110,11 +125,6 @@ if (mcpOptions.Enabled)
 builder.Services.AddSingleton(mcpOptions);
 
 // --- SPEECH-TO-TEXT (issue #262 §2/§3, Cloud #404) ---
-var speechOptions =
-    builder.Configuration.GetSection(SpeechOptions.SectionName).Get<SpeechOptions>()
-    ?? new SpeechOptions();
-builder.Services.AddSingleton(speechOptions);
-
 if (deployment.Mode == DeploymentMode.SelfHosted)
 {
     builder.Services.AddHttpClient(NineRouterSttProvider.HttpClientName, client =>
@@ -133,11 +143,6 @@ else
 }
 
 // --- ASSISTANT LLM BRIDGE (issue #261 §3, §7, Cloud #404) ---
-var assistantOptions =
-    builder.Configuration.GetSection(AssistantOptions.SectionName).Get<AssistantOptions>()
-    ?? new AssistantOptions();
-builder.Services.AddSingleton(assistantOptions);
-
 if (deployment.Mode == DeploymentMode.SelfHosted)
 {
     builder.Services.AddHttpClient(NineRouterLlmProvider.HttpClientName, client =>
@@ -155,17 +160,6 @@ else
     builder.Services.AddSingleton<ILlmProvider, VercelAiGatewayManagedLlmProvider>();
 }
 
-// Post-processing modes (issue #262 §7, §8): one processor over the same bridge.
-// It is stateless and its verbatim short-circuit never reaches the provider, so
-// a singleton matches the provider's lifetime.
-builder.Services.AddSingleton<IThoughtProcessor, ThoughtProcessor>();
-builder.Services.AddSingleton<AssistantPlanStore>();
-// The owner's one-time assistant choices, stored in the database (issue #262
-// §7). It depends only on the context factory, so it has the same singleton
-// lifetime as the provider settings beside it.
-builder.Services.AddSingleton<IAssistantSettingsService, AssistantSettingsService>();
-builder.Services.AddScoped<AssistantOrchestrator>();
-
 if (deployment.Mode == DeploymentMode.SelfHosted)
 {
     builder.Services.AddSingleton<IManagedAiAccessPolicy, SelfHostedManagedAiAccessPolicy>();
@@ -178,7 +172,14 @@ else
 }
 
 // --- AI PROVIDER SETTINGS (assistant milestone + Cloud #404) ---
-builder.Services.AddNostosDataProtection(builder.Configuration, deployment);
+if (deployment.Mode == DeploymentMode.SelfHosted)
+{
+    builder.Services.AddNostosSelfHostedDataProtection();
+}
+else
+{
+    builder.Services.AddNostosCloudDataProtection(builder.Configuration);
+}
 
 if (deployment.Mode == DeploymentMode.SelfHosted)
 {
@@ -201,31 +202,6 @@ else
         sp => sp.GetRequiredService<CloudManagedAiProviderSettingsService>());
 }
 
-// --- OPDS 1.2 export (issue #186) ---
-// The catalogue is unauthenticated by design, so it is only safe on a private
-// network; see OpdsOptions for the full access-model statement. The section is
-// validated and normalized once at startup so the mapping decision, the page
-// size, and the externally visible base URL can never disagree between the
-// endpoint, the startup log, and the configuration file.
-var opdsOptions =
-    builder.Configuration.GetSection(OpdsOptions.SectionName).Get<OpdsOptions>()
-    ?? new OpdsOptions();
-opdsOptions.PageSize = OpdsOptions.NormalizePageSize(opdsOptions.PageSize);
-if (
-    !OpdsOptions.TryNormalizePublicBaseUrl(
-        opdsOptions.PublicBaseUrl,
-        out var opdsPublicBaseUrl,
-        out var opdsBaseUrlError
-    )
-)
-{
-    throw new InvalidOperationException(
-        $"OPDS is enabled but 'Opds:PublicBaseUrl' is invalid ({opdsBaseUrlError}). "
-            + "Fix the URL, or unset it to derive the origin from each request."
-    );
-}
-opdsOptions.PublicBaseUrl = opdsPublicBaseUrl;
-builder.Services.AddSingleton(opdsOptions);
 
 // Single upload cap for Kestrel + multipart forms (audiobooks can be GB-sized).
 // One declaration only: a second ConfigureKestrel/Configure<FormOptions> call
@@ -278,11 +254,6 @@ if (deployment.Mode == DeploymentMode.SelfHosted)
     builder.Services.AddScoped<IDatabaseBootstrapService, DatabaseBootstrapService>();
 }
 
-builder.Services.ConfigureHttpJsonOptions(options =>
-{
-    options.SerializerOptions.Converters.Add(new UtcDateTimeJsonConverter());
-});
-
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 
@@ -301,115 +272,20 @@ else
     builder.Services.AddNostosCloudRecoverySchedule(builder.Configuration, deployment);
 }
 
-builder.Services.AddNostosHealthChecks(deployment);
+if (deployment.Mode == DeploymentMode.SelfHosted)
+{
+    builder.Services.AddNostosSelfHostedHealthChecks();
+}
+else
+{
+    builder.Services.AddNostosCloudHealthChecks();
+}
 
 builder.Services.AddSingleton<BackupSettingsProvider>();
-builder.Services.AddHttpClient();
-builder.Services.AddHttpClient(BookLookupService.HttpClientName, client =>
-{
-    // External metadata lookups must never occupy the whole request budget;
-    // typed failure (null) flows out of the lookup service instead.
-    client.Timeout = TimeSpan.FromSeconds(15);
-});
-builder.Services.AddScoped<BookLookupService>();
-builder.Services.AddScoped<ILibraryService, LibraryService>();
-builder.Services.AddScoped<LibraryReceiptRetentionService>();
-builder.Services.AddScoped<MediaMetadataService>();
-builder.Services.AddScoped<NoteProcessorService>();
-builder.Services.AddScoped<INoteService, NoteService>();
 if (deployment.Mode == DeploymentMode.SelfHosted)
 {
     builder.Services.AddScoped<IBackupService, BackupService>();
 }
-
-// Provider-independent library portability is available in both deployment
-// modes. In Cloud the scoped DbContext and IBookAssetStorage already resolve
-// from the authenticated tenant context; callers never supply tenant resources.
-builder.Services.AddScoped<
-    Nostos.Backend.Services.Portability.IPortableArchiveService,
-    Nostos.Backend.Services.Portability.PortableArchiveService>();
-
-builder.Services.AddScoped<IBookRepository, BookRepository>();
-builder.Services.AddScoped<INoteRepository, NoteRepository>();
-builder.Services.AddScoped<IConceptRepository, ConceptRepository>();
-builder.Services.AddScoped<IWritingRepository, WritingRepository>();
-
-// --- Safe assistant action surface (issue #260 §5, §6) ---
-// One scoped registry over the canonical note/library/concept services. It has
-// no HTTP surface and no LLM; 261-S2 executes it in process. The capabilities
-// are built here so the registry itself stays a plain, testable collection.
-builder.Services.AddScoped(sp => new AssistantCapabilityRegistry(AssistantCapabilities.Build(
-    sp.GetRequiredService<INoteService>(),
-    sp.GetRequiredService<ILibraryService>(),
-    sp.GetRequiredService<IConceptRepository>())));
-
-// --- External content providers and acquisition (issue #166) ---
-// A provider only describes remote content; the acquisition layer turns a
-// described item into an ordinary local book. Adding a source is a normal DI
-// registration here — there is no dynamic assembly loading and no third-party
-// plugin surface.
-builder.Services.Configure<AcquisitionOptions>(
-    builder.Configuration.GetSection(AcquisitionOptions.SectionName));
-
-// Auto-redirect is deliberately OFF: the downloader follows redirects itself,
-// one hop at a time, so that every hop is checked against the provider's host
-// allow-list instead of only the first URL.
-builder.Services.AddHttpClient(ProviderContentDownloader.HttpClientName, client =>
-{
-    // Per-attempt deadlines belong to the downloader, not to the client: one
-    // short HttpClient timeout would kill every multi-hour audiobook download.
-    client.Timeout = Timeout.InfiniteTimeSpan;
-    client.DefaultRequestHeaders.UserAgent.ParseAdd(
-        "Nostos/1.0 (+https://github.com/Christian-Gennari/Nostos-Rebirth)");
-}).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
-{
-    AllowAutoRedirect = false,
-    ConnectTimeout = TimeSpan.FromSeconds(30),
-});
-
-builder.Services.AddSingleton<IProviderRegistry, ProviderRegistry>();
-builder.Services.AddSingleton<ITranscodeLimiter, TranscodeLimiter>();
-builder.Services.AddSingleton<IProviderContentDownloader, ProviderContentDownloader>();
-builder.Services.AddScoped<IAcquisitionService, AcquisitionService>();
-
-// --- Project Gutenberg (#167) ---
-// One identifiable client for the catalogue, with a short per-request timeout:
-// Gutenberg asks to be treated politely, and a search must not hold a request
-// open. The content downloads themselves use the separate provider-content
-// client, which has its own (much longer) per-attempt budget.
-builder.Services.AddHttpClient(GutenbergProvider.HttpClientName, client =>
-{
-    client.BaseAddress = new Uri(GutenbergCatalog.BaseUrl);
-    client.Timeout = TimeSpan.FromSeconds(20);
-    client.DefaultRequestHeaders.UserAgent.ParseAdd(
-        "Nostos/1.0 (+https://github.com/Christian-Gennari/Nostos-Rebirth)");
-});
-
-builder.Services.AddSingleton<IContentProvider, GutenbergProvider>();
-
-// --- LibriVox (#168) ---
-// The media tooling is an explicit runtime prerequisite, not an assumption:
-// MediaProcessRunner resolves ffmpeg/ffprobe at startup and publishes whether
-// they are present, so a missing dependency is a clear message at the point of
-// use rather than a confusing failure halfway through an import.
-builder.Services.Configure<MediaToolOptions>(
-    builder.Configuration.GetSection(MediaToolOptions.SectionName));
-
-builder.Services.AddSingleton<IMediaProcessRunner, MediaProcessRunner>();
-builder.Services.AddSingleton<LibriVoxM4bAssembler>();
-
-builder.Services.AddHttpClient(LibriVoxProvider.HttpClientName, client =>
-{
-    client.BaseAddress = new Uri(LibriVoxCatalog.BaseUrl);
-    // The catalogue client is only used for the JSON feed, which is small and
-    // fast; the section downloads use the separate provider-content client with
-    // its own long per-attempt budget.
-    client.Timeout = TimeSpan.FromSeconds(20);
-    client.DefaultRequestHeaders.UserAgent.ParseAdd(
-        "Nostos/1.0 (+https://github.com/Christian-Gennari/Nostos-Rebirth)");
-});
-
-builder.Services.AddSingleton<IContentProvider, LibriVoxProvider>();
 
 // One instance serves as the job store, the hosted worker that drains it, and
 // the IAcquisitionJobManager the endpoints talk to.
@@ -602,21 +478,19 @@ if (deployment.Mode == DeploymentMode.Cloud)
 
 // ------------------------------
 
-// Map all endpoints
-app.MapBooksEndpoints(deployment.Mode == DeploymentMode.Cloud);
-app.MapProviderEndpoints(deployment.Mode == DeploymentMode.Cloud);
-app.MapImportEndpoints();
-app.MapNotesEndpoints();
-app.MapNoteProcessingEndpoints();
-app.MapCollectionsEndpoints();
-app.MapConceptsEndpoints();
-app.MapWritingsEndpoints();
-app.MapTranscriptionEndpoints();
-app.MapAssistantEndpoints();
-app.MapAiProviderSettingsEndpoints();
-app.MapAssistantSettingsEndpoints();
-app.MapDeploymentCapabilitiesEndpoints();
-app.MapPortabilityEndpoints(deployment.Mode == DeploymentMode.Cloud);
+// Map the public product API through the reusable composition seam. Hosted
+// policy names are supplied as opaque host concerns; Nostos.Product contains
+// no Clerk/control-plane/rate-limiter implementation dependency.
+var productEndpointPolicies = deployment.Mode == DeploymentMode.Cloud
+    ? new NostosProductEndpointPolicies(
+        ExpensiveMutationRateLimitPolicy: CloudRateLimitPolicies.ExpensiveMutation,
+        ProviderFetchRateLimitPolicy: CloudRateLimitPolicies.ProviderFetch,
+        LargeTransferRateLimitPolicy: CloudRateLimitPolicies.LargeTransfer,
+        PortableExportAuthorizationPolicy: CloudAuthPolicies.RecoverableAccount)
+    : NostosProductEndpointPolicies.None;
+
+app.MapNostosProductEndpoints(opdsOptions, productEndpointPolicies);
+
 if (deployment.Mode == DeploymentMode.Cloud)
 {
     app.MapCloudAuthEndpoints();
@@ -627,8 +501,7 @@ if (deployment.Mode == DeploymentMode.Cloud)
     app.MapCloudManagedAiUsageEndpoints();
     app.MapCloudAccountDeletionEndpoints();
 }
-app.MapOpdsEndpoints(opdsOptions);
-if (deployment.Mode == DeploymentMode.SelfHosted)
+else
 {
     app.MapBackupEndpoints();
 }

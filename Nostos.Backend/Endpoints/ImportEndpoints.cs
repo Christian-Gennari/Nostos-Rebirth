@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Nostos.Backend.Data;
 using Nostos.Backend.Providers.Acquisition;
-using Nostos.Backend.Workers;
 using Nostos.Shared.Dtos;
 using Nostos.Shared.Enums;
 
@@ -124,7 +123,7 @@ public static class ImportEndpoints
         // filter.) The count cap and Dismiss are what keep the list bounded.
         var interrupted = await db.Books
             .Where(book => book.Status == BookStatus.Failed
-                && book.StatusMessage == AcquisitionReconciliationWorker.InterruptedByRestartMessage)
+                && book.StatusMessage == AcquisitionJobMessages.InterruptedByRestart)
             .OrderByDescending(book => book.CreatedAt)
             .Take(MaxReconciledEntries)
             .Select(book => book.Id)
@@ -235,7 +234,7 @@ public static class ImportEndpoints
             Author: book?.Author,
             CoverUrl: CoverUrl(bookId, book),
             ErrorCode: "import_interrupted",
-            Message: AcquisitionReconciliationWorker.InterruptedByRestartMessage,
+            Message: AcquisitionJobMessages.InterruptedByRestart,
             CreatedAt: book?.CreatedAt ?? DateTime.UtcNow,
             UpdatedAt: book?.CreatedAt ?? DateTime.UtcNow,
             CanRetry: acquisition is not null
