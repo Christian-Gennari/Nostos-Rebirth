@@ -31,11 +31,13 @@ public static class CloudAiPricing
         if (inputTokens is null || outputTokens is null)
             return null;
 
-        if (!string.Equals(provider, "google", StringComparison.Ordinal)
-            || !string.Equals(model, "gemini-3.8-flash", StringComparison.Ordinal))
-        {
+        var isGoogleGemini38Flash =
+            string.Equals(provider, "google", StringComparison.Ordinal)
+            && (string.Equals(model, "gemini-3.8-flash", StringComparison.Ordinal)
+                || string.Equals(model, "google/gemini-3.8-flash", StringComparison.Ordinal));
+
+        if (!isGoogleGemini38Flash)
             return null;
-        }
 
         var (inputPerMillion, outputPerMillion, epoch) = startedAtUtc < Gemini2027
             ? (0.75m, 3.75m, GeminiIntroEpoch)
