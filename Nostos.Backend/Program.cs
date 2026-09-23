@@ -9,6 +9,7 @@ using Nostos.Backend.Data.Interfaces;
 using Nostos.Backend.Data.Repositories;
 using Nostos.Backend.Endpoints;
 using Nostos.Backend.Configuration;
+using Nostos.Backend.Cloud.Onboarding;
 using Nostos.Backend.Integrations.Assistant;
 using Nostos.Backend.Integrations.Mcp;
 using Nostos.Backend.Health;
@@ -267,6 +268,7 @@ builder.Services.AddNostosPersistence(
 if (deployment.Mode == DeploymentMode.Cloud)
 {
     builder.Services.AddNostosCloudBilling(builder.Configuration);
+    builder.Services.AddScoped<ICloudOnboardingService, CloudOnboardingService>();
 }
 
 if (deployment.Mode == DeploymentMode.SelfHosted)
@@ -608,6 +610,7 @@ app.MapPortabilityEndpoints();
 if (deployment.Mode == DeploymentMode.Cloud)
 {
     app.MapCloudAuthEndpoints();
+    app.MapCloudOnboardingEndpoints();
     app.MapCloudProvisioningEndpoints();
     app.MapCloudRecoveryEndpoints();
     app.MapCloudBillingEndpoints();
