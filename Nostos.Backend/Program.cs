@@ -31,6 +31,16 @@ var builder = WebApplication.CreateBuilder(args);
 var deployment = builder.Services.AddNostosDeployment(builder.Configuration);
 builder.Services.AddNostosAuthentication(builder.Configuration, deployment);
 
+CloudManagedAiOptions? cloudManagedAiOptions = null;
+if (deployment.Mode == DeploymentMode.Cloud)
+{
+    cloudManagedAiOptions =
+        builder.Configuration.GetSection(CloudManagedAiOptions.SectionName).Get<CloudManagedAiOptions>()
+        ?? new CloudManagedAiOptions();
+    cloudManagedAiOptions.Validate();
+    builder.Services.AddSingleton(cloudManagedAiOptions);
+}
+
 builder.Services.Configure<BackupSettings>(builder.Configuration.GetSection("BackupSettings"));
 
 // Where locally stored book files live. Configurable so a test host (or a
@@ -97,43 +107,52 @@ if (mcpOptions.Enabled)
 
 builder.Services.AddSingleton(mcpOptions);
 
-// --- SPEECH-TO-TEXT (issue #262 §2/§3) ---
-// Optional and disabled by default, like MCP. Bound as a singleton so the
-// endpoint and the provider always read the same effective configuration. The
-// credential is resolved from the environment variable NAMED here at call time
-// (never from configuration), so the key is never committed and never leaves
-// the server. The provider is registered even when disabled: the endpoint then
-// answers with a typed "disabled" error instead of failing to construct.
+// --- SPEECH-TO-TEXT (issue #262 §2/§3, Cloud #404) ---
 var speechOptions =
     builder.Configuration.GetSection(SpeechOptions.SectionName).Get<SpeechOptions>()
     ?? new SpeechOptions();
 builder.Services.AddSingleton(speechOptions);
-builder.Services.AddHttpClient(NineRouterSttProvider.HttpClientName, client =>
-{
-    // A ceiling for a slow transcription of a multi-minute upload, not an
-    // expectation. Per-call cancellation still comes from the request.
-    client.Timeout = TimeSpan.FromMinutes(5);
-});
-builder.Services.AddSingleton<ISTtProvider, NineRouterSttProvider>();
 
-// --- ASSISTANT LLM BRIDGE (issue #261 §3, §7) ---
-// Optional and disabled by default, like MCP and Speech. The credential is
-// resolved from the environment variable NAMED here at call time (never from
-// configuration), so the key is never committed and never leaves the server.
-// The provider is registered even when disabled: the endpoints then answer with
-// a typed "disabled" error instead of failing to construct. The pending-plan
-// store is in-memory by design — a plan lives for one conversational exchange,
-// and a restart simply means the user asks again.
+if (deployment.Mode == DeploymentMode.SelfHosted)
+{
+    builder.Services.AddHttpClient(NineRouterSttProvider.HttpClientName, client =>
+    {
+        client.Timeout = TimeSpan.FromMinutes(5);
+    });
+    builder.Services.AddSingleton<ISTtProvider, NineRouterSttProvider>();
+}
+else
+{
+    builder.Services.AddHttpClient(GroqManagedSttProvider.HttpClientName, client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(cloudManagedAiOptions!.SttRequestTimeoutSeconds);
+    });
+    builder.Services.AddSingleton<ISTtProvider, GroqManagedSttProvider>();
+}
+
+// --- ASSISTANT LLM BRIDGE (issue #261 §3, §7, Cloud #404) ---
 var assistantOptions =
     builder.Configuration.GetSection(AssistantOptions.SectionName).Get<AssistantOptions>()
     ?? new AssistantOptions();
 builder.Services.AddSingleton(assistantOptions);
-builder.Services.AddHttpClient(NineRouterLlmProvider.HttpClientName, client =>
+
+if (deployment.Mode == DeploymentMode.SelfHosted)
 {
-    // A ceiling for one reasoning-heavy completion, not an expectation.
-    client.Timeout = TimeSpan.FromSeconds(Math.Max(1, assistantOptions.RequestTimeoutSeconds));
-});
-builder.Services.AddSingleton<ILlmProvider, NineRouterLlmProvider>();
+    builder.Services.AddHttpClient(NineRouterLlmProvider.HttpClientName, client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(Math.Max(1, assistantOptions.RequestTimeoutSeconds));
+    });
+    builder.Services.AddSingleton<ILlmProvider, NineRouterLlmProvider>();
+}
+else
+{
+    builder.Services.AddHttpClient(GeminiManagedLlmProvider.HttpClientName, client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(cloudManagedAiOptions!.LlmRequestTimeoutSeconds);
+    });
+    builder.Services.AddSingleton<ILlmProvider, GeminiManagedLlmProvider>();
+}
+
 // Post-processing modes (issue #262 §7, §8): one processor over the same bridge.
 // It is stateless and its verbatim short-circuit never reaches the provider, so
 // a singleton matches the provider's lifetime.
@@ -145,24 +164,34 @@ builder.Services.AddSingleton<AssistantPlanStore>();
 builder.Services.AddSingleton<IAssistantSettingsService, AssistantSettingsService>();
 builder.Services.AddScoped<AssistantOrchestrator>();
 
-// --- AI PROVIDER SETTINGS (assistant-milestone plan) ---
-// Server-wide LLM/STT overrides stored in the database, with the appsettings
-// values above remaining the fallback. The effective resolver is what the
-// providers read at call time. Data Protection remains simple and local in
-// SelfHosted mode; Cloud stores its key ring in the shared control plane so a
-// replacement container can still decrypt cookies and encrypted settings.
+if (deployment.Mode == DeploymentMode.SelfHosted)
+    builder.Services.AddSingleton<IManagedAiAccessPolicy, SelfHostedManagedAiAccessPolicy>();
+else
+    builder.Services.AddScoped<IManagedAiAccessPolicy, CloudManagedAiAccessPolicy>();
+
+// --- AI PROVIDER SETTINGS (assistant milestone + Cloud #404) ---
 builder.Services.AddNostosDataProtection(builder.Configuration, deployment);
-builder.Services.AddHttpClient(AiProviderSettingsService.HttpClientName, client =>
+
+if (deployment.Mode == DeploymentMode.SelfHosted)
 {
-    // The settings probes are small, but the free pool can be slow to answer
-    // one completion; this is a ceiling, not an expectation.
-    client.Timeout = TimeSpan.FromSeconds(60);
-});
-builder.Services.AddSingleton<AiProviderSettingsService>();
-builder.Services.AddSingleton<IAiProviderConfigResolver>(
-    sp => sp.GetRequiredService<AiProviderSettingsService>());
-builder.Services.AddSingleton<IAiProviderSettingsService>(
-    sp => sp.GetRequiredService<AiProviderSettingsService>());
+    builder.Services.AddHttpClient(AiProviderSettingsService.HttpClientName, client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(60);
+    });
+    builder.Services.AddSingleton<AiProviderSettingsService>();
+    builder.Services.AddSingleton<IAiProviderConfigResolver>(
+        sp => sp.GetRequiredService<AiProviderSettingsService>());
+    builder.Services.AddSingleton<IAiProviderSettingsService>(
+        sp => sp.GetRequiredService<AiProviderSettingsService>());
+}
+else
+{
+    builder.Services.AddSingleton<CloudManagedAiProviderSettingsService>();
+    builder.Services.AddSingleton<IAiProviderConfigResolver>(
+        sp => sp.GetRequiredService<CloudManagedAiProviderSettingsService>());
+    builder.Services.AddSingleton<IAiProviderSettingsService>(
+        sp => sp.GetRequiredService<CloudManagedAiProviderSettingsService>());
+}
 
 // --- OPDS 1.2 export (issue #186) ---
 // The catalogue is unauthenticated by design, so it is only safe on a private
