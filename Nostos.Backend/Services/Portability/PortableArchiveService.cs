@@ -713,6 +713,9 @@ public sealed class PortableArchiveService(
 
             ValidateMediaManifest(manifest, data);
 
+            var stagedMediaBytes = manifest.Media.Sum(media => media.Length);
+            EnsureTempExtractionCapacity(tempRoot, stagedMediaBytes);
+
             var expectedPaths = new HashSet<string>(
                 StringComparer.OrdinalIgnoreCase)
             {
@@ -1644,6 +1647,47 @@ public sealed class PortableArchiveService(
 
     private static string MediaPath(Guid bookId, string kind, string extension) =>
         $"media/books/{bookId:N}/{kind}{extension.ToLowerInvariant()}";
+
+    private static void EnsureTempExtractionCapacity(string tempRoot, long bytesToStage)
+    {
+        if (bytesToStage <= 0)
+            return;
+
+        var root = Path.GetPathRoot(Path.GetFullPath(tempRoot));
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            throw new PortableArchiveException(
+                "temp_space_unavailable",
+                "Portable archive extraction cannot determine temporary-storage capacity.");
+        }
+
+        long available;
+        try
+        {
+            available = new DriveInfo(root).AvailableFreeSpace;
+        }
+        catch (Exception exception) when (
+            exception is IOException
+            or UnauthorizedAccessException
+            or ArgumentException)
+        {
+            throw new PortableArchiveException(
+                "temp_space_unavailable",
+                "Portable archive extraction cannot determine temporary-storage capacity.",
+                exception);
+        }
+
+        // The compressed archive is already staged when this runs. Preserve at
+        // least 20% of the remaining temp volume so extraction cannot consume
+        // the host's last bytes and destabilize unrelated requests/workers.
+        var extractionBudget = available - (available / 5);
+        if (bytesToStage > extractionBudget)
+        {
+            throw new PortableArchiveException(
+                "insufficient_temp_space",
+                "Portable archive media cannot be staged safely with the temporary storage currently available.");
+        }
+    }
 
     private static string ValidateArchivePath(string path)
     {
