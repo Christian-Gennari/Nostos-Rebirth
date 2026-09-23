@@ -90,4 +90,6 @@ The Angular application is one build for both modes.
 
 Frontend surfaces that genuinely differ should consume the server capability manifest through `DeploymentCapabilitiesService`. Do not add hostname checks or environment-specific frontend forks.
 
-Cloud managed Ask Nostos and voice composition is documented in [managed-ai.md](managed-ai.md).\n\nIssue #407 owns the later Settings/UI adaptation based on these capabilities.
+Cloud managed Ask Nostos and voice composition is documented in [managed-ai.md](managed-ai.md).
+
+Issue #407 owns the later Settings/UI adaptation based on these capabilities.
