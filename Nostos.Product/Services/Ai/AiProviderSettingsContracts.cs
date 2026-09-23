@@ -1,67 +1,60 @@
-using System.Text.Json.Serialization;
+namespace Nostos.Product.Services.Ai;
 
-namespace Nostos.Backend.Services.Ai;
+public sealed record AiProviderOption(
+    string Id,
+    string DisplayName,
+    bool RequiresApiKey,
+    bool SupportsModelSelection,
+    IReadOnlyList<string> RecommendedModels);
 
-/// <summary>
-/// Host-supplied AI provider settings surface. A local host can store BYOK
-/// settings; another host can supply its own provider configuration. Product
-/// endpoints depend only on this contract.
-/// </summary>
-public interface IAiProviderSettingsService : IAiProviderConfigResolver
-{
-    Task<AiProviderSettingsResponse> GetAsync(CancellationToken ct = default);
-
-    Task<AiProviderSettingsResponse> UpdateAsync(
-        AiProviderSettingsUpdateRequest request,
-        CancellationToken ct = default);
-
-    Task<AiProviderModelsResponse> ListModelsAsync(
-        AiProviderModelsRequest request,
-        CancellationToken ct = default);
-
-    Task<AiProviderTestResult> TestAsync(
-        AiProviderTestRequest request,
-        CancellationToken ct = default);
-}
-
-public sealed record AiProviderSectionDto(
-    bool Enabled,
-    string BaseUrl,
-    string Model,
-    bool HasKey,
-    bool KeyFromServerEnv);
-
-public sealed record AiProviderSettingsResponse(
-    AiProviderSectionDto Llm,
-    AiProviderSectionDto Stt);
-
-public sealed record AiProviderSectionUpdate(
-    bool? Enabled,
+public sealed record AiProviderConfigDto(
+    string ProviderId,
     string? BaseUrl,
     string? Model,
-    string? ApiKey);
+    bool HasApiKeyConfigured);
 
-public sealed record AiProviderSettingsUpdateRequest(
-    AiProviderSectionUpdate? Llm,
-    AiProviderSectionUpdate? Stt);
+public sealed record AiProviderSettingsSummary(
+    string ActiveProviderId,
+    string ActiveModel,
+    bool ActiveProviderConfigured,
+    IReadOnlyList<AiProviderOption> Providers,
+    IReadOnlyList<AiProviderConfigDto> Configurations);
 
-public sealed record AiProviderModelsRequest(
-    string Kind,
-    string? BaseUrl,
-    string? ApiKey);
-
-public sealed record AiProviderModelsResponse(IReadOnlyList<string> Models);
-
-public sealed record AiProviderTestRequest(
-    string Kind,
+public sealed record ConfigureAiProviderCommand(
+    string ProviderId,
+    string? ApiKey,
     string? BaseUrl,
     string? Model,
-    string? ApiKey);
+    bool SetAsActive);
+
+public sealed record SetActiveAiProviderCommand(
+    string ProviderId,
+    string? Model);
+
+public sealed record TestAiProviderCommand(
+    string ProviderId,
+    string? ApiKey,
+    string? BaseUrl,
+    string? Model);
 
 public sealed record AiProviderTestResult(
-    bool Ok,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Detail,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Error);
+    bool Success,
+    string Message,
+    int? LatencyMs);
+
+public interface IAiProviderSettingsService
+{
+    Task<AiProviderSettingsSummary> GetSummaryAsync(CancellationToken cancellationToken = default);
+    Task<AiProviderSettingsSummary> ConfigureProviderAsync(ConfigureAiProviderCommand command, CancellationToken cancellationToken = default);
+    Task<AiProviderSettingsSummary> SetActiveProviderAsync(SetActiveAiProviderCommand command, CancellationToken cancellationToken = default);
+    Task<AiProviderTestResult> TestProviderAsync(TestAiProviderCommand command, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// A host owns provider identity/configuration and therefore refuses customer
+/// configuration changes. The product maps this to the stable 403 contract.
+/// </summary>
+public sealed class AiProviderConfigurationManagedException(string message) : Exception(message);
 
 /// <summary>
 /// A host owns provider identity/configuration and therefore refuses customer
