@@ -175,6 +175,22 @@ public sealed class TranscriptionEndpointTests
         (await ProblemTitleAsync(response)).Should().Be(SttErrorCodes.TooLong);
     }
 
+    [Fact]
+    public async Task Entitlement_denial_stops_transcription_before_the_provider()
+    {
+        var provider = new FakeSttProvider();
+
+        using var factory = new LibraryEndpointFactory();
+        using var host = CreateHost(factory, provider, entitled: false);
+        using var client = host.CreateClient();
+
+        var response = await PostAsync(client, Audio(128));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await ProblemTitleAsync(response)).Should().Be(SttErrorCodes.NotEntitled);
+        provider.CallCount.Should().Be(0);
+    }
+
     // ------------------------------------------------------------------
     // No audio retention
     // ------------------------------------------------------------------
@@ -257,7 +273,8 @@ public sealed class TranscriptionEndpointTests
         bool enabled = true,
         bool configured = true,
         long maxUploadBytes = 26_214_400,
-        double maxDurationSeconds = 300)
+        double maxDurationSeconds = 300,
+        bool entitled = true)
     {
         return factory.WithWebHostBuilder(builder =>
         {
@@ -296,7 +313,19 @@ public sealed class TranscriptionEndpointTests
                 };
                 services.RemoveAll<IAiProviderConfigResolver>();
                 services.AddSingleton<IAiProviderConfigResolver>(resolver);
+
+                if (!entitled)
+                {
+                    services.RemoveAll<IManagedAiAccessPolicy>();
+                    services.AddSingleton<IManagedAiAccessPolicy, DenyManagedAiAccessPolicy>();
+                }
             });
         });
+    }
+
+    private sealed class DenyManagedAiAccessPolicy : IManagedAiAccessPolicy
+    {
+        public Task<bool> IsAllowedAsync(CancellationToken ct = default) =>
+            Task.FromResult(false);
     }
 }
