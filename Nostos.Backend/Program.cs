@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,7 @@ using Nostos.Backend.Endpoints;
 using Nostos.Backend.Configuration;
 using Nostos.Backend.Integrations.Assistant;
 using Nostos.Backend.Integrations.Mcp;
+using Nostos.Backend.Health;
 using Nostos.Backend.Providers;
 using Nostos.Backend.Providers.Acquisition;
 using Nostos.Backend.Providers.Acquisition.Media;
@@ -146,10 +148,10 @@ builder.Services.AddScoped<AssistantOrchestrator>();
 // --- AI PROVIDER SETTINGS (assistant-milestone plan) ---
 // Server-wide LLM/STT overrides stored in the database, with the appsettings
 // values above remaining the fallback. The effective resolver is what the
-// providers read at call time. Data Protection is framework-provided and is
-// used to store an owner-supplied key encrypted at rest; its default key ring
-// persists per-user, so nothing extra has to be configured here.
-builder.Services.AddDataProtection();
+// providers read at call time. Data Protection remains simple and local in
+// SelfHosted mode; Cloud stores its key ring in the shared control plane so a
+// replacement container can still decrypt cookies and encrypted settings.
+builder.Services.AddNostosDataProtection(builder.Configuration, deployment);
 builder.Services.AddHttpClient(AiProviderSettingsService.HttpClientName, client =>
 {
     // The settings probes are small, but the free pool can be slow to answer
@@ -259,6 +261,8 @@ else
     builder.Services.AddNostosCloudObjectStorage(builder.Configuration);
     builder.Services.AddNostosCloudRecoverySchedule(builder.Configuration, deployment);
 }
+
+builder.Services.AddNostosHealthChecks(deployment);
 
 builder.Services.AddSingleton<BackupSettingsProvider>();
 builder.Services.AddHttpClient();
@@ -374,12 +378,16 @@ builder.Services.AddSingleton<AcquisitionJobManager>();
 builder.Services.AddSingleton<IAcquisitionJobManager>(sp => sp.GetRequiredService<AcquisitionJobManager>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<AcquisitionJobManager>());
 builder.Services.AddHostedService<AcquisitionReconciliationWorker>();
-builder.Services.AddHostedService<ConceptCleanupWorker>();
 if (deployment.Mode == DeploymentMode.SelfHosted)
 {
+    // These workers operate on the one local SQLite library. In Cloud there is
+    // no ambient customer during a timer tick, so running them per web replica
+    // would be both incorrect and duplicate work. Cloud fleet maintenance gets
+    // an explicit tenant-aware owner/lease before it is enabled.
+    builder.Services.AddHostedService<ConceptCleanupWorker>();
     builder.Services.AddHostedService<BackupWorker>();
+    builder.Services.AddHostedService<LibraryReceiptRetentionWorker>();
 }
-builder.Services.AddHostedService<LibraryReceiptRetentionWorker>();
 
 var app = builder.Build();
 
@@ -400,6 +408,13 @@ else
     var controlPlaneBootstrap =
         app.Services.GetRequiredService<Nostos.Backend.Cloud.ControlPlane.ICloudControlPlaneBootstrapper>();
     await controlPlaneBootstrap.EnsureReadyAsync();
+
+    // Prove the shared key ring can be decrypted before accepting traffic.
+    // A replaced instance with the wrong master key therefore fails closed at
+    // startup instead of invalidating sessions or encrypted settings later.
+    app.Services
+        .GetRequiredService<Nostos.Backend.Cloud.ControlPlane.CloudDataProtectionKeyRepository>()
+        .EnsureReadable();
 
     var objectStorageBootstrap =
         app.Services.GetRequiredService<Nostos.Backend.Cloud.Storage.ICloudObjectStorageBootstrapper>();
@@ -511,6 +526,22 @@ if (mcpOptions.Enabled)
 // -----------------------------------
 
 app.MapOpenApi();
+
+// Cheap process liveness deliberately has no dependency checks. Readiness is
+// separate and probes only the shared infrastructure required to serve real
+// traffic; its response never includes connection strings, provider errors or
+// customer identifiers.
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false,
+    ResponseWriter = NostosHealthResponseWriter.WriteAsync,
+}).AllowAnonymous();
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains(NostosHealthCheckTags.Readiness),
+    ResponseWriter = NostosHealthResponseWriter.WriteAsync,
+}).AllowAnonymous();
 
 // --- SERVE ANGULAR FRONTEND ---
 app.UseDefaultFiles();
