@@ -129,18 +129,15 @@ public sealed class AcquisitionReconciliationWorkerTests : IDisposable
         File.WriteAllText(Path.Combine(orphanedDir, "part.tmp"), "scratch");
 
         var env = new FakeWebHostEnvironment { ContentRootPath = _tempRoot };
-        var storage = new FileStorageService(
-            env,
-            Microsoft.Extensions.Options.Options.Create(
-                new FileStorageOptions { BooksRoot = _booksRoot }),
-            NullLogger<FileStorageService>.Instance);
+        var storageOptions = Microsoft.Extensions.Options.Options.Create(
+            new FileStorageOptions { BooksRoot = _booksRoot });
         var options = Microsoft.Extensions.Options.Options.Create(
             new AcquisitionOptions { WorkingRoot = _workingRoot });
 
         var worker = new AcquisitionReconciliationWorker(
             h.ContextFactory,
             env,
-            storage,
+            storageOptions,
             options,
             NullLogger<AcquisitionReconciliationWorker>.Instance,
             DeploymentDescriptor.For(DeploymentMode.Cloud));
