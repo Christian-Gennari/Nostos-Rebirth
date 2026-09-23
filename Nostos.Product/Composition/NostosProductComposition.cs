@@ -141,6 +141,9 @@ public static class NostosProductComposition
         });
 
         services.AddSingleton<IProviderRegistry, ProviderRegistry>();
+        services.TryAddSingleton<
+            IAcquisitionWorkingRootProvider,
+            DefaultAcquisitionWorkingRootProvider>();
         services.AddSingleton<ITranscodeLimiter, TranscodeLimiter>();
         services.AddSingleton<IProviderContentDownloader, ProviderContentDownloader>();
         services.AddScoped<IAcquisitionService, AcquisitionService>();
