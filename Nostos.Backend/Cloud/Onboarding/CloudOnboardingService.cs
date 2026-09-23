@@ -141,10 +141,10 @@ public sealed class CloudOnboardingService(
         catch (CloudProvisioningException exception)
         {
             logger.LogWarning(
-                exception,
-                "Cloud onboarding provisioning failed for account {AccountId} with bounded code {FailureCode}.",
+                "Cloud onboarding provisioning failed for account {AccountId} with bounded code {FailureCode} and exception type {ExceptionType}. Details suppressed.",
                 account.AccountId,
-                exception.FailureCode);
+                exception.FailureCode,
+                exception.GetType().Name);
         }
 
         return await GetStateAsync(cancellationToken);
@@ -191,7 +191,9 @@ public sealed class CloudOnboardingService(
         }
         catch (PaddleApiException exception)
         {
-            logger.LogWarning(exception, "Cloud onboarding checkout provider request failed.");
+            logger.LogWarning(
+                "Cloud onboarding checkout provider request failed with {ExceptionType}. Details suppressed.",
+                exception.GetType().Name);
             throw new CloudOnboardingActionException(
                 "billing_unavailable",
                 "Checkout is temporarily unavailable. Try again.",
@@ -200,7 +202,9 @@ public sealed class CloudOnboardingService(
         }
         catch (InvalidOperationException exception)
         {
-            logger.LogWarning(exception, "Cloud onboarding could not create checkout.");
+            logger.LogWarning(
+                "Cloud onboarding could not create checkout; exception type {ExceptionType}. Details suppressed.",
+                exception.GetType().Name);
             throw new CloudOnboardingActionException(
                 "checkout_not_available",
                 "Checkout is not available for this account right now. Refresh your subscription status and try again.",
@@ -218,7 +222,9 @@ public sealed class CloudOnboardingService(
         }
         catch (PaddleApiException exception)
         {
-            logger.LogWarning(exception, "Cloud onboarding subscription reconciliation failed.");
+            logger.LogWarning(
+                "Cloud onboarding subscription reconciliation failed with {ExceptionType}. Details suppressed.",
+                exception.GetType().Name);
             throw new CloudOnboardingActionException(
                 "billing_unavailable",
                 "We couldn't check your subscription right now. Try again.",
@@ -248,7 +254,9 @@ public sealed class CloudOnboardingService(
         }
         catch (PaddleApiException exception)
         {
-            logger.LogWarning(exception, "Cloud onboarding billing portal request failed.");
+            logger.LogWarning(
+                "Cloud onboarding billing portal request failed with {ExceptionType}. Details suppressed.",
+                exception.GetType().Name);
             throw new CloudOnboardingActionException(
                 "billing_unavailable",
                 "Subscription management is temporarily unavailable. Try again.",
@@ -257,7 +265,9 @@ public sealed class CloudOnboardingService(
         }
         catch (InvalidOperationException exception)
         {
-            logger.LogWarning(exception, "Cloud onboarding could not open the billing portal.");
+            logger.LogWarning(
+                "Cloud onboarding could not open the billing portal; exception type {ExceptionType}. Details suppressed.",
+                exception.GetType().Name);
             throw new CloudOnboardingActionException(
                 "billing_portal_not_available",
                 "Subscription management is not available for this account yet.",
