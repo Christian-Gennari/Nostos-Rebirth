@@ -31,6 +31,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Nostos.Backend\Nostos.Backend.csproj" />
+    <ProjectReference Include="..\Nostos.Product\Nostos.Product.csproj" />
     <ProjectReference Include="..\Nostos.Shared\Nostos.Shared.csproj" />
   </ItemGroup>
 
