@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Nostos.Backend.Data;
 using Nostos.Product.Composition;
+using Xunit;
 
 namespace Nostos.Backend.Tests.Architecture;
 
