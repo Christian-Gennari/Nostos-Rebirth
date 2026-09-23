@@ -329,27 +329,26 @@ This section records repository evidence only; it is **not legal advice**.
 - An audit of all 1,255 commits visible through GitHub on 2026-09-23 found:
   - 1,202 commits associated with GitHub user `Christian-Gennari`;
   - 25 additional commits authored as “Christian Gennari” without a linked GitHub author object;
-  - **26 commits authored by GitHub user `discovicke`**, including substantive product work such as EPUB typography/theme, note Markdown export, command palette, reading stats, audio controls and UI fixes;
-  - **2 commits authored only as `t`** with no linked GitHub author object, touching audio-reader/UI behavior.
+  - **26 commits authored by GitHub user `discovicke`**. Maintainer clarification: `discovicke` is Christian's friend and helped with styling/product UI work;
+  - **2 commits authored as `t`**. Maintainer clarification: `t` was an AI coding agent identity used under Christian's direction and accidentally committed with that author name.
 
 Commit counts establish provenance signals, not copyright ownership or whether a contribution remains copyright-significant in the current tree.
 
 ### What that means for a future license decision
 
-- Git history does **not** support treating the repository as unambiguously sole-author.
-- The repository evidence alone does not show an assignment, CLA or separate relicensing permission from `discovicke` or the unidentified `t` author.
-- Before changing future public releases from GPL-3.0-or-later to AGPL or another license, identify the real author/rights status of those contributions and determine whether permission, replacement or another approach is needed.
+- Git history plus maintainer clarification removes the earlier uncertainty around the `t` commits: they are agent-generated work performed under Christian's development workflow, not a separate unidentified human contributor.
+- `discovicke` remains an identifiable external human contributor, but the maintainer states that the contribution was limited to helping with styling/product UI work rather than Cloud/core architecture.
+- The repository evidence still does not document a CLA, assignment or explicit relicensing permission for `discovicke`'s contributions. If a future relicensing decision depends on those specific changes, confirm the applicable permission/ownership position rather than inferring it from commit counts alone.
 - Versions already published under GPL terms remain part of the public history; this architecture work does not attempt to retract them or rewrite ordinary published code history.
 - The technical plan also does **not** decide whether a private hosted executable that project-references GPL public code has licensing obligations when built/deployed/distributed. That question, and any effect of future AGPL licensing, requires actual legal advice before a proprietary-hosting boundary is relied upon.
 
 ### Questions for counsel / maintainer records
 
-1. Who owns the copyright in the 26 `discovicke` commits, and was any assignment or broad relicensing permission agreed outside GitHub?
-2. Who authored the two `t` commits, and under what contribution terms?
-3. Which externally-authored changes remain copyright-significant in current source?
-4. Can future public versions be relicensed to AGPL without additional permissions, or would affected contributions need consent/replacement?
-5. What obligations arise if the private hosted project references/builds GPL-licensed public projects, particularly if containers/binaries are conveyed to third parties or infrastructure providers?
-6. Are there employment, school, contractor, AI-assisted-development or third-party code facts not represented in Git history that affect ownership?
-7. Does the desired public/private distribution model require a different technical process boundary for licensing reasons?
+1. For `discovicke`'s styling/UI contributions, was any explicit permission or assignment agreed outside GitHub that would cover future relicensing?
+2. Which of those externally-authored styling changes remain copyright-significant in current source?
+3. Can future public versions be relicensed to AGPL without additional permission for any surviving third-party contribution, or would affected changes need consent/replacement?
+4. What obligations arise if the private hosted project references/builds GPL-licensed public projects, particularly if containers/binaries are conveyed to third parties or infrastructure providers?
+5. Are there other employment, school, contractor or third-party code facts not represented in Git history that affect ownership?
+6. Does the desired public/private distribution model require a different technical process boundary for licensing reasons?
 
 No `LICENSE` change belongs in Phase 1.
