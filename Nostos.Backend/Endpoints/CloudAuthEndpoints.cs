@@ -57,6 +57,7 @@ public static class CloudAuthEndpoints
         var value = returnUrl.Trim();
         if (!value.StartsWith("/", StringComparison.Ordinal)
             || value.StartsWith("//", StringComparison.Ordinal)
+            || value.Contains('\\')
             || value.Contains('\r')
             || value.Contains('\n'))
         {
