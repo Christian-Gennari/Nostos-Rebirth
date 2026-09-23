@@ -85,7 +85,7 @@ This document serves as the operator-facing reference for provider account owner
 - **Recovery Owner:** `contact@cgennari.com` (Owner role, retained for account recovery only).
 - **CLI Authentication:** `clerk auth login` via OAuth flow; `clerk link` auto-resolves to the Nostos app within the workspace.
 - **Runtime Secret:** `NOSTOS_CLOUD_AUTH_CLIENT_SECRET`.
-- **Staging Bearer Token:** `NOSTOS_STAGING_BEARER_TOKEN` (GitHub Environment secret `staging`). Minted via `clerk api -X POST /sessions/{session_id}/tokens/nostos-api` using the `nostos-api` JWT template (audience: `nostos-api`). Short-lived (60 s); re-mint before each CI run.
+- **Staging JIT Bearer Minting Secret:** `NOSTOS_STAGING_CLERK_SECRET_KEY` (GitHub Environment secret `staging`). Used by `scripts/cloud/mint-staging-bearer.sh` to mint short-lived `nostos-api` JWT bearer tokens just-in-time during staging CI runs. The legacy static `NOSTOS_STAGING_BEARER_TOKEN` is deprecated.
 - **Ownership Notes:** Application administration migrated from Christian's personal account to `ops@nostos.page` (#451). Both accounts hold Owner role in the Clerk workspace; `ops@nostos.page` is the day-to-day operator and CLI identity, while `contact@cgennari.com` is retained strictly for recovery. Instance-level organization feature is not enabled for end-users, preserving single-user library semantics.
 
 ### 4. Paddle (Billing & Subscriptions)
