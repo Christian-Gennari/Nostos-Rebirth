@@ -247,5 +247,5 @@ public sealed class CloudAccountDeletionResourceIntegrationTests
     }
 
     private static string QuoteIdentifier(string identifier) =>
-        """ + identifier.Replace(""", """", StringComparison.Ordinal) + """;
+        "\"" + identifier.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
 }
