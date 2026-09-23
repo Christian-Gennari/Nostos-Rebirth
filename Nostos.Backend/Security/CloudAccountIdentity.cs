@@ -152,6 +152,7 @@ public enum CloudAccountStatus
 {
     Unknown,
     Active,
+    DeletionRequested,
     Disabled,
     Deleted,
 }
