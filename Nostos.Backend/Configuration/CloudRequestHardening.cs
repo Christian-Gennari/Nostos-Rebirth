@@ -17,6 +17,7 @@ public static class CloudRateLimitPolicies
 public static class CloudRequestHardeningRegistration
 {
     public const long MaxCoverUploadBytes = 25L * 1024 * 1024;
+    public const long MaxCoverRequestBytes = 26L * 1024 * 1024;
     public const long MaxProviderWebhookBytes = 1024 * 1024;
 
     public static IServiceCollection AddNostosCloudRequestHardening(
