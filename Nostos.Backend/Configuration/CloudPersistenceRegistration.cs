@@ -23,6 +23,8 @@ public static class CloudPersistenceRegistration
 
         services.AddSingleton(options);
         services.AddSingleton(connections);
+        services.AddSingleton<Nostos.Backend.Cloud.Runtime.ICloudWorkerLeaseManager,
+            Nostos.Backend.Cloud.Runtime.PostgresCloudWorkerLeaseManager>();
 
         services.AddDbContextFactory<CloudControlPlaneDbContext>(db =>
             db.UseNpgsql(connections.ControlPlane));
