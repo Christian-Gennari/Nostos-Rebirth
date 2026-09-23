@@ -125,7 +125,7 @@ public sealed class CloudBackupSweepTests
                 CloudCustomerSchema.CurrentVersion),
         };
 
-        const string secret = "Password=do-not-log-this";
+        const string secret = "sensitive-connection-fragment-do-not-log";
         var recorder = new BackupRecorder
         {
             FailAccountId = account.Value,
