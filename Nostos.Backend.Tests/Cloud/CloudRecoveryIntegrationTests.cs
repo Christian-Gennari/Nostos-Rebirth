@@ -855,7 +855,7 @@ public sealed class CloudRecoveryIntegrationTests
             using var tenantARecoveryService = provider.CreateScope();
             var tenantAScope = tenantARecoveryService.ServiceProvider
                 .GetRequiredService<CloudTenantContextScope>();
-            tenantAScope.Set(new NostosAccountContext(
+            using var tenantAContext = tenantAScope.Push(new NostosAccountContext(
                 accountA, "Sweep test A", null));
             var tenantARecovery = tenantARecoveryService.ServiceProvider
                 .GetRequiredService<ICloudRecoveryService>();
@@ -870,7 +870,7 @@ public sealed class CloudRecoveryIntegrationTests
             using var tenantBRecoveryService = provider.CreateScope();
             var tenantBScope = tenantBRecoveryService.ServiceProvider
                 .GetRequiredService<CloudTenantContextScope>();
-            tenantBScope.Set(new NostosAccountContext(
+            using var tenantBContext = tenantBScope.Push(new NostosAccountContext(
                 accountB, "Sweep test B", null));
             var tenantBRecovery = tenantBRecoveryService.ServiceProvider
                 .GetRequiredService<ICloudRecoveryService>();
