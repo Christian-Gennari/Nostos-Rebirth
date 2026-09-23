@@ -70,7 +70,7 @@ public sealed class CloudRuntimeConfigurationTests
 
         services.Should().Contain(x =>
             x.ServiceType == typeof(IXmlRepository)
-            && x.ImplementationFactory is not null);
+            && x.ImplementationFactory != null);
         services.Should().Contain(x =>
             x.ServiceType == typeof(CloudDataProtectionKeyRepository));
     }
