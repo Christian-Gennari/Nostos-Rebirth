@@ -4,6 +4,7 @@ set -euo pipefail
 base_url="${NOSTOS_STAGING_BASE_URL:?NOSTOS_STAGING_BASE_URL is required}"
 base_url="${base_url%/}"
 bearer="${NOSTOS_STAGING_BEARER_TOKEN:-}"
+clerk_secret="${NOSTOS_STAGING_CLERK_SECRET_KEY:-}"
 run_ai="${NOSTOS_STAGING_MANAGED_AI_SMOKE:-false}"
 book_id=""
 
@@ -40,8 +41,19 @@ echo "$capabilities" | jq -e \
 anonymous_session="$(curl_json "$base_url/api/auth/session")"
 echo "$anonymous_session" | jq -e '.authenticated == false' >/dev/null
 
+# Just-in-time minting of fresh Clerk staging bearer token
+if [ -n "$clerk_secret" ]; then
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  echo "Minting fresh Clerk staging bearer just-in-time..."
+  bearer="$("$script_dir/mint-staging-bearer.sh")"
+  if [ -z "$bearer" ]; then
+    echo "Error: JIT Clerk token minting failed to return a bearer token." >&2
+    exit 1
+  fi
+fi
+
 if [ -z "$bearer" ]; then
-  echo "::notice title=Authenticated staging smoke skipped::Provide a freshly minted, audience-valid NOSTOS_STAGING_BEARER_TOKEN for the dedicated staging identity to exercise provisioning and Library read/write."
+  echo "::notice title=Authenticated staging smoke skipped::Neither NOSTOS_STAGING_CLERK_SECRET_KEY nor NOSTOS_STAGING_BEARER_TOKEN was provided. Skipping authenticated staging smoke."
   exit 0
 fi
 
