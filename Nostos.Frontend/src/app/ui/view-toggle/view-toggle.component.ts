@@ -24,31 +24,20 @@ export interface ViewToggleOption {
   readonly icon: NostosIconName;
   /** Accessible name AND tooltip. The control has no visible text. */
   readonly label: string;
-  /**
-   * OPTICAL size in px, when this glyph's drawing is smaller than its box.
-   *
-   * Icon boxes are all 18px here, but the drawings are not all the same size
-   * inside them: measured off the live app, `squares-four` fills 69% of its box
-   * while `map-trifold` fills 80%, so at a shared 18px the Library's grid glyph
-   * read ~15% smaller than the Brain's map glyph (30% by area) even though the
-   * controls themselves are byte-identical. This field is how a caller closes
-   * that gap — it is a per-GLYPH constant, not a scale rung.
-   *
-   * Defaults to 18. Set it only with a measured reason, and prefer the value
-   * derived from the ink ratio over a round number.
-   *
-   * KEEP THE BOX ON WHOLE PIXELS. The option is 30x26 (34x32 under 768px), so an
-   * EVEN size leaves whole-pixel margins; an odd or fractional one leaves half
-   * pixels, and the browser snaps the svg's layout origin to the device grid
-   * instead of centring it. 20.5px did exactly that: the Library's grid glyph
-   * rendered 0.5px off-centre on both axes (margins 8.00/7.50 and 6.00/5.50)
-   * while every other glyph in both toggles was symmetric. Derive the size from
-   * the ink ratio first, then round it to an even number — 20, not 20.5.
-   */
-  readonly size?: number;
 }
 
-/** Glyph size in px. The whole control is built around an 18px glyph at every width. */
+/**
+ * Glyph size in px — ONE box for every option, on both surfaces, at every width.
+ *
+ * There is deliberately no per-option optical size any more. The Library's grid
+ * glyph briefly ran one at 20px (PR #430) so its smaller `squares-four` drawing
+ * would match the Brain's `map-trifold` ink extent, and it was reverted on
+ * review as the heaviest glyph in either toggle. Measured off the running app:
+ * 14x14px of ink carrying 146 dark px (DPR 1) against the shared box's 12x12
+ * and 116 — while at 18px that glyph's ink ALREADY matches the map glyph's (116
+ * vs 120 at DPR 1, 402 vs 390 at DPR 2), so the bump was buying weight, not
+ * parity. The two surfaces are the same control, so they render the same box.
+ */
 const GLYPH_SIZE = 18;
 
 /**
@@ -128,7 +117,7 @@ const GLYPH_SIZE = 18;
       >
         <nostos-icon
           [name]="option.icon"
-          [size]="glyphSize(option)"
+          [size]="glyphSize"
           [weight]="isSelected(option) ? 'regular' : 'light'"
         />
       </button>
@@ -273,10 +262,8 @@ export class ViewToggleComponent {
   /** Emits the newly selected value. Narrowed by the call site, which owns the union. */
   readonly valueChange = output<string>();
 
-  /** The glyph's box: the option's optical size when it declares one, else the default. */
-  protected glyphSize(option: ViewToggleOption): number {
-    return option.size ?? GLYPH_SIZE;
-  }
+  /** The one glyph box, exposed as a class member so the template can bind it. */
+  protected readonly glyphSize = GLYPH_SIZE;
 
   private readonly buttons = viewChildren<ElementRef<HTMLButtonElement>>('opt');
 
