@@ -163,8 +163,10 @@ POST /api/cloud/provisioning/
 These endpoints require a valid Cloud identity but intentionally do not require
 `AccountStatus=Active`, because their job is to create that ready account.
 
-Responses contain only state/schema/failure-code information. Database names,
-storage namespaces and credentials are not returned to the browser.
+Responses contain only product-safe provisioning state
+(`state`, `accountState`, `ready`, `retryable`). Database names, storage
+namespaces, schema versions, internal failure codes and credentials are not
+returned to the browser.
 
 Normal application APIs continue to require an Active account.
 
@@ -192,3 +194,21 @@ plus an immutable audit trail. Product code consumes the provider-neutral
 
 See `docs/cloud/entitlements.md` for lifecycle semantics, SelfHosted behavior,
 and the handoff to #405/#410.
+
+
+## Privacy deletion lifecycle
+
+#408 adds a separate content-free `CloudAccountDeletions` table rather than
+overloading provisioning state. A confirmed deletion request changes
+`AccountStatus` from `Active` to `DeletionRequested` immediately and records
+a fixed 14-day grace deadline.
+
+Normal tenant routing continues to require `Active`, so ordinary database and
+object-storage access fails closed during deletion grace. A narrow internal
+portable-export adapter can read the trusted existing mapping solely to produce
+the #399 archive.
+
+After the grace period, the deletion worker destructively removes the
+resource-derived PostgreSQL/B2/recovery data before setting the account to
+`Deleted`. Billing lifecycle transitions do not create deletion rows and can
+never cause this destruction.
