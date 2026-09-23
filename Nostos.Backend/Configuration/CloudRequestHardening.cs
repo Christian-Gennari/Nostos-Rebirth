@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.RateLimiting;
 using Nostos.Backend.Security;
 using System.Threading.RateLimiting;
+using Nostos.Product.Http;
 
 namespace Nostos.Backend.Configuration;
 
@@ -17,8 +18,8 @@ public static class CloudRateLimitPolicies
 
 public static class CloudRequestHardeningRegistration
 {
-    public const long MaxCoverUploadBytes = 25L * 1024 * 1024;
-    public const long MaxCoverRequestBytes = 26L * 1024 * 1024;
+    public const long MaxCoverUploadBytes = NostosProductRequestLimits.MaxCoverUploadBytes;
+    public const long MaxCoverRequestBytes = NostosProductRequestLimits.MaxCoverRequestBytes;
     public const long MaxProviderWebhookBytes = 1024 * 1024;
 
     public static IServiceCollection AddNostosCloudRequestHardening(
