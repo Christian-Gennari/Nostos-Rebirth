@@ -30,6 +30,11 @@ public sealed class CloudControlPlaneOptions
 
     public string StorageNamespacePrefix { get; set; } = "accounts";
 
+    // Each distinct customer database creates a distinct Npgsql pool. Keep the
+    // per-tenant ceiling deliberately small so database-per-customer cannot
+    // multiply the provider connection budget by Npgsql's much larger default.
+    public int CustomerMaxPoolSize { get; set; } = 5;
+
     public static CloudControlPlaneOptions FromConfiguration(IConfiguration configuration)
     {
         var options =
@@ -62,6 +67,13 @@ public sealed class CloudControlPlaneOptions
         options.StorageNamespacePrefix = (options.StorageNamespacePrefix ?? string.Empty)
             .Trim()
             .Trim('/');
+
+        if (options.CustomerMaxPoolSize is < 1 or > 20)
+        {
+            throw new InvalidOperationException(
+                "'CloudControlPlane:CustomerMaxPoolSize' must be between 1 and 20.");
+        }
+
         if (options.StorageNamespacePrefix.Length is < 1 or > 40
             || options.StorageNamespacePrefix.Any(c =>
                 !(char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '/')))
