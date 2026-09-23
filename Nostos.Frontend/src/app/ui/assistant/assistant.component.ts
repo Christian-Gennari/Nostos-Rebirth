@@ -92,6 +92,9 @@ export class AssistantComponent {
     () => this.preferences.assistantEnabled() && this.status.available(),
   );
 
+  /** Product-level voice preference; provider configuration stays server-side. */
+  readonly voiceTranscriptionEnabled = this.preferences.assistantVoiceEnabled;
+
   /** The compact header names the current book when the surface has one. */
   readonly currentBookTitle = computed(() => {
     const title = this.assistant.context().bookTitle?.trim();
@@ -181,6 +184,7 @@ export class AssistantComponent {
   }
 
   onMicTap(): void {
+    if (!this.voiceTranscriptionEnabled()) return;
     if (this.voice.isRecording()) {
       this.voice.stop();
       return;

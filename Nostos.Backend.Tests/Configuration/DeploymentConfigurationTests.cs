@@ -28,6 +28,7 @@ public sealed class DeploymentConfigurationTests
             ManagedVoiceTranscription: false,
             UsesCloudStorage: false,
             SupportsLocalBackupConfiguration: true,
+            SupportsPrivateNetworkAccess: true,
             UsageMeteringAvailable: false));
     }
 
@@ -46,6 +47,7 @@ public sealed class DeploymentConfigurationTests
             ManagedVoiceTranscription: true,
             UsesCloudStorage: true,
             SupportsLocalBackupConfiguration: false,
+            SupportsPrivateNetworkAccess: false,
             UsageMeteringAvailable: true));
     }
 
@@ -147,6 +149,7 @@ public sealed class DeploymentConfigurationTests
         response.ManagedVoiceTranscription.Should().BeTrue();
         response.UsesCloudStorage.Should().BeTrue();
         response.SupportsLocalBackupConfiguration.Should().BeFalse();
+        response.SupportsPrivateNetworkAccess.Should().BeFalse();
         response.UsageMeteringAvailable.Should().BeTrue();
     }
 

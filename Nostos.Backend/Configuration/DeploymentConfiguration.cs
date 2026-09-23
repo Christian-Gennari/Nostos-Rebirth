@@ -28,6 +28,7 @@ public sealed record DeploymentCapabilities(
     bool ManagedVoiceTranscription,
     bool UsesCloudStorage,
     bool SupportsLocalBackupConfiguration,
+    bool SupportsPrivateNetworkAccess,
     bool UsageMeteringAvailable);
 
 /// <summary>
@@ -69,6 +70,7 @@ public sealed record DeploymentDescriptor(
                     ManagedVoiceTranscription: false,
                     UsesCloudStorage: false,
                     SupportsLocalBackupConfiguration: true,
+                    SupportsPrivateNetworkAccess: true,
                     UsageMeteringAvailable: false)),
 
             DeploymentMode.Cloud => new(
@@ -80,6 +82,7 @@ public sealed record DeploymentDescriptor(
                     ManagedVoiceTranscription: true,
                     UsesCloudStorage: true,
                     SupportsLocalBackupConfiguration: false,
+                    SupportsPrivateNetworkAccess: false,
                     UsageMeteringAvailable: true)),
 
             _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unsupported Nostos deployment mode."),

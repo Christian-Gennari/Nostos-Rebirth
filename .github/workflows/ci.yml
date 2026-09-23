@@ -1,0 +1,75 @@
+name: Dual-mode CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dual-mode-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  common-backend:
+    name: Common backend regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NOSTOS_POSTGRES_SPIKE_CONNECTION: ""
+      NOSTOS_S3_TEST_ENDPOINT: ""
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore Nostos.sln
+
+      - name: Build solution
+        run: dotnet build Nostos.sln --configuration Debug --no-restore
+
+      - name: Run ordinary backend regression
+        run: >-
+          dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
+          --configuration Debug
+          --no-build
+          --no-restore
+          --logger "console;verbosity=minimal"
+
+  selfhosted:
+    name: SelfHosted / SQLite
+    uses: ./.github/workflows/selfhosted-integration.yml
+
+  cloud-postgres:
+    name: Cloud / PostgreSQL
+    uses: ./.github/workflows/postgresql-compatibility.yml
+
+  object-storage:
+    name: Object storage
+    uses: ./.github/workflows/object-storage-integration.yml
+
+  portability:
+    name: Portability
+    uses: ./.github/workflows/portability-integration.yml
+
+  recovery:
+    name: Recovery
+    uses: ./.github/workflows/cloud-recovery-integration.yml
+
+  frontend:
+    name: Frontend
+    uses: ./.github/workflows/frontend.yml
+
+  production-container:
+    name: Production container
+    uses: ./.github/workflows/cloud-runtime.yml
