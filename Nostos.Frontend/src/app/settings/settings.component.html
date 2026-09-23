@@ -1,6 +1,34 @@
     <div class="settings-page">
       <div class="settings-shell">
+        @if (capabilitiesLoading()) {
+          <main class="settings-content" data-testid="settings-capabilities-loading">
+            <section class="settings-card">
+              <div class="card-body">
+                <div class="setting-row">
+                  <div class="setting-label">
+                    <span class="label-text">Loading settings…</span>
+                    <span class="label-desc">Checking which controls this Nostos server provides.</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </main>
+        } @else if (capabilitiesFailed()) {
+          <main class="settings-content" data-testid="settings-capabilities-error">
+            <section class="settings-card">
+              <div class="card-body">
+                <div class="setting-row">
+                  <div class="setting-label">
+                    <span class="label-text">Could not load settings</span>
+                    <span class="label-desc">Nostos could not determine which controls are available. Reload the page to try again.</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </main>
+        } @else {
         <nav class="settings-nav" role="tablist" aria-label="Settings sections">
+          @if (hasLibrarySettings()) {
           <button
             type="button"
             class="settings-nav-item"
@@ -15,6 +43,7 @@
             </span>
             <span class="settings-nav-copy">Library &amp; data</span>
           </button>
+          }
           <button
             type="button"
             class="settings-nav-item"
@@ -46,6 +75,7 @@
         </nav>
 
         <main class="settings-content">
+          @if (hasLibrarySettings()) {
           <section
             class="settings-section"
             id="library-data"
@@ -55,6 +85,7 @@
           >
             <h2 class="settings-section-title" id="library-data-heading">Library &amp; data</h2>
 
+            @if (supportsLocalBackupConfiguration()) {
             <section class="settings-card">
         <div class="card-header">
           <div class="card-header-copy">
@@ -283,7 +314,9 @@
           </div>
         }
       </section>
+      }
 
+      @if (supportsPrivateNetworkAccess()) {
       <!-- E-reader access (issue #187). Sits with the library data rather than
            with Appearance: it is about reaching the library from elsewhere. -->
       <section class="settings-card">
@@ -349,8 +382,10 @@
           }
         </div>
       </section>
+      }
 
           </section>
+          }
 
           <section
             class="settings-section"
@@ -386,7 +421,7 @@
               @if (assistantAvailable()) {
                 <span class="label-desc">Show the dock capsule for capturing thoughts while reading.</span>
               } @else {
-                <span class="label-desc">{{ copy.oldCardEmptyState }}</span>
+                <span class="label-desc">{{ assistantUnavailableCopy() }}</span>
               }
             </div>
             @if (assistantAvailable()) {
@@ -412,6 +447,24 @@
               </label>
             }
           </div>
+
+          @if (managedVoiceTranscription()) {
+            <div class="setting-row" data-testid="managed-voice-setting">
+              <div class="setting-label">
+                <span class="label-text">Voice transcription</span>
+                <span class="label-desc">Use your microphone with Ask Nostos. Nostos manages transcription for this account.</span>
+              </div>
+              <label appSwitch>
+                <input
+                  type="checkbox"
+                  [checked]="assistantVoiceEnabled()"
+                  (change)="setAssistantVoiceEnabled($event)"
+                  aria-label="Voice transcription"
+                  data-testid="managed-voice-transcription-toggle"
+                >
+              </label>
+            </div>
+          }
 
           <!-- The stored capture-processing choice (issue #262). It applies to
                the user's own words as they become a note; it is not gated on
@@ -447,6 +500,7 @@
         </div>
       </section>
 
+      @if (canConfigureAiProvider()) {
       <!-- AI provider: the LLM and voice-STT endpoints, moved out of
            appsettings.json. Both sub-sections share one Save; the API key is
            write-only, so the password field is never seeded from the server and
@@ -759,6 +813,7 @@
           </div>
         }
       </section>
+      }
 
           </section>
 
@@ -815,9 +870,11 @@
       </section>
           </section>
         </main>
+        }
       </div>
     </div>
 
+    @if (supportsLocalBackupConfiguration()) {
     <!-- Restore overwrites live data and delete removes the archive: both ask
          through the shared modal instead of window.confirm(). -->
     <app-confirm-modal
@@ -841,3 +898,4 @@
       (cancel)="cancelBackupDelete()"
     >
     </app-confirm-modal>
+    }
