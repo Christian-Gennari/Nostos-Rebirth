@@ -16,6 +16,8 @@ import { AssistantStatusService } from '../ui/assistant/assistant-status.service
 import { AssistantSettingsService } from '../ui/assistant/assistant-settings.service';
 import { ProcessingMode } from '../ui/assistant/assistant-settings.service';
 import { AiProviderService } from '../core/services/ai-provider.service';
+import { DeploymentCapabilitiesService } from '../core/services/deployment-capabilities.service';
+import { DeploymentCapabilities } from '../core/dtos/deployment-capabilities.dtos';
 import {
   AiProviderModelsRequest,
   AiProviderModelsResponse,
@@ -26,6 +28,34 @@ import {
 } from '../core/dtos/ai-provider.dtos';
 
 const toastMock = { error: vi.fn(), success: vi.fn(), info: vi.fn() };
+
+const selfHostedCapabilities: DeploymentCapabilities = {
+  deploymentMode: 'SelfHosted',
+  requiresAuthentication: false,
+  canConfigureAiProvider: true,
+  managedAi: false,
+  managedVoiceTranscription: false,
+  usesCloudStorage: false,
+  supportsLocalBackupConfiguration: true,
+  supportsPrivateNetworkAccess: true,
+  usageMeteringAvailable: false,
+};
+
+const cloudCapabilities: DeploymentCapabilities = {
+  deploymentMode: 'Cloud',
+  requiresAuthentication: true,
+  canConfigureAiProvider: false,
+  managedAi: true,
+  managedVoiceTranscription: true,
+  usesCloudStorage: true,
+  supportsLocalBackupConfiguration: false,
+  supportsPrivateNetworkAccess: false,
+  usageMeteringAvailable: true,
+};
+
+const capabilitiesServiceMock = {
+  get: vi.fn((): Observable<DeploymentCapabilities> => of(selfHostedCapabilities)),
+};
 
 /** A reachable catalog address, as the server reports it behind its proxy. */
 const remoteInfo: OpdsInfo = {
@@ -147,6 +177,7 @@ describe('SettingsComponent backup-only surface', () => {
         { provide: AssistantStatusService, useValue: assistantStatusMock },
         { provide: AssistantSettingsService, useValue: assistantSettingsMock },
         { provide: AiProviderService, useValue: aiProviderServiceMock },
+        { provide: DeploymentCapabilitiesService, useValue: capabilitiesServiceMock },
       ],
     }).compileComponents();
 
@@ -156,6 +187,8 @@ describe('SettingsComponent backup-only surface', () => {
 
   beforeEach(async () => {
     localStorage.clear();
+    capabilitiesServiceMock.get.mockClear();
+    capabilitiesServiceMock.get.mockReturnValue(of(selfHostedCapabilities));
     opdsServiceMock.getInfo.mockClear();
     opdsServiceMock.getInfo.mockReturnValue(of(remoteInfo));
     toastMock.error.mockClear();
@@ -266,6 +299,117 @@ describe('SettingsComponent backup-only surface', () => {
     // owner of the light values.
     expect(document.documentElement.getAttribute('data-theme')).toBeNull();
     expect(localStorage.getItem('nostos.theme')).toBe('light');
+  });
+
+  it('shows no owner-only controls or owner API calls while capabilities are loading', () => {
+    const pending = new Subject<DeploymentCapabilities>();
+    capabilitiesServiceMock.get.mockReturnValueOnce(pending.asObservable());
+    backupServiceMock.getStatus.mockClear();
+    backupServiceMock.getSettings.mockClear();
+    backupServiceMock.getHistory.mockClear();
+    opdsServiceMock.getInfo.mockClear();
+    aiProviderServiceMock.get.mockClear();
+
+    render();
+
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="settings-capabilities-loading"]'),
+    ).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="ai-provider-settings-card"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('#library-data')).toBeNull();
+    expect(backupServiceMock.getStatus).not.toHaveBeenCalled();
+    expect(backupServiceMock.getSettings).not.toHaveBeenCalled();
+    expect(backupServiceMock.getHistory).not.toHaveBeenCalled();
+    expect(opdsServiceMock.getInfo).not.toHaveBeenCalled();
+    expect(aiProviderServiceMock.get).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the capability manifest cannot be loaded', () => {
+    capabilitiesServiceMock.get.mockReturnValueOnce(
+      throwError(() => new Error('capabilities offline')),
+    );
+    backupServiceMock.getStatus.mockClear();
+    backupServiceMock.getSettings.mockClear();
+    backupServiceMock.getHistory.mockClear();
+    opdsServiceMock.getInfo.mockClear();
+    aiProviderServiceMock.get.mockClear();
+
+    render();
+
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="settings-capabilities-error"]'),
+    ).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="ai-provider-settings-card"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('#library-data')).toBeNull();
+    expect(backupServiceMock.getStatus).not.toHaveBeenCalled();
+    expect(backupServiceMock.getSettings).not.toHaveBeenCalled();
+    expect(backupServiceMock.getHistory).not.toHaveBeenCalled();
+    expect(opdsServiceMock.getInfo).not.toHaveBeenCalled();
+    expect(aiProviderServiceMock.get).not.toHaveBeenCalled();
+  });
+
+  it('uses Cloud capabilities even on the test host and hides server-owner plumbing', () => {
+    capabilitiesServiceMock.get.mockReturnValueOnce(of(cloudCapabilities));
+    backupServiceMock.getStatus.mockClear();
+    backupServiceMock.getSettings.mockClear();
+    backupServiceMock.getHistory.mockClear();
+    opdsServiceMock.getInfo.mockClear();
+    aiProviderServiceMock.get.mockClear();
+
+    render();
+
+    expect(fixture.componentInstance.deploymentCapabilities()?.deploymentMode).toBe('Cloud');
+    expect(fixture.componentInstance.activeSettingsSection()).toBe('assistant');
+    expect(
+      fixture.debugElement
+        .queryAll(By.css('.settings-nav-copy'))
+        .map((item) => item.nativeElement.textContent.trim()),
+    ).toEqual(['Assistant', 'Appearance']);
+
+    expect(fixture.nativeElement.querySelector('#library-data')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="ai-provider-settings-card"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('#ai-llm-base-url')).toBeNull();
+    expect(fixture.nativeElement.querySelector('#ai-llm-model')).toBeNull();
+    expect(fixture.nativeElement.querySelector('#ai-llm-api-key')).toBeNull();
+    expect(fixture.nativeElement.querySelector('#ai-stt-base-url')).toBeNull();
+    expect(fixture.nativeElement.querySelector('#ai-stt-model')).toBeNull();
+    expect(fixture.nativeElement.querySelector('#ai-stt-api-key')).toBeNull();
+
+    expect(assistantCard()).not.toBeNull();
+    expect(captureModeDropdown()).not.toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="managed-voice-transcription-toggle"]'),
+    ).toBeTruthy();
+
+    const pageText = (fixture.nativeElement.textContent ?? '').replace(/\s+/g, ' ');
+    expect(pageText).not.toContain('Import from Disk');
+    expect(pageText).not.toContain('Tailscale');
+    expect(pageText).not.toContain('Opds:Enabled');
+    expect(pageText).not.toContain(aiProviderSettings.llm.baseUrl);
+
+    expect(backupServiceMock.getStatus).not.toHaveBeenCalled();
+    expect(backupServiceMock.getSettings).not.toHaveBeenCalled();
+    expect(backupServiceMock.getHistory).not.toHaveBeenCalled();
+    expect(opdsServiceMock.getInfo).not.toHaveBeenCalled();
+    expect(aiProviderServiceMock.get).not.toHaveBeenCalled();
+  });
+
+  it('keeps the Cloud voice toggle as product intent instead of provider configuration', () => {
+    capabilitiesServiceMock.get.mockReturnValueOnce(of(cloudCapabilities));
+    aiProviderServiceMock.update.mockClear();
+    render();
+
+    const toggle = fixture.nativeElement.querySelector(
+      '[data-testid="managed-voice-transcription-toggle"]',
+    ) as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    expect(TestBed.inject(LibraryPreferencesService).assistantVoiceEnabled()).toBe(false);
+    expect(aiProviderServiceMock.update).not.toHaveBeenCalled();
   });
 
   it('renders the Backup and Backup History cards', () => {
@@ -488,7 +632,8 @@ describe('SettingsComponent backup-only surface', () => {
 
     const preferences = TestBed.inject(LibraryPreferencesService);
     expect(preferences.assistantEnabled()).toBe(false);
-    // The older choices survive: the missing field is not corruption.
+    expect(preferences.assistantVoiceEnabled()).toBe(true);
+    // The older choices survive: the missing fields are not corruption.
     expect(preferences.viewMode()).toBe('list');
     expect(preferences.pageSize()).toBe(50);
     expect(assistantToggle().checked).toBe(false);
@@ -512,6 +657,17 @@ describe('SettingsComponent backup-only surface', () => {
     expect(toggle.checked).toBe(false);
     // Muted, never an alarm: the canonical switch keeps the native checkbox disabled.
     expect(toggle.closest('label.nostos-switch')).not.toBeNull();
+  });
+
+  it('uses product copy for an unavailable managed Cloud assistant', () => {
+    capabilitiesServiceMock.get.mockReturnValueOnce(of(cloudCapabilities));
+    assistantStatusMock.available.set(false);
+    render();
+
+    const card = assistantCard();
+    expect(card).not.toBeNull();
+    expect(card!.textContent).toContain('Ask Nostos is temporarily unavailable.');
+    expect(card!.textContent).not.toContain('Set up an AI provider');
   });
 
   it('never records a preference while the assistant is unavailable', () => {
