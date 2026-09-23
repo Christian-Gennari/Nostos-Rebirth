@@ -142,7 +142,7 @@ public sealed class CloudBackupSweepTests
         result.Failed.Should().Be(1);
         result.Tenants.Single().ErrorMessage.Should().Be("backup_failed");
         logger.Messages.Should().NotContain(message => message.Contains(secret, StringComparison.Ordinal));
-        logger.Exceptions.Should().OnlyContain(exception => exception is null);
+        logger.Exceptions.Should().OnlyContain(exception => exception == null);
     }
 
     [Fact]
