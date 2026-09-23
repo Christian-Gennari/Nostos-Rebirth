@@ -11,6 +11,7 @@ public static class CloudRateLimitPolicies
     public const string LargeTransfer = "cloud-large-transfer";
     public const string ProviderFetch = "cloud-provider-fetch";
     public const string Billing = "cloud-billing";
+    public const string AccountLifecycle = "cloud-account-lifecycle";
     public const string ProviderWebhook = "cloud-provider-webhook";
 }
 
@@ -55,6 +56,9 @@ public static class CloudRequestHardeningRegistration
             options.AddPolicy(
                 CloudRateLimitPolicies.Billing,
                 context => FixedWindow(context, permitLimit: 12, TimeSpan.FromMinutes(1)));
+            options.AddPolicy(
+                CloudRateLimitPolicies.AccountLifecycle,
+                context => FixedWindow(context, permitLimit: 6, TimeSpan.FromMinutes(1)));
             options.AddPolicy(
                 CloudRateLimitPolicies.ProviderWebhook,
                 _ => RateLimitPartition.GetFixedWindowLimiter(
