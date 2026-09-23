@@ -45,7 +45,11 @@ echo "$anonymous_session" | jq -e '.authenticated == false' >/dev/null
 if [ -n "$clerk_secret" ]; then
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   echo "Minting fresh Clerk staging bearer just-in-time..."
-  bearer="$("$script_dir/mint-staging-bearer.sh")"
+  # Under GitHub Actions the mint script prints its ::add-mask:: directive before the
+  # token, so the token is the LAST line of stdout (see its header comment). Capturing
+  # the whole output puts a newline inside the Authorization header and curl then
+  # fails with "(43) Failed sending HTTP request".
+  bearer="$("$script_dir/mint-staging-bearer.sh" | tail -n 1)"
   if [ -z "$bearer" ]; then
     echo "Error: JIT Clerk token minting failed to return a bearer token." >&2
     exit 1
