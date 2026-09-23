@@ -7,7 +7,7 @@ RUN npm ci
 COPY Nostos.Frontend/ ./
 RUN npm run build
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0-bookworm-slim AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 WORKDIR /src
 COPY Nostos.Backend/Nostos.Backend.csproj Nostos.Backend/
 COPY Nostos.Shared/Nostos.Shared.csproj Nostos.Shared/
@@ -22,7 +22,7 @@ RUN dotnet publish Nostos.Backend/Nostos.Backend.csproj \
     -p:SkipFrontendBuild=true \
     -p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-bookworm-slim AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS runtime
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
