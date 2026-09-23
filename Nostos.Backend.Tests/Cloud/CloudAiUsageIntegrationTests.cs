@@ -435,5 +435,5 @@ public sealed class CloudAiUsageIntegrationTests
     }
 
     private static string QuoteIdentifier(string identifier) =>
-        """ + identifier.Replace(""", """", StringComparison.Ordinal) + """;
+        "\"" + identifier.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
 }
