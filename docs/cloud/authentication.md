@@ -82,10 +82,11 @@ If Nostos later supports linking multiple identity-provider identities to one ac
 
 Cloud installs a fallback authorization policy for application endpoints.
 
-A protected request must satisfy both:
+An ordinary protected product request must satisfy all three:
 
 1. a valid authenticated cookie or bearer token;
-2. server-side account status = `Active`.
+2. server-side account status = `Active`;
+3. effective server-side `CloudAccess=true` from the provider-neutral entitlement service.
 
 Account status values are:
 
@@ -96,7 +97,9 @@ Account status values are:
 
 The authorization handler checks status on every request. Therefore disabling or deleting an account does not depend on waiting for the browser cookie to expire.
 
-#396 replaces the original fail-closed placeholder with the Cloud control-plane account store. Protected requests therefore succeed only when the trusted account mapping is fully provisioned, on the current Cloud schema version, and marked `Active`.
+#396 replaces the original fail-closed placeholder with the Cloud control-plane account store. #409 adds the effective Cloud-access requirement to the fallback policy. Ordinary product APIs therefore succeed only when the trusted account mapping is fully provisioned, on the current Cloud schema version, marked `Active`, and the account currently has usable Cloud access.
+
+Pre-activation onboarding and billing use the explicit `AuthenticatedAccount` policy so a signed-in customer can establish subscription state before provisioning. The low-level #396 provisioning endpoint uses the narrower `EntitledAccount` policy: it can run before `Active`, but never before effective Cloud access.
 
 ## Public/auth routes
 
@@ -161,4 +164,6 @@ Usage and quotas are attributed to the trusted account context.
 
 ### #409 — onboarding
 
-Owns the user-facing signup/sign-in/provisioning flow. It should use these auth endpoints/session semantics rather than implementing a second auth flow.
+The hosted onboarding flow now uses these auth endpoints/session semantics behind
+one root Angular entry gate. See [onboarding.md](onboarding.md). It does not
+implement a second auth flow or expose provider tokens to Angular.

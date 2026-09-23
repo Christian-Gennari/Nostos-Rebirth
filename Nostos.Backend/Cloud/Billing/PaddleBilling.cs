@@ -76,6 +76,35 @@ public sealed class PaddleBillingService(
         var plan = options.ResolvePlan(planId);
         var priceId = options.ResolvePaddlePrice(plan.PlanId);
 
+        if (!string.IsNullOrWhiteSpace(existing?.ExternalTransactionId))
+        {
+            var existingTransaction = await api.GetTransactionAsync(
+                existing.ExternalTransactionId,
+                cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(existingTransaction.SubscriptionId))
+            {
+                throw new InvalidOperationException(
+                    "The existing checkout has already completed. Reconcile subscription state instead of creating another checkout.");
+            }
+
+            if (!CheckoutBelongsTo(existingTransaction, account.AccountId, plan.PlanId))
+            {
+                throw new InvalidOperationException(
+                    "The existing checkout cannot be resumed safely for this Nostos account and plan.");
+            }
+
+            if (string.IsNullOrWhiteSpace(existingTransaction.Checkout?.Url))
+            {
+                throw new InvalidOperationException(
+                    "The existing checkout cannot be resumed because the provider returned no checkout URL.");
+            }
+
+            return new CloudBillingCheckoutResponse(
+                plan.PlanId.Value,
+                existingTransaction.Checkout.Url);
+        }
+
         var transaction = await api.CreateCheckoutTransactionAsync(
             priceId,
             account.AccountId,
@@ -305,6 +334,24 @@ public sealed class PaddleBillingService(
             sourceOccurredAtUtc,
             binding.ExternalTransactionId,
             cancellationToken);
+    }
+
+    private static bool CheckoutBelongsTo(
+        PaddleTransaction transaction,
+        NostosAccountId accountId,
+        NostosPlanId planId)
+    {
+        if (transaction.CustomData is not { ValueKind: JsonValueKind.Object } customData)
+            return false;
+
+        if (!customData.TryGetProperty("nostos_account_id", out var accountValue)
+            || !customData.TryGetProperty("nostos_plan_id", out var planValue))
+        {
+            return false;
+        }
+
+        return string.Equals(accountValue.GetString(), accountId.ToString(), StringComparison.Ordinal)
+            && string.Equals(planValue.GetString(), planId.Value, StringComparison.Ordinal);
     }
 
     private async Task<CloudBillingBindingSnapshot> RequireBindingAsync(
@@ -740,6 +787,9 @@ public sealed class PaddleTransaction
 
     [JsonPropertyName("subscription_id")]
     public string? SubscriptionId { get; init; }
+
+    [JsonPropertyName("custom_data")]
+    public JsonElement? CustomData { get; init; }
 
     [JsonPropertyName("checkout")]
     public PaddleCheckout? Checkout { get; init; }

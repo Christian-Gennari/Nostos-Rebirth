@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Nostos.Backend.Configuration;
+using Nostos.Backend.Cloud.Entitlements;
 
 namespace Nostos.Backend.Security;
 
@@ -25,9 +26,39 @@ public static class CloudAuthPolicies
     /// and Active yet. Used only for provisioning/onboarding surfaces.
     /// </summary>
     public const string AuthenticatedAccount = "NostosCloudAuthenticatedAccount";
+
+    /// <summary>
+    /// Valid Cloud identity with effective Cloud access, without requiring
+    /// provisioning to have reached Active yet.
+    /// </summary>
+    public const string EntitledAccount = "NostosCloudEntitledAccount";
 }
 
 public sealed class ActiveCloudAccountRequirement : IAuthorizationRequirement;
+
+public sealed class CloudAccessRequirement : IAuthorizationRequirement;
+
+public sealed class CloudAccessHandler(
+    ICloudAccountContextResolver accountResolver,
+    ICloudEntitlementService entitlements) : AuthorizationHandler<CloudAccessRequirement>
+{
+    protected override async Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        CloudAccessRequirement requirement)
+    {
+        // Authorization handlers can run even when another requirement (such
+        // as RequireAuthenticatedUser) will ultimately fail. Never ask the
+        // tenant-bound entitlement service to resolve an anonymous request:
+        // simply leave the requirement unsatisfied so ASP.NET returns the
+        // ordinary authentication challenge instead of surfacing a 500.
+        if (!accountResolver.TryResolve(context.User, out var account) || account is null)
+            return;
+
+        var snapshot = await entitlements.GetEntitlementsAsync(CancellationToken.None);
+        if (snapshot.CloudAccess)
+            context.Succeed(requirement);
+    }
+}
 
 public sealed class ActiveCloudAccountHandler(
     ICloudAccountContextResolver accountResolver,
@@ -76,6 +107,7 @@ public static class CloudAuthenticationRegistration
 
         services.TryAddSingleton<ICloudAccountStatusStore, UnconfiguredCloudAccountStatusStore>();
         services.AddSingleton<IAuthorizationHandler, ActiveCloudAccountHandler>();
+        services.AddScoped<IAuthorizationHandler, CloudAccessHandler>();
 
         services
             .AddAuthentication(authentication =>
@@ -146,6 +178,16 @@ public static class CloudAuthenticationRegistration
                         StampValidatedIssuer(context.Principal, context.SecurityToken?.Issuer);
                         return Task.CompletedTask;
                     };
+                    oidc.Events.OnRedirectToIdentityProviderForSignOut = context =>
+                    {
+                        // Tokens are intentionally not saved in the browser
+                        // session, so an id_token_hint is normally unavailable.
+                        // Clerk accepts RP-initiated logout when client_id is
+                        // supplied instead. Make that explicit so the provider
+                        // session is terminated as well as the Nostos cookie.
+                        context.ProtocolMessage.ClientId = options.ClientId;
+                        return Task.CompletedTask;
+                    };
                 })
             .AddJwtBearer(
                 CloudAuthSchemes.Bearer,
@@ -172,10 +214,18 @@ public static class CloudAuthenticationRegistration
                 new AuthorizationPolicyBuilder(CloudAuthSchemes.Router)
                     .RequireAuthenticatedUser()
                     .Build())
+            .AddPolicy(
+                CloudAuthPolicies.EntitledAccount,
+                new AuthorizationPolicyBuilder(CloudAuthSchemes.Router)
+                    .RequireAuthenticatedUser()
+                    .AddRequirements(new CloudAccessRequirement())
+                    .Build())
             .SetFallbackPolicy(
                 new AuthorizationPolicyBuilder(CloudAuthSchemes.Router)
                     .RequireAuthenticatedUser()
-                    .AddRequirements(new ActiveCloudAccountRequirement())
+                    .AddRequirements(
+                        new ActiveCloudAccountRequirement(),
+                        new CloudAccessRequirement())
                     .Build());
 
         return options;

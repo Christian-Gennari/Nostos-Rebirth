@@ -72,4 +72,35 @@ describe('DeploymentCapabilitiesService', () => {
     expect(first).toEqual(second);
     expect(second.deploymentMode).toBe('Cloud');
   });
+  it('can refetch the capability contract for a safe retry after a transient failure', async () => {
+    const firstPromise = firstValueFrom(service.get());
+    http.expectOne('/api/runtime/capabilities').flush({
+      deploymentMode: 'Cloud',
+      requiresAuthentication: true,
+      canConfigureAiProvider: false,
+      managedAi: true,
+      managedVoiceTranscription: true,
+      usesCloudStorage: true,
+      supportsLocalBackupConfiguration: false,
+      supportsPrivateNetworkAccess: false,
+      usageMeteringAvailable: true,
+    });
+    await firstPromise;
+
+    const refreshPromise = firstValueFrom(service.get(true));
+    const request = http.expectOne('/api/runtime/capabilities');
+    request.flush({
+      deploymentMode: 'SelfHosted',
+      requiresAuthentication: false,
+      canConfigureAiProvider: true,
+      managedAi: false,
+      managedVoiceTranscription: false,
+      usesCloudStorage: false,
+      supportsLocalBackupConfiguration: true,
+      supportsPrivateNetworkAccess: true,
+      usageMeteringAvailable: false,
+    });
+
+    expect((await refreshPromise).deploymentMode).toBe('SelfHosted');
+  });
 });

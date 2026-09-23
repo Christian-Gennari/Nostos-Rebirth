@@ -12,16 +12,25 @@ import { CommandPalette } from './ui/command-palette/command-palette.component';
 import { AssistantComponent } from './ui/assistant/assistant.component';
 import { SwUpdateService } from './core/services/sw-update.service';
 import { ThemeService } from './core/services/theme.service';
+import { CloudEntryService } from './core/services/cloud-entry.service';
+import { CloudEntryComponent } from './cloud-entry/cloud-entry.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, ToastContainerComponent, CommandPalette, AssistantComponent],
+  imports: [
+    RouterOutlet,
+    ToastContainerComponent,
+    CommandPalette,
+    AssistantComponent,
+    CloudEntryComponent,
+  ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
 })
 export class App {
   private readonly router = inject(Router);
   readonly navigationPending = signal(false);
+  readonly cloudEntry = inject(CloudEntryService);
 
   constructor() {
     // Applies the persisted theme immediately. `index.html` already set the
@@ -33,6 +42,7 @@ export class App {
     // changes how URLs are served (the app shell vs. the API) reaches an
     // already-open client without a manual reload.
     inject(SwUpdateService).start();
+    void this.cloudEntry.initialize();
 
     this.router.events.subscribe((event) => {
       if (event instanceof NavigationStart) this.navigationPending.set(true);

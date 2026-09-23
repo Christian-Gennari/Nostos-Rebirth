@@ -10,7 +10,7 @@ public static class CloudProvisioningEndpoints
         this IEndpointRouteBuilder routes)
     {
         var group = routes.MapGroup("/api/cloud/provisioning")
-            .RequireAuthorization(CloudAuthPolicies.AuthenticatedAccount);
+            .RequireAuthorization(CloudAuthPolicies.EntitledAccount);
 
         group.MapGet("/", GetAsync);
         group.MapPost("/", ProvisionAsync);

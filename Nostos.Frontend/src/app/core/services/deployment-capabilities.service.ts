@@ -14,11 +14,15 @@ import { DeploymentCapabilities } from '../dtos/deployment-capabilities.dtos';
 @Injectable({ providedIn: 'root' })
 export class DeploymentCapabilitiesService {
   private readonly http = inject(HttpClient);
-  private readonly capabilities$ = this.http
-    .get<DeploymentCapabilities>('/api/runtime/capabilities')
-    .pipe(shareReplay({ bufferSize: 1, refCount: false }));
+  private capabilities$?: Observable<DeploymentCapabilities>;
 
-  get(): Observable<DeploymentCapabilities> {
+  get(refresh = false): Observable<DeploymentCapabilities> {
+    if (refresh || !this.capabilities$) {
+      this.capabilities$ = this.http
+        .get<DeploymentCapabilities>('/api/runtime/capabilities')
+        .pipe(shareReplay({ bufferSize: 1, refCount: false }));
+    }
+
     return this.capabilities$;
   }
 }

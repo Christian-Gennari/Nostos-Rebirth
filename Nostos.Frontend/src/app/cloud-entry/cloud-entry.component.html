@@ -1,0 +1,175 @@
+<main class="cloud-entry">
+  <section class="cloud-entry__card" aria-live="polite">
+    <div class="cloud-entry__brand" aria-label="Nostos">nostos</div>
+
+    @switch (entry.view().kind) {
+      @case ('loading') {
+        <div class="cloud-entry__spinner" aria-hidden="true"></div>
+        <h1>Opening Nostos…</h1>
+        <p>Checking your library.</p>
+      }
+
+      @case ('signed_out') {
+        <p class="cloud-entry__eyebrow">Nostos Cloud</p>
+        <h1>Come home to your reading.</h1>
+        <p>Sign in or create an account to open your private Nostos library.</p>
+        <button appButton variant="primary" type="button" (click)="signIn()">
+          Sign in or create account
+        </button>
+      }
+
+      @case ('subscription_required') {
+        <p class="cloud-entry__eyebrow">Nostos Cloud</p>
+        <h1>Start your Cloud library.</h1>
+        <p>Continue to checkout to activate the trial or subscription configured for Nostos Cloud.</p>
+        <button
+          appButton
+          variant="primary"
+          type="button"
+          [disabled]="entry.actionPending()"
+          [busy]="entry.actionPending()"
+          (click)="checkout()"
+        >
+          Continue to checkout
+        </button>
+      }
+
+      @case ('subscription_pending') {
+        <p class="cloud-entry__eyebrow">Access</p>
+        <h1>Confirming your subscription.</h1>
+        <p>Nostos will only continue after your subscription is confirmed by the server.</p>
+        <div class="cloud-entry__actions">
+          @if (entry.view().onboarding?.canCheckout) {
+            <button
+              appButton
+              variant="primary"
+              type="button"
+              [disabled]="entry.actionPending()"
+              [busy]="entry.actionPending()"
+              (click)="checkout()"
+            >
+              Continue checkout
+            </button>
+          }
+          <button
+            appButton
+            variant="secondary"
+            type="button"
+            [disabled]="entry.actionPending()"
+            (click)="checkSubscription()"
+          >
+            Check subscription
+          </button>
+        </div>
+      }
+
+      @case ('subscription_inactive') {
+        <p class="cloud-entry__eyebrow">Access</p>
+        <h1>Your subscription isn’t active.</h1>
+        <p>Your library is retained. Update your subscription, then ask Nostos to check again.</p>
+        <div class="cloud-entry__actions">
+          @if (entry.view().onboarding?.canManageSubscription) {
+            <button
+              appButton
+              variant="primary"
+              type="button"
+              [disabled]="entry.actionPending()"
+              [busy]="entry.actionPending()"
+              (click)="manageSubscription()"
+            >
+              Manage subscription
+            </button>
+          }
+          @if (entry.view().onboarding?.canCheckSubscription) {
+            <button
+              appButton
+              variant="secondary"
+              type="button"
+              [disabled]="entry.actionPending()"
+              (click)="checkSubscription()"
+            >
+              Check again
+            </button>
+          }
+        </div>
+      }
+
+      @case ('provisioning') {
+        <div class="cloud-entry__spinner" aria-hidden="true"></div>
+        <p class="cloud-entry__eyebrow">Almost there</p>
+        <h1>Preparing your Nostos library…</h1>
+        <p>You can refresh or come back later. Nostos reads progress from the server.</p>
+        <button
+          appButton
+          variant="ghost"
+          type="button"
+          [disabled]="entry.actionPending()"
+          (click)="entry.retry()"
+        >
+          Retry setup
+        </button>
+      }
+
+      @case ('provisioning_failed') {
+        <p class="cloud-entry__eyebrow">Setup</p>
+        <h1>We couldn’t finish preparing your library.</h1>
+        <p>Your account is safe. Retry uses the same Cloud resources rather than creating another library.</p>
+        <button
+          appButton
+          variant="primary"
+          type="button"
+          [disabled]="entry.actionPending()"
+          (click)="entry.retry()"
+        >
+          Retry
+        </button>
+      }
+
+      @case ('first_run') {
+        <p class="cloud-entry__eyebrow">Your library is ready</p>
+        <h1>How would you like to begin?</h1>
+        <p>Start with an empty library, or bring an existing SelfHosted Nostos library with you.</p>
+        <div class="cloud-entry__actions">
+          <button appButton variant="primary" type="button" (click)="entry.startFresh()">
+            Start fresh
+          </button>
+          <button
+            appButton
+            variant="secondary"
+            type="button"
+            [disabled]="entry.actionPending()"
+            (click)="chooseImport()"
+          >
+            Import an existing Nostos library
+          </button>
+        </div>
+        <input
+          #archiveInput
+          class="cloud-entry__file"
+          type="file"
+          accept=".nostos,application/vnd.nostos.portable+zip"
+          (change)="importSelected($event)"
+        />
+      }
+
+      @case ('account_unavailable') {
+        <p class="cloud-entry__eyebrow">Account</p>
+        <h1>This Nostos Cloud account isn’t available.</h1>
+        <p>It cannot be reactivated from this browser. Contact Nostos support if you think this is unexpected.</p>
+      }
+
+      @case ('backend_error') {
+        <p class="cloud-entry__eyebrow">Nostos Cloud</p>
+        <h1>Nostos is temporarily unavailable.</h1>
+        <p>We couldn’t safely confirm your account state. Your library has not been changed.</p>
+        <button appButton variant="primary" type="button" (click)="entry.retry()">
+          Retry
+        </button>
+      }
+    }
+
+    @if (entry.actionError()) {
+      <p class="cloud-entry__error" role="alert">{{ entry.actionError() }}</p>
+    }
+  </section>
+</main>
