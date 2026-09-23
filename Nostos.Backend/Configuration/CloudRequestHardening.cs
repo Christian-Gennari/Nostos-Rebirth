@@ -27,6 +27,15 @@ public static class CloudRequestHardeningRegistration
         if (deployment.Mode != DeploymentMode.Cloud)
             return services;
 
+        services.AddHsts(options =>
+        {
+            // app.nostos.page is HTTPS-only, but keep alpha rollout reversible:
+            // do not preload and do not extend policy to unrelated hostnames.
+            options.MaxAge = TimeSpan.FromDays(30);
+            options.IncludeSubDomains = false;
+            options.Preload = false;
+        });
+
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
