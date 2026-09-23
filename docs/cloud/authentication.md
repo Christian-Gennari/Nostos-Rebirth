@@ -161,4 +161,6 @@ Usage and quotas are attributed to the trusted account context.
 
 ### #409 — onboarding
 
-Owns the user-facing signup/sign-in/provisioning flow. It should use these auth endpoints/session semantics rather than implementing a second auth flow.
+The hosted onboarding flow now uses these auth endpoints/session semantics behind
+one root Angular entry gate. See [onboarding.md](onboarding.md). It does not
+implement a second auth flow or expose provider tokens to Angular.
