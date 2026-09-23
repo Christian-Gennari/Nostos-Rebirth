@@ -1,6 +1,8 @@
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
+using Nostos.Backend.Cloud;
 using Nostos.Backend.Configuration;
 using Nostos.Backend.Endpoints;
 using Xunit;
@@ -29,6 +31,26 @@ public sealed class CloudHardeningTests
             DeploymentDescriptor.For(DeploymentMode.Cloud));
 
         services.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public void Customer_database_connection_strings_are_pool_bounded_per_tenant()
+    {
+        var connections = new CloudDatabaseConnections(
+            ControlPlane: "Host=localhost;Database=control;Username=control",
+            Admin: "Host=localhost;Database=postgres;Username=admin",
+            CustomerBase: "Host=localhost;Username=nostos_app;Maximum Pool Size=100");
+
+        var factory = new CloudCustomerConnectionFactory(
+            connections,
+            new CloudControlPlaneOptions { CustomerMaxPoolSize = 5 });
+
+        var parsed = new NpgsqlConnectionStringBuilder(
+            factory.ForDatabase("nostos_u_test"));
+
+        parsed.Database.Should().Be("nostos_u_test");
+        parsed.MinPoolSize.Should().Be(0);
+        parsed.MaxPoolSize.Should().Be(5);
     }
 
     [Fact]
