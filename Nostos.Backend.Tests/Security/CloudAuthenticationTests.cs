@@ -205,6 +205,8 @@ public sealed class CloudAuthenticationTests
         oidc.RequireHttpsMetadata.Should().BeTrue();
         oidc.SaveTokens.Should().BeFalse();
         oidc.MapInboundClaims.Should().BeFalse();
+        oidc.TokenValidationParameters.ValidateIssuer.Should().BeTrue();
+        oidc.TokenValidationParameters.ValidateAudience.Should().BeTrue();
 
         var bearer = provider
             .GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<JwtBearerOptions>>()
@@ -213,6 +215,8 @@ public sealed class CloudAuthenticationTests
         bearer.Audience.Should().Be("nostos-api");
         bearer.RequireHttpsMetadata.Should().BeTrue();
         bearer.MapInboundClaims.Should().BeFalse();
+        bearer.TokenValidationParameters.ValidateIssuer.Should().BeTrue();
+        bearer.TokenValidationParameters.ValidateAudience.Should().BeTrue();
 
         var cookie = provider
             .GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<CookieAuthenticationOptions>>()
