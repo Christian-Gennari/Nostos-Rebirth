@@ -1,5 +1,6 @@
 using Nostos.Backend.Cloud.Billing;
 using Nostos.Backend.Cloud.ControlPlane;
+using Nostos.Backend.Configuration;
 using Nostos.Backend.Security;
 
 namespace Nostos.Backend.Endpoints;
@@ -9,7 +10,8 @@ public static class CloudBillingEndpoints
     public static IEndpointRouteBuilder MapCloudBillingEndpoints(this IEndpointRouteBuilder routes)
     {
         var group = routes.MapGroup("/api/cloud/billing")
-            .RequireAuthorization(CloudAuthPolicies.AuthenticatedAccount);
+            .RequireAuthorization(CloudAuthPolicies.AuthenticatedAccount)
+            .RequireRateLimiting(CloudRateLimitPolicies.Billing);
 
         group.MapPost("/checkout", CreateCheckoutAsync);
         group.MapPost("/change-plan", ChangePlanAsync);
@@ -18,7 +20,8 @@ public static class CloudBillingEndpoints
         group.MapPost("/reconcile", ReconcileAsync);
 
         routes.MapPost("/api/cloud/billing/webhooks/paddle", HandlePaddleWebhookAsync)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting(CloudRateLimitPolicies.ProviderWebhook);
 
         return routes;
     }
@@ -124,9 +127,17 @@ public static class CloudBillingEndpoints
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        if (request.ContentLength is > CloudRequestHardeningRegistration.MaxProviderWebhookBytes)
+            return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+
         var signature = request.Headers["Paddle-Signature"].ToString();
         using var reader = new StreamReader(request.Body);
         var rawBody = await reader.ReadToEndAsync(cancellationToken);
+        if (System.Text.Encoding.UTF8.GetByteCount(rawBody)
+            > CloudRequestHardeningRegistration.MaxProviderWebhookBytes)
+        {
+            return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+        }
 
         try
         {
@@ -152,7 +163,9 @@ public static class CloudBillingEndpoints
         {
             loggerFactory
                 .CreateLogger("Nostos.Cloud.Billing.PaddleWebhook")
-                .LogError(exception, "Verified Paddle webhook could not be reconciled.");
+                .LogError(
+                    "Verified Paddle webhook reconciliation failed with {ExceptionType}. Provider payload and exception details suppressed.",
+                    exception.GetType().Name);
             return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
         }
     }
