@@ -173,6 +173,9 @@ public static class CloudAuthenticationRegistration
                     oidc.Scope.Add("email");
 
                     oidc.TokenValidationParameters.NameClaimType = "name";
+                    oidc.TokenValidationParameters.ValidateIssuer = true;
+                    oidc.TokenValidationParameters.ValidateAudience = true;
+                    oidc.TokenValidationParameters.ValidAudience = options.ClientId;
                     oidc.Events.OnTokenValidated = context =>
                     {
                         StampValidatedIssuer(context.Principal, context.SecurityToken?.Issuer);
@@ -197,6 +200,9 @@ public static class CloudAuthenticationRegistration
                     bearer.Audience = options.Audience;
                     bearer.RequireHttpsMetadata = true;
                     bearer.MapInboundClaims = false;
+                    bearer.TokenValidationParameters.ValidateIssuer = true;
+                    bearer.TokenValidationParameters.ValidateAudience = true;
+                    bearer.TokenValidationParameters.ValidAudience = options.Audience;
                     bearer.Events = new JwtBearerEvents
                     {
                         OnTokenValidated = context =>
