@@ -1,3 +1,4 @@
+using Nostos.Backend.Configuration;
 using Nostos.Backend.Services.Portability;
 
 namespace Nostos.Backend.Endpoints;
@@ -7,9 +8,12 @@ public static class PortabilityEndpoints
     public const string ArchiveContentType = "application/vnd.nostos.portable+zip";
 
     public static IEndpointRouteBuilder MapPortabilityEndpoints(
-        this IEndpointRouteBuilder routes)
+        this IEndpointRouteBuilder routes,
+        bool cloudMode = false)
     {
         var group = routes.MapGroup("/api/portability");
+        if (cloudMode)
+            group.RequireRateLimiting(CloudRateLimitPolicies.LargeTransfer);
 
         group.MapGet("/export", async (
             HttpContext context,
