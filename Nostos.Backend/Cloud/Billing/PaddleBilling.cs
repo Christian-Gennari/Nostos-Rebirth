@@ -537,15 +537,17 @@ public sealed class PaddleBillingReconciliationWorker(
                     catch (Exception exception) when (!stoppingToken.IsCancellationRequested)
                     {
                         logger.LogWarning(
-                            exception,
-                            "Paddle reconciliation failed for Nostos account {AccountId}; it will be retried.",
-                            binding.AccountId);
+                            "Paddle reconciliation failed for Nostos account {AccountId}; exception type {ExceptionType}. It will be retried.",
+                            binding.AccountId,
+                            exception.GetType().Name);
                     }
                 }
             }
             catch (Exception exception) when (!stoppingToken.IsCancellationRequested)
             {
-                logger.LogWarning(exception, "Paddle reconciliation pass failed; it will be retried.");
+                logger.LogWarning(
+                    "Paddle reconciliation pass failed with {ExceptionType}; details suppressed and it will be retried.",
+                    exception.GetType().Name);
             }
         }
     }
