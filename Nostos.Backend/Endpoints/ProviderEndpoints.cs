@@ -239,7 +239,13 @@ public static class ProviderEndpoints
             _ => StatusCodes.Status502BadGateway,
         },
         title: ex.Code,
-        detail: ex.Message);
+        detail: ex.Code switch
+        {
+            ProviderException.ItemNotFound => "The provider item was not found.",
+            ProviderException.AssetUnavailable => "The requested provider asset is unavailable.",
+            ProviderException.Unavailable => "The content provider is temporarily unavailable.",
+            _ => "The content provider request failed.",
+        });
 
     private static ProviderSummaryDto ToSummaryDto(ProviderRegistration registration) => new(
         registration.Provider.Id,
