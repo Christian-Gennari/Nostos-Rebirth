@@ -20,6 +20,10 @@ public static class BooksEndpoints
             ? routes.MapGroup("/api/books")
                 .RequireRateLimiting(CloudRateLimitPolicies.ExpensiveMutation)
             : group;
+        var metadataGroup = cloudMode
+            ? routes.MapGroup("/api/books")
+                .RequireRateLimiting(CloudRateLimitPolicies.ProviderFetch)
+            : group;
 
         // GET all books
         group.MapGet(
@@ -455,7 +459,7 @@ public static class BooksEndpoints
         );
 
         // ISBN metadata lookup (validated before any external call)
-        group.MapGet(
+        metadataGroup.MapGet(
             "/lookup/{isbn}",
             async (string isbn, BookLookupService service, CancellationToken ct) =>
             {
