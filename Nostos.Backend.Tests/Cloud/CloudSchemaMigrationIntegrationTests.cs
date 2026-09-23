@@ -251,7 +251,9 @@ public sealed class CloudSchemaMigrationIntegrationTests
     public void SQLite_and_PostgreSQL_migration_histories_are_provider_specific()
     {
         var sqliteOptions = new DbContextOptionsBuilder<NostosDbContext>()
-            .UseSqlite("Data Source=:memory:")
+            .UseSqlite(
+                "Data Source=:memory:",
+                sqlite => sqlite.MigrationsAssembly(typeof(Program).Assembly.FullName))
             .Options;
         using var sqlite = new NostosDbContext(sqliteOptions);
 
