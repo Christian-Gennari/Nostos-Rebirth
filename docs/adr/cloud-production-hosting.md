@@ -4,332 +4,506 @@
 - **Decision date:** 2026-09-23
 - **Tracking:** #258, #435
 - **Scope:** Hosted Nostos Cloud only. SelfHosted remains SQLite + local files.
+- **Supersedes:** the earlier 2026-09-23 Azure-first draft of this ADR.
 
-## Context
+## Decision summary
 
-The current alpha is intentionally close to €0/month:
+Optimize for a bootstrapped SaaS rather than a single-enterprise-cloud architecture.
 
-- Neon Free PostgreSQL;
-- Backblaze B2 object/media storage;
-- Clerk authentication;
-- #399 provider-independent portable exports;
-- #400 staged per-customer backup/restore plus alpha operator recovery jobs.
+The intended paid-production stack is:
 
-That stack should remain in place while Nostos is an alpha/free beta. The production decision is about what to use once paid demand justifies a small fixed infrastructure bill.
-
-Nostos is unusual in one important way: a library may contain audiobooks. A nominal 15 GB/user storage entitlement is therefore useful, but media storage and especially download/streaming egress must stay inexpensive.
-
-## Decision
-
-Use a deliberately hybrid production stack:
-
-| Concern | Production target | Initial size |
+| Concern | Production target | Initial shape |
 | --- | --- | --- |
-| App compute | Azure App Service for Linux | Basic B1 |
-| PostgreSQL | Azure Database for PostgreSQL Flexible Server | Burstable B1ms + 32 GiB |
-| Media/object storage | Backblaze B2 | pay-as-you-go |
+| App compute | **DigitalOcean App Platform** | 1 GiB fixed shared container ($10/mo) |
+| PostgreSQL | **DigitalOcean Managed PostgreSQL** | 1 GiB / 1 vCPU cluster ($15.15/mo), no standby initially |
+| Media/object storage | **Backblaze B2** | pay-as-you-go, S3-compatible |
 | Authentication | Clerk | existing provider-neutral auth boundary |
 | Billing | Paddle | existing provider-neutral entitlement boundary |
 
-Keep the current **control-plane database + one PostgreSQL database per customer** topology on the Azure PostgreSQL server.
+For a Europe-first launch, prefer DigitalOcean Amsterdam (App Platform AMS + PostgreSQL AMS3) and a European B2 region, after verifying the existing alpha B2 account region.
 
-### Region default
+**Fallback:** DigitalOcean App Platform + **Neon Launch** + B2. This is the least-disruptive path from the alpha database stack and remains attractive if the Nostos PostgreSQL workload is sufficiently intermittent that Neon's scale-to-zero economics beat a fixed managed cluster.
 
-For a Europe-first paid launch, prefer:
+**Third candidate:** Azure App Service + Azure PostgreSQL Flexible Server + B2. This remains technically strong, but it is not materially cheaper or simpler enough for Nostos to justify making Azure the default.
 
-- **Azure Sweden Central** for App Service/PostgreSQL, subject to final SKU availability/pricing at migration time;
-- **Backblaze B2 EU Central (Amsterdam)** for customer media.
+Do not use Azure Blob, Supabase Storage, DigitalOcean Spaces, Railway Buckets, or Hetzner Object Storage merely to consolidate providers. The media layer should be chosen on audiobook storage/egress economics and recovery features.
 
-Azure PostgreSQL currently supports Sweden Central. Backblaze's B2 region is selected when an account is created and cannot later be changed, so #435 must verify the existing alpha B2 account region before assuming that media can stay in place without a regional migration.
+## Current alpha remains unchanged
 
-Source: <https://learn.microsoft.com/azure/postgresql/overview> and <https://www.backblaze.com/docs/cloud-storage-data-regions>
+Until the migration trigger is met:
 
-Do **not** move media to Azure Blob merely to make the stack single-cloud.
+- Neon Free PostgreSQL;
+- Backblaze B2 object/media storage;
+- Clerk;
+- Paddle/entitlements as already implemented;
+- #399 portable SelfHosted ↔ Cloud export/import;
+- #400 staged per-customer backup/restore;
+- current alpha operator-side recovery jobs.
 
-Re-evaluate capacity independently:
+This ADR does not authorize infrastructure changes.
 
-- App Service: B1 -> B2 when measured CPU/memory/latency needs it.
-- PostgreSQL: B1ms -> B2s (or a General Purpose tier later) when measured CPU, memory, connection pressure, or fleet migration work needs it.
-- Tenancy: revisit database-per-customer only if connection-pool/fleet-management pressure, not raw account count, becomes the limiting factor.
-- Media: reconsider R2 if measured B2 egress regularly exceeds 3x average stored bytes or B2 operations prove materially worse in practice.
+## Decision criteria
 
-## Why Azure App Service
+In priority order:
 
-The Nostos hosted runtime is still one ASP.NET Core application serving the Angular frontend. App Service fits that deployment shape without adding containers/Kubernetes orchestration as a product concern.
+1. lowest sensible monthly cost;
+2. minimal operational complexity;
+3. managed PostgreSQL with provider backups/PITR;
+4. cheap audiobook storage and delivery;
+5. predictable scaling economics;
+6. compatibility with the current .NET / EF Core / Npgsql / S3 architecture;
+7. no infrastructure Nostos must babysit merely to save a small amount of money.
 
-At the decision date Azure publishes Linux App Service **Basic B1** at about **$13.14/month** for 1 core / 1.75 GB RAM. B1 is appropriate for the first low-traffic paid production deployment; it can be resized without redesigning the application.
+The 15 GB/user media allowance is an entitlement, not 15 GB of PostgreSQL or pre-provisioned storage.
 
-Source: <https://azure.microsoft.com/pricing/details/app-service/linux/>
+## Candidate comparison
 
-## Why Azure PostgreSQL Flexible Server instead of Neon for paid production
+### 1. DigitalOcean App Platform + Managed PostgreSQL + B2 — selected
 
-Neon remains excellent for the €0 alpha because scale-to-zero and the Free plan avoid idle cost.
+Why it fits:
 
-For the paid production target, Azure PostgreSQL is preferred because:
+- App Platform is fully managed and supports .NET buildpacks or Dockerfiles.
+- It supports ordinary web services, background workers, deploy jobs and cron jobs.
+- Managed PostgreSQL handles OS/engine updates and daily backups plus WAL-based PITR for the previous seven days.
+- One PostgreSQL cluster can contain many databases; Nostos does not need one cluster/server per customer.
+- App Platform and PostgreSQL can sit in Amsterdam on the same DigitalOcean network.
+- B2 preserves the already-implemented S3-compatible object-storage boundary and is substantially cheaper than Spaces/R2 for normal Nostos egress ratios.
 
-- it keeps compute and the relational control/data plane in one operational provider;
-- automated backups and continuous transaction-log backup provide **7–35 day PITR**;
-- the existing EF Core/Npgsql and database-per-customer design works without a persistence rewrite;
-- the smallest Azure tier is inexpensive enough that the operational simplification is worth the fixed bill.
+Published starting costs at the decision date:
 
-At the decision date Azure publishes:
-
-- **B1ms:** about **$12.41/month**, 1 vCore / 2 GiB;
-- provisioned PostgreSQL storage: about **$0.115/GiB-month**;
-- backup storage up to 100% of provisioned server storage has no additional charge;
-- **B2s:** about **$49.64/month**, 2 vCore / 4 GiB.
-
-Therefore B1ms + 32 GiB is about **$16.09/month** before any backup storage beyond the included amount.
-
-Azure documents automatic daily backups plus continuous transaction-log backup and PITR over the configured 7–35 day retention window.
+- App Platform fixed 1 GiB shared container: $10/month.
+- Managed PostgreSQL 1 GiB / 1 vCPU: $15.15/month.
+- Initial fixed total: approximately **$25.15/month** before media.
+- Managed PostgreSQL 4 GiB / 2 vCPU: $60.90/month for a plausible later scale step.
+- App Platform 2 GiB shared container: $25/month.
 
 Sources:
+- <https://www.digitalocean.com/pricing/app-platform>
+- <https://www.digitalocean.com/pricing/managed-databases>
+- <https://docs.digitalocean.com/products/databases/postgresql/details/features/>
+- <https://docs.digitalocean.com/products/databases/postgresql/how-to/manage-users-and-databases/>
+- <https://docs.digitalocean.com/products/app-platform/reference/buildpacks/dotnet/>
+- <https://docs.digitalocean.com/products/app-platform/how-to/manage-jobs/>
 
+Operational complexity: **low**.
+
+Trade-off: the cheapest PostgreSQL topology is a single managed node, so it has provider-managed backups/PITR but not automatic standby failover. Add a standby later when the uptime promise/revenue justifies the extra database cost.
+
+### 2. DigitalOcean App Platform + Neon Launch + B2 — fallback
+
+Why it remains attractive:
+
+- nearly zero database migration from the alpha topology;
+- Neon is managed Postgres and explicitly supports multiple databases inside one project/cluster;
+- Launch is usage-based with no fixed minimum;
+- compute can suspend when idle;
+- a 7-day restore window is available;
+- restore-history data changes are billed separately, so recovery cost tracks write volume.
+
+Current Neon Launch rates:
+
+- compute: $0.106/CU-hour;
+- database storage: $0.35/GB-month;
+- restore history: $0.20/GB-month of retained changes.
+
+One Neon CU is 1 vCPU / 4 GB RAM. A 0.25 CU compute is 1 GB RAM.
+
+Sources:
+- <https://neon.com/blog/major-compute-price-reduction-on-neon>
+- <https://neon.com/blog/new-usage-based-pricing>
+- <https://neon.com/docs/manage/endpoints/>
+- <https://neon.com/blog/neon-object-hierarchy>
+
+Operational complexity: **low**.
+
+Trade-off: it is less bill-predictable than DigitalOcean's fixed managed database, and provider PITR applies at Neon branch/project scope rather than solving Nostos's single-customer restore requirement.
+
+### 3. Azure App Service + Azure PostgreSQL Flexible Server + B2
+
+Azure remains a valid production candidate:
+
+- App Service B1: $13.14/month.
+- PostgreSQL B1ms: $12.41/month.
+- PostgreSQL provisioned storage: $0.115/GiB-month.
+- 32 GiB database storage produces an initial Azure fixed total around **$29.23/month**.
+- Azure PostgreSQL performs daily snapshots plus transaction-log backups with configurable 7–35 day PITR.
+
+Sources:
+- <https://azure.microsoft.com/pricing/details/app-service/linux/>
 - <https://azure.microsoft.com/pricing/details/postgresql/flexible-server/>
-- <https://learn.microsoft.com/azure/postgresql/backup-restore/concepts-business-continuity>
+- <https://learn.microsoft.com/azure/postgresql/backup-restore/concepts-backup-restore>
 
-### Neon comparison
+Operational complexity: **low-to-moderate**.
 
-Neon paid plans remain usage-based and may still be cheaper for intermittently active development/staging databases. Its 2026 pricing also makes it a viable fallback.
+Why it loses: for Nostos's present scale it is neither cheaper nor operationally simpler enough than DigitalOcean to justify Azure's broader infrastructure surface. Keep it as an enterprise/HA-oriented future option rather than the default bootstrapped target.
 
-The reason for selecting Azure PostgreSQL for the production target is not a fundamental Neon limitation; it is the simpler production operating model once Nostos is already paying for Azure compute and wants provider-managed PITR as the primary infrastructure recovery layer.
+### Railway all-in
 
-## Why Backblaze B2 for media
+Railway is appealing because app, PostgreSQL, buckets, cron and PITR can all live in one project.
 
-Backblaze B2 remains the media store in production.
+Pricing is usage-based:
 
-At the decision date B2 publishes:
+- Pro minimum: $20/month, credited toward usage;
+- RAM: $10/GB-month;
+- CPU: $20/vCPU-month;
+- volume: $0.15/GB-month;
+- service egress: $0.05/GB;
+- Railway buckets: $0.015/GB-month with free bucket egress and API operations.
 
-- **$6.95/TB-month** pay-as-you-go storage;
-- **free egress up to 3x average monthly storage**;
-- egress above that at **$0.01/GB**;
-- S3-compatible API;
-- buckets version files by default;
+Railway also supports pgBackRest-based PITR with weekly full/daily differential backups and WAL archiving.
+
+However, Railway's own documentation explicitly calls its PostgreSQL templates **unmanaged**: Nostos remains responsible for database backup/DR configuration, tuning, security, monitoring and maintenance.
+
+Sources:
+- <https://railway.com/pricing>
+- <https://docs.railway.com/databases>
+- <https://docs.railway.com/volumes/point-in-time-recovery>
+- <https://docs.railway.com/storage-buckets>
+- <https://docs.railway.com/storage-buckets/uploading-serving>
+
+Operational complexity: **medium**.
+
+Decision: not selected. Railway has excellent developer UX, but it fails the key requirement that Christian should not become the PostgreSQL operator.
+
+### DigitalOcean one-platform with Spaces
+
+This is the strongest single-provider "boring cloud" alternative.
+
+Spaces costs:
+
+- $5/month includes 250 GiB storage + 1 TiB outbound;
+- additional storage: $0.02/GiB-month;
+- additional egress: $0.01/GiB;
+- S3-compatible;
+- presigned URLs, bucket versioning and lifecycle rules are supported.
+
+Sources:
+- <https://www.digitalocean.com/pricing/spaces-object-storage>
+- <https://docs.digitalocean.com/products/spaces/reference/s3-compatibility/>
+- <https://docs.digitalocean.com/products/spaces/how-to/enable-versioning/>
+
+Operational complexity: **very low**.
+
+Decision: do not use it as the default media store. It is attractive below the included 250 GiB / 1 TiB allowances, but B2 becomes materially cheaper as audiobook libraries scale.
+
+### Hetzner Cloud + Object Storage
+
+Hetzner is the cash-cost winner if Nostos runs app + PostgreSQL on a VM.
+
+Current post-June-2026 pricing includes:
+
+- CX23: $6.49/month;
+- CX43: $18.49/month;
+- server backups: +20% of server price, seven daily backup slots;
+- Object Storage: $5.99/month including 1 TB stored + 1 TB outbound;
+- excess object storage: $0.008/TB-hour;
+- excess egress: $1.20/TB;
+- S3-compatible storage supports versioning, lifecycle and Object Lock.
+
+Sources:
+- <https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/>
+- <https://docs.hetzner.com/cloud/servers/backups-snapshots/overview/>
+- <https://www.hetzner.com/pressroom/object-storage/>
+- <https://docs.hetzner.com/storage/object-storage/howto-protect-objects/protect-versioning/>
+
+Operational complexity: **high** for the architecture that makes it so cheap.
+
+The server snapshots are not PostgreSQL-aware PITR. A production-quality design requires Nostos to own OS patching, PostgreSQL upgrades, WAL archiving, monitoring, restore drills, security and probably HA/failover later.
+
+Decision: not selected. Saving roughly $10–20/month is not worth turning the solo founder into a database/sysadmin operator.
+
+### Supabase
+
+Supabase is not a simplification for Nostos.
+
+Pro is $25/month and includes daily backups with seven-day retention, but seven-day PITR is about **$100/month** extra. Its integrated Auth, Storage, PostgREST and realtime stack overlap with Clerk, Nostos's .NET API and the S3 object-storage layer.
+
+PostgreSQL itself can host extra databases in one Supabase project, but Supabase explicitly documents that its dashboard and integrated services operate on the default postgres database; manually-created additional databases are essentially ordinary PostgreSQL databases managed outside most of the platform's value-add.
+
+Sources:
+- <https://supabase.com/pricing>
+- <https://supabase.com/docs/guides/platform/backups>
+- <https://supabase.com/docs/guides/troubleshooting/manually-created-databases-are-not-visible-in-the-supabase-dashboard-4415aa>
+
+Operational complexity: **low for PostgreSQL, but poor architectural fit**.
+
+Decision: not selected. Nostos would pay for an integrated platform whose major differentiators it intentionally does not use.
+
+### Azure-only baseline
+
+Azure-only means App Service + PostgreSQL Flexible Server + Azure Blob.
+
+It is operationally coherent, but audiobook egress is the problem. Azure currently charges Europe internet egress after the first 100 GB/month at about $0.087/GB for the next 10 TB, then $0.083/GB for the next tier.
+
+Source:
+- <https://azure.microsoft.com/pricing/details/bandwidth/>
+
+Decision: rejected for customer media. Keep Azure compute/database + external cheap object storage as the only Azure architecture worth considering.
+
+## Media economics
+
+### Planning scenarios
+
+- light: 3 GB stored/user, 3 GB delivered/user/month (1x stored bytes);
+- normal: 8 GB stored/user, 12 GB delivered/user/month (1.5x);
+- heavy/full: 15 GB stored/user, 30 GB delivered/user/month (2x).
+
+### B2
+
+At the decision date:
+
+- $6.95/TB-month;
+- first 10 GB free;
+- egress free up to 3x average monthly storage;
+- egress above that: $0.01/GB;
+- S3-compatible;
+- buckets are versioned by default;
 - lifecycle rules and Object Lock are available.
 
 Sources:
-
 - <https://www.backblaze.com/cloud-storage/pricing>
 - <https://www.backblaze.com/docs/cloud-storage-s3-compatible-api>
 - <https://www.backblaze.com/docs/cloud-storage-s3-compatible-api-bucket-versions>
+- <https://www.backblaze.com/docs/cloud-storage-enable-object-lock-with-the-s3-compatible-api>
 
-This also avoids an unnecessary media migration because Nostos already targets an S3-compatible object-storage boundary.
+Approximate marginal media storage/user/month:
 
-## Why not Cloudflare R2 as the default
-
-R2 is the best alternative if Nostos becomes unusually egress-heavy.
-
-At the decision date R2 Standard publishes:
-
-- **$0.015/GB-month** storage;
-- no internet egress charge;
-- S3-compatible API;
-- 11-nines annual durability;
-- lifecycle support.
-
-Sources:
-
-- <https://developers.cloudflare.com/r2/pricing/>
-- <https://developers.cloudflare.com/r2/api/s3/api/>
-- <https://developers.cloudflare.com/r2/buckets/storage-classes/>
-
-For normal Nostos usage, B2 is cheaper because its storage price is less than half R2's while already including egress up to 3x stored bytes. R2 becomes attractive only if measured media delivery repeatedly pushes above B2's included egress envelope enough to offset the higher storage rate.
-
-R2 also does not currently implement every S3 feature (for example S3 Object Lock is not implemented), so B2 has the stronger recovery/version-retention fit today.
-
-## Why not Azure Blob for media
-
-Azure Blob would simplify the provider list, but it would make audiobook delivery materially more expensive.
-
-Azure internet egress from Europe currently provides the first 100 GB/month free and then charges about **$0.087/GB** for the next 10 TB on the premium global network.
-
-Source: <https://azure.microsoft.com/pricing/details/bandwidth/>
-
-For a media product, egress can therefore dominate the storage bill. That cost is not justified merely to keep media in the same provider as compute/database.
-
-Azure Blob remains a valid future choice for small operational artifacts, not the default customer audiobook/ebook store.
-
-## 15 GB/user economics
-
-The 15 GB plan allowance is a **quota**, not pre-provisioned capacity. B2 charges actual bytes stored.
-
-Ignoring the account-wide first 10 GB free allowance, approximate B2 storage cost per user is:
-
-| Average stored/user | B2 storage/user/month | R2 storage/user/month |
+| Average stored/user | B2 | R2 |
 | ---: | ---: | ---: |
 | 3 GB | $0.021 | $0.045 |
 | 8 GB | $0.056 | $0.120 |
 | 15 GB | $0.104 | $0.225 |
 
-Even if every user fills a 15 GB allowance, B2 media storage costs only about **10.4 cents/user/month** before unusual egress.
+All three normal planning scenarios stay inside B2's 3x included-egress envelope.
 
-### Media egress assumptions
+Cloudflare R2 Standard is $0.015/GB-month with free egress. It becomes economically interesting only when Nostos repeatedly exceeds roughly 3.8x stored bytes in monthly delivery, before considering request costs. R2 also does not currently implement the S3 versioning/Object Lock APIs that B2 implements, although lifecycle and Cloudflare-native protection features exist.
 
-Use these planning cases:
+Sources:
+- <https://developers.cloudflare.com/r2/pricing/>
+- <https://developers.cloudflare.com/r2/api/s3/api/>
 
-- **light:** 3 GB stored/user, 3 GB egress/user/month (1x);
-- **normal:** 8 GB stored/user, 12 GB egress/user/month (1.5x);
-- **heavy/full:** 15 GB stored/user, 30 GB egress/user/month (2x).
+### Critical media-delivery requirement
 
-All three remain inside B2's included 3x egress envelope, so modeled B2 bandwidth cost is **$0**.
+The merged #397 implementation currently opens S3 range streams inside the ASP.NET process and writes them through Nostos HTTP responses.
 
-A stress case of **5x stored bytes downloaded per month** would exceed the free envelope by 2x stored bytes and add approximately:
+Therefore the cost tables below assume a **future direct-download path** for large Cloud media:
 
-- 3 GB stored: **$0.06/user/month**;
-- 8 GB stored: **$0.16/user/month**;
-- 15 GB stored: **$0.30/user/month**.
+1. authorize the authenticated Nostos account;
+2. derive the tenant-owned object key server-side;
+3. issue a short-lived presigned object URL (or equivalent edge-authorized redirect);
+4. let the object provider serve audiobook/PDF/EPUB bytes and HTTP ranges directly.
 
-## Production unit-economics model
+Do not expose arbitrary object keys to clients. Keep authorization and tenant mapping in Nostos.
 
-Public list prices are planning figures, USD/month, excluding VAT, support plans, Paddle fees, managed-AI/STT spend, and unusual request charges. Region/invoice pricing can differ.
+This change is required before meaningful paid audiobook traffic. Otherwise App Platform/service egress can dominate the media bill even when B2 itself has free/included egress.
 
-### Fixed infrastructure assumptions
+For example, with current DigitalOcean App Platform transfer pricing ($0.02/GiB after the plan allowance), proxying the normal 12 GB/user/month media scenario would add roughly:
 
-For 10 and 100 users:
+- 10 users: ~$0.40/month beyond a 100 GiB allowance;
+- 100 users: ~$22/month;
+- 1,000 users on the 2 GiB app tier: ~$236/month beyond its 200 GiB allowance.
 
-- App Service B1: $13.14;
-- PostgreSQL B1ms: $12.41;
-- PostgreSQL 32 GiB: $3.68;
-- total fixed: **$29.23/month**.
+Direct object delivery avoids that app-egress duplication.
 
-For 1,000 users, model a conservative vertical step:
+## Unit economics
 
-- App Service B2: $25.55;
-- PostgreSQL B2s: $49.64;
-- PostgreSQL 128 GiB: $14.72;
-- total fixed: **$89.91/month**.
+These are planning estimates in USD/month, excluding VAT, Paddle fees, Clerk overages, managed AI/STT, support, and unusual request charges. They are not provider quotes.
 
-The 1,000-user sizing is a planning assumption, not an automatic user-count rule.
+The B2 rows assume direct media delivery.
 
-### Monthly cost estimate
+### Selected DigitalOcean + B2
 
-Normal modeled egress is within B2's free allowance.
+Assumptions:
 
-| Users | Avg stored/user | Fixed infra | B2 storage | B2 egress | Approx total | Approx total/user |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 10 | 3 GB | $29.23 | $0.21 | $0 | **$29.44** | **$2.94** |
-| 10 | 8 GB | $29.23 | $0.56 | $0 | **$29.79** | **$2.98** |
-| 10 | 15 GB | $29.23 | $1.04 | $0 | **$30.27** | **$3.03** |
-| 100 | 3 GB | $29.23 | $2.09 | $0 | **$31.32** | **$0.31** |
-| 100 | 8 GB | $29.23 | $5.56 | $0 | **$34.79** | **$0.35** |
-| 100 | 15 GB | $29.23 | $10.43 | $0 | **$39.66** | **$0.40** |
-| 1,000 | 3 GB | $89.91 | $20.85 | $0 | **$110.76** | **$0.11** |
-| 1,000 | 8 GB | $89.91 | $55.60 | $0 | **$145.51** | **$0.15** |
-| 1,000 | 15 GB | $89.91 | $104.25 | $0 | **$194.16** | **$0.19** |
+- 10 / 100 users: App Platform $10 + Managed PostgreSQL $15.15 = $25.15 fixed.
+- 1,000 users: App Platform 2 GiB $25 + PostgreSQL 4 GiB / 2 vCPU $60.90 = $85.90 fixed.
+- PostgreSQL backups/PITR are included in the managed DB price.
 
-The **marginal media-storage cost** of another user is therefore only about **$0.02–$0.10/month** across the modeled 3–15 GB range. In practice, managed AI and payment fees are more likely to matter to subscription pricing than the nominal 15 GB media quota.
+| Users | Media | Fixed app+DB | B2 storage | B2 egress | Approx total | Cost/user |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| 10 | light | $25.15 | $0.14 | $0 | **$25.29** | $2.53 |
+| 10 | normal | $25.15 | $0.49 | $0 | **$25.64** | $2.56 |
+| 10 | heavy | $25.15 | $0.97 | $0 | **$26.12** | $2.61 |
+| 100 | light | $25.15 | $2.02 | $0 | **$27.17** | $0.27 |
+| 100 | normal | $25.15 | $5.49 | $0 | **$30.64** | $0.31 |
+| 100 | heavy | $25.15 | $10.36 | $0 | **$35.51** | $0.36 |
+| 1,000 | light | $85.90 | $20.78 | $0 | **$106.68** | $0.11 |
+| 1,000 | normal | $85.90 | $55.53 | $0 | **$141.43** | $0.14 |
+| 1,000 | heavy | $85.90 | $104.18 | $0 | **$190.08** | $0.19 |
 
-### 5x-download stress case
+What gets expensive first: at early scale, fixed PostgreSQL/app compute; later, database connections/compute before B2 storage. AI/payment costs are likely larger variable COGS than media storage.
 
-At 5x downloaded bytes/month, B2 egress adds approximately $0.06 / $0.16 / $0.30 per user for the 3 / 8 / 15 GB storage cases.
+### Cross-candidate totals
 
-For example, 1,000 users each storing 15 GB and downloading 75 GB/month would model to roughly:
+Same light / normal / heavy media assumptions:
 
-- fixed infrastructure: $89.91;
-- storage: $104.25;
-- egress overage: $300;
-- total: **$494.16/month**, or about **$0.49/user/month** before AI/payment costs.
+| Candidate | 10 users | 100 users | 1,000 users | Main caveat |
+| --- | ---: | ---: | ---: | --- |
+| **DigitalOcean App + Managed PG + B2** | $25 / $26 / $26 | $27 / $31 / $36 | $107 / $141 / $190 | selected; add HA later |
+| Railway all-in* | ~$22 / $23 / $24 | ~$35 / $42 / $53 | ~$125 / $200 / $305 | PostgreSQL is unmanaged |
+| Hetzner VM + Object Storage* | ~$14 / $14 / $14 | ~$14 / $14 / $19 | ~$42 / $82 / $145 | Christian operates PostgreSQL/OS |
+| DigitalOcean App + Neon Launch + B2* | ~$31 / $31 / $32 | ~$56 / $59 / $64 | ~$148 / $182 / $231 | workload-metered DB |
+| Azure App + Azure PG + B2 | $29 / $30 / $30 | $31 / $35 / $40 | $111 / $145 / $194 | more cloud surface, similar cost |
+| DigitalOcean App + Managed PG + Spaces | ~$30 all | $31 / $43 / $75 | $166 / $356 / $676 | media storage/egress scales faster |
+| Supabase + app + B2, daily backups only* | ~$35 / $35 / $36 | ~$37 / $40 / $45 | ~$121 / $156 / $204 | no PITR in this price |
+| Supabase + app + B2, 7-day PITR* | ~$135 / $135 / $136 | ~$137 / $140 / $145 | ~$221 / $256 / $304 | PITR add-on dominates |
+| Azure-only* | ~$30 / $32 / $49 | ~$52 / $140 / $309 | ~$397 / $1,265 / $2,888 | audiobook internet egress |
 
-This is deliberately far above the expected normal audiobook traffic model and is the threshold region where R2 should be re-evaluated.
+Asterisks indicate especially assumption-sensitive estimates:
 
-## Recovery responsibility split
+- Railway is usage-metered; estimates assume modest app/database RAM/CPU plus direct bucket delivery and exclude unpredictable WAL archive growth.
+- Hetzner includes server backup pricing but **not** the founder time or extra infrastructure required to build PostgreSQL-aware PITR/monitoring.
+- Neon estimates assume an always-responsive compute baseline that grows approximately 0.25 CU -> 0.5 CU -> 1 CU plus modest relational storage/history. Scale-to-zero can make it cheaper.
+- Supabase 1,000-user estimate assumes a Medium Postgres compute and a $25 App Platform host; actual load determines compute.
+- Azure-only uses an approximate Hot Blob storage planning rate; the dominant modeled cost is Azure's published internet egress rate.
 
-### Provider / infrastructure recovery
+## 15 GB/user commercial conclusion
 
-**Azure PostgreSQL**
+A 15 GB included storage entitlement is commercially viable.
 
-- automated backups;
-- transaction-log backup;
-- 7–35 day PITR;
-- restore to a replacement server after infrastructure/database failure.
+With B2, a fully-used 15 GB quota costs about **$0.10/user/month** in storage. Under the heavy planning case (30 GB/month delivered, 2x stored bytes) B2 still charges no egress because it remains within the 3x included allowance.
 
-**Azure App Service**
+Even 1,000 customers all filling 15 GB produce only about **$104/month** of B2 storage.
 
-- application process/host replacement;
-- no customer durable data may depend on the App Service filesystem.
+Do not price the subscription primarily around the 15 GB quota. AI/STT, payment fees, support and database/app capacity are more important COGS.
 
-**Backblaze B2**
+## Backup and recovery comparison
 
-- object durability;
-- version history;
-- lifecycle retention;
-- optional Object Lock where appropriate.
+| Candidate | Provider DB recovery | Object recovery | Nostos custom recovery burden |
+| --- | --- | --- | --- |
+| **DigitalOcean Managed PG + B2** | daily backups + WAL PITR, previous 7 days | B2 default versions + lifecycle + optional Object Lock | low |
+| Neon Launch + B2 | configurable restore history, up to 7-day launch window | B2 versions/lifecycle/Object Lock | low |
+| Azure PG + B2 | automatic snapshots + WAL PITR, 7–35 days | B2 versions/lifecycle/Object Lock | low |
+| Railway | native volume backup/PITR primitives exist, but DB service is explicitly unmanaged | Railway bucket has durable S3 storage; recovery feature set is less mature than B2 | medium |
+| DigitalOcean + Spaces | same managed PG recovery | Spaces versioning + lifecycle | low |
+| Hetzner VM | seven daily VM snapshots; not PostgreSQL-aware PITR | versioning/lifecycle/Object Lock | **high** |
+| Supabase | daily backups 7 days; PITR is paid add-on | use B2 for Nostos media | low, but expensive PITR |
+| Azure-only | 7–35 day PostgreSQL PITR | Azure Blob provider durability/versioning options | low, high media egress cost |
 
-### Nostos application recovery
+### Provider/infrastructure recovery
 
-Provider backups do not replace product-level recovery.
+The selected production provider should own:
 
-Keep:
+- PostgreSQL engine/OS patching;
+- scheduled database backup and WAL retention;
+- cluster-level point-in-time restore;
+- infrastructure host replacement;
+- object durability/version history.
 
-- **#400 staged per-customer restore** for tenant-scoped logical recovery, validation, and safe replacement;
-- **#399 portable export/import** for customer ownership and provider-independent exit/re-entry;
-- restore verification and tenant-boundary checks.
+### Nostos application recovery remains
 
-Azure PITR is primarily **server/infrastructure recovery**. With multiple customer databases on one server, a PITR restoration may recover a whole server to a new server; Nostos still needs an application-controlled path to recover one customer's library without rolling every customer backward.
+Do **not** remove:
 
-## Alpha recovery machinery that becomes redundant
+- **#399**: customer-owned, provider-independent portable export/import and anti-lock-in;
+- **#400**: tenant-scoped staged restore, validation and safe replacement.
 
-After the Azure production cutover is complete **and a real Azure PITR restore has succeeded**, retire alpha-only provider work such as:
+Provider PITR restores a PostgreSQL cluster/server/project state. It does not safely answer "restore only customer A without rolling customers B–Z backward."
 
-- Neon-specific snapshot/manual-restore handling;
-- Neon/control-plane provider-level dump jobs that exist only to compensate for Free-plan infrastructure recovery limits;
-- provider-outage reconstruction glue specific to Neon Free.
+### Alpha machinery that can later disappear
 
-Do **not** retire:
+After the selected managed PostgreSQL production migration is complete and a provider-native PITR restore drill succeeds, retire alpha-only machinery whose only purpose is compensating for Free-tier infrastructure recovery gaps, for example:
 
-- the #400 customer backup scheduler and staged single-customer restore path;
-- #399 portable exports;
-- B2 object version/lifecycle protection.
+- Neon-Free-specific provider snapshots/manual restore glue;
+- provider-level control-plane dump jobs used solely as substitute infrastructure backups;
+- provider-outage reconstruction scripts specific to the alpha database provider.
+
+Keep #400's customer-level scheduler/restore artifacts where they serve tenant-level recovery, and keep #399.
+
+A second-provider database backup is **not required by default** for the initial paid product when managed PITR is restore-tested. Add off-provider database copies only if a documented disaster-recovery requirement later justifies their cost/complexity.
+
+## Database-per-customer
+
+The Nostos model remains:
+
+- one shared PostgreSQL server/cluster;
+- one control-plane database;
+- one ordinary PostgreSQL database per Nostos customer;
+- one object namespace per customer.
+
+It does **not** mean one paid server/project per customer.
+
+Provider fit:
+
+- DigitalOcean Managed PostgreSQL: clean; explicitly supports additional databases on one cluster.
+- Azure PostgreSQL: clean standard PostgreSQL.
+- Neon: clean for multiple databases inside one project/branch.
+- Railway/Hetzner: technically clean standard PostgreSQL, but operator burden differs.
+- Supabase: technically possible, but additional databases sit outside most Supabase integrated tooling, weakening the reason to use Supabase.
+
+Scale guidance:
+
+### ~100 customers
+
+Database-per-customer is sensible. Keep it.
+
+### ~1,000 customers
+
+Still reasonable if active concurrency is moderate, but **connection pools and fleet migrations** become the primary engineering risks. Each database has a distinct connection string/pool, so Nostos must bound per-tenant pool sizes, expire idle pools, and batch schema upgrades.
+
+Do not redesign tenancy merely because account count reaches 1,000.
+
+### ~10,000 customers
+
+Do not assume a single PostgreSQL cluster should contain the entire fleet.
+
+Before considering shared-schema multi-tenancy, first preserve the database-per-customer model and **shard customers across multiple shared PostgreSQL clusters**:
+
+control plane -> cluster identifier -> customer database.
+
+That keeps isolation and existing domain assumptions while bounding connection count, blast radius and migration batches.
+
+Only revisit shared-schema TenantId-everywhere tenancy if measured economics/operations show that multi-cluster database-per-customer is the actual bottleneck.
+
+## Staging
+
+For the selected DigitalOcean target, avoid paying for a permanent duplicate production stack too early.
+
+Minimum staging:
+
+- a separate low-cost App Platform service/environment;
+- staging databases isolated by names/credentials from production;
+- separate B2 staging bucket/key;
+- Clerk development/staging configuration;
+- Paddle sandbox.
+
+A staging database can remain on Neon Free/Launch initially if this reduces idle cost, because staging is not the production recovery boundary. Before risky PostgreSQL-provider/schema changes, use an ephemeral or short-lived DigitalOcean managed PostgreSQL staging cluster and destroy it after validation.
+
+Do not point staging at production customer resources.
 
 ## Migration trigger
 
-Do not provision long-lived Azure production resources for alpha/free beta.
+Do not migrate merely because external beta starts.
 
 Start #435 when either:
 
-1. Nostos is preparing for public paid launch and has roughly **10 committed paying users / €100 MRR** worth of demand; or
-2. Neon Free capacity, recovery, or operational constraints are expected to become a blocker within about **30 days**.
+1. Nostos is preparing for public paid launch and has roughly **10 committed paying users / €100 MRR** of demand; or
+2. Neon Free capacity/recovery/operational limits are likely to block the service within roughly 30 days; or
+3. Nostos is about to make a production reliability promise that the alpha stack cannot reasonably satisfy.
 
-If Nostos promises production-grade reliability to paying customers earlier, finish the migration before making that promise.
+At that point the approximately $25/month fixed DigitalOcean app+database floor is justified by revenue rather than paid speculatively.
 
-The intent is to avoid paying a fixed infrastructure bill before the product has revenue while still moving before the alpha stack becomes an operational liability.
+## Migration requirements
 
-## Minimum sensible staging
+When #435 is eventually unblocked:
 
-Early staging should be logically isolated without duplicating the full monthly bill:
-
-- separate staging App Service app on the **same B1 App Service plan**;
-- separate staging control-plane/customer PostgreSQL databases on the **same Flexible Server**, using separate credentials;
-- separate B2 staging bucket/key;
-- Clerk development/staging configuration;
-- Paddle sandbox/test configuration.
-
-No staging resource may point at production customer data.
-
-This shares compute/failure domains, which is acceptable at first paid-launch scale. Move staging to its own App Service plan and PostgreSQL server once load, migration risk, or MRR makes the shared blast radius unacceptable.
-
-## Consequences
-
-### Positive
-
-- very small fixed production bill;
-- provider-managed PostgreSQL PITR replaces alpha provider-backup glue;
-- existing S3 storage implementation remains valid;
-- 15 GB/user can be offered without reserving 15 GB/user;
-- audiobook traffic avoids Azure's internet-egress economics;
-- no Kubernetes/microservice work.
-
-### Trade-offs
-
-- production uses two infrastructure providers (Azure + Backblaze) plus Clerk/Paddle;
-- B1/B1ms are intentionally small and must be monitored;
-- initial staging shares Azure compute/failure domains with production;
-- database-per-customer requires disciplined connection-pool and fleet-migration behavior.
+1. deploy the existing .NET application to DigitalOcean App Platform;
+2. provision one DigitalOcean Managed PostgreSQL cluster, not one cluster per user;
+3. migrate the control-plane and customer databases while preserving IDs and database-per-customer topology;
+4. retain B2 media unless a later ADR changes the media provider;
+5. enable/test DigitalOcean native backup/PITR;
+6. perform a real infrastructure PITR restore drill;
+7. perform a real #400 single-customer restore drill;
+8. preserve #399 round-trip portability;
+9. add direct, authorized large-media delivery so audiobook bytes do not proxy through App Platform at scale;
+10. cut traffic over with a documented rollback path;
+11. remove obsolete Neon-Free-specific recovery glue only after replacement recovery is proven;
+12. compare first-month actual spend with this ADR.
 
 ## Revisit this ADR when
 
-- B2 monthly media egress persistently exceeds 3x stored bytes;
-- Azure PostgreSQL connection/fleet pressure makes database-per-customer materially painful;
-- production needs zone-redundant HA/SLA beyond the initial low-cost tiers;
-- staging load can materially affect production;
-- public provider pricing changes enough to reverse the cost comparison.
+- B2 media delivery persistently exceeds roughly 3.8x average stored bytes/month;
+- App Platform or Managed PostgreSQL pricing materially changes;
+- Nostos needs automatic database failover/HA rather than restore-based recovery;
+- database-per-customer connection/fleet migration pressure appears around the 1,000+ tenant scale;
+- a multi-cluster database-per-customer topology is approaching its practical limits;
+- a future enterprise/compliance requirement makes Azure or another provider operationally preferable.
