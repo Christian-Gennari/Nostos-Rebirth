@@ -38,6 +38,10 @@ The existing programme tests this boundary across the major subsystems:
   staging, rebind and portable export remain tenant-scoped.
 - `CloudBackupSweepTests`: background backup work pushes the trusted
   control-plane account context per tenant rather than accepting request IDs.
+- Customer PostgreSQL connection strings are rewritten server-side with
+  `MinPoolSize=0` and a configurable per-tenant `MaxPoolSize` (default 5,
+  accepted range 1-20) so database-per-customer cannot multiply Npgsql's
+  default pool size across the fleet.
 
 ## Authentication/session boundary
 
@@ -68,6 +72,20 @@ both the catalogue and the acquisition URLs require the same authenticated
 Active-account + CloudAccess boundary as the rest of the product. If a deployed
 Cloud environment does not want OPDS reachable until e-reader-specific auth UX
 exists, `Opds:Enabled=false` removes the catalogue route.
+
+## Media delivery boundary
+
+The current alpha does **not** hand B2 object keys or presigned URLs to the
+browser. Authenticated Nostos endpoints derive the tenant namespace server-side
+and stream the selected object through the application. That is the safer
+security posture for the present alpha, though it duplicates application
+egress for large media.
+
+The production-hosting ADR already requires a future direct-download path for
+meaningful paid audiobook traffic: authorize the account first, derive the
+object key exclusively from the trusted control-plane mapping, then issue a
+short-lived provider URL. #408 does not introduce that delivery redesign and
+does not expose arbitrary B2 keys.
 
 ## Upload and archive hardening
 
@@ -156,6 +174,19 @@ the following content-free signals for a future #435 deployment:
 
 Health responses themselves remain only `ok` / `unavailable`; they do not
 return provider exceptions, customer IDs or credentials.
+
+## Provider PITR boundary
+
+#400 remains the tenant-scoped application recovery mechanism and is fully
+testable without a production provider account. Provider-native cluster PITR is
+different: the selected DigitalOcean Managed PostgreSQL production topology
+does not exist until #435.
+
+Accordingly #408 does not fake a provider PITR drill against Neon Free and does
+not provision paid infrastructure. A successful provider-native PITR drill is
+a rollout prerequisite for #435, while #408 keeps the application-level
+recovery path, integrity checks and tenant isolation hardened in the current
+alpha.
 
 ## Staging/production separation
 
