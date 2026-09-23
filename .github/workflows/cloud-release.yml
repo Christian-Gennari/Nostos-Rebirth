@@ -1,6 +1,10 @@
 name: Cloud release artifact
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/cloud-release.yml"
+      - "scripts/cloud/staging-smoke.sh"
   workflow_run:
     workflows:
       - Dual-mode CI
@@ -15,14 +19,34 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: cloud-release
   cancel-in-progress: false
 
 jobs:
+  validate-definition:
+    name: Validate release definition
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate staging smoke shell
+        run: bash -n scripts/cloud/staging-smoke.sh
+
+      - name: Confirm PR cannot publish
+        run: |
+          echo "Release workflow parsed successfully."
+          echo "PR validation has read-only repository permissions and does not publish artifacts."
+
   publish:
+    permissions:
+      contents: read
+      packages: write
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
