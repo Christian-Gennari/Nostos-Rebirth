@@ -23,7 +23,10 @@ public static class PersistenceRegistration
                 services.AddDbContextFactory<NostosDbContext>(options =>
                 {
                     var dbPath = Path.Combine(contentRootPath, "nostos.db");
-                    options.UseSqlite($"Data Source={dbPath}");
+                    options.UseSqlite(
+                        $"Data Source={dbPath}",
+                        sqlite => sqlite.MigrationsAssembly(
+                            typeof(PersistenceRegistration).Assembly.FullName));
                 });
                 return services;
 
