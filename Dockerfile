@@ -30,7 +30,8 @@ WORKDIR /app
 COPY --from=build /app/publish/ ./
 RUN mkdir -p /tmp/nostos \
     && chown -R "$APP_UID:$APP_UID" /app /tmp/nostos
-ENV ASPNETCORE_URLS=http://0.0.0.0:8080 \
+ENV ASPNETCORE_ENVIRONMENT=Production \
+    ASPNETCORE_URLS=http://0.0.0.0:8080 \
     TMPDIR=/tmp/nostos
 EXPOSE 8080
 USER $APP_UID
