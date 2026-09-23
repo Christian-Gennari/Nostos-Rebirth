@@ -1,4 +1,3 @@
-using Nostos.Backend.Configuration;
 using Nostos.Backend.Data.Interfaces;
 using Nostos.Backend.Data.Models;
 using Nostos.Backend.Mapping;
@@ -6,6 +5,8 @@ using Nostos.Backend.Services;
 using Nostos.Backend.Services.Library;
 using Nostos.Shared.Dtos;
 using Nostos.Shared.Enums;
+using Nostos.Product.Composition;
+using Nostos.Product.Http;
 
 namespace Nostos.Backend.Endpoints;
 
@@ -13,17 +14,19 @@ public static class BooksEndpoints
 {
     public static IEndpointRouteBuilder MapBooksEndpoints(
         this IEndpointRouteBuilder routes,
-        bool cloudMode = false)
+        NostosProductEndpointPolicies? policies = null)
     {
+        policies ??= NostosProductEndpointPolicies.None;
+
         var group = routes.MapGroup("/api/books");
-        var uploadGroup = cloudMode
-            ? routes.MapGroup("/api/books")
-                .RequireRateLimiting(CloudRateLimitPolicies.ExpensiveMutation)
-            : group;
-        var metadataGroup = cloudMode
-            ? routes.MapGroup("/api/books")
-                .RequireRateLimiting(CloudRateLimitPolicies.ProviderFetch)
-            : group;
+        var uploadGroup = string.IsNullOrWhiteSpace(policies.ExpensiveMutationRateLimitPolicy)
+            ? group
+            : routes.MapGroup("/api/books")
+                .RequireRateLimiting(policies.ExpensiveMutationRateLimitPolicy);
+        var metadataGroup = string.IsNullOrWhiteSpace(policies.ProviderFetchRateLimitPolicy)
+            ? group
+            : routes.MapGroup("/api/books")
+                .RequireRateLimiting(policies.ProviderFetchRateLimitPolicy);
 
         // GET all books
         group.MapGet(
@@ -361,7 +364,7 @@ public static class BooksEndpoints
                 if (book is null)
                     return Results.NotFound();
 
-                if (request.ContentLength is > CloudRequestHardeningRegistration.MaxCoverRequestBytes)
+                if (request.ContentLength is > NostosProductRequestLimits.MaxCoverRequestBytes)
                     return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
 
                 var bodySizeFeature = request.HttpContext.Features
@@ -369,7 +372,7 @@ public static class BooksEndpoints
                 if (bodySizeFeature is { IsReadOnly: false })
                 {
                     bodySizeFeature.MaxRequestBodySize =
-                        CloudRequestHardeningRegistration.MaxCoverRequestBytes;
+                        NostosProductRequestLimits.MaxCoverRequestBytes;
                 }
 
                 var form = await request.ReadFormAsync(ct);
@@ -377,7 +380,7 @@ public static class BooksEndpoints
                 if (file is null)
                     return Results.BadRequest("Missing cover file.");
 
-                if (file.Length > CloudRequestHardeningRegistration.MaxCoverUploadBytes)
+                if (file.Length > NostosProductRequestLimits.MaxCoverUploadBytes)
                     return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
 
                 if (!BookAssetFormats.IsAllowedCoverUpload(file.ContentType, file.FileName))
