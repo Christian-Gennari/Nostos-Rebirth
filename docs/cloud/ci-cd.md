@@ -131,11 +131,18 @@ NOSTOS_CLOUD_GROQ_API_KEY
 ```
 
 For authenticated release smoke, the GitHub `staging` environment may also
-hold a **short-lived staging-only** `NOSTOS_STAGING_BEARER_TOKEN`. Do not use a
-production customer token. Clerk session tokens are short-lived, so the normal
-operational setup should mint/refresh this from the dedicated staging identity
-immediately before a smoke run rather than storing a production-like long-lived
-credential.
+receive a **fresh staging-only** `NOSTOS_STAGING_BEARER_TOKEN`. Do not use a
+production customer token and do not treat this value as a durable secret.
+
+Clerk's ordinary session tokens are short-lived and their default claim set is
+not a substitute for the audience contract configured by
+`CloudAuth:Audience`. The staging automation must mint a token immediately
+before the smoke run from the dedicated staging identity and prove that its
+issuer/subject/audience are accepted by Nostos. If Clerk uses a staging-only JWT
+template for this, its `aud` must match `CloudAuth:Audience`. Until that
+external Clerk setup exists, leave the bearer unset; the release workflow still
+checks the anonymous/session boundary and reports that authenticated smoke is
+inactive rather than accepting a stale token.
 
 Until `NOSTOS_STAGING_BASE_URL` is configured, the release workflow stops at
 an immutable, registry-verified staging candidate and emits a notice. This is
@@ -159,6 +166,13 @@ staging image. It checks:
    - the temporary book is deleted;
    - removing the bearer returns to an anonymous session;
 6. when `NOSTOS_STAGING_MANAGED_AI_SMOKE=true`, one Ask Nostos turn.
+
+The bearer path is the non-browser API boundary already supported by #395. A
+complete browser OIDC smoke must additionally exercise `/api/auth/login`, the
+Clerk authorization-code + PKCE redirect/callback, the HttpOnly session cookie,
+and `POST /api/auth/logout`. That cannot be made real until the isolated Clerk
+staging application and an externally reachable staging origin exist, so it is
+an explicit external-setup boundary rather than a fake PR test.
 
 The live managed-AI smoke is deliberately opt-in and release-scoped, never a PR
 gate. #406 still enforces the hard per-turn ceiling (6 upstream calls, 50,000

@@ -41,7 +41,7 @@ anonymous_session="$(curl_json "$base_url/api/auth/session")"
 echo "$anonymous_session" | jq -e '.authenticated == false' >/dev/null
 
 if [ -z "$bearer" ]; then
-  echo "::notice title=Authenticated staging smoke skipped::Set NOSTOS_STAGING_BEARER_TOKEN in the staging GitHub environment to exercise provisioning and Library read/write."
+  echo "::notice title=Authenticated staging smoke skipped::Provide a freshly minted, audience-valid NOSTOS_STAGING_BEARER_TOKEN for the dedicated staging identity to exercise provisioning and Library read/write."
   exit 0
 fi
 
