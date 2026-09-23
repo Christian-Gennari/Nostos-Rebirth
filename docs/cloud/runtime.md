@@ -253,3 +253,16 @@ The following remain production-migration work, not runtime preparation:
 
 The alpha architecture remains Neon Free + Backblaze B2 + Clerk + Paddle until
 that later migration is deliberately triggered.
+
+
+## Validation
+
+The repository workflow `.github/workflows/cloud-runtime.yml` mirrors the
+#401 pre-PR gate. It builds `Nostos.sln`, runs the backend regression suite,
+PostgreSQL Cloud/runtime coverage, object-storage, portability and recovery
+integration tests, then runs the frontend design check, unit tests and
+production build.
+
+It also builds the repository-root production Docker image and smoke-tests the
+running container by exercising `/health/live`, `/health/ready`, the SPA
+root, `ffmpeg`, `ffprobe`, and non-root execution.
