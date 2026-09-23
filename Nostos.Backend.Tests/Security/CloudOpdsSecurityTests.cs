@@ -27,7 +27,7 @@ public sealed class CloudOpdsSecurityTests
 
         endpoints.Should().HaveCount(2);
         endpoints.Should().OnlyContain(endpoint =>
-            endpoint.Metadata.GetMetadata<IAllowAnonymous>() is null);
+            endpoint.Metadata.GetMetadata<IAllowAnonymous>() == null);
 
         await app.DisposeAsync();
     }
