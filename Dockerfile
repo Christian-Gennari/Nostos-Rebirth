@@ -10,9 +10,11 @@ RUN npm run build
 FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 WORKDIR /src
 COPY Nostos.Backend/Nostos.Backend.csproj Nostos.Backend/
+COPY Nostos.Product/Nostos.Product.csproj Nostos.Product/
 COPY Nostos.Shared/Nostos.Shared.csproj Nostos.Shared/
 RUN dotnet restore Nostos.Backend/Nostos.Backend.csproj
 COPY Nostos.Backend/ Nostos.Backend/
+COPY Nostos.Product/ Nostos.Product/
 COPY Nostos.Shared/ Nostos.Shared/
 COPY --from=frontend /src/Nostos.Frontend/dist/Nostos.Frontend/browser/ Nostos.Backend/wwwroot/
 RUN dotnet publish Nostos.Backend/Nostos.Backend.csproj \
