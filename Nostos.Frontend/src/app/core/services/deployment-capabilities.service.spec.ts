@@ -39,6 +39,7 @@ describe('DeploymentCapabilitiesService', () => {
       managedVoiceTranscription: false,
       usesCloudStorage: false,
       supportsLocalBackupConfiguration: true,
+      supportsPrivateNetworkAccess: true,
       usageMeteringAvailable: false,
     });
 
@@ -60,6 +61,7 @@ describe('DeploymentCapabilitiesService', () => {
       managedVoiceTranscription: true,
       usesCloudStorage: true,
       supportsLocalBackupConfiguration: false,
+      supportsPrivateNetworkAccess: false,
       usageMeteringAvailable: true,
     });
 

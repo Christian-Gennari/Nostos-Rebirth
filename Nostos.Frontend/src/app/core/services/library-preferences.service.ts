@@ -14,6 +14,12 @@ export interface LibraryPreferences {
    * assistant is explicitly opt-in rather than appearing automatically.
    */
   assistantEnabled: boolean;
+  /**
+   * Whether push-to-talk transcription is offered in Ask Nostos. This is a
+   * product preference only: provider identity and credentials remain a server
+   * concern. It defaults on to preserve the assistant's existing behavior.
+   */
+  assistantVoiceEnabled: boolean;
 }
 
 export const LIBRARY_PREFERENCES_STORAGE_KEY = 'nostos.library.preferences';
@@ -27,6 +33,7 @@ const DEFAULT_PREFERENCES: LibraryPreferences = {
   sidebarExpanded: true,
   groupByWork: true,
   assistantEnabled: false,
+  assistantVoiceEnabled: true,
 };
 
 const VALID_VIEW_MODES: readonly LibraryPreferences['viewMode'][] = ['grid', 'list'];
@@ -40,6 +47,7 @@ export class LibraryPreferencesService {
   readonly sidebarExpanded = signal(DEFAULT_PREFERENCES.sidebarExpanded);
   readonly groupByWork = signal(DEFAULT_PREFERENCES.groupByWork);
   readonly assistantEnabled = signal(DEFAULT_PREFERENCES.assistantEnabled);
+  readonly assistantVoiceEnabled = signal(DEFAULT_PREFERENCES.assistantVoiceEnabled);
   private workEditions = new Map<string, string>();
 
   /**
@@ -62,6 +70,7 @@ export class LibraryPreferencesService {
         sidebarExpanded: this.sidebarExpanded(),
         groupByWork: this.groupByWork(),
         assistantEnabled: this.assistantEnabled(),
+        assistantVoiceEnabled: this.assistantVoiceEnabled(),
       };
 
       this.writePreferences(preferences);
@@ -86,6 +95,10 @@ export class LibraryPreferencesService {
 
   setAssistantEnabled(enabled: boolean): void {
     this.assistantEnabled.set(enabled);
+  }
+
+  setAssistantVoiceEnabled(enabled: boolean): void {
+    this.assistantVoiceEnabled.set(enabled);
   }
 
   getActiveEditionId(workId: string | null | undefined, fallbackBookId: string): string {
@@ -120,7 +133,15 @@ export class LibraryPreferencesService {
       const value: unknown = JSON.parse(raw);
       if (!this.isRecord(value)) return null;
 
-      const { viewMode, sort, pageSize, sidebarExpanded, groupByWork, assistantEnabled } = value;
+      const {
+        viewMode,
+        sort,
+        pageSize,
+        sidebarExpanded,
+        groupByWork,
+        assistantEnabled,
+        assistantVoiceEnabled,
+      } = value;
       if (
         !this.isViewMode(viewMode) ||
         !this.isBookSort(sort) ||
@@ -137,6 +158,9 @@ export class LibraryPreferencesService {
       if (assistantEnabled !== undefined && typeof assistantEnabled !== 'boolean') {
         return null;
       }
+      if (assistantVoiceEnabled !== undefined && typeof assistantVoiceEnabled !== 'boolean') {
+        return null;
+      }
 
       return {
         viewMode,
@@ -145,6 +169,8 @@ export class LibraryPreferencesService {
         sidebarExpanded,
         groupByWork,
         assistantEnabled: assistantEnabled ?? DEFAULT_PREFERENCES.assistantEnabled,
+        assistantVoiceEnabled:
+          assistantVoiceEnabled ?? DEFAULT_PREFERENCES.assistantVoiceEnabled,
       };
     } catch {
       return null;
@@ -158,6 +184,7 @@ export class LibraryPreferencesService {
     this.sidebarExpanded.set(preferences.sidebarExpanded);
     this.groupByWork.set(preferences.groupByWork);
     this.assistantEnabled.set(preferences.assistantEnabled);
+    this.assistantVoiceEnabled.set(preferences.assistantVoiceEnabled);
   }
 
   private hydrateWorkEditions(): void {
