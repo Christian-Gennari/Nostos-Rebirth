@@ -182,7 +182,7 @@ jobs:
           NOSTOS_STAGING_BASE_URL: ${{ vars.NOSTOS_STAGING_BASE_URL }}
           NOSTOS_STAGING_BEARER_TOKEN: ${{ secrets.NOSTOS_STAGING_BEARER_TOKEN }}
           NOSTOS_STAGING_MANAGED_AI_SMOKE: ${{ vars.NOSTOS_STAGING_MANAGED_AI_SMOKE }}
-        run: scripts/cloud/staging-smoke.sh
+        run: bash scripts/cloud/staging-smoke.sh
 
       - name: Explain inactive external staging boundary
         if: ${{ vars.NOSTOS_STAGING_BASE_URL == '' }}
