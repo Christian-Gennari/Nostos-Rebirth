@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Nostos.Backend.Cloud.Entitlements;
@@ -14,14 +15,15 @@ namespace Nostos.Backend.Tests.Services.Ai;
 public sealed class ManagedCloudAiConfigurationTests
 {
     [Fact]
-    public void Defaults_pin_the_initial_managed_provider_policy()
+    public void Defaults_pin_the_managed_gateway_policy()
     {
         var options = new CloudManagedAiOptions();
 
-        options.LlmModel.Should().Be("gemini-3.8-flash");
+        options.LlmBaseUrl.Should().Be("https://ai-gateway.vercel.sh/v1");
+        options.LlmModel.Should().Be("google/gemini-3.8-flash");
         options.LlmThinkingLevel.Should().Be("low");
         options.SttModel.Should().Be("whisper-large-v3-turbo");
-        options.LlmApiKeyEnvironmentVariable.Should().Be("NOSTOS_CLOUD_GEMINI_API_KEY");
+        options.LlmApiKeyEnvironmentVariable.Should().Be("NOSTOS_CLOUD_AI_GATEWAY_API_KEY");
         options.SttApiKeyEnvironmentVariable.Should().Be("NOSTOS_CLOUD_GROQ_API_KEY");
 
         var act = options.Validate;
@@ -43,7 +45,7 @@ public sealed class ManagedCloudAiConfigurationTests
     [Fact]
     public async Task Managed_settings_read_the_server_environment_and_reject_customer_configuration()
     {
-        const string variable = "NOSTOS_MANAGED_AI_TEST_GEMINI_KEY";
+        const string variable = "NOSTOS_MANAGED_AI_TEST_GATEWAY_KEY";
         const string secret = "managed-secret-value";
         var options = new CloudManagedAiOptions
         {
@@ -57,14 +59,19 @@ public sealed class ManagedCloudAiConfigurationTests
             var effective = await settings.GetEffectiveLlmAsync();
 
             effective.IsAvailable.Should().BeTrue();
-            effective.Model.Should().Be("gemini-3.8-flash");
+            effective.BaseUrl.Should().Be("https://ai-gateway.vercel.sh/v1");
+            effective.Model.Should().Be("google/gemini-3.8-flash");
             effective.ApiKey.Should().Be(secret);
             effective.KeyFromServerEnv.Should().BeTrue();
 
             var get = () => settings.GetAsync();
             var update = () => settings.UpdateAsync(
                 new AiProviderSettingsUpdateRequest(
-                    new AiProviderSectionUpdate(true, "https://attacker.invalid", "other-model", "client-key"),
+                    new AiProviderSectionUpdate(
+                        true,
+                        "https://attacker.invalid",
+                        "other-model",
+                        "client-key"),
                     null));
 
             await get.Should().ThrowAsync<AiProviderConfigurationManagedException>();
@@ -97,7 +104,7 @@ public sealed class ManagedCloudAiConfigurationTests
 
         (await denied.IsAllowedAsync()).Should().BeFalse();
         (await allowedWithZeroAllowance.IsAllowedAsync()).Should().BeTrue(
-            "monthly consumption enforcement belongs to #405, not #404");
+            "monthly consumption enforcement belongs to #405, not the provider transport");
     }
 
     private sealed class FixedEntitlements(CloudEntitlementSnapshot snapshot)
@@ -111,94 +118,102 @@ public sealed class ManagedCloudAiConfigurationTests
 
 public sealed class ManagedProviderTransportTests
 {
-    private const string GeminiKey = "gemini-test-key";
+    private const string GatewayKey = "gateway-test-key";
     private const string GroqKey = "groq-test-key";
 
     [Fact]
-    public async Task Gemini_sends_low_thinking_tools_and_surfaces_billable_usage()
+    public async Task Gateway_sends_explicit_low_reasoning_and_surfaces_billable_usage()
     {
         var handler = new StubHttpMessageHandler();
         string? requestBody = null;
-        string? apiKey = null;
+        AuthenticationHeaderValue? authorization = null;
+        Uri? uri = null;
 
-        handler.Register("/v1beta/models/gemini-3.8-flash:generateContent", request =>
+        handler.Register("/v1/chat/completions", request =>
         {
             requestBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
-            apiKey = request.Headers.TryGetValues("x-goog-api-key", out var values)
-                ? values.Single()
-                : null;
+            authorization = request.Headers.Authorization;
+            uri = request.RequestUri;
 
             return Json(
                 """
                 {
-                  "candidates":[{
-                    "content":{"role":"model","parts":[{
-                      "functionCall":{"name":"concepts_list","id":"call_1","args":{"limit":5}},
-                      "thoughtSignature":"sig-1"
-                    }]},
-                    "finishReason":"STOP"
+                  "choices":[{
+                    "message":{"role":"assistant","content":"Done."},
+                    "finish_reason":"stop"
                   }],
-                  "usageMetadata":{
-                    "promptTokenCount":100,
-                    "candidatesTokenCount":20,
-                    "thoughtsTokenCount":30,
-                    "totalTokenCount":150
+                  "usage":{
+                    "prompt_tokens":100,
+                    "completion_tokens":50,
+                    "total_tokens":150,
+                    "completion_tokens_details":{"reasoning_tokens":30}
                   }
                 }
                 """);
         });
 
-        var provider = Gemini(handler);
+        var provider = Gateway(handler);
         var completion = await provider.CompleteAsync(new LlmCompletionRequest(
-            [LlmMessage.User("List concepts")],
-            [new LlmToolDefinition(
-                "concepts_list",
-                "List concepts.",
-                """{"type":"object","properties":{"limit":{"type":"integer"}},"additionalProperties":false}""")],
+            [LlmMessage.User("Answer briefly")],
+            [],
             4096));
 
-        apiKey.Should().Be(GeminiKey);
-        requestBody.Should().Contain("thinkingLevel");
-        requestBody.Should().Contain("low");
-        requestBody.Should().Contain("functionDeclarations");
-        requestBody.Should().Contain("concepts_list");
-        requestBody.Should().NotContain("additionalProperties");
+        uri!.AbsolutePath.Should().Be("/v1/chat/completions");
+        authorization!.Scheme.Should().Be("Bearer");
+        authorization.Parameter.Should().Be(GatewayKey);
+        using var requestJson = JsonDocument.Parse(requestBody!);
+        requestJson.RootElement.GetProperty("model").GetString()
+            .Should().Be("google/gemini-3.8-flash");
+        requestJson.RootElement.GetProperty("reasoning_effort").GetString()
+            .Should().Be("low");
+        requestJson.RootElement.GetProperty("stream").GetBoolean().Should().BeFalse();
 
-        completion.ToolCalls.Should().ContainSingle();
-        completion.ToolCalls[0].Name.Should().Be("concepts_list");
+        completion.Content.Should().Be("Done.");
         completion.FinishReason.Should().Be("stop");
         completion.PromptTokens.Should().Be(100);
         completion.CompletionTokens.Should().Be(50,
-            "Gemini total output billing includes visible candidate plus thinking tokens");
+            "OpenAI-compatible completion_tokens already includes billed reasoning output");
         completion.ThinkingTokens.Should().Be(30);
-        completion.ProviderState.Should().Contain("thoughtSignature");
     }
 
     [Fact]
-    public async Task Gemini_replays_provider_round_state_across_tool_calls()
+    public async Task Gateway_serializes_tools_and_replays_opaque_tool_metadata_on_follow_up()
     {
         var handler = new StubHttpMessageHandler();
         var call = 0;
+        string? firstBody = null;
         string? secondBody = null;
 
-        handler.Register("/v1beta/models/gemini-3.8-flash:generateContent", request =>
+        handler.Register("/v1/chat/completions", request =>
         {
             call++;
             var body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
 
             if (call == 1)
             {
+                firstBody = body;
                 return Json(
                     """
                     {
-                      "candidates":[{
-                        "content":{"role":"model","parts":[{
-                          "functionCall":{"name":"concepts_list","id":"call_1","args":{}},
-                          "thoughtSignature":"signature-that-must-round-trip"
-                        }]},
-                        "finishReason":"STOP"
+                      "choices":[{
+                        "message":{
+                          "role":"assistant",
+                          "content":null,
+                          "tool_calls":[{
+                            "id":"call_1",
+                            "type":"function",
+                            "function":{"name":"concepts_list","arguments":"{\"limit\":5}"},
+                            "extra_content":{"google":{"thought_signature":"signature-that-must-round-trip"}}
+                          }]
+                        },
+                        "finish_reason":"tool_calls"
                       }],
-                      "usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":2,"thoughtsTokenCount":3,"totalTokenCount":15}
+                      "usage":{
+                        "prompt_tokens":10,
+                        "completion_tokens":5,
+                        "total_tokens":15,
+                        "completion_tokens_details":{"reasoning_tokens":3}
+                      }
                     }
                     """);
             }
@@ -207,20 +222,37 @@ public sealed class ManagedProviderTransportTests
             return Json(
                 """
                 {
-                  "candidates":[{"content":{"role":"model","parts":[{"text":"Done."}]},"finishReason":"STOP"}],
-                  "usageMetadata":{"promptTokenCount":20,"candidatesTokenCount":2,"totalTokenCount":22}
+                  "choices":[{
+                    "message":{"role":"assistant","content":"Done."},
+                    "finish_reason":"stop"
+                  }],
+                  "usage":{"prompt_tokens":20,"completion_tokens":2,"total_tokens":22}
                 }
                 """);
         });
 
-        var provider = Gemini(handler);
+        var provider = Gateway(handler);
         var tools = new[]
         {
-            new LlmToolDefinition("concepts_list", "List concepts.", """{"type":"object"}"""),
+            new LlmToolDefinition(
+                "concepts_list",
+                "List concepts.",
+                """{"type":"object","properties":{"limit":{"type":"integer"}},"additionalProperties":false}"""),
         };
 
         var first = await provider.CompleteAsync(
             new LlmCompletionRequest([LlmMessage.User("List concepts")], tools, 4096));
+
+        first.ToolCalls.Should().ContainSingle();
+        first.ToolCalls[0].Id.Should().Be("call_1");
+        first.ToolCalls[0].Name.Should().Be("concepts_list");
+        first.ToolCalls[0].ArgumentsJson.Should().Be("""{"limit":5}""");
+        first.ProviderState.Should().Contain("thought_signature");
+        first.ProviderState.Should().Contain("signature-that-must-round-trip");
+
+        firstBody.Should().Contain("tools");
+        firstBody.Should().Contain("concepts_list");
+        firstBody.Should().Contain("additionalProperties");
 
         var messages = new List<LlmMessage>
         {
@@ -233,32 +265,97 @@ public sealed class ManagedProviderTransportTests
             new LlmCompletionRequest(messages, tools, 4096));
 
         second.Content.Should().Be("Done.");
+        secondBody.Should().Contain("extra_content");
         secondBody.Should().Contain("signature-that-must-round-trip");
-        secondBody.Should().Contain("functionResponse");
-        secondBody.Should().Contain("concepts_list");
+        secondBody.Should().Contain("tool_call_id");
         secondBody.Should().Contain("call_1");
+        secondBody.Should().Contain("concepts_list");
     }
 
     [Fact]
-    public async Task Gemini_rate_limit_is_safe_typed_data_and_is_not_retried()
+    public async Task Gateway_uses_total_tokens_as_output_fallback_when_completion_tokens_are_missing()
     {
         var handler = new StubHttpMessageHandler();
         handler.Register(
-            "/v1beta/models/gemini-3.8-flash:generateContent",
-            _ => new HttpResponseMessage(HttpStatusCode.TooManyRequests)
-            {
-                Content = new StringContent("""{"error":{"message":"sensitive upstream detail"}}"""),
-            });
+            "/v1/chat/completions",
+            _ => Json(
+                """
+                {
+                  "choices":[{"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],
+                  "usage":{"prompt_tokens":12,"total_tokens":19}
+                }
+                """));
 
-        var provider = Gemini(handler);
+        var completion = await Gateway(handler).CompleteAsync(new LlmCompletionRequest(
+            [LlmMessage.User("hello")],
+            [],
+            128));
+
+        completion.PromptTokens.Should().Be(12);
+        completion.CompletionTokens.Should().Be(7);
+        completion.ThinkingTokens.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Gateway_missing_secret_fails_before_any_upstream_request_without_exposing_secret_name()
+    {
+        var handler = new StubHttpMessageHandler();
+        var provider = Gateway(handler, apiKey: null);
 
         var act = () => provider.CompleteAsync(
             new LlmCompletionRequest([LlmMessage.User("hello")], [], 128));
 
         var exception = (await act.Should().ThrowAsync<LlmException>()).Which;
-        exception.Code.Should().Be(LlmErrorCodes.RateLimited);
-        exception.Message.Should().NotContain("sensitive upstream detail");
+        exception.Code.Should().Be(LlmErrorCodes.NotConfigured);
+        exception.Message.Should().NotContain("NOSTOS_CLOUD_AI_GATEWAY_API_KEY");
+        handler.RecordedRequests.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Gateway_failure_is_sanitized_and_not_retried()
+    {
+        var handler = new StubHttpMessageHandler();
+        handler.Register(
+            "/v1/chat/completions",
+            _ => new HttpResponseMessage(HttpStatusCode.BadGateway)
+            {
+                Content = new StringContent(
+                    """{"error":{"message":"sensitive upstream payload"}}""",
+                    Encoding.UTF8,
+                    "application/json"),
+            });
+
+        var provider = Gateway(handler);
+        var act = () => provider.CompleteAsync(
+            new LlmCompletionRequest([LlmMessage.User("hello")], [], 128));
+
+        var exception = (await act.Should().ThrowAsync<LlmException>()).Which;
+        exception.Code.Should().Be(LlmErrorCodes.Provider);
+        exception.Message.Should().NotContain("sensitive upstream payload");
+        exception.Message.Should().NotContain(GatewayKey);
         handler.RecordedRequests.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task Gateway_rate_limit_is_typed_and_sanitized()
+    {
+        var handler = new StubHttpMessageHandler();
+        handler.Register(
+            "/v1/chat/completions",
+            _ => new HttpResponseMessage(HttpStatusCode.TooManyRequests)
+            {
+                Content = new StringContent(
+                    """{"error":{"message":"private rate-limit detail"}}""",
+                    Encoding.UTF8,
+                    "application/json"),
+            });
+
+        var act = () => Gateway(handler).CompleteAsync(
+            new LlmCompletionRequest([LlmMessage.User("hello")], [], 128));
+
+        var exception = (await act.Should().ThrowAsync<LlmException>()).Which;
+        exception.Code.Should().Be(LlmErrorCodes.RateLimited);
+        exception.Message.Should().NotContain("private rate-limit detail");
     }
 
     [Fact]
@@ -309,25 +406,27 @@ public sealed class ManagedProviderTransportTests
         result.DurationSeconds.Should().Be(1.25);
     }
 
-    private static GeminiManagedLlmProvider Gemini(StubHttpMessageHandler handler)
+    private static VercelAiGatewayManagedLlmProvider Gateway(
+        StubHttpMessageHandler handler,
+        string? apiKey = GatewayKey)
     {
         var options = new CloudManagedAiOptions();
         options.Validate();
 
-        return new GeminiManagedLlmProvider(
-            new StubHttpClientFactory(handler, new Uri("https://generativelanguage.googleapis.com")),
+        return new VercelAiGatewayManagedLlmProvider(
+            new StubHttpClientFactory(handler, new Uri("https://ai-gateway.vercel.sh")),
             new StubAiProviderConfigResolver
             {
                 Llm = new EffectiveAiProviderConfig(
                     Enabled: true,
                     BaseUrl: options.LlmBaseUrl,
                     Model: options.LlmModel,
-                    ApiKeyEnvironmentVariable: "TEST_GEMINI_KEY",
-                    ApiKey: GeminiKey,
-                    KeyFromServerEnv: true),
+                    ApiKeyEnvironmentVariable: "TEST_GATEWAY_KEY",
+                    ApiKey: apiKey,
+                    KeyFromServerEnv: apiKey is not null),
             },
             options,
-            NullLogger<GeminiManagedLlmProvider>.Instance);
+            NullLogger<VercelAiGatewayManagedLlmProvider>.Instance);
     }
 
     private static HttpResponseMessage Json(string json) => new(HttpStatusCode.OK)

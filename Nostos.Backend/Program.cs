@@ -147,11 +147,11 @@ if (deployment.Mode == DeploymentMode.SelfHosted)
 }
 else
 {
-    builder.Services.AddHttpClient(GeminiManagedLlmProvider.HttpClientName, client =>
+    builder.Services.AddHttpClient(VercelAiGatewayManagedLlmProvider.HttpClientName, client =>
     {
         client.Timeout = TimeSpan.FromSeconds(cloudManagedAiOptions!.LlmRequestTimeoutSeconds);
     });
-    builder.Services.AddSingleton<ILlmProvider, GeminiManagedLlmProvider>();
+    builder.Services.AddSingleton<ILlmProvider, VercelAiGatewayManagedLlmProvider>();
 }
 
 // Post-processing modes (issue #262 §7, §8): one processor over the same bridge.
