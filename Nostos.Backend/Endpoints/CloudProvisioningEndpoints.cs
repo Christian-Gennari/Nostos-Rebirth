@@ -49,7 +49,7 @@ public static class CloudProvisioningEndpoints
                 Ready: result.Ready,
                 Retryable: result.Retryable));
         }
-        catch (CloudProvisioningException exception)
+        catch (CloudProvisioningException)
         {
             return Results.Problem(
                 statusCode: StatusCodes.Status503ServiceUnavailable,
