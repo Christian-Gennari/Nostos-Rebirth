@@ -82,7 +82,11 @@ resource selector from the browser.
 
 ## Subscription before provisioning
 
-Provisioning is intentionally ordered after effective Cloud access.
+Provisioning is intentionally ordered after effective Cloud access. This is
+enforced twice: the product onboarding service checks effective entitlements,
+and the existing low-level #396 provisioning route now requires the
+`EntitledAccount` authorization policy. The browser therefore cannot bypass
+the order by calling the primitive endpoint directly.
 
 `ICloudEntitlementService` remains authoritative:
 
@@ -95,7 +99,11 @@ A Paddle redirect does not change this. Checkout creates provider state through
 server reconciliation updates #403 state.
 
 When checkout exists but entitlement is not usable yet, onboarding reports
-`subscription_pending` and offers a server-side reconciliation action.
+`subscription_pending`. The user can either ask the server to reconcile the
+subscription or resume the same server-bound checkout transaction. Resuming
+first re-reads Paddle's transaction and verifies its canonical Nostos account
+and Nostos-owned plan metadata; it never creates a second transaction merely
+because the browser was closed or refreshed.
 
 #409 deliberately does not invent public pricing or a plan-selection UI. The
 v1 hosted checkout handoff expects exactly one configured billing plan with
@@ -153,6 +161,11 @@ migration engine.
 After either choice, onboarding disappears and the ordinary application shell
 is used. A returning Ready account with no pending first-run marker is never
 forced through a permanent Cloud dashboard.
+
+The normal Cloud API fallback also re-checks effective `CloudAccess` in
+addition to Active account status. A cancelled, expired or otherwise unusable
+subscription therefore cannot regain product API access merely because its
+resources were provisioned previously.
 
 ## SelfHosted
 
