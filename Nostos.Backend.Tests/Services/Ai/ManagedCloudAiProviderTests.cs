@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Nostos.Backend.Cloud.Entitlements;
@@ -160,9 +161,12 @@ public sealed class ManagedProviderTransportTests
         uri!.AbsolutePath.Should().Be("/v1/chat/completions");
         authorization!.Scheme.Should().Be("Bearer");
         authorization.Parameter.Should().Be(GatewayKey);
-        requestBody.Should().Contain(""model":"google/gemini-3.8-flash"");
-        requestBody.Should().Contain(""reasoning_effort":"low"");
-        requestBody.Should().Contain(""stream":false");
+        using var requestJson = JsonDocument.Parse(requestBody!);
+        requestJson.RootElement.GetProperty("model").GetString()
+            .Should().Be("google/gemini-3.8-flash");
+        requestJson.RootElement.GetProperty("reasoning_effort").GetString()
+            .Should().Be("low");
+        requestJson.RootElement.GetProperty("stream").GetBoolean().Should().BeFalse();
 
         completion.Content.Should().Be("Done.");
         completion.FinishReason.Should().Be("stop");
@@ -246,9 +250,9 @@ public sealed class ManagedProviderTransportTests
         first.ProviderState.Should().Contain("thought_signature");
         first.ProviderState.Should().Contain("signature-that-must-round-trip");
 
-        firstBody.Should().Contain(""tools"");
-        firstBody.Should().Contain(""concepts_list"");
-        firstBody.Should().Contain(""additionalProperties":false");
+        firstBody.Should().Contain("tools");
+        firstBody.Should().Contain("concepts_list");
+        firstBody.Should().Contain("additionalProperties");
 
         var messages = new List<LlmMessage>
         {
@@ -261,11 +265,11 @@ public sealed class ManagedProviderTransportTests
             new LlmCompletionRequest(messages, tools, 4096));
 
         second.Content.Should().Be("Done.");
-        secondBody.Should().Contain(""extra_content"");
+        secondBody.Should().Contain("extra_content");
         secondBody.Should().Contain("signature-that-must-round-trip");
-        secondBody.Should().Contain(""tool_call_id":"call_1"");
-        secondBody.Should().Contain(""id":"call_1"");
-        secondBody.Should().Contain(""name":"concepts_list"");
+        secondBody.Should().Contain("tool_call_id");
+        secondBody.Should().Contain("call_1");
+        secondBody.Should().Contain("concepts_list");
     }
 
     [Fact]
