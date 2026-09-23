@@ -39,7 +39,7 @@ This document serves as the operator-facing reference for provider account owner
 | **Vercel AI Gateway** | Managed Cloud LLM | `christian-gennaris-projects` team | Key `nostos-cloud-managed-ai` ($5/mo budget) | `NOSTOS_CLOUD_AI_GATEWAY_API_KEY` | Vercel team auth / GitHub SSO | Active & smoke-tested |
 | **Groq** | Managed Cloud STT | `ops@nostos.page` | Org `Nostos` (`org_01m36z8gp8e94a0jgw3ggj4jf2`), Project `Nostos Cloud` (`project_01m36zjz52ezyrsp40s1phwxnk`) | `NOSTOS_CLOUD_GROQ_API_KEY` | Passwordless Stytch email verification to `ops@` | Active & smoke-tested |
 | **Clerk** | Managed Auth & Accounts | `ops@nostos.page` (Primary Admin / Operator) | Workspace `org_3Jh5VTGilAUsJCDaALEg5dgJagp`, App `Nostos` (`app_3Jh5c9J9bK3MAPXJYLFJhNQHLS8`), Instance `ins_3Jh5c2V8AjyTkk8RYcFcbIAjNpq` | `NOSTOS_CLOUD_AUTH_CLIENT_SECRET` | Email code (OTP) via Lark Mail | Active (Alpha) |
-| **Paddle** | Billing & Subscriptions | `christiangennari61@gmail.com` (Sandbox; contact `billing@nostos.page`) | Product `pro_01m35farcv0czvbq6fn6jb1rvz`, Price `pri_01m35fashc62w526jw2rjnshrh` | `NOSTOS_CLOUD_BILLING_PADDLE_API_KEY`, `NOSTOS_CLOUD_BILLING_PADDLE_WEBHOOK_SECRET` | Two-factor SMS / App | Sandbox Active |
+| **Paddle** | Billing & Subscriptions | `ops@nostos.page` (Admin / Operator; Owner: `christiangennari61@gmail.com`) | Product `pro_01m35farcv0czvbq6fn6jb1rvz`, Price `pri_01m35fashc62w526jw2rjnshrh` | `NOSTOS_CLOUD_BILLING_PADDLE_API_KEY`, `NOSTOS_CLOUD_BILLING_PADDLE_WEBHOOK_SECRET` | Two-factor SMS / App / Lark Mail | Sandbox Active |
 | **Neon** | Serverless PostgreSQL | Org `Nostos` (`org-aged-wave-24212539`), Admins: `contact@cgennari.com`, `ops@nostos.page` | Projects: `nostos-customers` (`wandering-wind-99439546`), `nostos-control-plane` (`little-bread-40821565`) | `NOSTOS_CLOUD_CONTROL_PLANE_CONNECTION`, `NOSTOS_CLOUD_POSTGRES_ADMIN_CONNECTION`, `NOSTOS_CLOUD_POSTGRES_CUSTOMER_CONNECTION` | Neon account / GitHub SSO / MFA | Active & Co-Admin verified |
 | **Backblaze B2** | Object Storage (Media/Backups) | Christian personal account | Account ID `a4c0ecd810e7`, Buckets: `nostos-cloud`, `nostos-cloud-dr` | `NOSTOS_CLOUD_OBJECT_STORAGE_ACCESS_KEY`, `NOSTOS_CLOUD_OBJECT_STORAGE_SECRET_KEY` | 2FA (SMS / TOTP) | Alpha Active |
 | **Vercel / Domains** | Web hosting & DNS | `christian-gennaris-projects` | Domains: `nostos.page`, `cgennari.com` | `VERCEL_TOKEN` (CLI / deployment) | GitHub SSO / TOTP | Active |
@@ -91,7 +91,9 @@ This document serves as the operator-facing reference for provider account owner
 ### 4. Paddle (Billing & Subscriptions)
 - **Role:** Merchant of record, billing lifecycle, checkout, webhook event ingestion (#410).
 - **Environment:** Sandbox currently active (`https://sandbox-vendors.paddle.com`).
-- **Account Owner:** `christiangennari61@gmail.com`.
+- **Primary Operator:** `ops@nostos.page` (Admin role — full access to all Paddle functions, team user `130947`).
+- **Account Owner / Signer:** `christiangennari61@gmail.com` (Account creator / owner, team user `130576`).
+- **Vendor / Business Email:** `ops@nostos.page` (Account Settings).
 - **Operational Contact:** Invoices and notification settings route to `billing@nostos.page`.
 - **Product ID:** `pro_01m35farcv0czvbq6fn6jb1rvz` (`Nostos Cloud Sandbox`).
 - **Price ID:** `pri_01m35fashc62w526jw2rjnshrh` (USD 5.00/mo, 7-day trial).
