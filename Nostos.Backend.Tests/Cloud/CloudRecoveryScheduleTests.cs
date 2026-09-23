@@ -47,7 +47,7 @@ public sealed class CloudRecoveryScheduleTests
         services
             .Should().Contain(d =>
                 d.ServiceType == typeof(CloudBackupSweepRunner)
-                && d.Lifetime == ServiceLifetime.Scoped);
+                && d.Lifetime == ServiceLifetime.Singleton);
     }
 
     [Fact]
