@@ -73,7 +73,7 @@ internal static class OpenAiCompatibleChatCompletions
         }
         catch (JsonException)
         {
-            throw LlmException.InvalidResponse("the managed AI service returned unreadable JSON.");
+            throw LlmException.InvalidResponse("the AI provider returned unreadable JSON.");
         }
 
         using (document)
@@ -82,7 +82,7 @@ internal static class OpenAiCompatibleChatCompletions
                 || choices.ValueKind != JsonValueKind.Array
                 || choices.GetArrayLength() == 0)
             {
-                throw LlmException.InvalidResponse("the managed AI service returned no choice.");
+                throw LlmException.InvalidResponse("the AI provider returned no choice.");
             }
 
             var choice = choices[0];
@@ -90,7 +90,7 @@ internal static class OpenAiCompatibleChatCompletions
             choice.TryGetProperty("message", out var message);
 
             if (message.ValueKind != JsonValueKind.Object)
-                throw LlmException.InvalidResponse("the managed AI service returned no assistant message.");
+                throw LlmException.InvalidResponse("the AI provider returned no assistant message.");
 
             var content = message.TryGetProperty("content", out var contentElement)
                 && contentElement.ValueKind == JsonValueKind.String
