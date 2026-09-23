@@ -61,7 +61,7 @@ Cloud continues to use the #395/#409 provider-neutral auth path:
 - bearer audience configured by `CloudAuth:Audience`;
 - canonical account derived only from the validated issuer stamp + `sub`;
 - Active account status and effective CloudAccess are rechecked server-side;
-- Disabled/Deleted fail closed for ordinary product APIs;
+- DeletionRequested/Disabled/Deleted fail closed for ordinary product APIs;
 - return URLs must be local absolute-path references and may not contain
   backslashes, CR or LF.
 
@@ -133,6 +133,7 @@ partitioned by the authenticated canonical Nostos account where applicable:
 | Cloud backup create/restore | 4/10 minutes |
 | provider/acquisition + ISBN metadata lookup | 120/minute |
 | billing/onboarding mutations | 12/minute |
+| account deletion/status/cancel | 6/minute |
 | Paddle webhook ingress | 120/minute (service-wide) |
 
 The normal onboarding state GET is intentionally not rate-limited by the billing
@@ -177,7 +178,7 @@ the following content-free signals for a future #435 deployment:
 | scheduled backup | sweep attempted/succeeded/failed + safe per-tenant result |
 | billing reconciliation | account/provider event outcome/status |
 | managed-AI provider/emergency ceiling | #405 usage/result categories and budget state |
-| deletion lifecycle | pending until the retention/grace product policy is decided |
+| deletion lifecycle | content-free state/failure code + sweep attempted/deleted/failed/busy logs |
 
 Health responses themselves remain only `ok` / `unavailable`; they do not
 return provider exceptions, customer IDs or credentials.
