@@ -92,14 +92,21 @@ Account status values are:
 
 - `Unknown`
 - `Active`
+- `DeletionRequested`
 - `Disabled`
 - `Deleted`
 
-The authorization handler checks status on every request. Therefore disabling or deleting an account does not depend on waiting for the browser cookie to expire.
+The authorization handler checks status on every request. Therefore requesting deletion, disabling, or deleting an account does not depend on waiting for the browser cookie to expire.
 
 #396 replaces the original fail-closed placeholder with the Cloud control-plane account store. #409 adds the effective Cloud-access requirement to the fallback policy. Ordinary product APIs therefore succeed only when the trusted account mapping is fully provisioned, on the current Cloud schema version, marked `Active`, and the account currently has usable Cloud access.
 
 Pre-activation onboarding and billing use the explicit `AuthenticatedAccount` policy so a signed-in customer can establish subscription state before provisioning. The low-level #396 provisioning endpoint uses the narrower `EntitledAccount` policy: it can run before `Active`, but never before effective Cloud access.
+
+#408 adds a separate `RecoverableAccount` policy for portable export during the
+14-day deletion grace. It accepts only `Active` or `DeletionRequested` and
+does not require commercial CloudAccess, so privacy export is not blocked by a
+billing transition. It is used only on the export surface; ordinary application
+APIs continue to require the fallback Active + CloudAccess policy.
 
 ## Public/auth routes
 
