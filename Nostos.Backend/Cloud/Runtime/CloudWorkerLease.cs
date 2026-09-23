@@ -87,8 +87,8 @@ public sealed class PostgresCloudWorkerLeaseManager(
             catch (Exception exception)
             {
                 logger.LogWarning(
-                    exception,
-                    "Could not explicitly release a Cloud worker lease; closing the PostgreSQL session will release it.");
+                    "Could not explicitly release a Cloud worker lease; exception type {ExceptionType}. Closing the PostgreSQL session will release it.",
+                    exception.GetType().Name);
             }
             finally
             {
