@@ -1,0 +1,101 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <PackageReference Include="z440.atl.core" Version="7.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Nostos.Shared\Nostos.Shared.csproj" />
+  </ItemGroup>
+
+  <!--
+    #459 establishes project ownership without a mass namespace/path rewrite.
+    These files remain at their historical paths for this behavior-preserving
+    wave, but Nostos.Product is now their only compiling project. Nostos.Backend
+    references this project and explicitly removes the same files from its
+    default Compile items, so there is one implementation rather than a copied
+    facade. Later physical moves can therefore be mechanical.
+  -->
+  <ItemGroup>
+    <Compile Include="..\Nostos.Backend\Configuration\AssistantOptions.cs" Link="Configuration\AssistantOptions.cs" />
+    <Compile Include="..\Nostos.Backend\Configuration\DeploymentConfiguration.cs" Link="Configuration\DeploymentConfiguration.cs" />
+    <Compile Include="..\Nostos.Backend\Configuration\LibraryReceiptRetentionOptions.cs" Link="Configuration\LibraryReceiptRetentionOptions.cs" />
+    <Compile Include="..\Nostos.Backend\Configuration\OpdsOptions.cs" Link="Configuration\OpdsOptions.cs" />
+    <Compile Include="..\Nostos.Backend\Configuration\SpeechOptions.cs" Link="Configuration\SpeechOptions.cs" />
+
+    <Compile Include="..\Nostos.Backend\Data\NostosDbContext.cs" Link="Data\NostosDbContext.cs" />
+    <Compile Include="..\Nostos.Backend\Data\UtcDateTimeValueConverters.cs" Link="Data\UtcDateTimeValueConverters.cs" />
+    <Compile Include="..\Nostos.Backend\Data\Interfaces\**\*.cs" Link="Data\Interfaces\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\Nostos.Backend\Data\Models\**\*.cs" Link="Data\Models\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\Nostos.Backend\Data\Repositories\**\*.cs" Link="Data\Repositories\%(RecursiveDir)%(Filename)%(Extension)" />
+
+    <Compile Include="..\Nostos.Backend\Mapping\**\*.cs" Link="Mapping\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\Nostos.Backend\Serialization\**\*.cs" Link="Serialization\%(RecursiveDir)%(Filename)%(Extension)" />
+
+    <Compile Include="..\Nostos.Backend\Services\BookAssetFormats.cs" Link="Services\BookAssetFormats.cs" />
+    <Compile Include="..\Nostos.Backend\Services\BookLookupService.cs" Link="Services\BookLookupService.cs" />
+    <Compile Include="..\Nostos.Backend\Services\IBookAssetStorage.cs" Link="Services\IBookAssetStorage.cs" />
+    <Compile Include="..\Nostos.Backend\Services\MediaMetadataService.cs" Link="Services\MediaMetadataService.cs" />
+    <Compile Include="..\Nostos.Backend\Services\MediaTypeMap.cs" Link="Services\MediaTypeMap.cs" />
+    <Compile Include="..\Nostos.Backend\Services\NoteProcessorService.cs" Link="Services\NoteProcessorService.cs" />
+    <Compile Include="..\Nostos.Backend\Services\Library\**\*.cs" Link="Services\Library\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\Nostos.Backend\Services\Notes\**\*.cs" Link="Services\Notes\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\Nostos.Backend\Services\Portability\**\*.cs" Link="Services\Portability\%(RecursiveDir)%(Filename)%(Extension)" />
+
+    <Compile Include="..\Nostos.Backend\Services\Ai\AiProviderConfig.cs" Link="Services\Ai\AiProviderConfig.cs" />
+    <Compile Include="..\Nostos.Backend\Services\Ai\ILlmProvider.cs" Link="Services\Ai\ILlmProvider.cs" />
+    <Compile Include="..\Nostos.Backend\Services\Ai\ISTtProvider.cs" Link="Services\Ai\ISTtProvider.cs" />
+    <Compile Include="..\Nostos.Backend\Services\Ai\IThoughtProcessor.cs" Link="Services\Ai\IThoughtProcessor.cs" />
+    <Compile Include="..\Nostos.Backend\Services\Ai\ManagedAiAccessPolicy.cs" Link="Services\Ai\ManagedAiAccessPolicy.cs" />
+    <Compile Include="..\Nostos.Backend\Services\Ai\ManagedAiUsage.cs" Link="Services\Ai\ManagedAiUsage.cs" />
+    <Compile Include="..\Nostos.Backend\Services\Ai\OpenAiCompatibleChatCompletions.cs" Link="Services\Ai\OpenAiCompatibleChatCompletions.cs" />
+    <Compile Include="..\Nostos.Backend\Services\Ai\SttErrorCodes.cs" Link="Services\Ai\SttErrorCodes.cs" />
+    <Compile Include="..\Nostos.Backend\Services\Ai\ThoughtProcessor.cs" Link="Services\Ai\ThoughtProcessor.cs" />
+
+    <Compile Include="..\Nostos.Backend\Integrations\Assistant\**\*.cs" Link="Integrations\Assistant\%(RecursiveDir)%(Filename)%(Extension)" />
+
+    <Compile Include="..\Nostos.Backend\Providers\ProviderRegistry.cs" Link="Providers\ProviderRegistry.cs" />
+    <Compile Include="..\Nostos.Backend\Providers\Contracts\**\*.cs" Link="Providers\Contracts\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\Nostos.Backend\Providers\Acquisition\AcquisitionJobStatus.cs" Link="Providers\Acquisition\AcquisitionJobStatus.cs" />
+    <Compile Include="..\Nostos.Backend\Providers\Acquisition\AcquisitionModels.cs" Link="Providers\Acquisition\AcquisitionModels.cs" />
+    <Compile Include="..\Nostos.Backend\Providers\Acquisition\AcquisitionOptions.cs" Link="Providers\Acquisition\AcquisitionOptions.cs" />
+    <Compile Include="..\Nostos.Backend\Providers\Acquisition\AcquisitionService.cs" Link="Providers\Acquisition\AcquisitionService.cs" />
+    <Compile Include="..\Nostos.Backend\Providers\Acquisition\ProviderContentDownloader.cs" Link="Providers\Acquisition\ProviderContentDownloader.cs" />
+    <Compile Include="..\Nostos.Backend\Providers\Acquisition\ProviderHostPolicy.cs" Link="Providers\Acquisition\ProviderHostPolicy.cs" />
+    <Compile Include="..\Nostos.Backend\Providers\Acquisition\TranscodeLimiter.cs" Link="Providers\Acquisition\TranscodeLimiter.cs" />
+    <Compile Include="..\Nostos.Backend\Providers\Acquisition\Media\**\*.cs" Link="Providers\Acquisition\Media\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\Nostos.Backend\Providers\Gutenberg\**\*.cs" Link="Providers\Gutenberg\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\Nostos.Backend\Providers\LibriVox\**\*.cs" Link="Providers\LibriVox\%(RecursiveDir)%(Filename)%(Extension)" />
+
+    <Compile Include="..\Nostos.Backend\Endpoints\BooksEndpoints.cs" Link="Endpoints\BooksEndpoints.cs" />
+    <Compile Include="..\Nostos.Backend\Endpoints\ProviderEndpoints.cs" Link="Endpoints\ProviderEndpoints.cs" />
+    <Compile Include="..\Nostos.Backend\Endpoints\ImportEndpoints.cs" Link="Endpoints\ImportEndpoints.cs" />
+    <Compile Include="..\Nostos.Backend\Endpoints\NotesEndpoints.cs" Link="Endpoints\NotesEndpoints.cs" />
+    <Compile Include="..\Nostos.Backend\Endpoints\NoteProcessingEndpoints.cs" Link="Endpoints\NoteProcessingEndpoints.cs" />
+    <Compile Include="..\Nostos.Backend\Endpoints\CollectionsEndpoints.cs" Link="Endpoints\CollectionsEndpoints.cs" />
+    <Compile Include="..\Nostos.Backend\Endpoints\ConceptsEndpoints.cs" Link="Endpoints\ConceptsEndpoints.cs" />
+    <Compile Include="..\Nostos.Backend\Endpoints\WritingsEndpoints.cs" Link="Endpoints\WritingsEndpoints.cs" />
+    <Compile Include="..\Nostos.Backend\Endpoints\TranscriptionEndpoints.cs" Link="Endpoints\TranscriptionEndpoints.cs" />
+    <Compile Include="..\Nostos.Backend\Endpoints\AssistantEndpoints.cs" Link="Endpoints\AssistantEndpoints.cs" />
+    <Compile Include="..\Nostos.Backend\Endpoints\AiProviderSettingsEndpoints.cs" Link="Endpoints\AiProviderSettingsEndpoints.cs" />
+    <Compile Include="..\Nostos.Backend\Endpoints\AssistantSettingsEndpoints.cs" Link="Endpoints\AssistantSettingsEndpoints.cs" />
+    <Compile Include="..\Nostos.Backend\Endpoints\DeploymentCapabilitiesEndpoints.cs" Link="Endpoints\DeploymentCapabilitiesEndpoints.cs" />
+    <Compile Include="..\Nostos.Backend\Endpoints\PortabilityEndpoints.cs" Link="Endpoints\PortabilityEndpoints.cs" />
+    <Compile Include="..\Nostos.Backend\Endpoints\OpdsEndpoints.cs" Link="Endpoints\OpdsEndpoints.cs" />
+    <Compile Include="..\Nostos.Backend\Endpoints\LibraryHttpMapper.cs" Link="Endpoints\LibraryHttpMapper.cs" />
+    <Compile Include="..\Nostos.Backend\Endpoints\StoredAssetHttpResult.cs" Link="Endpoints\StoredAssetHttpResult.cs" />
+
+    <Compile Include="..\Nostos.Backend\Health\NostosHealthChecks.cs" Link="Health\NostosHealthChecks.cs" />
+  </ItemGroup>
+
+</Project>
