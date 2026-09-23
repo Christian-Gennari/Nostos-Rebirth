@@ -1,6 +1,7 @@
 import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
+import { vi } from 'vitest';
 
 import { CloudAuthService } from './cloud-auth.service';
 import { CloudEntryService } from './cloud-entry.service';
@@ -10,9 +11,18 @@ import { PortableLibraryService } from './portable-library.service';
 
 describe('CloudEntryService', () => {
   let service: CloudEntryService;
-  let capabilities: jasmine.SpyObj<DeploymentCapabilitiesService>;
-  let auth: jasmine.SpyObj<CloudAuthService>;
-  let onboarding: jasmine.SpyObj<CloudOnboardingService>;
+  let capabilities: { get: ReturnType<typeof vi.fn> };
+  let auth: {
+    getSession: ReturnType<typeof vi.fn>;
+    loginUrl: ReturnType<typeof vi.fn>;
+  };
+  let onboarding: {
+    getState: ReturnType<typeof vi.fn>;
+    provision: ReturnType<typeof vi.fn>;
+    createCheckout: ReturnType<typeof vi.fn>;
+    reconcileSubscription: ReturnType<typeof vi.fn>;
+    createBillingPortal: ReturnType<typeof vi.fn>;
+  };
 
   const cloudCapabilities = {
     deploymentMode: 'Cloud' as const,
@@ -39,15 +49,15 @@ describe('CloudEntryService', () => {
   beforeEach(() => {
     localStorage.clear();
 
-    capabilities = jasmine.createSpyObj<DeploymentCapabilitiesService>(
-      'DeploymentCapabilitiesService',
-      ['get'],
-    );
-    auth = jasmine.createSpyObj<CloudAuthService>('CloudAuthService', ['getSession', 'loginUrl']);
-    onboarding = jasmine.createSpyObj<CloudOnboardingService>(
-      'CloudOnboardingService',
-      ['getState', 'provision', 'createCheckout', 'reconcileSubscription', 'createBillingPortal'],
-    );
+    capabilities = { get: vi.fn() };
+    auth = { getSession: vi.fn(), loginUrl: vi.fn() };
+    onboarding = {
+      getState: vi.fn(),
+      provision: vi.fn(),
+      createCheckout: vi.fn(),
+      reconcileSubscription: vi.fn(),
+      createBillingPortal: vi.fn(),
+    };
 
     TestBed.configureTestingModule({
       providers: [
@@ -58,7 +68,7 @@ describe('CloudEntryService', () => {
         { provide: CloudOnboardingService, useValue: onboarding },
         {
           provide: PortableLibraryService,
-          useValue: { importArchive: jasmine.createSpy().and.returnValue(of({})) },
+          useValue: { importArchive: vi.fn().mockReturnValue(of({})) },
         },
       ],
     });
@@ -67,7 +77,7 @@ describe('CloudEntryService', () => {
   });
 
   it('leaves SelfHosted on the normal product path without Cloud auth', async () => {
-    capabilities.get.and.returnValue(of({
+    capabilities.get.mockReturnValue(of({
       ...cloudCapabilities,
       deploymentMode: 'SelfHosted',
       requiresAuthentication: false,
@@ -75,14 +85,14 @@ describe('CloudEntryService', () => {
 
     await service.initialize();
 
-    expect(service.productReady()).toBeTrue();
+    expect(service.productReady()).toBe(true);
     expect(auth.getSession).not.toHaveBeenCalled();
     expect(onboarding.getState).not.toHaveBeenCalled();
   });
 
   it('shows the hosted sign-in path for a signed-out Cloud user', async () => {
-    capabilities.get.and.returnValue(of(cloudCapabilities));
-    auth.getSession.and.returnValue(of({
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of({
       authenticated: false,
       accountState: null,
       account: null,
@@ -91,13 +101,13 @@ describe('CloudEntryService', () => {
     await service.initialize();
 
     expect(service.view().kind).toBe('signed_out');
-    expect(service.productReady()).toBeFalse();
+    expect(service.productReady()).toBe(false);
   });
 
   it('never flashes the normal app while subscription access is missing', async () => {
-    capabilities.get.and.returnValue(of(cloudCapabilities));
-    auth.getSession.and.returnValue(of(session));
-    onboarding.getState.and.returnValue(of({
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of(session));
+    onboarding.getState.mockReturnValue(of({
       state: 'subscription_required',
       subscriptionStatus: 'None',
       ready: false,
@@ -110,13 +120,13 @@ describe('CloudEntryService', () => {
     await service.initialize();
 
     expect(service.view().kind).toBe('subscription_required');
-    expect(service.productReady()).toBeFalse();
+    expect(service.productReady()).toBe(false);
   });
 
   it('starts idempotent provisioning for an entitled new account', async () => {
-    capabilities.get.and.returnValue(of(cloudCapabilities));
-    auth.getSession.and.returnValue(of(session));
-    onboarding.getState.and.returnValue(of({
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of(session));
+    onboarding.getState.mockReturnValue(of({
       state: 'ready_to_provision',
       subscriptionStatus: 'Trial',
       ready: false,
@@ -125,7 +135,7 @@ describe('CloudEntryService', () => {
       canManageSubscription: false,
       canRetry: true,
     }));
-    onboarding.provision.and.returnValue(of({
+    onboarding.provision.mockReturnValue(of({
       state: 'ready',
       subscriptionStatus: 'Trial',
       ready: true,
@@ -139,15 +149,15 @@ describe('CloudEntryService', () => {
 
     expect(onboarding.provision).toHaveBeenCalledTimes(1);
     expect(service.view().kind).toBe('first_run');
-    expect(service.productReady()).toBeFalse();
+    expect(service.productReady()).toBe(false);
 
     service.startFresh();
-    expect(service.productReady()).toBeTrue();
+    expect(service.productReady()).toBe(true);
   });
 
   it('resumes polling from server state after refresh during provisioning', fakeAsync(() => {
-    capabilities.get.and.returnValue(of(cloudCapabilities));
-    auth.getSession.and.returnValue(of(session));
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of(session));
     onboarding.getState.and.returnValues(
       of({
         state: 'provisioning',
@@ -157,8 +167,10 @@ describe('CloudEntryService', () => {
         canCheckSubscription: false,
         canManageSubscription: false,
         canRetry: false,
-      }),
-      of({
+        }),
+      )
+      .mockReturnValueOnce(
+        of({
         state: 'ready',
         subscriptionStatus: 'Active',
         ready: true,
@@ -166,8 +178,8 @@ describe('CloudEntryService', () => {
         canCheckSubscription: false,
         canManageSubscription: false,
         canRetry: false,
-      }),
-    );
+        }),
+      );
 
     void service.initialize();
     tick();
@@ -178,16 +190,16 @@ describe('CloudEntryService', () => {
     tick(1500);
     tick();
 
-    expect(service.productReady()).toBeTrue();
+    expect(service.productReady()).toBe(true);
   }));
 
   it('ready returning accounts enter the normal app directly', async () => {
-    capabilities.get.and.returnValue(of(cloudCapabilities));
-    auth.getSession.and.returnValue(of({
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of({
       ...session,
       accountState: 'Active',
     }));
-    onboarding.getState.and.returnValue(of({
+    onboarding.getState.mockReturnValue(of({
       state: 'ready',
       subscriptionStatus: 'Active',
       ready: true,
@@ -199,13 +211,13 @@ describe('CloudEntryService', () => {
 
     await service.initialize();
 
-    expect(service.productReady()).toBeTrue();
+    expect(service.productReady()).toBe(true);
     expect(service.view().kind).toBe('product');
   });
 
   it('does not let disabled accounts enter or trigger provisioning', async () => {
-    capabilities.get.and.returnValue(of(cloudCapabilities));
-    auth.getSession.and.returnValue(of({
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of({
       ...session,
       accountState: 'Disabled',
     }));

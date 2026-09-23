@@ -62,6 +62,6 @@ describe('CloudOnboardingService', () => {
       canRetry: false,
     });
 
-    expect((await resultPromise).ready).toBeTrue();
+    expect((await resultPromise).ready).toBe(true);
   });
 });
