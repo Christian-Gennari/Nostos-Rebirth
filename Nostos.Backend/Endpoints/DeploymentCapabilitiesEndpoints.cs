@@ -32,6 +32,7 @@ public static class DeploymentCapabilitiesEndpoints
             ManagedVoiceTranscription: deployment.Capabilities.ManagedVoiceTranscription,
             UsesCloudStorage: deployment.Capabilities.UsesCloudStorage,
             SupportsLocalBackupConfiguration: deployment.Capabilities.SupportsLocalBackupConfiguration,
+            SupportsPrivateNetworkAccess: deployment.Capabilities.SupportsPrivateNetworkAccess,
             UsageMeteringAvailable: deployment.Capabilities.UsageMeteringAvailable);
 }
 
@@ -43,4 +44,5 @@ public sealed record DeploymentCapabilitiesResponse(
     bool ManagedVoiceTranscription,
     bool UsesCloudStorage,
     bool SupportsLocalBackupConfiguration,
+    bool SupportsPrivateNetworkAccess,
     bool UsageMeteringAvailable);
