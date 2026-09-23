@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using Nostos.Backend.Configuration;
 using Nostos.Backend.Data.Interfaces;
 using Nostos.Backend.Endpoints;
