@@ -21,7 +21,7 @@ namespace Nostos.Backend.Workers;
 public sealed class AcquisitionReconciliationWorker(
     IDbContextFactory<NostosDbContext> contextFactory,
     IWebHostEnvironment environment,
-    IBookAssetStorage storage,
+    IOptions<FileStorageOptions> storageOptions,
     IOptions<AcquisitionOptions> options,
     ILogger<AcquisitionReconciliationWorker> logger,
     DeploymentDescriptor? deployment = null) : IHostedService
@@ -57,8 +57,9 @@ public sealed class AcquisitionReconciliationWorker(
     public async Task ReconcileAsync(CancellationToken cancellationToken = default)
     {
         // 1. Clean up the acquisition working/staging root directory if it exists.
-        var localBooksRoot = storage is IFileStorageService localStorage
-            ? localStorage.StorageRoot
+        var mode = (deployment ?? DeploymentDescriptor.For(DeploymentMode.SelfHosted)).Mode;
+        var localBooksRoot = mode == DeploymentMode.SelfHosted
+            ? FileStorageOptions.ResolveBooksRoot(environment.ContentRootPath, storageOptions.Value)
             : null;
         var workingRoot = AcquisitionOptions.ResolveWorkingRoot(
             environment.ContentRootPath,
@@ -91,7 +92,7 @@ public sealed class AcquisitionReconciliationWorker(
         // Cloud scratch is instance-local and safe to clean on every replica.
         // Customer rows, however, require an explicit trusted tenant context;
         // never pretend there is one during process startup.
-        if ((deployment ?? DeploymentDescriptor.For(DeploymentMode.SelfHosted)).Mode == DeploymentMode.Cloud)
+        if (mode == DeploymentMode.Cloud)
         {
             logger.LogInformation(
                 "Cloud acquisition scratch cleanup completed; tenant database reconciliation is intentionally deferred to tenant-aware work.");
