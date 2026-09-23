@@ -292,6 +292,27 @@ public sealed class AssistantEndpointTests : IDisposable
         notes.Should().ContainSingle().Which.Content.Should().Be("Captured via HTTP");
     }
 
+    [Fact]
+    public async Task Entitlement_denial_stops_the_turn_before_the_provider()
+    {
+        var provider = new FakeLlmProvider().Returns("must not run");
+
+        using var factory = new LibraryEndpointFactory();
+        using var host = CreateHost(factory, provider, entitled: false);
+        using var client = host.CreateClient();
+
+        var status = await client.GetFromJsonAsync<JsonElement>(AssistantEndpoints.StatusRoute);
+        status.GetProperty("available").GetBoolean().Should().BeFalse();
+
+        var response = await client.PostAsJsonAsync(
+            AssistantEndpoints.TurnRoute,
+            new AssistantTurnRequest("client-1", "key-1", "Hello?", Context()));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await ProblemTitleAsync(response)).Should().Be(LlmErrorCodes.NotEntitled);
+        provider.CallCount.Should().Be(0);
+    }
+
     // ------------------------------------------------------------------
     // Approve
     // ------------------------------------------------------------------
@@ -384,7 +405,8 @@ public sealed class AssistantEndpointTests : IDisposable
     private static WebApplicationFactory<Program> CreateHost(
         LibraryEndpointFactory factory,
         FakeLlmProvider provider,
-        bool enabled = true)
+        bool enabled = true,
+        bool entitled = true)
     {
         return factory.WithWebHostBuilder(builder =>
         {
@@ -399,7 +421,19 @@ public sealed class AssistantEndpointTests : IDisposable
             {
                 services.RemoveAll<ILlmProvider>();
                 services.AddSingleton<ILlmProvider>(provider);
+
+                if (!entitled)
+                {
+                    services.RemoveAll<IManagedAiAccessPolicy>();
+                    services.AddSingleton<IManagedAiAccessPolicy, DenyManagedAiAccessPolicy>();
+                }
             });
         });
+    }
+
+    private sealed class DenyManagedAiAccessPolicy : IManagedAiAccessPolicy
+    {
+        public Task<bool> IsAllowedAsync(CancellationToken ct = default) =>
+            Task.FromResult(false);
     }
 }
