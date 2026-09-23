@@ -257,6 +257,7 @@ if (deployment.Mode == DeploymentMode.SelfHosted)
 else
 {
     builder.Services.AddNostosCloudObjectStorage(builder.Configuration);
+    builder.Services.AddNostosCloudRecoverySchedule(builder.Configuration, deployment);
 }
 
 builder.Services.AddSingleton<BackupSettingsProvider>();
