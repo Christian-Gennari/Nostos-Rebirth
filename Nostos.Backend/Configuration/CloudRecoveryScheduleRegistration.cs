@@ -19,7 +19,7 @@ public static class CloudRecoveryScheduleRegistration
         var options = CloudRecoveryScheduleOptions.FromConfiguration(configuration);
 
         services.AddSingleton(options);
-        services.AddScoped<CloudBackupSweepRunner>();
+        services.AddSingleton<CloudBackupSweepRunner>();
         services.AddHostedService<CloudScheduledBackupWorker>();
 
         return services;

@@ -70,16 +70,15 @@ public sealed class AcquisitionReconciliationWorkerTests : IDisposable
         File.WriteAllText(Path.Combine(orphanedDir, "part.tmp"), "scratch content");
 
         var env = new FakeWebHostEnvironment { ContentRootPath = _tempRoot };
-        var storage = new FileStorageService(
-            env,
-            Microsoft.Extensions.Options.Options.Create(new FileStorageOptions { BooksRoot = _booksRoot }),
-            NullLogger<FileStorageService>.Instance);
-        var options = Microsoft.Extensions.Options.Options.Create(new AcquisitionOptions { WorkingRoot = _workingRoot });
+        var storageOptions = Microsoft.Extensions.Options.Options.Create(
+            new FileStorageOptions { BooksRoot = _booksRoot });
+        var options = Microsoft.Extensions.Options.Options.Create(
+            new AcquisitionOptions { WorkingRoot = _workingRoot });
 
         var worker = new AcquisitionReconciliationWorker(
             h.ContextFactory,
             env,
-            storage,
+            storageOptions,
             options,
             NullLogger<AcquisitionReconciliationWorker>.Instance);
 
@@ -106,6 +105,52 @@ public sealed class AcquisitionReconciliationWorkerTests : IDisposable
             failedBook.Status.Should().Be(BookStatus.Failed);
             failedBook.StatusMessage.Should().Be("Existing fail");
         }
+    }
+
+    [Fact]
+    public async Task Cloud_reconciliation_cleans_only_ephemeral_scratch()
+    {
+        using var h = AcquisitionHarness.Create();
+
+        var strandedId = Guid.NewGuid();
+        await using (var db = await h.ContextFactory.CreateDbContextAsync())
+        {
+            db.Books.Add(new EBookModel
+            {
+                Id = strandedId,
+                Title = "Cloud interrupted import",
+                Status = BookStatus.Downloading,
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var orphanedDir = Path.Combine(_workingRoot, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(orphanedDir);
+        File.WriteAllText(Path.Combine(orphanedDir, "part.tmp"), "scratch");
+
+        var env = new FakeWebHostEnvironment { ContentRootPath = _tempRoot };
+        var storageOptions = Microsoft.Extensions.Options.Options.Create(
+            new FileStorageOptions { BooksRoot = _booksRoot });
+        var options = Microsoft.Extensions.Options.Options.Create(
+            new AcquisitionOptions { WorkingRoot = _workingRoot });
+
+        var worker = new AcquisitionReconciliationWorker(
+            h.ContextFactory,
+            env,
+            storageOptions,
+            options,
+            NullLogger<AcquisitionReconciliationWorker>.Instance,
+            DeploymentDescriptor.For(DeploymentMode.Cloud));
+
+        await worker.ReconcileAsync();
+
+        Directory.GetDirectories(_workingRoot).Should().BeEmpty();
+
+        await using var verify = await h.ContextFactory.CreateDbContextAsync();
+        var stranded = await verify.Books.SingleAsync(b => b.Id == strandedId);
+        stranded.Status.Should().Be(
+            BookStatus.Downloading,
+            "Cloud startup has no trusted tenant and must not mutate a customer database");
     }
 
     private sealed class FakeWebHostEnvironment : IWebHostEnvironment

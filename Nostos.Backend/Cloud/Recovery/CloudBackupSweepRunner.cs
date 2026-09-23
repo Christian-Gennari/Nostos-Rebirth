@@ -159,7 +159,7 @@ public sealed class CloudBackupSweepRunner(
                 DisplayName: "Nostos Cloud scheduled backup",
                 Email: null);
 
-            contextScope.Set(tenantContext);
+            using var tenantContextLease = contextScope.Push(tenantContext);
 
             var recoveryService =
                 scope.ServiceProvider.GetRequiredService<ICloudRecoveryService>();

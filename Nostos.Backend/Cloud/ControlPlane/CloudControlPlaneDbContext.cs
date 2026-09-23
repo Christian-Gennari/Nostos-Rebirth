@@ -297,6 +297,13 @@ public sealed class CloudControlPlaneBootstrapper(
 
             CREATE INDEX IF NOT EXISTS "IX_CloudBillingEvents_AccountId_ProcessedAtUtc"
                 ON "CloudBillingEvents" ("AccountId", "ProcessedAtUtc");
+
+            CREATE TABLE IF NOT EXISTS "DataProtectionKeys" (
+                "FriendlyName" character varying(200) NOT NULL,
+                "EncryptedXml" text NOT NULL,
+                "CreatedAtUtc" timestamp with time zone NOT NULL,
+                CONSTRAINT "PK_DataProtectionKeys" PRIMARY KEY ("FriendlyName")
+            );
             """,
             cancellationToken);
     }

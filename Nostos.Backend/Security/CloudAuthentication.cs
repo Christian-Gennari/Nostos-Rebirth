@@ -70,6 +70,7 @@ public static class CloudAuthenticationRegistration
         services.AddSingleton(options);
         services.AddHttpContextAccessor();
         services.AddSingleton<ICloudAccountContextResolver, CloudAccountContextResolver>();
+        services.AddSingleton<CloudBackgroundTenantContextAccessor>();
         services.AddScoped<CloudTenantContextScope>();
         services.AddScoped<ICloudTenantContextAccessor, HttpCloudTenantContextAccessor>();
 

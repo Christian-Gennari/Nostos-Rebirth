@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,7 @@ using Nostos.Backend.Endpoints;
 using Nostos.Backend.Configuration;
 using Nostos.Backend.Integrations.Assistant;
 using Nostos.Backend.Integrations.Mcp;
+using Nostos.Backend.Health;
 using Nostos.Backend.Providers;
 using Nostos.Backend.Providers.Acquisition;
 using Nostos.Backend.Providers.Acquisition.Media;
@@ -168,7 +170,7 @@ else
     builder.Services.AddScoped<IManagedAiAccessPolicy, CloudManagedAiAccessPolicy>();
 
 // --- AI PROVIDER SETTINGS (assistant milestone + Cloud #404) ---
-builder.Services.AddDataProtection();
+builder.Services.AddNostosDataProtection(builder.Configuration, deployment);
 
 if (deployment.Mode == DeploymentMode.SelfHosted)
 {
@@ -289,6 +291,8 @@ else
     builder.Services.AddNostosCloudRecoverySchedule(builder.Configuration, deployment);
 }
 
+builder.Services.AddNostosHealthChecks(deployment);
+
 builder.Services.AddSingleton<BackupSettingsProvider>();
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient(BookLookupService.HttpClientName, client =>
@@ -403,12 +407,16 @@ builder.Services.AddSingleton<AcquisitionJobManager>();
 builder.Services.AddSingleton<IAcquisitionJobManager>(sp => sp.GetRequiredService<AcquisitionJobManager>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<AcquisitionJobManager>());
 builder.Services.AddHostedService<AcquisitionReconciliationWorker>();
-builder.Services.AddHostedService<ConceptCleanupWorker>();
 if (deployment.Mode == DeploymentMode.SelfHosted)
 {
+    // These workers operate on the one local SQLite library. In Cloud there is
+    // no ambient customer during a timer tick, so running them per web replica
+    // would be both incorrect and duplicate work. Cloud fleet maintenance gets
+    // an explicit tenant-aware owner/lease before it is enabled.
+    builder.Services.AddHostedService<ConceptCleanupWorker>();
     builder.Services.AddHostedService<BackupWorker>();
+    builder.Services.AddHostedService<LibraryReceiptRetentionWorker>();
 }
-builder.Services.AddHostedService<LibraryReceiptRetentionWorker>();
 
 var app = builder.Build();
 
@@ -429,6 +437,13 @@ else
     var controlPlaneBootstrap =
         app.Services.GetRequiredService<Nostos.Backend.Cloud.ControlPlane.ICloudControlPlaneBootstrapper>();
     await controlPlaneBootstrap.EnsureReadyAsync();
+
+    // Prove the shared key ring can be decrypted before accepting traffic.
+    // A replaced instance with the wrong master key therefore fails closed at
+    // startup instead of invalidating sessions or encrypted settings later.
+    app.Services
+        .GetRequiredService<Nostos.Backend.Cloud.ControlPlane.CloudDataProtectionKeyRepository>()
+        .EnsureReadable();
 
     var objectStorageBootstrap =
         app.Services.GetRequiredService<Nostos.Backend.Cloud.Storage.ICloudObjectStorageBootstrapper>();
@@ -540,6 +555,22 @@ if (mcpOptions.Enabled)
 // -----------------------------------
 
 app.MapOpenApi();
+
+// Cheap process liveness deliberately has no dependency checks. Readiness is
+// separate and probes only the shared infrastructure required to serve real
+// traffic; its response never includes connection strings, provider errors or
+// customer identifiers.
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false,
+    ResponseWriter = NostosHealthResponseWriter.WriteAsync,
+}).AllowAnonymous();
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains(NostosHealthCheckTags.Readiness),
+    ResponseWriter = NostosHealthResponseWriter.WriteAsync,
+}).AllowAnonymous();
 
 // --- SERVE ANGULAR FRONTEND ---
 app.UseDefaultFiles();

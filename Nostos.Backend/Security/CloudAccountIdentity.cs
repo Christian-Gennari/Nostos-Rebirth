@@ -76,24 +76,55 @@ public interface ICloudTenantContextAccessor
 /// This is for scheduled operations and internal automation only. Never
 /// settable from HTTP input or client-supplied data.
 /// </summary>
-public sealed class CloudTenantContextScope
+public sealed class CloudBackgroundTenantContextAccessor
 {
-    private NostosAccountContext? _current;
+    private readonly AsyncLocal<NostosAccountContext?> _current = new();
 
-    /// <summary>
-    /// Sets the trusted tenant context for this scope. This must only be called
-    /// from server-side background work with identities resolved from the
-    /// control plane, never from HTTP requests or client input.
-    /// </summary>
-    public void Set(NostosAccountContext context)
+    public NostosAccountContext? Current => _current.Value;
+
+    public IDisposable Push(NostosAccountContext context)
     {
-        _current = context;
+        ArgumentNullException.ThrowIfNull(context);
+        var previous = _current.Value;
+        _current.Value = context;
+        return new RestoreScope(this, previous);
     }
 
+    private sealed class RestoreScope(
+        CloudBackgroundTenantContextAccessor owner,
+        NostosAccountContext? previous) : IDisposable
+    {
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+
+            owner._current.Value = previous;
+            _disposed = true;
+        }
+    }
+}
+
+public sealed class CloudTenantContextScope(
+    CloudBackgroundTenantContextAccessor? background = null)
+{
+    private readonly CloudBackgroundTenantContextAccessor _background =
+        background ?? new CloudBackgroundTenantContextAccessor();
+
     /// <summary>
-    /// The tenant context for this scope, if set by trusted server-side code.
+    /// Pushes a trusted tenant context for the current asynchronous background
+    /// flow and restores the previous context on dispose.
     /// </summary>
-    public NostosAccountContext? Current => _current;
+    public IDisposable Push(NostosAccountContext context) =>
+        _background.Push(context);
+
+    /// <summary>
+    /// The tenant context for this async flow, if set by trusted server-side
+    /// background work.
+    /// </summary>
+    public NostosAccountContext? Current => _background.Current;
 }
 
 public sealed class HttpCloudTenantContextAccessor(

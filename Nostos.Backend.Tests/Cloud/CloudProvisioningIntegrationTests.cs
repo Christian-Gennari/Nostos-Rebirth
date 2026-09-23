@@ -191,6 +191,29 @@ public sealed class CloudProvisioningIntegrationTests
                 (await dbB.Concepts.SingleAsync(x => x.Id == sharedEntityId))
                     .Concept.Should().Be("Only in account B");
             }
+
+            // Trusted background work has no HttpContext. The same factory must
+            // resolve the explicit ambient tenant pushed by a scheduler/worker.
+            httpContextAccessor.HttpContext = null;
+            var backgroundTenant = new CloudBackgroundTenantContextAccessor();
+            var backgroundFactory = new CloudTenantDbContextFactory(
+                httpContextAccessor,
+                accountResolver,
+                store,
+                customerConnections,
+                backgroundTenant);
+
+            using (backgroundTenant.Push(new NostosAccountContext(
+                accountA,
+                "Background provisioning test",
+                Email: null)))
+            {
+                await using var backgroundDb =
+                    await backgroundFactory.CreateDbContextAsync();
+
+                (await backgroundDb.Concepts.SingleAsync(x => x.Id == sharedEntityId))
+                    .Concept.Should().Be("Only in account A");
+            }
         }
         finally
         {

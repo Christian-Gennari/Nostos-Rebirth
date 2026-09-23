@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Nostos.Backend.Cloud.ControlPlane;
 using Nostos.Backend.Cloud.Recovery;
+using Nostos.Backend.Cloud.Runtime;
 using Nostos.Backend.Configuration;
 using Nostos.Backend.Security;
 using Nostos.Backend.Services.Portability;
@@ -46,7 +47,7 @@ public sealed class CloudRecoveryScheduleTests
         services
             .Should().Contain(d =>
                 d.ServiceType == typeof(CloudBackupSweepRunner)
-                && d.Lifetime == ServiceLifetime.Scoped);
+                && d.Lifetime == ServiceLifetime.Singleton);
     }
 
     [Fact]
@@ -90,7 +91,11 @@ public sealed class CloudRecoveryScheduleTests
         var options = new CloudRecoveryScheduleOptions { Enabled = false };
         var runner = provider.GetRequiredService<CloudBackupSweepRunner>();
         var logger = new FakeLogger<CloudScheduledBackupWorker>();
-        var worker = new CloudScheduledBackupWorker(options, runner, logger);
+        var worker = new CloudScheduledBackupWorker(
+            options,
+            runner,
+            new AlwaysOwnedLeaseManager(),
+            logger);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
         await worker.StartAsync(cts.Token);
@@ -154,7 +159,11 @@ public sealed class CloudRecoveryScheduleTests
 
         var runner = provider.GetRequiredService<CloudBackupSweepRunner>();
         var logger = new FakeLogger<CloudScheduledBackupWorker>();
-        var worker = new CloudScheduledBackupWorker(options, runner, logger);
+        var worker = new CloudScheduledBackupWorker(
+            options,
+            runner,
+            new AlwaysOwnedLeaseManager(),
+            logger);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
         await worker.StartAsync(cts.Token);
@@ -186,7 +195,11 @@ public sealed class CloudRecoveryScheduleTests
 
         var runner = provider.GetRequiredService<CloudBackupSweepRunner>();
         var logger = new FakeLogger<CloudScheduledBackupWorker>();
-        var worker = new CloudScheduledBackupWorker(options, runner, logger);
+        var worker = new CloudScheduledBackupWorker(
+            options,
+            runner,
+            new AlwaysOwnedLeaseManager(),
+            logger);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
 
@@ -288,6 +301,19 @@ public sealed class CloudRecoveryScheduleTests
             bool confirmed,
             CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
+    }
+
+    private sealed class AlwaysOwnedLeaseManager : ICloudWorkerLeaseManager
+    {
+        public Task<IAsyncDisposable?> TryAcquireAsync(
+            string leaseName,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IAsyncDisposable?>(new Lease());
+
+        private sealed class Lease : IAsyncDisposable
+        {
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        }
     }
 
     private sealed class FakeLogger<T> : ILogger<T>

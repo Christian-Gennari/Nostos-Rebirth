@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.Hosting;
 using Nostos.Backend.Cloud.ControlPlane;
 using Nostos.Backend.Cloud.Entitlements;
+using Nostos.Backend.Cloud.Runtime;
 using Nostos.Backend.Security;
 
 namespace Nostos.Backend.Cloud.Billing;
@@ -452,6 +453,7 @@ public sealed class PaddleBillingService(
 public sealed class PaddleBillingReconciliationWorker(
     IServiceScopeFactory scopeFactory,
     CloudBillingOptions options,
+    ICloudWorkerLeaseManager leases,
     ILogger<PaddleBillingReconciliationWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -463,6 +465,17 @@ public sealed class PaddleBillingReconciliationWorker(
         {
             try
             {
+                await using var lease = await leases.TryAcquireAsync(
+                    CloudWorkerLeaseNames.PaddleReconciliation,
+                    stoppingToken);
+
+                if (lease is null)
+                {
+                    logger.LogInformation(
+                        "Skipping Paddle reconciliation because another instance owns the fleet lease.");
+                    continue;
+                }
+
                 using var scope = scopeFactory.CreateScope();
                 var state = scope.ServiceProvider.GetRequiredService<ICloudBillingStateStore>();
                 var service = scope.ServiceProvider.GetRequiredService<PaddleBillingService>();
