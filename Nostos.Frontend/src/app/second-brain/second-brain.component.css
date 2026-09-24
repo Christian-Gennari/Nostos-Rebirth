@@ -897,6 +897,38 @@
   flex-wrap: wrap;
 }
 
+.concept-management {
+  max-width: 1100px;
+  margin: 2rem auto 0;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border-color);
+  color: var(--color-text-muted);
+}
+
+.concept-management summary {
+  width: fit-content;
+  min-height: 36px;
+  padding: 0.45rem 0;
+  cursor: pointer;
+  color: var(--color-text-light);
+  font-size: 0.76rem;
+  font-weight: var(--fw-medium);
+}
+
+.concept-management summary:hover,
+.concept-management summary:focus-visible {
+  color: var(--color-text-main);
+}
+
+.concept-management .concept-actions {
+  margin-top: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.concept-management .merge-picker {
+  margin-left: 0;
+}
+
 .concept-action {
   display: inline-flex;
   align-items: center;
@@ -1148,35 +1180,42 @@
   border-color: var(--color-primary-hover);
 }
 
-/* Connected concepts read as an inline editorial line, not a row of clickable
-   pill buttons. Each name is a quiet link in the accent ink; the count recedes
-   into the text. This is the single biggest "cartoonish" offender — outlined
-   pills everywhere made the page look like a dashboard of tags. */
-.related-row {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.35rem 0.75rem;
-  margin-top: 1.5rem;
-  padding-top: 1rem;
+/* Related concepts are evidence-backed structural paths. Their names remain
+   quiet links, while the shared-note control explains and opens the evidence
+   without pretending co-occurrence carries semantic meaning. */
+.related-section {
+  max-width: 1100px;
+  margin: 2rem auto 0;
+  padding-top: 1.25rem;
   border-top: 1px solid var(--border-color);
-  min-height: 30px;
 }
 
-.related-label,
-.detail-tool-label {
-  color: var(--color-text-light);
-  font-size: 0.66rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+.related-section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
 }
 
-.related-label {
-  margin-right: 0.15rem;
+.related-heading {
+  margin: 0;
+  color: var(--color-text-main);
+  font-family: 'Newsreader', serif;
+  font-size: 1.05rem;
+  font-weight: var(--fw-medium);
+}
+
+.related-explanation,
+.related-evidence-reason {
+  max-width: 680px;
+  margin: 0.2rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 .related-empty {
+  margin: 0.4rem 0 0;
   color: var(--color-text-light);
   font-size: 0.8rem;
   font-style: italic;
@@ -1184,57 +1223,85 @@
 
 .related-list {
   display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.related-item {
+  display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 0.15rem 0.9rem;
+  gap: 0.35rem 0.65rem;
+  min-height: 32px;
 }
 
 .related-chip,
-.related-more {
+.related-more,
+.related-evidence-toggle {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.28rem;
-  height: auto;
-  max-width: 260px;
-  padding: 0;
+  min-height: 32px;
+  padding: 0 0.25rem;
   border: 0;
-  border-radius: 0;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--color-text-main);
   cursor: pointer;
   font-family: 'Hanken Grotesk', sans-serif;
+}
+
+.related-chip {
+  max-width: 260px;
+  color: var(--color-text-main);
   font-size: 0.84rem;
-  white-space: nowrap;
-  border-bottom: 1px solid transparent;
-  transition:
-    color 0.15s ease,
-    border-color 0.15s ease;
+  font-weight: var(--fw-medium);
+}
+
+.related-evidence-toggle,
+.related-more {
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
 }
 
 .related-chip:hover,
-.related-more:hover {
-  background: transparent;
+.related-more:hover,
+.related-evidence-toggle:hover {
+  background: var(--bg-hover);
   color: var(--color-brand-accent);
-  border-bottom-color: color-mix(in srgb, var(--color-brand-accent) 30%, transparent);
 }
 
 .related-chip:focus-visible,
-.related-more:focus-visible {
+.related-more:focus-visible,
+.related-evidence-toggle:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: 2px;
-  border-radius: 2px;
 }
 
 .related-chip-name {
   max-width: 22ch;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.related-chip-count {
-  color: var(--color-text-light);
-  font-size: 0.76rem;
-  flex-shrink: 0;
+.related-evidence {
+  margin: 0.15rem 0 0.85rem 0.75rem;
+  padding-left: 0.9rem;
+  border-left: 2px solid var(--border-color);
+}
+
+.related-evidence-reason {
+  margin-bottom: 0.65rem;
+}
+
+.related-evidence-notes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 0.75rem;
+}
+
+.related-evidence-notes app-note-card {
+  min-width: 0;
 }
 
 /* `.visually-hidden` moved to styles.css — it was duplicated here and in
@@ -2373,6 +2440,29 @@
  * below is the one new line of copy it needed. */
 
 @media (max-width: 768px) {
+
+  .related-section,
+  .concept-management {
+    margin-top: 1.5rem;
+  }
+
+  .related-item {
+    align-items: stretch;
+  }
+
+  .related-chip,
+  .related-evidence-toggle,
+  .related-more,
+  .concept-management summary,
+  .concept-action {
+    min-height: 44px;
+  }
+
+  .related-evidence {
+    margin-left: 0;
+    padding-left: 0.65rem;
+  }
+
   /* The reviewed note keeps a phone-sized measure: the pane's own padding comes
      from `.content-col`'s mobile rules, so only the type scales down. */
   .review-title {
