@@ -504,7 +504,10 @@ export class ReaderShell implements OnInit, OnDestroy {
   toggleHighlightFromPanel(): void {
     const turningOn = !this.highlightMode();
     this.toggleHighlightMode();
-    if (turningOn) this.notesOpen.set(false);
+    if (turningOn) {
+      this.notesOpen.set(false);
+      this.restoreOverlayFocus();
+    }
   }
 
   commitHighlight() {
