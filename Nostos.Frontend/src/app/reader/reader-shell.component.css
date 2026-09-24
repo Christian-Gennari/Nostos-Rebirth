@@ -455,9 +455,9 @@
   z-index: 50;
   background: var(--bg-surface);
   border-top: 1px solid var(--border-color);
-  /* Was `max(var(--space-3, 0.75rem), ...)` and `--space-3` was NEVER declared
-     anywhere in this repo, so the fallback was always the value. Written out so
-     the resolved value is visible; see the design doc's note on phantom tokens. */
+  /* This bar sits above the viewport-edge pager. The pager owns the phone's
+     bottom safe area once; paying it again here made every highlight confirmation
+     unnecessarily tall on iPhone-class insets. */
   padding-bottom: 0;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
 }
