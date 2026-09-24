@@ -101,6 +101,9 @@
         <div class="entry-sources" data-testid="assistant-entry-sources">
           @for (source of entry.sources; track source.bookId + ':' + source.sourceSha256 + ':' + $index) {
           <button
+            appButton
+            variant="ghost"
+            size="sm"
             type="button"
             class="entry-source"
             (click)="openSource(source)"
