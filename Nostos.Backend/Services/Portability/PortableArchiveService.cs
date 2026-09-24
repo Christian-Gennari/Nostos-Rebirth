@@ -250,7 +250,11 @@ public sealed class PortableArchiveService(
                 if (_bookTextScheduler is not null)
                 {
                     foreach (var media in staged.Media
-                        .Where(media => media.Descriptor.Kind == PortableArchiveFormat.BookMediaKind)
+                        .Where(media =>
+                            media.Descriptor.Kind == PortableArchiveFormat.BookMediaKind
+                            && BookTextFormatResolver.TryResolve(
+                                media.Descriptor.FileName,
+                                out _))
                         .GroupBy(media => media.Descriptor.BookId)
                         .Select(group => group.First()))
                     {
