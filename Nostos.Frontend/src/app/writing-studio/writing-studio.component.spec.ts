@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component, input, output, Input } from '@angular/core';
-import { of } from 'rxjs';
+import { of, Observable } from 'rxjs';
 
 import { WritingStudio } from './writing-studio.component';
 import { WritingsService } from '../core/services/writings.service';
@@ -999,9 +999,50 @@ describe('WritingStudio kept sources (#491)', () => {
     keepBtn.click();
     fixture.detectChanges();
 
-    expect(toastService.error).toHaveBeenCalledWith('Failed to keep note');
+    expect(toastService.error).toHaveBeenCalledWith('Failed to keep source');
     expect(component.keptNoteIds().has('note-alpha')).toBe(false);
     expect(writingsService.listSources).toHaveBeenCalledWith('doc-1');
+  });
+
+  // 11. a keep response that arrives after the writer switched documents belongs to the OLD
+  //     document: it must not be appended to the newly opened document's kept list.
+  it('ignores a keep response that arrives after switching documents', () => {
+    let resolveAdd: (value: WritingSourceDto) => void = () => undefined;
+    writingsService.addSource.mockReturnValue(
+      new Observable<WritingSourceDto>((subscriber) => {
+        resolveAdd = (value) => {
+          subscriber.next(value);
+          subscriber.complete();
+        };
+      }),
+    );
+    writingsService.listSources.mockImplementation((id: string) =>
+      of(id === 'doc-2' ? [sourceBeta] : []),
+    );
+
+    component.activeItem.set(sampleDoc1);
+    component.referenceMode.set('library');
+    component.selectConcept('c-1');
+    fixture.detectChanges();
+
+    const keepBtn = fixture.nativeElement.querySelector(
+      '.library-note-actions button',
+    ) as HTMLButtonElement;
+    keepBtn.click();
+    fixture.detectChanges();
+    expect(writingsService.addSource).toHaveBeenCalledWith('doc-1', 'note-alpha');
+
+    // The writer switches documents before the keep request comes back.
+    component.handleItemSelected({ id: 'doc-2', type: 'Document', name: 'Chapter 2' });
+    fixture.detectChanges();
+    expect(component.keptSources()).toEqual([sourceBeta]);
+
+    resolveAdd(sourceAlpha);
+    fixture.detectChanges();
+
+    // The response belonged to doc-1: doc-2's kept list is untouched.
+    expect(component.keptSources()).toEqual([sourceBeta]);
+    expect(component.keptNoteIds().has('note-alpha')).toBe(false);
   });
 
   // 10. mobile: the References drawer toggle still opens/closes the sidebar.

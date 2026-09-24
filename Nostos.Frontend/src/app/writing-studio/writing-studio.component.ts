@@ -390,7 +390,12 @@ export class WritingStudio implements OnInit {
 
   loadKeptSources(writingId: string) {
     this.writingsService.listSources(writingId).subscribe({
-      next: (sources) => this.keptSources.set(sources),
+      next: (sources) => {
+        // A slow response for a document that is no longer active must not overwrite the
+        // kept list of the document the writer has since switched to.
+        if (this.activeItem()?.id !== writingId) return;
+        this.keptSources.set(sources);
+      },
       error: () => this.toast.error('Failed to load kept sources'),
     });
   }
@@ -418,6 +423,9 @@ export class WritingStudio implements OnInit {
           next.delete(noteId);
           return next;
         });
+        // The writer may have switched documents while the request was in flight; the
+        // response belongs to `active`, not to whatever is open now.
+        if (this.activeItem()?.id !== active.id) return;
         // Update keptSources locally without full reload if already present or append
         this.keptSources.update((prev) => {
           if (prev.some((s) => s.id === source.id)) return prev;
@@ -430,9 +438,9 @@ export class WritingStudio implements OnInit {
           next.delete(noteId);
           return next;
         });
-        this.toast.error('Failed to keep note');
+        this.toast.error('Failed to keep source');
         // Re-fetch kept list on error so UI does not leave an optimistic lie
-        this.loadKeptSources(active.id);
+        if (this.activeItem()?.id === active.id) this.loadKeptSources(active.id);
       },
     });
   }
@@ -444,11 +452,12 @@ export class WritingStudio implements OnInit {
 
     this.writingsService.removeSource(active.id, noteId).subscribe({
       next: () => {
+        if (this.activeItem()?.id !== active.id) return;
         this.keptSources.update((prev) => prev.filter((s) => s.id !== noteId));
       },
       error: () => {
-        this.toast.error('Failed to remove kept source');
-        this.loadKeptSources(active.id);
+        this.toast.error('Failed to remove source');
+        if (this.activeItem()?.id === active.id) this.loadKeptSources(active.id);
       },
     });
   }
