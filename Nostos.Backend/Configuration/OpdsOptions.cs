@@ -2,14 +2,10 @@ namespace Nostos.Backend.Configuration;
 
 // OPDS 1.2 export configuration (issue #186).
 //
-// Access model, stated deliberately so exposing /opds/ is never accidental:
-// SelfHosted has no Cloud authentication pipeline, so OPDS remains suitable for a
-// trusted LAN/Tailscale deployment exactly as before. Cloud uses the global
-// authenticated Active-account + CloudAccess fallback policy; these routes do
-// not opt out with AllowAnonymous, and the acquisition URLs they advertise are
-// protected by the same policy. E-reader-specific Cloud credentials are a
-// separate product concern; operators can set Enabled=false until a client can
-// authenticate safely.
+// Access policy is supplied by the host. SelfHosted exposes this on its trusted
+// network; other hosts can apply their own authentication policy when mapping
+// product endpoints. Operators can set Enabled=false when the route should be
+// unavailable.
 //
 public sealed class OpdsOptions
 {

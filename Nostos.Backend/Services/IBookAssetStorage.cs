@@ -3,8 +3,8 @@ namespace Nostos.Backend.Services;
 /// <summary>
 /// Provider-neutral storage boundary for book media.
 ///
-/// SelfHosted maps this to the local filesystem; Nostos Cloud maps it to
-/// tenant-scoped object storage. Callers never need an absolute storage path.
+/// SelfHosted maps this to the local filesystem; other hosts can map it to
+/// durable object storage. Callers never need an absolute storage path.
 /// </summary>
 public interface IBookAssetStorage
 {

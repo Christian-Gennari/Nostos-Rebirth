@@ -7,6 +7,7 @@ using Nostos.Backend.Configuration;
 using Nostos.Backend.Data;
 using Nostos.Backend.Data.Models;
 using Nostos.Backend.Tests.Support;
+using Nostos.Product.Http;
 using Nostos.Shared.Dtos;
 using Xunit;
 
@@ -160,7 +161,7 @@ public sealed class LibraryEndpointTests : IClassFixture<LibraryEndpointFactory>
         var book = (await created.Content.ReadFromJsonAsync<BookDto>())!;
 
         using var oversized = new DeclaredLengthContent(
-            CloudRequestHardeningRegistration.MaxCoverRequestBytes + 1);
+            NostosProductRequestLimits.MaxCoverRequestBytes + 1);
 
         var response = await Client.PostAsync($"/api/books/{book.Id}/cover", oversized);
 

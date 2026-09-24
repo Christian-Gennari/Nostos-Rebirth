@@ -4,6 +4,7 @@ using Nostos.Backend.Configuration;
 using Nostos.Backend.Services.Ai;
 using Nostos.Backend.Services.Library;
 using Nostos.Shared.Dtos;
+using Nostos.Product.Services.Ai;
 
 namespace Nostos.Backend.Integrations.Assistant;
 
@@ -36,10 +37,10 @@ public sealed class AssistantOrchestrator(
     ILibraryService library,
     AssistantOptions options,
     ILogger<AssistantOrchestrator> logger,
-    IManagedAiUsageService? managedAiUsage = null)
+    IAiUsageAccountingService? usageAccounting = null)
 {
-    private readonly IManagedAiUsageService _managedAiUsage =
-        managedAiUsage ?? SelfHostedManagedAiUsageService.Instance;
+    private readonly IAiUsageAccountingService _usageAccounting =
+        usageAccounting ?? NoOpAiUsageAccountingService.Instance;
     private readonly AssistantConversationBuilder _conversation = new(registry);
     private readonly AssistantPlanExecutor _planExecutor = new(registry, plans);
     private readonly AssistantCapturePolicy _capturePolicy = new(library);
@@ -140,7 +141,7 @@ public sealed class AssistantOrchestrator(
         ArgumentNullException.ThrowIfNull(request);
 
         var executionMeter = new AssistantExecutionMeter();
-        ManagedAiUsageLease? usageLease = null;
+        AiUsageLease? usageLease = null;
         var toolLoopDetector = new AssistantToolLoopDetector();
         var stopReason = AssistantTurnStopReason.SafetyCeiling;
 
@@ -201,9 +202,9 @@ public sealed class AssistantOrchestrator(
                 upstreamCancellation = turnDeadline.Token;
             }
 
-            // Cloud #405 reserves monthly/global budget immediately before the
-            // first provider spend. SelfHosted resolves to a no-op lease.
-            usageLease ??= await _managedAiUsage.BeginLlmTurnAsync(ct);
+            // A host can reserve usage before the first provider call. SelfHosted
+            // uses a no-op accounting service.
+            usageLease ??= await _usageAccounting.BeginLlmTurnAsync(ct);
             executionMeter.RecordUpstreamRequest();
 
             LlmCompletion completion;
@@ -217,7 +218,7 @@ public sealed class AssistantOrchestrator(
             {
                 var metrics = executionMeter.Finish(AssistantTurnStopReason.Cancelled);
                 LogExecutionMetrics(metrics);
-                await CompleteManagedUsageAsync(usageLease, metrics);
+                await CompleteUsageAsync(usageLease, metrics);
                 throw;
             }
             catch (OperationCanceledException) when (turnDeadline?.IsCancellationRequested == true)
@@ -231,7 +232,7 @@ public sealed class AssistantOrchestrator(
             {
                 var metrics = executionMeter.Finish(AssistantTurnStopReason.ProviderError);
                 LogExecutionMetrics(metrics);
-                await CompleteManagedUsageAsync(usageLease, metrics);
+                await CompleteUsageAsync(usageLease, metrics);
                 throw;
             }
             finally
@@ -443,7 +444,7 @@ public sealed class AssistantOrchestrator(
 
         var finalMetrics = executionMeter.Finish(stopReason);
         LogExecutionMetrics(finalMetrics);
-        await CompleteManagedUsageAsync(usageLease, finalMetrics);
+        await CompleteUsageAsync(usageLease, finalMetrics);
 
         logger.LogDebug(
             "Assistant turn handled: {Suggestions} suggestion(s), plan {HasPlan}, anchor prompt {HasPrompt}.",
@@ -461,12 +462,12 @@ public sealed class AssistantOrchestrator(
             executedCapabilities);
     }
 
-    private Task CompleteManagedUsageAsync(
-        ManagedAiUsageLease? lease,
+    private Task CompleteUsageAsync(
+        AiUsageLease? lease,
         AssistantExecutionMetrics metrics) =>
-        _managedAiUsage.CompleteLlmTurnAsync(
+        _usageAccounting.CompleteLlmTurnAsync(
             lease,
-            new ManagedAiLlmUsage(
+            new LlmProviderUsage(
                 metrics.UpstreamCallCount,
                 metrics.PromptTokens,
                 metrics.OutputTokens,

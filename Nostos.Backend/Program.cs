@@ -9,8 +9,6 @@ using Nostos.Backend.Data.Interfaces;
 using Nostos.Backend.Data.Repositories;
 using Nostos.Backend.Endpoints;
 using Nostos.Backend.Configuration;
-using Nostos.Backend.Cloud.Onboarding;
-using Nostos.Backend.Cloud.Privacy;
 using Nostos.Backend.Integrations.Assistant;
 using Nostos.Backend.Integrations.Mcp;
 using Nostos.Backend.Health;
@@ -21,7 +19,6 @@ using Nostos.Backend.Providers.Contracts;
 using Nostos.Backend.Providers.Gutenberg;
 using Nostos.Backend.Providers.LibriVox;
 using Nostos.Backend.Serialization;
-using Nostos.Backend.Security;
 using Nostos.Backend.Services;
 using Nostos.Backend.Services.Ai;
 using Nostos.Backend.Services.Library;
@@ -29,37 +26,18 @@ using Nostos.Backend.Services.Notes;
 using Nostos.Backend.Services.Portability;
 using Nostos.Backend.Workers;
 using Nostos.Product.Composition;
+using Nostos.Product.Services.Ai;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var deployment = builder.Services.AddNostosDeployment(builder.Configuration);
-builder.Services.AddNostosAuthentication(builder.Configuration, deployment);
-builder.Services.AddNostosCloudRequestHardening(deployment);
+var deployment = DeploymentDescriptor.For(DeploymentMode.SelfHosted);
+builder.Services.AddSingleton(deployment);
 
-CloudManagedAiOptions? cloudManagedAiOptions = null;
-if (deployment.Mode == DeploymentMode.Cloud)
-{
-    cloudManagedAiOptions =
-        builder.Configuration.GetSection(CloudManagedAiOptions.SectionName).Get<CloudManagedAiOptions>()
-        ?? new CloudManagedAiOptions();
-    cloudManagedAiOptions.Validate();
-    builder.Services.AddSingleton(cloudManagedAiOptions);
-}
-
-if (deployment.Mode == DeploymentMode.Cloud)
-{
-    // Register the hosted lifecycle decorator before AddNostosProduct so the
-    // product's TryAdd fallback does not replace it.
-    builder.Services.AddScoped<IPortableArchiveExporter, CloudPortableArchiveExporter>();
-}
-else
-{
-    // Preserve SelfHosted's same-volume staging behavior without exposing the
-    // local filesystem contract to Nostos.Product.
-    builder.Services.AddSingleton<
-        IAcquisitionWorkingRootProvider,
-        SelfHostedAcquisitionWorkingRootProvider>();
-}
+// Preserve SelfHosted's same-volume staging behavior without exposing the
+// local filesystem contract to Nostos.Product.
+builder.Services.AddSingleton<
+    IAcquisitionWorkingRootProvider,
+    SelfHostedAcquisitionWorkingRootProvider>();
 
 var product = builder.Services.AddNostosProduct(builder.Configuration);
 var assistantOptions = product.Assistant;
@@ -124,83 +102,35 @@ if (mcpOptions.Enabled)
 
 builder.Services.AddSingleton(mcpOptions);
 
-// --- SPEECH-TO-TEXT (issue #262 §2/§3, Cloud #404) ---
-if (deployment.Mode == DeploymentMode.SelfHosted)
+// --- SPEECH-TO-TEXT (issue #262 §2/§3) ---
+builder.Services.AddHttpClient(NineRouterSttProvider.HttpClientName, client =>
 {
-    builder.Services.AddHttpClient(NineRouterSttProvider.HttpClientName, client =>
-    {
-        client.Timeout = TimeSpan.FromMinutes(5);
-    });
-    builder.Services.AddSingleton<ISTtProvider, NineRouterSttProvider>();
-}
-else
-{
-    builder.Services.AddHttpClient(GroqManagedSttProvider.HttpClientName, client =>
-    {
-        client.Timeout = TimeSpan.FromSeconds(cloudManagedAiOptions!.SttRequestTimeoutSeconds);
-    });
-    builder.Services.AddSingleton<ISTtProvider, GroqManagedSttProvider>();
-}
+    client.Timeout = TimeSpan.FromMinutes(5);
+});
+builder.Services.AddSingleton<ISTtProvider, NineRouterSttProvider>();
 
-// --- ASSISTANT LLM BRIDGE (issue #261 §3, §7, Cloud #404) ---
-if (deployment.Mode == DeploymentMode.SelfHosted)
+// --- ASSISTANT LLM BRIDGE (issue #261 §3, §7) ---
+builder.Services.AddHttpClient(NineRouterLlmProvider.HttpClientName, client =>
 {
-    builder.Services.AddHttpClient(NineRouterLlmProvider.HttpClientName, client =>
-    {
-        client.Timeout = TimeSpan.FromSeconds(Math.Max(1, assistantOptions.RequestTimeoutSeconds));
-    });
-    builder.Services.AddSingleton<ILlmProvider, NineRouterLlmProvider>();
-}
-else
-{
-    builder.Services.AddHttpClient(VercelAiGatewayManagedLlmProvider.HttpClientName, client =>
-    {
-        client.Timeout = TimeSpan.FromSeconds(cloudManagedAiOptions!.LlmRequestTimeoutSeconds);
-    });
-    builder.Services.AddSingleton<ILlmProvider, VercelAiGatewayManagedLlmProvider>();
-}
+    client.Timeout = TimeSpan.FromSeconds(Math.Max(1, assistantOptions.RequestTimeoutSeconds));
+});
+builder.Services.AddSingleton<ILlmProvider, NineRouterLlmProvider>();
 
-if (deployment.Mode == DeploymentMode.SelfHosted)
-{
-    builder.Services.AddSingleton<IManagedAiAccessPolicy, SelfHostedManagedAiAccessPolicy>();
-    builder.Services.AddSingleton<IManagedAiUsageService>(
-        SelfHostedManagedAiUsageService.Instance);
-}
-else
-{
-    builder.Services.AddScoped<IManagedAiAccessPolicy, CloudManagedAiAccessPolicy>();
-}
+builder.Services.AddSingleton<IAiAccessPolicy, AllowAllAiAccessPolicy>();
+builder.Services.AddSingleton<IAiUsageAccountingService>(NoOpAiUsageAccountingService.Instance);
 
-// --- AI PROVIDER SETTINGS (assistant milestone + Cloud #404) ---
-if (deployment.Mode == DeploymentMode.SelfHosted)
-{
-    builder.Services.AddNostosSelfHostedDataProtection();
-}
-else
-{
-    builder.Services.AddNostosCloudDataProtection(builder.Configuration);
-}
+// --- AI PROVIDER SETTINGS ---
+builder.Services.AddNostosSelfHostedDataProtection();
 
-if (deployment.Mode == DeploymentMode.SelfHosted)
+builder.Services.AddHttpClient(AiProviderSettingsService.HttpClientName, client =>
 {
-    builder.Services.AddHttpClient(AiProviderSettingsService.HttpClientName, client =>
-    {
-        client.Timeout = TimeSpan.FromSeconds(60);
-    });
-    builder.Services.AddSingleton<AiProviderSettingsService>();
-    builder.Services.AddSingleton<IAiProviderConfigResolver>(
-        sp => sp.GetRequiredService<AiProviderSettingsService>());
-    builder.Services.AddSingleton<IAiProviderSettingsService>(
-        sp => sp.GetRequiredService<AiProviderSettingsService>());
-}
-else
-{
-    builder.Services.AddSingleton<CloudManagedAiProviderSettingsService>();
-    builder.Services.AddSingleton<IAiProviderConfigResolver>(
-        sp => sp.GetRequiredService<CloudManagedAiProviderSettingsService>());
-    builder.Services.AddSingleton<IAiProviderSettingsService>(
-        sp => sp.GetRequiredService<CloudManagedAiProviderSettingsService>());
-}
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+builder.Services.AddSingleton<AiProviderSettingsService>();
+builder.Services.AddSingleton<IAiProviderConfigResolver>(
+    sp => sp.GetRequiredService<AiProviderSettingsService>());
+builder.Services.AddSingleton<IAiProviderSettingsService>(
+    sp => sp.GetRequiredService<AiProviderSettingsService>());
 
 
 // Single upload cap for Kestrel + multipart forms (audiobooks can be GB-sized).
@@ -237,55 +167,22 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
         | ForwardedHeaders.XForwardedHost;
 });
 
-builder.Services.AddNostosPersistence(
-    builder.Configuration,
-    deployment,
-    builder.Environment.ContentRootPath);
-builder.Services.AddNostosCloudAccountDeletion(deployment);
-
-if (deployment.Mode == DeploymentMode.Cloud)
-{
-    builder.Services.AddNostosCloudBilling(builder.Configuration);
-    builder.Services.AddScoped<ICloudOnboardingService, CloudOnboardingService>();
-}
-
-if (deployment.Mode == DeploymentMode.SelfHosted)
-{
-    builder.Services.AddScoped<IDatabaseBootstrapService, DatabaseBootstrapService>();
-}
+builder.Services.AddNostosPersistence(builder.Environment.ContentRootPath);
+builder.Services.AddScoped<IDatabaseBootstrapService, DatabaseBootstrapService>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 
 // Services Dependency Injection
-if (deployment.Mode == DeploymentMode.SelfHosted)
-{
-    builder.Services.AddSingleton<FileStorageService>();
-    builder.Services.AddSingleton<IFileStorageService>(
-        sp => sp.GetRequiredService<FileStorageService>());
-    builder.Services.AddSingleton<IBookAssetStorage>(
-        sp => sp.GetRequiredService<FileStorageService>());
-}
-else
-{
-    builder.Services.AddNostosCloudObjectStorage(builder.Configuration);
-    builder.Services.AddNostosCloudRecoverySchedule(builder.Configuration, deployment);
-}
-
-if (deployment.Mode == DeploymentMode.SelfHosted)
-{
-    builder.Services.AddNostosSelfHostedHealthChecks();
-}
-else
-{
-    builder.Services.AddNostosCloudHealthChecks();
-}
+builder.Services.AddSingleton<FileStorageService>();
+builder.Services.AddSingleton<IFileStorageService>(
+    sp => sp.GetRequiredService<FileStorageService>());
+builder.Services.AddSingleton<IBookAssetStorage>(
+    sp => sp.GetRequiredService<FileStorageService>());
+builder.Services.AddNostosSelfHostedHealthChecks();
 
 builder.Services.AddSingleton<BackupSettingsProvider>();
-if (deployment.Mode == DeploymentMode.SelfHosted)
-{
-    builder.Services.AddScoped<IBackupService, BackupService>();
-}
+builder.Services.AddScoped<IBackupService, BackupService>();
 
 // One instance serves as the job store, the hosted worker that drains it, and
 // the IAcquisitionJobManager the endpoints talk to.
@@ -293,16 +190,9 @@ builder.Services.AddSingleton<AcquisitionJobManager>();
 builder.Services.AddSingleton<IAcquisitionJobManager>(sp => sp.GetRequiredService<AcquisitionJobManager>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<AcquisitionJobManager>());
 builder.Services.AddHostedService<AcquisitionReconciliationWorker>();
-if (deployment.Mode == DeploymentMode.SelfHosted)
-{
-    // These workers operate on the one local SQLite library. In Cloud there is
-    // no ambient customer during a timer tick, so running them per web replica
-    // would be both incorrect and duplicate work. Cloud fleet maintenance gets
-    // an explicit tenant-aware owner/lease before it is enabled.
-    builder.Services.AddHostedService<ConceptCleanupWorker>();
-    builder.Services.AddHostedService<BackupWorker>();
-    builder.Services.AddHostedService<LibraryReceiptRetentionWorker>();
-}
+builder.Services.AddHostedService<ConceptCleanupWorker>();
+builder.Services.AddHostedService<BackupWorker>();
+builder.Services.AddHostedService<LibraryReceiptRetentionWorker>();
 
 var app = builder.Build();
 
@@ -312,28 +202,10 @@ var app = builder.Build();
 // baseline, in one transaction (see DatabaseBootstrapService). Any existing
 // database goes through the ordinary EF migration path and is never
 // rebaselined; a partial or unknown schema fails closed here.
-if (deployment.Mode == DeploymentMode.SelfHosted)
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
     var bootstrap = scope.ServiceProvider.GetRequiredService<IDatabaseBootstrapService>();
     await bootstrap.EnsureReadyAsync();
-}
-else
-{
-    var controlPlaneBootstrap =
-        app.Services.GetRequiredService<Nostos.Backend.Cloud.ControlPlane.ICloudControlPlaneBootstrapper>();
-    await controlPlaneBootstrap.EnsureReadyAsync();
-
-    // Prove the shared key ring can be decrypted before accepting traffic.
-    // A replaced instance with the wrong master key therefore fails closed at
-    // startup instead of invalidating sessions or encrypted settings later.
-    app.Services
-        .GetRequiredService<Nostos.Backend.Cloud.ControlPlane.CloudDataProtectionKeyRepository>()
-        .EnsureReadable();
-
-    var objectStorageBootstrap =
-        app.Services.GetRequiredService<Nostos.Backend.Cloud.Storage.ICloudObjectStorageBootstrapper>();
-    await objectStorageBootstrap.EnsureReadyAsync();
 }
 
 // ------------------------------------
@@ -346,23 +218,13 @@ else
 // registration above for why.
 app.UseForwardedHeaders();
 
-if (deployment.Mode == DeploymentMode.Cloud)
-{
-    // Cloud is public HTTPS. Forwarded headers run first so App Platform's
-    // externally secure request is recognized before HSTS is evaluated.
-    app.UseHsts();
-}
-
 // --- OPDS EXPORT (access model) ---
 // Stated in the operator's own logs, once, so that exposing the catalogue is a
 // decision on the record rather than a silent consequence of mapping a route.
 app.Logger.LogInformation(
     opdsOptions.Enabled
-        ? deployment.Mode == DeploymentMode.Cloud
-            ? "OPDS export enabled at /opds/ — page size {PageSize}, external base URL {PublicBaseUrl}. "
-                + "Cloud authorization protects the catalogue; e-reader-specific Cloud access remains tracked separately."
-            : "OPDS export enabled at /opds/ — page size {PageSize}, external base URL {PublicBaseUrl}. "
-                + "It is UNAUTHENTICATED: keep Nostos on a private network (LAN/Tailscale) or set Opds:Enabled=false."
+        ? "OPDS export enabled at /opds/ — page size {PageSize}, external base URL {PublicBaseUrl}. "
+            + "It is UNAUTHENTICATED: keep Nostos on a private network (LAN/Tailscale) or set Opds:Enabled=false."
         : "OPDS export disabled (Opds:Enabled=false): /opds/ is not mapped.",
     opdsOptions.PageSize,
     opdsOptions.PublicBaseUrl ?? "derived from each request"
@@ -469,42 +331,11 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-if (deployment.Mode == DeploymentMode.Cloud)
-{
-    app.UseAuthentication();
-    app.UseAuthorization();
-    app.UseRateLimiter();
-}
-
 // ------------------------------
 
-// Map the public product API through the reusable composition seam. Hosted
-// policy names are supplied as opaque host concerns; Nostos.Product contains
-// no Clerk/control-plane/rate-limiter implementation dependency.
-var productEndpointPolicies = deployment.Mode == DeploymentMode.Cloud
-    ? new NostosProductEndpointPolicies(
-        ExpensiveMutationRateLimitPolicy: CloudRateLimitPolicies.ExpensiveMutation,
-        ProviderFetchRateLimitPolicy: CloudRateLimitPolicies.ProviderFetch,
-        LargeTransferRateLimitPolicy: CloudRateLimitPolicies.LargeTransfer,
-        PortableExportAuthorizationPolicy: CloudAuthPolicies.RecoverableAccount)
-    : NostosProductEndpointPolicies.None;
-
-app.MapNostosProductEndpoints(opdsOptions, productEndpointPolicies);
-
-if (deployment.Mode == DeploymentMode.Cloud)
-{
-    app.MapCloudAuthEndpoints();
-    app.MapCloudOnboardingEndpoints();
-    app.MapCloudProvisioningEndpoints();
-    app.MapCloudRecoveryEndpoints();
-    app.MapCloudBillingEndpoints();
-    app.MapCloudManagedAiUsageEndpoints();
-    app.MapCloudAccountDeletionEndpoints();
-}
-else
-{
-    app.MapBackupEndpoints();
-}
+// Map the public product API with the SelfHosted host's provider-neutral policy.
+app.MapNostosProductEndpoints(opdsOptions, NostosProductEndpointPolicies.None);
+app.MapBackupEndpoints();
 
 // --- MCP STREAMABLE HTTP ENDPOINT ---
 if (mcpOptions.Enabled)

@@ -57,8 +57,6 @@
     <Compile Include="..\Nostos.Backend\Services\Ai\ILlmProvider.cs" Link="Services\Ai\ILlmProvider.cs" />
     <Compile Include="..\Nostos.Backend\Services\Ai\ISTtProvider.cs" Link="Services\Ai\ISTtProvider.cs" />
     <Compile Include="..\Nostos.Backend\Services\Ai\IThoughtProcessor.cs" Link="Services\Ai\IThoughtProcessor.cs" />
-    <Compile Include="..\Nostos.Backend\Services\Ai\ManagedAiAccessPolicy.cs" Link="Services\Ai\ManagedAiAccessPolicy.cs" />
-    <Compile Include="..\Nostos.Backend\Services\Ai\ManagedAiUsage.cs" Link="Services\Ai\ManagedAiUsage.cs" />
     <Compile Include="..\Nostos.Backend\Services\Ai\OpenAiCompatibleChatCompletions.cs" Link="Services\Ai\OpenAiCompatibleChatCompletions.cs" />
     <Compile Include="..\Nostos.Backend\Services\Ai\SttErrorCodes.cs" Link="Services\Ai\SttErrorCodes.cs" />
     <Compile Include="..\Nostos.Backend\Services\Ai\ThoughtProcessor.cs" Link="Services\Ai\ThoughtProcessor.cs" />

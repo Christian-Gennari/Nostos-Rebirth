@@ -13,6 +13,7 @@ using Nostos.Backend.Tests.Services.Ai;
 using Nostos.Backend.Tests.Support;
 using Nostos.Shared.Dtos;
 using Xunit;
+using Nostos.Product.Services.Ai;
 
 namespace Nostos.Backend.Tests.Endpoints;
 
@@ -309,7 +310,7 @@ public sealed class AssistantEndpointTests : IDisposable
             new AssistantTurnRequest("client-1", "key-1", "Hello?", Context()));
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-        (await ProblemTitleAsync(response)).Should().Be(LlmErrorCodes.NotEntitled);
+        (await ProblemTitleAsync(response)).Should().Be(LlmErrorCodes.AccessDenied);
         provider.CallCount.Should().Be(0);
     }
 
@@ -424,14 +425,14 @@ public sealed class AssistantEndpointTests : IDisposable
 
                 if (!entitled)
                 {
-                    services.RemoveAll<IManagedAiAccessPolicy>();
-                    services.AddSingleton<IManagedAiAccessPolicy, DenyManagedAiAccessPolicy>();
+                    services.RemoveAll<IAiAccessPolicy>();
+                    services.AddSingleton<IAiAccessPolicy, DenyManagedAiAccessPolicy>();
                 }
             });
         });
     }
 
-    private sealed class DenyManagedAiAccessPolicy : IManagedAiAccessPolicy
+    private sealed class DenyManagedAiAccessPolicy : IAiAccessPolicy
     {
         public Task<bool> IsAllowedAsync(CancellationToken ct = default) =>
             Task.FromResult(false);

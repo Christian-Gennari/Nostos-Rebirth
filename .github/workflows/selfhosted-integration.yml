@@ -14,18 +14,8 @@ jobs:
     env:
       Nostos__DeploymentMode: SelfHosted
       NOSTOS_POSTGRES_SPIKE_CONNECTION: ""
-      NOSTOS_S3_TEST_ENDPOINT: ""
-      NOSTOS_CLOUD_CONTROL_PLANE_CONNECTION: ""
-      NOSTOS_CLOUD_POSTGRES_ADMIN_CONNECTION: ""
-      NOSTOS_CLOUD_POSTGRES_CUSTOMER_CONNECTION: ""
-      NOSTOS_CLOUD_OBJECT_STORAGE_ACCESS_KEY: ""
-      NOSTOS_CLOUD_OBJECT_STORAGE_SECRET_KEY: ""
-      NOSTOS_CLOUD_AUTH_CLIENT_SECRET: ""
-      NOSTOS_CLOUD_BILLING_PADDLE_API_KEY: ""
-      NOSTOS_CLOUD_BILLING_PADDLE_WEBHOOK_SECRET: ""
-      NOSTOS_CLOUD_DATA_PROTECTION_KEY: ""
-      NOSTOS_CLOUD_AI_GATEWAY_API_KEY: ""
-      NOSTOS_CLOUD_GROQ_API_KEY: ""
+      GH_TOKEN: ""
+      NOSTOS_CLOUD_GH_TOKEN: ""
 
     steps:
       - name: Checkout
@@ -42,11 +32,14 @@ jobs:
       - name: Build backend solution
         run: dotnet build Nostos.sln --configuration Debug --no-restore
 
-      - name: Verify SQLite, local storage, Library CRUD and local backup/restore
+      - name: Start the public host and verify SelfHosted SQLite bootstrap
+        run: bash scripts/verify-selfhosted-smoke.sh Debug
+
+      - name: Verify SQLite, local media, backup/restore and portability
         run: >-
           dotnet test Nostos.Backend.Tests/Nostos.Backend.Tests.csproj
           --configuration Debug
           --no-build
           --no-restore
-          --filter "FullyQualifiedName~DatabaseBootstrapServiceTests|FullyQualifiedName~FileStorageServiceTests|FullyQualifiedName~BackupServiceTests|FullyQualifiedName~LibraryServiceTests|FullyQualifiedName~LibraryEndpointTests"
+          --filter "FullyQualifiedName~DatabaseBootstrapServiceTests|FullyQualifiedName~FileStorageServiceTests|FullyQualifiedName~BackupServiceTests|FullyQualifiedName~LibraryServiceTests|FullyQualifiedName~LibraryEndpointTests|FullyQualifiedName~PortableArchiveServiceTests"
           --logger "console;verbosity=normal"

@@ -1,5 +1,6 @@
 using Nostos.Backend.Configuration;
 using Nostos.Backend.Services.Ai;
+using Nostos.Product.Services.Ai;
 
 namespace Nostos.Backend.Endpoints;
 
@@ -34,17 +35,16 @@ public static class TranscriptionEndpoints
         ISTtProvider provider,
         SpeechOptions options,
         IAiProviderConfigResolver config,
-        IManagedAiAccessPolicy access,
-        IManagedAiUsageService usage,
-        DeploymentDescriptor deployment,
+        IAiAccessPolicy access,
+        IAiUsageAccountingService usage,
         CancellationToken ct)
     {
         if (!await access.IsAllowedAsync(ct))
         {
             return Failure(
-                SttErrorCodes.NotEntitled,
+                SttErrorCodes.AccessDenied,
                 StatusCodes.Status403Forbidden,
-                "Voice transcription is not included for this Cloud account.");
+                "The host policy does not allow voice transcription for this request.");
         }
 
         // Availability is derived (enabled && baseUrl && key), exactly like the
@@ -57,9 +57,7 @@ public static class TranscriptionEndpoints
             return Failure(
                 SttErrorCodes.Disabled,
                 StatusCodes.Status503ServiceUnavailable,
-                deployment.Mode == DeploymentMode.Cloud
-                    ? "Voice transcription is temporarily unavailable."
-                    : "Speech-to-text is disabled on this server.");
+                "Speech-to-text is disabled on this server.");
         }
 
         if (!effective.IsAvailable)
@@ -67,9 +65,7 @@ public static class TranscriptionEndpoints
             return Failure(
                 SttErrorCodes.NotConfigured,
                 StatusCodes.Status503ServiceUnavailable,
-                deployment.Mode == DeploymentMode.Cloud
-                    ? "Voice transcription is temporarily unavailable."
-                    : SttException.NotConfigured(effective.ApiKeyEnvironmentVariable).Message);
+                SttException.NotConfigured(effective.ApiKeyEnvironmentVariable).Message);
         }
 
         if (!request.HasFormContentType)
@@ -113,12 +109,12 @@ public static class TranscriptionEndpoints
         var language = form["language"].ToString();
         var languageHint = string.IsNullOrWhiteSpace(language) ? null : language.Trim();
 
-        ManagedAiUsageLease? usageLease;
+        AiUsageLease? usageLease;
         try
         {
             usageLease = await usage.BeginSttAsync(ct);
         }
-        catch (ManagedAiUsageException ex)
+        catch (AiUsageException ex)
         {
             return UsageFailure(ex);
         }
@@ -141,7 +137,7 @@ public static class TranscriptionEndpoints
         {
             await usage.CompleteSttAsync(
                 usageLease,
-                new ManagedAiSttUsage(1, null, "Cancelled"),
+                new TranscriptionUsage(1, null, "Cancelled"),
                 CancellationToken.None);
             throw;
         }
@@ -149,7 +145,7 @@ public static class TranscriptionEndpoints
         {
             await usage.CompleteSttAsync(
                 usageLease,
-                new ManagedAiSttUsage(1, null, "ProviderError"),
+                new TranscriptionUsage(1, null, "ProviderError"),
                 CancellationToken.None);
             return Failure(ex.Code, StatusFor(ex.Code), ex.Message);
         }
@@ -157,7 +153,7 @@ public static class TranscriptionEndpoints
         {
             await usage.CompleteSttAsync(
                 usageLease,
-                new ManagedAiSttUsage(1, null, "ProviderError"),
+                new TranscriptionUsage(1, null, "ProviderError"),
                 CancellationToken.None);
             throw;
         }
@@ -171,7 +167,7 @@ public static class TranscriptionEndpoints
         {
             await usage.CompleteSttAsync(
                 usageLease,
-                new ManagedAiSttUsage(1, result.DurationSeconds, "TooLong"),
+                new TranscriptionUsage(1, result.DurationSeconds, "TooLong"),
                 CancellationToken.None);
             return Failure(
                 SttErrorCodes.TooLong,
@@ -181,7 +177,7 @@ public static class TranscriptionEndpoints
 
         await usage.CompleteSttAsync(
             usageLease,
-            new ManagedAiSttUsage(1, result.DurationSeconds, "Completed"),
+            new TranscriptionUsage(1, result.DurationSeconds, "Completed"),
             CancellationToken.None);
 
         return Results.Ok(new TranscriptionResponse(
@@ -190,17 +186,19 @@ public static class TranscriptionEndpoints
             result.DurationSeconds));
     }
 
-    private static IResult UsageFailure(ManagedAiUsageException exception) =>
+    private static IResult UsageFailure(AiUsageException exception) =>
         exception.Reason switch
         {
-            ManagedAiUsageBlockReason.NotEntitled =>
-                Failure("managed_ai_not_included", StatusCodes.Status403Forbidden, exception.Message),
-            ManagedAiUsageBlockReason.RateLimited =>
-                Failure("managed_ai_rate_limited", StatusCodes.Status429TooManyRequests, exception.Message),
-            ManagedAiUsageBlockReason.MonthlyAllowanceExhausted =>
-                Failure("managed_ai_monthly_limit_reached", StatusCodes.Status429TooManyRequests, exception.Message),
+            AiUsageBlockReason.AccessDenied =>
+                Failure("ai_access_denied", StatusCodes.Status403Forbidden, exception.Message),
+            AiUsageBlockReason.RateLimited =>
+                Failure("ai_rate_limited", StatusCodes.Status429TooManyRequests, exception.Message),
+            AiUsageBlockReason.LimitReached =>
+                Failure("ai_usage_limit_reached", StatusCodes.Status429TooManyRequests, exception.Message),
+            AiUsageBlockReason.Disabled =>
+                Failure("ai_disabled", StatusCodes.Status503ServiceUnavailable, exception.Message),
             _ =>
-                Failure("managed_ai_temporarily_unavailable", StatusCodes.Status503ServiceUnavailable, exception.Message),
+                Failure("ai_temporarily_unavailable", StatusCodes.Status503ServiceUnavailable, exception.Message),
         };
 
     /// <summary>
@@ -210,7 +208,7 @@ public static class TranscriptionEndpoints
     /// </summary>
     private static int StatusFor(string code) => code switch
     {
-        SttErrorCodes.NotEntitled => StatusCodes.Status403Forbidden,
+        SttErrorCodes.AccessDenied => StatusCodes.Status403Forbidden,
         SttErrorCodes.Disabled or SttErrorCodes.NotConfigured => StatusCodes.Status503ServiceUnavailable,
         SttErrorCodes.RateLimited => StatusCodes.Status429TooManyRequests,
         SttErrorCodes.Timeout => StatusCodes.Status504GatewayTimeout,

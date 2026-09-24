@@ -7,10 +7,8 @@ using Xunit;
 namespace Nostos.Backend.Tests.Assistant;
 
 /// <summary>
-/// Per-turn execution ceilings (#406): the predicate, the price epoch and the meter
-/// snapshot that feeds it. The VALUES are selected from the external Gemini 3.8 Flash
-/// low-thinking measurement; these tests pin the behaviour those values switch on, so
-/// a mis-set ceiling fails here rather than in production.
+/// Per-turn execution ceilings (#406): the call, token and wall-clock limits
+/// applied to the meter snapshot before another provider request is made.
 /// </summary>
 public sealed class AssistantExecutionBudgetTests
 {
@@ -48,24 +46,12 @@ public sealed class AssistantExecutionBudgetTests
     }
 
     [Fact]
-    public void Estimated_cost_ceiling_trips_at_or_above_the_configured_cost()
-    {
-        // 1,000 in + 100 out at $0.75 / $3.75 per 1M = $0.001125.
-        var tripping = new AssistantOptions { MaxTurnEstimatedCostUsd = 0.001m };
-        var notTripping = new AssistantOptions { MaxTurnEstimatedCostUsd = 0.0012m };
-
-        AssistantExecutionBudget.ExceededCeiling(Usage(), tripping).Should().Be("estimated-cost");
-        AssistantExecutionBudget.ExceededCeiling(Usage(), notTripping).Should().BeNull();
-    }
-
-    [Fact]
     public void A_ceiling_configured_as_zero_or_negative_is_disabled()
     {
         var options = new AssistantOptions
         {
             MaxTurnTokens = 0,
             MaxTurnElapsedMilliseconds = -1,
-            MaxTurnEstimatedCostUsd = 0m,
         };
 
         var huge = Usage(promptTokens: 5_000_000, outputTokens: 5_000_000, elapsedMs: 3_600_000);
@@ -73,12 +59,11 @@ public sealed class AssistantExecutionBudgetTests
     }
 
     [Fact]
-    public void A_missing_usage_field_can_never_trip_the_token_or_cost_ceiling()
+    public void A_missing_usage_field_can_never_trip_the_token_ceiling()
     {
         var options = new AssistantOptions
         {
             MaxTurnTokens = 1,
-            MaxTurnEstimatedCostUsd = 0.0000001m,
         };
 
         var unknown = Usage(promptTokens: null, outputTokens: null);
@@ -95,19 +80,9 @@ public sealed class AssistantExecutionBudgetTests
         {
             MaxTurnTokens = 1,
             MaxTurnElapsedMilliseconds = 1,
-            MaxTurnEstimatedCostUsd = 0.0000001m,
         };
 
         AssistantExecutionBudget.ExceededCeiling(Usage(), options).Should().Be("cumulative-token");
-    }
-
-    [Fact]
-    public void Pricing_uses_the_recorded_epoch_prices()
-    {
-        AssistantPricing.EstimateCostUsd(1_000_000, 1_000_000).Should().Be(4.50m);
-        AssistantPricing.EstimateCostUsd(null, 1).Should().BeNull();
-        AssistantPricing.EstimateCostUsd(1, null).Should().BeNull();
-        AssistantPricing.PriceEpoch.Should().Contain("2026-09-22");
     }
 
     [Fact]
@@ -115,12 +90,11 @@ public sealed class AssistantExecutionBudgetTests
     {
         var options = new AssistantOptions();
 
-        // External measurement of 2026-09-22 (900 real turns); the distributions and the
-        // justification for each value live in docs/cloud/ask-nostos-execution-budget-spike.md.
+        // The measurement notes and limit rationale live in
+        // docs/assistant-execution-budgets.md.
         options.MaxToolIterations.Should().Be(6);
         options.MaxTurnTokens.Should().Be(50_000);
         options.MaxTurnElapsedMilliseconds.Should().Be(60_000);
-        options.MaxTurnEstimatedCostUsd.Should().Be(0.05m);
     }
 
     [Fact]
@@ -139,11 +113,6 @@ public sealed class AssistantExecutionBudgetTests
         AssistantExecutionBudget.ExceededCeiling(
             Usage(elapsedMs: 120_000), options).Should().Be("wall-clock");
 
-        // $0.05 at the recorded price epoch, reached without touching the token ceiling:
-        // an output-heavy turn (20,000 output tokens) is the shape a future price epoch
-        // punishes first, which is why cost is its own dimension.
-        AssistantExecutionBudget.ExceededCeiling(
-            Usage(promptTokens: 10_000, outputTokens: 20_000), options).Should().Be("estimated-cost");
     }
 
     [Fact]

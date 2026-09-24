@@ -13,6 +13,7 @@ using Nostos.Backend.Services.Ai;
 using Nostos.Backend.Tests.Services.Ai;
 using Nostos.Backend.Tests.Support;
 using Xunit;
+using Nostos.Product.Services.Ai;
 
 namespace Nostos.Backend.Tests.Endpoints;
 
@@ -187,7 +188,7 @@ public sealed class TranscriptionEndpointTests
         var response = await PostAsync(client, Audio(128));
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-        (await ProblemTitleAsync(response)).Should().Be(SttErrorCodes.NotEntitled);
+        (await ProblemTitleAsync(response)).Should().Be(SttErrorCodes.AccessDenied);
         provider.CallCount.Should().Be(0);
     }
 
@@ -316,14 +317,14 @@ public sealed class TranscriptionEndpointTests
 
                 if (!entitled)
                 {
-                    services.RemoveAll<IManagedAiAccessPolicy>();
-                    services.AddSingleton<IManagedAiAccessPolicy, DenyManagedAiAccessPolicy>();
+                    services.RemoveAll<IAiAccessPolicy>();
+                    services.AddSingleton<IAiAccessPolicy, DenyManagedAiAccessPolicy>();
                 }
             });
         });
     }
 
-    private sealed class DenyManagedAiAccessPolicy : IManagedAiAccessPolicy
+    private sealed class DenyManagedAiAccessPolicy : IAiAccessPolicy
     {
         public Task<bool> IsAllowedAsync(CancellationToken ct = default) =>
             Task.FromResult(false);

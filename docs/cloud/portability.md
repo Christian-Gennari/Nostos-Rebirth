@@ -1,14 +1,16 @@
 # Portable Nostos archive v1
 
 Issue #399 defines portability as a product boundary: a Nostos library can move
-between SelfHosted and Nostos Cloud without exposing or depending on SQLite,
-PostgreSQL, local filesystem layout, S3 object keys, or a cloud provider's
-backup format.
+between installations without exposing or depending on a database file, local
+filesystem layout, object key, or provider backup format.
 
-The portable archive is intentionally separate from the existing SelfHosted
-operational backup implementation. Operational backups remain SQLite snapshots
-with local restore semantics. Portable exports serialize the Nostos domain and
-stream book assets through `IBookAssetStorage`.
+The archive format, serializer, importer, and API are public product code. The
+SelfHosted host stores assets locally; each host supplies storage and access
+policy through provider-neutral contracts.
+
+Portable archives are separate from local operational backups. Local backups
+retain same-installation restore semantics. Portable exports serialize Nostos
+domain data and stream book assets through `IBookAssetStorage`.
 
 ## Archive layout
 
@@ -26,260 +28,104 @@ library.nostos
             └── cover.<supported-extension>
 ```
 
-No archive path is used directly as a destination filesystem or object-storage
-key. Import derives the destination from the stable book ID and passes the
-staged stream through `IBookAssetStorage`.
+Archive paths are never used directly as filesystem destinations or storage
+keys. Import derives destinations from stable book IDs and sends staged streams
+through `IBookAssetStorage`.
 
 ### `manifest.json`
 
-The manifest contains:
+The manifest contains the format and data versions, export timestamp, product
+assembly version, entity counts, the data file length and SHA-256, and a
+canonical descriptor for each media entry. Each descriptor includes its book
+ID, logical kind, archive path, filename, content type, uncompressed length, and
+SHA-256.
 
-- `format: "nostos-portable"`
-- `formatVersion: 1`
-- `dataVersion: 1`
-- export timestamp and Nostos assembly version
-- entity counts
-- `data/library.json` length and SHA-256
-- one descriptor per media entry:
-  - book ID
-  - logical kind (`book` or `cover`)
-  - canonical archive path
-  - canonical filename
-  - content type
-  - uncompressed length
-  - SHA-256
-
-The manifest is written after media is streamed, so even multi-GB book/audio
-assets receive integrity metadata without buffering the whole file in memory.
+Media is streamed into the archive. The manifest is written after the stream
+finishes, so large book and audio files do not need to be buffered in memory.
 
 ### `data/library.json`
 
-This is an explicit provider-independent representation. It is not an EF Core
-entity graph and contains no EF tracking state.
-
+This is an explicit provider-independent representation, not an EF entity graph.
 It preserves stable IDs and relationships for:
 
-- Works
-- concrete book types: physical, ebook, audiobook
-- book metadata
-- reading progress, rating, favorite state, review, last/finished timestamps
-- collections and nested collection parents
-- BookCollections membership and membership timestamps
-- notes, selected text, source anchors, raw capture, and processing provenance
-- concepts and NoteConcept links
-- Writing Studio folders/documents, hierarchy, timestamps, and content
-- generic book acquisition provenance
-- the user's assistant capture-processing preference
+- works, books, and book metadata;
+- reading progress, ratings, favorites, reviews, and timestamps;
+- collections and nested collection membership;
+- notes, source anchors, capture provenance, concepts, and note links;
+- Writing Studio documents and folder hierarchy;
+- generic acquisition provenance and assistant capture-processing preference.
 
-## Portability classification
+## Data classification
 
-### A. Portable user-owned/product data
+Portable exports include user-owned product data, source media files, and covers.
+They exclude reconstructed caches such as normalized search fields, EPUB
+locations, generated thumbnails, and library version bookkeeping.
 
-Exported:
-
-- Works and books, including concrete format-specific fields
-- bibliographic metadata
-- reading state
-- collections and memberships
-- notes and concept links
-- Writing Studio content and hierarchy
-- generic acquisition provenance
-- primary book/audio/PDF/EPUB files
-- covers
-- assistant capture-processing preference
-
-### B. Reconstructable/generated state
-
-Not exported:
-
-- normalized ISBN/ASIN/title/author identity fields; rebuilt from portable data
-- EPUB `LocationsJson`
-- generated cover thumbnails
-- library mutation/version bookkeeping
-
-These values are caches or deterministic derivatives, not user-owned content.
-
-`ChaptersJson` is also generated metadata, but v1 deliberately carries it:
-the current backend has no lazy chapter re-extraction path after portability
-import, so retaining it preserves reader/audiobook functionality without
-introducing a machine- or provider-specific dependency.
-
-### C. Deployment-specific/operational state
-
-Not exported:
-
-- `BackupRecord` rows and local backup paths
-- local absolute media paths
-- command/idempotency receipt tables
-- backup scheduling/provider state
-- Cloud database names
-- Cloud storage namespaces
-- control-plane resource IDs
-- AI provider endpoints/models and other server/provider configuration
-
-### D. Secrets and credentials
-
-Never exported:
-
-- encrypted AI provider API keys
-- Clerk/OIDC credentials or tokens
-- database credentials
-- object-storage credentials
-- runtime secrets
-
-The v1 serializer has no DTO fields for these values, so excluding them does
-not depend on remembering to redact a generic EF serialization later.
+Operational state is excluded: local backup records and paths, absolute media
+paths, idempotency receipts, job schedules, provider configuration, and runtime
+settings. Credentials and secrets are never serialized. The v1 DTO has no fields
+for these values.
 
 ## Export guarantees
 
-Export:
+Export reads relational state through the active `NostosDbContext`, reads media
+through `IBookAssetStorage`, and writes a manifest only after every referenced
+media stream succeeds. It never changes or removes source library data.
 
-1. reads relational state through the active tenant-scoped `NostosDbContext`
-2. writes explicit portable data to `data/library.json`
-3. reads referenced media only through `IBookAssetStorage`
-4. streams media into the ZIP with SHA-256 and length accounting
-5. writes the manifest after all referenced media succeeds
-
-Export never writes, removes, or rewrites the source library.
-
-In Cloud, both the scoped DbContext and S3 storage resolve their resources from
-the trusted authenticated account context. The API accepts no account ID,
-customer database name, or storage namespace.
+The API accepts no account ID, database name, or storage namespace. Host
+authorization and storage selection stay outside the archive format.
 
 ## Import v1 contract
 
-Version 1 deliberately supports **empty/new-library import only**.
+Version 1 supports import into an empty library only. If the destination already
+contains library content or an assistant preference, import returns
+`destination_not_empty`; v1 never merges or replaces existing data implicitly.
 
-A destination with user library content or a stored assistant preference is
-rejected with `destination_not_empty`. V1 does not attempt an implicit merge
-or replace operation.
+Import validates the archive structure, versions, checksums, sizes, IDs,
+relationships, media references, and hierarchy before changing the destination.
+It stages and verifies media, writes relational state in a transaction, streams
+assets through `IBookAssetStorage`, re-reads the imported state, verifies stored
+media, and then commits. If import fails before commit, it rolls back relational
+state and removes only the newly imported media.
 
-Import proceeds in this order:
-
-1. copy the request stream to server-owned temporary storage with a size limit
-2. validate the ZIP structure and canonical paths
-3. validate format/data versions
-4. validate manifest/data checksums and declared sizes
-5. validate IDs, uniqueness, parent graphs, foreign-key relationships, book
-   types, normalized bibliographic uniqueness, and media references
-6. stage and SHA-256-verify every media entry to server-owned temporary files
-7. open a serializable relational transaction and re-check that the destination
-   is empty
-8. write relational state and let the database enforce its constraints
-9. stream staged media into the destination through `IBookAssetStorage`
-10. re-query relational counts/IDs/relationships/reading state/book formats
-11. reopen stored media and verify its SHA-256 and length
-12. commit the relational transaction
-13. remove temporary staging
-
-Media and relational storage cannot share one transaction. If any step before
-the relational commit fails, the relational transaction is rolled back and
-the importer performs compensating deletion of every imported book storage
-prefix. Because v1 requires an empty destination, that cleanup cannot delete
-pre-existing user media.
-
-The import result reports the format version, entity counts, media count,
-media bytes, and whether integrity verification completed.
+The result reports the format version, entity and media counts, media bytes, and
+whether integrity verification completed.
 
 ## Archive hardening
 
-The v1 reader rejects, before destination mutation:
+The reader rejects malformed manifests, unsupported versions, duplicate or
+unexpected entries, unsafe paths, excessive entry counts and sizes, suspicious
+compression ratios, invalid IDs or relationships, hierarchy cycles, missing
+media, and length or SHA-256 mismatches before destination mutation.
 
-- missing or malformed manifests
-- unsupported format/data versions
-- duplicate archive paths
-- absolute paths, backslashes, `.` / `..` segments, drive-like paths, or
-  oversized path segments
-- unexpected entries
-- excessive entry counts
-- oversized compressed/uncompressed archives and entries
-- suspicious compression ratios
-- invalid or duplicate IDs
-- malformed relationships and hierarchy cycles
-- duplicate normalized ISBN/ASIN identities
-- duplicate media references
-- missing referenced media
-- length or SHA-256 mismatches
-
-Media filenames are restricted to the existing `BookAssetFormats` policy.
-Archive paths are never trusted as filesystem destinations.
-
-Current service-level v1 safety limits are:
-
-- 20,000 ZIP entries
-- 512 GiB compressed archive staging limit
-- 1 TiB aggregate declared uncompressed limit
-- 16 GiB per entry
-- 64 MiB relational JSON
-- 4 MiB manifest
-- compression ratio ceiling for entries larger than 1 MiB
-
-HTTP deployments may impose a lower request-body limit; that transport limit is
-separate from the archive format.
+Current service-level safety limits are 20,000 ZIP entries, 512 GiB compressed
+staging, 1 TiB declared uncompressed size, 16 GiB per entry, 64 MiB relational
+JSON, and a 4 MiB manifest. HTTP hosts may impose a lower request limit.
 
 ## API boundary
 
-The backend exposes a product-level API in both deployment modes:
+- `GET /api/portability/export` streams a `.nostos` archive using
+  `application/vnd.nostos.portable+zip`.
+- `POST /api/portability/import` accepts an archive and returns a structured
+  import result or typed validation error.
+- A non-empty destination returns HTTP 409.
 
-- `GET /api/portability/export`
-  - response content type: `application/vnd.nostos.portable+zip`
-  - streams a portable `.nostos` archive
-- `POST /api/portability/import`
-  - raw request body is the portable archive
-  - returns a structured import result
-  - invalid archives return a typed error
-  - a non-empty destination returns HTTP 409
-
-No SQLite, PostgreSQL, S3, account-resource, or provider concepts appear in this
-contract.
-
-In Nostos Cloud the existing fallback authorization policy protects these
-endpoints and the trusted tenant factories select the authenticated customer's
-database and storage namespace.
-
-## Directional use
-
-### SelfHosted -> Cloud
-
-1. export from SelfHosted
-2. create/provision an empty Cloud library
-3. POST the archive to the Cloud portability import endpoint
-4. verify the structured import result
-
-SQLite and local paths never cross the boundary.
-
-### Cloud -> SelfHosted
-
-1. export from the authenticated Cloud account
-2. start a fresh/empty SelfHosted library
-3. POST the archive to the SelfHosted portability import endpoint
-4. verify the structured import result
-
-PostgreSQL dumps, object keys, storage namespaces, and Cloud credentials never
-cross the boundary.
+The format does not expose database, identity, storage-provider, or account
+resource details. The host supplies authorization and storage adapters around
+the product API.
 
 ## Compatibility policy
 
-Format and data versions are explicit and independent.
-
-V1 readers fail closed on unknown versions. A future v2 implementation should:
-
-1. parse and validate the outer manifest without mutating the destination
-2. dispatch the relational payload through a version-specific reader/migrator
-3. migrate v1 data into the current in-memory portable model
-4. run current integrity validation
-5. only then enter the normal staged import path
-
-Do not make a future v2 reader deserialize arbitrary historic EF entity graphs.
-The explicit portable DTO is the compatibility contract.
+Format and data versions are explicit and independent. Readers fail closed on
+unknown versions. A future version should parse and validate its manifest, read
+through a version-specific portable model, run current integrity checks, and
+only then enter the staged import path. Do not deserialize arbitrary historical
+EF entity graphs.
 
 ## Relationship to local operational backup
 
-The existing SelfHosted backup remains useful for fast same-installation
-recovery because it can snapshot and restore SQLite directly. It is not a
-migration/interchange format.
-
-A portable archive is the supported product boundary for moving between
-SelfHosted and Cloud. Code that needs portability must use
-`IPortableArchiveService`, never `VACUUM INTO`, PostgreSQL dumps, raw bucket
-copies, or a provider backup API.
+SelfHosted local backup remains useful for same-installation recovery because it
+can snapshot and restore SQLite directly. It is not an interchange format.
+Use `IPortableArchiveService` for migration between Nostos installations; do not
+copy database files, storage paths, or provider backup artifacts as a portable
+archive.
