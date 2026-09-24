@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { Component, input, output } from '@angular/core';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 // @ts-expect-error — no @types/node in this repo; vitest resolves node:fs at
 // runtime. Used only for static source guards (template/css/ts files).
@@ -13,6 +13,7 @@ import { PdfAnnotationManager } from './pdf-annotation-manager';
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
 import { ThemeService } from '../../core/services/theme.service';
+import { AssistantContextService } from '../../ui/assistant/assistant-context.service';
 
 /**
  * Minimal stand-in for the heavy ngx-extended-pdf-viewer component (same
@@ -192,6 +193,8 @@ describe('PdfReader theme-following surround and page inversion (#259)', () => {
     expect(fixture.componentInstance.currentPage).toBe(9);
     expect(fixture.componentInstance.progress().pageNumber).toBe(9);
     expect(fixture.componentInstance.progress().pageCount).toBe(20);
+    expect(fixture.componentInstance.progress().pageLabel).toBe('7');
+    expect(fixture.componentInstance.progress().label).toBe('p. 7 · PDF 9 of 20');
   });
 
   it('binds theme and backgroundColor reactively, not as hardcoded strings', () => {
@@ -762,5 +765,115 @@ describe('PdfReader reading mode', () => {
     // A number never matches a named fit, so no chip stays lit by accident.
     expect(component.isZoomPreset('page-width')).toBe(false);
     expect(component.zoomLabel()).toBe('100%');
+  });
+});
+
+
+/**
+ * #478 P0 trust regressions. Keep this block intentionally narrow: one test for
+ * retriable persistence and one for Ask Nostos native-selection lifecycle.
+ */
+describe('PdfReader highlight trust regressions (#478)', () => {
+  let fixture: ComponentFixture<PdfReader>;
+  let selectionText: string | null;
+  let captureHighlight: ReturnType<typeof vi.fn>;
+  let captureSelectionText: ReturnType<typeof vi.fn>;
+  let createNote: ReturnType<typeof vi.fn>;
+
+  beforeEach(async () => {
+    localStorage.clear();
+    selectionText = null;
+    captureSelectionText = vi.fn(() => selectionText);
+    captureHighlight = vi.fn(() => ({
+      status: 'captured',
+      pageNumber: 3,
+      rects: [{ left: 0.1, top: 0.2, width: 0.3, height: 0.04 }],
+      selectedText: 'same difficult selection',
+    }));
+
+    let attempt = 0;
+    createNote = vi.fn(() => {
+      attempt += 1;
+      return attempt === 1
+        ? throwError(() => new Error('transient save failure'))
+        : of({ id: 'note-1' } as any);
+    });
+
+    await TestBed.configureTestingModule({
+      imports: [PdfReader],
+      providers: [
+        {
+          provide: NotesService,
+          useValue: { list: vi.fn(() => of([])), create: createNote },
+        },
+        { provide: BooksService, useValue: { updateProgress: vi.fn(() => of(null)) } },
+        {
+          provide: PdfAnnotationManager,
+          useValue: {
+            paint: vi.fn(),
+            captureHighlight,
+            captureSelectionText,
+            captureNoteLocation: vi.fn(() => null),
+          },
+        },
+      ],
+    })
+      .overrideComponent(PdfReader, {
+        remove: { imports: [NgxExtendedPdfViewerModule] },
+        add: { imports: PDF_READER_TEST_IMPORTS },
+      })
+      .compileComponents();
+
+    fixture = TestBed.createComponent(PdfReader);
+    fixture.componentRef.setInput('bookId', 'book-1');
+    fixture.componentRef.setInput('highlightMode', true);
+    fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it('retries the exact same pending PDF highlight after a transient save failure', () => {
+    const component = fixture.componentInstance;
+
+    component.onTextSelection();
+    component.commitHighlight();
+    expect(createNote).toHaveBeenCalledTimes(1);
+
+    const firstDto = createNote.mock.calls[0][1];
+    component.commitHighlight();
+
+    expect(createNote).toHaveBeenCalledTimes(2);
+    expect(createNote.mock.calls[1][1]).toEqual(firstDto);
+    expect(firstDto.selectedText).toBe('same difficult selection');
+    expect(JSON.parse(firstDto.cfiRange)).toMatchObject({
+      pageNumber: 3,
+      colour: 'amber',
+    });
+  });
+
+  it('publishes current native PDF selection without highlight mode and clears it when stale', () => {
+    const component = fixture.componentInstance;
+    const context = TestBed.inject(AssistantContextService);
+    fixture.componentRef.setInput('highlightMode', false);
+    fixture.detectChanges();
+
+    selectionText = 'phrase A';
+    component.onNativeSelectionChange();
+    expect(context.context().selectedText).toBe('phrase A');
+
+    selectionText = null;
+    component.onNativeSelectionChange();
+    expect(context.context().selectedText).toBeNull();
+
+    selectionText = 'phrase B';
+    component.onNativeSelectionChange();
+    expect(context.context().selectedText).toBe('phrase B');
+
+    component.currentPage = 1;
+    component.onPageChange(2);
+    expect(context.context().selectedText).toBeNull();
   });
 });

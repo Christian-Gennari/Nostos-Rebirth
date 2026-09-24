@@ -397,3 +397,34 @@
 .pdf-container.inverted ::ng-deep .textLayer {
   filter: invert(1) hue-rotate(180deg);
 }
+
+
+/* PDF-local trust feedback. This sits above the viewer without borrowing the
+   shared shell's confirmation UI; cross-page rejection is a PDF geometry rule. */
+.pdf-reader-notice {
+  position: absolute;
+  top: 0.75rem;
+  left: 50%;
+  z-index: 35;
+  transform: translateX(-50%);
+  width: min(34rem, calc(100% - 1.5rem));
+  padding: 0.625rem 0.75rem;
+  background: var(--bg-surface);
+  color: var(--color-text-main);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  text-align: center;
+  pointer-events: none;
+}
+
+
+@media (max-width: 768px) {
+  .pdf-reader-notice {
+    top: 0.5rem;
+    width: calc(100% - 1rem);
+    font-size: 0.75rem;
+  }
+}
