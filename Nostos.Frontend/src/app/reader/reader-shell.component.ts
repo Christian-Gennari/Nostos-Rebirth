@@ -171,7 +171,6 @@ export class ReaderShell implements OnInit, OnDestroy {
   private bookNavigationSubscription: { unsubscribe(): void } | null = null;
   private currentRouteBookId: string | null = null;
   private bookLoadGeneration = 0;
-  private latestGroundedSourceParams: ParamMap | null = null;
   private overlayReturnFocus: HTMLElement | null = null;
   private saveFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
   highlightMode = signal(false);
@@ -305,9 +304,10 @@ export class ReaderShell implements OnInit, OnDestroy {
     // key when the route book changes so a cross-book citation is consumed
     // after the new reader binds rather than being mistaken for a duplicate.
     this.observedGroundedSourceKey = undefined;
-    this.onGroundedSourceParams(
-      this.latestGroundedSourceParams ?? this.route.snapshot.queryParamMap,
-    );
+    // ActivatedRoute.snapshot is already updated for the navigation when
+    // paramMap emits. Reading it here avoids briefly carrying the previous
+    // book's source query into the new reader if query params are also changing.
+    this.onGroundedSourceParams(this.route.snapshot.queryParamMap);
 
     this.booksService.get(id).subscribe({
       next: (b) => {
@@ -351,7 +351,6 @@ export class ReaderShell implements OnInit, OnDestroy {
   }
 
   private onGroundedSourceParams(params: ParamMap | null | undefined): void {
-    this.latestGroundedSourceParams = params ?? null;
     const target = this.parseGroundedSourceTarget(params);
     const key = target ? JSON.stringify(target) : null;
 
@@ -728,7 +727,6 @@ export class ReaderShell implements OnInit, OnDestroy {
     if (target?.isConnected) setTimeout(() => target.focus(), 0);
   }
 
-
   private showSaveFeedback(message: string): void {
     if (this.saveFeedbackTimer) clearTimeout(this.saveFeedbackTimer);
     this.saveFeedback.set(message);
@@ -744,7 +742,8 @@ export class ReaderShell implements OnInit, OnDestroy {
 
     if (event.key === 'Escape') {
       // Overlays close in the order they stack: the typography panel rides on
-      // top of the drawers, so it goes first. Typing targets are already out.
+      // top of the drawers, so it goes first. defaultPrevented still lets a
+      // focused control claim Escape before the shell sees it.
       if (this.typoOpen()) {
         this.typoOpen.set(false);
         this.restoreOverlayFocus();
