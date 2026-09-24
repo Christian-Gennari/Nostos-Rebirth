@@ -41,3 +41,17 @@ export function isTypingTarget(target: EventTarget | null): boolean {
   const tag = element.tagName.toUpperCase();
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || element.isContentEditable === true;
 }
+
+
+/**
+ * True when reader-level paging must leave the focused control alone. This is
+ * broader than text entry: Space activates buttons/links/toggles natively and
+ * must never also turn a page.
+ */
+export function isInteractiveTarget(target: EventTarget | null): boolean {
+  const element = target instanceof Element ? target : null;
+  if (!element) return false;
+  return !!element.closest(
+    'button, a[href], input, textarea, select, [contenteditable="true"], [role="button"], [role="link"], [role="switch"], [role="checkbox"], [role="menuitem"], [tabindex]:not([tabindex="-1"])',
+  );
+}
