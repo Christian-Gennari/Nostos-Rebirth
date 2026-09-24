@@ -680,6 +680,9 @@
 
             @if ((related.sharedNoteIds?.length ?? 0) > 0) {
             <button
+              appButton
+              variant="ghost"
+              size="sm"
               type="button"
               class="related-evidence-toggle"
               [attr.aria-expanded]="relatedEvidenceId() === related.id"
