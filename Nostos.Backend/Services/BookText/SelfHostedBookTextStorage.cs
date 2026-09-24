@@ -145,14 +145,14 @@ public sealed class SqliteBookTextIndex(
                     (BookId, Status, SourceFileName, Format, SourceSha256, ExtractorVersion,
                      ErrorCode, ErrorMessage, Attempts, ChunkCount, CharacterCount, UpdatedAtUtc)
                 VALUES
-                    (@bookId, 'Pending', @fileName, @format, NULL, NULL,
+                    (@bookId, 'Pending', @fileName, @format, NULL, @version,
                      NULL, NULL, 0, 0, 0, @updated)
                 ON CONFLICT(BookId) DO UPDATE SET
                     Status='Pending',
                     SourceFileName=excluded.SourceFileName,
                     Format=excluded.Format,
                     SourceSha256=NULL,
-                    ExtractorVersion=NULL,
+                    ExtractorVersion=excluded.ExtractorVersion,
                     ErrorCode=NULL,
                     ErrorMessage=NULL,
                     Attempts=0,
@@ -163,6 +163,7 @@ public sealed class SqliteBookTextIndex(
                 ("@bookId", bookId.ToString("D")),
                 ("@fileName", sourceFileName),
                 ("@format", format.ToString()),
+                ("@version", BookTextArtifactSchema.CurrentExtractorVersion),
                 ("@updated", DateTime.UtcNow.ToString("O")));
             await tx.CommitAsync(ct);
         }
@@ -307,10 +308,11 @@ public sealed class SqliteBookTextIndex(
         {
             await ExecuteAsync(db, """
                 UPDATE BookTextIngestionStates
-                SET Status=@status, ErrorCode=@code, ErrorMessage=@message, UpdatedAtUtc=@updated
+                SET Status=@status, ExtractorVersion=@version, ErrorCode=@code, ErrorMessage=@message, UpdatedAtUtc=@updated
                 WHERE BookId=@bookId;
                 """, ct,
                 ("@status", unsupported ? "Unsupported" : "Failed"),
+                ("@version", BookTextArtifactSchema.CurrentExtractorVersion),
                 ("@code", Limit(errorCode, 100)),
                 ("@message", Limit(errorMessage, 500)),
                 ("@updated", DateTime.UtcNow.ToString("O")),
