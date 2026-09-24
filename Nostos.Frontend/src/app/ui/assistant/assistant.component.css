@@ -1197,10 +1197,10 @@
   align-items: center;
   gap: 0.3rem;
   max-width: 100%;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-color);
   border-radius: 999px;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--color-text-muted);
   font: inherit;
   font-size: 0.75rem;
   line-height: 1.2;
@@ -1210,6 +1210,6 @@
 
 .entry-source:hover,
 .entry-source:focus-visible {
-  border-color: var(--border-strong);
-  color: var(--text-primary);
+  border-color: var(--border-focus);
+  color: var(--color-text-main);
 }
