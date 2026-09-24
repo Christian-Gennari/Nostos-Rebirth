@@ -19,6 +19,7 @@ import { ButtonComponent } from './button.component';
       Save
     </button>
     <button appButton variant="ghost" type="button">Quiet action</button>
+    <button appButton variant="primary" size="lg" type="button">Prominent action</button>
   `,
 })
 class ButtonHarnessComponent {}
@@ -47,6 +48,14 @@ describe('ButtonComponent', () => {
     expect(primary.disabled).toBe(true);
     expect(primary.getAttribute('aria-label')).toBe('Save settings');
     expect(primary.getAttribute('aria-busy')).toBe('true');
+  });
+
+  it('supports a large action size through the canonical component API', () => {
+    const buttons = fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>;
+    const large = buttons[2];
+
+    expect(large.classList.contains('nostos-button--primary')).toBe(true);
+    expect(large.classList.contains('nostos-button--lg')).toBe(true);
   });
 
   it('supports a quiet action without changing its native semantics', () => {

@@ -33,6 +33,7 @@
           <app-dropdown
             class="sort-select"
             controlSize="compact"
+            appearance="subtle"
             ariaLabel="Sort books"
             [options]="sortOptions"
             [value]="activeSort()"
@@ -48,7 +49,7 @@
           (valueChange)="setViewMode($event)"
         />
 
-        <button appButton variant="primary" class="library-add-button" (click)="openAddIntent()">
+        <button appButton variant="primary" size="lg" class="library-add-button" (click)="openAddIntent()">
           <nostos-icon name="plus" [size]="18"></nostos-icon>
           <span class="btn-text">Add Book</span>
         </button>
