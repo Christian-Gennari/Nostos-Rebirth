@@ -171,6 +171,8 @@
           @for (item of items; track $index) {
           <div class="toc-item-wrapper">
             <button
+              appButton
+              variant="ghost"
               type="button"
               class="toc-item"
               [class.active]="isActive(item)"
