@@ -507,11 +507,11 @@ public sealed class SqliteBookTextIndex(
     {
         var tokens = query
             .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(token => new string(token.Where(ch => char.IsLetterOrDigit(ch) || ch == ''').ToArray()))
+            .Select(token => new string(token.Where(ch => char.IsLetterOrDigit(ch) || ch == '\'').ToArray()))
             .Where(token => token.Length >= 2)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(16)
-            .Select(token => $""{token.Replace(""", """")}"")
+            .Select(token => "\"" + token.Replace("\"", "\"\"") + "\"")
             .ToList();
         return string.Join(" OR ", tokens);
     }
