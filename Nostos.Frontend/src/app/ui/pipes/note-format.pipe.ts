@@ -17,7 +17,7 @@ export class NoteFormatPipe implements PipeTransform {
       const concept = concepts.get(trimmedName.toLocaleLowerCase());
 
       if (concept) {
-        const href = `/brain?conceptId=${encodeURIComponent(concept.id)}`;
+        const href = `/second-brain?conceptId=${encodeURIComponent(concept.id)}`;
         return `<a class="concept-tag clickable" href="${href}" data-concept-id="${concept.id}" aria-label="${escapedName} — open concept evidence in Brain">${escapedName}</a>`;
       }
 
